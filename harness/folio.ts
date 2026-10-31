@@ -20,10 +20,17 @@ const { parseDocx } = await import(`${REPO}/packages/core/src/docx/parser.ts`);
 const { repackDocx } = await import(`${REPO}/packages/core/src/docx/rezip.ts`);
 
 if (mode === 'editor') {
-  const { toProseDoc, fromProseDoc } = await import(`${REPO}/packages/core/src/prose/index.ts`);
+  // Headless prose lane, the same call the repo's editor-round-trip invariant makes.
+  // This is not the browser editor.
+  const { toProseDoc } = await import(
+    `${REPO}/packages/core/src/prosemirror/conversion/toProseDoc.ts`
+  );
+  const { fromProseDoc } = await import(
+    `${REPO}/packages/core/src/prosemirror/conversion/fromProseDoc.ts`
+  );
   const doc = await parseDocx(ab, { preloadFonts: false });
   const prose = toProseDoc(doc);
-  const back = fromProseDoc(prose);
+  const back = fromProseDoc(prose, doc, { stylesheetSource: { type: 'package' } });
   const out = await repackDocx(back, { updateModifiedDate: false });
   writeFileSync(outPath, Buffer.from(out));
   console.log(`[folio:editor] wrote ${out.byteLength} bytes`);
