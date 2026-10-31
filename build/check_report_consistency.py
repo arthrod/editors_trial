@@ -257,7 +257,7 @@ def main() -> int:
     else:
         body = safety.read_text(encoding="utf-8")
         for line in bombs.splitlines():
-            if line.startswith("B") or line.startswith("taxonomy:"):
+            if line.startswith(("B", "taxonomy:", "reference ")):
                 if line not in body:
                     problems.append(f"safety report missing bombs line: {line[:120]}")
         notes.append("safety outcomes quoted from bombs log: yes")

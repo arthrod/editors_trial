@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Record the ten hostile vectors without building or opening one.
 
-A resource cap is required before any bomb runs. On this macOS,
-resource.setrlimit(RLIMIT_AS) cannot lower the address-space limit, so each
-vector is an explicit skip. A skip is not a crash, a leak, a reject, or a
-preserved payload.
+The suite is scheduled to run later, inside a sandbox. This process does not
+build a bomb. setrlimit(RLIMIT_AS) cannot lower the address-space limit on
+this macOS, and a lowered limit is still not permission to build one. Each
+vector, and the Word and LibreOffice reference rows, has its own fidelity
+field and its own safety field. Both are not-run.
 """
 from __future__ import annotations
 
@@ -45,11 +46,15 @@ def cap_reason() -> str:
     )
 
 
+REFERENCES = ("Word", "LibreOffice")
+
+
 def lines() -> list[str]:
     reason = cap_reason()
     out = [
         f"platform: {platform.platform()}",
         reason,
+        "scheduled: run later, sandboxed. This session did not build or open a hostile package.",
         (
             "taxonomy: preserving a hostile payload is not the same single result "
             "as a crash. This run recorded neither, because no vector was executed."
@@ -59,11 +64,18 @@ def lines() -> list[str]:
             "fixture/complex_broken.docx. It is not this suite, and it did not run B1-B10."
         ),
     ]
+    for name in REFERENCES:
+        out.append(
+            f"reference {name} fidelity: not-run safety: not-run "
+            f"{name} was not opened on a hostile package. {reason}"
+        )
     for vid, title in VECTORS:
         extra = ""
         if vid == "B7":
             extra = " NTLM credential leak cannot be measured on macOS."
-        out.append(f"{vid} SKIP not-run: {title}.{extra} {reason}")
+        out.append(
+            f"{vid} SKIP not-run: {title}.{extra} fidelity: not-run safety: not-run {reason}"
+        )
     return out
 
 
