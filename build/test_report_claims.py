@@ -7,7 +7,9 @@ import unittest
 import zipfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import check_report_consistency as gate
 import check_roundtrip as sc
+import measure_alternate_content as mac
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FIXTURE = os.path.join(ROOT, "fixture", "complex.docx")
@@ -47,7 +49,8 @@ def _paragraphs_md(path):
 
 
 def _paragraphs_docx(path):
-    xml = zipfile.ZipFile(path).read("word/document.xml").decode("utf-8", "replace")
+    with zipfile.ZipFile(path) as zf:
+        xml = zf.read("word/document.xml").decode("utf-8", "replace")
     plain = re.sub(r"</w:p>", "\n", xml)
     plain = re.sub(r"<[^>]+>", "", plain)
     plain = (
@@ -209,6 +212,44 @@ class ReportClaimsTest(unittest.TestCase):
         self.assertIn("were not produced by opening a file after", body)
         self.assertNotIn("%", body)
         self.assertNotIn("bytes", body.lower())
+
+    def test_report_a_numbers_match_the_packages_and_the_gate_sees_the_docx(self):
+        md_rel = "reports/Report A - Serialization by Namespace (2026).md"
+        docx_rel = "reports/Report A - Serialization by Namespace (2026).docx"
+        texts, git_error = gate.updated_report_texts()
+        self.assertEqual(git_error, "")
+        scanned = dict(texts)
+        self.assertIn(md_rel, scanned)
+        self.assertIn(docx_rel, scanned)
+        archived = (
+            "reports/archive/Report A - Serialized vs Pass-Through vs Rendered (2026).md"
+        )
+        self.assertNotIn(archived, scanned)
+        corpus_lines = []
+        measured = {}
+        for label, path in mac.PACKAGES:
+            lengths = mac.alternate_content_lengths(path)
+            self.assertEqual(len(lengths), 1, label)
+            measured[label] = lengths[0]
+            token = mac.format_token(lengths[0])
+            self.assertIn(token, scanned[md_rel], label)
+            self.assertIn(token, scanned[docx_rel], label)
+            corpus_lines.append(token)
+        self.assertEqual(measured["genoffice"], measured["corpus"])
+        report = scanned[md_rel] + "\n" + scanned[docx_rel]
+        self.assertEqual(gate.tokens_absent_from_corpus(report, "\n".join(corpus_lines)), [])
+        self.assertEqual(
+            gate.tokens_absent_from_corpus("weight 14% and 9 bytes", "nope"),
+            ["14%", "9 bytes"],
+        )
+        self.assertEqual(gate.tokens_absent_from_corpus("weight 14%", "kept 14%"), [])
+
+    def test_number_gate_fails_a_percentage_the_log_does_not_contain(self):
+        self.assertEqual(gate.number_tokens("kept 97.5% and 25355 bytes"), ["97.5%", "25355 bytes"])
+        self.assertEqual(
+            gate.tokens_absent_from_corpus("kept 97.5% and 25355 bytes", "25355 bytes"),
+            ["97.5%"],
+        )
 
 
 if __name__ == "__main__":

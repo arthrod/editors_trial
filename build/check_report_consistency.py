@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Gate published report text against the fixture package and the run logs.
 
-Number gate: percentages and byte sizes in the new reports (extras, vendors,
-the safety report, the rendering note, the archive note) must be substrings of
-the lane log or the scorer output. Lines added to older reports are scanned
-the same way. Pre-existing figures in those older reports are prior
-measurements; this script does not treat them as this run.
+Number gate: every percentage and byte size in a report whose content differs
+from ``main`` must be a substring of the lane log or the scorer output. The
+scan is the full markdown file, or the full docx paragraph text. A clean tree
+does not hide a committed edit, and a diff hunk is not the scan. A pure rename
+of an unchanged report is left out.
 """
 from __future__ import annotations
 
@@ -36,14 +36,6 @@ NEGATED = re.compile(r"\b(no|not|never|without)\b", re.I)
 PCT = re.compile(r"\d[\d,]*(?:\.\d+)?\s*%")
 BYTE = re.compile(r"\d[\d,]*\s+bytes\b", re.I)
 
-NEW_REPORTS = [
-    ROOT / "reports" / "vendors.md",
-    ROOT / "reports" / "rendering-openability.md",
-    ROOT / "reports" / "Report D - Safety, Resource Bombs and Hostile Input (2026).md",
-    ROOT / "reports" / "archive" / "README.md",
-]
-
-
 def active_markdown() -> list[Path]:
     found = []
     for path in [ROOT, ROOT / "reports"]:
@@ -70,7 +62,8 @@ def active_docx() -> list[Path]:
 
 
 def docx_paragraphs(path: Path) -> list[str]:
-    xml = zipfile.ZipFile(path).read("word/document.xml").decode("utf-8", "replace")
+    with zipfile.ZipFile(path) as zf:
+        xml = zf.read("word/document.xml").decode("utf-8", "replace")
     plain = re.sub(r"</w:p>", "\n", xml)
     plain = re.sub(r"<[^>]+>", "", plain)
     plain = (
@@ -124,32 +117,59 @@ def number_corpus(lanes: Path, scores_dir: Path) -> str:
     return "\n".join(chunks)
 
 
-def added_markdown_lines() -> list[tuple[str, str]]:
-    diff = subprocess.run(
-        ["git", "diff", "-U0", "--", "*.md", "reports"],
+def updated_report_texts() -> tuple[list[tuple[str, str]], str]:
+    """Full text of reports whose content differs from ``main``.
+
+    Returns ``(paths_and_text, git_error)``. ``git_error`` is empty when
+    ``git diff`` succeeds. Docx text is the paragraph text, so a number split
+    across runs is still one token. A 100% rename is not an update.
+    """
+    proc = subprocess.run(
+        ["git", "diff", "--name-status", "main", "--", "reports"],
         cwd=ROOT,
         capture_output=True,
         text=True,
         check=False,
-    ).stdout
-    lines = []
-    current = ""
-    for raw in diff.splitlines():
-        if raw.startswith("+++ b/"):
-            current = raw[6:]
-        elif raw.startswith("+") and not raw.startswith("+++") and current.endswith(".md"):
-            if "reports/archive/" in current:
+    )
+    if proc.returncode != 0:
+        return [], (proc.stderr or proc.stdout or "git diff main failed").strip()
+    found: list[tuple[str, str]] = []
+    for raw in proc.stdout.splitlines():
+        parts = raw.split("\t")
+        if len(parts) < 2:
+            continue
+        status = parts[0]
+        if status.startswith("D"):
+            continue
+        if status.startswith("R"):
+            similarity = status[1:]
+            if similarity.isdigit() and int(similarity) == 100:
                 continue
-            if current.startswith("reports/extras/") or current.endswith(
-                (
-                    "vendors.md",
-                    "rendering-openability.md",
-                    "Report D - Safety, Resource Bombs and Hostile Input (2026).md",
-                )
-            ):
-                continue
-            lines.append((current, raw[1:]))
-    return lines
+        rel = parts[-1]
+        path = ROOT / rel
+        if not path.is_file() or path.name.startswith("~$"):
+            continue
+        if path.suffix == ".md":
+            text = path.read_text(encoding="utf-8")
+        elif path.suffix == ".docx":
+            text = "\n".join(docx_paragraphs(path))
+        else:
+            continue
+        found.append((rel, text))
+    return found, ""
+
+
+def number_tokens(text: str) -> list[str]:
+    """Percentages and byte sizes, in scan order."""
+    found: list[str] = []
+    for rx in (PCT, BYTE):
+        found.extend(match.group(0) for match in rx.finditer(text))
+    return found
+
+
+def tokens_absent_from_corpus(text: str, corpus: str) -> list[str]:
+    """Percentages and byte sizes in ``text`` that are not substrings of ``corpus``."""
+    return [token for token in number_tokens(text) if token not in corpus]
 
 
 def main() -> int:
@@ -213,31 +233,21 @@ def main() -> int:
     notes.append(f"second-diagram claims: {claims}")
 
     corpus = number_corpus(lanes, scores_dir)
-    gated: list[Path] = list(NEW_REPORTS)
-    extras = ROOT / "reports" / "extras"
-    if extras.exists():
-        gated.extend(sorted(extras.glob("*.md")))
+    updated, git_error = updated_report_texts()
+    if git_error:
+        problems.append(f"number gate could not list updated reports: {git_error}")
+    if not updated:
+        problems.append("number gate scanned no updated reports")
     seen_numbers = 0
-    for path in gated:
-        if not path.exists():
-            problems.append(f"missing number-gated report: {path.relative_to(ROOT)}")
-            continue
-        text = path.read_text(encoding="utf-8")
-        for rx in (PCT, BYTE):
-            for m in rx.finditer(text):
-                seen_numbers += 1
-                token = m.group(0)
-                if token not in corpus:
-                    problems.append(
-                        f"number not in lanes or scorer output: {token!r} in {path.relative_to(ROOT)}"
-                    )
-    for src, line in added_markdown_lines():
-        for rx in (PCT, BYTE):
-            for m in rx.finditer(line):
-                seen_numbers += 1
-                token = m.group(0)
-                if token not in corpus:
-                    problems.append(f"added line number not in log: {token!r} in {src}")
+    for rel, text in updated:
+        notes.append(f"number-scanned: {rel}")
+        found = number_tokens(text)
+        seen_numbers += len(found)
+        for token in found:
+            if token not in corpus:
+                problems.append(
+                    f"number not in lanes or scorer output: {token!r} in {rel}"
+                )
     notes.append(f"percentages and byte sizes checked: {seen_numbers}")
 
     bombs = bombs_path.read_text(encoding="utf-8")
@@ -252,10 +262,10 @@ def main() -> int:
                     problems.append(f"safety report missing bombs line: {line[:120]}")
         notes.append("safety outcomes quoted from bombs log: yes")
 
-    notes.append("number gate scope: new reports and lines added to older markdown")
     notes.append(
-        "older report files keep prior-session percentages; those figures were not re-measured"
+        "number gate scope: full text of every report whose content differs from main, including docx paragraphs"
     )
+    notes.append("pure renames of unchanged reports are not number-scanned")
 
     status = "PASS" if not problems else "FAIL"
     report = [f"status: {status}", *notes]
