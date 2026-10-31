@@ -1,0 +1,233 @@
+{
+  "name": "docsplus",
+  "url": "http://127.0.0.1:5205/editor",
+  "viewport": [
+    1440,
+    1400
+  ],
+  "fullPage": false,
+  "title": "",
+  "finalUrl": "http://127.0.0.1:5205/editor",
+  "consoleLog": [
+    "[info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+    "[log] [Client Instrumentation Hook] Slow execution detected: 34ms (Note: Code download overhead is not included in this measurement)",
+    "[log] [HMR] connected",
+    "[warning] [HMR] Invalid message: {\"action\":\"isrManifest\",\"data\":{\"/\":true}}\nTypeError: Cannot read properties of undefined (reading 'components')\n    at handleStaticIndicator (webpack-internal:///(pages-dir-browser)/../../node_modules/.bun/next@15.5.28+b00719acda8df4a7/node_modules/next/dist/client/dev/hot-reloader/pages/hot-reloader-pages.js:182:46)\n    at processMessage (webpack-internal:///(pages-dir-browser)/../../node_modules/.bun/next@15.5.28+b00719acda8df4a7/node_modules/next/dist/client/dev/hot-reloader/pages/hot-reloader-pages.js:199:17)\n    at eval (webpack-internal:///(pages-dir-browser)/../../node_modules/.bun/next@15.5.28+b00719acda8df4a7/node_modules/next/dist/client/dev/hot-reloader/pages/hot-reloader-pages.js:72:13)\n    at WebSocket.handleMessage (webpack-internal:///(pages-dir-browser)/../../node_modules/.bun/next@15.5.28+b00719acda8df4a7/node_modules/next/dist/client/dev/hot-reloader/pages/websocket.js:69:17)",
+    "[nav] 200 http://127.0.0.1:5205/editor",
+    "[info] eventsHub initialized",
+    "[info] eventsHub initialized",
+    "[error] WebSocket connection to 'ws://localhost:54321/realtime/v1/websocket?apikey=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0&eventsPerSecond=30&vsn=2.0.0' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[error] WebSocket connection to 'ws://localhost:54321/realtime/v1/websocket?apikey=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0&eventsPerSecond=30&vsn=2.0.0' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[verbose] Rendering was performed in a subtree hidden by content-visibility.",
+    "[error] Failed to load resource: net::ERR_CONNECTION_REFUSED",
+    "[warning] Status write ONLINE failed TypeError: Failed to fetch",
+    "[error] WebSocket connection to 'ws://localhost:54321/realtime/v1/websocket?apikey=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0&eventsPerSecond=30&vsn=2.0.0' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED"
+  ],
+  "pageErrors": [],
+  "failedRequests": [
+    "PATCH http://localhost:54321/rest/v1/users?id=eq.harness-user :: net::ERR_CONNECTION_REFUSED"
+  ],
+  "probe": {
+    "fixture": "/Users/arthrod/temp/T/editors_trial/fixture/complex.docx",
+    "steps": [
+      {
+        "name": "seed-auth",
+        "ok": true,
+        "loading": false,
+        "profileId": "harness-user",
+        "isVisitor": false
+      },
+      {
+        "name": "open-document-settings",
+        "ok": true
+      },
+      {
+        "name": "expand-import-export",
+        "opened": true
+      },
+      {
+        "name": "pick-file",
+        "ok": true,
+        "acceptsMultiple": false
+      },
+      {
+        "name": "staged",
+        "ok": true,
+        "panel": "complex.docx\n\nTitle will be “Chapter 1: Heading with mixed formatting.”.\n\nSome things won’t survive the conversion:\n\nAn unrecognised element was ignored: w:cr\nAn unrecognised element was ignored: w:fldSimple\nAn unrecognised element was ignored: {urn:schemas-microsoft-com:office:office}OLEObject\nAn unrecognised element was ignored: {http://schemas.openxmlformats.org/officeDocument/2006/math}oMathPara\nAn unrecognised element was ignored: w:permStart\n2 more.\n\nThis replaces the whole document for everyone in it, right now, and there’s no undo. Heading chat rooms, folds and section links stop working — a file can’t carry the heading IDs they point at.\n\nDiscard\nReplace document"
+      },
+      {
+        "name": "replace-document",
+        "ok": true
+      },
+      {
+        "name": "close-panel",
+        "popoverStillOpen": false
+      },
+      {
+        "name": "scroll",
+        "ok": true,
+        "top": true
+      }
+    ],
+    "rendered": {
+      "markersPresent": {
+        "fixture image": false,
+        "Cat A": false,
+        "Series 1": false,
+        "Text box content": false,
+        "AlternateContent fallback text": true,
+        "This row was deleted": false,
+        "This row was inserted": true,
+        "Commented": false,
+        "This is a comment body": false,
+        "This is the footnote body": true,
+        "This is the endnote body": true,
+        "OLE": false,
+        "SmartArt": false,
+        "diagram": false,
+        "equation": false,
+        "Chapter 1": true
+      },
+      "nodeTypes": {
+        "heading": 1,
+        "text": 55,
+        "paragraph": 54,
+        "orderedList": 3,
+        "listItem": 4,
+        "table": 2,
+        "tableRow": 7,
+        "tableHeader": 4,
+        "tableCell": 17,
+        "image": 2
+      },
+      "images": [
+        {
+          "src": "http://127.0.0.1:4000/media/3.png",
+          "alt": "fixture image",
+          "width": 16,
+          "height": 16
+        },
+        {
+          "src": "http://127.0.0.1:4000/media/4.png",
+          "alt": null,
+          "width": 16,
+          "height": 16
+        }
+      ],
+      "imageElements": [
+        {
+          "src": "",
+          "alt": "",
+          "complete": true,
+          "naturalWidth": 0,
+          "naturalHeight": 0,
+          "renderedWidth": 0,
+          "renderedHeight": 0
+        },
+        {
+          "src": "",
+          "alt": "",
+          "complete": true,
+          "naturalWidth": 0,
+          "naturalHeight": 0,
+          "renderedWidth": 0,
+          "renderedHeight": 0
+        },
+        {
+          "src": "http://127.0.0.1:4000/media/3.png",
+          "alt": "fixture image",
+          "complete": true,
+          "naturalWidth": 16,
+          "naturalHeight": 16,
+          "renderedWidth": 16,
+          "renderedHeight": 16
+        },
+        {
+          "src": "",
+          "alt": "",
+          "complete": true,
+          "naturalWidth": 0,
+          "naturalHeight": 0,
+          "renderedWidth": 0,
+          "renderedHeight": 0
+        },
+        {
+          "src": "",
+          "alt": "",
+          "complete": true,
+          "naturalWidth": 0,
+          "naturalHeight": 0,
+          "renderedWidth": 0,
+          "renderedHeight": 0
+        },
+        {
+          "src": "http://127.0.0.1:4000/media/4.png",
+          "alt": "",
+          "complete": true,
+          "naturalWidth": 16,
+          "naturalHeight": 16,
+          "renderedWidth": 16,
+          "renderedHeight": 16
+        },
+        {
+          "src": "",
+          "alt": "",
+          "complete": true,
+          "naturalWidth": 0,
+          "naturalHeight": 0,
+          "renderedWidth": 0,
+          "renderedHeight": 0
+        }
+      ],
+      "svgCount": 3,
+      "canvasCount": 0,
+      "mathElementCount": 0,
+      "tables": 2,
+      "tableRows": 7,
+      "commentNodes": 0,
+      "textLength": 1320,
+      "textHead": "Chapter 1: Heading with mixed formatting.\n\nLeading and trailing spaces are significant.\n\nTab separatedAfter a page break‑nobreak­softhyphen✓symafter CR\n\nrun with unknown w14 attributes and w14 elements\n\ncustom namespace attribute: cs complex-script text\n\nmispelinggrammaticaly\n\ninserted text\n\nrun whose formatting was changed\n\nparagraph whose properties were changed\n\nmoved here\n\nparagraph mark was inserted\n\nRight-click and choose Update Field to build the table of contents.\n\nbookmarked anchor\n\ncontent control content\n\n2026-01-15\n\nbound value\n\ninner nested content\n\n\n\n\n\nList item level 1\n\n\n\n\n\nList",
+      "textTail": ", first\n\n\n\nvertical text\n\n\n\n\n\n\n\n\n\n\n\n\n\nright aligned\n\n\n\nbottom aligned\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nnested 1\n\n\n\nnested 2\n\nafter nested table\n\n\n\n\n\n\n\n\n\nThis row was inserted (trIns)\n\n\n\n\n\nParagraph after the table.\n\nA sentence with a footnote[1] and an endnote[2]\n\nA sentence with a comment\n\n\n\n\n\nAlternateContent fallback text\n\nשלום עולם - Hebrew text right to left\n\nrtl runcomplex script size\n\nhidden textno proofcaps smallvertkernlang\n\nThis region is editable by everyone\n\nEnd of section 1.\n\nLandscape section content.\n\nLast paragraph.\n\n\n\n\n\nThis is the footnote body with a bold word ↑\n\n\n\nThis is the endnote body. ↑"
+    }
+  }
+}

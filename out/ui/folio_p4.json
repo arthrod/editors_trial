@@ -1,0 +1,21 @@
+{
+  "name": "folio_p4",
+  "url": "http://127.0.0.1:5207/?file=complex.docx",
+  "viewport": [
+    1440,
+    1500
+  ],
+  "fullPage": false,
+  "title": "Folio Playground",
+  "finalUrl": "http://127.0.0.1:5207/?file=complex.docx",
+  "consoleLog": [
+    "[debug] [vite] connecting...",
+    "[debug] [vite] connected.",
+    "[info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+    "[nav] 200 http://127.0.0.1:5207/?file=complex.docx",
+    "[scroll-text] \"Text box content\" -> found"
+  ],
+  "pageErrors": [],
+  "failedRequests": [],
+  "probe": null
+}

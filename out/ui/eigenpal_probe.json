@@ -1,0 +1,41 @@
+{
+  "name": "eigenpal_probe",
+  "url": "http://127.0.0.1:5206/",
+  "viewport": [
+    1440,
+    1500
+  ],
+  "fullPage": false,
+  "title": "DOCX Editor — React Demo",
+  "finalUrl": "http://127.0.0.1:5206/",
+  "consoleLog": [
+    "[debug] [vite] connecting...",
+    "[debug] [vite] connected.",
+    "[info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+    "[nav] 200 http://127.0.0.1:5206/",
+    "[file-accept] docx -> input[data-harness-target=\"1\"]",
+    "[file-input] set input[data-harness-target=\"1\"] <- fixture/complex.docx"
+  ],
+  "pageErrors": [],
+  "failedRequests": [],
+  "probe": {
+    "collectedChars": 0,
+    "frameCount": 0,
+    "textBoxContent": false,
+    "fallbackText": false,
+    "stepOne": false,
+    "catA": false,
+    "series1": false,
+    "equation": false,
+    "altChunk": false,
+    "hiddenText": false,
+    "commentBody": false,
+    "deletedRow": false,
+    "insertedRow": false,
+    "footnoteBody": false,
+    "endnoteBody": false,
+    "oleImage": true,
+    "canvasCount": 0,
+    "sample": ""
+  }
+}

@@ -1,0 +1,198 @@
+{
+  "name": "genoffice_p3",
+  "url": "http://localhost:5201/",
+  "viewport": [
+    1440,
+    1500
+  ],
+  "fullPage": false,
+  "title": "complex.docx",
+  "finalUrl": "http://localhost:5201/",
+  "consoleLog": [
+    "[debug] [vite] connecting...",
+    "[debug] [vite] connected.",
+    "[info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+    "[nav] 200 http://localhost:5201/",
+    "[warning] [font-resolve] shadow disagreement {name: Calibri, legacy: 1.22, resolver: 1.2207, face: Calibri, source: dfonts}",
+    "[warning] [font-resolve] shadow disagreement {name: Calibri Light, legacy: 1.22, resolver: 1.2207, face: Calibri Light, source: dfonts}",
+    "[scroll-text] \"A sentence with a comment\" -> found"
+  ],
+  "pageErrors": [],
+  "failedRequests": [],
+  "probe": {
+    "pageCount": 2,
+    "pageRects": [
+      {
+        "x": 202,
+        "y": -781,
+        "w": 1056,
+        "h": 5500,
+        "visible": true
+      },
+      {
+        "x": -99999,
+        "y": 0,
+        "w": 816,
+        "h": 1056,
+        "visible": true
+      }
+    ],
+    "statusBar": "Page 3 of 6\n160 words\nTrack Changes: Off\n— Missing document fonts: Calibri, MS Mincho → MS Mincho GO, Calibri Light (substitutes shown)\n−\n+\n100%",
+    "constructs": {
+      "picture_imgs": [
+        {
+          "tag": "IMG",
+          "cls": "ProseMirror-separator",
+          "src": "",
+          "nat": 0,
+          "box": [
+            0,
+            0
+          ],
+          "visible": false,
+          "chain": "ProseMirror-separator < doc-col-block.page-break-lead < tiptap.ProseMirror.doc-page"
+        },
+        {
+          "tag": "IMG",
+          "cls": "doc-protected-img",
+          "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAFklEQVR42mOQL99CEmIY1TCqYfhqAADbmEoQeRLK0AAAAABJRU5ErkJggg==",
+          "nat": 16,
+          "box": [
+            120,
+            120
+          ],
+          "visible": true,
+          "chain": "doc-protected-img < doc-img-wrap < doc-protected.doc-protected-image.doc-img-para.doc-col-block < tiptap.ProseMirror.doc-page"
+        },
+        {
+          "tag": "IMG",
+          "cls": "doc-ole-img",
+          "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAFklEQVR42mOQL99CEmIY1TCqYfhqAADbmEoQeRLK0AAAAABJRU5ErkJggg==",
+          "nat": 16,
+          "box": [
+            144,
+            96
+          ],
+          "visible": true,
+          "chain": "doc-ole-img < doc-ole-wrap < doc-protected.doc-protected-passthrough.doc-protected-ole.doc-col-block < tiptap.ProseMirror.doc-page"
+        }
+      ],
+      "chart_svgs": 1,
+      "chart_axis_labels": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "Cat A",
+        "Cat B",
+        "Cat C",
+        "Series 1"
+      ],
+      "chart_cats": [
+        "Cat A",
+        "Cat B",
+        "Cat C"
+      ],
+      "chart_vals": [
+        "4.3",
+        "2.5",
+        "3.5"
+      ],
+      "chart_name": [
+        "Series 1"
+      ],
+      "chart_data_rows": [
+        "Cat ACat BCat C",
+        "Series 14.32.53.5"
+      ],
+      "smartart": 0,
+      "dgm_nodes": 0,
+      "textboxes": 1,
+      "textbox_text": [
+        "Text box content"
+      ],
+      "ole": 3,
+      "ole_html": [
+        "<div data-doc-protected=\"passthrough\" data-idx=\"29\" class=\"doc-protected doc-protected-passthrough doc-protected-ole doc-col-block\" title=\"Word document (embedded)\" contenteditable=\"false\" draggable=\"true\" style=\"--col-w: 624px; --doc-content-w: 624px; --doc-margin-left: 96px; --doc-margin-right: 96px; --page-cx: 120px; --col-dx: 0px; --col-dy: 0px;\"><span class=\"doc-ole-wrap\"><img src=\"data:image",
+        "<span class=\"doc-ole-wrap\"><img src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAFklEQVR42mOQL99CEmIY1TCqYfhqAADbmEoQeRLK0AAAAABJRU5ErkJggg==\" class=\"doc-ole-img\" style=\"width: 144px; height: 96px;\"></span>"
+      ],
+      "math": 7,
+      "math_text": [
+        "↕E=mc^2E = mc^2Edit",
+        "E=mc^2E = mc^2Edit",
+        "E=mc^2",
+        "E = mc^2",
+        "E = mc^2",
+        "Edit"
+      ],
+      "text_outline": 1,
+      "text_outline_html": [
+        "<span data-doc-style=\"{&quot;font&quot;:&quot;Calibri&quot;,&quot;fontAscii&quot;:&quot;Calibri&quot;,&quot;textOutline&quot;:&quot;{\\&quot;color\\&quot;:\\&quot;000000\\&quot;,\\&quot;widthPt\\&quot;:0.75}&quot;}\" style=\"font-family: Calibri, &quot;Carlito GO&quot;, &quot;Calibri Arabic GO&quot;, &quot;"
+      ],
+      "note_refs": 2,
+      "note_ref_text": [
+        "1",
+        "i"
+      ],
+      "comment_marks": 2,
+      "comment_html": [
+        "<span data-comment-ids=\"0\" class=\"doc-comment\">A sentence with a comment</span>"
+      ],
+      "ins": 2,
+      "del": 3,
+      "row_ins": 1,
+      "row_del": 1,
+      "tables": 3
+    },
+    "inViewport": {
+      "picture": {
+        "total": 3,
+        "inView": 3
+      },
+      "chart": {
+        "total": 1,
+        "inView": 1
+      },
+      "smartart": {
+        "total": 0,
+        "inView": 0
+      },
+      "textbox": {
+        "total": 1,
+        "inView": 1
+      },
+      "ole": {
+        "total": 3,
+        "inView": 3
+      },
+      "equation": {
+        "total": 6,
+        "inView": 0
+      },
+      "comment": {
+        "total": 1,
+        "inView": 1
+      },
+      "note": {
+        "total": 2,
+        "inView": 2
+      },
+      "ins": {
+        "total": 2,
+        "inView": 0
+      },
+      "del": {
+        "total": 3,
+        "inView": 0
+      },
+      "table": {
+        "total": 3,
+        "inView": 2
+      }
+    },
+    "textLength": 1887,
+    "textHead": "AutoSave\nHome\nInsert\nDraw\nDesign\nLayout\nReferences\nMailings\nReview\nView\nGenspark AI\nAI Summarize\nAI Polish\nAI Format\nAI Mind Map\nConvert\nPaste\nB\nI\nU\nab\n1\n2\n3\nAaBb\nNormal\nAaBb\nHeading 1\nAaBb\nList Paragraph\nStyles Pane\nDefault header\n1\nChapter 1: Heading with mixed formatting.\n\nLeading and trailing spaces are significant.\n\n\tTab separated\nAfter a page break‑nobreak­softhyphen\nFooter text page1\nDefault header\n2\nsym\nafter CR\n\nrun with unknown w14 attributes and w14 elements\n\ncustom namespace attribute: cs complex-script text\n\nmispelinggrammaticaly\n\ninserted text \n\nrun whose formatting was changed\n\nparagraph whose properties were changed\n\nmoved here\n\nparagraph mark was inserted\n\nRight-click and choose Update Field to build the table of contents.\n\nbookmarked anchor\n\nbookmarked anchor\n\n1\n\ncontent control content\n\n2026-01-15\n\nbound value\n\ninner nested content\n\nList item level 1\nList item level 2\n\nHeader A\n\n\t\n\nHeader B\n\n\t\n\nHeader C\n\n\n\n\nSpans two columns\n\n\t\n\nNormal cell\n\n\n\n\nvert merged, first\n\n\t\n\nvertical text\n\n\t\n\n\n\n\n\n\n\nright aligned\n\n\t\n\nbottom aligned\n\n\n\nnested 1\n\t\nnested 2\n\nafter nested table\n\n\n\n\nThis row was inserted (trIns)\n\nParagraph after the table.\n\n \nDefault header\n3\n\nA sentence with"
+  }
+}

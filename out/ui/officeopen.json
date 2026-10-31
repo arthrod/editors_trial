@@ -1,0 +1,26 @@
+{
+  "name": "officeopen",
+  "url": "http://localhost:5203/",
+  "viewport": [
+    1440,
+    1500
+  ],
+  "fullPage": false,
+  "title": "office-open — parseDocument() rendering of complex.docx",
+  "finalUrl": "http://localhost:5203/",
+  "consoleLog": [
+    "[nav] 200 http://localhost:5203/",
+    "[error] Access to script at 'node:zlib' from origin 'http://localhost:5203' has been blocked by CORS policy: Cross origin requests are only supported for protocol schemes: chrome, chrome-untrusted, data, http, https.",
+    "[error] Failed to load resource: net::ERR_FAILED",
+    "[log] [office-open] parsed with @office-open/docx parseDocument() from /sample.docx",
+    "[log] [office-open] sections= 3 paragraphStyles= 6 comments= 1 footnotes= 1 endnotes= 1",
+    "[log] [office-open] construct census in parsed model: {\"pageBreak\":1,\"proofErr\":4,\"insertion\":1,\"deletion\":2,\"revision\":1,\"paragraphRevision\":1,\"moveFromRangeStart\":1,\"movedFrom\":1,\"moveFromRangeEnd\":1,\"moveToRangeStart\":1,\"movedTo\":1,\"moveToRangeEnd\":1,\"bookmarkEnd\":1,\"sdt\":5,\"table\":2,\"footnoteReference\":1,\"endnoteReference\":1,\"commentReference\":1,\"picture\":1,\"chart\":1,\"smartArt\":1,\"object\":1,\"wpsShape\":1,\"math\":1,\"vanish\":1,\"noProof\":1,\"verticalAlign\":1,\"permStart\":1,\"permEnd\":1,\"altChunk\":1}",
+    "[log] [office-open] explicit break markers: pageBreak= 1 columnBreak= 0 sections= 3",
+    "[log] [office-open] pagination: office-open has no layout engine; model carries no page count."
+  ],
+  "pageErrors": [],
+  "failedRequests": [
+    "GET node:zlib :: net::ERR_FAILED"
+  ],
+  "probe": null
+}

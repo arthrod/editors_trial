@@ -1,0 +1,42 @@
+﻿Chapter 1: Heading with mixed formatting.
+Leading and trailing spaces are significant.
+	Tab separated
+After a page break‑nobreak­softhyphensym
+after CR
+run with unknown w14 attributes and w14 elements
+custom namespace attribute: cs complex-script text
+mispelinggrammaticaly
+inserted text deleted text
+run whose formatting was changed
+paragraph whose properties were changed
+moved away
+moved here
+paragraph mark was inserted
+Right-click and choose Update Field to build the table of contents.
+bookmarked anchor
+bookmarked anchor
+0
+content control content
+2026-01-15
+bound value
+inner nested content
+    1. List item level 1
+        a. List item level 2
+Header A	Header B	Header C
+Spans two columns	Normal cell
+vert merged, first	vert merged, second	vertical text
+vert merged, continuation	right aligned	bottom aligned
+nested 1
+nested 2
+after nested table
+This row was inserted (trIns)	This row was deleted (trDel)	Paragraph after the table.
+A sentence with a footnote1 and an endnotei	A sentence with a comment
+		
+		
+שלום עולם - Hebrew text right to left
+rtl runcomplex script size
+hidden textno proofcaps smallvertkernlang
+This region is editable by everyone
+End of section 1.
+Landscape section content.
+Last paragraph.

@@ -1,0 +1,191 @@
+{
+  "band_locator_pages": {
+    "1": {
+      "diff_px": 0,
+      "diff_bbox": null,
+      "size": [
+        935,
+        1210
+      ]
+    },
+    "2": {
+      "diff_px": 0,
+      "diff_bbox": null,
+      "size": [
+        935,
+        1210
+      ]
+    },
+    "3": {
+      "diff_px": 0,
+      "diff_bbox": null,
+      "size": [
+        935,
+        1210
+      ]
+    },
+    "4": {
+      "diff_px": 8492,
+      "diff_bbox": [
+        83,
+        244,
+        577,
+        533
+      ],
+      "size": [
+        935,
+        1210
+      ]
+    },
+    "5": {
+      "diff_px": 0,
+      "diff_bbox": null,
+      "size": [
+        1210,
+        935
+      ]
+    },
+    "6": {
+      "diff_px": 0,
+      "diff_bbox": null,
+      "size": [
+        935,
+        1210
+      ]
+    }
+  },
+  "band": {
+    "page": 4,
+    "bbox": [
+      83,
+      244,
+      577,
+      533
+    ],
+    "w": 494,
+    "h": 289
+  },
+  "band_page": 4,
+  "band_measurement": {
+    "page": 4,
+    "bbox": [
+      83,
+      244,
+      577,
+      533
+    ],
+    "band_px": 142766,
+    "corpus_ink_in_band": 0,
+    "border_variant_ink_in_band": 8492,
+    "corpus_ink_in_band_interior": 0,
+    "border_variant_ink_in_band_interior": 0,
+    "diff_px_corpus_vs_border": 8492,
+    "derived_corpus_ink_outside_border": 0,
+    "expected_nominal_px_at_110dpi": [
+      660,
+      385
+    ],
+    "rendered_scale": 0.7485
+  },
+  "controls": {
+    "dgm_pic_checker": {
+      "page1": {
+        "diff_px": 0,
+        "diff_bbox": null
+      },
+      "page2": {
+        "diff_px": 0,
+        "diff_bbox": null
+      },
+      "page3": {
+        "diff_px": 0,
+        "diff_bbox": null
+      },
+      "page4": {
+        "diff_px": 73065,
+        "diff_bbox": [
+          83,
+          244,
+          577,
+          625
+        ]
+      },
+      "page5": {
+        "diff_px": 0,
+        "diff_bbox": null
+      },
+      "page6": {
+        "diff_px": 0,
+        "diff_bbox": null
+      }
+    },
+    "dgm_marker": {
+      "page1": {
+        "diff_px": 0,
+        "diff_bbox": null
+      },
+      "page2": {
+        "diff_px": 0,
+        "diff_bbox": null
+      },
+      "page3": {
+        "diff_px": 0,
+        "diff_bbox": null
+      },
+      "page4": {
+        "diff_px": 83,
+        "diff_bbox": [
+          207,
+          542,
+          208,
+          625
+        ]
+      },
+      "page5": {
+        "diff_px": 0,
+        "diff_bbox": null
+      },
+      "page6": {
+        "diff_px": 0,
+        "diff_bbox": null
+      }
+    },
+    "dgm_cached": {
+      "page1": {
+        "diff_px": 0,
+        "diff_bbox": null
+      },
+      "page2": {
+        "diff_px": 0,
+        "diff_bbox": null
+      },
+      "page3": {
+        "diff_px": 0,
+        "diff_bbox": null
+      },
+      "page4": {
+        "diff_px": 83,
+        "diff_bbox": [
+          207,
+          542,
+          208,
+          625
+        ]
+      },
+      "page5": {
+        "diff_px": 0,
+        "diff_bbox": null
+      },
+      "page6": {
+        "diff_px": 0,
+        "diff_bbox": null
+      }
+    }
+  },
+  "crop_box": [
+    53,
+    214,
+    607,
+    563
+  ]
+}

@@ -1,0 +1,61 @@
+=== ZIP ENTRY COUNTS ===
+input parts : 35
+output parts: 36
+common      : 32
+
+=== IN INPUT BUT MISSING FROM OUTPUT (3) ===
+  - word/afchunk.html
+  - word/charts/colors1.xml
+  - word/charts/style1.xml
+
+=== IN OUTPUT BUT NOT IN INPUT (4) ===
+  + word/commentsExtended.xml
+  + word/commentsExtensible.xml
+  + word/commentsIds.xml
+  + word/media/image1_2.png
+
+=== OUTPUT SANITY ===
+zip testzip (None==ok): None
+word/document.xml bytes: 18806
+word/document.xml well-formed: True (root={http://schemas.openxmlformats.org/wordprocessingml/2006/main}document)
+
+=== word/document.xml ELEMENT CENSUS (output) ===
+  w:ins                  elements: 2
+  w:del                  elements: 2
+  w:sdt                  elements: 5
+  w:tbl                  elements: 2
+  w:proofErr             elements: 0
+  w:delText              elements: 2
+  w:moveFrom             elements: 1
+  w:moveTo               elements: 1
+  w:fldSimple            elements: 0
+  w:fldChar              elements: 9
+  w:altChunk             elements: 0
+  mc:AlternateContent    elements: 0
+  w14:paraId             elements: 0
+  w14:textId             elements: 0
+  w16du:dateUtc          elements: 0
+
+=== w16du / w14 / mc namespace + attr survival (output document.xml) ===
+  w16du:dateUtc          occurrences: 0
+  xmlns:w16du            occurrences: 0
+  xmlns:w14              occurrences: 1
+  xmlns:mc               occurrences: 1
+  mc:AlternateContent    occurrences: 0
+  mc:Choice              occurrences: 0
+  mc:Fallback            occurrences: 0
+  w14:paraId             occurrences: 0
+
+=== same probes in INPUT document.xml (for contrast) ===
+  <w:ins                 occurrences: 8
+  <w:del                 occurrences: 6
+  <w:sdt                 occurrences: 15
+  <w:tbl                 occurrences: 15
+  <w:proofErr            occurrences: 4
+  w16du:dateUtc          occurrences: 3
+  xmlns:w16du            occurrences: 1
+  xmlns:mc               occurrences: 1
+  mc:AlternateContent    occurrences: 2
+  w14:paraId             occurrences: 1
+  <w:fldSimple           occurrences: 2
+  <w:altChunk            occurrences: 1

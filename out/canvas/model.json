@@ -1,0 +1,565 @@
+{
+  "header": [
+    {
+      "value": "Default header\n",
+      "type": "text",
+      "font": "MS Mincho",
+      "size": 15,
+      "bold": true,
+      "rowFlex": "center"
+    },
+    {
+      "value": "1",
+      "type": "text",
+      "font": "MS Mincho",
+      "size": 15
+    }
+  ],
+  "main": [
+    {
+      "value": "",
+      "type": "title",
+      "valueList": [
+        {
+          "value": "Chapter 1: Heading with ",
+          "type": "text",
+          "font": "MS Mincho",
+          "size": 21,
+          "bold": true,
+          "color": "#2F5496"
+        },
+        {
+          "value": "mixed formatting",
+          "type": "text",
+          "font": "MS Mincho",
+          "size": 21,
+          "bold": true,
+          "color": "#2F5496",
+          "italic": true
+        },
+        {
+          "value": ".",
+          "type": "text",
+          "font": "MS Mincho",
+          "size": 21,
+          "bold": true,
+          "color": "#2F5496"
+        }
+      ],
+      "level": "first"
+    },
+    {
+      "value": "\n"
+    },
+    {
+      "value": "Leading and trailing spaces are significant.\n",
+      "type": "text",
+      "font": "MS Mincho",
+      "size": 15
+    },
+    {
+      "value": "",
+      "type": "tab"
+    },
+    {
+      "value": "Tab separated",
+      "type": "text",
+      "font": "MS Mincho",
+      "size": 15
+    },
+    {
+      "value": "",
+      "type": "pageBreak",
+      "width": 624
+    },
+    {
+      "value": "After a page breaknobreaksofthyphensymafter CR\n",
+      "type": "text",
+      "font": "MS Mincho",
+      "size": 15
+    },
+    {
+      "value": "run with unknown w14 attributes and w14 elements\n",
+      "type": "text",
+      "font": "Calibri",
+      "size": 15,
+      "bold": true
+    },
+    {
+      "value": "custom namespace attribute: cs",
+      "type": "text",
+      "font": "MS Mincho",
+      "size": 15
+    },
+    {
+      "value": " complex-script text\n",
+      "type": "text",
+      "font": "Calibri",
+      "size": 15
+    },
+    {
+      "value": "mispelinggrammaticaly\n",
+      "type": "text",
+      "font": "MS Mincho",
+      "size": 15
+    },
+    {
+      "value": "\n",
+      "type": "text"
+    },
+    {
+      "value": "run whose formatting was changed\n",
+      "type": "text",
+      "font": "MS Mincho",
+      "size": 15,
+      "bold": true,
+      "italic": true
+    },
+    {
+      "value": "paragraph whose properties were changed\n",
+      "type": "text",
+      "font": "MS Mincho",
+      "size": 15,
+      "rowFlex": "center"
+    },
+    {
+      "value": "\n\n",
+      "type": "text"
+    },
+    {
+      "value": "paragraph mark was inserted\nRight-click and choose Update Field to build the table of contents.\nbookmarked anchor\nbookmarked anchor\n1\n",
+      "type": "text",
+      "font": "MS Mincho",
+      "size": 15
+    },
+    {
+      "value": "",
+      "type": "control",
+      "control": {
+        "id": "docx-control-1",
+        "type": "text",
+        "value": [
+          {
+            "value": "content control content",
+            "type": "text",
+            "font": "MS Mincho",
+            "size": 15
+          }
+        ]
+      }
+    },
+    {
+      "value": "\n"
+    },
+    {
+      "value": "",
+      "type": "control",
+      "control": {
+        "id": "docx-control-2",
+        "type": "date",
+        "value": [
+          {
+            "value": "2026-01-15",
+            "type": "text"
+          }
+        ]
+      }
+    },
+    {
+      "value": "\n"
+    },
+    {
+      "value": "",
+      "type": "control",
+      "control": {
+        "id": "docx-control-3",
+        "type": "text",
+        "value": [
+          {
+            "value": "bound value",
+            "type": "text",
+            "font": "MS Mincho",
+            "size": 15
+          }
+        ]
+      }
+    },
+    {
+      "value": "\n"
+    },
+    {
+      "value": "",
+      "type": "control",
+      "control": {
+        "id": "docx-control-4",
+        "type": "text",
+        "value": [
+          {
+            "value": "inner nested content",
+            "type": "text",
+            "font": "MS Mincho",
+            "size": 15
+          }
+        ]
+      }
+    },
+    {
+      "value": "\n"
+    },
+    {
+      "value": "",
+      "type": "list",
+      "valueList": [
+        {
+          "value": "\n",
+          "listLevel": 0
+        },
+        {
+          "value": "List item level 1",
+          "type": "text",
+          "font": "MS Mincho",
+          "size": 15,
+          "listLevel": 0
+        },
+        {
+          "value": "\n",
+          "listLevel": 1
+        },
+        {
+          "value": "List item level 2",
+          "type": "text",
+          "font": "MS Mincho",
+          "size": 15,
+          "listLevel": 1
+        }
+      ],
+      "listType": "ol",
+      "listStyle": "decimal"
+    },
+    {
+      "value": "\n",
+      "type": "table",
+      "trList": [
+        {
+          "height": 42,
+          "tdList": [
+            {
+              "colspan": 1,
+              "rowspan": 1,
+              "value": [
+                {
+                  "value": "Header A",
+                  "type": "text",
+                  "font": "MS Mincho",
+                  "size": 15,
+                  "bold": true
+                }
+              ]
+            },
+            {
+              "colspan": 1,
+              "rowspan": 1,
+              "value": [
+                {
+                  "value": "Header B",
+                  "type": "text",
+                  "font": "MS Mincho",
+                  "size": 15,
+                  "bold": true
+                }
+              ]
+            },
+            {
+              "colspan": 1,
+              "rowspan": 1,
+              "value": [
+                {
+                  "value": "Header C",
+                  "type": "text",
+                  "font": "MS Mincho",
+                  "size": 15,
+                  "bold": true
+                }
+              ]
+            }
+          ],
+          "minHeight": 42
+        },
+        {
+          "height": 42,
+          "tdList": [
+            {
+              "colspan": 2,
+              "rowspan": 1,
+              "value": [
+                {
+                  "value": "Spans two columns",
+                  "type": "text",
+                  "font": "MS Mincho",
+                  "size": 15
+                }
+              ],
+              "backgroundColor": "#D9E2F3"
+            },
+            {
+              "colspan": 1,
+              "rowspan": 1,
+              "value": [
+                {
+                  "value": "Normal cell",
+                  "type": "text",
+                  "font": "MS Mincho",
+                  "size": 15
+                }
+              ]
+            }
+          ],
+          "minHeight": 42
+        },
+        {
+          "height": 42,
+          "tdList": [
+            {
+              "colspan": 1,
+              "rowspan": 2,
+              "value": [
+                {
+                  "value": "vert merged, first",
+                  "type": "text",
+                  "font": "MS Mincho",
+                  "size": 15
+                }
+              ]
+            },
+            {
+              "colspan": 1,
+              "rowspan": 1,
+              "value": [
+                {
+                  "value": "vertical text",
+                  "type": "text",
+                  "font": "MS Mincho",
+                  "size": 15
+                }
+              ]
+            }
+          ],
+          "minHeight": 42
+        },
+        {
+          "height": 42,
+          "tdList": [
+            {
+              "colspan": 1,
+              "rowspan": 1,
+              "value": [
+                {
+                  "value": "right aligned",
+                  "type": "text",
+                  "font": "MS Mincho",
+                  "size": 15
+                }
+              ]
+            },
+            {
+              "colspan": 1,
+              "rowspan": 1,
+              "value": [
+                {
+                  "value": "bottom aligned",
+                  "type": "text",
+                  "font": "MS Mincho",
+                  "size": 15
+                }
+              ],
+              "verticalAlign": "bottom"
+            }
+          ],
+          "minHeight": 42
+        },
+        {
+          "height": 42,
+          "tdList": [
+            {
+              "colspan": 3,
+              "rowspan": 1,
+              "value": [
+                {
+                  "value": "\n",
+                  "type": "table",
+                  "trList": [
+                    {
+                      "height": 42,
+                      "tdList": [
+                        {
+                          "colspan": 1,
+                          "rowspan": 1,
+                          "value": [
+                            {
+                              "value": "nested 1",
+                              "type": "text",
+                              "font": "MS Mincho",
+                              "size": 15
+                            }
+                          ]
+                        },
+                        {
+                          "colspan": 1,
+                          "rowspan": 1,
+                          "value": [
+                            {
+                              "value": "nested 2",
+                              "type": "text",
+                              "font": "MS Mincho",
+                              "size": 15
+                            }
+                          ]
+                        }
+                      ],
+                      "minHeight": 42
+                    }
+                  ],
+                  "colgroup": [
+                    {
+                      "width": 100
+                    },
+                    {
+                      "width": 100
+                    }
+                  ]
+                },
+                {
+                  "value": "after nested table",
+                  "type": "text",
+                  "font": "MS Mincho",
+                  "size": 15
+                }
+              ]
+            }
+          ],
+          "minHeight": 42
+        },
+        {
+          "height": 42,
+          "tdList": [
+            {
+              "colspan": 3,
+              "rowspan": 1,
+              "value": [
+                {
+                  "value": "This row was inserted (trIns)",
+                  "type": "text",
+                  "font": "MS Mincho",
+                  "size": 15
+                }
+              ]
+            }
+          ],
+          "minHeight": 42
+        },
+        {
+          "height": 42,
+          "tdList": [
+            {
+              "colspan": 3,
+              "rowspan": 1,
+              "value": []
+            }
+          ],
+          "minHeight": 42
+        }
+      ],
+      "translateX": 0,
+      "colgroup": [
+        {
+          "width": 160
+        },
+        {
+          "width": 160
+        },
+        {
+          "width": 160
+        }
+      ]
+    },
+    {
+      "value": "Paragraph after the table.\nA sentence with a footnote and an endnote\nA sentence with a comment\n",
+      "type": "text",
+      "font": "MS Mincho",
+      "size": 15
+    },
+    {
+      "value": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAFklEQVR42mOQL99CEmIY1TCqYfhqAADbmEoQeRLK0AAAAABJRU5ErkJggg==",
+      "type": "image",
+      "width": 120,
+      "height": 120
+    },
+    {
+      "value": "\n"
+    },
+    {
+      "value": "\n\n\n\n\n",
+      "type": "text"
+    },
+    {
+      "value": "שלום עולם - Hebrew text right to left\n",
+      "type": "text",
+      "font": "MS Mincho",
+      "size": 15,
+      "rowFlex": "right"
+    },
+    {
+      "value": "rtl run",
+      "type": "text",
+      "font": "MS Mincho",
+      "size": 15
+    },
+    {
+      "value": "complex script size\n",
+      "type": "text",
+      "font": "MS Mincho",
+      "size": 27
+    },
+    {
+      "value": "hidden textno proof",
+      "type": "text",
+      "font": "MS Mincho",
+      "size": 15
+    },
+    {
+      "value": "caps small",
+      "type": "text",
+      "font": "MS Mincho",
+      "size": 15,
+      "strikeout": true
+    },
+    {
+      "value": "vert",
+      "type": "superscript",
+      "font": "MS Mincho",
+      "size": 15
+    },
+    {
+      "value": "kern",
+      "type": "text",
+      "font": "MS Mincho",
+      "size": 16
+    },
+    {
+      "value": "lang\nThis region is editable by everyone\nEnd of section 1.\nLandscape section content.\nLast paragraph.\n",
+      "type": "text",
+      "font": "MS Mincho",
+      "size": 15
+    }
+  ],
+  "footer": [
+    {
+      "value": "Footer text page 1",
+      "type": "text",
+      "font": "MS Mincho",
+      "size": 15,
+      "rowFlex": "center"
+    }
+  ],
+  "graffiti": []
+}

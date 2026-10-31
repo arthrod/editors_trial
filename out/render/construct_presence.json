@@ -1,0 +1,67 @@
+{
+ "constructs": [
+  "SmartArt",
+  "Chart",
+  "Image",
+  "Text box (mc:Choice)",
+  "OLE object"
+ ],
+ "word": {
+  "superdoc": [
+   "VISIBLE",
+   "VISIBLE",
+   "VISIBLE",
+   "VISIBLE",
+   "VISIBLE"
+  ],
+  "genoffice": [
+   "VISIBLE",
+   "VISIBLE",
+   "VISIBLE",
+   "VISIBLE",
+   "VISIBLE"
+  ],
+  "eigenpal": [
+   "VISIBLE",
+   "VISIBLE",
+   "VISIBLE",
+   "VISIBLE",
+   "VISIBLE"
+  ],
+  "wordcraft": [
+   "VISIBLE",
+   "VISIBLE",
+   "VISIBLE",
+   "ambiguous",
+   "VISIBLE"
+  ],
+  "canvas": [
+   "ambiguous",
+   "ambiguous",
+   "ambiguous",
+   "ambiguous",
+   "ambiguous"
+  ],
+  "docs.plus": [
+   "ambiguous",
+   "ambiguous",
+   "ambiguous",
+   "ambiguous",
+   "ambiguous"
+  ],
+  "plate": [
+   "ambiguous",
+   "ambiguous",
+   "ambiguous",
+   "ambiguous",
+   "ambiguous"
+  ],
+  "libreoffice": [
+   "VISIBLE",
+   "VISIBLE",
+   "VISIBLE",
+   "ambiguous",
+   "VISIBLE"
+  ]
+ }
+}

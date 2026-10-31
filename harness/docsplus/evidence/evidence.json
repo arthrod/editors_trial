@@ -1,0 +1,39 @@
+{
+  "origin": "http://127.0.0.1:50387",
+  "title": "Chapter 1: Heading with mixed formatting.",
+  "warnings": [
+    {
+      "code": "unsupported-element",
+      "message": "An unrecognised element was ignored: w:cr"
+    },
+    {
+      "code": "unsupported-element",
+      "message": "An unrecognised element was ignored: w:fldSimple"
+    },
+    {
+      "code": "unsupported-element",
+      "message": "An unrecognised element was ignored: {urn:schemas-microsoft-com:office:office}OLEObject"
+    },
+    {
+      "code": "unsupported-element",
+      "message": "An unrecognised element was ignored: {http://schemas.openxmlformats.org/officeDocument/2006/math}oMathPara"
+    },
+    {
+      "code": "unsupported-element",
+      "message": "An unrecognised element was ignored: w:permStart"
+    },
+    {
+      "code": "unsupported-element",
+      "message": "An unrecognised element was ignored: w:permEnd"
+    },
+    {
+      "code": "unsupported-element",
+      "message": "An unrecognised element was ignored: w:altChunk"
+    }
+  ],
+  "mammothHtmlLength": 2488,
+  "renderedHtmlLength": 3376,
+  "mammothHtmlRevisionHits": {},
+  "renderedHtmlRevisionHits": {},
+  "tiptapRevisionHits": {}
+}

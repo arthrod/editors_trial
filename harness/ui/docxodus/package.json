@@ -1,0 +1,16 @@
+{
+  "name": "docxodus-host",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "serve": "vite --port 5210 --strictPort --host 127.0.0.1"
+  },
+  "dependencies": {
+    "@docxodus/export": "^14.2.0",
+    "docxodus": "14.2.0"
+  },
+  "devDependencies": {
+    "vite": "^7.1.9"
+  }
+}

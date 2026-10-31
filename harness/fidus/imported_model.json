@@ -1,0 +1,550 @@
+{
+  "content": {
+    "type": "doc",
+    "attrs": {
+      "import_id": "fidus-trial",
+      "title": "Chapter 1: Heading with mixed formatting."
+    },
+    "content": [
+      {
+        "type": "title",
+        "content": [
+          {
+            "type": "text",
+            "text": "Chapter 1: Heading with ",
+            "marks": [
+              {
+                "type": "strong"
+              }
+            ]
+          },
+          {
+            "type": "text",
+            "text": "mixed formatting",
+            "marks": [
+              {
+                "type": "em"
+              }
+            ]
+          },
+          {
+            "type": "text",
+            "text": ".",
+            "marks": []
+          }
+        ]
+      },
+      {
+        "type": "contributors_part",
+        "attrs": {
+          "id": "authors",
+          "metadata": "authors",
+          "title": "Authors",
+          "locking": false,
+          "optional": false,
+          "help": "",
+          "deleted": false,
+          "hidden": false,
+          "language": ""
+        },
+        "content": [
+          {
+            "type": "contributor",
+            "attrs": {
+              "firstname": "Fixture",
+              "lastname": "Author",
+              "email": "",
+              "institution": ""
+            }
+          }
+        ]
+      },
+      {
+        "type": "richtext_part",
+        "attrs": {
+          "title": "Body",
+          "id": "body",
+          "marks": [
+            "strong",
+            "em",
+            "link"
+          ]
+        },
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "Leading and trailing spaces ",
+                "marks": []
+              },
+              {
+                "type": "text",
+                "text": "are significant.",
+                "marks": []
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "Tab separated",
+                "marks": []
+              },
+              {
+                "type": "hard_break"
+              },
+              {
+                "type": "text",
+                "text": "After a page break",
+                "marks": []
+              },
+              {
+                "type": "text",
+                "text": "nobreak",
+                "marks": []
+              },
+              {
+                "type": "text",
+                "text": "softhyphen",
+                "marks": []
+              },
+              {
+                "type": "text",
+                "text": "sym",
+                "marks": []
+              },
+              {
+                "type": "text",
+                "text": "after CR",
+                "marks": []
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "run with unknown w14 attributes and w14 elements",
+                "marks": [
+                  {
+                    "type": "strong"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "custom namespace attribute: ",
+                "marks": []
+              },
+              {
+                "type": "text",
+                "text": "cs",
+                "marks": []
+              },
+              {
+                "type": "text",
+                "text": " complex-script text",
+                "marks": []
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "mispeling",
+                "marks": []
+              },
+              {
+                "type": "text",
+                "text": "grammaticaly",
+                "marks": []
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": []
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "run whose formatting was changed",
+                "marks": [
+                  {
+                    "type": "strong"
+                  },
+                  {
+                    "type": "em"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "paragraph whose properties were changed",
+                "marks": []
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": []
+          },
+          {
+            "type": "paragraph",
+            "content": []
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "paragraph mark was inserted",
+                "marks": []
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "Right-click and choose Update Field to build the table of contents.",
+                "marks": []
+              }
+            ],
+            "attrs": {
+              "track": [
+                {
+                  "type": "insertion",
+                  "user": 0,
+                  "username": "Fixture Author",
+                  "date": 294744900
+                }
+              ]
+            }
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "bookmarked anchor",
+                "marks": []
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": []
+          },
+          {
+            "type": "paragraph",
+            "content": []
+          },
+          {
+            "type": "ordered_list",
+            "attrs": {
+              "id": "Lfe698fsx32k",
+              "level": 0,
+              "start": 1
+            },
+            "content": [
+              {
+                "type": "list_item",
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "List item level 1",
+                        "marks": []
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "ordered_list",
+            "attrs": {
+              "id": "L33cuk6pads7",
+              "level": 1,
+              "start": 1
+            },
+            "content": [
+              {
+                "type": "list_item",
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "List item level 2",
+                        "marks": []
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "Paragraph after the table.",
+                "marks": []
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "A sentence with a footnote",
+                "marks": []
+              },
+              {
+                "type": "footnote",
+                "attrs": {
+                  "footnote": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": " This is the footnote body with a ",
+                          "marks": []
+                        },
+                        {
+                          "type": "text",
+                          "text": "bold word",
+                          "marks": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              {
+                "type": "text",
+                "text": " and an endnote",
+                "marks": []
+              },
+              {
+                "type": "footnote",
+                "attrs": {
+                  "footnote": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": " This is the endnote body.",
+                          "marks": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "A sentence with a comment",
+                "marks": []
+              }
+            ]
+          },
+          {
+            "type": "figure",
+            "attrs": {
+              "id": "F40037811",
+              "aligned": "center",
+              "width": 100,
+              "caption": false
+            },
+            "content": [
+              {
+                "type": "image",
+                "attrs": {
+                  "image": 384058
+                }
+              },
+              {
+                "type": "figure_caption",
+                "content": []
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": []
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "שלום עולם - Hebrew text right to left",
+                "marks": []
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "rtl run",
+                "marks": []
+              },
+              {
+                "type": "text",
+                "text": "complex script size",
+                "marks": []
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "hidden text",
+                "marks": []
+              },
+              {
+                "type": "text",
+                "text": "no proof",
+                "marks": []
+              },
+              {
+                "type": "text",
+                "text": "caps small",
+                "marks": []
+              },
+              {
+                "type": "text",
+                "text": "vert",
+                "marks": [
+                  {
+                    "type": "sup"
+                  }
+                ]
+              },
+              {
+                "type": "text",
+                "text": "kern",
+                "marks": []
+              },
+              {
+                "type": "text",
+                "text": "lang",
+                "marks": []
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "This region is editable by everyone",
+                "marks": []
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "End of section 1.",
+                "marks": []
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "Landscape section content.",
+                "marks": []
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "Last paragraph.",
+                "marks": []
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "settings": {
+    "import_id": "fidus-trial",
+    "tracked": true,
+    "language": "ja-JP"
+  },
+  "comments": {
+    "0": {
+      "user": 0,
+      "username": "Fixture Author",
+      "date": 1768469400000,
+      "comment": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "This is a comment body.",
+              "marks": []
+            }
+          ]
+        }
+      ],
+      "answers": [],
+      "resolved": false,
+      "isMajor": false
+    }
+  },
+  "imageIds": [
+    "384058"
+  ]
+}

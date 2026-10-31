@@ -1,0 +1,24 @@
+{
+  "name": "docxodus",
+  "url": "file:///Users/arthrod/temp/T/editors_trial/out/ui/docxodus.html",
+  "viewport": [
+    1000,
+    1180
+  ],
+  "fullPage": false,
+  "title": "",
+  "finalUrl": "file:///Users/arthrod/temp/T/editors_trial/out/ui/docxodus.html",
+  "consoleLog": [
+    "[nav] 200 file:///Users/arthrod/temp/T/editors_trial/out/ui/docxodus.html"
+  ],
+  "pageErrors": [],
+  "failedRequests": [],
+  "probe": {
+    "found": 6,
+    "scrolled": true,
+    "page": 1,
+    "boxTop": 20,
+    "boxH": 1056,
+    "scrollY": 0
+  }
+}

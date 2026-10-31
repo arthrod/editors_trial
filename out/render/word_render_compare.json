@@ -1,0 +1,146 @@
+{
+ "superdoc": {
+  "pages": 6,
+  "diff_px": 83,
+  "ink": 1661285,
+  "corpus_ink": 1661202,
+  "pct_of_ink": 0.0,
+  "verdict": "pixel-identical",
+  "per_page": [
+   0,
+   0,
+   0,
+   83,
+   0,
+   0
+  ]
+ },
+ "genoffice": {
+  "pages": 6,
+  "diff_px": 957,
+  "ink": 1660696,
+  "corpus_ink": 1661202,
+  "pct_of_ink": 0.06,
+  "verdict": "pixel-identical",
+  "per_page": [
+   0,
+   957,
+   0,
+   0,
+   0,
+   0
+  ]
+ },
+ "eigenpal": {
+  "pages": 6,
+  "diff_px": 0,
+  "ink": 1661202,
+  "corpus_ink": 1661202,
+  "pct_of_ink": 0.0,
+  "verdict": "pixel-identical",
+  "per_page": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
+  ]
+ },
+ "wordcraft": {
+  "pages": 6,
+  "diff_px": 12541,
+  "ink": 1659002,
+  "corpus_ink": 1661202,
+  "pct_of_ink": 0.75,
+  "verdict": "very close",
+  "per_page": [
+   531,
+   26,
+   543,
+   1128,
+   610,
+   9703
+  ]
+ },
+ "canvas": {
+  "pages": 2,
+  "diff_px": 40646218,
+  "ink": 96088,
+  "corpus_ink": 1661202,
+  "pct_of_ink": 2446.8,
+  "verdict": "different",
+  "per_page": [
+   325402,
+   320816,
+   null,
+   null,
+   null,
+   null
+  ]
+ },
+ "docs.plus": {
+  "pages": 2,
+  "diff_px": 40609781,
+  "ink": 53239,
+  "corpus_ink": 1661202,
+  "pct_of_ink": 2444.6,
+  "verdict": "different",
+  "per_page": [
+   301781,
+   308000,
+   null,
+   null,
+   null,
+   null
+  ]
+ },
+ "plate": {
+  "pages": 2,
+  "diff_px": 40629083,
+  "ink": 97196,
+  "corpus_ink": 1661202,
+  "pct_of_ink": 2445.76,
+  "verdict": "different",
+  "per_page": [
+   325532,
+   303551,
+   null,
+   null,
+   null,
+   null
+  ]
+ },
+ "docxodus": {
+  "pages": 6,
+  "diff_px": 83,
+  "ink": 1661285,
+  "corpus_ink": 1661202,
+  "pct_of_ink": 0.0,
+  "verdict": "pixel-identical",
+  "per_page": [
+   0,
+   0,
+   0,
+   83,
+   0,
+   0
+  ]
+ },
+ "libreoffice": {
+  "pages": 6,
+  "diff_px": 12386,
+  "ink": 1661176,
+  "corpus_ink": 1661202,
+  "pct_of_ink": 0.75,
+  "verdict": "very close",
+  "per_page": [
+   0,
+   26,
+   3900,
+   2790,
+   1793,
+   3877
+  ]
+ }
+}

@@ -1,0 +1,74 @@
+{
+ "superdoc": {
+  "pages": 6,
+  "diff": 0,
+  "pct": 0.0,
+  "verdict": "pixel-identical"
+ },
+ "folio": {
+  "pages": 6,
+  "diff": 0,
+  "pct": 0.0,
+  "verdict": "pixel-identical"
+ },
+ "genoffice": {
+  "pages": 6,
+  "diff": 1570,
+  "pct": 0.83,
+  "verdict": "very close"
+ },
+ "eigenpal": {
+  "pages": 6,
+  "diff": 0,
+  "pct": 0.0,
+  "verdict": "pixel-identical"
+ },
+ "office-open": {
+  "pages": 6,
+  "diff": 111924,
+  "pct": 59.19,
+  "verdict": "different"
+ },
+ "docen": {
+  "pages": 6,
+  "diff": 228534,
+  "pct": 120.85,
+  "verdict": "different"
+ },
+ "wordcraft": {
+  "pages": 6,
+  "diff": 24132,
+  "pct": 12.76,
+  "verdict": "close"
+ },
+ "fidus": {
+  "pages": 2,
+  "diff": 60000000,
+  "pct": 31728.57,
+  "verdict": "different"
+ },
+ "canvas": {
+  "pages": 2,
+  "diff": 40158984,
+  "pct": 21236.45,
+  "verdict": "different"
+ },
+ "docs.plus": {
+  "pages": 3,
+  "diff": 30190539,
+  "pct": 15965.05,
+  "verdict": "different"
+ },
+ "plate": {
+  "pages": 2,
+  "diff": 40151887,
+  "pct": 21232.7,
+  "verdict": "different"
+ },
+ "libreoffice": {
+  "pages": 6,
+  "diff": 335,
+  "pct": 0.18,
+  "verdict": "pixel-identical"
+ }
+}

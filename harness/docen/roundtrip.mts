@@ -1,0 +1,27 @@
+// docen (@docen/docx) docx -> docx round trip.
+//
+// Uses the library's own public API, imported from SOURCE (no dist build):
+//   packages/docx/src/converters/docx.ts:1337  parseDOCX(bytes)  -> Tiptap JSONContent
+//   packages/docx/src/converters/docx.ts:1415  generateDOCX(json) -> uint8array
+//
+// parseDOCX delegates to @office-open/docx parseDocument; generateDOCX compiles
+// the Tiptap JSON back to DocumentOptions and calls @office-open/docx
+// generateDocument. No DOM required for the docx<->docx lane.
+//
+// usage: tsx harness/docen/roundtrip.mts <in.docx> <out.docx>
+import { readFileSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+const REPO = '/Users/arthrod/temp/T/editors_trial/repos/docen';
+const inPath = resolve(process.argv[2]);
+const outPath = resolve(process.argv[3]);
+
+const { parseDOCX, generateDOCX } = await import(
+  `${REPO}/packages/docx/src/converters/docx.ts`
+);
+
+const bytes = new Uint8Array(readFileSync(inPath));
+const json = await parseDOCX(bytes);
+const out = await generateDOCX(json, { packer: { type: 'uint8array' } });
+writeFileSync(outPath, out);
+console.log(`[docen] wrote ${out.byteLength} bytes (nodes=${json.content?.length})`);

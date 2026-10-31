@@ -1,0 +1,134 @@
+{
+  "name": "docxodus_ui",
+  "url": "file:///Users/arthrod/temp/T/editors_trial/out/ui/docxodus.html",
+  "viewport": [
+    1440,
+    1400
+  ],
+  "fullPage": false,
+  "title": "",
+  "finalUrl": "file:///Users/arthrod/temp/T/editors_trial/out/ui/docxodus.html",
+  "consoleLog": [
+    "[nav] 200 file:///Users/arthrod/temp/T/editors_trial/out/ui/docxodus.html"
+  ],
+  "pageErrors": [],
+  "failedRequests": [],
+  "probe": {
+    "counts": {
+      "tables": 2,
+      "tableRows": 8,
+      "tableCells": 14,
+      "svg": 3,
+      "canvas": 0,
+      "objects": 0,
+      "math": 0,
+      "images": 2,
+      "paragraphs": 69
+    },
+    "imageInfo": [
+      {
+        "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAA",
+        "natural": "16x16",
+        "rendered": "91x91",
+        "alt": "fixture image"
+      },
+      {
+        "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAA",
+        "natural": "16x16",
+        "rendered": "109x73",
+        "alt": ""
+      }
+    ],
+    "pageBoxes": [
+      {
+        "cls": "page-container",
+        "w": 1440,
+        "h": 6236,
+        "top": 0
+      },
+      {
+        "cls": "page-box",
+        "w": 816,
+        "h": 1056,
+        "top": 20
+      },
+      {
+        "cls": "page-markup-layer",
+        "w": 816,
+        "h": 1056,
+        "top": 20
+      },
+      {
+        "cls": "page-markup-page",
+        "w": 619,
+        "h": 801,
+        "top": 260
+      },
+      {
+        "cls": "page-content",
+        "w": 474,
+        "h": 648,
+        "top": 340
+      },
+      {
+        "cls": "page-box",
+        "w": 816,
+        "h": 1056,
+        "top": 1096
+      },
+      {
+        "cls": "page-markup-layer",
+        "w": 816,
+        "h": 1056,
+        "top": 1096
+      },
+      {
+        "cls": "page-markup-page",
+        "w": 619,
+        "h": 801,
+        "top": 1336
+      },
+      {
+        "cls": "page-content",
+        "w": 474,
+        "h": 648,
+        "top": 1416
+      },
+      {
+        "cls": "page-box",
+        "w": 816,
+        "h": 1056,
+        "top": 2172
+      },
+      {
+        "cls": "page-markup-layer",
+        "w": 816,
+        "h": 1056,
+        "top": 2172
+      },
+      {
+        "cls": "page-markup-page",
+        "w": 619,
+        "h": 801,
+        "top": 2412
+      }
+    ],
+    "pageBoxCount": 25,
+    "collectedChars": 1672,
+    "textBoxContent": true,
+    "fallbackText": false,
+    "smartArtPlaceholder": true,
+    "mathPlaceholder": true,
+    "stepOne": false,
+    "catA": true,
+    "series1": true,
+    "equation": false,
+    "hiddenText": false,
+    "commentBody": true,
+    "deletedRow": true,
+    "insertedRow": true,
+    "footnoteBody": true,
+    "endnoteBody": true,
+    "sample": "Default header\n\n1\n\nChapter 1: Heading with mixed formatting.\n\nLeading and trailing spaces are significant.\n\nTab separated\n\nFooter text page 1\n\nDefault header\n\n2\n\nAfter a page break-nobreaksofthyphensym\n‎after CR\n\nrun with unknown w14 attributes and w14 elements\n\ncustom namespace attribute: cs complex-script text\n\nmispelinggrammaticaly\n\ninserted text deleted text\n\nrun whose formatting was changed\n\nparagraph whose properties were changed\n\nmoved away\n\nmoved here\n\nparagraph mark was inserted\n\nRight-click and choose Update Field to build the table of contents.\n\nbookmarked anchor\n\nbookmarked anchor\n\n1\n\ncontent control content\n\n2026-01-15\n\nbound value\n\ninner nested content\n\n1.\nList item level 1\n\na"
+  }
+}

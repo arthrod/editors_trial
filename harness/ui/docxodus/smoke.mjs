@@ -1,0 +1,12 @@
+import fs from 'node:fs';
+import { initialize, openDocxSession, getVersion } from 'docxodus/core';
+const bytes = new Uint8Array(fs.readFileSync('/Users/arthrod/temp/T/editors_trial/fixture/complex.docx'));
+await initialize();
+console.log('version:', JSON.stringify(getVersion()));
+const session = openDocxSession(bytes);
+const saved = session.save();
+console.log('source bytes:', bytes.length, 'saved bytes:', saved.length);
+fs.mkdirSync('/Users/arthrod/temp/T/editors_trial/out/docxodus', { recursive: true });
+fs.writeFileSync('/Users/arthrod/temp/T/editors_trial/out/docxodus/complex.docx', saved);
+session.close();
+console.log('written');

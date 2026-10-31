@@ -1,0 +1,31 @@
+{
+  "name": "eigenpal_s0.8",
+  "url": "http://127.0.0.1:5206/",
+  "viewport": [
+    1440,
+    1500
+  ],
+  "fullPage": false,
+  "title": "DOCX Editor — React Demo",
+  "finalUrl": "http://127.0.0.1:5206/",
+  "consoleLog": [
+    "[debug] [vite] connecting...",
+    "[debug] [vite] connected.",
+    "[info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+    "[nav] 200 http://127.0.0.1:5206/",
+    "[file-accept] docx -> input[data-harness-target=\"1\"]",
+    "[file-input] set input[data-harness-target=\"1\"] <- fixture/complex.docx"
+  ],
+  "pageErrors": [],
+  "failedRequests": [],
+  "probe": {
+    "scrolled": true,
+    "tag": "DIV",
+    "cls": "docx-editor docx-editor-one-surface docx-editor-one-surface_",
+    "scrollHeight": 6304,
+    "clientHeight": 1275,
+    "scrollTop": 4023,
+    "from": 0,
+    "containerCount": 1
+  }
+}

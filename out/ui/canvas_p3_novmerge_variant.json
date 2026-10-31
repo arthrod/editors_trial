@@ -1,0 +1,399 @@
+{
+  "name": "canvas_p3_novmerge_variant",
+  "url": "http://127.0.0.1:5204/?page=3",
+  "viewport": [
+    1440,
+    1500
+  ],
+  "fullPage": false,
+  "title": "Canvas Editor — DOCX rendering host",
+  "finalUrl": "http://127.0.0.1:5204/?page=3",
+  "consoleLog": [
+    "[debug] [vite] connecting...",
+    "[debug] [vite] connected.",
+    "[log] [host] editor instance ready, version = 1.0.6",
+    "[nav] 200 http://127.0.0.1:5204/?page=3",
+    "[log] [host] fetched /sample.docx 25345 bytes",
+    "[log] [host] docx imported",
+    "[log] [host] scrolled to page 3 ok = true"
+  ],
+  "pageErrors": [],
+  "failedRequests": [],
+  "probe": {
+    "imported": true,
+    "pageSize": 3,
+    "editorScrollTop": 1744,
+    "editorScrollHeight": 3244,
+    "editorClientHeight": 1500,
+    "container": {
+      "tag": "DIV",
+      "cls": "ce-page-container",
+      "w": 816,
+      "h": 3208,
+      "top": -1728,
+      "left": 312
+    },
+    "tree": [
+      {
+        "depth": 0,
+        "tag": "DIV",
+        "cls": "",
+        "w": 816,
+        "h": 3228,
+        "top": -1728,
+        "left": 312
+      },
+      {
+        "depth": 1,
+        "tag": "DIV",
+        "cls": "ce-page-container",
+        "w": 816,
+        "h": 3208,
+        "top": -1728,
+        "left": 312
+      },
+      {
+        "depth": 2,
+        "tag": "CANVAS",
+        "cls": "",
+        "w": 816,
+        "h": 1056,
+        "top": -1728,
+        "left": 312
+      },
+      {
+        "depth": 2,
+        "tag": "CANVAS",
+        "cls": "",
+        "w": 816,
+        "h": 1056,
+        "top": -652,
+        "left": 312
+      },
+      {
+        "depth": 2,
+        "tag": "CANVAS",
+        "cls": "",
+        "w": 816,
+        "h": 1056,
+        "top": 424,
+        "left": 312
+      },
+      {
+        "depth": 1,
+        "tag": "CANVAS",
+        "cls": "ce-magnifier",
+        "w": 0,
+        "h": 0,
+        "top": 0,
+        "left": 0
+      },
+      {
+        "depth": 1,
+        "tag": "DIV",
+        "cls": "ce-resizer-selection",
+        "w": 0,
+        "h": 0,
+        "top": 0,
+        "left": 0
+      },
+      {
+        "depth": 2,
+        "tag": "DIV",
+        "cls": "resizer-handle handle-0",
+        "w": 0,
+        "h": 0,
+        "top": 0,
+        "left": 0
+      },
+      {
+        "depth": 2,
+        "tag": "DIV",
+        "cls": "resizer-handle handle-1",
+        "w": 0,
+        "h": 0,
+        "top": 0,
+        "left": 0
+      },
+      {
+        "depth": 2,
+        "tag": "DIV",
+        "cls": "resizer-handle handle-2",
+        "w": 0,
+        "h": 0,
+        "top": 0,
+        "left": 0
+      },
+      {
+        "depth": 2,
+        "tag": "DIV",
+        "cls": "resizer-handle handle-3",
+        "w": 0,
+        "h": 0,
+        "top": 0,
+        "left": 0
+      },
+      {
+        "depth": 2,
+        "tag": "DIV",
+        "cls": "resizer-handle handle-4",
+        "w": 0,
+        "h": 0,
+        "top": 0,
+        "left": 0
+      },
+      {
+        "depth": 2,
+        "tag": "DIV",
+        "cls": "resizer-handle handle-5",
+        "w": 0,
+        "h": 0,
+        "top": 0,
+        "left": 0
+      },
+      {
+        "depth": 2,
+        "tag": "DIV",
+        "cls": "resizer-handle handle-6",
+        "w": 0,
+        "h": 0,
+        "top": 0,
+        "left": 0
+      },
+      {
+        "depth": 2,
+        "tag": "DIV",
+        "cls": "resizer-handle handle-7",
+        "w": 0,
+        "h": 0,
+        "top": 0,
+        "left": 0
+      },
+      {
+        "depth": 2,
+        "tag": "DIV",
+        "cls": "ce-resizer-size-view",
+        "w": 0,
+        "h": 0,
+        "top": 0,
+        "left": 0
+      },
+      {
+        "depth": 3,
+        "tag": "SPAN",
+        "cls": "",
+        "w": 0,
+        "h": 0,
+        "top": 0,
+        "left": 0
+      },
+      {
+        "depth": 1,
+        "tag": "DIV",
+        "cls": "ce-resizer-image",
+        "w": 0,
+        "h": 0,
+        "top": 0,
+        "left": 0
+      },
+      {
+        "depth": 2,
+        "tag": "IMG",
+        "cls": "",
+        "w": 0,
+        "h": 0,
+        "top": 0,
+        "left": 0
+      },
+      {
+        "depth": 1,
+        "tag": "DIV",
+        "cls": "ce-hyperlink-popup",
+        "w": 0,
+        "h": 0,
+        "top": 0,
+        "left": 0
+      },
+      {
+        "depth": 2,
+        "tag": "A",
+        "cls": "",
+        "w": 0,
+        "h": 0,
+        "top": 0,
+        "left": 0
+      },
+      {
+        "depth": 1,
+        "tag": "DIV",
+        "cls": "ce-hint-popup",
+        "w": 0,
+        "h": 0,
+        "top": 0,
+        "left": 0
+      },
+      {
+        "depth": 2,
+        "tag": "SPAN",
+        "cls": "ce-hint-popup__text",
+        "w": 0,
+        "h": 0,
+        "top": 0,
+        "left": 0
+      },
+      {
+        "depth": 1,
+        "tag": "DIV",
+        "cls": "ce-trace-popup",
+        "w": 0,
+        "h": 0,
+        "top": 0,
+        "left": 0
+      },
+      {
+        "depth": 2,
+        "tag": "DIV",
+        "cls": "ce-trace-popup__list",
+        "w": 0,
+        "h": 0,
+        "top": 0,
+        "left": 0
+      },
+      {
+        "depth": 1,
+        "tag": "DIV",
+        "cls": "ce-date-container",
+        "w": 0,
+        "h": 0,
+        "top": 0,
+        "left": 0
+      },
+      {
+        "depth": 2,
+        "tag": "DIV",
+        "cls": "ce-date-wrap",
+        "w": 0,
+        "h": 0,
+        "top": 0,
+        "left": 0
+      },
+      {
+        "depth": 3,
+        "tag": "DIV",
+        "cls": "ce-date-title",
+        "w": 0,
+        "h": 0,
+        "top": 0,
+        "left": 0
+      },
+      {
+        "depth": 4,
+        "tag": "SPAN",
+        "cls": "ce-date-title__pre-year",
+        "w": 0,
+        "h": 0,
+        "top": 0,
+        "left": 0
+      },
+      {
+        "depth": 4,
+        "tag": "SPAN",
+        "cls": "ce-date-title__pre-month",
+        "w": 0,
+        "h": 0,
+        "top": 0,
+        "left": 0
+      },
+      {
+        "depth": 4,
+        "tag": "SPAN",
+        "cls": "ce-date-title__now",
+        "w": 0,
+        "h": 0,
+        "top": 0,
+        "left": 0
+      },
+      {
+        "depth": 4,
+        "tag": "SPAN",
+        "cls": "ce-date-title__next-month",
+        "w": 0,
+        "h": 0,
+        "top": 0,
+        "left": 0
+      },
+      {
+        "depth": 4,
+        "tag": "SPAN",
+        "cls": "ce-date-title__next-year",
+        "w": 0,
+        "h": 0,
+        "top": 0,
+        "left": 0
+      },
+      {
+        "depth": 3,
+        "tag": "DIV",
+        "cls": "ce-date-week",
+        "w": 0,
+        "h": 0,
+        "top": 0,
+        "left": 0
+      },
+      {
+        "depth": 4,
+        "tag": "SPAN",
+        "cls": "",
+        "w": 0,
+        "h": 0,
+        "top": 0,
+        "left": 0
+      },
+      {
+        "depth": 4,
+        "tag": "SPAN",
+        "cls": "",
+        "w": 0,
+        "h": 0,
+        "top": 0,
+        "left": 0
+      },
+      {
+        "depth": 4,
+        "tag": "SPAN",
+        "cls": "",
+        "w": 0,
+        "h": 0,
+        "top": 0,
+        "left": 0
+      },
+      {
+        "depth": 4,
+        "tag": "SPAN",
+        "cls": "",
+        "w": 0,
+        "h": 0,
+        "top": 0,
+        "left": 0
+      },
+      {
+        "depth": 4,
+        "tag": "SPAN",
+        "cls": "",
+        "w": 0,
+        "h": 0,
+        "top": 0,
+        "left": 0
+      },
+      {
+        "depth": 4,
+        "tag": "SPAN",
+        "cls": "",
+        "w": 0,
+        "h": 0,
+        "top": 0,
+        "left": 0
+      }
+    ]
+  }
+}
