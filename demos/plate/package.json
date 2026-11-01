@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@chenglou/pretext": "^0.0.7",
+    "@chenglou/pretext": "^0.0.9",
     "@noble/hashes": "^1.8.0",
     "@tanstack/react-virtual": "^3.13.25",
     "@zip.js/zip.js": "^2.24.0",
