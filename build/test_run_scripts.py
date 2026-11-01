@@ -43,6 +43,11 @@ class BrokenCorpusInputTest(unittest.TestCase):
         self.assertIn("IN_DOCX=$IN", l)
         self.assertIn("OUT_DIR=$OUTROOT/canvas", l)
 
+    def test_libreoffice_output_is_named_like_every_other_editors(self):
+        # soffice names its output after the input (complex_broken.docx); the scan reads complex.docx.
+        lo = self.text[self.text.index("soffice"):self.text.index("run plate")]
+        self.assertIn('mv "$OUTROOT/lo_baseline/complex_broken.docx" "$OUTROOT/lo_baseline/complex.docx"', lo)
+
     def test_the_output_root_can_be_a_scratch_directory(self):
         self.assertIn("OUTROOT=${OUTROOT:-", self.text)
 

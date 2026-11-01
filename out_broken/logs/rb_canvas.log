@@ -1,0 +1,11 @@
+
+ RUN  v4.1.12 /Users/arthrod/temp/T/editors_trial/harness/canvas
+
+(node:80526) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  13:17:58
+   Duration  4.42s (transform 2.67s, setup 37ms, import 3.03s, tests 724ms, environment 557ms)
+

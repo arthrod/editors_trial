@@ -1,0 +1,188 @@
+unhandled node XMLElement {
+  node: { 'w:proofErr': [], ':@': { 'w:type': 'spellStart' } },
+  parentElement: XMLElement {
+    node: { 'w:p': [Array] },
+    parentElement: XMLElement { node: [Object], parentElement: [XMLElement] }
+  }
+}
+unhandled node XMLElement {
+  node: { 'w:proofErr': [], ':@': { 'w:type': 'spellEnd' } },
+  parentElement: XMLElement {
+    node: { 'w:p': [Array] },
+    parentElement: XMLElement { node: [Object], parentElement: [XMLElement] }
+  }
+}
+unhandled node XMLElement {
+  node: { 'w:proofErr': [], ':@': { 'w:type': 'gramStart' } },
+  parentElement: XMLElement {
+    node: { 'w:p': [Array] },
+    parentElement: XMLElement { node: [Object], parentElement: [XMLElement] }
+  }
+}
+unhandled node XMLElement {
+  node: { 'w:proofErr': [], ':@': { 'w:type': 'gramEnd' } },
+  parentElement: XMLElement {
+    node: { 'w:p': [Array] },
+    parentElement: XMLElement { node: [Object], parentElement: [XMLElement] }
+  }
+}
+unhandled node XMLElement {
+  node: {
+    'w:ins': [ [XMLElement] ],
+    ':@': {
+      'w:id': '101',
+      'w:author': 'Fixture Author',
+      'w:date': '2026-01-15T09:30:00Z',
+      'w16du:dateUtc': '2026-01-15T09:30:00.000Z'
+    }
+  },
+  parentElement: XMLElement {
+    node: { 'w:p': [Array] },
+    parentElement: XMLElement { node: [Object], parentElement: [XMLElement] }
+  }
+}
+unhandled node XMLElement {
+  node: {
+    'w:del': [ [XMLElement] ],
+    ':@': {
+      'w:id': '102',
+      'w:author': 'Fixture Author',
+      'w:date': '2026-01-15T09:30:00Z',
+      'w16du:dateUtc': '2026-01-15T09:30:00.000Z'
+    }
+  },
+  parentElement: XMLElement {
+    node: { 'w:p': [Array] },
+    parentElement: XMLElement { node: [Object], parentElement: [XMLElement] }
+  }
+}
+unhandled node XMLElement {
+  node: {
+    'w:moveFromRangeStart': [],
+    ':@': {
+      'w:id': '201',
+      'w:name': 'move1',
+      'w:author': 'Fixture Author',
+      'w:date': '2026-01-15T09:30:00Z'
+    }
+  },
+  parentElement: XMLElement {
+    node: { 'w:p': [Array] },
+    parentElement: XMLElement { node: [Object], parentElement: [XMLElement] }
+  }
+}
+unhandled node XMLElement {
+  node: {
+    'w:moveFrom': [ [XMLElement] ],
+    ':@': {
+      'w:id': '202',
+      'w:author': 'Fixture Author',
+      'w:date': '2026-01-15T09:30:00Z'
+    }
+  },
+  parentElement: XMLElement {
+    node: { 'w:p': [Array] },
+    parentElement: XMLElement { node: [Object], parentElement: [XMLElement] }
+  }
+}
+unhandled node XMLElement {
+  node: { 'w:moveFromRangeEnd': [], ':@': { 'w:id': '201' } },
+  parentElement: XMLElement {
+    node: { 'w:p': [Array] },
+    parentElement: XMLElement { node: [Object], parentElement: [XMLElement] }
+  }
+}
+unhandled node XMLElement {
+  node: {
+    'w:moveToRangeStart': [],
+    ':@': {
+      'w:id': '203',
+      'w:name': 'move1',
+      'w:author': 'Fixture Author',
+      'w:date': '2026-01-15T09:30:00Z'
+    }
+  },
+  parentElement: XMLElement {
+    node: { 'w:p': [Array] },
+    parentElement: XMLElement { node: [Object], parentElement: [XMLElement] }
+  }
+}
+unhandled node XMLElement {
+  node: {
+    'w:moveTo': [ [XMLElement] ],
+    ':@': {
+      'w:id': '204',
+      'w:author': 'Fixture Author',
+      'w:date': '2026-01-15T09:30:00Z'
+    }
+  },
+  parentElement: XMLElement {
+    node: { 'w:p': [Array] },
+    parentElement: XMLElement { node: [Object], parentElement: [XMLElement] }
+  }
+}
+unhandled node XMLElement {
+  node: { 'w:moveToRangeEnd': [], ':@': { 'w:id': '203' } },
+  parentElement: XMLElement {
+    node: { 'w:p': [Array] },
+    parentElement: XMLElement { node: [Object], parentElement: [XMLElement] }
+  }
+}
+unhandled node XMLElement {
+  node: {
+    'w:bookmarkStart': [],
+    ':@': { 'w:id': '301', 'w:name': 'TargetBookmark' }
+  },
+  parentElement: XMLElement {
+    node: { 'w:p': [Array] },
+    parentElement: XMLElement { node: [Object], parentElement: [XMLElement] }
+  }
+}
+unhandled node XMLElement {
+  node: { 'w:bookmarkEnd': [], ':@': { 'w:id': '301' } },
+  parentElement: XMLElement {
+    node: { 'w:p': [Array] },
+    parentElement: XMLElement { node: [Object], parentElement: [XMLElement] }
+  }
+}
+unhandled node XMLElement {
+  node: {
+    'w:fldSimple': [ [XMLElement] ],
+    ':@': { 'w:instr': ' REF TargetBookmark \\h ' }
+  },
+  parentElement: XMLElement {
+    node: { 'w:p': [Array] },
+    parentElement: XMLElement { node: [Object], parentElement: [XMLElement] }
+  }
+}
+unhandled node XMLElement {
+  node: {
+    'w:fldSimple': [ [XMLElement] ],
+    ':@': { 'w:instr': ' PAGE \\* MERGEFORMAT ' }
+  },
+  parentElement: XMLElement {
+    node: { 'w:p': [Array] },
+    parentElement: XMLElement { node: [Object], parentElement: [XMLElement] }
+  }
+}
+unhandled node XMLElement {
+  node: { 'w:permStart': [], ':@': { 'w:id': '501', 'w:edGrp': 'everyone' } },
+  parentElement: XMLElement {
+    node: { 'w:p': [Array] },
+    parentElement: XMLElement { node: [Object], parentElement: [XMLElement] }
+  }
+}
+unhandled node XMLElement {
+  node: { 'w:permEnd': [], ':@': { 'w:id': '501' } },
+  parentElement: XMLElement {
+    node: { 'w:p': [Array] },
+    parentElement: XMLElement { node: [Object], parentElement: [XMLElement] }
+  }
+}
+IMPORT OK: doc nodes: 3 node types: {"doc":1,"title":1,"text":41,"contributors_part":1,"contributor":1,"richtext_part":1,"paragraph":28,"hard_break":1,"ordered_list":2,"list_item":2,"footnote":2,"figure":1,"image":1,"figure_caption":1}
+IMPORT settings: {"import_id":"fidus-trial","tracked":true,"language":"ja-JP"}
+IMPORT comments: 1
+IMPORT comments data: {"0":{"user":0,"username":"Fixture Author","date":1768469400000,"comment":[{"type":"paragraph","content":[{"type":"text","text":"This is a comment body.","marks":[]}]}],"answers":[],"resolved":false,"isMajor":false}}
+EXPORT images in db: 1
+EXPORT template: library generated (generateDocxTemplate)
+EXPORT OK bytes: 36799 -> /tmp/v092/broken2/fidus/complex.docx

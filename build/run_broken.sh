@@ -19,7 +19,9 @@ run() {
 }
 
 mkdir -p "$OUTROOT/lo_baseline"
+rm -f "$OUTROOT/lo_baseline/complex.docx"
 timeout 200 soffice --headless --norestore --convert-to docx --outdir "$OUTROOT/lo_baseline" "$IN" >/tmp/rb_lo.log 2>&1 \
+  && mv "$OUTROOT/lo_baseline/complex_broken.docx" "$OUTROOT/lo_baseline/complex.docx" \
   && echo "OK   libreoffice ($(wc -c < "$OUTROOT/lo_baseline/complex.docx" | tr -d ' ') bytes)" \
   || echo "FAIL libreoffice :: $(tail -3 /tmp/rb_lo.log | tr '\n' ' ')"
 

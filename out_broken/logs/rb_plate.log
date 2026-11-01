@@ -1,0 +1,72 @@
+Warning: KaTeX doesn't work in quirks mode. Make sure your website has a suitable doctype.
+plugins: 45, presentation components: 42
+stylesheet: 3039 chars
+
+=== IMPORT (lossPolicy: 'reject' - Plate's default) ===
+ok: false
+
+=== strict import diagnostics ===
+diagnostics: 34
+codes: {"decode-failed":1,"unsupported-content":19,"converter-message":6,"resource-omitted":2,"property-dropped":6}
+errors: 1
+  [error] decode-failed: DOCX content could not be decoded by the installed editor schema.
+  [warning] unsupported-content: DOCX field-instruction content was replaced.
+  [warning] unsupported-content: DOCX field content was replaced.
+  [warning] unsupported-content: DOCX field content was replaced.
+  [warning] unsupported-content: DOCX structured-document-tag content was unwrapped.
+  [warning] unsupported-content: DOCX structured-document-tag content was unwrapped.
+  [warning] unsupported-content: DOCX structured-document-tag content was unwrapped.
+  [warning] unsupported-content: DOCX structured-document-tag content was unwrapped.
+  [warning] unsupported-content: DOCX structured-document-tag content was unwrapped.
+  [warning] unsupported-content: DOCX embedded-object content was replaced.
+  [warning] unsupported-content: DOCX text-box content was unwrapped.
+  [warning] unsupported-content: DOCX alt-chunk content was dropped.
+  [warning] unsupported-content: DOCX header content is not mapped into the main document.
+  [warning] unsupported-content: DOCX footer content is not mapped into the main document.
+  [warning] unsupported-content: DOCX footnote content is not mapped into the main document.
+  [warning] unsupported-content: DOCX endnote content is not mapped into the main document.
+  [warning] unsupported-content: Tracked construct moveFromRangeStart was flattened.
+  [warning] unsupported-content: Tracked construct moveFromRangeEnd was flattened.
+  [warning] unsupported-content: Tracked construct moveToRangeStart was flattened.
+  [warning] unsupported-content: Tracked construct moveToRangeEnd was flattened.
+  [warning] converter-message: An unrecognised element was ignored: w:cr
+  [warning] converter-message: An unrecognised element was ignored: w:fldSimple
+  [warning] converter-message: An unrecognised element was ignored: {urn:schemas-microsoft-com:office:office}OLEObject
+  [warning] converter-message: An unrecognised element was ignored: w:permStart
+  [warning] converter-message: An unrecognised element was ignored: w:permEnd
+  [warning] converter-message: An unrecognised element was ignored: w:altChunk
+  [warning] resource-omitted: An embedded image was omitted during DOCX import.
+  [warning] resource-omitted: An embedded image was omitted during DOCX import.
+  [warning] property-dropped: DOCX import dropped background color 2 times.
+  [warning] property-dropped: DOCX import dropped font size 4 times.
+  [warning] property-dropped: DOCX import dropped font family 2 times.
+  [warning] property-dropped: DOCX import dropped caps 1 time.
+  [warning] property-dropped: DOCX import dropped small caps 1 time.
+  [warning] property-dropped: DOCX import dropped character spacing 1 time.
+
+=== IMPORT (lossPolicy: allow) ALSO FAILED ===
+  [error] decode-failed: DOCX content could not be decoded by the installed editor schema.
+  [warning] unsupported-content: DOCX field-instruction content was replaced.
+  [warning] unsupported-content: DOCX field content was replaced.
+  [warning] unsupported-content: DOCX field content was replaced.
+  [warning] unsupported-content: DOCX structured-document-tag content was unwrapped.
+  [warning] unsupported-content: DOCX structured-document-tag content was unwrapped.
+  [warning] unsupported-content: DOCX structured-document-tag content was unwrapped.
+  [warning] unsupported-content: DOCX structured-document-tag content was unwrapped.
+  [warning] unsupported-content: DOCX structured-document-tag content was unwrapped.
+  [warning] unsupported-content: DOCX embedded-object content was replaced.
+  [warning] unsupported-content: DOCX text-box content was unwrapped.
+  [warning] unsupported-content: DOCX alt-chunk content was dropped.
+  [warning] unsupported-content: DOCX header content is not mapped into the main document.
+  [warning] unsupported-content: DOCX footer content is not mapped into the main document.
+  [warning] unsupported-content: DOCX footnote content is not mapped into the main document.
+  [warning] unsupported-content: DOCX endnote content is not mapped into the main document.
+  [warning] unsupported-content: Tracked construct moveFromRangeStart was flattened.
+  [warning] unsupported-content: Tracked construct moveFromRangeEnd was flattened.
+  [warning] unsupported-content: Tracked construct moveToRangeStart was flattened.
+  [warning] unsupported-content: Tracked construct moveToRangeEnd was flattened.
+  [warning] converter-message: An unrecognised element was ignored: w:cr
+  [warning] converter-message: An unrecognised element was ignored: w:fldSimple
+  [warning] converter-message: An unrecognised element was ignored: {urn:schemas-microsoft-com:office:office}OLEObject
+  [warning] converter-message: An unrecognised element was ignored: w:permStart
+  [warning] converter-message: An unrecognised element was ignored: w:permEnd
