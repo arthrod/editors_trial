@@ -48,9 +48,14 @@ The measurements, in order (`build/run_trial.sh` runs the ones it can):
 | Facts and reports | `build/facts.py`, `build/render_reports.py` | all |
 | Live demos | `demos/<editor>/BUILD.md`, then `pnpm sync:demos` in the site | benchmarks.law |
 
-Anything that cannot be re-run (the Google Docs exports are made by hand in
-a browser) is named in the changelog's "Not re-measured" section and in the
-report itself. Never leave it silent.
+**Exception: Google Docs and Microsoft Word are never re-tested on the hostile
+packages.** Their rows in Report D and Report D2 stay as measured; a release
+does not upload the hostile packages to Google or open them in Word again.
+Word is still used for everything that is not hostile: opening every editor
+output, and Report C's pixel layer.
+
+Anything else that is not re-run is named in the changelog's "Not
+re-measured" section and in the report itself. Never leave it silent.
 
 ### 3. Measure on a quiet machine
 
