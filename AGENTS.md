@@ -38,7 +38,8 @@ The measurements, in order (`build/run_trial.sh` runs the ones it can):
 |---|---|---|
 | Round trip, every editor | `build/run_all.sh` | main report, A, A2, B |
 | Second pass | `build/run_second_pass.sh` | main report, A2 |
-| Scores | `build/score_all.py`, `build/score_extra.py` | all |
+| Scores | `build/score_all.py`, `build/score_extra.py`, then `build/apryse_stamp.py` (labels the trial stamp, never edits the output) | all |
+| Broken corpus | `build/run_broken.sh`, `build/defect_survival.py` | B |
 | Word opens every output | `build/word_verdicts.py` | main report, B, D2 |
 | Report A namespace tables | `build/ns_json.py`; check §6 with `build/report_a_matrix.py --patch` on a copy | A |
 | Report C: each editor's own UI | `build/capture_ui.sh` (twice; compare with `build/compare_ui.py`) | C |
