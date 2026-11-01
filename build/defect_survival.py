@@ -24,6 +24,7 @@ EDITORS = [
     ("eigenpal", "eigenpal"), ("office-open", "officeopen"), ("Docen", "docen"),
     ("WordCraft", "wordcraft"), ("Fidus Writer", "fidus"),
     ("canvas-editor + plugin", "canvas"), ("docs.plus", "docsplus"),
+    ("Apryse WebViewer", "apryse"),
     ("LibreOffice (baseline)", "lo_baseline"),
 ]
 

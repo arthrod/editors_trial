@@ -35,6 +35,7 @@ run wordcraft bash -c "cd $BASE/harness/wordcraft && cargo run --release -- $IN 
 run canvas    bash -c "cd $BASE/repos/canvas-editor && ./node_modules/.bin/vitest run --root $BASE/harness/canvas"
 run docsplus  bash -c "cd $BASE/harness/docsplus/repo-copy && bun $BASE/harness/docsplus/roundtrip.ts $IN $OUTROOT/docsplus/complex.docx"
 run docxodus  bash -c "cd $BASE/harness/ui/docxodus && node roundtrip.mjs $IN $OUTROOT/docxodus/complex.docx"
+run apryse    bash -c "cd $BASE/harness/apryse && node roundtrip.mjs $IN $OUTROOT/apryse/complex.docx"
 
 pkill -f "superdoc host" 2>/dev/null
 echo "=== BROKEN-CORPUS ROUND TRIPS DONE ==="
