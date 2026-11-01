@@ -27,13 +27,13 @@ GROUPS = [
 # editor order used everywhere in the reports
 EDITORS = ["superdoc", "folio", "genoffice", "eigenpal", "office-open",
            "docen", "wordcraft", "fidus", "canvas", "docs.plus", "plate",
-           "docxodus", "libreoffice"]
+           "docxodus", "apryse", "libreoffice"]
 
 PRETTY = {
     "superdoc": "SuperDoc", "folio": "Folio", "genoffice": "GenOffice",
     "eigenpal": "eigenpal", "office-open": "office-open", "docen": "Docen",
     "wordcraft": "WordCraft", "fidus": "Fidus", "canvas": "canvas",
-    "docs.plus": "docs.plus", "plate": "Plate.js", "docxodus": "Docxodus",
+    "docs.plus": "docs.plus", "plate": "Plate.js", "docxodus": "Docxodus", "apryse": "Apryse",
     "libreoffice": "LibreOffice",
 }
 

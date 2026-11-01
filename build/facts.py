@@ -230,6 +230,25 @@ def read_facts(old: Path, release: str, facts: dict) -> None:
             facts["read." + k[4:]] = v
 
 
+def ns_label_facts(data: dict, facts: dict) -> None:
+    """Per participant: in how many namespaces it kept every name, some, or none (out/ns_map.json)."""
+    measured = [n for n in data["namespaces"] if n["survival"].get("corpus", {}).get("total")]
+    facts["ns.measured"] = len(measured)
+    for label in data["labels"]:
+        if label == "corpus":
+            continue
+        groups: dict[str, list[str]] = {"all_kept": [], "partial": [], "none": []}
+        for n in measured:
+            s = n["survival"].get(label)
+            if not s or not s["total"]:
+                continue
+            g = "all_kept" if s["kept"] == s["total"] else "none" if s["kept"] == 0 else "partial"
+            groups[g].append(f"`{n['prefix']}`")
+        for g, names in groups.items():
+            facts[f"ns.{label}.{g}"] = len(names)
+            facts[f"ns.{label}.{g}_list"] = ", ".join(names[:-1]) + (" and " if len(names) > 1 else "") + (names[-1] if names else "")
+
+
 def word_pixel_facts(path: Path, facts: dict) -> None:
     """Report C section 6.1: each output Word rendered, against Word's rendering of the corpus."""
     if not path.exists():
@@ -307,6 +326,7 @@ def build() -> dict:
         for i in range(len(ns_tables.GROUPS)):
             facts[f"ns.matrix.{i}"] = ns_tables.report_matrix(data, i)
         facts["ns.partial"] = ns_tables.partial(data)
+        ns_label_facts(json.loads((OUT / "ns_map.json").read_text()), facts)
     # Report D quotes the scorecard and the protection labels whole.
     for name in ("scorecard", "protection"):
         log = ROOT / "logs" / "bombs" / f"{name}.txt"

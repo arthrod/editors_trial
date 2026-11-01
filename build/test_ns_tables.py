@@ -17,7 +17,21 @@ def published() -> str:
                           capture_output=True, text=True, check=True).stdout
 
 
+class V091Columns:
+    """The generator, restricted to v0.9.1's columns (Apryse joined in v0.9.2), reproduces v0.9.1's tables."""
+    def __enter__(self):
+        self.saved = ns_tables.EDITORS
+        ns_tables.EDITORS = [e for e in self.saved if e != "apryse"]
+
+    def __exit__(self, *exc):
+        ns_tables.EDITORS = self.saved
+
+
 class ReportTablesTest(unittest.TestCase):
+    def run(self, result=None):
+        with V091Columns():
+            return super().run(result)
+
     def test_each_group_matrix_matches_the_report(self):
         data, text = ns_tables.load(), published()
         for i in range(len(ns_tables.GROUPS)):
@@ -34,6 +48,16 @@ class ReportTablesTest(unittest.TestCase):
         gen = "\n".join(l for l in ns_tables.partial(ns_tables.load()).splitlines()
                         if not l.startswith(("| `a` | Fidus | 11/60 |", "| `a` | canvas | 11/60 |")))
         self.assertIn(gen, text)
+
+
+class CurrentReportTest(unittest.TestCase):
+    def test_the_rendered_report_carries_the_generated_tables_with_apryse(self):
+        text = (ROOT / REPORT).read_text()
+        data = ns_tables.load()
+        self.assertIn("apryse", ns_tables.EDITORS)
+        for i in range(len(ns_tables.GROUPS)):
+            self.assertIn(ns_tables.report_matrix(data, i), text)
+        self.assertIn(ns_tables.partial(data), text)
 
 
 if __name__ == "__main__":

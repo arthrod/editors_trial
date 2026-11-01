@@ -2,7 +2,7 @@
 
 What each measured tool is, and trivia that is not a score. Lane results for Folio and eigenpal are in `extras/`. This page does not rank the tools.
 
-The round-trip driver in `build/score_all.py` measures thirteen tools. `build/run_all.sh` runs the same set. Folio and eigenpal each have a second headless lane; those lanes are the same tools, not extra vendors. `repos/` is a local checkout of upstream trees. This page does not decide which of those trees are part of a published source drop, and it does not relicense any of them.
+The round-trip driver in `build/score_all.py` measures fourteen tools. `build/run_all.sh` runs the same set. Folio and eigenpal each have a second headless lane; those lanes are the same tools, not extra vendors. `repos/` is a local checkout of upstream trees. This page does not decide which of those trees are part of a published source drop, and it does not relicense any of them.
 
 ## Plate.js
 
@@ -51,6 +51,10 @@ canvas-editor, by hufe, is a Canvas/SVG rich-text editor. The README says that u
 ## docs.plus
 
 docs.plus is a real-time collaborative editor. The README's distinguishing feature is that every heading has its own chatroom, and the table of contents shows who is in that room. The license is MIT, copyright 2023–2026 Hossein Marzban. The runtime is Bun. The editor is Tiptap on Next.js. An MCP path lets Claude or ChatGPT read documents the account can open and edit documents the account owns. The site is docs.plus.
+
+## Apryse
+
+Apryse WebViewer is a closed-source JavaScript document SDK, and the only commercial, closed-source tool in the round-trip lanes. Its DOCX Editor edits a Word file in the browser with Apryse's own office engine, compiled to WebAssembly, and saves it back as DOCX. The npm package keeps the company's former name, `@pdftron/webviewer`. The trial measures version 12.2.1 with a trial license key, which stamps a watermark picture into every file it saves. When it starts, the SDK posts its license key, a language code and its version to `pws-collect.pdftron.com`; the document's text and file name are not in that request. This benchmark drives it through `harness/apryse`.
 
 ## LibreOffice
 
