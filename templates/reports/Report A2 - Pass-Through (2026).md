@@ -567,7 +567,7 @@ build/ns_map.py                   # per-namespace survival (the companion report
 build/make_report.sh <report.md>  # markdown -> .docx, with the two Word fixes
 ```
 
-`build/make_report.sh` is the pipeline that produces this file: pandoc writes `w:dirty="true"` on the table-of-contents field, which Word {{word.version}} refuses, so `build/fix_dirty.py` rewrites it; and pandoc sizes every table for a portrait page, so `build/retune_tables.py` re-fits the tables to the landscape content width.
+`build/make_report.sh` is the pipeline that produces this file: pandoc writes `w:dirty="true"` on the table-of-contents field, on which Word {{word.version}} asks whether to update the fields (the first report recorded it as a refusal; Report B §2), so `build/fix_dirty.py` rewrites it; and pandoc sizes every table for a portrait page, so `build/retune_tables.py` re-fits the tables to the landscape content width.
 
 The per-editor code citations refer to the pinned commits listed in the first report, under `repos/`. **None of those checkouts was modified.**
 

@@ -38,7 +38,7 @@ The first report found that the corpus it used — a hand-built {{fixture.parts}
 | office-open / Docen | the body is rewritten with numeric relationship ids while the `.rels` keeps the source's descriptive ones | rewrite 5 ids to the declared names | **REFUSED → opened** |
 
 - **The office-open / Docen defect is a single asymmetry with two symptoms.** One id-resolution function accepts only numeric relationship ids and the other does not. The dangling reference is symptom one; the "unbound prefix" malformed XML on re-import is symptom two, and it is why those two projects are the only non-idempotent ones in the study (second-pass scores 32.0% and 30.5%).
-- **The broken corpus kills exactly the four editors that were faithful to it, and spares exactly the three that discard the content.** SuperDoc, GenOffice, eigenpal and WordCraft open the clean corpus and refuse the broken one; canvas, docs.plus and LibreOffice open both, because they dropped the content that carried the defects. **Fidelity and robustness are anti-correlated here**, and the first report's ranking does not survive a malformed input unchanged.
+- **The broken corpus kills the editors that were faithful to it, and spares the ones that discard the content — and d12 is no longer one of the defects that kill.** {{broken.flipped_list}} open the clean corpus and refuse the broken one. {{broken.spared_list}} open both. canvas, docs.plus and LibreOffice opened it because they dropped the content that carried the defects. WordCraft kept `w:dirty="true"` (d12), which this release finds is not fatal on its own (§2). **Fidelity and robustness are anti-correlated here**, and the first report's ranking does not survive a malformed input unchanged.
 - **Plate.js is the twelfth editor, and it breaks the pattern in the most useful way.** It cannot open the broken corpus either — but it fails **before writing anything**, so it is the only editor in the study that refuses a malformed file without leaving a damaged one behind. Its clean-corpus output, by contrast, is schema-clean, package-clean and **opens in Word**. **Docxodus is the thirteenth, and it does not break the pattern: it is faithful, it preserves the damage, and Word refuses its broken-corpus output — exactly as the defect table predicts.**
 
 ---
@@ -113,11 +113,11 @@ These are the interesting ones, because **no schema validator reports any of the
 | 9 | the OLE object points at 64 bytes of filler | Word embeds a Word document as the raw `.docx` bytes behind `o:OLEObject ProgID="Word.Document.12"`; it tries to open the payload and fails |
 | 10 | `w:delText` inside `w:moveFrom` | `w:delText` marks text to be displayed "when the run is part of a deletion". A move source is not a deletion. Word reads the move as a second, unmatched deletion |
 | 11 | `m:oMathPara` as a direct child of `w:body` | the transitional schema permits a block-level equation through `EG_ContentBlockContent` → `EG_RunLevelElts` → `m:EG_OMathMathElements`; Word requires the equation inside a `w:p`, the way Word itself writes it |
-| 12 | `w:dirty="true"` on a `w:fldChar` | `w:dirty` is an ordinary `ST_OnOff` attribute, and Word itself writes it on an out-of-date table of contents. In this build it is nevertheless fatal to the whole document |
+| 12 | `w:dirty="true"` on a `w:fldChar` | `w:dirty` is an ordinary `ST_OnOff` attribute, and Word itself writes it on an out-of-date table of contents. The first report found it fatal to the whole document; this release does not (below) |
 
-**The measured table for #12**, which is the least intuitive result in the study:
+**The first report's table for #12**, then the least intuitive result in the study (the attribute variants were not re-run in this release):
 
-| `w:fldChar` attribute | Word {{word.version}} |
+| `w:fldChar` attribute | Word, first report |
 |---|---|
 | `w:dirty="true"` | **refused** |
 | `w:dirty="1"` | **refused** |
@@ -126,6 +126,8 @@ These are the interesting ones, because **no schema validator reports any of the
 | attribute absent | opened |
 
 It does not depend on the field type (a `PAGE` field refuses identically), on `w:documentProtection`, or on the rest of the package. It is not specific to the corpus: **pandoc writes `w:dirty="true"` on the TOC field of every document it produces**, so the first build of the first report's own `.docx` was refused by Word for exactly this reason, and `build/fix_dirty.py` now rewrites it to `"false"` in every generated file.
+
+**In this release the rule did not hold.** The single-defect corpora (`build/make_single_defect.py`) were opened again through the audited driver, twice: the clean corpus {{iso.clean}}, d10 alone {{iso.d10}}, d11 alone {{iso.d11}}, and **d12 alone {{iso.d12}}**, with the same text as the clean corpus (`out/word_isolation.json`). It opened after Word asked *"This document contains fields that may refer to other files. Do you want to update the fields in this document?"* — a question, not an offer to repair, but a warning all the same, so a file carrying d12 opens and is still not Word valid. WordCraft's broken-corpus output, which keeps d12 and drops d10 and d11, opened too (§4.1). The first report used the same Word version through a hand-written driver that kept no record of what Word showed, and a driver that reads that question as a refusal produces the first report's table exactly. That is the likely explanation, not a proven one; the driver used now names the document it saves, declines Word's repair prompt, and writes a manifest. `build/fix_dirty.py` still rewrites `w:dirty` to `"false"` in every generated file, which is harmless either way.
 
 ---
 
@@ -271,23 +273,23 @@ This is the question the first report could not answer, and it is the one that m
 
 The last column of the table above is not an independent measurement; it falls out of the other columns. This is worth stating precisely, because the pattern is the single most useful result in this report.
 
-Three of the eleven defect classes are fatal to Word on their own, established by isolation in the first report: **d10** (`w:delText` inside `w:moveFrom`), **d11** (block-level `m:oMathPara`) and **d12** (`w:dirty="true"` on a `w:fldChar`). Every editor's Word verdict is consistent with its own defect table:
+The first report isolated three defect classes as fatal to Word on their own: **d10** (`w:delText` inside `w:moveFrom`), **d11** (block-level `m:oMathPara`) and **d12** (`w:dirty="true"` on a `w:fldChar`). In this release d10 alone {{iso.d10}} and d11 alone {{iso.d11}}, but d12 alone {{iso.d12}} (§2). With d10 and d11 as the fatal classes, every editor's Word verdict is consistent with its own defect table, Fidus Writer apart:
 
 {{broken.fatal}}
 
 Three of these rows are individually decisive:
 
-- **WordCraft isolates `w:dirty` as the sole cause of its refusal.** It is the only editor that removed d10 and d11 and kept d12 — and it still died. That is the cleanest possible confirmation that `w:dirty="true"` on a `w:fldChar` is fatal on its own, arrived at through a completely different route than the isolation probes in the first report.
+- **WordCraft separates d12 from the other two.** It is the only editor that removed d10 and d11 and kept d12. In v0.9.1 it was recorded as refused, which read as confirmation that `w:dirty="true"` alone is fatal. In this release the same output file opens, twice on each of two sets of outputs, and so does the d12-only corpus: nothing fatal survives in WordCraft's output, and Word opens it.
 - **Fidus Writer's refusal is its own, not the corpus's.** Fidus dropped every defect and still could not open. It was *also* refused on the clean corpus (§3.3, eleven schema violations), so the broken corpus changed nothing for it. This is the one row where "the corpus killed it" is the wrong explanation, and it is the row that prevents the table from being read as a rule.
 - **Plate.js's "refusal" is a third thing again.** It is neither a Word refusal nor an output failure: **Plate never wrote a file**. The import failed with `decode-failed`, so there is nothing for Word to judge. This is the only row in the table where the verdict column describes the *editor declining to act*, and it is the row that makes the other eleven legible — a refusal, a failure and a refusal-to-refuse are three different outcomes, and only one of them is safe.
 
-### 4.2 The broken corpus kills exactly the four editors that were faithful — and spares exactly the three that discard
+### 4.2 The broken corpus kills the editors that were faithful — and spares the ones that discard
 
 Putting the two Word matrices side by side is the clearest single statement of what pass-through costs.
 
 {{broken.flip}}
 
-**Five editors that were faithful to the clean file die on the malformed one, and the three that survive are the three that throw the content away.** Fidelity and robustness are anti-correlated here, and the reason is structural rather than accidental: an editor that preserves the document preserves the damage inside it, because the damage *is* the document as far as a pass-through writer is concerned. The editors that survive the malformed input are the ones that were already losing most of the document — they lose nothing more.
+**{{broken.flipped:W}} editors that were faithful to the clean file die on the malformed one. Of the {{broken.spared:w}} that open both, three are the ones that throw the content away; the fourth, WordCraft, kept only d12, which Word now opens (§2).** Fidelity and robustness are anti-correlated here, and the reason is structural rather than accidental: an editor that preserves the document preserves the damage inside it, because the damage *is* the document as far as a pass-through writer is concerned. The editors that survive the malformed input are the ones that were already losing most of the document — they lose nothing more.
 
 That is the uncomfortable trade a fidelity score hides completely. The first report's ranking puts SuperDoc first and canvas second-to-last. On malformed input the order **inverts**: canvas and docs.plus open, and SuperDoc does not.
 
@@ -314,7 +316,7 @@ The broken corpus carries all twelve defect classes at once, so a refusal there 
 
 **One of twelve.**
 
-The eleven that pass are not marginal: **they are exactly the classes that make Word refuse the file.** d10 is the one that made Folio's output unopenable; d12 is the one that made WordCraft's output unopenable; d1–d5 are the ordering classes the schema catches; d9 is a corrupt embedded package. Plate's importer accepts all of them.
+The eleven that pass are not marginal: **they are exactly the classes that make Word refuse the file.** d10 is the one that made Folio's output unopenable; d1–d5 are the ordering classes the schema catches; d9 is a corrupt embedded package. Plate's importer accepts all of them.
 
 The one it catches, d11, is also the one that makes sense. `m:oMathPara` is a **block-level display equation** — an element whose parent is `w:body` rather than a paragraph — and Plate's schema has no node type for it. The decoder reaches a construct its own model cannot represent and fails with:
 

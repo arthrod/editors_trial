@@ -172,6 +172,18 @@ def flip_table(rows, clean_opens, verdicts, editors=EDITORS):
     return "\n".join(lines)
 
 
+def names(labels):
+    """'A, B and C' for prose."""
+    return ", ".join(labels[:-1]) + (" and " if len(labels) > 1 else "") + (labels[-1] if labels else "")
+
+
+def groups(rows, clean_opens, verdicts, editors=EDITORS):
+    """Editors whose Word verdict the broken corpus flipped, and those Word opened on both corpora."""
+    flipped = [l for l, d in editors if clean_opens.get(d) is True and rows.get(d) and verdicts.get(d) == "REFUSED"]
+    spared = [l for l, d in editors if clean_opens.get(d) is True and rows.get(d) and verdicts.get(d) == "OPENED"]
+    return flipped, spared
+
+
 def main():
     doc = text_of(BROKEN, "word/document.xml")
     settings = text_of(BROKEN, "word/settings.xml")

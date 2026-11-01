@@ -262,6 +262,16 @@ def word_pixel_facts(path: Path, facts: dict) -> None:
             facts[f"wpx.{label}.{name}"] = v[k]
 
 
+def isolation_facts(path: Path, facts: dict) -> None:
+    """Report B section 2: Word on each single-defect corpus (out/word_isolation.json, two passes)."""
+    if not path.exists():
+        return
+    data = json.loads(path.read_text())
+    for name in data["passes"][0]:
+        opened = [p.get(name) == "OPENED" for p in data["passes"]]
+        facts[f"iso.{name}"] = "opened" if all(opened) else "did not open" if not any(opened) else "differed between passes"
+
+
 def broken_facts(facts: dict) -> None:
     """Report B's defect-survival table: out_broken/ scanned, plus Word's verdict on the same outputs.
     An output Word has not opened in this release reads "not measured", never an old verdict."""
@@ -275,6 +285,9 @@ def broken_facts(facts: dict) -> None:
     facts["broken.fatal"] = defect_survival.fatal_table(rows, data["verdicts"])
     clean = {d: facts[f"word.{d}.opens"] for _, d in defect_survival.EDITORS if f"word.{d}.opens" in facts}
     facts["broken.flip"] = defect_survival.flip_table(rows, clean, data["verdicts"])
+    flipped, spared = defect_survival.groups(rows, clean, data["verdicts"])
+    facts["broken.flipped"], facts["broken.flipped_list"] = len(flipped), defect_survival.names(flipped)
+    facts["broken.spared"], facts["broken.spared_list"] = len(spared), defect_survival.names(spared)
     facts["broken.word_measured"] = word.exists()
     editors = [d for d in rows if d != "lo_baseline"]
     facts["broken.editors"] = len(editors)
@@ -345,6 +358,7 @@ def build() -> dict:
     release_facts(OUT / "release.json", facts)
     read_facts(OUT / f"facts-{CODE_READ_RELEASE}.json", CODE_READ_RELEASE, facts)
     word_pixel_facts(OUT / "render" / "word_render_compare.json", facts)
+    isolation_facts(OUT / "word_isolation.json", facts)
     broken_facts(facts)   # after word.* : 4.2 sets the clean-corpus verdict beside the broken one
     count_facts(facts)
     stars = OUT / "stars.json"

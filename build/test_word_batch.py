@@ -48,5 +48,43 @@ class Manifest(unittest.TestCase):
                              {"a": "OPENED", "b": "REFUSED"})
 
 
+class Watchdog(unittest.TestCase):
+    """Every driver run is bracketed by the bench's word_watchdog.sh, as the bench runs it:
+    a modal dialog blocks the driver's own timeouts, and the watchdog's kill makes the driver recycle Word."""
+    def test_the_watchdog_watches_the_driver_output_and_log_and_is_stopped_after(self):
+        from unittest import mock
+        events = []
+
+        class Proc:
+            def __init__(self, argv, **kw):
+                events.append(("start", argv))
+            def terminate(self):
+                events.append(("stop",))
+            def wait(self, timeout=None):
+                return 0
+
+        def run(cmd, **kw):
+            events.append(("driver", cmd))
+            return mock.Mock(returncode=0, stdout="", stderr="")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "a.docx"
+            src.write_bytes(b"x")
+            out = Path(tmp) / "out"
+            with mock.patch.object(word_batch.subprocess, "Popen", Proc), \
+                 mock.patch.object(word_batch.subprocess, "run", run):
+                word_batch.run({"a": src}, out)
+        self.assertEqual([e[0] for e in events], ["start", "driver", "stop"])
+        argv = events[0][1]
+        self.assertEqual(argv[0], str(word_batch.WATCHDOG))
+        work = events[1][1][events[1][1].index("--out") + 1]
+        self.assertIn(work, argv)
+        self.assertIn(str(out / "word_driver.log"), argv)
+
+    def test_the_watchdog_is_vendored_beside_the_driver(self):
+        self.assertTrue(word_batch.WATCHDOG.exists())
+        self.assertEqual(word_batch.WATCHDOG.parent, word_batch.DRIVER.parent)
+
+
 if __name__ == "__main__":
     unittest.main()

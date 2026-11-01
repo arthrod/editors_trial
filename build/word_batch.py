@@ -32,6 +32,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DRIVER = ROOT / "build" / "vendor" / "word_pdf.py"
+# The bench runs its driver beside this watchdog: a modal dialog blocks the
+# driver's own timeouts, so when neither the output folder nor the log has
+# grown for 60 s while Word sits idle, the watchdog kills Word and the driver
+# recycles it and resumes (neurotic_docx_bench scripts/word_watchdog.sh).
+WATCHDOG = ROOT / "build" / "vendor" / "word_watchdog.sh"
 # Both mean Word did not open the file: the driver declined Word's repair
 # prompt, or Word produced no document for it (the watchdog does not always
 # get to record its decline before the driver gives up on the empty load).
@@ -78,7 +83,14 @@ def run(targets: dict[str, Path], out_dir: Path, timeout: float = 180.0) -> dict
         cmd = ["uv", "run", "-q", "--script", str(DRIVER), "--src", str(src), "--out", str(work),
                "--force", "--timeout", str(timeout), "--no-check-preset", "--label", "trial",
                "--log", str(out_dir / "word_driver.log")]
-        proc = subprocess.run(cmd, capture_output=True, text=True)
+        log = out_dir / "word_driver.log"
+        dog = subprocess.Popen([str(WATCHDOG), str(work), str(log)],
+                               stdout=open(out_dir / "word_watchdog.log", "a"), stderr=subprocess.STDOUT)
+        try:
+            proc = subprocess.run(cmd, capture_output=True, text=True)
+        finally:
+            dog.terminate()
+            dog.wait(timeout=10)
         (out_dir / "word_driver.stdout").write_text(proc.stdout + proc.stderr)
         manifest = work / "manifest.jsonl"
         records = read_manifest(manifest) if manifest.exists() else {}

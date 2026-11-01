@@ -3,3 +3,5 @@ Commit: 2f2e23dbf609664932bc2e846cfcfb409b079756
 Date: 2026-10-22
 Spec: tests/test_word_pdf*.py passed in the source repo when vendored
 sha256 word_pdf.py: e43874f1b77d387d85311d0172f88e22867b177022ec7c4ad824803989c2ab64
+word_watchdog.sh commit: 6fd25e9ca7e5ce0b40995dde1eb6ed71d8f93b57
+sha256 word_watchdog.sh: 7397ea3dac8d3c067a054ea2ce999e96d7829e9acc48568c221e16ead7248069

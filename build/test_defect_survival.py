@@ -105,6 +105,11 @@ class FatalAndFlipTables(unittest.TestCase):
         self.assertEqual(lines[3], "| WordCraft | OPENED | OPENED | no |")
         self.assertEqual(lines[5], "| Plate.js | OPENED | no output | **yes — the importer refused the corpus** |")
 
+    def test_groups_name_the_flipped_and_the_spared(self):
+        flipped, spared = ds.groups(self.rows, self.clean, self.broken, self.ed)
+        self.assertEqual((flipped, spared), (["SuperDoc"], ["WordCraft", "canvas"]))
+        self.assertEqual(ds.names(["A", "B", "C"]), "A, B and C")
+
     def test_a_verdict_not_measured_is_not_turned_into_a_flip(self):
         line = ds.flip_table(self.rows, {}, self.broken, self.ed).splitlines()[2]
         self.assertEqual(line, "| SuperDoc | not measured | REFUSED | not measured |")
