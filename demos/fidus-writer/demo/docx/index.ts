@@ -94,7 +94,7 @@ async function main() {
     const imageDB = {db: {} as Record<string, unknown>}
     for (const [id, entry] of Object.entries(importer.images ?? {})) {
         const e = entry as {file?: Blob, image?: unknown, file_type?: string}
-        imageDB.db[String(id)] = {...e, image: e.file ?? e.image, file_type: e.file?.type ?? e.file_type}
+        imageDB.db[String(id)] = {...e, image: e.file ?? e.image, file_type: e.file?.type || e.file_type}
     }
 
     button.addEventListener("click", async () => {

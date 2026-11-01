@@ -32,7 +32,8 @@ const known: Record<string, unknown> = {
   consumeAiDocContent: async () => null,
   confirmDocumentReplace: async () => true,
   convertAltChunkHtml: async () => null,
-  saveDocx: async (_path: string, data: ArrayBuffer) => (download(data, 'document.docx'), saved),
+  // file-actions.ts calls saveDocx(path, data, auto); an autosave (timer or blur) must not start a download.
+  saveDocx: async (_path: string, data: ArrayBuffer, auto?: boolean) => (auto ? saved : (download(data, 'document.docx'), saved)),
   saveDocxAs: async (name: string, data: ArrayBuffer) => (download(data, name || 'document.docx'), saved),
   saveDocxNew: async (name: string, data: ArrayBuffer) => (download(data, name || 'document.docx'), saved),
   writeRecoveryCopy: async () => ({ ok: true }),

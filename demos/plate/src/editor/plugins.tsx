@@ -2,6 +2,7 @@
 
 import {
   BaseFontBackgroundColorPlugin,
+  BaseListPlugin,
   BaseFontColorPlugin,
   BaseFontFamilyPlugin,
   BaseFontSizePlugin,
@@ -119,19 +120,22 @@ export function ScriptLeaf(props: React.ComponentProps<typeof EditorLeaf>) {
 
 function ListShell(
   props: React.ComponentProps<typeof EditorElement> & {
+    listStart?: number;
     listStyle?: string;
     listType?: string;
   }
 ) {
-  const { children, listStyle, listType } = props;
+  const { children, listStart, listStyle, listType } = props;
   const element = (props as { element?: { listType?: string } }).element ?? {};
   const ordered = isOrderedList(element as never);
   const Tag = (ordered ? 'ol' : 'ul') as 'ul';
 
+  // Each item is its own one-item list, so a numbered item says where it is in the list (as the static kit does).
   return (
     <Tag
       className="demo-list"
-      style={{ listStyleType: listStyle ?? 'disc' }}
+      start={ordered ? listStart : undefined}
+      style={{ listStyleType: listStyle ?? (ordered ? 'decimal' : 'disc') }}
     >
       <li className="demo-li">{children}</li>
     </Tag>
@@ -296,6 +300,11 @@ export const EditorKit = [
           return (
             <ListShell
               {...innerProps}
+              listStart={
+                element.listType === ListType.Numbered
+                  ? innerProps.editor.plugin(BaseListPlugin).read.ordinal(innerProps.element)
+                  : undefined
+              }
               listStyle={element.listStyle}
               listType={element.listType}
             />
@@ -328,6 +337,7 @@ export const EditorKit = [
   }),
   BaseFontColorPlugin,
   BaseFontBackgroundColorPlugin,
+  BaseListPlugin,
   BaseFontFamilyPlugin,
   BaseFontSizePlugin,
   BaseTextIndentPlugin,

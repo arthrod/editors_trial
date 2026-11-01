@@ -33,6 +33,13 @@ function mountDownloadButton(editor: DocenDocument): void {
     "cursor:pointer",
   ].join(";");
   endSlot.prepend(downloadButton);
+  // The title bar replaces its contents when it re-renders (a locale change), taking the button with it.
+  if (!titleBar.dataset.downloadWatch) {
+    titleBar.dataset.downloadWatch = "1";
+    new MutationObserver(() => {
+      if (!downloadButton.isConnected) mountDownloadButton(editor);
+    }).observe(titleBar, { childList: true, subtree: true });
+  }
 }
 
 async function downloadDocx(editor: DocenDocument): Promise<void> {

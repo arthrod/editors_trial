@@ -138,10 +138,14 @@ const run = async (): Promise<void> => {
       })
   })
 
+  // The link has no href until here, so an early click cannot save the page itself as document.docx.
+  downloadButton.href = '#'
+  downloadButton.removeAttribute('aria-disabled')
   setStatus('Ready')
 
   const scope = globalThis as unknown as Record<string, unknown>
-  scope.__docsPlusDemo = {
+  // Merge: src/shims/server-metrics.ts already wrote the import-time metrics onto this object.
+  scope.__docsPlusDemo = Object.assign((scope.__docsPlusDemo as object | undefined) ?? {}, {
     title: result.title,
     warnings: result.warnings,
     text: editor.getText(),
@@ -149,7 +153,7 @@ const run = async (): Promise<void> => {
     editor,
     inflatedBytes: inflated,
     exportDocx: () => exportDocx(editor.getJSON(), result.title, baseUrl(), null)
-  }
+  })
   document.body.dataset.ready = 'true'
 }
 
