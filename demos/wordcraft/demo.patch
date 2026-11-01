@@ -1,0 +1,313 @@
+diff --git a/Cargo.toml b/Cargo.toml
+index eca974d..fb982e6 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -115,9 +115,10 @@ opt-level = 1
+ debug = "line-tables-only"
+ 
+ [profile.release]
+-opt-level = 3
+-lto = "thin"
+-codegen-units = 16
++# The browser build: a small .wasm matters more than the last few percent of speed.
++opt-level = "z"
++lto = "fat"
++codegen-units = 1
+ debug = 0
+ 
+ # Required by craft-pdf: the backend rejects writers that failed during unwinding.
+diff --git a/apps/wordcraft-web/Cargo.toml b/apps/wordcraft-web/Cargo.toml
+index 4a2a9d0..14e51a8 100644
+--- a/apps/wordcraft-web/Cargo.toml
++++ b/apps/wordcraft-web/Cargo.toml
+@@ -23,10 +23,11 @@ wordcraft-doc = { workspace = true }
+ wordcraft-fonts = { workspace = true }
+ 
+ [target.'cfg(target_arch = "wasm32")'.dependencies]
+-# `wgpu` pulls egui-wgpu's defaults: WebGPU plus the WebGL2 fallback.
+-eframe = { workspace = true, features = ["default_fonts", "wgpu", "accesskit"] }
++# The demo build paints with WebGL2 (eframe's `glow` backend) instead of WebGPU: it is the
++# backend every browser has, it needs no GPU adapter, and it keeps the .wasm small.
++eframe = { workspace = true, features = ["default_fonts", "glow", "accesskit"] }
+ rfd = { workspace = true }
+ wasm-bindgen = "0.2"
+ wasm-bindgen-futures = "0.4"
+ js-sys = "0.3"
+-web-sys = { version = "0.3", features = ["Window", "Document", "Element", "HtmlElement", "HtmlCanvasElement", "HtmlAnchorElement", "HtmlIFrameElement", "Blob", "BlobPropertyBag", "Url", "Location", "CssStyleDeclaration", "Event", "EventTarget", "BeforeUnloadEvent", "ClipboardEvent", "DataTransfer", "FileList", "File", "DomStringList", "IdbFactory", "IdbOpenDbRequest", "IdbRequest", "IdbDatabase", "IdbObjectStore", "IdbTransaction", "IdbTransactionMode", "MediaQueryList", "Storage", "MessageEvent", "UrlSearchParams"] }
++web-sys = { version = "0.3", features = ["Window", "Document", "Element", "HtmlElement", "HtmlCanvasElement", "HtmlAnchorElement", "HtmlIFrameElement", "Blob", "BlobPropertyBag", "Url", "Location", "CssStyleDeclaration", "Event", "EventTarget", "BeforeUnloadEvent", "ClipboardEvent", "DataTransfer", "FileList", "File", "DomStringList", "IdbFactory", "IdbOpenDbRequest", "IdbRequest", "IdbDatabase", "IdbObjectStore", "IdbTransaction", "IdbTransactionMode", "MediaQueryList", "Storage", "MessageEvent", "UrlSearchParams", "Request", "Response"] }
+diff --git a/apps/wordcraft-web/Trunk.toml b/apps/wordcraft-web/Trunk.toml
+index 5fac5a3..5ff1696 100644
+--- a/apps/wordcraft-web/Trunk.toml
++++ b/apps/wordcraft-web/Trunk.toml
+@@ -1,7 +1,7 @@
+ # Build with: trunk build --release   (from apps/wordcraft-web)
+ [build]
+ target = "index.html"
+-dist = "../../dist/web"
++dist = "../../../dist"
+ public_url = "./"
+ filehash = true
+ 
+diff --git a/apps/wordcraft-web/index.html b/apps/wordcraft-web/index.html
+index ca6ad46..3243105 100644
+--- a/apps/wordcraft-web/index.html
++++ b/apps/wordcraft-web/index.html
+@@ -8,13 +8,50 @@
+   <link data-trunk rel="rust" data-bin="wordcraft-web" data-wasm-opt="z" data-weak-refs />
+   <style>
+     html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #e6e6e6; }
+-    #wordcraft_canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
++    /* The page's own strip on top holds the Download button; the editor fills the rest, so the
++       button covers none of the editor's controls. */
++    #wordcraft_canvas { position: absolute; top: 36px; left: 0; right: 0; bottom: 0; width: 100%; height: calc(100% - 36px); display: block; }
+     #wordcraft_loading { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+       color: #555; font: 14px system-ui, sans-serif; pointer-events: none; }
++    /* The page's own small toolbar: the editor fills the viewport, this floats above it. */
++    #demo_toolbar { position: absolute; top: 0; left: 0; right: 0; height: 36px; z-index: 10; display: flex; align-items: center;
++      justify-content: flex-end; padding: 0 8px; box-sizing: border-box; background: #1f1f1f; border-bottom: 1px solid #333; }
++    #download-docx { font: 13px system-ui, sans-serif; color: #1a1a1a; background: #ffffff; border: 1px solid #b4b4b4;
++      border-radius: 6px; padding: 4px 11px; cursor: pointer; }
++    #download-docx:hover { background: #f3f3f3; }
++    #download-docx:active { background: #e4e4e4; }
++    #download-docx[disabled] { opacity: .55; cursor: default; }
+   </style>
+ </head>
+ <body>
+   <canvas id="wordcraft_canvas"></canvas>
+   <div id="wordcraft_loading">Loading WordCraft&hellip;</div>
++  <div id="demo_toolbar">
++    <button id="download-docx" type="button" disabled>Download .docx</button>
++  </div>
++  <script>
++    // The button asks the editor (the wasm app) to save the open document: the editor's own
++    // writer makes the .docx and the browser downloads it.
++    (function () {
++      var button = document.getElementById('download-docx');
++      var tries = 0;
++      var timer = setInterval(function () {
++        if (window.wordcraftDemo) {
++          // The open document's text, as the editor reports it (it answers on its next frame).
++          window.__demoText = function () {
++            window.wordcraftDemo.requestState();
++            try { return JSON.parse(window.wordcraftDemo.state()).text || ''; } catch (e) { return ''; }
++          };
++          button.disabled = false;
++          clearInterval(timer);
++        } else if (++tries > 1200) {
++          clearInterval(timer);
++        }
++      }, 50);
++      button.addEventListener('click', function () {
++        if (window.wordcraftDemo) { window.wordcraftDemo.downloadDocx(); }
++      });
++    })();
++  </script>
+ </body>
+ </html>
+diff --git a/apps/wordcraft-web/src/web.rs b/apps/wordcraft-web/src/web.rs
+index 7fa947f..581585a 100644
+--- a/apps/wordcraft-web/src/web.rs
++++ b/apps/wordcraft-web/src/web.rs
+@@ -38,23 +38,19 @@ pub fn start() {
+         {
+             log::error!("no unsaved-changes guard: {e}");
+         }
+-        let mut options = eframe::WebOptions::default();
+-        if query().contains("webgl")
+-            && let eframe::egui_wgpu::WgpuSetup::CreateNew(create) = &mut options.wgpu_options.wgpu_setup
+-        {
+-            create.instance_descriptor.backends = eframe::wgpu::Backends::GL;
+-        }
++        let options = eframe::WebOptions::default();
+         let result = eframe::WebRunner::new()
+             .start(
+                 canvas,
+                 options,
+                 Box::new(move |cc| {
+-                    if let Some(rs) = &cc.wgpu_render_state {
+-                        log::info!("wordcraft-web: wgpu backend {:?}", rs.adapter.get_info().backend);
+-                    }
+                     // Fonts the user added on an earlier visit (#582); the app notices them arrive.
+                     font_store::load_all(cc.egui_ctx.clone());
+                     let inbox: Inbox = Inbox::default();
++                    // The demo page's own API: its "Download .docx" button and the checks that
++                    // read the document back out of the editor.
++                    DEMO.with(|d| d.borrow_mut().ctx = Some(cc.egui_ctx.clone()));
++                    install_demo_api();
+                     let pasted: Inbox = Inbox::default();
+                     if let Err(e) = listen_for_pasted_pictures(pasted.clone(), cc.egui_ctx.clone()) {
+                         log::error!("pasting pictures is unavailable: {e}");
+@@ -75,6 +71,10 @@ pub fn start() {
+                     let mut app = WordApp::new(session, services);
+                     // Pasted pictures wait apart from dropped files: the app inserts one only when the page is the edit target (#1349).
+                     app.services.pasted = Some(pasted);
++                    // The demo document that sits next to the page: its bytes go into the app's
++                    // inbox, where the app's own `file.open` picks them up, exactly as a file
++                    // chosen in the browser's picker does.
++                    open_demo_document(inbox.clone(), cc.egui_ctx.clone());
+                     app.autosave = false;
+                     // Preferences from an earlier visit (#2132), as the desktop app reads `ui.json`.
+                     let stored = stored_prefs();
+@@ -119,10 +119,103 @@ pub fn start() {
+     });
+ }
+ 
++/// The document the demo page opens: it sits next to the page, in the same folder.
++const DEMO_DOCUMENT: &str = "./document.docx";
++/// The name the demo document is opened under; its extension tells the engine the format.
++const DEMO_DOCUMENT_NAME: &str = "document.docx";
++
++/// What the demo page asks the editor for, and what it last saw.
++#[derive(Default)]
++struct Demo {
++    /// The editor's context, to wake it when the page asks for something.
++    ctx: Option<egui::Context>,
++    /// The page asked for the editor's state (the open document's text and file name).
++    want_state: bool,
++    /// The page asked for a .docx download.
++    want_download: bool,
++    /// The state the editor last reported, as JSON.
++    state: String,
++    /// What went wrong, if anything.
++    error: Option<String>,
++    /// The demo document has been fitted to a phone's width (done once, after it opens).
++    fitted: bool,
++}
++
++thread_local! {
++    /// The demo page's requests to the editor.
++    static DEMO: RefCell<Demo> = RefCell::new(Demo::default());
++}
++
++/// Fetch a file the page ships with (same folder, same origin).
++async fn fetch_bytes(url: &str) -> Result<Vec<u8>, String> {
++    let window = web_sys::window().ok_or("no window")?;
++    let response = wasm_bindgen_futures::JsFuture::from(window.fetch_with_str(url)).await.map_err(|e| format!("{e:?}"))?;
++    let response: web_sys::Response = response.dyn_into().map_err(|_| "not a response")?;
++    if !response.ok() {
++        return Err(format!("{url}: HTTP {}", response.status()));
++    }
++    let buffer = wasm_bindgen_futures::JsFuture::from(response.array_buffer().map_err(|e| format!("{e:?}"))?).await.map_err(|e| format!("{e:?}"))?;
++    Ok(js_sys::Uint8Array::new(&buffer).to_vec())
++}
++
++/// Open the demo document: its bytes go into the app's inbox, where the app's own `file.open`
++/// picks them up — the same path a file chosen in the browser's picker takes.
++fn open_demo_document(inbox: Inbox, ctx: egui::Context) {
++    wasm_bindgen_futures::spawn_local(async move {
++        match fetch_bytes(DEMO_DOCUMENT).await {
++            Ok(bytes) => {
++                log::info!("demo: fetched {DEMO_DOCUMENT} ({} bytes); opening it", bytes.len());
++                inbox.lock().unwrap_or_else(|e| e.into_inner()).push((DEMO_DOCUMENT_NAME.to_string(), bytes));
++                ctx.request_repaint();
++            }
++            Err(e) => {
++                log::error!("demo: couldn't fetch {DEMO_DOCUMENT}: {e}");
++                DEMO.with(|d| d.borrow_mut().error = Some(format!("couldn't fetch {DEMO_DOCUMENT}: {e}")));
++            }
++        }
++    });
++}
++
++/// The demo page's own API, on `window.wordcraftDemo`: its "Download .docx" button, and the
++/// checks that read the open document back out of the editor.
++fn install_demo_api() {
++    let Some(window) = web_sys::window() else { return };
++    let api = js_sys::Object::new();
++    let mut set = |name: &str, value: &wasm_bindgen::JsValue| {
++        if let Err(e) = js_sys::Reflect::set(&api, &wasm_bindgen::JsValue::from_str(name), value) {
++            log::warn!("demo: couldn't set {name}: {e:?}");
++        }
++    };
++    // "Download .docx": the editor's own Save, which the web build turns into a download.
++    let download = wasm_bindgen::closure::Closure::<dyn Fn()>::new(|| {
++        let ctx = DEMO.with(|d| d.borrow().ctx.clone());
++        DEMO.with(|d| d.borrow_mut().want_download = true);
++        if let Some(ctx) = ctx {
++            ctx.request_repaint();
++        }
++    });
++    set("downloadDocx", &download.into_js_value());
++    // Ask the editor for its state, then read the answer it last gave.
++    let request = wasm_bindgen::closure::Closure::<dyn Fn()>::new(|| {
++        let ctx = DEMO.with(|d| d.borrow().ctx.clone());
++        DEMO.with(|d| d.borrow_mut().want_state = true);
++        if let Some(ctx) = ctx {
++            ctx.request_repaint();
++        }
++    });
++    set("requestState", &request.into_js_value());
++    let state = wasm_bindgen::closure::Closure::<dyn Fn() -> String>::new(|| DEMO.with(|d| d.borrow().state.clone()));
++    set("state", &state.into_js_value());
++    if let Err(e) = js_sys::Reflect::set(&window, &wasm_bindgen::JsValue::from_str("wordcraftDemo"), &api) {
++        log::warn!("demo: couldn't install the page's API: {e:?}");
++    }
++}
++
+ fn query() -> String {
+     web_sys::window().and_then(|w| w.location().search().ok()).unwrap_or_default()
+ }
+ 
++
+ fn query_param(key: &str) -> Option<String> {
+     web_sys::UrlSearchParams::new_with_str(&query()).ok()?.get(key)
+ }
+@@ -145,11 +238,58 @@ fn stored_prefs() -> Option<String> {
+     local_storage()?.get_item(crate::prefs::KEY).ok()?
+ }
+ 
++impl WebShell {
++    /// What the demo page asked for: a .docx download, or the open document's text.
++    fn serve_demo_page(&mut self) {
++        let (want_state, want_download) = DEMO.with(|d| {
++            let mut d = d.borrow_mut();
++            (std::mem::take(&mut d.want_state), std::mem::take(&mut d.want_download))
++        });
++        // On a phone the page is wider than the screen at 100%: once the demo document is open,
++        // zoom so a Letter page (816 px) fills the screen's width. (Page Width also fits the
++        // comment balloons beside the page, which leaves the text too small to read.)
++        if !DEMO.with(|d| d.borrow().fitted) && self.app.session.path.is_some() {
++            DEMO.with(|d| d.borrow_mut().fitted = true);
++            let width = web_sys::window().and_then(|w| w.inner_width().ok()).and_then(|v| v.as_f64());
++            if let Some(w) = width.filter(|w| *w < 860.0) {
++                let percent = ((w - 40.0) / 816.0 * 100.0).floor().clamp(10.0, 100.0);
++                if let Err(e) = self.app.run("view.zoom", serde_json::json!({"value": percent})) {
++                    log::warn!("demo: couldn't zoom to the screen's width: {e}");
++                }
++            }
++        }
++        if want_download {
++            // The editor's own Save: the engine writes the document and the web build hands the
++            // bytes to the browser.
++            match self.app.run("file.save", serde_json::json!({})) {
++                Ok(v) => log::info!("demo: the editor saved the document: {v}"),
++                Err(e) => {
++                    log::error!("demo: the editor couldn't save the document: {e}");
++                    DEMO.with(|d| d.borrow_mut().error = Some(e));
++                }
++            }
++        }
++        if want_state {
++            let text = self
++                .app
++                .run("document.text", serde_json::json!({}))
++                .ok()
++                .and_then(|v| v.get("text").and_then(|t| t.as_str()).map(str::to_string))
++                .unwrap_or_default();
++            let path = self.app.session.path.as_ref().map(|p| p.to_string_lossy().to_string()).unwrap_or_default();
++            let error = DEMO.with(|d| d.borrow().error.clone());
++            let state = serde_json::json!({"path": path, "text": text, "error": error});
++            DEMO.with(|d| d.borrow_mut().state = state.to_string());
++        }
++    }
++}
++
+ impl eframe::App for WebShell {
+     /// Runs one browser frame: forwards queued host messages to the status bar, advances the app,
+     /// then writes changed preferences to browser storage immediately, because a reload or closed
+     /// tab never runs the exit path.
+     fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
++        self.serve_demo_page();
+         let msgs = std::mem::take(&mut *self.messages.borrow_mut());
+         for msg in msgs {
+             self.app.status(msg);
