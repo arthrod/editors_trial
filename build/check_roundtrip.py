@@ -305,15 +305,15 @@ def _blips_resolve(pkg):
     return all(pkg.resolved_internal("word/document.xml", rid) for rid in embeds)
 
 
-def _charts_resolve(pkg):
-    """Return whether chart references exist and all resolve to members."""
+def _references_resolve(pkg, tag):
+    """Return whether references of this type exist and all resolve to members."""
     doc = pkg.doc()
     if doc is None:
         return False
-    ids = [el.get(R + "id") for el in doc.iter(C + "chart")]
-    if not ids or any(not rid for rid in ids):
-        return False
-    return all(pkg.resolved_internal("word/document.xml", rid) for rid in ids)
+    nodes = list(doc.iter(tag))
+    return bool(nodes) and all(
+        pkg.resolved_internal("word/document.xml", el.get(R + "id")) for el in nodes
+    )
 
 
 def _smartart_resolve(pkg):
@@ -330,17 +330,6 @@ def _smartart_resolve(pkg):
             if not rid or not pkg.resolved_internal("word/document.xml", rid):
                 return False
     return True
-
-
-def _ole_resolve(pkg):
-    """Return whether OLE references exist and all resolve to members."""
-    doc = pkg.doc()
-    if doc is None:
-        return False
-    ids = [el.get(R + "id") for el in doc.iter(O + "OLEObject")]
-    if not ids or any(not rid for rid in ids):
-        return False
-    return all(pkg.resolved_internal("word/document.xml", rid) for rid in ids)
 
 
 def _altchunk_ok(pkg):
@@ -399,14 +388,6 @@ def _hyperlink_facts(pkg):
         else:
             facts.add("dangling:" + rid)
     return facts
-
-
-def _hyperlinks_survive(inp, out):
-    """Every input target survives, and no output hyperlink relationship dangles."""
-    out_facts = _hyperlink_facts(out)
-    if any(f.startswith("dangling:") for f in out_facts):
-        return False
-    return _hyperlink_facts(inp) <= out_facts
 
 
 def build_checks(inp: Pkg, out: Pkg):
@@ -640,11 +621,11 @@ def build_checks(inp: Pkg, out: Pkg):
     chk("ref.image", "image relationship resolves to a part", "refs", "critical",
         _blips_resolve(out))
     chk("ref.chart", "chart relationship resolves to a part", "refs", "critical",
-        _charts_resolve(out))
+        _references_resolve(out, C + "chart"))
     chk("ref.smartart", "SmartArt relationships resolve to parts", "refs", "critical",
         _smartart_resolve(out))
     chk("ref.ole", "OLE relationship resolves to a part", "refs", "critical",
-        _ole_resolve(out))
+        _references_resolve(out, O + "OLEObject"))
     chk("ref.altChunk", "altChunk relationship resolves, or content imported", "refs", "minor",
         _altchunk_ok(out))
     chk("ref.footnoteRef", "footnote reference kept", "refs", "major",
@@ -659,8 +640,9 @@ def build_checks(inp: Pkg, out: Pkg):
     chk("ref.endnoteBody", "endnote body text kept", "refs", "major",
         "endnote body" in out.raw(endnote_part))
     in_links = _hyperlink_facts(inp)
+    out_links = _hyperlink_facts(out)
     chk("fl.hyperlink", "hyperlink targets kept", "fields", "major",
-        _hyperlinks_survive(inp, out),
+        in_links <= out_links and not any(f.startswith("dangling:") for f in out_links),
         "none in input" if not in_links else "in=%d" % len(in_links))
     st = out.raw("word/settings.xml")
     chk("ref.documentProtection", "settings.xml documentProtection kept", "refs", "major",

@@ -183,6 +183,25 @@ class ScorerFairness(unittest.TestCase):
         self.assertFalse(checks({"word/document.xml": bad})["tc.moveFrom"][4])
         self.assertTrue(checks({"word/document.xml": good})["tc.moveFrom"][4])
 
+    def test_chart_and_ole_require_every_reference(self):
+        for prefix, namespace, tag, cid in (
+            ("c", C, "chart", "ref.chart"),
+            ("o", O, "OLEObject", "ref.ole"),
+        ):
+            with self.subTest(cid=cid):
+                element = f'<{prefix}:{tag} xmlns:{prefix}="{namespace}" r:id="kept"/>'
+                missing_id = f'<{prefix}:{tag} xmlns:{prefix}="{namespace}"/>'
+                parts = {
+                    "word/document.xml": document(element),
+                    "word/_rels/document.xml.rels": rels([("kept", "type", "kept.bin", "")]),
+                    "word/kept.bin": b"data",
+                }
+                self.assertTrue(checks(parts)[cid][4])
+                parts["word/document.xml"] = document(element + missing_id)
+                self.assertFalse(checks(parts)[cid][4])
+                parts["word/document.xml"] = document("")
+                self.assertFalse(checks(parts)[cid][4])
+
     def test_endnote_body_and_hyperlink_targets_are_scored(self):
         endnotes = (
             '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -219,6 +238,10 @@ class ScorerFairness(unittest.TestCase):
         bad = checks(kept, dropped)
         self.assertFalse(bad["ref.endnoteBody"][4], bad["ref.endnoteBody"])
         self.assertFalse(bad["fl.hyperlink"][4], bad["fl.hyperlink"])
+
+        dangling = {"word/document.xml": document('<w:hyperlink r:id="missing"/>')}
+        self.assertFalse(checks(dropped, dangling)["fl.hyperlink"][4])
+        self.assertFalse(checks(dangling)["fl.hyperlink"][4])
 
     def test_fixture_round_trip_of_itself_keeps_resolved_refs(self):
         inp = sc.Pkg(FIXTURE)
