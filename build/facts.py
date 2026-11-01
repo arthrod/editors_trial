@@ -276,6 +276,9 @@ def broken_facts(facts: dict) -> None:
     clean = {d: facts[f"word.{d}.opens"] for _, d in defect_survival.EDITORS if f"word.{d}.opens" in facts}
     facts["broken.flip"] = defect_survival.flip_table(rows, clean, data["verdicts"])
     facts["broken.word_measured"] = word.exists()
+    editors = [d for d in rows if d != "lo_baseline"]
+    facts["broken.editors"] = len(editors)
+    facts["broken.produced"] = sum(1 for d in editors if rows[d] is not None)
 
 
 def count_facts(facts: dict) -> None:
