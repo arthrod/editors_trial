@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>office-open</title>
+  </head>
+  <body>
+    <header class="toolbar">
+      <p class="label">office-open is a library; it has no editor</p>
+      <p id="status" class="status">Opening document…</p>
+      <button id="download" type="button" disabled>Download .docx</button>
+    </header>
+    <main class="panes">
+      <section class="pane outline" id="outline" aria-label="Parsed document"></section>
+      <section class="pane json" id="json" aria-label="Raw JSON tree"></section>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

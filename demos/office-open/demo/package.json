@@ -1,0 +1,11 @@
+{
+  "name": "office-open-demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build"
+  },
+  "devDependencies": {
+    "vite": "7.1.12"
+  }
+}

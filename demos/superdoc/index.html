@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <base href="./" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <title>SuperDoc — live demo</title>
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background: #f2f3f5;
+      }
+      #app {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        height: 100dvh;
+        width: 100%;
+      }
+      .demo-bar {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 6px 10px;
+        background: #1f2430;
+        color: #e8eaf0;
+        font: 13px/1.4 system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+        border-bottom: 1px solid #11141b;
+      }
+      .demo-bar button {
+        font: inherit;
+        font-weight: 600;
+        color: #10131a;
+        background: #7fd1ff;
+        border: 0;
+        border-radius: 4px;
+        padding: 5px 12px;
+        cursor: pointer;
+      }
+      .demo-bar button:disabled {
+        opacity: 0.5;
+        cursor: progress;
+      }
+      .demo-bar .status {
+        font-variant-numeric: tabular-nums;
+        opacity: 0.85;
+      }
+      #editor {
+        flex: 1 1 auto;
+        min-height: 0;
+        position: relative;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div class="demo-bar">
+        <button id="download-docx" type="button" disabled>Download .docx</button>
+        <span class="status" id="status">loading…</span>
+      </div>
+      <div id="editor"></div>
+    </div>
+    <script type="module">
+      import { mountDemo } from './src/main.ts';
+
+      // The page fetches the fixture from its own folder and hands the raw
+      // bytes to SuperDoc's own document-import path.
+      (async () => {
+        try {
+          const response = await fetch('./document.docx');
+          if (!response.ok) throw new Error(`HTTP ${response.status} for ./document.docx`);
+          const bytes = await response.arrayBuffer();
+          await mountDemo(bytes);
+        } catch (error) {
+          console.error('[superdoc-demo] failed to load the document', error);
+          const status = document.getElementById('status');
+          if (status) status.textContent = `failed: ${error?.message ?? error}`;
+        }
+      })();
+    </script>
+  </body>
+</html>

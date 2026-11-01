@@ -83,6 +83,44 @@ class Base(unittest.TestCase):
             self.assertTrue(r["what"] and r["why"])
 
 
+def cells(doc: str, text: str) -> str:
+    """The <w:tc> holding `text` (innermost)."""
+    i = doc.index(f">{text}<")
+    return doc[doc.rindex("<w:tc>", 0, i): doc.index("</w:tc>", i) + 7]
+
+
+class OrphanVMerge(unittest.TestCase):
+    """canvas-editor's docx plugin drops a vMerge continuation that has no restart above it, the row comes up
+    one grid column short, and its table layout throws (TableParticle.computeRowColInfo reads colgroup[3])."""
+
+    @classmethod
+    def setUpClass(cls):
+        out, cls.removed = m.sanitize(FIXTURE.read_bytes(), m.BASE_STEPS + ["orphan_vmerge_to_cell"])
+        cls.doc = parts(out)["word/document.xml"].decode()
+        cls.base = parts(m.sanitize(FIXTURE.read_bytes(), m.BASE_STEPS)[0])["word/document.xml"].decode()
+
+    def test_the_fixture_has_the_orphan(self):
+        self.assertIn("<w:vMerge/>", cells(self.base, "vert merged, second"))
+
+    def test_the_orphan_becomes_an_ordinary_cell(self):
+        self.assertNotIn("vMerge", cells(self.doc, "vert merged, second"))
+
+    def test_real_merges_are_kept(self):
+        self.assertIn('<w:vMerge w:val="restart"/>', cells(self.doc, "vert merged, first"))
+        self.assertIn("<w:vMerge/>", cells(self.doc, "vert merged, continuation"))
+
+    def test_only_that_cell_changes(self):
+        self.assertEqual(len(self.base) - len(self.doc), len("<w:vMerge/>"))
+
+    def test_it_is_listed(self):
+        self.assertEqual(self.removed[-1]["step"], "orphan_vmerge_to_cell")
+        self.assertIn("1", self.removed[-1]["what"])
+
+    def test_canvas_editor_gets_it_and_nobody_else(self):
+        self.assertEqual(m.EDITORS["canvas-editor"], ["orphan_vmerge_to_cell"])
+        self.assertEqual({k for k, v in m.EDITORS.items() if v}, {"canvas-editor"})
+
+
 class Build(unittest.TestCase):
     def test_writes_one_docx_and_one_manifest_per_editor(self):
         with tempfile.TemporaryDirectory() as d:

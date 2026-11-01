@@ -76,12 +76,68 @@ def ole_to_picture(p: dict) -> dict:
             "why": "an embedded OLE package is an opaque binary a browser editor cannot open"}
 
 
-STEPS = {"altchunk_to_paragraphs": altchunk_to_paragraphs, "ole_to_picture": ole_to_picture}
+_TAG = re.compile(r"<(/?)w:(tbl|tr|tc)\b[^>]*>")
+
+
+def _tables(doc: str):
+    """Yield each table (nested ones too) as a list of rows; a row is a list of (start, end, grid column, tcPr)
+    for its own cells, offsets into doc, nested tables excluded."""
+    stack = []  # one entry per open w:tbl: {"rows": [...], "row": [...] | None, "cell": start | None, "col": int}
+    for t in _TAG.finditer(doc):
+        close, name = t.group(1), t.group(2)
+        if name == "tbl":
+            if close:
+                yield stack.pop()["rows"]
+            else:
+                stack.append({"rows": [], "row": None, "cell": None, "col": 0})
+        elif not stack:
+            continue
+        elif name == "tr":
+            if close:
+                stack[-1]["rows"].append(stack[-1]["row"])
+            else:
+                stack[-1]["row"], stack[-1]["col"] = [], 0
+        elif not close:
+            stack[-1]["cell"] = t.start()
+        else:
+            tbl, start = stack[-1], stack[-1]["cell"]
+            pr = re.match(r"<w:tc\b[^>]*>\s*(<w:tcPr>[\s\S]*?</w:tcPr>)?", doc[start:])
+            tcpr = pr.group(1) or ""
+            span = re.search(r'<w:gridSpan w:val="(\d+)"', tcpr)
+            tbl["row"].append((start, t.end(), tbl["col"], tcpr))
+            tbl["col"] += int(span.group(1)) if span else 1
+
+
+def orphan_vmerge_to_cell(p: dict) -> dict:
+    """A <w:vMerge/> continuation whose cell above, in the same grid column, is not part of a vertical merge."""
+    doc = p[DOC].decode()
+    orphans = []
+    for rows in _tables(doc):
+        for above, row in zip(rows, rows[1:]):
+            merged = {col for _, _, col, pr in above if "<w:vMerge" in pr}
+            for start, _, col, pr in row:
+                cont = re.search(r'<w:vMerge(?: w:val="continue")?\s*/>', pr)
+                if cont and col not in merged:
+                    orphans.append(doc.index(pr, start) + cont.start())
+    if not orphans:
+        return {}
+    for at in sorted(orphans, reverse=True):
+        m = re.compile(r'<w:vMerge(?: w:val="continue")?\s*/>').match(doc, at)
+        doc = doc[:at] + doc[m.end():]
+    p[DOC] = doc.encode()
+    return {"what": f"{len(orphans)} table cell(s) marked as the continuation of a vertical merge with no merge above "
+                    "them become ordinary cells",
+            "why": "the editor drops such a cell, the row comes up a column short and its table layout fails"}
+
+
+STEPS = {"altchunk_to_paragraphs": altchunk_to_paragraphs, "ole_to_picture": ole_to_picture,
+         "orphan_vmerge_to_cell": orphan_vmerge_to_cell}
 BASE_STEPS = ["altchunk_to_paragraphs", "ole_to_picture"]
 
 # Extra steps per editor, added only with evidence that the editor's browser build cannot open the base copy.
 EDITORS: dict[str, list[str]] = {
-    "superdoc": [], "eigenpal": [], "folio": [], "plate": [], "canvas-editor": [], "docen": [],
+    "superdoc": [], "eigenpal": [], "folio": [], "plate": [], "docen": [],
+    "canvas-editor": ["orphan_vmerge_to_cell"],  # its docx plugin drops the cell and the table layout throws
     "genoffice": [], "docxodus": [], "wordcraft": [], "fidus-writer": [], "docs-plus": [], "office-open": [],
 }
 
