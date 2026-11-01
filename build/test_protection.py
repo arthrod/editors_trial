@@ -83,3 +83,29 @@ class ProtectionTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DocxodusCeilingTest(unittest.TestCase):
+    """Docxodus 15 names its ceilings as snake_case error codes."""
+
+    def test_depth_code_is_a_named_ceiling(self):
+        ev = "Error: xml_depth_limit_exceeded: /word/document.xml nests deeper than the 128 level safety limit."
+        self.assertEqual(protection.classify("refused", "bounded-reject", ev), "bounded-refusal")
+
+    def test_ratio_code_is_a_named_ceiling(self):
+        ev = "Error: compression_ratio_limit_exceeded: measuring /word/document.xml for the XML depth limit would pass the package limits."
+        self.assertEqual(protection.classify("refused", "bounded-reject", ev), "bounded-refusal")
+
+    def test_label_phrases_name_the_ceiling(self):
+        import label_protection as L
+        self.assertEqual(L.phrase_for("Error: compression_ratio_limit_exceeded: x", "bounded-refusal"),
+                         "named ceiling on compression ratio")
+        self.assertEqual(L.phrase_for("Error: xml_depth_limit_exceeded: x", "bounded-refusal"),
+                         "named ceiling on element depth")
+
+
+class DocxodusDtdTest(unittest.TestCase):
+    def test_dtd_prohibited_is_named(self):
+        import label_protection as L
+        self.assertEqual(protection.classify("refused", "bounded-reject", "Error: Xml_DtdIsProhibitedEx"), "erroring")
+        self.assertEqual(L.phrase_for("Error: Xml_DtdIsProhibitedEx", "erroring"), "rejected a document type declaration")

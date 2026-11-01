@@ -2,7 +2,7 @@
 
 **A companion to *Open-Source DOCX Editors, Re-verified Against Code and Measured by Round-Trip (2026-10-29)*** and to *What Is Serialized, What Is Pass-Through, and What Is Actually Rendered (2026-10-30)*.
 
-The first report found that the corpus it used — a hand-built {{fixture.parts}}-part adversarial DOCX — **Microsoft Word 16.115 would not open at all**, and located twelve defect classes behind that. This report closes the loop: what malformed parts look like, what causes them, and — the question the first report could not answer — **does any editor repair a malformed input, or does it preserve the damage?**
+The first report found that the corpus it used — a hand-built {{fixture.parts}}-part adversarial DOCX — **Microsoft Word {{word.version}} would not open at all**, and located twelve defect classes behind that. This report closes the loop: what malformed parts look like, what causes them, and — the question the first report could not answer — **does any editor repair a malformed input, or does it preserve the damage?**
 
 ---
 
@@ -14,7 +14,7 @@ The first report found that the corpus it used — a hand-built {{fixture.parts}
 - **And Plate detects exactly one of the twelve defect classes.** Each defect was isolated into its own single-defect corpus and offered to Plate's importer: it **accepts eleven and refuses one** — the block-level `m:oMathPara`. The eleven it accepts include every class that makes Word refuse the file: the five element-order classes, the malformed `ST_LongHexNumber`, the nested `mc:Fallback`, the broken OLE payload, `w:delText` inside `w:moveFrom`, and `w:dirty="true"`. Plate is a detector, not a validator, and it detects the construct its own schema cannot model.
 - **Four of the thirteen editor outputs cannot be opened by Microsoft Word**, and only one of those four (Fidus Writer) fails for a reason a schema validator could have caught; a package-integrity check catches two more, and Folio passes both:
 
-| Editor | Real XSD violations | Package integrity | Word 16.115 |
+| Editor | Real XSD violations | Package integrity | Word {{word.version}} |
 |---|---:|---|---|
 | SuperDoc | 0 | clean | **opened** |
 | GenOffice | 0 | clean | **opened** |
@@ -61,7 +61,7 @@ A defect class that all three miss is a defect class that only a human reading t
 
 The rebuilt file is a faithful reproduction of the original defect set: `build/validate_ooxml.py` reports ten real schema violations against it (the ordering and value classes), and Word refuses it.
 
-**Microsoft Word 16.115 refuses `fixture/complex_broken.docx` outright**, exactly as it refused the original.
+**Microsoft Word {{word.version}} refuses `fixture/complex_broken.docx` outright**, exactly as it refused the original.
 
 ### 1.3 The oracle, and a correction to how it was driven
 
@@ -117,7 +117,7 @@ These are the interesting ones, because **no schema validator reports any of the
 
 **The measured table for #12**, which is the least intuitive result in the study:
 
-| `w:fldChar` attribute | Word 16.115 |
+| `w:fldChar` attribute | Word {{word.version}} |
 |---|---|
 | `w:dirty="true"` | **refused** |
 | `w:dirty="1"` | **refused** |
@@ -176,7 +176,7 @@ input : <w:moveFrom …><w:r><w:t xml:space="preserve">moved away</w:t></w:r></w
 output: <w:moveFrom …><w:r><w:delText>moved away</w:delText></w:r></w:moveFrom>
 ```
 
-That is defect #10 from §2.3, introduced by the editor itself. **Microsoft Word 16.115 refuses Folio's output.** Folio scores 98.5% on the first report's checker, keeps {{parts.folio.passthrough}} of 35 parts byte-identical, and has no schema violation at all — and its output will not open.
+That is defect #10 from §2.3, introduced by the editor itself. **Microsoft Word {{word.version}} refuses Folio's output.** Folio scores 98.5% on the first report's checker, keeps {{parts.folio.passthrough}} of 35 parts byte-identical, and has no schema violation at all — and its output will not open.
 
 **Proof.** Rewriting `w:delText` back to `w:t` in that one element — changing nothing else — turns Word's verdict from **REFUSED** into **OPENED**.
 
@@ -227,7 +227,7 @@ Folio is the sharpest illustration of the gap: **it is schema-clean, well-formed
 
 ### 3.7 Plate.js: no malformation in the output — and the only importer that reports one
 
-Plate is the only editor in the study whose **output** has nothing wrong with it *and* whose **importer** complains. Its clean-corpus output is schema-clean against the 69 ECMA-376 transitional XSDs, package-clean (no dangling relationship ids, no missing targets, no stale overrides, no unbalanced fields, no unpaired moves), and it **opens in Microsoft Word 16.115**. That is not nothing: Fidus, canvas-editor and docs.plus all fail one of those checks, and Folio, office-open and Docen fail Word.
+Plate is the only editor in the study whose **output** has nothing wrong with it *and* whose **importer** complains. Its clean-corpus output is schema-clean against the 69 ECMA-376 transitional XSDs, package-clean (no dangling relationship ids, no missing targets, no stale overrides, no unbalanced fields, no unpaired moves), and it **opens in Microsoft Word {{word.version}}**. That is not nothing: Fidus, canvas-editor and docs.plus all fail one of those checks, and Folio, office-open and Docen fail Word.
 
 What is remarkable is the other side. Plate's importer does not merely fail on the malformed corpus — it **refuses**, before writing anything, with a named diagnostic:
 
@@ -253,7 +253,7 @@ This is the question the first report could not answer, and it is the one that m
 
 `YES` = the defect class is still present in the editor's output · `no` = the class is gone · `DROP` = the whole part carrying it was dropped.
 
-| Editor | d1 order (settings) | d2 order (tcPr) | d3 order (trPr) | d4 order (pPrChange) | d5 order (sectPr) | d6 durableId | d9 OLE payload | d10 delText in moveFrom | d11 block math | d12 dirty=true | Word 16.115 |
+| Editor | d1 order (settings) | d2 order (tcPr) | d3 order (trPr) | d4 order (pPrChange) | d5 order (sectPr) | d6 durableId | d9 OLE payload | d10 delText in moveFrom | d11 block math | d12 dirty=true | Word {{word.version}} |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | SuperDoc | YES | YES | YES | YES | YES | YES | YES | YES | YES | YES | **REFUSED** |
 | Folio | YES | YES | YES | no | no | YES | YES | YES | YES | YES | **REFUSED** |

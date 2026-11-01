@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 import zipfile
@@ -109,6 +110,34 @@ def part_facts(tool: str, package: Path, fixture: dict, facts: dict) -> None:
     facts[f"{p}.reserialized"] = counts["CHANGED"] + counts["REWRITTEN"]
 
 
+# Report D's protection levels and their weights; an editor's grade is the
+# mean weight of its ten packages. Any other level weighs 0.
+LEVEL_WEIGHT = {
+    "bounded-refusal": 1.0, "sanitation": 0.8, "erroring": 0.6, "bounded-delivery": 0.5,
+    "failed-load-exit-zero": 0.4, "unexpanded-kept": 0.3, "not-in-view": 0.3,
+}
+
+
+def bomb_facts(path: Path, facts: dict) -> None:
+    """bomb.<tool>.grade, bomb.<tool>.<package>.level, bomb.count.<level>, bomb.cells
+    from logs/bombs/protection.txt (build/label_protection.py)."""
+    levels: dict[str, dict[str, str]] = {}
+    for line in path.read_text().splitlines():
+        m = re.match(r"protection (\S+) (B\d+) level: (\S+)", line)
+        if m:
+            tool = "lo_baseline" if m.group(1) == "libreoffice" else m.group(1)
+            levels.setdefault(tool, {})[m.group(2)] = m.group(3)
+    counts: dict[str, int] = {}
+    for tool, by_pkg in levels.items():
+        facts[f"bomb.{tool}.grade"] = round(sum(LEVEL_WEIGHT.get(v, 0.0) for v in by_pkg.values()) / len(by_pkg), 2)
+        for pkg, level in by_pkg.items():
+            facts[f"bomb.{tool}.{pkg}.level"] = level
+            counts[level] = counts.get(level, 0) + 1
+    facts["bomb.cells"] = sum(counts.values())
+    for level, n in counts.items():
+        facts[f"bomb.count.{level}"] = n
+
+
 def git(repo: Path, *args: str) -> str:
     return subprocess.run(["git", "-C", str(repo), *args], capture_output=True,
                           text=True, check=True).stdout.strip()
@@ -123,8 +152,11 @@ def version_facts(facts: dict) -> None:
         facts[f"{key}.commit"] = git(repo, "rev-parse", "--short=9", "HEAD")
         facts[f"{key}.date"] = git(repo, "log", "-1", "--format=%cs")
         facts[f"{key}.slug"] = slug
+    pinned = ROOT / "harness/superdoc-sdk/node_modules/@superdoc/sdk/package.json"
     store = ROOT / NPM["superdoc_sdk"][1]
-    if store.exists():
+    if pinned.exists():
+        facts["ver.npm.superdoc_sdk"] = json.loads(pinned.read_text())["version"]
+    elif store.exists():
         pre = NPM["superdoc_sdk"][2]
         hits = sorted(p.name[len(pre):] for p in store.iterdir() if p.name.startswith(pre))
         if hits:
@@ -132,6 +164,12 @@ def version_facts(facts: dict) -> None:
     pkg = ROOT / NPM["docxodus"][1]
     if pkg.exists():
         facts["ver.npm.docxodus"] = json.loads(pkg.read_text())["version"]
+    # The closed DOCX engine SuperDoc's repository depends on (Report A cites it).
+    sd = ROOT / "repos/superdoc/packages/superdoc/package.json"
+    if sd.exists():
+        dep = json.loads(sd.read_text()).get("dependencies", {}).get("@superdoc/docx-engine")
+        if dep:
+            facts["ver.npm.superdoc_engine"] = dep.lstrip("^~")
 
 
 def build() -> dict:
@@ -152,6 +190,22 @@ def build() -> dict:
     totals = {(facts[f"rt.{t}.total"], facts[f"rt.{t}.critical_total"]) for t in TOOLS if f"rt.{t}.total" in facts}
     if len(totals) == 1:
         facts["checks.total"], facts["checks.critical"] = totals.pop()
+    word = OUT / "word_verdicts.json"
+    if word.exists():
+        data = json.loads(word.read_text())
+        facts["word.version"] = data["word"]
+        for t, verdict in data["verdicts"].items():
+            facts[f"word.{t}.opens"] = verdict.startswith("OPENED")
+        editors = [t for t in data["verdicts"] if t not in ("lo_baseline", "eigenpal-editor", "folio-editor")]
+        facts["count.word_refused"] = sum(1 for t in editors if not facts[f"word.{t}.opens"])
+        facts["count.word_outputs"] = len(editors)
+    if (ROOT / "logs/bombs/protection.txt").exists():
+        bomb_facts(ROOT / "logs/bombs/protection.txt", facts)
+    # Report D quotes the scorecard and the protection labels whole.
+    for name in ("scorecard", "protection"):
+        log = ROOT / "logs" / "bombs" / f"{name}.txt"
+        if log.exists():
+            facts[f"bomb.{name}"] = log.read_text().rstrip("\n")
     version_facts(facts)
     stars = OUT / "stars.json"
     if stars.exists():

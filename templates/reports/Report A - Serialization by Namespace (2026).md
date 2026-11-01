@@ -46,7 +46,7 @@ The two disagree in four places among the twelve editors (§4.4), and in every o
 
 ### 1.3 The corpus
 
-The same {{fixture.parts}}-part adversarial corpus (`fixture/complex.docx`), corrected so that Microsoft Word 16.115 opens it. It contains a chart, four SmartArt parts, an OLE object with a real embedded `.docx`, an embedded workbook, an image, two tables (nested, merged, header rows, vertical merge), tracked insertions/deletions/runs/paragraph-marks/moves, content controls (including data-bound, date-picker and nested), complex and simple fields, bookmarks, footnotes, endnotes, comments, OMML math, `mc:AlternateContent` with both branches, a `w:altChunk`, `w:permStart`/`w:permEnd`, `w:proofErr`, `w14:*` attributes and elements, `w16du:dateUtc`, `w16cid:durableId`, bidi and RTL runs, and three sections including a landscape one with page borders.
+The same {{fixture.parts}}-part adversarial corpus (`fixture/complex.docx`), corrected so that Microsoft Word {{word.version}} opens it. It contains a chart, four SmartArt parts, an OLE object with a real embedded `.docx`, an embedded workbook, an image, two tables (nested, merged, header rows, vertical merge), tracked insertions/deletions/runs/paragraph-marks/moves, content controls (including data-bound, date-picker and nested), complex and simple fields, bookmarks, footnotes, endnotes, comments, OMML math, `mc:AlternateContent` with both branches, a `w:altChunk`, `w:permStart`/`w:permEnd`, `w:proofErr`, `w14:*` attributes and elements, `w16du:dateUtc`, `w16cid:durableId`, bidi and RTL runs, and three sections including a landscape one with page borders.
 
 One structural note about the corpus that matters for every namespace claim below: **`wp14` is declared.** It carries `mc:Ignorable="w14 w15 w16du w16cex w16cid wp14"` on 14 parts, and each of those 14 parts also carries `xmlns:wp14="http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing"`. A consumer that resolves `mc:Ignorable` prefixes can resolve `wp14`. The adversarial foreign namespace in the corpus is `ns0`, bound to `http://example.com/fixture`.
 
@@ -112,7 +112,7 @@ This section is the static half. Each subsection states the boundary *mechanism*
 
 ### 3.1 SuperDoc — a proprietary engine with an open contract layer
 
-**SuperDoc's DOCX engine is not auditable from source.** The repository depends on `@superdoc/docx-engine` 0.27.0-next.15, whose licence forbids deobfuscation; its parsing lives in a minified `dist/` bundle. Every claim below is about the **open contract layer** around the engine, and the boundary that layer draws is a *drawing taxonomy*, not a namespace table.
+**SuperDoc's DOCX engine is not auditable from source.** The repository depends on `@superdoc/docx-engine` {{ver.npm.superdoc_engine}}, whose licence forbids deobfuscation; its parsing lives in a minified `dist/` bundle. Every claim below is about the **open contract layer** around the engine, and the boundary that layer draws is a *drawing taxonomy*, not a namespace table.
 
 SuperDoc classifies drawings into three support levels — supported, **fail-closed**, deferred (`packages/layout-engine/contracts/src/drawing-taxonomy.ts:33-42`):
 
@@ -264,7 +264,7 @@ What differs is the reporting layer. Mammoth's messages are mapped to **`Convers
 
 ### 3.12 Docxodus — an OpenXML SDK that draws its boundary around *parts*, not around vocabularies
 
-**Docxodus is not an editor, and that is the point of putting it in this table.** It is a .NET OOXML engine — the `docxodus` npm package (14.2.0) with the companion `@docxodus/export` (14.2.0), built on the `DocumentFormat.OpenXml` SDK 3.5.1 — published as WebAssembly. Its product surface is a *SDK*: an in-browser block editor, a paginated DOCX→HTML materializer, and a package writer. It enters this study twice: as the **package writer** measured in §4, and as the **renderer** measured in *Rendering Versus Word*. What follows is the write path only.
+**Docxodus is not an editor, and that is the point of putting it in this table.** It is a .NET OOXML engine — the `docxodus` npm package ({{ver.npm.docxodus}}) with the companion `@docxodus/export` ({{ver.npm.docxodus}}), built on the `DocumentFormat.OpenXml` SDK 3.5.1 — published as WebAssembly. Its product surface is a *SDK*: an in-browser block editor, a paginated DOCX→HTML materializer, and a package writer. It enters this study twice: as the **package writer** measured in §4, and as the **renderer** measured in *Rendering Versus Word*. What follows is the write path only.
 
 **The boundary mechanism is a list of parts.** The other five mechanisms in this report all draw a line around a *vocabulary* — a set of element names to dispatch on. Docxodus draws it around a set of *files*. `Docxodus/DocxSession.cs:968-986` — `EnumerateProjectedParts` yields the main document part, every header and footer part, footnotes, endnotes, the comments part and its three companions (`commentsExtended`, `commentsIds`, `people`), the settings part, the styles part, and the custom-XML parts. Those are the only parts the projector can write to.
 
@@ -717,7 +717,7 @@ build/doc_diff.py <editor-dir>  # element-level diff of document.xml
 build/make_report.sh <report.md>  # markdown -> .docx, with the two Word fixes
 ```
 
-`build/make_report.sh` is the pipeline that produces this file: pandoc writes `w:dirty="true"` on the table-of-contents field, which Word 16.115 refuses, so `build/fix_dirty.py` rewrites it; and pandoc sizes every table for a portrait page, so `build/retune_tables.py` re-fits the tables to the landscape content width.
+`build/make_report.sh` is the pipeline that produces this file: pandoc writes `w:dirty="true"` on the table-of-contents field, which Word {{word.version}} refuses, so `build/fix_dirty.py` rewrites it; and pandoc sizes every table for a portrait page, so `build/retune_tables.py` re-fits the tables to the landscape content width.
 
 The per-editor code citations in §3 refer to the pinned commits listed in the first report, under `repos/`. **None of those checkouts was modified.** Every citation in this report was re-verified against the working tree before publication.
 

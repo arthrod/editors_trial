@@ -1,2 +1,2 @@
-cwd: <editors_trial>
-~/.nvm/versions/node/v26.13.0/bin/node <editors_trial>/harness/superdoc.mjs /tmp/editors-trial-bombs/bombs/B3.docx /tmp/editors-trial-bombs/runs/superdoc/B3/out/out.docx
+cwd: /Users/arthrod/temp/T/editors_trial
+/Users/arthrod/.nvm/versions/node/v26.13.0/bin/node /Users/arthrod/temp/T/editors_trial/harness/superdoc.mjs /tmp/editors-trial-bombs/bombs/B3.docx /tmp/editors-trial-bombs/runs/superdoc/B3/out/out.docx

@@ -1,11 +1,3 @@
 plugins: 45, presentation components: 42
 stylesheet: 3039 chars
 suggested BaseEditorKit plugins: 45
-suggested import ok: true
-
-=== suggested import ===
-diagnostics: 0
-codes: {}
-errors: 0
-suggested export ok: true
-suggested export wrote 1239334 bytes

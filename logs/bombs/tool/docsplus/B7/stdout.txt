@@ -1,4 +1,4 @@
-[stub] media origin = http://127.0.0.1:64214
+[stub] media origin = http://127.0.0.1:55600
 [import] title      = "BOMB_BODY_OK"
 [import] warnings   = 1
          - title-promoted-paragraph: The document opened on a paragraph, so "BOMB_BODY_OK" became its title.

@@ -10,9 +10,9 @@ A correction to the previous report's headline: it ranked **eigenpal first on OO
 
 > **Second edition (2026-10-30): a twelfth editor, and a search for the rest.**
 >
-> **Plate.js** (`udecode/plate`, **16,684★** — the second-most-starred project in this trial) has been added: cloned at `08b1571f2`, driven through its own headless `importDocx` → `exportDocx` path with **45 base plugins** and Plate's own **static presentation kit**, and scored on the same 99 checks. It scores **20.6%** — last in the trial — but it is the **only editor that refuses a malformed document instead of corrupting it**, and the only one that reports *what* it dropped rather than dropping it silently. Those two findings are covered in full in the companion reports.
+> **Plate.js** (`udecode/plate`, **16,685★** — the second-most-starred project in this trial) has been added: cloned at `08b1571f2`, driven through its own headless `importDocx` → `exportDocx` path with **45 base plugins** and Plate's own **static presentation kit**, and scored on the same 99 checks. It scores **20.6%** — last in the trial — but it is the **only editor that refuses a malformed document instead of corrupting it**, and the only one that reports *what* it dropped rather than dropping it silently. Those two findings are covered in full in the companion reports.
 >
-> The selection was widened at the same time: a GitHub API sweep over the `docx-editor`, `word-processor` and `ooxml` topics plus a star-count survey of every candidate produced the shortlist in §"How the twelve were chosen". **Star count turned out to have no relationship to fidelity** — the two most-starred projects in the trial (WordCraft, 16,875★, and Plate, 16,684★) score 85.9% and 20.6%, while the three projects tied for first have 1,117 (SuperDoc), 536 (eigenpal) and 106 (Docxodus).
+> The selection was widened at the same time: a GitHub API sweep over the `docx-editor`, `word-processor` and `ooxml` topics plus a star-count survey of every candidate produced the shortlist in §"How the twelve were chosen". **Star count turned out to have no relationship to fidelity** — the two most-starred projects in the trial (WordCraft, 16,895★, and Plate, 16,685★) score 85.9% and 20.6%, while the three projects tied for first have 1,117 (SuperDoc), 536 (eigenpal) and 106 (Docxodus).
 
 ---
 
@@ -28,7 +28,7 @@ A correction to the previous report's headline: it ranked **eigenpal first on OO
 - **Plate.js (20.6%) is the most instructive result, in both directions.** Its DOCX engine is a genuine, carefully built piece of work: 45 plugins, a headless import/export pair, a typed diagnostic vocabulary, and a **closed "passive vocabulary" that governs whether an unchanged document may be exported byte-exactly**. Measured against the corpus it keeps **no** parts byte-identically, drops 24 of 35, renders 2 pages instead of 6, and scores last. But **it is the only editor in the trial that reports what it lost**: 38 typed diagnostics naming each dropped construct, and a default `lossPolicy` of `'reject'` that makes it **refuse** a document it cannot represent losslessly instead of writing a degraded one.
 - **LibreOffice, as a calibration baseline, scores 86.9% / 79.3% critical.** Any open-source editor that cannot beat LibreOffice on a Word-authored document is not a fidelity tool.
 - **The three weakest are not round-trip pipelines.** Fidus Writer (23.6%) has a DOCX importer that **drops all tables**; canvas-editor + plugin (24.6%) is a canvas editor with a DOCX export format and **crashes on `w:vMerge`**; docs.plus (21.1%) is an HTML bridge whose importer is `mammoth`, which flattens tracked changes to their accepted state — insertion text survives as ordinary text, deletion and move-out text is dropped, and every piece of revision markup is destroyed.
-- **Popularity does not predict fidelity.** Star counts for the projects are in §"How the twelve were chosen", re-measured on 2026-11-01. The two most-starred (WordCraft 16,875★, Plate 16,684★) score 85.9% and 20.6%; the three tied for first have 1,117★ (SuperDoc), 536★ (eigenpal) and 106★ (Docxodus), and Folio, at 97.5%, has 32★.
+- **Popularity does not predict fidelity.** Star counts for the projects are in §"How the twelve were chosen", re-measured on 2026-11-01. The two most-starred (WordCraft 16,895★, Plate 16,685★) score 85.9% and 20.6%; the three tied for first have 1,117★ (SuperDoc), 537★ (eigenpal) and 106★ (Docxodus), and Folio, at 97.5%, has 32★.
 
 ---
 
@@ -47,26 +47,28 @@ A correction to the previous report's headline: it ranked **eigenpal first on OO
 
 `[CODE]` read in source at a pinned commit · `[TEST]` read in a test file · `[DOCS]` README/docs · `[MEASURED]` produced by this trial · `[RELEASE/ISSUE]` release notes, issues, PRs · `[THIRD-PARTY]` blogs and mirrors.
 
-### Pinned commits (all `main`/`master` as of 2026-10-29)
+### Pinned commits
 
-| Checkout | Commit | Date |
-|---|---|---|
-| udecode/plate | `08b1571f2` | 2026-10-30 (branch `next`) |
-| eigenpal/docx-editor | `c6f8f0fdb` | 2026-10-29 |
-| stella/folio | `c83cfc4b0` | 2026-10-29 |
-| genspark-ai/genoffice | `a538d0429` | 2026-10-29 |
-| storytold/wordcraft | `aadb077e0` | 2026-10-28 |
-| superdoc/docx-editor | `f52c959b2` | 2026-10-29 |
-| Hufe921/canvas-editor | `8b9477218` | 2026-10-28 |
-| Hufe921/canvas-editor-plugin | `0e8a1b36c` | 2026-10-10 |
-| DemoMacro/docen | `1890b15aa` | 2026-10-29 |
-| DemoMacro/office-open | `567addfd4` | 2026-10-30 |
-| akademi-ink/office-open | `cc137a0eb` | 2026-10-28 |
-| docs-plus/docs.plus | `a9b0c69e8` | 2026-10-24 |
-| fiduswriter/fiduswriter | `e14cc456a` | 2026-10-21 |
-| fiduswriter/fiduswriter-document-ts | `dc0981db4` | 2026-10-21 |
-| fiduswriter/fiduswriter-cli-ts | `da64f9340` | 2026-10-21 |
-| fiduswriter/fiduswriter-pandoc-plugin-ts | `b0ca59400` | 2026-10-21 |
+The code was read at the commits in the second column (all `main`/`master` as of 2026-10-29), and every `[CODE]` file:line citation in this edition refers to them. The round-trip, Word and safety measurements were last run at the commits in the fourth column.
+
+| Checkout | Code read at | Date | Measured at | Date |
+|---|---|---|---|---|
+| udecode/plate | `08b1571f2` | 2026-10-30 (branch `next`) | `60c7f5530` | 2026-11-01 |
+| eigenpal/docx-editor | `c6f8f0fdb` | 2026-10-29 | `3425d4d7a` | 2026-11-01 |
+| stella/folio | `c83cfc4b0` | 2026-10-29 | `958c582cb` | 2026-10-30 |
+| genspark-ai/genoffice | `a538d0429` | 2026-10-29 | `36a509e8f` | 2026-10-30 |
+| storytold/wordcraft | `aadb077e0` | 2026-10-28 | `a88e00525` | 2026-10-31 |
+| superdoc/docx-editor | `f52c959b2` | 2026-10-29 | `0ee03fd3c` | 2026-10-30 |
+| Hufe921/canvas-editor | `8b9477218` | 2026-10-28 | `1865c9b06` | 2026-11-01 |
+| Hufe921/canvas-editor-plugin | `0e8a1b36c` | 2026-10-10 | `0e8a1b36c` | 2026-10-10 |
+| DemoMacro/docen | `1890b15aa` | 2026-10-29 | `1890b15aa` | 2026-10-29 |
+| DemoMacro/office-open | `567addfd4` | 2026-10-30 | `567addfd4` | 2026-10-30 |
+| akademi-ink/office-open | `cc137a0eb` | 2026-10-28 | `cc137a0eb` | 2026-10-28 |
+| docs-plus/docs.plus | `a9b0c69e8` | 2026-10-24 | `a9b0c69e8` | 2026-10-24 |
+| fiduswriter/fiduswriter | `e14cc456a` | 2026-10-21 | `e14cc456a` | 2026-10-21 |
+| fiduswriter/fiduswriter-document-ts | `dc0981db4` | 2026-10-21 | `dc0981db4` | 2026-10-21 |
+| fiduswriter/fiduswriter-cli-ts | `da64f9340` | 2026-10-21 | `da64f9340` | 2026-10-21 |
+| fiduswriter/fiduswriter-pandoc-plugin-ts | `b0ca59400` | 2026-10-21 | `b0ca59400` | 2026-10-21 |
 
 ### How the twelve were chosen
 
@@ -76,28 +78,28 @@ The search used the GitHub API over three queries and three topic listings (`doc
 
 | Project | ★ | Language | Licence | In this trial? |
 |---|---:|---|---|---|
-| `storytold/wordcraft` | **16,875** | Rust | Apache-2.0 | yes — #8 |
-| `udecode/plate` | **16,684** | TypeScript | `NOASSERTION` | **yes — #12, added 2026-10-30** |
-| `genspark-ai/genoffice` | **11,459** | TypeScript | Apache-2.0 | yes — #4 |
-| `dolanmiu/docx` | 5,984 | TypeScript | MIT | no — a **generator**, not an editor: it writes .docx from a JS model and cannot read one |
-| `ONLYOFFICE/DocumentServer` | 7,066 | Shell/C++ | AGPL-3.0 | no — a full office server, not a library; its round trip is a document-server pipeline, not an embeddable editor API |
+| `storytold/wordcraft` | **16,895** | Rust | Apache-2.0 | yes — #8 |
+| `udecode/plate` | **16,685** | TypeScript | `NOASSERTION` | **yes — #12, added 2026-10-30** |
+| `genspark-ai/genoffice` | **11,474** | TypeScript | Apache-2.0 | yes — #4 |
+| `dolanmiu/docx` | 5,983 | TypeScript | MIT | no — a **generator**, not an editor: it writes .docx from a JS model and cannot read one |
+| `ONLYOFFICE/DocumentServer` | 7,071 | Shell/C++ | AGPL-3.0 | no — a full office server, not a library; its round trip is a document-server pipeline, not an embeddable editor API |
 | `Hufe921/canvas-editor` | **5,248** | TypeScript | MIT | yes — #9 |
 | `superdoc/docx-editor` | **1,117** | TypeScript | AGPL-3.0 | yes — #1 |
 | `fiduswriter/fiduswriter` | **569** | TypeScript | AGPL-3.0 | yes — #10 |
-| `stffnb/edentext` | 562 | TypeScript | — | no — a browser word processor; no library round-trip API |
-| `eigenpal/docx-editor` | **536** | TypeScript | Apache-2.0 | yes — #5 |
-| `openooxml/betteroffice` | 328 | Rust | — | no — not yet runnable headlessly against the corpus |
+| `stffnb/edentext` | 564 | TypeScript | — | no — a browser word processor; no library round-trip API |
+| `eigenpal/docx-editor` | **537** | TypeScript | Apache-2.0 | yes — #5 |
+| `openooxml/betteroffice` | 329 | Rust | — | no — not yet runnable headlessly against the corpus |
 | `Hufe921/canvas-editor-plugin` | **131** | TypeScript | MIT | yes — #9 (with canvas-editor) |
 | `JSv4/Docxodus` | 106 | C# | MIT | no — .NET/WASM; a different toolchain from the rest of the trial |
 | `docs-plus/docs.plus` | **96** | TypeScript | MIT | yes — #11 |
-| `CasualOffice/docs` | 68 | TypeScript | — | no — self-hosted server with a co-editing stack; no headless round-trip API |
-| `DemoMacro/docen` | **67** | TypeScript | MIT | yes — #7 |
+| `CasualOffice/docs` | 69 | TypeScript | — | no — self-hosted server with a co-editing stack; no headless round-trip API |
+| `DemoMacro/docen` | **68** | TypeScript | MIT | yes — #7 |
 | `ant981228/cardmirror` | 45 | TypeScript | — | no — a policy-debate tool, not a general DOCX editor |
 | `DemoMacro/office-open` | **39** | TypeScript | MIT | yes — #6 |
-| `CasualOffice/opendoc` | 34 | Rust | Apache-2.0 | no — a new, small engine |
+| `CasualOffice/opendoc` | 37 | Rust | Apache-2.0 | no — a new, small engine |
 | `stella/folio` | **32** | TypeScript | Apache-2.0 | yes — #3 |
 
-**The star counts do not predict anything about fidelity.** The three projects tied for first have **1,117★** (SuperDoc), **536★** (eigenpal) and **106★** (Docxodus). Folio, fifth at 97.5%, has **32★** — fewer than a hundred people have starred it, and it loses two checks. The two most-starred projects in the trial, WordCraft and Plate, score **85.9%** and **20.6%**. Meanwhile the projects with the most stars of all are mostly *not* editors: `ONLYOFFICE/DocumentServer` (7,066★) is a server and `dolanmiu/docx` (5,984★) is a generator.
+**The star counts do not predict anything about fidelity.** The three projects tied for first have **1,117★** (SuperDoc), **537★** (eigenpal) and **106★** (Docxodus). Folio, fifth at 97.5%, has **32★** — fewer than a hundred people have starred it, and it loses two checks. The two most-starred projects in the trial, WordCraft and Plate, score **85.9%** and **20.6%**. Meanwhile the projects with the most stars of all are mostly *not* editors: `ONLYOFFICE/DocumentServer` (7,066★) is a server and `dolanmiu/docx` (5,984★) is a generator.
 
 Two structural candidates were **excluded on grounds, not on stars**, and the exclusions are recorded so the trial's boundary is auditable: a *generator* (`dolanmiu/docx`, `docxtemplater`, `phpword`, `python-docx`, `unioffice`) writes documents but cannot read one, so there is nothing to round-trip; and a *server* (`ONLYOFFICE/DocumentServer`, `CasualOffice/docs`) renders and edits over a document-server protocol, so its "round trip" is a different product from a library's. Everything that could be driven headlessly through a real import→export path was in scope.
 
@@ -138,7 +140,7 @@ Every editor was driven through its **own** public entry point. This is the most
 | eigenpal | `readOoxmlPackage` → `writeOoxmlPackage` (canonical store lane) | `packages/core/src/store/package/ooxml-package.ts:418` / `:624` |
 | Folio | `parseDocx` → `repackDocx` (model lane, DOM-free) | `packages/core/src/docx/parser.ts:426` / `packages/core/src/docx/rezip.ts:1901` |
 | GenOffice | `parseDocx` → Tiptap `Editor` → `pmDocToSavePlan` → `saveDocx` | `packages/docx-engine/src/parse.ts:360`, `apps/docs/src/renderer/editor/convert.ts:139`/`:2196`, `packages/docx-engine/src/patch.ts:723` |
-| SuperDoc | `SuperDocClient.open()` → `doc.save()` (headless SDK + native engine) | `@superdoc/sdk` 2.25.0-next.14; engine `@superdoc/docx-engine` 0.27.0-next.15 |
+| SuperDoc | `SuperDocClient.open()` → `doc.save()` (headless SDK + native engine) | `@superdoc/sdk` 2.26.0-next.16; engine `@superdoc/docx-engine` 0.28.0-next.3 |
 | WordCraft | `wordcraft_docx::read` → `wordcraft_docx::write` | `crates/docx/src/read.rs:121` / `crates/docx/src/write.rs:143` |
 | office-open | `parseDocument` → `generateDocument` | `packages/docx/src/parse.ts:501` / `packages/docx/src/generate.ts:71` |
 | Docen | `parseDOCX` → `generateDOCX` | `packages/docx/src/converters/docx.ts:1337` / `:1415` |
@@ -220,7 +222,7 @@ Feeding each output back through its own editor is the strictest test: a selecti
 | **eigenpal** | 100.0% | 100.0% | **yes** | Fixed point |
 | **Folio** | 97.5% | 97.5% | **yes** | Fixed point |
 | WordCraft | 85.9% | 86.4% | no | Stable but not byte-identical; text 100% |
-| **Plate.js** | **20.6%** | **20.1%** | no | Stable, not byte-identical; the second-pass package shrinks from 42,964 to **8,010** bytes as the retained source is replaced by a regenerated one |
+| **Plate.js** | **20.6%** | **20.1%** | no | Stable, not byte-identical; the second-pass package shrinks from 42,964 to **8,009** bytes as the retained source is replaced by a regenerated one |
 | **office-open** | 93.5% | **32.2%** | no | **Not idempotent — `word/document.xml` fails to parse: "unbound prefix", column 13606** |
 | **Docen** | 91.5% | **32.2%** | no | **Not idempotent — "unbound prefix", column 15858** |
 | Fidus Writer | 23.6% | 25.1% | no | Stable in content; not byte-identical |
@@ -302,7 +304,7 @@ After the fixes, `build/validate_ooxml.py` reports **no real schema violations**
 8. **WordCraft.** 85.9%. Keeps the chart, all four SmartArt parts, the OLE object, the embedded workbook and the image — but it is the only payload keeper that loses the revision model, and it drops two payload parts of its own (`word/charts/style1.xml`, `word/charts/colors1.xml`).
 8. **canvas-editor + plugin, Fidus Writer, docs.plus, Plate.js.** Not round-trip pipelines. Plate is the most interesting of the four: its DOCX engine is a well-built, diagnosable, headless import/export pair with a byte-exactness gate, but it is an HTML-shaped pipeline — **zero parts survive byte-identically, 24 of 35 are dropped, and the document renders in 2 pages instead of 6** — so it scores 20.6% while keeping 90.5% of the text. Its diagnostic vocabulary and its `lossPolicy: 'reject'` default are the best behaviour on malformed input in this trial; see the companion report.
 
-**On popularity [MEASURED].** Star counts are in §"How the twelve were chosen", re-measured on 2026-11-01. **They do not predict fidelity.** The two most-starred projects in the trial, WordCraft (16,875★) and Plate (16,684★), score 85.9% and 20.6%. The three tied for first have 1,117★, 536★ and 106★, and Folio, fifth at 97.5%, has **32★** — fewer stars than its own issue count. If you are choosing an editor on popularity, this trial gives no support for that heuristic.
+**On popularity [MEASURED].** Star counts are in §"How the twelve were chosen", re-measured on 2026-11-01. **They do not predict fidelity.** The two most-starred projects in the trial, WordCraft (16,895★) and Plate (16,685★), score 85.9% and 20.6%. The three tied for first have 1,117★, 536★ and 106★, and Folio, fifth at 97.5%, has **32★** — fewer stars than its own issue count. If you are choosing an editor on popularity, this trial gives no support for that heuristic.
 
 **2. Document comparison**
 
@@ -552,7 +554,7 @@ The import path is **mammoth → HTML → the editor model**: `mammoth` is a top
 - **Do not use Fidus Writer, canvas-editor + plugin, docs.plus or Plate.js as fidelity tools.** Fidus Writer is an academic-publishing pipeline, canvas-editor is a canvas editor with a DOCX exporter, docs.plus is an HTML bridge that silently accepts every revision, and Plate.js is an HTML-shaped editor framework whose DOCX engine, however well built, does not carry the constructs Word uses.
 - **But do use Plate.js's DOCX engine's *diagnostics* as a model.** It is the only one of the twelve that reports what it dropped, and its default `lossPolicy: 'reject'` refuses a document it cannot represent losslessly instead of writing a degraded one. If you are building a DOCX pipeline, that behaviour — a typed diagnostic per lost construct, and a refusal by default — is worth copying even if you do not adopt the engine. Its `sourceEligibility.ts` gate is also the only implementation of *provable* byte-exact export found in this trial.
 - **Build your own corpus.** This one document found eight distinct defect classes that no release note mentions. Your documents will find different ones.
-- **Do not choose on stars.** The two most-starred projects here score 85.9% and 20.6%; the three tied for first have 1,117★, 536★ and 106★, and Folio (97.5%) has 32★. Stars track how visible a project is, not whether it can open a Word file.
+- **Do not choose on stars.** The two most-starred projects here score 85.9% and 20.6%; the three tied for first have 1,117★, 537★ and 106★, and Folio (97.5%) has 32★. Stars track how visible a project is, not whether it can open a Word file.
 
 ---
 

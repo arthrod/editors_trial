@@ -41,32 +41,34 @@ A correction to the previous report's headline: it ranked **eigenpal first on OO
 3. **Each editor's own import→export path was executed headlessly** — not a re-implementation, the project's own entry point (§ *Harnesses* below for the literal commands).
 4. **A {{checks.total}}-check scorer** diffed input against output at package-part level, element level, attribute level and text level.
 5. **Every output was re-opened with LibreOffice** to confirm the result is still a valid, openable document.
-6. **The corpus was opened in Microsoft Word 16.115**, and the defects Word refuses were found by bisecting `word/document.xml` against Word itself (§ *Word Compatibility* below). The corpus now opens in Word, and so does every file this edition delivers.
+6. **The corpus was opened in Microsoft Word {{word.version}}**, and the defects Word refuses were found by bisecting `word/document.xml` against Word itself (§ *Word Compatibility* below). The corpus now opens in Word, and so does every file this edition delivers.
 
 ### Evidence tags
 
 `[CODE]` read in source at a pinned commit · `[TEST]` read in a test file · `[DOCS]` README/docs · `[MEASURED]` produced by this trial · `[RELEASE/ISSUE]` release notes, issues, PRs · `[THIRD-PARTY]` blogs and mirrors.
 
-### Pinned commits (all `main`/`master` as of 2026-10-29)
+### Pinned commits
 
-| Checkout | Commit | Date |
-|---|---|---|
-| udecode/plate | `08b1571f2` | 2026-10-30 (branch `next`) |
-| eigenpal/docx-editor | `c6f8f0fdb` | 2026-10-29 |
-| stella/folio | `c83cfc4b0` | 2026-10-29 |
-| genspark-ai/genoffice | `a538d0429` | 2026-10-29 |
-| storytold/wordcraft | `aadb077e0` | 2026-10-28 |
-| superdoc/docx-editor | `f52c959b2` | 2026-10-29 |
-| Hufe921/canvas-editor | `8b9477218` | 2026-10-28 |
-| Hufe921/canvas-editor-plugin | `0e8a1b36c` | 2026-10-10 |
-| DemoMacro/docen | `1890b15aa` | 2026-10-29 |
-| DemoMacro/office-open | `567addfd4` | 2026-10-30 |
-| akademi-ink/office-open | `cc137a0eb` | 2026-10-28 |
-| docs-plus/docs.plus | `a9b0c69e8` | 2026-10-24 |
-| fiduswriter/fiduswriter | `e14cc456a` | 2026-10-21 |
-| fiduswriter/fiduswriter-document-ts | `dc0981db4` | 2026-10-21 |
-| fiduswriter/fiduswriter-cli-ts | `da64f9340` | 2026-10-21 |
-| fiduswriter/fiduswriter-pandoc-plugin-ts | `b0ca59400` | 2026-10-21 |
+The code was read at the commits in the second column (all `main`/`master` as of 2026-10-29), and every `[CODE]` file:line citation in this edition refers to them. The round-trip, Word and safety measurements were last run at the commits in the fourth column.
+
+| Checkout | Code read at | Date | Measured at | Date |
+|---|---|---|---|---|
+| udecode/plate | `08b1571f2` | 2026-10-30 (branch `next`) | `{{ver.plate.commit}}` | {{ver.plate.date}} |
+| eigenpal/docx-editor | `c6f8f0fdb` | 2026-10-29 | `{{ver.eigenpal-docx-editor.commit}}` | {{ver.eigenpal-docx-editor.date}} |
+| stella/folio | `c83cfc4b0` | 2026-10-29 | `{{ver.folio.commit}}` | {{ver.folio.date}} |
+| genspark-ai/genoffice | `a538d0429` | 2026-10-29 | `{{ver.genoffice.commit}}` | {{ver.genoffice.date}} |
+| storytold/wordcraft | `aadb077e0` | 2026-10-28 | `{{ver.wordcraft.commit}}` | {{ver.wordcraft.date}} |
+| superdoc/docx-editor | `f52c959b2` | 2026-10-29 | `{{ver.superdoc.commit}}` | {{ver.superdoc.date}} |
+| Hufe921/canvas-editor | `8b9477218` | 2026-10-28 | `{{ver.canvas-editor.commit}}` | {{ver.canvas-editor.date}} |
+| Hufe921/canvas-editor-plugin | `0e8a1b36c` | 2026-10-10 | `{{ver.canvas-editor-plugin.commit}}` | {{ver.canvas-editor-plugin.date}} |
+| DemoMacro/docen | `1890b15aa` | 2026-10-29 | `{{ver.docen.commit}}` | {{ver.docen.date}} |
+| DemoMacro/office-open | `567addfd4` | 2026-10-30 | `{{ver.office-open.commit}}` | {{ver.office-open.date}} |
+| akademi-ink/office-open | `cc137a0eb` | 2026-10-28 | `{{ver.office-open-upstream.commit}}` | {{ver.office-open-upstream.date}} |
+| docs-plus/docs.plus | `a9b0c69e8` | 2026-10-24 | `{{ver.docs-plus.commit}}` | {{ver.docs-plus.date}} |
+| fiduswriter/fiduswriter | `e14cc456a` | 2026-10-21 | `{{ver.fiduswriter.commit}}` | {{ver.fiduswriter.date}} |
+| fiduswriter/fiduswriter-document-ts | `dc0981db4` | 2026-10-21 | `{{ver.fiduswriter-document-ts.commit}}` | {{ver.fiduswriter-document-ts.date}} |
+| fiduswriter/fiduswriter-cli-ts | `da64f9340` | 2026-10-21 | `{{ver.fiduswriter-cli-ts.commit}}` | {{ver.fiduswriter-cli-ts.date}} |
+| fiduswriter/fiduswriter-pandoc-plugin-ts | `b0ca59400` | 2026-10-21 | `{{ver.fiduswriter-pandoc-plugin-ts.commit}}` | {{ver.fiduswriter-pandoc-plugin-ts.date}} |
 
 ### How the twelve were chosen
 
@@ -105,7 +107,7 @@ Two structural candidates were **excluded on grounds, not on stars**, and the ex
 
 - **One document.** The corpus is deliberately hostile, but it is one document; it is not a corpus survey.
 - **Import→export with no edits.** Every project was exercised on its *round trip*, not on editing. Selective-save optimisations that only trigger on a dirty block are therefore not distinguished from unconditional regeneration — except where a project documents otherwise.
-- **Word is used as a validator, not as an oracle.** The corpus is checked against the ECMA-376 schemas and opened in Microsoft Word 16.115, but the *outputs* were judged by the scorer and by LibreOffice, not by Word. A document that Word opens but that the scorer flags is still a loss.
+- **Word is used as a validator, not as an oracle.** The corpus is checked against the ECMA-376 schemas and opened in Microsoft Word {{word.version}}, but the *outputs* were judged by the scorer and by LibreOffice, not by Word. A document that Word opens but that the scorer flags is still a loss.
 - **Star counts and issue counts were not re-measured**; they change daily and are not the subject of this edition. *Superseded on 2026-10-30:* star counts **were** re-measured for the twelve projects and the survey is published in §"How the twelve were chose" — the finding is that they do not predict fidelity. Issue counts remain out of scope.
 
 ---
@@ -138,7 +140,7 @@ Every editor was driven through its **own** public entry point. This is the most
 | eigenpal | `readOoxmlPackage` → `writeOoxmlPackage` (canonical store lane) | `packages/core/src/store/package/ooxml-package.ts:418` / `:624` |
 | Folio | `parseDocx` → `repackDocx` (model lane, DOM-free) | `packages/core/src/docx/parser.ts:426` / `packages/core/src/docx/rezip.ts:1901` |
 | GenOffice | `parseDocx` → Tiptap `Editor` → `pmDocToSavePlan` → `saveDocx` | `packages/docx-engine/src/parse.ts:360`, `apps/docs/src/renderer/editor/convert.ts:139`/`:2196`, `packages/docx-engine/src/patch.ts:723` |
-| SuperDoc | `SuperDocClient.open()` → `doc.save()` (headless SDK + native engine) | `@superdoc/sdk` 2.25.0-next.14; engine `@superdoc/docx-engine` 0.27.0-next.15 |
+| SuperDoc | `SuperDocClient.open()` → `doc.save()` (headless SDK + native engine) | `@superdoc/sdk` {{ver.npm.superdoc_sdk}}; engine `@superdoc/docx-engine` {{ver.npm.superdoc_engine}} |
 | WordCraft | `wordcraft_docx::read` → `wordcraft_docx::write` | `crates/docx/src/read.rs:121` / `crates/docx/src/write.rs:143` |
 | office-open | `parseDocument` → `generateDocument` | `packages/docx/src/parse.ts:501` / `packages/docx/src/generate.ts:71` |
 | Docen | `parseDOCX` → `generateDOCX` | `packages/docx/src/converters/docx.ts:1337` / `:1415` |
@@ -240,7 +242,7 @@ That is the single most consequential defect found in this trial, because it is 
 
 ## Word Compatibility of the Corpus
 
-A fidelity corpus that Word itself will not open is not a corpus; it is a curiosity. The first build of `complex.docx` opened cleanly in LibreOffice and was schema-clean under a naive reading, but **Microsoft Word 16.115 declined it outright**.
+A fidelity corpus that Word itself will not open is not a corpus; it is a curiosity. The first build of `complex.docx` opened cleanly in LibreOffice and was schema-clean under a naive reading, but **Microsoft Word {{word.version}} declined it outright**.
 
 Finding out *why* meant treating Word as the oracle and bisecting against it. `build/find_word_culprit.py` splits `word/document.xml` into its 41 top-level body blocks, keeps a subset, and asks Word to open the result; `build/word_probe.py` re-probes one body at a time, and `build/isolate_candidates.py` / `build/move_shape_candidates.py` / `build/toc_candidates.py` / `build/dirty_candidates.py` narrow the offending markup down to a single attribute. **Twelve defect classes** were behind the refusal.
 
@@ -267,7 +269,7 @@ Finding out *why* meant treating Word as the oracle and bisecting against it. `b
 
 **The `w:dirty` result is the one worth keeping.** `w:dirty` is an ordinary `ST_OnOff` attribute of `w:fldChar`, and Word itself writes `w:dirty="true"` on the begin character of an out-of-date table of contents. In this build it is nevertheless fatal to the entire document. The measurement is unambiguous and reproducible:
 
-| `w:fldChar` attribute | Word 16.115 verdict |
+| `w:fldChar` attribute | Word {{word.version}} verdict |
 |---|---|
 | `w:dirty="true"` | **refused** |
 | `w:dirty="1"` | **refused** |
@@ -282,7 +284,7 @@ It is not specific to the corpus. The `.docx` of this report is generated by pan
 - the markup-compatibility attributes (`mc:Ignorable`, `mc:AlternateContent`), which the transitional XSD does not describe at all; and
 - elements and attributes in Microsoft's extension namespaces (`w14`, `w15`, `w16du`, `w16cid`, `w16cex`), which is precisely what `mc:Ignorable` exists to permit — and which are the subject of several test cases in this corpus.
 
-After the fixes, `build/validate_ooxml.py` reports **no real schema violations** across `document.xml`, `settings.xml`, `styles.xml`, `numbering.xml`, `footnotes.xml`, `endnotes.xml`, `comments.xml`, both headers, both footers, `fontTable.xml`, `webSettings.xml` and `glossary/document.xml`, and the chart, SmartArt and theme parts validate against their own schemas (`dml-chart.xsd`, `dml-diagram.xsd`, `dml-main.xsd`). **The corpus now opens in Microsoft Word 16.115**, and so does every file this edition delivers.
+After the fixes, `build/validate_ooxml.py` reports **no real schema violations** across `document.xml`, `settings.xml`, `styles.xml`, `numbering.xml`, `footnotes.xml`, `endnotes.xml`, `comments.xml`, both headers, both footers, `fontTable.xml`, `webSettings.xml` and `glossary/document.xml`, and the chart, SmartArt and theme parts validate against their own schemas (`dml-chart.xsd`, `dml-diagram.xsd`, `dml-main.xsd`). **The corpus now opens in Microsoft Word {{word.version}}**, and so does every file this edition delivers.
 
 **The lesson generalises past this report.** LibreOffice opening a file is not evidence that the file is valid; it is evidence that LibreOffice is forgiving. Any DOCX benchmark whose corpus is only checked in one consumer will quietly measure the corpus's leniency instead of the editors' fidelity. All twelve defects above were invisible to eleven of the twelve editors in this trial — they read the file and produced output — and invisible to LibreOffice. The twelfth, **Plate.js**, refused the malformed corpus outright (`decode-failed`) rather than reading it; it detects exactly one of the twelve classes, the block-level `m:oMathPara`. A schema validator caught five of them. The other seven were found only by asking Word, one subset at a time.
 
@@ -534,7 +536,7 @@ The import path is **mammoth → HTML → the editor model**: `mammoth` is a top
 - Fidus Writer's DOCX importer **has no table support**.
 - docs.plus **destroys all tracked changes at import**, via mammoth's `ignoreElements`.
 - WordCraft keeps binary payloads but **loses row-level revisions**.
-- **Microsoft Word 16.115 opens the corpus.** Getting it there meant fixing twelve defect classes, seven of which no schema validator reports — among them `w:delText` inside `w:moveFrom`, a block-level `m:oMathPara`, and `w:dirty="true"` on a `w:fldChar`. The last one also broke the first build of this report's own `.docx`.
+- **Microsoft Word {{word.version}} opens the corpus.** Getting it there meant fixing twelve defect classes, seven of which no schema validator reports — among them `w:delText` inside `w:moveFrom`, a block-level `m:oMathPara`, and `w:dirty="true"` on a `w:fldChar`. The last one also broke the first build of this report's own `.docx`.
 
 **Still unverified**
 - Pagination fidelity, comparison/redline quality and conversion breadth were not exercised; those sections carry the previous report's evidence unchanged.
@@ -560,7 +562,7 @@ The import path is **mammoth → HTML → the editor model**: `mammoth` is a top
 
 - One adversarial document, not a corpus survey. The scores rank *this* input, not general quality.
 - No edits were performed; the trial measures round-trip fidelity only.
-- The corpus itself was opened in Microsoft Word 16.115, and every defect that Word refuses was found by bisecting the document against Word. The editors' **outputs** were judged by the scorer and re-opened with LibreOffice, not by Word.
+- The corpus itself was opened in Microsoft Word {{word.version}}, and every defect that Word refuses was found by bisecting the document against Word. The editors' **outputs** were judged by the scorer and re-opened with LibreOffice, not by Word.
 - The comparison and pagination sections were not re-measured and retain the previous report's evidence.
 - Scores depend on this corpus's weighting; the raw pass/fail lists are in `out/<editor>/score.json` so the weighting can be changed.
 

@@ -60,6 +60,7 @@ LEVELS = (
 # A phrase here is a ceiling the tool named. Stack overflow is not in this list.
 _BOUNDED = (
     "limit-exceeded",
+    "_limit_exceeded",
     "maxentrybytes",
     "maxentries",
     "maxxmldepth",

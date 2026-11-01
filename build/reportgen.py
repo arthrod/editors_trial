@@ -52,6 +52,9 @@ SUBJECTS: list[tuple[re.Pattern, str]] = [
     (re.compile(r"DemoMacro/docen"), "docen"),
     (re.compile(r"udecode/plate"), "plate"),
     (re.compile(r"fiduswriter/fiduswriter\b"), "fidus"),
+    (re.compile(r"eigenpal(?:-| )editor"), "eigenpal-editor"),
+    (re.compile(r"Folio(?:-| )editor"), "folio-editor"),
+    (re.compile(r"(?<![/\w.\-])wordcraft(?![/\w.\-])"), "wordcraft"),
     (re.compile(r"SuperDoc"), "superdoc"),
     (re.compile(r"Docxodus"), "docxodus"),
     (re.compile(r"GenOffice"), "genoffice"),
@@ -96,6 +99,7 @@ METRIC_KW = {
     "total": ("check",),
     "failed": ("fail",),
     "bytes": ("byte",),
+    "grade": ("grade",),
     "kept": ("part", "kept"),
     "out": ("part",),
     "passthrough": ("pass-through", "passthrough", "untouched", "byte-identical"),
@@ -118,7 +122,7 @@ NUMBER = re.compile(
 )
 # Spans that are never bound: code, links' targets, images, URLs, HTML.
 PROTECT = re.compile(
-    r"`[^`\n]*`|!\[[^\]]*\]\([^)]*\)|\]\([^)]*\)|https?://\S+|<[^>\n]+>|\{\{[^}]*\}\}"
+    r"^\s*(?:#+\s*)?\d+[.)](?=\s)|`[^`\n]*`|!\[[^\]]*\]\([^)]*\)|\]\([^)]*\)|https?://\S+|<[^>\n]+>|\{\{[^}]*\}\}"
 )
 SENTENCE_END = re.compile(r"(?<=[.!?;])\s+(?=[*_(\[]*[A-Z])")
 
@@ -148,11 +152,20 @@ def _formats_to(value, literal: str) -> str | None:
 
 
 def _subjects_in(text: str) -> list[tuple[int, str]]:
+    """Every editor named in ``text``, in order. Where two names overlap
+    ("eigenpal editor" and "eigenpal") the longer one, the lane, wins."""
     found = []
     for rx, tool in SUBJECTS:
         for m in rx.finditer(text):
-            found.append((m.start(), tool))
-    return sorted(found)
+            found.append((m.start(), m.end(), tool))
+    found.sort(key=lambda f: (f[0], -(f[1] - f[0])))
+    kept, end = [], -1
+    for a, b, tool in found:
+        if a < end:
+            continue
+        kept.append((a, tool))
+        end = b
+    return kept
 
 
 def _family_pref(context: str) -> str:
@@ -198,6 +211,17 @@ def _gap_has_number(gap: str) -> bool:
     return bool(NUMBER.search(gap))
 
 
+def _globals(facts: dict) -> dict[str, tuple[str, ...]]:
+    """Trial-wide figures and the words that name them."""
+    g = {k: v for k, v in GLOBAL_KW.items() if k in facts}
+    for k in facts:
+        if k.startswith("bomb.count."):
+            g[k] = (k[len("bomb.count."):],)
+    if "bomb.cells" in facts:
+        g["bomb.cells"] = ("cell",)
+    return g
+
+
 def _kw_header(kws, header: str) -> int:
     h = header.lower()
     return 3 if any(kw in h for kw in kws) else 0
@@ -221,7 +245,7 @@ def _kw_weight(kws, text: str, s: int, e: int) -> int:
                 gap = text[m.end():s]
                 if _gap_has_number(gap):
                     continue
-                best = max(best, 2 if len(gap) <= 14 else 1 if len(gap) <= 40 else 0)
+                best = max(best, 3 if gap.strip(" *_") == "" and len(gap) <= 3 else 2 if len(gap) <= 14 else 1 if len(gap) <= 40 else 0)
     return best
 
 
@@ -234,17 +258,18 @@ def _choose(literal: str, subject: str | None, text: str, s: int, e: int, header
     cands: list[tuple[int, str, str]] = []
     keys = []
     if subject:
-        for fam in ("rt", "p2", "parts"):
+        for fam in ("rt", "p2", "parts", "bomb"):
             pre = f"{fam}.{subject}."
-            keys += [k for k in facts if k.startswith(pre)]
-    keys += [k for k in GLOBAL_KW if k in facts]
+            keys += [k for k in facts if k.startswith(pre) and k.count(".") == 2]
+    glob = _globals(facts)
+    keys += list(glob)
     scored = []
     for k in keys:
         spec = _formats_to(facts[k], literal)
         if spec is None:
             continue
-        if k in GLOBAL_KW:
-            fam, metric, kws = "global", k, GLOBAL_KW[k]
+        if k in glob:
+            fam, metric, kws = "global", k, glob[k]
         else:
             fam, _, metric = k.split(".", 2)
             kws = METRIC_KW.get(metric, ())

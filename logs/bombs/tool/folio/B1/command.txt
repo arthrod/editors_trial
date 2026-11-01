@@ -1,2 +1,2 @@
-cwd: <editors_trial>/repos/folio
-~/.bun/bin/bun <editors_trial>/harness/folio.ts /tmp/editors-trial-bombs/bombs/B1.docx /tmp/editors-trial-bombs/runs/folio/B1/out/out.docx model
+cwd: /Users/arthrod/temp/T/editors_trial/repos/folio
+/Users/arthrod/.bun/bin/bun /Users/arthrod/temp/T/editors_trial/harness/folio.ts /tmp/editors-trial-bombs/bombs/B1.docx /tmp/editors-trial-bombs/runs/folio/B1/out/out.docx model

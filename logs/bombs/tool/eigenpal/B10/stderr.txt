@@ -6,6 +6,6 @@
 31 |   if (!first.ok) throw new Error(`open failed: ${first.reason}`);
                                 ^
 error: open failed: parse-error
-      at <editors_trial>/harness/eigenpal.ts:31:28
+      at /Users/arthrod/temp/T/editors_trial/harness/eigenpal.ts:31:28
 
 Bun v1.4.2 (macOS arm64)

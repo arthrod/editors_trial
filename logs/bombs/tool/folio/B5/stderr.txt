@@ -8,7 +8,7 @@
 DocxParseError: Failed to parse DOCX: XML resource preflight could not safely scan malformed markup
  _tag: "DocxParseError",
 
-      at parseDocxWithPreviewBudget (<editors_trial>/repos/folio/packages/core/src/docx/parser.ts:1017:15)
+      at parseDocxWithPreviewBudget (/Users/arthrod/temp/T/editors_trial/repos/folio/packages/core/src/docx/parser.ts:1017:15)
 
 188 |   }
 189 |   return { close: -1, attributes };
@@ -23,11 +23,11 @@ XmlResourceLimitError: XML resource preflight could not safely scan malformed ma
  observed: 0,
   allowed: 0,
 
-      at throwSyntaxLimit (<editors_trial>/repos/folio/packages/docx-core/src/xml/xmlResourceLimits.ts:193:13)
-      at assertXmlResourceLimits (<editors_trial>/repos/folio/packages/docx-core/src/xml/xmlResourceLimits.ts:292:7)
-      at assignXmlContent (<editors_trial>/repos/folio/packages/core/src/docx/unzip.ts:525:3)
-      at unzipDocx (<editors_trial>/repos/folio/packages/core/src/docx/unzip.ts:466:7)
-      at <editors_trial>/repos/folio/packages/core/src/docx/parser.ts:472:28
-      at parseDocxWithPreviewBudget (<editors_trial>/repos/folio/packages/core/src/docx/parser.ts:478:23)
+      at throwSyntaxLimit (/Users/arthrod/temp/T/editors_trial/repos/folio/packages/docx-core/src/xml/xmlResourceLimits.ts:193:13)
+      at assertXmlResourceLimits (/Users/arthrod/temp/T/editors_trial/repos/folio/packages/docx-core/src/xml/xmlResourceLimits.ts:292:7)
+      at assignXmlContent (/Users/arthrod/temp/T/editors_trial/repos/folio/packages/core/src/docx/unzip.ts:525:3)
+      at unzipDocx (/Users/arthrod/temp/T/editors_trial/repos/folio/packages/core/src/docx/unzip.ts:466:7)
+      at /Users/arthrod/temp/T/editors_trial/repos/folio/packages/core/src/docx/parser.ts:472:28
+      at parseDocxWithPreviewBudget (/Users/arthrod/temp/T/editors_trial/repos/folio/packages/core/src/docx/parser.ts:478:23)
 
 Bun v1.4.2 (macOS arm64)
