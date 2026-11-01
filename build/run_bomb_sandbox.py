@@ -394,6 +394,8 @@ def header() -> list[str]:
         "editors under seatbelt. External network is denied. Localhost and unix sockets "
         "inside the work directory are allowed, because the editors' own tooling binds them. "
         "Writes stay in the work directory, plus the canvas vitest config cache. "
+        "Apryse's profile also allows Mach port registration, which Chromium needs to start; "
+        "Chromium's own sandbox cannot start inside seatbelt and is off for that tool. "
         "The editors are macOS binaries and were not run inside the Linux container.",
         "taxonomy: preserving a hostile payload is not the same single result as a crash.",
         "reference Word fidelity: not-run safety: not-run Word was not opened. LibreOffice is the comparison.",
