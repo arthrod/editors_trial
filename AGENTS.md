@@ -40,8 +40,9 @@ The measurements, in order (`build/run_trial.sh` runs the ones it can):
 | Second pass | `build/run_second_pass.sh` | main report, A2 |
 | Scores | `build/score_all.py`, `build/score_extra.py` | all |
 | Word opens every output | `build/word_verdicts.py` | main report, B, D2 |
-| Report A namespace matrix | `build/report_a_matrix.py` | A |
-| Report C: each editor's own UI, and Word's pixels | `build/capture_ui.sh`, `build/render_compare_word.py` | C |
+| Report A namespace tables | `build/ns_json.py`; check §6 with `build/report_a_matrix.py --patch` on a copy | A |
+| Report C: each editor's own UI | `build/capture_ui.sh` (twice; compare with `build/compare_ui.py`) | C |
+| Report C: Word's pixels | `build/word_render_all.py`, `build/word_pages.py`, `build/render_compare_word.py` | C |
 | Hostile packages (sandbox) | `build/run_bomb_sandbox.py`, `build/label_protection.py` | D |
 | Jubarte on the hostile packages | `build/run_jubarte_bombs.py` | D1 |
 | Star counts | `build/stars.py` | main report |

@@ -27,6 +27,7 @@ import re
 import subprocess
 import sys
 import zipfile
+from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -172,6 +173,16 @@ def version_facts(facts: dict) -> None:
             facts["ver.npm.superdoc_engine"] = dep.lstrip("^~")
 
 
+def ui_facts(ui: Path, facts: dict) -> None:
+    """Report C's capture date, stamped by build/capture_ui.sh when a full run completes."""
+    stamp = ui / "captured_at.txt"
+    if not stamp.exists():
+        return
+    day = stamp.read_text().strip()
+    date.fromisoformat(day)  # ValueError on anything that is not YYYY-MM-DD
+    facts["ui.date"] = day
+
+
 def build() -> dict:
     facts: dict = {}
     fixture = parts(FIXTURE)
@@ -214,6 +225,7 @@ def build() -> dict:
         if log.exists():
             facts[f"bomb.{name}"] = log.read_text().rstrip("\n")
     version_facts(facts)
+    ui_facts(OUT / "ui", facts)
     stars = OUT / "stars.json"
     if stars.exists():
         data = json.loads(stars.read_text())

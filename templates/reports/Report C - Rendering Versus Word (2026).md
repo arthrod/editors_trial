@@ -1,4 +1,4 @@
-# Rendering: What Each Editor Actually Shows, Measured Against Word (2026-10-30)
+# Rendering: What Each Editor Actually Shows, Measured Against Word ({{ui.date}})
 
 *Part C of the series. Part A covers serialization by namespace, Part A2 covers
 pass-through. This part answers one question: **when you open the corpus in
@@ -244,13 +244,21 @@ containing the node texts "Step one" and "Step two"**. The two editors show
 the reader *different information in the same place*: Word shows nothing,
 GenOffice shows the diagram's data as text.
 
-**Other differences from Word:** deletions are `display:none` — the deleted
-runs and the deleted table row are **not rendered at all**, where Word draws
-them struck through in red; insertions are drawn as ordinary black text
-without Word's red underline; the equation is MathML at 11 pt with a literal
+**Tracked changes are new in this release.** At the commit Report C first
+measured (`a538d04`, 2026-10-29) GenOffice hid every deletion and drew
+insertions as plain black text. At the current pin it draws them the way Word
+does: insertions underlined in red, deletions struck through in red, the
+`w:moveFrom` / `w:moveTo` pair in green, formatting balloons in the margin
+("Formatted: Bold, Not Italic"), the inserted table row tinted blue and the
+deleted row struck through on a pink tint, and the comment as a card with its
+body. The older commit, captured again with the same script, reproduces the
+earlier picture pixel for pixel, so the change is GenOffice's, not the
+harness's. One side effect is visible: the table now breaks across pages 2
+and 3, with the deleted row on page 3 under a repeated header row.
+
+**Other differences from Word:** the equation is MathML at 11 pt with a literal
 `^` instead of a raised exponent; the `w14:textOutline` run is applied as
-`-webkit-text-stroke` on already-black text and is therefore invisible; the
-comment is a green tint plus a small bubble glyph with no body text; and
+`-webkit-text-stroke` on already-black text and is therefore invisible; and
 GenOffice drops the vertical-merge cell's continuation text.
 
 ### 2.4 eigenpal — a near-exact page-3 reproduction
@@ -688,19 +696,20 @@ rectangle, and the `w14:textOutline` run.
 
 ### 2.13 Docxodus — the engine that draws what it cannot render
 
-**What it is.** Docxodus (JSv4/Docxodus, v14.2.0) is a .NET OOXML engine in
+**What it is.** Docxodus (JSv4/Docxodus, v{{ver.npm.docxodus}}) is a .NET OOXML engine in
 the OpenXML-PowerTools lineage, published as a WebAssembly build. It is the
 only tool in this study that is not a browser-based editor: it ships a
 **DOCX→HTML paginated materializer**, an **in-browser block editor**
 (`DocxEditor`), a **package reader/writer** (`DocxSession`), and a **CLI**
 (`docxodus convert`).
 
-**How it was hosted.** The published npm package `docxodus@14.2.0` was
+**How it was hosted.** The published npm package `docxodus@{{ver.npm.docxodus}}` was
 installed into `harness/ui/docxodus/`, and the product's own export CLI
-(`@docxodus/export@14.2.0`) was driven exactly as it ships:
+(`@docxodus/export@{{ver.npm.docxodus}}`) was driven exactly as it ships, once
+with `--to html` and once with `--to pdf`:
 
 ```
-docxodus convert fixture/complex.docx --to html --to pdf \
+docxodus convert fixture/complex.docx --to html --output docxodus.html \
   --review-profile markup --markup-presentation word \
   --comments margin --comment-column-placement balloons \
   --font-directory <Carlito, Caladea, Liberation> \
@@ -836,7 +845,7 @@ where nothing can be read out of the DOM).
 | **Word {{word.version}} (reference)** | yes | yes | blank band | "Text box content" | yes | yes, vector | marker + body | balloon + body | both shown | full |
 | **SuperDoc** | yes | yes | blank band | "Text box content" | yes | yes | marker + body | review cards | both shown | full |
 | **Folio** | yes | **no** | blank band | "Text box content" | yes | **no** | marker + body | balloon + body | both shown | full |
-| **GenOffice** | yes | yes (SVG) | **labelled placeholder** | "Text box content" | yes | MathML, literal `^` | markers only | marker, no body | deletions hidden, insertions plain | full |
+| **GenOffice** | yes | yes (SVG) | **labelled placeholder** | "Text box content" | yes | MathML, literal `^` | markers only | card + body | both shown | full |
 | **eigenpal** | yes | yes | **"Unsupported diagram"** | "Text box content" | yes | yes | markers | plain text, no marker | both shown | full |
 | **Docen** | yes | **yes, but three series** | none | "Text box content" | **no** | **no** | footnote yes, endnote marker only | **none** | ins/del yes, moves empty | full |
 | **Office-Open** *(model)* | yes | yes | empty band | yes, both branches kept | yes | flat text | yes | balloon | record set only | yes |
@@ -889,8 +898,8 @@ the package. The two strings are not synonyms; a reader sees different text.
 
 **(d) Comments are the least consistently rendered construct.** Only Folio
 and Office-Open's host reproduce anything close to Word's balloon. Docen
-produces **no marker at all**; eigenpal produces plain text; SuperDoc moves
-the comment into a review sidebar; GenOffice and WordCraft show an anchor
+produces **no marker at all**; eigenpal produces plain text; SuperDoc and GenOffice move
+the comment into a review sidebar; WordCraft shows an anchor
 without the body; LibreOffice shows the anchor but never the body; and
 **Plate.js, docs.plus and Fidus Writer show nothing at all** — Plate's own
 importer says *"Comment 0 has no complete imported range"*, docs.plus drops
@@ -898,8 +907,8 @@ it, and Fidus stores the comment body in the document's `comments` field and
 never renders it.
 
 **(e) Tracked changes are shown three different ways.** Word strikes
-deletions through in red and underlines insertions. SuperDoc and eigenpal do
-the same. GenOffice and LibreOffice **hide deletions entirely** — the
+deletions through in red and underlines insertions. SuperDoc, eigenpal and (since this
+release) GenOffice do the same. LibreOffice **hides deletions entirely** — the
 document reads as if the revisions had been accepted. Docen shows the
 insertions and deletions but turns `w:moveFrom` / `w:moveTo` into **two
 empty paragraphs**. **Plate.js and docs.plus flatten every revision into plain
@@ -1459,7 +1468,7 @@ the UI layer:
 | Question | UI layer | Package / pixel layer |
 |---|---|---|
 | Does the editor show a chart? | **Folio, Plate.js, docs.plus, Fidus Writer: no.** Docen: yes, but wrong. Docxodus: yes, without axis ticks. | Folio, Plate.js and docs.plus keep **no** chart part at all — here the two layers agree, for once. |
-| Does the editor show the deleted row? | GenOffice, LibreOffice, Plate.js, docs.plus: **no**. Docen, SuperDoc, eigenpal, Docxodus: yes. | GenOffice and LibreOffice both **keep** the deleted row's markup in the package. |
+| Does the editor show the deleted row? | LibreOffice, Plate.js, docs.plus: **no**. Docen, SuperDoc, eigenpal, GenOffice, Docxodus: yes. | LibreOffice **keeps** the deleted row's markup in the package. |
 | Does the editor show the equation? | Folio, Docen, docs.plus: **no**. WordCraft, eigenpal, LibreOffice, **Plate.js**: yes. **Docxodus: a "[MATH]" chip, not the equation.** | Word, GenOffice, office-open and others all **keep** the equation in the package. |
 | Does the editor show the comment body? | Folio, **Docxodus**: **yes**. Docen, eigenpal, Plate.js, docs.plus: **no**. | Most editors keep the comments part. |
 | Is the SmartArt drawn? | GenOffice, eigenpal, **Docxodus**: **something is drawn**. | Word: **nothing is drawn** — 0 px in 142,766 px. |
@@ -1555,7 +1564,7 @@ file input; `--probe` runs a module that drives the application; and
 | docs.plus | `repos/docs-plus/apps/webapp`, `next dev` 5205, + a REST stub on :4000 calling the repo's own `importDocx` | `--probe docsplus/probe_import.mjs` |
 | Fidus Writer | `repos/fiduswriter/fiduswriter`, `manage.py runserver 127.0.0.1:5209` | `--probe fidus/probe_load.mjs` |
 | LibreOffice | `soffice --convert-to pdf` | the application's own rendered pages |
-| **Docxodus** | the published npm package `docxodus@14.2.0` under `harness/ui/docxodus/`, driven by its own CLI `@docxodus/export@14.2.0` | `docxodus convert … --to html --to pdf`; the standalone HTML is then photographed with `--probe docxodus/probe_scroll_page.mjs` and `DX_PAGE=1\|3\|4` |
+| **Docxodus** | the published npm package `docxodus@{{ver.npm.docxodus}}` under `harness/ui/docxodus/`, driven by its own CLI `@docxodus/export@{{ver.npm.docxodus}}` | `docxodus convert … --to html` (and again `--to pdf`); the standalone HTML is then photographed with `--probe docxodus/probe_scroll_page.mjs` and `DX_PAGE=1\|3\|4` |
 
 **Three host-specific prerequisites are easy to lose.** Fidus Writer's frontend
 build needs a GNU-`cp` shim (the generated postinstall uses
