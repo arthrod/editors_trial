@@ -37,5 +37,22 @@ class CaptureTest(unittest.TestCase):
         self.assertIn("started", out)
 
 
+class HarnessFaultTest(unittest.TestCase):
+    """A browser that cannot start is our harness, not an editor refusing a bomb."""
+
+    LAUNCH = (
+        "browserType.launch: Target page, context or browser has been closed\n"
+        "  - [pid=17368][err] [FATAL:base/apple/mach_port_rendezvous_mac.cc:159] Check failed: "
+        "kr == KERN_SUCCESS. bootstrap_check_in org.chromium.Chromium.MachPortRendezvousServer.17368: "
+        "Permission denied (1100)\n"
+    )
+
+    def test_browser_launch_failure_is_a_harness_fault(self):
+        self.assertEqual(R._harness_fault("", self.LAUNCH), "harness-browser-launch")
+
+    def test_an_editor_error_inside_a_running_browser_is_not(self):
+        self.assertIsNone(R._harness_fault("loaded: {}\n", "page.evaluate: Error: bad zip\n"))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -79,6 +79,8 @@ second docsplus \
   "mkdir -p $BASE/out/docsplus/second/evidence && cd $BASE/harness/docsplus/repo-copy && EVIDENCE_DIR=$BASE/out/docsplus/second/evidence bun $BASE/harness/docsplus/roundtrip.ts '__IN__' '__OUT__'"
 second docxodus \
   "cd $BASE/harness/ui/docxodus && node roundtrip.mjs '__IN__' '__OUT__'"
+second apryse \
+  "cd $BASE/harness/apryse && node roundtrip.mjs '__IN__' '__OUT__'"
 
 pkill -f "superdoc host" 2>/dev/null
 echo "=== SECOND PASS DONE ==="

@@ -34,6 +34,7 @@ TARGETS = [
     ("docs.plus", "out/docsplus/complex.docx"),
     ("plate", "out/plate/complex.docx"),
     ("docxodus", "out/docxodus/complex.docx"),
+    ("apryse", "out/apryse/complex.docx"),
     ("libreoffice", "out/lo_baseline/complex.docx"),
 ]
 

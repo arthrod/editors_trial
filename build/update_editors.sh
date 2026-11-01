@@ -12,7 +12,8 @@
 #              cutoff, checked out detached; then the project's own package
 #              manager installs its lockfile
 #   npm pins   @superdoc/sdk on the `next` channel the trial has always
-#              measured, docxodus and @docxodus/export on `latest`, each the
+#              measured, docxodus, @docxodus/export and @pdftron/webviewer
+#              (Apryse) on `latest`, each the
 #              newest version published on or before the cutoff
 #
 # RELEASE_DATE=YYYY-MM-DD overrides today's date (the cutoff is 5 days before).
@@ -76,6 +77,11 @@ DX_NOW=$(node -p "require('./harness/ui/docxodus/node_modules/docxodus/package.j
 DX=$(python3 build/pin_versions.py npm docxodus latest ${DX_NOW:+--current "$DX_NOW"} ${RELEASE_DATE:+--date "$RELEASE_DATE"})
 echo "npm     docxodus@$DX, @docxodus/export@$DX"
 ( cd harness/ui/docxodus && npm install --no-audit --no-fund --save-exact "docxodus@$DX" "@docxodus/export@$DX" ) >/tmp/update_docxodus.log 2>&1
+
+AP_NOW=$(node -p "require('./harness/apryse/node_modules/@pdftron/webviewer/package.json').version" 2>/dev/null || true)
+AP=$(python3 build/pin_versions.py npm @pdftron/webviewer latest ${AP_NOW:+--current "$AP_NOW"} ${RELEASE_DATE:+--date "$RELEASE_DATE"})
+echo "npm     @pdftron/webviewer@$AP"
+( cd harness/apryse && pnpm add --save-exact "@pdftron/webviewer@$AP" ) >/tmp/update_apryse.log 2>&1
 
 echo "build   wordcraft harness"
 ( cd harness/wordcraft && cargo build --release ) >/tmp/update_wordcraft.log 2>&1

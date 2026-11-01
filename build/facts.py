@@ -40,7 +40,7 @@ from part_map import classify  # noqa: E402
 TOOLS = [
     "superdoc", "docxodus", "genoffice", "eigenpal", "eigenpal-editor", "folio",
     "folio-editor", "officeopen", "docen", "wordcraft", "canvas", "fidus",
-    "docsplus", "plate", "lo_baseline",
+    "docsplus", "plate", "apryse", "lo_baseline",
 ]
 # Checkout under repos/ -> its GitHub slug.
 REPOS = {
@@ -66,6 +66,7 @@ REPOS = {
 NPM = {
     "superdoc_sdk": ("@superdoc/sdk", "repos/superdoc/node_modules/.pnpm", "@superdoc+sdk@"),
     "docxodus": ("docxodus", "harness/ui/docxodus/node_modules/docxodus/package.json", None),
+    "apryse": ("@pdftron/webviewer", "harness/apryse/node_modules/@pdftron/webviewer/package.json", None),
 }
 
 
@@ -165,6 +166,9 @@ def version_facts(facts: dict) -> None:
     pkg = ROOT / NPM["docxodus"][1]
     if pkg.exists():
         facts["ver.npm.docxodus"] = json.loads(pkg.read_text())["version"]
+    pkg = ROOT / NPM["apryse"][1]
+    if pkg.exists():
+        facts["ver.npm.apryse"] = json.loads(pkg.read_text())["version"]
     # The closed DOCX engine SuperDoc's repository depends on (Report A cites it).
     sd = ROOT / "repos/superdoc/packages/superdoc/package.json"
     if sd.exists():

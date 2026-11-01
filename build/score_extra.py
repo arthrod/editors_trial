@@ -18,7 +18,7 @@ import sys
 BASE = "/Users/arthrod/temp/T/editors_trial"
 CHECKER = "build/check_roundtrip.py"
 SECOND = ["plate", "docxodus", "superdoc", "folio", "genoffice", "eigenpal", "officeopen",
-          "docen", "wordcraft", "fidus", "canvas", "docsplus", "lo_baseline"]
+          "docen", "wordcraft", "fidus", "canvas", "docsplus", "apryse", "lo_baseline"]
 LANES = ["eigenpal-editor", "folio-editor"]
 
 

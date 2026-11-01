@@ -47,6 +47,7 @@ TARGETS = [
     ("docs.plus", os.path.join(BASE, "out", "docsplus", "complex.docx")),
     ("plate", os.path.join(BASE, "out", "plate", "complex.docx")),
     ("docxodus", os.path.join(BASE, "out", "docxodus", "complex.docx")),
+    ("apryse", os.path.join(BASE, "out", "apryse", "complex.docx")),
     ("libreoffice", os.path.join(BASE, "out", "lo_baseline", "complex.docx")),
 ]
 

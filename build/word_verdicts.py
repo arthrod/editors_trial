@@ -15,7 +15,7 @@ sys.path.insert(0, str(ROOT / "build"))
 import word_open  # noqa: E402
 
 TOOLS = ["plate", "docxodus", "superdoc", "folio", "folio-editor", "genoffice", "eigenpal",
-         "eigenpal-editor", "officeopen", "docen", "wordcraft", "fidus", "canvas", "docsplus", "lo_baseline"]
+         "eigenpal-editor", "officeopen", "docen", "wordcraft", "fidus", "canvas", "docsplus", "apryse", "lo_baseline"]
 
 version = subprocess.run(["defaults", "read", "/Applications/Microsoft Word.app/Contents/Info.plist",
                           "CFBundleShortVersionString"], capture_output=True, text=True).stdout.strip()

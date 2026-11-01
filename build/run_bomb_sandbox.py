@@ -108,6 +108,19 @@ def _tools(in_path: Path, out_dir: Path):
             [NODE, "roundtrip.mjs", str(in_path), str(out_docx)],
             {},
         ),
+        (
+            # A browser editor: Chromium plus the host page on localhost:5210.
+            # The seatbelt profile is the containment; Chromium's own sandbox
+            # cannot start inside it. HOME is moved, so name the browsers.
+            "apryse",
+            ROOT / "harness" / "apryse",
+            [NODE, "roundtrip.mjs", str(in_path), str(out_docx)],
+            {
+                "APRYSE_NO_CHROME_SANDBOX": "1",
+                "APRYSE_VITE_CACHE": str(out_dir / "vite-cache"),
+                "PLAYWRIGHT_BROWSERS_PATH": str(Path.home() / "Library" / "Caches" / "ms-playwright"),
+            },
+        ),
     ]
 
 
@@ -161,6 +174,12 @@ def _profile(work: Path) -> str:
         + "\n".join(socket_rules)
         + "\n"
     )
+
+
+# Extra seatbelt rules, per tool. Chromium registers a Mach port for its child
+# processes (MachPortRendezvousServer); without mach-register it dies before
+# the editor loads. Every other tool's profile is unchanged.
+PROFILE_EXTRA = {"apryse": "(allow mach-register)\n"}
 
 
 def _limit():
@@ -279,7 +298,7 @@ def run_tool(name, cwd, cmd, env_extra, bomb_path: Path, work: Path) -> str:
     for path in (out_dir, home, work / "tmp", work / "cache", work / "config", work / "data"):
         path.mkdir(parents=True, exist_ok=True)
     profile = work / "profile.sb"
-    profile.write_text(_profile(work), encoding="utf-8")
+    profile.write_text(_profile(work) + PROFILE_EXTRA.get(name, ""), encoding="utf-8")
     env = os.environ.copy()
     env.update(env_extra)
     env["HOME"] = str(home)
@@ -394,6 +413,10 @@ def _harness_fault(stdout: str, stderr: str) -> str | None:
         return "harness-vite-temp"
     if "Failed to start server" in blob or "sandbox-exec:" in blob:
         return "harness-start"
+    # A browser-hosted editor (Apryse) whose Chromium never started: nothing
+    # of the editor ran, so this is not a refusal of the bomb.
+    if "browserType.launch" in blob:
+        return "harness-browser-launch"
     if "Cannot access 'show' before initialization" in blob:
         return "harness-plate"
     # A missing package while loading the editor's own kit is this checkout,

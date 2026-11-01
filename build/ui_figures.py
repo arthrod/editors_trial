@@ -85,6 +85,7 @@ EDITORS = [
     ("eigenpal", "eigenpal"),
     ("plate", "Plate.js"),
     ("docxodus", "Docxodus"),
+    ("apryse", "Apryse WebViewer"),
     ("docsplus", "docs.plus"),
     ("folio", "Folio"),
     ("fidus", "Fidus Writer"),

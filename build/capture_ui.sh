@@ -142,6 +142,17 @@ cap_fidus() {
   stop
 }
 
+cap_apryse() {
+  # Apryse WebViewer's DOCX Editor (closed source, @pdftron/webviewer), hosted
+  # by harness/apryse; the license key comes from the trial's .env.
+  serve 5210 "$BASE/harness/apryse" npx vite --config vite.config.mjs || return 1
+  local u="http://127.0.0.1:5210/"
+  warm "$u"
+  shot --name apryse --url "$u" --serve-as /sample.docx --file "$FIX" --viewport 1440x1400 --wait-for "$P1" --wait 6000
+  shot --name apryse_p3 --url "$u" --serve-as /sample.docx --file "$FIX" --viewport 1440x1500 --wait-for "$P1" --wait 6000 --scroll-text "$P3"
+  stop
+}
+
 cap_wordcraft() {
   mkdir -p "$OUT/wordcraft"
   local cli="$BASE/repos/wordcraft/target/release/wordcraft-cli"
@@ -174,7 +185,7 @@ cap_docxodus() {
   cp "$OUT/docxodus_p1.png" "$OUT/docxodus.png"; cp "$OUT/docxodus_p1.json" "$OUT/docxodus.json"
 }
 
-ALL=(superdoc folio genoffice eigenpal docen officeopen wordcraft canvas plate docsplus fidus libreoffice docxodus)
+ALL=(superdoc folio genoffice eigenpal docen officeopen wordcraft canvas plate docsplus fidus libreoffice docxodus apryse)
 [ $# -gt 0 ] && ALL=("$@")
 for e in "${ALL[@]}"; do
   echo "== $e"
