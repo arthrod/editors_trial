@@ -273,21 +273,7 @@ The last column of the table above is not an independent measurement; it falls o
 
 Three of the eleven defect classes are fatal to Word on their own, established by isolation in the first report: **d10** (`w:delText` inside `w:moveFrom`), **d11** (block-level `m:oMathPara`) and **d12** (`w:dirty="true"` on a `w:fldChar`). Every editor's Word verdict is consistent with its own defect table:
 
-| Editor | d10 | d11 | d12 | Word verdict | The verdict is explained by |
-|---|---|---|---|---|---|
-| SuperDoc | YES | YES | YES | REFUSED | all three fatal classes survive |
-| Folio | YES | YES | YES | REFUSED | all three fatal classes survive |
-| GenOffice | YES | YES | YES | REFUSED | all three fatal classes survive |
-| eigenpal | YES | YES | YES | REFUSED | all three fatal classes survive |
-| **Docxodus** | **YES** | **YES** | **YES** | **REFUSED** | **all three fatal classes survive** |
-| office-open | YES | YES | no | REFUSED | two fatal classes survive |
-| Docen | YES | YES | no | REFUSED | two fatal classes survive |
-| WordCraft | no | no | **YES** | REFUSED | **one** fatal class survives — `w:dirty` alone is enough |
-| Fidus Writer | no | no | no | REFUSED | **not explained by the corpus** — see below |
-| **Plate.js** | — | — | — | **REFUSED (no output)** | **the importer refused the corpus** — see below |
-| canvas-editor + plugin | no | no | no | OPENED | nothing fatal survives |
-| docs.plus | no | no | no | OPENED | nothing fatal survives |
-| LibreOffice (baseline) | no | no | no | OPENED | nothing fatal survives; the surviving `w:trPr` reorder is tolerated |
+{{broken.fatal}}
 
 Three of these rows are individually decisive:
 
@@ -299,21 +285,7 @@ Three of these rows are individually decisive:
 
 Putting the two Word matrices side by side is the clearest single statement of what pass-through costs.
 
-| Editor | Clean corpus | Broken corpus | Verdict flipped by the corpus? |
-|---|---|---|---|
-| SuperDoc | OPENED | REFUSED | **yes** |
-| GenOffice | OPENED | REFUSED | **yes** |
-| eigenpal | OPENED | REFUSED | **yes** |
-| WordCraft | OPENED | REFUSED | **yes** |
-| **Docxodus** | **OPENED** | **REFUSED** | **yes** |
-| Folio | REFUSED | REFUSED | no — already broken |
-| office-open | REFUSED | REFUSED | no — already broken |
-| Docen | REFUSED | REFUSED | no — already broken |
-| Fidus Writer | REFUSED | REFUSED | no — its own defect |
-| **Plate.js** | **OPENED** | **REFUSED (no output)** | **yes — the importer refused the corpus** |
-| canvas-editor + plugin | OPENED | OPENED | no — it dropped the damage |
-| docs.plus | OPENED | OPENED | no — it dropped the damage |
-| LibreOffice (baseline) | OPENED | OPENED | no — it dropped the damage |
+{{broken.flip}}
 
 **Five editors that were faithful to the clean file die on the malformed one, and the three that survive are the three that throw the content away.** Fidelity and robustness are anti-correlated here, and the reason is structural rather than accidental: an editor that preserves the document preserves the damage inside it, because the damage *is* the document as far as a pass-through writer is concerned. The editors that survive the malformed input are the ones that were already losing most of the document — they lose nothing more.
 

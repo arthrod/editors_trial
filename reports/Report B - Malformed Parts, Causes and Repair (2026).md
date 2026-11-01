@@ -255,20 +255,20 @@ This is the question the first report could not answer, and it is the one that m
 
 | Editor | d1 order (settings) | d2 order (tcPr) | d3 order (trPr) | d4 order (pPrChange) | d5 order (sectPr) | d6 durableId | d9 OLE payload | d10 delText in moveFrom | d11 block math | d12 dirty=true | Word 16.115 |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| SuperDoc | YES | YES | YES | YES | YES | YES | YES | YES | YES | YES | not measured |
-| Folio | YES | YES | YES | no | no | YES | YES | YES | YES | YES | not measured |
-| GenOffice | YES | YES | YES | YES | YES | YES | YES | YES | YES | YES | not measured |
-| eigenpal | YES | YES | YES | YES | YES | YES | YES | YES | YES | YES | not measured |
-| Docxodus | YES | YES | YES | YES | YES | YES | YES | YES | YES | YES | not measured |
-| office-open | no | no | no | no | no | no | YES | YES | YES | no | not measured |
-| Docen | no | no | no | no | no | no | YES | YES | YES | no | not measured |
-| WordCraft | YES | no | no | no | no | no | YES | no | no | YES | not measured |
-| Fidus Writer | no | no | no | no | no | no | DROP | no | no | no | not measured |
+| SuperDoc | YES | YES | YES | YES | YES | YES | YES | YES | YES | YES | **REFUSED** |
+| Folio | YES | YES | YES | no | no | YES | YES | YES | YES | YES | **REFUSED** |
+| GenOffice | YES | YES | YES | YES | YES | YES | YES | YES | YES | YES | **REFUSED** |
+| eigenpal | YES | YES | YES | YES | YES | YES | YES | YES | YES | YES | **REFUSED** |
+| Docxodus | YES | YES | YES | YES | YES | YES | YES | YES | YES | YES | **REFUSED** |
+| office-open | no | no | no | no | no | no | YES | YES | YES | no | **REFUSED** |
+| Docen | no | no | no | no | no | no | YES | YES | YES | no | **REFUSED** |
+| WordCraft | YES | no | no | no | no | no | YES | no | no | YES | **OPENED** |
+| Fidus Writer | no | no | no | no | no | no | DROP | no | no | no | **REFUSED** |
 | Plate.js | — | — | — | — | — | — | — | — | — | — | no output |
-| canvas-editor + plugin | no | no | no | no | no | no | DROP | no | no | no | not measured |
-| docs.plus | no | no | no | no | no | no | DROP | no | no | no | not measured |
-| Apryse WebViewer | no | no | YES | no | no | no | YES | YES | no | YES | not measured |
-| LibreOffice (baseline) | no | no | YES | no | no | no | DROP | no | no | no | not measured |
+| canvas-editor + plugin | no | no | no | no | no | no | DROP | no | no | no | **OPENED** |
+| docs.plus | no | no | no | no | no | no | DROP | no | no | no | **OPENED** |
+| Apryse WebViewer | no | no | YES | no | no | no | YES | YES | no | YES | **REFUSED** |
+| LibreOffice (baseline) | no | no | YES | no | no | no | DROP | no | no | no | **OPENED** |
 
 **Not one editor repaired a defect.**
 
@@ -288,21 +288,22 @@ The last column of the table above is not an independent measurement; it falls o
 
 Three of the eleven defect classes are fatal to Word on their own, established by isolation in the first report: **d10** (`w:delText` inside `w:moveFrom`), **d11** (block-level `m:oMathPara`) and **d12** (`w:dirty="true"` on a `w:fldChar`). Every editor's Word verdict is consistent with its own defect table:
 
-| Editor | d10 | d11 | d12 | Word verdict | The verdict is explained by |
+| Editor | d10 | d11 | d12 | Word verdict | Of d10, d11, d12 in the output |
 |---|---|---|---|---|---|
-| SuperDoc | YES | YES | YES | REFUSED | all three fatal classes survive |
-| Folio | YES | YES | YES | REFUSED | all three fatal classes survive |
-| GenOffice | YES | YES | YES | REFUSED | all three fatal classes survive |
-| eigenpal | YES | YES | YES | REFUSED | all three fatal classes survive |
-| **Docxodus** | **YES** | **YES** | **YES** | **REFUSED** | **all three fatal classes survive** |
-| office-open | YES | YES | no | REFUSED | two fatal classes survive |
-| Docen | YES | YES | no | REFUSED | two fatal classes survive |
-| WordCraft | no | no | **YES** | REFUSED | **one** fatal class survives — `w:dirty` alone is enough |
-| Fidus Writer | no | no | no | REFUSED | **not explained by the corpus** — see below |
-| **Plate.js** | — | — | — | **REFUSED (no output)** | **the importer refused the corpus** — see below |
-| canvas-editor + plugin | no | no | no | OPENED | nothing fatal survives |
-| docs.plus | no | no | no | OPENED | nothing fatal survives |
-| LibreOffice (baseline) | no | no | no | OPENED | nothing fatal survives; the surviving `w:trPr` reorder is tolerated |
+| SuperDoc | YES | YES | YES | REFUSED | all three |
+| Folio | YES | YES | YES | REFUSED | all three |
+| GenOffice | YES | YES | YES | REFUSED | all three |
+| eigenpal | YES | YES | YES | REFUSED | all three |
+| Docxodus | YES | YES | YES | REFUSED | all three |
+| office-open | YES | YES | no | REFUSED | two |
+| Docen | YES | YES | no | REFUSED | two |
+| WordCraft | no | no | YES | OPENED | one (d12) |
+| Fidus Writer | no | no | no | REFUSED | none |
+| Plate.js | — | — | — | no output | the importer refused the corpus |
+| canvas-editor + plugin | no | no | no | OPENED | none |
+| docs.plus | no | no | no | OPENED | none |
+| Apryse WebViewer | YES | no | YES | REFUSED | two |
+| LibreOffice (baseline) | no | no | no | OPENED | none |
 
 Three of these rows are individually decisive:
 
@@ -317,18 +318,19 @@ Putting the two Word matrices side by side is the clearest single statement of w
 | Editor | Clean corpus | Broken corpus | Verdict flipped by the corpus? |
 |---|---|---|---|
 | SuperDoc | OPENED | REFUSED | **yes** |
+| Folio | REFUSED | REFUSED | no |
 | GenOffice | OPENED | REFUSED | **yes** |
 | eigenpal | OPENED | REFUSED | **yes** |
-| WordCraft | OPENED | REFUSED | **yes** |
-| **Docxodus** | **OPENED** | **REFUSED** | **yes** |
-| Folio | REFUSED | REFUSED | no — already broken |
-| office-open | REFUSED | REFUSED | no — already broken |
-| Docen | REFUSED | REFUSED | no — already broken |
-| Fidus Writer | REFUSED | REFUSED | no — its own defect |
-| **Plate.js** | **OPENED** | **REFUSED (no output)** | **yes — the importer refused the corpus** |
-| canvas-editor + plugin | OPENED | OPENED | no — it dropped the damage |
-| docs.plus | OPENED | OPENED | no — it dropped the damage |
-| LibreOffice (baseline) | OPENED | OPENED | no — it dropped the damage |
+| Docxodus | OPENED | REFUSED | **yes** |
+| office-open | REFUSED | REFUSED | no |
+| Docen | REFUSED | REFUSED | no |
+| WordCraft | OPENED | OPENED | no |
+| Fidus Writer | REFUSED | REFUSED | no |
+| Plate.js | OPENED | no output | **yes — the importer refused the corpus** |
+| canvas-editor + plugin | OPENED | OPENED | no |
+| docs.plus | OPENED | OPENED | no |
+| Apryse WebViewer | OPENED | REFUSED | **yes** |
+| LibreOffice (baseline) | OPENED | OPENED | no |
 
 **Five editors that were faithful to the clean file die on the malformed one, and the three that survive are the three that throw the content away.** Fidelity and robustness are anti-correlated here, and the reason is structural rather than accidental: an editor that preserves the document preserves the damage inside it, because the damage *is* the document as far as a pass-through writer is concerned. The editors that survive the malformed input are the ones that were already losing most of the document — they lose nothing more.
 

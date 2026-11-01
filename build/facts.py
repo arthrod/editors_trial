@@ -250,7 +250,11 @@ def broken_facts(facts: dict) -> None:
     import defect_survival
     word = OUT / "word_verdicts_broken.json"
     data = json.loads(word.read_text()) if word.exists() else {"word": facts.get("word.version", "?"), "verdicts": {}}
-    facts["broken.survival"] = defect_survival.table(defect_survival.survival(), data["verdicts"], data["word"])
+    rows = defect_survival.survival()
+    facts["broken.survival"] = defect_survival.table(rows, data["verdicts"], data["word"])
+    facts["broken.fatal"] = defect_survival.fatal_table(rows, data["verdicts"])
+    clean = {d: facts[f"word.{d}.opens"] for _, d in defect_survival.EDITORS if f"word.{d}.opens" in facts}
+    facts["broken.flip"] = defect_survival.flip_table(rows, clean, data["verdicts"])
     facts["broken.word_measured"] = word.exists()
 
 
@@ -311,13 +315,13 @@ def build() -> dict:
     import preserved_matrix
     if all((OUT / d / "score.json").exists() for _, d in preserved_matrix.TOOLS):
         facts["matrix.preserved"] = preserved_matrix.build_table()
-    broken_facts(facts)
     version_facts(facts)
     ui_facts(OUT / "ui", facts)
     stamp_facts(OUT / "apryse", facts)
     release_facts(OUT / "release.json", facts)
     read_facts(OUT / f"facts-{CODE_READ_RELEASE}.json", CODE_READ_RELEASE, facts)
     word_pixel_facts(OUT / "render" / "word_render_compare.json", facts)
+    broken_facts(facts)   # after word.* : 4.2 sets the clean-corpus verdict beside the broken one
     count_facts(facts)
     stars = OUT / "stars.json"
     if stars.exists():

@@ -134,6 +134,44 @@ def table(rows, verdicts, word_version, editors=EDITORS):
     return "\n".join(lines)
 
 
+FATAL = (10, 11, 12)   # the classes Report B 4.1 sets beside Word's verdict
+COUNT = {0: "none", 1: "one", 2: "two", 3: "all three"}
+
+
+def _verdict(v):
+    return v if v in ("OPENED", "REFUSED") else "not measured"
+
+
+def fatal_table(rows, verdicts, editors=EDITORS):
+    """Report B 4.1: d10-d12 per editor beside Word's verdict on the same output."""
+    lines = ["| Editor | d10 | d11 | d12 | Word verdict | Of d10, d11, d12 in the output |", "|---|---|---|---|---|---|"]
+    for label, d in editors:
+        cells = rows.get(d)
+        if cells is None:
+            lines.append(f"| {label} | — | — | — | no output | the importer refused the corpus |")
+            continue
+        alive = [k for k in FATAL if cells[k] == "YES"]
+        n = COUNT[len(alive)] + (f" (d{alive[0]})" if len(alive) == 1 else "")
+        lines.append("| " + " | ".join([label] + [cells[k] for k in FATAL] + [_verdict(verdicts.get(d)), n]) + " |")
+    return "\n".join(lines)
+
+
+def flip_table(rows, clean_opens, verdicts, editors=EDITORS):
+    """Report B 4.2: Word on the clean corpus's output beside Word on the broken corpus's output."""
+    lines = ["| Editor | Clean corpus | Broken corpus | Verdict flipped by the corpus? |", "|---|---|---|---|"]
+    for label, d in editors:
+        clean = {True: "OPENED", False: "REFUSED"}.get(clean_opens.get(d), "not measured")
+        broken = "no output" if rows.get(d) is None else _verdict(verdicts.get(d))
+        if "not measured" in (clean, broken):
+            flip = "not measured"
+        elif broken == "no output":
+            flip = "**yes — the importer refused the corpus**" if clean == "OPENED" else "no"
+        else:
+            flip = "**yes**" if clean != broken else "no"
+        lines.append(f"| {label} | {clean} | {broken} | {flip} |")
+    return "\n".join(lines)
+
+
 def main():
     doc = text_of(BROKEN, "word/document.xml")
     settings = text_of(BROKEN, "word/settings.xml")

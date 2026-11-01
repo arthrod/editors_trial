@@ -80,5 +80,35 @@ class Table(unittest.TestCase):
                          {p.parent.name for p in (ds.ROOT / "out_broken").glob("*/complex.docx")} - {"plate"})
 
 
+class FatalAndFlipTables(unittest.TestCase):
+    def setUp(self):
+        yes = {k: "YES" for k in ds.DEFECTS}
+        some = {k: ("YES" if k == 12 else "no") for k in ds.DEFECTS}
+        none = {k: "no" for k in ds.DEFECTS}
+        self.rows = {"superdoc": yes, "wordcraft": some, "canvas": none, "plate": None}
+        self.ed = [("SuperDoc", "superdoc"), ("WordCraft", "wordcraft"), ("canvas", "canvas"), ("Plate.js", "plate")]
+        self.broken = {"superdoc": "REFUSED", "wordcraft": "OPENED", "canvas": "OPENED"}
+        self.clean = {"superdoc": True, "wordcraft": True, "canvas": True, "plate": True}
+
+    def test_the_fatal_table_counts_the_surviving_classes_from_the_cells(self):
+        lines = ds.fatal_table(self.rows, self.broken, self.ed).splitlines()
+        self.assertEqual(lines[0], "| Editor | d10 | d11 | d12 | Word verdict | Of d10, d11, d12 in the output |")
+        self.assertEqual(lines[2], "| SuperDoc | YES | YES | YES | REFUSED | all three |")
+        self.assertEqual(lines[3], "| WordCraft | no | no | YES | OPENED | one (d12) |")
+        self.assertEqual(lines[4], "| canvas | no | no | no | OPENED | none |")
+        self.assertEqual(lines[5], "| Plate.js | — | — | — | no output | the importer refused the corpus |")
+
+    def test_the_flip_table_sets_the_clean_verdict_beside_the_broken_one(self):
+        lines = ds.flip_table(self.rows, self.clean, self.broken, self.ed).splitlines()
+        self.assertEqual(lines[0], "| Editor | Clean corpus | Broken corpus | Verdict flipped by the corpus? |")
+        self.assertEqual(lines[2], "| SuperDoc | OPENED | REFUSED | **yes** |")
+        self.assertEqual(lines[3], "| WordCraft | OPENED | OPENED | no |")
+        self.assertEqual(lines[5], "| Plate.js | OPENED | no output | **yes — the importer refused the corpus** |")
+
+    def test_a_verdict_not_measured_is_not_turned_into_a_flip(self):
+        line = ds.flip_table(self.rows, {}, self.broken, self.ed).splitlines()[2]
+        self.assertEqual(line, "| SuperDoc | not measured | REFUSED | not measured |")
+
+
 if __name__ == "__main__":
     unittest.main()
