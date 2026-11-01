@@ -1,6 +1,6 @@
 # Vendors
 
-What each measured tool is, and trivia that is not a score. Lane results for Folio and eigenpal are in `extras/`. This page does not rank the tools.
+What each measured tool is, and trivia that is not a score. Lane results for Folio and eigenpal are in `extras/`. This page does not rank the tools. The benchmark is independent: it is not affiliated with, sponsored by, or endorsed by any of the projects or companies it measures, and their names are their owners' trademarks.
 
 The round-trip driver in `build/score_all.py` measures fourteen tools. `build/run_all.sh` runs the same set. Folio and eigenpal each have a second headless lane; those lanes are the same tools, not extra vendors. `repos/` is a local checkout of upstream trees. This page does not decide which of those trees are part of a published source drop, and it does not relicense any of them.
 
@@ -55,6 +55,10 @@ docs.plus is a real-time collaborative editor. The README's distinguishing featu
 ## Apryse
 
 Apryse WebViewer is a closed-source JavaScript document SDK, and the only commercial, closed-source tool in the round-trip lanes. Its DOCX Editor edits a Word file in the browser with Apryse's own office engine, compiled to WebAssembly, and saves it back as DOCX. The npm package keeps the company's former name, `@pdftron/webviewer`. The trial measures version {{ver.npm.apryse}} with a trial license key, which stamps a watermark picture into every file it saves. When it starts, the SDK posts its license key, a language code and its version to `pws-collect.pdftron.com`; the document's text and file name are not in that request. This benchmark drives it through `harness/apryse`.
+
+**Who makes it.** Apryse Software Inc., formerly PDFTron, sells document SDKs to software developers — WebViewer, and PDF, Office and CAD SDKs — and the Xodo apps to end users. Its company page names Thoma Bravo and Silversmith Capital Partners as investors ([apryse.com/company](https://apryse.com/company), read 2026-11-01).
+
+**No affiliation.** This benchmark is independent. It is not affiliated with, sponsored by, or endorsed by Apryse, or by any other vendor it measures. Apryse WebViewer was measured from the published npm package with a trial license key; the watermark that key stamps into every saved file is labelled in the results, not removed. Apryse, WebViewer, PDFTron and Xodo are trademarks of their owner.
 
 ## LibreOffice
 
