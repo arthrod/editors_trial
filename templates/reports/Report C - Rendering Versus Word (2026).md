@@ -29,8 +29,8 @@ The headline results:
    keeps **every `w:` element** and the `w15` / `w16cid` / `w16du` / `w10`
    namespaces that eight of the other twelve lose, has **zero dangling relationship
    references**, scores **100.0 %** on the {{checks.total}}-check round-trip test, and
-   produces a file Word opens and renders **pixel-identically** (83 differing
-   pixels across six pages — the same 83 SuperDoc leaves).
+   produces a file Word opens and renders **{{wpx.docxodus.verdict}}** ({{wpx.docxodus.diff_px:,}} differing
+   pixels across {{wpx.docxodus.pages}} pages; SuperDoc: {{wpx.superdoc.diff_px:,}}).
 
 3. **Two editors disagree with Word about what the reader sees.**
    **Docen** renders the chart with three differently-coloured bars and a
@@ -367,7 +367,7 @@ footer.
 
 **Differences from Word:** the chart is **redrawn from WordCraft's own
 model** — the same bars and the same labels, but WordCraft's own axis, which
-is why §6 measures 12,541 differing pixels here against Word's 83 for
+is why §6 measures {{wpx.wordcraft.diff_px:,}} differing pixels here against {{wpx.superdoc.diff_px:,}} for
 SuperDoc; and the comment has a highlighted anchor but **no balloon and no
 body text**.
 
@@ -1282,29 +1282,37 @@ page by page, against Word's own 110 dpi rendering of the corpus.
 
 | Output | Word pages | Differing pixels | As % of corpus ink | Verdict |
 |---|---:|---:|---:|---|
-| **SuperDoc** | 6 | **83** | **0.00%** | pixel-identical |
-| **eigenpal** | 6 | **0** | **0.00%** | pixel-identical |
-| **GenOffice** | 6 | **957** | **0.06%** | pixel-identical |
-| **Docxodus** | 6 | **83** | **0.00%** | **pixel-identical** |
-| WordCraft | 6 | 12,541 | 0.75% | very close |
-| LibreOffice (baseline) | 6 | 12,386 | 0.75% | very close |
-| canvas-editor | **2** | 40,646,218 | 2446.8% | **different** |
-| docs.plus | **2** | 40,609,781 | 2444.6% | **different** |
-| **Plate.js** | **2** | 40,629,083 | 2445.8% | **different** |
+| **SuperDoc** | {{wpx.superdoc.pages}} | {{wpx.superdoc.diff_px:,}} | {{wpx.superdoc.pct:.2f}}% | {{wpx.superdoc.verdict}} |
+| **eigenpal** | {{wpx.eigenpal.pages}} | {{wpx.eigenpal.diff_px:,}} | {{wpx.eigenpal.pct:.2f}}% | {{wpx.eigenpal.verdict}} |
+| **GenOffice** | {{wpx.genoffice.pages}} | {{wpx.genoffice.diff_px:,}} | {{wpx.genoffice.pct:.2f}}% | {{wpx.genoffice.verdict}} |
+| **Docxodus** | {{wpx.docxodus.pages}} | {{wpx.docxodus.diff_px:,}} | {{wpx.docxodus.pct:.2f}}% | {{wpx.docxodus.verdict}} |
+| Apryse WebViewer (trial stamp in the headers) | {{wpx.apryse.pages}} | {{wpx.apryse.diff_px:,}} | {{wpx.apryse.pct:.2f}}% | {{wpx.apryse.verdict}} |
+| WordCraft | {{wpx.wordcraft.pages}} | {{wpx.wordcraft.diff_px:,}} | {{wpx.wordcraft.pct:.2f}}% | {{wpx.wordcraft.verdict}} |
+| LibreOffice (baseline) | {{wpx.libreoffice.pages}} | {{wpx.libreoffice.diff_px:,}} | {{wpx.libreoffice.pct:.2f}}% | {{wpx.libreoffice.verdict}} |
+| canvas-editor | {{wpx.canvas.pages}} | {{wpx.canvas.diff_px:,}} | {{wpx.canvas.pct:.2f}}% | {{wpx.canvas.verdict}} |
+| docs.plus | {{wpx.docs.plus.pages}} | {{wpx.docs.plus.diff_px:,}} | {{wpx.docs.plus.pct:.2f}}% | {{wpx.docs.plus.verdict}} |
+| **Plate.js** | {{wpx.plate.pages}} | {{wpx.plate.diff_px:,}} | {{wpx.plate.pct:.2f}}% | {{wpx.plate.verdict}} |
 | Folio | — | — | — | **Word refused the file** |
 | office-open | — | — | — | **Word refused the file** |
 | Docen | — | — | — | **Word refused the file** |
 | Fidus Writer | — | — | — | **Word refused the file** |
 
-**83 pixels** across six pages is 0.005% of the corpus's ink — a
-rounding artefact, almost certainly the anti-aliasing of a hairline. WordCraft
-and LibreOffice sit at 0.75% and differ in the same place: the chart, which
-both redraw from their own model.
+**SuperDoc, eigenpal and Docxodus differ from Word's rendering of the corpus by
+{{wpx.superdoc.diff_px:,}}, {{wpx.eigenpal.diff_px:,}} and {{wpx.docxodus.diff_px:,}} pixels** across six pages, and GenOffice by
+{{wpx.genoffice.diff_px:,}} ({{wpx.genoffice.pct:.2f}}% of the corpus's ink). Earlier editions measured 83 pixels for
+SuperDoc and Docxodus, a rounding artefact on page 4 that this edition's Word pass does not
+reproduce. WordCraft and LibreOffice sit at {{wpx.wordcraft.pct:.2f}}% and {{wpx.libreoffice.pct:.2f}}% and differ in the same
+place: the chart, which both redraw from their own model.
+
+**Apryse's output renders {{wpx.apryse.verdict}} in Word ({{wpx.apryse.diff_px:,}} pixels,
+{{wpx.apryse.pct:.2f}}% of the corpus's ink), trial stamp included.** The stamp is in the
+headers Apryse adds ({{stamp.apryse.parts}} parts carry it), so this row measures a stamped file,
+as every Apryse figure in the trial does.
 
 **Docxodus is in the top group, and it got there without a rendering engine
 of its own.** Its round trip re-serialises ten XML parts through the .NET
 OpenXML SDK, and when Word opens the result it draws the corpus's page to
-within 83 pixels — the same 83 pixels SuperDoc leaves. **A perfect
+within {{wpx.docxodus.diff_px:,}} pixels, as SuperDoc does ({{wpx.superdoc.diff_px:,}}). **A perfect
 namespace census, zero changed parts and a pixel-identical Word rendering are
 three different claims, and Docxodus is the only tool in the study that makes
 all three at once.**

@@ -205,7 +205,8 @@ def stamp_facts(d: Path, facts: dict) -> None:
 CODE_READ_RELEASE = "v0.9.0"
 SDKS = {"docxodus"}            # an Open XML SDK, not an editor
 CLOSED = {"apryse"}            # measured only; there is no source to read
-LANES = {"lo_baseline", "eigenpal-editor", "folio-editor"}
+# Second lanes through an editor already counted; LibreOffice is a participant like any other.
+LANES = {"eigenpal-editor", "folio-editor"}
 
 
 def release_facts(path: Path, facts: dict) -> None:
@@ -226,6 +227,19 @@ def read_facts(old: Path, release: str, facts: dict) -> None:
     for k, v in json.loads(old.read_text()).items():
         if k.startswith("ver.") and k.rsplit(".", 1)[-1] in ("commit", "date"):
             facts["read." + k[4:]] = v
+
+
+def word_pixel_facts(path: Path, facts: dict) -> None:
+    """Report C section 6.1: each output Word rendered, against Word's rendering of the corpus."""
+    if not path.exists():
+        return
+    data = json.loads(path.read_text())
+    inks = {v["corpus_ink"] for v in data.values()}
+    if len(inks) == 1:
+        facts["wpx.corpus_ink"] = inks.pop()
+    for label, v in data.items():
+        for k, name in (("pages", "pages"), ("diff_px", "diff_px"), ("pct_of_ink", "pct"), ("verdict", "verdict")):
+            facts[f"wpx.{label}.{name}"] = v[k]
 
 
 def count_facts(facts: dict) -> None:
@@ -264,7 +278,7 @@ def build() -> dict:
         facts["word.version"] = data["word"]
         for t, verdict in data["verdicts"].items():
             facts[f"word.{t}.opens"] = verdict.startswith("OPENED")
-        editors = [t for t in data["verdicts"] if t not in ("lo_baseline", "eigenpal-editor", "folio-editor")]
+        editors = [t for t in data["verdicts"] if t not in LANES]
         facts["count.word_refused"] = sum(1 for t in editors if not facts[f"word.{t}.opens"])
         facts["count.word_outputs"] = len(editors)
     if (ROOT / "logs/bombs/protection.txt").exists():
@@ -290,6 +304,7 @@ def build() -> dict:
     stamp_facts(OUT / "apryse", facts)
     release_facts(OUT / "release.json", facts)
     read_facts(OUT / f"facts-{CODE_READ_RELEASE}.json", CODE_READ_RELEASE, facts)
+    word_pixel_facts(OUT / "render" / "word_render_compare.json", facts)
     count_facts(facts)
     stars = OUT / "stars.json"
     if stars.exists():
@@ -297,7 +312,7 @@ def build() -> dict:
         facts["stars.date"] = data["date"]
         for slug, n in data["stars"].items():
             facts[f"stars.{slug}"] = n
-    editors = [t for t in TOOLS if t != "lo_baseline" and f"p2.{t}.identical" in facts]
+    editors = [t for t in TOOLS if t not in LANES and f"p2.{t}.identical" in facts]
     facts["count.p2_identical"] = sum(1 for t in editors if facts[f"p2.{t}.identical"])
     facts["count.zero_failed"] = sum(1 for t in editors if facts[f"rt.{t}.failed"] == 0)
     return dict(sorted(facts.items()))

@@ -81,11 +81,29 @@ class CountFacts(unittest.TestCase):
     def test_participants_editors_and_open_source_editors(self):
         got = {f"rt.{t}.weighted": 1 for t in ("superdoc", "docxodus", "apryse", "plate", "lo_baseline", "folio-editor")}
         facts.count_facts(got)
-        self.assertEqual(got["count.participants"], 4)       # lanes and the baseline are not participants
-        self.assertEqual(got["count.participants_others"], 3)
-        self.assertEqual(got["count.editors"], 3)            # Docxodus is an SDK
-        self.assertEqual(got["count.open_editors"], 2)       # Apryse is closed source
-        self.assertEqual(got["count.open_editors_others"], 1)
+        self.assertEqual(got["count.participants"], 5)       # LibreOffice counts; the two lanes do not
+        self.assertEqual(got["count.participants_others"], 4)
+        self.assertEqual(got["count.editors"], 4)            # Docxodus is an SDK
+        self.assertEqual(got["count.open_editors"], 3)       # Apryse is closed source
+        self.assertEqual(got["count.open_editors_others"], 2)
+
+
+
+class WordPixelFacts(unittest.TestCase):
+    def test_each_rendered_output_becomes_facts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            j = Path(tmp) / "word_render_compare.json"
+            j.write_text('{"superdoc": {"pages": 6, "diff_px": 0, "ink": 5, "corpus_ink": 1661285,'
+                         ' "pct_of_ink": 0.0, "verdict": "pixel-identical", "per_page": [0]},'
+                         ' "docs.plus": {"pages": 2, "diff_px": 40609781, "ink": 9, "corpus_ink": 1661285,'
+                         ' "pct_of_ink": 2444.48, "verdict": "different", "per_page": [1]}}')
+            got: dict = {}
+            facts.word_pixel_facts(j, got)
+            self.assertEqual(got["wpx.superdoc.diff_px"], 0)
+            self.assertEqual(got["wpx.docs.plus.pct"], 2444.48)
+            self.assertEqual(got["wpx.docs.plus.verdict"], "different")
+            self.assertEqual(got["wpx.superdoc.pages"], 6)
+            self.assertEqual(got["wpx.corpus_ink"], 1661285)
 
 
 if __name__ == "__main__":

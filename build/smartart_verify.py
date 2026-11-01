@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["pillow>=11"]
+# ///
 """
 Verify (or refute) the claim "Word does not draw the corpus's SmartArt at all".
 

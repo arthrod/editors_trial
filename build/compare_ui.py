@@ -1,7 +1,11 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["pillow>=11"]
+# ///
 """Compare a fresh set of Report C captures with the published ones, pixel by pixel.
 
-usage: /tmp/imgvenv/bin/python build/compare_ui.py <old dir> <new dir>
+usage: uv run --script build/compare_ui.py <old dir> <new dir>
 
 Prints, per PNG present in both, the share of pixels that differ (any channel
 by more than 16) and the bounding box of the difference. A capture is
