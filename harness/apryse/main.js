@@ -35,9 +35,15 @@ WebViewer(
 ).then((instance) => {
   window.__apryse.instance = instance;
   const { documentViewer } = instance.Core;
-  documentViewer.addEventListener('documentLoaded', () => {
+  // "Loaded" means the document AND its comments: WebViewer imports a DOCX's
+  // comments as annotations after documentLoaded, and an export taken in
+  // between writes a different comments part (seen in v0.9.2: two round trips
+  // of the same file differed in comments.xml at the same score).
+  documentViewer.addEventListener('documentLoaded', async () => {
     const d = documentViewer.getDocument();
-    markLoaded({ filename: d.getFilename(), type: d.getType(), pages: d.getPageCount() });
+    await documentViewer.getAnnotationsLoadedPromise();
+    markLoaded({ filename: d.getFilename(), type: d.getType(), pages: d.getPageCount(),
+                 annotations: instance.Core.annotationManager.getAnnotationsList().length });
   });
   instance.UI.addEventListener(instance.UI.Events.LOAD_ERROR, (e) => {
     window.__apryse.errors.push(String(e.detail));
