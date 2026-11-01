@@ -2,15 +2,17 @@
 
 This edition does what the previous one could not: it **downloads every editor's code, runs each editor's own import→export path over a purpose-built adversarial document, and scores the result**. Every cell that previously read NOT VERIFIED IN CODE is now either a source citation or a measurement.
 
-**Headline result:** only two participants survive the corpus with zero failed checks — **SuperDoc (100%)** and **Docxodus (100%)**. **GenOffice** and **eigenpal** score 98.5%, **Folio** 97.5%. **office-open** and **Docen** regenerate the package and silently drop revision metadata. **WordCraft** keeps the chart, SmartArt and OLE payload too — as the six editors above also do — but loses the revision model. **Fidus Writer**, **canvas-editor + plugin** and **docs.plus** are not round-trip tools in any meaningful sense.
+**Headline result:** three participants survive the corpus with zero failed checks — **SuperDoc (100%)**, **Docxodus (100%)** and **eigenpal (100%)**. **GenOffice** scores 98.5%, **Folio** 97.5%. **office-open** and **Docen** regenerate the package and silently drop revision metadata. **WordCraft** keeps the chart, SmartArt and OLE payload too — as the six editors above also do — but loses the revision model. **Fidus Writer**, **canvas-editor + plugin** and **docs.plus** are not round-trip tools in any meaningful sense.
 
-A correction to the previous report's headline: it ranked **eigenpal first on OOXML fidelity**. Measured, SuperDoc is first and eigenpal is third — eigenpal's canonical tree flattens `mc:AlternateContent` to its `mc:Choice` branch and drops the `mc:Fallback` content.
+A correction to the previous report's headline: it ranked **eigenpal first on OOXML fidelity**. Measured, SuperDoc, Docxodus and eigenpal share first place with no failed check.
+
+**A correction to this edition (2026-11-01).** We first published eigenpal at 98.5%, failing `text.exact` because it "drops the `mc:Fallback` content". That was wrong, and eigenpal's team showed why. The fixture's text box says one thing in its DrawingML branch (`mc:Choice`) and another in its VML branch (`mc:Fallback`). eigenpal rewrites the fallback from the DrawingML content, which Microsoft Word also does: saved unedited from Word for Mac, the fixture failed the same check. No visible text was lost. The scorer counted the fallback as visible text, counted text-box paragraphs twice, counted page-number results, failed simple fields rewritten as complex fields, and failed an imported altChunk. It now does none of these (arthrod/editors_trial#24), and every editor was rescored. eigenpal moves to 100%, WordCraft to 85.9%, and LibreOffice to 86.9%. We apologise to eigenpal and thank them for the careful report.
 
 > **Second edition (2026-10-30): a twelfth editor, and a search for the rest.**
 >
 > **Plate.js** (`udecode/plate`, **16,684★** — the second-most-starred project in this trial) has been added: cloned at `08b1571f2`, driven through its own headless `importDocx` → `exportDocx` path with **45 base plugins** and Plate's own **static presentation kit**, and scored on the same 99 checks. It scores **20.6%** — last in the trial — but it is the **only editor that refuses a malformed document instead of corrupting it**, and the only one that reports *what* it dropped rather than dropping it silently. Those two findings are covered in full in the companion reports.
 >
-> The selection was widened at the same time: a GitHub API sweep over the `docx-editor`, `word-processor` and `ooxml` topics plus a star-count survey of every candidate produced the shortlist in §"How the twelve were chosen". **Star count turned out to have no relationship to fidelity** — the two most-starred projects in the trial (WordCraft, 16,875★, and Plate, 16,684★) score 84.9% and 20.6%, while the winner has 1,117.
+> The selection was widened at the same time: a GitHub API sweep over the `docx-editor`, `word-processor` and `ooxml` topics plus a star-count survey of every candidate produced the shortlist in §"How the twelve were chosen". **Star count turned out to have no relationship to fidelity** — the two most-starred projects in the trial (WordCraft, 16,875★, and Plate, 16,684★) score 85.9% and 20.6%, while the winner has 1,117.
 
 ---
 
@@ -19,14 +21,14 @@ A correction to the previous report's headline: it ranked **eigenpal first on OO
 - **Best measured fidelity: SuperDoc V2.** 100% on the 99-check corpus, 29/29 critical features, 100% text retention, all 35 package parts preserved, and a genuine re-save (8 parts re-serialized, 27 untouched parts passed through byte-identically). It has **zero** failed checks, and its second pass is a perfect, byte-identical fixed point.
 - **Docxodus matches it.** The Open XML SDK also scores 100% — 29/29 critical, 100% text, all 35 parts, zero failed checks, and a byte-identical second pass — with **0 changed, 0 dropped and 0 added** parts. It is the only participant in the study that draws its boundary around a set of *parts* rather than a set of *names*.
 - **Five of the thirteen participants reach a byte-identical fixed point** — SuperDoc, Docxodus, GenOffice, eigenpal and Folio all reproduce their own output exactly when it is fed back through their code path. office-open and Docen do not: **their own output is malformed XML**, because the chart and SmartArt regeneration paths drop the local `a:` namespace binding their first pass emitted.
-- **eigenpal and GenOffice score 98.5% and Folio 97.5% — and Folio keeps 100% of the text against eigenpal's 97.6%**, because eigenpal flattens `mc:AlternateContent` to its `mc:Choice` branch and drops the fallback text. Folio's two losses are the `w14` run identifiers and the move source, which it serializes with `w:delText` where Word writes `w:t`.
-- **GenOffice also scores 98.5%** and preserves all 35 parts, but regenerates one block of the fixture (the table), which silently discards the text inside vertically-merged continuation cells.
+- **eigenpal also scores 100%** — 29/29 critical, 100% text, all 35 parts, and a byte-identical second pass. It rewrites the text box's VML fallback from its DrawingML content, as Word does. **GenOffice scores 98.5% and Folio 97.5%.** Folio's two losses are the `w14` run identifiers and the move source, which it serializes with `w:delText` where Word writes `w:t`.
+- **GenOffice** preserves all 35 parts, but regenerates one block of the fixture (the table), which silently discards the text inside vertically-merged continuation cells.
 - **office-open (93.5%) and Docen (91.5%) are full-regeneration pipelines.** They rebuild the package from a parsed model, so unknown markup (`w16du:dateUtc`, `w14:paraId`/`textId`, the `w16du` namespace) is dropped by construction. **Both are also not idempotent: re-importing their own output produces `word/document.xml` with an unbound `a:` prefix — malformed XML.**
-- **WordCraft (84.9%) is the most interesting failure.** It keeps the chart, the SmartArt diagram, the OLE object, the embedded workbook and the image — **as SuperDoc, Folio, GenOffice, eigenpal, office-open and Docen also do** — yet it drops `w:proofErr`, `w:fldSimple`, `w:altChunk`, `mc:AlternateContent`, `w16du:dateUtc`, the `w14` paragraph identifiers and row-level revisions. It is the only payload keeper that loses the revision model, and the only one that drops payload *parts* of its own (`word/charts/style1.xml`, `word/charts/colors1.xml`). Its writer is a regeneration; its payload passthrough is what saves it.
+- **WordCraft (85.9%) is the most interesting failure.** It keeps the chart, the SmartArt diagram, the OLE object, the embedded workbook and the image — **as SuperDoc, Folio, GenOffice, eigenpal, office-open and Docen also do** — yet it drops `w:proofErr`, `w:altChunk` (and the text it carries), `mc:AlternateContent`, `w16du:dateUtc`, the `w14` paragraph identifiers and row-level revisions. It is the only payload keeper that loses the revision model, and the only one that drops payload *parts* of its own (`word/charts/style1.xml`, `word/charts/colors1.xml`). Its writer is a regeneration; its payload passthrough is what saves it.
 - **Plate.js (20.6%) is the most instructive result, in both directions.** Its DOCX engine is a genuine, carefully built piece of work: 45 plugins, a headless import/export pair, a typed diagnostic vocabulary, and a **closed "passive vocabulary" that governs whether an unchanged document may be exported byte-exactly**. Measured against the corpus it keeps **no** parts byte-identically, drops 24 of 35, renders 2 pages instead of 6, and scores last. But **it is the only editor in the trial that reports what it lost**: 38 typed diagnostics naming each dropped construct, and a default `lossPolicy` of `'reject'` that makes it **refuse** a document it cannot represent losslessly instead of writing a degraded one.
-- **LibreOffice, as a calibration baseline, scores 86.4% / 79.3% critical.** Any open-source editor that cannot beat LibreOffice on a Word-authored document is not a fidelity tool.
+- **LibreOffice, as a calibration baseline, scores 86.9% / 79.3% critical.** Any open-source editor that cannot beat LibreOffice on a Word-authored document is not a fidelity tool.
 - **The three weakest are not round-trip pipelines.** Fidus Writer (23.6%) has a DOCX importer that **drops all tables**; canvas-editor + plugin (24.6%) is a canvas editor with a DOCX export format and **crashes on `w:vMerge`**; docs.plus (21.1%) is an HTML bridge whose importer is `mammoth`, which flattens tracked changes to their accepted state — insertion text survives as ordinary text, deletion and move-out text is dropped, and every piece of revision markup is destroyed.
-- **Popularity does not predict fidelity.** Star counts for the projects are in §"How the twelve were chosen", re-measured on 2026-11-01. The two most-starred (WordCraft 16,875★, Plate 16,684★) score 84.9% and 20.6%; the winner has 1,117★; the project that ties for second place has 32★.
+- **Popularity does not predict fidelity.** Star counts for the projects are in §"How the twelve were chosen", re-measured on 2026-11-01. The two most-starred (WordCraft 16,875★, Plate 16,684★) score 85.9% and 20.6%; the winner has 1,117★; the project that ties for second place has 32★.
 
 ---
 
@@ -37,7 +39,7 @@ A correction to the previous report's headline: it ranked **eigenpal first on OO
 1. **Every repository was cloned** (shallow, at pinned commits) and read. Fifteen checkouts, 700 MB of source, covering all nine editors plus four plugin/tooling repos.
 2. **A purpose-built adversarial fixture was authored as raw OOXML**: `fixture/complex.docx`, 35 package parts, exercising 31 critical exception cases (§ *The Corpus* below).
 3. **Each editor's own import→export path was executed headlessly** — not a re-implementation, the project's own entry point (§ *Harnesses* below for the literal commands).
-4. **A 97-check scorer** diffed input against output at package-part level, element level, attribute level and text level.
+4. **A 99-check scorer** diffed input against output at package-part level, element level, attribute level and text level.
 5. **Every output was re-opened with LibreOffice** to confirm the result is still a valid, openable document.
 6. **The corpus was opened in Microsoft Word 16.115**, and the defects Word refuses were found by bisecting `word/document.xml` against Word itself (§ *Word Compatibility* below). The corpus now opens in Word, and so does every file this edition delivers.
 
@@ -95,7 +97,7 @@ The search used the GitHub API over three queries and three topic listings (`doc
 | `CasualOffice/opendoc` | 34 | Rust | Apache-2.0 | no — a new, small engine |
 | `stella/folio` | **32** | TypeScript | Apache-2.0 | yes — #3 |
 
-**The star counts do not predict anything about fidelity.** The winner, SuperDoc, has **1,117★**. The project that ties for second place, Folio, has **32★** — fewer than a hundred people have starred it, and it loses two checks. The two most-starred projects in the trial, WordCraft and Plate, score **84.9%** and **20.6%**. Meanwhile the projects with the most stars of all are mostly *not* editors: `ONLYOFFICE/DocumentServer` (7,066★) is a server and `dolanmiu/docx` (5,984★) is a generator.
+**The star counts do not predict anything about fidelity.** The winner, SuperDoc, has **1,117★**. The project that ties for second place, Folio, has **32★** — fewer than a hundred people have starred it, and it loses two checks. The two most-starred projects in the trial, WordCraft and Plate, score **85.9%** and **20.6%**. Meanwhile the projects with the most stars of all are mostly *not* editors: `ONLYOFFICE/DocumentServer` (7,066★) is a server and `dolanmiu/docx` (5,984★) is a generator.
 
 Two structural candidates were **excluded on grounds, not on stars**, and the exclusions are recorded so the trial's boundary is auditable: a *generator* (`dolanmiu/docx`, `docxtemplater`, `phpword`, `python-docx`, `unioffice`) writes documents but cannot read one, so there is nothing to round-trip; and a *server* (`ONLYOFFICE/DocumentServer`, `CasualOffice/docs`) renders and edits over a document-server protocol, so its "round trip" is a different product from a library's. Everything that could be driven headlessly through a real import→export path was in scope.
 
@@ -163,16 +165,16 @@ Four findings about the harnesses themselves:
 | **SuperDoc V2** | **100.0%** | **100.0%** (29/29) | **100.0%** | 35 / 35 | **0** |
 | **Docxodus** | **100.0%** | **100.0% (29/29)** | **100.0%** | 35 / 35 | **0** |
 | **GenOffice** | 98.5% | 96.6% (28/29) | 98.8% | 35 / 35 | 1 |
-| **eigenpal** | 98.5% | 96.6% (28/29) | 97.6% | 35 / 35 | 1 |
+| **eigenpal** | **100.0%** | **100.0% (29/29)** | **100.0%** | 35 / 35 | **0** |
 | **Folio** | 97.5% | 96.6% (28/29) | 100.0% | 35 / 35 | 2 |
 | office-open | 93.5% | 86.2% (25/29) | 100.0% | 35 / 35 | 5 |
 | Docen | 91.5% | 82.8% (24/29) | 99.4% | 35 / 35 | 7 |
-| WordCraft | 84.9% | 72.4% (21/29) | 97.6% | 32 / 35 | 13 |
-| canvas-editor + plugin | 24.6% | 24.1% (7/29) | 88.2% | 14 / 35 | 75 |
+| WordCraft | 85.9% | 72.4% (21/29) | 97.0% | 32 / 35 | 12 |
+| canvas-editor + plugin | 24.6% | 24.1% (7/29) | 88.8% | 14 / 35 | 75 |
 | Fidus Writer | 23.6% | 24.1% (7/29) | 71.0% | 11 / 35 | 77 |
-| docs.plus | 21.1% | 24.1% (7/29) | 91.7% | 11 / 35 | 79 |
-| **Plate.js** | **20.6%** | **20.7% (6/29)** | **91.7%** | **11 / 35** | **79** |
-| *LibreOffice (baseline)* | *86.4%* | *79.3% (23/29)* | *97.6%* | *25 / 35* | *13* |
+| docs.plus | 21.1% | 24.1% (7/29) | 90.5% | 11 / 35 | 79 |
+| **Plate.js** | **20.6%** | **20.7% (6/29)** | **90.5%** | **11 / 35** | **79** |
+| *LibreOffice (baseline)* | *86.9%* | *79.3% (23/29)* | *100.0%* | *25 / 35* | *12* |
 
 Weighted score = each of 99 checks scored by criticality (3/2/1). "Package parts kept" counts non-directory entries present in both the input and the output. LibreOffice was converted headlessly (`soffice --convert-to docx`) and is shown as the calibration floor, not as a candidate. Docxodus is the thirteenth participant: an Open XML SDK rather than an editor, measured through the same 99 checks. It is listed with the editors because it scores on the same instrument, not because it is a candidate for the same job.
 
@@ -202,7 +204,7 @@ Every figure in this table is produced by `python3 build/score_all.py` over the 
 
 **docs.plus — 79 checks.** The pipeline is DOCX → HTML → Tiptap JSON → HTML → DOCX, and the importer is `mammoth`. The loss is total for revision data, and the code proves it: `mammoth/lib/docx/body-reader.js:447` unwraps `w:ins` and `:450` unwraps `w:moveTo` (insertions become ordinary text), while `:729` sets `ignoreElements["w:del"] = true` and `:732` sets `ignoreElements["w:moveFrom"] = true` (deletions and move-outs are dropped outright), and `:727` drops `w:sectPr` entirely. Counted across the chain (fixture → mammoth HTML → rendered HTML → Tiptap JSON → output): `w:ins` 3→0→0→0→0, `w:del` 3→0→0→0→0, `w:moveFrom` 1→0→0→0→0. **No author, date, or `w16du:dateUtc` survives anywhere downstream.** [MEASURED]
 
-**Plate.js — 79 checks.** The pipeline is DOCX → HTML → editor model → static HTML → DOCX, and the losses are the pipeline's shape rather than a bug. **Every revision is flattened** (`w:ins`, `w:del`, `w:delText`, `w:moveFrom`, `w:moveTo` and their range markers all fail), **every field is dropped** (`w:fldChar`, `w:instrText`, `w:fldSimple`), **every content control is unwrapped** (`w:sdt`, `w:dataBinding`, the date picker, the nested control, `w:lock`), and `mc:AlternateContent` collapses to a single branch. All four headers and footers, both notes parts, the comments part, the glossary part, the customXml store, the `altChunk` part, **the image**, the chart, the four SmartArt parts, the OLE object and the embedded workbook are gone: 24 of 35 parts dropped, 11 regenerated, **none byte-identical**. What survives is the text — **91.7%**, the second-highest in the trial — plus the table grid, `gridSpan`, `vMerge`, nested tables, cell shading, bookmarks, `w:vertAlign` and `xml:space="preserve"`. The three sections become one, so the document renders in **2 pages** instead of 6. [MEASURED]
+**Plate.js — 79 checks.** The pipeline is DOCX → HTML → editor model → static HTML → DOCX, and the losses are the pipeline's shape rather than a bug. **Every revision is flattened** (`w:ins`, `w:del`, `w:delText`, `w:moveFrom`, `w:moveTo` and their range markers all fail), **every field is dropped** (`w:fldChar`, `w:instrText`, `w:fldSimple`), **every content control is unwrapped** (`w:sdt`, `w:dataBinding`, the date picker, the nested control, `w:lock`), and `mc:AlternateContent` collapses to a single branch. All four headers and footers, both notes parts, the comments part, the glossary part, the customXml store, the `altChunk` part, **the image**, the chart, the four SmartArt parts, the OLE object and the embedded workbook are gone: 24 of 35 parts dropped, 11 regenerated, **none byte-identical**. What survives is the text — **90.5%**, tied with docs.plus for the most of the four tools that are not round-trip pipelines — plus the table grid, `gridSpan`, `vMerge`, nested tables, cell shading, bookmarks, `w:vertAlign` and `xml:space="preserve"`. The three sections become one, so the document renders in **2 pages** instead of 6. [MEASURED]
 
 **Plate.js is the only editor in the trial that reports these losses.** The import emits **38 typed diagnostics** — 19 `unsupported-content`, 6 `converter-message`, 2 `resource-omitted`, 8 `property-dropped`, 2 `lossy-content` and 1 `source-unavailable` — naming each dropped construct. Under its default `lossPolicy: 'reject'` those are **18 errors** and the import **fails**: the corpus is refused rather than degraded. No other editor in this trial says anything at all. [MEASURED]
 
@@ -215,16 +217,16 @@ Feeding each output back through its own editor is the strictest test: a selecti
 | **SuperDoc** | 100.0% | **100.0%** | **yes** | Perfect fixed point |
 | **Docxodus** | 100.0% | **100.0%** | **yes** | Perfect fixed point |
 | **GenOffice** | 98.5% | 100.0% | **yes** | Fixed point |
-| **eigenpal** | 98.5% | 100.0% | **yes** | Fixed point |
+| **eigenpal** | 100.0% | 100.0% | **yes** | Fixed point |
 | **Folio** | 97.5% | 97.5% | **yes** | Fixed point |
-| WordCraft | 84.9% | 86.4% | no | Stable but not byte-identical; text 100% |
+| WordCraft | 85.9% | 86.4% | no | Stable but not byte-identical; text 100% |
 | **Plate.js** | **20.6%** | **20.1%** | no | Stable, not byte-identical; the second-pass package shrinks from 42,964 to **8,010** bytes as the retained source is replaced by a regenerated one |
 | **office-open** | 93.5% | **32.2%** | no | **Not idempotent — `word/document.xml` fails to parse: "unbound prefix", column 13606** |
 | **Docen** | 91.5% | **32.2%** | no | **Not idempotent — "unbound prefix", column 15858** |
 | Fidus Writer | 23.6% | 25.1% | no | Stable in content; not byte-identical |
 | canvas-editor + plugin | 24.6% | 27.6% | no | Stable in content; not byte-identical |
 | docs.plus | 21.1% | 24.1% | no | Stable in content; not byte-identical |
-| *LibreOffice (baseline)* | *86.4%* | *87.4%* | *no* | *Stable in content; not byte-identical* |
+| *LibreOffice (baseline)* | *86.9%* | *87.9%* | *no* | *Stable in content; not byte-identical* |
 
 The second pass is reproducible on its own: `bash build/run_second_pass.sh` feeds every editor its own first-pass output through the same documented import and export path, and `build/check_roundtrip.py` then scores the result against that first pass.
 
@@ -293,14 +295,14 @@ After the fixes, `build/validate_ooxml.py` reports **no real schema violations**
 1. **SuperDoc V2.** 100% on the corpus, 29/29 critical, 100% text, no part lost, genuine re-save with byte-identical passthrough of untouched parts.
 2. **Docxodus.** 100%, 29/29 critical, 100% text, 35/35 parts with 0 changed and 0 dropped.
 3. **GenOffice.** 98.5%, all 35 parts kept, one block regenerated.
-4. **eigenpal.** 98.5% on features but 97.6% text: `mc:AlternateContent` flattened to `mc:Choice`.
+4. **eigenpal.** 100%, 29/29 critical, 100% text, no part lost; its second pass is a byte-identical fixed point.
 5. **Folio.** 97.5%, 100% text, no part lost. Loses `w14:paraId`/`textId` and the move source's `w:t`.
 6. **office-open.** 93.5%, 100% text, but regeneration drops `w16du`/`w14` metadata and it is not idempotent.
 7. **Docen.** 91.5%, inherits and extends office-open's losses.
-8. **WordCraft.** 84.9%. Keeps the chart, all four SmartArt parts, the OLE object, the embedded workbook and the image — but it is the only payload keeper that loses the revision model, and it drops two payload parts of its own (`word/charts/style1.xml`, `word/charts/colors1.xml`).
-8. **canvas-editor + plugin, Fidus Writer, docs.plus, Plate.js.** Not round-trip pipelines. Plate is the most interesting of the four: its DOCX engine is a well-built, diagnosable, headless import/export pair with a byte-exactness gate, but it is an HTML-shaped pipeline — **zero parts survive byte-identically, 24 of 35 are dropped, and the document renders in 2 pages instead of 6** — so it scores 20.6% while keeping 91.7% of the text. Its diagnostic vocabulary and its `lossPolicy: 'reject'` default are the best behaviour on malformed input in this trial; see the companion report.
+8. **WordCraft.** 85.9%. Keeps the chart, all four SmartArt parts, the OLE object, the embedded workbook and the image — but it is the only payload keeper that loses the revision model, and it drops two payload parts of its own (`word/charts/style1.xml`, `word/charts/colors1.xml`).
+8. **canvas-editor + plugin, Fidus Writer, docs.plus, Plate.js.** Not round-trip pipelines. Plate is the most interesting of the four: its DOCX engine is a well-built, diagnosable, headless import/export pair with a byte-exactness gate, but it is an HTML-shaped pipeline — **zero parts survive byte-identically, 24 of 35 are dropped, and the document renders in 2 pages instead of 6** — so it scores 20.6% while keeping 90.5% of the text. Its diagnostic vocabulary and its `lossPolicy: 'reject'` default are the best behaviour on malformed input in this trial; see the companion report.
 
-**On popularity [MEASURED].** Star counts are in §"How the twelve were chosen", re-measured on 2026-11-01. **They do not predict fidelity.** The two most-starred projects in the trial, WordCraft (16,875★) and Plate (16,684★), score 84.9% and 20.6%. The winner has 1,117★, and the runner-up has **32★** — fewer stars than the project's own issue count. If you are choosing an editor on popularity, this trial gives no support for that heuristic.
+**On popularity [MEASURED].** Star counts are in §"How the twelve were chosen", re-measured on 2026-11-01. **They do not predict fidelity.** The two most-starred projects in the trial, WordCraft (16,875★) and Plate (16,684★), score 85.9% and 20.6%. The winner has 1,117★, and the runner-up has **32★** — fewer stars than the project's own issue count. If you are choosing an editor on popularity, this trial gives no support for that heuristic.
 
 **2. Document comparison**
 
@@ -327,14 +329,14 @@ Unchanged in substance. Two corrections from the previous report stand: GenOffic
 | SuperDoc V2 | superdoc/docx-editor; AGPL-3.0 | OOXML-backed document model (V2); V1 ProseMirror archived | V2 engine re-serializes the main story; untouched parts pass through byte-identically | Yes (word-level redlines; apply refuses docs with images/fields/comments, issue #4012) | `layout-engine` DOM painter | PDF | **100.0%** · 29/29 · text 100% |
 | stella/folio | stella/folio; Apache-2.0 | ProseMirror over `@stll/docx-core` typed OOXML | Selective save; unchanged ZIP entries passed through as original compressed bytes | Yes — strongest redline engine | Paginated | DOCX; CLI, VS Code | **97.5%** · 28/29 · text 100% |
 | GenOffice | genspark-ai/genoffice; Apache-2.0 | Tiptap + `packages/docx-engine` | Verbatim copy of untouched blocks; regeneration on signature mismatch | Yes (`compareDocuments`, ins/del only) | Paged Tiptap | Broad, via CLI | **98.5%** · 28/29 · text 98.8% |
-| eigenpal | eigenpal/docx-editor; Apache-2.0 core + EigenPal Pro | Canonical typed + generic OOXML tree | Canonical serializer; modelled parts re-emitted normalized from the tree | None found | DOM-free `layout/` | DOCX→MD (open), DOCX→PDF (Pro) | **98.5%** · 28/29 · text 97.6% |
+| eigenpal | eigenpal/docx-editor; Apache-2.0 core + EigenPal Pro | Canonical typed + generic OOXML tree | Canonical serializer; modelled parts re-emitted normalized from the tree | None found | DOM-free `layout/` | DOCX→MD (open), DOCX→PDF (Pro) | **100.0%** · 29/29 · text 100.0% |
 | office-open | DemoMacro/office-open; office-open umbrella | Typed descriptors, XSD-shaped | Full regeneration from a parsed model | Not found | None | DOCX/PPTX/XLSX/ODF… | **93.5%** · 25/29 · text 100% |
 | Docen | DemoMacro/docen | Tiptap JSON → office-open | Full regeneration | Not found | None | MD/HTML/DOCX | **91.5%** · 24/29 · text 99.4% |
-| WordCraft | storytold/wordcraft; licence contested (README MIT/Apache-2.0 vs AGPL-3.0-only per hdatf.com) | Rust `wordcraft-doc` | Regenerate, with byte-preserving merges for some parts; binary payloads pass through | Not found | Full Rust layout and shaping | Widest in-process set, krilla PDF | **84.9%** · 21/29 · text 97.6% |
-| canvas-editor + plugin | Hufe921/canvas-editor + canvas-editor-plugin; MIT | Own element list rendered to canvas/SVG | Plugin export **rebuilds** the package with the `docx` npm package | Not found | Own canvas paginator | DOCX via plugin, PDF via canvas | **24.6%** · 7/29 · text 88.2% |
+| WordCraft | storytold/wordcraft; licence contested (README MIT/Apache-2.0 vs AGPL-3.0-only per hdatf.com) | Rust `wordcraft-doc` | Regenerate, with byte-preserving merges for some parts; binary payloads pass through | Not found | Full Rust layout and shaping | Widest in-process set, krilla PDF | **85.9%** · 21/29 · text 97.0% |
+| canvas-editor + plugin | Hufe921/canvas-editor + canvas-editor-plugin; MIT | Own element list rendered to canvas/SVG | Plugin export **rebuilds** the package with the `docx` npm package | Not found | Own canvas paginator | DOCX via plugin, PDF via canvas | **24.6%** · 7/29 · text 88.8% |
 | Fidus Writer | fiduswriter/fiduswriter + document-ts; AGPL-3.0 | ProseMirror schema (Fidus JSON) | Placeholder-driven template regeneration | Not found | None | JATS, LaTeX, EPUB, ODT, DOCX, HTML, BITS | **23.6%** · 7/29 · text 71.0% |
-| docs.plus | docs-plus/docs.plus | Tiptap/ProseMirror + Yjs | DOCX → HTML → JSON → HTML → DOCX (`mammoth` in, `@turbodocx/html-to-docx` out) | Not found | None | DOCX/MD import; DOCX/MD/ODT export | **21.1%** · 7/29 · text 91.7% |
-| **Plate.js** | udecode/plate; `NOASSERTION` | Slate + a plugin-defined schema; DOCX via HTML | Full regeneration: `mammoth` in, static HTML → `juice` → DOCX writer out; `retainSource` admits a byte-exact export only inside a closed passive vocabulary | Not found | None (the editor is a single flow) | DOCX in/out; MD, HTML, plain text | **20.6%** · 6/29 · text 91.7% |
+| docs.plus | docs-plus/docs.plus | Tiptap/ProseMirror + Yjs | DOCX → HTML → JSON → HTML → DOCX (`mammoth` in, `@turbodocx/html-to-docx` out) | Not found | None | DOCX/MD import; DOCX/MD/ODT export | **21.1%** · 7/29 · text 90.5% |
+| **Plate.js** | udecode/plate; `NOASSERTION` | Slate + a plugin-defined schema; DOCX via HTML | Full regeneration: `mammoth` in, static HTML → `juice` → DOCX writer out; `retainSource` admits a byte-exact export only inside a closed passive vocabulary | Not found | None (the editor is a single flow) | DOCX in/out; MD, HTML, plain text | **20.6%** · 6/29 · text 90.5% |
 
 Two rows in that table deserve a footnote rather than a ranking. **Plate.js** is the only project here with a *typed diagnostic vocabulary* and a *byte-exactness gate* — `internal/sourceEligibility.ts:453-582` decides whether an unchanged document may be exported byte-for-byte, and `lossPolicy` defaults to `'reject'`, so a document it cannot represent losslessly is refused rather than degraded. It scores last because it is an **HTML-shaped** pipeline: every construct Word expresses that HTML cannot carry is lost, and 24 of 35 package parts go with it. **docs.plus** is the same shape for the same reason, but without the diagnostics.
 
@@ -357,7 +359,7 @@ Legend: **M** modelled and editable · **P** preserved · **D** dropped · **?**
 | `w:moveFrom` / `w:moveTo` | P | P | **D** (moveFrom) | P | P | P | P | P | **D** (moveFrom) | **D** (moveFrom) | **D** (moveFrom) | **D** (moveFrom) |
 | Row-level revisions (`w:trPr/w:ins`, `w:trPr/w:del`) | P | P | P | P | P | P | P | **D** (0 of 1) | **D** (0 of 1) | **D** (0 of 1) | **D** (0 of 1) | **D** (0 of 1) |
 | Complex fields (`fldChar`/`instrText`) | P | P | P | P | P | P | P | P | **D** (0 of 9) | P | **D** (0 of 9) | **D** (0 of 9) |
-| Simple fields (`w:fldSimple`) | P | P | P | P | P | P | P | **D** (0 of 2) | **D** (0 of 2) | **D** (0 of 2) | **D** (0 of 2) | **D** (0 of 2) |
+| Simple fields (`w:fldSimple`) | P | P | P | P | P | P | P | P | **D** (0 of 2) | **D** (0 of 2) | **D** (0 of 2) | **D** (0 of 2) |
 | Bookmarks | P | P | P | P | P | P | P | P | **D** | P | **D** | P |
 | Content controls (`w:sdt`) | P | P | P | P | P | P | P | P | **D** (0 of 5) | **D** (0 of 5) | **D** (0 of 5) | **D** (0 of 5) |
 | `w:dataBinding`, date picker, nested sdt | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** |
@@ -394,7 +396,7 @@ Legend: **M** modelled and editable · **P** preserved · **D** dropped · **?**
 
 **Headless.** The V2 model needs no DOM (`README.md:84-88`: "It reads progressively, renders bounded windows, runs without a browser DOM"); rendering does. The headless lane is the published `@superdoc/sdk` (`SuperDocClient` → `open({doc})` → `document.save({out, force:true})`), used exactly as `examples/sdk-batch/batch.ts:14-16` does, with the reopen-verification pattern from `apps/docs/scripts/execute-migration-snippets.mjs:138-181`.
 
-**Measured [MEASURED].** 99/99. One of only two participants with no failed check. `word/document.xml` was genuinely re-serialized (18,194 → 19,409 bytes) and the other 27 parts came through byte-identically. Re-feeding that output through the SDK reproduces the file **byte for byte** — the strongest idempotence result in the trial.
+**Measured [MEASURED].** 99/99. One of three participants with no failed check. `word/document.xml` was genuinely re-serialized (18,276 → 18,495 bytes) and the other 27 parts came through byte-identically. Re-feeding that output through the SDK reproduces the file **byte for byte** — the strongest idempotence result in the trial.
 
 **Pros:** the only project that survived this corpus unchanged; genuine selective save; headless SDK; company-backed.
 **Cons:** AGPL-3.0; "Only collaborators can create PRs"; compare/apply refuses documents with inline images, fields or comments (issue #4012).
@@ -431,9 +433,9 @@ Legend: **M** modelled and editable · **P** preserved · **D** dropped · **?**
 
 **`xml:space` is modelled and normalized, not preserved verbatim.** `OoxmlXmlSpaceAttribute` is declared at `ooxml-tree.ts:96-102` ("`xml:space`, which decides whether a run's leading and trailing whitespace survives"), and `normalizedWmlTextAttributes` (`ooxml-shared.ts:601-620`) *re-derives* the attribute from the text: it drops a redundant or stale `xml:space` and injects `xml:space="preserve"` when `wmlTextNeedsXmlSpacePreserve` (`ooxml-shared.ts:579-587`) says the text has boundary whitespace or a tab. The XML reader itself is careful: `xml-reader.ts:247-251` configures fast-xml-parser with `trimValues: false` ("preserve significant whitespace"). **This design is correct and is exactly why the first corpus build produced a false finding** — see § *Fixture correction*.
 
-**`mc:AlternateContent` is processed, not preserved.** The tree models MC (`MC_QNAME_LIST_ATTRIBUTES` = ProcessContent, PreserveElements, PreserveAttributes, `ooxml-shared.ts`) and `ooxml-package.ts:616-619` states the design intent: "The modeled parts are re-emitted NORMALIZED from the tree rather than patched as text." Measured, that normalization resolves the MC choice and discards the fallback.
+**`mc:AlternateContent` is processed, not preserved.** The tree models MC (`MC_QNAME_LIST_ATTRIBUTES` = ProcessContent, PreserveElements, PreserveAttributes, `ooxml-shared.ts`) and `ooxml-package.ts:616-619` states the design intent: "The modeled parts are re-emitted NORMALIZED from the tree rather than patched as text." Measured, that normalization keeps both branches and rewrites the VML fallback from the DrawingML choice, as Word does.
 
-**Measured [MEASURED].** 98.5% on features, **97.6% text** — the only top-five project that loses visible text. Its second pass is a byte-identical fixed point. `mc:AlternateContent` becomes "Text box contentText box content" + "Text box content".
+**Measured [MEASURED].** 99/99: 100% on features and 100% text, with no failed check, and its second pass is a byte-identical fixed point. The text box's `mc:Fallback`, which in the fixture says something different from its `mc:Choice`, is rewritten to match the choice. Word does the same. (An earlier edition scored this as lost text; see the correction at the top.)
 
 **Pros:** the most principled fidelity *model*; Vue and React; agent tooling.
 **Cons:** measured third, not first; review features are paid; the MC fallback loss is silent.
@@ -456,9 +458,9 @@ Legend: **M** modelled and editable · **P** preserved · **D** dropped · **?**
 
 **Pipeline [CODE].** `wordcraft_docx::read` (`crates/docx/src/read.rs:121`) / `write` (`crates/docx/src/write.rs:143`); the engine's file layer is `open_bytes` / `save_bytes` (`crates/engine/src/io.rs:144,374`). The CLI is `wordcraft-cli convert <in> <out>`. Building only `wordcraft-docx` needs no git dependency, no GPU, no fonts, no layout — the trial did exactly that, and the crate built in 23 s.
 
-**Measured [MEASURED].** 84.9%, 97.6% text. It keeps the **chart, all four SmartArt parts, the OLE object, the embedded workbook and the image** — the only one of the seven projects that keep those payloads that also loses the revision model: `w:proofErr`, `w:fldSimple`, `w:altChunk`, `mc:AlternateContent`, `w16du:dateUtc`, `w14` identifiers and **row-level revisions** all disappear. Three package parts are lost: `word/afchunk.html`, `word/charts/colors1.xml`, `word/charts/style1.xml`.
+**Measured [MEASURED].** 85.9%, 97.0% text — the loss is the altChunk's two paragraphs. It keeps the **chart, all four SmartArt parts, the OLE object, the embedded workbook and the image** — the only one of the seven projects that keep those payloads that also loses the revision model: `w:proofErr`, `w:altChunk`, `mc:AlternateContent`, `w16du:dateUtc`, `w14` identifiers and **row-level revisions** all disappear. Three package parts are lost: `word/afchunk.html`, `word/charts/colors1.xml`, `word/charts/style1.xml`.
 
-**Self-reported fidelity [DOCS].** `docs/file-format-parity.md:49` still says **~65%** for `.docx` R/W, "synthetic fixtures only", "Untested on a real-world corpus"; `:10-13` discounts the weighted table to "~60% because DOCX fidelity has never been checked on real-world files". `docs/target-app-parity.md:47-49` names opening real-world .docx files and comparing pages as the **#1 open gap**. This trial is one such check, and 83% against a deliberately hostile document is consistent with the ~65% self-assessment for ordinary files.
+**Self-reported fidelity [DOCS].** `docs/file-format-parity.md:49` still says **~65%** for `.docx` R/W, "synthetic fixtures only", "Untested on a real-world corpus"; `:10-13` discounts the weighted table to "~60% because DOCX fidelity has never been checked on real-world files". `docs/target-app-parity.md:47-49` names opening real-world .docx files and comparing pages as the **#1 open gap**. This trial is one such check, and 85.9% against a deliberately hostile document is consistent with the ~65% self-assessment for ordinary files.
 
 ### 8. Hufe921/canvas-editor + canvas-editor-plugin
 
@@ -466,7 +468,7 @@ Legend: **M** modelled and editable · **P** preserved · **D** dropped · **?**
 
 **DOM requirements [CODE].** `DOMParser` (XML mode), `atob`, `URL.createObjectURL`/`revokeObjectURL`, `Blob`, `Image`, `document.createElement('canvas').getContext('2d')` for `measureText` (`packages/docx/src/docx/utils.ts:40,70`), and `document.body` for `saveAs` (`:10-20`) — avoidable with `download: false`. The repo's own headless recipe is `canvas-editor/tests/factories/editor.ts:50-77` plus `tests/setup.ts`; the trial used an equivalent vitest project with `vitest-canvas-mock`.
 
-**Measured [MEASURED].** 24.6%, 88.2% text, 21 of 35 parts lost. The importer is the degrading side: 12 input paragraphs are already missing from the editor's in-memory model, while **0** model paragraphs are missing from the output — the exporter loses no text, it only rewrites structure (list numbering flattened to literal "1."/"2.", `w:sdt` flattened to plain text, footnotes/comments emitted as empty stubs, 1 of 3 sections).
+**Measured [MEASURED].** 24.6%, 88.8% text, 21 of 35 parts lost. The importer is the degrading side: 12 input paragraphs are already missing from the editor's in-memory model, while **0** model paragraphs are missing from the output — the exporter loses no text, it only rewrites structure (list numbering flattened to literal "1."/"2.", `w:sdt` flattened to plain text, footnotes/comments emitted as empty stubs, 1 of 3 sections).
 
 **A real crash.** `importDocx.ts:1738` drops `w:vMerge` continuation cells without recording the occupied grid column; the layout engine then re-derives `colIndex` off by one and reads `colgroup[3]` of a 3-column table: `TypeError: Cannot read properties of undefined (reading 'width')` at `canvas-editor/src/editor/core/draw/particle/table/TableParticle.ts:724`, via `LayoutEngine.ts:296` ← `Draw.render` (`Draw.ts:2664`) ← `Draw.setValue` (`:1688`). Plain JS, so it reproduces in a browser.
 
@@ -482,7 +484,7 @@ Legend: **M** modelled and editable · **P** preserved · **D** dropped · **?**
 
 **Pipeline [CODE].** `importDocx` (`apps/hocuspocus.server/src/modules/document-conversion/domain/docxImport.ts:43`) → `exportDocx` (`docxExport.ts:30`), bridged by `renderDocumentHtml` / `parseDocumentHtml` (`documentHtml.ts:38,77`) and `getRenderSchema`/`getParseSchema` (`conversionSchema.ts:33,35`). No DB, Yjs, Redis or auth is needed for these domain functions — Prisma and the access gate live only in `http/controller.ts`. The pipeline is **DOCX → HTML → Tiptap JSON → HTML → DOCX**: `mammoth` in, `@turbodocx/html-to-docx` out.
 
-**Measured [MEASURED].** 21.1%, 91.7% text, 24 of 35 parts lost. **Tracked changes are destroyed at the mammoth import stage**, with the code to prove it: `mammoth/lib/docx/body-reader.js:447` unwraps `w:ins` (insertions become ordinary text), `:450` unwraps `w:moveTo`, `:729` sets `ignoreElements["w:del"] = true` and `:732` sets `ignoreElements["w:moveFrom"] = true` (deletions and move-outs are dropped outright), `:727` drops `w:sectPr` entirely, `:728` drops `w:proofErr`, and `:500` only tests `trPr/w:del`, so an inserted row silently becomes a normal row. Counts across the chain: `w:ins` 3→0→0→0→0; `w:del` 3→0→0→0→0; `w:moveFrom` 1→0→0→0→0.
+**Measured [MEASURED].** 21.1%, 90.5% text, 24 of 35 parts lost. **Tracked changes are destroyed at the mammoth import stage**, with the code to prove it: `mammoth/lib/docx/body-reader.js:447` unwraps `w:ins` (insertions become ordinary text), `:450` unwraps `w:moveTo`, `:729` sets `ignoreElements["w:del"] = true` and `:732` sets `ignoreElements["w:moveFrom"] = true` (deletions and move-outs are dropped outright), `:727` drops `w:sectPr` entirely, `:728` drops `w:proofErr`, and `:500` only tests `trPr/w:del`, so an inserted row silently becomes a normal row. Counts across the chain: `w:ins` 3→0→0→0→0; `w:del` 3→0→0→0→0; `w:moveFrom` 1→0→0→0→0.
 
 **Pros:** collaboration and an MCP connector.
 **Cons:** an HTML bridge, not a DOCX tool; every revision is flattened at import with no warning to the user.
@@ -500,7 +502,7 @@ The import path is **mammoth → HTML → the editor model**: `mammoth` is a top
 
 **The one lever that matters most is `presentation`.** `export/lib/internal/docxStaticComponents.tsx:200-211` maps ten plugins to DOCX-native drawings (callout → a two-cell table; columns → a layout table; equations → KaTeX → MathML → OMML; TOC → hyperlink paragraphs). When `presentation` is omitted, the export falls back to each plugin's own React component — and the **Base** (non-React) plugins carry none, so tables, images and lists silently degrade to plain divs (`static/internal/staticPresentation.ts:103`). This harness therefore uses Plate's own static kit from `apps/www/src/registry/components/editor/*-static.tsx` (32 files) together with `DOCX_EXPORT_STYLES`, which is what the official demo uses.
 
-**Measured [MEASURED].** 20.6% weighted, 20.7% critical (6/29), **91.7% text retention**, 11 of 35 parts kept, 79 failed checks. **Zero parts are byte-identical** and 24 of 35 are dropped: every header, footer, footnote, endnote, comment, chart, SmartArt part, glossary part, customXml part, the `altChunk` part, the image and both embeddings. What remains is a regenerated 11-part package — `[Content_Types].xml`, `_rels/.rels`, `docProps/core.xml`, `word/document.xml`, `word/_rels/document.xml.rels`, `word/styles.xml`, `word/numbering.xml`, `word/settings.xml`, `word/webSettings.xml`, `word/fontTable.xml` and `word/theme/theme1.xml` — all changed, none added. The output renders in **2 pages** instead of 6.
+**Measured [MEASURED].** 20.6% weighted, 20.7% critical (6/29), **90.5% text retention**, 11 of 35 parts kept, 79 failed checks. **Zero parts are byte-identical** and 24 of 35 are dropped: every header, footer, footnote, endnote, comment, chart, SmartArt part, glossary part, customXml part, the `altChunk` part, the image and both embeddings. What remains is a regenerated 11-part package — `[Content_Types].xml`, `_rels/.rels`, `docProps/core.xml`, `word/document.xml`, `word/_rels/document.xml.rels`, `word/styles.xml`, `word/numbering.xml`, `word/settings.xml`, `word/webSettings.xml`, `word/fontTable.xml` and `word/theme/theme1.xml` — all changed, none added. The output renders in **2 pages** instead of 6.
 
 **But Plate is the only editor here that says what it did.** The import produces **38 typed diagnostics**, and they are precise: 19 `unsupported-content` (field-instruction content replaced, field content replaced, five structured-document-tags unwrapped, embedded-object content replaced, text-box content unwrapped, alt-chunk content dropped, header/footer/footnote/endnote content not mapped into the main document, four move-range markers flattened), 6 `converter-message` (`w:cr`, `w:fldSimple`, `o:OLEObject`, `w:permStart`, `w:permEnd`, `w:altChunk` unrecognised), 2 `resource-omitted` (embedded image omitted), 8 `property-dropped` (background color ×2, font size ×4, font family ×2, caps, small caps, character spacing, alignment ×2, superscript) and 2 `lossy-content` (tracked revisions flattened; comment 0 has no complete imported range). Under Plate's own default `lossPolicy: 'reject'` those same diagnostics are **18 errors** and the import **fails** — the corpus is refused rather than silently degraded. The harness runs with `'allow'` so that an output exists to measure.
 
@@ -511,7 +513,7 @@ The import path is **mammoth → HTML → the editor model**: `mammoth` is a top
 **Pros:** a typed diagnostic vocabulary; a default loss policy that refuses rather than degrades; a passive-vocabulary gate that makes byte-exact export a provable property rather than a hope.
 **Cons:** it is an HTML-shaped pipeline, so everything Word expresses that HTML cannot carry is lost — which is most of the package; and its DOCX engine is not designed for round-tripping, so the score is low by construction.
 
-**Second pass [MEASURED].** 20.0%, 0 errors, and the package shrinks from 42,964 to **8,010** bytes — Plate's own output re-imports cleanly, but the regenerated document no longer carries the parts the first pass had written.
+**Second pass [MEASURED].** 20.1%, 0 errors, and the package shrinks from 42,964 to **8,010** bytes — Plate's own output re-imports cleanly, but the regenerated document no longer carries the parts the first pass had written.
 
 ---
 
@@ -526,7 +528,7 @@ The import path is **mammoth → HTML → the editor model**: `mammoth` is a top
 - **DemoMacro/office-open is upstream of akademi-ink/office-open**, which is a stale fork at v0.14.5.
 
 **New, established by this trial**
-- SuperDoc V2 is the only project with zero failed checks.
+- SuperDoc V2, Docxodus and eigenpal are the only participants with zero failed checks.
 - office-open and Docen are **not idempotent** — their own output is malformed XML on re-import.
 - canvas-editor's DOCX import **crashes on `w:vMerge`**.
 - Fidus Writer's DOCX importer **has no table support**.
@@ -550,7 +552,7 @@ The import path is **mammoth → HTML → the editor model**: `mammoth` is a top
 - **Do not use Fidus Writer, canvas-editor + plugin, docs.plus or Plate.js as fidelity tools.** Fidus Writer is an academic-publishing pipeline, canvas-editor is a canvas editor with a DOCX exporter, docs.plus is an HTML bridge that silently accepts every revision, and Plate.js is an HTML-shaped editor framework whose DOCX engine, however well built, does not carry the constructs Word uses.
 - **But do use Plate.js's DOCX engine's *diagnostics* as a model.** It is the only one of the twelve that reports what it dropped, and its default `lossPolicy: 'reject'` refuses a document it cannot represent losslessly instead of writing a degraded one. If you are building a DOCX pipeline, that behaviour — a typed diagnostic per lost construct, and a refusal by default — is worth copying even if you do not adopt the engine. Its `sourceEligibility.ts` gate is also the only implementation of *provable* byte-exact export found in this trial.
 - **Build your own corpus.** This one document found eight distinct defect classes that no release note mentions. Your documents will find different ones.
-- **Do not choose on stars.** The two most-starred projects here score 84.9% and 20.6%; the winner has 1,117★ and the runner-up 32★. Stars track how visible a project is, not whether it can open a Word file.
+- **Do not choose on stars.** The two most-starred projects here score 85.9% and 20.6%; the winner has 1,117★ and the runner-up 32★. Stars track how visible a project is, not whether it can open a Word file.
 
 ---
 
@@ -570,7 +572,7 @@ The import path is **mammoth → HTML → the editor model**: `mammoth` is a top
 build/make_fixture.py                  # writes fixture/complex.docx (35 parts)
 build/validate_ooxml.py fixture/complex.docx   # ECMA-376 Transitional XSD check
 build/run_all.sh                       # runs every editor's own import->export path
-build/check_roundtrip.py IN OUT --json # 97-check scorer
+build/check_roundtrip.py IN OUT --json # 99-check scorer
 build/score_all.py                     # aggregate table
 build/payload_audit.py                 # per-editor chart/SmartArt/OLE/image part + reference audit
 build/fix_dirty.py REPORT.docx         # w:dirty="true" -> "false" (Word refuses the former)

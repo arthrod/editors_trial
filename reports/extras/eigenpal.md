@@ -12,19 +12,21 @@ The editor lane calls `DocxEditor.createServer` and then `save()`. `index.ts` do
 
 ```
 [eigenpal:store] wrote 23989 bytes
-weighted: 98.5%
-features: 98/99
-failed-check-ids: text.exact
+weighted: 100.0%
+features: 99/99
+failed-check-ids: 
 ```
 
 ```
 [eigenpal:editor] wrote 24635 bytes
-weighted: 98.5%
-features: 98/99
-failed-check-ids: text.exact
+weighted: 100.0%
+features: 99/99
+failed-check-ids: 
 ```
 
-Both lanes fail `text.exact` and no other check. The weighted figures match. The package sizes differ: the store line and the editor line above are the sizes the harness wrote.
+Both lanes pass every check. The package sizes differ: the store line and the editor line above are the sizes the harness wrote.
+
+**Correction.** An earlier edition reported both lanes failing `text.exact` (98.5%). That failure was the scorer's, not eigenpal's, as eigenpal's team pointed out. The fixture's text box says one thing in its DrawingML branch (`mc:Choice`) and another in its VML branch (`mc:Fallback`). On save, eigenpal rewrites the fallback from the DrawingML content, which Microsoft Word also does. Saved unedited from Word for Mac, the fixture failed the same check. The scorer counted the fallback as visible text, and it counted text-box paragraphs twice. It now reads the visible text once, from `mc:Choice` (arthrod/editors_trial#24). No visible text was ever lost.
 
 ## Trivia
 

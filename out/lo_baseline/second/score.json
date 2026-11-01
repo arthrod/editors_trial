@@ -1,18 +1,18 @@
 {
-  "input": "/Users/arthrod/temp/T/editors_trial/out/lo_baseline/complex.docx",
-  "output": "/Users/arthrod/temp/T/editors_trial/out/lo_baseline/second/complex.docx",
+  "input": "out/lo_baseline/complex.docx",
+  "output": "out/lo_baseline/second/complex.docx",
   "score": {
-    "weighted": 87.4,
-    "weighted_earned": 174,
+    "weighted": 87.9,
+    "weighted_earned": 175,
     "weighted_total": 199,
     "critical_passed": 24,
     "critical_total": 29,
     "critical_pct": 82.8,
-    "features_passed": 86,
+    "features_passed": 87,
     "features_total": 99
   },
   "text_retention_pct": 100.0,
-  "text_tokens_input": 177,
+  "text_tokens_input": 169,
   "text_tokens_lost": 0,
   "text_lost_sample": [],
   "checks": [
@@ -157,7 +157,7 @@
       "label": "part kept: altChunk part",
       "category": "package",
       "weight": 1,
-      "pass": false,
+      "pass": true,
       "detail": ""
     },
     {
@@ -314,7 +314,7 @@
     },
     {
       "id": "fl.fldSimple",
-      "label": "simple field (w:fldSimple) kept",
+      "label": "simple fields kept (as simple or complex fields)",
       "category": "fields",
       "weight": 2,
       "pass": false,

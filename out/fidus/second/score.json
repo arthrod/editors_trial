@@ -1,6 +1,6 @@
 {
-  "input": "/Users/arthrod/temp/T/editors_trial/out/fidus/complex.docx",
-  "output": "/Users/arthrod/temp/T/editors_trial/out/fidus/second/complex.docx",
+  "input": "out/fidus/complex.docx",
+  "output": "out/fidus/second/complex.docx",
   "score": {
     "weighted": 25.1,
     "weighted_earned": 50,
@@ -314,7 +314,7 @@
     },
     {
       "id": "fl.fldSimple",
-      "label": "simple field (w:fldSimple) kept",
+      "label": "simple fields kept (as simple or complex fields)",
       "category": "fields",
       "weight": 2,
       "pass": false,
@@ -662,7 +662,7 @@
       "category": "text",
       "weight": 3,
       "pass": false,
-      "detail": "len 826 vs 853"
+      "detail": "len 818 vs 845"
     },
     {
       "id": "fmt.numLevels",

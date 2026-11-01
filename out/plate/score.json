@@ -11,9 +11,9 @@
     "features_passed": 20,
     "features_total": 99
   },
-  "text_retention_pct": 91.7,
+  "text_retention_pct": 90.5,
   "text_tokens_input": 169,
-  "text_tokens_lost": 14,
+  "text_tokens_lost": 16,
   "text_lost_sample": [
     "separated",
     "After",
@@ -26,9 +26,11 @@
     "trDel",
     "Text",
     "box",
-    "contentAlternateContent",
-    "Text",
-    "box"
+    "Imported",
+    "altChunk",
+    "one",
+    "Imported",
+    "altChunk"
   ],
   "checks": [
     {
@@ -329,7 +331,7 @@
     },
     {
       "id": "fl.fldSimple",
-      "label": "simple field (w:fldSimple) kept",
+      "label": "simple fields kept (as simple or complex fields)",
       "category": "fields",
       "weight": 2,
       "pass": false,
@@ -677,7 +679,7 @@
       "category": "text",
       "weight": 3,
       "pass": false,
-      "detail": "len 1299 vs 1121"
+      "detail": "len 1281 vs 1117"
     },
     {
       "id": "fmt.numLevels",

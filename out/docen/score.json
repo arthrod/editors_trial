@@ -316,7 +316,7 @@
     },
     {
       "id": "fl.fldSimple",
-      "label": "simple field (w:fldSimple) kept",
+      "label": "simple fields kept (as simple or complex fields)",
       "category": "fields",
       "weight": 2,
       "pass": true,
@@ -664,7 +664,7 @@
       "category": "text",
       "weight": 3,
       "pass": false,
-      "detail": "len 1299 vs 1298"
+      "detail": "len 1281 vs 1280"
     },
     {
       "id": "fmt.numLevels",

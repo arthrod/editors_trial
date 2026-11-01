@@ -37,8 +37,11 @@ function demoAssets(): Plugin {
       writeFileSync(
         path.join(dist, "SOURCE.txt"),
         [
-          "https://github.com/DemoMacro/office-open.git",
-          "567addfd44d756c68e65ebad1c2e94b609179bf7",
+          "office-open live demo for benchmarks.law",
+          "Repository: https://github.com/DemoMacro/office-open",
+          "Commit: 567addf",
+          "License: MIT (see LICENSE)",
+          "Demo host page and build configuration: https://github.com/arthrod/editors_trial/tree/main/demos/office-open",
           "",
         ].join("\n"),
       );
