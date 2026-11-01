@@ -156,3 +156,13 @@ protection docxodus B7 level: preserved detail: the weapon is still in the writt
 protection docxodus B8 level: preserved detail: the weapon is still in the written package
 protection docxodus B9 level: preserved detail: the weapon is still in the written package
 protection docxodus B10 level: preserved detail: the weapon is still in the written package
+protection apryse B1 level: sanitation detail: the written package does not carry the weapon
+protection apryse B2 level: sanitation detail: the written package does not carry the weapon
+protection apryse B3 level: sanitation detail: the written package does not carry the weapon
+protection apryse B4 level: hang detail: the run did not finish
+protection apryse B5 level: hang detail: the run did not finish
+protection apryse B6 level: sanitation detail: the written package does not carry the weapon
+protection apryse B7 level: preserved detail: the weapon is still in the written package
+protection apryse B8 level: preserved detail: the weapon is still in the written package
+protection apryse B9 level: hang detail: the run did not finish
+protection apryse B10 level: preserved detail: the weapon is still in the written package

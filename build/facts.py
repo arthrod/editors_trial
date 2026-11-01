@@ -136,6 +136,7 @@ def bomb_facts(path: Path, facts: dict) -> None:
             facts[f"bomb.{tool}.{pkg}.level"] = level
             counts[level] = counts.get(level, 0) + 1
     facts["bomb.cells"] = sum(counts.values())
+    facts["bomb.tools"] = len([t for t in levels if t != "lo_baseline"])   # editor rows, LibreOffice apart
     for level, n in counts.items():
         facts[f"bomb.count.{level}"] = n
 

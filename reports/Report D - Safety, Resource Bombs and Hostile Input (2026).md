@@ -20,6 +20,7 @@ Packages: B1 decompression, B2 entry flood, B3 attributes, B4 deep nesting, B5 e
 - **office-open.** Cleaned B3. Refused B5. Ran out of stack on B4. Kept B1, B2, B6, B7, B8, B9, and B10.
 - **Docen.** Cleaned B3. Refused B5. Ran out of stack on B4 and B9. Kept B1, B2, B6, B7, B8, and B10.
 - **Docxodus.** Ceilings on B1 (compression ratio) and B4 (128 levels of depth). Cleaned B3. Refused B5 (document type declaration). Kept B2, B6, B7, B8, B9, and B10.
+- **Apryse WebViewer.** No ceiling. Cleaned B1, B2, B3, and B6. Hung on B4, B5, and B9: each ran past the sandbox's 40-second wall clock, in both passes. Kept B7, B8, and B10.
 - **Google Docs.** Not in the seatbelt matrix. Saved exports of B2, B6, B7, B8, and B10 contain only the body sentence. B1, B3, B4, B5, and B9 produced no file. Those five imports fully failed, and no ceiling was named. Grade 0.70.
 
 Jubarte is not in this list. Its grade on the same scale is 0.65, from jubarte 0.14.0 in `Report D1 - Jubarte on the Hostile Packages (2026).md`. Report D2 is the Word run, final since 2026-10-31; its interim snapshot is copied at the end of this report. Its jubarte column is 0.16.0, not 0.14.0.
@@ -55,6 +56,7 @@ Sanitation is safe output without a declared ceiling, so it is not 1. A bare ref
 | Folio editor | 0.56 | Same as the model. |
 | canvas-editor | 0.48 | Hangs on the decompression bomb, the attributes, and the layout bomb. Keeps the deep nest. |
 | Docxodus | 0.34 | Ceilings on the decompression bomb and the deep nest. Keeps six packages. |
+| Apryse WebViewer | 0.32 | No ceiling. Hangs on the deep nest, the entities, and the layout bomb. Keeps external relationships, the script, and the corrupt parts. |
 | SuperDoc | 0.30 | No ceiling. Keeps the deep nest, zip-slip, external relationships, the script, and the layout bomb. |
 | GenOffice | 0.24 | Ceiling on the entry flood only. Keeps the other resource bombs. |
 | Docen | 0.14 | Cleans the attributes. Stack on the deep nest and the layout bomb. |
@@ -120,12 +122,12 @@ These are the levels, from a real ceiling down to no protection.
 13. `not-in-view`. A text view was written and this weapon is not something that view carries. Editors in this matrix write packages, so none of them has this label. It is a jubarte reading, in Report D1.
 14. `not-run`. No measurement. Word, and every row of the unsandboxed fence.
 
-Of the 150 measured cells, fourteen editors and LibreOffice across the ten packages, the primary labels are sanitation 38, preserved 51, erroring 29, bounded-refusal 22, stack-exhaustion 4, hang 5, and failed-load-exit-zero 1.
+Of the 160 measured cells, fifteen editors and LibreOffice across the ten packages, the primary labels are sanitation 42, preserved 54, erroring 29, bounded-refusal 22, stack-exhaustion 4, hang 8, and failed-load-exit-zero 1.
 
 ## Measured scorecard
 
 ```
-sandbox: libreoffice in docker, network none, memory 2g, read-only root. editors under seatbelt. External network is denied. Localhost and unix sockets inside the work directory are allowed, because the editors' own tooling binds them. Writes stay in the work directory, plus the canvas vitest config cache. The editors are macOS binaries and were not run inside the Linux container.
+sandbox: libreoffice in docker, network none, memory 2g, read-only root. editors under seatbelt. External network is denied. Localhost and unix sockets inside the work directory are allowed, because the editors' own tooling binds them. Writes stay in the work directory, plus the canvas vitest config cache. Apryse's profile also allows Mach port registration, which Chromium needs to start; Chromium's own sandbox cannot start inside seatbelt and is off for that tool. The editors are macOS binaries and were not run inside the Linux container.
 taxonomy: preserving a hostile payload is not the same single result as a crash.
 reference Word fidelity: not-run safety: not-run Word was not opened. LibreOffice is the comparison.
 B7 note: NTLM credential leak was not measured. No hash collector was started. External network and UNC were denied. Localhost was allowed so a tool loopback stub and the 127.0.0.1 probe are not blocked by the seatbelt.
@@ -156,6 +158,7 @@ tool wordcraft B1 fidelity: preserved safety: ok catch: no
 tool canvas B1 fidelity: refused safety: hang catch: no
 tool docsplus B1 fidelity: dropped safety: ok catch: yes
 tool docxodus B1 fidelity: refused safety: bounded-reject catch: yes
+tool apryse B1 fidelity: dropped safety: ok catch: yes
 tool plate B2 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal B2 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal-editor B2 fidelity: refused safety: bounded-reject catch: yes
@@ -170,6 +173,7 @@ tool wordcraft B2 fidelity: refused safety: bounded-reject catch: yes
 tool canvas B2 fidelity: dropped safety: ok catch: yes
 tool docsplus B2 fidelity: dropped safety: ok catch: yes
 tool docxodus B2 fidelity: preserved safety: ok catch: no
+tool apryse B2 fidelity: dropped safety: ok catch: yes
 tool plate B3 fidelity: refused safety: hang catch: no
 tool eigenpal B3 fidelity: dropped safety: ok catch: yes
 tool eigenpal-editor B3 fidelity: dropped safety: ok catch: yes
@@ -184,6 +188,7 @@ tool wordcraft B3 fidelity: refused safety: bounded-reject catch: yes
 tool canvas B3 fidelity: refused safety: hang catch: no
 tool docsplus B3 fidelity: dropped safety: ok catch: yes
 tool docxodus B3 fidelity: dropped safety: ok catch: yes
+tool apryse B3 fidelity: dropped safety: ok catch: yes
 tool plate B4 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal B4 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal-editor B4 fidelity: refused safety: bounded-reject catch: yes
@@ -198,6 +203,7 @@ tool wordcraft B4 fidelity: refused safety: bounded-reject catch: yes
 tool canvas B4 fidelity: preserved safety: ok catch: no
 tool docsplus B4 fidelity: refused safety: bounded-reject catch: yes
 tool docxodus B4 fidelity: refused safety: bounded-reject catch: yes
+tool apryse B4 fidelity: refused safety: hang catch: no
 tool plate B5 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal B5 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal-editor B5 fidelity: refused safety: bounded-reject catch: yes
@@ -212,6 +218,7 @@ tool wordcraft B5 fidelity: refused safety: bounded-reject catch: yes
 tool canvas B5 fidelity: dropped safety: ok catch: yes
 tool docsplus B5 fidelity: refused safety: bounded-reject catch: yes
 tool docxodus B5 fidelity: refused safety: bounded-reject catch: yes
+tool apryse B5 fidelity: refused safety: hang catch: no
 tool plate B6 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal B6 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal-editor B6 fidelity: refused safety: bounded-reject catch: yes
@@ -226,6 +233,7 @@ tool wordcraft B6 fidelity: dropped safety: ok catch: yes
 tool canvas B6 fidelity: dropped safety: ok catch: yes
 tool docsplus B6 fidelity: dropped safety: ok catch: yes
 tool docxodus B6 fidelity: preserved safety: ok catch: no
+tool apryse B6 fidelity: dropped safety: ok catch: yes
 tool plate B7 fidelity: dropped safety: ok catch: yes
 tool eigenpal B7 fidelity: preserved safety: ok catch: no
 tool eigenpal-editor B7 fidelity: preserved safety: ok catch: no
@@ -240,6 +248,7 @@ tool wordcraft B7 fidelity: dropped safety: ok catch: yes
 tool canvas B7 fidelity: dropped safety: ok catch: yes
 tool docsplus B7 fidelity: dropped safety: ok catch: yes
 tool docxodus B7 fidelity: preserved safety: ok catch: no
+tool apryse B7 fidelity: preserved safety: ok catch: no
 tool plate B8 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal B8 fidelity: preserved safety: ok catch: no
 tool eigenpal-editor B8 fidelity: preserved safety: ok catch: no
@@ -254,6 +263,7 @@ tool wordcraft B8 fidelity: preserved safety: ok catch: no
 tool canvas B8 fidelity: dropped safety: ok catch: yes
 tool docsplus B8 fidelity: dropped safety: ok catch: yes
 tool docxodus B8 fidelity: preserved safety: ok catch: no
+tool apryse B8 fidelity: preserved safety: ok catch: no
 tool plate B9 fidelity: preserved safety: ok catch: no
 tool eigenpal B9 fidelity: preserved safety: ok catch: no
 tool eigenpal-editor B9 fidelity: preserved safety: ok catch: no
@@ -268,6 +278,7 @@ tool wordcraft B9 fidelity: preserved safety: ok catch: no
 tool canvas B9 fidelity: refused safety: hang catch: no
 tool docsplus B9 fidelity: preserved safety: ok catch: no
 tool docxodus B9 fidelity: preserved safety: ok catch: no
+tool apryse B9 fidelity: refused safety: hang catch: no
 tool plate B10 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal B10 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal-editor B10 fidelity: refused safety: bounded-reject catch: yes
@@ -282,6 +293,7 @@ tool wordcraft B10 fidelity: dropped safety: ok catch: yes
 tool canvas B10 fidelity: dropped safety: ok catch: yes
 tool docsplus B10 fidelity: refused safety: bounded-reject catch: yes
 tool docxodus B10 fidelity: preserved safety: ok catch: no
+tool apryse B10 fidelity: preserved safety: ok catch: no
 ```
 
 ## Protection record
@@ -445,6 +457,16 @@ protection docxodus B7 level: preserved detail: the weapon is still in the writt
 protection docxodus B8 level: preserved detail: the weapon is still in the written package
 protection docxodus B9 level: preserved detail: the weapon is still in the written package
 protection docxodus B10 level: preserved detail: the weapon is still in the written package
+protection apryse B1 level: sanitation detail: the written package does not carry the weapon
+protection apryse B2 level: sanitation detail: the written package does not carry the weapon
+protection apryse B3 level: sanitation detail: the written package does not carry the weapon
+protection apryse B4 level: hang detail: the run did not finish
+protection apryse B5 level: hang detail: the run did not finish
+protection apryse B6 level: sanitation detail: the written package does not carry the weapon
+protection apryse B7 level: preserved detail: the weapon is still in the written package
+protection apryse B8 level: preserved detail: the weapon is still in the written package
+protection apryse B9 level: hang detail: the run did not finish
+protection apryse B10 level: preserved detail: the weapon is still in the written package
 ```
 
 ## Where the safety word is the wrong name
@@ -495,7 +517,7 @@ Docxodus keeps the entry flood, zip-slip, the external relationships, the active
 
 ## Google Docs
 
-Google Docs is not one of the 150 cells. `Google Docs.app` on this Mac is a Drive launcher. It does not parse a package locally. The imports ran on Google's servers. A file was saved to `~/Downloads` only when the import produced a document. B1, B3, B4, B5, and B9 have no file there. Those five imports fully failed.
+Google Docs is not one of the 160 cells. `Google Docs.app` on this Mac is a Drive launcher. It does not parse a package locally. The imports ran on Google's servers. A file was saved to `~/Downloads` only when the import produced a document. B1, B3, B4, B5, and B9 have no file there. Those five imports fully failed.
 
 The saved files are `~/Downloads/B2.docx`, `B6.docx`, `B7.docx`, `B8.docx`, and `B10.docx`. A second save of the entry flood and of the active-content package has the same part bytes as the first save. The five first saves have the same part bytes as each other. The zip containers differ. Each one is a rewrite: generated styles, settings, numbering, a font table, and a theme. The body is one paragraph, `BOMB_BODY_OK`.
 

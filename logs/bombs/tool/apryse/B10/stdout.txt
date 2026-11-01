@@ -1,0 +1,10 @@
+[outbound] POST https://pws-collect.pdftron.com/api/initialize body 134 chars {"key":"string(77)","platformLanguage":"string(3)","sdkVersion":"string(6)"}; no document text, no file name
+loaded: {"filename":"complex.docx","type":"officeEditor","pages":1,"annotations":0}
+in  1629 bytes sha a8f9e7bc2fee7792
+out 50997 bytes sha 3986dbf91c895e24
+[warning] Deprecation warning: use moment.updateLocale(localeName, config) to change an existing locale. moment.defineLocale(localeName, config) should only be used for creating a new locale See http://momentjs.com/guides/#/warnings/define-locale/ for more info.
+[warning] Core.ContentBoxEditor is deprecated. Use Core.ContentEditSession instead.
+[error] Failed to load resource: net::ERR_NAME_NOT_RESOLVED
+[warning] WebViewer is currently running in demo mode, please provide a commercial license key to remove demo stamps
+[warning] There may be some degradation of performance. Your server has not been configured to serve .gz. and .br. files with the expected Content-Encoding. See https://docs.apryse.com/documentation/web/faq/content-encoding/ for instructions on how to resolve this.
+[warning] There may be some degradation of performance. Your server has not been configured to serve .gz. and .br. files with the expected Content-Encoding. See https://docs.apryse.com/documentation/web/faq/content-encoding/ for instructions on how to resolve this.

@@ -20,6 +20,7 @@ Packages: B1 decompression, B2 entry flood, B3 attributes, B4 deep nesting, B5 e
 - **office-open.** Cleaned B3. Refused B5. Ran out of stack on B4. Kept B1, B2, B6, B7, B8, B9, and B10.
 - **Docen.** Cleaned B3. Refused B5. Ran out of stack on B4 and B9. Kept B1, B2, B6, B7, B8, and B10.
 - **Docxodus.** Ceilings on B1 (compression ratio) and B4 (128 levels of depth). Cleaned B3. Refused B5 (document type declaration). Kept B2, B6, B7, B8, B9, and B10.
+- **Apryse WebViewer.** No ceiling. Cleaned B1, B2, B3, and B6. Hung on B4, B5, and B9: each ran past the sandbox's 40-second wall clock, in both passes. Kept B7, B8, and B10.
 - **Google Docs.** Not in the seatbelt matrix. Saved exports of B2, B6, B7, B8, and B10 contain only the body sentence. B1, B3, B4, B5, and B9 produced no file. Those five imports fully failed, and no ceiling was named. Grade 0.70.
 
 Jubarte is not in this list. Its grade on the same scale is 0.65, from jubarte 0.14.0 in `Report D1 - Jubarte on the Hostile Packages (2026).md`. Report D2 is the Word run, final since 2026-10-31; its interim snapshot is copied at the end of this report. Its jubarte column is 0.16.0, not 0.14.0.
@@ -55,6 +56,7 @@ Sanitation is safe output without a declared ceiling, so it is not 1. A bare ref
 | Folio editor | {{bomb.folio-editor.grade:.2f}} | Same as the model. |
 | canvas-editor | {{bomb.canvas.grade:.2f}} | Hangs on the decompression bomb, the attributes, and the layout bomb. Keeps the deep nest. |
 | Docxodus | {{bomb.docxodus.grade:.2f}} | Ceilings on the decompression bomb and the deep nest. Keeps six packages. |
+| Apryse WebViewer | {{bomb.apryse.grade:.2f}} | No ceiling. Hangs on the deep nest, the entities, and the layout bomb. Keeps external relationships, the script, and the corrupt parts. |
 | SuperDoc | {{bomb.superdoc.grade:.2f}} | No ceiling. Keeps the deep nest, zip-slip, external relationships, the script, and the layout bomb. |
 | GenOffice | {{bomb.genoffice.grade:.2f}} | Ceiling on the entry flood only. Keeps the other resource bombs. |
 | Docen | {{bomb.docen.grade:.2f}} | Cleans the attributes. Stack on the deep nest and the layout bomb. |
@@ -120,7 +122,7 @@ These are the levels, from a real ceiling down to no protection.
 13. `not-in-view`. A text view was written and this weapon is not something that view carries. Editors in this matrix write packages, so none of them has this label. It is a jubarte reading, in Report D1.
 14. `not-run`. No measurement. Word, and every row of the unsandboxed fence.
 
-Of the {{bomb.cells}} measured cells, fourteen editors and LibreOffice across the ten packages, the primary labels are sanitation {{bomb.count.sanitation}}, preserved {{bomb.count.preserved}}, erroring {{bomb.count.erroring}}, bounded-refusal {{bomb.count.bounded-refusal}}, stack-exhaustion {{bomb.count.stack-exhaustion}}, hang {{bomb.count.hang}}, and failed-load-exit-zero {{bomb.count.failed-load-exit-zero}}.
+Of the {{bomb.cells}} measured cells, {{bomb.tools:w}} editors and LibreOffice across the ten packages, the primary labels are sanitation {{bomb.count.sanitation}}, preserved {{bomb.count.preserved}}, erroring {{bomb.count.erroring}}, bounded-refusal {{bomb.count.bounded-refusal}}, stack-exhaustion {{bomb.count.stack-exhaustion}}, hang {{bomb.count.hang}}, and failed-load-exit-zero {{bomb.count.failed-load-exit-zero}}.
 
 ## Measured scorecard
 
