@@ -187,6 +187,19 @@ def ui_facts(ui: Path, facts: dict) -> None:
     facts["ui.date"] = day
 
 
+def stamp_facts(d: Path, facts: dict) -> None:
+    """Apryse's trial stamp: what it added, and which failures it could have caused."""
+    path = d / "stamp.json"
+    if not path.exists():
+        return
+    data = json.loads(path.read_text())
+    facts["stamp.apryse.parts"] = len(data["stamp_parts"])
+    facts["stamp.apryse.unseparable"] = len(data.get("unseparable", []))
+    facts["stamp.apryse.own"] = len(data.get("own", []))
+    labels = data.get("labels", {})
+    facts["stamp.apryse.unseparable_labels"] = "; ".join(labels[k] for k in data.get("unseparable", []))
+
+
 def build() -> dict:
     facts: dict = {}
     fixture = parts(FIXTURE)
@@ -230,6 +243,7 @@ def build() -> dict:
             facts[f"bomb.{name}"] = log.read_text().rstrip("\n")
     version_facts(facts)
     ui_facts(OUT / "ui", facts)
+    stamp_facts(OUT / "apryse", facts)
     stars = OUT / "stars.json"
     if stars.exists():
         data = json.loads(stars.read_text())

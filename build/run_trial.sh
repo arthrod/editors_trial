@@ -5,6 +5,7 @@
 #   2. build/run_second_pass.sh  every editor fed its own output
 #   3. build/score_all.py        the first pass against the fixture
 #   4. build/score_extra.py      the second pass and the editor lanes
+#      build/apryse_stamp.py     labels what Apryse's trial stamp added (never edits it)
 #   5. build/ns_json.py          out/ns_map.json, Report A's namespace tables
 #   6. build/facts.py            out/facts.json from the artifacts
 #   7. build/render_reports.py   every report from its template, and its DOCX twin
@@ -27,6 +28,7 @@ bash build/run_all.sh
 bash build/run_second_pass.sh
 python3 build/score_all.py
 python3 build/score_extra.py
+python3 -I build/apryse_stamp.py
 python3 build/ns_json.py
 python3 build/facts.py
 python3 build/render_reports.py

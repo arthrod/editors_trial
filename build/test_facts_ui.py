@@ -32,5 +32,22 @@ class UiFacts(unittest.TestCase):
                 facts.ui_facts(ui, {})
 
 
+class StampFacts(unittest.TestCase):
+    def test_stamp_attribution_becomes_facts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            d = Path(tmp)
+            (d / "stamp.json").write_text(
+                '{"stamp_parts": ["word/header3.xml", "word/media/image2.png"], "stamped": true,'
+                ' "unseparable": ["ref.headerTrackedChange"], "own": ["sec.landscape", "sdt.count"],'
+                ' "labels": {"ref.headerTrackedChange": "tracked change inside header kept",'
+                ' "sec.landscape": "landscape section kept", "sdt.count": "content controls kept (>=5)"}}')
+            got: dict = {}
+            facts.stamp_facts(d, got)
+            self.assertEqual(got["stamp.apryse.parts"], 2)
+            self.assertEqual(got["stamp.apryse.unseparable"], 1)
+            self.assertEqual(got["stamp.apryse.own"], 2)
+            self.assertEqual(got["stamp.apryse.unseparable_labels"], "tracked change inside header kept")
+
+
 if __name__ == "__main__":
     unittest.main()
