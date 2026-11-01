@@ -7,11 +7,12 @@ Writes OUT_DIR/<editor>.docx and OUT_DIR/<editor>.json for every editor in EDITO
 
 The scored fixture is adversarial on purpose. A demo has to open in each editor's browser build,
 so every copy goes through BASE_STEPS, which turn the two parts that carry a foreign payload into
-ordinary WordprocessingML:
+ordinary WordprocessingML and lift the read-only lock:
 
   altchunk_to_paragraphs   the altChunk (an HTML part the consumer must import) becomes ordinary
                            paragraphs with the same text
   ole_to_picture           the OLE-embedded .docx becomes the icon picture Word shows for it
+  unlock_read_only         the enforced read-only lock in settings.xml is lifted, so a visitor can type
 
 Everything else (tracked changes, moves, comments, notes, fields, tables, SmartArt, the chart and its
 workbook, headers, footers, sections) is kept byte for byte. An editor that still cannot open its copy
@@ -76,6 +77,19 @@ def ole_to_picture(p: dict) -> dict:
             "why": "an embedded OLE package is an opaque binary a browser editor cannot open"}
 
 
+SETTINGS = "word/settings.xml"
+
+
+def unlock_read_only(p: dict) -> dict:
+    settings = p[SETTINGS].decode()
+    m = re.search(r'<w:documentProtection\b[^>]*w:edit="readOnly"[^>]*/>', settings)
+    if not m:
+        return {}
+    p[SETTINGS] = (settings[: m.start()] + settings[m.end():]).encode()
+    return {"what": "the enforced read-only lock (w:documentProtection w:edit=\"readOnly\" in word/settings.xml) is lifted",
+            "why": "an editor that honours the lock, as Word does, would not let a visitor type in the demo"}
+
+
 _TAG = re.compile(r"<(/?)w:(tbl|tr|tc)\b[^>]*>")
 
 
@@ -131,8 +145,8 @@ def orphan_vmerge_to_cell(p: dict) -> dict:
 
 
 STEPS = {"altchunk_to_paragraphs": altchunk_to_paragraphs, "ole_to_picture": ole_to_picture,
-         "orphan_vmerge_to_cell": orphan_vmerge_to_cell}
-BASE_STEPS = ["altchunk_to_paragraphs", "ole_to_picture"]
+         "unlock_read_only": unlock_read_only, "orphan_vmerge_to_cell": orphan_vmerge_to_cell}
+BASE_STEPS = ["altchunk_to_paragraphs", "ole_to_picture", "unlock_read_only"]
 
 # Extra steps per editor, added only with evidence that the editor's browser build cannot open the base copy.
 EDITORS: dict[str, list[str]] = {

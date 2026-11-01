@@ -59,8 +59,16 @@ class Base(unittest.TestCase):
         for rid in set(re.findall(r'r:(?:id|embed|link)="([^"]+)"', doc)):
             self.assertIn(f'Id="{rid}"', rels)
 
+    def test_the_read_only_lock_is_lifted_and_nothing_else_in_settings_changes(self):
+        src = self.src["word/settings.xml"].decode()
+        dst = self.dst["word/settings.xml"].decode()
+        lock = re.search(r"<w:documentProtection\b[^>]*/>", src).group(0)
+        self.assertIn('w:edit="readOnly"', lock)
+        self.assertNotIn("w:documentProtection", dst)
+        self.assertEqual(dst, src.replace(lock, ""))
+
     def test_nothing_else_changes(self):
-        changed = {"word/document.xml", "word/_rels/document.xml.rels"}
+        changed = {"word/document.xml", "word/_rels/document.xml.rels", "word/settings.xml"}
         gone = {"word/afchunk.html", "word/embeddings/embedded1.docx"}
         self.assertEqual(set(self.src) - set(self.dst), gone)
         for name, data in self.dst.items():
@@ -78,7 +86,7 @@ class Base(unittest.TestCase):
         self.assertNotIn("embedded1.docx", ct)
 
     def test_each_removal_is_listed_with_a_reason(self):
-        self.assertEqual([r["step"] for r in self.removed], ["altchunk_to_paragraphs", "ole_to_picture"])
+        self.assertEqual([r["step"] for r in self.removed], ["altchunk_to_paragraphs", "ole_to_picture", "unlock_read_only"])
         for r in self.removed:
             self.assertTrue(r["what"] and r["why"])
 
@@ -130,7 +138,7 @@ class Build(unittest.TestCase):
                 man = json.loads(Path(d, f"{slug}.json").read_text())
                 self.assertEqual(man["source"], "fixture/complex.docx")
                 self.assertEqual(len(man["source_sha256"]), 64)
-                self.assertEqual([r["step"] for r in man["removed"]], ["altchunk_to_paragraphs", "ole_to_picture"])
+                self.assertEqual([r["step"] for r in man["removed"]], ["altchunk_to_paragraphs", "ole_to_picture", "unlock_read_only"])
 
     def test_every_site_editor_has_an_entry(self):
         self.assertEqual(
