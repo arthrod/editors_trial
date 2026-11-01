@@ -1,6 +1,6 @@
 {
-  "input": "/Users/arthrod/temp/T/editors_trial/out/plate/complex.docx",
-  "output": "/Users/arthrod/temp/T/editors_trial/out/plate/second/complex.docx",
+  "input": "out/plate/complex.docx",
+  "output": "out/plate/second/complex.docx",
   "score": {
     "weighted": 20.1,
     "weighted_earned": 40,
@@ -314,7 +314,7 @@
     },
     {
       "id": "fl.fldSimple",
-      "label": "simple field (w:fldSimple) kept",
+      "label": "simple fields kept (as simple or complex fields)",
       "category": "fields",
       "weight": 2,
       "pass": false,
@@ -662,7 +662,7 @@
       "category": "text",
       "weight": 3,
       "pass": false,
-      "detail": "len 1121 vs 1123"
+      "detail": "len 1117 vs 1119"
     },
     {
       "id": "fmt.numLevels",

@@ -1,0 +1,214 @@
+:root {
+  --demo-border: #e4e4e7;
+  --demo-muted: #71717a;
+  --demo-accent: #2563eb;
+  --demo-text: #18181b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  color: var(--demo-text);
+  background: #fff;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial,
+    sans-serif;
+}
+
+#root {
+  height: 100%;
+}
+
+.demo-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.demo-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--demo-border);
+  background: #fafafa;
+}
+
+.demo-button {
+  appearance: none;
+  border: 1px solid #d4d4d8;
+  border-radius: 6px;
+  background: #fff;
+  color: var(--demo-text);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.2;
+  padding: 7px 12px;
+  cursor: pointer;
+}
+
+.demo-button:hover:not(:disabled) {
+  border-color: #a1a1aa;
+  background: #f4f4f5;
+}
+
+.demo-button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.demo-note {
+  color: var(--demo-muted);
+  font-size: 12px;
+}
+
+.demo-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.demo-editor {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 28px 20px 96px;
+  outline: none;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.demo-status {
+  padding: 24px;
+  color: var(--demo-muted);
+  font-size: 14px;
+}
+
+.demo-status-error {
+  color: #b91c1c;
+}
+
+.demo-status-error ul {
+  color: var(--demo-muted);
+  font-size: 12px;
+}
+
+/* --------------------------------------------------------------- document */
+
+.demo-editor .demo-p {
+  margin: 0 0 10px;
+}
+
+.demo-editor .demo-heading {
+  margin: 22px 0 8px;
+  line-height: 1.25;
+  font-weight: 700;
+}
+
+.demo-editor h1.demo-heading {
+  font-size: 1.9em;
+}
+
+.demo-editor h2.demo-heading {
+  font-size: 1.55em;
+}
+
+.demo-editor h3.demo-heading {
+  font-size: 1.3em;
+}
+
+.demo-editor h4.demo-heading,
+.demo-editor h5.demo-heading,
+.demo-editor h6.demo-heading {
+  font-size: 1.12em;
+}
+
+.demo-editor .demo-quote {
+  margin: 10px 0;
+  padding-left: 14px;
+  border-left: 3px solid var(--demo-border);
+  color: #3f3f46;
+  font-style: italic;
+}
+
+.demo-editor .demo-hr {
+  border: 0;
+  border-top: 1px solid var(--demo-border);
+  margin: 18px 0;
+}
+
+.demo-editor .demo-code {
+  background: #f4f4f5;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+}
+
+.demo-editor .demo-kbd {
+  border: 1px solid var(--demo-border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 0 5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85em;
+}
+
+.demo-editor .demo-link {
+  color: var(--demo-accent);
+  text-decoration: underline;
+}
+
+.demo-editor .demo-list {
+  margin: 0 0 10px;
+  padding-left: 26px;
+}
+
+.demo-editor .demo-li {
+  margin: 0;
+}
+
+.demo-editor .demo-table-wrap {
+  overflow-x: auto;
+  margin: 14px 0;
+}
+
+.demo-editor .demo-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.demo-editor .demo-cell {
+  border: 1px solid var(--demo-border);
+  padding: 6px 10px;
+  vertical-align: top;
+}
+
+.demo-editor .demo-cell-header {
+  background: #f4f4f5;
+  font-weight: 600;
+  text-align: left;
+}
+
+@media (max-width: 640px) {
+  .demo-editor {
+    padding: 18px 14px 72px;
+    font-size: 15px;
+  }
+}
+
+.demo-equation {
+  margin: 12px 0;
+  overflow-x: auto;
+}
+
+.demo-equation-inline {
+  display: inline-block;
+}

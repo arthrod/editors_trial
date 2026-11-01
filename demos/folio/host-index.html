@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Folio — DOCX editor demo</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23007acc'/%3E%3Ctext x='8' y='12' font-size='10' font-family='sans-serif' font-weight='bold' fill='white' text-anchor='middle'%3EF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="./editor.css">
+<style>
+  /*
+   * Host page for the folio editor bundle (packages/editor-web, the same
+   * IIFE a VS Code webview loads). The bundle maps folio's semantic tokens
+   * onto the --vscode-* custom properties a VS Code theme injects; this page
+   * is the host, so it injects them here. Light theme, VS Code defaults.
+   */
+  :root {
+    --vscode-editor-background: #ffffff;
+    --vscode-editor-foreground: #3b3b3b;
+    --vscode-foreground: #3b3b3b;
+    --vscode-descriptionForeground: #717171;
+    --vscode-errorForeground: #e51400;
+    --vscode-editorWidget-background: #f3f3f3;
+    --vscode-editorWidget-foreground: #3b3b3b;
+    --vscode-menu-background: #ffffff;
+    --vscode-menu-foreground: #3b3b3b;
+    --vscode-button-background: #007acc;
+    --vscode-button-foreground: #ffffff;
+    --vscode-button-secondaryBackground: #5f6a79;
+    --vscode-button-secondaryForeground: #ffffff;
+    --vscode-toolbar-hoverBackground: #e8e8e8;
+    --vscode-list-hoverBackground: #e8e8e8;
+    --vscode-editorInfo-foreground: #1a85ff;
+    --vscode-editorWarning-foreground: #bf8803;
+    --vscode-testing-iconPassed: #73c991;
+    --vscode-editor-findMatchHighlightBackground: rgba(234, 92, 0, 0.33);
+    --vscode-panel-border: #e5e5e5;
+    --vscode-widget-border: #e5e5e5;
+    --vscode-input-border: #cecece;
+    --vscode-dropdown-border: #cecece;
+    --vscode-focusBorder: #0090f1;
+    --vscode-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+      system-ui, sans-serif;
+    --vscode-font-size: 13px;
+  }
+  html, body { height: 100%; margin: 0; }
+  #folio-host-toolbar {
+    position: fixed;
+    bottom: 12px;  /* Folio's own toolbar owns the top edge */
+    right: 12px;
+    z-index: 2147483000;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-family: var(--vscode-font-family);
+    font-size: var(--vscode-font-size);
+  }
+  #folio-host-toolbar button {
+    font: inherit;
+    padding: 4px 12px;
+    border: none;
+    border-radius: 4px;
+    background: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    cursor: pointer;
+  }
+  #folio-host-toolbar button:disabled { opacity: 0.55; cursor: default; }
+  #folio-host-status {
+    color: var(--vscode-descriptionForeground);
+    background: var(--vscode-editor-background);
+    border-radius: 4px;
+    padding: 3px 8px;
+    max-width: 40vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  #folio-host-status[data-state="error"] { color: var(--vscode-errorForeground); }
+</style>
+</head>
+<body>
+<div id="folio-host-toolbar">
+  <span id="folio-host-status" data-state="loading">Loading document…</span>
+  <button id="folio-download" type="button" disabled>Download .docx</button>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  /*
+   * The bundle speaks the editor-web protocol (packages/editor-web/src/protocol.ts)
+   * over postMessage: it announces `ready`, the host answers `load`, and the
+   * host later asks `serialize` to save. Import and export both run through
+   * the editor's own code: loadDocumentBuffer -> parseDocx, serialize -> save.
+   */
+  var status = document.getElementById("folio-host-status");
+  var download = document.getElementById("folio-download");
+  var nextRequestId = 0;
+  var serializeListeners = {};
+
+  var setStatus = function (text, state) {
+    status.textContent = text;
+    status.dataset.state = state || "loading";
+  };
+
+  window.addEventListener("message", function (event) {
+    var data = event.data;
+    if (!data || typeof data !== "object") return;
+    if (event.source && event.source !== window) return;
+    handleEditorMessage(data);
+  });
+
+  var postToEditor = function (message) {
+    window.dispatchEvent(new MessageEvent("message", { data: message }));
+  };
+
+  var handleEditorMessage = function (message) {
+    switch (message.type) {
+      case "ready":
+        openDocument();
+        return;
+      case "loaded":
+        setStatus("Loaded " + message.fileVersion + "", "loaded");
+        download.disabled = false;
+        return;
+      case "loadFailed":
+        setStatus("Could not open document: " + message.message, "error");
+        return;
+      case "error":
+        setStatus("Editor error: " + message.message, "error");
+        return;
+      case "serialized": {
+        var listener = serializeListeners[message.requestId];
+        delete serializeListeners[message.requestId];
+        if (listener) listener(message);
+        return;
+      }
+      case "serializeFailed": {
+        var failed = serializeListeners[message.requestId];
+        delete serializeListeners[message.requestId];
+        if (failed) failed(null, message.message);
+        return;
+      }
+      case "dirty":
+        if (message.dirty) setStatus("Edited", "loaded");
+        return;
+      default:
+        return;
+    }
+  };
+
+  var openDocument = function () {
+    fetch("./document.docx")
+      .then(function (response) {
+        if (!response.ok) throw new Error("HTTP " + response.status);
+        return response.arrayBuffer();
+      })
+      .then(function (buffer) {
+        postToEditor({
+          type: "load",
+          document: {
+            bytes: new Uint8Array(buffer),
+            fileVersion: "1",
+            fileName: "document.docx"
+          },
+          author: "Folio demo",
+          mode: "editing",
+          locale: "en"
+        });
+      })
+      .catch(function (error) {
+        setStatus("Could not fetch document: " + error.message, "error");
+      });
+  };
+
+  download.addEventListener("click", function () {
+    download.disabled = true;
+    setStatus("Serializing…", "loading");
+    var requestId = nextRequestId++;
+    serializeListeners[requestId] = function (message, failure) {
+      if (message) {
+        try {
+          var blob = new Blob([message.bytes], {
+            type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          });
+          var url = URL.createObjectURL(blob);
+          var anchor = document.createElement("a");
+          anchor.href = url;
+          anchor.download = "document.docx";
+          document.body.appendChild(anchor);
+          anchor.click();
+          anchor.remove();
+          setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
+          setStatus(
+            "Saved " + message.bytes.byteLength + " bytes (" +
+              message.strategy.type + ")",
+            "loaded"
+          );
+        } catch (error) {
+          setStatus("Download failed: " + error.message, "error");
+        }
+      } else {
+        setStatus("Export failed: " + failure, "error");
+      }
+      download.disabled = false;
+    };
+    postToEditor({ type: "serialize", requestId: requestId });
+  });
+
+  // The VS Code webview api the bundle acquires at eval time.
+  window.acquireVsCodeApi = function () {
+    return { postMessage: function (message) { handleEditorMessage(message); } };
+  };
+})();
+</script>
+<script src="./editor.js"></script>
+</body>
+</html>

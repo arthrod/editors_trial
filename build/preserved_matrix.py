@@ -56,7 +56,7 @@ ROWS = [
      ["inserted table row (trPr/ins) kept", "deleted table row (trPr/del) kept"]),
     ("Complex fields (`fldChar`/`instrText`)",
      ["complex field (w:fldChar) kept", "field instruction (w:instrText) kept"]),
-    ("Simple fields (`w:fldSimple`)", ["simple field (w:fldSimple) kept"]),
+    ("Simple fields (`w:fldSimple`)", ["simple fields kept (as simple or complex fields)"]),
     ("Bookmarks", ["bookmark kept"]),
     ("Content controls (`w:sdt`)", ["content controls kept (>=5)"]),
     ("`w:dataBinding`, date picker, nested sdt",

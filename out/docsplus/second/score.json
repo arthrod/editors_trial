@@ -1,6 +1,6 @@
 {
-  "input": "/Users/arthrod/temp/T/editors_trial/out/docsplus/complex.docx",
-  "output": "/Users/arthrod/temp/T/editors_trial/out/docsplus/second/complex.docx",
+  "input": "out/docsplus/complex.docx",
+  "output": "out/docsplus/second/complex.docx",
   "score": {
     "weighted": 24.1,
     "weighted_earned": 48,
@@ -314,7 +314,7 @@
     },
     {
       "id": "fl.fldSimple",
-      "label": "simple field (w:fldSimple) kept",
+      "label": "simple fields kept (as simple or complex fields)",
       "category": "fields",
       "weight": 2,
       "pass": false,

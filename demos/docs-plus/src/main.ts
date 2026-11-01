@@ -1,0 +1,6 @@
+import './shims/node-globals'
+import '@docs.plus/extension-hyperlink/styles.css'
+import '@docs.plus/extension-hypermultimedia/styles.css'
+import '@docs.plus/extension-mermaid/styles.css'
+import './styles.css'
+import './demo'

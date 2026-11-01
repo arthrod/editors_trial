@@ -2,23 +2,24 @@
   "input": "/Users/arthrod/temp/T/editors_trial/fixture/complex.docx",
   "output": "/Users/arthrod/temp/T/editors_trial/out/wordcraft/complex.docx",
   "score": {
-    "weighted": 84.9,
-    "weighted_earned": 169,
+    "weighted": 85.9,
+    "weighted_earned": 171,
     "weighted_total": 199,
     "critical_passed": 21,
     "critical_total": 29,
     "critical_pct": 72.4,
-    "features_passed": 86,
+    "features_passed": 87,
     "features_total": 99
   },
-  "text_retention_pct": 97.6,
+  "text_retention_pct": 97.0,
   "text_tokens_input": 169,
-  "text_tokens_lost": 4,
+  "text_tokens_lost": 5,
   "text_lost_sample": [
-    "contentAlternateContent",
-    "fallback",
-    "AlternateContent",
-    "fallback"
+    "Imported",
+    "altChunk",
+    "one",
+    "Imported",
+    "altChunk"
   ],
   "checks": [
     {
@@ -319,11 +320,11 @@
     },
     {
       "id": "fl.fldSimple",
-      "label": "simple field (w:fldSimple) kept",
+      "label": "simple fields kept (as simple or complex fields)",
       "category": "fields",
       "weight": 2,
-      "pass": false,
-      "detail": "n=0"
+      "pass": true,
+      "detail": "n=2"
     },
     {
       "id": "fl.bookmark",
@@ -667,7 +668,7 @@
       "category": "text",
       "weight": 3,
       "pass": false,
-      "detail": "len 1299 vs 1238"
+      "detail": "len 1281 vs 1215"
     },
     {
       "id": "fmt.numLevels",

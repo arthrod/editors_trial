@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="data:," />
+    <title>canvas-editor</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background: #f2f4f7;
+      }
+
+      #bar {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        display: flex;
+        justify-content: flex-end;
+        padding: 6px 8px;
+        background: #f2f4f7;
+      }
+
+      #download {
+        font: 13px/1.2 system-ui, sans-serif;
+        padding: 6px 10px;
+        border: 1px solid #c5cad3;
+        border-radius: 4px;
+        background: #fff;
+        color: #1f2328;
+        cursor: pointer;
+      }
+
+      #editor > div {
+        margin: 12px auto 48px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="bar">
+      <button id="download" type="button">Download .docx</button>
+    </div>
+    <div id="editor"></div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

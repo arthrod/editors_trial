@@ -1,0 +1,12 @@
+body { margin: 0; background: #eef0f3; }
+.docx-bar { position: sticky; top: 0; z-index: 10; display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 8px 12px; background: #fff; border-bottom: 1px solid #d5d9e0; font: 13px/1.3 system-ui, sans-serif; }
+.docx-bar button { font: inherit; padding: 6px 12px; border: 1px solid #b9bfc9; border-radius: 4px; background: #fff; cursor: pointer; }
+.docx-bar button:disabled { opacity: 0.5; cursor: default; }
+#status[data-state="error"] { color: #a1131a; }
+.docx-page { box-sizing: border-box; max-width: 860px; margin: 16px auto 48px; padding: 48px 64px; background: #fff; box-shadow: 0 1px 4px rgb(0 0 0 / 0.12); }
+@media (max-width: 600px) { .docx-page { margin: 0; padding: 20px 16px; } }
+#editor .ProseMirror { outline: none; white-space: pre-wrap; word-wrap: break-word; font: 16px/1.55 Georgia, "Times New Roman", serif; }
+#editor .ProseMirror table { border-collapse: collapse; margin: 1em 0; }
+#editor .ProseMirror td, #editor .ProseMirror th { border: 1px solid #c3c8d0; padding: 4px 8px; vertical-align: top; }
+#editor .ProseMirror img { max-width: 100%; height: auto; }
+#editor .ProseMirror .article-part-header, #editor .ProseMirror [data-part-title] { display: block; }

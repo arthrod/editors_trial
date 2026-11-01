@@ -1,0 +1,46 @@
+html,
+body {
+  height: 100%;
+  margin: 0 !important;
+  background: #e7e5e4;
+  color: #1c1917;
+}
+
+#editor {
+  height: 100%;
+  overflow: auto;
+}
+
+#download {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 100000;
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid #44403c;
+  border-radius: 6px;
+  background: #fff;
+  color: #1c1917;
+  font: 600 13px/1.2 ui-sans-serif, system-ui, sans-serif;
+  cursor: pointer;
+}
+
+#download:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+#status {
+  position: fixed;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  z-index: 100000;
+  margin: 0;
+  padding: 8px 10px;
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+  font: 13px/1.4 ui-sans-serif, system-ui, sans-serif;
+}
