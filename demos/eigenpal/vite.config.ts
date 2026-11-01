@@ -9,7 +9,7 @@ const repoDir = resolve(appDir, '../src');
 export default defineConfig({
   root: appDir,
   base: './',
-  publicDir: resolve(appDir, '../public'),
+  publicDir: resolve(appDir, 'public'),
   plugins: [react()],
   resolve: {
     alias: [

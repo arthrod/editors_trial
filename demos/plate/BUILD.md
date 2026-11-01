@@ -1,8 +1,8 @@
 # Plate: live demo build
 
 Built from https://github.com/udecode/plate at commit `08b1571` (MIT), the commit the editors trial measured.
-The files here are the demo's own host page and build configuration, placed at `app` inside
-that checkout (paths below are relative to it).
+The files here are the demo's own host page and build configuration. Put them in a folder named `app` next to
+the checkout, which is cloned into `src`; the commands run from that shared parent folder.
 
 ```sh
 git clone https://github.com/udecode/plate src && git -C src checkout 08b1571

@@ -5,7 +5,7 @@ The files here are the demo's own host page and build configuration, placed at `
 that checkout (paths below are relative to it).
 
 ```sh
-cd examples/bench-demo && pnpm install && pnpm build    # vite build → dist/
+cd examples/bench-demo && pnpm install && pnpm build    # vite build → dist/ next to the checkout (outDir ../../../dist)
 ```
 
 The output folder is published by benchmarks.law's `pnpm sync:demos` at /demo-apps/superdoc/, with

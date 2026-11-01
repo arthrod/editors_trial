@@ -32,7 +32,8 @@ function demoAssets(): Plugin {
       }
     },
     closeBundle() {
-      copyFileSync("/tmp/demos/office-open.docx", path.join(dist, "document.docx"));
+      // Optional: benchmarks.law's sync:demos writes document.docx itself; DEMO_DOCX previews the build on its own.
+      if (process.env.DEMO_DOCX) copyFileSync(process.env.DEMO_DOCX, path.join(dist, "document.docx"));
       copyFileSync(path.join(repo, "LICENSE"), path.join(dist, "LICENSE"));
       writeFileSync(
         path.join(dist, "SOURCE.txt"),

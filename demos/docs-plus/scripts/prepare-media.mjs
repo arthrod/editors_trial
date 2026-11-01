@@ -20,7 +20,8 @@ const publicDir = path.join(appDir, 'public')
 const mediaDir = path.join(publicDir, 'media')
 const generatedDir = path.join(appDir, 'src', 'generated')
 
-const source = process.argv[2] ?? '/tmp/demos/docs-plus.docx'
+const source = process.argv[2] ?? process.env.DEMO_DOCX
+if (!source) throw new Error('prepare-media: pass the sanitized copy (out/demo/docs-plus.docx) or set DEMO_DOCX')
 
 const bytes = new Uint8Array(await readFile(source))
 await rm(mediaDir, { recursive: true, force: true })

@@ -6,7 +6,7 @@ import { defineConfig, type Plugin } from 'vite';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const outDir = path.resolve(here, '../dist');
 const wasmSrc = path.resolve(here, 'node_modules/docxodus/dist/wasm');
-const documentSrc = '/tmp/demos/docxodus.docx';
+const documentSrc = process.env.DEMO_DOCX; // optional: sync:demos supplies document.docx
 const licenseSrc = path.resolve(here, '../src/LICENSE');
 
 function copyTree(src: string, dest: string): void {
@@ -25,18 +25,17 @@ function runtimeAssets(): Plugin {
     name: 'docxodus-runtime-assets',
     closeBundle() {
       copyTree(wasmSrc, path.join(outDir, 'wasm'));
-      copyFileSync(documentSrc, path.join(outDir, 'document.docx'));
+      if (documentSrc) copyFileSync(documentSrc, path.join(outDir, 'document.docx'));
       copyFileSync(licenseSrc, path.join(outDir, 'LICENSE'));
       writeFileSync(
         path.join(outDir, 'SOURCE.txt'),
         [
-          'https://github.com/JSv4/Docxodus',
-          'commit 97c304f7af8f07247eba5c042f0be9f07f8b133b',
-          '',
-          'Browser runtime is the published npm package docxodus@15.0.0',
-          '(registry gitHead 34eb9a3354fa81a9f670fa0bec13b4f641adacee).',
-          'That package does not match trial commit 97c304f.',
-          'No NOTICE file is present in the repository.',
+          'Docxodus live demo for benchmarks.law',
+          'Repository: https://github.com/JSv4/Docxodus',
+          'Commit: ceb5cde',
+          'License: MIT (see LICENSE)',
+          'Demo host page and build configuration: https://github.com/arthrod/editors_trial/tree/main/demos/docxodus',
+          'Runtime: npm docxodus@14.2.0 (published from commit ceb5cde), the package the trial measured.',
           '',
         ].join('\n'),
       );
