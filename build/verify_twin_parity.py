@@ -65,6 +65,7 @@ NOTES = {
     "README.md",
     "CHANGELOG.md",
     "AGENTS.md",
+    "RELEASING.md",
     "reports/vendors.md",
     "reports/rendering-openability.md",
 }

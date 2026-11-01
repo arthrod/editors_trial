@@ -50,12 +50,12 @@ Release: `vX.Y.Z` · release date: `YYYY-MM-DD` · cutoff (date − 5 days): `YY
 | [ ] | Second pass (×2) | `build/run_second_pass.sh` | main, A2 |
 | [ ] | Scores | `build/score_all.py`, `build/score_extra.py` | all |
 | [ ] | Apryse trial-stamp labels (never edits the output) | `python3 -I build/apryse_stamp.py` | main, extras |
-| [ ] | Broken corpus (×2) | `build/run_broken.sh`, `build/defect_survival.py` | B |
-| [ ] | Word opens every output (×2, identical) | `build/word_verdicts.py`, then `build/word_verdicts.py --set broken` (the broken-corpus outputs) | main, B, D2 |
+| [ ] | Broken corpus (×2, cells compared, pass 2 installed) | `build/release_broken.sh` | B |
+| [ ] | Word opens every output, and the broken-corpus outputs (×2, identical) | `build/release_word.sh verdicts broken` | main, B, D2 |
 | [ ] | Report A namespace tables | `build/ns_json.py`; check §6 with `build/report_a_matrix.py --patch` on a copy | A |
 | [ ] | Report C: each editor's own UI (×2) | `OUT=/tmp/ui-runN build/capture_ui.sh`, then `build/compare_ui.py run1 run2` and `compare_ui.py out/ui run2` | C |
 | [ ] | Report C: copy the accepted run to `out/ui` (with `captured_at.txt`), rebuild figures | `build/ui_figures.py` | C |
-| [ ] | Report C: Word's pixels (×2) | `build/word_render_all.py`, `build/word_pages.py`, `build/render_compare_word.py` | C |
+| [ ] | Report C: Word's pixels (×2) | `build/release_word.sh pixels` | C |
 | [ ] | Hostile packages, sandbox (×2, quiet CPU; not Google Docs or Word) | `build/run_bomb_sandbox.py` (resume mode), `build/label_protection.py` | D |
 | [ ] | Jubarte on the hostile packages | `build/run_jubarte_bombs.py` | D1 |
 | [ ] | Star counts | `build/stars.py` | main |
@@ -66,6 +66,10 @@ Release: `vX.Y.Z` · release date: `YYYY-MM-DD` · cutoff (date − 5 days): `YY
 - [ ] **Lesson:** a run that differs from its twin is not a result. Apryse's two round trips once differed in bytes (comment model vs. kept part) at the same score. That points at the harness exporting before the document finished loading; make the driver wait for real readiness before export.
 - [ ] **Lesson:** never edit a shell script while bash is running it. Bash reads the file as it goes, and an edit garbles the rest of the run. Freeze a copy to run, and edit the original.
 - [ ] **Lesson:** `run_bomb_sandbox.py` without resume deletes `logs/bombs`, and `TOOL_ONLY` / `BOMB_SKIP_LO` drop the other rows from the scorecard. Use resume and seed the existing lines.
+- [ ] **Lesson:** Word is opened only by the vendored driver with its watchdog (`build/word_batch.py` starts both). A run with no watchdog stalled for minutes on a Word that had died; never start Word by hand or with ad-hoc osascript.
+- [ ] **Lesson:** a script that drives Word must not run when imported (`if __name__ == "__main__"`); an import once ran a whole Word batch. `build/test_word_verdicts.py` checks every Word script.
+- [ ] **Lesson:** a claim the first report "established" is still a measurement. `w:dirty="true"` read as fatal for two releases; the audited driver showed Word only asks to update the fields. When a verdict moves, re-open the isolation corpora (`build/make_single_defect.py`).
+- [ ] **Lesson:** read every runner's input lines. `run_broken.sh` passed Plate an unset variable and canvas no paths for two releases; `build/test_run_scripts.py` now checks them.
 - [ ] Anything not re-run is named, with the reason, in the changelog's "Not re-measured" and in the report itself.
 
 ## 4. Reports (AGENTS.md §5)
@@ -77,7 +81,7 @@ Release: `vX.Y.Z` · release date: `YYYY-MM-DD` · cutoff (date − 5 days): `YY
   - [ ] tables: generated tables come in as facts (`{{matrix.preserved}}`, `{{ns.matrix.N}}`, `{{bomb.scorecard}}`). A table with typed measured cells needs a generator; list each one that is still typed in the tracking issue;
   - [ ] versions: `{{ver.npm.*}}`, `{{ver.<repo>.commit}}`.
 - [ ] `python3 build/facts.py`, then `python3 build/render_reports.py --stale out/facts-v<previous>.json`. Re-read **every sentence** about an editor whose facts moved: rankings, "ties", "only", "every", "none of", and lists of names next to a count.
-- [ ] `python3 build/render_reports.py`, then `--check`.
+- [ ] `python3 build/render_reports.py --all-twins` (every DOCX twin rebuilt, not only changed ones), then `--check`.
 - [ ] Copy `out/facts.json` to `out/facts-vX.Y.Z.json` for the next release.
 
 ## 5. Live demos

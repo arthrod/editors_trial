@@ -35,7 +35,7 @@ run docen     bash -c "cd $BASE/repos/docen && ./node_modules/.bin/tsx $BASE/har
 run fidus     bash -c "cd $BASE/repos/fiduswriter-document-ts && IN_DOCX=$IN OUT_DOCX=$OUTROOT/fidus/complex.docx TEMPLATE=generated ./node_modules/.bin/tsx --no-cache $BASE/harness/fidus/roundtrip.mts"
 run wordcraft bash -c "cd $BASE/harness/wordcraft && cargo run --release -- $IN $OUTROOT/wordcraft/complex.docx"
 run canvas    bash -c "cd $BASE/repos/canvas-editor && IN_DOCX=$IN OUT_DIR=$OUTROOT/canvas ./node_modules/.bin/vitest run --root $BASE/harness/canvas"
-run docsplus  bash -c "cd $BASE/harness/docsplus/repo-copy && bun $BASE/harness/docsplus/roundtrip.ts $IN $OUTROOT/docsplus/complex.docx"
+run docsplus  bash -c "cd $BASE/harness/docsplus/repo-copy && EVIDENCE_DIR=$OUTROOT/docsplus/evidence bun $BASE/harness/docsplus/roundtrip.ts $IN $OUTROOT/docsplus/complex.docx"
 run docxodus  bash -c "cd $BASE/harness/ui/docxodus && node roundtrip.mjs $IN $OUTROOT/docxodus/complex.docx"
 run apryse    bash -c "cd $BASE/harness/apryse && node roundtrip.mjs $IN $OUTROOT/apryse/complex.docx"
 

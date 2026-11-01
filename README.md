@@ -10,7 +10,7 @@ Each per-tool note has also been filed as an issue on that project's own reposit
 
 `fixture/complex.docx` is the corpus. `build/run_all.sh` runs each editor's own import and export. `build/score_all.py` scores the files under `out/`. One file is `python3 build/check_roundtrip.py IN OUT`.
 
-The editors are Plate, eigenpal (store and editor), Folio (model and editor), GenOffice, SuperDoc, office-open, Docen, Fidus Writer, WordCraft, canvas-editor, docs.plus, and Docxodus. Headless lanes are not the browser.
+The editors are Plate, eigenpal (store and editor), Folio (model and editor), GenOffice, SuperDoc, office-open, Docen, Fidus Writer, WordCraft, canvas-editor, docs.plus, Docxodus, and Apryse WebViewer (closed source, run in a real browser with a trial key from `.env`, which is never committed). Headless lanes are not the browser. LibreOffice is the baseline and counts as a participant.
 
 ## Hostile packages
 
@@ -42,6 +42,23 @@ Word is not opened. No NTLM hash is collected. A slip onto the host temp directo
 `logs/bombs-before-suggested-config` is the earlier matrix. Several of its columns died in the seatbelt before the editor ran. Do not read those cells as the editor's result. `logs/bombs-suggested-smoke` is the one-package check that the corrected harness actually reaches Plate, canvas-editor, docs.plus, Docen, office-open, and Fidus Writer.
 
 `BOMB_RESUME=1` continues a run. A run without it deletes `logs/bombs` first. Move that directory aside if the previous trace should be kept.
+
+## Releasing
+
+A release is a re-measurement. [`AGENTS.md`](AGENTS.md) holds the rules and [`RELEASING.md`](RELEASING.md) the checklist (also the "Release" issue template). The steps are scripted:
+
+```sh
+build/update_editors.sh                 # move every pin to its newest version at least 5 days old
+build/run_trial.sh                      # round trips, second pass, scores, namespace tables, facts, reports
+build/release_broken.sh                 # Report B's broken corpus, twice, cells compared
+build/release_word.sh                   # every Word step, twice, passes compared (Terminal tab, Word clean)
+python3 build/facts.py && python3 build/render_reports.py --all-twins
+build/verify_publication.sh --with-word # the gate, twice
+```
+
+Microsoft Word is only ever opened by the neurotic bench's audited driver and its watchdog, vendored unmodified in `build/vendor/` (`build/vendor_word_driver.sh` refreshes them after running their spec). Never open Word by hand or with ad-hoc osascript.
+
+Every figure in a report is a placeholder in `templates/` filled from `out/facts.json`; change a figure by re-measuring, never by editing a rendered report.
 
 ## Release gate
 

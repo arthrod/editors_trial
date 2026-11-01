@@ -13,6 +13,7 @@
     "[debug] [vite] connected.",
     "[info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
     "[nav] 200 http://127.0.0.1:5208/",
+    "[wait-for] matched \"Chapter 1\"",
     "[scroll-text] \"A sentence with a comment\" -> found"
   ],
   "pageErrors": [],

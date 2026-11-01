@@ -1,0 +1,52 @@
+2026-11-01 12:52:01.443 | INFO     | __main__:warm:1476 - [word] launching Word in the background, running: open -g -a '/Applications/Microsoft Word.app'
+2026-11-01 12:52:04.673 | INFO     | __main__:warm:1483 - [word] Word answered after 3 s; alerts off
+2026-11-01 12:52:04.903 | INFO     | __main__:preflight:3042 - [word] preflight: word_pid=22996 open_documents=0 started_clean=True launched_by_us=True close_documents=True
+2026-11-01 12:52:04.904 | INFO     | __main__:preflight:3081 - [word] preflight: closing every document (health check), running: osascript -e 'tell application "Microsoft Word" to close every document saving no'
+2026-11-01 12:52:05.109 | INFO     | __main__:_run_logged:1646 - [word] preflight: returned rc=0 in 0.2 s, no value came back (AppleScript 'missing value')
+2026-11-01 12:52:05.480 | INFO     | __main__:convert_folder:2696 - [word] export: one_osascript=True documents=15 accept_all=False reject_all=False
+2026-11-01 12:52:05.483 | INFO     | __main__:_convert_batched:2908 - [batch] one osascript for 15 document(s)
+2026-11-01 12:52:10.745 | INFO     | __main__:_loop:2095 - [batch pdf 1] 3/15
+2026-11-01 12:52:11.697 | INFO     | __main__:_note_dialogs:1074 - [watchdog] Microsoft Word shows button 'Yes'
+2026-11-01 12:52:11.698 | INFO     | __main__:_note_dialogs:1074 - [watchdog] Microsoft Word shows button 'No'
+2026-11-01 12:52:11.698 | INFO     | __main__:_note_dialogs:1077 - [watchdog] Microsoft Word says: 'Word found unreadable content in 00003__trial__docen.docx. Do you want to recover the contents of this document? If you trust the source of this document, click Yes.'
+2026-11-01 12:52:12.654 | WARNING  | __main__:_decline_repair:1110 - [watchdog] repair prompt declined via 'No' then 'OK' with Word brought forward; Word said: "Word found unreadable content in 00003__trial__docen.docx. Do you want to recover the contents of this document? If you trust the source of this document, click Yes."
+2026-11-01 12:52:12.655 | WARNING  | __main__:_decline_repair:1113 - [watchdog] after the No, Word showed 'OK'; Word said: "Word experienced an error trying to open the file.
+Try these suggestions.
+* Check the file permissions for the document or drive.
+* Make sure there is sufficient free memory and disk space.
+* Open the file with the Text Recovery converter.
+(00003__trial__docen.docx)"
+2026-11-01 12:52:15.773 | INFO     | __main__:_loop:2095 - [batch pdf 1] 7/15
+2026-11-01 12:52:16.636 | INFO     | __main__:_note_dialogs:1077 - [watchdog] Microsoft Word says: 'Word found unreadable content in 00007__trial__fidus.docx. Do you want to recover the contents of this document? If you trust the source of this document, click Yes.'
+2026-11-01 12:52:22.706 | WARNING  | __main__:_decline_repair:1110 - [watchdog] repair prompt declined via 'No' then 'OK' with Word brought forward; Word said: "Word found unreadable content in 00011__trial__office-open.docx. Do you want to recover the contents of this document? If you trust the source of this document, click Yes."
+2026-11-01 12:52:22.708 | WARNING  | __main__:_decline_repair:1113 - [watchdog] after the No, Word showed 'OK'; Word said: "Word experienced an error trying to open the file.
+Try these suggestions.
+* Check the file permissions for the document or drive.
+* Make sure there is sufficient free memory and disk space.
+* Open the file with the Text Recovery converter.
+(00011__trial__office-open.docx)"
+2026-11-01 12:52:24.611 | WARNING  | __main__:run_batch_with_resume:2308 - [batch pdf] pass 1 ended at item 7: open produced 0 new documents, none named 00007__trial__fidus.docx; refusing to guess (loaded empty); item 8: open produced 0 new documents, none named 00008__trial__folio.docx; refusing to guess (loaded empty); 0 item(s) not reached, 2 to retry. Recovering Word (see the [word] line), then pass 2 runs them, retried items last (0 of 3 stalled passes used)
+2026-11-01 12:52:24.612 | WARNING  | __main__:run_batch_with_resume:2320 - [batch pdf] Word returned nothing for 2 document(s) in a row; bringing it forward once to look for a modal, then restarting it
+2026-11-01 12:52:30.856 | WARNING  | __main__:recycle:1594 - [word] recovery 1: because Word returned nothing for 2 document(s) in a row (it answers, but opens nothing); asking Word to quit, running: osascript -e 'tell application "Microsoft Word" to quit saving no'
+2026-11-01 12:52:31.064 | INFO     | __main__:_run_logged:1646 - [word] recovery 1: returned rc=0 in 0.2 s, no output
+2026-11-01 12:52:31.665 | INFO     | __main__:recycle:1597 - [word] recovery 1: Word quit on request
+2026-11-01 12:52:31.716 | INFO     | __main__:warm:1476 - [word] launching Word in the background, running: open -g -a '/Applications/Microsoft Word.app'
+2026-11-01 12:52:35.191 | INFO     | __main__:warm:1483 - [word] Word answered after 3 s; alerts off
+2026-11-01 12:52:35.722 | INFO     | __main__:_note_dialogs:1074 - [watchdog] Microsoft Word shows button 'Cancel'
+2026-11-01 12:52:36.454 | WARNING  | __main__:_decline_repair:1110 - [watchdog] repair prompt declined via 'No' then 'OK' with Word brought forward; Word said: "Word found unreadable content in 00007__trial__fidus.docx. Do you want to recover the contents of this document? If you trust the source of this document, click Yes."
+2026-11-01 12:52:36.455 | WARNING  | __main__:_decline_repair:1113 - [watchdog] after the No, Word showed 'OK'; Word said: "Word experienced an error trying to open the file.
+Try these suggestions.
+* Check the file permissions for the document or drive.
+* Make sure there is sufficient free memory and disk space.
+* Open the file with the Text Recovery converter.
+(00007__trial__fidus.docx)"
+2026-11-01 12:52:40.199 | INFO     | __main__:_loop:2095 - [batch pdf 2] 0/2
+2026-11-01 12:52:50.217 | INFO     | __main__:_nudge:2064 - [focus] item 2/2 not finished after 10 s; bringing Word forward to look for an alert
+2026-11-01 12:52:59.200 | ERROR    | __main__:_convert_batched:2959 - [batch] FAIL: docen.docx — repair prompt declined; Word could not read it
+2026-11-01 12:52:59.206 | ERROR    | __main__:_convert_batched:2959 - [batch] FAIL: fidus.docx — repair prompt declined; Word could not read it: open produced 0 new documents, none named 00007__trial__fidus.docx; refusing to guess
+2026-11-01 12:52:59.207 | ERROR    | __main__:_convert_batched:2959 - [batch] FAIL: folio.docx — Word crashed on it in 2 passes: Microsoft Word got an error: Connection is invalid.
+2026-11-01 12:52:59.210 | ERROR    | __main__:_convert_batched:2959 - [batch] FAIL: office-open.docx — repair prompt declined; Word could not read it
+2026-11-01 12:52:59.215 | INFO     | __main__:convert_folder:2715 - [manifest] appended 15 line(s) to /var/folders/7w/dvl66_d13wx2v88nv5rcwltc0000gn/T/trial-word-out-bonxngrh/manifest.jsonl
+2026-11-01 12:52:59.901 | INFO     | __main__:_note_dialogs:1074 - [watchdog] Microsoft Word shows button 'Create'
+2026-11-01 12:52:59.902 | INFO     | __main__:_note_dialogs:1074 - [watchdog] Microsoft Word shows a button with no name (AppleScript 'missing value')
+2026-11-01 12:53:06.211 | INFO     | __main__:stop:1274 - [watchdog] tally: declined=3 dismissed=0 granted=0 forwarded=3 alerts_seen=2

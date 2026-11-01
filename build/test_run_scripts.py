@@ -48,6 +48,11 @@ class BrokenCorpusInputTest(unittest.TestCase):
         lo = self.text[self.text.index("soffice"):self.text.index("run plate")]
         self.assertIn('mv "$OUTROOT/lo_baseline/complex_broken.docx" "$OUTROOT/lo_baseline/complex.docx"', lo)
 
+    def test_docsplus_keeps_its_broken_corpus_evidence_apart(self):
+        # Without EVIDENCE_DIR the docs.plus harness overwrites the round trip's
+        # harness/docsplus/evidence with the broken corpus's (2026-11-01).
+        self.assertIn("EVIDENCE_DIR=$OUTROOT/docsplus/evidence", self.line("docsplus"))
+
     def test_the_output_root_can_be_a_scratch_directory(self):
         self.assertIn("OUTROOT=${OUTROOT:-", self.text)
 

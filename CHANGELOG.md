@@ -7,6 +7,88 @@ re-running the measurement behind it. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/) with the trial still pre-1.0.
 
+## [0.9.2] - 2026-11-01
+
+Apryse WebViewer joins as the first closed-source participant; Word is
+driven by the audited driver; every remaining typed figure in the reports
+is generated; the live demos are rebuilt at the trial's pins.
+
+### Updated
+
+- No editor pin moved: the release date and cutoff (2026-10-27) are those of
+  0.9.1, and `build/update_editors.sh` found nothing newer before the cutoff.
+- Added `@pdftron/webviewer` 12.2.1 (Apryse WebViewer, trial key), driven
+  through its own DOCX editor in a real browser (`harness/apryse/`).
+- Microsoft Word is now opened only through the neurotic bench's audited
+  driver (`build/vendor/word_pdf.py`, commit 2f2e23db) and its watchdog
+  (`build/vendor/word_watchdog.sh`, commit 6fd25e9c), both vendored
+  unmodified with their sha256 in `build/vendor/word_pdf.SOURCE`.
+
+### Measured
+
+- **Apryse WebViewer:** 89.9% weighted, 9 failed of 99; the second pass scores the same.
+  Its trial stamp adds parts; `build/apryse_stamp.py` labels them and the
+  one failure that cannot be separated from the stamp. Word opens its
+  output. Three round trips and three second passes give identical parts,
+  after the harness was fixed to export only once the comments had loaded.
+- **Apryse on the hostile packages** (Report D), two passes, identical:
+  grade 0.32. Cleaned B1, B2, B3, B6; kept B7, B8, B10; ran past the
+  40-second wall clock on B4, B5 and B9 in both passes.
+- **Word verdicts** through the audited driver, twice, identical: the same
+  five outputs refused as in 0.9.1, and Apryse's opens.
+- **Broken corpus** (Report B), every editor, twice: every defect cell is
+  identical across the passes and to 0.9.1. Word on those outputs, twice,
+  identical. WordCraft's output now opens (it was recorded as refused in
+  0.9.1, on the same file); the change is in how Word was driven, since the
+  file did not change.
+- **`w:dirty="true"` is no longer fatal on its own.** The single-defect
+  corpora, opened twice through the driver: d10 alone and d11 alone do not
+  open, d12 alone opens after Word asks whether to update the fields. The
+  first report's table, from a hand-written driver that kept no record of
+  Word's dialogs, is kept as history. Report B, the main report and
+  Reports A/A2 say so.
+- **Report C:** the editors' UI captured twice (identical); only GenOffice
+  differs from the published captures. Word's pixel layer twice
+  (identical); SuperDoc and Docxodus now 0 px, and the corpus ink moved
+  from 1,661,202 to 1,661,285 px with every verdict unchanged, an
+  environment change.
+
+### Not re-measured
+
+- Google Docs and Microsoft Word on the hostile packages (AGENTS.md: never
+  re-tested).
+- The `w:dirty` attribute variants (`"1"`, `"false"`, `w:fldLock`) in the
+  first report's table; only `w:dirty="true"` was re-opened.
+- Report C §5's controls, the §6.2 LibreOffice table and the §6.3 A/B,
+  which are not part of the pipeline.
+- Jubarte on the hostile packages (Report D1).
+- The hostile-package runs were made at load 40–80 while another session's
+  batch ran; Apryse's three wall-clock hangs reproduced in both passes but
+  were not re-run on a quiet machine.
+
+### Added
+
+- `RELEASING.md` and the "Release" issue template, kept identical by
+  `build/test_release_template.py`.
+- `build/release_word.sh` (every Word step twice, passes compared) and
+  `build/release_broken.sh` (the broken corpus twice, cells compared).
+- Generated facts: release dates, code-read commits, participant counts,
+  Report B's three tables, Report C's Word pixel table, Report A's
+  per-participant namespace counts, `out/word_isolation.json`.
+- `build/rebuild_demo.sh`: every live demo rebuilt at the trial's pins,
+  with `SOURCE.txt` written from git.
+- `render_reports.py --all-twins` rebuilds every DOCX twin.
+
+### Fixed
+
+- `build/run_broken.sh` gave Plate an unset input variable (Report B's
+  "no output" came from the script; Plate's own failure, `decode-failed`,
+  is now logged in `out_broken/logs/`), gave canvas no input or output
+  path, and looked for LibreOffice's output under the wrong name.
+- `build/word_verdicts.py` ran a whole Word batch when imported; every
+  Word-driving script is now import-safe, with a test.
+- LibreOffice is counted as a participant like any other.
+
 ## [0.9.1] - 2026-11-01
 
 Every editor moved to its current upstream and the whole trial re-run, with

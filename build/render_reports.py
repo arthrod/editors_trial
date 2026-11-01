@@ -82,7 +82,7 @@ def templatize(facts: dict) -> int:
     return 0
 
 
-def render_all(facts: dict, check: bool, docx: bool) -> int:
+def render_all(facts: dict, check: bool, docx: bool, all_twins: bool = False) -> int:
     changed, missing = [], []
     for tpl in sorted(TEMPLATES.rglob("*.md")):
         rel = str(tpl.relative_to(TEMPLATES))
@@ -104,7 +104,8 @@ def render_all(facts: dict, check: bool, docx: bool) -> int:
     if check:
         return 1 if changed or missing else 0
     if docx:
-        for rel in changed:
+        # A twin also depends on figures and on the build itself, so a release rebuilds every one.
+        for rel in (sorted(TWINS) if all_twins else changed):
             if rel in TWINS:
                 subprocess.run(["bash", str(ROOT / "build" / "make_report.sh"), str(ROOT / rel)], check=True)
     return 1 if missing else 0
@@ -127,6 +128,7 @@ def main() -> int:
     ap.add_argument("--facts", default=str(FACTS))
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--no-docx", action="store_true")
+    ap.add_argument("--all-twins", action="store_true", help="rebuild every DOCX twin, changed or not (a release does)")
     ap.add_argument("--templatize", action="store_true")
     ap.add_argument("--stale", metavar="OLD_FACTS")
     a = ap.parse_args()
@@ -135,7 +137,7 @@ def main() -> int:
         return templatize(facts)
     if a.stale:
         return stale(load_facts(Path(a.stale)), facts)
-    return render_all(facts, a.check, not a.no_docx)
+    return render_all(facts, a.check, not a.no_docx, a.all_twins)
 
 
 if __name__ == "__main__":

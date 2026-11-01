@@ -490,6 +490,28 @@
     "docsplus"
   ],
   [
+    "Apryse WebViewer",
+    89.9,
+    86.2,
+    25,
+    29,
+    100.0,
+    90,
+    99,
+    [
+      "part kept: footer (first page)",
+      "w16du:dateUtc kept",
+      "content controls kept (>=5)",
+      "nested content control kept",
+      "w:proofErr kept",
+      "unknown w14 attributes kept",
+      "w16du namespace declaration kept",
+      "landscape section kept",
+      "tracked change inside header kept"
+    ],
+    "apryse"
+  ],
+  [
     "LibreOffice (baseline)",
     86.9,
     79.3,
