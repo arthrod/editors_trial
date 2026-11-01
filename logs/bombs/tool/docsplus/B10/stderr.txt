@@ -7,8 +7,8 @@
                        ^
 error: error: [xmldom error]	element parse error: Error: invalid tagName:
 @#[line:undefined,col:undefined]
-      at parseFromString (<editors_trial>/harness/docsplus/repo-copy/node_modules/.bun/mammoth@1.13.0/node_modules/mammoth/lib/xml/xmldom.js:18:19)
-      at readString (<editors_trial>/harness/docsplus/repo-copy/node_modules/.bun/mammoth@1.13.0/node_modules/mammoth/lib/xml/reader.js:16:31)
-      at read (<editors_trial>/harness/docsplus/repo-copy/node_modules/.bun/mammoth@1.13.0/node_modules/mammoth/lib/docx/office-xml-reader.js:39:16)
+      at parseFromString (/Users/arthrod/temp/T/editors_trial/harness/docsplus/repo-copy/node_modules/.bun/mammoth@1.13.0/node_modules/mammoth/lib/xml/xmldom.js:18:19)
+      at readString (/Users/arthrod/temp/T/editors_trial/harness/docsplus/repo-copy/node_modules/.bun/mammoth@1.13.0/node_modules/mammoth/lib/xml/reader.js:16:31)
+      at read (/Users/arthrod/temp/T/editors_trial/harness/docsplus/repo-copy/node_modules/.bun/mammoth@1.13.0/node_modules/mammoth/lib/docx/office-xml-reader.js:39:16)
 
 Bun v1.4.2 (macOS arm64)

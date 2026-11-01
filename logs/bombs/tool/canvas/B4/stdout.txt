@@ -1,11 +1,9 @@
 
- RUN  v4.1.12 <editors_trial>/harness/canvas
+ RUN  v4.1.12 /Users/arthrod/temp/T/editors_trial/harness/canvas
 
- ✓ roundtrip.test.ts (1 test) 19063ms
-     ✓ imports complex.docx and exports it back to .docx  19062ms
 
  Test Files  1 passed (1)
       Tests  1 passed (1)
-   Start at  17:59:45
-   Duration  21.92s (transform 2.16s, setup 28ms, import 2.38s, tests 19.06s, environment 393ms)
+   Start at  06:31:32
+   Duration  25.76s (transform 4.45s, setup 43ms, import 5.01s, tests 20.04s, environment 569ms)
 

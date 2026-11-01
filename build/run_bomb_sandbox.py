@@ -206,6 +206,34 @@ def _text(value) -> str:
     return str(value)
 
 
+def _run_captured(argv, cwd, env, timeout, work: Path, preexec_fn=None):
+    """Run a child with its stdout and stderr written to files, not pipes.
+
+    Node writes to a pipe asynchronously on macOS: when it dies on an uncaught
+    exception, whatever lies past the 64 KB pipe buffer is lost. That is the
+    message naming a ceiling, printed after a long runtime dump. A file is
+    written synchronously, so the whole stream survives.
+    """
+    out_path, err_path = work / "child.stdout", work / "child.stderr"
+    with out_path.open("wb") as out_fh, err_path.open("wb") as err_fh:
+        proc = subprocess.Popen(argv, cwd=cwd, env=env, stdout=out_fh, stderr=err_fh,
+                                start_new_session=True, preexec_fn=preexec_fn)
+        timed = False
+        try:
+            proc.wait(timeout=timeout)
+            code = proc.returncode if proc.returncode is not None else 1
+        except subprocess.TimeoutExpired:
+            _kill_group(proc.pid)
+            try:
+                proc.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                pass
+            code, timed = 124, True
+    out = out_path.read_bytes().decode("utf-8", "replace")
+    err = err_path.read_bytes().decode("utf-8", "replace")
+    return code, timed, out, err
+
+
 def _save_case(kind: str, name: str, bid: str, cwd, command, code, timed: bool, stdout: str, stderr: str, score: str) -> None:
     """Keep the full streams. Nothing here is truncated."""
     case = LOG_ROOT / kind / name / bid
@@ -266,32 +294,9 @@ def run_tool(name, cwd, cmd, env_extra, bomb_path: Path, work: Path) -> str:
     env["VITEST_CACHE_DIR"] = str(work / "cache" / "vite")
     (work / "evidence").mkdir(parents=True, exist_ok=True)
     (work / "cache" / "vite").mkdir(parents=True, exist_ok=True)
-    proc = subprocess.Popen(
-        ["sandbox-exec", "-f", str(profile), *cmd],
-        cwd=cwd,
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        start_new_session=True,
-        preexec_fn=_limit,
-    )
-    timed = False
-    try:
-        out, err = proc.communicate(timeout=WALL)
-        code = proc.returncode if proc.returncode is not None else 1
-    except subprocess.TimeoutExpired as exc:
-        out = _text(exc.stdout)
-        err = _text(exc.stderr)
-        _kill_group(proc.pid)
-        try:
-            rest_out, rest_err = proc.communicate(timeout=2)
-        except subprocess.TimeoutExpired:
-            rest_out, rest_err = "", ""
-        out += _text(rest_out)
-        err += _text(rest_err)
-        code = 124
-        timed = True
+    code, timed, out, err = _run_captured(
+        ["sandbox-exec", "-f", str(profile), *cmd], cwd=cwd, env=env, timeout=WALL,
+        work=work, preexec_fn=_limit)
     out = _text(out)
     err = _text(err)
     data = _newest_docx(work, bomb_path)

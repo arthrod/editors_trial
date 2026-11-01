@@ -1,17 +1,17 @@
-<editors_trial>/repos/docen/node_modules/.pnpm/@office-open+xml@0.15.0/node_modules/@office-open/xml/src/parse.ts:27
+/Users/arthrod/temp/T/editors_trial/repos/docen/node_modules/.pnpm/@office-open+xml@0.15.0/node_modules/@office-open/xml/src/parse.ts:27
     if (match === "&") throw new XmlParseError("Malformed XML: unsupported or malformed entity.");
                              ^
 
 XmlParseError: Malformed XML: unsupported or malformed entity.
-    at <anonymous> (<editors_trial>/repos/docen/node_modules/.pnpm/@office-open+xml@0.15.0/node_modules/@office-open/xml/src/parse.ts:27:30)
+    at <anonymous> (/Users/arthrod/temp/T/editors_trial/repos/docen/node_modules/.pnpm/@office-open+xml@0.15.0/node_modules/@office-open/xml/src/parse.ts:27:30)
     at String.replace (<anonymous>)
-    at unescapeXml (<editors_trial>/repos/docen/node_modules/.pnpm/@office-open+xml@0.15.0/node_modules/@office-open/xml/src/parse.ts:26:14)
-    at parse (<editors_trial>/repos/docen/node_modules/.pnpm/@office-open+xml@0.15.0/node_modules/@office-open/xml/src/parse.ts:314:18)
-    at ParsedArchive.get (<editors_trial>/repos/docen/node_modules/.pnpm/@office-open+core@0.15.0/node_modules/@office-open/core/src/opc/parser.ts:231:21)
-    at parseDocxArchive (<editors_trial>/repos/docen/node_modules/.pnpm/@office-open+docx@0.15.0/node_modules/@office-open/docx/src/parse.ts:1227:26)
-    at parseDocx (<editors_trial>/repos/docen/node_modules/.pnpm/@office-open+docx@0.15.0/node_modules/@office-open/docx/src/parse.ts:1220:10)
-    at parseDocumentFromBytes (<editors_trial>/repos/docen/node_modules/.pnpm/@office-open+docx@0.15.0/node_modules/@office-open/docx/src/parse.ts:532:32)
-    at parseDocument (<editors_trial>/repos/docen/node_modules/.pnpm/@office-open+docx@0.15.0/node_modules/@office-open/docx/src/parse.ts:513:10)
-    at async parseDOCX (<editors_trial>/repos/docen/packages/docx/src/converters/docx.ts:1341:45)
+    at unescapeXml (/Users/arthrod/temp/T/editors_trial/repos/docen/node_modules/.pnpm/@office-open+xml@0.15.0/node_modules/@office-open/xml/src/parse.ts:26:14)
+    at parse (/Users/arthrod/temp/T/editors_trial/repos/docen/node_modules/.pnpm/@office-open+xml@0.15.0/node_modules/@office-open/xml/src/parse.ts:314:18)
+    at ParsedArchive.get (/Users/arthrod/temp/T/editors_trial/repos/docen/node_modules/.pnpm/@office-open+core@0.15.0/node_modules/@office-open/core/src/opc/parser.ts:231:21)
+    at parseDocxArchive (/Users/arthrod/temp/T/editors_trial/repos/docen/node_modules/.pnpm/@office-open+docx@0.15.0/node_modules/@office-open/docx/src/parse.ts:1227:26)
+    at parseDocx (/Users/arthrod/temp/T/editors_trial/repos/docen/node_modules/.pnpm/@office-open+docx@0.15.0/node_modules/@office-open/docx/src/parse.ts:1220:10)
+    at parseDocumentFromBytes (/Users/arthrod/temp/T/editors_trial/repos/docen/node_modules/.pnpm/@office-open+docx@0.15.0/node_modules/@office-open/docx/src/parse.ts:532:32)
+    at parseDocument (/Users/arthrod/temp/T/editors_trial/repos/docen/node_modules/.pnpm/@office-open+docx@0.15.0/node_modules/@office-open/docx/src/parse.ts:513:10)
+    at async parseDOCX (/Users/arthrod/temp/T/editors_trial/repos/docen/packages/docx/src/converters/docx.ts:1341:45)
 
 Node.js v26.13.0

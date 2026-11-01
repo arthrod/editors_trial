@@ -201,6 +201,11 @@ def build() -> dict:
         facts["count.word_outputs"] = len(editors)
     if (ROOT / "logs/bombs/protection.txt").exists():
         bomb_facts(ROOT / "logs/bombs/protection.txt", facts)
+    # Report D quotes the scorecard and the protection labels whole.
+    for name in ("scorecard", "protection"):
+        log = ROOT / "logs" / "bombs" / f"{name}.txt"
+        if log.exists():
+            facts[f"bomb.{name}"] = log.read_text().rstrip("\n")
     version_facts(facts)
     stars = OUT / "stars.json"
     if stars.exists():

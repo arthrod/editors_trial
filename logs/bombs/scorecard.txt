@@ -28,7 +28,7 @@ tool fidus B1 fidelity: preserved safety: ok catch: no
 tool wordcraft B1 fidelity: preserved safety: ok catch: no
 tool canvas B1 fidelity: refused safety: hang catch: no
 tool docsplus B1 fidelity: dropped safety: ok catch: yes
-tool docxodus B1 fidelity: preserved safety: ok catch: no
+tool docxodus B1 fidelity: refused safety: bounded-reject catch: yes
 tool plate B2 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal B2 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal-editor B2 fidelity: refused safety: bounded-reject catch: yes
@@ -43,7 +43,7 @@ tool wordcraft B2 fidelity: refused safety: bounded-reject catch: yes
 tool canvas B2 fidelity: dropped safety: ok catch: yes
 tool docsplus B2 fidelity: dropped safety: ok catch: yes
 tool docxodus B2 fidelity: preserved safety: ok catch: no
-tool plate B3 fidelity: dropped safety: ok catch: yes
+tool plate B3 fidelity: refused safety: hang catch: no
 tool eigenpal B3 fidelity: dropped safety: ok catch: yes
 tool eigenpal-editor B3 fidelity: dropped safety: ok catch: yes
 tool folio B3 fidelity: dropped safety: ok catch: yes
@@ -154,4 +154,4 @@ tool fidus B10 fidelity: dropped safety: ok catch: yes
 tool wordcraft B10 fidelity: dropped safety: ok catch: yes
 tool canvas B10 fidelity: dropped safety: ok catch: yes
 tool docsplus B10 fidelity: refused safety: bounded-reject catch: yes
-tool docxodus B10 fidelity: refused safety: bounded-reject catch: yes
+tool docxodus B10 fidelity: preserved safety: ok catch: no

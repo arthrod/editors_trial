@@ -580,7 +580,7 @@ checksum = "1ebf944e87a7c253233ad6766e082e3cd714b5d03812acc24c318f549614536e"
 
 [[package]]
 name = "wordcraft-doc"
-version = "0.12.0"
+version = "0.13.2"
 dependencies = [
  "base64",
  "log",
@@ -593,7 +593,7 @@ dependencies = [
 
 [[package]]
 name = "wordcraft-docx"
-version = "0.12.0"
+version = "0.13.2"
 dependencies = [
  "aes",
  "base64",
@@ -615,7 +615,7 @@ dependencies = [
 
 [[package]]
 name = "wordcraft-geom"
-version = "0.12.0"
+version = "0.13.2"
 dependencies = [
  "serde",
 ]

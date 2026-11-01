@@ -1,2 +1,2 @@
-cwd: <editors_trial>/harness/plate
-~/.bun/bin/bun --preload ./aliases.ts roundtrip.ts /tmp/editors-trial-bombs/bombs/B8.docx /tmp/editors-trial-bombs/runs/plate/B8/out/out.docx
+cwd: /Users/arthrod/temp/T/editors_trial/harness/plate
+/Users/arthrod/.bun/bin/bun --preload ./aliases.ts roundtrip.ts /tmp/editors-trial-bombs/bombs/B8.docx /tmp/editors-trial-bombs/runs/plate/B8/out/out.docx

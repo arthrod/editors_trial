@@ -6,7 +6,7 @@ No editor is safe on every package. Safe here means the weapon is not in a finis
 
 Packages: B1 decompression, B2 entry flood, B3 attributes, B4 deep nesting, B5 entities, B6 zip-slip, B7 external relationships, B8 active content, B9 layout bomb, B10 corrupt parts.
 
-- **Plate.** Ceilings on B1, B2, and B4. Cleaned B3 and B7. Refused B5, B6, B8, and B10 with no named ceiling. Kept B9.
+- **Plate.** Ceilings on B1, B2, and B4. Cleaned B7. Did not finish B3 inside the sandbox's 30-second CPU budget. Refused B5, B6, B8, and B10 with no named ceiling. Kept B9.
 - **eigenpal store.** Ceilings on B1, B2, and B4. Cleaned B3. Refused B5 (document type), B6 (bad name), and B10. Kept B7, B8, and B9.
 - **eigenpal editor.** Ceilings on B1 (compression ratio), B2, and B4. Cleaned B3. Refused B5, B6, and B10 without naming a ceiling or the inner cause. Kept B7, B8, and B9.
 - **Folio model and Folio editor.** Same row. Ceilings on B1, B2, and B4. Cleaned B3. Refused B5, B6 (unsafe entry path), and B10. Kept B7, B8, and B9.
@@ -19,7 +19,7 @@ Packages: B1 decompression, B2 entry flood, B3 attributes, B4 deep nesting, B5 e
 - **LibreOffice.** Cleaned B1, B2, B6, B7, B8, B9, and B10. Hung on B3. Kept B4 (the leaf is still there). On B5 it wrote nothing and exited 0. That is a failed load, not a cleaned file.
 - **office-open.** Cleaned B3. Refused B5. Ran out of stack on B4. Kept B1, B2, B6, B7, B8, B9, and B10.
 - **Docen.** Cleaned B3. Refused B5. Ran out of stack on B4 and B9. Kept B1, B2, B6, B7, B8, and B10.
-- **Docxodus.** Cleaned B3. Ran out of stack on B4. Refused B5 and B10 with no named rule. Kept B1, B2, B6, B7, B8, and B9.
+- **Docxodus.** Ceilings on B1 (compression ratio) and B4 (128 levels of depth). Cleaned B3. Refused B5 (document type declaration). Kept B2, B6, B7, B8, B9, and B10.
 - **Google Docs.** Not in the seatbelt matrix. Saved exports of B2, B6, B7, B8, and B10 contain only the body sentence. B1, B3, B4, B5, and B9 produced no file. Those five imports fully failed, and no ceiling was named. Grade 0.70.
 
 Jubarte is not in this list. Its grade on the same scale is 0.65, from jubarte 0.14.0 in `Report D1 - Jubarte on the Hostile Packages (2026).md`. Report D2 is the Word run, final since 2026-10-31; its interim snapshot is copied at the end of this report. Its jubarte column is 0.16.0, not 0.14.0.
@@ -44,8 +44,8 @@ Sanitation is safe output without a declared ceiling, so it is not 1. A bare ref
 | Editor | Grade | Still unsafe |
 | --- | --- | --- |
 | Fidus Writer | {{bomb.fidus.grade:.2f}} | Keeps the decompression bomb. |
-| Plate | {{bomb.plate.grade:.2f}} | Keeps the layout bomb. |
 | Google Docs | 0.70 | Five imports produced no file and named no ceiling. No saved file keeps a weapon. |
+| Plate | {{bomb.plate.grade:.2f}} | Does not finish the attributes. Keeps the layout bomb. |
 | docs.plus | {{bomb.docsplus.grade:.2f}} | Stack on the deep nest. Keeps the layout bomb. |
 | LibreOffice | {{bomb.lo_baseline.grade:.2f}} | Hangs on the attributes. Keeps the deep nest. |
 | wordcraft | {{bomb.wordcraft.grade:.2f}} | Keeps the decompression bomb, the script, and the layout bomb. |
@@ -54,14 +54,14 @@ Sanitation is safe output without a declared ceiling, so it is not 1. A bare ref
 | Folio model | {{bomb.folio.grade:.2f}} | Keeps external relationships, the script, and the layout bomb. |
 | Folio editor | {{bomb.folio-editor.grade:.2f}} | Same as the model. |
 | canvas-editor | {{bomb.canvas.grade:.2f}} | Hangs on the decompression bomb, the attributes, and the layout bomb. Keeps the deep nest. |
+| Docxodus | {{bomb.docxodus.grade:.2f}} | Ceilings on the decompression bomb and the deep nest. Keeps six packages. |
 | SuperDoc | {{bomb.superdoc.grade:.2f}} | No ceiling. Keeps the deep nest, zip-slip, external relationships, the script, and the layout bomb. |
 | GenOffice | {{bomb.genoffice.grade:.2f}} | Ceiling on the entry flood only. Keeps the other resource bombs. |
-| Docxodus | {{bomb.docxodus.grade:.2f}} | Cleans the attributes. Stack on the deep nest. Keeps six packages. |
 | Docen | {{bomb.docen.grade:.2f}} | Cleans the attributes. Stack on the deep nest and the layout bomb. |
 | office-open | {{bomb.officeopen.grade:.2f}} | Cleans the attributes. Stack on the deep nest. Keeps seven packages. |
 | jubarte 0.14.0 | 0.65 | Jubarte report. Entities stay in the view. Zip-slip, external relationships, and corrupt parts are not refusals. |
 
-Fidus Writer ranks above Plate because seven cleaned packages outweigh three ceilings under these weights. Plate is the stronger ceiling set. Google Docs also scores 0.70. That tie is the weights. Plate has three ceilings and keeps the layout bomb. Google Docs has five cleaned exports and five refusals with no named ceiling, and no saved file keeps a weapon. If a named ceiling were the only non-zero weight, Plate, eigenpal, and Folio would rank above Fidus Writer, and above Google Docs. The weights are a summary, not a second measurement. The Google Docs files are in the section after the kept payloads.
+Fidus Writer ranks above Plate because seven cleaned packages outweigh three ceilings under these weights. Plate is the stronger ceiling set. Google Docs ranks above Plate, 0.70 to {{bomb.plate.grade:.2f}}, and that order is the weights too. Plate has three ceilings, keeps the layout bomb, and did not finish the attribute package inside the CPU budget. Google Docs has five cleaned exports and five refusals with no named ceiling, and no saved file keeps a weapon. If a named ceiling were the only non-zero weight, Plate, eigenpal, and Folio would rank above Fidus Writer, and above Google Docs. The weights are a summary, not a second measurement. The Google Docs files are in the section after the kept payloads.
 
 ## Unsandboxed refusal
 
@@ -125,326 +125,13 @@ Of the {{bomb.cells}} measured cells, fourteen editors and LibreOffice across th
 ## Measured scorecard
 
 ```
-sandbox: libreoffice in docker, network none, memory 2g, read-only root. editors under seatbelt. External network is denied. Localhost and unix sockets inside the work directory are allowed, because the editors' own tooling binds them. Writes stay in the work directory, plus the canvas vitest config cache. The editors are macOS binaries and were not run inside the Linux container.
-taxonomy: preserving a hostile payload is not the same single result as a crash.
-reference Word fidelity: not-run safety: not-run Word was not opened. LibreOffice is the comparison.
-B7 note: NTLM credential leak was not measured. No hash collector was started. External network and UNC were denied. Localhost was allowed so a tool loopback stub and the 127.0.0.1 probe are not blocked by the seatbelt.
-B5 note: the entity bomb expands one million times, not to a gigabyte. This Mac cannot cap address space.
-B1 note: one deflate member tops out near one thousand to one. A single member at two thousand five hundred to one is not a real deflate stream.
-config: each editor used that project's documented import and export. Plate used BaseEditorKit, retainSource, and the default reject policy, and a refused import wrote no second permissive file. Canvas did not replace a thrown import with the blank starter document. docs.plus stopped at its own importDocx and exportDocx. docen, officeopen and fidus were started with their own tsx.
-comparison libreoffice B1 fidelity: dropped safety: ok catch: yes
-comparison libreoffice B2 fidelity: dropped safety: ok catch: yes
-comparison libreoffice B3 fidelity: refused safety: hang catch: no
-comparison libreoffice B4 fidelity: preserved safety: ok catch: no
-comparison libreoffice B5 fidelity: refused safety: ok catch: yes
-comparison libreoffice B6 fidelity: dropped safety: ok catch: yes
-comparison libreoffice B7 fidelity: dropped safety: ok catch: yes
-comparison libreoffice B8 fidelity: dropped safety: ok catch: yes
-comparison libreoffice B9 fidelity: dropped safety: ok catch: yes
-comparison libreoffice B10 fidelity: dropped safety: ok catch: yes
-tool plate B1 fidelity: refused safety: bounded-reject catch: yes
-tool eigenpal B1 fidelity: refused safety: bounded-reject catch: yes
-tool eigenpal-editor B1 fidelity: refused safety: bounded-reject catch: yes
-tool folio B1 fidelity: refused safety: bounded-reject catch: yes
-tool folio-editor B1 fidelity: refused safety: bounded-reject catch: yes
-tool genoffice B1 fidelity: preserved safety: ok catch: no
-tool superdoc B1 fidelity: refused safety: bounded-reject catch: yes
-tool officeopen B1 fidelity: preserved safety: ok catch: no
-tool docen B1 fidelity: preserved safety: ok catch: no
-tool fidus B1 fidelity: preserved safety: ok catch: no
-tool wordcraft B1 fidelity: preserved safety: ok catch: no
-tool canvas B1 fidelity: refused safety: hang catch: no
-tool docsplus B1 fidelity: dropped safety: ok catch: yes
-tool docxodus B1 fidelity: preserved safety: ok catch: no
-tool plate B2 fidelity: refused safety: bounded-reject catch: yes
-tool eigenpal B2 fidelity: refused safety: bounded-reject catch: yes
-tool eigenpal-editor B2 fidelity: refused safety: bounded-reject catch: yes
-tool folio B2 fidelity: refused safety: bounded-reject catch: yes
-tool folio-editor B2 fidelity: refused safety: bounded-reject catch: yes
-tool genoffice B2 fidelity: refused safety: bounded-reject catch: yes
-tool superdoc B2 fidelity: refused safety: bounded-reject catch: yes
-tool officeopen B2 fidelity: preserved safety: ok catch: no
-tool docen B2 fidelity: preserved safety: ok catch: no
-tool fidus B2 fidelity: dropped safety: ok catch: yes
-tool wordcraft B2 fidelity: refused safety: bounded-reject catch: yes
-tool canvas B2 fidelity: dropped safety: ok catch: yes
-tool docsplus B2 fidelity: dropped safety: ok catch: yes
-tool docxodus B2 fidelity: preserved safety: ok catch: no
-tool plate B3 fidelity: dropped safety: ok catch: yes
-tool eigenpal B3 fidelity: dropped safety: ok catch: yes
-tool eigenpal-editor B3 fidelity: dropped safety: ok catch: yes
-tool folio B3 fidelity: dropped safety: ok catch: yes
-tool folio-editor B3 fidelity: dropped safety: ok catch: yes
-tool genoffice B3 fidelity: dropped safety: ok catch: yes
-tool superdoc B3 fidelity: refused safety: bounded-reject catch: yes
-tool officeopen B3 fidelity: dropped safety: ok catch: yes
-tool docen B3 fidelity: dropped safety: ok catch: yes
-tool fidus B3 fidelity: dropped safety: ok catch: yes
-tool wordcraft B3 fidelity: refused safety: bounded-reject catch: yes
-tool canvas B3 fidelity: refused safety: hang catch: no
-tool docsplus B3 fidelity: dropped safety: ok catch: yes
-tool docxodus B3 fidelity: dropped safety: ok catch: yes
-tool plate B4 fidelity: refused safety: bounded-reject catch: yes
-tool eigenpal B4 fidelity: refused safety: bounded-reject catch: yes
-tool eigenpal-editor B4 fidelity: refused safety: bounded-reject catch: yes
-tool folio B4 fidelity: refused safety: bounded-reject catch: yes
-tool folio-editor B4 fidelity: refused safety: bounded-reject catch: yes
-tool genoffice B4 fidelity: preserved safety: ok catch: no
-tool superdoc B4 fidelity: preserved safety: ok catch: no
-tool officeopen B4 fidelity: refused safety: bounded-reject catch: yes
-tool docen B4 fidelity: refused safety: bounded-reject catch: yes
-tool fidus B4 fidelity: refused safety: bounded-reject catch: yes
-tool wordcraft B4 fidelity: refused safety: bounded-reject catch: yes
-tool canvas B4 fidelity: preserved safety: ok catch: no
-tool docsplus B4 fidelity: refused safety: bounded-reject catch: yes
-tool docxodus B4 fidelity: refused safety: bounded-reject catch: yes
-tool plate B5 fidelity: refused safety: bounded-reject catch: yes
-tool eigenpal B5 fidelity: refused safety: bounded-reject catch: yes
-tool eigenpal-editor B5 fidelity: refused safety: bounded-reject catch: yes
-tool folio B5 fidelity: refused safety: bounded-reject catch: yes
-tool folio-editor B5 fidelity: refused safety: bounded-reject catch: yes
-tool genoffice B5 fidelity: preserved safety: ok catch: no
-tool superdoc B5 fidelity: refused safety: bounded-reject catch: yes
-tool officeopen B5 fidelity: refused safety: bounded-reject catch: yes
-tool docen B5 fidelity: refused safety: bounded-reject catch: yes
-tool fidus B5 fidelity: refused safety: bounded-reject catch: yes
-tool wordcraft B5 fidelity: refused safety: bounded-reject catch: yes
-tool canvas B5 fidelity: dropped safety: ok catch: yes
-tool docsplus B5 fidelity: refused safety: bounded-reject catch: yes
-tool docxodus B5 fidelity: refused safety: bounded-reject catch: yes
-tool plate B6 fidelity: refused safety: bounded-reject catch: yes
-tool eigenpal B6 fidelity: refused safety: bounded-reject catch: yes
-tool eigenpal-editor B6 fidelity: refused safety: bounded-reject catch: yes
-tool folio B6 fidelity: refused safety: bounded-reject catch: yes
-tool folio-editor B6 fidelity: refused safety: bounded-reject catch: yes
-tool genoffice B6 fidelity: preserved safety: ok catch: no
-tool superdoc B6 fidelity: preserved safety: ok catch: no
-tool officeopen B6 fidelity: preserved safety: ok catch: no
-tool docen B6 fidelity: preserved safety: ok catch: no
-tool fidus B6 fidelity: dropped safety: ok catch: yes
-tool wordcraft B6 fidelity: dropped safety: ok catch: yes
-tool canvas B6 fidelity: dropped safety: ok catch: yes
-tool docsplus B6 fidelity: dropped safety: ok catch: yes
-tool docxodus B6 fidelity: preserved safety: ok catch: no
-tool plate B7 fidelity: dropped safety: ok catch: yes
-tool eigenpal B7 fidelity: preserved safety: ok catch: no
-tool eigenpal-editor B7 fidelity: preserved safety: ok catch: no
-tool folio B7 fidelity: preserved safety: ok catch: no
-tool folio-editor B7 fidelity: preserved safety: ok catch: no
-tool genoffice B7 fidelity: preserved safety: ok catch: no
-tool superdoc B7 fidelity: preserved safety: ok catch: no
-tool officeopen B7 fidelity: preserved safety: ok catch: no
-tool docen B7 fidelity: preserved safety: ok catch: no
-tool fidus B7 fidelity: dropped safety: ok catch: yes
-tool wordcraft B7 fidelity: dropped safety: ok catch: yes
-tool canvas B7 fidelity: dropped safety: ok catch: yes
-tool docsplus B7 fidelity: dropped safety: ok catch: yes
-tool docxodus B7 fidelity: preserved safety: ok catch: no
-tool plate B8 fidelity: refused safety: bounded-reject catch: yes
-tool eigenpal B8 fidelity: preserved safety: ok catch: no
-tool eigenpal-editor B8 fidelity: preserved safety: ok catch: no
-tool folio B8 fidelity: preserved safety: ok catch: no
-tool folio-editor B8 fidelity: preserved safety: ok catch: no
-tool genoffice B8 fidelity: preserved safety: ok catch: no
-tool superdoc B8 fidelity: preserved safety: ok catch: no
-tool officeopen B8 fidelity: preserved safety: ok catch: no
-tool docen B8 fidelity: preserved safety: ok catch: no
-tool fidus B8 fidelity: dropped safety: ok catch: yes
-tool wordcraft B8 fidelity: preserved safety: ok catch: no
-tool canvas B8 fidelity: dropped safety: ok catch: yes
-tool docsplus B8 fidelity: dropped safety: ok catch: yes
-tool docxodus B8 fidelity: preserved safety: ok catch: no
-tool plate B9 fidelity: preserved safety: ok catch: no
-tool eigenpal B9 fidelity: preserved safety: ok catch: no
-tool eigenpal-editor B9 fidelity: preserved safety: ok catch: no
-tool folio B9 fidelity: preserved safety: ok catch: no
-tool folio-editor B9 fidelity: preserved safety: ok catch: no
-tool genoffice B9 fidelity: preserved safety: ok catch: no
-tool superdoc B9 fidelity: preserved safety: ok catch: no
-tool officeopen B9 fidelity: preserved safety: ok catch: no
-tool docen B9 fidelity: refused safety: bounded-reject catch: yes
-tool fidus B9 fidelity: dropped safety: ok catch: yes
-tool wordcraft B9 fidelity: preserved safety: ok catch: no
-tool canvas B9 fidelity: refused safety: hang catch: no
-tool docsplus B9 fidelity: preserved safety: ok catch: no
-tool docxodus B9 fidelity: preserved safety: ok catch: no
-tool plate B10 fidelity: refused safety: bounded-reject catch: yes
-tool eigenpal B10 fidelity: refused safety: bounded-reject catch: yes
-tool eigenpal-editor B10 fidelity: refused safety: bounded-reject catch: yes
-tool folio B10 fidelity: refused safety: bounded-reject catch: yes
-tool folio-editor B10 fidelity: refused safety: bounded-reject catch: yes
-tool genoffice B10 fidelity: refused safety: bounded-reject catch: yes
-tool superdoc B10 fidelity: refused safety: bounded-reject catch: yes
-tool officeopen B10 fidelity: preserved safety: ok catch: no
-tool docen B10 fidelity: preserved safety: ok catch: no
-tool fidus B10 fidelity: dropped safety: ok catch: yes
-tool wordcraft B10 fidelity: dropped safety: ok catch: yes
-tool canvas B10 fidelity: dropped safety: ok catch: yes
-tool docsplus B10 fidelity: refused safety: bounded-reject catch: yes
-tool docxodus B10 fidelity: refused safety: bounded-reject catch: yes
+{{bomb.scorecard}}
 ```
 
 ## Protection record
 
 ```
-protection: a named ceiling that refuses the package is bounded-refusal.
-protection: a clean exit whose output does not carry the weapon is sanitation.
-protection: a non-zero exit with no named ceiling is erroring.
-protection: a call stack that ran out is stack-exhaustion, not a ceiling.
-protection: a weapon still in the output is preserved.
-protection: hang, crash, and leak are separate.
-protection: failed-load-exit-zero wrote nothing and still exited zero.
-protection: the safety word bounded-reject is not a resource bound.
-protection libreoffice B1 level: sanitation detail: the written package does not carry the weapon
-protection libreoffice B2 level: sanitation detail: the written package does not carry the weapon
-protection libreoffice B3 level: hang detail: the run did not finish
-protection libreoffice B4 level: preserved detail: the weapon is still in the written package
-protection libreoffice B5 level: failed-load-exit-zero detail: soffice said the source file could not be loaded
-protection libreoffice B6 level: sanitation detail: the written package does not carry the weapon
-protection libreoffice B7 level: sanitation detail: the written package does not carry the weapon
-protection libreoffice B8 level: sanitation detail: the written package does not carry the weapon
-protection libreoffice B9 level: sanitation detail: the written package does not carry the weapon
-protection libreoffice B10 level: sanitation detail: the written package does not carry the weapon
-protection plate B1 level: bounded-refusal detail: named ceiling on the size of one part
-protection plate B2 level: bounded-refusal detail: named ceiling on the number of parts
-protection plate B3 level: sanitation detail: the written package does not carry the weapon
-protection plate B4 level: bounded-refusal detail: named ceiling on element depth
-protection plate B5 level: erroring detail: rejected a document type declaration
-protection plate B6 level: erroring detail: rejected the package
-protection plate B7 level: sanitation detail: a source was unavailable
-protection plate B8 level: erroring detail: the editor schema could not decode the package
-protection plate B9 level: preserved detail: a source was unavailable
-protection plate B10 level: erroring detail: rejected XML that is not UTF-8
-protection eigenpal B1 level: bounded-refusal detail: named ceiling: too-large
-protection eigenpal B2 level: bounded-refusal detail: named ceiling: too-many-entries
-protection eigenpal B3 level: sanitation detail: the written package does not carry the weapon
-protection eigenpal B4 level: bounded-refusal detail: named ceiling: too-deep
-protection eigenpal B5 level: erroring detail: named rejection: dtd-forbidden
-protection eigenpal B6 level: erroring detail: named rejection: bad-name
-protection eigenpal B7 level: preserved detail: the weapon is still in the written package
-protection eigenpal B8 level: preserved detail: the weapon is still in the written package
-protection eigenpal B9 level: preserved detail: the weapon is still in the written package
-protection eigenpal B10 level: erroring detail: named rejection: parse-error
-protection eigenpal-editor B1 level: bounded-refusal detail: named ceiling: zip.maxRatio
-protection eigenpal-editor B2 level: bounded-refusal detail: named ceiling: zip.maxEntries
-protection eigenpal-editor B3 level: sanitation detail: the written package does not carry the weapon
-protection eigenpal-editor B4 level: bounded-refusal detail: named ceiling: xml.maxDepth
-protection eigenpal-editor B5 level: erroring detail: the editor rejected the input and did not name a ceiling
-protection eigenpal-editor B6 level: erroring detail: the editor rejected the input and did not name a ceiling
-protection eigenpal-editor B7 level: preserved detail: the weapon is still in the written package
-protection eigenpal-editor B8 level: preserved detail: the weapon is still in the written package
-protection eigenpal-editor B9 level: preserved detail: the weapon is still in the written package
-protection eigenpal-editor B10 level: erroring detail: the editor rejected the input and did not name a ceiling
-protection folio B1 level: bounded-refusal detail: named ceiling on compression ratio
-protection folio B2 level: bounded-refusal detail: named ceiling on the number of parts
-protection folio B3 level: sanitation detail: the written package does not carry the weapon
-protection folio B4 level: bounded-refusal detail: named ceiling: depth
-protection folio B5 level: erroring detail: preflight rejected malformed markup
-protection folio B6 level: erroring detail: rejected an unsafe entry path
-protection folio B7 level: preserved detail: the weapon is still in the written package
-protection folio B8 level: preserved detail: the weapon is still in the written package
-protection folio B9 level: preserved detail: the weapon is still in the written package
-protection folio B10 level: erroring detail: preflight rejected malformed markup
-protection folio-editor B1 level: bounded-refusal detail: named ceiling on compression ratio
-protection folio-editor B2 level: bounded-refusal detail: named ceiling on the number of parts
-protection folio-editor B3 level: sanitation detail: the written package does not carry the weapon
-protection folio-editor B4 level: bounded-refusal detail: named ceiling: depth
-protection folio-editor B5 level: erroring detail: preflight rejected malformed markup
-protection folio-editor B6 level: erroring detail: rejected an unsafe entry path
-protection folio-editor B7 level: preserved detail: the weapon is still in the written package
-protection folio-editor B8 level: preserved detail: the weapon is still in the written package
-protection folio-editor B9 level: preserved detail: the weapon is still in the written package
-protection folio-editor B10 level: erroring detail: preflight rejected malformed markup
-protection genoffice B1 level: preserved detail: the weapon is still in the written package
-protection genoffice B2 level: bounded-refusal detail: named ceiling on the number of parts
-protection genoffice B3 level: sanitation detail: the written package does not carry the weapon
-protection genoffice B4 level: preserved detail: the weapon is still in the written package
-protection genoffice B5 level: preserved detail: the weapon is still in the written package
-protection genoffice B6 level: preserved detail: the weapon is still in the written package
-protection genoffice B7 level: preserved detail: the weapon is still in the written package
-protection genoffice B8 level: preserved detail: the weapon is still in the written package
-protection genoffice B9 level: preserved detail: the weapon is still in the written package
-protection genoffice B10 level: erroring detail: a styles part could not be parsed
-protection superdoc B1 level: erroring detail: the opener reported unterminated markup
-protection superdoc B2 level: erroring detail: the opener said source loading does not apply
-protection superdoc B3 level: erroring detail: the opener reported a malformed start tag
-protection superdoc B4 level: preserved detail: the weapon is still in the written package
-protection superdoc B5 level: erroring detail: the opener reported no document root
-protection superdoc B6 level: preserved detail: the weapon is still in the written package
-protection superdoc B7 level: preserved detail: the weapon is still in the written package
-protection superdoc B8 level: preserved detail: the weapon is still in the written package
-protection superdoc B9 level: preserved detail: the weapon is still in the written package
-protection superdoc B10 level: erroring detail: the opener said source loading does not apply
-protection officeopen B1 level: preserved detail: the weapon is still in the written package
-protection officeopen B2 level: preserved detail: the weapon is still in the written package
-protection officeopen B3 level: sanitation detail: the written package does not carry the weapon
-protection officeopen B4 level: stack-exhaustion detail: the call stack ran out
-protection officeopen B5 level: erroring detail: rejected a malformed entity
-protection officeopen B6 level: preserved detail: the weapon is still in the written package
-protection officeopen B7 level: preserved detail: the weapon is still in the written package
-protection officeopen B8 level: preserved detail: the weapon is still in the written package
-protection officeopen B9 level: preserved detail: the weapon is still in the written package
-protection officeopen B10 level: preserved detail: the weapon is still in the written package
-protection docen B1 level: preserved detail: the weapon is still in the written package
-protection docen B2 level: preserved detail: the weapon is still in the written package
-protection docen B3 level: sanitation detail: the written package does not carry the weapon
-protection docen B4 level: stack-exhaustion detail: the call stack ran out
-protection docen B5 level: erroring detail: rejected a malformed entity
-protection docen B6 level: preserved detail: the weapon is still in the written package
-protection docen B7 level: preserved detail: the weapon is still in the written package
-protection docen B8 level: preserved detail: the weapon is still in the written package
-protection docen B9 level: stack-exhaustion detail: the call stack ran out
-protection docen B10 level: preserved detail: the weapon is still in the written package
-protection fidus B1 level: preserved detail: the weapon is still in the written package
-protection fidus B2 level: sanitation detail: the written package does not carry the weapon
-protection fidus B3 level: sanitation detail: the written package does not carry the weapon
-protection fidus B4 level: bounded-refusal detail: named ceiling on nested tags
-protection fidus B5 level: erroring detail: rejected an external entity
-protection fidus B6 level: sanitation detail: the written package does not carry the weapon
-protection fidus B7 level: sanitation detail: the written package does not carry the weapon
-protection fidus B8 level: sanitation detail: the written package does not carry the weapon
-protection fidus B9 level: sanitation detail: the written package does not carry the weapon
-protection fidus B10 level: sanitation detail: the written package does not carry the weapon
-protection wordcraft B1 level: preserved detail: the weapon is still in the written package
-protection wordcraft B2 level: bounded-refusal detail: named ceiling
-protection wordcraft B3 level: bounded-refusal detail: named ceiling on attributes of one element
-protection wordcraft B4 level: bounded-refusal detail: named ceiling on element depth
-protection wordcraft B5 level: erroring detail: an entity is not defined
-protection wordcraft B6 level: sanitation detail: the written package does not carry the weapon
-protection wordcraft B7 level: sanitation detail: the written package does not carry the weapon
-protection wordcraft B8 level: preserved detail: the weapon is still in the written package
-protection wordcraft B9 level: preserved detail: the weapon is still in the written package
-protection wordcraft B10 level: sanitation detail: the written package does not carry the weapon
-protection canvas B1 level: hang detail: the run did not finish
-protection canvas B2 level: sanitation detail: the written package does not carry the weapon
-protection canvas B3 level: hang detail: the run did not finish
-protection canvas B4 level: preserved detail: the weapon is still in the written package
-protection canvas B5 level: sanitation detail: the written package does not carry the weapon
-protection canvas B6 level: sanitation detail: the written package does not carry the weapon
-protection canvas B7 level: sanitation detail: the written package does not carry the weapon
-protection canvas B8 level: sanitation detail: the written package does not carry the weapon
-protection canvas B9 level: hang detail: the run did not finish
-protection canvas B10 level: sanitation detail: the written package does not carry the weapon
-protection docsplus B1 level: sanitation detail: the written package does not carry the weapon
-protection docsplus B2 level: sanitation detail: the written package does not carry the weapon
-protection docsplus B3 level: sanitation detail: the written package does not carry the weapon
-protection docsplus B4 level: stack-exhaustion detail: the call stack ran out
-protection docsplus B5 level: erroring detail: an entity was not found
-protection docsplus B6 level: sanitation detail: the written package does not carry the weapon
-protection docsplus B7 level: sanitation detail: the written package does not carry the weapon
-protection docsplus B8 level: sanitation detail: the written package does not carry the weapon
-protection docsplus B9 level: preserved detail: the weapon is still in the written package
-protection docsplus B10 level: erroring detail: the xml parser rejected a tag
-protection docxodus B1 level: preserved detail: the weapon is still in the written package
-protection docxodus B2 level: preserved detail: the weapon is still in the written package
-protection docxodus B3 level: sanitation detail: the written package does not carry the weapon
-protection docxodus B4 level: stack-exhaustion detail: the call stack ran out
-protection docxodus B5 level: erroring detail: the cell log does not name a ceiling
-protection docxodus B6 level: preserved detail: the weapon is still in the written package
-protection docxodus B7 level: preserved detail: the weapon is still in the written package
-protection docxodus B8 level: preserved detail: the weapon is still in the written package
-protection docxodus B9 level: preserved detail: the weapon is still in the written package
-protection docxodus B10 level: erroring detail: the cell log does not name a ceiling
+{{bomb.protection}}
 ```
 
 ## Where the safety word is the wrong name
@@ -453,7 +140,7 @@ LibreOffice on the entity package is `failed-load-exit-zero`. soffice said the s
 
 LibreOffice on the attribute package hung. The leaf of the deep package is still in the written file, so that cell is `preserved`. The other LibreOffice drops are `sanitation`.
 
-`stack-exhaustion`, not a ceiling: office-open on the deep package, Docen on the deep package and on the layout package, docs.plus on the deep package, Docxodus on the deep package. Fidus Writer on the deep package is the other kind of nest failure: its own message is a maximum on nested tags, so that cell is `bounded-refusal`.
+`stack-exhaustion`, not a ceiling: office-open on the deep package, Docen on the deep package and on the layout package, docs.plus on the deep package. Fidus Writer on the deep package is the other kind of nest failure: its own message is a maximum on nested tags, so that cell is `bounded-refusal`.
 
 `erroring`, and the log names no ceiling:
 
@@ -464,7 +151,7 @@ LibreOffice on the attribute package hung. The leaf of the deep package is still
 - GenOffice could not parse a styles part on the corrupt package.
 - SuperDoc reported unterminated markup on the decompression package. That message names no ceiling. On the attribute package it reported a malformed start tag. The attribute bomb broke the tag. That is not an attribute cap. On the entry flood and the corrupt package it said source loading does not apply. On the entity package it reported no document root.
 - office-open and Docen rejected a malformed entity. Fidus Writer rejected an external entity. wordcraft said an entity is not defined. docs.plus said an entity was not found, and on the corrupt package the XML parser rejected a tag.
-- Docxodus on the entity package and the corrupt package exited non-zero inside the wall. The cell log is a runtime script dump. It does not name a package limit. This is not a hang. No limit is invented for it.
+- Docxodus rejected the entity package's document type declaration (`Xml_DtdIsProhibitedEx`).
 
 `bounded-refusal`, because the tool named the ceiling:
 
@@ -474,9 +161,10 @@ LibreOffice on the attribute package hung. The leaf of the deep package is still
 - Folio and the Folio editor: compression ratio, part count, and a declared depth cap. The depth message is that the part is nested deeper than the cap.
 - GenOffice: part count, on the entry flood only.
 - Fidus Writer: nested tags, on the deep package.
+- Docxodus: `compression_ratio_limit_exceeded` on the decompression bomb, and `xml_depth_limit_exceeded` (128 levels) on the deep package. Its message follows a runtime dump of about 200 KB; the sandbox now writes a child's output to a file so the message is kept.
 - wordcraft: entry count, attributes of one element, and element depth. The entry-count line in the protection record says only "named ceiling". The cell log says the limit that was exceeded is the zip entry count. The password retry is wordcraft's own read path, not a second permissive pass.
 
-Plate on the attribute package is `sanitation`, not an attribute cap. wordcraft on that package is the cap. The two are not the same degree.
+Plate on the attribute package is `hang`: the run used up the sandbox's 30-second CPU budget before it wrote anything. In the 0.9.0 measurement the same package finished and was `sanitation`. Plate's code was not the cause: the 0.9.0 commit, re-run with the same lockfile on the same quiet machine, also did not finish. The cell sits at the edge of the budget. wordcraft on that package is the attribute cap.
 
 ## Kept payloads
 
@@ -490,7 +178,7 @@ Plate on the external-relationship package is `sanitation`: a source was unavail
 
 Fidus Writer's drops, including the layout package, are `sanitation`. canvas-editor's finished drops are `sanitation`. Its decompression, attribute, and layout cells hung at the wall clock. A hang is not a catch.
 
-Docxodus, office-open, Docen, and the eigenpal lanes preserve the decompression bomb, the entry flood, zip-slip, the external relationships, and, except where a row above says otherwise, the active content and the layout bomb. Preserving those is no protection.
+Docxodus keeps the entry flood, zip-slip, the external relationships, the active content, the layout bomb, and the corrupt parts. office-open, Docen, and the eigenpal lanes preserve the decompression bomb, the entry flood, zip-slip, the external relationships, and, except where a row above says otherwise, the active content and the layout bomb. Preserving those is no protection.
 
 ## Google Docs
 

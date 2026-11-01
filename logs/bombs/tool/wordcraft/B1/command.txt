@@ -1,2 +1,2 @@
-cwd: <editors_trial>/harness/wordcraft
-/tmp/editors-trial-wordcraft-target/release/wc-harness /tmp/editors-trial-bombs/bombs/B1.docx /tmp/editors-trial-bombs/runs/wordcraft/B1/out/out.docx
+cwd: /Users/arthrod/temp/T/editors_trial/harness/wordcraft
+/Users/arthrod/T/editors_trial/harness/wordcraft/target/release/wc-harness /tmp/editors-trial-bombs/bombs/B1.docx /tmp/editors-trial-bombs/runs/wordcraft/B1/out/out.docx

@@ -1,1 +1,1 @@
-tool plate B3 fidelity: dropped safety: ok catch: yes
+tool plate B3 fidelity: refused safety: hang catch: no

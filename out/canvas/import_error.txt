@@ -1,12 +1,12 @@
 TypeError: Cannot read properties of undefined (reading 'width')
     at Object.computeRowColInfo (/Users/arthrod/temp/T/editors_trial/repos/canvas-editor/src/editor/core/draw/particle/table/TableParticle.ts:724:45)
     at TableParticle.__vi_import_4__.TableParticle.computeRowColInfo (/Users/arthrod/temp/T/editors_trial/harness/canvas/roundtrip.test.ts:64:12)
-    at LayoutEngine.computeRowList (/Users/arthrod/temp/T/editors_trial/repos/canvas-editor/src/editor/core/layout/LayoutEngine.ts:296:33)
+    at LayoutEngine.computeRowList (/Users/arthrod/temp/T/editors_trial/repos/canvas-editor/src/editor/core/layout/LayoutEngine.ts:360:33)
     at Draw.computeRowList (/Users/arthrod/temp/T/editors_trial/repos/canvas-editor/src/editor/core/draw/Draw.ts:1792:30)
-    at Draw.render (/Users/arthrod/temp/T/editors_trial/repos/canvas-editor/src/editor/core/draw/Draw.ts:2664:44)
+    at Draw.render (/Users/arthrod/temp/T/editors_trial/repos/canvas-editor/src/editor/core/draw/Draw.ts:2666:44)
     at Draw.setValue (/Users/arthrod/temp/T/editors_trial/repos/canvas-editor/src/editor/core/draw/Draw.ts:1688:10)
-    at CommandAdapt.setValue (/Users/arthrod/temp/T/editors_trial/repos/canvas-editor/src/editor/core/command/CommandAdapt.ts:2259:15)
-    at Command.executeSetValue (/Users/arthrod/temp/T/editors_trial/repos/canvas-editor/src/editor/core/command/Command.ts:178:14)
+    at CommandAdapt.setValue (/Users/arthrod/temp/T/editors_trial/repos/canvas-editor/src/editor/core/command/CommandAdapt.ts:2328:15)
+    at Command.executeSetValue (/Users/arthrod/temp/T/editors_trial/repos/canvas-editor/src/editor/core/command/Command.ts:182:14)
     at Command.executeImportDocx (/Users/arthrod/temp/T/editors_trial/repos/canvas-editor-plugin/packages/docx/src/docx/importDocx.ts:1857:13)
     at /Users/arthrod/temp/T/editors_trial/harness/canvas/roundtrip.test.ts:186:7
 
