@@ -1,0 +1,179 @@
+#!/usr/bin/env python3
+"""
+Build out/facts.json: every measured figure a report quotes, under one key.
+
+The reports are rendered from templates (templates/, build/render_reports.py),
+and every figure in a template is a placeholder such as
+``{{rt.superdoc.weighted:.1f}}``. This script is the only place those values
+come from, and it reads them only from the measurement artifacts:
+
+  rt.<tool>.*      first pass   out/<tool>/score.json and out/<tool>/complex.docx
+  p2.<tool>.*      second pass  out/<tool>/second/score.json and its package
+  parts.<tool>.*   part map     the output package classified against the fixture
+  ver.<repo>.*     pins         the git checkouts under repos/ (and npm pins)
+  stars.<repo>     stars        out/stars.json, a snapshot taken at measurement
+  count.*          derived counts across tools
+
+A key that the artifacts cannot supply is absent, never guessed, so a template
+that needs it fails to render.
+
+usage: python3 build/facts.py [--out out/facts.json]
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import subprocess
+import sys
+import zipfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+OUT = ROOT / "out"
+FIXTURE = ROOT / "fixture" / "complex.docx"
+sys.path.insert(0, str(ROOT / "build"))
+from part_map import classify  # noqa: E402
+
+# Output directory under out/ for every measured participant (lanes included).
+TOOLS = [
+    "superdoc", "docxodus", "genoffice", "eigenpal", "eigenpal-editor", "folio",
+    "folio-editor", "officeopen", "docen", "wordcraft", "canvas", "fidus",
+    "docsplus", "plate", "lo_baseline",
+]
+# Checkout under repos/ -> its GitHub slug.
+REPOS = {
+    "plate": "udecode/plate",
+    "eigenpal-docx-editor": "eigenpal/docx-editor",
+    "folio": "stella/folio",
+    "genoffice": "genspark-ai/genoffice",
+    "wordcraft": "storytold/wordcraft",
+    "superdoc": "superdoc/docx-editor",
+    "canvas-editor": "Hufe921/canvas-editor",
+    "canvas-editor-plugin": "Hufe921/canvas-editor-plugin",
+    "docen": "DemoMacro/docen",
+    "office-open": "DemoMacro/office-open",
+    "office-open-upstream": "akademi-ink/office-open",
+    "docs-plus": "docs-plus/docs.plus",
+    "fiduswriter": "fiduswriter/fiduswriter",
+    "fiduswriter-document-ts": "fiduswriter/fiduswriter-document-ts",
+    "fiduswriter-cli-ts": "fiduswriter/fiduswriter-cli-ts",
+    "fiduswriter-pandoc-plugin-ts": "fiduswriter/fiduswriter-pandoc-plugin-ts",
+    "docxodus": "JSv4/Docxodus",
+}
+# npm packages the harnesses load, and where the installed copy lives.
+NPM = {
+    "superdoc_sdk": ("@superdoc/sdk", "repos/superdoc/node_modules/.pnpm", "@superdoc+sdk@"),
+    "docxodus": ("docxodus", "harness/ui/docxodus/node_modules/docxodus/package.json", None),
+}
+
+
+def parts(path: Path) -> dict[str, bytes]:
+    with zipfile.ZipFile(path) as z:
+        return {n: z.read(n) for n in z.namelist() if not n.endswith("/")}
+
+
+def score_facts(prefix: str, score_path: Path, package: Path, facts: dict) -> None:
+    res = json.loads(score_path.read_text())
+    s = res["score"]
+    f = {
+        "weighted": s["weighted"],
+        "critical_pct": s["critical_pct"],
+        "critical_passed": s["critical_passed"],
+        "critical_total": s["critical_total"],
+        "passed": s["features_passed"],
+        "total": s["features_total"],
+        "failed": s["features_total"] - s["features_passed"],
+        "critical_failed": s["critical_total"] - s["critical_passed"],
+        "text_pct": res["text_retention_pct"],
+        "text_tokens": res["text_tokens_input"],
+        "text_lost": res["text_tokens_lost"],
+    }
+    if package.exists():
+        f["bytes"] = package.stat().st_size
+    for k, v in f.items():
+        facts[f"{prefix}.{k}"] = v
+
+
+def part_facts(tool: str, package: Path, fixture: dict, facts: dict) -> None:
+    out = parts(package)
+    status = classify(fixture, out)
+    counts = {k: 0 for k in ("PASSTHROUGH", "REWRITTEN", "CHANGED", "DROPPED", "ADDED")}
+    for v in status.values():
+        counts[v] = counts.get(v, 0) + 1
+    p = f"parts.{tool}"
+    facts[f"{p}.total"] = len(fixture)
+    facts[f"{p}.kept"] = len(fixture) - counts["DROPPED"]
+    facts[f"{p}.out"] = len(out)
+    for k, v in counts.items():
+        facts[f"{p}.{k.lower()}"] = v
+    facts[f"{p}.reserialized"] = counts["CHANGED"] + counts["REWRITTEN"]
+
+
+def git(repo: Path, *args: str) -> str:
+    return subprocess.run(["git", "-C", str(repo), *args], capture_output=True,
+                          text=True, check=True).stdout.strip()
+
+
+def version_facts(facts: dict) -> None:
+    for d, slug in REPOS.items():
+        repo = ROOT / "repos" / d
+        if not (repo / ".git").exists():
+            continue
+        key = f"ver.{d}"
+        facts[f"{key}.commit"] = git(repo, "rev-parse", "--short=9", "HEAD")
+        facts[f"{key}.date"] = git(repo, "log", "-1", "--format=%cs")
+        facts[f"{key}.slug"] = slug
+    store = ROOT / NPM["superdoc_sdk"][1]
+    if store.exists():
+        pre = NPM["superdoc_sdk"][2]
+        hits = sorted(p.name[len(pre):] for p in store.iterdir() if p.name.startswith(pre))
+        if hits:
+            facts["ver.npm.superdoc_sdk"] = hits[-1]
+    pkg = ROOT / NPM["docxodus"][1]
+    if pkg.exists():
+        facts["ver.npm.docxodus"] = json.loads(pkg.read_text())["version"]
+
+
+def build() -> dict:
+    facts: dict = {}
+    fixture = parts(FIXTURE)
+    facts["fixture.parts"] = len(fixture)
+    for t in TOOLS:
+        d = OUT / t
+        if (d / "score.json").exists():
+            score_facts(f"rt.{t}", d / "score.json", d / "complex.docx", facts)
+            if (d / "complex.docx").exists():
+                part_facts(t, d / "complex.docx", fixture, facts)
+        if (d / "second" / "score.json").exists():
+            score_facts(f"p2.{t}", d / "second" / "score.json", d / "second" / "complex.docx", facts)
+            first, second = d / "complex.docx", d / "second" / "complex.docx"
+            if first.exists() and second.exists():
+                facts[f"p2.{t}.identical"] = parts(first) == parts(second)
+    totals = {(facts[f"rt.{t}.total"], facts[f"rt.{t}.critical_total"]) for t in TOOLS if f"rt.{t}.total" in facts}
+    if len(totals) == 1:
+        facts["checks.total"], facts["checks.critical"] = totals.pop()
+    version_facts(facts)
+    stars = OUT / "stars.json"
+    if stars.exists():
+        data = json.loads(stars.read_text())
+        facts["stars.date"] = data["date"]
+        for slug, n in data["stars"].items():
+            facts[f"stars.{slug}"] = n
+    editors = [t for t in TOOLS if t != "lo_baseline" and f"p2.{t}.identical" in facts]
+    facts["count.p2_identical"] = sum(1 for t in editors if facts[f"p2.{t}.identical"])
+    facts["count.zero_failed"] = sum(1 for t in editors if facts[f"rt.{t}.failed"] == 0)
+    return dict(sorted(facts.items()))
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--out", default=str(OUT / "facts.json"))
+    a = ap.parse_args()
+    facts = build()
+    Path(a.out).write_text(json.dumps(facts, indent=1, ensure_ascii=False) + "\n")
+    print(f"facts: {len(facts)} keys -> {a.out}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

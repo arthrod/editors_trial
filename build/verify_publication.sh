@@ -4,6 +4,8 @@
 # The gates answer different questions, and none of them substitutes for
 # another:
 #
+#   generated      is each report exactly its template rendered against
+#                  out/facts.json (build/facts.py), the current measurement?
 #   twin parity    does each published DOCX say what its Markdown source says,
 #                  and is it exactly what the build pipeline produces?
 #   findings       does every figure in the published tables belong to the
@@ -52,13 +54,16 @@ run() {
 # 1. The repository's own test suite.
 run "repo tests" python3 build/test_report_claims.py
 
-# 2. Every published DOCX is the faithful twin of its Markdown source.
+# 2. Every report is its template rendered against the current measurement.
+run "generated" bash -c 'cd build && python3 -m unittest -q test_reportgen && cd .. && python3 build/facts.py >/dev/null && python3 build/render_reports.py --check'
+
+# 3. Every published DOCX is the faithful twin of its Markdown source.
 run "twin parity" python3 build/verify_twin_parity.py
 
-# 3. Every figure in the published tables matches the measurement for its subject.
+# 4. Every figure in the published tables matches the measurement for its subject.
 run "findings" python3 build/verify_findings.py --ledger out/findings_ledger.csv
 
-# 4. Every percentage and byte size in every live report is in the measurement.
+# 5. Every percentage and byte size in every live report is in the measurement.
 run "number gate" python3 build/check_report_consistency.py \
   --lanes out/plate/roundtrip.log \
   --scores-dir out \
@@ -66,7 +71,7 @@ run "number gate" python3 build/check_report_consistency.py \
   --out out/consistency.txt \
   --inventory out/inventory.txt
 
-# 5. Every published DOCX validates against the ECMA-376 schemas.
+# 6. Every published DOCX validates against the ECMA-376 schemas.
 schema_gate() {
   local bad=0
   for docx in "Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).docx" \
@@ -84,12 +89,12 @@ schema_gate() {
 }
 run "OOXML schema" schema_gate
 
-# 6. The review's claim-evidence matrix is complete and well formed.
+# 7. The review's claim-evidence matrix is complete and well formed.
 run "claim matrix" python3 build/build_claim_evidence.py \
   --ledger out/findings_ledger.csv \
   --out out/review/claim_evidence_matrix.csv
 
-# 7. The deliverables open in Microsoft Word.
+# 8. The deliverables open in Microsoft Word.
 if [ "$WITH_WORD" -eq 1 ]; then
   run "Word open" python3 build/verify_deliverables.py
 else
