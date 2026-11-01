@@ -1,4 +1,4 @@
-# Report E — Jubarte on the Hostile Packages (2026)
+# Report D1 — Jubarte on the Hostile Packages (2026)
 
 Jubarte is not one of the editors in Report D. This file is only the release binary of `../jubarte-redlines`.
 

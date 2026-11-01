@@ -29,7 +29,7 @@ A seatbelt or loader failure before the editor runs is recorded as `not-run` wit
 
 The sandboxed matrix is `logs/bombs`. [Report D](reports/Report%20D%20-%20Safety%2C%20Resource%20Bombs%20and%20Hostile%20Input%20(2026).md) keeps the unsandboxed refusal and then the measured scorecard. The safety word `bounded-reject` only means a non-zero exit that was not a crash, a hang, or a leak. The protection level is a separate reading: a named ceiling, a reduced write under a declared cap, sanitation, a parse or name-policy error, stack exhaustion, a kept payload, an unexpanded entity reference, a hang, a crash, a leak, or a load that exits zero and writes nothing.
 
-Jubarte is not in that matrix. The same packages, read by the release binary of `../jubarte-redlines` at version 0.14.0, are `logs/jubarte-bombs` and [Report E](reports/Report%20E%20-%20Jubarte%20on%20the%20Hostile%20Packages%20(2026).md). The skill copy of the binary was not used. `jubarte read` writes a markdown view, not a second package.
+Jubarte is not in that matrix. The same packages, read by the release binary of `../jubarte-redlines` at version 0.14.0, are `logs/jubarte-bombs` and [Report D1](reports/Report%20D1%20-%20Jubarte%20on%20the%20Hostile%20Packages%20(2026).md). The skill copy of the binary was not used. `jubarte read` writes a markdown view, not a second package.
 
 Word is not opened. No NTLM hash is collected. A slip onto the host temp directory is denied by the seatbelt, so the only slip that can be observed is one that lands inside the work directory, or file contents that come back in the saved package.
 

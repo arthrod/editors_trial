@@ -2,7 +2,7 @@
 
 ## TL;DR
 
-No editor is safe on every package. Safe here means the weapon is not in a finished document and the process did not hang or run out of stack. A named ceiling is stronger than a bare refusal. A bare refusal is stronger than a hang. Keeping the weapon is not safe. Word was not opened in the seatbelt matrix. A separate Word run is in `Report E - What Word Protects Against (2026).md`, final since 2026-10-31; its interim snapshot is copied at the end of this report.
+No editor is safe on every package. Safe here means the weapon is not in a finished document and the process did not hang or run out of stack. A named ceiling is stronger than a bare refusal. A bare refusal is stronger than a hang. Keeping the weapon is not safe. Word was not opened in the seatbelt matrix. A separate Word run is in `Report D2 - What Word Protects Against (2026).md`, final since 2026-10-31; its interim snapshot is copied at the end of this report.
 
 Packages: B1 decompression, B2 entry flood, B3 attributes, B4 deep nesting, B5 entities, B6 zip-slip, B7 external relationships, B8 active content, B9 layout bomb, B10 corrupt parts.
 
@@ -22,7 +22,7 @@ Packages: B1 decompression, B2 entry flood, B3 attributes, B4 deep nesting, B5 e
 - **Docxodus.** Cleaned B3. Ran out of stack on B4. Refused B5 and B10 with no named rule. Kept B1, B2, B6, B7, B8, and B9.
 - **Google Docs.** Not in the seatbelt matrix. Saved exports of B2, B6, B7, B8, and B10 contain only the body sentence. B1, B3, B4, B5, and B9 produced no file. Those five imports fully failed, and no ceiling was named. Grade 0.70.
 
-Jubarte is not in this list. Its grade on the same scale is 0.65, from jubarte 0.14.0 in `Report E - Jubarte on the Hostile Packages (2026).md`. A second file is also named Report E. That one is the Word run, final since 2026-10-31; its interim snapshot is copied at the end of this report. Its jubarte column is 0.16.0, not 0.14.0.
+Jubarte is not in this list. Its grade on the same scale is 0.65, from jubarte 0.14.0 in `Report D1 - Jubarte on the Hostile Packages (2026).md`. Report D2 is the Word run, final since 2026-10-31; its interim snapshot is copied at the end of this report. Its jubarte column is 0.16.0, not 0.14.0.
 
 ## Grades
 
@@ -106,18 +106,18 @@ The safety word `bounded-reject` is not a resource bound. It means the process e
 These are the levels, from a real ceiling down to no protection.
 
 1. `bounded-refusal`. The tool named a ceiling and rejected the package. No finished document carries the weapon. The process exited with an error. A ceiling is a part size, an entry count, a compression ratio, an element depth, a nest cap, or an attribute cap that the tool's own message names.
-2. `bounded-delivery`. A declared cap was applied and a reduced form was written. The hostile value itself is absent. The process survived. This is not a refusal and it is not sanitation. No editor cell in this matrix has this as its primary label. One jubarte cell does. It is in Report E. Inside this matrix, wordcraft's layout package still has this shape on the span alone, and the cell stays `preserved` because the other weapons remain. That split is below.
+2. `bounded-delivery`. A declared cap was applied and a reduced form was written. The hostile value itself is absent. The process survived. This is not a refusal and it is not sanitation. No editor cell in this matrix has this as its primary label. One jubarte cell does. It is in Report D1. Inside this matrix, wordcraft's layout package still has this shape on the span alone, and the cell stays `preserved` because the other weapons remain. That split is below.
 3. `sanitation`. The process exited 0, wrote a document, and the weapon is not in it.
 4. `erroring`. The process exited with an error and the log does not name a ceiling. A document-type refusal, an undefined entity, a bad name, an unsafe entry path, and an opaque argument rejection are this level. A name policy is not a size ceiling.
 5. `stack-exhaustion`. Recursion ran out of call stack. The process exited with an error. That is not a declared ceiling, and it is not `bounded-refusal`.
-6. `unexpanded-kept`. The process exited 0 and wrote the raw entity references. It did not expand them. Keeping the references is not sanitation. No editor cell uses this as its primary label. GenOffice on the entity package is `preserved`, and the package it wrote is still the unexpanded declaration. Jubarte's reading of the same package is `unexpanded-kept`, in Report E.
+6. `unexpanded-kept`. The process exited 0 and wrote the raw entity references. It did not expand them. Keeping the references is not sanitation. No editor cell uses this as its primary label. GenOffice on the entity package is `preserved`, and the package it wrote is still the unexpanded declaration. Jubarte's reading of the same package is `unexpanded-kept`, in Report D1.
 7. `preserved`. The weapon is still in the output and the process survived. This is no protection against that payload. An unexpanded passthrough is still `preserved` when the primary label says so.
 8. `errored-but-preserved`. The process errored and the weapon is still in the output. No cell in this matrix.
 9. `hang`. The run did not finish. Not a catch.
 10. `crash`. The process died. No cell in this matrix.
 11. `leak`. File contents or a slipped file came out. No cell in this matrix.
 12. `failed-load-exit-zero`. No document was written and the process still exited 0. This is not sanitation and it is not `erroring`.
-13. `not-in-view`. A text view was written and this weapon is not something that view carries. Editors in this matrix write packages, so none of them has this label. It is a jubarte reading, in Report E.
+13. `not-in-view`. A text view was written and this weapon is not something that view carries. Editors in this matrix write packages, so none of them has this label. It is a jubarte reading, in Report D1.
 14. `not-run`. No measurement. Word, and every row of the unsandboxed fence.
 
 Of the 150 measured cells, fourteen editors and LibreOffice across the ten packages, the primary labels are sanitation 39, preserved 51, erroring 30, bounded-refusal 20, stack-exhaustion 5, hang 4, and failed-load-exit-zero 1.
@@ -527,9 +527,9 @@ The mean is 7.0 divided by 10, which is 0.70. No local process exit was recorded
 
 ## What Microsoft Word protects against
 
-This section is the interim note in `reports/Report E - What Word Protects Against (2026).md`, copied here on 2026-10-31 before that report was finalised. The final report supersedes it: there every fixture but E6 was opened in Word, and two jubarte binaries were run on all 33 fixtures. It is not the seatbelt matrix. The fenced log above still says Word was not opened. That fence is the entry that refuses to run. This run did open Word.
+This section is the interim note in `reports/Report D2 - What Word Protects Against (2026).md`, copied here on 2026-10-31 before that report was finalised. The final report supersedes it: there every fixture but E6 was opened in Word, and two jubarte binaries were run on all 33 fixtures. It is not the seatbelt matrix. The fenced log above still says Word was not opened. That fence is the entry that refuses to run. This run did open Word.
 
-Two files are named Report E. The grade 0.65 is jubarte 0.14.0. The jubarte column in the table below is binary 0.16.0+6bf2efb43. Those are not the same run.
+The grade 0.65 is jubarte 0.14.0, in Report D1. The jubarte column in the table below is binary 0.16.0+6bf2efb43. Those are not the same run.
 
 CLEAN in the table means a PDF was written and no dialog appeared. That is not the protection ladder in this report, so this table is not turned into a float grade. Word's B6 through B10, the nested-table probes, the network probes, and the element-count series are still pending. jubarte 0.16.0+6bf2efb43 has been run on all 28 fixtures. The jubarte column below is that run. The source note says 11 of 28 Word fixtures. `results_word.tsv` has 12 finished Word rows, and one of them is the control.
 
