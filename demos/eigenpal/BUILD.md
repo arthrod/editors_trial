@@ -1,6 +1,7 @@
 # eigenpal docx-editor: live demo build
 
-Built from https://github.com/eigenpal/docx-editor at commit `c6f8f0f` (Apache-2.0 (no Pro packages)), the commit the editors trial measured.
+Built from https://github.com/eigenpal/docx-editor (Apache-2.0 (no Pro packages)) at the commit the editors trial measured. That commit is not typed here: it is written to
+`dist/SOURCE.txt` from git by `build/rebuild_demo.sh eigenpal`, which checks it out from the trial's `repos/` checkout.
 The files here are the demo's own host page and build configuration. Put them in a folder named `app` next to
 the checkout, which is cloned into `src`; the commands run from that shared parent folder.
 

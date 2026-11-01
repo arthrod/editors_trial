@@ -27,6 +27,11 @@ def cutoff(release: date) -> date:
     return release - timedelta(days=COOLDOWN_DAYS)
 
 
+def release_record(release: date) -> dict:
+    """What the reports cite as the release date, and the cutoff the pins obey."""
+    return {"date": release.isoformat(), "cutoff": cutoff(release).isoformat()}
+
+
 def _end_of(day: date) -> str:
     return f"{day.isoformat()}T23:59:59+00:00"
 
@@ -88,10 +93,14 @@ def main() -> int:
     n.add_argument("channel")
     n.add_argument("--current")
     n.add_argument("--date")
+    r = sub.add_parser("release", help="print the release record (date, cutoff) as JSON")
+    r.add_argument("--date")
     a = ap.parse_args()
     release = date.fromisoformat(a.date) if a.date else datetime.now(timezone.utc).date()
     cut = cutoff(release)
-    if a.kind == "git":
+    if a.kind == "release":
+        print(json.dumps(release_record(release)))
+    elif a.kind == "git":
         print(git_pin(Path(a.repo), a.ref, cut, a.current))
     else:
         out = subprocess.run(["npm", "view", a.package, "time", "--json"], capture_output=True, text=True, check=True)

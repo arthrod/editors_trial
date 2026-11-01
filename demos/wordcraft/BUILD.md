@@ -1,7 +1,7 @@
 # WordCraft: live demo build
 
-Built from https://github.com/storytold/wordcraft at commit `aadb077` (MIT OR Apache-2.0), the commit the editors
-trial measured. WordCraft is Rust compiled to WebAssembly; the web app is `apps/wordcraft-web`, built with Trunk.
+Built from https://github.com/storytold/wordcraft (MIT OR Apache-2.0) at the commit the editors trial measured. That commit is not typed here: it is written to
+`dist/SOURCE.txt` from git by `build/rebuild_demo.sh wordcraft`, which checks it out from the trial's `repos/` checkout. WordCraft is Rust compiled to WebAssembly; the web app is `apps/wordcraft-web`, built with Trunk.
 
 `demo.patch` is everything the demo changes in that checkout:
 
@@ -17,7 +17,7 @@ trial measured. WordCraft is Rust compiled to WebAssembly; the web app is `apps/
 - `apps/wordcraft-web/Trunk.toml`: the output goes to `dist/` next to the checkout.
 
 ```sh
-git clone https://github.com/storytold/wordcraft src && git -C src checkout aadb077
+git clone https://github.com/storytold/wordcraft src && git -C src checkout <Commit from SOURCE.txt>
 git -C src apply ../demo.patch
 rustup target add wasm32-unknown-unknown && cargo install trunk --locked
 cd src/apps/wordcraft-web && trunk build --release        # → ../../../dist/

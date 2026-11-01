@@ -49,5 +49,44 @@ class StampFacts(unittest.TestCase):
             self.assertEqual(got["stamp.apryse.unseparable_labels"], "tracked change inside header kept")
 
 
+class ReleaseFacts(unittest.TestCase):
+    def test_release_date_and_cutoff_come_from_the_pin_record(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            d = Path(tmp)
+            (d / "release.json").write_text('{"date": "2026-11-01", "cutoff": "2026-10-27"}')
+            got: dict = {}
+            facts.release_facts(d / "release.json", got)
+            self.assertEqual(got, {"release.date": "2026-11-01", "release.cutoff": "2026-10-27"})
+
+    def test_a_malformed_release_date_is_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            d = Path(tmp)
+            (d / "release.json").write_text('{"date": "soon", "cutoff": "2026-10-27"}')
+            with self.assertRaises(ValueError):
+                facts.release_facts(d / "release.json", {})
+
+
+class ReadFacts(unittest.TestCase):
+    def test_code_read_commits_come_from_the_release_that_read_them(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            old = Path(tmp) / "facts-v0.9.0.json"
+            old.write_text('{"ver.plate.commit": "08b1571f2", "ver.plate.date": "2026-10-30", "rt.plate.weighted": 50}')
+            got: dict = {}
+            facts.read_facts(old, "v0.9.0", got)
+            self.assertEqual(got, {"read.release": "v0.9.0", "read.plate.commit": "08b1571f2",
+                                   "read.plate.date": "2026-10-30"})
+
+
+class CountFacts(unittest.TestCase):
+    def test_participants_editors_and_open_source_editors(self):
+        got = {f"rt.{t}.weighted": 1 for t in ("superdoc", "docxodus", "apryse", "plate", "lo_baseline", "folio-editor")}
+        facts.count_facts(got)
+        self.assertEqual(got["count.participants"], 4)       # lanes and the baseline are not participants
+        self.assertEqual(got["count.participants_others"], 3)
+        self.assertEqual(got["count.editors"], 3)            # Docxodus is an SDK
+        self.assertEqual(got["count.open_editors"], 2)       # Apryse is closed source
+        self.assertEqual(got["count.open_editors_others"], 1)
+
+
 if __name__ == "__main__":
     unittest.main()

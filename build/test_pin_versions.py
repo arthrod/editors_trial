@@ -78,5 +78,12 @@ class NpmPinTest(unittest.TestCase):
                          "2.26.0-next.16")
 
 
+
+class ReleaseRecord(unittest.TestCase):
+    def test_the_record_names_the_release_date_and_its_cutoff(self):
+        self.assertEqual(P.release_record(date(2026, 11, 1)),
+                         {"date": "2026-11-01", "cutoff": "2026-10-27"})
+
+
 if __name__ == "__main__":
     unittest.main()

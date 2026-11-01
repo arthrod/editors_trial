@@ -46,6 +46,13 @@ class Render(unittest.TestCase):
         with self.assertRaisesRegex(KeyError, "rt.nobody.weighted"):
             reportgen.render("{{rt.nobody.weighted}}", FACTS)
 
+    def test_counts_are_written_as_words(self):
+        facts = {"n": 13, "m": 4, "big": 21}
+        self.assertEqual(reportgen.render("{{m:W}} of the {{n:w}}; {{big:w}}", facts), "Four of the thirteen; 21")
+
+    def test_ordinals_are_written_as_words(self):
+        self.assertEqual(reportgen.render("the {{n:ord}}", {"n": 14}), "the fourteenth")
+
     def test_plain_text_is_untouched(self):
         t = "No placeholders: `w14:paraId`, 2026-10-29, §5.4, {single} braces.\n"
         self.assertEqual(reportgen.render(t, FACTS), t)

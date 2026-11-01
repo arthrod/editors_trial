@@ -39,6 +39,7 @@ TOOLS = [
     ("Fidus", "fidus"),
     ("docs.plus", "docsplus"),
     ("Plate.js", "plate"),
+    ("Apryse", "apryse"),
 ]
 
 # label -> list of check ids that cover it. A row with no check is left alone.

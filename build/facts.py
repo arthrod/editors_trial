@@ -200,6 +200,46 @@ def stamp_facts(d: Path, facts: dict) -> None:
     facts["stamp.apryse.unseparable_labels"] = "; ".join(labels[k] for k in data.get("unseparable", []))
 
 
+# The release whose pinned commits the [CODE] citations were read at. Its facts
+# file is kept (AGENTS.md section 5), so the commits are read from it, not typed.
+CODE_READ_RELEASE = "v0.9.0"
+SDKS = {"docxodus"}            # an Open XML SDK, not an editor
+CLOSED = {"apryse"}            # measured only; there is no source to read
+LANES = {"lo_baseline", "eigenpal-editor", "folio-editor"}
+
+
+def release_facts(path: Path, facts: dict) -> None:
+    """The release date and cooldown cutoff, recorded by build/update_editors.sh when it pins."""
+    if not path.exists():
+        return
+    data = json.loads(path.read_text())
+    for k in ("date", "cutoff"):
+        date.fromisoformat(data[k])  # ValueError on anything that is not YYYY-MM-DD
+        facts[f"release.{k}"] = data[k]
+
+
+def read_facts(old: Path, release: str, facts: dict) -> None:
+    """The commits the code was read at: the version facts of the release that read it."""
+    if not old.exists():
+        return
+    facts["read.release"] = release
+    for k, v in json.loads(old.read_text()).items():
+        if k.startswith("ver.") and k.rsplit(".", 1)[-1] in ("commit", "date"):
+            facts["read." + k[4:]] = v
+
+
+def count_facts(facts: dict) -> None:
+    """How many took part, counted from the measurements present rather than typed."""
+    measured = sorted({k.split(".")[1] for k in facts if k.startswith("rt.") and k.endswith(".weighted")} - LANES)
+    editors = [t for t in measured if t not in SDKS]
+    open_editors = [t for t in editors if t not in CLOSED]
+    facts["count.participants"] = len(measured)
+    facts["count.participants_others"] = len(measured) - 1
+    facts["count.editors"] = len(editors)
+    facts["count.open_editors"] = len(open_editors)
+    facts["count.open_editors_others"] = len(open_editors) - 1
+
+
 def build() -> dict:
     facts: dict = {}
     fixture = parts(FIXTURE)
@@ -241,9 +281,16 @@ def build() -> dict:
         log = ROOT / "logs" / "bombs" / f"{name}.txt"
         if log.exists():
             facts[f"bomb.{name}"] = log.read_text().rstrip("\n")
+    # The main report's preserved-vs-dropped matrix, derived from the same score.json files.
+    import preserved_matrix
+    if all((OUT / d / "score.json").exists() for _, d in preserved_matrix.TOOLS):
+        facts["matrix.preserved"] = preserved_matrix.build_table()
     version_facts(facts)
     ui_facts(OUT / "ui", facts)
     stamp_facts(OUT / "apryse", facts)
+    release_facts(OUT / "release.json", facts)
+    read_facts(OUT / f"facts-{CODE_READ_RELEASE}.json", CODE_READ_RELEASE, facts)
+    count_facts(facts)
     stars = OUT / "stars.json"
     if stars.exists():
         data = json.loads(stars.read_text())

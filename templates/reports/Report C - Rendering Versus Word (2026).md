@@ -245,7 +245,7 @@ the reader *different information in the same place*: Word shows nothing,
 GenOffice shows the diagram's data as text.
 
 **Tracked changes are new in this release.** At the commit Report C first
-measured (`a538d04`, 2026-10-29) GenOffice hid every deletion and drew
+measured (`{{read.genoffice.commit:.7}}`, {{read.genoffice.date}}) GenOffice hid every deletion and drew
 insertions as plain black text. At the current pin it draws them the way Word
 does: insertions underlined in red, deletions struck through in red, the
 `w:moveFrom` / `w:moveTo` pair in green, formatting balloons in the margin

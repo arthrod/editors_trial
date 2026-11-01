@@ -1,6 +1,7 @@
 # Folio: live demo build
 
-Built from https://github.com/stella/folio at commit `c83cfc4` (Apache-2.0), the commit the editors trial measured.
+Built from https://github.com/stella/folio (Apache-2.0) at the commit the editors trial measured. That commit is not typed here: it is written to
+`dist/SOURCE.txt` from git by `build/rebuild_demo.sh folio`, which checks it out from the trial's `repos/` checkout.
 The files here are the demo's own host page and build configuration, placed at `dist/index.html (host page)` inside
 that checkout (paths below are relative to it).
 

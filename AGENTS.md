@@ -6,6 +6,11 @@ people and agents alike.
 
 ## Releases
 
+The step-by-step inventory, with the lessons of earlier releases, is
+`RELEASING.md`. A release's tracking issue is opened from the "Release" issue
+template (`.github/ISSUE_TEMPLATE/release.md`), which carries the same
+checklist; `build/test_release_template.py` keeps the two identical.
+
 ### 1. Every release updates the editors
 
 Unless the request for a release says otherwise, **every release moves every

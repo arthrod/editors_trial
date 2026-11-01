@@ -86,4 +86,8 @@ echo "npm     @pdftron/webviewer@$AP"
 echo "build   wordcraft harness"
 ( cd harness/wordcraft && cargo build --release ) >/tmp/update_wordcraft.log 2>&1
 
+# The reports cite this date; build/facts.py reads it (release.date, release.cutoff).
+python3 build/pin_versions.py release ${RELEASE_DATE:+--date "$RELEASE_DATE"} > out/release.json
+echo "release $(cat out/release.json)"
+
 echo "=== EDITORS UPDATED ==="

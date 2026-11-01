@@ -1,12 +1,13 @@
 # canvas-editor + docx plugin: live demo build
 
-Built from https://github.com/Hufe921/canvas-editor at commit `8b94772` (MIT), the commit the editors trial measured.
+Built from https://github.com/Hufe921/canvas-editor (MIT) at the commit the editors trial measured. That commit is not typed here: it is written to
+`dist/SOURCE.txt` from git by `build/rebuild_demo.sh canvas-editor`, which checks it out from the trial's `repos/` checkout.
 The files here are the demo's own host page and build configuration, placed at `demo` inside
 that checkout (paths below are relative to it).
 
 ```sh
-git clone https://github.com/Hufe921/canvas-editor src && git -C src checkout 8b94772
-git clone https://github.com/Hufe921/canvas-editor-plugin plugin && git -C plugin checkout 0e8a1b3
+git clone https://github.com/Hufe921/canvas-editor src && git -C src checkout <Commit from SOURCE.txt>
+git clone https://github.com/Hufe921/canvas-editor-plugin plugin && git -C plugin checkout <Commit from SOURCE.txt>
 (cd plugin && pnpm install)
 pnpm install && pnpm build   # writes dist/
 ```

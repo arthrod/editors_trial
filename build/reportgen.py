@@ -5,7 +5,8 @@ Reports as templates over the measurement.
 A template is the report's Markdown with each measured figure replaced by a
 placeholder, ``{{key}}`` or ``{{key:spec}}``. ``key`` names a value in
 out/facts.json (build/facts.py); ``spec`` is a Python format spec, plus ``yn``
-for a boolean written as yes/no. ``render`` fills the placeholders;
+for a boolean written as yes/no, and ``w``/``W``/``ord`` for a count written
+as a word. ``render`` fills the placeholders;
 ``templatize`` makes a template out of a finished report.
 
 templatize is conservative. A figure is bound only when the facts, the
@@ -23,9 +24,23 @@ from collections import Counter
 PLACEHOLDER = re.compile(r"\{\{([A-Za-z0-9_.\-/]+)(?::([^{}]*))?\}\}")
 
 
+WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+         "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen",
+         "nineteen", "twenty"]
+ORDINALS = ["zeroth", "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth",
+            "ninth", "tenth", "eleventh", "twelfth", "thirteenth", "fourteenth", "fifteenth",
+            "sixteenth", "seventeenth", "eighteenth", "nineteenth", "twentieth"]
+
+
 def fmt(value, spec: str | None) -> str:
     if spec == "yn":
         return "yes" if value else "no"
+    # Counts in prose: w = "thirteen", W = "Thirteen", ord = "thirteenth"; digits past twenty.
+    if spec in ("w", "W"):
+        word = WORDS[value] if 0 <= value < len(WORDS) else str(value)
+        return word.capitalize() if spec == "W" else word
+    if spec == "ord":
+        return ORDINALS[value] if 0 <= value < len(ORDINALS) else f"{value}th"
     return format(value, spec or "")
 
 
