@@ -1,6 +1,6 @@
 # Report E — What Microsoft Word protects against, and what it does not (2026)
 
-**Status: final (2026-10-31).** Every fixture was opened in Word alone. Two
+**Status: final (2026-10-31).** Every fixture but E6 was opened in Word alone. Two
 jubarte binaries were run on all 33 fixtures: 0.16.0+6bf2efb43 (the 0.17.0
 pre-release, *before*) and 0.16.0+c995f2d46 (the bomb-hardening branch,
 *after*).

@@ -2,7 +2,7 @@
 
 ## TL;DR
 
-No editor is safe on every package. Safe here means the weapon is not in a finished document and the process did not hang or run out of stack. A named ceiling is stronger than a bare refusal. A bare refusal is stronger than a hang. Keeping the weapon is not safe. Word was not opened in the seatbelt matrix. A separate Word run, still interim, is at the end of this report.
+No editor is safe on every package. Safe here means the weapon is not in a finished document and the process did not hang or run out of stack. A named ceiling is stronger than a bare refusal. A bare refusal is stronger than a hang. Keeping the weapon is not safe. Word was not opened in the seatbelt matrix. A separate Word run is in `Report E - What Word Protects Against (2026).md`, final since 2026-10-31; its interim snapshot is copied at the end of this report.
 
 Packages: B1 decompression, B2 entry flood, B3 attributes, B4 deep nesting, B5 entities, B6 zip-slip, B7 external relationships, B8 active content, B9 layout bomb, B10 corrupt parts.
 
@@ -22,7 +22,7 @@ Packages: B1 decompression, B2 entry flood, B3 attributes, B4 deep nesting, B5 e
 - **Docxodus.** Cleaned B3. Ran out of stack on B4. Refused B5 and B10 with no named rule. Kept B1, B2, B6, B7, B8, and B9.
 - **Google Docs.** Not in the seatbelt matrix. Saved exports of B2, B6, B7, B8, and B10 contain only the body sentence. B1, B3, B4, B5, and B9 produced no file. Those five imports fully failed, and no ceiling was named. Grade 0.70.
 
-Jubarte is not in this list. Its grade on the same scale is 0.65, from jubarte 0.14.0 in `Report E - Jubarte on the Hostile Packages (2026).md`. A second file is also named Report E. That one is the interim Word run, copied at the end of this report. Its jubarte column is 0.16.0, not 0.14.0.
+Jubarte is not in this list. Its grade on the same scale is 0.65, from jubarte 0.14.0 in `Report E - Jubarte on the Hostile Packages (2026).md`. A second file is also named Report E. That one is the Word run, final since 2026-10-31; its interim snapshot is copied at the end of this report. Its jubarte column is 0.16.0, not 0.14.0.
 
 ## Grades
 
@@ -527,13 +527,13 @@ The mean is 7.0 divided by 10, which is 0.70. No local process exit was recorded
 
 ## What Microsoft Word protects against
 
-This section is the interim note in `reports/Report E - What Word Protects Against (2026).md`, copied here on 2026-10-31. It is not the seatbelt matrix. The fenced log above still says Word was not opened. That fence is the entry that refuses to run. This run did open Word.
+This section is the interim note in `reports/Report E - What Word Protects Against (2026).md`, copied here on 2026-10-31 before that report was finalised. The final report supersedes it: there every fixture but E6 was opened in Word, and two jubarte binaries were run on all 33 fixtures. It is not the seatbelt matrix. The fenced log above still says Word was not opened. That fence is the entry that refuses to run. This run did open Word.
 
 Two files are named Report E. The grade 0.65 is jubarte 0.14.0. The jubarte column in the table below is binary 0.16.0+6bf2efb43. Those are not the same run.
 
 CLEAN in the table means a PDF was written and no dialog appeared. That is not the protection ladder in this report, so this table is not turned into a float grade. Word's B6 through B10, the nested-table probes, the network probes, and the element-count series are still pending. jubarte 0.16.0+6bf2efb43 has been run on all 28 fixtures. The jubarte column below is that run. The source note says 11 of 28 Word fixtures. `results_word.tsv` has 12 finished Word rows, and one of them is the control.
 
-**Status: Word is still interim (2026-10-31).** The Word column below is the interim note. jubarte
+**Status when copied: Word was still interim (2026-10-31); superseded by the final report.** The Word column below is the interim note. jubarte
 0.16.0+6bf2efb43 was run the same day on all 28 fixtures. Rows marked *pending* are still open for Word.
 
 Companion to `jubarte-redlines/docs/bomb_prevention.md` (jubarte 0.14.0, `read` only, no Word). This report
