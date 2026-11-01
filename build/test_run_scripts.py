@@ -19,5 +19,33 @@ class SecondPassEvidenceTest(unittest.TestCase):
         self.assertRegex(block, r"EVIDENCE_DIR=\S*out/docsplus/second/evidence")
 
 
+class BrokenCorpusInputTest(unittest.TestCase):
+    """run_broken.sh must hand every editor the broken corpus and an out_broken/ path (2026-11-01:
+    Plate got an unset $IN_BROKEN and canvas the clean fixture by default)."""
+    def setUp(self):
+        self.text = (BUILD / "run_broken.sh").read_text()
+
+    def line(self, name):
+        return next(l for l in self.text.splitlines() if l.startswith(f"run {name} "))
+
+    def test_every_variable_the_script_uses_is_set_in_it(self):
+        used = set(re.findall(r"\$\{?([A-Z_][A-Z0-9_]*)", self.text))
+        set_here = set(re.findall(r"^\s*([A-Z_][A-Z0-9_]*)=", self.text, re.M))
+        self.assertEqual(used - set_here, set())
+
+    def test_every_editor_reads_the_broken_corpus(self):
+        for l in self.text.splitlines():
+            if l.startswith("run "):
+                self.assertIn("$IN", l, l.split()[1])
+
+    def test_canvas_is_told_its_input_and_output(self):
+        l = self.line("canvas")
+        self.assertIn("IN_DOCX=$IN", l)
+        self.assertIn("OUT_DIR=$OUTROOT/canvas", l)
+
+    def test_the_output_root_can_be_a_scratch_directory(self):
+        self.assertIn("OUTROOT=${OUTROOT:-", self.text)
+
+
 if __name__ == "__main__":
     unittest.main()
