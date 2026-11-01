@@ -23,6 +23,7 @@ TARGETS = [
     ("Fidus Writer", "fidus", False),
     ("canvas-editor + plugin", "canvas", False),
     ("docs.plus", "docsplus", False),
+    ("Apryse WebViewer", "apryse", False),
     ("LibreOffice (baseline)", "lo_baseline", True),
 ]
 

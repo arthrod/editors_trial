@@ -13,8 +13,7 @@
     "[debug] [vite] connected.",
     "[nav] 200 http://localhost:5202/document.html",
     "[warning] Module \"node:zlib\" has been externalized for browser compatibility. Cannot access \"node:zlib.then\" in client code. See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.",
-    "[warning] Module \"node:zlib\" has been externalized for browser compatibility. Cannot access \"node:zlib.deflateRawSync\" in client code. See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.",
-    "[scroll-text] \"A sentence with a comment\" -> NOT FOUND"
+    "[warning] Module \"node:zlib\" has been externalized for browser compatibility. Cannot access \"node:zlib.deflateRawSync\" in client code. See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details."
   ],
   "pageErrors": [],
   "failedRequests": [],

@@ -1,0 +1,812 @@
+{
+  "input": "fixture/complex.docx",
+  "output": "out/eigenpal-editor/complex.docx",
+  "score": {
+    "weighted": 100.0,
+    "weighted_earned": 199,
+    "weighted_total": 199,
+    "critical_passed": 29,
+    "critical_total": 29,
+    "critical_pct": 100.0,
+    "features_passed": 99,
+    "features_total": 99
+  },
+  "text_retention_pct": 100.0,
+  "text_tokens_input": 169,
+  "text_tokens_lost": 0,
+  "text_lost_sample": [],
+  "checks": [
+    {
+      "id": "pkg.opens",
+      "label": "ZIP package opens, CRC valid",
+      "category": "package",
+      "weight": 3,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "pkg.document_xml",
+      "label": "word/document.xml present and well-formed",
+      "category": "package",
+      "weight": 3,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "pkg.word_styles.xml",
+      "label": "part kept: styles.xml",
+      "category": "package",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "pkg.word_numbering.xml",
+      "label": "part kept: numbering.xml",
+      "category": "package",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "pkg.word_settings.xml",
+      "label": "part kept: settings.xml",
+      "category": "package",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "pkg.word_fontTable.xml",
+      "label": "part kept: fontTable.xml",
+      "category": "package",
+      "weight": 1,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "pkg.word_webSettings.xml",
+      "label": "part kept: webSettings.xml",
+      "category": "package",
+      "weight": 1,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "pkg.word_theme_theme1.xml",
+      "label": "part kept: theme1.xml",
+      "category": "package",
+      "weight": 1,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "pkg.word_footnotes.xml",
+      "label": "part kept: footnotes.xml",
+      "category": "package",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "pkg.word_endnotes.xml",
+      "label": "part kept: endnotes.xml",
+      "category": "package",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "pkg.word_comments.xml",
+      "label": "part kept: comments.xml",
+      "category": "package",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "pkg.word_header1.xml",
+      "label": "part kept: header (default)",
+      "category": "package",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "pkg.word_header2.xml",
+      "label": "part kept: header (first page)",
+      "category": "package",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "pkg.word_footer1.xml",
+      "label": "part kept: footer (default)",
+      "category": "package",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "pkg.word_footer2.xml",
+      "label": "part kept: footer (first page)",
+      "category": "package",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "pkg.word_glossary_document.xml",
+      "label": "part kept: glossary/building blocks",
+      "category": "package",
+      "weight": 1,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "pkg.customXml_item1.xml",
+      "label": "part kept: customXml data store",
+      "category": "package",
+      "weight": 1,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "pkg.word_afchunk.html",
+      "label": "part kept: altChunk part",
+      "category": "package",
+      "weight": 1,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "pkg.media",
+      "label": "embedded image (word/media)",
+      "category": "package",
+      "weight": 3,
+      "pass": true,
+      "detail": "word/media/image1.png"
+    },
+    {
+      "id": "pkg.chart",
+      "label": "chart part kept",
+      "category": "package",
+      "weight": 3,
+      "pass": true,
+      "detail": "word/charts/chart1.xml,word/charts/colors1.xml,word/charts/style1.xml"
+    },
+    {
+      "id": "pkg.smartart",
+      "label": "SmartArt/diagram parts kept",
+      "category": "package",
+      "weight": 3,
+      "pass": true,
+      "detail": "4 parts"
+    },
+    {
+      "id": "pkg.ole",
+      "label": "OLE object part kept",
+      "category": "package",
+      "weight": 3,
+      "pass": true,
+      "detail": "word/embeddings/embedded1.docx"
+    },
+    {
+      "id": "pkg.embedded_xlsx",
+      "label": "embedded workbook kept",
+      "category": "package",
+      "weight": 1,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "tc.ins",
+      "label": "w:ins runs kept",
+      "category": "tracked",
+      "weight": 3,
+      "pass": true,
+      "detail": "n=3"
+    },
+    {
+      "id": "tc.del",
+      "label": "w:del runs kept",
+      "category": "tracked",
+      "weight": 3,
+      "pass": true,
+      "detail": "n=3"
+    },
+    {
+      "id": "tc.delText",
+      "label": "w:delText kept",
+      "category": "tracked",
+      "weight": 3,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "tc.dateUtc",
+      "label": "w16du:dateUtc kept",
+      "category": "tracked",
+      "weight": 3,
+      "pass": true,
+      "detail": "n=3"
+    },
+    {
+      "id": "tc.moveFrom",
+      "label": "w:moveFrom kept with w:t, not w:delText",
+      "category": "tracked",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "tc.moveTo",
+      "label": "w:moveTo kept",
+      "category": "tracked",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "tc.moveRanges",
+      "label": "move range markers kept",
+      "category": "tracked",
+      "weight": 1,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "tc.rPrChange",
+      "label": "w:rPrChange kept",
+      "category": "tracked",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "tc.pPrChange",
+      "label": "w:pPrChange kept",
+      "category": "tracked",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "tc.paragraphMarkRev",
+      "label": "paragraph-mark revision (pPr/rPr/ins) kept",
+      "category": "tracked",
+      "weight": 2,
+      "pass": true,
+      "detail": "n=1"
+    },
+    {
+      "id": "tc.trIns",
+      "label": "inserted table row (trPr/ins) kept",
+      "category": "tracked",
+      "weight": 3,
+      "pass": true,
+      "detail": "n=1"
+    },
+    {
+      "id": "tc.trDel",
+      "label": "deleted table row (trPr/del) kept",
+      "category": "tracked",
+      "weight": 3,
+      "pass": true,
+      "detail": "n=1"
+    },
+    {
+      "id": "fl.fldChar",
+      "label": "complex field (w:fldChar) kept",
+      "category": "fields",
+      "weight": 3,
+      "pass": true,
+      "detail": "n=3"
+    },
+    {
+      "id": "fl.instrText",
+      "label": "field instruction (w:instrText) kept",
+      "category": "fields",
+      "weight": 3,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "fl.fldSimple",
+      "label": "simple fields kept (as simple or complex fields)",
+      "category": "fields",
+      "weight": 2,
+      "pass": true,
+      "detail": "n=2"
+    },
+    {
+      "id": "fl.bookmark",
+      "label": "bookmark kept",
+      "category": "fields",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "fl.tocInstr",
+      "label": "TOC field instruction text intact",
+      "category": "fields",
+      "weight": 3,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "sdt.count",
+      "label": "content controls kept (>=5)",
+      "category": "sdt",
+      "weight": 3,
+      "pass": true,
+      "detail": "n=5"
+    },
+    {
+      "id": "sdt.databinding",
+      "label": "w:dataBinding kept",
+      "category": "sdt",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "sdt.date",
+      "label": "date-picker content control kept",
+      "category": "sdt",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "sdt.lock",
+      "label": "w:lock on content control kept",
+      "category": "sdt",
+      "weight": 1,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "sdt.nested",
+      "label": "nested content control kept",
+      "category": "sdt",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "mx.proofErr",
+      "label": "w:proofErr kept",
+      "category": "markup",
+      "weight": 1,
+      "pass": true,
+      "detail": "n=4"
+    },
+    {
+      "id": "mx.altContent",
+      "label": "mc:AlternateContent kept (Choice+Fallback)",
+      "category": "markup",
+      "weight": 3,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "mx.math",
+      "label": "OMML math (m:oMath) kept",
+      "category": "markup",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "mx.unknownAttr",
+      "label": "unknown w14 attributes kept",
+      "category": "markup",
+      "weight": 3,
+      "pass": true,
+      "detail": "paraId=57"
+    },
+    {
+      "id": "mx.unknownElem",
+      "label": "unknown w14 element kept (w14:textOutline)",
+      "category": "markup",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "mx.xmlspace",
+      "label": "xml:space=\"preserve\" kept",
+      "category": "markup",
+      "weight": 3,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "mx.nsW16du",
+      "label": "w16du namespace declaration kept",
+      "category": "markup",
+      "weight": 1,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "mx.nsW14",
+      "label": "w14 namespace declaration kept",
+      "category": "markup",
+      "weight": 1,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "mx.permStart",
+      "label": "w:permStart/permEnd kept",
+      "category": "markup",
+      "weight": 1,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "tb.gridSpan",
+      "label": "table gridSpan kept",
+      "category": "tables",
+      "weight": 3,
+      "pass": true,
+      "detail": "n=4"
+    },
+    {
+      "id": "tb.vMerge",
+      "label": "table vMerge kept",
+      "category": "tables",
+      "weight": 3,
+      "pass": true,
+      "detail": "n=3"
+    },
+    {
+      "id": "tb.tblHeader",
+      "label": "repeating header row (w:tblHeader) kept",
+      "category": "tables",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "tb.tblGrid",
+      "label": "tblGrid kept",
+      "category": "tables",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "tb.tblLook",
+      "label": "tblLook kept",
+      "category": "tables",
+      "weight": 1,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "tb.nested",
+      "label": "nested table kept",
+      "category": "tables",
+      "weight": 2,
+      "pass": true,
+      "detail": "n=2"
+    },
+    {
+      "id": "tb.textDirection",
+      "label": "cell text direction kept",
+      "category": "tables",
+      "weight": 1,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "tb.shading",
+      "label": "cell shading kept",
+      "category": "tables",
+      "weight": 1,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "sec.count",
+      "label": "all 3 sections kept",
+      "category": "layout",
+      "weight": 3,
+      "pass": true,
+      "detail": "n=3"
+    },
+    {
+      "id": "sec.landscape",
+      "label": "landscape section kept",
+      "category": "layout",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "sec.pgBorders",
+      "label": "page borders kept",
+      "category": "layout",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "sec.cols2",
+      "label": "multi-column section kept",
+      "category": "layout",
+      "weight": 1,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "sec.pgMar",
+      "label": "page margins kept",
+      "category": "layout",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "sec.docGrid",
+      "label": "docGrid kept",
+      "category": "layout",
+      "weight": 1,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "fmt.bidi",
+      "label": "RTL paragraph (w:bidi) kept",
+      "category": "formatting",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "fmt.rtl",
+      "label": "RTL run (w:rtl) kept",
+      "category": "formatting",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "fmt.sym",
+      "label": "w:sym symbol kept",
+      "category": "formatting",
+      "weight": 1,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "fmt.tab",
+      "label": "w:tab kept",
+      "category": "formatting",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "fmt.br",
+      "label": "w:br kept",
+      "category": "formatting",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "fmt.hyphens",
+      "label": "noBreakHyphen/softHyphen kept",
+      "category": "formatting",
+      "weight": 1,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "fmt.vanish",
+      "label": "hidden text (w:vanish) kept",
+      "category": "formatting",
+      "weight": 1,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "fmt.noProof",
+      "label": "w:noProof kept",
+      "category": "formatting",
+      "weight": 1,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "fmt.vertAlign",
+      "label": "w:vertAlign kept",
+      "category": "formatting",
+      "weight": 1,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "fmt.eastAsian",
+      "label": "eastAsianLayout kept",
+      "category": "formatting",
+      "weight": 1,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "fmt.numPr",
+      "label": "numbering reference (numPr) kept",
+      "category": "formatting",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "fmt.whitespace",
+      "label": "significant leading/trailing whitespace preserved",
+      "category": "formatting",
+      "weight": 3,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "text.exact",
+      "label": "visible text stream identical to input",
+      "category": "text",
+      "weight": 3,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "fmt.numLevels",
+      "label": "9-level numbering definition kept",
+      "category": "formatting",
+      "weight": 1,
+      "pass": true,
+      "detail": "n=9"
+    },
+    {
+      "id": "ref.image",
+      "label": "image relationship resolves to a part",
+      "category": "refs",
+      "weight": 3,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "ref.chart",
+      "label": "chart relationship resolves to a part",
+      "category": "refs",
+      "weight": 3,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "ref.smartart",
+      "label": "SmartArt relationships resolve to parts",
+      "category": "refs",
+      "weight": 3,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "ref.ole",
+      "label": "OLE relationship resolves to a part",
+      "category": "refs",
+      "weight": 3,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "ref.altChunk",
+      "label": "altChunk relationship resolves, or content imported",
+      "category": "refs",
+      "weight": 1,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "ref.footnoteRef",
+      "label": "footnote reference kept",
+      "category": "refs",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "ref.endnoteRef",
+      "label": "endnote reference kept",
+      "category": "refs",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "ref.commentRef",
+      "label": "comment reference kept",
+      "category": "refs",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "ref.headerTrackedChange",
+      "label": "tracked change inside header kept",
+      "category": "refs",
+      "weight": 3,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "ref.endnoteBody",
+      "label": "endnote body text kept",
+      "category": "refs",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "fl.hyperlink",
+      "label": "hyperlink targets kept",
+      "category": "fields",
+      "weight": 2,
+      "pass": true,
+      "detail": "none in input"
+    },
+    {
+      "id": "ref.documentProtection",
+      "label": "settings.xml documentProtection kept",
+      "category": "refs",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "ref.evenOddHeaders",
+      "label": "evenAndOddHeaders kept",
+      "category": "refs",
+      "weight": 1,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "ref.footnoteBody",
+      "label": "footnote body text kept",
+      "category": "refs",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "ref.commentBody",
+      "label": "comment body text kept",
+      "category": "refs",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "ref.docDefaults",
+      "label": "styles.xml docDefaults kept",
+      "category": "refs",
+      "weight": 2,
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "ref.coreProps",
+      "label": "core properties kept",
+      "category": "refs",
+      "weight": 1,
+      "pass": true,
+      "detail": ""
+    }
+  ]
+}

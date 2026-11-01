@@ -7,4 +7,5 @@ MONO_WASM: Jiterpreter table 4 is not yet initialized
 MONO_WASM: Jiterpreter table 3 is not yet initialized
 MONO_WASM: Jiterpreter table 2 is not yet initialized
 MONO_WASM: Jiterpreter table 3 is not yet initialized
-MONO_WASM: Jiterpreter table 30 is not yet initialized
+MONO_WASM: Jiterpreter table 31 is not yet initialized
+docxodus round trip: 1629 -> 1657 bytes

@@ -2,11 +2,11 @@
 
 ## TL;DR
 
-No editor is safe on every package. Safe here means the weapon is not in a finished document and the process did not hang or run out of stack. A named ceiling is stronger than a bare refusal. A bare refusal is stronger than a hang. Keeping the weapon is not safe. Word was not opened in the seatbelt matrix. A separate Word run, still interim, is at the end of this report.
+No editor is safe on every package. Safe here means the weapon is not in a finished document and the process did not hang or run out of stack. A named ceiling is stronger than a bare refusal. A bare refusal is stronger than a hang. Keeping the weapon is not safe. Word was not opened in the seatbelt matrix. A separate Word run is in `Report D2 - What Word Protects Against (2026).md`, final since 2026-10-31; its interim snapshot is copied at the end of this report.
 
 Packages: B1 decompression, B2 entry flood, B3 attributes, B4 deep nesting, B5 entities, B6 zip-slip, B7 external relationships, B8 active content, B9 layout bomb, B10 corrupt parts.
 
-- **Plate.** Ceilings on B1, B2, and B4. Cleaned B3 and B7. Refused B5, B6, B8, and B10 with no named ceiling. Kept B9.
+- **Plate.** Ceilings on B1, B2, and B4. Cleaned B7. Did not finish B3 inside the sandbox's 30-second CPU budget. Refused B5, B6, B8, and B10 with no named ceiling. Kept B9.
 - **eigenpal store.** Ceilings on B1, B2, and B4. Cleaned B3. Refused B5 (document type), B6 (bad name), and B10. Kept B7, B8, and B9.
 - **eigenpal editor.** Ceilings on B1 (compression ratio), B2, and B4. Cleaned B3. Refused B5, B6, and B10 without naming a ceiling or the inner cause. Kept B7, B8, and B9.
 - **Folio model and Folio editor.** Same row. Ceilings on B1, B2, and B4. Cleaned B3. Refused B5, B6 (unsafe entry path), and B10. Kept B7, B8, and B9.
@@ -19,10 +19,11 @@ Packages: B1 decompression, B2 entry flood, B3 attributes, B4 deep nesting, B5 e
 - **LibreOffice.** Cleaned B1, B2, B6, B7, B8, B9, and B10. Hung on B3. Kept B4 (the leaf is still there). On B5 it wrote nothing and exited 0. That is a failed load, not a cleaned file.
 - **office-open.** Cleaned B3. Refused B5. Ran out of stack on B4. Kept B1, B2, B6, B7, B8, B9, and B10.
 - **Docen.** Cleaned B3. Refused B5. Ran out of stack on B4 and B9. Kept B1, B2, B6, B7, B8, and B10.
-- **Docxodus.** Cleaned B3. Ran out of stack on B4. Refused B5 and B10 with no named rule. Kept B1, B2, B6, B7, B8, and B9.
+- **Docxodus.** Ceilings on B1 (compression ratio) and B4 (128 levels of depth). Cleaned B3. Refused B5 (document type declaration). Kept B2, B6, B7, B8, B9, and B10.
+- **Apryse WebViewer.** No ceiling. Cleaned B1, B2, B3, and B6. Hung on B4, B5, and B9: each ran past the sandbox's 40-second wall clock, in both passes. Kept B7, B8, and B10.
 - **Google Docs.** Not in the seatbelt matrix. Saved exports of B2, B6, B7, B8, and B10 contain only the body sentence. B1, B3, B4, B5, and B9 produced no file. Those five imports fully failed, and no ceiling was named. Grade 0.70.
 
-Jubarte is not in this list. Its grade on the same scale is 0.65, from jubarte 0.14.0 in `Report E - Jubarte on the Hostile Packages (2026).md`. A second file is also named Report E. That one is the interim Word run, copied at the end of this report. Its jubarte column is 0.16.0, not 0.14.0.
+Jubarte is not in this list. Its grade on the same scale is 0.65, from jubarte 0.14.0 in `Report D1 - Jubarte on the Hostile Packages (2026).md`. Report D2 is the Word run, final since 2026-10-31; its interim snapshot is copied at the end of this report. Its jubarte column is 0.16.0, not 0.14.0.
 
 ## Grades
 
@@ -44,8 +45,8 @@ Sanitation is safe output without a declared ceiling, so it is not 1. A bare ref
 | Editor | Grade | Still unsafe |
 | --- | --- | --- |
 | Fidus Writer | 0.72 | Keeps the decompression bomb. |
-| Plate | 0.70 | Keeps the layout bomb. |
 | Google Docs | 0.70 | Five imports produced no file and named no ceiling. No saved file keeps a weapon. |
+| Plate | 0.62 | Does not finish the attributes. Keeps the layout bomb. |
 | docs.plus | 0.60 | Stack on the deep nest. Keeps the layout bomb. |
 | LibreOffice | 0.60 | Hangs on the attributes. Keeps the deep nest. |
 | wordcraft | 0.60 | Keeps the decompression bomb, the script, and the layout bomb. |
@@ -54,14 +55,15 @@ Sanitation is safe output without a declared ceiling, so it is not 1. A bare ref
 | Folio model | 0.56 | Keeps external relationships, the script, and the layout bomb. |
 | Folio editor | 0.56 | Same as the model. |
 | canvas-editor | 0.48 | Hangs on the decompression bomb, the attributes, and the layout bomb. Keeps the deep nest. |
+| Docxodus | 0.34 | Ceilings on the decompression bomb and the deep nest. Keeps six packages. |
+| Apryse WebViewer | 0.32 | No ceiling. Hangs on the deep nest, the entities, and the layout bomb. Keeps external relationships, the script, and the corrupt parts. |
 | SuperDoc | 0.30 | No ceiling. Keeps the deep nest, zip-slip, external relationships, the script, and the layout bomb. |
 | GenOffice | 0.24 | Ceiling on the entry flood only. Keeps the other resource bombs. |
-| Docxodus | 0.20 | Cleans the attributes. Stack on the deep nest. Keeps six packages. |
 | Docen | 0.14 | Cleans the attributes. Stack on the deep nest and the layout bomb. |
 | office-open | 0.14 | Cleans the attributes. Stack on the deep nest. Keeps seven packages. |
 | jubarte 0.14.0 | 0.65 | Jubarte report. Entities stay in the view. Zip-slip, external relationships, and corrupt parts are not refusals. |
 
-Fidus Writer ranks above Plate because seven cleaned packages outweigh three ceilings under these weights. Plate is the stronger ceiling set. Google Docs also scores 0.70. That tie is the weights. Plate has three ceilings and keeps the layout bomb. Google Docs has five cleaned exports and five refusals with no named ceiling, and no saved file keeps a weapon. If a named ceiling were the only non-zero weight, Plate, eigenpal, and Folio would rank above Fidus Writer, and above Google Docs. The weights are a summary, not a second measurement. The Google Docs files are in the section after the kept payloads.
+Fidus Writer ranks above Plate because seven cleaned packages outweigh three ceilings under these weights. Plate is the stronger ceiling set. Google Docs ranks above Plate, 0.70 to 0.62, and that order is the weights too. Plate has three ceilings, keeps the layout bomb, and did not finish the attribute package inside the CPU budget. Google Docs has five cleaned exports and five refusals with no named ceiling, and no saved file keeps a weapon. If a named ceiling were the only non-zero weight, Plate, eigenpal, and Folio would rank above Fidus Writer, and above Google Docs. The weights are a summary, not a second measurement. The Google Docs files are in the section after the kept payloads.
 
 ## Unsandboxed refusal
 
@@ -106,26 +108,26 @@ The safety word `bounded-reject` is not a resource bound. It means the process e
 These are the levels, from a real ceiling down to no protection.
 
 1. `bounded-refusal`. The tool named a ceiling and rejected the package. No finished document carries the weapon. The process exited with an error. A ceiling is a part size, an entry count, a compression ratio, an element depth, a nest cap, or an attribute cap that the tool's own message names.
-2. `bounded-delivery`. A declared cap was applied and a reduced form was written. The hostile value itself is absent. The process survived. This is not a refusal and it is not sanitation. No editor cell in this matrix has this as its primary label. One jubarte cell does. It is in Report E. Inside this matrix, wordcraft's layout package still has this shape on the span alone, and the cell stays `preserved` because the other weapons remain. That split is below.
+2. `bounded-delivery`. A declared cap was applied and a reduced form was written. The hostile value itself is absent. The process survived. This is not a refusal and it is not sanitation. No editor cell in this matrix has this as its primary label. One jubarte cell does. It is in Report D1. Inside this matrix, wordcraft's layout package still has this shape on the span alone, and the cell stays `preserved` because the other weapons remain. That split is below.
 3. `sanitation`. The process exited 0, wrote a document, and the weapon is not in it.
 4. `erroring`. The process exited with an error and the log does not name a ceiling. A document-type refusal, an undefined entity, a bad name, an unsafe entry path, and an opaque argument rejection are this level. A name policy is not a size ceiling.
 5. `stack-exhaustion`. Recursion ran out of call stack. The process exited with an error. That is not a declared ceiling, and it is not `bounded-refusal`.
-6. `unexpanded-kept`. The process exited 0 and wrote the raw entity references. It did not expand them. Keeping the references is not sanitation. No editor cell uses this as its primary label. GenOffice on the entity package is `preserved`, and the package it wrote is still the unexpanded declaration. Jubarte's reading of the same package is `unexpanded-kept`, in Report E.
+6. `unexpanded-kept`. The process exited 0 and wrote the raw entity references. It did not expand them. Keeping the references is not sanitation. No editor cell uses this as its primary label. GenOffice on the entity package is `preserved`, and the package it wrote is still the unexpanded declaration. Jubarte's reading of the same package is `unexpanded-kept`, in Report D1.
 7. `preserved`. The weapon is still in the output and the process survived. This is no protection against that payload. An unexpanded passthrough is still `preserved` when the primary label says so.
 8. `errored-but-preserved`. The process errored and the weapon is still in the output. No cell in this matrix.
 9. `hang`. The run did not finish. Not a catch.
 10. `crash`. The process died. No cell in this matrix.
 11. `leak`. File contents or a slipped file came out. No cell in this matrix.
 12. `failed-load-exit-zero`. No document was written and the process still exited 0. This is not sanitation and it is not `erroring`.
-13. `not-in-view`. A text view was written and this weapon is not something that view carries. Editors in this matrix write packages, so none of them has this label. It is a jubarte reading, in Report E.
+13. `not-in-view`. A text view was written and this weapon is not something that view carries. Editors in this matrix write packages, so none of them has this label. It is a jubarte reading, in Report D1.
 14. `not-run`. No measurement. Word, and every row of the unsandboxed fence.
 
-Of the 150 measured cells, fourteen editors and LibreOffice across the ten packages, the primary labels are sanitation 39, preserved 51, erroring 30, bounded-refusal 20, stack-exhaustion 5, hang 4, and failed-load-exit-zero 1.
+Of the 160 measured cells, fifteen editors and LibreOffice across the ten packages, the primary labels are sanitation 42, preserved 54, erroring 29, bounded-refusal 22, stack-exhaustion 4, hang 8, and failed-load-exit-zero 1.
 
 ## Measured scorecard
 
 ```
-sandbox: libreoffice in docker, network none, memory 2g, read-only root. editors under seatbelt. External network is denied. Localhost and unix sockets inside the work directory are allowed, because the editors' own tooling binds them. Writes stay in the work directory, plus the canvas vitest config cache. The editors are macOS binaries and were not run inside the Linux container.
+sandbox: libreoffice in docker, network none, memory 2g, read-only root. editors under seatbelt. External network is denied. Localhost and unix sockets inside the work directory are allowed, because the editors' own tooling binds them. Writes stay in the work directory, plus the canvas vitest config cache. Apryse's profile also allows Mach port registration, which Chromium needs to start; Chromium's own sandbox cannot start inside seatbelt and is off for that tool. The editors are macOS binaries and were not run inside the Linux container.
 taxonomy: preserving a hostile payload is not the same single result as a crash.
 reference Word fidelity: not-run safety: not-run Word was not opened. LibreOffice is the comparison.
 B7 note: NTLM credential leak was not measured. No hash collector was started. External network and UNC were denied. Localhost was allowed so a tool loopback stub and the 127.0.0.1 probe are not blocked by the seatbelt.
@@ -155,7 +157,8 @@ tool fidus B1 fidelity: preserved safety: ok catch: no
 tool wordcraft B1 fidelity: preserved safety: ok catch: no
 tool canvas B1 fidelity: refused safety: hang catch: no
 tool docsplus B1 fidelity: dropped safety: ok catch: yes
-tool docxodus B1 fidelity: preserved safety: ok catch: no
+tool docxodus B1 fidelity: refused safety: bounded-reject catch: yes
+tool apryse B1 fidelity: dropped safety: ok catch: yes
 tool plate B2 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal B2 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal-editor B2 fidelity: refused safety: bounded-reject catch: yes
@@ -170,7 +173,8 @@ tool wordcraft B2 fidelity: refused safety: bounded-reject catch: yes
 tool canvas B2 fidelity: dropped safety: ok catch: yes
 tool docsplus B2 fidelity: dropped safety: ok catch: yes
 tool docxodus B2 fidelity: preserved safety: ok catch: no
-tool plate B3 fidelity: dropped safety: ok catch: yes
+tool apryse B2 fidelity: dropped safety: ok catch: yes
+tool plate B3 fidelity: refused safety: hang catch: no
 tool eigenpal B3 fidelity: dropped safety: ok catch: yes
 tool eigenpal-editor B3 fidelity: dropped safety: ok catch: yes
 tool folio B3 fidelity: dropped safety: ok catch: yes
@@ -184,6 +188,7 @@ tool wordcraft B3 fidelity: refused safety: bounded-reject catch: yes
 tool canvas B3 fidelity: refused safety: hang catch: no
 tool docsplus B3 fidelity: dropped safety: ok catch: yes
 tool docxodus B3 fidelity: dropped safety: ok catch: yes
+tool apryse B3 fidelity: dropped safety: ok catch: yes
 tool plate B4 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal B4 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal-editor B4 fidelity: refused safety: bounded-reject catch: yes
@@ -198,6 +203,7 @@ tool wordcraft B4 fidelity: refused safety: bounded-reject catch: yes
 tool canvas B4 fidelity: preserved safety: ok catch: no
 tool docsplus B4 fidelity: refused safety: bounded-reject catch: yes
 tool docxodus B4 fidelity: refused safety: bounded-reject catch: yes
+tool apryse B4 fidelity: refused safety: hang catch: no
 tool plate B5 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal B5 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal-editor B5 fidelity: refused safety: bounded-reject catch: yes
@@ -212,6 +218,7 @@ tool wordcraft B5 fidelity: refused safety: bounded-reject catch: yes
 tool canvas B5 fidelity: dropped safety: ok catch: yes
 tool docsplus B5 fidelity: refused safety: bounded-reject catch: yes
 tool docxodus B5 fidelity: refused safety: bounded-reject catch: yes
+tool apryse B5 fidelity: refused safety: hang catch: no
 tool plate B6 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal B6 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal-editor B6 fidelity: refused safety: bounded-reject catch: yes
@@ -226,6 +233,7 @@ tool wordcraft B6 fidelity: dropped safety: ok catch: yes
 tool canvas B6 fidelity: dropped safety: ok catch: yes
 tool docsplus B6 fidelity: dropped safety: ok catch: yes
 tool docxodus B6 fidelity: preserved safety: ok catch: no
+tool apryse B6 fidelity: dropped safety: ok catch: yes
 tool plate B7 fidelity: dropped safety: ok catch: yes
 tool eigenpal B7 fidelity: preserved safety: ok catch: no
 tool eigenpal-editor B7 fidelity: preserved safety: ok catch: no
@@ -240,6 +248,7 @@ tool wordcraft B7 fidelity: dropped safety: ok catch: yes
 tool canvas B7 fidelity: dropped safety: ok catch: yes
 tool docsplus B7 fidelity: dropped safety: ok catch: yes
 tool docxodus B7 fidelity: preserved safety: ok catch: no
+tool apryse B7 fidelity: preserved safety: ok catch: no
 tool plate B8 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal B8 fidelity: preserved safety: ok catch: no
 tool eigenpal-editor B8 fidelity: preserved safety: ok catch: no
@@ -254,6 +263,7 @@ tool wordcraft B8 fidelity: preserved safety: ok catch: no
 tool canvas B8 fidelity: dropped safety: ok catch: yes
 tool docsplus B8 fidelity: dropped safety: ok catch: yes
 tool docxodus B8 fidelity: preserved safety: ok catch: no
+tool apryse B8 fidelity: preserved safety: ok catch: no
 tool plate B9 fidelity: preserved safety: ok catch: no
 tool eigenpal B9 fidelity: preserved safety: ok catch: no
 tool eigenpal-editor B9 fidelity: preserved safety: ok catch: no
@@ -268,6 +278,7 @@ tool wordcraft B9 fidelity: preserved safety: ok catch: no
 tool canvas B9 fidelity: refused safety: hang catch: no
 tool docsplus B9 fidelity: preserved safety: ok catch: no
 tool docxodus B9 fidelity: preserved safety: ok catch: no
+tool apryse B9 fidelity: refused safety: hang catch: no
 tool plate B10 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal B10 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal-editor B10 fidelity: refused safety: bounded-reject catch: yes
@@ -281,7 +292,8 @@ tool fidus B10 fidelity: dropped safety: ok catch: yes
 tool wordcraft B10 fidelity: dropped safety: ok catch: yes
 tool canvas B10 fidelity: dropped safety: ok catch: yes
 tool docsplus B10 fidelity: refused safety: bounded-reject catch: yes
-tool docxodus B10 fidelity: refused safety: bounded-reject catch: yes
+tool docxodus B10 fidelity: preserved safety: ok catch: no
+tool apryse B10 fidelity: preserved safety: ok catch: no
 ```
 
 ## Protection record
@@ -307,7 +319,7 @@ protection libreoffice B9 level: sanitation detail: the written package does not
 protection libreoffice B10 level: sanitation detail: the written package does not carry the weapon
 protection plate B1 level: bounded-refusal detail: named ceiling on the size of one part
 protection plate B2 level: bounded-refusal detail: named ceiling on the number of parts
-protection plate B3 level: sanitation detail: the written package does not carry the weapon
+protection plate B3 level: hang detail: the run did not finish
 protection plate B4 level: bounded-refusal detail: named ceiling on element depth
 protection plate B5 level: erroring detail: rejected a document type declaration
 protection plate B6 level: erroring detail: rejected the package
@@ -435,16 +447,26 @@ protection docsplus B7 level: sanitation detail: the written package does not ca
 protection docsplus B8 level: sanitation detail: the written package does not carry the weapon
 protection docsplus B9 level: preserved detail: the weapon is still in the written package
 protection docsplus B10 level: erroring detail: the xml parser rejected a tag
-protection docxodus B1 level: preserved detail: the weapon is still in the written package
+protection docxodus B1 level: bounded-refusal detail: named ceiling on compression ratio
 protection docxodus B2 level: preserved detail: the weapon is still in the written package
 protection docxodus B3 level: sanitation detail: the written package does not carry the weapon
-protection docxodus B4 level: stack-exhaustion detail: the call stack ran out
-protection docxodus B5 level: erroring detail: the cell log does not name a ceiling
+protection docxodus B4 level: bounded-refusal detail: named ceiling on element depth
+protection docxodus B5 level: erroring detail: rejected a document type declaration
 protection docxodus B6 level: preserved detail: the weapon is still in the written package
 protection docxodus B7 level: preserved detail: the weapon is still in the written package
 protection docxodus B8 level: preserved detail: the weapon is still in the written package
 protection docxodus B9 level: preserved detail: the weapon is still in the written package
-protection docxodus B10 level: erroring detail: the cell log does not name a ceiling
+protection docxodus B10 level: preserved detail: the weapon is still in the written package
+protection apryse B1 level: sanitation detail: the written package does not carry the weapon
+protection apryse B2 level: sanitation detail: the written package does not carry the weapon
+protection apryse B3 level: sanitation detail: the written package does not carry the weapon
+protection apryse B4 level: hang detail: the run did not finish
+protection apryse B5 level: hang detail: the run did not finish
+protection apryse B6 level: sanitation detail: the written package does not carry the weapon
+protection apryse B7 level: preserved detail: the weapon is still in the written package
+protection apryse B8 level: preserved detail: the weapon is still in the written package
+protection apryse B9 level: hang detail: the run did not finish
+protection apryse B10 level: preserved detail: the weapon is still in the written package
 ```
 
 ## Where the safety word is the wrong name
@@ -453,7 +475,7 @@ LibreOffice on the entity package is `failed-load-exit-zero`. soffice said the s
 
 LibreOffice on the attribute package hung. The leaf of the deep package is still in the written file, so that cell is `preserved`. The other LibreOffice drops are `sanitation`.
 
-`stack-exhaustion`, not a ceiling: office-open on the deep package, Docen on the deep package and on the layout package, docs.plus on the deep package, Docxodus on the deep package. Fidus Writer on the deep package is the other kind of nest failure: its own message is a maximum on nested tags, so that cell is `bounded-refusal`.
+`stack-exhaustion`, not a ceiling: office-open on the deep package, Docen on the deep package and on the layout package, docs.plus on the deep package. Fidus Writer on the deep package is the other kind of nest failure: its own message is a maximum on nested tags, so that cell is `bounded-refusal`.
 
 `erroring`, and the log names no ceiling:
 
@@ -464,7 +486,7 @@ LibreOffice on the attribute package hung. The leaf of the deep package is still
 - GenOffice could not parse a styles part on the corrupt package.
 - SuperDoc reported unterminated markup on the decompression package. That message names no ceiling. On the attribute package it reported a malformed start tag. The attribute bomb broke the tag. That is not an attribute cap. On the entry flood and the corrupt package it said source loading does not apply. On the entity package it reported no document root.
 - office-open and Docen rejected a malformed entity. Fidus Writer rejected an external entity. wordcraft said an entity is not defined. docs.plus said an entity was not found, and on the corrupt package the XML parser rejected a tag.
-- Docxodus on the entity package and the corrupt package exited non-zero inside the wall. The cell log is a runtime script dump. It does not name a package limit. This is not a hang. No limit is invented for it.
+- Docxodus rejected the entity package's document type declaration (`Xml_DtdIsProhibitedEx`).
 
 `bounded-refusal`, because the tool named the ceiling:
 
@@ -474,9 +496,10 @@ LibreOffice on the attribute package hung. The leaf of the deep package is still
 - Folio and the Folio editor: compression ratio, part count, and a declared depth cap. The depth message is that the part is nested deeper than the cap.
 - GenOffice: part count, on the entry flood only.
 - Fidus Writer: nested tags, on the deep package.
+- Docxodus: `compression_ratio_limit_exceeded` on the decompression bomb, and `xml_depth_limit_exceeded` (128 levels) on the deep package. Its message follows a runtime dump of about 200 KB; the sandbox now writes a child's output to a file so the message is kept.
 - wordcraft: entry count, attributes of one element, and element depth. The entry-count line in the protection record says only "named ceiling". The cell log says the limit that was exceeded is the zip entry count. The password retry is wordcraft's own read path, not a second permissive pass.
 
-Plate on the attribute package is `sanitation`, not an attribute cap. wordcraft on that package is the cap. The two are not the same degree.
+Plate on the attribute package is `hang`: the run used up the sandbox's 30-second CPU budget before it wrote anything. In the 0.9.0 measurement the same package finished and was `sanitation`. Plate's code was not the cause: the 0.9.0 commit, re-run with the same lockfile on the same quiet machine, also did not finish. The cell sits at the edge of the budget. wordcraft on that package is the attribute cap.
 
 ## Kept payloads
 
@@ -490,11 +513,11 @@ Plate on the external-relationship package is `sanitation`: a source was unavail
 
 Fidus Writer's drops, including the layout package, are `sanitation`. canvas-editor's finished drops are `sanitation`. Its decompression, attribute, and layout cells hung at the wall clock. A hang is not a catch.
 
-Docxodus, office-open, Docen, and the eigenpal lanes preserve the decompression bomb, the entry flood, zip-slip, the external relationships, and, except where a row above says otherwise, the active content and the layout bomb. Preserving those is no protection.
+Docxodus keeps the entry flood, zip-slip, the external relationships, the active content, the layout bomb, and the corrupt parts. office-open, Docen, and the eigenpal lanes preserve the decompression bomb, the entry flood, zip-slip, the external relationships, and, except where a row above says otherwise, the active content and the layout bomb. Preserving those is no protection.
 
 ## Google Docs
 
-Google Docs is not one of the 150 cells. `Google Docs.app` on this Mac is a Drive launcher. It does not parse a package locally. The imports ran on Google's servers. A file was saved to `~/Downloads` only when the import produced a document. B1, B3, B4, B5, and B9 have no file there. Those five imports fully failed.
+Google Docs is not one of the 160 cells. `Google Docs.app` on this Mac is a Drive launcher. It does not parse a package locally. The imports ran on Google's servers. A file was saved to `~/Downloads` only when the import produced a document. B1, B3, B4, B5, and B9 have no file there. Those five imports fully failed.
 
 The saved files are `~/Downloads/B2.docx`, `B6.docx`, `B7.docx`, `B8.docx`, and `B10.docx`. A second save of the entry flood and of the active-content package has the same part bytes as the first save. The five first saves have the same part bytes as each other. The zip containers differ. Each one is a rewrite: generated styles, settings, numbering, a font table, and a theme. The body is one paragraph, `BOMB_BODY_OK`.
 
@@ -527,13 +550,13 @@ The mean is 7.0 divided by 10, which is 0.70. No local process exit was recorded
 
 ## What Microsoft Word protects against
 
-This section is the interim note in `reports/Report E - What Word Protects Against (2026).md`, copied here on 2026-10-31. It is not the seatbelt matrix. The fenced log above still says Word was not opened. That fence is the entry that refuses to run. This run did open Word.
+This section is the interim note in `reports/Report D2 - What Word Protects Against (2026).md`, copied here on 2026-10-31 before that report was finalised. The final report supersedes it: there every fixture but E6 was opened in Word, and two jubarte binaries were run on all 33 fixtures. It is not the seatbelt matrix. The fenced log above still says Word was not opened. That fence is the entry that refuses to run. This run did open Word.
 
-Two files are named Report E. The grade 0.65 is jubarte 0.14.0. The jubarte column in the table below is binary 0.16.0+6bf2efb43. Those are not the same run.
+The grade 0.65 is jubarte 0.14.0, in Report D1. The jubarte column in the table below is binary 0.16.0+6bf2efb43. Those are not the same run.
 
 CLEAN in the table means a PDF was written and no dialog appeared. That is not the protection ladder in this report, so this table is not turned into a float grade. Word's B6 through B10, the nested-table probes, the network probes, and the element-count series are still pending. jubarte 0.16.0+6bf2efb43 has been run on all 28 fixtures. The jubarte column below is that run. The source note says 11 of 28 Word fixtures. `results_word.tsv` has 12 finished Word rows, and one of them is the control.
 
-**Status: Word is still interim (2026-10-31).** The Word column below is the interim note. jubarte
+**Status when copied: Word was still interim (2026-10-31); superseded by the final report.** The Word column below is the interim note. jubarte
 0.16.0+6bf2efb43 was run the same day on all 28 fixtures. Rows marked *pending* are still open for Word.
 
 Companion to `jubarte-redlines/docs/bomb_prevention.md` (jubarte 0.14.0, `read` only, no Word). This report

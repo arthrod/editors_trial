@@ -1,4 +1,4 @@
-# Word experiment evidence (Reports D and E)
+# Word experiment evidence (Reports D and D2)
 
 The run journal and raw logs from opening the hostile fixtures in Microsoft Word
 for Mac and in jubarte.

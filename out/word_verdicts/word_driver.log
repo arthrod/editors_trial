@@ -1,0 +1,53 @@
+2026-11-01 12:47:26.078 | INFO     | __main__:warm:1476 - [word] launching Word in the background, running: open -g -a '/Applications/Microsoft Word.app'
+2026-11-01 12:47:29.178 | INFO     | __main__:warm:1483 - [word] Word answered after 3 s; alerts off
+2026-11-01 12:47:29.582 | INFO     | __main__:preflight:3042 - [word] preflight: word_pid=6851 open_documents=0 started_clean=True launched_by_us=True close_documents=True
+2026-11-01 12:47:29.584 | INFO     | __main__:preflight:3081 - [word] preflight: closing every document (health check), running: osascript -e 'tell application "Microsoft Word" to close every document saving no'
+2026-11-01 12:47:29.862 | INFO     | __main__:_run_logged:1646 - [word] preflight: returned rc=0 in 0.3 s, no value came back (AppleScript 'missing value')
+2026-11-01 12:47:29.866 | INFO     | __main__:convert_folder:2696 - [word] export: one_osascript=True documents=16 accept_all=False reject_all=False
+2026-11-01 12:47:29.874 | INFO     | __main__:_convert_batched:2908 - [batch] one osascript for 16 document(s)
+2026-11-01 12:47:34.878 | INFO     | __main__:_loop:2095 - [batch pdf 1] 2/16
+2026-11-01 12:47:39.902 | INFO     | __main__:_loop:2095 - [batch pdf 1] 5/16
+2026-11-01 12:47:44.930 | INFO     | __main__:_loop:2095 - [batch pdf 1] 6/16
+2026-11-01 12:47:47.271 | INFO     | __main__:_note_dialogs:1074 - [watchdog] Microsoft Word shows button 'Yes'
+2026-11-01 12:47:47.278 | INFO     | __main__:_note_dialogs:1074 - [watchdog] Microsoft Word shows button 'No'
+2026-11-01 12:47:47.279 | INFO     | __main__:_note_dialogs:1077 - [watchdog] Microsoft Word says: 'Word found unreadable content in 00008__trial__folio-editor.docx. Do you want to recover the contents of this document? If you trust the source of this document, click Yes.'
+2026-11-01 12:47:54.986 | INFO     | __main__:_nudge:2064 - [focus] item 9/16 not finished after 10 s; bringing Word forward to look for an alert
+2026-11-01 12:47:56.481 | WARNING  | __main__:_decline_repair:1110 - [watchdog] repair prompt declined via 'No' then 'OK' with Word brought forward; Word said: "Word found unreadable content in 00008__trial__folio-editor.docx. Do you want to recover the contents of this document? If you trust the source of this document, click Yes."
+2026-11-01 12:47:56.495 | WARNING  | __main__:_decline_repair:1113 - [watchdog] after the No, Word showed 'OK'; Word said: "Word experienced an error trying to open the file.
+Try these suggestions.
+* Check the file permissions for the document or drive.
+* Make sure there is sufficient free memory and disk space.
+* Open the file with the Text Recovery converter.
+(00008__trial__folio-editor.docx)"
+2026-11-01 12:48:10.009 | INFO     | __main__:_nudge:2064 - [focus] item 10/16 not finished after 10 s; bringing Word forward to look for an alert
+2026-11-01 12:48:40.028 | WARNING  | __main__:run_batch_with_resume:2308 - [batch pdf] pass 1 ended at item 7: open produced 0 new documents, none named 00007__trial__fidus.docx; refusing to guess (loaded empty); item 8: open produced 0 new documents, none named 00008__trial__folio-editor.docx; refusing to guess (loaded empty); item 9: open produced 0 new documents, none named 00009__trial__folio.docx; refusing to guess (loaded empty); 6 item(s) not reached, 3 to retry. Recovering Word (see the [word] line), then pass 2 runs them, retried items last (0 of 3 stalled passes used)
+2026-11-01 12:48:40.030 | WARNING  | __main__:run_batch_with_resume:2320 - [batch pdf] Word returned nothing for 4 document(s) in a row; bringing it forward once to look for a modal, then restarting it
+2026-11-01 12:48:56.245 | INFO     | __main__:_report:2046 - [batch pdf 1] item 10/16 finished while I was looking (10 done now; it had been open 30 s when the probes started, which took 26 s); nothing is stuck, report dropped
+2026-11-01 12:49:01.150 | WARNING  | __main__:recycle:1594 - [word] recovery 1: because Word returned nothing for 4 document(s) in a row (it answers, but opens nothing); asking Word to quit, running: osascript -e 'tell application "Microsoft Word" to quit saving no'
+2026-11-01 12:49:01.422 | INFO     | __main__:_run_logged:1646 - [word] recovery 1: returned rc=0 in 0.3 s, no output
+2026-11-01 12:49:22.114 | INFO     | __main__:recycle:1597 - [word] recovery 1: Word quit on request
+2026-11-01 12:49:22.164 | INFO     | __main__:warm:1476 - [word] launching Word in the background, running: open -g -a '/Applications/Microsoft Word.app'
+2026-11-01 12:49:25.955 | INFO     | __main__:warm:1483 - [word] Word answered after 4 s; alerts off
+2026-11-01 12:49:30.968 | INFO     | __main__:_loop:2095 - [batch pdf 2] 1/9
+2026-11-01 12:49:35.977 | INFO     | __main__:_loop:2095 - [batch pdf 2] 2/9
+2026-11-01 12:49:41.003 | INFO     | __main__:_loop:2095 - [batch pdf 2] 5/9
+2026-11-01 12:49:45.675 | WARNING  | __main__:run_batch_with_resume:2308 - [batch pdf] pass 2 ended at item 2: open produced 0 new documents, none named 00002__trial__docen.docx; refusing to guess (loaded empty); item 7: open produced 0 new documents, none named 00007__trial__fidus.docx; refusing to guess (loaded empty); item 9: open produced 0 new documents, none named 00009__trial__folio.docx; refusing to guess (loaded empty); 0 item(s) not reached, 1 to retry. Recovering Word (see the [word] line), then pass 3 runs them, retried items last (0 of 3 stalled passes used)
+2026-11-01 12:49:45.676 | WARNING  | __main__:run_batch_with_resume:2320 - [batch pdf] Word returned nothing for 4 document(s) in a row; bringing it forward once to look for a modal, then restarting it
+2026-11-01 12:50:06.737 | WARNING  | __main__:recycle:1571 - [word] recovery 2: Word's process is gone (it crashed); relaunching it
+2026-11-01 12:50:06.788 | INFO     | __main__:warm:1476 - [word] launching Word in the background, running: open -g -a '/Applications/Microsoft Word.app'
+2026-11-01 12:50:11.450 | INFO     | __main__:warm:1483 - [word] Word answered after 5 s; alerts off
+2026-11-01 12:50:14.671 | INFO     | __main__:_note_dialogs:1077 - [watchdog] Microsoft Word says: 'Word found unreadable content in 00012__trial__officeopen.docx. Do you want to recover the contents of this document? If you trust the source of this document, click Yes.'
+2026-11-01 12:50:15.453 | WARNING  | __main__:_decline_repair:1110 - [watchdog] repair prompt declined via 'No' then 'OK' with Word brought forward; Word said: "Word found unreadable content in 00012__trial__officeopen.docx. Do you want to recover the contents of this document? If you trust the source of this document, click Yes."
+2026-11-01 12:50:15.454 | WARNING  | __main__:_decline_repair:1113 - [watchdog] after the No, Word showed 'OK'; Word said: "Word experienced an error trying to open the file.
+Try these suggestions.
+* Check the file permissions for the document or drive.
+* Make sure there is sufficient free memory and disk space.
+* Open the file with the Text Recovery converter.
+(00012__trial__officeopen.docx)"
+2026-11-01 12:50:15.455 | ERROR    | __main__:_convert_batched:2959 - [batch] FAIL: docen.docx — Word could not load it in 2 passes: open produced 0 new documents, none named 00002__trial__docen.docx; refusing to guess
+2026-11-01 12:50:15.461 | ERROR    | __main__:_convert_batched:2959 - [batch] FAIL: fidus.docx — Word could not load it in 2 passes: open produced 0 new documents, none named 00007__trial__fidus.docx; refusing to guess
+2026-11-01 12:50:15.462 | ERROR    | __main__:_convert_batched:2959 - [batch] FAIL: folio-editor.docx — repair prompt declined; Word could not read it: open produced 0 new documents, none named 00008__trial__folio-editor.docx; refusing to guess
+2026-11-01 12:50:15.463 | ERROR    | __main__:_convert_batched:2959 - [batch] FAIL: folio.docx — Word could not load it in 2 passes: open produced 0 new documents, none named 00009__trial__folio.docx; refusing to guess
+2026-11-01 12:50:15.465 | ERROR    | __main__:_convert_batched:2959 - [batch] FAIL: officeopen.docx — Word could not load it in 2 passes: open produced 0 new documents, none named 00012__trial__officeopen.docx; refusing to guess
+2026-11-01 12:50:15.479 | INFO     | __main__:convert_folder:2715 - [manifest] appended 16 line(s) to /var/folders/7w/dvl66_d13wx2v88nv5rcwltc0000gn/T/trial-word-out-nrcne_9t/manifest.jsonl
+2026-11-01 12:50:19.088 | INFO     | __main__:stop:1274 - [watchdog] tally: declined=2 dismissed=0 granted=0 forwarded=2 alerts_seen=2

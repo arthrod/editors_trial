@@ -1,4 +1,4 @@
-sandbox: libreoffice in docker, network none, memory 2g, read-only root. editors under seatbelt. External network is denied. Localhost and unix sockets inside the work directory are allowed, because the editors' own tooling binds them. Writes stay in the work directory, plus the canvas vitest config cache. The editors are macOS binaries and were not run inside the Linux container.
+sandbox: libreoffice in docker, network none, memory 2g, read-only root. editors under seatbelt. External network is denied. Localhost and unix sockets inside the work directory are allowed, because the editors' own tooling binds them. Writes stay in the work directory, plus the canvas vitest config cache. Apryse's profile also allows Mach port registration, which Chromium needs to start; Chromium's own sandbox cannot start inside seatbelt and is off for that tool. The editors are macOS binaries and were not run inside the Linux container.
 taxonomy: preserving a hostile payload is not the same single result as a crash.
 reference Word fidelity: not-run safety: not-run Word was not opened. LibreOffice is the comparison.
 B7 note: NTLM credential leak was not measured. No hash collector was started. External network and UNC were denied. Localhost was allowed so a tool loopback stub and the 127.0.0.1 probe are not blocked by the seatbelt.
@@ -28,7 +28,8 @@ tool fidus B1 fidelity: preserved safety: ok catch: no
 tool wordcraft B1 fidelity: preserved safety: ok catch: no
 tool canvas B1 fidelity: refused safety: hang catch: no
 tool docsplus B1 fidelity: dropped safety: ok catch: yes
-tool docxodus B1 fidelity: preserved safety: ok catch: no
+tool docxodus B1 fidelity: refused safety: bounded-reject catch: yes
+tool apryse B1 fidelity: dropped safety: ok catch: yes
 tool plate B2 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal B2 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal-editor B2 fidelity: refused safety: bounded-reject catch: yes
@@ -43,7 +44,8 @@ tool wordcraft B2 fidelity: refused safety: bounded-reject catch: yes
 tool canvas B2 fidelity: dropped safety: ok catch: yes
 tool docsplus B2 fidelity: dropped safety: ok catch: yes
 tool docxodus B2 fidelity: preserved safety: ok catch: no
-tool plate B3 fidelity: dropped safety: ok catch: yes
+tool apryse B2 fidelity: dropped safety: ok catch: yes
+tool plate B3 fidelity: refused safety: hang catch: no
 tool eigenpal B3 fidelity: dropped safety: ok catch: yes
 tool eigenpal-editor B3 fidelity: dropped safety: ok catch: yes
 tool folio B3 fidelity: dropped safety: ok catch: yes
@@ -57,6 +59,7 @@ tool wordcraft B3 fidelity: refused safety: bounded-reject catch: yes
 tool canvas B3 fidelity: refused safety: hang catch: no
 tool docsplus B3 fidelity: dropped safety: ok catch: yes
 tool docxodus B3 fidelity: dropped safety: ok catch: yes
+tool apryse B3 fidelity: dropped safety: ok catch: yes
 tool plate B4 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal B4 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal-editor B4 fidelity: refused safety: bounded-reject catch: yes
@@ -71,6 +74,7 @@ tool wordcraft B4 fidelity: refused safety: bounded-reject catch: yes
 tool canvas B4 fidelity: preserved safety: ok catch: no
 tool docsplus B4 fidelity: refused safety: bounded-reject catch: yes
 tool docxodus B4 fidelity: refused safety: bounded-reject catch: yes
+tool apryse B4 fidelity: refused safety: hang catch: no
 tool plate B5 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal B5 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal-editor B5 fidelity: refused safety: bounded-reject catch: yes
@@ -85,6 +89,7 @@ tool wordcraft B5 fidelity: refused safety: bounded-reject catch: yes
 tool canvas B5 fidelity: dropped safety: ok catch: yes
 tool docsplus B5 fidelity: refused safety: bounded-reject catch: yes
 tool docxodus B5 fidelity: refused safety: bounded-reject catch: yes
+tool apryse B5 fidelity: refused safety: hang catch: no
 tool plate B6 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal B6 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal-editor B6 fidelity: refused safety: bounded-reject catch: yes
@@ -99,6 +104,7 @@ tool wordcraft B6 fidelity: dropped safety: ok catch: yes
 tool canvas B6 fidelity: dropped safety: ok catch: yes
 tool docsplus B6 fidelity: dropped safety: ok catch: yes
 tool docxodus B6 fidelity: preserved safety: ok catch: no
+tool apryse B6 fidelity: dropped safety: ok catch: yes
 tool plate B7 fidelity: dropped safety: ok catch: yes
 tool eigenpal B7 fidelity: preserved safety: ok catch: no
 tool eigenpal-editor B7 fidelity: preserved safety: ok catch: no
@@ -113,6 +119,7 @@ tool wordcraft B7 fidelity: dropped safety: ok catch: yes
 tool canvas B7 fidelity: dropped safety: ok catch: yes
 tool docsplus B7 fidelity: dropped safety: ok catch: yes
 tool docxodus B7 fidelity: preserved safety: ok catch: no
+tool apryse B7 fidelity: preserved safety: ok catch: no
 tool plate B8 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal B8 fidelity: preserved safety: ok catch: no
 tool eigenpal-editor B8 fidelity: preserved safety: ok catch: no
@@ -127,6 +134,7 @@ tool wordcraft B8 fidelity: preserved safety: ok catch: no
 tool canvas B8 fidelity: dropped safety: ok catch: yes
 tool docsplus B8 fidelity: dropped safety: ok catch: yes
 tool docxodus B8 fidelity: preserved safety: ok catch: no
+tool apryse B8 fidelity: preserved safety: ok catch: no
 tool plate B9 fidelity: preserved safety: ok catch: no
 tool eigenpal B9 fidelity: preserved safety: ok catch: no
 tool eigenpal-editor B9 fidelity: preserved safety: ok catch: no
@@ -141,6 +149,7 @@ tool wordcraft B9 fidelity: preserved safety: ok catch: no
 tool canvas B9 fidelity: refused safety: hang catch: no
 tool docsplus B9 fidelity: preserved safety: ok catch: no
 tool docxodus B9 fidelity: preserved safety: ok catch: no
+tool apryse B9 fidelity: refused safety: hang catch: no
 tool plate B10 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal B10 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal-editor B10 fidelity: refused safety: bounded-reject catch: yes
@@ -154,4 +163,5 @@ tool fidus B10 fidelity: dropped safety: ok catch: yes
 tool wordcraft B10 fidelity: dropped safety: ok catch: yes
 tool canvas B10 fidelity: dropped safety: ok catch: yes
 tool docsplus B10 fidelity: refused safety: bounded-reject catch: yes
-tool docxodus B10 fidelity: refused safety: bounded-reject catch: yes
+tool docxodus B10 fidelity: preserved safety: ok catch: no
+tool apryse B10 fidelity: preserved safety: ok catch: no

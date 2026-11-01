@@ -1,15 +1,15 @@
 {
-  "name": "docxodus",
-  "url": "file:///Users/arthrod/temp/T/editors_trial/out/ui/docxodus.html",
+  "name": "docxodus_p1",
+  "url": "file:///tmp/ui-run2/docxodus.html",
   "viewport": [
     1000,
     1180
   ],
   "fullPage": false,
   "title": "",
-  "finalUrl": "file:///Users/arthrod/temp/T/editors_trial/out/ui/docxodus.html",
+  "finalUrl": "file:///tmp/ui-run2/docxodus.html",
   "consoleLog": [
-    "[nav] 200 file:///Users/arthrod/temp/T/editors_trial/out/ui/docxodus.html"
+    "[nav] 200 file:///tmp/ui-run2/docxodus.html"
   ],
   "pageErrors": [],
   "failedRequests": [],

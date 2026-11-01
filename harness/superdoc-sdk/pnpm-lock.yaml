@@ -1,0 +1,73 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      '@superdoc/sdk':
+        specifier: 2.26.0-next.16
+        version: 2.26.0-next.16
+
+packages:
+
+  '@superdoc/sdk-darwin-arm64@2.26.0-next.16':
+    resolution: {integrity: sha512-0Nlt+vIJir8s/UNTF1IUqGG01uU7LJNpdrJGEiLRUo3TuP1Q9vt2YfcGM2YpCF0h5zfXyNrM19ZzT73WTixuww==}
+    cpu: [arm64]
+    os: [darwin]
+    hasBin: true
+
+  '@superdoc/sdk-darwin-x64@2.26.0-next.16':
+    resolution: {integrity: sha512-Rg4cMHgTmfzTLSw+XXIU/Eb3Qpya0jyp4xlYhgUBbzN9HwJ2Vxg20XGKlwR7ygyejUuavDZTr+0k+vk6u/2ZPQ==}
+    cpu: [x64]
+    os: [darwin]
+    hasBin: true
+
+  '@superdoc/sdk-linux-arm64@2.26.0-next.16':
+    resolution: {integrity: sha512-/O7slHn41T1AQKrmPNeueNVUPl1NY1nHNHCY3L9LQ458nKkfJqDt2+pNO7u9jdW1fhq4zTXQQ6R1duS+4HTQzg==}
+    cpu: [arm64]
+    os: [linux]
+    hasBin: true
+
+  '@superdoc/sdk-linux-x64@2.26.0-next.16':
+    resolution: {integrity: sha512-122x1fQMUkQ2RdKV4GzKkh1cbKEyi/CccsLfzbbL+7Lhc9OFwOW/Bjymdf7DnGz1HFscxD9u10IFkfOyh3n/xQ==}
+    cpu: [x64]
+    os: [linux]
+    hasBin: true
+
+  '@superdoc/sdk-windows-x64@2.26.0-next.16':
+    resolution: {integrity: sha512-QhrPbBNgbjCJCw4FyXh2V7Vh0ZSvF2/m3jDHcC3M+iGagz6hxEF24XXoGjgaZdAGG2So66JHjgfkzdq6SStEfQ==}
+    cpu: [x64]
+    os: [win32]
+    hasBin: true
+
+  '@superdoc/sdk@2.26.0-next.16':
+    resolution: {integrity: sha512-6HctqEDHNOPCeNSi4/7haiQs9EHv5BzK+7awyFD+RUEL9HZnKlIvBd37hjcmdlFJtInyJ6b9lTt+cHNEgXXFJA==}
+
+snapshots:
+
+  '@superdoc/sdk-darwin-arm64@2.26.0-next.16':
+    optional: true
+
+  '@superdoc/sdk-darwin-x64@2.26.0-next.16':
+    optional: true
+
+  '@superdoc/sdk-linux-arm64@2.26.0-next.16':
+    optional: true
+
+  '@superdoc/sdk-linux-x64@2.26.0-next.16':
+    optional: true
+
+  '@superdoc/sdk-windows-x64@2.26.0-next.16':
+    optional: true
+
+  '@superdoc/sdk@2.26.0-next.16':
+    optionalDependencies:
+      '@superdoc/sdk-darwin-arm64': 2.26.0-next.16
+      '@superdoc/sdk-darwin-x64': 2.26.0-next.16
+      '@superdoc/sdk-linux-arm64': 2.26.0-next.16
+      '@superdoc/sdk-linux-x64': 2.26.0-next.16
+      '@superdoc/sdk-windows-x64': 2.26.0-next.16

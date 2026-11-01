@@ -11,11 +11,12 @@ The WORD column for the corpus is NOT read from the automated probe.  The
 probe is a TEXT probe, and two constructs in this corpus are drawn by Word as
 vector outlines - the OMML equation and the w14:textOutline run - so the
 probe reports them as absent when Word in fact draws them (proven by A/B
-pixel diffs: 2,069 px on page 4 and 1,709 px on page 2).  The corpus column
+pixel diffs: out/ab/ab_compare.json, Report C section 6.3).  The corpus column
 therefore uses verified values, and the editor columns are read from the
 package, which is a reliable measurement.
 
 usage: python3 build/inventory_table.py > out/render/inventory_table.md
+       (facts.py publishes table() as {{inventory.table}} for Report C section 4.1)
 """
 import json
 import os
@@ -24,7 +25,7 @@ BASE = "/Users/arthrod/temp/T/editors_trial"
 
 EDITORS = ["superdoc", "folio", "genoffice", "eigenpal", "office-open",
            "docen", "wordcraft", "fidus", "canvas", "docs.plus", "plate",
-           "docxodus", "libreoffice"]
+           "docxodus", "apryse", "libreoffice"]
 
 # key -> (label, Word's verified behaviour on the corpus)
 SHOW = [
@@ -49,8 +50,8 @@ SHOW = [
 ]
 
 
-def main():
-    with open(os.path.join(BASE, "out/render/render_inventory.json")) as fh:
+def table(path=os.path.join(BASE, "out/render/render_inventory.json")):
+    with open(path) as fh:
         inv = json.load(fh)
 
     out = []
@@ -69,7 +70,11 @@ def main():
             row.append("yes" if pkg else "**dropped**")
         out.append("| " + " | ".join(row) + " |")
 
-    print("\n".join(out))
+    return "\n".join(out)
+
+
+def main():
+    print(table())
 
 
 if __name__ == "__main__":

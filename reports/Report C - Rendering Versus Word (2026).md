@@ -1,4 +1,4 @@
-# Rendering: What Each Editor Actually Shows, Measured Against Word (2026-10-30)
+# Rendering: What Each Editor Actually Shows, Measured Against Word (2026-11-01)
 
 *Part C of the series. Part A covers serialization by namespace, Part A2 covers
 pass-through. This part answers one question: **when you open the corpus in
@@ -10,27 +10,29 @@ page — and how does it compare with what Microsoft Word puts on the page?***
 ## TL;DR
 
 **Every editor was hosted locally, the corpus was loaded into the running
-application, and the application was screenshotted. Ten of the thirteen render
+application, and the application was screenshotted. Eleven of the fourteen render
 the document. One has no user interface at all. One crashes on it.**
 
 The headline results:
 
-1. **Ten editors render the corpus recognisably as the same document:**
+1. **Eleven editors render the corpus recognisably as the same document:**
    SuperDoc, Folio, GenOffice, eigenpal, Docen, WordCraft, Plate.js, docs.plus,
-   Fidus Writer and LibreOffice. **LibreOffice is the only one that also
-   reproduces Word's pagination exactly (6 pages) and every page furniture** —
-   the header, the page number, the footer, the footnote body at the foot of
-   its page and the landscape section.
+   Fidus Writer, LibreOffice and Apryse WebViewer. **LibreOffice and Apryse
+   WebViewer also reproduce Word's pagination exactly (6 pages) and every page
+   furniture** — the header, the page number, the footer, the footnote body at
+   the foot of its page and the landscape section. Apryse, the one commercial
+   tool, keeps the comment only in a side panel and draws its trial watermark
+   on every page (§2.14).
 
 2. **One editor is on the good side of all three axes at once.**
    **Docxodus** — a .NET OOXML engine published as WebAssembly — reproduces
    Word's pagination (6 pages) *and* Word's page geometry to the pixel,
    keeps **all 35 parts** of the corpus with **zero changed and zero dropped**,
    keeps **every `w:` element** and the `w15` / `w16cid` / `w16du` / `w10`
-   namespaces that every other editor loses, has **zero dangling relationship
-   references**, scores **100.0 %** on the 97-check round-trip test, and
-   produces a file Word opens and renders **pixel-identically** (83 differing
-   pixels across six pages — the same 83 SuperDoc leaves).
+   namespaces that nine of the other thirteen lose, has **zero dangling relationship
+   references**, scores **100.0 %** on the 99-check round-trip test, and
+   produces a file Word opens and renders **pixel-identical** (0 differing
+   pixels across 6 pages; SuperDoc: 0).
 
 3. **Two editors disagree with Word about what the reader sees.**
    **Docen** renders the chart with three differently-coloured bars and a
@@ -70,9 +72,9 @@ The headline results:
 
 8. **The SmartArt claim in the previous draft of this report was correct, and
    is now proven rather than asserted — and corroborated by a second engine.**
-   Word draws **zero** pixels in the 142,766-pixel band where the corpus's
+   Word draws **zero** pixels in the 469,131-pixel band where the corpus's
    diagram sits. A **positive control** — the same band filled with a
-   checkerboard — lights up with **73,065** differing pixels, so the
+   checkerboard — lights up with **269,641** differing pixels, so the
    measurement is demonstrably sensitive. **Docxodus independently reserves the
    same band and draws a "[SMARTART]" placeholder in it**, naming the element
    that defeated it (`relIds`). §5 gives the full argument, including a
@@ -94,14 +96,14 @@ specific way the measurement could be wrong.
 | **(c) load the file with the tool** | The corpus was opened **through the editor's own import path** — its file input, its `?file=` fixture parameter, its Word-plugin API, or its native `open`. | Measuring a hand-built model of the document instead of the editor's reading of it. |
 | **(d) let it render** | The application was left running until its own ready signal (status bar, canvas count, layout settle). | Measuring a half-loaded document. |
 | **(e) screenshot the app** | A Playwright screenshot of the running application showing the rendered document. | Measuring a headless export, which is a different question. |
-| **(f) compare with Word** | Word's **own** PDF export of the same corpus, rasterised at 110 dpi, side by side with the editor's screenshot. | Comparing against a proxy renderer's idea of Word. |
+| **(f) compare with Word** | Word's **own** PDF export of the same corpus, rasterised at 200 dpi, side by side with the editor's screenshot. | Comparing against a proxy renderer's idea of Word. |
 
 ### 1.2 Why Word's own PDF export is the reference
 
 Word 16.115 was driven through AppleScript to export the corpus to PDF
 (`build/word_pdf.py`). That PDF is the application's own output, and it is the
 only rendering in this study produced by the application the document was
-written for. Its six pages were rasterised to PNG at 110 dpi and are the
+written for. Its six pages were rasterised to PNG at 200 dpi and are the
 "Word" column of every comparison below.
 
 **One trap is worth recording because it invalidates a whole class of
@@ -161,7 +163,7 @@ balloon panel is visible on the right, and **the whole page is scaled down by
 a factor of 0.7485** to make room for it. That is why the 1-inch left margin
 appears at 0.75 inches and why the chart's nominal 6.0-inch width is drawn
 4.49 inches wide. The SmartArt band is 4.49 in × 2.62 in as rendered —
-494 × 289 pixels at 110 dpi — even though its `wp:extent` says 6.0 in ×
+897 × 523 pixels at 200 dpi — even though its `wp:extent` says 6.0 in ×
 3.5 in.
 
 ---
@@ -203,8 +205,8 @@ that path.
 
 ![Folio's own UI at the page-3 constructs, against Word's page 3](../out/ui/figures/fig_ui_folio_p3.png)
 
-Folio is the only editor in the study that reproduces **Word's comment
-balloon** — a rounded card in the right margin reading "Fixture Author / Jan
+Folio is one of two tools in the study, with Docxodus (§2.13), that
+reproduce **Word's comment balloon** — a rounded card in the right margin reading "Fixture Author / Jan
 15, 4:30 AM / This is a comment body." — and it reproduces the tracked-change
 table exactly as Word does: the inserted row plain, the deleted row struck
 through in red.
@@ -222,7 +224,7 @@ mislabelled or mis-scaled; it is absent.
 content is not imported; and Folio **shows** the `w:vanish` ("hidden text")
 run, which Word hides.
 
-### 2.3 GenOffice — the only editor that labels the SmartArt band
+### 2.3 GenOffice — the only editor that draws the SmartArt's node texts
 
 **Hosted:** `repos/genoffice/apps/docs` is an Electron application whose
 renderer is ordinary web code. The renderer was served directly by `vite`
@@ -244,13 +246,21 @@ containing the node texts "Step one" and "Step two"**. The two editors show
 the reader *different information in the same place*: Word shows nothing,
 GenOffice shows the diagram's data as text.
 
-**Other differences from Word:** deletions are `display:none` — the deleted
-runs and the deleted table row are **not rendered at all**, where Word draws
-them struck through in red; insertions are drawn as ordinary black text
-without Word's red underline; the equation is MathML at 11 pt with a literal
+**Tracked changes are new in this release.** At the commit Report C first
+measured (`a538d04`, 2026-10-29) GenOffice hid every deletion and drew
+insertions as plain black text. At the current pin it draws them the way Word
+does: insertions underlined in red, deletions struck through in red, the
+`w:moveFrom` / `w:moveTo` pair in green, formatting balloons in the margin
+("Formatted: Bold, Not Italic"), the inserted table row tinted blue and the
+deleted row struck through on a pink tint, and the comment as a card with its
+body. The older commit, captured again with the same script, reproduces the
+earlier picture pixel for pixel, so the change is GenOffice's, not the
+harness's. One side effect is visible: the table now breaks across pages 2
+and 3, with the deleted row on page 3 under a repeated header row.
+
+**Other differences from Word:** the equation is MathML at 11 pt with a literal
 `^` instead of a raised exponent; the `w14:textOutline` run is applied as
-`-webkit-text-stroke` on already-black text and is therefore invisible; the
-comment is a green tint plus a small bubble glyph with no body text; and
+`-webkit-text-stroke` on already-black text and is therefore invisible; and
 GenOffice drops the vertical-merge cell's continuation text.
 
 ### 2.4 eigenpal — a near-exact page-3 reproduction
@@ -359,7 +369,7 @@ footer.
 
 **Differences from Word:** the chart is **redrawn from WordCraft's own
 model** — the same bars and the same labels, but WordCraft's own axis, which
-is why §6 measures 12,541 differing pixels here against Word's 83 for
+is why §6 measures 28,837 differing pixels here against 0 for
 SuperDoc; and the comment has a highlighted anchor but **no balloon and no
 body text**.
 
@@ -660,9 +670,8 @@ reason given in *Gaps*, item 4.
 
 ![LibreOffice's own render of page 3, against Word's page 3](../out/ui/figures/fig_ui_libreoffice_p3.png)
 
-**LibreOffice is the only application in the study that reproduces Word's
-pagination exactly — 6 pages — and the only one that reproduces *every* page
-furniture**: the "Default header", the page number in the header, the "Footer
+**LibreOffice reproduces Word's pagination exactly — 6 pages — and *every*
+page furniture**: the "Default header", the page number in the header, the "Footer
 text page3" footer, the footnote body with its separator rule at the foot of
 page 3, and the landscape section.
 
@@ -689,19 +698,20 @@ rectangle, and the `w14:textOutline` run.
 
 ### 2.13 Docxodus — the engine that draws what it cannot render
 
-**What it is.** Docxodus (JSv4/Docxodus, v14.2.0) is a .NET OOXML engine in
+**What it is.** Docxodus (JSv4/Docxodus, v15.0.0) is a .NET OOXML engine in
 the OpenXML-PowerTools lineage, published as a WebAssembly build. It is the
 only tool in this study that is not a browser-based editor: it ships a
 **DOCX→HTML paginated materializer**, an **in-browser block editor**
 (`DocxEditor`), a **package reader/writer** (`DocxSession`), and a **CLI**
 (`docxodus convert`).
 
-**How it was hosted.** The published npm package `docxodus@14.2.0` was
+**How it was hosted.** The published npm package `docxodus@15.0.0` was
 installed into `harness/ui/docxodus/`, and the product's own export CLI
-(`@docxodus/export@14.2.0`) was driven exactly as it ships:
+(`@docxodus/export@15.0.0`) was driven exactly as it ships, once
+with `--to html` and once with `--to pdf`:
 
 ```
-docxodus convert fixture/complex.docx --to html --to pdf \
+docxodus convert fixture/complex.docx --to html --output docxodus.html \
   --review-profile markup --markup-presentation word \
   --comments margin --comment-column-placement balloons \
   --font-directory <Carlito, Caladea, Liberation> \
@@ -725,7 +735,7 @@ fixed.
 
 **Docxodus reproduces Word's geometry exactly and then tells you what it
 could not draw.** Its page boxes are 816 × 1056 px — 8.5 × 11 in at 96 dpi —
-its landscape page is 1210 × 935 at 110 dpi, and **the rasterised page
+its landscape page is 11 × 8.5 in, and **the rasterised page
 geometry is identical, to the pixel, to Word's own export of the same file**.
 It paginates into **6 pages**, the same as Word, and it reproduces Word's
 Print-Markup layout: a scaled content column beside a grey markup area, with
@@ -808,15 +818,73 @@ Docxodus's own `DocxSession` and writing it back with no edits gives:
 | **content changed** | **0** | 1 (Folio) |
 | **dropped** | **0** | 0 |
 | dangling relationship ids | **0** | 0 |
-| 97-check round-trip score | **100.0 %** | 100.0 % (SuperDoc) |
+| 99-check round-trip score | **100.0 %** | 100.0 % (SuperDoc) |
 | LibreOffice render of the result | **6 pages, text identical** | 6 pages, text identical (SuperDoc, Folio, eigenpal) |
 
 **Zero parts changed and zero dropped is unique.** SuperDoc also scores
 100.0 %, but seven of its parts are genuinely **changed** (`document.xml`,
 `endnotes.xml`, `footnotes.xml`, `header1/2.xml`, `footer1/2.xml`); Docxodus's
 equivalent parts are all **re-serialised** — byte-different, tree-identical.
-And Docxodus is the **only** editor that keeps the `w15`, `w16cid`, `w16du`
-and `w10` namespaces, which every other editor drops or mangles (§7, Report A).
+And Docxodus keeps the `w15`, `w16cid`, `w16du` and `w10` namespaces, which
+nine of the other thirteen drop (Report A; SuperDoc, Folio, GenOffice and
+eigenpal keep them too).
+
+### 2.14 Apryse WebViewer — Word's pages, and a trial stamp on every one
+
+**What it is.** Apryse WebViewer (`@pdftron/webviewer@12.2.1`) is a
+commercial, closed-source JavaScript document SDK from Apryse Software Inc.
+(formerly PDFTron). Its DOCX Editor runs Apryse's own office engine as
+WebAssembly and lays the document out in pages on a canvas. It is the only
+commercial tool in this study, and it was run with a trial license key, which
+draws a faint "apryse" watermark across every page. The watermark is Apryse's,
+not the document's; it is left in the figures, not removed. This benchmark is not
+affiliated with, sponsored by or endorsed by Apryse.
+
+**Hosted:** a host page under `harness/apryse/` (`vite`, port 5210), adapted
+from Apryse's own office-editor showcase, with `enableOfficeEditing: true`. The
+page requests `/sample.docx`; Playwright returned the corpus bytes for that
+path. **Because the pages are drawn on a canvas, the DOM holds no document
+text**, so the usual readiness wait and scroll-to-text cannot see them. The
+capture instead asks WebViewer itself (`harness/ui/apryse/probe.mjs`): it
+waits until WebViewer reports the document loaded, reads each page's text
+through WebViewer's API, and goes to the page that holds the target line. The
+target "A sentence with a comment" is on WebViewer's page 3 of 6, and "Text
+box content" on page 4 of 6: the same pages as in Word.
+
+![Apryse WebViewer's own UI, against Word's page 1](../out/ui/figures/fig_ui_apryse_p1.png)
+
+![Apryse WebViewer's own UI at the page-3 constructs, against Word's page 3](../out/ui/figures/fig_ui_apryse_p3.png)
+
+![Apryse WebViewer's own UI at page 4, against Word's page 4](../out/ui/figures/fig_ui_apryse_p4.png)
+
+![Apryse WebViewer with its comments panel opened, against Word's page 3](../out/ui/figures/fig_ui_apryse_comments.png)
+
+**Apryse draws Word's pages.** The corpus occupies **6 pages**, as in Word,
+and every piece of page furniture is where Word puts it: the default header,
+the page number, the footer with its page number, the footnote body at the
+foot of page 3 under a separator rule, and page 5 drawn as a landscape page.
+Page 3 shows the table with its deleted row struck through in red, the blue
+picture, and the chart with its blue bars, its 0–5 axis, its "Cat A / Cat B /
+Cat C" labels and its "Series 1" legend. Page 4 keeps the blank SmartArt band
+at the top, as Word does, then the object, the `mc:Choice` text box reading
+**"Text box content"**, the equation, and the right-to-left Hebrew line.
+Tracked insertions and deletions are both shown, underlined and struck
+through in red.
+
+**Differences from Word:**
+
+- **The comment is not drawn on the page.** Word puts a balloon with a dotted
+  leader beside "A sentence with a comment"; Apryse's page shows no marker
+  there. The comment is in the editor: clicking the toolbar's comments button
+  opens a panel reading "Comments (1)", with a card on page 3 by "Fixture
+  Author", "This is a comment body." (fourth figure).
+- **The chart has no frame.** Word draws a border around the chart area;
+  Apryse draws the plot without it.
+- **The page-1 heading is set heavier** than Word's Calibri Light, and the
+  vertical "lang" run on page 4 is set horizontally where Word stacks it.
+- **The trial watermark** is on every page. It is there because the key is a
+  trial key, and it would also be in any file Apryse saves (the main report
+  labels what that stamp adds).
 
 ---
 
@@ -836,7 +904,7 @@ where nothing can be read out of the DOM).
 | **Word 16.115 (reference)** | yes | yes | blank band | "Text box content" | yes | yes, vector | marker + body | balloon + body | both shown | full |
 | **SuperDoc** | yes | yes | blank band | "Text box content" | yes | yes | marker + body | review cards | both shown | full |
 | **Folio** | yes | **no** | blank band | "Text box content" | yes | **no** | marker + body | balloon + body | both shown | full |
-| **GenOffice** | yes | yes (SVG) | **labelled placeholder** | "Text box content" | yes | MathML, literal `^` | markers only | marker, no body | deletions hidden, insertions plain | full |
+| **GenOffice** | yes | yes (SVG) | **labelled placeholder** | "Text box content" | yes | MathML, literal `^` | markers only | card + body | both shown | full |
 | **eigenpal** | yes | yes | **"Unsupported diagram"** | "Text box content" | yes | yes | markers | plain text, no marker | both shown | full |
 | **Docen** | yes | **yes, but three series** | none | "Text box content" | **no** | **no** | footnote yes, endnote marker only | **none** | ins/del yes, moves empty | full |
 | **Office-Open** *(model)* | yes | yes | empty band | yes, both branches kept | yes | flat text | yes | balloon | record set only | yes |
@@ -847,17 +915,18 @@ where nothing can be read out of the DOM).
 | **LibreOffice** | yes | yes | blank band | "Text box content" | yes | yes | foot body | anchor only | deletions hidden | yes |
 | **Fidus Writer** | 16×16 px | **no** | none | **no** | **no** | **no** | endnote → footnote, bodies in a right column | **none** | one change bar only | **no table at all** |
 | **Docxodus** | yes | yes, no axis ticks | **"[SMARTART]" placeholder** | "Text box content" | yes | **"[MATH]" placeholder** | foot body | **balloon + body** | both shown, deletions in blue | full |
+| **Apryse WebViewer** | yes | yes, no frame | blank band | "Text box content" | yes | yes | foot body | **panel card only, no page marker** | both shown | full |
 
 ### 3.1 Seven findings from the table
 
-**(a) Four editors put *something* in the SmartArt band, and the four put
+**(a) Three editors put *something* in the SmartArt band, and the three put
 different things there.** Word reserves the band and draws nothing.
 GenOffice draws a dashed band labelled "SmartArt" containing the node texts
 "Step one" and "Step two". eigenpal draws a grey box reading **"Unsupported
 diagram"**. **Docxodus draws a large yellow box labelled "[SMARTART]"** and
 says so in its own render report: `unsupportedContent → relIds → placeholder`.
 A reader comparing them against Word sees three editors showing information
-Word does not show, and one editor showing nothing at all. This is not a
+Word does not show, where Word shows nothing at all. This is not a
 rendering bug in any of them — the corpus's diagram parts are stubs (§5) — but
 it is a genuine divergence in what the reader is told.
 
@@ -889,8 +958,9 @@ the package. The two strings are not synonyms; a reader sees different text.
 
 **(d) Comments are the least consistently rendered construct.** Only Folio
 and Office-Open's host reproduce anything close to Word's balloon. Docen
-produces **no marker at all**; eigenpal produces plain text; SuperDoc moves
-the comment into a review sidebar; GenOffice and WordCraft show an anchor
+produces **no marker at all**; eigenpal produces plain text; SuperDoc and GenOffice move
+the comment into a review sidebar; Apryse WebViewer keeps it in a comments panel that
+is closed until the reader opens it, with no marker on the page; WordCraft shows an anchor
 without the body; LibreOffice shows the anchor but never the body; and
 **Plate.js, docs.plus and Fidus Writer show nothing at all** — Plate's own
 importer says *"Comment 0 has no complete imported range"*, docs.plus drops
@@ -898,8 +968,8 @@ it, and Fidus stores the comment body in the document's `comments` field and
 never renders it.
 
 **(e) Tracked changes are shown three different ways.** Word strikes
-deletions through in red and underlines insertions. SuperDoc and eigenpal do
-the same. GenOffice and LibreOffice **hide deletions entirely** — the
+deletions through in red and underlines insertions. SuperDoc, eigenpal and (since this
+release) GenOffice do the same. LibreOffice **hides deletions entirely** — the
 document reads as if the revisions had been accepted. Docen shows the
 insertions and deletions but turns `w:moveFrom` / `w:moveTo` into **two
 empty paragraphs**. **Plate.js and docs.plus flatten every revision into plain
@@ -945,6 +1015,7 @@ identical on page 1 are not identical on the document.
 | docs.plus | none — one continuous scroll | 6 |
 | Fidus Writer | none — one continuous scroll | 6 |
 | **Docxodus** | **6 — and the same landscape page 5** | 6 |
+| **Apryse WebViewer** | **6 — and the same landscape page 5** | 6 |
 | **Office-Open** | **no pagination at all** — one continuous flow per section | 6 |
 | **Canvas-Editor** | 1 (header/footer only) | 6 |
 
@@ -971,33 +1042,33 @@ same question.
 `yes` means the construct is still present in that editor's exported DOCX.
 **dropped** means it is not.
 
-| Construct | In the corpus | Word draws it | superdoc | folio | genoffice | eigenpal | office-open | docen | wordcraft | fidus | canvas | docs.plus | plate | docxodus | libreoffice |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| the chart | yes | drawn | yes | yes | yes | yes | yes | yes | yes | **dropped** | **dropped** | **dropped** | **dropped** | yes | yes |
-| the SmartArt | yes | **not drawn** (0 px, §5) | yes | yes | yes | yes | yes | yes | yes | **dropped** | **dropped** | **dropped** | **dropped** | yes | yes |
-| the `mc:Choice` text box | yes | drawn | yes | yes | yes | yes | yes | yes | yes | **dropped** | **dropped** | **dropped** | **dropped** | yes | yes |
-| the `mc:Fallback` text | yes | not drawn (Choice wins) | yes | yes | yes | **dropped** | yes | yes | **dropped** | **dropped** | **dropped** | yes | yes | yes | **dropped** |
-| the equation | yes | drawn (vector outline) | yes | yes | yes | yes | yes | yes | yes | **dropped** | **dropped** | **dropped** | **dropped** | yes | **dropped** |
-| the comment | yes | drawn | yes | yes | yes | yes | yes | yes | yes | **dropped** | **dropped** | **dropped** | **dropped** | yes | yes |
-| the endnote body | yes | drawn | yes | yes | yes | yes | yes | yes | yes | yes | **dropped** | yes | **dropped** | yes | yes |
-| the footnote body | yes | drawn | yes | yes | yes | yes | yes | yes | yes | yes | **dropped** | yes | **dropped** | yes | yes |
-| the deleted runs | yes | drawn | yes | yes | yes | yes | yes | yes | yes | **dropped** | **dropped** | **dropped** | **dropped** | yes | yes |
-| the deleted table row | yes | drawn | yes | yes | yes | yes | yes | yes | yes | **dropped** | **dropped** | **dropped** | **dropped** | yes | yes |
-| the inserted runs | yes | drawn | yes | yes | yes | yes | yes | yes | yes | **dropped** | **dropped** | yes | yes | yes | yes |
-| the move-source runs | yes | drawn | yes | yes | yes | yes | yes | yes | yes | **dropped** | **dropped** | **dropped** | **dropped** | yes | yes |
-| the hidden run | yes | not drawn (vanish) | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes |
-| the altChunk | yes | drawn (imported) | yes | yes | yes | yes | yes | yes | **dropped** | **dropped** | **dropped** | **dropped** | **dropped** | yes | **dropped** |
-| the landscape section | yes | drawn | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes |
-| the vertical merge | yes | drawn | yes | yes | yes | yes | yes | yes | yes | **dropped** | yes | yes | yes | yes | yes |
-| the nested table | yes | drawn | yes | yes | yes | yes | yes | yes | yes | **dropped** | yes | yes | yes | yes | yes |
-| the RTL run | yes | drawn | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes |
+| Construct | In the corpus | Word draws it | superdoc | folio | genoffice | eigenpal | office-open | docen | wordcraft | fidus | canvas | docs.plus | plate | docxodus | apryse | libreoffice |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| the chart | yes | drawn | yes | yes | yes | yes | yes | yes | yes | **dropped** | **dropped** | **dropped** | **dropped** | yes | yes | yes |
+| the SmartArt | yes | **not drawn** (0 px, §5) | yes | yes | yes | yes | yes | yes | yes | **dropped** | **dropped** | **dropped** | **dropped** | yes | yes | yes |
+| the `mc:Choice` text box | yes | drawn | yes | yes | yes | yes | yes | yes | yes | **dropped** | **dropped** | **dropped** | **dropped** | yes | yes | yes |
+| the `mc:Fallback` text | yes | not drawn (Choice wins) | yes | yes | yes | **dropped** | yes | yes | **dropped** | **dropped** | **dropped** | yes | yes | yes | yes | **dropped** |
+| the equation | yes | drawn (vector outline) | yes | yes | yes | yes | yes | yes | yes | **dropped** | **dropped** | **dropped** | **dropped** | yes | yes | **dropped** |
+| the comment | yes | drawn | yes | yes | yes | yes | yes | yes | yes | **dropped** | **dropped** | **dropped** | **dropped** | yes | yes | yes |
+| the endnote body | yes | drawn | yes | yes | yes | yes | yes | yes | yes | yes | **dropped** | yes | **dropped** | yes | yes | yes |
+| the footnote body | yes | drawn | yes | yes | yes | yes | yes | yes | yes | yes | **dropped** | yes | **dropped** | yes | yes | yes |
+| the deleted runs | yes | drawn | yes | yes | yes | yes | yes | yes | yes | **dropped** | **dropped** | **dropped** | **dropped** | yes | yes | yes |
+| the deleted table row | yes | drawn | yes | yes | yes | yes | yes | yes | yes | **dropped** | **dropped** | **dropped** | **dropped** | yes | yes | yes |
+| the inserted runs | yes | drawn | yes | yes | yes | yes | yes | yes | yes | **dropped** | **dropped** | yes | yes | yes | yes | yes |
+| the move-source runs | yes | drawn | yes | yes | yes | yes | yes | yes | yes | **dropped** | **dropped** | **dropped** | **dropped** | yes | yes | yes |
+| the hidden run | yes | not drawn (vanish) | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes |
+| the altChunk | yes | drawn (imported) | yes | yes | yes | yes | yes | yes | **dropped** | **dropped** | **dropped** | **dropped** | **dropped** | yes | yes | **dropped** |
+| the landscape section | yes | drawn | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes |
+| the vertical merge | yes | drawn | yes | yes | yes | yes | yes | yes | yes | **dropped** | yes | yes | yes | yes | yes | yes |
+| the nested table | yes | drawn | yes | yes | yes | yes | yes | yes | yes | **dropped** | yes | yes | yes | yes | yes | yes |
+| the RTL run | yes | drawn | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes |
 
 **A caveat on the "Word draws it" column.** It is *not* read from the
 automated probe. The probe is a **text** probe, and two constructs in this
 corpus are drawn by Word as **vector outlines** — the OMML equation and the
 `w14:textOutline` run — so a text probe reports them absent when Word in fact
-draws them. That was proven by A/B pixel diffs (2,069 px on page 4 for the
-equation, 1,709 px on page 2 for the outlined run). The corpus column
+draws them. That was proven by A/B pixel diffs (8,827 px on page 4 for the
+equation, 4,714 px on page 2 for the outlined run; §6.3). The corpus column
 therefore carries verified values, and the editor columns carry package
 membership, which is a reliable measurement.
 
@@ -1005,15 +1076,16 @@ membership, which is a reliable measurement.
 
 **(a) The four "regenerator" editors lose the drawings, and they lose them
 all the same way.** Fidus Writer, canvas-editor, docs.plus and Plate.js
-each keep **14, 20, 13 and 11 parts** respectively, against the corpus's 35.
+write **14, 20, 13 and 11 parts** respectively, and of the corpus's
+35 they keep only **11, 14, 11 and 11**.
 For all four, the chart, the SmartArt, the text box, the equation, the
 comment and the tracked-change runs are **gone from the package**, not
 merely unrendered. These four editors do not preserve what they cannot
 model; they reconstruct a document from the subset they can.
 
 **(b) The `mc:AlternateContent` block survives in two opposite forms.**
-SuperDoc, Folio, GenOffice, office-open, Docen and LibreOffice keep **both**
-branches. WordCraft, Fidus Writer and canvas-editor keep **neither**.
+SuperDoc, Folio, GenOffice, office-open, Docen, Docxodus, Apryse WebViewer
+and LibreOffice keep **both** branches. WordCraft, Fidus Writer and canvas-editor keep **neither**.
 eigenpal, docs.plus and Plate.js keep **only the fallback** — which means
 they will render "AlternateContent fallback text" where Word renders
 "Text box content".
@@ -1022,6 +1094,9 @@ they will render "AlternateContent fallback text" where Word renders
 except the pass-through editors.** Word imports the altChunk's HTML and
 prints "Imported altChunk paragraph one/two" on page 6. WordCraft drops the
 altChunk part; so do Fidus, canvas, docs.plus, Plate.js and LibreOffice.
+Apryse WebViewer keeps the part but replaces the `w:altChunk` reference with
+ordinary paragraphs, so the part stays in its package with nothing pointing at
+it (Report A2, §6.8).
 
 **(d) Docxodus is the one tool whose package layer and rendering layer
 disagree in exactly the way §4 is about.** Its exported DOCX keeps **all 35
@@ -1056,7 +1131,7 @@ direction — gives:
 | **Docen** | **5** |
 | corpus, superdoc, folio, genoffice, eigenpal, wordcraft, fidus, canvas, docs.plus, plate, libreoffice | **0** |
 
-**A 97-check XML fidelity score, a schema validator, a content-types audit
+**A 99-check XML fidelity score, a schema validator, a content-types audit
 and a part-level diff all pass these two files.** The forward resolution is
 five lines of Python and it finds them.
 
@@ -1117,21 +1192,26 @@ therefore located empirically**: a variant was built in which the SmartArt was
 replaced by a PNG of the *same nominal extent* — white inside, black border —
 and the two renderings were differenced.
 
-The band is on **page 4**, at pixels **(83, 244) – (577, 533)**:
-**494 × 289 px = 142,766 px**, i.e. 4.49 in × 2.62 in as rendered.
+The band is on **page 4**, at pixels **(152, 445) – (1049, 968)** at 200 dpi:
+**897 × 523 px = 469,131 px**, i.e. 4.49 in × 2.62 in as rendered.
 
 ### 5.3 The measurement
 
 | Quantity | Value |
 |---|---:|
-| Area of the SmartArt band in Word's rendering | **142,766 px** |
+| Area of the SmartArt band in Word's rendering | **469,131 px** |
 | **Non-white pixels in that band in Word's rendering** | **0** |
-| Non-white pixels in the same band in the border-control rendering | 8,492 |
-| Differing pixels, corpus vs border control | 8,492 |
-| Derived corpus ink outside the control's border | **0** |
+| Non-white pixels in the same band in the border-control rendering | 28,000 |
+| Differing pixels, corpus vs border control, whole page | 28,151 |
+| of which outside the band | 151, at (376, 986) – (377, 1137) |
 
 **Zero.** The band is not "mostly blank" or "nearly blank" — it contains no
-pixel below the 245 threshold anywhere in its 142,766 pixels.
+pixel below the 245 threshold anywhere in its 469,131 pixels. Every
+differing pixel inside the band is the control's own border; the
+151 differing pixels outside it are one vertical edge below the band,
+which Word draws a pixel to the side when the diagram is replaced — the same
+edge moves when the `w14` run or the picture is removed (§6.3). They are not in
+the band and do not enter the measurement.
 
 ### 5.4 The positive control — the part the original draft was missing
 
@@ -1142,16 +1222,16 @@ the two renderings were differenced:
 
 | Control | What was substituted | Differing pixels | Where |
 |---|---|---:|---|
-| **checkerboard** | the SmartArt, same extent | **73,065** | page 4, bbox (83, 244) – (577, 625) |
-| bordered box | the SmartArt, same extent | 8,492 | page 4, bbox (83, 244) – (577, 533) |
+| **checkerboard** | the SmartArt, same extent | **269,641** | page 4, bbox (152, 445) – (1049, 968) |
+| bordered box | the SmartArt, same extent | 28,000 | page 4, bbox (152, 445) – (1049, 968) |
 
-**73,065 pixels.** The method detects ink in that band with enormous
+**269,641 pixels.** The method detects ink in that band with enormous
 sensitivity. The zero is a real zero, not a blind spot.
 
 ![The SmartArt band: the corpus renders it empty, and the controls prove the measurement can see it](../out/ui/figures/fig_smartart_band.png)
 
 Left to right: the corpus as Word renders it — **empty**; the checkerboard
-positive control — **73,065 pixels detected**; the border control — 8,492
+positive control — **269,641 pixels detected**; the border control — 28,000
 pixels, all of them the control's own border.
 
 ### 5.5 Two more controls, one of which is inconclusive
@@ -1161,7 +1241,7 @@ modified so that `data1.xml` says `ZQSMARTARTMARKERQZ` instead of "Step one"
 and `ZQSMARTARTMARKER2QZ` instead of "Step two". Nothing else changed, so the
 layout is identical.
 
-**Result: 0 pixels changed in the band.** The marker text does not appear
+**Result: zero pixels changed on the page, band included.** The marker text does not appear
 anywhere on the page. Word is not drawing this diagram from its data.
 
 **`dgm_cached` — does Word render a supplied cached drawing?** The corpus was
@@ -1171,7 +1251,7 @@ rectangle and the text **"CACHEDDGM"**, wired up the way Word wires it:
 **`word/diagrams/_rels/data1.xml.rels`** (not the document's rels), plus the
 `diagramDrawing+xml` content-type override.
 
-**Result: 0 pixels changed in the band.** Word did not draw the injected
+**Result: zero pixels changed on the page, band included.** Word did not draw the injected
 cached drawing either.
 
 **This control is inconclusive, and is reported as inconclusive.** The
@@ -1184,15 +1264,11 @@ that *this* cached drawing was not drawn. It is reported here because the
 honest result of a control is still a result, and because the primary claim
 does not depend on it.
 
-**One artefact worth recording.** Both `dgm_marker` and `dgm_cached` differ
-from the corpus by exactly **83 pixels**, at exactly the same place: a
-one-pixel-wide vertical sliver at x = 207, y = 542–625. That is the **right
-edge of the blue OLE rectangle**, which Word draws at (84, 542) – (207, 625).
-The two variants render **identically to each other** (0 pixels between
-them), so the sliver is a rasterisation artefact of Word's damaged PDF
-cross-reference table (§1.2) rather than a content difference, and it is
-**83 pixels away from the SmartArt band** — which is at y = 244–533. It does
-not affect any conclusion above.
+**An artefact of earlier editions.** At 110 dpi both `dgm_marker` and
+`dgm_cached` differed from the corpus by 83 pixels, a one-pixel sliver at the
+right edge of the blue OLE rectangle. At 200 dpi both match the corpus page
+to the pixel, so the sliver was a rasterisation artefact, as this report said
+at the time; it never touched the SmartArt band.
 
 ### 5.6 The space is genuinely reserved — in Word, in LibreOffice and in Docxodus
 
@@ -1201,13 +1277,14 @@ That was measured by removing the SmartArt from the body entirely and
 re-rendering.
 
 **In Word:** with the SmartArt removed, the blue OLE object **moves up a
-page** — from page 4 (blue pixels at (84, 542) – (207, 625), 10,209 px) onto
-page 3 (page 3's blue count rises from 10,608 to 20,817; the page-3 diff
-bbox is (83, 811) – (207, 894)). The document reflows because the band was
-holding roughly 289 px of vertical space.
+page**. Counting the pixels in its colour, page 4 goes from 33,824 to
+0 and page 3 from 34,968 (the picture) to
+68,568 (the picture and the OLE object); the page-3 diff bbox is
+(152, 1475) – (377, 1625). The document reflows because the band was holding
+523 px of vertical space at 200 dpi.
 
-**In LibreOffice:** the same removal changes page 3 (18,904 differing pixels)
-and page 4 (29,996 differing pixels), and the OLE object likewise moves up.
+**In LibreOffice:** the same removal changes page 3 (61,945 differing pixels)
+and page 4 (91,573 differing pixels), and the OLE object likewise moves up.
 **LibreOffice reserves the band too, and draws nothing in it.**
 
 **In Docxodus, independently and for the same reason.** Docxodus reserves a
@@ -1248,7 +1325,7 @@ that its extent asks for and draws nothing.
 
 **The claim survives, and it is now stronger than the original draft made
 it.** Word reserves a 4.49 in × 2.62 in band and draws **zero** pixels in it;
-a positive control in the same band detects **73,065** pixels; changing the
+a positive control in the same band detects **269,641** pixels; changing the
 diagram's data changes nothing on the page; and removing the diagram proves
 the space was reserved all along.
 
@@ -1267,35 +1344,43 @@ the element that defeated it (`relIds`), in a machine-readable
 This layer asks the *round-trip* question: if each editor's exported DOCX is
 opened by Word, how close is the result to what Word shows for the original?
 It is measured in **differing pixels at a threshold of 8/255 on greyscale**,
-page by page, against Word's own 110 dpi rendering of the corpus.
+page by page, against Word's own 200 dpi rendering of the corpus.
 
 ### 6.1 When Word can open the output
 
 | Output | Word pages | Differing pixels | As % of corpus ink | Verdict |
 |---|---:|---:|---:|---|
-| **SuperDoc** | 6 | **83** | **0.00%** | pixel-identical |
-| **eigenpal** | 6 | **0** | **0.00%** | pixel-identical |
-| **GenOffice** | 6 | **957** | **0.06%** | pixel-identical |
-| **Docxodus** | 6 | **83** | **0.00%** | **pixel-identical** |
-| WordCraft | 6 | 12,541 | 0.75% | very close |
-| LibreOffice (baseline) | 6 | 12,386 | 0.75% | very close |
-| canvas-editor | **2** | 40,646,218 | 2446.8% | **different** |
-| docs.plus | **2** | 40,609,781 | 2444.6% | **different** |
-| **Plate.js** | **2** | 40,629,083 | 2445.8% | **different** |
+| **SuperDoc** | 6 | 0 | 0.00% | pixel-identical |
+| **eigenpal** | 6 | 0 | 0.00% | pixel-identical |
+| **GenOffice** | 6 | 2,520 | 0.05% | pixel-identical |
+| **Docxodus** | 6 | 0 | 0.00% | pixel-identical |
+| Apryse WebViewer (trial stamp in the headers) | 6 | 2,119 | 0.04% | pixel-identical |
+| WordCraft | 6 | 28,837 | 0.53% | very close |
+| LibreOffice (baseline) | 6 | 30,456 | 0.56% | very close |
+| canvas-editor | 2 | 42,093,528 | 772.25% | different |
+| docs.plus | 2 | 41,970,145 | 769.99% | different |
+| **Plate.js** | 2 | 42,033,653 | 771.15% | different |
 | Folio | — | — | — | **Word refused the file** |
 | office-open | — | — | — | **Word refused the file** |
 | Docen | — | — | — | **Word refused the file** |
 | Fidus Writer | — | — | — | **Word refused the file** |
 
-**83 pixels** across six pages is 0.0006% of the corpus's ink — a
-rounding artefact, almost certainly the anti-aliasing of a hairline. WordCraft
-and LibreOffice sit at 0.75% and differ in the same place: the chart, which
-both redraw from their own model.
+**SuperDoc, eigenpal and Docxodus differ from Word's rendering of the corpus by
+0, 0 and 0 pixels** across six pages, and GenOffice by
+2,520 (0.05% of the corpus's ink). Earlier editions measured 83 pixels for
+SuperDoc and Docxodus, a rounding artefact on page 4 that this edition's Word pass does not
+reproduce. WordCraft and LibreOffice sit at 0.53% and 0.56% and differ in the same
+place: the chart, which both redraw from their own model.
+
+**Apryse's output renders pixel-identical in Word (2,119 pixels,
+0.04% of the corpus's ink), trial stamp included.** The stamp is in the
+headers Apryse adds (27 parts carry it), so this row measures a stamped file,
+as every Apryse figure in the trial does.
 
 **Docxodus is in the top group, and it got there without a rendering engine
 of its own.** Its round trip re-serialises ten XML parts through the .NET
 OpenXML SDK, and when Word opens the result it draws the corpus's page to
-within 83 pixels — the same 83 pixels SuperDoc leaves. **A perfect
+within 0 pixels, as SuperDoc does (0). **A perfect
 namespace census, zero changed parts and a pixel-identical Word rendering are
 three different claims, and Docxodus is the only tool in the study that makes
 all three at once.**
@@ -1314,11 +1399,12 @@ rendering available.
 | **Folio** | 6 | **0** | **0.00%** | **pixel-identical** |
 | eigenpal | 6 | 0 | 0.00% | pixel-identical |
 | **Docxodus** | 6 | **0** | **0.00%** | **pixel-identical** |
-| LibreOffice (baseline) | 6 | 335 | 0.18% | pixel-identical |
-| GenOffice | 6 | 1,570 | 0.83% | very close |
-| WordCraft | 6 | 24,132 | 12.76% | close |
-| **office-open** | 6 | **111,924** | **59.19%** | **different** |
-| **Docen** | 6 | **228,534** | **120.85%** | **different** |
+| LibreOffice (baseline) | 6 | 888 | 0.16% | pixel-identical |
+| GenOffice | 6 | 4,232 | 0.74% | very close |
+| Apryse WebViewer (trial stamp in the headers) | 6 | 24,540 | 4.32% | very close |
+| WordCraft | 6 | 64,849 | 11.41% | close |
+| **office-open** | 6 | **368,315** | **64.80%** | **different** |
+| **Docen** | 6 | **708,667** | **124.68%** | **different** |
 | Fidus Writer | 2 | — | — | different |
 | canvas-editor | 2 | — | — | different |
 | docs.plus | 3 | — | — | different |
@@ -1333,7 +1419,7 @@ file Microsoft Word rejects.
 **Docxodus is the only tool that is on the good side of all three axes at
 once.** Its LibreOffice render is pixel-identical to the corpus's — 0
 differing pixels on all six pages, where even LibreOffice's own round trip of
-the corpus leaves 335 — *and* Word opens its output *and* Word's render of
+the corpus leaves 888 — *and* Word opens its output *and* Word's render of
 that output is pixel-identical too.
 
 **office-open and Docen's large LibreOffice deltas are entirely the dangling
@@ -1346,42 +1432,42 @@ remove that construct and re-render. Seven variants of the corpus were built,
 each with exactly one construct deleted from `word/document.xml`, and each
 was rendered by **Word itself**.
 
-| Variant | Construct removed | Word PDF bytes | Δ | Differing pixels (recomputed) |
+| Variant | Construct removed | Word PDF bytes | Δ | Differing pixels at 200 dpi |
 |---|---|---:|---:|---|
-| corpus | — | 161,448 | — | — |
-| `no_w14` | the `w14:textOutline` run | 150,473 | −10,975 | 1,709 on page 2, bbox (83, 290) – (358, 300) |
-| `no_chart` | the chart | 156,766 | −4,682 | 40,847 on page 3, bbox (83, 488) – (577, 894) |
-| `no_math` | the OMML equation | 159,228 | −2,220 | 2,069 on page 4, bbox (83, 705) – (379, 827) |
-| `no_wps` | the `wps` text box | 160,881 | −567 | 7,156 on page 4, bbox (83, 642) – (379, 850) |
-| `no_ole` | the OLE object | 161,268 | −180 | 17,477 on page 4, bbox (83, 542) – (379, 850) |
-| `no_pic` | the picture | 161,258 | −190 | 42,474 on page 3, bbox (83, 374) – (577, 776) |
-| `no_dgm` | the SmartArt | 161,325 | **−123** | 10,292 on page 3 + 17,843 on page 4 — **all of it reflow** |
+| corpus | — | 161,459 | — | — |
+| `no_w14` | the `w14:textOutline` run | 150,473 | −10,986 | 4,714 on page 2 + 151 on page 4 |
+| `no_chart` | the chart | 156,766 | −4,693 | 130,125 on page 3 + 54,299 on page 4 |
+| `no_math` | the OMML equation | 159,228 | −2,231 | 8,827 on page 4, bbox (152, 986) – (690, 1546) |
+| `no_wps` | the `wps` text box | 160,881 | −578 | 19,341 on page 4, bbox (152, 986) – (690, 1544) |
+| `no_ole` | the OLE object | 161,268 | −191 | 53,237 on page 4, bbox (152, 986) – (690, 1544) |
+| `no_pic` | the picture | 161,258 | −201 | 133,983 on page 3 + 151 on page 4 |
+| `no_dgm` | the SmartArt | 161,325 | **−134** | 33,750 on page 3 + 54,299 on page 4 — **all of it reflow** |
 
 ![The A/B control: the corpus, and the corpus with one construct removed each time](../out/render/figures/fig4_ab_variants.png)
 
 **Three entries in that table are the point of the whole method.**
 
 1. **`no_w14` and `no_math` are the constructs a text extractor cannot see.**
-   Removing the `w14:textOutline` run changes **1,709 pixels** and removing
-   the equation changes **2,069 pixels** — both invisible in `pdftotext` and
+   Removing the `w14:textOutline` run changes **4,714 pixels** on page 2 and removing
+   the equation changes **8,827 pixels** on page 4 — both invisible in `pdftotext` and
    in `mutool draw -F txt`. A text-diff comparison would have reported both
    as MISSING in the corpus, when Word draws them perfectly well.
-2. **`no_dgm` changes 28,135 pixels — and *every one of them is reflow*.**
+2. **`no_dgm` changes 88,049 pixels — and *every one of them is reflow*.**
    Pages 1, 2, 5 and 6 are **bit-identical**. On page 3 the diff is at
-   (83, 811) – (207, 894) and on page 4 at (83, 252) – (379, 850): the blue
+   (152, 1475) – (377, 1625) and on page 4 at (152, 458) – (690, 1544): the blue
    OLE rectangle simply **moves up a page**. Nothing is drawn and nothing is
    un-drawn; the space is released. §5 proves this with a positive control.
-3. **`no_chart` and `no_pic` have the largest pixel counts and the smallest
-   byte deltas** — 42,474 and 42,474 differing pixels for 190 and 190 bytes
-   of XML. Pixel difference measures *visual area*; byte difference measures
-   *information*. Neither is a proxy for the other, and the ranking flips
-   completely between the two columns.
+3. **Pixels and bytes rank the constructs differently.** The `w14` run has
+   the largest byte delta (−10,986 bytes) and changes the fewest pixels
+   (4,865); the picture changes 134,134 pixels for −201 bytes.
+   Pixel difference measures *visual area*; byte difference measures
+   *information*. Neither is a proxy for the other.
 
 ### 6.4 Why the reflow deltas are not the constructs' contributions
 
 The `no_dgm` row above is the trap in A/B testing, and it generalises.
 Removing any element reflows everything after it, so the page-4 diff
-bbox (83, 252) – (379, 850) for `no_dgm` is *identical* to `no_chart`'s — the
+bbox (152, 458) – (690, 1544) for `no_dgm` is *identical* to `no_chart`'s ((152, 458) – (690, 1544)) — the
 two variants shift the same block of content by the same amount. **A page-4
 diff cannot be attributed to the construct that was removed from page 3.**
 The only diffs that can be attributed are the ones inside the construct's
@@ -1438,7 +1524,7 @@ the UI layer:
 2. **Folio does not draw the chart at all**, even though its exported file
    keeps the chart part. A package-presence check would say "Folio kept the
    chart"; only the screenshot shows there is no chart on the page.
-3. **GenOffice and eigenpal show more than Word** in the SmartArt band.
+3. **GenOffice, eigenpal and Docxodus show more than Word** in the SmartArt band.
    Nothing in the package or the pixel layer can detect a *difference in
    information shown*.
 4. **Canvas-Editor crashes.** No package metric can express "the application
@@ -1459,10 +1545,10 @@ the UI layer:
 | Question | UI layer | Package / pixel layer |
 |---|---|---|
 | Does the editor show a chart? | **Folio, Plate.js, docs.plus, Fidus Writer: no.** Docen: yes, but wrong. Docxodus: yes, without axis ticks. | Folio, Plate.js and docs.plus keep **no** chart part at all — here the two layers agree, for once. |
-| Does the editor show the deleted row? | GenOffice, LibreOffice, Plate.js, docs.plus: **no**. Docen, SuperDoc, eigenpal, Docxodus: yes. | GenOffice and LibreOffice both **keep** the deleted row's markup in the package. |
+| Does the editor show the deleted row? | LibreOffice, Plate.js, docs.plus: **no**. Docen, SuperDoc, eigenpal, GenOffice, Docxodus: yes. | LibreOffice **keeps** the deleted row's markup in the package. |
 | Does the editor show the equation? | Folio, Docen, docs.plus: **no**. WordCraft, eigenpal, LibreOffice, **Plate.js**: yes. **Docxodus: a "[MATH]" chip, not the equation.** | Word, GenOffice, office-open and others all **keep** the equation in the package. |
 | Does the editor show the comment body? | Folio, **Docxodus**: **yes**. Docen, eigenpal, Plate.js, docs.plus: **no**. | Most editors keep the comments part. |
-| Is the SmartArt drawn? | GenOffice, eigenpal, **Docxodus**: **something is drawn**. | Word: **nothing is drawn** — 0 px in 142,766 px. |
+| Is the SmartArt drawn? | GenOffice, eigenpal, **Docxodus**: **something is drawn**. | Word: **nothing is drawn** — 0 px in 469,131 px. |
 | Does the editor render the altChunk? | **Docxodus: no** — `altchunk_not_supported`. | Docxodus **keeps** the altChunk part, all 35 parts. |
 
 **Five of the seven rows are cases where an editor keeps a construct
@@ -1478,7 +1564,7 @@ capabilities, and only the screenshot distinguishes them.**
   shows no chart, and GenOffice shows a SmartArt band that Word does not.
 - **If you are validating a converter**, the forward relationship check
   (§4.3) is the cheapest defect finder in this report: five lines of Python,
-  and it finds a defect that a 97-check fidelity score, a schema validator, a
+  and it finds a defect that a 99-check fidelity score, a schema validator, a
   content-types audit and a part-level diff all pass.
 - **If you are building a test corpus**, a construct that the reference
   application does not draw is a **trap**. The corpus's SmartArt cost this
@@ -1500,18 +1586,21 @@ build/make_fixture.py                        # writes fixture/complex.docx
 build/word_pdf.py out/render/word fixture/complex.docx
 build/word_pages.py out/render                # -> out/render/png_word/corpus-*.png
 
-# 3. the SmartArt verification (section 5)
-/tmp/imgvenv/bin/python build/smartart_controls.py fixture/complex.docx out/smartart
+# 3. the SmartArt verification (section 5), at build/pixels.py's DPI
+python3 build/smartart_controls.py fixture/complex.docx out/smartart
 build/word_pdf.py out/smartart/pdf out/smartart/dgm_pic_border.docx \
                                   out/smartart/dgm_pic_checker.docx \
                                   out/smartart/dgm_marker.docx \
                                   out/smartart/dgm_cached.docx
-/tmp/imgvenv/bin/python build/smartart_verify.py
+python3 build/raster_controls.py                    # out/smartart/png, out/ab/png
+uv run --script build/smartart_verify.py            # -> out/smartart/verify.json
 
-# 4. the A/B variants and the pixel comparisons
+# 4. the A/B variants and the pixel comparisons (section 6)
 build/ab_test.py
-/tmp/imgvenv/bin/python build/page_diff.py out/render/png_word/corpus \
-                                out/ab/png/no_dgm out/ab
+build/release_word.sh pixels                        # Word's layer, twice
+uv run --script build/lo_render_compare.py          # LibreOffice's layer
+uv run --script build/construct_presence.py
+python3 build/render_inventory.py                   # section 4.1's package table
 
 # 5. the forward relationship check (section 4.3)
 python3 build/rel_forward.py
@@ -1524,8 +1613,8 @@ node shot.mjs --name superdoc --url http://127.0.0.1:5199/ \
 # ... one per editor; the per-editor recipes are in the table below
 
 # 7. the comparison figures and the tables
-/tmp/imgvenv/bin/python build/ui_figures.py
-python3 build/inventory_table.py
+uv run --script build/ui_figures.py
+python3 build/facts.py && python3 build/render_reports.py   # every table is a fact
 
 # 8. building this document
 bash build/make_report.sh "reports/Report C - Rendering Versus Word (2026).md"
@@ -1539,7 +1628,10 @@ Every capture is `node shot.mjs` from `harness/ui/`, with the host app
 already running. `--serve-as` answers a request path with the corpus bytes
 instead of the file on disk, so the repo is never touched; `--file` sets a
 file input; `--probe` runs a module that drives the application; and
-`--scroll-text` scrolls to a string matched against `innerText`.
+`--scroll-text` scrolls to a string matched against `innerText`. A capture
+whose readiness wait, scroll target or probe misses is a failed capture
+(exit 4), never a figure: until v0.9.2 a miss still printed "OK", and
+Apryse's "page 3" figure was its page 1.
 
 | Editor | Host | Capture |
 |---|---|---|
@@ -1555,7 +1647,8 @@ file input; `--probe` runs a module that drives the application; and
 | docs.plus | `repos/docs-plus/apps/webapp`, `next dev` 5205, + a REST stub on :4000 calling the repo's own `importDocx` | `--probe docsplus/probe_import.mjs` |
 | Fidus Writer | `repos/fiduswriter/fiduswriter`, `manage.py runserver 127.0.0.1:5209` | `--probe fidus/probe_load.mjs` |
 | LibreOffice | `soffice --convert-to pdf` | the application's own rendered pages |
-| **Docxodus** | the published npm package `docxodus@14.2.0` under `harness/ui/docxodus/`, driven by its own CLI `@docxodus/export@14.2.0` | `docxodus convert … --to html --to pdf`; the standalone HTML is then photographed with `--probe docxodus/probe_scroll_page.mjs` and `DX_PAGE=1\|3\|4` |
+| **Docxodus** | the published npm package `docxodus@15.0.0` under `harness/ui/docxodus/`, driven by its own CLI `@docxodus/export@15.0.0` | `docxodus convert … --to html` (and again `--to pdf`); the standalone HTML is then photographed with `--probe docxodus/probe_scroll_page.mjs` and `DX_PAGE=1\|3\|4` |
+| **Apryse WebViewer** | host page under `harness/apryse/` (`@pdftron/webviewer@12.2.1`, trial key from `.env`), vite 5210 | `--serve-as /sample.docx --probe apryse/probe.mjs` with `APRYSE_SCROLL` = the page-3 or page-4 line (the pages are a canvas, so WebViewer's own page text is searched); `--probe apryse/probe_comments.mjs` opens the comments panel |
 
 **Three host-specific prerequisites are easy to lose.** Fidus Writer's frontend
 build needs a GNU-`cp` shim (the generated postinstall uses
@@ -1571,12 +1664,9 @@ Carlito/Caladea/Liberation must be staged individually — and it needs a
 Chromium binary, which here is the machine's existing Playwright Chrome for
 Testing rather than the package's own pinned download.
 
-**The pixel tooling must run under the Pillow venv**, because the system
-Python on this machine is PEP-668 managed:
-
-```
-python3 -m venv /tmp/imgvenv && /tmp/imgvenv/bin/pip install pillow
-```
+**The pixel tooling declares Pillow in its own header** (PEP 723), because the
+system Python on this machine is PEP-668 managed: run those scripts with
+`uv run --script`, which builds their environment; no side venv is needed.
 
 **Two traps that will corrupt a re-run.**
 

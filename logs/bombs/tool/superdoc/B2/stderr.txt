@@ -1,12 +1,12 @@
-file://<editors_trial>/repos/superdoc/node_modules/.pnpm/@superdoc+sdk@2.25.0-next.14/node_modules/@superdoc/sdk/dist/runtime/host.js:752
+file:///Users/arthrod/temp/T/editors_trial/harness/superdoc-sdk/node_modules/.pnpm/@superdoc+sdk@2.26.0-next.16/node_modules/@superdoc/sdk/dist/runtime/host.js:560
             return this.stateDirectory.mapOperationError(new SuperDocCliError(cliMessage ?? error.message ?? 'Command failed.', {
                                                          ^
 
 SuperDocCliError: Failed to open document in the v2 runtime.
-    at HostTransport.mapJsonRpcError (file://<editors_trial>/repos/superdoc/node_modules/.pnpm/@superdoc+sdk@2.25.0-next.14/node_modules/@superdoc/sdk/dist/runtime/host.js:752:58)
-    at HostTransport.onStdoutLine (file://<editors_trial>/repos/superdoc/node_modules/.pnpm/@superdoc+sdk@2.25.0-next.14/node_modules/@superdoc/sdk/dist/runtime/host.js:721:33)
-    at HostTransport.onStdoutChunk (file://<editors_trial>/repos/superdoc/node_modules/.pnpm/@superdoc+sdk@2.25.0-next.14/node_modules/@superdoc/sdk/dist/runtime/host.js:734:18)
-    at Socket.stdoutDataListener (file://<editors_trial>/repos/superdoc/node_modules/.pnpm/@superdoc+sdk@2.25.0-next.14/node_modules/@superdoc/sdk/dist/runtime/host.js:473:52)
+    at HostTransport.mapJsonRpcError (file:///Users/arthrod/temp/T/editors_trial/harness/superdoc-sdk/node_modules/.pnpm/@superdoc+sdk@2.26.0-next.16/node_modules/@superdoc/sdk/dist/runtime/host.js:560:58)
+    at HostTransport.onStdoutLine (file:///Users/arthrod/temp/T/editors_trial/harness/superdoc-sdk/node_modules/.pnpm/@superdoc+sdk@2.26.0-next.16/node_modules/@superdoc/sdk/dist/runtime/host.js:529:33)
+    at HostTransport.onStdoutChunk (file:///Users/arthrod/temp/T/editors_trial/harness/superdoc-sdk/node_modules/.pnpm/@superdoc+sdk@2.26.0-next.16/node_modules/@superdoc/sdk/dist/runtime/host.js:542:18)
+    at Socket.stdoutDataListener (file:///Users/arthrod/temp/T/editors_trial/harness/superdoc-sdk/node_modules/.pnpm/@superdoc+sdk@2.26.0-next.16/node_modules/@superdoc/sdk/dist/runtime/host.js:356:52)
     at Socket.emit (node:events:514:20)
     at addChunk (node:internal/streams/readable:605:12)
     at readableAddChunkPushByteMode (node:internal/streams/readable:556:3)

@@ -35,6 +35,7 @@ SLUGS = (
     "fidus",
     "canvas",
     "docsplus",
+    "apryse",
     "lo_baseline",
 )
 
@@ -148,6 +149,7 @@ class ReportClaimsTest(unittest.TestCase):
             "Fidus Writer",
             "canvas-editor",
             "docs.plus",
+            "Apryse",
             "LibreOffice",
         )
         for name in names:

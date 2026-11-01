@@ -108,6 +108,19 @@ def _tools(in_path: Path, out_dir: Path):
             [NODE, "roundtrip.mjs", str(in_path), str(out_docx)],
             {},
         ),
+        (
+            # A browser editor: Chromium plus the host page on localhost:5210.
+            # The seatbelt profile is the containment; Chromium's own sandbox
+            # cannot start inside it. HOME is moved, so name the browsers.
+            "apryse",
+            ROOT / "harness" / "apryse",
+            [NODE, "roundtrip.mjs", str(in_path), str(out_docx)],
+            {
+                "APRYSE_NO_CHROME_SANDBOX": "1",
+                "APRYSE_VITE_CACHE": str(out_dir / "vite-cache"),
+                "PLAYWRIGHT_BROWSERS_PATH": str(Path.home() / "Library" / "Caches" / "ms-playwright"),
+            },
+        ),
     ]
 
 
@@ -163,6 +176,12 @@ def _profile(work: Path) -> str:
     )
 
 
+# Extra seatbelt rules, per tool. Chromium registers a Mach port for its child
+# processes (MachPortRendezvousServer); without mach-register it dies before
+# the editor loads. Every other tool's profile is unchanged.
+PROFILE_EXTRA = {"apryse": "(allow mach-register)\n"}
+
+
 def _limit():
     resource.setrlimit(resource.RLIMIT_CPU, (CPU, CPU + 5))
 
@@ -204,6 +223,34 @@ def _text(value) -> str:
     if isinstance(value, bytes):
         return value.decode("utf-8", "replace")
     return str(value)
+
+
+def _run_captured(argv, cwd, env, timeout, work: Path, preexec_fn=None):
+    """Run a child with its stdout and stderr written to files, not pipes.
+
+    Node writes to a pipe asynchronously on macOS: when it dies on an uncaught
+    exception, whatever lies past the 64 KB pipe buffer is lost. That is the
+    message naming a ceiling, printed after a long runtime dump. A file is
+    written synchronously, so the whole stream survives.
+    """
+    out_path, err_path = work / "child.stdout", work / "child.stderr"
+    with out_path.open("wb") as out_fh, err_path.open("wb") as err_fh:
+        proc = subprocess.Popen(argv, cwd=cwd, env=env, stdout=out_fh, stderr=err_fh,
+                                start_new_session=True, preexec_fn=preexec_fn)
+        timed = False
+        try:
+            proc.wait(timeout=timeout)
+            code = proc.returncode if proc.returncode is not None else 1
+        except subprocess.TimeoutExpired:
+            _kill_group(proc.pid)
+            try:
+                proc.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                pass
+            code, timed = 124, True
+    out = out_path.read_bytes().decode("utf-8", "replace")
+    err = err_path.read_bytes().decode("utf-8", "replace")
+    return code, timed, out, err
 
 
 def _save_case(kind: str, name: str, bid: str, cwd, command, code, timed: bool, stdout: str, stderr: str, score: str) -> None:
@@ -251,7 +298,7 @@ def run_tool(name, cwd, cmd, env_extra, bomb_path: Path, work: Path) -> str:
     for path in (out_dir, home, work / "tmp", work / "cache", work / "config", work / "data"):
         path.mkdir(parents=True, exist_ok=True)
     profile = work / "profile.sb"
-    profile.write_text(_profile(work), encoding="utf-8")
+    profile.write_text(_profile(work) + PROFILE_EXTRA.get(name, ""), encoding="utf-8")
     env = os.environ.copy()
     env.update(env_extra)
     env["HOME"] = str(home)
@@ -266,32 +313,9 @@ def run_tool(name, cwd, cmd, env_extra, bomb_path: Path, work: Path) -> str:
     env["VITEST_CACHE_DIR"] = str(work / "cache" / "vite")
     (work / "evidence").mkdir(parents=True, exist_ok=True)
     (work / "cache" / "vite").mkdir(parents=True, exist_ok=True)
-    proc = subprocess.Popen(
-        ["sandbox-exec", "-f", str(profile), *cmd],
-        cwd=cwd,
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        start_new_session=True,
-        preexec_fn=_limit,
-    )
-    timed = False
-    try:
-        out, err = proc.communicate(timeout=WALL)
-        code = proc.returncode if proc.returncode is not None else 1
-    except subprocess.TimeoutExpired as exc:
-        out = _text(exc.stdout)
-        err = _text(exc.stderr)
-        _kill_group(proc.pid)
-        try:
-            rest_out, rest_err = proc.communicate(timeout=2)
-        except subprocess.TimeoutExpired:
-            rest_out, rest_err = "", ""
-        out += _text(rest_out)
-        err += _text(rest_err)
-        code = 124
-        timed = True
+    code, timed, out, err = _run_captured(
+        ["sandbox-exec", "-f", str(profile), *cmd], cwd=cwd, env=env, timeout=WALL,
+        work=work, preexec_fn=_limit)
     out = _text(out)
     err = _text(err)
     data = _newest_docx(work, bomb_path)
@@ -370,6 +394,8 @@ def header() -> list[str]:
         "editors under seatbelt. External network is denied. Localhost and unix sockets "
         "inside the work directory are allowed, because the editors' own tooling binds them. "
         "Writes stay in the work directory, plus the canvas vitest config cache. "
+        "Apryse's profile also allows Mach port registration, which Chromium needs to start; "
+        "Chromium's own sandbox cannot start inside seatbelt and is off for that tool. "
         "The editors are macOS binaries and were not run inside the Linux container.",
         "taxonomy: preserving a hostile payload is not the same single result as a crash.",
         "reference Word fidelity: not-run safety: not-run Word was not opened. LibreOffice is the comparison.",
@@ -389,6 +415,10 @@ def _harness_fault(stdout: str, stderr: str) -> str | None:
         return "harness-vite-temp"
     if "Failed to start server" in blob or "sandbox-exec:" in blob:
         return "harness-start"
+    # A browser-hosted editor (Apryse) whose Chromium never started: nothing
+    # of the editor ran, so this is not a refusal of the bomb.
+    if "browserType.launch" in blob:
+        return "harness-browser-launch"
     if "Cannot access 'show' before initialization" in blob:
         return "harness-plate"
     # A missing package while loading the editor's own kit is this checkout,

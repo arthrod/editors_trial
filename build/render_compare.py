@@ -35,6 +35,7 @@ TARGETS = [
     ("Fidus Writer", "out/fidus/complex.docx"),
     ("canvas-editor + plugin", "out/canvas/complex.docx"),
     ("docs.plus", "out/docsplus/complex.docx"),
+    ("Apryse WebViewer", "out/apryse/complex.docx"),
     ("LibreOffice (baseline)", "out/lo_baseline/complex.docx"),
 ]
 

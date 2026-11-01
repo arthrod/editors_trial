@@ -1,0 +1,108 @@
+finding_id,report,location,subject,metric,reported,measured,status
+FND-IDEM-superdoc-first,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,SuperDoc V2,first pass,100.0,100,match
+FND-IDEM-superdoc-second,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,SuperDoc V2,second pass,100.0,100,match
+FND-IDEM-superdoc-bytes,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,SuperDoc V2,byte-identical,yes,yes,match
+FND-IDEM-docxodus-first,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,Docxodus,first pass,100.0,100,match
+FND-IDEM-docxodus-second,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,Docxodus,second pass,100.0,100,match
+FND-IDEM-docxodus-bytes,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,Docxodus,byte-identical,yes,yes,match
+FND-IDEM-genoffice-first,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,GenOffice,first pass,98.5,98.5,match
+FND-IDEM-genoffice-second,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,GenOffice,second pass,100.0,100,match
+FND-IDEM-genoffice-bytes,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,GenOffice,byte-identical,yes,yes,match
+FND-IDEM-eigenpal-first,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,eigenpal,first pass,100.0,100,match
+FND-IDEM-eigenpal-second,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,eigenpal,second pass,100.0,100,match
+FND-IDEM-eigenpal-bytes,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,eigenpal,byte-identical,yes,yes,match
+FND-IDEM-folio-first,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,Folio,first pass,97.5,97.5,match
+FND-IDEM-folio-second,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,Folio,second pass,97.5,97.5,match
+FND-IDEM-folio-bytes,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,Folio,byte-identical,yes,yes,match
+FND-IDEM-officeopen-first,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,office-open,first pass,93.5,93.5,match
+FND-IDEM-officeopen-second,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,office-open,second pass,32.2,32.2,match
+FND-IDEM-officeopen-bytes,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,office-open,byte-identical,no,no,match
+FND-IDEM-docen-first,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,Docen,first pass,91.5,91.5,match
+FND-IDEM-docen-second,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,Docen,second pass,32.2,32.2,match
+FND-IDEM-docen-bytes,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,Docen,byte-identical,no,no,match
+FND-IDEM-wordcraft-first,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,WordCraft,first pass,85.9,85.9,match
+FND-IDEM-wordcraft-second,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,WordCraft,second pass,86.4,86.4,match
+FND-IDEM-wordcraft-bytes,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,WordCraft,byte-identical,no,no,match
+FND-IDEM-canvas-first,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,canvas-editor + plugin,first pass,24.6,24.6,match
+FND-IDEM-canvas-second,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,canvas-editor + plugin,second pass,27.6,27.6,match
+FND-IDEM-canvas-bytes,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,canvas-editor + plugin,byte-identical,no,no,match
+FND-IDEM-fidus-first,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,Fidus Writer,first pass,23.6,23.6,match
+FND-IDEM-fidus-second,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,Fidus Writer,second pass,25.1,25.1,match
+FND-IDEM-fidus-bytes,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,Fidus Writer,byte-identical,no,no,match
+FND-IDEM-docsplus-first,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,docs.plus,first pass,21.1,21.1,match
+FND-IDEM-docsplus-second,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,docs.plus,second pass,24.1,24.1,match
+FND-IDEM-docsplus-bytes,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,docs.plus,byte-identical,no,no,match
+FND-IDEM-plate-first,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,Plate.js,first pass,20.6,20.6,match
+FND-IDEM-plate-second,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,Plate.js,second pass,20.1,20.1,match
+FND-IDEM-plate-bytes,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,Plate.js,byte-identical,no,no,match
+FND-IDEM-lo_baseline-first,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,LibreOffice (baseline),first pass,86.9,86.9,match
+FND-IDEM-lo_baseline-second,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,LibreOffice (baseline),second pass,87.9,87.9,match
+FND-IDEM-lo_baseline-bytes,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Second pass,LibreOffice (baseline),byte-identical,no,no,match
+FND-NAMESPACE,Report A - Serialization by Namespace (2026).md,derived table,all,table equality,committed table,derived table,match
+FND-PARTS,Report A2 - Pass-Through (2026).md,part matrix,all,table equality,committed table,derived table,match
+FND-PRESERVED,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,derived table,all,table equality,committed table,derived table,match
+FND-SCORE-superdoc-weighted,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,SuperDoc V2,weighted,100.0,100,match
+FND-SCORE-superdoc-critical,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,SuperDoc V2,critical,100.0,100,match
+FND-SCORE-superdoc-text,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,SuperDoc V2,text,100.0,100,match
+FND-SCORE-superdoc-parts,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,SuperDoc V2,parts kept,35/35,35/35,match
+FND-SCORE-superdoc-failed,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,SuperDoc V2,failed checks,0,0,match
+FND-SCORE-docxodus-weighted,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,Docxodus,weighted,100.0,100,match
+FND-SCORE-docxodus-critical,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,Docxodus,critical,100.0,100,match
+FND-SCORE-docxodus-text,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,Docxodus,text,100.0,100,match
+FND-SCORE-docxodus-parts,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,Docxodus,parts kept,35/35,35/35,match
+FND-SCORE-docxodus-failed,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,Docxodus,failed checks,0,0,match
+FND-SCORE-genoffice-weighted,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,GenOffice,weighted,98.5,98.5,match
+FND-SCORE-genoffice-critical,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,GenOffice,critical,96.6,96.6,match
+FND-SCORE-genoffice-text,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,GenOffice,text,98.8,98.8,match
+FND-SCORE-genoffice-parts,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,GenOffice,parts kept,35/35,35/35,match
+FND-SCORE-genoffice-failed,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,GenOffice,failed checks,1,1,match
+FND-SCORE-eigenpal-weighted,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,eigenpal,weighted,100.0,100,match
+FND-SCORE-eigenpal-critical,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,eigenpal,critical,100.0,100,match
+FND-SCORE-eigenpal-text,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,eigenpal,text,100.0,100,match
+FND-SCORE-eigenpal-parts,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,eigenpal,parts kept,35/35,35/35,match
+FND-SCORE-eigenpal-failed,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,eigenpal,failed checks,0,0,match
+FND-SCORE-folio-weighted,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,Folio,weighted,97.5,97.5,match
+FND-SCORE-folio-critical,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,Folio,critical,96.6,96.6,match
+FND-SCORE-folio-text,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,Folio,text,100.0,100,match
+FND-SCORE-folio-parts,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,Folio,parts kept,35/35,35/35,match
+FND-SCORE-folio-failed,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,Folio,failed checks,2,2,match
+FND-SCORE-officeopen-weighted,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,office-open,weighted,93.5,93.5,match
+FND-SCORE-officeopen-critical,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,office-open,critical,86.2,86.2,match
+FND-SCORE-officeopen-text,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,office-open,text,100.0,100,match
+FND-SCORE-officeopen-parts,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,office-open,parts kept,35/35,35/35,match
+FND-SCORE-officeopen-failed,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,office-open,failed checks,5,5,match
+FND-SCORE-docen-weighted,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,Docen,weighted,91.5,91.5,match
+FND-SCORE-docen-critical,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,Docen,critical,82.8,82.8,match
+FND-SCORE-docen-text,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,Docen,text,99.4,99.4,match
+FND-SCORE-docen-parts,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,Docen,parts kept,35/35,35/35,match
+FND-SCORE-docen-failed,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,Docen,failed checks,7,7,match
+FND-SCORE-wordcraft-weighted,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,WordCraft,weighted,85.9,85.9,match
+FND-SCORE-wordcraft-critical,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,WordCraft,critical,72.4,72.4,match
+FND-SCORE-wordcraft-text,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,WordCraft,text,97.0,97,match
+FND-SCORE-wordcraft-parts,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,WordCraft,parts kept,32/35,32/35,match
+FND-SCORE-wordcraft-failed,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,WordCraft,failed checks,12,12,match
+FND-SCORE-canvas-weighted,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,canvas-editor + plugin,weighted,24.6,24.6,match
+FND-SCORE-canvas-critical,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,canvas-editor + plugin,critical,24.1,24.1,match
+FND-SCORE-canvas-text,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,canvas-editor + plugin,text,88.8,88.8,match
+FND-SCORE-canvas-parts,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,canvas-editor + plugin,parts kept,14/35,14/35,match
+FND-SCORE-canvas-failed,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,canvas-editor + plugin,failed checks,75,75,match
+FND-SCORE-fidus-weighted,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,Fidus Writer,weighted,23.6,23.6,match
+FND-SCORE-fidus-critical,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,Fidus Writer,critical,24.1,24.1,match
+FND-SCORE-fidus-text,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,Fidus Writer,text,71.0,71,match
+FND-SCORE-fidus-parts,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,Fidus Writer,parts kept,11/35,11/35,match
+FND-SCORE-fidus-failed,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,Fidus Writer,failed checks,77,77,match
+FND-SCORE-docsplus-weighted,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,docs.plus,weighted,21.1,21.1,match
+FND-SCORE-docsplus-critical,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,docs.plus,critical,24.1,24.1,match
+FND-SCORE-docsplus-text,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,docs.plus,text,90.5,90.5,match
+FND-SCORE-docsplus-parts,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,docs.plus,parts kept,11/35,11/35,match
+FND-SCORE-docsplus-failed,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,docs.plus,failed checks,79,79,match
+FND-SCORE-plate-weighted,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,Plate.js,weighted,20.6,20.6,match
+FND-SCORE-plate-critical,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,Plate.js,critical,20.7,20.7,match
+FND-SCORE-plate-text,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,Plate.js,text,90.5,90.5,match
+FND-SCORE-plate-parts,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,Plate.js,parts kept,11/35,11/35,match
+FND-SCORE-plate-failed,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,Plate.js,failed checks,79,79,match
+FND-SCORE-lo_baseline-weighted,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,LibreOffice (baseline),weighted,86.9,86.9,match
+FND-SCORE-lo_baseline-critical,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,LibreOffice (baseline),critical,79.3,79.3,match
+FND-SCORE-lo_baseline-text,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,LibreOffice (baseline),text,100.0,100,match
+FND-SCORE-lo_baseline-parts,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,LibreOffice (baseline),parts kept,25/35,25/35,match
+FND-SCORE-lo_baseline-failed,Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md,Round-trip scorecard,LibreOffice (baseline),failed checks,12,12,match

@@ -1,4 +1,4 @@
-[stub] media origin = http://127.0.0.1:63899
+[stub] media origin = http://127.0.0.1:55255
 [import] title      = "Complex Fixture"
 [import] warnings   = 1
          - title-synthesized: The document opened on no usable text, so its title was set to "Complex Fixture".

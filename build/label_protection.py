@@ -17,6 +17,8 @@ LOG = ROOT / "logs" / "bombs"
 
 # First match wins. Specific tool phrases come before broad ones.
 PHRASES = (
+    ("compression_ratio_limit_exceeded", "named ceiling on compression ratio"),
+    ("xml_depth_limit_exceeded", "named ceiling on element depth"),
     ("maxEntryBytes", "named ceiling on the size of one part"),
     ("exceeds maxEntries", "named ceiling on the number of parts"),
     ("maxXmlDepth", "named ceiling on element depth"),
@@ -35,6 +37,7 @@ PHRASES = (
     ("parts exceeds the", "named ceiling on the number of parts"),
     ("INPUT_LIMIT", "named input limit"),
     ("document type declaration", "rejected a document type declaration"),
+    ("DtdIsProhibited", "rejected a document type declaration"),
     ("External entities are not supported", "rejected an external entity"),
     ("unsupported or malformed entity", "rejected a malformed entity"),
     ("entity not found", "an entity was not found"),
@@ -144,6 +147,7 @@ def main() -> int:
         "canvas",
         "docsplus",
         "docxodus",
+        "apryse",
     ]
     bombs = [f"B{n}" for n in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)]
     by = {(name, bid): (level, detail) for name, bid, level, detail, _f, _s in rows}

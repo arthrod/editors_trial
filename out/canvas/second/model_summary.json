@@ -1,0 +1,448 @@
+{
+  "fixtureBytes": 11301,
+  "outputBytes": 11321,
+  "model": {
+    "total": 46,
+    "text": 41,
+    "table": 2,
+    "image": 1,
+    "hyperlink": 0,
+    "control": 0,
+    "list": 0,
+    "checkbox": 0,
+    "withStyle": 34
+  },
+  "modelTextLength": 1157,
+  "modelTextHead": "\nLeading and trailing spaces are significant.\nTab separatedAfter a page breaknobreaksofthyphensymafter CR\nrun with unknown w14 attributes and w14 elements\ncustom namespace attribute: cs complex-script text\nmispelinggrammaticaly\nrun whose formatting was changed\nparagraph whose properties were changed\nparagraph mark was inserted\nRight-click and choose Update Field to build the table of contents.\nbookmarked anchor\nbookmarked anchor\n1\n{content control content}\n{2026-01-15}\n{bound value}\n{inner nested content}\n1. List item level 1\n2. List item level 2\nHeader AHeader BHeader CSpans two columnsNormal cellvert merged, firstvertical textright alignedbottom aligned\nnested 1nested 2after nested tableThis row was inserted (trIns)Paragraph after the table.\nA sentence with a footnote and an endnote\nA sentence with a comment\ndata:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAFklEQVR42mOQL99CEmIY1TCqYfhqAADbmEoQeRLK0AAAAABJRU5ErkJggg==\nשלום עולם - Hebrew text right to left\nrtl runcomplex script size\nhidden textno proofcaps smallvertkernlang\nThis region is editable by everyone\nEnd of section 1.\nLandscape section content.\nLast paragraph.\n",
+  "importError": "TypeError: Cannot read properties of undefined (reading 'width')\n    at Object.computeRowColInfo (/Users/arthrod/temp/T/editors_trial/repos/canvas-editor/src/editor/core/draw/particle/table/TableParticle.ts:724:45)\n    at TableParticle.__vi_import_4__.TableParticle.computeRowColInfo (/Users/arthrod/temp/T/editors_trial/harness/canvas/roundtrip.test.ts:64:12)\n    at LayoutEngine.computeRowList (/Users/arthrod/temp/T/editors_trial/repos/canvas-editor/src/editor/core/layout/LayoutEngine.ts:360:33)\n    at Draw.computeRowList (/Users/arthrod/temp/T/editors_trial/repos/canvas-editor/src/editor/core/draw/Draw.ts:1792:30)\n    at Draw.render (/Users/arthrod/temp/T/editors_trial/repos/canvas-editor/src/editor/core/draw/Draw.ts:2666:44)\n    at Draw.setValue (/Users/arthrod/temp/T/editors_trial/repos/canvas-editor/src/editor/core/draw/Draw.ts:1688:10)\n    at CommandAdapt.setValue (/Users/arthrod/temp/T/editors_trial/repos/canvas-editor/src/editor/core/command/CommandAdapt.ts:2328:15)\n    at Command.executeSetValue (/Users/arthrod/temp/T/editors_trial/repos/canvas-editor/src/editor/core/command/Command.ts:182:14)\n    at Command.executeImportDocx (/Users/arthrod/temp/T/editors_trial/repos/canvas-editor-plugin/packages/docx/src/docx/importDocx.ts:1857:13)\n    at /Users/arthrod/temp/T/editors_trial/harness/canvas/roundtrip.test.ts:186:7",
+  "tableFindings": [
+    {
+      "error": "Cannot read properties of undefined (reading 'width')",
+      "colgroupLength": 3,
+      "colgroupWidths": [
+        160,
+        160,
+        160
+      ],
+      "rows": [
+        {
+          "height": 42,
+          "tds": [
+            {
+              "colspan": 1,
+              "rowspan": 1,
+              "colIndex": 0,
+              "rowIndex": 0
+            },
+            {
+              "colspan": 1,
+              "rowspan": 1,
+              "colIndex": 1,
+              "rowIndex": 0
+            },
+            {
+              "colspan": 1,
+              "rowspan": 1,
+              "colIndex": 2,
+              "rowIndex": 0
+            }
+          ]
+        },
+        {
+          "height": 42,
+          "tds": [
+            {
+              "colspan": 2,
+              "rowspan": 1,
+              "colIndex": 0,
+              "rowIndex": 1
+            },
+            {
+              "colspan": 1,
+              "rowspan": 1,
+              "colIndex": 2,
+              "rowIndex": 1
+            }
+          ]
+        },
+        {
+          "height": 42,
+          "tds": [
+            {
+              "colspan": 1,
+              "rowspan": 2,
+              "colIndex": 0,
+              "rowIndex": 2
+            },
+            {
+              "colspan": 1,
+              "rowspan": 1,
+              "colIndex": 1,
+              "rowIndex": 2
+            }
+          ]
+        },
+        {
+          "height": 42,
+          "tds": [
+            {
+              "colspan": 1,
+              "rowspan": 1,
+              "colIndex": 1,
+              "rowIndex": 3
+            },
+            {
+              "colspan": 1,
+              "rowspan": 1,
+              "colIndex": 0,
+              "rowIndex": 3
+            }
+          ]
+        },
+        {
+          "height": 42,
+          "tds": [
+            {
+              "colspan": 3,
+              "rowspan": 1
+            }
+          ]
+        },
+        {
+          "height": 42,
+          "tds": [
+            {
+              "colspan": 3,
+              "rowspan": 1
+            }
+          ]
+        },
+        {
+          "height": 42,
+          "tds": [
+            {
+              "colspan": 3,
+              "rowspan": 1
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "editorOptions": {
+    "mode": "edit",
+    "locale": "zhCN",
+    "defaultType": "TEXT",
+    "defaultColor": "#000000",
+    "defaultFont": "Microsoft YaHei",
+    "defaultSize": 16,
+    "minSize": 5,
+    "maxSize": 72,
+    "defaultRowMargin": 1,
+    "defaultBasicRowMarginHeight": 8,
+    "defaultTabWidth": 32,
+    "width": 816,
+    "height": 1056,
+    "scale": 1,
+    "pageGap": 20,
+    "underlineColor": "#000000",
+    "strikeoutColor": "#FF0000",
+    "rangeAlpha": 0.6,
+    "rangeColor": "#AECBFA",
+    "rangeMinWidth": 5,
+    "searchMatchAlpha": 0.6,
+    "searchMatchColor": "#FFFF00",
+    "searchNavigateMatchColor": "#AAD280",
+    "highlightAlpha": 0.6,
+    "highlightMarginHeight": 8,
+    "resizerColor": "#4182D9",
+    "resizerSize": 5,
+    "marginIndicatorSize": 35,
+    "marginIndicatorColor": "#BABABA",
+    "margins": [
+      96,
+      96,
+      96,
+      96
+    ],
+    "pageMode": "paging",
+    "renderMode": "speed",
+    "backend": "canvas",
+    "defaultHyperlinkColor": "#0000FF",
+    "paperDirection": "vertical",
+    "inactiveAlpha": 0.6,
+    "historyMaxRecordCount": 100,
+    "wordBreak": "break-word",
+    "printPixelRatio": 3,
+    "maskMargin": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "letterClass": [
+      "A-Za-z"
+    ],
+    "contextMenuDisableKeys": [],
+    "shortcutDisableKeys": [],
+    "scrollContainerSelector": "",
+    "pageOuterSelectionDisable": false,
+    "lab": {
+      "incrementalCompute": false
+    },
+    "table": {
+      "tdPadding": [
+        0,
+        5,
+        5,
+        5
+      ],
+      "defaultTrMinHeight": 42,
+      "defaultColMinWidth": 40,
+      "defaultBorderColor": "#000000",
+      "overflow": false
+    },
+    "header": {
+      "top": 30,
+      "inactiveAlpha": 1,
+      "maxHeightRadio": "half",
+      "disabled": false,
+      "editable": true,
+      "disabledPages": []
+    },
+    "footer": {
+      "bottom": 30,
+      "inactiveAlpha": 1,
+      "maxHeightRadio": "half",
+      "disabled": false,
+      "editable": true,
+      "disabledPages": []
+    },
+    "pageNumber": {
+      "bottom": 60,
+      "size": 12,
+      "font": "Microsoft YaHei",
+      "color": "#000000",
+      "rowFlex": "center",
+      "format": "{pageNo}",
+      "numberType": "arabic",
+      "disabled": false,
+      "startPageNo": 1,
+      "fromPageNo": 0,
+      "maxPageNo": null
+    },
+    "watermark": {
+      "data": "",
+      "type": "text",
+      "width": 0,
+      "height": 0,
+      "color": "#AEB5C0",
+      "opacity": 0.3,
+      "size": 200,
+      "font": "Microsoft YaHei",
+      "repeat": false,
+      "gap": [
+        10,
+        10
+      ],
+      "numberType": "arabic",
+      "layer": "bottom"
+    },
+    "control": {
+      "placeholderColor": "#9c9b9b",
+      "bracketColor": "#000000",
+      "prefix": "{",
+      "postfix": "}",
+      "borderWidth": 1,
+      "borderColor": "#000000",
+      "activeBackgroundColor": "",
+      "disabledBackgroundColor": "",
+      "existValueBackgroundColor": "",
+      "noValueBackgroundColor": "",
+      "errorBackgroundColor": "#FFECE8"
+    },
+    "checkbox": {
+      "width": 14,
+      "height": 14,
+      "gap": 5,
+      "lineWidth": 1,
+      "fillStyle": "#ffffff",
+      "strokeStyle": "#000000",
+      "checkFillStyle": "#5175f4",
+      "checkStrokeStyle": "#5175f4",
+      "checkMarkColor": "#ffffff",
+      "markType": "check",
+      "verticalAlign": "bottom"
+    },
+    "radio": {
+      "width": 14,
+      "height": 14,
+      "gap": 5,
+      "lineWidth": 1,
+      "fillStyle": "#5175f4",
+      "strokeStyle": "#000000",
+      "verticalAlign": "bottom"
+    },
+    "cursor": {
+      "width": 1,
+      "color": "#000000",
+      "dragWidth": 2,
+      "dragColor": "#0000FF",
+      "dragFloatImageDisabled": false
+    },
+    "title": {
+      "defaultFirstSize": 26,
+      "defaultSecondSize": 24,
+      "defaultThirdSize": 22,
+      "defaultFourthSize": 20,
+      "defaultFifthSize": 18,
+      "defaultSixthSize": 16
+    },
+    "placeholder": {
+      "data": "",
+      "color": "#DCDFE6",
+      "opacity": 1,
+      "size": 16,
+      "font": "Microsoft YaHei"
+    },
+    "group": {
+      "opacity": 0.1,
+      "backgroundColor": "#E99D00",
+      "activeOpacity": 0.5,
+      "activeBackgroundColor": "#E99D00",
+      "disabled": false,
+      "deletable": true
+    },
+    "pageBreak": {
+      "font": "Microsoft YaHei",
+      "fontSize": 12,
+      "lineDash": [
+        3,
+        1
+      ]
+    },
+    "zone": {
+      "tipDisabled": true
+    },
+    "background": {
+      "color": "#FFFFFF",
+      "image": "",
+      "size": "cover",
+      "repeat": "no-repeat",
+      "applyPageNumbers": []
+    },
+    "lineBreak": {
+      "disabled": true,
+      "color": "#CCCCCC",
+      "lineWidth": 1.5
+    },
+    "whiteSpace": {
+      "disabled": true,
+      "color": "#CCCCCC",
+      "radius": 1
+    },
+    "separator": {
+      "lineWidth": 1,
+      "strokeStyle": "#000000"
+    },
+    "lineNumber": {
+      "size": 12,
+      "font": "Microsoft YaHei",
+      "color": "#000000",
+      "disabled": true,
+      "right": 20,
+      "type": "continuity"
+    },
+    "pageBorder": {
+      "color": "#000000",
+      "lineWidth": 1,
+      "padding": [
+        0,
+        5,
+        0,
+        5
+      ],
+      "disabled": true
+    },
+    "badge": {
+      "top": 0,
+      "left": 5
+    },
+    "modeRule": {
+      "print": {
+        "imagePreviewerDisabled": false,
+        "backgroundDisabled": false,
+        "filterEmptyControl": true,
+        "areaHideDisabled": false
+      },
+      "readonly": {
+        "imagePreviewerDisabled": false
+      },
+      "form": {
+        "controlDeletableDisabled": false
+      }
+    },
+    "graffiti": {
+      "defaultLineColor": "#000000",
+      "defaultLineWidth": 2
+    },
+    "label": {
+      "defaultColor": "#1976d2",
+      "defaultBackgroundColor": "#e3f2fd",
+      "defaultBorderRadius": 4,
+      "defaultPadding": [
+        4,
+        4,
+        4,
+        4
+      ]
+    },
+    "imgCaption": {
+      "color": "#666666",
+      "font": "Microsoft YaHei",
+      "size": 12,
+      "top": 5
+    },
+    "list": {
+      "inheritStyle": false
+    },
+    "magnifier": {
+      "disabled": true,
+      "size": 120,
+      "zoom": 2,
+      "borderColor": "#efefef"
+    },
+    "accessibility": {
+      "disabled": true
+    },
+    "column": {
+      "count": 1,
+      "gap": 20,
+      "separator": false,
+      "separatorColor": "#000000",
+      "separatorWidth": 1
+    },
+    "trace": {
+      "disabled": true,
+      "insertColor": "#2B5CE6",
+      "deleteColor": "#E03F3F",
+      "author": "",
+      "lineWidth": 2
+    },
+    "ruler": {
+      "disabled": true,
+      "height": 26
+    },
+    "hint": {
+      "disabled": true,
+      "backgroundColor": "#fff",
+      "color": "#000000",
+      "fontSize": 12,
+      "maxWidth": 280
+    },
+    "spellcheck": {
+      "disabled": true,
+      "color": "#FF0000"
+    }
+  }
+}

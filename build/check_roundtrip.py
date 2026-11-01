@@ -9,6 +9,7 @@ Two headline numbers:
   * feature score  - weighted survival of the exception-case corpus
   * text retention - share of the input's visible text that survives
 """
+import html
 import io
 import json
 import posixpath
@@ -18,6 +19,8 @@ import zipfile
 import xml.etree.ElementTree as ET
 
 W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+# Field results that change with pagination: not text a save can be asked to keep.
+_PAGE_FIELD = re.compile(r"\s*(PAGE|NUMPAGES|SECTIONPAGES)\b", re.I)
 MC = "{http://schemas.openxmlformats.org/markup-compatibility/2006}"
 M = "{http://schemas.openxmlformats.org/officeDocument/2006/math}"
 W16DU = "{http://schemas.microsoft.com/office/word/2023/wordml/word16du}"
@@ -109,30 +112,83 @@ class Pkg:
         Paragraphs are separated so that tokens never merge across a paragraph
         boundary (an artefact of a flat concat would otherwise show up as a
         false "lost text" finding).
+
+        What a reader sees, once (arthrod/editors_trial#24):
+        - mc:Fallback is skipped: it restates mc:Choice for older consumers, and a save
+          that rewrites it from the choice (as Word does) loses nothing visible;
+        - a paragraph's text stops at a nested w:p (a text box), which is its own paragraph;
+        - PAGE, NUMPAGES and SECTIONPAGES results are skipped: they change with pagination.
         """
         t = self.doc()
         if t is None:
             return ""
         paras = []
-        for p in t.iter(W + "p"):
+        fields = []  # open complex fields: [instruction, in result]
+
+        def in_page_result():
+            return any(res and _PAGE_FIELD.match(instr) for instr, res in fields)
+
+        def walk(el, buf):
+            for e in el:
+                tag = e.tag
+                if tag == MC + "Fallback":
+                    continue
+                if tag == W + "p":
+                    para(e)
+                    continue
+                if tag == W + "altChunk":
+                    # Word shows the chunk's content and imports it on save, so it is text
+                    # whether the chunk is kept or imported.
+                    paras.extend(self._alt_chunk_paragraphs(e.get(R + "id")))
+                    continue
+                if tag == W + "fldSimple" and _PAGE_FIELD.match(e.get(W + "instr") or ""):
+                    continue
+                if tag == W + "fldChar":
+                    kind = e.get(W + "fldCharType")
+                    if kind == "begin":
+                        fields.append(["", False])
+                    elif kind == "separate" and fields:
+                        fields[-1][1] = True
+                    elif kind == "end" and fields:
+                        fields.pop()
+                elif tag == W + "instrText" and fields and not fields[-1][1]:
+                    fields[-1][0] += e.text or ""
+                elif not in_page_result():
+                    if tag == W + "t":
+                        buf.append(e.text or "")
+                    elif tag == W + "delText" and include_del:
+                        buf.append(e.text or "")
+                    elif tag == M + "t":
+                        buf.append(e.text or "")
+                    elif tag == W + "tab":
+                        buf.append("\t")
+                    elif tag in (W + "br", W + "cr"):
+                        buf.append("\n")
+                walk(e, buf)
+
+        def para(p):
             buf = []
-            for e in p.iter():
-                if e.tag == W + "t":
-                    buf.append(e.text or "")
-                elif e.tag == W + "delText" and include_del:
-                    buf.append(e.text or "")
-                elif e.tag == M + "t":
-                    buf.append(e.text or "")
-                elif e.tag == W + "tab":
-                    buf.append("\t")
-                elif e.tag in (W + "br", W + "cr"):
-                    buf.append("\n")
-            paras.append("".join(buf))
-        # content outside any w:p (e.g. a bare m:oMathPara) still counts
-        joined = "\n".join(paras)
+            slot = len(paras)
+            paras.append("")
+            walk(p, buf)
+            paras[slot] = "".join(buf)
+
+        walk(t, [])
+        # content outside any w:p (e.g. a bare m:oMathPara) still counts; an empty
+        # paragraph shows no text
+        joined = "\n".join(p for p in paras if p.strip())
         if not joined.strip():
             joined = "".join(e.text or "" for e in t.iter(M + "t"))
         return re.sub(r"[ \t]+", " ", joined).strip()
+
+    def _alt_chunk_paragraphs(self, rid):
+        """The paragraphs of an altChunk's HTML part, as text."""
+        part = self.resolved_internal("word/document.xml", rid)
+        if not part:
+            return []
+        html_text = self.raw(part)
+        found = re.findall(r"<p\b[^>]*>([\s\S]*?)</p>", html_text, re.I)
+        return [html.unescape(re.sub(r"<[^>]+>", "", t)).strip() for t in found]
 
     def tokens(self):
         t = self.text()
@@ -390,6 +446,43 @@ def _hyperlink_facts(pkg):
     return facts
 
 
+def _field_instructions(pkg):
+    """Each field's instruction, normalised, whether written as w:fldSimple or as a complex
+    field (w:fldChar + w:instrText): the two are the same field (arthrod/editors_trial#24)."""
+    doc = pkg.doc()
+    found = []
+    if doc is None:
+        return found
+    norm = lambda s: " ".join(s.split())
+    for el in doc.iter(W + "fldSimple"):
+        found.append(norm(el.get(W + "instr") or ""))
+    stack = []  # open complex fields: [instruction, instruction finished]
+    for el in doc.iter():
+        if el.tag == W + "fldChar":
+            kind = el.get(W + "fldCharType")
+            if kind == "begin":
+                stack.append(["", False])
+            elif kind == "separate" and stack and not stack[-1][1]:
+                stack[-1][1] = True
+                found.append(norm(stack[-1][0]))
+            elif kind == "end" and stack:
+                instr, done = stack.pop()
+                if not done:
+                    found.append(norm(instr))
+        elif el.tag == W + "instrText" and stack and not stack[-1][1]:
+            stack[-1][0] += el.text or ""
+    return found
+
+
+def _simple_fields_kept(inp, out):
+    """Every w:fldSimple of the input survives, as a simple or a complex field."""
+    doc = inp.doc()
+    want = [" ".join((el.get(W + "instr") or "").split()) for el in doc.iter(W + "fldSimple")] if doc is not None else []
+    have = _field_instructions(out)
+    kept = sum(1 for w in want if w in have)
+    return bool(want) and kept == len(want), "n=%d" % kept
+
+
 def build_checks(inp: Pkg, out: Pkg):
     """Return list of (id, label, category, weight, ok_bool, detail)."""
     C_ = []
@@ -426,6 +519,9 @@ def build_checks(inp: Pkg, out: Pkg):
             local, ref_type = STORY_REFS[part]
             target = out.story_target(local, ref_type)
             kept = (part in out.names) if target is None else bool(target)
+        elif part == "word/afchunk.html":
+            # Importing the chunk's content is what Word does with it (#24); ref.altChunk agrees.
+            kept = part in out.names or _altchunk_ok(out)
         else:
             kept = part in out.names
         chk("pkg." + part.replace("/", "_"), "part kept: " + label, "package", w,
@@ -493,8 +589,9 @@ def build_checks(inp: Pkg, out: Pkg):
         out.count("fldChar") >= 2, "n=%d" % out.count("fldChar"))
     chk("fl.instrText", "field instruction (w:instrText) kept", "fields", "critical",
         out.count("instrText") >= 1)
-    chk("fl.fldSimple", "simple field (w:fldSimple) kept", "fields", "major",
-        out.count("fldSimple") >= 2, "n=%d" % out.count("fldSimple"))
+    simple_ok, simple_detail = _simple_fields_kept(inp, out)
+    chk("fl.fldSimple", "simple fields kept (as simple or complex fields)", "fields", "major",
+        simple_ok, simple_detail)
     chk("fl.bookmark", "bookmark kept", "fields", "major",
         out.count("bookmarkStart") >= 1 and out.count("bookmarkEnd") >= 1)
     chk("fl.tocInstr", "TOC field instruction text intact", "fields", "critical",
@@ -716,7 +813,7 @@ def main():
     for c in checks:
         cats.setdefault(c[2], []).append(c)
     for cat in ["package", "tracked", "fields", "sdt", "markup", "tables", "layout",
-                "formatting", "refs"]:
+                "formatting", "text", "refs"]:
         if cat not in cats:
             continue
         print("\n[%s]" % cat.upper())
