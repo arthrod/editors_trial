@@ -7,6 +7,43 @@ re-running the measurement behind it. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/) with the trial still pre-1.0.
 
+## [0.9.4] - 2026-11-01
+
+Tooling only: every TypeScript project in the trial installs with pnpm, and
+nothing newer than 5 days enters it. No figure changes.
+
+### Updated
+
+- No editor pin moved (cutoff 2026-10-27, as in 0.9.2 and 0.9.3).
+- Twelve projects (six demos, six harnesses) updated with
+  `pnpm update --latest` under `minimumReleaseAge: 7200` (5 days, AGENTS.md
+  section 1); the editor pins are excluded and move only through
+  `build/update_editors.sh`. npm and bun lockfiles removed (#59, #60).
+- Live demos rebuilt on the new dependencies: canvas-editor, docxodus, plate,
+  superdoc.
+
+### Measured
+
+- Plate, Docxodus and Apryse round trips, run twice: part-for-part identical
+  to the published outputs. Their UI captures match `out/ui`.
+
+### Not re-measured
+
+- Every other lane: no pin moved and no harness changed for them.
+- **The release gate (`build/verify_publication.sh --with-word`) was not
+  run**: Word was busy with another session's job. Published on the owner's
+  instruction without it.
+- docs-plus and office-open demos have no rebuild recipe; their live builds
+  are those of 0.9.3.
+
+### Fixed
+
+- `build/update_editors.sh` installs the docxodus pin with pnpm, not npm.
+- `build/rebuild_demo.sh` never copies a demo's local `node_modules` into the
+  build tree (`build/test_rebuild_demo.py`).
+- superdoc and office-open demos minify with Oxc: Vite 8 no longer ships
+  esbuild.
+
 ## [0.9.3] - 2026-11-01
 
 Every pixel measurement is taken at 200 dpi; Apryse WebViewer joins every lane
