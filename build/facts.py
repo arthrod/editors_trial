@@ -123,8 +123,11 @@ def version_facts(facts: dict) -> None:
         facts[f"{key}.commit"] = git(repo, "rev-parse", "--short=9", "HEAD")
         facts[f"{key}.date"] = git(repo, "log", "-1", "--format=%cs")
         facts[f"{key}.slug"] = slug
+    pinned = ROOT / "harness/superdoc-sdk/node_modules/@superdoc/sdk/package.json"
     store = ROOT / NPM["superdoc_sdk"][1]
-    if store.exists():
+    if pinned.exists():
+        facts["ver.npm.superdoc_sdk"] = json.loads(pinned.read_text())["version"]
+    elif store.exists():
         pre = NPM["superdoc_sdk"][2]
         hits = sorted(p.name[len(pre):] for p in store.iterdir() if p.name.startswith(pre))
         if hits:

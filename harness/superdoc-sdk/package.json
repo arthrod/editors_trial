@@ -1,0 +1,7 @@
+{
+  "name": "superdoc-sdk-harness",
+  "private": true,
+  "type": "module",
+  "description": "The published @superdoc/sdk the trial measures, pinned exactly; build/update_editors.sh moves it.",
+  "dependencies": {}
+}
