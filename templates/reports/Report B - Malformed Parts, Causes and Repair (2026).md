@@ -253,21 +253,7 @@ This is the question the first report could not answer, and it is the one that m
 
 `YES` = the defect class is still present in the editor's output · `no` = the class is gone · `DROP` = the whole part carrying it was dropped.
 
-| Editor | d1 order (settings) | d2 order (tcPr) | d3 order (trPr) | d4 order (pPrChange) | d5 order (sectPr) | d6 durableId | d9 OLE payload | d10 delText in moveFrom | d11 block math | d12 dirty=true | Word {{word.version}} |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| SuperDoc | YES | YES | YES | YES | YES | YES | YES | YES | YES | YES | **REFUSED** |
-| Folio | YES | YES | YES | no | no | YES | YES | YES | YES | YES | **REFUSED** |
-| GenOffice | YES | YES | YES | YES | YES | YES | YES | YES | YES | YES | **REFUSED** |
-| eigenpal | YES | YES | YES | YES | YES | YES | YES | YES | YES | YES | **REFUSED** |
-| **Docxodus** | **YES** | **YES** | **YES** | **YES** | **YES** | **YES** | **YES** | **YES** | **YES** | **YES** | **REFUSED** |
-| office-open | no | no | no | no | no | no | YES | YES | YES | no | **REFUSED** |
-| Docen | no | no | no | no | no | no | YES | YES | YES | no | **REFUSED** |
-| WordCraft | YES | no | no | no | no | no | YES | no | no | YES | **REFUSED** |
-| Fidus Writer | no | no | no | no | no | no | DROP | no | no | no | **REFUSED** |
-| **Plate.js** | — | — | — | — | — | — | — | — | — | — | **REFUSED (no output)** |
-| canvas-editor + plugin | no | no | no | no | no | no | DROP | no | no | no | **OPENED** |
-| docs.plus | no | no | no | no | no | no | DROP | no | no | no | **OPENED** |
-| LibreOffice (baseline) | no | no | YES | no | no | no | DROP | no | no | no | **OPENED** |
+{{broken.survival}}
 
 **Not one editor repaired a defect.**
 

@@ -242,6 +242,18 @@ def word_pixel_facts(path: Path, facts: dict) -> None:
             facts[f"wpx.{label}.{name}"] = v[k]
 
 
+def broken_facts(facts: dict) -> None:
+    """Report B's defect-survival table: out_broken/ scanned, plus Word's verdict on the same outputs.
+    An output Word has not opened in this release reads "not measured", never an old verdict."""
+    if not (ROOT / "out_broken").exists():
+        return
+    import defect_survival
+    word = OUT / "word_verdicts_broken.json"
+    data = json.loads(word.read_text()) if word.exists() else {"word": facts.get("word.version", "?"), "verdicts": {}}
+    facts["broken.survival"] = defect_survival.table(defect_survival.survival(), data["verdicts"], data["word"])
+    facts["broken.word_measured"] = word.exists()
+
+
 def count_facts(facts: dict) -> None:
     """How many took part, counted from the measurements present rather than typed."""
     measured = sorted({k.split(".")[1] for k in facts if k.startswith("rt.") and k.endswith(".weighted")} - LANES)
@@ -299,6 +311,7 @@ def build() -> dict:
     import preserved_matrix
     if all((OUT / d / "score.json").exists() for _, d in preserved_matrix.TOOLS):
         facts["matrix.preserved"] = preserved_matrix.build_table()
+    broken_facts(facts)
     version_facts(facts)
     ui_facts(OUT / "ui", facts)
     stamp_facts(OUT / "apryse", facts)

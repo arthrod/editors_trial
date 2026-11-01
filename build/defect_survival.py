@@ -6,29 +6,43 @@ or PROPAGATE it?
 For each editor, this scans the output it produced from
 fixture/complex_broken.docx and reports, per defect class, whether the defect
 is still present, was silently removed, or was rewritten into a different one.
+Report B's table is table(): these cells plus Word's verdict on the same
+outputs (out/word_verdicts_broken.json, from build/word_verdicts.py --set broken).
 
 usage: python3 build/defect_survival.py
 """
+import json
 import os
 import re
 import sys
 import zipfile
+from pathlib import Path
 
-BASE = "/Users/arthrod/temp/T/editors_trial"
+ROOT = Path(__file__).resolve().parents[1]
+BASE = str(ROOT)
 BROKEN = os.path.join(BASE, "fixture", "complex_broken.docx")
 
+# Report B's row order.
 EDITORS = [
-    ("Plate.js", "plate"),
-    ("Docxodus", "docxodus"),
     ("SuperDoc", "superdoc"), ("Folio", "folio"), ("GenOffice", "genoffice"),
-    ("eigenpal", "eigenpal"), ("office-open", "officeopen"), ("Docen", "docen"),
-    ("WordCraft", "wordcraft"), ("Fidus Writer", "fidus"),
-    ("canvas-editor + plugin", "canvas"), ("docs.plus", "docsplus"),
+    ("eigenpal", "eigenpal"), ("Docxodus", "docxodus"), ("office-open", "officeopen"),
+    ("Docen", "docen"), ("WordCraft", "wordcraft"), ("Fidus Writer", "fidus"),
+    ("Plate.js", "plate"), ("canvas-editor + plugin", "canvas"), ("docs.plus", "docsplus"),
     ("Apryse WebViewer", "apryse"),
     ("LibreOffice (baseline)", "lo_baseline"),
 ]
 
+# The defect classes visible in a package, with Report B's column names.
+DEFECTS = {
+    1: "d1 order (settings)", 2: "d2 order (tcPr)", 3: "d3 order (trPr)",
+    4: "d4 order (pPrChange)", 5: "d5 order (sectPr)", 6: "d6 durableId",
+    9: "d9 OLE payload", 10: "d10 delText in moveFrom", 11: "d11 block math",
+    12: "d12 dirty=true",
+}
+CELL = {"present": "YES", "absent": "no", "removed": "DROP"}
+
 OUTROOT = os.path.join(BASE, "out_broken")
+WORD = ROOT / "out" / "word_verdicts_broken.json"
 
 
 def text_of(path, part):
@@ -85,6 +99,41 @@ def check(doc, settings, numbering, docx_bytes, ole_present):
     return r
 
 
+def scan(path):
+    """-> {defect: 'YES' | 'no' | 'DROP'} for one output package."""
+    dd = text_of(path, "word/document.xml")
+    ss = text_of(path, "word/settings.xml")
+    nn = text_of(path, "word/numbering.xml")
+    with zipfile.ZipFile(path) as z:
+        ob = z.read("word/embeddings/embedded1.docx") if "word/embeddings/embedded1.docx" in z.namelist() else None
+    res = check(dd or "", ss, nn, ob, ob is not None)
+    return {k: CELL[res[k]] for k in DEFECTS}
+
+
+def survival(outroot=OUTROOT, editors=EDITORS):
+    """-> {dir: {defect: cell} | None}; None when the editor produced no output."""
+    out = {}
+    for _, d in editors:
+        p = Path(outroot) / d / "complex.docx"
+        out[d] = scan(p) if p.exists() else None
+    return out
+
+
+def table(rows, verdicts, word_version, editors=EDITORS):
+    """Report B's markdown table: the defect cells, then Word's verdict on the same output."""
+    head = ["Editor"] + list(DEFECTS.values()) + [f"Word {word_version}"]
+    lines = ["| " + " | ".join(head) + " |", "|" + "---|" * len(head)]
+    for label, d in editors:
+        cells = rows.get(d)
+        if cells is None:
+            lines.append("| " + " | ".join([label] + ["—"] * len(DEFECTS) + ["no output"]) + " |")
+            continue
+        v = verdicts.get(d, "")
+        word = f"**{v}**" if v in ("OPENED", "REFUSED") else "not measured"
+        lines.append("| " + " | ".join([label] + [cells[k] for k in DEFECTS] + [word]) + " |")
+    return "\n".join(lines)
+
+
 def main():
     doc = text_of(BROKEN, "word/document.xml")
     settings = text_of(BROKEN, "word/settings.xml")
@@ -95,30 +144,8 @@ def main():
     print("BROKEN CORPUS (input) defects present: %s"
           % ", ".join("%d:%s" % (k, v) for k, v in sorted(base.items())))
     print()
-    hdr = ["editor"] + ["d%d" % k for k in sorted(base)]
-    print("%-24s %s" % ("", " ".join("%-4s" % h for h in hdr[1:])))
-    print("-" * (24 + 5 * len(hdr[1:])))
-    for label, d in EDITORS:
-        p = os.path.join(OUTROOT, d, "complex.docx")
-        if not os.path.exists(p):
-            print("%-24s (no output)" % label)
-            continue
-        try:
-            dd = text_of(p, "word/document.xml")
-            ss = text_of(p, "word/settings.xml")
-            nn = text_of(p, "word/numbering.xml")
-            with zipfile.ZipFile(p) as z:
-                if "word/embeddings/embedded1.docx" in z.namelist():
-                    ob = z.read("word/embeddings/embedded1.docx")
-                else:
-                    ob = None
-            res = check(dd, ss, nn, ob, ob is not None)
-        except Exception as ex:
-            print("%-24s ERROR %s" % (label, ex))
-            continue
-        def cell(v):
-            return {"present": "YES", "absent": "no", "removed": "DROP"}[v]
-        print("%-24s %s" % (label, " ".join("%-4s" % cell(res[k]) for k in sorted(base))))
+    word = json.loads(WORD.read_text()) if WORD.exists() else {"word": "?", "verdicts": {}}
+    print(table(survival(), word["verdicts"], word["word"]))
     print()
     print("YES = the defect class is still present in that editor's output")
     print("no  = the defect class is gone (dropped with the feature, or rewritten)")

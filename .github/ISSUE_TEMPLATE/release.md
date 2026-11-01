@@ -51,7 +51,7 @@ Release: `vX.Y.Z` · release date: `YYYY-MM-DD` · cutoff (date − 5 days): `YY
 | [ ] | Scores | `build/score_all.py`, `build/score_extra.py` | all |
 | [ ] | Apryse trial-stamp labels (never edits the output) | `python3 -I build/apryse_stamp.py` | main, extras |
 | [ ] | Broken corpus (×2) | `build/run_broken.sh`, `build/defect_survival.py` | B |
-| [ ] | Word opens every output (×2, identical) | `build/word_verdicts.py` | main, B, D2 |
+| [ ] | Word opens every output (×2, identical) | `build/word_verdicts.py`, then `build/word_verdicts.py --set broken` (the broken-corpus outputs) | main, B, D2 |
 | [ ] | Report A namespace tables | `build/ns_json.py`; check §6 with `build/report_a_matrix.py --patch` on a copy | A |
 | [ ] | Report C: each editor's own UI (×2) | `OUT=/tmp/ui-runN build/capture_ui.sh`, then `build/compare_ui.py run1 run2` and `compare_ui.py out/ui run2` | C |
 | [ ] | Report C: copy the accepted run to `out/ui` (with `captured_at.txt`), rebuild figures | `build/ui_figures.py` | C |

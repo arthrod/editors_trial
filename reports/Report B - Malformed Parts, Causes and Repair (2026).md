@@ -1,6 +1,6 @@
-# Malformed Parts: Causes, Detection, and Repair (2026-10-30)
+# Malformed Parts: Causes, Detection, and Repair (2026-11-01)
 
-**A companion to *Open-Source DOCX Editors, Re-verified Against Code and Measured by Round-Trip (2026-10-29)*** and to *What Is Serialized, What Is Pass-Through, and What Is Actually Rendered (2026-10-30)*.
+**A companion to *Open-Source DOCX Editors, Re-verified Against Code and Measured by Round-Trip (2026-11-01)*** and to *What Is Serialized, What Is Pass-Through, and What Is Actually Rendered (2026-10-30)*.
 
 The first report found that the corpus it used — a hand-built 35-part adversarial DOCX — **Microsoft Word 16.115 would not open at all**, and located twelve defect classes behind that. This report closes the loop: what malformed parts look like, what causes them, and — the question the first report could not answer — **does any editor repair a malformed input, or does it preserve the damage?**
 
@@ -12,7 +12,7 @@ The first report found that the corpus it used — a hand-built 35-part adversar
 - **Docxodus is the only participant that ships a repair funnel, and it repairs a different set of defects.** Its `PackageOpenRepair` stage exists to unblock *"Package defects Word opens but the Open XML SDK rejects"* — a relationship to a part with **no content type** or **no ZIP entry**, a part reached by a known relationship but **typed only as generic XML**, and **two relationships sharing an Id**. **None of those is one of this report's twelve defect classes.** Having a repair stage and repairing a given malformation are different properties, and this is the cleanest available demonstration of the difference.
 - **Plate.js is the exception, and it is a real one.** It is the only editor in the study that **detects** malformation and **refuses** the document: handed the broken corpus it fails with `decode-failed: DOCX content could not be decoded by the installed editor schema.`, and it produces **no output file at all** — there is nothing to corrupt. It also refuses the *clean* corpus under its own default `lossPolicy: 'reject'`, with 18 typed errors naming each construct it cannot represent. Plate does not repair malformation either. It **declines to process it**, which is the only honest of the three available behaviours (repair, degrade, refuse).
 - **And Plate detects exactly one of the twelve defect classes.** Each defect was isolated into its own single-defect corpus and offered to Plate's importer: it **accepts eleven and refuses one** — the block-level `m:oMathPara`. The eleven it accepts include every class that makes Word refuse the file: the five element-order classes, the malformed `ST_LongHexNumber`, the nested `mc:Fallback`, the broken OLE payload, `w:delText` inside `w:moveFrom`, and `w:dirty="true"`. Plate is a detector, not a validator, and it detects the construct its own schema cannot model.
-- **Four of the thirteen editor outputs cannot be opened by Microsoft Word**, and only one of those four (Fidus Writer) fails for a reason a schema validator could have caught; a package-integrity check catches two more, and Folio passes both:
+- **Four of the fourteen editor outputs cannot be opened by Microsoft Word**, and only one of those four (Fidus Writer) fails for a reason a schema validator could have caught; a package-integrity check catches two more, and Folio passes both:
 
 | Editor | Real XSD violations | Package integrity | Word 16.115 |
 |---|---:|---|---|
@@ -249,25 +249,26 @@ This is the closest any editor in this study comes to *proving* a round-trip gua
 
 This is the question the first report could not answer, and it is the one that matters for a toolchain.
 
-`fixture/complex_broken.docx` was pushed through all thirteen participants. Each output was then scanned for the ten defect classes that are visible in a package (the OLE and nesting classes are covered by the earlier table), and separately opened in Word.
+`fixture/complex_broken.docx` was pushed through all fourteen participants. Each output was then scanned for the ten defect classes that are visible in a package (the OLE and nesting classes are covered by the earlier table), and separately opened in Word.
 
 `YES` = the defect class is still present in the editor's output · `no` = the class is gone · `DROP` = the whole part carrying it was dropped.
 
 | Editor | d1 order (settings) | d2 order (tcPr) | d3 order (trPr) | d4 order (pPrChange) | d5 order (sectPr) | d6 durableId | d9 OLE payload | d10 delText in moveFrom | d11 block math | d12 dirty=true | Word 16.115 |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| SuperDoc | YES | YES | YES | YES | YES | YES | YES | YES | YES | YES | **REFUSED** |
-| Folio | YES | YES | YES | no | no | YES | YES | YES | YES | YES | **REFUSED** |
-| GenOffice | YES | YES | YES | YES | YES | YES | YES | YES | YES | YES | **REFUSED** |
-| eigenpal | YES | YES | YES | YES | YES | YES | YES | YES | YES | YES | **REFUSED** |
-| **Docxodus** | **YES** | **YES** | **YES** | **YES** | **YES** | **YES** | **YES** | **YES** | **YES** | **YES** | **REFUSED** |
-| office-open | no | no | no | no | no | no | YES | YES | YES | no | **REFUSED** |
-| Docen | no | no | no | no | no | no | YES | YES | YES | no | **REFUSED** |
-| WordCraft | YES | no | no | no | no | no | YES | no | no | YES | **REFUSED** |
-| Fidus Writer | no | no | no | no | no | no | DROP | no | no | no | **REFUSED** |
-| **Plate.js** | — | — | — | — | — | — | — | — | — | — | **REFUSED (no output)** |
-| canvas-editor + plugin | no | no | no | no | no | no | DROP | no | no | no | **OPENED** |
-| docs.plus | no | no | no | no | no | no | DROP | no | no | no | **OPENED** |
-| LibreOffice (baseline) | no | no | YES | no | no | no | DROP | no | no | no | **OPENED** |
+| SuperDoc | YES | YES | YES | YES | YES | YES | YES | YES | YES | YES | not measured |
+| Folio | YES | YES | YES | no | no | YES | YES | YES | YES | YES | not measured |
+| GenOffice | YES | YES | YES | YES | YES | YES | YES | YES | YES | YES | not measured |
+| eigenpal | YES | YES | YES | YES | YES | YES | YES | YES | YES | YES | not measured |
+| Docxodus | YES | YES | YES | YES | YES | YES | YES | YES | YES | YES | not measured |
+| office-open | no | no | no | no | no | no | YES | YES | YES | no | not measured |
+| Docen | no | no | no | no | no | no | YES | YES | YES | no | not measured |
+| WordCraft | YES | no | no | no | no | no | YES | no | no | YES | not measured |
+| Fidus Writer | no | no | no | no | no | no | DROP | no | no | no | not measured |
+| Plate.js | — | — | — | — | — | — | — | — | — | — | no output |
+| canvas-editor + plugin | no | no | no | no | no | no | DROP | no | no | no | not measured |
+| docs.plus | no | no | no | no | no | no | DROP | no | no | no | not measured |
+| Apryse WebViewer | no | no | YES | no | no | no | YES | YES | no | YES | not measured |
+| LibreOffice (baseline) | no | no | YES | no | no | no | DROP | no | no | no | not measured |
 
 **Not one editor repaired a defect.**
 
@@ -364,7 +365,7 @@ The one it catches, d11, is also the one that makes sense. `m:oMathPara` is a **
 
 So Plate is not a validator. It has no schema of OOXML, no notion of element order, no awareness of `ST_LongHexNumber` or of a relationship pointing at garbage. It has a schema of **Plate's own node types**, and it notices when the document contains something that is not one of them. The failure is a *type* failure, not a *validity* failure — which is exactly why it catches one class and misses eleven.
 
-The comparison with the other twelve participants is the point. They either **corrupt** the malformed input (preserve the damage) or **discard** it (drop the part), and both outcomes are silent. Plate **declines**. Of the three possible behaviours on malformed input — repair, degrade, refuse — **only one of the thirteen implements the third**, and it is the one with the most stars.
+The comparison with the other thirteen participants is the point. They either **corrupt** the malformed input (preserve the damage) or **discard** it (drop the part), and both outcomes are silent. Plate **declines**. Of the three possible behaviours on malformed input — repair, degrade, refuse — **only one of the fourteen implements the third**, and it is the one with the most stars.
 
 ### 4.4 What "repair" would even have looked like
 
@@ -385,7 +386,7 @@ That is the point worth keeping, and it generalises: **a repair stage is scoped 
 
 ## 5. The causes, in seven shapes
 
-Every malformation observed in this study — in the corpus and in the thirteen participants' outputs — falls into one of seven shapes. Each shape has a characteristic fix.
+Every malformation observed in this study — in the corpus and in the fourteen participants' outputs — falls into one of seven shapes. Each shape has a characteristic fix.
 
 | # | Shape | Example | The fix |
 |---|---|---|---|
@@ -427,7 +428,7 @@ Four claims in the first report were imprecise. The code evidence behind them is
 2. **Docen does not drop the tracked change inside `header2.xml` — it relocates it to `header3.xml`.** The first report's check was path-scoped; the content survives at a different path. (Docen also *adds* `header3/4/5` and `footer3`, which the part map records.)
 3. **Fidus Writer's exporter does not fill `{@body}`.** The placeholder vocabulary is `{title}`, `{@<part-id>}` for rich-text and table parts, plus `{@bibliography}`, `{@copyright}` and `{@licenses}` (`src/exporter/template/tags.ts:18-101`).
 4. **canvas-editor's exporter has no copy path at all.** It never opens the source package; `jszip` is imported only by the importer. So "0 of 35 parts pass through" is not a policy decision but a structural fact.
-5. **"No editor diagnoses malformed input" was true of the first eleven and false of the twelfth.** Plate.js was added on 2026-10-30 and it **refuses** the broken corpus with a named diagnostic (`decode-failed`) rather than producing a damaged file. The precise statement is now: **no editor repairs malformed input; one of the thirteen detects it, and detects exactly one of the twelve defect classes.**
+5. **"No editor diagnoses malformed input" was true of the first eleven and false of the twelfth.** Plate.js was added on 2026-10-30 and it **refuses** the broken corpus with a named diagnostic (`decode-failed`) rather than producing a damaged file. The precise statement is now: **no editor repairs malformed input; one of the fourteen detects it, and detects exactly one of the twelve defect classes.**
 6. **"No editor repairs anything" is true of these twelve defect classes and false as a general statement.** Docxodus ships a repair funnel (`PackageOpenRepair`) that fixes four classes of package defect on the way in. It repairs none of the twelve here, because it is aimed at defects that would make the **Open XML SDK's own parser** refuse the file, not at defects that make **Microsoft Word** refuse it. The distinction is worth keeping for anyone reading the TL;DR literally: a repair stage is scoped to the consumer it unblocks, and Docxodus's is scoped to the SDK, not to Word.
 
 ---
