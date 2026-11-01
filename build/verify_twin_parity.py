@@ -64,6 +64,7 @@ MD_TABLE_ROW = re.compile(r"^\s*\|.*\|\s*$")
 NOTES = {
     "README.md",
     "CHANGELOG.md",
+    "AGENTS.md",
     "reports/vendors.md",
     "reports/rendering-openability.md",
 }

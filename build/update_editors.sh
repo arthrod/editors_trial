@@ -3,12 +3,19 @@
 # what its harness loads. Run it, then build/run_all.sh, build/run_second_pass.sh,
 # build/score_all.py, build/facts.py and build/render_reports.py.
 #
-#   checkouts  repos/<name>: fast-forward to the upstream default branch
-#              (Plate measures its `next` branch), then the project's own
-#              package manager installs its lockfile
-#   npm pins   the harnesses that load a published package get the newest
-#              version: @superdoc/sdk on the `next` channel the trial has
-#              always measured, docxodus and @docxodus/export on `latest`
+# The release rule (AGENTS.md): each editor moves to its newest version that
+# is at least 5 days old on the release date, and never to one older than the
+# version pinned now. build/pin_versions.py makes that choice.
+#
+#   checkouts  repos/<name>: the newest commit of the upstream default branch
+#              (Plate measures its `next` branch) committed on or before the
+#              cutoff, checked out detached; then the project's own package
+#              manager installs its lockfile
+#   npm pins   @superdoc/sdk on the `next` channel the trial has always
+#              measured, docxodus and @docxodus/export on `latest`, each the
+#              newest version published on or before the cutoff
+#
+# RELEASE_DATE=YYYY-MM-DD overrides today's date (the cutoff is 5 days before).
 #
 # A checkout with local changes is not touched: the script stops.
 #
@@ -24,8 +31,9 @@ pull() {
     exit 1
   fi
   git -C "$repo" fetch -q origin
-  git -C "$repo" checkout -q "$branch"
-  git -C "$repo" merge -q --ff-only "origin/$branch"
+  local pin
+  pin=$(python3 build/pin_versions.py git "$repo" "origin/$branch" --current HEAD ${RELEASE_DATE:+--date "$RELEASE_DATE"})
+  git -C "$repo" checkout -q --detach "$pin"
   echo "pulled  $1 -> $(git -C "$repo" rev-parse --short=9 HEAD) ($(git -C "$repo" log -1 --format=%cs))"
 }
 
@@ -59,11 +67,13 @@ install genoffice npm install --no-audit --no-fund
 install canvas-editor pnpm install --no-frozen-lockfile
 install canvas-editor-plugin pnpm install --no-frozen-lockfile
 
-SDK=$(npm view @superdoc/sdk dist-tags.next)
+SDK_NOW=$(node -p "require('./harness/superdoc-sdk/node_modules/@superdoc/sdk/package.json').version" 2>/dev/null || true)
+SDK=$(python3 build/pin_versions.py npm @superdoc/sdk next ${SDK_NOW:+--current "$SDK_NOW"} ${RELEASE_DATE:+--date "$RELEASE_DATE"})
 echo "npm     @superdoc/sdk@$SDK"
 ( cd harness/superdoc-sdk && pnpm add --save-exact "@superdoc/sdk@$SDK" ) >/tmp/update_superdoc_sdk.log 2>&1
 
-DX=$(npm view docxodus version)
+DX_NOW=$(node -p "require('./harness/ui/docxodus/node_modules/docxodus/package.json').version" 2>/dev/null || true)
+DX=$(python3 build/pin_versions.py npm docxodus latest ${DX_NOW:+--current "$DX_NOW"} ${RELEASE_DATE:+--date "$RELEASE_DATE"})
 echo "npm     docxodus@$DX, @docxodus/export@$DX"
 ( cd harness/ui/docxodus && npm install --no-audit --no-fund --save-exact "docxodus@$DX" "@docxodus/export@$DX" ) >/tmp/update_docxodus.log 2>&1
 
