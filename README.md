@@ -42,3 +42,59 @@ Word is not opened. No NTLM hash is collected. A slip onto the host temp directo
 `logs/bombs-before-suggested-config` is the earlier matrix. Several of its columns died in the seatbelt before the editor ran. Do not read those cells as the editor's result. `logs/bombs-suggested-smoke` is the one-package check that the corrected harness actually reaches Plate, canvas-editor, docs.plus, Docen, office-open, and Fidus Writer.
 
 `BOMB_RESUME=1` continues a run. A run without it deletes `logs/bombs` first. Move that directory aside if the previous trace should be kept.
+
+## Release gate
+
+The published report set is eight Markdown reports and their DOCX twins. One
+command checks every gate that has to pass before they ship:
+
+```
+build/verify_publication.sh              # everything except Word
+build/verify_publication.sh --with-word  # also drive Word to open each file
+```
+
+The gates answer different questions, and none substitutes for another:
+
+| Gate | Question it answers |
+|---|---|
+| `build/test_report_claims.py` | Do the repository's own claims still hold? |
+| `build/verify_twin_parity.py` | Is each published DOCX what its Markdown says, and exactly what the build pipeline produces? |
+| `build/verify_findings.py` | Does every figure in the published tables belong to the subject its table row names? |
+| `build/check_report_consistency.py` | Does every percentage and byte size in every live report occur in the measurement artifacts? |
+| `build/validate_ooxml.py` | Does each DOCX validate against the ECMA-376 schemas? |
+| `build/build_claim_evidence.py` | Is the review's claim-evidence matrix complete and well formed? |
+| `build/verify_deliverables.py` | Does each deliverable open in Microsoft Word? |
+
+The findings gate is the one that cannot be replaced by a token check. A
+token check asks whether "100%" occurs somewhere in the logs; it cannot tell
+SuperDoc's 100% from SuperDoc's 84.9%. The findings gate compares each
+figure with the measurement for the subject the table row names.
+
+The number gate scans every live report and its twin - thirty-five documents,
+468 percentages and byte sizes - against a corpus built from the measurement
+artifacts in `out/` and `logs/`. `--diff-only` narrows it to the reports a
+branch has touched, which is what a pre-commit run wants.
+
+A DOCX twin is generated output. It must never be patched by matching text
+against its source: the source is rendered, so the markdown markers are gone
+and the context match fails silently. Rebuild it with `build/make_report.sh`.
+
+## Review
+
+`out/review/` holds the reader's report on the study, prepared with the
+Scientific Research Workflows peer-review skill. It is a working draft for a
+human to verify and rewrite, not an editorial decision.
+
+| File | What it is |
+|---|---|
+| `out/review/review_draft.md` | The review: eleven major and twelve minor comments, channels separated |
+| `out/review/claim_evidence_matrix.csv` | Every claim mapped to its evidence: 126 claims, 107 machine-verified and 19 needing an author action |
+| `out/review/venue_and_reporting_guidance.md` | Venue shortlist by fit, and the reporting instruments to prespecify |
+| `out/review/intake.json` | The review's own intake record, as the skill validates it |
+| `out/review/findings_ledger.csv` | The findings ledger the claim matrix is generated from |
+
+The bundled reporting-guideline catalogue has no software-benchmark
+instrument, so no checklist coverage audit was possible. The venue dossier
+names the three instruments to adopt instead, and records that a catalogue's
+`VALID` status is a coverage statement, not a statement that reporting is
+complete.

@@ -28,7 +28,7 @@ The headline results:
    keeps **all 35 parts** of the corpus with **zero changed and zero dropped**,
    keeps **every `w:` element** and the `w15` / `w16cid` / `w16du` / `w10`
    namespaces that eight of the other twelve lose, has **zero dangling relationship
-   references**, scores **100.0 %** on the 97-check round-trip test, and
+   references**, scores **100.0 %** on the 99-check round-trip test, and
    produces a file Word opens and renders **pixel-identically** (83 differing
    pixels across six pages — the same 83 SuperDoc leaves).
 
@@ -807,7 +807,7 @@ Docxodus's own `DocxSession` and writing it back with no edits gives:
 | **content changed** | **0** | 1 (Folio) |
 | **dropped** | **0** | 0 |
 | dangling relationship ids | **0** | 0 |
-| 97-check round-trip score | **100.0 %** | 100.0 % (SuperDoc) |
+| 99-check round-trip score | **100.0 %** | 100.0 % (SuperDoc) |
 | LibreOffice render of the result | **6 pages, text identical** | 6 pages, text identical (SuperDoc, Folio, eigenpal) |
 
 **Zero parts changed and zero dropped is unique.** SuperDoc also scores
@@ -1056,7 +1056,7 @@ direction — gives:
 | **Docen** | **5** |
 | corpus, superdoc, folio, genoffice, eigenpal, wordcraft, fidus, canvas, docs.plus, plate, libreoffice | **0** |
 
-**A 97-check XML fidelity score, a schema validator, a content-types audit
+**A 99-check XML fidelity score, a schema validator, a content-types audit
 and a part-level diff all pass these two files.** The forward resolution is
 five lines of Python and it finds them.
 
@@ -1287,7 +1287,7 @@ page by page, against Word's own 110 dpi rendering of the corpus.
 | Docen | — | — | — | **Word refused the file** |
 | Fidus Writer | — | — | — | **Word refused the file** |
 
-**83 pixels** across six pages is 0.0006% of the corpus's ink — a
+**83 pixels** across six pages is 0.005% of the corpus's ink — a
 rounding artefact, almost certainly the anti-aliasing of a hairline. WordCraft
 and LibreOffice sit at 0.75% and differ in the same place: the chart, which
 both redraw from their own model.
@@ -1478,7 +1478,7 @@ capabilities, and only the screenshot distinguishes them.**
   shows no chart, and GenOffice shows a SmartArt band that Word does not.
 - **If you are validating a converter**, the forward relationship check
   (§4.3) is the cheapest defect finder in this report: five lines of Python,
-  and it finds a defect that a 97-check fidelity score, a schema validator, a
+  and it finds a defect that a 99-check fidelity score, a schema validator, a
   content-types audit and a part-level diff all pass.
 - **If you are building a test corpus**, a construct that the reference
   application does not draw is a **trap**. The corpus's SmartArt cost this

@@ -1,0 +1,28 @@
+{
+  "editor": "canvas-editor",
+  "source": "fixture/complex.docx",
+  "source_sha256": "a0f0be300f5e812eb33f419abe1fca2d87569cc12b6b25d625a64a7c0432fde3",
+  "sha256": "db57d91f45438617842d04b5a2b5b153a61423361b7996be12b915023f58f408",
+  "removed": [
+    {
+      "step": "altchunk_to_paragraphs",
+      "what": "the altChunk (word/afchunk.html, an HTML part) is replaced by 2 ordinary paragraphs with the same text",
+      "why": "an altChunk asks the consumer to import foreign HTML; most browser editors drop or reject it"
+    },
+    {
+      "step": "ole_to_picture",
+      "what": "the OLE-embedded document (word/embeddings/embedded1.docx) is replaced by the icon picture Word shows for it",
+      "why": "an embedded OLE package is an opaque binary a browser editor cannot open"
+    },
+    {
+      "step": "unlock_read_only",
+      "what": "the enforced read-only lock (w:documentProtection w:edit=\"readOnly\" in word/settings.xml) is lifted",
+      "why": "an editor that honours the lock, as Word does, would not let a visitor type in the demo"
+    },
+    {
+      "step": "orphan_vmerge_to_cell",
+      "what": "1 table cell(s) marked as the continuation of a vertical merge with no merge above them become ordinary cells",
+      "why": "the editor drops such a cell, the row comes up a column short and its table layout fails"
+    }
+  ]
+}
