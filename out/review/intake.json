@@ -1,0 +1,68 @@
+{
+  "schema_version": "2.0",
+  "review_id": "REVIEW-EDITORS-TRIAL-2026-001",
+  "material": {
+    "status": "public_preprint",
+    "contains_personal_or_sensitive_data": false
+  },
+  "authorization": {
+    "basis": "public_material",
+    "documented": true,
+    "local_processing_authorized": true,
+    "external_processing_authorized": false
+  },
+  "reviewer": {
+    "capacity": "author_requested_reader",
+    "human_accountable": true,
+    "competence_areas": [
+      "empirical_software_engineering",
+      "office_open_xml",
+      "document_engineering",
+      "software_security_testing"
+    ],
+    "competence_limits": [
+      "not_a_submitted_manuscript: no_editor_is_assigned_and_no_accept_or_reject_decision_is_made",
+      "no_statistical_inference_beyond_the_measurement_the_trial_itself_produces",
+      "no_reproduction_of_the_thirteen_editor_lanes_on_this_hardware: the_measurement_is_taken_from_the_committed_run"
+    ],
+    "conflict_status": "none_identified",
+    "conflicts": []
+  },
+  "venue_policy": {
+    "checked": true,
+    "peer_review_model": "single_anonymized",
+    "confidential_editor_notes_supported": false
+  },
+  "ai_use": {
+    "policy": "not_stated",
+    "planned": "local_deterministic_tools",
+    "permission_confirmed": true,
+    "disclosure_planned": true
+  },
+  "handling": {
+    "local_only": true,
+    "external_service_use": false,
+    "data_reuse_permitted": false,
+    "retention_rule": "public_material",
+    "deletion_or_retention_record_planned": true
+  },
+  "scope": {
+    "manuscript_type": "other",
+    "requested_focus": [
+      "methods",
+      "statistics",
+      "reporting",
+      "reproducibility",
+      "claim_evidence_alignment"
+    ],
+    "out_of_scope": [
+      "acceptance_or_rejection_recommendation",
+      "pristine_summarizing_novelty_claims",
+      "ranking_of_people_or_of_projects_by_prestige"
+    ],
+    "specialist_review_needed": [
+      "malware_and_zip_bomb_analysis_for_the_report_d_vectors",
+      "human_computer_interaction_review_for_the_report_c_rendering_census"
+    ]
+  }
+}

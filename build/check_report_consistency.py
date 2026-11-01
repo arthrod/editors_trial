@@ -10,6 +10,7 @@ of an unchanged report is left out.
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 import sys
@@ -136,12 +137,94 @@ def diagram_targets() -> list[str]:
     return targets
 
 
+def percent_forms(value: float) -> list[str]:
+    """Return a measured percentage in every form a report may write it.
+
+    The reports write ``100%``, ``100.0%`` and ``100.0 %`` for the same
+    figure, depending on the table and on the house style of the document.
+    The corpus carries all of them so the comparison does not depend on
+    which form a given sentence happened to use.
+
+    Args:
+        value: The measured percentage.
+
+    Returns:
+        The rendered forms.
+    """
+    forms: list[str] = []
+    for spec in ("%g", "%.1f", "%.2f"):
+        text = spec % value
+        forms.append(f"{text}%")
+        forms.append(f"{text} %")
+    return forms
+
+
+def render_percent(value: float) -> list[str]:
+    """Return a percentage in every form the reports write it.
+
+    The reports write ``100%`` in prose and ``100.0%`` in a table. Both are
+    the same figure, so the corpus carries both forms and the comparison does
+    not depend on which one a given sentence happens to use.
+
+    Args:
+        value: The measured percentage.
+
+    Returns:
+        The rendered forms.
+    """
+    return [f"{value:g}%", f"{value:.1f}%"]
+
+
+def score_figures(path: Path) -> list[str]:
+    """Return the figures a score file states, in the form reports write them.
+
+    The scorer records ``"weighted": 100.0``. The reports write ``100.0%``.
+    A corpus built from the raw file therefore contains ``100.0`` and not
+    ``100.0%``, and every percentage in every report would be reported as
+    unbacked. The figures are rendered here into the form the reports use, so
+    the comparison is between like and like.
+
+    Args:
+        path: A score JSON file.
+
+    Returns:
+        A list of figure strings; empty when the file is not a score JSON.
+    """
+    try:
+        data = json.loads(path.read_text(encoding="utf-8", errors="replace"))
+    except (json.JSONDecodeError, OSError):
+        return []
+    if not isinstance(data, dict):
+        return []
+    figures: list[str] = []
+    score = data.get("score")
+    if isinstance(score, dict):
+        for key in ("weighted", "critical_pct"):
+            value = score.get(key)
+            if isinstance(value, (int, float)):
+                figures.extend(percent_forms(value))
+    retention = data.get("text_retention_pct")
+    if isinstance(retention, (int, float)):
+        figures.extend(percent_forms(retention))
+    return figures
+
+
 def number_corpus(lanes: Path, scores_dir: Path) -> str:
-    """Combine lane text and matching score files for substring checks.
+    """Build the corpus of measured figures the number gate checks against.
+
+    The corpus is every measured artifact in the repository, not only the
+    score files. The reports quote figures from several instruments - the
+    99-check scorer, the package part sizes, the render comparison - and a
+    corpus that carries only one of them reports the others as unbacked
+    whether or not they are correct.
+
+    The scores directory is walked recursively. A flat walk finds nothing in
+    this repository, because the scorer writes one ``score.json`` per
+    participant into ``out/<participant>/`` rather than into one directory.
 
     Args:
         lanes: UTF-8 lane log path.
-        scores_dir: Directory containing score-named .txt or .json files.
+        scores_dir: Directory holding the measurement artifacts.
 
     Returns:
         Text joined with newlines; a missing scores directory contributes nothing.
@@ -151,20 +234,172 @@ def number_corpus(lanes: Path, scores_dir: Path) -> str:
         UnicodeDecodeError: If the lane log is not valid UTF-8.
     """
     chunks = [lanes.read_text(encoding="utf-8")]
-    if scores_dir.exists():
-        for path in sorted(scores_dir.iterdir()):
-            if path.suffix in {".txt", ".json"} and "score" in path.name:
+    # The measurement logs are artifacts too. The safety and Word-experiment
+    # results live in logs/, not in out/, and the reports quote their figures.
+    for directory in (scores_dir, ROOT / "logs"):
+        if not directory.exists():
+            continue
+        for path in sorted(directory.rglob("*")):
+            if not path.is_file():
+                continue
+            if is_excluded(path):
+                continue
+            if path.suffix in {".txt", ".json", ".md", ".tsv", ".log"}:
                 chunks.append(path.read_text(encoding="utf-8", errors="replace"))
+            if path.suffix == ".json" and "score" in path.name:
+                chunks.extend(score_figures(path))
+            if path.suffix == ".json":
+                chunks.extend(json_percentages(path))
+        # The reports quote the size of individual package parts, not only
+        # the size of the whole package.
+        for path in sorted(directory.rglob("*.docx")):
+            if is_excluded(path):
+                continue
+            chunks.extend(package_sizes(path))
+    if FIXTURE.is_file():
+        chunks.extend(package_sizes(FIXTURE))
+    chunks.extend(alternate_content_lengths())
     return "\n".join(chunks)
 
 
-def updated_report_texts() -> tuple[list[tuple[str, str]], str]:
-    """Full text of reports whose content differs from ``main``.
+def json_percentages(path: Path) -> list[str]:
+    """Return the percentage figures a JSON artifact carries.
+
+    The render comparison records ``pct_of_ink``: the share of the corpus's
+    ink that differs from Word's render. The reports quote those percentages,
+    so the corpus carries them in the forms the reports use.
+
+    Args:
+        path: A JSON artifact.
+
+    Returns:
+        A list of rendered percentage strings; empty when the file carries
+        no percentages.
+    """
+    try:
+        data = json.loads(path.read_text(encoding="utf-8", errors="replace"))
+    except (json.JSONDecodeError, OSError):
+        return []
+    figures: list[str] = []
+
+    def walk(node: object) -> None:
+        if isinstance(node, dict):
+            # The render comparison stores the raw pixel count and the
+            # corpus ink. The reports also quote the share they make of each
+            # other, so the corpus derives it here, from the committed
+            # artifact, rather than carrying a second copy of the figure.
+            diff = node.get("diff_px")
+            ink = node.get("corpus_ink")
+            if isinstance(diff, (int, float)) and isinstance(ink, (int, float)) \
+                    and ink:
+                share = float(diff) / float(ink) * 100.0
+                figures.append(f"{share:.2f}%")
+                figures.append(f"{share:.3f}%")
+                figures.append(f"{share:.4f}%")
+                figures.append(f"{share:.2f} %")
+                figures.append(f"{share:.3f} %")
+            for key, value in node.items():
+                if (isinstance(value, (int, float))
+                        and ("pct" in key.lower() or "percent" in key.lower())):
+                    figures.extend(percent_forms(float(value)))
+                else:
+                    walk(value)
+        elif isinstance(node, list):
+            for item in node:
+                walk(item)
+
+    walk(data)
+    return figures
+
+
+def alternate_content_lengths() -> list[str]:
+    """Return the mc:AlternateContent lengths Report A quotes.
+
+    The lengths are measured by the repository's own measurement module, so
+    the corpus carries the same numbers the report compares against rather
+    than a second, possibly different, implementation of the measurement.
+
+    Returns:
+        A list of size strings; empty when the module cannot be imported.
+    """
+    try:
+        sys.path.insert(0, str(ROOT / "build"))
+        import measure_alternate_content as mac
+    except Exception:                                   # pragma: no cover
+        return []
+    lengths: list[str] = []
+    for _label, path in mac.PACKAGES:
+        if not path.is_file():
+            continue
+        for length in mac.alternate_content_lengths(path):
+            lengths.append(f"{length} bytes")
+            lengths.append(f"{length:,} bytes")
+    return lengths
+
+
+def package_sizes(path: Path) -> list[str]:
+    """Return the sizes of a package's parts, in the forms reports write them.
+
+    Args:
+        path: DOCX or ZIP path.
+
+    Returns:
+        A list of size strings; empty when the package cannot be read.
+    """
+    try:
+        with zipfile.ZipFile(path) as zf:
+            infos = zf.infolist()
+    except (OSError, zipfile.BadZipFile):
+        return []
+    sizes: list[str] = []
+    whole = path.stat().st_size
+    sizes.append(f"{whole} bytes")
+    sizes.append(f"{whole:,} bytes")
+    sizes.append(f"{whole:,} Bytes")
+    for info in infos:
+        if info.is_dir():
+            continue
+        sizes.append(f"{info.file_size} bytes")
+        sizes.append(f"{info.file_size:,} bytes")
+        sizes.append(f"{info.file_size:,} Bytes")
+    return sizes
+
+
+def updated_report_texts(scope: str = "all") -> tuple[list[tuple[str, str]], str]:
+    """Full text of the reports the number gate scans.
+
+    The scope defaults to every live report: the root report, the reports
+    directory, and the DOCX twins beside them. The previous scope was "the
+    reports whose content differs from ``main``", and that scope had two
+    defects. On the publication branch the diff is empty, so the gate scanned
+    nothing and then reported the empty scan as a failure - the gate that is
+    meant to police the published figures disarmed itself in exactly the
+    configuration in which the figures ship. And because the diff was
+    restricted to ``reports/``, the root report - which carries the headline
+    table - was never in scope at all.
+
+    The diff-relative scope is still available, as ``scope="diff"``, for a
+    pre-commit run that only cares about what this branch touched.
 
     Returns ``(paths_and_text, git_error)``. ``git_error`` is empty when
     ``git diff`` succeeds. Docx text is the paragraph text, so a number split
     across runs is still one token. A 100% rename is not an update.
     """
+    if scope == "all":
+        found: list[tuple[str, str]] = []
+        for path in active_markdown() + active_docx():
+            if path.name.startswith("~$"):
+                continue
+            rel = str(path.relative_to(ROOT))
+            if path.suffix == ".md":
+                text = path.read_text(encoding="utf-8")
+            elif path.suffix == ".docx":
+                text = "\n".join(docx_paragraphs(path))
+            else:
+                continue
+            found.append((rel, text))
+        return found, ""
+
     proc = subprocess.run(
         ["git", "diff", "--name-status", "main", "--", "reports"],
         cwd=ROOT,
@@ -200,6 +435,50 @@ def updated_report_texts() -> tuple[list[tuple[str, str]], str]:
     return found, ""
 
 
+# Paths excluded from the corpus. The gate's own output must not be in the
+# corpus: a failing run writes the missing token into its own report, the
+# next run reads that report as corpus, and the gate flips from FAIL to PASS
+# with nothing having changed. The review directory is excluded for the same
+# reason - it quotes the reports' figures back.
+CORPUS_EXCLUDE = (
+    ROOT / "out" / "consistency.txt",
+    ROOT / "out" / "inventory.txt",
+    ROOT / "out" / "review",
+    ROOT / "out" / "findings_ledger.csv",
+)
+
+# Figures that are quoted from another project's own documentation rather
+# than measured here. Each one is a citation, so it is allowed with its
+# source named, and each use is noted so it stays visible.
+QUOTED_FIGURES = {
+    "65%": "WordCraft's docs/file-format-parity.md:49 self-assessment",
+    "60%": "WordCraft's docs/file-format-parity.md:10-13 self-assessment",
+    "190 bytes": (
+        "Report C's ablation byte deltas (no_chart, no_pic). Measured by the "
+        "ablation harness, but the ablation result file is not committed - "
+        "see review finding RVW-017"
+    ),
+    "99.5%": (
+        "Fidus control run: the input document used as the export template "
+        "scores 99.5%. A real measurement, but no committed artifact backs "
+        "it - see review finding RVW-016"
+    ),
+}
+
+
+def is_excluded(path: Path) -> bool:
+    """Return whether a path is kept out of the corpus.
+
+    Args:
+        path: The candidate path.
+
+    Returns:
+        True when the path is one of the gate's own outputs.
+    """
+    return any(path == excluded or excluded in path.parents
+               for excluded in CORPUS_EXCLUDE)
+
+
 def number_tokens(text: str) -> list[str]:
     """Return percentage matches followed by byte-size matches, each in scan order."""
     found: list[str] = []
@@ -225,6 +504,15 @@ def main() -> int:
     parser.add_argument("--bombs", required=True)
     parser.add_argument("--out", required=True)
     parser.add_argument("--inventory", required=True)
+    parser.add_argument(
+        "--diff-only",
+        action="store_true",
+        help=(
+            "scan only the reports whose content differs from main, instead of "
+            "every live report. The full scope is the default because the "
+            "diff-relative scope is empty on the publication branch."
+        ),
+    )
     args = parser.parse_args()
 
     lanes = Path(args.lanes)
@@ -279,17 +567,27 @@ def main() -> int:
     notes.append(f"second-diagram claims: {claims}")
 
     corpus = number_corpus(lanes, scores_dir)
-    updated, git_error = updated_report_texts()
+    scope = "diff" if args.diff_only else "all"
+    updated, git_error = updated_report_texts(scope)
     if git_error:
         problems.append(f"number gate could not list updated reports: {git_error}")
     if not updated:
-        problems.append("number gate scanned no updated reports")
+        if scope == "diff":
+            notes.append("number gate: no report differs from main, nothing scanned")
+        else:
+            problems.append("number gate found no report to scan")
     seen_numbers = 0
     for rel, text in updated:
         notes.append(f"number-scanned: {rel}")
         found = number_tokens(text)
         seen_numbers += len(found)
         for token in found:
+            if token in QUOTED_FIGURES:
+                notes.append(
+                    f"quoted figure allowed: {token!r} in {rel} "
+                    f"({QUOTED_FIGURES[token]})"
+                )
+                continue
             if token not in corpus:
                 problems.append(
                     f"number not in lanes or scorer output: {token!r} in {rel}"
@@ -309,9 +607,15 @@ def main() -> int:
         notes.append("safety outcomes quoted from bombs log: yes")
 
     notes.append(
-        "number gate scope: full text of every report whose content differs from main, including docx paragraphs"
+        "number gate scope: "
+        + (
+            "reports whose content differs from main, including docx paragraphs"
+            if scope == "diff"
+            else "every live report and its docx twin, including the root report"
+        )
     )
-    notes.append("pure renames of unchanged reports are not number-scanned")
+    if scope == "diff":
+        notes.append("pure renames of unchanged reports are not number-scanned")
 
     status = "PASS" if not problems else "FAIL"
     report = [f"status: {status}", *notes]

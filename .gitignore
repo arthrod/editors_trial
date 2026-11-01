@@ -3,3 +3,9 @@ NODE_MODULES
 repos
 NODE_MODULES/
 __pycache__/
+
+# macOS metadata and Microsoft Word owner-lock files.
+# Neither is content: they are written by the desktop apps that open the
+# fixture and the reports, and they are not part of the artifact.
+.DS_Store
+~$*
