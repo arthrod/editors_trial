@@ -51,6 +51,7 @@ FIXTURE = ROOT / "fixture" / "complex.docx"
 TOOLS = [
     ("SuperDoc V2", "superdoc"),
     ("Docxodus", "docxodus"),
+    ("Apryse WebViewer", "apryse"),
     ("GenOffice", "genoffice"),
     ("eigenpal", "eigenpal"),
     ("Folio", "folio"),

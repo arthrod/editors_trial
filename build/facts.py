@@ -262,6 +262,54 @@ def word_pixel_facts(path: Path, facts: dict) -> None:
             facts[f"wpx.{label}.{name}"] = v[k]
 
 
+def lo_pixel_facts(path: Path, facts: dict) -> None:
+    """Report C section 6.2: each output LibreOffice rendered, against LibreOffice's
+    rendering of the corpus (build/lo_render_compare.py). A page count unlike the
+    corpus's has no page-for-page comparison, shown as a dash."""
+    if not path.exists():
+        return
+    for label, v in json.loads(path.read_text()).items():
+        key = label.replace("-", "").replace(".", "")
+        facts[f"lpx.{key}.pages"] = v["pages"]
+        facts[f"lpx.{key}.diff_px"] = "—" if v["diff"] is None else f"{v['diff']:,}"
+        facts[f"lpx.{key}.pct"] = "—" if v["pct"] is None else f"{v['pct']:.2f}%"
+        facts[f"lpx.{key}.verdict"] = v["verdict"]
+
+
+def smartart_facts(path: Path, facts: dict) -> None:
+    """Report C section 5: the SmartArt band, its positive control and its border
+    control, as build/smartart_verify.py measured them (out/smartart/verify.json)."""
+    if not path.exists():
+        return
+    from decimal import ROUND_HALF_UP, Decimal
+    d = json.loads(path.read_text())
+    m, band = d["band_measurement"], d["band"]
+    dpi = m["dpi"]
+
+    def box(b):
+        return f"({b[0]}, {b[1]}) – ({b[2]}, {b[3]})"
+
+    def inches(px):
+        return str((Decimal(px) / Decimal(dpi)).quantize(Decimal("0.01"), ROUND_HALF_UP))
+
+    def total(name):
+        return sum(v["diff_px"] for v in d["controls"].get(name, {}).values())
+
+    checker = [v for v in d["controls"]["dgm_pic_checker"].values() if v["diff_px"]]
+    facts.update({
+        "sa.dpi": dpi, "sa.page": band["page"], "sa.w": band["w"], "sa.h": band["h"],
+        "sa.band_px": f"{m['band_px']:,}", "sa.bbox": box(band["bbox"]),
+        "sa.w_in": inches(band["w"]), "sa.h_in": inches(band["h"]),
+        "sa.corpus_ink": m["corpus_ink_in_band"], "sa.border_ink": f"{m['border_variant_ink_in_band']:,}",
+        "sa.checker": f"{total('dgm_pic_checker'):,}",
+        "sa.checker_bbox": box(checker[0]["diff_bbox"]) if len(checker) == 1 else "several pages",
+        "sa.marker": total("dgm_marker"), "sa.cached": total("dgm_cached"),
+        "sa.border_diff": f"{m['diff_px_corpus_vs_border']:,}",
+        "sa.outside": m.get("outside_band_diff_px", 0),
+        "sa.outside_bbox": box(m["outside_band_bbox"]) if m.get("outside_band_bbox") else "none",
+    })
+
+
 def isolation_facts(path: Path, facts: dict) -> None:
     """Report B section 2: Word on each single-defect corpus (out/word_isolation.json, two passes)."""
     if not path.exists():
@@ -306,6 +354,20 @@ def count_facts(facts: dict) -> None:
     facts["count.open_editors_others"] = len(open_editors) - 1
 
 
+def integrity_facts(xsd: Path, pkg: Path, facts: dict) -> None:
+    """Report B's schema and package columns: build/validate_all_outputs.py writes
+    out/xsd_real.json, build/malformation_audit.py writes out/package_integrity.json."""
+    for t, n in json.loads(xsd.read_text()).items():
+        facts[f"xsd.{t}.real"] = n
+    for t, kinds in json.loads(pkg.read_text()).items():
+        if not kinds:
+            facts[f"pkg.{t}"] = "clean"
+        elif set(kinds) == {"DANGLING-REL"}:
+            facts[f"pkg.{t}"] = f"**{kinds['DANGLING-REL']} dangling relationship ids**"
+        else:
+            facts[f"pkg.{t}"] = "**" + ", ".join(f"{k.lower()} ×{v}" for k, v in sorted(kinds.items())) + "**"
+
+
 def build() -> dict:
     facts: dict = {}
     fixture = parts(FIXTURE)
@@ -324,12 +386,15 @@ def build() -> dict:
     totals = {(facts[f"rt.{t}.total"], facts[f"rt.{t}.critical_total"]) for t in TOOLS if f"rt.{t}.total" in facts}
     if len(totals) == 1:
         facts["checks.total"], facts["checks.critical"] = totals.pop()
+    if (OUT / "xsd_real.json").exists() and (OUT / "package_integrity.json").exists():
+        integrity_facts(OUT / "xsd_real.json", OUT / "package_integrity.json", facts)
     word = OUT / "word_verdicts.json"
     if word.exists():
         data = json.loads(word.read_text())
         facts["word.version"] = data["word"]
         for t, verdict in data["verdicts"].items():
             facts[f"word.{t}.opens"] = verdict.startswith("OPENED")
+            facts[f"word.{t}.cell"] = "**opened**" if verdict.startswith("OPENED") else "**REFUSED**"
         editors = [t for t in data["verdicts"] if t not in LANES]
         facts["count.word_refused"] = sum(1 for t in editors if not facts[f"word.{t}.opens"])
         facts["count.word_outputs"] = len(editors)
@@ -348,6 +413,9 @@ def build() -> dict:
         log = ROOT / "logs" / "bombs" / f"{name}.txt"
         if log.exists():
             facts[f"bomb.{name}"] = log.read_text().rstrip("\n")
+    # Report A2's part matrix, from the same part classification as parts.*
+    import part_matrix_md
+    facts["parts.matrix"] = part_matrix_md.markdown()
     # The main report's preserved-vs-dropped matrix, derived from the same score.json files.
     import preserved_matrix
     if all((OUT / d / "score.json").exists() for _, d in preserved_matrix.TOOLS):
@@ -358,6 +426,16 @@ def build() -> dict:
     release_facts(OUT / "release.json", facts)
     read_facts(OUT / f"facts-{CODE_READ_RELEASE}.json", CODE_READ_RELEASE, facts)
     word_pixel_facts(OUT / "render" / "word_render_compare.json", facts)
+    lo_pixel_facts(OUT / "render" / "lo_render_compare.json", facts)
+    smartart_facts(OUT / "smartart" / "verify.json", facts)
+    if (OUT / "ab" / "ab_compare.json").exists():
+        import ab_table
+        ab_table.facts_into(json.loads((OUT / "ab" / "ab_compare.json").read_text()), facts)
+    if (OUT / "render" / "render_inventory.json").exists():
+        import inventory_table
+        facts["inventory.table"] = inventory_table.table(str(OUT / "render" / "render_inventory.json"))
+    import pixels
+    facts["pixels.dpi"] = pixels.DPI
     isolation_facts(OUT / "word_isolation.json", facts)
     broken_facts(facts)   # after word.* : 4.2 sets the clean-corpus verdict beside the broken one
     count_facts(facts)

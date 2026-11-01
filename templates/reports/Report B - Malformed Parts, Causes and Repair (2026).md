@@ -16,19 +16,20 @@ The first report found that the corpus it used — a hand-built {{fixture.parts}
 
 | Editor | Real XSD violations | Package integrity | Word {{word.version}} |
 |---|---:|---|---|
-| SuperDoc | 0 | clean | **opened** |
-| GenOffice | 0 | clean | **opened** |
-| eigenpal | 0 | clean | **opened** |
-| WordCraft | 0 | clean | **opened** |
-| **Docxodus** | **0** | **clean** | **opened** |
-| canvas-editor + plugin | 1 | clean | **opened** |
-| docs.plus | 1 | clean | **opened** |
-| **Plate.js** | **0** | **clean** | **opened** |
-| LibreOffice (baseline) | 0 | clean | **opened** |
-| Folio | 0 | clean | **REFUSED** |
-| office-open | 0 | **5 dangling relationship ids** | **REFUSED** |
-| Docen | 0 | **5 dangling relationship ids** | **REFUSED** |
-| Fidus Writer | 11 | clean | **REFUSED** |
+| SuperDoc | {{xsd.superdoc.real}} | {{pkg.superdoc}} | {{word.superdoc.cell}} |
+| GenOffice | {{xsd.genoffice.real}} | {{pkg.genoffice}} | {{word.genoffice.cell}} |
+| eigenpal | {{xsd.eigenpal.real}} | {{pkg.eigenpal}} | {{word.eigenpal.cell}} |
+| WordCraft | {{xsd.wordcraft.real}} | {{pkg.wordcraft}} | {{word.wordcraft.cell}} |
+| **Docxodus** | {{xsd.docxodus.real}} | {{pkg.docxodus}} | {{word.docxodus.cell}} |
+| canvas-editor + plugin | {{xsd.canvas.real}} | {{pkg.canvas}} | {{word.canvas.cell}} |
+| docs.plus | {{xsd.docsplus.real}} | {{pkg.docsplus}} | {{word.docsplus.cell}} |
+| **Plate.js** | {{xsd.plate.real}} | {{pkg.plate}} | {{word.plate.cell}} |
+| Apryse WebViewer | {{xsd.apryse.real}} | {{pkg.apryse}} | {{word.apryse.cell}} |
+| LibreOffice (baseline) | {{xsd.lo_baseline.real}} | {{pkg.lo_baseline}} | {{word.lo_baseline.cell}} |
+| Folio | {{xsd.folio.real}} | {{pkg.folio}} | {{word.folio.cell}} |
+| office-open | {{xsd.officeopen.real}} | {{pkg.officeopen}} | {{word.officeopen.cell}} |
+| Docen | {{xsd.docen.real}} | {{pkg.docen}} | {{word.docen.cell}} |
+| Fidus Writer | {{xsd.fidus.real}} | {{pkg.fidus}} | {{word.fidus.cell}} |
 
 - **Two refusal causes are now proven causally, not just correlated.** Both were isolated to a single attribute or a single identifier, and in both cases *writing that one thing back correctly makes Word open the file*:
 
@@ -39,7 +40,7 @@ The first report found that the corpus it used — a hand-built {{fixture.parts}
 
 - **The office-open / Docen defect is a single asymmetry with two symptoms.** One id-resolution function accepts only numeric relationship ids and the other does not. The dangling reference is symptom one; the "unbound prefix" malformed XML on re-import is symptom two, and it is why those two projects are the only non-idempotent ones in the study (second-pass scores 32.0% and 30.5%).
 - **The broken corpus kills the editors that were faithful to it, and spares the ones that discard the content — and d12 is no longer one of the defects that kill.** {{broken.flipped_list}} open the clean corpus and refuse the broken one. {{broken.spared_list}} open both. canvas, docs.plus and LibreOffice opened it because they dropped the content that carried the defects. WordCraft kept `w:dirty="true"` (d12), which this release finds is not fatal on its own (§2). **Fidelity and robustness are anti-correlated here**, and the first report's ranking does not survive a malformed input unchanged.
-- **Plate.js is the twelfth editor, and it breaks the pattern in the most useful way.** It cannot open the broken corpus either — but it fails **before writing anything**, so it is the only editor in the study that refuses a malformed file without leaving a damaged one behind. Its clean-corpus output, by contrast, is schema-clean, package-clean and **opens in Word**. **Docxodus is the thirteenth, and it does not break the pattern: it is faithful, it preserves the damage, and Word refuses its broken-corpus output — exactly as the defect table predicts.**
+- **Plate.js is the twelfth editor, and it breaks the pattern in the most useful way.** It cannot open the broken corpus either — but it fails **before writing anything**, so it is the only editor in the study that refuses a malformed file without leaving a damaged one behind. Its clean-corpus output, by contrast, is package-clean and **opens in Word**, with one schema violation: the section properties written before the first paragraph, as docs.plus writes them (§3.7). **Docxodus is the thirteenth, and it does not break the pattern: it is faithful, it preserves the damage, and Word refuses its broken-corpus output — exactly as the defect table predicts.**
 
 ---
 
@@ -227,9 +228,9 @@ That single misplacement is the visible symptom of the whole pipeline's limitati
 
 Folio is the sharpest illustration of the gap: **it is schema-clean, well-formed, has no dangling references, and does not open.** A validator run over it reports nothing at all.
 
-### 3.7 Plate.js: no malformation in the output — and the only importer that reports one
+### 3.7 Plate.js: one misplaced element in the output — and the only importer that reports one
 
-Plate is the only editor in the study whose **output** has nothing wrong with it *and* whose **importer** complains. Its clean-corpus output is schema-clean against the 69 ECMA-376 transitional XSDs, package-clean (no dangling relationship ids, no missing targets, no stale overrides, no unbalanced fields, no unpaired moves), and it **opens in Microsoft Word {{word.version}}**. That is not nothing: Fidus, canvas-editor and docs.plus all fail one of those checks, and Folio, office-open and Docen fail Word.
+Plate's clean-corpus output has {{xsd.plate.real:w}} real violation against the 69 ECMA-376 transitional XSDs, and it is docs.plus's (§3.5): `w:sectPr` is written as the **first** child of `w:body`, not the last. Otherwise it is package-clean (no dangling relationship ids, no missing targets, no stale overrides, no unbalanced fields, no unpaired moves), and it **opens in Microsoft Word {{word.version}}**. Earlier editions of this report called the output schema-clean. That cell was typed: Plate was never in the validation script, and the script now covers every editor (`build/test_every_lane.py`).
 
 What is remarkable is the other side. Plate's importer does not merely fail on the malformed corpus — it **refuses**, before writing anything, with a named diagnostic:
 
@@ -246,6 +247,10 @@ It also has the only *provable* byte-exactness gate in the study. `retainSource:
 This is the closest any editor in this study comes to *proving* a round-trip guarantee, and it is notable that the proof is **negative** here: Plate declines the guarantee rather than asserting it.
 
 ---
+
+### 3.8 Apryse WebViewer: the paragraph mark's properties come first
+
+{{xsd.apryse.real:W}} real violations, all in `word/document.xml` and all one shape. Inside `w:pPr`, Apryse writes the paragraph mark's run properties (`w:rPr`) before the paragraph properties, so `w:pStyle`, `w:bidi` and `w:keepNext` arrive after it. `CT_PPr` puts `w:rPr` near the end of the sequence. The package is {{pkg.apryse}}, and Microsoft Word {{word.version}} opens the file ({{word.apryse.cell}}): Word tolerates this order. The output also carries the trial license's watermark, which the main report labels; it is not counted here as a malformation.
 
 ## 4. Does any editor repair malformed input?
 

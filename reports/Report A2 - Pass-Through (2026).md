@@ -13,7 +13,7 @@ That sounds like a dull question. It is the opposite. Pass-through is the **stro
 - **Folio's pass-through is of the raw compressed bytes, not the decompressed XML.** `docx-core/src/zip/archive.ts:388-405` writes the original deflate stream, so the CRC and the compressed size are preserved exactly. No editor in this study returns an author's bytes more faithfully.
 - **Five architectures produce pass-through, and they are not equally faithful.** Clone-and-override (Folio) copies compressed bytes. Byte-splice (GenOffice, eigenpal) copies *byte ranges of the decompressed XML*. Opaque-blob (SuperDoc) copies whole ZIP entries it never modelled. Manifest-gated (WordCraft) copies payloads only when a manifest and a passthrough flag agree. **SDK round trip (Docxodus)** lets the Open XML SDK own the parts it models and pass the rest through.
 - **Four editors have zero pass-through.** Fidus Writer, canvas-editor, docs.plus and Plate.js all regenerate every part. Plate.js is the extreme: **zero byte-identical parts, 24 parts dropped, nothing added, 11 parts out** — the smallest package in the trial.
-- **Pass-through has a hidden failure mode that no part-level checker catches: the orphan.** When an editor keeps the payload but drops the element that pointed at it, the package still contains the bytes and nothing references them. **That failure mode did not happen with the `altChunk` — it was kept whole by seven editors and dropped whole by six — but it did happen with the chart, and in a worse form (§5.4).**
+- **Pass-through has a hidden failure mode that no part-level checker catches: the orphan.** When an editor keeps the payload but drops the element that pointed at it, the package still contains the bytes and nothing references them. **With the `altChunk` it happened once: Apryse WebViewer turns the chunk into ordinary paragraphs and keeps `word/afchunk.html` with nothing in the body pointing at it — the text is not lost, the part is ballast. Seven editors kept the construct whole and six dropped it whole. With the chart it happened in a worse form (§5.4).**
 - **A worse variant exists, and two editors have it: the dangling reference.** office-open and Docen rewrite the body's relationship ids for the chart and the SmartArt to `rId17`–`rId21` **and do not write those relationships**. The chart part is present, the original relationship is present and resolves, and the body points at an id that does not exist. **Five dangling references each, and a chart that never draws** — in a package that is otherwise schema-clean and free of dangling *parts*. **Docxodus has none**, and neither does anything else in the study.
 - **Content-types declarations are coherent in every single output.** No editor leaves a part declared in `[Content_Types].xml` that is absent from the package. That is a genuine piece of good news, and it is worth stating because it is the failure mode one would expect here.
 
@@ -104,32 +104,32 @@ The matrix is printed as four tables — two editor halves × two part groups �
 
 **WordprocessingML and package parts**
 
-| Package part | Plate.js | Docxodus | SuperDoc | Folio | GenOffice | eigenpal |
-|---|---|---|---|---|---|---|
-| `[Content_Types].xml` | C | P | P | P | P | P |
-| `_rels/.rels` | C | P | P | P | P | w |
-| `customXml/item1.rels` | D | P | P | P | P | w |
-| `customXml/item1.xml` | D | P | P | P | P | w |
-| `customXml/itemProps1.xml` | D | P | P | P | P | w |
-| `docProps/app.xml` | D | P | P | P | P | w |
-| `docProps/core.xml` | C | P | P | P | C | w |
-| `_rels/document.xml.rels` | C | P | P | P | P | w |
-| `chart/_rels/chart1.xml.rels` | D | P | P | P | P | w |
-| `comments.xml` | D | w | w | P | w | C |
-| `document.xml` | C | w | C | C | C | C |
-| `endnotes.xml` | D | w | C | P | w | C |
-| `fontTable.xml` | C | P | P | P | w | C |
-| `footer1.xml` | D | w | C | P | w | C |
-| `footer2.xml` | D | w | C | P | w | C |
-| `footnotes.xml` | D | w | C | P | w | C |
-| `glossary/document.xml` | D | P | P | P | w | C |
-| `header1.xml` | D | w | C | P | w | C |
-| `header2.xml` | D | w | C | P | w | C |
-| `numbering.xml` | C | P | P | P | w | C |
-| `settings.xml` | C | w | P | P | w | C |
-| `styles.xml` | C | w | P | P | w | C |
-| `theme/theme1.xml` | C | P | P | P | P | w |
-| `webSettings.xml` | C | P | P | P | w | C |
+| Package part | Plate.js | Docxodus | Apryse WebViewer | SuperDoc | Folio | GenOffice | eigenpal |
+|---|---|---|---|---|---|---|---|
+| `[Content_Types].xml` | C | P | C | P | P | P | P |
+| `_rels/.rels` | C | P | w | P | P | P | w |
+| `customXml/item1.rels` | D | P | w | P | P | P | w |
+| `customXml/item1.xml` | D | P | C | P | P | P | w |
+| `customXml/itemProps1.xml` | D | P | w | P | P | P | w |
+| `docProps/app.xml` | D | P | C | P | P | P | w |
+| `docProps/core.xml` | C | P | w | P | P | C | w |
+| `_rels/document.xml.rels` | C | P | C | P | P | P | w |
+| `chart/_rels/chart1.xml.rels` | D | P | w | P | P | P | w |
+| `comments.xml` | D | w | C | w | P | w | C |
+| `document.xml` | C | w | C | C | C | C | C |
+| `endnotes.xml` | D | w | C | C | P | w | C |
+| `fontTable.xml` | C | P | C | P | P | w | C |
+| `footer1.xml` | D | w | C | C | P | w | C |
+| `footer2.xml` | D | w | D | C | P | w | C |
+| `footnotes.xml` | D | w | C | C | P | w | C |
+| `glossary/document.xml` | D | P | P | P | P | w | C |
+| `header1.xml` | D | w | D | C | P | w | C |
+| `header2.xml` | D | w | D | C | P | w | C |
+| `numbering.xml` | C | P | C | P | P | w | C |
+| `settings.xml` | C | w | C | P | P | w | C |
+| `styles.xml` | C | w | C | P | P | w | C |
+| `theme/theme1.xml` | C | P | w | P | P | P | w |
+| `webSettings.xml` | C | P | P | P | P | w | C |
 
 **WordprocessingML and package parts (continued)**
 
@@ -162,19 +162,19 @@ The matrix is printed as four tables — two editor halves × two part groups �
 
 **Binary payload and opaque parts**
 
-| Package part | Plate.js | Docxodus | SuperDoc | Folio | GenOffice | eigenpal |
-|---|---|---|---|---|---|---|
-| `chart/chart1.xml` | D | P | P | P | P | w |
-| `chart/style1.xml` | D | P | P | P | P | w |
-| `chart/colors1.xml` | D | P | P | P | P | w |
-| `dgm/data1.xml` | D | P | P | P | P | w |
-| `dgm/layout1.xml` | D | P | P | P | P | w |
-| `dgm/quickStyle1.xml` | D | P | P | P | P | w |
-| `dgm/colors1.xml` | D | P | P | P | P | w |
-| `embed/embedded1.docx` | D | P | P | P | P | P |
-| `embed/Excel_Worksheet.xlsx` | D | P | P | P | P | P |
-| `media/image1.png` | D | P | P | P | P | P |
-| `afchunk.html` | D | P | P | P | P | P |
+| Package part | Plate.js | Docxodus | Apryse WebViewer | SuperDoc | Folio | GenOffice | eigenpal |
+|---|---|---|---|---|---|---|---|
+| `chart/chart1.xml` | D | P | w | P | P | P | w |
+| `chart/style1.xml` | D | P | D | P | P | P | w |
+| `chart/colors1.xml` | D | P | D | P | P | P | w |
+| `dgm/data1.xml` | D | P | w | P | P | P | w |
+| `dgm/layout1.xml` | D | P | P | P | P | P | w |
+| `dgm/quickStyle1.xml` | D | P | P | P | P | P | w |
+| `dgm/colors1.xml` | D | P | P | P | P | P | w |
+| `embed/embedded1.docx` | D | P | P | P | P | P | P |
+| `embed/Excel_Worksheet.xlsx` | D | P | P | P | P | P | P |
+| `media/image1.png` | D | P | P | P | P | P | P |
+| `afchunk.html` | D | P | P | P | P | P | P |
 
 **Binary payload and opaque parts (continued)**
 
@@ -194,7 +194,7 @@ The matrix is printed as four tables — two editor halves × two part groups �
 
 ### 2.3 Two rows worth dwelling on
 
-**`afchunk.html` is pass-through for seven participants and dropped by six.** The seven that keep it are SuperDoc, Folio, GenOffice, eigenpal, office-open, Docen and **Docxodus**. The six that drop it are WordCraft, Fidus, canvas-editor, docs.plus, Plate.js and LibreOffice.
+**`afchunk.html` is pass-through for eight participants and dropped by six.** The eight that keep it are SuperDoc, Folio, GenOffice, eigenpal, office-open, Docen, **Docxodus** and Apryse WebViewer (which keeps it body-orphaned, §5.2). The six that drop it are WordCraft, Fidus, canvas-editor, docs.plus, Plate.js and LibreOffice.
 
 **`chart/style1.xml` and `chart/colors1.xml` are dropped by WordCraft and by LibreOffice** — the two outputs that keep the chart itself while losing its companions. WordCraft copies the chart part byte-for-byte and loses the chart's style and colour companions. §5.3 explains why that is worse than it looks.
 
@@ -348,7 +348,7 @@ The corpus's `w:altChunk` element points at `word/afchunk.html` through the rela
 
 This is the natural test case for the orphan failure mode, because the construct is split across two places: an **element in the body** and a **part in the package**. An editor that copies the part but drops the element leaves the payload in the file with nothing pointing at it.
 
-**Measured, it does not happen. Not once.**
+**Measured, it happens once, and the content survives it.**
 
 | Editor | `w:altChunk` element in the body | `word/afchunk.html` part | Half-preserved? |
 |---|---|---|---|
@@ -357,6 +357,7 @@ This is the natural test case for the orphan failure mode, because the construct
 | Folio | yes | yes (pass-through) | no |
 | GenOffice | yes | yes (pass-through) | no |
 | **Docxodus** | **yes** | **yes (pass-through)** | **no** |
+| **Apryse WebViewer** | **no — converted to paragraphs** | **yes (pass-through)** | **yes: the part is body-orphaned** |
 | eigenpal | yes | yes (pass-through) | no |
 | office-open | yes | yes (pass-through) | no |
 | Docen | yes | yes (pass-through) | no |
@@ -367,9 +368,9 @@ This is the natural test case for the orphan failure mode, because the construct
 | Plate.js | no | no | no |
 | LibreOffice | no | no | no |
 
-**Seven participants keep both halves and six keep neither.** The `altChunk` is a construct the modelling decision either understands or does not, and the decision is applied consistently to the body element and to the payload. The part-level map records the HTML part as pass-through for seven participants, and in every one of those seven the element that uses it is still there.
+**Seven participants keep both halves, six keep neither, and Apryse WebViewer keeps the part without the element.** Apryse converts the chunk into the body's own paragraphs — "Imported altChunk paragraph one" and "two" are in `word/document.xml` as ordinary text, in both passes — and keeps `word/afchunk.html` byte-identical, with its relationship `rIdAltChunk`, which nothing in the body uses any more (`build/orphan_audit.py`: body-orphaned). Nothing a reader sees is lost; the package carries a copy of content it already holds, which a later consumer may import a second time. The `altChunk` is a construct the modelling decision either understands or does not, and the decision is applied consistently to the body element and to the payload. The part-level map records the HTML part as pass-through for seven participants, and in every one of those seven the element that uses it is still there.
 
-That is worth stating as a **positive** result, because it is the outcome a naive reading of the part map would not predict: a reader seeing "`word/afchunk.html` is byte-identical in seven outputs" would reasonably assume the chunk was **orphaned** — kept as ballast, unreferenced. It is not. **Pass-through at the part level did not produce an orphan here**, because the same modelling decision governs both halves.
+That is worth stating as a **positive** result, because it is the outcome a naive reading of the part map would not predict: a reader seeing "`word/afchunk.html` is byte-identical in eight outputs" would reasonably assume the chunk was **orphaned** — kept as ballast, unreferenced. In seven of the eight it is not: **pass-through at the part level did not produce an orphan there**, because the same modelling decision governs both halves. The eighth, Apryse WebViewer, is the exception, and its decision is a different one: it reads the chunk into the body and copies the part anyway.
 
 §5.4 is where it does go wrong — and there it goes wrong in a way no part-level checker can see.
 
@@ -412,7 +413,7 @@ SuperDoc, Folio, GenOffice and eigenpal keep those ids exactly. **office-open an
 
 | Editor | Dangling references | Detail |
 |---|---:|---|
-| corpus, SuperDoc, Folio, GenOffice, eigenpal, **Docxodus**, WordCraft, Fidus, canvas, docs.plus, Plate.js, LibreOffice | **0** | — |
+| corpus, SuperDoc, Folio, GenOffice, eigenpal, **Docxodus**, Apryse WebViewer, WordCraft, Fidus, canvas, docs.plus, Plate.js, LibreOffice | **0** | — |
 | **office-open** | **5** | `document.xml` uses `id=rId17`, `dm=rId18`, `lo=rId19`, `qs=rId20`, `cs=rId21` — none defined |
 | **Docen** | **5** | `document.xml` uses `id=rId21`, `dm=rId22`, `lo=rId23`, `qs=rId24`, `cs=rId25` — none defined |
 
@@ -439,6 +440,7 @@ This is precisely why office-open scores 100% on text retention at the XML level
 | Folio | 35 | 25 | — | — |
 | GenOffice | 35 | 25 | — | — |
 | **Docxodus** | **35** | **25** | **—** | **—** |
+| Apryse WebViewer | 57 | 29 | — | — |
 | eigenpal | 35 | 25 | — | — |
 | office-open | 35 | 25 | — | — |
 | Docen | 39 | 29 | — | — |
@@ -449,7 +451,7 @@ This is precisely why office-open scores 100% on text retention at the XML level
 | Plate.js | 11 | 10 | — | — |
 | LibreOffice | 43 | 37 | — | — |
 
-**Not one editor leaves a dangling content-type declaration.** Every editor that drops a part also removes its declaration. This is worth stating explicitly because it is the most obvious way a lossy pipeline could produce an invalid package, and none of these twelve does it.
+**Not one editor leaves a dangling content-type declaration.** Every editor that drops a part also removes its declaration. This is worth stating explicitly because it is the most obvious way a lossy pipeline could produce an invalid package, and none of these fourteen does it.
 
 ### 5.6 A note on `dgm:relIds`
 
@@ -529,7 +531,15 @@ This is the one place in the study where a pass-through-oriented editor produced
 
 **And the interesting caveat is that it is not an editor.** A user cannot restyle a chart through Docxodus's package writer, because the chart is a copied ZIP entry and a copied ZIP entry cannot be edited. The pass-through is *exact*, and it is exact because nobody looked at those bytes — which is §1.1's definition, arrived at by a completely different route.
 
-### 6.8 Fidus Writer, canvas-editor, docs.plus, Plate.js — zero
+### 6.8 Apryse WebViewer — 9 parts, and a header for every page
+
+**Pass-through.** 9 of 35 parts are byte-identical: three of the four SmartArt parts (`layout1`, `quickStyle1`, `colors1`), both embeddings, the image, `afchunk.html`, the glossary document and `webSettings.xml`. 8 are re-serialised to the same tree, including the chart and the SmartArt data, and 13 are changed, among them `word/document.xml`, the styles, the numbering, the comments and the notes.
+
+**What it drops and what it adds.** It drops 5: the chart's two companions (`chart/style1.xml`, `chart/colors1.xml`, as WordCraft and LibreOffice do, §5.3) and three of the four header and footer parts, `header1.xml`, `header2.xml` and `footer2.xml`. It adds 27: nine header parts (`header3.xml` to `header11.xml`) with their relationship files, and nine images. 27 of the added parts carry the trial license's stamp; the main report labels what that stamp adds and never removes it. 57 parts go out.
+
+**What it does not do.** It dangles nothing (§5.4) and its content-type declarations are coherent (§5.5). It writes relationship targets as absolute part names (`/word/header3.xml`), which the package format allows; `build/malformation_audit.py` mis-read those as missing until this release. The one orphan is `word/afchunk.html` (§5.2).
+
+### 6.9 Fidus Writer, canvas-editor, docs.plus, Plate.js — zero
 
 All four regenerate everything. There is nothing to orphan and nothing to dangle, because there is nothing left of the author's package. **The failure mode of full regeneration is not a broken link; it is a document that is not the document the user opened.**
 

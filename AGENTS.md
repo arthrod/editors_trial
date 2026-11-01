@@ -49,6 +49,8 @@ The measurements, in order (`build/run_trial.sh` runs the ones it can):
 | Report A namespace tables | `build/ns_json.py`; check §6 with `build/report_a_matrix.py --patch` on a copy | A |
 | Report C: each editor's own UI | `build/capture_ui.sh` (twice; compare with `build/compare_ui.py`) | C |
 | Report C: Word's pixels | `build/word_render_all.py`, `build/word_pages.py`, `build/render_compare_word.py` | C |
+| Report C: LibreOffice's pixels, SmartArt controls, A/B variants | `build/lo_render_compare.py`, `build/raster_controls.py`, `build/smartart_verify.py`, `build/lo_pages.py`, `build/ab_table.py`, `build/construct_presence.py`, `build/render_inventory.py`, `build/strips.py` | C |
+| Report B: XSD and package integrity | `build/validate_all_outputs.py`, `build/malformation_audit.py` | B |
 | Hostile packages (sandbox) | `build/run_bomb_sandbox.py`, `build/label_protection.py` | D |
 | Jubarte on the hostile packages | `build/run_jubarte_bombs.py` | D1 |
 | Star counts | `build/stars.py` | main report |
@@ -60,6 +62,9 @@ packages.** Their rows in Report D and Report D2 stay as measured; a release
 does not upload the hostile packages to Google or open them in Word again.
 Word is still used for everything that is not hostile: opening every editor
 output, and Report C's pixel layer.
+
+Every page image compared pixel by pixel is rasterised at **200 dpi**
+(`build/pixels.py`, from v0.9.3); no script sets its own resolution.
 
 Anything else that is not re-run is named in the changelog's "Not
 re-measured" section and in the report itself. Never leave it silent.

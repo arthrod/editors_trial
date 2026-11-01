@@ -148,8 +148,13 @@ cap_apryse() {
   serve 5210 "$BASE/harness/apryse" npx vite --config vite.config.mjs || return 1
   local u="http://127.0.0.1:5210/"
   warm "$u"
-  shot --name apryse --url "$u" --serve-as /sample.docx --file "$FIX" --viewport 1440x1400 --wait-for "$P1" --wait 6000
-  shot --name apryse_p3 --url "$u" --serve-as /sample.docx --file "$FIX" --viewport 1440x1500 --wait-for "$P1" --wait 6000 --scroll-text "$P3"
+  # Its pages are drawn on a canvas, so readiness and the page-3 target are
+  # asked of WebViewer (harness/ui/apryse/probe.mjs), not read from the DOM.
+  shot --name apryse --url "$u" --serve-as /sample.docx --file "$FIX" --viewport 1440x1400 --wait 2000 --probe apryse/probe.mjs
+  APRYSE_SCROLL="$P3" shot --name apryse_p3 --url "$u" --serve-as /sample.docx --file "$FIX" --viewport 1440x1500 --wait 2000 --probe apryse/probe.mjs
+  APRYSE_SCROLL="$P4" shot --name apryse_p4 --url "$u" --serve-as /sample.docx --file "$FIX" --viewport 1440x1500 --wait 2000 --probe apryse/probe.mjs
+  # the comments panel: whether the corpus's comment reached the editor at all
+  APRYSE_SCROLL="$P3" shot --name apryse_comments --url "$u" --serve-as /sample.docx --file "$FIX" --viewport 1440x1500 --wait 2000 --probe apryse/probe_comments.mjs
   stop
 }
 
@@ -164,7 +169,10 @@ cap_libreoffice() {
   mkdir -p "$OUT/libreoffice"
   soffice --headless --convert-to pdf --outdir "$OUT/libreoffice" "$FIX" >/dev/null 2>&1
   rm -f "$OUT"/libreoffice/page-*.png
-  pdftoppm -r 110 -png "$OUT/libreoffice/complex.pdf" "$OUT/libreoffice/page"
+  # the release resolution (build/pixels.py), the same as Word's pages beside it
+  local dpi
+  dpi=$(python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import pixels; print(pixels.DPI)' "$BASE/build")
+  pdftoppm -r "$dpi" -png "$OUT/libreoffice/complex.pdf" "$OUT/libreoffice/page"
 }
 
 cap_docxodus() {

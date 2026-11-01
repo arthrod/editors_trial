@@ -477,7 +477,7 @@ This section states what each namespace *does* in a document and what it costs w
 | **Keeps the construct whole, with no branch selector of its own** — it reaches the model as an opaque `unsupportedDrawing` payload and is re-emitted verbatim | office-open, Docen | `office-open/.../drawing-parse.ts:225-284`; `unsupported-drawing-run.ts:163` |
 | **Re-serialises the construct through the SDK's part model, keeping both branches** | Docxodus | `Docxodus/DocxSession.cs:838-842` — the part is flushed from its `XDocument` and the package re-saved |
 
-**Measured.** `mc` is kept whole by SuperDoc, Folio, GenOffice, eigenpal, office-open, Docen, **Docxodus** and LibreOffice; kept at 1/4 (the `mc:Ignorable` attribute only) by WordCraft, Fidus and canvas-editor; and **dropped entirely by docs.plus and Plate.js**.
+**Measured.** `mc` is kept whole by SuperDoc, Folio, GenOffice, eigenpal, office-open, Docen, **Docxodus**, Apryse WebViewer and LibreOffice; kept at 1/4 (the `mc:Ignorable` attribute only) by WordCraft, Fidus and canvas-editor; and **dropped entirely by docs.plus and Plate.js**.
 
 The block's fate is not merely present-or-absent — it is *how* it survives. Comparing the `mc:AlternateContent` element byte for byte against the corpus's:
 
@@ -490,10 +490,11 @@ The block's fate is not merely present-or-absent — it is *how* it survives. Co
 | office-open | 1,133 bytes | `xmlns:a` declared onto the element |
 | Docen | 1,133 bytes | `xmlns:a` declared onto the element |
 | **Docxodus** | 1,080 bytes | **equivalent to the corpus after normalising self-closing-tag spacing** (11 `/>` become ` />`); both branches intact |
+| Apryse WebViewer | 1,069 bytes | `v:shape` attributes re-ordered (`style` before `type`); both branches intact |
 | WordCraft, Fidus, canvas-editor | **gone** | only the `mc:Ignorable` attribute survives |
 | docs.plus, Plate.js | **gone** | the attribute goes too |
 
-**Every participant that keeps the structure keeps *both* branches** — the seven in the table above plus LibreOffice, eight in all.
+**Every participant that keeps the structure keeps *both* branches** — the eight in the table above plus LibreOffice, nine in all.
 
 **The cost.** For an editor that flattens, the cost is that the document can no longer round-trip to a different consumer — the *other* branch is gone. For an editor that takes the wrong branch, the cost is that the reader sees the wrong text. For an editor that drops it, the cost is that a text box, and the content in it, is gone.
 
@@ -713,7 +714,7 @@ build/ns_map.py                 # measured namespace survival, printed matrix
 build/ns_json.py                # the same measurement as JSON (out/ns_map.json)
 build/ns_tables.py condensed    # report tables: who kept what, per namespace
 build/ns_tables.py partial      # report tables: the exact lost names
-build/ns_group_tables.py --patch "reports/Report A - Serialization by Namespace (2026).md"
+build/facts.py && build/render_reports.py   # the grouped tables come in as facts (ns_tables.report_matrix)
 build/report_a_matrix.py        # §6: rebuild the cross-editor matrix, validated
                                 #         against out/ns_map.json before patching
 build/part_map.py --matrix      # the part-level matrix (the companion report)

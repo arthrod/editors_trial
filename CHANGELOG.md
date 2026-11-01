@@ -7,6 +7,90 @@ re-running the measurement behind it. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/) with the trial still pre-1.0.
 
+## [0.9.3] - 2026-11-01
+
+Every pixel measurement is taken at 200 dpi; Apryse WebViewer joins every lane
+it was missing from; every remaining typed table and pixel figure in Reports
+A2, B and C is generated.
+
+### Updated
+
+- No editor pin moved: the release date and cutoff (2026-10-27) are those of
+  0.9.2.
+- **Pixel resolution: 200 dpi** (110 before), in `build/pixels.py`, the one
+  place every pixel script reads it from (`build/test_pixels.py`). The rule
+  is in AGENTS.md and RELEASING.md.
+
+### Measured
+
+Each result below was run twice, with identical outputs.
+
+- **Word's pixel layer** at 200 dpi, from the stored Word PDFs: every verdict
+  unchanged. Corpus ink is now 5,450,749 px; Apryse 2,119 px (0.04%).
+- **LibreOffice's pixel layer**, now generated (`build/lo_render_compare.py`),
+  with an Apryse row: Apryse 24,540 px (4.32%, very close); LibreOffice's own
+  round trip 888 px (it was 335 at 110 dpi).
+- **SmartArt band** (Report C §5) at 200 dpi: the band holds 469,131 px and
+  Word draws 0 of them. The checkerboard control lights up 269,641 px, and
+  the border control 28,000 px, all of them its own border. The 151
+  differing pixels outside the band are one edge that moves by a pixel.
+- **A/B variants** (Report C §6.3), now generated (`build/ab_table.py`), in Word
+  and in LibreOffice. LibreOffice's corpus and variants are rendered in one
+  run.
+- **Construct presence** and the **package inventory** with Apryse: every
+  construct is visible in Word's render of its output and present in its
+  package.
+- **Report C UI:** LibreOffice's own pages are rasterised at 200 dpi, and Apryse
+  pages 3 and 4 and its comment panel are captured.
+- **XSD and package integrity** (Report B), generated: Plate.js 1 real XSD
+  violation (published as 0 in 0.9.2), Apryse 4.
+
+### Not re-measured
+
+- **Word was not opened.** Another session's Word job was running, and
+  AGENTS.md forbids sharing Word. The Word pixel layer, the SmartArt
+  controls and the A/B variants were re-rasterised from the PDFs Word
+  exported for 0.9.2. The Word verdicts are 0.9.2's.
+- **The publication gate** (`build/verify_publication.sh --with-word`) needs
+  Word, for the same reason. It is outstanding.
+- Round trips, second passes, the broken corpus and the hostile packages:
+  no pin moved, so 0.9.2's results stand.
+- Google Docs and Microsoft Word on the hostile packages (AGENTS.md: never
+  re-tested).
+
+### Added
+
+- `build/pixels.py`, `build/lo_render_compare.py`, `build/raster_controls.py`,
+  `build/ab_table.py`, `build/smartart_band.py`.
+- Facts for the remaining typed figures: `lpx.*`, `sa.*`, `ab.*`, `xsd.*`,
+  `pkg.*`, `word.<tool>.cell`, `parts.matrix`, `inventory.table` and
+  `pixels.dpi`.
+- Report C §2.14 (Apryse WebViewer) and Report A2 §6.8 (Apryse).
+
+### Fixed
+
+- **A missed capture failed silently.** `harness/ui/shot.mjs` printed OK when
+  a wait or a scroll found nothing; Apryse's "page 3" was page 1. It now
+  exits 4 (`build/test_ui_captures.py`).
+- **Absolute relationship targets.** `malformation_audit.py` reported 18
+  missing parts for Apryse's `/word/...` targets; it now resolves them from
+  the package root.
+- **Every lane.** Apryse was missing from 15 measurement scripts, among them
+  the audits behind six tables, `verify_findings.py` (part of the publication
+  gate), `construct_presence.py` and `inventory_table.py`. `build/test_every_lane.py` now checks both path
+  patterns and editor lists.
+- **Report C §6.3** cited the picture's figures for the chart. It also listed
+  page 3 only for `no_chart`, which changes page 4 too.
+- **Report C §4.2(a)** called the parts the regenerators *write* the parts
+  they *keep*.
+- **The SmartArt band locator** took the box around every difference, which
+  at 200 dpi swallowed an object below the band. It now takes the control's
+  own footprint.
+- **Fixed crops.** `strips.py` cropped in 110-dpi pixels; the crops are now in
+  inches.
+- **Retired instructions.** Report C's recipe used a `/tmp` venv, and Report
+  A's patched a rendered report; both now use the PEP 723 scripts and facts.
+
 ## [0.9.2] - 2026-11-01
 
 Apryse WebViewer joins as the first closed-source participant; Word is

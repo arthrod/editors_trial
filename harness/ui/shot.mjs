@@ -56,6 +56,7 @@ const waitMs = Number(opt.wait || 6000);
 const fullPage = !!opt['full-page'];
 
 const consoleLog = [];
+const missed = [];
 const pageErrors = [];
 const failedRequests = [];
 
@@ -165,6 +166,7 @@ if (opt['wait-for']) {
     consoleLog.push(`[wait-for] matched "${opt['wait-for']}"`);
   } catch (e) {
     consoleLog.push(`[wait-for-error] ${e.message}`);
+    missed.push(`wait-for "${opt['wait-for']}" timed out`);
   }
 }
 await page.waitForTimeout(waitMs);
@@ -194,9 +196,11 @@ if (opt['scroll-text']) {
       return true;
     }, target);
     consoleLog.push(`[scroll-text] "${target}" -> ${ok ? 'found' : 'NOT FOUND'}`);
+    if (!ok) missed.push(`scroll-text "${target}" not found`);
     await page.waitForTimeout(1500);
   } catch (e) {
     consoleLog.push(`[scroll-text-error] ${e.message}`);
+    missed.push(`scroll-text failed: ${e.message}`);
   }
 }
 
@@ -208,6 +212,8 @@ if (opt.probe && fs.existsSync(opt.probe)) {
   } catch (e) {
     probe = { error: String(e && e.stack ? e.stack : e) };
   }
+  // A probe that drives the page (load, scroll) reports a target it could not reach as `miss`.
+  if (probe && (probe.error || probe.miss)) missed.push(`probe: ${probe.miss || probe.error}`);
 }
 
 const png = path.join(outdir, `${name}.png`);
@@ -224,6 +230,7 @@ const meta = {
   pageErrors,
   failedRequests: failedRequests.slice(-30),
   probe,
+  missed,
 };
 fs.writeFileSync(path.join(outdir, `${name}.json`), JSON.stringify(meta, null, 2));
 
@@ -232,6 +239,13 @@ if (navFailed) {
   console.error('  no screenshot was written; the server is probably down.');
   await browser.close();
   process.exit(3);
+}
+// A capture that did not reach its target is not the figure it is named for
+// (v0.9.2: Apryse's "page 3" was page 1, its text drawn on a canvas).
+if (missed.length) {
+  console.error(`MISS ${name}: ${missed.join('; ')}`);
+  await browser.close();
+  process.exit(4);
 }
 console.log(`OK ${name} -> ${png}`);
 if (pageErrors.length) console.log(`  pageErrors: ${pageErrors.length}`);

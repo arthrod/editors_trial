@@ -10,12 +10,15 @@ import os
 import subprocess
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import pixels  # noqa: E402  (build/pixels.py: the release resolution)
+
 BASE = "/Users/arthrod/temp/T/editors_trial"
-DPI = "110"
+DPI = str(pixels.DPI)  # build/pixels.py
 
 TARGETS = ["corpus", "superdoc", "folio", "genoffice", "eigenpal",
            "office-open", "docen", "wordcraft", "fidus", "canvas",
-           "docs.plus", "plate", "docxodus", "libreoffice"]
+           "docs.plus", "plate", "docxodus", "apryse", "libreoffice"]
 
 VARIANTS = ["no_dgm", "no_chart", "no_pic", "no_wps", "no_ole"]
 

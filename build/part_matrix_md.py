@@ -70,21 +70,29 @@ def display(name):
 
 
 def table(inp, maps, order, parts, title):
-    print("**%s**\n" % title)
-    print("| Package part | " + " | ".join(display(n) for n in order) + " |")
-    print("|---|" + "---|" * len(order))
+    out = ["**%s**\n" % title,
+           "| Package part | " + " | ".join(display(n) for n in order) + " |",
+           "|---|" + "---|" * len(order)]
     for p in parts:
         row = [GLYPH.get(maps[n].get(p), "·") for n in order]
-        print("| `%s` | %s |" % (short(p), " | ".join(row)))
-    print()
+        out.append("| `%s` | %s |" % (short(p), " | ".join(row)))
+    return "\n".join(out)
+
+
+def markdown():
+    """The four tables Report A2 prints (build/facts.py: parts.matrix)."""
+    inp, maps = collect()
+    order = [n for n, _ in part_map.EDITORS if n in maps]
+    half = (len(order) + 1) // 2
+    a, b = order[:half], order[half:]
+    common = sorted(set(inp) - set(PAYLOAD))
+    return "\n\n".join([
+        table(inp, maps, a, common, "WordprocessingML and package parts"),
+        table(inp, maps, b, common, "WordprocessingML and package parts (continued)"),
+        table(inp, maps, a, PAYLOAD, "Binary payload and opaque parts"),
+        table(inp, maps, b, PAYLOAD, "Binary payload and opaque parts (continued)"),
+    ])
 
 
 if __name__ == "__main__":
-    inp, maps = collect()
-    order = [n for n, _ in part_map.EDITORS if n in maps]
-    a, b = order[:6], order[6:]
-    common = sorted(set(inp) - set(PAYLOAD))
-    table(inp, maps, a, common, "WordprocessingML and package parts")
-    table(inp, maps, b, common, "WordprocessingML and package parts (continued)")
-    table(inp, maps, a, PAYLOAD, "Binary payload and opaque parts")
-    table(inp, maps, b, PAYLOAD, "Binary payload and opaque parts (continued)")
+    print(markdown())
