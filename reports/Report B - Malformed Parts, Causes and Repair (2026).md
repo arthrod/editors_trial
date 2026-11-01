@@ -1,6 +1,6 @@
-# Malformed Parts: Causes, Detection, and Repair (2026-10-30)
+# Malformed Parts: Causes, Detection, and Repair (2026-11-01)
 
-**A companion to *Open-Source DOCX Editors, Re-verified Against Code and Measured by Round-Trip (2026-10-29)*** and to *What Is Serialized, What Is Pass-Through, and What Is Actually Rendered (2026-10-30)*.
+**A companion to *Open-Source DOCX Editors, Re-verified Against Code and Measured by Round-Trip (2026-11-01)*** and to *What Is Serialized, What Is Pass-Through, and What Is Actually Rendered (2026-10-30)*.
 
 The first report found that the corpus it used — a hand-built 35-part adversarial DOCX — **Microsoft Word 16.115 would not open at all**, and located twelve defect classes behind that. This report closes the loop: what malformed parts look like, what causes them, and — the question the first report could not answer — **does any editor repair a malformed input, or does it preserve the damage?**
 
@@ -12,7 +12,7 @@ The first report found that the corpus it used — a hand-built 35-part adversar
 - **Docxodus is the only participant that ships a repair funnel, and it repairs a different set of defects.** Its `PackageOpenRepair` stage exists to unblock *"Package defects Word opens but the Open XML SDK rejects"* — a relationship to a part with **no content type** or **no ZIP entry**, a part reached by a known relationship but **typed only as generic XML**, and **two relationships sharing an Id**. **None of those is one of this report's twelve defect classes.** Having a repair stage and repairing a given malformation are different properties, and this is the cleanest available demonstration of the difference.
 - **Plate.js is the exception, and it is a real one.** It is the only editor in the study that **detects** malformation and **refuses** the document: handed the broken corpus it fails with `decode-failed: DOCX content could not be decoded by the installed editor schema.`, and it produces **no output file at all** — there is nothing to corrupt. It also refuses the *clean* corpus under its own default `lossPolicy: 'reject'`, with 18 typed errors naming each construct it cannot represent. Plate does not repair malformation either. It **declines to process it**, which is the only honest of the three available behaviours (repair, degrade, refuse).
 - **And Plate detects exactly one of the twelve defect classes.** Each defect was isolated into its own single-defect corpus and offered to Plate's importer: it **accepts eleven and refuses one** — the block-level `m:oMathPara`. The eleven it accepts include every class that makes Word refuse the file: the five element-order classes, the malformed `ST_LongHexNumber`, the nested `mc:Fallback`, the broken OLE payload, `w:delText` inside `w:moveFrom`, and `w:dirty="true"`. Plate is a detector, not a validator, and it detects the construct its own schema cannot model.
-- **Four of the thirteen editor outputs cannot be opened by Microsoft Word**, and only one of those four (Fidus Writer) fails for a reason a schema validator could have caught; a package-integrity check catches two more, and Folio passes both:
+- **Four of the fourteen editor outputs cannot be opened by Microsoft Word**, and only one of those four (Fidus Writer) fails for a reason a schema validator could have caught; a package-integrity check catches two more, and Folio passes both:
 
 | Editor | Real XSD violations | Package integrity | Word 16.115 |
 |---|---:|---|---|
@@ -38,7 +38,7 @@ The first report found that the corpus it used — a hand-built 35-part adversar
 | office-open / Docen | the body is rewritten with numeric relationship ids while the `.rels` keeps the source's descriptive ones | rewrite 5 ids to the declared names | **REFUSED → opened** |
 
 - **The office-open / Docen defect is a single asymmetry with two symptoms.** One id-resolution function accepts only numeric relationship ids and the other does not. The dangling reference is symptom one; the "unbound prefix" malformed XML on re-import is symptom two, and it is why those two projects are the only non-idempotent ones in the study (second-pass scores 32.0% and 30.5%).
-- **The broken corpus kills exactly the four editors that were faithful to it, and spares exactly the three that discard the content.** SuperDoc, GenOffice, eigenpal and WordCraft open the clean corpus and refuse the broken one; canvas, docs.plus and LibreOffice open both, because they dropped the content that carried the defects. **Fidelity and robustness are anti-correlated here**, and the first report's ranking does not survive a malformed input unchanged.
+- **The broken corpus kills the editors that were faithful to it, and spares the ones that discard the content — and d12 is no longer one of the defects that kill.** SuperDoc, GenOffice, eigenpal, Docxodus and Apryse WebViewer open the clean corpus and refuse the broken one. WordCraft, canvas-editor + plugin, docs.plus and LibreOffice (baseline) open both. canvas, docs.plus and LibreOffice opened it because they dropped the content that carried the defects. WordCraft kept `w:dirty="true"` (d12), which this release finds is not fatal on its own (§2). **Fidelity and robustness are anti-correlated here**, and the first report's ranking does not survive a malformed input unchanged.
 - **Plate.js is the twelfth editor, and it breaks the pattern in the most useful way.** It cannot open the broken corpus either — but it fails **before writing anything**, so it is the only editor in the study that refuses a malformed file without leaving a damaged one behind. Its clean-corpus output, by contrast, is schema-clean, package-clean and **opens in Word**. **Docxodus is the thirteenth, and it does not break the pattern: it is faithful, it preserves the damage, and Word refuses its broken-corpus output — exactly as the defect table predicts.**
 
 ---
@@ -113,11 +113,11 @@ These are the interesting ones, because **no schema validator reports any of the
 | 9 | the OLE object points at 64 bytes of filler | Word embeds a Word document as the raw `.docx` bytes behind `o:OLEObject ProgID="Word.Document.12"`; it tries to open the payload and fails |
 | 10 | `w:delText` inside `w:moveFrom` | `w:delText` marks text to be displayed "when the run is part of a deletion". A move source is not a deletion. Word reads the move as a second, unmatched deletion |
 | 11 | `m:oMathPara` as a direct child of `w:body` | the transitional schema permits a block-level equation through `EG_ContentBlockContent` → `EG_RunLevelElts` → `m:EG_OMathMathElements`; Word requires the equation inside a `w:p`, the way Word itself writes it |
-| 12 | `w:dirty="true"` on a `w:fldChar` | `w:dirty` is an ordinary `ST_OnOff` attribute, and Word itself writes it on an out-of-date table of contents. In this build it is nevertheless fatal to the whole document |
+| 12 | `w:dirty="true"` on a `w:fldChar` | `w:dirty` is an ordinary `ST_OnOff` attribute, and Word itself writes it on an out-of-date table of contents. The first report found it fatal to the whole document; this release does not (below) |
 
-**The measured table for #12**, which is the least intuitive result in the study:
+**The first report's table for #12**, then the least intuitive result in the study (the attribute variants were not re-run in this release):
 
-| `w:fldChar` attribute | Word 16.115 |
+| `w:fldChar` attribute | Word, first report |
 |---|---|
 | `w:dirty="true"` | **refused** |
 | `w:dirty="1"` | **refused** |
@@ -126,6 +126,8 @@ These are the interesting ones, because **no schema validator reports any of the
 | attribute absent | opened |
 
 It does not depend on the field type (a `PAGE` field refuses identically), on `w:documentProtection`, or on the rest of the package. It is not specific to the corpus: **pandoc writes `w:dirty="true"` on the TOC field of every document it produces**, so the first build of the first report's own `.docx` was refused by Word for exactly this reason, and `build/fix_dirty.py` now rewrites it to `"false"` in every generated file.
+
+**In this release the rule did not hold.** The single-defect corpora (`build/make_single_defect.py`) were opened again through the audited driver, twice: the clean corpus opened, d10 alone did not open, d11 alone did not open, and **d12 alone opened**, with the same text as the clean corpus (`out/word_isolation.json`). It opened after Word asked *"This document contains fields that may refer to other files. Do you want to update the fields in this document?"* — a question, not an offer to repair, but a warning all the same, so a file carrying d12 opens and is still not Word valid. WordCraft's broken-corpus output, which keeps d12 and drops d10 and d11, opened too (§4.1). The first report used the same Word version through a hand-written driver that kept no record of what Word showed, and a driver that reads that question as a refusal produces the first report's table exactly. That is the likely explanation, not a proven one; the driver used now names the document it saves, declines Word's repair prompt, and writes a manifest. `build/fix_dirty.py` still rewrites `w:dirty` to `"false"` in every generated file, which is harmless either way.
 
 ---
 
@@ -249,7 +251,7 @@ This is the closest any editor in this study comes to *proving* a round-trip gua
 
 This is the question the first report could not answer, and it is the one that matters for a toolchain.
 
-`fixture/complex_broken.docx` was pushed through all thirteen participants. Each output was then scanned for the ten defect classes that are visible in a package (the OLE and nesting classes are covered by the earlier table), and separately opened in Word.
+`fixture/complex_broken.docx` was pushed through all fourteen participants. Each output was then scanned for the ten defect classes that are visible in a package (the OLE and nesting classes are covered by the earlier table), and separately opened in Word.
 
 `YES` = the defect class is still present in the editor's output · `no` = the class is gone · `DROP` = the whole part carrying it was dropped.
 
@@ -259,14 +261,15 @@ This is the question the first report could not answer, and it is the one that m
 | Folio | YES | YES | YES | no | no | YES | YES | YES | YES | YES | **REFUSED** |
 | GenOffice | YES | YES | YES | YES | YES | YES | YES | YES | YES | YES | **REFUSED** |
 | eigenpal | YES | YES | YES | YES | YES | YES | YES | YES | YES | YES | **REFUSED** |
-| **Docxodus** | **YES** | **YES** | **YES** | **YES** | **YES** | **YES** | **YES** | **YES** | **YES** | **YES** | **REFUSED** |
+| Docxodus | YES | YES | YES | YES | YES | YES | YES | YES | YES | YES | **REFUSED** |
 | office-open | no | no | no | no | no | no | YES | YES | YES | no | **REFUSED** |
 | Docen | no | no | no | no | no | no | YES | YES | YES | no | **REFUSED** |
-| WordCraft | YES | no | no | no | no | no | YES | no | no | YES | **REFUSED** |
+| WordCraft | YES | no | no | no | no | no | YES | no | no | YES | **OPENED** |
 | Fidus Writer | no | no | no | no | no | no | DROP | no | no | no | **REFUSED** |
-| **Plate.js** | — | — | — | — | — | — | — | — | — | — | **REFUSED (no output)** |
+| Plate.js | — | — | — | — | — | — | — | — | — | — | no output |
 | canvas-editor + plugin | no | no | no | no | no | no | DROP | no | no | no | **OPENED** |
 | docs.plus | no | no | no | no | no | no | DROP | no | no | no | **OPENED** |
+| Apryse WebViewer | no | no | YES | no | no | no | YES | YES | no | YES | **REFUSED** |
 | LibreOffice (baseline) | no | no | YES | no | no | no | DROP | no | no | no | **OPENED** |
 
 **Not one editor repaired a defect.**
@@ -285,51 +288,53 @@ This is the question the first report could not answer, and it is the one that m
 
 The last column of the table above is not an independent measurement; it falls out of the other columns. This is worth stating precisely, because the pattern is the single most useful result in this report.
 
-Three of the eleven defect classes are fatal to Word on their own, established by isolation in the first report: **d10** (`w:delText` inside `w:moveFrom`), **d11** (block-level `m:oMathPara`) and **d12** (`w:dirty="true"` on a `w:fldChar`). Every editor's Word verdict is consistent with its own defect table:
+The first report isolated three defect classes as fatal to Word on their own: **d10** (`w:delText` inside `w:moveFrom`), **d11** (block-level `m:oMathPara`) and **d12** (`w:dirty="true"` on a `w:fldChar`). In this release d10 alone did not open and d11 alone did not open, but d12 alone opened (§2). With d10 and d11 as the fatal classes, every editor's Word verdict is consistent with its own defect table, Fidus Writer apart:
 
-| Editor | d10 | d11 | d12 | Word verdict | The verdict is explained by |
+| Editor | d10 | d11 | d12 | Word verdict | Of d10, d11, d12 in the output |
 |---|---|---|---|---|---|
-| SuperDoc | YES | YES | YES | REFUSED | all three fatal classes survive |
-| Folio | YES | YES | YES | REFUSED | all three fatal classes survive |
-| GenOffice | YES | YES | YES | REFUSED | all three fatal classes survive |
-| eigenpal | YES | YES | YES | REFUSED | all three fatal classes survive |
-| **Docxodus** | **YES** | **YES** | **YES** | **REFUSED** | **all three fatal classes survive** |
-| office-open | YES | YES | no | REFUSED | two fatal classes survive |
-| Docen | YES | YES | no | REFUSED | two fatal classes survive |
-| WordCraft | no | no | **YES** | REFUSED | **one** fatal class survives — `w:dirty` alone is enough |
-| Fidus Writer | no | no | no | REFUSED | **not explained by the corpus** — see below |
-| **Plate.js** | — | — | — | **REFUSED (no output)** | **the importer refused the corpus** — see below |
-| canvas-editor + plugin | no | no | no | OPENED | nothing fatal survives |
-| docs.plus | no | no | no | OPENED | nothing fatal survives |
-| LibreOffice (baseline) | no | no | no | OPENED | nothing fatal survives; the surviving `w:trPr` reorder is tolerated |
+| SuperDoc | YES | YES | YES | REFUSED | all three |
+| Folio | YES | YES | YES | REFUSED | all three |
+| GenOffice | YES | YES | YES | REFUSED | all three |
+| eigenpal | YES | YES | YES | REFUSED | all three |
+| Docxodus | YES | YES | YES | REFUSED | all three |
+| office-open | YES | YES | no | REFUSED | two |
+| Docen | YES | YES | no | REFUSED | two |
+| WordCraft | no | no | YES | OPENED | one (d12) |
+| Fidus Writer | no | no | no | REFUSED | none |
+| Plate.js | — | — | — | no output | the importer refused the corpus |
+| canvas-editor + plugin | no | no | no | OPENED | none |
+| docs.plus | no | no | no | OPENED | none |
+| Apryse WebViewer | YES | no | YES | REFUSED | two |
+| LibreOffice (baseline) | no | no | no | OPENED | none |
 
 Three of these rows are individually decisive:
 
-- **WordCraft isolates `w:dirty` as the sole cause of its refusal.** It is the only editor that removed d10 and d11 and kept d12 — and it still died. That is the cleanest possible confirmation that `w:dirty="true"` on a `w:fldChar` is fatal on its own, arrived at through a completely different route than the isolation probes in the first report.
+- **WordCraft separates d12 from the other two.** It is the only editor that removed d10 and d11 and kept d12. In v0.9.1 it was recorded as refused, which read as confirmation that `w:dirty="true"` alone is fatal. In this release the same output file opens, twice on each of two sets of outputs, and so does the d12-only corpus: nothing fatal survives in WordCraft's output, and Word opens it.
 - **Fidus Writer's refusal is its own, not the corpus's.** Fidus dropped every defect and still could not open. It was *also* refused on the clean corpus (§3.3, eleven schema violations), so the broken corpus changed nothing for it. This is the one row where "the corpus killed it" is the wrong explanation, and it is the row that prevents the table from being read as a rule.
 - **Plate.js's "refusal" is a third thing again.** It is neither a Word refusal nor an output failure: **Plate never wrote a file**. The import failed with `decode-failed`, so there is nothing for Word to judge. This is the only row in the table where the verdict column describes the *editor declining to act*, and it is the row that makes the other eleven legible — a refusal, a failure and a refusal-to-refuse are three different outcomes, and only one of them is safe.
 
-### 4.2 The broken corpus kills exactly the four editors that were faithful — and spares exactly the three that discard
+### 4.2 The broken corpus kills the editors that were faithful — and spares the ones that discard
 
 Putting the two Word matrices side by side is the clearest single statement of what pass-through costs.
 
 | Editor | Clean corpus | Broken corpus | Verdict flipped by the corpus? |
 |---|---|---|---|
 | SuperDoc | OPENED | REFUSED | **yes** |
+| Folio | REFUSED | REFUSED | no |
 | GenOffice | OPENED | REFUSED | **yes** |
 | eigenpal | OPENED | REFUSED | **yes** |
-| WordCraft | OPENED | REFUSED | **yes** |
-| **Docxodus** | **OPENED** | **REFUSED** | **yes** |
-| Folio | REFUSED | REFUSED | no — already broken |
-| office-open | REFUSED | REFUSED | no — already broken |
-| Docen | REFUSED | REFUSED | no — already broken |
-| Fidus Writer | REFUSED | REFUSED | no — its own defect |
-| **Plate.js** | **OPENED** | **REFUSED (no output)** | **yes — the importer refused the corpus** |
-| canvas-editor + plugin | OPENED | OPENED | no — it dropped the damage |
-| docs.plus | OPENED | OPENED | no — it dropped the damage |
-| LibreOffice (baseline) | OPENED | OPENED | no — it dropped the damage |
+| Docxodus | OPENED | REFUSED | **yes** |
+| office-open | REFUSED | REFUSED | no |
+| Docen | REFUSED | REFUSED | no |
+| WordCraft | OPENED | OPENED | no |
+| Fidus Writer | REFUSED | REFUSED | no |
+| Plate.js | OPENED | no output | **yes — the importer refused the corpus** |
+| canvas-editor + plugin | OPENED | OPENED | no |
+| docs.plus | OPENED | OPENED | no |
+| Apryse WebViewer | OPENED | REFUSED | **yes** |
+| LibreOffice (baseline) | OPENED | OPENED | no |
 
-**Five editors that were faithful to the clean file die on the malformed one, and the three that survive are the three that throw the content away.** Fidelity and robustness are anti-correlated here, and the reason is structural rather than accidental: an editor that preserves the document preserves the damage inside it, because the damage *is* the document as far as a pass-through writer is concerned. The editors that survive the malformed input are the ones that were already losing most of the document — they lose nothing more.
+**Five editors that were faithful to the clean file die on the malformed one. Of the four that open both, three are the ones that throw the content away; the fourth, WordCraft, kept only d12, which Word now opens (§2).** Fidelity and robustness are anti-correlated here, and the reason is structural rather than accidental: an editor that preserves the document preserves the damage inside it, because the damage *is* the document as far as a pass-through writer is concerned. The editors that survive the malformed input are the ones that were already losing most of the document — they lose nothing more.
 
 That is the uncomfortable trade a fidelity score hides completely. The first report's ranking puts SuperDoc first and canvas second-to-last. On malformed input the order **inverts**: canvas and docs.plus open, and SuperDoc does not.
 
@@ -356,7 +361,7 @@ The broken corpus carries all twelve defect classes at once, so a refusal there 
 
 **One of twelve.**
 
-The eleven that pass are not marginal: **they are exactly the classes that make Word refuse the file.** d10 is the one that made Folio's output unopenable; d12 is the one that made WordCraft's output unopenable; d1–d5 are the ordering classes the schema catches; d9 is a corrupt embedded package. Plate's importer accepts all of them.
+The eleven that pass are not marginal: **they are exactly the classes that make Word refuse the file.** d10 is the one that made Folio's output unopenable; d1–d5 are the ordering classes the schema catches; d9 is a corrupt embedded package. Plate's importer accepts all of them.
 
 The one it catches, d11, is also the one that makes sense. `m:oMathPara` is a **block-level display equation** — an element whose parent is `w:body` rather than a paragraph — and Plate's schema has no node type for it. The decoder reaches a construct its own model cannot represent and fails with:
 
@@ -364,7 +369,7 @@ The one it catches, d11, is also the one that makes sense. `m:oMathPara` is a **
 
 So Plate is not a validator. It has no schema of OOXML, no notion of element order, no awareness of `ST_LongHexNumber` or of a relationship pointing at garbage. It has a schema of **Plate's own node types**, and it notices when the document contains something that is not one of them. The failure is a *type* failure, not a *validity* failure — which is exactly why it catches one class and misses eleven.
 
-The comparison with the other twelve participants is the point. They either **corrupt** the malformed input (preserve the damage) or **discard** it (drop the part), and both outcomes are silent. Plate **declines**. Of the three possible behaviours on malformed input — repair, degrade, refuse — **only one of the thirteen implements the third**, and it is the one with the most stars.
+The comparison with the other thirteen participants is the point. They either **corrupt** the malformed input (preserve the damage) or **discard** it (drop the part), and both outcomes are silent. Plate **declines**. Of the three possible behaviours on malformed input — repair, degrade, refuse — **only one of the fourteen implements the third**, and it is the one with the most stars.
 
 ### 4.4 What "repair" would even have looked like
 
@@ -385,7 +390,7 @@ That is the point worth keeping, and it generalises: **a repair stage is scoped 
 
 ## 5. The causes, in seven shapes
 
-Every malformation observed in this study — in the corpus and in the thirteen participants' outputs — falls into one of seven shapes. Each shape has a characteristic fix.
+Every malformation observed in this study — in the corpus and in the fourteen participants' outputs — falls into one of seven shapes. Each shape has a characteristic fix.
 
 | # | Shape | Example | The fix |
 |---|---|---|---|
@@ -427,7 +432,7 @@ Four claims in the first report were imprecise. The code evidence behind them is
 2. **Docen does not drop the tracked change inside `header2.xml` — it relocates it to `header3.xml`.** The first report's check was path-scoped; the content survives at a different path. (Docen also *adds* `header3/4/5` and `footer3`, which the part map records.)
 3. **Fidus Writer's exporter does not fill `{@body}`.** The placeholder vocabulary is `{title}`, `{@<part-id>}` for rich-text and table parts, plus `{@bibliography}`, `{@copyright}` and `{@licenses}` (`src/exporter/template/tags.ts:18-101`).
 4. **canvas-editor's exporter has no copy path at all.** It never opens the source package; `jszip` is imported only by the importer. So "0 of 35 parts pass through" is not a policy decision but a structural fact.
-5. **"No editor diagnoses malformed input" was true of the first eleven and false of the twelfth.** Plate.js was added on 2026-10-30 and it **refuses** the broken corpus with a named diagnostic (`decode-failed`) rather than producing a damaged file. The precise statement is now: **no editor repairs malformed input; one of the thirteen detects it, and detects exactly one of the twelve defect classes.**
+5. **"No editor diagnoses malformed input" was true of the first eleven and false of the twelfth.** Plate.js was added on 2026-10-30 and it **refuses** the broken corpus with a named diagnostic (`decode-failed`) rather than producing a damaged file. The precise statement is now: **no editor repairs malformed input; one of the fourteen detects it, and detects exactly one of the twelve defect classes.**
 6. **"No editor repairs anything" is true of these twelve defect classes and false as a general statement.** Docxodus ships a repair funnel (`PackageOpenRepair`) that fixes four classes of package defect on the way in. It repairs none of the twelve here, because it is aimed at defects that would make the **Open XML SDK's own parser** refuse the file, not at defects that make **Microsoft Word** refuse it. The distinction is worth keeping for anyone reading the TL;DR literally: a repair stage is scoped to the consumer it unblocks, and Docxodus's is scoped to the SDK, not to Word.
 
 ---

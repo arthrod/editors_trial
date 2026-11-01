@@ -1,4 +1,4 @@
-# Open-Source DOCX Editors, Re-verified Against Code and Measured by Round-Trip (2026-10-29)
+# Open-Source DOCX Editors, Re-verified Against Code and Measured by Round-Trip ({{release.date}})
 
 This edition does what the previous one could not: it **downloads every editor's code, runs each editor's own import→export path over a purpose-built adversarial document, and scores the result**. Every cell that previously read NOT VERIFIED IN CODE is now either a source citation or a measurement.
 
@@ -20,7 +20,7 @@ A correction to the previous report's headline: it ranked **eigenpal first on OO
 
 - **Best measured fidelity: SuperDoc V2.** {{rt.superdoc.weighted:g}}% on the {{checks.total}}-check corpus, {{rt.superdoc.critical_passed}}/{{rt.superdoc.critical_total}} critical features, {{rt.superdoc.text_pct:g}}% text retention, all 35 package parts preserved, and a genuine re-save ({{parts.superdoc.reserialized}} parts re-serialized, {{parts.superdoc.passthrough}} untouched parts passed through byte-identically). It has **zero** failed checks, and its second pass is a perfect, byte-identical fixed point.
 - **Docxodus matches it.** The Open XML SDK also scores {{rt.docxodus.weighted:g}}% — {{rt.docxodus.critical_passed}}/{{rt.docxodus.critical_total}} critical, {{rt.docxodus.text_pct:g}}% text, all 35 parts, zero failed checks, and a byte-identical second pass — with **{{parts.docxodus.changed}} changed, {{parts.docxodus.dropped}} dropped and {{parts.docxodus.added}} added** parts. It is the only participant in the study that draws its boundary around a set of *parts* rather than a set of *names*.
-- **Five of the thirteen participants reach a byte-identical fixed point** — SuperDoc, Docxodus, GenOffice, eigenpal and Folio all reproduce their own output exactly when it is fed back through their code path. office-open and Docen do not: **their own output is malformed XML**, because the chart and SmartArt regeneration paths drop the local `a:` namespace binding their first pass emitted.
+- **{{count.p2_identical:W}} of the {{count.participants:w}} participants reach a byte-identical fixed point** — SuperDoc, Docxodus, GenOffice, eigenpal and Folio all reproduce their own output exactly when it is fed back through their code path. office-open and Docen do not: **their own output is malformed XML**, because the chart and SmartArt regeneration paths drop the local `a:` namespace binding their first pass emitted.
 - **eigenpal also scores {{rt.eigenpal.weighted:g}}%** — {{rt.eigenpal.critical_passed}}/{{rt.eigenpal.critical_total}} critical, {{rt.eigenpal.text_pct:g}}% text, all 35 parts, and a byte-identical second pass. It rewrites the text box's VML fallback from its DrawingML content, as Word does. **GenOffice scores {{rt.genoffice.weighted:.1f}}% and Folio {{rt.folio.weighted:.1f}}%.** Folio's two losses are the `w14` run identifiers and the move source, which it serializes with `w:delText` where Word writes `w:t`.
 - **GenOffice** preserves all 35 parts, but regenerates one block of the fixture (the table), which silently discards the text inside vertically-merged continuation cells.
 - **office-open ({{rt.officeopen.weighted:.1f}}%) and Docen ({{rt.docen.weighted:.1f}}%) are full-regeneration pipelines.** They rebuild the package from a parsed model, so unknown markup (`w16du:dateUtc`, `w14:paraId`/`textId`, the `w16du` namespace) is dropped by construction. **Both are also not idempotent: re-importing their own output produces `word/document.xml` with an unbound `a:` prefix — malformed XML.**
@@ -49,26 +49,26 @@ A correction to the previous report's headline: it ranked **eigenpal first on OO
 
 ### Pinned commits
 
-The code was read at the commits in the second column (all `main`/`master` as of 2026-10-29), and every `[CODE]` file:line citation in this edition refers to them. The round-trip, Word and safety measurements were last run at the commits in the fourth column.
+The code was read at the commits in the second column, the pins of {{read.release}} (each project's default branch; Plate's `next`), and every `[CODE]` file:line citation in this edition refers to them. The round-trip, Word and safety measurements were last run at the commits in the fourth column.
 
 | Checkout | Code read at | Date | Measured at | Date |
 |---|---|---|---|---|
-| udecode/plate | `08b1571f2` | 2026-10-30 (branch `next`) | `{{ver.plate.commit}}` | {{ver.plate.date}} |
-| eigenpal/docx-editor | `c6f8f0fdb` | 2026-10-29 | `{{ver.eigenpal-docx-editor.commit}}` | {{ver.eigenpal-docx-editor.date}} |
-| stella/folio | `c83cfc4b0` | 2026-10-29 | `{{ver.folio.commit}}` | {{ver.folio.date}} |
-| genspark-ai/genoffice | `a538d0429` | 2026-10-29 | `{{ver.genoffice.commit}}` | {{ver.genoffice.date}} |
-| storytold/wordcraft | `aadb077e0` | 2026-10-28 | `{{ver.wordcraft.commit}}` | {{ver.wordcraft.date}} |
-| superdoc/docx-editor | `f52c959b2` | 2026-10-29 | `{{ver.superdoc.commit}}` | {{ver.superdoc.date}} |
-| Hufe921/canvas-editor | `8b9477218` | 2026-10-28 | `{{ver.canvas-editor.commit}}` | {{ver.canvas-editor.date}} |
-| Hufe921/canvas-editor-plugin | `0e8a1b36c` | 2026-10-10 | `{{ver.canvas-editor-plugin.commit}}` | {{ver.canvas-editor-plugin.date}} |
-| DemoMacro/docen | `1890b15aa` | 2026-10-29 | `{{ver.docen.commit}}` | {{ver.docen.date}} |
-| DemoMacro/office-open | `567addfd4` | 2026-10-30 | `{{ver.office-open.commit}}` | {{ver.office-open.date}} |
-| akademi-ink/office-open | `cc137a0eb` | 2026-10-28 | `{{ver.office-open-upstream.commit}}` | {{ver.office-open-upstream.date}} |
-| docs-plus/docs.plus | `a9b0c69e8` | 2026-10-24 | `{{ver.docs-plus.commit}}` | {{ver.docs-plus.date}} |
-| fiduswriter/fiduswriter | `e14cc456a` | 2026-10-21 | `{{ver.fiduswriter.commit}}` | {{ver.fiduswriter.date}} |
-| fiduswriter/fiduswriter-document-ts | `dc0981db4` | 2026-10-21 | `{{ver.fiduswriter-document-ts.commit}}` | {{ver.fiduswriter-document-ts.date}} |
-| fiduswriter/fiduswriter-cli-ts | `da64f9340` | 2026-10-21 | `{{ver.fiduswriter-cli-ts.commit}}` | {{ver.fiduswriter-cli-ts.date}} |
-| fiduswriter/fiduswriter-pandoc-plugin-ts | `b0ca59400` | 2026-10-21 | `{{ver.fiduswriter-pandoc-plugin-ts.commit}}` | {{ver.fiduswriter-pandoc-plugin-ts.date}} |
+| udecode/plate | `{{read.plate.commit}}` | {{read.plate.date}} (branch `next`) | `{{ver.plate.commit}}` | {{ver.plate.date}} |
+| eigenpal/docx-editor | `{{read.eigenpal-docx-editor.commit}}` | {{read.eigenpal-docx-editor.date}} | `{{ver.eigenpal-docx-editor.commit}}` | {{ver.eigenpal-docx-editor.date}} |
+| stella/folio | `{{read.folio.commit}}` | {{read.folio.date}} | `{{ver.folio.commit}}` | {{ver.folio.date}} |
+| genspark-ai/genoffice | `{{read.genoffice.commit}}` | {{read.genoffice.date}} | `{{ver.genoffice.commit}}` | {{ver.genoffice.date}} |
+| storytold/wordcraft | `{{read.wordcraft.commit}}` | {{read.wordcraft.date}} | `{{ver.wordcraft.commit}}` | {{ver.wordcraft.date}} |
+| superdoc/docx-editor | `{{read.superdoc.commit}}` | {{read.superdoc.date}} | `{{ver.superdoc.commit}}` | {{ver.superdoc.date}} |
+| Hufe921/canvas-editor | `{{read.canvas-editor.commit}}` | {{read.canvas-editor.date}} | `{{ver.canvas-editor.commit}}` | {{ver.canvas-editor.date}} |
+| Hufe921/canvas-editor-plugin | `{{read.canvas-editor-plugin.commit}}` | {{read.canvas-editor-plugin.date}} | `{{ver.canvas-editor-plugin.commit}}` | {{ver.canvas-editor-plugin.date}} |
+| DemoMacro/docen | `{{read.docen.commit}}` | {{read.docen.date}} | `{{ver.docen.commit}}` | {{ver.docen.date}} |
+| DemoMacro/office-open | `{{read.office-open.commit}}` | {{read.office-open.date}} | `{{ver.office-open.commit}}` | {{ver.office-open.date}} |
+| akademi-ink/office-open | `{{read.office-open-upstream.commit}}` | {{read.office-open-upstream.date}} | `{{ver.office-open-upstream.commit}}` | {{ver.office-open-upstream.date}} |
+| docs-plus/docs.plus | `{{read.docs-plus.commit}}` | {{read.docs-plus.date}} | `{{ver.docs-plus.commit}}` | {{ver.docs-plus.date}} |
+| fiduswriter/fiduswriter | `{{read.fiduswriter.commit}}` | {{read.fiduswriter.date}} | `{{ver.fiduswriter.commit}}` | {{ver.fiduswriter.date}} |
+| fiduswriter/fiduswriter-document-ts | `{{read.fiduswriter-document-ts.commit}}` | {{read.fiduswriter-document-ts.date}} | `{{ver.fiduswriter-document-ts.commit}}` | {{ver.fiduswriter-document-ts.date}} |
+| fiduswriter/fiduswriter-cli-ts | `{{read.fiduswriter-cli-ts.commit}}` | {{read.fiduswriter-cli-ts.date}} | `{{ver.fiduswriter-cli-ts.commit}}` | {{ver.fiduswriter-cli-ts.date}} |
+| fiduswriter/fiduswriter-pandoc-plugin-ts | `{{read.fiduswriter-pandoc-plugin-ts.commit}}` | {{read.fiduswriter-pandoc-plugin-ts.date}} | `{{ver.fiduswriter-pandoc-plugin-ts.commit}}` | {{ver.fiduswriter-pandoc-plugin-ts.date}} |
 
 ### How the twelve were chosen
 
@@ -176,9 +176,12 @@ Four findings about the harnesses themselves:
 | Fidus Writer | {{rt.fidus.weighted:.1f}}% | {{rt.fidus.critical_pct:.1f}}% ({{rt.fidus.critical_passed}}/{{rt.fidus.critical_total}}) | {{rt.fidus.text_pct:.1f}}% | {{parts.fidus.kept}} / {{parts.fidus.total}} | {{rt.fidus.failed}} |
 | docs.plus | {{rt.docsplus.weighted:.1f}}% | {{rt.docsplus.critical_pct:.1f}}% ({{rt.docsplus.critical_passed}}/{{rt.docsplus.critical_total}}) | {{rt.docsplus.text_pct:.1f}}% | {{parts.docsplus.kept}} / {{parts.docsplus.total}} | {{rt.docsplus.failed}} |
 | **Plate.js** | **{{rt.plate.weighted:.1f}}%** | **{{rt.plate.critical_pct:.1f}}% ({{rt.plate.critical_passed}}/{{rt.plate.critical_total}})** | **{{rt.plate.text_pct:.1f}}%** | **{{parts.plate.kept}} / {{parts.plate.total}}** | **{{rt.plate.failed}}** |
+| Apryse WebViewer {{ver.npm.apryse}} (closed source, trial key) | {{rt.apryse.weighted:.1f}}% | {{rt.apryse.critical_pct:.1f}}% ({{rt.apryse.critical_passed}}/{{rt.apryse.critical_total}}) | {{rt.apryse.text_pct:.1f}}% | {{parts.apryse.kept}} / {{parts.apryse.total}} | {{rt.apryse.failed}} ({{stamp.apryse.unseparable}} cannot be separated from the trial stamp) |
 | *LibreOffice (baseline)* | *{{rt.lo_baseline.weighted:.1f}}%* | *{{rt.lo_baseline.critical_pct:.1f}}% ({{rt.lo_baseline.critical_passed}}/{{rt.lo_baseline.critical_total}})* | *{{rt.lo_baseline.text_pct:.1f}}%* | *{{parts.lo_baseline.kept}} / {{parts.lo_baseline.total}}* | *{{rt.lo_baseline.failed}}* |
 
 Weighted score = each of {{checks.total}} checks scored by criticality (3/2/1). "Package parts kept" counts non-directory entries present in both the input and the output. LibreOffice was converted headlessly (`soffice --convert-to docx`) and is shown as the calibration floor, not as a candidate. Docxodus is the thirteenth participant: an Open XML SDK rather than an editor, measured through the same {{checks.total}} checks. It is listed with the editors because it scores on the same instrument, not because it is a candidate for the same job.
+
+**Apryse WebViewer is the one closed-source participant, and its score is the score of a stamped file.** It is driven through its own DOCX Editor in a real browser (`harness/apryse/roundtrip.mjs`: open with `enableOfficeEditing`, export with `getFileData({downloadType: 'office'})`) under a trial license key, and a trial key makes WebViewer write an "apryse" watermark into the document it exports: {{stamp.apryse.parts}} header, relationship and image parts carry it. The output is scored as written; nothing is removed. `build/apryse_stamp.py` labels which failed checks the stamp could have caused: {{stamp.apryse.unseparable}} cannot be separated from it ({{stamp.apryse.unseparable_labels}}), and the other {{stamp.apryse.own}} are the editor's own. There is no source to read, so every Apryse cell in this edition is a measurement, never a `[CODE]` citation.
 
 Every figure in this table is produced by `python3 build/score_all.py` over the committed outputs in `out/`, and `python3 build/preserved_matrix.py` derives the preserved-vs-dropped matrix below from the same `score.json` files. The numbers are reproducible, and a correction to them is a pull request.
 
@@ -223,6 +226,7 @@ Feeding each output back through its own editor is the strictest test: a selecti
 | **Folio** | {{rt.folio.weighted:.1f}}% | {{p2.folio.weighted:.1f}}% | **{{p2.folio.identical:yn}}** | Fixed point |
 | WordCraft | {{rt.wordcraft.weighted:.1f}}% | {{p2.wordcraft.weighted:.1f}}% | {{p2.wordcraft.identical:yn}} | Stable but not byte-identical; text 100% |
 | **Plate.js** | **{{rt.plate.weighted:.1f}}%** | **{{p2.plate.weighted:.1f}}%** | {{p2.plate.identical:yn}} | Stable, not byte-identical; the second-pass package shrinks from {{rt.plate.bytes:,}} to **{{p2.plate.bytes:,}}** bytes as the retained source is replaced by a regenerated one |
+| Apryse WebViewer | {{rt.apryse.weighted:.1f}}% | {{p2.apryse.weighted:.1f}}% | {{p2.apryse.identical:yn}} | Trial-stamped on both passes |
 | **office-open** | {{rt.officeopen.weighted:.1f}}% | **{{p2.officeopen.weighted:.1f}}%** | {{p2.officeopen.identical:yn}} | **Not idempotent — `word/document.xml` fails to parse: "unbound prefix", column 13606** |
 | **Docen** | {{rt.docen.weighted:.1f}}% | **{{p2.docen.weighted:.1f}}%** | {{p2.docen.identical:yn}} | **Not idempotent — "unbound prefix", column 15858** |
 | Fidus Writer | {{rt.fidus.weighted:.1f}}% | {{p2.fidus.weighted:.1f}}% | {{p2.fidus.identical:yn}} | Stable in content; not byte-identical |
@@ -232,7 +236,7 @@ Feeding each output back through its own editor is the strictest test: a selecti
 
 The second pass is reproducible on its own: `bash build/run_second_pass.sh` feeds every editor its own first-pass output through the same documented import and export path, and `build/check_roundtrip.py` then scores the result against that first pass.
 
-Five of the thirteen participants reach a **byte-identical fixed point** — feeding their output back through their own code path reproduces the same file exactly. WordCraft reaches a stable fixed point in content but not in bytes. office-open and Docen do not merely degrade on the second pass: **the file they emit cannot be parsed as XML at all.** The cause is precise: the chart and SmartArt drawings are serialized as `<a:graphic>` without rebinding the `a` prefix, because the namespace is declared on an ancestor element that the regenerated tree does not reproduce.
+{{count.p2_identical:W}} of the {{count.participants:w}} participants reach a **byte-identical fixed point** — feeding their output back through their own code path reproduces the same file exactly. WordCraft reaches a stable fixed point in content but not in bytes. office-open and Docen do not merely degrade on the second pass: **the file they emit cannot be parsed as XML at all.** The cause is precise: the chart and SmartArt drawings are serialized as `<a:graphic>` without rebinding the `a` prefix, because the namespace is declared on an ancestor element that the regenerated tree does not reproduce.
 
 That is the single most consequential defect found in this trial, because it is invisible in a first-pass diff — the file looks fine, opens in LibreOffice, and only breaks when the tool's own output is fed back in.
 
@@ -267,9 +271,9 @@ Finding out *why* meant treating Word as the oracle and bisecting against it. `b
 | `m:oMathPara` as a direct child of `w:body` | the display equation | the transitional schema allows a block-level equation, Word does not: an equation has to sit inside a `w:p`, the way Word writes it |
 | `w:dirty` with a true value on a `w:fldChar` | the TOC field's begin character | see below |
 
-**The `w:dirty` result is the one worth keeping.** `w:dirty` is an ordinary `ST_OnOff` attribute of `w:fldChar`, and Word itself writes `w:dirty="true"` on the begin character of an out-of-date table of contents. In this build it is nevertheless fatal to the entire document. The measurement is unambiguous and reproducible:
+**The `w:dirty` result is the one worth keeping.** `w:dirty` is an ordinary `ST_OnOff` attribute of `w:fldChar`, and Word itself writes `w:dirty="true"` on the begin character of an out-of-date table of contents. The first report found it fatal to the entire document:
 
-| `w:fldChar` attribute | Word {{word.version}} verdict |
+| `w:fldChar` attribute | Word, first report |
 |---|---|
 | `w:dirty="true"` | **refused** |
 | `w:dirty="1"` | **refused** |
@@ -277,7 +281,9 @@ Finding out *why* meant treating Word as the oracle and bisecting against it. `b
 | `w:fldLock="false"` | opened |
 | attribute absent | opened |
 
-It is not specific to the corpus. The `.docx` of this report is generated by pandoc, and pandoc writes `w:dirty="true"` on the TOC field of its own output — **Word refused the first build of this report for exactly this reason.** The identical package with that one attribute set to `false` opens, and the delivered `.docx` is the fixed one. A `.docx` that a generator produces can therefore be unopenable in Word for a reason that has nothing to do with the document's content, and no schema validator will report it.
+**This release did not reproduce it.** Opened again through the audited driver, twice, the corpus with only `w:dirty="true"` {{iso.d12}} in Word {{word.version}}, after Word asked whether to update the document's fields (Report B §2). That question is a warning, so the file is still not Word valid, but it is not a refusal. The first report's driver kept no record of Word's dialogs; reading the question as a refusal would explain its table.
+
+The `.docx` of this report is generated by pandoc, and pandoc writes `w:dirty="true"` on the TOC field of its own output — **the first build of this report was recorded as refused for exactly this reason.** The identical package with that one attribute set to `false` opens, and the delivered `.docx` is the fixed one. A `.docx` that a generator produces can therefore be unopenable in Word for a reason that has nothing to do with the document's content, and no schema validator will report it.
 
 **How the rest was found and fixed.** LibreOffice is lenient about element order; the ECMA-376 Transitional XSDs are not. The corpus is now validated with `xmllint --schema` against the 69 schemas that ship with `office-open` (`ooxml-schemas/transitional/`), with exactly two classes of deviation excluded, because both are things every genuine Word file contains and the strict schema does not model:
 
@@ -286,7 +292,7 @@ It is not specific to the corpus. The `.docx` of this report is generated by pan
 
 After the fixes, `build/validate_ooxml.py` reports **no real schema violations** across `document.xml`, `settings.xml`, `styles.xml`, `numbering.xml`, `footnotes.xml`, `endnotes.xml`, `comments.xml`, both headers, both footers, `fontTable.xml`, `webSettings.xml` and `glossary/document.xml`, and the chart, SmartArt and theme parts validate against their own schemas (`dml-chart.xsd`, `dml-diagram.xsd`, `dml-main.xsd`). **The corpus now opens in Microsoft Word {{word.version}}**, and so does every file this edition delivers.
 
-**The lesson generalises past this report.** LibreOffice opening a file is not evidence that the file is valid; it is evidence that LibreOffice is forgiving. Any DOCX benchmark whose corpus is only checked in one consumer will quietly measure the corpus's leniency instead of the editors' fidelity. All twelve defects above were invisible to eleven of the twelve editors in this trial — they read the file and produced output — and invisible to LibreOffice. The twelfth, **Plate.js**, refused the malformed corpus outright (`decode-failed`) rather than reading it; it detects exactly one of the twelve classes, the block-level `m:oMathPara`. A schema validator caught five of them. The other seven were found only by asking Word, one subset at a time.
+**The lesson generalises past this report.** LibreOffice opening a file is not evidence that the file is valid; it is evidence that LibreOffice is forgiving. Any DOCX benchmark whose corpus is only checked in one consumer will quietly measure the corpus's leniency instead of the editors' fidelity. All twelve defects above were invisible to {{broken.produced:w}} of the {{broken.editors:w}} editors in this trial — they read the file and produced output — and invisible to LibreOffice. The other one, **Plate.js**, refused the malformed corpus outright (`decode-failed`) rather than reading it; it detects exactly one of the twelve classes, the block-level `m:oMathPara`. A schema validator caught five of them. The other seven were found only by asking Word, one subset at a time.
 
 ---
 
@@ -348,45 +354,7 @@ Two rows in that table deserve a footnote rather than a ranking. **Plate.js** is
 
 Legend: **M** modelled and editable · **P** preserved · **D** dropped · **?** not applicable. Every cell below is a measurement against `fixture/complex.docx`, not a reading of release notes.
 
-| Item | SuperDoc | Docxodus | Folio | GenOffice | eigenpal | office-open | Docen | WordCraft | canvas | Fidus | docs.plus | Plate.js |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Unknown attributes (`w14:paraId`, `textId`) | P | P | **D** (paraId) | P | P | **D** (paraId) | **D** (paraId) | **D** (paraId) | **D** (paraId) | **D** (paraId) | **D** (paraId) | **D** (paraId) |
-| `w16du:dateUtc` | P | P | P | P | P | **D** (0 of 3) | **D** (0 of 3) | **D** (0 of 3) | **D** (0 of 3) | **D** (0 of 3) | **D** (0 of 3) | **D** (0 of 3) |
-| `w16du` namespace declaration | P | P | P | P | P | **D** | **D** | **D** | **D** | **D** | **D** | **D** |
-| `xml:space="preserve"` | P | P | P | P | P | P | P | P | **D** | **D** | **D** | P |
-| `w:proofErr` | P | P | P | P | P | P | P | **D** (0 of 4) | **D** (0 of 4) | **D** (0 of 4) | **D** (0 of 4) | **D** (0 of 4) |
-| `mc:AlternateContent` Choice **and** Fallback | P | P | P | P | P | P | P | **D** (Choice only) | **D** (Choice only) | **D** (Choice only) | **D** (Choice only) | **D** (Choice only) |
-| `w:ins` / `w:del` runs | P | P | P | P | P | P | P | **D** (2 of 3) | **D** (0 of 3) | **D** (1 of 3) | **D** (0 of 3) | **D** (0 of 3) |
-| `w:rPrChange` / `w:pPrChange` | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** |
-| `w:moveFrom` / `w:moveTo` | P | P | **D** (moveFrom) | P | P | P | P | P | **D** (moveFrom) | **D** (moveFrom) | **D** (moveFrom) | **D** (moveFrom) |
-| Row-level revisions (`w:trPr/w:ins`, `w:trPr/w:del`) | P | P | P | P | P | P | P | **D** (0 of 1) | **D** (0 of 1) | **D** (0 of 1) | **D** (0 of 1) | **D** (0 of 1) |
-| Complex fields (`fldChar`/`instrText`) | P | P | P | P | P | P | P | P | **D** (0 of 9) | P | **D** (0 of 9) | **D** (0 of 9) |
-| Simple fields (`w:fldSimple`) | P | P | P | P | P | P | P | P | **D** (0 of 2) | **D** (0 of 2) | **D** (0 of 2) | **D** (0 of 2) |
-| Bookmarks | P | P | P | P | P | P | P | P | **D** | P | **D** | P |
-| Content controls (`w:sdt`) | P | P | P | P | P | P | P | P | **D** (0 of 5) | **D** (0 of 5) | **D** (0 of 5) | **D** (0 of 5) |
-| `w:dataBinding`, date picker, nested sdt | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** |
-| Tables: `tblGrid`, `gridSpan`, `vMerge` | P | P | P | P | P | P | P | P | P | **D** | P | P |
-| Nested table | P | P | P | P | P | P | P | P | P | **D** (0 of 2) | P | P |
-| Section count (3) and landscape | P | P | P | P | P | P | P | P | **D** (1 of 3) | **D** (1 of 3) | **D** (1 of 3) | **D** (1 of 3) |
-| Page borders / multi-column / `docGrid` | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** |
-| RTL (`w:bidi` / `w:rtl`) | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** |
-| `w:sym`, `w:tab`, `w:br`, hyphens | P | P | P | P | P | P | **D** (hyphens) | P | **D** | **D** | **D** | **D** |
-| `w:vanish`, `w:noProof`, `vertAlign` | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** |
-| 9-level `numbering.xml` | P | P | P | P | P | P | P | P | P | P | P | **D** (0 of 27) |
-| Chart part | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** |
-| SmartArt parts (4) | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** |
-| OLE object + embedded workbook | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** |
-| Image | P | P | P | P | P | P | P | P | P | P | P | **D** |
-| Headers/footers (2 + 2) | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** |
-| Tracked change inside a header | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** |
-| Footnotes / endnotes / comments | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** |
-| `documentProtection`, `evenAndOddHeaders` | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** |
-| `w:altChunk` (element + part + text) | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** | **D** |
-| Glossary / building blocks | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** |
-| customXml data store | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** |
-| `docProps/core.xml` metadata | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** |
-| Chart / SmartArt relationships resolve to a part | P | P | P | P | P | **D** | **D** | P | **D** | **D** | **D** | **D** |
-| Output re-opens as a well-formed package | P | P | P | P | P | P | P | P | P | P | P | P |
+{{matrix.preserved}}
 
 ---
 
@@ -577,7 +545,7 @@ build/run_all.sh                       # runs every editor's own import->export 
 build/check_roundtrip.py IN OUT --json # 99-check scorer
 build/score_all.py                     # aggregate table
 build/payload_audit.py                 # per-editor chart/SmartArt/OLE/image part + reference audit
-build/fix_dirty.py REPORT.docx         # w:dirty="true" -> "false" (Word refuses the former)
+build/fix_dirty.py REPORT.docx         # w:dirty="true" -> "false" (Word asks to update fields on the former)
 build/verify_deliverables.py           # opens the deliverables in Word and reports what Word sees
 ```
 

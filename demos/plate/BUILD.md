@@ -1,11 +1,12 @@
 # Plate: live demo build
 
-Built from https://github.com/udecode/plate at commit `08b1571` (MIT), the commit the editors trial measured.
+Built from https://github.com/udecode/plate (MIT) at the commit the editors trial measured. That commit is not typed here: it is written to
+`dist/SOURCE.txt` from git by `build/rebuild_demo.sh plate`, which checks it out from the trial's `repos/` checkout.
 The files here are the demo's own host page and build configuration. Put them in a folder named `app` next to
 the checkout, which is cloned into `src`; the commands run from that shared parent folder.
 
 ```sh
-git clone https://github.com/udecode/plate src && git -C src checkout 08b1571
+git clone https://github.com/udecode/plate src && git -C src checkout <Commit from SOURCE.txt>
 (cd src && pnpm install && pnpm build)   # the workspace packages publish from dist/
 cd app && pnpm install && pnpm build      # writes ../dist
 ```

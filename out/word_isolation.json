@@ -1,0 +1,18 @@
+{
+ "word": "16.115",
+ "passes": [
+  {
+   "clean": "OPENED",
+   "d10": "REFUSED",
+   "d11": "FAILED: Word crashed on it in 2 passes: Microsoft Word got an error: Connection is invalid.",
+   "d12": "OPENED"
+  },
+  {
+   "clean": "OPENED",
+   "d10": "REFUSED",
+   "d11": "REFUSED",
+   "d12": "OPENED"
+  }
+ ],
+ "corpora": "build/make_single_defect.py <n> on fixture/complex.docx; clean = fixture/complex.docx"
+}

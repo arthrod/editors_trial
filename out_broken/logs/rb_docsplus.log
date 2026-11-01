@@ -1,0 +1,20 @@
+[stub] media origin = http://127.0.0.1:63184
+[stub] uploadImage -> http://127.0.0.1:63184/media/1.png (79B image/png)
+[stub] uploadImage -> http://127.0.0.1:63184/media/2.png (79B image/png)
+[import] title      = "Chapter 1: Heading with mixed formatting."
+[import] warnings   = 7
+         - unsupported-element: An unrecognised element was ignored: w:cr
+         - unsupported-element: An unrecognised element was ignored: w:fldSimple
+         - unsupported-element: An unrecognised element was ignored: {urn:schemas-microsoft-com:office:office}OLEObject
+         - unsupported-element: An unrecognised element was ignored: {http://schemas.openxmlformats.org/officeDocument/2006/math}oMathPara
+         - unsupported-element: An unrecognised element was ignored: w:permStart
+         - unsupported-element: An unrecognised element was ignored: w:permEnd
+         - unsupported-element: An unrecognised element was ignored: w:altChunk
+[render] html length = 3376
+[export] wrote /tmp/v092/broken2/docsplus/complex.docx (48080B)
+[evidence] mammoth.html: len=2488 hits={}
+[evidence] rendered.html: len=3376 hits={}
+[evidence] tiptap.json: len=8974 hits={}
+[evidence] mammoth.html: len=2488 hits={}
+[evidence] rendered.html: len=3376 hits={}
+[evidence] tiptap.json: len=8974 hits={}

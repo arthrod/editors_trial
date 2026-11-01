@@ -1,11 +1,12 @@
 # office-open: live demo build
 
-Built from https://github.com/DemoMacro/office-open at commit `567addf` (MIT), the commit the editors trial measured.
+Built from https://github.com/DemoMacro/office-open (MIT) at the commit the editors trial measured. That commit is not typed here: it is written to
+`dist/SOURCE.txt` from git by `build/rebuild_demo.sh office-open`, which checks it out from the trial's `repos/` checkout.
 The files here are the demo's own host page and build configuration. Put them in a folder named `demo` next to
 the checkout, which is cloned into `src`; the commands run from that shared parent folder.
 
 ```sh
-git clone https://github.com/DemoMacro/office-open src && git -C src checkout 567addf
+git clone https://github.com/DemoMacro/office-open src && git -C src checkout <Commit from SOURCE.txt>
 (cd src && pnpm install)
 cd demo && pnpm install && pnpm build   # writes ../dist
 ```

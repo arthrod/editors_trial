@@ -1,4 +1,4 @@
-measured tools: plate, docxodus, superdoc, folio, genoffice, eigenpal, officeopen, docen, wordcraft, fidus, canvas, docsplus, lo_baseline
+measured tools: plate, docxodus, superdoc, folio, genoffice, eigenpal, officeopen, docen, wordcraft, fidus, canvas, docsplus, apryse, lo_baseline
 extras/plate.md: present
 extras/docxodus.md: present
 extras/superdoc.md: present
@@ -11,6 +11,7 @@ extras/wordcraft.md: present
 extras/fidus.md: present
 extras/canvas.md: present
 extras/docsplus.md: present
+extras/apryse.md: present
 extras/lo_baseline.md: present
 vendors: present reports/vendors.md
 vendors trivia is not a score: yes

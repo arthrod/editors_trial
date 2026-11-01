@@ -1,0 +1,24 @@
+{
+  "comments": 1,
+  "dirty": false,
+  "encrypted": false,
+  "layoutMs": 154.35037499999999,
+  "pages": 6,
+  "paragraphs": 54,
+  "path": "/Users/arthrod/temp/T/editors_trial/fixture/complex.docx",
+  "properties": {
+    "category": "fixture",
+    "created": "2026-01-15T09:30:00Z",
+    "creator": "Fixture Author",
+    "description": "Deliberately adversarial DOCX for editor round-trip testing.",
+    "keywords": "docx;fidelity;roundtrip",
+    "lastModifiedBy": "Round Trip Editor",
+    "modified": "2026-01-15T09:30:00Z",
+    "revision": 1,
+    "subject": "OOXML exception-case corpus",
+    "title": "Fixture Complex Document"
+  },
+  "sections": 3,
+  "trackChanges": false,
+  "words": 184
+}

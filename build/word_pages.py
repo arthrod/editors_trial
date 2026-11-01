@@ -17,7 +17,7 @@ BASE = "/Users/arthrod/temp/T/editors_trial"
 
 ORDER = ["corpus", "superdoc", "folio", "genoffice", "eigenpal",
          "office-open", "docen", "wordcraft", "fidus", "canvas",
-         "docs.plus", "plate", "docxodus", "libreoffice"]
+         "docs.plus", "plate", "docxodus", "apryse", "libreoffice"]
 
 
 def main(outdir):

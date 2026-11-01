@@ -1,11 +1,12 @@
 # docs.plus: live demo build
 
-Built from https://github.com/docs-plus/docs.plus at commit `a9b0c69` (MIT), the commit the editors trial measured.
+Built from https://github.com/docs-plus/docs.plus (MIT) at the commit the editors trial measured. That commit is not typed here: it is written to
+`dist/SOURCE.txt` from git by `build/rebuild_demo.sh docs-plus`, which checks it out from the trial's `repos/` checkout.
 The files here are the demo's own host page and build configuration. Put them in a folder named `app` next to
 the checkout, which is cloned into `src`; the commands run from that shared parent folder.
 
 ```sh
-git clone https://github.com/docs-plus/docs.plus src && git -C src checkout a9b0c69
+git clone https://github.com/docs-plus/docs.plus src && git -C src checkout <Commit from SOURCE.txt>
 cd app && pnpm install && pnpm build   # writes ../dist; the converter is imported unchanged from ../src
 ```
 

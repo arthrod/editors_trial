@@ -1,2 +1,4 @@
 minimumReleaseAgeExclude:
   - docxodus@15.0.0
+allowBuilds:
+  esbuild: true

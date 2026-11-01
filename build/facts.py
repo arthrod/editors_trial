@@ -27,6 +27,7 @@ import re
 import subprocess
 import sys
 import zipfile
+from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -39,7 +40,7 @@ from part_map import classify  # noqa: E402
 TOOLS = [
     "superdoc", "docxodus", "genoffice", "eigenpal", "eigenpal-editor", "folio",
     "folio-editor", "officeopen", "docen", "wordcraft", "canvas", "fidus",
-    "docsplus", "plate", "lo_baseline",
+    "docsplus", "plate", "apryse", "lo_baseline",
 ]
 # Checkout under repos/ -> its GitHub slug.
 REPOS = {
@@ -65,6 +66,7 @@ REPOS = {
 NPM = {
     "superdoc_sdk": ("@superdoc/sdk", "repos/superdoc/node_modules/.pnpm", "@superdoc+sdk@"),
     "docxodus": ("docxodus", "harness/ui/docxodus/node_modules/docxodus/package.json", None),
+    "apryse": ("@pdftron/webviewer", "harness/apryse/node_modules/@pdftron/webviewer/package.json", None),
 }
 
 
@@ -134,6 +136,7 @@ def bomb_facts(path: Path, facts: dict) -> None:
             facts[f"bomb.{tool}.{pkg}.level"] = level
             counts[level] = counts.get(level, 0) + 1
     facts["bomb.cells"] = sum(counts.values())
+    facts["bomb.tools"] = len([t for t in levels if t != "lo_baseline"])   # editor rows, LibreOffice apart
     for level, n in counts.items():
         facts[f"bomb.count.{level}"] = n
 
@@ -164,12 +167,143 @@ def version_facts(facts: dict) -> None:
     pkg = ROOT / NPM["docxodus"][1]
     if pkg.exists():
         facts["ver.npm.docxodus"] = json.loads(pkg.read_text())["version"]
+    pkg = ROOT / NPM["apryse"][1]
+    if pkg.exists():
+        facts["ver.npm.apryse"] = json.loads(pkg.read_text())["version"]
     # The closed DOCX engine SuperDoc's repository depends on (Report A cites it).
     sd = ROOT / "repos/superdoc/packages/superdoc/package.json"
     if sd.exists():
         dep = json.loads(sd.read_text()).get("dependencies", {}).get("@superdoc/docx-engine")
         if dep:
             facts["ver.npm.superdoc_engine"] = dep.lstrip("^~")
+
+
+def ui_facts(ui: Path, facts: dict) -> None:
+    """Report C's capture date, stamped by build/capture_ui.sh when a full run completes."""
+    stamp = ui / "captured_at.txt"
+    if not stamp.exists():
+        return
+    day = stamp.read_text().strip()
+    date.fromisoformat(day)  # ValueError on anything that is not YYYY-MM-DD
+    facts["ui.date"] = day
+
+
+def stamp_facts(d: Path, facts: dict) -> None:
+    """Apryse's trial stamp: what it added, and which failures it could have caused."""
+    path = d / "stamp.json"
+    if not path.exists():
+        return
+    data = json.loads(path.read_text())
+    facts["stamp.apryse.parts"] = len(data["stamp_parts"])
+    facts["stamp.apryse.unseparable"] = len(data.get("unseparable", []))
+    facts["stamp.apryse.own"] = len(data.get("own", []))
+    labels = data.get("labels", {})
+    facts["stamp.apryse.unseparable_labels"] = "; ".join(labels[k] for k in data.get("unseparable", []))
+
+
+# The release whose pinned commits the [CODE] citations were read at. Its facts
+# file is kept (AGENTS.md section 5), so the commits are read from it, not typed.
+CODE_READ_RELEASE = "v0.9.0"
+SDKS = {"docxodus"}            # an Open XML SDK, not an editor
+CLOSED = {"apryse"}            # measured only; there is no source to read
+# Second lanes through an editor already counted; LibreOffice is a participant like any other.
+LANES = {"eigenpal-editor", "folio-editor"}
+
+
+def release_facts(path: Path, facts: dict) -> None:
+    """The release date and cooldown cutoff, recorded by build/update_editors.sh when it pins."""
+    if not path.exists():
+        return
+    data = json.loads(path.read_text())
+    for k in ("date", "cutoff"):
+        date.fromisoformat(data[k])  # ValueError on anything that is not YYYY-MM-DD
+        facts[f"release.{k}"] = data[k]
+
+
+def read_facts(old: Path, release: str, facts: dict) -> None:
+    """The commits the code was read at: the version facts of the release that read it."""
+    if not old.exists():
+        return
+    facts["read.release"] = release
+    for k, v in json.loads(old.read_text()).items():
+        if k.startswith("ver.") and k.rsplit(".", 1)[-1] in ("commit", "date"):
+            facts["read." + k[4:]] = v
+
+
+def ns_label_facts(data: dict, facts: dict) -> None:
+    """Per participant: in how many namespaces it kept every name, some, or none (out/ns_map.json)."""
+    measured = [n for n in data["namespaces"] if n["survival"].get("corpus", {}).get("total")]
+    facts["ns.measured"] = len(measured)
+    for label in data["labels"]:
+        if label == "corpus":
+            continue
+        groups: dict[str, list[str]] = {"all_kept": [], "partial": [], "none": []}
+        for n in measured:
+            s = n["survival"].get(label)
+            if not s or not s["total"]:
+                continue
+            g = "all_kept" if s["kept"] == s["total"] else "none" if s["kept"] == 0 else "partial"
+            groups[g].append(f"`{n['prefix']}`")
+        for g, names in groups.items():
+            facts[f"ns.{label}.{g}"] = len(names)
+            facts[f"ns.{label}.{g}_list"] = ", ".join(names[:-1]) + (" and " if len(names) > 1 else "") + (names[-1] if names else "")
+
+
+def word_pixel_facts(path: Path, facts: dict) -> None:
+    """Report C section 6.1: each output Word rendered, against Word's rendering of the corpus."""
+    if not path.exists():
+        return
+    data = json.loads(path.read_text())
+    inks = {v["corpus_ink"] for v in data.values()}
+    if len(inks) == 1:
+        facts["wpx.corpus_ink"] = inks.pop()
+    for label, v in data.items():
+        for k, name in (("pages", "pages"), ("diff_px", "diff_px"), ("pct_of_ink", "pct"), ("verdict", "verdict")):
+            facts[f"wpx.{label}.{name}"] = v[k]
+
+
+def isolation_facts(path: Path, facts: dict) -> None:
+    """Report B section 2: Word on each single-defect corpus (out/word_isolation.json, two passes)."""
+    if not path.exists():
+        return
+    data = json.loads(path.read_text())
+    for name in data["passes"][0]:
+        opened = [p.get(name) == "OPENED" for p in data["passes"]]
+        facts[f"iso.{name}"] = "opened" if all(opened) else "did not open" if not any(opened) else "differed between passes"
+
+
+def broken_facts(facts: dict) -> None:
+    """Report B's defect-survival table: out_broken/ scanned, plus Word's verdict on the same outputs.
+    An output Word has not opened in this release reads "not measured", never an old verdict."""
+    if not (ROOT / "out_broken").exists():
+        return
+    import defect_survival
+    word = OUT / "word_verdicts_broken.json"
+    data = json.loads(word.read_text()) if word.exists() else {"word": facts.get("word.version", "?"), "verdicts": {}}
+    rows = defect_survival.survival()
+    facts["broken.survival"] = defect_survival.table(rows, data["verdicts"], data["word"])
+    facts["broken.fatal"] = defect_survival.fatal_table(rows, data["verdicts"])
+    clean = {d: facts[f"word.{d}.opens"] for _, d in defect_survival.EDITORS if f"word.{d}.opens" in facts}
+    facts["broken.flip"] = defect_survival.flip_table(rows, clean, data["verdicts"])
+    flipped, spared = defect_survival.groups(rows, clean, data["verdicts"])
+    facts["broken.flipped"], facts["broken.flipped_list"] = len(flipped), defect_survival.names(flipped)
+    facts["broken.spared"], facts["broken.spared_list"] = len(spared), defect_survival.names(spared)
+    facts["broken.word_measured"] = word.exists()
+    editors = [d for d in rows if d != "lo_baseline"]
+    facts["broken.editors"] = len(editors)
+    facts["broken.produced"] = sum(1 for d in editors if rows[d] is not None)
+
+
+def count_facts(facts: dict) -> None:
+    """How many took part, counted from the measurements present rather than typed."""
+    measured = sorted({k.split(".")[1] for k in facts if k.startswith("rt.") and k.endswith(".weighted")} - LANES)
+    editors = [t for t in measured if t not in SDKS]
+    open_editors = [t for t in editors if t not in CLOSED]
+    facts["count.participants"] = len(measured)
+    facts["count.participants_others"] = len(measured) - 1
+    facts["count.editors"] = len(editors)
+    facts["count.open_editors"] = len(open_editors)
+    facts["count.open_editors_others"] = len(open_editors) - 1
 
 
 def build() -> dict:
@@ -196,24 +330,44 @@ def build() -> dict:
         facts["word.version"] = data["word"]
         for t, verdict in data["verdicts"].items():
             facts[f"word.{t}.opens"] = verdict.startswith("OPENED")
-        editors = [t for t in data["verdicts"] if t not in ("lo_baseline", "eigenpal-editor", "folio-editor")]
+        editors = [t for t in data["verdicts"] if t not in LANES]
         facts["count.word_refused"] = sum(1 for t in editors if not facts[f"word.{t}.opens"])
         facts["count.word_outputs"] = len(editors)
     if (ROOT / "logs/bombs/protection.txt").exists():
         bomb_facts(ROOT / "logs/bombs/protection.txt", facts)
+    # Report A's namespace tables, generated from out/ns_map.json.
+    if (OUT / "ns_map.json").exists():
+        import ns_tables
+        data = ns_tables.load()
+        for i in range(len(ns_tables.GROUPS)):
+            facts[f"ns.matrix.{i}"] = ns_tables.report_matrix(data, i)
+        facts["ns.partial"] = ns_tables.partial(data)
+        ns_label_facts(json.loads((OUT / "ns_map.json").read_text()), facts)
     # Report D quotes the scorecard and the protection labels whole.
     for name in ("scorecard", "protection"):
         log = ROOT / "logs" / "bombs" / f"{name}.txt"
         if log.exists():
             facts[f"bomb.{name}"] = log.read_text().rstrip("\n")
+    # The main report's preserved-vs-dropped matrix, derived from the same score.json files.
+    import preserved_matrix
+    if all((OUT / d / "score.json").exists() for _, d in preserved_matrix.TOOLS):
+        facts["matrix.preserved"] = preserved_matrix.build_table()
     version_facts(facts)
+    ui_facts(OUT / "ui", facts)
+    stamp_facts(OUT / "apryse", facts)
+    release_facts(OUT / "release.json", facts)
+    read_facts(OUT / f"facts-{CODE_READ_RELEASE}.json", CODE_READ_RELEASE, facts)
+    word_pixel_facts(OUT / "render" / "word_render_compare.json", facts)
+    isolation_facts(OUT / "word_isolation.json", facts)
+    broken_facts(facts)   # after word.* : 4.2 sets the clean-corpus verdict beside the broken one
+    count_facts(facts)
     stars = OUT / "stars.json"
     if stars.exists():
         data = json.loads(stars.read_text())
         facts["stars.date"] = data["date"]
         for slug, n in data["stars"].items():
             facts[f"stars.{slug}"] = n
-    editors = [t for t in TOOLS if t != "lo_baseline" and f"p2.{t}.identical" in facts]
+    editors = [t for t in TOOLS if t not in LANES and f"p2.{t}.identical" in facts]
     facts["count.p2_identical"] = sum(1 for t in editors if facts[f"p2.{t}.identical"])
     facts["count.zero_failed"] = sum(1 for t in editors if facts[f"rt.{t}.failed"] == 0)
     return dict(sorted(facts.items()))

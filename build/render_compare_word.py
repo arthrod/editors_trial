@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["pillow>=11"]
+# ///
 """
 Rendering comparison against MICROSOFT WORD's own rendering.
 
@@ -26,7 +30,7 @@ from PIL import Image, ImageChops
 BASE = "/Users/arthrod/temp/T/editors_trial"
 
 EDITORS = ["superdoc", "genoffice", "eigenpal", "wordcraft",
-           "canvas", "docs.plus", "plate", "docxodus", "libreoffice"]
+           "canvas", "docs.plus", "plate", "docxodus", "apryse", "libreoffice"]
 
 # construct -> the A/B variant that removes it
 VARIANTS = {

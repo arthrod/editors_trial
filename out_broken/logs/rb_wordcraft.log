@@ -1,0 +1,6 @@
+    Finished `release` profile [optimized] target(s) in 0.15s
+     Running `mbx-launch target/release/wc-harness /Users/arthrod/temp/T/editors_trial/fixture/complex_broken.docx /tmp/v092/broken2/wordcraft/complex.docx`
+input bytes : 24537
+read        : ok via wordcraft_docx::read
+output bytes: 24828
+output path : /private/tmp/v092/broken2/wordcraft/complex.docx

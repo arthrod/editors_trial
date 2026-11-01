@@ -27,13 +27,13 @@ GROUPS = [
 # editor order used everywhere in the reports
 EDITORS = ["superdoc", "folio", "genoffice", "eigenpal", "office-open",
            "docen", "wordcraft", "fidus", "canvas", "docs.plus", "plate",
-           "docxodus", "libreoffice"]
+           "docxodus", "apryse", "libreoffice"]
 
 PRETTY = {
     "superdoc": "SuperDoc", "folio": "Folio", "genoffice": "GenOffice",
     "eigenpal": "eigenpal", "office-open": "office-open", "docen": "Docen",
     "wordcraft": "WordCraft", "fidus": "Fidus", "canvas": "canvas",
-    "docs.plus": "docs.plus", "plate": "Plate.js", "docxodus": "Docxodus",
+    "docs.plus": "docs.plus", "plate": "Plate.js", "docxodus": "Docxodus", "apryse": "Apryse",
     "libreoffice": "LibreOffice",
 }
 
@@ -129,6 +129,32 @@ def matrix(data):
                     cells.append("%d/%d" % (s["kept"], s["total"]))
             out.append("| `%s` | %d | %s |" % (p, total, " | ".join(cells)))
         out.append("")
+    return "\n".join(out)
+
+
+def _cell(s):
+    if s is None:
+        return "—"
+    if s["kept"] == s["total"]:
+        return "all"
+    if s["kept"] == 0:
+        return "**none**"
+    frac = "%d/%d" % (s["kept"], s["total"])
+    # Report A bolds a namespace an editor keeps less than half of.
+    return "**%s**" % frac if 2 * s["kept"] < s["total"] else frac
+
+
+def report_matrix(data, group):
+    """One of Report A's three full-width tables (every editor, one group)."""
+    by = ns_by_prefix(data)
+    out = ["| Namespace | Corpus names | " + " | ".join(PRETTY[x] for x in EDITORS) + " |",
+           "|---|---:|" + "---:|" * len(EDITORS)]
+    for p in GROUPS[group][1]:
+        ns = by.get(p)
+        if ns is None:
+            continue
+        cells = [_cell(ns["survival"].get(lab)) for lab in EDITORS]
+        out.append("| `%s` | %d | %s |" % (p, len(ns["corpus_names"]), " | ".join(cells)))
     return "\n".join(out)
 
 

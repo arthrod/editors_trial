@@ -1,6 +1,6 @@
-# Pass-Through: What Each Editor Copies, and What That Costs (2026-10-30)
+# Pass-Through: What Each Editor Copies, and What That Costs (2026-11-01)
 
-**A companion to *Open-Source DOCX Editors, Re-verified Against Code and Measured by Round-Trip (2026-10-29)***, and the second half of what used to be *Report A*. The first report asked how faithfully each editor preserved a document and answered with a number. *Serialization by Namespace* opened the question up vocabulary by vocabulary. This one asks the complementary question: **of the bytes that came out, how many did the editor never even look at?**
+**A companion to *Open-Source DOCX Editors, Re-verified Against Code and Measured by Round-Trip (2026-11-01)***, and the second half of what used to be *Report A*. The first report asked how faithfully each editor preserved a document and answered with a number. *Serialization by Namespace* opened the question up vocabulary by vocabulary. This one asks the complementary question: **of the bytes that came out, how many did the editor never even look at?**
 
 That sounds like a dull question. It is the opposite. Pass-through is the **strongest possible fidelity and the weakest possible editing**, and the two facts are the same fact: an editor that copies a part byte-for-byte cannot change any of it. So the part map does not measure what an editor preserved — it measures **what an editor declined to understand**.
 
@@ -71,6 +71,7 @@ The same 35-part adversarial corpus (`fixture/complex.docx`) used throughout the
 | **Folio** | **34** | 0 | 1 | 0 | 0 | 35 |
 | **SuperDoc** | **27** | 1 | 7 | 0 | 0 | 35 |
 | **Docxodus** | **25** | **10** | **0** | **0** | **0** | **35** |
+| Apryse WebViewer | 9 | 8 | 13 | 5 | 27 | 57 |
 | GenOffice | 20 | 13 | 2 | 0 | 0 | 35 |
 | WordCraft | 16 | 0 | 16 | 3 | 4 | 36 |
 | office-open | 9 | 10 | 16 | 0 | 0 | 35 |
@@ -99,7 +100,7 @@ The same 35-part adversarial corpus (`fixture/complex.docx`) used throughout the
 
 ### 2.2 The full part matrix
 
-The matrix is printed as four tables — two editor halves × two part groups — because thirteen editor columns do not survive a landscape page. **Part names are printed without the `word/` prefix**, with sub-directories compacted (`embeddings/` to `embed/`, `diagrams/` to `dgm/`, `charts/` to `chart/`) and `Microsoft_Excel_Worksheet.xlsx` shortened to `Excel_Worksheet.xlsx`; parts outside `word/` keep their full path, so `_rels/.rels` and `customXml/item1.xml` are unambiguous. **Editor names are shortened in the header only** — `Fidus Writer` to `Fidus`, `canvas-editor + plugin` to `canvas + plugin`, `LibreOffice (baseline)` to `LibreOffice`.
+The matrix is printed as four tables — two editor halves × two part groups — because fourteen editor columns do not survive a landscape page. **Part names are printed without the `word/` prefix**, with sub-directories compacted (`embeddings/` to `embed/`, `diagrams/` to `dgm/`, `charts/` to `chart/`) and `Microsoft_Excel_Worksheet.xlsx` shortened to `Excel_Worksheet.xlsx`; parts outside `word/` keep their full path, so `_rels/.rels` and `customXml/item1.xml` are unambiguous. **Editor names are shortened in the header only** — `Fidus Writer` to `Fidus`, `canvas-editor + plugin` to `canvas + plugin`, `LibreOffice (baseline)` to `LibreOffice`.
 
 **WordprocessingML and package parts**
 
@@ -547,7 +548,7 @@ All four regenerate everything. There is nothing to orphan and nothing to dangle
 - **A dangling reference is worse than a dangling part, because it hides.** office-open and Docen produce packages with no missing parts, no dangling content-type declarations, no schema violations — and a chart and a SmartArt that are present, linked from the `.rels` file, and pointed at by body elements that resolve to nothing. **Every structural check passes. The page is still wrong.**
 - **Check the forward direction.** Every relationship-integrity checker worth writing resolves `.rels` → parts. The direction that broke here is body → `.rels`. Five lines of code (`build/rel_forward.py`) find a defect that a 99-check fidelity score, a schema validator, and a content-types audit all miss.
 - **The best row and the best score are not the same row.** Docxodus has the only all-zero row in the part map — 0 changed, 0 dropped, 0 added — and the *entire* binary payload byte-identical. Folio copies more bytes still (34 against 25), but it rewrites the body. If your requirement is "save it back and change nothing", Docxodus is the only participant in this study that satisfies it outright.
-- **Choose on the axis you care about.** If you need the document to survive a round trip with its payloads intact, Folio and SuperDoc. If you need to *change* a chart, a diagram or an embedded workbook, none of the pass-through editors can help you and you want WordCraft, which redraws the payload from its own model instead. If you need a document Microsoft Word will open, note that **four of the twelve outputs in this study are refused by Word 16.115** — Folio, office-open, Docen and Fidus Writer — for reasons set out in the companion report *Malformed Parts*. Two of those four pass every static check in this report.
+- **Choose on the axis you care about.** If you need the document to survive a round trip with its payloads intact, Folio and SuperDoc. If you need to *change* a chart, a diagram or an embedded workbook, none of the pass-through editors can help you and you want WordCraft, which redraws the payload from its own model instead. If you need a document Microsoft Word will open, note that **four of the fourteen outputs in this study are refused by Word 16.115** — Folio, office-open, Docen and Fidus Writer — for reasons set out in the companion report *Malformed Parts*. Two of those four pass every static check in this report.
 
 ---
 
@@ -566,7 +567,7 @@ build/ns_map.py                   # per-namespace survival (the companion report
 build/make_report.sh <report.md>  # markdown -> .docx, with the two Word fixes
 ```
 
-`build/make_report.sh` is the pipeline that produces this file: pandoc writes `w:dirty="true"` on the table-of-contents field, which Word 16.115 refuses, so `build/fix_dirty.py` rewrites it; and pandoc sizes every table for a portrait page, so `build/retune_tables.py` re-fits the tables to the landscape content width.
+`build/make_report.sh` is the pipeline that produces this file: pandoc writes `w:dirty="true"` on the table-of-contents field, on which Word 16.115 asks whether to update the fields (the first report recorded it as a refusal; Report B §2), so `build/fix_dirty.py` rewrites it; and pandoc sizes every table for a portrait page, so `build/retune_tables.py` re-fits the tables to the landscape content width.
 
 The per-editor code citations refer to the pinned commits listed in the first report, under `repos/`. **None of those checkouts was modified.**
 

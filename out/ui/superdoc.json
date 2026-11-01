@@ -15,6 +15,7 @@
     "[nav] 200 http://127.0.0.1:5199/",
     "[warning] Feature flags __VUE_OPTIONS_API__, __VUE_PROD_DEVTOOLS__, __VUE_PROD_HYDRATION_MISMATCH_DETAILS__ are not explicitly defined. You are running the esm-bundler build of Vue, which expects these compile-time feature flags to be globally injected via the bundler config in order to get better tree-shaking in the production bundle.\n\nFor more details, see https://link.vuejs.org/feature-flags.",
     "[warning] [layout] Footnote reserve capped to preserve body area {pages: Array(1)}",
+    "[wait-for] matched \"Chapter 1\"",
     "[warning] [SuperDoc] Missing document fonts: \"Calibri Light\", \"Calibri\". The browser is using fallback fonts, which can change line and page breaks. Configure document fonts: https://docs.superdoc.dev/editor/fonts/"
   ],
   "pageErrors": [],

@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["pillow>=11"]
+# ///
 """
 Build the side-by-side figures for the rendering report.
 
@@ -85,6 +89,7 @@ EDITORS = [
     ("eigenpal", "eigenpal"),
     ("plate", "Plate.js"),
     ("docxodus", "Docxodus"),
+    ("apryse", "Apryse WebViewer"),
     ("docsplus", "docs.plus"),
     ("folio", "Folio"),
     ("fidus", "Fidus Writer"),
