@@ -1,0 +1,12 @@
+CMD soffice --headless --norestore --nologo --nofirststartwizard -env:UserInstallation=file:///tmp/profile/B6 --convert-to docx --outdir /tmp/out/B6 /bombs/B6.docx
+EXIT 0 timed_out=False
+PRODUCED B6.docx size=4217
+LEAK False slips=none
+SOFFICE_STDOUT_BEGIN
+convert /bombs/B6.docx -> /tmp/out/B6/B6.docx using filter : Office Open XML Text
+
+SOFFICE_STDOUT_END
+SOFFICE_STDERR_BEGIN
+Warning: failed to launch javaldx - java may not function correctly
+
+SOFFICE_STDERR_END

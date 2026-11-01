@@ -1,0 +1,2 @@
+cwd: <editors_trial>
+~/.nvm/versions/node/v26.11.1/bin/node <editors_trial>/harness/superdoc.mjs /tmp/editors-trial-bombs/bombs/B7.docx /tmp/editors-trial-bombs/runs/superdoc/B7/out/out.docx

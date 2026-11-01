@@ -226,6 +226,47 @@ const show = (label: string, ds: readonly any[], limit = 40) => {
   }
 };
 
+// Bomb runs set EDITOR_CONFIG=suggested. That is the round trip documented in
+// content/docs/(plugins)/(serializing)/docx.mdx: BaseEditorKit, retainSource,
+// and the default loss policy, which is reject. A refused import or export
+// writes no file. The permissive second pass below is only for the fidelity
+// corpus, where the question was what survives, not what the default does.
+if (process.env.EDITOR_CONFIG === 'suggested') {
+  const { BaseEditorKit } = await load(`${WWW}/plugins-static.ts`);
+  const suggestedPlugins = [...BaseEditorKit];
+  console.log(`suggested BaseEditorKit plugins: ${suggestedPlugins.length}`);
+  const imported = await importDocx(ab(), {
+    plugins: suggestedPlugins,
+    retainSource: true,
+  });
+  console.log(`suggested import ok: ${imported.ok}`);
+  show('suggested import', imported.diagnostics ?? [], 40);
+  if (!imported.ok) {
+    console.log('suggested import refused the file. no export was written.');
+    process.exit(1);
+  }
+  const suggestedEditor = createEditor({
+    plugins: suggestedPlugins,
+    initialValue: imported.document as any,
+  });
+  const suggestedExport = await exportDocx(suggestedEditor as any, {
+    projection: 'review',
+    source: imported.source ?? null,
+    presentation: suggestedPlugins,
+  });
+  console.log(`suggested export ok: ${suggestedExport.ok}`);
+  if (!suggestedExport.ok) {
+    show('suggested export', suggestedExport.diagnostics ?? [], 40);
+    console.log('suggested export refused the file. no export was written.');
+    process.exit(1);
+  }
+  const suggestedOut = Buffer.from(await suggestedExport.blob.arrayBuffer());
+  mkdirSync(dirname(outPath), { recursive: true });
+  writeFileSync(outPath, suggestedOut);
+  console.log(`suggested export wrote ${suggestedOut.byteLength} bytes`);
+  process.exit(0);
+}
+
 // 1) Plate's own default loss policy: reject
 const strict = await importDocx(ab(), {
   lossPolicy: 'reject',

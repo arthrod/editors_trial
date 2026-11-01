@@ -1,0 +1,16 @@
+wasm://wasm/028ba676:1
+
+
+RangeError: Maximum call stack size exceeded
+    at wasm://wasm/028ba676:wasm-function[7458]:0x41d586
+    at wasm://wasm/028ba676:wasm-function[7457]:0x41d560
+    at wasm://wasm/028ba676:wasm-function[21952]:0x71245a
+    at wasm://wasm/028ba676:wasm-function[10819]:0x4caa07
+    at wasm://wasm/028ba676:wasm-function[10799]:0x4c9679
+    at wasm://wasm/028ba676:wasm-function[10798]:0x4c961a
+    at wasm://wasm/028ba676:wasm-function[4203]:0x2169eb
+    at wasm://wasm/028ba676:wasm-function[4203]:0x216bff
+    at wasm://wasm/028ba676:wasm-function[4203]:0x216bff
+    at wasm://wasm/028ba676:wasm-function[4203]:0x216bff
+
+Node.js v26.13.0

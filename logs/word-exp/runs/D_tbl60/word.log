@@ -1,0 +1,33 @@
+2026-10-31 22:05:53.652 | INFO     | __main__:warm:1476 - [word] launching Word in the background, running: open -g -a '/Applications/Microsoft Word.app'
+2026-10-31 22:05:57.920 | INFO     | __main__:warm:1483 - [word] Word answered after 4 s; alerts off
+2026-10-31 22:05:58.084 | INFO     | __main__:preflight:3042 - [word] preflight: word_pid=31004 open_documents=0 started_clean=True launched_by_us=True close_documents=True
+2026-10-31 22:05:58.084 | INFO     | __main__:preflight:3081 - [word] preflight: closing every document (health check), running: osascript -e 'tell application "Microsoft Word" to close every document saving no'
+2026-10-31 22:05:58.221 | INFO     | __main__:_run_logged:1646 - [word] preflight: returned rc=0 in 0.1 s, no value came back (AppleScript 'missing value')
+2026-10-31 22:05:58.258 | INFO     | __main__:convert_folder:2696 - [word] export: one_osascript=True documents=1 accept_all=False reject_all=False
+2026-10-31 22:05:58.259 | INFO     | __main__:_convert_batched:2908 - [batch] one osascript for 1 document(s)
+2026-10-31 22:06:03.296 | INFO     | __main__:_loop:2095 - [batch pdf 1] 0/1
+2026-10-31 22:06:13.367 | INFO     | __main__:_nudge:2064 - [focus] item 1/1 not finished after 10 s; bringing Word forward to look for an alert
+2026-10-31 22:06:43.459 | INFO     | __main__:_nudge:2064 - [focus] item 1/1 not finished after 40 s; bringing Word forward to look for an alert
+2026-10-31 22:06:56.624 | WARNING  | __main__:_report:2053 - [batch pdf 1] item 1/1 open for more than 30 s:
+-- Word windows {name, subrole}: osascript timed out
+-- Word window text: 
+-- crash reporters: 
+-- batch-pdf-1.log:
+
+-- newest diagnostic reports: ExcUserFault_nsattributedstringagent-2026-10-31-172032.ips, ExcUserFault_nsattributedstringagent-2026-10-31-163006.ips, forge-2026-10-30-203302.ips, forge-2026-10-31-161313.ips, forge-2026-10-31-160921.ips
+2026-10-31 22:07:13.504 | INFO     | __main__:_nudge:2064 - [focus] item 1/1 not finished after 70 s; bringing Word forward to look for an alert
+2026-10-31 22:07:43.533 | INFO     | __main__:_nudge:2064 - [focus] item 1/1 not finished after 100 s; bringing Word forward to look for an alert
+2026-10-31 22:07:58.548 | INFO     | __main__:_nudge:2064 - [focus] item 1/1 not finished after 115 s; bringing Word forward to look for an alert
+2026-10-31 22:08:13.562 | INFO     | __main__:_nudge:2064 - [focus] item 1/1 not finished after 130 s; bringing Word forward to look for an alert
+2026-10-31 22:08:28.575 | INFO     | __main__:_nudge:2064 - [focus] item 1/1 not finished after 145 s; bringing Word forward to look for an alert
+2026-10-31 22:08:58.607 | INFO     | __main__:_nudge:2064 - [focus] item 1/1 not finished after 175 s; bringing Word forward to look for an alert
+2026-10-31 22:09:28.654 | INFO     | __main__:_nudge:2064 - [focus] item 1/1 not finished after 205 s; bringing Word forward to look for an alert
+2026-10-31 22:09:58.684 | INFO     | __main__:_nudge:2064 - [focus] item 1/1 not finished after 235 s; bringing Word forward to look for an alert
+2026-10-31 22:10:28.713 | INFO     | __main__:_nudge:2064 - [focus] item 1/1 not finished after 265 s; bringing Word forward to look for an alert
+2026-10-31 22:10:58.738 | INFO     | __main__:_nudge:2064 - [focus] item 1/1 not finished after 295 s; bringing Word forward to look for an alert
+2026-10-31 22:11:13.750 | INFO     | __main__:_nudge:2064 - [focus] item 1/1 not finished after 310 s; bringing Word forward to look for an alert
+2026-10-31 22:11:28.768 | INFO     | __main__:_nudge:2064 - [focus] item 1/1 not finished after 325 s; bringing Word forward to look for an alert
+2026-10-31 22:11:58.444 | ERROR    | __main__:_convert_batched:2959 - [batch] FAIL: D_tbl60.docx — Microsoft Word got an error: AppleEvent timed out.
+2026-10-31 22:11:58.446 | INFO     | __main__:convert_folder:2715 - [manifest] appended 1 line(s) to <word_exp>/runs/D_tbl60/out/manifest.jsonl
+2026-10-31 22:12:08.453 | WARNING  | __main__:quit_if_ours:1688 - [word] leaving Word running: could not determine whether any documents are open
+2026-10-31 22:12:08.455 | INFO     | __main__:stop:1274 - [watchdog] tally: declined=0 dismissed=0 granted=0 forwarded=0 alerts_seen=0

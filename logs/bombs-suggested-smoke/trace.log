@@ -1,0 +1,117 @@
+
+===== tool plate B8 =====
+cwd: <editors_trial>/harness/plate
+command: ~/.bun/bin/bun --preload ./aliases.ts roundtrip.ts /tmp/editors-trial-bombs/bombs/B8.docx /tmp/editors-trial-bombs-smoke/plate/out/out.docx
+exit: 1 timed_out: False
+score: tool plate B8 fidelity: refused safety: bounded-reject catch: yes
+stdout-chars: 64 stderr-chars: 267
+----- stdout -----
+plugins: 45, presentation components: 42
+stylesheet: 3039 chars
+----- stderr -----
+Warning: KaTeX doesn't work in quirks mode. Make sure your website has a suitable doctype.
+error: Cannot find package 'remark-emoji' from '<editors_trial>/repos/plate/apps/www/src/registry/components/editor/markdown.tsx'
+
+Bun v1.4.2 (macOS arm64)
+===== end =====
+
+===== tool canvas B8 =====
+cwd: <editors_trial>/repos/canvas-editor
+command: <editors_trial>/repos/canvas-editor/node_modules/.bin/vitest run --root <editors_trial>/harness/canvas
+exit: 0 timed_out: False
+score: tool canvas B8 fidelity: dropped safety: ok catch: yes
+stdout-chars: 338 stderr-chars: 182
+----- stdout -----
+
+ RUN  v4.1.12 <editors_trial>/harness/canvas
+
+ ✓ roundtrip.test.ts (1 test) 859ms
+     ✓ imports complex.docx and exports it back to .docx  857ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  17:52:06
+   Duration  3.37s (transform 1.52s, setup 37ms, import 1.82s, tests 859ms, environment 578ms)
+
+----- stderr -----
+(node:30846) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+===== end =====
+
+===== tool docsplus B8 =====
+cwd: <editors_trial>/harness/docsplus/repo-copy
+command: ~/.bun/bin/bun <editors_trial>/harness/docsplus/roundtrip.ts /tmp/editors-trial-bombs/bombs/B8.docx /tmp/editors-trial-bombs-smoke/docsplus/out/out.docx
+exit: 0 timed_out: False
+score: tool docsplus B8 fidelity: dropped safety: ok catch: yes
+stdout-chars: 319 stderr-chars: 0
+----- stdout -----
+[stub] media origin = http://127.0.0.1:63285
+[import] title      = "BOMB_BODY_OK"
+[import] warnings   = 1
+         - title-promoted-paragraph: The document opened on a paragraph, so "BOMB_BODY_OK" became its title.
+[render] html length = 145
+[export] wrote /tmp/editors-trial-bombs-smoke/docsplus/out/out.docx (20297B)
+----- stderr -----
+===== end =====
+
+===== tool docen B8 =====
+cwd: <editors_trial>/repos/docen
+command: <editors_trial>/repos/docen/node_modules/.bin/tsx <editors_trial>/harness/docen/roundtrip.mts /tmp/editors-trial-bombs/bombs/B8.docx /tmp/editors-trial-bombs-smoke/docen/out/out.docx
+exit: 0 timed_out: False
+score: tool docen B8 fidelity: preserved safety: ok catch: no
+stdout-chars: 35 stderr-chars: 0
+----- stdout -----
+[docen] wrote 3399 bytes (nodes=2)
+----- stderr -----
+===== end =====
+
+===== tool officeopen B8 =====
+cwd: <editors_trial>/repos/office-open
+command: <editors_trial>/repos/office-open/node_modules/.bin/tsx --tsconfig <editors_trial>/repos/office-open/packages/docx/tsconfig.json <editors_trial>/harness/officeopen/roundtrip.mts /tmp/editors-trial-bombs/bombs/B8.docx /tmp/editors-trial-bombs-smoke/officeopen/out/out.docx
+exit: 0 timed_out: False
+score: tool officeopen B8 fidelity: preserved safety: ok catch: no
+stdout-chars: 43 stderr-chars: 0
+----- stdout -----
+[officeopen] wrote 3399 bytes (sections=1)
+----- stderr -----
+===== end =====
+
+===== tool fidus B8 =====
+cwd: <editors_trial>/repos/fiduswriter-document-ts
+command: <editors_trial>/repos/fiduswriter-document-ts/node_modules/.bin/tsx --no-cache <editors_trial>/harness/fidus/roundtrip.mts
+exit: 0 timed_out: False
+score: tool fidus B8 fidelity: dropped safety: ok catch: yes
+stdout-chars: 378 stderr-chars: 0
+----- stdout -----
+IMPORT OK: doc nodes: 2 node types: {"doc":1,"title":1,"text":2,"richtext_part":1,"paragraph":1}
+IMPORT settings: {"import_id":"fidus-trial","tracked":false,"language":"en-US"}
+IMPORT comments: 0
+IMPORT comments data: {}
+EXPORT images in db: 0
+EXPORT template: library generated (generateDocxTemplate)
+EXPORT OK bytes: 11046 -> /tmp/editors-trial-bombs-smoke/fidus/out/out.docx
+----- stderr -----
+===== end =====
+
+===== tool plate B8 =====
+cwd: <editors_trial>/harness/plate
+command: ~/.bun/bin/bun --preload ./aliases.ts roundtrip.ts /tmp/editors-trial-bombs/bombs/B8.docx /tmp/editors-trial-bombs-smoke/plate/out/out.docx
+exit: 1 timed_out: False
+score: tool plate B8 fidelity: refused safety: bounded-reject catch: yes
+stdout-chars: 354 stderr-chars: 182
+----- stdout -----
+plugins: 45, presentation components: 42
+stylesheet: 3039 chars
+suggested BaseEditorKit plugins: 45
+suggested import ok: false
+
+=== suggested import ===
+diagnostics: 1
+codes: {"decode-failed":1}
+errors: 1
+  [error] decode-failed: DOCX content could not be decoded by the installed editor schema.
+suggested import refused the file. no export was written.
+----- stderr -----
+Warning: KaTeX doesn't work in quirks mode. Make sure your website has a suitable doctype.
+Warning: KaTeX doesn't work in quirks mode. Make sure your website has a suitable doctype.
+===== end =====

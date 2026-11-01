@@ -6,6 +6,12 @@ const PLUGIN =
   '/Users/arthrod/temp/T/editors_trial/repos/canvas-editor-plugin/packages/docx'
 
 export default defineConfig({
+  // Vite's dependency cache can move. The config bundle cannot: Vite writes
+  // that next to the nearest node_modules, and the seatbelt allows that one
+  // directory. The bomb runner sets VITEST_CACHE_DIR inside the work dir.
+  ...(process.env.VITEST_CACHE_DIR
+    ? { cacheDir: process.env.VITEST_CACHE_DIR }
+    : {}),
   resolve: {
     alias: [
       // most specific first (the plugin must win over the core package name)

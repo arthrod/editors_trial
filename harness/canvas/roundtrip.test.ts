@@ -195,6 +195,12 @@ describe('canvas-editor docx plugin round trip', () => {
           '\n\n--- table findings ---\n' +
           JSON.stringify(tableFindings, null, 2)
       )
+      // The plugin README's path is import, then export. A thrown import is
+      // the editor refusing the file. Writing the blank starter document
+      // afterwards would be this harness, not canvas-editor.
+      if (process.env.EDITOR_CONFIG === 'suggested') {
+        throw importError
+      }
     }
 
     // give the editor a chance to flush its async render pipeline

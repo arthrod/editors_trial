@@ -1,0 +1,1 @@
+tool plate B6 fidelity: refused safety: bounded-reject catch: yes

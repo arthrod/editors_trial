@@ -1,0 +1,2 @@
+tool jubarte B10 fidelity: not-in-view safety: ok catch: no
+protection jubarte B10 level: not-in-view detail: layout named INVALID_XML on the comments part and still wrote a body view. The bad image marker is not in the view.

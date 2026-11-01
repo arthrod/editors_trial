@@ -16,8 +16,10 @@ const mode = process.argv[4] || 'store';
 const bytes = new Uint8Array(readFileSync(inPath));
 
 if (mode === 'editor') {
-  const { createServer } = await import(`${REPO}/packages/editor-api/src/index.ts`);
-  const server = await createServer(bytes);
+  // DOM-free byte runtime. DocxEditor.createServer is not the browser editor,
+  // and index.ts does not export a bare createServer.
+  const { DocxEditor } = await import(`${REPO}/packages/editor-api/src/index.ts`);
+  const server = await DocxEditor.createServer(bytes);
   const out = await server.save();
   writeFileSync(outPath, out);
   console.log(`[eigenpal:editor] wrote ${out.byteLength} bytes`);

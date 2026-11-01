@@ -1,0 +1,10 @@
+CMD soffice --headless --norestore --nologo --nofirststartwizard -env:UserInstallation=file:///tmp/profile/B3 --convert-to docx --outdir /tmp/out/B3 /bombs/B3.docx
+EXIT 124 timed_out=True
+PRODUCED none
+LEAK False slips=none
+SOFFICE_STDOUT_BEGIN
+
+SOFFICE_STDOUT_END
+SOFFICE_STDERR_BEGIN
+b'Warning: failed to launch javaldx - java may not function correctly\n'
+SOFFICE_STDERR_END

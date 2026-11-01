@@ -1,0 +1,4 @@
+input bytes : 1455
+read        : ok via wordcraft_docx::read
+output bytes: 6471
+output path : /private/tmp/editors-trial-bombs/runs/wordcraft/B6/out/out.docx

@@ -20,7 +20,9 @@ timeout 200 soffice --headless --norestore --convert-to docx --outdir "$BASE/out
 
 run plate    bash -c "cd $BASE/harness/plate && bun --preload ./aliases.ts roundtrip.ts $IN $BASE/out/plate/complex.docx"
 run eigenpal bash -c "cd $BASE/repos/eigenpal-docx-editor && bun $BASE/harness/eigenpal.ts $IN $BASE/out/eigenpal/complex.docx store"
+run eigenpal-editor bash -c "cd $BASE/repos/eigenpal-docx-editor && bun $BASE/harness/eigenpal.ts $IN $BASE/out/eigenpal-editor/complex.docx editor"
 run folio    bash -c "cd $BASE/repos/folio && bun $BASE/harness/folio.ts $IN $BASE/out/folio/complex.docx model"
+run folio-editor bash -c "cd $BASE/repos/folio && bun $BASE/harness/folio.ts $IN $BASE/out/folio-editor/complex.docx editor"
 run genoffice bash -c "cd $BASE/repos/genoffice && node --import $BASE/harness/css-stub.mjs --import $BASE/repos/genoffice/node_modules/tsx/dist/loader.mjs $BASE/harness/genoffice.cts $IN $BASE/out/genoffice/complex.docx"
 run superdoc bash -c "cd $BASE && node $BASE/harness/superdoc.mjs $IN $BASE/out/superdoc/complex.docx"
 run officeopen bash -c "cd $BASE/repos/office-open && ./node_modules/.bin/tsx --tsconfig $BASE/repos/office-open/packages/docx/tsconfig.json $BASE/harness/officeopen/roundtrip.mts $IN $BASE/out/officeopen/complex.docx"

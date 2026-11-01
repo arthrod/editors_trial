@@ -1,0 +1,33 @@
+1012 |   } catch (error) {
+1013 |     if (error instanceof DocxEncryptionError) {
+1014 |       throw error;
+1015 |     }
+1016 |     const message = error instanceof Error ? error.message : String(error);
+1017 |     throw new DocxParseError({
+                     ^
+DocxParseError: Failed to parse DOCX: XML resource preflight could not safely scan malformed markup
+ _tag: "DocxParseError",
+
+      at parseDocxWithPreviewBudget (<editors_trial>/repos/folio/packages/core/src/docx/parser.ts:1017:15)
+
+188 |   }
+189 |   return { close: -1, attributes };
+190 | };
+191 | 
+192 | const throwSyntaxLimit = (): never => {
+193 |   throw new XmlResourceLimitError({
+                  ^
+XmlResourceLimitError: XML resource preflight could not safely scan malformed markup
+     _tag: "XmlResourceLimitError",
+    limit: "syntax",
+ observed: 0,
+  allowed: 0,
+
+      at throwSyntaxLimit (<editors_trial>/repos/folio/packages/docx-core/src/xml/xmlResourceLimits.ts:193:13)
+      at assertXmlResourceLimits (<editors_trial>/repos/folio/packages/docx-core/src/xml/xmlResourceLimits.ts:292:7)
+      at assignXmlContent (<editors_trial>/repos/folio/packages/core/src/docx/unzip.ts:525:3)
+      at unzipDocx (<editors_trial>/repos/folio/packages/core/src/docx/unzip.ts:466:7)
+      at <editors_trial>/repos/folio/packages/core/src/docx/parser.ts:472:28
+      at parseDocxWithPreviewBudget (<editors_trial>/repos/folio/packages/core/src/docx/parser.ts:478:23)
+
+Bun v1.4.2 (macOS arm64)

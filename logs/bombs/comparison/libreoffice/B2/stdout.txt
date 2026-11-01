@@ -1,0 +1,2 @@
+BEGIN B2
+comparison libreoffice B2 fidelity: dropped safety: ok catch: yes

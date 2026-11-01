@@ -1,0 +1,32 @@
+61 |   }
+62 |   res.writeHead(200, { 'content-type': hit.type, 'content-length': hit.bytes.length })
+63 |   res.end(hit.bytes)
+64 | })
+65 | 
+66 | await new Promise<void>((done) => server.listen(0, '127.0.0.1', done))
+               ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at new Promise (1:11)
+      at <editors_trial>/harness/docsplus/roundtrip.ts:66:7
+61 |   }
+62 |   res.writeHead(200, { 'content-type': hit.type, 'content-length': hit.bytes.length })
+63 |   res.end(hit.bytes)
+64 | })
+65 | 
+66 | await new Promise<void>((done) => server.listen(0, '127.0.0.1', done))
+               ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at new Promise (1:11)
+      at <editors_trial>/harness/docsplus/roundtrip.ts:66:7

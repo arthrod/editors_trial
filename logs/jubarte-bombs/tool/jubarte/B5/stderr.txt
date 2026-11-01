@@ -1,0 +1,2 @@
+warning: layout failed, page markers come from the document's breaks: DOCX has no main document part
+wrote /tmp/editors-trial-jubarte-bombs/runs/B5/out/view.md (md, 616 bytes)

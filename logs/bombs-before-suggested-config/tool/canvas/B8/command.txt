@@ -1,0 +1,2 @@
+cwd: <editors_trial>/repos/canvas-editor
+<editors_trial>/repos/canvas-editor/node_modules/.bin/vitest run --root <editors_trial>/harness/canvas

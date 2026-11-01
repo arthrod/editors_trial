@@ -1,0 +1,19 @@
+error: compare failed: INPUT_LIMIT: original document holds 4194311 story units (characters and elements); the limit is 2000000 story units
+        0.03 real         0.03 user         0.00 sys
+            88211456  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+                5955  page reclaims
+                   3  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                   1  voluntary context switches
+                  10  involuntary context switches
+           789865329  instructions retired
+           143792657  cycles elapsed
+            82854416  peak memory footprint

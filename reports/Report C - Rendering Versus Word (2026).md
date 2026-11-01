@@ -17,8 +17,8 @@ The headline results:
 
 1. **Ten editors render the corpus recognisably as the same document:**
    SuperDoc, Folio, GenOffice, eigenpal, Docen, WordCraft, Plate.js, docs.plus,
-   Fidus Writer and LibreOffice. **LibreOffice is the only one that also
-   reproduces Word's pagination exactly (6 pages) and every page furniture** —
+   Fidus Writer and LibreOffice. **LibreOffice also reproduces Word's
+   pagination exactly (6 pages) and every page furniture** —
    the header, the page number, the footer, the footnote body at the foot of
    its page and the landscape section.
 
@@ -27,7 +27,7 @@ The headline results:
    Word's pagination (6 pages) *and* Word's page geometry to the pixel,
    keeps **all 35 parts** of the corpus with **zero changed and zero dropped**,
    keeps **every `w:` element** and the `w15` / `w16cid` / `w16du` / `w10`
-   namespaces that every other editor loses, has **zero dangling relationship
+   namespaces that eight of the other twelve lose, has **zero dangling relationship
    references**, scores **100.0 %** on the 97-check round-trip test, and
    produces a file Word opens and renders **pixel-identically** (83 differing
    pixels across six pages — the same 83 SuperDoc leaves).
@@ -203,8 +203,8 @@ that path.
 
 ![Folio's own UI at the page-3 constructs, against Word's page 3](../out/ui/figures/fig_ui_folio_p3.png)
 
-Folio is the only editor in the study that reproduces **Word's comment
-balloon** — a rounded card in the right margin reading "Fixture Author / Jan
+Folio is one of two tools in the study, with Docxodus (§2.13), that
+reproduce **Word's comment balloon** — a rounded card in the right margin reading "Fixture Author / Jan
 15, 4:30 AM / This is a comment body." — and it reproduces the tracked-change
 table exactly as Word does: the inserted row plain, the deleted row struck
 through in red.
@@ -222,7 +222,7 @@ mislabelled or mis-scaled; it is absent.
 content is not imported; and Folio **shows** the `w:vanish` ("hidden text")
 run, which Word hides.
 
-### 2.3 GenOffice — the only editor that labels the SmartArt band
+### 2.3 GenOffice — the only editor that draws the SmartArt's node texts
 
 **Hosted:** `repos/genoffice/apps/docs` is an Electron application whose
 renderer is ordinary web code. The renderer was served directly by `vite`
@@ -660,9 +660,8 @@ reason given in *Gaps*, item 4.
 
 ![LibreOffice's own render of page 3, against Word's page 3](../out/ui/figures/fig_ui_libreoffice_p3.png)
 
-**LibreOffice is the only application in the study that reproduces Word's
-pagination exactly — 6 pages — and the only one that reproduces *every* page
-furniture**: the "Default header", the page number in the header, the "Footer
+**LibreOffice reproduces Word's pagination exactly — 6 pages — and *every*
+page furniture**: the "Default header", the page number in the header, the "Footer
 text page3" footer, the footnote body with its separator rule at the foot of
 page 3, and the landscape section.
 
@@ -815,8 +814,9 @@ Docxodus's own `DocxSession` and writing it back with no edits gives:
 100.0 %, but seven of its parts are genuinely **changed** (`document.xml`,
 `endnotes.xml`, `footnotes.xml`, `header1/2.xml`, `footer1/2.xml`); Docxodus's
 equivalent parts are all **re-serialised** — byte-different, tree-identical.
-And Docxodus is the **only** editor that keeps the `w15`, `w16cid`, `w16du`
-and `w10` namespaces, which every other editor drops or mangles (§7, Report A).
+And Docxodus keeps the `w15`, `w16cid`, `w16du` and `w10` namespaces, which
+eight of the other twelve drop (Report A; SuperDoc, Folio, GenOffice and
+eigenpal keep them too).
 
 ---
 
@@ -850,14 +850,14 @@ where nothing can be read out of the DOM).
 
 ### 3.1 Seven findings from the table
 
-**(a) Four editors put *something* in the SmartArt band, and the four put
+**(a) Three editors put *something* in the SmartArt band, and the three put
 different things there.** Word reserves the band and draws nothing.
 GenOffice draws a dashed band labelled "SmartArt" containing the node texts
 "Step one" and "Step two". eigenpal draws a grey box reading **"Unsupported
 diagram"**. **Docxodus draws a large yellow box labelled "[SMARTART]"** and
 says so in its own render report: `unsupportedContent → relIds → placeholder`.
 A reader comparing them against Word sees three editors showing information
-Word does not show, and one editor showing nothing at all. This is not a
+Word does not show, where Word shows nothing at all. This is not a
 rendering bug in any of them — the corpus's diagram parts are stubs (§5) — but
 it is a genuine divergence in what the reader is told.
 
@@ -1438,7 +1438,7 @@ the UI layer:
 2. **Folio does not draw the chart at all**, even though its exported file
    keeps the chart part. A package-presence check would say "Folio kept the
    chart"; only the screenshot shows there is no chart on the page.
-3. **GenOffice and eigenpal show more than Word** in the SmartArt band.
+3. **GenOffice, eigenpal and Docxodus show more than Word** in the SmartArt band.
    Nothing in the package or the pixel layer can detect a *difference in
    information shown*.
 4. **Canvas-Editor crashes.** No package metric can express "the application

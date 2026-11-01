@@ -9,7 +9,9 @@ Two headline numbers:
   * feature score  - weighted survival of the exception-case corpus
   * text retention - share of the input's visible text that survives
 """
+import io
 import json
+import posixpath
 import re
 import sys
 import zipfile
@@ -22,19 +24,47 @@ W16DU = "{http://schemas.microsoft.com/office/word/2023/wordml/word16du}"
 W14 = "{http://schemas.microsoft.com/office/word/2010/wordml}"
 C = "{http://schemas.openxmlformats.org/drawingml/2006/chart}"
 DGM = "{http://schemas.openxmlformats.org/drawingml/2006/diagram}"
+A = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
+O = "{urn:schemas-microsoft-com:office:office}"
 R = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
+REL_PKG = "{http://schemas.openxmlformats.org/package/2006/relationships}"
+
+# Story parts the corpus names directly. A round trip may renumber the file
+# (header2.xml -> header3.xml) and still keep the construct, so these are
+# resolved from w:headerReference / w:footerReference when the document has one.
+STORY_REFS = {
+    "word/header1.xml": ("headerReference", "default"),
+    "word/header2.xml": ("headerReference", "first"),
+    "word/footer1.xml": ("footerReference", "default"),
+    "word/footer2.xml": ("footerReference", "first"),
+}
 
 # id, label, weight, category
 WEIGHTS = {"critical": 3, "major": 2, "minor": 1}
 
 
 class Pkg:
-    def __init__(self, path):
-        self.path = path
-        self.z = zipfile.ZipFile(path)
+    def __init__(self, path=None, data=None):
+        """Open a DOCX package and check its ZIP members for CRC errors.
+
+        Args:
+            path: ZIP path or file object, used when data is None.
+            data: ZIP bytes; takes precedence over path when supplied.
+
+        Raises:
+            OSError: If the package cannot be opened or read.
+            zipfile.BadZipFile: If the package is not a valid ZIP.
+        """
+        if data is not None:
+            self.path = "<memory>"
+            self.z = zipfile.ZipFile(io.BytesIO(data))
+        else:
+            self.path = path
+            self.z = zipfile.ZipFile(path)
         self.names = set(self.z.namelist())
         self.bad = self.z.testzip()
         self._trees = {}
+        self._rels = {}
 
     def tree(self, name):
         if name not in self._trees:
@@ -108,6 +138,276 @@ class Pkg:
         t = self.text()
         return [w for w in re.split(r"[^\w؀-ۿ]+", t) if len(w) > 2]
 
+    def _rels_name(self, part):
+        """Return the relationship part name for a package part."""
+        base = posixpath.dirname(part)
+        name = posixpath.basename(part)
+        rel = "%s.rels" % name
+        return posixpath.join(base, "_rels", rel) if base else posixpath.join("_rels", rel)
+
+    def relationships(self, part):
+        """Return relationship records for a package part.
+
+        Args:
+            part: Source part's ZIP path.
+
+        Returns:
+            Records with id, type, target, and mode; an empty list if the
+            relationship part is missing or cannot be parsed.
+        """
+        key = self._rels_name(part)
+        if key not in self._rels:
+            root = self.tree(key)
+            found = []
+            if root is not None:
+                for el in root.iter(REL_PKG + "Relationship"):
+                    found.append({
+                        "id": el.get("Id"),
+                        "type": el.get("Type") or "",
+                        "target": el.get("Target") or "",
+                        "mode": (el.get("TargetMode") or "Internal"),
+                    })
+            self._rels[key] = found
+        return self._rels[key]
+
+    def resolve(self, from_part, rid):
+        """Internal OPC target for rid, or None if missing, external, or unsafe."""
+        if not rid:
+            return None
+        for rel in self.relationships(from_part):
+            if rel["id"] != rid:
+                continue
+            if rel["mode"].lower() == "external":
+                return None
+            target = rel["target"]
+            if target.startswith("/"):
+                path = posixpath.normpath(target.lstrip("/"))
+            else:
+                path = posixpath.normpath(posixpath.join(posixpath.dirname(from_part), target))
+            if path.startswith("..") or path == "." or path.startswith("/"):
+                return None
+            return path
+        return None
+
+    def external_target(self, from_part, rid):
+        """Return the external target for a relationship, or None if absent.
+
+        Args:
+            from_part: Source part's ZIP path.
+            rid: Relationship ID in that part.
+        """
+        if not rid:
+            return None
+        for rel in self.relationships(from_part):
+            if rel["id"] == rid and rel["mode"].lower() == "external":
+                return rel["target"]
+        return None
+
+    def resolved_internal(self, from_part, rid):
+        """Return an internal target's ZIP path only if the member exists.
+
+        Args:
+            from_part: Source part's ZIP path.
+            rid: Relationship ID in that part.
+
+        Returns:
+            The target path, or None for an unresolved or missing member.
+        """
+        path = self.resolve(from_part, rid)
+        if path and path in self.names:
+            return path
+        return None
+
+    def story_target(self, local, ref_type):
+        """Zip path of a header/footer reference, '' if the reference dangles,
+        None if the document has no reference of that type."""
+        doc = self.doc()
+        if doc is None:
+            return None
+        found = False
+        for el in doc.iter(W + local):
+            if el.get(W + "type") != ref_type:
+                continue
+            found = True
+            path = self.resolved_internal("word/document.xml", el.get(R + "id"))
+            if path:
+                return path
+        if not found:
+            return None
+        return ""
+
+    def declares_uri(self, part, uri):
+        """Return whether a part's raw XML declares the given namespace URI.
+
+        Args:
+            part: ZIP path of the XML part.
+            uri: Namespace URI to match, independent of prefix.
+        """
+        raw = self.raw(part)
+        return re.search(
+            r"""xmlns(?::[A-Za-z_][\w.-]*)?\s*=\s*["']%s["']""" % re.escape(uri),
+            raw,
+        ) is not None
+
+
+def _uri(clark):
+    """Remove the first and last characters if the namespace starts with '{'."""
+    return clark[1:-1] if clark.startswith("{") else clark
+
+
+def _move_from_ok(doc):
+    """Return whether a moveFrom exists and none has delText descendants."""
+    if doc is None:
+        return False
+    found = False
+    for el in doc.iter(W + "moveFrom"):
+        found = True
+        for child in el.iter():
+            if child is not el and child.tag == W + "delText":
+                return False
+    return found
+
+
+def _header_tracked_change(pkg):
+    """Return whether a referenced header contains an insertion.
+
+    When there are no header references, inspect the legacy header2.xml path.
+    """
+    doc = pkg.doc()
+    if doc is None:
+        return False
+    refs = list(doc.iter(W + "headerReference"))
+    if not refs:
+        tree = pkg.tree("word/header2.xml")
+        return tree is not None and any(e.tag == W + "ins" for e in tree.iter())
+    for el in refs:
+        path = pkg.resolved_internal("word/document.xml", el.get(R + "id"))
+        if not path:
+            continue
+        tree = pkg.tree(path)
+        if tree is not None and any(e.tag == W + "ins" for e in tree.iter()):
+            return True
+    return False
+
+
+def _blips_resolve(pkg):
+    """Return whether embedded image references exist and all resolve to members."""
+    doc = pkg.doc()
+    if doc is None:
+        return False
+    embeds = []
+    for el in doc.iter(A + "blip"):
+        rid = el.get(R + "embed")
+        if rid:
+            embeds.append(rid)
+    if not embeds:
+        return False
+    return all(pkg.resolved_internal("word/document.xml", rid) for rid in embeds)
+
+
+def _charts_resolve(pkg):
+    """Return whether chart references exist and all resolve to members."""
+    doc = pkg.doc()
+    if doc is None:
+        return False
+    ids = [el.get(R + "id") for el in doc.iter(C + "chart")]
+    if not ids or any(not rid for rid in ids):
+        return False
+    return all(pkg.resolved_internal("word/document.xml", rid) for rid in ids)
+
+
+def _smartart_resolve(pkg):
+    """Return whether SmartArt references exist and all four targets resolve."""
+    doc = pkg.doc()
+    if doc is None:
+        return False
+    nodes = list(doc.iter(DGM + "relIds"))
+    if not nodes:
+        return False
+    for el in nodes:
+        for attr in ("dm", "lo", "qs", "cs"):
+            rid = el.get(R + attr)
+            if not rid or not pkg.resolved_internal("word/document.xml", rid):
+                return False
+    return True
+
+
+def _ole_resolve(pkg):
+    """Return whether OLE references exist and all resolve to members."""
+    doc = pkg.doc()
+    if doc is None:
+        return False
+    ids = [el.get(R + "id") for el in doc.iter(O + "OLEObject")]
+    if not ids or any(not rid for rid in ids):
+        return False
+    return all(pkg.resolved_internal("word/document.xml", rid) for rid in ids)
+
+
+def _altchunk_ok(pkg):
+    """Return whether all altChunk targets resolve, or imported fixture text remains.
+
+    The text fallback is used only when no altChunk elements are present.
+    """
+    doc = pkg.doc()
+    if doc is None:
+        return False
+    chunks = list(doc.iter(W + "altChunk"))
+    if chunks:
+        return all(pkg.resolved_internal("word/document.xml", el.get(R + "id")) for el in chunks)
+    return "Imported altChunk paragraph one" in pkg.raw("word/document.xml")
+
+
+def _note_part(pkg, type_suffix, default):
+    """Return the first existing internal note target, or the default path.
+
+    Args:
+        pkg: Package containing the document relationships.
+        type_suffix: Final relationship type component to match.
+        default: Path returned when no matching target resolves.
+    """
+    for rel in pkg.relationships("word/document.xml"):
+        if rel["type"].endswith("/" + type_suffix) and rel["mode"].lower() != "external":
+            path = pkg.resolved_internal("word/document.xml", rel["id"])
+            if path:
+                return path
+    return default
+
+
+def _hyperlink_facts(pkg):
+    """Return document hyperlink anchors and targets as prefixed strings.
+
+    Unresolved relationship IDs are recorded with a dangling: prefix.
+    """
+    doc = pkg.doc()
+    facts = set()
+    if doc is None:
+        return facts
+    for el in doc.iter(W + "hyperlink"):
+        anchor = el.get(W + "anchor")
+        if anchor:
+            facts.add("anchor:" + anchor)
+        rid = el.get(R + "id")
+        if not rid:
+            continue
+        ext = pkg.external_target("word/document.xml", rid)
+        if ext:
+            facts.add("ext:" + ext)
+            continue
+        path = pkg.resolved_internal("word/document.xml", rid)
+        if path:
+            facts.add("int:" + path)
+        else:
+            facts.add("dangling:" + rid)
+    return facts
+
+
+def _hyperlinks_survive(inp, out):
+    """Every input target survives, and no output hyperlink relationship dangles."""
+    out_facts = _hyperlink_facts(out)
+    if any(f.startswith("dangling:") for f in out_facts):
+        return False
+    return _hyperlink_facts(inp) <= out_facts
+
 
 def build_checks(inp: Pkg, out: Pkg):
     """Return list of (id, label, category, weight, ok_bool, detail)."""
@@ -141,8 +441,14 @@ def build_checks(inp: Pkg, out: Pkg):
         ("customXml/item1.xml", "customXml data store", "minor"),
         ("word/afchunk.html", "altChunk part", "minor"),
     ]:
+        if part in STORY_REFS:
+            local, ref_type = STORY_REFS[part]
+            target = out.story_target(local, ref_type)
+            kept = (part in out.names) if target is None else bool(target)
+        else:
+            kept = part in out.names
         chk("pkg." + part.replace("/", "_"), "part kept: " + label, "package", w,
-            part in out.names)
+            kept)
 
     media = [n for n in out.names if n.startswith("word/media/")]
     chk("pkg.media", "embedded image (word/media)", "package", "critical", media,
@@ -168,8 +474,8 @@ def build_checks(inp: Pkg, out: Pkg):
     chk("tc.dateUtc", "w16du:dateUtc kept", "tracked", "critical",
         out.attr_count("dateUtc", ns=W16DU) >= 1,
         "n=%d" % out.attr_count("dateUtc", ns=W16DU))
-    chk("tc.moveFrom", "w:moveFrom kept", "tracked", "major",
-        out.count("moveFrom") >= 1)
+    chk("tc.moveFrom", "w:moveFrom kept with w:t, not w:delText", "tracked", "major",
+        _move_from_ok(od))
     chk("tc.moveTo", "w:moveTo kept", "tracked", "major", out.count("moveTo") >= 1)
     chk("tc.moveRanges", "move range markers kept", "tracked", "minor",
         out.count("moveFromRangeStart") >= 1 and out.count("moveToRangeStart") >= 1)
@@ -231,7 +537,7 @@ def build_checks(inp: Pkg, out: Pkg):
     chk("sdt.nested", "nested content control kept", "sdt", "major", nested >= 1)
 
     # ---------- markup / unknown content ------------------------------------------
-    chk("mx.proofErr", "w:proofErr kept", "markup", "critical",
+    chk("mx.proofErr", "w:proofErr kept", "markup", "minor",
         out.count("proofErr") >= 4, "n=%d" % out.count("proofErr"))
     chk("mx.altContent", "mc:AlternateContent kept (Choice+Fallback)", "markup", "critical",
         out.count("AlternateContent", ns=MC) >= 1 and od is not None and
@@ -245,10 +551,12 @@ def build_checks(inp: Pkg, out: Pkg):
         od is not None and od.find(".//" + W14 + "textOutline") is not None)
     chk("mx.xmlspace", 'xml:space="preserve" kept', "markup", "critical",
         'xml:space="preserve"' in out.raw("word/document.xml"))
-    chk("mx.nsW16du", "w16du namespace declaration kept", "markup", "critical",
-        "w16du" in out.raw("word/document.xml"))
-    chk("mx.nsW14", "w14 namespace declaration kept", "markup", "major",
-        "w14" in out.raw("word/document.xml"))
+    # Declaration checks are presence of the URI, under any prefix. They are not
+    # a second critical credit for the attribute that uses that URI.
+    chk("mx.nsW16du", "w16du namespace declaration kept", "markup", "minor",
+        out.declares_uri("word/document.xml", _uri(W16DU)))
+    chk("mx.nsW14", "w14 namespace declaration kept", "markup", "minor",
+        out.declares_uri("word/document.xml", _uri(W14)))
     chk("mx.permStart", "w:permStart/permEnd kept", "markup", "minor",
         out.count("permStart") >= 1 and out.count("permEnd") >= 1)
 
@@ -329,28 +637,31 @@ def build_checks(inp: Pkg, out: Pkg):
         "n=%d" % out.count("lvl", tree=out.tree("word/numbering.xml")))
 
     # ---------- embedded objects / references --------------------------------------
-    chk("ref.image", "image drawing referenced", "refs", "critical",
-        od is not None and od.find(".//" + W + "drawing") is not None)
-    chk("ref.chart", "chart referenced from body", "refs", "critical",
-        od is not None and od.find(".//" + C + "chart") is not None)
-    chk("ref.smartart", "SmartArt referenced from body", "refs", "critical",
-        od is not None and od.find(".//" + DGM + "relIds") is not None)
-    chk("ref.ole", "OLE object referenced from body", "refs", "critical",
-        od is not None and od.find(".//" + W + "object") is not None)
-    altchunk_el = od is not None and od.find(".//" + W + "altChunk") is not None
-    altchunk_txt = "Imported altChunk paragraph one" in out.raw("word/document.xml")
-    chk("ref.altChunk", "altChunk kept (element or content imported)", "refs", "minor",
-        altchunk_el or altchunk_txt,
-        "element" if altchunk_el else ("content imported" if altchunk_txt else "dropped"))
+    chk("ref.image", "image relationship resolves to a part", "refs", "critical",
+        _blips_resolve(out))
+    chk("ref.chart", "chart relationship resolves to a part", "refs", "critical",
+        _charts_resolve(out))
+    chk("ref.smartart", "SmartArt relationships resolve to parts", "refs", "critical",
+        _smartart_resolve(out))
+    chk("ref.ole", "OLE relationship resolves to a part", "refs", "critical",
+        _ole_resolve(out))
+    chk("ref.altChunk", "altChunk relationship resolves, or content imported", "refs", "minor",
+        _altchunk_ok(out))
     chk("ref.footnoteRef", "footnote reference kept", "refs", "major",
         out.count("footnoteReference") >= 1)
     chk("ref.endnoteRef", "endnote reference kept", "refs", "major",
         out.count("endnoteReference") >= 1)
     chk("ref.commentRef", "comment reference kept", "refs", "major",
         out.count("commentReference") >= 1)
-    h2 = out.raw("word/header2.xml")
     chk("ref.headerTrackedChange", "tracked change inside header kept", "refs", "critical",
-        "<w:ins" in h2)
+        _header_tracked_change(out))
+    endnote_part = _note_part(out, "endnotes", "word/endnotes.xml")
+    chk("ref.endnoteBody", "endnote body text kept", "refs", "major",
+        "endnote body" in out.raw(endnote_part))
+    in_links = _hyperlink_facts(inp)
+    chk("fl.hyperlink", "hyperlink targets kept", "fields", "major",
+        _hyperlinks_survive(inp, out),
+        "none in input" if not in_links else "in=%d" % len(in_links))
     st = out.raw("word/settings.xml")
     chk("ref.documentProtection", "settings.xml documentProtection kept", "refs", "major",
         "documentProtection" in st)

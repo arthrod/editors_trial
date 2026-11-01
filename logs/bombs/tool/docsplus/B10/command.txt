@@ -1,0 +1,2 @@
+cwd: <editors_trial>/harness/docsplus/repo-copy
+~/.bun/bin/bun <editors_trial>/harness/docsplus/roundtrip.ts /tmp/editors-trial-bombs/bombs/B10.docx /tmp/editors-trial-bombs/runs/docsplus/B10/out/out.docx

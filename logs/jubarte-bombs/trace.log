@@ -1,0 +1,143 @@
+jubarte bomb trace. streams are kept below.
+
+===== tool jubarte B1 =====
+cwd: /tmp/editors-trial-jubarte-bombs/runs/B1
+command: /tmp/jubarte-redlines-target/release/jubarte read /tmp/editors-trial-jubarte-bombs/bombs/B1.docx -o /tmp/editors-trial-jubarte-bombs/runs/B1/out/view.md --force
+exit: 1 timed_out: False
+score: tool jubarte B1 fidelity: refused safety: bounded-reject catch: yes
+protection jubarte B1 level: bounded-refusal detail: bounded-refusal
+----- stdout -----
+
+----- stderr -----
+error: cannot read the document: I/O error: INPUT_LIMIT: word/document.xml declares 69206217 inflated bytes; the part limit is 67108864
+
+===== end =====
+
+===== tool jubarte B10 =====
+cwd: /tmp/editors-trial-jubarte-bombs/runs/B10
+command: /tmp/jubarte-redlines-target/release/jubarte read /tmp/editors-trial-jubarte-bombs/bombs/B10.docx -o /tmp/editors-trial-jubarte-bombs/runs/B10/out/view.md --force
+exit: 0 timed_out: False
+score: tool jubarte B10 fidelity: not-in-view safety: ok catch: no
+protection jubarte B10 level: not-in-view detail: not-in-view
+----- stdout -----
+
+----- stderr -----
+warning: layout failed, page markers come from the document's breaks: opening DOCX: I/O error: INVALID_XML: input document: word/comments.xml: syntax error: tag not closed: `>` not found before end of input
+wrote /tmp/editors-trial-jubarte-bombs/runs/B10/out/view.md (md, 584 bytes)
+
+===== end =====
+
+===== tool jubarte B2 =====
+cwd: /tmp/editors-trial-jubarte-bombs/runs/B2
+command: /tmp/jubarte-redlines-target/release/jubarte read /tmp/editors-trial-jubarte-bombs/bombs/B2.docx -o /tmp/editors-trial-jubarte-bombs/runs/B2/out/view.md --force
+exit: 1 timed_out: False
+score: tool jubarte B2 fidelity: refused safety: bounded-reject catch: yes
+protection jubarte B2 level: bounded-refusal detail: bounded-refusal
+----- stdout -----
+
+----- stderr -----
+error: cannot read the document: I/O error: INPUT_LIMIT: 25004 ZIP entries; the limit is 10000
+
+===== end =====
+
+===== tool jubarte B3 =====
+cwd: /tmp/editors-trial-jubarte-bombs/runs/B3
+command: /tmp/jubarte-redlines-target/release/jubarte read /tmp/editors-trial-jubarte-bombs/bombs/B3.docx -o /tmp/editors-trial-jubarte-bombs/runs/B3/out/view.md --force
+exit: 1 timed_out: False
+score: tool jubarte B3 fidelity: refused safety: bounded-reject catch: yes
+protection jubarte B3 level: erroring detail: erroring
+----- stdout -----
+
+----- stderr -----
+error: cannot read the document: INVALID_XML: word/document.xml: element <w:p>: element exceeds 1024 attributes
+
+===== end =====
+
+===== tool jubarte B4 =====
+cwd: /tmp/editors-trial-jubarte-bombs/runs/B4
+command: /tmp/jubarte-redlines-target/release/jubarte read /tmp/editors-trial-jubarte-bombs/bombs/B4.docx -o /tmp/editors-trial-jubarte-bombs/runs/B4/out/view.md --force
+exit: 1 timed_out: False
+score: tool jubarte B4 fidelity: refused safety: bounded-reject catch: yes
+protection jubarte B4 level: bounded-refusal detail: bounded-refusal
+----- stdout -----
+
+----- stderr -----
+error: cannot read the document: word/document.xml: XML nesting too deep
+
+===== end =====
+
+===== tool jubarte B5 =====
+cwd: /tmp/editors-trial-jubarte-bombs/runs/B5
+command: /tmp/jubarte-redlines-target/release/jubarte read /tmp/editors-trial-jubarte-bombs/bombs/B5.docx -o /tmp/editors-trial-jubarte-bombs/runs/B5/out/view.md --force
+exit: 0 timed_out: False
+score: tool jubarte B5 fidelity: dropped safety: ok catch: yes
+protection jubarte B5 level: sanitation detail: sanitation
+----- stdout -----
+
+----- stderr -----
+warning: layout failed, page markers come from the document's breaks: DOCX has no main document part
+wrote /tmp/editors-trial-jubarte-bombs/runs/B5/out/view.md (md, 616 bytes)
+
+===== end =====
+
+===== tool jubarte B6 =====
+cwd: /tmp/editors-trial-jubarte-bombs/runs/B6
+command: /tmp/jubarte-redlines-target/release/jubarte read /tmp/editors-trial-jubarte-bombs/bombs/B6.docx -o /tmp/editors-trial-jubarte-bombs/runs/B6/out/view.md --force
+exit: 0 timed_out: False
+score: tool jubarte B6 fidelity: not-in-view safety: ok catch: no
+protection jubarte B6 level: not-in-view detail: not-in-view
+----- stdout -----
+
+----- stderr -----
+warning: layout failed, page markers come from the document's breaks: opening DOCX: I/O error: UNSUPPORTED_PACKAGE: input document: unsafe entry name "../escaped/pwned-editors-trial.xml": empty, . or .. segment
+wrote /tmp/editors-trial-jubarte-bombs/runs/B6/out/view.md (md, 583 bytes)
+
+===== end =====
+
+===== tool jubarte B7 =====
+cwd: /tmp/editors-trial-jubarte-bombs/runs/B7
+command: /tmp/jubarte-redlines-target/release/jubarte read /tmp/editors-trial-jubarte-bombs/bombs/B7.docx -o /tmp/editors-trial-jubarte-bombs/runs/B7/out/view.md --force
+exit: 0 timed_out: False
+score: tool jubarte B7 fidelity: not-in-view safety: ok catch: no
+protection jubarte B7 level: not-in-view detail: not-in-view
+----- stdout -----
+
+----- stderr -----
+wrote /tmp/editors-trial-jubarte-bombs/runs/B7/out/view.md (md, 568 bytes)
+
+===== end =====
+
+===== tool jubarte B8 =====
+cwd: /tmp/editors-trial-jubarte-bombs/runs/B8
+command: /tmp/jubarte-redlines-target/release/jubarte read /tmp/editors-trial-jubarte-bombs/bombs/B8.docx -o /tmp/editors-trial-jubarte-bombs/runs/B8/out/view.md --force
+exit: 0 timed_out: False
+score: tool jubarte B8 fidelity: dropped safety: ok catch: yes
+protection jubarte B8 level: sanitation detail: sanitation
+----- stdout -----
+
+----- stderr -----
+input has 1 validity error; jubarte validate /tmp/editors-trial-jubarte-bombs/bombs/B8.docx lists it
+wrote /tmp/editors-trial-jubarte-bombs/runs/B8/out/view.md (md, 568 bytes)
+
+===== end =====
+
+===== tool jubarte B9 =====
+cwd: /tmp/editors-trial-jubarte-bombs/runs/B9
+command: /tmp/jubarte-redlines-target/release/jubarte read /tmp/editors-trial-jubarte-bombs/bombs/B9.docx -o /tmp/editors-trial-jubarte-bombs/runs/B9/out/view.md --force
+exit: 0 timed_out: False
+score: tool jubarte B9 fidelity: not-in-view safety: ok catch: no
+protection jubarte B9 level: not-in-view detail: not-in-view
+----- stdout -----
+
+----- stderr -----
+input has 2000 validity errors; jubarte validate /tmp/editors-trial-jubarte-bombs/bombs/B9.docx lists them
+wrote /tmp/editors-trial-jubarte-bombs/runs/B9/out/view.md (md, 707 bytes)
+
+===== end =====
+
+===== rescore from the saved views =====
+The binary was not run again.
+B5 fidelity corrected from dropped to preserved. The view keeps the unexpanded entity references. catch corrected from yes to no. level: unexpanded-kept.
+B3 protection corrected from erroring to bounded-refusal. The stderr names an attribute ceiling. catch stays yes.
+B9 protection set to bounded-delivery. The view clamps the merged span. fidelity stays not-in-view. catch stays no.
+===== end rescore =====

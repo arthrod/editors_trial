@@ -1,0 +1,2 @@
+input has 1 validity error; jubarte validate /tmp/editors-trial-jubarte-bombs/bombs/B8.docx lists it
+wrote /tmp/editors-trial-jubarte-bombs/runs/B8/out/view.md (md, 568 bytes)

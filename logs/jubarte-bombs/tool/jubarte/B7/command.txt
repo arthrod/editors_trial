@@ -1,0 +1,2 @@
+cwd: /tmp/editors-trial-jubarte-bombs/runs/B7
+/tmp/jubarte-redlines-target/release/jubarte read /tmp/editors-trial-jubarte-bombs/bombs/B7.docx -o /tmp/editors-trial-jubarte-bombs/runs/B7/out/view.md --force

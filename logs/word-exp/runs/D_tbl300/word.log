@@ -1,0 +1,31 @@
+2026-10-31 22:18:30.450 | INFO     | __main__:warm:1476 - [word] launching Word in the background, running: open -g -a '/Applications/Microsoft Word.app'
+2026-10-31 22:18:32.927 | INFO     | __main__:warm:1483 - [word] Word answered after 2 s; alerts off
+2026-10-31 22:18:33.187 | INFO     | __main__:preflight:3042 - [word] preflight: word_pid=85980 open_documents=0 started_clean=True launched_by_us=True close_documents=True
+2026-10-31 22:18:33.188 | INFO     | __main__:preflight:3081 - [word] preflight: closing every document (health check), running: osascript -e 'tell application "Microsoft Word" to close every document saving no'
+2026-10-31 22:18:33.384 | INFO     | __main__:_run_logged:1646 - [word] preflight: returned rc=0 in 0.2 s, no value came back (AppleScript 'missing value')
+2026-10-31 22:18:33.436 | INFO     | __main__:convert_folder:2696 - [word] export: one_osascript=True documents=1 accept_all=False reject_all=False
+2026-10-31 22:18:33.437 | INFO     | __main__:_convert_batched:2908 - [batch] one osascript for 1 document(s)
+2026-10-31 22:18:38.470 | INFO     | __main__:_loop:2095 - [batch pdf 1] 0/1
+2026-10-31 22:18:48.535 | INFO     | __main__:_nudge:2064 - [focus] item 1/1 not finished after 10 s; bringing Word forward to look for an alert
+2026-10-31 22:19:18.614 | INFO     | __main__:_nudge:2064 - [focus] item 1/1 not finished after 40 s; bringing Word forward to look for an alert
+2026-10-31 22:19:28.901 | WARNING  | __main__:_report:2053 - [batch pdf 1] item 1/1 open for more than 30 s:
+-- Word windows {name, subrole}: osascript timed out
+-- Word window text: 
+-- crash reporters: 
+-- batch-pdf-1.log:
+
+-- newest diagnostic reports: ExcUserFault_nsattributedstringagent-2026-10-31-172032.ips, ExcUserFault_nsattributedstringagent-2026-10-31-163006.ips, forge-2026-10-30-203302.ips, forge-2026-10-31-161313.ips, forge-2026-10-31-160921.ips
+2026-10-31 22:19:48.722 | INFO     | __main__:_nudge:2064 - [focus] item 1/1 not finished after 70 s; bringing Word forward to look for an alert
+2026-10-31 22:20:18.826 | INFO     | __main__:_nudge:2064 - [focus] item 1/1 not finished after 100 s; bringing Word forward to look for an alert
+2026-10-31 22:20:48.909 | INFO     | __main__:_nudge:2064 - [focus] item 1/1 not finished after 130 s; bringing Word forward to look for an alert
+2026-10-31 22:21:19.058 | INFO     | __main__:_nudge:2064 - [focus] item 1/1 not finished after 161 s; bringing Word forward to look for an alert
+2026-10-31 22:21:49.158 | INFO     | __main__:_nudge:2064 - [focus] item 1/1 not finished after 191 s; bringing Word forward to look for an alert
+2026-10-31 22:22:19.320 | INFO     | __main__:_nudge:2064 - [focus] item 1/1 not finished after 221 s; bringing Word forward to look for an alert
+2026-10-31 22:22:49.479 | INFO     | __main__:_nudge:2064 - [focus] item 1/1 not finished after 251 s; bringing Word forward to look for an alert
+2026-10-31 22:23:19.655 | INFO     | __main__:_nudge:2064 - [focus] item 1/1 not finished after 281 s; bringing Word forward to look for an alert
+2026-10-31 22:23:49.782 | INFO     | __main__:_nudge:2064 - [focus] item 1/1 not finished after 311 s; bringing Word forward to look for an alert
+2026-10-31 22:24:19.905 | INFO     | __main__:_nudge:2064 - [focus] item 1/1 not finished after 341 s; bringing Word forward to look for an alert
+2026-10-31 22:24:33.727 | ERROR    | __main__:_convert_batched:2959 - [batch] FAIL: D_tbl300.docx — Microsoft Word got an error: AppleEvent timed out.
+2026-10-31 22:24:33.728 | INFO     | __main__:convert_folder:2715 - [manifest] appended 1 line(s) to <word_exp>/runs/D_tbl300/out/manifest.jsonl
+2026-10-31 22:24:43.738 | WARNING  | __main__:quit_if_ours:1688 - [word] leaving Word running: could not determine whether any documents are open
+2026-10-31 22:24:46.747 | INFO     | __main__:stop:1274 - [watchdog] tally: declined=0 dismissed=0 granted=0 forwarded=0 alerts_seen=0

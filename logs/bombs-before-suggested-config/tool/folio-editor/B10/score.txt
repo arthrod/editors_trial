@@ -1,0 +1,1 @@
+tool folio-editor B10 fidelity: refused safety: bounded-reject catch: yes

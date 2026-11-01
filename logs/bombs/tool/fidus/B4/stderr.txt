@@ -1,0 +1,16 @@
+Could not parse document Error: Maximum nested tags exceeded
+    at OrderedObjParser.parseXml (file://<editors_trial>/repos/fiduswriter-document-ts/node_modules/.pnpm/fast-xml-parser@5.11.2/node_modules/fast-xml-parser/src/xmlparser/OrderedObjParser.js:580:21)
+    at XMLParser.parse (file://<editors_trial>/repos/fiduswriter-document-ts/node_modules/.pnpm/fast-xml-parser@5.11.2/node_modules/fast-xml-parser/src/xmlparser/XMLParser.js:42:48)
+    at xmlDOM (<editors_trial>/repos/fiduswriter-document-ts/src/exporter/tools/xml.ts:572:33)
+    at DocxParser.parseDocument (<editors_trial>/repos/fiduswriter-document-ts/src/importer/docx/parse.ts:824:29)
+    at async DocxConvert.init (<editors_trial>/repos/fiduswriter-document-ts/src/importer/docx/convert.ts:131:9)
+    at async <anonymous> (<editors_trial>/harness/fidus/roundtrip.mts:121:18)
+<editors_trial>/repos/fiduswriter-document-ts/src/importer/docx/convert.ts:137
+        const body = this.parser.document!.query("w:body")
+                                           ^
+
+TypeError: Cannot read properties of null (reading 'query')
+    at DocxConvert.init (<editors_trial>/repos/fiduswriter-document-ts/src/importer/docx/convert.ts:137:44)
+    at async <anonymous> (<editors_trial>/harness/fidus/roundtrip.mts:121:18)
+
+Node.js v26.13.0

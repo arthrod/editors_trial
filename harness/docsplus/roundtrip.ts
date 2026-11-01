@@ -15,7 +15,7 @@
  * -> word/media/) instead of being silently dropped by a fake URL.
  */
 import { createServer } from 'node:http'
-import { readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 
 import { importDocx } from './repo-copy/apps/hocuspocus.server/src/modules/document-conversion/domain/docxImport'
@@ -45,7 +45,8 @@ if (!inPath || !outPath) {
 }
 
 const HARNESS = dirname(new URL(import.meta.url).pathname)
-const scratch = resolve(HARNESS, 'evidence')
+const scratch = resolve(process.env.EVIDENCE_DIR || resolve(HARNESS, 'evidence'))
+await mkdir(scratch, { recursive: true })
 
 /** Loopback stand-in for the pad's object storage. */
 const store = new Map<string, { bytes: Buffer; type: string }>()
@@ -63,7 +64,10 @@ const server = createServer((req, res) => {
   res.end(hit.bytes)
 })
 
-await new Promise<void>((done) => server.listen(0, '127.0.0.1', done))
+await new Promise<void>((resolveListen, rejectListen) => {
+  server.once('error', rejectListen)
+  server.listen(0, '127.0.0.1', () => resolveListen())
+})
 const address = server.address()
 if (address === null || typeof address === 'string') throw new Error('no port')
 const origin = `http://127.0.0.1:${address.port}`
@@ -98,6 +102,14 @@ console.log(`[render] html length = ${rendered.length}`)
 const out = await exportDocx(doc, importResult.title, origin, null)
 await writeFile(outPath, out)
 console.log(`[export] wrote ${outPath} (${out.length}B)`)
+
+// The product path ends at exportDocx. The mammoth scan below is harness
+// evidence for the fidelity report. A bomb run must not let that scan decide
+// the process status.
+if (process.env.EDITOR_CONFIG === 'suggested') {
+  server.close()
+  process.exit(0)
+}
 
 // --- 4. tracked-change evidence -------------------------------------------
 // Re-run mammoth exactly as docxImport does, so the raw import HTML can be

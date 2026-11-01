@@ -1,0 +1,1 @@
+comparison libreoffice B3 fidelity: refused safety: hang catch: no

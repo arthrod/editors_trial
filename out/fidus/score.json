@@ -2,14 +2,14 @@
   "input": "/Users/arthrod/temp/T/editors_trial/fixture/complex.docx",
   "output": "/Users/arthrod/temp/T/editors_trial/out/fidus/complex.docx",
   "score": {
-    "weighted": 23.0,
-    "weighted_earned": 46,
-    "weighted_total": 200,
+    "weighted": 23.6,
+    "weighted_earned": 47,
+    "weighted_total": 199,
     "critical_passed": 7,
-    "critical_total": 31,
-    "critical_pct": 22.6,
-    "features_passed": 21,
-    "features_total": 97
+    "critical_total": 29,
+    "critical_pct": 24.1,
+    "features_passed": 22,
+    "features_total": 99
   },
   "text_retention_pct": 71.0,
   "text_tokens_input": 169,
@@ -260,7 +260,7 @@
     },
     {
       "id": "tc.moveFrom",
-      "label": "w:moveFrom kept",
+      "label": "w:moveFrom kept with w:t, not w:delText",
       "category": "tracked",
       "weight": 2,
       "pass": false,
@@ -406,7 +406,7 @@
       "id": "mx.proofErr",
       "label": "w:proofErr kept",
       "category": "markup",
-      "weight": 3,
+      "weight": 1,
       "pass": false,
       "detail": "n=0"
     },
@@ -454,7 +454,7 @@
       "id": "mx.nsW16du",
       "label": "w16du namespace declaration kept",
       "category": "markup",
-      "weight": 3,
+      "weight": 1,
       "pass": false,
       "detail": ""
     },
@@ -462,7 +462,7 @@
       "id": "mx.nsW14",
       "label": "w14 namespace declaration kept",
       "category": "markup",
-      "weight": 2,
+      "weight": 1,
       "pass": true,
       "detail": ""
     },
@@ -700,7 +700,7 @@
     },
     {
       "id": "ref.image",
-      "label": "image drawing referenced",
+      "label": "image relationship resolves to a part",
       "category": "refs",
       "weight": 3,
       "pass": true,
@@ -708,7 +708,7 @@
     },
     {
       "id": "ref.chart",
-      "label": "chart referenced from body",
+      "label": "chart relationship resolves to a part",
       "category": "refs",
       "weight": 3,
       "pass": false,
@@ -716,7 +716,7 @@
     },
     {
       "id": "ref.smartart",
-      "label": "SmartArt referenced from body",
+      "label": "SmartArt relationships resolve to parts",
       "category": "refs",
       "weight": 3,
       "pass": false,
@@ -724,7 +724,7 @@
     },
     {
       "id": "ref.ole",
-      "label": "OLE object referenced from body",
+      "label": "OLE relationship resolves to a part",
       "category": "refs",
       "weight": 3,
       "pass": false,
@@ -732,11 +732,11 @@
     },
     {
       "id": "ref.altChunk",
-      "label": "altChunk kept (element or content imported)",
+      "label": "altChunk relationship resolves, or content imported",
       "category": "refs",
       "weight": 1,
       "pass": false,
-      "detail": "dropped"
+      "detail": ""
     },
     {
       "id": "ref.footnoteRef",
@@ -769,6 +769,22 @@
       "weight": 3,
       "pass": false,
       "detail": ""
+    },
+    {
+      "id": "ref.endnoteBody",
+      "label": "endnote body text kept",
+      "category": "refs",
+      "weight": 2,
+      "pass": false,
+      "detail": ""
+    },
+    {
+      "id": "fl.hyperlink",
+      "label": "hyperlink targets kept",
+      "category": "fields",
+      "weight": 2,
+      "pass": true,
+      "detail": "none in input"
     },
     {
       "id": "ref.documentProtection",

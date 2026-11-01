@@ -1,0 +1,12 @@
+failed to load config from <editors_trial>/harness/canvas/vitest.config.ts
+
+⎯⎯⎯⎯⎯⎯⎯ Startup Error ⎯⎯⎯⎯⎯⎯⎯⎯
+[Error: EPERM: operation not permitted, open '<editors_trial>/harness/canvas/node_modules/.vite-temp/vitest.config.ts.timestamp-1793482564332-4737cf44244db.mjs'] {
+  errno: -1,
+  code: 'EPERM',
+  syscall: 'open',
+  path: '<editors_trial>/harness/canvas/node_modules/.vite-temp/vitest.config.ts.timestamp-1793482564332-4737cf44244db.mjs'
+}
+
+
+

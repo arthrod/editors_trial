@@ -1,0 +1,1 @@
+tool eigenpal B2 fidelity: refused safety: bounded-reject catch: yes
