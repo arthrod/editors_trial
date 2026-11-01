@@ -1,0 +1,25 @@
+{
+ "date": "2026-11-01",
+ "stars": {
+  "storytold/wordcraft": 16875,
+  "udecode/plate": 16684,
+  "genspark-ai/genoffice": 11459,
+  "dolanmiu/docx": 5984,
+  "ONLYOFFICE/DocumentServer": 7066,
+  "Hufe921/canvas-editor": 5248,
+  "superdoc/docx-editor": 1117,
+  "fiduswriter/fiduswriter": 569,
+  "stffnb/edentext": 562,
+  "eigenpal/docx-editor": 536,
+  "openooxml/betteroffice": 328,
+  "Hufe921/canvas-editor-plugin": 131,
+  "JSv4/Docxodus": 106,
+  "docs-plus/docs.plus": 96,
+  "CasualOffice/docs": 68,
+  "DemoMacro/docen": 67,
+  "ant981228/cardmirror": 45,
+  "DemoMacro/office-open": 39,
+  "CasualOffice/opendoc": 34,
+  "stella/folio": 32
+ }
+}
