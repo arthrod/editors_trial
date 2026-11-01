@@ -154,3 +154,71 @@ class Build(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def _docx(body: str) -> bytes:
+    """A minimal package whose document body is `body`."""
+    ct = ('<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+          '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+          '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>')
+    doc = ('<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'
+           + body + '</w:body></w:document>')
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w") as z:
+        z.writestr("[Content_Types].xml", ct)
+        z.writestr("word/document.xml", doc)
+        z.writestr("word/_rels/document.xml.rels", '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"/>')
+    return out.getvalue()
+
+
+def _tc(text: str, pr: str = "") -> str:
+    return f"<w:tc>{'<w:tcPr>' + pr + '</w:tcPr>' if pr else ''}<w:p><w:r><w:t>{text}</w:t></w:r></w:p></w:tc>"
+
+
+class OrphanVMergeEdges(unittest.TestCase):
+    """Review comments on editors_trial#20: 4434885194 (gitar) and 4434897634 (CodeRabbit)."""
+
+    def run_step(self, rows: list[str]) -> str:
+        data, _ = m.sanitize(_docx("<w:tbl>" + "".join(rows) + "</w:tbl>"), ["orphan_vmerge_to_cell"])
+        return parts(data)["word/document.xml"].decode()
+
+    def test_a_chain_of_orphans_is_repaired_in_one_pass(self):
+        doc = self.run_step([
+            "<w:tr>" + _tc("A1") + "</w:tr>",
+            "<w:tr>" + _tc("A2", "<w:vMerge/>") + "</w:tr>",
+            "<w:tr>" + _tc("A3", "<w:vMerge/>") + "</w:tr>",
+        ])
+        self.assertNotIn("<w:vMerge", doc)
+
+    def test_a_valid_chain_is_kept_whole(self):
+        doc = self.run_step([
+            "<w:tr>" + _tc("A1", '<w:vMerge w:val="restart"/>') + "</w:tr>",
+            "<w:tr>" + _tc("A2", "<w:vMerge/>") + "</w:tr>",
+            "<w:tr>" + _tc("A3", "<w:vMerge/>") + "</w:tr>",
+        ])
+        self.assertEqual(doc.count("<w:vMerge/>"), 2)
+
+    def test_grid_before_shifts_the_row_columns(self):
+        # Row 2 skips grid column 0, so its first cell sits in column 1, under the restart.
+        doc = self.run_step([
+            "<w:tr>" + _tc("A1") + _tc("B1", '<w:vMerge w:val="restart"/>') + "</w:tr>",
+            '<w:tr><w:trPr><w:gridBefore w:val="1"/></w:trPr>' + _tc("B2", "<w:vMerge/>") + "</w:tr>",
+        ])
+        self.assertIn("<w:vMerge/>", doc)
+
+
+class NoForeignPayload(unittest.TestCase):
+    """Review comment 4434816580 and the VBA prompt in review 5727029260 (CodeRabbit, editors_trial#20): every
+    published copy is checked for an external non-hyperlink relationship and for a VBA project."""
+
+    def test_no_published_copy_carries_an_external_target_or_a_macro(self):
+        with tempfile.TemporaryDirectory() as d:
+            m.build(FIXTURE, Path(d), m.EDITORS)
+            for f in sorted(Path(d).glob("*.docx")):
+                p = parts(f.read_bytes())
+                for name, data in p.items():
+                    if name.endswith(".rels"):
+                        for rel in re.findall(r"<Relationship\b[^>]*>", data.decode()):
+                            if 'TargetMode="External"' in rel:
+                                self.assertRegex(rel, r'Type="[^"]*/hyperlink"', f"{f.name} {name}")
+                self.assertFalse([n for n in p if "vbaProject" in n], f.name)

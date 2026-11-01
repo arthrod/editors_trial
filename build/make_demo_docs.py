@@ -110,7 +110,10 @@ def _tables(doc: str):
             if close:
                 stack[-1]["rows"].append(stack[-1]["row"])
             else:
-                stack[-1]["row"], stack[-1]["col"] = [], 0
+                # A row may skip leading grid columns (w:gridBefore in its w:trPr); its first cell starts after them.
+                trpr = re.match(r"<w:tr\b[^>]*>\s*(?:<w:tblPrEx>[\s\S]*?</w:tblPrEx>\s*)?(<w:trPr>[\s\S]*?</w:trPr>)?", doc[t.start():])
+                before = re.search(r'<w:gridBefore w:val="(\d+)"', trpr.group(1) or "")
+                stack[-1]["row"], stack[-1]["col"] = [], int(before.group(1)) if before else 0
         elif not close:
             stack[-1]["cell"] = t.start()
         else:
@@ -127,12 +130,18 @@ def orphan_vmerge_to_cell(p: dict) -> dict:
     doc = p[DOC].decode()
     orphans = []
     for rows in _tables(doc):
-        for above, row in zip(rows, rows[1:]):
-            merged = {col for _, _, col, pr in above if "<w:vMerge" in pr}
+        live: set[int] = set()  # grid columns inside a valid vertical merge, row by row: an orphan never extends one
+        for row in rows:
+            nxt = set()
             for start, _, col, pr in row:
                 cont = re.search(r'<w:vMerge(?: w:val="continue")?\s*/>', pr)
-                if cont and col not in merged:
+                if re.search(r'<w:vMerge w:val="restart"', pr):
+                    nxt.add(col)
+                elif cont and col in live:
+                    nxt.add(col)
+                elif cont:
                     orphans.append(doc.index(pr, start) + cont.start())
+            live = nxt
     if not orphans:
         return {}
     for at in sorted(orphans, reverse=True):
