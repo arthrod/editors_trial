@@ -19,7 +19,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
-const REPO = '/Users/arthrod/temp/T/editors_trial/repos/genoffice'
+const REPO = process.env.GENOFFICE_REPO || '/Users/arthrod/temp/T/editors_trial/repos/genoffice'
 const STUB = path.join(HERE, 'desktop-stub.js')
 
 function desktopStub() {

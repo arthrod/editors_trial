@@ -1,0 +1,29 @@
+{
+ "word": "16.115",
+ "driver": "Commit: 2f2e23dbf609664932bc2e846cfcfb409b079756",
+ "verdicts": {
+  "plate": "OPENED",
+  "docxodus": "OPENED",
+  "superdoc": "OPENED",
+  "folio": "REFUSED",
+  "folio-editor": "REFUSED",
+  "genoffice": "OPENED",
+  "eigenpal": "OPENED",
+  "eigenpal-editor": "OPENED",
+  "officeopen": "REFUSED",
+  "docen": "REFUSED",
+  "wordcraft": "OPENED",
+  "fidus": "REFUSED",
+  "canvas": "OPENED",
+  "docsplus": "OPENED",
+  "apryse": "OPENED",
+  "lo_baseline": "OPENED"
+ },
+ "details": {
+  "folio": "Word could not load it in 2 passes: open produced 0 new documents, none named 00009__trial__folio.docx; refusing to guess",
+  "folio-editor": "repair prompt declined; Word could not read it: open produced 0 new documents, none named 00008__trial__folio-editor.docx; refusing to guess",
+  "officeopen": "Word could not load it in 2 passes: open produced 0 new documents, none named 00012__trial__officeopen.docx; refusing to guess",
+  "docen": "Word could not load it in 2 passes: open produced 0 new documents, none named 00002__trial__docen.docx; refusing to guess",
+  "fidus": "Word could not load it in 2 passes: open produced 0 new documents, none named 00007__trial__fidus.docx; refusing to guess"
+ }
+}

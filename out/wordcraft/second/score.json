@@ -1,6 +1,6 @@
 {
-  "input": "/Users/arthrod/temp/T/editors_trial/out/wordcraft/complex.docx",
-  "output": "/Users/arthrod/temp/T/editors_trial/out/wordcraft/second/complex.docx",
+  "input": "out/wordcraft/complex.docx",
+  "output": "out/wordcraft/second/complex.docx",
   "score": {
     "weighted": 86.4,
     "weighted_earned": 172,
@@ -12,7 +12,7 @@
     "features_total": 99
   },
   "text_retention_pct": 100.0,
-  "text_tokens_input": 164,
+  "text_tokens_input": 161,
   "text_tokens_lost": 0,
   "text_lost_sample": [],
   "checks": [
@@ -314,7 +314,7 @@
     },
     {
       "id": "fl.fldSimple",
-      "label": "simple field (w:fldSimple) kept",
+      "label": "simple fields kept (as simple or complex fields)",
       "category": "fields",
       "weight": 2,
       "pass": false,

@@ -1,0 +1,4173 @@
+{
+ "Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md": [
+  {
+   "line": 9,
+   "literal": "98.5",
+   "subject": "eigenpal",
+   "context": "this edition (2026-11-01).** We first published eigenpal at 98.5%, failing `text.exact` becaus"
+  },
+  {
+   "line": 13,
+   "literal": "45",
+   "subject": "plate",
+   "context": "gh its own headless `importDocx` → `exportDocx` path with **45 base plugins** and Plate's ow"
+  },
+  {
+   "line": 15,
+   "literal": "1,117",
+   "subject": "plate",
+   "context": "ighted:.1f}}%, while the three projects tied for first have 1,117 (SuperDoc), 536 (eigenpal) an"
+  },
+  {
+   "line": 15,
+   "literal": "536",
+   "subject": "superdoc",
+   "context": "le the three projects tied for first have 1,117 (SuperDoc), 536 (eigenpal) and 106 (Docxodus)"
+  },
+  {
+   "line": 15,
+   "literal": "106",
+   "subject": "eigenpal",
+   "context": "ts tied for first have 1,117 (SuperDoc), 536 (eigenpal) and 106 (Docxodus)."
+  },
+  {
+   "line": 21,
+   "literal": "35",
+   "subject": "superdoc",
+   "context": "l features, {{rt.superdoc.text_pct:g}}% text retention, all 35 package parts preserved, and"
+  },
+  {
+   "line": 22,
+   "literal": "35",
+   "subject": "docxodus",
+   "context": "cal_total}} critical, {{rt.docxodus.text_pct:g}}% text, all 35 parts, zero failed checks, an"
+  },
+  {
+   "line": 24,
+   "literal": "35",
+   "subject": "eigenpal",
+   "context": "cal_total}} critical, {{rt.eigenpal.text_pct:g}}% text, all 35 parts, and a byte-identical s"
+  },
+  {
+   "line": 25,
+   "literal": "35",
+   "subject": "genoffice",
+   "context": "- **GenOffice** preserves all 35 parts, but regenerates one bl"
+  },
+  {
+   "line": 28,
+   "literal": "45",
+   "subject": "plate",
+   "context": "ts DOCX engine is a genuine, carefully built piece of work: 45 plugins, a headless import/ex"
+  },
+  {
+   "line": 100,
+   "literal": "7,066",
+   "subject": null,
+   "context": "all are mostly *not* editors: `ONLYOFFICE/DocumentServer` (7,066★) is a server and `dolanmiu/d"
+  },
+  {
+   "line": 100,
+   "literal": "5,984",
+   "subject": null,
+   "context": "E/DocumentServer` (7,066★) is a server and `dolanmiu/docx` (5,984★) is a generator."
+  },
+  {
+   "line": 148,
+   "literal": "45",
+   "subject": "plate",
+   "context": "`importDocx` → `exportDocx` (headless, 45 base plugins + Plate's own st"
+  },
+  {
+   "line": 189,
+   "literal": "2",
+   "subject": "folio",
+   "context": "**Folio — 2 checks.** Text is {{rt.folio."
+  },
+  {
+   "line": 191,
+   "literal": "1",
+   "subject": "genoffice",
+   "context": "**GenOffice — 1 check.** The visible text str"
+  },
+  {
+   "line": 191,
+   "literal": "40",
+   "subject": "genoffice",
+   "context": "copy of untouched blocks\" `[RELEASE/ISSUE #2279]` holds for 40 of 41 blocks and falls back t"
+  },
+  {
+   "line": 191,
+   "literal": "41",
+   "subject": "genoffice",
+   "context": "f untouched blocks\" `[RELEASE/ISSUE #2279]` holds for 40 of 41 blocks and falls back to rege"
+  },
+  {
+   "line": 193,
+   "literal": "1",
+   "subject": "eigenpal",
+   "context": "**eigenpal — 1 check.** `mc:AlternateContent"
+  },
+  {
+   "line": 195,
+   "literal": "5",
+   "subject": "officeopen",
+   "context": "**office-open — 5 checks.** Drops `w16du:dateUt"
+  },
+  {
+   "line": 195,
+   "literal": "100",
+   "subject": null,
+   "context": "Everything else survives, and text is 100% intact."
+  },
+  {
+   "line": 195,
+   "literal": "32.2",
+   "subject": null,
+   "context": "Second-pass score collapses to 32.2%."
+  },
+  {
+   "line": 197,
+   "literal": "7",
+   "subject": "docen",
+   "context": "**Docen — 7 checks.** Inherits every offi"
+  },
+  {
+   "line": 197,
+   "literal": "32.2",
+   "subject": null,
+   "context": "Second-pass score 32.2%, same unbound-prefix failure"
+  },
+  {
+   "line": 199,
+   "literal": "13",
+   "subject": "wordcraft",
+   "context": "**WordCraft — 13 checks.** Keeps the chart, al"
+  },
+  {
+   "line": 201,
+   "literal": "77",
+   "subject": "fidus",
+   "context": "**Fidus Writer — 77 checks.** The decisive findin"
+  },
+  {
+   "line": 201,
+   "literal": "11",
+   "subject": "fidus",
+   "context": "anywhere in `src/importer/docx/*`, so both fixture tables (11 rows, 16 cells) are gone befo"
+  },
+  {
+   "line": 201,
+   "literal": "16",
+   "subject": "fidus",
+   "context": "in `src/importer/docx/*`, so both fixture tables (11 rows, 16 cells) are gone before export"
+  },
+  {
+   "line": 203,
+   "literal": "75",
+   "subject": "canvas",
+   "context": "**canvas-editor + plugin — 75 checks.** The importer is a b"
+  },
+  {
+   "line": 203,
+   "literal": "1,859",
+   "subject": "canvas",
+   "context": "ser over JSZip (`packages/docx/src/docx/importDocx.ts:413`, 1,859 lines) and the exporter **reb"
+  },
+  {
+   "line": 205,
+   "literal": "79",
+   "subject": "docsplus",
+   "context": "**docs.plus — 79 checks.** The pipeline is DOC"
+  },
+  {
+   "line": 207,
+   "literal": "79",
+   "subject": "plate",
+   "context": "**Plate.js — 79 checks.** The pipeline is DOC"
+  },
+  {
+   "line": 207,
+   "literal": "90.5",
+   "subject": null,
+   "context": "What survives is the text — **90.5%**, tied with docs.plus for t"
+  },
+  {
+   "line": 209,
+   "literal": "38",
+   "subject": "plate",
+   "context": "n the trial that reports these losses.** The import emits **38 typed diagnostics** — 19 `uns"
+  },
+  {
+   "line": 209,
+   "literal": "19",
+   "subject": "plate",
+   "context": "these losses.** The import emits **38 typed diagnostics** — 19 `unsupported-content`, 6 `con"
+  },
+  {
+   "line": 209,
+   "literal": "6",
+   "subject": "plate",
+   "context": "emits **38 typed diagnostics** — 19 `unsupported-content`, 6 `converter-message`, 2 `resou"
+  },
+  {
+   "line": 209,
+   "literal": "2",
+   "subject": "plate",
+   "context": "ostics** — 19 `unsupported-content`, 6 `converter-message`, 2 `resource-omitted`, 8 `proper"
+  },
+  {
+   "line": 209,
+   "literal": "8",
+   "subject": "plate",
+   "context": "rted-content`, 6 `converter-message`, 2 `resource-omitted`, 8 `property-dropped`, 2 `lossy-"
+  },
+  {
+   "line": 209,
+   "literal": "2",
+   "subject": "plate",
+   "context": "erter-message`, 2 `resource-omitted`, 8 `property-dropped`, 2 `lossy-content` and 1 `source"
+  },
+  {
+   "line": 209,
+   "literal": "1",
+   "subject": "plate",
+   "context": "ource-omitted`, 8 `property-dropped`, 2 `lossy-content` and 1 `source-unavailable` — naming"
+  },
+  {
+   "line": 222,
+   "literal": "100",
+   "subject": "wordcraft",
+   "context": "Stable but not byte-identical; text 100%"
+  },
+  {
+   "line": 224,
+   "literal": "13606",
+   "subject": "officeopen",
+   "context": "word/document.xml` fails to parse: \"unbound prefix\", column 13606**"
+  },
+  {
+   "line": 225,
+   "literal": "15858",
+   "subject": "docen",
+   "context": "**Not idempotent — \"unbound prefix\", column 15858**"
+  },
+  {
+   "line": 243,
+   "literal": "16.115",
+   "subject": "lo_baseline",
+   "context": "as schema-clean under a naive reading, but **Microsoft Word 16.115 declined it outright**."
+  },
+  {
+   "line": 297,
+   "literal": "35",
+   "subject": "genoffice",
+   "context": "**GenOffice.** {{rt.genoffice.weighted:.1f}}%, all 35 parts kept, one block regener"
+  },
+  {
+   "line": 298,
+   "literal": "100",
+   "subject": "eigenpal",
+   "context": ".critical_passed}}/{{rt.eigenpal.critical_total}} critical, 100% text, no part lost; its seco"
+  },
+  {
+   "line": 303,
+   "literal": "35",
+   "subject": "plate",
+   "context": "parts survive byte-identically, {{parts.plate.dropped}} of 35 are dropped, and the document"
+  },
+  {
+   "line": 303,
+   "literal": "2",
+   "subject": "plate",
+   "context": "te.dropped}} of 35 are dropped, and the document renders in 2 pages instead of 6** — so it"
+  },
+  {
+   "line": 303,
+   "literal": "6",
+   "subject": "plate",
+   "context": "are dropped, and the document renders in 2 pages instead of 6** — so it scores {{rt.plate.w"
+  },
+  {
+   "line": 305,
+   "literal": "1,117",
+   "subject": null,
+   "context": "The three tied for first have 1,117★, 536★ and 106★, and Folio, f"
+  },
+  {
+   "line": 305,
+   "literal": "536",
+   "subject": null,
+   "context": "The three tied for first have 1,117★, 536★ and 106★, and Folio, fifth a"
+  },
+  {
+   "line": 305,
+   "literal": "106",
+   "subject": null,
+   "context": "The three tied for first have 1,117★, 536★ and 106★, and Folio, fifth at {{rt.fo"
+  },
+  {
+   "line": 352,
+   "literal": "0",
+   "subject": "officeopen",
+   "context": "**D** (0 of 3)"
+  },
+  {
+   "line": 352,
+   "literal": "3",
+   "subject": "officeopen",
+   "context": "**D** (0 of 3)"
+  },
+  {
+   "line": 352,
+   "literal": "0",
+   "subject": "docen",
+   "context": "**D** (0 of 3)"
+  },
+  {
+   "line": 352,
+   "literal": "3",
+   "subject": "docen",
+   "context": "**D** (0 of 3)"
+  },
+  {
+   "line": 352,
+   "literal": "0",
+   "subject": "wordcraft",
+   "context": "**D** (0 of 3)"
+  },
+  {
+   "line": 352,
+   "literal": "3",
+   "subject": "wordcraft",
+   "context": "**D** (0 of 3)"
+  },
+  {
+   "line": 352,
+   "literal": "0",
+   "subject": "canvas",
+   "context": "**D** (0 of 3)"
+  },
+  {
+   "line": 352,
+   "literal": "3",
+   "subject": "canvas",
+   "context": "**D** (0 of 3)"
+  },
+  {
+   "line": 352,
+   "literal": "0",
+   "subject": "fidus",
+   "context": "**D** (0 of 3)"
+  },
+  {
+   "line": 352,
+   "literal": "3",
+   "subject": "fidus",
+   "context": "**D** (0 of 3)"
+  },
+  {
+   "line": 352,
+   "literal": "0",
+   "subject": "docsplus",
+   "context": "**D** (0 of 3)"
+  },
+  {
+   "line": 352,
+   "literal": "3",
+   "subject": "docsplus",
+   "context": "**D** (0 of 3)"
+  },
+  {
+   "line": 352,
+   "literal": "0",
+   "subject": "plate",
+   "context": "**D** (0 of 3)"
+  },
+  {
+   "line": 352,
+   "literal": "3",
+   "subject": "plate",
+   "context": "**D** (0 of 3)"
+  },
+  {
+   "line": 355,
+   "literal": "0",
+   "subject": "wordcraft",
+   "context": "**D** (0 of 4)"
+  },
+  {
+   "line": 355,
+   "literal": "4",
+   "subject": "wordcraft",
+   "context": "**D** (0 of 4)"
+  },
+  {
+   "line": 355,
+   "literal": "0",
+   "subject": "canvas",
+   "context": "**D** (0 of 4)"
+  },
+  {
+   "line": 355,
+   "literal": "4",
+   "subject": "canvas",
+   "context": "**D** (0 of 4)"
+  },
+  {
+   "line": 355,
+   "literal": "0",
+   "subject": "fidus",
+   "context": "**D** (0 of 4)"
+  },
+  {
+   "line": 355,
+   "literal": "4",
+   "subject": "fidus",
+   "context": "**D** (0 of 4)"
+  },
+  {
+   "line": 355,
+   "literal": "0",
+   "subject": "docsplus",
+   "context": "**D** (0 of 4)"
+  },
+  {
+   "line": 355,
+   "literal": "4",
+   "subject": "docsplus",
+   "context": "**D** (0 of 4)"
+  },
+  {
+   "line": 355,
+   "literal": "0",
+   "subject": "plate",
+   "context": "**D** (0 of 4)"
+  },
+  {
+   "line": 355,
+   "literal": "4",
+   "subject": "plate",
+   "context": "**D** (0 of 4)"
+  },
+  {
+   "line": 357,
+   "literal": "2",
+   "subject": "wordcraft",
+   "context": "**D** (2 of 3)"
+  },
+  {
+   "line": 357,
+   "literal": "3",
+   "subject": "wordcraft",
+   "context": "**D** (2 of 3)"
+  },
+  {
+   "line": 357,
+   "literal": "0",
+   "subject": "canvas",
+   "context": "**D** (0 of 3)"
+  },
+  {
+   "line": 357,
+   "literal": "3",
+   "subject": "canvas",
+   "context": "**D** (0 of 3)"
+  },
+  {
+   "line": 357,
+   "literal": "1",
+   "subject": "fidus",
+   "context": "**D** (1 of 3)"
+  },
+  {
+   "line": 357,
+   "literal": "3",
+   "subject": "fidus",
+   "context": "**D** (1 of 3)"
+  },
+  {
+   "line": 357,
+   "literal": "0",
+   "subject": "docsplus",
+   "context": "**D** (0 of 3)"
+  },
+  {
+   "line": 357,
+   "literal": "3",
+   "subject": "docsplus",
+   "context": "**D** (0 of 3)"
+  },
+  {
+   "line": 357,
+   "literal": "0",
+   "subject": "plate",
+   "context": "**D** (0 of 3)"
+  },
+  {
+   "line": 357,
+   "literal": "3",
+   "subject": "plate",
+   "context": "**D** (0 of 3)"
+  },
+  {
+   "line": 360,
+   "literal": "0",
+   "subject": "wordcraft",
+   "context": "**D** (0 of 1)"
+  },
+  {
+   "line": 360,
+   "literal": "1",
+   "subject": "wordcraft",
+   "context": "**D** (0 of 1)"
+  },
+  {
+   "line": 360,
+   "literal": "0",
+   "subject": "canvas",
+   "context": "**D** (0 of 1)"
+  },
+  {
+   "line": 360,
+   "literal": "1",
+   "subject": "canvas",
+   "context": "**D** (0 of 1)"
+  },
+  {
+   "line": 360,
+   "literal": "0",
+   "subject": "fidus",
+   "context": "**D** (0 of 1)"
+  },
+  {
+   "line": 360,
+   "literal": "1",
+   "subject": "fidus",
+   "context": "**D** (0 of 1)"
+  },
+  {
+   "line": 360,
+   "literal": "0",
+   "subject": "docsplus",
+   "context": "**D** (0 of 1)"
+  },
+  {
+   "line": 360,
+   "literal": "1",
+   "subject": "docsplus",
+   "context": "**D** (0 of 1)"
+  },
+  {
+   "line": 360,
+   "literal": "0",
+   "subject": "plate",
+   "context": "**D** (0 of 1)"
+  },
+  {
+   "line": 360,
+   "literal": "1",
+   "subject": "plate",
+   "context": "**D** (0 of 1)"
+  },
+  {
+   "line": 361,
+   "literal": "0",
+   "subject": "canvas",
+   "context": "**D** (0 of 9)"
+  },
+  {
+   "line": 361,
+   "literal": "9",
+   "subject": "canvas",
+   "context": "**D** (0 of 9)"
+  },
+  {
+   "line": 361,
+   "literal": "0",
+   "subject": "docsplus",
+   "context": "**D** (0 of 9)"
+  },
+  {
+   "line": 361,
+   "literal": "9",
+   "subject": "docsplus",
+   "context": "**D** (0 of 9)"
+  },
+  {
+   "line": 361,
+   "literal": "0",
+   "subject": "plate",
+   "context": "**D** (0 of 9)"
+  },
+  {
+   "line": 361,
+   "literal": "9",
+   "subject": "plate",
+   "context": "**D** (0 of 9)"
+  },
+  {
+   "line": 362,
+   "literal": "0",
+   "subject": "canvas",
+   "context": "**D** (0 of 2)"
+  },
+  {
+   "line": 362,
+   "literal": "2",
+   "subject": "canvas",
+   "context": "**D** (0 of 2)"
+  },
+  {
+   "line": 362,
+   "literal": "0",
+   "subject": "fidus",
+   "context": "**D** (0 of 2)"
+  },
+  {
+   "line": 362,
+   "literal": "2",
+   "subject": "fidus",
+   "context": "**D** (0 of 2)"
+  },
+  {
+   "line": 362,
+   "literal": "0",
+   "subject": "docsplus",
+   "context": "**D** (0 of 2)"
+  },
+  {
+   "line": 362,
+   "literal": "2",
+   "subject": "docsplus",
+   "context": "**D** (0 of 2)"
+  },
+  {
+   "line": 362,
+   "literal": "0",
+   "subject": "plate",
+   "context": "**D** (0 of 2)"
+  },
+  {
+   "line": 362,
+   "literal": "2",
+   "subject": "plate",
+   "context": "**D** (0 of 2)"
+  },
+  {
+   "line": 364,
+   "literal": "0",
+   "subject": "canvas",
+   "context": "**D** (0 of 5)"
+  },
+  {
+   "line": 364,
+   "literal": "5",
+   "subject": "canvas",
+   "context": "**D** (0 of 5)"
+  },
+  {
+   "line": 364,
+   "literal": "0",
+   "subject": "fidus",
+   "context": "**D** (0 of 5)"
+  },
+  {
+   "line": 364,
+   "literal": "5",
+   "subject": "fidus",
+   "context": "**D** (0 of 5)"
+  },
+  {
+   "line": 364,
+   "literal": "0",
+   "subject": "docsplus",
+   "context": "**D** (0 of 5)"
+  },
+  {
+   "line": 364,
+   "literal": "5",
+   "subject": "docsplus",
+   "context": "**D** (0 of 5)"
+  },
+  {
+   "line": 364,
+   "literal": "0",
+   "subject": "plate",
+   "context": "**D** (0 of 5)"
+  },
+  {
+   "line": 364,
+   "literal": "5",
+   "subject": "plate",
+   "context": "**D** (0 of 5)"
+  },
+  {
+   "line": 367,
+   "literal": "0",
+   "subject": "fidus",
+   "context": "**D** (0 of 2)"
+  },
+  {
+   "line": 367,
+   "literal": "2",
+   "subject": "fidus",
+   "context": "**D** (0 of 2)"
+  },
+  {
+   "line": 368,
+   "literal": "1",
+   "subject": "canvas",
+   "context": "**D** (1 of 3)"
+  },
+  {
+   "line": 368,
+   "literal": "3",
+   "subject": "canvas",
+   "context": "**D** (1 of 3)"
+  },
+  {
+   "line": 368,
+   "literal": "1",
+   "subject": "fidus",
+   "context": "**D** (1 of 3)"
+  },
+  {
+   "line": 368,
+   "literal": "3",
+   "subject": "fidus",
+   "context": "**D** (1 of 3)"
+  },
+  {
+   "line": 368,
+   "literal": "1",
+   "subject": "docsplus",
+   "context": "**D** (1 of 3)"
+  },
+  {
+   "line": 368,
+   "literal": "3",
+   "subject": "docsplus",
+   "context": "**D** (1 of 3)"
+  },
+  {
+   "line": 368,
+   "literal": "1",
+   "subject": "plate",
+   "context": "**D** (1 of 3)"
+  },
+  {
+   "line": 368,
+   "literal": "3",
+   "subject": "plate",
+   "context": "**D** (1 of 3)"
+  },
+  {
+   "line": 373,
+   "literal": "0",
+   "subject": "plate",
+   "context": "**D** (0 of 27)"
+  },
+  {
+   "line": 373,
+   "literal": "27",
+   "subject": "plate",
+   "context": "**D** (0 of 27)"
+  },
+  {
+   "line": 399,
+   "literal": "18,276",
+   "subject": "superdoc",
+   "context": "led check. `word/document.xml` was genuinely re-serialized (18,276 → 18,495 bytes) and the other"
+  },
+  {
+   "line": 399,
+   "literal": "18,495",
+   "subject": "superdoc",
+   "context": ". `word/document.xml` was genuinely re-serialized (18,276 → 18,495 bytes) and the other 27 parts"
+  },
+  {
+   "line": 399,
+   "literal": "27",
+   "subject": "superdoc",
+   "context": "nuinely re-serialized (18,276 → 18,495 bytes) and the other 27 parts came through byte-ident"
+  },
+  {
+   "line": 413,
+   "literal": "30",
+   "subject": "folio",
+   "context": "**Cons:** tiny community (30 stars); very fast-moving 0.x"
+  },
+  {
+   "line": 413,
+   "literal": "0",
+   "subject": "folio",
+   "context": "**Cons:** tiny community (30 stars); very fast-moving 0.x API; effectively a single m"
+  },
+  {
+   "line": 423,
+   "literal": "40",
+   "subject": "genoffice",
+   "context": "enoffice.weighted:.1f}}%, all {{fixture.parts}} parts kept, 40 of 41 blocks kept verbatim, *"
+  },
+  {
+   "line": 423,
+   "literal": "41",
+   "subject": "genoffice",
+   "context": "ce.weighted:.1f}}%, all {{fixture.parts}} parts kept, 40 of 41 blocks kept verbatim, **1 blo"
+  },
+  {
+   "line": 423,
+   "literal": "1",
+   "subject": "genoffice",
+   "context": "ixture.parts}} parts kept, 40 of 41 blocks kept verbatim, **1 block regenerated** — the tab"
+  },
+  {
+   "line": 447,
+   "literal": "35",
+   "subject": "officeopen",
+   "context": "en.weighted:.1f}}%, {{rt.officeopen.text_pct:g}}% text, all 35 parts present — but `w16du:da"
+  },
+  {
+   "line": 449,
+   "literal": "195",
+   "subject": "officeopen",
+   "context": "/docx/pptx/xml. `diff -rq` over `packages/docx/src` reports 195 differing or extra files."
+  },
+  {
+   "line": 459,
+   "literal": "23",
+   "subject": "wordcraft",
+   "context": "layout — the trial did exactly that, and the crate built in 23 s."
+  },
+  {
+   "line": 463,
+   "literal": "65",
+   "subject": "wordcraft",
+   "context": "ity [DOCS].** `docs/file-format-parity.md:49` still says **~65%** for `.docx` R/W, \"syntheti"
+  },
+  {
+   "line": 463,
+   "literal": "60",
+   "subject": "wordcraft",
+   "context": "l-world corpus\"; `:10-13` discounts the weighted table to \"~60% because DOCX fidelity has ne"
+  },
+  {
+   "line": 463,
+   "literal": "65",
+   "subject": "wordcraft",
+   "context": "nst a deliberately hostile document is consistent with the ~65% self-assessment for ordinary"
+  },
+  {
+   "line": 467,
+   "literal": "1,859",
+   "subject": "canvas",
+   "context": "ser over JSZip (`packages/docx/src/docx/importDocx.ts:413`, 1,859 lines) — **not mammoth.js**,"
+  },
+  {
+   "line": 471,
+   "literal": "12",
+   "subject": "canvas",
+   "context": "The importer is the degrading side: 12 input paragraphs are already"
+  },
+  {
+   "line": 471,
+   "literal": "0",
+   "subject": "canvas",
+   "context": "already missing from the editor's in-memory model, while **0** model paragraphs are missin"
+  },
+  {
+   "line": 471,
+   "literal": "1",
+   "subject": "canvas",
+   "context": "ly rewrites structure (list numbering flattened to literal \"1.\"/\"2.\", `w:sdt` flattened to"
+  },
+  {
+   "line": 471,
+   "literal": "2",
+   "subject": "canvas",
+   "context": "writes structure (list numbering flattened to literal \"1.\"/\"2.\", `w:sdt` flattened to plain"
+  },
+  {
+   "line": 471,
+   "literal": "1",
+   "subject": "canvas",
+   "context": "d to plain text, footnotes/comments emitted as empty stubs, 1 of 3 sections)."
+  },
+  {
+   "line": 471,
+   "literal": "3",
+   "subject": "canvas",
+   "context": "plain text, footnotes/comments emitted as empty stubs, 1 of 3 sections)."
+  },
+  {
+   "line": 479,
+   "literal": "11",
+   "subject": "fidus",
+   "context": "/docx/*` has **no table handling**, so both fixture tables (11 rows, 16 cells) are gone befo"
+  },
+  {
+   "line": 479,
+   "literal": "16",
+   "subject": "fidus",
+   "context": "has **no table handling**, so both fixture tables (11 rows, 16 cells) are gone before the ex"
+  },
+  {
+   "line": 479,
+   "literal": "12",
+   "subject": "fidus",
+   "context": "The importer also reports 12 unhandled element classes and"
+  },
+  {
+   "line": 481,
+   "literal": "99.5",
+   "subject": null,
+   "context": "g the *input document itself* as the export template scores 99.5% — because the input contains"
+  },
+  {
+   "line": 487,
+   "literal": "3",
+   "subject": "docsplus",
+   "context": "Counts across the chain: `w:ins` 3→0→0→0→0; `w:del` 3→0→0→0→0; `"
+  },
+  {
+   "line": 487,
+   "literal": "0",
+   "subject": "docsplus",
+   "context": "Counts across the chain: `w:ins` 3→0→0→0→0; `w:del` 3→0→0→0→0; `w:"
+  },
+  {
+   "line": 487,
+   "literal": "0",
+   "subject": "docsplus",
+   "context": "Counts across the chain: `w:ins` 3→0→0→0→0; `w:del` 3→0→0→0→0; `w:mo"
+  },
+  {
+   "line": 487,
+   "literal": "0",
+   "subject": "docsplus",
+   "context": "Counts across the chain: `w:ins` 3→0→0→0→0; `w:del` 3→0→0→0→0; `w:move"
+  },
+  {
+   "line": 487,
+   "literal": "0",
+   "subject": "docsplus",
+   "context": "Counts across the chain: `w:ins` 3→0→0→0→0; `w:del` 3→0→0→0→0; `w:moveFr"
+  },
+  {
+   "line": 487,
+   "literal": "3",
+   "subject": "docsplus",
+   "context": "Counts across the chain: `w:ins` 3→0→0→0→0; `w:del` 3→0→0→0→0; `w:moveFrom` 1→0→0→0"
+  },
+  {
+   "line": 487,
+   "literal": "0",
+   "subject": "docsplus",
+   "context": "Counts across the chain: `w:ins` 3→0→0→0→0; `w:del` 3→0→0→0→0; `w:moveFrom` 1→0→0→0→0"
+  },
+  {
+   "line": 487,
+   "literal": "0",
+   "subject": "docsplus",
+   "context": "Counts across the chain: `w:ins` 3→0→0→0→0; `w:del` 3→0→0→0→0; `w:moveFrom` 1→0→0→0→0."
+  },
+  {
+   "line": 487,
+   "literal": "0",
+   "subject": "docsplus",
+   "context": "Counts across the chain: `w:ins` 3→0→0→0→0; `w:del` 3→0→0→0→0; `w:moveFrom` 1→0→0→0→0."
+  },
+  {
+   "line": 487,
+   "literal": "0",
+   "subject": "docsplus",
+   "context": "Counts across the chain: `w:ins` 3→0→0→0→0; `w:del` 3→0→0→0→0; `w:moveFrom` 1→0→0→0→0."
+  },
+  {
+   "line": 487,
+   "literal": "1",
+   "subject": "docsplus",
+   "context": "e chain: `w:ins` 3→0→0→0→0; `w:del` 3→0→0→0→0; `w:moveFrom` 1→0→0→0→0."
+  },
+  {
+   "line": 487,
+   "literal": "0",
+   "subject": "docsplus",
+   "context": "chain: `w:ins` 3→0→0→0→0; `w:del` 3→0→0→0→0; `w:moveFrom` 1→0→0→0→0."
+  },
+  {
+   "line": 487,
+   "literal": "0",
+   "subject": "docsplus",
+   "context": "ain: `w:ins` 3→0→0→0→0; `w:del` 3→0→0→0→0; `w:moveFrom` 1→0→0→0→0."
+  },
+  {
+   "line": 487,
+   "literal": "0",
+   "subject": "docsplus",
+   "context": "n: `w:ins` 3→0→0→0→0; `w:del` 3→0→0→0→0; `w:moveFrom` 1→0→0→0→0."
+  },
+  {
+   "line": 487,
+   "literal": "0",
+   "subject": "docsplus",
+   "context": "`w:ins` 3→0→0→0→0; `w:del` 3→0→0→0→0; `w:moveFrom` 1→0→0→0→0."
+  },
+  {
+   "line": 503,
+   "literal": "32",
+   "subject": "plate",
+   "context": "rom `apps/www/src/registry/components/editor/*-static.tsx` (32 files) together with `DOCX_EX"
+  },
+  {
+   "line": 505,
+   "literal": "35",
+   "subject": "plate",
+   "context": "o parts are byte-identical** and {{parts.plate.dropped}} of 35 are dropped: every header, fo"
+  },
+  {
+   "line": 505,
+   "literal": "2",
+   "subject": "plate",
+   "context": "The output renders in **2 pages** instead of 6."
+  },
+  {
+   "line": 505,
+   "literal": "6",
+   "subject": "plate",
+   "context": "The output renders in **2 pages** instead of 6."
+  },
+  {
+   "line": 507,
+   "literal": "38",
+   "subject": "plate",
+   "context": "editor here that says what it did.** The import produces **38 typed diagnostics**, and they"
+  },
+  {
+   "line": 507,
+   "literal": "19",
+   "subject": "plate",
+   "context": "rt produces **38 typed diagnostics**, and they are precise: 19 `unsupported-content` (field-"
+  },
+  {
+   "line": 507,
+   "literal": "6",
+   "subject": "plate",
+   "context": "into the main document, four move-range markers flattened), 6 `converter-message` (`w:cr`,"
+  },
+  {
+   "line": 507,
+   "literal": "2",
+   "subject": "plate",
+   "context": "t`, `w:permStart`, `w:permEnd`, `w:altChunk` unrecognised), 2 `resource-omitted` (embedded"
+  },
+  {
+   "line": 507,
+   "literal": "8",
+   "subject": "plate",
+   "context": "recognised), 2 `resource-omitted` (embedded image omitted), 8 `property-dropped` (backgroun"
+  },
+  {
+   "line": 507,
+   "literal": "2",
+   "subject": "plate",
+   "context": "ded image omitted), 8 `property-dropped` (background color ×2, font size ×4, font family ×2"
+  },
+  {
+   "line": 507,
+   "literal": "4",
+   "subject": "plate",
+   "context": "ted), 8 `property-dropped` (background color ×2, font size ×4, font family ×2, caps, small"
+  },
+  {
+   "line": 507,
+   "literal": "2",
+   "subject": "plate",
+   "context": "y-dropped` (background color ×2, font size ×4, font family ×2, caps, small caps, character"
+  },
+  {
+   "line": 507,
+   "literal": "2",
+   "subject": "plate",
+   "context": "family ×2, caps, small caps, character spacing, alignment ×2, superscript) and 2 `lossy-co"
+  },
+  {
+   "line": 507,
+   "literal": "2",
+   "subject": "plate",
+   "context": "all caps, character spacing, alignment ×2, superscript) and 2 `lossy-content` (tracked revi"
+  },
+  {
+   "line": 507,
+   "literal": "0",
+   "subject": "plate",
+   "context": "and 2 `lossy-content` (tracked revisions flattened; comment 0 has no complete imported rang"
+  },
+  {
+   "line": 507,
+   "literal": "18",
+   "subject": "plate",
+   "context": "default `lossPolicy: 'reject'` those same diagnostics are **18 errors** and the import **fai"
+  },
+  {
+   "line": 516,
+   "literal": "20.1",
+   "subject": null,
+   "context": "**Second pass [MEASURED].** 20.1%, 0 errors, and the package s"
+  },
+  {
+   "line": 525,
+   "literal": "1,859",
+   "subject": "canvas",
+   "context": "ditor's DOCX importer is not mammoth.js** — it is a bespoke 1,859-line OOXML parser over JSZip."
+  }
+ ],
+ "reports/Report A - Serialization by Namespace (2026).md": [
+  {
+   "line": 17,
+   "literal": "6",
+   "subject": "plate",
+   "context": "itor that loses the image.** Its `pic:` namespace goes from 6 distinct names to **0**, and"
+  },
+  {
+   "line": 17,
+   "literal": "0",
+   "subject": "plate",
+   "context": "age.** Its `pic:` namespace goes from 6 distinct names to **0**, and its `resource-omitted`"
+  },
+  {
+   "line": 18,
+   "literal": "38",
+   "subject": "plate",
+   "context": "two** have a namespace-level reporting mechanism: Plate.js (38 typed diagnostics, `lossPolic"
+  },
+  {
+   "line": 34,
+   "literal": "294",
+   "subject": "wordcraft",
+   "context": "contains **more** `w:` elements than the corpus and keeps **294 of 309** distinct names."
+  },
+  {
+   "line": 34,
+   "literal": "309",
+   "subject": "wordcraft",
+   "context": "s **more** `w:` elements than the corpus and keeps **294 of 309** distinct names."
+  },
+  {
+   "line": 99,
+   "literal": "1",
+   "subject": "wordcraft",
+   "context": "hich is why Fidus, canvas-editor and WordCraft show `mc` at 1/4 rather than 0/4: they keep"
+  },
+  {
+   "line": 99,
+   "literal": "4",
+   "subject": "wordcraft",
+   "context": "ch is why Fidus, canvas-editor and WordCraft show `mc` at 1/4 rather than 0/4: they keep th"
+  },
+  {
+   "line": 99,
+   "literal": "0",
+   "subject": "wordcraft",
+   "context": "s, canvas-editor and WordCraft show `mc` at 1/4 rather than 0/4: they keep the *attribute*"
+  },
+  {
+   "line": 99,
+   "literal": "4",
+   "subject": "wordcraft",
+   "context": "canvas-editor and WordCraft show `mc` at 1/4 rather than 0/4: they keep the *attribute* an"
+  },
+  {
+   "line": 165,
+   "literal": "19",
+   "subject": "genoffice",
+   "context": "se and unusual: **GenOffice has a canonical prefix table of 19 URIs** (`packages/docx-engine"
+  },
+  {
+   "line": 187,
+   "literal": "28",
+   "subject": "officeopen",
+   "context": "The canonical prefix table covers 28 URIs including `w14`, `w15`,"
+  },
+  {
+   "line": 220,
+   "literal": "9",
+   "subject": "plate",
+   "context": "The import boundary is Mammoth's **9-entry namespace map** (`mammo"
+  },
+  {
+   "line": 275,
+   "literal": "10",
+   "subject": "docxodus",
+   "context": "The measurement matches exactly: **10 of the corpus's 35 parts come"
+  },
+  {
+   "line": 275,
+   "literal": "35",
+   "subject": "docxodus",
+   "context": "The measurement matches exactly: **10 of the corpus's 35 parts come back re-serialised"
+  },
+  {
+   "line": 294,
+   "literal": "15",
+   "subject": "wordcraft",
+   "context": "emits *more* `w:` elements than the corpus and still loses 15 of the 309 distinct names."
+  },
+  {
+   "line": 294,
+   "literal": "309",
+   "subject": "wordcraft",
+   "context": "re* `w:` elements than the corpus and still loses 15 of the 309 distinct names."
+  },
+  {
+   "line": 306,
+   "literal": "308",
+   "subject": "officeopen",
+   "context": "308/309"
+  },
+  {
+   "line": 306,
+   "literal": "309",
+   "subject": "officeopen",
+   "context": "308/309"
+  },
+  {
+   "line": 306,
+   "literal": "305",
+   "subject": "docen",
+   "context": "305/309"
+  },
+  {
+   "line": 306,
+   "literal": "309",
+   "subject": "docen",
+   "context": "305/309"
+  },
+  {
+   "line": 306,
+   "literal": "294",
+   "subject": "wordcraft",
+   "context": "294/309"
+  },
+  {
+   "line": 306,
+   "literal": "309",
+   "subject": "wordcraft",
+   "context": "294/309"
+  },
+  {
+   "line": 306,
+   "literal": "98",
+   "subject": "fidus",
+   "context": "**98/309**"
+  },
+  {
+   "line": 306,
+   "literal": "309",
+   "subject": "fidus",
+   "context": "**98/309**"
+  },
+  {
+   "line": 306,
+   "literal": "119",
+   "subject": "canvas",
+   "context": "**119/309**"
+  },
+  {
+   "line": 306,
+   "literal": "309",
+   "subject": "canvas",
+   "context": "**119/309**"
+  },
+  {
+   "line": 306,
+   "literal": "114",
+   "subject": "docsplus",
+   "context": "**114/309**"
+  },
+  {
+   "line": 306,
+   "literal": "309",
+   "subject": "docsplus",
+   "context": "**114/309**"
+  },
+  {
+   "line": 306,
+   "literal": "108",
+   "subject": "plate",
+   "context": "**108/309**"
+  },
+  {
+   "line": 306,
+   "literal": "309",
+   "subject": "plate",
+   "context": "**108/309**"
+  },
+  {
+   "line": 306,
+   "literal": "260",
+   "subject": "lo_baseline",
+   "context": "260/309"
+  },
+  {
+   "line": 306,
+   "literal": "309",
+   "subject": "lo_baseline",
+   "context": "260/309"
+  },
+  {
+   "line": 307,
+   "literal": "1",
+   "subject": "fidus",
+   "context": "**1/6**"
+  },
+  {
+   "line": 307,
+   "literal": "6",
+   "subject": "fidus",
+   "context": "**1/6**"
+  },
+  {
+   "line": 307,
+   "literal": "2",
+   "subject": "canvas",
+   "context": "**2/6**"
+  },
+  {
+   "line": 307,
+   "literal": "6",
+   "subject": "canvas",
+   "context": "**2/6**"
+  },
+  {
+   "line": 307,
+   "literal": "2",
+   "subject": "docsplus",
+   "context": "**2/6**"
+  },
+  {
+   "line": 307,
+   "literal": "6",
+   "subject": "docsplus",
+   "context": "**2/6**"
+  },
+  {
+   "line": 309,
+   "literal": "1",
+   "subject": "wordcraft",
+   "context": "**1/4**"
+  },
+  {
+   "line": 309,
+   "literal": "4",
+   "subject": "wordcraft",
+   "context": "**1/4**"
+  },
+  {
+   "line": 309,
+   "literal": "1",
+   "subject": "fidus",
+   "context": "**1/4**"
+  },
+  {
+   "line": 309,
+   "literal": "4",
+   "subject": "fidus",
+   "context": "**1/4**"
+  },
+  {
+   "line": 309,
+   "literal": "1",
+   "subject": "canvas",
+   "context": "**1/4**"
+  },
+  {
+   "line": 309,
+   "literal": "4",
+   "subject": "canvas",
+   "context": "**1/4**"
+  },
+  {
+   "line": 310,
+   "literal": "10",
+   "subject": "folio",
+   "context": "10/12"
+  },
+  {
+   "line": 310,
+   "literal": "12",
+   "subject": "folio",
+   "context": "10/12"
+  },
+  {
+   "line": 310,
+   "literal": "10",
+   "subject": "officeopen",
+   "context": "10/12"
+  },
+  {
+   "line": 310,
+   "literal": "12",
+   "subject": "officeopen",
+   "context": "10/12"
+  },
+  {
+   "line": 310,
+   "literal": "10",
+   "subject": "docen",
+   "context": "10/12"
+  },
+  {
+   "line": 310,
+   "literal": "12",
+   "subject": "docen",
+   "context": "10/12"
+  },
+  {
+   "line": 310,
+   "literal": "10",
+   "subject": "lo_baseline",
+   "context": "10/12"
+  },
+  {
+   "line": 310,
+   "literal": "12",
+   "subject": "lo_baseline",
+   "context": "10/12"
+  },
+  {
+   "line": 319,
+   "literal": "56",
+   "subject": "wordcraft",
+   "context": "56/60"
+  },
+  {
+   "line": 319,
+   "literal": "60",
+   "subject": "wordcraft",
+   "context": "56/60"
+  },
+  {
+   "line": 319,
+   "literal": "11",
+   "subject": "fidus",
+   "context": "**11/60**"
+  },
+  {
+   "line": 319,
+   "literal": "60",
+   "subject": "fidus",
+   "context": "**11/60**"
+  },
+  {
+   "line": 319,
+   "literal": "11",
+   "subject": "canvas",
+   "context": "**11/60**"
+  },
+  {
+   "line": 319,
+   "literal": "60",
+   "subject": "canvas",
+   "context": "**11/60**"
+  },
+  {
+   "line": 319,
+   "literal": "42",
+   "subject": "docsplus",
+   "context": "42/60"
+  },
+  {
+   "line": 319,
+   "literal": "60",
+   "subject": "docsplus",
+   "context": "42/60"
+  },
+  {
+   "line": 319,
+   "literal": "33",
+   "subject": "plate",
+   "context": "33/60"
+  },
+  {
+   "line": 319,
+   "literal": "60",
+   "subject": "plate",
+   "context": "33/60"
+  },
+  {
+   "line": 319,
+   "literal": "59",
+   "subject": "lo_baseline",
+   "context": "59/60"
+  },
+  {
+   "line": 319,
+   "literal": "60",
+   "subject": "lo_baseline",
+   "context": "59/60"
+  },
+  {
+   "line": 320,
+   "literal": "3",
+   "subject": "fidus",
+   "context": "3/5"
+  },
+  {
+   "line": 320,
+   "literal": "5",
+   "subject": "fidus",
+   "context": "3/5"
+  },
+  {
+   "line": 320,
+   "literal": "4",
+   "subject": "docsplus",
+   "context": "4/5"
+  },
+  {
+   "line": 320,
+   "literal": "5",
+   "subject": "docsplus",
+   "context": "4/5"
+  },
+  {
+   "line": 323,
+   "literal": "39",
+   "subject": "lo_baseline",
+   "context": "39/40"
+  },
+  {
+   "line": 323,
+   "literal": "40",
+   "subject": "lo_baseline",
+   "context": "39/40"
+  },
+  {
+   "line": 326,
+   "literal": "2",
+   "subject": "wordcraft",
+   "context": "2/3"
+  },
+  {
+   "line": 326,
+   "literal": "3",
+   "subject": "wordcraft",
+   "context": "2/3"
+  },
+  {
+   "line": 336,
+   "literal": "8",
+   "subject": "wordcraft",
+   "context": "8/9"
+  },
+  {
+   "line": 336,
+   "literal": "9",
+   "subject": "wordcraft",
+   "context": "8/9"
+  },
+  {
+   "line": 336,
+   "literal": "3",
+   "subject": "fidus",
+   "context": "**3/9**"
+  },
+  {
+   "line": 336,
+   "literal": "9",
+   "subject": "fidus",
+   "context": "**3/9**"
+  },
+  {
+   "line": 336,
+   "literal": "1",
+   "subject": "canvas",
+   "context": "**1/9**"
+  },
+  {
+   "line": 336,
+   "literal": "9",
+   "subject": "canvas",
+   "context": "**1/9**"
+  },
+  {
+   "line": 336,
+   "literal": "4",
+   "subject": "lo_baseline",
+   "context": "**4/9**"
+  },
+  {
+   "line": 336,
+   "literal": "9",
+   "subject": "lo_baseline",
+   "context": "**4/9**"
+  },
+  {
+   "line": 337,
+   "literal": "1",
+   "subject": "fidus",
+   "context": "**1/5**"
+  },
+  {
+   "line": 337,
+   "literal": "5",
+   "subject": "fidus",
+   "context": "**1/5**"
+  },
+  {
+   "line": 337,
+   "literal": "3",
+   "subject": "canvas",
+   "context": "3/5"
+  },
+  {
+   "line": 337,
+   "literal": "5",
+   "subject": "canvas",
+   "context": "3/5"
+  },
+  {
+   "line": 337,
+   "literal": "4",
+   "subject": "docsplus",
+   "context": "4/5"
+  },
+  {
+   "line": 337,
+   "literal": "5",
+   "subject": "docsplus",
+   "context": "4/5"
+  },
+  {
+   "line": 337,
+   "literal": "4",
+   "subject": "plate",
+   "context": "4/5"
+  },
+  {
+   "line": 337,
+   "literal": "5",
+   "subject": "plate",
+   "context": "4/5"
+  },
+  {
+   "line": 338,
+   "literal": "2",
+   "subject": "fidus",
+   "context": "2/4"
+  },
+  {
+   "line": 338,
+   "literal": "4",
+   "subject": "fidus",
+   "context": "2/4"
+  },
+  {
+   "line": 338,
+   "literal": "1",
+   "subject": "canvas",
+   "context": "**1/4**"
+  },
+  {
+   "line": 338,
+   "literal": "4",
+   "subject": "canvas",
+   "context": "**1/4**"
+  },
+  {
+   "line": 397,
+   "literal": "11",
+   "subject": "canvas",
+   "context": "ace tells the drawing story.** Fidus and canvas-editor keep 11 of 60 `a:` names — and the on"
+  },
+  {
+   "line": 397,
+   "literal": "60",
+   "subject": "canvas",
+   "context": "lls the drawing story.** Fidus and canvas-editor keep 11 of 60 `a:` names — and the ones the"
+  },
+  {
+   "line": 397,
+   "literal": "33",
+   "subject": "plate",
+   "context": "Plate.js keeps 33: it keeps the text-body names"
+  },
+  {
+   "line": 409,
+   "literal": "0",
+   "subject": "wordcraft",
+   "context": "do not handle `mc:AlternateContent` at all, which predicts 0/4."
+  },
+  {
+   "line": 409,
+   "literal": "4",
+   "subject": "wordcraft",
+   "context": "o not handle `mc:AlternateContent` at all, which predicts 0/4."
+  },
+  {
+   "line": 409,
+   "literal": "0",
+   "subject": "plate",
+   "context": "odel that has no `mc` concept. docs.plus and Plate.js score 0/4: Mammoth drops the attribut"
+  },
+  {
+   "line": 409,
+   "literal": "4",
+   "subject": "plate",
+   "context": "el that has no `mc` concept. docs.plus and Plate.js score 0/4: Mammoth drops the attribute"
+  },
+  {
+   "line": 431,
+   "literal": "10",
+   "subject": "docen",
+   "context": "ordCraft keeps all twelve names; office-open and Docen keep 10/12 — Docen's earlier cell cla"
+  },
+  {
+   "line": 431,
+   "literal": "12",
+   "subject": "docen",
+   "context": "Craft keeps all twelve names; office-open and Docen keep 10/12 — Docen's earlier cell claime"
+  },
+  {
+   "line": 476,
+   "literal": "1",
+   "subject": "lo_baseline",
+   "context": ", office-open, Docen, **Docxodus** and LibreOffice; kept at 1/4 (the `mc:Ignorable` attribu"
+  },
+  {
+   "line": 476,
+   "literal": "4",
+   "subject": "lo_baseline",
+   "context": "office-open, Docen, **Docxodus** and LibreOffice; kept at 1/4 (the `mc:Ignorable` attribute"
+  },
+  {
+   "line": 482,
+   "literal": "1,069",
+   "subject": "genoffice",
+   "context": "**byte-identical** (1,069 bytes)"
+  },
+  {
+   "line": 483,
+   "literal": "1,113",
+   "subject": "superdoc",
+   "context": "1,113 bytes"
+  },
+  {
+   "line": 484,
+   "literal": "1,525",
+   "subject": "folio",
+   "context": "1,525 bytes"
+  },
+  {
+   "line": 485,
+   "literal": "1,055",
+   "subject": "eigenpal",
+   "context": "1,055 bytes"
+  },
+  {
+   "line": 486,
+   "literal": "1,133",
+   "subject": "officeopen",
+   "context": "1,133 bytes"
+  },
+  {
+   "line": 487,
+   "literal": "1,133",
+   "subject": "docen",
+   "context": "1,133 bytes"
+  },
+  {
+   "line": 488,
+   "literal": "1,080",
+   "subject": "docxodus",
+   "context": "1,080 bytes"
+  },
+  {
+   "line": 488,
+   "literal": "11",
+   "subject": "docxodus",
+   "context": "to the corpus after normalising self-closing-tag spacing** (11 `/>` become ` />`); both bran"
+  },
+  {
+   "line": 520,
+   "literal": "10",
+   "subject": "docxodus",
+   "context": "c, GenOffice, eigenpal, WordCraft **and Docxodus**; kept at 10/12 by Folio, office-open, Doc"
+  },
+  {
+   "line": 520,
+   "literal": "12",
+   "subject": "docxodus",
+   "context": "GenOffice, eigenpal, WordCraft **and Docxodus**; kept at 10/12 by Folio, office-open, Docen"
+  },
+  {
+   "line": 544,
+   "literal": "35",
+   "subject": "plate",
+   "context": "ntirely by Fidus, canvas-editor, docs.plus and Plate.js** — 35 distinct names, 69 element us"
+  },
+  {
+   "line": 544,
+   "literal": "69",
+   "subject": "plate",
+   "context": "anvas-editor, docs.plus and Plate.js** — 35 distinct names, 69 element uses, four parts, gon"
+  },
+  {
+   "line": 557,
+   "literal": "128",
+   "subject": "folio",
+   "context": "er (SuperDoc and Docxodus, and by extension Folio's bounded 128-shape preview and eigenpal's"
+  },
+  {
+   "line": 567,
+   "literal": "39",
+   "subject": "plate",
+   "context": "** by Fidus, canvas-editor, docs.plus and Plate.js; kept at 39/40 by LibreOffice (losing `c:"
+  },
+  {
+   "line": 567,
+   "literal": "40",
+   "subject": "plate",
+   "context": "by Fidus, canvas-editor, docs.plus and Plate.js; kept at 39/40 by LibreOffice (losing `c:lay"
+  },
+  {
+   "line": 582,
+   "literal": "2",
+   "subject": "lo_baseline",
+   "context": "genpal, office-open, Docen, **Docxodus** and LibreOffice; **2/3 by WordCraft** (losing `v:t"
+  },
+  {
+   "line": 582,
+   "literal": "3",
+   "subject": "lo_baseline",
+   "context": "npal, office-open, Docen, **Docxodus** and LibreOffice; **2/3 by WordCraft** (losing `v:tex"
+  },
+  {
+   "line": 585,
+   "literal": "626",
+   "subject": "wordcraft",
+   "context": "extbox` — because it has a VML reader (`read/story/vml.rs`, 626 lines) that models shapes and"
+  },
+  {
+   "line": 628,
+   "literal": "1",
+   "subject": "officeopen",
+   "context": "io, GenOffice, eigenpal **and Docxodus**; office-open loses 1 of 309, Docen 4, WordCraft 15"
+  },
+  {
+   "line": 628,
+   "literal": "309",
+   "subject": "officeopen",
+   "context": "enOffice, eigenpal **and Docxodus**; office-open loses 1 of 309, Docen 4, WordCraft 15, Libre"
+  },
+  {
+   "line": 628,
+   "literal": "4",
+   "subject": "docen",
+   "context": "igenpal **and Docxodus**; office-open loses 1 of 309, Docen 4, WordCraft 15, LibreOffice 49"
+  },
+  {
+   "line": 628,
+   "literal": "15",
+   "subject": "wordcraft",
+   "context": "Docxodus**; office-open loses 1 of 309, Docen 4, WordCraft 15, LibreOffice 49, and then the"
+  },
+  {
+   "line": 628,
+   "literal": "49",
+   "subject": "lo_baseline",
+   "context": "ice-open loses 1 of 309, Docen 4, WordCraft 15, LibreOffice 49, and then the cliff: Fidus 98"
+  },
+  {
+   "line": 628,
+   "literal": "98",
+   "subject": "fidus",
+   "context": "4, WordCraft 15, LibreOffice 49, and then the cliff: Fidus 98, canvas 119, docs.plus 114, P"
+  },
+  {
+   "line": 628,
+   "literal": "119",
+   "subject": "canvas",
+   "context": "ft 15, LibreOffice 49, and then the cliff: Fidus 98, canvas 119, docs.plus 114, Plate.js 108."
+  },
+  {
+   "line": 628,
+   "literal": "114",
+   "subject": "docsplus",
+   "context": "ice 49, and then the cliff: Fidus 98, canvas 119, docs.plus 114, Plate.js 108. `r` is kept wh"
+  },
+  {
+   "line": 628,
+   "literal": "108",
+   "subject": "plate",
+   "context": "en the cliff: Fidus 98, canvas 119, docs.plus 114, Plate.js 108. `r` is kept whole by nine pa"
+  },
+  {
+   "line": 640,
+   "literal": "8",
+   "subject": "wordcraft",
+   "context": "— kept whole by seven participants; partially by WordCraft (8/9), Fidus (3/9), canvas (1/9)"
+  },
+  {
+   "line": 640,
+   "literal": "9",
+   "subject": "wordcraft",
+   "context": "kept whole by seven participants; partially by WordCraft (8/9), Fidus (3/9), canvas (1/9),"
+  },
+  {
+   "line": 640,
+   "literal": "3",
+   "subject": "fidus",
+   "context": "by seven participants; partially by WordCraft (8/9), Fidus (3/9), canvas (1/9), LibreOffice"
+  },
+  {
+   "line": 640,
+   "literal": "9",
+   "subject": "fidus",
+   "context": "seven participants; partially by WordCraft (8/9), Fidus (3/9), canvas (1/9), LibreOffice ("
+  },
+  {
+   "line": 640,
+   "literal": "1",
+   "subject": "canvas",
+   "context": "cipants; partially by WordCraft (8/9), Fidus (3/9), canvas (1/9), LibreOffice (4/9); **gone"
+  },
+  {
+   "line": 640,
+   "literal": "9",
+   "subject": "canvas",
+   "context": "pants; partially by WordCraft (8/9), Fidus (3/9), canvas (1/9), LibreOffice (4/9); **gone e"
+  },
+  {
+   "line": 640,
+   "literal": "4",
+   "subject": "lo_baseline",
+   "context": "by WordCraft (8/9), Fidus (3/9), canvas (1/9), LibreOffice (4/9); **gone entirely** from do"
+  },
+  {
+   "line": 640,
+   "literal": "9",
+   "subject": "lo_baseline",
+   "context": "WordCraft (8/9), Fidus (3/9), canvas (1/9), LibreOffice (4/9); **gone entirely** from docs"
+  },
+  {
+   "line": 641,
+   "literal": "3",
+   "subject": "plate",
+   "context": "whole by eight participants; 4/5 by docs.plus and Plate.js; 3/5 by canvas; **1/5 by Fidus**"
+  },
+  {
+   "line": 641,
+   "literal": "5",
+   "subject": "plate",
+   "context": "ole by eight participants; 4/5 by docs.plus and Plate.js; 3/5 by canvas; **1/5 by Fidus**."
+  },
+  {
+   "line": 641,
+   "literal": "1",
+   "subject": "canvas",
+   "context": "rticipants; 4/5 by docs.plus and Plate.js; 3/5 by canvas; **1/5 by Fidus**."
+  },
+  {
+   "line": 641,
+   "literal": "5",
+   "subject": "canvas",
+   "context": "icipants; 4/5 by docs.plus and Plate.js; 3/5 by canvas; **1/5 by Fidus**."
+  },
+  {
+   "line": 642,
+   "literal": "2",
+   "subject": "fidus",
+   "context": "- `dc` — kept whole by every participant except Fidus (2/4) and canvas (1/4)."
+  },
+  {
+   "line": 642,
+   "literal": "4",
+   "subject": "fidus",
+   "context": "- `dc` — kept whole by every participant except Fidus (2/4) and canvas (1/4)."
+  },
+  {
+   "line": 642,
+   "literal": "1",
+   "subject": "canvas",
+   "context": "t whole by every participant except Fidus (2/4) and canvas (1/4)."
+  },
+  {
+   "line": 642,
+   "literal": "4",
+   "subject": "canvas",
+   "context": "whole by every participant except Fidus (2/4) and canvas (1/4)."
+  },
+  {
+   "line": 661,
+   "literal": "308",
+   "subject": "officeopen",
+   "context": "R (308/309)"
+  },
+  {
+   "line": 661,
+   "literal": "309",
+   "subject": "officeopen",
+   "context": "R (308/309)"
+  },
+  {
+   "line": 661,
+   "literal": "305",
+   "subject": "docen",
+   "context": "R (305/309)"
+  },
+  {
+   "line": 661,
+   "literal": "309",
+   "subject": "docen",
+   "context": "R (305/309)"
+  },
+  {
+   "line": 661,
+   "literal": "294",
+   "subject": "wordcraft",
+   "context": "R (294/309)"
+  },
+  {
+   "line": 661,
+   "literal": "309",
+   "subject": "wordcraft",
+   "context": "R (294/309)"
+  },
+  {
+   "line": 663,
+   "literal": "10",
+   "subject": "folio",
+   "context": "R (10/12)"
+  },
+  {
+   "line": 663,
+   "literal": "12",
+   "subject": "folio",
+   "context": "R (10/12)"
+  },
+  {
+   "line": 663,
+   "literal": "10",
+   "subject": "officeopen",
+   "context": "R (10/12)*"
+  },
+  {
+   "line": 663,
+   "literal": "12",
+   "subject": "officeopen",
+   "context": "R (10/12)*"
+  },
+  {
+   "line": 663,
+   "literal": "10",
+   "subject": "docen",
+   "context": "R (10/12)*"
+  },
+  {
+   "line": 663,
+   "literal": "12",
+   "subject": "docen",
+   "context": "R (10/12)*"
+  },
+  {
+   "line": 668,
+   "literal": "56",
+   "subject": "wordcraft",
+   "context": "R (56/60)"
+  },
+  {
+   "line": 668,
+   "literal": "60",
+   "subject": "wordcraft",
+   "context": "R (56/60)"
+  },
+  {
+   "line": 668,
+   "literal": "33",
+   "subject": "plate",
+   "context": "R (33/60)"
+  },
+  {
+   "line": 668,
+   "literal": "60",
+   "subject": "plate",
+   "context": "R (33/60)"
+  },
+  {
+   "line": 668,
+   "literal": "11",
+   "subject": "fidus",
+   "context": "R (11/60)"
+  },
+  {
+   "line": 668,
+   "literal": "60",
+   "subject": "fidus",
+   "context": "R (11/60)"
+  },
+  {
+   "line": 668,
+   "literal": "11",
+   "subject": "canvas",
+   "context": "R (11/60)"
+  },
+  {
+   "line": 668,
+   "literal": "60",
+   "subject": "canvas",
+   "context": "R (11/60)"
+  },
+  {
+   "line": 668,
+   "literal": "42",
+   "subject": "docsplus",
+   "context": "R (42/60)"
+  },
+  {
+   "line": 668,
+   "literal": "60",
+   "subject": "docsplus",
+   "context": "R (42/60)"
+  },
+  {
+   "line": 669,
+   "literal": "3",
+   "subject": "fidus",
+   "context": "R (3/5)"
+  },
+  {
+   "line": 669,
+   "literal": "5",
+   "subject": "fidus",
+   "context": "R (3/5)"
+  },
+  {
+   "line": 669,
+   "literal": "4",
+   "subject": "docsplus",
+   "context": "R (4/5)"
+  },
+  {
+   "line": 669,
+   "literal": "5",
+   "subject": "docsplus",
+   "context": "R (4/5)"
+  },
+  {
+   "line": 675,
+   "literal": "2",
+   "subject": "wordcraft",
+   "context": "R (2/3)"
+  },
+  {
+   "line": 675,
+   "literal": "3",
+   "subject": "wordcraft",
+   "context": "R (2/3)"
+  },
+  {
+   "line": 678,
+   "literal": "1",
+   "subject": "fidus",
+   "context": "R (1/6)"
+  },
+  {
+   "line": 678,
+   "literal": "6",
+   "subject": "fidus",
+   "context": "R (1/6)"
+  },
+  {
+   "line": 678,
+   "literal": "2",
+   "subject": "canvas",
+   "context": "R (2/6)"
+  },
+  {
+   "line": 678,
+   "literal": "6",
+   "subject": "canvas",
+   "context": "R (2/6)"
+  },
+  {
+   "line": 678,
+   "literal": "2",
+   "subject": "docsplus",
+   "context": "R (2/6)"
+  },
+  {
+   "line": 678,
+   "literal": "6",
+   "subject": "docsplus",
+   "context": "R (2/6)"
+  },
+  {
+   "line": 695,
+   "literal": "9",
+   "subject": "plate",
+   "context": "d allow-lists** (Plate.js's `PASSIVE_NAMESPACES`, Mammoth's 9-entry namespace map) lose exa"
+  },
+  {
+   "line": 696,
+   "literal": "28",
+   "subject": "docxodus",
+   "context": "is the only participant to keep every distinct name of all 28 namespaces, and it does it by"
+  }
+ ],
+ "reports/Report A2 - Pass-Through (2026).md": [
+  {
+   "line": 11,
+   "literal": "34",
+   "subject": "folio",
+   "context": "- **Folio copies 34 of the corpus's 35 parts byte"
+  },
+  {
+   "line": 11,
+   "literal": "35",
+   "subject": "folio",
+   "context": "- **Folio copies 34 of the corpus's 35 parts byte-for-byte and still"
+  },
+  {
+   "line": 11,
+   "literal": "98.5",
+   "subject": "folio",
+   "context": "34 of the corpus's 35 parts byte-for-byte and still scores 98.5%.** The reason is that the on"
+  },
+  {
+   "line": 12,
+   "literal": "35",
+   "subject": "docxodus",
+   "context": "odus.dropped}} dropped, {{parts.docxodus.added}} added, all 35 parts out.** It gets there wi"
+  },
+  {
+   "line": 91,
+   "literal": "24",
+   "subject": "docsplus",
+   "context": "cs.plus all drop 24 of {{fixture.parts}} parts** — the same 24, essentially: the chart, the"
+  },
+  {
+   "line": 92,
+   "literal": "24",
+   "subject": "plate",
+   "context": "- **Plate.js is the extreme.** It drops the same 24 and **adds nothing at all**:"
+  },
+  {
+   "line": 94,
+   "literal": "13",
+   "subject": "genoffice",
+   "context": "the most interesting and the most misread.** GenOffice has 13 parts that are *rewritten but"
+  },
+  {
+   "line": 94,
+   "literal": "2",
+   "subject": "genoffice",
+   "context": "ntically identical* — same tree, different bytes — and only 2 that genuinely changed. eigen"
+  },
+  {
+   "line": 94,
+   "literal": "16",
+   "subject": "eigenpal",
+   "context": "ent bytes — and only 2 that genuinely changed. eigenpal has 16."
+  },
+  {
+   "line": 98,
+   "literal": "4",
+   "subject": "wordcraft",
+   "context": "only editors that *add* parts that were not in the input** (4 each)."
+  },
+  {
+   "line": 98,
+   "literal": "2016",
+   "subject": "docen",
+   "context": "Docen adds the three Word 2016 comment-extension parts (`com"
+  },
+  {
+   "line": 231,
+   "literal": "6",
+   "subject": "wordcraft",
+   "context": "lds the ZIP and **re-compresses everything** (deflate level 6;"
+  },
+  {
+   "line": 231,
+   "literal": "16",
+   "subject": "wordcraft",
+   "context": "red), so nothing is byte-identical *at the ZIP level* — yet 16 of its output parts are byte-"
+  },
+  {
+   "line": 303,
+   "literal": "34",
+   "subject": "folio",
+   "context": "e corpus in Folio, edits one paragraph, and saves gets back 34 parts that are bit-for-bit wh"
+  },
+  {
+   "line": 414,
+   "literal": "0",
+   "subject": "superdoc",
+   "context": "**0**"
+  },
+  {
+   "line": 415,
+   "literal": "5",
+   "subject": "officeopen",
+   "context": "**5**"
+  },
+  {
+   "line": 416,
+   "literal": "5",
+   "subject": "docen",
+   "context": "**5**"
+  },
+  {
+   "line": 428,
+   "literal": "12",
+   "subject": "officeopen",
+   "context": "pct:g}}% on text retention at the XML level and still loses 12 rendered lines."
+  },
+  {
+   "line": 437,
+   "literal": "25",
+   "subject": "superdoc",
+   "context": "25"
+  },
+  {
+   "line": 438,
+   "literal": "25",
+   "subject": "folio",
+   "context": "25"
+  },
+  {
+   "line": 439,
+   "literal": "25",
+   "subject": "genoffice",
+   "context": "25"
+  },
+  {
+   "line": 440,
+   "literal": "25",
+   "subject": "docxodus",
+   "context": "**25**"
+  },
+  {
+   "line": 441,
+   "literal": "25",
+   "subject": "eigenpal",
+   "context": "25"
+  },
+  {
+   "line": 442,
+   "literal": "25",
+   "subject": "officeopen",
+   "context": "25"
+  },
+  {
+   "line": 443,
+   "literal": "29",
+   "subject": "docen",
+   "context": "29"
+  },
+  {
+   "line": 444,
+   "literal": "30",
+   "subject": "wordcraft",
+   "context": "30"
+  },
+  {
+   "line": 445,
+   "literal": "11",
+   "subject": "fidus",
+   "context": "11"
+  },
+  {
+   "line": 446,
+   "literal": "12",
+   "subject": "canvas",
+   "context": "12"
+  },
+  {
+   "line": 447,
+   "literal": "10",
+   "subject": "docsplus",
+   "context": "10"
+  },
+  {
+   "line": 448,
+   "literal": "10",
+   "subject": "plate",
+   "context": "10"
+  },
+  {
+   "line": 449,
+   "literal": "37",
+   "subject": "lo_baseline",
+   "context": "37"
+  },
+  {
+   "line": 467,
+   "literal": "27",
+   "subject": "superdoc",
+   "context": "### 6.1 SuperDoc — 27 parts, the whole payload"
+  },
+  {
+   "line": 469,
+   "literal": "27",
+   "subject": "superdoc",
+   "context": "**Pass-through.** 27 of 35 parts are byte-identica"
+  },
+  {
+   "line": 469,
+   "literal": "35",
+   "subject": "superdoc",
+   "context": "**Pass-through.** 27 of 35 parts are byte-identical."
+  },
+  {
+   "line": 477,
+   "literal": "34",
+   "subject": "folio",
+   "context": "### 6.2 Folio — 34 parts, the author's compresse"
+  },
+  {
+   "line": 479,
+   "literal": "34",
+   "subject": "folio",
+   "context": "**Pass-through.** 34 of 35 parts, as raw compresse"
+  },
+  {
+   "line": 479,
+   "literal": "35",
+   "subject": "folio",
+   "context": "**Pass-through.** 34 of 35 parts, as raw compressed byte"
+  },
+  {
+   "line": 481,
+   "literal": "98.5",
+   "subject": "folio",
+   "context": "why {{parts.folio.passthrough}} parts of pass-through and a 98.5% score coexist."
+  },
+  {
+   "line": 485,
+   "literal": "20",
+   "subject": "genoffice",
+   "context": "### 6.3 GenOffice — 20 parts, byte-exact at the bloc"
+  },
+  {
+   "line": 487,
+   "literal": "20",
+   "subject": "genoffice",
+   "context": "**Pass-through.** 20 parts, including the entire b"
+  },
+  {
+   "line": 495,
+   "literal": "5",
+   "subject": "eigenpal",
+   "context": "### 6.4 eigenpal — 5 parts, but the content of all"
+  },
+  {
+   "line": 499,
+   "literal": "5",
+   "subject": "eigenpal",
+   "context": "ike the worst pass-through performer **by the `P` count** — 5, against Folio's 34 and Docxo"
+  },
+  {
+   "line": 499,
+   "literal": "34",
+   "subject": "folio",
+   "context": "through performer **by the `P` count** — 5, against Folio's 34 and Docxodus's 25 — and it is"
+  },
+  {
+   "line": 499,
+   "literal": "25",
+   "subject": "docxodus",
+   "context": "**by the `P` count** — 5, against Folio's 34 and Docxodus's 25 — and it is the second best o"
+  },
+  {
+   "line": 503,
+   "literal": "9",
+   "subject": "docen",
+   "context": "### 6.5 office-open and Docen — 9 parts each, and five dangling"
+  },
+  {
+   "line": 511,
+   "literal": "16",
+   "subject": "wordcraft",
+   "context": "### 6.6 WordCraft — 16 parts, and the chart's two co"
+  },
+  {
+   "line": 513,
+   "literal": "16",
+   "subject": "wordcraft",
+   "context": "**Pass-through.** 16 parts by content, through a m"
+  },
+  {
+   "line": 521,
+   "literal": "25",
+   "subject": "docxodus",
+   "context": "**Pass-through.** 25 of 35 parts are byte-identica"
+  },
+  {
+   "line": 521,
+   "literal": "35",
+   "subject": "docxodus",
+   "context": "**Pass-through.** 25 of 35 parts are byte-identical and"
+  },
+  {
+   "line": 525,
+   "literal": "34",
+   "subject": "folio",
+   "context": "est in the column that matters.** Folio copies more bytes — 34 against 25 — but Folio *chang"
+  },
+  {
+   "line": 525,
+   "literal": "25",
+   "subject": "folio",
+   "context": "column that matters.** Folio copies more bytes — 34 against 25 — but Folio *changes* `word/d"
+  },
+  {
+   "line": 544,
+   "literal": "34",
+   "subject": "folio",
+   "context": "olio's {{parts.folio.passthrough}} byte-identical parts are 34 parts in which no user can ev"
+  },
+  {
+   "line": 549,
+   "literal": "34",
+   "subject": "folio",
+   "context": "Folio copies more bytes still (34 against 25), but it rewrites"
+  },
+  {
+   "line": 549,
+   "literal": "25",
+   "subject": "folio",
+   "context": "Folio copies more bytes still (34 against 25), but it rewrites the body."
+  }
+ ],
+ "reports/Report B - Malformed Parts, Causes and Repair (2026).md": [
+  {
+   "line": 19,
+   "literal": "0",
+   "subject": "superdoc",
+   "context": "0"
+  },
+  {
+   "line": 20,
+   "literal": "0",
+   "subject": "genoffice",
+   "context": "0"
+  },
+  {
+   "line": 21,
+   "literal": "0",
+   "subject": "eigenpal",
+   "context": "0"
+  },
+  {
+   "line": 22,
+   "literal": "0",
+   "subject": "wordcraft",
+   "context": "0"
+  },
+  {
+   "line": 23,
+   "literal": "0",
+   "subject": "docxodus",
+   "context": "**0**"
+  },
+  {
+   "line": 24,
+   "literal": "1",
+   "subject": "canvas",
+   "context": "1"
+  },
+  {
+   "line": 25,
+   "literal": "1",
+   "subject": "docsplus",
+   "context": "1"
+  },
+  {
+   "line": 26,
+   "literal": "0",
+   "subject": "plate",
+   "context": "**0**"
+  },
+  {
+   "line": 27,
+   "literal": "0",
+   "subject": "lo_baseline",
+   "context": "0"
+  },
+  {
+   "line": 28,
+   "literal": "0",
+   "subject": "folio",
+   "context": "0"
+  },
+  {
+   "line": 29,
+   "literal": "0",
+   "subject": "officeopen",
+   "context": "0"
+  },
+  {
+   "line": 29,
+   "literal": "5",
+   "subject": "officeopen",
+   "context": "**5 dangling relationship ids**"
+  },
+  {
+   "line": 30,
+   "literal": "0",
+   "subject": "docen",
+   "context": "0"
+  },
+  {
+   "line": 30,
+   "literal": "5",
+   "subject": "docen",
+   "context": "**5 dangling relationship ids**"
+  },
+  {
+   "line": 31,
+   "literal": "11",
+   "subject": "fidus",
+   "context": "11"
+  },
+  {
+   "line": 38,
+   "literal": "5",
+   "subject": "officeopen",
+   "context": "rewrite 5 ids to the declared names"
+  },
+  {
+   "line": 40,
+   "literal": "32.0",
+   "subject": null,
+   "context": "e only non-idempotent ones in the study (second-pass scores 32.0% and 30.5%)."
+  },
+  {
+   "line": 40,
+   "literal": "30.5",
+   "subject": null,
+   "context": "-idempotent ones in the study (second-pass scores 32.0% and 30.5%)."
+  },
+  {
+   "line": 156,
+   "literal": "100",
+   "subject": null,
+   "context": "hether the `c:chart` element was present, so it scored this 100% text retention while the cha"
+  },
+  {
+   "line": 168,
+   "literal": "32.0",
+   "subject": null,
+   "context": "ent ones in the study: their second-pass scores collapse to 32.0% and 30.5%, and their second-"
+  },
+  {
+   "line": 168,
+   "literal": "30.5",
+   "subject": null,
+   "context": "n the study: their second-pass scores collapse to 32.0% and 30.5%, and their second-pass `word"
+  },
+  {
+   "line": 179,
+   "literal": "98.5",
+   "subject": "folio",
+   "context": "icrosoft Word 16.115 refuses Folio's output.** Folio scores 98.5% on the first report's checke"
+  },
+  {
+   "line": 179,
+   "literal": "35",
+   "subject": "folio",
+   "context": "irst report's checker, keeps {{parts.folio.passthrough}} of 35 parts byte-identical, and has"
+  },
+  {
+   "line": 215,
+   "literal": "3",
+   "subject": "docsplus",
+   "context": "in the companion report: docs.plus renders the corpus in **3 pages instead of 6**, with 61"
+  },
+  {
+   "line": 215,
+   "literal": "6",
+   "subject": "docsplus",
+   "context": "eport: docs.plus renders the corpus in **3 pages instead of 6**, with 61 rendered lines tha"
+  },
+  {
+   "line": 215,
+   "literal": "61",
+   "subject": "docsplus",
+   "context": "s.plus renders the corpus in **3 pages instead of 6**, with 61 rendered lines that were neve"
+  },
+  {
+   "line": 222,
+   "literal": "5",
+   "subject": "officeopen",
+   "context": "**5 dangling ids**"
+  },
+  {
+   "line": 223,
+   "literal": "5",
+   "subject": "docen",
+   "context": "**5 dangling ids**"
+  },
+  {
+   "line": 224,
+   "literal": "11",
+   "subject": "fidus",
+   "context": "**11 violations**"
+  },
+  {
+   "line": 230,
+   "literal": "69",
+   "subject": "plate",
+   "context": "Its clean-corpus output is schema-clean against the 69 ECMA-376 transitional XSDs, p"
+  },
+  {
+   "line": 230,
+   "literal": "16.115",
+   "subject": "plate",
+   "context": "ields, no unpaired moves), and it **opens in Microsoft Word 16.115**."
+  },
+  {
+   "line": 236,
+   "literal": "18",
+   "subject": "plate",
+   "context": "ts Plate's model cannot represent, so the import produces **18 errors** across 38 typed diag"
+  },
+  {
+   "line": 236,
+   "literal": "38",
+   "subject": "plate",
+   "context": "nnot represent, so the import produces **18 errors** across 38 typed diagnostics and fails."
+  },
+  {
+   "line": 236,
+   "literal": "38",
+   "subject": "plate",
+   "context": "harness uses so that an output exists to measure — the same 38 diagnostics are returned as w"
+  }
+ ],
+ "reports/Report C - Rendering Versus Word (2026).md": [
+  {
+   "line": 31,
+   "literal": "100.0",
+   "subject": null,
+   "context": "references**, scores **100.0 %** on the {{checks.total}}-c"
+  },
+  {
+   "line": 177,
+   "literal": "5199",
+   "subject": "superdoc",
+   "context": "ed:** the repo's own `examples/vanilla` app, `vite` on port 5199."
+  },
+  {
+   "line": 187,
+   "literal": "1",
+   "subject": "superdoc",
+   "context": "\"Cat A / Cat B / Cat C\" axis labels and its \"Series 1\" legend, the"
+  },
+  {
+   "line": 200,
+   "literal": "5207",
+   "subject": "folio",
+   "context": "**Hosted:** `repos/folio/packages/playground` (`vite`, port 5207)."
+  },
+  {
+   "line": 208,
+   "literal": "15",
+   "subject": "folio",
+   "context": "15, 4:30 AM / This is a comment"
+  },
+  {
+   "line": 216,
+   "literal": "1",
+   "subject": "folio",
+   "context": "DOM confirms it: the text \"Cat A\" and \"Series 1\" — which Word draws twice"
+  },
+  {
+   "line": 229,
+   "literal": "5201",
+   "subject": "genoffice",
+   "context": "(port 5201) from a Vite config kept **ou"
+  },
+  {
+   "line": 236,
+   "literal": "6",
+   "subject": "genoffice",
+   "context": "GenOffice paginates the corpus into **6 pages** — the same count as W"
+  },
+  {
+   "line": 238,
+   "literal": "4.3",
+   "subject": "genoffice",
+   "context": "4.3 / 2.5 / 3.5 and the correct a"
+  },
+  {
+   "line": 238,
+   "literal": "2.5",
+   "subject": "genoffice",
+   "context": "4.3 / 2.5 / 3.5 and the correct axis la"
+  },
+  {
+   "line": 238,
+   "literal": "3.5",
+   "subject": "genoffice",
+   "context": "4.3 / 2.5 / 3.5 and the correct axis labels),"
+  },
+  {
+   "line": 250,
+   "literal": "11",
+   "subject": "genoffice",
+   "context": "without Word's red underline; the equation is MathML at 11 pt with a literal"
+  },
+  {
+   "line": 259,
+   "literal": "5206",
+   "subject": "eigenpal",
+   "context": "5206."
+  },
+  {
+   "line": 266,
+   "literal": "3",
+   "subject": "eigenpal",
+   "context": "eigenpal's page 3 is very close to Word's: the"
+  },
+  {
+   "line": 269,
+   "literal": "1",
+   "subject": "eigenpal",
+   "context": "chart that reproduces Word's **\"Series 1\" title above the plot, the 0–"
+  },
+  {
+   "line": 269,
+   "literal": "0",
+   "subject": "eigenpal",
+   "context": "at reproduces Word's **\"Series 1\" title above the plot, the 0–5"
+  },
+  {
+   "line": 269,
+   "literal": "5",
+   "subject": "eigenpal",
+   "context": "reproduces Word's **\"Series 1\" title above the plot, the 0–5"
+  },
+  {
+   "line": 270,
+   "literal": "0.5",
+   "subject": "eigenpal",
+   "context": "value axis with 0.5 steps, the \"Cat A / Cat B / C"
+  },
+  {
+   "line": 271,
+   "literal": "1",
+   "subject": "eigenpal",
+   "context": "\"Series 1\" legend**."
+  },
+  {
+   "line": 279,
+   "literal": "5202",
+   "subject": "docen",
+   "context": ":** the repo's own demo, `packages/editor` → `vp dev`, port 5202."
+  },
+  {
+   "line": 285,
+   "literal": "6",
+   "subject": "docen",
+   "context": "Docen paginates the corpus into **6 pages**, in a full Word-like"
+  },
+  {
+   "line": 292,
+   "literal": "1",
+   "subject": "docen",
+   "context": "ee identical blue bars** with a single legend entry \"Series 1\"."
+  },
+  {
+   "line": 294,
+   "literal": "4.3",
+   "subject": "docen",
+   "context": "The bar heights (4.3 / 2.5 /"
+  },
+  {
+   "line": 294,
+   "literal": "2.5",
+   "subject": "docen",
+   "context": "The bar heights (4.3 / 2.5 /"
+  },
+  {
+   "line": 295,
+   "literal": "3.5",
+   "subject": "docen",
+   "context": "3.5) and the category labels are"
+  },
+  {
+   "line": 350,
+   "literal": "6",
+   "subject": "wordcraft",
+   "context": "`wordcraft-cli info` reports **6 pages, 54 paragraphs, 1 comme"
+  },
+  {
+   "line": 350,
+   "literal": "54",
+   "subject": "wordcraft",
+   "context": "`wordcraft-cli info` reports **6 pages, 54 paragraphs, 1 comment** — the"
+  },
+  {
+   "line": 350,
+   "literal": "1",
+   "subject": "wordcraft",
+   "context": "`wordcraft-cli info` reports **6 pages, 54 paragraphs, 1 comment** — the same"
+  },
+  {
+   "line": 355,
+   "literal": "3",
+   "subject": "wordcraft",
+   "context": "WordCraft's page 3 reproduces the table (Header"
+  },
+  {
+   "line": 357,
+   "literal": "1",
+   "subject": "wordcraft",
+   "context": "the correct bar heights and the \"Series 1\" legend, the footnote body an"
+  },
+  {
+   "line": 362,
+   "literal": "12,541",
+   "subject": "wordcraft",
+   "context": "is why §6 measures 12,541 differing pixels here against"
+  },
+  {
+   "line": 362,
+   "literal": "83",
+   "subject": "wordcraft",
+   "context": "why §6 measures 12,541 differing pixels here against Word's 83 for"
+  },
+  {
+   "line": 442,
+   "literal": "34",
+   "subject": "plate",
+   "context": "ate.js** | platejs 54.0.0-beta.1 · DOCX import | **Imported 34 blocks;"
+  },
+  {
+   "line": 443,
+   "literal": "1",
+   "subject": "plate",
+   "context": "> 1 comment(s); 35 warning(s).**"
+  },
+  {
+   "line": 443,
+   "literal": "35",
+   "subject": "plate",
+   "context": "> 1 comment(s); 35 warning(s).**"
+  },
+  {
+   "line": 451,
+   "literal": "1",
+   "subject": "plate",
+   "context": "blue picture, a full bar chart with blue bars and a \"Series 1\" legend,"
+  },
+  {
+   "line": 466,
+   "literal": "0",
+   "subject": "plate",
+   "context": "**The comment is gone.** Plate's importer reports *\"Comment 0 has no"
+  },
+  {
+   "line": 482,
+   "literal": "5205",
+   "subject": "docsplus",
+   "context": "`next dev` on port 5205, at the dev-only `/editor` pl"
+  },
+  {
+   "line": 511,
+   "literal": "16",
+   "subject": "docsplus",
+   "context": "**But the two pictures are drawn as 16×16 pixel blue dots.** The DOC"
+  },
+  {
+   "line": 511,
+   "literal": "16",
+   "subject": "docsplus",
+   "context": "**But the two pictures are drawn as 16×16 pixel blue dots.** The DOCX s"
+  },
+  {
+   "line": 512,
+   "literal": "16",
+   "subject": "docsplus",
+   "context": "16×16 PNG displayed at 1.25 in ("
+  },
+  {
+   "line": 512,
+   "literal": "16",
+   "subject": "docsplus",
+   "context": "16×16 PNG displayed at 1.25 in (90"
+  },
+  {
+   "line": 512,
+   "literal": "1.25",
+   "subject": "docsplus",
+   "context": "16×16 PNG displayed at 1.25 in (90 pt); `mammoth` passes"
+  },
+  {
+   "line": 512,
+   "literal": "90",
+   "subject": "docsplus",
+   "context": "16×16 PNG displayed at 1.25 in (90 pt); `mammoth` passes only `s"
+  },
+  {
+   "line": 516,
+   "literal": "16",
+   "subject": "docsplus",
+   "context": "ognised element was ignored\"*) and what remains is a second 16×16"
+  },
+  {
+   "line": 516,
+   "literal": "16",
+   "subject": "docsplus",
+   "context": "ised element was ignored\"*) and what remains is a second 16×16"
+  },
+  {
+   "line": 539,
+   "literal": "5209",
+   "subject": "fidus",
+   "context": "`repos/fiduswriter` on port 5209."
+  },
+  {
+   "line": 572,
+   "literal": "0",
+   "subject": "canvas",
+   "context": "**0 / 0 / 0 / 0**"
+  },
+  {
+   "line": 572,
+   "literal": "0",
+   "subject": "canvas",
+   "context": "**0 / 0 / 0 / 0**"
+  },
+  {
+   "line": 572,
+   "literal": "0",
+   "subject": "canvas",
+   "context": "**0 / 0 / 0 / 0**"
+  },
+  {
+   "line": 572,
+   "literal": "0",
+   "subject": "canvas",
+   "context": "**0 / 0 / 0 / 0**"
+  },
+  {
+   "line": 576,
+   "literal": "1",
+   "subject": "fidus",
+   "context": "table is not in the document Fidus renders.** Word's pages 1 and"
+  },
+  {
+   "line": 577,
+   "literal": "3",
+   "subject": "fidus",
+   "context": "3 are half table — a three-colu"
+  },
+  {
+   "line": 603,
+   "literal": "05",
+   "subject": "fidus",
+   "context": "for the inserted paragraph mark (\"Fixture Author / 05/28/2530, 07:00 PM /"
+  },
+  {
+   "line": 603,
+   "literal": "28",
+   "subject": "fidus",
+   "context": "for the inserted paragraph mark (\"Fixture Author / 05/28/2530, 07:00 PM /"
+  },
+  {
+   "line": 603,
+   "literal": "2530",
+   "subject": "fidus",
+   "context": "for the inserted paragraph mark (\"Fixture Author / 05/28/2530, 07:00 PM /"
+  },
+  {
+   "line": 612,
+   "literal": "16",
+   "subject": "fidus",
+   "context": "- **The picture is drawn at 16×16 pixels.** Word scales the"
+  },
+  {
+   "line": 612,
+   "literal": "16",
+   "subject": "fidus",
+   "context": "- **The picture is drawn at 16×16 pixels.** Word scales the cor"
+  },
+  {
+   "line": 612,
+   "literal": "16",
+   "subject": "fidus",
+   "context": "icture is drawn at 16×16 pixels.** Word scales the corpus's 16×16 PNG"
+  },
+  {
+   "line": 612,
+   "literal": "16",
+   "subject": "fidus",
+   "context": "ure is drawn at 16×16 pixels.** Word scales the corpus's 16×16 PNG"
+  },
+  {
+   "line": 613,
+   "literal": "120",
+   "subject": "fidus",
+   "context": "up to its 120 × 120 pt extent;"
+  },
+  {
+   "line": 613,
+   "literal": "120",
+   "subject": "fidus",
+   "context": "up to its 120 × 120 pt extent;"
+  },
+  {
+   "line": 617,
+   "literal": "28",
+   "subject": "fidus",
+   "context": "he title is rendered in Fidus's own Title style** — black, ~28 pt — where"
+  },
+  {
+   "line": 618,
+   "literal": "1",
+   "subject": "fidus",
+   "context": "Word draws Heading 1 in Word blue at ~14 pt."
+  },
+  {
+   "line": 618,
+   "literal": "14",
+   "subject": "fidus",
+   "context": "Word draws Heading 1 in Word blue at ~14 pt."
+  },
+  {
+   "line": 621,
+   "literal": "2",
+   "subject": "fidus",
+   "context": "- **The list levels are flattened**: Word numbers level 2 as \"a.\" and indents"
+  },
+  {
+   "line": 622,
+   "literal": "1",
+   "subject": "fidus",
+   "context": "Fidus renders both levels as \"1.\" at the same indent."
+  },
+  {
+   "line": 657,
+   "literal": "4",
+   "subject": "lo_baseline",
+   "context": "reason given in *Gaps*, item 4."
+  },
+  {
+   "line": 663,
+   "literal": "6",
+   "subject": "lo_baseline",
+   "context": "**LibreOffice reproduces Word's pagination exactly — 6 pages — and *every*"
+  },
+  {
+   "line": 666,
+   "literal": "3",
+   "subject": "lo_baseline",
+   "context": "page 3, and the landscape section."
+  },
+  {
+   "line": 668,
+   "literal": "3",
+   "subject": "lo_baseline",
+   "context": "Its page 3 carries the table, the blue p"
+  },
+  {
+   "line": 669,
+   "literal": "4.3",
+   "subject": "lo_baseline",
+   "context": "drawn correctly** — the right bar heights (4.3 / 2.5 / 3.5), the \"Cat A / Ca"
+  },
+  {
+   "line": 669,
+   "literal": "2.5",
+   "subject": "lo_baseline",
+   "context": "drawn correctly** — the right bar heights (4.3 / 2.5 / 3.5), the \"Cat A / Cat"
+  },
+  {
+   "line": 669,
+   "literal": "3.5",
+   "subject": "lo_baseline",
+   "context": "drawn correctly** — the right bar heights (4.3 / 2.5 / 3.5), the \"Cat A / Cat"
+  },
+  {
+   "line": 670,
+   "literal": "0",
+   "subject": "lo_baseline",
+   "context": "B / Cat C\" categories, the 0–5 value axis and the single *"
+  },
+  {
+   "line": 670,
+   "literal": "5",
+   "subject": "lo_baseline",
+   "context": "B / Cat C\" categories, the 0–5 value axis and the single **\""
+  },
+  {
+   "line": 670,
+   "literal": "1",
+   "subject": "lo_baseline",
+   "context": "C\" categories, the 0–5 value axis and the single **\"Series 1\"** legend."
+  },
+  {
+   "line": 671,
+   "literal": "4",
+   "subject": "lo_baseline",
+   "context": "Its page 4 carries the `mc:Choice` text"
+  },
+  {
+   "line": 683,
+   "literal": "12,386",
+   "subject": "lo_baseline",
+   "context": "differs from Word's by 12,386 pixels (0.75%) — and the diff"
+  },
+  {
+   "line": 683,
+   "literal": "0.75",
+   "subject": "lo_baseline",
+   "context": "differs from Word's by 12,386 pixels (0.75%) — and the difference is"
+  },
+  {
+   "line": 726,
+   "literal": "816",
+   "subject": "docxodus",
+   "context": "could not draw.** Its page boxes are 816 × 1056 px — 8.5 × 11 in at 96"
+  },
+  {
+   "line": 726,
+   "literal": "1056",
+   "subject": "docxodus",
+   "context": "could not draw.** Its page boxes are 816 × 1056 px — 8.5 × 11 in at 96 dpi —"
+  },
+  {
+   "line": 726,
+   "literal": "8.5",
+   "subject": "docxodus",
+   "context": "could not draw.** Its page boxes are 816 × 1056 px — 8.5 × 11 in at 96 dpi —"
+  },
+  {
+   "line": 726,
+   "literal": "11",
+   "subject": "docxodus",
+   "context": "could not draw.** Its page boxes are 816 × 1056 px — 8.5 × 11 in at 96 dpi —"
+  },
+  {
+   "line": 726,
+   "literal": "96",
+   "subject": "docxodus",
+   "context": "t draw.** Its page boxes are 816 × 1056 px — 8.5 × 11 in at 96 dpi —"
+  },
+  {
+   "line": 727,
+   "literal": "1210",
+   "subject": "docxodus",
+   "context": "its landscape page is 1210 × 935 at 110 dpi, and **the r"
+  },
+  {
+   "line": 727,
+   "literal": "935",
+   "subject": "docxodus",
+   "context": "its landscape page is 1210 × 935 at 110 dpi, and **the rasteri"
+  },
+  {
+   "line": 727,
+   "literal": "110",
+   "subject": "docxodus",
+   "context": "its landscape page is 1210 × 935 at 110 dpi, and **the rasterised pag"
+  },
+  {
+   "line": 729,
+   "literal": "6",
+   "subject": "docxodus",
+   "context": "It paginates into **6 pages**, the same as Word, an"
+  },
+  {
+   "line": 738,
+   "literal": "1",
+   "subject": "docxodus",
+   "context": "C\" categories and the single **\"Series 1\"** legend;"
+  },
+  {
+   "line": 739,
+   "literal": "91",
+   "subject": "docxodus",
+   "context": "- the picture, **scaled to its DOCX extent** (91 × 91 px for a 16 × 16 PNG),"
+  },
+  {
+   "line": 739,
+   "literal": "91",
+   "subject": "docxodus",
+   "context": "- the picture, **scaled to its DOCX extent** (91 × 91 px for a 16 × 16 PNG),"
+  },
+  {
+   "line": 739,
+   "literal": "16",
+   "subject": "docxodus",
+   "context": "he picture, **scaled to its DOCX extent** (91 × 91 px for a 16 × 16 PNG),"
+  },
+  {
+   "line": 739,
+   "literal": "16",
+   "subject": "docxodus",
+   "context": "cture, **scaled to its DOCX extent** (91 × 91 px for a 16 × 16 PNG),"
+  },
+  {
+   "line": 740,
+   "literal": "109",
+   "subject": "docxodus",
+   "context": "and the OLE preview, scaled to 109 × 73;"
+  },
+  {
+   "line": 740,
+   "literal": "73",
+   "subject": "docxodus",
+   "context": "and the OLE preview, scaled to 109 × 73;"
+  },
+  {
+   "line": 754,
+   "literal": "4",
+   "subject": "docxodus",
+   "context": "the most interesting result in the study.** On page 4, exactly where Word"
+  },
+  {
+   "line": 791,
+   "literal": "8",
+   "subject": "docxodus",
+   "context": "Left, Space After: 8 pt\"** inline."
+  },
+  {
+   "line": 792,
+   "literal": "0",
+   "subject": "docxodus",
+   "context": "art has no axis tick marks or tick labels.** Word draws the 0–5"
+  },
+  {
+   "line": 792,
+   "literal": "5",
+   "subject": "docxodus",
+   "context": "t has no axis tick marks or tick labels.** Word draws the 0–5"
+  },
+  {
+   "line": 796,
+   "literal": "2",
+   "subject": "docxodus",
+   "context": "cell across pages 2 and 3 (\"verti\" / \"cal\" / \"tex"
+  },
+  {
+   "line": 796,
+   "literal": "3",
+   "subject": "docxodus",
+   "context": "cell across pages 2 and 3 (\"verti\" / \"cal\" / \"text\");"
+  },
+  {
+   "line": 804,
+   "literal": "35",
+   "subject": "docxodus",
+   "context": "**35 of 35**"
+  },
+  {
+   "line": 804,
+   "literal": "35",
+   "subject": "docxodus",
+   "context": "**35 of 35**"
+  },
+  {
+   "line": 804,
+   "literal": "35",
+   "subject": "folio",
+   "context": "35 of 35 (Folio, SuperDoc, GenOf"
+  },
+  {
+   "line": 804,
+   "literal": "35",
+   "subject": "folio",
+   "context": "35 of 35 (Folio, SuperDoc, GenOffice,"
+  },
+  {
+   "line": 805,
+   "literal": "25",
+   "subject": "docxodus",
+   "context": "**25**"
+  },
+  {
+   "line": 805,
+   "literal": "34",
+   "subject": "folio",
+   "context": "34 (Folio)"
+  },
+  {
+   "line": 806,
+   "literal": "10",
+   "subject": "docxodus",
+   "context": "**10**"
+  },
+  {
+   "line": 806,
+   "literal": "16",
+   "subject": "eigenpal",
+   "context": "16 (eigenpal)"
+  },
+  {
+   "line": 807,
+   "literal": "0",
+   "subject": "docxodus",
+   "context": "**0**"
+  },
+  {
+   "line": 807,
+   "literal": "1",
+   "subject": "folio",
+   "context": "1 (Folio)"
+  },
+  {
+   "line": 808,
+   "literal": "0",
+   "subject": "docxodus",
+   "context": "**0**"
+  },
+  {
+   "line": 809,
+   "literal": "0",
+   "subject": "docxodus",
+   "context": "**0**"
+  },
+  {
+   "line": 811,
+   "literal": "6",
+   "subject": "docxodus",
+   "context": "**6 pages, text identical**"
+  },
+  {
+   "line": 811,
+   "literal": "6",
+   "subject": "superdoc",
+   "context": "6 pages, text identical (SuperD"
+  },
+  {
+   "line": 846,
+   "literal": "16",
+   "subject": "docsplus",
+   "context": "16×16 dot"
+  },
+  {
+   "line": 846,
+   "literal": "16",
+   "subject": "docsplus",
+   "context": "16×16 dot"
+  },
+  {
+   "line": 848,
+   "literal": "16",
+   "subject": "fidus",
+   "context": "16×16 px"
+  },
+  {
+   "line": 848,
+   "literal": "16",
+   "subject": "fidus",
+   "context": "16×16 px"
+  },
+  {
+   "line": 875,
+   "literal": "1",
+   "subject": "folio",
+   "context": "Folio (whose DOM contains neither \"Cat A\" nor \"Series 1\"), **Plate.js** (whose"
+  },
+  {
+   "line": 937,
+   "literal": "6",
+   "subject": "superdoc",
+   "context": "6"
+  },
+  {
+   "line": 937,
+   "literal": "6",
+   "subject": "superdoc",
+   "context": "6"
+  },
+  {
+   "line": 938,
+   "literal": "6",
+   "subject": "genoffice",
+   "context": "6"
+  },
+  {
+   "line": 938,
+   "literal": "6",
+   "subject": "genoffice",
+   "context": "6"
+  },
+  {
+   "line": 939,
+   "literal": "6",
+   "subject": "docen",
+   "context": "6"
+  },
+  {
+   "line": 939,
+   "literal": "6",
+   "subject": "docen",
+   "context": "6"
+  },
+  {
+   "line": 940,
+   "literal": "6",
+   "subject": "wordcraft",
+   "context": "6"
+  },
+  {
+   "line": 940,
+   "literal": "6",
+   "subject": "wordcraft",
+   "context": "6"
+  },
+  {
+   "line": 941,
+   "literal": "6",
+   "subject": "lo_baseline",
+   "context": "6"
+  },
+  {
+   "line": 941,
+   "literal": "6",
+   "subject": "lo_baseline",
+   "context": "6"
+  },
+  {
+   "line": 942,
+   "literal": "6",
+   "subject": "eigenpal",
+   "context": "6 (but the landscape section is"
+  },
+  {
+   "line": 942,
+   "literal": "6",
+   "subject": "eigenpal",
+   "context": "6"
+  },
+  {
+   "line": 943,
+   "literal": "6",
+   "subject": "folio",
+   "context": "6"
+  },
+  {
+   "line": 943,
+   "literal": "6",
+   "subject": "folio",
+   "context": "6"
+  },
+  {
+   "line": 944,
+   "literal": "6",
+   "subject": "plate",
+   "context": "6"
+  },
+  {
+   "line": 945,
+   "literal": "6",
+   "subject": "docsplus",
+   "context": "6"
+  },
+  {
+   "line": 946,
+   "literal": "6",
+   "subject": "fidus",
+   "context": "6"
+  },
+  {
+   "line": 947,
+   "literal": "6",
+   "subject": "docxodus",
+   "context": "**6 — and the same landscape page"
+  },
+  {
+   "line": 947,
+   "literal": "5",
+   "subject": "docxodus",
+   "context": "**6 — and the same landscape page 5**"
+  },
+  {
+   "line": 947,
+   "literal": "6",
+   "subject": "docxodus",
+   "context": "6"
+  },
+  {
+   "line": 951,
+   "literal": "5",
+   "subject": "eigenpal",
+   "context": "al renders the landscape section as portrait.** Word's page 5 is"
+  },
+  {
+   "line": 1055,
+   "literal": "5",
+   "subject": "officeopen",
+   "context": "**5**"
+  },
+  {
+   "line": 1056,
+   "literal": "5",
+   "subject": "docen",
+   "context": "**5**"
+  },
+  {
+   "line": 1057,
+   "literal": "0",
+   "subject": "eigenpal",
+   "context": "**0**"
+  },
+  {
+   "line": 1065,
+   "literal": "144",
+   "subject": "docen",
+   "context": "office-open's and Docen's renderings the same area holds **144** — and what"
+  },
+  {
+   "line": 1209,
+   "literal": "3",
+   "subject": "lo_baseline",
+   "context": "**In LibreOffice:** the same removal changes page 3 (18,904 differing pixels)"
+  },
+  {
+   "line": 1209,
+   "literal": "18,904",
+   "subject": "lo_baseline",
+   "context": "**In LibreOffice:** the same removal changes page 3 (18,904 differing pixels)"
+  },
+  {
+   "line": 1276,
+   "literal": "6",
+   "subject": "superdoc",
+   "context": "6"
+  },
+  {
+   "line": 1276,
+   "literal": "83",
+   "subject": "superdoc",
+   "context": "**83**"
+  },
+  {
+   "line": 1276,
+   "literal": "0.00",
+   "subject": "superdoc",
+   "context": "**0.00%**"
+  },
+  {
+   "line": 1277,
+   "literal": "6",
+   "subject": "eigenpal",
+   "context": "6"
+  },
+  {
+   "line": 1277,
+   "literal": "0",
+   "subject": "eigenpal",
+   "context": "**0**"
+  },
+  {
+   "line": 1277,
+   "literal": "0.00",
+   "subject": "eigenpal",
+   "context": "**0.00%**"
+  },
+  {
+   "line": 1278,
+   "literal": "6",
+   "subject": "genoffice",
+   "context": "6"
+  },
+  {
+   "line": 1278,
+   "literal": "957",
+   "subject": "genoffice",
+   "context": "**957**"
+  },
+  {
+   "line": 1278,
+   "literal": "0.06",
+   "subject": "genoffice",
+   "context": "**0.06%**"
+  },
+  {
+   "line": 1279,
+   "literal": "6",
+   "subject": "docxodus",
+   "context": "6"
+  },
+  {
+   "line": 1279,
+   "literal": "83",
+   "subject": "docxodus",
+   "context": "**83**"
+  },
+  {
+   "line": 1279,
+   "literal": "0.00",
+   "subject": "docxodus",
+   "context": "**0.00%**"
+  },
+  {
+   "line": 1280,
+   "literal": "6",
+   "subject": "wordcraft",
+   "context": "6"
+  },
+  {
+   "line": 1280,
+   "literal": "12,541",
+   "subject": "wordcraft",
+   "context": "12,541"
+  },
+  {
+   "line": 1280,
+   "literal": "0.75",
+   "subject": "wordcraft",
+   "context": "0.75%"
+  },
+  {
+   "line": 1281,
+   "literal": "6",
+   "subject": "lo_baseline",
+   "context": "6"
+  },
+  {
+   "line": 1281,
+   "literal": "12,386",
+   "subject": "lo_baseline",
+   "context": "12,386"
+  },
+  {
+   "line": 1281,
+   "literal": "0.75",
+   "subject": "lo_baseline",
+   "context": "0.75%"
+  },
+  {
+   "line": 1282,
+   "literal": "2",
+   "subject": "canvas",
+   "context": "**2**"
+  },
+  {
+   "line": 1282,
+   "literal": "40,646,218",
+   "subject": "canvas",
+   "context": "40,646,218"
+  },
+  {
+   "line": 1282,
+   "literal": "2446.8",
+   "subject": "canvas",
+   "context": "2446.8%"
+  },
+  {
+   "line": 1283,
+   "literal": "2",
+   "subject": "docsplus",
+   "context": "**2**"
+  },
+  {
+   "line": 1283,
+   "literal": "40,609,781",
+   "subject": "docsplus",
+   "context": "40,609,781"
+  },
+  {
+   "line": 1283,
+   "literal": "2444.6",
+   "subject": "docsplus",
+   "context": "2444.6%"
+  },
+  {
+   "line": 1284,
+   "literal": "2",
+   "subject": "plate",
+   "context": "**2**"
+  },
+  {
+   "line": 1284,
+   "literal": "40,629,083",
+   "subject": "plate",
+   "context": "40,629,083"
+  },
+  {
+   "line": 1284,
+   "literal": "2445.8",
+   "subject": "plate",
+   "context": "2445.8%"
+  },
+  {
+   "line": 1290,
+   "literal": "0.005",
+   "subject": null,
+   "context": "**83 pixels** across six pages is 0.005% of the corpus's ink — a"
+  },
+  {
+   "line": 1292,
+   "literal": "0.75",
+   "subject": "lo_baseline",
+   "context": "and LibreOffice sit at 0.75% and differ in the same place"
+  },
+  {
+   "line": 1313,
+   "literal": "6",
+   "subject": "superdoc",
+   "context": "6"
+  },
+  {
+   "line": 1313,
+   "literal": "0",
+   "subject": "superdoc",
+   "context": "0"
+  },
+  {
+   "line": 1313,
+   "literal": "0.00",
+   "subject": "superdoc",
+   "context": "0.00%"
+  },
+  {
+   "line": 1314,
+   "literal": "6",
+   "subject": "folio",
+   "context": "6"
+  },
+  {
+   "line": 1314,
+   "literal": "0",
+   "subject": "folio",
+   "context": "**0**"
+  },
+  {
+   "line": 1314,
+   "literal": "0.00",
+   "subject": "folio",
+   "context": "**0.00%**"
+  },
+  {
+   "line": 1315,
+   "literal": "6",
+   "subject": "eigenpal",
+   "context": "6"
+  },
+  {
+   "line": 1315,
+   "literal": "0",
+   "subject": "eigenpal",
+   "context": "0"
+  },
+  {
+   "line": 1315,
+   "literal": "0.00",
+   "subject": "eigenpal",
+   "context": "0.00%"
+  },
+  {
+   "line": 1316,
+   "literal": "6",
+   "subject": "docxodus",
+   "context": "6"
+  },
+  {
+   "line": 1316,
+   "literal": "0",
+   "subject": "docxodus",
+   "context": "**0**"
+  },
+  {
+   "line": 1316,
+   "literal": "0.00",
+   "subject": "docxodus",
+   "context": "**0.00%**"
+  },
+  {
+   "line": 1317,
+   "literal": "6",
+   "subject": "lo_baseline",
+   "context": "6"
+  },
+  {
+   "line": 1317,
+   "literal": "335",
+   "subject": "lo_baseline",
+   "context": "335"
+  },
+  {
+   "line": 1317,
+   "literal": "0.18",
+   "subject": "lo_baseline",
+   "context": "0.18%"
+  },
+  {
+   "line": 1318,
+   "literal": "6",
+   "subject": "genoffice",
+   "context": "6"
+  },
+  {
+   "line": 1318,
+   "literal": "1,570",
+   "subject": "genoffice",
+   "context": "1,570"
+  },
+  {
+   "line": 1318,
+   "literal": "0.83",
+   "subject": "genoffice",
+   "context": "0.83%"
+  },
+  {
+   "line": 1319,
+   "literal": "6",
+   "subject": "wordcraft",
+   "context": "6"
+  },
+  {
+   "line": 1319,
+   "literal": "24,132",
+   "subject": "wordcraft",
+   "context": "24,132"
+  },
+  {
+   "line": 1319,
+   "literal": "12.76",
+   "subject": "wordcraft",
+   "context": "12.76%"
+  },
+  {
+   "line": 1320,
+   "literal": "6",
+   "subject": "officeopen",
+   "context": "6"
+  },
+  {
+   "line": 1320,
+   "literal": "111,924",
+   "subject": "officeopen",
+   "context": "**111,924**"
+  },
+  {
+   "line": 1320,
+   "literal": "59.19",
+   "subject": "officeopen",
+   "context": "**59.19%**"
+  },
+  {
+   "line": 1321,
+   "literal": "6",
+   "subject": "docen",
+   "context": "6"
+  },
+  {
+   "line": 1321,
+   "literal": "228,534",
+   "subject": "docen",
+   "context": "**228,534**"
+  },
+  {
+   "line": 1321,
+   "literal": "120.85",
+   "subject": "docen",
+   "context": "**120.85%**"
+  },
+  {
+   "line": 1322,
+   "literal": "2",
+   "subject": "fidus",
+   "context": "2"
+  },
+  {
+   "line": 1323,
+   "literal": "2",
+   "subject": "canvas",
+   "context": "2"
+  },
+  {
+   "line": 1324,
+   "literal": "3",
+   "subject": "docsplus",
+   "context": "3"
+  },
+  {
+   "line": 1325,
+   "literal": "2",
+   "subject": "plate",
+   "context": "2"
+  },
+  {
+   "line": 1334,
+   "literal": "0",
+   "subject": "lo_baseline",
+   "context": "Its LibreOffice render is pixel-identical to the corpus's — 0"
+  },
+  {
+   "line": 1404,
+   "literal": "0",
+   "subject": "folio",
+   "context": "- **Folio** renders the corpus **pixel-identically** (0 differing pixels),"
+  },
+  {
+   "line": 1466,
+   "literal": "35",
+   "subject": "docxodus",
+   "context": "Docxodus **keeps** the altChunk part, all 35 parts."
+  },
+  {
+   "line": 1546,
+   "literal": "5199",
+   "subject": "superdoc",
+   "context": "`repos/superdoc/examples/vanilla`, vite 5199"
+  },
+  {
+   "line": 1547,
+   "literal": "5207",
+   "subject": "folio",
+   "context": "`repos/folio/packages/playground`, vite 5207"
+  },
+  {
+   "line": 1548,
+   "literal": "5201",
+   "subject": "genoffice",
+   "context": "`repos/genoffice/apps/docs` renderer, vite 5201, with a `window.desktop` stub"
+  },
+  {
+   "line": 1549,
+   "literal": "5206",
+   "subject": "eigenpal",
+   "context": "`repos/eigenpal-docx-editor/examples/vite`, vite 5206"
+  },
+  {
+   "line": 1550,
+   "literal": "5202",
+   "subject": "docen",
+   "context": "`repos/docen/packages/editor`, vp dev 5202"
+  },
+  {
+   "line": 1554,
+   "literal": "5208",
+   "subject": "plate",
+   "context": "host under `harness/ui/plate/`, vite 5208, `platejs` aliased to repo **"
+  },
+  {
+   "line": 1555,
+   "literal": "5205",
+   "subject": "docsplus",
+   "context": "`repos/docs-plus/apps/webapp`, `next dev` 5205, + a REST stub on :4000 calli"
+  },
+  {
+   "line": 1620,
+   "literal": "35",
+   "subject": "plate",
+   "context": "nostics are themselves findings: **Plate's importer reports 35 warnings"
+  }
+ ],
+ "reports/Report D - Safety, Resource Bombs and Hostile Input (2026).md": [
+  {
+   "line": 29,
+   "literal": "0.4",
+   "subject": "lo_baseline",
+   "context": "LibreOffice on the entity package scores 0.4, not 1, because nothing was w"
+  },
+  {
+   "line": 29,
+   "literal": "1",
+   "subject": "lo_baseline",
+   "context": "LibreOffice on the entity package scores 0.4, not 1, because nothing was written"
+  },
+  {
+   "line": 29,
+   "literal": "0",
+   "subject": "lo_baseline",
+   "context": ", not 1, because nothing was written and the process exited 0."
+  }
+ ],
+ "reports/Report D1 - Jubarte on the Hostile Packages (2026).md": [],
+ "reports/Report D2 - What Word Protects Against (2026).md": [],
+ "reports/rendering-openability.md": [],
+ "reports/vendors.md": [
+  {
+   "line": 13,
+   "literal": "2025",
+   "subject": "docxodus",
+   "context": "The license is MIT, copyright Microsoft Corporation and 2025–2026 John Scrudato IV."
+  },
+  {
+   "line": 13,
+   "literal": "2026",
+   "subject": "docxodus",
+   "context": "he license is MIT, copyright Microsoft Corporation and 2025–2026 John Scrudato IV."
+  },
+  {
+   "line": 33,
+   "literal": "2026",
+   "subject": "officeopen",
+   "context": "The license is MIT, copyright 2026 Demo Macro."
+  },
+  {
+   "line": 33,
+   "literal": "2,273",
+   "subject": "officeopen",
+   "context": "The README states a coverage claim of its own, that all 2,273 elements and 1,969 attributes"
+  },
+  {
+   "line": 33,
+   "literal": "1,969",
+   "subject": "officeopen",
+   "context": "es a coverage claim of its own, that all 2,273 elements and 1,969 attributes across the 21 OOXM"
+  },
+  {
+   "line": 33,
+   "literal": "21",
+   "subject": "officeopen",
+   "context": "wn, that all 2,273 elements and 1,969 attributes across the 21 OOXML Transitional schemas ar"
+  },
+  {
+   "line": 37,
+   "literal": "2025",
+   "subject": "docen",
+   "context": "The license is MIT, copyright 2025 Demo Macro."
+  },
+  {
+   "line": 49,
+   "literal": "2021",
+   "subject": "canvas",
+   "context": "The license is MIT, copyright 2021–present hufe."
+  },
+  {
+   "line": 53,
+   "literal": "2023",
+   "subject": "docsplus",
+   "context": "The license is MIT, copyright 2023–2026 Hossein Marzban."
+  },
+  {
+   "line": 53,
+   "literal": "2026",
+   "subject": "docsplus",
+   "context": "The license is MIT, copyright 2023–2026 Hossein Marzban."
+  }
+ ],
+ "reports/extras/canvas.md": [],
+ "reports/extras/docen.md": [],
+ "reports/extras/docsplus.md": [],
+ "reports/extras/docxodus.md": [],
+ "reports/extras/eigenpal.md": [
+  {
+   "line": 29,
+   "literal": "98.5",
+   "subject": null,
+   "context": "n earlier edition reported both lanes failing `text.exact` (98.5%)."
+  }
+ ],
+ "reports/extras/fidus.md": [],
+ "reports/extras/folio.md": [],
+ "reports/extras/genoffice.md": [],
+ "reports/extras/lo_baseline.md": [],
+ "reports/extras/officeopen.md": [],
+ "reports/extras/plate.md": [],
+ "reports/extras/superdoc.md": [],
+ "reports/extras/wordcraft.md": []
+}

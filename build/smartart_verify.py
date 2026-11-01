@@ -1,12 +1,16 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["pillow>=11"]
+# ///
 """
 Verify (or refute) the claim "Word does not draw the corpus's SmartArt at all".
 
 Method
 ------
 The corpus contains one SmartArt: a 5486400 x 3200400 EMU (6.0in x 3.5in)
-inline diagram.  At the 110 dpi used for every rasterisation in this study
-that band is 660 x 385 px.
+inline diagram.  At build/pixels.py's resolution that band is 6.0 x 3.5 in
+times DPI px.
 
 Four Word-rendered variants, all with the SAME extent so the layout and the
 reflow are identical to the corpus:
@@ -25,7 +29,7 @@ reflow are identical to the corpus:
                    dgm:extLst/dgm:dataModelExt, which is how Word stores a
                    diagram it has already laid out.
 
-usage: python3 build/smartart_verify.py
+usage: uv run --script build/smartart_verify.py
 """
 import json
 import os
@@ -33,10 +37,14 @@ import sys
 
 from PIL import Image, ImageChops
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import pixels  # noqa: E402  (build/pixels.py: the release resolution)
+import smartart_band  # noqa: E402
+
 BASE = "/Users/arthrod/temp/T/editors_trial"
-CORPUS_PNG = os.path.join(BASE, "out/render/png_word")
-CTRL_PNG = os.path.join(BASE, "out/smartart/png")
-OUT = os.path.join(BASE, "out/smartart")
+CORPUS_PNG = os.environ.get("SA_CORPUS_PNG", os.path.join(BASE, "out/render/png_word"))
+CTRL_PNG = os.environ.get("SA_CTRL_PNG", os.path.join(BASE, "out/smartart/png"))
+OUT = os.environ.get("SA_OUT", os.path.join(BASE, "out/smartart"))
 
 WHITE = 255
 
@@ -81,7 +89,7 @@ def main():
             corpus_pages[i] = load(p)
 
     # ---------- 1. locate the band with dgm_pic_border --------------------
-    # The band as RENDERED is not 660x385 px: the diagram's 6.0in nominal
+    # The band as RENDERED is not its nominal size: the diagram's 6.0in nominal
     # extent is wider than the 4.49in text column, so Word scales the inline
     # graphic down to fit (uniform scale ~0.748 -> 494 x 289 px).  The band
     # is therefore found from the picture's own footprint, not assumed.
@@ -99,9 +107,16 @@ def main():
             best = (r["diff_px"], i)
     if best[1] is not None and best[0] > 0:
         i = best[1]
-        x0, y0, x1, y1 = per_page[i]["diff_bbox"]
-        band = {"page": i, "bbox": [x0, y0, x1, y1],
-                "w": x1 - x0, "h": y1 - y0}
+        # the band is the control's own footprint (build/smartart_band.py), not the
+        # bounding box of every difference between the two pages
+        cg = corpus_pages[i].convert("L").load()
+        bg = load(os.path.join(CTRL_PNG, "dgm_pic_border-%d.png" % i)).convert("L").load()
+        w_, h_ = corpus_pages[i].size
+        fp = smartart_band.footprint(w_, h_, lambda x, y: cg[x, y], lambda x, y: bg[x, y])
+        if fp:
+            x0, y0, x1, y1 = fp
+            band = {"page": i, "bbox": [x0, y0, x1, y1],
+                    "w": x1 - x0, "h": y1 - y0}
     result["band_locator_pages"] = per_page
     result["band"] = band
 
@@ -123,6 +138,9 @@ def main():
     inner_ink_corpus = ink_count(cim, inner)
     inner_ink_border = ink_count(bim, inner)
     d = diff(cim, bim)
+    dmask = ImageChops.difference(cim, bim).convert("L").point(lambda v: 255 if v > 8 else 0).load()
+    n_out, box_out = smartart_band.outside(cim.size[0], cim.size[1], lambda x, y: dmask[x, y] == 255,
+                                           (x0, y0, x1, y1))
     result["band_measurement"] = {
         "page": page,
         "bbox": band["bbox"],
@@ -133,8 +151,12 @@ def main():
         "border_variant_ink_in_band_interior": inner_ink_border,
         "diff_px_corpus_vs_border": d["diff_px"],
         "derived_corpus_ink_outside_border": d["diff_px"] - band_ink_border,
-        "expected_nominal_px_at_110dpi": [660, 385],
-        "rendered_scale": round((x1 - x0) / 660.0, 4),
+        # differences that are not in the band at all (a line elsewhere on the page)
+        "outside_band_diff_px": n_out,
+        "outside_band_bbox": list(box_out) if box_out else None,
+        "dpi": pixels.DPI,
+        "expected_nominal_px": [round(6.0 * pixels.DPI), round(3.5 * pixels.DPI)],
+        "rendered_scale": round((x1 - x0) / (6.0 * pixels.DPI), 4),
     }
 
     # ---------- 3. positive control: the checker -------------------------

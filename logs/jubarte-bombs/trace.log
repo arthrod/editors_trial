@@ -2,10 +2,10 @@ jubarte bomb trace. streams are kept below.
 
 ===== tool jubarte B1 =====
 cwd: /tmp/editors-trial-jubarte-bombs/runs/B1
-command: /tmp/jubarte-redlines-target/release/jubarte read /tmp/editors-trial-jubarte-bombs/bombs/B1.docx -o /tmp/editors-trial-jubarte-bombs/runs/B1/out/view.md --force
+command: /Users/arthrod/.cache/neurotic-docx-bench/jubarte/0.14.0/jubarte-0.14.0-macos-aarch64/jubarte read /tmp/editors-trial-jubarte-bombs/bombs/B1.docx -o /tmp/editors-trial-jubarte-bombs/runs/B1/out/view.md --force
 exit: 1 timed_out: False
 score: tool jubarte B1 fidelity: refused safety: bounded-reject catch: yes
-protection jubarte B1 level: bounded-refusal detail: bounded-refusal
+protection jubarte B1 level: bounded-refusal detail: INPUT_LIMIT named a ceiling on one part. No view was written.
 ----- stdout -----
 
 ----- stderr -----
@@ -15,10 +15,10 @@ error: cannot read the document: I/O error: INPUT_LIMIT: word/document.xml decla
 
 ===== tool jubarte B10 =====
 cwd: /tmp/editors-trial-jubarte-bombs/runs/B10
-command: /tmp/jubarte-redlines-target/release/jubarte read /tmp/editors-trial-jubarte-bombs/bombs/B10.docx -o /tmp/editors-trial-jubarte-bombs/runs/B10/out/view.md --force
+command: /Users/arthrod/.cache/neurotic-docx-bench/jubarte/0.14.0/jubarte-0.14.0-macos-aarch64/jubarte read /tmp/editors-trial-jubarte-bombs/bombs/B10.docx -o /tmp/editors-trial-jubarte-bombs/runs/B10/out/view.md --force
 exit: 0 timed_out: False
 score: tool jubarte B10 fidelity: not-in-view safety: ok catch: no
-protection jubarte B10 level: not-in-view detail: not-in-view
+protection jubarte B10 level: not-in-view detail: layout named INVALID_XML on the comments part and still wrote a body view. The bad image marker is not in the view.
 ----- stdout -----
 
 ----- stderr -----
@@ -29,10 +29,10 @@ wrote /tmp/editors-trial-jubarte-bombs/runs/B10/out/view.md (md, 584 bytes)
 
 ===== tool jubarte B2 =====
 cwd: /tmp/editors-trial-jubarte-bombs/runs/B2
-command: /tmp/jubarte-redlines-target/release/jubarte read /tmp/editors-trial-jubarte-bombs/bombs/B2.docx -o /tmp/editors-trial-jubarte-bombs/runs/B2/out/view.md --force
+command: /Users/arthrod/.cache/neurotic-docx-bench/jubarte/0.14.0/jubarte-0.14.0-macos-aarch64/jubarte read /tmp/editors-trial-jubarte-bombs/bombs/B2.docx -o /tmp/editors-trial-jubarte-bombs/runs/B2/out/view.md --force
 exit: 1 timed_out: False
 score: tool jubarte B2 fidelity: refused safety: bounded-reject catch: yes
-protection jubarte B2 level: bounded-refusal detail: bounded-refusal
+protection jubarte B2 level: bounded-refusal detail: INPUT_LIMIT named a ceiling on the zip entry count. No view was written.
 ----- stdout -----
 
 ----- stderr -----
@@ -42,10 +42,10 @@ error: cannot read the document: I/O error: INPUT_LIMIT: 25004 ZIP entries; the 
 
 ===== tool jubarte B3 =====
 cwd: /tmp/editors-trial-jubarte-bombs/runs/B3
-command: /tmp/jubarte-redlines-target/release/jubarte read /tmp/editors-trial-jubarte-bombs/bombs/B3.docx -o /tmp/editors-trial-jubarte-bombs/runs/B3/out/view.md --force
+command: /Users/arthrod/.cache/neurotic-docx-bench/jubarte/0.14.0/jubarte-0.14.0-macos-aarch64/jubarte read /tmp/editors-trial-jubarte-bombs/bombs/B3.docx -o /tmp/editors-trial-jubarte-bombs/runs/B3/out/view.md --force
 exit: 1 timed_out: False
 score: tool jubarte B3 fidelity: refused safety: bounded-reject catch: yes
-protection jubarte B3 level: erroring detail: erroring
+protection jubarte B3 level: bounded-refusal detail: INVALID_XML named a ceiling on the attributes of one element. No view was written.
 ----- stdout -----
 
 ----- stderr -----
@@ -55,10 +55,10 @@ error: cannot read the document: INVALID_XML: word/document.xml: element <w:p>: 
 
 ===== tool jubarte B4 =====
 cwd: /tmp/editors-trial-jubarte-bombs/runs/B4
-command: /tmp/jubarte-redlines-target/release/jubarte read /tmp/editors-trial-jubarte-bombs/bombs/B4.docx -o /tmp/editors-trial-jubarte-bombs/runs/B4/out/view.md --force
+command: /Users/arthrod/.cache/neurotic-docx-bench/jubarte/0.14.0/jubarte-0.14.0-macos-aarch64/jubarte read /tmp/editors-trial-jubarte-bombs/bombs/B4.docx -o /tmp/editors-trial-jubarte-bombs/runs/B4/out/view.md --force
 exit: 1 timed_out: False
 score: tool jubarte B4 fidelity: refused safety: bounded-reject catch: yes
-protection jubarte B4 level: bounded-refusal detail: bounded-refusal
+protection jubarte B4 level: bounded-refusal detail: the reader refused the package for XML nesting too deep. No view was written.
 ----- stdout -----
 
 ----- stderr -----
@@ -68,10 +68,10 @@ error: cannot read the document: word/document.xml: XML nesting too deep
 
 ===== tool jubarte B5 =====
 cwd: /tmp/editors-trial-jubarte-bombs/runs/B5
-command: /tmp/jubarte-redlines-target/release/jubarte read /tmp/editors-trial-jubarte-bombs/bombs/B5.docx -o /tmp/editors-trial-jubarte-bombs/runs/B5/out/view.md --force
+command: /Users/arthrod/.cache/neurotic-docx-bench/jubarte/0.14.0/jubarte-0.14.0-macos-aarch64/jubarte read /tmp/editors-trial-jubarte-bombs/bombs/B5.docx -o /tmp/editors-trial-jubarte-bombs/runs/B5/out/view.md --force
 exit: 0 timed_out: False
-score: tool jubarte B5 fidelity: dropped safety: ok catch: yes
-protection jubarte B5 level: sanitation detail: sanitation
+score: tool jubarte B5 fidelity: preserved safety: ok catch: no
+protection jubarte B5 level: unexpanded-kept detail: the view keeps the unexpanded entity references and does not expand them
 ----- stdout -----
 
 ----- stderr -----
@@ -82,10 +82,10 @@ wrote /tmp/editors-trial-jubarte-bombs/runs/B5/out/view.md (md, 616 bytes)
 
 ===== tool jubarte B6 =====
 cwd: /tmp/editors-trial-jubarte-bombs/runs/B6
-command: /tmp/jubarte-redlines-target/release/jubarte read /tmp/editors-trial-jubarte-bombs/bombs/B6.docx -o /tmp/editors-trial-jubarte-bombs/runs/B6/out/view.md --force
+command: /Users/arthrod/.cache/neurotic-docx-bench/jubarte/0.14.0/jubarte-0.14.0-macos-aarch64/jubarte read /tmp/editors-trial-jubarte-bombs/bombs/B6.docx -o /tmp/editors-trial-jubarte-bombs/runs/B6/out/view.md --force
 exit: 0 timed_out: False
 score: tool jubarte B6 fidelity: not-in-view safety: ok catch: no
-protection jubarte B6 level: not-in-view detail: not-in-view
+protection jubarte B6 level: not-in-view detail: layout named UNSUPPORTED_PACKAGE for the unsafe entry and still wrote a body view that does not carry the slip
 ----- stdout -----
 
 ----- stderr -----
@@ -96,10 +96,10 @@ wrote /tmp/editors-trial-jubarte-bombs/runs/B6/out/view.md (md, 583 bytes)
 
 ===== tool jubarte B7 =====
 cwd: /tmp/editors-trial-jubarte-bombs/runs/B7
-command: /tmp/jubarte-redlines-target/release/jubarte read /tmp/editors-trial-jubarte-bombs/bombs/B7.docx -o /tmp/editors-trial-jubarte-bombs/runs/B7/out/view.md --force
+command: /Users/arthrod/.cache/neurotic-docx-bench/jubarte/0.14.0/jubarte-0.14.0-macos-aarch64/jubarte read /tmp/editors-trial-jubarte-bombs/bombs/B7.docx -o /tmp/editors-trial-jubarte-bombs/runs/B7/out/view.md --force
 exit: 0 timed_out: False
 score: tool jubarte B7 fidelity: not-in-view safety: ok catch: no
-protection jubarte B7 level: not-in-view detail: not-in-view
+protection jubarte B7 level: not-in-view detail: the markdown view does not carry the relationship targets. The log shows no connection attempt.
 ----- stdout -----
 
 ----- stderr -----
@@ -109,10 +109,10 @@ wrote /tmp/editors-trial-jubarte-bombs/runs/B7/out/view.md (md, 568 bytes)
 
 ===== tool jubarte B8 =====
 cwd: /tmp/editors-trial-jubarte-bombs/runs/B8
-command: /tmp/jubarte-redlines-target/release/jubarte read /tmp/editors-trial-jubarte-bombs/bombs/B8.docx -o /tmp/editors-trial-jubarte-bombs/runs/B8/out/view.md --force
+command: /Users/arthrod/.cache/neurotic-docx-bench/jubarte/0.14.0/jubarte-0.14.0-macos-aarch64/jubarte read /tmp/editors-trial-jubarte-bombs/bombs/B8.docx -o /tmp/editors-trial-jubarte-bombs/runs/B8/out/view.md --force
 exit: 0 timed_out: False
 score: tool jubarte B8 fidelity: dropped safety: ok catch: yes
-protection jubarte B8 level: sanitation detail: sanitation
+protection jubarte B8 level: sanitation detail: the view keeps the body marker and omits the hyperlink, the javascript target, and the script
 ----- stdout -----
 
 ----- stderr -----
@@ -123,10 +123,10 @@ wrote /tmp/editors-trial-jubarte-bombs/runs/B8/out/view.md (md, 568 bytes)
 
 ===== tool jubarte B9 =====
 cwd: /tmp/editors-trial-jubarte-bombs/runs/B9
-command: /tmp/jubarte-redlines-target/release/jubarte read /tmp/editors-trial-jubarte-bombs/bombs/B9.docx -o /tmp/editors-trial-jubarte-bombs/runs/B9/out/view.md --force
+command: /Users/arthrod/.cache/neurotic-docx-bench/jubarte/0.14.0/jubarte-0.14.0-macos-aarch64/jubarte read /tmp/editors-trial-jubarte-bombs/bombs/B9.docx -o /tmp/editors-trial-jubarte-bombs/runs/B9/out/view.md --force
 exit: 0 timed_out: False
 score: tool jubarte B9 fidelity: not-in-view safety: ok catch: no
-protection jubarte B9 level: not-in-view detail: not-in-view
+protection jubarte B9 level: bounded-delivery detail: the view clamps the merged span to the renderer grid cap and summarizes the empty field paragraphs. The bibliography is not in the view.
 ----- stdout -----
 
 ----- stderr -----
@@ -134,10 +134,3 @@ input has 2000 validity errors; jubarte validate /tmp/editors-trial-jubarte-bomb
 wrote /tmp/editors-trial-jubarte-bombs/runs/B9/out/view.md (md, 707 bytes)
 
 ===== end =====
-
-===== rescore from the saved views =====
-The binary was not run again.
-B5 fidelity corrected from dropped to preserved. The view keeps the unexpanded entity references. catch corrected from yes to no. level: unexpanded-kept.
-B3 protection corrected from erroring to bounded-refusal. The stderr names an attribute ceiling. catch stays yes.
-B9 protection set to bounded-delivery. The view clamps the merged span. fidelity stays not-in-view. catch stays no.
-===== end rescore =====

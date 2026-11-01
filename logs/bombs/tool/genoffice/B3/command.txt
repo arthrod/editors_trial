@@ -1,2 +1,2 @@
-cwd: <editors_trial>/repos/genoffice
-~/.nvm/versions/node/v26.13.0/bin/node --import <editors_trial>/harness/css-stub.mjs --import <editors_trial>/repos/genoffice/node_modules/tsx/dist/loader.mjs <editors_trial>/harness/genoffice.cts /tmp/editors-trial-bombs/bombs/B3.docx /tmp/editors-trial-bombs/runs/genoffice/B3/out/out.docx
+cwd: /Users/arthrod/temp/T/editors_trial/repos/genoffice
+/Users/arthrod/.nvm/versions/node/v26.13.0/bin/node --import /Users/arthrod/temp/T/editors_trial/harness/css-stub.mjs --import /Users/arthrod/temp/T/editors_trial/repos/genoffice/node_modules/tsx/dist/loader.mjs /Users/arthrod/temp/T/editors_trial/harness/genoffice.cts /tmp/editors-trial-bombs/bombs/B3.docx /tmp/editors-trial-bombs/runs/genoffice/B3/out/out.docx

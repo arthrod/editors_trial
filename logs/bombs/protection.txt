@@ -18,7 +18,7 @@ protection libreoffice B9 level: sanitation detail: the written package does not
 protection libreoffice B10 level: sanitation detail: the written package does not carry the weapon
 protection plate B1 level: bounded-refusal detail: named ceiling on the size of one part
 protection plate B2 level: bounded-refusal detail: named ceiling on the number of parts
-protection plate B3 level: sanitation detail: the written package does not carry the weapon
+protection plate B3 level: hang detail: the run did not finish
 protection plate B4 level: bounded-refusal detail: named ceiling on element depth
 protection plate B5 level: erroring detail: rejected a document type declaration
 protection plate B6 level: erroring detail: rejected the package
@@ -146,13 +146,23 @@ protection docsplus B7 level: sanitation detail: the written package does not ca
 protection docsplus B8 level: sanitation detail: the written package does not carry the weapon
 protection docsplus B9 level: preserved detail: the weapon is still in the written package
 protection docsplus B10 level: erroring detail: the xml parser rejected a tag
-protection docxodus B1 level: preserved detail: the weapon is still in the written package
+protection docxodus B1 level: bounded-refusal detail: named ceiling on compression ratio
 protection docxodus B2 level: preserved detail: the weapon is still in the written package
 protection docxodus B3 level: sanitation detail: the written package does not carry the weapon
-protection docxodus B4 level: stack-exhaustion detail: the call stack ran out
-protection docxodus B5 level: erroring detail: the cell log does not name a ceiling
+protection docxodus B4 level: bounded-refusal detail: named ceiling on element depth
+protection docxodus B5 level: erroring detail: rejected a document type declaration
 protection docxodus B6 level: preserved detail: the weapon is still in the written package
 protection docxodus B7 level: preserved detail: the weapon is still in the written package
 protection docxodus B8 level: preserved detail: the weapon is still in the written package
 protection docxodus B9 level: preserved detail: the weapon is still in the written package
-protection docxodus B10 level: erroring detail: the cell log does not name a ceiling
+protection docxodus B10 level: preserved detail: the weapon is still in the written package
+protection apryse B1 level: sanitation detail: the written package does not carry the weapon
+protection apryse B2 level: sanitation detail: the written package does not carry the weapon
+protection apryse B3 level: sanitation detail: the written package does not carry the weapon
+protection apryse B4 level: hang detail: the run did not finish
+protection apryse B5 level: hang detail: the run did not finish
+protection apryse B6 level: sanitation detail: the written package does not carry the weapon
+protection apryse B7 level: preserved detail: the weapon is still in the written package
+protection apryse B8 level: preserved detail: the weapon is still in the written package
+protection apryse B9 level: hang detail: the run did not finish
+protection apryse B10 level: preserved detail: the weapon is still in the written package

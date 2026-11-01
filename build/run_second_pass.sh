@@ -76,9 +76,11 @@ second wordcraft \
 second canvas \
   "cd $BASE/repos/canvas-editor && IN_DOCX='__IN__' OUT_DIR='__OUTDIR__' ./node_modules/.bin/vitest run --root $BASE/harness/canvas"
 second docsplus \
-  "cd $BASE/harness/docsplus/repo-copy && bun $BASE/harness/docsplus/roundtrip.ts '__IN__' '__OUT__'"
+  "mkdir -p $BASE/out/docsplus/second/evidence && cd $BASE/harness/docsplus/repo-copy && EVIDENCE_DIR=$BASE/out/docsplus/second/evidence bun $BASE/harness/docsplus/roundtrip.ts '__IN__' '__OUT__'"
 second docxodus \
   "cd $BASE/harness/ui/docxodus && node roundtrip.mjs '__IN__' '__OUT__'"
+second apryse \
+  "cd $BASE/harness/apryse && node roundtrip.mjs '__IN__' '__OUT__'"
 
 pkill -f "superdoc host" 2>/dev/null
 echo "=== SECOND PASS DONE ==="

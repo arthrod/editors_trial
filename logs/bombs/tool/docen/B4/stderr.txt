@@ -1,17 +1,17 @@
-<editors_trial>/repos/docen/node_modules/.pnpm/@office-open+xml@0.15.0/node_modules/@office-open/xml/src/utils.ts:30
-  return parent?.elements?.find((e) => e.name === name);
-                           ^
+/Users/arthrod/temp/T/editors_trial/repos/docen/node_modules/.pnpm/@office-open+xml@0.15.0/node_modules/@office-open/xml/src/utils.ts:29
+export function findChild(parent: Element | undefined, name: string): Element | undefined {
+                ^
 
 RangeError: Maximum call stack size exceeded
-    at <anonymous> (<editors_trial>/repos/docen/node_modules/.pnpm/@office-open+xml@0.15.0/node_modules/@office-open/xml/src/utils.ts:30:28)
-    at Array.find (<anonymous>)
-    at findChild (<editors_trial>/repos/docen/node_modules/.pnpm/@office-open+xml@0.15.0/node_modules/@office-open/xml/src/utils.ts:30:28)
-    at parseToc (<editors_trial>/repos/docen/node_modules/.pnpm/@office-open+docx@0.15.0/node_modules/@office-open/docx/src/parts/table-of-contents/toc-parse.ts:40:17)
-    at parseSectionChild (<editors_trial>/repos/docen/node_modules/.pnpm/@office-open+docx@0.15.0/node_modules/@office-open/docx/src/parse/body.ts:313:19)
-    at parseBodyChildren (<editors_trial>/repos/docen/node_modules/.pnpm/@office-open+docx@0.15.0/node_modules/@office-open/docx/src/parse/body.ts:723:19)
-    at parseSectionChildrenElements (<editors_trial>/repos/docen/node_modules/.pnpm/@office-open+docx@0.15.0/node_modules/@office-open/docx/src/parse/body.ts:976:10)
-    at parseSdtBlock (<editors_trial>/repos/docen/node_modules/.pnpm/@office-open+docx@0.15.0/node_modules/@office-open/docx/src/parts/sdt/sdt-parse.ts:339:17)
-    at parseSectionChild (<editors_trial>/repos/docen/node_modules/.pnpm/@office-open+docx@0.15.0/node_modules/@office-open/docx/src/parse/body.ts:322:27)
-    at parseBodyChildren (<editors_trial>/repos/docen/node_modules/.pnpm/@office-open+docx@0.15.0/node_modules/@office-open/docx/src/parse/body.ts:723:19)
+    at findChild (/Users/arthrod/temp/T/editors_trial/repos/docen/node_modules/.pnpm/@office-open+xml@0.15.0/node_modules/@office-open/xml/src/utils.ts:29:17)
+    at parseToc (/Users/arthrod/temp/T/editors_trial/repos/docen/node_modules/.pnpm/@office-open+docx@0.15.0/node_modules/@office-open/docx/src/parts/table-of-contents/toc-parse.ts:40:17)
+    at parseSectionChild (/Users/arthrod/temp/T/editors_trial/repos/docen/node_modules/.pnpm/@office-open+docx@0.15.0/node_modules/@office-open/docx/src/parse/body.ts:313:19)
+    at parseBodyChildren (/Users/arthrod/temp/T/editors_trial/repos/docen/node_modules/.pnpm/@office-open+docx@0.15.0/node_modules/@office-open/docx/src/parse/body.ts:723:19)
+    at parseSectionChildrenElements (/Users/arthrod/temp/T/editors_trial/repos/docen/node_modules/.pnpm/@office-open+docx@0.15.0/node_modules/@office-open/docx/src/parse/body.ts:976:10)
+    at parseSdtBlock (/Users/arthrod/temp/T/editors_trial/repos/docen/node_modules/.pnpm/@office-open+docx@0.15.0/node_modules/@office-open/docx/src/parts/sdt/sdt-parse.ts:339:17)
+    at parseSectionChild (/Users/arthrod/temp/T/editors_trial/repos/docen/node_modules/.pnpm/@office-open+docx@0.15.0/node_modules/@office-open/docx/src/parse/body.ts:322:27)
+    at parseBodyChildren (/Users/arthrod/temp/T/editors_trial/repos/docen/node_modules/.pnpm/@office-open+docx@0.15.0/node_modules/@office-open/docx/src/parse/body.ts:723:19)
+    at parseSectionChildrenElements (/Users/arthrod/temp/T/editors_trial/repos/docen/node_modules/.pnpm/@office-open+docx@0.15.0/node_modules/@office-open/docx/src/parse/body.ts:976:10)
+    at parseSdtBlock (/Users/arthrod/temp/T/editors_trial/repos/docen/node_modules/.pnpm/@office-open+docx@0.15.0/node_modules/@office-open/docx/src/parts/sdt/sdt-parse.ts:339:17)
 
 Node.js v26.13.0

@@ -7,6 +7,8 @@ A crash is not a catch either.
 """
 from __future__ import annotations
 
+import signal
+
 import zipfile
 from pathlib import Path
 
@@ -130,7 +132,9 @@ def fidelity(bomb_id: str, data: bytes | None) -> str:
 
 
 def safety(returncode: int, timed_out: bool, leak: bool) -> str:
-    if timed_out or returncode == 124:
+    # SIGXCPU is the sandbox's CPU budget (RLIMIT_CPU) ending a run that had
+    # not finished: the same outcome as a wall-clock timeout.
+    if timed_out or returncode in (124, -signal.SIGXCPU, 128 + signal.SIGXCPU):
         return "hang"
     if returncode < 0 or returncode >= 128:
         return "crash"

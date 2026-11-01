@@ -742,14 +742,14 @@
         {
           "type": "image",
           "attrs": {
-            "keyId": "c5dtk-cmpiv",
+            "keyId": "271d7-yq9pa",
             "margin": "auto",
             "clear": "none",
             "float": null,
             "display": "block",
             "width": null,
             "height": null,
-            "src": "http://127.0.0.1:50387/media/1.png",
+            "src": "http://127.0.0.1:54939/media/1.png",
             "alt": "fixture image",
             "title": null,
             "caption": null
@@ -766,14 +766,14 @@
         {
           "type": "image",
           "attrs": {
-            "keyId": "ymy0b-cmpiv",
+            "keyId": "vs2j1-yq9pa",
             "margin": "auto",
             "clear": "none",
             "float": null,
             "display": "block",
             "width": null,
             "height": null,
-            "src": "http://127.0.0.1:50387/media/2.png",
+            "src": "http://127.0.0.1:54939/media/2.png",
             "alt": null,
             "title": null,
             "caption": null

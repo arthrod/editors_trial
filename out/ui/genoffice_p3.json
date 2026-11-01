@@ -14,6 +14,7 @@
     "[info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
     "[nav] 200 http://localhost:5201/",
     "[warning] [font-resolve] shadow disagreement {name: Calibri, legacy: 1.22, resolver: 1.2207, face: Calibri, source: dfonts}",
+    "[warning] [font-resolve] shadow disagreement {name: Arial, legacy: 1.15, resolver: 1.1499, face: Arial, source: dfonts}",
     "[warning] [font-resolve] shadow disagreement {name: Calibri Light, legacy: 1.22, resolver: 1.2207, face: Calibri Light, source: dfonts}",
     "[scroll-text] \"A sentence with a comment\" -> found"
   ],
@@ -23,10 +24,10 @@
     "pageCount": 2,
     "pageRects": [
       {
-        "x": 202,
-        "y": -781,
+        "x": 58,
+        "y": -871,
         "w": 1056,
-        "h": 5500,
+        "h": 5496,
         "visible": true
       },
       {
@@ -37,7 +38,7 @@
         "visible": true
       }
     ],
-    "statusBar": "Page 3 of 6\n160 words\nTrack Changes: Off\n— Missing document fonts: Calibri, MS Mincho → MS Mincho GO, Calibri Light (substitutes shown)\n−\n+\n100%",
+    "statusBar": "Page 3 of 6\n160 words\nTrack Changes: Off\n— Missing document fonts: Calibri, MS Mincho → MS Mincho GO, Calibri Light → Calibri Light GO (substitutes shown)\n−\n+\n100%",
     "constructs": {
       "picture_imgs": [
         {
@@ -50,7 +51,7 @@
             0
           ],
           "visible": false,
-          "chain": "ProseMirror-separator < doc-col-block.page-break-lead < tiptap.ProseMirror.doc-page"
+          "chain": "ProseMirror-separator < doc-col-block < tiptap.ProseMirror.doc-page"
         },
         {
           "tag": "IMG",
@@ -136,7 +137,7 @@
         "1",
         "i"
       ],
-      "comment_marks": 2,
+      "comment_marks": 22,
       "comment_html": [
         "<span data-comment-ids=\"0\" class=\"doc-comment\">A sentence with a comment</span>"
       ],
@@ -161,7 +162,7 @@
       },
       "textbox": {
         "total": 1,
-        "inView": 1
+        "inView": 0
       },
       "ole": {
         "total": 3,
@@ -185,14 +186,14 @@
       },
       "del": {
         "total": 3,
-        "inView": 0
+        "inView": 1
       },
       "table": {
         "total": 3,
         "inView": 2
       }
     },
-    "textLength": 1887,
-    "textHead": "AutoSave\nHome\nInsert\nDraw\nDesign\nLayout\nReferences\nMailings\nReview\nView\nGenspark AI\nAI Summarize\nAI Polish\nAI Format\nAI Mind Map\nConvert\nPaste\nB\nI\nU\nab\n1\n2\n3\nAaBb\nNormal\nAaBb\nHeading 1\nAaBb\nList Paragraph\nStyles Pane\nDefault header\n1\nChapter 1: Heading with mixed formatting.\n\nLeading and trailing spaces are significant.\n\n\tTab separated\nAfter a page break‑nobreak­softhyphen\nFooter text page1\nDefault header\n2\nsym\nafter CR\n\nrun with unknown w14 attributes and w14 elements\n\ncustom namespace attribute: cs complex-script text\n\nmispelinggrammaticaly\n\ninserted text \n\nrun whose formatting was changed\n\nparagraph whose properties were changed\n\nmoved here\n\nparagraph mark was inserted\n\nRight-click and choose Update Field to build the table of contents.\n\nbookmarked anchor\n\nbookmarked anchor\n\n1\n\ncontent control content\n\n2026-01-15\n\nbound value\n\ninner nested content\n\nList item level 1\nList item level 2\n\nHeader A\n\n\t\n\nHeader B\n\n\t\n\nHeader C\n\n\n\n\nSpans two columns\n\n\t\n\nNormal cell\n\n\n\n\nvert merged, first\n\n\t\n\nvertical text\n\n\t\n\n\n\n\n\n\n\nright aligned\n\n\t\n\nbottom aligned\n\n\n\nnested 1\n\t\nnested 2\n\nafter nested table\n\n\n\n\nThis row was inserted (trIns)\n\nParagraph after the table.\n\n \nDefault header\n3\n\nA sentence with"
+    "textLength": 2186,
+    "textHead": "AutoSave\nHome\nInsert\nDraw\nDesign\nLayout\nReferences\nMailings\nReview\nView\nShow Comments\n▾\nEditing\n▾\nGenspark AI\nAI Summarize\nAI Polish\nAI Format\nAI Mind Map\nConvert\nPaste\nB\nI\nU\nab\n1\n2\n3\nAaBb\nNormal\nAaBb\nHeading 1\nAaBb\nList Paragraph\nStyles Pane\nDefault header\n1\nChapter 1: Heading with mixed formatting.\n\nLeading and trailing spaces are significant.\n\n\tTab separated\nAfter a page break‑nobreak­softhyphen\nFooter text page1\nDefault header\n2\nsym\nafter CR\n\nrun with unknown w14 attributes and w14 elements\n\ncustom namespace attribute: cs complex-script text\n\nmispelinggrammaticaly\n\ninserted text deleted text\n\nrun whose formatting was changed\n\nparagraph whose properties were changed\n\nmoved away\n\nmoved here\n\nparagraph mark was inserted\n\nRight-click and choose Update Field to build the table of contents.\n\nbookmarked anchor\n\nbookmarked anchor\n\n1\n\ncontent control content\n\n2026-01-15\n\nbound value\n\ninner nested content\n\nList item level 1\nList item level 2\n\nHeader A\n\n\t\n\nHeader B\n\n\t\n\nHeader C\n\n\n\n\nSpans two columns\n\n\t\n\nNormal cell\n\n\n\n\nvert merged, first\n\n\t\n\nvertical text\n\n\t\n\n\n\n\n\n\n\nright aligned\n\n\t\n\nbottom aligned\n\n\n\nnested 1\n\t\nnested 2\n\nafter nested table\n\n\n\n\nThis row was inserted (trIns)\n\n\n\n \nDefault h"
   }
 }

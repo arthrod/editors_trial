@@ -1,6 +1,6 @@
 
- RUN  v4.1.12 <editors_trial>/harness/canvas
+ RUN  v4.1.12 /Users/arthrod/temp/T/editors_trial/harness/canvas
 
 
- RUN  v4.1.12 <editors_trial>/harness/canvas
+ RUN  v4.1.12 /Users/arthrod/temp/T/editors_trial/harness/canvas
 

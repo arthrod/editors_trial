@@ -1,0 +1,13 @@
+diff --git a/packages/editor-web/src/mount.tsx b/packages/editor-web/src/mount.tsx
+index 88ab7fc..1935c4f 100644
+--- a/packages/editor-web/src/mount.tsx
++++ b/packages/editor-web/src/mount.tsx
+@@ -129,6 +129,8 @@ const FolioEditorApp = ({
+         onEditorViewReady={onEditorViewReady}
+         onError={onError}
+         preserveDocumentWhileLoading={true}
++        // benchmarks.law demo: fit the page to a phone's width; 100% where the page already fits.
++        initialZoom={window.innerWidth < 860 ? "fit-width" : 1}
+         // Headers and footers keep undo stacks of their own, which the host's
+         // single stack cannot mirror yet.
+         showHeaderFooterEditing={false}

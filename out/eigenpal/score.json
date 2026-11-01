@@ -2,24 +2,19 @@
   "input": "/Users/arthrod/temp/T/editors_trial/fixture/complex.docx",
   "output": "/Users/arthrod/temp/T/editors_trial/out/eigenpal/complex.docx",
   "score": {
-    "weighted": 98.5,
-    "weighted_earned": 196,
+    "weighted": 100.0,
+    "weighted_earned": 199,
     "weighted_total": 199,
-    "critical_passed": 28,
+    "critical_passed": 29,
     "critical_total": 29,
-    "critical_pct": 96.6,
-    "features_passed": 98,
+    "critical_pct": 100.0,
+    "features_passed": 99,
     "features_total": 99
   },
-  "text_retention_pct": 97.6,
+  "text_retention_pct": 100.0,
   "text_tokens_input": 169,
-  "text_tokens_lost": 4,
-  "text_lost_sample": [
-    "contentAlternateContent",
-    "fallback",
-    "AlternateContent",
-    "fallback"
-  ],
+  "text_tokens_lost": 0,
+  "text_lost_sample": [],
   "checks": [
     {
       "id": "pkg.opens",
@@ -319,7 +314,7 @@
     },
     {
       "id": "fl.fldSimple",
-      "label": "simple field (w:fldSimple) kept",
+      "label": "simple fields kept (as simple or complex fields)",
       "category": "fields",
       "weight": 2,
       "pass": true,
@@ -666,8 +661,8 @@
       "label": "visible text stream identical to input",
       "category": "text",
       "weight": 3,
-      "pass": false,
-      "detail": "len 1299 vs 1271"
+      "pass": true,
+      "detail": ""
     },
     {
       "id": "fmt.numLevels",

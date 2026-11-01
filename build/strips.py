@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["pillow>=11"]
+# ///
 """
 Compose the labelled comparison figures used in the Rendering report.
 
@@ -17,6 +21,9 @@ import os
 import sys
 
 from PIL import Image, ImageDraw
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import pixels  # noqa: E402  (build/pixels.py: the release resolution)
 
 BASE = "/Users/arthrod/temp/T/editors_trial"
 LABEL_H = 24
@@ -77,12 +84,15 @@ def main():
     os.makedirs(fig, exist_ok=True)
 
     PW = 400
+    # crops in inches on the page, so they hold at any resolution (build/pixels.py)
+    def box(*inches):
+        return tuple(round(i * pixels.DPI) for i in inches)
     # the drawing region of page 3 (the picture + the chart)
-    CROP3 = (60, 300, 620, 810)
+    CROP3 = box(0.55, 2.73, 5.64, 7.36)
     # the top of page 1 (the heading, the header, the first table)
-    CROP1 = (60, 150, 620, 620)
+    CROP1 = box(0.55, 1.36, 5.64, 5.64)
     # the middle of page 4 (the text box and the math)
-    CROP4 = (60, 480, 620, 860)
+    CROP4 = box(0.55, 4.36, 5.64, 7.82)
 
     # 1. the corpus as WORD renders it - one full page at a time
     for i in range(1, 7):

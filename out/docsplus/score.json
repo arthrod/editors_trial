@@ -11,9 +11,9 @@
     "features_passed": 20,
     "features_total": 99
   },
-  "text_retention_pct": 91.7,
+  "text_retention_pct": 90.5,
   "text_tokens_input": 169,
-  "text_tokens_lost": 14,
+  "text_tokens_lost": 16,
   "text_lost_sample": [
     "separated",
     "After",
@@ -26,9 +26,11 @@
     "trDel",
     "Text",
     "box",
-    "contentAlternateContent",
-    "Text",
-    "box"
+    "Imported",
+    "altChunk",
+    "one",
+    "Imported",
+    "altChunk"
   ],
   "checks": [
     {
@@ -181,7 +183,7 @@
       "category": "package",
       "weight": 3,
       "pass": true,
-      "detail": "word/media/,word/media/image-4XdHpdT_umlucNUbskjeV.png,word/media/image-ZZ1_Fqrvd_4tSe5unvGrJ.png"
+      "detail": "word/media/,word/media/image-buMK85SRMsE5XrPcYwl7m.png,word/media/image-cpg14TQzgls2ijj65MfsM.png"
     },
     {
       "id": "pkg.chart",
@@ -329,7 +331,7 @@
     },
     {
       "id": "fl.fldSimple",
-      "label": "simple field (w:fldSimple) kept",
+      "label": "simple fields kept (as simple or complex fields)",
       "category": "fields",
       "weight": 2,
       "pass": false,
@@ -677,7 +679,7 @@
       "category": "text",
       "weight": 3,
       "pass": false,
-      "detail": "len 1299 vs 1188"
+      "detail": "len 1281 vs 1182"
     },
     {
       "id": "fmt.numLevels",

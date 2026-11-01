@@ -183,6 +183,25 @@ class ScorerFairness(unittest.TestCase):
         self.assertFalse(checks({"word/document.xml": bad})["tc.moveFrom"][4])
         self.assertTrue(checks({"word/document.xml": good})["tc.moveFrom"][4])
 
+    def test_chart_and_ole_require_every_reference(self):
+        for prefix, namespace, tag, cid in (
+            ("c", C, "chart", "ref.chart"),
+            ("o", O, "OLEObject", "ref.ole"),
+        ):
+            with self.subTest(cid=cid):
+                element = f'<{prefix}:{tag} xmlns:{prefix}="{namespace}" r:id="kept"/>'
+                missing_id = f'<{prefix}:{tag} xmlns:{prefix}="{namespace}"/>'
+                parts = {
+                    "word/document.xml": document(element),
+                    "word/_rels/document.xml.rels": rels([("kept", "type", "kept.bin", "")]),
+                    "word/kept.bin": b"data",
+                }
+                self.assertTrue(checks(parts)[cid][4])
+                parts["word/document.xml"] = document(element + missing_id)
+                self.assertFalse(checks(parts)[cid][4])
+                parts["word/document.xml"] = document("")
+                self.assertFalse(checks(parts)[cid][4])
+
     def test_endnote_body_and_hyperlink_targets_are_scored(self):
         endnotes = (
             '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -220,6 +239,10 @@ class ScorerFairness(unittest.TestCase):
         self.assertFalse(bad["ref.endnoteBody"][4], bad["ref.endnoteBody"])
         self.assertFalse(bad["fl.hyperlink"][4], bad["fl.hyperlink"])
 
+        dangling = {"word/document.xml": document('<w:hyperlink r:id="missing"/>')}
+        self.assertFalse(checks(dropped, dangling)["fl.hyperlink"][4])
+        self.assertFalse(checks(dangling)["fl.hyperlink"][4])
+
     def test_fixture_round_trip_of_itself_keeps_resolved_refs(self):
         inp = sc.Pkg(FIXTURE)
         got = {c[0]: c for c in sc.build_checks(inp, inp)}
@@ -228,6 +251,124 @@ class ScorerFairness(unittest.TestCase):
             self.assertTrue(got[cid][4], got[cid])
         self.assertNotEqual(got["mx.proofErr"][3], 3)
         self.assertNotEqual(got["mx.nsW16du"][3], 3)
+
+
+MC = "http://schemas.openxmlformats.org/markup-compatibility/2006"
+WPS = "http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
+
+
+def text_box(choice, fallback):
+    """A run holding one text box written twice: DrawingML in mc:Choice, VML in mc:Fallback."""
+    return (
+        '<w:p><w:r><mc:AlternateContent xmlns:mc="%s" xmlns:wps="%s">'
+        '<mc:Choice Requires="wps"><w:drawing><wps:txbx><w:txbxContent>'
+        "<w:p><w:r><w:t>%s</w:t></w:r></w:p>"
+        "</w:txbxContent></wps:txbx></w:drawing></mc:Choice>"
+        "<mc:Fallback><w:pict><w:txbxContent>"
+        "<w:p><w:r><w:t>%s</w:t></w:r></w:p>"
+        "</w:txbxContent></w:pict></mc:Fallback>"
+        "</mc:AlternateContent></w:r></w:p>" % (MC, WPS, choice, fallback)
+    )
+
+
+def doc_text(inner):
+    return sc.Pkg(data=package({"word/document.xml": document(inner)})).text()
+
+
+def complex_field(instr, result):
+    return (
+        '<w:p><w:r><w:fldChar w:fldCharType="begin"/></w:r>'
+        '<w:r><w:instrText xml:space="preserve">%s</w:instrText></w:r>'
+        '<w:r><w:fldChar w:fldCharType="separate"/></w:r>'
+        "<w:r><w:t>%s</w:t></w:r>"
+        '<w:r><w:fldChar w:fldCharType="end"/></w:r></w:p>' % (instr, result)
+    )
+
+
+class EquivalentRewrites(unittest.TestCase):
+    """A save that writes the same content another valid way, as Word itself does, is not a loss
+    (arthrod/editors_trial#24, reported by eigenpal)."""
+
+    def test_fallback_text_is_not_visible_text(self):
+        self.assertEqual(doc_text(text_box("Text box content", "fallback text")), "Text box content")
+
+    def test_rewriting_the_fallback_from_the_choice_keeps_text_exact(self):
+        got = checks({"word/document.xml": document(text_box("Text box content", "fallback text"))},
+                     {"word/document.xml": document(text_box("Text box content", "Text box content"))})
+        self.assertTrue(got["text.exact"][4], got["text.exact"])
+
+    def test_changing_the_choice_still_fails_text_exact(self):
+        got = checks({"word/document.xml": document(text_box("Text box content", "x"))},
+                     {"word/document.xml": document(text_box("Other content", "x"))})
+        self.assertFalse(got["text.exact"][4], got["text.exact"])
+
+    def test_a_text_box_paragraph_is_counted_once(self):
+        self.assertEqual(doc_text(text_box("Inside", "Inside")).count("Inside"), 1)
+
+    def test_page_field_results_are_not_text(self):
+        simple = '<w:p><w:fldSimple w:instr=" PAGE \\* MERGEFORMAT "><w:r><w:t>%s</w:t></w:r></w:fldSimple></w:p>'
+        got = checks({"word/document.xml": document(simple % "1" + complex_field(" NUMPAGES ", "6"))},
+                     {"word/document.xml": document(simple % "3" + complex_field(" NUMPAGES ", "7"))})
+        self.assertTrue(got["text.exact"][4], got["text.exact"])
+
+    def test_other_field_results_are_still_text(self):
+        got = checks({"word/document.xml": document(complex_field(" REF Target \\h ", "Chapter 1"))},
+                     {"word/document.xml": document(complex_field(" REF Target \\h ", "Chapter 2"))})
+        self.assertFalse(got["text.exact"][4], got["text.exact"])
+
+    def test_simple_fields_saved_as_complex_fields_are_kept(self):
+        simple = ('<w:p><w:fldSimple w:instr=" REF Target \\h "><w:r><w:t>a</w:t></w:r></w:fldSimple>'
+                  '<w:fldSimple w:instr=" PAGE \\* MERGEFORMAT "><w:r><w:t>1</w:t></w:r></w:fldSimple></w:p>')
+        rewritten = complex_field(" REF Target \\h ", "a") + complex_field(" PAGE  \\* MERGEFORMAT ", "1")
+        got = checks({"word/document.xml": document(simple)}, {"word/document.xml": document(rewritten)})
+        self.assertTrue(got["fl.fldSimple"][4], got["fl.fldSimple"])
+        lost = checks({"word/document.xml": document(simple)},
+                      {"word/document.xml": document(complex_field(" PAGE ", "1"))})
+        self.assertFalse(lost["fl.fldSimple"][4], lost["fl.fldSimple"])
+
+    def test_an_imported_alt_chunk_keeps_its_part_check(self):
+        imported = {"word/document.xml": document(
+            "<w:p><w:r><w:t>Imported altChunk paragraph one.</w:t></w:r></w:p>")}
+        got = checks({"word/document.xml": document("<w:p/>"), "word/afchunk.html": "<p>x</p>"}, imported)
+        self.assertTrue(got["pkg.word_afchunk.html"][4], got["pkg.word_afchunk.html"])
+        dropped = checks({"word/document.xml": document("<w:p/>"), "word/afchunk.html": "<p>x</p>"},
+                         {"word/document.xml": document("<w:p/>")})
+        self.assertFalse(dropped["pkg.word_afchunk.html"][4], dropped["pkg.word_afchunk.html"])
+
+    def test_console_report_lists_the_text_category(self):
+        import contextlib
+        buf = io.StringIO()
+        argv = sys.argv
+        try:
+            sys.argv = ["check_roundtrip.py", FIXTURE, FIXTURE]
+            with contextlib.redirect_stdout(buf):
+                sc.main()
+        finally:
+            sys.argv = argv
+        self.assertIn("[TEXT]", buf.getvalue())
+        self.assertIn("visible text stream identical to input", buf.getvalue())
+
+    def test_alt_chunk_content_is_visible_text_kept_or_imported(self):
+        chunk = {
+            "word/document.xml": document('<w:p><w:r><w:t>Before</w:t></w:r></w:p><w:altChunk r:id="rIdA"/>'),
+            "word/_rels/document.xml.rels": rels([
+                ("rIdA", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/aFChunk",
+                 "afchunk.html", "")]),
+            "word/afchunk.html": "<html><body><p>Imported one.</p><p>Imported two.</p></body></html>",
+        }
+        self.assertEqual(sc.Pkg(data=package(chunk)).text(), "Before\nImported one.\nImported two.")
+        imported = {"word/document.xml": document(
+            "<w:p><w:r><w:t>Before</w:t></w:r></w:p><w:p><w:r><w:t>Imported one.</w:t></w:r></w:p>"
+            "<w:p><w:r><w:t>Imported two.</w:t></w:r></w:p>")}
+        self.assertTrue(checks(chunk, chunk)["text.exact"][4])
+        self.assertTrue(checks(chunk, imported)["text.exact"][4], checks(chunk, imported)["text.exact"])
+        dropped = {"word/document.xml": document("<w:p><w:r><w:t>Before</w:t></w:r></w:p>")}
+        self.assertFalse(checks(chunk, dropped)["text.exact"][4])
+
+    def test_an_added_empty_paragraph_is_not_text(self):
+        got = checks({"word/document.xml": document("<w:p><w:r><w:t>a</w:t></w:r></w:p><w:p><w:r><w:t>b</w:t></w:r></w:p>")},
+                     {"word/document.xml": document("<w:p><w:r><w:t>a</w:t></w:r></w:p><w:p/><w:p><w:r><w:t>b</w:t></w:r></w:p>")})
+        self.assertTrue(got["text.exact"][4], got["text.exact"])
 
 
 if __name__ == "__main__":

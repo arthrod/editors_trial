@@ -18,8 +18,8 @@ DocxEditorError: the argument is not one this API accepts. (createServer)
 },
        code: "InvalidArgument"
 
-      at fail (<editors_trial>/repos/eigenpal-docx-editor/packages/editor-api/src/runtime/errors.ts:333:9)
-      at createServer (<editors_trial>/repos/eigenpal-docx-editor/packages/editor-api/src/runtime/server.ts:197:5)
-      at <editors_trial>/harness/eigenpal.ts:22:35
+      at fail (/Users/arthrod/temp/T/editors_trial/repos/eigenpal-docx-editor/packages/editor-api/src/runtime/errors.ts:333:9)
+      at createServer (/Users/arthrod/temp/T/editors_trial/repos/eigenpal-docx-editor/packages/editor-api/src/runtime/server.ts:197:5)
+      at /Users/arthrod/temp/T/editors_trial/harness/eigenpal.ts:22:35
 
 Bun v1.4.2 (macOS arm64)

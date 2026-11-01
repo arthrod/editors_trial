@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["pillow>=11"]
+# ///
 """
 Build the side-by-side figures for the rendering report.
 
@@ -85,6 +89,7 @@ EDITORS = [
     ("eigenpal", "eigenpal"),
     ("plate", "Plate.js"),
     ("docxodus", "Docxodus"),
+    ("apryse", "Apryse WebViewer"),
     ("docsplus", "docs.plus"),
     ("folio", "Folio"),
     ("fidus", "Fidus Writer"),
@@ -153,6 +158,14 @@ def main():
                  os.path.join(WORD, "corpus-1.png"),
                  "Microsoft Word - page 1 of 6",
                  p1, right_label)
+        # An editor that keeps comments in a panel the page view does not show
+        # (Apryse) is captured a second time with that panel open.
+        pc = os.path.join(UI, slug + "_comments.png")
+        if os.path.exists(pc):
+            pair("fig_ui_%s_comments.png" % slug,
+                 os.path.join(WORD, "corpus-3.png"),
+                 "Microsoft Word - page 3 of 6",
+                 pc, "%s - its comments panel opened" % label)
 
     # WordCraft and LibreOffice are native applications: their "screenshot"
     # is the application's own rendered page, produced by its own renderer.

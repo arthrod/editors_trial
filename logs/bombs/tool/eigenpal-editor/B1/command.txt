@@ -1,2 +1,2 @@
-cwd: <editors_trial>/repos/eigenpal-docx-editor
-~/.bun/bin/bun <editors_trial>/harness/eigenpal.ts /tmp/editors-trial-bombs/bombs/B1.docx /tmp/editors-trial-bombs/runs/eigenpal-editor/B1/out/out.docx editor
+cwd: /Users/arthrod/temp/T/editors_trial/repos/eigenpal-docx-editor
+/Users/arthrod/.bun/bin/bun /Users/arthrod/temp/T/editors_trial/harness/eigenpal.ts /tmp/editors-trial-bombs/bombs/B1.docx /tmp/editors-trial-bombs/runs/eigenpal-editor/B1/out/out.docx editor

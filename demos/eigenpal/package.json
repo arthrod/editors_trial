@@ -1,0 +1,9 @@
+{
+  "name": "eigenpal-benchmarks-law-demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test src/*.test.ts",
+    "build": "node scripts/prepare-public.mjs && ../src/node_modules/.bin/vite build --config vite.config.ts && node scripts/finalize-dist.mjs"
+  }
+}

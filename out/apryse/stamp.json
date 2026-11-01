@@ -1,0 +1,56 @@
+{
+ "stamp_parts": [
+  "word/_rels/header10.xml.rels",
+  "word/_rels/header11.xml.rels",
+  "word/_rels/header3.xml.rels",
+  "word/_rels/header4.xml.rels",
+  "word/_rels/header5.xml.rels",
+  "word/_rels/header6.xml.rels",
+  "word/_rels/header7.xml.rels",
+  "word/_rels/header8.xml.rels",
+  "word/_rels/header9.xml.rels",
+  "word/header10.xml",
+  "word/header11.xml",
+  "word/header3.xml",
+  "word/header4.xml",
+  "word/header5.xml",
+  "word/header6.xml",
+  "word/header7.xml",
+  "word/header8.xml",
+  "word/header9.xml",
+  "word/media/image10.png",
+  "word/media/image2.png",
+  "word/media/image3.png",
+  "word/media/image4.png",
+  "word/media/image5.png",
+  "word/media/image6.png",
+  "word/media/image7.png",
+  "word/media/image8.png",
+  "word/media/image9.png"
+ ],
+ "stamped": true,
+ "unseparable": [
+  "ref.headerTrackedChange"
+ ],
+ "own": [
+  "pkg.word_footer2.xml",
+  "tc.dateUtc",
+  "sdt.count",
+  "sdt.nested",
+  "mx.proofErr",
+  "mx.unknownAttr",
+  "mx.nsW16du",
+  "sec.landscape"
+ ],
+ "labels": {
+  "ref.headerTrackedChange": "tracked change inside header kept",
+  "pkg.word_footer2.xml": "part kept: footer (first page)",
+  "tc.dateUtc": "w16du:dateUtc kept",
+  "sdt.count": "content controls kept (>=5)",
+  "sdt.nested": "nested content control kept",
+  "mx.proofErr": "w:proofErr kept",
+  "mx.unknownAttr": "unknown w14 attributes kept",
+  "mx.nsW16du": "w16du namespace declaration kept",
+  "sec.landscape": "landscape section kept"
+ }
+}

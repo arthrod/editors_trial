@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>@fiduswriter/document — DOCX in the editor</title>
+        <link rel="icon" href="data:," />
+        <link rel="stylesheet" href="./css/document/document.css" />
+        <link rel="stylesheet" href="./docx.css" />
+    </head>
+    <body>
+        <header class="docx-bar">
+            <span id="status">Opening document.docx…</span>
+            <button id="download" type="button" disabled>Download .docx</button>
+        </header>
+        <main class="docx-page"><div id="editor"></div></main>
+        <script type="module" src="./index.js"></script>
+    </body>
+</html>
