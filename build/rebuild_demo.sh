@@ -71,8 +71,14 @@ case "$slug" in
   plate)
     pin src plate
     rsync -a "$ROOT/demos/plate/" app/ --exclude BUILD.md
-    ( cd src && pnpm install && pnpm build )
-    ( cd app && pnpm install && pnpm build )
+    # CI=true: pnpm asks before replacing a node_modules another install left, and with no
+    # terminal to answer it silently skips the install (turbo is then missing).
+    # PUPPETEER_SKIP_DOWNLOAD: puppeteer is a dev dependency of Plate's own tests; the demo
+    # never runs it, and its postinstall would fetch a headless Chrome.
+    ( cd src && CI=true PUPPETEER_SKIP_DOWNLOAD=1 pnpm install && CI=true pnpm build )
+    # The app links into src/; after src/ is reinstalled, the app's own node_modules is stale
+    # while pnpm still reports it "up to date", so it starts clean.
+    ( cd app && rm -rf node_modules && CI=true pnpm install && pnpm build )
     REPO=plate; LIC=MIT; LICFILE=src/LICENSE ;;
   wordcraft)
     restore src Cargo.lock Cargo.toml apps/wordcraft-web/Cargo.toml apps/wordcraft-web/Trunk.toml apps/wordcraft-web/index.html apps/wordcraft-web/src/web.rs

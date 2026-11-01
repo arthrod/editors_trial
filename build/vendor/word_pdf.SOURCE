@@ -1,0 +1,5 @@
+Repository: https://github.com/jandira-tech/neurotic_docx_bench.git
+Commit: 2f2e23dbf609664932bc2e846cfcfb409b079756
+Date: 2026-10-22
+Spec: tests/test_word_pdf*.py passed in the source repo when vendored
+sha256 word_pdf.py: e43874f1b77d387d85311d0172f88e22867b177022ec7c4ad824803989c2ab64
