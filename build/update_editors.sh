@@ -76,7 +76,7 @@ echo "npm     @superdoc/sdk@$SDK"
 DX_NOW=$(node -p "require('./harness/ui/docxodus/node_modules/docxodus/package.json').version" 2>/dev/null || true)
 DX=$(python3 build/pin_versions.py npm docxodus latest ${DX_NOW:+--current "$DX_NOW"} ${RELEASE_DATE:+--date "$RELEASE_DATE"})
 echo "npm     docxodus@$DX, @docxodus/export@$DX"
-( cd harness/ui/docxodus && npm install --no-audit --no-fund --save-exact "docxodus@$DX" "@docxodus/export@$DX" ) >/tmp/update_docxodus.log 2>&1
+( cd harness/ui/docxodus && pnpm add --save-exact "docxodus@$DX" "@docxodus/export@$DX" ) >/tmp/update_docxodus.log 2>&1
 
 AP_NOW=$(node -p "require('./harness/apryse/node_modules/@pdftron/webviewer/package.json').version" 2>/dev/null || true)
 AP=$(python3 build/pin_versions.py npm @pdftron/webviewer latest ${AP_NOW:+--current "$AP_NOW"} ${RELEASE_DATE:+--date "$RELEASE_DATE"})

@@ -56,7 +56,7 @@ export default defineConfig({
   build: {
     outDir: dist,
     emptyOutDir: true,
-    minify: "esbuild",
+    minify: "oxc",  // Vite 8's own minifier; "esbuild" now needs esbuild installed separately
     sourcemap: false,
     cssCodeSplit: false,
     modulePreload: false,

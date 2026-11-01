@@ -12,10 +12,10 @@
     "superdoc": "^2.4.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.57.0",
-    "@types/node": "^22.0.0",
-    "jszip": "^3.10.1",
-    "typescript": "^5.9.2",
-    "vite": "^7.2.7"
+    "@playwright/test": "^1.64.1",
+    "@types/node": "^26.6.5",
+    "jszip": "^3.10.2",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5"
   }
 }

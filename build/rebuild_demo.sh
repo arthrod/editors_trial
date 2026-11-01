@@ -34,25 +34,25 @@ restore() { local src=$1; shift; git -C "$src" checkout -q -- "$@"; }
 case "$slug" in
   superdoc)
     pin src superdoc
-    rsync -a "$ROOT/demos/superdoc/" src/examples/bench-demo/ --exclude BUILD.md
+    rsync -a --exclude node_modules "$ROOT/demos/superdoc/" src/examples/bench-demo/ --exclude BUILD.md
     ( cd src && pnpm install --no-frozen-lockfile && pnpm --filter superdoc build )   # the demo folder is not in upstream's lockfile
     ( cd src/examples/bench-demo && pnpm install && pnpm build )
     REPO=superdoc; LIC=AGPL-3.0; LICFILE=src/LICENSE ;;
   canvas-editor)
     pin src canvas-editor; pin plugin canvas-editor-plugin
-    rsync -a "$ROOT/demos/canvas-editor/" ./ --exclude BUILD.md
+    rsync -a --exclude node_modules "$ROOT/demos/canvas-editor/" ./ --exclude BUILD.md
     ( cd plugin && pnpm install ) && pnpm install && pnpm build
     REPO=canvas-editor; LIC=MIT; LICFILE=src/LICENSE ;;
   docxodus)
     pin src docxodus
-    rsync -a "$ROOT/demos/docxodus/" host/ --exclude BUILD.md
+    rsync -a --exclude node_modules "$ROOT/demos/docxodus/" host/ --exclude BUILD.md
     # The npm package the trial measured (harness/ui/docxodus), not a version typed here.
     v=$(node -p "require('$ROOT/harness/ui/docxodus/node_modules/docxodus/package.json').version")
     ( cd host && pnpm add --save-exact "docxodus@$v" && pnpm build )
     REPO=docxodus; LIC=MIT; LICFILE=src/LICENSE; NPM="docxodus@$v" ;;
   eigenpal)
     pin src eigenpal-docx-editor
-    rsync -a "$ROOT/demos/eigenpal/" app/ --exclude BUILD.md
+    rsync -a --exclude node_modules "$ROOT/demos/eigenpal/" app/ --exclude BUILD.md
     ( cd src && bun install --frozen-lockfile && bun run build:packages )
     ( cd app && pnpm install && pnpm build )
     REPO=eigenpal-docx-editor; LIC="Apache-2.0 (no Pro packages)"; LICFILE=src/LICENSE ;;
@@ -64,13 +64,13 @@ case "$slug" in
     REPO=folio; LIC=Apache-2.0; LICFILE=src/LICENSE ;;
   genoffice)
     pin src genoffice
-    rsync -a "$ROOT/demos/genoffice/apps/" src/apps/
+    rsync -a --exclude node_modules "$ROOT/demos/genoffice/apps/" src/apps/
     ( cd src && npm ci --no-audit --no-fund )
     ( cd src/apps/docs/demo-web && ../../../node_modules/.bin/vite build )
     REPO=genoffice; LIC=Apache-2.0; LICFILE=src/LICENSE ;;
   plate)
     pin src plate
-    rsync -a "$ROOT/demos/plate/" app/ --exclude BUILD.md
+    rsync -a --exclude node_modules "$ROOT/demos/plate/" app/ --exclude BUILD.md
     # CI=true: pnpm asks before replacing a node_modules another install left, and with no
     # terminal to answer it silently skips the install (turbo is then missing).
     # PUPPETEER_SKIP_DOWNLOAD: puppeteer is a dev dependency of Plate's own tests; the demo
