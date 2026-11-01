@@ -11,6 +11,6 @@
     "docxodus": "15.0.0"
   },
   "devDependencies": {
-    "vite": "^7.1.9"
+    "vite": "^8.3.5"
   }
 }

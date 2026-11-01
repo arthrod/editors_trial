@@ -36,7 +36,7 @@ export default defineConfig({
     outDir: path.resolve(exampleRoot, '../../../dist'),
     emptyOutDir: true,
     target: 'es2022',
-    minify: 'esbuild',
+    minify: 'oxc',  // Vite 8's own minifier; 'esbuild' now needs esbuild installed separately
     sourcemap: false,
     chunkSizeWarningLimit: 64 * 1024,
     reportCompressedSize: false,

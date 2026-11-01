@@ -1,3 +1,4 @@
+minimumReleaseAge: 7200  # 5 days, in minutes (AGENTS.md section 1)
 minimumReleaseAgeExclude:
   - '@superdoc/sdk-darwin-arm64@2.26.0-next.16'
   - '@superdoc/sdk-darwin-x64@2.26.0-next.16'
