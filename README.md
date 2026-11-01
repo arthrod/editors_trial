@@ -4,6 +4,8 @@ This repo measures open-source DOCX editors on one adversarial fixture, then, se
 
 The measured write-up is [Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md](Open-Source%20DOCX%20Editors%20Re-verified%20Against%20Code%20and%20Measured%20Round-Trip%20(2026).md). The per-tool notes are in `reports/extras/`. The vendor notes are `reports/vendors.md`.
 
+Each per-tool note has also been filed as an issue on that project's own repository, so that a maintainer can correct the measurement where they already work. The list of those issues is in [`outreach/`](outreach/).
+
 ## Fidelity
 
 `fixture/complex.docx` is the corpus. `build/run_all.sh` runs each editor's own import and export. `build/score_all.py` scores the files under `out/`. One file is `python3 build/check_roundtrip.py IN OUT`.
