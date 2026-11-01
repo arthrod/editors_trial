@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>docs.plus — DOCX editor</title>
+    <meta name="description" content="Static, client-side demo of the docs.plus DOCX editor." />
+    <meta name="referrer" content="no-referrer" />
+    <link rel="icon" href="data:," />
+  </head>
+  <body>
+    <header class="toolbar">
+      <span class="toolbar__brand">docs.plus</span>
+      <span id="doc-title" class="toolbar__title">…</span>
+      <span class="toolbar__spacer"></span>
+      <span id="status" class="toolbar__status">Loading…</span>
+      <a id="download-docx" class="toolbar__button" href="#" download="document.docx" role="button"
+        >Download .docx</a
+      >
+    </header>
+    <main id="editor" class="editor"></main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

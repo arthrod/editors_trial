@@ -60,6 +60,8 @@ function EditorFrame({ source }: { source: Uint8Array }): React.JSX.Element {
       <DocxEditor.Root
         document={source}
         mode="edit"
+        // The default 'auto' fit stops at 50%, still wider than a phone. Same fit, lower floor.
+        zoomMode={{ type: 'fit', fit: 'pageWidth', minZoom: 0.3, maxZoom: 1 }}
         onReady={(editor) => {
           document.documentElement.dataset.editorReady = 'true';
           Object.assign(window, { __EIGENPAL_EDITOR__: editor });

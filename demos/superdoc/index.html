@@ -51,9 +51,16 @@
         font-variant-numeric: tabular-nums;
         opacity: 0.85;
       }
+      #toolbar {
+        flex: 0 0 auto;
+        background: #fff;
+        border-bottom: 1px solid #dfe2e7;
+        overflow-x: auto;
+      }
       #editor {
         flex: 1 1 auto;
         min-height: 0;
+        overflow: auto; /* the page body is overflow: hidden, so the document scrolls here */
         position: relative;
       }
     </style>
@@ -64,6 +71,7 @@
         <button id="download-docx" type="button" disabled>Download .docx</button>
         <span class="status" id="status">loading…</span>
       </div>
+      <div id="toolbar"></div>
       <div id="editor"></div>
     </div>
     <script type="module">

@@ -71,6 +71,15 @@ async function main() {
     const importer = new DocxConvert(await JSZip.loadAsync(bytes), "benchmarks-law-demo", IMPORT_TEMPLATE as never, {})
     const imported = await importer.init()
 
+    // The Fidus app resolves figures through docSchema.cached.imageDB (image id -> URL); hand it the
+    // importer's own image blobs, or every figure renders as an empty <img>.
+    const shown: Record<string, unknown> = {}
+    for (const [id, entry] of Object.entries(importer.images ?? {})) {
+        const e = entry as {file?: Blob, file_type?: string}
+        if (e.file) shown[id] = {...e, image: URL.createObjectURL(e.file), file_type: e.file.type || e.file_type}
+    }
+    ;(docSchema as unknown as {cached: Record<string, unknown>}).cached.imageDB = {db: shown}
+
     const view = new EditorView(document.getElementById("editor")!, {
         state: EditorState.create({
             doc: docSchema.nodeFromJSON(imported.content),

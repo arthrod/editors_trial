@@ -74,6 +74,10 @@ async function start(): Promise<void> {
     "content",
     JSON.stringify({ type: "doc", content: [{ type: "paragraph" }] }),
   );
+  // The editor opens at 100%, wider than a phone; fit a Letter page (816 px) to a narrow screen.
+  if (window.innerWidth < 860) {
+    editor.setAttribute("zoom", String(Math.floor(((window.innerWidth - 32) / 816) * 100)));
+  }
   document.body.prepend(editor);
 
   const demo = {

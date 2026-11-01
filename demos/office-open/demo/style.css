@@ -203,7 +203,11 @@ summary {
 @media (max-width: 800px) {
   .toolbar { flex-wrap: wrap; }
   .status { flex-basis: 100%; order: 3; }
+  /* One column that scrolls as a page: the outline in full, then the JSON tree. */
+  body { height: auto; min-height: 100dvh; overflow: visible; }
+  .toolbar { position: sticky; top: 0; z-index: 1; }
   .panes { flex-direction: column; }
+  .pane { overflow: visible; }
   .outline { border-right: 0; border-bottom: 1px solid var(--line); }
   .doc-title { font-size: 22px; }
   p.block { font-size: 16px; }
