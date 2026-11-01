@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "@docxodus/export": "^14.2.0",
-    "docxodus": "14.2.0"
+    "docxodus": "14.3.0"
   },
   "devDependencies": {
     "vite": "^7.1.9"
