@@ -13,8 +13,8 @@
  },
  "genoffice": {
   "pages": 6,
-  "diff": 1570,
-  "pct": 0.83,
+  "diff": 4232,
+  "pct": 0.74,
   "verdict": "very close"
  },
  "eigenpal": {
@@ -25,50 +25,62 @@
  },
  "office-open": {
   "pages": 6,
-  "diff": 111924,
-  "pct": 59.19,
+  "diff": 368315,
+  "pct": 64.8,
   "verdict": "different"
  },
  "docen": {
   "pages": 6,
-  "diff": 228534,
-  "pct": 120.85,
+  "diff": 708667,
+  "pct": 124.68,
   "verdict": "different"
  },
  "wordcraft": {
   "pages": 6,
-  "diff": 24132,
-  "pct": 12.76,
+  "diff": 64849,
+  "pct": 11.41,
   "verdict": "close"
  },
  "fidus": {
   "pages": 2,
-  "diff": 60000000,
-  "pct": 31728.57,
+  "diff": null,
+  "pct": null,
   "verdict": "different"
  },
  "canvas": {
   "pages": 2,
-  "diff": 40158984,
-  "pct": 21236.45,
+  "diff": null,
+  "pct": null,
   "verdict": "different"
  },
  "docs.plus": {
   "pages": 3,
-  "diff": 30190539,
-  "pct": 15965.05,
+  "diff": null,
+  "pct": null,
   "verdict": "different"
  },
  "plate": {
   "pages": 2,
-  "diff": 40151887,
-  "pct": 21232.7,
+  "diff": null,
+  "pct": null,
   "verdict": "different"
  },
  "libreoffice": {
   "pages": 6,
-  "diff": 335,
-  "pct": 0.18,
+  "diff": 888,
+  "pct": 0.16,
   "verdict": "pixel-identical"
+ },
+ "docxodus": {
+  "pages": 6,
+  "diff": 0,
+  "pct": 0.0,
+  "verdict": "pixel-identical"
+ },
+ "apryse": {
+  "pages": 6,
+  "diff": 24540,
+  "pct": 4.32,
+  "verdict": "very close"
  }
 }

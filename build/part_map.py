@@ -28,6 +28,7 @@ IN = os.path.join(BASE, "fixture", "complex.docx")
 EDITORS = [
     ("Plate.js", "plate"),
     ("Docxodus", "docxodus"),
+    ("Apryse WebViewer", "apryse"),
     ("SuperDoc", "superdoc"),
     ("Folio", "folio"),
     ("GenOffice", "genoffice"),

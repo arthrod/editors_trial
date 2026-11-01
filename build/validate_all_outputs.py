@@ -5,6 +5,7 @@ the same benign-class filter as build/validate_ooxml.py.
 
 usage: python3 build/validate_all_outputs.py
 """
+import json
 import os
 import subprocess
 import sys
@@ -28,6 +29,9 @@ TARGETS = [
     ("Fidus Writer", "out/fidus/complex.docx"),
     ("canvas-editor + plugin", "out/canvas/complex.docx"),
     ("docs.plus", "out/docsplus/complex.docx"),
+    ("Plate.js", "out/plate/complex.docx"),
+    ("Docxodus", "out/docxodus/complex.docx"),
+    ("Apryse WebViewer", "out/apryse/complex.docx"),
     ("LibreOffice (baseline)", "out/lo_baseline/complex.docx"),
 ]
 
@@ -53,11 +57,13 @@ def validate(path):
 
 
 if __name__ == "__main__":
+    real = {}  # out/<tool>/complex.docx -> count, for build/facts.py (Report B)
     for label, rel in TARGETS:
         p = os.path.join(BASE, rel)
         if not os.path.exists(p):
             continue
         errs = validate(p)
+        real[rel.split("/")[1]] = len(errs)
         print("%-26s %s" % (label, "PASS (no real violations)" if not errs
                             else "%d REAL VIOLATION(S)" % len(errs)))
         seen = set()
@@ -67,3 +73,6 @@ if __name__ == "__main__":
                 continue
             seen.add(key)
             print("      %-28s %s" % (part, msg))
+    with open(os.path.join(BASE, "out", "xsd_real.json"), "w") as fh:
+        json.dump(real, fh, indent=1, sort_keys=True)
+        fh.write("\n")

@@ -2,8 +2,8 @@
  "superdoc": {
   "pages": 6,
   "diff_px": 0,
-  "ink": 1661285,
-  "corpus_ink": 1661285,
+  "ink": 5450749,
+  "corpus_ink": 5450749,
   "pct_of_ink": 0.0,
   "verdict": "pixel-identical",
   "per_page": [
@@ -17,14 +17,14 @@
  },
  "genoffice": {
   "pages": 6,
-  "diff_px": 957,
-  "ink": 1660779,
-  "corpus_ink": 1661285,
-  "pct_of_ink": 0.06,
+  "diff_px": 2520,
+  "ink": 5449451,
+  "corpus_ink": 5450749,
+  "pct_of_ink": 0.05,
   "verdict": "pixel-identical",
   "per_page": [
    0,
-   957,
+   2520,
    0,
    0,
    0,
@@ -34,8 +34,8 @@
  "eigenpal": {
   "pages": 6,
   "diff_px": 0,
-  "ink": 1661285,
-  "corpus_ink": 1661285,
+  "ink": 5450749,
+  "corpus_ink": 5450749,
   "pct_of_ink": 0.0,
   "verdict": "pixel-identical",
   "per_page": [
@@ -49,30 +49,30 @@
  },
  "wordcraft": {
   "pages": 6,
-  "diff_px": 12541,
-  "ink": 1659085,
-  "corpus_ink": 1661285,
-  "pct_of_ink": 0.75,
+  "diff_px": 28837,
+  "ink": 5445274,
+  "corpus_ink": 5450749,
+  "pct_of_ink": 0.53,
   "verdict": "very close",
   "per_page": [
-   531,
-   26,
-   543,
-   1128,
-   610,
-   9703
+   1610,
+   155,
+   1633,
+   3061,
+   1795,
+   20583
   ]
  },
  "canvas": {
   "pages": 2,
-  "diff_px": 40646218,
-  "ink": 96088,
-  "corpus_ink": 1661285,
-  "pct_of_ink": 2446.67,
+  "diff_px": 42093528,
+  "ink": 279386,
+  "corpus_ink": 5450749,
+  "pct_of_ink": 772.25,
   "verdict": "different",
   "per_page": [
-   325402,
-   320816,
+   1053735,
+   1039793,
    null,
    null,
    null,
@@ -81,14 +81,14 @@
  },
  "docs.plus": {
   "pages": 2,
-  "diff_px": 40609781,
-  "ink": 53239,
-  "corpus_ink": 1661285,
-  "pct_of_ink": 2444.48,
+  "diff_px": 41970145,
+  "ink": 140707,
+  "corpus_ink": 5450749,
+  "pct_of_ink": 769.99,
   "verdict": "different",
   "per_page": [
-   301781,
-   308000,
+   976918,
+   993227,
    null,
    null,
    null,
@@ -97,14 +97,14 @@
  },
  "plate": {
   "pages": 2,
-  "diff_px": 40629083,
-  "ink": 97196,
-  "corpus_ink": 1661285,
-  "pct_of_ink": 2445.64,
+  "diff_px": 42033653,
+  "ink": 283894,
+  "corpus_ink": 5450749,
+  "pct_of_ink": 771.15,
   "verdict": "different",
   "per_page": [
-   325532,
-   303551,
+   1052185,
+   981468,
    null,
    null,
    null,
@@ -114,8 +114,8 @@
  "docxodus": {
   "pages": 6,
   "diff_px": 0,
-  "ink": 1661285,
-  "corpus_ink": 1661285,
+  "ink": 5450749,
+  "corpus_ink": 5450749,
   "pct_of_ink": 0.0,
   "verdict": "pixel-identical",
   "per_page": [
@@ -129,34 +129,34 @@
  },
  "apryse": {
   "pages": 6,
-  "diff_px": 829,
-  "ink": 1697763,
-  "corpus_ink": 1661285,
-  "pct_of_ink": 0.05,
+  "diff_px": 2119,
+  "ink": 5568696,
+  "corpus_ink": 5450749,
+  "pct_of_ink": 0.04,
   "verdict": "pixel-identical",
   "per_page": [
    2,
-   739,
+   1960,
    0,
-   84,
-   2,
+   152,
+   3,
    2
   ]
  },
  "libreoffice": {
   "pages": 6,
-  "diff_px": 12303,
-  "ink": 1661176,
-  "corpus_ink": 1661285,
-  "pct_of_ink": 0.74,
+  "diff_px": 30456,
+  "ink": 5451082,
+  "corpus_ink": 5450749,
+  "pct_of_ink": 0.56,
   "verdict": "very close",
   "per_page": [
    0,
-   26,
-   3900,
-   2707,
-   1793,
-   3877
+   155,
+   8201,
+   7337,
+   4778,
+   9985
   ]
  }
 }

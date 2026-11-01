@@ -39,16 +39,11 @@ CONSTRUCTS = [
 ]
 
 WORD_EDITORS = ["superdoc", "genoffice", "eigenpal", "wordcraft",
-                 "canvas", "docs.plus", "plate", "libreoffice"]
-WORD_EDITORS = ["superdoc", "genoffice", "eigenpal", "wordcraft",
-                 "canvas", "docs.plus", "plate", "docxodus", "libreoffice"]
+                 "canvas", "docs.plus", "plate", "docxodus", "apryse", "libreoffice"]
 
 LO_EDITORS = ["superdoc", "folio", "genoffice", "eigenpal", "office-open",
                "docen", "wordcraft", "fidus", "canvas", "docs.plus",
-               "plate", "libreoffice"]
-LO_EDITORS = ["superdoc", "folio", "genoffice", "eigenpal", "office-open",
-               "docen", "wordcraft", "fidus", "canvas", "docs.plus",
-               "plate", "docxodus", "libreoffice"]
+               "plate", "docxodus", "apryse", "libreoffice"]
 
 
 def diff(a_path, b_path, thresh=8):

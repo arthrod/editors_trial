@@ -13,6 +13,9 @@ import os
 import subprocess
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import pixels  # noqa: E402  (build/pixels.py: the release resolution)
+
 BASE = "/Users/arthrod/temp/T/editors_trial"
 
 ORDER = ["corpus", "superdoc", "folio", "genoffice", "eigenpal",
@@ -35,8 +38,8 @@ def main(outdir):
         for ln in info.split("\n"):
             if ln.startswith("Pages:"):
                 pages = int(ln.split()[-1])
-        # every page, at 110 dpi - enough to read, small enough to embed
-        subprocess.run(["pdftoppm", "-r", "110", "-png", pdf,
+        # every page, at the release resolution (build/pixels.py)
+        subprocess.run(["pdftoppm", "-r", str(pixels.DPI), "-png", pdf,
                         os.path.join(png, label)], capture_output=True)
         made = sorted(f for f in os.listdir(png) if f.startswith(label + "-"))
         print("%-14s %d pages -> %d png" % (label, pages, len(made)))

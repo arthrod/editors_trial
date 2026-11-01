@@ -25,6 +25,7 @@ PACKAGES = (
     ("officeopen", ROOT / "out" / "officeopen" / "complex.docx"),
     ("docen", ROOT / "out" / "docen" / "complex.docx"),
     ("docxodus", ROOT / "out" / "docxodus" / "complex.docx"),
+    ("apryse", ROOT / "out" / "apryse" / "complex.docx"),
 )
 
 

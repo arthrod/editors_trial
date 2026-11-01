@@ -23,6 +23,7 @@ Usage:
   python3 build/malformation_audit.py                  # corpus + every output
   python3 build/malformation_audit.py FILE [FILE ...]
 """
+import json
 import os
 import re
 import sys
@@ -52,6 +53,7 @@ TARGETS = [
     ("Fidus Writer", "out/fidus/complex.docx"),
     ("canvas-editor + plugin", "out/canvas/complex.docx"),
     ("docs.plus", "out/docsplus/complex.docx"),
+    ("Apryse WebViewer", "out/apryse/complex.docx"),
     ("LibreOffice (baseline)", "out/lo_baseline/complex.docx"),
 ]
 
@@ -110,7 +112,9 @@ def audit(path):
                 mode = rel.get("TargetMode", "")
                 if mode == "External" or tgt.startswith(("http:", "https:", "mailto:")):
                     continue
-                resolved = os.path.normpath(os.path.join(base, tgt)).replace("\\", "/")
+                # OPC: a target starting with "/" is a part name from the package root
+                resolved = (tgt.lstrip("/") if tgt.startswith("/")
+                            else os.path.normpath(os.path.join(base, tgt)).replace("\\", "/"))
                 if resolved not in nameset:
                     findings.append(("MISSING-TARGET", n,
                                      "%s -> %s" % (rel.get("Id"), tgt)))
@@ -181,16 +185,24 @@ def main():
             p = rel if os.path.isabs(rel) else os.path.join(BASE, rel)
             if os.path.exists(p):
                 pairs.append((label, p))
+    found = {}  # out/<tool>/complex.docx -> {kind: count}, for build/facts.py (Report B)
     for label, p in pairs:
         f = audit(p)
         kinds = {}
         for k, _, _ in f:
             kinds[k] = kinds.get(k, 0) + 1
+        rel = os.path.relpath(p, BASE).split(os.sep)
+        if len(sys.argv) == 1 and rel[0] == "out":
+            found[rel[1]] = kinds
         print("%-26s %s" % (label, ("CLEAN" if not f else
                                     ", ".join("%s x%d" % (k, v)
                                               for k, v in sorted(kinds.items())))))
         for k, part, detail in f:
             print("      %-18s %s %s" % (k, part, detail))
+    if len(sys.argv) == 1:
+        with open(os.path.join(BASE, "out", "package_integrity.json"), "w") as fh:
+            json.dump(found, fh, indent=1, sort_keys=True)
+            fh.write("\n")
     return 0
 
 
