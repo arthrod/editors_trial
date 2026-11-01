@@ -1,0 +1,33 @@
+C0_control	compare	0	2	0	wrote <word_exp>/jruns_before_cmp/C0_control/redline.docx (docx, 1023 bytes) 
+B1	compare	143 KILLED>300s	4683	302	
+B2	compare	1	2	0	error: compare failed: INPUT_LIMIT: original document: 25004 ZIP entries; the limit is 10000 
+B3	compare	1	1	0	error: compare failed: INVALID_XML: original document: word/document.xml: element <w:p>: element exceeds 1024 attributes 
+B4	compare	1	2	1	error: compare failed: INVALID_XML: original document: word/document.xml: XML nests deeper than 256 
+B5	compare	1	2	1	error: compare failed: PartNotFound("original has no root element") 
+B6	compare	1	3	1	error: compare failed: UNSUPPORTED_PACKAGE: original document: unsafe entry name "../escaped/pwned-editors-trial.xml": empty, . or .. segment 
+B7	compare	0	2	0	wrote <word_exp>/jruns_before_cmp/B7/redline.docx (docx, 6330 bytes) 
+B8	compare	0	0	0	wrote <word_exp>/jruns_before_cmp/B8/redline.docx (docx, 6575 bytes) 
+B9	compare	0	126	1	wrote <word_exp>/jruns_before_cmp/B9/redline.docx (docx, 295370 bytes) 
+B10	compare	1	2	1	error: compare failed: INVALID_XML: original document: word/comments.xml: syntax error: tag not closed: `>` not found before end of input 
+X1_doctype	compare	0	3	0	wrote <word_exp>/jruns_before_cmp/X1_doctype/redline.docx (docx, 6098 bytes) 
+X2_entity	compare	1	2	0	error: compare failed: PartNotFound("original has no root element") 
+X3_subset_gt	compare	1	2	0	error: compare failed: PartNotFound("original has no w:body") 
+X4_dtd_customxml	compare	0	2	0	wrote <word_exp>/jruns_before_cmp/X4_dtd_customxml/redline.docx (docx, 6314 bytes) 
+X4c_customxml_control	compare	0	2	0	wrote <word_exp>/jruns_before_cmp/X4c_customxml_control/redline.docx (docx, 6274 bytes) 
+X5_dtd_styles	compare	0	2	0	wrote <word_exp>/jruns_before_cmp/X5_dtd_styles/redline.docx (docx, 6478 bytes) 
+D_sdt200	compare	1	2	0	error: compare failed: INVALID_XML: original document: word/document.xml: XML nests deeper than 256 
+D_sdt300	compare	1	4	0	error: compare failed: INVALID_XML: original document: word/document.xml: XML nests deeper than 256 
+D_sdt600	compare	1	2	0	error: compare failed: INVALID_XML: original document: word/document.xml: XML nests deeper than 256 
+D_tbl60	compare	0	2	1	wrote <word_exp>/jruns_before_cmp/D_tbl60/redline.docx (docx, 6835 bytes) 
+D_tbl200	compare	1	7	1	error: compare failed: INVALID_XML: original document: word/document.xml: XML nests deeper than 256 
+D_tbl300	compare	1	1	1	error: compare failed: INVALID_XML: original document: word/document.xml: XML nests deeper than 256 
+N1_template	compare	0	2	0	wrote <word_exp>/jruns_before_cmp/N1_template/redline.docx (docx, 6520 bytes) 
+N2_linked_image	compare	0	3	0	wrote <word_exp>/jruns_before_cmp/N2_linked_image/redline.docx (docx, 6519 bytes) 
+N3_includepicture	compare	0	2	0	wrote <word_exp>/jruns_before_cmp/N3_includepicture/redline.docx (docx, 6360 bytes) 
+N4_subdoc	compare	101	2	0	thread 'main' (28414397) panicked at src/comparer/atomize.rs:312:52: invalid content in comparer input: "Document contains subDoc" 
+E1_flood1	compare	0	601	4	wrote <word_exp>/jruns_before_cmp/E1_flood1/redline.docx (docx, 298817 bytes) 
+E2_flood8	compare	0	5010	80	wrote <word_exp>/jruns_before_cmp/E2_flood8/redline.docx (docx, 2347423 bytes) 
+E5_atcap	compare	143 KILLED>6GB	6337	7	
+E6_overcap	compare	143 KILLED>300s	4789	301	
+E3_flood60	compare	143 KILLED>6GB	6301	9	
+E4_flood70	compare	143 KILLED>6GB	6166	7	

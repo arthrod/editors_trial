@@ -1,0 +1,13 @@
+2026-10-31T20:35:10	127.0.0.1:60394	OPTIONS / HTTP/1.1	User-Agent: Microsoft Office Word/16.115.1004 (Mac OS/27.0.1; Desktop; en-US; NonAppStore; Apple/Mac16,8)
+2026-10-31T20:35:10	127.0.0.1:60395	HEAD /N1_template.dotm HTTP/1.1	User-Agent: Microsoft Office Word/16.115.1004 (Mac OS/27.0.1; Desktop; en-US; NonAppStore; Apple/Mac16,8)
+2026-10-31T20:35:10	127.0.0.1:60396	OPTIONS /N1_template.dotm HTTP/1.1	User-Agent: Microsoft Office Word/16.115.1004 (Mac OS/27.0.1; Desktop; en-US; NonAppStore; Apple/Mac16,8)
+2026-10-31T20:35:10	127.0.0.1:60397	GET /N1_template.dotm HTTP/1.1	User-Agent: Microsoft Office Word/16.115.1004 (Mac OS/27.0.1; Desktop; en-US; NonAppStore; Apple/Mac16,8)
+2026-10-31T20:35:19	127.0.0.1:60412	GET /N2_image.png HTTP/1.1	User-Agent: Mozilla/4.0 (compatible; ms-office; MSOffice 16)
+2026-10-31T20:35:19	127.0.0.1:60413	GET /N2_image.png HTTP/1.1	User-Agent: Word/16.115.26100424 CFNetwork/3896.100.1.1.1 Darwin/27.0.0
+2026-10-31T20:35:19	127.0.0.1:60414	GET /N2_image.png HTTP/1.1	User-Agent: Mozilla/4.0 (compatible; ms-office; MSOffice 16)
+2026-10-31T20:35:19	127.0.0.1:60415	GET /N2_image.png HTTP/1.1	User-Agent: Word/16.115.26100424 CFNetwork/3896.100.1.1.1 Darwin/27.0.0
+2026-10-31T20:35:19	127.0.0.1:60416	GET /N2_image.png HTTP/1.1	User-Agent: Mozilla/4.0 (compatible; ms-office; MSOffice 16)
+2026-10-31T20:35:19	127.0.0.1:60417	GET /N2_image.png HTTP/1.1	User-Agent: Word/16.115.26100424 CFNetwork/3896.100.1.1.1 Darwin/27.0.0
+2026-10-31T20:35:19	127.0.0.1:60418	GET /N2_image.png HTTP/1.1	User-Agent: Mozilla/4.0 (compatible; ms-office; MSOffice 16)
+2026-10-31T20:35:19	127.0.0.1:60419	GET /N2_image.png HTTP/1.1	User-Agent: Word/16.115.26100424 CFNetwork/3896.100.1.1.1 Darwin/27.0.0
+2026-10-31T20:35:38	127.0.0.1:60448	HEAD /N4_sub.docx HTTP/1.1	User-Agent: Microsoft Office Existence Discovery

@@ -1,0 +1,72 @@
+id	word_exit	secs	word_peak_rss_mb	pdf_pages	pdf_markers	net_hits	canary	zip_slip_files	alerts
+C0_control	0	10	506	1	BODY_OK:1,	0	no	none	
+X1_doctype	1	17	1504	-	-	0	no	none	[watchdog] Microsoft Word says: 'Word experienced an error trying to open the file.
+Try these suggestions.
+* Check the file permissions for the document or drive.
+* Make sure there is sufficient free memory and disk space.
+* Open the file with the Text Recovery converter.
+(00000__X1_doctype.docx)' [watchdog] Word dialog dismissed via 'OK'; Word said: "Word experienced an error trying to open 
+X2_entity	1	16	470	-	-	0	no	none	[watchdog] Microsoft Word says: 'Word experienced an error trying to open the file.
+Try these suggestions.
+* Check the file permissions for the document or drive.
+* Make sure there is sufficient free memory and disk space.
+* Open the file with the Text Recovery converter.
+(00000__X2_entity.docx)' [watchdog] Word dialog dismissed via 'OK'; Word said: "Word experienced an error trying to open t
+X3_subset_gt	1	17	467	-	-	0	no	none	[watchdog] Microsoft Word says: 'Word experienced an error trying to open the file.
+Try these suggestions.
+* Check the file permissions for the document or drive.
+* Make sure there is sufficient free memory and disk space.
+* Open the file with the Text Recovery converter.
+(00000__X3_subset_gt.docx)' [watchdog] Word dialog dismissed via 'OK'; Word said: "Word experienced an error trying to ope
+B5	1	15	470	-	-	0	no	none	[watchdog] Microsoft Word says: 'Word experienced an error trying to open the file.
+Try these suggestions.
+* Check the file permissions for the document or drive.
+* Make sure there is sufficient free memory and disk space.
+* Open the file with the Text Recovery converter.
+(00000__B5.docx)' [watchdog] Word dialog dismissed via 'OK'; Word said: "Word experienced an error trying to open the file
+B1	0	7	711	1		0	no	none	
+B2	0	7	460	1	BOMB_BODY_OK:1,	0	no	none	
+B3	1	23	615	-	-	0	no	none	[watchdog] Microsoft Word says: 'Word experienced an error trying to open the file.
+Try these suggestions.
+* Check the file permissions for the document or drive.
+* Make sure there is sufficient free memory and disk space.
+* Open the file with the Text Recovery converter.
+(00000__B3.docx)' [watchdog] Word dialog dismissed via 'OK'; Word said: "Word experienced an error trying to open the file
+B4	1	16	511	-	-	0	no	none	[watchdog] Microsoft Word says: 'Word experienced an error trying to open the file.
+Try these suggestions.
+* Check the file permissions for the document or drive.
+* Make sure there is sufficient free memory and disk space.
+* Open the file with the Text Recovery converter.
+(00000__B4.docx)' [watchdog] Word dialog dismissed via 'OK'; Word said: "Word experienced an error trying to open the file
+D_sdt200	0	7	559	1	BODY_OK:1,DEEP_LEAF:1,	0	no	none	
+D_sdt300	0	8	576	1	BODY_OK:1,DEEP_LEAF:1,	0	no	none	
+D_sdt600	0	10	619	1	BODY_OK:1,DEEP_LEAF:1,	0	no	none	
+D_tbl60	1	378	509	-	-	0	no	none	-- crash reporters:  [batch] FAIL: D_tbl60.docx — Microsoft Word got an error: AppleEvent timed out. 
+D_tbl200	2	106	170	-	-	0	no	none	
+D_tbl300	1	429	512	-	-	0	no	none	[batch pdf] pass 1 ended at item 0: Microsoft Word got an error: Connection is invalid. (Word crashed); 0 item(s) not reached, 1 to retry. Recovering Word (see the [word] line), then pass 2 runs them, retried items last (0 of 3 stalled passes used) -- crash reporters:  [batch] FAIL: D_tbl300.docx — Microsoft Word got an error: AppleEvent timed out. 
+B6	1	56	440	-	-	0	no	none	[watchdog] Microsoft Word says: 'Word found unreadable content in 00000__B6.docx. Do you want to recover the contents of this document? If you trust the source of this document, click Yes.' [watchdog] repair prompt declined via 'No' with Word brought forward; Word said: "Word found unreadable content in 00000__B6.docx. Do you want to recover the contents of this document? If you trust the source o
+B7	0	9	501	1	BOMB_BODY_OK:1,	0	no	none	
+B8	1	18	457	-	-	0	no	none	[watchdog] Microsoft Word says: 'Word experienced an error trying to open the file.
+Try these suggestions.
+* Check the file permissions for the document or drive.
+* Make sure there is sufficient free memory and disk space.
+* Open the file with the Text Recovery converter.
+(00000__B8.docx)' [watchdog] Word dialog dismissed via 'OK'; Word said: "Word experienced an error trying to open the file
+B9	0	7	545	77	BOMB_BODY_OK:1,cell:1,	0	no	none	
+B10	1	10	473	-	-	0	no	none	[watchdog] Microsoft Word says: 'Word found unreadable content in 00000__B10.docx. Do you want to recover the contents of this document? If you trust the source of this document, click Yes.' [watchdog] repair prompt declined via 'No' then 'OK' with Word brought forward; Word said: "Word found unreadable content in 00000__B10.docx. Do you want to recover the contents of this document? If you trust 
+N1_template	0	6	515	1	BODY_OK:1,	4	no	none	
+N2_linked_image	0	7	488	1	BODY_OK:1,link:2,	8	no	none	
+N3_includepicture	0	7	502	1	BODY_OK:1,FIELD_CACHE:1,	0	no	none	
+N4_subdoc	0	7	489	1	BODY_OK:1,	1	no	none	
+E1_flood1	0	15	765	1187	FLOOD_END:1,FLOOD_START:1,	0	no	none	
+E2_flood8	0	89	2357	9490	FLOOD_END:1,FLOOD_START:1,	0	no	none	-- crash reporters:  
+E3_flood60	1	1641	6236	-	-	0	no	none	-- crash reporters:  [word] recovery 1: returned rc=None in 30.0 s, error: osascript timed out [word] recovery 1: because the close-all returned an error (osascript timed out); asking Word to quit, running: osascript -e 'tell application "Microsoft Word" to quit saving no' [word] recovery 1: returned rc=None in 25.0 s, error: osascript timed out -- crash reporters:  [word] recovery 2: returned rc=
+X4_dtd_customxml	2	38	2332	-	-	0	no	none	
+X5_dtd_styles	1	11	470	-	-	0	no	none	[watchdog] Microsoft Word says: 'Word found unreadable content in 00000__X5_dtd_styles.docx. Do you want to recover the contents of this document? If you trust the source of this document, click Yes.' [watchdog] repair prompt declined via 'No' then 'OK' with Word brought forward; Word said: "Word found unreadable content in 00000__X5_dtd_styles.docx. Do you want to recover the contents of this doc
+X4_dtd_customxml	1	10	464	-	-	0	no	none	[watchdog] Microsoft Word says: 'Word found unreadable content in 00000__X4_dtd_customxml.docx. Do you want to recover the contents of this document? If you trust the source of this document, click Yes.' [watchdog] repair prompt declined via 'No' then 'OK' with Word brought forward; Word said: "Word found unreadable content in 00000__X4_dtd_customxml.docx. Do you want to recover the contents of th
+X4c_customxml_control	0	7	514	1	BODY_OK:1,	0	no	none	
+D_tbl60	1	375	499	-	-	0	no	none	-- crash reporters:  [batch] FAIL: D_tbl60.docx — Microsoft Word got an error: AppleEvent timed out. 
+D_tbl200	1	376	515	-	-	0	no	none	-- crash reporters:  [batch] FAIL: D_tbl200.docx — Microsoft Word got an error: AppleEvent timed out. 
+D_tbl300	1	376	514	-	-	0	no	none	-- crash reporters:  [batch] FAIL: D_tbl300.docx — Microsoft Word got an error: AppleEvent timed out. 
+E5_atcap	0	237	3909	25639	FLOOD_END:1,FLOOD_START:1,	0	no	none	-- crash reporters:  
+E4_flood70	1	1610	7166	-	-	0	atime-changed	none	-- crash reporters:  [word] recovery 1: returned rc=None in 30.0 s, error: osascript timed out [word] recovery 1: because the close-all returned an error (osascript timed out); asking Word to quit, running: osascript -e 'tell application "Microsoft Word" to quit saving no' [word] recovery 1: returned rc=None in 25.0 s, error: osascript timed out -- crash reporters:  [word] recovery 2: returned rc=

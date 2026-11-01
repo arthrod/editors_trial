@@ -1,0 +1,20 @@
+2026-10-31 20:36:02.430 | INFO     | __main__:warm:1476 - [word] launching Word in the background, running: open -g -a '/Applications/Microsoft Word.app'
+2026-10-31 20:36:04.506 | INFO     | __main__:warm:1483 - [word] Word answered after 2 s; alerts off
+2026-10-31 20:36:04.662 | INFO     | __main__:preflight:3042 - [word] preflight: word_pid=24031 open_documents=0 started_clean=True launched_by_us=True close_documents=True
+2026-10-31 20:36:04.663 | INFO     | __main__:preflight:3081 - [word] preflight: closing every document (health check), running: osascript -e 'tell application "Microsoft Word" to close every document saving no'
+2026-10-31 20:36:04.814 | INFO     | __main__:_run_logged:1646 - [word] preflight: returned rc=0 in 0.2 s, no value came back (AppleScript 'missing value')
+2026-10-31 20:36:04.815 | INFO     | __main__:convert_folder:2696 - [word] export: one_osascript=True documents=1 accept_all=False reject_all=False
+2026-10-31 20:36:04.817 | INFO     | __main__:_convert_batched:2908 - [batch] one osascript for 1 document(s)
+2026-10-31 20:36:09.822 | INFO     | __main__:_loop:2095 - [batch pdf 1] 0/1
+2026-10-31 20:36:19.834 | INFO     | __main__:_nudge:2064 - [focus] item 1/1 not finished after 10 s; bringing Word forward to look for an alert
+2026-10-31 20:36:49.859 | INFO     | __main__:_nudge:2064 - [focus] item 1/1 not finished after 40 s; bringing Word forward to look for an alert
+2026-10-31 20:37:01.685 | WARNING  | __main__:_report:2053 - [batch pdf 1] item 1/1 open for more than 30 s:
+-- Word windows {name, subrole}: osascript timed out
+-- Word window text: 
+-- crash reporters: 
+-- batch-pdf-1.log:
+
+-- newest diagnostic reports: ExcUserFault_nsattributedstringagent-2026-10-31-172032.ips, ExcUserFault_nsattributedstringagent-2026-10-31-163006.ips, forge-2026-10-30-203302.ips, forge-2026-10-31-161313.ips, forge-2026-10-31-160921.ips
+2026-10-31 20:37:19.888 | INFO     | __main__:_nudge:2064 - [focus] item 1/1 not finished after 70 s; bringing Word forward to look for an alert
+2026-10-31 20:37:30.622 | INFO     | __main__:convert_folder:2715 - [manifest] appended 1 line(s) to <word_exp>/runs/E2_flood8/out/manifest.jsonl
+2026-10-31 20:37:31.001 | INFO     | __main__:stop:1274 - [watchdog] tally: declined=0 dismissed=0 granted=0 forwarded=0 alerts_seen=0

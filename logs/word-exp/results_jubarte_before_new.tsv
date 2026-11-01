@@ -1,0 +1,20 @@
+X4_dtd_customxml	read	0	0	1	wrote <word_exp>/jruns_before_new/X4_dtd_customxml/view.md (md, 577 bytes) 
+X4_dtd_customxml	read_nopm	0	9	0	wrote <word_exp>/jruns_before_new/X4_dtd_customxml/view_nopm.md (md, 555 bytes) 
+X4_dtd_customxml	validate	0	0	0	
+X4_dtd_customxml	compare	0	4	0	wrote <word_exp>/jruns_before_new/X4_dtd_customxml/redline.docx (docx, 6314 bytes) 
+X4c_customxml_control	read	0	6	0	wrote <word_exp>/jruns_before_new/X4c_customxml_control/view.md (md, 582 bytes) 
+X4c_customxml_control	read_nopm	0	5	0	wrote <word_exp>/jruns_before_new/X4c_customxml_control/view_nopm.md (md, 560 bytes) 
+X4c_customxml_control	validate	0	2	0	
+X4c_customxml_control	compare	0	7	1	wrote <word_exp>/jruns_before_new/X4c_customxml_control/redline.docx (docx, 6274 bytes) 
+X5_dtd_styles	read	0	1	0	wrote <word_exp>/jruns_before_new/X5_dtd_styles/view.md (md, 574 bytes) 
+X5_dtd_styles	read_nopm	0	1	0	wrote <word_exp>/jruns_before_new/X5_dtd_styles/view_nopm.md (md, 552 bytes) 
+X5_dtd_styles	validate	0	0	1	
+X5_dtd_styles	compare	0	7	0	wrote <word_exp>/jruns_before_new/X5_dtd_styles/redline.docx (docx, 6478 bytes) 
+E5_atcap	read	0	2224	30	wrote <word_exp>/jruns_before_new/E5_atcap/view.md (md, 13979544 bytes) 
+E5_atcap	read_nopm	0	2917	29	wrote <word_exp>/jruns_before_new/E5_atcap/view_nopm.md (md, 13221480 bytes) 
+E5_atcap	validate	0	945	8	
+E5_atcap	compare	143 KILLED>300s	5612	301	
+E6_overcap	read	0	2184	18	wrote <word_exp>/jruns_before_new/E6_overcap/view.md (md, 13987996 bytes) 
+E6_overcap	read_nopm	0	2813	18	wrote <word_exp>/jruns_before_new/E6_overcap/view_nopm.md (md, 13229482 bytes) 
+E6_overcap	validate	0	945	4	
+E6_overcap	compare	143 KILLED>300s	5885	301	
