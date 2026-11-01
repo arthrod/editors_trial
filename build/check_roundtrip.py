@@ -45,6 +45,16 @@ WEIGHTS = {"critical": 3, "major": 2, "minor": 1}
 
 class Pkg:
     def __init__(self, path=None, data=None):
+        """Open a DOCX package and check its ZIP members for CRC errors.
+
+        Args:
+            path: ZIP path or file object, used when data is None.
+            data: ZIP bytes; takes precedence over path when supplied.
+
+        Raises:
+            OSError: If the package cannot be opened or read.
+            zipfile.BadZipFile: If the package is not a valid ZIP.
+        """
         if data is not None:
             self.path = "<memory>"
             self.z = zipfile.ZipFile(io.BytesIO(data))
@@ -129,12 +139,22 @@ class Pkg:
         return [w for w in re.split(r"[^\w؀-ۿ]+", t) if len(w) > 2]
 
     def _rels_name(self, part):
+        """Return the relationship part name for a package part."""
         base = posixpath.dirname(part)
         name = posixpath.basename(part)
         rel = "%s.rels" % name
         return posixpath.join(base, "_rels", rel) if base else posixpath.join("_rels", rel)
 
     def relationships(self, part):
+        """Return relationship records for a package part.
+
+        Args:
+            part: Source part's ZIP path.
+
+        Returns:
+            Records with id, type, target, and mode; an empty list if the
+            relationship part is missing or cannot be parsed.
+        """
         key = self._rels_name(part)
         if key not in self._rels:
             root = self.tree(key)
@@ -170,6 +190,12 @@ class Pkg:
         return None
 
     def external_target(self, from_part, rid):
+        """Return the external target for a relationship, or None if absent.
+
+        Args:
+            from_part: Source part's ZIP path.
+            rid: Relationship ID in that part.
+        """
         if not rid:
             return None
         for rel in self.relationships(from_part):
@@ -178,6 +204,15 @@ class Pkg:
         return None
 
     def resolved_internal(self, from_part, rid):
+        """Return an internal target's ZIP path only if the member exists.
+
+        Args:
+            from_part: Source part's ZIP path.
+            rid: Relationship ID in that part.
+
+        Returns:
+            The target path, or None for an unresolved or missing member.
+        """
         path = self.resolve(from_part, rid)
         if path and path in self.names:
             return path
@@ -202,6 +237,12 @@ class Pkg:
         return ""
 
     def declares_uri(self, part, uri):
+        """Return whether a part's raw XML declares the given namespace URI.
+
+        Args:
+            part: ZIP path of the XML part.
+            uri: Namespace URI to match, independent of prefix.
+        """
         raw = self.raw(part)
         return re.search(
             r"""xmlns(?::[A-Za-z_][\w.-]*)?\s*=\s*["']%s["']""" % re.escape(uri),
@@ -210,10 +251,12 @@ class Pkg:
 
 
 def _uri(clark):
+    """Remove the first and last characters if the namespace starts with '{'."""
     return clark[1:-1] if clark.startswith("{") else clark
 
 
 def _move_from_ok(doc):
+    """Return whether a moveFrom exists and none has delText descendants."""
     if doc is None:
         return False
     found = False
@@ -226,6 +269,10 @@ def _move_from_ok(doc):
 
 
 def _header_tracked_change(pkg):
+    """Return whether a referenced header contains an insertion.
+
+    When there are no header references, inspect the legacy header2.xml path.
+    """
     doc = pkg.doc()
     if doc is None:
         return False
@@ -244,6 +291,7 @@ def _header_tracked_change(pkg):
 
 
 def _blips_resolve(pkg):
+    """Return whether embedded image references exist and all resolve to members."""
     doc = pkg.doc()
     if doc is None:
         return False
@@ -258,6 +306,7 @@ def _blips_resolve(pkg):
 
 
 def _charts_resolve(pkg):
+    """Return whether chart references exist and all resolve to members."""
     doc = pkg.doc()
     if doc is None:
         return False
@@ -268,6 +317,7 @@ def _charts_resolve(pkg):
 
 
 def _smartart_resolve(pkg):
+    """Return whether SmartArt references exist and all four targets resolve."""
     doc = pkg.doc()
     if doc is None:
         return False
@@ -283,6 +333,7 @@ def _smartart_resolve(pkg):
 
 
 def _ole_resolve(pkg):
+    """Return whether OLE references exist and all resolve to members."""
     doc = pkg.doc()
     if doc is None:
         return False
@@ -293,6 +344,10 @@ def _ole_resolve(pkg):
 
 
 def _altchunk_ok(pkg):
+    """Return whether all altChunk targets resolve, or imported fixture text remains.
+
+    The text fallback is used only when no altChunk elements are present.
+    """
     doc = pkg.doc()
     if doc is None:
         return False
@@ -303,6 +358,13 @@ def _altchunk_ok(pkg):
 
 
 def _note_part(pkg, type_suffix, default):
+    """Return the first existing internal note target, or the default path.
+
+    Args:
+        pkg: Package containing the document relationships.
+        type_suffix: Final relationship type component to match.
+        default: Path returned when no matching target resolves.
+    """
     for rel in pkg.relationships("word/document.xml"):
         if rel["type"].endswith("/" + type_suffix) and rel["mode"].lower() != "external":
             path = pkg.resolved_internal("word/document.xml", rel["id"])
@@ -312,6 +374,10 @@ def _note_part(pkg, type_suffix, default):
 
 
 def _hyperlink_facts(pkg):
+    """Return document hyperlink anchors and targets as prefixed strings.
+
+    Unresolved relationship IDs are recorded with a dangling: prefix.
+    """
     doc = pkg.doc()
     facts = set()
     if doc is None:

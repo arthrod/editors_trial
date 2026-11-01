@@ -28,6 +28,11 @@ VECTORS = (
 
 
 def cap_reason() -> str:
+    """Describe a temporary address-space limit attempt without running the suite.
+
+    The original limit is restored after a successful attempt. A ValueError from
+    setting the limit becomes a not-run reason; other resource errors propagate.
+    """
     soft, hard = resource.getrlimit(resource.RLIMIT_AS)
     try:
         resource.setrlimit(resource.RLIMIT_AS, (512 * 1024 * 1024, hard))
@@ -50,6 +55,10 @@ REFERENCES = ("Word", "LibreOffice")
 
 
 def lines() -> list[str]:
+    """Return not-run records for each vector and reference application.
+
+    The records include the result of the temporary address-space limit attempt.
+    """
     reason = cap_reason()
     out = [
         f"platform: {platform.platform()}",
@@ -80,6 +89,7 @@ def lines() -> list[str]:
 
 
 def main() -> None:
+    """Print not-run records and optionally write them to the first CLI path."""
     text = "\n".join(lines()) + "\n"
     if len(sys.argv) > 1:
         with open(sys.argv[1], "w", encoding="utf-8") as fh:

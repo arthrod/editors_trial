@@ -26,12 +26,22 @@ SLIP_NAME = "pwned-editors-trial.xml"
 
 
 def _xml_decl(body: str) -> bytes:
+    """Encode XML text with a UTF-8 declaration."""
     return (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' + body
     ).encode("utf-8")
 
 
 def _document(inner: str, prelude: str = "") -> bytes:
+    """Build document XML with fixture body text and additional content.
+
+    Args:
+        inner: XML inserted after the fixture body paragraph.
+        prelude: XML inserted before the document element.
+
+    Returns:
+        UTF-8 encoded document XML.
+    """
     return _xml_decl(
         prelude
         + f'<w:document xmlns:w="{W}" xmlns:r="{REL}"><w:body>'
@@ -42,6 +52,7 @@ def _document(inner: str, prelude: str = "") -> bytes:
 
 
 def _content_types(extra: str = "") -> bytes:
+    """Return content-types XML with additional declarations from extra."""
     return _xml_decl(
         f'<Types xmlns="{CT}">'
         '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
@@ -53,6 +64,7 @@ def _content_types(extra: str = "") -> bytes:
 
 
 def _root_rels() -> bytes:
+    """Return the package relationship to word/document.xml as XML bytes."""
     return _xml_decl(
         f'<Relationships xmlns="{REL}">'
         f'<Relationship Id="rId1" Type="{R_DOC}" Target="word/document.xml"/>'
@@ -61,10 +73,20 @@ def _root_rels() -> bytes:
 
 
 def _doc_rels(extra: str = "") -> bytes:
+    """Return document relationship XML containing the supplied entries."""
     return _xml_decl(f'<Relationships xmlns="{REL}">{extra}</Relationships>')
 
 
 def _pack(parts: list[tuple[str, bytes]], stored: set[str] | None = None) -> bytes:
+    """Create a ZIP in memory from named byte contents.
+
+    Args:
+        parts: ZIP member names and contents.
+        stored: Names to store without compression; other members are deflated.
+
+    Returns:
+        ZIP bytes.
+    """
     buf = io.BytesIO()
     stored = stored or set()
     with zipfile.ZipFile(buf, "w") as zf:
@@ -79,6 +101,7 @@ def _pack(parts: list[tuple[str, bytes]], stored: set[str] | None = None) -> byt
 
 
 def _base(document: bytes, extra: str = "", types: str = "") -> list[tuple[str, bytes]]:
+    """Return the basic DOCX parts with optional relationships and content types."""
     return [
         ("[Content_Types].xml", _content_types(types)),
         ("_rels/.rels", _root_rels()),
@@ -88,7 +111,18 @@ def _base(document: bytes, extra: str = "", types: str = "") -> list[tuple[str, 
 
 
 def build(dest: Path, canary_uri: str) -> dict[str, Path]:
-    """Write B1.docx … B10.docx under dest. canary_uri is a file: URL."""
+    """Write B1.docx … B10.docx under dest.
+
+    Args:
+        dest: Output directory, created if needed; existing files are overwritten.
+        canary_uri: File URL embedded in the B5 external entity.
+
+    Returns:
+        A mapping from vector IDs to the paths written.
+
+    Raises:
+        OSError: If the directory or output files cannot be created or written.
+    """
     dest.mkdir(parents=True, exist_ok=True)
     # A repeated byte tops out near 1032:1 in one deflate member. 2500:1 is not a real deflate stream.
     space = b" " * (66 * 1024 * 1024)
@@ -214,6 +248,7 @@ def build(dest: Path, canary_uri: str) -> dict[str, Path]:
 
 
 def main() -> None:
+    """Write the hostile fixtures to the CLI destination and print their sizes."""
     import sys
 
     dest = Path(sys.argv[1])

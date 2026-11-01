@@ -4,6 +4,11 @@ import socket, threading, datetime
 from pathlib import Path
 LOG = Path(__file__).resolve().parent.parent / "net.log"
 def handle(c, a):
+    """Log a connection's first request line and user agent, then reply with 404.
+
+    Receive and send errors are ignored; log file errors propagate. The socket is
+    closed after the response attempt.
+    """
     c.settimeout(5)
     try: data = c.recv(2048)
     except Exception: data = b""

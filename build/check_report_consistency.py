@@ -37,6 +37,7 @@ PCT = re.compile(r"\d[\d,]*(?:\.\d+)?\s*%")
 BYTE = re.compile(r"\d[\d,]*\s+bytes\b", re.I)
 
 def active_markdown() -> list[Path]:
+    """Return Markdown paths in the root, reports, and reports/extras directories."""
     found = []
     for path in [ROOT, ROOT / "reports"]:
         if not path.exists():
@@ -50,6 +51,7 @@ def active_markdown() -> list[Path]:
 
 
 def active_docx() -> list[Path]:
+    """Return root and reports DOCX paths, excluding temporary Word files."""
     found = []
     for path in [ROOT, ROOT / "reports"]:
         if not path.exists():
@@ -62,6 +64,19 @@ def active_docx() -> list[Path]:
 
 
 def docx_paragraphs(path: Path) -> list[str]:
+    """Extract nonempty paragraph text from a DOCX document part.
+
+    Args:
+        path: DOCX ZIP path.
+
+    Returns:
+        Stripped paragraph strings with common XML entities replaced.
+
+    Raises:
+        OSError: If the file cannot be opened or read.
+        zipfile.BadZipFile: If the file is not a valid ZIP.
+        KeyError: If word/document.xml is missing.
+    """
     with zipfile.ZipFile(path) as zf:
         xml = zf.read("word/document.xml").decode("utf-8", "replace")
     plain = re.sub(r"</w:p>", "\n", xml)
@@ -78,12 +93,24 @@ def docx_paragraphs(path: Path) -> list[str]:
 
 
 def paragraphs_of(path: Path) -> list[str]:
+    """Return nonempty DOCX paragraphs or stripped lines of a UTF-8 text file.
+
+    Args:
+        path: Input path; a .docx suffix selects DOCX extraction.
+
+    Raises:
+        OSError: If the file cannot be opened or read.
+        UnicodeDecodeError: If a text file is not valid UTF-8.
+        zipfile.BadZipFile: If a DOCX is not a valid ZIP.
+        KeyError: If its document part is missing.
+    """
     if path.suffix == ".docx":
         return docx_paragraphs(path)
     return [ln.strip() for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()]
 
 
 def wp14_fact() -> tuple[int, int]:
+    """Return counts of fixture XML parts mentioning and declaring wp14, respectively."""
     mentioned = declared = 0
     with zipfile.ZipFile(FIXTURE) as zf:
         for name in zf.namelist():
@@ -99,6 +126,7 @@ def wp14_fact() -> tuple[int, int]:
 
 
 def diagram_targets() -> list[str]:
+    """Return fixture diagram relationship types and targets as strings."""
     with zipfile.ZipFile(FIXTURE) as zf:
         rels = zf.read("word/_rels/document.xml.rels").decode("utf-8")
     targets = []
@@ -109,6 +137,19 @@ def diagram_targets() -> list[str]:
 
 
 def number_corpus(lanes: Path, scores_dir: Path) -> str:
+    """Combine lane text and matching score files for substring checks.
+
+    Args:
+        lanes: UTF-8 lane log path.
+        scores_dir: Directory containing score-named .txt or .json files.
+
+    Returns:
+        Text joined with newlines; a missing scores directory contributes nothing.
+
+    Raises:
+        OSError: If an input cannot be read.
+        UnicodeDecodeError: If the lane log is not valid UTF-8.
+    """
     chunks = [lanes.read_text(encoding="utf-8")]
     if scores_dir.exists():
         for path in sorted(scores_dir.iterdir()):
@@ -160,7 +201,7 @@ def updated_report_texts() -> tuple[list[tuple[str, str]], str]:
 
 
 def number_tokens(text: str) -> list[str]:
-    """Percentages and byte sizes, in scan order."""
+    """Return percentage matches followed by byte-size matches, each in scan order."""
     found: list[str] = []
     for rx in (PCT, BYTE):
         found.extend(match.group(0) for match in rx.finditer(text))
@@ -173,6 +214,11 @@ def tokens_absent_from_corpus(text: str, corpus: str) -> list[str]:
 
 
 def main() -> int:
+    """Check report claims and write the consistency report and inventory.
+
+    Returns:
+        0 if no problems were found, otherwise 1.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("--lanes", required=True)
     parser.add_argument("--scores-dir", required=True)
@@ -280,6 +326,15 @@ def main() -> int:
 
 
 def write_inventory(path: Path, problems: list[str]) -> None:
+    """Write the measured-tool and report inventory to a UTF-8 file.
+
+    Args:
+        path: Destination, overwritten if it exists.
+        problems: Consistency problems whose count is included in the inventory.
+
+    Raises:
+        OSError: If an input or destination cannot be read or written.
+    """
     score_src = (ROOT / "build" / "score_all.py").read_text(encoding="utf-8")
     slugs = re.findall(r'\("[^"]+", "([^"]+)", (?:True|False)\)', score_src)
     lines = ["measured tools: " + ", ".join(slugs)]

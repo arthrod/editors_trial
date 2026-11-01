@@ -29,7 +29,20 @@ PACKAGES = (
 
 
 def alternate_content_lengths(path: Path) -> list[int]:
-    """UTF-8 lengths of each AlternateContent element in document.xml."""
+    """Measure literal mc:AlternateContent blocks in document.xml.
+
+    Args:
+        path: DOCX ZIP path.
+
+    Returns:
+        Byte lengths from each opening marker through its closing marker. An
+        unmatched opening marker ends the scan and is omitted.
+
+    Raises:
+        OSError: If the file cannot be opened or read.
+        zipfile.BadZipFile: If the file is not a valid ZIP.
+        KeyError: If word/document.xml is missing.
+    """
     with zipfile.ZipFile(path) as zf:
         raw = zf.read("word/document.xml")
     lengths: list[int] = []
@@ -53,6 +66,11 @@ def format_token(n: int) -> str:
 
 
 def main() -> int:
+    """Print one block length per package and report unexpected counts.
+
+    Returns:
+        0 if each package has one block, otherwise 1.
+    """
     failed = False
     for label, path in PACKAGES:
         lengths = alternate_content_lengths(path)

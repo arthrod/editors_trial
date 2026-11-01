@@ -22,33 +22,39 @@ RELS = ('<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://sche
         '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>')
 
 def pack(path, document: bytes):
+    """Write a minimal DOCX ZIP containing the supplied document bytes."""
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
         z.writestr("[Content_Types].xml", CT)
         z.writestr("_rels/.rels", RELS)
         z.writestr("word/document.xml", document)
 
 def doc(body: str, prelude: str = "") -> bytes:
+    """Return UTF-8 document XML containing body and an optional prelude."""
     return (f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>{prelude}'
             f'<w:document xmlns:w="{W}"><w:body>{body}</w:body></w:document>').encode()
 
 def flood(path, mib):
+    """Write a DOCX with approximately mib MiB of repeated paragraph XML."""
     unit = "<w:p><w:r><w:t>a</w:t></w:r></w:p>"
     reps = mib * 1024 * 1024 // len(unit)
     pack(path, doc("<w:p><w:r><w:t>FLOOD_START</w:t></w:r></w:p>" + unit * reps + "<w:p><w:r><w:t>FLOOD_END</w:t></w:r></w:p>"))
 
 def sdt_chain(n):
+    """Return XML nesting a leaf paragraph inside n content controls."""
     s = "<w:p><w:r><w:t>DEEP_LEAF</w:t></w:r></w:p>"
     for _ in range(n):
         s = f"<w:sdt><w:sdtContent>{s}</w:sdtContent></w:sdt>"
     return s
 
 def tbl_chain(n):
+    """Return XML nesting a leaf paragraph inside n tables."""
     s = "<w:p><w:r><w:t>TBL_LEAF</w:t></w:r></w:p>"
     for _ in range(n):
         s = f"<w:tbl><w:tr><w:tc>{s}</w:tc></w:tr></w:tbl><w:p/>"
     return s
 
 def main():
+    """Build experiment fixtures under FIX and print their sizes."""
     FIX.mkdir(exist_ok=True)
     canary = (EXP / "canary.txt").as_uri()
     for bid, p in make_bombs.build(FIX, canary).items():

@@ -16,6 +16,7 @@ DOC = (f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmln
   '<w:p><w:r><w:t>BODY_OK</w:t></w:r></w:p></w:body></w:document>')
 DTD = '<!DOCTYPE {root} [<!ENTITY v "EXPANDED">]>'
 def docrels(rel_type, target):
+    """Return document relationship XML for the supplied type and target."""
     return ('<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
             f'<Relationship Id="rId9" Type="{rel_type}" Target="{target}"/></Relationships>')
 with zipfile.ZipFile(FIX / "X4_dtd_customxml.docx", "w", zipfile.ZIP_DEFLATED) as z:

@@ -18,8 +18,10 @@ ROOT = ('<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://sche
         f'<Relationship Id="rId1" Type="{R}/officeDocument" Target="word/document.xml"/></Relationships>')
 U = "http://127.0.0.1:18009"
 def rel(i, t, target):
+    """Return an external relationship XML entry for the given ID, type and target."""
     return f'<Relationship Id="{i}" Type="{R}/{t}" Target="{target}" TargetMode="External"/>'
 def pack(name, body, doc_rels, settings_body=""):
+    """Write a DOCX with document and settings parts and document relationships."""
     d = f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document {NS}><w:body>{body}</w:body></w:document>'
     s = f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:settings xmlns:w="{W}" xmlns:r="{R}">{settings_body}</w:settings>'
     dr = ('<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
@@ -34,6 +36,7 @@ pack("N1_template.docx", OK, "", '<w:attachedTemplate r:id="rIdT"/>')
 # settings rels must carry rIdT: add it by re-packing with a settings rels part
 import io
 def add_part(name, part, data):
+    """Append a ZIP member to an existing fixture and rewrite the file."""
     p = FIX / name
     buf = io.BytesIO(p.read_bytes())
     with zipfile.ZipFile(buf, "a", zipfile.ZIP_DEFLATED) as z:
