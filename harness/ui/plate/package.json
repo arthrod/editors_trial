@@ -22,7 +22,7 @@
     "jotai": "^2.13.1",
     "jotai-optics": "^0.4.0",
     "jotai-x": "^2.3.4",
-    "katex": "^0.16.22",
+    "katex": "^0.18.0",
     "lucide-react": "^1.65.0",
     "mammoth": "^1.13.0",
     "react": "^19.2.0",
