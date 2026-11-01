@@ -25,7 +25,7 @@
     "@tiptap/extensions": "3.32.0",
     "@tiptap/pm": "3.32.0",
     "@tiptap/starter-kit": "3.32.0",
-    "@turbodocx/html-to-docx": "1.23.1",
+    "@turbodocx/html-to-docx": "1.23.3",
     "buffer": "6.0.3",
     "fflate": "0.8.2",
     "linkifyjs": "4.3.3",
