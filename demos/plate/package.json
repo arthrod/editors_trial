@@ -31,7 +31,7 @@
     "linkedom": "^0.18.14",
     "lodash": "^4.17.23",
     "lowlight": "^3.3.0",
-    "lucide-react": "^0.454.0",
+    "lucide-react": "^0.577.0",
     "mammoth": "^1.13.0",
     "mdast-util-math": "^3.0.0",
     "mdast-util-mdx": "^3.0.0",
