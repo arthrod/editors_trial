@@ -58,7 +58,7 @@ Three further audits in this report go past the part map:
 
 ### 1.3 The corpus
 
-The same {{fixture.parts}}-part adversarial corpus (`fixture/complex.docx`) used throughout the study, corrected so Microsoft Word 16.115 opens it: a chart, four SmartArt parts, an OLE object with a real embedded `.docx`, an embedded workbook, an image, two tables, tracked changes, content controls, fields, bookmarks, notes, comments, OMML math, `mc:AlternateContent`, a `w:altChunk`, `w14:*` extensions, `w16du:dateUtc`, and three sections including a landscape one.
+The same {{fixture.parts}}-part adversarial corpus (`fixture/complex.docx`) used throughout the study, corrected so Microsoft Word {{word.version}} opens it: a chart, four SmartArt parts, an OLE object with a real embedded `.docx`, an embedded workbook, an image, two tables, tracked changes, content controls, fields, bookmarks, notes, comments, OMML math, `mc:AlternateContent`, a `w:altChunk`, `w14:*` extensions, `w16du:dateUtc`, and three sections including a landscape one.
 
 ---
 
@@ -88,7 +88,7 @@ The same {{fixture.parts}}-part adversarial corpus (`fixture/complex.docx`) used
 
 **Four editors have zero pass-through, and they fail in three different ways.** Fidus Writer, canvas-editor, docs.plus and Plate.js all regenerate every part from a model.
 
-- **Fidus Writer, canvas-editor and docs.plus all drop 24 of {{fixture.parts}} parts** — the same 24, essentially: the chart, the four SmartArt parts, the embeddings, the image, the headers and footers, the notes, the comments, the custom XML, the `altChunk`. What differs is what they put back.
+- **Fidus Writer, canvas-editor and docs.plus all drop {{parts.docsplus.dropped}} of {{fixture.parts}} parts** — the same 24, essentially: the chart, the four SmartArt parts, the embeddings, the image, the headers and footers, the notes, the comments, the custom XML, the `altChunk`. What differs is what they put back.
 - **Plate.js is the extreme.** It drops the same 24 and **adds nothing at all**: {{parts.plate.added}} added, {{parts.plate.out}} parts out. Its output is the smallest regenerated package in the trial — 8,010 bytes on the second pass, against the corpus's 42,964. The reason is architectural: the DOCX pipeline is **DOCX → HTML → editor model → static HTML → DOCX**, and HTML cannot carry a header, a footer, a footnote, an endnote, a comment, a glossary part, a customXml part, an `altChunk` part, a chart, a SmartArt diagram, an OLE object, an embedded workbook or an image reference.
 
 **The `w` column is the most interesting and the most misread.** GenOffice has 13 parts that are *rewritten but semantically identical* — same tree, different bytes — and only 2 that genuinely changed. eigenpal has 16. These are **not** losses. They are the cost of a different serialiser: attribute order, self-closing form, entity form and namespace-prefix binding all differ, and the content does not. An editor that scored only "byte-identical" would look like it had rewritten 13 parts when in fact it had rewritten two and re-printed eleven.
@@ -547,7 +547,7 @@ All four regenerate everything. There is nothing to orphan and nothing to dangle
 - **A dangling reference is worse than a dangling part, because it hides.** office-open and Docen produce packages with no missing parts, no dangling content-type declarations, no schema violations — and a chart and a SmartArt that are present, linked from the `.rels` file, and pointed at by body elements that resolve to nothing. **Every structural check passes. The page is still wrong.**
 - **Check the forward direction.** Every relationship-integrity checker worth writing resolves `.rels` → parts. The direction that broke here is body → `.rels`. Five lines of code (`build/rel_forward.py`) find a defect that a {{checks.total}}-check fidelity score, a schema validator, and a content-types audit all miss.
 - **The best row and the best score are not the same row.** Docxodus has the only all-zero row in the part map — {{parts.docxodus.changed}} changed, {{parts.docxodus.dropped}} dropped, {{parts.docxodus.added}} added — and the *entire* binary payload byte-identical. Folio copies more bytes still (34 against 25), but it rewrites the body. If your requirement is "save it back and change nothing", Docxodus is the only participant in this study that satisfies it outright.
-- **Choose on the axis you care about.** If you need the document to survive a round trip with its payloads intact, Folio and SuperDoc. If you need to *change* a chart, a diagram or an embedded workbook, none of the pass-through editors can help you and you want WordCraft, which redraws the payload from its own model instead. If you need a document Microsoft Word will open, note that **four of the twelve outputs in this study are refused by Word 16.115** — Folio, office-open, Docen and Fidus Writer — for reasons set out in the companion report *Malformed Parts*. Two of those four pass every static check in this report.
+- **Choose on the axis you care about.** If you need the document to survive a round trip with its payloads intact, Folio and SuperDoc. If you need to *change* a chart, a diagram or an embedded workbook, none of the pass-through editors can help you and you want WordCraft, which redraws the payload from its own model instead. If you need a document Microsoft Word will open, note that **four of the twelve outputs in this study are refused by Word {{word.version}}** — Folio, office-open, Docen and Fidus Writer — for reasons set out in the companion report *Malformed Parts*. Two of those four pass every static check in this report.
 
 ---
 
@@ -566,7 +566,7 @@ build/ns_map.py                   # per-namespace survival (the companion report
 build/make_report.sh <report.md>  # markdown -> .docx, with the two Word fixes
 ```
 
-`build/make_report.sh` is the pipeline that produces this file: pandoc writes `w:dirty="true"` on the table-of-contents field, which Word 16.115 refuses, so `build/fix_dirty.py` rewrites it; and pandoc sizes every table for a portrait page, so `build/retune_tables.py` re-fits the tables to the landscape content width.
+`build/make_report.sh` is the pipeline that produces this file: pandoc writes `w:dirty="true"` on the table-of-contents field, which Word {{word.version}} refuses, so `build/fix_dirty.py` rewrites it; and pandoc sizes every table for a portrait page, so `build/retune_tables.py` re-fits the tables to the landscape content width.
 
 The per-editor code citations refer to the pinned commits listed in the first report, under `repos/`. **None of those checkouts was modified.**
 

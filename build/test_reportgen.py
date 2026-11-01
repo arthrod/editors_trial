@@ -181,6 +181,36 @@ class Stars(unittest.TestCase):
         self.assertIn("**Measured [MEASURED].** {{rt.wordcraft.weighted:.1f}}%", tpl)
 
 
+class Bombs(unittest.TestCase):
+    F = dict(FACTS, **{"bomb.fidus.grade": 0.72, "bomb.eigenpal.grade": 0.56, "bomb.eigenpal-editor.grade": 0.56,
+                       "bomb.folio.grade": 0.56, "bomb.folio-editor.grade": 0.56, "bomb.wordcraft.grade": 0.6,
+                       "bomb.cells": 150, "bomb.count.sanitation": 39, "bomb.count.preserved": 51,
+                       "bomb.count.hang": 4, "rt.lo_baseline.failed": 4})
+
+    def test_grades_bind_per_lane(self):
+        text = ("| Editor | Grade | Still unsafe |\n| --- | --- | --- |\n| Fidus Writer | 0.72 | x |\n"
+                "| eigenpal store | 0.56 | x |\n| eigenpal editor | 0.56 | x |\n| Folio model | 0.56 | x |\n"
+                "| Folio editor | 0.56 | x |\n| wordcraft | 0.60 | x |\n")
+        tpl, _ = reportgen.templatize(text, self.F)
+        for key in ("fidus", "eigenpal", "eigenpal-editor", "folio", "folio-editor", "wordcraft"):
+            self.assertIn("{{bomb.%s.grade:.2f}}" % key, tpl)
+
+    def test_level_totals_are_trial_wide(self):
+        text = ("Of the 150 measured cells, fourteen editors and LibreOffice across the ten packages, "
+                "the primary labels are sanitation 39, preserved 51, hang 4.\n")
+        tpl, _ = reportgen.templatize(text, self.F)
+        self.assertIn("Of the {{bomb.cells}} measured cells", tpl)
+        self.assertIn("sanitation {{bomb.count.sanitation}}, preserved {{bomb.count.preserved}}, hang {{bomb.count.hang}}.", tpl)
+
+
+class ListMarkers(unittest.TestCase):
+    def test_a_numbered_list_marker_is_not_a_figure(self):
+        facts = {"bomb.count.stack-exhaustion": 5, "bomb.cells": 150}
+        text = "5. `stack-exhaustion`. Recursion ran out of call stack.\n### 5. Hang\n"
+        tpl, _ = reportgen.templatize(text, facts)
+        self.assertEqual(tpl, text)
+
+
 class Stale(unittest.TestCase):
     def test_a_literal_that_was_a_changed_fact_is_reported(self):
         old = dict(FACTS)

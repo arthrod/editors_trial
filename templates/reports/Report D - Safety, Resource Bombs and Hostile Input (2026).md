@@ -43,22 +43,22 @@ Sanitation is safe output without a declared ceiling, so it is not 1. A bare ref
 
 | Editor | Grade | Still unsafe |
 | --- | --- | --- |
-| Fidus Writer | 0.72 | Keeps the decompression bomb. |
-| Plate | 0.70 | Keeps the layout bomb. |
+| Fidus Writer | {{bomb.fidus.grade:.2f}} | Keeps the decompression bomb. |
+| Plate | {{bomb.plate.grade:.2f}} | Keeps the layout bomb. |
 | Google Docs | 0.70 | Five imports produced no file and named no ceiling. No saved file keeps a weapon. |
-| docs.plus | 0.60 | Stack on the deep nest. Keeps the layout bomb. |
-| LibreOffice | 0.60 | Hangs on the attributes. Keeps the deep nest. |
-| wordcraft | 0.60 | Keeps the decompression bomb, the script, and the layout bomb. |
-| eigenpal store | 0.56 | Keeps external relationships, the script, and the layout bomb. |
-| eigenpal editor | 0.56 | Same three kept. The entity, zip-slip, and corrupt refusals name no ceiling. |
-| Folio model | 0.56 | Keeps external relationships, the script, and the layout bomb. |
-| Folio editor | 0.56 | Same as the model. |
-| canvas-editor | 0.48 | Hangs on the decompression bomb, the attributes, and the layout bomb. Keeps the deep nest. |
-| SuperDoc | 0.30 | No ceiling. Keeps the deep nest, zip-slip, external relationships, the script, and the layout bomb. |
-| GenOffice | 0.24 | Ceiling on the entry flood only. Keeps the other resource bombs. |
-| Docxodus | 0.20 | Cleans the attributes. Stack on the deep nest. Keeps six packages. |
-| Docen | 0.14 | Cleans the attributes. Stack on the deep nest and the layout bomb. |
-| office-open | 0.14 | Cleans the attributes. Stack on the deep nest. Keeps seven packages. |
+| docs.plus | {{bomb.docsplus.grade:.2f}} | Stack on the deep nest. Keeps the layout bomb. |
+| LibreOffice | {{bomb.lo_baseline.grade:.2f}} | Hangs on the attributes. Keeps the deep nest. |
+| wordcraft | {{bomb.wordcraft.grade:.2f}} | Keeps the decompression bomb, the script, and the layout bomb. |
+| eigenpal store | {{bomb.eigenpal.grade:.2f}} | Keeps external relationships, the script, and the layout bomb. |
+| eigenpal editor | {{bomb.eigenpal-editor.grade:.2f}} | Same three kept. The entity, zip-slip, and corrupt refusals name no ceiling. |
+| Folio model | {{bomb.folio.grade:.2f}} | Keeps external relationships, the script, and the layout bomb. |
+| Folio editor | {{bomb.folio-editor.grade:.2f}} | Same as the model. |
+| canvas-editor | {{bomb.canvas.grade:.2f}} | Hangs on the decompression bomb, the attributes, and the layout bomb. Keeps the deep nest. |
+| SuperDoc | {{bomb.superdoc.grade:.2f}} | No ceiling. Keeps the deep nest, zip-slip, external relationships, the script, and the layout bomb. |
+| GenOffice | {{bomb.genoffice.grade:.2f}} | Ceiling on the entry flood only. Keeps the other resource bombs. |
+| Docxodus | {{bomb.docxodus.grade:.2f}} | Cleans the attributes. Stack on the deep nest. Keeps six packages. |
+| Docen | {{bomb.docen.grade:.2f}} | Cleans the attributes. Stack on the deep nest and the layout bomb. |
+| office-open | {{bomb.officeopen.grade:.2f}} | Cleans the attributes. Stack on the deep nest. Keeps seven packages. |
 | jubarte 0.14.0 | 0.65 | Jubarte report. Entities stay in the view. Zip-slip, external relationships, and corrupt parts are not refusals. |
 
 Fidus Writer ranks above Plate because seven cleaned packages outweigh three ceilings under these weights. Plate is the stronger ceiling set. Google Docs also scores 0.70. That tie is the weights. Plate has three ceilings and keeps the layout bomb. Google Docs has five cleaned exports and five refusals with no named ceiling, and no saved file keeps a weapon. If a named ceiling were the only non-zero weight, Plate, eigenpal, and Folio would rank above Fidus Writer, and above Google Docs. The weights are a summary, not a second measurement. The Google Docs files are in the section after the kept payloads.
@@ -120,7 +120,7 @@ These are the levels, from a real ceiling down to no protection.
 13. `not-in-view`. A text view was written and this weapon is not something that view carries. Editors in this matrix write packages, so none of them has this label. It is a jubarte reading, in Report D1.
 14. `not-run`. No measurement. Word, and every row of the unsandboxed fence.
 
-Of the 150 measured cells, fourteen editors and LibreOffice across the ten packages, the primary labels are sanitation 39, preserved 51, erroring 30, bounded-refusal 20, stack-exhaustion 5, hang 4, and failed-load-exit-zero 1.
+Of the {{bomb.cells}} measured cells, fourteen editors and LibreOffice across the ten packages, the primary labels are sanitation {{bomb.count.sanitation}}, preserved {{bomb.count.preserved}}, erroring {{bomb.count.erroring}}, bounded-refusal {{bomb.count.bounded-refusal}}, stack-exhaustion {{bomb.count.stack-exhaustion}}, hang {{bomb.count.hang}}, and failed-load-exit-zero {{bomb.count.failed-load-exit-zero}}.
 
 ## Measured scorecard
 
@@ -494,7 +494,7 @@ Docxodus, office-open, Docen, and the eigenpal lanes preserve the decompression 
 
 ## Google Docs
 
-Google Docs is not one of the 150 cells. `Google Docs.app` on this Mac is a Drive launcher. It does not parse a package locally. The imports ran on Google's servers. A file was saved to `~/Downloads` only when the import produced a document. B1, B3, B4, B5, and B9 have no file there. Those five imports fully failed.
+Google Docs is not one of the {{bomb.cells}} cells. `Google Docs.app` on this Mac is a Drive launcher. It does not parse a package locally. The imports ran on Google's servers. A file was saved to `~/Downloads` only when the import produced a document. B1, B3, B4, B5, and B9 have no file there. Those five imports fully failed.
 
 The saved files are `~/Downloads/B2.docx`, `B6.docx`, `B7.docx`, `B8.docx`, and `B10.docx`. A second save of the entry flood and of the active-content package has the same part bytes as the first save. The five first saves have the same part bytes as each other. The zip containers differ. Each one is a rewrite: generated styles, settings, numbering, a font table, and a theme. The body is one paragraph, `BOMB_BODY_OK`.
 

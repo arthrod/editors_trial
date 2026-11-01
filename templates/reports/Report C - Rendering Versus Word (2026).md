@@ -98,7 +98,7 @@ specific way the measurement could be wrong.
 
 ### 1.2 Why Word's own PDF export is the reference
 
-Word 16.115 was driven through AppleScript to export the corpus to PDF
+Word {{word.version}} was driven through AppleScript to export the corpus to PDF
 (`build/word_pdf.py`). That PDF is the application's own output, and it is the
 only rendering in this study produced by the application the document was
 written for. Its six pages were rasterised to PNG at 110 dpi and are the
@@ -833,7 +833,7 @@ where nothing can be read out of the DOM).
 
 | Editor | Picture | Chart | SmartArt band | Text box | OLE object | Equation | Footnote / endnote | Comment | Tracked changes | Table |
 |---|---|---|---|---|---|---|---|---|---|---|
-| **Word 16.115 (reference)** | yes | yes | blank band | "Text box content" | yes | yes, vector | marker + body | balloon + body | both shown | full |
+| **Word {{word.version}} (reference)** | yes | yes | blank band | "Text box content" | yes | yes, vector | marker + body | balloon + body | both shown | full |
 | **SuperDoc** | yes | yes | blank band | "Text box content" | yes | yes | marker + body | review cards | both shown | full |
 | **Folio** | yes | **no** | blank band | "Text box content" | yes | **no** | marker + body | balloon + body | both shown | full |
 | **GenOffice** | yes | yes (SVG) | **labelled placeholder** | "Text box content" | yes | MathML, literal `^` | markers only | marker, no body | deletions hidden, insertions plain | full |
@@ -1302,7 +1302,7 @@ all three at once.**
 
 ### 6.2 When Word cannot open the output
 
-Four outputs are **refused by Microsoft Word 16.115** — Folio, office-open,
+Four outputs are **refused by Microsoft Word {{word.version}}** — Folio, office-open,
 Docen and Fidus Writer. There is no Word rendering to compare them against,
 and that is the answer for those four: **it is not a rendering, because the
 file does not open.** LibreOffice can open all four and provides the only
