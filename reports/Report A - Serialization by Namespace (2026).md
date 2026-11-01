@@ -368,8 +368,8 @@ The interesting losses are the partial ones, because they show exactly which con
 | `w14` | Docen | 10/12 | `@paraId`, `@textId` |
 | `w14` | LibreOffice | 10/12 | `@paraId`, `@textId` |
 | `a` | WordCraft | 56/60 | `defRPr`, `graphicFrameLocks`, `pPr`, `sysClr` |
-| `a` | Fidus | 11/60 | `accent1` … `themeElements` … (+41 more) |
-| `a` | canvas | 11/60 | `accent1` … `themeElements` … (+41 more) |
+| `a` | Fidus | 11/60 | `accent1`, `accent2`, `accent3`, `accent4`, `accent5`, `accent6`, `bgFillStyleLst`, `bodyPr` … (+41 more) |
+| `a` | canvas | 11/60 | `accent1`, `accent2`, `accent3`, `accent4`, `accent5`, `accent6`, `bgFillStyleLst`, `bodyPr` … (+41 more) |
 | `a` | docs.plus | 42/60 | `avLst`, `bodyPr`, `camera`, `defRPr`, `effectRef`, `endParaRPr`, `fillRef`, `fontRef` … (+10 more) |
 | `a` | Plate.js | 33/60 | `avLst`, `blip`, `bodyPr`, `camera`, `defRPr`, `effectRef`, `endParaRPr`, `ext` … (+19 more) |
 | `a` | LibreOffice | 59/60 | `sysClr` |

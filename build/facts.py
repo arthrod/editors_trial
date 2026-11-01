@@ -201,6 +201,13 @@ def build() -> dict:
         facts["count.word_outputs"] = len(editors)
     if (ROOT / "logs/bombs/protection.txt").exists():
         bomb_facts(ROOT / "logs/bombs/protection.txt", facts)
+    # Report A's namespace tables, generated from out/ns_map.json.
+    if (OUT / "ns_map.json").exists():
+        import ns_tables
+        data = ns_tables.load()
+        for i in range(len(ns_tables.GROUPS)):
+            facts[f"ns.matrix.{i}"] = ns_tables.report_matrix(data, i)
+        facts["ns.partial"] = ns_tables.partial(data)
     # Report D quotes the scorecard and the protection labels whole.
     for name in ("scorecard", "protection"):
         log = ROOT / "logs" / "bombs" / f"{name}.txt"

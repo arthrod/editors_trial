@@ -301,45 +301,15 @@ The comparison is `kept = |corpus_names ∩ output_names|` over `|corpus_names|`
 
 **WordprocessingML and revision namespaces**
 
-| Namespace | Corpus names | SuperDoc | Folio | GenOffice | eigenpal | office-open | Docen | WordCraft | Fidus | canvas | docs.plus | Plate.js | Docxodus | LibreOffice |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `w` | 309 | all | all | all | all | 308/309 | 305/309 | 294/309 | **98/309** | **119/309** | **114/309** | **108/309** | all | 260/309 |
-| `r` | 6 | all | all | all | all | all | all | all | **1/6** | **2/6** | **2/6** | **none** | all | all |
-| `xml` | 1 | all | all | all | all | all | all | all | all | all | all | all | all | all |
-| `mc` | 4 | all | all | all | all | all | all | **1/4** | **1/4** | **1/4** | **none** | **none** | all | all |
-| `w14` | 12 | all | 10/12 | all | all | 10/12 | 10/12 | all | **none** | **none** | **none** | **none** | all | 10/12 |
-| `w15` | 1 | all | all | all | all | all | all | **none** | all | all | **none** | **none** | all | **none** |
-| `w16cid` | 1 | all | all | all | all | **none** | **none** | all | **none** | **none** | **none** | **none** | all | **none** |
-| `w16du` | 1 | all | all | all | all | **none** | **none** | **none** | **none** | **none** | **none** | **none** | all | **none** |
+{{ns.matrix.0}}
 
 **Drawing, chart, diagram and legacy namespaces**
 
-| Namespace | Corpus names | SuperDoc | Folio | GenOffice | eigenpal | office-open | Docen | WordCraft | Fidus | canvas | docs.plus | Plate.js | Docxodus | LibreOffice |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `a` | 60 | all | all | all | all | all | all | 56/60 | **11/60** | **11/60** | 42/60 | 33/60 | all | 59/60 |
-| `wp` | 5 | all | all | all | all | all | all | all | 3/5 | all | 4/5 | **none** | all | all |
-| `pic` | 6 | all | all | all | all | all | all | all | all | all | all | **none** | all | all |
-| `dgm` | 35 | all | all | all | all | all | all | all | **none** | **none** | **none** | **none** | all | all |
-| `c` | 40 | all | all | all | all | all | all | all | **none** | **none** | **none** | **none** | all | 39/40 |
-| `cs` | 8 | all | all | all | all | all | all | **none** | **none** | **none** | **none** | **none** | all | **none** |
-| `wps` | 5 | all | all | all | all | all | all | all | **none** | **none** | **none** | **none** | all | all |
-| `v` | 3 | all | all | all | all | all | all | 2/3 | **none** | **none** | **none** | **none** | all | all |
-| `o` | 2 | all | all | all | all | all | all | all | **none** | **none** | **none** | **none** | all | all |
-| `w10` | 1 | all | all | all | all | all | all | **none** | **none** | **none** | **none** | **none** | all | **none** |
+{{ns.matrix.1}}
 
 **Package, metadata and foreign namespaces**
 
-| Namespace | Corpus names | SuperDoc | Folio | GenOffice | eigenpal | office-open | Docen | WordCraft | Fidus | canvas | docs.plus | Plate.js | Docxodus | LibreOffice |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `ct` | 3 | all | all | all | all | all | all | all | all | all | all | all | all | all |
-| `rels` | 2 | all | all | all | all | all | all | all | all | all | all | all | all | all |
-| `app` | 9 | all | all | all | all | all | all | 8/9 | **3/9** | **1/9** | **none** | **none** | all | **4/9** |
-| `cp` | 5 | all | all | all | all | all | all | all | **1/5** | 3/5 | 4/5 | 4/5 | all | all |
-| `dc` | 4 | all | all | all | all | all | all | all | 2/4 | **1/4** | all | all | all | all |
-| `dcterms` | 2 | all | all | all | all | all | all | all | all | all | all | all | all | all |
-| `ds` | 5 | all | all | all | all | all | all | all | **none** | **none** | **none** | **none** | all | all |
-| `ns0` | 2 | all | all | all | all | all | all | all | **none** | **none** | **none** | **none** | all | all |
-| `xsi` | 1 | all | all | all | all | all | all | all | all | all | all | all | all | all |
+{{ns.matrix.2}}
 
 Reading the `w` row: **five participants keep every one of the 309 distinct `w:` names** — SuperDoc, Folio, GenOffice, eigenpal and Docxodus. office-open comes next, losing exactly one (`@dirty`), then Docen four and WordCraft fifteen; below them there is a cliff, where Fidus, canvas-editor, docs.plus and Plate.js each keep **roughly a third** of the main vocabulary.
 
@@ -347,46 +317,7 @@ Reading the `w` row: **five participants keep every one of the 309 distinct `w:`
 
 The interesting losses are the partial ones, because they show exactly which constructs a boundary let through.
 
-| Namespace | Editor | Kept | Lost names |
-|---|---|---:|---|
-| `w` | office-open | 308/309 | `@dirty` |
-| `w` | Docen | 305/309 | `@dirty`, `cr`, `noBreakHyphen`, `softHyphen` |
-| `w` | WordCraft | 294/309 | `@asciiTheme`, `@dirty`, `@first`, `@hAnsiTheme`, `@hint`, `@instr`, `@other`, `altChunk` … (+7 more) |
-| `w` | Fidus | 98/309 | `@accent1`, `@accent2`, `@accent3`, `@accent4`, `@accent5`, `@accent6`, `@asciiTheme`, `@bg1` … (+203 more) |
-| `w` | canvas | 119/309 | `@accent1`, `@accent2`, `@accent3`, `@accent4`, `@accent5`, `@accent6`, `@asciiTheme`, `@author` … (+182 more) |
-| `w` | docs.plus | 114/309 | `@accent1`, `@accent2`, `@accent3`, `@accent4`, `@accent5`, `@accent6`, `@asciiTheme`, `@author` … (+187 more) |
-| `w` | Plate.js | 108/309 | `@abstractNumId`, `@accent1`, `@accent2`, `@accent3`, `@accent4`, `@accent5`, `@accent6`, `@asciiTheme` … (+193 more) |
-| `w` | LibreOffice | 260/309 | `@accent1`, `@accent2`, `@accent3`, `@accent4`, `@accent5`, `@accent6`, `@bg1`, `@bg2` … (+41 more) |
-| `r` | Fidus | 1/6 | `@cs`, `@dm`, `@id`, `@lo`, `@qs` |
-| `r` | canvas | 2/6 | `@cs`, `@dm`, `@lo`, `@qs` |
-| `r` | docs.plus | 2/6 | `@cs`, `@dm`, `@lo`, `@qs` |
-| `mc` | WordCraft | 1/4 | `AlternateContent`, `Choice`, `Fallback` |
-| `mc` | Fidus | 1/4 | `AlternateContent`, `Choice`, `Fallback` |
-| `mc` | canvas | 1/4 | `AlternateContent`, `Choice`, `Fallback` |
-| `w14` | Folio | 10/12 | `@paraId`, `@textId` |
-| `w14` | office-open | 10/12 | `@paraId`, `@textId` |
-| `w14` | Docen | 10/12 | `@paraId`, `@textId` |
-| `w14` | LibreOffice | 10/12 | `@paraId`, `@textId` |
-| `a` | WordCraft | 56/60 | `defRPr`, `graphicFrameLocks`, `pPr`, `sysClr` |
-| `a` | Fidus | 11/60 | `accent1` … `themeElements` … (+41 more) |
-| `a` | canvas | 11/60 | `accent1` … `themeElements` … (+41 more) |
-| `a` | docs.plus | 42/60 | `avLst`, `bodyPr`, `camera`, `defRPr`, `effectRef`, `endParaRPr`, `fillRef`, `fontRef` … (+10 more) |
-| `a` | Plate.js | 33/60 | `avLst`, `blip`, `bodyPr`, `camera`, `defRPr`, `effectRef`, `endParaRPr`, `ext` … (+19 more) |
-| `a` | LibreOffice | 59/60 | `sysClr` |
-| `wp` | Fidus | 3/5 | `cNvGraphicFramePr`, `effectExtent` |
-| `wp` | docs.plus | 4/5 | `cNvGraphicFramePr` |
-| `c` | LibreOffice | 39/40 | `layout` |
-| `v` | WordCraft | 2/3 | `textbox` |
-| `app` | WordCraft | 8/9 | `AppVersion` |
-| `app` | Fidus | 3/9 | `Company`, `DocSecurity`, `HyperlinksChanged`, `LinksUpToDate`, `ScaleCrop`, `SharedDoc` |
-| `app` | canvas | 1/9 | `AppVersion`, `Application`, `Company`, `DocSecurity`, `HyperlinksChanged`, `LinksUpToDate`, `ScaleCrop`, `SharedDoc` |
-| `app` | LibreOffice | 4/9 | `DocSecurity`, `HyperlinksChanged`, `LinksUpToDate`, `ScaleCrop`, `SharedDoc` |
-| `cp` | Fidus | 1/5 | `category`, `keywords`, `lastModifiedBy`, `revision` |
-| `cp` | canvas | 3/5 | `category`, `keywords` |
-| `cp` | docs.plus | 4/5 | `category` |
-| `cp` | Plate.js | 4/5 | `category` |
-| `dc` | Fidus | 2/4 | `description`, `subject` |
-| `dc` | canvas | 1/4 | `description`, `subject`, `title` |
+{{ns.partial}}
 
 Four details in that table are worth pulling out.
 
