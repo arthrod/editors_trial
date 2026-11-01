@@ -2,7 +2,7 @@
   "editor": "superdoc",
   "source": "fixture/complex.docx",
   "source_sha256": "a0f0be300f5e812eb33f419abe1fca2d87569cc12b6b25d625a64a7c0432fde3",
-  "sha256": "2eb01a46e6e07aaadbe23e7a7ea369f5b048735ea95c6671da4dc6ffae9b1633",
+  "sha256": "516bc18867f6a156fb5c55c8b02f4de600ceafa065970022b623f765533fe03e",
   "removed": [
     {
       "step": "altchunk_to_paragraphs",

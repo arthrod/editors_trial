@@ -2,7 +2,7 @@
   "editor": "canvas-editor",
   "source": "fixture/complex.docx",
   "source_sha256": "a0f0be300f5e812eb33f419abe1fca2d87569cc12b6b25d625a64a7c0432fde3",
-  "sha256": "db57d91f45438617842d04b5a2b5b153a61423361b7996be12b915023f58f408",
+  "sha256": "eaba518a86baddef8cf91a86bac30fc717ebe1199f90d3353b1f2b83a2a77213",
   "removed": [
     {
       "step": "altchunk_to_paragraphs",

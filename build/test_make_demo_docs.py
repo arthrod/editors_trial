@@ -24,6 +24,13 @@ class Base(unittest.TestCase):
         cls.out, cls.removed = m.sanitize(FIXTURE.read_bytes(), m.BASE_STEPS)
         cls.dst = parts(cls.out)
 
+    def test_the_same_input_gives_the_same_bytes(self):
+        # sync:demos runs this on every site release; a clock in the zip made every run a new file.
+        import time
+        time.sleep(2.1)   # past the zip format's two-second clock resolution
+        again, _ = m.sanitize(FIXTURE.read_bytes(), m.BASE_STEPS)
+        self.assertEqual(again, self.out)
+
     def test_altchunk_becomes_ordinary_paragraphs_with_the_same_text(self):
         doc = self.dst["word/document.xml"].decode()
         self.assertNotIn("w:altChunk", doc)

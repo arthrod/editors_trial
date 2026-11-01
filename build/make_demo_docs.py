@@ -177,6 +177,7 @@ def sanitize(data: bytes, steps: list[str]) -> tuple[bytes, list[dict]]:
     with zipfile.ZipFile(io.BytesIO(data)) as z:
         order = z.namelist()
         p = {n: z.read(n) for n in order}
+        stamp = {i.filename: i.date_time for i in z.infolist()}
     removed = []
     for name, fn in zip(steps, fns):
         r = fn(p)
@@ -186,7 +187,9 @@ def sanitize(data: bytes, steps: list[str]) -> tuple[bytes, list[dict]]:
     out = io.BytesIO()
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
         for n in [CT] + [n for n in order if n != CT and n in p]:
-            z.writestr(n, p[n])
+            # Each part keeps the source's timestamp, so the same input is the same file.
+            z.writestr(zipfile.ZipInfo(n, date_time=stamp.get(n, (1980, 1, 1, 0, 0, 0))), p[n],
+                       compress_type=zipfile.ZIP_DEFLATED)
     return out.getvalue(), removed
 
 
