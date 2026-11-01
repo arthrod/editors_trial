@@ -19,6 +19,10 @@ import { plugin } from 'bun';
 import { dirname, resolve } from 'node:path';
 
 const WWW = '/Users/arthrod/temp/T/editors_trial/repos/plate/apps/www/src';
+// The www kit imports these. They are pinned in apps/www/package.json and are
+// not present in that checkout's node_modules. The harness installs the same
+// versions and this loader hands markdown.tsx those copies.
+const REMARK = '/Users/arthrod/temp/T/editors_trial/harness/plate/node_modules';
 
 const SHIMS: Record<string, string> = {
   '@/lib/utils': `
@@ -40,6 +44,10 @@ export const buttonVariants = {};
 plugin({
   name: 'plate-www-aliases',
   setup(build) {
+    build.onResolve({ filter: /^remark-(emoji|gfm|math)$/ }, (args) => {
+      return { path: resolve(REMARK, args.path, 'index.js') };
+    });
+
     build.onResolve({ filter: /^@\// }, (args) => {
       if (SHIMS[args.path]) {
         return { path: args.path, namespace: 'shim' };

@@ -1,0 +1,25 @@
+328 | export function messageFor(code: DocxEditorErrorCode, diagnostic?: DiagnosticCode): string {
+329 |   return messageOf(code, diagnostic);
+330 | }
+331 | 
+332 | export function fail(init: DocxEditorErrorInit): never {
+333 |   throw new DocxEditorError(init);
+              ^
+DocxEditorError: the document exceeds a supported resource limit. (createServer)
+      limit: "xml.maxDepth",
+     target: "createServer",
+ expectedRevision: undefined,
+ actualRevision: undefined,
+  debugInfo: {
+  code: "ResourceLimitExceeded",
+  message: "the document exceeds a supported resource limit. (createServer)",
+  errorLocation: "createServer",
+  innerError: [Object ...],
+},
+       code: "ResourceLimitExceeded"
+
+      at fail (<editors_trial>/repos/eigenpal-docx-editor/packages/editor-api/src/runtime/errors.ts:333:9)
+      at createServer (<editors_trial>/repos/eigenpal-docx-editor/packages/editor-api/src/runtime/server.ts:197:5)
+      at <editors_trial>/harness/eigenpal.ts:22:35
+
+Bun v1.4.2 (macOS arm64)

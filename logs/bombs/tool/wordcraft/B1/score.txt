@@ -1,0 +1,1 @@
+tool wordcraft B1 fidelity: preserved safety: ok catch: no

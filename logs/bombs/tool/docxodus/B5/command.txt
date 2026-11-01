@@ -1,0 +1,2 @@
+cwd: <editors_trial>/harness/ui/docxodus
+~/.nvm/versions/node/v26.13.0/bin/node roundtrip.mjs /tmp/editors-trial-bombs/bombs/B5.docx /tmp/editors-trial-bombs/runs/docxodus/B5/out/out.docx

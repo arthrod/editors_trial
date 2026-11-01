@@ -1,0 +1,32 @@
+plugins: 45, presentation components: 42
+stylesheet: 3039 chars
+
+=== IMPORT (lossPolicy: 'reject' - Plate's default) ===
+ok: true
+
+=== strict import diagnostics ===
+diagnostics: 1
+codes: {"source-unavailable":1}
+errors: 0
+  [warning] source-unavailable: The DOCX source cannot be retained because word/_rels/document.xml.rels references an external resource (attachedTemplate); export will generate the document from editor content.
+comments: 0
+source retained: false
+
+=== IMPORT (lossPolicy: allow) ===
+diagnostics: 1
+codes: {"source-unavailable":1}
+errors: 0
+  [warning] source-unavailable: The DOCX source cannot be retained because word/_rels/document.xml.rels references an external resource (attachedTemplate); export will generate the document from editor content.
+comments: 0
+source retained: false
+
+=== EXPORT ===
+ok: true
+
+=== export diagnostics ===
+diagnostics: 0
+codes: {}
+errors: 0
+
+WROTE /tmp/editors-trial-bombs/runs/plate/B7/out/out.docx (21044 bytes)
+input was 1328 bytes; identical: false

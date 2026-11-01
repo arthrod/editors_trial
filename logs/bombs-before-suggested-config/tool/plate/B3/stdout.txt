@@ -1,0 +1,32 @@
+plugins: 45, presentation components: 42
+stylesheet: 3039 chars
+
+=== IMPORT (lossPolicy: 'reject' - Plate's default) ===
+ok: true
+
+=== strict import diagnostics ===
+diagnostics: 0
+codes: {}
+errors: 0
+comments: 0
+source retained: true
+
+=== IMPORT (lossPolicy: allow) ===
+diagnostics: 0
+codes: {}
+errors: 0
+comments: 0
+source retained: true
+
+=== EXPORT ===
+ok: true
+
+=== export diagnostics ===
+diagnostics: 2
+codes: {"source-rewritten":2}
+errors: 0
+  [warning] source-rewritten: The retained DOCX source cannot be returned unchanged because the export projection is not review.
+  [warning] source-rewritten: The retained DOCX source cannot be returned unchanged because package output options were supplied.
+
+WROTE /tmp/editors-trial-bombs/runs/plate/B3/out/out.docx (6327 bytes)
+input was 1239334 bytes; identical: false

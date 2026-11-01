@@ -1,0 +1,2 @@
+cwd: <editors_trial>/repos/folio
+~/.bun/bin/bun <editors_trial>/harness/folio.ts /tmp/editors-trial-bombs/bombs/B7.docx /tmp/editors-trial-bombs/runs/folio-editor/B7/out/out.docx editor

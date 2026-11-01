@@ -1,0 +1,158 @@
+protection: a named ceiling that refuses the package is bounded-refusal.
+protection: a clean exit whose output does not carry the weapon is sanitation.
+protection: a non-zero exit with no named ceiling is erroring.
+protection: a call stack that ran out is stack-exhaustion, not a ceiling.
+protection: a weapon still in the output is preserved.
+protection: hang, crash, and leak are separate.
+protection: failed-load-exit-zero wrote nothing and still exited zero.
+protection: the safety word bounded-reject is not a resource bound.
+protection libreoffice B1 level: sanitation detail: the written package does not carry the weapon
+protection libreoffice B2 level: sanitation detail: the written package does not carry the weapon
+protection libreoffice B3 level: hang detail: the run did not finish
+protection libreoffice B4 level: preserved detail: the weapon is still in the written package
+protection libreoffice B5 level: failed-load-exit-zero detail: soffice said the source file could not be loaded
+protection libreoffice B6 level: sanitation detail: the written package does not carry the weapon
+protection libreoffice B7 level: sanitation detail: the written package does not carry the weapon
+protection libreoffice B8 level: sanitation detail: the written package does not carry the weapon
+protection libreoffice B9 level: sanitation detail: the written package does not carry the weapon
+protection libreoffice B10 level: sanitation detail: the written package does not carry the weapon
+protection plate B1 level: bounded-refusal detail: named ceiling on the size of one part
+protection plate B2 level: bounded-refusal detail: named ceiling on the number of parts
+protection plate B3 level: sanitation detail: the written package does not carry the weapon
+protection plate B4 level: bounded-refusal detail: named ceiling on element depth
+protection plate B5 level: erroring detail: rejected a document type declaration
+protection plate B6 level: erroring detail: rejected the package
+protection plate B7 level: sanitation detail: a source was unavailable
+protection plate B8 level: erroring detail: the editor schema could not decode the package
+protection plate B9 level: preserved detail: a source was unavailable
+protection plate B10 level: erroring detail: rejected XML that is not UTF-8
+protection eigenpal B1 level: bounded-refusal detail: named ceiling: too-large
+protection eigenpal B2 level: bounded-refusal detail: named ceiling: too-many-entries
+protection eigenpal B3 level: sanitation detail: the written package does not carry the weapon
+protection eigenpal B4 level: bounded-refusal detail: named ceiling: too-deep
+protection eigenpal B5 level: erroring detail: named rejection: dtd-forbidden
+protection eigenpal B6 level: erroring detail: named rejection: bad-name
+protection eigenpal B7 level: preserved detail: the weapon is still in the written package
+protection eigenpal B8 level: preserved detail: the weapon is still in the written package
+protection eigenpal B9 level: preserved detail: the weapon is still in the written package
+protection eigenpal B10 level: erroring detail: named rejection: parse-error
+protection eigenpal-editor B1 level: bounded-refusal detail: named ceiling: zip.maxRatio
+protection eigenpal-editor B2 level: bounded-refusal detail: named ceiling: zip.maxEntries
+protection eigenpal-editor B3 level: sanitation detail: the written package does not carry the weapon
+protection eigenpal-editor B4 level: bounded-refusal detail: named ceiling: xml.maxDepth
+protection eigenpal-editor B5 level: erroring detail: the editor rejected the input and did not name a ceiling
+protection eigenpal-editor B6 level: erroring detail: the editor rejected the input and did not name a ceiling
+protection eigenpal-editor B7 level: preserved detail: the weapon is still in the written package
+protection eigenpal-editor B8 level: preserved detail: the weapon is still in the written package
+protection eigenpal-editor B9 level: preserved detail: the weapon is still in the written package
+protection eigenpal-editor B10 level: erroring detail: the editor rejected the input and did not name a ceiling
+protection folio B1 level: bounded-refusal detail: named ceiling on compression ratio
+protection folio B2 level: bounded-refusal detail: named ceiling on the number of parts
+protection folio B3 level: sanitation detail: the written package does not carry the weapon
+protection folio B4 level: bounded-refusal detail: named ceiling: depth
+protection folio B5 level: erroring detail: preflight rejected malformed markup
+protection folio B6 level: erroring detail: rejected an unsafe entry path
+protection folio B7 level: preserved detail: the weapon is still in the written package
+protection folio B8 level: preserved detail: the weapon is still in the written package
+protection folio B9 level: preserved detail: the weapon is still in the written package
+protection folio B10 level: erroring detail: preflight rejected malformed markup
+protection folio-editor B1 level: bounded-refusal detail: named ceiling on compression ratio
+protection folio-editor B2 level: bounded-refusal detail: named ceiling on the number of parts
+protection folio-editor B3 level: sanitation detail: the written package does not carry the weapon
+protection folio-editor B4 level: bounded-refusal detail: named ceiling: depth
+protection folio-editor B5 level: erroring detail: preflight rejected malformed markup
+protection folio-editor B6 level: erroring detail: rejected an unsafe entry path
+protection folio-editor B7 level: preserved detail: the weapon is still in the written package
+protection folio-editor B8 level: preserved detail: the weapon is still in the written package
+protection folio-editor B9 level: preserved detail: the weapon is still in the written package
+protection folio-editor B10 level: erroring detail: preflight rejected malformed markup
+protection genoffice B1 level: preserved detail: the weapon is still in the written package
+protection genoffice B2 level: bounded-refusal detail: named ceiling on the number of parts
+protection genoffice B3 level: sanitation detail: the written package does not carry the weapon
+protection genoffice B4 level: preserved detail: the weapon is still in the written package
+protection genoffice B5 level: preserved detail: the weapon is still in the written package
+protection genoffice B6 level: preserved detail: the weapon is still in the written package
+protection genoffice B7 level: preserved detail: the weapon is still in the written package
+protection genoffice B8 level: preserved detail: the weapon is still in the written package
+protection genoffice B9 level: preserved detail: the weapon is still in the written package
+protection genoffice B10 level: erroring detail: a styles part could not be parsed
+protection superdoc B1 level: erroring detail: the opener reported unterminated markup
+protection superdoc B2 level: erroring detail: the opener said source loading does not apply
+protection superdoc B3 level: erroring detail: the opener reported a malformed start tag
+protection superdoc B4 level: preserved detail: the weapon is still in the written package
+protection superdoc B5 level: erroring detail: the opener reported no document root
+protection superdoc B6 level: preserved detail: the weapon is still in the written package
+protection superdoc B7 level: preserved detail: the weapon is still in the written package
+protection superdoc B8 level: preserved detail: the weapon is still in the written package
+protection superdoc B9 level: preserved detail: the weapon is still in the written package
+protection superdoc B10 level: erroring detail: the opener said source loading does not apply
+protection officeopen B1 level: preserved detail: the weapon is still in the written package
+protection officeopen B2 level: preserved detail: the weapon is still in the written package
+protection officeopen B3 level: sanitation detail: the written package does not carry the weapon
+protection officeopen B4 level: stack-exhaustion detail: the call stack ran out
+protection officeopen B5 level: erroring detail: rejected a malformed entity
+protection officeopen B6 level: preserved detail: the weapon is still in the written package
+protection officeopen B7 level: preserved detail: the weapon is still in the written package
+protection officeopen B8 level: preserved detail: the weapon is still in the written package
+protection officeopen B9 level: preserved detail: the weapon is still in the written package
+protection officeopen B10 level: preserved detail: the weapon is still in the written package
+protection docen B1 level: preserved detail: the weapon is still in the written package
+protection docen B2 level: preserved detail: the weapon is still in the written package
+protection docen B3 level: sanitation detail: the written package does not carry the weapon
+protection docen B4 level: stack-exhaustion detail: the call stack ran out
+protection docen B5 level: erroring detail: rejected a malformed entity
+protection docen B6 level: preserved detail: the weapon is still in the written package
+protection docen B7 level: preserved detail: the weapon is still in the written package
+protection docen B8 level: preserved detail: the weapon is still in the written package
+protection docen B9 level: stack-exhaustion detail: the call stack ran out
+protection docen B10 level: preserved detail: the weapon is still in the written package
+protection fidus B1 level: preserved detail: the weapon is still in the written package
+protection fidus B2 level: sanitation detail: the written package does not carry the weapon
+protection fidus B3 level: sanitation detail: the written package does not carry the weapon
+protection fidus B4 level: bounded-refusal detail: named ceiling on nested tags
+protection fidus B5 level: erroring detail: rejected an external entity
+protection fidus B6 level: sanitation detail: the written package does not carry the weapon
+protection fidus B7 level: sanitation detail: the written package does not carry the weapon
+protection fidus B8 level: sanitation detail: the written package does not carry the weapon
+protection fidus B9 level: sanitation detail: the written package does not carry the weapon
+protection fidus B10 level: sanitation detail: the written package does not carry the weapon
+protection wordcraft B1 level: preserved detail: the weapon is still in the written package
+protection wordcraft B2 level: bounded-refusal detail: named ceiling
+protection wordcraft B3 level: bounded-refusal detail: named ceiling on attributes of one element
+protection wordcraft B4 level: bounded-refusal detail: named ceiling on element depth
+protection wordcraft B5 level: erroring detail: an entity is not defined
+protection wordcraft B6 level: sanitation detail: the written package does not carry the weapon
+protection wordcraft B7 level: sanitation detail: the written package does not carry the weapon
+protection wordcraft B8 level: preserved detail: the weapon is still in the written package
+protection wordcraft B9 level: preserved detail: the weapon is still in the written package
+protection wordcraft B10 level: sanitation detail: the written package does not carry the weapon
+protection canvas B1 level: hang detail: the run did not finish
+protection canvas B2 level: sanitation detail: the written package does not carry the weapon
+protection canvas B3 level: hang detail: the run did not finish
+protection canvas B4 level: preserved detail: the weapon is still in the written package
+protection canvas B5 level: sanitation detail: the written package does not carry the weapon
+protection canvas B6 level: sanitation detail: the written package does not carry the weapon
+protection canvas B7 level: sanitation detail: the written package does not carry the weapon
+protection canvas B8 level: sanitation detail: the written package does not carry the weapon
+protection canvas B9 level: hang detail: the run did not finish
+protection canvas B10 level: sanitation detail: the written package does not carry the weapon
+protection docsplus B1 level: sanitation detail: the written package does not carry the weapon
+protection docsplus B2 level: sanitation detail: the written package does not carry the weapon
+protection docsplus B3 level: sanitation detail: the written package does not carry the weapon
+protection docsplus B4 level: stack-exhaustion detail: the call stack ran out
+protection docsplus B5 level: erroring detail: an entity was not found
+protection docsplus B6 level: sanitation detail: the written package does not carry the weapon
+protection docsplus B7 level: sanitation detail: the written package does not carry the weapon
+protection docsplus B8 level: sanitation detail: the written package does not carry the weapon
+protection docsplus B9 level: preserved detail: the weapon is still in the written package
+protection docsplus B10 level: erroring detail: the xml parser rejected a tag
+protection docxodus B1 level: preserved detail: the weapon is still in the written package
+protection docxodus B2 level: preserved detail: the weapon is still in the written package
+protection docxodus B3 level: sanitation detail: the written package does not carry the weapon
+protection docxodus B4 level: stack-exhaustion detail: the call stack ran out
+protection docxodus B5 level: erroring detail: the cell log does not name a ceiling
+protection docxodus B6 level: preserved detail: the weapon is still in the written package
+protection docxodus B7 level: preserved detail: the weapon is still in the written package
+protection docxodus B8 level: preserved detail: the weapon is still in the written package
+protection docxodus B9 level: preserved detail: the weapon is still in the written package
+protection docxodus B10 level: erroring detail: the cell log does not name a ceiling

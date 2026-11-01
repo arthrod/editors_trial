@@ -1,0 +1,1 @@
+tool genoffice B6 fidelity: preserved safety: ok catch: no

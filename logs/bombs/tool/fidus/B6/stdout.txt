@@ -1,0 +1,7 @@
+IMPORT OK: doc nodes: 2 node types: {"doc":1,"title":1,"text":2,"richtext_part":1,"paragraph":1}
+IMPORT settings: {"import_id":"fidus-trial","tracked":false,"language":"en-US"}
+IMPORT comments: 0
+IMPORT comments data: {}
+EXPORT images in db: 0
+EXPORT template: library generated (generateDocxTemplate)
+EXPORT OK bytes: 11046 -> /tmp/editors-trial-bombs/runs/fidus/B6/out/out.docx

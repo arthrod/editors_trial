@@ -1,0 +1,17 @@
+<editors_trial>/repos/docen/node_modules/.pnpm/@office-open+docx@0.15.0/node_modules/@office-open/docx/src/util/raw-relationship-ids.ts:11
+      pending.push(...current);
+              ^
+
+RangeError: Maximum call stack size exceeded
+    at collectRawXmlRelationshipIds (<editors_trial>/repos/docen/node_modules/.pnpm/@office-open+docx@0.15.0/node_modules/@office-open/docx/src/util/raw-relationship-ids.ts:11:15)
+    at DocxWriteContext.addPassthroughDocumentRelationships (<editors_trial>/repos/docen/node_modules/.pnpm/@office-open+docx@0.15.0/node_modules/@office-open/docx/src/context.ts:912:27)
+    at <anonymous> (<editors_trial>/repos/docen/node_modules/.pnpm/@office-open+docx@0.15.0/node_modules/@office-open/docx/src/compile/document.ts:413:13)
+    at compileDocumentEntries (<editors_trial>/repos/docen/node_modules/.pnpm/@office-open+docx@0.15.0/node_modules/@office-open/docx/src/compile/document.ts:416:7)
+    at xmlifyContext (<editors_trial>/repos/docen/node_modules/.pnpm/@office-open+docx@0.15.0/node_modules/@office-open/docx/src/compiler.ts:598:27)
+    at compileDocument (<editors_trial>/repos/docen/node_modules/.pnpm/@office-open+docx@0.15.0/node_modules/@office-open/docx/src/compiler.ts:271:31)
+    at compile (<editors_trial>/repos/docen/node_modules/.pnpm/@office-open+docx@0.15.0/node_modules/@office-open/docx/src/generate.ts:23:5)
+    at Object.pack (<editors_trial>/repos/docen/node_modules/.pnpm/@office-open+core@0.15.0/node_modules/@office-open/core/dist/xml-decode-DVHwg55j.mjs:775:24)
+    at generateDocument (<editors_trial>/repos/docen/node_modules/.pnpm/@office-open+docx@0.15.0/node_modules/@office-open/docx/src/generate.ts:81:17)
+    at generateDOCX (<editors_trial>/repos/docen/packages/docx/src/converters/docx.ts:1423:10)
+
+Node.js v26.13.0

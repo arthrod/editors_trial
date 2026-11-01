@@ -1,0 +1,11 @@
+plugins: 45, presentation components: 42
+stylesheet: 3039 chars
+suggested BaseEditorKit plugins: 45
+suggested import ok: false
+
+=== suggested import ===
+diagnostics: 1
+codes: {"limit-exceeded":1}
+errors: 1
+  [error] limit-exceeded: DOCX exceeds maxXmlDepth.
+suggested import refused the file. no export was written.

@@ -1,0 +1,12 @@
+plugins: 45, presentation components: 42
+stylesheet: 3039 chars
+suggested BaseEditorKit plugins: 45
+suggested import ok: true
+
+=== suggested import ===
+diagnostics: 1
+codes: {"source-unavailable":1}
+errors: 0
+  [warning] source-unavailable: The DOCX source cannot be retained because word/document.xml contains an unrecognized field; export will generate the document from editor content.
+suggested export ok: true
+suggested export wrote 54302 bytes

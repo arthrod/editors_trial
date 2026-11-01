@@ -1,0 +1,1 @@
+tool genoffice B8 fidelity: preserved safety: ok catch: no

@@ -1,0 +1,2 @@
+cwd: <editors_trial>/harness/wordcraft
+/tmp/editors-trial-wordcraft-target/release/wc-harness /tmp/editors-trial-bombs/bombs/B3.docx /tmp/editors-trial-bombs/runs/wordcraft/B3/out/out.docx

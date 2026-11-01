@@ -1,0 +1,6 @@
+[stub] media origin = http://127.0.0.1:64214
+[import] title      = "BOMB_BODY_OK"
+[import] warnings   = 1
+         - title-promoted-paragraph: The document opened on a paragraph, so "BOMB_BODY_OK" became its title.
+[render] html length = 134
+[export] wrote /tmp/editors-trial-bombs/runs/docsplus/B7/out/out.docx (20121B)

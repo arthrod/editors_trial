@@ -1,0 +1,14 @@
+plugins: 45, presentation components: 42
+stylesheet: 3039 chars
+
+=== IMPORT (lossPolicy: 'reject' - Plate's default) ===
+ok: false
+
+=== strict import diagnostics ===
+diagnostics: 1
+codes: {"decode-failed":1}
+errors: 1
+  [error] decode-failed: DOCX content could not be decoded by the installed editor schema.
+
+=== IMPORT (lossPolicy: allow) ALSO FAILED ===
+  [error] decode-failed: DOCX content could not be decoded by the installed editor schema.

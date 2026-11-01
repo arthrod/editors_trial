@@ -1,0 +1,2 @@
+tool jubarte B7 fidelity: not-in-view safety: ok catch: no
+protection jubarte B7 level: not-in-view detail: the markdown view does not carry the relationship targets. The log shows no connection attempt.

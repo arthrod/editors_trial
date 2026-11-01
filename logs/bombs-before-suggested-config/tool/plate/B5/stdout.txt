@@ -1,0 +1,14 @@
+plugins: 45, presentation components: 42
+stylesheet: 3039 chars
+
+=== IMPORT (lossPolicy: 'reject' - Plate's default) ===
+ok: false
+
+=== strict import diagnostics ===
+diagnostics: 1
+codes: {"invalid-package":1}
+errors: 1
+  [error] invalid-package: DOCX XML must not contain a document type declaration.
+
+=== IMPORT (lossPolicy: allow) ALSO FAILED ===
+  [error] invalid-package: DOCX XML must not contain a document type declaration.

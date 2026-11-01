@@ -1,0 +1,6 @@
+read        : FAILED via wordcraft_docx::read
+read error display : limit exceeded: too many attributes on one element
+read error debug   : Limit("too many attributes on one element")
+retrying tolerant path: wordcraft_docx::read_with_password(bytes, None)
+read_with_password error display : limit exceeded: too many attributes on one element
+read_with_password error debug   : Limit("too many attributes on one element")

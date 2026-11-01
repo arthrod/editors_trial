@@ -1,0 +1,2 @@
+tool jubarte B3 fidelity: refused safety: bounded-reject catch: yes
+protection jubarte B3 level: bounded-refusal detail: INVALID_XML named a ceiling on the attributes of one element. No view was written.

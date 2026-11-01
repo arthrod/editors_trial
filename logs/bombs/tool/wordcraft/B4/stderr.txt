@@ -1,0 +1,6 @@
+read        : FAILED via wordcraft_docx::read
+read error display : limit exceeded: XML nesting too deep
+read error debug   : Limit("XML nesting too deep")
+retrying tolerant path: wordcraft_docx::read_with_password(bytes, None)
+read_with_password error display : limit exceeded: XML nesting too deep
+read_with_password error debug   : Limit("XML nesting too deep")

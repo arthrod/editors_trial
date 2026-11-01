@@ -1,0 +1,17 @@
+<editors_trial>/repos/office-open/packages/xml/src/parse.ts:27
+    if (match === "&") throw new XmlParseError("Malformed XML: unsupported or malformed entity.");
+                             ^
+
+XmlParseError: Malformed XML: unsupported or malformed entity.
+    at <anonymous> (<editors_trial>/repos/office-open/packages/xml/src/parse.ts:27:30)
+    at String.replace (<anonymous>)
+    at unescapeXml (<editors_trial>/repos/office-open/packages/xml/src/parse.ts:26:14)
+    at parse (<editors_trial>/repos/office-open/packages/xml/src/parse.ts:314:18)
+    at ParsedArchive.get (<editors_trial>/repos/office-open/packages/core/src/opc/parser.ts:231:21)
+    at parseDocxArchive (<editors_trial>/repos/office-open/packages/docx/src/parse.ts:1227:26)
+    at parseDocx (<editors_trial>/repos/office-open/packages/docx/src/parse.ts:1220:10)
+    at parseDocumentFromBytes (<editors_trial>/repos/office-open/packages/docx/src/parse.ts:532:32)
+    at parseDocument (<editors_trial>/repos/office-open/packages/docx/src/parse.ts:513:10)
+    at async <anonymous> (<editors_trial>/harness/officeopen/roundtrip.mts:20:16)
+
+Node.js v26.13.0

@@ -90,6 +90,10 @@ def lines() -> list[str]:
 
 def main() -> None:
     """Print not-run records and optionally write them to the first CLI path."""
+    if "--sandbox" in sys.argv:
+        import run_bomb_sandbox
+
+        raise SystemExit(run_bomb_sandbox.main())
     text = "\n".join(lines()) + "\n"
     if len(sys.argv) > 1:
         with open(sys.argv[1], "w", encoding="utf-8") as fh:

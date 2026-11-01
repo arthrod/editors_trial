@@ -1,0 +1,1 @@
+tool docen B4 fidelity: refused safety: bounded-reject catch: yes

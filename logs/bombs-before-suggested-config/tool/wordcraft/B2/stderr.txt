@@ -1,0 +1,6 @@
+read        : FAILED via wordcraft_docx::read
+read error display : limit exceeded: 25004 zip entries
+read error debug   : Limit("25004 zip entries")
+retrying tolerant path: wordcraft_docx::read_with_password(bytes, None)
+read_with_password error display : limit exceeded: 25004 zip entries
+read_with_password error debug   : Limit("25004 zip entries")
