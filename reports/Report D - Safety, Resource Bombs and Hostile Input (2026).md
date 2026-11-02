@@ -550,7 +550,7 @@ The mean is 7.0 divided by 10, which is 0.70. No local process exit was recorded
 
 ## What Microsoft Word protects against
 
-These are the final results of the Word run, from `Report D2 - What Word Protects Against (2026).md` (final since 2026-10-31), which also has the method. They are not the seatbelt matrix: the fenced log above says Word was not opened there, and that is still true of that run. Word was opened separately, one fixture per run, on every fixture but E6 (32 of 33): B1–B10 and the controls and probes below.
+These are the final results of the Word run, from `Report D2 - What Word Protects Against (2026).md` (final since 2026-11-01), which also has the method. They are not the seatbelt matrix: the fenced log above says Word was not opened there, and that is still true of that run. Word was opened separately, one fixture per run, on all 33 fixtures: B1–B10 and the controls and probes below.
 
 CLEAN means a PDF was written and no dialog appeared. That is not the protection ladder in this report, so these rows are not turned into a grade.
 
@@ -583,7 +583,7 @@ CLEAN means a PDF was written and no dialog appeared. That is not the protection
 | E1 | 1 MiB element flood | **CLEAN**, 1,187 pages, 15 s | 765 MB |
 | E2 | 8 MiB element flood | **CLEAN**, 9,490 pages, 89 s | 2.36 GB |
 | E5 | 1,999,817 elements | **CLEAN**, 25,639 pages, 237 s | 3.9 GB |
-| E6 | 2,001,017 elements | not run | |
+| E6 | 2,001,017 elements | **CLEAN** twice, 25,654 pages, 218 s and 220 s | 5.1 / 5.6 GB |
 | E3 | 60 MiB element flood (184 KB zipped) | **failed** after 1,641 s | 6.2 GB |
 | E4 | 70 MiB element flood | **failed** after 1,610 s | 7.2 GB |
 
@@ -606,7 +606,7 @@ and is not counted as a leak.
 4. **Word does not protect itself from element floods or nested tables.** A
    60 or 70 MiB flood made it fail after about 27 minutes at 6–7 GB. A
    948-byte nest of 60 tables hung it twice. 1,999,817 elements (E5) took
-   4 minutes and 3.9 GB.
+   4 minutes and 3.9 GB, and 2,001,017 (E6) the same time and 5.1–5.6 GB.
 5. **Word is a network beacon.** It fetched a remote template (N1) and a
    linked picture (N2, eight times), and probed a subdocument (N4), with no
    prompt. Opening an untrusted document in Word tells whoever controls the
