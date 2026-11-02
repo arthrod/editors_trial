@@ -70,3 +70,5 @@ D_tbl200	1	376	515	-	-	0	no	none	-- crash reporters:  [batch] FAIL: D_tbl200.doc
 D_tbl300	1	376	514	-	-	0	no	none	-- crash reporters:  [batch] FAIL: D_tbl300.docx — Microsoft Word got an error: AppleEvent timed out. 
 E5_atcap	0	237	3909	25639	FLOOD_END:1,FLOOD_START:1,	0	no	none	-- crash reporters:  
 E4_flood70	1	1610	7166	-	-	0	atime-changed	none	-- crash reporters:  [word] recovery 1: returned rc=None in 30.0 s, error: osascript timed out [word] recovery 1: because the close-all returned an error (osascript timed out); asking Word to quit, running: osascript -e 'tell application "Microsoft Word" to quit saving no' [word] recovery 1: returned rc=None in 25.0 s, error: osascript timed out -- crash reporters:  [word] recovery 2: returned rc=
+E6_overcap	0	218	5119	25654	FLOOD_END:1,FLOOD_START:1,	0	no	none	-- crash reporters:  
+E6_overcap	0	220	5563	25654	FLOOD_END:1,FLOOD_START:1,	0	no	none	-- crash reporters:  

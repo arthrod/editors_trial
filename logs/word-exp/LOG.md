@@ -181,3 +181,10 @@ Readings:
 
 - D_tbl60, D_tbl200, D_tbl300: AppleEvent timed out at ~375 s, 500 MB. D_tbl60 wedged Word before too: second failure, skipped.
 - E5_atcap: CLEAN, 25,639 pages, 237 s, 3909 MB, FLOOD_START/FLOOD_END both rendered.
+
+### 2026-11-01 23:50: E6 in Word, twice
+
+- Run after another session's Word and bench jobs ended (load 2.3, Word idle at 0% CPU, no driver). `run_word.sh E6_overcap`, twice, one after the other.
+- E6_overcap (667,000 paragraphs, 2,001,017 elements, 67 KB zipped; rebuilt with `scripts/build_cap.py`): exit 0 both times, 218 s and 220 s, 25,654 pages, both flood markers, peaks 5,119 MB and 5,563 MB. No dialog; the "crash reporters:" alert line is the empty header (no reports). CLEAN, reproduced.
+- `net.log` was missing in the experiment dir during these runs, so the network column (0) was not observed. E6 has no external reference, so nothing was expected there.
+- Copies of both run folders are in `runs/E6_overcap_run1` and `run2` (PDF and input left out).

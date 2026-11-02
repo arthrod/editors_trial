@@ -1,7 +1,8 @@
 # Report D2 — What Microsoft Word protects against, and what it does not (2026)
 
-**Status: final (2026-10-31).** Every fixture but E6 was opened in Microsoft
-Word alone, one fixture per run. Most were opened once. D_tbl60 was opened
+**Status: final (2026-11-01).** Every fixture was opened in Microsoft Word
+alone, one fixture per run. Most were opened once. E6, added last, was opened
+twice on 2026-11-01 with the same result. D_tbl60 was opened
 twice and hung both times. The first runs of D_tbl200, D_tbl300 and X4 were
 void (Word was still wedged, or had just been relaunched) and they were rerun
 alone; the table shows the reruns. A second run of the rest has not been done.
@@ -67,7 +68,7 @@ published; the five `scripts/build*.py` rebuild all 33.
 | E1 | 1 MiB element flood | **CLEAN**, 1,187 pages, 15 s | 765 MB |
 | E2 | 8 MiB element flood | **CLEAN**, 9,490 pages, 89 s | 2.36 GB |
 | E5 | 1,999,817 elements | **CLEAN**, 25,639 pages, 237 s | 3.9 GB |
-| E6 | 2,001,017 elements | not run | |
+| E6 | 2,001,017 elements | **CLEAN** twice, 25,654 pages, 218 s and 220 s | 5.1 / 5.6 GB |
 | E3 | 60 MiB element flood (184 KB zipped) | **failed** after 1,641 s | 6.2 GB |
 | E4 | 70 MiB element flood | **failed** after 1,610 s | 7.2 GB |
 
@@ -90,7 +91,7 @@ and is not counted as a leak.
 4. **Word does not protect itself from element floods or nested tables.** A
    60 or 70 MiB flood made it fail after about 27 minutes at 6–7 GB. A
    948-byte nest of 60 tables hung it twice. 1,999,817 elements (E5) took
-   4 minutes and 3.9 GB.
+   4 minutes and 3.9 GB, and 2,001,017 (E6) the same time and 5.1–5.6 GB.
 5. **Word is a network beacon.** It fetched a remote template (N1) and a
    linked picture (N2, eight times), and probed a subdocument (N4), with no
    prompt. Opening an untrusted document in Word tells whoever controls the
