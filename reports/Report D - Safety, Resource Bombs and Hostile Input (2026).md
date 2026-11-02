@@ -2,7 +2,7 @@
 
 ## TL;DR
 
-No editor is safe on every package. Safe here means the weapon is not in a finished document and the process did not hang or run out of stack. A named ceiling is stronger than a bare refusal. A bare refusal is stronger than a hang. Keeping the weapon is not safe. Word was not opened in the seatbelt matrix. A separate Word run is in `Report D2 - What Word Protects Against (2026).md`, final since 2026-10-31; its interim snapshot is copied at the end of this report.
+No editor is safe on every package. Safe here means the weapon is not in a finished document and the process did not hang or run out of stack. A named ceiling is stronger than a bare refusal. A bare refusal is stronger than a hang. Keeping the weapon is not safe. Word was not opened in the seatbelt matrix. A separate Word run is in `Report D2 - What Word Protects Against (2026).md`, final since 2026-10-31; its results are copied at the end of this report.
 
 Packages: B1 decompression, B2 entry flood, B3 attributes, B4 deep nesting, B5 entities, B6 zip-slip, B7 external relationships, B8 active content, B9 layout bomb, B10 corrupt parts.
 
@@ -23,7 +23,7 @@ Packages: B1 decompression, B2 entry flood, B3 attributes, B4 deep nesting, B5 e
 - **Apryse WebViewer.** No ceiling. Cleaned B1, B2, B3, and B6. Hung on B4, B5, and B9: each ran past the sandbox's 40-second wall clock, in both passes. Kept B7, B8, and B10.
 - **Google Docs.** Not in the seatbelt matrix. Saved exports of B2, B6, B7, B8, and B10 contain only the body sentence. B1, B3, B4, B5, and B9 produced no file. Those five imports fully failed, and no ceiling was named. Grade 0.70.
 
-Jubarte is not in this list. Its grade on the same scale is 0.65, from jubarte 0.14.0 in `Report D1 - Jubarte on the Hostile Packages (2026).md`. Report D2 is the Word run, final since 2026-10-31; its interim snapshot is copied at the end of this report. Its jubarte column is 0.16.0, not 0.14.0.
+Jubarte is not in this list. Its grade on the same scale is 0.65, from jubarte 0.14.0 in `Report D1 - Jubarte on the Hostile Packages (2026).md`. Report D2 is the Word run, final since 2026-10-31; its results are copied at the end of this report.
 
 ## Grades
 
@@ -550,99 +550,68 @@ The mean is 7.0 divided by 10, which is 0.70. No local process exit was recorded
 
 ## What Microsoft Word protects against
 
-This section is the interim note in `reports/Report D2 - What Word Protects Against (2026).md`, copied here on 2026-10-31 before that report was finalised. The final report supersedes it: there every fixture but E6 was opened in Word, and two jubarte binaries were run on all 33 fixtures. It is not the seatbelt matrix. The fenced log above still says Word was not opened. That fence is the entry that refuses to run. This run did open Word.
+These are the final results of the Word run, from `Report D2 - What Word Protects Against (2026).md` (final since 2026-10-31), which also has the method. They are not the seatbelt matrix: the fenced log above says Word was not opened there, and that is still true of that run. Word was opened separately, one fixture per run, on 33 fixtures: B1–B10 and the controls and probes below. E6 has not been opened in Word.
 
-The grade 0.65 is jubarte 0.14.0, in Report D1. The jubarte column in the table below is binary 0.16.0+6bf2efb43. Those are not the same run.
+CLEAN means a PDF was written and no dialog appeared. That is not the protection ladder in this report, so these rows are not turned into a grade.
 
-CLEAN in the table means a PDF was written and no dialog appeared. That is not the protection ladder in this report, so this table is not turned into a float grade. Word's B6 through B10, the nested-table probes, the network probes, and the element-count series are still pending. jubarte 0.16.0+6bf2efb43 has been run on all 28 fixtures. The jubarte column below is that run. The source note says 11 of 28 Word fixtures. `results_word.tsv` has 12 finished Word rows, and one of them is the control.
+| Fixture | Shape | Word | Word peak RSS |
+| --- | --- | --- | --- |
+| C0 | one paragraph (control) | CLEAN, 1 page | 506 MB |
+| B1 | one `w:t` of 66 MiB of spaces (68 KB zipped) | **CLEAN**, 1 page, 7 s | 711 MB |
+| B2 | 25,000 `customXml` parts | **CLEAN** | 460 MB |
+| B3 | 500,000 attributes on one `w:p` | **refused**: "Word experienced an error trying to open the file." | 615 MB |
+| B4 | 5,000-deep `w:sdt` + 250-deep `w:tbl` | **refused**: same error | 511 MB |
+| D_sdt200/300/600 | `w:sdt` chains 200 / 300 / 600 deep | **CLEAN**, leaf text present | 559–619 MB |
+| D_tbl60 | nested tables 60 deep (948 bytes) | **hung**, twice (AppleEvent timeout at 375 s) | 509 MB |
+| D_tbl200/300 | nested tables 200 / 300 deep | **hung** at 376 s; D_tbl300 crashed Word on an earlier run | 515 MB |
+| B5 | billion-laughs entities (10^6) + external entities (`/etc/hosts`, canary) | **refused**: same error; canary absent | 470 MB |
+| X1 | a bare `<!DOCTYPE w:document>` | **refused**: same error | 1.5 GB |
+| X2 | internal entity used in text | **refused**: same error | 470 MB |
+| X3 | internal entity whose value holds a `>` | **refused**: same error | 467 MB |
+| X4 | the same DOCTYPE in a `customXml` item | **alert**: unreadable content, then refused | 464 MB |
+| X4c | X4 without the DOCTYPE (control) | **CLEAN** | 514 MB |
+| X5 | the same DOCTYPE in `styles.xml` | **alert**: unreadable content, then refused | 470 MB |
+| B6 | zip-slip entry `../escaped/…` + traversal relationships | **alert**: unreadable content; no slipped file anywhere | 440 MB |
+| B7 | external template on `127.0.0.1:9` + UNC subDocument | **CLEAN**, 1 page (not observable without root) | 501 MB |
+| B8 | `javascript:` hyperlink + altChunk HTML with script | **refused**: same error | 457 MB |
+| B9 | `gridSpan` 1,000,000 + 2,000 field begins + 60,000 sources | **CLEAN**, 77 pages | 545 MB |
+| B10 | non-UTF-8 styles, truncated comments, fake PNG | **alert**: unreadable content | 473 MB |
+| N1 | remote template → listener | **CLEAN, and fetched it**: OPTIONS, HEAD, GET, no prompt | 515 MB |
+| N2 | linked picture (`a:blip r:link`) → listener | **CLEAN, and fetched it 8 times**, no prompt | 488 MB |
+| N3 | `INCLUDEPICTURE` → listener | **CLEAN**; no fetch | 502 MB |
+| N4 | `w:subDoc` → listener | **CLEAN; HEAD probe** ("Microsoft Office Existence Discovery") | 489 MB |
+| E1 | 1 MiB element flood | **CLEAN**, 1,187 pages, 15 s | 765 MB |
+| E2 | 8 MiB element flood | **CLEAN**, 9,490 pages, 89 s | 2.36 GB |
+| E5 | 1,999,817 elements | **CLEAN**, 25,639 pages, 237 s | 3.9 GB |
+| E6 | 2,001,017 elements | not run | |
+| E3 | 60 MiB element flood (215 KB zipped) | **failed** after 1,641 s | 6.2 GB |
+| E4 | 70 MiB element flood | **failed** after 1,610 s | 7.2 GB |
 
-**Status when copied: Word was still interim (2026-10-31); superseded by the final report.** The Word column below is the interim note. jubarte
-0.16.0+6bf2efb43 was run the same day on all 28 fixtures. Rows marked *pending* are still open for Word.
+On E4 the canary file's access time changed during Word's 27-minute run.
+E4 references no canary, and Word wrote no PDF; the access is unexplained
+and is not counted as a leak.
 
-Companion to `jubarte-redlines/docs/bomb_prevention.md` (jubarte 0.14.0, `read` only, no Word). This report
-opens the same hostile packages, plus the gaps found while reviewing that document, in Microsoft Word for Mac,
-and sets Word's behaviour beside jubarte's.
+### Conclusions
 
-Raw evidence, scripts and the run journal are in [`logs/word-exp/`](../logs/word-exp/) (`LOG.md`,
-`results_word.tsv`, `results_jubarte.tsv`, `runs/ID/word.log`, `screen.log`, `net.log`).
-
-### Method
-
-- **Word:** only through `neurotic_docx_bench/scripts/word_pdf.py` (open, then export to PDF), one fixture per
-  run, alone, `--timeout 300`.
-  - The bench watchdog ran on that run's own log, and `word_screen_log.py` recorded every dialog.
-  - Word's RSS was sampled every second, with a 10 GB kill guard.
-  - Verdict: **CLEAN** = PDF written and no dialog. Anything else is a refusal, an alert or a hang.
-- **Network:** a listener on `127.0.0.1:18009` logs every connection (`net.log`).
-  - The doc's B7 aims at `127.0.0.1:9` and `\\127.0.0.1\share`. Ports below 1024 need root, so B7 cannot be
-    observed directly; N1–N4 aim the same shapes at the listener.
-- **Canary:** B5's external entity points at a file holding `CANARY_SECRET_7f3a`; the PDF text is checked for it.
-- **jubarte:** binary 0.16.0+6bf2efb43, `read` (default and `--no-page-markers`) and `validate`, each under a
-  6 GB / 300 s guard.
-- **Fixtures:**
-  - B1–B10 are the doc's packages, built by `editors_trial/build/make_bombs.py` unchanged.
-  - The others are described in the table.
-
-### Results
-
-| Fixture | Shape | Word | Word peak RSS | jubarte `read` (0.16.0) |
-| --- | --- | --- | --- | --- |
-| C0 | one paragraph (control) | CLEAN, 1 page | 506 MB | ok |
-| B1 | one `w:t` of 66 MiB of spaces (68 KB zipped) | **CLEAN**, 1 page, 7 s | 711 MB | refused: `INPUT_LIMIT` (part > 64 MiB) |
-| B2 | 25,000 `customXml` parts | **CLEAN**, body text present | 460 MB | refused: `INPUT_LIMIT` (entries > 10,000) |
-| B3 | 500,000 attributes on one `w:p` | **refused**: "Word experienced an error trying to open the file." | 615 MB | refused: `INVALID_XML` (> 1024 attributes) |
-| B4 | 5,000-deep `w:sdt` + 250-deep `w:tbl` | **refused**: same error | 511 MB | `read` refuses, "XML nesting too deep". `validate` says deeper than 256 |
-| D_sdt200/300/600 | `w:sdt` chains 200 / 300 / 600 deep | **CLEAN**, leaf text present | 559–619 MB | 200: `read` writes the leaf, layout warns deeper than 256, `validate` refuses at 256. 300 and 600: `read` refuses, nesting too deep |
-| D_tbl60/200/300 | nested tables 60 / 200 / 300 deep | *pending* | | 60: `read` writes the leaf. 200 and 300: `read` refuses, nesting too deep |
-| B5 | billion-laughs-style entities (10^6) + external entities (`/etc/hosts`, canary) | **refused**: same error | 470 MB | view written; entity references kept literal, never expanded |
-| X1 | a bare `<!DOCTYPE w:document>` (no internal subset) | **refused**: same error | 1.5 GB | `read` and `validate` exit 0. The body stays `BODY_OK` |
-| X2 | internal entity used in text | **refused**: same error | 470 MB | `read` and `validate` exit 0. The view keeps `ENT[&a;]`. It does not expand |
-| X3 | internal entity whose value holds a `>` (parser-differential probe) | **refused**: same error | 467 MB | `read` and `validate` exit 0. The view is `BODY_OK`. The smuggled paragraph is absent |
-| B6 | zip-slip entry `../escaped/…` + traversal relationships | *pending* | | `read` writes the body and warns on the unsafe name. `validate` refuses that name. No slipped file |
-| B7 | external template on `127.0.0.1:9` + UNC subDocument | *pending* | | body only. `read` and `validate` exit 0. No connection on the listener |
-| B8 | `javascript:` hyperlink + altChunk HTML with script | *pending* | | body only. No javascript target and no script. `validate` exits 2: the hyperlink run is outside a paragraph |
-| B9 | `gridSpan` 1,000,000 + 2,000 open field begins + 60,000 bibliography sources | *pending* | | span capped at 64. `read` names 2000 validity errors. `validate` exits 2 with 2000 field errors. Peaks 145 MB and 144 MB |
-| B10 | non-UTF-8 styles, truncated comments, fake PNG | *pending* | | `read` writes the body and warns on the comments part. `validate` refuses the unclosed tag |
-| N1–N4 | remote template, linked picture (`a:blip r:link`), `INCLUDEPICTURE`, subDocument → listener | *pending* | | N1, N2, N4: body only. N3: the field instruction and `FIELD_CACHE` stay in the view. `net.log` stayed empty |
-| E1/E2/E3/E4 | valid element flood: 1 / 8 / 60 / 70 MiB of paragraphs (4 KB–215 KB zipped) | *pending* | | E1 exits 0, peaks 115 MB and 148 MB. E2 exits 0, peaks 783 MB and 985 MB. E3 exits 0 and was not killed, peaks 5483 MB and 5604 MB, both flood markers in the view. E4 is refused by the part cap. `read` peaked at 4419 MB first. `read` without page markers peaked at 2 MB |
-
-### Conclusions so far
-
-1. **Word refuses every DTD.** A bare `<!DOCTYPE>` with no subset (X1) is refused exactly like the entity bomb
-   (B5): "Word experienced an error trying to open the file." So entities are never a Word-valid input. On this
-   run jubarte `read` and `validate` both exit 0 on X1, X2, X3, and B5. `validate` did not refuse them. The
-   view keeps the literal references and does not expand them. A document jubarte reads can be one Word will
-   not open. Refusing (or at least warning on) a DOCTYPE in `read` loses no Word-valid input.
-2. **Word refuses floods of attributes on one element** (B3), as jubarte does. The depth claim in the first
-   draft of this note was wrong. It said jubarte's caps refuse nothing Word opens. Word opens a 600-deep
-   `w:sdt`. jubarte `read` refuses a 300-deep one and a 600-deep one. That cap does refuse a document Word opens.
-3. **Word opens a 600-deep `w:sdt` chain cleanly; B4 (5,000-deep `w:sdt` plus a 250-deep table) it refuses.**
-   Which of B4's two nests Word rejects is still open: the 60-deep table run wedged Word and the journal marks
-   the following table runs as a cascade, so they are not a result yet. On jubarte, `read` writes a 200-deep
-   `w:sdt` and a 60-deep table. Layout warns that the 200-deep part nests deeper than 256, and `validate`
-   refuses it with that 256 message. `read` refuses 300-deep and 600-deep content controls, and 200-deep and
-   300-deep tables, with "XML nesting too deep". `validate` on those files says the part nests deeper than 256.
-4. **Word is more permissive than jubarte on size and entry count.**
-   - B1: a 66 MiB run, CLEAN in 7 s at 711 MB.
-   - B2: 25,000 parts, CLEAN.
-   - jubarte refuses both. Word's tolerance means it gives jubarte no lower bound to copy here: these caps are
-     jubarte's own choice, and they are not Word-faithful.
-5. **Word gives no protection against element-count blow-up, and neither does jubarte.** The Word E-series is
-   still pending. jubarte's limits are in bytes. On this run the 60 MiB flood was not killed. Both reads exited
-   0, with peaks of 5483 MB and 5604 MB, and both flood markers are in the view. The 70 MiB flood is refused by
-   the part cap. With page markers on, that refusal came after a peak of 4419 MB. Without page markers the same
-   refusal peaked at 2 MB. The same split is on B1: 698 MB with page markers, 2 MB without, and both print the
-   part cap.
-
-### What this means for jubarte
-
-- **Word refuses it:** DTD/DOCTYPE, attribute floods, extreme depth. jubarte can refuse the same with no
-  Word-validity cost.
-- **Word accepts it and jubarte refuses:**
-  - A 66 MiB part and 25,000 entries. These are deliberate resource caps, and they are not Word-faithful.
-  - 300- to 600-deep content controls: a depth jubarte `read` refuses that Word renders. A 200-deep content
-    control is the other way around for `validate` only: `read` writes the leaf, `validate` refuses it at 256.
-  - Both trade-offs must be stated in jubarte's docs.
-- **Neither defends it yet:** memory blow-up from element count. The 60 MiB flood stayed under the 6 GB guard
-  and still exited 0. jubarte needs an element budget of its own. Word's E-series is not finished, so Word
-  still offers no measured behaviour to follow on that series.
+1. **Word refuses every DTD, in every part.** A bare `<!DOCTYPE>` (X1), the
+   entity bomb (B5), and a DOCTYPE in `styles.xml` (X5) or in a `customXml`
+   item (X4) are all refused; X4 without it (X4c) is CLEAN. An editor that
+   refuses a DOCTYPE loses no document Word opens.
+2. **Word refuses attribute floods and extreme depth** (B3, B4). It still opens
+   a 600-deep `w:sdt` chain, so a depth cap below 600 refuses documents Word
+   renders.
+3. **Word is permissive on size and entries.** It opens a 66 MiB run (B1) in
+   7 s and 25,000 parts (B2). A cap on either is the editor's own choice; Word
+   sets no lower bound to copy.
+4. **Word does not protect itself from element floods or nested tables.** A
+   60 or 70 MiB flood made it fail after about 27 minutes at 6–7 GB. A
+   948-byte nest of 60 tables hung it twice. 1,999,817 elements (E5) took
+   4 minutes and 3.9 GB.
+5. **Word is a network beacon.** It fetched a remote template (N1) and a
+   linked picture (N2, eight times), and probed a subdocument (N4), with no
+   prompt. Opening an untrusted document in Word tells its author that it was
+   opened, and from where.
+6. **Word's warnings are not a sanitizer.** B6 and B10 raise "unreadable
+   content" and offer to recover; B8 (a `javascript:` link and a script in an altChunk) is refused
+   outright. Recovery is the user's choice, and the dialog does not say what
+   would be kept.
