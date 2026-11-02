@@ -217,7 +217,7 @@ The mean is 7.0 divided by 10, which is 0.70. No local process exit was recorded
 
 ## What Microsoft Word protects against
 
-These are the final results of the Word run, from `Report D2 - What Word Protects Against (2026).md` (final since 2026-10-31), which also has the method. They are not the seatbelt matrix: the fenced log above says Word was not opened there, and that is still true of that run. Word was opened separately, one fixture per run, on 33 fixtures: B1–B10 and the controls and probes below. E6 has not been opened in Word.
+These are the final results of the Word run, from `Report D2 - What Word Protects Against (2026).md` (final since 2026-10-31), which also has the method. They are not the seatbelt matrix: the fenced log above says Word was not opened there, and that is still true of that run. Word was opened separately, one fixture per run, on every fixture but E6 (32 of 33): B1–B10 and the controls and probes below.
 
 CLEAN means a PDF was written and no dialog appeared. That is not the protection ladder in this report, so these rows are not turned into a grade.
 
@@ -229,8 +229,8 @@ CLEAN means a PDF was written and no dialog appeared. That is not the protection
 | B3 | 500,000 attributes on one `w:p` | **refused**: "Word experienced an error trying to open the file." | 615 MB |
 | B4 | 5,000-deep `w:sdt` + 250-deep `w:tbl` | **refused**: same error | 511 MB |
 | D_sdt200/300/600 | `w:sdt` chains 200 / 300 / 600 deep | **CLEAN**, leaf text present | 559–619 MB |
-| D_tbl60 | nested tables 60 deep (948 bytes) | **hung**, twice (AppleEvent timeout at 375 s) | 509 MB |
-| D_tbl200/300 | nested tables 200 / 300 deep | **hung** at 376 s; D_tbl300 crashed Word on an earlier run | 515 MB |
+| D_tbl60 | nested tables 60 deep (948 bytes) | **hung**, twice: stuck at ~100% CPU (driver gave up at 378 s), then an AppleEvent timeout at 375 s | 509 / 499 MB |
+| D_tbl200/300 | nested tables 200 / 300 deep | **hung**: AppleEvent timeout at 376 s, each | 515 / 514 MB |
 | B5 | billion-laughs entities (10^6) + external entities (`/etc/hosts`, canary) | **refused**: same error; canary absent | 470 MB |
 | X1 | a bare `<!DOCTYPE w:document>` | **refused**: same error | 1.5 GB |
 | X2 | internal entity used in text | **refused**: same error | 470 MB |
@@ -251,7 +251,7 @@ CLEAN means a PDF was written and no dialog appeared. That is not the protection
 | E2 | 8 MiB element flood | **CLEAN**, 9,490 pages, 89 s | 2.36 GB |
 | E5 | 1,999,817 elements | **CLEAN**, 25,639 pages, 237 s | 3.9 GB |
 | E6 | 2,001,017 elements | not run | |
-| E3 | 60 MiB element flood (215 KB zipped) | **failed** after 1,641 s | 6.2 GB |
+| E3 | 60 MiB element flood (184 KB zipped) | **failed** after 1,641 s | 6.2 GB |
 | E4 | 70 MiB element flood | **failed** after 1,610 s | 7.2 GB |
 
 On E4 the canary file's access time changed during Word's 27-minute run.
@@ -268,17 +268,17 @@ and is not counted as a leak.
    a 600-deep `w:sdt` chain, so a depth cap below 600 refuses documents Word
    renders.
 3. **Word is permissive on size and entries.** It opens a 66 MiB run (B1) in
-   7 s and 25,000 parts (B2). A cap on either is the editor's own choice; Word
-   sets no lower bound to copy.
+   7 s and 25,000 parts (B2). A cap below either refuses documents Word opens;
+   where to set it is the editor's own choice.
 4. **Word does not protect itself from element floods or nested tables.** A
    60 or 70 MiB flood made it fail after about 27 minutes at 6–7 GB. A
    948-byte nest of 60 tables hung it twice. 1,999,817 elements (E5) took
    4 minutes and 3.9 GB.
 5. **Word is a network beacon.** It fetched a remote template (N1) and a
    linked picture (N2, eight times), and probed a subdocument (N4), with no
-   prompt. Opening an untrusted document in Word tells its author that it was
-   opened, and from where.
+   prompt. Opening an untrusted document in Word tells whoever controls the
+   address it references that it was opened, and from where.
 6. **Word's warnings are not a sanitizer.** B6 and B10 raise "unreadable
-   content" and offer to recover; B8 (a `javascript:` link and a script in an altChunk) is refused
-   outright. Recovery is the user's choice, and the dialog does not say what
-   would be kept.
+   content" and offer to recover; B8, a `javascript:` link and a script in an
+   altChunk, is refused outright. The dialog does not say what recovery would
+   keep. The driver answered No, so what Word keeps on Yes was not measured.
