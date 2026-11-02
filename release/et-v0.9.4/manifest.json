@@ -1,0 +1,123 @@
+{
+  "archived_root": null,
+  "created": "2026-11-02T23:10:47.880719Z",
+  "excludes": [],
+  "files": [
+    {
+      "bytes": 91776,
+      "path": "release/et-v0.9.4/out/facts.json",
+      "served": false,
+      "sha256": "d88ad5052035df29a6d8654f435434c9db55c89d3c6179e39c657638cc061ef6"
+    },
+    {
+      "bytes": 47,
+      "path": "release/et-v0.9.4/out/release.json",
+      "served": false,
+      "sha256": "c9de214fc9a474c16fe065f657a1e82050761f0ede9fb999c6e8ba3703063592"
+    },
+    {
+      "bytes": 68163,
+      "path": "release/et-v0.9.4/reports/Report A - Serialization by Namespace (2026).docx",
+      "served": false,
+      "sha256": "747570885882414096f60949fb5d171417481aae5772bb4af0f49f66e5ff8d62"
+    },
+    {
+      "bytes": 100172,
+      "path": "release/et-v0.9.4/reports/Report A - Serialization by Namespace (2026).md",
+      "served": false,
+      "sha256": "63ebaebe4ab18e0e1ead725a0536f8ccc7a77ec73f0917f8df41f3af7c368edc"
+    },
+    {
+      "bytes": 41289,
+      "path": "release/et-v0.9.4/reports/Report A2 - Pass-Through (2026).docx",
+      "served": false,
+      "sha256": "3e0edd9e1c35fc8d5f5d59352f3ae9edf941ca39a2cff0c3d0c3bae6e5536975"
+    },
+    {
+      "bytes": 51531,
+      "path": "release/et-v0.9.4/reports/Report A2 - Pass-Through (2026).md",
+      "served": false,
+      "sha256": "419d1488eaf7edb11b78293d7bc544d608f7d91aa3f0b28595d7cca32298856c"
+    },
+    {
+      "bytes": 40475,
+      "path": "release/et-v0.9.4/reports/Report B - Malformed Parts, Causes and Repair (2026).docx",
+      "served": false,
+      "sha256": "a81a9949857a4dd15abe642b659d60a567870f6d70414b3ee911b0737c36974c"
+    },
+    {
+      "bytes": 51195,
+      "path": "release/et-v0.9.4/reports/Report B - Malformed Parts, Causes and Repair (2026).md",
+      "served": false,
+      "sha256": "824c4e66f2606ddc2136e16491c1c31ace4ebad03c86e6262a86247de92a2e7a"
+    },
+    {
+      "bytes": 2577058,
+      "path": "release/et-v0.9.4/reports/Report C - Rendering Versus Word (2026).docx",
+      "served": false,
+      "sha256": "04e8064b59ed53c5ccef9ca5599b387696b820ff15ee4b190cf1fab87321dcdf"
+    },
+    {
+      "bytes": 102720,
+      "path": "release/et-v0.9.4/reports/Report C - Rendering Versus Word (2026).md",
+      "served": false,
+      "sha256": "d93b2dcb3ce0e3d1dde1325391977e25fbc77f687701f946fff0593f39b8467a"
+    },
+    {
+      "bytes": 29514,
+      "path": "release/et-v0.9.4/reports/Report D - Safety, Resource Bombs and Hostile Input (2026).docx",
+      "served": false,
+      "sha256": "2814565afd0fd95e37bc5b7ad3c30a4c3d15c1ac5c646ae7f02b3c7a392bc9ea"
+    },
+    {
+      "bytes": 61047,
+      "path": "release/et-v0.9.4/reports/Report D - Safety, Resource Bombs and Hostile Input (2026).md",
+      "served": false,
+      "sha256": "2405c04b62ca9dfcff7232de863cbb7d132780108cb158a0cc825fe5422e2c11"
+    },
+    {
+      "bytes": 16223,
+      "path": "release/et-v0.9.4/reports/Report D1 - Jubarte on the Hostile Packages (2026).docx",
+      "served": false,
+      "sha256": "e365d4b6a63494349f5e233b0737a7882d10e4e53b4af667ff010348e576c395"
+    },
+    {
+      "bytes": 11905,
+      "path": "release/et-v0.9.4/reports/Report D1 - Jubarte on the Hostile Packages (2026).md",
+      "served": false,
+      "sha256": "4284eb493f83550120b19b3a6bae3539141235755db8f57c6194ccd43257dcc7"
+    },
+    {
+      "bytes": 16681,
+      "path": "release/et-v0.9.4/reports/Report D2 - What Word Protects Against (2026).docx",
+      "served": false,
+      "sha256": "d5794da098a68ab52fdf4ddde048b60f49f8093d8b63319c917d10e240eb3e77"
+    },
+    {
+      "bytes": 8649,
+      "path": "release/et-v0.9.4/reports/Report D2 - What Word Protects Against (2026).md",
+      "served": false,
+      "sha256": "568f5f9a7d983c9b7abf77bebc683b2678fb46b5323b63ae6769559fd31f95a1"
+    },
+    {
+      "bytes": 1181,
+      "path": "release/et-v0.9.4/reports/rendering-openability.md",
+      "served": false,
+      "sha256": "7b913b429f246d2d03e667c7347a9f7131a9fa5132b01971c3c11ab3f6d299f7"
+    },
+    {
+      "bytes": 8781,
+      "path": "release/et-v0.9.4/reports/vendors.md",
+      "served": false,
+      "sha256": "7a4fce05887b6fe2ed90c28c103f12f5e001537e67f0e06ad3545e2c056d328d"
+    }
+  ],
+  "hf": {
+    "repo": "arthrod/editors_trial-artifacts",
+    "revision": "e1c25855da606751681f9779d852e8e7d3458809"
+  },
+  "producer": "editors_trial",
+  "r2_prefix": "et-v0.9.4/",
+  "tag": "et-v0.9.4",
+  "viewer_version": null
+}
