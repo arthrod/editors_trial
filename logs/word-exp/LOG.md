@@ -188,3 +188,10 @@ Readings:
 - E6_overcap (667,000 paragraphs, 2,001,017 elements, 67 KB zipped; rebuilt with `scripts/build_cap.py`): exit 0 both times, 218 s and 220 s, 25,654 pages, both flood markers, peaks 5,119 MB and 5,563 MB. No dialog; the "crash reporters:" alert line is the empty header (no reports). CLEAN, reproduced.
 - `net.log` was missing in the experiment dir during these runs, so the network column (0) was not observed. E6 has no external reference, so nothing was expected there.
 - Copies of both run folders are in `runs/E6_overcap_run1` and `run2` (PDF and input left out).
+
+### 2026-11-02: jubarte 0.14.0 (Report D1's binary) on all 33 fixtures, twice (#69)
+
+- `JUBARTE_BIN=/tmp/jubarte-redlines-target/release/jubarte` (`jubarte 0.14.0`), `run_jubarte_bin.sh` per fixture (read, read --no-page-markers, validate, compare vs C0; 6 GB / 300 s guard), fixtures rebuilt with `build.py`, `build_cap.py`, `build_net.py`, `build_x4.py`, `build_x4c.py`.
+- `results_jubarte_d1_0140.tsv` and `results_jubarte_d1_0140_run2.tsv`: 132 lines each; every exit code (kills included) identical across the two runs.
+- Killed at 6 GB: E3 read and read --no-page-markers; E4 read; compare on B1, E3, E4, E5, E6. N4 compare panics (exit 101). E3 validate exits 0 at 2,216 MB.
+- The earlier entries (0.16.0+6bf2efb43 interim, 0.16.0+c995f2d46.dirty "final") are dev builds and are not published. Report D1's table is generated from the first run by `build/wordexp_table.py`.

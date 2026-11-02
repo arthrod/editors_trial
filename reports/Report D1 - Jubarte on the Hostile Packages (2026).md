@@ -129,6 +129,50 @@ The same view summarizes the empty field paragraphs as one range, `p2-p2001 empt
 
 No editor cell in Report D has `bounded-delivery` as its primary label. wordcraft's layout package clamped the span and still kept the fields and the bibliography, so that cell stays `preserved`.
 
+## The Word experiment's 33 fixtures
+
+Report D2 opened 33 hostile and control fixtures in Microsoft Word. The same 33 files were run through this binary, `jubarte 0.14.0`, on 2026-11-02. Each fixture ran four commands, one at a time: `read FILE -o view.md --force`, the same with `--no-page-markers`, `validate FILE`, and `compare FILE C0_control.docx`, against the control. Each command was killed above 6 GB of memory or after 300 s. The whole set was run twice, and all 132 exit codes, kills included, were the same both times; the peaks shown are the first run's. The figures below are each command's exit code, the refusal code it printed, and its peak memory. The table is generated from `logs/word-exp/results_jubarte_d1_0140.tsv` by `build/wordexp_table.py`.
+
+`validate` exits 2 when it lists findings and 1 when it refuses the file. `read` exits 0 when it writes a view, even when it also warns. A view written is not a view that keeps the payload: what each view kept is in the run folders, not in this table.
+
+<!-- wordexp-table:begin (build/wordexp_table.py --patch) -->
+| Fixture | read | read, no page markers | validate | compare |
+|---|---|---|---|---|
+| C0 | exit 0, 5 MB | exit 0, 5 MB | exit 0, 4 MB | exit 0, 2 MB |
+| B1 | exit 1, INPUT_LIMIT, 697 MB | exit 1, INPUT_LIMIT, 2 MB | exit 1, INPUT_LIMIT, 2 MB | **killed at 6 GB**, 6,235 MB |
+| B2 | exit 1, INPUT_LIMIT, 3 MB | exit 1, INPUT_LIMIT, 3 MB | exit 1, INPUT_LIMIT, 1 MB | exit 1, INPUT_LIMIT, 3 MB |
+| B3 | exit 1, INVALID_XML, 4 MB | exit 1, INVALID_XML, 2 MB | exit 1, INVALID_XML, 2 MB | exit 1, INVALID_XML, 2 MB |
+| B4 | exit 1, 4 MB | exit 1, 4 MB | exit 1, INVALID_XML, 4 MB | exit 1, INVALID_XML, 8 MB |
+| B5 | exit 0, 0 MB | exit 0, 2 MB | exit 0, 2 MB | exit 1, 1 MB |
+| B6 | exit 0, 6 MB | exit 0, 1 MB | exit 1, UNSUPPORTED_PACKAGE, 0 MB | exit 1, UNSUPPORTED_PACKAGE, 4 MB |
+| B7 | exit 0, 1 MB | exit 0, 2 MB | exit 0, 6 MB | exit 0, 0 MB |
+| B8 | exit 0, 2 MB | exit 0, 2 MB | exit 2, 2 MB | exit 0, 5 MB |
+| B9 | exit 0, 144 MB | exit 0, 144 MB | exit 2, 136 MB | exit 0, 122 MB |
+| B10 | exit 0, 3 MB | exit 0, 2 MB | exit 1, INVALID_XML, 6 MB | exit 1, INVALID_XML, 4 MB |
+| X1 | exit 0, 2 MB | exit 0, 5 MB | exit 0, 1 MB | exit 0, 1 MB |
+| X2 | exit 0, 4 MB | exit 0, 8 MB | exit 0, 2 MB | exit 1, 0 MB |
+| X3 | exit 0, 4 MB | exit 0, 6 MB | exit 0, 1 MB | exit 1, 0 MB |
+| X4 | exit 0, 6 MB | exit 0, 1 MB | exit 0, 2 MB | exit 0, 3 MB |
+| X4c | exit 0, 5 MB | exit 0, 2 MB | exit 0, 2 MB | exit 0, 1 MB |
+| X5 | exit 0, 5 MB | exit 0, 2 MB | exit 0, 3 MB | exit 0, 0 MB |
+| D_sdt200 | exit 0, 3 MB | exit 0, 3 MB | exit 1, INVALID_XML, 3 MB | exit 1, INVALID_XML, 2 MB |
+| D_sdt300 | exit 1, 8 MB | exit 1, 2 MB | exit 1, INVALID_XML, 2 MB | exit 1, INVALID_XML, 0 MB |
+| D_sdt600 | exit 1, 8 MB | exit 1, 1 MB | exit 1, INVALID_XML, 1 MB | exit 1, INVALID_XML, 1 MB |
+| D_tbl60 | exit 0, 2 MB | exit 0, 8 MB | exit 0, 2 MB | exit 0, 7 MB |
+| D_tbl200 | exit 1, 2 MB | exit 1, 2 MB | exit 1, INVALID_XML, 1 MB | exit 1, INVALID_XML, 3 MB |
+| D_tbl300 | exit 1, 2 MB | exit 1, 2 MB | exit 1, INVALID_XML, 2 MB | exit 1, INVALID_XML, 2 MB |
+| N1 | exit 0, 2 MB | exit 0, 9 MB | exit 0, 3 MB | exit 0, 2 MB |
+| N2 | exit 0, 2 MB | exit 0, 2 MB | exit 0, 5 MB | exit 0, 1 MB |
+| N3 | exit 0, 2 MB | exit 0, 3 MB | exit 0, 2 MB | exit 0, 6 MB |
+| N4 | exit 0, 3 MB | exit 0, 2 MB | exit 0, 5 MB | **panic (exit 101)**, 0 MB |
+| E1 | exit 0, 147 MB | exit 0, 220 MB | exit 0, 2 MB | exit 0, 601 MB |
+| E2 | exit 0, 993 MB | exit 0, 1,429 MB | exit 0, 336 MB | exit 0, 5,035 MB |
+| E5 | exit 0, 2,727 MB | exit 0, 3,737 MB | exit 0, 945 MB | **killed at 6 GB**, 6,422 MB |
+| E6 | exit 0, 2,725 MB | exit 0, 3,738 MB | exit 0, 945 MB | **killed at 6 GB**, 6,330 MB |
+| E3 | **killed at 6 GB**, 6,266 MB | **killed at 6 GB**, 6,155 MB | exit 0, 2,216 MB | **killed at 6 GB**, 7,038 MB |
+| E4 | **killed at 6 GB**, 6,284 MB | exit 1, INPUT_LIMIT, 6 MB | exit 1, INPUT_LIMIT, 2 MB | **killed at 6 GB**, 6,339 MB |
+<!-- wordexp-table:end -->
+
 ## What this run does not show
 
 The binary did not crash, hang, or leak on these ten packages. The decompression read was refused by the part ceiling. It did not hang in the layout pass. That is what this run showed. It does not say what a larger part, or a different command, would do.
