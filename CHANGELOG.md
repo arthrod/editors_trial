@@ -7,6 +7,13 @@ re-running the measurement behind it. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/) with the trial still pre-1.0.
 
+## [Unreleased]
+
+### Changed
+- `RELEASING.md` §7: publishing the bundle is one command, `bench publish editors_trial et-vX.Y.Z`
+  (bench-ops plan 6, editors_trial#74; first used for et-v0.9.4, #75), and the site picks the
+  release up with `bench bump editors_trial`. No figure changes.
+
 ## [0.9.4] - 2026-11-01
 
 Tooling only: every TypeScript project in the trial installs with pnpm, and
