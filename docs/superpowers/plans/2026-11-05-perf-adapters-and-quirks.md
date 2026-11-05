@@ -191,6 +191,24 @@ class Capabilities(unittest.TestCase):
         with self.assertRaises(ValueError) as caught:
             capability("plate", "imaginary", "typing")
         self.assertIn("lane", str(caught.exception))
+
+    def test_unknown_feature_is_rejected(self):
+        with self.assertRaises(ValueError) as caught:
+            capability("plate", "browser_slate", "typo_feature")
+        self.assertIn("unknown feature", str(caught.exception))
+
+    def test_evidence_is_tied_to_the_pin(self):
+        from perf.adapters.capabilities import capability_evidence
+        plate = capability_evidence("plate", "browser_slate", "collaboration")
+        self.assertEqual(plate["pin"], "60c7f5530")
+        self.assertIn("optional", plate["note"])
+        canvas = capability_evidence("canvas", "editor", "collaboration")
+        self.assertIn("1865c9b06", canvas["note"])
+        paint = capability_evidence("plate", "browser_slate", "visible_paint")
+        self.assertIn("not a verified measurement hook", paint["note"])
+        apryse = capability_evidence("apryse", "webviewer", "wasm")
+        self.assertEqual(apryse["pin"], "npm 12.2.1")
+        self.assertIn("closed", apryse["note"])
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
@@ -292,15 +310,65 @@ OVERRIDES = {
 }
 
 
+FEATURES = (
+    "pagination",
+    "hit_testing",
+    "collaboration",
+    "wasm",
+    "typing",
+    "visible_paint",
+    "ime",
+    "save",
+    "undo",
+)
+
+PINS = {
+    "plate": "60c7f5530",
+    "docxodus": "npm 15.0.0",
+    "apryse": "npm 12.2.1",
+    "superdoc": "0ee03fd3c",
+    "folio": "958c582cb",
+    "genoffice": "36a509e8f",
+    "eigenpal": "3425d4d7a",
+    "office-open": "567addfd4",
+    "docen": "1890b15aa",
+    "wordcraft": "a88e00525",
+    "fidus": "e14cc456a",
+    "canvas": "1865c9b06",
+    "docsplus": "a9b0c69e8",
+    "libreoffice": "system soffice",
+}
+
+EVIDENCE = {
+    ("plate", "browser_slate", "collaboration"): "optional Yjs plugin; not probed on pin 60c7f5530",
+    ("plate", "browser_slate", "visible_paint"): "available surface, not a verified measurement hook",
+    ("canvas", "editor", "collaboration"): "feature/CRDT is not pin 1865c9b06",
+    ("apryse", "webviewer", "wasm"): "closed source at npm 12.2.1; host-visible init only",
+    ("superdoc", "browser", "pagination"): "current docs, not re-read on pin 0ee03fd3c",
+    ("fidus", "document", "collaboration"): "document package pin dc0981db4 has no collab surface",
+    ("fidus", "app", "collaboration"): "full app was not the measured pin",
+}
+
+
 def lanes():
     return dict(LANES)
 
 
 def capability(editor_id, lane, feature):
+    if feature not in FEATURES:
+        raise ValueError("unknown feature %r" % (feature,))
     known = LANES.get(editor_id)
     if known is None or lane not in known:
         raise ValueError("unknown lane %s/%s" % (editor_id, lane))
     return OVERRIDES.get((editor_id, lane, feature), "unverified")
+
+
+def capability_evidence(editor_id, lane, feature):
+    state = capability(editor_id, lane, feature)
+    note = EVIDENCE.get((editor_id, lane, feature), "no probe recorded for pin %s" % (PINS[editor_id],))
+    if feature == "visible_paint" and state == "supported" and "measurement hook" not in note:
+        note = "available surface, not a verified measurement hook"
+    return {"pin": PINS[editor_id], "state": state, "note": note}
 ```
 
 - [ ] **Step 4: Run the test to verify it passes**

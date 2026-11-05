@@ -146,6 +146,19 @@ class Evidence(unittest.TestCase):
             assert_visible_evidence("C05", "raf_callback")
         self.assertIn("raf_callback", str(caught.exception))
 
+    def test_event_timing_duration_is_not_edit_paint(self):
+        with self.assertRaises(ValueError) as caught:
+            assert_visible_evidence("C05", "event_timing_duration")
+        self.assertIn("event_timing_duration", str(caught.exception))
+
+    def test_unrelated_paint_does_not_complete_the_edit(self):
+        with self.assertRaises(ValueError) as caught:
+            assert_visible_evidence("C05", "unrelated_paint")
+        self.assertIn("unrelated_paint", str(caught.exception))
+
+    def test_raf_plus_later_paint_is_accepted(self):
+        assert_visible_evidence("C05", "raf_plus_later_paint")
+
     def test_scroll_rejects_event_timing_wheel(self):
         with self.assertRaises(ValueError) as caught:
             assert_visible_evidence("C10", "event_timing_wheel")
@@ -173,7 +186,7 @@ Add to `perf/layers/classify.py`:
 ```python
 _VISIBLE_OK = {
     "C03": {"presented_frame", "external_pixel", "first_contentful_paint"},
-    "C05": {"presented_frame", "external_pixel", "input_to_next_paint"},
+    "C05": {"presented_frame", "external_pixel", "raf_plus_later_paint"},
     "C10": {"frame_time", "presented_frame", "external_pixel"},
     "C12": {"presented_frame", "external_pixel"},
 }
@@ -210,7 +223,7 @@ git commit -m "feat: require real paint evidence for visible scenarios"
 
 **Interfaces:**
 - Consumes: nothing
-- Produces: `required_wasm_operations() -> tuple[str, ...]` and `assert_wasm_report(report: dict) -> None`. The report maps every required operation name to a non-empty `samples_ms` list. A report that only contains `editor_scenario_ms` is rejected.
+- Produces: `required_wasm_operations() -> tuple[str, ...]` and `assert_wasm_report(report: dict, capabilities: dict | None = None) -> None`. Each operation name is a capability flag. `True` requires a non-empty list of finite samples. `False` requires `None`. A report that only contains `editor_scenario_ms` is rejected. Omitting `capabilities` means every operation is enabled, which is the wasm-bindgen reference fixture, not a closed product lane.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -252,6 +265,24 @@ class Wasm(unittest.TestCase):
         with self.assertRaises(ValueError) as caught:
             assert_wasm_report(report)
         self.assertIn("scalar_call", str(caught.exception))
+
+    def test_closed_lane_leaves_unavailable_operations_null(self):
+        names = required_wasm_operations()
+        capabilities = {name: False for name in names}
+        capabilities["compile_and_instantiate"] = True
+        report = {name: None for name in names}
+        report["compile_and_instantiate"] = [2.0]
+        report["runtime"] = "proprietary"
+        assert_wasm_report(report, capabilities)
+
+    def test_a_disabled_operation_cannot_carry_samples(self):
+        names = required_wasm_operations()
+        capabilities = {name: False for name in names}
+        report = {name: None for name in names}
+        report["empty_call"] = [1.0]
+        with self.assertRaises(ValueError) as caught:
+            assert_wasm_report(report, capabilities)
+        self.assertIn("empty_call", str(caught.exception))
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
@@ -277,9 +308,22 @@ def required_wasm_operations():
     )
 
 
-def assert_wasm_report(report):
-    for name in required_wasm_operations():
+def assert_wasm_report(report, capabilities=None):
+    names = required_wasm_operations()
+    if capabilities is None:
+        capabilities = {name: True for name in names}
+    if "editor_scenario_ms" in report and not any(capabilities.values()):
+        raise ValueError("editor_scenario_ms is not a boundary operation")
+    enabled = False
+    for name in names:
+        if name not in capabilities:
+            raise ValueError("capability %s" % (name,))
         samples = report.get(name)
+        if not capabilities[name]:
+            if samples is not None:
+                raise ValueError("disabled wasm operation %s must be null" % (name,))
+            continue
+        enabled = True
         if not isinstance(samples, list) or not samples:
             raise ValueError("missing wasm operation %s" % (name,))
         for sample in samples:
@@ -287,6 +331,8 @@ def assert_wasm_report(report):
                 raise ValueError("wasm sample %s" % (name,))
             if sample != sample or sample in (float("inf"), float("-inf")) or sample < 0:
                 raise ValueError("wasm sample %s" % (name,))
+    if not enabled and "editor_scenario_ms" in report:
+        raise ValueError("missing wasm operation compile_and_instantiate")
 ```
 
 - [ ] **Step 4: Run the test to verify it passes**
@@ -374,6 +420,122 @@ Expected: `OK`
 ```bash
 git add perf/layers/classify.py perf/tests/test_layers.py
 git commit -m "feat: keep allocation traces on diagnostic runs"
+```
+
+### Task 5: Event Timing censoring is not the paint proof
+
+**Files:**
+- Create: `perf/layers/event_timing.py`
+- Modify: `perf/tests/test_layers.py`
+
+**Interfaces:**
+- Consumes: nothing
+- Produces: `effective_duration_threshold(requested) -> int`, `rounded_duration_ms(raw) -> int`, `event_timing_status(raw_duration, requested_threshold, buffered_default=False) -> dict`, `aggregate_inp(entries) -> int | None`
+
+- [ ] **Step 1: Write the failing test**
+
+```python
+import unittest
+
+from perf.layers.event_timing import (
+    aggregate_inp,
+    effective_duration_threshold,
+    event_timing_status,
+    rounded_duration_ms,
+)
+
+
+class EventTiming(unittest.TestCase):
+    def test_threshold_cannot_drop_below_16(self):
+        self.assertEqual(effective_duration_threshold(None), 104)
+        self.assertEqual(effective_duration_threshold(0), 16)
+        self.assertEqual(effective_duration_threshold(8), 16)
+        self.assertEqual(effective_duration_threshold(16), 16)
+
+    def test_duration_uses_an_8_millisecond_quantum(self):
+        self.assertEqual(rounded_duration_ms(20), 24)
+        self.assertEqual(rounded_duration_ms(12), 16)
+
+    def test_buffered_history_stays_at_104(self):
+        got = event_timing_status(40, 16, buffered_default=True)
+        self.assertEqual(got["status"], "censored")
+        self.assertIsNone(got["duration_ms"])
+
+    def test_a_censored_edit_is_not_zero(self):
+        got = event_timing_status(10, 16, buffered_default=False)
+        self.assertEqual(got["status"], "censored")
+        self.assertIsNone(got["duration_ms"])
+        self.assertNotEqual(got["duration_ms"], 0)
+
+    def test_inp_groups_one_interaction_id(self):
+        entries = [
+            {"interaction_id": 7, "duration_ms": 24, "name": "keydown"},
+            {"interaction_id": 7, "duration_ms": 40, "name": "input"},
+            {"interaction_id": 7, "duration_ms": 24, "name": "keyup"},
+            {"interaction_id": 0, "duration_ms": 80, "name": "keydown"},
+            {"interaction_id": 8, "duration_ms": 16, "name": "keydown"},
+        ]
+        self.assertEqual(aggregate_inp(entries), 40)
+
+
+if __name__ == "__main__":
+    unittest.main()
+```
+
+- [ ] **Step 2: Run the test to verify it fails**
+
+Run: `python3 -m unittest perf.tests.test_layers.EventTiming -v`
+
+Expected: ERROR containing `No module named 'perf.layers.event_timing'`
+
+- [ ] **Step 3: Write the minimal implementation**
+
+`perf/layers/event_timing.py`:
+
+```python
+def effective_duration_threshold(requested):
+    if requested is None:
+        return 104
+    return max(16, int(requested))
+
+
+def rounded_duration_ms(raw):
+    return int((raw + 4) // 8 * 8)
+
+
+def event_timing_status(raw_duration, requested_threshold, buffered_default=False):
+    threshold = 104 if buffered_default else effective_duration_threshold(requested_threshold)
+    duration = rounded_duration_ms(raw_duration)
+    if duration < threshold:
+        return {"status": "censored", "duration_ms": None, "rounded_ms": duration}
+    return {"status": "observed", "duration_ms": duration, "rounded_ms": duration}
+
+
+def aggregate_inp(entries):
+    grouped = {}
+    for entry in entries:
+        interaction_id = entry["interaction_id"]
+        if not interaction_id:
+            continue
+        grouped.setdefault(interaction_id, []).append(entry["duration_ms"])
+    if not grouped:
+        return None
+    return max(max(samples) for samples in grouped.values())
+```
+
+`rounded_duration_ms` uses half-up for positive durations so 20 ms becomes 24 ms. That is this plan's 8 millisecond quantum, not a claim about every browser tie.
+
+- [ ] **Step 4: Run the test to verify it passes**
+
+Run: `python3 -m unittest perf.tests.test_layers.EventTiming -v`
+
+Expected: `OK`
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add perf/layers/event_timing.py perf/tests/test_layers.py
+git commit -m "test: censor Event Timing entries instead of dropping them"
 ```
 
 ## Acceptance criteria

@@ -84,7 +84,7 @@ def scenarios():
         {"id": "C02", "title": "document loading/model construction", "layer": "model", "boundary": "model_ready", "repetition_unit": "fresh_process", "cache_states": ["process_cold_fs_warm", "warm_steady"], "evidence": "model_ready", "run_kind": "timing", "correctness": ["I01"]},
         {"id": "C03", "title": "first visible content/first usable state", "layer": "browser_visible", "boundary": "first_contentful_paint", "repetition_unit": "fresh_process", "cache_states": ["process_cold_fs_warm"], "evidence": "presented_frame", "run_kind": "timing", "correctness": []},
         {"id": "C04", "title": "deferred work", "layer": "model", "boundary": "deferred_quiescence", "repetition_unit": "fresh_process", "cache_states": ["process_cold_fs_warm"], "evidence": "quiescence_or_timeout", "run_kind": "timing", "correctness": []},
-        {"id": "C05", "title": "single-edit responsiveness", "layer": "browser_visible", "boundary": "input_to_next_paint", "repetition_unit": "fresh_process", "cache_states": ["warm_steady"], "evidence": "input_to_next_paint", "run_kind": "timing", "correctness": ["I01", "I02", "I03", "I04"]},
+        {"id": "C05", "title": "single-edit responsiveness", "layer": "browser_visible", "boundary": "presented_frame", "repetition_unit": "fresh_process", "cache_states": ["warm_steady"], "evidence": "presented_frame", "run_kind": "timing", "correctness": ["I01", "I02", "I03", "I04"]},
         {"id": "C06", "title": "sustained typing/bursts", "layer": "browser_visible", "boundary": "input_to_next_paint", "repetition_unit": "fresh_process", "cache_states": ["warm_steady"], "evidence": "presented_frame", "run_kind": "timing", "correctness": ["I01", "I02", "I03", "I04"]},
         {"id": "C07", "title": "cursor/selection/hit testing", "layer": "browser_visible", "boundary": "input_to_next_paint", "repetition_unit": "fresh_process", "cache_states": ["warm_steady"], "evidence": "presented_frame", "run_kind": "timing", "correctness": ["I01", "I02", "I03"]},
         {"id": "C08", "title": "clipboard/bulk editing", "layer": "browser_visible", "boundary": "input_to_next_paint", "repetition_unit": "fresh_process", "cache_states": ["warm_steady"], "evidence": "presented_frame", "run_kind": "timing", "correctness": ["I01"]},
@@ -168,6 +168,7 @@ class Clocks(unittest.TestCase):
             "batched_call",
             "memory_grow",
         ])
+        self.assertIs(wasm["operations_required"], False)
 
     def test_feature_overhead_names_every_profile(self):
         overhead = next(row for row in scenarios() if row["id"] == "C22")
@@ -213,7 +214,7 @@ Expected: ERROR containing `KeyError: 'host_class'`
 Add these keys to the existing dictionaries in `scenarios()`:
 
 - On `C20`, add `"host_class": "dedicated"` and `"min_seconds": 3600`.
-- On `C24`, add `"operations"` with the seven strings in the test, in that order.
+- On `C24`, add `"operations"` with the seven strings in the test, in that order, and `"operations_required": False`. The names are the menu. A closed lane may leave an operation null.
 - On `C22`, add `"feature_profiles": ["P0", "P1", "P2", "P3"]`.
 - On `C01`, add `"marks": ["process_spawn", "presented_frame", "input_ready", "deferred_quiescence"]`.
 - On `C03`, set `"evidence"` to `"document_text_pixel"` and add `"marks": ["document_text_visible", "first_usable"]`. Leave `"boundary"` as `"first_contentful_paint"` only if that value is still absent from the forbidden set; the usable endpoint is the second mark, not first-contentful-paint. Change `"boundary"` to `"first_usable"`.

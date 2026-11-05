@@ -148,6 +148,21 @@ class Documents(unittest.TestCase):
             for token in FORBIDDEN:
                 self.assertNotIn(token, text, "%s contains %r" % (path, token))
 
+    def test_frontend_contracts_are_spelled_out(self):
+        text = _read(DESIGN_PATH)
+        for phrase in (
+            "durationThreshold below 16 milliseconds is raised to 16 milliseconds",
+            "rounded to 8 milliseconds",
+            "nonzero interactionId",
+            "A requestAnimationFrame callback alone is not paint",
+            "performance.measureUserAgentSpecificMemory",
+            "usedJSHeapSize is diagnostic only",
+            "Memory.getDOMCounters",
+            "memory.buffer",
+            "never a browser UI",
+        ):
+            self.assertIn(phrase, text, phrase)
+
     def test_relative_links_resolve(self):
         for path in [DESIGN_PATH, *PLAN_DIR.glob("*.md")]:
             for target in LINK.findall(_read(path)):

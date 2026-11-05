@@ -197,7 +197,7 @@ These are not candidates.
 
 ### Not verified in this pass
 
-- Divan, Tinybench, and iai-callgrind are named in the research brief. Their crate or package pages were not fetched. No plan in this set depends on their APIs.
+- Divan, Tinybench, and iai-callgrind are named in the research brief. Their crate or package pages were not fetched. No plan in this set depends on their APIs. Tinybench, if a later plan adds it, is only for isolated synchronous JavaScript or model microbenchmarks and for controlled boundary calls. It is never a browser UI or Interaction to Next Paint clock. That later plan must pin the runner and keep an observable result checksum before it is introduced.
 - Kalibera and Jones, and Georges, Buytaert, and Eeckhout, are the methodological background cited by the research brief. The papers were not re-fetched. The plans still require repeated trials, separate cold and warm distributions, and confidence intervals because those requirements are stated here as design rules.
 - Apryse's current office-editor performance hooks. The guide URL did not yield a body.
 - WordCraft collaboration. Absence from the architecture table is not a proof that no command exists. The adapter records `unverified` until a command-catalog probe runs.
@@ -259,19 +259,19 @@ The following sections copy the normative JSON fields. A drift between this text
 
 ### C05. single-edit responsiveness
 
-**Measurement method:** For one committed insertion at a named document position, record input-to-visible-update on the browser-visible or native-present layer, and separately record handler duration and model-mutation duration. Publish the visible interval as the responsiveness result.
+**Measurement method:** For one committed insertion at a named document position, publish input-to-visible-update only when paint is proved by a presented frame, a screenshot or pixel check of that edit, or a requestAnimationFrame callback followed by a later frame or paint entry in the same trace. A requestAnimationFrame callback alone is not paint. Event Timing is a censored companion: install the observer before input, and a requested durationThreshold below 16 milliseconds is raised to 16 milliseconds. Duration is rounded to 8 milliseconds. buffered true does not recover entries already dropped under the default 104 millisecond buffer. A trusted input with no entry is censored, kept in the sample, and never written as 0. Page-lifetime INP groups events that share a nonzero interactionId. keydown, input, and keyup are not separate interactions. Handler duration and model-mutation duration stay on the model layer. An unrelated paint or a deferred editor render does not complete the edit.
 
-**Tools:** Event Timing for trusted keydown, beforeinput, input, and composition events in DOM editors; external pixel or presented-frame observation; adapter model marks.
+**Tools:** Event Timing observer installed before input, with durationThreshold not below 16 milliseconds, as a censored companion; presented frame, screenshot, or pixel check that the edit is visible; requestAnimationFrame only when the same trace shows a later frame or paint; adapter model marks.
 
 **Existing implementations:** No single-edit latency harness exists in this repository. Typometer's synchronous mode measures keystroke to a pixel change for a period character. Slate's performance guide discusses Interaction to Next Paint while typing; that is guidance for Slate hosts, and Plate's measured DOCX harness does not enable Slate chunking. LVCE's memory benchmark explicitly says its edit probe is not typing-to-paint latency.
 
-**Comparability limitations:** Event Timing duration is rounded to 8 milliseconds and, by default, is buffered at 104 milliseconds or more; a PerformanceObserver durationThreshold is required for short edits. Canvas and egui editors do not produce those DOM entries. An IME composition is not a committed insert.
+**Comparability limitations:** Event Timing duration is rounded to 8 milliseconds. The minimum durationThreshold is 16 milliseconds, and the default buffer keeps only durations of at least 104 milliseconds, so a fast edit can be censored. Canvas and egui input targets can emit Event Timing entries, and those entries do not prove the canvas or egui pixels changed. An IME composition is not a committed insert.
 
 **Status:** proposed_harness. Plans: [`2026-11-05-perf-measurement-layers.md`](../plans/2026-11-05-perf-measurement-layers.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md).
 
 ### C06. sustained typing/bursts
 
-**Measurement method:** Drive a fixed character sequence at a declared rate and, separately, a burst with no per-key wait. Record the per-edit visible latency distribution, the worst one-second window, and dropped or late frames. Do not summarize the run as average frames per second.
+**Measurement method:** Drive a fixed character sequence at a declared rate and, separately, a burst with no per-key wait. Record the per-edit visible latency distribution, the worst one-second window, and dropped or late frames. Each published edit needs the same paint proof as a single edit. Aggregate Interaction to Next Paint by grouping events that share a nonzero interactionId, and keep that page-lifetime value separate from the per-edit distribution. Censored Event Timing entries stay in the sample and are not zeros. Do not summarize the run as average frames per second.
 
 **Tools:** Typometer asynchronous mode where a glyph pixel is a valid probe; Event Timing samples for DOM editors; frame timestamps from the compositor or the native renderer.
 
@@ -403,13 +403,13 @@ The following sections copy the normative JSON fields. A drift between this text
 
 ### C17. memory footprint
 
-**Measurement method:** Sample the whole process tree. On Linux record summed RSS, PSS, and USS from smaps_rollup, plus cgroup memory.current and memory.peak when the editor was launched inside a cgroup. Sample idle, after open, after edit, at peak, and after close. One PID is not the result.
+**Measurement method:** Sample the whole process tree. On Linux record summed RSS, PSS, and USS from smaps_rollup, plus cgroup memory.current and memory.peak when the editor was launched inside a cgroup. Sample idle, after open, after edit, at peak, and after close. One PID is not the result. Browser attribution is a separate record and is not added to RSS. performance.measureUserAgentSpecificMemory is that page estimate only when the page is cross-origin isolated. performance.memory.usedJSHeapSize is diagnostic only. CDP Memory.getDOMCounters reports documents, nodes, and listeners, not detached-node counts. A HeapProfiler snapshot is the detached-node check. Each exposed WASM memory.buffer contributes its byteLength as capacity, refreshed after growth.
 
-**Tools:** Linux /proc/<pid>/smaps_rollup; cgroup v2 memory.current and memory.peak; a process-tree walk; Chromium measureUserAgentSpecificMemory only as a page-level companion when the page is cross-origin isolated.
+**Tools:** Linux /proc/<pid>/smaps_rollup; cgroup v2 memory.current and memory.peak; a process-tree walk; performance.measureUserAgentSpecificMemory only when cross-origin isolated; performance.memory.usedJSHeapSize on a diagnostic run only; CDP Memory.getDOMCounters for documents, nodes, and listeners; CDP HeapProfiler for detached nodes; WASM memory.buffer byteLength as capacity.
 
 **Existing implementations:** No memory harness exists in this repository. LVCE's memory benchmark, README read on 2026-11-05, records PSS, USS, RSS, cgroup current and peak, rejects incomplete process-group snapshots, and does not turn a failed run into zero memory. It measures other desktop editors on a 2600-byte text file under Xvfb, not these DOCX editors. menzew/memoryfootprint is another process-tree tool and was not integrated.
 
-**Comparability limitations:** RSS double-counts shared pages. Cgroup memory includes file cache charged to the group. A JavaScript heap or a WASM memory.buffer is not the process footprint. V8 heap statistics cannot be compared with native RSS. GPU memory is outside RSS unless the platform exposes it.
+**Comparability limitations:** RSS double-counts shared pages. Cgroup memory includes file cache charged to the group. usedJSHeapSize is not whole-page memory. measureUserAgentSpecificMemory can wait for garbage collection and is not a cheap timing sample. memory.buffer byteLength is capacity, not live allocations, and an inaccessible proprietary or worker memory stays unverified rather than zero. These figures are not added together. GPU memory is outside RSS unless the platform exposes it.
 
 **Status:** proposed_harness. Plans: [`2026-11-05-perf-runner-and-artifacts.md`](../plans/2026-11-05-perf-runner-and-artifacts.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md).
 
@@ -427,9 +427,9 @@ The following sections copy the normative JSON fields. A drift between this text
 
 ### C19. disposal/reopen
 
-**Measurement method:** Close the document, wait a declared interval, and record retained process-tree memory and whether the UI accepts a new open. Then reopen the same fixture and time first usable again. A process that exits can be recorded as reclaimed; a hang is a failure.
+**Measurement method:** Close the document, wait a declared interval, and record retained process-tree memory and whether the UI accepts a new open. Then reopen the same fixture and time first usable again. A process that exits can be recorded as reclaimed; a hang is a failure. On a diagnostic run, a HeapProfiler check looks for detached nodes after dispose. A deliberately retained detached subtree is the red case. Released references and zero detached nodes from that fixture are the green case. That check is not part of the timing run.
 
-**Tools:** process-tree sampler at 1, 5, and 30 seconds after close; a second open scenario; editor dispose or session.close where that API exists.
+**Tools:** process-tree sampler at 1, 5, and 30 seconds after close; a second open scenario; editor dispose or session.close where that API exists; CDP HeapProfiler detached-node check on a diagnostic run.
 
 **Existing implementations:** Docxodus's harness calls session.close after save. That call is a fidelity step, not a retention series. LVCE stops the measured service in cleanup and does not report a 30-second retention curve for DOCX editors.
 
@@ -487,13 +487,13 @@ The following sections copy the normative JSON fields. A drift between this text
 
 ### C24. Rust/TS/WASM overhead
 
-**Measurement method:** Keep four layers separate: native Rust, TypeScript or JavaScript, the host/WASM boundary, and the full editor scenario. At the boundary, measure module compile and instantiate, an empty call, a scalar call, a string conversion, a typed-array transfer, a batched call, and memory.grow. Compare a batch with the same work done as many tiny calls.
+**Measurement method:** Keep four layers separate: native Rust, TypeScript or JavaScript, the host/WASM boundary, and the full editor scenario. The boundary menu is compile and instantiate, an empty call, a scalar call, a string conversion, a typed-array transfer, a batched call, and memory.grow. Each operation has its own capability flag. A closed or proprietary lane such as Apryse stores null and unverified for an operation it cannot call, and that null does not reject a host-visible initialization sample. A wasm-bindgen reference fixture may enable every flag. An SDK call that also edits the document is not a boundary sample. Compare a batch with the same work only when both sides share the capability.
 
 **Tools:** Criterion.rs for native Rust microbenchmarks, with std::hint::black_box; wasm-bindgen's own boundary benchmarks as a method reference; browser Performance.now around instantiate and call; the editor scenario clocks from the other criteria.
 
 **Existing implementations:** No WASM boundary suite exists in this repository. wasm-bindgen publishes JS, raw Wasm, and wasm-bindgen microbenchmarks and states they are not a general WebAssembly performance suite. WordCraft is Rust with a native egui UI and a wasm32 browser target. Docxodus and Apryse ship WebAssembly office engines. Plate, the ProseMirror editors, and canvas-editor are TypeScript.
 
-**Comparability limitations:** A native Criterion time is not a browser frame time. wasm-bindgen reference types change the glue and must be recorded. Apryse's engine is closed source, so only the host-visible boundary can be timed. Docxodus WASM initialization is not document load. black_box is a best-effort optimization barrier, not a correctness tool.
+**Comparability limitations:** A native Criterion time is not a browser frame time. wasm-bindgen reference types change the glue and must be recorded, and Docxodus .NET glue is not that reference fixture. Apryse at npm 12.2.1 is closed source, so empty, scalar, string, typed-array, batched, and memory.grow calls stay null unless a probe can actually invoke them. Docxodus WASM initialization is not document load. black_box is a best-effort optimization barrier, not a correctness tool.
 
 **Status:** proposed_harness. Plans: [`2026-11-05-perf-measurement-layers.md`](../plans/2026-11-05-perf-measurement-layers.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md).
 
@@ -511,7 +511,7 @@ Plans: [`2026-11-05-perf-fixtures-and-parity.md`](../plans/2026-11-05-perf-fixtu
 
 ### I02. emoji and grapheme-cluster correctness prerequisite
 
-Caret movement and backspace across a family emoji with a skin tone and ZWJ sequence must land on grapheme boundaries when the editor claims a caret. Record the observed behavior. Do not score a failed caret as zero milliseconds.
+Caret movement and backspace across the family sequence U+1F468 U+200D U+1F469 U+200D U+1F467 U+200D U+1F466 must move by one grapheme. That sequence is 11 UTF-16 code units and one grapheme. A skin-tone thumbs-up is a separate one-grapheme check. A readback that moves by one UTF-16 unit fails correctness and is not publishable. Do not score a failed caret as zero milliseconds.
 
 Plans: [`2026-11-05-perf-fixtures-and-parity.md`](../plans/2026-11-05-perf-fixtures-and-parity.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md).
 
@@ -523,7 +523,7 @@ Plans: [`2026-11-05-perf-fixtures-and-parity.md`](../plans/2026-11-05-perf-fixtu
 
 ### I04. IME composition correctness prerequisite
 
-Where an editor accepts composition events, the scenario distinguishes composition updates from the committed string. Latency of a committed insert is not the latency of an intermediate composition update. Editors with no composition path record unverified or unsupported after a probe, not zero.
+Where an editor accepts composition, record compositionstart, compositionupdate, and compositionend or cancel separately from the committed string. The committed fixture is 地. Intermediate di is not a committed insert. Playwright insertText, fill, and a dispatched CompositionEvent are synthetic contract tests, not OS IME coverage. OS IME coverage is a Chromium CDP IME route or a dedicated-host native IME probe. A wrong readback blocks publication. Editors with no composition path record unverified or unsupported after a probe, not zero.
 
 Plans: [`2026-11-05-perf-fixtures-and-parity.md`](../plans/2026-11-05-perf-fixtures-and-parity.md), [`2026-11-05-perf-adapters-and-quirks.md`](../plans/2026-11-05-perf-adapters-and-quirks.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md).
 

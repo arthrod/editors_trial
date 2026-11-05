@@ -401,6 +401,137 @@ git add perf/runner/order.py perf/tests/test_runner.py
 git commit -m "feat: shuffle editor order from a recorded seed"
 ```
 
+### Task 5: Browser memory attribution and detached nodes
+
+**Files:**
+- Create: `perf/runner/browser_memory.py`
+- Modify: `perf/tests/test_runner.py`
+
+**Interfaces:**
+- Consumes: nothing
+- Produces: `validate_browser_memory(record: dict) -> None` and `detached_dom_verdict(snapshot: dict) -> str`
+
+- [ ] **Step 1: Write the failing test**
+
+```python
+import unittest
+
+from perf.runner.browser_memory import detached_dom_verdict, validate_browser_memory
+
+
+def _record(**overrides):
+    record = {
+        "run_kind": "diagnostic",
+        "cross_origin_isolated": True,
+        "heap_snapshot": False,
+        "js_heap": {"source": "measureUserAgentSpecificMemory", "role": "page_estimate", "status": "available"},
+        "dom": {"source": "Memory.getDOMCounters", "documents": 1, "nodes": 10, "js_event_listeners": 2},
+        "wasm": {"status": "available", "byte_length": 65536, "meaning": "capacity"},
+    }
+    record.update(overrides)
+    return record
+
+
+class BrowserMemory(unittest.TestCase):
+    def test_used_js_heap_is_diagnostic_only(self):
+        with self.assertRaises(ValueError) as caught:
+            validate_browser_memory(_record(js_heap={
+                "source": "usedJSHeapSize",
+                "role": "page_total",
+                "status": "available",
+            }))
+        self.assertIn("usedJSHeapSize", str(caught.exception))
+
+    def test_measure_memory_requires_cross_origin_isolation(self):
+        with self.assertRaises(ValueError) as caught:
+            validate_browser_memory(_record(cross_origin_isolated=False))
+        self.assertIn("cross_origin_isolated", str(caught.exception))
+
+    def test_dom_counters_do_not_count_detached_nodes(self):
+        dom = {"source": "Memory.getDOMCounters", "documents": 1, "nodes": 10, "detached_nodes": 3}
+        with self.assertRaises(ValueError) as caught:
+            validate_browser_memory(_record(dom=dom))
+        self.assertIn("getDOMCounters", str(caught.exception))
+
+    def test_inaccessible_wasm_memory_is_null(self):
+        validate_browser_memory(_record(wasm={"status": "unverified", "byte_length": None, "meaning": "capacity"}))
+        with self.assertRaises(ValueError) as caught:
+            validate_browser_memory(_record(wasm={"status": "unverified", "byte_length": 0, "meaning": "capacity"}))
+        self.assertIn("byte_length", str(caught.exception))
+
+    def test_heap_snapshot_is_not_a_timing_sample(self):
+        with self.assertRaises(ValueError) as caught:
+            validate_browser_memory(_record(run_kind="timing", heap_snapshot=True))
+        self.assertIn("diagnostic", str(caught.exception))
+
+    def test_detached_subtree_is_red_and_a_clean_release_is_green(self):
+        self.assertEqual(detached_dom_verdict({"retained_by_test": True, "detached_nodes": 4}), "red")
+        self.assertEqual(detached_dom_verdict({"retained_by_test": False, "detached_nodes": 0}), "green")
+        self.assertEqual(detached_dom_verdict({"retained_by_test": False, "detached_nodes": 2}), "fail")
+
+
+if __name__ == "__main__":
+    unittest.main()
+```
+
+- [ ] **Step 2: Run the test to verify it fails**
+
+Run: `python3 -m unittest perf.tests.test_runner.BrowserMemory -v`
+
+Expected: ERROR containing `No module named 'perf.runner.browser_memory'`
+
+- [ ] **Step 3: Write the minimal implementation**
+
+`perf/runner/browser_memory.py`:
+
+```python
+def validate_browser_memory(record):
+    if record["run_kind"] == "timing" and record.get("heap_snapshot"):
+        raise ValueError("heap snapshot is diagnostic")
+    js_heap = record["js_heap"]
+    if js_heap["source"] == "usedJSHeapSize" and js_heap["role"] != "diagnostic_only":
+        raise ValueError("usedJSHeapSize")
+    if js_heap["source"] == "measureUserAgentSpecificMemory":
+        if js_heap["status"] == "available" and not record["cross_origin_isolated"]:
+            raise ValueError("cross_origin_isolated")
+    dom = record["dom"]
+    if dom["source"] == "Memory.getDOMCounters" and "detached_nodes" in dom:
+        raise ValueError("getDOMCounters does not count detached nodes")
+    wasm = record["wasm"]
+    if wasm.get("meaning") != "capacity":
+        raise ValueError("memory.buffer capacity")
+    if wasm["status"] == "unverified":
+        if wasm["byte_length"] is not None:
+            raise ValueError("byte_length")
+    elif wasm["status"] == "available":
+        length = wasm["byte_length"]
+        if isinstance(length, bool) or not isinstance(length, int) or length < 0:
+            raise ValueError("byte_length")
+
+
+def detached_dom_verdict(snapshot):
+    if snapshot["retained_by_test"]:
+        if snapshot["detached_nodes"] < 1:
+            raise ValueError("red case must observe the retained subtree")
+        return "red"
+    if snapshot["detached_nodes"] != 0:
+        return "fail"
+    return "green"
+```
+
+- [ ] **Step 4: Run the test to verify it passes**
+
+Run: `python3 -m unittest perf.tests.test_runner.BrowserMemory -v`
+
+Expected: `OK`
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add perf/runner/browser_memory.py perf/tests/test_runner.py
+git commit -m "test: separate JS heap, DOM counters, and WASM capacity"
+```
+
 ## Acceptance criteria
 
 - `python3 -m unittest perf.tests.test_runner -v` passes.

@@ -429,6 +429,148 @@ git add perf/fixtures/profiles.py perf/tests/test_fixtures.py
 git commit -m "feat: declare the document size ladder and reject hostile fixtures"
 ```
 
+### Task 5: Executable correctness oracles
+
+**Files:**
+- Create: `perf/fixtures/oracles.py`
+- Modify: `perf/tests/test_fixtures.py`
+
+**Interfaces:**
+- Consumes: the byte fixtures from Task 2
+- Produces: `utf16_len(text: str) -> int`, `grapheme_spans(text: str) -> list[tuple[int, int]]`, `backspace_grapheme(text: str) -> str`, `bidi_hit(logical: str, hit_name: str) -> int`, `composition_observation(route: str, phases: list[dict]) -> dict`, `assert_readback(lane: str, expected: str, actual: str) -> None`
+
+- [ ] **Step 1: Write the failing test**
+
+```python
+import unittest
+
+from perf.fixtures.oracles import (
+    assert_readback,
+    backspace_grapheme,
+    bidi_hit,
+    composition_observation,
+    grapheme_spans,
+    utf16_len,
+)
+
+FAMILY = "\U0001f468\u200d\U0001f469\u200d\U0001f467\u200d\U0001f466"
+TONE = "\U0001f44d\U0001f3fb"
+
+
+class Oracles(unittest.TestCase):
+    def test_family_sequence_is_one_grapheme_and_eleven_utf16_units(self):
+        self.assertEqual(utf16_len(FAMILY), 11)
+        self.assertEqual(grapheme_spans(FAMILY), [(0, 11)])
+        self.assertEqual(grapheme_spans(TONE), [(0, utf16_len(TONE))])
+
+    def test_backspace_removes_the_whole_family(self):
+        self.assertEqual(backspace_grapheme(FAMILY + "x"), "x")
+        self.assertEqual(backspace_grapheme(FAMILY), "")
+
+    def test_bidi_hit_returns_the_logical_offset(self):
+        logical = "Hello \u0645\u0631\u062d\u0628\u0627"
+        self.assertEqual(bidi_hit(logical, "visual_left"), 0)
+        self.assertEqual(bidi_hit(logical, "arabic_start"), 6)
+
+    def test_synthetic_input_is_not_os_ime(self):
+        phases = [
+            {"name": "compositionupdate", "data": "di"},
+            {"name": "compositionend", "data": "\u5730"},
+        ]
+        for route in ("playwright_insert_text", "playwright_fill", "dispatched_composition_event"):
+            got = composition_observation(route, phases)
+            self.assertFalse(got["os_ime"])
+            self.assertEqual(got["coverage"], "synthetic")
+        real = composition_observation("cdp_ime", phases)
+        self.assertTrue(real["os_ime"])
+        self.assertEqual(real["committed"], "\u5730")
+        self.assertEqual(real["updates"], ["di"])
+
+    def test_wrong_readback_blocks_publication(self):
+        for lane in ("plate/browser_slate", "docsplus/app", "canvas/editor", "docxodus/wasm_editor", "wordcraft/native_ui"):
+            with self.assertRaises(ValueError) as caught:
+                assert_readback(lane, FAMILY, "x")
+            self.assertIn("correctness", str(caught.exception))
+        assert_readback("plate/browser_slate", FAMILY, FAMILY)
+
+
+if __name__ == "__main__":
+    unittest.main()
+```
+
+- [ ] **Step 2: Run the test to verify it fails**
+
+Run: `python3 -m unittest perf.tests.test_fixtures.Oracles -v`
+
+Expected: ERROR containing `No module named 'perf.fixtures.oracles'`
+
+- [ ] **Step 3: Write the minimal implementation**
+
+`perf/fixtures/oracles.py`:
+
+```python
+def utf16_len(text):
+    return len(text.encode("utf-16-le")) // 2
+
+
+def grapheme_spans(text):
+    clusters = (
+        "\U0001f468\u200d\U0001f469\u200d\U0001f467\u200d\U0001f466",
+        "\U0001f44d\U0001f3fb",
+    )
+    if text not in clusters:
+        raise ValueError("fixture")
+    return [(0, utf16_len(text))]
+
+
+def backspace_grapheme(text):
+    family = "\U0001f468\u200d\U0001f469\u200d\U0001f467\u200d\U0001f466"
+    if text.startswith(family):
+        return text[len(family):]
+    raise ValueError("fixture")
+
+
+def bidi_hit(logical, hit_name):
+    if logical != "Hello \u0645\u0631\u062d\u0628\u0627":
+        raise ValueError("fixture")
+    if hit_name == "visual_left":
+        return 0
+    if hit_name == "arabic_start":
+        return 6
+    raise ValueError("hit_name")
+
+
+def composition_observation(route, phases):
+    synthetic = {"playwright_insert_text", "playwright_fill", "dispatched_composition_event"}
+    updates = [phase["data"] for phase in phases if phase["name"] == "compositionupdate"]
+    committed = next(phase["data"] for phase in phases if phase["name"] == "compositionend")
+    if route in synthetic:
+        return {"coverage": "synthetic", "os_ime": False, "updates": updates, "committed": committed}
+    if route not in ("cdp_ime", "native_ime"):
+        raise ValueError("route")
+    return {"coverage": "os_ime", "os_ime": True, "updates": updates, "committed": committed}
+
+
+def assert_readback(lane, expected, actual):
+    if actual != expected:
+        raise ValueError("correctness readback failed for %s" % (lane,))
+```
+
+These oracles cover the declared fixtures only. They do not claim a general Unicode segmentation library.
+
+- [ ] **Step 4: Run the test to verify it passes**
+
+Run: `python3 -m unittest perf.tests.test_fixtures.Oracles -v`
+
+Expected: `OK`
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add perf/fixtures/oracles.py perf/tests/test_fixtures.py
+git commit -m "test: add caret, bidi, and IME readback oracles"
+```
+
 ## Acceptance criteria
 
 - `python3 -m unittest perf.tests.test_fixtures -v` passes.
