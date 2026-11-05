@@ -218,18 +218,26 @@ class Summary(unittest.TestCase):
     def test_mixed_cache_states_are_rejected(self):
         with self.assertRaises(ValueError) as caught:
             summarize_groups([
-                {"cache_state": "process_cold_fs_warm", "repetition_unit": "fresh_process", "samples": [1, 2]},
-                {"cache_state": "warm_steady", "repetition_unit": "fresh_process", "samples": [1, 2]},
+                {"cache_state": "process_cold_fs_warm", "repetition_unit": "fresh_process", "workload_id": "short-paragraphs", "samples": [1, 2]},
+                {"cache_state": "warm_steady", "repetition_unit": "fresh_process", "workload_id": "short-paragraphs", "samples": [1, 2]},
             ])
         self.assertIn("cache_state", str(caught.exception))
 
     def test_mixed_repetition_units_are_rejected(self):
         with self.assertRaises(ValueError) as caught:
             summarize_groups([
-                {"cache_state": "warm_steady", "repetition_unit": "fresh_process", "samples": [1, 2]},
-                {"cache_state": "warm_steady", "repetition_unit": "in_process_iteration", "samples": [1, 2]},
+                {"cache_state": "warm_steady", "repetition_unit": "fresh_process", "workload_id": "short-paragraphs", "samples": [1, 2]},
+                {"cache_state": "warm_steady", "repetition_unit": "in_process_iteration", "workload_id": "short-paragraphs", "samples": [1, 2]},
             ])
         self.assertIn("repetition_unit", str(caught.exception))
+
+    def test_mixed_workloads_are_rejected(self):
+        with self.assertRaises(ValueError) as caught:
+            summarize_groups([
+                {"cache_state": "warm_steady", "repetition_unit": "fresh_process", "workload_id": "short-paragraphs", "samples": [1, 2]},
+                {"cache_state": "warm_steady", "repetition_unit": "fresh_process", "workload_id": "one-paragraph", "samples": [1, 2]},
+            ])
+        self.assertIn("workload_id", str(caught.exception))
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
@@ -270,12 +278,15 @@ def summarize_groups(groups):
         raise ValueError("empty groups")
     cache_state = groups[0]["cache_state"]
     repetition_unit = groups[0]["repetition_unit"]
+    workload_id = groups[0]["workload_id"]
     pooled = []
     for group in groups:
         if group["cache_state"] != cache_state:
             raise ValueError("cache_state values differ")
         if group["repetition_unit"] != repetition_unit:
             raise ValueError("repetition_unit values differ")
+        if group["workload_id"] != workload_id:
+            raise ValueError("workload_id values differ")
         pooled.extend(group["samples"])
     return summarize(pooled, cache_state, repetition_unit)
 ```
@@ -322,6 +333,11 @@ class Repetition(unittest.TestCase):
 
     def test_wasm_boundary_may_use_in_process_iterations(self):
         assert_interactive_repetition("C24", "in_process_iteration")
+
+    def test_hit_testing_requires_a_fresh_process(self):
+        with self.assertRaises(ValueError) as caught:
+            assert_interactive_repetition("C07", "in_process_iteration")
+        self.assertIn("fresh_process", str(caught.exception))
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
@@ -335,7 +351,10 @@ Expected: ERROR containing `cannot import name 'assert_interactive_repetition'`
 Add to `perf/analysis/summarize.py`:
 
 ```python
-_FRESH = {"C01", "C03", "C05", "C06", "C10", "C20"}
+_FRESH = {
+    "C01", "C03", "C05", "C06", "C07", "C08", "C09", "C10", "C11", "C12",
+    "C14", "C20", "C22", "C23",
+}
 
 
 def assert_interactive_repetition(criterion_id, repetition_unit):

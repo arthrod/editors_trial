@@ -198,6 +198,29 @@ class Outcomes(unittest.TestCase):
             "latency_ms": None,
             "failure_reason": "harness-seatbelt",
         })
+
+    def test_scalar_samples_are_not_an_empty_list(self):
+        with self.assertRaises(ValueError) as caught:
+            validate_trial({
+                "outcome": "unsupported",
+                "boundary": "input_to_next_paint",
+                "claims": [],
+                "samples_ms": 0,
+                "latency_ms": None,
+            })
+        self.assertIn("samples_ms", str(caught.exception))
+
+    def test_failed_and_not_run_require_a_reason(self):
+        for outcome in ("failed", "not_run"):
+            with self.assertRaises(ValueError) as caught:
+                validate_trial({
+                    "outcome": outcome,
+                    "boundary": "first_usable",
+                    "claims": [],
+                    "samples_ms": [],
+                    "latency_ms": None,
+                })
+            self.assertIn("failure_reason", str(caught.exception))
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
@@ -230,7 +253,16 @@ def validate_trial(trial):
     for blocked_boundary, blocked_claim, message in _FORBIDDEN:
         if boundary == blocked_boundary and blocked_claim in claims:
             raise ValueError(message)
-    samples = list(trial.get("samples_ms") or [])
+    raw_samples = trial.get("samples_ms", [])
+    if raw_samples is None:
+        raw_samples = []
+    if not isinstance(raw_samples, list):
+        raise ValueError("samples_ms")
+    samples = raw_samples
+    if outcome in ("failed", "not_run"):
+        reason = trial.get("failure_reason")
+        if not isinstance(reason, str) or not reason:
+            raise ValueError("failure_reason")
     if outcome != "measured":
         if trial.get("latency_ms") is not None:
             raise ValueError("non-measured latency must be null")
@@ -361,7 +393,7 @@ git commit -m "feat: round-trip raw performance trials as JSON"
 
 **Interfaces:**
 - Consumes: `validate_trial`
-- Produces: `validate_environment(env: dict) -> None`. Required keys: `host_class` (`dedicated` or `ci_coarse`), `cpu_model`, `os`, `arch`, `ram_bytes` (int `> 0`), `power_source`, `editor_id`, `editor_version`, `fixture_sha256` (64 hex characters), `cache_state` (`process_cold_fs_warm`, `os_cache_cold`, or `warm_steady`), `feature_profile` (`P0`, `P1`, `P2`, or `P3`), `workload_id`, `repetition_unit` (`fresh_process` or `in_process_iteration`), `run_kind` (`timing` or `diagnostic`). `display_refresh_hz` is a positive number or `None` when `headless` is true.
+- Produces: `validate_environment(env: dict) -> None`. Required keys: `host_class` (`dedicated` or `ci_coarse`), `cpu_model`, `os`, `arch`, `ram_bytes` (int `> 0`), `power_source`, `editor_id`, `editor_version`, `fixture_sha256` (exactly 64 hex characters), `cache_state` (`process_cold_fs_warm`, `os_cache_cold`, or `warm_steady`), `feature_profile` (`P0`, `P1`, `P2`, or `P3`), `workload_id`, `repetition_unit` (`fresh_process` or `in_process_iteration`), `run_kind` (`timing` or `diagnostic`), `headless` (bool). `display_refresh_hz` is a finite number `> 0`, or `None` when `headless` is true. `os_cache_cold` also requires `page_cache_dropped` to be `True`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -413,6 +445,27 @@ class Environment(unittest.TestCase):
         with self.assertRaises(ValueError) as caught:
             validate_environment(_env(host_class="ci_coarse", cache_state="os_cache_cold"))
         self.assertIn("os_cache_cold", str(caught.exception))
+
+    def test_hash_must_be_sixty_four_hex_characters_and_nothing_else(self):
+        with self.assertRaises(ValueError) as caught:
+            validate_environment(_env(fixture_sha256=("a" * 64) + "\n"))
+        self.assertIn("fixture_sha256", str(caught.exception))
+
+    def test_headless_must_be_a_boolean(self):
+        with self.assertRaises(ValueError) as caught:
+            validate_environment(_env(headless="false"))
+        self.assertIn("headless", str(caught.exception))
+
+    def test_refresh_rejects_nan(self):
+        with self.assertRaises(ValueError) as caught:
+            validate_environment(_env(display_refresh_hz=float("nan")))
+        self.assertIn("display_refresh_hz", str(caught.exception))
+
+    def test_os_cache_cold_requires_a_recorded_page_cache_drop(self):
+        with self.assertRaises(ValueError) as caught:
+            validate_environment(_env(cache_state="os_cache_cold"))
+        self.assertIn("page_cache_dropped", str(caught.exception))
+        validate_environment(_env(cache_state="os_cache_cold", page_cache_dropped=True))
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
@@ -426,9 +479,10 @@ Expected: ERROR containing `ImportError: cannot import name 'validate_environmen
 Add to `perf/schema.py`:
 
 ```python
+import math
 import re
 
-_SHA256 = re.compile(r"^[0-9a-f]{64}$")
+_SHA256 = re.compile(r"[0-9a-f]{64}")
 
 
 def validate_environment(env):
@@ -438,6 +492,8 @@ def validate_environment(env):
         raise ValueError("cache_state")
     if env["host_class"] == "ci_coarse" and env["cache_state"] == "os_cache_cold":
         raise ValueError("os_cache_cold is dedicated-host only")
+    if env["cache_state"] == "os_cache_cold" and env.get("page_cache_dropped") is not True:
+        raise ValueError("page_cache_dropped")
     if env["feature_profile"] not in ("P0", "P1", "P2", "P3"):
         raise ValueError("feature_profile")
     if env["repetition_unit"] not in ("fresh_process", "in_process_iteration"):
@@ -449,14 +505,16 @@ def validate_environment(env):
     for key in ("cpu_model", "os", "arch", "power_source", "editor_id", "editor_version", "workload_id"):
         if not isinstance(env[key], str) or not env[key]:
             raise ValueError(key)
-    if not _SHA256.match(env["fixture_sha256"]):
+    if _SHA256.fullmatch(env["fixture_sha256"]) is None:
         raise ValueError("fixture_sha256")
+    if not isinstance(env["headless"], bool):
+        raise ValueError("headless")
     refresh = env["display_refresh_hz"]
     if env["headless"]:
         if refresh is not None:
             raise ValueError("display_refresh_hz")
         return
-    if isinstance(refresh, bool) or not isinstance(refresh, (int, float)) or refresh <= 0:
+    if isinstance(refresh, bool) or not isinstance(refresh, (int, float)) or not math.isfinite(refresh) or refresh <= 0:
         raise ValueError("display_refresh_hz")
 ```
 

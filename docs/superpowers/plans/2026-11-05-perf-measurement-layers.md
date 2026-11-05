@@ -238,6 +238,20 @@ class Wasm(unittest.TestCase):
     def test_a_complete_report_passes(self):
         report = {name: [1.0] for name in required_wasm_operations()}
         assert_wasm_report(report)
+
+    def test_a_string_is_not_a_sample_list(self):
+        report = {name: [1.0] for name in required_wasm_operations()}
+        report["empty_call"] = "1.0"
+        with self.assertRaises(ValueError) as caught:
+            assert_wasm_report(report)
+        self.assertIn("empty_call", str(caught.exception))
+
+    def test_nan_is_not_a_sample(self):
+        report = {name: [1.0] for name in required_wasm_operations()}
+        report["scalar_call"] = [float("nan")]
+        with self.assertRaises(ValueError) as caught:
+            assert_wasm_report(report)
+        self.assertIn("scalar_call", str(caught.exception))
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
@@ -266,8 +280,13 @@ def required_wasm_operations():
 def assert_wasm_report(report):
     for name in required_wasm_operations():
         samples = report.get(name)
-        if not samples:
+        if not isinstance(samples, list) or not samples:
             raise ValueError("missing wasm operation %s" % (name,))
+        for sample in samples:
+            if isinstance(sample, bool) or not isinstance(sample, (int, float)):
+                raise ValueError("wasm sample %s" % (name,))
+            if sample != sample or sample in (float("inf"), float("-inf")) or sample < 0:
+                raise ValueError("wasm sample %s" % (name,))
 ```
 
 - [ ] **Step 4: Run the test to verify it passes**

@@ -56,9 +56,9 @@ class Catalog(unittest.TestCase):
     def test_visible_scenarios_do_not_use_a_raf_callback(self):
         for row in scenarios():
             if row["layer"] == "browser_visible":
-                self.assertNotEqual(row["evidence"], "raf_callback")
-                self.assertNotEqual(row["boundary"], "constructor_return")
-                self.assertNotEqual(row["boundary"], "model_ready")
+                forbidden = {"raf_callback", "constructor_return", "model_ready"}
+                for field in ("boundary", "evidence"):
+                    self.assertNotIn(row[field], forbidden)
 
 
 if __name__ == "__main__":
@@ -172,6 +172,34 @@ class Clocks(unittest.TestCase):
     def test_feature_overhead_names_every_profile(self):
         overhead = next(row for row in scenarios() if row["id"] == "C22")
         self.assertEqual(overhead["feature_profiles"], ["P0", "P1", "P2", "P3"])
+
+    def test_startup_records_every_phase(self):
+        startup = next(row for row in scenarios() if row["id"] == "C01")
+        self.assertEqual(startup["marks"], [
+            "process_spawn",
+            "presented_frame",
+            "input_ready",
+            "deferred_quiescence",
+        ])
+
+    def test_first_content_requires_document_text_and_a_usable_edit(self):
+        visible = next(row for row in scenarios() if row["id"] == "C03")
+        self.assertEqual(visible["marks"], ["document_text_visible", "first_usable"])
+        self.assertNotEqual(visible["evidence"], "first_contentful_paint")
+
+    def test_search_records_each_phase(self):
+        search = next(row for row in scenarios() if row["id"] == "C15")
+        self.assertEqual(search["measurements"], [
+            "first_match",
+            "search_complete",
+            "replace_all",
+            "index_quiescence",
+        ])
+
+    def test_save_labels_rereadable_separately_from_durable(self):
+        save = next(row for row in scenarios() if row["id"] == "C16")
+        self.assertEqual(save["evidence"], "rereadable_bytes")
+        self.assertEqual(save["durability"], "durable_only_when_data_and_directory_are_synced")
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
@@ -187,6 +215,10 @@ Add these keys to the existing dictionaries in `scenarios()`:
 - On `C20`, add `"host_class": "dedicated"` and `"min_seconds": 3600`.
 - On `C24`, add `"operations"` with the seven strings in the test, in that order.
 - On `C22`, add `"feature_profiles": ["P0", "P1", "P2", "P3"]`.
+- On `C01`, add `"marks": ["process_spawn", "presented_frame", "input_ready", "deferred_quiescence"]`.
+- On `C03`, set `"evidence"` to `"document_text_pixel"` and add `"marks": ["document_text_visible", "first_usable"]`. Leave `"boundary"` as `"first_contentful_paint"` only if that value is still absent from the forbidden set; the usable endpoint is the second mark, not first-contentful-paint. Change `"boundary"` to `"first_usable"`.
+- On `C15`, add `"measurements": ["first_match", "search_complete", "replace_all", "index_quiescence"]`.
+- On `C16`, set `"evidence"` to `"rereadable_bytes"` and add `"durability": "durable_only_when_data_and_directory_are_synced"`.
 - On every other scenario, add `"host_class": "dedicated"` as well, so a caller can read the key without a special case. `C18` stays `"run_kind": "diagnostic"` and also gets `"host_class": "dedicated"`.
 
 Do not change `C10.evidence`, `C18.run_kind`, or `C02.boundary`.
@@ -258,24 +290,32 @@ def matrix_gaps(matrix, rows):
     mentioned = set()
     for row in rows:
         mentioned.update(row.get("correctness") or [])
-    gaps = []
-    for criterion in matrix["criteria"]:
-        if criterion["id"] not in present:
-            gaps.append(criterion["id"])
+    declared_conditions = {item["id"] for item in matrix["interpretation_conditions"]}
+    gaps = [item["id"] for item in matrix["criteria"] if item["id"] not in present]
     for condition_id in _OWNED_CONDITIONS:
-        if condition_id not in mentioned:
+        if condition_id in declared_conditions and condition_id not in mentioned:
             gaps.append(condition_id)
-    required = {item["id"] for item in matrix["criteria"]}
-    required.update(item["id"] for item in matrix["interpretation_conditions"])
-    unknown = [gap for gap in gaps if gap not in required and gap not in _OWNED_CONDITIONS]
+    unknown = sorted(mentioned - declared_conditions)
     if unknown:
-        raise ValueError("gap outside the matrix: %s" % (unknown,))
+        raise ValueError("unknown correctness id %s" % (unknown,))
     return gaps
 ```
 
 In `perf/scenarios/catalog.py`, change the `C04` correctness list from `[]` to `["I12"]`. A deferred-work timeout stays a failed outcome, which is condition I12. `C05` already lists `I01`, `I02`, `I03`, and `I04`.
 
-`matrix_gaps` only demands the conditions this plan owns. Conditions I05, I06, I07, I08, I09, I10, and I11 are owned by the other plans and are checked by `build/test_perf_plan_coverage.py`. The synthetic test passes a matrix whose criteria are only `C01` and whose conditions include `I12`. The rows mention `C01` and do not mention `I12`, so the result is `["I12"]`. `I12` is in the synthetic matrix, so the function does not raise.
+An owned condition is required only when the matrix declares it. The synthetic matrix declares `I12` and not `I01` through `I04`, and the rows mention neither, so the result is `["I12"]`. A correctness value that is not a declared condition id, such as `I99`, raises `ValueError`. Add this test next to the synthetic one:
+
+```python
+def test_unknown_correctness_id_is_rejected(self):
+    matrix = {
+        "criteria": [{"id": "C01"}],
+        "interpretation_conditions": [{"id": "I12"}],
+    }
+    rows = [{"id": "C01", "correctness": ["I12", "I99"]}]
+    with self.assertRaises(ValueError) as caught:
+        matrix_gaps(matrix, rows)
+    self.assertIn("I99", str(caught.exception))
+```
 
 - [ ] **Step 4: Run the test to verify it passes**
 

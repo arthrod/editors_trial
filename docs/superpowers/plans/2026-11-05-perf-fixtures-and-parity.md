@@ -86,21 +86,40 @@ def build_workload(profile):
     width = int(profile["paragraph_chars"])
     if paragraphs < 1 or width < 1:
         raise ValueError("workload shape")
-    if profile["unicode_class"] != "ascii":
+    unicode_class = profile["unicode_class"]
+    if unicode_class not in ("ascii", "mixed"):
         raise ValueError("unicode_class")
-    lines = []
-    for index in range(paragraphs):
-        piece = ("p%02d" % index).encode("ascii")
-        piece = (piece * (width // len(piece) + 1))[:width]
-        lines.append(piece)
+    match_count = int(profile["match_count"])
+    if match_count < 0:
+        raise ValueError("match_count")
+    term = profile.get("search_term", "NEEDLE")
+    needle = term.encode("utf-8")
+    if match_count and (not term or needle in b" \n"):
+        raise ValueError("search_term")
+    capacity = paragraphs * width
+    if match_count and len(needle) * match_count > capacity:
+        raise ValueError("match_count")
+    if unicode_class == "mixed":
+        marker = "e\u0301\U0002000b".encode("utf-8")
+        filler = (marker * (capacity // len(marker) + 1))[:capacity]
+    else:
+        filler = b" " * capacity
+    blob = bytearray(filler)
+    if match_count:
+        packed = needle * match_count
+        blob[:len(packed)] = packed
+    if match_count and bytes(blob).count(needle) != match_count:
+        raise ValueError("match_count")
+    lines = [bytes(blob[index * width:(index + 1) * width]) for index in range(paragraphs)]
     body = b"\n".join(lines) + b"\n"
     return {
         "workload_id": profile["workload_id"],
         "sha256": hashlib.sha256(body).hexdigest(),
         "body": body,
         "paragraphs": paragraphs,
-        "unicode_class": profile["unicode_class"],
-        "match_count": int(profile["match_count"]),
+        "unicode_class": unicode_class,
+        "match_count": match_count,
+        "search_term": term if match_count else None,
     }
 ```
 
@@ -231,6 +250,12 @@ class FeatureProfiles(unittest.TestCase):
         with self.assertRaises(ValueError) as caught:
             feature_profile("P9")
         self.assertIn("feature profile", str(caught.exception))
+
+    def test_fallback_rejects_metadata_keys(self):
+        with self.assertRaises(ValueError) as caught:
+            with_fallback(feature_profile("P2"), ["name"])
+        self.assertIn("unknown feature", str(caught.exception))
+        self.assertEqual(feature_profile("P2")["name"], "P2")
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
@@ -244,6 +269,7 @@ Expected: ERROR containing `No module named 'perf.fixtures.profiles'`
 `perf/fixtures/profiles.py`:
 
 ```python
+_FEATURES = ("collaboration", "ai_panel", "proofing", "style_display", "busy_panel")
 _BASE = {
     "P0": {"collaboration": "off", "ai_panel": "off", "proofing": "off", "style_display": "off", "busy_panel": "off"},
     "P1": {"collaboration": "off", "ai_panel": "off", "proofing": "off", "style_display": "on", "busy_panel": "off"},
@@ -265,7 +291,7 @@ def with_fallback(profile, disabled):
     updated = dict(profile)
     updated["disabled_features"] = list(disabled)
     for feature in disabled:
-        if feature not in updated:
+        if feature not in _FEATURES:
             raise ValueError("unknown feature %r" % (feature,))
         updated[feature] = "off"
     return updated
@@ -294,11 +320,15 @@ git commit -m "feat: record feature profiles and large-file fallbacks"
 
 **Interfaces:**
 - Consumes: `build_workload`
-- Produces: `size_ladder() -> list[dict]` with ids `short-paragraphs`, `long-paragraphs`, `one-paragraph`, `mixed-utf8`, `search-dense`. `assert_not_hostile(path: str) -> None` raises `ValueError` if the path contains `hostile` or `bombs`.
+- Produces: `size_ladder() -> list[dict]` with ids `short-paragraphs`, `long-paragraphs`, `one-paragraph`, `mixed-utf8`, `search-dense`, `paginated-equivalent`. `assert_not_hostile(path, root) -> None` resolves both paths and raises `ValueError` when the candidate is inside `root`.
 
 - [ ] **Step 1: Write the failing test**
 
 ```python
+import tempfile
+from pathlib import Path
+
+from perf.fixtures.generate import build_workload
 from perf.fixtures.profiles import assert_not_hostile, size_ladder
 
 
@@ -312,23 +342,44 @@ class Ladder(unittest.TestCase):
             "one-paragraph",
             "mixed-utf8",
             "search-dense",
+            "paginated-equivalent",
         ])
         self.assertEqual(len(set(ids)), len(ids))
 
-    def test_search_profile_declares_a_match_count(self):
+    def test_search_profile_bytes_contain_the_declared_matches(self):
         search = [row for row in size_ladder() if row["workload_id"] == "search-dense"][0]
-        self.assertEqual(search["match_count"], 1000)
-        self.assertGreater(search["paragraphs"], 1)
+        built = build_workload(search)
+        self.assertEqual(built["body"].count(b"NEEDLE"), 1000)
+        self.assertEqual(built["match_count"], 1000)
+
+    def test_mixed_utf8_profile_builds(self):
+        mixed = [row for row in size_ladder() if row["workload_id"] == "mixed-utf8"][0]
+        built = build_workload(mixed)
+        text = built["body"].decode("utf-8")
+        self.assertIn("e\u0301", text)
+        self.assertIn("\U0002000b", text)
 
     def test_shapes_are_not_treated_as_one_workload(self):
         rows = {row["workload_id"]: row for row in size_ladder()}
         self.assertGreater(rows["long-paragraphs"]["paragraph_chars"], rows["short-paragraphs"]["paragraph_chars"])
         self.assertEqual(rows["one-paragraph"]["paragraphs"], 1)
+        self.assertEqual(rows["paginated-equivalent"]["shape"], "pages")
 
-    def test_hostile_corpus_is_not_a_performance_fixture(self):
-        with self.assertRaises(ValueError) as caught:
-            assert_not_hostile("logs/bombs/tool/plate/B1/input.docx")
-        self.assertIn("hostile", str(caught.exception))
+    def test_hostile_corpus_is_the_resolved_root(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "hostile"
+            inside = root / "bombs"
+            inside.mkdir(parents=True)
+            target = inside / "input.docx"
+            target.write_bytes(b"x")
+            link = Path(tmp) / "outside.docx"
+            link.symlink_to(target)
+            with self.assertRaises(ValueError) as caught:
+                assert_not_hostile(link, root)
+            self.assertIn("hostile", str(caught.exception))
+            named = Path(tmp) / "notes-about-bombs.txt"
+            named.write_text("bombs", encoding="utf-8")
+            assert_not_hostile(named, root)
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
@@ -344,21 +395,26 @@ Add to `perf/fixtures/profiles.py`:
 ```python
 def size_ladder():
     return [
-        {"workload_id": "short-paragraphs", "paragraphs": 100, "paragraph_chars": 40, "unicode_class": "ascii", "match_count": 0, "seed": 1},
-        {"workload_id": "long-paragraphs", "paragraphs": 20, "paragraph_chars": 4000, "unicode_class": "ascii", "match_count": 0, "seed": 1},
-        {"workload_id": "one-paragraph", "paragraphs": 1, "paragraph_chars": 8000, "unicode_class": "ascii", "match_count": 0, "seed": 1},
-        {"workload_id": "mixed-utf8", "paragraphs": 10, "paragraph_chars": 80, "unicode_class": "mixed", "match_count": 0, "seed": 1},
-        {"workload_id": "search-dense", "paragraphs": 50, "paragraph_chars": 80, "unicode_class": "ascii", "match_count": 1000, "seed": 1},
+        {"workload_id": "short-paragraphs", "paragraphs": 100, "paragraph_chars": 40, "unicode_class": "ascii", "match_count": 0, "seed": 1, "shape": "short"},
+        {"workload_id": "long-paragraphs", "paragraphs": 20, "paragraph_chars": 4000, "unicode_class": "ascii", "match_count": 0, "seed": 1, "shape": "long"},
+        {"workload_id": "one-paragraph", "paragraphs": 1, "paragraph_chars": 8000, "unicode_class": "ascii", "match_count": 0, "seed": 1, "shape": "single"},
+        {"workload_id": "mixed-utf8", "paragraphs": 10, "paragraph_chars": 80, "unicode_class": "mixed", "match_count": 0, "seed": 1, "shape": "mixed"},
+        {"workload_id": "search-dense", "paragraphs": 200, "paragraph_chars": 40, "unicode_class": "ascii", "match_count": 1000, "seed": 1, "shape": "search"},
+        {"workload_id": "paginated-equivalent", "paragraphs": 6, "paragraph_chars": 400, "unicode_class": "ascii", "match_count": 0, "seed": 1, "shape": "pages"},
     ]
 
 
-def assert_not_hostile(path):
-    lowered = path.replace("\\", "/").lower()
-    if "bomb" in lowered or "hostile" in lowered:
-        raise ValueError("hostile packages are not performance fixtures: %s" % (path,))
+def assert_not_hostile(path, root):
+    candidate = Path(path).resolve()
+    corpus = Path(root).resolve()
+    try:
+        candidate.relative_to(corpus)
+    except ValueError:
+        return
+    raise ValueError("hostile packages are not performance fixtures: %s" % (candidate,))
 ```
 
-`build_workload` currently rejects `unicode_class != "ascii"`. Leave `mixed-utf8` as a declared profile. Do not pass it to `build_workload` in this task. A later generator change may accept it. The test only checks the declared fields.
+Add `from pathlib import Path` to the imports in `perf/fixtures/profiles.py`. `search-dense` is 200 paragraphs of 40 bytes, 8000 bytes, which holds 1000 copies of `NEEDLE`.
 
 - [ ] **Step 4: Run the test to verify it passes**
 

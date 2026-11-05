@@ -235,9 +235,9 @@ The following sections copy the normative JSON fields. A drift between this text
 
 ### C03. first visible content/first usable state
 
-**Measurement method:** Record first visible content only from paint timing, a presented frame, or an external pixel change that shows document text. Record first usable only when a scripted edit or caret move is accepted and becomes visible. Constructor return, model ready, and a requestAnimationFrame callback are separate marks and cannot satisfy either claim.
+**Measurement method:** Record first visible document text only when a document-specific paint target or an external pixel check shows text from the fixture. First-contentful-paint alone is not that evidence, because it marks the first contentful DOM element, which may be toolbar or shell text. Record first usable only when a scripted edit or caret move is accepted and becomes visible. Constructor return, model ready, and a requestAnimationFrame callback are separate marks and cannot satisfy either claim.
 
-**Tools:** Paint Timing first-contentful-paint where the document text is DOM content; Element Timing or a presented-frame timestamp where available; external pixel observation on a dedicated display; Playwright only to drive the scenario, not as the latency clock.
+**Tools:** a document-specific paint target or pixel check that shows fixture text; Element Timing only when the observed element is fixture text; external pixel observation on a dedicated display; Playwright only to drive the scenario, not as the latency clock.
 
 **Existing implementations:** No first-usable benchmark exists in this repository. Report C waited for each UI's own ready signal and then took a screenshot; that is a fidelity capture, not a latency distribution. Typometer observes a pixel after a keystroke, which is a related but different interval. microide documents large_file_open_first_paint as advisory, not a gated cross-editor number.
 
@@ -391,13 +391,13 @@ The following sections copy the normative JSON fields. A drift between this text
 
 ### C16. serialization/save/export
 
-**Measurement method:** Time the save or export command until the editor is interactive again, and separately until the replacement bytes are durable and re-readable. Record byte count, checksum, and whether the write is a full regeneration or a selective save.
+**Measurement method:** Time the save or export command until the editor is interactive again, and separately until the replacement bytes are re-readable. Label that second clock durable only when both the replacement data and its directory entry have been synced. If the save path cannot expose that guarantee, label the clock re-readable. A reopened checksum and filesystem timestamps are supporting evidence, not durability by themselves. Record byte count, checksum, and whether the write is a full regeneration or a selective save.
 
-**Tools:** editor save entry point already used by the fidelity harness; filesystem timestamps only as a companion to an fsync or a completed replace; re-open checksum.
+**Tools:** editor save entry point already used by the fidelity harness; file-data sync and directory sync when the platform exposes both; re-open checksum as a re-readable check, not as durability by itself.
 
 **Existing implementations:** The fidelity harness writes an output DOCX and scores it. It does not publish save latency. GenOffice's CLI refuses docx-to-docx; its editor save path is the one the trial called. Apryse saves through getFileData and a trial key stamps a watermark picture.
 
-**Comparability limitations:** Selective save, HTML regeneration, and WASM serialization do not do the same work. A watermark or a template adds bytes. Interactive-again and durable-write are different clocks and both must be labeled.
+**Comparability limitations:** Selective save, HTML regeneration, and WASM serialization do not do the same work. A watermark or a template adds bytes. Interactive-again, re-readable, and durable (data and directory synced) are different clocks and each must be labeled.
 
 **Status:** proposed_harness. Plans: [`2026-11-05-perf-adapters-and-quirks.md`](../plans/2026-11-05-perf-adapters-and-quirks.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md).
 

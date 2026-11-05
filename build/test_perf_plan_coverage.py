@@ -42,10 +42,28 @@ EDITORS = (
     "libreoffice",
 )
 LINK = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
+HEADING = re.compile(r"^### .+$", re.M)
+SECTION = re.compile(r"^### (C\d+)\. .+$")
+
+
+def _read(path):
+    return path.read_text(encoding="utf-8")
 
 
 def _matrix():
-    return json.loads(MATRIX_PATH.read_text())
+    return json.loads(_read(MATRIX_PATH))
+
+
+def _sections(text):
+    headings = list(HEADING.finditer(text))
+    sections = {}
+    for index, match in enumerate(headings):
+        titled = SECTION.match(match.group(0))
+        if titled is None:
+            continue
+        end = headings[index + 1].start() if index + 1 < len(headings) else len(text)
+        sections[titled.group(1)] = text[match.start():end]
+    return sections
 
 
 class Matrix(unittest.TestCase):
@@ -72,7 +90,7 @@ class Matrix(unittest.TestCase):
 
 class Documents(unittest.TestCase):
     def test_design_repeats_every_normative_sentence(self):
-        text = DESIGN_PATH.read_text()
+        text = _read(DESIGN_PATH)
         data = _matrix()
         for row in data["criteria"]:
             self.assertIn("### %s. %s" % (row["id"], row["title"]), text)
@@ -93,13 +111,24 @@ class Documents(unittest.TestCase):
         for plan, ids in owned.items():
             path = ROOT / plan
             self.assertTrue(path.is_file(), plan)
-            text = path.read_text()
+            text = _read(path)
             for identifier in ids:
                 self.assertIn(identifier, text, plan)
             self.assertIn("For agentic workers:", text)
+        sections = _sections(_read(DESIGN_PATH))
+        for row in data["criteria"]:
+            section = sections[row["id"]]
+            self.assertIn("**Tools:** " + "; ".join(row["tools"]) + ".", section)
+            self.assertIn("**Status:** %s." % row["implementation_status"], section)
+            linked = [
+                Path(target).name
+                for target in LINK.findall(section)
+                if "plans/" in target
+            ]
+            self.assertEqual(linked, [Path(plan).name for plan in row["plans"]], row["id"])
 
     def test_design_names_the_four_layers_and_the_cache_states(self):
-        text = DESIGN_PATH.read_text()
+        text = _read(DESIGN_PATH)
         for phrase in (
             "`native`",
             "`model`",
@@ -115,13 +144,13 @@ class Documents(unittest.TestCase):
     def test_no_placeholder_language(self):
         files = [DESIGN_PATH, MATRIX_PATH, *PLAN_DIR.glob("*.md")]
         for path in files:
-            text = path.read_text()
+            text = _read(path)
             for token in FORBIDDEN:
                 self.assertNotIn(token, text, "%s contains %r" % (path, token))
 
     def test_relative_links_resolve(self):
         for path in [DESIGN_PATH, *PLAN_DIR.glob("*.md")]:
-            for target in LINK.findall(path.read_text()):
+            for target in LINK.findall(_read(path)):
                 if target.startswith(("http://", "https://", "mailto:")):
                     continue
                 target = target.split("#", 1)[0]

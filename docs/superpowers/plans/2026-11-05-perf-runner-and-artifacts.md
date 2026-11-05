@@ -65,6 +65,12 @@ class Artifacts(unittest.TestCase):
                 write_attempt(Path(tmp), "../escape", _trial())
             self.assertIn("attempt_id", str(caught.exception))
 
+    def test_rejects_a_trailing_newline(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(ValueError) as caught:
+                write_attempt(Path(tmp), "attempt-1\n", _trial())
+            self.assertIn("attempt_id", str(caught.exception))
+
 
 if __name__ == "__main__":
     unittest.main()
@@ -93,7 +99,7 @@ _ATTEMPT = re.compile(r"^[a-z0-9][a-z0-9._-]{0,80}$")
 
 
 def write_attempt(directory, attempt_id, trial):
-    if not _ATTEMPT.match(attempt_id):
+    if _ATTEMPT.fullmatch(attempt_id) is None:
         raise ValueError("attempt_id")
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
@@ -102,9 +108,17 @@ def write_attempt(directory, attempt_id, trial):
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
     fd = os.open(path, flags, 0o644)
     try:
-        os.write(fd, payload)
-    finally:
+        view = memoryview(payload)
+        while view:
+            written = os.write(fd, view)
+            if written <= 0:
+                raise OSError("short write")
+            view = view[written:]
+    except Exception:
         os.close(fd)
+        os.unlink(path)
+        raise
+    os.close(fd)
     return path
 ```
 
