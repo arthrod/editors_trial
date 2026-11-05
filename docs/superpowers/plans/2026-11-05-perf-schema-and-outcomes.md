@@ -393,7 +393,7 @@ git commit -m "feat: round-trip raw performance trials as JSON"
 
 **Interfaces:**
 - Consumes: `validate_trial`
-- Produces: `validate_environment(env: dict) -> None`. Required keys: `host_class` (`dedicated` or `ci_coarse`), `cpu_model`, `os`, `arch`, `ram_bytes` (int `> 0`), `power_source`, `editor_id`, `editor_version`, `fixture_sha256` (exactly 64 hex characters), `cache_state` (`process_cold_fs_warm`, `os_cache_cold`, or `warm_steady`), `feature_profile` (`P0`, `P1`, `P2`, or `P3`), `workload_id`, `repetition_unit` (`fresh_process` or `in_process_iteration`), `run_kind` (`timing` or `diagnostic`), `headless` (bool). `display_refresh_hz` is a finite number `> 0`, or `None` when `headless` is true. `os_cache_cold` also requires `page_cache_dropped` to be `True`.
+- Produces: `validate_environment(env: dict) -> None`. Required keys: `host_class` (`dedicated` or `ci_coarse`), `execution_profile` (`ci_contract`, `ci_broad`, or `dedicated_publish`), `cpu_model`, `os`, `arch`, `ram_bytes` (int `> 0`), `power_source`, `editor_id`, `editor_version`, `fixture_sha256` (exactly 64 hex characters), `cache_state` (`process_cold_fs_warm`, `os_cache_cold`, or `warm_steady`), `feature_profile` (`P0`, `P1`, `P2`, or `P3`), `workload_id`, `repetition_unit` (`fresh_process` or `in_process_iteration`), `run_kind` (`timing` or `diagnostic`), `headless` (bool). `display_refresh_hz` is a finite number `> 0`, or `None` when `headless` is true. `os_cache_cold` also requires `page_cache_dropped` to be `True`. `ci_contract` requires `headless: True`. `dedicated_publish` with `host_class: ci_coarse` is rejected.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -404,6 +404,7 @@ from perf.schema import validate_environment
 def _env(**overrides):
     env = {
         "host_class": "dedicated",
+        "execution_profile": "dedicated_publish",
         "cpu_model": "unspecified-test-cpu",
         "os": "linux",
         "arch": "x86_64",
@@ -466,6 +467,16 @@ class Environment(unittest.TestCase):
             validate_environment(_env(cache_state="os_cache_cold"))
         self.assertIn("page_cache_dropped", str(caught.exception))
         validate_environment(_env(cache_state="os_cache_cold", page_cache_dropped=True))
+
+    def test_dedicated_publish_cannot_run_on_ci_coarse(self):
+        with self.assertRaises(ValueError) as caught:
+            validate_environment(_env(host_class="ci_coarse", execution_profile="dedicated_publish", headless=True, display_refresh_hz=None))
+        self.assertIn("dedicated_publish", str(caught.exception))
+
+    def test_ci_contract_requires_headless(self):
+        with self.assertRaises(ValueError) as caught:
+            validate_environment(_env(host_class="ci_coarse", execution_profile="ci_contract", headless=False))
+        self.assertIn("ci_contract", str(caught.exception))
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
@@ -488,6 +499,13 @@ _SHA256 = re.compile(r"[0-9a-f]{64}")
 def validate_environment(env):
     if env["host_class"] not in ("dedicated", "ci_coarse"):
         raise ValueError("host_class")
+    profile = env.get("execution_profile")
+    if profile not in ("ci_contract", "ci_broad", "dedicated_publish"):
+        raise ValueError("execution_profile")
+    if profile == "dedicated_publish" and env["host_class"] != "dedicated":
+        raise ValueError("dedicated_publish requires dedicated host")
+    if profile == "ci_contract" and env.get("headless") is not True:
+        raise ValueError("ci_contract requires headless")
     if env["cache_state"] not in ("process_cold_fs_warm", "os_cache_cold", "warm_steady"):
         raise ValueError("cache_state")
     if env["host_class"] == "ci_coarse" and env["cache_state"] == "os_cache_cold":
@@ -529,6 +547,84 @@ Expected: `OK`
 ```bash
 git add perf/schema.py perf/tests/test_schema.py
 git commit -m "feat: require a performance environment fingerprint"
+```
+
+---
+
+### Task 5: Pin sample budgets to the execution profile
+
+**Files:**
+- Modify: `perf/schema.py`
+- Modify: `perf/tests/test_schema.py`
+
+**Interfaces:**
+- Consumes: `validate_environment`
+- Produces: `sample_budget_for_profile(execution_profile: str, repetition_unit: str) -> int` and `validate_sample_budget(env: dict, attempt_count: int) -> None`. Budgets are exactly 1 fresh / 20 in-process for `ci_contract`, 5 / 100 for `ci_broad`, and 30 / 500 for `dedicated_publish`. `validate_sample_budget` raises when `attempt_count` exceeds the profile budget.
+
+- [ ] **Step 1: Write the failing test**
+
+```python
+from perf.schema import sample_budget_for_profile, validate_sample_budget
+
+
+class SampleBudget(unittest.TestCase):
+    def test_contract_uses_one_fresh_process(self):
+        self.assertEqual(sample_budget_for_profile("ci_contract", "fresh_process"), 1)
+
+    def test_dedicated_wasm_uses_five_hundred_iterations(self):
+        self.assertEqual(sample_budget_for_profile("dedicated_publish", "in_process_iteration"), 500)
+
+    def test_ci_broad_rejects_an_extra_attempt(self):
+        env = _env(host_class="ci_coarse", execution_profile="ci_broad", headless=False, display_refresh_hz=60)
+        with self.assertRaises(ValueError) as caught:
+            validate_sample_budget(env, 6)
+        self.assertIn("sample budget", str(caught.exception))
+```
+
+- [ ] **Step 2: Run the test to verify it fails**
+
+Run: `python3 -m unittest perf.tests.test_schema.SampleBudget -v`
+
+Expected: ERROR containing `ImportError` or `cannot import name 'sample_budget_for_profile'`
+
+- [ ] **Step 3: Write the minimal implementation**
+
+Add to `perf/schema.py`:
+
+```python
+_PROFILE_BUDGET = {
+    "ci_contract": {"fresh_process": 1, "in_process_iteration": 20},
+    "ci_broad": {"fresh_process": 5, "in_process_iteration": 100},
+    "dedicated_publish": {"fresh_process": 30, "in_process_iteration": 500},
+}
+
+
+def sample_budget_for_profile(execution_profile, repetition_unit):
+    try:
+        return _PROFILE_BUDGET[execution_profile][repetition_unit]
+    except KeyError as exc:
+        raise ValueError("execution_profile") from exc
+
+
+def validate_sample_budget(env, attempt_count):
+    if not isinstance(attempt_count, int) or attempt_count < 1:
+        raise ValueError("attempt_count")
+    limit = sample_budget_for_profile(env["execution_profile"], env["repetition_unit"])
+    if attempt_count > limit:
+        raise ValueError("sample budget exceeded for %s" % (env["execution_profile"],))
+```
+
+- [ ] **Step 4: Run the test to verify it passes**
+
+Run: `python3 -m unittest perf.tests.test_schema -v`
+
+Expected: `OK`
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add perf/schema.py perf/tests/test_schema.py
+git commit -m "feat: tie sample budgets to execution profiles"
 ```
 
 ## Acceptance criteria

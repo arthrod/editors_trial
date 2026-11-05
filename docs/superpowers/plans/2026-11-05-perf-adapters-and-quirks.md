@@ -14,6 +14,7 @@
 - Do not mark a feature `supported` unless the design doc states that the product has that surface.
 - `unverified` is the default. It is not `unsupported` and it is not a measured zero.
 - `not_applicable` is used for lanes that have no such surface, such as hit testing on `office-open`.
+- On `ci_contract`, adapters enqueue headless and model lanes before any browser lane so Folio, office-open, Plate headless DOCX, LibreOffice conversion, and WASM boundary editors still produce trials on a 512 MiB host.
 - A refusal trial has `latency_ms: None` and an empty `samples_ms`.
 - Coverage ids owned here: C02 C07 C09 C11 C16 C22 C23 I04 I06 I07.
 

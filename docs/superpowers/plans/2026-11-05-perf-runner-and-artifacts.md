@@ -234,6 +234,115 @@ git commit -m "feat: gate published latency on the host class"
 
 ---
 
+### Task 2b: Schedule scenarios for the execution profile
+
+**Files:**
+- Create: `perf/runner/schedule.py`
+- Modify: `perf/tests/test_runner.py`
+
+**Interfaces:**
+- Consumes: `scenarios()` from Plan 7, `validate_environment`, and `capability(editor, lane, feature)` from Plan 5
+- Produces: `profile_rank(execution_profile: str) -> int`, `enqueue_cache_states(scenario: dict, env: dict) -> list[str]`, and `plan_attempts(scenario: dict, env: dict, editor_id: str, lane: str) -> dict`. Return value keys: `run` (`True` or `False`), `failure_reason` (`None` or `execution_profile`), `cache_states`, `sample_budget`. When `run` is `False`, the caller writes a `not_run` trial without starting the editor. `plan_attempts` never drops a scenario from the catalog; it only decides whether this profile enqueues it.
+
+Profile rank is `0` for `ci_contract`, `1` for `ci_broad`, `2` for `dedicated_publish`. A scenario runs when `profile_rank(env["execution_profile"]) >= profile_rank(scenario["min_execution_profile"])`. C20 requires `dedicated_publish`. Any `os_cache_cold` variant enqueues only when `execution_profile` is `dedicated_publish`; other profiles keep `process_cold_fs_warm` and `warm_steady` from the scenario. On `ci_contract`, a `browser_visible` scenario with no supported lane still returns `run: False` so the harness records `not_run` while model timings for the same editor continue in other scenarios.
+
+- [ ] **Step 1: Write the failing test**
+
+```python
+from perf.runner.schedule import enqueue_cache_states, plan_attempts, profile_rank
+from perf.scenarios.catalog import scenarios
+
+
+class Schedule(unittest.TestCase):
+    def test_profile_rank_orders_low_resource_first(self):
+        self.assertLess(profile_rank("ci_contract"), profile_rank("ci_broad"))
+        self.assertLess(profile_rank("ci_broad"), profile_rank("dedicated_publish"))
+
+    def test_ci_contract_drops_os_cache_cold(self):
+        startup = next(row for row in scenarios() if row["id"] == "C01")
+        env = {"execution_profile": "ci_contract", "host_class": "ci_coarse", "headless": True}
+        self.assertNotIn("os_cache_cold", enqueue_cache_states(startup, env))
+
+    def test_dedicated_publish_keeps_os_cache_cold(self):
+        startup = next(row for row in scenarios() if row["id"] == "C01")
+        env = {"execution_profile": "dedicated_publish", "host_class": "dedicated", "headless": False}
+        self.assertIn("os_cache_cold", enqueue_cache_states(startup, env))
+
+    def test_long_session_not_run_on_ci_broad(self):
+        soak = next(row for row in scenarios() if row["id"] == "C20")
+        env = {"execution_profile": "ci_broad", "host_class": "ci_coarse", "headless": False, "repetition_unit": "fresh_process"}
+        decision = plan_attempts(soak, env, "docxodus", "browser")
+        self.assertFalse(decision["run"])
+        self.assertEqual(decision["failure_reason"], "execution_profile")
+
+    def test_model_load_runs_on_ci_contract(self):
+        load = next(row for row in scenarios() if row["id"] == "C02")
+        env = {"execution_profile": "ci_contract", "host_class": "ci_coarse", "headless": True, "repetition_unit": "fresh_process"}
+        decision = plan_attempts(load, env, "folio", "headless")
+        self.assertTrue(decision["run"])
+        self.assertEqual(decision["sample_budget"], 1)
+```
+
+- [ ] **Step 2: Run the test to verify it fails**
+
+Run: `python3 -m unittest perf.tests.test_runner.Schedule -v`
+
+Expected: ERROR containing `No module named 'perf.runner.schedule'`
+
+- [ ] **Step 3: Write the minimal implementation**
+
+`perf/runner/schedule.py`:
+
+```python
+from perf.schema import sample_budget_for_profile
+
+_RANK = {"ci_contract": 0, "ci_broad": 1, "dedicated_publish": 2}
+
+
+def profile_rank(execution_profile):
+    try:
+        return _RANK[execution_profile]
+    except KeyError as exc:
+        raise ValueError("execution_profile") from exc
+
+
+def enqueue_cache_states(scenario, env):
+    states = list(scenario["cache_states"])
+    if env["execution_profile"] != "dedicated_publish":
+        states = [state for state in states if state != "os_cache_cold"]
+    return states
+
+
+def plan_attempts(scenario, env, editor_id, lane):
+    del editor_id, lane
+    if profile_rank(env["execution_profile"]) < profile_rank(scenario["min_execution_profile"]):
+        return {"run": False, "failure_reason": "execution_profile", "cache_states": [], "sample_budget": 0}
+    if scenario["id"] == "C20" and env["execution_profile"] != "dedicated_publish":
+        return {"run": False, "failure_reason": "execution_profile", "cache_states": [], "sample_budget": 0}
+    budget = sample_budget_for_profile(env["execution_profile"], env["repetition_unit"])
+    return {
+        "run": True,
+        "failure_reason": None,
+        "cache_states": enqueue_cache_states(scenario, env),
+        "sample_budget": budget,
+    }
+```
+
+- [ ] **Step 4: Run the test to verify it passes**
+
+Run: `python3 -m unittest perf.tests.test_runner.Schedule -v`
+
+Expected: `OK`
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add perf/runner/schedule.py perf/tests/test_runner.py
+git commit -m "feat: schedule performance scenarios by execution profile"
+```
+
+---
+
 ### Task 3: Memory sample records
 
 **Files:**

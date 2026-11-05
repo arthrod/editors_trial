@@ -84,6 +84,43 @@ Interactive latency gates run on a dedicated host after the quiet-machine check 
 
 Raw trial JSON is written once. Summaries are derived. A later change of the summary function re-reads the raw files.
 
+## Execution profiles and low-resource hosts
+
+Every trial names an `execution_profile` in addition to `host_class`. The profile controls sample budgets, workload byte caps, and which cache-state variants the scheduler enqueues. It never removes a criterion from the catalog. A scenario the profile cannot run is stored as `not_run` with `failure_reason: execution_profile`, not as a zero.
+
+| Profile | Typical `host_class` | RAM guidance | Display | Purpose |
+|---|---|---|---|---|
+| `ci_contract` | `ci_coarse` | 512 MiB cgroup or container | No compositor: Node headless DOM, native in-process, or `soffice --headless` only | Maximize editor coverage on the smallest machine: every model, native, and `wasm_boundary` scenario that does not require pixels |
+| `ci_broad` | `ci_coarse` | 2–4 GiB | Xvfb plus Mesa software GL (SwiftShader or llvmpipe), one browser at a time | Run every criterion at least once with reduced samples and capped workloads; still not publishable for visible latency |
+| `dedicated_publish` | `dedicated` | Host record in `ram_bytes` | Real display or verified Xvfb at recorded refresh | Full sample budgets, `os_cache_cold`, multi-gigabyte host workloads, and the one-hour soak |
+
+Sample budgets are fixed per profile and repetition unit. They shrink repetition; they do not drop outliers from a run that did execute.
+
+| Profile | `fresh_process` attempts per scenario variant | `in_process_iteration` samples (C24) |
+|---|---|---|
+| `ci_contract` | 1 | 20 |
+| `ci_broad` | 5 | 100 |
+| `dedicated_publish` | 30 | 500 |
+
+Workload caps select the largest ladder id the profile may pass to an editor. Host-only generation above the cap stays on the dedicated host; CI never materializes those bytes.
+
+| Profile | Maximum `workload_id` from the ladder |
+|---|---|
+| `ci_contract` | `micro-paragraphs` and `micro-search` only |
+| `ci_broad` | `short-paragraphs`, `mixed-utf8`, and `search-dense` with the generator's built-in paragraph limits (no host-only multi-gigabyte profiles) |
+| `dedicated_publish` | Full ladder including `long-paragraphs`, `one-paragraph`, `paginated-equivalent`, and host-generated large files |
+
+Scheduler rules keep low-resource runs honest:
+
+- `os_cache_cold` runs enqueue only when `execution_profile` is `dedicated_publish` and `host_class` is `dedicated`. Other profiles keep `process_cold_fs_warm` and `warm_steady` variants.
+- C20 long-session stability enqueues only on `dedicated_publish`. `ci_contract` and `ci_broad` record `not_run` for C20 without starting a truncated soak.
+- C18 allocation profiling may run on `ci_broad` once per editor as `run_kind: diagnostic` with `publishable: false`; it is not required on `ci_contract`.
+- Browser-visible scenarios on `ci_contract` are `not_run` when the lane has no headless substitute; model-layer timings for the same editor still run (for example Folio parse, Plate headless DOCX, office-open generate).
+- Only one editor process group runs at a time on `ci_coarse`, matching the quiet-machine rule in `AGENTS.md`.
+- Optional cgroup memory limits (LVCE-style sweeps) are diagnostic metadata on `dedicated_publish` only. They do not replace the primary C17 sample at the profile's workload cap.
+
+Publication policy is unchanged: `ci_coarse` never publishes browser-visible or native-present latency regardless of profile. Contract and broad CI runs still produce immutable raw trials, capability matrices, fixture checksums, and model or WASM summaries for regression tracking.
+
 ## Correctness before speed
 
 Interactive scenarios that claim text editing carry a correctness check where the product claims the behavior:
@@ -108,7 +145,7 @@ Large-file mode that turns any of those off is recorded on the trial. The compar
 
 ## Workloads
 
-Generators live under the future `perf/fixtures/` tree and write a checksum. The fidelity file `fixture/complex.docx` remains the correctness smoke fixture. It is not a large-document workload. Generated profiles include short paragraphs, long paragraphs, one enormous paragraph, mixed UTF-8, a bidirectional paragraph, an emoji paragraph, and a search fixture with a declared match count. Multi-gigabyte files are generated on the host and are not committed. Hostile packages in the safety study are not performance fixtures.
+Generators live under the future `perf/fixtures/` tree and write a checksum. The fidelity file `fixture/complex.docx` remains the correctness smoke fixture. It is not a large-document workload. The size ladder adds `micro-paragraphs` and `micro-search` for `ci_contract`, then short paragraphs, long paragraphs, one enormous paragraph, mixed UTF-8, a bidirectional paragraph, an emoji paragraph, and a search fixture with a declared match count. Multi-gigabyte files are generated on the host and are not committed. Hostile packages in the safety study are not performance fixtures.
 
 ## Repository layout this design asks for
 
@@ -138,7 +175,7 @@ Each plan produces software that its own tests can judge without the other plans
 | [Schema and outcomes](../plans/2026-11-05-perf-schema-and-outcomes.md) | A trial record that rejects forbidden clocks and forbids a zero for a non-measurement |
 | [Fixtures and parity](../plans/2026-11-05-perf-fixtures-and-parity.md) | Checksummed workloads and feature profiles |
 | [Statistics](../plans/2026-11-05-perf-statistics.md) | Summaries with uncertainty, unmixed cache states, and retained outliers |
-| [Runner and artifacts](../plans/2026-11-05-perf-runner-and-artifacts.md) | Immutable raw trials, host class, and timing versus diagnostic |
+| [Runner and artifacts](../plans/2026-11-05-perf-runner-and-artifacts.md) | Immutable raw trials, host class, execution-profile scheduling, and timing versus diagnostic |
 | [Adapters and quirks](../plans/2026-11-05-perf-adapters-and-quirks.md) | A capability record for every candidate lane |
 | [Measurement layers](../plans/2026-11-05-perf-measurement-layers.md) | Layer checks and a WASM boundary contract |
 | [Scenarios and coverage](../plans/2026-11-05-perf-scenarios-and-coverage.md) | One scenario file per criterion and a test that the matrix is complete |
