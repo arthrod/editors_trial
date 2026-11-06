@@ -21,17 +21,37 @@ def build_workload(profile):
         raise ValueError("match_count")
     if unicode_class == "mixed":
         marker = "e\u0301\U0002000b".encode("utf-8")
-        filler = (marker * (capacity // len(marker) + 1))[:capacity]
+
+        def _line_bytes(width):
+            chunk = b""
+            while len(chunk) < width:
+                chunk += marker
+            chunk = chunk[:width]
+            while chunk:
+                try:
+                    chunk.decode("utf-8")
+                    break
+                except UnicodeDecodeError:
+                    chunk = chunk[:-1]
+            return chunk + b" " * (width - len(chunk))
+
+        lines = [_line_bytes(width) for _ in range(paragraphs)]
+    elif match_count:
+        per_line, remainder = divmod(match_count, paragraphs)
+        lines = []
+        for index in range(paragraphs):
+            count = per_line + (1 if index < remainder else 0)
+            packed = needle * count
+            if len(packed) > width:
+                raise ValueError("match_count")
+            lines.append(packed + b" " * (width - len(packed)))
     else:
         filler = b" " * capacity
-    blob = bytearray(filler)
-    if match_count:
-        packed = needle * match_count
-        blob[:len(packed)] = packed
-    if match_count and bytes(blob).count(needle) != match_count:
-        raise ValueError("match_count")
-    lines = [bytes(blob[index * width:(index + 1) * width]) for index in range(paragraphs)]
+        blob = bytearray(filler)
+        lines = [bytes(blob[index * width:(index + 1) * width]) for index in range(paragraphs)]
     body = b"\n".join(lines) + b"\n"
+    if match_count and body.count(needle) != match_count:
+        raise ValueError("match_count")
     return {
         "workload_id": profile["workload_id"],
         "sha256": hashlib.sha256(body).hexdigest(),

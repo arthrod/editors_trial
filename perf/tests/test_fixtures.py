@@ -1,6 +1,10 @@
 import unittest
 
+import tempfile
+from pathlib import Path
+
 from perf.fixtures.generate import build_workload, correctness_fixtures
+from perf.fixtures.profiles import assert_not_hostile, feature_profile, size_ladder, with_fallback
 
 
 SHORT = {
@@ -47,9 +51,6 @@ class CorrectnessFixtures(unittest.TestCase):
         self.assertNotIn("di", body)
 
 
-from perf.fixtures.profiles import feature_profile, with_fallback
-
-
 class FeatureProfiles(unittest.TestCase):
     def test_p0_has_no_optional_features(self):
         profile = feature_profile("P0")
@@ -78,6 +79,58 @@ class FeatureProfiles(unittest.TestCase):
             with_fallback(feature_profile("P2"), ["name"])
         self.assertIn("unknown feature", str(caught.exception))
         self.assertEqual(feature_profile("P2")["name"], "P2")
+
+
+class Ladder(unittest.TestCase):
+    def test_ladder_ids_are_unique_and_named(self):
+        rows = size_ladder()
+        ids = [row["workload_id"] for row in rows]
+        self.assertEqual(ids, [
+            "micro-paragraphs",
+            "micro-search",
+            "short-paragraphs",
+            "long-paragraphs",
+            "one-paragraph",
+            "mixed-utf8",
+            "search-dense",
+            "paginated-equivalent",
+        ])
+        self.assertEqual(len(set(ids)), len(ids))
+
+    def test_search_profile_bytes_contain_the_declared_matches(self):
+        search = [row for row in size_ladder() if row["workload_id"] == "search-dense"][0]
+        built = build_workload(search)
+        self.assertEqual(built["body"].count(b"NEEDLE"), 1000)
+        self.assertEqual(built["match_count"], 1000)
+
+    def test_mixed_utf8_profile_builds(self):
+        mixed = [row for row in size_ladder() if row["workload_id"] == "mixed-utf8"][0]
+        built = build_workload(mixed)
+        text = built["body"].decode("utf-8")
+        self.assertIn("e\u0301", text)
+        self.assertIn("\U0002000b", text)
+
+    def test_shapes_are_not_treated_as_one_workload(self):
+        rows = {row["workload_id"]: row for row in size_ladder()}
+        self.assertGreater(rows["long-paragraphs"]["paragraph_chars"], rows["short-paragraphs"]["paragraph_chars"])
+        self.assertEqual(rows["one-paragraph"]["paragraphs"], 1)
+        self.assertEqual(rows["paginated-equivalent"]["shape"], "pages")
+
+    def test_hostile_corpus_is_the_resolved_root(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "hostile"
+            inside = root / "bombs"
+            inside.mkdir(parents=True)
+            target = inside / "input.docx"
+            target.write_bytes(b"x")
+            link = Path(tmp) / "outside.docx"
+            link.symlink_to(target)
+            with self.assertRaises(ValueError) as caught:
+                assert_not_hostile(link, root)
+            self.assertIn("hostile", str(caught.exception))
+            named = Path(tmp) / "notes-about-bombs.txt"
+            named.write_text("bombs", encoding="utf-8")
+            assert_not_hostile(named, root)
 
 
 if __name__ == "__main__":
