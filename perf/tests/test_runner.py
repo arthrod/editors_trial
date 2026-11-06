@@ -152,6 +152,22 @@ class ExclusiveEditor(unittest.TestCase):
         assert_exclusive_editor("dedicated", 3)
 
 
+from perf.runner.cgroup_limits import cgroup_limit_sweep
+
+
+class CgroupLimits(unittest.TestCase):
+    def test_sweep_is_diagnostic_on_dedicated_publish(self):
+        limits = {"cpu_max": "200000", "memory_max": "4G"}
+        result = cgroup_limit_sweep("dedicated_publish", limits)
+        self.assertEqual(result["run_kind"], "diagnostic")
+        self.assertFalse(result["publishable"])
+        self.assertEqual(result["limits"], limits)
+
+    def test_sweep_is_rejected_off_dedicated_publish(self):
+        with self.assertRaises(ValueError):
+            cgroup_limit_sweep("ci_broad", {"cpu_max": "100000"})
+
+
 def _sample(**overrides):
     sample = {
         "rss_bytes": 1000,
