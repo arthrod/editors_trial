@@ -1,0 +1,138 @@
+{
+  "criterion_id": "C02",
+  "boundary": "model_ready",
+  "layer": "model",
+  "execution_profile": "ci_contract",
+  "workload_id": "micro-paragraphs",
+  "fixture_sha256": "ffc7f6820a64a74f9ddf39f8048be6e7de4af4089bf950c89a053f87bfc1241e",
+  "generated_fixture_note": "synthetic OOXML from perf/fixtures/generate.docx_zip_bytes",
+  "editors": [
+    {
+      "editor_id": "plate",
+      "editor_version": "64123fe51",
+      "outcome": "measured",
+      "median_ms": 3748.708392,
+      "min_ms": 3748.708392,
+      "max_ms": 3748.708392,
+      "n": 1,
+      "attempt_file": "perf/out/ci_contract_2026_11_06/attempts/c02-plate-ad0651766805.json"
+    },
+    {
+      "editor_id": "folio",
+      "editor_version": "958c582cb",
+      "outcome": "measured",
+      "median_ms": 580.042543,
+      "min_ms": 580.042543,
+      "max_ms": 580.042543,
+      "n": 1,
+      "attempt_file": "perf/out/ci_contract_2026_11_06/attempts/c02-folio-d3bbda8f3e22.json"
+    },
+    {
+      "editor_id": "superdoc",
+      "editor_version": "71961c61f",
+      "outcome": "measured",
+      "median_ms": 1372.644123,
+      "min_ms": 1372.644123,
+      "max_ms": 1372.644123,
+      "n": 1,
+      "attempt_file": "perf/out/ci_contract_2026_11_06/attempts/c02-superdoc-30c27b38992e.json"
+    },
+    {
+      "editor_id": "office-open",
+      "editor_version": "567addfd4",
+      "outcome": "measured",
+      "median_ms": 1425.317443,
+      "min_ms": 1425.317443,
+      "max_ms": 1425.317443,
+      "n": 1,
+      "attempt_file": "perf/out/ci_contract_2026_11_06/attempts/c02-office-open-d29c1c8dbb18.json"
+    },
+    {
+      "editor_id": "eigenpal",
+      "editor_version": "37ef590ab",
+      "outcome": "measured",
+      "median_ms": 405.386123,
+      "min_ms": 405.386123,
+      "max_ms": 405.386123,
+      "n": 1,
+      "attempt_file": "perf/out/ci_contract_2026_11_06/attempts/c02-eigenpal-0936bdaa086f.json"
+    },
+    {
+      "editor_id": "docen",
+      "editor_version": "1890b15aa",
+      "outcome": "measured",
+      "median_ms": 545.095275,
+      "min_ms": 545.095275,
+      "max_ms": 545.095275,
+      "n": 1,
+      "attempt_file": "perf/out/ci_contract_2026_11_06/attempts/c02-docen-b957dd05bd02.json"
+    },
+    {
+      "editor_id": "genoffice",
+      "editor_version": "36a509e8f",
+      "outcome": "measured",
+      "median_ms": 3255.7193,
+      "min_ms": 3255.7193,
+      "max_ms": 3255.7193,
+      "n": 1,
+      "attempt_file": "perf/out/ci_contract_2026_11_06/attempts/c02-genoffice-739bc687acb0.json"
+    },
+    {
+      "editor_id": "fidus",
+      "editor_version": "e14cc456a",
+      "outcome": "measured",
+      "median_ms": 1109.169351,
+      "min_ms": 1109.169351,
+      "max_ms": 1109.169351,
+      "n": 1,
+      "attempt_file": "perf/out/ci_contract_2026_11_06/attempts/c02-fidus-fd34825cfa17.json"
+    },
+    {
+      "editor_id": "docsplus",
+      "editor_version": "fc17e8036",
+      "outcome": "measured",
+      "median_ms": 894.313583,
+      "min_ms": 894.313583,
+      "max_ms": 894.313583,
+      "n": 1,
+      "attempt_file": "perf/out/ci_contract_2026_11_06/attempts/c02-docsplus-3d150500d90d.json"
+    },
+    {
+      "editor_id": "canvas",
+      "editor_version": "68f1a4175",
+      "outcome": "measured",
+      "median_ms": 3111.893274,
+      "min_ms": 3111.893274,
+      "max_ms": 3111.893274,
+      "n": 1,
+      "attempt_file": "perf/out/ci_contract_2026_11_06/attempts/c02-canvas-603f6ad93fd4.json"
+    },
+    {
+      "editor_id": "wordcraft",
+      "editor_version": "ce516b04f",
+      "outcome": "measured",
+      "median_ms": 2.481685,
+      "min_ms": 2.481685,
+      "max_ms": 2.481685,
+      "n": 1,
+      "attempt_file": "perf/out/ci_contract_2026_11_06/attempts/c02-wordcraft-cbe9f21e64fc.json"
+    },
+    {
+      "editor_id": "libreoffice",
+      "editor_version": "system soffice",
+      "outcome": "measured",
+      "median_ms": 1897.034952,
+      "min_ms": 1897.034952,
+      "max_ms": 1897.034952,
+      "n": 1,
+      "attempt_file": "perf/out/ci_contract_2026_11_06/attempts/c02-libreoffice-5283287e94df.json"
+    }
+  ],
+  "skipped": [
+    {
+      "editor_id": "apryse",
+      "reason": "skipped_by_policy",
+      "detail": "Apryse lane requires proprietary WebViewer/Chromium; excluded on this Linux VM"
+    }
+  ]
+}
