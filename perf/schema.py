@@ -7,6 +7,10 @@ result by itself.
 """
 
 import json
+import math
+import re
+
+_SHA256 = re.compile(r"[0-9a-f]{64}")
 
 _FORBIDDEN = (
     ("raf_callback", "visible_paint", "raf_callback cannot claim visible paint"),
@@ -69,3 +73,43 @@ def load_trial(text):
         raise ValueError("trial must be an object")
     validate_trial(trial)
     return trial
+
+
+def validate_environment(env):
+    if env["host_class"] not in ("dedicated", "ci_coarse"):
+        raise ValueError("host_class")
+    profile = env.get("execution_profile")
+    if profile not in ("ci_contract", "ci_broad", "dedicated_publish"):
+        raise ValueError("execution_profile")
+    if env["cache_state"] not in ("process_cold_fs_warm", "os_cache_cold", "warm_steady"):
+        raise ValueError("cache_state")
+    if env["host_class"] == "ci_coarse" and env["cache_state"] == "os_cache_cold":
+        raise ValueError("os_cache_cold is dedicated-host only")
+    if profile == "dedicated_publish" and env["host_class"] != "dedicated":
+        raise ValueError("dedicated_publish requires dedicated host")
+    if profile == "ci_contract" and env.get("headless") is not True:
+        raise ValueError("ci_contract requires headless")
+    if env["cache_state"] == "os_cache_cold" and env.get("page_cache_dropped") is not True:
+        raise ValueError("page_cache_dropped")
+    if env["feature_profile"] not in ("P0", "P1", "P2", "P3"):
+        raise ValueError("feature_profile")
+    if env["repetition_unit"] not in ("fresh_process", "in_process_iteration"):
+        raise ValueError("repetition_unit")
+    if env["run_kind"] not in ("timing", "diagnostic"):
+        raise ValueError("run_kind")
+    if not isinstance(env["ram_bytes"], int) or isinstance(env["ram_bytes"], bool) or env["ram_bytes"] <= 0:
+        raise ValueError("ram_bytes")
+    for key in ("cpu_model", "os", "arch", "power_source", "editor_id", "editor_version", "workload_id"):
+        if not isinstance(env[key], str) or not env[key]:
+            raise ValueError(key)
+    if _SHA256.fullmatch(env["fixture_sha256"]) is None:
+        raise ValueError("fixture_sha256")
+    if not isinstance(env["headless"], bool):
+        raise ValueError("headless")
+    refresh = env["display_refresh_hz"]
+    if env["headless"]:
+        if refresh is not None:
+            raise ValueError("display_refresh_hz")
+        return
+    if isinstance(refresh, bool) or not isinstance(refresh, (int, float)) or not math.isfinite(refresh) or refresh <= 0:
+        raise ValueError("display_refresh_hz")
