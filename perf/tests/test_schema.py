@@ -1,6 +1,6 @@
 import unittest
 
-from perf.schema import validate_trial
+from perf.schema import validate_trial, dump_trial, load_trial
 
 
 def _trial(boundary, claim):
@@ -111,6 +111,38 @@ class Outcomes(unittest.TestCase):
                     "latency_ms": None,
                 })
             self.assertIn("failure_reason", str(caught.exception))
+
+
+class RoundTrip(unittest.TestCase):
+    def test_dump_and_load_preserve_samples(self):
+        trial = {
+            "schema_version": 1,
+            "editor_id": "superdoc",
+            "outcome": "measured",
+            "boundary": "model_ready",
+            "claims": [],
+            "samples_ms": [3.5, 4.0],
+            "latency_ms": None,
+            "criterion_id": "C02",
+        }
+        loaded = load_trial(dump_trial(trial))
+        self.assertEqual(loaded["samples_ms"], [3.5, 4.0])
+        self.assertEqual(loaded["criterion_id"], "C02")
+
+    def test_dump_rejects_a_zero_for_unverified(self):
+        trial = {
+            "schema_version": 1,
+            "editor_id": "wordcraft",
+            "outcome": "unverified",
+            "boundary": "input_to_next_paint",
+            "claims": [],
+            "samples_ms": [],
+            "latency_ms": 0,
+            "criterion_id": "C23",
+        }
+        with self.assertRaises(ValueError) as caught:
+            dump_trial(trial)
+        self.assertIn("non-measured latency must be null", str(caught.exception))
 
 
 if __name__ == "__main__":

@@ -6,6 +6,8 @@ and a model-ready mark are real events, and none of them is a user-visible
 result by itself.
 """
 
+import json
+
 _FORBIDDEN = (
     ("raf_callback", "visible_paint", "raf_callback cannot claim visible paint"),
     ("constructor_return", "usable", "constructor_return cannot claim usable"),
@@ -54,3 +56,16 @@ def validate_trial(trial):
             raise ValueError("samples must be finite and non-negative")
         if sample != sample or sample in (float("inf"), float("-inf")) or sample < 0:
             raise ValueError("samples must be finite and non-negative")
+
+
+def dump_trial(trial):
+    validate_trial(trial)
+    return json.dumps(trial, sort_keys=True, separators=(",", ":"))
+
+
+def load_trial(text):
+    trial = json.loads(text)
+    if not isinstance(trial, dict):
+        raise ValueError("trial must be an object")
+    validate_trial(trial)
+    return trial
