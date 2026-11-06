@@ -2,6 +2,7 @@ NODE_MODULES
 .env
 repos
 NODE_MODULES/
+node_modules/
 __pycache__/
 
 # macOS metadata and Microsoft Word owner-lock files.
