@@ -116,6 +116,10 @@ single shared application. Before measuring:
    demos were rebuilt, then `pnpm run deploy`. Verify the live pages in a real
    browser. Commit, PR, merge, and tag the site with the same version.
 
+## Cloud agent environment
+
+Harness scripts use the absolute path `/Users/arthrod/temp/T/editors_trial`. The environment links the workspace to that path. Editor checkouts live in gitignored `repos/` at the commits recorded in `out/facts.json` (`ver.<repo>.commit`). Do not move a pin except with `build/update_editors.sh` during a release. Node on `PATH` is 24, which canvas-editor and docs.plus require. Round trip every editor with `build/run_all.sh`. Unit tests: `python3 -m unittest discover -s build -p 'test_*.py'`. Apryse's browser round trip reads `APRYSE_API_KEY` from gitignored `.env`. Microsoft Word does not run on Linux.
+
 ## Other standing rules
 
 - Issues first: every piece of work is a GitHub issue (ending with
