@@ -49,3 +49,19 @@ def assert_not_hostile(path, root):
     except ValueError:
         return
     raise ValueError("hostile packages are not performance fixtures: %s" % (candidate,))
+
+
+def allowed_workloads(execution_profile):
+    ladder_ids = {row["workload_id"] for row in size_ladder()}
+    if execution_profile == "ci_contract":
+        return frozenset({"micro-paragraphs", "micro-search"})
+    if execution_profile == "ci_broad":
+        return frozenset({"micro-paragraphs", "micro-search", "short-paragraphs", "mixed-utf8", "search-dense"})
+    if execution_profile == "dedicated_publish":
+        return frozenset(ladder_ids)
+    raise ValueError("execution_profile")
+
+
+def assert_workload_allowed(execution_profile, workload_id):
+    if workload_id not in allowed_workloads(execution_profile):
+        raise ValueError("workload cap for %s: %s" % (execution_profile, workload_id))

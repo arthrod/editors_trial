@@ -4,7 +4,14 @@ import tempfile
 from pathlib import Path
 
 from perf.fixtures.generate import build_workload, correctness_fixtures
-from perf.fixtures.profiles import assert_not_hostile, feature_profile, size_ladder, with_fallback
+from perf.fixtures.profiles import (
+    allowed_workloads,
+    assert_not_hostile,
+    assert_workload_allowed,
+    feature_profile,
+    size_ladder,
+    with_fallback,
+)
 
 
 SHORT = {
@@ -131,6 +138,20 @@ class Ladder(unittest.TestCase):
             named = Path(tmp) / "notes-about-bombs.txt"
             named.write_text("bombs", encoding="utf-8")
             assert_not_hostile(named, root)
+
+
+class WorkloadCaps(unittest.TestCase):
+    def test_contract_allows_micro_only(self):
+        allowed = allowed_workloads("ci_contract")
+        self.assertEqual(allowed, frozenset({"micro-paragraphs", "micro-search"}))
+        assert_workload_allowed("ci_contract", "micro-paragraphs")
+        with self.assertRaises(ValueError) as caught:
+            assert_workload_allowed("ci_contract", "short-paragraphs")
+        self.assertIn("workload cap", str(caught.exception))
+
+    def test_dedicated_allows_the_full_ladder(self):
+        ladder_ids = {row["workload_id"] for row in size_ladder()}
+        self.assertEqual(allowed_workloads("dedicated_publish"), frozenset(ladder_ids))
 
 
 if __name__ == "__main__":
