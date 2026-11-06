@@ -75,3 +75,14 @@ def summarize_groups(groups):
             raise ValueError("workload_id values differ")
         pooled.extend(group["samples"])
     return summarize(pooled, cache_state, repetition_unit)
+
+
+_FRESH = {
+    "C01", "C03", "C05", "C06", "C07", "C08", "C09", "C10", "C11", "C12",
+    "C14", "C20", "C22", "C23",
+}
+
+
+def assert_interactive_repetition(criterion_id, repetition_unit):
+    if criterion_id in _FRESH and repetition_unit != "fresh_process":
+        raise ValueError("fresh_process is required for %s" % (criterion_id,))
