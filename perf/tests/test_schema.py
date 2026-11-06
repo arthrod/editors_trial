@@ -1,6 +1,165 @@
 import unittest
 
-from perf.schema import sample_budget_for_profile, validate_environment, validate_sample_budget
+from perf.schema import (
+    dump_trial,
+    load_trial,
+    sample_budget_for_profile,
+    validate_environment,
+    validate_sample_budget,
+    validate_trial,
+)
+
+
+def _trial(boundary, claim):
+    return {
+        "outcome": "measured",
+        "boundary": boundary,
+        "claims": [claim],
+        "samples_ms": [1.0],
+        "latency_ms": None,
+    }
+
+
+class BoundaryClaims(unittest.TestCase):
+    def test_raf_callback_cannot_claim_visible_paint(self):
+        with self.assertRaises(ValueError) as caught:
+            validate_trial(_trial("raf_callback", "visible_paint"))
+        self.assertIn("raf_callback cannot claim visible paint", str(caught.exception))
+
+    def test_constructor_return_cannot_claim_usable(self):
+        with self.assertRaises(ValueError) as caught:
+            validate_trial(_trial("constructor_return", "usable"))
+        self.assertIn("constructor_return cannot claim usable", str(caught.exception))
+
+    def test_model_ready_cannot_claim_user_visible(self):
+        with self.assertRaises(ValueError) as caught:
+            validate_trial(_trial("model_ready", "user_visible"))
+        self.assertIn("model_ready cannot claim user-visible latency", str(caught.exception))
+
+    def test_paint_boundary_may_claim_visible_paint(self):
+        validate_trial(_trial("first_contentful_paint", "visible_paint"))
+
+
+class Outcomes(unittest.TestCase):
+    def test_unsupported_rejects_zero_latency(self):
+        trial = {
+            "outcome": "unsupported",
+            "boundary": "input_to_next_paint",
+            "claims": [],
+            "samples_ms": [],
+            "latency_ms": 0,
+        }
+        with self.assertRaises(ValueError) as caught:
+            validate_trial(trial)
+        self.assertIn("non-measured latency must be null", str(caught.exception))
+
+    def test_failed_rejects_samples(self):
+        trial = {
+            "outcome": "failed",
+            "boundary": "first_usable",
+            "claims": [],
+            "samples_ms": [12.0],
+            "latency_ms": None,
+            "failure_reason": "timeout",
+        }
+        with self.assertRaises(ValueError) as caught:
+            validate_trial(trial)
+        self.assertIn("non-measured samples must be empty", str(caught.exception))
+
+    def test_measured_zero_is_a_real_sample(self):
+        validate_trial(
+            {
+                "outcome": "measured",
+                "boundary": "handler_duration",
+                "claims": [],
+                "samples_ms": [0.0],
+                "latency_ms": None,
+            }
+        )
+
+    def test_unknown_outcome_is_rejected(self):
+        with self.assertRaises(ValueError) as caught:
+            validate_trial(
+                {
+                    "outcome": "skipped",
+                    "boundary": "handler_duration",
+                    "claims": [],
+                    "samples_ms": [],
+                    "latency_ms": None,
+                }
+            )
+        self.assertIn("unknown outcome", str(caught.exception))
+
+    def test_not_run_is_distinct_from_failed(self):
+        validate_trial(
+            {
+                "outcome": "not_run",
+                "boundary": "process_spawn",
+                "claims": [],
+                "samples_ms": [],
+                "latency_ms": None,
+                "failure_reason": "harness-seatbelt",
+            }
+        )
+
+    def test_scalar_samples_are_not_an_empty_list(self):
+        with self.assertRaises(ValueError) as caught:
+            validate_trial(
+                {
+                    "outcome": "unsupported",
+                    "boundary": "input_to_next_paint",
+                    "claims": [],
+                    "samples_ms": 0,
+                    "latency_ms": None,
+                }
+            )
+        self.assertIn("samples_ms", str(caught.exception))
+
+    def test_failed_and_not_run_require_a_reason(self):
+        for outcome in ("failed", "not_run"):
+            with self.assertRaises(ValueError) as caught:
+                validate_trial(
+                    {
+                        "outcome": outcome,
+                        "boundary": "first_usable",
+                        "claims": [],
+                        "samples_ms": [],
+                        "latency_ms": None,
+                    }
+                )
+            self.assertIn("failure_reason", str(caught.exception))
+
+
+class RoundTrip(unittest.TestCase):
+    def test_dump_and_load_preserve_samples(self):
+        trial = {
+            "schema_version": 1,
+            "editor_id": "superdoc",
+            "outcome": "measured",
+            "boundary": "model_ready",
+            "claims": [],
+            "samples_ms": [3.5, 4.0],
+            "latency_ms": None,
+            "criterion_id": "C02",
+        }
+        loaded = load_trial(dump_trial(trial))
+        self.assertEqual(loaded["samples_ms"], [3.5, 4.0])
+        self.assertEqual(loaded["criterion_id"], "C02")
+
+    def test_dump_rejects_a_zero_for_unverified(self):
+        trial = {
+            "schema_version": 1,
+            "editor_id": "wordcraft",
+            "outcome": "unverified",
+            "boundary": "input_to_next_paint",
+            "claims": [],
+            "samples_ms": [],
+            "latency_ms": 0,
+            "criterion_id": "C23",
+        }
+        with self.assertRaises(ValueError) as caught:
+            dump_trial(trial)
+        self.assertIn("non-measured latency must be null", str(caught.exception))
 
 
 def _env(**overrides):
@@ -10,7 +169,7 @@ def _env(**overrides):
         "cpu_model": "unspecified-test-cpu",
         "os": "linux",
         "arch": "x86_64",
-        "ram_bytes": 16 * 1024 ** 3,
+        "ram_bytes": 16 * 1024**3,
         "power_source": "ac",
         "editor_id": "plate",
         "editor_version": "60c7f5530",
@@ -84,9 +243,7 @@ class Environment(unittest.TestCase):
 
     def test_ci_contract_requires_headless(self):
         with self.assertRaises(ValueError) as caught:
-            validate_environment(
-                _env(host_class="ci_coarse", execution_profile="ci_contract", headless=False)
-            )
+            validate_environment(_env(host_class="ci_coarse", execution_profile="ci_contract", headless=False))
         self.assertIn("ci_contract", str(caught.exception))
 
 
@@ -95,9 +252,7 @@ class SampleBudget(unittest.TestCase):
         self.assertEqual(sample_budget_for_profile("ci_contract", "fresh_process"), 1)
 
     def test_dedicated_wasm_uses_five_hundred_iterations(self):
-        self.assertEqual(
-            sample_budget_for_profile("dedicated_publish", "in_process_iteration"), 500
-        )
+        self.assertEqual(sample_budget_for_profile("dedicated_publish", "in_process_iteration"), 500)
 
     def test_ci_broad_rejects_an_extra_attempt(self):
         env = _env(

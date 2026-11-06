@@ -1,5 +1,6 @@
 """Trial records for the performance harness."""
 
+import json
 import math
 import re
 
@@ -114,3 +115,16 @@ def validate_sample_budget(env, attempt_count):
     limit = sample_budget_for_profile(env["execution_profile"], env["repetition_unit"])
     if attempt_count > limit:
         raise ValueError("sample budget exceeded for %s" % (env["execution_profile"],))
+
+
+def dump_trial(trial):
+    validate_trial(trial)
+    return json.dumps(trial, sort_keys=True, separators=(",", ":"))
+
+
+def load_trial(text):
+    trial = json.loads(text)
+    if not isinstance(trial, dict):
+        raise ValueError("trial must be an object")
+    validate_trial(trial)
+    return trial
