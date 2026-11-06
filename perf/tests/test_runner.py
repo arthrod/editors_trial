@@ -143,6 +143,9 @@ class ExclusiveEditor(unittest.TestCase):
     def test_ci_coarse_allows_no_active_editor_groups(self):
         assert_exclusive_editor("ci_coarse", 0)
 
+    def test_ci_coarse_allows_one_active_editor_group(self):
+        assert_exclusive_editor("ci_coarse", 1)
+
     def test_ci_coarse_rejects_parallel_editor_groups(self):
         with self.assertRaises(ValueError) as caught:
             assert_exclusive_editor("ci_coarse", 2)
