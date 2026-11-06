@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from perf.runner.artifacts import write_attempt
+from perf.runner.memory import validate_memory_sample
 from perf.runner.policy import publication_decision
 from perf.runner.schedule import enqueue_cache_states, plan_attempts, profile_rank
 from perf.scenarios.catalog import scenarios
@@ -105,9 +106,50 @@ class Schedule(unittest.TestCase):
         decision = plan_attempts(load, env, "folio", "headless")
         self.assertTrue(decision["run"])
         self.assertEqual(decision["sample_budget"], 1)
+        self.assertTrue(decision["publishable"])
+
+    def test_dedicated_publish_on_ci_coarse_drops_os_cache_cold(self):
+        startup = next(row for row in scenarios() if row["id"] == "C01")
+        env = {"execution_profile": "dedicated_publish", "host_class": "ci_coarse", "headless": True}
+        self.assertNotIn("os_cache_cold", enqueue_cache_states(startup, env))
+
+    def test_ci_contract_skips_browser_visible_scenarios(self):
+        typing = next(row for row in scenarios() if row["id"] == "C05")
+        env = {"execution_profile": "ci_contract", "host_class": "ci_coarse", "headless": True, "repetition_unit": "fresh_process"}
+        decision = plan_attempts(typing, env, "plate", "browser")
+        self.assertFalse(decision["run"])
+        self.assertEqual(decision["failure_reason"], "execution_profile")
+        self.assertFalse(decision["publishable"])
+
+    def test_diagnostic_native_run_is_not_publishable(self):
+        allocation = next(row for row in scenarios() if row["id"] == "C18")
+        env = {"execution_profile": "ci_broad", "host_class": "ci_coarse", "headless": True, "repetition_unit": "fresh_process"}
+        decision = plan_attempts(allocation, env, "docxodus", "browser")
+        self.assertTrue(decision["run"])
+        self.assertFalse(decision["publishable"])
+
+    def test_not_run_decision_is_not_publishable(self):
+        soak = next(row for row in scenarios() if row["id"] == "C20")
+        env = {"execution_profile": "ci_broad", "host_class": "ci_coarse", "headless": False, "repetition_unit": "fresh_process"}
+        decision = plan_attempts(soak, env, "docxodus", "browser")
+        self.assertFalse(decision["run"])
+        self.assertFalse(decision["publishable"])
 
 
-from perf.runner.memory import validate_memory_sample
+from perf.runner.exclusive import assert_exclusive_editor
+
+
+class ExclusiveEditor(unittest.TestCase):
+    def test_ci_coarse_allows_no_active_editor_groups(self):
+        assert_exclusive_editor("ci_coarse", 0)
+
+    def test_ci_coarse_rejects_parallel_editor_groups(self):
+        with self.assertRaises(ValueError) as caught:
+            assert_exclusive_editor("ci_coarse", 2)
+        self.assertIn("ci_coarse", str(caught.exception))
+
+    def test_dedicated_host_allows_parallel_groups(self):
+        assert_exclusive_editor("dedicated", 3)
 
 
 def _sample(**overrides):
