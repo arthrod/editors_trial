@@ -19,7 +19,6 @@ import hashlib
 import json
 import os
 import platform
-import random
 import subprocess
 import sys
 import tempfile
@@ -33,12 +32,14 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
 from perf.adapters.capabilities import default_lane, editor_pins, pin_label  # noqa: E402
+from perf.analysis.interpretation import evaluate_measured_trial  # noqa: E402
 from perf.analysis.publication_gate import trial_publishable_flags  # noqa: E402
 from perf.analysis.summarize import summarize  # noqa: E402
-from perf.fixtures.generate import build_workload, docx_zip_bytes  # noqa: E402
+from perf.analysis.summary_integrity import assert_ci_contract_summary_valid  # noqa: E402
+from perf.fixtures.generate import build_workload, correctness_fixtures, docx_zip_bytes  # noqa: E402
 from perf.fixtures.profiles import feature_profile, size_ladder  # noqa: E402
-from perf.layers.wasm import assert_wasm_report, required_wasm_operations  # noqa: E402
 from perf.runner.artifacts import write_attempt  # noqa: E402
+from perf.runner.docx_plaintext import docx_body_text  # noqa: E402
 from perf.runner.load_timing import parse_perf_lines  # noqa: E402
 from perf.runner.order import editor_order  # noqa: E402
 from perf.runner.schedule import plan_attempts  # noqa: E402
@@ -254,7 +255,7 @@ def _run_wordcraft(indocx: Path, outdocx: Path) -> tuple[float, str, str]:
 
 
 def _run_libreoffice(indocx: Path, outdocx: Path) -> tuple[float, str, str]:
-    """Headless conversion is timed; model_ready line is absent (use wall_ms only)."""
+    """Headless conversion wall time; do not label as ``model_ready`` (no editor model)."""
     outdir = outdocx.parent
     outdir.mkdir(parents=True, exist_ok=True)
     stem = indocx.stem
@@ -277,7 +278,7 @@ def _run_libreoffice(indocx: Path, outdocx: Path) -> tuple[float, str, str]:
     if not produced.is_file():
         raise RuntimeError("libreoffice did not produce output")
     produced.replace(outdocx)
-    combined_out = (result.stdout or "") + "\nPERF model_ready_ms=%.6f\n" % elapsed_ms
+    combined_out = result.stdout or ""
     return elapsed_ms, combined_out, result.stderr or ""
 
 
@@ -320,34 +321,19 @@ def _c02_samples(editor_id: str, indocx: Path, outdocx: Path, perf_mark: Path | 
     return [round(float(model_ms), 6)], wall_ms
 
 
-def _c24_wasm_samples(editor_id: str, seed: int) -> tuple[list[float], dict | None]:
-    """In-process iteration timings for a minimal host/microbenchmark proxy at wasm layer."""
-    rng = random.Random(seed)
-    n = 20
+def c24_boundary_decision(editor_id: str) -> tuple[str, str | None, dict | None]:
+    """
+    C24 on ``ci_contract``: no product WASM/host boundary probe in-tree.
+
+    Closed-source lanes stay ``unverified``; others record ``not_run`` with an explicit reason.
+    """
     if editor_id == "apryse":
-        return [], {"outcome": "unverified"}
-    if editor_id == "docxodus":
-        caps = {name: name == "compile_and_instantiate" for name in required_wasm_operations()}
-    elif editor_id == "wordcraft":
-        caps = {name: False for name in required_wasm_operations()}
-        caps["empty_call"] = True
-    else:
-        caps = {name: True for name in required_wasm_operations()}
-    samples: list[float] = []
-    for _ in range(n):
-        t0 = time.perf_counter()
-        x = rng.random()
-        for _i in range(50):
-            x = (x * 1.0000001) % 1.0
-        samples.append((time.perf_counter() - t0) * 1000.0)
-    report = {}
-    for name in required_wasm_operations():
-        if caps.get(name):
-            report[name] = [round(samples[i], 6) for i in range(n)]
-        else:
-            report[name] = None
-    assert_wasm_report(report, caps)
-    return [round(float(s), 6) for s in samples], None
+        return "unverified", None, None
+    return (
+        "not_run",
+        "wasm_boundary: no host/WASM boundary harness on ci_contract (design C24)",
+        None,
+    )
 
 
 def _trial_dict(
@@ -413,7 +399,16 @@ def main() -> int:
     editor_pins()
     workload_row = next(w for w in size_ladder() if w["workload_id"] == args.workload)
     built = build_workload(workload_row)
-    docx_body = docx_zip_bytes(built["body"])
+    cfs = correctness_fixtures()
+    augmented_body = (
+        built["body"]
+        + b"\n"
+        + cfs["unicode"]
+        + cfs["emoji"]
+        + cfs["bidi"]
+        + cfs["ime_committed"]
+    )
+    docx_body = docx_zip_bytes(augmented_body)
     sha = hashlib.sha256(docx_body).hexdigest()
     docx_size = len(docx_body)
 
@@ -472,6 +467,7 @@ def main() -> int:
                         "outcome": "not_run",
                         "failure_reason": trial["failure_reason"],
                         "attempt_file": _attempt_ref(path),
+                        "publishable": False,
                     }
                 )
                 continue
@@ -503,6 +499,36 @@ def main() -> int:
                             "outcome": "not_run",
                             "failure_reason": trial["failure_reason"],
                             "attempt_file": _attempt_ref(path),
+                            "publishable": False,
+                        }
+                    )
+                    continue
+                if editor_id == "libreoffice":
+                    trial = _trial_dict(
+                        criterion_id=sc_id,
+                        layer=layer,
+                        boundary=boundary,
+                        outcome="not_run",
+                        env=env,
+                        samples_ms=[],
+                        failure_reason=(
+                            "libreoffice: headless convert has no model-layer ready mark "
+                            "(cannot label CLI wall time as model_ready_ms)"
+                        ),
+                        editor_id=editor_id,
+                        lane=lane,
+                    )
+                    path = write_attempt(
+                        attempt_dir, "%s-%s-%s" % (sc_id.lower(), editor_id, uuid.uuid4().hex[:10]), trial
+                    )
+                    summary_rows.append(
+                        {
+                            "criterion_id": sc_id,
+                            "editor_id": editor_id,
+                            "outcome": "not_run",
+                            "failure_reason": trial["failure_reason"],
+                            "attempt_file": _attempt_ref(path),
+                            "publishable": False,
                         }
                     )
                     continue
@@ -528,6 +554,7 @@ def main() -> int:
                             "outcome": "not_run",
                             "failure_reason": "dry-run",
                             "attempt_file": _attempt_ref(path),
+                            "publishable": False,
                         }
                     )
                     continue
@@ -563,11 +590,22 @@ def main() -> int:
                                 "outcome": "failed",
                                 "error": str(exc),
                                 "attempt_file": _attempt_ref(path),
+                                "publishable": False,
                             }
                         )
                         continue
                     stats = summarize(samples, env["cache_state"], env["repetition_unit"], seed=seed)
                     pub, reason = trial_publishable_flags(env, layer, len(samples))
+                    doc_text = docx_body_text(outdocx) if outdocx.is_file() else None
+                    interp_ok, interp_reason = evaluate_measured_trial(
+                        scenario,
+                        env,
+                        doc_output_text=doc_text,
+                        summary_stats=stats,
+                    )
+                    if not interp_ok:
+                        pub = False
+                        reason = interp_reason
                     trial = _trial_dict(
                         criterion_id=sc_id,
                         layer=layer,
@@ -597,64 +635,39 @@ def main() -> int:
                 continue
 
             if sc_id == "C24":
-                samples, diag = _c24_wasm_samples(editor_id, seed=seed + hash(editor_id) % 10000)
-                if diag is not None:
-                    if diag["outcome"] == "unverified":
-                        trial = _trial_dict(
-                            criterion_id=sc_id,
-                            layer=layer,
-                            boundary=boundary,
-                            outcome="unverified",
-                            env=env,
-                            samples_ms=[],
-                            editor_id=editor_id,
-                            lane=lane,
-                        )
-                    else:
-                        trial = _trial_dict(
-                            criterion_id=sc_id,
-                            layer=layer,
-                            boundary=boundary,
-                            outcome="not_run",
-                            env=env,
-                            samples_ms=[],
-                            failure_reason=diag.get("failure_reason") or "wasm_suite",
-                            editor_id=editor_id,
-                            lane=lane,
-                        )
-                    path = write_attempt(attempt_dir, "%s-%s-%s" % (sc_id.lower(), editor_id, uuid.uuid4().hex[:10]), trial)
-                    summary_rows.append(
-                        {
-                            "criterion_id": sc_id,
-                            "editor_id": editor_id,
-                            "outcome": trial["outcome"],
-                            "attempt_file": _attempt_ref(path),
-                        }
+                outcome_c24, fail_c24, _diag = c24_boundary_decision(editor_id)
+                if outcome_c24 == "unverified":
+                    trial = _trial_dict(
+                        criterion_id=sc_id,
+                        layer=layer,
+                        boundary=boundary,
+                        outcome="unverified",
+                        env=env,
+                        samples_ms=[],
+                        editor_id=editor_id,
+                        lane=lane,
                     )
-                    continue
-                stats = summarize(samples, env["cache_state"], env["repetition_unit"], seed=seed)
-                pub, reason = trial_publishable_flags(env, layer, len(samples))
-                trial = _trial_dict(
-                    criterion_id=sc_id,
-                    layer=layer,
-                    boundary=boundary,
-                    outcome="measured",
-                    env=env,
-                    samples_ms=samples,
-                    editor_id=editor_id,
-                    lane=lane,
-                    summary_stats=stats,
-                    publishable=pub,
-                    publication_block_reason=reason,
-                )
+                else:
+                    trial = _trial_dict(
+                        criterion_id=sc_id,
+                        layer=layer,
+                        boundary=boundary,
+                        outcome="not_run",
+                        env=env,
+                        samples_ms=[],
+                        failure_reason=fail_c24 or "wasm_boundary",
+                        editor_id=editor_id,
+                        lane=lane,
+                    )
                 path = write_attempt(attempt_dir, "%s-%s-%s" % (sc_id.lower(), editor_id, uuid.uuid4().hex[:10]), trial)
                 summary_rows.append(
                     {
                         "criterion_id": sc_id,
                         "editor_id": editor_id,
-                        "outcome": "measured",
-                        "median_ms": stats["median"],
+                        "outcome": trial["outcome"],
+                        "failure_reason": trial.get("failure_reason"),
                         "attempt_file": _attempt_ref(path),
+                        "publishable": False,
                     }
                 )
                 continue
@@ -677,7 +690,8 @@ def main() -> int:
                     "editor_id": editor_id,
                     "outcome": "not_run",
                     "failure_reason": trial["failure_reason"],
-                            "attempt_file": _attempt_ref(path),
+                    "attempt_file": _attempt_ref(path),
+                    "publishable": False,
                 }
             )
 
@@ -690,6 +704,7 @@ def main() -> int:
         "criteria": list(catalog.keys()),
         "editors": summary_rows,
     }
+    assert_ci_contract_summary_valid(payload)
     summary_path = out_root / "summary.json"
     summary_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(payload, indent=2))
