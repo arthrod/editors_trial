@@ -41,3 +41,12 @@ def build_workload(profile):
         "match_count": match_count,
         "search_term": term if match_count else None,
     }
+
+
+def correctness_fixtures():
+    return {
+        "unicode": "cafe\u0301 \U0002000b\n".encode("utf-8"),
+        "emoji": "family \U0001f468\u200d\U0001f469\u200d\U0001f467\u200d\U0001f466 tone \U0001f44d\U0001f3fb\n".encode("utf-8"),
+        "bidi": "Hello مرحبا\n".encode("utf-8"),
+        "ime_committed": "地\n".encode("utf-8"),
+    }
