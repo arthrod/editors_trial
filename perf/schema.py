@@ -113,3 +113,25 @@ def validate_environment(env):
         return
     if isinstance(refresh, bool) or not isinstance(refresh, (int, float)) or not math.isfinite(refresh) or refresh <= 0:
         raise ValueError("display_refresh_hz")
+
+
+_PROFILE_BUDGET = {
+    "ci_contract": {"fresh_process": 1, "in_process_iteration": 20},
+    "ci_broad": {"fresh_process": 5, "in_process_iteration": 100},
+    "dedicated_publish": {"fresh_process": 30, "in_process_iteration": 500},
+}
+
+
+def sample_budget_for_profile(execution_profile, repetition_unit):
+    try:
+        return _PROFILE_BUDGET[execution_profile][repetition_unit]
+    except KeyError as exc:
+        raise ValueError("execution_profile") from exc
+
+
+def validate_sample_budget(env, attempt_count):
+    if not isinstance(attempt_count, int) or attempt_count < 1:
+        raise ValueError("attempt_count")
+    limit = sample_budget_for_profile(env["execution_profile"], env["repetition_unit"])
+    if attempt_count > limit:
+        raise ValueError("sample budget exceeded for %s" % (env["execution_profile"],))

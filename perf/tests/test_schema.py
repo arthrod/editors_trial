@@ -1,6 +1,13 @@
 import unittest
 
-from perf.schema import validate_trial, dump_trial, load_trial, validate_environment
+from perf.schema import (
+    validate_trial,
+    dump_trial,
+    load_trial,
+    validate_environment,
+    sample_budget_for_profile,
+    validate_sample_budget,
+)
 
 
 def _trial(boundary, claim):
@@ -221,6 +228,20 @@ class Environment(unittest.TestCase):
         with self.assertRaises(ValueError) as caught:
             validate_environment(_env(host_class="ci_coarse", execution_profile="ci_contract", headless=False))
         self.assertIn("ci_contract", str(caught.exception))
+
+
+class SampleBudget(unittest.TestCase):
+    def test_contract_uses_one_fresh_process(self):
+        self.assertEqual(sample_budget_for_profile("ci_contract", "fresh_process"), 1)
+
+    def test_dedicated_wasm_uses_five_hundred_iterations(self):
+        self.assertEqual(sample_budget_for_profile("dedicated_publish", "in_process_iteration"), 500)
+
+    def test_ci_broad_rejects_an_extra_attempt(self):
+        env = _env(host_class="ci_coarse", execution_profile="ci_broad", headless=False, display_refresh_hz=60)
+        with self.assertRaises(ValueError) as caught:
+            validate_sample_budget(env, 6)
+        self.assertIn("sample budget", str(caught.exception))
 
 
 if __name__ == "__main__":
