@@ -1,3 +1,6 @@
+import random
+
+
 def percentile(samples, p):
     if not samples:
         raise ValueError("empty samples")
@@ -17,3 +20,18 @@ def median_absolute_deviation(samples):
     center = percentile(samples, 50)
     deviations = [abs(sample - center) for sample in samples]
     return percentile(deviations, 50)
+
+
+def bootstrap_median_ci(samples, seed=0, draws=2000, level=0.95):
+    if not samples:
+        raise ValueError("empty samples")
+    if not 0 < level < 1:
+        raise ValueError("level")
+    rng = random.Random(seed)
+    count = len(samples)
+    medians = []
+    for _ in range(draws):
+        draw = [samples[rng.randrange(count)] for _ in range(count)]
+        medians.append(percentile(draw, 50))
+    alpha = (1.0 - level) / 2.0
+    return (percentile(medians, alpha * 100.0), percentile(medians, (1.0 - alpha) * 100.0))
