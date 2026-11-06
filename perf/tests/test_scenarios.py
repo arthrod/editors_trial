@@ -1,6 +1,9 @@
+import json
 import unittest
+from pathlib import Path
 
 from perf.scenarios.catalog import scenarios
+from perf.scenarios.coverage import matrix_gaps
 
 
 class Catalog(unittest.TestCase):
@@ -111,6 +114,29 @@ class ExecutionProfile(unittest.TestCase):
     def test_long_session_requires_dedicated_publish(self):
         soak = next(row for row in scenarios() if row["id"] == "C20")
         self.assertEqual(soak["min_execution_profile"], "dedicated_publish")
+
+
+class Matrix(unittest.TestCase):
+    def test_catalog_covers_the_normative_criteria_and_conditions(self):
+        matrix = json.loads(Path(
+            "docs/superpowers/specs/2026-11-05-editor-performance-coverage.json"
+        ).read_text())
+        self.assertEqual(matrix_gaps(matrix, scenarios()), [])
+
+    def test_a_missing_condition_is_reported(self):
+        matrix = {"criteria": [{"id": "C01"}], "interpretation_conditions": [{"id": "I12"}]}
+        rows = [{"id": "C01", "correctness": []}]
+        self.assertEqual(matrix_gaps(matrix, rows), ["I12"])
+
+    def test_unknown_correctness_id_is_rejected(self):
+        matrix = {
+            "criteria": [{"id": "C01"}],
+            "interpretation_conditions": [{"id": "I12"}],
+        }
+        rows = [{"id": "C01", "correctness": ["I12", "I99"]}]
+        with self.assertRaises(ValueError) as caught:
+            matrix_gaps(matrix, rows)
+        self.assertIn("I99", str(caught.exception))
 
 
 if __name__ == "__main__":
