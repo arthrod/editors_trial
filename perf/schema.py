@@ -12,12 +12,45 @@ _FORBIDDEN = (
     ("model_ready", "user_visible", "model_ready cannot claim user-visible latency"),
 )
 
+OUTCOMES = (
+    "measured",
+    "unsupported",
+    "not_applicable",
+    "unverified",
+    "failed",
+    "not_run",
+)
+
 
 def validate_trial(trial):
+    outcome = trial["outcome"]
+    if outcome not in OUTCOMES:
+        raise ValueError("unknown outcome %r" % (outcome,))
     claims = set(trial.get("claims") or [])
     boundary = trial["boundary"]
     for blocked_boundary, blocked_claim, message in _FORBIDDEN:
         if boundary == blocked_boundary and blocked_claim in claims:
             raise ValueError(message)
-    if trial["outcome"] == "measured" and not trial.get("samples_ms"):
+    raw_samples = trial.get("samples_ms", [])
+    if raw_samples is None:
+        raw_samples = []
+    if not isinstance(raw_samples, list):
+        raise ValueError("samples_ms")
+    samples = raw_samples
+    if outcome in ("failed", "not_run"):
+        reason = trial.get("failure_reason")
+        if not isinstance(reason, str) or not reason:
+            raise ValueError("failure_reason")
+    if outcome != "measured":
+        if trial.get("latency_ms") is not None:
+            raise ValueError("non-measured latency must be null")
+        if samples:
+            raise ValueError("non-measured samples must be empty")
+        return
+    if not samples:
         raise ValueError("measured trial needs samples")
+    for sample in samples:
+        if isinstance(sample, bool) or not isinstance(sample, (int, float)):
+            raise ValueError("samples must be finite and non-negative")
+        if sample != sample or sample in (float("inf"), float("-inf")) or sample < 0:
+            raise ValueError("samples must be finite and non-negative")
