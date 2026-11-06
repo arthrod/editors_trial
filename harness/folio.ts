@@ -28,14 +28,20 @@ if (mode === 'editor') {
   const { fromProseDoc } = await import(
     `${REPO}/packages/core/src/prosemirror/conversion/fromProseDoc.ts`
   );
+  const t0 = performance.now();
   const doc = await parseDocx(ab, { preloadFonts: false });
+  const t1 = performance.now();
+  console.log(`PERF model_ready_ms=${(t1 - t0).toFixed(6)}`);
   const prose = toProseDoc(doc);
   const back = fromProseDoc(prose, doc, { stylesheetSource: { type: 'package' } });
   const out = await repackDocx(back, { updateModifiedDate: false });
   writeFileSync(outPath, Buffer.from(out));
   console.log(`[folio:editor] wrote ${out.byteLength} bytes`);
 } else {
+  const t0 = performance.now();
   const doc = await parseDocx(ab, { preloadFonts: false });
+  const t1 = performance.now();
+  console.log(`PERF model_ready_ms=${(t1 - t0).toFixed(6)}`);
   const out = await repackDocx(doc, { updateModifiedDate: false });
   writeFileSync(outPath, Buffer.from(out));
   console.log(`[folio:model] wrote ${out.byteLength} bytes`);

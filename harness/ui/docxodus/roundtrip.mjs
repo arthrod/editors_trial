@@ -21,7 +21,10 @@ if (!inPath || !outPath) {
 const bytes = new Uint8Array(fs.readFileSync(inPath));
 await initialize();
 
+const t0 = performance.now();
 const session = openDocxSession(bytes);
+const t1 = performance.now();
+console.log(`PERF model_ready_ms=${(t1 - t0).toFixed(6)}`);
 let saved;
 try {
   saved = session.save();

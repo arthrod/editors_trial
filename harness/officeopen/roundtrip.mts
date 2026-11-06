@@ -17,7 +17,10 @@ const outPath = resolve(process.argv[3]);
 const { parseDocument, generateDocument } = await import(`${REPO}/packages/docx/src/index.ts`);
 
 const bytes = new Uint8Array(readFileSync(inPath));
+const t0 = performance.now();
 const parsed = await parseDocument(bytes);
+const t1 = performance.now();
+console.log(`PERF model_ready_ms=${(t1 - t0).toFixed(6)}`);
 const out = await generateDocument(parsed, { type: 'uint8array' });
 writeFileSync(outPath, out);
 console.log(`[officeopen] wrote ${out.byteLength} bytes (sections=${parsed.sections?.length})`);

@@ -1,5 +1,9 @@
 """Editor lane capability registry (design overrides + unverified default)."""
 
+from functools import lru_cache
+
+from perf.pins import load_editor_pins
+
 LANES = {
     "plate": ("headless_docx", "browser_slate"),
     "docxodus": ("session", "wasm_editor"),
@@ -97,23 +101,6 @@ FEATURES = (
     "undo",
 )
 
-PINS = {
-    "plate": "64123fe51",
-    "docxodus": "npm 15.0.0",
-    "apryse": "npm 12.2.1",
-    "superdoc": "71961c61f",
-    "folio": "958c582cb",
-    "genoffice": "36a509e8f",
-    "eigenpal": "37ef590ab",
-    "office-open": "567addfd4",
-    "docen": "1890b15aa",
-    "wordcraft": "ce516b04f",
-    "fidus": "e14cc456a",
-    "canvas": "68f1a4175",
-    "docsplus": "fc17e8036",
-    "libreoffice": "system soffice",
-}
-
 EVIDENCE = {
     ("plate", "browser_slate", "collaboration"): "optional Yjs plugin; not probed on pin 64123fe51",
     ("plate", "browser_slate", "visible_paint"): "available surface, not a verified measurement hook",
@@ -123,6 +110,15 @@ EVIDENCE = {
     ("fidus", "document", "collaboration"): "document package pin dc0981db4 has no collab surface",
     ("fidus", "app", "collaboration"): "full app was not the measured pin",
 }
+
+
+@lru_cache(maxsize=1)
+def editor_pins():
+    return load_editor_pins()
+
+
+def pin_label(editor_id: str) -> str:
+    return editor_pins()[editor_id]
 
 
 def lanes():
@@ -142,8 +138,15 @@ def capability_evidence(editor_id, lane, feature):
     state = capability(editor_id, lane, feature)
     note = EVIDENCE.get(
         (editor_id, lane, feature),
-        "no probe recorded for pin %s" % (PINS[editor_id],),
+        "no probe recorded for pin %s" % (pin_label(editor_id),),
     )
     if feature == "visible_paint" and state == "supported" and "measurement hook" not in note:
         note = "available surface, not a verified measurement hook"
-    return {"pin": PINS[editor_id], "state": state, "note": note}
+    return {"pin": pin_label(editor_id), "state": state, "note": note}
+
+
+def default_lane(editor_id: str) -> str:
+    lane_list = LANES.get(editor_id)
+    if not lane_list:
+        raise ValueError("unknown editor %r" % (editor_id,))
+    return lane_list[0]

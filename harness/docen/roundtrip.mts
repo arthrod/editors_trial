@@ -21,7 +21,10 @@ const { parseDOCX, generateDOCX } = await import(
 );
 
 const bytes = new Uint8Array(readFileSync(inPath));
+const t0 = performance.now();
 const json = await parseDOCX(bytes);
+const t1 = performance.now();
+console.log(`PERF model_ready_ms=${(t1 - t0).toFixed(6)}`);
 const out = await generateDOCX(json, { packer: { type: 'uint8array' } });
 writeFileSync(outPath, out);
 console.log(`[docen] wrote ${out.byteLength} bytes (nodes=${json.content?.length})`);

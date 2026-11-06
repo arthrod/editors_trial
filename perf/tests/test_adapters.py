@@ -1,6 +1,6 @@
 import unittest
 
-from perf.adapters.capabilities import capability, capability_evidence, lanes
+from perf.adapters.capabilities import capability, capability_evidence, lanes, pin_label
 from perf.adapters.protocol import refusal_trial, trial_or_refusal
 from perf.schema import validate_trial
 
@@ -104,14 +104,14 @@ class Capabilities(unittest.TestCase):
 
     def test_evidence_is_tied_to_the_pin(self):
         plate = capability_evidence("plate", "browser_slate", "collaboration")
-        self.assertEqual(plate["pin"], "64123fe51")
+        self.assertEqual(plate["pin"], pin_label("plate"))
         self.assertIn("optional", plate["note"])
         canvas = capability_evidence("canvas", "editor", "collaboration")
-        self.assertIn("68f1a4175", canvas["note"])
+        self.assertIn("CRDT", canvas["note"])
         paint = capability_evidence("plate", "browser_slate", "visible_paint")
         self.assertIn("not a verified measurement hook", paint["note"])
         apryse = capability_evidence("apryse", "webviewer", "wasm")
-        self.assertEqual(apryse["pin"], "npm 12.2.1")
+        self.assertEqual(apryse["pin"], pin_label("apryse"))
         self.assertIn("closed", apryse["note"])
 
 

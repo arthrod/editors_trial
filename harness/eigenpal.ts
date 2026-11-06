@@ -19,7 +19,10 @@ if (mode === 'editor') {
   // DOM-free byte runtime. DocxEditor.createServer is not the browser editor,
   // and index.ts does not export a bare createServer.
   const { DocxEditor } = await import(`${REPO}/packages/editor-api/src/index.ts`);
+  const t0 = performance.now();
   const server = await DocxEditor.createServer(bytes);
+  const t1 = performance.now();
+  console.log(`PERF model_ready_ms=${(t1 - t0).toFixed(6)}`);
   const out = await server.save();
   writeFileSync(outPath, out);
   console.log(`[eigenpal:editor] wrote ${out.byteLength} bytes`);
@@ -27,8 +30,11 @@ if (mode === 'editor') {
   const { readOoxmlPackage, writeOoxmlPackage } = await import(
     `${REPO}/packages/core/src/store/index.ts`
   );
+  const t0 = performance.now();
   const first = readOoxmlPackage(bytes);
   if (!first.ok) throw new Error(`open failed: ${first.reason}`);
+  const t1 = performance.now();
+  console.log(`PERF model_ready_ms=${(t1 - t0).toFixed(6)}`);
   const out = writeOoxmlPackage(first.package);
   writeFileSync(outPath, out);
   console.log(`[eigenpal:store] wrote ${out.byteLength} bytes`);

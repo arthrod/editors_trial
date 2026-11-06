@@ -162,6 +162,20 @@ class RoundTrip(unittest.TestCase):
         self.assertIn("non-measured latency must be null", str(caught.exception))
 
 
+def _i_list():
+    return ["I%02d" % n for n in range(1, 13)]
+
+
+def _workload_fields():
+    return {
+        "fixture_byte_size": 1000,
+        "fixture_paragraph_count": 5,
+        "paragraph_shape": "micro",
+        "unicode_class": "ascii",
+        "match_count": 0,
+    }
+
+
 def _env(**overrides):
     env = {
         "host_class": "dedicated",
@@ -181,7 +195,10 @@ def _env(**overrides):
         "run_kind": "timing",
         "headless": False,
         "display_refresh_hz": 60,
+        "interpretation_conditions": _i_list(),
+        "feature_fallback": [],
     }
+    env.update(_workload_fields())
     env.update(overrides)
     return env
 
@@ -245,6 +262,16 @@ class Environment(unittest.TestCase):
         with self.assertRaises(ValueError) as caught:
             validate_environment(_env(host_class="ci_coarse", execution_profile="ci_contract", headless=False))
         self.assertIn("ci_contract", str(caught.exception))
+
+    def test_interpretation_conditions_must_list_i01_through_i12(self):
+        bad = _i_list()
+        bad[0] = "I13"
+        with self.assertRaises(ValueError) as caught:
+            validate_environment(_env(interpretation_conditions=bad))
+        self.assertIn("interpretation_conditions", str(caught.exception))
+
+    def test_feature_fallback_is_optional_metadata(self):
+        validate_environment(_env(feature_fallback=["proofing", "pagination"]))
 
 
 class SampleBudget(unittest.TestCase):

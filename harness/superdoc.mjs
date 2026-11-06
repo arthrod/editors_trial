@@ -17,7 +17,10 @@ const outPath = resolve(process.argv[3]);
 const { SuperDocClient } = await import(SDK);
 
 const client = new SuperDocClient();
+const t0 = performance.now();
 const doc = await client.open({ doc: inPath });
+const t1 = performance.now();
+console.log(`PERF model_ready_ms=${(t1 - t0).toFixed(6)}`);
 await doc.save({ out: outPath, force: true });
 await doc.close();
 

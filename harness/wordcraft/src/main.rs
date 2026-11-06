@@ -3,6 +3,7 @@
 //! usage: wc-harness <input.docx> <output.docx>
 
 use std::process::ExitCode;
+use std::time::Instant;
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().collect();
@@ -22,6 +23,7 @@ fn main() -> ExitCode {
     };
     println!("input bytes : {}", bytes.len());
 
+    let t0 = Instant::now();
     let doc = match wordcraft_docx::read(&bytes) {
         Ok(d) => {
             println!("read        : ok via wordcraft_docx::read");
@@ -45,6 +47,8 @@ fn main() -> ExitCode {
             }
         }
     };
+    let elapsed_ms = t0.elapsed().as_secs_f64() * 1000.0;
+    println!("PERF model_ready_ms={:.6}", elapsed_ms);
 
     let out_bytes = match wordcraft_docx::write(&doc) {
         Ok(b) => b,

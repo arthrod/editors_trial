@@ -284,6 +284,7 @@ if (!strict.ok) {
 }
 
 // 2) permissive import, then export
+const tLoad0 = performance.now();
 const permissive = await importDocx(ab(), {
   lossPolicy: 'allow',
   plugins,
@@ -304,6 +305,8 @@ const editor = createEditor({
   plugins,
   initialValue: permissive.document as any,
 });
+const tLoad1 = performance.now();
+console.log(`PERF model_ready_ms=${(tLoad1 - tLoad0).toFixed(6)}`);
 
 const exported = await exportDocx(editor as any, {
   projection: 'accepted',

@@ -118,7 +118,10 @@ const inputBuffer = await readFile(IN_DOCX)
 // ---------------------------------------------------------------- import ----
 const inputZip = await JSZip.loadAsync(inputBuffer)
 const importer = new DocxConvert(inputZip, "fidus-trial", IMPORT_TEMPLATE as any, {})
+const t0 = performance.now()
 const imported = await importer.init()
+const t1 = performance.now()
+console.log(`PERF model_ready_ms=${(t1 - t0).toFixed(6)}`)
 console.log(
     "IMPORT OK: doc nodes:",
     imported.content.content?.length,

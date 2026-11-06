@@ -83,10 +83,13 @@ const uploadImage = async (data: Buffer, contentType: string): Promise<string> =
 }
 
 // --- 1. import -------------------------------------------------------------
+const t0 = performance.now()
 const importResult = await importDocx(buffer, {
   fallbackTitle: 'Complex Fixture',
   uploadImage
 })
+const t1 = performance.now()
+console.log(`PERF model_ready_ms=${(t1 - t0).toFixed(6)}`)
 const doc = importResult.content
 console.log(`[import] title      = ${JSON.stringify(importResult.title)}`)
 console.log(`[import] warnings   = ${importResult.warnings.length}`)

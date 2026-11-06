@@ -46,12 +46,15 @@ async function main() {
   const bytes = new Uint8Array(readFileSync(inPath));
 
   // 3. Import into the editor model.
+  const t0 = performance.now();
   const parsed = await parseDocx(bytes);
   const editor = new Editor({
     element: document.createElement('div'),
     extensions: editorExtensions,
   });
   editor.commands.setContent(blocksToPmDoc(parsed.blocks, readSections(parsed)) as never);
+  const t1 = performance.now();
+  console.log(`PERF model_ready_ms=${(t1 - t0).toFixed(6)}`);
 
   // 4. Export back out (no edits -> the selective-save plan should keep original blocks).
   const plan = pmDocToSavePlan(editor.getJSON() as never, parsed.blocks);

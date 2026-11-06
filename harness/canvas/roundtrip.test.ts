@@ -43,11 +43,15 @@ import Editor from '@hufe921/canvas-editor'
 import docxPlugin from '@hufe921/canvas-editor-plugin-docx'
 import { TableParticle } from '@/editor/core/draw/particle/table/TableParticle'
 
-const FIXTURE = process.env.IN_DOCX
+const FIXTURE = process.env.VITEST_DOCX_INPUT
+  || process.env.IN_DOCX
   || '/Users/arthrod/temp/T/editors_trial/fixture/complex.docx'
 const OUT_DIR = process.env.OUT_DIR
   || '/Users/arthrod/temp/T/editors_trial/out/canvas'
-const OUT_DOCX = path.join(OUT_DIR, 'complex.docx')
+const OUT_NAME = process.env.VITEST_DOCX_OUTPUT
+  ? path.basename(process.env.VITEST_DOCX_OUTPUT)
+  : 'complex.docx'
+const OUT_DOCX = path.join(OUT_DIR, OUT_NAME)
 
 // ---------------------------------------------------------------------------
 // Harness instrumentation (NOT a repo change): wrap the editor's table layout
@@ -183,7 +187,14 @@ describe('canvas-editor docx plugin round trip', () => {
     // --- IMPORT ---
     let importError: unknown = null
     try {
+      const t0 = performance.now()
       await cmd.executeImportDocx({ arrayBuffer })
+      const t1 = performance.now()
+      const line = `PERF model_ready_ms=${(t1 - t0).toFixed(6)}\n`
+      console.log(line.trimEnd())
+      if (process.env.PERF_MARK_PATH) {
+        fs.appendFileSync(process.env.PERF_MARK_PATH, line, 'utf8')
+      }
     } catch (e) {
       importError = e
     }
