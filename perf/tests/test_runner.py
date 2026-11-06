@@ -40,7 +40,46 @@ class Artifacts(unittest.TestCase):
 
 
 
-class Schedule(unittest.TestCase):
+from perf.runner.policy import publication_decision
+
+
+def _env(**overrides):
+    env = {
+        "host_class": "dedicated",
+        "cache_state": "process_cold_fs_warm",
+        "run_kind": "timing",
+        "repetition_unit": "fresh_process",
+    }
+    env.update(overrides)
+    return env
+
+
+class Policy(unittest.TestCase):
+    def test_dedicated_timing_run_can_publish_visible_latency(self):
+        self.assertEqual(publication_decision(_env(), "browser_visible"), "publish")
+
+    def test_ci_cannot_publish_visible_latency(self):
+        with self.assertRaises(ValueError) as caught:
+            publication_decision(_env(host_class="ci_coarse"), "browser_visible")
+        self.assertIn("ci_coarse", str(caught.exception))
+
+    def test_ci_may_publish_a_model_microbenchmark(self):
+        self.assertEqual(
+            publication_decision(_env(host_class="ci_coarse", repetition_unit="in_process_iteration"), "model"),
+            "publish",
+        )
+
+    def test_native_present_is_not_a_layer_name(self):
+        with self.assertRaises(ValueError) as caught:
+            publication_decision(_env(host_class="ci_coarse"), "native_present")
+        self.assertIn("layer", str(caught.exception))
+
+    def test_diagnostic_run_is_not_a_timing_publication(self):
+        with self.assertRaises(ValueError) as caught:
+            publication_decision(_env(run_kind="diagnostic"), "browser_visible")
+        self.assertIn("diagnostic", str(caught.exception))
+
+
     def test_profile_rank_orders_low_resource_first(self):
         self.assertLess(profile_rank("ci_contract"), profile_rank("ci_broad"))
         self.assertLess(profile_rank("ci_broad"), profile_rank("dedicated_publish"))
