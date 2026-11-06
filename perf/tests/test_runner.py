@@ -1,7 +1,43 @@
+import json
+import tempfile
 import unittest
+from pathlib import Path
 
+from perf.runner.artifacts import write_attempt
 from perf.runner.schedule import enqueue_cache_states, plan_attempts, profile_rank
 from perf.scenarios.catalog import scenarios
+
+
+def _trial():
+    return {
+        "outcome": "measured",
+        "boundary": "handler_duration",
+        "claims": [],
+        "samples_ms": [1.5],
+        "latency_ms": None,
+    }
+
+
+class Artifacts(unittest.TestCase):
+    def test_writes_the_trial_once(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = write_attempt(Path(tmp), "attempt-1", _trial())
+            self.assertEqual(json.loads(path.read_text())["samples_ms"], [1.5])
+            with self.assertRaises(FileExistsError):
+                write_attempt(Path(tmp), "attempt-1", _trial())
+
+    def test_rejects_an_unsafe_attempt_id(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(ValueError) as caught:
+                write_attempt(Path(tmp), "../escape", _trial())
+            self.assertIn("attempt_id", str(caught.exception))
+
+    def test_rejects_a_trailing_newline(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(ValueError) as caught:
+                write_attempt(Path(tmp), "attempt-1\n", _trial())
+            self.assertIn("attempt_id", str(caught.exception))
+
 
 
 class Schedule(unittest.TestCase):
