@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from perf.runner.artifacts import write_attempt
+from perf.runner.policy import publication_decision
 from perf.runner.schedule import enqueue_cache_states, plan_attempts, profile_rank
 from perf.scenarios.catalog import scenarios
 
@@ -37,10 +38,6 @@ class Artifacts(unittest.TestCase):
             with self.assertRaises(ValueError) as caught:
                 write_attempt(Path(tmp), "attempt-1\n", _trial())
             self.assertIn("attempt_id", str(caught.exception))
-
-
-
-from perf.runner.policy import publication_decision
 
 
 def _env(**overrides):
@@ -80,6 +77,7 @@ class Policy(unittest.TestCase):
         self.assertIn("diagnostic", str(caught.exception))
 
 
+class Schedule(unittest.TestCase):
     def test_profile_rank_orders_low_resource_first(self):
         self.assertLess(profile_rank("ci_contract"), profile_rank("ci_broad"))
         self.assertLess(profile_rank("ci_broad"), profile_rank("dedicated_publish"))
@@ -107,6 +105,44 @@ class Policy(unittest.TestCase):
         decision = plan_attempts(load, env, "folio", "headless")
         self.assertTrue(decision["run"])
         self.assertEqual(decision["sample_budget"], 1)
+
+
+from perf.runner.memory import validate_memory_sample
+
+
+def _sample(**overrides):
+    sample = {
+        "rss_bytes": 1000,
+        "pss_bytes": 800,
+        "uss_bytes": 700,
+        "process_count": 3,
+        "cgroup_current_bytes": 1200,
+        "cgroup_peak_bytes": 1500,
+    }
+    sample.update(overrides)
+    return sample
+
+
+class Memory(unittest.TestCase):
+    def test_accepts_a_process_tree_sample(self):
+        validate_memory_sample(_sample())
+
+    def test_rejects_a_single_missing_process(self):
+        with self.assertRaises(ValueError) as caught:
+            validate_memory_sample(_sample(process_count=0))
+        self.assertIn("process_count", str(caught.exception))
+
+    def test_rejects_a_missing_cgroup_field(self):
+        sample = _sample()
+        del sample["cgroup_peak_bytes"]
+        with self.assertRaises(ValueError) as caught:
+            validate_memory_sample(sample)
+        self.assertIn("cgroup_peak_bytes", str(caught.exception))
+
+    def test_rejects_pss_above_rss(self):
+        with self.assertRaises(ValueError) as caught:
+            validate_memory_sample(_sample(pss_bytes=5000))
+        self.assertIn("pss_bytes", str(caught.exception))
 
 
 if __name__ == "__main__":
