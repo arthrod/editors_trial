@@ -5,7 +5,7 @@
   "execution_profile": "ci_contract",
   "workload_id": "micro-paragraphs",
   "fixture_sha256": "ffc7f6820a64a74f9ddf39f8048be6e7de4af4089bf950c89a053f87bfc1241e",
-  "generated_fixture_note": "synthetic OOXML from perf/fixtures/generate.docx_zip_bytes",
+  "generated_fixture_note": "synthetic OOXML from perf/fixtures/generate.py:docx_zip_bytes",
   "editors": [
     {
       "editor_id": "plate",

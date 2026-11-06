@@ -400,7 +400,7 @@ def main() -> int:
         "execution_profile": "ci_contract",
         "workload_id": args.workload,
         "fixture_sha256": sha,
-        "generated_fixture_note": "synthetic OOXML from perf/fixtures/generate.docx_zip_bytes",
+        "generated_fixture_note": "synthetic OOXML from perf/fixtures/generate.py:docx_zip_bytes",
         "editors": summary_rows,
         "skipped": skipped,
     }
