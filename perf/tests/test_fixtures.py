@@ -47,5 +47,38 @@ class CorrectnessFixtures(unittest.TestCase):
         self.assertNotIn("di", body)
 
 
+from perf.fixtures.profiles import feature_profile, with_fallback
+
+
+class FeatureProfiles(unittest.TestCase):
+    def test_p0_has_no_optional_features(self):
+        profile = feature_profile("P0")
+        self.assertEqual(profile["collaboration"], "off")
+        self.assertEqual(profile["ai_panel"], "off")
+        self.assertEqual(profile["proofing"], "off")
+
+    def test_p3_names_a_busy_panel(self):
+        profile = feature_profile("P3")
+        self.assertEqual(profile["busy_panel"], "on")
+        self.assertEqual(profile["proofing"], "on")
+
+    def test_fallback_keeps_the_requested_name_and_lists_what_dropped(self):
+        dropped = with_fallback(feature_profile("P2"), ["proofing"])
+        self.assertEqual(dropped["name"], "P2")
+        self.assertEqual(dropped["disabled_features"], ["proofing"])
+        self.assertEqual(dropped["proofing"], "off")
+
+    def test_unknown_profile_is_rejected(self):
+        with self.assertRaises(ValueError) as caught:
+            feature_profile("P9")
+        self.assertIn("feature profile", str(caught.exception))
+
+    def test_fallback_rejects_metadata_keys(self):
+        with self.assertRaises(ValueError) as caught:
+            with_fallback(feature_profile("P2"), ["name"])
+        self.assertIn("unknown feature", str(caught.exception))
+        self.assertEqual(feature_profile("P2")["name"], "P2")
+
+
 if __name__ == "__main__":
     unittest.main()
