@@ -1,0 +1,43 @@
+import hashlib
+
+
+def build_workload(profile):
+    paragraphs = int(profile["paragraphs"])
+    width = int(profile["paragraph_chars"])
+    if paragraphs < 1 or width < 1:
+        raise ValueError("workload shape")
+    unicode_class = profile["unicode_class"]
+    if unicode_class not in ("ascii", "mixed"):
+        raise ValueError("unicode_class")
+    match_count = int(profile["match_count"])
+    if match_count < 0:
+        raise ValueError("match_count")
+    term = profile.get("search_term", "NEEDLE")
+    needle = term.encode("utf-8")
+    if match_count and (not term or needle in b" \n"):
+        raise ValueError("search_term")
+    capacity = paragraphs * width
+    if match_count and len(needle) * match_count > capacity:
+        raise ValueError("match_count")
+    if unicode_class == "mixed":
+        marker = "e\u0301\U0002000b".encode("utf-8")
+        filler = (marker * (capacity // len(marker) + 1))[:capacity]
+    else:
+        filler = b" " * capacity
+    blob = bytearray(filler)
+    if match_count:
+        packed = needle * match_count
+        blob[:len(packed)] = packed
+    if match_count and bytes(blob).count(needle) != match_count:
+        raise ValueError("match_count")
+    lines = [bytes(blob[index * width:(index + 1) * width]) for index in range(paragraphs)]
+    body = b"\n".join(lines) + b"\n"
+    return {
+        "workload_id": profile["workload_id"],
+        "sha256": hashlib.sha256(body).hexdigest(),
+        "body": body,
+        "paragraphs": paragraphs,
+        "unicode_class": unicode_class,
+        "match_count": match_count,
+        "search_term": term if match_count else None,
+    }
