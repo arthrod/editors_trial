@@ -81,6 +81,9 @@ class Summary(unittest.TestCase):
         self.assertIn("workload_id", str(caught.exception))
 
 
+from perf.analysis.summarize import assert_interactive_repetition
+
+
 class Repetition(unittest.TestCase):
     def test_startup_requires_a_fresh_process(self):
         with self.assertRaises(ValueError) as caught:
