@@ -36,6 +36,56 @@ class LibreofficeNoFabricatedModelReady(unittest.TestCase):
                 "LibreOffice lane must not fabricate model_ready_ms from wall time",
             )
 
+    def test_libreoffice_stdout_has_no_fabricated_perf_save_ms_line(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            indocx = Path(tmp) / "in.docx"
+            outdocx = Path(tmp) / "out.docx"
+            indocx.write_bytes(docx_zip_bytes(b"hello\n"))
+            wall_ms, out, err, _cpu = bcc._run_libreoffice(indocx, outdocx)
+            combined = (out or "") + (err or "")
+            self.assertIsNotNone(wall_ms)
+            self.assertNotRegex(
+                combined,
+                re.compile(r"PERF\s+save_ms\s*=", re.I),
+                "LibreOffice lane must not fabricate PERF save_ms= from subprocess wall time",
+            )
+
+
+class LibreofficeC16Honesty(unittest.TestCase):
+    """C16 must not report runner-injected save_ms for headless soffice."""
+
+    def test_libreoffice_c16_is_not_run_in_contract_outputs(self):
+        root = Path(__file__).resolve().parents[2] / "perf" / "out"
+        for sub in ("ci_contract_2026_11_07", "ci_broad_2026_11_07"):
+            summary_path = root / sub / "summary.json"
+            if not summary_path.is_file():
+                continue
+            payload = json.loads(summary_path.read_text(encoding="utf-8"))
+            rows = [
+                r
+                for r in payload.get("editors", [])
+                if r.get("criterion_id") == "C16" and r.get("editor_id") == "libreoffice"
+            ]
+            self.assertEqual(
+                len(rows),
+                1,
+                "expected exactly one C16 libreoffice row in %s" % summary_path,
+            )
+            row = rows[0]
+            self.assertEqual(
+                row.get("outcome"),
+                "not_run",
+                "LibreOffice C16 must be not_run (no harness save_ms), got %r in %s"
+                % (row.get("outcome"), summary_path),
+            )
+            reason = (row.get("failure_reason") or "").lower()
+            self.assertIn("save", reason)
+            self.assertIn(
+                "perf",
+                reason,
+                "failure_reason should mention missing PERF save probe: %r" % row.get("failure_reason"),
+            )
+
 
 class C24NoSyntheticWasmLoop(unittest.TestCase):
     def test_c24_decision_is_not_measured_synthetic_samples(self):

@@ -3,8 +3,9 @@
 
 Writes immutable trial JSON under ``perf/out/<profile>_<date>/attempts/`` and
 ``summary.json``. Uses harness-emitted ``PERF model_ready_ms=`` for C02 load
-timing, ``PERF save_ms=`` for C16 serialization where the harness emits it, and
-Linux ``getrusage(RUSAGE_CHILDREN)`` child CPU milliseconds for C21 (real probe,
+timing, ``PERF save_ms=`` for C16 serialization where the harness emits it
+(LibreOffice has no such probe: C16 is ``not_run``), and Linux
+``getrusage(RUSAGE_CHILDREN)`` child CPU milliseconds for C21 (real probe,
 subprocess tree is mostly the direct child on these drivers).
 
 ``--execution-profile`` selects ``ci_contract`` (default) or ``ci_broad``;
@@ -267,6 +268,12 @@ def _run_wordcraft(indocx: Path, outdocx: Path) -> tuple[float, str, str]:
     return _measure_cmd(cmd, cwd=REPO / "harness" / "wordcraft")
 
 
+LIBREOFFICE_C16_NOT_RUN_REASON = (
+    "libreoffice: headless soffice conversion has no save-boundary probe emitting "
+    "PERF save_ms= (serialization timing not separately measurable here)"
+)
+
+
 def _run_libreoffice(indocx: Path, outdocx: Path) -> tuple[float, str, str, float]:
     """Headless conversion wall time; do not label as ``model_ready`` (no editor model)."""
     outdir = outdocx.parent
@@ -294,7 +301,7 @@ def _run_libreoffice(indocx: Path, outdocx: Path) -> tuple[float, str, str, floa
     if not produced.is_file():
         raise RuntimeError("libreoffice did not produce output")
     produced.replace(outdocx)
-    combined_out = (result.stdout or "") + "PERF save_ms=%.6f\n" % (elapsed_ms,)
+    combined_out = result.stdout or ""
     return elapsed_ms, combined_out, result.stderr or "", child_cpu_ms
 
 
@@ -348,8 +355,14 @@ def _collect_samples(
     tmp_path: Path,
     workload_id: str,
     attempt_count: int,
+    metric_from_wall: bool = False,
 ) -> tuple[list[float], list[float], list[float], Path | None]:
-    """Return (metric_samples, wall_samples_ms, child_cpu_samples_ms, last_outdocx)."""
+    """Return (metric_samples, wall_samples_ms, child_cpu_samples_ms, last_outdocx).
+
+    When ``metric_from_wall`` is true, each metric sample is the subprocess wall
+    time (used for LibreOffice C02 conversion wall: same numeric series as
+    ``subprocess_wall_ms_median``, not a fabricated ``PERF`` line).
+    """
     metric_samples: list[float] = []
     wall_samples: list[float] = []
     cpu_samples: list[float] = []
@@ -362,7 +375,10 @@ def _collect_samples(
         if perf_path.is_file():
             perf_path.unlink()
         wall_ms, out, err, child_cpu = _harness_run(editor_id, indocx, outdocx, perf_mark=perf_path)
-        metric_samples.append(_perf_sample_from_output(key, err, out, perf_mark=perf_path))
+        if metric_from_wall:
+            metric_samples.append(round(wall_ms, 6))
+        else:
+            metric_samples.append(_perf_sample_from_output(key, err, out, perf_mark=perf_path))
         wall_samples.append(round(wall_ms, 6))
         cpu_samples.append(round(child_cpu, 6))
         last_out = outdocx
@@ -638,6 +654,7 @@ def main() -> int:
                                 tmp_path=tmp_path,
                                 workload_id=args.workload,
                                 attempt_count=budget,
+                                metric_from_wall=True,
                             )
                         except Exception as exc:
                             fail = _trial_dict(
@@ -848,6 +865,32 @@ def main() -> int:
                         failure_reason=(
                             "apryse: proprietary WebViewer round-trip harness not run on this Linux CI host"
                         ),
+                        editor_id=editor_id,
+                        lane=lane,
+                    )
+                    path = write_attempt(
+                        attempt_dir, "%s-%s-%s" % (sc_id.lower(), editor_id, uuid.uuid4().hex[:10]), trial
+                    )
+                    summary_rows.append(
+                        {
+                            "criterion_id": sc_id,
+                            "editor_id": editor_id,
+                            "outcome": "not_run",
+                            "failure_reason": trial["failure_reason"],
+                            "attempt_file": _attempt_ref(path),
+                            "publishable": False,
+                        }
+                    )
+                    continue
+                if editor_id == "libreoffice":
+                    trial = _trial_dict(
+                        criterion_id=sc_id,
+                        layer=layer,
+                        boundary=boundary,
+                        outcome="not_run",
+                        env=env,
+                        samples_ms=[],
+                        failure_reason=LIBREOFFICE_C16_NOT_RUN_REASON,
                         editor_id=editor_id,
                         lane=lane,
                     )

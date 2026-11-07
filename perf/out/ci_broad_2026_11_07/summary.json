@@ -2,7 +2,7 @@
   "execution_profile": "ci_broad",
   "host_class": "ci_coarse",
   "workload_id": "micro-paragraphs",
-  "fixture_sha256": "8205ef95464fc91285a4979560548f83702d563a6727210c318d6502af1e986a",
+  "fixture_sha256": "deab4df8b7df966ad81b01eca25eef0044bcde3969a001877dddc388d2032cba",
   "dry_run": false,
   "criteria": [
     "C01",
@@ -36,7 +36,7 @@
       "editor_id": "docen",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C01 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c01-docen-585c388369.json",
+      "attempt_file": "c01-docen-0109e58396.json",
       "publishable": false
     },
     {
@@ -44,7 +44,7 @@
       "editor_id": "docsplus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C01 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c01-docsplus-1b2201ffd6.json",
+      "attempt_file": "c01-docsplus-c844f6c835.json",
       "publishable": false
     },
     {
@@ -52,7 +52,7 @@
       "editor_id": "office-open",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C01 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c01-office-open-0cd4afa0ab.json",
+      "attempt_file": "c01-office-open-3a9c0157dc.json",
       "publishable": false
     },
     {
@@ -60,7 +60,7 @@
       "editor_id": "eigenpal",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C01 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c01-eigenpal-494c934af6.json",
+      "attempt_file": "c01-eigenpal-1e2412400f.json",
       "publishable": false
     },
     {
@@ -68,7 +68,7 @@
       "editor_id": "libreoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C01 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c01-libreoffice-a194e60067.json",
+      "attempt_file": "c01-libreoffice-ba20e8a7cc.json",
       "publishable": false
     },
     {
@@ -76,7 +76,7 @@
       "editor_id": "canvas",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C01 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c01-canvas-55c06f8f8c.json",
+      "attempt_file": "c01-canvas-b1f4dbbda1.json",
       "publishable": false
     },
     {
@@ -84,7 +84,7 @@
       "editor_id": "genoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C01 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c01-genoffice-04c63adcd6.json",
+      "attempt_file": "c01-genoffice-c796d56ab4.json",
       "publishable": false
     },
     {
@@ -92,7 +92,7 @@
       "editor_id": "apryse",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C01 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c01-apryse-273e58d80c.json",
+      "attempt_file": "c01-apryse-b52476684d.json",
       "publishable": false
     },
     {
@@ -100,7 +100,7 @@
       "editor_id": "wordcraft",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C01 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c01-wordcraft-1bf2fc24a7.json",
+      "attempt_file": "c01-wordcraft-cb99644046.json",
       "publishable": false
     },
     {
@@ -108,7 +108,7 @@
       "editor_id": "superdoc",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C01 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c01-superdoc-5056aeaaff.json",
+      "attempt_file": "c01-superdoc-0bd0ad3d31.json",
       "publishable": false
     },
     {
@@ -116,7 +116,7 @@
       "editor_id": "folio",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C01 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c01-folio-9b5c38cc00.json",
+      "attempt_file": "c01-folio-63f6491c03.json",
       "publishable": false
     },
     {
@@ -124,7 +124,7 @@
       "editor_id": "plate",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C01 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c01-plate-fbbddb13d7.json",
+      "attempt_file": "c01-plate-b9661045b2.json",
       "publishable": false
     },
     {
@@ -132,7 +132,7 @@
       "editor_id": "docxodus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C01 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c01-docxodus-06589dc0d1.json",
+      "attempt_file": "c01-docxodus-1ced4bd4ed.json",
       "publishable": false
     },
     {
@@ -140,47 +140,47 @@
       "editor_id": "fidus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C01 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c01-fidus-fb43dba8b4.json",
+      "attempt_file": "c01-fidus-e1e019730f.json",
       "publishable": false
     },
     {
       "criterion_id": "C02",
       "editor_id": "docen",
       "outcome": "measured",
-      "median_ms": 7.326237,
+      "median_ms": 7.262437,
       "model_ready_ms": null,
-      "subprocess_wall_ms_median": 298.788073,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c02-docen-44aef8a07a.json",
+      "subprocess_wall_ms_median": 287.470041,
+      "attempt_file": "c02-docen-0166af7295.json",
       "publishable": false
     },
     {
       "criterion_id": "C02",
       "editor_id": "docsplus",
       "outcome": "measured",
-      "median_ms": 26.027487,
+      "median_ms": 25.867656,
       "model_ready_ms": null,
-      "subprocess_wall_ms_median": 304.498958,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c02-docsplus-b1a678b389.json",
+      "subprocess_wall_ms_median": 303.624234,
+      "attempt_file": "c02-docsplus-64ba53ab06.json",
       "publishable": false
     },
     {
       "criterion_id": "C02",
       "editor_id": "office-open",
       "outcome": "measured",
-      "median_ms": 6.573823,
+      "median_ms": 6.518731,
       "model_ready_ms": null,
-      "subprocess_wall_ms_median": 365.865198,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c02-office-open-35be99b4dd.json",
+      "subprocess_wall_ms_median": 362.186281,
+      "attempt_file": "c02-office-open-9850f434b8.json",
       "publishable": false
     },
     {
       "criterion_id": "C02",
       "editor_id": "eigenpal",
       "outcome": "measured",
-      "median_ms": 5.669909,
+      "median_ms": 5.582242,
       "model_ready_ms": null,
-      "subprocess_wall_ms_median": 97.278646,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c02-eigenpal-709e84a76e.json",
+      "subprocess_wall_ms_median": 95.928105,
+      "attempt_file": "c02-eigenpal-efa556cfe0.json",
       "publishable": false
     },
     {
@@ -188,30 +188,30 @@
       "editor_id": "libreoffice",
       "outcome": "measured",
       "boundary": "conversion_wall",
-      "median_ms": 611.986726,
-      "load_timing_ms": 611.986726,
-      "subprocess_wall_ms_median": 611.986726,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c02-libreoffice-0c9961a261.json",
+      "median_ms": 580.181957,
+      "load_timing_ms": 580.181957,
+      "subprocess_wall_ms_median": 580.181957,
+      "attempt_file": "c02-libreoffice-18ee6bf06e.json",
       "publishable": false
     },
     {
       "criterion_id": "C02",
       "editor_id": "canvas",
       "outcome": "measured",
-      "median_ms": 15.944853,
+      "median_ms": 15.265612,
       "model_ready_ms": null,
-      "subprocess_wall_ms_median": 2254.727467,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c02-canvas-e672f9ae29.json",
+      "subprocess_wall_ms_median": 2245.190445,
+      "attempt_file": "c02-canvas-963832a226.json",
       "publishable": false
     },
     {
       "criterion_id": "C02",
       "editor_id": "genoffice",
       "outcome": "measured",
-      "median_ms": 97.378098,
+      "median_ms": 99.913335,
       "model_ready_ms": null,
-      "subprocess_wall_ms_median": 1368.687732,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c02-genoffice-1a1bca0938.json",
+      "subprocess_wall_ms_median": 1370.222863,
+      "attempt_file": "c02-genoffice-d44e309e95.json",
       "publishable": false
     },
     {
@@ -219,67 +219,67 @@
       "editor_id": "apryse",
       "outcome": "not_run",
       "failure_reason": "apryse: proprietary WebViewer round-trip harness not run on this Linux CI host",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c02-apryse-6f71fe61b6.json",
+      "attempt_file": "c02-apryse-2afca33fd7.json",
       "publishable": false
     },
     {
       "criterion_id": "C02",
       "editor_id": "wordcraft",
       "outcome": "measured",
-      "median_ms": 0.304888,
+      "median_ms": 0.306209,
       "model_ready_ms": null,
-      "subprocess_wall_ms_median": 2.06364,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c02-wordcraft-6c765b4efd.json",
+      "subprocess_wall_ms_median": 2.054597,
+      "attempt_file": "c02-wordcraft-76d950f45b.json",
       "publishable": false
     },
     {
       "criterion_id": "C02",
       "editor_id": "superdoc",
       "outcome": "measured",
-      "median_ms": 563.47017,
+      "median_ms": 566.949301,
       "model_ready_ms": null,
-      "subprocess_wall_ms_median": 724.512033,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c02-superdoc-2e60a09832.json",
+      "subprocess_wall_ms_median": 728.096138,
+      "attempt_file": "c02-superdoc-6aa63b5046.json",
       "publishable": false
     },
     {
       "criterion_id": "C02",
       "editor_id": "folio",
       "outcome": "measured",
-      "median_ms": 14.435157,
+      "median_ms": 14.35194,
       "model_ready_ms": null,
-      "subprocess_wall_ms_median": 113.264991,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c02-folio-a4bc5ce25e.json",
+      "subprocess_wall_ms_median": 111.370007,
+      "attempt_file": "c02-folio-720373884b.json",
       "publishable": false
     },
     {
       "criterion_id": "C02",
       "editor_id": "plate",
       "outcome": "measured",
-      "median_ms": 89.172442,
+      "median_ms": 89.407477,
       "model_ready_ms": null,
-      "subprocess_wall_ms_median": 902.163215,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c02-plate-656029625c.json",
+      "subprocess_wall_ms_median": 907.133872,
+      "attempt_file": "c02-plate-dca5f8136d.json",
       "publishable": false
     },
     {
       "criterion_id": "C02",
       "editor_id": "docxodus",
       "outcome": "measured",
-      "median_ms": 154.736915,
+      "median_ms": 154.639807,
       "model_ready_ms": null,
-      "subprocess_wall_ms_median": 357.25711,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c02-docxodus-c122d5e5c8.json",
+      "subprocess_wall_ms_median": 360.192421,
+      "attempt_file": "c02-docxodus-59be29e07e.json",
       "publishable": false
     },
     {
       "criterion_id": "C02",
       "editor_id": "fidus",
       "outcome": "measured",
-      "median_ms": 6.314816,
+      "median_ms": 6.270279,
       "model_ready_ms": null,
-      "subprocess_wall_ms_median": 707.205192,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c02-fidus-3c3db06f42.json",
+      "subprocess_wall_ms_median": 703.286676,
+      "attempt_file": "c02-fidus-b4cf8ab0d0.json",
       "publishable": false
     },
     {
@@ -287,7 +287,7 @@
       "editor_id": "docen",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C03 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c03-docen-1c2a2587f7.json",
+      "attempt_file": "c03-docen-4fdf7a9fb3.json",
       "publishable": false
     },
     {
@@ -295,7 +295,7 @@
       "editor_id": "docsplus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C03 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c03-docsplus-d9040ffc9c.json",
+      "attempt_file": "c03-docsplus-5cc7246f0b.json",
       "publishable": false
     },
     {
@@ -303,7 +303,7 @@
       "editor_id": "office-open",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C03 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c03-office-open-fbc5e0d2b9.json",
+      "attempt_file": "c03-office-open-5c2bb1f2f7.json",
       "publishable": false
     },
     {
@@ -311,7 +311,7 @@
       "editor_id": "eigenpal",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C03 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c03-eigenpal-e67209bd7f.json",
+      "attempt_file": "c03-eigenpal-b6ada31726.json",
       "publishable": false
     },
     {
@@ -319,7 +319,7 @@
       "editor_id": "libreoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C03 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c03-libreoffice-aab4088267.json",
+      "attempt_file": "c03-libreoffice-85ca0387ce.json",
       "publishable": false
     },
     {
@@ -327,7 +327,7 @@
       "editor_id": "canvas",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C03 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c03-canvas-aedd4d42bf.json",
+      "attempt_file": "c03-canvas-31f49f3c48.json",
       "publishable": false
     },
     {
@@ -335,7 +335,7 @@
       "editor_id": "genoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C03 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c03-genoffice-f9f2e916ef.json",
+      "attempt_file": "c03-genoffice-448189ce9b.json",
       "publishable": false
     },
     {
@@ -343,7 +343,7 @@
       "editor_id": "apryse",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C03 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c03-apryse-3ad21642d7.json",
+      "attempt_file": "c03-apryse-05022a688b.json",
       "publishable": false
     },
     {
@@ -351,7 +351,7 @@
       "editor_id": "wordcraft",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C03 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c03-wordcraft-7058573d3b.json",
+      "attempt_file": "c03-wordcraft-dd3317d856.json",
       "publishable": false
     },
     {
@@ -359,7 +359,7 @@
       "editor_id": "superdoc",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C03 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c03-superdoc-3d1faa2edd.json",
+      "attempt_file": "c03-superdoc-76c5bbb04f.json",
       "publishable": false
     },
     {
@@ -367,7 +367,7 @@
       "editor_id": "folio",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C03 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c03-folio-10ea8f6131.json",
+      "attempt_file": "c03-folio-3c003b528d.json",
       "publishable": false
     },
     {
@@ -375,7 +375,7 @@
       "editor_id": "plate",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C03 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c03-plate-c04e8790fb.json",
+      "attempt_file": "c03-plate-1b0bfe7519.json",
       "publishable": false
     },
     {
@@ -383,7 +383,7 @@
       "editor_id": "docxodus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C03 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c03-docxodus-b90c10ae26.json",
+      "attempt_file": "c03-docxodus-98cba3edb1.json",
       "publishable": false
     },
     {
@@ -391,7 +391,7 @@
       "editor_id": "fidus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C03 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c03-fidus-a661f00db5.json",
+      "attempt_file": "c03-fidus-eefc889077.json",
       "publishable": false
     },
     {
@@ -399,7 +399,7 @@
       "editor_id": "docen",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C04 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c04-docen-28e9bace0c.json",
+      "attempt_file": "c04-docen-3f2b32a83e.json",
       "publishable": false
     },
     {
@@ -407,7 +407,7 @@
       "editor_id": "docsplus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C04 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c04-docsplus-23a1e690bc.json",
+      "attempt_file": "c04-docsplus-4e6cf7d651.json",
       "publishable": false
     },
     {
@@ -415,7 +415,7 @@
       "editor_id": "office-open",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C04 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c04-office-open-769fdd1026.json",
+      "attempt_file": "c04-office-open-698f4ad63f.json",
       "publishable": false
     },
     {
@@ -423,7 +423,7 @@
       "editor_id": "eigenpal",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C04 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c04-eigenpal-9cba74494d.json",
+      "attempt_file": "c04-eigenpal-4b6f77674c.json",
       "publishable": false
     },
     {
@@ -431,7 +431,7 @@
       "editor_id": "libreoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C04 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c04-libreoffice-51ab699a6b.json",
+      "attempt_file": "c04-libreoffice-6dcb86e123.json",
       "publishable": false
     },
     {
@@ -439,7 +439,7 @@
       "editor_id": "canvas",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C04 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c04-canvas-1638257b05.json",
+      "attempt_file": "c04-canvas-9cd472161e.json",
       "publishable": false
     },
     {
@@ -447,7 +447,7 @@
       "editor_id": "genoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C04 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c04-genoffice-961d054d79.json",
+      "attempt_file": "c04-genoffice-2f5c5d12e2.json",
       "publishable": false
     },
     {
@@ -455,7 +455,7 @@
       "editor_id": "apryse",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C04 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c04-apryse-268fe32c39.json",
+      "attempt_file": "c04-apryse-8135528a01.json",
       "publishable": false
     },
     {
@@ -463,7 +463,7 @@
       "editor_id": "wordcraft",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C04 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c04-wordcraft-be6b461975.json",
+      "attempt_file": "c04-wordcraft-78e32709a8.json",
       "publishable": false
     },
     {
@@ -471,7 +471,7 @@
       "editor_id": "superdoc",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C04 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c04-superdoc-03301edf66.json",
+      "attempt_file": "c04-superdoc-1908e96371.json",
       "publishable": false
     },
     {
@@ -479,7 +479,7 @@
       "editor_id": "folio",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C04 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c04-folio-789b734f69.json",
+      "attempt_file": "c04-folio-4818773746.json",
       "publishable": false
     },
     {
@@ -487,7 +487,7 @@
       "editor_id": "plate",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C04 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c04-plate-d5bacf74e2.json",
+      "attempt_file": "c04-plate-008f8151a4.json",
       "publishable": false
     },
     {
@@ -495,7 +495,7 @@
       "editor_id": "docxodus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C04 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c04-docxodus-4fdc607e22.json",
+      "attempt_file": "c04-docxodus-a048549003.json",
       "publishable": false
     },
     {
@@ -503,7 +503,7 @@
       "editor_id": "fidus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C04 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c04-fidus-f64ab505c1.json",
+      "attempt_file": "c04-fidus-dcd6144b76.json",
       "publishable": false
     },
     {
@@ -511,7 +511,7 @@
       "editor_id": "docen",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C05 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c05-docen-7e4220609a.json",
+      "attempt_file": "c05-docen-97641745bd.json",
       "publishable": false
     },
     {
@@ -519,7 +519,7 @@
       "editor_id": "docsplus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C05 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c05-docsplus-364e55818c.json",
+      "attempt_file": "c05-docsplus-c0f64a57d7.json",
       "publishable": false
     },
     {
@@ -527,7 +527,7 @@
       "editor_id": "office-open",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C05 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c05-office-open-c2253cc991.json",
+      "attempt_file": "c05-office-open-0a95c0a539.json",
       "publishable": false
     },
     {
@@ -535,7 +535,7 @@
       "editor_id": "eigenpal",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C05 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c05-eigenpal-51311390f1.json",
+      "attempt_file": "c05-eigenpal-af9f119ae9.json",
       "publishable": false
     },
     {
@@ -543,7 +543,7 @@
       "editor_id": "libreoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C05 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c05-libreoffice-4133c7a059.json",
+      "attempt_file": "c05-libreoffice-22353bb1f7.json",
       "publishable": false
     },
     {
@@ -551,7 +551,7 @@
       "editor_id": "canvas",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C05 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c05-canvas-936d9e21bb.json",
+      "attempt_file": "c05-canvas-5693724a5c.json",
       "publishable": false
     },
     {
@@ -559,7 +559,7 @@
       "editor_id": "genoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C05 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c05-genoffice-2fa5366b51.json",
+      "attempt_file": "c05-genoffice-580ca8e4b7.json",
       "publishable": false
     },
     {
@@ -567,7 +567,7 @@
       "editor_id": "apryse",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C05 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c05-apryse-1d0ef504ee.json",
+      "attempt_file": "c05-apryse-b8e1d84f71.json",
       "publishable": false
     },
     {
@@ -575,7 +575,7 @@
       "editor_id": "wordcraft",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C05 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c05-wordcraft-4acaf7d8b6.json",
+      "attempt_file": "c05-wordcraft-1241553e85.json",
       "publishable": false
     },
     {
@@ -583,7 +583,7 @@
       "editor_id": "superdoc",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C05 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c05-superdoc-e77aeb7312.json",
+      "attempt_file": "c05-superdoc-2be7778cf7.json",
       "publishable": false
     },
     {
@@ -591,7 +591,7 @@
       "editor_id": "folio",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C05 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c05-folio-b6050ca81c.json",
+      "attempt_file": "c05-folio-393c7cb17e.json",
       "publishable": false
     },
     {
@@ -599,7 +599,7 @@
       "editor_id": "plate",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C05 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c05-plate-ad15ee9437.json",
+      "attempt_file": "c05-plate-c57a9d2c6a.json",
       "publishable": false
     },
     {
@@ -607,7 +607,7 @@
       "editor_id": "docxodus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C05 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c05-docxodus-c21a1e9c6b.json",
+      "attempt_file": "c05-docxodus-96a74a21e3.json",
       "publishable": false
     },
     {
@@ -615,7 +615,7 @@
       "editor_id": "fidus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C05 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c05-fidus-caaaa9a6ec.json",
+      "attempt_file": "c05-fidus-850f7162b0.json",
       "publishable": false
     },
     {
@@ -623,7 +623,7 @@
       "editor_id": "docen",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C06 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c06-docen-11908ccff6.json",
+      "attempt_file": "c06-docen-fced960536.json",
       "publishable": false
     },
     {
@@ -631,7 +631,7 @@
       "editor_id": "docsplus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C06 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c06-docsplus-f35858fd92.json",
+      "attempt_file": "c06-docsplus-34d8a55241.json",
       "publishable": false
     },
     {
@@ -639,7 +639,7 @@
       "editor_id": "office-open",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C06 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c06-office-open-6fab277803.json",
+      "attempt_file": "c06-office-open-4d92ac1361.json",
       "publishable": false
     },
     {
@@ -647,7 +647,7 @@
       "editor_id": "eigenpal",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C06 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c06-eigenpal-6dd6d1b95b.json",
+      "attempt_file": "c06-eigenpal-bbf73fbf2c.json",
       "publishable": false
     },
     {
@@ -655,7 +655,7 @@
       "editor_id": "libreoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C06 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c06-libreoffice-b8e0bd3c6d.json",
+      "attempt_file": "c06-libreoffice-1928c85c8e.json",
       "publishable": false
     },
     {
@@ -663,7 +663,7 @@
       "editor_id": "canvas",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C06 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c06-canvas-ab43bb039b.json",
+      "attempt_file": "c06-canvas-bbaa622e80.json",
       "publishable": false
     },
     {
@@ -671,7 +671,7 @@
       "editor_id": "genoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C06 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c06-genoffice-5e700d1860.json",
+      "attempt_file": "c06-genoffice-a7b8664351.json",
       "publishable": false
     },
     {
@@ -679,7 +679,7 @@
       "editor_id": "apryse",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C06 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c06-apryse-ee41c56f35.json",
+      "attempt_file": "c06-apryse-c939fd7330.json",
       "publishable": false
     },
     {
@@ -687,7 +687,7 @@
       "editor_id": "wordcraft",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C06 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c06-wordcraft-700ae99ba4.json",
+      "attempt_file": "c06-wordcraft-762610f095.json",
       "publishable": false
     },
     {
@@ -695,7 +695,7 @@
       "editor_id": "superdoc",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C06 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c06-superdoc-4786afbb08.json",
+      "attempt_file": "c06-superdoc-c90c5dc5c9.json",
       "publishable": false
     },
     {
@@ -703,7 +703,7 @@
       "editor_id": "folio",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C06 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c06-folio-737bda5d87.json",
+      "attempt_file": "c06-folio-1191ea3c0d.json",
       "publishable": false
     },
     {
@@ -711,7 +711,7 @@
       "editor_id": "plate",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C06 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c06-plate-5fcb70a059.json",
+      "attempt_file": "c06-plate-0351e274ca.json",
       "publishable": false
     },
     {
@@ -719,7 +719,7 @@
       "editor_id": "docxodus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C06 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c06-docxodus-5043868f91.json",
+      "attempt_file": "c06-docxodus-5d83a87c47.json",
       "publishable": false
     },
     {
@@ -727,7 +727,7 @@
       "editor_id": "fidus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C06 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c06-fidus-2334e2061d.json",
+      "attempt_file": "c06-fidus-22eea77463.json",
       "publishable": false
     },
     {
@@ -735,7 +735,7 @@
       "editor_id": "docen",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C07 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c07-docen-188a85fecc.json",
+      "attempt_file": "c07-docen-6859a24ec8.json",
       "publishable": false
     },
     {
@@ -743,7 +743,7 @@
       "editor_id": "docsplus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C07 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c07-docsplus-ea6207dcdf.json",
+      "attempt_file": "c07-docsplus-b0bcf0d709.json",
       "publishable": false
     },
     {
@@ -751,7 +751,7 @@
       "editor_id": "office-open",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C07 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c07-office-open-833d9a1d6c.json",
+      "attempt_file": "c07-office-open-c2d6b428e9.json",
       "publishable": false
     },
     {
@@ -759,7 +759,7 @@
       "editor_id": "eigenpal",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C07 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c07-eigenpal-51e75fddeb.json",
+      "attempt_file": "c07-eigenpal-dff52a52d4.json",
       "publishable": false
     },
     {
@@ -767,7 +767,7 @@
       "editor_id": "libreoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C07 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c07-libreoffice-83bac72c19.json",
+      "attempt_file": "c07-libreoffice-1d4e731807.json",
       "publishable": false
     },
     {
@@ -775,7 +775,7 @@
       "editor_id": "canvas",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C07 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c07-canvas-3abb8e2b8d.json",
+      "attempt_file": "c07-canvas-c5872ff8b0.json",
       "publishable": false
     },
     {
@@ -783,7 +783,7 @@
       "editor_id": "genoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C07 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c07-genoffice-ef1da68eed.json",
+      "attempt_file": "c07-genoffice-0345be03a1.json",
       "publishable": false
     },
     {
@@ -791,7 +791,7 @@
       "editor_id": "apryse",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C07 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c07-apryse-0301cd02de.json",
+      "attempt_file": "c07-apryse-4f77f8e71d.json",
       "publishable": false
     },
     {
@@ -799,7 +799,7 @@
       "editor_id": "wordcraft",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C07 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c07-wordcraft-b9070188c7.json",
+      "attempt_file": "c07-wordcraft-0c38235e2b.json",
       "publishable": false
     },
     {
@@ -807,7 +807,7 @@
       "editor_id": "superdoc",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C07 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c07-superdoc-fb37fb1053.json",
+      "attempt_file": "c07-superdoc-6c5335df08.json",
       "publishable": false
     },
     {
@@ -815,7 +815,7 @@
       "editor_id": "folio",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C07 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c07-folio-c21cd6b84d.json",
+      "attempt_file": "c07-folio-d841d054f0.json",
       "publishable": false
     },
     {
@@ -823,7 +823,7 @@
       "editor_id": "plate",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C07 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c07-plate-1ce1acb1af.json",
+      "attempt_file": "c07-plate-5e33489239.json",
       "publishable": false
     },
     {
@@ -831,7 +831,7 @@
       "editor_id": "docxodus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C07 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c07-docxodus-cd4719bbab.json",
+      "attempt_file": "c07-docxodus-835ea2d211.json",
       "publishable": false
     },
     {
@@ -839,7 +839,7 @@
       "editor_id": "fidus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C07 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c07-fidus-7c998404a6.json",
+      "attempt_file": "c07-fidus-3387660c16.json",
       "publishable": false
     },
     {
@@ -847,7 +847,7 @@
       "editor_id": "docen",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C08 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c08-docen-7e1ff01628.json",
+      "attempt_file": "c08-docen-3158028494.json",
       "publishable": false
     },
     {
@@ -855,7 +855,7 @@
       "editor_id": "docsplus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C08 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c08-docsplus-0c707ae7a2.json",
+      "attempt_file": "c08-docsplus-81c81b837a.json",
       "publishable": false
     },
     {
@@ -863,7 +863,7 @@
       "editor_id": "office-open",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C08 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c08-office-open-a8bc119cbf.json",
+      "attempt_file": "c08-office-open-aa9a93e70a.json",
       "publishable": false
     },
     {
@@ -871,7 +871,7 @@
       "editor_id": "eigenpal",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C08 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c08-eigenpal-cbd6ebda82.json",
+      "attempt_file": "c08-eigenpal-fbec48033d.json",
       "publishable": false
     },
     {
@@ -879,7 +879,7 @@
       "editor_id": "libreoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C08 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c08-libreoffice-a8a80f6a8a.json",
+      "attempt_file": "c08-libreoffice-bde9797ab6.json",
       "publishable": false
     },
     {
@@ -887,7 +887,7 @@
       "editor_id": "canvas",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C08 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c08-canvas-513602e2aa.json",
+      "attempt_file": "c08-canvas-0d9b6f0601.json",
       "publishable": false
     },
     {
@@ -895,7 +895,7 @@
       "editor_id": "genoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C08 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c08-genoffice-5447e86a89.json",
+      "attempt_file": "c08-genoffice-cba4a2229f.json",
       "publishable": false
     },
     {
@@ -903,7 +903,7 @@
       "editor_id": "apryse",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C08 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c08-apryse-5098ab4782.json",
+      "attempt_file": "c08-apryse-6ee70027f0.json",
       "publishable": false
     },
     {
@@ -911,7 +911,7 @@
       "editor_id": "wordcraft",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C08 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c08-wordcraft-2634b7dce6.json",
+      "attempt_file": "c08-wordcraft-49408df1d3.json",
       "publishable": false
     },
     {
@@ -919,7 +919,7 @@
       "editor_id": "superdoc",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C08 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c08-superdoc-8e04306229.json",
+      "attempt_file": "c08-superdoc-9d64b976ce.json",
       "publishable": false
     },
     {
@@ -927,7 +927,7 @@
       "editor_id": "folio",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C08 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c08-folio-e3bec618ff.json",
+      "attempt_file": "c08-folio-a363a126c8.json",
       "publishable": false
     },
     {
@@ -935,7 +935,7 @@
       "editor_id": "plate",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C08 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c08-plate-2163ae821b.json",
+      "attempt_file": "c08-plate-d48b9f8cd1.json",
       "publishable": false
     },
     {
@@ -943,7 +943,7 @@
       "editor_id": "docxodus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C08 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c08-docxodus-68e6d44e5e.json",
+      "attempt_file": "c08-docxodus-56ad6f6ad1.json",
       "publishable": false
     },
     {
@@ -951,7 +951,7 @@
       "editor_id": "fidus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C08 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c08-fidus-b30fa541d6.json",
+      "attempt_file": "c08-fidus-ed147f8e6a.json",
       "publishable": false
     },
     {
@@ -959,7 +959,7 @@
       "editor_id": "docen",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C09 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c09-docen-bc6024ff39.json",
+      "attempt_file": "c09-docen-917178c451.json",
       "publishable": false
     },
     {
@@ -967,7 +967,7 @@
       "editor_id": "docsplus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C09 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c09-docsplus-606100d178.json",
+      "attempt_file": "c09-docsplus-e73675b9c8.json",
       "publishable": false
     },
     {
@@ -975,7 +975,7 @@
       "editor_id": "office-open",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C09 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c09-office-open-b5133a3445.json",
+      "attempt_file": "c09-office-open-f8be1ffc01.json",
       "publishable": false
     },
     {
@@ -983,7 +983,7 @@
       "editor_id": "eigenpal",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C09 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c09-eigenpal-d52910e608.json",
+      "attempt_file": "c09-eigenpal-c99824b98d.json",
       "publishable": false
     },
     {
@@ -991,7 +991,7 @@
       "editor_id": "libreoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C09 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c09-libreoffice-28d61cea22.json",
+      "attempt_file": "c09-libreoffice-af766d1cef.json",
       "publishable": false
     },
     {
@@ -999,7 +999,7 @@
       "editor_id": "canvas",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C09 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c09-canvas-ea7dc5d35b.json",
+      "attempt_file": "c09-canvas-ea6e7d5485.json",
       "publishable": false
     },
     {
@@ -1007,7 +1007,7 @@
       "editor_id": "genoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C09 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c09-genoffice-926c0af12e.json",
+      "attempt_file": "c09-genoffice-1003f9e62f.json",
       "publishable": false
     },
     {
@@ -1015,7 +1015,7 @@
       "editor_id": "apryse",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C09 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c09-apryse-0a8835ef33.json",
+      "attempt_file": "c09-apryse-1e50ad78da.json",
       "publishable": false
     },
     {
@@ -1023,7 +1023,7 @@
       "editor_id": "wordcraft",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C09 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c09-wordcraft-973fe46a5b.json",
+      "attempt_file": "c09-wordcraft-e8e84b41ad.json",
       "publishable": false
     },
     {
@@ -1031,7 +1031,7 @@
       "editor_id": "superdoc",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C09 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c09-superdoc-60aac73e52.json",
+      "attempt_file": "c09-superdoc-7e091e6e10.json",
       "publishable": false
     },
     {
@@ -1039,7 +1039,7 @@
       "editor_id": "folio",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C09 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c09-folio-00982db4e0.json",
+      "attempt_file": "c09-folio-fb2d6952b8.json",
       "publishable": false
     },
     {
@@ -1047,7 +1047,7 @@
       "editor_id": "plate",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C09 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c09-plate-c24cf7e2e4.json",
+      "attempt_file": "c09-plate-4482cbe123.json",
       "publishable": false
     },
     {
@@ -1055,7 +1055,7 @@
       "editor_id": "docxodus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C09 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c09-docxodus-2fdeccd7b5.json",
+      "attempt_file": "c09-docxodus-a633a5fa70.json",
       "publishable": false
     },
     {
@@ -1063,7 +1063,7 @@
       "editor_id": "fidus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C09 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c09-fidus-c6d1b3406d.json",
+      "attempt_file": "c09-fidus-cd4830e697.json",
       "publishable": false
     },
     {
@@ -1071,7 +1071,7 @@
       "editor_id": "docen",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C10 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c10-docen-955507ce54.json",
+      "attempt_file": "c10-docen-1f85ac946b.json",
       "publishable": false
     },
     {
@@ -1079,7 +1079,7 @@
       "editor_id": "docsplus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C10 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c10-docsplus-2993173adb.json",
+      "attempt_file": "c10-docsplus-7a88acc59d.json",
       "publishable": false
     },
     {
@@ -1087,7 +1087,7 @@
       "editor_id": "office-open",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C10 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c10-office-open-0ed169d26e.json",
+      "attempt_file": "c10-office-open-3ca1ac1824.json",
       "publishable": false
     },
     {
@@ -1095,7 +1095,7 @@
       "editor_id": "eigenpal",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C10 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c10-eigenpal-140e2de476.json",
+      "attempt_file": "c10-eigenpal-fb0a62a825.json",
       "publishable": false
     },
     {
@@ -1103,7 +1103,7 @@
       "editor_id": "libreoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C10 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c10-libreoffice-d11b4b287a.json",
+      "attempt_file": "c10-libreoffice-208373dd7e.json",
       "publishable": false
     },
     {
@@ -1111,7 +1111,7 @@
       "editor_id": "canvas",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C10 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c10-canvas-35dac315ff.json",
+      "attempt_file": "c10-canvas-50b8003f26.json",
       "publishable": false
     },
     {
@@ -1119,7 +1119,7 @@
       "editor_id": "genoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C10 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c10-genoffice-b22bc90245.json",
+      "attempt_file": "c10-genoffice-2d62364d1c.json",
       "publishable": false
     },
     {
@@ -1127,7 +1127,7 @@
       "editor_id": "apryse",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C10 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c10-apryse-1375103e53.json",
+      "attempt_file": "c10-apryse-2f3d4de029.json",
       "publishable": false
     },
     {
@@ -1135,7 +1135,7 @@
       "editor_id": "wordcraft",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C10 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c10-wordcraft-5f2e7c8103.json",
+      "attempt_file": "c10-wordcraft-96c979749b.json",
       "publishable": false
     },
     {
@@ -1143,7 +1143,7 @@
       "editor_id": "superdoc",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C10 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c10-superdoc-491cd0c79a.json",
+      "attempt_file": "c10-superdoc-e30b27a47c.json",
       "publishable": false
     },
     {
@@ -1151,7 +1151,7 @@
       "editor_id": "folio",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C10 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c10-folio-e783d9ce4c.json",
+      "attempt_file": "c10-folio-fb6bc4dbc5.json",
       "publishable": false
     },
     {
@@ -1159,7 +1159,7 @@
       "editor_id": "plate",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C10 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c10-plate-7b05c5c621.json",
+      "attempt_file": "c10-plate-5caf764a9b.json",
       "publishable": false
     },
     {
@@ -1167,7 +1167,7 @@
       "editor_id": "docxodus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C10 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c10-docxodus-3b07755797.json",
+      "attempt_file": "c10-docxodus-6159ee5b75.json",
       "publishable": false
     },
     {
@@ -1175,7 +1175,7 @@
       "editor_id": "fidus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C10 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c10-fidus-97e0dcff0f.json",
+      "attempt_file": "c10-fidus-95951e16d9.json",
       "publishable": false
     },
     {
@@ -1183,7 +1183,7 @@
       "editor_id": "docen",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C11 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c11-docen-ffd51d3df2.json",
+      "attempt_file": "c11-docen-76e51d0651.json",
       "publishable": false
     },
     {
@@ -1191,7 +1191,7 @@
       "editor_id": "docsplus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C11 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c11-docsplus-3884a7d07f.json",
+      "attempt_file": "c11-docsplus-85d7074f28.json",
       "publishable": false
     },
     {
@@ -1199,7 +1199,7 @@
       "editor_id": "office-open",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C11 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c11-office-open-3c334fc344.json",
+      "attempt_file": "c11-office-open-895560298a.json",
       "publishable": false
     },
     {
@@ -1207,7 +1207,7 @@
       "editor_id": "eigenpal",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C11 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c11-eigenpal-513fe582b2.json",
+      "attempt_file": "c11-eigenpal-a6c08321f0.json",
       "publishable": false
     },
     {
@@ -1215,7 +1215,7 @@
       "editor_id": "libreoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C11 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c11-libreoffice-56d6f22a62.json",
+      "attempt_file": "c11-libreoffice-701ebd1e2d.json",
       "publishable": false
     },
     {
@@ -1223,7 +1223,7 @@
       "editor_id": "canvas",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C11 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c11-canvas-5eba70af4b.json",
+      "attempt_file": "c11-canvas-2e03a0cda5.json",
       "publishable": false
     },
     {
@@ -1231,7 +1231,7 @@
       "editor_id": "genoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C11 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c11-genoffice-c90628017e.json",
+      "attempt_file": "c11-genoffice-f0edccce14.json",
       "publishable": false
     },
     {
@@ -1239,7 +1239,7 @@
       "editor_id": "apryse",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C11 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c11-apryse-7744b7c6b2.json",
+      "attempt_file": "c11-apryse-46005e3f43.json",
       "publishable": false
     },
     {
@@ -1247,7 +1247,7 @@
       "editor_id": "wordcraft",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C11 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c11-wordcraft-62b333a9a6.json",
+      "attempt_file": "c11-wordcraft-b76d34e63d.json",
       "publishable": false
     },
     {
@@ -1255,7 +1255,7 @@
       "editor_id": "superdoc",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C11 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c11-superdoc-1432184ba4.json",
+      "attempt_file": "c11-superdoc-8d0152124b.json",
       "publishable": false
     },
     {
@@ -1263,7 +1263,7 @@
       "editor_id": "folio",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C11 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c11-folio-b5ea1baa6e.json",
+      "attempt_file": "c11-folio-241b0f83dd.json",
       "publishable": false
     },
     {
@@ -1271,7 +1271,7 @@
       "editor_id": "plate",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C11 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c11-plate-c6a1e6e71e.json",
+      "attempt_file": "c11-plate-5e28b79a38.json",
       "publishable": false
     },
     {
@@ -1279,7 +1279,7 @@
       "editor_id": "docxodus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C11 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c11-docxodus-28a7cd0a71.json",
+      "attempt_file": "c11-docxodus-91bd71868b.json",
       "publishable": false
     },
     {
@@ -1287,7 +1287,7 @@
       "editor_id": "fidus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C11 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c11-fidus-dbd167fcaa.json",
+      "attempt_file": "c11-fidus-2c6f8a2e79.json",
       "publishable": false
     },
     {
@@ -1295,7 +1295,7 @@
       "editor_id": "docen",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C12 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c12-docen-f4ce658ea7.json",
+      "attempt_file": "c12-docen-9f48b46536.json",
       "publishable": false
     },
     {
@@ -1303,7 +1303,7 @@
       "editor_id": "docsplus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C12 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c12-docsplus-eed375bf1f.json",
+      "attempt_file": "c12-docsplus-d4379e7ea3.json",
       "publishable": false
     },
     {
@@ -1311,7 +1311,7 @@
       "editor_id": "office-open",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C12 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c12-office-open-cd282f2ee7.json",
+      "attempt_file": "c12-office-open-558e386959.json",
       "publishable": false
     },
     {
@@ -1319,7 +1319,7 @@
       "editor_id": "eigenpal",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C12 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c12-eigenpal-8cfc08d33b.json",
+      "attempt_file": "c12-eigenpal-a6818dd817.json",
       "publishable": false
     },
     {
@@ -1327,7 +1327,7 @@
       "editor_id": "libreoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C12 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c12-libreoffice-05bb311152.json",
+      "attempt_file": "c12-libreoffice-c63f7a2213.json",
       "publishable": false
     },
     {
@@ -1335,7 +1335,7 @@
       "editor_id": "canvas",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C12 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c12-canvas-ef37fed01d.json",
+      "attempt_file": "c12-canvas-928c9c4f21.json",
       "publishable": false
     },
     {
@@ -1343,7 +1343,7 @@
       "editor_id": "genoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C12 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c12-genoffice-3cff892cae.json",
+      "attempt_file": "c12-genoffice-93e227b070.json",
       "publishable": false
     },
     {
@@ -1351,7 +1351,7 @@
       "editor_id": "apryse",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C12 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c12-apryse-61bd0c17f5.json",
+      "attempt_file": "c12-apryse-7f706bb5e3.json",
       "publishable": false
     },
     {
@@ -1359,7 +1359,7 @@
       "editor_id": "wordcraft",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C12 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c12-wordcraft-b351558847.json",
+      "attempt_file": "c12-wordcraft-b689aa48b0.json",
       "publishable": false
     },
     {
@@ -1367,7 +1367,7 @@
       "editor_id": "superdoc",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C12 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c12-superdoc-cf96ca1da7.json",
+      "attempt_file": "c12-superdoc-4aea2383c4.json",
       "publishable": false
     },
     {
@@ -1375,7 +1375,7 @@
       "editor_id": "folio",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C12 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c12-folio-7a78b37a64.json",
+      "attempt_file": "c12-folio-439c73e837.json",
       "publishable": false
     },
     {
@@ -1383,7 +1383,7 @@
       "editor_id": "plate",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C12 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c12-plate-6727be7eb2.json",
+      "attempt_file": "c12-plate-03464d5bff.json",
       "publishable": false
     },
     {
@@ -1391,7 +1391,7 @@
       "editor_id": "docxodus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C12 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c12-docxodus-525aeb9408.json",
+      "attempt_file": "c12-docxodus-5b0bfe1ed5.json",
       "publishable": false
     },
     {
@@ -1399,7 +1399,7 @@
       "editor_id": "fidus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C12 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c12-fidus-3c85c1884f.json",
+      "attempt_file": "c12-fidus-9cc48ffdcb.json",
       "publishable": false
     },
     {
@@ -1407,7 +1407,7 @@
       "editor_id": "docen",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C13 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c13-docen-f30a7b6ff3.json",
+      "attempt_file": "c13-docen-73e1e81f41.json",
       "publishable": false
     },
     {
@@ -1415,7 +1415,7 @@
       "editor_id": "docsplus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C13 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c13-docsplus-a91c7930f3.json",
+      "attempt_file": "c13-docsplus-6162be863f.json",
       "publishable": false
     },
     {
@@ -1423,7 +1423,7 @@
       "editor_id": "office-open",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C13 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c13-office-open-49dcd661a5.json",
+      "attempt_file": "c13-office-open-038e2d4e42.json",
       "publishable": false
     },
     {
@@ -1431,7 +1431,7 @@
       "editor_id": "eigenpal",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C13 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c13-eigenpal-129bb017c1.json",
+      "attempt_file": "c13-eigenpal-9f50d92e30.json",
       "publishable": false
     },
     {
@@ -1439,7 +1439,7 @@
       "editor_id": "libreoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C13 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c13-libreoffice-73fb6f42f6.json",
+      "attempt_file": "c13-libreoffice-78b92c9407.json",
       "publishable": false
     },
     {
@@ -1447,7 +1447,7 @@
       "editor_id": "canvas",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C13 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c13-canvas-e42b816853.json",
+      "attempt_file": "c13-canvas-e6239cfd0c.json",
       "publishable": false
     },
     {
@@ -1455,7 +1455,7 @@
       "editor_id": "genoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C13 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c13-genoffice-cbb8d0a61c.json",
+      "attempt_file": "c13-genoffice-fea034c4d6.json",
       "publishable": false
     },
     {
@@ -1463,7 +1463,7 @@
       "editor_id": "apryse",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C13 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c13-apryse-1999884a4f.json",
+      "attempt_file": "c13-apryse-c876ec87af.json",
       "publishable": false
     },
     {
@@ -1471,7 +1471,7 @@
       "editor_id": "wordcraft",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C13 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c13-wordcraft-cac3317f4d.json",
+      "attempt_file": "c13-wordcraft-68f5d120fa.json",
       "publishable": false
     },
     {
@@ -1479,7 +1479,7 @@
       "editor_id": "superdoc",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C13 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c13-superdoc-bc312a555f.json",
+      "attempt_file": "c13-superdoc-f4c8c4a91e.json",
       "publishable": false
     },
     {
@@ -1487,7 +1487,7 @@
       "editor_id": "folio",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C13 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c13-folio-5840f09ea7.json",
+      "attempt_file": "c13-folio-75f08544ff.json",
       "publishable": false
     },
     {
@@ -1495,7 +1495,7 @@
       "editor_id": "plate",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C13 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c13-plate-9b6bd3b66e.json",
+      "attempt_file": "c13-plate-82c3e856c0.json",
       "publishable": false
     },
     {
@@ -1503,7 +1503,7 @@
       "editor_id": "docxodus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C13 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c13-docxodus-28c317c2c1.json",
+      "attempt_file": "c13-docxodus-00205808f8.json",
       "publishable": false
     },
     {
@@ -1511,7 +1511,7 @@
       "editor_id": "fidus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C13 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c13-fidus-2452e78445.json",
+      "attempt_file": "c13-fidus-a894cae3c9.json",
       "publishable": false
     },
     {
@@ -1519,7 +1519,7 @@
       "editor_id": "docen",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C14 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c14-docen-ba66e1d256.json",
+      "attempt_file": "c14-docen-0341c46003.json",
       "publishable": false
     },
     {
@@ -1527,7 +1527,7 @@
       "editor_id": "docsplus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C14 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c14-docsplus-5417d11642.json",
+      "attempt_file": "c14-docsplus-c7b09e07ff.json",
       "publishable": false
     },
     {
@@ -1535,7 +1535,7 @@
       "editor_id": "office-open",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C14 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c14-office-open-d89274b338.json",
+      "attempt_file": "c14-office-open-0af801f0ac.json",
       "publishable": false
     },
     {
@@ -1543,7 +1543,7 @@
       "editor_id": "eigenpal",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C14 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c14-eigenpal-cda7d4ce19.json",
+      "attempt_file": "c14-eigenpal-5600835e2b.json",
       "publishable": false
     },
     {
@@ -1551,7 +1551,7 @@
       "editor_id": "libreoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C14 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c14-libreoffice-f4d915ae4f.json",
+      "attempt_file": "c14-libreoffice-e25a5d3cd3.json",
       "publishable": false
     },
     {
@@ -1559,7 +1559,7 @@
       "editor_id": "canvas",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C14 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c14-canvas-7a177ed0e7.json",
+      "attempt_file": "c14-canvas-65fea2202a.json",
       "publishable": false
     },
     {
@@ -1567,7 +1567,7 @@
       "editor_id": "genoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C14 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c14-genoffice-13b1fda68c.json",
+      "attempt_file": "c14-genoffice-d0ddadd239.json",
       "publishable": false
     },
     {
@@ -1575,7 +1575,7 @@
       "editor_id": "apryse",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C14 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c14-apryse-e2eb7ea08d.json",
+      "attempt_file": "c14-apryse-201bb532d9.json",
       "publishable": false
     },
     {
@@ -1583,7 +1583,7 @@
       "editor_id": "wordcraft",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C14 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c14-wordcraft-01fb47db10.json",
+      "attempt_file": "c14-wordcraft-8f849f840f.json",
       "publishable": false
     },
     {
@@ -1591,7 +1591,7 @@
       "editor_id": "superdoc",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C14 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c14-superdoc-6ef0874760.json",
+      "attempt_file": "c14-superdoc-876acd5139.json",
       "publishable": false
     },
     {
@@ -1599,7 +1599,7 @@
       "editor_id": "folio",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C14 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c14-folio-d905b14661.json",
+      "attempt_file": "c14-folio-6d896186c8.json",
       "publishable": false
     },
     {
@@ -1607,7 +1607,7 @@
       "editor_id": "plate",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C14 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c14-plate-81bc931f4f.json",
+      "attempt_file": "c14-plate-2ed5e048da.json",
       "publishable": false
     },
     {
@@ -1615,7 +1615,7 @@
       "editor_id": "docxodus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C14 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c14-docxodus-c3e0e22241.json",
+      "attempt_file": "c14-docxodus-e5593552ae.json",
       "publishable": false
     },
     {
@@ -1623,7 +1623,7 @@
       "editor_id": "fidus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C14 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c14-fidus-38405bf24e.json",
+      "attempt_file": "c14-fidus-3582f9be49.json",
       "publishable": false
     },
     {
@@ -1631,7 +1631,7 @@
       "editor_id": "docen",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C15 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c15-docen-6a7cac1f38.json",
+      "attempt_file": "c15-docen-73c09b18d4.json",
       "publishable": false
     },
     {
@@ -1639,7 +1639,7 @@
       "editor_id": "docsplus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C15 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c15-docsplus-b773f41cec.json",
+      "attempt_file": "c15-docsplus-f8f7e1da8e.json",
       "publishable": false
     },
     {
@@ -1647,7 +1647,7 @@
       "editor_id": "office-open",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C15 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c15-office-open-f5a09ea1a7.json",
+      "attempt_file": "c15-office-open-9f160fd25e.json",
       "publishable": false
     },
     {
@@ -1655,7 +1655,7 @@
       "editor_id": "eigenpal",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C15 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c15-eigenpal-35de260aa4.json",
+      "attempt_file": "c15-eigenpal-3d3a311068.json",
       "publishable": false
     },
     {
@@ -1663,7 +1663,7 @@
       "editor_id": "libreoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C15 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c15-libreoffice-6ff324ca11.json",
+      "attempt_file": "c15-libreoffice-14d33c1abb.json",
       "publishable": false
     },
     {
@@ -1671,7 +1671,7 @@
       "editor_id": "canvas",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C15 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c15-canvas-64b0b86b4c.json",
+      "attempt_file": "c15-canvas-aff25f6a17.json",
       "publishable": false
     },
     {
@@ -1679,7 +1679,7 @@
       "editor_id": "genoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C15 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c15-genoffice-40a89e0fe1.json",
+      "attempt_file": "c15-genoffice-4238c732a5.json",
       "publishable": false
     },
     {
@@ -1687,7 +1687,7 @@
       "editor_id": "apryse",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C15 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c15-apryse-eae98cc599.json",
+      "attempt_file": "c15-apryse-88512090d7.json",
       "publishable": false
     },
     {
@@ -1695,7 +1695,7 @@
       "editor_id": "wordcraft",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C15 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c15-wordcraft-da7d217db1.json",
+      "attempt_file": "c15-wordcraft-315c596985.json",
       "publishable": false
     },
     {
@@ -1703,7 +1703,7 @@
       "editor_id": "superdoc",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C15 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c15-superdoc-81f0669654.json",
+      "attempt_file": "c15-superdoc-e9ef7144d5.json",
       "publishable": false
     },
     {
@@ -1711,7 +1711,7 @@
       "editor_id": "folio",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C15 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c15-folio-7d92b0e54c.json",
+      "attempt_file": "c15-folio-4b5ff6db35.json",
       "publishable": false
     },
     {
@@ -1719,7 +1719,7 @@
       "editor_id": "plate",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C15 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c15-plate-03a00de8c6.json",
+      "attempt_file": "c15-plate-106e350cbe.json",
       "publishable": false
     },
     {
@@ -1727,7 +1727,7 @@
       "editor_id": "docxodus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C15 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c15-docxodus-ec2f944e67.json",
+      "attempt_file": "c15-docxodus-c46b22ac75.json",
       "publishable": false
     },
     {
@@ -1735,77 +1735,75 @@
       "editor_id": "fidus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C15 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c15-fidus-ad03cfdaad.json",
+      "attempt_file": "c15-fidus-61900bd5e2.json",
       "publishable": false
     },
     {
       "criterion_id": "C16",
       "editor_id": "docen",
       "outcome": "measured",
-      "median_ms": 13.124039,
-      "save_ms": 13.124039,
-      "subprocess_wall_ms_median": 290.12852,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c16-docen-a37b498068.json",
+      "median_ms": 12.997047,
+      "save_ms": 12.997047,
+      "subprocess_wall_ms_median": 292.865278,
+      "attempt_file": "c16-docen-b92cd6715d.json",
       "publishable": false
     },
     {
       "criterion_id": "C16",
       "editor_id": "docsplus",
       "outcome": "measured",
-      "median_ms": 23.897949,
-      "save_ms": 23.897949,
-      "subprocess_wall_ms_median": 297.791999,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c16-docsplus-87cb60da6a.json",
+      "median_ms": 23.821522,
+      "save_ms": 23.821522,
+      "subprocess_wall_ms_median": 299.194209,
+      "attempt_file": "c16-docsplus-dc0fbcbc69.json",
       "publishable": false
     },
     {
       "criterion_id": "C16",
       "editor_id": "office-open",
       "outcome": "measured",
-      "median_ms": 12.989659,
-      "save_ms": 12.989659,
-      "subprocess_wall_ms_median": 357.370782,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c16-office-open-0bfd12d1ca.json",
+      "median_ms": 13.193416,
+      "save_ms": 13.193416,
+      "subprocess_wall_ms_median": 363.339772,
+      "attempt_file": "c16-office-open-95dbbb485b.json",
       "publishable": false
     },
     {
       "criterion_id": "C16",
       "editor_id": "eigenpal",
       "outcome": "measured",
-      "median_ms": 8.51068,
-      "save_ms": 8.51068,
-      "subprocess_wall_ms_median": 95.125121,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c16-eigenpal-3b006fae78.json",
+      "median_ms": 8.453714,
+      "save_ms": 8.453714,
+      "subprocess_wall_ms_median": 95.00039,
+      "attempt_file": "c16-eigenpal-31730afb1d.json",
       "publishable": false
     },
     {
       "criterion_id": "C16",
       "editor_id": "libreoffice",
-      "outcome": "measured",
-      "median_ms": 571.992607,
-      "save_ms": 571.992607,
-      "subprocess_wall_ms_median": 571.992607,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c16-libreoffice-8fa6db34ea.json",
+      "outcome": "not_run",
+      "failure_reason": "libreoffice: headless soffice conversion has no save-boundary probe emitting PERF save_ms= (serialization timing not separately measurable here)",
+      "attempt_file": "c16-libreoffice-27392db1ee.json",
       "publishable": false
     },
     {
       "criterion_id": "C16",
       "editor_id": "canvas",
       "outcome": "measured",
-      "median_ms": 22.074199,
-      "save_ms": 22.074199,
-      "subprocess_wall_ms_median": 2220.55005,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c16-canvas-4215d59e08.json",
+      "median_ms": 22.57675,
+      "save_ms": 22.57675,
+      "subprocess_wall_ms_median": 2257.414458,
+      "attempt_file": "c16-canvas-caef527afd.json",
       "publishable": false
     },
     {
       "criterion_id": "C16",
       "editor_id": "genoffice",
       "outcome": "measured",
-      "median_ms": 1.55594,
-      "save_ms": 1.55594,
-      "subprocess_wall_ms_median": 1368.005987,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c16-genoffice-c488f33ff9.json",
+      "median_ms": 1.592842,
+      "save_ms": 1.592842,
+      "subprocess_wall_ms_median": 1401.874591,
+      "attempt_file": "c16-genoffice-b9f8ed7bf1.json",
       "publishable": false
     },
     {
@@ -1813,67 +1811,67 @@
       "editor_id": "apryse",
       "outcome": "not_run",
       "failure_reason": "apryse: proprietary WebViewer round-trip harness not run on this Linux CI host",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c16-apryse-a6398bf2e0.json",
+      "attempt_file": "c16-apryse-0470335d6f.json",
       "publishable": false
     },
     {
       "criterion_id": "C16",
       "editor_id": "wordcraft",
       "outcome": "measured",
-      "median_ms": 0.737605,
-      "save_ms": 0.737605,
-      "subprocess_wall_ms_median": 2.101881,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c16-wordcraft-60216bee91.json",
+      "median_ms": 0.786392,
+      "save_ms": 0.786392,
+      "subprocess_wall_ms_median": 2.118755,
+      "attempt_file": "c16-wordcraft-5a0baf4899.json",
       "publishable": false
     },
     {
       "criterion_id": "C16",
       "editor_id": "superdoc",
       "outcome": "measured",
-      "median_ms": 3.12838,
-      "save_ms": 3.12838,
-      "subprocess_wall_ms_median": 724.994273,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c16-superdoc-5a7ce7bcdf.json",
+      "median_ms": 3.374292,
+      "save_ms": 3.374292,
+      "subprocess_wall_ms_median": 737.17215,
+      "attempt_file": "c16-superdoc-9beb82ff04.json",
       "publishable": false
     },
     {
       "criterion_id": "C16",
       "editor_id": "folio",
       "outcome": "measured",
-      "median_ms": 8.984484,
-      "save_ms": 8.984484,
-      "subprocess_wall_ms_median": 111.152053,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c16-folio-ed12232ad3.json",
+      "median_ms": 9.110809,
+      "save_ms": 9.110809,
+      "subprocess_wall_ms_median": 112.561429,
+      "attempt_file": "c16-folio-bd07ef7599.json",
       "publishable": false
     },
     {
       "criterion_id": "C16",
       "editor_id": "plate",
       "outcome": "measured",
-      "median_ms": 130.525231,
-      "save_ms": 130.525231,
-      "subprocess_wall_ms_median": 905.46216,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c16-plate-7f053ae77b.json",
+      "median_ms": 133.806167,
+      "save_ms": 133.806167,
+      "subprocess_wall_ms_median": 912.074372,
+      "attempt_file": "c16-plate-2d6a9b2f94.json",
       "publishable": false
     },
     {
       "criterion_id": "C16",
       "editor_id": "docxodus",
       "outcome": "measured",
-      "median_ms": 21.744811,
-      "save_ms": 21.744811,
-      "subprocess_wall_ms_median": 357.095662,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c16-docxodus-b957227945.json",
+      "median_ms": 21.725099,
+      "save_ms": 21.725099,
+      "subprocess_wall_ms_median": 356.584898,
+      "attempt_file": "c16-docxodus-ddeb044e78.json",
       "publishable": false
     },
     {
       "criterion_id": "C16",
       "editor_id": "fidus",
       "outcome": "measured",
-      "median_ms": 92.009933,
-      "save_ms": 92.009933,
-      "subprocess_wall_ms_median": 711.216442,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c16-fidus-929dcfed0e.json",
+      "median_ms": 91.262424,
+      "save_ms": 91.262424,
+      "subprocess_wall_ms_median": 703.952973,
+      "attempt_file": "c16-fidus-8d7f4c9484.json",
       "publishable": false
     },
     {
@@ -1881,7 +1879,7 @@
       "editor_id": "docen",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C17 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c17-docen-345c54c5d5.json",
+      "attempt_file": "c17-docen-63ec6bc877.json",
       "publishable": false
     },
     {
@@ -1889,7 +1887,7 @@
       "editor_id": "docsplus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C17 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c17-docsplus-9d75dee373.json",
+      "attempt_file": "c17-docsplus-9eff6bbad9.json",
       "publishable": false
     },
     {
@@ -1897,7 +1895,7 @@
       "editor_id": "office-open",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C17 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c17-office-open-db46f48309.json",
+      "attempt_file": "c17-office-open-05a082410f.json",
       "publishable": false
     },
     {
@@ -1905,7 +1903,7 @@
       "editor_id": "eigenpal",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C17 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c17-eigenpal-12fa9868c7.json",
+      "attempt_file": "c17-eigenpal-5c2d00656f.json",
       "publishable": false
     },
     {
@@ -1913,7 +1911,7 @@
       "editor_id": "libreoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C17 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c17-libreoffice-1789b69695.json",
+      "attempt_file": "c17-libreoffice-8197a5343a.json",
       "publishable": false
     },
     {
@@ -1921,7 +1919,7 @@
       "editor_id": "canvas",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C17 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c17-canvas-da51e1a225.json",
+      "attempt_file": "c17-canvas-4e8ea084ed.json",
       "publishable": false
     },
     {
@@ -1929,7 +1927,7 @@
       "editor_id": "genoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C17 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c17-genoffice-562c66cadc.json",
+      "attempt_file": "c17-genoffice-cfee6794f3.json",
       "publishable": false
     },
     {
@@ -1937,7 +1935,7 @@
       "editor_id": "apryse",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C17 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c17-apryse-acfa832653.json",
+      "attempt_file": "c17-apryse-d7cc1f5606.json",
       "publishable": false
     },
     {
@@ -1945,7 +1943,7 @@
       "editor_id": "wordcraft",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C17 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c17-wordcraft-20037d7b26.json",
+      "attempt_file": "c17-wordcraft-a7f1ed0fc7.json",
       "publishable": false
     },
     {
@@ -1953,7 +1951,7 @@
       "editor_id": "superdoc",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C17 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c17-superdoc-8a8f20bfcc.json",
+      "attempt_file": "c17-superdoc-5d06a3f2ed.json",
       "publishable": false
     },
     {
@@ -1961,7 +1959,7 @@
       "editor_id": "folio",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C17 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c17-folio-d8437cfaac.json",
+      "attempt_file": "c17-folio-817021a771.json",
       "publishable": false
     },
     {
@@ -1969,7 +1967,7 @@
       "editor_id": "plate",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C17 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c17-plate-fd3dd85991.json",
+      "attempt_file": "c17-plate-1f40374986.json",
       "publishable": false
     },
     {
@@ -1977,7 +1975,7 @@
       "editor_id": "docxodus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C17 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c17-docxodus-ed61df81cd.json",
+      "attempt_file": "c17-docxodus-56c93bb1ae.json",
       "publishable": false
     },
     {
@@ -1985,7 +1983,7 @@
       "editor_id": "fidus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C17 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c17-fidus-ddf42934fe.json",
+      "attempt_file": "c17-fidus-e5848bf48b.json",
       "publishable": false
     },
     {
@@ -1993,7 +1991,7 @@
       "editor_id": "docen",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C18 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c18-docen-0675efb601.json",
+      "attempt_file": "c18-docen-d38652c351.json",
       "publishable": false
     },
     {
@@ -2001,7 +1999,7 @@
       "editor_id": "docsplus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C18 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c18-docsplus-5cf6de8edc.json",
+      "attempt_file": "c18-docsplus-ac0546b446.json",
       "publishable": false
     },
     {
@@ -2009,7 +2007,7 @@
       "editor_id": "office-open",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C18 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c18-office-open-e72173f175.json",
+      "attempt_file": "c18-office-open-6d25959d43.json",
       "publishable": false
     },
     {
@@ -2017,7 +2015,7 @@
       "editor_id": "eigenpal",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C18 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c18-eigenpal-889d3172ae.json",
+      "attempt_file": "c18-eigenpal-8fa72bd676.json",
       "publishable": false
     },
     {
@@ -2025,7 +2023,7 @@
       "editor_id": "libreoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C18 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c18-libreoffice-4294f6f33d.json",
+      "attempt_file": "c18-libreoffice-7d72d1b70d.json",
       "publishable": false
     },
     {
@@ -2033,7 +2031,7 @@
       "editor_id": "canvas",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C18 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c18-canvas-409ec2756f.json",
+      "attempt_file": "c18-canvas-18d6bbea9e.json",
       "publishable": false
     },
     {
@@ -2041,7 +2039,7 @@
       "editor_id": "genoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C18 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c18-genoffice-d51940185f.json",
+      "attempt_file": "c18-genoffice-2e66c428e8.json",
       "publishable": false
     },
     {
@@ -2049,7 +2047,7 @@
       "editor_id": "apryse",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C18 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c18-apryse-283b83d347.json",
+      "attempt_file": "c18-apryse-68bd8c6ec8.json",
       "publishable": false
     },
     {
@@ -2057,7 +2055,7 @@
       "editor_id": "wordcraft",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C18 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c18-wordcraft-a95c1ee33d.json",
+      "attempt_file": "c18-wordcraft-5eba9e786c.json",
       "publishable": false
     },
     {
@@ -2065,7 +2063,7 @@
       "editor_id": "superdoc",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C18 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c18-superdoc-d54ee37a9d.json",
+      "attempt_file": "c18-superdoc-84d5feed37.json",
       "publishable": false
     },
     {
@@ -2073,7 +2071,7 @@
       "editor_id": "folio",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C18 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c18-folio-c13aa9b99b.json",
+      "attempt_file": "c18-folio-f82b0873c6.json",
       "publishable": false
     },
     {
@@ -2081,7 +2079,7 @@
       "editor_id": "plate",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C18 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c18-plate-c937555483.json",
+      "attempt_file": "c18-plate-ead21a773b.json",
       "publishable": false
     },
     {
@@ -2089,7 +2087,7 @@
       "editor_id": "docxodus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C18 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c18-docxodus-c5ee61c23d.json",
+      "attempt_file": "c18-docxodus-777645168a.json",
       "publishable": false
     },
     {
@@ -2097,7 +2095,7 @@
       "editor_id": "fidus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C18 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c18-fidus-58d827dd92.json",
+      "attempt_file": "c18-fidus-69e0888a5c.json",
       "publishable": false
     },
     {
@@ -2105,7 +2103,7 @@
       "editor_id": "docen",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C19 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c19-docen-4a01fbc41e.json",
+      "attempt_file": "c19-docen-59b04fecd9.json",
       "publishable": false
     },
     {
@@ -2113,7 +2111,7 @@
       "editor_id": "docsplus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C19 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c19-docsplus-752442e8f2.json",
+      "attempt_file": "c19-docsplus-abe3279513.json",
       "publishable": false
     },
     {
@@ -2121,7 +2119,7 @@
       "editor_id": "office-open",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C19 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c19-office-open-87170a04a2.json",
+      "attempt_file": "c19-office-open-ff04ecca47.json",
       "publishable": false
     },
     {
@@ -2129,7 +2127,7 @@
       "editor_id": "eigenpal",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C19 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c19-eigenpal-00c275ddb8.json",
+      "attempt_file": "c19-eigenpal-9741e38ecb.json",
       "publishable": false
     },
     {
@@ -2137,7 +2135,7 @@
       "editor_id": "libreoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C19 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c19-libreoffice-d6b5d69281.json",
+      "attempt_file": "c19-libreoffice-43371f6534.json",
       "publishable": false
     },
     {
@@ -2145,7 +2143,7 @@
       "editor_id": "canvas",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C19 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c19-canvas-ce959df1f0.json",
+      "attempt_file": "c19-canvas-30d764f6d3.json",
       "publishable": false
     },
     {
@@ -2153,7 +2151,7 @@
       "editor_id": "genoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C19 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c19-genoffice-cb1a4851fd.json",
+      "attempt_file": "c19-genoffice-8e99676653.json",
       "publishable": false
     },
     {
@@ -2161,7 +2159,7 @@
       "editor_id": "apryse",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C19 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c19-apryse-2b44f49cec.json",
+      "attempt_file": "c19-apryse-9604657119.json",
       "publishable": false
     },
     {
@@ -2169,7 +2167,7 @@
       "editor_id": "wordcraft",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C19 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c19-wordcraft-6c759c1b12.json",
+      "attempt_file": "c19-wordcraft-38b7b97bfc.json",
       "publishable": false
     },
     {
@@ -2177,7 +2175,7 @@
       "editor_id": "superdoc",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C19 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c19-superdoc-7066652dea.json",
+      "attempt_file": "c19-superdoc-9dd3f2a37f.json",
       "publishable": false
     },
     {
@@ -2185,7 +2183,7 @@
       "editor_id": "folio",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C19 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c19-folio-8b5071af3e.json",
+      "attempt_file": "c19-folio-939e1bba6d.json",
       "publishable": false
     },
     {
@@ -2193,7 +2191,7 @@
       "editor_id": "plate",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C19 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c19-plate-bbbd3dea70.json",
+      "attempt_file": "c19-plate-49075a1e71.json",
       "publishable": false
     },
     {
@@ -2201,7 +2199,7 @@
       "editor_id": "docxodus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C19 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c19-docxodus-727a3cd01d.json",
+      "attempt_file": "c19-docxodus-a942f57ea5.json",
       "publishable": false
     },
     {
@@ -2209,7 +2207,7 @@
       "editor_id": "fidus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C19 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c19-fidus-3879b44bef.json",
+      "attempt_file": "c19-fidus-7e2ffa79cf.json",
       "publishable": false
     },
     {
@@ -2217,7 +2215,7 @@
       "editor_id": "docen",
       "outcome": "not_run",
       "failure_reason": "execution_profile: execution_profile",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c20-docen-7b5eac3bfe.json",
+      "attempt_file": "c20-docen-00fc0b3041.json",
       "publishable": false
     },
     {
@@ -2225,7 +2223,7 @@
       "editor_id": "docsplus",
       "outcome": "not_run",
       "failure_reason": "execution_profile: execution_profile",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c20-docsplus-e424685dd5.json",
+      "attempt_file": "c20-docsplus-37a26b2dbc.json",
       "publishable": false
     },
     {
@@ -2233,7 +2231,7 @@
       "editor_id": "office-open",
       "outcome": "not_run",
       "failure_reason": "execution_profile: execution_profile",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c20-office-open-414e1a8bfa.json",
+      "attempt_file": "c20-office-open-939c1d0e0a.json",
       "publishable": false
     },
     {
@@ -2241,7 +2239,7 @@
       "editor_id": "eigenpal",
       "outcome": "not_run",
       "failure_reason": "execution_profile: execution_profile",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c20-eigenpal-8554a54550.json",
+      "attempt_file": "c20-eigenpal-5bdeeb2e56.json",
       "publishable": false
     },
     {
@@ -2249,7 +2247,7 @@
       "editor_id": "libreoffice",
       "outcome": "not_run",
       "failure_reason": "execution_profile: execution_profile",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c20-libreoffice-621a1f0575.json",
+      "attempt_file": "c20-libreoffice-aefa1d8e15.json",
       "publishable": false
     },
     {
@@ -2257,7 +2255,7 @@
       "editor_id": "canvas",
       "outcome": "not_run",
       "failure_reason": "execution_profile: execution_profile",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c20-canvas-a2a11bf954.json",
+      "attempt_file": "c20-canvas-46a91bbf3a.json",
       "publishable": false
     },
     {
@@ -2265,7 +2263,7 @@
       "editor_id": "genoffice",
       "outcome": "not_run",
       "failure_reason": "execution_profile: execution_profile",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c20-genoffice-da9b0f73dd.json",
+      "attempt_file": "c20-genoffice-5cd741d805.json",
       "publishable": false
     },
     {
@@ -2273,7 +2271,7 @@
       "editor_id": "apryse",
       "outcome": "not_run",
       "failure_reason": "execution_profile: execution_profile",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c20-apryse-2630cc8a51.json",
+      "attempt_file": "c20-apryse-6222ae7b91.json",
       "publishable": false
     },
     {
@@ -2281,7 +2279,7 @@
       "editor_id": "wordcraft",
       "outcome": "not_run",
       "failure_reason": "execution_profile: execution_profile",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c20-wordcraft-71f9624dc2.json",
+      "attempt_file": "c20-wordcraft-db31b3769d.json",
       "publishable": false
     },
     {
@@ -2289,7 +2287,7 @@
       "editor_id": "superdoc",
       "outcome": "not_run",
       "failure_reason": "execution_profile: execution_profile",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c20-superdoc-daecb4dfb8.json",
+      "attempt_file": "c20-superdoc-583ba15808.json",
       "publishable": false
     },
     {
@@ -2297,7 +2295,7 @@
       "editor_id": "folio",
       "outcome": "not_run",
       "failure_reason": "execution_profile: execution_profile",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c20-folio-6560effbfd.json",
+      "attempt_file": "c20-folio-5b0c12c0e1.json",
       "publishable": false
     },
     {
@@ -2305,7 +2303,7 @@
       "editor_id": "plate",
       "outcome": "not_run",
       "failure_reason": "execution_profile: execution_profile",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c20-plate-13274f51a3.json",
+      "attempt_file": "c20-plate-a51bfc996a.json",
       "publishable": false
     },
     {
@@ -2313,7 +2311,7 @@
       "editor_id": "docxodus",
       "outcome": "not_run",
       "failure_reason": "execution_profile: execution_profile",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c20-docxodus-a7be291d0f.json",
+      "attempt_file": "c20-docxodus-c549727d46.json",
       "publishable": false
     },
     {
@@ -2321,77 +2319,77 @@
       "editor_id": "fidus",
       "outcome": "not_run",
       "failure_reason": "execution_profile: execution_profile",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c20-fidus-5a9a87093e.json",
+      "attempt_file": "c20-fidus-14544891b0.json",
       "publishable": false
     },
     {
       "criterion_id": "C21",
       "editor_id": "docen",
       "outcome": "measured",
-      "median_ms": 445.121,
-      "child_cpu_ms_median": 445.121,
-      "subprocess_wall_ms_median": 297.443008,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c21-docen-a4d0e68471.json",
+      "median_ms": 437.217,
+      "child_cpu_ms_median": 437.217,
+      "subprocess_wall_ms_median": 287.861774,
+      "attempt_file": "c21-docen-437e1a145e.json",
       "publishable": false
     },
     {
       "criterion_id": "C21",
       "editor_id": "docsplus",
       "outcome": "measured",
-      "median_ms": 414.381,
-      "child_cpu_ms_median": 414.381,
-      "subprocess_wall_ms_median": 302.991481,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c21-docsplus-188c8300e5.json",
+      "median_ms": 412.656,
+      "child_cpu_ms_median": 412.656,
+      "subprocess_wall_ms_median": 300.322785,
+      "attempt_file": "c21-docsplus-6cfa41748a.json",
       "publishable": false
     },
     {
       "criterion_id": "C21",
       "editor_id": "office-open",
       "outcome": "measured",
-      "median_ms": 469.028,
-      "child_cpu_ms_median": 469.028,
-      "subprocess_wall_ms_median": 358.829404,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c21-office-open-023ffc93bc.json",
+      "median_ms": 467.725,
+      "child_cpu_ms_median": 467.725,
+      "subprocess_wall_ms_median": 360.450997,
+      "attempt_file": "c21-office-open-31362e5614.json",
       "publishable": false
     },
     {
       "criterion_id": "C21",
       "editor_id": "eigenpal",
       "outcome": "measured",
-      "median_ms": 131.032,
-      "child_cpu_ms_median": 131.032,
-      "subprocess_wall_ms_median": 96.376456,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c21-eigenpal-1a3a33816f.json",
+      "median_ms": 136.541,
+      "child_cpu_ms_median": 136.541,
+      "subprocess_wall_ms_median": 100.873516,
+      "attempt_file": "c21-eigenpal-f9f786dc2d.json",
       "publishable": false
     },
     {
       "criterion_id": "C21",
       "editor_id": "libreoffice",
       "outcome": "measured",
-      "median_ms": 582.92,
-      "child_cpu_ms_median": 582.92,
-      "subprocess_wall_ms_median": 596.510812,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c21-libreoffice-3e5fa6890f.json",
+      "median_ms": 593.063,
+      "child_cpu_ms_median": 593.063,
+      "subprocess_wall_ms_median": 602.384848,
+      "attempt_file": "c21-libreoffice-ee98091fad.json",
       "publishable": false
     },
     {
       "criterion_id": "C21",
       "editor_id": "canvas",
       "outcome": "measured",
-      "median_ms": 2320.794,
-      "child_cpu_ms_median": 2320.794,
-      "subprocess_wall_ms_median": 2246.269281,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c21-canvas-6c698287d2.json",
+      "median_ms": 2319.703,
+      "child_cpu_ms_median": 2319.703,
+      "subprocess_wall_ms_median": 2273.157095,
+      "attempt_file": "c21-canvas-1d7716abcf.json",
       "publishable": false
     },
     {
       "criterion_id": "C21",
       "editor_id": "genoffice",
       "outcome": "measured",
-      "median_ms": 1718.585,
-      "child_cpu_ms_median": 1718.585,
-      "subprocess_wall_ms_median": 1385.383884,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c21-genoffice-5e6f8bc8e1.json",
+      "median_ms": 1718.361,
+      "child_cpu_ms_median": 1718.361,
+      "subprocess_wall_ms_median": 1384.379001,
+      "attempt_file": "c21-genoffice-4c0895ce7f.json",
       "publishable": false
     },
     {
@@ -2399,67 +2397,67 @@
       "editor_id": "apryse",
       "outcome": "not_run",
       "failure_reason": "apryse: proprietary WebViewer round-trip harness not run on this Linux CI host",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c21-apryse-6a8b6620aa.json",
+      "attempt_file": "c21-apryse-bb3ced9c92.json",
       "publishable": false
     },
     {
       "criterion_id": "C21",
       "editor_id": "wordcraft",
       "outcome": "measured",
-      "median_ms": 2.044,
-      "child_cpu_ms_median": 2.044,
-      "subprocess_wall_ms_median": 2.170694,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c21-wordcraft-e2ddad92c4.json",
+      "median_ms": 1.941,
+      "child_cpu_ms_median": 1.941,
+      "subprocess_wall_ms_median": 2.087828,
+      "attempt_file": "c21-wordcraft-63f15f5307.json",
       "publishable": false
     },
     {
       "criterion_id": "C21",
       "editor_id": "superdoc",
       "outcome": "measured",
-      "median_ms": 197.383,
-      "child_cpu_ms_median": 197.383,
-      "subprocess_wall_ms_median": 727.880131,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c21-superdoc-e6673d36cf.json",
+      "median_ms": 200.068,
+      "child_cpu_ms_median": 200.068,
+      "subprocess_wall_ms_median": 737.880523,
+      "attempt_file": "c21-superdoc-59ed316adc.json",
       "publishable": false
     },
     {
       "criterion_id": "C21",
       "editor_id": "folio",
       "outcome": "measured",
-      "median_ms": 137.89,
-      "child_cpu_ms_median": 137.89,
-      "subprocess_wall_ms_median": 111.917696,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c21-folio-a2c2e7624a.json",
+      "median_ms": 137.664,
+      "child_cpu_ms_median": 137.664,
+      "subprocess_wall_ms_median": 111.743714,
+      "attempt_file": "c21-folio-8743d42d1d.json",
       "publishable": false
     },
     {
       "criterion_id": "C21",
       "editor_id": "plate",
       "outcome": "measured",
-      "median_ms": 1329.004,
-      "child_cpu_ms_median": 1329.004,
-      "subprocess_wall_ms_median": 914.008957,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c21-plate-de0f038d88.json",
+      "median_ms": 1337.405,
+      "child_cpu_ms_median": 1337.405,
+      "subprocess_wall_ms_median": 913.350847,
+      "attempt_file": "c21-plate-451f18d285.json",
       "publishable": false
     },
     {
       "criterion_id": "C21",
       "editor_id": "docxodus",
       "outcome": "measured",
-      "median_ms": 723.717,
-      "child_cpu_ms_median": 723.717,
-      "subprocess_wall_ms_median": 361.095246,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c21-docxodus-c14f48789b.json",
+      "median_ms": 737.305,
+      "child_cpu_ms_median": 737.305,
+      "subprocess_wall_ms_median": 372.16042,
+      "attempt_file": "c21-docxodus-7352d71832.json",
       "publishable": false
     },
     {
       "criterion_id": "C21",
       "editor_id": "fidus",
       "outcome": "measured",
-      "median_ms": 1025.649,
-      "child_cpu_ms_median": 1025.649,
-      "subprocess_wall_ms_median": 701.986134,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c21-fidus-5b5dd6c474.json",
+      "median_ms": 1049.903,
+      "child_cpu_ms_median": 1049.903,
+      "subprocess_wall_ms_median": 717.655818,
+      "attempt_file": "c21-fidus-56b48fa7ba.json",
       "publishable": false
     },
     {
@@ -2467,7 +2465,7 @@
       "editor_id": "docen",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C22 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c22-docen-3d856cf806.json",
+      "attempt_file": "c22-docen-3d193944a0.json",
       "publishable": false
     },
     {
@@ -2475,7 +2473,7 @@
       "editor_id": "docsplus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C22 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c22-docsplus-575c685968.json",
+      "attempt_file": "c22-docsplus-27488cd3a9.json",
       "publishable": false
     },
     {
@@ -2483,7 +2481,7 @@
       "editor_id": "office-open",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C22 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c22-office-open-2c43a30d92.json",
+      "attempt_file": "c22-office-open-7259c949e4.json",
       "publishable": false
     },
     {
@@ -2491,7 +2489,7 @@
       "editor_id": "eigenpal",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C22 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c22-eigenpal-adbc4e39de.json",
+      "attempt_file": "c22-eigenpal-680474c4c5.json",
       "publishable": false
     },
     {
@@ -2499,7 +2497,7 @@
       "editor_id": "libreoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C22 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c22-libreoffice-00fe650c3c.json",
+      "attempt_file": "c22-libreoffice-058ac825cf.json",
       "publishable": false
     },
     {
@@ -2507,7 +2505,7 @@
       "editor_id": "canvas",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C22 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c22-canvas-f30beb461e.json",
+      "attempt_file": "c22-canvas-acd3a47bae.json",
       "publishable": false
     },
     {
@@ -2515,7 +2513,7 @@
       "editor_id": "genoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C22 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c22-genoffice-8007fcfb8a.json",
+      "attempt_file": "c22-genoffice-691fe97ed0.json",
       "publishable": false
     },
     {
@@ -2523,7 +2521,7 @@
       "editor_id": "apryse",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C22 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c22-apryse-2bb94a61e5.json",
+      "attempt_file": "c22-apryse-91220fbc12.json",
       "publishable": false
     },
     {
@@ -2531,7 +2529,7 @@
       "editor_id": "wordcraft",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C22 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c22-wordcraft-1439a97552.json",
+      "attempt_file": "c22-wordcraft-98329f8fce.json",
       "publishable": false
     },
     {
@@ -2539,7 +2537,7 @@
       "editor_id": "superdoc",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C22 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c22-superdoc-628d48ef24.json",
+      "attempt_file": "c22-superdoc-b5c2b46e2f.json",
       "publishable": false
     },
     {
@@ -2547,7 +2545,7 @@
       "editor_id": "folio",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C22 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c22-folio-2961cf76f8.json",
+      "attempt_file": "c22-folio-68ee925c99.json",
       "publishable": false
     },
     {
@@ -2555,7 +2553,7 @@
       "editor_id": "plate",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C22 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c22-plate-efc51979aa.json",
+      "attempt_file": "c22-plate-963f9ce771.json",
       "publishable": false
     },
     {
@@ -2563,7 +2561,7 @@
       "editor_id": "docxodus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C22 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c22-docxodus-f6cf896bcd.json",
+      "attempt_file": "c22-docxodus-6ace60cb4c.json",
       "publishable": false
     },
     {
@@ -2571,7 +2569,7 @@
       "editor_id": "fidus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C22 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c22-fidus-6a96bf7d88.json",
+      "attempt_file": "c22-fidus-c091111dec.json",
       "publishable": false
     },
     {
@@ -2579,7 +2577,7 @@
       "editor_id": "docen",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C23 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c23-docen-6a8ab5e0e3.json",
+      "attempt_file": "c23-docen-fede3fdb67.json",
       "publishable": false
     },
     {
@@ -2587,7 +2585,7 @@
       "editor_id": "docsplus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C23 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c23-docsplus-3e6a1d9839.json",
+      "attempt_file": "c23-docsplus-08acd27bd3.json",
       "publishable": false
     },
     {
@@ -2595,7 +2593,7 @@
       "editor_id": "office-open",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C23 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c23-office-open-2fd6095016.json",
+      "attempt_file": "c23-office-open-f98333cdcb.json",
       "publishable": false
     },
     {
@@ -2603,7 +2601,7 @@
       "editor_id": "eigenpal",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C23 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c23-eigenpal-356ac3b38c.json",
+      "attempt_file": "c23-eigenpal-2e6e891197.json",
       "publishable": false
     },
     {
@@ -2611,7 +2609,7 @@
       "editor_id": "libreoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C23 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c23-libreoffice-277d38e582.json",
+      "attempt_file": "c23-libreoffice-b21d1cfa40.json",
       "publishable": false
     },
     {
@@ -2619,7 +2617,7 @@
       "editor_id": "canvas",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C23 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c23-canvas-9529f41974.json",
+      "attempt_file": "c23-canvas-27ebc3a0c4.json",
       "publishable": false
     },
     {
@@ -2627,7 +2625,7 @@
       "editor_id": "genoffice",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C23 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c23-genoffice-bb94c1a196.json",
+      "attempt_file": "c23-genoffice-82a340bbee.json",
       "publishable": false
     },
     {
@@ -2635,7 +2633,7 @@
       "editor_id": "apryse",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C23 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c23-apryse-2c700cc307.json",
+      "attempt_file": "c23-apryse-974e547adb.json",
       "publishable": false
     },
     {
@@ -2643,7 +2641,7 @@
       "editor_id": "wordcraft",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C23 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c23-wordcraft-a6b0219a00.json",
+      "attempt_file": "c23-wordcraft-95089804d5.json",
       "publishable": false
     },
     {
@@ -2651,7 +2649,7 @@
       "editor_id": "superdoc",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C23 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c23-superdoc-4a304f36a0.json",
+      "attempt_file": "c23-superdoc-18a0bc4998.json",
       "publishable": false
     },
     {
@@ -2659,7 +2657,7 @@
       "editor_id": "folio",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C23 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c23-folio-43daf68fc4.json",
+      "attempt_file": "c23-folio-602ae2f3f5.json",
       "publishable": false
     },
     {
@@ -2667,7 +2665,7 @@
       "editor_id": "plate",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C23 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c23-plate-e7ca598450.json",
+      "attempt_file": "c23-plate-eaf7739e7b.json",
       "publishable": false
     },
     {
@@ -2675,7 +2673,7 @@
       "editor_id": "docxodus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C23 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c23-docxodus-623f3835c6.json",
+      "attempt_file": "c23-docxodus-26d96072d0.json",
       "publishable": false
     },
     {
@@ -2683,7 +2681,7 @@
       "editor_id": "fidus",
       "outcome": "not_run",
       "failure_reason": "adapter-not-implemented: criterion C23 on ci_broad",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c23-fidus-6106ecab3c.json",
+      "attempt_file": "c23-fidus-55d211b7e4.json",
       "publishable": false
     },
     {
@@ -2691,7 +2689,7 @@
       "editor_id": "docen",
       "outcome": "not_run",
       "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_broad (design C24)",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c24-docen-b6e01c6323.json",
+      "attempt_file": "c24-docen-1c8cb7f37a.json",
       "publishable": false
     },
     {
@@ -2699,7 +2697,7 @@
       "editor_id": "docsplus",
       "outcome": "not_run",
       "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_broad (design C24)",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c24-docsplus-bfff53b9a3.json",
+      "attempt_file": "c24-docsplus-e0aa5b5c0d.json",
       "publishable": false
     },
     {
@@ -2707,7 +2705,7 @@
       "editor_id": "office-open",
       "outcome": "not_run",
       "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_broad (design C24)",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c24-office-open-417012e212.json",
+      "attempt_file": "c24-office-open-06882e0c0c.json",
       "publishable": false
     },
     {
@@ -2715,7 +2713,7 @@
       "editor_id": "eigenpal",
       "outcome": "not_run",
       "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_broad (design C24)",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c24-eigenpal-b57b799754.json",
+      "attempt_file": "c24-eigenpal-63fad2d247.json",
       "publishable": false
     },
     {
@@ -2723,7 +2721,7 @@
       "editor_id": "libreoffice",
       "outcome": "not_run",
       "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_broad (design C24)",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c24-libreoffice-da53f03eb6.json",
+      "attempt_file": "c24-libreoffice-b80e288564.json",
       "publishable": false
     },
     {
@@ -2731,7 +2729,7 @@
       "editor_id": "canvas",
       "outcome": "not_run",
       "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_broad (design C24)",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c24-canvas-76d63b0180.json",
+      "attempt_file": "c24-canvas-a80f86dcd8.json",
       "publishable": false
     },
     {
@@ -2739,7 +2737,7 @@
       "editor_id": "genoffice",
       "outcome": "not_run",
       "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_broad (design C24)",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c24-genoffice-81ea724b42.json",
+      "attempt_file": "c24-genoffice-3fda29f23b.json",
       "publishable": false
     },
     {
@@ -2747,7 +2745,7 @@
       "editor_id": "apryse",
       "outcome": "unverified",
       "failure_reason": null,
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c24-apryse-ddb95e8ba2.json",
+      "attempt_file": "c24-apryse-51b4f551ef.json",
       "publishable": false
     },
     {
@@ -2755,7 +2753,7 @@
       "editor_id": "wordcraft",
       "outcome": "not_run",
       "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_broad (design C24)",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c24-wordcraft-c953909df7.json",
+      "attempt_file": "c24-wordcraft-b10763e9b0.json",
       "publishable": false
     },
     {
@@ -2763,7 +2761,7 @@
       "editor_id": "superdoc",
       "outcome": "not_run",
       "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_broad (design C24)",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c24-superdoc-76dd79c682.json",
+      "attempt_file": "c24-superdoc-11bd5e9946.json",
       "publishable": false
     },
     {
@@ -2771,7 +2769,7 @@
       "editor_id": "folio",
       "outcome": "not_run",
       "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_broad (design C24)",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c24-folio-ac5919237e.json",
+      "attempt_file": "c24-folio-c4e9b27841.json",
       "publishable": false
     },
     {
@@ -2779,7 +2777,7 @@
       "editor_id": "plate",
       "outcome": "not_run",
       "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_broad (design C24)",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c24-plate-fb945a40be.json",
+      "attempt_file": "c24-plate-cdbd3082d9.json",
       "publishable": false
     },
     {
@@ -2787,7 +2785,7 @@
       "editor_id": "docxodus",
       "outcome": "not_run",
       "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_broad (design C24)",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c24-docxodus-b7b070aef7.json",
+      "attempt_file": "c24-docxodus-e93132f0aa.json",
       "publishable": false
     },
     {
@@ -2795,7 +2793,7 @@
       "editor_id": "fidus",
       "outcome": "not_run",
       "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_broad (design C24)",
-      "attempt_file": "perf/out/ci_broad_2026_11_07/attempts/c24-fidus-237eb87bab.json",
+      "attempt_file": "c24-fidus-b6d9f56b07.json",
       "publishable": false
     }
   ]
