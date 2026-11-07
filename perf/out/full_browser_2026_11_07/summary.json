@@ -1,0 +1,3207 @@
+{
+  "suite": "full_browser",
+  "publishable": false,
+  "commands": [],
+  "subsuites": [
+    {
+      "suite": "warm_cold",
+      "execution_profile": "ci_broad",
+      "host_class": "ci_coarse",
+      "workload_id": "micro-paragraphs",
+      "fixture_sha256": "922062a73be73b0eb10943094319291324019e902c61f2d2e445724c7f024cbf",
+      "publishable": false,
+      "pairs_per_cell": 3,
+      "paired": [
+        {
+          "criterion_id": "C03",
+          "editor_id": "docxodus",
+          "boundary": "first_usable",
+          "cold_median_ms": 1854.699999999255,
+          "warm_median_ms": 2135.0,
+          "delta_ms": 280.30000000074506,
+          "attributed_cause": "document_parse",
+          "cold_attempt": "c03-docxodus-a5eb632285.json",
+          "warm_attempt": "c03-docxodus-a5eb632285.json",
+          "probes": {
+            "browser_launch_only_median": 29.0,
+            "document_navigation_only_median": 120.0,
+            "model_ready_browser_median": 445.30000000074506,
+            "document_reload_same_context_median": 2135.0,
+            "delta_ms": 280.30000000074506,
+            "overhead_ms": -280.30000000074506,
+            "cold_median_ms": 1854.699999999255,
+            "warm_median_ms": 2135.0,
+            "warm_arm_probe": "document_reload_same_context",
+            "document_reload_ms": 2135.0,
+            "document_navigation_ms": 120.0
+          },
+          "publishable": false
+        },
+        {
+          "criterion_id": "C05",
+          "editor_id": "docxodus",
+          "boundary": "presented_frame",
+          "cold_median_ms": 86.0,
+          "warm_median_ms": 79.70000000298023,
+          "delta_ms": -6.299999997019768,
+          "attributed_cause": "residual_steady_state",
+          "cold_attempt": "c05-docxodus-59b3299e80.json",
+          "warm_attempt": "c05-docxodus-52383d4283.json",
+          "probes": {
+            "browser_launch_only_median": 29.0,
+            "document_navigation_only_median": 120.0,
+            "model_ready_browser_median": 445.30000000074506,
+            "document_reload_same_context_median": 2135.0,
+            "delta_ms": -6.299999997019768,
+            "overhead_ms": 6.299999997019768,
+            "cold_median_ms": 86.0,
+            "warm_median_ms": 79.70000000298023
+          },
+          "publishable": false
+        },
+        {
+          "criterion_id": "C03",
+          "editor_id": "superdoc",
+          "boundary": "first_usable",
+          "cold_median_ms": 7083.699999999255,
+          "warm_median_ms": 8373.0,
+          "delta_ms": 1289.300000000745,
+          "attributed_cause": "document_parse",
+          "cold_attempt": "c03-superdoc-8a9af4ffa5.json",
+          "warm_attempt": "c03-superdoc-8a9af4ffa5.json",
+          "probes": {
+            "browser_launch_only_median": 30.0,
+            "document_navigation_only_median": 342.0,
+            "model_ready_browser_median": 7061.0,
+            "document_reload_same_context_median": 8373.0,
+            "delta_ms": 1289.300000000745,
+            "overhead_ms": -1289.300000000745,
+            "cold_median_ms": 7083.699999999255,
+            "warm_median_ms": 8373.0,
+            "warm_arm_probe": "document_reload_same_context",
+            "document_reload_ms": 8373.0,
+            "document_navigation_ms": 342.0
+          },
+          "publishable": false
+        },
+        {
+          "criterion_id": "C05",
+          "editor_id": "superdoc",
+          "boundary": "presented_frame",
+          "cold_median_ms": 79.69999999925494,
+          "warm_median_ms": 76.60000000149012,
+          "delta_ms": -3.099999997764826,
+          "attributed_cause": "residual_steady_state",
+          "cold_attempt": "c05-superdoc-a5d8566947.json",
+          "warm_attempt": "c05-superdoc-0d839bb320.json",
+          "probes": {
+            "browser_launch_only_median": 30.0,
+            "document_navigation_only_median": 342.0,
+            "model_ready_browser_median": 7061.0,
+            "document_reload_same_context_median": 8373.0,
+            "delta_ms": -3.099999997764826,
+            "overhead_ms": 3.099999997764826,
+            "cold_median_ms": 79.69999999925494,
+            "warm_median_ms": 76.60000000149012
+          },
+          "publishable": false
+        }
+      ],
+      "editors": [
+        {
+          "criterion_id": "C03",
+          "editor_id": "docxodus",
+          "boundary": "first_usable",
+          "outcome": "measured",
+          "cache_state": "process_cold_fs_warm",
+          "median_ms": 1854.699999999255,
+          "attempt_file": "c03-docxodus-a5eb632285.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C02",
+          "editor_id": "docxodus",
+          "boundary": "model_ready_browser",
+          "outcome": "measured",
+          "cache_state": "process_cold_fs_warm",
+          "median_ms": 445.30000000074506,
+          "attempt_file": "c02-docxodus-0eef569811.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C03",
+          "editor_id": "superdoc",
+          "boundary": "first_usable",
+          "outcome": "measured",
+          "cache_state": "process_cold_fs_warm",
+          "median_ms": 7083.699999999255,
+          "attempt_file": "c03-superdoc-8a9af4ffa5.json",
+          "publishable": false,
+          "harness_version": {
+            "harness_served": {
+              "superdoc": "2.29.0-next.3",
+              "docx_engine": "0.28.0-next.3"
+            },
+            "trial_pin": "0ee03fd3c; 2.26.0-next.16; 0.28.0-next.3",
+            "trial_pin_mismatch": "trial @superdoc/sdk pin 2.26.0-next.16; browser host serves npm superdoc@2.29.0-next.3 (no superdoc@2.26.0-next.16 on npm)"
+          }
+        },
+        {
+          "criterion_id": "C02",
+          "editor_id": "superdoc",
+          "boundary": "model_ready_browser",
+          "outcome": "measured",
+          "cache_state": "process_cold_fs_warm",
+          "median_ms": 7061.0,
+          "attempt_file": "c02-superdoc-ae4f2ed19b.json",
+          "publishable": false,
+          "harness_version": {
+            "harness_served": {
+              "superdoc": "2.29.0-next.3",
+              "docx_engine": "0.28.0-next.3"
+            },
+            "trial_pin": "0ee03fd3c; 2.26.0-next.16; 0.28.0-next.3",
+            "trial_pin_mismatch": "trial @superdoc/sdk pin 2.26.0-next.16; browser host serves npm superdoc@2.29.0-next.3 (no superdoc@2.26.0-next.16 on npm)"
+          }
+        },
+        {
+          "criterion_id": "C03",
+          "editor_id": "genoffice",
+          "outcome": "not_run",
+          "failure_reason": "browser_probe: genoffice server did not become ready",
+          "attempt_file": "c03-genoffice-32749987bf.json"
+        },
+        {
+          "criterion_id": "C02",
+          "editor_id": "genoffice",
+          "outcome": "not_run",
+          "failure_reason": "browser_probe: genoffice server did not become ready",
+          "attempt_file": "c02-genoffice-3bf9a0a0a9.json"
+        },
+        {
+          "criterion_id": "C05",
+          "editor_id": "genoffice",
+          "outcome": "not_run",
+          "failure_reason": "browser_probe: genoffice server did not become ready",
+          "attempt_file": "c05-genoffice-7362439c24.json"
+        },
+        {
+          "criterion_id": "C03",
+          "editor_id": "plate",
+          "outcome": "not_run",
+          "failure_reason": "browser_probe: Command '['/usr/local/cargo/bin/node', '/agent/repos/editors_trial-fb4268/perf/runner/warm_cold_browser.mjs', '--driver', 'playwright', '--url', 'http://127.0.0.1:5208/', '--corpus', '/agent/repos/editors_trial-fb4268/perf/out/full_browser_2026_11_07/ci_broad/micro-paragraphs.docx', '--corpus-route', '/corpus.docx', '--ready-selector', '.status-ok', '--edit-selector', '[contenteditable=\"true\"]', '--pairs', '3']' timed out after 600 seconds",
+          "attempt_file": "c03-plate-7069c93e6c.json"
+        },
+        {
+          "criterion_id": "C02",
+          "editor_id": "plate",
+          "outcome": "not_run",
+          "failure_reason": "browser_probe: Command '['/usr/local/cargo/bin/node', '/agent/repos/editors_trial-fb4268/perf/runner/warm_cold_browser.mjs', '--driver', 'playwright', '--url', 'http://127.0.0.1:5208/', '--corpus', '/agent/repos/editors_trial-fb4268/perf/out/full_browser_2026_11_07/ci_broad/micro-paragraphs.docx', '--corpus-route', '/corpus.docx', '--ready-selector', '.status-ok', '--edit-selector', '[contenteditable=\"true\"]', '--pairs', '3']' timed out after 600 seconds",
+          "attempt_file": "c02-plate-6f34b76154.json"
+        },
+        {
+          "criterion_id": "C05",
+          "editor_id": "plate",
+          "outcome": "not_run",
+          "failure_reason": "browser_probe: Command '['/usr/local/cargo/bin/node', '/agent/repos/editors_trial-fb4268/perf/runner/warm_cold_browser.mjs', '--driver', 'playwright', '--url', 'http://127.0.0.1:5208/', '--corpus', '/agent/repos/editors_trial-fb4268/perf/out/full_browser_2026_11_07/ci_broad/micro-paragraphs.docx', '--corpus-route', '/corpus.docx', '--ready-selector', '.status-ok', '--edit-selector', '[contenteditable=\"true\"]', '--pairs', '3']' timed out after 600 seconds",
+          "attempt_file": "c05-plate-9829e83cd1.json"
+        },
+        {
+          "criterion_id": "C06",
+          "editor_id": "plate",
+          "outcome": "not_run",
+          "failure_reason": "browser_probe: Command '['/usr/local/cargo/bin/node', '/agent/repos/editors_trial-fb4268/perf/runner/warm_cold_browser.mjs', '--driver', 'playwright', '--url', 'http://127.0.0.1:5208/', '--corpus', '/agent/repos/editors_trial-fb4268/perf/out/full_browser_2026_11_07/ci_broad/micro-paragraphs.docx', '--corpus-route', '/corpus.docx', '--ready-selector', '.status-ok', '--edit-selector', '[contenteditable=\"true\"]', '--pairs', '3']' timed out after 600 seconds",
+          "attempt_file": "c06-plate-bf37e5940c.json"
+        },
+        {
+          "criterion_id": "C03",
+          "editor_id": "canvas",
+          "outcome": "not_run",
+          "failure_reason": "browser_probe: Command '['/usr/local/cargo/bin/node', '/agent/repos/editors_trial-fb4268/perf/runner/warm_cold_browser.mjs', '--driver', 'playwright', '--url', 'http://127.0.0.1:5204/?src=/sample.docx', '--corpus', '/agent/repos/editors_trial-fb4268/perf/out/full_browser_2026_11_07/ci_broad/micro-paragraphs.docx', '--corpus-route', '/sample.docx', '--ready-selector', '#editor', '--edit-selector', '#editor canvas', '--pairs', '3', '--ready-js', 'window.__DOCX_IMPORTED__ === true', '--wait-after-ready', '800']' timed out after 600 seconds",
+          "attempt_file": "c03-canvas-0f69fbc859.json"
+        },
+        {
+          "criterion_id": "C02",
+          "editor_id": "canvas",
+          "outcome": "not_run",
+          "failure_reason": "browser_probe: Command '['/usr/local/cargo/bin/node', '/agent/repos/editors_trial-fb4268/perf/runner/warm_cold_browser.mjs', '--driver', 'playwright', '--url', 'http://127.0.0.1:5204/?src=/sample.docx', '--corpus', '/agent/repos/editors_trial-fb4268/perf/out/full_browser_2026_11_07/ci_broad/micro-paragraphs.docx', '--corpus-route', '/sample.docx', '--ready-selector', '#editor', '--edit-selector', '#editor canvas', '--pairs', '3', '--ready-js', 'window.__DOCX_IMPORTED__ === true', '--wait-after-ready', '800']' timed out after 600 seconds",
+          "attempt_file": "c02-canvas-e6e58830ac.json"
+        },
+        {
+          "criterion_id": "C05",
+          "editor_id": "canvas",
+          "outcome": "not_run",
+          "failure_reason": "browser_probe: Command '['/usr/local/cargo/bin/node', '/agent/repos/editors_trial-fb4268/perf/runner/warm_cold_browser.mjs', '--driver', 'playwright', '--url', 'http://127.0.0.1:5204/?src=/sample.docx', '--corpus', '/agent/repos/editors_trial-fb4268/perf/out/full_browser_2026_11_07/ci_broad/micro-paragraphs.docx', '--corpus-route', '/sample.docx', '--ready-selector', '#editor', '--edit-selector', '#editor canvas', '--pairs', '3', '--ready-js', 'window.__DOCX_IMPORTED__ === true', '--wait-after-ready', '800']' timed out after 600 seconds",
+          "attempt_file": "c05-canvas-9c248c31b4.json"
+        },
+        {
+          "criterion_id": "C06",
+          "editor_id": "canvas",
+          "outcome": "not_run",
+          "failure_reason": "browser_probe: Command '['/usr/local/cargo/bin/node', '/agent/repos/editors_trial-fb4268/perf/runner/warm_cold_browser.mjs', '--driver', 'playwright', '--url', 'http://127.0.0.1:5204/?src=/sample.docx', '--corpus', '/agent/repos/editors_trial-fb4268/perf/out/full_browser_2026_11_07/ci_broad/micro-paragraphs.docx', '--corpus-route', '/sample.docx', '--ready-selector', '#editor', '--edit-selector', '#editor canvas', '--pairs', '3', '--ready-js', 'window.__DOCX_IMPORTED__ === true', '--wait-after-ready', '800']' timed out after 600 seconds",
+          "attempt_file": "c06-canvas-a96f0359b1.json"
+        }
+      ],
+      "host": {
+        "os": "linux",
+        "arch": "x86_64",
+        "cpu_model": "x86_64",
+        "ram_bytes": 16780574720
+      },
+      "driver_checks": [
+        {
+          "editor_id": "plate",
+          "driver": "puppeteer",
+          "c05_cold_ms": 117,
+          "c05_warm_ms": 54
+        }
+      ],
+      "commands": [
+        "PYTHONPATH=. python3 perf/runner/benchmark_warm_cold.py --pairs 3",
+        "PYTHONPATH=. python3 -m unittest discover -s perf/tests -q",
+        "python3 -I build/test_perf_plan_coverage.py"
+      ]
+    },
+    {
+      "suite": "c24_wasm",
+      "measured_at": "2026-11-07",
+      "publishable": false,
+      "engine": "node",
+      "wasm_artifact": "harness/ui/docxodus/node_modules/docxodus/dist/wasm/_framework/dotnet.native.wasm",
+      "wasm_byte_size": 10599694,
+      "wasm_sha256": "2f8fb7230f7aedf56f6c71a211dd531d66508323d6c9af7c72fae640f0f7ef06",
+      "operations": [
+        {
+          "operation": "compile_and_instantiate",
+          "outcome": "measured",
+          "samples_ms": [
+            197.18506299999999,
+            234.27737900000002,
+            166.17731799999999
+          ],
+          "median_ms": 197.18506299999999,
+          "n": 3,
+          "attempt_file": "c24-docxodus-compile_and_instantiate-b27999a6.json",
+          "publishable": false
+        },
+        {
+          "operation": "empty_call",
+          "outcome": "measured",
+          "samples_ms": [
+            86.26882900000001,
+            0.03950500000001966,
+            0.009466999999972359,
+            0.23608600000000024,
+            0.018380999999976666,
+            0.012504999999976008,
+            0.007884999999987485,
+            0.010724999999979445,
+            0.014513000000022203,
+            0.011974000000009255,
+            0.007965000000012878,
+            0.00820600000002969,
+            0.005583999999998923,
+            0.005222000000003391,
+            0.013605999999981577,
+            0.0058760000000006585,
+            0.005456000000037875,
+            0.005152000000009593,
+            0.004652000000021417,
+            0.005515000000002601
+          ],
+          "median_ms": 0.008836500000001024,
+          "n": 20,
+          "attempt_file": "c24-docxodus-empty_call-772c8595.json",
+          "publishable": false
+        },
+        {
+          "operation": "typed_array_transfer",
+          "outcome": "measured",
+          "samples_ms": [
+            0.008307999999999538,
+            0.005107000000009521,
+            0.0051799999999957436,
+            0.006131000000038966,
+            0.005198000000007141,
+            0.004641000000049189,
+            0.004668000000037864,
+            0.005263000000013562,
+            0.005292999999994663,
+            0.0064699999999788815,
+            0.005265000000008513,
+            0.0050079999999752545,
+            0.00522000000000844,
+            0.00719400000002679,
+            0.006179999999972097,
+            0.005399000000011256,
+            0.005867000000023381,
+            0.004866999999990185,
+            0.006290999999976066,
+            0.005628999999998996
+          ],
+          "median_ms": 0.005279000000001588,
+          "n": 20,
+          "attempt_file": "c24-docxodus-typed_array_transfer-4e3c2b0a.json",
+          "publishable": false
+        },
+        {
+          "operation": "string_conversion",
+          "outcome": "measured",
+          "samples_ms": [
+            0.05037700000002587,
+            0.013180999999974574,
+            0.008199999999987995,
+            0.009235999999987143,
+            0.017287000000010266,
+            0.011216000000047188,
+            0.009491000000025451,
+            0.008550000000013824,
+            0.012299999999981992,
+            0.01920100000000957,
+            0.00822499999998172,
+            0.007344999999986612,
+            0.009357000000022708,
+            0.007591999999988275,
+            0.007006999999987329,
+            0.010092000000042844,
+            0.007651000000009844,
+            0.00809300000003077,
+            0.007412999999985459,
+            0.007029999999986103
+          ],
+          "median_ms": 0.008893000000000484,
+          "n": 20,
+          "attempt_file": "c24-docxodus-string_conversion-e6f9d7cb.json",
+          "publishable": false
+        },
+        {
+          "operation": "scalar_call",
+          "outcome": "measured",
+          "samples_ms": [
+            0.008717000000046937,
+            0.008343000000024858,
+            0.018505000000004657,
+            0.005625000000009095,
+            0.006118000000014945,
+            0.007148999999969874,
+            0.006284999999991214,
+            0.0060579999999959,
+            0.008645000000001346,
+            0.007667000000026292,
+            0.007991000000004078,
+            0.008995000000027176,
+            0.00791900000001533,
+            0.006022000000029948,
+            0.0054350000000340515,
+            0.00568500000002814,
+            0.007966000000010354,
+            0.008372000000008484,
+            0.005367000000035205,
+            0.005561000000000149
+          ],
+          "median_ms": 0.007407999999998083,
+          "n": 20,
+          "attempt_file": "c24-docxodus-scalar_call-24a1e769.json",
+          "publishable": false
+        },
+        {
+          "operation": "batched_call",
+          "outcome": "measured",
+          "samples_ms": [
+            0.5456199999999853,
+            4.658496000000014,
+            0.5341750000000047,
+            0.5516149999999698,
+            0.5611589999999751,
+            0.5507359999999721,
+            0.5277290000000221,
+            0.5266680000000292,
+            3.444008999999994,
+            1.402731000000017,
+            0.5250409999999874,
+            0.683762999999999,
+            0.703817000000015,
+            5.34880400000003,
+            0.5566870000000108,
+            0.5256709999999885,
+            0.5262619999999743,
+            0.5247329999999693,
+            0.5282589999999914,
+            0.5352940000000217
+          ],
+          "median_ms": 0.5481779999999787,
+          "n": 20,
+          "attempt_file": "c24-docxodus-batched_call-8a577c6a.json",
+          "publishable": false
+        },
+        {
+          "operation": "memory_grow",
+          "outcome": "measured",
+          "samples_ms": [
+            0.0428009999999972,
+            0.010876999999993586,
+            0.01587699999998904,
+            0.007272000000000389,
+            0.004866999999990185,
+            0.006695999999976721,
+            0.004615999999998621,
+            0.007124000000032993,
+            0.007615999999984524,
+            0.0044020000000273285,
+            0.004455000000007203,
+            0.005796999999972741,
+            0.005991000000051372,
+            0.004399999999975535,
+            0.005991999999992004,
+            0.004419999999981883,
+            0.004898000000025604,
+            0.005392000000028929,
+            0.006244999999978518,
+            0.004303999999990538
+          ],
+          "median_ms": 0.005894000000012056,
+          "n": 20,
+          "attempt_file": "c24-docxodus-memory_grow-525133a5.json",
+          "publishable": false
+        }
+      ]
+    },
+    {
+      "execution_profile": "ci_broad",
+      "host_class": "ci_coarse",
+      "workload_id": "micro-paragraphs",
+      "fixture_sha256": "35b61daf222d6f0aa2d8db8ea0ca5d2c72f7050ed13d48d40770cd9723cb0f6d",
+      "dry_run": false,
+      "criteria": [
+        "C01",
+        "C02",
+        "C03",
+        "C04",
+        "C05",
+        "C06",
+        "C07",
+        "C08",
+        "C09",
+        "C10",
+        "C11",
+        "C12",
+        "C13",
+        "C14",
+        "C15",
+        "C16",
+        "C17",
+        "C18",
+        "C19",
+        "C20",
+        "C21",
+        "C22",
+        "C23",
+        "C24"
+      ],
+      "editors": [
+        {
+          "criterion_id": "C01",
+          "editor_id": "docen",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C01 on ci_broad",
+          "attempt_file": "c01-docen-4a8bdd75b1.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C01",
+          "editor_id": "docsplus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C01 on ci_broad",
+          "attempt_file": "c01-docsplus-111c049a1e.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C01",
+          "editor_id": "office-open",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C01 on ci_broad",
+          "attempt_file": "c01-office-open-99e195978d.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C01",
+          "editor_id": "eigenpal",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C01 on ci_broad",
+          "attempt_file": "c01-eigenpal-1de179900f.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C01",
+          "editor_id": "libreoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C01 on ci_broad",
+          "attempt_file": "c01-libreoffice-0e8754f772.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C01",
+          "editor_id": "canvas",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C01 on ci_broad",
+          "attempt_file": "c01-canvas-79d0e21280.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C01",
+          "editor_id": "genoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C01 on ci_broad",
+          "attempt_file": "c01-genoffice-45101bd23f.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C01",
+          "editor_id": "apryse",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C01 on ci_broad",
+          "attempt_file": "c01-apryse-3b3411b52d.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C01",
+          "editor_id": "wordcraft",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C01 on ci_broad",
+          "attempt_file": "c01-wordcraft-65c2aabd42.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C01",
+          "editor_id": "superdoc",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C01 on ci_broad",
+          "attempt_file": "c01-superdoc-5a582378db.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C01",
+          "editor_id": "folio",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C01 on ci_broad",
+          "attempt_file": "c01-folio-119599abbc.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C01",
+          "editor_id": "plate",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C01 on ci_broad",
+          "attempt_file": "c01-plate-d789b5a05f.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C01",
+          "editor_id": "docxodus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C01 on ci_broad",
+          "attempt_file": "c01-docxodus-3feba37e5a.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C01",
+          "editor_id": "fidus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C01 on ci_broad",
+          "attempt_file": "c01-fidus-4ab7b7e59e.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C02",
+          "editor_id": "docen",
+          "outcome": "failed",
+          "error": "[Errno 2] No such file or directory: '/agent/repos/editors_trial-fb4268/repos/docen'",
+          "attempt_file": "c02-docen-fail-e018e597.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C02",
+          "editor_id": "docsplus",
+          "outcome": "failed",
+          "error": "command failed (rc=1): error: Cannot find module './repo-copy/apps/hocuspocus.server/src/modules/document-conversion/domain/docxImport' from '/agent/repos/editors_trial-fb4268/harness/docsplus/roundtrip.ts'\n\nBun v1.4.4 (Linux x64)\n",
+          "attempt_file": "c02-docsplus-fail-e3606616.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C02",
+          "editor_id": "office-open",
+          "outcome": "failed",
+          "error": "[Errno 2] No such file or directory: '/agent/repos/editors_trial-fb4268/repos/office-open'",
+          "attempt_file": "c02-office-open-fail-e64b17cf.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C02",
+          "editor_id": "eigenpal",
+          "outcome": "failed",
+          "error": "[Errno 2] No such file or directory: '/agent/repos/editors_trial-fb4268/repos/eigenpal-docx-editor'",
+          "attempt_file": "c02-eigenpal-fail-bfd5cc94.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C02",
+          "editor_id": "libreoffice",
+          "outcome": "measured",
+          "boundary": "conversion_wall",
+          "median_ms": 618.449004,
+          "load_timing_ms": 618.449004,
+          "subprocess_wall_ms_median": 618.449004,
+          "attempt_file": "c02-libreoffice-fe3eee4a02.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C02",
+          "editor_id": "canvas",
+          "outcome": "failed",
+          "error": "[Errno 2] No such file or directory: '/agent/repos/editors_trial-fb4268/repos/canvas-editor'",
+          "attempt_file": "c02-canvas-fail-cf7ec463.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C02",
+          "editor_id": "genoffice",
+          "outcome": "failed",
+          "error": "[Errno 2] No such file or directory: '/agent/repos/editors_trial-fb4268/repos/genoffice'",
+          "attempt_file": "c02-genoffice-fail-e5708e73.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C02",
+          "editor_id": "apryse",
+          "outcome": "not_run",
+          "failure_reason": "apryse: proprietary WebViewer round-trip harness not run on this Linux CI host",
+          "attempt_file": "c02-apryse-98bae28c2e.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C02",
+          "editor_id": "wordcraft",
+          "outcome": "failed",
+          "error": "wordcraft binary missing; run `cargo build --release` in harness/wordcraft",
+          "attempt_file": "c02-wordcraft-fail-5ac6c1f7.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C02",
+          "editor_id": "superdoc",
+          "outcome": "failed",
+          "error": "command failed (rc=1): node:internal/modules/esm/resolve:272\n    throw new ERR_MODULE_NOT_FOUND(\n          ^\n\nError [ERR_MODULE_NOT_FOUND]: Cannot find module '/agent/repos/editors_trial-fb4268/harness/superdoc-sdk/node_modules/@superdoc/sdk/dist/index.js' imported from /agent/repos/editors_trial-fb4268/harness/superdoc.mjs\n    at finalizeResolution (node:internal/modules/esm/resolve:272:11)\n    at moduleResolve (node:internal/modules/esm/resolve:879:10)\n    at defaultResolve (node:internal/modules/esm/resolve:1006:11)\n    at #cachedDefaultResolve (node:internal/modules/esm/loader:705:20)\n    at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:725:38)\n    at ModuleLoader.resolveSync (node:internal/modules/esm/loader:763:56)\n    at #resolve (node:internal/modules/esm/loader:687:17)\n    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:607:35)\n    at node:internal/modules/esm/loader:636:32\n    at TracingChannel.tracePromise (node:diagnostics_channel:370:14) {\n  code: 'ERR_MODULE_NOT_FOUND',\n  url: 'file:///agent/repos/editors_trial-fb4268/harness/superdoc-sdk/node_modules/@superdoc/sdk/dist/index.js'\n}\n\nNode.js v24.22.2\n",
+          "attempt_file": "c02-superdoc-fail-ee89ca70.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C02",
+          "editor_id": "folio",
+          "outcome": "failed",
+          "error": "[Errno 2] No such file or directory: '/agent/repos/editors_trial-fb4268/repos/folio'",
+          "attempt_file": "c02-folio-fail-721497e6.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C02",
+          "editor_id": "plate",
+          "outcome": "failed",
+          "error": "command failed (rc=1): error: Cannot find module '/agent/repos/editors_trial-fb4268/repos/plate/packages/platejs/src/docx/import/index.ts' from '/agent/repos/editors_trial-fb4268/harness/plate/roundtrip.ts'\n\nBun v1.4.4 (Linux x64)\n",
+          "attempt_file": "c02-plate-fail-500e84d5.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C02",
+          "editor_id": "docxodus",
+          "outcome": "measured",
+          "median_ms": 212.215701,
+          "model_ready_ms": null,
+          "subprocess_wall_ms_median": 455.014004,
+          "attempt_file": "c02-docxodus-dcfea84000.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C02",
+          "editor_id": "fidus",
+          "outcome": "failed",
+          "error": "[Errno 2] No such file or directory: '/agent/repos/editors_trial-fb4268/repos/fiduswriter-document-ts'",
+          "attempt_file": "c02-fidus-fail-b5ba0e79.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C03",
+          "editor_id": "docen",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C03 on ci_broad",
+          "attempt_file": "c03-docen-3046310ebb.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C03",
+          "editor_id": "docsplus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C03 on ci_broad",
+          "attempt_file": "c03-docsplus-6e7415e2db.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C03",
+          "editor_id": "office-open",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C03 on ci_broad",
+          "attempt_file": "c03-office-open-e45deb37fa.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C03",
+          "editor_id": "eigenpal",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C03 on ci_broad",
+          "attempt_file": "c03-eigenpal-44898485c9.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C03",
+          "editor_id": "libreoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C03 on ci_broad",
+          "attempt_file": "c03-libreoffice-84c6edb564.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C03",
+          "editor_id": "canvas",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C03 on ci_broad",
+          "attempt_file": "c03-canvas-6a574951ba.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C03",
+          "editor_id": "genoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C03 on ci_broad",
+          "attempt_file": "c03-genoffice-46f5484c25.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C03",
+          "editor_id": "apryse",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C03 on ci_broad",
+          "attempt_file": "c03-apryse-a366bcbd80.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C03",
+          "editor_id": "wordcraft",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C03 on ci_broad",
+          "attempt_file": "c03-wordcraft-2efb65e43f.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C03",
+          "editor_id": "superdoc",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C03 on ci_broad",
+          "attempt_file": "c03-superdoc-14aaa5b049.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C03",
+          "editor_id": "folio",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C03 on ci_broad",
+          "attempt_file": "c03-folio-7030184343.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C03",
+          "editor_id": "plate",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C03 on ci_broad",
+          "attempt_file": "c03-plate-81ade25907.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C03",
+          "editor_id": "docxodus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C03 on ci_broad",
+          "attempt_file": "c03-docxodus-97c6dd5de9.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C03",
+          "editor_id": "fidus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C03 on ci_broad",
+          "attempt_file": "c03-fidus-6256a1dd93.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C04",
+          "editor_id": "docen",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C04 on ci_broad",
+          "attempt_file": "c04-docen-870d5a1d9e.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C04",
+          "editor_id": "docsplus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C04 on ci_broad",
+          "attempt_file": "c04-docsplus-3fd5a194e9.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C04",
+          "editor_id": "office-open",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C04 on ci_broad",
+          "attempt_file": "c04-office-open-25b217fe11.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C04",
+          "editor_id": "eigenpal",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C04 on ci_broad",
+          "attempt_file": "c04-eigenpal-ce77205855.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C04",
+          "editor_id": "libreoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C04 on ci_broad",
+          "attempt_file": "c04-libreoffice-a2a4f4059c.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C04",
+          "editor_id": "canvas",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C04 on ci_broad",
+          "attempt_file": "c04-canvas-e519e1255a.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C04",
+          "editor_id": "genoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C04 on ci_broad",
+          "attempt_file": "c04-genoffice-c918d579a6.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C04",
+          "editor_id": "apryse",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C04 on ci_broad",
+          "attempt_file": "c04-apryse-d8667b5abc.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C04",
+          "editor_id": "wordcraft",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C04 on ci_broad",
+          "attempt_file": "c04-wordcraft-42e69327f8.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C04",
+          "editor_id": "superdoc",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C04 on ci_broad",
+          "attempt_file": "c04-superdoc-8cf61f7788.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C04",
+          "editor_id": "folio",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C04 on ci_broad",
+          "attempt_file": "c04-folio-54d9c1f5d1.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C04",
+          "editor_id": "plate",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C04 on ci_broad",
+          "attempt_file": "c04-plate-91007f8dfd.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C04",
+          "editor_id": "docxodus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C04 on ci_broad",
+          "attempt_file": "c04-docxodus-8ec682e379.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C04",
+          "editor_id": "fidus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C04 on ci_broad",
+          "attempt_file": "c04-fidus-ac1b6819c4.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C05",
+          "editor_id": "docen",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C05 on ci_broad",
+          "attempt_file": "c05-docen-7f162f17d0.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C05",
+          "editor_id": "docsplus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C05 on ci_broad",
+          "attempt_file": "c05-docsplus-b2a46d1f77.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C05",
+          "editor_id": "office-open",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C05 on ci_broad",
+          "attempt_file": "c05-office-open-226c744e6e.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C05",
+          "editor_id": "eigenpal",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C05 on ci_broad",
+          "attempt_file": "c05-eigenpal-cf845f815b.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C05",
+          "editor_id": "libreoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C05 on ci_broad",
+          "attempt_file": "c05-libreoffice-245aad6004.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C05",
+          "editor_id": "canvas",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C05 on ci_broad",
+          "attempt_file": "c05-canvas-5a17e65630.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C05",
+          "editor_id": "genoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C05 on ci_broad",
+          "attempt_file": "c05-genoffice-77eac0a7f3.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C05",
+          "editor_id": "apryse",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C05 on ci_broad",
+          "attempt_file": "c05-apryse-12647deb31.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C05",
+          "editor_id": "wordcraft",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C05 on ci_broad",
+          "attempt_file": "c05-wordcraft-399a98db63.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C05",
+          "editor_id": "superdoc",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C05 on ci_broad",
+          "attempt_file": "c05-superdoc-176f63a4df.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C05",
+          "editor_id": "folio",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C05 on ci_broad",
+          "attempt_file": "c05-folio-77811b0caf.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C05",
+          "editor_id": "plate",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C05 on ci_broad",
+          "attempt_file": "c05-plate-c0771a2802.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C05",
+          "editor_id": "docxodus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C05 on ci_broad",
+          "attempt_file": "c05-docxodus-edc720ab4e.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C05",
+          "editor_id": "fidus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C05 on ci_broad",
+          "attempt_file": "c05-fidus-afe17bd6ca.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C06",
+          "editor_id": "docen",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C06 on ci_broad",
+          "attempt_file": "c06-docen-61353189cd.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C06",
+          "editor_id": "docsplus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C06 on ci_broad",
+          "attempt_file": "c06-docsplus-8177ee6482.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C06",
+          "editor_id": "office-open",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C06 on ci_broad",
+          "attempt_file": "c06-office-open-4f5e763010.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C06",
+          "editor_id": "eigenpal",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C06 on ci_broad",
+          "attempt_file": "c06-eigenpal-c73a288952.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C06",
+          "editor_id": "libreoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C06 on ci_broad",
+          "attempt_file": "c06-libreoffice-9a4ea73d98.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C06",
+          "editor_id": "canvas",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C06 on ci_broad",
+          "attempt_file": "c06-canvas-0c1ae9eadf.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C06",
+          "editor_id": "genoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C06 on ci_broad",
+          "attempt_file": "c06-genoffice-4dfa67c4ee.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C06",
+          "editor_id": "apryse",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C06 on ci_broad",
+          "attempt_file": "c06-apryse-887f0d09c0.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C06",
+          "editor_id": "wordcraft",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C06 on ci_broad",
+          "attempt_file": "c06-wordcraft-21a9a99d06.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C06",
+          "editor_id": "superdoc",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C06 on ci_broad",
+          "attempt_file": "c06-superdoc-1766c4dade.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C06",
+          "editor_id": "folio",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C06 on ci_broad",
+          "attempt_file": "c06-folio-6b723d39e0.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C06",
+          "editor_id": "plate",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C06 on ci_broad",
+          "attempt_file": "c06-plate-732bf7a8cb.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C06",
+          "editor_id": "docxodus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C06 on ci_broad",
+          "attempt_file": "c06-docxodus-f51ef4cbca.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C06",
+          "editor_id": "fidus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C06 on ci_broad",
+          "attempt_file": "c06-fidus-30b85554ce.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C07",
+          "editor_id": "docen",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C07 on ci_broad",
+          "attempt_file": "c07-docen-26f66904c0.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C07",
+          "editor_id": "docsplus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C07 on ci_broad",
+          "attempt_file": "c07-docsplus-3706b81b32.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C07",
+          "editor_id": "office-open",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C07 on ci_broad",
+          "attempt_file": "c07-office-open-7b4db23bfd.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C07",
+          "editor_id": "eigenpal",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C07 on ci_broad",
+          "attempt_file": "c07-eigenpal-1ec845d0d5.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C07",
+          "editor_id": "libreoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C07 on ci_broad",
+          "attempt_file": "c07-libreoffice-6d2c78aa9f.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C07",
+          "editor_id": "canvas",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C07 on ci_broad",
+          "attempt_file": "c07-canvas-8e009f4b1b.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C07",
+          "editor_id": "genoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C07 on ci_broad",
+          "attempt_file": "c07-genoffice-059890c76d.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C07",
+          "editor_id": "apryse",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C07 on ci_broad",
+          "attempt_file": "c07-apryse-4bf657f270.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C07",
+          "editor_id": "wordcraft",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C07 on ci_broad",
+          "attempt_file": "c07-wordcraft-c77a107a4c.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C07",
+          "editor_id": "superdoc",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C07 on ci_broad",
+          "attempt_file": "c07-superdoc-852f3b4c88.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C07",
+          "editor_id": "folio",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C07 on ci_broad",
+          "attempt_file": "c07-folio-acb3a234aa.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C07",
+          "editor_id": "plate",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C07 on ci_broad",
+          "attempt_file": "c07-plate-52cf6673a4.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C07",
+          "editor_id": "docxodus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C07 on ci_broad",
+          "attempt_file": "c07-docxodus-d2f98ab02d.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C07",
+          "editor_id": "fidus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C07 on ci_broad",
+          "attempt_file": "c07-fidus-8bc60722ad.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C08",
+          "editor_id": "docen",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C08 on ci_broad",
+          "attempt_file": "c08-docen-425a646e73.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C08",
+          "editor_id": "docsplus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C08 on ci_broad",
+          "attempt_file": "c08-docsplus-97e156dd66.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C08",
+          "editor_id": "office-open",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C08 on ci_broad",
+          "attempt_file": "c08-office-open-7e8d2a76d4.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C08",
+          "editor_id": "eigenpal",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C08 on ci_broad",
+          "attempt_file": "c08-eigenpal-e3afaddf49.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C08",
+          "editor_id": "libreoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C08 on ci_broad",
+          "attempt_file": "c08-libreoffice-ea5fa4f396.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C08",
+          "editor_id": "canvas",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C08 on ci_broad",
+          "attempt_file": "c08-canvas-5763396c05.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C08",
+          "editor_id": "genoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C08 on ci_broad",
+          "attempt_file": "c08-genoffice-83a7887868.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C08",
+          "editor_id": "apryse",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C08 on ci_broad",
+          "attempt_file": "c08-apryse-6fddc4204a.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C08",
+          "editor_id": "wordcraft",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C08 on ci_broad",
+          "attempt_file": "c08-wordcraft-d36119f72c.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C08",
+          "editor_id": "superdoc",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C08 on ci_broad",
+          "attempt_file": "c08-superdoc-8f2d2194f8.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C08",
+          "editor_id": "folio",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C08 on ci_broad",
+          "attempt_file": "c08-folio-52c62f8454.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C08",
+          "editor_id": "plate",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C08 on ci_broad",
+          "attempt_file": "c08-plate-6849328b3b.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C08",
+          "editor_id": "docxodus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C08 on ci_broad",
+          "attempt_file": "c08-docxodus-f187b9aa71.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C08",
+          "editor_id": "fidus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C08 on ci_broad",
+          "attempt_file": "c08-fidus-294b83da7e.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C09",
+          "editor_id": "docen",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C09 on ci_broad",
+          "attempt_file": "c09-docen-fd0427efd3.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C09",
+          "editor_id": "docsplus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C09 on ci_broad",
+          "attempt_file": "c09-docsplus-fc7a813c24.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C09",
+          "editor_id": "office-open",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C09 on ci_broad",
+          "attempt_file": "c09-office-open-277f8e85da.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C09",
+          "editor_id": "eigenpal",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C09 on ci_broad",
+          "attempt_file": "c09-eigenpal-01c85ea743.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C09",
+          "editor_id": "libreoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C09 on ci_broad",
+          "attempt_file": "c09-libreoffice-f2ed517f2d.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C09",
+          "editor_id": "canvas",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C09 on ci_broad",
+          "attempt_file": "c09-canvas-1fb4ecb50a.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C09",
+          "editor_id": "genoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C09 on ci_broad",
+          "attempt_file": "c09-genoffice-98cf4ae62e.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C09",
+          "editor_id": "apryse",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C09 on ci_broad",
+          "attempt_file": "c09-apryse-46f1e1ddfe.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C09",
+          "editor_id": "wordcraft",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C09 on ci_broad",
+          "attempt_file": "c09-wordcraft-25d8574d4c.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C09",
+          "editor_id": "superdoc",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C09 on ci_broad",
+          "attempt_file": "c09-superdoc-aca5f713b5.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C09",
+          "editor_id": "folio",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C09 on ci_broad",
+          "attempt_file": "c09-folio-dbb1fa85f2.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C09",
+          "editor_id": "plate",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C09 on ci_broad",
+          "attempt_file": "c09-plate-1934e23e08.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C09",
+          "editor_id": "docxodus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C09 on ci_broad",
+          "attempt_file": "c09-docxodus-f994598fd0.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C09",
+          "editor_id": "fidus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C09 on ci_broad",
+          "attempt_file": "c09-fidus-baac45e2e7.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C10",
+          "editor_id": "docen",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C10 on ci_broad",
+          "attempt_file": "c10-docen-ebbc2c52ac.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C10",
+          "editor_id": "docsplus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C10 on ci_broad",
+          "attempt_file": "c10-docsplus-7d8d07fad2.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C10",
+          "editor_id": "office-open",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C10 on ci_broad",
+          "attempt_file": "c10-office-open-f269a1fa9f.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C10",
+          "editor_id": "eigenpal",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C10 on ci_broad",
+          "attempt_file": "c10-eigenpal-666ec947fa.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C10",
+          "editor_id": "libreoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C10 on ci_broad",
+          "attempt_file": "c10-libreoffice-c8dc25ebae.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C10",
+          "editor_id": "canvas",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C10 on ci_broad",
+          "attempt_file": "c10-canvas-0f698d3080.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C10",
+          "editor_id": "genoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C10 on ci_broad",
+          "attempt_file": "c10-genoffice-b29f028ed5.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C10",
+          "editor_id": "apryse",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C10 on ci_broad",
+          "attempt_file": "c10-apryse-60cf76d81c.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C10",
+          "editor_id": "wordcraft",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C10 on ci_broad",
+          "attempt_file": "c10-wordcraft-844f8434da.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C10",
+          "editor_id": "superdoc",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C10 on ci_broad",
+          "attempt_file": "c10-superdoc-a384db87db.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C10",
+          "editor_id": "folio",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C10 on ci_broad",
+          "attempt_file": "c10-folio-083e41ec46.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C10",
+          "editor_id": "plate",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C10 on ci_broad",
+          "attempt_file": "c10-plate-f7563fd899.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C10",
+          "editor_id": "docxodus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C10 on ci_broad",
+          "attempt_file": "c10-docxodus-05f2a2cfc8.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C10",
+          "editor_id": "fidus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C10 on ci_broad",
+          "attempt_file": "c10-fidus-4477c9517a.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C11",
+          "editor_id": "docen",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C11 on ci_broad",
+          "attempt_file": "c11-docen-901b2c9d20.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C11",
+          "editor_id": "docsplus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C11 on ci_broad",
+          "attempt_file": "c11-docsplus-eb595607c5.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C11",
+          "editor_id": "office-open",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C11 on ci_broad",
+          "attempt_file": "c11-office-open-af7696ee8c.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C11",
+          "editor_id": "eigenpal",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C11 on ci_broad",
+          "attempt_file": "c11-eigenpal-55377c0c72.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C11",
+          "editor_id": "libreoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C11 on ci_broad",
+          "attempt_file": "c11-libreoffice-18c44bfdf6.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C11",
+          "editor_id": "canvas",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C11 on ci_broad",
+          "attempt_file": "c11-canvas-547966b768.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C11",
+          "editor_id": "genoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C11 on ci_broad",
+          "attempt_file": "c11-genoffice-bc84cf7d79.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C11",
+          "editor_id": "apryse",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C11 on ci_broad",
+          "attempt_file": "c11-apryse-2b3f0861d7.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C11",
+          "editor_id": "wordcraft",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C11 on ci_broad",
+          "attempt_file": "c11-wordcraft-93e02c8a17.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C11",
+          "editor_id": "superdoc",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C11 on ci_broad",
+          "attempt_file": "c11-superdoc-c5bb55f903.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C11",
+          "editor_id": "folio",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C11 on ci_broad",
+          "attempt_file": "c11-folio-d6e0a004d2.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C11",
+          "editor_id": "plate",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C11 on ci_broad",
+          "attempt_file": "c11-plate-2aa82cf141.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C11",
+          "editor_id": "docxodus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C11 on ci_broad",
+          "attempt_file": "c11-docxodus-0027dc7406.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C11",
+          "editor_id": "fidus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C11 on ci_broad",
+          "attempt_file": "c11-fidus-9d8e581c62.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C12",
+          "editor_id": "docen",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C12 on ci_broad",
+          "attempt_file": "c12-docen-3d1e3dc6b2.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C12",
+          "editor_id": "docsplus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C12 on ci_broad",
+          "attempt_file": "c12-docsplus-d6263f8bfe.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C12",
+          "editor_id": "office-open",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C12 on ci_broad",
+          "attempt_file": "c12-office-open-ff59cc030a.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C12",
+          "editor_id": "eigenpal",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C12 on ci_broad",
+          "attempt_file": "c12-eigenpal-6690b7e6e3.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C12",
+          "editor_id": "libreoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C12 on ci_broad",
+          "attempt_file": "c12-libreoffice-60eb983e0f.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C12",
+          "editor_id": "canvas",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C12 on ci_broad",
+          "attempt_file": "c12-canvas-813a88c6cb.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C12",
+          "editor_id": "genoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C12 on ci_broad",
+          "attempt_file": "c12-genoffice-4b4d42d1ca.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C12",
+          "editor_id": "apryse",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C12 on ci_broad",
+          "attempt_file": "c12-apryse-096ec8656e.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C12",
+          "editor_id": "wordcraft",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C12 on ci_broad",
+          "attempt_file": "c12-wordcraft-c806de8227.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C12",
+          "editor_id": "superdoc",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C12 on ci_broad",
+          "attempt_file": "c12-superdoc-406f38e966.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C12",
+          "editor_id": "folio",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C12 on ci_broad",
+          "attempt_file": "c12-folio-d80c8814f1.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C12",
+          "editor_id": "plate",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C12 on ci_broad",
+          "attempt_file": "c12-plate-65f5466eb0.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C12",
+          "editor_id": "docxodus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C12 on ci_broad",
+          "attempt_file": "c12-docxodus-205f45ce84.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C12",
+          "editor_id": "fidus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C12 on ci_broad",
+          "attempt_file": "c12-fidus-e0cda562fc.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C13",
+          "editor_id": "docen",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C13 on ci_broad",
+          "attempt_file": "c13-docen-6bd72255ca.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C13",
+          "editor_id": "docsplus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C13 on ci_broad",
+          "attempt_file": "c13-docsplus-0dac77d4a0.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C13",
+          "editor_id": "office-open",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C13 on ci_broad",
+          "attempt_file": "c13-office-open-bb3512d696.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C13",
+          "editor_id": "eigenpal",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C13 on ci_broad",
+          "attempt_file": "c13-eigenpal-dc0f265c0d.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C13",
+          "editor_id": "libreoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C13 on ci_broad",
+          "attempt_file": "c13-libreoffice-e41f247c80.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C13",
+          "editor_id": "canvas",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C13 on ci_broad",
+          "attempt_file": "c13-canvas-86d7a0f97d.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C13",
+          "editor_id": "genoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C13 on ci_broad",
+          "attempt_file": "c13-genoffice-c95a84028b.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C13",
+          "editor_id": "apryse",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C13 on ci_broad",
+          "attempt_file": "c13-apryse-5ff9b6d7fc.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C13",
+          "editor_id": "wordcraft",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C13 on ci_broad",
+          "attempt_file": "c13-wordcraft-07ea4f6f5b.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C13",
+          "editor_id": "superdoc",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C13 on ci_broad",
+          "attempt_file": "c13-superdoc-313ca6bfbf.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C13",
+          "editor_id": "folio",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C13 on ci_broad",
+          "attempt_file": "c13-folio-059ae6f61d.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C13",
+          "editor_id": "plate",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C13 on ci_broad",
+          "attempt_file": "c13-plate-a551a7cda1.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C13",
+          "editor_id": "docxodus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C13 on ci_broad",
+          "attempt_file": "c13-docxodus-2b9835e1a2.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C13",
+          "editor_id": "fidus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C13 on ci_broad",
+          "attempt_file": "c13-fidus-0cbe028d99.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C14",
+          "editor_id": "docen",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C14 on ci_broad",
+          "attempt_file": "c14-docen-5eaa93a86a.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C14",
+          "editor_id": "docsplus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C14 on ci_broad",
+          "attempt_file": "c14-docsplus-df5b709bfa.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C14",
+          "editor_id": "office-open",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C14 on ci_broad",
+          "attempt_file": "c14-office-open-7b8f773d49.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C14",
+          "editor_id": "eigenpal",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C14 on ci_broad",
+          "attempt_file": "c14-eigenpal-759ea95c44.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C14",
+          "editor_id": "libreoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C14 on ci_broad",
+          "attempt_file": "c14-libreoffice-77d8dd2117.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C14",
+          "editor_id": "canvas",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C14 on ci_broad",
+          "attempt_file": "c14-canvas-c441a3c5f8.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C14",
+          "editor_id": "genoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C14 on ci_broad",
+          "attempt_file": "c14-genoffice-542965f372.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C14",
+          "editor_id": "apryse",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C14 on ci_broad",
+          "attempt_file": "c14-apryse-12999a2504.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C14",
+          "editor_id": "wordcraft",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C14 on ci_broad",
+          "attempt_file": "c14-wordcraft-f689b06ea1.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C14",
+          "editor_id": "superdoc",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C14 on ci_broad",
+          "attempt_file": "c14-superdoc-003980e29f.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C14",
+          "editor_id": "folio",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C14 on ci_broad",
+          "attempt_file": "c14-folio-56c7516453.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C14",
+          "editor_id": "plate",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C14 on ci_broad",
+          "attempt_file": "c14-plate-588eacc06c.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C14",
+          "editor_id": "docxodus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C14 on ci_broad",
+          "attempt_file": "c14-docxodus-821665a155.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C14",
+          "editor_id": "fidus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C14 on ci_broad",
+          "attempt_file": "c14-fidus-9aa6a98bd8.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C15",
+          "editor_id": "docen",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C15 on ci_broad",
+          "attempt_file": "c15-docen-812445c1c1.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C15",
+          "editor_id": "docsplus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C15 on ci_broad",
+          "attempt_file": "c15-docsplus-b118b99760.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C15",
+          "editor_id": "office-open",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C15 on ci_broad",
+          "attempt_file": "c15-office-open-05042f7165.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C15",
+          "editor_id": "eigenpal",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C15 on ci_broad",
+          "attempt_file": "c15-eigenpal-9c0e8ae316.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C15",
+          "editor_id": "libreoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C15 on ci_broad",
+          "attempt_file": "c15-libreoffice-073b4502e4.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C15",
+          "editor_id": "canvas",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C15 on ci_broad",
+          "attempt_file": "c15-canvas-4e14240f04.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C15",
+          "editor_id": "genoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C15 on ci_broad",
+          "attempt_file": "c15-genoffice-4dbdb55f1e.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C15",
+          "editor_id": "apryse",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C15 on ci_broad",
+          "attempt_file": "c15-apryse-84c379393a.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C15",
+          "editor_id": "wordcraft",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C15 on ci_broad",
+          "attempt_file": "c15-wordcraft-07992eac6f.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C15",
+          "editor_id": "superdoc",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C15 on ci_broad",
+          "attempt_file": "c15-superdoc-8bd32d1baa.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C15",
+          "editor_id": "folio",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C15 on ci_broad",
+          "attempt_file": "c15-folio-ba93a353b8.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C15",
+          "editor_id": "plate",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C15 on ci_broad",
+          "attempt_file": "c15-plate-808e2f15b9.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C15",
+          "editor_id": "docxodus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C15 on ci_broad",
+          "attempt_file": "c15-docxodus-14a2288a65.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C15",
+          "editor_id": "fidus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C15 on ci_broad",
+          "attempt_file": "c15-fidus-141fc38c6f.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C16",
+          "editor_id": "docen",
+          "outcome": "failed",
+          "error": "[Errno 2] No such file or directory: '/agent/repos/editors_trial-fb4268/repos/docen'",
+          "attempt_file": "c16-docen-fail-a6582694.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C16",
+          "editor_id": "docsplus",
+          "outcome": "failed",
+          "error": "command failed (rc=1): error: Cannot find module './repo-copy/apps/hocuspocus.server/src/modules/document-conversion/domain/docxImport' from '/agent/repos/editors_trial-fb4268/harness/docsplus/roundtrip.ts'\n\nBun v1.4.4 (Linux x64)\n",
+          "attempt_file": "c16-docsplus-fail-4ec6a3a2.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C16",
+          "editor_id": "office-open",
+          "outcome": "failed",
+          "error": "[Errno 2] No such file or directory: '/agent/repos/editors_trial-fb4268/repos/office-open'",
+          "attempt_file": "c16-office-open-fail-d159e69a.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C16",
+          "editor_id": "eigenpal",
+          "outcome": "failed",
+          "error": "[Errno 2] No such file or directory: '/agent/repos/editors_trial-fb4268/repos/eigenpal-docx-editor'",
+          "attempt_file": "c16-eigenpal-fail-fb564586.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C16",
+          "editor_id": "libreoffice",
+          "outcome": "not_run",
+          "failure_reason": "libreoffice: headless soffice conversion has no save-boundary probe emitting PERF save_ms= (serialization timing not separately measurable here)",
+          "attempt_file": "c16-libreoffice-348a35ba32.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C16",
+          "editor_id": "canvas",
+          "outcome": "failed",
+          "error": "[Errno 2] No such file or directory: '/agent/repos/editors_trial-fb4268/repos/canvas-editor'",
+          "attempt_file": "c16-canvas-fail-563763c2.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C16",
+          "editor_id": "genoffice",
+          "outcome": "failed",
+          "error": "[Errno 2] No such file or directory: '/agent/repos/editors_trial-fb4268/repos/genoffice'",
+          "attempt_file": "c16-genoffice-fail-6f11899f.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C16",
+          "editor_id": "apryse",
+          "outcome": "not_run",
+          "failure_reason": "apryse: proprietary WebViewer round-trip harness not run on this Linux CI host",
+          "attempt_file": "c16-apryse-bbb615c35a.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C16",
+          "editor_id": "wordcraft",
+          "outcome": "failed",
+          "error": "wordcraft binary missing; run `cargo build --release` in harness/wordcraft",
+          "attempt_file": "c16-wordcraft-fail-e410c46b.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C16",
+          "editor_id": "superdoc",
+          "outcome": "failed",
+          "error": "command failed (rc=1): node:internal/modules/esm/resolve:272\n    throw new ERR_MODULE_NOT_FOUND(\n          ^\n\nError [ERR_MODULE_NOT_FOUND]: Cannot find module '/agent/repos/editors_trial-fb4268/harness/superdoc-sdk/node_modules/@superdoc/sdk/dist/index.js' imported from /agent/repos/editors_trial-fb4268/harness/superdoc.mjs\n    at finalizeResolution (node:internal/modules/esm/resolve:272:11)\n    at moduleResolve (node:internal/modules/esm/resolve:879:10)\n    at defaultResolve (node:internal/modules/esm/resolve:1006:11)\n    at #cachedDefaultResolve (node:internal/modules/esm/loader:705:20)\n    at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:725:38)\n    at ModuleLoader.resolveSync (node:internal/modules/esm/loader:763:56)\n    at #resolve (node:internal/modules/esm/loader:687:17)\n    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:607:35)\n    at node:internal/modules/esm/loader:636:32\n    at TracingChannel.tracePromise (node:diagnostics_channel:370:14) {\n  code: 'ERR_MODULE_NOT_FOUND',\n  url: 'file:///agent/repos/editors_trial-fb4268/harness/superdoc-sdk/node_modules/@superdoc/sdk/dist/index.js'\n}\n\nNode.js v24.22.2\n",
+          "attempt_file": "c16-superdoc-fail-386b0b2e.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C16",
+          "editor_id": "folio",
+          "outcome": "failed",
+          "error": "[Errno 2] No such file or directory: '/agent/repos/editors_trial-fb4268/repos/folio'",
+          "attempt_file": "c16-folio-fail-b2683552.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C16",
+          "editor_id": "plate",
+          "outcome": "failed",
+          "error": "command failed (rc=1): error: Cannot find module '/agent/repos/editors_trial-fb4268/repos/plate/packages/platejs/src/docx/import/index.ts' from '/agent/repos/editors_trial-fb4268/harness/plate/roundtrip.ts'\n\nBun v1.4.4 (Linux x64)\n",
+          "attempt_file": "c16-plate-fail-22ae2172.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C16",
+          "editor_id": "docxodus",
+          "outcome": "measured",
+          "median_ms": 21.988534,
+          "save_ms": 21.988534,
+          "subprocess_wall_ms_median": 418.49694,
+          "attempt_file": "c16-docxodus-7a95547ca4.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C16",
+          "editor_id": "fidus",
+          "outcome": "failed",
+          "error": "[Errno 2] No such file or directory: '/agent/repos/editors_trial-fb4268/repos/fiduswriter-document-ts'",
+          "attempt_file": "c16-fidus-fail-08139816.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C17",
+          "editor_id": "docen",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C17 on ci_broad",
+          "attempt_file": "c17-docen-5a1bd88bee.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C17",
+          "editor_id": "docsplus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C17 on ci_broad",
+          "attempt_file": "c17-docsplus-ec7033f3eb.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C17",
+          "editor_id": "office-open",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C17 on ci_broad",
+          "attempt_file": "c17-office-open-c2368f2c9b.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C17",
+          "editor_id": "eigenpal",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C17 on ci_broad",
+          "attempt_file": "c17-eigenpal-0e6d708a08.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C17",
+          "editor_id": "libreoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C17 on ci_broad",
+          "attempt_file": "c17-libreoffice-9e7a6f8649.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C17",
+          "editor_id": "canvas",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C17 on ci_broad",
+          "attempt_file": "c17-canvas-46e7a37472.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C17",
+          "editor_id": "genoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C17 on ci_broad",
+          "attempt_file": "c17-genoffice-b75000bdf3.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C17",
+          "editor_id": "apryse",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C17 on ci_broad",
+          "attempt_file": "c17-apryse-0765bb4230.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C17",
+          "editor_id": "wordcraft",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C17 on ci_broad",
+          "attempt_file": "c17-wordcraft-be52bb4821.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C17",
+          "editor_id": "superdoc",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C17 on ci_broad",
+          "attempt_file": "c17-superdoc-9b40a5529f.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C17",
+          "editor_id": "folio",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C17 on ci_broad",
+          "attempt_file": "c17-folio-72b1ed6982.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C17",
+          "editor_id": "plate",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C17 on ci_broad",
+          "attempt_file": "c17-plate-7f243ab501.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C17",
+          "editor_id": "docxodus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C17 on ci_broad",
+          "attempt_file": "c17-docxodus-38705bb118.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C17",
+          "editor_id": "fidus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C17 on ci_broad",
+          "attempt_file": "c17-fidus-535a7d28ce.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C18",
+          "editor_id": "docen",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C18 on ci_broad",
+          "attempt_file": "c18-docen-63f7e1fbc7.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C18",
+          "editor_id": "docsplus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C18 on ci_broad",
+          "attempt_file": "c18-docsplus-150573f05d.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C18",
+          "editor_id": "office-open",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C18 on ci_broad",
+          "attempt_file": "c18-office-open-5d865f1bf4.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C18",
+          "editor_id": "eigenpal",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C18 on ci_broad",
+          "attempt_file": "c18-eigenpal-1e67acab24.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C18",
+          "editor_id": "libreoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C18 on ci_broad",
+          "attempt_file": "c18-libreoffice-5efeb8f8cd.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C18",
+          "editor_id": "canvas",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C18 on ci_broad",
+          "attempt_file": "c18-canvas-b56e975d88.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C18",
+          "editor_id": "genoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C18 on ci_broad",
+          "attempt_file": "c18-genoffice-0c6c71791d.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C18",
+          "editor_id": "apryse",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C18 on ci_broad",
+          "attempt_file": "c18-apryse-7f87c8ab6f.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C18",
+          "editor_id": "wordcraft",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C18 on ci_broad",
+          "attempt_file": "c18-wordcraft-cf7917903d.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C18",
+          "editor_id": "superdoc",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C18 on ci_broad",
+          "attempt_file": "c18-superdoc-129f96c8ba.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C18",
+          "editor_id": "folio",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C18 on ci_broad",
+          "attempt_file": "c18-folio-72f9a06881.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C18",
+          "editor_id": "plate",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C18 on ci_broad",
+          "attempt_file": "c18-plate-6bd4cbef3a.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C18",
+          "editor_id": "docxodus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C18 on ci_broad",
+          "attempt_file": "c18-docxodus-362c79ac81.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C18",
+          "editor_id": "fidus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C18 on ci_broad",
+          "attempt_file": "c18-fidus-78aecf23bb.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C19",
+          "editor_id": "docen",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C19 on ci_broad",
+          "attempt_file": "c19-docen-65a98c3c23.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C19",
+          "editor_id": "docsplus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C19 on ci_broad",
+          "attempt_file": "c19-docsplus-56742c7994.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C19",
+          "editor_id": "office-open",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C19 on ci_broad",
+          "attempt_file": "c19-office-open-87ba940d61.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C19",
+          "editor_id": "eigenpal",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C19 on ci_broad",
+          "attempt_file": "c19-eigenpal-584c32c3d7.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C19",
+          "editor_id": "libreoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C19 on ci_broad",
+          "attempt_file": "c19-libreoffice-13cf37b98e.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C19",
+          "editor_id": "canvas",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C19 on ci_broad",
+          "attempt_file": "c19-canvas-e4e141fa11.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C19",
+          "editor_id": "genoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C19 on ci_broad",
+          "attempt_file": "c19-genoffice-b38554a6a8.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C19",
+          "editor_id": "apryse",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C19 on ci_broad",
+          "attempt_file": "c19-apryse-24450fb3f0.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C19",
+          "editor_id": "wordcraft",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C19 on ci_broad",
+          "attempt_file": "c19-wordcraft-ac614b7a6e.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C19",
+          "editor_id": "superdoc",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C19 on ci_broad",
+          "attempt_file": "c19-superdoc-c0385c65c9.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C19",
+          "editor_id": "folio",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C19 on ci_broad",
+          "attempt_file": "c19-folio-ae10be0698.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C19",
+          "editor_id": "plate",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C19 on ci_broad",
+          "attempt_file": "c19-plate-c5b2e2ecc9.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C19",
+          "editor_id": "docxodus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C19 on ci_broad",
+          "attempt_file": "c19-docxodus-0ec8aa43cb.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C19",
+          "editor_id": "fidus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C19 on ci_broad",
+          "attempt_file": "c19-fidus-b6e7452692.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C20",
+          "editor_id": "docen",
+          "outcome": "not_run",
+          "failure_reason": "execution_profile: execution_profile",
+          "attempt_file": "c20-docen-2dcd647d13.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C20",
+          "editor_id": "docsplus",
+          "outcome": "not_run",
+          "failure_reason": "execution_profile: execution_profile",
+          "attempt_file": "c20-docsplus-e73a21da76.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C20",
+          "editor_id": "office-open",
+          "outcome": "not_run",
+          "failure_reason": "execution_profile: execution_profile",
+          "attempt_file": "c20-office-open-d6fbc67acb.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C20",
+          "editor_id": "eigenpal",
+          "outcome": "not_run",
+          "failure_reason": "execution_profile: execution_profile",
+          "attempt_file": "c20-eigenpal-6a121dc216.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C20",
+          "editor_id": "libreoffice",
+          "outcome": "not_run",
+          "failure_reason": "execution_profile: execution_profile",
+          "attempt_file": "c20-libreoffice-59e18ab094.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C20",
+          "editor_id": "canvas",
+          "outcome": "not_run",
+          "failure_reason": "execution_profile: execution_profile",
+          "attempt_file": "c20-canvas-4b6bc2a531.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C20",
+          "editor_id": "genoffice",
+          "outcome": "not_run",
+          "failure_reason": "execution_profile: execution_profile",
+          "attempt_file": "c20-genoffice-57ef38f151.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C20",
+          "editor_id": "apryse",
+          "outcome": "not_run",
+          "failure_reason": "execution_profile: execution_profile",
+          "attempt_file": "c20-apryse-f3ede76bd1.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C20",
+          "editor_id": "wordcraft",
+          "outcome": "not_run",
+          "failure_reason": "execution_profile: execution_profile",
+          "attempt_file": "c20-wordcraft-b0585acb3b.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C20",
+          "editor_id": "superdoc",
+          "outcome": "not_run",
+          "failure_reason": "execution_profile: execution_profile",
+          "attempt_file": "c20-superdoc-392f61b56b.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C20",
+          "editor_id": "folio",
+          "outcome": "not_run",
+          "failure_reason": "execution_profile: execution_profile",
+          "attempt_file": "c20-folio-9bb978e3a9.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C20",
+          "editor_id": "plate",
+          "outcome": "not_run",
+          "failure_reason": "execution_profile: execution_profile",
+          "attempt_file": "c20-plate-93ab3d96a0.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C20",
+          "editor_id": "docxodus",
+          "outcome": "not_run",
+          "failure_reason": "execution_profile: execution_profile",
+          "attempt_file": "c20-docxodus-4253f3f8c2.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C20",
+          "editor_id": "fidus",
+          "outcome": "not_run",
+          "failure_reason": "execution_profile: execution_profile",
+          "attempt_file": "c20-fidus-d59eefe485.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C21",
+          "editor_id": "docen",
+          "outcome": "failed",
+          "error": "[Errno 2] No such file or directory: '/agent/repos/editors_trial-fb4268/repos/docen'",
+          "attempt_file": "c21-docen-fail-ba172c6f.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C21",
+          "editor_id": "docsplus",
+          "outcome": "failed",
+          "error": "command failed (rc=1): error: Cannot find module './repo-copy/apps/hocuspocus.server/src/modules/document-conversion/domain/docxImport' from '/agent/repos/editors_trial-fb4268/harness/docsplus/roundtrip.ts'\n\nBun v1.4.4 (Linux x64)\n",
+          "attempt_file": "c21-docsplus-fail-f4b9b762.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C21",
+          "editor_id": "office-open",
+          "outcome": "failed",
+          "error": "[Errno 2] No such file or directory: '/agent/repos/editors_trial-fb4268/repos/office-open'",
+          "attempt_file": "c21-office-open-fail-c12225b3.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C21",
+          "editor_id": "eigenpal",
+          "outcome": "failed",
+          "error": "[Errno 2] No such file or directory: '/agent/repos/editors_trial-fb4268/repos/eigenpal-docx-editor'",
+          "attempt_file": "c21-eigenpal-fail-208533c8.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C21",
+          "editor_id": "libreoffice",
+          "outcome": "measured",
+          "median_ms": 576.617,
+          "child_cpu_ms_median": 576.617,
+          "subprocess_wall_ms_median": 633.137246,
+          "attempt_file": "c21-libreoffice-598f488252.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C21",
+          "editor_id": "canvas",
+          "outcome": "failed",
+          "error": "[Errno 2] No such file or directory: '/agent/repos/editors_trial-fb4268/repos/canvas-editor'",
+          "attempt_file": "c21-canvas-fail-ad884ca2.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C21",
+          "editor_id": "genoffice",
+          "outcome": "failed",
+          "error": "[Errno 2] No such file or directory: '/agent/repos/editors_trial-fb4268/repos/genoffice'",
+          "attempt_file": "c21-genoffice-fail-d93fc77d.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C21",
+          "editor_id": "apryse",
+          "outcome": "not_run",
+          "failure_reason": "apryse: proprietary WebViewer round-trip harness not run on this Linux CI host",
+          "attempt_file": "c21-apryse-24249d6f0f.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C21",
+          "editor_id": "wordcraft",
+          "outcome": "failed",
+          "error": "wordcraft binary missing; run `cargo build --release` in harness/wordcraft",
+          "attempt_file": "c21-wordcraft-fail-77e36113.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C21",
+          "editor_id": "superdoc",
+          "outcome": "failed",
+          "error": "command failed (rc=1): node:internal/modules/esm/resolve:272\n    throw new ERR_MODULE_NOT_FOUND(\n          ^\n\nError [ERR_MODULE_NOT_FOUND]: Cannot find module '/agent/repos/editors_trial-fb4268/harness/superdoc-sdk/node_modules/@superdoc/sdk/dist/index.js' imported from /agent/repos/editors_trial-fb4268/harness/superdoc.mjs\n    at finalizeResolution (node:internal/modules/esm/resolve:272:11)\n    at moduleResolve (node:internal/modules/esm/resolve:879:10)\n    at defaultResolve (node:internal/modules/esm/resolve:1006:11)\n    at #cachedDefaultResolve (node:internal/modules/esm/loader:705:20)\n    at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:725:38)\n    at ModuleLoader.resolveSync (node:internal/modules/esm/loader:763:56)\n    at #resolve (node:internal/modules/esm/loader:687:17)\n    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:607:35)\n    at node:internal/modules/esm/loader:636:32\n    at TracingChannel.tracePromise (node:diagnostics_channel:370:14) {\n  code: 'ERR_MODULE_NOT_FOUND',\n  url: 'file:///agent/repos/editors_trial-fb4268/harness/superdoc-sdk/node_modules/@superdoc/sdk/dist/index.js'\n}\n\nNode.js v24.22.2\n",
+          "attempt_file": "c21-superdoc-fail-c73add81.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C21",
+          "editor_id": "folio",
+          "outcome": "failed",
+          "error": "[Errno 2] No such file or directory: '/agent/repos/editors_trial-fb4268/repos/folio'",
+          "attempt_file": "c21-folio-fail-07bead2e.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C21",
+          "editor_id": "plate",
+          "outcome": "failed",
+          "error": "command failed (rc=1): error: Cannot find module '/agent/repos/editors_trial-fb4268/repos/plate/packages/platejs/src/docx/import/index.ts' from '/agent/repos/editors_trial-fb4268/harness/plate/roundtrip.ts'\n\nBun v1.4.4 (Linux x64)\n",
+          "attempt_file": "c21-plate-fail-38a28403.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C21",
+          "editor_id": "docxodus",
+          "outcome": "measured",
+          "median_ms": 717.211,
+          "child_cpu_ms_median": 717.211,
+          "subprocess_wall_ms_median": 480.123234,
+          "attempt_file": "c21-docxodus-2dabb2f5bb.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C21",
+          "editor_id": "fidus",
+          "outcome": "failed",
+          "error": "[Errno 2] No such file or directory: '/agent/repos/editors_trial-fb4268/repos/fiduswriter-document-ts'",
+          "attempt_file": "c21-fidus-fail-5e16e8d2.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C22",
+          "editor_id": "docen",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C22 on ci_broad",
+          "attempt_file": "c22-docen-35d6a4b0fe.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C22",
+          "editor_id": "docsplus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C22 on ci_broad",
+          "attempt_file": "c22-docsplus-3e640e472c.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C22",
+          "editor_id": "office-open",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C22 on ci_broad",
+          "attempt_file": "c22-office-open-57dfb9c287.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C22",
+          "editor_id": "eigenpal",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C22 on ci_broad",
+          "attempt_file": "c22-eigenpal-eeb22b44f8.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C22",
+          "editor_id": "libreoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C22 on ci_broad",
+          "attempt_file": "c22-libreoffice-18317d1513.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C22",
+          "editor_id": "canvas",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C22 on ci_broad",
+          "attempt_file": "c22-canvas-524322face.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C22",
+          "editor_id": "genoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C22 on ci_broad",
+          "attempt_file": "c22-genoffice-37a4caa075.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C22",
+          "editor_id": "apryse",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C22 on ci_broad",
+          "attempt_file": "c22-apryse-30eb0d415a.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C22",
+          "editor_id": "wordcraft",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C22 on ci_broad",
+          "attempt_file": "c22-wordcraft-4d3d8fa827.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C22",
+          "editor_id": "superdoc",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C22 on ci_broad",
+          "attempt_file": "c22-superdoc-a5cb65cc42.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C22",
+          "editor_id": "folio",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C22 on ci_broad",
+          "attempt_file": "c22-folio-9f19712dfc.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C22",
+          "editor_id": "plate",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C22 on ci_broad",
+          "attempt_file": "c22-plate-04e525d0ce.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C22",
+          "editor_id": "docxodus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C22 on ci_broad",
+          "attempt_file": "c22-docxodus-8752296e8c.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C22",
+          "editor_id": "fidus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C22 on ci_broad",
+          "attempt_file": "c22-fidus-98b0eeadc1.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C23",
+          "editor_id": "docen",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C23 on ci_broad",
+          "attempt_file": "c23-docen-1e0abd417f.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C23",
+          "editor_id": "docsplus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C23 on ci_broad",
+          "attempt_file": "c23-docsplus-20a02498fe.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C23",
+          "editor_id": "office-open",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C23 on ci_broad",
+          "attempt_file": "c23-office-open-cccc641d80.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C23",
+          "editor_id": "eigenpal",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C23 on ci_broad",
+          "attempt_file": "c23-eigenpal-22551a3a00.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C23",
+          "editor_id": "libreoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C23 on ci_broad",
+          "attempt_file": "c23-libreoffice-4d887d0cac.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C23",
+          "editor_id": "canvas",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C23 on ci_broad",
+          "attempt_file": "c23-canvas-453a21fa6e.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C23",
+          "editor_id": "genoffice",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C23 on ci_broad",
+          "attempt_file": "c23-genoffice-d159d21a86.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C23",
+          "editor_id": "apryse",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C23 on ci_broad",
+          "attempt_file": "c23-apryse-555d462bc2.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C23",
+          "editor_id": "wordcraft",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C23 on ci_broad",
+          "attempt_file": "c23-wordcraft-237d0f4ca4.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C23",
+          "editor_id": "superdoc",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C23 on ci_broad",
+          "attempt_file": "c23-superdoc-a668fdb269.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C23",
+          "editor_id": "folio",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C23 on ci_broad",
+          "attempt_file": "c23-folio-58da343077.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C23",
+          "editor_id": "plate",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C23 on ci_broad",
+          "attempt_file": "c23-plate-1f67836aff.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C23",
+          "editor_id": "docxodus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C23 on ci_broad",
+          "attempt_file": "c23-docxodus-fd944c796a.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C23",
+          "editor_id": "fidus",
+          "outcome": "not_run",
+          "failure_reason": "adapter-not-implemented: criterion C23 on ci_broad",
+          "attempt_file": "c23-fidus-521c9adab0.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C24",
+          "editor_id": "docen",
+          "outcome": "not_run",
+          "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_broad (design C24)",
+          "attempt_file": "c24-docen-becd837f8d.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C24",
+          "editor_id": "docsplus",
+          "outcome": "not_run",
+          "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_broad (design C24)",
+          "attempt_file": "c24-docsplus-315d411949.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C24",
+          "editor_id": "office-open",
+          "outcome": "not_run",
+          "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_broad (design C24)",
+          "attempt_file": "c24-office-open-91f66caa4c.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C24",
+          "editor_id": "eigenpal",
+          "outcome": "not_run",
+          "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_broad (design C24)",
+          "attempt_file": "c24-eigenpal-692ff2ad8f.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C24",
+          "editor_id": "libreoffice",
+          "outcome": "not_run",
+          "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_broad (design C24)",
+          "attempt_file": "c24-libreoffice-e354b8b4d4.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C24",
+          "editor_id": "canvas",
+          "outcome": "not_run",
+          "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_broad (design C24)",
+          "attempt_file": "c24-canvas-5a66fca5b1.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C24",
+          "editor_id": "genoffice",
+          "outcome": "not_run",
+          "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_broad (design C24)",
+          "attempt_file": "c24-genoffice-9dbeb51f3e.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C24",
+          "editor_id": "apryse",
+          "outcome": "unverified",
+          "failure_reason": null,
+          "attempt_file": "c24-apryse-910590c5fb.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C24",
+          "editor_id": "wordcraft",
+          "outcome": "not_run",
+          "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_broad (design C24)",
+          "attempt_file": "c24-wordcraft-178051db1c.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C24",
+          "editor_id": "superdoc",
+          "outcome": "not_run",
+          "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_broad (design C24)",
+          "attempt_file": "c24-superdoc-703e418e0b.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C24",
+          "editor_id": "folio",
+          "outcome": "not_run",
+          "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_broad (design C24)",
+          "attempt_file": "c24-folio-386b743ffa.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C24",
+          "editor_id": "plate",
+          "outcome": "not_run",
+          "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_broad (design C24)",
+          "attempt_file": "c24-plate-89afbfd417.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C24",
+          "editor_id": "docxodus",
+          "outcome": "not_run",
+          "failure_reason": "wasm_boundary",
+          "attempt_file": "c24-docxodus-7565009fb5.json",
+          "publishable": false
+        },
+        {
+          "criterion_id": "C24",
+          "editor_id": "fidus",
+          "outcome": "not_run",
+          "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_broad (design C24)",
+          "attempt_file": "c24-fidus-7d893b3dd8.json",
+          "publishable": false
+        }
+      ]
+    }
+  ],
+  "execution_profile": "ci_broad",
+  "host_class": "ci_coarse",
+  "c20_full_soak_started": false
+}

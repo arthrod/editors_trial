@@ -49,7 +49,16 @@ def _aggregate(out_root: Path, commands: list[str], **meta) -> None:
 
 
 def check_out(root: Path) -> int:
-    attempts = list(root.rglob("attempts/*.json"))
+    roots = [
+        root / "ci_broad",
+        root / "dedicated_publish",
+        root / "wasm",
+        root / "load_unload",
+    ]
+    attempts = []
+    for sub in roots:
+        if sub.is_dir():
+            attempts.extend(sub.rglob("attempts/*.json"))
     for path in attempts:
         load_trial(path.read_text(encoding="utf-8"))
     bad = []

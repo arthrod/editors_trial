@@ -15,10 +15,10 @@ class NoAdapterNotImplemented(unittest.TestCase):
         self.assertTrue(any("adapter-not-implemented" in r for r in reasons))
 
     def test_full_browser_root_when_present_has_no_adapter_for_browser_editors(self):
-        root = REPO / "perf/out/full_browser_2026_11_07"
-        if not root.is_dir():
+        attempt_dir = REPO / "perf/out/full_browser_2026_11_07/ci_broad/attempts"
+        if not attempt_dir.is_dir():
             self.skipTest("full_browser output not produced yet")
-        for path in root.rglob("attempts/*.json"):
+        for path in attempt_dir.glob("*.json"):
             text = path.read_text(encoding="utf-8")
             data = json.loads(text)
             if data.get("editor_id") in ("plate", "docxodus", "superdoc", "genoffice", "canvas"):
