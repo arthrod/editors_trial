@@ -7,6 +7,8 @@ from pathlib import Path
 from perf.runner.cause_attribution import (
     C05_PROBE_KEY,
     C06_PROBE_KEY,
+    assert_c02_c03_distinct_boundaries,
+    assert_no_duplicate_c02_c03_in_dir,
     assert_same_probe_paired,
     assert_warm_cold_distinct,
     attribute_delta,
@@ -123,6 +125,38 @@ class WarmColdHonesty(unittest.TestCase):
         cause, breakdown = attribute_delta(100.0, 84.0, probes)
         self.assertEqual(cause, "browser_launch")
         self.assertAlmostEqual(breakdown["overhead_ms"], 16.0)
+
+    def test_c02_c03_must_not_share_samples_when_boundaries_differ(self):
+        with self.assertRaises(ValueError):
+            assert_c02_c03_distinct_boundaries(
+                {
+                    "outcome": "measured",
+                    "boundary": "model_ready_browser",
+                    "samples_ms": [1.0, 2.0, 3.0],
+                },
+                {
+                    "outcome": "measured",
+                    "boundary": "first_usable",
+                    "samples_ms": [1.0, 2.0, 3.0],
+                },
+            )
+        assert_c02_c03_distinct_boundaries(
+            {"outcome": "not_run", "boundary": "model_ready_browser", "samples_ms": []},
+            {
+                "outcome": "measured",
+                "boundary": "first_usable",
+                "samples_ms": [1.0, 2.0, 3.0],
+            },
+        )
+
+    def test_c02_c03_honesty_enforced_on_corrected_unblocked_output(self):
+        root = Path(__file__).resolve().parents[2] / "perf" / "out" / "unblocked_2026_11_07b"
+        attempt_dir = root / "attempts"
+        self.assertTrue(
+            attempt_dir.is_dir(),
+            "corrected unblocked run must exist at perf/out/unblocked_2026_11_07b/",
+        )
+        assert_no_duplicate_c02_c03_in_dir(attempt_dir)
 
     def test_warm_cold_summary_never_labels_os_cache_cold(self):
         root = Path(__file__).resolve().parents[2] / "perf" / "out"

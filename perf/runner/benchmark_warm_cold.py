@@ -21,6 +21,7 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
 from perf.adapters.capabilities import default_lane, pin_label  # noqa: E402
+from perf.runner.harness_ui_versions import browser_harness_editor_version  # noqa: E402
 from perf.analysis.publication_gate import trial_publishable_flags  # noqa: E402
 from perf.analysis.summarize import summarize  # noqa: E402
 from perf.fixtures.generate import build_workload, correctness_fixtures, docx_zip_bytes  # noqa: E402
@@ -396,7 +397,8 @@ def main() -> int:
 
     for editor_id in editors:
         lane = default_lane(editor_id)
-        editor_version = pin_label(editor_id)
+        trial_pin = pin_label(editor_id)
+        editor_version, harness_meta = browser_harness_editor_version(editor_id, trial_pin)
         if editor_id == "apryse" and not _apryse_key_present():
             reason = "apryse: trial key not present in environment"
             for cid, (boundary, layer) in {
@@ -529,11 +531,62 @@ def main() -> int:
 
         criteria_map = dict(target.get("criteria", {}))
 
+        def _ready_signals_indistinguishable() -> bool:
+            for pair in payload["pairs"]:
+                cold = pair.get("cold") or {}
+                fu = cold.get("first_usable_ms")
+                mr = cold.get("model_ready_browser_ms")
+                if fu is None or mr is None:
+                    continue
+                if float(fu) != float(mr):
+                    return False
+            return True
+
+        single_ready_signal = _ready_signals_indistinguishable()
+        c03_cold_attempt_ref = ""
+        c02_skip_reason = (
+            "browser harness exposes one ready signal (selector/JS hook); "
+            "cannot separate model_ready_browser from first_usable"
+        )
+
+        if single_ready_signal and "C02b" in criteria_map:
+            boundary, layer = criteria_map["C02b"]
+            env_skip = _env_for(
+                editor_id=editor_id,
+                editor_version=editor_version,
+                fixture_sha256=sha,
+                workload_row=workload_row,
+                docx_size=docx_size,
+                cache_state="process_cold_fs_warm",
+            )
+            skip_path = _write_not_run(
+                attempt_dir=attempt_dir,
+                criterion_id="C02",
+                layer=layer,
+                boundary=boundary,
+                editor_id=editor_id,
+                lane=lane,
+                env=env_skip,
+                failure_reason=c02_skip_reason,
+            )
+            row = {
+                "criterion_id": "C02",
+                "editor_id": editor_id,
+                "boundary": boundary,
+                "outcome": "not_run",
+                "failure_reason": c02_skip_reason,
+                "attempt_file": _attempt_ref(skip_path),
+                "publishable": False,
+            }
+            if harness_meta:
+                row["harness_version"] = harness_meta
+            not_run_rows.append(row)
+
         # C03 / C02b — cold only (first load in fresh browser per pair)
         cold_load_specs = []
         if "C03" in criteria_map:
             cold_load_specs.append(("C03", "first_usable_ms", "browser_visible", "first_usable"))
-        if "C02b" in criteria_map:
+        if "C02b" in criteria_map and not single_ready_signal:
             cold_load_specs.append(("C02", "model_ready_browser_ms", "model", "model_ready_browser"))
 
         for cid, key, layer, boundary in cold_load_specs:
@@ -565,18 +618,27 @@ def main() -> int:
                     "probes": probe_bundle,
                 },
             )
-            summary_editors.append(
-                {
-                    "criterion_id": "C03" if cid == "C03" else "C02",
-                    "editor_id": editor_id,
-                    "boundary": boundary,
-                    "outcome": "measured",
-                    "cache_state": "process_cold_fs_warm",
-                    "median_ms": median(cold_samples),
-                    "attempt_file": _attempt_ref(cold_path),
-                    "publishable": False,
+            summary_row = {
+                "criterion_id": "C03" if cid == "C03" else "C02",
+                "editor_id": editor_id,
+                "boundary": boundary,
+                "outcome": "measured",
+                "cache_state": "process_cold_fs_warm",
+                "median_ms": median(cold_samples),
+                "attempt_file": _attempt_ref(cold_path),
+                "publishable": False,
+            }
+            if harness_meta:
+                summary_row["harness_version"] = harness_meta
+            if single_ready_signal and cid == "C03":
+                summary_row["shared_ready_signal"] = {
+                    "measured_boundary": "first_usable",
+                    "skipped_criterion": "C02",
+                    "reason": c02_skip_reason,
                 }
-            )
+            summary_editors.append(summary_row)
+            if cid == "C03":
+                c03_cold_attempt_ref = _attempt_ref(cold_path)
 
         reload_samples = [
             float(row["document_reload_same_context_ms"])
@@ -600,12 +662,8 @@ def main() -> int:
                     cold_median=median(cold_first),
                     warm_median=median(reload_samples),
                     cause=cause_load,
-                    cold_path=summary_editors[-2]["attempt_file"]
-                    if summary_editors
-                    else "",
-                    warm_path=summary_editors[-2]["attempt_file"]
-                    if summary_editors
-                    else "",
+                    cold_path=c03_cold_attempt_ref,
+                    warm_path=c03_cold_attempt_ref,
                     probes={**probe_bundle, **breakdown},
                 )
             )
@@ -919,6 +977,10 @@ def main() -> int:
             )
         except Exception as exc:
             driver_checks.append({"editor_id": "plate", "puppeteer_error": str(exc)})
+
+    from perf.runner.cause_attribution import assert_no_duplicate_c02_c03_in_dir  # noqa: E402
+
+    assert_no_duplicate_c02_c03_in_dir(attempt_dir)
 
     summary = {
         "suite": "warm_cold",

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 CAUSE_LABELS = (
     "process_startup",
     "browser_launch",
@@ -150,3 +153,39 @@ def assert_warm_cold_distinct(cold_samples: list[float], warm_samples: list[floa
         a == b for a, b in zip(cold_samples, warm_samples)
     ):
         raise ValueError("warm samples must not be pairwise identical to cold samples")
+
+
+def assert_c02_c03_distinct_boundaries(
+    c02: dict | None,
+    c03: dict | None,
+) -> None:
+    """Fail if C02 and C03 claim different boundaries but share identical samples."""
+    if not c02 or not c03:
+        return
+    if c02.get("outcome") != "measured" or c03.get("outcome") != "measured":
+        return
+    b02 = c02.get("boundary")
+    b03 = c03.get("boundary")
+    if not b02 or b02 == b03:
+        return
+    s02 = c02.get("samples_ms") or []
+    s03 = c03.get("samples_ms") or []
+    if s02 and s02 == s03:
+        raise ValueError(
+            "C02 (%s) and C03 (%s) must not publish identical samples_ms with different boundaries"
+            % (b02, b03)
+        )
+
+
+def assert_no_duplicate_c02_c03_in_dir(attempt_dir: Path) -> None:
+    """Validate attempts on disk for a single warm_cold run."""
+    by_editor: dict[str, dict[str, dict]] = {}
+    for path in sorted(attempt_dir.glob("*.json")):
+        trial = json.loads(path.read_text(encoding="utf-8"))
+        eid = trial.get("editor_id")
+        cid = trial.get("criterion_id")
+        if not eid or cid not in ("C02", "C03"):
+            continue
+        by_editor.setdefault(eid, {})[cid] = trial
+    for _eid, pair in by_editor.items():
+        assert_c02_c03_distinct_boundaries(pair.get("C02"), pair.get("C03"))
