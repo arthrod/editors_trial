@@ -93,6 +93,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--start-c20-full-soak", action="store_true")
     parser.add_argument("--skip-run", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
+    if args.editors and len(args.editors) == 1 and "," in args.editors[0]:
+        args.editors = [e.strip() for e in args.editors[0].split(",") if e.strip()]
 
     if args.check_out:
         return check_out(args.check_out)
