@@ -29,10 +29,20 @@ OUTCOMES = (
 
 
 def validate_trial(trial):
+    for key in ("outcome", "boundary"):
+        if key not in trial:
+            raise ValueError(key)
     outcome = trial["outcome"]
     if outcome not in OUTCOMES:
         raise ValueError("unknown outcome %r" % (outcome,))
-    claims = set(trial.get("claims") or [])
+    raw_claims = trial.get("claims")
+    if raw_claims is None:
+        raw_claims = []
+    if not isinstance(raw_claims, (list, tuple, set, frozenset)) or not all(
+        isinstance(claim, str) for claim in raw_claims
+    ):
+        raise ValueError("claims")
+    claims = set(raw_claims)
     boundary = trial["boundary"]
     for blocked_boundary, blocked_claim, message in _FORBIDDEN:
         if boundary == blocked_boundary and blocked_claim in claims:
@@ -60,11 +70,17 @@ def validate_trial(trial):
             raise ValueError("samples must be finite and non-negative")
         if sample != sample or sample in (float("inf"), float("-inf")) or sample < 0:
             raise ValueError("samples must be finite and non-negative")
+    latency = trial.get("latency_ms")
+    if latency is not None:
+        if isinstance(latency, bool) or not isinstance(latency, (int, float)):
+            raise ValueError("latency_ms")
+        if latency != latency or latency in (float("inf"), float("-inf")) or latency < 0:
+            raise ValueError("latency_ms")
 
 
 def dump_trial(trial):
     validate_trial(trial)
-    return json.dumps(trial, sort_keys=True, separators=(",", ":"))
+    return json.dumps(trial, sort_keys=True, separators=(",", ":"), allow_nan=False)
 
 
 def load_trial(text):
@@ -130,7 +146,7 @@ def sample_budget_for_profile(execution_profile, repetition_unit):
 
 
 def validate_sample_budget(env, attempt_count):
-    if not isinstance(attempt_count, int) or attempt_count < 1:
+    if isinstance(attempt_count, bool) or not isinstance(attempt_count, int) or attempt_count < 1:
         raise ValueError("attempt_count")
     limit = sample_budget_for_profile(env["execution_profile"], env["repetition_unit"])
     if attempt_count > limit:

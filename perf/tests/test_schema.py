@@ -243,6 +243,79 @@ class SampleBudget(unittest.TestCase):
             validate_sample_budget(env, 6)
         self.assertIn("sample budget", str(caught.exception))
 
+    def test_boolean_attempt_count_is_rejected(self):
+        env = _env(host_class="ci_coarse", execution_profile="ci_contract", headless=True, display_refresh_hz=None)
+        with self.assertRaises(ValueError) as caught:
+            validate_sample_budget(env, True)
+        self.assertIn("attempt_count", str(caught.exception))
+
+
+class MeasuredSamples(unittest.TestCase):
+    def test_measured_rejects_empty_samples(self):
+        with self.assertRaises(ValueError) as caught:
+            validate_trial({
+                "outcome": "measured",
+                "boundary": "handler_duration",
+                "claims": [],
+                "samples_ms": [],
+                "latency_ms": None,
+            })
+        self.assertIn("samples", str(caught.exception))
+
+    def test_measured_rejects_bad_sample_values(self):
+        base = {
+            "outcome": "measured",
+            "boundary": "handler_duration",
+            "claims": [],
+            "latency_ms": None,
+        }
+        for bad in (float("nan"), float("inf"), -1, True, "x"):
+            with self.subTest(bad=bad):
+                with self.assertRaises(ValueError):
+                    validate_trial(dict(base, samples_ms=[bad]))
+
+    def test_measured_rejects_negative_latency(self):
+        with self.assertRaises(ValueError) as caught:
+            validate_trial({
+                "outcome": "measured",
+                "boundary": "handler_duration",
+                "claims": [],
+                "samples_ms": [1.0],
+                "latency_ms": -1,
+            })
+        self.assertIn("latency_ms", str(caught.exception))
+
+    def test_string_claim_is_not_split_into_characters(self):
+        with self.assertRaises(ValueError) as caught:
+            validate_trial({
+                "outcome": "measured",
+                "boundary": "raf_callback",
+                "claims": "visible_paint",
+                "samples_ms": [1.0],
+                "latency_ms": None,
+            })
+        self.assertIn("claims", str(caught.exception))
+
+    def test_missing_outcome_raises_value_error(self):
+        trial = _trial("handler_duration", "x")
+        del trial["outcome"]
+        with self.assertRaises(ValueError) as caught:
+            validate_trial(trial)
+        self.assertIn("outcome", str(caught.exception))
+
+
+class DumpTrial(unittest.TestCase):
+    def test_dump_rejects_nan_latency(self):
+        trial = {
+            "outcome": "measured",
+            "boundary": "handler_duration",
+            "claims": [],
+            "samples_ms": [1.0],
+            "latency_ms": float("nan"),
+        }
+        with self.assertRaises(ValueError):
+            dump_trial(trial)
+
 
 if __name__ == "__main__":
     unittest.main()
