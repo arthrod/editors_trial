@@ -1,0 +1,7 @@
+{
+  "seconds_requested": 60,
+  "sample_count": 66,
+  "median_ms": 899.3120650011406,
+  "operation": "c02_plate_headless_roundtrip",
+  "finished_at": "2026-11-07T19:47:26.139473+00:00"
+}
