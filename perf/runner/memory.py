@@ -14,6 +14,8 @@ def validate_memory_sample(sample):
         value = sample[key]
         if isinstance(value, bool) or not isinstance(value, int) or value < 0:
             raise ValueError(key)
+    if "process_count" not in sample:
+        raise ValueError("process_count")
     count = sample["process_count"]
     if isinstance(count, bool) or not isinstance(count, int) or count < 1:
         raise ValueError("process_count")
@@ -21,3 +23,5 @@ def validate_memory_sample(sample):
         raise ValueError("pss_bytes exceeds rss_bytes")
     if sample["uss_bytes"] > sample["pss_bytes"]:
         raise ValueError("uss_bytes exceeds pss_bytes")
+    if sample["cgroup_current_bytes"] > sample["cgroup_peak_bytes"]:
+        raise ValueError("cgroup_current_bytes exceeds cgroup_peak_bytes")

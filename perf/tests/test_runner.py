@@ -200,6 +200,18 @@ class Memory(unittest.TestCase):
             validate_memory_sample(sample)
         self.assertIn("cgroup_peak_bytes", str(caught.exception))
 
+    def test_rejects_a_missing_process_count(self):
+        sample = _sample()
+        del sample["process_count"]
+        with self.assertRaises(ValueError) as caught:
+            validate_memory_sample(sample)
+        self.assertIn("process_count", str(caught.exception))
+
+    def test_rejects_current_above_peak(self):
+        with self.assertRaises(ValueError) as caught:
+            validate_memory_sample(_sample(cgroup_current_bytes=2000, cgroup_peak_bytes=1500))
+        self.assertIn("cgroup_current_bytes", str(caught.exception))
+
     def test_rejects_pss_above_rss(self):
         with self.assertRaises(ValueError) as caught:
             validate_memory_sample(_sample(pss_bytes=5000))
