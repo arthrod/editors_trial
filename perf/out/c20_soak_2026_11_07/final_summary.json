@@ -1,0 +1,11 @@
+{
+  "count": 4003,
+  "median": 901.468,
+  "min": 872.374,
+  "max": 1780.209,
+  "planned_seconds": 3600,
+  "publishable": false,
+  "operation": "c02_plate_headless_roundtrip",
+  "first_timestamp": "2026-11-07T19:46:26.525243+00:00",
+  "last_timestamp": "2026-11-07T20:47:29.031086+00:00"
+}
