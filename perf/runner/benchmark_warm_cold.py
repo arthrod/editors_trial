@@ -372,6 +372,7 @@ def _paired_summary_row(
 
 
 def main() -> int:
+    global EXECUTION_PROFILE, HOST_CLASS
     parser = argparse.ArgumentParser()
     parser.add_argument("--workload", default="micro-paragraphs")
     parser.add_argument("--out-root", type=Path, default=None)
@@ -380,7 +381,6 @@ def main() -> int:
     parser.add_argument("--execution-profile", default=EXECUTION_PROFILE)
     parser.add_argument("--host-class", default=HOST_CLASS)
     args = parser.parse_args()
-    global EXECUTION_PROFILE, HOST_CLASS
     EXECUTION_PROFILE = args.execution_profile
     HOST_CLASS = args.host_class
 
@@ -821,19 +821,22 @@ def main() -> int:
                 )
             )
 
-            cold_burst = [
-                pair["cold"].get(C06_PROBE_KEY)
-                for pair in payload["pairs"]
-                if pair.get("cold", {}).get(C06_PROBE_KEY) is not None
-            ]
-            warm_burst = [
-                pair["warm"].get(C06_PROBE_KEY)
-                for pair in payload["pairs"]
-                if pair.get("warm", {}).get(C06_PROBE_KEY) is not None
-            ]
+            def _burst_samples(side: str) -> list[float]:
+                out: list[float] = []
+                for pair in payload["pairs"]:
+                    block = pair.get(side, {})
+                    raw = block.get("sustained_typing_ms")
+                    if isinstance(raw, list) and raw:
+                        out.extend(float(x) for x in raw)
+                    elif block.get(C06_PROBE_KEY) is not None:
+                        out.append(float(block[C06_PROBE_KEY]))
+                return out
+
+            cold_burst = _burst_samples("cold")
+            warm_burst = _burst_samples("warm")
             if (
-                len(cold_burst) >= args.pairs
-                and len(warm_burst) >= args.pairs
+                len(cold_burst) >= 3
+                and len(warm_burst) >= 3
                 and "C06" in criteria_map
             ):
                 assert_same_probe_paired(C06_PROBE_KEY, C06_PROBE_KEY)

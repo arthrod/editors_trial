@@ -145,7 +145,7 @@ async function waitForReady(page, selector, timeoutMs = 120_000) {
 }
 
 async function performEdit(page, selector) {
-  const t0 = Date.now();
+  const t0 = await page.evaluate(() => performance.now());
   if (preEditClick) {
     await page.click(preEditClick, { timeout: 30_000 });
     await page.waitForTimeout(400);
@@ -154,7 +154,8 @@ async function performEdit(page, selector) {
   await target.click({ timeout: 30_000 });
   await page.keyboard.type('x', { delay: 12 });
   const paint = await nextPaintMs(page);
-  return { edit_ms: Date.now() - t0, paint_ms: paint };
+  const t1 = await page.evaluate(() => performance.now());
+  return { edit_ms: t1 - t0, paint_ms: paint };
 }
 
 async function routeCorpus(context, routePath, bytes) {
@@ -237,13 +238,18 @@ async function runPlaywrightPair() {
       model_ready_browser_ms: modelReadyMs,
       single_edit_ms: coldEdit.edit_ms,
       presented_frame_ms: coldEdit.paint_ms,
+      sustained_typing_ms: coldBurst,
       sustained_typing_median_ms:
         coldBurst.length > 0 ? coldBurst.sort((a, b) => a - b)[Math.floor(coldBurst.length / 2)] : null,
     },
     warm: {
       single_edit_ms: warmEdit.edit_ms,
       presented_frame_ms: warmEdit.paint_ms,
-      sustained_typing_median_ms: warmBurst.sort((a, b) => a - b)[1],
+      sustained_typing_ms: warmBurst,
+      sustained_typing_median_ms:
+        warmBurst.length > 0
+          ? warmBurst.sort((a, b) => a - b)[Math.floor(warmBurst.length / 2)]
+          : null,
     },
   };
 }
