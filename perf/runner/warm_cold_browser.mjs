@@ -158,8 +158,12 @@ async function runPlaywrightPair() {
   let coldEdit = { edit_ms: null, paint_ms: null };
   let warmEdit = { edit_ms: null, paint_ms: null };
   const warmBurst = [];
+  const coldBurst = [];
   if (!skipEdit) {
     coldEdit = await performEdit(coldPage, editSelector);
+    for (let i = 0; i < 3; i++) {
+      coldBurst.push((await performEdit(coldPage, editSelector)).edit_ms);
+    }
   }
 
   const reloadT0 = Date.now();
@@ -187,6 +191,8 @@ async function runPlaywrightPair() {
       model_ready_browser_ms: modelReadyMs,
       single_edit_ms: coldEdit.edit_ms,
       presented_frame_ms: coldEdit.paint_ms,
+      sustained_typing_median_ms:
+        coldBurst.length > 0 ? coldBurst.sort((a, b) => a - b)[Math.floor(coldBurst.length / 2)] : null,
     },
     warm: {
       single_edit_ms: warmEdit.edit_ms,

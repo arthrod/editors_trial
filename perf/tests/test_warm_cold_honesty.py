@@ -4,7 +4,13 @@ import json
 import unittest
 from pathlib import Path
 
-from perf.runner.cause_attribution import assert_warm_cold_distinct
+from perf.runner.cause_attribution import (
+    C05_PROBE_KEY,
+    C06_PROBE_KEY,
+    assert_same_probe_paired,
+    assert_warm_cold_distinct,
+    attribute_delta,
+)
 from perf.schema import validate_environment
 
 
@@ -45,6 +51,38 @@ class WarmColdHonesty(unittest.TestCase):
         with self.assertRaises(ValueError) as caught:
             validate_environment(env)
         self.assertIn("os_cache_cold", str(caught.exception))
+
+    def test_c06_must_not_hardcode_residual_steady_state_cause(self):
+        runner = Path(__file__).resolve().parents[1] / "runner" / "benchmark_warm_cold.py"
+        text = runner.read_text(encoding="utf-8")
+        self.assertNotIn(
+            'cause="residual_steady_state"',
+            text,
+            "C06 paired row must call attribute_delta, not hardcode residual_steady_state",
+        )
+        self.assertIn("attribute_delta", text)
+        self.assertIn("cause_burst", text)
+
+    def test_c06_must_not_pair_different_probe_keys(self):
+        with self.assertRaises(ValueError):
+            assert_same_probe_paired(C05_PROBE_KEY, C06_PROBE_KEY)
+        assert_same_probe_paired(C06_PROBE_KEY, C06_PROBE_KEY)
+
+    def test_c06_large_delta_uses_attribute_delta_not_literal_residual(self):
+        probes = {
+            "browser_launch_only_median": 25.0,
+            "document_navigation_only_median": 776.0,
+            "model_ready_browser_median": 314.0,
+            "document_reload_same_context_median": 821.0,
+        }
+        cause, breakdown = attribute_delta(128.0, 100.0, probes)
+        self.assertNotEqual(
+            cause,
+            "residual_steady_state",
+            "28 ms overhead must not be attributed via hardcoded residual_steady_state",
+        )
+        self.assertIn(cause, ("mixed_unresolved", "browser_launch", "document_parse", "wasm_js_compile"))
+        self.assertAlmostEqual(breakdown["overhead_ms"], 28.0)
 
     def test_warm_cold_summary_never_labels_os_cache_cold(self):
         root = Path(__file__).resolve().parents[2] / "perf" / "out"

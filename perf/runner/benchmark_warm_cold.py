@@ -34,6 +34,9 @@ from perf.runner.benchmark_ci_contract import (  # noqa: E402
     _trial_dict,
 )
 from perf.runner.cause_attribution import (  # noqa: E402
+    C05_PROBE_KEY,
+    C06_PROBE_KEY,
+    assert_same_probe_paired,
     assert_warm_cold_distinct,
     attribute_delta,
     probe_medians,
@@ -70,7 +73,8 @@ BROWSER_TARGETS: dict[str, dict] = {
         "url": "http://127.0.0.1:5210/",
         "corpus_route": "/corpus.docx",
         "ready_selector": "#status",
-        "ready_text": "rendered",
+        "ready_js": "window.__docxodus && window.__docxodus.pageCount > 0",
+        "wait_after_ready": "500",
         "pre_edit_click": "#modeEditor",
         "edit_selector": '[contenteditable="true"]',
         "driver": "playwright",
@@ -89,12 +93,12 @@ BROWSER_TARGETS: dict[str, dict] = {
         "ready_selector": "#editor",
         "ready_js": "window.__DOCX_IMPORTED__ === true",
         "wait_after_ready": "800",
-        "edit_selector": "#editor",
+        "edit_selector": "#editor canvas",
         "driver": "playwright",
+        "skip_edit": True,
         "criteria": {
             "C03": ("first_usable", "browser_visible"),
             "C02b": ("model_ready_browser", "model"),
-            "C05": ("presented_frame", "browser_visible"),
         },
     },
 }
@@ -173,11 +177,11 @@ def _run_browser_probe(
         "--url",
         target["url"],
         "--corpus",
-        str(corpus_path),
+        str(corpus_path.resolve()),
         "--corpus-route",
         target["corpus_route"],
         "--ready-selector",
-        target["ready_selector"],
+        target.get("ready_selector", ""),
         "--edit-selector",
         target["edit_selector"],
         "--pairs",
@@ -396,6 +400,8 @@ def main() -> int:
             continue
 
         target = BROWSER_TARGETS.get(editor_id)
+        if target and target.get("enabled") is False:
+            target = None
         if not target:
             reason = "no browser harness host configured for %s on warm_cold" % editor_id
             env = _env_for(
@@ -406,13 +412,13 @@ def main() -> int:
                 docx_size=docx_size,
                 cache_state="process_cold_fs_warm",
             )
-            for cid in ("C03", "C05", "C06", "C07", "C02b"):
+            for cid in ("C03", "C05", "C06", "C07", "C02"):
                 boundary, layer = {
                     "C03": ("first_usable", "browser_visible"),
                     "C05": ("presented_frame", "browser_visible"),
                     "C06": ("input_to_next_paint", "browser_visible"),
                     "C07": ("input_to_next_paint", "browser_visible"),
-                    "C02b": ("model_ready_browser", "model"),
+                    "C02": ("model_ready_browser", "model"),
                 }[cid]
                 path = _write_not_run(
                     attempt_dir=attempt_dir,
@@ -449,7 +455,8 @@ def main() -> int:
                 docx_size=docx_size,
                 cache_state="process_cold_fs_warm",
             )
-            for cid, (boundary, layer) in target.get("criteria", {}).items():
+            for raw_cid, (boundary, layer) in target.get("criteria", {}).items():
+                cid = "C02" if raw_cid == "C02b" else raw_cid
                 path = _write_not_run(
                     attempt_dir=attempt_dir,
                     criterion_id=cid,
@@ -536,6 +543,38 @@ def main() -> int:
                     "attempt_file": _attempt_ref(cold_path),
                     "publishable": False,
                 }
+            )
+
+        reload_samples = [
+            float(row["document_reload_same_context_ms"])
+            for row in payload["pairs"]
+            if row.get("document_reload_same_context_ms") is not None
+        ]
+        cold_first = [
+            float(pair["cold"]["first_usable_ms"])
+            for pair in payload["pairs"]
+            if pair.get("cold", {}).get("first_usable_ms") is not None
+        ]
+        if reload_samples and cold_first and "C03" in criteria_map:
+            cause_load, breakdown = attribute_delta(
+                median(cold_first), median(reload_samples), probe_bundle
+            )
+            paired_rows.append(
+                _paired_summary_row(
+                    criterion_id="C03",
+                    editor_id=editor_id,
+                    boundary="first_usable",
+                    cold_median=median(cold_first),
+                    warm_median=median(reload_samples),
+                    cause=cause_load,
+                    cold_path=summary_editors[-2]["attempt_file"]
+                    if summary_editors
+                    else "",
+                    warm_path=summary_editors[-2]["attempt_file"]
+                    if summary_editors
+                    else "",
+                    probes={**probe_bundle, **breakdown},
+                )
             )
 
         if target.get("skip_edit"):
@@ -680,12 +719,31 @@ def main() -> int:
                 )
             )
 
-            warm_burst = [
-                pair["warm"].get("sustained_typing_median_ms")
+            cold_burst = [
+                pair["cold"].get(C06_PROBE_KEY)
                 for pair in payload["pairs"]
-                if pair.get("warm", {}).get("sustained_typing_median_ms") is not None
+                if pair.get("cold", {}).get(C06_PROBE_KEY) is not None
             ]
-            if warm_burst and "C06" in criteria_map:
+            warm_burst = [
+                pair["warm"].get(C06_PROBE_KEY)
+                for pair in payload["pairs"]
+                if pair.get("warm", {}).get(C06_PROBE_KEY) is not None
+            ]
+            if (
+                len(cold_burst) >= args.pairs
+                and len(warm_burst) >= args.pairs
+                and "C06" in criteria_map
+            ):
+                assert_same_probe_paired(C06_PROBE_KEY, C06_PROBE_KEY)
+                assert_warm_cold_distinct(cold_burst, warm_burst)
+                env_cold_burst = _env_for(
+                    editor_id=editor_id,
+                    editor_version=editor_version,
+                    fixture_sha256=sha,
+                    workload_row=workload_row,
+                    docx_size=docx_size,
+                    cache_state="process_cold_fs_warm",
+                )
                 env_warm_burst = _env_for(
                     editor_id=editor_id,
                     editor_version=editor_version,
@@ -693,6 +751,22 @@ def main() -> int:
                     workload_row=workload_row,
                     docx_size=docx_size,
                     cache_state="warm_steady",
+                )
+                c06_cold_path = _write_measured_attempt(
+                    attempt_dir=attempt_dir,
+                    criterion_id="C06",
+                    layer="browser_visible",
+                    boundary="input_to_next_paint",
+                    editor_id=editor_id,
+                    lane=lane,
+                    env=env_cold_burst,
+                    samples_ms=[float(s) for s in cold_burst],
+                    cache_state="process_cold_fs_warm",
+                    diagnostic={
+                        "suite": "warm_cold",
+                        "phase": "non_warm_burst",
+                        "probe_key": C06_PROBE_KEY,
+                    },
                 )
                 burst_path = _write_measured_attempt(
                     attempt_dir=attempt_dir,
@@ -704,20 +778,57 @@ def main() -> int:
                     env=env_warm_burst,
                     samples_ms=[float(s) for s in warm_burst],
                     cache_state="warm_steady",
-                    diagnostic={"suite": "warm_cold", "phase": "warm_burst"},
+                    diagnostic={
+                        "suite": "warm_cold",
+                        "phase": "warm_burst",
+                        "probe_key": C06_PROBE_KEY,
+                    },
+                )
+                cause_burst, breakdown_burst = attribute_delta(
+                    median(cold_burst), median(warm_burst), probe_bundle
                 )
                 paired_rows.append(
                     _paired_summary_row(
                         criterion_id="C06",
                         editor_id=editor_id,
                         boundary="input_to_next_paint",
-                        cold_median=median(cold_edits),
+                        cold_median=median(cold_burst),
                         warm_median=median(warm_burst),
-                        cause="residual_steady_state",
-                        cold_path=_attempt_ref(cold_path),
+                        cause=cause_burst,
+                        cold_path=_attempt_ref(c06_cold_path),
                         warm_path=_attempt_ref(burst_path),
-                        probes=probe_bundle,
+                        probes={**probe_bundle, **breakdown_burst},
                     )
+                )
+            elif "C06" in criteria_map:
+                reason = "adapter-not-implemented: sustained_typing burst probe incomplete"
+                boundary, layer = ("input_to_next_paint", "browser_visible")
+                env = _env_for(
+                    editor_id=editor_id,
+                    editor_version=editor_version,
+                    fixture_sha256=sha,
+                    workload_row=workload_row,
+                    docx_size=docx_size,
+                    cache_state="warm_steady",
+                )
+                path = _write_not_run(
+                    attempt_dir=attempt_dir,
+                    criterion_id="C06",
+                    layer=layer,
+                    boundary=boundary,
+                    editor_id=editor_id,
+                    lane=lane,
+                    env=env,
+                    failure_reason=reason,
+                )
+                not_run_rows.append(
+                    {
+                        "criterion_id": "C06",
+                        "editor_id": editor_id,
+                        "outcome": "not_run",
+                        "failure_reason": reason,
+                        "attempt_file": _attempt_ref(path),
+                    }
                 )
 
         for cid in ("C07", "C08", "C09", "C10", "C22", "C23"):
@@ -753,6 +864,29 @@ def main() -> int:
                 }
             )
 
+    driver_checks: list[dict] = []
+    if "plate" in editors:
+        try:
+            target = BROWSER_TARGETS["plate"]
+            proc = _start_server("plate", {**target, "driver": "puppeteer"})
+            puppeteer_payload = _run_browser_probe(
+                target={**target, "driver": "puppeteer"},
+                corpus_path=fixture_path,
+                pairs=1,
+            )
+            _stop_server(proc)
+            pair0 = puppeteer_payload["pairs"][0]
+            driver_checks.append(
+                {
+                    "editor_id": "plate",
+                    "driver": "puppeteer",
+                    "c05_cold_ms": pair0["cold"].get("single_edit_ms"),
+                    "c05_warm_ms": pair0["warm"].get("single_edit_ms"),
+                }
+            )
+        except Exception as exc:
+            driver_checks.append({"editor_id": "plate", "puppeteer_error": str(exc)})
+
     summary = {
         "suite": "warm_cold",
         "execution_profile": EXECUTION_PROFILE,
@@ -769,6 +903,7 @@ def main() -> int:
             "cpu_model": platform.processor() or "unknown",
             "ram_bytes": _ram_bytes(),
         },
+        "driver_checks": driver_checks,
         "commands": [
             "PYTHONPATH=. python3 perf/runner/benchmark_warm_cold.py --pairs %d" % args.pairs,
             "PYTHONPATH=. python3 -m unittest discover -s perf/tests -q",

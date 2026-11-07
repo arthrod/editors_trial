@@ -110,6 +110,19 @@ def probe_medians(probe_rows: list[dict]) -> dict:
     return out
 
 
+C05_PROBE_KEY = "single_edit_ms"
+C06_PROBE_KEY = "sustained_typing_median_ms"
+
+
+def assert_same_probe_paired(cold_probe_key: str, warm_probe_key: str) -> None:
+    """Fail when a warm/cold summary row mixes unlike probe fields."""
+    if cold_probe_key != warm_probe_key:
+        raise ValueError(
+            "warm/cold pair must use the same probe on both sides (got cold=%r warm=%r)"
+            % (cold_probe_key, warm_probe_key)
+        )
+
+
 def assert_warm_cold_distinct(cold_samples: list[float], warm_samples: list[float]) -> None:
     """Fail if warm samples appear copied from cold (same list or pairwise equal)."""
     if cold_samples == warm_samples:
