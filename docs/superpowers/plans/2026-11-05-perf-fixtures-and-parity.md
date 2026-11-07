@@ -320,7 +320,7 @@ git commit -m "feat: record feature profiles and large-file fallbacks"
 
 **Interfaces:**
 - Consumes: `build_workload`
-- Produces: `size_ladder() -> list[dict]` with ids `short-paragraphs`, `long-paragraphs`, `one-paragraph`, `mixed-utf8`, `search-dense`, `paginated-equivalent`. `assert_not_hostile(path, root) -> None` resolves both paths and raises `ValueError` when the candidate is inside `root`.
+- Produces: `size_ladder() -> list[dict]` with ids `micro-paragraphs`, `micro-search`, `short-paragraphs`, `long-paragraphs`, `one-paragraph`, `mixed-utf8`, `search-dense`, `paginated-equivalent`. `assert_not_hostile(path, root) -> None` resolves both paths and raises `ValueError` when the candidate is inside `root`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -337,6 +337,8 @@ class Ladder(unittest.TestCase):
         rows = size_ladder()
         ids = [row["workload_id"] for row in rows]
         self.assertEqual(ids, [
+            "micro-paragraphs",
+            "micro-search",
             "short-paragraphs",
             "long-paragraphs",
             "one-paragraph",
@@ -395,6 +397,8 @@ Add to `perf/fixtures/profiles.py`:
 ```python
 def size_ladder():
     return [
+        {"workload_id": "micro-paragraphs", "paragraphs": 5, "paragraph_chars": 20, "unicode_class": "ascii", "match_count": 0, "seed": 1, "shape": "micro"},
+        {"workload_id": "micro-search", "paragraphs": 10, "paragraph_chars": 20, "unicode_class": "ascii", "match_count": 5, "seed": 1, "shape": "micro-search"},
         {"workload_id": "short-paragraphs", "paragraphs": 100, "paragraph_chars": 40, "unicode_class": "ascii", "match_count": 0, "seed": 1, "shape": "short"},
         {"workload_id": "long-paragraphs", "paragraphs": 20, "paragraph_chars": 4000, "unicode_class": "ascii", "match_count": 0, "seed": 1, "shape": "long"},
         {"workload_id": "one-paragraph", "paragraphs": 1, "paragraph_chars": 8000, "unicode_class": "ascii", "match_count": 0, "seed": 1, "shape": "single"},
@@ -428,6 +432,80 @@ Expected: `OK`
 git add perf/fixtures/profiles.py perf/tests/test_fixtures.py
 git commit -m "feat: declare the document size ladder and reject hostile fixtures"
 ```
+
+---
+
+### Task 4b: Workload caps per execution profile
+
+**Files:**
+- Modify: `perf/fixtures/profiles.py`
+- Modify: `perf/tests/test_fixtures.py`
+
+**Interfaces:**
+- Consumes: `size_ladder`
+- Produces: `allowed_workloads(execution_profile: str) -> frozenset[str]` and `assert_workload_allowed(execution_profile: str, workload_id: str) -> None`. `ci_contract` allows only `micro-paragraphs` and `micro-search`. `ci_broad` allows those plus `short-paragraphs`, `mixed-utf8`, and `search-dense`. `dedicated_publish` allows every ladder id.
+
+- [ ] **Step 1: Write the failing test**
+
+```python
+from perf.fixtures.profiles import allowed_workloads, assert_workload_allowed
+
+
+class WorkloadCaps(unittest.TestCase):
+    def test_contract_allows_micro_only(self):
+        allowed = allowed_workloads("ci_contract")
+        self.assertEqual(allowed, frozenset({"micro-paragraphs", "micro-search"}))
+        assert_workload_allowed("ci_contract", "micro-paragraphs")
+        with self.assertRaises(ValueError) as caught:
+            assert_workload_allowed("ci_contract", "short-paragraphs")
+        self.assertIn("workload cap", str(caught.exception))
+
+    def test_dedicated_allows_the_full_ladder(self):
+        ladder_ids = {row["workload_id"] for row in size_ladder()}
+        self.assertEqual(allowed_workloads("dedicated_publish"), frozenset(ladder_ids))
+```
+
+- [ ] **Step 2: Run the test to verify it fails**
+
+Run: `python3 -m unittest perf.tests.test_fixtures.WorkloadCaps -v`
+
+Expected: ERROR containing `cannot import name 'allowed_workloads'`
+
+- [ ] **Step 3: Write the minimal implementation**
+
+Add to `perf/fixtures/profiles.py`:
+
+```python
+def allowed_workloads(execution_profile):
+    ladder_ids = {row["workload_id"] for row in size_ladder()}
+    if execution_profile == "ci_contract":
+        return frozenset({"micro-paragraphs", "micro-search"})
+    if execution_profile == "ci_broad":
+        return frozenset({"micro-paragraphs", "micro-search", "short-paragraphs", "mixed-utf8", "search-dense"})
+    if execution_profile == "dedicated_publish":
+        return frozenset(ladder_ids)
+    raise ValueError("execution_profile")
+
+
+def assert_workload_allowed(execution_profile, workload_id):
+    if workload_id not in allowed_workloads(execution_profile):
+        raise ValueError("workload cap for %s: %s" % (execution_profile, workload_id))
+```
+
+- [ ] **Step 4: Run the test to verify it passes**
+
+Run: `python3 -m unittest perf.tests.test_fixtures -v`
+
+Expected: `OK`
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add perf/fixtures/profiles.py perf/tests/test_fixtures.py
+git commit -m "feat: cap performance workloads by execution profile"
+```
+
+---
 
 ### Task 5: Executable correctness oracles
 

@@ -239,6 +239,71 @@ git commit -m "test: lock scroll, soak, allocation, and WASM scenario clocks"
 
 ---
 
+### Task 2b: Name the minimum execution profile per criterion
+
+**Files:**
+- Modify: `perf/scenarios/catalog.py`
+- Modify: `perf/tests/test_scenarios.py`
+
+**Interfaces:**
+- Consumes: `scenarios`
+- Produces: every scenario dict includes `min_execution_profile` (`ci_contract`, `ci_broad`, or `dedicated_publish`). Browser-visible criteria require `ci_broad`. Model, native timing, and WASM boundary criteria require `ci_contract`. C20 requires `dedicated_publish`. C18 requires `ci_broad` because it is diagnostic profiling, not a one-sample contract run.
+
+- [ ] **Step 1: Write the failing test**
+
+```python
+class ExecutionProfile(unittest.TestCase):
+    def test_every_scenario_names_a_minimum_profile(self):
+        for row in scenarios():
+            self.assertIn(row["min_execution_profile"], ("ci_contract", "ci_broad", "dedicated_publish"))
+
+    def test_model_and_wasm_scenarios_run_on_ci_contract(self):
+        for criterion_id in ("C02", "C04", "C13", "C15", "C16", "C17", "C19", "C21", "C24"):
+            row = next(item for item in scenarios() if item["id"] == criterion_id)
+            self.assertEqual(row["min_execution_profile"], "ci_contract")
+
+    def test_visible_interaction_requires_ci_broad(self):
+        for criterion_id in ("C05", "C06", "C07", "C08", "C09", "C10"):
+            row = next(item for item in scenarios() if item["id"] == criterion_id)
+            self.assertEqual(row["min_execution_profile"], "ci_broad")
+
+    def test_long_session_requires_dedicated_publish(self):
+        soak = next(row for row in scenarios() if row["id"] == "C20")
+        self.assertEqual(soak["min_execution_profile"], "dedicated_publish")
+```
+
+- [ ] **Step 2: Run the test to verify it fails**
+
+Run: `python3 -m unittest perf.tests.test_scenarios.ExecutionProfile -v`
+
+Expected: ERROR containing `KeyError: 'min_execution_profile'`
+
+- [ ] **Step 3: Write the minimal implementation**
+
+Add `"min_execution_profile"` to every row in `scenarios()`:
+
+| Id | `min_execution_profile` |
+|---|---|
+| C01, C03, C05–C12, C14, C22, C23 | `ci_broad` |
+| C02, C04, C13, C15, C16, C17, C19, C21, C24 | `ci_contract` |
+| C18 | `ci_broad` |
+| C20 | `dedicated_publish` |
+
+- [ ] **Step 4: Run the test to verify it passes**
+
+Run: `python3 -m unittest perf.tests.test_scenarios.ExecutionProfile -v`
+
+Expected: `OK`
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add perf/scenarios/catalog.py perf/tests/test_scenarios.py
+git commit -m "feat: declare minimum execution profile per scenario"
+```
+
+---
+
 ### Task 3: Compare the catalog to the normative matrix
 
 **Files:**

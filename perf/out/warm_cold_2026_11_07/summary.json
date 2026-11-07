@@ -1,0 +1,279 @@
+{
+  "suite": "warm_cold",
+  "execution_profile": "ci_broad",
+  "host_class": "ci_coarse",
+  "workload_id": "micro-paragraphs",
+  "fixture_sha256": "bb7f8215449789fc54a871d6154b39b378b47cc647dd4c7e3d36a782a16efb3f",
+  "publishable": false,
+  "pairs_per_cell": 3,
+  "paired": [
+    {
+      "criterion_id": "C03",
+      "editor_id": "plate",
+      "boundary": "first_usable",
+      "cold_median_ms": 274.0,
+      "warm_median_ms": 882.0,
+      "delta_ms": 608.0,
+      "attributed_cause": "residual_steady_state",
+      "cold_attempt": "perf/out/warm_cold_2026_11_07/attempts/c03-plate-55679009d5.json",
+      "warm_attempt": "perf/out/warm_cold_2026_11_07/attempts/c03-plate-55679009d5.json",
+      "probes": {
+        "browser_launch_only_median": 27.0,
+        "document_navigation_only_median": 766.0,
+        "model_ready_browser_median": 274.0,
+        "document_reload_same_context_median": 882.0,
+        "delta_ms": 608.0,
+        "overhead_ms": -608.0,
+        "cold_median_ms": 274.0,
+        "warm_median_ms": 882.0
+      },
+      "publishable": false
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "plate",
+      "boundary": "presented_frame",
+      "cold_median_ms": 120.0,
+      "warm_median_ms": 87.0,
+      "delta_ms": -33.0,
+      "attributed_cause": "browser_launch",
+      "cold_attempt": "perf/out/warm_cold_2026_11_07/attempts/c05-plate-c4fe008718.json",
+      "warm_attempt": "perf/out/warm_cold_2026_11_07/attempts/c05-plate-f284b7703e.json",
+      "probes": {
+        "browser_launch_only_median": 27.0,
+        "document_navigation_only_median": 766.0,
+        "model_ready_browser_median": 274.0,
+        "document_reload_same_context_median": 882.0,
+        "delta_ms": -33.0,
+        "overhead_ms": 33.0,
+        "cold_median_ms": 120.0,
+        "warm_median_ms": 87.0,
+        "browser_launch_ms": 27.0,
+        "document_navigation_ms": 766.0,
+        "model_ready_browser_ms": 274.0,
+        "document_reload_ms": 882.0,
+        "process_spawn_ms": 0.0,
+        "ranked_parts_ms": {
+          "browser_launch": 27.0,
+          "document_parse": 6.0,
+          "wasm_js_compile": 0.0,
+          "process_startup": 0.0
+        }
+      },
+      "publishable": false
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "plate",
+      "boundary": "input_to_next_paint",
+      "cold_median_ms": 120.0,
+      "warm_median_ms": 100.0,
+      "delta_ms": -20.0,
+      "attributed_cause": "residual_steady_state",
+      "cold_attempt": "perf/out/warm_cold_2026_11_07/attempts/c05-plate-c4fe008718.json",
+      "warm_attempt": "perf/out/warm_cold_2026_11_07/attempts/c06-plate-ec87bc1c3c.json",
+      "probes": {
+        "browser_launch_only_median": 27.0,
+        "document_navigation_only_median": 766.0,
+        "model_ready_browser_median": 274.0,
+        "document_reload_same_context_median": 882.0
+      },
+      "publishable": false
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "canvas",
+      "boundary": "first_usable",
+      "cold_median_ms": 853.0,
+      "warm_median_ms": 1002.0,
+      "delta_ms": 149.0,
+      "attributed_cause": "residual_steady_state",
+      "cold_attempt": "perf/out/warm_cold_2026_11_07/attempts/c03-canvas-e73e49d332.json",
+      "warm_attempt": "perf/out/warm_cold_2026_11_07/attempts/c03-canvas-e73e49d332.json",
+      "probes": {
+        "browser_launch_only_median": 24.0,
+        "document_navigation_only_median": 202.0,
+        "model_ready_browser_median": 853.0,
+        "document_reload_same_context_median": 1002.0,
+        "delta_ms": 149.0,
+        "overhead_ms": -149.0,
+        "cold_median_ms": 853.0,
+        "warm_median_ms": 1002.0
+      },
+      "publishable": false
+    }
+  ],
+  "editors": [
+    {
+      "criterion_id": "C03",
+      "editor_id": "plate",
+      "boundary": "first_usable",
+      "outcome": "measured",
+      "cache_state": "process_cold_fs_warm",
+      "median_ms": 274.0,
+      "attempt_file": "perf/out/warm_cold_2026_11_07/attempts/c03-plate-55679009d5.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "plate",
+      "boundary": "model_ready_browser",
+      "outcome": "measured",
+      "cache_state": "process_cold_fs_warm",
+      "median_ms": 274.0,
+      "attempt_file": "perf/out/warm_cold_2026_11_07/attempts/c02-plate-1a67483cba.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "canvas",
+      "boundary": "first_usable",
+      "outcome": "measured",
+      "cache_state": "process_cold_fs_warm",
+      "median_ms": 853.0,
+      "attempt_file": "perf/out/warm_cold_2026_11_07/attempts/c03-canvas-e73e49d332.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "canvas",
+      "boundary": "model_ready_browser",
+      "outcome": "measured",
+      "cache_state": "process_cold_fs_warm",
+      "median_ms": 853.0,
+      "attempt_file": "perf/out/warm_cold_2026_11_07/attempts/c02-canvas-59d405ece4.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C07 not driven on warm_cold host yet",
+      "attempt_file": "perf/out/warm_cold_2026_11_07/attempts/c07-plate-a36a2d83f4.json"
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C08 not driven on warm_cold host yet",
+      "attempt_file": "perf/out/warm_cold_2026_11_07/attempts/c08-plate-a31ee12c91.json"
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C09 not driven on warm_cold host yet",
+      "attempt_file": "perf/out/warm_cold_2026_11_07/attempts/c09-plate-db024a0119.json"
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C10 not driven on warm_cold host yet",
+      "attempt_file": "perf/out/warm_cold_2026_11_07/attempts/c10-plate-3322552010.json"
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C22 not driven on warm_cold host yet",
+      "attempt_file": "perf/out/warm_cold_2026_11_07/attempts/c22-plate-c07f51b2cf.json"
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C23 not driven on warm_cold host yet",
+      "attempt_file": "perf/out/warm_cold_2026_11_07/attempts/c23-plate-cf2f6ebafc.json"
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "browser_probe: node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\npage.waitForFunction: Timeout 120000ms exceeded.\n    at waitForReady (/agent/repos/editors_trial/perf/runner/warm_cold_browser.mjs:72:16)\n    at runPlaywrightPair (/agent/repos/editors_trial/perf/runner/warm_cold_browser.mjs:157:30)\n    at async file:///agent/repos/editors_trial/perf/runner/warm_cold_browser.mjs:282:20 {\n  log: [],\n  name: 'TimeoutError'\n}\n\nNode.js v24.22.2\n",
+      "attempt_file": "perf/out/warm_cold_2026_11_07/attempts/c03-docxodus-1ddc4aec94.json"
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "browser_probe: node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\npage.waitForFunction: Timeout 120000ms exceeded.\n    at waitForReady (/agent/repos/editors_trial/perf/runner/warm_cold_browser.mjs:72:16)\n    at runPlaywrightPair (/agent/repos/editors_trial/perf/runner/warm_cold_browser.mjs:157:30)\n    at async file:///agent/repos/editors_trial/perf/runner/warm_cold_browser.mjs:282:20 {\n  log: [],\n  name: 'TimeoutError'\n}\n\nNode.js v24.22.2\n",
+      "attempt_file": "perf/out/warm_cold_2026_11_07/attempts/c02-docxodus-8874b0eaf7.json"
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "browser_probe: node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\npage.waitForFunction: Timeout 120000ms exceeded.\n    at waitForReady (/agent/repos/editors_trial/perf/runner/warm_cold_browser.mjs:72:16)\n    at runPlaywrightPair (/agent/repos/editors_trial/perf/runner/warm_cold_browser.mjs:157:30)\n    at async file:///agent/repos/editors_trial/perf/runner/warm_cold_browser.mjs:282:20 {\n  log: [],\n  name: 'TimeoutError'\n}\n\nNode.js v24.22.2\n",
+      "attempt_file": "perf/out/warm_cold_2026_11_07/attempts/c05-docxodus-6b8eb1a305.json"
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "browser_probe: node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\npage.waitForFunction: Timeout 120000ms exceeded.\n    at waitForReady (/agent/repos/editors_trial/perf/runner/warm_cold_browser.mjs:72:16)\n    at runPlaywrightPair (/agent/repos/editors_trial/perf/runner/warm_cold_browser.mjs:157:30)\n    at async file:///agent/repos/editors_trial/perf/runner/warm_cold_browser.mjs:282:20 {\n  log: [],\n  name: 'TimeoutError'\n}\n\nNode.js v24.22.2\n",
+      "attempt_file": "perf/out/warm_cold_2026_11_07/attempts/c06-docxodus-1a6c080738.json"
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: no warm edit surface without verified selector",
+      "attempt_file": "perf/out/warm_cold_2026_11_07/attempts/c05-canvas-dbb4419c72.json"
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: no warm edit surface without verified selector",
+      "attempt_file": "perf/out/warm_cold_2026_11_07/attempts/c06-canvas-204310a505.json"
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: no warm edit surface without verified selector",
+      "attempt_file": "perf/out/warm_cold_2026_11_07/attempts/c07-canvas-1c06f1e168.json"
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: no warm edit surface without verified selector",
+      "attempt_file": "perf/out/warm_cold_2026_11_07/attempts/c08-canvas-14c488a644.json"
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: no warm edit surface without verified selector",
+      "attempt_file": "perf/out/warm_cold_2026_11_07/attempts/c09-canvas-343f5111c4.json"
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: no warm edit surface without verified selector",
+      "attempt_file": "perf/out/warm_cold_2026_11_07/attempts/c10-canvas-8ddc24ae60.json"
+    }
+  ],
+  "host": {
+    "os": "linux",
+    "arch": "x86_64",
+    "cpu_model": "x86_64",
+    "ram_bytes": 16780574720
+  },
+  "driver_checks": [
+    {
+      "editor_id": "plate",
+      "driver": "puppeteer",
+      "c05_cold_ms": 100,
+      "c05_warm_ms": 58
+    }
+  ],
+  "commands": [
+    "PYTHONPATH=. python3 perf/runner/benchmark_warm_cold.py --pairs 3",
+    "PYTHONPATH=. python3 -m unittest discover -s perf/tests -q",
+    "python3 -I build/test_perf_plan_coverage.py"
+  ]
+}

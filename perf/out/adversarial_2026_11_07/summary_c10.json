@@ -1,0 +1,13 @@
+{
+  "criterion_id": "C10",
+  "editor_id": "plate",
+  "outcome": "measured",
+  "median_ms": 31.0,
+  "samples_ms": [
+    13.0,
+    43.0,
+    31.0
+  ],
+  "attempt_file": "perf/out/adversarial_2026_11_07/attempts/c10-plate-1af5df3e92.json",
+  "publishable": false
+}

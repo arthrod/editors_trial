@@ -1,0 +1,47 @@
+{
+  "suite": "adversarial_2026_11_07",
+  "publishable": false,
+  "measured": [
+    {
+      "editor_id": "canvas",
+      "criterion_id": "C02",
+      "median_ms": 851.0,
+      "cache_state": "process_cold_fs_warm",
+      "attempt": "attempts/c02-canvas-5a86c01ddb.json"
+    },
+    {
+      "editor_id": "canvas",
+      "criterion_id": "C03",
+      "median_ms": 851.0,
+      "cache_state": "process_cold_fs_warm",
+      "attempt": "attempts/c03-canvas-4aeb09c522.json"
+    },
+    {
+      "editor_id": "canvas",
+      "criterion_id": "C05",
+      "cold_median_ms": 76.0,
+      "warm_median_ms": 83.0,
+      "attempts": [
+        "attempts/c05-canvas-e6f67aeb58.json",
+        "attempts/c05-canvas-31be5f3391.json"
+      ]
+    },
+    {
+      "editor_id": "canvas",
+      "criterion_id": "C06",
+      "cold_median_ms": 84.0,
+      "warm_median_ms": 83.0,
+      "attempts": [
+        "attempts/c06-canvas-1c31a1f974.json",
+        "attempts/c06-canvas-774be5ea68.json"
+      ]
+    },
+    {
+      "editor_id": "plate",
+      "criterion_id": "C10",
+      "median_ms": 31.0,
+      "cache_state": "warm_steady",
+      "attempt": "attempts/c10-plate-1af5df3e92.json"
+    }
+  ]
+}

@@ -13,7 +13,7 @@
 - Do not delete a sample because it is large.
 - Do not mix `process_cold_fs_warm`, `os_cache_cold`, and `warm_steady` in one summary.
 - Do not pool `fresh_process` with `in_process_iteration`.
-- The confidence interval is for the median, at 95 percent, using a seeded bootstrap of 2000 resamples.
+- The confidence interval is for the median, at 95 percent, using a seeded bootstrap of 2000 resamples. When `n` is 1 (`ci_contract`), `ci95_low` and `ci95_high` both equal the median; the summary still records `n`, `minimum`, and `maximum`.
 - Percentile interpolation is linear on the sorted sample: rank = (p / 100) * (n - 1).
 - Coverage ids owned here: C01 I09 I10.
 

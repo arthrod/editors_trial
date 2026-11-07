@@ -8,16 +8,24 @@
 //   (run from the office-open repo root so tsconfig paths + workspace
 //    node_modules resolve; --tsconfig points at the repo tsconfig explicitly)
 import { readFileSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const REPO = '/Users/arthrod/temp/T/editors_trial/repos/office-open';
+const HERE = dirname(fileURLToPath(import.meta.url));
+const REPO = join(HERE, '../../repos/office-open');
 const inPath = resolve(process.argv[2]);
 const outPath = resolve(process.argv[3]);
 
 const { parseDocument, generateDocument } = await import(`${REPO}/packages/docx/src/index.ts`);
 
 const bytes = new Uint8Array(readFileSync(inPath));
+const t0 = performance.now();
 const parsed = await parseDocument(bytes);
+const t1 = performance.now();
+console.log(`PERF model_ready_ms=${(t1 - t0).toFixed(6)}`);
+const ts0 = performance.now();
 const out = await generateDocument(parsed, { type: 'uint8array' });
+const ts1 = performance.now();
+console.log(`PERF save_ms=${(ts1 - ts0).toFixed(6)}`);
 writeFileSync(outPath, out);
 console.log(`[officeopen] wrote ${out.byteLength} bytes (sections=${parsed.sections?.length})`);

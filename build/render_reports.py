@@ -26,7 +26,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "build"))
+sys.path.insert(0, str(ROOT))
 import reportgen  # noqa: E402
+from perf.analysis.anti_ranking import assert_markdown_no_editor_speed_ranking  # noqa: E402
 
 TEMPLATES = ROOT / "templates"
 FACTS = ROOT / "out" / "facts.json"
@@ -84,6 +86,12 @@ def templatize(facts: dict) -> int:
 
 def render_all(facts: dict, check: bool, docx: bool, all_twins: bool = False) -> int:
     changed, missing = [], []
+    for anti in sorted(TEMPLATES.rglob("*.md")):
+        try:
+            assert_markdown_no_editor_speed_ranking(anti.read_text())
+        except ValueError as exc:
+            print(f"ANTI-RANKING {anti.relative_to(TEMPLATES)}: {exc}", file=sys.stderr)
+            missing.append(f"{anti}: anti-ranking guard")
     for tpl in sorted(TEMPLATES.rglob("*.md")):
         rel = str(tpl.relative_to(TEMPLATES))
         try:

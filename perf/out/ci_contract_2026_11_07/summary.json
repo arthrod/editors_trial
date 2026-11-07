@@ -1,0 +1,2800 @@
+{
+  "execution_profile": "ci_contract",
+  "host_class": "ci_coarse",
+  "workload_id": "micro-paragraphs",
+  "fixture_sha256": "9ce2b616b948c1cbb8f192d89b1e1d7dee321f80df1ad63801088fafed2e94ac",
+  "dry_run": false,
+  "criteria": [
+    "C01",
+    "C02",
+    "C03",
+    "C04",
+    "C05",
+    "C06",
+    "C07",
+    "C08",
+    "C09",
+    "C10",
+    "C11",
+    "C12",
+    "C13",
+    "C14",
+    "C15",
+    "C16",
+    "C17",
+    "C18",
+    "C19",
+    "C20",
+    "C21",
+    "C22",
+    "C23",
+    "C24"
+  ],
+  "editors": [
+    {
+      "criterion_id": "C01",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c01-docen-766e21645b.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C01",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c01-docsplus-38ea711678.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C01",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c01-office-open-064b8d687b.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C01",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c01-eigenpal-0aaf73afe9.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C01",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c01-libreoffice-b5d0d1c824.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C01",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c01-canvas-7f1a65a1f7.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C01",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c01-genoffice-ea29f92ff3.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C01",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c01-apryse-adefaad5b1.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C01",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c01-wordcraft-f62c6d39cf.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C01",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c01-superdoc-ca0a17d2a7.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C01",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c01-folio-930abf08f2.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C01",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c01-plate-5dbf95f45e.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C01",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c01-docxodus-e93ff6a925.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C01",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c01-fidus-b0526eff7f.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "docen",
+      "outcome": "measured",
+      "median_ms": 7.192089,
+      "model_ready_ms": 7.192089,
+      "subprocess_wall_ms_median": 316.022056,
+      "attempt_file": "c02-docen-28cf3097a5.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "docsplus",
+      "outcome": "measured",
+      "median_ms": 25.709606,
+      "model_ready_ms": 25.709606,
+      "subprocess_wall_ms_median": 297.267547,
+      "attempt_file": "c02-docsplus-1c431890a3.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "office-open",
+      "outcome": "measured",
+      "median_ms": 6.538311,
+      "model_ready_ms": 6.538311,
+      "subprocess_wall_ms_median": 361.961931,
+      "attempt_file": "c02-office-open-2e0db2aff4.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "eigenpal",
+      "outcome": "measured",
+      "median_ms": 5.79738,
+      "model_ready_ms": 5.79738,
+      "subprocess_wall_ms_median": 101.668408,
+      "attempt_file": "c02-eigenpal-cdb3ae4f6b.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "libreoffice",
+      "outcome": "measured",
+      "boundary": "conversion_wall",
+      "median_ms": 615.235864,
+      "load_timing_ms": 615.235864,
+      "subprocess_wall_ms_median": 615.235864,
+      "attempt_file": "c02-libreoffice-a05fb47f70.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "canvas",
+      "outcome": "measured",
+      "median_ms": 15.963052,
+      "model_ready_ms": 15.963052,
+      "subprocess_wall_ms_median": 2337.483781,
+      "attempt_file": "c02-canvas-03125315ac.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "genoffice",
+      "outcome": "measured",
+      "median_ms": 100.005403,
+      "model_ready_ms": 100.005403,
+      "subprocess_wall_ms_median": 1435.779707,
+      "attempt_file": "c02-genoffice-8d3ff409f3.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "apryse: proprietary WebViewer round-trip harness not run on this Linux CI host",
+      "attempt_file": "c02-apryse-c6ae1e328f.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "wordcraft",
+      "outcome": "measured",
+      "median_ms": 0.409729,
+      "model_ready_ms": 0.409729,
+      "subprocess_wall_ms_median": 2.424371,
+      "attempt_file": "c02-wordcraft-730a1c013d.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "superdoc",
+      "outcome": "measured",
+      "median_ms": 568.68213,
+      "model_ready_ms": 568.68213,
+      "subprocess_wall_ms_median": 730.515638,
+      "attempt_file": "c02-superdoc-1b7c9e5dbf.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "folio",
+      "outcome": "measured",
+      "median_ms": 14.760084,
+      "model_ready_ms": 14.760084,
+      "subprocess_wall_ms_median": 115.528595,
+      "attempt_file": "c02-folio-27f670bd19.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "plate",
+      "outcome": "measured",
+      "median_ms": 89.118778,
+      "model_ready_ms": 89.118778,
+      "subprocess_wall_ms_median": 914.296925,
+      "attempt_file": "c02-plate-c26ef763ec.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "docxodus",
+      "outcome": "measured",
+      "median_ms": 151.60769,
+      "model_ready_ms": 151.60769,
+      "subprocess_wall_ms_median": 360.639215,
+      "attempt_file": "c02-docxodus-e2ce4a3ecf.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "fidus",
+      "outcome": "measured",
+      "median_ms": 6.276975,
+      "model_ready_ms": 6.276975,
+      "subprocess_wall_ms_median": 702.751099,
+      "attempt_file": "c02-fidus-efa007bac0.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c03-docen-e4f67ffebd.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c03-docsplus-fdf4e950a8.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c03-office-open-2bf17b6ff6.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c03-eigenpal-260fb241f0.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c03-libreoffice-4a7a896657.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c03-canvas-5f0f706ccd.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c03-genoffice-9bd29f8ec2.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c03-apryse-5a303985b6.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c03-wordcraft-30f3d6c2c2.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c03-superdoc-2fd2687e35.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c03-folio-f883513d7e.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c03-plate-e097aa30a4.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c03-docxodus-c4186c8ea3.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c03-fidus-514ff58266.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C04",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C04 on ci_contract",
+      "attempt_file": "c04-docen-0a30097247.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C04",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C04 on ci_contract",
+      "attempt_file": "c04-docsplus-86e9d64fd9.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C04",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C04 on ci_contract",
+      "attempt_file": "c04-office-open-e3e07e2b17.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C04",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C04 on ci_contract",
+      "attempt_file": "c04-eigenpal-005903b9ee.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C04",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C04 on ci_contract",
+      "attempt_file": "c04-libreoffice-d2a32e90c9.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C04",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C04 on ci_contract",
+      "attempt_file": "c04-canvas-484795ed0e.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C04",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C04 on ci_contract",
+      "attempt_file": "c04-genoffice-c26349a640.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C04",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C04 on ci_contract",
+      "attempt_file": "c04-apryse-f521ecdc19.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C04",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C04 on ci_contract",
+      "attempt_file": "c04-wordcraft-8d23f94145.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C04",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C04 on ci_contract",
+      "attempt_file": "c04-superdoc-2f8e4b85ef.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C04",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C04 on ci_contract",
+      "attempt_file": "c04-folio-164be2ba16.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C04",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C04 on ci_contract",
+      "attempt_file": "c04-plate-9708cda895.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C04",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C04 on ci_contract",
+      "attempt_file": "c04-docxodus-b93dbc0826.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C04",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C04 on ci_contract",
+      "attempt_file": "c04-fidus-7fe45f69d1.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c05-docen-2cf9a7648b.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c05-docsplus-a3a40c088e.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c05-office-open-fd6b436fef.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c05-eigenpal-59beff374c.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c05-libreoffice-08d9cd0c79.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c05-canvas-3ef656e0de.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c05-genoffice-bbeebe75dc.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c05-apryse-a283c5bec0.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c05-wordcraft-e31011f8d2.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c05-superdoc-760de2bb9d.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c05-folio-9672f41f6d.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c05-plate-7b73d7e17e.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c05-docxodus-65397e8d49.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c05-fidus-92c1ea15a5.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c06-docen-ccb182910e.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c06-docsplus-aad2db2f11.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c06-office-open-391e41a4a9.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c06-eigenpal-727eeb5696.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c06-libreoffice-85c3800a3d.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c06-canvas-8b80e66cf7.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c06-genoffice-fab64f8105.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c06-apryse-c8d2a81183.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c06-wordcraft-59622c065c.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c06-superdoc-b7a79227e0.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c06-folio-a5199613ea.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c06-plate-102ba6df46.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c06-docxodus-a76ec03516.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c06-fidus-6be4e8f328.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c07-docen-b714a21e00.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c07-docsplus-40095b51aa.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c07-office-open-87a07c2ac4.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c07-eigenpal-207930c708.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c07-libreoffice-c6321dfdff.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c07-canvas-e141f21741.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c07-genoffice-f87a4ec840.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c07-apryse-b01b96371e.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c07-wordcraft-9a45189723.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c07-superdoc-e438574d29.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c07-folio-f2c3008ec8.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c07-plate-cf5df6f4e8.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c07-docxodus-33e6cd3918.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c07-fidus-f9927fd4d9.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c08-docen-b9cc6c3300.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c08-docsplus-4ce8768a39.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c08-office-open-e8e0bf2471.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c08-eigenpal-b3c3b16c42.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c08-libreoffice-ca789ef3ed.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c08-canvas-75fdc5d7b1.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c08-genoffice-7be1dd4dfc.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c08-apryse-20ba14353e.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c08-wordcraft-56a69d2ac7.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c08-superdoc-3f3bd793ed.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c08-folio-ace3f1c5b3.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c08-plate-fa8ccc0721.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c08-docxodus-b0e441e794.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c08-fidus-3fd18f2c64.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c09-docen-0d525f3cfa.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c09-docsplus-95ff98d19f.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c09-office-open-cfc0433b3c.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c09-eigenpal-77b72ac0ce.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c09-libreoffice-11b8c25457.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c09-canvas-e485ef8a8c.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c09-genoffice-07917a0daa.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c09-apryse-6ef3259a70.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c09-wordcraft-706e322f35.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c09-superdoc-3d15bcdb13.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c09-folio-278a0acf56.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c09-plate-f88d780384.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c09-docxodus-64cb20c95a.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c09-fidus-4d9ee28853.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c10-docen-d30a451ca0.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c10-docsplus-3c876ddf6c.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c10-office-open-da0c0e6dda.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c10-eigenpal-6b1339a12c.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c10-libreoffice-dbcc41bd87.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c10-canvas-09924089a5.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c10-genoffice-76c4f135a5.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c10-apryse-2cec22ea1f.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c10-wordcraft-5639760d0c.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c10-superdoc-6adba84a9d.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c10-folio-3f3b73001c.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c10-plate-51ed5bfc9d.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c10-docxodus-385bfff124.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c10-fidus-b1860d73ea.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C11",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c11-docen-91024032e6.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C11",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c11-docsplus-e384bd1979.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C11",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c11-office-open-df3bae46aa.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C11",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c11-eigenpal-a74d194db8.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C11",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c11-libreoffice-e6b2b23bdb.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C11",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c11-canvas-041108ebca.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C11",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c11-genoffice-10ab5cd3f3.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C11",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c11-apryse-c19776456b.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C11",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c11-wordcraft-3c917c630b.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C11",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c11-superdoc-7f3f6afaed.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C11",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c11-folio-ad4f11a729.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C11",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c11-plate-616f32fdec.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C11",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c11-docxodus-672eb795c0.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C11",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c11-fidus-a210a3072e.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C12",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c12-docen-8893dfbb9e.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C12",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c12-docsplus-98b535878e.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C12",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c12-office-open-2a74470e76.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C12",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c12-eigenpal-e1aac72622.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C12",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c12-libreoffice-5017be9cc2.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C12",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c12-canvas-7a112f05c0.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C12",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c12-genoffice-3a1d5ae4c4.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C12",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c12-apryse-8f28bcd8f5.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C12",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c12-wordcraft-2406669f68.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C12",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c12-superdoc-f4e5fcfa2f.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C12",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c12-folio-20ab2175f8.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C12",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c12-plate-1ed1cef853.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C12",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c12-docxodus-e4f8c45aeb.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C12",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c12-fidus-efa5317b13.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C13",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C13 on ci_contract",
+      "attempt_file": "c13-docen-8c6e1b1c83.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C13",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C13 on ci_contract",
+      "attempt_file": "c13-docsplus-67b311b348.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C13",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C13 on ci_contract",
+      "attempt_file": "c13-office-open-adda63546a.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C13",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C13 on ci_contract",
+      "attempt_file": "c13-eigenpal-5b6ab74d1d.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C13",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C13 on ci_contract",
+      "attempt_file": "c13-libreoffice-fa1090470e.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C13",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C13 on ci_contract",
+      "attempt_file": "c13-canvas-202967cbac.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C13",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C13 on ci_contract",
+      "attempt_file": "c13-genoffice-593b06b0bc.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C13",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C13 on ci_contract",
+      "attempt_file": "c13-apryse-66bf59cc9f.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C13",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C13 on ci_contract",
+      "attempt_file": "c13-wordcraft-b536faea3e.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C13",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C13 on ci_contract",
+      "attempt_file": "c13-superdoc-d1aaf0a722.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C13",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C13 on ci_contract",
+      "attempt_file": "c13-folio-42287addf6.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C13",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C13 on ci_contract",
+      "attempt_file": "c13-plate-fe2d76e37b.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C13",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C13 on ci_contract",
+      "attempt_file": "c13-docxodus-8db17c088f.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C13",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C13 on ci_contract",
+      "attempt_file": "c13-fidus-5efc4049b4.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C14",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c14-docen-a72fee4655.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C14",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c14-docsplus-756c10d784.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C14",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c14-office-open-b9b0c65d26.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C14",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c14-eigenpal-0c6dc08ae4.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C14",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c14-libreoffice-eb6c8c659f.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C14",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c14-canvas-3e17899f9f.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C14",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c14-genoffice-9a613760db.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C14",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c14-apryse-1af16db809.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C14",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c14-wordcraft-906b6200b5.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C14",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c14-superdoc-b55a04c2fa.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C14",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c14-folio-02e0a233a9.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C14",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c14-plate-28116a3fbf.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C14",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c14-docxodus-14e8e1d762.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C14",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c14-fidus-36b69c1fd5.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C15",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C15 on ci_contract",
+      "attempt_file": "c15-docen-f6925f188d.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C15",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C15 on ci_contract",
+      "attempt_file": "c15-docsplus-1953941eda.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C15",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C15 on ci_contract",
+      "attempt_file": "c15-office-open-ee0a34a6ef.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C15",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C15 on ci_contract",
+      "attempt_file": "c15-eigenpal-8178179cb9.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C15",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C15 on ci_contract",
+      "attempt_file": "c15-libreoffice-bc75066aa3.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C15",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C15 on ci_contract",
+      "attempt_file": "c15-canvas-df1a22bce0.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C15",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C15 on ci_contract",
+      "attempt_file": "c15-genoffice-25b01c0b9e.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C15",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C15 on ci_contract",
+      "attempt_file": "c15-apryse-e296ebc129.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C15",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C15 on ci_contract",
+      "attempt_file": "c15-wordcraft-7ab5f74625.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C15",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C15 on ci_contract",
+      "attempt_file": "c15-superdoc-5a16838505.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C15",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C15 on ci_contract",
+      "attempt_file": "c15-folio-df0bee4b36.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C15",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C15 on ci_contract",
+      "attempt_file": "c15-plate-7f6e33d48a.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C15",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C15 on ci_contract",
+      "attempt_file": "c15-docxodus-757aa4fe30.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C15",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C15 on ci_contract",
+      "attempt_file": "c15-fidus-b3ee762695.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "docen",
+      "outcome": "measured",
+      "median_ms": 12.804264,
+      "save_ms": 12.804264,
+      "subprocess_wall_ms_median": 364.409126,
+      "attempt_file": "c16-docen-5e358324d5.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "docsplus",
+      "outcome": "measured",
+      "median_ms": 24.183556,
+      "save_ms": 24.183556,
+      "subprocess_wall_ms_median": 301.542302,
+      "attempt_file": "c16-docsplus-b670f67011.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "office-open",
+      "outcome": "measured",
+      "median_ms": 12.944725,
+      "save_ms": 12.944725,
+      "subprocess_wall_ms_median": 374.087519,
+      "attempt_file": "c16-office-open-095dfd0763.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "eigenpal",
+      "outcome": "measured",
+      "median_ms": 8.727688,
+      "save_ms": 8.727688,
+      "subprocess_wall_ms_median": 98.131566,
+      "attempt_file": "c16-eigenpal-df1240b264.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "libreoffice: headless soffice conversion has no save-boundary probe emitting PERF save_ms= (serialization timing not separately measurable here)",
+      "attempt_file": "c16-libreoffice-315f1a5bd5.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "canvas",
+      "outcome": "measured",
+      "median_ms": 22.761046,
+      "save_ms": 22.761046,
+      "subprocess_wall_ms_median": 2290.213083,
+      "attempt_file": "c16-canvas-585c771d24.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "genoffice",
+      "outcome": "measured",
+      "median_ms": 1.449673,
+      "save_ms": 1.449673,
+      "subprocess_wall_ms_median": 1389.001376,
+      "attempt_file": "c16-genoffice-f96d5fa798.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "apryse: proprietary WebViewer round-trip harness not run on this Linux CI host",
+      "attempt_file": "c16-apryse-46aebb9310.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "wordcraft",
+      "outcome": "measured",
+      "median_ms": 0.816262,
+      "save_ms": 0.816262,
+      "subprocess_wall_ms_median": 2.383559,
+      "attempt_file": "c16-wordcraft-e3abdc8d4b.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "superdoc",
+      "outcome": "measured",
+      "median_ms": 2.727098,
+      "save_ms": 2.727098,
+      "subprocess_wall_ms_median": 728.80145,
+      "attempt_file": "c16-superdoc-c97c3483c7.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "folio",
+      "outcome": "measured",
+      "median_ms": 9.105757,
+      "save_ms": 9.105757,
+      "subprocess_wall_ms_median": 113.430224,
+      "attempt_file": "c16-folio-274da635e9.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "plate",
+      "outcome": "measured",
+      "median_ms": 130.769661,
+      "save_ms": 130.769661,
+      "subprocess_wall_ms_median": 919.058089,
+      "attempt_file": "c16-plate-df9cd247dd.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "docxodus",
+      "outcome": "measured",
+      "median_ms": 21.974344,
+      "save_ms": 21.974344,
+      "subprocess_wall_ms_median": 365.286914,
+      "attempt_file": "c16-docxodus-e004f79325.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "fidus",
+      "outcome": "measured",
+      "median_ms": 91.032694,
+      "save_ms": 91.032694,
+      "subprocess_wall_ms_median": 698.620791,
+      "attempt_file": "c16-fidus-a2129c1681.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C17",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C17 on ci_contract",
+      "attempt_file": "c17-docen-e78b01bae5.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C17",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C17 on ci_contract",
+      "attempt_file": "c17-docsplus-3aa259273c.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C17",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C17 on ci_contract",
+      "attempt_file": "c17-office-open-21b1ecdc8b.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C17",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C17 on ci_contract",
+      "attempt_file": "c17-eigenpal-6a08cad96f.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C17",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C17 on ci_contract",
+      "attempt_file": "c17-libreoffice-b2f0bb45dd.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C17",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C17 on ci_contract",
+      "attempt_file": "c17-canvas-2fcf125b86.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C17",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C17 on ci_contract",
+      "attempt_file": "c17-genoffice-b3def95c60.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C17",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C17 on ci_contract",
+      "attempt_file": "c17-apryse-b2e9a3227a.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C17",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C17 on ci_contract",
+      "attempt_file": "c17-wordcraft-f77deb3459.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C17",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C17 on ci_contract",
+      "attempt_file": "c17-superdoc-d4a5ba4f02.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C17",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C17 on ci_contract",
+      "attempt_file": "c17-folio-cf5d302c93.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C17",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C17 on ci_contract",
+      "attempt_file": "c17-plate-925b670ca6.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C17",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C17 on ci_contract",
+      "attempt_file": "c17-docxodus-1d1470f505.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C17",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C17 on ci_contract",
+      "attempt_file": "c17-fidus-bfbf9cb334.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C18",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c18-docen-250b2e5b03.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C18",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c18-docsplus-87d45d12ab.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C18",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c18-office-open-0a23d1b197.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C18",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c18-eigenpal-bf5f5ec132.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C18",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c18-libreoffice-138293dcf9.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C18",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c18-canvas-b8145b7e9b.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C18",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c18-genoffice-31d7b35484.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C18",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c18-apryse-07e4d0ddde.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C18",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c18-wordcraft-58df82b5d7.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C18",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c18-superdoc-9b3c86b82a.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C18",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c18-folio-85008d288f.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C18",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c18-plate-ef2dbc9616.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C18",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c18-docxodus-1832d1b010.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C18",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c18-fidus-fc901f8bf4.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C19",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C19 on ci_contract",
+      "attempt_file": "c19-docen-e45f657c5c.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C19",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C19 on ci_contract",
+      "attempt_file": "c19-docsplus-20359004b0.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C19",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C19 on ci_contract",
+      "attempt_file": "c19-office-open-a19807b13d.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C19",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C19 on ci_contract",
+      "attempt_file": "c19-eigenpal-35f38756e9.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C19",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C19 on ci_contract",
+      "attempt_file": "c19-libreoffice-ff0a8fbadd.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C19",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C19 on ci_contract",
+      "attempt_file": "c19-canvas-68cec70799.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C19",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C19 on ci_contract",
+      "attempt_file": "c19-genoffice-8da4a912c4.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C19",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C19 on ci_contract",
+      "attempt_file": "c19-apryse-07b06ac367.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C19",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C19 on ci_contract",
+      "attempt_file": "c19-wordcraft-f7bbc5dd21.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C19",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C19 on ci_contract",
+      "attempt_file": "c19-superdoc-94adddb1a1.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C19",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C19 on ci_contract",
+      "attempt_file": "c19-folio-09e8c215e7.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C19",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C19 on ci_contract",
+      "attempt_file": "c19-plate-8a4e7059e5.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C19",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C19 on ci_contract",
+      "attempt_file": "c19-docxodus-f41459f15a.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C19",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C19 on ci_contract",
+      "attempt_file": "c19-fidus-9e0098bb30.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C20",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c20-docen-65efaab805.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C20",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c20-docsplus-ed5c6874af.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C20",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c20-office-open-3c50841eb2.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C20",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c20-eigenpal-9526c75bda.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C20",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c20-libreoffice-5cbe4f921d.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C20",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c20-canvas-7021d5f0cb.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C20",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c20-genoffice-29a577f2a0.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C20",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c20-apryse-76edc3f661.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C20",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c20-wordcraft-a35ab4781f.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C20",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c20-superdoc-c67c97bcfb.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C20",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c20-folio-116685500a.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C20",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c20-plate-67c3da0fae.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C20",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c20-docxodus-8415a3bda5.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C20",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c20-fidus-475857e457.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "docen",
+      "outcome": "measured",
+      "median_ms": 496.197,
+      "child_cpu_ms_median": 496.197,
+      "subprocess_wall_ms_median": 325.024794,
+      "attempt_file": "c21-docen-e080e9b1a0.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "docsplus",
+      "outcome": "measured",
+      "median_ms": 420.916,
+      "child_cpu_ms_median": 420.916,
+      "subprocess_wall_ms_median": 297.969212,
+      "attempt_file": "c21-docsplus-2efb2c4e69.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "office-open",
+      "outcome": "measured",
+      "median_ms": 472.94,
+      "child_cpu_ms_median": 472.94,
+      "subprocess_wall_ms_median": 357.831069,
+      "attempt_file": "c21-office-open-7861280b45.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "eigenpal",
+      "outcome": "measured",
+      "median_ms": 134.75,
+      "child_cpu_ms_median": 134.75,
+      "subprocess_wall_ms_median": 97.502303,
+      "attempt_file": "c21-eigenpal-f5694da6f0.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "libreoffice",
+      "outcome": "measured",
+      "median_ms": 569.407,
+      "child_cpu_ms_median": 569.407,
+      "subprocess_wall_ms_median": 581.206087,
+      "attempt_file": "c21-libreoffice-295c150c60.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "canvas",
+      "outcome": "measured",
+      "median_ms": 2440.321,
+      "child_cpu_ms_median": 2440.321,
+      "subprocess_wall_ms_median": 2358.950531,
+      "attempt_file": "c21-canvas-136128591e.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "genoffice",
+      "outcome": "measured",
+      "median_ms": 1724.202,
+      "child_cpu_ms_median": 1724.202,
+      "subprocess_wall_ms_median": 1392.57909,
+      "attempt_file": "c21-genoffice-521e095b65.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "apryse: proprietary WebViewer round-trip harness not run on this Linux CI host",
+      "attempt_file": "c21-apryse-e0f8c8036d.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "wordcraft",
+      "outcome": "measured",
+      "median_ms": 2.243,
+      "child_cpu_ms_median": 2.243,
+      "subprocess_wall_ms_median": 2.564098,
+      "attempt_file": "c21-wordcraft-b4396f9941.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "superdoc",
+      "outcome": "measured",
+      "median_ms": 197.208,
+      "child_cpu_ms_median": 197.208,
+      "subprocess_wall_ms_median": 725.499938,
+      "attempt_file": "c21-superdoc-0bdae69d6e.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "folio",
+      "outcome": "measured",
+      "median_ms": 141.684,
+      "child_cpu_ms_median": 141.684,
+      "subprocess_wall_ms_median": 114.891614,
+      "attempt_file": "c21-folio-d84dd3a181.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "plate",
+      "outcome": "measured",
+      "median_ms": 1314.902,
+      "child_cpu_ms_median": 1314.902,
+      "subprocess_wall_ms_median": 905.213271,
+      "attempt_file": "c21-plate-381bfbdcb1.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "docxodus",
+      "outcome": "measured",
+      "median_ms": 719.633,
+      "child_cpu_ms_median": 719.633,
+      "subprocess_wall_ms_median": 357.309345,
+      "attempt_file": "c21-docxodus-cbaaee0847.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "fidus",
+      "outcome": "measured",
+      "median_ms": 1011.944,
+      "child_cpu_ms_median": 1011.944,
+      "subprocess_wall_ms_median": 699.259592,
+      "attempt_file": "c21-fidus-37d3316742.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c22-docen-d48ff4fc8b.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c22-docsplus-68e44616df.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c22-office-open-c940481b61.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c22-eigenpal-f87e3e8457.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c22-libreoffice-18f3d5f515.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c22-canvas-b7cac8d483.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c22-genoffice-26b246f8a9.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c22-apryse-411efd4c91.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c22-wordcraft-e785cae98d.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c22-superdoc-04b55695b3.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c22-folio-7fde4f991b.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c22-plate-a3030d7478.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c22-docxodus-8c64ca7dba.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c22-fidus-29e3f96fc5.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c23-docen-bcb734425e.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c23-docsplus-a17885609a.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c23-office-open-baba8581a0.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c23-eigenpal-15cb8b4e4e.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c23-libreoffice-8380a8906f.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c23-canvas-99b2a6935f.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c23-genoffice-eaa553ff85.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c23-apryse-0bf16c3784.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c23-wordcraft-4c77a8d09d.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c23-superdoc-2fd7caa13a.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c23-folio-ef7eed5d43.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c23-plate-e8ee2bee81.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c23-docxodus-08b13cff4d.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "c23-fidus-12132ad45d.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C24",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_contract (design C24)",
+      "attempt_file": "c24-docen-6dcb1f6e2b.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C24",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_contract (design C24)",
+      "attempt_file": "c24-docsplus-0382e0fafe.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C24",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_contract (design C24)",
+      "attempt_file": "c24-office-open-a04924415b.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C24",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_contract (design C24)",
+      "attempt_file": "c24-eigenpal-7bba8361c2.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C24",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_contract (design C24)",
+      "attempt_file": "c24-libreoffice-6f5ef10866.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C24",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_contract (design C24)",
+      "attempt_file": "c24-canvas-69b78e6198.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C24",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_contract (design C24)",
+      "attempt_file": "c24-genoffice-4f69697bf3.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C24",
+      "editor_id": "apryse",
+      "outcome": "unverified",
+      "failure_reason": null,
+      "attempt_file": "c24-apryse-161bf494f7.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C24",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_contract (design C24)",
+      "attempt_file": "c24-wordcraft-ba562420fc.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C24",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_contract (design C24)",
+      "attempt_file": "c24-superdoc-1ea8c6a26d.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C24",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_contract (design C24)",
+      "attempt_file": "c24-folio-ae5eb9ea59.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C24",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_contract (design C24)",
+      "attempt_file": "c24-plate-98642a4258.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C24",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_contract (design C24)",
+      "attempt_file": "c24-docxodus-b633bcf2de.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C24",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_contract (design C24)",
+      "attempt_file": "c24-fidus-d438b115e9.json",
+      "publishable": false
+    }
+  ]
+}
