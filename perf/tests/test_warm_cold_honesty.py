@@ -84,6 +84,40 @@ class WarmColdHonesty(unittest.TestCase):
         self.assertIn(cause, ("mixed_unresolved", "browser_launch", "document_parse", "wasm_js_compile"))
         self.assertAlmostEqual(breakdown["overhead_ms"], 28.0)
 
+    def test_c03_reload_warm_slower_must_not_be_residual_steady_state(self):
+        """C03 warm arm uses document_reload; slower warm must not look like steady state."""
+        probes = {
+            "browser_launch_only_median": 24.0,
+            "document_navigation_only_median": 772.0,
+            "model_ready_browser_median": 277.0,
+            "document_reload_same_context_median": 797.0,
+        }
+        cause, breakdown = attribute_delta(277.0, 797.0, probes)
+        self.assertNotEqual(cause, "residual_steady_state")
+        self.assertEqual(cause, "document_parse")
+        self.assertEqual(breakdown.get("warm_arm_probe"), "document_reload_same_context")
+
+    def test_small_positive_overhead_may_still_be_residual_steady_state(self):
+        probes = {
+            "browser_launch_only_median": 24.0,
+            "document_navigation_only_median": 100.0,
+            "model_ready_browser_median": 90.0,
+            "document_reload_same_context_median": 200.0,
+        }
+        cause, _breakdown = attribute_delta(100.0, 88.0, probes)
+        self.assertEqual(cause, "residual_steady_state")
+
+    def test_c06_same_probe_retains_attribute_delta_overhead_band(self):
+        probes = {
+            "browser_launch_only_median": 24.0,
+            "document_navigation_only_median": 772.0,
+            "model_ready_browser_median": 277.0,
+            "document_reload_same_context_median": 797.0,
+        }
+        cause, breakdown = attribute_delta(100.0, 84.0, probes)
+        self.assertEqual(cause, "browser_launch")
+        self.assertAlmostEqual(breakdown["overhead_ms"], 16.0)
+
     def test_warm_cold_summary_never_labels_os_cache_cold(self):
         root = Path(__file__).resolve().parents[2] / "perf" / "out"
         for sub in root.glob("warm_cold_*"):

@@ -45,13 +45,32 @@ def attribute_delta(
         "warm_median_ms": warm_median,
     }
 
-    if overhead < 15.0:
+    if 0.0 <= overhead < 15.0:
         return "residual_steady_state", breakdown
 
     launch = float(probes.get("browser_launch_only_median", 0) or 0)
     nav = float(probes.get("document_navigation_only_median", 0) or 0)
     model = float(probes.get("model_ready_browser_median", 0) or 0)
     reload = float(probes.get("document_reload_same_context_median", 0) or 0)
+
+    if warm_median > cold_median:
+        if reload > 0.0 and abs(warm_median - reload) < 0.5:
+            breakdown.update(
+                {
+                    "warm_arm_probe": "document_reload_same_context",
+                    "document_reload_ms": reload,
+                    "document_navigation_ms": nav,
+                }
+            )
+            return "document_parse", breakdown
+        if nav > 0.0 and abs(warm_median - nav) < 0.5:
+            breakdown.update(
+                {
+                    "warm_arm_probe": "document_navigation_only",
+                    "document_navigation_ms": nav,
+                }
+            )
+            return "document_parse", breakdown
     spawn = float(probes.get("process_spawn_ms_median", 0) or 0)
 
     after_launch = max(0.0, nav - launch)
