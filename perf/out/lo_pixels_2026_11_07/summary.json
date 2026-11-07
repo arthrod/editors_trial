@@ -1,0 +1,56 @@
+{
+  "soffice_version": "LibreOffice 24.2.7.2 420(Build:2)",
+  "dpi": 200,
+  "rasterized": [
+    {
+      "label": "micro",
+      "input": "perf/out/unblocked_2026_11_07/micro-paragraphs.docx",
+      "input_sha256": "758fb9470f06ee9ea38eb16c7f4fe6a44f10651e125d198f8d6fdd00cc1e5a2e",
+      "dpi": 200,
+      "page_count": 1,
+      "pdf": "perf/out/lo_pixels_2026_11_07/png/pdf/micro/doc.pdf",
+      "png_paths": [
+        "perf/out/lo_pixels_2026_11_07/png/micro-1.png"
+      ],
+      "png_sha256": {
+        "micro-1.png": "eeee41ef86d6d9baa8c5bdd12dbfd304801b45d5eb0c3ba3e828f777c1c5dd55"
+      }
+    },
+    {
+      "label": "complex_corpus",
+      "input": "fixture/complex.docx",
+      "input_sha256": "a0f0be300f5e812eb33f419abe1fca2d87569cc12b6b25d625a64a7c0432fde3",
+      "dpi": 200,
+      "page_count": 7,
+      "pdf": "perf/out/lo_pixels_2026_11_07/png/pdf/complex_corpus/doc.pdf",
+      "png_paths": [
+        "perf/out/lo_pixels_2026_11_07/png/complex_corpus-1.png",
+        "perf/out/lo_pixels_2026_11_07/png/complex_corpus-2.png",
+        "perf/out/lo_pixels_2026_11_07/png/complex_corpus-3.png",
+        "perf/out/lo_pixels_2026_11_07/png/complex_corpus-4.png",
+        "perf/out/lo_pixels_2026_11_07/png/complex_corpus-5.png",
+        "perf/out/lo_pixels_2026_11_07/png/complex_corpus-6.png",
+        "perf/out/lo_pixels_2026_11_07/png/complex_corpus-7.png"
+      ],
+      "png_sha256": {
+        "complex_corpus-1.png": "2ca3715bae12c94a9d7b898eb32c21de433798775582f5c71b5d44ebee641c6b",
+        "complex_corpus-2.png": "18046a45388e87439db1cfede88d8c49e5af91724df73fd1023d7bdb6e9542f4",
+        "complex_corpus-3.png": "b94c749a805cb1dd29bf70dc11a8cb1c62bd3275bd75fabf95ebfa38b00496f9",
+        "complex_corpus-4.png": "0713051db297c2646bc1132c916767912c907527c31e0c1743b499c556a663e4",
+        "complex_corpus-5.png": "74fbc4264a48dc4c673a306ce2326f4c8c72fa7e7779e1b2154a2343ea5e3dbc",
+        "complex_corpus-6.png": "0fe6a41c8acb09ecbc8d2dffb5970373b2985b2a27f1beeb98c0cfffb08e5147",
+        "complex_corpus-7.png": "840484f847f7e5774a381db6b94daf93d211a28896c18bfaf4a7e0463ec48ec5"
+      }
+    }
+  ],
+  "compare": {
+    "ref_label": "complex_corpus",
+    "op_label": "complex_plate",
+    "op_input": "out/plate/complex.docx",
+    "metrics": {
+      "page_mismatch": true,
+      "ref_pages": 7,
+      "op_pages": 2
+    }
+  }
+}
