@@ -42,7 +42,10 @@ def summarize(samples, cache_state, repetition_unit, seed=0):
         raise ValueError("cache_state")
     if repetition_unit not in ("fresh_process", "in_process_iteration"):
         raise ValueError("repetition_unit")
-    low, high = bootstrap_median_ci(samples, seed=seed)
+    if len(samples) < 2:
+        low = high = None
+    else:
+        low, high = bootstrap_median_ci(samples, seed=seed)
     return {
         "n": len(samples),
         "median": percentile(samples, 50),
@@ -65,6 +68,8 @@ def summarize_groups(groups):
     cache_state = groups[0]["cache_state"]
     repetition_unit = groups[0]["repetition_unit"]
     workload_id = groups[0]["workload_id"]
+    identity_keys = ("editor_id", "feature_profile", "execution_profile")
+    identity = {key: groups[0].get(key) for key in identity_keys}
     pooled = []
     for group in groups:
         if group["cache_state"] != cache_state:
@@ -73,6 +78,9 @@ def summarize_groups(groups):
             raise ValueError("repetition_unit values differ")
         if group["workload_id"] != workload_id:
             raise ValueError("workload_id values differ")
+        for key in identity_keys:
+            if group.get(key) != identity[key]:
+                raise ValueError("%s values differ" % (key,))
         pooled.extend(group["samples"])
     return summarize(pooled, cache_state, repetition_unit)
 
