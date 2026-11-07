@@ -1,0 +1,365 @@
+{
+  "execution_profile": "ci_broad",
+  "host_class": "ci_coarse",
+  "workload_id": "micro-paragraphs",
+  "fixture_sha256": "c78762434b0152952f925c61aee99196b041f479ff5ccca6f5b56b7e9ecdcf5b",
+  "dry_run": false,
+  "criteria": [
+    "C01",
+    "C02",
+    "C03",
+    "C04",
+    "C05",
+    "C06",
+    "C07",
+    "C08",
+    "C09",
+    "C10",
+    "C11",
+    "C12",
+    "C13",
+    "C14",
+    "C15",
+    "C16",
+    "C17",
+    "C18",
+    "C19",
+    "C20",
+    "C21",
+    "C22",
+    "C23",
+    "C24"
+  ],
+  "editors": [
+    {
+      "criterion_id": "C02",
+      "editor_id": "canvas",
+      "outcome": "measured",
+      "median_ms": 16.043673,
+      "model_ready_ms": null,
+      "subprocess_wall_ms_median": 2438.160007,
+      "attempt_file": "c02-canvas-2051befe82.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "docen",
+      "outcome": "measured",
+      "median_ms": 7.510417,
+      "model_ready_ms": null,
+      "subprocess_wall_ms_median": 339.604362,
+      "attempt_file": "c02-docen-a07728da6e.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "docsplus",
+      "outcome": "measured",
+      "median_ms": 26.544902,
+      "model_ready_ms": null,
+      "subprocess_wall_ms_median": 314.74054,
+      "attempt_file": "c02-docsplus-8752db5762.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "eigenpal",
+      "outcome": "measured",
+      "median_ms": 5.818405,
+      "model_ready_ms": null,
+      "subprocess_wall_ms_median": 108.057714,
+      "attempt_file": "c02-eigenpal-94de210629.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "fidus",
+      "outcome": "measured",
+      "median_ms": 6.340475,
+      "model_ready_ms": null,
+      "subprocess_wall_ms_median": 824.787445,
+      "attempt_file": "c02-fidus-bd95c34834.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "folio",
+      "outcome": "measured",
+      "median_ms": 14.841959,
+      "model_ready_ms": null,
+      "subprocess_wall_ms_median": 114.269209,
+      "attempt_file": "c02-folio-f1538daefe.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "genoffice",
+      "outcome": "measured",
+      "median_ms": 99.262251,
+      "model_ready_ms": null,
+      "subprocess_wall_ms_median": 1437.301706,
+      "attempt_file": "c02-genoffice-097660b06d.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "office-open",
+      "outcome": "measured",
+      "median_ms": 6.654461,
+      "model_ready_ms": null,
+      "subprocess_wall_ms_median": 390.371266,
+      "attempt_file": "c02-office-open-fb01b69ca1.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "plate",
+      "outcome": "measured",
+      "median_ms": 90.083965,
+      "model_ready_ms": null,
+      "subprocess_wall_ms_median": 963.647175,
+      "attempt_file": "c02-plate-a17c260a96.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "superdoc",
+      "outcome": "measured",
+      "median_ms": 583.896229,
+      "model_ready_ms": null,
+      "subprocess_wall_ms_median": 746.208727,
+      "attempt_file": "c02-superdoc-291758063f.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "wordcraft",
+      "outcome": "measured",
+      "median_ms": 0.305765,
+      "model_ready_ms": null,
+      "subprocess_wall_ms_median": 1.99452,
+      "attempt_file": "c02-wordcraft-efbe9e23ed.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "canvas",
+      "outcome": "measured",
+      "median_ms": 22.907869,
+      "save_ms": 22.907869,
+      "subprocess_wall_ms_median": 2430.842059,
+      "attempt_file": "c16-canvas-be3136724c.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "docen",
+      "outcome": "measured",
+      "median_ms": 13.89219,
+      "save_ms": 13.89219,
+      "subprocess_wall_ms_median": 338.312666,
+      "attempt_file": "c16-docen-bb8ea1c2aa.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "docsplus",
+      "outcome": "measured",
+      "median_ms": 30.337474,
+      "save_ms": 30.337474,
+      "subprocess_wall_ms_median": 323.808052,
+      "attempt_file": "c16-docsplus-c8390093d4.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "eigenpal",
+      "outcome": "measured",
+      "median_ms": 8.534608,
+      "save_ms": 8.534608,
+      "subprocess_wall_ms_median": 97.211969,
+      "attempt_file": "c16-eigenpal-9b0e6aa8e6.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "fidus",
+      "outcome": "measured",
+      "median_ms": 94.559838,
+      "save_ms": 94.559838,
+      "subprocess_wall_ms_median": 796.430146,
+      "attempt_file": "c16-fidus-e4fd32eba7.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "folio",
+      "outcome": "measured",
+      "median_ms": 9.055993,
+      "save_ms": 9.055993,
+      "subprocess_wall_ms_median": 111.230094,
+      "attempt_file": "c16-folio-8f99da7292.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "genoffice",
+      "outcome": "measured",
+      "median_ms": 1.595473,
+      "save_ms": 1.595473,
+      "subprocess_wall_ms_median": 1441.453635,
+      "attempt_file": "c16-genoffice-73b360e167.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "office-open",
+      "outcome": "measured",
+      "median_ms": 15.046097,
+      "save_ms": 15.046097,
+      "subprocess_wall_ms_median": 372.527492,
+      "attempt_file": "c16-office-open-19bbc69ef0.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "plate",
+      "outcome": "measured",
+      "median_ms": 134.857456,
+      "save_ms": 134.857456,
+      "subprocess_wall_ms_median": 956.692022,
+      "attempt_file": "c16-plate-581f2ca453.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "superdoc",
+      "outcome": "measured",
+      "median_ms": 3.24622,
+      "save_ms": 3.24622,
+      "subprocess_wall_ms_median": 759.616173,
+      "attempt_file": "c16-superdoc-d6ec885b2a.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "wordcraft",
+      "outcome": "measured",
+      "median_ms": 0.768682,
+      "save_ms": 0.768682,
+      "subprocess_wall_ms_median": 2.118171,
+      "attempt_file": "c16-wordcraft-8341273d8a.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "canvas",
+      "outcome": "measured",
+      "median_ms": 2258.506,
+      "child_cpu_ms_median": 2258.506,
+      "subprocess_wall_ms_median": 2411.674411,
+      "attempt_file": "c21-canvas-112da984c5.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "docen",
+      "outcome": "measured",
+      "median_ms": 425.294,
+      "child_cpu_ms_median": 425.294,
+      "subprocess_wall_ms_median": 311.339471,
+      "attempt_file": "c21-docen-5303499ae0.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "docsplus",
+      "outcome": "measured",
+      "median_ms": 400.331,
+      "child_cpu_ms_median": 400.331,
+      "subprocess_wall_ms_median": 318.490641,
+      "attempt_file": "c21-docsplus-88fa0bf324.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "eigenpal",
+      "outcome": "measured",
+      "median_ms": 127.206,
+      "child_cpu_ms_median": 127.206,
+      "subprocess_wall_ms_median": 98.979647,
+      "attempt_file": "c21-eigenpal-a4d57c6008.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "fidus",
+      "outcome": "measured",
+      "median_ms": 1040.95,
+      "child_cpu_ms_median": 1040.95,
+      "subprocess_wall_ms_median": 805.039561,
+      "attempt_file": "c21-fidus-1c41410a87.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "folio",
+      "outcome": "measured",
+      "median_ms": 132.508,
+      "child_cpu_ms_median": 132.508,
+      "subprocess_wall_ms_median": 115.451605,
+      "attempt_file": "c21-folio-e4e02f01b5.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "genoffice",
+      "outcome": "measured",
+      "median_ms": 1666.284,
+      "child_cpu_ms_median": 1666.284,
+      "subprocess_wall_ms_median": 1449.629766,
+      "attempt_file": "c21-genoffice-26884b5f9a.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "office-open",
+      "outcome": "measured",
+      "median_ms": 455.437,
+      "child_cpu_ms_median": 455.437,
+      "subprocess_wall_ms_median": 383.425375,
+      "attempt_file": "c21-office-open-af77c9b3e8.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "plate",
+      "outcome": "measured",
+      "median_ms": 1327.029,
+      "child_cpu_ms_median": 1327.029,
+      "subprocess_wall_ms_median": 962.730154,
+      "attempt_file": "c21-plate-7265be128f.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "superdoc",
+      "outcome": "measured",
+      "median_ms": 194.678,
+      "child_cpu_ms_median": 194.678,
+      "subprocess_wall_ms_median": 755.179463,
+      "attempt_file": "c21-superdoc-df1d99d901.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "wordcraft",
+      "outcome": "measured",
+      "median_ms": 1.758,
+      "child_cpu_ms_median": 1.758,
+      "subprocess_wall_ms_median": 2.042426,
+      "attempt_file": "c21-wordcraft-8b45a0c646.json",
+      "publishable": false
+    }
+  ]
+}
