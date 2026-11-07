@@ -12,7 +12,8 @@ const superdoc = new SuperDoc({
     performance.mark('superdoc-model-ready');
     exportButton.disabled = false;
     requestAnimationFrame(() => {
-      if (document.querySelector('#editor .superdoc__document')) {
+      const surface = document.querySelector('#editor .superdoc__document');
+      if (surface) {
         performance.mark('superdoc-first-usable');
       }
     });

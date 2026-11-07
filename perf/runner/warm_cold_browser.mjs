@@ -87,28 +87,37 @@ async function waitForMark(page, names, timeoutMs = 120_000) {
     names,
     { timeout: timeoutMs },
   );
-  return page.evaluate((list) => {
+  const found = await page.evaluate((list) => {
     for (const n of list) {
       const e = performance.getEntriesByName(n)[0];
       if (e) return e.startTime;
     }
     return null;
   }, names);
+  return found;
 }
 
 async function readModelAndUsableMs(page, selector) {
   let modelMs = await waitForMark(page, MODEL_MARKS).catch(() => null);
   const waitMs = await waitForReady(page, selector);
   let usableMs = await waitForMark(page, USABLE_MARKS).catch(() => null);
-  if (usableMs == null) usableMs = waitMs;
+  if (usableMs == null) {
+    usableMs = waitMs;
+  }
   if (modelMs == null) {
     const hook = await page
-      .evaluate(() => window.__GENOFFICE_PERF__?.modelReadyMs ?? null)
+      .evaluate(() => {
+        const g = window.__GENOFFICE_PERF__;
+        if (g && typeof g.modelReadyMs === 'number') return g.modelReadyMs;
+        return null;
+      })
       .catch(() => null);
     if (hook != null) modelMs = hook;
   }
-  if (modelMs == null && usableMs != null) modelMs = usableMs;
-  return { model_ready_browser_ms: modelMs, first_usable_ms: usableMs };
+  if (usableMs != null && modelMs == null) {
+    modelMs = usableMs;
+  }
+  return { model_ready_browser_ms: modelMs, first_usable_ms: usableMs, wait_selector_ms: waitMs };
 }
 
 async function waitForReady(page, selector, timeoutMs = 120_000) {

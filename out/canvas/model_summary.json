@@ -1,148 +1,35 @@
 {
-  "fixtureBytes": 25364,
-  "outputBytes": 11301,
+  "fixtureBytes": 1264,
+  "outputBytes": 9172,
   "model": {
-    "total": 52,
-    "text": 33,
-    "table": 2,
-    "image": 1,
+    "total": 1,
+    "text": 1,
+    "table": 0,
+    "image": 0,
     "hyperlink": 0,
-    "control": 4,
-    "list": 1,
+    "control": 0,
+    "list": 0,
     "checkbox": 0,
-    "withStyle": 32
+    "withStyle": 0
   },
-  "modelTextLength": 1052,
-  "modelTextHead": "\nLeading and trailing spaces are significant.\nTab separatedAfter a page breaknobreaksofthyphensymafter CR\nrun with unknown w14 attributes and w14 elements\ncustom namespace attribute: cs complex-script text\nmispelinggrammaticaly\n\nrun whose formatting was changed\nparagraph whose properties were changed\n\n\nparagraph mark was inserted\nRight-click and choose Update Field to build the table of contents.\nbookmarked anchor\nbookmarked anchor\n1\n\n\n\n\n\nHeader AHeader BHeader CSpans two columnsNormal cellvert merged, firstvertical textright alignedbottom aligned\nnested 1nested 2after nested tableThis row was inserted (trIns)Paragraph after the table.\nA sentence with a footnote and an endnote\nA sentence with a comment\ndata:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAFklEQVR42mOQL99CEmIY1TCqYfhqAADbmEoQeRLK0AAAAABJRU5ErkJggg==\n\n\n\n\n\nשלום עולם - Hebrew text right to left\nrtl runcomplex script size\nhidden textno proofcaps smallvertkernlang\nThis region is editable by everyone\nEnd of section 1.\nLandscape section content.\nLast paragraph.\n",
-  "importError": "TypeError: Cannot read properties of undefined (reading 'width')\n    at Object.computeRowColInfo (/Users/arthrod/temp/T/editors_trial/repos/canvas-editor/src/editor/core/draw/particle/table/TableParticle.ts:724:45)\n    at TableParticle.__vi_import_4__.TableParticle.computeRowColInfo (/Users/arthrod/temp/T/editors_trial/harness/canvas/roundtrip.test.ts:64:12)\n    at LayoutEngine.computeRowList (/Users/arthrod/temp/T/editors_trial/repos/canvas-editor/src/editor/core/layout/LayoutEngine.ts:360:33)\n    at Draw.computeRowList (/Users/arthrod/temp/T/editors_trial/repos/canvas-editor/src/editor/core/draw/Draw.ts:1792:30)\n    at Draw.render (/Users/arthrod/temp/T/editors_trial/repos/canvas-editor/src/editor/core/draw/Draw.ts:2666:44)\n    at Draw.setValue (/Users/arthrod/temp/T/editors_trial/repos/canvas-editor/src/editor/core/draw/Draw.ts:1688:10)\n    at CommandAdapt.setValue (/Users/arthrod/temp/T/editors_trial/repos/canvas-editor/src/editor/core/command/CommandAdapt.ts:2328:15)\n    at Command.executeSetValue (/Users/arthrod/temp/T/editors_trial/repos/canvas-editor/src/editor/core/command/Command.ts:182:14)\n    at Command.executeImportDocx (/Users/arthrod/temp/T/editors_trial/repos/canvas-editor-plugin/packages/docx/src/docx/importDocx.ts:1857:13)\n    at /Users/arthrod/temp/T/editors_trial/harness/canvas/roundtrip.test.ts:186:7",
-  "tableFindings": [
-    {
-      "error": "Cannot read properties of undefined (reading 'width')",
-      "colgroupLength": 3,
-      "colgroupWidths": [
-        160,
-        160,
-        160
-      ],
-      "rows": [
-        {
-          "height": 42,
-          "tds": [
-            {
-              "colspan": 1,
-              "rowspan": 1,
-              "colIndex": 0,
-              "rowIndex": 0
-            },
-            {
-              "colspan": 1,
-              "rowspan": 1,
-              "colIndex": 1,
-              "rowIndex": 0
-            },
-            {
-              "colspan": 1,
-              "rowspan": 1,
-              "colIndex": 2,
-              "rowIndex": 0
-            }
-          ]
-        },
-        {
-          "height": 42,
-          "tds": [
-            {
-              "colspan": 2,
-              "rowspan": 1,
-              "colIndex": 0,
-              "rowIndex": 1
-            },
-            {
-              "colspan": 1,
-              "rowspan": 1,
-              "colIndex": 2,
-              "rowIndex": 1
-            }
-          ]
-        },
-        {
-          "height": 42,
-          "tds": [
-            {
-              "colspan": 1,
-              "rowspan": 2,
-              "colIndex": 0,
-              "rowIndex": 2
-            },
-            {
-              "colspan": 1,
-              "rowspan": 1,
-              "colIndex": 1,
-              "rowIndex": 2
-            }
-          ]
-        },
-        {
-          "height": 42,
-          "tds": [
-            {
-              "colspan": 1,
-              "rowspan": 1,
-              "colIndex": 1,
-              "rowIndex": 3
-            },
-            {
-              "colspan": 1,
-              "rowspan": 1,
-              "colIndex": 0,
-              "rowIndex": 3
-            }
-          ]
-        },
-        {
-          "height": 42,
-          "tds": [
-            {
-              "colspan": 3,
-              "rowspan": 1
-            }
-          ]
-        },
-        {
-          "height": 42,
-          "tds": [
-            {
-              "colspan": 3,
-              "rowspan": 1
-            }
-          ]
-        },
-        {
-          "height": 42,
-          "tds": [
-            {
-              "colspan": 3,
-              "rowspan": 1
-            }
-          ]
-        }
-      ]
-    }
-  ],
+  "modelTextLength": 158,
+  "modelTextHead": "                    \n                    \n                    \n                    \n                    \n\ncafé 𠀋\nfamily 👨‍👩‍👧‍👦 tone 👍🏻\nHello مرحبا\n地\n",
+  "importError": null,
+  "tableFindings": [],
   "editorOptions": {
     "mode": "edit",
     "locale": "zhCN",
     "defaultType": "TEXT",
     "defaultColor": "#000000",
-    "defaultFont": "MS Mincho",
-    "defaultSize": 15,
+    "defaultFont": "Microsoft YaHei",
+    "defaultSize": 16,
     "minSize": 5,
     "maxSize": 72,
     "defaultRowMargin": 1,
     "defaultBasicRowMarginHeight": 8,
     "defaultTabWidth": 32,
-    "width": 816,
-    "height": 1056,
+    "width": 794,
+    "height": 1123,
     "scale": 1,
     "pageGap": 20,
     "underlineColor": "#000000",
@@ -160,10 +47,10 @@
     "marginIndicatorSize": 35,
     "marginIndicatorColor": "#BABABA",
     "margins": [
-      96,
-      96,
-      96,
-      96
+      100,
+      120,
+      100,
+      120
     ],
     "pageMode": "paging",
     "renderMode": "speed",
@@ -173,6 +60,7 @@
     "inactiveAlpha": 0.6,
     "historyMaxRecordCount": 100,
     "wordBreak": "break-word",
+    "hangPunctuation": false,
     "printPixelRatio": 3,
     "maskMargin": [
       0,
