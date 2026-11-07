@@ -135,6 +135,47 @@ class Schedule(unittest.TestCase):
         self.assertFalse(decision["run"])
         self.assertFalse(decision["publishable"])
 
+    def test_ci_coarse_visible_run_is_not_publishable(self):
+        typing = next(row for row in scenarios() if row["id"] == "C05")
+        env = {
+            "execution_profile": "ci_broad",
+            "host_class": "ci_coarse",
+            "headless": False,
+            "repetition_unit": "fresh_process",
+            "cache_state": "warm_steady",
+            "run_kind": "timing",
+        }
+        decision = plan_attempts(typing, env, "plate", "browser")
+        self.assertTrue(decision["run"])
+        self.assertFalse(decision["publishable"])
+
+    def test_wasm_budget_uses_scenario_repetition_unit(self):
+        wasm = next(row for row in scenarios() if row["id"] == "C24")
+        env = {"execution_profile": "ci_contract", "host_class": "ci_coarse", "headless": True, "repetition_unit": "in_process_iteration"}
+        decision = plan_attempts(wasm, env, "plate", "wasm")
+        self.assertTrue(decision["run"])
+        self.assertEqual(decision["sample_budget"], 20)
+
+    def test_repetition_unit_mismatch_is_not_run(self):
+        load = next(row for row in scenarios() if row["id"] == "C02")
+        env = {"execution_profile": "ci_contract", "host_class": "ci_coarse", "headless": True, "repetition_unit": "in_process_iteration"}
+        decision = plan_attempts(load, env, "folio", "headless")
+        self.assertFalse(decision["run"])
+        self.assertEqual(decision["failure_reason"], "repetition_unit")
+
+    def test_workload_cap_blocks_oversize_ci_contract(self):
+        load = next(row for row in scenarios() if row["id"] == "C02")
+        env = {
+            "execution_profile": "ci_contract",
+            "host_class": "ci_coarse",
+            "headless": True,
+            "repetition_unit": "fresh_process",
+            "workload_id": "short-paragraphs",
+        }
+        decision = plan_attempts(load, env, "folio", "headless")
+        self.assertFalse(decision["run"])
+        self.assertEqual(decision["failure_reason"], "execution_profile")
+
 
 from perf.runner.exclusive import assert_exclusive_editor
 
