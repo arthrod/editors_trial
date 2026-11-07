@@ -74,11 +74,16 @@ def baseline_corpus_page1(baseline_root: Path) -> Path | None:
 
 
 def editor_page1_png(baseline_root: Path, editor_id: str) -> Path | None:
-    if editor_id == "plate":
-        p = baseline_root / "png" / "complex_plate-1.png"
-        if p.is_file():
-            return p
-    return None
+    p = baseline_root / "png" / f"complex_{editor_id}-1.png"
+    return p if p.is_file() else None
+
+
+def lo_page_count(baseline_root: Path) -> int:
+    return len(list((baseline_root / "png").glob(f"{LO_CORPUS_STEM}-*.png")))
+
+
+def editor_lo_page_count(baseline_root: Path, editor_id: str) -> int:
+    return len(list((baseline_root / "png").glob(f"complex_{editor_id}-*.png")))
 
 
 def rasterize_editor_page1(editor_id: str, work_png_dir: Path) -> tuple[Path | None, int]:
@@ -95,7 +100,8 @@ def rasterize_editor_page1(editor_id: str, work_png_dir: Path) -> tuple[Path | N
     return Path(pngs[0]), len(pngs)
 
 
-def compare_plate_page1(
+def compare_editor_page1(
+    editor_id: str,
     pixels_root: Path,
     baseline_root: Path,
     diff_fn,
@@ -105,31 +111,31 @@ def compare_plate_page1(
     if lo_ref is None:
         raise FileNotFoundError(f"missing LO baseline page1 under {baseline_root}")
 
-    editor_id = "plate"
-    plate_pages = pixels_root / editor_id / "pages"
-    plate_pages.mkdir(parents=True, exist_ok=True)
+    editor_pages = pixels_root / editor_id / "pages"
+    editor_pages.mkdir(parents=True, exist_ok=True)
     diff_dir = pixels_root / "diff_vs_lo" / editor_id
     diff_dir.mkdir(parents=True, exist_ok=True)
 
-    lo_page_count = len(list((baseline_root / "png").glob(f"{LO_CORPUS_STEM}-*.png")))
-    op_png, op_page_count = editor_page1_png(baseline_root, editor_id), 0
-    op_input = REPO / "out/plate/complex.docx"
+    lo_pages = lo_page_count(baseline_root)
+    op_png = editor_page1_png(baseline_root, editor_id)
+    op_page_count = 0
+    op_input = REPO / "out" / editor_id / "complex.docx"
 
     if op_png is not None:
-        op_page_count = len(list((baseline_root / "png").glob("complex_plate-*.png")))
+        op_page_count = editor_lo_page_count(baseline_root, editor_id)
     else:
-        work = pixels_root / "lo_baseline" / "png"
+        work = pixels_root / "lo_baseline" / editor_id / "png"
         op_png, op_page_count = rasterize_editor_page1(editor_id, work)
         if op_png is None:
-            raise FileNotFoundError(f"no plate page-1 raster for {editor_id}")
+            raise FileNotFoundError(f"no page-1 raster for {editor_id}")
 
-    lo_copy = plate_pages / "lo-ref-page-1.png"
-    op_copy = plate_pages / "page-1.png"
+    lo_copy = editor_pages / "lo-ref-page-1.png"
+    op_copy = editor_pages / "page-1.png"
     shutil.copy2(lo_ref, lo_copy)
     shutil.copy2(op_png, op_copy)
 
     metrics = diff_fn(str(lo_ref), str(op_png))
-    page1_only = lo_page_count != op_page_count or metrics.get("size_mismatch")
+    page1_only = lo_pages != op_page_count or metrics.get("size_mismatch")
     diff_px = metrics.get("diff_px")
     if diff_px is None and metrics.get("size_mismatch"):
         diff_px = metrics["size_a"][0] * metrics["size_a"][1]
@@ -143,7 +149,7 @@ def compare_plate_page1(
         "page1_only": page1_only,
         "differing_pixels": diff_px,
         "diff_px": diff_px,
-        "page_counts": {"lo_corpus": lo_page_count, editor_id: op_page_count},
+        "page_counts": {"lo_corpus": lo_pages, editor_id: op_page_count},
         "page_compared": 1,
         "inputs": {
             "lo_ref": repo_rel(lo_ref),
@@ -162,14 +168,34 @@ def compare_plate_page1(
     }
     if page1_only:
         payload["full_document_compare_impossible"] = (
-            f"LO raster of fixture/complex.docx has {lo_page_count} pages; "
+            f"LO raster of fixture/complex.docx has {lo_pages} pages; "
             f"{editor_id} output has {op_page_count}."
         )
+    metrics_path = pixels_root / editor_id / "metrics.json"
+    metrics_path.write_text(json.dumps(payload, indent=2) + "\n")
     (diff_dir / "metrics.json").write_text(json.dumps(payload, indent=2) + "\n")
     return payload
 
 
+def has_measured_metrics(pixels_root: Path, editor_id: str) -> bool:
+    for path in (
+        pixels_root / "diff_vs_lo" / editor_id / "metrics.json",
+        pixels_root / editor_id / "metrics.json",
+    ):
+        if not path.is_file():
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        if data.get("diff_px") is not None and data.get("outcome") != "skipped":
+            return True
+    return False
+
+
 def write_skipped_metrics(pixels_root: Path, editor_id: str, reason: str) -> None:
+    if has_measured_metrics(pixels_root, editor_id):
+        return
     diff_dir = pixels_root / "diff_vs_lo" / editor_id
     diff_dir.mkdir(parents=True, exist_ok=True)
     (pixels_root / editor_id / "pages").mkdir(parents=True, exist_ok=True)
@@ -196,6 +222,13 @@ def main() -> int:
         default=DEFAULT_LO_BASELINE,
         help="Directory with LO corpus PNGs (default: perf/out/lo_pixels_2026_11_07)",
     )
+    parser.add_argument(
+        "--compare",
+        action="append",
+        dest="compare_editors",
+        metavar="EDITOR",
+        help="Run page-1 LO diff for editor (repeatable; default: plate only)",
+    )
     args = parser.parse_args()
 
     pixels_root = resolve_pixels_root(args.out_root)
@@ -207,19 +240,24 @@ def main() -> int:
 
     diff_fn, ink_fn = load_compare_api()
     log_lines: list[str] = []
+    compare_editors = args.compare_editors or ["plate"]
 
-    try:
-        plate_metrics = compare_plate_page1(pixels_root, baseline_root, diff_fn, ink_fn)
-        log_lines.append(
-            f"plate page-1 diff_px={plate_metrics.get('diff_px')} dpi={pixels.DPI}"
-        )
-    except OSError as exc:
-        (pixels_root / "lo_render.log").write_text(str(exc) + "\n")
-        print(exc, file=sys.stderr)
-        return 1
+    measured: dict[str, dict] = {}
+    for editor_id in compare_editors:
+        try:
+            measured[editor_id] = compare_editor_page1(
+                editor_id, pixels_root, baseline_root, diff_fn, ink_fn
+            )
+            log_lines.append(
+                f"{editor_id} page-1 diff_px={measured[editor_id].get('diff_px')} dpi={pixels.DPI}"
+            )
+        except OSError as exc:
+            (pixels_root / "lo_render.log").write_text(str(exc) + "\n")
+            print(exc, file=sys.stderr)
+            return 1
 
     for editor in BROWSER_EDITORS:
-        if editor == "plate":
+        if editor in measured:
             continue
         docx = REPO / "out" / editor / "complex.docx"
         if docx.is_file():
@@ -235,17 +273,28 @@ def main() -> int:
 
     browser_root = pixels_root.parent if pixels_root.name == "pixels" else pixels_root
     summary_path = browser_root / "pixels_summary.json"
+    comparisons = {
+        editor_id: {
+            "editor_id": editor_id,
+            "diff_px": m.get("diff_px"),
+            "page1_only": m.get("page1_only"),
+        }
+        for editor_id, m in measured.items()
+    }
+    if summary_path.is_file():
+        try:
+            prior = json.loads(summary_path.read_text(encoding="utf-8"))
+            for row in prior.get("comparisons") or []:
+                eid = row.get("editor_id")
+                if eid and eid not in comparisons and row.get("diff_px") is not None:
+                    comparisons[eid] = row
+        except json.JSONDecodeError:
+            pass
     summary = {
         "suite": "pixels_lo",
         "dpi": pixels.DPI,
         "lo_baseline": repo_rel(baseline_root),
-        "comparisons": [
-            {
-                "editor_id": "plate",
-                "diff_px": plate_metrics.get("diff_px"),
-                "page1_only": plate_metrics.get("page1_only"),
-            }
-        ],
+        "comparisons": [comparisons[k] for k in sorted(comparisons)],
     }
     summary_path.write_text(json.dumps(summary, indent=2) + "\n")
     return 0

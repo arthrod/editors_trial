@@ -1,0 +1,35 @@
+{
+  "editor_id": "canvas",
+  "dpi": 200,
+  "page1_only": true,
+  "differing_pixels": 230590,
+  "diff_px": 230590,
+  "page_counts": {
+    "lo_corpus": 7,
+    "canvas": 2
+  },
+  "page_compared": 1,
+  "inputs": {
+    "lo_ref": "perf/out/lo_pixels_2026_11_07/png/complex_corpus-1.png",
+    "editor_docx": "out/canvas/complex.docx",
+    "editor_page_png": "perf/out/full_browser_2026_11_07/pixels/lo_baseline/canvas/png/full_browser_canvas-1.png"
+  },
+  "lo_baseline_root": "perf/out/lo_pixels_2026_11_07",
+  "image_size": [
+    1700,
+    2200
+  ],
+  "diff_bbox": [
+    200,
+    108,
+    1502,
+    2095
+  ],
+  "corpus_ink_px": 24939,
+  "artifacts": {
+    "editor_page": "perf/out/full_browser_2026_11_07/pixels/canvas/pages/page-1.png",
+    "lo_ref_page": "perf/out/full_browser_2026_11_07/pixels/canvas/pages/lo-ref-page-1.png",
+    "diff_png": "perf/out/full_browser_2026_11_07/pixels/diff_vs_lo/canvas/page-1-diff.png"
+  },
+  "full_document_compare_impossible": "LO raster of fixture/complex.docx has 7 pages; canvas output has 2."
+}

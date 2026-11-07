@@ -4,6 +4,11 @@
   "lo_baseline": "perf/out/lo_pixels_2026_11_07",
   "comparisons": [
     {
+      "editor_id": "canvas",
+      "diff_px": 230590,
+      "page1_only": true
+    },
+    {
       "editor_id": "plate",
       "diff_px": 259305,
       "page1_only": true
