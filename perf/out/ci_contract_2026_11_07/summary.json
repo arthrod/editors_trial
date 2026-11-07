@@ -1,0 +1,2802 @@
+{
+  "execution_profile": "ci_contract",
+  "host_class": "ci_coarse",
+  "workload_id": "micro-paragraphs",
+  "fixture_sha256": "b359fdaeb3f690caa968a586f2d07b6d57b9884104ca711b68183811cf6cdcca",
+  "dry_run": false,
+  "criteria": [
+    "C01",
+    "C02",
+    "C03",
+    "C04",
+    "C05",
+    "C06",
+    "C07",
+    "C08",
+    "C09",
+    "C10",
+    "C11",
+    "C12",
+    "C13",
+    "C14",
+    "C15",
+    "C16",
+    "C17",
+    "C18",
+    "C19",
+    "C20",
+    "C21",
+    "C22",
+    "C23",
+    "C24"
+  ],
+  "editors": [
+    {
+      "criterion_id": "C01",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c01-docen-02e0500d54.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C01",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c01-docsplus-9e89e17f1d.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C01",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c01-office-open-0e27ea7df3.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C01",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c01-eigenpal-a9bc5f5000.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C01",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c01-libreoffice-7467807bf8.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C01",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c01-canvas-e4f41d7264.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C01",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c01-genoffice-5ae52370f8.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C01",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c01-apryse-3a9b2992cc.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C01",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c01-wordcraft-8f9f700cb7.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C01",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c01-superdoc-5eec578d48.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C01",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c01-folio-ae9369d337.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C01",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c01-plate-0482def3e6.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C01",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c01-docxodus-5553a3388d.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C01",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c01-fidus-a4681766d2.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "docen",
+      "outcome": "measured",
+      "median_ms": 7.244201,
+      "model_ready_ms": 7.244201,
+      "subprocess_wall_ms_median": 300.239008,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c02-docen-dd1324aa02.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "docsplus",
+      "outcome": "measured",
+      "median_ms": 26.478947,
+      "model_ready_ms": 26.478947,
+      "subprocess_wall_ms_median": 310.755588,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c02-docsplus-0fd07e7c05.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "office-open",
+      "outcome": "measured",
+      "median_ms": 6.681218,
+      "model_ready_ms": 6.681218,
+      "subprocess_wall_ms_median": 366.658512,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c02-office-open-2c7b56ccf5.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "eigenpal",
+      "outcome": "measured",
+      "median_ms": 5.750359,
+      "model_ready_ms": 5.750359,
+      "subprocess_wall_ms_median": 100.771092,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c02-eigenpal-173a419bca.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "libreoffice",
+      "outcome": "measured",
+      "boundary": "conversion_wall",
+      "median_ms": 630.566568,
+      "load_timing_ms": 630.566568,
+      "subprocess_wall_ms_median": 630.566568,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c02-libreoffice-5d210881aa.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "canvas",
+      "outcome": "measured",
+      "median_ms": 15.737594,
+      "model_ready_ms": 15.737594,
+      "subprocess_wall_ms_median": 2419.440979,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c02-canvas-9a013eafe7.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "genoffice",
+      "outcome": "measured",
+      "median_ms": 113.090351,
+      "model_ready_ms": 113.090351,
+      "subprocess_wall_ms_median": 1535.934732,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c02-genoffice-165a0c5604.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "apryse: proprietary WebViewer round-trip harness not run on this Linux CI host",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c02-apryse-ffd5b3e7bc.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "wordcraft",
+      "outcome": "measured",
+      "median_ms": 0.445444,
+      "model_ready_ms": 0.445444,
+      "subprocess_wall_ms_median": 3.234236,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c02-wordcraft-d55c2f8dd7.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "superdoc",
+      "outcome": "measured",
+      "median_ms": 579.49943,
+      "model_ready_ms": 579.49943,
+      "subprocess_wall_ms_median": 742.905495,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c02-superdoc-6413de1e8e.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "folio",
+      "outcome": "measured",
+      "median_ms": 14.671687,
+      "model_ready_ms": 14.671687,
+      "subprocess_wall_ms_median": 117.033244,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c02-folio-8a0e00f92a.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "plate",
+      "outcome": "measured",
+      "median_ms": 92.462309,
+      "model_ready_ms": 92.462309,
+      "subprocess_wall_ms_median": 934.734662,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c02-plate-898646ca2a.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "docxodus",
+      "outcome": "measured",
+      "median_ms": 152.768732,
+      "model_ready_ms": 152.768732,
+      "subprocess_wall_ms_median": 366.435534,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c02-docxodus-b645a5ffaf.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "fidus",
+      "outcome": "measured",
+      "median_ms": 6.287952,
+      "model_ready_ms": 6.287952,
+      "subprocess_wall_ms_median": 734.343078,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c02-fidus-d9e21be987.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c03-docen-91fcf68c55.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c03-docsplus-8c0d89555e.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c03-office-open-4b9977385d.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c03-eigenpal-e9fa5d7408.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c03-libreoffice-1984f9d8bb.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c03-canvas-9f2e4f918f.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c03-genoffice-395cd858e9.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c03-apryse-29c520166d.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c03-wordcraft-9ea84ec646.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c03-superdoc-f4ecb0a36b.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c03-folio-47579fec99.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c03-plate-e74452a906.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c03-docxodus-336b1b081d.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c03-fidus-000e0d02bb.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C04",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C04 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c04-docen-7022de2702.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C04",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C04 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c04-docsplus-19382e8b49.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C04",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C04 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c04-office-open-a577955369.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C04",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C04 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c04-eigenpal-cd048d8a8c.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C04",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C04 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c04-libreoffice-ae03b89e6b.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C04",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C04 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c04-canvas-c96fc8d6c0.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C04",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C04 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c04-genoffice-5574122a5a.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C04",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C04 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c04-apryse-92d3c21bdd.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C04",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C04 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c04-wordcraft-b52fa79943.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C04",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C04 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c04-superdoc-316eac0fbb.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C04",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C04 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c04-folio-0affb657d7.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C04",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C04 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c04-plate-e372e101b2.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C04",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C04 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c04-docxodus-b4aa9f9f0f.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C04",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C04 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c04-fidus-b1d37f3a06.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c05-docen-b56be1a648.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c05-docsplus-4d92ff65f5.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c05-office-open-d00ba3338e.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c05-eigenpal-1784812309.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c05-libreoffice-aad7fe5241.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c05-canvas-17f4f6d82e.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c05-genoffice-dd362f1f9e.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c05-apryse-b40f9fa04f.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c05-wordcraft-c43c1d25b8.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c05-superdoc-3a495d2fbb.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c05-folio-ca598eef5e.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c05-plate-a904a4f6df.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c05-docxodus-7b4d786a25.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c05-fidus-cdebe74c6d.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c06-docen-5222cc0725.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c06-docsplus-67ec9d3c6e.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c06-office-open-85088266d1.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c06-eigenpal-77dd83b410.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c06-libreoffice-e4b0b70f34.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c06-canvas-af64ac9dba.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c06-genoffice-dd2893ce1b.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c06-apryse-8aaaa27344.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c06-wordcraft-652b94f6a3.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c06-superdoc-5e3ca45daf.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c06-folio-c7b7c99729.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c06-plate-024c649750.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c06-docxodus-e65d8eceb4.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c06-fidus-d30917f9f7.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c07-docen-cc3d18b827.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c07-docsplus-526f3b6c25.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c07-office-open-8e7fad199f.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c07-eigenpal-418e1abc39.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c07-libreoffice-c68ee3f75b.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c07-canvas-bed6c23d40.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c07-genoffice-7f5a1c2089.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c07-apryse-0199ae7a93.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c07-wordcraft-072dc00d2a.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c07-superdoc-7ccd7fe227.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c07-folio-1be3e6b82c.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c07-plate-2830d72af6.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c07-docxodus-ff7ae19a3e.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c07-fidus-95a7f0819d.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c08-docen-1c15cf7a42.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c08-docsplus-63960744f4.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c08-office-open-3e2af0c1aa.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c08-eigenpal-beb7b1c306.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c08-libreoffice-bc95ee0417.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c08-canvas-f7b396d74a.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c08-genoffice-f1346f8e62.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c08-apryse-cdf9e25a62.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c08-wordcraft-e5de4a71b8.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c08-superdoc-60ea023b45.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c08-folio-0676b26016.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c08-plate-a2582598dd.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c08-docxodus-8275743eb8.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c08-fidus-495f48044d.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c09-docen-fbbdc32acc.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c09-docsplus-c1dd4e88a1.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c09-office-open-5c933a6716.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c09-eigenpal-31db7dded0.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c09-libreoffice-9961b97c67.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c09-canvas-73f0bfa99b.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c09-genoffice-f5f86d318e.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c09-apryse-8e5a966bbe.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c09-wordcraft-978a4dbd1f.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c09-superdoc-8f458f77d3.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c09-folio-1f1d95fcce.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c09-plate-a8b0f1918f.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c09-docxodus-befec80611.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c09-fidus-0fd739afa0.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c10-docen-d927984510.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c10-docsplus-e381ad590c.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c10-office-open-9336c4b84f.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c10-eigenpal-f30cd187e1.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c10-libreoffice-f466ea49c9.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c10-canvas-4dacbdff32.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c10-genoffice-cb3c7c88c4.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c10-apryse-a79823ee03.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c10-wordcraft-6f14407c96.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c10-superdoc-188b4afc15.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c10-folio-83507cb2e6.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c10-plate-bff541d554.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c10-docxodus-21b62f1b27.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c10-fidus-110f2b1e8d.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C11",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c11-docen-27d318a0ad.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C11",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c11-docsplus-bd5733cd98.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C11",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c11-office-open-e15a043ab8.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C11",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c11-eigenpal-dd66f36861.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C11",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c11-libreoffice-3e424fb6ac.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C11",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c11-canvas-bc3e3fe523.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C11",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c11-genoffice-a0d072e5c3.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C11",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c11-apryse-451877f33a.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C11",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c11-wordcraft-0f37031dd9.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C11",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c11-superdoc-58e7d1e1c4.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C11",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c11-folio-5c03c1a00a.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C11",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c11-plate-8751e79b3a.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C11",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c11-docxodus-0a5af922bf.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C11",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c11-fidus-efe9b45c39.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C12",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c12-docen-328a9488ed.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C12",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c12-docsplus-0899cbd6b8.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C12",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c12-office-open-84470db727.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C12",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c12-eigenpal-5a8da84ec6.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C12",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c12-libreoffice-b986ec40af.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C12",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c12-canvas-44733da8aa.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C12",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c12-genoffice-530e3e1de1.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C12",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c12-apryse-e602deb6e4.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C12",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c12-wordcraft-05b7488428.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C12",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c12-superdoc-a007bf0779.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C12",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c12-folio-c5ee3f8f21.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C12",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c12-plate-86db7c3ad0.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C12",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c12-docxodus-64eeaf7014.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C12",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c12-fidus-6e5ca792f6.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C13",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C13 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c13-docen-ecae437b9c.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C13",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C13 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c13-docsplus-155cf40793.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C13",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C13 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c13-office-open-916edfcc9c.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C13",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C13 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c13-eigenpal-fe64b2cce6.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C13",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C13 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c13-libreoffice-b07bb76718.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C13",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C13 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c13-canvas-8686d07d8d.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C13",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C13 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c13-genoffice-9cbe40ef2f.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C13",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C13 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c13-apryse-b2fbea14c1.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C13",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C13 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c13-wordcraft-7f404653e6.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C13",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C13 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c13-superdoc-ee749b31b4.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C13",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C13 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c13-folio-dc711843a2.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C13",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C13 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c13-plate-0ce577f013.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C13",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C13 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c13-docxodus-fc26be9504.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C13",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C13 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c13-fidus-ed4f2a4630.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C14",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c14-docen-ec5bb07653.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C14",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c14-docsplus-b3774407d3.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C14",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c14-office-open-e1f6070981.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C14",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c14-eigenpal-a3f9ac181e.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C14",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c14-libreoffice-9d343b200d.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C14",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c14-canvas-bf0bde6f48.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C14",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c14-genoffice-945cd5ed06.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C14",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c14-apryse-6e82692988.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C14",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c14-wordcraft-9ce5c3f402.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C14",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c14-superdoc-b6a7623054.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C14",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c14-folio-5ecc13e87a.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C14",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c14-plate-aec310b387.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C14",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c14-docxodus-413f115bc0.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C14",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c14-fidus-49b35727b0.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C15",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C15 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c15-docen-88cf811fd0.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C15",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C15 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c15-docsplus-d6357e0f44.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C15",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C15 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c15-office-open-75c99fac3b.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C15",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C15 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c15-eigenpal-31cc91b87f.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C15",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C15 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c15-libreoffice-4946586cab.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C15",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C15 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c15-canvas-ba698516d3.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C15",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C15 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c15-genoffice-232bf3750f.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C15",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C15 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c15-apryse-39de5a9547.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C15",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C15 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c15-wordcraft-defd4ab1f0.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C15",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C15 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c15-superdoc-dd98b9f7ce.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C15",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C15 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c15-folio-a76091d1c5.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C15",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C15 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c15-plate-7f21514944.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C15",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C15 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c15-docxodus-3535e03f40.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C15",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C15 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c15-fidus-35e44104df.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "docen",
+      "outcome": "measured",
+      "median_ms": 13.395683,
+      "save_ms": 13.395683,
+      "subprocess_wall_ms_median": 301.870219,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c16-docen-c25680e062.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "docsplus",
+      "outcome": "measured",
+      "median_ms": 24.169457,
+      "save_ms": 24.169457,
+      "subprocess_wall_ms_median": 308.982655,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c16-docsplus-418c92bd89.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "office-open",
+      "outcome": "measured",
+      "median_ms": 13.1769,
+      "save_ms": 13.1769,
+      "subprocess_wall_ms_median": 363.863691,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c16-office-open-ed7c9e7d16.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "eigenpal",
+      "outcome": "measured",
+      "median_ms": 8.778734,
+      "save_ms": 8.778734,
+      "subprocess_wall_ms_median": 96.766962,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c16-eigenpal-200f89efc5.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "libreoffice",
+      "outcome": "measured",
+      "median_ms": 592.051057,
+      "save_ms": 592.051057,
+      "subprocess_wall_ms_median": 592.051057,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c16-libreoffice-edf5c33ad2.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "canvas",
+      "outcome": "measured",
+      "median_ms": 23.355058,
+      "save_ms": 23.355058,
+      "subprocess_wall_ms_median": 2326.986597,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c16-canvas-203bd4ea94.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "genoffice",
+      "outcome": "measured",
+      "median_ms": 1.582218,
+      "save_ms": 1.582218,
+      "subprocess_wall_ms_median": 1402.412474,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c16-genoffice-0a9cb9cbe0.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "apryse: proprietary WebViewer round-trip harness not run on this Linux CI host",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c16-apryse-ab17643280.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "wordcraft",
+      "outcome": "measured",
+      "median_ms": 0.792028,
+      "save_ms": 0.792028,
+      "subprocess_wall_ms_median": 2.27048,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c16-wordcraft-4ae2932f41.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "superdoc",
+      "outcome": "measured",
+      "median_ms": 7.337057,
+      "save_ms": 7.337057,
+      "subprocess_wall_ms_median": 750.371906,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c16-superdoc-1b126db48b.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "folio",
+      "outcome": "measured",
+      "median_ms": 12.986648,
+      "save_ms": 12.986648,
+      "subprocess_wall_ms_median": 130.632926,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c16-folio-3c389d6d2e.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "plate",
+      "outcome": "measured",
+      "median_ms": 184.941727,
+      "save_ms": 184.941727,
+      "subprocess_wall_ms_median": 1125.407769,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c16-plate-90aa8d357b.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "docxodus",
+      "outcome": "measured",
+      "median_ms": 27.005529,
+      "save_ms": 27.005529,
+      "subprocess_wall_ms_median": 445.926644,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c16-docxodus-dc52651211.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C16",
+      "editor_id": "fidus",
+      "outcome": "measured",
+      "median_ms": 100.083235,
+      "save_ms": 100.083235,
+      "subprocess_wall_ms_median": 871.306939,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c16-fidus-203b6bb4fc.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C17",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C17 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c17-docen-afb20b5e15.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C17",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C17 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c17-docsplus-4079abda31.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C17",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C17 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c17-office-open-32434bd4a9.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C17",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C17 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c17-eigenpal-3b22866c9c.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C17",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C17 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c17-libreoffice-059bb25d84.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C17",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C17 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c17-canvas-825b6da4b9.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C17",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C17 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c17-genoffice-ffdbe9ae6c.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C17",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C17 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c17-apryse-5e03d92f7a.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C17",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C17 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c17-wordcraft-0d747dcfce.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C17",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C17 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c17-superdoc-47fd6892e6.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C17",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C17 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c17-folio-6ea37988bc.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C17",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C17 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c17-plate-a9d6a255d0.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C17",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C17 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c17-docxodus-706d25bc75.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C17",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C17 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c17-fidus-35d2da798e.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C18",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c18-docen-4b74eadf0d.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C18",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c18-docsplus-37e7a9dec6.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C18",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c18-office-open-46a5aff540.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C18",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c18-eigenpal-0c6c078f97.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C18",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c18-libreoffice-455ae55af4.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C18",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c18-canvas-39bbdeb138.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C18",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c18-genoffice-caf027c5e9.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C18",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c18-apryse-06e76ad471.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C18",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c18-wordcraft-d833d993e2.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C18",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c18-superdoc-288a1f5b92.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C18",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c18-folio-5b77ad7fca.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C18",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c18-plate-39866a550c.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C18",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c18-docxodus-aad6dcdaad.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C18",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c18-fidus-1d0246c630.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C19",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C19 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c19-docen-9bdee816bd.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C19",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C19 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c19-docsplus-7ff00c4e11.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C19",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C19 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c19-office-open-a5e1c41467.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C19",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C19 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c19-eigenpal-49968bbc32.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C19",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C19 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c19-libreoffice-60c8042b54.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C19",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C19 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c19-canvas-8b37f8b70e.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C19",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C19 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c19-genoffice-0fdccc898f.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C19",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C19 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c19-apryse-6791427a14.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C19",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C19 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c19-wordcraft-b82c403016.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C19",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C19 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c19-superdoc-ef37744eda.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C19",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C19 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c19-folio-b418e2f1e1.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C19",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C19 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c19-plate-278e38d46a.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C19",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C19 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c19-docxodus-0e82070716.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C19",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C19 on ci_contract",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c19-fidus-efbc5dc08d.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C20",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c20-docen-19b6091abc.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C20",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c20-docsplus-dc84b7a5ba.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C20",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c20-office-open-5f5fc9df8d.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C20",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c20-eigenpal-025129bd7d.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C20",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c20-libreoffice-abe2707263.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C20",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c20-canvas-7b6f4659d0.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C20",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c20-genoffice-53dd065bcf.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C20",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c20-apryse-2131f6ef54.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C20",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c20-wordcraft-c3db81e8fc.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C20",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c20-superdoc-f7629a3b0f.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C20",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c20-folio-a8f337acf9.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C20",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c20-plate-a5aed132d2.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C20",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c20-docxodus-e6c7140de4.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C20",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c20-fidus-24552b9971.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "docen",
+      "outcome": "measured",
+      "median_ms": 527.977,
+      "child_cpu_ms_median": 527.977,
+      "subprocess_wall_ms_median": 344.894102,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c21-docen-07c576a613.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "docsplus",
+      "outcome": "measured",
+      "median_ms": 514.297,
+      "child_cpu_ms_median": 514.297,
+      "subprocess_wall_ms_median": 366.568319,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c21-docsplus-c6035b1f86.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "office-open",
+      "outcome": "measured",
+      "median_ms": 518.779,
+      "child_cpu_ms_median": 518.779,
+      "subprocess_wall_ms_median": 404.188475,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c21-office-open-fe428de233.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "eigenpal",
+      "outcome": "measured",
+      "median_ms": 133.97,
+      "child_cpu_ms_median": 133.97,
+      "subprocess_wall_ms_median": 98.540835,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c21-eigenpal-48c32aa88e.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "libreoffice",
+      "outcome": "measured",
+      "median_ms": 588.814,
+      "child_cpu_ms_median": 588.814,
+      "subprocess_wall_ms_median": 598.27661,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c21-libreoffice-4c8562fce8.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "canvas",
+      "outcome": "measured",
+      "median_ms": 2318.434,
+      "child_cpu_ms_median": 2318.434,
+      "subprocess_wall_ms_median": 2276.07192,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c21-canvas-461bc707d8.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "genoffice",
+      "outcome": "measured",
+      "median_ms": 1730.107,
+      "child_cpu_ms_median": 1730.107,
+      "subprocess_wall_ms_median": 1391.023608,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c21-genoffice-a216791e3b.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "apryse: proprietary WebViewer round-trip harness not run on this Linux CI host",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c21-apryse-236e5d5164.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "wordcraft",
+      "outcome": "measured",
+      "median_ms": 2.197,
+      "child_cpu_ms_median": 2.197,
+      "subprocess_wall_ms_median": 2.343267,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c21-wordcraft-796e0c6815.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "superdoc",
+      "outcome": "measured",
+      "median_ms": 200.394,
+      "child_cpu_ms_median": 200.394,
+      "subprocess_wall_ms_median": 732.144525,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c21-superdoc-71441182de.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "folio",
+      "outcome": "measured",
+      "median_ms": 141.263,
+      "child_cpu_ms_median": 141.263,
+      "subprocess_wall_ms_median": 114.94648,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c21-folio-05d752074f.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "plate",
+      "outcome": "measured",
+      "median_ms": 1344.533,
+      "child_cpu_ms_median": 1344.533,
+      "subprocess_wall_ms_median": 907.171621,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c21-plate-9463ea3cd8.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "docxodus",
+      "outcome": "measured",
+      "median_ms": 728.338,
+      "child_cpu_ms_median": 728.338,
+      "subprocess_wall_ms_median": 355.147764,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c21-docxodus-fe9f979060.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C21",
+      "editor_id": "fidus",
+      "outcome": "measured",
+      "median_ms": 1027.318,
+      "child_cpu_ms_median": 1027.318,
+      "subprocess_wall_ms_median": 709.482675,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c21-fidus-6b5a06d5e5.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c22-docen-d6d604d1c1.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c22-docsplus-1ac56e8867.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c22-office-open-0c77c00ec6.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c22-eigenpal-c462a26aef.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c22-libreoffice-0e01fc930b.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c22-canvas-42fa980b3a.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c22-genoffice-a4de3ddaba.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c22-apryse-2698e6eb9c.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c22-wordcraft-313011e6c8.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c22-superdoc-b0692f3b18.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c22-folio-ff447aec45.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c22-plate-e77792e1a1.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c22-docxodus-9426aaba9d.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c22-fidus-6348ee1970.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c23-docen-fa39c7800c.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c23-docsplus-cf8fb8d333.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c23-office-open-191a3a5397.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c23-eigenpal-84574c0f5c.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c23-libreoffice-ae9ccdff46.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c23-canvas-0dc31c3eb4.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c23-genoffice-9abe211d26.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "apryse",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c23-apryse-2ec56b853f.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c23-wordcraft-ad3c52c015.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c23-superdoc-05dc1bf496.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c23-folio-3494aa68b7.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c23-plate-d8bcf12df1.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c23-docxodus-24b866ce53.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "execution_profile: execution_profile",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c23-fidus-9a975f551b.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C24",
+      "editor_id": "docen",
+      "outcome": "not_run",
+      "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_contract (design C24)",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c24-docen-00008183b2.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C24",
+      "editor_id": "docsplus",
+      "outcome": "not_run",
+      "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_contract (design C24)",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c24-docsplus-cc8b3502b4.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C24",
+      "editor_id": "office-open",
+      "outcome": "not_run",
+      "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_contract (design C24)",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c24-office-open-eb3071214a.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C24",
+      "editor_id": "eigenpal",
+      "outcome": "not_run",
+      "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_contract (design C24)",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c24-eigenpal-09a57aa41a.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C24",
+      "editor_id": "libreoffice",
+      "outcome": "not_run",
+      "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_contract (design C24)",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c24-libreoffice-b83224b887.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C24",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_contract (design C24)",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c24-canvas-5af66ea935.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C24",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_contract (design C24)",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c24-genoffice-491e5d8631.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C24",
+      "editor_id": "apryse",
+      "outcome": "unverified",
+      "failure_reason": null,
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c24-apryse-5f6d45c1ce.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C24",
+      "editor_id": "wordcraft",
+      "outcome": "not_run",
+      "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_contract (design C24)",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c24-wordcraft-57b7544481.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C24",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_contract (design C24)",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c24-superdoc-480411fad6.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C24",
+      "editor_id": "folio",
+      "outcome": "not_run",
+      "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_contract (design C24)",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c24-folio-ee5415fa4f.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C24",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_contract (design C24)",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c24-plate-48195dee31.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C24",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_contract (design C24)",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c24-docxodus-d07b5df70f.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C24",
+      "editor_id": "fidus",
+      "outcome": "not_run",
+      "failure_reason": "wasm_boundary: no host/WASM boundary harness on ci_contract (design C24)",
+      "attempt_file": "perf/out/ci_contract_2026_11_07/attempts/c24-fidus-18014f589c.json",
+      "publishable": false
+    }
+  ]
+}
