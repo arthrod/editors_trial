@@ -44,3 +44,17 @@ def assert_visible_evidence(criterion_id: str, evidence: str) -> None:
         raise ValueError("no visible rule for %s" % (criterion_id,))
     if evidence not in allowed:
         raise ValueError("%s is not visible evidence for %s" % (evidence, criterion_id))
+
+
+_DIAGNOSTIC = {"chrome_trace", "playwright_trace_on", "perf_stat", "gc_events"}
+_TIMING = {"clock", "memory_sample"}
+
+
+def assert_run_instruments(run_kind: str, instruments: list[str]) -> None:
+    if run_kind not in ("timing", "diagnostic"):
+        raise ValueError("run_kind")
+    for instrument in instruments:
+        if run_kind == "timing" and instrument not in _TIMING:
+            raise ValueError("%s is diagnostic-only" % (instrument,))
+        if run_kind == "diagnostic" and instrument not in _TIMING | _DIAGNOSTIC:
+            raise ValueError("unknown instrument %s" % (instrument,))

@@ -1,6 +1,12 @@
 import unittest
 
-from perf.layers.classify import assert_visible_evidence, classify_mark
+from perf.layers.classify import assert_run_instruments, assert_visible_evidence, classify_mark
+from perf.layers.event_timing import (
+    aggregate_inp,
+    effective_duration_threshold,
+    event_timing_status,
+    rounded_duration_ms,
+)
 from perf.layers.wasm import assert_wasm_report, required_wasm_operations
 
 
@@ -122,6 +128,57 @@ class Wasm(unittest.TestCase):
         with self.assertRaises(ValueError) as caught:
             assert_wasm_report(report, capabilities)
         self.assertIn("empty_call", str(caught.exception))
+
+
+class Instruments(unittest.TestCase):
+    def test_timing_run_allows_a_clock_and_a_memory_sample(self):
+        assert_run_instruments("timing", ["clock", "memory_sample"])
+
+    def test_timing_run_rejects_a_chrome_trace(self):
+        with self.assertRaises(ValueError) as caught:
+            assert_run_instruments("timing", ["clock", "chrome_trace"])
+        self.assertIn("chrome_trace", str(caught.exception))
+
+    def test_timing_run_rejects_playwright_trace_on(self):
+        with self.assertRaises(ValueError) as caught:
+            assert_run_instruments("timing", ["playwright_trace_on"])
+        self.assertIn("playwright_trace_on", str(caught.exception))
+
+    def test_diagnostic_run_may_record_gc_events(self):
+        assert_run_instruments("diagnostic", ["gc_events", "chrome_trace"])
+
+
+class EventTiming(unittest.TestCase):
+    def test_threshold_cannot_drop_below_16(self):
+        self.assertEqual(effective_duration_threshold(None), 104)
+        self.assertEqual(effective_duration_threshold(0), 16)
+        self.assertEqual(effective_duration_threshold(8), 16)
+        self.assertEqual(effective_duration_threshold(16), 16)
+
+    def test_duration_uses_an_8_millisecond_quantum(self):
+        self.assertEqual(rounded_duration_ms(20), 24)
+        self.assertEqual(rounded_duration_ms(12), 16)
+
+    def test_buffered_history_stays_at_104(self):
+        got = event_timing_status(40, 16, buffered_default=True)
+        self.assertEqual(got["status"], "censored")
+        self.assertIsNone(got["duration_ms"])
+
+    def test_a_censored_edit_is_not_zero(self):
+        got = event_timing_status(10, 16, buffered_default=False)
+        self.assertEqual(got["status"], "censored")
+        self.assertIsNone(got["duration_ms"])
+        self.assertNotEqual(got["duration_ms"], 0)
+
+    def test_inp_groups_one_interaction_id(self):
+        entries = [
+            {"interaction_id": 7, "duration_ms": 24, "name": "keydown"},
+            {"interaction_id": 7, "duration_ms": 40, "name": "input"},
+            {"interaction_id": 7, "duration_ms": 24, "name": "keyup"},
+            {"interaction_id": 0, "duration_ms": 80, "name": "keydown"},
+            {"interaction_id": 8, "duration_ms": 16, "name": "keydown"},
+        ]
+        self.assertEqual(aggregate_inp(entries), 40)
 
 
 if __name__ == "__main__":
