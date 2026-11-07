@@ -63,7 +63,7 @@ A comparison across layers is a diagnostic. It is not a ranking.
 | State | Definition |
 |---|---|
 | `process_cold_fs_warm` | New process and new profile. The operating-system page cache is left as it is. |
-| `os_cache_cold` | New process and new profile, after `sync` and a clean page-cache drop on a disposable dedicated host. Linux documents `drop_caches` as a testing and debugging interface that can cost substantial I/O and CPU. It is not used on a shared machine and it is not mixed into a warm distribution. |
+| `os_cache_cold` | New process and new profile, after `sync` and a clean page-cache drop on a disposable dedicated host or on an operator-approved `laboratory` host with `page_cache_dropped: true` recorded. Linux documents `drop_caches` as a testing and debugging interface that can cost substantial I/O and CPU. It is not used on a shared `ci_coarse` machine and it is not mixed into a warm distribution. |
 | `warm_steady` | The same process or a declared preconditioning script has already exercised the fixture. The script is part of the trial record. |
 
 Criterion.rs warms a microbenchmark before measuring it. That warmup is an in-process microbenchmark phase. It is not `warm_steady` for a GUI, and it is not a reason to discard a cold process start.
@@ -92,7 +92,7 @@ Every trial names an `execution_profile` in addition to `host_class`. The profil
 |---|---|---|---|---|
 | `ci_contract` | `ci_coarse` | 512 MiB cgroup or container | No compositor: Node headless DOM, native in-process, or `soffice --headless` only | Maximize editor coverage on the smallest machine: every model, native, and `wasm_boundary` scenario that does not require pixels |
 | `ci_broad` | `ci_coarse` | 2–4 GiB | Xvfb plus Mesa software GL (SwiftShader or llvmpipe), one browser at a time | Run every criterion at least once with reduced samples and capped workloads; still not publishable for visible latency |
-| `dedicated_publish` | `dedicated` | Host record in `ram_bytes` | Real display or verified Xvfb at recorded refresh | Full sample budgets, `os_cache_cold`, multi-gigabyte host workloads, and the one-hour soak |
+| `dedicated_publish` | `dedicated` or `laboratory` | Host record in `ram_bytes` | Real display or verified Xvfb at recorded refresh | Full sample budgets, `os_cache_cold` when recorded, multi-gigabyte host workloads, and the one-hour soak |
 
 Sample budgets are fixed per profile and repetition unit. They shrink repetition; they do not drop outliers from a run that did execute.
 
@@ -110,16 +110,20 @@ Workload caps select the largest ladder id the profile may pass to an editor. Ho
 | `ci_broad` | `short-paragraphs`, `mixed-utf8`, and `search-dense` with the generator's built-in paragraph limits (no host-only multi-gigabyte profiles) |
 | `dedicated_publish` | Full ladder including `long-paragraphs`, `one-paragraph`, `paginated-equivalent`, and host-generated large files |
 
+### `host_class: laboratory`
+
+A single-tenant measurement VM (including an approved Cloud Agent pod) that is not a disposable bare-metal dedicated bench but is operator-approved for invasive cache tests. Records real `ram_bytes`, may run Xvfb, and may execute `drop_caches` when the implementer documents the command in the trial record. Laboratory trials use the same immutable JSON schema as dedicated runs. **`publishable` stays `false` for laboratory headline publication** unless a later spec revision says otherwise; raw trials are regression artifacts only.
+
 Scheduler rules keep low-resource runs honest:
 
-- `os_cache_cold` runs enqueue only when `execution_profile` is `dedicated_publish` and `host_class` is `dedicated`. Other profiles keep `process_cold_fs_warm` and `warm_steady` variants.
-- C20 long-session stability enqueues only on `dedicated_publish`. `ci_contract` and `ci_broad` record `not_run` for C20 without starting a truncated soak.
+- `os_cache_cold` runs enqueue only when `execution_profile` is `dedicated_publish` and `host_class` is `dedicated` or `laboratory`, with `page_cache_dropped: true` on `laboratory`. `ci_coarse` never records `os_cache_cold`. Other profiles keep `process_cold_fs_warm` and `warm_steady` variants.
+- C20 long-session stability enqueues on `dedicated_publish` for `dedicated` and `laboratory`. A preview soak may complete in the conductor session; the full one-hour soak must be **started** (for example in tmux) even if the conductor exits first. `ci_contract` and `ci_broad` record `not_run` for C20 without starting a truncated soak.
 - C18 allocation profiling may run on `ci_broad` once per editor as `run_kind: diagnostic` with `publishable: false`; it is not required on `ci_contract`.
 - Browser-visible scenarios on `ci_contract` are `not_run` when the lane has no headless substitute; model-layer timings for the same editor still run (for example Folio parse, Plate headless DOCX, office-open generate).
 - Only one editor process group runs at a time on `ci_coarse`, matching the quiet-machine rule in `AGENTS.md`.
 - Optional cgroup memory limits (LVCE-style sweeps) are diagnostic metadata on `dedicated_publish` only. They do not replace the primary C17 sample at the profile's workload cap.
 
-Publication policy is unchanged: `ci_coarse` never publishes browser-visible or native-present latency regardless of profile. Contract and broad CI runs still produce immutable raw trials, capability matrices, fixture checksums, and model or WASM summaries for regression tracking.
+Publication policy is unchanged: `ci_coarse` and `laboratory` never publish browser-visible or native-present latency as headline numbers regardless of profile (laboratory runs remain regression artifacts with `publishable: false` unless a later spec revision opens publication). Contract and broad CI runs still produce immutable raw trials, capability matrices, fixture checksums, and model or WASM summaries for regression tracking.
 
 ## Correctness before speed
 

@@ -111,7 +111,7 @@ def _validate_summary_stats(stats):
 
 
 def validate_environment(env):
-    if env["host_class"] not in ("dedicated", "ci_coarse"):
+    if env["host_class"] not in ("dedicated", "ci_coarse", "laboratory"):
         raise ValueError("host_class")
     profile = env.get("execution_profile")
     if profile not in ("ci_contract", "ci_broad", "dedicated_publish"):
@@ -120,7 +120,7 @@ def validate_environment(env):
         raise ValueError("cache_state")
     if env["host_class"] == "ci_coarse" and env["cache_state"] == "os_cache_cold":
         raise ValueError("os_cache_cold is dedicated-host only")
-    if profile == "dedicated_publish" and env["host_class"] != "dedicated":
+    if profile == "dedicated_publish" and env["host_class"] not in ("dedicated", "laboratory"):
         raise ValueError("dedicated_publish requires dedicated host")
     if profile == "ci_contract" and env.get("headless") is not True:
         raise ValueError("ci_contract requires headless")

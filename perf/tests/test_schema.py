@@ -258,6 +258,18 @@ class Environment(unittest.TestCase):
             )
         self.assertIn("dedicated_publish", str(caught.exception))
 
+    def test_laboratory_accepts_dedicated_publish_and_os_cache_cold(self):
+        validate_environment(
+            _env(
+                host_class="laboratory",
+                execution_profile="dedicated_publish",
+                headless=True,
+                display_refresh_hz=None,
+                cache_state="os_cache_cold",
+                page_cache_dropped=True,
+            )
+        )
+
     def test_ci_contract_requires_headless(self):
         with self.assertRaises(ValueError) as caught:
             validate_environment(_env(host_class="ci_coarse", execution_profile="ci_contract", headless=False))

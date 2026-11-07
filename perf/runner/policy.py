@@ -9,7 +9,7 @@ def publication_decision(env, layer):
         raise ValueError("diagnostic runs are not timing publications")
     if env["host_class"] == "ci_coarse" and layer in _VISIBLE:
         raise ValueError("ci_coarse cannot publish visible latency")
-    if env["cache_state"] == "os_cache_cold" and env["host_class"] != "dedicated":
+    if env["cache_state"] == "os_cache_cold" and env["host_class"] not in ("dedicated", "laboratory"):
         raise ValueError("os_cache_cold is dedicated-host only")
     if layer in _VISIBLE and env["repetition_unit"] != "fresh_process":
         raise ValueError("visible latency requires fresh_process")

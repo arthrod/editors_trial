@@ -7,7 +7,12 @@
       "id": "C01",
       "title": "cold/warm startup",
       "measurement_method": "Report three separate distributions: process-cold with a warm OS page cache, OS-cache-cold, and warm/steady after a fixed preconditioning script. Each distribution records process spawn, first contentful or first presented frame, input-ready, and quiescent. Do not publish one startup number.",
-      "tools": ["fresh process and disposable profile", "GNU time -v as a resource companion", "OS page-cache drop only on a disposable dedicated host", "editor-specific startup marks where a probe verifies them"],
+      "tools": [
+        "fresh process and disposable profile",
+        "GNU time -v as a resource companion",
+        "OS page-cache drop only on a disposable dedicated host",
+        "editor-specific startup marks where a probe verifies them"
+      ],
       "existing_implementations": "No startup benchmark exists in this repository. Verified external references, not run here: microide cold_startup scenarios (explicitly not cross-editor); Jet cargo bench cold_start and jet --headless --quit (project-authored); VS Code --prof-startup and the Startup Performance view (VS Code only); vscode-perf is a Node CLI whose README does not define a metric.",
       "comparability_limitations": "Browser and Electron startups include runtime, GPU, and utility processes. Headless LibreOffice conversion is not an editor frame. Apryse startup performs a license request. SuperDoc's default worker startup timeout is 30 seconds and must be recorded. A container does not standardize GUI startup.",
       "implementation_status": "proposed_harness",
@@ -15,14 +20,19 @@
         "docs/superpowers/plans/2026-11-05-perf-schema-and-outcomes.md",
         "docs/superpowers/plans/2026-11-05-perf-statistics.md",
         "docs/superpowers/plans/2026-11-05-perf-runner-and-artifacts.md",
-        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md"
+        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md",
+        "docs/superpowers/plans/2026-11-07-full-browser-pixels-and-dedicated.md"
       ]
     },
     {
       "id": "C02",
       "title": "document loading/model construction",
       "measurement_method": "Time the editor's own load entry from the load call, or from the open command, until the in-memory model reports ready. Keep that interval on the model layer. It is not first paint and it is not usable.",
-      "tools": ["adapter phase marks", "Node perf_hooks or Rust Instant around the documented entry point", "checksummed fixture bytes"],
+      "tools": [
+        "adapter phase marks",
+        "Node perf_hooks or Rust Instant around the documented entry point",
+        "checksummed fixture bytes"
+      ],
       "existing_implementations": "This repository's round-trip drivers call import and export but do not publish load latency. JOE editor-perf recorded CPU time to load a file, jump, and exit; that is a different boundary and a 2016-era manual procedure.",
       "comparability_limitations": "Plate, docs.plus, and Fidus construct an HTML or schema model, not an OOXML tree. SuperDoc's headless SDK and its browser host are different loaders. Folio requires preloadFonts false for a DOM-free parse. office-open and the eigenpal store lane have no view.",
       "implementation_status": "proposed_harness",
@@ -30,297 +40,418 @@
         "docs/superpowers/plans/2026-11-05-perf-schema-and-outcomes.md",
         "docs/superpowers/plans/2026-11-05-perf-fixtures-and-parity.md",
         "docs/superpowers/plans/2026-11-05-perf-adapters-and-quirks.md",
-        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md"
+        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md",
+        "docs/superpowers/plans/2026-11-07-full-browser-pixels-and-dedicated.md"
       ]
     },
     {
       "id": "C03",
       "title": "first visible content/first usable state",
       "measurement_method": "Record first visible document text only when a document-specific paint target or an external pixel check shows text from the fixture. First-contentful-paint alone is not that evidence, because it marks the first contentful DOM element, which may be toolbar or shell text. Record first usable only when a scripted edit or caret move is accepted and becomes visible. Constructor return, model ready, and a requestAnimationFrame callback are separate marks and cannot satisfy either claim.",
-      "tools": ["a document-specific paint target or pixel check that shows fixture text", "Element Timing only when the observed element is fixture text", "external pixel observation on a dedicated display", "Playwright only to drive the scenario, not as the latency clock"],
+      "tools": [
+        "a document-specific paint target or pixel check that shows fixture text",
+        "Element Timing only when the observed element is fixture text",
+        "external pixel observation on a dedicated display",
+        "Playwright only to drive the scenario, not as the latency clock"
+      ],
       "existing_implementations": "No first-usable benchmark exists in this repository. Report C waited for each UI's own ready signal and then took a screenshot; that is a fidelity capture, not a latency distribution. Typometer observes a pixel after a keystroke, which is a related but different interval. microide documents large_file_open_first_paint as advisory, not a gated cross-editor number.",
       "comparability_limitations": "Canvas, Leafer, egui, and WebGL surfaces do not emit DOM first-contentful-paint for document text. A blank shell can paint before document text. Virtualized editors can show a window before the rest of the model exists.",
       "implementation_status": "proposed_harness",
       "plans": [
         "docs/superpowers/plans/2026-11-05-perf-schema-and-outcomes.md",
         "docs/superpowers/plans/2026-11-05-perf-measurement-layers.md",
-        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md"
+        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md",
+        "docs/superpowers/plans/2026-11-07-full-browser-pixels-and-dedicated.md"
       ]
     },
     {
       "id": "C04",
       "title": "deferred work",
       "measurement_method": "After first usable, sample CPU, process-tree memory, and editor-specific quiescence until a predeclared idle condition holds or a timeout fires. Publish the tail separately from first usable. A timeout is a failed or unfinished outcome, not a quiet editor.",
-      "tools": ["process-tree CPU and memory sampler", "main-thread long tasks in Chromium", "editor progress or worker-ready probes when the adapter has verified them"],
+      "tools": [
+        "process-tree CPU and memory sampler",
+        "main-thread long tasks in Chromium",
+        "editor progress or worker-ready probes when the adapter has verified them"
+      ],
       "existing_implementations": "No deferred-work sampler exists in this repository. CodeMirror's huge-document example and Marijn Haverbeke's forum replies document a parser that stops when idle and catches up later; none of the pinned editors uses CodeMirror. SuperDoc's current large-document guide describes a page window and a worker, which is a product control, not a measurement.",
       "comparability_limitations": "Editors that index, proof, or paginate in the background look faster at first usable and more expensive in the tail. Disabling that work without recording it changes the feature profile.",
       "implementation_status": "proposed_harness",
       "plans": [
         "docs/superpowers/plans/2026-11-05-perf-runner-and-artifacts.md",
-        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md"
+        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md",
+        "docs/superpowers/plans/2026-11-07-full-browser-pixels-and-dedicated.md"
       ]
     },
     {
       "id": "C05",
       "title": "single-edit responsiveness",
       "measurement_method": "For one committed insertion at a named document position, publish input-to-visible-update only when paint is proved by a presented frame, a screenshot or pixel check of that edit, or a requestAnimationFrame callback followed by a later frame or paint entry in the same trace. A requestAnimationFrame callback alone is not paint. Event Timing is a censored companion: install the observer before input, and a requested durationThreshold below 16 milliseconds is raised to 16 milliseconds. Duration is rounded to 8 milliseconds. buffered true does not recover entries already dropped under the default 104 millisecond buffer. A trusted input with no entry is censored, kept in the sample, and never written as 0. Page-lifetime INP groups events that share a nonzero interactionId. keydown, input, and keyup are not separate interactions. Handler duration and model-mutation duration stay on the model layer. An unrelated paint or a deferred editor render does not complete the edit.",
-      "tools": ["Event Timing observer installed before input, with durationThreshold not below 16 milliseconds, as a censored companion", "presented frame, screenshot, or pixel check that the edit is visible", "requestAnimationFrame only when the same trace shows a later frame or paint", "adapter model marks"],
+      "tools": [
+        "Event Timing observer installed before input, with durationThreshold not below 16 milliseconds, as a censored companion",
+        "presented frame, screenshot, or pixel check that the edit is visible",
+        "requestAnimationFrame only when the same trace shows a later frame or paint",
+        "adapter model marks"
+      ],
       "existing_implementations": "No single-edit latency harness exists in this repository. Typometer's synchronous mode measures keystroke to a pixel change for a period character. Slate's performance guide discusses Interaction to Next Paint while typing; that is guidance for Slate hosts, and Plate's measured DOCX harness does not enable Slate chunking. LVCE's memory benchmark explicitly says its edit probe is not typing-to-paint latency.",
       "comparability_limitations": "Event Timing duration is rounded to 8 milliseconds. The minimum durationThreshold is 16 milliseconds, and the default buffer keeps only durations of at least 104 milliseconds, so a fast edit can be censored. Canvas and egui input targets can emit Event Timing entries, and those entries do not prove the canvas or egui pixels changed. An IME composition is not a committed insert.",
       "implementation_status": "proposed_harness",
       "plans": [
         "docs/superpowers/plans/2026-11-05-perf-measurement-layers.md",
-        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md"
+        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md",
+        "docs/superpowers/plans/2026-11-07-full-browser-pixels-and-dedicated.md"
       ]
     },
     {
       "id": "C06",
       "title": "sustained typing/bursts",
       "measurement_method": "Drive a fixed character sequence at a declared rate and, separately, a burst with no per-key wait. Record the per-edit visible latency distribution, the worst one-second window, and dropped or late frames. Each published edit needs the same paint proof as a single edit. Aggregate Interaction to Next Paint by grouping events that share a nonzero interactionId, and keep that page-lifetime value separate from the per-edit distribution. Censored Event Timing entries stay in the sample and are not zeros. Do not summarize the run as average frames per second.",
-      "tools": ["Typometer asynchronous mode where a glyph pixel is a valid probe", "Event Timing samples for DOM editors", "frame timestamps from the compositor or the native renderer"],
+      "tools": [
+        "Typometer asynchronous mode where a glyph pixel is a valid probe",
+        "Event Timing samples for DOM editors",
+        "frame timestamps from the compositor or the native renderer"
+      ],
       "existing_implementations": "Typometer documents an asynchronous mode for rapid typing when drawing lags by multiple characters. microide has typing_small_file and typing_large_file for its own regression gates. Jet documents --bench-latency as a headless keystroke simulation. None of these was run on a trial editor.",
       "comparability_limitations": "Typometer's single-pixel probe assumes a stable glyph advance and a framebuffer it can read. Burst input overruns editors that coalesce input, so the scenario must say whether coalescing counts as one paint or as lost keystrokes. AutoCorrect and proofing change the work.",
       "implementation_status": "proposed_harness",
       "plans": [
         "docs/superpowers/plans/2026-11-05-perf-fixtures-and-parity.md",
-        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md"
+        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md",
+        "docs/superpowers/plans/2026-11-07-full-browser-pixels-and-dedicated.md"
       ]
     },
     {
       "id": "C07",
       "title": "cursor/selection/hit testing",
       "measurement_method": "Time a pointer or keyboard selection at the start, middle, and end of the fixture until the caret or selection is both in the model and visibly updated. Check the resolved document position against the fixture coordinate. A hit that returns the wrong position fails correctness and is not a publishable latency.",
-      "tools": ["Playwright mouse and keyboard for DOM and canvas hosts", "WordCraft layout hit testing through its command channel when that command is probed", "model selection readback"],
+      "tools": [
+        "Playwright mouse and keyboard for DOM and canvas hosts",
+        "WordCraft layout hit testing through its command channel when that command is probed",
+        "model selection readback"
+      ],
       "existing_implementations": "No hit-test benchmark exists in this repository. WordCraft's README architecture table lists hit testing in wordcraft-layout. eigenpal's current main branch has a viewport materializer that pins caret and selection pages; that file was read on main, not on the trial pin.",
       "comparability_limitations": "contenteditable, ProseMirror, canvas, and egui resolve hits in different coordinate spaces. office-open has no editor UI, so this scenario is not applicable on that lane. A DOM-free server lane can report model selection and must not claim a visible caret.",
       "implementation_status": "proposed_harness",
       "plans": [
         "docs/superpowers/plans/2026-11-05-perf-adapters-and-quirks.md",
-        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md"
+        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md",
+        "docs/superpowers/plans/2026-11-07-full-browser-pixels-and-dedicated.md"
       ]
     },
     {
       "id": "C08",
       "title": "clipboard/bulk editing",
       "measurement_method": "Time paste and delete of declared payloads (plain text, and styled text where the editor supports it) at the start, middle, and end. Record model completion and visible completion separately, plus the resulting document size and memory delta.",
-      "tools": ["synthetic clipboard where the platform allows it", "adapter paste command", "whole-process memory sampler"],
+      "tools": [
+        "synthetic clipboard where the platform allows it",
+        "adapter paste command",
+        "whole-process memory sampler"
+      ],
       "existing_implementations": "No clipboard benchmark exists in this repository. WordCraft's README lists clipboard with formatting. Docxodus documents DocxSession mutations and a browser editor. Those are feature claims, not timings.",
       "comparability_limitations": "Operating-system clipboards, browser clipboard permissions, and headless lanes do not share a clock. A model-only paste is not a visible paste. Editors that flatten styled paste must record that feature loss.",
       "implementation_status": "proposed_harness",
       "plans": [
         "docs/superpowers/plans/2026-11-05-perf-fixtures-and-parity.md",
-        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md"
+        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md",
+        "docs/superpowers/plans/2026-11-07-full-browser-pixels-and-dedicated.md"
       ]
     },
     {
       "id": "C09",
       "title": "undo/redo",
       "measurement_method": "After a declared history of N edits, time undo and redo until the document text and the visible viewport match the expected snapshot. Repeat at more than one history depth. Record history memory separately from command latency.",
-      "tools": ["editor undo command", "text and viewport oracle", "process-tree memory"],
+      "tools": [
+        "editor undo command",
+        "text and viewport oracle",
+        "process-tree memory"
+      ],
       "existing_implementations": "No undo benchmark exists in this repository. Docxodus's README describes bounded undo and redo on DocxSession. ProseMirror-history is the usual mechanism for TipTap and ProseMirror editors; this pass did not read each editor's history plugin configuration.",
       "comparability_limitations": "Bounded histories drop old entries. An undo that restores text but not the caret fails the visible check. Headless lanes can time model undo only.",
       "implementation_status": "proposed_harness",
       "plans": [
         "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md",
-        "docs/superpowers/plans/2026-11-05-perf-adapters-and-quirks.md"
+        "docs/superpowers/plans/2026-11-05-perf-adapters-and-quirks.md",
+        "docs/superpowers/plans/2026-11-07-full-browser-pixels-and-dedicated.md"
       ]
     },
     {
       "id": "C10",
       "title": "scrolling/viewport",
       "measurement_method": "Scroll by keyboard, wheel, and a jump to a named offset. Record frame-time distribution and the count of frames later than the display period. First result of a jump is time to the correct visible content, not time to the scroll event handler.",
-      "tools": ["frame timestamps", "external capture on a dedicated display", "Playwright as the input driver"],
+      "tools": [
+        "frame timestamps",
+        "external capture on a dedicated display",
+        "Playwright as the input driver"
+      ],
       "existing_implementations": "No scroll benchmark exists in this repository. Event Timing excludes wheel, touchmove, and pointermove, so it is not the scroll clock. SuperDoc documents a default five-page window with one overscan page. Slate documents content-visibility and experimental chunking for off-screen DOM.",
       "comparability_limitations": "Average frames per second hides stalls. Software rendering and GPU rendering are different experiments. Canvas virtualization and DOM virtualization mount different amounts of work. office-open has no viewport.",
       "implementation_status": "proposed_harness",
       "plans": [
         "docs/superpowers/plans/2026-11-05-perf-measurement-layers.md",
-        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md"
+        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md",
+        "docs/superpowers/plans/2026-11-07-full-browser-pixels-and-dedicated.md"
       ]
     },
     {
       "id": "C11",
       "title": "initial layout/pagination",
       "measurement_method": "For editors with a page model, time open until the first page's text is visible and, separately, until the reported page count is stable. Record the page count. For editors whose product is a continuous flow, mark page-count latency not applicable and still time first-page-equivalent visible text if a flow exists.",
-      "tools": ["page-count readback", "paint or pixel evidence of first-page text", "WordCraft wordcraft-cli info only as a layout-count probe, not as the interactive UI"],
+      "tools": [
+        "page-count readback",
+        "paint or pixel evidence of first-page text",
+        "WordCraft wordcraft-cli info only as a layout-count probe, not as the interactive UI"
+      ],
       "existing_implementations": "Report C records page counts for the fidelity corpus. It is not a timing study. The trial text says nothing in that fidelity pass measured page geometry as a performance result. WordCraft's README claims on-demand page render and a 1.4 millisecond relayout figure; that figure is a project claim and was not reproduced here.",
       "comparability_limitations": "Plate, docs.plus, and Fidus Writer are continuous flows in Report C. office-open has no page model. canvas-editor claims pagination, but on the fidelity corpus the UI showed a header and footer and then threw. A missing page count after a crash is a failure, not zero milliseconds and not zero pages.",
       "implementation_status": "proposed_harness",
       "plans": [
         "docs/superpowers/plans/2026-11-05-perf-adapters-and-quirks.md",
-        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md"
+        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md",
+        "docs/superpowers/plans/2026-11-07-full-browser-pixels-and-dedicated.md"
       ]
     },
     {
       "id": "C12",
       "title": "incremental reflow",
       "measurement_method": "Insert or delete a small span at the start, middle, and end, and time until layout marks that are dirty because of that edit have been resolved and the viewport is visibly updated. Record how many blocks or pages the editor reports as invalidated.",
-      "tools": ["model dirty-region readback where an adapter probe finds it", "visible viewport oracle", "separate model and paint marks"],
+      "tools": [
+        "model dirty-region readback where an adapter probe finds it",
+        "visible viewport oracle",
+        "separate model and paint marks"
+      ],
       "existing_implementations": "No reflow benchmark exists in this repository. SuperDoc issue 2879 is closed as a duplicate. Its April 2026 text describes a ProseMirror tree and a synchronous first layout. The fidelity report says the pinned V2 surface is not that ProseMirror editor, so the issue is an upstream report about an earlier architecture, not a measurement of the pinned V2 model. Docxodus's README claims only the changed block re-renders and gives a millisecond range; that is a project claim.",
       "comparability_limitations": "Editors that always reflow the whole document can still update one screen quickly. Invalidation counts are comparable only when the unit (block, paragraph, page) is declared. A flow editor and a page editor do not share that unit.",
       "implementation_status": "proposed_harness",
       "plans": [
         "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md",
-        "docs/superpowers/plans/2026-11-05-perf-measurement-layers.md"
+        "docs/superpowers/plans/2026-11-05-perf-measurement-layers.md",
+        "docs/superpowers/plans/2026-11-07-full-browser-pixels-and-dedicated.md"
       ]
     },
     {
       "id": "C13",
       "title": "global invalidation",
       "measurement_method": "Apply one edit that must change later layout or style state, such as a style change at the start or a paragraph inserted before a table of contents, and time until the far end of the document is consistent. Record both the viewport update and whole-document completion.",
-      "tools": ["fixture with a sentinel at the end", "model consistency check", "paint check of the sentinel if the scenario scrolls there"],
+      "tools": [
+        "fixture with a sentinel at the end",
+        "model consistency check",
+        "paint check of the sentinel if the scenario scrolls there"
+      ],
       "existing_implementations": "JOE's editor-perf rehighlight procedure changes the start of an XML file and observes work at the end. It is a manual code-editor procedure, not a DOCX measurement. No global-invalidation benchmark exists in this repository.",
       "comparability_limitations": "An editor that does not update off-screen state until scroll will look faster if only the viewport is timed. The scenario must name which of the two clocks is the published one, and it must record the other.",
       "implementation_status": "proposed_harness",
       "plans": [
         "docs/superpowers/plans/2026-11-05-perf-fixtures-and-parity.md",
-        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md"
+        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md",
+        "docs/superpowers/plans/2026-11-07-full-browser-pixels-and-dedicated.md"
       ]
     },
     {
       "id": "C14",
       "title": "large-document scaling",
       "measurement_method": "Repeat open, jump, edit, and scroll across a size ladder whose shapes are declared: many short paragraphs, long paragraphs, one enormous paragraph, mixed Unicode, and a paginated equivalent. Report each shape separately. Record large-file modes that disable features.",
-      "tools": ["generated fixtures with checksums", "the same scenario runner as the small-document runs", "memory sampler"],
+      "tools": [
+        "generated fixtures with checksums",
+        "the same scenario runner as the small-document runs",
+        "memory sampler"
+      ],
       "existing_implementations": "No large-document performance ladder exists in this repository. The fidelity corpus is one small adversarial DOCX, not a size ladder. Jet documents lazy mmap and a visible window for multi-gigabyte text files; those results are project-authored and are not DOCX results. CodeMirror's huge-document demo shows viewport rendering with deferred parsing and is not a candidate.",
       "comparability_limitations": "A 100 megabyte file of short paragraphs and a 100 megabyte file of one paragraph are different workloads. Virtualization can keep memory flat while a jump or an edit is still global. Feature fallback must be visible in the row.",
       "implementation_status": "proposed_harness",
       "plans": [
         "docs/superpowers/plans/2026-11-05-perf-fixtures-and-parity.md",
-        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md"
+        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md",
+        "docs/superpowers/plans/2026-11-07-full-browser-pixels-and-dedicated.md"
       ]
     },
     {
       "id": "C15",
       "title": "search/replace/indexing",
       "measurement_method": "Time literal and regular-expression search to the first match and to completion, then time replace-all, on fixtures with a declared match count. If an index is built in the background, time index quiescence separately from the query.",
-      "tools": ["editor find command", "match-count oracle", "CPU and allocation samples on the diagnostic run"],
+      "tools": [
+        "editor find command",
+        "match-count oracle",
+        "CPU and allocation samples on the diagnostic run"
+      ],
       "existing_implementations": "No search benchmark exists in this repository. microide gates its own search and file-finder scenarios and says they are not cross-editor numbers. Jet documents SIMD literal search and a --search flag; the README leaves a 2 gigabyte Linux cell unspecified and the numbers are project-authored. Docxodus documents OpenXmlRegex as a library API.",
       "comparability_limitations": "Interactive find, a library scan, and a background index are different products. Pathological regular expressions need a fuel or time budget so one editor cannot pin the host. A search that misses a known match fails correctness.",
       "implementation_status": "proposed_harness",
       "plans": [
         "docs/superpowers/plans/2026-11-05-perf-fixtures-and-parity.md",
-        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md"
+        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md",
+        "docs/superpowers/plans/2026-11-07-full-browser-pixels-and-dedicated.md"
       ]
     },
     {
       "id": "C16",
       "title": "serialization/save/export",
       "measurement_method": "Time the save or export command until the editor is interactive again, and separately until the replacement bytes are re-readable. Label that second clock durable only when both the replacement data and its directory entry have been synced. If the save path cannot expose that guarantee, label the clock re-readable. A reopened checksum and filesystem timestamps are supporting evidence, not durability by themselves. Record byte count, checksum, and whether the write is a full regeneration or a selective save.",
-      "tools": ["editor save entry point already used by the fidelity harness", "file-data sync and directory sync when the platform exposes both", "re-open checksum as a re-readable check, not as durability by itself"],
+      "tools": [
+        "editor save entry point already used by the fidelity harness",
+        "file-data sync and directory sync when the platform exposes both",
+        "re-open checksum as a re-readable check, not as durability by itself"
+      ],
       "existing_implementations": "The fidelity harness writes an output DOCX and scores it. It does not publish save latency. GenOffice's CLI refuses docx-to-docx; its editor save path is the one the trial called. Apryse saves through getFileData and a trial key stamps a watermark picture.",
       "comparability_limitations": "Selective save, HTML regeneration, and WASM serialization do not do the same work. A watermark or a template adds bytes. Interactive-again, re-readable, and durable (data and directory synced) are different clocks and each must be labeled.",
       "implementation_status": "proposed_harness",
       "plans": [
         "docs/superpowers/plans/2026-11-05-perf-adapters-and-quirks.md",
-        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md"
+        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md",
+        "docs/superpowers/plans/2026-11-07-full-browser-pixels-and-dedicated.md"
       ]
     },
     {
       "id": "C17",
       "title": "memory footprint",
       "measurement_method": "Sample the whole process tree. On Linux record summed RSS, PSS, and USS from smaps_rollup, plus cgroup memory.current and memory.peak when the editor was launched inside a cgroup. Sample idle, after open, after edit, at peak, and after close. One PID is not the result. Browser attribution is a separate record and is not added to RSS. performance.measureUserAgentSpecificMemory is that page estimate only when the page is cross-origin isolated. performance.memory.usedJSHeapSize is diagnostic only. CDP Memory.getDOMCounters reports documents, nodes, and listeners, not detached-node counts. A HeapProfiler snapshot is the detached-node check. Each exposed WASM memory.buffer contributes its byteLength as capacity, refreshed after growth.",
-      "tools": ["Linux /proc/<pid>/smaps_rollup", "cgroup v2 memory.current and memory.peak", "a process-tree walk", "performance.measureUserAgentSpecificMemory only when cross-origin isolated", "performance.memory.usedJSHeapSize on a diagnostic run only", "CDP Memory.getDOMCounters for documents, nodes, and listeners", "CDP HeapProfiler for detached nodes", "WASM memory.buffer byteLength as capacity"],
+      "tools": [
+        "Linux /proc/<pid>/smaps_rollup",
+        "cgroup v2 memory.current and memory.peak",
+        "a process-tree walk",
+        "performance.measureUserAgentSpecificMemory only when cross-origin isolated",
+        "performance.memory.usedJSHeapSize on a diagnostic run only",
+        "CDP Memory.getDOMCounters for documents, nodes, and listeners",
+        "CDP HeapProfiler for detached nodes",
+        "WASM memory.buffer byteLength as capacity"
+      ],
       "existing_implementations": "No memory harness exists in this repository. LVCE's memory benchmark, README read on 2026-11-05, records PSS, USS, RSS, cgroup current and peak, rejects incomplete process-group snapshots, and does not turn a failed run into zero memory. It measures other desktop editors on a 2600-byte text file under Xvfb, not these DOCX editors. menzew/memoryfootprint is another process-tree tool and was not integrated.",
       "comparability_limitations": "RSS double-counts shared pages. Cgroup memory includes file cache charged to the group. usedJSHeapSize is not whole-page memory. measureUserAgentSpecificMemory can wait for garbage collection and is not a cheap timing sample. memory.buffer byteLength is capacity, not live allocations, and an inaccessible proprietary or worker memory stays unverified rather than zero. These figures are not added together. GPU memory is outside RSS unless the platform exposes it.",
       "implementation_status": "proposed_harness",
       "plans": [
         "docs/superpowers/plans/2026-11-05-perf-runner-and-artifacts.md",
-        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md"
+        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md",
+        "docs/superpowers/plans/2026-11-07-full-browser-pixels-and-dedicated.md"
       ]
     },
     {
       "id": "C18",
       "title": "allocation/GC",
       "measurement_method": "On a diagnostic run, record allocation volume and garbage-collection or allocator pause samples correlated with the interaction timestamps. Do not add this instrumentation to the low-overhead timing run. Publish pause count, total pause, p95, p99, and maximum.",
-      "tools": ["Chromium trace GC events on a diagnostic run", "Node perf_hooks only if the lane is Node", ".NET and Rust allocator statistics where a probe exists", "Linux perf or heap profilers on diagnostic runs"],
+      "tools": [
+        "Chromium trace GC events on a diagnostic run",
+        "Node perf_hooks only if the lane is Node",
+        ".NET and Rust allocator statistics where a probe exists",
+        "Linux perf or heap profilers on diagnostic runs"
+      ],
       "existing_implementations": "No GC benchmark exists in this repository. Chrome's trace format and the Measure Memory API were read as platform documents. They were not captured against a trial editor.",
       "comparability_limitations": "Rust editors do not have a JavaScript garbage collector; report allocator behavior instead of inventing a GC pause. Forcing a collection changes the timing run, so it stays on the diagnostic lane. Browser traces add overhead, which Playwright documents for trace: 'on'.",
       "implementation_status": "proposed_harness",
       "plans": [
         "docs/superpowers/plans/2026-11-05-perf-runner-and-artifacts.md",
         "docs/superpowers/plans/2026-11-05-perf-measurement-layers.md",
-        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md"
+        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md",
+        "docs/superpowers/plans/2026-11-07-full-browser-pixels-and-dedicated.md"
       ]
     },
     {
       "id": "C19",
       "title": "disposal/reopen",
       "measurement_method": "Close the document, wait a declared interval, and record retained process-tree memory and whether the UI accepts a new open. Then reopen the same fixture and time first usable again. A process that exits can be recorded as reclaimed; a hang is a failure. On a diagnostic run, a HeapProfiler check looks for detached nodes after dispose. A deliberately retained detached subtree is the red case. Released references and zero detached nodes from that fixture are the green case. That check is not part of the timing run.",
-      "tools": ["process-tree sampler at 1, 5, and 30 seconds after close", "a second open scenario", "editor dispose or session.close where that API exists", "CDP HeapProfiler detached-node check on a diagnostic run"],
+      "tools": [
+        "process-tree sampler at 1, 5, and 30 seconds after close",
+        "a second open scenario",
+        "editor dispose or session.close where that API exists",
+        "CDP HeapProfiler detached-node check on a diagnostic run"
+      ],
       "existing_implementations": "Docxodus's harness calls session.close after save. That call is a fidelity step, not a retention series. LVCE stops the measured service in cleanup and does not report a 30-second retention curve for DOCX editors.",
       "comparability_limitations": "Browser tabs retain JIT code and caches after a document close. WASM linear memory may not shrink after dispose. A headless process that exits has a different residual than a long-lived UI.",
       "implementation_status": "proposed_harness",
       "plans": [
         "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md",
-        "docs/superpowers/plans/2026-11-05-perf-runner-and-artifacts.md"
+        "docs/superpowers/plans/2026-11-05-perf-runner-and-artifacts.md",
+        "docs/superpowers/plans/2026-11-07-full-browser-pixels-and-dedicated.md"
       ]
     },
     {
       "id": "C20",
       "title": "long-session stability",
       "measurement_method": "Run a scripted edit, scroll, save, and idle cycle for a declared duration of at least one hour on a dedicated host. Compare visible latency and process-tree memory at the start and end of the session. Keep every sample. A crash or an unbounded growth rule declared in the scenario is a failure.",
-      "tools": ["the scenario runner in a loop", "process-tree sampler", "a watchdog that does not kill a slow-but-live editor before the declared timeout"],
+      "tools": [
+        "the scenario runner in a loop",
+        "process-tree sampler",
+        "a watchdog that does not kill a slow-but-live editor before the declared timeout"
+      ],
       "existing_implementations": "microide lists long_soak_8h and idle_soak_30s for its own app. Those gates were not run here and are not comparable. This repository has no soak test.",
       "comparability_limitations": "A one-hour soak is not comparable to a 30-second idle assertion. Host sleep, thermal throttling, and automatic updates invalidate the run and must be recorded as not_run with a host reason. This scenario is dedicated-host only.",
       "implementation_status": "proposed_harness",
       "plans": [
         "docs/superpowers/plans/2026-11-05-perf-runner-and-artifacts.md",
-        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md"
+        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md",
+        "docs/superpowers/plans/2026-11-07-full-browser-pixels-and-dedicated.md"
       ]
     },
     {
       "id": "C21",
       "title": "CPU/background interference",
       "measurement_method": "During idle, typing, and scrolling, sample CPU time for the whole process tree and, on a diagnostic run, attribute it to editor threads versus known helpers. A separate controlled interference run adds one declared CPU-bound process and reports the delta. The quiet dedicated-host run remains the primary result.",
-      "tools": ["process-tree CPU seconds", "Linux perf stat on diagnostic runs", "a declared interference fixture"],
+      "tools": [
+        "process-tree CPU seconds",
+        "Linux perf stat on diagnostic runs",
+        "a declared interference fixture"
+      ],
       "existing_implementations": "The fidelity sandbox records that hostile-package runs have CPU budgets. That is a safety limit, not an interactive CPU profile. VS Code's performance documents separate extension-host cost from editor cost; those documents apply to VS Code, not to these products, except as a method analogy.",
       "comparability_limitations": "Pinning a multithreaded GUI to one core changes the product. perf stat counters depend on kernel permissions. A noisy CI runner cannot publish this delta. Background proofing and AI panels must be named in the feature profile.",
       "implementation_status": "proposed_harness",
       "plans": [
         "docs/superpowers/plans/2026-11-05-perf-runner-and-artifacts.md",
         "docs/superpowers/plans/2026-11-05-perf-fixtures-and-parity.md",
-        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md"
+        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md",
+        "docs/superpowers/plans/2026-11-07-full-browser-pixels-and-dedicated.md"
       ]
     },
     {
       "id": "C22",
       "title": "feature/extension overhead",
       "measurement_method": "Run the same scenario at feature profiles P0, P1, P2, and P3. Publish absolute and relative deltas for startup, typing, scrolling, save, idle CPU, and memory. P3 includes one intentionally busy extension or panel so the harness can attribute interference.",
-      "tools": ["declared feature profiles", "the same clocks as the baseline scenario", "per-helper CPU and RSS when the helper is a separate process"],
+      "tools": [
+        "declared feature profiles",
+        "the same clocks as the baseline scenario",
+        "per-helper CPU and RSS when the helper is a separate process"
+      ],
       "existing_implementations": "No profile matrix exists in this repository. The fidelity harness uses each project's suggested import configuration, which is a correctness configuration, not P0. VS Code documents extension bisect and startup profiling for its own host. microide redirects XDG directories so user configuration cannot leak in; that isolation pattern is applicable, the numbers are not.",
       "comparability_limitations": "Products do not have the same plugins. P2 means a realistic set for that product, listed by name, not a pretence that every editor loads the same code. A built-in proofing pass is a feature even when it is not an extension.",
       "implementation_status": "proposed_harness",
       "plans": [
         "docs/superpowers/plans/2026-11-05-perf-fixtures-and-parity.md",
         "docs/superpowers/plans/2026-11-05-perf-adapters-and-quirks.md",
-        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md"
+        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md",
+        "docs/superpowers/plans/2026-11-07-full-browser-pixels-and-dedicated.md"
       ]
     },
     {
       "id": "C23",
       "title": "collaboration",
       "measurement_method": "With two local clients and a local relay, time a remote insert until it is visible on the second client, and time a concurrent overlapping edit until both clients converge. Record relay CPU and whether intermediate IME text is broadcast. Editors without a verified collaboration surface produce unverified or not_applicable, never zero milliseconds.",
-      "tools": ["a local Yjs or Hocuspocus fixture for editors that document that stack", "two browser contexts", "convergence oracle on plain text"],
+      "tools": [
+        "a local Yjs or Hocuspocus fixture for editors that document that stack",
+        "two browser contexts",
+        "convergence oracle on plain text"
+      ],
       "existing_implementations": "No collaboration benchmark exists in this repository. docs.plus documents Hocuspocus and Yjs. Plate documents a Yjs plugin. canvas-editor documents an experimental feature/CRDT branch that is not the pinned main commit. SuperDoc's current performance guide says to measure collaboration; the trial report found no V2 ProseMirror editor. WordCraft's README architecture table read on 2026-11-05 does not list a collaboration crate.",
       "comparability_limitations": "A full docs.plus deployment needs PostgreSQL, Redis, and Bun; the model conversion path does not. Those are different scenarios. ProseMirror commits composition updates before compositionend, so an IME collaboration result must say whether intermediates were included. A WAN test is a different experiment from localhost.",
       "implementation_status": "proposed_harness",
       "plans": [
         "docs/superpowers/plans/2026-11-05-perf-adapters-and-quirks.md",
-        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md"
+        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md",
+        "docs/superpowers/plans/2026-11-07-full-browser-pixels-and-dedicated.md"
       ]
     },
     {
       "id": "C24",
       "title": "Rust/TS/WASM overhead",
       "measurement_method": "Keep four layers separate: native Rust, TypeScript or JavaScript, the host/WASM boundary, and the full editor scenario. The boundary menu is compile and instantiate, an empty call, a scalar call, a string conversion, a typed-array transfer, a batched call, and memory.grow. Each operation has its own capability flag. A closed or proprietary lane such as Apryse stores null and unverified for an operation it cannot call, and that null does not reject a host-visible initialization sample. A wasm-bindgen reference fixture may enable every flag. An SDK call that also edits the document is not a boundary sample. Compare a batch with the same work only when both sides share the capability.",
-      "tools": ["Criterion.rs for native Rust microbenchmarks, with std::hint::black_box", "wasm-bindgen's own boundary benchmarks as a method reference", "browser Performance.now around instantiate and call", "the editor scenario clocks from the other criteria"],
+      "tools": [
+        "Criterion.rs for native Rust microbenchmarks, with std::hint::black_box",
+        "wasm-bindgen's own boundary benchmarks as a method reference",
+        "browser Performance.now around instantiate and call",
+        "the editor scenario clocks from the other criteria"
+      ],
       "existing_implementations": "No WASM boundary suite exists in this repository. wasm-bindgen publishes JS, raw Wasm, and wasm-bindgen microbenchmarks and states they are not a general WebAssembly performance suite. WordCraft is Rust with a native egui UI and a wasm32 browser target. Docxodus and Apryse ship WebAssembly office engines. Plate, the ProseMirror editors, and canvas-editor are TypeScript.",
       "comparability_limitations": "A native Criterion time is not a browser frame time. wasm-bindgen reference types change the glue and must be recorded, and Docxodus .NET glue is not that reference fixture. Apryse at npm 12.2.1 is closed source, so empty, scalar, string, typed-array, batched, and memory.grow calls stay null unless a probe can actually invoke them. Docxodus WASM initialization is not document load. black_box is a best-effort optimization barrier, not a correctness tool.",
       "implementation_status": "proposed_harness",
       "plans": [
         "docs/superpowers/plans/2026-11-05-perf-measurement-layers.md",
-        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md"
+        "docs/superpowers/plans/2026-11-05-perf-scenarios-and-coverage.md",
+        "docs/superpowers/plans/2026-11-07-full-browser-pixels-and-dedicated.md"
       ]
     }
   ],
@@ -355,7 +486,7 @@
     {
       "id": "I04",
       "title": "IME composition correctness prerequisite",
-      "rule": "Where an editor accepts composition, record compositionstart, compositionupdate, and compositionend or cancel separately from the committed string. The committed fixture is 地. Intermediate di is not a committed insert. Playwright insertText, fill, and a dispatched CompositionEvent are synthetic contract tests, not OS IME coverage. OS IME coverage is a Chromium CDP IME route or a dedicated-host native IME probe. A wrong readback blocks publication. Editors with no composition path record unverified or unsupported after a probe, not zero.",
+      "rule": "Where an editor accepts composition, record compositionstart, compositionupdate, and compositionend or cancel separately from the committed string. The committed fixture is \u5730. Intermediate di is not a committed insert. Playwright insertText, fill, and a dispatched CompositionEvent are synthetic contract tests, not OS IME coverage. OS IME coverage is a Chromium CDP IME route or a dedicated-host native IME probe. A wrong readback blocks publication. Editors with no composition path record unverified or unsupported after a probe, not zero.",
       "plans": [
         "docs/superpowers/plans/2026-11-05-perf-fixtures-and-parity.md",
         "docs/superpowers/plans/2026-11-05-perf-adapters-and-quirks.md",
@@ -451,7 +582,13 @@
     "libreoffice"
   ],
   "excluded": [
-    {"id": "jubarte", "reason": "Reads hostile packages to markdown. It is not an interactive editor in the round-trip matrix."},
-    {"id": "microsoft-word", "reason": "Fidelity oracle and a shared application. This performance design does not open Word and does not upload hostile packages to it."}
+    {
+      "id": "jubarte",
+      "reason": "Reads hostile packages to markdown. It is not an interactive editor in the round-trip matrix."
+    },
+    {
+      "id": "microsoft-word",
+      "reason": "Fidelity oracle and a shared application. This performance design does not open Word and does not upload hostile packages to it."
+    }
   ]
 }

@@ -427,9 +427,9 @@ def c24_boundary_decision(editor_id: str, execution_profile: str) -> tuple[str, 
 
 
 def _finalize_publishable(pub: bool, reason: str | None, env: dict) -> tuple[bool, str | None]:
-    if env.get("host_class") == "ci_coarse":
+    if env.get("host_class") in ("ci_coarse", "laboratory"):
         if pub:
-            reason = reason or "ci_coarse host_class blocks headline publication"
+            reason = reason or "%s host_class blocks headline publication" % env.get("host_class")
         pub = False
     if pub is False and (not reason or not str(reason).strip()):
         reason = "publishable blocked"
