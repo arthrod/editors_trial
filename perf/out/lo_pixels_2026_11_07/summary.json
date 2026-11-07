@@ -52,5 +52,6 @@
       "ref_pages": 7,
       "op_pages": 2
     }
-  }
+  },
+  "page_match_summary": "perf/out/lo_pixels_2026_11_07/page_match_summary.json"
 }

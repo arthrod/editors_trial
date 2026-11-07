@@ -1,0 +1,31 @@
+{
+  "soffice_version": "LibreOffice 24.2.7.2 420(Build:2)",
+  "dpi": 200,
+  "page1_only": true,
+  "fallback_reason": "No editor-produced micro-paragraphs.docx found under out/ or perf/out/ (only benchmark fixtures and LO baseline input).",
+  "full_document_compare_impossible": "Plate round-trip emitted 2 pages; LibreOffice raster of fixture/complex.docx emitted 7.",
+  "ref": {
+    "input": "fixture/complex.docx",
+    "input_sha256": "a0f0be300f5e812eb33f419abe1fca2d87569cc12b6b25d625a64a7c0432fde3",
+    "page_count_lo": 7,
+    "page_compared": 1,
+    "png": "perf/out/lo_pixels_2026_11_07/png/complex_corpus-1.png"
+  },
+  "op": {
+    "input": "out/plate/complex.docx",
+    "input_sha256": "a58a87c313dec08d39f8c79da72170b48dbc20d5c76a74e4e3b1aea789815778",
+    "page_count_lo": 2,
+    "page_compared": 1,
+    "png": "perf/out/lo_pixels_2026_11_07/png/complex_plate-1.png"
+  },
+  "metrics": {
+    "diff_px": 259305,
+    "corpus_ink_px": 24939,
+    "pct_of_corpus_ink": 1039.76,
+    "image_size": [
+      1700,
+      2200
+    ]
+  },
+  "baseline_micro_ref_png": "perf/out/lo_pixels_2026_11_07/png/micro-1.png"
+}
