@@ -198,6 +198,28 @@ def main(argv: list[str] | None = None) -> int:
     commands.append(" ".join(catalog_cmd))
     _run(catalog_cmd)
 
+    gaps_cmd = [
+        sys.executable,
+        str(REPO / "perf/runner/benchmark_browser_gaps.py"),
+        "--out-root",
+        str(profile_root),
+        "--execution-profile",
+        args.execution_profile,
+        "--host-class",
+        args.host_class,
+    ]
+    commands.append(" ".join(gaps_cmd))
+    _run(gaps_cmd)
+
+    pixels_cmd = [
+        sys.executable,
+        str(REPO / "perf/runner/benchmark_pixels_lo.py"),
+        "--out-root",
+        str(args.out_root / "pixels"),
+    ]
+    commands.append(" ".join(pixels_cmd))
+    _run(pixels_cmd)
+
     if args.c20_preview_seconds > 0:
         c20_cmd = [
             sys.executable,
