@@ -96,6 +96,7 @@ Release: `vX.Y.Z` · release date: `YYYY-MM-DD` · cutoff (date − 5 days): `YY
 - [ ] Check what the demo actually bundles (a workspace link to the checkout, not an npm release that happens to match).
 - [ ] A closed-source vendor with a trial key gets no public demo unless Arthur decides otherwise: the key would ship in the bundle.
 - [ ] Open each rebuilt demo in a real browser before publishing (document loads, text visible, export works).
+- [ ] Copy each built `dist/` to `out/demos/<slug>/` (index.html, SOURCE.txt, assets, and the document.docx the demo opens) and the sanitized download to `out/demo-files/<slug>.docx`. Those two trees are part of the release bundle. On the site, `pnpm sync:demos` copies them out of `.bench/editors_trial`.
 
 ## 6. Gate (AGENTS.md §6)
 
@@ -109,7 +110,7 @@ Release: `vX.Y.Z` · release date: `YYYY-MM-DD` · cutoff (date − 5 days): `YY
 - [ ] `CHANGELOG.md` section: Updated (pins), Measured (what changed, reproduced), Not re-measured, Added, Fixed.
 - [ ] PR to `main`; gate any review comments individually; merge.
 - [ ] Tag `vX.Y.Z` on the merge commit; GitHub release with the changelog section as notes.
-- [ ] Publish the bundle (one command, from any directory with `bench` installed): `bench publish editors_trial et-vX.Y.Z`. It uploads `out/facts.json`, `out/release.json`, `reports/*.md`, `reports/*.docx` and any `reports/figures/` to the private HF dataset `arthrod/editors_trial-artifacts`, verifies every file on the Hub, appends `release/index.jsonl` + `release/et-vX.Y.Z/manifest.json`, and tags `et-vX.Y.Z` locally. Rerunning after a failure resumes. Then run the push it prints (a release branch gets a PR, as for et-v0.9.4, #75).
+- [ ] Publish the bundle (one command, from any directory with `bench` installed): `bench publish editors_trial et-vX.Y.Z`. It uploads `out/facts.json`, `out/release.json`, `out/demos/**`, `out/demo-files/*.docx`, `reports/*.md`, `reports/*.docx` and any `reports/figures/` to the private HF dataset `arthrod/editors_trial-artifacts`, verifies every file on the Hub, appends `release/index.jsonl` + `release/et-vX.Y.Z/manifest.json`, and tags `et-vX.Y.Z` locally. Rerunning after a failure resumes. Then run the push it prints (a release branch gets a PR, as for et-v0.9.4, #75). The official command publishes `origin/main`. A bundle that must keep an older measurement (the demos added in et-v0.9.5, while Report D on main had already moved) is staged from that measurement's tree plus `out/demos` and `out/demo-files`, not from a newer main.
 - [ ] Site: in `benchmarks-law`, `bench bump editors_trial` moves `bench.lock`'s `editors_trial=` line; the build reads `.bench/editors_trial/` (bench-ops plan 5).
 - [ ] Site (`benchmarks-law`, on an up-to-date `main`): `pnpm sync:content`, `pnpm sync:vendors`, `pnpm sync:assets`, `pnpm sync:demos` (if any demo was rebuilt), then `pnpm run deploy`.
 - [ ] Verify the live pages in a real browser (Chrome extension; Brave if it fails): home, `/editors-trial/`, vendors, every report, every demo.
