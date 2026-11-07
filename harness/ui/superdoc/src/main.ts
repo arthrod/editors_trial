@@ -9,7 +9,13 @@ const superdoc = new SuperDoc({
   selector: '#editor',
   document: '/sample.docx',
   onReady: () => {
+    performance.mark('superdoc-model-ready');
     exportButton.disabled = false;
+    requestAnimationFrame(() => {
+      if (document.querySelector('#editor .superdoc__document')) {
+        performance.mark('superdoc-first-usable');
+      }
+    });
   },
   onContentError: ({ error }) => {
     console.error('SuperDoc could not open the document.', error);

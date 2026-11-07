@@ -250,6 +250,9 @@ function App() {
           return;
         }
 
+        performance.mark('plate-import-done');
+        (window as any).__PLATE_PERF__ = { importDoneMark: 'plate-import-done' };
+
         const imported = createEditor({
           initialValue: result.document.children,
           plugins: plugins as any,
@@ -257,6 +260,7 @@ function App() {
         });
 
         setEditor(imported);
+        requestAnimationFrame(() => performance.mark('plate-first-usable'));
 
         const warnings = result.diagnostics.filter(
           (d: any) => d.severity === 'warning'

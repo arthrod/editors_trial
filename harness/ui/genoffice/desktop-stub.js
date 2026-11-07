@@ -314,4 +314,27 @@
       return fallback
     },
   })
+
+  ;(function watchGenofficePerf() {
+    window.__GENOFFICE_PERF__ = window.__GENOFFICE_PERF__ || {}
+    function noteReady() {
+      var pages = document.querySelectorAll('.doc-page')
+      if (!pages.length) return
+      if (!performance.getEntriesByName('genoffice-model-ready').length) {
+        performance.mark('genoffice-model-ready')
+        var mr = performance.getEntriesByName('genoffice-model-ready')[0]
+        if (mr) window.__GENOFFICE_PERF__.modelReadyMs = mr.startTime
+      }
+      if (!performance.getEntriesByName('genoffice-first-usable').length) {
+        performance.mark('genoffice-first-usable')
+        requestAnimationFrame(function () {
+          var e = performance.getEntriesByName('genoffice-first-usable')[0]
+          if (e) window.__GENOFFICE_PERF__.firstUsableMs = e.startTime
+        })
+      }
+    }
+    var obs = new MutationObserver(noteReady)
+    obs.observe(document.documentElement, { childList: true, subtree: true })
+    noteReady()
+  })()
 })()

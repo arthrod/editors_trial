@@ -50,6 +50,7 @@ PROBE = REPO / "perf" / "runner" / "warm_cold_browser.mjs"
 
 PAIR_SAMPLES = 3
 EXECUTION_PROFILE = "ci_broad"
+HOST_CLASS = "ci_coarse"
 
 # Editors with a harness/ui dev server target (Microsoft Word and CLI-only lanes omitted).
 BROWSER_TARGETS: dict[str, dict] = {
@@ -321,11 +322,13 @@ def _env_for(
     workload_row: dict,
     docx_size: int,
     cache_state: str,
+    execution_profile: str | None = None,
+    host_class: str | None = None,
 ) -> dict:
     env = _host_base(
         editor_id=editor_id,
         editor_version=editor_version,
-        execution_profile=EXECUTION_PROFILE,
+        execution_profile=execution_profile or EXECUTION_PROFILE,
         fixture_sha256=fixture_sha256,
         workload_row=workload_row,
         docx_size=docx_size,
@@ -335,6 +338,9 @@ def _env_for(
         feature_profile_name="P0",
     )
     env["interpretation_conditions"] = list(INTERPRETATION_CONDITIONS)
+    env["host_class"] = host_class or HOST_CLASS
+    env["headless"] = True
+    env["display_refresh_hz"] = None
     return env
 
 
@@ -371,7 +377,12 @@ def main() -> int:
     parser.add_argument("--out-root", type=Path, default=None)
     parser.add_argument("--pairs", type=int, default=PAIR_SAMPLES)
     parser.add_argument("--editors", nargs="*", default=None)
+    parser.add_argument("--execution-profile", default=EXECUTION_PROFILE)
+    parser.add_argument("--host-class", default=HOST_CLASS)
     args = parser.parse_args()
+    global EXECUTION_PROFILE, HOST_CLASS
+    EXECUTION_PROFILE = args.execution_profile
+    HOST_CLASS = args.host_class
 
     workload_row = next(w for w in size_ladder() if w["workload_id"] == args.workload)
     assert_workload_allowed(EXECUTION_PROFILE, args.workload)
@@ -922,39 +933,6 @@ def main() -> int:
                     }
                 )
 
-        for cid in ("C07", "C08", "C09", "C10", "C22", "C23"):
-            boundary, layer = {
-                "C07": ("input_to_next_paint", "browser_visible"),
-                "C22": ("input_to_next_paint", "browser_visible"),
-            }.get(cid, ("input_to_next_paint", "browser_visible"))
-            env = _env_for(
-                editor_id=editor_id,
-                editor_version=editor_version,
-                fixture_sha256=sha,
-                workload_row=workload_row,
-                docx_size=docx_size,
-                cache_state="warm_steady",
-            )
-            path = _write_not_run(
-                attempt_dir=attempt_dir,
-                criterion_id=cid,
-                layer=layer,
-                boundary=boundary,
-                editor_id=editor_id,
-                lane=lane,
-                env=env,
-                failure_reason="adapter-not-implemented: criterion %s not driven on warm_cold host yet" % cid,
-            )
-            not_run_rows.append(
-                {
-                    "criterion_id": cid,
-                    "editor_id": editor_id,
-                    "outcome": "not_run",
-                    "failure_reason": "adapter-not-implemented: criterion %s not driven on warm_cold host yet" % cid,
-                    "attempt_file": _attempt_ref(path),
-                }
-            )
-
     driver_checks: list[dict] = []
     if "plate" in editors:
         try:
@@ -985,7 +963,7 @@ def main() -> int:
     summary = {
         "suite": "warm_cold",
         "execution_profile": EXECUTION_PROFILE,
-        "host_class": "ci_coarse",
+        "host_class": HOST_CLASS,
         "workload_id": args.workload,
         "fixture_sha256": sha,
         "publishable": False,

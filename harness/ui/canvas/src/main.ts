@@ -61,9 +61,11 @@ async function boot() {
   }
 
   await command.executeImportDocx({ arrayBuffer })
+  performance.mark('canvas-model-import-done')
 
   console.log('[host] docx imported')
   Reflect.set(window, '__DOCX_IMPORTED__', true)
+  requestAnimationFrame(() => performance.mark('canvas-first-usable'))
 
   // --- navigate to the requested spot ------------------------------------
   if (SCROLL_TEXT) {

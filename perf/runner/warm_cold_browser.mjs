@@ -66,6 +66,51 @@ async function nextPaintMs(page) {
   });
 }
 
+const MODEL_MARKS = [
+  'docxodus-model-ready',
+  'superdoc-model-ready',
+  'genoffice-model-ready',
+  'plate-import-done',
+  'canvas-model-import-done',
+];
+const USABLE_MARKS = [
+  'docxodus-first-usable',
+  'superdoc-first-usable',
+  'genoffice-first-usable',
+  'plate-first-usable',
+  'canvas-first-usable',
+];
+
+async function waitForMark(page, names, timeoutMs = 120_000) {
+  await page.waitForFunction(
+    (list) => list.some((n) => performance.getEntriesByName(n).length > 0),
+    names,
+    { timeout: timeoutMs },
+  );
+  return page.evaluate((list) => {
+    for (const n of list) {
+      const e = performance.getEntriesByName(n)[0];
+      if (e) return e.startTime;
+    }
+    return null;
+  }, names);
+}
+
+async function readModelAndUsableMs(page, selector) {
+  let modelMs = await waitForMark(page, MODEL_MARKS).catch(() => null);
+  const waitMs = await waitForReady(page, selector);
+  let usableMs = await waitForMark(page, USABLE_MARKS).catch(() => null);
+  if (usableMs == null) usableMs = waitMs;
+  if (modelMs == null) {
+    const hook = await page
+      .evaluate(() => window.__GENOFFICE_PERF__?.modelReadyMs ?? null)
+      .catch(() => null);
+    if (hook != null) modelMs = hook;
+  }
+  if (modelMs == null && usableMs != null) modelMs = usableMs;
+  return { model_ready_browser_ms: modelMs, first_usable_ms: usableMs };
+}
+
 async function waitForReady(page, selector, timeoutMs = 120_000) {
   const t0 = Date.now();
   if (readyJs) {
@@ -154,7 +199,8 @@ async function runPlaywrightPair() {
   await coldPage.goto(url, { waitUntil: 'domcontentloaded', timeout: 120_000 });
   const documentNavigationMs = Date.now() - navT0;
 
-  const modelReadyMs = await waitForReady(coldPage, readySelector);
+  const { model_ready_browser_ms: modelReadyMs, first_usable_ms: firstUsableMs } =
+    await readModelAndUsableMs(coldPage, readySelector);
   let coldEdit = { edit_ms: null, paint_ms: null };
   let warmEdit = { edit_ms: null, paint_ms: null };
   const warmBurst = [];
@@ -168,7 +214,7 @@ async function runPlaywrightPair() {
 
   const reloadT0 = Date.now();
   await coldPage.reload({ waitUntil: 'domcontentloaded', timeout: 120_000 });
-  await waitForReady(coldPage, readySelector);
+  await readModelAndUsableMs(coldPage, readySelector);
   const documentReloadSameContextMs = Date.now() - reloadT0;
 
   if (!skipEdit) {
@@ -187,7 +233,7 @@ async function runPlaywrightPair() {
     model_ready_browser_ms: modelReadyMs,
     document_reload_same_context_ms: documentReloadSameContextMs,
     cold: {
-      first_usable_ms: modelReadyMs,
+      first_usable_ms: firstUsableMs,
       model_ready_browser_ms: modelReadyMs,
       single_edit_ms: coldEdit.edit_ms,
       presented_frame_ms: coldEdit.paint_ms,

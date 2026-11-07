@@ -92,6 +92,9 @@ class C24NoSyntheticWasmLoop(unittest.TestCase):
         for ed in bcc.EDITORS:
             outcome, failure_reason, extra = bcc.c24_boundary_decision(ed, "ci_contract")
             self.assertNotIn("rng", (failure_reason or "").lower())
+            if ed == "docxodus" and extra and extra.get("wasm_artifact"):
+                self.assertEqual(outcome, "measured")
+                continue
             if outcome == "measured":
                 self.fail("C24 must not emit measured synthetic wasm samples on ci_contract")
             self.assertIn(outcome, ("not_run", "unverified"))

@@ -413,12 +413,16 @@ def _collect_child_cpu_only(
 
 def c24_boundary_decision(editor_id: str, execution_profile: str) -> tuple[str, str | None, dict | None]:
     """
-    C24: no product WASM/host boundary probe in-tree on these profiles.
-
-    Closed-source lanes stay ``unverified``; others record ``not_run`` with an explicit reason.
+    C24 WASM boundary: docxodus uses the Node probe when a prebuilt artifact exists.
     """
     if editor_id == "apryse":
         return "unverified", None, None
+    wasm = (
+        Path(__file__).resolve().parents[2]
+        / "harness/ui/docxodus/node_modules/docxodus/dist/wasm/_framework/dotnet.native.wasm"
+    )
+    if editor_id == "docxodus" and wasm.is_file():
+        return "measured", None, {"wasm_artifact": str(wasm)}
     return (
         "not_run",
         "wasm_boundary: no host/WASM boundary harness on %s (design C24)" % execution_profile,

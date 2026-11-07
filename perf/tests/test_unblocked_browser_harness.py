@@ -13,6 +13,11 @@ class UnblockedBrowserHarness(unittest.TestCase):
         self.assertIn("docxodus-raw-dist", text)
         self.assertIn("docxodus/dist/", text)
 
+    def test_docxodus_main_has_model_ready_mark(self):
+        main = (REPO / "harness/ui/docxodus/src/main.ts").read_text(encoding="utf-8")
+        self.assertIn("docxodus-model-ready", main)
+        self.assertIn("docxodus-first-usable", main)
+
     def test_genoffice_stub_uses_corpus_route(self):
         stub = (REPO / "harness/ui/genoffice/desktop-stub.js").read_text(encoding="utf-8")
         self.assertIn("/corpus.docx", stub)
