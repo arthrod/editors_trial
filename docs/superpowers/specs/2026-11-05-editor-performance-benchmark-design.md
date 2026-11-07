@@ -260,7 +260,7 @@ The following sections copy the normative JSON fields. A drift between this text
 
 **Comparability limitations:** Browser and Electron startups include runtime, GPU, and utility processes. Headless LibreOffice conversion is not an editor frame. Apryse startup performs a license request. SuperDoc's default worker startup timeout is 30 seconds and must be recorded. A container does not standardize GUI startup.
 
-**Status:** proposed_harness. Plans: [`2026-11-05-perf-schema-and-outcomes.md`](../plans/2026-11-05-perf-schema-and-outcomes.md), [`2026-11-05-perf-statistics.md`](../plans/2026-11-05-perf-statistics.md), [`2026-11-05-perf-runner-and-artifacts.md`](../plans/2026-11-05-perf-runner-and-artifacts.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md).
+**Status:** proposed_harness. Plans: [`2026-11-05-perf-schema-and-outcomes.md`](../plans/2026-11-05-perf-schema-and-outcomes.md), [`2026-11-05-perf-statistics.md`](../plans/2026-11-05-perf-statistics.md), [`2026-11-05-perf-runner-and-artifacts.md`](../plans/2026-11-05-perf-runner-and-artifacts.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md), [`2026-11-07-full-browser-pixels-and-dedicated.md`](../plans/2026-11-07-full-browser-pixels-and-dedicated.md).
 
 ### C02. document loading/model construction
 
@@ -272,7 +272,7 @@ The following sections copy the normative JSON fields. A drift between this text
 
 **Comparability limitations:** Plate, docs.plus, and Fidus construct an HTML or schema model, not an OOXML tree. SuperDoc's headless SDK and its browser host are different loaders. Folio requires preloadFonts false for a DOM-free parse. office-open and the eigenpal store lane have no view.
 
-**Status:** proposed_harness. Plans: [`2026-11-05-perf-schema-and-outcomes.md`](../plans/2026-11-05-perf-schema-and-outcomes.md), [`2026-11-05-perf-fixtures-and-parity.md`](../plans/2026-11-05-perf-fixtures-and-parity.md), [`2026-11-05-perf-adapters-and-quirks.md`](../plans/2026-11-05-perf-adapters-and-quirks.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md).
+**Status:** proposed_harness. Plans: [`2026-11-05-perf-schema-and-outcomes.md`](../plans/2026-11-05-perf-schema-and-outcomes.md), [`2026-11-05-perf-fixtures-and-parity.md`](../plans/2026-11-05-perf-fixtures-and-parity.md), [`2026-11-05-perf-adapters-and-quirks.md`](../plans/2026-11-05-perf-adapters-and-quirks.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md), [`2026-11-07-full-browser-pixels-and-dedicated.md`](../plans/2026-11-07-full-browser-pixels-and-dedicated.md).
 
 ### C03. first visible content/first usable state
 
@@ -284,7 +284,7 @@ The following sections copy the normative JSON fields. A drift between this text
 
 **Comparability limitations:** Canvas, Leafer, egui, and WebGL surfaces do not emit DOM first-contentful-paint for document text. A blank shell can paint before document text. Virtualized editors can show a window before the rest of the model exists.
 
-**Status:** proposed_harness. Plans: [`2026-11-05-perf-schema-and-outcomes.md`](../plans/2026-11-05-perf-schema-and-outcomes.md), [`2026-11-05-perf-measurement-layers.md`](../plans/2026-11-05-perf-measurement-layers.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md).
+**Status:** proposed_harness. Plans: [`2026-11-05-perf-schema-and-outcomes.md`](../plans/2026-11-05-perf-schema-and-outcomes.md), [`2026-11-05-perf-measurement-layers.md`](../plans/2026-11-05-perf-measurement-layers.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md), [`2026-11-07-full-browser-pixels-and-dedicated.md`](../plans/2026-11-07-full-browser-pixels-and-dedicated.md).
 
 ### C04. deferred work
 
@@ -296,7 +296,7 @@ The following sections copy the normative JSON fields. A drift between this text
 
 **Comparability limitations:** Editors that index, proof, or paginate in the background look faster at first usable and more expensive in the tail. Disabling that work without recording it changes the feature profile.
 
-**Status:** proposed_harness. Plans: [`2026-11-05-perf-runner-and-artifacts.md`](../plans/2026-11-05-perf-runner-and-artifacts.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md).
+**Status:** proposed_harness. Plans: [`2026-11-05-perf-runner-and-artifacts.md`](../plans/2026-11-05-perf-runner-and-artifacts.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md), [`2026-11-07-full-browser-pixels-and-dedicated.md`](../plans/2026-11-07-full-browser-pixels-and-dedicated.md).
 
 ### C05. single-edit responsiveness
 
@@ -308,7 +308,7 @@ The following sections copy the normative JSON fields. A drift between this text
 
 **Comparability limitations:** Event Timing duration is rounded to 8 milliseconds. The minimum durationThreshold is 16 milliseconds, and the default buffer keeps only durations of at least 104 milliseconds, so a fast edit can be censored. Canvas and egui input targets can emit Event Timing entries, and those entries do not prove the canvas or egui pixels changed. An IME composition is not a committed insert.
 
-**Status:** proposed_harness. Plans: [`2026-11-05-perf-measurement-layers.md`](../plans/2026-11-05-perf-measurement-layers.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md).
+**Status:** proposed_harness. Plans: [`2026-11-05-perf-measurement-layers.md`](../plans/2026-11-05-perf-measurement-layers.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md), [`2026-11-07-full-browser-pixels-and-dedicated.md`](../plans/2026-11-07-full-browser-pixels-and-dedicated.md).
 
 ### C06. sustained typing/bursts
 
@@ -320,7 +320,7 @@ The following sections copy the normative JSON fields. A drift between this text
 
 **Comparability limitations:** Typometer's single-pixel probe assumes a stable glyph advance and a framebuffer it can read. Burst input overruns editors that coalesce input, so the scenario must say whether coalescing counts as one paint or as lost keystrokes. AutoCorrect and proofing change the work.
 
-**Status:** proposed_harness. Plans: [`2026-11-05-perf-fixtures-and-parity.md`](../plans/2026-11-05-perf-fixtures-and-parity.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md).
+**Status:** proposed_harness. Plans: [`2026-11-05-perf-fixtures-and-parity.md`](../plans/2026-11-05-perf-fixtures-and-parity.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md), [`2026-11-07-full-browser-pixels-and-dedicated.md`](../plans/2026-11-07-full-browser-pixels-and-dedicated.md).
 
 ### C07. cursor/selection/hit testing
 
@@ -332,7 +332,7 @@ The following sections copy the normative JSON fields. A drift between this text
 
 **Comparability limitations:** contenteditable, ProseMirror, canvas, and egui resolve hits in different coordinate spaces. office-open has no editor UI, so this scenario is not applicable on that lane. A DOM-free server lane can report model selection and must not claim a visible caret.
 
-**Status:** proposed_harness. Plans: [`2026-11-05-perf-adapters-and-quirks.md`](../plans/2026-11-05-perf-adapters-and-quirks.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md).
+**Status:** proposed_harness. Plans: [`2026-11-05-perf-adapters-and-quirks.md`](../plans/2026-11-05-perf-adapters-and-quirks.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md), [`2026-11-07-full-browser-pixels-and-dedicated.md`](../plans/2026-11-07-full-browser-pixels-and-dedicated.md).
 
 ### C08. clipboard/bulk editing
 
@@ -344,7 +344,7 @@ The following sections copy the normative JSON fields. A drift between this text
 
 **Comparability limitations:** Operating-system clipboards, browser clipboard permissions, and headless lanes do not share a clock. A model-only paste is not a visible paste. Editors that flatten styled paste must record that feature loss.
 
-**Status:** proposed_harness. Plans: [`2026-11-05-perf-fixtures-and-parity.md`](../plans/2026-11-05-perf-fixtures-and-parity.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md).
+**Status:** proposed_harness. Plans: [`2026-11-05-perf-fixtures-and-parity.md`](../plans/2026-11-05-perf-fixtures-and-parity.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md), [`2026-11-07-full-browser-pixels-and-dedicated.md`](../plans/2026-11-07-full-browser-pixels-and-dedicated.md).
 
 ### C09. undo/redo
 
@@ -356,7 +356,7 @@ The following sections copy the normative JSON fields. A drift between this text
 
 **Comparability limitations:** Bounded histories drop old entries. An undo that restores text but not the caret fails the visible check. Headless lanes can time model undo only.
 
-**Status:** proposed_harness. Plans: [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md), [`2026-11-05-perf-adapters-and-quirks.md`](../plans/2026-11-05-perf-adapters-and-quirks.md).
+**Status:** proposed_harness. Plans: [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md), [`2026-11-05-perf-adapters-and-quirks.md`](../plans/2026-11-05-perf-adapters-and-quirks.md), [`2026-11-07-full-browser-pixels-and-dedicated.md`](../plans/2026-11-07-full-browser-pixels-and-dedicated.md).
 
 ### C10. scrolling/viewport
 
@@ -368,7 +368,7 @@ The following sections copy the normative JSON fields. A drift between this text
 
 **Comparability limitations:** Average frames per second hides stalls. Software rendering and GPU rendering are different experiments. Canvas virtualization and DOM virtualization mount different amounts of work. office-open has no viewport.
 
-**Status:** proposed_harness. Plans: [`2026-11-05-perf-measurement-layers.md`](../plans/2026-11-05-perf-measurement-layers.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md).
+**Status:** proposed_harness. Plans: [`2026-11-05-perf-measurement-layers.md`](../plans/2026-11-05-perf-measurement-layers.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md), [`2026-11-07-full-browser-pixels-and-dedicated.md`](../plans/2026-11-07-full-browser-pixels-and-dedicated.md).
 
 ### C11. initial layout/pagination
 
@@ -380,7 +380,7 @@ The following sections copy the normative JSON fields. A drift between this text
 
 **Comparability limitations:** Plate, docs.plus, and Fidus Writer are continuous flows in Report C. office-open has no page model. canvas-editor claims pagination, but on the fidelity corpus the UI showed a header and footer and then threw. A missing page count after a crash is a failure, not zero milliseconds and not zero pages.
 
-**Status:** proposed_harness. Plans: [`2026-11-05-perf-adapters-and-quirks.md`](../plans/2026-11-05-perf-adapters-and-quirks.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md).
+**Status:** proposed_harness. Plans: [`2026-11-05-perf-adapters-and-quirks.md`](../plans/2026-11-05-perf-adapters-and-quirks.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md), [`2026-11-07-full-browser-pixels-and-dedicated.md`](../plans/2026-11-07-full-browser-pixels-and-dedicated.md).
 
 ### C12. incremental reflow
 
@@ -392,7 +392,7 @@ The following sections copy the normative JSON fields. A drift between this text
 
 **Comparability limitations:** Editors that always reflow the whole document can still update one screen quickly. Invalidation counts are comparable only when the unit (block, paragraph, page) is declared. A flow editor and a page editor do not share that unit.
 
-**Status:** proposed_harness. Plans: [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md), [`2026-11-05-perf-measurement-layers.md`](../plans/2026-11-05-perf-measurement-layers.md).
+**Status:** proposed_harness. Plans: [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md), [`2026-11-05-perf-measurement-layers.md`](../plans/2026-11-05-perf-measurement-layers.md), [`2026-11-07-full-browser-pixels-and-dedicated.md`](../plans/2026-11-07-full-browser-pixels-and-dedicated.md).
 
 ### C13. global invalidation
 
@@ -404,7 +404,7 @@ The following sections copy the normative JSON fields. A drift between this text
 
 **Comparability limitations:** An editor that does not update off-screen state until scroll will look faster if only the viewport is timed. The scenario must name which of the two clocks is the published one, and it must record the other.
 
-**Status:** proposed_harness. Plans: [`2026-11-05-perf-fixtures-and-parity.md`](../plans/2026-11-05-perf-fixtures-and-parity.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md).
+**Status:** proposed_harness. Plans: [`2026-11-05-perf-fixtures-and-parity.md`](../plans/2026-11-05-perf-fixtures-and-parity.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md), [`2026-11-07-full-browser-pixels-and-dedicated.md`](../plans/2026-11-07-full-browser-pixels-and-dedicated.md).
 
 ### C14. large-document scaling
 
@@ -416,7 +416,7 @@ The following sections copy the normative JSON fields. A drift between this text
 
 **Comparability limitations:** A 100 megabyte file of short paragraphs and a 100 megabyte file of one paragraph are different workloads. Virtualization can keep memory flat while a jump or an edit is still global. Feature fallback must be visible in the row.
 
-**Status:** proposed_harness. Plans: [`2026-11-05-perf-fixtures-and-parity.md`](../plans/2026-11-05-perf-fixtures-and-parity.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md).
+**Status:** proposed_harness. Plans: [`2026-11-05-perf-fixtures-and-parity.md`](../plans/2026-11-05-perf-fixtures-and-parity.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md), [`2026-11-07-full-browser-pixels-and-dedicated.md`](../plans/2026-11-07-full-browser-pixels-and-dedicated.md).
 
 ### C15. search/replace/indexing
 
@@ -428,7 +428,7 @@ The following sections copy the normative JSON fields. A drift between this text
 
 **Comparability limitations:** Interactive find, a library scan, and a background index are different products. Pathological regular expressions need a fuel or time budget so one editor cannot pin the host. A search that misses a known match fails correctness.
 
-**Status:** proposed_harness. Plans: [`2026-11-05-perf-fixtures-and-parity.md`](../plans/2026-11-05-perf-fixtures-and-parity.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md).
+**Status:** proposed_harness. Plans: [`2026-11-05-perf-fixtures-and-parity.md`](../plans/2026-11-05-perf-fixtures-and-parity.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md), [`2026-11-07-full-browser-pixels-and-dedicated.md`](../plans/2026-11-07-full-browser-pixels-and-dedicated.md).
 
 ### C16. serialization/save/export
 
@@ -440,7 +440,7 @@ The following sections copy the normative JSON fields. A drift between this text
 
 **Comparability limitations:** Selective save, HTML regeneration, and WASM serialization do not do the same work. A watermark or a template adds bytes. Interactive-again, re-readable, and durable (data and directory synced) are different clocks and each must be labeled.
 
-**Status:** proposed_harness. Plans: [`2026-11-05-perf-adapters-and-quirks.md`](../plans/2026-11-05-perf-adapters-and-quirks.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md).
+**Status:** proposed_harness. Plans: [`2026-11-05-perf-adapters-and-quirks.md`](../plans/2026-11-05-perf-adapters-and-quirks.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md), [`2026-11-07-full-browser-pixels-and-dedicated.md`](../plans/2026-11-07-full-browser-pixels-and-dedicated.md).
 
 ### C17. memory footprint
 
@@ -452,7 +452,7 @@ The following sections copy the normative JSON fields. A drift between this text
 
 **Comparability limitations:** RSS double-counts shared pages. Cgroup memory includes file cache charged to the group. usedJSHeapSize is not whole-page memory. measureUserAgentSpecificMemory can wait for garbage collection and is not a cheap timing sample. memory.buffer byteLength is capacity, not live allocations, and an inaccessible proprietary or worker memory stays unverified rather than zero. These figures are not added together. GPU memory is outside RSS unless the platform exposes it.
 
-**Status:** proposed_harness. Plans: [`2026-11-05-perf-runner-and-artifacts.md`](../plans/2026-11-05-perf-runner-and-artifacts.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md).
+**Status:** proposed_harness. Plans: [`2026-11-05-perf-runner-and-artifacts.md`](../plans/2026-11-05-perf-runner-and-artifacts.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md), [`2026-11-07-full-browser-pixels-and-dedicated.md`](../plans/2026-11-07-full-browser-pixels-and-dedicated.md).
 
 ### C18. allocation/GC
 
@@ -464,7 +464,7 @@ The following sections copy the normative JSON fields. A drift between this text
 
 **Comparability limitations:** Rust editors do not have a JavaScript garbage collector; report allocator behavior instead of inventing a GC pause. Forcing a collection changes the timing run, so it stays on the diagnostic lane. Browser traces add overhead, which Playwright documents for trace: 'on'.
 
-**Status:** proposed_harness. Plans: [`2026-11-05-perf-runner-and-artifacts.md`](../plans/2026-11-05-perf-runner-and-artifacts.md), [`2026-11-05-perf-measurement-layers.md`](../plans/2026-11-05-perf-measurement-layers.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md).
+**Status:** proposed_harness. Plans: [`2026-11-05-perf-runner-and-artifacts.md`](../plans/2026-11-05-perf-runner-and-artifacts.md), [`2026-11-05-perf-measurement-layers.md`](../plans/2026-11-05-perf-measurement-layers.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md), [`2026-11-07-full-browser-pixels-and-dedicated.md`](../plans/2026-11-07-full-browser-pixels-and-dedicated.md).
 
 ### C19. disposal/reopen
 
@@ -476,7 +476,7 @@ The following sections copy the normative JSON fields. A drift between this text
 
 **Comparability limitations:** Browser tabs retain JIT code and caches after a document close. WASM linear memory may not shrink after dispose. A headless process that exits has a different residual than a long-lived UI.
 
-**Status:** proposed_harness. Plans: [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md), [`2026-11-05-perf-runner-and-artifacts.md`](../plans/2026-11-05-perf-runner-and-artifacts.md).
+**Status:** proposed_harness. Plans: [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md), [`2026-11-05-perf-runner-and-artifacts.md`](../plans/2026-11-05-perf-runner-and-artifacts.md), [`2026-11-07-full-browser-pixels-and-dedicated.md`](../plans/2026-11-07-full-browser-pixels-and-dedicated.md).
 
 ### C20. long-session stability
 
@@ -488,7 +488,7 @@ The following sections copy the normative JSON fields. A drift between this text
 
 **Comparability limitations:** A one-hour soak is not comparable to a 30-second idle assertion. Host sleep, thermal throttling, and automatic updates invalidate the run and must be recorded as not_run with a host reason. This scenario is dedicated-host only.
 
-**Status:** proposed_harness. Plans: [`2026-11-05-perf-runner-and-artifacts.md`](../plans/2026-11-05-perf-runner-and-artifacts.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md).
+**Status:** proposed_harness. Plans: [`2026-11-05-perf-runner-and-artifacts.md`](../plans/2026-11-05-perf-runner-and-artifacts.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md), [`2026-11-07-full-browser-pixels-and-dedicated.md`](../plans/2026-11-07-full-browser-pixels-and-dedicated.md).
 
 ### C21. CPU/background interference
 
@@ -500,7 +500,7 @@ The following sections copy the normative JSON fields. A drift between this text
 
 **Comparability limitations:** Pinning a multithreaded GUI to one core changes the product. perf stat counters depend on kernel permissions. A noisy CI runner cannot publish this delta. Background proofing and AI panels must be named in the feature profile.
 
-**Status:** proposed_harness. Plans: [`2026-11-05-perf-runner-and-artifacts.md`](../plans/2026-11-05-perf-runner-and-artifacts.md), [`2026-11-05-perf-fixtures-and-parity.md`](../plans/2026-11-05-perf-fixtures-and-parity.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md).
+**Status:** proposed_harness. Plans: [`2026-11-05-perf-runner-and-artifacts.md`](../plans/2026-11-05-perf-runner-and-artifacts.md), [`2026-11-05-perf-fixtures-and-parity.md`](../plans/2026-11-05-perf-fixtures-and-parity.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md), [`2026-11-07-full-browser-pixels-and-dedicated.md`](../plans/2026-11-07-full-browser-pixels-and-dedicated.md).
 
 ### C22. feature/extension overhead
 
@@ -512,7 +512,7 @@ The following sections copy the normative JSON fields. A drift between this text
 
 **Comparability limitations:** Products do not have the same plugins. P2 means a realistic set for that product, listed by name, not a pretence that every editor loads the same code. A built-in proofing pass is a feature even when it is not an extension.
 
-**Status:** proposed_harness. Plans: [`2026-11-05-perf-fixtures-and-parity.md`](../plans/2026-11-05-perf-fixtures-and-parity.md), [`2026-11-05-perf-adapters-and-quirks.md`](../plans/2026-11-05-perf-adapters-and-quirks.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md).
+**Status:** proposed_harness. Plans: [`2026-11-05-perf-fixtures-and-parity.md`](../plans/2026-11-05-perf-fixtures-and-parity.md), [`2026-11-05-perf-adapters-and-quirks.md`](../plans/2026-11-05-perf-adapters-and-quirks.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md), [`2026-11-07-full-browser-pixels-and-dedicated.md`](../plans/2026-11-07-full-browser-pixels-and-dedicated.md).
 
 ### C23. collaboration
 
@@ -524,7 +524,7 @@ The following sections copy the normative JSON fields. A drift between this text
 
 **Comparability limitations:** A full docs.plus deployment needs PostgreSQL, Redis, and Bun; the model conversion path does not. Those are different scenarios. ProseMirror commits composition updates before compositionend, so an IME collaboration result must say whether intermediates were included. A WAN test is a different experiment from localhost.
 
-**Status:** proposed_harness. Plans: [`2026-11-05-perf-adapters-and-quirks.md`](../plans/2026-11-05-perf-adapters-and-quirks.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md).
+**Status:** proposed_harness. Plans: [`2026-11-05-perf-adapters-and-quirks.md`](../plans/2026-11-05-perf-adapters-and-quirks.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md), [`2026-11-07-full-browser-pixels-and-dedicated.md`](../plans/2026-11-07-full-browser-pixels-and-dedicated.md).
 
 ### C24. Rust/TS/WASM overhead
 
@@ -536,7 +536,7 @@ The following sections copy the normative JSON fields. A drift between this text
 
 **Comparability limitations:** A native Criterion time is not a browser frame time. wasm-bindgen reference types change the glue and must be recorded, and Docxodus .NET glue is not that reference fixture. Apryse at npm 12.2.1 is closed source, so empty, scalar, string, typed-array, batched, and memory.grow calls stay null unless a probe can actually invoke them. Docxodus WASM initialization is not document load. black_box is a best-effort optimization barrier, not a correctness tool.
 
-**Status:** proposed_harness. Plans: [`2026-11-05-perf-measurement-layers.md`](../plans/2026-11-05-perf-measurement-layers.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md).
+**Status:** proposed_harness. Plans: [`2026-11-05-perf-measurement-layers.md`](../plans/2026-11-05-perf-measurement-layers.md), [`2026-11-05-perf-scenarios-and-coverage.md`](../plans/2026-11-05-perf-scenarios-and-coverage.md), [`2026-11-07-full-browser-pixels-and-dedicated.md`](../plans/2026-11-07-full-browser-pixels-and-dedicated.md).
 
 <!-- CRITERIA-END -->
 
