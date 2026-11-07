@@ -97,6 +97,7 @@ async function render(bytes: Uint8Array) {
   state.rendererFingerprint = result.rendererFingerprint ?? null;
   state.renderMs = Math.round(performance.now() - t0);
   state.rendered = true;
+  performance.mark('docxodus-first-usable');
 
   const doc = document.getElementById('docLabel')!;
   doc.textContent = `Docxodus ${state.metadata?.version ?? ''} — ${result.pageCount} pages, ${state.warnings.length} warning(s)`;
@@ -144,6 +145,7 @@ async function boot() {
   try {
     setWasmBasePath(WASM_BASE);
     await initialize(WASM_BASE);
+    performance.mark('docxodus-model-ready');
     state.wasmReady = true;
     log('wasm runtime ready');
 
