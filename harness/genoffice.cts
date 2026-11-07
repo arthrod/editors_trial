@@ -17,9 +17,9 @@
 // usage: node --import ../../harness/css-stub.mjs --import ./node_modules/tsx/dist/loader.mjs \
 //          ../../harness/genoffice.cts <in.docx> <out.docx>
 const { readFileSync, writeFileSync } = require('node:fs');
-const { resolve } = require('node:path');
+const { join, resolve } = require('node:path');
 
-const REPO = '/Users/arthrod/temp/T/editors_trial/repos/genoffice';
+const REPO = join(__dirname, '..', 'repos', 'genoffice');
 
 async function main() {
   const inPath = resolve(process.argv[2]);
@@ -59,7 +59,10 @@ async function main() {
   // 4. Export back out (no edits -> the selective-save plan should keep original blocks).
   const plan = pmDocToSavePlan(editor.getJSON() as never, parsed.blocks);
   console.log(`[genoffice] plan kinds: ${JSON.stringify(plan.saveBlocks.map((b) => b.kind))}`);
+  const ts0 = performance.now();
   const out = await saveDocx(parsed, plan.saveBlocks);
+  const ts1 = performance.now();
+  console.log(`PERF save_ms=${(ts1 - ts0).toFixed(6)}`);
   writeFileSync(outPath, out);
   console.log(`[genoffice] wrote ${out.byteLength} bytes`);
 }

@@ -28,10 +28,12 @@
 import './setup_dom';
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const PLATE = '/Users/arthrod/temp/T/editors_trial/repos/plate/packages/platejs/src';
-const WWW = '/Users/arthrod/temp/T/editors_trial/repos/plate/apps/www/src/registry/components/editor';
+const HARNESS_DIR = dirname(fileURLToPath(import.meta.url));
+const PLATE = join(HARNESS_DIR, '../../repos/plate/packages/platejs/src');
+const WWW = join(HARNESS_DIR, '../../repos/plate/apps/www/src/registry/components/editor');
 
 const load = async (p: string) => import(p);
 
@@ -308,6 +310,7 @@ const editor = createEditor({
 const tLoad1 = performance.now();
 console.log(`PERF model_ready_ms=${(tLoad1 - tLoad0).toFixed(6)}`);
 
+const tSave0 = performance.now();
 const exported = await exportDocx(editor as any, {
   projection: 'accepted',
   source: permissive.source ?? null,
@@ -315,6 +318,8 @@ const exported = await exportDocx(editor as any, {
   presentation: kit.length ? (kit as any) : undefined,
   stylesheet: DOCX_EXPORT_STYLES || undefined,
 });
+const tSave1 = performance.now();
+console.log(`PERF save_ms=${(tSave1 - tSave0).toFixed(6)}`);
 
 console.log(`\n=== EXPORT ===`);
 console.log(`ok: ${exported.ok}`);

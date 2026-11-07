@@ -17,14 +17,19 @@ import {readFile, writeFile} from "node:fs/promises"
 import JSZip from "jszip"
 import {CSL, createCSL} from "citeproc-plus"
 
-const REPO = "/Users/arthrod/temp/T/editors_trial/repos/fiduswriter-document-ts"
+import { dirname, join } from "node:path"
+import { fileURLToPath } from "node:url"
+
+const HERE = dirname(fileURLToPath(import.meta.url))
+const REPO = join(HERE, "../../repos/fiduswriter-document-ts")
 
 const {DocxConvert} = await import(`${REPO}/src/importer/docx/convert.js`)
 const {DOCXExporter} = await import(`${REPO}/src/exporter/docx/index.js`)
 const {generateDocxTemplate} = await import(`${REPO}/src/exporter/template/docx.js`)
 
-const IN_DOCX = process.env.IN_DOCX ?? "/Users/arthrod/temp/T/editors_trial/fixture/complex.docx"
-const OUT_DOCX = process.env.OUT_DOCX ?? "/Users/arthrod/temp/T/editors_trial/out/fidus/complex.docx"
+const TRIAL_ROOT = join(HERE, "../..")
+const IN_DOCX = process.env.IN_DOCX ?? join(TRIAL_ROOT, "fixture/complex.docx")
+const OUT_DOCX = process.env.OUT_DOCX ?? join(TRIAL_ROOT, "out/fidus/complex.docx")
 const TEMPLATE_MODE = process.env.TEMPLATE ?? "generated"
 
 /** Fidus document template used for the import (mirrors the CLI default template). */
@@ -195,7 +200,10 @@ if (TEMPLATE_MODE === "original") {
 }
 
 const exporter = new CapturingDocxExporter(doc, "", bibDB, imageDB, csl, templateBlob)
+const tSave0 = performance.now()
 await exporter.init()
+const tSave1 = performance.now()
+console.log(`PERF save_ms=${(tSave1 - tSave0).toFixed(6)}`)
 
 if (!exporter.captured) {
     throw new Error("export produced no blob")

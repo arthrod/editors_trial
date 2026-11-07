@@ -1,13 +1,16 @@
 import { describe, it, expect, vi } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const TRIAL_ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '../..')
 
 // The real WorkerManager spins up `?worker&inline` web workers, which need a
 // working Blob/Worker/URL.createObjectURL stack that jsdom does not provide.
 // Mirror the repo's own tests/factories/editor.ts mock (path must be a literal
 // because vi.mock is hoisted above const declarations).
 vi.mock(
-  '/Users/arthrod/temp/T/editors_trial/repos/canvas-editor/src/editor/core/worker/WorkerManager.ts',
+  '/agent/repos/editors_trial/repos/canvas-editor/src/editor/core/worker/WorkerManager.ts',
   () => {
     class MockWorkerManager {
       private draw: any
@@ -45,9 +48,9 @@ import { TableParticle } from '@/editor/core/draw/particle/table/TableParticle'
 
 const FIXTURE = process.env.VITEST_DOCX_INPUT
   || process.env.IN_DOCX
-  || '/Users/arthrod/temp/T/editors_trial/fixture/complex.docx'
+  || path.join(TRIAL_ROOT, 'fixture/complex.docx')
 const OUT_DIR = process.env.OUT_DIR
-  || '/Users/arthrod/temp/T/editors_trial/out/canvas'
+  || path.join(TRIAL_ROOT, 'out/canvas')
 const OUT_NAME = process.env.VITEST_DOCX_OUTPUT
   ? path.basename(process.env.VITEST_DOCX_OUTPUT)
   : 'complex.docx'
@@ -223,10 +226,17 @@ describe('canvas-editor docx plugin round trip', () => {
     const text = modelText(main)
 
     // --- EXPORT (download:false -> return the Blob, never touch document.body) ---
+    const tSave0 = performance.now()
     const blob: Blob = await cmd.executeExportDocx({
       fileName: 'complex',
       download: false
     })
+    const tSave1 = performance.now()
+    const saveLine = `PERF save_ms=${(tSave1 - tSave0).toFixed(6)}\n`
+    console.log(saveLine.trimEnd())
+    if (process.env.PERF_MARK_PATH) {
+      fs.appendFileSync(process.env.PERF_MARK_PATH, saveLine, 'utf8')
+    }
     const outBuf = Buffer.from(await blob.arrayBuffer())
     fs.writeFileSync(OUT_DOCX, outBuf)
 

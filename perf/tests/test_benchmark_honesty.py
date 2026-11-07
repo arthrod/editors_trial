@@ -27,7 +27,7 @@ class LibreofficeNoFabricatedModelReady(unittest.TestCase):
             indocx = Path(tmp) / "in.docx"
             outdocx = Path(tmp) / "out.docx"
             indocx.write_bytes(docx_zip_bytes(b"hello\n"))
-            wall_ms, out, err = bcc._run_libreoffice(indocx, outdocx)
+            wall_ms, out, err, _cpu = bcc._run_libreoffice(indocx, outdocx)
             combined = (out or "") + (err or "")
             self.assertIsNotNone(wall_ms)
             self.assertNotRegex(
@@ -40,7 +40,7 @@ class LibreofficeNoFabricatedModelReady(unittest.TestCase):
 class C24NoSyntheticWasmLoop(unittest.TestCase):
     def test_c24_decision_is_not_measured_synthetic_samples(self):
         for ed in bcc.EDITORS:
-            outcome, failure_reason, extra = bcc.c24_boundary_decision(ed)
+            outcome, failure_reason, extra = bcc.c24_boundary_decision(ed, "ci_contract")
             self.assertNotIn("rng", (failure_reason or "").lower())
             if outcome == "measured":
                 self.fail("C24 must not emit measured synthetic wasm samples on ci_contract")
@@ -58,6 +58,7 @@ class InterpretationMeasuredTrials(unittest.TestCase):
         return bcc._host_base(
             editor_id="plate",
             editor_version="test",
+            execution_profile="ci_contract",
             fixture_sha256=hashlib.sha256(docx).hexdigest(),
             workload_row=row,
             docx_size=len(docx),

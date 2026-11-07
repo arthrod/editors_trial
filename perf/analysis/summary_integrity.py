@@ -19,6 +19,9 @@ def assert_ci_contract_summary_valid(payload: dict) -> None:
             for r in group
             if r.get("outcome") == "measured" and "median_ms" in r
         ]
+        pubs = {r.get("publishable") for r in medians}
+        if True in pubs and len(medians) < 2:
+            raise ValueError("summary has publishable median for %s but fewer than two editors" % (cid,))
         if len(medians) < 2:
             continue
         pub_vals = {r.get("publishable") for r in medians}

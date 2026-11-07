@@ -6,9 +6,11 @@
 //   mode = model  (default) parse -> repack
 //   mode = editor full editor model round trip (parseDocx -> toProseDoc -> fromProseDoc -> repack)
 import { readFileSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const REPO = '/Users/arthrod/temp/T/editors_trial/repos/folio';
+const HERE = dirname(fileURLToPath(import.meta.url));
+const REPO = join(HERE, '../repos/folio');
 const inPath = resolve(process.argv[2]);
 const outPath = resolve(process.argv[3]);
 const mode = process.argv[4] || 'model';
@@ -34,7 +36,10 @@ if (mode === 'editor') {
   console.log(`PERF model_ready_ms=${(t1 - t0).toFixed(6)}`);
   const prose = toProseDoc(doc);
   const back = fromProseDoc(prose, doc, { stylesheetSource: { type: 'package' } });
+  const ts0 = performance.now();
   const out = await repackDocx(back, { updateModifiedDate: false });
+  const ts1 = performance.now();
+  console.log(`PERF save_ms=${(ts1 - ts0).toFixed(6)}`);
   writeFileSync(outPath, Buffer.from(out));
   console.log(`[folio:editor] wrote ${out.byteLength} bytes`);
 } else {
@@ -42,7 +47,10 @@ if (mode === 'editor') {
   const doc = await parseDocx(ab, { preloadFonts: false });
   const t1 = performance.now();
   console.log(`PERF model_ready_ms=${(t1 - t0).toFixed(6)}`);
+  const ts0 = performance.now();
   const out = await repackDocx(doc, { updateModifiedDate: false });
+  const ts1 = performance.now();
+  console.log(`PERF save_ms=${(ts1 - ts0).toFixed(6)}`);
   writeFileSync(outPath, Buffer.from(out));
   console.log(`[folio:model] wrote ${out.byteLength} bytes`);
 }

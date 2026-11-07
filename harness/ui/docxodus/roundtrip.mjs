@@ -27,7 +27,10 @@ const t1 = performance.now();
 console.log(`PERF model_ready_ms=${(t1 - t0).toFixed(6)}`);
 let saved;
 try {
+  const ts0 = performance.now();
   saved = session.save();
+  const ts1 = performance.now();
+  console.log(`PERF save_ms=${(ts1 - ts0).toFixed(6)}`);
 } finally {
   session.close();
 }

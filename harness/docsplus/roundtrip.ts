@@ -102,7 +102,10 @@ await writeFile(resolve(scratch, 'rendered.html'), rendered)
 console.log(`[render] html length = ${rendered.length}`)
 
 // --- 3. export -------------------------------------------------------------
+const tSave0 = performance.now()
 const out = await exportDocx(doc, importResult.title, origin, null)
+const tSave1 = performance.now()
+console.log(`PERF save_ms=${(tSave1 - tSave0).toFixed(6)}`)
 await writeFile(outPath, out)
 console.log(`[export] wrote ${outPath} (${out.length}B)`)
 

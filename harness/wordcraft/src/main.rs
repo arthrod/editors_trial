@@ -50,6 +50,7 @@ fn main() -> ExitCode {
     let elapsed_ms = t0.elapsed().as_secs_f64() * 1000.0;
     println!("PERF model_ready_ms={:.6}", elapsed_ms);
 
+    let t_save = Instant::now();
     let out_bytes = match wordcraft_docx::write(&doc) {
         Ok(b) => b,
         Err(e) => {
@@ -59,6 +60,7 @@ fn main() -> ExitCode {
             return ExitCode::from(1);
         }
     };
+    println!("PERF save_ms={:.6}", t_save.elapsed().as_secs_f64() * 1000.0);
 
     if let Some(dir) = std::path::Path::new(output).parent() {
         let _ = std::fs::create_dir_all(dir);
