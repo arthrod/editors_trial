@@ -111,6 +111,10 @@ class ExecutionProfile(unittest.TestCase):
             row = next(item for item in scenarios() if item["id"] == criterion_id)
             self.assertEqual(row["min_execution_profile"], "ci_broad")
 
+    def test_large_document_scaling_requires_dedicated_publish(self):
+        scaling = next(row for row in scenarios() if row["id"] == "C14")
+        self.assertEqual(scaling["min_execution_profile"], "dedicated_publish")
+
     def test_long_session_requires_dedicated_publish(self):
         soak = next(row for row in scenarios() if row["id"] == "C20")
         self.assertEqual(soak["min_execution_profile"], "dedicated_publish")
