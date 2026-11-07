@@ -1,0 +1,399 @@
+{
+  "suite": "warm_cold",
+  "execution_profile": "ci_broad",
+  "host_class": "ci_coarse",
+  "workload_id": "micro-paragraphs",
+  "fixture_sha256": "5929dbafc4d9090901377fcce66d993ed75ce5bd59652807f3fe488f95c6288f",
+  "publishable": false,
+  "pairs_per_cell": 3,
+  "paired": [
+    {
+      "criterion_id": "C03",
+      "editor_id": "docxodus",
+      "boundary": "first_usable",
+      "cold_median_ms": 2059.0,
+      "warm_median_ms": 1884.0,
+      "delta_ms": -175.0,
+      "attributed_cause": "wasm_js_compile",
+      "cold_attempt": "c03-docxodus-c28a1a3229.json",
+      "warm_attempt": "c03-docxodus-c28a1a3229.json",
+      "probes": {
+        "browser_launch_only_median": 27.0,
+        "document_navigation_only_median": 67.0,
+        "model_ready_browser_median": 2059.0,
+        "document_reload_same_context_median": 1884.0,
+        "delta_ms": -175.0,
+        "overhead_ms": 175.0,
+        "cold_median_ms": 2059.0,
+        "warm_median_ms": 1884.0,
+        "browser_launch_ms": 27.0,
+        "document_navigation_ms": 67.0,
+        "model_ready_browser_ms": 2059.0,
+        "document_reload_ms": 1884.0,
+        "process_spawn_ms": 0.0,
+        "ranked_parts_ms": {
+          "wasm_js_compile": 175.0,
+          "browser_launch": 27.0,
+          "document_parse": 0.0,
+          "process_startup": 0.0
+        }
+      },
+      "publishable": false
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "docxodus",
+      "boundary": "presented_frame",
+      "cold_median_ms": 83.0,
+      "warm_median_ms": 83.0,
+      "delta_ms": 0.0,
+      "attributed_cause": "residual_steady_state",
+      "cold_attempt": "c05-docxodus-da0cb1a5d0.json",
+      "warm_attempt": "c05-docxodus-41942eae0e.json",
+      "probes": {
+        "browser_launch_only_median": 27.0,
+        "document_navigation_only_median": 67.0,
+        "model_ready_browser_median": 2059.0,
+        "document_reload_same_context_median": 1884.0,
+        "delta_ms": 0.0,
+        "overhead_ms": 0.0,
+        "cold_median_ms": 83.0,
+        "warm_median_ms": 83.0
+      },
+      "publishable": false
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "superdoc",
+      "boundary": "first_usable",
+      "cold_median_ms": 3810.0,
+      "warm_median_ms": 4038.0,
+      "delta_ms": 228.0,
+      "attributed_cause": "document_parse",
+      "cold_attempt": "c03-superdoc-e98238bfef.json",
+      "warm_attempt": "c03-superdoc-e98238bfef.json",
+      "probes": {
+        "browser_launch_only_median": 29.0,
+        "document_navigation_only_median": 284.0,
+        "model_ready_browser_median": 3810.0,
+        "document_reload_same_context_median": 4038.0,
+        "delta_ms": 228.0,
+        "overhead_ms": -228.0,
+        "cold_median_ms": 3810.0,
+        "warm_median_ms": 4038.0,
+        "warm_arm_probe": "document_reload_same_context",
+        "document_reload_ms": 4038.0,
+        "document_navigation_ms": 284.0
+      },
+      "publishable": false
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "superdoc",
+      "boundary": "presented_frame",
+      "cold_median_ms": 68.0,
+      "warm_median_ms": 66.0,
+      "delta_ms": -2.0,
+      "attributed_cause": "residual_steady_state",
+      "cold_attempt": "c05-superdoc-15ec29d5fa.json",
+      "warm_attempt": "c05-superdoc-d7e3773c18.json",
+      "probes": {
+        "browser_launch_only_median": 29.0,
+        "document_navigation_only_median": 284.0,
+        "model_ready_browser_median": 3810.0,
+        "document_reload_same_context_median": 4038.0,
+        "delta_ms": -2.0,
+        "overhead_ms": 2.0,
+        "cold_median_ms": 68.0,
+        "warm_median_ms": 66.0
+      },
+      "publishable": false
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "genoffice",
+      "boundary": "first_usable",
+      "cold_median_ms": 8413.0,
+      "warm_median_ms": 9083.0,
+      "delta_ms": 670.0,
+      "attributed_cause": "document_parse",
+      "cold_attempt": "c03-genoffice-15e9fe52c0.json",
+      "warm_attempt": "c03-genoffice-15e9fe52c0.json",
+      "probes": {
+        "browser_launch_only_median": 28.0,
+        "document_navigation_only_median": 696.0,
+        "model_ready_browser_median": 8413.0,
+        "document_reload_same_context_median": 9083.0,
+        "delta_ms": 670.0,
+        "overhead_ms": -670.0,
+        "cold_median_ms": 8413.0,
+        "warm_median_ms": 9083.0,
+        "warm_arm_probe": "document_reload_same_context",
+        "document_reload_ms": 9083.0,
+        "document_navigation_ms": 696.0
+      },
+      "publishable": false
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "genoffice",
+      "boundary": "presented_frame",
+      "cold_median_ms": 82.0,
+      "warm_median_ms": 83.0,
+      "delta_ms": 1.0,
+      "attributed_cause": "browser_launch",
+      "cold_attempt": "c05-genoffice-89e19c55b8.json",
+      "warm_attempt": "c05-genoffice-8725ce3250.json",
+      "probes": {
+        "browser_launch_only_median": 28.0,
+        "document_navigation_only_median": 696.0,
+        "model_ready_browser_median": 8413.0,
+        "document_reload_same_context_median": 9083.0,
+        "delta_ms": 1.0,
+        "overhead_ms": -1.0,
+        "cold_median_ms": 82.0,
+        "warm_median_ms": 83.0,
+        "browser_launch_ms": 28.0,
+        "document_navigation_ms": 696.0,
+        "model_ready_browser_ms": 8413.0,
+        "document_reload_ms": 9083.0,
+        "process_spawn_ms": 0.0,
+        "ranked_parts_ms": {
+          "browser_launch": 28.0,
+          "wasm_js_compile": 0.0,
+          "document_parse": 0.0,
+          "process_startup": 0.0
+        }
+      },
+      "publishable": false
+    }
+  ],
+  "editors": [
+    {
+      "criterion_id": "C03",
+      "editor_id": "docxodus",
+      "boundary": "first_usable",
+      "outcome": "measured",
+      "cache_state": "process_cold_fs_warm",
+      "median_ms": 2059.0,
+      "attempt_file": "c03-docxodus-c28a1a3229.json",
+      "publishable": false,
+      "shared_ready_signal": {
+        "measured_boundary": "first_usable",
+        "skipped_criterion": "C02",
+        "reason": "browser harness exposes one ready signal (selector/JS hook); cannot separate model_ready_browser from first_usable"
+      }
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "superdoc",
+      "boundary": "first_usable",
+      "outcome": "measured",
+      "cache_state": "process_cold_fs_warm",
+      "median_ms": 3810.0,
+      "attempt_file": "c03-superdoc-e98238bfef.json",
+      "publishable": false,
+      "harness_version": {
+        "harness_served": {
+          "superdoc": "2.29.0-next.3",
+          "docx_engine": "0.28.0-next.3"
+        },
+        "trial_pin": "0ee03fd3c; 2.26.0-next.16; 0.28.0-next.3",
+        "trial_pin_mismatch": "trial @superdoc/sdk pin 2.26.0-next.16; browser host serves npm superdoc@2.29.0-next.3 (no superdoc@2.26.0-next.16 on npm)"
+      },
+      "shared_ready_signal": {
+        "measured_boundary": "first_usable",
+        "skipped_criterion": "C02",
+        "reason": "browser harness exposes one ready signal (selector/JS hook); cannot separate model_ready_browser from first_usable"
+      }
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "genoffice",
+      "boundary": "first_usable",
+      "outcome": "measured",
+      "cache_state": "process_cold_fs_warm",
+      "median_ms": 8413.0,
+      "attempt_file": "c03-genoffice-15e9fe52c0.json",
+      "publishable": false,
+      "shared_ready_signal": {
+        "measured_boundary": "first_usable",
+        "skipped_criterion": "C02",
+        "reason": "browser harness exposes one ready signal (selector/JS hook); cannot separate model_ready_browser from first_usable"
+      }
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "docxodus",
+      "boundary": "model_ready_browser",
+      "outcome": "not_run",
+      "failure_reason": "browser harness exposes one ready signal (selector/JS hook); cannot separate model_ready_browser from first_usable",
+      "attempt_file": "c02-docxodus-76eb097d04.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C07 not driven on warm_cold host yet",
+      "attempt_file": "c07-docxodus-a18ae29772.json"
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C08 not driven on warm_cold host yet",
+      "attempt_file": "c08-docxodus-4e4c4c00df.json"
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C09 not driven on warm_cold host yet",
+      "attempt_file": "c09-docxodus-1953858699.json"
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C10 not driven on warm_cold host yet",
+      "attempt_file": "c10-docxodus-efb8044bb7.json"
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C22 not driven on warm_cold host yet",
+      "attempt_file": "c22-docxodus-107afd1010.json"
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C23 not driven on warm_cold host yet",
+      "attempt_file": "c23-docxodus-8542a6e911.json"
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "superdoc",
+      "boundary": "model_ready_browser",
+      "outcome": "not_run",
+      "failure_reason": "browser harness exposes one ready signal (selector/JS hook); cannot separate model_ready_browser from first_usable",
+      "attempt_file": "c02-superdoc-dc40c09efd.json",
+      "publishable": false,
+      "harness_version": {
+        "harness_served": {
+          "superdoc": "2.29.0-next.3",
+          "docx_engine": "0.28.0-next.3"
+        },
+        "trial_pin": "0ee03fd3c; 2.26.0-next.16; 0.28.0-next.3",
+        "trial_pin_mismatch": "trial @superdoc/sdk pin 2.26.0-next.16; browser host serves npm superdoc@2.29.0-next.3 (no superdoc@2.26.0-next.16 on npm)"
+      }
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C07 not driven on warm_cold host yet",
+      "attempt_file": "c07-superdoc-90fff13e05.json"
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C08 not driven on warm_cold host yet",
+      "attempt_file": "c08-superdoc-42ce60a383.json"
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C09 not driven on warm_cold host yet",
+      "attempt_file": "c09-superdoc-2988271154.json"
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C10 not driven on warm_cold host yet",
+      "attempt_file": "c10-superdoc-247f2f5ca4.json"
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C22 not driven on warm_cold host yet",
+      "attempt_file": "c22-superdoc-6f8078d2e0.json"
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C23 not driven on warm_cold host yet",
+      "attempt_file": "c23-superdoc-db08b532c2.json"
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "genoffice",
+      "boundary": "model_ready_browser",
+      "outcome": "not_run",
+      "failure_reason": "browser harness exposes one ready signal (selector/JS hook); cannot separate model_ready_browser from first_usable",
+      "attempt_file": "c02-genoffice-fd2db22d2f.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C07 not driven on warm_cold host yet",
+      "attempt_file": "c07-genoffice-7792a5aeef.json"
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C08 not driven on warm_cold host yet",
+      "attempt_file": "c08-genoffice-8cd7130c7f.json"
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C09 not driven on warm_cold host yet",
+      "attempt_file": "c09-genoffice-cc5af509fe.json"
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C10 not driven on warm_cold host yet",
+      "attempt_file": "c10-genoffice-f4dc5c84ca.json"
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C22 not driven on warm_cold host yet",
+      "attempt_file": "c22-genoffice-7499a8142d.json"
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C23 not driven on warm_cold host yet",
+      "attempt_file": "c23-genoffice-676dd9e97a.json"
+    }
+  ],
+  "host": {
+    "os": "linux",
+    "arch": "x86_64",
+    "cpu_model": "x86_64",
+    "ram_bytes": 16780574720
+  },
+  "driver_checks": [],
+  "commands": [
+    "PYTHONPATH=. python3 perf/runner/benchmark_warm_cold.py --pairs 3",
+    "PYTHONPATH=. python3 -m unittest discover -s perf/tests -q",
+    "python3 -I build/test_perf_plan_coverage.py"
+  ]
+}

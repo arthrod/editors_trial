@@ -3,5 +3,8 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "Host app that loads complex.docx into the Canvas-Editor core + official DOCX plugin for the UI rendering study"
+  "description": "Host app that loads complex.docx into the Canvas-Editor core + official DOCX plugin for the UI rendering study",
+  "devDependencies": {
+    "vite": "^8.3.5"
+  }
 }

@@ -14,7 +14,7 @@
  */
 ;(function () {
   var DOC_PATH = '/Users/arthrod/temp/T/editors_trial/fixture/complex.docx'
-  var DOC_URL = '/sample.docx'
+  var DOC_URL = '/corpus.docx'
 
   // The docs renderer opens the Genspark AI sidebar by default; it eats ~360px
   // of the canvas, which is not what this study measures.  Collapse it so the

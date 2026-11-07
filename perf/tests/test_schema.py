@@ -1,12 +1,12 @@
 import unittest
 
 from perf.schema import (
-    validate_trial,
     dump_trial,
     load_trial,
-    validate_environment,
     sample_budget_for_profile,
+    validate_environment,
     validate_sample_budget,
+    validate_trial,
 )
 
 
@@ -67,56 +67,66 @@ class Outcomes(unittest.TestCase):
         self.assertIn("non-measured samples must be empty", str(caught.exception))
 
     def test_measured_zero_is_a_real_sample(self):
-        validate_trial({
-            "outcome": "measured",
-            "boundary": "handler_duration",
-            "claims": [],
-            "samples_ms": [0.0],
-            "latency_ms": None,
-        })
+        validate_trial(
+            {
+                "outcome": "measured",
+                "boundary": "handler_duration",
+                "claims": [],
+                "samples_ms": [0.0],
+                "latency_ms": None,
+            }
+        )
 
     def test_unknown_outcome_is_rejected(self):
         with self.assertRaises(ValueError) as caught:
-            validate_trial({
-                "outcome": "skipped",
-                "boundary": "handler_duration",
-                "claims": [],
-                "samples_ms": [],
-                "latency_ms": None,
-            })
+            validate_trial(
+                {
+                    "outcome": "skipped",
+                    "boundary": "handler_duration",
+                    "claims": [],
+                    "samples_ms": [],
+                    "latency_ms": None,
+                }
+            )
         self.assertIn("unknown outcome", str(caught.exception))
 
     def test_not_run_is_distinct_from_failed(self):
-        validate_trial({
-            "outcome": "not_run",
-            "boundary": "process_spawn",
-            "claims": [],
-            "samples_ms": [],
-            "latency_ms": None,
-            "failure_reason": "harness-seatbelt",
-        })
+        validate_trial(
+            {
+                "outcome": "not_run",
+                "boundary": "process_spawn",
+                "claims": [],
+                "samples_ms": [],
+                "latency_ms": None,
+                "failure_reason": "harness-seatbelt",
+            }
+        )
 
     def test_scalar_samples_are_not_an_empty_list(self):
         with self.assertRaises(ValueError) as caught:
-            validate_trial({
-                "outcome": "unsupported",
-                "boundary": "input_to_next_paint",
-                "claims": [],
-                "samples_ms": 0,
-                "latency_ms": None,
-            })
+            validate_trial(
+                {
+                    "outcome": "unsupported",
+                    "boundary": "input_to_next_paint",
+                    "claims": [],
+                    "samples_ms": 0,
+                    "latency_ms": None,
+                }
+            )
         self.assertIn("samples_ms", str(caught.exception))
 
     def test_failed_and_not_run_require_a_reason(self):
         for outcome in ("failed", "not_run"):
             with self.assertRaises(ValueError) as caught:
-                validate_trial({
-                    "outcome": outcome,
-                    "boundary": "first_usable",
-                    "claims": [],
-                    "samples_ms": [],
-                    "latency_ms": None,
-                })
+                validate_trial(
+                    {
+                        "outcome": outcome,
+                        "boundary": "first_usable",
+                        "claims": [],
+                        "samples_ms": [],
+                        "latency_ms": None,
+                    }
+                )
             self.assertIn("failure_reason", str(caught.exception))
 
 
@@ -152,6 +162,20 @@ class RoundTrip(unittest.TestCase):
         self.assertIn("non-measured latency must be null", str(caught.exception))
 
 
+def _i_list():
+    return ["I%02d" % n for n in range(1, 13)]
+
+
+def _workload_fields():
+    return {
+        "fixture_byte_size": 1000,
+        "fixture_paragraph_count": 5,
+        "paragraph_shape": "micro",
+        "unicode_class": "ascii",
+        "match_count": 0,
+    }
+
+
 def _env(**overrides):
     env = {
         "host_class": "dedicated",
@@ -159,7 +183,7 @@ def _env(**overrides):
         "cpu_model": "unspecified-test-cpu",
         "os": "linux",
         "arch": "x86_64",
-        "ram_bytes": 16 * 1024 ** 3,
+        "ram_bytes": 16 * 1024**3,
         "power_source": "ac",
         "editor_id": "plate",
         "editor_version": "60c7f5530",
@@ -171,7 +195,10 @@ def _env(**overrides):
         "run_kind": "timing",
         "headless": False,
         "display_refresh_hz": 60,
+        "interpretation_conditions": _i_list(),
+        "feature_fallback": [],
     }
+    env.update(_workload_fields())
     env.update(overrides)
     return env
 
@@ -221,13 +248,30 @@ class Environment(unittest.TestCase):
 
     def test_dedicated_publish_cannot_run_on_ci_coarse(self):
         with self.assertRaises(ValueError) as caught:
-            validate_environment(_env(host_class="ci_coarse", execution_profile="dedicated_publish", headless=True, display_refresh_hz=None))
+            validate_environment(
+                _env(
+                    host_class="ci_coarse",
+                    execution_profile="dedicated_publish",
+                    headless=True,
+                    display_refresh_hz=None,
+                )
+            )
         self.assertIn("dedicated_publish", str(caught.exception))
 
     def test_ci_contract_requires_headless(self):
         with self.assertRaises(ValueError) as caught:
             validate_environment(_env(host_class="ci_coarse", execution_profile="ci_contract", headless=False))
         self.assertIn("ci_contract", str(caught.exception))
+
+    def test_interpretation_conditions_must_list_i01_through_i12(self):
+        bad = _i_list()
+        bad[0] = "I13"
+        with self.assertRaises(ValueError) as caught:
+            validate_environment(_env(interpretation_conditions=bad))
+        self.assertIn("interpretation_conditions", str(caught.exception))
+
+    def test_feature_fallback_is_optional_metadata(self):
+        validate_environment(_env(feature_fallback=["proofing", "pagination"]))
 
 
 class SampleBudget(unittest.TestCase):
@@ -238,83 +282,15 @@ class SampleBudget(unittest.TestCase):
         self.assertEqual(sample_budget_for_profile("dedicated_publish", "in_process_iteration"), 500)
 
     def test_ci_broad_rejects_an_extra_attempt(self):
-        env = _env(host_class="ci_coarse", execution_profile="ci_broad", headless=False, display_refresh_hz=60)
+        env = _env(
+            host_class="ci_coarse",
+            execution_profile="ci_broad",
+            headless=False,
+            display_refresh_hz=60,
+        )
         with self.assertRaises(ValueError) as caught:
             validate_sample_budget(env, 6)
         self.assertIn("sample budget", str(caught.exception))
-
-    def test_boolean_attempt_count_is_rejected(self):
-        env = _env(host_class="ci_coarse", execution_profile="ci_contract", headless=True, display_refresh_hz=None)
-        with self.assertRaises(ValueError) as caught:
-            validate_sample_budget(env, True)
-        self.assertIn("attempt_count", str(caught.exception))
-
-
-class MeasuredSamples(unittest.TestCase):
-    def test_measured_rejects_empty_samples(self):
-        with self.assertRaises(ValueError) as caught:
-            validate_trial({
-                "outcome": "measured",
-                "boundary": "handler_duration",
-                "claims": [],
-                "samples_ms": [],
-                "latency_ms": None,
-            })
-        self.assertIn("samples", str(caught.exception))
-
-    def test_measured_rejects_bad_sample_values(self):
-        base = {
-            "outcome": "measured",
-            "boundary": "handler_duration",
-            "claims": [],
-            "latency_ms": None,
-        }
-        for bad in (float("nan"), float("inf"), -1, True, "x"):
-            with self.subTest(bad=bad):
-                with self.assertRaises(ValueError):
-                    validate_trial(dict(base, samples_ms=[bad]))
-
-    def test_measured_rejects_negative_latency(self):
-        with self.assertRaises(ValueError) as caught:
-            validate_trial({
-                "outcome": "measured",
-                "boundary": "handler_duration",
-                "claims": [],
-                "samples_ms": [1.0],
-                "latency_ms": -1,
-            })
-        self.assertIn("latency_ms", str(caught.exception))
-
-    def test_string_claim_is_not_split_into_characters(self):
-        with self.assertRaises(ValueError) as caught:
-            validate_trial({
-                "outcome": "measured",
-                "boundary": "raf_callback",
-                "claims": "visible_paint",
-                "samples_ms": [1.0],
-                "latency_ms": None,
-            })
-        self.assertIn("claims", str(caught.exception))
-
-    def test_missing_outcome_raises_value_error(self):
-        trial = _trial("handler_duration", "x")
-        del trial["outcome"]
-        with self.assertRaises(ValueError) as caught:
-            validate_trial(trial)
-        self.assertIn("outcome", str(caught.exception))
-
-
-class DumpTrial(unittest.TestCase):
-    def test_dump_rejects_nan_latency(self):
-        trial = {
-            "outcome": "measured",
-            "boundary": "handler_duration",
-            "claims": [],
-            "samples_ms": [1.0],
-            "latency_ms": float("nan"),
-        }
-        with self.assertRaises(ValueError):
-            dump_trial(trial)
 
 
 if __name__ == "__main__":

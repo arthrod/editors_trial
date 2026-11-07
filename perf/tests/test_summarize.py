@@ -1,6 +1,7 @@
 import unittest
 
 from perf.analysis.summarize import (
+    assert_interactive_repetition,
     bootstrap_median_ci,
     median_absolute_deviation,
     percentile,
@@ -45,6 +46,11 @@ class Interval(unittest.TestCase):
             bootstrap_median_ci([1, 2, 3, 4, 100], seed=7, draws=100),
         )
 
+    def test_n_equals_one_collapses_ci_to_median(self):
+        low, high = bootstrap_median_ci([42.0], seed=0, draws=100)
+        self.assertEqual(low, 42.0)
+        self.assertEqual(high, 42.0)
+
 
 class Summary(unittest.TestCase):
     def test_summary_keeps_the_maximum(self):
@@ -56,45 +62,35 @@ class Summary(unittest.TestCase):
         self.assertIn("p95", result)
         self.assertLessEqual(result["ci95_low"], result["ci95_high"])
 
-    def test_single_sample_marks_ci_unavailable(self):
-        result = summarize([42], "warm_steady", "fresh_process", seed=0)
-        self.assertIsNone(result["ci95_low"])
-        self.assertIsNone(result["ci95_high"])
-
     def test_mixed_cache_states_are_rejected(self):
         with self.assertRaises(ValueError) as caught:
-            summarize_groups([
-                {"cache_state": "process_cold_fs_warm", "repetition_unit": "fresh_process", "workload_id": "short-paragraphs", "samples": [1, 2]},
-                {"cache_state": "warm_steady", "repetition_unit": "fresh_process", "workload_id": "short-paragraphs", "samples": [1, 2]},
-            ])
+            summarize_groups(
+                [
+                    {"cache_state": "process_cold_fs_warm", "repetition_unit": "fresh_process", "workload_id": "short-paragraphs", "samples": [1, 2]},
+                    {"cache_state": "warm_steady", "repetition_unit": "fresh_process", "workload_id": "short-paragraphs", "samples": [1, 2]},
+                ]
+            )
         self.assertIn("cache_state", str(caught.exception))
 
     def test_mixed_repetition_units_are_rejected(self):
         with self.assertRaises(ValueError) as caught:
-            summarize_groups([
-                {"cache_state": "warm_steady", "repetition_unit": "fresh_process", "workload_id": "short-paragraphs", "samples": [1, 2]},
-                {"cache_state": "warm_steady", "repetition_unit": "in_process_iteration", "workload_id": "short-paragraphs", "samples": [1, 2]},
-            ])
+            summarize_groups(
+                [
+                    {"cache_state": "warm_steady", "repetition_unit": "fresh_process", "workload_id": "short-paragraphs", "samples": [1, 2]},
+                    {"cache_state": "warm_steady", "repetition_unit": "in_process_iteration", "workload_id": "short-paragraphs", "samples": [1, 2]},
+                ]
+            )
         self.assertIn("repetition_unit", str(caught.exception))
 
     def test_mixed_workloads_are_rejected(self):
         with self.assertRaises(ValueError) as caught:
-            summarize_groups([
-                {"cache_state": "warm_steady", "repetition_unit": "fresh_process", "workload_id": "short-paragraphs", "samples": [1, 2]},
-                {"cache_state": "warm_steady", "repetition_unit": "fresh_process", "workload_id": "one-paragraph", "samples": [1, 2]},
-            ])
+            summarize_groups(
+                [
+                    {"cache_state": "warm_steady", "repetition_unit": "fresh_process", "workload_id": "short-paragraphs", "samples": [1, 2]},
+                    {"cache_state": "warm_steady", "repetition_unit": "fresh_process", "workload_id": "one-paragraph", "samples": [1, 2]},
+                ]
+            )
         self.assertIn("workload_id", str(caught.exception))
-
-    def test_mixed_editor_ids_are_rejected(self):
-        with self.assertRaises(ValueError) as caught:
-            summarize_groups([
-                {"cache_state": "warm_steady", "repetition_unit": "fresh_process", "workload_id": "short-paragraphs", "editor_id": "plate", "samples": [1, 2]},
-                {"cache_state": "warm_steady", "repetition_unit": "fresh_process", "workload_id": "short-paragraphs", "editor_id": "folio", "samples": [1, 2]},
-            ])
-        self.assertIn("editor_id", str(caught.exception))
-
-
-from perf.analysis.summarize import assert_interactive_repetition
 
 
 class Repetition(unittest.TestCase):

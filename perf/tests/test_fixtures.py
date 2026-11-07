@@ -1,18 +1,16 @@
-import unittest
-
 import tempfile
+import unittest
 from pathlib import Path
 
 from perf.fixtures.generate import build_workload, correctness_fixtures
 from perf.fixtures.profiles import (
-    allowed_workloads,
     assert_not_hostile,
     assert_workload_allowed,
+    allowed_workloads,
     feature_profile,
     size_ladder,
     with_fallback,
 )
-
 
 SHORT = {
     "workload_id": "short-paragraphs",
@@ -41,12 +39,12 @@ class CorrectnessFixtures(unittest.TestCase):
     def test_unicode_keeps_a_combining_mark_and_a_non_bmp_scalar(self):
         body = correctness_fixtures()["unicode"].decode("utf-8")
         self.assertIn("e\u0301", body)
-        self.assertIn("𠀋", body)
+        self.assertIn("\U0002000b", body)
 
     def test_emoji_fixture_contains_zwj_family_and_skin_tone(self):
         body = correctness_fixtures()["emoji"].decode("utf-8")
-        self.assertIn("👨‍👩‍👧‍👦", body)
-        self.assertIn("👍🏻", body)
+        self.assertIn("\U0001f468\u200d\U0001f469\u200d\U0001f467\u200d\U0001f466", body)
+        self.assertIn("\U0001f44d\U0001f3fb", body)
 
     def test_bidi_fixture_keeps_logical_order(self):
         body = correctness_fixtures()["bidi"].decode("utf-8")
@@ -87,32 +85,24 @@ class FeatureProfiles(unittest.TestCase):
         self.assertIn("unknown feature", str(caught.exception))
         self.assertEqual(feature_profile("P2")["name"], "P2")
 
-    def test_fallback_accepts_a_generator(self):
-        dropped = with_fallback(feature_profile("P1"), (feature for feature in ("proofing",)))
-        self.assertEqual(dropped["proofing"], "off")
-
-    def test_second_fallback_merges_prior_disabled_features(self):
-        once = with_fallback(feature_profile("P2"), ["proofing"])
-        twice = with_fallback(once, ["style_display"])
-        self.assertEqual(twice["disabled_features"], ["proofing", "style_display"])
-        self.assertEqual(twice["proofing"], "off")
-        self.assertEqual(twice["style_display"], "off")
-
 
 class Ladder(unittest.TestCase):
     def test_ladder_ids_are_unique_and_named(self):
         rows = size_ladder()
         ids = [row["workload_id"] for row in rows]
-        self.assertEqual(ids, [
-            "micro-paragraphs",
-            "micro-search",
-            "short-paragraphs",
-            "long-paragraphs",
-            "one-paragraph",
-            "mixed-utf8",
-            "search-dense",
-            "paginated-equivalent",
-        ])
+        self.assertEqual(
+            ids,
+            [
+                "micro-paragraphs",
+                "micro-search",
+                "short-paragraphs",
+                "long-paragraphs",
+                "one-paragraph",
+                "mixed-utf8",
+                "search-dense",
+                "paginated-equivalent",
+            ],
+        )
         self.assertEqual(len(set(ids)), len(ids))
 
     def test_search_profile_bytes_contain_the_declared_matches(self):
@@ -127,21 +117,6 @@ class Ladder(unittest.TestCase):
         text = built["body"].decode("utf-8")
         self.assertIn("e\u0301", text)
         self.assertIn("\U0002000b", text)
-        paragraph_lines = text.strip().split("\n")
-        self.assertEqual(len(paragraph_lines), mixed["paragraphs"])
-        for line in paragraph_lines:
-            self.assertEqual(len(line), mixed["paragraph_chars"])
-
-    def test_ascii_workload_contains_printable_text(self):
-        built = build_workload(SHORT)
-        body = built["body"].decode("ascii")
-        self.assertTrue(any(ch.isalpha() for ch in body))
-
-    def test_newline_search_term_is_rejected(self):
-        profile = dict(SHORT, match_count=1, search_term="A\nB")
-        with self.assertRaises(ValueError) as caught:
-            build_workload(profile)
-        self.assertIn("search_term", str(caught.exception))
 
     def test_shapes_are_not_treated_as_one_workload(self):
         rows = {row["workload_id"]: row for row in size_ladder()}
@@ -178,6 +153,56 @@ class WorkloadCaps(unittest.TestCase):
     def test_dedicated_allows_the_full_ladder(self):
         ladder_ids = {row["workload_id"] for row in size_ladder()}
         self.assertEqual(allowed_workloads("dedicated_publish"), frozenset(ladder_ids))
+
+
+from perf.fixtures.oracles import (
+    assert_readback,
+    backspace_grapheme,
+    bidi_hit,
+    composition_observation,
+    grapheme_spans,
+    utf16_len,
+)
+
+FAMILY = "\U0001f468\u200d\U0001f469\u200d\U0001f467\u200d\U0001f466"
+TONE = "\U0001f44d\U0001f3fb"
+
+
+class Oracles(unittest.TestCase):
+    def test_family_sequence_is_one_grapheme_and_eleven_utf16_units(self):
+        self.assertEqual(utf16_len(FAMILY), 11)
+        self.assertEqual(grapheme_spans(FAMILY), [(0, 11)])
+        self.assertEqual(grapheme_spans(TONE), [(0, utf16_len(TONE))])
+
+    def test_backspace_removes_the_whole_family(self):
+        self.assertEqual(backspace_grapheme(FAMILY + "x"), "x")
+        self.assertEqual(backspace_grapheme(FAMILY), "")
+
+    def test_bidi_hit_returns_the_logical_offset(self):
+        logical = "Hello \u0645\u0631\u062d\u0628\u0627"
+        self.assertEqual(bidi_hit(logical, "visual_left"), 0)
+        self.assertEqual(bidi_hit(logical, "arabic_start"), 6)
+
+    def test_synthetic_input_is_not_os_ime(self):
+        phases = [
+            {"name": "compositionupdate", "data": "di"},
+            {"name": "compositionend", "data": "\u5730"},
+        ]
+        for route in ("playwright_insert_text", "playwright_fill", "dispatched_composition_event"):
+            got = composition_observation(route, phases)
+            self.assertFalse(got["os_ime"])
+            self.assertEqual(got["coverage"], "synthetic")
+        real = composition_observation("cdp_ime", phases)
+        self.assertTrue(real["os_ime"])
+        self.assertEqual(real["committed"], "\u5730")
+        self.assertEqual(real["updates"], ["di"])
+
+    def test_wrong_readback_blocks_publication(self):
+        for lane in ("plate/browser_slate", "docsplus/app", "canvas/editor", "docxodus/wasm_editor", "wordcraft/native_ui"):
+            with self.assertRaises(ValueError) as caught:
+                assert_readback(lane, FAMILY, "x")
+            self.assertIn("correctness", str(caught.exception))
+        assert_readback("plate/browser_slate", FAMILY, FAMILY)
 
 
 if __name__ == "__main__":

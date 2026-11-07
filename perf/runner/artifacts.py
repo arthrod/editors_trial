@@ -25,7 +25,10 @@ def write_attempt(directory, attempt_id, trial):
             view = view[written:]
     except Exception:
         os.close(fd)
-        os.unlink(path)
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
         raise
     os.close(fd)
     return path

@@ -2,10 +2,34 @@ from pathlib import Path
 
 _FEATURES = ("collaboration", "ai_panel", "proofing", "style_display", "busy_panel")
 _BASE = {
-    "P0": {"collaboration": "off", "ai_panel": "off", "proofing": "off", "style_display": "off", "busy_panel": "off"},
-    "P1": {"collaboration": "off", "ai_panel": "off", "proofing": "off", "style_display": "on", "busy_panel": "off"},
-    "P2": {"collaboration": "off", "ai_panel": "off", "proofing": "on", "style_display": "on", "busy_panel": "off"},
-    "P3": {"collaboration": "off", "ai_panel": "off", "proofing": "on", "style_display": "on", "busy_panel": "on"},
+    "P0": {
+        "collaboration": "off",
+        "ai_panel": "off",
+        "proofing": "off",
+        "style_display": "off",
+        "busy_panel": "off",
+    },
+    "P1": {
+        "collaboration": "off",
+        "ai_panel": "off",
+        "proofing": "off",
+        "style_display": "on",
+        "busy_panel": "off",
+    },
+    "P2": {
+        "collaboration": "off",
+        "ai_panel": "off",
+        "proofing": "on",
+        "style_display": "on",
+        "busy_panel": "off",
+    },
+    "P3": {
+        "collaboration": "off",
+        "ai_panel": "off",
+        "proofing": "on",
+        "style_display": "on",
+        "busy_panel": "on",
+    },
 }
 
 
@@ -20,10 +44,8 @@ def feature_profile(name):
 
 def with_fallback(profile, disabled):
     updated = dict(profile)
-    merged = list(profile.get("disabled_features") or [])
-    merged.extend(disabled)
-    updated["disabled_features"] = list(merged)
-    for feature in updated["disabled_features"]:
+    updated["disabled_features"] = list(disabled)
+    for feature in disabled:
         if feature not in _FEATURES:
             raise ValueError("unknown feature %r" % (feature,))
         updated[feature] = "off"
@@ -58,7 +80,15 @@ def allowed_workloads(execution_profile):
     if execution_profile == "ci_contract":
         return frozenset({"micro-paragraphs", "micro-search"})
     if execution_profile == "ci_broad":
-        return frozenset({"micro-paragraphs", "micro-search", "short-paragraphs", "mixed-utf8", "search-dense"})
+        return frozenset(
+            {
+                "micro-paragraphs",
+                "micro-search",
+                "short-paragraphs",
+                "mixed-utf8",
+                "search-dense",
+            }
+        )
     if execution_profile == "dedicated_publish":
         return frozenset(ladder_ids)
     raise ValueError("execution_profile")
