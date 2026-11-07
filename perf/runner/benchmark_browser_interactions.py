@@ -145,6 +145,8 @@ def main() -> int:
     parser.add_argument("--execution-profile", default="ci_broad")
     parser.add_argument("--host-class", default="ci_coarse")
     args = parser.parse_args()
+    if args.editors and len(args.editors) == 1 and "," in args.editors[0]:
+        args.editors = [e.strip() for e in args.editors[0].split(",") if e.strip()]
 
     workload_row = next(w for w in size_ladder() if w["workload_id"] == "micro-paragraphs")
     built = build_workload(workload_row)

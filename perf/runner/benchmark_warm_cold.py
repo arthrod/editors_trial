@@ -383,6 +383,8 @@ def main() -> int:
     args = parser.parse_args()
     EXECUTION_PROFILE = args.execution_profile
     HOST_CLASS = args.host_class
+    if args.editors and len(args.editors) == 1 and "," in args.editors[0]:
+        args.editors = [e.strip() for e in args.editors[0].split(",") if e.strip()]
 
     workload_row = next(w for w in size_ladder() if w["workload_id"] == args.workload)
     assert_workload_allowed(EXECUTION_PROFILE, args.workload)
