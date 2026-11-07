@@ -1,0 +1,186 @@
+{
+  "suite": "warm_cold",
+  "execution_profile": "ci_broad",
+  "host_class": "ci_coarse",
+  "workload_id": "micro-paragraphs",
+  "fixture_sha256": "ec35231d10ff019f01314aa773a724916cff9df06917b3538f31bea1c2c967d0",
+  "publishable": false,
+  "pairs_per_cell": 3,
+  "paired": [
+    {
+      "criterion_id": "C05",
+      "editor_id": "plate",
+      "boundary": "presented_frame",
+      "cold_median_ms": 128.0,
+      "warm_median_ms": 85.0,
+      "delta_ms": -43.0,
+      "attributed_cause": "mixed_unresolved",
+      "cold_attempt": "perf/out/warm_cold_2026_11_07/attempts/c05-plate-058ab97e37.json",
+      "warm_attempt": "perf/out/warm_cold_2026_11_07/attempts/c05-plate-6e70641c03.json",
+      "probes": {
+        "browser_launch_only_median": 25.0,
+        "document_navigation_only_median": 776.0,
+        "model_ready_browser_median": 314.0,
+        "document_reload_same_context_median": 821.0,
+        "delta_ms": -43.0,
+        "overhead_ms": 43.0,
+        "cold_median_ms": 128.0,
+        "warm_median_ms": 85.0,
+        "browser_launch_ms": 25.0,
+        "document_navigation_ms": 776.0,
+        "model_ready_browser_ms": 314.0,
+        "document_reload_ms": 821.0,
+        "process_spawn_ms": 0.0,
+        "ranked_parts_ms": {
+          "browser_launch": 25.0,
+          "document_parse": 18.0,
+          "wasm_js_compile": 0.0,
+          "process_startup": 0.0
+        }
+      },
+      "publishable": false
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "plate",
+      "boundary": "input_to_next_paint",
+      "cold_median_ms": 128.0,
+      "warm_median_ms": 100.0,
+      "delta_ms": -28.0,
+      "attributed_cause": "residual_steady_state",
+      "cold_attempt": "perf/out/warm_cold_2026_11_07/attempts/c05-plate-058ab97e37.json",
+      "warm_attempt": "perf/out/warm_cold_2026_11_07/attempts/c06-plate-63a2d735c1.json",
+      "probes": {
+        "browser_launch_only_median": 25.0,
+        "document_navigation_only_median": 776.0,
+        "model_ready_browser_median": 314.0,
+        "document_reload_same_context_median": 821.0
+      },
+      "publishable": false
+    }
+  ],
+  "editors": [
+    {
+      "criterion_id": "C03",
+      "editor_id": "plate",
+      "boundary": "first_usable",
+      "outcome": "measured",
+      "cache_state": "process_cold_fs_warm",
+      "median_ms": 314.0,
+      "attempt_file": "perf/out/warm_cold_2026_11_07/attempts/c03-plate-29fcd9541f.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "plate",
+      "boundary": "model_ready_browser",
+      "outcome": "measured",
+      "cache_state": "process_cold_fs_warm",
+      "median_ms": 314.0,
+      "attempt_file": "perf/out/warm_cold_2026_11_07/attempts/c02-plate-3cee60938e.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C07 not driven on warm_cold host yet",
+      "attempt_file": "perf/out/warm_cold_2026_11_07/attempts/c07-plate-aa0c0dd617.json"
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C08 not driven on warm_cold host yet",
+      "attempt_file": "perf/out/warm_cold_2026_11_07/attempts/c08-plate-083aeb0ffb.json"
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C09 not driven on warm_cold host yet",
+      "attempt_file": "perf/out/warm_cold_2026_11_07/attempts/c09-plate-b5dad95f2f.json"
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C10 not driven on warm_cold host yet",
+      "attempt_file": "perf/out/warm_cold_2026_11_07/attempts/c10-plate-a17c3e546e.json"
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C22 not driven on warm_cold host yet",
+      "attempt_file": "perf/out/warm_cold_2026_11_07/attempts/c22-plate-df97c7d949.json"
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C23 not driven on warm_cold host yet",
+      "attempt_file": "perf/out/warm_cold_2026_11_07/attempts/c23-plate-9a7bd30bf8.json"
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "browser_probe: node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\npage.waitForFunction: Timeout 120000ms exceeded.\n    at waitForReady (/agent/repos/editors_trial/perf/runner/warm_cold_browser.mjs:85:16)\n    at runPlaywrightPair (/agent/repos/editors_trial/perf/runner/warm_cold_browser.mjs:157:30)\n    at async file:///agent/repos/editors_trial/perf/runner/warm_cold_browser.mjs:282:20 {\n  log: [],\n  name: 'TimeoutError'\n}\n\nNode.js v24.22.2\n",
+      "attempt_file": "perf/out/warm_cold_2026_11_07/attempts/c03-docxodus-0713be33e8.json"
+    },
+    {
+      "criterion_id": "C02b",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "browser_probe: node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\npage.waitForFunction: Timeout 120000ms exceeded.\n    at waitForReady (/agent/repos/editors_trial/perf/runner/warm_cold_browser.mjs:85:16)\n    at runPlaywrightPair (/agent/repos/editors_trial/perf/runner/warm_cold_browser.mjs:157:30)\n    at async file:///agent/repos/editors_trial/perf/runner/warm_cold_browser.mjs:282:20 {\n  log: [],\n  name: 'TimeoutError'\n}\n\nNode.js v24.22.2\n",
+      "attempt_file": "perf/out/warm_cold_2026_11_07/attempts/c02b-docxodus-9db50f2dc2.json"
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "browser_probe: node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\npage.waitForFunction: Timeout 120000ms exceeded.\n    at waitForReady (/agent/repos/editors_trial/perf/runner/warm_cold_browser.mjs:85:16)\n    at runPlaywrightPair (/agent/repos/editors_trial/perf/runner/warm_cold_browser.mjs:157:30)\n    at async file:///agent/repos/editors_trial/perf/runner/warm_cold_browser.mjs:282:20 {\n  log: [],\n  name: 'TimeoutError'\n}\n\nNode.js v24.22.2\n",
+      "attempt_file": "perf/out/warm_cold_2026_11_07/attempts/c05-docxodus-00d86860d0.json"
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "browser_probe: node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\npage.waitForFunction: Timeout 120000ms exceeded.\n    at waitForReady (/agent/repos/editors_trial/perf/runner/warm_cold_browser.mjs:85:16)\n    at runPlaywrightPair (/agent/repos/editors_trial/perf/runner/warm_cold_browser.mjs:157:30)\n    at async file:///agent/repos/editors_trial/perf/runner/warm_cold_browser.mjs:282:20 {\n  log: [],\n  name: 'TimeoutError'\n}\n\nNode.js v24.22.2\n",
+      "attempt_file": "perf/out/warm_cold_2026_11_07/attempts/c06-docxodus-069564e1fd.json"
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "browser_probe: 'ready_selector'",
+      "attempt_file": "perf/out/warm_cold_2026_11_07/attempts/c03-canvas-1e0b68c7a5.json"
+    },
+    {
+      "criterion_id": "C02b",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "browser_probe: 'ready_selector'",
+      "attempt_file": "perf/out/warm_cold_2026_11_07/attempts/c02b-canvas-967aa4af22.json"
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "browser_probe: 'ready_selector'",
+      "attempt_file": "perf/out/warm_cold_2026_11_07/attempts/c05-canvas-bac7029362.json"
+    }
+  ],
+  "host": {
+    "os": "linux",
+    "arch": "x86_64",
+    "cpu_model": "x86_64",
+    "ram_bytes": 16780574720
+  },
+  "commands": [
+    "PYTHONPATH=. python3 perf/runner/benchmark_warm_cold.py --pairs 3",
+    "PYTHONPATH=. python3 -m unittest discover -s perf/tests -q",
+    "python3 -I build/test_perf_plan_coverage.py"
+  ]
+}
