@@ -20,8 +20,10 @@ def feature_profile(name):
 
 def with_fallback(profile, disabled):
     updated = dict(profile)
-    updated["disabled_features"] = list(disabled)
-    for feature in disabled:
+    merged = list(profile.get("disabled_features") or [])
+    merged.extend(disabled)
+    updated["disabled_features"] = list(merged)
+    for feature in updated["disabled_features"]:
         if feature not in _FEATURES:
             raise ValueError("unknown feature %r" % (feature,))
         updated[feature] = "off"

@@ -87,6 +87,17 @@ class FeatureProfiles(unittest.TestCase):
         self.assertIn("unknown feature", str(caught.exception))
         self.assertEqual(feature_profile("P2")["name"], "P2")
 
+    def test_fallback_accepts_a_generator(self):
+        dropped = with_fallback(feature_profile("P1"), (feature for feature in ("proofing",)))
+        self.assertEqual(dropped["proofing"], "off")
+
+    def test_second_fallback_merges_prior_disabled_features(self):
+        once = with_fallback(feature_profile("P2"), ["proofing"])
+        twice = with_fallback(once, ["style_display"])
+        self.assertEqual(twice["disabled_features"], ["proofing", "style_display"])
+        self.assertEqual(twice["proofing"], "off")
+        self.assertEqual(twice["style_display"], "off")
+
 
 class Ladder(unittest.TestCase):
     def test_ladder_ids_are_unique_and_named(self):
@@ -116,6 +127,21 @@ class Ladder(unittest.TestCase):
         text = built["body"].decode("utf-8")
         self.assertIn("e\u0301", text)
         self.assertIn("\U0002000b", text)
+        paragraph_lines = text.strip().split("\n")
+        self.assertEqual(len(paragraph_lines), mixed["paragraphs"])
+        for line in paragraph_lines:
+            self.assertEqual(len(line), mixed["paragraph_chars"])
+
+    def test_ascii_workload_contains_printable_text(self):
+        built = build_workload(SHORT)
+        body = built["body"].decode("ascii")
+        self.assertTrue(any(ch.isalpha() for ch in body))
+
+    def test_newline_search_term_is_rejected(self):
+        profile = dict(SHORT, match_count=1, search_term="A\nB")
+        with self.assertRaises(ValueError) as caught:
+            build_workload(profile)
+        self.assertIn("search_term", str(caught.exception))
 
     def test_shapes_are_not_treated_as_one_workload(self):
         rows = {row["workload_id"]: row for row in size_ladder()}

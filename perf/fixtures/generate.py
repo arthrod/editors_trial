@@ -1,4 +1,5 @@
 import hashlib
+import random
 
 
 def build_workload(profile):
@@ -14,28 +15,19 @@ def build_workload(profile):
         raise ValueError("match_count")
     term = profile.get("search_term", "NEEDLE")
     needle = term.encode("utf-8")
-    if match_count and (not term or needle in b" \n"):
+    if match_count and (not term or needle in b" \n" or b"\n" in needle):
         raise ValueError("search_term")
     capacity = paragraphs * width
     if match_count and len(needle) * match_count > capacity:
         raise ValueError("match_count")
     if unicode_class == "mixed":
-        marker = "e\u0301\U0002000b".encode("utf-8")
-
-        def _line_bytes(width):
-            chunk = b""
+        marker = "e\u0301\U0002000b"
+        lines = []
+        for _ in range(paragraphs):
+            chunk = ""
             while len(chunk) < width:
                 chunk += marker
-            chunk = chunk[:width]
-            while chunk:
-                try:
-                    chunk.decode("utf-8")
-                    break
-                except UnicodeDecodeError:
-                    chunk = chunk[:-1]
-            return chunk + b" " * (width - len(chunk))
-
-        lines = [_line_bytes(width) for _ in range(paragraphs)]
+            lines.append(chunk[:width].encode("utf-8"))
     elif match_count:
         per_line, remainder = divmod(match_count, paragraphs)
         lines = []
@@ -46,9 +38,12 @@ def build_workload(profile):
                 raise ValueError("match_count")
             lines.append(packed + b" " * (width - len(packed)))
     else:
-        filler = b" " * capacity
-        blob = bytearray(filler)
-        lines = [bytes(blob[index * width:(index + 1) * width]) for index in range(paragraphs)]
+        rng = random.Random(int(profile.get("seed", 0)))
+        alphabet = "abcdefghijklmnopqrstuvwxyz "
+        lines = []
+        for _ in range(paragraphs):
+            text = "".join(rng.choice(alphabet) for _ in range(width))
+            lines.append(text.encode("ascii"))
     body = b"\n".join(lines) + b"\n"
     if match_count and body.count(needle) != match_count:
         raise ValueError("match_count")
