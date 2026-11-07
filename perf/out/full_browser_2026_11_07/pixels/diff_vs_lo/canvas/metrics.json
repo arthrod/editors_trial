@@ -1,0 +1,6 @@
+{
+  "editor_id": "canvas",
+  "dpi": 200,
+  "outcome": "skipped",
+  "reason": "page-1 LO diff not run in this pass; plate comparison is the gate artifact"
+}

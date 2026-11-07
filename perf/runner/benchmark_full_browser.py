@@ -224,7 +224,7 @@ def main(argv: list[str] | None = None) -> int:
         sys.executable,
         str(REPO / "perf/runner/benchmark_pixels_lo.py"),
         "--out-root",
-        str(args.out_root / "pixels"),
+        str(args.out_root),
     ]
     commands.append(" ".join(pixels_cmd))
     _run(pixels_cmd)
