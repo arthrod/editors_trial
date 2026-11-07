@@ -33,6 +33,35 @@ const MIME: Record<string, string> = {
   '.br': 'application/octet-stream',
 };
 
+/** Serve package dist bytes unchanged — Vite transform inflates bundles past export-assets attestation. */
+function rawDistAssets() {
+  const distPrefix = '/docxodus-dist/';
+  return {
+    name: 'docxodus-raw-dist',
+    configureServer(server: any) {
+      server.middlewares.use((req: any, res: any, next: any) => {
+        if (!req.url) return next();
+        const pathname = decodeURIComponent(req.url.split('?')[0]);
+        let rel: string | null = null;
+        if (pathname.startsWith(distPrefix)) {
+          rel = pathname.slice(distPrefix.length);
+        } else {
+          const idx = pathname.indexOf('/docxodus/dist/');
+          if (idx !== -1) rel = pathname.slice(idx + '/docxodus/dist/'.length);
+        }
+        if (!rel) return next();
+        const file = path.normalize(path.join(DIST, rel));
+        if (!file.startsWith(DIST) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
+          return next();
+        }
+        res.setHeader('Content-Type', MIME[path.extname(file)] || 'application/octet-stream');
+        res.setHeader('Cache-Control', 'no-store');
+        fs.createReadStream(file).pipe(res);
+      });
+    },
+  };
+}
+
 function wasmAssets() {
   return {
     name: 'docxodus-wasm-assets',
@@ -58,7 +87,7 @@ function wasmAssets() {
 }
 
 export default defineConfig({
-  plugins: [wasmAssets()],
+  plugins: [rawDistAssets(), wasmAssets()],
   server: {
     host: '127.0.0.1',
     port: 5210,
