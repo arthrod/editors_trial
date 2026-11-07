@@ -1,0 +1,68 @@
+"""Warm/cold benchmark honesty guardrails."""
+
+import json
+import unittest
+from pathlib import Path
+
+from perf.runner.cause_attribution import assert_warm_cold_distinct
+from perf.schema import validate_environment
+
+
+class WarmColdHonesty(unittest.TestCase):
+    def test_warm_samples_must_not_copy_cold(self):
+        with self.assertRaises(ValueError):
+            assert_warm_cold_distinct([10.0, 11.0, 12.0], [10.0, 11.0, 12.0])
+        assert_warm_cold_distinct([100.0, 110.0, 120.0], [12.0, 13.0, 14.0])
+
+    def test_os_cache_cold_rejected_on_ci_coarse(self):
+        env = {
+            "host_class": "ci_coarse",
+            "execution_profile": "ci_broad",
+            "cache_state": "os_cache_cold",
+            "page_cache_dropped": True,
+            "headless": True,
+            "repetition_unit": "fresh_process",
+            "run_kind": "timing",
+            "feature_profile": "P0",
+            "feature_fallback": [],
+            "ram_bytes": 1024 * 1024 * 1024,
+            "cpu_model": "x",
+            "os": "linux",
+            "arch": "x86_64",
+            "power_source": "unknown",
+            "editor_id": "plate",
+            "editor_version": "test",
+            "workload_id": "micro-paragraphs",
+            "fixture_sha256": "a" * 64,
+            "fixture_byte_size": 100,
+            "fixture_paragraph_count": 5,
+            "paragraph_shape": "micro",
+            "unicode_class": "ascii",
+            "match_count": 0,
+            "interpretation_conditions": ["I%02d" % n for n in range(1, 13)],
+            "display_refresh_hz": None,
+        }
+        with self.assertRaises(ValueError) as caught:
+            validate_environment(env)
+        self.assertIn("os_cache_cold", str(caught.exception))
+
+    def test_warm_cold_summary_never_labels_os_cache_cold(self):
+        root = Path(__file__).resolve().parents[2] / "perf" / "out"
+        for sub in root.glob("warm_cold_*"):
+            summary_path = sub / "summary.json"
+            if not summary_path.is_file():
+                continue
+            attempts = sub / "attempts"
+            if attempts.is_dir():
+                for path in attempts.glob("*.json"):
+                    trial = json.loads(path.read_text(encoding="utf-8"))
+                    env = trial.get("environment") or {}
+                    self.assertNotEqual(
+                        env.get("cache_state"),
+                        "os_cache_cold",
+                        "warm_cold attempt %s must not use os_cache_cold on CI" % path.name,
+                    )
+
+
+if __name__ == "__main__":
+    unittest.main()
