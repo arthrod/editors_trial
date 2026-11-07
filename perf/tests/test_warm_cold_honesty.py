@@ -68,6 +68,12 @@ class WarmColdHonesty(unittest.TestCase):
             assert_same_probe_paired(C05_PROBE_KEY, C06_PROBE_KEY)
         assert_same_probe_paired(C06_PROBE_KEY, C06_PROBE_KEY)
 
+    def test_docxodus_ready_waits_for_rendered_not_page_count_only(self):
+        runner = Path(__file__).resolve().parents[1] / "runner" / "benchmark_warm_cold.py"
+        text = runner.read_text(encoding="utf-8")
+        self.assertIn("__docxodus.rendered", text)
+        self.assertNotIn("pageCount > 0", text)
+
     def test_c06_large_delta_uses_attribute_delta_not_literal_residual(self):
         probes = {
             "browser_launch_only_median": 25.0,

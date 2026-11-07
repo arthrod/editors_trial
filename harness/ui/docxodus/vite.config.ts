@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 
 /**
@@ -17,8 +18,10 @@ import { defineConfig } from 'vite';
  * adds no rendering logic of its own.
  */
 
-const HERE = '/Users/arthrod/temp/T/editors_trial/harness/ui/docxodus';
-const WASM = path.join(HERE, 'node_modules', 'docxodus', 'dist', 'wasm');
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const PKG_ROOT = path.join(HERE, 'node_modules', 'docxodus');
+const DIST = path.join(PKG_ROOT, 'dist');
+const WASM = path.join(DIST, 'wasm');
 
 const MIME: Record<string, string> = {
   '.wasm': 'application/wasm',
@@ -37,9 +40,14 @@ function wasmAssets() {
       server.middlewares.use((req: any, res: any, next: any) => {
         if (!req.url || !req.url.startsWith('/wasm/')) return next();
         const rel = decodeURIComponent(req.url.split('?')[0].replace(/^\/wasm\//, ''));
-        const file = path.join(WASM, rel);
-        if (!file.startsWith(WASM) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
-          return next();
+        let file = path.join(WASM, rel);
+        const wasmCandidate =
+          file.startsWith(WASM) && fs.existsSync(file) && !fs.statSync(file).isDirectory();
+        if (!wasmCandidate) {
+          file = path.join(DIST, rel);
+          if (!file.startsWith(DIST) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
+            return next();
+          }
         }
         res.setHeader('Content-Type', MIME[path.extname(file)] || 'application/octet-stream');
         res.setHeader('Cache-Control', 'no-store');
@@ -55,8 +63,11 @@ export default defineConfig({
     host: '127.0.0.1',
     port: 5210,
     strictPort: true,
-    fs: { allow: [HERE] },
+    fs: { allow: [HERE, PKG_ROOT, path.join(HERE, 'node_modules')] },
   },
-  optimizeDeps: { include: ['docxodus'] },
+  optimizeDeps: {
+    // Prebundling inflates export-browser past export-assets.json byteLength (runtime verification fails).
+    exclude: ['docxodus', 'docxodus/export-browser'],
+  },
   worker: { format: 'es' },
 });

@@ -73,11 +73,54 @@ BROWSER_TARGETS: dict[str, dict] = {
         "url": "http://127.0.0.1:5210/",
         "corpus_route": "/corpus.docx",
         "ready_selector": "#status",
-        "ready_js": "window.__docxodus && window.__docxodus.pageCount > 0",
+        "ready_js": "window.__docxodus && (window.__docxodus.rendered || window.__docxodus.error)",
         "wait_after_ready": "500",
         "pre_edit_click": "#modeEditor",
         "edit_selector": '[contenteditable="true"]',
         "driver": "playwright",
+        "criteria": {
+            "C03": ("first_usable", "browser_visible"),
+            "C02b": ("model_ready_browser", "model"),
+            "C05": ("presented_frame", "browser_visible"),
+            "C06": ("input_to_next_paint", "browser_visible"),
+        },
+    },
+    "superdoc": {
+        "cwd": REPO / "repos" / "superdoc" / "examples" / "vanilla",
+        "command": ["npx", "vite", "--port", "5199", "--strictPort", "--host", "127.0.0.1"],
+        "url": "http://127.0.0.1:5199/",
+        "corpus_route": "/sample.docx",
+        "ready_js": "!document.querySelector('#export-docx')?.disabled",
+        "ready_selector": "#editor",
+        "wait_after_ready": "4000",
+        "edit_selector": '[contenteditable="true"]',
+        "driver": "playwright",
+        "criteria": {
+            "C03": ("first_usable", "browser_visible"),
+            "C02b": ("model_ready_browser", "model"),
+            "C05": ("presented_frame", "browser_visible"),
+            "C06": ("input_to_next_paint", "browser_visible"),
+        },
+    },
+    "genoffice": {
+        "cwd": UI,
+        "command": [
+            str(UI / "plate" / "node_modules" / ".bin" / "vite"),
+            "--config",
+            str(UI / "genoffice" / "vite.config.mjs"),
+            "--port",
+            "5201",
+            "--strictPort",
+            "--host",
+            "127.0.0.1",
+        ],
+        "url": "http://127.0.0.1:5201/",
+        "corpus_route": "/corpus.docx",
+        "ready_js": "document.querySelectorAll('.doc-page').length > 0",
+        "wait_after_ready": "4000",
+        "edit_selector": ".doc-page",
+        "driver": "playwright",
+        "env": {"GENOFFICE_REPO": str(REPO / "repos" / "genoffice")},
         "criteria": {
             "C03": ("first_usable", "browser_visible"),
             "C02b": ("model_ready_browser", "model"),
@@ -95,10 +138,12 @@ BROWSER_TARGETS: dict[str, dict] = {
         "wait_after_ready": "800",
         "edit_selector": "#editor canvas",
         "driver": "playwright",
-        "skip_edit": True,
+        "skip_edit": False,
         "criteria": {
             "C03": ("first_usable", "browser_visible"),
             "C02b": ("model_ready_browser", "model"),
+            "C05": ("presented_frame", "browser_visible"),
+            "C06": ("input_to_next_paint", "browser_visible"),
         },
     },
 }
@@ -124,6 +169,8 @@ def _start_server(editor_id: str, target: dict) -> subprocess.Popen:
         raise FileNotFoundError("missing harness host %s" % cwd)
     env = os.environ.copy()
     env.setdefault("NODE_OPTIONS", "--no-deprecation")
+    if target.get("env"):
+        env.update(target["env"])
     proc = subprocess.Popen(
         target["command"],
         cwd=str(cwd),

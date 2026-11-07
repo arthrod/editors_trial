@@ -1,0 +1,52 @@
+{
+  "suite": "warm_cold",
+  "execution_profile": "ci_broad",
+  "host_class": "ci_coarse",
+  "workload_id": "micro-paragraphs",
+  "fixture_sha256": "6e2b5fdf413c2318f285e838e091e6d594fd921c40994342b711898a27cdfaef",
+  "publishable": false,
+  "pairs_per_cell": 3,
+  "paired": [],
+  "editors": [
+    {
+      "criterion_id": "C03",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "browser_probe: genoffice server exited: genoffice/vite.config.mjs (15:29) \u001b[33m[UNRESOLVED_IMPORT] \u001b[0mCould not resolve 'vite' in genoffice/vite.config.mjs\n    \u001b[38;5;246m\u256d\u001b[0m\u001b[38;5;246m\u2500\u001b[0m\u001b[38;5;246m[\u001b[0m genoffice/vite.config.mjs:15:30 \u001b[38;5;246m]\u001b[0m\n    \u001b[38;5;246m\u2502\u001b[0m\n \u001b[38;5;246m15 \u2502\u001b[0m \u001b[38;5;249mi\u001b[0m\u001b[38;5;249mm\u001b[0m\u001b[38;5;249mp\u001b[0m\u001b[38;5;249mo\u001b[0m\u001b[38;5;249mr\u001b[0m\u001b[38;5;249mt\u001b[0m\u001b[38;5;249m \u001b[0m\u001b[38;5;249m{\u001b[0m\u001b[38;5;249m \u001b[0m\u001b[38;5;249md\u001b[0m\u001b[38;5;249me\u001b[0m\u001b[38;5;249mf\u001b[0m\u001b[38;5;249mi\u001b[0m\u001b[38;5;249mn\u001b[0m\u001b[38;5;249me\u001b[0",
+      "attempt_file": "c03-genoffice-026669cd33.json"
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "browser_probe: genoffice server exited: genoffice/vite.config.mjs (15:29) \u001b[33m[UNRESOLVED_IMPORT] \u001b[0mCould not resolve 'vite' in genoffice/vite.config.mjs\n    \u001b[38;5;246m\u256d\u001b[0m\u001b[38;5;246m\u2500\u001b[0m\u001b[38;5;246m[\u001b[0m genoffice/vite.config.mjs:15:30 \u001b[38;5;246m]\u001b[0m\n    \u001b[38;5;246m\u2502\u001b[0m\n \u001b[38;5;246m15 \u2502\u001b[0m \u001b[38;5;249mi\u001b[0m\u001b[38;5;249mm\u001b[0m\u001b[38;5;249mp\u001b[0m\u001b[38;5;249mo\u001b[0m\u001b[38;5;249mr\u001b[0m\u001b[38;5;249mt\u001b[0m\u001b[38;5;249m \u001b[0m\u001b[38;5;249m{\u001b[0m\u001b[38;5;249m \u001b[0m\u001b[38;5;249md\u001b[0m\u001b[38;5;249me\u001b[0m\u001b[38;5;249mf\u001b[0m\u001b[38;5;249mi\u001b[0m\u001b[38;5;249mn\u001b[0m\u001b[38;5;249me\u001b[0",
+      "attempt_file": "c02-genoffice-9be56d740f.json"
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "browser_probe: genoffice server exited: genoffice/vite.config.mjs (15:29) \u001b[33m[UNRESOLVED_IMPORT] \u001b[0mCould not resolve 'vite' in genoffice/vite.config.mjs\n    \u001b[38;5;246m\u256d\u001b[0m\u001b[38;5;246m\u2500\u001b[0m\u001b[38;5;246m[\u001b[0m genoffice/vite.config.mjs:15:30 \u001b[38;5;246m]\u001b[0m\n    \u001b[38;5;246m\u2502\u001b[0m\n \u001b[38;5;246m15 \u2502\u001b[0m \u001b[38;5;249mi\u001b[0m\u001b[38;5;249mm\u001b[0m\u001b[38;5;249mp\u001b[0m\u001b[38;5;249mo\u001b[0m\u001b[38;5;249mr\u001b[0m\u001b[38;5;249mt\u001b[0m\u001b[38;5;249m \u001b[0m\u001b[38;5;249m{\u001b[0m\u001b[38;5;249m \u001b[0m\u001b[38;5;249md\u001b[0m\u001b[38;5;249me\u001b[0m\u001b[38;5;249mf\u001b[0m\u001b[38;5;249mi\u001b[0m\u001b[38;5;249mn\u001b[0m\u001b[38;5;249me\u001b[0",
+      "attempt_file": "c05-genoffice-abb0235cc1.json"
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "browser_probe: genoffice server exited: genoffice/vite.config.mjs (15:29) \u001b[33m[UNRESOLVED_IMPORT] \u001b[0mCould not resolve 'vite' in genoffice/vite.config.mjs\n    \u001b[38;5;246m\u256d\u001b[0m\u001b[38;5;246m\u2500\u001b[0m\u001b[38;5;246m[\u001b[0m genoffice/vite.config.mjs:15:30 \u001b[38;5;246m]\u001b[0m\n    \u001b[38;5;246m\u2502\u001b[0m\n \u001b[38;5;246m15 \u2502\u001b[0m \u001b[38;5;249mi\u001b[0m\u001b[38;5;249mm\u001b[0m\u001b[38;5;249mp\u001b[0m\u001b[38;5;249mo\u001b[0m\u001b[38;5;249mr\u001b[0m\u001b[38;5;249mt\u001b[0m\u001b[38;5;249m \u001b[0m\u001b[38;5;249m{\u001b[0m\u001b[38;5;249m \u001b[0m\u001b[38;5;249md\u001b[0m\u001b[38;5;249me\u001b[0m\u001b[38;5;249mf\u001b[0m\u001b[38;5;249mi\u001b[0m\u001b[38;5;249mn\u001b[0m\u001b[38;5;249me\u001b[0",
+      "attempt_file": "c06-genoffice-79b19b1326.json"
+    }
+  ],
+  "host": {
+    "os": "linux",
+    "arch": "x86_64",
+    "cpu_model": "x86_64",
+    "ram_bytes": 16780574720
+  },
+  "driver_checks": [],
+  "commands": [
+    "PYTHONPATH=. python3 perf/runner/benchmark_warm_cold.py --pairs 3",
+    "PYTHONPATH=. python3 -m unittest discover -s perf/tests -q",
+    "python3 -I build/test_perf_plan_coverage.py"
+  ]
+}
