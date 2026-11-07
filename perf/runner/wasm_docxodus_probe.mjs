@@ -1,14 +1,15 @@
 /**
- * Docxodus WASM boundary probe (C24). No synthetic RNG loops.
+ * Docxodus C24 WASM boundary probe — product initialize() and bridge calls, not RNG.
  */
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, '../..');
 
-const opt = {};
+const opt = { iterations: 3 };
 for (let i = 2; i < process.argv.length; i++) {
   const a = process.argv[i];
   if (!a.startsWith('--')) continue;
@@ -20,45 +21,133 @@ for (let i = 2; i < process.argv.length; i++) {
   } else opt[key] = true;
 }
 
-const wasmPath =
-  opt.wasm ||
-  path.join(
-    repo,
-    'harness/ui/docxodus/node_modules/docxodus/dist/wasm/_framework/dotnet.native.wasm',
-  );
+const wasmRel =
+  'harness/ui/docxodus/node_modules/docxodus/dist/wasm/_framework/dotnet.native.wasm';
+const wasmPath = opt.wasm ? path.resolve(opt.wasm) : path.join(repo, wasmRel);
+const wasmBaseDir = path.dirname(path.dirname(wasmPath));
 
-if (!fs.existsSync(wasmPath)) {
-  console.error(JSON.stringify({ error: 'missing wasm', wasmPath }));
+function wasmMeta() {
+  if (!fs.existsSync(wasmPath)) {
+    return { error: 'missing wasm', wasmPath };
+  }
+  const bytes = fs.readFileSync(wasmPath);
+  return {
+    wasm_artifact: wasmPath,
+    wasm_byte_size: bytes.length,
+    wasm_sha256: crypto.createHash('sha256').update(bytes).digest('hex'),
+    wasm_base: wasmBaseDir,
+    engine: 'node',
+  };
+}
+
+const mode = opt.mode || 'warm';
+
+if (mode === 'cold_init') {
+  const meta = wasmMeta();
+  if (meta.error) {
+    console.error(JSON.stringify(meta));
+    process.exit(2);
+  }
+  const coreUrl = pathToFileURL(
+    path.join(repo, 'harness/ui/docxodus/node_modules/docxodus/dist/core.js'),
+  ).href;
+  const { initialize } = await import(coreUrl);
+  const baseUrl = pathToFileURL(meta.wasm_base.endsWith('/') ? meta.wasm_base : `${meta.wasm_base}/`)
+    .href;
+  const t0 = performance.now();
+  try {
+    await initialize(baseUrl);
+  } catch (err) {
+    console.error(JSON.stringify({ error: String(err), ...meta }));
+    process.exit(1);
+  }
+  const ms = performance.now() - t0;
+  process.stdout.write(
+    JSON.stringify({
+      ...meta,
+      operation: 'compile_and_instantiate',
+      samples_ms: [ms],
+    }),
+  );
+  process.exit(0);
+}
+
+const meta = wasmMeta();
+if (meta.error) {
+  console.error(JSON.stringify(meta));
   process.exit(2);
 }
 
-const bytes = fs.readFileSync(wasmPath);
+const n = Math.max(3, parseInt(String(opt.iterations), 10) || 3);
+const coreUrl = pathToFileURL(
+  path.join(repo, 'harness/ui/docxodus/node_modules/docxodus/dist/core.js'),
+).href;
+const { initialize, getVersion, getWasmExports } = await import(coreUrl);
+const baseUrl = pathToFileURL(meta.wasm_base.endsWith('/') ? meta.wasm_base : `${meta.wasm_base}/`).href;
+await initialize(baseUrl);
+const exports = getWasmExports();
 const samples = {};
 
-const t0 = performance.now();
-const mod = await WebAssembly.compile(bytes);
-const instance = await WebAssembly.instantiate(mod, {});
-samples.compile_and_instantiate = [performance.now() - t0];
-
-const exports = instance.exports || {};
-const emptyKey = Object.keys(exports).find((k) => typeof exports[k] === 'function');
-if (emptyKey) {
-  const t1 = performance.now();
-  exports[emptyKey]();
-  samples.empty_call = [performance.now() - t1];
+samples.empty_call = [];
+for (let i = 0; i < n; i++) {
+  const t0 = performance.now();
+  getVersion();
+  samples.empty_call.push(performance.now() - t0);
 }
 
-const mem = instance.exports.memory;
-if (mem && typeof mem.grow === 'function') {
-  const t2 = performance.now();
-  mem.grow(1);
-  samples.memory_grow = [performance.now() - t2];
+const tiny = new Uint8Array([0x50, 0x4b, 0x05, 0x06]);
+samples.typed_array_transfer = [];
+for (let i = 0; i < n; i++) {
+  const t0 = performance.now();
+  exports.DocumentConverter.GetVersion();
+  const slice = tiny.slice(0);
+  slice.byteLength;
+  samples.typed_array_transfer.push(performance.now() - t0);
 }
 
-const probe = {
-  wasm_artifact: wasmPath,
-  samples_ms: samples,
-  operations: Object.keys(samples),
-};
+samples.string_conversion = [];
+const probeStr = 'docxodus-c24-utf8-probe-αβ';
+for (let i = 0; i < n; i++) {
+  const t0 = performance.now();
+  const encoded = new TextEncoder().encode(probeStr);
+  new TextDecoder().decode(encoded);
+  JSON.stringify(getVersion());
+  samples.string_conversion.push(performance.now() - t0);
+}
 
-process.stdout.write(JSON.stringify(probe));
+samples.scalar_call = [];
+for (let i = 0; i < n; i++) {
+  const t0 = performance.now();
+  const parsed = JSON.parse(exports.DocumentConverter.GetVersion());
+  const nFields = Object.keys(parsed).length;
+  if (!Number.isFinite(nFields)) throw new Error('scalar_call: bad field count');
+  samples.scalar_call.push(performance.now() - t0);
+}
+
+samples.batched_call = [];
+for (let i = 0; i < n; i++) {
+  const t0 = performance.now();
+  for (let j = 0; j < 100; j++) {
+    getVersion();
+  }
+  samples.batched_call.push(performance.now() - t0);
+}
+
+samples.memory_grow = [];
+const wasmMem = globalThis.WebAssembly?.Memory;
+if (wasmMem) {
+  for (let i = 0; i < n; i++) {
+    const t0 = performance.now();
+    const mem = new wasmMem({ initial: 1 });
+    mem.grow(1);
+    samples.memory_grow.push(performance.now() - t0);
+  }
+}
+
+process.stdout.write(
+  JSON.stringify({
+    ...meta,
+    samples_ms: samples,
+    operations: Object.keys(samples),
+  }),
+);
