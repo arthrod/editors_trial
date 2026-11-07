@@ -1,0 +1,633 @@
+{
+  "archived_root": null,
+  "created": "2026-11-07T06:24:41.388924Z",
+  "excludes": [],
+  "files": [
+    {
+      "bytes": 23983,
+      "path": "release/et-v0.9.5/out/demo-files/canvas-editor.docx",
+      "served": false,
+      "sha256": "fb35d0708feb37f4902f5d002e5550aa9d7b19d0daf1e5766892bbd3ee694e1a"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.9.5/out/demo-files/docen.docx",
+      "served": false,
+      "sha256": "8fd2b56beaf78d7be8f1d6cc9ecda6e3425c470351770c034509906d70bfd6c3"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.9.5/out/demo-files/docs-plus.docx",
+      "served": false,
+      "sha256": "8fd2b56beaf78d7be8f1d6cc9ecda6e3425c470351770c034509906d70bfd6c3"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.9.5/out/demo-files/docxodus.docx",
+      "served": false,
+      "sha256": "8fd2b56beaf78d7be8f1d6cc9ecda6e3425c470351770c034509906d70bfd6c3"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.9.5/out/demo-files/eigenpal.docx",
+      "served": false,
+      "sha256": "8fd2b56beaf78d7be8f1d6cc9ecda6e3425c470351770c034509906d70bfd6c3"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.9.5/out/demo-files/fidus-writer.docx",
+      "served": false,
+      "sha256": "8fd2b56beaf78d7be8f1d6cc9ecda6e3425c470351770c034509906d70bfd6c3"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.9.5/out/demo-files/folio.docx",
+      "served": false,
+      "sha256": "8fd2b56beaf78d7be8f1d6cc9ecda6e3425c470351770c034509906d70bfd6c3"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.9.5/out/demo-files/genoffice.docx",
+      "served": false,
+      "sha256": "8fd2b56beaf78d7be8f1d6cc9ecda6e3425c470351770c034509906d70bfd6c3"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.9.5/out/demo-files/office-open.docx",
+      "served": false,
+      "sha256": "8fd2b56beaf78d7be8f1d6cc9ecda6e3425c470351770c034509906d70bfd6c3"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.9.5/out/demo-files/plate.docx",
+      "served": false,
+      "sha256": "8fd2b56beaf78d7be8f1d6cc9ecda6e3425c470351770c034509906d70bfd6c3"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.9.5/out/demo-files/superdoc.docx",
+      "served": false,
+      "sha256": "8fd2b56beaf78d7be8f1d6cc9ecda6e3425c470351770c034509906d70bfd6c3"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.9.5/out/demo-files/wordcraft.docx",
+      "served": false,
+      "sha256": "8fd2b56beaf78d7be8f1d6cc9ecda6e3425c470351770c034509906d70bfd6c3"
+    },
+    {
+      "bytes": 312,
+      "path": "release/et-v0.9.5/out/demos/canvas-editor/SOURCE.txt",
+      "served": false,
+      "sha256": "b20bd92816e9cbe197489e715047f6d12b71e01346ba70eb95af111ec5aaf471"
+    },
+    {
+      "bytes": 34187,
+      "path": "release/et-v0.9.5/out/demos/canvas-editor/assets/index-CmeeXJM2.css",
+      "served": false,
+      "sha256": "e6dd5644a3877036a883870c64cdacdc4aa35e14d5fbfdc1f39d83f07d41ea4a"
+    },
+    {
+      "bytes": 1216391,
+      "path": "release/et-v0.9.5/out/demos/canvas-editor/assets/index-W3iy-xr8.js",
+      "served": false,
+      "sha256": "63194d1dbbd299428064ba33f06ebdc13cf8cdba06cded7d498a438e918100f7"
+    },
+    {
+      "bytes": 23983,
+      "path": "release/et-v0.9.5/out/demos/canvas-editor/document.docx",
+      "served": false,
+      "sha256": "eaba518a86baddef8cf91a86bac30fc717ebe1199f90d3353b1f2b83a2a77213"
+    },
+    {
+      "bytes": 905,
+      "path": "release/et-v0.9.5/out/demos/canvas-editor/index.html",
+      "served": false,
+      "sha256": "c3d13828e61c8421bf67e3dc4a18298192abdf6ce79946f9c98927a587dd66be"
+    },
+    {
+      "bytes": 298,
+      "path": "release/et-v0.9.5/out/demos/docen/SOURCE.txt",
+      "served": false,
+      "sha256": "02e1aa4c965894f47b6c762fab2ff217ed25d4f27e3a31c7883cd002595a0600"
+    },
+    {
+      "bytes": 3975421,
+      "path": "release/et-v0.9.5/out/demos/docen/assets/index-CkAoefRX.js",
+      "served": false,
+      "sha256": "1a84a20d08855bc0aee8fc9a5bff6bbdf2c74ba86fcfad4f3e610c6af6e6ceee"
+    },
+    {
+      "bytes": 600,
+      "path": "release/et-v0.9.5/out/demos/docen/assets/rolldown-runtime-la_ZsWYt.js",
+      "served": false,
+      "sha256": "f4ea06660d93a34f16e01929304df53b9b5ed9fc3cfd76274c634a6a33b2e637"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.9.5/out/demos/docen/document.docx",
+      "served": false,
+      "sha256": "516bc18867f6a156fb5c55c8b02f4de600ceafa065970022b623f765533fe03e"
+    },
+    {
+      "bytes": 224,
+      "path": "release/et-v0.9.5/out/demos/docen/favicon.svg",
+      "served": false,
+      "sha256": "52bb323a8ed0cdbb66126dabcd15b795ff31ec57273a1fa520e3e2d461c0e096"
+    },
+    {
+      "bytes": 1671,
+      "path": "release/et-v0.9.5/out/demos/docen/index.html",
+      "served": false,
+      "sha256": "055d2a2ecb83e1aa65b2f9a9e7b1e7dadffca9eb0fafa76d122bca6cbbf346b6"
+    },
+    {
+      "bytes": 306,
+      "path": "release/et-v0.9.5/out/demos/docs-plus/SOURCE.txt",
+      "served": false,
+      "sha256": "3ae0a064a9bd95313c1aa83094574c783b6e88b797a4cd6d834a253071466a84"
+    },
+    {
+      "bytes": 2613684,
+      "path": "release/et-v0.9.5/out/demos/docs-plus/assets/index-BrtBV5ix.js",
+      "served": false,
+      "sha256": "81b1c239a0ccd1503dd37f6732004ea7baf1033f934a4f973ad5f0821e8fff88"
+    },
+    {
+      "bytes": 29760,
+      "path": "release/et-v0.9.5/out/demos/docs-plus/assets/index-DxeprQxf.css",
+      "served": false,
+      "sha256": "9ba5e955a2e6a63ab92ce712d51fc2e05735893a36b13431fb241a3ee6d0d66e"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.9.5/out/demos/docs-plus/document.docx",
+      "served": false,
+      "sha256": "516bc18867f6a156fb5c55c8b02f4de600ceafa065970022b623f765533fe03e"
+    },
+    {
+      "bytes": 1023,
+      "path": "release/et-v0.9.5/out/demos/docs-plus/index.html",
+      "served": false,
+      "sha256": "8892c4a74612c9f8a9e2b9003ac3297410074c867dc9f71e5b7355e37e4e6c94"
+    },
+    {
+      "bytes": 324,
+      "path": "release/et-v0.9.5/out/demos/docxodus/SOURCE.txt",
+      "served": false,
+      "sha256": "4269e20e2ab0888f45b1aa2d9253ead5bf76a4efaf6ce1454f514f59bc88a934"
+    },
+    {
+      "bytes": 335892,
+      "path": "release/et-v0.9.5/out/demos/docxodus/assets/index-3q82XFwA.js",
+      "served": false,
+      "sha256": "711455ba6749f1574520680c74d23d16e37ff910036dbb6b620b2a369763f488"
+    },
+    {
+      "bytes": 592,
+      "path": "release/et-v0.9.5/out/demos/docxodus/assets/style-C8dlDIQE.css",
+      "served": false,
+      "sha256": "cba9058153587121db16fd61dce42dddf5c1bec394d7921bcdf97abcde554dba"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.9.5/out/demos/docxodus/document.docx",
+      "served": false,
+      "sha256": "516bc18867f6a156fb5c55c8b02f4de600ceafa065970022b623f765533fe03e"
+    },
+    {
+      "bytes": 537,
+      "path": "release/et-v0.9.5/out/demos/docxodus/index.html",
+      "served": false,
+      "sha256": "77c671856100a950df3e755fe3f54547e6b7d9cebdcd61df948021b1ddab2754"
+    },
+    {
+      "bytes": 331,
+      "path": "release/et-v0.9.5/out/demos/eigenpal/SOURCE.txt",
+      "served": false,
+      "sha256": "5a8713f6faf082ae375df3c56510dca78f649713f6542a2e9e4642cb254797fb"
+    },
+    {
+      "bytes": 5090594,
+      "path": "release/et-v0.9.5/out/demos/eigenpal/assets/index-51ryC6qj.js",
+      "served": false,
+      "sha256": "11369a0c275528b8f70a3a7bb7447974cb989006c8a41e757dd33f567d40b111"
+    },
+    {
+      "bytes": 167419,
+      "path": "release/et-v0.9.5/out/demos/eigenpal/assets/index-DjrG3Qoi.css",
+      "served": false,
+      "sha256": "3c357a93ff414a166b3e375ceccbe87c0a661d59f348dd79b36c333467c4f392"
+    },
+    {
+      "bytes": 3010,
+      "path": "release/et-v0.9.5/out/demos/eigenpal/assets/preload-helper-DDqTjD1V.js",
+      "served": false,
+      "sha256": "54ea5a6b80a7920e71d76250c39c355517bba502ef3a9354a0f443c5a73a2a2c"
+    },
+    {
+      "bytes": 980,
+      "path": "release/et-v0.9.5/out/demos/eigenpal/assets/rolldown-runtime-ClPy5LxC.js",
+      "served": false,
+      "sha256": "7593cbfc8f8dd5f1c6309b50c5959730770ec049a0f8bf669dd7b462fa61649a"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.9.5/out/demos/eigenpal/document.docx",
+      "served": false,
+      "sha256": "516bc18867f6a156fb5c55c8b02f4de600ceafa065970022b623f765533fe03e"
+    },
+    {
+      "bytes": 242,
+      "path": "release/et-v0.9.5/out/demos/eigenpal/favicon.svg",
+      "served": false,
+      "sha256": "64bd54529266c6ed3cbea55feacdb4d90c9f7863b002412d5836baceb35477e6"
+    },
+    {
+      "bytes": 956,
+      "path": "release/et-v0.9.5/out/demos/eigenpal/index.html",
+      "served": false,
+      "sha256": "2260fd629d9b62dc3f6f6977ee645412bccfc5a40069e533e9598209a3fa5dc9"
+    },
+    {
+      "bytes": 330,
+      "path": "release/et-v0.9.5/out/demos/fidus-writer/SOURCE.txt",
+      "served": false,
+      "sha256": "2e35463e4c65e7865a966d6f7b483fb834e827dfd4f35f0e4345bb79213b8671"
+    },
+    {
+      "bytes": 13728,
+      "path": "release/et-v0.9.5/out/demos/fidus-writer/css/document/document.css",
+      "served": false,
+      "sha256": "96603b29a4761951581269a740e2ae1f5c091179f704f5d0e38dc60d2a58ab63"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.9.5/out/demos/fidus-writer/document.docx",
+      "served": false,
+      "sha256": "516bc18867f6a156fb5c55c8b02f4de600ceafa065970022b623f765533fe03e"
+    },
+    {
+      "bytes": 1255,
+      "path": "release/et-v0.9.5/out/demos/fidus-writer/docx.css",
+      "served": false,
+      "sha256": "e0130f8593e69a8f8fff403c81c70131cf021d976e0e3512b17e9cac3b1b9171"
+    },
+    {
+      "bytes": 747,
+      "path": "release/et-v0.9.5/out/demos/fidus-writer/index.html",
+      "served": false,
+      "sha256": "95c0e1ae299a8001187fe04c119914778c67366b62d2f858bc908c05514bae4a"
+    },
+    {
+      "bytes": 1427936,
+      "path": "release/et-v0.9.5/out/demos/fidus-writer/index.js",
+      "served": false,
+      "sha256": "685b4a40043df23ef970a52a6dbab2a158e3141486963c85d1ce8748fe94f441"
+    },
+    {
+      "bytes": 302,
+      "path": "release/et-v0.9.5/out/demos/folio/SOURCE.txt",
+      "served": false,
+      "sha256": "822f04ec9d977ed5b3417fe61c924078a57c5175c2879263032c8aa157884ec9"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.9.5/out/demos/folio/document.docx",
+      "served": false,
+      "sha256": "516bc18867f6a156fb5c55c8b02f4de600ceafa065970022b623f765533fe03e"
+    },
+    {
+      "bytes": 145582,
+      "path": "release/et-v0.9.5/out/demos/folio/editor.css",
+      "served": false,
+      "sha256": "cf2b9e60b594d7a3080ad9642694a399022ea5f39ac684346b5eabc1cca3ff77"
+    },
+    {
+      "bytes": 4999885,
+      "path": "release/et-v0.9.5/out/demos/folio/editor.js",
+      "served": false,
+      "sha256": "070bfc6fe9f495c970f8c79d4230ab3bef611c4e411f5431be5e225f5d18e423"
+    },
+    {
+      "bytes": 7465,
+      "path": "release/et-v0.9.5/out/demos/folio/index.html",
+      "served": false,
+      "sha256": "ce6ae49bbfd2adced338d919a12a9d7bcabcdb150ba21ef9cdf46614d7f4eb98"
+    },
+    {
+      "bytes": 315,
+      "path": "release/et-v0.9.5/out/demos/genoffice/SOURCE.txt",
+      "served": false,
+      "sha256": "c20122f9fa1cf0249fa85f93ee09dbc6561b4ecc14323689c7af368583918dcf"
+    },
+    {
+      "bytes": 5658615,
+      "path": "release/et-v0.9.5/out/demos/genoffice/assets/index-B3vB_Qgs.js",
+      "served": false,
+      "sha256": "f6958b68c529157e4a6574af85d4cd19a6f83a87bb9a152bb84817b3fa60138d"
+    },
+    {
+      "bytes": 467460,
+      "path": "release/et-v0.9.5/out/demos/genoffice/assets/index-CMHIw4xB.css",
+      "served": false,
+      "sha256": "bf816ac23928af73740f5bef0bb9a6b3978a949a6236b7a2d8d546bb91d6f8cb"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.9.5/out/demos/genoffice/document.docx",
+      "served": false,
+      "sha256": "516bc18867f6a156fb5c55c8b02f4de600ceafa065970022b623f765533fe03e"
+    },
+    {
+      "bytes": 861,
+      "path": "release/et-v0.9.5/out/demos/genoffice/index.html",
+      "served": false,
+      "sha256": "d99dd2f6bddba8f07fc593218bd7ae713e7a5d17beb15ab2f1aedfa3f9ecfc33"
+    },
+    {
+      "bytes": 310,
+      "path": "release/et-v0.9.5/out/demos/office-open/SOURCE.txt",
+      "served": false,
+      "sha256": "2a9099e018afd934f24440deab63fa19a2b7a9c900f801dac8ada7603a6cc8a9"
+    },
+    {
+      "bytes": 928620,
+      "path": "release/et-v0.9.5/out/demos/office-open/assets/index-DfKMq5yw.js",
+      "served": false,
+      "sha256": "2b503b4623d1725c52ed8ccdd9816230673875b8b81c9244938f1f81330abb5c"
+    },
+    {
+      "bytes": 2903,
+      "path": "release/et-v0.9.5/out/demos/office-open/assets/style-Dax4jFWk.css",
+      "served": false,
+      "sha256": "ade2a274b9b59577ade6c8caa2c9fb857d6c196b86a6388a8591c79d53459b8b"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.9.5/out/demos/office-open/document.docx",
+      "served": false,
+      "sha256": "516bc18867f6a156fb5c55c8b02f4de600ceafa065970022b623f765533fe03e"
+    },
+    {
+      "bytes": 863,
+      "path": "release/et-v0.9.5/out/demos/office-open/index.html",
+      "served": false,
+      "sha256": "5daf33914019056964be944add62c10ba376f36abe195f974ed66829c46bb550"
+    },
+    {
+      "bytes": 296,
+      "path": "release/et-v0.9.5/out/demos/plate/SOURCE.txt",
+      "served": false,
+      "sha256": "21ace4612673858a2bc078d3ece81c08d55d1514dfecc2bc71940a62244d01aa"
+    },
+    {
+      "bytes": 2575173,
+      "path": "release/et-v0.9.5/out/demos/plate/assets/index-C99m9ykw.js",
+      "served": false,
+      "sha256": "d080f1989d397710d9cad8518c11ea7c03ab41653ccd65bb85a63cc70bfd547d"
+    },
+    {
+      "bytes": 2749,
+      "path": "release/et-v0.9.5/out/demos/plate/assets/index-teWDdqn7.css",
+      "served": false,
+      "sha256": "0fdcbc6ca86e19628f75af9c9b650a63c399927c15da2454847e35bd4c77013f"
+    },
+    {
+      "bytes": 1301,
+      "path": "release/et-v0.9.5/out/demos/plate/assets/rolldown-runtime-BCiCTKAo.js",
+      "served": false,
+      "sha256": "f85e715d54a11fa37b7774ad77b536896ed01bfdfc98f485b678c81859fc8e2e"
+    },
+    {
+      "bytes": 2704826,
+      "path": "release/et-v0.9.5/out/demos/plate/assets/vendor-C_zbc_oR.js",
+      "served": false,
+      "sha256": "860a5d21c028dcab1d6ad3a07f8e7a3b26ac6f8a377c3269b0d12b13cffeeabd"
+    },
+    {
+      "bytes": 42164,
+      "path": "release/et-v0.9.5/out/demos/plate/assets/vendor-css-DCc90vyN.js",
+      "served": false,
+      "sha256": "9fb0cafa67c36a37edff9128b0f66a04c214c5945ec2166eaeea9bcb0a023e68"
+    },
+    {
+      "bytes": 162312,
+      "path": "release/et-v0.9.5/out/demos/plate/assets/vendor-highlight-DEm4tK6X.js",
+      "served": false,
+      "sha256": "d2152d8e1835f3ef55c6a13cd4918c91537bbc2bcd149dd1630474d88f82a1cd"
+    },
+    {
+      "bytes": 259138,
+      "path": "release/et-v0.9.5/out/demos/plate/assets/vendor-katex-vYDvafyF.js",
+      "served": false,
+      "sha256": "bf65a24b4fe75a85991a7ce01c1ea7e0a20b5d3d01678f51910188ca992d763a"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.9.5/out/demos/plate/document.docx",
+      "served": false,
+      "sha256": "516bc18867f6a156fb5c55c8b02f4de600ceafa065970022b623f765533fe03e"
+    },
+    {
+      "bytes": 1175,
+      "path": "release/et-v0.9.5/out/demos/plate/index.html",
+      "served": false,
+      "sha256": "ef84c2a563f7d70f96296fd6dd28b9900326e374d14bcd25a697432331e83ec3"
+    },
+    {
+      "bytes": 311,
+      "path": "release/et-v0.9.5/out/demos/superdoc/SOURCE.txt",
+      "served": false,
+      "sha256": "efcad9e5ac911d9ce70b417b1f9aac7d5da676f4c752b25cecfd9ed34c5434ae"
+    },
+    {
+      "bytes": 142748,
+      "path": "release/et-v0.9.5/out/demos/superdoc/assets/index-7aDBfDzi.css",
+      "served": false,
+      "sha256": "c09ce1d553d440f53b8847054a002f3ea1215942a8971fbfedbcc9703cd2531e"
+    },
+    {
+      "bytes": 1468832,
+      "path": "release/et-v0.9.5/out/demos/superdoc/assets/index-gbIl1kf9.js",
+      "served": false,
+      "sha256": "087ac914678f6df830695a50fe74e52992f1c2ce2a8fa9a872c9833ddf569a94"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.9.5/out/demos/superdoc/document.docx",
+      "served": false,
+      "sha256": "516bc18867f6a156fb5c55c8b02f4de600ceafa065970022b623f765533fe03e"
+    },
+    {
+      "bytes": 341,
+      "path": "release/et-v0.9.5/out/demos/superdoc/favicon.svg",
+      "served": false,
+      "sha256": "0a8067adddfdca3380a6fd7d42ea0e363b9790323eb41c00b6817c987399e0d0"
+    },
+    {
+      "bytes": 1555,
+      "path": "release/et-v0.9.5/out/demos/superdoc/index.html",
+      "served": false,
+      "sha256": "5acc2266b52658e8fb5ffc38db9a79452ed29643f6149bef2da01405383daae2"
+    },
+    {
+      "bytes": 320,
+      "path": "release/et-v0.9.5/out/demos/wordcraft/SOURCE.txt",
+      "served": false,
+      "sha256": "bce2626cea8fca419e66ab54170bc91f6d44eebf78dad107bd8db5f3b9c2c242"
+    },
+    {
+      "bytes": 23984,
+      "path": "release/et-v0.9.5/out/demos/wordcraft/document.docx",
+      "served": false,
+      "sha256": "516bc18867f6a156fb5c55c8b02f4de600ceafa065970022b623f765533fe03e"
+    },
+    {
+      "bytes": 3769,
+      "path": "release/et-v0.9.5/out/demos/wordcraft/index.html",
+      "served": false,
+      "sha256": "8c3f1ffffc87a4236aefe642f9d3ae0fb9f0acb61c580af30eb3c18b8c162f3a"
+    },
+    {
+      "bytes": 280,
+      "path": "release/et-v0.9.5/out/demos/wordcraft/snippets/eframe-d31a8450ea12dfc1/inline0.js",
+      "served": false,
+      "sha256": "22a98f9d0c5a0532d291bdc9a3050439420b3d11143b4568fcfd3c66fff36995"
+    },
+    {
+      "bytes": 18378,
+      "path": "release/et-v0.9.5/out/demos/wordcraft/wordcraft-fa59e09a3f921e03.ico",
+      "served": false,
+      "sha256": "53a23dcf66260f44d87d4d143d633395f3e967f391eda47e6e9cc3a52f820225"
+    },
+    {
+      "bytes": 97609,
+      "path": "release/et-v0.9.5/out/demos/wordcraft/wordcraft-web-6f42a29f786a876a.js",
+      "served": false,
+      "sha256": "d8cec7749058435c28a54a43be272ce91079053863808207478a83862d7b6ff3"
+    },
+    {
+      "bytes": 23802643,
+      "path": "release/et-v0.9.5/out/demos/wordcraft/wordcraft-web-ecfcf05b3e39b4b5_bg.wasm",
+      "served": false,
+      "sha256": "565ddda76ae529172d295086d876366b7d88348fac23066e504d02f4d763b2b9"
+    },
+    {
+      "bytes": 91776,
+      "path": "release/et-v0.9.5/out/facts.json",
+      "served": false,
+      "sha256": "d88ad5052035df29a6d8654f435434c9db55c89d3c6179e39c657638cc061ef6"
+    },
+    {
+      "bytes": 47,
+      "path": "release/et-v0.9.5/out/release.json",
+      "served": false,
+      "sha256": "c9de214fc9a474c16fe065f657a1e82050761f0ede9fb999c6e8ba3703063592"
+    },
+    {
+      "bytes": 68163,
+      "path": "release/et-v0.9.5/reports/Report A - Serialization by Namespace (2026).docx",
+      "served": false,
+      "sha256": "747570885882414096f60949fb5d171417481aae5772bb4af0f49f66e5ff8d62"
+    },
+    {
+      "bytes": 100172,
+      "path": "release/et-v0.9.5/reports/Report A - Serialization by Namespace (2026).md",
+      "served": false,
+      "sha256": "63ebaebe4ab18e0e1ead725a0536f8ccc7a77ec73f0917f8df41f3af7c368edc"
+    },
+    {
+      "bytes": 41289,
+      "path": "release/et-v0.9.5/reports/Report A2 - Pass-Through (2026).docx",
+      "served": false,
+      "sha256": "3e0edd9e1c35fc8d5f5d59352f3ae9edf941ca39a2cff0c3d0c3bae6e5536975"
+    },
+    {
+      "bytes": 51531,
+      "path": "release/et-v0.9.5/reports/Report A2 - Pass-Through (2026).md",
+      "served": false,
+      "sha256": "419d1488eaf7edb11b78293d7bc544d608f7d91aa3f0b28595d7cca32298856c"
+    },
+    {
+      "bytes": 40475,
+      "path": "release/et-v0.9.5/reports/Report B - Malformed Parts, Causes and Repair (2026).docx",
+      "served": false,
+      "sha256": "a81a9949857a4dd15abe642b659d60a567870f6d70414b3ee911b0737c36974c"
+    },
+    {
+      "bytes": 51195,
+      "path": "release/et-v0.9.5/reports/Report B - Malformed Parts, Causes and Repair (2026).md",
+      "served": false,
+      "sha256": "824c4e66f2606ddc2136e16491c1c31ace4ebad03c86e6262a86247de92a2e7a"
+    },
+    {
+      "bytes": 2577058,
+      "path": "release/et-v0.9.5/reports/Report C - Rendering Versus Word (2026).docx",
+      "served": false,
+      "sha256": "04e8064b59ed53c5ccef9ca5599b387696b820ff15ee4b190cf1fab87321dcdf"
+    },
+    {
+      "bytes": 102720,
+      "path": "release/et-v0.9.5/reports/Report C - Rendering Versus Word (2026).md",
+      "served": false,
+      "sha256": "d93b2dcb3ce0e3d1dde1325391977e25fbc77f687701f946fff0593f39b8467a"
+    },
+    {
+      "bytes": 29514,
+      "path": "release/et-v0.9.5/reports/Report D - Safety, Resource Bombs and Hostile Input (2026).docx",
+      "served": false,
+      "sha256": "2814565afd0fd95e37bc5b7ad3c30a4c3d15c1ac5c646ae7f02b3c7a392bc9ea"
+    },
+    {
+      "bytes": 61047,
+      "path": "release/et-v0.9.5/reports/Report D - Safety, Resource Bombs and Hostile Input (2026).md",
+      "served": false,
+      "sha256": "2405c04b62ca9dfcff7232de863cbb7d132780108cb158a0cc825fe5422e2c11"
+    },
+    {
+      "bytes": 16223,
+      "path": "release/et-v0.9.5/reports/Report D1 - Jubarte on the Hostile Packages (2026).docx",
+      "served": false,
+      "sha256": "e365d4b6a63494349f5e233b0737a7882d10e4e53b4af667ff010348e576c395"
+    },
+    {
+      "bytes": 11905,
+      "path": "release/et-v0.9.5/reports/Report D1 - Jubarte on the Hostile Packages (2026).md",
+      "served": false,
+      "sha256": "4284eb493f83550120b19b3a6bae3539141235755db8f57c6194ccd43257dcc7"
+    },
+    {
+      "bytes": 16681,
+      "path": "release/et-v0.9.5/reports/Report D2 - What Word Protects Against (2026).docx",
+      "served": false,
+      "sha256": "d5794da098a68ab52fdf4ddde048b60f49f8093d8b63319c917d10e240eb3e77"
+    },
+    {
+      "bytes": 8649,
+      "path": "release/et-v0.9.5/reports/Report D2 - What Word Protects Against (2026).md",
+      "served": false,
+      "sha256": "568f5f9a7d983c9b7abf77bebc683b2678fb46b5323b63ae6769559fd31f95a1"
+    },
+    {
+      "bytes": 1181,
+      "path": "release/et-v0.9.5/reports/rendering-openability.md",
+      "served": false,
+      "sha256": "7b913b429f246d2d03e667c7347a9f7131a9fa5132b01971c3c11ab3f6d299f7"
+    },
+    {
+      "bytes": 8781,
+      "path": "release/et-v0.9.5/reports/vendors.md",
+      "served": false,
+      "sha256": "7a4fce05887b6fe2ed90c28c103f12f5e001537e67f0e06ad3545e2c056d328d"
+    }
+  ],
+  "hf": {
+    "repo": "arthrod/editors_trial-artifacts",
+    "revision": "876bf7831061a5bfcaa2397f1681c4e366726343"
+  },
+  "producer": "editors_trial",
+  "r2_prefix": "et-v0.9.5/",
+  "tag": "et-v0.9.5",
+  "viewer_version": null
+}
