@@ -1,9 +1,12 @@
+_FAILURES = ["failed", "not_run", "unverified", "unsupported", "not_applicable"]
+
+
 def scenarios():
-    return [
+    rows = [
         {'id': 'C01', 'title': 'cold/warm startup', 'layer': 'browser_visible', 'boundary': 'first_usable', 'repetition_unit': 'fresh_process', 'cache_states': ['process_cold_fs_warm', 'os_cache_cold', 'warm_steady'], 'evidence': 'presented_frame', 'run_kind': 'timing', 'correctness': [], 'marks': ['process_spawn', 'presented_frame', 'input_ready', 'deferred_quiescence'], 'host_class': 'dedicated', 'min_execution_profile': 'ci_broad'},
         {'id': 'C02', 'title': 'document loading/model construction', 'layer': 'model', 'boundary': 'model_ready', 'repetition_unit': 'fresh_process', 'cache_states': ['process_cold_fs_warm', 'warm_steady'], 'evidence': 'model_ready', 'run_kind': 'timing', 'correctness': ['I01'], 'host_class': 'dedicated', 'min_execution_profile': 'ci_contract'},
         {'id': 'C03', 'title': 'first visible content/first usable state', 'layer': 'browser_visible', 'boundary': 'first_usable', 'repetition_unit': 'fresh_process', 'cache_states': ['process_cold_fs_warm'], 'evidence': 'document_text_pixel', 'run_kind': 'timing', 'correctness': [], 'marks': ['document_text_visible', 'first_usable'], 'host_class': 'dedicated', 'min_execution_profile': 'ci_broad'},
-        {'id': 'C04', 'title': 'deferred work', 'layer': 'model', 'boundary': 'deferred_quiescence', 'repetition_unit': 'fresh_process', 'cache_states': ['process_cold_fs_warm'], 'evidence': 'quiescence_or_timeout', 'run_kind': 'timing', 'correctness': [], 'host_class': 'dedicated', 'min_execution_profile': 'ci_contract'},
+        {'id': 'C04', 'title': 'deferred work', 'layer': 'model', 'boundary': 'deferred_quiescence', 'repetition_unit': 'fresh_process', 'cache_states': ['process_cold_fs_warm'], 'evidence': 'quiescence_or_timeout', 'run_kind': 'timing', 'correctness': ['I12'], 'host_class': 'dedicated', 'min_execution_profile': 'ci_contract'},
         {'id': 'C05', 'title': 'single-edit responsiveness', 'layer': 'browser_visible', 'boundary': 'presented_frame', 'repetition_unit': 'fresh_process', 'cache_states': ['warm_steady'], 'evidence': 'presented_frame', 'run_kind': 'timing', 'correctness': ['I01', 'I02', 'I03', 'I04'], 'host_class': 'dedicated', 'min_execution_profile': 'ci_broad'},
         {'id': 'C06', 'title': 'sustained typing/bursts', 'layer': 'browser_visible', 'boundary': 'input_to_next_paint', 'repetition_unit': 'fresh_process', 'cache_states': ['warm_steady'], 'evidence': 'presented_frame', 'run_kind': 'timing', 'correctness': ['I01', 'I02', 'I03', 'I04'], 'host_class': 'dedicated', 'min_execution_profile': 'ci_broad'},
         {'id': 'C07', 'title': 'cursor/selection/hit testing', 'layer': 'browser_visible', 'boundary': 'input_to_next_paint', 'repetition_unit': 'fresh_process', 'cache_states': ['warm_steady'], 'evidence': 'presented_frame', 'run_kind': 'timing', 'correctness': ['I01', 'I02', 'I03'], 'host_class': 'dedicated', 'min_execution_profile': 'ci_broad'},
@@ -25,3 +28,6 @@ def scenarios():
         {'id': 'C23', 'title': 'collaboration', 'layer': 'browser_visible', 'boundary': 'input_to_next_paint', 'repetition_unit': 'fresh_process', 'cache_states': ['warm_steady'], 'evidence': 'presented_frame', 'run_kind': 'timing', 'correctness': ['I04'], 'host_class': 'dedicated', 'min_execution_profile': 'ci_broad'},
         {'id': 'C24', 'title': 'Rust/TS/WASM overhead', 'layer': 'wasm_boundary', 'boundary': 'wasm_call', 'repetition_unit': 'in_process_iteration', 'cache_states': ['warm_steady'], 'evidence': 'wasm_call', 'run_kind': 'timing', 'correctness': [], 'operations': ['compile_and_instantiate', 'empty_call', 'scalar_call', 'string_conversion', 'typed_array_transfer', 'batched_call', 'memory_grow'], 'operations_required': False, 'host_class': 'dedicated', 'min_execution_profile': 'ci_contract'},
     ]
+    for row in rows:
+        row["failure_outcomes"] = list(_FAILURES)
+    return rows
