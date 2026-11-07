@@ -109,7 +109,7 @@ export async function c07_caret(page, editSelector) {
   await page.locator(editSelector).first().click({ timeout: 30_000 });
   await page.keyboard.press('ArrowRight');
   const paint = await nextPaintMs(page);
-  return { samples_ms: [Date.now() - t0, paint] };
+  return { samples_ms: [Date.now() - t0, paint], selector: editSelector };
 }
 
 export async function c08_paste(page, editSelector) {
@@ -120,7 +120,7 @@ export async function c08_paste(page, editSelector) {
   await page.keyboard.press('KeyV');
   await page.keyboard.up('Control');
   const paint = await nextPaintMs(page);
-  return { samples_ms: [Date.now() - t0, paint] };
+  return { samples_ms: [Date.now() - t0, paint], selector: editSelector };
 }
 
 export async function c09_undo(page, editSelector) {
@@ -131,7 +131,7 @@ export async function c09_undo(page, editSelector) {
   await page.keyboard.press('KeyZ');
   await page.keyboard.up('Control');
   const paint = await nextPaintMs(page);
-  return { samples_ms: [Date.now() - t0, paint] };
+  return { samples_ms: [Date.now() - t0, paint], selector: editSelector };
 }
 
 export async function c12_insert(page, editSelector) {
@@ -147,9 +147,15 @@ export async function c22_profile(opt) {
   const url = `${base}?feature_profile=P1`;
   const next = { ...opt, url };
   const { browser, page } = await loadEditorSession(next);
+  const t0 = Date.now();
   const ok = await page.evaluate(() => document.location.search.includes('P1'));
+  const paint = await nextPaintMs(page);
   await browser.close();
-  return { outcome: ok ? 'measured' : 'not_applicable', samples_ms: ok ? [1.0] : [], reason: ok ? null : 'capability collaboration/profile' };
+  const selector = 'location.search feature_profile=P1';
+  if (!ok) {
+    return { outcome: 'not_applicable', samples_ms: [], reason: 'capability collaboration/profile', selector };
+  }
+  return { outcome: 'measured', samples_ms: [Date.now() - t0, paint], selector };
 }
 
 export async function c23_collab() {
@@ -175,19 +181,38 @@ async function main() {
     console.error('unknown criterion', criterion);
     process.exit(2);
   }
-  if (criterion === 'c22' || criterion === 'c23') {
+  if (criterion === 'c23') {
     const result = await fn(opt);
     process.stdout.write(JSON.stringify({ criterion, ...result, pairs: 1 }));
     return;
   }
+  if (criterion === 'c22') {
+    const samples = [];
+    let selector = 'location.search feature_profile=P1';
+    for (let i = 0; i < pairs; i++) {
+      const row = await fn(opt);
+      selector = row.selector || selector;
+      if (row.outcome === 'not_applicable') {
+        process.stdout.write(JSON.stringify({ criterion, ...row, pairs: i + 1 }));
+        return;
+      }
+      samples.push(...row.samples_ms);
+    }
+    process.stdout.write(JSON.stringify({ criterion, outcome: 'measured', samples_ms: samples, pairs, selector }));
+    return;
+  }
   const samples = [];
+  let selector = editSelector;
   for (let i = 0; i < pairs; i++) {
     const { browser, page } = await loadEditorSession(opt);
     const row = await fn(page, editSelector);
     samples.push(...row.samples_ms);
+    selector = row.selector || editSelector;
     await browser.close();
   }
-  process.stdout.write(JSON.stringify({ criterion, outcome: 'measured', samples_ms: samples, pairs }));
+  process.stdout.write(
+    JSON.stringify({ criterion, outcome: 'measured', samples_ms: samples, pairs, selector }),
+  );
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {

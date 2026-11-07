@@ -137,11 +137,59 @@ def _mjs_base_args(target: dict, corpus: Path) -> list[str]:
     return args
 
 
+PLATE_CRITERIA = ("C07", "C08", "C09", "C22", "C23")
+CANVAS_CRITERIA = ("C07", "C08", "C09", "C10")
+
+CRITERION_MJS = {
+    "C07": "c07",
+    "C08": "c08",
+    "C09": "c09",
+    "C10": "c10",
+    "C12": "c12",
+    "C22": "c22",
+    "C23": "c23",
+}
+
+
+def _criteria_for_editor(editor_id: str, requested: list[str] | None) -> list[str]:
+    if editor_id == "plate":
+        base = list(PLATE_CRITERIA)
+    elif editor_id == "canvas":
+        base = list(CANVAS_CRITERIA)
+    else:
+        base = ["C07", "C08", "C09", "C10", "C12", "C22", "C23"]
+    if requested:
+        allow = set(requested)
+        base = [c for c in base if c in allow]
+    return base
+
+
+def _browser_criteria_summary(rows: list[dict]) -> list[dict]:
+    from perf.analysis.summarize import percentile  # noqa: E402
+
+    out = []
+    for row in rows:
+        samples = row.get("samples_ms") or []
+        median = percentile(samples, 50) if samples else None
+        out.append(
+            {
+                "criterion": row["criterion_id"],
+                "editor": row["editor_id"],
+                "samples_ms": samples,
+                "median": median,
+                "selector": row.get("selector"),
+                "outcome": row["outcome"],
+            }
+        )
+    return out
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out-root", type=Path, required=True)
     parser.add_argument("--pairs", type=int, default=3)
     parser.add_argument("--editors", nargs="*", default=None)
+    parser.add_argument("--criteria", nargs="*", default=None, help="subset e.g. C07 C08")
     parser.add_argument("--execution-profile", default="ci_broad")
     parser.add_argument("--host-class", default="ci_coarse")
     args = parser.parse_args()
@@ -158,8 +206,9 @@ def main() -> int:
     if not corpus.is_file():
         corpus.write_bytes(docx_body)
 
-    editors = args.editors or list(BROWSER_TARGETS.keys())
+    editors = args.editors or ["plate", "canvas"]
     rows: list[dict] = []
+    summary_rows: list[dict] = []
 
     for editor_id in editors:
         target = BROWSER_TARGETS.get(editor_id)
@@ -171,24 +220,19 @@ def main() -> int:
         proc = _start_server(editor_id, target)
         base = _mjs_base_args(target, corpus)
         try:
-            for cid, mjs_criterion in (
-                ("C07", "c07"),
-                ("C08", "c08"),
-                ("C09", "c09"),
-                ("C10", "c10"),
-                ("C12", "c12"),
-                ("C22", "c22"),
-                ("C23", "c23"),
-            ):
+            for cid in _criteria_for_editor(editor_id, args.criteria):
+                mjs_criterion = CRITERION_MJS[cid]
                 boundary = "input_to_next_paint"
                 layer = "browser_visible"
+                selector = target.get("edit_selector", '[contenteditable="true"]')
                 try:
-                    if editor_id == "canvas" and cid in ("C07", "C10"):
+                    if editor_id == "canvas" and cid in CANVAS_CRITERIA:
                         payload = _run_mjs(
                             CANVAS,
                             base
-                            + ["--criterion", cid.lower(), "--pairs", str(args.pairs)],
+                            + ["--criterion", cid.lower(), "--pairs", str(max(3, args.pairs))],
                         )
+                        selector = payload.get("selector") or selector
                     elif cid == "C10":
                         node = shutil.which("node") or "node"
                         scroll = subprocess.run(
@@ -212,7 +256,7 @@ def main() -> int:
                         payload = _run_mjs(
                             INTERACTIONS,
                             base
-                            + ["--criterion", mjs_criterion, "--pairs", str(args.pairs)],
+                            + ["--criterion", mjs_criterion, "--pairs", str(max(3, args.pairs))],
                         )
                     if payload.get("outcome") == "not_applicable":
                         path = _write_not_run(
@@ -225,9 +269,20 @@ def main() -> int:
                             env,
                             payload.get("reason") or "not_applicable",
                         )
-                        rows.append({"criterion_id": cid, "editor_id": editor_id, "outcome": "not_applicable"})
+                        entry = {
+                            "criterion_id": cid,
+                            "editor_id": editor_id,
+                            "outcome": "not_applicable",
+                            "samples_ms": [],
+                            "selector": payload.get("selector") or selector,
+                        }
+                        rows.append(entry)
+                        summary_rows.append(entry)
                     elif payload.get("outcome") == "measured" or payload.get("samples_ms"):
-                        samples = [float(x) for x in payload["samples_ms"][: args.pairs * 2]]
+                        selector = payload.get("selector") or selector
+                        samples = [float(x) for x in payload["samples_ms"]]
+                        if len(samples) < 3:
+                            raise RuntimeError("fewer than 3 samples: %s" % samples)
                         path = _write_measured(
                             attempt_dir,
                             cid,
@@ -237,16 +292,20 @@ def main() -> int:
                             lane,
                             env,
                             samples,
-                            diagnostic={"suite": "browser_interactions"},
+                            diagnostic={"suite": "browser_interactions", "selector": selector},
                         )
-                        rows.append(
-                            {
-                                "criterion_id": cid,
-                                "editor_id": editor_id,
-                                "outcome": "measured",
-                                "attempt_file": str(path.relative_to(REPO)),
-                            }
-                        )
+                        entry = {
+                            "criterion_id": cid,
+                            "editor_id": editor_id,
+                            "outcome": "measured",
+                            "samples_ms": samples,
+                            "selector": selector,
+                            "attempt_file": str(path.resolve().relative_to(REPO.resolve())),
+                        }
+                        rows.append(entry)
+                        summary_rows.append(entry)
+                    else:
+                        raise RuntimeError("unexpected payload: %s" % payload)
                 except Exception as exc:
                     path = _write_not_run(
                         attempt_dir,
@@ -257,16 +316,19 @@ def main() -> int:
                         lane,
                         env,
                         "browser_probe: %s" % exc,
+                        diagnostic={"suite": "browser_interactions", "selector": selector},
                     )
-                    rows.append(
-                        {
-                            "criterion_id": cid,
-                            "editor_id": editor_id,
-                            "outcome": "failed",
-                            "failure_reason": str(exc),
-                            "attempt_file": str(path.relative_to(REPO)),
-                        }
-                    )
+                    entry = {
+                        "criterion_id": cid,
+                        "editor_id": editor_id,
+                        "outcome": "not_run",
+                        "samples_ms": [],
+                        "selector": selector,
+                        "failure_reason": str(exc),
+                        "attempt_file": str(path.resolve().relative_to(REPO.resolve())),
+                    }
+                    rows.append(entry)
+                    summary_rows.append({**entry, "outcome": "not_run"})
         finally:
             _stop_server(proc)
 
@@ -274,7 +336,9 @@ def main() -> int:
         "suite": "browser_interactions",
         "execution_profile": args.execution_profile,
         "host_class": args.host_class,
+        "publishable": False,
         "editors": rows,
+        "criteria": _browser_criteria_summary(summary_rows),
     }
     args.out_root.mkdir(parents=True, exist_ok=True)
     (args.out_root / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")

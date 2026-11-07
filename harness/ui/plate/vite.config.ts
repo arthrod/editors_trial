@@ -1,9 +1,11 @@
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
-const WORKSPACE = '/Users/arthrod/temp/T/editors_trial';
+const here = path.dirname(fileURLToPath(import.meta.url));
+const WORKSPACE = path.resolve(here, '../../..');
 const PLATE_SRC = path.join(WORKSPACE, 'repos/plate/packages/platejs/src');
 const PLITE_SRC = path.join(WORKSPACE, 'repos/plate/packages/plitejs/src');
 

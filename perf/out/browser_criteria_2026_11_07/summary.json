@@ -1,0 +1,265 @@
+{
+  "suite": "browser_interactions",
+  "execution_profile": "ci_broad",
+  "host_class": "ci_coarse",
+  "publishable": false,
+  "editors": [
+    {
+      "criterion_id": "C07",
+      "editor_id": "plate",
+      "outcome": "measured",
+      "samples_ms": [
+        97.0,
+        19.800000000745058,
+        134.0,
+        21.900000002235174,
+        98.0,
+        26.800000000745058
+      ],
+      "selector": "[contenteditable=\"true\"]",
+      "attempt_file": "perf/out/browser_criteria_2026_11_07/attempts/c07-plate-16ce18ff93.json"
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "plate",
+      "outcome": "measured",
+      "samples_ms": [
+        121.0,
+        20.5,
+        149.0,
+        20.0,
+        105.0,
+        27.199999999254942
+      ],
+      "selector": "[contenteditable=\"true\"]",
+      "attempt_file": "perf/out/browser_criteria_2026_11_07/attempts/c08-plate-85a4942578.json"
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "plate",
+      "outcome": "measured",
+      "samples_ms": [
+        37.0,
+        20.5,
+        40.0,
+        24.300000000745058,
+        36.0,
+        20.699999999254942
+      ],
+      "selector": "[contenteditable=\"true\"]",
+      "attempt_file": "perf/out/browser_criteria_2026_11_07/attempts/c09-plate-deb6003885.json"
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "plate",
+      "outcome": "measured",
+      "samples_ms": [
+        61.0,
+        15.5,
+        65.0,
+        31.699999999254942,
+        44.0,
+        1.5
+      ],
+      "selector": "location.search feature_profile=P1",
+      "attempt_file": "perf/out/browser_criteria_2026_11_07/attempts/c22-plate-f618362cb6.json"
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "plate",
+      "outcome": "not_applicable",
+      "samples_ms": [],
+      "selector": "[contenteditable=\"true\"]"
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "canvas",
+      "outcome": "measured",
+      "samples_ms": [
+        60.0,
+        23.5,
+        65.0,
+        24.099999997764826,
+        60.0,
+        25.399999998509884
+      ],
+      "selector": "#editor canvas",
+      "attempt_file": "perf/out/browser_criteria_2026_11_07/attempts/c07-canvas-c535a92a90.json"
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "canvas",
+      "outcome": "measured",
+      "samples_ms": [
+        54.0,
+        23.400000002235174,
+        59.0,
+        25.0,
+        63.0,
+        24.5
+      ],
+      "selector": "#editor canvas",
+      "attempt_file": "perf/out/browser_criteria_2026_11_07/attempts/c08-canvas-73d5382645.json"
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "canvas",
+      "outcome": "measured",
+      "samples_ms": [
+        29.0,
+        23.5,
+        21.0,
+        19.200000002980232,
+        20.0,
+        17.600000001490116
+      ],
+      "selector": "#editor canvas",
+      "attempt_file": "perf/out/browser_criteria_2026_11_07/attempts/c09-canvas-7424575a97.json"
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "canvas",
+      "outcome": "measured",
+      "samples_ms": [
+        81.0,
+        32.100000001490116,
+        74.0,
+        32.100000001490116,
+        75.0,
+        32.69999999925494
+      ],
+      "selector": "#editor",
+      "attempt_file": "perf/out/browser_criteria_2026_11_07/attempts/c10-canvas-cd04443b21.json"
+    }
+  ],
+  "criteria": [
+    {
+      "criterion": "C07",
+      "editor": "plate",
+      "samples_ms": [
+        97.0,
+        19.800000000745058,
+        134.0,
+        21.900000002235174,
+        98.0,
+        26.800000000745058
+      ],
+      "median": 61.90000000037253,
+      "selector": "[contenteditable=\"true\"]",
+      "outcome": "measured"
+    },
+    {
+      "criterion": "C08",
+      "editor": "plate",
+      "samples_ms": [
+        121.0,
+        20.5,
+        149.0,
+        20.0,
+        105.0,
+        27.199999999254942
+      ],
+      "median": 66.09999999962747,
+      "selector": "[contenteditable=\"true\"]",
+      "outcome": "measured"
+    },
+    {
+      "criterion": "C09",
+      "editor": "plate",
+      "samples_ms": [
+        37.0,
+        20.5,
+        40.0,
+        24.300000000745058,
+        36.0,
+        20.699999999254942
+      ],
+      "median": 30.15000000037253,
+      "selector": "[contenteditable=\"true\"]",
+      "outcome": "measured"
+    },
+    {
+      "criterion": "C22",
+      "editor": "plate",
+      "samples_ms": [
+        61.0,
+        15.5,
+        65.0,
+        31.699999999254942,
+        44.0,
+        1.5
+      ],
+      "median": 37.84999999962747,
+      "selector": "location.search feature_profile=P1",
+      "outcome": "measured"
+    },
+    {
+      "criterion": "C23",
+      "editor": "plate",
+      "samples_ms": [],
+      "median": null,
+      "selector": "[contenteditable=\"true\"]",
+      "outcome": "not_applicable"
+    },
+    {
+      "criterion": "C07",
+      "editor": "canvas",
+      "samples_ms": [
+        60.0,
+        23.5,
+        65.0,
+        24.099999997764826,
+        60.0,
+        25.399999998509884
+      ],
+      "median": 42.69999999925494,
+      "selector": "#editor canvas",
+      "outcome": "measured"
+    },
+    {
+      "criterion": "C08",
+      "editor": "canvas",
+      "samples_ms": [
+        54.0,
+        23.400000002235174,
+        59.0,
+        25.0,
+        63.0,
+        24.5
+      ],
+      "median": 39.5,
+      "selector": "#editor canvas",
+      "outcome": "measured"
+    },
+    {
+      "criterion": "C09",
+      "editor": "canvas",
+      "samples_ms": [
+        29.0,
+        23.5,
+        21.0,
+        19.200000002980232,
+        20.0,
+        17.600000001490116
+      ],
+      "median": 20.5,
+      "selector": "#editor canvas",
+      "outcome": "measured"
+    },
+    {
+      "criterion": "C10",
+      "editor": "canvas",
+      "samples_ms": [
+        81.0,
+        32.100000001490116,
+        74.0,
+        32.100000001490116,
+        75.0,
+        32.69999999925494
+      ],
+      "median": 53.34999999962747,
+      "selector": "#editor",
+      "outcome": "measured"
+    }
+  ]
+}
