@@ -1,6 +1,6 @@
 # Editors trial
 
-This repo measures open-source DOCX editors on one adversarial fixture, then, separately, on a sandboxed set of hostile packages. Fidelity and safety are different results. A tool that keeps a hostile payload is not the same result as a tool that crashes.
+This repo measures open-source DOCX editors on one adversarial fixture, then, separately, on a sandboxed set of hostile packages. Fidelity and safety are different results. A tool that keeps a hostile payload is not the same result as a tool that crashes. A third tree, `perf/`, measures performance under explicit layers and cache states; see [Performance](#performance).
 
 The measured write-up is [Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md](Open-Source%20DOCX%20Editors%20Re-verified%20Against%20Code%20and%20Measured%20Round-Trip%20(2026).md). The per-tool notes are in `reports/extras/`. The vendor notes are `reports/vendors.md`.
 
@@ -8,9 +8,37 @@ Each per-tool note has also been filed as an issue on that project's own reposit
 
 ## Fidelity
 
-`fixture/complex.docx` is the corpus. `build/run_all.sh` runs each editor's own import and export. `build/score_all.py` scores the files under `out/`. One file is `python3 build/check_roundtrip.py IN OUT`.
+`fixture/complex.docx` is the corpus. `build/make_fixture.py` writes it as raw OOXML with hand-checked element order, choosing every construct because at least one surveyed editor is documented to lose it: tracked changes and moves, tables with `vMerge`/`gridSpan`, fields, content controls, charts, SmartArt, OLE, comments, headers/footers, multi-section layout, bidi/RTL, math, alternate content and `altChunk`, bookmarks, footnotes/endnotes, permissions, and the namespace prefixes Word itself declares (`wp14`, `w16du`, ...).
 
 The editors are Plate, eigenpal (store and editor), Folio (model and editor), GenOffice, SuperDoc, office-open, Docen, Fidus Writer, WordCraft, canvas-editor, docs.plus, Docxodus, and Apryse WebViewer (closed source, run in a real browser with a trial key from `.env`, which is never committed). Headless lanes are not the browser. LibreOffice is the baseline and counts as a participant.
+
+### Pipeline
+
+`build/run_trial.sh` runs the whole fidelity measurement and then generates the reports from it:
+
+1. `build/run_all.sh` — first pass: each editor's own import and export (`harness/`), plus LibreOffice headless as the baseline. Outputs land in `out/<lane>/complex.docx`.
+2. `build/run_second_pass.sh` — second pass: each editor is fed its own first-pass output, and the scorer judges how much of what the editor wrote survives a second cycle (a fixed-point check).
+3. `build/score_all.py` and `build/score_extra.py` — `build/check_roundtrip.py` scores every output: ZIP/CRC package integrity, `word/document.xml` well-formedness, the visible text stream, and weighted feature checks (critical/major/minor). The result is a weighted percentage, a critical-feature percentage, a text-retention percentage, and per-check JSON in `out/<lane>/score.json`.
+4. `build/apryse_stamp.py` labels what Apryse's trial stamp added (it never edits the output); `build/ns_json.py` builds Report A's namespace tables.
+5. `build/facts.py` reads the score artifacts into `out/facts.json`; `build/render_reports.py` renders every report from `templates/` and rebuilds the DOCX twin of each report it renders (`build/make_report.sh`, pandoc).
+
+One file by hand: `python3 build/check_roundtrip.py IN OUT`.
+
+### What you need
+
+- The `repos/` checkouts with their dependencies installed (gitignored; installing dependencies is allowed, modifying them is not) and the same toolchains as the headless perf lanes: `bun`, `node`, each repo's `tsx`/`vitest` binaries, `cargo` for `harness/wordcraft`, `soffice` for LibreOffice, and a `timeout` command (GNU coreutils) for the LibreOffice lanes.
+- A trial key in `.env` for the Apryse lane (never committed).
+- `pandoc` for the DOCX report twins.
+- Microsoft Word only for the separate Word steps (`build/word_verdicts.py`, Report C's Word renders), never shared with another Word job; `build/run_trial.sh` itself does not open Word.
+
+### Run it
+
+```sh
+python3 build/make_fixture.py     # only to (re)build fixture/complex.docx
+build/run_trial.sh                # round trips, second pass, scores, facts, reports
+```
+
+The scripts hardcode `BASE=/Users/arthrod/temp/T/editors_trial` (`run_trial.sh`, `run_all.sh`, `run_second_pass.sh`, `score_all.py`, `score_extra.py`); adjust it for another checkout.
 
 ## Hostile packages
 
@@ -34,6 +62,58 @@ The sandboxed matrix is `logs/bombs`. [Report D](reports/Report%20D%20-%20Safety
 Jubarte is not in that matrix. The same packages, read by the release binary of `../jubarte-redlines` at version 0.14.0, are `logs/jubarte-bombs` and [Report D1](reports/Report%20D1%20-%20Jubarte%20on%20the%20Hostile%20Packages%20(2026).md). The skill copy of the binary was not used. `jubarte read` writes a markdown view, not a second package.
 
 Word is not opened. No NTLM hash is collected. A slip onto the host temp directory is denied by the seatbelt, so the only slip that can be observed is one that lands inside the work directory, or file contents that come back in the saved package.
+
+## Performance
+
+`perf/` is the performance harness. Its scenario catalog spans four layers — `native`, `model`, `browser_visible`, and `wasm_boundary` — and keeps them separate: a model-ready time is not a first-paint time, and a `requestAnimationFrame` callback is not a presented frame. It is a harness, not a report; no performance figures appear in the published reports. The full reference is [`perf/README.md`](perf/README.md).
+
+- **Scenarios.** `perf/scenarios/catalog.py` defines C01–C24: startup, document load, first usable content, deferred work, edit responsiveness, typing bursts, cursor and hit testing, clipboard, undo, scrolling, layout, reflow, invalidation, large documents, search, save, memory, allocation, disposal, long-session stability, CPU interference, feature overhead, collaboration, and the WASM boundary. `perf/scenarios/coverage.py` checks the catalog against the normative matrix in `docs/superpowers/specs/`.
+- **Workloads.** `perf/fixtures/generate.py` builds deterministic DOCX packages from a size ladder (`micro-paragraphs` through `paginated-equivalent`) plus Unicode, emoji, bidi, and IME correctness fixtures. `perf/fixtures/profiles.py` caps which workloads each execution profile may run and refuses hostile packages as fixtures.
+- **Execution profiles.** `ci_contract` is headless with one fresh process per scenario and micro workloads; `ci_broad` allows five fresh processes and broader workloads but still cannot publish visible latency; `dedicated_publish` is the full ladder on a dedicated host, including `os_cache_cold` and the one-hour soak. The profile is recorded on every trial.
+- **Honesty rules.** `perf/schema.py` validates every trial; only `measured` carries samples. `perf/runner/policy.py` and `perf/analysis/publication_gate.py` decide what may be published: a `ci_coarse` host never publishes a headline distribution, diagnostic runs are not timing publications, and a publishable distribution needs at least two independent samples. The I01–I12 interpretation conditions gate measured trials, and the run summary refuses to mix publishable and blocked medians. `perf/analysis/anti_ranking.py` rejects "N× faster than" prose that does not name the workload, layer, cache state, and host.
+- **Statistics.** `perf/analysis/summarize.py` reports n, median, p90/p95/p99, MAD, a bootstrap 95% CI, and min/max. Cache states and repetition units are never pooled.
+- **Adapters.** `perf/adapters/capabilities.py` records each editor's lanes and which features — pagination, hit testing, collaboration, WASM, typing, visible paint, IME, save, undo — are supported, not applicable, or unverified, with the pin and evidence note. `perf/adapters/protocol.py` turns a capability state into an explicit refusal outcome rather than a zero.
+- **Runners.** `perf/runner/benchmark_ci_contract.py` drives the headless lanes for C02 (model load), C16 (save), and C21 (child CPU), and records the rest as `not_run` or `adapter-not-implemented`. `perf/runner/benchmark_warm_cold.py` drives the `harness/ui` browser hosts for warm-vs-cold C02/C03/C05/C06; its suite summary is diagnostic (`publishable: false`). `perf/runner/adversarial_c10_scroll.py` measures scroll frame time for one editor. Raw trials are immutable JSON under `perf/out/` with a `summary.json` beside them.
+
+### What you need
+
+- Python 3.10+; the harness itself is standard-library only.
+- `out/facts.json`, produced by the release pipeline (`build/facts.py`). Every runner reads editor pins from it and stops if it is missing.
+- The `repos/` checkouts with their dependencies installed (gitignored; installing dependencies is allowed, modifying them is not). Which toolchains a run needs depends on the lane: `bun` and `node` for most headless lanes, each repo's `tsx`/`vitest` binaries, `cargo build --release` for `harness/wordcraft` (`wc-harness`), and `soffice` for the LibreOffice lane. Apryse WebViewer has no headless round-trip harness here and is recorded `not_run`.
+- For the browser lanes: the five `harness/ui` hosts (plate, docxodus, superdoc, genoffice, canvas) with dependencies installed — pnpm for plate/docxodus/canvas, npm for superdoc/genoffice — plus `playwright`/`puppeteer` at `harness/ui`. The runner starts each dev server itself.
+- Publishable visible-latency numbers need a dedicated host and the `dedicated_publish` profile. That profile is defined in the schema but no runner accepts it yet; `ci_contract` and `ci_broad` runs are recorded with `publishable: false`.
+
+### Run it
+
+Headless model/save/CPU lanes — `--dry-run` first, it writes scheduler outcomes without invoking an editor (it still resolves pins, so it needs `facts.json`):
+
+```sh
+PYTHONPATH=. python3 perf/runner/benchmark_ci_contract.py --dry-run
+PYTHONPATH=. python3 perf/runner/benchmark_ci_contract.py --execution-profile ci_contract --workload micro-paragraphs
+PYTHONPATH=. python3 perf/runner/benchmark_ci_contract.py --execution-profile ci_broad --workload short-paragraphs
+```
+
+Browser warm-vs-cold lanes — starts the `harness/ui` dev servers itself:
+
+```sh
+PYTHONPATH=. python3 perf/runner/benchmark_warm_cold.py --pairs 3
+PYTHONPATH=. python3 perf/runner/benchmark_warm_cold.py --pairs 3 --editors plate docxodus
+```
+
+One-off scroll probe:
+
+```sh
+PYTHONPATH=. python3 perf/runner/adversarial_c10_scroll.py --editor plate --out-root perf/out/c10_plate --pairs 3
+```
+
+Tests and coverage gate:
+
+```sh
+python3 -m unittest discover -s perf/tests -q
+python3 -I build/test_perf_plan_coverage.py
+```
+
+Artifacts land under `perf/out/` (gitignored): `attempts/*.json` plus a `summary.json` per run.
 
 ## Logs
 

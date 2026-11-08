@@ -9,6 +9,28 @@ re-running the measurement behind it. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `perf/`: the performance harness (#91). One schema and outcome set for
+  every trial (`measured`, `unsupported`, `not_applicable`, `unverified`,
+  `failed`, `not_run`), a 24-scenario catalog (C01–C24) across the `native`,
+  `model`, `browser_visible`, and `wasm_boundary` layers, deterministic
+  workload fixtures with a size ladder and Unicode/emoji/bidi/IME correctness
+  fixtures, execution profiles (`ci_contract`, `ci_broad`,
+  `dedicated_publish`), per-lane capability records, summary statistics with
+  uncertainty, a publication policy that keeps CI from publishing visible
+  latency, and immutable raw trials under `perf/out/`. Runners today:
+  `benchmark_ci_contract.py` (headless C02 model load, C16 save, C21 child
+  CPU), `benchmark_warm_cold.py` (browser C02/C03/C05/C06 warm-vs-cold on the
+  `harness/ui` hosts), and `adversarial_c10_scroll.py` (C10 scroll). Design
+  and coverage matrix in `docs/superpowers/specs/`; unit tests in
+  `perf/tests/`; documentation in `perf/README.md`.
+- Documentation (#92): the README Fidelity section now describes the
+  round-trip pipeline end to end — fixture, first and second pass, scoring,
+  facts, and report rendering — with what a run needs; `perf/README.md`
+  gained the runner-level details (PERF marks, wall/CPU companion samples,
+  the 600 s harness timeout).
+
 ### Changed
 - `RELEASING.md` §7: publishing the bundle is one command, `bench publish editors_trial et-vX.Y.Z`
   (bench-ops plan 6, editors_trial#74; first used for et-v0.9.4, #75), and the site picks the
