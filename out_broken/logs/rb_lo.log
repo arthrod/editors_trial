@@ -1,4 +1,0 @@
-Fontconfig warning: no <cachedir> elements found. Check configuration.
-Fontconfig warning: adding <cachedir>/usr/local/var/cache/fontconfig</cachedir>
-Fontconfig warning: adding <cachedir prefix="xdg">fontconfig</cachedir>
-convert /Users/arthrod/temp/T/editors_trial/fixture/complex_broken.docx as a Writer document -> /private/tmp/v092/broken2/lo_baseline/complex_broken.docx using filter : Office Open XML Text
