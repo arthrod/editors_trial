@@ -7,7 +7,7 @@
     "serve": "vite --port 5210 --strictPort --host 127.0.0.1"
   },
   "dependencies": {
-    "@docxodus/export": "15.0.0",
+    "@docxodus/export": "15.1.0",
     "docxodus": "15.0.0"
   },
   "devDependencies": {
