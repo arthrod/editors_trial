@@ -8,7 +8,7 @@
     "dev": "vite"
   },
   "dependencies": {
-    "docxodus": "15.0.0"
+    "docxodus": "15.1.0"
   },
   "devDependencies": {
     "typescript": "^7.0.2",
