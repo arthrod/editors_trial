@@ -8,9 +8,10 @@ const TRIAL_ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '../.
 // The real WorkerManager spins up `?worker&inline` web workers, which need a
 // working Blob/Worker/URL.createObjectURL stack that jsdom does not provide.
 // Mirror the repo's own tests/factories/editor.ts mock (path must be a literal
-// because vi.mock is hoisted above const declarations).
+// because vi.mock is hoisted above const declarations; it is relative to this
+// test file so it resolves on any host, not only the CI agent's checkout).
 vi.mock(
-  '/agent/repos/editors_trial/repos/canvas-editor/src/editor/core/worker/WorkerManager.ts',
+  '../../repos/canvas-editor/src/editor/core/worker/WorkerManager.ts',
   () => {
     class MockWorkerManager {
       private draw: any
