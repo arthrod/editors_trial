@@ -83,10 +83,13 @@ const uploadImage = async (data: Buffer, contentType: string): Promise<string> =
 }
 
 // --- 1. import -------------------------------------------------------------
+const t0 = performance.now()
 const importResult = await importDocx(buffer, {
   fallbackTitle: 'Complex Fixture',
   uploadImage
 })
+const t1 = performance.now()
+console.log(`PERF model_ready_ms=${(t1 - t0).toFixed(6)}`)
 const doc = importResult.content
 console.log(`[import] title      = ${JSON.stringify(importResult.title)}`)
 console.log(`[import] warnings   = ${importResult.warnings.length}`)
@@ -99,7 +102,10 @@ await writeFile(resolve(scratch, 'rendered.html'), rendered)
 console.log(`[render] html length = ${rendered.length}`)
 
 // --- 3. export -------------------------------------------------------------
+const tSave0 = performance.now()
 const out = await exportDocx(doc, importResult.title, origin, null)
+const tSave1 = performance.now()
+console.log(`PERF save_ms=${(tSave1 - tSave0).toFixed(6)}`)
 await writeFile(outPath, out)
 console.log(`[export] wrote ${outPath} (${out.length}B)`)
 

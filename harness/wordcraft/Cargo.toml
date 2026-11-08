@@ -6,4 +6,4 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-wordcraft-docx = { path = "/Users/arthrod/temp/T/editors_trial/repos/wordcraft/crates/docx" }
+wordcraft-docx = { path = "../../repos/wordcraft/crates/docx" }

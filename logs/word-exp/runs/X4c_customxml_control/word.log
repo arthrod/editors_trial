@@ -1,9 +1,0 @@
-2026-10-31 21:25:35.408 | INFO     | __main__:warm:1476 - [word] launching Word in the background, running: open -g -a '/Applications/Microsoft Word.app'
-2026-10-31 21:25:37.484 | INFO     | __main__:warm:1483 - [word] Word answered after 2 s; alerts off
-2026-10-31 21:25:37.657 | INFO     | __main__:preflight:3042 - [word] preflight: word_pid=38425 open_documents=0 started_clean=True launched_by_us=True close_documents=True
-2026-10-31 21:25:37.658 | INFO     | __main__:preflight:3081 - [word] preflight: closing every document (health check), running: osascript -e 'tell application "Microsoft Word" to close every document saving no'
-2026-10-31 21:25:37.811 | INFO     | __main__:_run_logged:1646 - [word] preflight: returned rc=0 in 0.2 s, no value came back (AppleScript 'missing value')
-2026-10-31 21:25:37.812 | INFO     | __main__:convert_folder:2696 - [word] export: one_osascript=True documents=1 accept_all=False reject_all=False
-2026-10-31 21:25:37.813 | INFO     | __main__:_convert_batched:2908 - [batch] one osascript for 1 document(s)
-2026-10-31 21:25:38.849 | INFO     | __main__:convert_folder:2715 - [manifest] appended 1 line(s) to <word_exp>/runs/X4c_customxml_control/out/manifest.jsonl
-2026-10-31 21:25:42.178 | INFO     | __main__:stop:1274 - [watchdog] tally: declined=0 dismissed=0 granted=0 forwarded=0 alerts_seen=0

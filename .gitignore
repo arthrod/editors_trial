@@ -2,11 +2,35 @@ NODE_MODULES
 .env
 repos
 NODE_MODULES/
-node_modules/
 __pycache__/
+
+# Rust build output for the WordCraft harness (local `cargo build`).
+harness/wordcraft/target/
 
 # macOS metadata and Microsoft Word owner-lock files.
 # Neither is content: they are written by the desktop apps that open the
 # fixture and the reports, and they are not part of the artifact.
 .DS_Store
 ~$*
+
+node_modules/
+.cache/
+.npm/
+.pnpm-store/
+.yarn/cache/
+.parcel-cache/
+.turbo/
+.next/
+.nuxt/
+.svelte-kit/
+.local-browsers/
+dist/
+out/
+coverage/
+*.log
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+!.env.*.example
+.DS_Store

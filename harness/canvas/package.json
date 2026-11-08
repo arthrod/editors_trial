@@ -2,5 +2,8 @@
   "name": "canvas-docx-roundtrip-harness",
   "private": true,
   "type": "module",
-  "description": "Headless round-trip harness for @hufe921/canvas-editor-plugin-docx against the adversarial complex.docx fixture."
+  "description": "Headless round-trip harness for @hufe921/canvas-editor-plugin-docx against the adversarial complex.docx fixture.",
+  "devDependencies": {
+    "vitest": "^4.1.12"
+  }
 }
