@@ -9,8 +9,45 @@ re-running the measurement behind it. The format follows
 
 ## [Unreleased]
 
+### Measured
+
+- **Report E, speed: opening and saving a document** (#111). The headless
+  speed runner (`perf/runner/speed_headless.py`, runner commit `a7b243d`),
+  `dedicated_publish`, in a Linux container on a Hugging Face sandbox
+  (Amazon EC2 r6a.8xlarge, AMD EPYC 7R13, 32 CPUs), on 2026-11-09:
+  primary run `2471956e80e7` (30 repetitions, seed 20261109, 19:25–20:41
+  UTC) and reproduction run `62769027c2c2` (10 repetitions, seed 20261110,
+  20:41–21:12 UTC). Twelve editors plus LibreOffice's whole conversion, on
+  the 500, 5,000, 50,000 and 250,000-word prose documents and
+  `complex.docx`. 211 of 211 published figures reproduced within 10 percent
+  (or 2 ms). Steal time under 0.01 percent in both runs; no sample started
+  above the load limit.
+- canvas-editor fails both runs at 250,000 words and on `complex.docx`,
+  three samples in a row each time. At 250,000 words the save exhausts
+  Node's default JavaScript heap (a diagnostic rerun outside the runs: V8
+  "JavaScript heap out of memory" with the test in its own process; with a
+  16 GB heap the same sample passes). `complex.docx` is the `w:vMerge`
+  import crash the main report already describes. No lane raises the heap.
+- SuperDoc's save stays at 8–13 ms from 500 to 250,000 words. A probe
+  outside the runs found the file complete (final size, ZIP end record,
+  same hash two seconds later) when `doc.save` resolves, so the save clock
+  is not cut short: the export is prepared during load.
+
+### Not re-measured
+
+- Reports A to D2 and the main report: no pin moved and nothing they read
+  changed, so their facts are those `main` last tracked (identical to the
+  published et-v0.9.5 facts); every one of them renders byte-identical.
+  Report E's browser criteria (C03, C05–C12, C14, C15), the memory lanes
+  (C17, C19) and the WebAssembly boundary (C24) are not measured; the
+  report lists them with their issues (#104–#110, #113–#115, #117).
+
 ### Added
 
+- `reports/Report E - Speed, Opening and Saving a Document (2026).md` and
+  its DOCX twin, rendered from `templates/` and `out/facts.json`;
+  registered in `render_reports.TWINS` and `verify_deliverables.DELIVERABLES`
+  (`build/test_report_e_registration.py`).
 - `perf/`: the performance harness (#91). One schema and outcome set for
   every trial (`measured`, `unsupported`, `not_applicable`, `unverified`,
   `failed`, `not_run`), a 24-scenario catalog (C01–C24) across the `native`,
@@ -38,6 +75,22 @@ re-running the measurement behind it. The format follows
 
 ### Fixed
 
+- Perf harness, before Report E was measured (#100–#103, #118–#123): a
+  deterministic size ladder; a host record read from the machine, never
+  assumed (cgroup limits resolved through mountinfo, container and
+  hypervisor evidence, power with its evidence, steal time per run); PERF
+  marks that time the same work for every editor; a headless runner that
+  keeps and checks every sample, attests every pin, and refuses a noisy or
+  battery-powered machine; a tables builder that recomputes every figure
+  from the sample files. Reviewed by codex, glm-5.3, MiniMax-M3 and grok;
+  every accepted finding is fixed with a test. The later host-rule commits
+  (`8e98f66`, `0aaa40f`, `62c73fc`) do not change what the runs recorded:
+  re-run in the same sandbox, `host_record()` still gives AC power from the
+  cloud vendor, and the four test suites pass there.
+- Report E's tables (#111): the lanes table has a load and a save column
+  (GitHub Markdown dropped the save cell), package versions read as
+  versions, LibreOffice is not a row of n/a in the timed tables, a failed
+  cell quotes its last error, and the save notes agree in number.
 - Dependabot alerts (#93): `harness/ui` puppeteer 22 → 25 (drops
   `extract-zip`, `basic-ftp@5`, and zod 3 from the lockfile), `pdfjs-dist`
   overridden to 6.2.108 in the SuperDoc UI host, and `katex` overridden to
