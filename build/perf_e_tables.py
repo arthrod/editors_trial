@@ -158,7 +158,7 @@ def _stopped(run: Run, wl: str, editor: str) -> bool:
 
 
 _SAME_HOST = ("cpu_model", "cpu_cores_logical", "ram_bytes", "os", "os_version", "arch", "container", "cpu_quota",
-              "memory_limit_bytes")
+              "memory_limit_bytes", "machine_vendor", "machine_product", "hypervisor")  # the prose rests on these (#121)
 
 
 def check_comparable(primary: Run, repro: Run) -> None:
@@ -220,11 +220,12 @@ def _values(records: list[dict], metric: str) -> list[float]:
     good = [r for r in records if _good(r)]
     # a published mark is a time whatever the record's other fields say (#120)
     if metric == "roundtrip":
-        return [r["marks"]["model_ready_ms"] + r["marks"]["save_ms"] for r in good
-                if _finite_nonnegative(r["marks"].get("model_ready_ms")) and _finite_nonnegative(r["marks"].get("save_ms"))]
+        marks = [r.get("marks") or {} for r in good]  # a good record may print no marks at all (#121)
+        return [m["model_ready_ms"] + m["save_ms"] for m in marks
+                if _finite_nonnegative(m.get("model_ready_ms")) and _finite_nonnegative(m.get("save_ms"))]
     key = METRICS[metric][0]
     if metric in ("load", "save"):
-        return [r["marks"][key] for r in good if _finite_nonnegative(r["marks"].get(key))]
+        return [m[key] for m in (r.get("marks") or {} for r in good) if _finite_nonnegative(m.get(key))]
     return [r[key] for r in good if r.get(key) is not None]
 
 
@@ -508,22 +509,30 @@ def _cpus(h: dict) -> str:
     return "a CPU quota of %g of the %d CPUs its kernel reports" % (quota, n)
 
 
+def _size(n: int) -> str:
+    """Bytes for a reader: MiB below 1 GiB, one decimal below 10 GiB (#121)."""
+    if n < 2**30:
+        return "%d MiB" % round(n / 2**20)
+    if n < 10 * 2**30:
+        return ("%.1f GiB" % (n / 2**30)).replace(".0 GiB", " GiB")
+    return "%d GiB" % round(n / 2**30)
+
+
 def _ram(h: dict) -> str:
     limit, ram = h.get("memory_limit_bytes"), h.get("ram_bytes")
     if limit and (not ram or limit < ram):
-        return "%d GiB RAM limit" % round(limit / 2**30)
-    return "%d GiB RAM" % round(ram / 2**30)  # a limit above the RAM limits nothing
+        return "%s RAM limit" % _size(limit)
+    return "%s RAM" % _size(ram)  # a limit above the RAM limits nothing
 
 
 def _vm(h: dict) -> str:
-    """The machine as its own firmware (DMI) and CPU flags named it."""
-    vendor, product = h.get("machine_vendor"), h.get("machine_product")
-    if vendor and h.get("hypervisor"):
-        return "an %s virtual machine" % " ".join(v for v in (vendor, product) if v) if vendor[0] in "AEIOU" else \
-            "a %s virtual machine" % " ".join(v for v in (vendor, product) if v)
-    if h.get("hypervisor"):
-        return "a virtual machine"
-    return "a machine the run could not identify"
+    """The machine as its own firmware (DMI) and CPU flags named it. The name
+    goes in brackets: no article is guessed for it (#121)."""
+    name = " ".join(v for v in (h.get("machine_vendor"), h.get("machine_product")) if v)
+    kind = "a virtual machine" if h.get("hypervisor") else "a machine"
+    if name:
+        return "%s (%s)" % (kind, name)
+    return kind if h.get("hypervisor") else "a machine the run could not identify"
 
 
 def _host(summary: dict) -> str:
@@ -570,15 +579,33 @@ def _host_note(summary: dict, second: dict | None = None) -> str:
            else "The container may use %g of the %d CPUs its kernel reports." % (quota, n))
     parts = [may, "The load average counts every process on that kernel, in this container or any other, and was "
                   "judged against all %d CPUs; the process check cannot see processes outside the container." % n]
-    steal = [v for v in (_steal_pct(summary), _steal_pct(second) if second else None) if v is not None]
-    if steal and h.get("hypervisor"):
-        runs = "%.2f%% during the run" % steal[0] + (" and %.2f%% during the second run" % steal[1] if len(steal) > 1 else "")
-        parts.append("Work elsewhere on the physical server shows only as steal time: the hypervisor withheld %s." % runs)
+    # each share stays with the run it was measured in (#121)
+    first, other = _steal_pct(summary), _steal_pct(second) if second else None
+    shares = [(v, run) for v, run in ((first, "during the run"), (other, "during the second run")) if v is not None]
+    if shares and h.get("hypervisor"):
+        said = " and ".join("%s %s" % (_pct(v), run) for v, run in shares)
+        parts.append("Work elsewhere on the physical server shows only as steal time: the hypervisor withheld %s of "
+                     "CPU time." % said)
     if h.get("power_supplies") == []:
-        vendor = h.get("machine_vendor")
-        parts.append("The container sees no power supply; AC power is inferred from the machine's vendor (%s)." % vendor
-                     if vendor and h.get("power_source") == "ac" else "The container sees no power supply.")
+        parts.append(_power_note(h))
     return " ".join(parts)
+
+
+def _pct(v: float) -> str:
+    return "less than 0.01%" if v < 0.01 else "%.2f%%" % v
+
+
+def _power_note(h: dict) -> str:
+    """Why a container that sees no power supply was, or was not, called on mains."""
+    power, vendor = h.get("power_source"), h.get("machine_vendor")
+    if power != "ac":
+        return ("The container sees no power supply, so its power source was recorded as unknown, and a run on unknown "
+                "power is not published.")
+    why = {"cloud vendor": "the machine's vendor (%s)" % vendor,
+           "server chassis": "the machine's chassis type (a server)"}.get(h.get("power_evidence") or "cloud vendor")
+    if why is None or (h.get("power_evidence") in (None, "cloud vendor") and not vendor):
+        return "The container sees no power supply."
+    return "The container sees no power supply; AC power is inferred from %s." % why
 
 
 def _libreoffice_table(facts: dict, primary: Run, repro: Run) -> str | None:

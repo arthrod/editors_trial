@@ -147,6 +147,11 @@ class LinuxContainerHost(unittest.TestCase):
             self.addCleanup(p.stop)
         for key in ("KUBERNETES_SERVICE_HOST", "container"):
             host.os.environ.pop(key, None)
+        # a v2 machine seen from its own cgroup namespace, as on the sandbox (#121)
+        (self.tmp / "proc_self_cgroup").write_text("0::/\n")
+        (self.cgroup / "cgroup.controllers").write_text("cpu memory\n")
+        # bare-metal x86: CPU flags without "hypervisor"
+        (self.tmp / "cpuinfo").write_text("processor\t: 0\nflags\t\t: fpu vme\n")
 
     def _supply(self, name, kind, online=None):
         d = self.supply / name
@@ -370,6 +375,11 @@ class LinuxEvidence(unittest.TestCase):
         self._write("cpuinfo", "flags\t: fpu vme\n")
         self.assertEqual(host._power_source(), "ac")
 
+    def test_a_container_on_a_notebook_chassis_is_unknown(self):
+        host.os.environ["KUBERNETES_SERVICE_HOST"] = "10.0.0.1"
+        self._write("dmi/chassis_type", "10\n")
+        self.assertEqual(host._power_source(), "unknown")
+
     def test_a_battery_still_wins_in_a_container(self):
         host.os.environ["KUBERNETES_SERVICE_HOST"] = "10.0.0.1"
         self._write("dmi/sys_vendor", "Amazon EC2\n")
@@ -393,6 +403,77 @@ class LinuxEvidence(unittest.TestCase):
         self.assertIs(record["hypervisor"], True)
         self.assertEqual(record["power_source"], "ac")
         self.assertTrue(record["container"])
+
+    # glm-5.3 review (#121)
+    def test_undecodable_bytes_do_not_kill_the_probe(self):
+        (self.tmp / "proc1_environ").write_bytes(b"PATH=/bin\0FOO=\x80\xff\0")
+        self._write("cpuinfo", "flags\t: fpu\n")
+        self.assertFalse(host._in_container({}))
+        self.assertEqual(host._power_source(), "ac")
+
+    def test_a_server_chassis_is_evidence_of_mains(self):
+        host.os.environ["KUBERNETES_SERVICE_HOST"] = "10.0.0.1"
+        for chassis in ("17", "23", "28", "29"):
+            with self.subTest(chassis=chassis):
+                self._write("dmi/chassis_type", chassis + "\n")
+                self.assertEqual(host._power(), ("ac", "server chassis"))
+        for chassis in ("3", "8", "9", "10", "1"):
+            with self.subTest(chassis=chassis):
+                self._write("dmi/chassis_type", chassis + "\n")
+                self.assertEqual(host._power(), ("unknown", None))
+
+    def test_the_power_evidence_is_named(self):
+        self._write("cpuinfo", "flags\t: fpu\n")
+        self.assertEqual(host._power(), ("ac", "no supply on bare metal"))
+        self._write("power_supply/AC/type", "Mains\n")
+        self._write("power_supply/AC/online", "1\n")
+        self.assertEqual(host._power(), ("ac", "supply"))
+        host.os.environ["KUBERNETES_SERVICE_HOST"] = "10.0.0.1"
+        import shutil
+        shutil.rmtree(self.tmp / "power_supply")
+        (self.tmp / "power_supply").mkdir()
+        self._write("dmi/sys_vendor", "Amazon EC2\n")
+        self.assertEqual(host._power(), ("ac", "cloud vendor"))
+
+    def test_record_carries_power_evidence_and_chassis(self):
+        self._write("dmi/sys_vendor", "Amazon EC2\n")
+        self._write("dmi/chassis_type", "1\n")
+        self._write("cpuinfo", "flags\t: fpu hypervisor\n")
+        host.os.environ["KUBERNETES_SERVICE_HOST"] = "10.0.0.1"
+        with mock.patch.object(host, "_ram_bytes_probe", return_value=2**34), mock.patch.object(
+            host, "_cpu_model_probe", return_value="AMD EPYC 7R13 Processor"
+        ), mock.patch.object(host, "_cores", return_value=(None, 32)), mock.patch.object(
+            host, "_os_version", return_value="6.12.113"
+        ):
+            record = host.host_record()
+        self.assertEqual(record["power_evidence"], "cloud vendor")
+        self.assertEqual(record["machine_chassis"], "1")
+
+    def test_v1_lines_win_over_a_unified_mount(self):
+        self._write("cgroup/cgroup.controllers", "cpu memory\n")
+        self._write("proc_self_cgroup", "4:cpu,cpuacct:/job\n0::/job\n")
+        self._write("cgroup/cpu,cpuacct/job/cpu.cfs_quota_us", "300000\n")
+        self._write("cgroup/cpu,cpuacct/job/cpu.cfs_period_us", "100000\n")
+        self.assertEqual(host._cpu_quota(), 3.0)
+
+    def test_blank_lines_do_not_turn_v2_into_v1(self):
+        self._write("proc_self_cgroup", "0::/\n\n")
+        self._write("cgroup/cpu.max", "200000 100000\n")
+        self.assertEqual(host._cpu_quota(), 2.0)
+
+    def test_a_named_v1_hierarchy_does_not_hide_the_unified_line(self):
+        self._write("proc_self_cgroup", "1:name=systemd:/x\n0::/x\n")
+        self._write("cgroup/x/cpu.max", "100000 100000\n")
+        self.assertEqual(host._cpu_quota(), 1.0)
+
+    def test_no_flags_line_means_the_hypervisor_is_unknown(self):
+        self._write("cpuinfo", "processor\t: 0\nFeatures\t: fp asimd evtstrm\n")  # aarch64
+        self.assertIsNone(host._hypervisor())
+        self.assertEqual(host._power_source(), "unknown")  # not proof of bare metal
+        self._write("cpuinfo", "flags\t: fpu vme\n")
+        self.assertIs(host._hypervisor(), False)
+        (self.tmp / "cpuinfo").unlink()
+        self.assertIsNone(host._hypervisor())
 
     def test_cpu_ticks(self):
         self._write("proc_stat", "cpu  65967 15 45687 1725841 16505 0 2300 61 0 0\ncpu0 1 2 3 4 5 6 7 8 0 0\n")

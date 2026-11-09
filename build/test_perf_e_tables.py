@@ -748,7 +748,7 @@ class CodexReview120(unittest.TestCase):
     # 5, 6: the words come from evidence the run recorded
     def test_ec2_container_is_named_from_dmi(self):
         s = {"host": self.EC2}
-        self.assertEqual(E._machine(s), "one Linux container on an Amazon EC2 r6a.8xlarge virtual machine")
+        self.assertEqual(E._machine(s), "one Linux container on a virtual machine (Amazon EC2 r6a.8xlarge)")
         line = E._host(s)
         self.assertIn("all 32 CPUs its kernel reports", line)
         self.assertIn("247 GiB RAM", line)  # the limit is above the RAM: no limit in effect
@@ -778,6 +778,87 @@ class CodexReview120(unittest.TestCase):
 
     def test_mac_note_stays_empty(self):
         self.assertEqual(E._host_note({"host": HostLine.MAC}, {"host": HostLine.MAC}), "")
+
+
+class GlmReview121(unittest.TestCase):
+    """#121: glm-5.3's review of the #120 fixes."""
+
+    EC2 = CodexReview120.EC2
+
+    @staticmethod
+    def _summary(host, ticks0=None, ticks1=None):
+        s = {"host": host}
+        if ticks0 is not None:
+            s["quiet_machine_check_start"] = {"cpu_ticks": ticks0}
+            s["quiet_machine_check_end"] = {"cpu_ticks": ticks1}
+        return s
+
+    # 3
+    def test_steal_from_the_second_run_only_is_named_as_the_second_run(self):
+        first = self._summary(self.EC2)
+        second = self._summary(self.EC2, {"steal": 0, "total": 1000000}, {"steal": 20000, "total": 2000000})
+        note = E._host_note(first, second)
+        self.assertIn("2.00% during the second run", note)
+        self.assertNotIn("during the run", note)
+
+    def test_a_tiny_steal_is_not_printed_as_zero(self):
+        a = self._summary(self.EC2, {"steal": 0, "total": 0}, {"steal": 1, "total": 1000000})
+        note = E._host_note(a, a)
+        self.assertNotIn("0.00%", note)
+        self.assertIn("less than 0.01%", note)
+
+    # 4
+    def test_the_evidence_fields_are_part_of_the_same_host_rule(self):
+        for key in ("machine_vendor", "machine_product", "hypervisor"):
+            with self.subTest(key=key):
+                self.assertIn(key, E._SAME_HOST)
+
+    # 5, 7
+    def test_a_named_bare_metal_machine_is_named(self):
+        dell = dict(HostLine.BOX, machine_vendor="Dell Inc.", machine_product="PowerEdge R740", hypervisor=False)
+        self.assertEqual(E._machine({"host": dell}), "one Linux container on a machine (Dell Inc. PowerEdge R740)")
+
+    def test_no_article_is_guessed_for_a_vendor(self):
+        for vendor in ("innotek GmbH", "oVirt", "Ubuntu", "amazon ec2"):
+            with self.subTest(vendor=vendor):
+                h = dict(HostLine.BOX, machine_vendor=vendor, machine_product=None, hypervisor=True)
+                self.assertEqual(E._machine({"host": h}), "one Linux container on a virtual machine (%s)" % vendor)
+
+    def test_unidentified_stays_unidentified(self):
+        self.assertEqual(E._machine({"host": HostLine.BOX}), "one Linux container on a machine the run could not identify")
+        vm = dict(HostLine.BOX, hypervisor=True)
+        self.assertEqual(E._machine({"host": vm}), "one Linux container on a virtual machine")
+
+    # 2 (wording)
+    def test_unknown_power_is_said(self):
+        h = dict(HostLine.BOX, power_source="unknown")
+        note = E._host_note({"host": h})
+        self.assertIn("recorded as unknown", note)
+        self.assertNotIn("inferred", note)
+
+    def test_power_evidence_is_named(self):
+        rack = dict(HostLine.BOX, machine_vendor="Dell Inc.", hypervisor=False, power_evidence="server chassis")
+        self.assertIn("inferred from the machine's chassis type (a server)", E._host_note({"host": rack}))
+        cloud = dict(self.EC2, power_evidence="cloud vendor")
+        self.assertIn("inferred from the machine's vendor (Amazon EC2)", E._host_note({"host": cloud}))
+        # a record from before power_evidence existed: the vendor is the only rule that could have said ac
+        self.assertIn("inferred from the machine's vendor (Amazon EC2)", E._host_note({"host": self.EC2}))
+
+    # 9
+    def test_small_memory_limits_are_not_rounded_away(self):
+        def line(limit):
+            return E._host({"host": dict(HostLine.BOX, memory_limit_bytes=limit)})
+        self.assertIn("512 MiB RAM limit", line(512 * 2**20))
+        self.assertIn("1.5 GiB RAM limit", line(3 * 2**29))
+        self.assertIn("124 GiB RAM limit", line(124 * 2**30))
+
+    # 10
+    def test_a_good_record_without_marks_publishes_nothing(self):
+        rec = _good_rec(required_marks=[], mark_counts={})
+        del rec["marks"]
+        for metric in ("load", "save", "roundtrip"):
+            with self.subTest(metric=metric):
+                self.assertEqual(E._values([rec], metric), [])
 
 
 if __name__ == "__main__":

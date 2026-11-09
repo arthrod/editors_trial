@@ -111,12 +111,17 @@ PROC_STAT = "/proc/stat"
 # "Microsoft Corporation" or "QEMU": Hyper-V and desktop hypervisors on a laptop
 # report those too (#120).
 CLOUD_VENDORS = ("Amazon EC2", "Google", "DigitalOcean", "Hetzner", "Scaleway", "Alibaba Cloud")
+# SMBIOS chassis types that only servers have: main server chassis, rack
+# mount, blade, blade enclosure (#121). A vendor name (Dell, HPE) is not one:
+# it also sells laptops.
+SERVER_CHASSIS = ("17", "23", "28", "29")
 _RUNTIME = re.compile(r"(docker|kubepods|containerd|libpod|lxc|crio)")
 
 
 def _read(path: str) -> str | None:
     try:
-        with open(path, encoding="utf-8") as handle:
+        # proc files hold arbitrary bytes (an environment): never let one kill the probe (#121)
+        with open(path, encoding="utf-8", errors="replace") as handle:
             return handle.read().strip()
     except OSError:
         return None
@@ -137,10 +142,13 @@ def _dmi(name: str) -> str | None:
     return _read(os.path.join(DMI, name)) or None
 
 
-def _hypervisor() -> bool:
-    """The CPU flags say this kernel runs under a hypervisor."""
-    info = _read(CPUINFO) or ""
-    return any(line.startswith("flags") and " hypervisor" in line for line in info.splitlines())
+def _hypervisor() -> bool | None:
+    """The x86 CPU flags say whether this kernel runs under a hypervisor. With
+    no flags line (aarch64, or no cpuinfo) nobody said: None, not False (#121)."""
+    flags = [line for line in (_read(CPUINFO) or "").splitlines() if line.startswith("flags")]
+    if not flags:
+        return None
+    return any("hypervisor" in line.split(":", 1)[-1].split() for line in flags)
 
 
 def _cpu_ticks() -> dict | None:
@@ -156,59 +164,72 @@ def _cpu_ticks() -> dict | None:
     return {"steal": ticks[7], "total": sum(ticks)}
 
 
-def _power_source() -> str | None:
-    """``ac``, ``battery``, ``unknown`` (readable, but nothing proves either),
-    or None when the probe itself failed."""
+def _power() -> tuple[str | None, str | None]:
+    """``(power, evidence)``: power is ``ac``, ``battery``, ``unknown`` (readable,
+    but nothing proves either) or None when the probe itself failed; evidence
+    names what proved ``ac`` (#121)."""
     if sys.platform == "darwin":
         out = _run(["pmset", "-g", "batt"])
         if not out:
-            return None
+            return None, None
         if "AC Power" in out:
-            return "ac"
+            return "ac", "supply"
         if "Battery Power" in out:
-            return "battery"
-        return None
+            return "battery", None
+        return None, None
     supplies = _power_supplies()
     if supplies is None:
-        return None
+        return None, None
     if any(kind is None for _, kind, _ in supplies):
-        return None  # a supply we cannot type could be a battery: unknown, not mains (#119)
+        return None, None  # a supply we cannot type could be a battery: unknown, not mains (#119)
     if any(kind in ("Mains", "USB") and online == "1" for _, kind, online in supplies):
-        return "ac"
+        return "ac", "supply"
     if any(kind == "Battery" for _, kind, _ in supplies):
-        return "battery"
+        return "battery", None
     if supplies:
-        return "ac"  # supplies, none a battery
-    # Nothing visible. Bare metal shows its own battery, so none means mains; a
-    # container or a guest sees nothing of its host's, so only a cloud vendor
-    # (servers only) is evidence of mains (#120).
-    if _in_container(os.environ) or _hypervisor():
-        return "ac" if _dmi("sys_vendor") in CLOUD_VENDORS else "unknown"
-    return "ac"
+        return "ac", "supply"  # supplies, none a battery
+    # Nothing visible. Bare metal shows its own battery, so none means mains. A
+    # container or a guest sees nothing of its host's, and an unknown hypervisor
+    # flag (aarch64) proves no bare metal: only a server-only cloud vendor or a
+    # server chassis is evidence of mains (#120, #121).
+    if _in_container(os.environ) or _hypervisor() is not False:
+        if _dmi("sys_vendor") in CLOUD_VENDORS:
+            return "ac", "cloud vendor"
+        if _dmi("chassis_type") in SERVER_CHASSIS:
+            return "ac", "server chassis"
+        return "unknown", None
+    return "ac", "no supply on bare metal"
+
+
+def _power_source() -> str | None:
+    return _power()[0]
 
 
 def _cgroup_dirs(controller: str) -> list[str]:
     """The cgroup directories this process is limited by, leaf first, for one
     controller (``cpu`` or ``memory``): its own cgroup from ``/proc/self/cgroup``
-    and every ancestor up to the mount. A path not mounted here (a container
-    without a cgroup namespace) leaves the mount itself, which is its own (#120)."""
-    lines = (_read(PROC_SELF_CGROUP) or "").splitlines()
-    # v2: the unified mount, or only the unified line (a hybrid machine also has a 0:: line)
-    v2 = os.path.exists(os.path.join(CGROUP, "cgroup.controllers")) or (bool(lines) and all(l.startswith("0::") for l in lines))
-    for line in lines:
-        _, controllers, path = (line.split(":", 2) + ["", ""])[:3]
-        if v2 and line.startswith("0::"):
-            base = CGROUP
-        elif not v2 and controller in controllers.split(","):
-            base = next((d for d in (os.path.join(CGROUP, controllers), os.path.join(CGROUP, controller))
-                         if os.path.isdir(d)), os.path.join(CGROUP, controller))
-        else:
-            continue
-        parts = [x for x in path.strip().split("/") if x]
-        dirs = [os.path.join(base, *parts[:k]) for k in range(len(parts), -1, -1)]
-        found = [d for d in dirs if os.path.isdir(d)]
-        return found if found and found[0] == dirs[0] else [base]
-    return [CGROUP] if v2 or not lines else [os.path.join(CGROUP, controller)]
+    and every ancestor up to the mount. A v1 line for the controller wins (a
+    hybrid machine also has a ``0::`` line); otherwise the ``0::`` line (#121).
+    A path not mounted here (no cgroup namespace) leaves the mount itself."""
+    entries = []
+    for line in (_read(PROC_SELF_CGROUP) or "").splitlines():
+        fields = line.split(":", 2)
+        if len(fields) == 3:
+            entries.append(fields)
+    v1 = next(((c, path) for _, c, path in entries if controller in c.split(",")), None)
+    if v1:
+        controllers, path = v1
+        base = next((d for d in (os.path.join(CGROUP, controllers), os.path.join(CGROUP, controller))
+                     if os.path.isdir(d)), os.path.join(CGROUP, controller))
+    else:
+        unified = next((path for hid, c, path in entries if hid == "0" and c == ""), None)
+        if unified is None:
+            return [CGROUP]  # nothing to resolve: the mount is all there is
+        base, path = CGROUP, unified
+    parts = [x for x in path.strip().split("/") if x]
+    dirs = [os.path.join(base, *parts[:k]) for k in range(len(parts), -1, -1)]
+    found = [d for d in dirs if os.path.isdir(d)]
+    return found if found and found[0] == dirs[0] else [base]
 
 
 def _v2_quota(d: str) -> float | None:
@@ -277,7 +298,7 @@ def host_record() -> dict:
     os_version = _os_version()
     if not os_version:
         raise HostProbeError("OS version unreadable")
-    power = _power_source()
+    power, evidence = _power()
     if not power:
         raise HostProbeError("power source unreadable")
     linux = sys.platform != "darwin"
@@ -290,6 +311,7 @@ def host_record() -> dict:
         "cpu_cores_logical": logical,
         "ram_bytes": ram,
         "power_source": power,
+        "power_evidence": evidence,
         "power_supplies": None if sys.platform == "darwin" else [n for n, _, _ in (_power_supplies() or [])],
         "cpu_quota": None if sys.platform == "darwin" else _cpu_quota(),
         "memory_limit_bytes": None if sys.platform == "darwin" else _memory_limit(),
@@ -297,6 +319,7 @@ def host_record() -> dict:
         "machine_vendor": _dmi("sys_vendor") if linux else None,
         "machine_product": _dmi("product_name") if linux else None,
         "hypervisor": _hypervisor() if linux else None,
+        "machine_chassis": _dmi("chassis_type") if linux else None,
         "python": platform.python_version(),
     }
 
