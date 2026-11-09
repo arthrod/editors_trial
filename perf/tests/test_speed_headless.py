@@ -290,8 +290,10 @@ class VersionAttestation(unittest.TestCase):
         self.assertEqual(plate["pin"], sh.pin_label("plate"))
         self.assertTrue(plate["matches_pin"])
         self.assertEqual(set(att["editors"]["fidus"]["checkouts"]), {"repos/fiduswriter-document-ts", "repos/fiduswriter"})
-        self.assertRegex(att["editors"]["superdoc"]["packages"]["@superdoc/sdk"], r"^\d+\.\d+\.\d+")
-        self.assertRegex(att["editors"]["docxodus"]["packages"]["docxodus"], r"^\d+\.\d+\.\d+")
+        for editor, package in (("superdoc", "@superdoc/sdk"), ("docxodus", "docxodus")):
+            record = att["editors"][editor]["packages"][package]
+            self.assertRegex(record["installed"], r"^\d+\.\d+\.\d+")
+            self.assertTrue(record["matches"], record)
         self.assertRegex(att["editors"]["wordcraft"]["binaries"]["wc-harness"], r"^[0-9a-f]{64}$")
         self.assertIn("LibreOffice", att["editors"]["libreoffice"]["version"])
 
@@ -353,9 +355,13 @@ class OutputCheck(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "o.docx"
             path.write_bytes(deterministic_zip([("word/document.xml", xml.encode())]))
-            result = sh.check_output(path, {"sentinel": "ZZ-END-OF-DOCUMENT prose-500w", "word_count": 2, "shape": "prose"})
+            words = ["café", "ZZ-END-OF-DOCUMENT", "prose-500w"]
+            expect = {"sentinel": "ZZ-END-OF-DOCUMENT prose-500w", "tokens": __import__("collections").Counter(words),
+                      "expected_words": 3, "word_count": 3, "shape": "prose"}
+            result = sh.check_output(path, expect)
         self.assertTrue(result["parse_ok"])
         self.assertTrue(result["sentinel"])
+        self.assertTrue(result["complete"])
         self.assertIn("café", result["text_head"])
 
 
