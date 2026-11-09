@@ -14,6 +14,15 @@ a table is not a ranking.
 
 The round trip is computed per sample (that sample's load + that sample's
 save, from one process), then summarised; it is not the sum of two medians.
+
+Two checks run before any figure is read (codex review of #103):
+
+- ``load_run`` reconciles the summary with the sample files: every row's n
+  and median must be what its samples give, every sample must belong to the
+  run, and no repetition may be missing.
+- ``check_comparable`` refuses a "reproduction" that is the same run, has the
+  same seed, or differs in documents, host, versions, timer boundaries, the
+  runner's code or the lanes' files.
 """
 
 from __future__ import annotations
@@ -28,6 +37,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from perf.analysis.summarize import summarize
+from perf.runner.speed_headless import _sample_failure
 
 DISPLAY = {
     "canvas": "canvas-editor + plugin",
@@ -89,17 +99,85 @@ def load_run(path: Path) -> Run:
         run.rows[row["workload_id"], row["editor_id"], row["criterion_id"]] = row
     for wl in summary["workloads"]:
         for editor_dir in sorted((Path(path) / "samples" / wl).glob("*")):
-            recs = [json.loads(p.read_text(encoding="utf-8")) for p in sorted(editor_dir.glob("r*.json"))]
-            run.records[wl, editor_dir.name] = [r for r in recs if r.get("run_id") == summary["run_id"]]
+            recs = []
+            for p in sorted(editor_dir.glob("r*.json")):
+                rec = json.loads(p.read_text(encoding="utf-8"))
+                if rec.get("run_id") != summary["run_id"]:
+                    raise ValueError("%s belongs to another run (%s, not %s)" % (p, rec.get("run_id"), summary["run_id"]))
+                recs.append(rec)
+            run.records[wl, editor_dir.name] = recs
+    _reconcile(run)
     return run
 
 
+_MARK = {"C02": "model_ready_ms", "C16": "save_ms"}
+
+
+def _reconcile(run: Run) -> None:
+    """Fail closed unless the summary's rows are what the sample files give."""
+    s = run.summary
+    editors_rows = {(wl, e) for (wl, e, _) in run.rows}
+    if editors_rows != set(run.records):
+        raise ValueError("%s: summary rows and sample directories name different cells: %s" % (
+            run.path, sorted(editors_rows ^ set(run.records))))
+    for (wl, editor), recs in run.records.items():
+        reps = sorted(r.get("repetition") for r in recs)
+        stopped = any("stopped after" in (run.rows[wl, editor, c].get("failure_reason") or "")
+                      for c in _MARK if (wl, editor, c) in run.rows)
+        if reps != list(range(1, len(reps) + 1)) or (len(reps) != s["repetitions"] and not stopped):
+            raise ValueError("%s %s: sample files for repetitions %s, the run had %d" % (editor, wl, reps, s["repetitions"]))
+        good = [r for r in recs if _good(r)]
+        for crit, mark in _MARK.items():
+            row = run.rows.get((wl, editor, crit))
+            if row is None or row["outcome"] == "not_run":
+                continue
+            if row["outcome"] != "measured":
+                if good and mark in good[0].get("marks", {}):
+                    raise ValueError("%s %s %s: summary says %s, but %d samples are good" % (editor, wl, crit, row["outcome"], len(good)))
+                continue
+            values = [r["marks"][mark] for r in good]
+            if len(values) != row["n"]:
+                raise ValueError("%s %s %s: %d good samples, the summary says n=%s" % (editor, wl, crit, len(values), row["n"]))
+            median = _stats(values, "process_cold_fs_warm")["median"]
+            if abs(median - row["median_ms"]) > 1e-6 * max(1.0, abs(median)):
+                raise ValueError("%s %s %s: median of the samples is %r, the summary says %r" % (editor, wl, crit, median, row["median_ms"]))
+
+
+_SAME_HOST = ("cpu_model", "cpu_cores_logical", "ram_bytes", "os", "os_version", "arch")
+
+
+def check_comparable(primary: Run, repro: Run) -> None:
+    """A reproduction is a second run of the same measurement, nothing else."""
+    a, b = primary.summary, repro.summary
+    if a["run_id"] == b["run_id"]:
+        raise ValueError("the reproduction is the same run (%s)" % a["run_id"])
+    if a["seed"] == b["seed"]:
+        raise ValueError("the reproduction used the same seed (%s); its order would be the same" % a["seed"])
+    wa = {w: m["sha256"] for w, m in a["workloads"].items()}
+    wb = {w: m["sha256"] for w, m in b["workloads"].items()}
+    if wa != wb:
+        raise ValueError("the reproduction measured other workload documents: %s" % sorted(set(wa.items()) ^ set(wb.items())))
+    ha, hb = ({k: x["host"].get(k) for k in _SAME_HOST} for x in (a, b))
+    if ha != hb:
+        raise ValueError("the reproduction ran on another host: %s vs %s" % (ha, hb))
+    if a.get("versions") != b.get("versions"):
+        raise ValueError("the reproduction attested other versions")
+    if a.get("lanes") != b.get("lanes"):
+        raise ValueError("the reproduction's lanes have other timer boundaries")
+    pa, pb = a.get("provenance"), b.get("provenance")
+    if not pa or not pb:
+        raise ValueError("a run has no provenance; it predates the reviewed runner")
+    for key in ("runner_sha256", "code", "lanes"):
+        if pa.get(key) != pb.get(key):
+            raise ValueError("the reproduction ran other code (provenance %s differs)" % key)
+    if a.get("publication_rules") != b.get("publication_rules"):
+        raise ValueError("the reproduction used other publication rules")
+
+
 def _good(record: dict) -> bool:
-    return (
-        not record.get("timed_out")
-        and record.get("returncode") == 0
-        and bool(record.get("check", {}).get("complete"))
-    )
+    """The runner's own rule (one source of truth): no timeout, exit 0, every
+    required mark exactly once, and a saved file that holds the document."""
+    return _sample_failure(record) is None
 
 
 def _values(records: list[dict], metric: str) -> list[float]:
@@ -149,6 +227,10 @@ def _short(reason: str | None) -> str:
         return "crashed (exit %s)" % code
     if "no model_ready_ms mark" in reason or "no save_ms mark" in reason:
         return "no load/save split"
+    if reason.startswith("marks: missing"):
+        return "harness printed no %s time" % ("load" if "model_ready_ms" in reason else "save" if "save_ms" in reason else "host start")
+    if reason.startswith("marks:"):
+        return "harness printed a time twice"
     return reason[:60]
 
 
@@ -178,6 +260,24 @@ def _samples_publishable(run: Run, wl: str, editor: str) -> tuple[bool, str | No
     noisy = sum(1 for r in recs if r.get("noisy"))
     if noisy / len(recs) > MAX_NOISY:
         return False, "%d of %d samples started above the load limit" % (noisy, len(recs))
+    off_ac = sum(1 for r in recs if r.get("power_source") != "ac")
+    if off_ac:
+        return False, "%d of %d samples ran on battery or unknown power" % (off_ac, len(recs))
+    return True, None
+
+
+def _metric_complete(recs: list[dict], metric: str) -> tuple[bool, str | None]:
+    """Every good sample has this whole-process figure, and for CPU and memory
+    no process of the lane outlived it (its time and memory would be missing)."""
+    good = [r for r in recs if _good(r)]
+    key = METRICS[metric][0]
+    lacking = sum(1 for r in good if r.get(key) is None)
+    if lacking:
+        return False, "%d of %d samples lack it" % (lacking, len(good))
+    if metric in ("cpu", "rss"):
+        left = sum(1 for r in good if not r.get("resources_complete", True))
+        if left:
+            return False, "%d of %d samples left a process running" % (left, len(good))
     return True, None
 
 
@@ -248,8 +348,14 @@ def _process_table(facts: dict, primary: Run, repro: Run) -> str:
             continue
         cells = []
         for metric in ("wall", "cpu", "rss"):
+            r_recs = repro.records.get((wl, editor), [])
+            complete = [_metric_complete(recs, metric), _metric_complete(r_recs, metric)]
+            if not all(ok for ok, _ in complete):
+                why = complete[0][1] or "second run: %s" % complete[1][1]
+                cells.append("incomplete (%s)" % why)
+                continue
             vals = _values(recs, metric)
-            r_vals = _values(repro.records.get((wl, editor), []), metric)
+            r_vals = _values(r_recs, metric)
             if not vals or not r_vals:
                 cells.append("not reproduced")
                 continue
@@ -322,14 +428,18 @@ def _libreoffice_table(primary: Run, repro: Run) -> str | None:
             continue
         med = _stats(vals, "process_cold_fs_warm")["median"]
         r_med = _stats(r_vals, "process_cold_fs_warm")["median"] if r_vals else None
-        lines.append("| %s | %s | %s |" % (
-            WORKLOAD_LABEL.get(wl, wl), fmt_ms(med),
-            ("agrees (%s)" % fmt_ms(r_med)) if r_med is not None and reproduced(med, r_med) else "not reproduced"))
+        if r_med is None:
+            lines.append("| %s | not reproduced (second run has no samples) | |" % WORKLOAD_LABEL.get(wl, wl))
+        elif not reproduced(med, r_med):
+            lines.append("| %s | not reproduced (%s vs %s) | |" % (WORKLOAD_LABEL.get(wl, wl), fmt_ms(med), fmt_ms(r_med)))
+        else:
+            lines.append("| %s | %s | agrees (%s) |" % (WORKLOAD_LABEL.get(wl, wl), fmt_ms(med), fmt_ms(r_med)))
     return "\n".join(lines) if found else None
 
 
 def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
     primary, repro = load_run(primary_dir), load_run(repro_dir)
+    check_comparable(primary, repro)
     s = primary.summary
     facts: dict = {
         "perf.e.run_id": s["run_id"],
@@ -346,7 +456,9 @@ def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
         "perf.e.editors": len([e for e in _editors(primary) if e != "libreoffice"]),
         "perf.e.context.load": "layer model, boundary model_ready, cache state process_cold_fs_warm (fresh process, file system cache warm)",
         "perf.e.context.save": "layer model, boundary serialization_complete, cache state warm_steady (same process, right after load)",
-        "perf.e.context.roundtrip": "layer model, from a fresh process (file system cache warm) to the saved file; load and save of the same sample summed",
+        "perf.e.context.roundtrip": "the load clock plus the save clock of the same sample, summed per sample (layer model; "
+                                    "the load starts process cold with the file system cache warm, the save follows in the same process); "
+                                    "work outside the two clocks, such as starting the runtime, is in the process figures",
     }
     for metric in TIMED:
         facts["perf.e.table.%s" % metric] = _table(facts, primary, repro, metric)
@@ -360,10 +472,7 @@ def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
     facts["perf.e.passthrough"] = _passthrough(primary)
     facts["perf.e.exceptions"] = _exceptions(facts, primary, repro)
     facts["perf.e.correctness_lost"] = _correctness_lost(primary)
-    for (wl, editor), recs in primary.records.items():
-        starts = [r["marks"]["host_start_ms"] for r in recs if _good(r) and "host_start_ms" in r["marks"]]
-        if starts:
-            facts["perf.e.%s.%s.host_start.median" % (editor, wl)] = round(_stats(starts, "process_cold_fs_warm")["median"], 3)
+    _host_start_facts(facts, primary, repro)
     facts["perf.e.prepared_export"] = _prepared_export(facts, _editors(primary))
     facts["perf.e.host_start"] = _host_start(facts, primary)
     facts["perf.e.save_notes"] = _save_notes(facts)
@@ -446,6 +555,24 @@ def _prepared_export(facts: dict, editors: list[str]) -> str:
             out.append("%s's save took %s ms at 5,000 words and %s ms at 250,000 words, while its load grew %.0f times" % (
                 DISPLAY.get(editor, editor), fmt_ms(s5), fmt_ms(s250), l250 / l5))
     return "; ".join(out)
+
+
+def _host_start_facts(facts: dict, primary: Run, repro: Run) -> None:
+    """A host start time is printed under the same rules as a table figure:
+    publishable samples in both runs, and the two medians agree."""
+    for (wl, editor), recs in sorted(primary.records.items()):
+        starts = [r["marks"]["host_start_ms"] for r in recs if _good(r) and "host_start_ms" in r["marks"]]
+        if not starts:
+            continue
+        r_starts = [r["marks"]["host_start_ms"] for r in repro.records.get((wl, editor), []) if _good(r) and "host_start_ms" in r["marks"]]
+        if _status(primary, wl, editor, "load")[0] != "measured" or _status(repro, wl, editor, "load")[0] != "measured":
+            continue
+        if not (_samples_publishable(primary, wl, editor)[0] and _samples_publishable(repro, wl, editor)[0]) or not r_starts:
+            continue
+        med = _stats(starts, "process_cold_fs_warm")["median"]
+        r_med = _stats(r_starts, "process_cold_fs_warm")["median"]
+        if reproduced(med, r_med):
+            facts["perf.e.%s.%s.host_start.median" % (editor, wl)] = round(med, 3)
 
 
 def _host_start(facts: dict, primary: Run) -> str:

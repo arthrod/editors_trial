@@ -8,6 +8,7 @@ publication run writes.
 from __future__ import annotations
 
 import json
+import shutil
 import sys
 import tempfile
 import textwrap
@@ -26,9 +27,15 @@ from perf.runner import speed_headless as sh
 FAKE = textwrap.dedent(
     """
     import os, shutil, sys
+    import subprocess, time
     load = float(os.environ["FAKE_LOAD"]); save = float(os.environ["FAKE_SAVE"])
     print("PERF model_ready_ms=%s" % load)
     print("PERF save_ms=%s" % save)
+    if os.environ.get("FAKE_HOST_START"):
+        print("PERF host_start_ms=%s" % os.environ["FAKE_HOST_START"])
+    if os.environ.get("FAKE_CHILD"):
+        subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+    time.sleep(float(os.environ.get("FAKE_SLEEP", "0")))
     if os.environ.get("FAKE_MODE") == "crash":
         sys.exit(1)
     shutil.copyfile(sys.argv[1], sys.argv[2])
@@ -36,12 +43,12 @@ FAKE = textwrap.dedent(
 )
 
 
-def _lane(script: Path, load: float, save: float, mode: str = "ok") -> dict:
+def _lane(script: Path, load: float, save: float, mode: str = "ok", marks=("model_ready_ms", "save_ms"), **env) -> dict:
     return {
         "cmd": lambda i, o, w: [sys.executable, str(script), str(i), str(o)],
         "cwd": ROOT,
-        "env": {"FAKE_LOAD": str(load), "FAKE_SAVE": str(save), "FAKE_MODE": mode},
-        "marks": ("model_ready_ms", "save_ms"),
+        "env": dict({"FAKE_LOAD": str(load), "FAKE_SAVE": str(save), "FAKE_MODE": mode}, **env),
+        "marks": tuple(marks),
         "boundary": "fake",
     }
 
@@ -55,6 +62,8 @@ def _run(root: Path, name: str, lanes: dict, reps: int, seed: int) -> Path:
         sh, "host_record", return_value=host
     ), mock.patch.object(sh, "attest_versions", return_value=attest), mock.patch.object(
         sh, "pin_label", side_effect=lambda e: "pin-%s" % e
+    ), mock.patch.object(sh, "_build_lanes", return_value={}), mock.patch.object(
+        sh, "power_source", return_value="ac"
     ), mock.patch("os.getloadavg", return_value=(0.5, 0.5, 0.5)):
         sh.run_suite(
             lanes=lanes, workloads=["prose-500w"], repetitions=reps, seed=seed, out_root=out,
@@ -63,23 +72,31 @@ def _run(root: Path, name: str, lanes: dict, reps: int, seed: int) -> Path:
     return out
 
 
+_MODULE: dict = {}
+
+
+def setUpModule():
+    tmp = tempfile.TemporaryDirectory()
+    _MODULE["tmp"] = tmp
+    root = Path(tmp.name)
+    script = root / "fake.py"
+    script.write_text(FAKE, encoding="utf-8")
+    primary = {"wordcraft": _lane(script, 2.0, 1.0), "plate": _lane(script, 100.0, 50.0), "canvas": _lane(script, 1, 1, mode="crash")}
+    # The reproduction agrees for wordcraft and plate's load, and not for plate's save.
+    repro = {"wordcraft": _lane(script, 2.1, 1.0), "plate": _lane(script, 101.0, 80.0), "canvas": _lane(script, 1, 1, mode="crash")}
+    _MODULE["primary"] = _run(root, "primary", primary, reps=10, seed=1)
+    _MODULE["repro"] = _run(root, "repro", repro, reps=10, seed=2)
+
+
+def tearDownModule():
+    _MODULE["tmp"].cleanup()
+
+
 class ReportEFacts(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.tmp = tempfile.TemporaryDirectory()
-        root = Path(cls.tmp.name)
-        script = root / "fake.py"
-        script.write_text(FAKE, encoding="utf-8")
-        primary = {"wordcraft": _lane(script, 2.0, 1.0), "plate": _lane(script, 100.0, 50.0), "canvas": _lane(script, 1, 1, mode="crash")}
-        # The reproduction agrees for wordcraft and plate's load, and not for plate's save.
-        repro = {"wordcraft": _lane(script, 2.1, 1.0), "plate": _lane(script, 101.0, 80.0), "canvas": _lane(script, 1, 1, mode="crash")}
-        cls.primary = _run(root, "primary", primary, reps=10, seed=1)
-        cls.repro = _run(root, "repro", repro, reps=10, seed=2)
+        cls.primary, cls.repro = _MODULE["primary"], _MODULE["repro"]
         cls.facts = E.facts_from_runs(cls.primary, cls.repro)
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.tmp.cleanup()
 
     def test_round_trip_is_the_per_sample_sum_of_load_and_save(self):
         self.assertEqual(self.facts["perf.e.wordcraft.prose-500w.load.median"], 2.0)
@@ -179,15 +196,15 @@ class ReportEFacts(unittest.TestCase):
     def test_a_whole_process_cell_needs_a_publishable_primary(self):
         def rec(noisy=False, good=True):
             return {"returncode": 0 if good else 1, "timed_out": False, "check": {"complete": good}, "noisy": noisy,
-                    "marks": {}, "wall_ms": 5.0, "cpu_ms": 5.0, "max_rss_bytes": 1}
+                    "marks": {}, "wall_ms": 5.0, "cpu_ms": 5.0, "max_rss_bytes": 1, "power_source": "ac"}
         run = E.Run(Path("."), {"workloads": {}, "repetitions": 10})
-        run.records[("w", "e")] = [rec() for _ in range(10)]
+        run.records["w", "e"] = [rec() for _ in range(10)]
         self.assertEqual(E._samples_publishable(run, "w", "e"), (True, None))
-        run.records[("w", "e")] = [rec() for _ in range(9)]
+        run.records["w", "e"] = [rec() for _ in range(9)]
         self.assertFalse(E._samples_publishable(run, "w", "e")[0])
-        run.records[("w", "e")] = [rec() for _ in range(9)] + [rec(good=False)]
+        run.records["w", "e"] = [rec() for _ in range(9)] + [rec(good=False)]
         self.assertIn("excluded", E._samples_publishable(run, "w", "e")[1])
-        run.records[("w", "e")] = [rec(noisy=True) for _ in range(2)] + [rec() for _ in range(8)]
+        run.records["w", "e"] = [rec(noisy=True) for _ in range(2)] + [rec() for _ in range(8)]
         self.assertIn("load limit", E._samples_publishable(run, "w", "e")[1])
 
     def test_a_save_that_stays_flat_while_load_grows_is_named(self):
@@ -221,6 +238,166 @@ class ReportEFacts(unittest.TestCase):
             bad.write_text(json.dumps(data))
             with self.assertRaises(ValueError):
                 E.load_run(Path(tmp))
+
+
+
+def _copy(src: Path, dst: Path, edit=None) -> Path:
+    shutil.copytree(src, dst)
+    if edit:
+        data = json.loads((dst / "summary.json").read_text())
+        edit(data)
+        (dst / "summary.json").write_text(json.dumps(data))
+    return dst
+
+
+class RunsMustBeComparable(unittest.TestCase):
+    """codex review of #103, finding 1: a reproduction is another run of the same thing."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.primary, self.repro = _MODULE["primary"], _MODULE["repro"]
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def refuses(self, repro, word):
+        with self.assertRaises(ValueError) as caught:
+            E.facts_from_runs(self.primary, repro)
+        self.assertIn(word, str(caught.exception))
+
+    def test_a_run_is_not_its_own_reproduction(self):
+        self.refuses(self.primary, "same run")
+
+    def test_the_same_seed_is_not_a_reproduction(self):
+        self.refuses(_copy(self.repro, self.root / "r", lambda d: d.update(seed=1)), "seed")
+
+    def test_other_documents_are_not_a_reproduction(self):
+        self.refuses(_copy(self.repro, self.root / "r", lambda d: d["workloads"]["prose-500w"].update(sha256="0" * 64)), "workload")
+
+    def test_other_code_is_not_a_reproduction(self):
+        self.refuses(_copy(self.repro, self.root / "r", lambda d: d["provenance"]["code"].update({"perf/schema.py": "0" * 64})), "provenance")
+
+    def test_other_versions_are_not_a_reproduction(self):
+        self.refuses(_copy(self.repro, self.root / "r", lambda d: d["versions"]["editors"]["plate"].update(pin="other")), "versions")
+
+    def test_another_host_is_not_a_reproduction(self):
+        self.refuses(_copy(self.repro, self.root / "r", lambda d: d["host"].update(cpu_model="Other CPU")), "host")
+
+    def test_other_timer_boundaries_are_not_a_reproduction(self):
+        self.refuses(_copy(self.repro, self.root / "r", lambda d: d["lanes"].update(plate="other")), "lanes")
+
+
+class SummaryMustMatchSamples(unittest.TestCase):
+    """codex review of #103, finding 2: the summary is reconciled with the sample files."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_a_row_median_that_the_samples_do_not_give_is_refused(self):
+        def edit(d):
+            row = next(r for r in d["rows"] if r["editor_id"] == "wordcraft" and r["criterion_id"] == "C02")
+            row["median_ms"] = 1.0
+        with self.assertRaises(ValueError) as caught:
+            E.load_run(_copy(_MODULE["primary"], self.root / "p", edit))
+        self.assertIn("median", str(caught.exception))
+
+    def test_a_missing_sample_file_is_refused(self):
+        run = _copy(_MODULE["primary"], self.root / "p")
+        (run / "samples" / "prose-500w" / "wordcraft" / "r005.json").unlink()
+        with self.assertRaises(ValueError) as caught:
+            E.load_run(run)
+        self.assertIn("wordcraft", str(caught.exception))
+
+    def test_a_sample_from_another_run_is_refused(self):
+        run = _copy(_MODULE["primary"], self.root / "p")
+        path = run / "samples" / "prose-500w" / "wordcraft" / "r005.json"
+        data = json.loads(path.read_text())
+        data["run_id"] = "someone-else"
+        path.write_text(json.dumps(data))
+        with self.assertRaises(ValueError) as caught:
+            E.load_run(run)
+        self.assertIn("another run", str(caught.exception))
+
+
+class Gates(unittest.TestCase):
+    """codex review of #103, findings 3, 4, 5, 11 and 19."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        root = Path(cls.tmp.name)
+        script = root / "fake.py"
+        script.write_text(FAKE, encoding="utf-8")
+        hs = ("model_ready_ms", "save_ms", "host_start_ms")
+
+        def lanes(lo_sleep, host_start):
+            return {
+                "libreoffice": _lane(script, 1, 1, marks=(), FAKE_SLEEP=str(lo_sleep)),
+                "superdoc": _lane(script, 20, 3, marks=hs, FAKE_HOST_START=str(host_start)),
+                "docen": _lane(script, 5, 5, FAKE_CHILD="1"),
+                "folio": _lane(script, 5, 5),
+            }
+        cls.primary = _run(root, "primary", lanes(0.05, 40), reps=10, seed=11)
+        cls.repro = _run(root, "repro", lanes(0.40, 80), reps=10, seed=12)
+        cls.facts = E.facts_from_runs(cls.primary, cls.repro)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def test_libreoffice_prints_no_median_that_did_not_reproduce(self):
+        table = self.facts["perf.e.table.libreoffice"]
+        row = next(line for line in table.splitlines() if line.startswith("| 500 words"))
+        self.assertIn("not reproduced (", row)
+        self.assertNotIn("agrees", row)
+
+    def test_host_start_is_published_only_when_reproduced(self):
+        self.assertNotIn("perf.e.superdoc.prose-500w.host_start.median", self.facts)
+        self.assertEqual(self.facts["perf.e.host_start"], "")
+
+    def test_cpu_and_memory_of_a_sample_with_a_survivor_are_not_published(self):
+        row = next(line for line in self.facts["perf.e.table.process"].splitlines() if line.startswith("| Docen"))
+        self.assertIn("incomplete", row)
+        self.assertNotIn("perf.e.docen.prose-500w.cpu.median", self.facts)
+        self.assertNotIn("perf.e.docen.prose-500w.rss.median", self.facts)
+        folio = next(line for line in self.facts["perf.e.table.process"].splitlines() if line.startswith("| Folio"))
+        self.assertNotIn("incomplete", folio)
+
+    def test_the_round_trip_is_described_as_the_two_clocks_summed(self):
+        text = self.facts["perf.e.context.roundtrip"]
+        self.assertIn("load clock plus the save clock", text)
+        self.assertNotIn("from a fresh process", text)
+
+
+class Units(unittest.TestCase):
+    def test_round_trip_pairs_each_load_with_its_own_save(self):
+        def rec(load, save):
+            return {"timed_out": False, "returncode": 0, "check": {"complete": True},
+                    "marks": {"model_ready_ms": load, "save_ms": save},
+                    "mark_counts": {"model_ready_ms": 1, "save_ms": 1}, "required_marks": ["model_ready_ms", "save_ms"]}
+        recs = [rec(1, 100), rec(1, 1), rec(100, 1)]
+        self.assertEqual(E._values(recs, "roundtrip"), [101, 2, 101])
+        self.assertEqual(E._stats(E._values(recs, "roundtrip"), "process_cold_fs_warm")["median"], 101)
+
+    def test_a_sample_with_a_doubled_mark_is_not_good(self):
+        rec = {"timed_out": False, "returncode": 0, "check": {"complete": True}, "marks": {"model_ready_ms": 1, "save_ms": 1},
+               "mark_counts": {"model_ready_ms": 1, "save_ms": 2}, "required_marks": ["model_ready_ms", "save_ms"]}
+        self.assertFalse(E._good(rec))
+
+    def test_a_sample_off_ac_power_blocks_a_whole_process_cell(self):
+        def rec(power):
+            return {"returncode": 0, "timed_out": False, "check": {"complete": True}, "noisy": False, "marks": {},
+                    "wall_ms": 5.0, "cpu_ms": 5.0, "max_rss_bytes": 1, "power_source": power}
+        run = E.Run(Path("."), {"workloads": {}, "repetitions": 10})
+        run.records["w", "e"] = [rec("ac") for _ in range(9)] + [rec("battery")]
+        ok, why = E._samples_publishable(run, "w", "e")
+        self.assertFalse(ok)
+        self.assertIn("battery", why)
 
 
 if __name__ == "__main__":
