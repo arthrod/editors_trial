@@ -73,6 +73,11 @@ Every figure that is not printed, and why.
 
 {{perf.e.exceptions}}
 
+What the canvas-editor failures are, from their logs and from one diagnostic rerun outside the two runs (a diagnosis, not a measurement; it printed no figure in this report):
+
+- **250,000 words.** Every one of these samples printed its load time and then died during the save; a sample that fails is not a time, so its load is counted as failed too. In the runs, the editor ran in a Vitest worker thread, so the death showed only as "Worker exited unexpectedly". Rerun with the test in a separate process, the same sample stopped with V8's "JavaScript heap out of memory" at Node's default heap limit. Rerun with a larger heap, it loaded, saved and passed its check. The editor needs more JavaScript heap than Node gives by default to save a document of this size; no lane in this report raises the default for any editor.
+- **complex.docx.** The editor's import crashes on a table with vertically merged cells (`w:vMerge`), the crash described in the main report: the importer drops the merged continuation cells, and the layout engine then reads past the end of the table's column list.
+
 Text the check found missing from the saved files (the round trip still kept 98 percent of the words, so the samples count): {{perf.e.correctness_lost}}.
 
 ## Not measured in this report
