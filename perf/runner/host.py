@@ -102,6 +102,7 @@ POWER_SUPPLY = "/sys/class/power_supply"
 CGROUP = "/sys/fs/cgroup"
 CONTAINER_MARKERS = ("/.dockerenv", "/run/.containerenv")
 PROC_SELF_CGROUP = "/proc/self/cgroup"
+PROC_SELF_MOUNTINFO = "/proc/self/mountinfo"
 PROC1_CGROUP = "/proc/1/cgroup"
 PROC1_ENVIRON = "/proc/1/environ"
 DMI = "/sys/class/dmi/id"
@@ -183,21 +184,23 @@ def _power() -> tuple[str | None, str | None]:
     if any(kind is None for _, kind, _ in supplies):
         return None, None  # a supply we cannot type could be a battery: unknown, not mains (#119)
     if any(kind in ("Mains", "USB") and online == "1" for _, kind, online in supplies):
-        return "ac", "supply"
+        return "ac", "supply"  # only an online supply is evidence (#122)
     if any(kind == "Battery" for _, kind, _ in supplies):
         return "battery", None
-    if supplies:
-        return "ac", "supply"  # supplies, none a battery
-    # Nothing visible. Bare metal shows its own battery, so none means mains. A
-    # container or a guest sees nothing of its host's, and an unknown hypervisor
-    # flag (aarch64) proves no bare metal: only a server-only cloud vendor or a
-    # server chassis is evidence of mains (#120, #121).
-    if _in_container(os.environ) or _hypervisor() is not False:
+    # No online supply. Bare metal shows its own battery, so none at all means
+    # mains. A container or a guest sees nothing of its host's, and an unknown
+    # hypervisor flag (aarch64) proves no bare metal: only a server-only cloud
+    # vendor, or a server chassis on known bare metal (a guest's firmware can
+    # say anything), is evidence of mains (#120, #121, #122).
+    hypervisor = _hypervisor()
+    if _in_container(os.environ) or hypervisor is not False:
         if _dmi("sys_vendor") in CLOUD_VENDORS:
             return "ac", "cloud vendor"
-        if _dmi("chassis_type") in SERVER_CHASSIS:
+        if hypervisor is False and _dmi("chassis_type") in SERVER_CHASSIS:
             return "ac", "server chassis"
         return "unknown", None
+    if supplies:
+        return "unknown", None  # only offline supplies: whatever powers it is not visible
     return "ac", "no supply on bare metal"
 
 
@@ -205,31 +208,68 @@ def _power_source() -> str | None:
     return _power()[0]
 
 
+def _unescape(field: str) -> str:
+    """mountinfo escapes space, tab, newline and backslash as octal (\\040)."""
+    return re.sub(r"\\([0-7]{3})", lambda m: chr(int(m.group(1), 8)), field)
+
+
+def _cgroup_mounts() -> list[tuple[str, str, str, set[str]]] | None:
+    """``(fstype, root, mountpoint, super options)`` for every cgroup mount in
+    ``/proc/self/mountinfo``; None when unreadable (#122)."""
+    text = _read(PROC_SELF_MOUNTINFO)
+    if text is None:
+        return None
+    mounts = []
+    for line in text.splitlines():
+        left, sep, right = line.partition(" - ")
+        fields, tail = left.split(), right.split()
+        if not sep or len(fields) < 5 or len(tail) < 3 or tail[0] not in ("cgroup", "cgroup2"):
+            continue
+        mounts.append((tail[0], _unescape(fields[3]), _unescape(fields[4]), set(tail[2].split(","))))
+    return mounts
+
+
+def _walk(leaf: str, top: str) -> list[str]:
+    """``leaf`` and its ancestors up to ``top``, those that exist; just ``top``
+    when the leaf itself is not visible here."""
+    rel = os.path.relpath(leaf, top)
+    parts = [] if rel == "." else rel.split(os.sep)
+    dirs = [os.path.join(top, *parts[:k]) for k in range(len(parts), -1, -1)]
+    found = [d for d in dirs if os.path.isdir(d)]
+    return found if found and found[0] == dirs[0] else [top]
+
+
 def _cgroup_dirs(controller: str) -> list[str]:
     """The cgroup directories this process is limited by, leaf first, for one
-    controller (``cpu`` or ``memory``): its own cgroup from ``/proc/self/cgroup``
-    and every ancestor up to the mount. A v1 line for the controller wins (a
-    hybrid machine also has a ``0::`` line); otherwise the ``0::`` line (#121).
-    A path not mounted here (no cgroup namespace) leaves the mount itself."""
-    entries = []
-    for line in (_read(PROC_SELF_CGROUP) or "").splitlines():
-        fields = line.split(":", 2)
-        if len(fields) == 3:
-            entries.append(fields)
+    controller (``cpu`` or ``memory``): its membership from ``/proc/self/cgroup``
+    (a v1 line for the controller wins, else the ``0::`` line), mapped through
+    the mount that serves it in ``/proc/self/mountinfo`` (its root and
+    mountpoint, #122). Without mountinfo the mount is guessed at ``CGROUP``."""
+    entries = [f for f in (line.split(":", 2) for line in (_read(PROC_SELF_CGROUP) or "").splitlines()) if len(f) == 3]
     v1 = next(((c, path) for _, c, path in entries if controller in c.split(",")), None)
+    unified = next((path for hid, c, path in entries if hid == "0" and c == ""), None)
+    path = v1[1] if v1 else unified
+    mounts = _cgroup_mounts()
+    if mounts:
+        mount = next((m for m in mounts if m[0] == "cgroup" and controller in m[3]), None) if v1 else \
+            next((m for m in mounts if m[0] == "cgroup2"), None)
+        if mount and path is not None:
+            _, root, mountpoint, _ = mount
+            root = root.rstrip("/") or "/"
+            if root == "/" or path == root or path.startswith(root + "/"):
+                rel = path if root == "/" else path[len(root):]
+                return _walk(os.path.join(mountpoint, *[x for x in rel.split("/") if x]), mountpoint)
+            return [mountpoint]  # membership outside this mount's view: the mount is what we see
+    # no mountinfo: guess the conventional layout under CGROUP
     if v1:
-        controllers, path = v1
+        controllers = v1[0]
         base = next((d for d in (os.path.join(CGROUP, controllers), os.path.join(CGROUP, controller))
                      if os.path.isdir(d)), os.path.join(CGROUP, controller))
+    elif unified is not None:
+        base = CGROUP
     else:
-        unified = next((path for hid, c, path in entries if hid == "0" and c == ""), None)
-        if unified is None:
-            return [CGROUP]  # nothing to resolve: the mount is all there is
-        base, path = CGROUP, unified
-    parts = [x for x in path.strip().split("/") if x]
-    dirs = [os.path.join(base, *parts[:k]) for k in range(len(parts), -1, -1)]
-    found = [d for d in dirs if os.path.isdir(d)]
-    return found if found and found[0] == dirs[0] else [base]
+        return [CGROUP]  # nothing to resolve: the mount is all there is
+    return _walk(os.path.join(base, *[x for x in path.split("/") if x]), base)
 
 
 def _v2_quota(d: str) -> float | None:

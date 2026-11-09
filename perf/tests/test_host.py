@@ -114,7 +114,8 @@ class QuietCheck(unittest.TestCase):
 def _no_proc(tmp):
     """Point every Linux evidence path at an empty temporary tree (#120)."""
     return [mock.patch.object(host, name, str(tmp / name.lower()))
-            for name in ("PROC_SELF_CGROUP", "PROC1_CGROUP", "PROC1_ENVIRON", "DMI", "CPUINFO", "PROC_STAT")]
+            for name in ("PROC_SELF_CGROUP", "PROC1_CGROUP", "PROC1_ENVIRON", "DMI", "CPUINFO", "PROC_STAT",
+                         "PROC_SELF_MOUNTINFO")]
 
 
 class LinuxContainerHost(unittest.TestCase):
@@ -413,6 +414,7 @@ class LinuxEvidence(unittest.TestCase):
 
     def test_a_server_chassis_is_evidence_of_mains(self):
         host.os.environ["KUBERNETES_SERVICE_HOST"] = "10.0.0.1"
+        self._write("cpuinfo", "flags\t: fpu\n")  # bare metal: a guest's chassis is not evidence (#122)
         for chassis in ("17", "23", "28", "29"):
             with self.subTest(chassis=chassis):
                 self._write("dmi/chassis_type", chassis + "\n")
@@ -450,15 +452,16 @@ class LinuxEvidence(unittest.TestCase):
         self.assertEqual(record["machine_chassis"], "1")
 
     def test_v1_lines_win_over_a_unified_mount(self):
-        self._write("cgroup/cgroup.controllers", "cpu memory\n")
+        self._write("cgroup/cgroup.controllers", "io pids\n")  # cpu is bound to v1, so v2 cannot offer it
         self._write("proc_self_cgroup", "4:cpu,cpuacct:/job\n0::/job\n")
         self._write("cgroup/cpu,cpuacct/job/cpu.cfs_quota_us", "300000\n")
         self._write("cgroup/cpu,cpuacct/job/cpu.cfs_period_us", "100000\n")
         self.assertEqual(host._cpu_quota(), 3.0)
 
     def test_blank_lines_do_not_turn_v2_into_v1(self):
-        self._write("proc_self_cgroup", "0::/\n\n")
-        self._write("cgroup/cpu.max", "200000 100000\n")
+        # between two entries, where stripping the file's ends cannot remove it (#122)
+        self._write("proc_self_cgroup", "1:name=systemd:/x\n\n0::/x\n")
+        self._write("cgroup/x/cpu.max", "200000 100000\n")
         self.assertEqual(host._cpu_quota(), 2.0)
 
     def test_a_named_v1_hierarchy_does_not_hide_the_unified_line(self):
@@ -474,6 +477,68 @@ class LinuxEvidence(unittest.TestCase):
         self.assertIs(host._hypervisor(), False)
         (self.tmp / "cpuinfo").unlink()
         self.assertIsNone(host._hypervisor())
+
+    # codex review of #121 (#122)
+    def _mounts(self, *lines):
+        self._write("proc_self_mountinfo", "".join(line + "\n" for line in lines))
+
+    def test_an_offline_supply_is_not_ac(self):
+        self._write("cpuinfo", "flags\t: fpu\n")
+        self._write("power_supply/dock/type", "Mains\n")
+        self._write("power_supply/dock/online", "0\n")
+        self.assertEqual(host._power(), ("unknown", None))
+        host.os.environ["KUBERNETES_SERVICE_HOST"] = "10.0.0.1"
+        self.assertEqual(host._power(), ("unknown", None))
+        self._write("dmi/sys_vendor", "Amazon EC2\n")
+        self.assertEqual(host._power(), ("ac", "cloud vendor"))
+
+    def test_a_guests_chassis_is_not_evidence(self):
+        self._write("cpuinfo", "flags\t: fpu hypervisor\n")
+        self._write("dmi/chassis_type", "23\n")
+        self.assertEqual(host._power(), ("unknown", None))
+        self._write("cpuinfo", "processor\t: 0\nFeatures\t: fp asimd\n")  # no flags: not known to be bare metal
+        self.assertEqual(host._power(), ("unknown", None))
+
+    def test_a_server_chassis_counts_for_a_container_on_bare_metal(self):
+        host.os.environ["KUBERNETES_SERVICE_HOST"] = "10.0.0.1"
+        self._write("cpuinfo", "flags\t: fpu vme\n")
+        self._write("dmi/chassis_type", "23\n")
+        self.assertEqual(host._power(), ("ac", "server chassis"))
+
+    def test_a_v1_subtree_mount_maps_through_its_root(self):
+        mnt = self.tmp / "cgroup" / "cpu,cpuacct"
+        self._mounts("30 25 0:26 /tenant %s rw,nosuid - cgroup cgroup rw,cpu,cpuacct" % mnt)
+        self._write("proc_self_cgroup", "4:cpu,cpuacct:/tenant/job\n0::/job\n")
+        self._write("cgroup/cpu,cpuacct/job/cpu.cfs_quota_us", "100000\n")
+        self._write("cgroup/cpu,cpuacct/job/cpu.cfs_period_us", "100000\n")
+        self._write("cgroup/cpu,cpuacct/tenant/job/cpu.cfs_quota_us", "800000\n")  # another group's
+        self._write("cgroup/cpu,cpuacct/tenant/job/cpu.cfs_period_us", "100000\n")
+        self.assertEqual(host._cpu_quota(), 1.0)
+
+    def test_mount_names_come_from_mountinfo(self):
+        mnt = self.tmp / "cgroup" / "cpuacct,cpu"
+        self._mounts("30 25 0:26 / %s rw - cgroup cgroup rw,cpuacct,cpu" % mnt)
+        self._write("proc_self_cgroup", "4:cpu,cpuacct:/job\n0::/job\n")
+        self._write("cgroup/cpuacct,cpu/job/cpu.cfs_quota_us", "100000\n")
+        self._write("cgroup/cpuacct,cpu/job/cpu.cfs_period_us", "100000\n")
+        self.assertEqual(host._cpu_quota(), 1.0)
+
+    def test_a_unified_mount_elsewhere(self):
+        uni = self.tmp / "cgroup" / "unified"
+        self._mounts("31 25 0:27 / %s rw - cgroup2 cgroup2 rw" % uni,
+                     "32 25 0:28 / %s rw - cgroup cgroup rw,name=systemd" % (self.tmp / "cgroup" / "systemd"))
+        self._write("proc_self_cgroup", "1:name=systemd:/x\n0::/x\n")
+        self._write("cgroup/unified/x/cpu.max", "100000 100000\n")
+        self.assertEqual(host._cpu_quota(), 1.0)
+
+    def test_the_sandbox_mountinfo(self):
+        # 2026-11-09 probe: one cgroup2 mount at the namespace root
+        self._mounts("4037 3983 0:27 / %s ro,nosuid,nodev,noexec,relatime - cgroup2 cgroup rw,seclabel" % (self.tmp / "cgroup"))
+        self._write("proc_self_cgroup", "0::/\n")
+        self._write("cgroup/cpu.max", "3200000 100000\n")
+        self._write("cgroup/memory.max", "274999996416\n")
+        self.assertEqual(host._cpu_quota(), 32.0)
+        self.assertEqual(host._memory_limit(), 274999996416)
 
     def test_cpu_ticks(self):
         self._write("proc_stat", "cpu  65967 15 45687 1725841 16505 0 2300 61 0 0\ncpu0 1 2 3 4 5 6 7 8 0 0\n")

@@ -861,5 +861,36 @@ class GlmReview121(unittest.TestCase):
                 self.assertEqual(E._values([rec], metric), [])
 
 
+class CodexReview122(unittest.TestCase):
+    """#122: codex's review of the #121 fixes."""
+
+    EC2 = CodexReview120.EC2
+
+    # 5
+    def test_the_recorded_power_is_stated(self):
+        battery = dict(HostLine.BOX, power_source="battery", machine_vendor="Apple Inc.")
+        note = E._host_note({"host": battery})
+        self.assertIn("recorded as battery", note)
+        self.assertNotIn("unknown", note)
+
+    def test_a_legacy_record_names_no_rule_it_cannot_show(self):
+        dell = dict(HostLine.BOX, machine_vendor="Dell Inc.")  # ac, no power_evidence
+        note = E._host_note({"host": dell})
+        self.assertNotIn("inferred", note)
+        self.assertIn("does not say why", note)
+        # a cloud vendor was the only no-supply rule a container had before power_evidence (a7b243d)
+        self.assertIn("inferred from the machine's vendor (Amazon EC2)", E._host_note({"host": self.EC2}))
+
+    # 6
+    def test_steal_is_described_by_its_scope_only(self):
+        s = {"host": self.EC2, "quiet_machine_check_start": {"cpu_ticks": {"steal": 0, "total": 0}},
+             "quiet_machine_check_end": {"cpu_ticks": {"steal": 50, "total": 100000}}}
+        note = E._host_note(s, s)
+        self.assertNotIn("physical server", note)
+        self.assertNotIn("shows only", note)
+        self.assertIn("steal", note)
+        self.assertIn("memory or I/O", note)
+
+
 if __name__ == "__main__":
     unittest.main()

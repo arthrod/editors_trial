@@ -41,6 +41,7 @@ if str(ROOT) not in sys.path:
 
 from perf.analysis.summarize import summarize
 from perf.runner.speed_headless import _sample_failure
+from perf.runner.host import CLOUD_VENDORS
 
 DISPLAY = {
     "canvas": "canvas-editor + plugin",
@@ -583,9 +584,10 @@ def _host_note(summary: dict, second: dict | None = None) -> str:
     first, other = _steal_pct(summary), _steal_pct(second) if second else None
     shares = [(v, run) for v, run in ((first, "during the run"), (other, "during the second run")) if v is not None]
     if shares and h.get("hypervisor"):
+        # what the counter is, nothing more: it says nothing of the host's kind or of memory or I/O (#122)
         said = " and ".join("%s %s" % (_pct(v), run) for v, run in shares)
-        parts.append("Work elsewhere on the physical server shows only as steal time: the hypervisor withheld %s of "
-                     "CPU time." % said)
+        parts.append("The guest's steal counter (CPU time its hypervisor gave to other work while this machine was "
+                     "ready to run) was %s; contention for memory or I/O does not show in it." % said)
     if h.get("power_supplies") == []:
         parts.append(_power_note(h))
     return " ".join(parts)
@@ -596,16 +598,19 @@ def _pct(v: float) -> str:
 
 
 def _power_note(h: dict) -> str:
-    """Why a container that sees no power supply was, or was not, called on mains."""
-    power, vendor = h.get("power_source"), h.get("machine_vendor")
+    """Why a container that sees no power supply was, or was not, called on
+    mains: the recorded value, and the recorded reason (#122)."""
+    power, vendor, evidence = h.get("power_source"), h.get("machine_vendor"), h.get("power_evidence")
     if power != "ac":
-        return ("The container sees no power supply, so its power source was recorded as unknown, and a run on unknown "
-                "power is not published.")
-    why = {"cloud vendor": "the machine's vendor (%s)" % vendor,
-           "server chassis": "the machine's chassis type (a server)"}.get(h.get("power_evidence") or "cloud vendor")
-    if why is None or (h.get("power_evidence") in (None, "cloud vendor") and not vendor):
-        return "The container sees no power supply."
-    return "The container sees no power supply; AC power is inferred from %s." % why
+        return ("The container sees no power supply; its power source was recorded as %s, and a run that is not on "
+                "AC power is not published." % (power or "unreadable"))
+    if evidence == "server chassis":
+        return "The container sees no power supply; AC power is inferred from the machine's chassis type (a server)."
+    # before power_evidence was recorded (a7b243d), a server-only cloud vendor
+    # was the only rule that called a container with no supply AC
+    if evidence == "cloud vendor" or ("power_evidence" not in h and vendor in CLOUD_VENDORS):
+        return "The container sees no power supply; AC power is inferred from the machine's vendor (%s)." % vendor
+    return "The container sees no power supply; the run recorded AC power, and the record does not say why."
 
 
 def _libreoffice_table(facts: dict, primary: Run, repro: Run) -> str | None:
