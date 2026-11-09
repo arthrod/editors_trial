@@ -121,9 +121,10 @@ function nodeStats(node: any, acc: Record<string, number> = {}): Record<string, 
 const inputBuffer = await readFile(IN_DOCX)
 
 // ---------------------------------------------------------------- import ----
+const perfLoadStart = process.env.PERF_ONLY === "1" ? performance.now() : undefined
 const inputZip = await JSZip.loadAsync(inputBuffer)
 const importer = new DocxConvert(inputZip, "fidus-trial", IMPORT_TEMPLATE as any, {})
-const t0 = performance.now()
+const t0 = perfLoadStart ?? performance.now()
 const imported = await importer.init()
 const t1 = performance.now()
 console.log(`PERF model_ready_ms=${(t1 - t0).toFixed(6)}`)
