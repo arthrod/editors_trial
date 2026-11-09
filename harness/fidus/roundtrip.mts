@@ -156,6 +156,11 @@ if (process.env.DUMP) {
 }
 
 // ---------------------------------------------------------------- export ----
+// Under PERF_ONLY the save clock starts here: everything the export needs
+// from the loaded model (image table, citation style, template, exporter) is
+// inside it, and nothing is printed until it stops.
+const perfSaveStart = process.env.PERF_ONLY === "1" ? performance.now() : undefined
+
 // Images: the importer keeps the binary in `file` and the bare filename in
 // `image`; the exporter wants `image` to be a Blob, so hand it over directly.
 const imageDB = {db: {}}
@@ -167,7 +172,7 @@ for (const [id, entry] of Object.entries(importer.images ?? {})) {
         file_type: blob?.type ?? (entry as any).file_type
     }
 }
-console.log("EXPORT images in db:", Object.keys(imageDB.db).length)
+if (perfSaveStart === undefined) console.log("EXPORT images in db:", Object.keys(imageDB.db).length)
 
 const bibDB = {db: {}} as any
 
@@ -194,14 +199,14 @@ if (TEMPLATE_MODE === "original") {
     templateBlob = new Blob([inputBuffer], {
         type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     })
-    console.log("EXPORT template: ORIGINAL input docx")
+    if (perfSaveStart === undefined) console.log("EXPORT template: ORIGINAL input docx")
 } else {
     templateBlob = await generateDocxTemplate(doc.content as any)
-    console.log("EXPORT template: library generated (generateDocxTemplate)")
+    if (perfSaveStart === undefined) console.log("EXPORT template: library generated (generateDocxTemplate)")
 }
 
 const exporter = new CapturingDocxExporter(doc, "", bibDB, imageDB, csl, templateBlob)
-const tSave0 = performance.now()
+const tSave0 = perfSaveStart ?? performance.now()
 await exporter.init()
 const tSave1 = performance.now()
 console.log(`PERF save_ms=${(tSave1 - tSave0).toFixed(6)}`)
