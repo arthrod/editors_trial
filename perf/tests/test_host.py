@@ -137,6 +137,7 @@ class LinuxContainerHost(unittest.TestCase):
             mock.patch.object(host, "CGROUP", str(self.cgroup)),
             mock.patch.object(host, "CONTAINER_MARKERS", (str(self.tmp / "dockerenv"),)),
             *_no_proc(self.tmp),
+            mock.patch.dict(host.os.environ, {}),  # the real environment may be a container's (#120)
         ]
         import shutil
 
@@ -144,6 +145,8 @@ class LinuxContainerHost(unittest.TestCase):
         for p in self.patches:
             p.start()
             self.addCleanup(p.stop)
+        for key in ("KUBERNETES_SERVICE_HOST", "container"):
+            host.os.environ.pop(key, None)
 
     def _supply(self, name, kind, online=None):
         d = self.supply / name
