@@ -151,6 +151,24 @@ class ReportEFacts(unittest.TestCase):
     def test_lost_correctness_strings_are_reported(self):
         self.assertEqual(self.facts["perf.e.correctness_lost"], "none")
 
+    def test_the_summary_has_one_plain_bullet_per_editor_from_published_cells_only(self):
+        summary = self.facts["perf.e.summary"].splitlines()
+        self.assertEqual(len(summary), 3)
+        self.assertEqual([b.split("**")[1] for b in summary], ["canvas-editor + plugin.", "Plate.js.", "WordCraft."])
+        wordcraft = summary[2]
+        self.assertIn("3.0 ms at 500 words", wordcraft)
+        self.assertIn("not published", summary[1])  # plate's round trip did not reproduce
+        self.assertIn("crashed (exit 1)", summary[0])
+        for word in ("fastest", "slowest", "faster", "slower", "best", "worst", "winner"):
+            self.assertNotIn(word, self.facts["perf.e.summary"].lower())
+
+    def test_what_each_timer_includes_and_the_versions_come_from_the_run(self):
+        lanes = self.facts["perf.e.lanes"]
+        self.assertIn("| WordCraft | fake |", lanes)
+        versions = self.facts["perf.e.versions"]
+        self.assertIn("Plate.js", versions)
+        self.assertIn("node v0", versions)
+
     def test_a_non_publication_run_is_refused(self):
         with tempfile.TemporaryDirectory() as tmp:
             bad = Path(tmp) / "summary.json"

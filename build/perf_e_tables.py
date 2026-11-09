@@ -323,6 +323,9 @@ def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
     lo = _libreoffice_table(primary, repro)
     if lo:
         facts["perf.e.table.libreoffice"] = lo
+    facts["perf.e.summary"] = _summary(facts, primary)
+    facts["perf.e.lanes"] = _lanes(primary)
+    facts["perf.e.versions"] = _versions(primary)
     facts["perf.e.passthrough"] = _passthrough(primary)
     facts["perf.e.exceptions"] = _exceptions(facts, primary, repro)
     facts["perf.e.correctness_lost"] = _correctness_lost(primary)
@@ -334,6 +337,65 @@ def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
     facts["perf.e.cells_checked"] = len(published)
     facts["perf.e.cells_reproduced"] = sum(1 for k in published if facts[k])
     return facts
+
+
+def _seconds_or_ms(value: float) -> str:
+    return ("%.1f s" % (value / 1000.0)) if value >= 1000 else ("%s ms" % fmt_ms(value))
+
+
+def _summary(facts: dict, primary: Run) -> str:
+    """One bullet per editor: its own round trip at each workload, from published cells only."""
+    bullets = []
+    for editor in _editors(primary):
+        if editor == "libreoffice":
+            continue
+        parts, gaps = [], []
+        for wl in _workloads(primary):
+            key = "perf.e.%s.%s.roundtrip.median" % (editor, wl)
+            label = WORKLOAD_LABEL.get(wl, wl)
+            if key in facts:
+                parts.append("%s at %s" % (_seconds_or_ms(facts[key]), label))
+                continue
+            state, reason = _status(primary, wl, editor, "roundtrip")
+            if state == "failed":
+                gaps.append("%s: %s" % (label, _short(reason)))
+            else:
+                gaps.append("%s: not published (%s)" % (
+                    label, "not reproduced" if state == "measured" else state.replace("_", " ")))
+        text = "- **%s.** " % DISPLAY.get(editor, editor)
+        if parts:
+            text += "Round trip " + ", ".join(parts) + "."
+        a = "perf.e.%s.prose-5kw.roundtrip.median" % editor
+        b = "perf.e.%s.prose-250kw.roundtrip.median" % editor
+        if a in facts and b in facts and facts[a] > 0:
+            text += " From 5,000 to 250,000 words (50 times the text) it grew %.0f times." % (facts[b] / facts[a])
+        if gaps:
+            text += (" " if parts else "") + "; ".join(gaps) + "."
+        bullets.append(text.rstrip())
+    return "\n".join(bullets)
+
+
+def _lanes(primary: Run) -> str:
+    lines = ["| Editor | Load timer ends at / save timer covers |", "|---|---|"]
+    lines.extend("| %s | %s |" % (DISPLAY.get(e, e), primary.summary["lanes"].get(e, "")) for e in _editors(primary))
+    return "\n".join(lines)
+
+
+def _versions(primary: Run) -> str:
+    v = primary.summary.get("versions", {})
+    lines = ["| Editor | Pin | Checkouts on disk | Packages and binaries |", "|---|---|---|---|"]
+    for editor in _editors(primary):
+        rec = v.get("editors", {}).get(editor, {})
+        checkouts = ", ".join("%s %s" % (k.split("/", 1)[-1], h) for k, h in (rec.get("checkouts") or {}).items()) or "—"
+        extra = ["%s %s" % (k, val) for k, val in (rec.get("packages") or {}).items()]
+        extra += ["%s sha256 %s" % (k, (val or "")[:12]) for k, val in (rec.get("binaries") or {}).items()]
+        if rec.get("version"):
+            extra.append(rec["version"])
+        lines.append("| %s | %s | %s | %s |" % (DISPLAY.get(editor, editor), rec.get("pin") or "—", checkouts, "; ".join(extra) or "—"))
+    tools = v.get("tools", {})
+    lines.append("")
+    lines.append("Runtimes: " + ", ".join("%s %s" % (k, tools[k]) for k in sorted(tools)) + ".")
+    return "\n".join(lines)
 
 
 def _names(editors) -> str:
