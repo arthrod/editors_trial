@@ -82,28 +82,43 @@ def correctness_fixtures():
 
 
 def docx_zip_bytes(body: bytes) -> bytes:
-    """Minimal OOXML package: one word/document.xml with plaintext from ``body``."""
-    from io import BytesIO
-    import zipfile
+    """Minimal OOXML package: one ``<w:p>`` per line of ``body``.
+
+    Each newline-terminated line of ``body`` becomes its own paragraph (an
+    empty line is an empty ``<w:p/>``). Entries carry a fixed timestamp, so
+    the same body always zips to the same bytes (editors_trial#88, #100).
+    """
+    from perf.fixtures.docx_workload import deterministic_zip
 
     inner = body.decode("utf-8", errors="replace")
+    lines = inner.split("\n")
+    if lines and lines[-1] == "":
+        lines.pop()
+    paragraphs = []
+    for line in lines:
+        if not line:
+            paragraphs.append("<w:p/>")
+            continue
+        escaped = (
+            line.replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace('"', "&quot;")
+        )
+        paragraphs.append('<w:p><w:r><w:t xml:space="preserve">%s</w:t></w:r></w:p>' % escaped)
     document_xml = (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
-        "<w:body><w:p><w:r><w:t xml:space=\"preserve\">%s</w:t></w:r></w:p></w:body></w:document>"
-    ) % (
-        inner.replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
+        "<w:body>%s</w:body></w:document>"
+    ) % "".join(paragraphs)
+    return deterministic_zip(
+        [
+            ("[Content_Types].xml", _CONTENT_TYPES.encode("utf-8")),
+            ("_rels/.rels", _RELS_ROOT.encode("utf-8")),
+            ("word/_rels/document.xml.rels", _RELS_DOC.encode("utf-8")),
+            ("word/document.xml", document_xml.encode("utf-8")),
+        ]
     )
-    buf = BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr("[Content_Types].xml", _CONTENT_TYPES)
-        zf.writestr("_rels/.rels", _RELS_ROOT)
-        zf.writestr("word/_rels/document.xml.rels", _RELS_DOC)
-        zf.writestr("word/document.xml", document_xml.encode("utf-8"))
-    return buf.getvalue()
 
 
 _CONTENT_TYPES = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
