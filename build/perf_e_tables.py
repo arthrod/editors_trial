@@ -162,6 +162,25 @@ def fmt_mib(value: float) -> str:
     return "{:,.0f}".format(value / (1024 * 1024))
 
 
+MIN_N = 10
+MAX_NOISY = 0.10
+
+
+def _samples_publishable(run: Run, wl: str, editor: str) -> tuple[bool, str | None]:
+    """The runner's publication rule, for figures that have no criterion row
+    (whole-process wall, CPU, memory; LibreOffice's conversion)."""
+    recs = run.records.get((wl, editor), [])
+    good = [r for r in recs if _good(r)]
+    if len(recs) != len(good):
+        return False, "%d of %d samples excluded" % (len(recs) - len(good), len(recs))
+    if len(good) < MIN_N:
+        return False, "n=%d below %d" % (len(good), MIN_N)
+    noisy = sum(1 for r in recs if r.get("noisy"))
+    if noisy / len(recs) > MAX_NOISY:
+        return False, "%d of %d samples started above the load limit" % (noisy, len(recs))
+    return True, None
+
+
 def _cell(facts: dict, primary: Run, repro: Run, wl: str, editor: str, metric: str) -> str:
     state, reason = _status(primary, wl, editor, metric)
     if state == "not_run" and editor == "libreoffice":
@@ -222,6 +241,11 @@ def _process_table(facts: dict, primary: Run, repro: Run) -> str:
             _, reason = _status(primary, wl, editor, "load")
             lines.append("| %s | failed: %s | | |" % (DISPLAY.get(editor, editor), _short(reason)))
             continue
+        ok_a, why_a = _samples_publishable(primary, wl, editor)
+        ok_b, why_b = _samples_publishable(repro, wl, editor)
+        if not (ok_a and ok_b):
+            lines.append("| %s | not publishable (%s) | | |" % (DISPLAY.get(editor, editor), why_a or "second run: %s" % why_b))
+            continue
         cells = []
         for metric in ("wall", "cpu", "rss"):
             vals = _values(recs, metric)
@@ -243,7 +267,7 @@ def _process_table(facts: dict, primary: Run, repro: Run) -> str:
     return "\n".join(lines)
 
 
-def _appendix(primary: Run) -> str:
+def _appendix(facts: dict, primary: Run) -> str:
     out = []
     for wl in _workloads(primary):
         out.append("**%s, round trip (ms)**\n" % WORKLOAD_LABEL.get(wl, wl))
@@ -254,6 +278,9 @@ def _appendix(primary: Run) -> str:
             name = DISPLAY.get(editor, editor)
             if state != "measured":
                 out.append("| %s | %s | | | | | | | | |" % (name, "n/a" if editor == "libreoffice" else _short(reason) if state == "failed" else state.replace("_", " ")))
+                continue
+            if not facts.get("perf.e.%s.%s.roundtrip.reproduced" % (editor, wl)):
+                out.append("| %s | not reproduced | | | | | | | | |" % name)
                 continue
             s = _stats(_values(primary.records[wl, editor], "roundtrip"), METRICS["roundtrip"][1])
             out.append("| %s | %d | %s | %s | %s | %s | %s | %s to %s | %s | %s |" % (
@@ -288,6 +315,11 @@ def _libreoffice_table(primary: Run, repro: Run) -> str | None:
         if not vals:
             continue
         found = True
+        ok_a, why_a = _samples_publishable(primary, wl, "libreoffice")
+        ok_b, why_b = _samples_publishable(repro, wl, "libreoffice")
+        if not (ok_a and ok_b):
+            lines.append("| %s | not publishable (%s) | |" % (WORKLOAD_LABEL.get(wl, wl), why_a or "second run: %s" % why_b))
+            continue
         med = _stats(vals, "process_cold_fs_warm")["median"]
         r_med = _stats(r_vals, "process_cold_fs_warm")["median"] if r_vals else None
         lines.append("| %s | %s | %s |" % (
@@ -319,7 +351,7 @@ def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
     for metric in TIMED:
         facts["perf.e.table.%s" % metric] = _table(facts, primary, repro, metric)
     facts["perf.e.table.process"] = _process_table(facts, primary, repro)
-    facts["perf.e.appendix"] = _appendix(primary)
+    facts["perf.e.appendix"] = _appendix(facts, primary)
     lo = _libreoffice_table(primary, repro)
     if lo:
         facts["perf.e.table.libreoffice"] = lo

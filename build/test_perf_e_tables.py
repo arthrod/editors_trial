@@ -169,6 +169,27 @@ class ReportEFacts(unittest.TestCase):
         self.assertIn("Plate.js", versions)
         self.assertIn("node v0", versions)
 
+    def test_the_appendix_prints_no_distribution_for_a_cell_that_did_not_reproduce(self):
+        row = next(line for line in self.facts["perf.e.appendix"].splitlines() if line.startswith("| Plate.js"))
+        self.assertIn("not reproduced", row)
+        self.assertNotIn("150", row)
+        wordcraft = next(line for line in self.facts["perf.e.appendix"].splitlines() if line.startswith("| WordCraft"))
+        self.assertIn("| 10 | 3.0 |", wordcraft)
+
+    def test_a_whole_process_cell_needs_a_publishable_primary(self):
+        def rec(noisy=False, good=True):
+            return {"returncode": 0 if good else 1, "timed_out": False, "check": {"complete": good}, "noisy": noisy,
+                    "marks": {}, "wall_ms": 5.0, "cpu_ms": 5.0, "max_rss_bytes": 1}
+        run = E.Run(Path("."), {"workloads": {}, "repetitions": 10})
+        run.records[("w", "e")] = [rec() for _ in range(10)]
+        self.assertEqual(E._samples_publishable(run, "w", "e"), (True, None))
+        run.records[("w", "e")] = [rec() for _ in range(9)]
+        self.assertFalse(E._samples_publishable(run, "w", "e")[0])
+        run.records[("w", "e")] = [rec() for _ in range(9)] + [rec(good=False)]
+        self.assertIn("excluded", E._samples_publishable(run, "w", "e")[1])
+        run.records[("w", "e")] = [rec(noisy=True) for _ in range(2)] + [rec() for _ in range(8)]
+        self.assertIn("load limit", E._samples_publishable(run, "w", "e")[1])
+
     def test_a_non_publication_run_is_refused(self):
         with tempfile.TemporaryDirectory() as tmp:
             bad = Path(tmp) / "summary.json"
