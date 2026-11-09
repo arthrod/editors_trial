@@ -710,7 +710,10 @@ def main(argv=None) -> int:
         if unknown:
             parser.error("unknown editors: %s" % ", ".join(unknown))
         lanes = {e: lanes[e] for e in args.editors}
-    out_root = args.out_root or REPO / "perf" / "out" / ("speed_headless_%s_%s" % (args.execution_profile, _dt.date.today().strftime("%Y_%m_%d")))
+    out_root = args.out_root or REPO / "perf" / "out" / "speed_headless" / (
+        "%s_%s_seed%d" % (_dt.date.today().strftime("%Y_%m_%d"), args.execution_profile, args.seed))
+    if (out_root / "summary.json").exists():
+        parser.error("%s already holds a run; pass --out-root or another --seed" % out_root)
     try:
         summary = run_suite(
             lanes=lanes,

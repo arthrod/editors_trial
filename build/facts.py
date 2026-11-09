@@ -342,6 +342,16 @@ def broken_facts(facts: dict) -> None:
     facts["broken.produced"] = sum(1 for d in editors if rows[d] is not None)
 
 
+def perf_e_facts(path: Path, facts: dict) -> None:
+    """Report E: the headless speed tables, from the two publication runs that
+    out/report_e_runs.json names ({"primary": dir, "repro": dir}, relative to the repo)."""
+    if not path.exists():
+        return
+    import perf_e_tables
+    runs = json.loads(path.read_text())
+    facts.update(perf_e_tables.facts_from_runs(ROOT / runs["primary"], ROOT / runs["repro"]))
+
+
 def count_facts(facts: dict) -> None:
     """How many took part, counted from the measurements present rather than typed."""
     measured = sorted({k.split(".")[1] for k in facts if k.startswith("rt.") and k.endswith(".weighted")} - LANES)
@@ -445,6 +455,7 @@ def build() -> dict:
         facts["stars.date"] = data["date"]
         for slug, n in data["stars"].items():
             facts[f"stars.{slug}"] = n
+    perf_e_facts(OUT / "report_e_runs.json", facts)
     editors = [t for t in TOOLS if t not in LANES and f"p2.{t}.identical" in facts]
     facts["count.p2_identical"] = sum(1 for t in editors if facts[f"p2.{t}.identical"])
     facts["count.zero_failed"] = sum(1 for t in editors if facts[f"rt.{t}.failed"] == 0)
