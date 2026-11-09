@@ -67,6 +67,7 @@ from perf.runner.benchmark_ci_contract import (  # noqa: E402
     _finalize_publishable,
     _host_base,
     _ram_bytes,
+    _host as _contract_host,
     _trial_dict,
 )
 from perf.runner.benchmark_warm_cold import (  # noqa: E402
@@ -1532,7 +1533,7 @@ def main() -> int:
         "host": {
             "os": sys.platform,
             "arch": platform.machine(),
-            "cpu_model": platform.processor() or "unknown",
+            "cpu_model": _host_cpu_model(),
             "ram_bytes": _ram_bytes(),
         },
         "commands": [
@@ -1585,3 +1586,8 @@ def _median_optional(values: list):
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+def _host_cpu_model() -> str:
+    """CPU brand string from ``perf.runner.host`` (``platform.processor()`` is "arm")."""
+    return _contract_host()["cpu_model"]
