@@ -21,6 +21,7 @@ Usage (from repo root)::
 from __future__ import annotations
 
 import argparse
+import functools
 import hashlib
 import json
 import os
@@ -81,15 +82,15 @@ def _attempt_ref(path: Path) -> str:
 
 
 def _ram_bytes() -> int:
-    try:
-        with open("/proc/meminfo", encoding="utf-8") as handle:
-            for line in handle:
-                if line.startswith("MemTotal:"):
-                    parts = line.split()
-                    return int(parts[1]) * 1024
-    except OSError:
-        pass
-    return 512 * 1024 * 1024
+    """Physical RAM of this host, read by ``perf.runner.host`` (never a default)."""
+    return _host()["ram_bytes"]
+
+
+@functools.lru_cache(maxsize=1)
+def _host() -> dict:
+    from perf.runner.host import host_record
+
+    return host_record()
 
 
 def _host_base(
@@ -110,11 +111,13 @@ def _host_base(
     return {
         "host_class": "ci_coarse",
         "execution_profile": execution_profile,
-        "cpu_model": platform.processor() or "unknown",
+        "cpu_model": _host()["cpu_model"],
         "os": sys.platform,
+        "os_version": _host()["os_version"],
         "arch": platform.machine(),
         "ram_bytes": _ram_bytes(),
-        "power_source": "unknown",
+        "cpu_cores_logical": _host()["cpu_cores_logical"],
+        "power_source": _host()["power_source"],
         "editor_id": editor_id,
         "editor_version": editor_version,
         "fixture_sha256": fixture_sha256,
