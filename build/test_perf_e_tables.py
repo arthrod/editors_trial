@@ -190,6 +190,29 @@ class ReportEFacts(unittest.TestCase):
         run.records[("w", "e")] = [rec(noisy=True) for _ in range(2)] + [rec() for _ in range(8)]
         self.assertIn("load limit", E._samples_publishable(run, "w", "e")[1])
 
+    def test_a_save_that_stays_flat_while_load_grows_is_named(self):
+        facts = {
+            "perf.e.sd.prose-5kw.save.median": 3.0, "perf.e.sd.prose-250kw.save.median": 3.5,
+            "perf.e.sd.prose-5kw.load.median": 150.0, "perf.e.sd.prose-250kw.load.median": 2500.0,
+            "perf.e.ok.prose-5kw.save.median": 10.0, "perf.e.ok.prose-250kw.save.median": 400.0,
+            "perf.e.ok.prose-5kw.load.median": 10.0, "perf.e.ok.prose-250kw.load.median": 300.0,
+        }
+        text = E._prepared_export(facts, ["sd", "ok"])
+        self.assertIn("sd", text)
+        self.assertNotIn("ok", text.replace("took", ""))
+        self.assertIn("3.0 ms", text)
+        self.assertEqual(E._prepared_export({}, ["sd"]), "")
+
+    def test_template_facts_always_exist(self):
+        for key in ("perf.e.prepared_export", "perf.e.host_start", "perf.e.table.libreoffice"):
+            self.assertIn(key, self.facts)
+
+    def test_save_notes_are_bullets_built_from_what_was_found(self):
+        notes = self.facts["perf.e.save_notes"]
+        self.assertTrue(notes.startswith("- **The file is the input.**"))
+        self.assertIn("Plate.js, WordCraft", notes)
+        self.assertNotIn("prepared during", notes)  # no fake editor has a flat save
+
     def test_a_non_publication_run_is_refused(self):
         with tempfile.TemporaryDirectory() as tmp:
             bad = Path(tmp) / "summary.json"

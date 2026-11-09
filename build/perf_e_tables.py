@@ -353,8 +353,7 @@ def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
     facts["perf.e.table.process"] = _process_table(facts, primary, repro)
     facts["perf.e.appendix"] = _appendix(facts, primary)
     lo = _libreoffice_table(primary, repro)
-    if lo:
-        facts["perf.e.table.libreoffice"] = lo
+    facts["perf.e.table.libreoffice"] = lo or "LibreOffice was not in these runs."
     facts["perf.e.summary"] = _summary(facts, primary)
     facts["perf.e.lanes"] = _lanes(primary)
     facts["perf.e.versions"] = _versions(primary)
@@ -365,6 +364,9 @@ def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
         starts = [r["marks"]["host_start_ms"] for r in recs if _good(r) and "host_start_ms" in r["marks"]]
         if starts:
             facts["perf.e.%s.%s.host_start.median" % (editor, wl)] = round(_stats(starts, "process_cold_fs_warm")["median"], 3)
+    facts["perf.e.prepared_export"] = _prepared_export(facts, _editors(primary))
+    facts["perf.e.host_start"] = _host_start(facts, primary)
+    facts["perf.e.save_notes"] = _save_notes(facts)
     published = [k for k in facts if k.endswith(".reproduced")]
     facts["perf.e.cells_checked"] = len(published)
     facts["perf.e.cells_reproduced"] = sum(1 for k in published if facts[k])
@@ -428,6 +430,47 @@ def _versions(primary: Run) -> str:
     lines.append("")
     lines.append("Runtimes: " + ", ".join("%s %s" % (k, tools[k]) for k in sorted(tools)) + ".")
     return "\n".join(lines)
+
+
+def _prepared_export(facts: dict, editors: list[str]) -> str:
+    """Editors whose save barely moves from 5,000 to 250,000 words while their
+    load grows: the export work happens during load. Published cells only."""
+    out = []
+    for editor in editors:
+        k = "perf.e.%s.%s.%s.median"
+        need = [k % (editor, wl, m) for wl in ("prose-5kw", "prose-250kw") for m in ("save", "load")]
+        if not all(n in facts for n in need):
+            continue
+        s5, l5, s250, l250 = (facts[n] for n in need)
+        if s5 > 0 and l5 > 0 and s250 / s5 < 2 and l250 / l5 > 5:
+            out.append("%s's save took %s ms at 5,000 words and %s ms at 250,000 words, while its load grew %.0f times" % (
+                DISPLAY.get(editor, editor), fmt_ms(s5), fmt_ms(s250), l250 / l5))
+    return "; ".join(out)
+
+
+def _host_start(facts: dict, primary: Run) -> str:
+    parts = []
+    for editor in _editors(primary):
+        for wl in _workloads(primary):
+            key = "perf.e.%s.%s.host_start.median" % (editor, wl)
+            if key in facts:
+                parts.append("%s's native host starts before the load timer, in %s ms (median at %s); that start is in the process figures, not in load" % (
+                    DISPLAY.get(editor, editor), fmt_ms(facts[key]), WORKLOAD_LABEL.get(wl, wl)))
+                break
+    return "; ".join(parts)
+
+
+def _save_notes(facts: dict) -> str:
+    notes = []
+    if facts.get("perf.e.passthrough", "none") != "none":
+        notes.append("- **The file is the input.** These editors wrote back the exact bytes they were given, on every sample: %s. "
+                     "With nothing edited, they keep the original package; their save time is the time to decide that and hand the bytes back." % facts["perf.e.passthrough"])
+    if facts.get("perf.e.prepared_export"):
+        notes.append("- **The export is prepared during load.** %s. Their saved file is a new serialisation, not the input, "
+                     "so the work is done before the save timer starts; the round trip counts it." % facts["perf.e.prepared_export"])
+    if facts.get("perf.e.host_start"):
+        notes.append("- **A host process.** %s." % facts["perf.e.host_start"])
+    return "\n".join(notes) if notes else "- none"
 
 
 def _names(editors) -> str:
