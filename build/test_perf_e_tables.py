@@ -500,3 +500,27 @@ class HostLine(unittest.TestCase):
         for key in ("container", "cpu_quota", "memory_limit_bytes"):
             with self.subTest(key=key):
                 self.assertIn(key, E._SAME_HOST)
+
+
+class MachineWords(unittest.TestCase):
+    """#118: the prose names the kind of machine from the run, never "Mac" by hand."""
+
+    def test_mac(self):
+        s = {"host": HostLine.MAC}
+        self.assertEqual(E._machine(s), "one Mac")
+        self.assertEqual(E._host_note(s), "")
+
+    def test_container(self):
+        s = {"host": HostLine.BOX}
+        self.assertEqual(E._machine(s), "one Linux container on a shared server")
+        note = E._host_note(s)
+        self.assertIn("whole server's", note)
+        self.assertIn("64", note)
+        self.assertIn("16", note)
+        self.assertIn("cannot see", note)
+
+    def test_facts_carry_both(self):
+        import inspect
+        src = inspect.getsource(E.facts_from_runs)
+        self.assertIn('"perf.e.machine": _machine(s)', src)
+        self.assertIn('"perf.e.host_note": _host_note(s)', src)

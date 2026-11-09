@@ -440,6 +440,25 @@ def _host(summary: dict) -> str:
         h["cpu_model"], h["cpu_cores_logical"], round(h["ram_bytes"] / 2**30), system, h["power_source"].upper())
 
 
+def _machine(summary: dict) -> str:
+    h = summary["host"]
+    if h.get("container"):
+        return "one Linux container on a shared server"
+    return "one Mac" if h.get("os") == "darwin" else "one %s machine" % h.get("os", "?").capitalize()
+
+
+def _host_note(summary: dict) -> str:
+    """What the quiet check could and could not see on this machine."""
+    h = summary["host"]
+    if not h.get("container"):
+        return ""
+    quota = h.get("cpu_quota")
+    return ("The container shares its server with other tenants. The load average it reads is the whole server's, "
+            "judged against the server's %d CPUs, so busy neighbours count against the limit; the process check "
+            "cannot see what they run. The container itself may use %s CPUs. The server has no battery." % (
+                h["cpu_cores_logical"], "%g" % quota if quota else "all"))
+
+
 def _libreoffice_table(primary: Run, repro: Run) -> str | None:
     lines = ["| Workload | Whole conversion, wall (ms) | Second run |", "|---|---|---|"]
     found = False
@@ -477,6 +496,8 @@ def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
         "perf.e.seed": s["seed"],
         "perf.e.repro_seed": repro.summary["seed"],
         "perf.e.host": _host(s),
+        "perf.e.machine": _machine(s),
+        "perf.e.host_note": _host_note(s),
         "perf.e.date": s["quiet_machine_check_start"].get("date") or _date(primary),
         "perf.e.rel_tol_pct": round(REL_TOL * 100),
         "perf.e.abs_tol_ms": ABS_TOL_MS,
