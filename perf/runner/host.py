@@ -28,7 +28,12 @@ class HostProbeError(RuntimeError):
 # logical CPUs, or any one foreign process above 25% of a core, is not quiet.
 LOAD_FRACTION = 1.0 / 3.0
 PROCESS_CPU_PERCENT = 25.0
-_HEAVY_JOBS = re.compile(r"Microsoft Word|neurotic_docx_bench", re.I)
+# Another Word *job* (AGENTS.md section 3): a trial script driving Word, an
+# osascript addressing it, or the bench batch. Word merely left open is not a
+# job; a busy Word fails the per-process CPU rule like anything else.
+_HEAVY_JOBS = re.compile(
+    r"neurotic_docx_bench|build/word_\w+\.py|verify_publication|verify_deliverables|osascript.*Microsoft Word", re.I
+)
 
 
 def _run(cmd: list[str]) -> str | None:
@@ -170,10 +175,14 @@ def _processes() -> list[tuple[int, int, float, str]] | None:
 
 
 def _own_tree(rows: list[tuple[int, int, float, str]]) -> set[int]:
-    """This process and every descendant of it (the runner, its lanes, ``ps``)."""
+    """This process, every descendant of it (the runner, its lanes, ``ps``) and
+    its ancestors up to (not including) PID 1: whatever launched the runner is
+    not another session's job."""
     children: dict[int, list[int]] = {}
+    parent: dict[int, int] = {}
     for pid, ppid, _, _ in rows:
         children.setdefault(ppid, []).append(pid)
+        parent[pid] = ppid
     own, todo = set(), [os.getpid()]
     while todo:
         pid = todo.pop()
@@ -181,6 +190,10 @@ def _own_tree(rows: list[tuple[int, int, float, str]]) -> set[int]:
             continue
         own.add(pid)
         todo.extend(children.get(pid, ()))
+    pid = os.getppid()
+    while pid > 1 and pid not in own:
+        own.add(pid)
+        pid = parent.get(pid, 1)
     return own
 
 
@@ -189,7 +202,7 @@ def quiet_machine_check() -> dict:
 
     Fails closed: no process list means not quiet. Only this process's own
     tree is excluded (by PID, never by name, so another session's runner
-    counts), and a Word or bench job counts however idle it is.
+    counts), and a Word driver or bench job counts however idle it is.
     """
     load = _load_average()
     ncpu = _logical_cpus()

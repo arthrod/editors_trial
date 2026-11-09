@@ -296,18 +296,40 @@ class QuietCheck(unittest.TestCase):
         result = self.check(_ps([(me, 1, 5.0, "python3 runner"), (me + 1, me, 90.0, "node harness/plate")]))
         self.assertTrue(result["quiet"], result["reasons"])
 
+    def test_own_ancestors_are_excluded(self):
+        me, parent = os.getpid(), os.getppid()
+        rows = [(parent, 1, 0.0, "zsh -c python3 build/word_verdicts.py-looking command"), (me, parent, 5.0, "python3 runner")]
+        result = self.check(_ps(rows))
+        self.assertTrue(result["quiet"], result["reasons"])
+
     def test_a_foreign_runner_is_not_excluded_by_its_name(self):
         me = os.getpid()
         result = self.check(_ps([(me, 1, 5.0, "python3 x"), (99999, 1, 90.0, "python3 perf/runner/speed_headless.py")]))
         self.assertFalse(result["quiet"])
         self.assertTrue(any("perf/runner/speed_headless.py" in r for r in result["reasons"]))
 
-    def test_an_idle_word_is_still_a_heavy_job(self):
+    def _crowd(self, *extra):
         me = os.getpid()
         rows = [(me, 1, 5.0, "python3 x")] + [(1000 + k, 1, 1.0, "proc%d" % k) for k in range(30)]
-        rows.append((5000, 1, 0.0, "/Applications/Microsoft Word.app/Contents/MacOS/Microsoft Word"))
-        result = self.check(_ps(rows))
+        return self.check(_ps(rows + list(extra)))
+
+    def test_a_word_driver_is_a_job_however_idle(self):
+        result = self._crowd((5001, 1, 0.0, "python3 build/word_verdicts.py --set broken"))
         self.assertTrue(result["heavy_trial_job_seen"])
+        self.assertFalse(result["quiet"])
+
+    def test_an_osascript_driving_word_is_a_job(self):
+        result = self._crowd((5002, 1, 0.0, "osascript -e tell application \"Microsoft Word\" to open"))
+        self.assertTrue(result["heavy_trial_job_seen"])
+
+    def test_an_open_idle_word_is_not_a_job(self):
+        # AGENTS.md section 3 forbids another Word *job*; Word left open at 0 % CPU is none.
+        result = self._crowd((5000, 1, 0.0, "/Applications/Microsoft Word.app/Contents/MacOS/Microsoft Word"))
+        self.assertFalse(result["heavy_trial_job_seen"])
+        self.assertTrue(result["quiet"], result["reasons"])
+
+    def test_a_busy_word_is_not_quiet(self):
+        result = self._crowd((5000, 1, 80.0, "/Applications/Microsoft Word.app/Contents/MacOS/Microsoft Word"))
         self.assertFalse(result["quiet"])
 
 

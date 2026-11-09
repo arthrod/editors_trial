@@ -90,7 +90,7 @@ class QuietCheck(unittest.TestCase):
         self.assertTrue(any("yes" in r for r in result["reasons"]))
 
     def test_word_or_bench_job_is_not_quiet(self):
-        for name in ("/Applications/Microsoft Word.app/Contents/MacOS/Microsoft Word", "python3 neurotic_docx_bench/run.py"):
+        for name in ("python3 build/word_verdicts.py --set broken", "python3 neurotic_docx_bench/run.py"):
             result = self._check(1.0, [(1.0, name)])
             self.assertFalse(result["quiet"], name)
             self.assertTrue(result["heavy_trial_job_seen"])
