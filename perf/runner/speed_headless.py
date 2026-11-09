@@ -546,7 +546,7 @@ def run_suite(
             for index, editor_id in enumerate(order):
                 if editor_id in stopped:
                     continue
-                work = out_root / "work" / run_id / workload_id / editor_id
+                work = out_root / "work.noindex" / run_id / workload_id / editor_id
                 record = run_sample(lanes[editor_id], editor_id, meta, expect, work, timeout_s)
                 record.update({"repetition": rep, "order_index": index, "warmup": rep == 0, "run_id": run_id})
                 record["noisy"] = record["load_before"][0] > load_limit

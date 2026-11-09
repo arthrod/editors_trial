@@ -110,6 +110,12 @@ class Suite(unittest.TestCase):
         ):
             self.assertIn(key, sample)
 
+    def test_documents_are_written_where_spotlight_does_not_index(self):
+        lanes = {"a": _fake_lane(self.script)}
+        self._run(lanes, reps=1)
+        record = json.loads(next((self.root / "out" / "samples").rglob("r001.json")).read_text())
+        self.assertTrue(any("work.noindex" in part for part in record["command"]))
+
     def test_inherited_editor_config_does_not_reach_the_lane(self):
         lanes = {"a": _fake_lane(self.script)}
         with mock.patch.dict("os.environ", {"EDITOR_CONFIG": "suggested"}):
