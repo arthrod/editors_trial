@@ -392,6 +392,58 @@ class RulesFromTheRun(unittest.TestCase):
         self.assertEqual(E._dirty_allowed({"versions": {"editors": {}}}), "none")
 
 
+class SecondReview(unittest.TestCase):
+    """MiniMax (pi) review of the #103 fixes."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_new1_a_summary_flag_cannot_make_a_cell_publishable(self):
+        def edit(d):
+            for r in d["rows"]:
+                if r["editor_id"] == "canvas":
+                    r.update(outcome="measured", publishable=True, n=0)
+        run = _copy(_MODULE["primary"], self.root / "p", edit)
+        with self.assertRaises(ValueError):
+            E.load_run(run)  # canvas crashed: its rows cannot claim measured
+
+    def test_new1_eligibility_is_rederived_from_the_samples(self):
+        run = E.load_run(_MODULE["primary"])
+        for rec in run.records["prose-500w", "wordcraft"][:3]:
+            rec["power_source"] = "battery"
+        self.assertEqual(E._status(run, "prose-500w", "wordcraft", "load")[0], "unpublishable")
+
+    def test_new2_a_copy_with_new_identities_is_not_a_reproduction(self):
+        dst = self.root / "copy"
+        shutil.copytree(_MODULE["primary"], dst)
+        old_id = json.loads((dst / "summary.json").read_text())["run_id"]
+        for path in dst.rglob("*.json"):
+            path.write_text(path.read_text().replace(old_id, "forged0000"))
+        data = json.loads((dst / "summary.json").read_text())
+        data["seed"] = 99
+        (dst / "summary.json").write_text(json.dumps(data))
+        with self.assertRaises(ValueError) as caught:
+            E.facts_from_runs(_MODULE["primary"], dst)
+        self.assertIn("overlap", str(caught.exception))
+
+    def test_new6_a_duplicated_sample_is_refused(self):
+        def edit(d):
+            d["repetitions"] = 11
+        run = _copy(_MODULE["primary"], self.root / "p", edit)
+        for editor in ("wordcraft", "plate"):
+            src = run / "samples" / "prose-500w" / editor / "r005.json"
+            rec = json.loads(src.read_text())
+            rec["repetition"] = 11
+            (src.parent / "r011.json").write_text(json.dumps(rec))
+        with self.assertRaises(ValueError) as caught:
+            E.load_run(run)
+        self.assertIn("same start", str(caught.exception))
+
+
 class Units(unittest.TestCase):
     def test_round_trip_pairs_each_load_with_its_own_save(self):
         def rec(load, save):

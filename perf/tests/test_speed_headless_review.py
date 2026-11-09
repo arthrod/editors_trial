@@ -217,6 +217,16 @@ class Marks(Base):
         self.assertEqual(row["outcome"], "failed")
         self.assertIn("save_ms printed 2 times", row["failure_reason"])
 
+    def test_a_mark_that_is_not_a_time_fails_the_sample_not_the_run(self):
+        for bad in ("inf", "nan", "-1"):
+            with self.subTest(value=bad):
+                summary = self.suite({"a": self.lane(FAKE_MARKS="model_ready_ms=1.5;save_ms=%s" % bad)}, reps=1)
+                row = self.row(summary, "a", "C16")
+                self.assertEqual(row["outcome"], "failed")
+                self.assertIn("not a time", row["failure_reason"])
+                self.tearDown()
+                self.setUp()
+
     def test_the_record_keeps_mark_counts(self):
         self.suite({"a": self.lane()}, reps=1)
         record = json.loads(next((self.root / "out" / "samples").rglob("r001.json")).read_text())

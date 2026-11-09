@@ -9,8 +9,9 @@ publication runs (``dedicated_publish``, different seeds) and returns the
 - the reproduction run measured the same cell and its median agrees
   (``reproduced``).
 
-Otherwise the cell says why, never a number. Rows are in alphabetical order:
-a table is not a ranking.
+Otherwise the cell says why instead of a figure (a cell that did not
+reproduce shows both medians, labelled "not reproduced"). Rows are in
+alphabetical order: a table is not a ranking.
 
 The round trip is computed per sample (that sample's load + that sample's
 save, from one process), then summarised; it is not the sum of two medians.
@@ -120,6 +121,9 @@ def _reconcile(run: Run) -> None:
     if editors_rows != set(run.records):
         raise ValueError("%s: summary rows and sample directories name different cells: %s" % (
             run.path, sorted(editors_rows ^ set(run.records))))
+    starts = [r.get("started_at") for recs in run.records.values() for r in recs]
+    if len(set(starts)) != len(starts) or None in starts:
+        raise ValueError("%s: two sample files have the same start time (a copied sample), or one has none" % run.path)
     for (wl, editor), recs in run.records.items():
         reps = sorted(r.get("repetition") for r in recs)
         stopped = any("stopped after" in (run.rows[wl, editor, c].get("failure_reason") or "")
@@ -172,6 +176,14 @@ def check_comparable(primary: Run, repro: Run) -> None:
             raise ValueError("the reproduction ran other code (provenance %s differs)" % key)
     if a.get("publication_rules") != b.get("publication_rules"):
         raise ValueError("the reproduction used other publication rules")
+    ta, tb = _window(primary), _window(repro)
+    if not (ta[1] < tb[0] or tb[1] < ta[0]):
+        raise ValueError("the two runs' samples overlap in time (%s to %s, %s to %s): a reproduction is measured after its primary" % (ta + tb))
+
+
+def _window(run: Run) -> tuple[str, str]:
+    starts = sorted(r["started_at"] for recs in run.records.values() for r in recs)
+    return starts[0], starts[-1]
 
 
 def _good(record: dict) -> bool:
@@ -205,6 +217,12 @@ def _status(run: Run, wl: str, editor: str, metric: str) -> tuple[str, str | Non
             return row["outcome"], row.get("failure_reason")
         if not row.get("publishable"):
             return "unpublishable", row.get("publication_block_reason")
+    # The summary's flag is not trusted on its own: the samples must meet the rule too.
+    ok, why = _samples_publishable(run, wl, editor)
+    if not ok:
+        return "unpublishable", why
+    if len(run.records.get((wl, editor), [])) != run.summary["repetitions"]:
+        return "unpublishable", "%d samples for %d repetitions" % (len(run.records.get((wl, editor), [])), run.summary["repetitions"])
     return "measured", None
 
 
@@ -563,9 +581,10 @@ def _host_start_facts(facts: dict, primary: Run, repro: Run) -> None:
     """A host start time is printed under the same rules as a table figure:
     publishable samples in both runs, and the two medians agree."""
     for (wl, editor), recs in sorted(primary.records.items()):
-        starts = [r["marks"]["host_start_ms"] for r in recs if _good(r) and "host_start_ms" in r["marks"]]
-        if not starts:
-            continue
+        good = [r for r in recs if _good(r)]
+        starts = [r["marks"]["host_start_ms"] for r in good if "host_start_ms" in r["marks"]]
+        if not starts or len(starts) != len(good):
+            continue  # a host start is published only if every sample reported it
         r_starts = [r["marks"]["host_start_ms"] for r in repro.records.get((wl, editor), []) if _good(r) and "host_start_ms" in r["marks"]]
         if _status(primary, wl, editor, "load")[0] != "measured" or _status(repro, wl, editor, "load")[0] != "measured":
             continue

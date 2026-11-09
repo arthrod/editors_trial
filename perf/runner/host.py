@@ -6,9 +6,10 @@ a hardcoded 512 MiB when ``/proc/meminfo`` was missing, and to record
 module cannot read raises :class:`HostProbeError`; it is never invented.
 
 ``quiet_machine_check`` is AGENTS.md §3 made executable: the load average,
-the busiest processes, and whether a Word or ``neurotic_docx_bench`` job is
-running, with the verdict and the thresholds that produced it. The runner's
-own process tree (anything under ``perf/runner/``) is not held against it.
+the busiest processes, and whether a trial script is driving Word or a
+``neurotic_docx_bench`` job is running, with the verdict and the thresholds
+that produced it. The runner's own process tree (its descendants and its
+ancestors, by PID, never by name) is not held against it.
 """
 
 from __future__ import annotations

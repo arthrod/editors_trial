@@ -39,6 +39,7 @@ import argparse
 import datetime as _dt
 import hashlib
 import json
+import math
 import os
 import random
 import shutil
@@ -547,6 +548,8 @@ def _spawn_and_reap(cmd: list[str], cwd, env: dict, timeout_s: float) -> dict:
     result["resources_complete"] = result["survivors"] == 0 and not result["timed_out"]
     for reader in readers:
         reader.join(timeout=10)
+    for pipe in (proc.stdout, proc.stderr):
+        pipe.close()
     result["stdout"] = b"".join(chunks["stdout"]).decode("utf-8", "replace")
     result["stderr"] = b"".join(chunks["stderr"]).decode("utf-8", "replace")
     result["cpu_ms"] = (usage.ru_utime + usage.ru_stime) * 1000.0
@@ -647,6 +650,10 @@ def _sample_failure(record: dict) -> str | None:
         doubled = sorted(m for m, c in counts.items() if c > 1)
         if doubled:
             return "marks: %s" % ", ".join("%s printed %d times" % (m, counts[m]) for m in doubled)
+        for m in record.get("required_marks") or ():
+            value = (record.get("marks") or {}).get(m)
+            if value is None or not math.isfinite(value) or value < 0:
+                return "marks: %s=%s is not a time" % (m, value)
     if not record["check"].get("complete"):
         return "correctness: %s" % (record["check"].get("error") or "output does not hold the whole document")
     return None
