@@ -1,9 +1,0 @@
-{
-  "name": "fidus-perf-harness",
-  "private": true,
-  "type": "module",
-  "dependencies": {
-    "citeproc-plus": "^2.0.4",
-    "jszip": "^3.10.2"
-  }
-}

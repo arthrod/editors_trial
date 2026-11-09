@@ -1,7 +1,0 @@
-minimumReleaseAge: 7200  # 5 days, in minutes (AGENTS.md section 1)
-minimumReleaseAgeExclude:
-  - docxodus@15.0.0         # the trial pin (update_editors.sh), pinned in v0.9.1
-  - "@docxodus/export@15.0.0"
-allowBuilds:
-  esbuild: true
-  "@playwright/browser-chromium": false  # capture_ui.sh passes --browser-executable

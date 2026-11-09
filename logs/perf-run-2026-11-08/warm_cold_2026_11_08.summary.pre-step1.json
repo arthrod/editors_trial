@@ -1,0 +1,477 @@
+{
+  "suite": "warm_cold",
+  "execution_profile": "ci_broad",
+  "host_class": "ci_coarse",
+  "workload_id": "micro-paragraphs",
+  "fixture_sha256": "a7c21014f44b5ce8cb6274d9307fdebe37aa617ad2d7d1f7f5ac1c8fc25fbdd0",
+  "publishable": false,
+  "pairs_per_cell": 3,
+  "paired": [
+    {
+      "criterion_id": "C03",
+      "editor_id": "plate",
+      "boundary": "first_usable",
+      "cold_median_ms": 162.0,
+      "warm_median_ms": 385.0,
+      "delta_ms": 223.0,
+      "attributed_cause": "document_parse",
+      "cold_attempt": "perf/out/warm_cold_2026_11_08/attempts/c03-plate-146e8f72bb.json",
+      "warm_attempt": "perf/out/warm_cold_2026_11_08/attempts/c03-plate-146e8f72bb.json",
+      "probes": {
+        "browser_launch_only_median": 64.0,
+        "document_navigation_only_median": 330.0,
+        "model_ready_browser_median": 162.0,
+        "document_reload_same_context_median": 385.0,
+        "delta_ms": 223.0,
+        "overhead_ms": -223.0,
+        "cold_median_ms": 162.0,
+        "warm_median_ms": 385.0,
+        "warm_arm_probe": "document_reload_same_context",
+        "document_reload_ms": 385.0,
+        "document_navigation_ms": 330.0
+      },
+      "publishable": false
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "plate",
+      "boundary": "presented_frame",
+      "cold_median_ms": 101.0,
+      "warm_median_ms": 73.0,
+      "delta_ms": -28.0,
+      "attributed_cause": "browser_launch",
+      "cold_attempt": "perf/out/warm_cold_2026_11_08/attempts/c05-plate-1ffeaf1474.json",
+      "warm_attempt": "perf/out/warm_cold_2026_11_08/attempts/c05-plate-c9db3b71f1.json",
+      "probes": {
+        "browser_launch_only_median": 64.0,
+        "document_navigation_only_median": 330.0,
+        "model_ready_browser_median": 162.0,
+        "document_reload_same_context_median": 385.0,
+        "delta_ms": -28.0,
+        "overhead_ms": 28.0,
+        "cold_median_ms": 101.0,
+        "warm_median_ms": 73.0,
+        "browser_launch_ms": 64.0,
+        "document_navigation_ms": 330.0,
+        "model_ready_browser_ms": 162.0,
+        "document_reload_ms": 385.0,
+        "process_spawn_ms": 0.0,
+        "ranked_parts_ms": {
+          "browser_launch": 64.0,
+          "wasm_js_compile": 0.0,
+          "document_parse": 0.0,
+          "process_startup": 0.0
+        }
+      },
+      "publishable": false
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "plate",
+      "boundary": "input_to_next_paint",
+      "cold_median_ms": 83.0,
+      "warm_median_ms": 83.0,
+      "delta_ms": 0.0,
+      "attributed_cause": "residual_steady_state",
+      "cold_attempt": "perf/out/warm_cold_2026_11_08/attempts/c06-plate-9b65791a6d.json",
+      "warm_attempt": "perf/out/warm_cold_2026_11_08/attempts/c06-plate-0ee574702a.json",
+      "probes": {
+        "browser_launch_only_median": 64.0,
+        "document_navigation_only_median": 330.0,
+        "model_ready_browser_median": 162.0,
+        "document_reload_same_context_median": 385.0,
+        "delta_ms": 0.0,
+        "overhead_ms": 0.0,
+        "cold_median_ms": 83.0,
+        "warm_median_ms": 83.0
+      },
+      "publishable": false
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "docxodus",
+      "boundary": "first_usable",
+      "cold_median_ms": 1883.0,
+      "warm_median_ms": 1716.0,
+      "delta_ms": -167.0,
+      "attributed_cause": "wasm_js_compile",
+      "cold_attempt": "perf/out/warm_cold_2026_11_08/attempts/c03-docxodus-a9a6ce41d7.json",
+      "warm_attempt": "perf/out/warm_cold_2026_11_08/attempts/c03-docxodus-a9a6ce41d7.json",
+      "probes": {
+        "browser_launch_only_median": 99.0,
+        "document_navigation_only_median": 57.0,
+        "model_ready_browser_median": 1883.0,
+        "document_reload_same_context_median": 1716.0,
+        "delta_ms": -167.0,
+        "overhead_ms": 167.0,
+        "cold_median_ms": 1883.0,
+        "warm_median_ms": 1716.0,
+        "browser_launch_ms": 99.0,
+        "document_navigation_ms": 57.0,
+        "model_ready_browser_ms": 1883.0,
+        "document_reload_ms": 1716.0,
+        "process_spawn_ms": 0.0,
+        "ranked_parts_ms": {
+          "wasm_js_compile": 167.0,
+          "browser_launch": 99.0,
+          "document_parse": 0.0,
+          "process_startup": 0.0
+        }
+      },
+      "publishable": false
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "docxodus",
+      "boundary": "presented_frame",
+      "cold_median_ms": 82.0,
+      "warm_median_ms": 81.0,
+      "delta_ms": -1.0,
+      "attributed_cause": "residual_steady_state",
+      "cold_attempt": "perf/out/warm_cold_2026_11_08/attempts/c05-docxodus-1b9651570b.json",
+      "warm_attempt": "perf/out/warm_cold_2026_11_08/attempts/c05-docxodus-76e2ba7462.json",
+      "probes": {
+        "browser_launch_only_median": 99.0,
+        "document_navigation_only_median": 57.0,
+        "model_ready_browser_median": 1883.0,
+        "document_reload_same_context_median": 1716.0,
+        "delta_ms": -1.0,
+        "overhead_ms": 1.0,
+        "cold_median_ms": 82.0,
+        "warm_median_ms": 81.0
+      },
+      "publishable": false
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "superdoc",
+      "boundary": "first_usable",
+      "cold_median_ms": 3301.0,
+      "warm_median_ms": 3550.0,
+      "delta_ms": 249.0,
+      "attributed_cause": "document_parse",
+      "cold_attempt": "perf/out/warm_cold_2026_11_08/attempts/c03-superdoc-d78e0d71ab.json",
+      "warm_attempt": "perf/out/warm_cold_2026_11_08/attempts/c03-superdoc-d78e0d71ab.json",
+      "probes": {
+        "browser_launch_only_median": 124.0,
+        "document_navigation_only_median": 265.0,
+        "model_ready_browser_median": 3301.0,
+        "document_reload_same_context_median": 3550.0,
+        "delta_ms": 249.0,
+        "overhead_ms": -249.0,
+        "cold_median_ms": 3301.0,
+        "warm_median_ms": 3550.0,
+        "warm_arm_probe": "document_reload_same_context",
+        "document_reload_ms": 3550.0,
+        "document_navigation_ms": 265.0
+      },
+      "publishable": false
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "superdoc",
+      "boundary": "presented_frame",
+      "cold_median_ms": 66.0,
+      "warm_median_ms": 66.0,
+      "delta_ms": 0.0,
+      "attributed_cause": "residual_steady_state",
+      "cold_attempt": "perf/out/warm_cold_2026_11_08/attempts/c05-superdoc-c5a960f34b.json",
+      "warm_attempt": "perf/out/warm_cold_2026_11_08/attempts/c05-superdoc-d51ca1462e.json",
+      "probes": {
+        "browser_launch_only_median": 124.0,
+        "document_navigation_only_median": 265.0,
+        "model_ready_browser_median": 3301.0,
+        "document_reload_same_context_median": 3550.0,
+        "delta_ms": 0.0,
+        "overhead_ms": 0.0,
+        "cold_median_ms": 66.0,
+        "warm_median_ms": 66.0
+      },
+      "publishable": false
+    }
+  ],
+  "editors": [
+    {
+      "criterion_id": "C03",
+      "editor_id": "plate",
+      "boundary": "first_usable",
+      "outcome": "measured",
+      "cache_state": "process_cold_fs_warm",
+      "median_ms": 162.0,
+      "attempt_file": "perf/out/warm_cold_2026_11_08/attempts/c03-plate-146e8f72bb.json",
+      "publishable": false,
+      "shared_ready_signal": {
+        "measured_boundary": "first_usable",
+        "skipped_criterion": "C02",
+        "reason": "browser harness exposes one ready signal (selector/JS hook); cannot separate model_ready_browser from first_usable"
+      }
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "docxodus",
+      "boundary": "first_usable",
+      "outcome": "measured",
+      "cache_state": "process_cold_fs_warm",
+      "median_ms": 1883.0,
+      "attempt_file": "perf/out/warm_cold_2026_11_08/attempts/c03-docxodus-a9a6ce41d7.json",
+      "publishable": false,
+      "shared_ready_signal": {
+        "measured_boundary": "first_usable",
+        "skipped_criterion": "C02",
+        "reason": "browser harness exposes one ready signal (selector/JS hook); cannot separate model_ready_browser from first_usable"
+      }
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "superdoc",
+      "boundary": "first_usable",
+      "outcome": "measured",
+      "cache_state": "process_cold_fs_warm",
+      "median_ms": 3301.0,
+      "attempt_file": "perf/out/warm_cold_2026_11_08/attempts/c03-superdoc-d78e0d71ab.json",
+      "publishable": false,
+      "harness_version": {
+        "harness_served": {
+          "superdoc": "2.29.0-next.3",
+          "docx_engine": "0.28.0-next.3"
+        },
+        "trial_pin": "0ee03fd3c; 0.28.0-next.3",
+        "trial_pin_mismatch": "trial @superdoc/sdk pin 0.28.0-next.3; browser host serves npm superdoc@2.29.0-next.3 (no superdoc@0.28.0-next.3 on npm)"
+      },
+      "shared_ready_signal": {
+        "measured_boundary": "first_usable",
+        "skipped_criterion": "C02",
+        "reason": "browser harness exposes one ready signal (selector/JS hook); cannot separate model_ready_browser from first_usable"
+      }
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "plate",
+      "boundary": "model_ready_browser",
+      "outcome": "not_run",
+      "failure_reason": "browser harness exposes one ready signal (selector/JS hook); cannot separate model_ready_browser from first_usable",
+      "attempt_file": "perf/out/warm_cold_2026_11_08/attempts/c02-plate-b19af83b56.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C07 not driven on warm_cold host yet",
+      "attempt_file": "perf/out/warm_cold_2026_11_08/attempts/c07-plate-a1ada8c2fd.json"
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C08 not driven on warm_cold host yet",
+      "attempt_file": "perf/out/warm_cold_2026_11_08/attempts/c08-plate-4b2d0b4696.json"
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C09 not driven on warm_cold host yet",
+      "attempt_file": "perf/out/warm_cold_2026_11_08/attempts/c09-plate-4bc27a641d.json"
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C10 not driven on warm_cold host yet",
+      "attempt_file": "perf/out/warm_cold_2026_11_08/attempts/c10-plate-1eb2a8740b.json"
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C22 not driven on warm_cold host yet",
+      "attempt_file": "perf/out/warm_cold_2026_11_08/attempts/c22-plate-bfbaca0d45.json"
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "plate",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C23 not driven on warm_cold host yet",
+      "attempt_file": "perf/out/warm_cold_2026_11_08/attempts/c23-plate-e139d54f27.json"
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "docxodus",
+      "boundary": "model_ready_browser",
+      "outcome": "not_run",
+      "failure_reason": "browser harness exposes one ready signal (selector/JS hook); cannot separate model_ready_browser from first_usable",
+      "attempt_file": "perf/out/warm_cold_2026_11_08/attempts/c02-docxodus-9d09cd89b3.json",
+      "publishable": false
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C07 not driven on warm_cold host yet",
+      "attempt_file": "perf/out/warm_cold_2026_11_08/attempts/c07-docxodus-578e72c761.json"
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C08 not driven on warm_cold host yet",
+      "attempt_file": "perf/out/warm_cold_2026_11_08/attempts/c08-docxodus-4a6fc84325.json"
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C09 not driven on warm_cold host yet",
+      "attempt_file": "perf/out/warm_cold_2026_11_08/attempts/c09-docxodus-7e46265788.json"
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C10 not driven on warm_cold host yet",
+      "attempt_file": "perf/out/warm_cold_2026_11_08/attempts/c10-docxodus-b45eb675bc.json"
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C22 not driven on warm_cold host yet",
+      "attempt_file": "perf/out/warm_cold_2026_11_08/attempts/c22-docxodus-971386205a.json"
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "docxodus",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C23 not driven on warm_cold host yet",
+      "attempt_file": "perf/out/warm_cold_2026_11_08/attempts/c23-docxodus-afe2108173.json"
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "superdoc",
+      "boundary": "model_ready_browser",
+      "outcome": "not_run",
+      "failure_reason": "browser harness exposes one ready signal (selector/JS hook); cannot separate model_ready_browser from first_usable",
+      "attempt_file": "perf/out/warm_cold_2026_11_08/attempts/c02-superdoc-94e85a8383.json",
+      "publishable": false,
+      "harness_version": {
+        "harness_served": {
+          "superdoc": "2.29.0-next.3",
+          "docx_engine": "0.28.0-next.3"
+        },
+        "trial_pin": "0ee03fd3c; 0.28.0-next.3",
+        "trial_pin_mismatch": "trial @superdoc/sdk pin 0.28.0-next.3; browser host serves npm superdoc@2.29.0-next.3 (no superdoc@0.28.0-next.3 on npm)"
+      }
+    },
+    {
+      "criterion_id": "C07",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C07 not driven on warm_cold host yet",
+      "attempt_file": "perf/out/warm_cold_2026_11_08/attempts/c07-superdoc-a9f88e20ed.json"
+    },
+    {
+      "criterion_id": "C08",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C08 not driven on warm_cold host yet",
+      "attempt_file": "perf/out/warm_cold_2026_11_08/attempts/c08-superdoc-e4f23f1262.json"
+    },
+    {
+      "criterion_id": "C09",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C09 not driven on warm_cold host yet",
+      "attempt_file": "perf/out/warm_cold_2026_11_08/attempts/c09-superdoc-5906c291f1.json"
+    },
+    {
+      "criterion_id": "C10",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C10 not driven on warm_cold host yet",
+      "attempt_file": "perf/out/warm_cold_2026_11_08/attempts/c10-superdoc-db29049f46.json"
+    },
+    {
+      "criterion_id": "C22",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C22 not driven on warm_cold host yet",
+      "attempt_file": "perf/out/warm_cold_2026_11_08/attempts/c22-superdoc-a615d06f2a.json"
+    },
+    {
+      "criterion_id": "C23",
+      "editor_id": "superdoc",
+      "outcome": "not_run",
+      "failure_reason": "adapter-not-implemented: criterion C23 not driven on warm_cold host yet",
+      "attempt_file": "perf/out/warm_cold_2026_11_08/attempts/c23-superdoc-fea6abe1f5.json"
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "browser_probe: node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\npage.waitForSelector: Timeout 120000ms exceeded.\nCall log:\n  - waiting for locator('.doc-page') to be visible\n\n    at waitForReady (/Users/arthrod/temp/T/editors_trial/perf/runner/warm_cold_browser.mjs:94:16)\n    at runPlaywrightPair (/Users/arthrod/temp/T/editors_trial/perf/runner/warm_cold_browser.mjs:157:30)\n    at async file:///Users/arthrod/temp/T/editors_trial/perf/runner/warm_cold_browser.mjs:288:20 {\n  log: [ \"  - waiting for locator('.doc-page') to be visible\" ],\n  name: 'TimeoutError'\n}\n\nNode.js v24.20.0\n",
+      "attempt_file": "perf/out/warm_cold_2026_11_08/attempts/c03-genoffice-2397806522.json"
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "browser_probe: node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\npage.waitForSelector: Timeout 120000ms exceeded.\nCall log:\n  - waiting for locator('.doc-page') to be visible\n\n    at waitForReady (/Users/arthrod/temp/T/editors_trial/perf/runner/warm_cold_browser.mjs:94:16)\n    at runPlaywrightPair (/Users/arthrod/temp/T/editors_trial/perf/runner/warm_cold_browser.mjs:157:30)\n    at async file:///Users/arthrod/temp/T/editors_trial/perf/runner/warm_cold_browser.mjs:288:20 {\n  log: [ \"  - waiting for locator('.doc-page') to be visible\" ],\n  name: 'TimeoutError'\n}\n\nNode.js v24.20.0\n",
+      "attempt_file": "perf/out/warm_cold_2026_11_08/attempts/c02-genoffice-849b51fe66.json"
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "genoffice",
+      "outcome": "not_run",
+      "failure_reason": "browser_probe: node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\npage.waitForSelector: Timeout 120000ms exceeded.\nCall log:\n  - waiting for locator('.doc-page') to be visible\n\n    at waitForReady (/Users/arthrod/temp/T/editors_trial/perf/runner/warm_cold_browser.mjs:94:16)\n    at runPlaywrightPair (/Users/arthrod/temp/T/editors_trial/perf/runner/warm_cold_browser.mjs:157:30)\n    at async file:///Users/arthrod/temp/T/editors_trial/perf/runner/warm_cold_browser.mjs:288:20 {\n  log: [ \"  - waiting for locator('.doc-page') to be visible\" ],\n  name: 'TimeoutError'\n}\n\nNode.js v24.20.0\n",
+      "attempt_file": "perf/out/warm_cold_2026_11_08/attempts/c05-genoffice-6c37e2123b.json"
+    },
+    {
+      "criterion_id": "C03",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "browser_probe: node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\npage.waitForFunction: Timeout 120000ms exceeded.\n    at waitForReady (/Users/arthrod/temp/T/editors_trial/perf/runner/warm_cold_browser.mjs:72:16)\n    at runPlaywrightPair (/Users/arthrod/temp/T/editors_trial/perf/runner/warm_cold_browser.mjs:157:30)\n    at async file:///Users/arthrod/temp/T/editors_trial/perf/runner/warm_cold_browser.mjs:288:20 {\n  log: [],\n  name: 'TimeoutError'\n}\n\nNode.js v24.20.0\n",
+      "attempt_file": "perf/out/warm_cold_2026_11_08/attempts/c03-canvas-d307cc0047.json"
+    },
+    {
+      "criterion_id": "C02",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "browser_probe: node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\npage.waitForFunction: Timeout 120000ms exceeded.\n    at waitForReady (/Users/arthrod/temp/T/editors_trial/perf/runner/warm_cold_browser.mjs:72:16)\n    at runPlaywrightPair (/Users/arthrod/temp/T/editors_trial/perf/runner/warm_cold_browser.mjs:157:30)\n    at async file:///Users/arthrod/temp/T/editors_trial/perf/runner/warm_cold_browser.mjs:288:20 {\n  log: [],\n  name: 'TimeoutError'\n}\n\nNode.js v24.20.0\n",
+      "attempt_file": "perf/out/warm_cold_2026_11_08/attempts/c02-canvas-65e08eec8c.json"
+    },
+    {
+      "criterion_id": "C05",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "browser_probe: node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\npage.waitForFunction: Timeout 120000ms exceeded.\n    at waitForReady (/Users/arthrod/temp/T/editors_trial/perf/runner/warm_cold_browser.mjs:72:16)\n    at runPlaywrightPair (/Users/arthrod/temp/T/editors_trial/perf/runner/warm_cold_browser.mjs:157:30)\n    at async file:///Users/arthrod/temp/T/editors_trial/perf/runner/warm_cold_browser.mjs:288:20 {\n  log: [],\n  name: 'TimeoutError'\n}\n\nNode.js v24.20.0\n",
+      "attempt_file": "perf/out/warm_cold_2026_11_08/attempts/c05-canvas-19f7ea8fde.json"
+    },
+    {
+      "criterion_id": "C06",
+      "editor_id": "canvas",
+      "outcome": "not_run",
+      "failure_reason": "browser_probe: node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\npage.waitForFunction: Timeout 120000ms exceeded.\n    at waitForReady (/Users/arthrod/temp/T/editors_trial/perf/runner/warm_cold_browser.mjs:72:16)\n    at runPlaywrightPair (/Users/arthrod/temp/T/editors_trial/perf/runner/warm_cold_browser.mjs:157:30)\n    at async file:///Users/arthrod/temp/T/editors_trial/perf/runner/warm_cold_browser.mjs:288:20 {\n  log: [],\n  name: 'TimeoutError'\n}\n\nNode.js v24.20.0\n",
+      "attempt_file": "perf/out/warm_cold_2026_11_08/attempts/c06-canvas-84c8cde492.json"
+    }
+  ],
+  "host": {
+    "os": "darwin",
+    "arch": "arm64",
+    "cpu_model": "arm",
+    "ram_bytes": 536870912
+  },
+  "driver_checks": [
+    {
+      "editor_id": "plate",
+      "driver": "puppeteer",
+      "c05_cold_ms": 120,
+      "c05_warm_ms": 52
+    }
+  ],
+  "commands": [
+    "PYTHONPATH=. python3 perf/runner/benchmark_warm_cold.py --pairs 3",
+    "PYTHONPATH=. python3 -m unittest discover -s perf/tests -q",
+    "python3 -I build/test_perf_plan_coverage.py"
+  ]
+}
