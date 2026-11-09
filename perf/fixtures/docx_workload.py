@@ -31,6 +31,7 @@ import hashlib
 import io
 import re
 import zipfile
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from xml.sax.saxutils import escape
 
@@ -345,7 +346,37 @@ def build_prose_docx(row: dict) -> dict:
 
 
 _W_P = re.compile(rb"<w:p[ >/]")
-_W_T = re.compile(rb"<w:t(?: [^>]*)?>([^<]*)</w:t>")
+_WNS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+
+
+def docx_paragraph_texts(document_xml: bytes) -> list[str]:
+    """The text of every paragraph of ``word/document.xml``, in document order.
+
+    The one extractor for both sides of the speed runner's check: the
+    expectation is read from the input with it, the saved file is read with
+    it. Namespace-aware (any prefix), entities decoded, ``w:delText`` is not
+    text, and a paragraph nested in another (a text box) is its own entry, so
+    no text is counted twice.
+    """
+    root = ET.fromstring(document_xml)
+    out: list[str] = []
+
+    def walk(elem, buf):
+        for child in elem:
+            if child.tag == _WNS + "p":
+                own: list[str] = []
+                slot = len(out)
+                out.append("")
+                walk(child, own)
+                out[slot] = "".join(own)
+            elif child.tag == _WNS + "t":
+                if buf is not None:
+                    buf.append(child.text or "")
+            else:
+                walk(child, buf)
+
+    walk(root, None)
+    return out
 
 
 def _corpus(repo_root: Path) -> dict:
@@ -353,7 +384,7 @@ def _corpus(repo_root: Path) -> dict:
     docx = path.read_bytes()
     with zipfile.ZipFile(io.BytesIO(docx)) as zf:
         document = zf.read("word/document.xml")
-    text = "".join(t.decode("utf-8", errors="replace") for t in _W_T.findall(document))
+    text = "\n".join(docx_paragraph_texts(document))
     return {
         "workload_id": "complex-corpus",
         "docx": docx,
