@@ -116,12 +116,15 @@ perf/
   fixtures/
     profiles.py              feature profiles P0–P3 and the workload size ladder
     generate.py              deterministic workload bytes and correctness fixtures
+    docx_workload.py         realistic DOCX ladder: prose-500w … prose-250kw, complex-corpus
     oracles.py               Unicode/grapheme/bidi/IME oracles
   layers/
     classify.py              timing mark -> layer; visible-evidence rules
     event_timing.py          Event Timing threshold, rounding, INP
     wasm.py                  C24 WASM boundary operation contract
   runner/
+    speed_headless.py        Report E: headless C02/C16 + process wall/CPU/peak RSS, publishable
+    host.py                  host record read from the OS; quiet-machine check
     benchmark_ci_contract.py headless C02/C16/C21 contract runner
     benchmark_warm_cold.py   browser warm-vs-cold suite (C02/C03/C05/C06)
     adversarial_c10_scroll.py one-off C10 scroll probe
@@ -161,8 +164,41 @@ perf/
   plate/docxodus/canvas, npm for superdoc/genoffice — plus
   `playwright`/`puppeteer` at `harness/ui`. The runner starts each dev
   server itself.
-- Publishable visible-latency numbers need a dedicated host and the
-  `dedicated_publish` profile, which no runner accepts yet.
+- Publishable numbers need a dedicated host and the `dedicated_publish`
+  profile. Only `speed_headless.py` accepts it, for the headless layer.
+  The browser, input and memory runners do not, and have open defects
+  that would make a published figure wrong (#104–#110, #113–#117).
+
+### Headless speed runner (Report E)
+
+```sh
+# a check run (never publishable)
+PYTHONPATH=. python3 -I perf/runner/speed_headless.py \
+  --execution-profile ci_broad --repetitions 2 --workloads prose-500w
+# a publication run: quiet machine, AC power, every checkout on its pin
+PYTHONPATH=. python3 -I perf/runner/speed_headless.py \
+  --execution-profile dedicated_publish --repetitions 30 --seed 20261109 \
+  --workloads prose-500w prose-5kw prose-50kw prose-250kw complex-corpus \
+  --wait-quiet 1800
+```
+
+One fresh process per sample runs the editor's own import and export with
+`PERF_ONLY=1`; its `PERF model_ready_ms` is C02, its `PERF save_ms` is C16,
+and `wait4` gives the sample's own CPU time and peak resident memory.
+Repetitions are interleaved in an order shuffled per repetition from the
+seed, after one discarded warm-up per editor and workload. Every sample is
+written once to `samples/<workload>/<editor>/r###.json` with its command,
+environment keys, exit status, marks, output hash and output check (the
+saved file must end with the workload's sentinel and keep 98 % of the
+words). A failed check excludes the sample; it is never a time. An editor
+that fails three times in a row on a workload stops being sampled there.
+
+`dedicated_publish` refuses to start when `host.quiet_machine_check()` fails
+(AGENTS.md §3), on battery power, or when a checkout is off its pin
+(`attest_versions`). A row is publishable only on that profile, with
+n >= 10, no excluded sample and at most 10 % of samples started above the
+load limit. Report E's tables come from two such runs with different seeds
+(`build/perf_e_tables.py`; `out/report_e_runs.json` names them).
 
 ### Contract runner (headless)
 
