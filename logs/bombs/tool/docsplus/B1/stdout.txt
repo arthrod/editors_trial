@@ -1,6 +1,0 @@
-[stub] media origin = http://127.0.0.1:55255
-[import] title      = "Complex Fixture"
-[import] warnings   = 1
-         - title-synthesized: The document opened on no usable text, so its title was set to "Complex Fixture".
-[render] html length = 147
-[export] wrote /tmp/editors-trial-bombs/runs/docsplus/B1/out/out.docx (20258B)

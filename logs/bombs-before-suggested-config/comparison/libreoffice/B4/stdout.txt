@@ -1,2 +1,0 @@
-BEGIN B4
-comparison libreoffice B4 fidelity: preserved safety: ok catch: no

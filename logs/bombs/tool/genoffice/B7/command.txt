@@ -1,2 +1,0 @@
-cwd: /Users/arthrod/temp/T/editors_trial/repos/genoffice
-/Users/arthrod/.nvm/versions/node/v26.13.0/bin/node --import /Users/arthrod/temp/T/editors_trial/harness/css-stub.mjs --import /Users/arthrod/temp/T/editors_trial/repos/genoffice/node_modules/tsx/dist/loader.mjs /Users/arthrod/temp/T/editors_trial/harness/genoffice.cts /tmp/editors-trial-bombs/bombs/B7.docx /tmp/editors-trial-bombs/runs/genoffice/B7/out/out.docx

@@ -1,1 +1,0 @@
-tool wordcraft B3 fidelity: refused safety: bounded-reject catch: yes

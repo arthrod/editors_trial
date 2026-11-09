@@ -1,2 +1,0 @@
-cwd: /Users/arthrod/temp/T/editors_trial/harness/wordcraft
-/Users/arthrod/T/editors_trial/harness/wordcraft/target/release/wc-harness /tmp/editors-trial-bombs/bombs/B9.docx /tmp/editors-trial-bombs/runs/wordcraft/B9/out/out.docx

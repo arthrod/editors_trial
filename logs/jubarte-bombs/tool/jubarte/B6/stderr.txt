@@ -1,2 +1,0 @@
-warning: layout failed, page markers come from the document's breaks: opening DOCX: I/O error: UNSUPPORTED_PACKAGE: input document: unsafe entry name "../escaped/pwned-editors-trial.xml": empty, . or .. segment
-wrote /tmp/editors-trial-jubarte-bombs/runs/B6/out/view.md (md, 583 bytes)

@@ -1,2 +1,0 @@
-cwd: <editors_trial>/repos/office-open
-<editors_trial>/repos/office-open/node_modules/.bin/tsx --tsconfig <editors_trial>/repos/office-open/packages/docx/tsconfig.json <editors_trial>/harness/officeopen/roundtrip.mts /tmp/editors-trial-bombs/bombs/B4.docx /tmp/editors-trial-bombs/runs/officeopen/B4/out/out.docx

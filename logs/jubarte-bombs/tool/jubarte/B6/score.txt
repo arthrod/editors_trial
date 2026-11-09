@@ -1,2 +1,0 @@
-tool jubarte B6 fidelity: not-in-view safety: ok catch: no
-protection jubarte B6 level: not-in-view detail: layout named UNSUPPORTED_PACKAGE for the unsafe entry and still wrote a body view that does not carry the slip

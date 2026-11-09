@@ -1,2 +1,0 @@
-[genoffice] plan kinds: ["original","original"]
-[genoffice] wrote 1239334 bytes

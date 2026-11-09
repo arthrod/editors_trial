@@ -1,2 +1,0 @@
-cwd: /Users/arthrod/temp/T/editors_trial/harness/docsplus/repo-copy
-/Users/arthrod/.bun/bin/bun /Users/arthrod/temp/T/editors_trial/harness/docsplus/roundtrip.ts /tmp/editors-trial-bombs/bombs/B7.docx /tmp/editors-trial-bombs/runs/docsplus/B7/out/out.docx

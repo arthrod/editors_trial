@@ -1,2 +1,0 @@
-cwd: /tmp/editors-trial-jubarte-bombs/runs/B7
-/Users/arthrod/.cache/neurotic-docx-bench/jubarte/0.14.0/jubarte-0.14.0-macos-aarch64/jubarte read /tmp/editors-trial-jubarte-bombs/bombs/B7.docx -o /tmp/editors-trial-jubarte-bombs/runs/B7/out/view.md --force

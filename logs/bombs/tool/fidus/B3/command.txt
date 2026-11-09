@@ -1,2 +1,0 @@
-cwd: /Users/arthrod/temp/T/editors_trial/repos/fiduswriter-document-ts
-/Users/arthrod/temp/T/editors_trial/repos/fiduswriter-document-ts/node_modules/.bin/tsx --no-cache /Users/arthrod/temp/T/editors_trial/harness/fidus/roundtrip.mts

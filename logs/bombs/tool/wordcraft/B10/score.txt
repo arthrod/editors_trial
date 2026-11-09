@@ -1,1 +1,0 @@
-tool wordcraft B10 fidelity: dropped safety: ok catch: yes

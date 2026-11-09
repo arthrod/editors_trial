@@ -1,2 +1,0 @@
-tool jubarte B1 fidelity: refused safety: bounded-reject catch: yes
-protection jubarte B1 level: bounded-refusal detail: INPUT_LIMIT named a ceiling on one part. No view was written.

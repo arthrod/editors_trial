@@ -1,1 +1,0 @@
-[outbound] POST https://pws-collect.pdftron.com/api/initialize body 134 chars {"key":"string(77)","platformLanguage":"string(3)","sdkVersion":"string(6)"}; no document text, no file name

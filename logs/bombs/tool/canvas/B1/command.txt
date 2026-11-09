@@ -1,2 +1,0 @@
-cwd: /Users/arthrod/temp/T/editors_trial/repos/canvas-editor
-/Users/arthrod/temp/T/editors_trial/repos/canvas-editor/node_modules/.bin/vitest run --root /Users/arthrod/temp/T/editors_trial/harness/canvas

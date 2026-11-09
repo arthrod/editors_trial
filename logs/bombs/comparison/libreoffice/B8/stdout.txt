@@ -1,2 +1,0 @@
-BEGIN B8
-comparison libreoffice B8 fidelity: dropped safety: ok catch: yes

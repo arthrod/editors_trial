@@ -1,2 +1,0 @@
-cwd: /Users/arthrod/temp/T/editors_trial/harness/apryse
-/Users/arthrod/.nvm/versions/node/v26.13.0/bin/node roundtrip.mjs /tmp/v092/bombs-apryse2/bombs/B2.docx /tmp/v092/bombs-apryse2/runs/apryse/B2/out/out.docx
