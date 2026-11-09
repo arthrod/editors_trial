@@ -61,9 +61,16 @@ class NoInventedValues(unittest.TestCase):
 
 
 class QuietCheck(unittest.TestCase):
-    def _check(self, load1, top, ncpu=12):
+    def _check(self, load1, top, ncpu=12, own=()):
+        """``top`` rows are foreign processes; ``own`` rows are children of this process."""
+        import os
+
+        me = os.getpid()
+        rows = [(me, 1, 0.0, "python3 test")]
+        rows += [(10_000 + k, 1, pct, cmd) for k, (pct, cmd) in enumerate(top)]
+        rows += [(20_000 + k, me, pct, cmd) for k, (pct, cmd) in enumerate(own)]
         with mock.patch.object(host, "_load_average", return_value=(load1, load1, load1)), mock.patch.object(
-            host, "_top_processes", return_value=top
+            host, "_processes", return_value=rows
         ), mock.patch.object(host, "_logical_cpus", return_value=ncpu):
             return host.quiet_machine_check()
 
@@ -89,8 +96,12 @@ class QuietCheck(unittest.TestCase):
             self.assertTrue(result["heavy_trial_job_seen"])
 
     def test_own_process_tree_is_excluded(self):
-        result = self._check(1.0, [(99.0, "python3 perf/runner/speed_headless.py")], ncpu=12)
+        result = self._check(1.0, [], ncpu=12, own=[(99.0, "node harness/plate/roundtrip.ts")])
         self.assertTrue(result["quiet"])
+
+    def test_another_sessions_runner_is_not_excluded(self):
+        result = self._check(1.0, [(99.0, "python3 perf/runner/speed_headless.py")], ncpu=12)
+        self.assertFalse(result["quiet"])
 
     def test_record_keeps_the_evidence(self):
         result = self._check(2.0, [(40.0, "/usr/libexec/syspolicyd")])

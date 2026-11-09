@@ -29,7 +29,6 @@ class HostProbeError(RuntimeError):
 LOAD_FRACTION = 1.0 / 3.0
 PROCESS_CPU_PERCENT = 25.0
 _HEAVY_JOBS = re.compile(r"Microsoft Word|neurotic_docx_bench", re.I)
-_OWN_TREE = re.compile(r"perf/runner/")
 
 
 def _run(cmd: list[str]) -> str | None:
@@ -148,42 +147,70 @@ def _load_average() -> tuple[float, float, float]:
     return os.getloadavg()
 
 
-def _top_processes(limit: int = 12) -> list[tuple[float, str]]:
-    """``(percent CPU, command)`` for the busiest processes, highest first."""
-    out = _run(["ps", "-Ao", "pcpu=,command=", "-r"]) or ""
+def power_source() -> str:
+    """``ac``, ``battery`` or ``unknown``: cheap enough to read before every sample."""
+    return _power_source() or "unknown"
+
+
+def _processes() -> list[tuple[int, int, float, str]] | None:
+    """``(pid, ppid, percent CPU, command)`` for every process; None if ``ps`` fails."""
+    out = _run(["ps", "-Ao", "pid=,ppid=,pcpu=,command="])
+    if not out:
+        return None
     rows = []
     for line in out.splitlines():
-        line = line.strip()
-        if not line:
+        parts = line.split(None, 3)
+        if len(parts) < 3:
             continue
-        pct, _, command = line.partition(" ")
         try:
-            rows.append((float(pct), command.strip()))
+            rows.append((int(parts[0]), int(parts[1]), float(parts[2]), parts[3].strip() if len(parts) > 3 else ""))
         except ValueError:
             continue
-        if len(rows) >= limit:
-            break
-    return rows
+    return rows or None
+
+
+def _own_tree(rows: list[tuple[int, int, float, str]]) -> set[int]:
+    """This process and every descendant of it (the runner, its lanes, ``ps``)."""
+    children: dict[int, list[int]] = {}
+    for pid, ppid, _, _ in rows:
+        children.setdefault(ppid, []).append(pid)
+    own, todo = set(), [os.getpid()]
+    while todo:
+        pid = todo.pop()
+        if pid in own:
+            continue
+        own.add(pid)
+        todo.extend(children.get(pid, ()))
+    return own
 
 
 def quiet_machine_check() -> dict:
-    """AGENTS.md §3: is the machine quiet enough to time an editor?"""
+    """AGENTS.md §3: is the machine quiet enough to time an editor?
+
+    Fails closed: no process list means not quiet. Only this process's own
+    tree is excluded (by PID, never by name, so another session's runner
+    counts), and a Word or bench job counts however idle it is.
+    """
     load = _load_average()
     ncpu = _logical_cpus()
-    top = _top_processes()
+    rows = _processes()
     load_limit = round(ncpu * LOAD_FRACTION, 2)
     reasons: list[str] = []
     heavy = False
     if load[0] > load_limit:
         reasons.append("1-minute load average %.2f exceeds %.2f (a third of %d CPUs)" % (load[0], load_limit, ncpu))
-    for pct, command in top:
-        if _OWN_TREE.search(command):
-            continue
+    if rows is None:
+        reasons.append("process list unavailable (ps failed): cannot tell what else runs")
+        rows = []
+    own = _own_tree(rows)
+    foreign = sorted((r for r in rows if r[0] not in own), key=lambda r: -r[2])
+    for _, _, pct, command in foreign:
         if _HEAVY_JOBS.search(command):
             heavy = True
             reasons.append("trial job running: %s" % command[:120])
         elif pct > PROCESS_CPU_PERCENT:
             reasons.append("%.1f%% CPU: %s" % (pct, command[:120]))
+    top = [(pct, command) for _, _, pct, command in foreign[:12]]
     return {
         "load_average": [round(v, 2) for v in load],
         "logical_cpus": ncpu,
