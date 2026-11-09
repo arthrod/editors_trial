@@ -476,6 +476,8 @@ def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
     facts["perf.e.prepared_export"] = _prepared_export(facts, _editors(primary))
     facts["perf.e.host_start"] = _host_start(facts, primary)
     facts["perf.e.save_notes"] = _save_notes(facts)
+    facts["perf.e.check"] = _check_text(s)
+    facts["perf.e.dirty_allowed"] = _dirty_allowed(s)
     published = [k for k in facts if k.endswith(".reproduced")]
     facts["perf.e.cells_checked"] = len(published)
     facts["perf.e.cells_reproduced"] = sum(1 for k in published if facts[k])
@@ -645,6 +647,28 @@ def _exceptions(facts: dict, primary: Run, repro: Run) -> str:
                     out.append("- %s: not reproduced (second run median %s ms)." % (
                         label, fmt_ms(facts.get("perf.e.%s.%s.%s.repro_median" % (editor, wl, metric), float("nan")))))
     return "\n".join(out) if out else "- none"
+
+
+def _check_text(summary: dict) -> str:
+    """The content check the run applied, in words, from its own publication rules."""
+    limits = summary["publication_rules"]["check_limits"]
+    keep, longer = limits["default"]
+    text = "keep at least %d percent of the input's words, counted word by word, be at most %d percent longer, and end with the sentinel" % (
+        round(keep * 100), round((longer - 1) * 100))
+    if "corpus" in limits:
+        c_keep, c_longer = limits["corpus"]
+        text += " (`complex.docx`, which is mostly tables, images and fields: keep %d percent, at most %s times as long, no sentinel)" % (
+            round(c_keep * 100), ("%.2f" % c_longer).rstrip("0").rstrip("."))
+    return text
+
+
+def _dirty_allowed(summary: dict) -> str:
+    """Changed tracked files the run accepted, each with the reason it recorded."""
+    out = []
+    for editor, rec in sorted((summary.get("versions") or {}).get("editors", {}).items()):
+        for _, why in sorted((rec.get("dirty_allowed") or {}).items()):
+            out.append("%s: %s" % (DISPLAY.get(editor, editor), why))
+    return "; ".join(out) if out else "none"
 
 
 def _date(run: Run) -> str:

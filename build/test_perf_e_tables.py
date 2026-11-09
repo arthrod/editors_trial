@@ -374,6 +374,24 @@ class Gates(unittest.TestCase):
         self.assertNotIn("from a fresh process", text)
 
 
+class RulesFromTheRun(unittest.TestCase):
+    """The report states the check and the exceptions the run applied, read from the run."""
+
+    def test_check_limits_come_from_the_run(self):
+        rules = {"check_limits": {"default": [0.98, 1.02], "corpus": [0.5, 1.5]}}
+        text = E._check_text({"publication_rules": rules})
+        self.assertIn("98 percent", text)
+        self.assertIn("2 percent longer", text)
+        self.assertIn("50 percent", text)
+        self.assertIn("1.5 times", text)
+
+    def test_listed_checkout_exceptions_are_named(self):
+        versions = {"editors": {"office-open": {"dirty_allowed": {"repos/office-open": "27 deletions under scripts/coverage/: reason"}},
+                                "plate": {"dirty_allowed": {}}}}
+        self.assertEqual(E._dirty_allowed({"versions": versions}), "office-open: 27 deletions under scripts/coverage/: reason")
+        self.assertEqual(E._dirty_allowed({"versions": {"editors": {}}}), "none")
+
+
 class Units(unittest.TestCase):
     def test_round_trip_pairs_each_load_with_its_own_save(self):
         def rec(load, save):
