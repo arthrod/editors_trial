@@ -188,17 +188,36 @@ and `wait4` gives the sample's own CPU time and peak resident memory.
 Repetitions are interleaved in an order shuffled per repetition from the
 seed, after one discarded warm-up per editor and workload. Every sample is
 written once to `samples/<workload>/<editor>/r###.json` with its command,
-environment keys, exit status, marks, output hash and output check (the
-saved file must end with the workload's sentinel and keep 98 % of the
-words). A failed check excludes the sample; it is never a time. An editor
-that fails three times in a row on a workload stops being sampled there.
+environment keys, exit status, marks and how often each was printed, output
+hash, output check, load average and power source.
 
-`dedicated_publish` refuses to start when `host.quiet_machine_check()` fails
-(AGENTS.md §3), on battery power, or when a checkout is off its pin
-(`attest_versions`). A row is publishable only on that profile, with
-n >= 10, no excluded sample and at most 10 % of samples started above the
-load limit. Report E's tables come from two such runs with different seeds
-(`build/perf_e_tables.py`; `out/report_e_runs.json` names them).
+A sample fails, and is never a time, if it times out, exits non-zero, prints
+any of its lane's marks other than exactly once, or saves a file that does
+not hold the document. The check reads input and output with one extractor
+(`docx_paragraph_texts`): the output must keep 98 % of the input's words as
+a multiset, be at most 2 % longer, and end with the sentinel (`complex.docx`:
+50 %, at most 1.5 times). A failed sample keeps its full stdout, stderr and
+output file next to its record. A process the lane leaves running is killed
+and the sample's CPU and memory are marked incomplete. An editor that fails
+three times in a row on a workload stops being sampled there.
+
+`dedicated_publish` refuses to start without a warm-up, when
+`host.quiet_machine_check()` fails (AGENTS.md §3: it fails closed, excludes
+only the runner's own process tree, and counts a Word driver however idle),
+on battery power, or when `attest_versions` finds a checkout off its pin,
+a changed tracked file (outside `ALLOWED_DELETIONS`, recorded with its
+reason) or an installed package that is not the declared version. It
+rebuilds WordCraft first (`BUILD_STEPS`). The summary records the runner's
+provenance: its own and its modules' hashes, every file each lane's command
+names, and the repository head.
+
+A row is publishable only on that profile, with n >= 10, no excluded sample,
+at most 10 % of samples started above the load limit, and every sample on AC
+power. Report E's tables come from two such runs (`build/perf_e_tables.py`;
+`out/report_e_runs.json` names them). The tables builder refuses a summary
+whose rows its sample files do not give, and a "reproduction" that is the
+same run, has the same seed, or differs in documents, host, versions, timer
+boundaries or code.
 
 ### Contract runner (headless)
 
