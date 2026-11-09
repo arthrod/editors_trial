@@ -2,7 +2,7 @@
 
 ## TL;DR
 
-This report times how long each editor takes to open a DOCX and to save it again, with no browser, as the document grows from 500 to 250,000 words. It was measured on {{perf.e.machine}}: {{perf.e.host}}, on {{perf.e.date}}. Each figure is the median of {{perf.e.n}} fresh processes. A second run of {{perf.e.repro_n}} processes, in another order, had to agree within {{perf.e.rel_tol_pct}} percent (or {{perf.e.abs_tol_ms}} ms) before a figure is printed. {{perf.e.cells_reproduced}} of {{perf.e.cells_checked}} figures agreed. The rest are printed as "not reproduced" and carry no figure; their two medians are listed, as diagnostics only, at the end of the appendix.
+This report times how long each editor takes to open a DOCX and to save it again, with no browser, as the document grows from 500 to 250,000 words. It was measured on {{perf.e.machine}}: {{perf.e.host}}, on {{perf.e.date}}. Each figure is the median of {{perf.e.n}} fresh processes. A second run of {{perf.e.repro_n}} processes, in another order, had to agree within {{perf.e.rel_tol_pct}} percent (or {{perf.e.abs_tol_ms}} ms) before a figure is printed. {{perf.e.cells_reproduced}} of {{perf.e.cells_checked}} figures agreed. A figure whose two runs disagree is printed as "not reproduced" and carries no number; its two medians are listed, as diagnostics only, at the end of the appendix.
 
 It does not time what a person sees in a browser: the first paint, typing, scrolling. The runners for those have defects that would print wrong numbers. They are listed at the end, each with its issue.
 
@@ -86,7 +86,7 @@ Text the check found missing from the saved files (the round trip still kept 98 
 
 ## How it was measured
 
-- **Host.** Measured on {{perf.e.machine}}: {{perf.e.host}}. The run refuses to start unless the 1-minute load average is under a third of the CPUs, no other process uses more than a quarter of a core, no trial script is driving Word and no bench batch runs, and the machine is on mains power. Each sample records its own load and power. {{perf.e.host_note}} {{perf.e.end_check}}
+- **Host.** Measured on {{perf.e.machine}}: {{perf.e.host}}. The run refuses to start unless the 1-minute load average is under a third of the CPUs, no other process uses more than a quarter of a core, no trial script is driving Word and no bench batch runs, and the recorded power source is AC. Each sample records its own load and power. {{perf.e.host_note}} {{perf.e.end_check}}
 - **Code.** Every checkout must be on its pin with no changed tracked file, and every installed package must be the declared version. Exceptions the run accepted, with its reasons: {{perf.e.dirty_allowed}}. WordCraft's binary is rebuilt from its pinned source before the run.
 - **Runs.** Primary run `{{perf.e.run_id}}`: {{perf.e.n}} repetitions, seed {{perf.e.seed}}. Reproduction run `{{perf.e.repro_run_id}}`: {{perf.e.repro_n}} repetitions, seed {{perf.e.repro_seed}}.
 - **Publication.** A figure is printed only if the primary run kept every sample of the cell (at least 10, none excluded, at most 10 percent started above the load limit, all on AC power) and the reproduction run's median agrees. The reproduction must be another run, with another seed, of the same documents, versions, timer boundaries and code; the tables builder refuses anything else, and it refuses a summary whose figures its sample files do not give.
@@ -104,6 +104,6 @@ Round trip in ms, primary run. At this sample count the 99th percentile is close
 
 ## Appendix: figures that did not reproduce (diagnostics, not results)
 
-These medians disagreed between the two runs by more than the tolerance. They are not results; they show how far apart the runs were.
+A median that disagreed between the two runs by more than the tolerance is listed here with both values. These are not results; they show how far apart the runs were.
 
 {{perf.e.not_reproduced}}

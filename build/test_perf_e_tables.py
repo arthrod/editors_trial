@@ -37,6 +37,7 @@ FAKE = textwrap.dedent(
         subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
     time.sleep(float(os.environ.get("FAKE_SLEEP", "0")))
     if os.environ.get("FAKE_MODE") == "crash":
+        sys.stderr.write("(node:1) ExperimentalWarning: noise\\nTypeError: boom at the table\\n    at layout (/x/repos/editor/src/layout.ts:12:3)\\n")
         sys.exit(1)
     shutil.copyfile(sys.argv[1], sys.argv[2])
     """
@@ -943,6 +944,92 @@ class MiniMaxReview123(unittest.TestCase):
     # 17
     def test_the_chassis_sentence_states_its_condition(self):
         self.assertIn("no hypervisor", self._note(power_evidence="server chassis"))
+
+
+CANVAS_COMPLEX_STDERR = (
+    "(node:91065) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.\n"
+    "\x1b[41m\x1b[1m FAIL \x1b[22m\x1b[49m roundtrip.test.ts > canvas-editor docx plugin round trip\n"
+    "\x1b[31m\x1b[1mTypeError\x1b[22m: Cannot read properties of undefined (reading 'width')\x1b[39m\n"
+    "\x1b[36m \x1b[2m❯\x1b[22m Object.computeRowColInfo ../../repos/canvas-editor/src/editor/core/draw/particle/table/TableParticle.ts:\x1b[2m724:45\x1b[22m\x1b[39m\n"
+    "    \x1b[90m724|\x1b[39m           width += colgroup[col + colIndex].width\n"
+    "\x1b[90m \x1b[2m❯\x1b[22m TableParticle.TableParticle.computeRowColInfo roundtrip.test.ts:\x1b[2m72:12\x1b[22m\x1b[39m\n"
+)
+CANVAS_WORKER_STDERR = (
+    "(node:79559) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.\n"
+    "node:events:505\n    throw er; // Unhandled 'error' event\n    ^\n\n"
+    "Error: Worker exited unexpectedly\n"
+    "    at Worker.emitUnexpectedExit (file:///work/editors_trial/repos/canvas-editor/node_modules/.pnpm/vitest@4.1.12/node_modules/vitest/dist/chunks/cli-api.js:3090:33)\n"
+    "    at Worker.emit (node:events:514:20)\n"
+)
+
+
+def _hand_run(editors, lanes=None, versions=None):
+    summary = {"workloads": {"prose-500w": {}}, "repetitions": 10, "lanes": lanes or {}, "versions": versions or {}}
+    return E.Run(Path("."), summary, records={("prose-500w", e): [] for e in editors})
+
+
+def _cells(line: str) -> int:
+    return line.strip().strip("|").count("|") + 1
+
+
+class PublicationDraft(unittest.TestCase):
+    """Defects found reading the first rendered draft of Report E (#111)."""
+
+    def test_each_lane_has_a_load_column_and_a_save_column(self):
+        run = _hand_run(["canvas", "libreoffice"], lanes={
+            "canvas": "executeImportDocx | executeExportDocx (jsdom; canvas and workers mocked)",
+            "libreoffice": "soffice --convert-to docx: whole conversion, no load/save split"})
+        table = E._lanes(run).splitlines()
+        self.assertEqual(table[0], "| Editor | Load timer ends at | Save timer covers |")
+        self.assertEqual({_cells(line) for line in table}, {3})
+        self.assertIn("| canvas-editor + plugin | executeImportDocx | executeExportDocx (jsdom; canvas and workers mocked) |", table)
+        self.assertIn("| LibreOffice (baseline) | soffice --convert-to docx: whole conversion, no load/save split | — |", table)
+
+    def test_package_versions_read_as_versions(self):
+        same = {"editors": {"docxodus": {"pin": "p", "packages": {"docxodus": {"declared": "15.0.0", "installed": "15.0.0", "matches": True}}}}}
+        row = next(l for l in E._versions(_hand_run(["docxodus"], versions=same)).splitlines() if l.startswith("| Docxodus"))
+        self.assertIn("docxodus 15.0.0", row)
+        self.assertNotIn("{", row)
+        self.assertNotIn("declared", row)
+        off = {"editors": {"docxodus": {"pin": "p", "packages": {"docxodus": {"declared": "15.0.0", "installed": "15.1.0", "matches": False}}}}}
+        row = next(l for l in E._versions(_hand_run(["docxodus"], versions=off)).splitlines() if l.startswith("| Docxodus"))
+        self.assertIn("docxodus 15.1.0 (declared 15.0.0)", row)
+
+    def test_libreoffice_has_its_own_table_not_a_row_of_n_a(self):
+        run = _hand_run(["libreoffice", "wordcraft"])
+        for metric in ("load", "save", "roundtrip"):
+            table = E._table({}, run, run, metric)
+            self.assertNotIn("LibreOffice", table)
+            self.assertIn("| WordCraft |", table)
+        appendix = E._appendix({}, run)
+        self.assertNotIn("LibreOffice", appendix)
+        self.assertIn("| WordCraft |", appendix)
+
+    def test_the_error_line_is_the_first_error_and_the_editor_frame(self):
+        self.assertEqual(E._error_line(CANVAS_COMPLEX_STDERR),
+                         "TypeError: Cannot read properties of undefined (reading 'width') at canvas-editor/src/editor/core/draw/particle/table/TableParticle.ts:724")
+        # vitest's own frame under node_modules is not the editor's code
+        self.assertEqual(E._error_line(CANVAS_WORKER_STDERR), "Error: Worker exited unexpectedly")
+        self.assertIsNone(E._error_line("(node:1) ExperimentalWarning: only a warning\n"))
+        self.assertIsNone(E._error_line(None))
+
+    def test_a_failed_cell_quotes_its_last_error(self):
+        facts = E.facts_from_runs(_MODULE["primary"], _MODULE["repro"])
+        line = next(l for l in facts["perf.e.exceptions"].splitlines() if l.startswith("- canvas-editor + plugin, 500 words, load"))
+        self.assertIn("last error: `TypeError: boom at the table at editor/src/layout.ts:12`", line)
+
+    def test_save_notes_agree_in_number_with_their_editors(self):
+        one = E._save_notes({"perf.e.passthrough": "GenOffice",
+                             "perf.e.prepared_export": "SuperDoc's save took 9.8 ms at 5,000 words and 13 ms at 250,000 words, while its load grew 13 times"})
+        self.assertIn("This editor wrote back the exact bytes it was given, on every sample: GenOffice.", one)
+        self.assertIn("it keeps the original package; its save time", one)
+        self.assertIn("Its saved file is a new serialisation", one)
+        self.assertNotIn("These editors", one)
+        self.assertNotIn("Their", one)
+        two = E._save_notes({"perf.e.passthrough": "GenOffice, Folio",
+                             "perf.e.prepared_export": "A's save took 1 ms; B's save took 2 ms"})
+        self.assertIn("These editors wrote back the exact bytes they were given, on every sample: GenOffice, Folio.", two)
+        self.assertIn("Their saved files are new serialisations", two)
 
 
 if __name__ == "__main__":

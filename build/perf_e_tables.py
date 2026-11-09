@@ -29,6 +29,7 @@ Two checks run before any figure is read (codex review of #103):
 from __future__ import annotations
 
 import json
+import re
 import math
 import sys
 from datetime import datetime
@@ -405,6 +406,12 @@ def _editors(primary: Run) -> list[str]:
     return sorted(ids, key=lambda e: DISPLAY.get(e, e).casefold())
 
 
+def _timed_editors(primary: Run) -> list[str]:
+    """Editors with a load and a save timer. LibreOffice converts in one step
+    and has its own table, so it is not a row of n/a in the timed tables."""
+    return [e for e in _editors(primary) if e != "libreoffice"]
+
+
 def _workloads(primary: Run) -> list[str]:
     present = list(primary.summary["workloads"])
     return [w for w in LADDER if w in present] + [w for w in present if w not in LADDER]
@@ -415,7 +422,7 @@ def _table(facts: dict, primary: Run, repro: Run, metric: str) -> str:
     head = "| Editor | " + " | ".join(WORKLOAD_LABEL.get(w, w) for w in wls) + " |"
     sep = "|---|" + "---|" * len(wls)
     lines = [head, sep]
-    for editor in _editors(primary):
+    for editor in _timed_editors(primary):
         cells = [_cell(facts, primary, repro, wl, editor, metric) for wl in wls]
         lines.append("| %s | %s |" % (DISPLAY.get(editor, editor), " | ".join(cells)))
     return "\n".join(lines)
@@ -476,11 +483,11 @@ def _appendix(facts: dict, primary: Run) -> str:
         out.append("**%s, round trip (ms)**\n" % WORKLOAD_LABEL.get(wl, wl))
         out.append("| Editor | n | median | p90 | p95 | p99 | MAD | 95% CI | min | max |")
         out.append("|---|---|---|---|---|---|---|---|---|---|")
-        for editor in _editors(primary):
+        for editor in _timed_editors(primary):
             state, reason = _status(primary, wl, editor, "roundtrip")
             name = DISPLAY.get(editor, editor)
             if state != "measured":
-                out.append("| %s | %s | | | | | | | | |" % (name, "n/a" if editor == "libreoffice" else _short(reason) if state == "failed" else state.replace("_", " ")))
+                out.append("| %s | %s | | | | | | | | |" % (name, _short(reason) if state == "failed" else state.replace("_", " ")))
                 continue
             if not facts.get("perf.e.%s.%s.roundtrip.reproduced" % (editor, wl)):
                 out.append("| %s | not reproduced | | | | | | | | |" % name)
@@ -739,8 +746,10 @@ def _summary(facts: dict, primary: Run) -> str:
 
 
 def _lanes(primary: Run) -> str:
-    lines = ["| Editor | Load timer ends at / save timer covers |", "|---|---|"]
-    lines.extend("| %s | %s |" % (DISPLAY.get(e, e), primary.summary["lanes"].get(e, "")) for e in _editors(primary))
+    lines = ["| Editor | Load timer ends at | Save timer covers |", "|---|---|---|"]
+    for e in _editors(primary):
+        load, _, save = primary.summary["lanes"].get(e, "").partition(" | ")
+        lines.append("| %s | %s | %s |" % (DISPLAY.get(e, e), load.strip() or "—", save.strip() or "—"))
     return "\n".join(lines)
 
 
@@ -750,7 +759,7 @@ def _versions(primary: Run) -> str:
     for editor in _editors(primary):
         rec = v.get("editors", {}).get(editor, {})
         checkouts = ", ".join("%s %s" % (k.split("/", 1)[-1], h) for k, h in (rec.get("checkouts") or {}).items()) or "—"
-        extra = ["%s %s" % (k, val) for k, val in (rec.get("packages") or {}).items()]
+        extra = [_package(k, val) for k, val in (rec.get("packages") or {}).items()]
         extra += ["%s sha256 %s" % (k, (val or "")[:12]) for k, val in (rec.get("binaries") or {}).items()]
         if rec.get("version"):
             extra.append(rec["version"])
@@ -759,6 +768,15 @@ def _versions(primary: Run) -> str:
     lines.append("")
     lines.append("Runtimes: " + ", ".join("%s %s" % (k, tools[k]) for k in sorted(tools)) + ".")
     return "\n".join(lines)
+
+
+def _package(name: str, val) -> str:
+    """'docxodus 15.0.0', or 'docxodus 15.1.0 (declared 15.0.0)' when the install differs."""
+    if not isinstance(val, dict):
+        return "%s %s" % (name, val)
+    installed, declared = val.get("installed"), val.get("declared")
+    text = "%s %s" % (name, installed or "not installed")
+    return text if installed == declared else "%s (declared %s)" % (text, declared)
 
 
 def _prepared_export(facts: dict, editors: list[str]) -> str:
@@ -831,11 +849,19 @@ def _host_start(facts: dict, primary: Run) -> str:
 def _save_notes(facts: dict) -> str:
     notes = []
     if facts.get("perf.e.passthrough", "none") != "none":
-        notes.append("- **The file is the input.** These editors wrote back the exact bytes they were given, on every sample: %s. "
-                     "With nothing edited, they keep the original package; their save time is the time to decide that and hand the bytes back." % facts["perf.e.passthrough"])
+        names = facts["perf.e.passthrough"]
+        if len(names.split(", ")) == 1:
+            notes.append("- **The file is the input.** This editor wrote back the exact bytes it was given, on every sample: %s. "
+                         "With nothing edited, it keeps the original package; its save time is the time to decide that and hand the bytes back." % names)
+        else:
+            notes.append("- **The file is the input.** These editors wrote back the exact bytes they were given, on every sample: %s. "
+                         "With nothing edited, they keep the original package; their save time is the time to decide that and hand the bytes back." % names)
     if facts.get("perf.e.prepared_export"):
-        notes.append("- **The export is prepared during load.** %s. Their saved file is a new serialisation, not the input, "
-                     "so the work is done before the save timer starts; the round trip counts it." % facts["perf.e.prepared_export"])
+        found = facts["perf.e.prepared_export"]
+        files = ("Its saved file is a new serialisation" if len(found.split("; ")) == 1
+                 else "Their saved files are new serialisations")
+        notes.append("- **The export is prepared during load.** %s. %s, not the input, "
+                     "so the work is done before the save timer starts; the round trip counts it." % (found, files))
     if facts.get("perf.e.host_start"):
         notes.append("- **A host process.** %s." % facts["perf.e.host_start"])
     return "\n".join(notes) if notes else "- none"
@@ -879,13 +905,48 @@ def _exceptions(facts: dict, primary: Run, repro: Run) -> str:
                 state, reason = _status(primary, wl, editor, metric)
                 label = "%s, %s, %s" % (DISPLAY.get(editor, editor), WORKLOAD_LABEL.get(wl, wl), metric.replace("roundtrip", "round trip"))
                 if state == "failed":
-                    out.append("- %s: failed, %s." % (label, _short(reason)))
+                    err = _last_error(primary, wl, editor)
+                    out.append("- %s: failed, %s%s." % (label, _short(reason), "; last error: `%s`" % err if err else ""))
                 elif state != "measured":
                     out.append("- %s: %s (%s)." % (label, state.replace("_", " "), reason or "no reason recorded"))
                 elif facts.get("perf.e.%s.%s.%s.reproduced" % (editor, wl, metric)) is False:
                     out.append("- %s: not reproduced (second run median %s ms)." % (
                         label, fmt_ms(facts.get("perf.e.%s.%s.%s.repro_median" % (editor, wl, metric), float("nan")))))
     return "\n".join(out) if out else "- none"
+
+
+_ANSI = re.compile(r"\x1b\[[0-9;]*m")
+_ERROR = re.compile(r"^\s*((?:[A-Z]\w*)?Error\b.*|FATAL ERROR\b.*)$")
+_FRAME = re.compile(r"/repos/((?!\S*node_modules/)[^\s:()]+):(\d+)")
+
+
+def _error_line(stderr: str | None) -> str | None:
+    """The first error a failed sample printed, and the first stack frame in an
+    editor checkout (repos/, not node_modules/) after it, if there is one."""
+    if not stderr:
+        return None
+    lines = [_ANSI.sub("", l) for l in stderr.splitlines()]
+    for i, line in enumerate(lines):
+        m = _ERROR.match(line)
+        if not m:
+            continue
+        text = m.group(1).strip()
+        for frame in lines[i + 1:i + 6]:
+            f = _FRAME.search(frame)
+            if f:
+                return "%s at %s:%s" % (text, f.group(1), f.group(2))
+        return text
+    return None
+
+
+def _last_error(run: Run, wl: str, editor: str) -> str | None:
+    """The error of the last sample of the cell that failed, from its own stderr."""
+    failed = [r for r in run.records.get((wl, editor), []) if r.get("returncode") not in (0, None)]
+    for rec in sorted(failed, key=lambda r: r.get("started_at") or "", reverse=True):
+        err = _error_line(rec.get("stderr_tail"))
+        if err:
+            return err
+    return None
 
 
 def _check_text(summary: dict) -> str:
