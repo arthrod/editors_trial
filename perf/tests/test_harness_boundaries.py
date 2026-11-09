@@ -60,5 +60,22 @@ class FidusSaveClock(unittest.TestCase):
                     self.assertRegex(line, r"perfSaveStart === undefined", f"line {n} prints inside the clock: {line.strip()}")
 
 
+CANVAS = ROOT / "harness" / "canvas" / "roundtrip.test.ts"
+
+
+@unittest.skipUnless(CANVAS.exists(), "harness/canvas is not checked out")
+class CanvasImportFailure(unittest.TestCase):
+    """A thrown import is the editor refusing the file. Under PERF_ONLY the
+    harness must fail the sample, not export the half-loaded editor and print
+    a save time for it (found on complex.docx, 2026-11-09)."""
+
+    def test_perf_only_rethrows_the_import_error(self):
+        src = CANVAS.read_text(encoding="utf-8")
+        rethrow = _line_of(src, r"throw importError")
+        guard = src.splitlines()[rethrow - 2]
+        self.assertRegex(guard, r"PERF_ONLY")
+        self.assertLess(rethrow, _line_of(src, r"const tSave0 = performance\.now\(\)"))
+
+
 if __name__ == "__main__":
     unittest.main()
