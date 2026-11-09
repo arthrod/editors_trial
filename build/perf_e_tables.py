@@ -147,7 +147,8 @@ def _reconcile(run: Run) -> None:
                 raise ValueError("%s %s %s: median of the samples is %r, the summary says %r" % (editor, wl, crit, median, row["median_ms"]))
 
 
-_SAME_HOST = ("cpu_model", "cpu_cores_logical", "ram_bytes", "os", "os_version", "arch")
+_SAME_HOST = ("cpu_model", "cpu_cores_logical", "ram_bytes", "os", "os_version", "arch", "container", "cpu_quota",
+              "memory_limit_bytes")
 
 
 def check_comparable(primary: Run, repro: Run) -> None:
@@ -426,8 +427,17 @@ def _workload_table(primary: Run) -> str:
 
 def _host(summary: dict) -> str:
     h = summary["host"]
-    return "%s, %d cores, %d GiB RAM, macOS %s, %s power" % (
-        h["cpu_model"], h["cpu_cores_logical"], round(h["ram_bytes"] / 2**30), h["os_version"], h["power_source"].upper())
+    if h.get("container"):
+        quota, limit = h.get("cpu_quota"), h.get("memory_limit_bytes")
+        cpus = ("%g of the host's %d CPUs" % (quota, h["cpu_cores_logical"]) if quota
+                else "all %d of the host's CPUs" % h["cpu_cores_logical"])
+        ram = "%d GiB RAM limit" % round(limit / 2**30) if limit else "no RAM limit"
+        power = "no battery" if h.get("power_supplies") == [] else "%s power" % h["power_source"].upper()
+        return "a Linux container on a shared %s host: %s, %s, Linux %s, %s" % (
+            h["cpu_model"], cpus, ram, h["os_version"], power)
+    system = "macOS %s" % h["os_version"] if h.get("os") == "darwin" else "%s %s" % (h.get("os", "?").capitalize(), h["os_version"])
+    return "%s, %d cores, %d GiB RAM, %s, %s power" % (
+        h["cpu_model"], h["cpu_cores_logical"], round(h["ram_bytes"] / 2**30), system, h["power_source"].upper())
 
 
 def _libreoffice_table(primary: Run, repro: Run) -> str | None:

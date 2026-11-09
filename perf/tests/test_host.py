@@ -112,3 +112,107 @@ class QuietCheck(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LinuxContainerHost(unittest.TestCase):
+    """What a Hugging Face sandbox shows (#118, probe of 2026-11-09): an empty
+    /sys/class/power_supply, a cgroup CPU quota of 16 on a 64-core host, a
+    memory limit below the host's 517 GB, and the host's load average."""
+
+    def setUp(self):
+        import tempfile
+        from pathlib import Path
+
+        self.tmp = Path(tempfile.mkdtemp())
+        self.supply = self.tmp / "power_supply"
+        self.supply.mkdir()
+        self.cgroup = self.tmp / "cgroup"
+        self.cgroup.mkdir()
+        self.patches = [
+            mock.patch.object(host.sys, "platform", "linux"),
+            mock.patch.object(host, "POWER_SUPPLY", str(self.supply)),
+            mock.patch.object(host, "CGROUP", str(self.cgroup)),
+            mock.patch.object(host, "CONTAINER_MARKERS", (str(self.tmp / "dockerenv"),)),
+        ]
+        import shutil
+
+        self.addCleanup(shutil.rmtree, self.tmp)
+        for p in self.patches:
+            p.start()
+            self.addCleanup(p.stop)
+
+    def _supply(self, name, kind, online=None):
+        d = self.supply / name
+        d.mkdir()
+        (d / "type").write_text(kind + "\n")
+        if online is not None:
+            (d / "online").write_text(online + "\n")
+
+    def test_no_power_supply_at_all_is_mains_not_battery(self):
+        self.assertEqual(host._power_source(), "ac")
+
+    def test_a_laptop_on_battery_is_battery(self):
+        self._supply("AC", "Mains", "0")
+        self._supply("BAT0", "Battery")
+        self.assertEqual(host._power_source(), "battery")
+
+    def test_a_laptop_plugged_in_is_ac(self):
+        self._supply("AC", "Mains", "1")
+        self._supply("BAT0", "Battery")
+        self.assertEqual(host._power_source(), "ac")
+
+    def test_a_battery_alone_is_battery(self):
+        self._supply("BAT0", "Battery")
+        self.assertEqual(host._power_source(), "battery")
+
+    def test_unreadable_supply_directory_is_unknown(self):
+        self.supply.rmdir()
+        self.assertIsNone(host._power_source())
+
+    def test_cgroup_v2_cpu_quota(self):
+        (self.cgroup / "cpu.max").write_text("1600000 100000\n")
+        self.assertEqual(host._cpu_quota(), 16.0)
+
+    def test_unlimited_cgroup_has_no_quota(self):
+        (self.cgroup / "cpu.max").write_text("max 100000\n")
+        self.assertIsNone(host._cpu_quota())
+
+    def test_no_cgroup_file_has_no_quota(self):
+        self.assertIsNone(host._cpu_quota())
+
+    def test_cgroup_v2_memory_limit(self):
+        (self.cgroup / "memory.max").write_text("133143986176\n")
+        self.assertEqual(host._memory_limit(), 133143986176)
+        (self.cgroup / "memory.max").write_text("max\n")
+        self.assertIsNone(host._memory_limit())
+
+    def test_container_marker(self):
+        self.assertFalse(host._in_container({}))
+        self.assertTrue(host._in_container({"KUBERNETES_SERVICE_HOST": "10.0.0.1"}))
+        (self.tmp / "dockerenv").write_text("")
+        self.assertTrue(host._in_container({}))
+
+    def test_record_carries_quota_limit_and_container(self):
+        (self.cgroup / "cpu.max").write_text("1600000 100000\n")
+        (self.cgroup / "memory.max").write_text("133143986176\n")
+        with mock.patch.object(host, "_ram_bytes_probe", return_value=517267300 * 1024), mock.patch.object(
+            host, "_cpu_model_probe", return_value="AMD EPYC 7R13 Processor"
+        ), mock.patch.object(host, "_cores", return_value=(None, 64)), mock.patch.object(
+            host, "_os_version", return_value="6.12.113"
+        ), mock.patch.dict(host.os.environ, {"KUBERNETES_SERVICE_HOST": "10.0.0.1"}):
+            record = host.host_record()
+        self.assertEqual(record["power_source"], "ac")
+        self.assertEqual(record["power_supplies"], [])
+        self.assertEqual(record["cpu_quota"], 16.0)
+        self.assertEqual(record["memory_limit_bytes"], 133143986176)
+        self.assertTrue(record["container"])
+        self.assertEqual(record["cpu_cores_logical"], 64)
+
+
+@unittest.skipUnless(sys.platform == "darwin", "macOS probe")
+class MacIsNotAContainer(unittest.TestCase):
+    def test_mac_record_has_no_quota(self):
+        record = host.host_record()
+        self.assertIsNone(record["cpu_quota"])
+        self.assertIsNone(record["memory_limit_bytes"])
+        self.assertFalse(record["container"])

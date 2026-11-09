@@ -98,6 +98,30 @@ def _os_version() -> str | None:
     return platform.release() or None
 
 
+POWER_SUPPLY = "/sys/class/power_supply"
+CGROUP = "/sys/fs/cgroup"
+CONTAINER_MARKERS = ("/.dockerenv", "/run/.containerenv")
+
+
+def _read(path: str) -> str | None:
+    try:
+        with open(path, encoding="utf-8") as handle:
+            return handle.read().strip()
+    except OSError:
+        return None
+
+
+def _power_supplies() -> list[tuple[str, str | None, str | None]] | None:
+    """``(name, type, online)`` for each Linux power supply; None if unreadable."""
+    try:
+        names = sorted(os.listdir(POWER_SUPPLY))
+    except OSError:
+        return None
+    return [
+        (n, _read(os.path.join(POWER_SUPPLY, n, "type")), _read(os.path.join(POWER_SUPPLY, n, "online"))) for n in names
+    ]
+
+
 def _power_source() -> str | None:
     if sys.platform == "darwin":
         out = _run(["pmset", "-g", "batt"])
@@ -108,15 +132,46 @@ def _power_source() -> str | None:
         if "Battery Power" in out:
             return "battery"
         return None
-    supply = "/sys/class/power_supply"
-    try:
-        for name in os.listdir(supply):
-            with open(os.path.join(supply, name, "online"), encoding="utf-8") as handle:
-                if handle.read().strip() == "1":
-                    return "ac"
-        return "battery"
-    except OSError:
+    supplies = _power_supplies()
+    if supplies is None:
         return None
+    if any(kind in ("Mains", "USB") and online == "1" for _, kind, online in supplies):
+        return "ac"
+    if any(kind == "Battery" for _, kind, _ in supplies):
+        return "battery"
+    # No battery at all (a server, a container): the machine runs on mains.
+    return "ac"
+
+
+def _cpu_quota() -> float | None:
+    """CPUs this process may use under a cgroup quota (v2 ``cpu.max``, else v1); None if unlimited."""
+    v2 = _read(os.path.join(CGROUP, "cpu.max"))
+    if v2:
+        quota, _, period = v2.partition(" ")
+        if quota != "max" and quota.isdigit() and period.isdigit() and int(period):
+            return int(quota) / int(period)
+        return None
+    quota = _read(os.path.join(CGROUP, "cpu", "cpu.cfs_quota_us"))
+    period = _read(os.path.join(CGROUP, "cpu", "cpu.cfs_period_us"))
+    if quota and period and quota.lstrip("-").isdigit() and int(quota) > 0 and period.isdigit() and int(period):
+        return int(quota) / int(period)
+    return None
+
+
+def _memory_limit() -> int | None:
+    """Bytes this process may use under a cgroup limit; None if unlimited."""
+    v2 = _read(os.path.join(CGROUP, "memory.max"))
+    if v2:
+        return int(v2) if v2.isdigit() else None
+    v1 = _read(os.path.join(CGROUP, "memory", "memory.limit_in_bytes"))
+    # cgroup v1 reports "unlimited" as a page-rounded 2**63.
+    if v1 and v1.isdigit() and int(v1) < 2**62:
+        return int(v1)
+    return None
+
+
+def _in_container(environ) -> bool:
+    return "KUBERNETES_SERVICE_HOST" in environ or any(os.path.exists(m) for m in CONTAINER_MARKERS)
 
 
 def host_record() -> dict:
@@ -145,6 +200,10 @@ def host_record() -> dict:
         "cpu_cores_logical": logical,
         "ram_bytes": ram,
         "power_source": power,
+        "power_supplies": None if sys.platform == "darwin" else [n for n, _, _ in (_power_supplies() or [])],
+        "cpu_quota": None if sys.platform == "darwin" else _cpu_quota(),
+        "memory_limit_bytes": None if sys.platform == "darwin" else _memory_limit(),
+        "container": sys.platform != "darwin" and _in_container(os.environ),
         "python": platform.python_version(),
     }
 

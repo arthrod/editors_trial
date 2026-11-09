@@ -472,3 +472,31 @@ class Units(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class HostLine(unittest.TestCase):
+    """#118: the host sentence says what the machine was, Mac or container."""
+
+    MAC = {"os": "darwin", "cpu_model": "Apple M4 Pro", "cpu_cores_logical": 12, "ram_bytes": 24 * 2**30,
+           "os_version": "27.2", "power_source": "ac"}
+    BOX = {"os": "linux", "cpu_model": "AMD EPYC 7R13 Processor", "cpu_cores_logical": 64,
+           "ram_bytes": 517267300 * 1024, "os_version": "6.12.113-138.209.amzn2023.x86_64", "power_source": "ac",
+           "power_supplies": [], "cpu_quota": 16.0, "memory_limit_bytes": 124 * 2**30, "container": True}
+
+    def test_mac_line_is_unchanged(self):
+        self.assertEqual(E._host({"host": self.MAC}), "Apple M4 Pro, 12 cores, 24 GiB RAM, macOS 27.2, AC power")
+
+    def test_container_line_names_the_quota_not_the_host_totals(self):
+        line = E._host({"host": self.BOX})
+        self.assertIn("container", line)
+        self.assertIn("16 of the host's 64 CPUs", line)
+        self.assertIn("124 GiB", line)
+        self.assertIn("Linux 6.12.113", line)
+        self.assertNotIn("macOS", line)
+        self.assertNotIn("493 GiB", line)
+        self.assertIn("no battery", line)
+
+    def test_container_kind_is_part_of_the_same_host_rule(self):
+        for key in ("container", "cpu_quota", "memory_limit_bytes"):
+            with self.subTest(key=key):
+                self.assertIn(key, E._SAME_HOST)
