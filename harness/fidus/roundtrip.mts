@@ -5,7 +5,7 @@
  *
  * Run from the repo dir so workspace resolution works:
  *   cd repos/fiduswriter-document-ts && ./node_modules/.bin/tsx --no-cache \
- *       /Users/arthrod/temp/T/editors_trial/harness/fidus/roundtrip.mts
+ *       ../../harness/fidus/roundtrip.mts
  *
  * Env:
  *   IN_DOCX   input path

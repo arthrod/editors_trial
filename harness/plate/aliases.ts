@@ -17,12 +17,15 @@
  */
 import { plugin } from 'bun';
 import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const WWW = '/Users/arthrod/temp/T/editors_trial/repos/plate/apps/www/src';
+// paths from this file, so the harness runs from any checkout (#118)
+const HERE = dirname(fileURLToPath(import.meta.url));
+const WWW = resolve(HERE, '../../repos/plate/apps/www/src');
 // The www kit imports these. They are pinned in apps/www/package.json and are
 // not present in that checkout's node_modules. The harness installs the same
 // versions and this loader hands markdown.tsx those copies.
-const REMARK = '/Users/arthrod/temp/T/editors_trial/harness/plate/node_modules';
+const REMARK = resolve(HERE, 'node_modules');
 
 const SHIMS: Record<string, string> = {
   '@/lib/utils': `

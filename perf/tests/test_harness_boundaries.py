@@ -79,3 +79,25 @@ class CanvasImportFailure(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+HEADLESS_HARNESS = (
+    "css-stub.mjs", "empty-module.mjs", "folio.ts", "eigenpal.ts", "genoffice.cts", "superdoc.mjs",
+    "docsplus/roundtrip.ts", "fidus/roundtrip.mts", "officeopen/roundtrip.mts", "docen/roundtrip.mts",
+    "plate/roundtrip.ts", "plate/aliases.ts", "canvas/vitest.config.ts", "canvas/setup.ts",
+    "canvas/roundtrip.test.ts", "ui/docxodus/roundtrip.mjs",
+)
+
+
+@unittest.skipUnless((ROOT / "harness" / "css-stub.mjs").exists(), "harness is not checked out")
+class HarnessIsPortable(unittest.TestCase):
+    """#118: the headless lanes must run from any checkout. Two harness files
+    named the Mac's checkout by absolute path, so GenOffice and canvas failed
+    in the Linux container (ENOENT on /Users/.../empty-module.mjs)."""
+
+    def test_no_headless_harness_file_names_a_home_directory(self):
+        for rel in HEADLESS_HARNESS:
+            path = ROOT / "harness" / rel
+            with self.subTest(file=rel):
+                self.assertTrue(path.exists(), rel)
+                self.assertNotRegex(path.read_text(encoding="utf-8"), r"/(Users|home)/[^/'\"]+/")
