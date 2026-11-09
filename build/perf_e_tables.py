@@ -213,16 +213,18 @@ def _good(record: dict) -> bool:
     required mark exactly once, and a saved file that holds the document.
     A record without its mark counts cannot show the marks were each printed
     once, so it is not good (#119)."""
-    return "mark_counts" in record and _sample_failure(record) is None
+    return isinstance(record.get("mark_counts"), dict) and _sample_failure(record) is None  # null counts too (#120)
 
 
 def _values(records: list[dict], metric: str) -> list[float]:
     good = [r for r in records if _good(r)]
+    # a published mark is a time whatever the record's other fields say (#120)
     if metric == "roundtrip":
-        return [r["marks"]["model_ready_ms"] + r["marks"]["save_ms"] for r in good if {"model_ready_ms", "save_ms"} <= set(r["marks"])]
+        return [r["marks"]["model_ready_ms"] + r["marks"]["save_ms"] for r in good
+                if _finite_nonnegative(r["marks"].get("model_ready_ms")) and _finite_nonnegative(r["marks"].get("save_ms"))]
     key = METRICS[metric][0]
     if metric in ("load", "save"):
-        return [r["marks"][key] for r in good if key in r["marks"]]
+        return [r["marks"][key] for r in good if _finite_nonnegative(r["marks"].get(key))]
     return [r[key] for r in good if r.get(key) is not None]
 
 
@@ -323,8 +325,8 @@ def _noisy(run: Run, record: dict) -> bool:
         return True
     limit = ((run.summary.get("quiet_machine_check_start") or {}).get("thresholds") or {}).get("load1_max")
     load = record.get("load_before")
-    if limit is None or not load:
-        return True  # nothing to judge by: fail closed
+    if not _finite_nonnegative(limit) or not load or not _finite_nonnegative(load[0]):
+        return True  # nothing valid to judge by (NaN, negative, text): fail closed (#120)
     return load[0] > limit
 
 
@@ -495,25 +497,40 @@ def _workload_table(primary: Run) -> str:
     return "\n".join(lines)
 
 
-def _whole_machine(h: dict) -> bool:
-    """A quota that covers every CPU the machine has: no neighbours share it."""
-    quota = h.get("cpu_quota")
-    return quota is None or quota >= h["cpu_cores_logical"]
+def _cpus(h: dict) -> str:
+    """The CPUs the process may use, against those its kernel reports. A quota is
+    a ceiling on CPU time, not a reservation (#120): nothing here says "to itself"."""
+    quota, n = h.get("cpu_quota"), h["cpu_cores_logical"]
+    if quota is None:
+        return "%d CPUs, no CPU quota" % n
+    if quota >= n:
+        return "all %d CPUs its kernel reports" % n
+    return "a CPU quota of %g of the %d CPUs its kernel reports" % (quota, n)
+
+
+def _ram(h: dict) -> str:
+    limit, ram = h.get("memory_limit_bytes"), h.get("ram_bytes")
+    if limit and (not ram or limit < ram):
+        return "%d GiB RAM limit" % round(limit / 2**30)
+    return "%d GiB RAM" % round(ram / 2**30)  # a limit above the RAM limits nothing
+
+
+def _vm(h: dict) -> str:
+    """The machine as its own firmware (DMI) and CPU flags named it."""
+    vendor, product = h.get("machine_vendor"), h.get("machine_product")
+    if vendor and h.get("hypervisor"):
+        return "an %s virtual machine" % " ".join(v for v in (vendor, product) if v) if vendor[0] in "AEIOU" else \
+            "a %s virtual machine" % " ".join(v for v in (vendor, product) if v)
+    if h.get("hypervisor"):
+        return "a virtual machine"
+    return "a machine the run could not identify"
 
 
 def _host(summary: dict) -> str:
     h = summary["host"]
     if h.get("container") or h.get("cpu_quota") or h.get("memory_limit_bytes"):
-        quota, limit = h.get("cpu_quota"), h.get("memory_limit_bytes")
-        ram = "%d GiB RAM limit" % round(limit / 2**30) if limit else "no RAM limit"
-        power = "no battery" if h.get("power_supplies") == [] else "%s power" % h["power_source"].upper()
-        if _whole_machine(h):
-            kind = "a Linux container" if h.get("container") else "a Linux machine"
-            return "%s on an %s machine: all %d CPUs of its machine, %s, Linux %s, %s" % (
-                kind, h["cpu_model"], h["cpu_cores_logical"], ram, h["os_version"], power)
-        kind = "a Linux container on a shared" if h.get("container") else "a cgroup-limited process on a"
-        return "%s %s host: %g of the host's %d CPUs, %s, Linux %s, %s" % (
-            kind, h["cpu_model"], quota, h["cpu_cores_logical"], ram, h["os_version"], power)
+        return "%s, %s, %s, Linux %s, %s power" % (
+            h["cpu_model"], _cpus(h), _ram(h), h["os_version"], h["power_source"].upper())
     system = "macOS %s" % h["os_version"] if h.get("os") == "darwin" else "%s %s" % (h.get("os", "?").capitalize(), h["os_version"])
     return "%s, %d cores, %d GiB RAM, %s, %s power" % (
         h["cpu_model"], h["cpu_cores_logical"], round(h["ram_bytes"] / 2**30), system, h["power_source"].upper())
@@ -522,27 +539,46 @@ def _host(summary: dict) -> str:
 def _machine(summary: dict) -> str:
     h = summary["host"]
     if h.get("container"):
-        return ("one Linux container with a whole machine to itself" if _whole_machine(h)
-                else "one Linux container on a shared server")
+        return "one Linux container on %s" % _vm(h)
     if h.get("cpu_quota") or h.get("memory_limit_bytes"):
-        return "one Linux machine, limited by its cgroup"
+        return "one cgroup-limited Linux process on %s" % _vm(h)
     return "one Mac" if h.get("os") == "darwin" else "one %s machine" % h.get("os", "?").capitalize()
 
 
-def _host_note(summary: dict) -> str:
-    """What the quiet check could and could not see on this machine."""
+def _steal_pct(summary: dict) -> float | None:
+    """Share of CPU time the hypervisor withheld between the run's two quiet
+    checks (``/proc/stat`` steal over all ticks); None without valid counters."""
+    a = (summary.get("quiet_machine_check_start") or {}).get("cpu_ticks") or {}
+    b = (summary.get("quiet_machine_check_end") or {}).get("cpu_ticks") or {}
+    vals = [a.get("steal"), a.get("total"), b.get("steal"), b.get("total")]
+    if not all(_finite_nonnegative(v) for v in vals):
+        return None
+    steal, total = vals[2] - vals[0], vals[3] - vals[1]
+    if total <= 0 or steal < 0:
+        return None
+    return steal / total * 100
+
+
+def _host_note(summary: dict, second: dict | None = None) -> str:
+    """What the quiet check could and could not see, from what the run recorded."""
     h = summary["host"]
     if not h.get("container"):
         return ""
-    supply = " The container sees no power supply." if h.get("power_supplies") == [] else ""
-    if _whole_machine(h):
-        return ("The container may use all %d CPUs of its machine, and the load average it reads is its machine's, "
-                "judged against those %d CPUs. The machine is a cloud virtual machine: what runs on the physical "
-                "server beneath it cannot be seen from inside.%s" % (h["cpu_cores_logical"], h["cpu_cores_logical"], supply))
-    return ("The container shares its server with other tenants. The load average it reads is the whole server's, "
-            "judged against the server's %d CPUs, so busy neighbours count against the limit; the process check "
-            "cannot see what they run. The container itself may use %g CPUs.%s" % (
-                h["cpu_cores_logical"], h["cpu_quota"], supply))
+    n = h["cpu_cores_logical"]
+    quota = h.get("cpu_quota")
+    may = ("The container may use all %d CPUs its kernel reports." % n if quota is None or quota >= n
+           else "The container may use %g of the %d CPUs its kernel reports." % (quota, n))
+    parts = [may, "The load average counts every process on that kernel, in this container or any other, and was "
+                  "judged against all %d CPUs; the process check cannot see processes outside the container." % n]
+    steal = [v for v in (_steal_pct(summary), _steal_pct(second) if second else None) if v is not None]
+    if steal and h.get("hypervisor"):
+        runs = "%.2f%% during the run" % steal[0] + (" and %.2f%% during the second run" % steal[1] if len(steal) > 1 else "")
+        parts.append("Work elsewhere on the physical server shows only as steal time: the hypervisor withheld %s." % runs)
+    if h.get("power_supplies") == []:
+        vendor = h.get("machine_vendor")
+        parts.append("The container sees no power supply; AC power is inferred from the machine's vendor (%s)." % vendor
+                     if vendor and h.get("power_source") == "ac" else "The container sees no power supply.")
+    return " ".join(parts)
 
 
 def _libreoffice_table(facts: dict, primary: Run, repro: Run) -> str | None:
@@ -584,7 +620,7 @@ def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
         "perf.e.repro_seed": repro.summary["seed"],
         "perf.e.host": _host(s),
         "perf.e.machine": _machine(s),
-        "perf.e.host_note": _host_note(s),
+        "perf.e.host_note": _host_note(s, repro.summary),
         "perf.e.date": s["quiet_machine_check_start"].get("date") or _date(primary),
         "perf.e.rel_tol_pct": round(REL_TOL * 100),
         "perf.e.abs_tol_ms": ABS_TOL_MS,
@@ -699,8 +735,11 @@ def _prepared_export(facts: dict, editors: list[str]) -> str:
 
 
 def _covers(good: list[dict], mark: str) -> bool:
-    """Every good sample carries ``mark`` (and there is at least one)."""
-    return bool(good) and all(mark in r.get("marks", {}) for r in good)
+    """Every good sample printed ``mark`` exactly once, as a time (and there is
+    at least one sample). An optional mark is not checked by the runner (#120)."""
+    return bool(good) and all(
+        (r.get("mark_counts") or {}).get(mark) == 1 and _finite_nonnegative((r.get("marks") or {}).get(mark))
+        for r in good)
 
 
 def _end_check(summary: dict) -> str:

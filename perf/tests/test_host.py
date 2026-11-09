@@ -110,8 +110,11 @@ class QuietCheck(unittest.TestCase):
         self.assertEqual(result["top_cpu"][0], "40.0 /usr/libexec/syspolicyd")
 
 
-if __name__ == "__main__":
-    unittest.main()
+
+def _no_proc(tmp):
+    """Point every Linux evidence path at an empty temporary tree (#120)."""
+    return [mock.patch.object(host, name, str(tmp / name.lower()))
+            for name in ("PROC_SELF_CGROUP", "PROC1_CGROUP", "PROC1_ENVIRON", "DMI", "CPUINFO", "PROC_STAT")]
 
 
 class LinuxContainerHost(unittest.TestCase):
@@ -133,6 +136,7 @@ class LinuxContainerHost(unittest.TestCase):
             mock.patch.object(host, "POWER_SUPPLY", str(self.supply)),
             mock.patch.object(host, "CGROUP", str(self.cgroup)),
             mock.patch.object(host, "CONTAINER_MARKERS", (str(self.tmp / "dockerenv"),)),
+            *_no_proc(self.tmp),
         ]
         import shutil
 
@@ -205,7 +209,8 @@ class LinuxContainerHost(unittest.TestCase):
             host, "_os_version", return_value="6.12.113"
         ), mock.patch.dict(host.os.environ, {"KUBERNETES_SERVICE_HOST": "10.0.0.1"}):
             record = host.host_record()
-        self.assertEqual(record["power_source"], "ac")
+        # a container that sees no supply and no vendor cannot know its power (#120)
+        self.assertEqual(record["power_source"], "unknown")
         self.assertEqual(record["power_supplies"], [])
         self.assertEqual(record["cpu_quota"], 16.0)
         self.assertEqual(record["memory_limit_bytes"], 133143986176)
@@ -243,3 +248,173 @@ class QuietCheckAncestors(unittest.TestCase):
 
     def test_the_launching_shell_is_still_not_counted(self):
         self.assertTrue(self._check("zsh -c bash launch-e.sh", 90.0)["quiet"])
+
+
+class LinuxEvidence(unittest.TestCase):
+    """#120 (codex review of #118/#119): limits from the process's own cgroup,
+    power only from evidence, containers beyond two marker files, and the
+    machine's own name (DMI) and steal counters in the record. Every path is a
+    fixture, so this runs on any OS."""
+
+    def setUp(self):
+        import shutil
+        import tempfile
+        from pathlib import Path
+
+        self.tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.tmp)
+        (self.tmp / "cgroup").mkdir()
+        (self.tmp / "power_supply").mkdir()
+        (self.tmp / "dmi").mkdir()
+        patches = [
+            mock.patch.object(host.sys, "platform", "linux"),
+            mock.patch.object(host, "POWER_SUPPLY", str(self.tmp / "power_supply")),
+            mock.patch.object(host, "CGROUP", str(self.tmp / "cgroup")),
+            mock.patch.object(host, "CONTAINER_MARKERS", (str(self.tmp / "dockerenv"),)),
+            *_no_proc(self.tmp),
+            mock.patch.dict(host.os.environ, {}),
+        ]
+        for p in patches:
+            p.start()
+            self.addCleanup(p.stop)
+        for key in ("KUBERNETES_SERVICE_HOST", "container"):
+            host.os.environ.pop(key, None)
+
+    def _write(self, rel, text):
+        path = self.tmp / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+
+    # 4
+    def test_nested_v2_cgroup_limits_are_the_effective_ones(self):
+        self._write("proc_self_cgroup", "0::/job\n")
+        self._write("cgroup/cpu.max", "max 100000\n")
+        self._write("cgroup/memory.max", "max\n")
+        self._write("cgroup/job/cpu.max", "200000 100000\n")
+        self._write("cgroup/job/memory.max", "2147483648\n")
+        self.assertEqual(host._cpu_quota(), 2.0)
+        self.assertEqual(host._memory_limit(), 2 * 2**30)
+
+    def test_the_tightest_limit_on_the_path_wins(self):
+        self._write("proc_self_cgroup", "0::/a/b\n")
+        self._write("cgroup/a/cpu.max", "400000 100000\n")
+        self._write("cgroup/a/b/cpu.max", "800000 100000\n")
+        self._write("cgroup/a/memory.max", "1073741824\n")
+        self._write("cgroup/a/b/memory.max", "max\n")
+        self.assertEqual(host._cpu_quota(), 4.0)
+        self.assertEqual(host._memory_limit(), 2**30)
+
+    def test_a_namespaced_cgroup_reads_its_own_root(self):
+        # the sandbox: /proc/self/cgroup says 0::/ and /sys/fs/cgroup is the container's own
+        self._write("proc_self_cgroup", "0::/\n")
+        self._write("cgroup/cpu.max", "3200000 100000\n")
+        self.assertEqual(host._cpu_quota(), 32.0)
+
+    def test_a_path_not_mounted_here_falls_back_to_the_root(self):
+        self._write("proc_self_cgroup", "0::/docker/abc\n")
+        self._write("cgroup/cpu.max", "100000 100000\n")
+        self.assertEqual(host._cpu_quota(), 1.0)
+
+    def test_v1_controllers_resolve_their_own_paths(self):
+        self._write("proc_self_cgroup", "4:cpu,cpuacct:/job\n3:memory:/job\n")
+        self._write("cgroup/cpu,cpuacct/job/cpu.cfs_quota_us", "300000\n")
+        self._write("cgroup/cpu,cpuacct/job/cpu.cfs_period_us", "100000\n")
+        self._write("cgroup/memory/job/memory.limit_in_bytes", "1073741824\n")
+        self.assertEqual(host._cpu_quota(), 3.0)
+        self.assertEqual(host._memory_limit(), 2**30)
+
+    def test_a_hybrid_hierarchy_reads_the_v1_controllers(self):
+        # systemd's unified 0:: line next to v1 controllers is not a v2 machine
+        self._write("proc_self_cgroup", "4:cpu,cpuacct:/job\n3:memory:/job\n0::/job\n")
+        self._write("cgroup/cpu,cpuacct/job/cpu.cfs_quota_us", "300000\n")
+        self._write("cgroup/cpu,cpuacct/job/cpu.cfs_period_us", "100000\n")
+        self.assertEqual(host._cpu_quota(), 3.0)
+
+    # 7
+    def test_container_evidence_beyond_marker_files(self):
+        self.assertFalse(host._in_container({}))
+        self.assertTrue(host._in_container({"container": "lxc"}))
+        self._write("proc1_environ", "PATH=/bin\0container=podman\0")
+        self.assertTrue(host._in_container({}))
+
+    def test_container_runtime_in_pid1_cgroup(self):
+        self._write("proc1_cgroup", "0::/kubepods/burstable/pod1/abc\n")
+        self.assertTrue(host._in_container({}))
+
+    def test_a_plain_root_cgroup_is_not_a_container(self):
+        self._write("proc1_cgroup", "0::/init.scope\n")
+        self._write("proc_self_cgroup", "0::/user.slice/session-1.scope\n")
+        self.assertFalse(host._in_container({}))
+
+    # 6
+    def test_a_container_without_supply_or_vendor_has_unknown_power(self):
+        host.os.environ["KUBERNETES_SERVICE_HOST"] = "10.0.0.1"
+        self.assertEqual(host._power_source(), "unknown")
+        self.assertEqual(host.power_source(), "unknown")
+
+    def test_a_cloud_vendor_is_evidence_of_mains(self):
+        host.os.environ["KUBERNETES_SERVICE_HOST"] = "10.0.0.1"
+        self._write("dmi/sys_vendor", "Amazon EC2\n")
+        self.assertEqual(host._power_source(), "ac")
+
+    def test_a_vm_without_supply_or_cloud_vendor_is_unknown(self):
+        # Hyper-V or a desktop hypervisor on a laptop looks like this
+        self._write("cpuinfo", "flags\t: fpu vme hypervisor\n")
+        self._write("dmi/sys_vendor", "Microsoft Corporation\n")
+        self.assertEqual(host._power_source(), "unknown")
+
+    def test_bare_metal_without_supply_is_mains(self):
+        self._write("cpuinfo", "flags\t: fpu vme\n")
+        self.assertEqual(host._power_source(), "ac")
+
+    def test_a_battery_still_wins_in_a_container(self):
+        host.os.environ["KUBERNETES_SERVICE_HOST"] = "10.0.0.1"
+        self._write("dmi/sys_vendor", "Amazon EC2\n")
+        self._write("power_supply/BAT0/type", "Battery\n")
+        self.assertEqual(host._power_source(), "battery")
+
+    # the record carries the evidence
+    def test_record_names_the_machine(self):
+        self._write("dmi/sys_vendor", "Amazon EC2\n")
+        self._write("dmi/product_name", "r6a.8xlarge\n")
+        self._write("cpuinfo", "processor\t: 0\nflags\t\t: fpu hypervisor\n")
+        host.os.environ["KUBERNETES_SERVICE_HOST"] = "10.0.0.1"
+        with mock.patch.object(host, "_ram_bytes_probe", return_value=264744833024), mock.patch.object(
+            host, "_cpu_model_probe", return_value="AMD EPYC 7R13 Processor"
+        ), mock.patch.object(host, "_cores", return_value=(None, 32)), mock.patch.object(
+            host, "_os_version", return_value="6.12.113"
+        ):
+            record = host.host_record()
+        self.assertEqual(record["machine_vendor"], "Amazon EC2")
+        self.assertEqual(record["machine_product"], "r6a.8xlarge")
+        self.assertIs(record["hypervisor"], True)
+        self.assertEqual(record["power_source"], "ac")
+        self.assertTrue(record["container"])
+
+    def test_cpu_ticks(self):
+        self._write("proc_stat", "cpu  65967 15 45687 1725841 16505 0 2300 61 0 0\ncpu0 1 2 3 4 5 6 7 8 0 0\n")
+        self.assertEqual(host._cpu_ticks(), {"steal": 61, "total": 65967 + 15 + 45687 + 1725841 + 16505 + 0 + 2300 + 61})
+        (self.tmp / "proc_stat").write_text("garbage\n")
+        self.assertIsNone(host._cpu_ticks())
+
+    def test_quiet_check_records_the_ticks(self):
+        self._write("proc_stat", "cpu  1 0 1 10 0 0 0 3 0 0\n")
+        with mock.patch.object(host, "_load_average", return_value=(0.1, 0.1, 0.1)), mock.patch.object(
+            host, "_processes", return_value=[(host.os.getpid(), 1, 0.0, "python3")]
+        ), mock.patch.object(host, "_logical_cpus", return_value=32):
+            q = host.quiet_machine_check()
+        self.assertEqual(q["cpu_ticks"], {"steal": 3, "total": 15})
+
+
+@unittest.skipUnless(sys.platform == "darwin", "macOS probe")
+class MacHasNoLinuxEvidence(unittest.TestCase):
+    def test_mac_record_and_check(self):
+        record = host.host_record()
+        self.assertIsNone(record["machine_vendor"])
+        self.assertIsNone(record["machine_product"])
+        self.assertIsNone(record["hypervisor"])
+        self.assertIsNone(host._cpu_ticks())
+
+
+if __name__ == "__main__":
+    unittest.main()

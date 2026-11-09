@@ -101,6 +101,17 @@ def _os_version() -> str | None:
 POWER_SUPPLY = "/sys/class/power_supply"
 CGROUP = "/sys/fs/cgroup"
 CONTAINER_MARKERS = ("/.dockerenv", "/run/.containerenv")
+PROC_SELF_CGROUP = "/proc/self/cgroup"
+PROC1_CGROUP = "/proc/1/cgroup"
+PROC1_ENVIRON = "/proc/1/environ"
+DMI = "/sys/class/dmi/id"
+CPUINFO = "/proc/cpuinfo"
+PROC_STAT = "/proc/stat"
+# DMI vendors that only rent servers: their machines have no battery. Not
+# "Microsoft Corporation" or "QEMU": Hyper-V and desktop hypervisors on a laptop
+# report those too (#120).
+CLOUD_VENDORS = ("Amazon EC2", "Google", "DigitalOcean", "Hetzner", "Scaleway", "Alibaba Cloud")
+_RUNTIME = re.compile(r"(docker|kubepods|containerd|libpod|lxc|crio)")
 
 
 def _read(path: str) -> str | None:
@@ -122,7 +133,32 @@ def _power_supplies() -> list[tuple[str, str | None, str | None]] | None:
     ]
 
 
+def _dmi(name: str) -> str | None:
+    return _read(os.path.join(DMI, name)) or None
+
+
+def _hypervisor() -> bool:
+    """The CPU flags say this kernel runs under a hypervisor."""
+    info = _read(CPUINFO) or ""
+    return any(line.startswith("flags") and " hypervisor" in line for line in info.splitlines())
+
+
+def _cpu_ticks() -> dict | None:
+    """``/proc/stat``'s steal and total CPU ticks so far (guest time is already
+    inside user time); None off Linux or when unreadable (#120)."""
+    if sys.platform == "darwin":
+        return None
+    first = (_read(PROC_STAT) or "").splitlines()[:1]
+    fields = first[0].split() if first else []
+    if len(fields) < 9 or fields[0] != "cpu" or not all(f.isdigit() for f in fields[1:9]):
+        return None
+    ticks = [int(f) for f in fields[1:9]]
+    return {"steal": ticks[7], "total": sum(ticks)}
+
+
 def _power_source() -> str | None:
+    """``ac``, ``battery``, ``unknown`` (readable, but nothing proves either),
+    or None when the probe itself failed."""
     if sys.platform == "darwin":
         out = _run(["pmset", "-g", "batt"])
         if not out:
@@ -141,39 +177,90 @@ def _power_source() -> str | None:
         return "ac"
     if any(kind == "Battery" for _, kind, _ in supplies):
         return "battery"
-    # No battery at all (a server, a container): the machine runs on mains.
+    if supplies:
+        return "ac"  # supplies, none a battery
+    # Nothing visible. Bare metal shows its own battery, so none means mains; a
+    # container or a guest sees nothing of its host's, so only a cloud vendor
+    # (servers only) is evidence of mains (#120).
+    if _in_container(os.environ) or _hypervisor():
+        return "ac" if _dmi("sys_vendor") in CLOUD_VENDORS else "unknown"
     return "ac"
 
 
-def _cpu_quota() -> float | None:
-    """CPUs this process may use under a cgroup quota (v2 ``cpu.max``, else v1); None if unlimited."""
-    v2 = _read(os.path.join(CGROUP, "cpu.max"))
-    if v2:
-        quota, _, period = v2.partition(" ")
-        if quota != "max" and quota.isdigit() and period.isdigit() and int(period):
-            return int(quota) / int(period)
+def _cgroup_dirs(controller: str) -> list[str]:
+    """The cgroup directories this process is limited by, leaf first, for one
+    controller (``cpu`` or ``memory``): its own cgroup from ``/proc/self/cgroup``
+    and every ancestor up to the mount. A path not mounted here (a container
+    without a cgroup namespace) leaves the mount itself, which is its own (#120)."""
+    lines = (_read(PROC_SELF_CGROUP) or "").splitlines()
+    # v2: the unified mount, or only the unified line (a hybrid machine also has a 0:: line)
+    v2 = os.path.exists(os.path.join(CGROUP, "cgroup.controllers")) or (bool(lines) and all(l.startswith("0::") for l in lines))
+    for line in lines:
+        _, controllers, path = (line.split(":", 2) + ["", ""])[:3]
+        if v2 and line.startswith("0::"):
+            base = CGROUP
+        elif not v2 and controller in controllers.split(","):
+            base = next((d for d in (os.path.join(CGROUP, controllers), os.path.join(CGROUP, controller))
+                         if os.path.isdir(d)), os.path.join(CGROUP, controller))
+        else:
+            continue
+        parts = [x for x in path.strip().split("/") if x]
+        dirs = [os.path.join(base, *parts[:k]) for k in range(len(parts), -1, -1)]
+        found = [d for d in dirs if os.path.isdir(d)]
+        return found if found and found[0] == dirs[0] else [base]
+    return [CGROUP] if v2 or not lines else [os.path.join(CGROUP, controller)]
+
+
+def _v2_quota(d: str) -> float | None:
+    v2 = _read(os.path.join(d, "cpu.max"))
+    if not v2:
         return None
-    quota = _read(os.path.join(CGROUP, "cpu", "cpu.cfs_quota_us"))
-    period = _read(os.path.join(CGROUP, "cpu", "cpu.cfs_period_us"))
+    quota, _, period = v2.partition(" ")
+    if quota != "max" and quota.isdigit() and period.isdigit() and int(period):
+        return int(quota) / int(period)
+    return None
+
+
+def _v1_quota(d: str) -> float | None:
+    quota = _read(os.path.join(d, "cpu.cfs_quota_us"))
+    period = _read(os.path.join(d, "cpu.cfs_period_us"))
     if quota and period and quota.lstrip("-").isdigit() and int(quota) > 0 and period.isdigit() and int(period):
         return int(quota) / int(period)
     return None
 
 
+def _cpu_quota() -> float | None:
+    """CPUs this process may use: the tightest cgroup quota on its path (v2
+    ``cpu.max``, else v1); None if nothing on the path limits it."""
+    quotas = [q for d in _cgroup_dirs("cpu") for q in (_v2_quota(d), _v1_quota(d)) if q is not None]
+    return min(quotas) if quotas else None
+
+
 def _memory_limit() -> int | None:
-    """Bytes this process may use under a cgroup limit; None if unlimited."""
-    v2 = _read(os.path.join(CGROUP, "memory.max"))
-    if v2:
-        return int(v2) if v2.isdigit() else None
-    v1 = _read(os.path.join(CGROUP, "memory", "memory.limit_in_bytes"))
-    # cgroup v1 reports "unlimited" as a page-rounded 2**63.
-    if v1 and v1.isdigit() and int(v1) < 2**62:
-        return int(v1)
-    return None
+    """Bytes this process may use: the tightest cgroup limit on its path; None if unlimited."""
+    limits = []
+    for d in _cgroup_dirs("memory"):
+        v2 = _read(os.path.join(d, "memory.max"))
+        if v2 and v2.isdigit():
+            limits.append(int(v2))
+        v1 = _read(os.path.join(d, "memory.limit_in_bytes"))
+        # cgroup v1 reports "unlimited" as a page-rounded 2**63.
+        if v1 and v1.isdigit() and int(v1) < 2**62:
+            limits.append(int(v1))
+    return min(limits) if limits else None
 
 
 def _in_container(environ) -> bool:
-    return "KUBERNETES_SERVICE_HOST" in environ or any(os.path.exists(m) for m in CONTAINER_MARKERS)
+    """Positive evidence only: an orchestrator's variable, a runtime's marker
+    file, ``container=`` in this or PID 1's environment, or a runtime's name in
+    PID 1's cgroup (#120)."""
+    if "KUBERNETES_SERVICE_HOST" in environ or environ.get("container"):
+        return True
+    if any(os.path.exists(m) for m in CONTAINER_MARKERS):
+        return True
+    if any(v.startswith("container=") for v in (_read(PROC1_ENVIRON) or "").split("\0")):
+        return True
+    return bool(_RUNTIME.search(_read(PROC1_CGROUP) or ""))
 
 
 def host_record() -> dict:
@@ -193,6 +280,7 @@ def host_record() -> dict:
     power = _power_source()
     if not power:
         raise HostProbeError("power source unreadable")
+    linux = sys.platform != "darwin"
     return {
         "os": sys.platform,
         "os_version": os_version,
@@ -205,7 +293,10 @@ def host_record() -> dict:
         "power_supplies": None if sys.platform == "darwin" else [n for n, _, _ in (_power_supplies() or [])],
         "cpu_quota": None if sys.platform == "darwin" else _cpu_quota(),
         "memory_limit_bytes": None if sys.platform == "darwin" else _memory_limit(),
-        "container": sys.platform != "darwin" and _in_container(os.environ),
+        "container": linux and _in_container(os.environ),
+        "machine_vendor": _dmi("sys_vendor") if linux else None,
+        "machine_product": _dmi("product_name") if linux else None,
+        "hypervisor": _hypervisor() if linux else None,
         "python": platform.python_version(),
     }
 
@@ -315,6 +406,7 @@ def quiet_machine_check() -> dict:
             "heavy_jobs": _HEAVY_JOBS.pattern,
         },
         "heavy_trial_job_seen": heavy,
+        "cpu_ticks": _cpu_ticks(),  # steal between two checks is what a hypervisor withheld (#120)
         "quiet": not reasons,
         "reasons": reasons,
     }

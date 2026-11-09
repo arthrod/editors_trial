@@ -489,13 +489,12 @@ class HostLine(unittest.TestCase):
 
     def test_container_line_names_the_quota_not_the_host_totals(self):
         line = E._host({"host": self.BOX})
-        self.assertIn("container", line)
-        self.assertIn("16 of the host's 64 CPUs", line)
-        self.assertIn("124 GiB", line)
+        self.assertIn("a CPU quota of 16 of the 64 CPUs its kernel reports", line)
+        self.assertIn("124 GiB RAM limit", line)
         self.assertIn("Linux 6.12.113", line)
         self.assertNotIn("macOS", line)
         self.assertNotIn("493 GiB", line)
-        self.assertIn("no battery", line)
+        self.assertNotIn("no battery", line)  # an empty supply list is not a battery's absence (#120)
 
     def test_container_kind_is_part_of_the_same_host_rule(self):
         for key in ("container", "cpu_quota", "memory_limit_bytes"):
@@ -513,9 +512,9 @@ class MachineWords(unittest.TestCase):
 
     def test_container(self):
         s = {"host": HostLine.BOX}
-        self.assertEqual(E._machine(s), "one Linux container on a shared server")
+        self.assertEqual(E._machine(s), "one Linux container on a machine the run could not identify")
         note = E._host_note(s)
-        self.assertIn("whole server's", note)
+        self.assertIn("every process on that kernel", note)
         self.assertIn("64", note)
         self.assertIn("16", note)
         self.assertIn("cannot see", note)
@@ -524,7 +523,7 @@ class MachineWords(unittest.TestCase):
         import inspect
         src = inspect.getsource(E.facts_from_runs)
         self.assertIn('"perf.e.machine": _machine(s)', src)
-        self.assertIn('"perf.e.host_note": _host_note(s)', src)
+        self.assertIn('"perf.e.host_note": _host_note(s, repro.summary)', src)
 
 
 def _good_rec(**over):
@@ -569,8 +568,9 @@ class GrokReview(unittest.TestCase):
 
     # #4
     def test_host_start_needs_the_mark_on_every_good_sample_of_both_runs(self):
-        self.assertTrue(E._covers([_good_rec(marks={"host_start_ms": 4.0})] * 3, "host_start_ms"))
-        self.assertFalse(E._covers([_good_rec(marks={"host_start_ms": 4.0}), _good_rec()], "host_start_ms"))
+        hs = _good_rec(marks={"host_start_ms": 4.0}, mark_counts={"model_ready_ms": 1, "save_ms": 1, "host_start_ms": 1})
+        self.assertTrue(E._covers([hs] * 3, "host_start_ms"))
+        self.assertFalse(E._covers([hs, _good_rec()], "host_start_ms"))
         self.assertFalse(E._covers([], "host_start_ms"))
         import inspect
         src = inspect.getsource(E._host_start_facts)
@@ -643,7 +643,7 @@ class GrokReview(unittest.TestCase):
         box = dict(HostLine.BOX, container=False, cpu_quota=2.0, memory_limit_bytes=2 * 2**30,
                    cpu_cores_logical=128, ram_bytes=512 * 2**30, os_version="6.8")
         line = E._host({"host": box})
-        self.assertIn("2 of the host's 128 CPUs", line)
+        self.assertIn("a CPU quota of 2 of the 128 CPUs its kernel reports", line)
         self.assertIn("2 GiB RAM limit", line)
         self.assertNotIn("512 GiB", line)
         self.assertIn("limited", E._machine({"host": box}))
@@ -651,7 +651,7 @@ class GrokReview(unittest.TestCase):
     # new 4
     def test_the_battery_sentence_comes_from_the_record(self):
         with_battery = dict(HostLine.BOX, power_source="battery", power_supplies=["BAT0"])
-        self.assertNotIn("no battery", E._host_note({"host": with_battery}))
+        self.assertNotIn("sees no power supply", E._host_note({"host": with_battery}))
         self.assertIn("sees no power supply", E._host_note({"host": HostLine.BOX}))
 
     # new 5
@@ -671,25 +671,111 @@ class GrokReview(unittest.TestCase):
 
 
 class WholeMachineContainer(unittest.TestCase):
-    """#118: a container whose quota is every CPU of its machine (HF cpu-performance:
-    32 of 32, load 0.4) has no neighbours to speak of; "shared" would be false."""
+    """#118/#120: a container allowed every CPU its kernel reports. A quota is a
+    ceiling, not a reservation (codex #5): the words say what the run recorded
+    (the quota, the DMI vendor, the steal), never "to itself"."""
 
     WHOLE = dict(HostLine.BOX, cpu_cores_logical=32, cpu_quota=32.0, memory_limit_bytes=256 * 2**30)
 
-    def test_line_says_the_whole_machine(self):
+    def test_line_says_every_cpu_its_kernel_reports(self):
         line = E._host({"host": self.WHOLE})
-        self.assertIn("all 32 CPUs of its machine", line)
+        self.assertIn("all 32 CPUs its kernel reports", line)
         self.assertNotIn("shared", line)
 
-    def test_machine_words_and_note(self):
-        self.assertEqual(E._machine({"host": self.WHOLE}), "one Linux container with a whole machine to itself")
+    def test_no_tenancy_or_cloud_claim_without_evidence(self):
+        machine = E._machine({"host": self.WHOLE})
         note = E._host_note({"host": self.WHOLE})
-        self.assertNotIn("other tenants", note)
-        self.assertIn("load average it reads is its machine's", note)
+        for text in (machine, note):
+            self.assertNotIn("to itself", text)
+            self.assertNotIn("cloud", text)
+            self.assertNotIn("virtual machine", text)
 
-    def test_a_partial_quota_is_still_shared(self):
-        self.assertIn("shared", E._host({"host": HostLine.BOX}))
-        self.assertIn("other tenants", E._host_note({"host": HostLine.BOX}))
+    def test_a_partial_quota_says_so(self):
+        self.assertIn("a CPU quota of 16 of the 64", E._host({"host": HostLine.BOX}))
+
+
+class CodexReview120(unittest.TestCase):
+    """#120: codex (gpt-6-astra) review of 86f6d26..39e5435."""
+
+    EC2 = dict(HostLine.BOX, cpu_cores_logical=32, cpu_quota=32.0, memory_limit_bytes=274999996416,
+               ram_bytes=264744833024, machine_vendor="Amazon EC2", machine_product="r6a.8xlarge", hypervisor=True)
+
+    @staticmethod
+    def _run(limit=4.0):
+        return E.Run(Path("."), {"repetitions": 10, "quiet_machine_check_start": {"thresholds": {"load1_max": limit}}})
+
+    # 1
+    def test_invalid_load_evidence_is_noisy(self):
+        run = self._run()
+        for load in ([float("nan"), 0, 0], [-1.0, 0, 0], ["0.1", 0, 0], [None, 0, 0]):
+            with self.subTest(load=load):
+                self.assertTrue(E._noisy(run, _good_rec(load_before=load)))
+        self.assertFalse(E._noisy(run, _good_rec()))
+
+    def test_an_invalid_threshold_is_noisy(self):
+        for limit in (float("nan"), -1.0, "4"):
+            with self.subTest(limit=limit):
+                self.assertTrue(E._noisy(self._run(limit), _good_rec(load_before=[999.0, 0, 0])))
+                self.assertTrue(E._noisy(self._run(limit), _good_rec()))
+
+    # 2
+    def test_null_mark_counts_is_not_good(self):
+        self.assertFalse(E._good(_good_rec(mark_counts=None, marks={"model_ready_ms": -5.0, "save_ms": 1.0})))
+        self.assertFalse(E._good(_good_rec(mark_counts=[])))
+
+    def test_a_published_mark_must_be_a_time(self):
+        loose = dict(required_marks=[], mark_counts={})
+        recs = [_good_rec(marks={"model_ready_ms": -5.0, "save_ms": float("nan")}, **loose),
+                _good_rec(marks={"model_ready_ms": 2.0, "save_ms": 3.0}, **loose)]
+        self.assertEqual(E._values(recs, "load"), [2.0])
+        self.assertEqual(E._values(recs, "save"), [3.0])
+        self.assertEqual(E._values(recs, "roundtrip"), [5.0])
+
+    # 3
+    def test_host_start_must_be_one_valid_time(self):
+        ok = _good_rec(marks={"host_start_ms": 4.0}, mark_counts={"model_ready_ms": 1, "save_ms": 1, "host_start_ms": 1})
+        twice = dict(ok, mark_counts=dict(ok["mark_counts"], host_start_ms=2))
+        uncounted = dict(ok, mark_counts={"model_ready_ms": 1, "save_ms": 1})
+        negative = dict(ok, marks={"host_start_ms": -5.0})
+        nan = dict(ok, marks={"host_start_ms": float("nan")})
+        self.assertTrue(E._covers([ok] * 3, "host_start_ms"))
+        for bad in (twice, uncounted, negative, nan):
+            with self.subTest(bad=bad["marks"], counts=bad["mark_counts"]):
+                self.assertFalse(E._covers([ok, bad], "host_start_ms"))
+
+    # 5, 6: the words come from evidence the run recorded
+    def test_ec2_container_is_named_from_dmi(self):
+        s = {"host": self.EC2}
+        self.assertEqual(E._machine(s), "one Linux container on an Amazon EC2 r6a.8xlarge virtual machine")
+        line = E._host(s)
+        self.assertIn("all 32 CPUs its kernel reports", line)
+        self.assertIn("247 GiB RAM", line)  # the limit is above the RAM: no limit in effect
+        self.assertNotIn("limit", line)
+        self.assertNotIn("no battery", line)
+        self.assertIn("AC power", line)
+
+    def test_steal_share_comes_from_the_run(self):
+        def run(steal0, total0, steal1, total1):
+            return {"host": self.EC2,
+                    "quiet_machine_check_start": {"cpu_ticks": {"steal": steal0, "total": total0}},
+                    "quiet_machine_check_end": {"cpu_ticks": {"steal": steal1, "total": total1}}}
+        a, b = run(100, 100000, 600, 1100000), run(0, 0, 2000, 1000000)
+        self.assertAlmostEqual(E._steal_pct(a), 0.05)
+        self.assertAlmostEqual(E._steal_pct(b), 0.2)
+        self.assertIsNone(E._steal_pct({"host": self.EC2}))
+        self.assertIsNone(E._steal_pct(run(5, 10, 4, 20)))  # counters went back: not evidence
+        note = E._host_note(a, b)
+        self.assertIn("0.05%", note)
+        self.assertIn("0.20%", note)
+        self.assertIn("steal", note)
+        self.assertIn("AC power is inferred from the machine's vendor (Amazon EC2)", note)
+        self.assertNotIn("to itself", note)
+
+    def test_no_steal_sentence_without_ticks(self):
+        self.assertNotIn("steal", E._host_note({"host": self.EC2}))
+
+    def test_mac_note_stays_empty(self):
+        self.assertEqual(E._host_note({"host": HostLine.MAC}, {"host": HostLine.MAC}), "")
 
 
 if __name__ == "__main__":
