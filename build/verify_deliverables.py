@@ -38,6 +38,8 @@ DELIVERABLES = [
                                     "Packages (2026).docx"), "report D1"),
     (os.path.join(BASE, "reports", "Report D2 - What Word Protects Against "
                                     "(2026).docx"), "report D2"),
+    (os.path.join(BASE, "reports", "Report E - Speed, Opening and Saving a "
+                                    "Document (2026).docx"), "report E"),
     (os.path.join(BASE, "fixture", "complex.docx"), "fixture"),
 ]
 
