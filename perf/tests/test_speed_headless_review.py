@@ -510,3 +510,32 @@ class Provenance(Base):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RelativeOutRoot(Base):
+    """#118: the publication launcher passes a relative --out-root. The
+    LibreOffice lane builds its profile URI with Path.as_uri(), which raises
+    on a relative path, so both runs died on the first LibreOffice sample."""
+
+    def test_lanes_get_absolute_paths_from_a_relative_out_root(self):
+        seen = []
+        lane = self.lane()
+        base_cmd = lane["cmd"]
+
+        def cmd(i, o, w):
+            seen.append((i.is_absolute(), o.is_absolute(), w.is_absolute(), (w / "lo-profile").as_uri()))
+            return base_cmd(i, o, w)
+
+        lane["cmd"] = cmd
+        old = os.getcwd()
+        os.chdir(self.root)
+        self.addCleanup(os.chdir, old)
+        with mock.patch.object(sh, "quiet_machine_check", return_value=QUIET), mock.patch.object(
+            sh, "pin_label", side_effect=lambda e: "fake-pin-%s" % e
+        ):
+            summary = sh.run_suite(lanes={"a": lane}, workloads=["prose-500w"], repetitions=1, seed=3,
+                                   out_root=Path("out"), execution_profile="ci_broad", timeout_s=60, warmup=1)
+        self.assertTrue(seen)
+        self.assertTrue(all(i and o and w for i, o, w, _ in seen), seen)
+        self.assertTrue((self.root / "out" / "summary.json").is_file())
+        self.assertEqual(self.row(summary, "a")["outcome"], "measured")

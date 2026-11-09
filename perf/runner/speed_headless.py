@@ -762,7 +762,8 @@ def run_suite(
                 problems.append("%s checkout dirty: %s" % (e, rec.get("dirty")))
         if problems:
             raise PinMismatch("; ".join(problems))
-    out_root = Path(out_root)
+    # absolute once: lanes build file URIs from it (LibreOffice's profile), #118
+    out_root = Path(out_root).absolute()
     samples_dir = out_root / "samples"
     run_id = uuid.uuid4().hex[:12]
     load_limit = LOAD_FRACTION * host["cpu_cores_logical"]
