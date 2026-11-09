@@ -138,7 +138,9 @@ class ReportEFacts(unittest.TestCase):
         for key in ("perf.e.table.roundtrip", "perf.e.table.load", "perf.e.table.save", "perf.e.table.process", "perf.e.appendix"):
             assert_markdown_no_editor_speed_ranking(self.facts[key])
         self.assertIn("process_cold_fs_warm", self.facts["perf.e.context.load"])
-        self.assertIn("Apple", self.facts["perf.e.host"])
+        # the machine the fixture runs ran on, Mac or Linux container (#120)
+        from perf.runner import host as host_probe
+        self.assertIn(host_probe.host_record()["cpu_model"], self.facts["perf.e.host"])
         self.assertIn("AC", self.facts["perf.e.host"])
 
     def test_appendix_carries_the_full_distribution(self):
