@@ -539,3 +539,18 @@ class RelativeOutRoot(Base):
         self.assertTrue(all(i and o and w for i, o, w, _ in seen), seen)
         self.assertTrue((self.root / "out" / "summary.json").is_file())
         self.assertEqual(self.row(summary, "a")["outcome"], "measured")
+
+
+class MissingBinary(Base):
+    """#119 (grok #12): a lane binary that is not there refuses a publication run."""
+
+    def test_a_missing_binary_is_a_pin_mismatch(self):
+        versions = {"tools": {}, "editors": {"a": {"pin": "p", "matches_pin": True, "clean": True, "packages_match": None,
+                                                   "binaries": {"wc-harness": None}, "checkouts": {}, "packages": {}}}}
+        with mock.patch.object(sh, "attest_versions", return_value=versions), mock.patch.object(
+            sh, "_build_lanes", return_value={}
+        ), mock.patch.object(sh, "power_source", return_value="ac"), mock.patch.object(
+            sh, "host_record", return_value=dict(sh.host_record(), power_source="ac")
+        ):
+            with self.assertRaisesRegex(sh.PinMismatch, "wc-harness"):
+                self.suite({"a": self.lane()}, reps=10, profile="dedicated_publish")

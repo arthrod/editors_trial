@@ -29,7 +29,9 @@ Two checks run before any figure is read (codex review of #103):
 from __future__ import annotations
 
 import json
+import math
 import sys
+from datetime import datetime
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -79,8 +81,9 @@ PROCESS_WORKLOAD = "prose-50kw"
 
 
 def reproduced(a: float, b: float, rel_tol: float = REL_TOL, abs_tol: float = ABS_TOL_MS) -> bool:
-    """Two medians agree if they differ by at most 10 %, or by at most 2 ms."""
-    return abs(a - b) <= max(abs_tol, rel_tol * abs(a))
+    """Two medians agree if they differ by at most 10 % of the larger one, or
+    by at most 2 ms. Symmetric: the order of the runs does not pick the verdict."""
+    return abs(a - b) <= max(abs_tol, rel_tol * max(abs(a), abs(b)))
 
 
 @dataclass
@@ -126,8 +129,7 @@ def _reconcile(run: Run) -> None:
         raise ValueError("%s: two sample files have the same start time (a copied sample), or one has none" % run.path)
     for (wl, editor), recs in run.records.items():
         reps = sorted(r.get("repetition") for r in recs)
-        stopped = any("stopped after" in (run.rows[wl, editor, c].get("failure_reason") or "")
-                      for c in _MARK if (wl, editor, c) in run.rows)
+        stopped = _stopped(run, wl, editor)
         if reps != list(range(1, len(reps) + 1)) or (len(reps) != s["repetitions"] and not stopped):
             raise ValueError("%s %s: sample files for repetitions %s, the run had %d" % (editor, wl, reps, s["repetitions"]))
         good = [r for r in recs if _good(r)]
@@ -145,6 +147,14 @@ def _reconcile(run: Run) -> None:
             median = _stats(values, "process_cold_fs_warm")["median"]
             if abs(median - row["median_ms"]) > 1e-6 * max(1.0, abs(median)):
                 raise ValueError("%s %s %s: median of the samples is %r, the summary says %r" % (editor, wl, crit, median, row["median_ms"]))
+
+
+def _stopped(run: Run, wl: str, editor: str) -> bool:
+    """The runner stopped this cell early: a failed row that says so. Only
+    then may it have fewer sample files than repetitions."""
+    return any(run.rows[wl, editor, c].get("outcome") == "failed"
+               and "stopped after" in (run.rows[wl, editor, c].get("failure_reason") or "")
+               for c in _MARK if (wl, editor, c) in run.rows)
 
 
 _SAME_HOST = ("cpu_model", "cpu_cores_logical", "ram_bytes", "os", "os_version", "arch", "container", "cpu_quota",
@@ -177,20 +187,33 @@ def check_comparable(primary: Run, repro: Run) -> None:
             raise ValueError("the reproduction ran other code (provenance %s differs)" % key)
     if a.get("publication_rules") != b.get("publication_rules"):
         raise ValueError("the reproduction used other publication rules")
+    for key in ("timeout_s", "warmup"):
+        if a.get(key) != b.get(key):
+            raise ValueError("the reproduction used another %s (%s, not %s)" % (key, b.get(key), a.get(key)))
     ta, tb = _window(primary), _window(repro)
     if not (ta[1] < tb[0] or tb[1] < ta[0]):
-        raise ValueError("the two runs' samples overlap in time (%s to %s, %s to %s): a reproduction is measured after its primary" % (ta + tb))
+        raise ValueError("the two runs' samples overlap in time (%s to %s, %s to %s): a reproduction is measured after its primary"
+                         % tuple(t.isoformat() for t in ta + tb))
 
 
-def _window(run: Run) -> tuple[str, str]:
-    starts = sorted(r["started_at"] for recs in run.records.values() for r in recs)
+def _instant(stamp: str) -> datetime:
+    when = datetime.fromisoformat(stamp)
+    if when.tzinfo is None:
+        raise ValueError("sample start %r has no time zone" % stamp)
+    return when
+
+
+def _window(run: Run) -> tuple[datetime, datetime]:
+    starts = sorted(_instant(r["started_at"]) for recs in run.records.values() for r in recs)
     return starts[0], starts[-1]
 
 
 def _good(record: dict) -> bool:
     """The runner's own rule (one source of truth): no timeout, exit 0, every
-    required mark exactly once, and a saved file that holds the document."""
-    return _sample_failure(record) is None
+    required mark exactly once, and a saved file that holds the document.
+    A record without its mark counts cannot show the marks were each printed
+    once, so it is not good (#119)."""
+    return "mark_counts" in record and _sample_failure(record) is None
 
 
 def _values(records: list[dict], metric: str) -> list[float]:
@@ -248,6 +271,8 @@ def _short(reason: str | None) -> str:
         return "no load/save split"
     if reason.startswith("marks: missing"):
         return "harness printed no %s time" % ("load" if "model_ready_ms" in reason else "save" if "save_ms" in reason else "host start")
+    if reason.startswith("marks:") and "is not a time" in reason:
+        return "harness printed an impossible time"
     if reason.startswith("marks:"):
         return "harness printed a time twice"
     return reason[:60]
@@ -276,7 +301,9 @@ def _samples_publishable(run: Run, wl: str, editor: str) -> tuple[bool, str | No
         return False, "%d of %d samples excluded" % (len(recs) - len(good), len(recs))
     if len(good) < MIN_N:
         return False, "n=%d below %d" % (len(good), MIN_N)
-    noisy = sum(1 for r in recs if r.get("noisy"))
+    if len(recs) != run.summary.get("repetitions"):
+        return False, "%d samples for %s repetitions" % (len(recs), run.summary.get("repetitions"))
+    noisy = sum(1 for r in recs if _noisy(run, r))
     if noisy / len(recs) > MAX_NOISY:
         return False, "%d of %d samples started above the load limit" % (noisy, len(recs))
     off_ac = sum(1 for r in recs if r.get("power_source") != "ac")
@@ -285,19 +312,56 @@ def _samples_publishable(run: Run, wl: str, editor: str) -> tuple[bool, str | No
     return True, None
 
 
+def _finite_nonnegative(value) -> bool:
+    return isinstance(value, (int, float)) and math.isfinite(value) and value >= 0
+
+
+def _noisy(run: Run, record: dict) -> bool:
+    """Started above the load limit: the runner's flag, or the recorded load
+    against the recorded limit (the flag alone is not trusted, #119)."""
+    if record.get("noisy"):
+        return True
+    limit = ((run.summary.get("quiet_machine_check_start") or {}).get("thresholds") or {}).get("load1_max")
+    load = record.get("load_before")
+    if limit is None or not load:
+        return True  # nothing to judge by: fail closed
+    return load[0] > limit
+
+
 def _metric_complete(recs: list[dict], metric: str) -> tuple[bool, str | None]:
     """Every good sample has this whole-process figure, and for CPU and memory
     no process of the lane outlived it (its time and memory would be missing)."""
     good = [r for r in recs if _good(r)]
     key = METRICS[metric][0]
-    lacking = sum(1 for r in good if r.get(key) is None)
+    lacking = sum(1 for r in good if not _finite_nonnegative(r.get(key)))
     if lacking:
         return False, "%d of %d samples lack it" % (lacking, len(good))
     if metric in ("cpu", "rss"):
-        left = sum(1 for r in good if not r.get("resources_complete", True))
+        left = sum(1 for r in good if r.get("resources_complete") is not True)
         if left:
             return False, "%d of %d samples left a process running" % (left, len(good))
     return True, None
+
+
+def _diagnose(facts: dict, editor: str, wl: str, metric: str, first: str, second: str) -> None:
+    """A figure that did not reproduce is not printed as a result. Its two
+    medians go to a separate diagnostic table, labelled as such (codex #3)."""
+    facts.setdefault("_not_reproduced", []).append((DISPLAY.get(editor, editor), WORKLOAD_LABEL.get(wl, wl), metric, first, second))
+
+
+def _not_reproduced_table(facts: dict) -> str:
+    rows = facts.pop("_not_reproduced", [])
+    if not rows:
+        return "Every figure that was measured in both runs reproduced."
+    lines = ["| Editor | Workload | Figure | First run, median | Second run, median |", "|---|---|---|---|---|"]
+    lines += ["| %s | %s | %s | %s | %s |" % r for r in rows]
+    return "\n".join(lines)
+
+
+# Work inside a lane's process that is the harness's, not the editor's (#119).
+PROCESS_CAVEATS = {
+    "canvas": {"wall": "includes a 500 ms wait in the harness between load and save"},
+}
 
 
 def _cell(facts: dict, primary: Run, repro: Run, wl: str, editor: str, metric: str) -> str:
@@ -321,7 +385,8 @@ def _cell(facts: dict, primary: Run, repro: Run, wl: str, editor: str, metric: s
     facts[prefix + ".reproduced"] = ok
     facts[prefix + ".repro_median"] = round(r_stats["median"], 3)
     if not ok:
-        return "not reproduced (%s vs %s)" % (fmt_ms(stats["median"]), fmt_ms(r_stats["median"]))
+        _diagnose(facts, editor, wl, metric, fmt_ms(stats["median"]), fmt_ms(r_stats["median"]))
+        return "not reproduced"
     for k in ("n", "median", "p90", "p95", "p99", "mad", "ci95_low", "ci95_high", "minimum", "maximum"):
         facts["%s.%s" % (prefix, k)] = stats[k] if k == "n" else round(stats[k], 3)
     return "%s (p90 %s)" % (fmt_ms(stats["median"]), fmt_ms(stats["p90"]))
@@ -385,8 +450,13 @@ def _process_table(facts: dict, primary: Run, repro: Run) -> str:
             facts[key + ".reproduced"] = ok
             if ok:
                 facts[key + ".median"] = round(med, 3)
-            text = fmt_mib(med) if metric == "rss" else fmt_ms(med)
-            cells.append(text if ok else "not reproduced (%s vs %s)" % (text, fmt_mib(r_med) if metric == "rss" else fmt_ms(r_med)))
+            fmt = fmt_mib if metric == "rss" else fmt_ms
+            if not ok:
+                _diagnose(facts, editor, wl, metric, fmt(med), fmt(r_med))
+                cells.append("not reproduced")
+                continue
+            caveat = PROCESS_CAVEATS.get(editor, {}).get(metric)
+            cells.append("%s (%s)" % (fmt(med), caveat) if caveat else fmt(med))
         lines.append("| %s | %s |" % (DISPLAY.get(editor, editor), " | ".join(cells)))
     facts["perf.e.process_workload"] = WORKLOAD_LABEL.get(wl, wl)
     return "\n".join(lines)
@@ -427,14 +497,14 @@ def _workload_table(primary: Run) -> str:
 
 def _host(summary: dict) -> str:
     h = summary["host"]
-    if h.get("container"):
+    if h.get("container") or h.get("cpu_quota") or h.get("memory_limit_bytes"):
         quota, limit = h.get("cpu_quota"), h.get("memory_limit_bytes")
         cpus = ("%g of the host's %d CPUs" % (quota, h["cpu_cores_logical"]) if quota
                 else "all %d of the host's CPUs" % h["cpu_cores_logical"])
         ram = "%d GiB RAM limit" % round(limit / 2**30) if limit else "no RAM limit"
         power = "no battery" if h.get("power_supplies") == [] else "%s power" % h["power_source"].upper()
-        return "a Linux container on a shared %s host: %s, %s, Linux %s, %s" % (
-            h["cpu_model"], cpus, ram, h["os_version"], power)
+        kind = "a Linux container on a shared" if h.get("container") else "a cgroup-limited process on a"
+        return "%s %s host: %s, %s, Linux %s, %s" % (kind, h["cpu_model"], cpus, ram, h["os_version"], power)
     system = "macOS %s" % h["os_version"] if h.get("os") == "darwin" else "%s %s" % (h.get("os", "?").capitalize(), h["os_version"])
     return "%s, %d cores, %d GiB RAM, %s, %s power" % (
         h["cpu_model"], h["cpu_cores_logical"], round(h["ram_bytes"] / 2**30), system, h["power_source"].upper())
@@ -444,6 +514,8 @@ def _machine(summary: dict) -> str:
     h = summary["host"]
     if h.get("container"):
         return "one Linux container on a shared server"
+    if h.get("cpu_quota") or h.get("memory_limit_bytes"):
+        return "one Linux machine, limited by its cgroup"
     return "one Mac" if h.get("os") == "darwin" else "one %s machine" % h.get("os", "?").capitalize()
 
 
@@ -455,11 +527,12 @@ def _host_note(summary: dict) -> str:
     quota = h.get("cpu_quota")
     return ("The container shares its server with other tenants. The load average it reads is the whole server's, "
             "judged against the server's %d CPUs, so busy neighbours count against the limit; the process check "
-            "cannot see what they run. The container itself may use %s CPUs. The server has no battery." % (
-                h["cpu_cores_logical"], "%g" % quota if quota else "all"))
+            "cannot see what they run. The container itself may use %s CPUs.%s" % (
+                h["cpu_cores_logical"], "%g" % quota if quota else "all",
+                " The container sees no power supply." if h.get("power_supplies") == [] else ""))
 
 
-def _libreoffice_table(primary: Run, repro: Run) -> str | None:
+def _libreoffice_table(facts: dict, primary: Run, repro: Run) -> str | None:
     lines = ["| Workload | Whole conversion, wall (ms) | Second run |", "|---|---|---|"]
     found = False
     for wl in _workloads(primary):
@@ -478,7 +551,8 @@ def _libreoffice_table(primary: Run, repro: Run) -> str | None:
         if r_med is None:
             lines.append("| %s | not reproduced (second run has no samples) | |" % WORKLOAD_LABEL.get(wl, wl))
         elif not reproduced(med, r_med):
-            lines.append("| %s | not reproduced (%s vs %s) | |" % (WORKLOAD_LABEL.get(wl, wl), fmt_ms(med), fmt_ms(r_med)))
+            _diagnose(facts, "libreoffice", wl, "conversion", fmt_ms(med), fmt_ms(r_med))
+            lines.append("| %s | not reproduced | |" % WORKLOAD_LABEL.get(wl, wl))
         else:
             lines.append("| %s | %s | agrees (%s) |" % (WORKLOAD_LABEL.get(wl, wl), fmt_ms(med), fmt_ms(r_med)))
     return "\n".join(lines) if found else None
@@ -513,7 +587,7 @@ def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
         facts["perf.e.table.%s" % metric] = _table(facts, primary, repro, metric)
     facts["perf.e.table.process"] = _process_table(facts, primary, repro)
     facts["perf.e.appendix"] = _appendix(facts, primary)
-    lo = _libreoffice_table(primary, repro)
+    lo = _libreoffice_table(facts, primary, repro)
     facts["perf.e.table.libreoffice"] = lo or "LibreOffice was not in these runs."
     facts["perf.e.summary"] = _summary(facts, primary)
     facts["perf.e.lanes"] = _lanes(primary)
@@ -526,6 +600,9 @@ def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
     facts["perf.e.host_start"] = _host_start(facts, primary)
     facts["perf.e.save_notes"] = _save_notes(facts)
     facts["perf.e.check"] = _check_text(s)
+    facts["perf.e.end_check"] = " ".join(t for t in (_end_check(s), _end_check(repro.summary).replace(
+        "When the last sample had finished", "After the second run")) if t)
+    facts["perf.e.not_reproduced"] = _not_reproduced_table(facts)
     facts["perf.e.dirty_allowed"] = _dirty_allowed(s)
     published = [k for k in facts if k.endswith(".reproduced")]
     facts["perf.e.cells_checked"] = len(published)
@@ -608,15 +685,32 @@ def _prepared_export(facts: dict, editors: list[str]) -> str:
     return "; ".join(out)
 
 
+def _covers(good: list[dict], mark: str) -> bool:
+    """Every good sample carries ``mark`` (and there is at least one)."""
+    return bool(good) and all(mark in r.get("marks", {}) for r in good)
+
+
+def _end_check(summary: dict) -> str:
+    """The quiet check repeated after the last sample. If it was not quiet, the report says why (#119)."""
+    end = summary.get("quiet_machine_check_end") or {}
+    if end.get("quiet"):
+        return ""
+    reasons = "; ".join(end.get("reasons") or ["no end-of-run check was recorded"])
+    return "When the last sample had finished, the quiet check was no longer clean: %s." % reasons
+
+
 def _host_start_facts(facts: dict, primary: Run, repro: Run) -> None:
     """A host start time is printed under the same rules as a table figure:
     publishable samples in both runs, and the two medians agree."""
     for (wl, editor), recs in sorted(primary.records.items()):
         good = [r for r in recs if _good(r)]
-        starts = [r["marks"]["host_start_ms"] for r in good if "host_start_ms" in r["marks"]]
-        if not starts or len(starts) != len(good):
+        if not _covers(good, "host_start_ms"):
             continue  # a host start is published only if every sample reported it
-        r_starts = [r["marks"]["host_start_ms"] for r in repro.records.get((wl, editor), []) if _good(r) and "host_start_ms" in r["marks"]]
+        starts = [r["marks"]["host_start_ms"] for r in good]
+        r_good = [r for r in repro.records.get((wl, editor), []) if _good(r)]
+        if not _covers(r_good, "host_start_ms"):
+            continue  # and every good sample of the second run (#119)
+        r_starts = [r["marks"]["host_start_ms"] for r in r_good]
         if _status(primary, wl, editor, "load")[0] != "measured" or _status(repro, wl, editor, "load")[0] != "measured":
             continue
         if not (_samples_publishable(primary, wl, editor)[0] and _samples_publishable(repro, wl, editor)[0]) or not r_starts:

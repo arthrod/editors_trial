@@ -165,6 +165,10 @@ class LinuxContainerHost(unittest.TestCase):
         self._supply("BAT0", "Battery")
         self.assertEqual(host._power_source(), "battery")
 
+    def test_a_supply_whose_type_is_unreadable_is_unknown(self):
+        (self.supply / "BAT0").mkdir()  # no type file: cannot tell a battery from mains (#119)
+        self.assertIsNone(host._power_source())
+
     def test_unreadable_supply_directory_is_unknown(self):
         self.supply.rmdir()
         self.assertIsNone(host._power_source())
@@ -216,3 +220,26 @@ class MacIsNotAContainer(unittest.TestCase):
         self.assertIsNone(record["cpu_quota"])
         self.assertIsNone(record["memory_limit_bytes"])
         self.assertFalse(record["container"])
+
+
+class QuietCheckAncestors(unittest.TestCase):
+    """#119 (grok new 1): ancestors are excluded from the CPU rule, not from the
+    heavy-job rule. A Word driver that launched the runner is still a Word job."""
+
+    def _check(self, parent_cmd, parent_pct):
+        import os
+
+        me, parent = os.getpid(), 4242
+        rows = [(1, 0, 0.0, "init"), (parent, 1, parent_pct, parent_cmd), (me, parent, 0.0, "python3 runner")]
+        with mock.patch.object(host, "_load_average", return_value=(0.5, 0.5, 0.5)), mock.patch.object(
+            host, "_processes", return_value=rows
+        ), mock.patch.object(host, "_logical_cpus", return_value=12), mock.patch.object(host.os, "getppid", return_value=parent):
+            return host.quiet_machine_check()
+
+    def test_a_word_driver_that_launched_the_runner_is_a_job(self):
+        q = self._check("python3 build/word_verdicts.py --set broken", 90.0)
+        self.assertFalse(q["quiet"])
+        self.assertTrue(q["heavy_trial_job_seen"])
+
+    def test_the_launching_shell_is_still_not_counted(self):
+        self.assertTrue(self._check("zsh -c bash launch-e.sh", 90.0)["quiet"])

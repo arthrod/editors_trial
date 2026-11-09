@@ -54,7 +54,7 @@ def _lane(script: Path, load: float, save: float, mode: str = "ok", marks=("mode
 
 
 def _run(root: Path, name: str, lanes: dict, reps: int, seed: int) -> Path:
-    quiet = {"quiet": True, "reasons": [], "load_average": [0.5, 0.5, 0.5]}
+    quiet = {"quiet": True, "reasons": [], "load_average": [0.5, 0.5, 0.5], "thresholds": {"load1_max": 4.0}}
     host = dict(sh.host_record(), power_source="ac")
     attest = {"tools": {"node": "v0", "bun": "0", "python": "3"}, "editors": {e: {"pin": "p", "matches_pin": True, "checkouts": {}, "packages": {}, "binaries": {}} for e in lanes}}
     out = root / name
@@ -196,8 +196,9 @@ class ReportEFacts(unittest.TestCase):
     def test_a_whole_process_cell_needs_a_publishable_primary(self):
         def rec(noisy=False, good=True):
             return {"returncode": 0 if good else 1, "timed_out": False, "check": {"complete": good}, "noisy": noisy,
-                    "marks": {}, "wall_ms": 5.0, "cpu_ms": 5.0, "max_rss_bytes": 1, "power_source": "ac"}
-        run = E.Run(Path("."), {"workloads": {}, "repetitions": 10})
+                    "marks": {}, "mark_counts": {}, "required_marks": [], "wall_ms": 5.0, "cpu_ms": 5.0, "max_rss_bytes": 1,
+                    "power_source": "ac", "load_before": [0.5, 0.5, 0.5]}
+        run = E.Run(Path("."), {"workloads": {}, "repetitions": 10, "quiet_machine_check_start": {"thresholds": {"load1_max": 4.0}}})
         run.records["w", "e"] = [rec() for _ in range(10)]
         self.assertEqual(E._samples_publishable(run, "w", "e"), (True, None))
         run.records["w", "e"] = [rec() for _ in range(9)]
@@ -353,7 +354,9 @@ class Gates(unittest.TestCase):
     def test_libreoffice_prints_no_median_that_did_not_reproduce(self):
         table = self.facts["perf.e.table.libreoffice"]
         row = next(line for line in table.splitlines() if line.startswith("| 500 words"))
-        self.assertIn("not reproduced (", row)
+        # #119 (codex #3): a figure cell that did not reproduce holds no number
+        self.assertIn("| not reproduced |", row)
+        self.assertNotIn(" vs ", row)
         self.assertNotIn("agrees", row)
 
     def test_host_start_is_published_only_when_reproduced(self):
@@ -462,16 +465,14 @@ class Units(unittest.TestCase):
     def test_a_sample_off_ac_power_blocks_a_whole_process_cell(self):
         def rec(power):
             return {"returncode": 0, "timed_out": False, "check": {"complete": True}, "noisy": False, "marks": {},
-                    "wall_ms": 5.0, "cpu_ms": 5.0, "max_rss_bytes": 1, "power_source": power}
-        run = E.Run(Path("."), {"workloads": {}, "repetitions": 10})
+                    "mark_counts": {}, "required_marks": [],
+                    "wall_ms": 5.0, "cpu_ms": 5.0, "max_rss_bytes": 1, "power_source": power, "load_before": [0.5, 0.5, 0.5]}
+        run = E.Run(Path("."), {"workloads": {}, "repetitions": 10, "quiet_machine_check_start": {"thresholds": {"load1_max": 4.0}}})
         run.records["w", "e"] = [rec("ac") for _ in range(9)] + [rec("battery")]
         ok, why = E._samples_publishable(run, "w", "e")
         self.assertFalse(ok)
         self.assertIn("battery", why)
 
-
-if __name__ == "__main__":
-    unittest.main()
 
 
 class HostLine(unittest.TestCase):
@@ -524,3 +525,149 @@ class MachineWords(unittest.TestCase):
         src = inspect.getsource(E.facts_from_runs)
         self.assertIn('"perf.e.machine": _machine(s)', src)
         self.assertIn('"perf.e.host_note": _host_note(s)', src)
+
+
+def _good_rec(**over):
+    rec = {"returncode": 0, "timed_out": False, "check": {"complete": True}, "noisy": False,
+           "marks": {"model_ready_ms": 1.0, "save_ms": 1.0}, "mark_counts": {"model_ready_ms": 1, "save_ms": 1},
+           "required_marks": ["model_ready_ms", "save_ms"], "wall_ms": 5.0, "cpu_ms": 5.0, "max_rss_bytes": 1,
+           "power_source": "ac", "resources_complete": True, "load_before": [0.5, 0.5, 0.5]}
+    rec.update(over)
+    return rec
+
+
+class GrokReview(unittest.TestCase):
+    """#119: grok-4.7's review of the #103 fixes."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.primary, cls.repro = _MODULE["primary"], _MODULE["repro"]
+        cls.facts = E.facts_from_runs(cls.primary, cls.repro)
+
+    # codex #3, not fixed: the figure cell said "not reproduced (50 vs 80)"
+    def test_a_cell_that_did_not_reproduce_holds_no_number(self):
+        row = next(l for l in self.facts["perf.e.table.save"].splitlines() if l.startswith("| Plate.js"))
+        self.assertIn("| not reproduced |", row)
+        self.assertNotIn(" vs ", row)
+
+    def test_both_medians_go_to_a_separate_diagnostic_table(self):
+        diag = self.facts["perf.e.not_reproduced"]
+        row = next(l for l in diag.splitlines() if l.startswith("| Plate.js") and "save" in l)
+        self.assertIn("| 50 |", row)
+        self.assertIn("| 80 |", row)
+
+    # new 6
+    def test_reproduction_does_not_depend_on_argument_order(self):
+        self.assertEqual(E.reproduced(111, 100), E.reproduced(100, 111))
+        self.assertTrue(E.reproduced(100, 110))
+        self.assertFalse(E.reproduced(100, 112.5))
+
+    # new 7
+    def test_an_impossible_time_is_not_called_a_double_print(self):
+        self.assertEqual(E._short("marks: save_ms=-1 is not a time"), "harness printed an impossible time")
+        self.assertEqual(E._short("marks: save_ms printed 2 times"), "harness printed a time twice")
+
+    # #4
+    def test_host_start_needs_the_mark_on_every_good_sample_of_both_runs(self):
+        self.assertTrue(E._covers([_good_rec(marks={"host_start_ms": 4.0})] * 3, "host_start_ms"))
+        self.assertFalse(E._covers([_good_rec(marks={"host_start_ms": 4.0}), _good_rec()], "host_start_ms"))
+        self.assertFalse(E._covers([], "host_start_ms"))
+        import inspect
+        src = inspect.getsource(E._host_start_facts)
+        self.assertIn("_covers(good, ", src)
+        self.assertIn("_covers(r_good, ", src)
+
+    # #5
+    def test_missing_or_impossible_resources_are_incomplete(self):
+        no_flag = _good_rec()
+        del no_flag["resources_complete"]
+        self.assertFalse(E._metric_complete([no_flag] * 10, "cpu")[0])
+        self.assertFalse(E._metric_complete([_good_rec(cpu_ms=-5.0)] * 10, "cpu")[0])
+        self.assertFalse(E._metric_complete([_good_rec(wall_ms=float("nan"))] * 10, "wall")[0])
+        self.assertTrue(E._metric_complete([_good_rec()] * 10, "cpu")[0])
+
+    # #15
+    def test_a_sample_without_mark_counts_is_not_good(self):
+        rec = _good_rec(marks={"model_ready_ms": 1.0, "save_ms": -1.0})
+        del rec["mark_counts"]
+        self.assertFalse(E._good(rec))
+        self.assertTrue(E._good(_good_rec()))
+
+    # #1
+    def test_run_windows_compare_instants_not_strings(self):
+        run = E.Run(Path("."), {})
+        run.records["w", "e"] = [_good_rec(started_at="2026-11-09 18:00:00+00:00"), _good_rec(started_at="2026-11-09T18:05:00+00:00")]
+        lo, hi = E._window(run)
+        self.assertLess(lo, hi)
+        self.assertEqual((hi - lo).total_seconds(), 300)
+
+    def test_timeout_and_warmup_must_match(self):
+        import copy
+        for key, value in (("timeout_s", 1), ("warmup", 8)):
+            with self.subTest(key=key):
+                b = E.Run(self.repro if isinstance(self.repro, Path) else Path("."), {})
+                pa, pb = E.load_run(self.primary), E.load_run(self.repro)
+                pb.summary = copy.deepcopy(pb.summary)
+                pb.summary[key] = value
+                with self.assertRaisesRegex(ValueError, key):
+                    E.check_comparable(pa, pb)
+
+    # #2
+    def test_the_stopped_bypass_is_for_failed_rows_only(self):
+        run = E.Run(Path("."), {"repetitions": 30})
+        run.rows["w", "e", "C02"] = {"outcome": "measured", "failure_reason": "stopped after 3 consecutive failures"}
+        self.assertFalse(E._stopped(run, "w", "e"))
+        run.rows["w", "e", "C02"] = {"outcome": "failed", "failure_reason": "rc=1; stopped after 3 consecutive failures"}
+        self.assertTrue(E._stopped(run, "w", "e"))
+
+    def test_noisy_is_recomputed_from_the_load_and_the_recorded_limit(self):
+        run = E.Run(Path("."), {"repetitions": 10, "quiet_machine_check_start": {"thresholds": {"load1_max": 4.0}}})
+        quiet = _good_rec()
+        quiet.pop("noisy")
+        loud = _good_rec(load_before=[99.0, 99.0, 99.0])
+        loud.pop("noisy")
+        run.records["w", "e"] = [loud] * 2 + [quiet] * 8
+        ok, why = E._samples_publishable(run, "w", "e")
+        self.assertFalse(ok)
+        self.assertIn("load limit", why)
+
+    def test_too_few_sample_files_block_whole_process_figures(self):
+        run = E.Run(Path("."), {"repetitions": 30, "quiet_machine_check_start": {"thresholds": {"load1_max": 4.0}}})
+        run.records["w", "e"] = [_good_rec() for _ in range(10)]
+        ok, why = E._samples_publishable(run, "w", "e")
+        self.assertFalse(ok)
+        self.assertIn("for 30 repetitions", why)
+
+    # new 2
+    def test_a_quota_is_named_even_when_no_container_was_detected(self):
+        box = dict(HostLine.BOX, container=False, cpu_quota=2.0, memory_limit_bytes=2 * 2**30,
+                   cpu_cores_logical=128, ram_bytes=512 * 2**30, os_version="6.8")
+        line = E._host({"host": box})
+        self.assertIn("2 of the host's 128 CPUs", line)
+        self.assertIn("2 GiB RAM limit", line)
+        self.assertNotIn("512 GiB", line)
+        self.assertIn("limited", E._machine({"host": box}))
+
+    # new 4
+    def test_the_battery_sentence_comes_from_the_record(self):
+        with_battery = dict(HostLine.BOX, power_source="battery", power_supplies=["BAT0"])
+        self.assertNotIn("no battery", E._host_note({"host": with_battery}))
+        self.assertIn("sees no power supply", E._host_note({"host": HostLine.BOX}))
+
+    # new 5
+    def test_canvas_wall_time_says_it_includes_the_harness_wait(self):
+        self.assertIn("canvas", E.PROCESS_CAVEATS)
+        self.assertIn("500 ms", E.PROCESS_CAVEATS["canvas"]["wall"])
+
+    # #14
+    def test_an_end_check_that_was_not_quiet_is_reported(self):
+        quiet = {"quiet_machine_check_end": {"quiet": True, "reasons": []}}
+        loud = {"quiet_machine_check_end": {"quiet": False, "reasons": ["1-minute load average 30.00 exceeds 21.33"]}}
+        self.assertEqual(E._end_check(quiet), "")
+        self.assertIn("30.00 exceeds 21.33", E._end_check(loud))
+        import inspect
+        self.assertIn('"perf.e.end_check"', inspect.getsource(E.facts_from_runs))
+
+
+if __name__ == "__main__":
+    unittest.main()

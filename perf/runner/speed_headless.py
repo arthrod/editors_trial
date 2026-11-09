@@ -760,6 +760,9 @@ def run_suite(
                 problems.append("%s package not the declared version: %s" % (e, rec.get("packages")))
             if rec.get("clean") is False:
                 problems.append("%s checkout dirty: %s" % (e, rec.get("dirty")))
+            missing = sorted(name for name, digest in (rec.get("binaries") or {}).items() if digest is None)
+            if missing:
+                problems.append("%s binary missing: %s" % (e, ", ".join(missing)))
         if problems:
             raise PinMismatch("; ".join(problems))
     # absolute once: lanes build file URIs from it (LibreOffice's profile), #118

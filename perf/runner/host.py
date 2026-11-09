@@ -135,6 +135,8 @@ def _power_source() -> str | None:
     supplies = _power_supplies()
     if supplies is None:
         return None
+    if any(kind is None for _, kind, _ in supplies):
+        return None  # a supply we cannot type could be a battery: unknown, not mains (#119)
     if any(kind in ("Mains", "USB") and online == "1" for _, kind, online in supplies):
         return "ac"
     if any(kind == "Battery" for _, kind, _ in supplies):
@@ -250,11 +252,23 @@ def _own_tree(rows: list[tuple[int, int, float, str]]) -> set[int]:
             continue
         own.add(pid)
         todo.extend(children.get(pid, ()))
-    pid = os.getppid()
-    while pid > 1 and pid not in own:
-        own.add(pid)
+    return own | _ancestors(rows)
+
+
+# A shell's command line is text it was handed (a script that may mention a
+# trial job, as the live check of 2026-11-09 showed); the job itself would be
+# a separate process.
+_SHELL = re.compile(r"^\S*\b(zsh|bash|sh|dash|fish)\b(\s|$)")
+
+
+def _ancestors(rows: list[tuple[int, int, float, str]]) -> set[int]:
+    """Whatever launched this process, up to (not including) PID 1."""
+    parent = {pid: ppid for pid, ppid, _, _ in rows}
+    found, pid = set(), os.getppid()
+    while pid > 1 and pid not in found and pid != os.getpid():
+        found.add(pid)
         pid = parent.get(pid, 1)
-    return own
+    return found
 
 
 def quiet_machine_check() -> dict:
@@ -276,6 +290,13 @@ def quiet_machine_check() -> dict:
         reasons.append("process list unavailable (ps failed): cannot tell what else runs")
         rows = []
     own = _own_tree(rows)
+    ancestors = _ancestors(rows)
+    # Ancestors (the shell that launched the runner) are spared the CPU rule,
+    # not the job rule: a Word driver that started the runner is a Word job (#119).
+    for pid, _, _, command in rows:
+        if pid in ancestors and _HEAVY_JOBS.search(command) and not _SHELL.match(command):
+            heavy = True
+            reasons.append("trial job running (launched this runner): %s" % command[:120])
     foreign = sorted((r for r in rows if r[0] not in own), key=lambda r: -r[2])
     for _, _, pct, command in foreign:
         if _HEAVY_JOBS.search(command):
