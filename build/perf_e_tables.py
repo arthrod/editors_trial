@@ -41,7 +41,6 @@ if str(ROOT) not in sys.path:
 
 from perf.analysis.summarize import summarize
 from perf.runner.speed_headless import _sample_failure
-from perf.runner.host import CLOUD_VENDORS
 
 DISPLAY = {
     "canvas": "canvas-editor + plugin",
@@ -157,6 +156,11 @@ def _stopped(run: Run, wl: str, editor: str) -> bool:
                and "stopped after" in (run.rows[wl, editor, c].get("failure_reason") or "")
                for c in _MARK if (wl, editor, c) in run.rows)
 
+
+# perf/runner/host.py's CLOUD_VENDORS as of a7b243d. Records written before
+# 8e98f66 carry no power_evidence; this list, not today's, is the rule that
+# could have called them AC (#123).
+LEGACY_CLOUD_VENDORS = ("Amazon EC2", "Google", "DigitalOcean", "Hetzner", "Scaleway", "Alibaba Cloud")
 
 _SAME_HOST = ("cpu_model", "cpu_cores_logical", "ram_bytes", "os", "os_version", "arch", "container", "cpu_quota",
               "memory_limit_bytes", "machine_vendor", "machine_product", "hypervisor")  # the prose rests on these (#121)
@@ -583,11 +587,11 @@ def _host_note(summary: dict, second: dict | None = None) -> str:
     # each share stays with the run it was measured in (#121)
     first, other = _steal_pct(summary), _steal_pct(second) if second else None
     shares = [(v, run) for v, run in ((first, "during the run"), (other, "during the second run")) if v is not None]
-    if shares and h.get("hypervisor"):
-        # what the counter is, nothing more: it says nothing of the host's kind or of memory or I/O (#122)
+    if shares and h.get("hypervisor") is not False:  # unknown (aarch64) still shows it (#123)
+        # what the counter is, nothing more: it says nothing of the host's kind (#122)
         said = " and ".join("%s %s" % (_pct(v), run) for v, run in shares)
         parts.append("The guest's steal counter (CPU time its hypervisor gave to other work while this machine was "
-                     "ready to run) was %s; contention for memory or I/O does not show in it." % said)
+                     "ready to run) was %s; it counts CPU time only, not the guest's own waits for memory or I/O." % said)
     if h.get("power_supplies") == []:
         parts.append(_power_note(h))
     return " ".join(parts)
@@ -599,18 +603,25 @@ def _pct(v: float) -> str:
 
 def _power_note(h: dict) -> str:
     """Why a container that sees no power supply was, or was not, called on
-    mains: the recorded value, and the recorded reason (#122)."""
+    mains: the recorded value, and the recorded reason (#122, #123)."""
+    lead = "The container sees no power supply"
     power, vendor, evidence = h.get("power_source"), h.get("machine_vendor"), h.get("power_evidence")
+    if power is None:
+        return "%s; its power source was not recorded, and a run without AC power is not published." % lead
     if power != "ac":
-        return ("The container sees no power supply; its power source was recorded as %s, and a run that is not on "
-                "AC power is not published." % (power or "unreadable"))
+        return "%s; its power source was recorded as %s, and a run that is not on AC power is not published." % (lead, power)
     if evidence == "server chassis":
-        return "The container sees no power supply; AC power is inferred from the machine's chassis type (a server)."
-    # before power_evidence was recorded (a7b243d), a server-only cloud vendor
-    # was the only rule that called a container with no supply AC
-    if evidence == "cloud vendor" or ("power_evidence" not in h and vendor in CLOUD_VENDORS):
-        return "The container sees no power supply; AC power is inferred from the machine's vendor (%s)." % vendor
-    return "The container sees no power supply; the run recorded AC power, and the record does not say why."
+        return ("%s; AC power is inferred from the machine's chassis type (a server), on a machine whose CPU flags "
+                "show no hypervisor." % lead)
+    if evidence == "supply":
+        return "%s now; the record gives an online power supply as the evidence of AC power." % lead
+    if evidence in ("no battery on bare metal", "no supply on bare metal"):
+        return "%s; the record gives no battery on bare metal as the evidence of AC power." % lead
+    if evidence == "cloud vendor" or ("power_evidence" not in h and vendor in LEGACY_CLOUD_VENDORS):
+        if vendor:
+            return "%s; AC power is inferred from the machine's vendor (%s)." % (lead, vendor)
+        return "%s; AC power is inferred from the machine's vendor, which the record does not name." % lead
+    return "%s; the run recorded AC power, and the record does not say why." % lead
 
 
 def _libreoffice_table(facts: dict, primary: Run, repro: Run) -> str | None:

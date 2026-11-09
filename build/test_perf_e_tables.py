@@ -878,7 +878,7 @@ class CodexReview122(unittest.TestCase):
         note = E._host_note({"host": dell})
         self.assertNotIn("inferred", note)
         self.assertIn("does not say why", note)
-        # a cloud vendor was the only no-supply rule a container had before power_evidence (a7b243d)
+        # before 8e98f66 recorded power_evidence, a cloud vendor was a container's only no-supply AC rule (#123)
         self.assertIn("inferred from the machine's vendor (Amazon EC2)", E._host_note({"host": self.EC2}))
 
     # 6
@@ -890,6 +890,59 @@ class CodexReview122(unittest.TestCase):
         self.assertNotIn("shows only", note)
         self.assertIn("steal", note)
         self.assertIn("memory or I/O", note)
+
+
+class MiniMaxReview123(unittest.TestCase):
+    """#123: MiniMax-M3's review of the #122 fixes."""
+
+    EC2 = CodexReview120.EC2
+
+    def _note(self, **over):
+        return E._host_note({"host": dict(HostLine.BOX, **over)})
+
+    # 4, 15
+    def test_steal_says_cpu_only_and_shows_when_the_hypervisor_is_unknown(self):
+        s = {"host": dict(self.EC2, hypervisor=None),
+             "quiet_machine_check_start": {"cpu_ticks": {"steal": 0, "total": 0}},
+             "quiet_machine_check_end": {"cpu_ticks": {"steal": 50, "total": 100000}}}
+        note = E._host_note(s)
+        self.assertIn("counts CPU time only", note)
+        self.assertIn("0.05% during the run", note)
+        self.assertNotIn("steal", E._host_note(dict(s, host=dict(self.EC2, hypervisor=False))))
+
+    # 5
+    def test_every_evidence_value_is_named(self):
+        self.assertIn("an online power supply", self._note(power_evidence="supply"))
+        self.assertIn("no battery", self._note(power_evidence="no battery on bare metal"))
+        self.assertIn("no battery", self._note(power_evidence="no supply on bare metal"))
+        for ev in ("supply", "no battery on bare metal", "cloud vendor", "server chassis"):
+            with self.subTest(ev=ev):
+                self.assertNotIn("does not say why", self._note(power_evidence=ev, machine_vendor="Amazon EC2"))
+
+    # 6
+    def test_a_missing_vendor_is_not_printed_as_none(self):
+        note = self._note(power_evidence="cloud vendor", machine_vendor=None)
+        self.assertNotIn("None", note)
+        self.assertIn("does not name", note)
+
+    # 7
+    def test_legacy_records_are_read_with_the_list_of_their_time(self):
+        self.assertEqual(E.LEGACY_CLOUD_VENDORS,
+                         ("Amazon EC2", "Google", "DigitalOcean", "Hetzner", "Scaleway", "Alibaba Cloud"))
+        with mock.patch.object(E, "LEGACY_CLOUD_VENDORS", ("Google",)):
+            self.assertIn("does not say why", self._note(machine_vendor="Amazon EC2"))
+
+    # 8
+    def test_no_power_source_is_not_called_unreadable(self):
+        h = dict(HostLine.BOX)
+        del h["power_source"]
+        note = E._host_note({"host": h})
+        self.assertNotIn("unreadable", note)
+        self.assertIn("was not recorded", note)
+
+    # 17
+    def test_the_chassis_sentence_states_its_condition(self):
+        self.assertIn("no hypervisor", self._note(power_evidence="server chassis"))
 
 
 if __name__ == "__main__":

@@ -426,7 +426,7 @@ class LinuxEvidence(unittest.TestCase):
 
     def test_the_power_evidence_is_named(self):
         self._write("cpuinfo", "flags\t: fpu\n")
-        self.assertEqual(host._power(), ("ac", "no supply on bare metal"))
+        self.assertEqual(host._power(), ("ac", "no battery on bare metal"))
         self._write("power_supply/AC/type", "Mains\n")
         self._write("power_supply/AC/online", "1\n")
         self.assertEqual(host._power(), ("ac", "supply"))
@@ -486,7 +486,8 @@ class LinuxEvidence(unittest.TestCase):
         self._write("cpuinfo", "flags\t: fpu\n")
         self._write("power_supply/dock/type", "Mains\n")
         self._write("power_supply/dock/online", "0\n")
-        self.assertEqual(host._power(), ("unknown", None))
+        # bare metal sees its own battery: none visible is mains, whatever a dock says (#123)
+        self.assertEqual(host._power(), ("ac", "no battery on bare metal"))
         host.os.environ["KUBERNETES_SERVICE_HOST"] = "10.0.0.1"
         self.assertEqual(host._power(), ("unknown", None))
         self._write("dmi/sys_vendor", "Amazon EC2\n")
@@ -539,6 +540,69 @@ class LinuxEvidence(unittest.TestCase):
         self._write("cgroup/memory.max", "274999996416\n")
         self.assertEqual(host._cpu_quota(), 32.0)
         self.assertEqual(host._memory_limit(), 274999996416)
+
+    # MiniMax review of #122 (#123)
+    def test_a_mains_supply_without_an_online_file_on_bare_metal_is_ac(self):
+        self._write("cpuinfo", "flags\t: fpu\n")
+        self._write("power_supply/AC/type", "Mains\n")
+        self.assertEqual(host._power(), ("ac", "no battery on bare metal"))
+
+    def test_a_discharging_battery_is_battery_even_with_an_adapter_online(self):
+        self._write("power_supply/AC/type", "Mains\n")
+        self._write("power_supply/AC/online", "1\n")
+        self._write("power_supply/BAT0/type", "Battery\n")
+        self._write("power_supply/BAT0/status", "Discharging\n")
+        self.assertEqual(host._power(), ("battery", None))
+        self._write("power_supply/BAT0/status", "Charging\n")
+        self.assertEqual(host._power(), ("ac", "supply"))
+
+    def test_aarch64_with_a_server_chassis_stays_unknown(self):
+        # declined in #123: without x86 flags a guest and bare metal look alike here
+        self._write("cpuinfo", "processor\t: 0\nFeatures\t: fp asimd\n")
+        self._write("dmi/chassis_type", "23\n")
+        self.assertEqual(host._power(), ("unknown", None))
+
+    def test_a_cloud_container_does_not_read_cpuinfo(self):
+        host.os.environ["KUBERNETES_SERVICE_HOST"] = "10.0.0.1"
+        self._write("dmi/sys_vendor", "Amazon EC2\n")
+        with mock.patch.object(host, "_hypervisor", side_effect=AssertionError("cpuinfo read before a sample")):
+            self.assertEqual(host._power(), ("ac", "cloud vendor"))
+
+    def test_the_serving_mount_wins_not_the_first(self):
+        other, main = self.tmp / "cgroup" / "other", self.tmp / "cgroup"
+        self._mounts("31 25 0:27 /other %s ro - cgroup2 cgroup rw" % other,
+                     "32 25 0:28 / %s ro - cgroup2 cgroup rw" % main)
+        self._write("proc_self_cgroup", "0::/job\n")
+        self._write("cgroup/job/cpu.max", "200000 100000\n")
+        self._write("cgroup/job/memory.max", "2147483648\n")
+        self.assertEqual(host._cpu_quota(), 2.0)
+        self.assertEqual(host._memory_limit(), 2**31)
+
+    def test_a_v1_hierarchy_mounted_twice(self):
+        self._mounts("31 25 0:26 /other %s ro - cgroup cgroup rw,cpu,cpuacct" % (self.tmp / "cgroup" / "other"),
+                     "32 25 0:27 / %s rw - cgroup cgroup rw,cpu,cpuacct" % (self.tmp / "cgroup" / "cpu,cpuacct"))
+        self._write("proc_self_cgroup", "4:cpu,cpuacct:/job\n")
+        self._write("cgroup/cpu,cpuacct/job/cpu.cfs_quota_us", "200000\n")
+        self._write("cgroup/cpu,cpuacct/job/cpu.cfs_period_us", "100000\n")
+        self.assertEqual(host._cpu_quota(), 2.0)
+
+    def test_a_membership_equal_to_the_mount_root(self):
+        mnt = self.tmp / "cgroup" / "cpu,cpuacct"
+        self._mounts("30 25 0:26 /tenant %s rw - cgroup cgroup rw,cpu,cpuacct" % mnt)
+        self._write("proc_self_cgroup", "4:cpu,cpuacct:/tenant\n")
+        self._write("cgroup/cpu,cpuacct/cpu.cfs_quota_us", "300000\n")
+        self._write("cgroup/cpu,cpuacct/cpu.cfs_period_us", "100000\n")
+        self.assertEqual(host._cpu_quota(), 3.0)
+
+    def test_dot_dot_never_leaves_the_mount(self):
+        self.assertEqual(host._walk("/a/b", "/c"), ["/c"])
+        self._mounts("4037 3983 0:27 / %s ro - cgroup2 cgroup rw" % (self.tmp / "cgroup"))
+        self._write("proc_self_cgroup", "0::/../../etc\n")
+        self.assertEqual(host._cgroup_dirs("cpu"), [str(self.tmp / "cgroup")])
+
+    def test_a_malformed_escape_does_not_kill_the_probe(self):
+        self.assertEqual(host._unescape("/a\\777b"), "/a\\777b")
+        self.assertEqual(host._unescape("/a\\040b"), "/a b")
 
     def test_cpu_ticks(self):
         self._write("proc_stat", "cpu  65967 15 45687 1725841 16505 0 2300 61 0 0\ncpu0 1 2 3 4 5 6 7 8 0 0\n")

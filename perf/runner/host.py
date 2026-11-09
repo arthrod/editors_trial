@@ -128,15 +128,13 @@ def _read(path: str) -> str | None:
         return None
 
 
-def _power_supplies() -> list[tuple[str, str | None, str | None]] | None:
-    """``(name, type, online)`` for each Linux power supply; None if unreadable."""
+def _power_supplies() -> list[tuple[str, str | None, str | None, str | None]] | None:
+    """``(name, type, online, status)`` for each Linux power supply; None if unreadable."""
     try:
         names = sorted(os.listdir(POWER_SUPPLY))
     except OSError:
         return None
-    return [
-        (n, _read(os.path.join(POWER_SUPPLY, n, "type")), _read(os.path.join(POWER_SUPPLY, n, "online"))) for n in names
-    ]
+    return [(n, *(_read(os.path.join(POWER_SUPPLY, n, f)) for f in ("type", "online", "status"))) for n in names]
 
 
 def _dmi(name: str) -> str | None:
@@ -181,27 +179,31 @@ def _power() -> tuple[str | None, str | None]:
     supplies = _power_supplies()
     if supplies is None:
         return None, None
-    if any(kind is None for _, kind, _ in supplies):
+    if any(kind is None for _, kind, _, _ in supplies):
         return None, None  # a supply we cannot type could be a battery: unknown, not mains (#119)
-    if any(kind in ("Mains", "USB") and online == "1" for _, kind, online in supplies):
+    if any(kind == "Battery" and status == "Discharging" for _, kind, _, status in supplies):
+        return "battery", None  # an adapter that cannot keep up does not make it mains (#123)
+    if any(kind in ("Mains", "USB") and online == "1" for _, kind, online, _ in supplies):
         return "ac", "supply"  # only an online supply is evidence (#122)
-    if any(kind == "Battery" for _, kind, _ in supplies):
+    if any(kind == "Battery" for _, kind, _, _ in supplies):
         return "battery", None
-    # No online supply. Bare metal shows its own battery, so none at all means
-    # mains. A container or a guest sees nothing of its host's, and an unknown
-    # hypervisor flag (aarch64) proves no bare metal: only a server-only cloud
-    # vendor, or a server chassis on known bare metal (a guest's firmware can
-    # say anything), is evidence of mains (#120, #121, #122).
-    hypervisor = _hypervisor()
-    if _in_container(os.environ) or hypervisor is not False:
-        if _dmi("sys_vendor") in CLOUD_VENDORS:
+    # No online supply and no battery visible. A container or a guest sees
+    # nothing of its host's supplies: only a server-only cloud vendor, or a
+    # server chassis on known bare metal (a guest's firmware can say anything),
+    # is evidence of mains (#120, #121, #122). The vendor is read first, so a
+    # cloud container does not read /proc/cpuinfo before every sample (#123).
+    cloud = _dmi("sys_vendor") in CLOUD_VENDORS
+    if _in_container(os.environ):
+        if cloud:
             return "ac", "cloud vendor"
-        if hypervisor is False and _dmi("chassis_type") in SERVER_CHASSIS:
+        if _dmi("chassis_type") in SERVER_CHASSIS and _hypervisor() is False:
             return "ac", "server chassis"
         return "unknown", None
-    if supplies:
-        return "unknown", None  # only offline supplies: whatever powers it is not visible
-    return "ac", "no supply on bare metal"
+    if _hypervisor() is not False:  # a guest, or nobody said (aarch64): not proof of bare metal
+        return ("ac", "cloud vendor") if cloud else ("unknown", None)
+    # Bare metal shows its own battery: none visible means mains, whatever an
+    # offline dock or a supply without an online file says (#123).
+    return "ac", "no battery on bare metal"
 
 
 def _power_source() -> str | None:
@@ -209,8 +211,9 @@ def _power_source() -> str | None:
 
 
 def _unescape(field: str) -> str:
-    """mountinfo escapes space, tab, newline and backslash as octal (\\040)."""
-    return re.sub(r"\\([0-7]{3})", lambda m: chr(int(m.group(1), 8)), field)
+    """mountinfo escapes space, tab, newline and backslash as octal (\\040). An
+    escape above one byte is not the kernel's: it stays as written (#123)."""
+    return re.sub(r"\\([0-7]{3})", lambda m: chr(int(m.group(1), 8)) if int(m.group(1), 8) < 256 else m.group(0), field)
 
 
 def _cgroup_mounts() -> list[tuple[str, str, str, set[str]]] | None:
@@ -231,9 +234,11 @@ def _cgroup_mounts() -> list[tuple[str, str, str, set[str]]] | None:
 
 def _walk(leaf: str, top: str) -> list[str]:
     """``leaf`` and its ancestors up to ``top``, those that exist; just ``top``
-    when the leaf itself is not visible here."""
+    when the leaf is not visible here or is not under ``top`` (#123)."""
     rel = os.path.relpath(leaf, top)
     parts = [] if rel == "." else rel.split(os.sep)
+    if ".." in parts:
+        return [top]
     dirs = [os.path.join(top, *parts[:k]) for k in range(len(parts), -1, -1)]
     found = [d for d in dirs if os.path.isdir(d)]
     return found if found and found[0] == dirs[0] else [top]
@@ -249,10 +254,20 @@ def _cgroup_dirs(controller: str) -> list[str]:
     v1 = next(((c, path) for _, c, path in entries if controller in c.split(",")), None)
     unified = next((path for hid, c, path in entries if hid == "0" and c == ""), None)
     path = v1[1] if v1 else unified
+    if path is not None:  # the kernel never writes . or ..; a path that does is not followed (#123)
+        path = "/" + "/".join(x for x in path.split("/") if x not in ("", ".", ".."))
     mounts = _cgroup_mounts()
     if mounts:
-        mount = next((m for m in mounts if m[0] == "cgroup" and controller in m[3]), None) if v1 else \
-            next((m for m in mounts if m[0] == "cgroup2"), None)
+        kind = [m for m in mounts if m[0] == "cgroup" and controller in m[3]] if v1 else \
+            [m for m in mounts if m[0] == "cgroup2"]
+
+        def serves(m) -> bool:
+            root = m[1].rstrip("/") or "/"
+            return root == "/" or path == root or path.startswith(root + "/")
+
+        # the mount that serves this membership: the longest root that prefixes it (#123)
+        serving = [m for m in kind if path is not None and serves(m)]
+        mount = max(serving, key=lambda m: len(m[1].rstrip("/"))) if serving else (kind[0] if kind else None)
         if mount and path is not None:
             _, root, mountpoint, _ = mount
             root = root.rstrip("/") or "/"
@@ -352,7 +367,7 @@ def host_record() -> dict:
         "ram_bytes": ram,
         "power_source": power,
         "power_evidence": evidence,
-        "power_supplies": None if sys.platform == "darwin" else [n for n, _, _ in (_power_supplies() or [])],
+        "power_supplies": None if sys.platform == "darwin" else [n for n, *_ in (_power_supplies() or [])],
         "cpu_quota": None if sys.platform == "darwin" else _cpu_quota(),
         "memory_limit_bytes": None if sys.platform == "darwin" else _memory_limit(),
         "container": linux and _in_container(os.environ),
