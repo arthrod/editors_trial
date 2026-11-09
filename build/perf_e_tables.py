@@ -495,16 +495,25 @@ def _workload_table(primary: Run) -> str:
     return "\n".join(lines)
 
 
+def _whole_machine(h: dict) -> bool:
+    """A quota that covers every CPU the machine has: no neighbours share it."""
+    quota = h.get("cpu_quota")
+    return quota is None or quota >= h["cpu_cores_logical"]
+
+
 def _host(summary: dict) -> str:
     h = summary["host"]
     if h.get("container") or h.get("cpu_quota") or h.get("memory_limit_bytes"):
         quota, limit = h.get("cpu_quota"), h.get("memory_limit_bytes")
-        cpus = ("%g of the host's %d CPUs" % (quota, h["cpu_cores_logical"]) if quota
-                else "all %d of the host's CPUs" % h["cpu_cores_logical"])
         ram = "%d GiB RAM limit" % round(limit / 2**30) if limit else "no RAM limit"
         power = "no battery" if h.get("power_supplies") == [] else "%s power" % h["power_source"].upper()
+        if _whole_machine(h):
+            kind = "a Linux container" if h.get("container") else "a Linux machine"
+            return "%s on an %s machine: all %d CPUs of its machine, %s, Linux %s, %s" % (
+                kind, h["cpu_model"], h["cpu_cores_logical"], ram, h["os_version"], power)
         kind = "a Linux container on a shared" if h.get("container") else "a cgroup-limited process on a"
-        return "%s %s host: %s, %s, Linux %s, %s" % (kind, h["cpu_model"], cpus, ram, h["os_version"], power)
+        return "%s %s host: %g of the host's %d CPUs, %s, Linux %s, %s" % (
+            kind, h["cpu_model"], quota, h["cpu_cores_logical"], ram, h["os_version"], power)
     system = "macOS %s" % h["os_version"] if h.get("os") == "darwin" else "%s %s" % (h.get("os", "?").capitalize(), h["os_version"])
     return "%s, %d cores, %d GiB RAM, %s, %s power" % (
         h["cpu_model"], h["cpu_cores_logical"], round(h["ram_bytes"] / 2**30), system, h["power_source"].upper())
@@ -513,7 +522,8 @@ def _host(summary: dict) -> str:
 def _machine(summary: dict) -> str:
     h = summary["host"]
     if h.get("container"):
-        return "one Linux container on a shared server"
+        return ("one Linux container with a whole machine to itself" if _whole_machine(h)
+                else "one Linux container on a shared server")
     if h.get("cpu_quota") or h.get("memory_limit_bytes"):
         return "one Linux machine, limited by its cgroup"
     return "one Mac" if h.get("os") == "darwin" else "one %s machine" % h.get("os", "?").capitalize()
@@ -524,12 +534,15 @@ def _host_note(summary: dict) -> str:
     h = summary["host"]
     if not h.get("container"):
         return ""
-    quota = h.get("cpu_quota")
+    supply = " The container sees no power supply." if h.get("power_supplies") == [] else ""
+    if _whole_machine(h):
+        return ("The container may use all %d CPUs of its machine, and the load average it reads is its machine's, "
+                "judged against those %d CPUs. The machine is a cloud virtual machine: what runs on the physical "
+                "server beneath it cannot be seen from inside.%s" % (h["cpu_cores_logical"], h["cpu_cores_logical"], supply))
     return ("The container shares its server with other tenants. The load average it reads is the whole server's, "
             "judged against the server's %d CPUs, so busy neighbours count against the limit; the process check "
-            "cannot see what they run. The container itself may use %s CPUs.%s" % (
-                h["cpu_cores_logical"], "%g" % quota if quota else "all",
-                " The container sees no power supply." if h.get("power_supplies") == [] else ""))
+            "cannot see what they run. The container itself may use %g CPUs.%s" % (
+                h["cpu_cores_logical"], h["cpu_quota"], supply))
 
 
 def _libreoffice_table(facts: dict, primary: Run, repro: Run) -> str | None:

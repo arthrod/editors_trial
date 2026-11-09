@@ -669,5 +669,28 @@ class GrokReview(unittest.TestCase):
         self.assertIn('"perf.e.end_check"', inspect.getsource(E.facts_from_runs))
 
 
+
+class WholeMachineContainer(unittest.TestCase):
+    """#118: a container whose quota is every CPU of its machine (HF cpu-performance:
+    32 of 32, load 0.4) has no neighbours to speak of; "shared" would be false."""
+
+    WHOLE = dict(HostLine.BOX, cpu_cores_logical=32, cpu_quota=32.0, memory_limit_bytes=256 * 2**30)
+
+    def test_line_says_the_whole_machine(self):
+        line = E._host({"host": self.WHOLE})
+        self.assertIn("all 32 CPUs of its machine", line)
+        self.assertNotIn("shared", line)
+
+    def test_machine_words_and_note(self):
+        self.assertEqual(E._machine({"host": self.WHOLE}), "one Linux container with a whole machine to itself")
+        note = E._host_note({"host": self.WHOLE})
+        self.assertNotIn("other tenants", note)
+        self.assertIn("load average it reads is its machine's", note)
+
+    def test_a_partial_quota_is_still_shared(self):
+        self.assertIn("shared", E._host({"host": HostLine.BOX}))
+        self.assertIn("other tenants", E._host_note({"host": HostLine.BOX}))
+
+
 if __name__ == "__main__":
     unittest.main()
