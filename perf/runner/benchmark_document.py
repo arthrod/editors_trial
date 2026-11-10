@@ -243,7 +243,7 @@ DOCUMENT_TARGETS = {
         "page_model": "continuous_flow",
         "edit_selector": "docen-document .canvas-pages > div:first-child",
         "document_selector": ".canvas-pages > div:first-child",
-        "usable_signal": "shadow_text",
+        "usable_signal": "screencast_ink",
         "ready_js": "window.__DOCEN_READY__ === true",
         "find_input_selector": None,
         "find_count_selector": None,
@@ -254,8 +254,9 @@ DOCUMENT_TARGETS = {
             "docen renders pages as LeaferJS canvases inside docen-document's open shadow root "
             "(.canvas-pages > div). The document element is .canvas-pages > div:first-child inside "
             "that shadow root; its own rect is the region. Other shadow text (toolbar, menus) is "
-            "not document text. Light-DOM textContent is empty. C11 uses the disclosed "
-            "shadow_text signal on that element, not the shell's first-contentful-paint. "
+            "not document text. Light-DOM textContent is empty. C11 uses screencast_ink on "
+            "that element's rect (painted Leafer pages, not empty shadow text), not the shell's "
+            "first-contentful-paint. shadow_text remains only when real DOM text exists in the region. "
             "C12 still needs DOM block boxes the probe can see. "
             "edit_selector matches the shadow-piercing Playwright locator warm/cold already uses."
         ),
@@ -265,7 +266,7 @@ DOCUMENT_TARGETS = {
         "page_selector": None,
         "page_model": "continuous_flow",
         "edit_selector": "#wordcraft_canvas",
-        "usable_signal": "canvas_pixel",
+        "usable_signal": "screencast_ink",
         "ready_js": "window.__WORDCRAFT_READY__ === true",
         "find_input_selector": None,
         "find_count_selector": None,
@@ -273,9 +274,9 @@ DOCUMENT_TARGETS = {
         "find_expected_matches": 5,
         "find_source_note": "no find surface verified for this host; C15 refuses by name",
         "note": (
-            "wasm egui app: the whole document is one canvas, no DOM text. C11 uses the disclosed "
-            "canvas_pixel signal (a non-blank 2d pixel), not the app-shell first-contentful-paint. "
-            "A canvas with no readable 2d context is refused instead of publishing that shell paint. "
+            "wasm egui app: the whole document is one WebGL canvas (#wordcraft_canvas), no DOM text. "
+            "C11 uses screencast_ink on that canvas element's rect, not canvas_pixel (no 2d context) "
+            "and not the app-shell first-contentful-paint. "
             "The readiness gate still refuses until the app's own title frame names the open document."
         ),
     },
@@ -904,7 +905,9 @@ def _probe_cmd(*, mode: str, target: dict, cfg: dict, corpus_path: Path, extra: 
         cmd.extend(["--usable-signal", cfg["usable_signal"]])
     if cfg.get("document_selector"):
         cmd.extend(["--document-selector", cfg["document_selector"]])
-    elif (cfg.get("usable_signal") or "dom_text") != "shadow_text":
+    elif (cfg.get("usable_signal") or "dom_text") not in ("shadow_text", "screencast_ink"):
+        cmd.extend(["--document-selector", cfg["doc_selector"]])
+    elif cfg.get("usable_signal") == "screencast_ink" and not cfg.get("document_selector"):
         cmd.extend(["--document-selector", cfg["doc_selector"]])
     if target.get("wait_after_ready"):
         cmd.extend(["--wait-after-ready", str(target["wait_after_ready"])])

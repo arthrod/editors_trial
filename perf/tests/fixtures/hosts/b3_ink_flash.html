@@ -1,0 +1,16 @@
+<!doctype html>
+<html><body>
+<canvas class="doc-paragraph" width="400" height="300"></canvas>
+<script>
+var c = document.querySelector('canvas'), g = c.getContext('2d');
+g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+var flashes = 0;
+function tick() {
+  if (flashes >= 2) return;
+  g.fillStyle = flashes === 0 ? '#224466' : '#ffffff';
+  g.fillRect(20, 20, 200, 100);
+  flashes += 1;
+  requestAnimationFrame(tick);
+}
+setTimeout(function(){ requestAnimationFrame(tick); }, 300);
+</script></body></html>

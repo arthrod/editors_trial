@@ -1,0 +1,8 @@
+<!doctype html>
+<html><body style="margin:20px">
+<div class="doc-paragraph"></div>
+<script>
+var root = document.querySelector('.doc-paragraph').attachShadow({mode:'open'});
+root.innerHTML = '<button>Open Print</button><div id="paper">Doc in div not p</div>';
+setTimeout(function(){ root.querySelector('#paper').textContent += ' more'; }, 5000);
+</script></body></html>

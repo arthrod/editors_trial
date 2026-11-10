@@ -12,7 +12,9 @@
  *   load    C11 is the first acked screencast frame at or after the disclosed
  *           document element (its own rect: inside the shadow root for a
  *           shadow host, never the host box or toolbar text; a non-blank
- *           canvas samples the page, not the top-left margin). FCP is recorded
+ *           canvas samples the page, not the top-left margin). The
+ *           screencast_ink signal marks usable when the region has persistent
+ *           ink on the witness recorder's frames (min 64 px by default). FCP is recorded
  *           beside that frame and is not the sample. The witness window is
  *           500 ms. No forced repaint.
  *   reflow  input (Enter at the document start, page clock) to the acked
@@ -40,12 +42,23 @@ import fs from 'node:fs';
 import zlib from 'node:zlib';
 
 import {
+  DEFAULT_CHANNEL_TOLERANCE,
+  DEFAULT_MIN_PIXELS,
+  DEFAULT_THRESHOLD,
   DEFAULT_WINDOW_MS,
+  decodePng,
+  detectTimestampKind,
+  diffRatio,
   getRecorder,
+  injectCaretMask,
   loadPlaywright,
   stopRecorder,
+  WEBGL_UNMASK_FLAG,
   witnessFrame,
 } from './witness.mjs';
+
+/** Screencast ink needs at least this many region pixels above the witness threshold. */
+const SCREENCAST_INK_MIN_PIXELS = 64;
 
 const argv = process.argv.slice(2);
 const opt = {};
@@ -89,16 +102,18 @@ const findMatchSelector = opt['find-match-selector'] || '';
 const findQuery = opt['find-query'] || '';
 const findExpected = opt['find-expected-matches'] ? Number(opt['find-expected-matches']) : null;
 const findShortcuts = (opt['find-shortcuts'] || 'Control+f,Meta+f').split(',').map((s) => s.trim()).filter(Boolean);
-const SIGNAL_INPUTS = new Set(['dom_text', 'canvas_pixel', 'shadow_text']);
+const SIGNAL_INPUTS = new Set(['dom_text', 'canvas_pixel', 'shadow_text', 'screencast_ink']);
 const usableSignal = opt['usable-signal'] || 'dom_text';
+const screencastInkMinPixels = Number(opt['screencast-ink-min-pixels'] || SCREENCAST_INK_MIN_PIXELS);
 if (!SIGNAL_INPUTS.has(usableSignal)) {
-  console.error('document_probe: --usable-signal must be dom_text|canvas_pixel|shadow_text');
+  console.error('document_probe: --usable-signal must be dom_text|canvas_pixel|shadow_text|screencast_ink');
   process.exit(2);
 }
 const SIGNAL_NAME = {
   dom_text: 'dom_text',
   canvas_pixel: 'canvas_pixel_non_blank',
   shadow_text: 'open_shadow_root_text',
+  screencast_ink: 'screencast_ink',
 };
 function crc32(data) {
   let c = ~0;
@@ -148,6 +163,173 @@ const corpusBytes = fs.readFileSync(corpusFile);
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function frameAckSettled(frame, timeoutMs = 400) {
+  const deadline = Date.now() + timeoutMs;
+  while (frame.ack === 'pending' && Date.now() < deadline) await sleep(2);
+  return frame.ack;
+}
+
+function decodeRecorderFrame(recorder, frame) {
+  const cached = recorder.decoded.get(frame.seq);
+  if (cached !== undefined) return cached;
+  let decoded = null;
+  try {
+    decoded = decodePng(Buffer.from(frame.data, 'base64'));
+  } catch {
+    decoded = null;
+  }
+  recorder.decoded.set(frame.seq, decoded);
+  return decoded;
+}
+
+async function pageClockReading(page) {
+  return page.evaluate(() => ({
+    time_origin_ms: performance.timeOrigin,
+    now_ms: performance.now(),
+  }));
+}
+
+function convertFrameToPageMs(frame, clock) {
+  const kind = clock.timestamp_kind || detectTimestampKind(frame).kind;
+  if (kind === 'epoch_seconds') {
+    if (typeof frame.ts !== 'number') return null;
+    return frame.ts * 1000 - clock.time_origin_ms;
+  }
+  if (kind === 'monotonic_seconds') {
+    if (typeof frame.mono !== 'number' && typeof frame.ts !== 'number') return null;
+    const value = typeof frame.mono === 'number' ? frame.mono : frame.ts;
+    if (typeof clock.monotonic_origin_ms !== 'number') return null;
+    return value * 1000 - clock.monotonic_origin_ms;
+  }
+  return null;
+}
+
+function regionInkVsBaseline(baselineDecoded, frameDecoded, regionDevice, minPixels) {
+  if (!baselineDecoded || !frameDecoded) return { ink: false, changed: 0 };
+  const diff = diffRatio(baselineDecoded, frameDecoded, {
+    channelTolerance: DEFAULT_CHANNEL_TOLERANCE,
+    region: regionDevice,
+  });
+  const ink =
+    diff.comparable && diff.ratio > DEFAULT_THRESHOLD && diff.changed >= Math.max(minPixels, DEFAULT_MIN_PIXELS);
+  return { ink, changed: diff.changed, diff };
+}
+
+async function resolveInkRegionDevice(page, frameDecoded) {
+  const rect = await page
+    .evaluate(() => {
+      const fn = window.__docProbeSurface;
+      if (typeof fn !== 'function') return null;
+      const surface = fn('screencast_ink');
+      return surface && surface.rect ? surface.rect : null;
+    })
+    .catch(() => null);
+  if (!rect || !(rect.width > 0) || !(rect.height > 0)) return { scoped: false, rect_device: null, error: 'no region rect' };
+  const dpr = await page.evaluate(() => window.devicePixelRatio || 1).catch(() => 1);
+  let device = {
+    x: Math.round(rect.x * dpr),
+    y: Math.round(rect.y * dpr),
+    width: Math.round(rect.width * dpr),
+    height: Math.round(rect.height * dpr),
+  };
+  if (frameDecoded) {
+    const x0 = Math.max(0, device.x);
+    const y0 = Math.max(0, device.y);
+    const x1 = Math.min(frameDecoded.width, device.x + device.width);
+    const y1 = Math.min(frameDecoded.height, device.y + device.height);
+    device = { x: x0, y: y0, width: Math.max(0, x1 - x0), height: Math.max(0, y1 - y0) };
+  }
+  if (device.width < 1 || device.height < 1) {
+    return { scoped: false, rect_device: device, error: 'empty region in frame' };
+  }
+  return { scoped: true, rect_device: device, rect_css: rect, dpr, error: null };
+}
+
+/**
+ * Usable via screencast: first acked frame at or after persistent ink in the
+ * configured document region (full-region decode; no stride subsampling).
+ */
+async function waitForScreencastInk(page, recorder) {
+  await injectCaretMask(page);
+  const clock = await pageClockReading(page);
+  const firstFrame = recorder.frames[0];
+  clock.timestamp_kind = firstFrame ? detectTimestampKind(firstFrame).kind : 'unknown';
+  const deadline = Date.now() + timeoutMs;
+  let checked = 0;
+  let baselineFrame = null;
+  let baselineDecoded = null;
+  let regionDevice = null;
+  while (Date.now() < deadline) {
+    for (let i = checked; i < recorder.frames.length; i++) {
+      const frame = recorder.frames[i];
+      checked = i + 1;
+      if ((await frameAckSettled(frame)) !== 'acked') continue;
+      const decoded = decodeRecorderFrame(recorder, frame);
+      if (!decoded) continue;
+      if (!baselineFrame) {
+        const scope = await resolveInkRegionDevice(page, decoded);
+        if (!scope.scoped) continue;
+        regionDevice = scope.rect_device;
+        baselineFrame = frame;
+        baselineDecoded = decoded;
+        continue;
+      }
+      const cur = regionInkVsBaseline(baselineDecoded, decoded, regionDevice, screencastInkMinPixels);
+      if (!cur.ink) continue;
+      let persist = null;
+      let persistFrame = null;
+      for (let j = i + 1; j < recorder.frames.length; j++) {
+        if (recorder.frames[j].seq !== frame.seq) {
+          persistFrame = recorder.frames[j];
+          break;
+        }
+      }
+      if (!persistFrame) {
+        const before = recorder.frames.length;
+        await page
+          .evaluate(() => {
+            return new Promise((resolve) => {
+              requestAnimationFrame(() => requestAnimationFrame(() => resolve(0)));
+            });
+          })
+          .catch(() => {});
+        const forceDeadline = Date.now() + 500;
+        while (Date.now() < forceDeadline) {
+          for (let j = before; j < recorder.frames.length; j++) {
+            const candidate = recorder.frames[j];
+            if (candidate.seq !== frame.seq) {
+              persistFrame = candidate;
+              break;
+            }
+          }
+          if (persistFrame) break;
+          await sleep(8);
+        }
+      }
+      if (!persistFrame || persistFrame.seq === frame.seq) continue;
+      if ((await frameAckSettled(persistFrame)) !== 'acked') continue;
+      const persistDecoded = decodeRecorderFrame(recorder, persistFrame);
+      persist = regionInkVsBaseline(baselineDecoded, persistDecoded, regionDevice, screencastInkMinPixels);
+      if (!persist.ink) continue;
+      const pageMs = convertFrameToPageMs(frame, clock);
+      return {
+        at_ms: pageMs === null ? await page.evaluate(() => performance.now()) : pageMs,
+        signal: SIGNAL_NAME.screencast_ink,
+        baseline: baselineFrame,
+        ink_frame: frame,
+      };
+    }
+    await sleep(8);
+  }
+  return {
+    at_ms: null,
+    signal: SIGNAL_NAME.screencast_ink,
+    baseline: baselineFrame,
+    ink_frame: null,
+    region: null,
+  };
 }
 
 async function routeCorpus(context) {
@@ -208,7 +390,13 @@ function fcpFrom(paints) {
  */
 const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, documentSelector: documentSel }) => {
   const recorded =
-    signal === 'canvas_pixel' ? 'canvas_pixel_non_blank' : signal === 'shadow_text' ? 'open_shadow_root_text' : 'dom_text';
+    signal === 'canvas_pixel'
+      ? 'canvas_pixel_non_blank'
+      : signal === 'shadow_text'
+        ? 'open_shadow_root_text'
+        : signal === 'screencast_ink'
+          ? 'screencast_ink'
+          : 'dom_text';
   const state = (window.__docProbeState = {
     firstElementAt: null,
     firstElementInfo: null,
@@ -282,11 +470,10 @@ const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, document
     } catch {
       return false;
     }
-    // The page, not its top-left margin. A white corner is a normal page.
-    const stride = w * h > 2000000 ? Math.ceil(Math.sqrt((w * h) / 2000000)) : 1;
-    for (let y = 0; y < h; y += stride) {
+    // Full canvas decode: sparse ink on large page canvases must not be missed.
+    for (let y = 0; y < h; y++) {
       const row = y * w;
-      for (let x = 0; x < w; x += stride) {
+      for (let x = 0; x < w; x++) {
         const i = (row + x) * 4;
         const r = data[i];
         const gc = data[i + 1];
@@ -323,9 +510,7 @@ const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, document
   };
   const selectorFor = (which) => {
     if (documentSel) return documentSel;
-    // Existing shadow fixtures put the document in a <p>. A missing per-host
-    // selector must not fall back to every text node in the shadow root.
-    if (which === 'shadow_text') return 'p';
+    if (which === 'shadow_text') return '';
     return docSel;
   };
   window.__docProbeSurface = (which) => {
@@ -350,7 +535,23 @@ const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, document
       // The document element's own rect. Never the shadow host's box.
       add(paintedBox(el));
     };
-    if (which === 'shadow_text') {
+    if (which === 'screencast_ink') {
+      if (docSel && selector && docSel !== selector) {
+        const hosts = Array.from(document.querySelectorAll(docSel));
+        for (const host of hosts) {
+          const root = host && host.shadowRoot;
+          if (root && typeof root.querySelector === 'function') {
+            const el = root.querySelector(selector);
+            if (el) take(el, 'region');
+            continue;
+          }
+          if (host) take(host, 'region');
+        }
+      } else {
+        const nodes = selector ? Array.from(document.querySelectorAll(selector)) : [];
+        for (const el of nodes) take(el, 'region');
+      }
+    } else if (which === 'shadow_text') {
       const hosts = docSel ? Array.from(document.querySelectorAll(docSel)) : [];
       for (const host of hosts) {
         const root = host && host.shadowRoot;
@@ -386,7 +587,7 @@ const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, document
         state.pageCountAtFirst = pageSel ? document.querySelectorAll(pageSel).length : null;
       }
     }
-    if (state.docTextAt === null) {
+    if (state.docTextAt === null && signal !== 'screencast_ink') {
       const surface = window.__docProbeSurface(signal);
       const chars = signal === 'canvas_pixel' ? (surface.chars > 0 ? 1 : 0) : surface.chars;
       if ((signal === 'canvas_pixel' && chars > 0) || (signal !== 'canvas_pixel' && chars >= minChars)) {
@@ -394,7 +595,9 @@ const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, document
         state.docTextCharsAt = chars;
       }
     }
-    if (state.docTextAt === null && performance.now() < 120000) requestAnimationFrame(tick);
+    if (state.docTextAt === null && signal !== 'screencast_ink' && performance.now() < 120000) {
+      requestAnimationFrame(tick);
+    }
   };
   requestAnimationFrame(tick);
 };
@@ -444,7 +647,10 @@ async function endWitness(ctx) {
 
 async function launch() {
   const { chromium } = await loadPlaywright();
-  return chromium.launch({ headless: true, args: ['--font-render-hinting=none', '--disable-lcd-text'] });
+  return chromium.launch({
+    headless: true,
+    args: ['--font-render-hinting=none', '--disable-lcd-text', WEBGL_UNMASK_FLAG],
+  });
 }
 
 async function stateSnapshot(page) {
@@ -452,7 +658,14 @@ async function stateSnapshot(page) {
     ({ docSel, pageSel, signal }) => {
       const s = window.__docProbeState || {};
       const pageEl = pageSel ? document.querySelector(pageSel) : null;
-      const which = signal === 'canvas_pixel' ? 'canvas_pixel' : signal === 'shadow_text' ? 'shadow_text' : 'dom_text';
+      const which =
+        signal === 'canvas_pixel'
+          ? 'canvas_pixel'
+          : signal === 'shadow_text'
+            ? 'shadow_text'
+            : signal === 'screencast_ink'
+              ? 'screencast_ink'
+              : 'dom_text';
       const surface = typeof window.__docProbeSurface === 'function' ? window.__docProbeSurface(which) : null;
       const docText = surface && surface.text ? surface.text : '';
       return {
@@ -488,14 +701,27 @@ async function readSurface(page) {
 
 /** Text-bearing (or drawn-canvas) rect, with the 8x8 calibration square outside it. */
 async function documentRegion(page) {
-  const rect = await page.evaluate((signal) => {
-    const fn = window.__docProbeSurface;
-    if (typeof fn !== 'function') return null;
-    const which = signal === 'canvas_pixel' ? 'canvas_pixel' : signal === 'shadow_text' ? 'shadow_text' : 'dom_text';
-    const surface = fn(which);
-    return surface && surface.rect ? surface.rect : null;
-  }, usableSignal).catch(() => null);
+  const rect = await page
+    .evaluate((signal) => {
+      const fn = window.__docProbeSurface;
+      if (typeof fn !== 'function') return null;
+      const which =
+        signal === 'canvas_pixel'
+          ? 'canvas_pixel'
+          : signal === 'shadow_text'
+            ? 'shadow_text'
+            : signal === 'screencast_ink'
+              ? 'screencast_ink'
+              : 'dom_text';
+      const surface = fn(which);
+      return surface && surface.rect ? surface.rect : null;
+    }, usableSignal)
+    .catch(() => null);
   if (!rect || !(rect.width > 0) || !(rect.height > 0)) return null;
+  if (usableSignal === 'screencast_ink') {
+    const selector = documentSelector || docSelector;
+    return { rect, selector };
+  }
   return { rect };
 }
 
@@ -615,6 +841,7 @@ async function loadResult(ctx, { navigationMs, readyMs, surface, witness, surfac
     clock_skew_acceptable: facts.clock_skew_acceptable,
     witness: facts.witness,
     surface_reason: surfaceReason || null,
+    screencast_ink_min_pixels: usableSignal === 'screencast_ink' ? screencastInkMinPixels : null,
     page_errors: ctx.errors,
   };
 }
@@ -623,10 +850,20 @@ async function runLoad(browser) {
   const ctx = await newPage(browser);
   await beginWitness(ctx);
   try {
-    // Watch the surface from before navigation. A ready signal that means
+    if (usableSignal === 'shadow_text' && !documentSelector) {
+      return await loadResult(ctx, {
+        navigationMs: 0,
+        readyMs: 0,
+        surface: { at_ms: null, chars: null, signal: SIGNAL_NAME.shadow_text },
+        witness: null,
+        surfaceReason: 'document_selector_required',
+      });
+    }
+  // Watch the surface from before navigation. A ready signal that means
     // "document text exists" would otherwise return with no pre-surface frame,
     // and a 1x1 stand-in cannot be compared with a screencast frame.
-    const watching = waitForSurfaceKeepingBaseline(ctx.page, ctx.recorder);
+    const watching =
+      usableSignal === 'screencast_ink' ? null : waitForSurfaceKeepingBaseline(ctx.page, ctx.recorder);
     const navT0 = Date.now();
     await ctx.page.goto(url, { waitUntil: 'domcontentloaded', timeout: timeoutMs });
     const navigationMs = Date.now() - navT0;
@@ -644,27 +881,45 @@ async function runLoad(browser) {
         });
       }
     }
-    const waited = await watching;
+    let surface;
+    let baseline = null;
+    let surfaceReason = null;
+    if (usableSignal === 'screencast_ink') {
+      const ink = await waitForScreencastInk(ctx.page, ctx.recorder);
+      baseline = ink.baseline;
+      surface = {
+        at_ms: ink.at_ms,
+        chars: ink.at_ms === null ? null : 1,
+        signal: ink.signal,
+      };
+      surfaceReason = ink.at_ms === null ? 'document_surface_absent' : null;
+    } else {
+      const waited = await watching;
+      surface = waited.surface;
+      baseline = waited.baseline;
+      surfaceReason =
+        surface.at_ms === null ? 'document surface did not appear before the probe timeout' : null;
+    }
     let witness = null;
-    if (waited.surface.at_ms !== null) {
+    if (surface.at_ms !== null) {
       const region = await documentRegion(ctx.page);
       witness = await witnessFrame(ctx.page, ctx.cdp, {
-        afterPageMs: waited.surface.at_ms,
-        baseline: waited.baseline || null,
+        afterPageMs: surface.at_ms,
+        baseline: baseline || null,
         windowMs: DEFAULT_WINDOW_MS,
         caretMask: true,
         settleMs: 0,
         recorder: ctx.recorder,
-        minPixels: waited.baseline ? 4 : 1,
+        minPixels: baseline ? 4 : 1,
         region,
       });
     }
     return await loadResult(ctx, {
       navigationMs,
       readyMs,
-      surface: waited.surface,
+      surface,
       witness,
-      surfaceReason: waited.surface.at_ms === null ? 'document surface did not appear before the probe timeout' : null,
+      surfaceReason,
     });
   } finally {
     await endWitness(ctx);
@@ -711,6 +966,19 @@ async function runScale(browser) {
   const ctx = await newPage(browser);
   await beginWitness(ctx);
   try {
+    if (usableSignal === 'shadow_text' && !documentSelector) {
+      return {
+        mode: 'scale',
+        driver: 'playwright',
+        url,
+        navigation_ms: 0,
+        ready_ms: 0,
+        usable_ms: null,
+        usable_signal: SIGNAL_NAME.shadow_text,
+        surface_reason: 'document_selector_required',
+        page_errors: ctx.errors,
+      };
+    }
     const navT0 = Date.now();
     await ctx.page.goto(url, { waitUntil: 'domcontentloaded', timeout: timeoutMs });
     const navigationMs = Date.now() - navT0;
@@ -723,7 +991,16 @@ async function runScale(browser) {
         surfaceReason = 'canvas has no readable 2d context; FCP is not a C14 sample';
       }
     }
-    const surface = surfaceReason ? { at_ms: null, chars: null, signal: SIGNAL_NAME.canvas_pixel } : await waitForSurface(ctx.page);
+    let surface;
+    if (surfaceReason) {
+      surface = { at_ms: null, chars: null, signal: SIGNAL_NAME.canvas_pixel };
+    } else if (usableSignal === 'screencast_ink') {
+      const ink = await waitForScreencastInk(ctx.page, ctx.recorder);
+      surface = { at_ms: ink.at_ms, chars: ink.at_ms === null ? null : 1, signal: ink.signal };
+      surfaceReason = ink.at_ms === null ? 'document_surface_absent' : null;
+    } else {
+      surface = await waitForSurface(ctx.page);
+    }
     const snap = await stateSnapshot(ctx.page);
     const paints = await paintEntries(ctx.page);
     let natural = null;

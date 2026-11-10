@@ -1,0 +1,11 @@
+<!doctype html>
+<html><body>
+<canvas class="doc-paragraph" width="3000" height="3000"></canvas>
+<script>
+var c = document.querySelector('canvas'), g = c.getContext('2d');
+g.fillStyle = '#fff'; g.fillRect(0,0,c.width,c.height);
+setTimeout(function(){
+  g.fillStyle = '#000';
+  g.fillRect(2999, 2999, 1, 1);
+}, 400);
+</script></body></html>

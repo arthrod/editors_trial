@@ -314,7 +314,11 @@ class FakeHostMeasurers(unittest.TestCase):
         if canvas.get("fcp_ms") is not None:
             self.assertGreater(canvas_samples[0], canvas["fcp_ms"], canvas)
 
-        shadow = self.probe("load", "b3_shadow.html", ["--usable-signal", "shadow_text"])
+        shadow = self.probe(
+            "load",
+            "b3_shadow.html",
+            ["--usable-signal", "shadow_text", "--document-selector", "p"],
+        )
         self.assertEqual(shadow.get("usable_signal"), "open_shadow_root_text", shadow)
         shadow_samples = bd.c11_measured_samples(shadow)
         self.assertGreaterEqual(shadow_samples[0], 400.0, shadow)
@@ -388,7 +392,7 @@ class FakeHostMeasurers(unittest.TestCase):
         payload = self.probe(
             "load",
             "b3_shadow_style.html",
-            ["--usable-signal", "shadow_text", "--timeout-ms", "20000"],
+            ["--usable-signal", "shadow_text", "--document-selector", "p", "--timeout-ms", "20000"],
         )
         at = payload.get("document_text_at_ms")
         self.assertIsNotNone(at, payload)
