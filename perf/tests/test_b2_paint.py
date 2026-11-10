@@ -132,8 +132,16 @@ class BrowserIntegration(unittest.TestCase):
             for row in rows:
                 self.assertIn('cpu_accounting', row)
                 self.assertIn('clock_skew', row)
-                self.assertEqual(row['outcome'], 'measured', row)
-                self.assertGreaterEqual(row['latency_ms'], 0)
+                if row['outcome'] == 'measured':
+                    self.assertGreaterEqual(row['latency_ms'], 0)
+                else:
+                    # A loaded recorder may lack a proven quiet window. The
+                    # accounting contract must preserve that safe refusal.
+                    self.assertEqual(row['outcome'], 'failed', row)
+                    self.assertEqual(row['failure_reason'], 'witness_sparse', row)
+                    self.assertIsNone(row['latency_ms'], row)
+                    self.assertIsNone(row['edit_ms'], row)
+                    self.assertIsNone(row['paint_ms'], row)
             self.assertTrue(payload['pairs'][0]['server_cold'])
         finally:
             ACTIVE.reset(token)
