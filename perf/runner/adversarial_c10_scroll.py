@@ -507,6 +507,17 @@ def _write_outcome(
     seed: int,
 ) -> Path:
     """Write the C10 attempt: a measured trial, or a refusal with a reason."""
+    diagnostic = dict(diagnostic)
+    intervals = [(entry.get("record", {}).get("witness") or {}).get("clock_check", {}).get("frame_interval_ms")
+                 for entry in samples]
+    if intervals and all(_number(value) and value > 0 for value in intervals):
+        diagnostic["frame_intervals_ms"] = intervals
+        if len(set(intervals)) == 1:
+            diagnostic["frame_interval_ms"] = intervals[0]
+    if outcome == "measured" and "frame_interval_ms" not in diagnostic:
+        outcome = "failed"
+        reason = "frame_interval_inconsistent" if intervals and len(set(intervals)) > 1 else "frame_interval_unavailable"
+        samples = []
     if outcome == "measured":
         assert_visible_evidence("C10", VISIBLE_EVIDENCE)
         values = [entry["value"] for entry in samples]
@@ -544,6 +555,17 @@ def _write_outcome(
             publication_block_reason="the trial is not a measured distribution: %s" % (outcome,),
             diagnostic=diagnostic,
         )
+    interval = diagnostic.get("frame_interval_ms")
+    if outcome == "measured":
+        trial["refusal_code"] = None
+        if _number(interval) and interval > 0:
+            trial["sub_frame_samples"] = [entry["value"] < interval for entry in samples]
+    else:
+        token = str(reason).split(":", 1)[0]
+        trial["refusal_code"] = (token if token in ("cpu_throttled", "host_build")
+                                 else outcome if outcome in ("not_run", "not_applicable", "unsupported", "unverified")
+                                 else "crash" if token == "scroll_probe"
+                                 else "paint_witness_unavailable")
     validate_trial(trial)
     return write_attempt(
         attempt_dir,
@@ -836,6 +858,9 @@ def _main() -> int:
         diagnostic=diagnostic,
         seed=seed,
     )
+    written = json.loads(path.read_text())
+    if written["outcome"] != "measured":
+        outcome, reason, samples = written["outcome"], written.get("failure_reason"), []
     values = [entry["value"] for entry in samples]
     if values:
         publishable, block_reason = scroll_publishability(env, None)

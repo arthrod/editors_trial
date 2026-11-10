@@ -636,7 +636,7 @@ class ScrollProbeTests(unittest.TestCase):
 class ScrollRunnerTests(unittest.TestCase):
     """The runner, end to end, against the fake hosts."""
 
-    def run_runner(self, *, page: str, extra=(), expect_failure: bool = False) -> dict:
+    def run_runner(self, *, page: str, extra=(), expect_failure: bool = False, fake_accounting: bool = False) -> dict:
         out = Path(tempfile.mkdtemp(prefix="b5-c10-"))
         self.addCleanup(shutil.rmtree, str(out), True)
         cmd = [
@@ -656,6 +656,17 @@ class ScrollRunnerTests(unittest.TestCase):
             PUBLISH_PROFILE,
             *[str(value) for value in extra],
         ]
+        if fake_accounting:
+            # B1 exposes this injection point; reuse its own deterministic cgroup fake.
+            bootstrap = (
+                "from functools import partial; from itertools import count; "
+                "from perf.tests.test_browser_throttle import snapshot; "
+                "from perf.runner import adversarial_c10_scroll as lane; "
+                "ticks=count(100); lane.BrowserRun=partial(lane.BrowserRun, "
+                "accounting_reader=lambda: snapshot(ticks=next(ticks))); "
+                "raise SystemExit(lane.main())"
+            )
+            cmd = [sys.executable, "-c", bootstrap, *cmd[2:]]
         proc = subprocess.run(
             cmd, capture_output=True, text=True, timeout=TIMEOUT_S, cwd=str(REPO)
         )
@@ -780,7 +791,7 @@ class ScrollRunnerTests(unittest.TestCase):
         )
 
     def test_m7_shared_guarded_is_a_host_class_the_lane_accepts(self):
-        """``--host-class shared_guarded`` is a lane choice, recorded with dedicated_publish.
+        """``shared_guarded`` propagates with dedicated_publish and a fake cgroup.
 
         B7 adds the class to ``perf/schema.py``. This branch's schema may
         still reject it; the lane accepts it anyway and records it.
@@ -789,6 +800,7 @@ class ScrollRunnerTests(unittest.TestCase):
         result = self.run_runner(
             page="fits.html",
             extra=["--host-class", "shared_guarded"],
+            fake_accounting=True,
         )
         env = result["trial"].get("environment") or {}
         self.assertEqual(
@@ -948,7 +960,7 @@ class ScrollUnitTests(unittest.TestCase):
             attempt_dir=out / "attempts",
             outcome="measured",
             reason=None,
-            samples=[{"value": 12.5}, {"value": 13.5}],
+            samples=[{"value": value, "record": {"witness": _witness()}} for value in (12.5, 13.5)],
             env=env,
             editor_id="plate",
             lane="browser_visible",
@@ -984,7 +996,7 @@ class ScrollUnitTests(unittest.TestCase):
             attempt_dir=out / "attempts",
             outcome="measured",
             reason=None,
-            samples=[{"value": 12.5}],
+            samples=[{"value": 12.5, "record": {"witness": _witness()}}],
             env=env,
             editor_id="plate",
             lane="browser_visible",
