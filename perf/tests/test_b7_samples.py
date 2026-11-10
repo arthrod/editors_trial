@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import pytest
 from functools import partial
 from pathlib import Path
 
@@ -207,6 +208,7 @@ class PublicationRepetitions(unittest.TestCase):
             sys.argv = original
 
 
+@pytest.mark.usefixtures("fs")
 class E2Cells(unittest.TestCase):
     def test_nine_kept_samples_not_enough(self):
         root = Path(tempfile.mkdtemp())
@@ -239,8 +241,12 @@ class E2Cells(unittest.TestCase):
             _write_trial(primary, rep, "plate", "C07", outcome="measured", samples=[20.0])
         for rep in range(9):
             _write_trial(reproduction, rep, "plate", "C07", outcome="measured", samples=[20.0])
-        _write_summary(primary, "plate", 30)
-        _write_summary(reproduction, "plate", 30)
+        for seed, root in enumerate((primary, reproduction)):
+            (root / "summary.json").write_text(json.dumps({
+                "run_id": str(seed), "seed": seed,
+                "execution_profile": "dedicated_publish", "publishable": True,
+                "order": [[i, "plate"] for i in range(30)],
+            }))
         text = e2_cells.publish_dual_runs(primary, reproduction, "plate", "C07", scheduled=30)
         self.assertIn("not enough samples", text)
 

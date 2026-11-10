@@ -151,10 +151,19 @@ def build_run_cell(run_directory: Path, editor_id: str, criterion_id: str, *, sc
     blocked, block_reason = _run_blocks_publication(summary)
     kept, raw, sub_frame, intervals = [], [], [], []
     refusals: Counter[str] = Counter()
-    refused_launches = {}
+    # A sample describes the whole launch; a failed sibling criterion does not
+    # invalidate measurements from the other criteria in that launch.
+    refused_launches = {
+        path.name: "quarantined"
+        for path in (run_directory / "rejected-evidence").glob("*")
+        if path.is_dir() and path.name.endswith("-" + editor_id)
+    }
     for path, row in _read_rows(run_directory / "samples"):
-        if row.get("editor_id") == editor_id and (row.get("outcome") in _REFUSAL_OUTCOMES or row.get("publishable") is False):
-            refused_launches[path.stem] = row.get("failure_reason") or row.get("publication_block_reason") or row.get("outcome") or "refused"
+        reason = row.get("failure_reason") or row.get("publication_block_reason") or ""
+        families = {part.strip().split(":", 1)[0] for part in reason.split(";")}
+        run_refusal = families & {"cpu_throttled", "cpu_accounting_unavailable", "host_build"}
+        if row.get("editor_id") == editor_id and (run_refusal or row.get("rejected_evidence_directory")):
+            refused_launches[path.stem] = reason or "quarantined"
     for reason in refused_launches.values():
         refusals[str(reason).split(":", 1)[0]] += 1
     seen = set()
@@ -176,11 +185,15 @@ def build_run_cell(run_directory: Path, editor_id: str, criterion_id: str, *, sc
             raw.append(samples)
             kept.append(percentile(samples, 50))
             flags = trial.get("sub_frame_samples", (trial.get("diagnostic") or {}).get("sub_frame_samples"))
-            if flags is not None and len(flags) == len(samples) and all(isinstance(x, bool) for x in flags):
-                sub_frame.extend(flags)
             interval = (trial.get("diagnostic") or {}).get("frame_interval_ms")
             if _number(interval) and interval > 0:
                 intervals.append(float(interval))
+            # Only recorded flags authorize a share. Each launch contributes
+            # the flag of its median value, using its own witnessed interval.
+            if (isinstance(flags, list) and len(flags) == len(samples)
+                    and all(isinstance(x, bool) for x in flags)
+                    and _number(interval) and interval > 0):
+                sub_frame.append(kept[-1] < interval)
         elif outcome in _REFUSAL_OUTCOMES:
             reason = trial.get("failure_reason") or trial.get("publication_block_reason") or outcome
             refusals[str(reason).split(":", 1)[0]] += 1
@@ -195,15 +208,13 @@ def build_run_cell(run_directory: Path, editor_id: str, criterion_id: str, *, sc
 
 
 def _sub_frame_share(cell: dict) -> float | None:
-    if not cell.get("sub_frame_tracked"):
-        return None
     flags = cell.get("sub_frame") or []
-    if not flags:
-        return 0.0
+    if not flags or len(flags) != len(cell.get("kept_ms", [])):
+        return None
     return sum(1 for flag in flags if flag) / len(flags)
 
 
-def _format_p90(p90: float, frame_interval: float) -> str:
+def _format_p90(cell: dict, p90: float, frame_interval: float) -> str:
     if p90 < frame_interval:
         return f"p90 < 1 frame ({frame_interval:g} ms)"
     return f"p90 {p90:.1f} ms"
@@ -246,32 +257,20 @@ def publication_text(cell: dict) -> str:
     median = stats["median"]
     p90 = stats["p90"]
     share = _sub_frame_share(cell)
-    share_text = f"; {share * 100:.0f}% sub-frame samples" if share is not None else ""
-    return f"{_format_median(median, frame_interval)}{share_text}; {_format_p90(p90, frame_interval)}"
+    share_text = f"; {share * 100:.0f}% sub-frame launches" if share is not None else ""
+    if median < frame_interval:
+        return f"< 1 frame ({frame_interval:g} ms){share_text}; {_format_p90(cell, p90, frame_interval)}"
+    return f"{median:.1f} ms{share_text}; {_format_p90(cell, p90, frame_interval)}"
 
 
 def publish_dual_runs(primary: Path, reproduction: Path, editor_id: str, criterion_id: str, *, scheduled: int = 30) -> str:
-    primary_cell = build_run_cell(primary, editor_id, criterion_id, scheduled=scheduled)
-    reproduction_cell = build_run_cell(reproduction, editor_id, criterion_id, scheduled=scheduled)
-    primary_text = publication_text(primary_cell)
-    reproduction_text = publication_text(reproduction_cell)
-    if "not enough samples" in primary_text or "not enough samples" in reproduction_text:
-        return reproduction_text if "not enough" in reproduction_text else primary_text
-    if primary_text.startswith("run not publishable") or reproduction_text.startswith("run not publishable"):
-        return primary_text if primary_text.startswith("run not publishable") else reproduction_text
-    if primary_text.startswith("no witnessed frame interval") or reproduction_text.startswith("no witnessed frame interval"):
-        return primary_text if primary_text.startswith("no witnessed") else reproduction_text
+    """Compatibility entry point; all publication gates live in the report path.
 
-    frame_interval = primary_cell.get("frame_interval_ms") or reproduction_cell.get("frame_interval_ms")
-    if frame_interval is None:
-        return "no witnessed frame interval"
+    ``scheduled`` remains accepted for callers, but the run summaries are the
+    authoritative schedule. Missing/corrupt summaries raise before publication.
+    """
+    from build.perf_e2_tables import load_run, check_comparable, _cell_text
 
-    primary_median = _median_for_agreement(primary_cell)
-    reproduction_median = _median_for_agreement(reproduction_cell)
-    if primary_median is None or reproduction_median is None:
-        return primary_text
-    if not reproduced(primary_median, reproduction_median, abs_tol=frame_interval):
-        p_fmt = _format_median(primary_cell["stats"]["median"], frame_interval)
-        r_fmt = _format_median(reproduction_cell["stats"]["median"], frame_interval)
-        return f"not reproduced (primary {p_fmt}; reproduction {r_fmt})"
-    return primary_text
+    first, second = load_run(primary), load_run(reproduction)
+    check_comparable(first, second)
+    return _cell_text({}, first.path, second.path, editor_id, criterion_id)

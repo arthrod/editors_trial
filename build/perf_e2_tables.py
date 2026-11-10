@@ -19,7 +19,7 @@ if str(ROOT) not in sys.path:
 from perf.analysis import e2_cells
 from perf.scenarios.catalog import scenarios
 
-from perf_e_tables import DISPLAY, REL_TOL, _SAME_HOST, _pct, reproduced
+from build.perf_e_tables import DISPLAY, REL_TOL, _SAME_HOST, _pct, reproduced
 
 E2_CRITERIA = [f"C{i:02d}" for i in range(3, 16)]
 SCHEDULED = 30

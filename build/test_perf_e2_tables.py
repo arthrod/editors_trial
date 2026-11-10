@@ -450,3 +450,104 @@ def test_recorded_dates_and_accounting_fallback(runs):
     facts = E2.facts_from_runs(*runs)
     assert facts['perf.e2.date'] == '2026-11-01'
     assert '3 of 80' in facts['perf.e2.host_note']
+
+
+def sample_row(root, rep, reason):
+    directory = root / 'cells' / f'{rep:04d}-plate'
+    samples = root / 'samples'
+    samples.mkdir(exist_ok=True)
+    (samples / f'{rep:04d}-plate.json').write_text(json.dumps(dict(
+        outcome='failed', non_failure_outcomes=[], failure_reason=reason,
+        exit_code=0, cell_directory=str(directory), repetition=rep, editor_id='plate')))
+
+
+def test_failed_sibling_keeps_measured_criterion(runs):
+    for root in runs:
+        for rep in range(10):
+            _write_trial(root, rep, 'plate', 'C04', outcome='failed',
+                         failure_reason='search_timeout: selector')
+            sample_row(root, rep, 'search_timeout: selector')
+    facts = E2.facts_from_runs(*runs)
+    assert facts['perf.e2.plate.C07.reproduced'] is True
+    assert facts['perf.e2.plate.C07.primary']['stats']['n'] == 10
+    assert '100.0 ms' in facts['perf.e2.table.C07']
+    assert 'n = 0 of 40' in facts['perf.e2.table.C04']
+    assert 'search_timeout: 10' in facts['perf.e2.table.C04']
+
+
+@pytest.mark.parametrize('reason', ['cpu_throttled', 'cpu_accounting_unavailable', 'host_build: dev_server'])
+def test_launch_wide_refusal_still_vetoes_measured_trials(runs, reason):
+    for root in runs:
+        sample_row(root, 9, reason)
+    assert 'n = 9 of 40' in table(runs)
+
+
+def test_quarantined_launch_vetoes_leftover_cells(runs):
+    for root in runs:
+        (root / 'rejected-evidence/0009-plate/cell').mkdir(parents=True)
+    assert 'n = 9 of 40' in table(runs)
+
+
+@pytest.mark.parametrize('bad_summary', [None, '{not json'])
+def test_dual_api_requires_readable_summaries(runs, bad_summary):
+    path = runs[1] / 'summary.json'
+    if bad_summary is None:
+        path.unlink()
+    else:
+        path.write_text(bad_summary)
+    with pytest.raises((FileNotFoundError, json.JSONDecodeError)):
+        E2.e2_cells.publish_dual_runs(*runs, 'plate', 'C07')
+
+
+@pytest.mark.parametrize('short_primary', [False, True])
+def test_dual_api_reports_blocked_reproduction(runs, short_primary):
+    if short_primary:
+        fill(runs[0], [100], n=9)
+    change_summary(runs[1], publishable=False, publication_block_reason='repos_modified')
+    text = E2.e2_cells.publish_dual_runs(*runs, 'plate', 'C07')
+    assert 'second run unpublishable: repos_modified' in text
+    assert '100.0 ms' not in text
+    if short_primary:
+        assert 'n = 9 of 40' in text
+
+
+@pytest.mark.parametrize('left,right,frames,expected', [
+    (1, 25, (16.7, 16.7), False), (100, 140, (50, 16.7), True),
+    (100, 160, (50, 16.7), False), (100, 115, (None, None), False),
+])
+def test_dual_api_uses_same_raw_median_gate(runs, left, right, frames, expected):
+    for root, value, frame in zip(runs, (left, right), frames):
+        fill(root, [value], frame)
+    for pair in (runs, runs[::-1]):
+        facts = E2.facts_from_runs(*pair)
+        text = E2.e2_cells.publish_dual_runs(*pair, 'plate', 'C07')
+        assert facts['perf.e2.plate.C07.reproduced'] is expected
+        assert text in facts['perf.e2.table.C07']
+        assert ('not reproduced' in text) is not expected
+
+
+def test_partial_sub_frame_flags_do_not_publish_subset_share(runs):
+    for root in runs:
+        for rep in range(5):
+            _write_trial(root, rep, 'plate', 'C07', outcome='measured',
+                         samples=[8], sub_frame_samples=[True])
+    assert '% sub-frame' not in table(runs)
+
+
+def test_sub_frame_share_counts_launch_medians_not_clicks(runs):
+    for root in runs:
+        for rep in range(10):
+            _write_trial(root, rep, 'plate', 'C07', outcome='measured',
+                         samples=[8.5, 20, 30], sub_frame_samples=[True, False, False])
+    assert '0% sub-frame launches' in table(runs)
+    for root in runs:
+        _write_trial(root, 0, 'plate', 'C07', outcome='measured',
+                     samples=[8]*100, sub_frame_samples=[True]*100)
+    assert '10% sub-frame launches' in table(runs)
+
+
+def test_quarantine_refusals_are_scoped_to_editor(runs):
+    (runs[0] / 'rejected-evidence/0009-docen/cell').mkdir(parents=True)
+    cell = E2.e2_cells.build_run_cell(runs[0], 'plate', 'C07')
+    assert cell['stats']['n'] == 10
+    assert cell['refusals'] == {}
