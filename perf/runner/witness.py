@@ -161,9 +161,9 @@ The named reasons: ``record_not_a_mapping``, ``not_a_witness_record``,
 ``clock_check_evidence_missing``, ``clock_check_evidence_contradicted``,
 ``clock_check_schema_invalid``, ``witness_schema_invalid``,
 ``not_document_scoped``, ``no_outcome``, ``unknown_outcome``, ``no_frame``,
-``nonfinite_time`` (a caller-supplied bound or skew that is not a
-finite number inside the supported numeric domain ``|x| <= 1e15``,
-or a non-positive bound), ``frame_before_arm``,
+``nonfinite_time`` (a nonfinite or non-positive caller-supplied bound,
+or a skew that is not a finite number inside the supported numeric
+domain ``|x| <= 1e15``), ``frame_before_arm``,
 ``no_frame_after_marker``, ``frame_counts_inconsistent``,
 ``no_pixel_evidence``, ``pixel_evidence_contradicted``,
 ``caret_mask_failed``,

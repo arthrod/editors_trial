@@ -622,7 +622,18 @@ export async function pageClockOffset(page, { samples = 5, sampleGapMs = 5 } = {
 /** Inject the caret mask; the record says whether it went in. */
 export async function injectCaretMask(page) {
   try {
-    await page.addStyleTag({ content: CARET_MASK_CSS });
+    await page.evaluate((css) => {
+      // The DOM is the cache: navigation/removal requires a fresh mask, and
+      // concurrent callers execute this check-and-insert atomically.
+      const selector = 'style[data-perf-caret-mask]';
+      let style = document.querySelector(selector);
+      if (!style) {
+        style = document.createElement('style');
+        style.setAttribute('data-perf-caret-mask', '');
+        (document.head || document.documentElement).appendChild(style);
+      }
+      if (style.textContent !== css) style.textContent = css;
+    }, CARET_MASK_CSS);
     return { caret_masked: true, caret_mask_css: CARET_MASK_CSS, caret_mask_error: null };
   } catch (error) {
     return {
