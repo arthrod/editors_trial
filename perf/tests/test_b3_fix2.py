@@ -71,6 +71,8 @@ class ReviewRulesRound2(unittest.TestCase):
     """Pure readers. No browser."""
 
     def test_c14_witness_refusal_keeps_the_attempt_facts(self):
+        from perf.tests.witness_records import publishable_witness_record
+
         probe = {
             "mode": "scale",
             "usable_ms": 100,
@@ -78,10 +80,13 @@ class ReviewRulesRound2(unittest.TestCase):
             "frames_after_usable": 2,
             "mechanism": "document_damage",
             "presented_frame_ms": 700,
-            "witness": {"outcome": "witnessed", "clock_skew_acceptable": False},
+            "witness": publishable_witness_record(700, 100, clock_check={
+                "acceptable": False, "reason": "anchor_lag_above_bound",
+            }),
         }
         with self.assertRaises(bd.ProbeRefusal) as caught:
             bd.c14_measured_sample(probe)
+        self.assertEqual(caught.exception.reason, "witness refused: clock_check_not_acceptable")
         self.assertEqual(caught.exception.facts.get("usable_ms"), 100, caught.exception.facts)
         self.assertEqual(caught.exception.facts.get("frames_total"), 5)
         self.assertEqual(caught.exception.facts.get("frames_after_usable"), 2)
