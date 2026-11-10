@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>b3 shell then document</title>
+    <style>
+      body { margin: 0; background: #ffffff; color: #111111; font: 18px/1.4 sans-serif; }
+      #shell { padding: 16px 20px; background: #d9e4f5; }
+      #doc { padding: 24px 20px; }
+    </style>
+  </head>
+  <body>
+    <div id="shell">Shell painted</div>
+    <div id="doc"></div>
+    <script>
+      // The shell is in the first HTML, so first-contentful-paint is the shell.
+      // The document paragraph arrives 400 ms later. C11 must not report the shell.
+      window.__b3 = { shell_ms: performance.now(), document_ms: null };
+      setTimeout(function () {
+        var p = document.createElement('p');
+        p.className = 'doc-paragraph';
+        p.textContent = 'The document text arrives four hundred milliseconds after the shell.';
+        document.getElementById('doc').appendChild(p);
+        window.__b3.document_ms = performance.now();
+      }, 400);
+    </script>
+  </body>
+</html>

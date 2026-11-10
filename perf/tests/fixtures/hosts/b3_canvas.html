@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>b3 canvas document</title>
+    <style>
+      body { margin: 0; background: #ffffff; color: #111111; font: 18px/1.4 sans-serif; }
+      #shell { padding: 16px 20px; background: #f3e2c4; }
+      canvas { display: block; margin: 16px; background: #ffffff; }
+    </style>
+  </head>
+  <body>
+    <div id="shell">Canvas shell</div>
+    <canvas id="page" class="doc-paragraph" width="480" height="200"></canvas>
+    <script>
+      // The canvas element is blank until 400 ms. A textContent check never sees
+      // the document; the disclosed signal is a non-blank canvas pixel.
+      window.__b3 = { shell_ms: performance.now(), drawn_ms: null };
+      var canvas = document.getElementById('page');
+      var g = canvas.getContext('2d');
+      g.fillStyle = '#ffffff';
+      g.fillRect(0, 0, canvas.width, canvas.height);
+      setTimeout(function () {
+        g.fillStyle = '#123456';
+        g.fillRect(0, 0, canvas.width, canvas.height);
+        g.fillStyle = '#ffffff';
+        g.font = '28px sans-serif';
+        g.fillText('Document drawn on the canvas', 24, 110);
+        window.__b3.drawn_ms = performance.now();
+      }, 400);
+    </script>
+  </body>
+</html>

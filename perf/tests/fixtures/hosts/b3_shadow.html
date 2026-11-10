@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>b3 open shadow document</title>
+    <style>
+      body { margin: 0; background: #ffffff; color: #111111; font: 18px/1.4 sans-serif; }
+      #shell { padding: 16px 20px; background: #d9f0df; }
+      #host { display: block; padding: 16px 20px; }
+    </style>
+  </head>
+  <body>
+    <div id="shell">Shadow shell</div>
+    <div id="host" class="doc-paragraph"></div>
+    <script>
+      // Light-DOM textContent of #host stays empty. The document text is added
+      // to an open shadow root 400 ms after the shell.
+      window.__b3 = { shell_ms: performance.now(), drawn_ms: null };
+      var root = document.getElementById('host').attachShadow({ mode: 'open' });
+      setTimeout(function () {
+        var p = document.createElement('p');
+        p.textContent = 'Shadow document text is drawn inside the open root.';
+        root.appendChild(p);
+        window.__b3.drawn_ms = performance.now();
+      }, 400);
+    </script>
+  </body>
+</html>
