@@ -128,6 +128,17 @@ def _entry(cid="C07", **overrides):
         "notes": [],
     }
     entry.update(overrides)
+    if "observations" not in overrides:
+        # Keep all three click observations, including when only one is retained.
+        # Explicit/invalid evidence stays untouched for the refusal tests.
+        for sample, observation in zip(entry["samples_ms"], entry["observations"]):
+            if isinstance(sample, bool) or not isinstance(sample, (int, float)) or not math.isfinite(sample) or sample <= 0:
+                continue
+            arm = observation["witness"]["after_page_ms"]
+            observation.update(
+                frame_ms=arm + sample, sample_ms=sample,
+                witness=publishable_witness_record(arm + sample, arm),
+            )
     for index, observation in enumerate(entry["observations"]):
         observation.setdefault("observation_id", f"observation-{index}")
         if isinstance(observation.get("witness"), dict):
@@ -267,15 +278,17 @@ class CriteriaPayloadHonesty(unittest.TestCase):
                 "caret_on_clicked_line": True,
             },
         ]
-        with self.assertRaises(ValueError):
-            assert_payload_shape(_payload({"C07": _entry(observations=observations)}))
-        observations[1]["caret_on_clicked_line"] = True
         for obs in observations:
             frame = float(obs["frame_ms"])
             obs["input_ms"] = frame
             obs["frame_ms"] = frame + 18.5
             obs["sample_ms"] = 18.5
             obs["witness"] = publishable_witness_record(frame + 18.5, frame)
+        with self.assertRaisesRegex(ValueError, "caret not on the clicked line"):
+            assert_payload_shape(_payload({"C07": _entry(
+                observations=observations, samples_ms=[18.5, 18.5, 18.5],
+            )}))
+        observations[1]["caret_on_clicked_line"] = True
         assert_payload_shape(
             _payload({"C07": _entry(observations=observations, samples_ms=[18.5, 18.5, 18.5])})
         )
@@ -389,3 +402,21 @@ class CriteriaSmoke(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_default_observations_match_requested_samples():
+    from perf.runner.witness import validate_witness
+
+    for samples in ([8.5], [8.5, 20.0, 30.0]):
+        entry = _entry(samples_ms=samples)
+        assert len(entry["observations"]) == 3
+        for sample, observation in zip(samples, entry["observations"]):
+            witness = observation["witness"]
+            assert validate_witness(witness)["ok"]
+            assert observation["sample_ms"] == sample
+            assert round(witness["frame_page_ms"] - witness["after_page_ms"], 3) == sample
+
+    explicit = [{"deliberately": "invalid"}]
+    assert _entry(samples_ms=[20.0], observations=explicit)["observations"] is explicit
+    for sample in (0, -1, float("inf")):
+        assert _entry(samples_ms=[sample])["samples_ms"][0] == sample

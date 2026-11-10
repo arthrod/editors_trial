@@ -84,7 +84,7 @@ class WriterGuards(unittest.TestCase):
     def test_measured_visible_requires_frame_interval(self):
         entry = _entry(samples_ms=[20.0])
         payload = _payload({"C07": entry}, witness={"mechanism": PAINT_MECHANISM, "frames_seen": 5})
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(ValueError, "frame_interval_ms"):
             assert_payload_shape(payload)
 
     def test_failed_correctness_carries_no_samples(self):
