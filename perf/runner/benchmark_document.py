@@ -998,6 +998,9 @@ def _write_measured(
         publication_block_reason=block,
         diagnostic=diagnostic,
     )
+    if criterion_id == "C11":
+        checks = diagnostic.get("samples") or []
+        trial["content_verified"] = bool(checks) and all(d.get("content_verified") is True for d in checks)
     validate_trial(trial)
     path = write_attempt(
         attempt_dir,
@@ -1104,17 +1107,39 @@ def _in_sample_bracket(editor_id: str, criterion: str, produce):
     return payload
 
 
+def corpus_opening_text(corpus_path: Path) -> str:
+    """Reuse the corpus correctness extractor; up to eight opening words."""
+    import zipfile
+    from perf.fixtures.docx_workload import docx_paragraph_texts
+    with zipfile.ZipFile(corpus_path) as archive:
+        paragraphs = docx_paragraph_texts(archive.read("word/document.xml"))
+    # Legacy micro fixtures begin with space-only paragraphs.
+    return next((" ".join(p.split()[:8]) for p in paragraphs if p.strip()), "")
+
+
 def _run_load_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path: Path, count: int) -> tuple:
-    """C11: one fresh browser per sample; sample = navigation -> FCP entry."""
-    cmd = _probe_cmd(mode="load", target=target, cfg=cfg, corpus_path=fixture_path, extra=[])
+    """C11: fresh browser, corpus content check, then document-frame timing."""
+    expected = corpus_opening_text(fixture_path)
+    if not expected:
+        raise ProbeRefusal("document_content_expectation_absent")
+    cmd = _probe_cmd(mode="load", target=target, cfg=cfg, corpus_path=fixture_path,
+                     extra=["--expected-opening-text", expected])
     samples = []
     diagnostics = []
     for _ in range(count):
         payload = _in_sample_bracket(editor_id, "C11", lambda: _run_probe(cmd, editor_id=editor_id))
+        if payload.get("content_verified") is not True:
+            if payload.get("surface_reason") in ("document_content_absent", "document_content_mismatch"):
+                raise ProbeRefusal(payload["surface_reason"])
+            if payload.get("content_text_accessible") is not False:
+                raise ProbeRefusal("document_content_unverified")
         values = c11_measured_samples(payload)
         samples.extend(values)
         diagnostics.append(
             {
+                "content_verified": payload.get("content_verified") is True,
+                "document_text": payload.get("document_text"),
+                "expected_opening_text": expected,
                 "fcp_ms": payload.get("fcp_ms"),
                 "first_element_ms": payload.get("first_element_ms"),
                 "first_element_delta_from_fcp_ms": payload.get("first_element_delta_from_fcp_ms"),
@@ -1452,6 +1477,7 @@ def _main() -> int:
                         lane=lane,
                         env=env,
                         samples=samples,
+                        doc_output_text=diagnostics[-1].get("document_text"),
                         diagnostic={
                             "suite": "document",
                             "clock": {
@@ -1478,6 +1504,7 @@ def _main() -> int:
                             "editor_id": editor_id,
                             "outcome": "measured",
                             "median_ms": trial["summary_stats"]["median"],
+                            "content_verified": trial["content_verified"],
                             "first_element_median_ms": _median_optional([d.get("first_element_ms") for d in diagnostics]),
                             "document_text_median_ms": _median_optional([d.get("document_text_at_ms") for d in diagnostics]),
                             "page_count": diagnostics[-1].get("page_count"),

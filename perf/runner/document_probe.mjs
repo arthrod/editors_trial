@@ -439,6 +439,12 @@ const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, document
   // Style and script source are not either. Hidden boxes are not paint.
   const elementText = (el) => {
     if (!paintedBox(el) || isChrome(el)) return '';
+    if (el.tagName === 'IFRAME') {
+      // The frame is the scoped document region; read its same-origin body,
+      // never the surrounding host's toolbar or shell.
+      try { return el.contentDocument?.body ? elementText(el.contentDocument.body) : ''; }
+      catch { return ''; }
+    }
     const parts = [];
     const walk = (node) => {
       if (!node) return;
@@ -534,7 +540,11 @@ const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, document
       n += 1;
     };
     const chunks = [];
+    const contentChunks = [];
+    let canvasPresent = false;
     const take = (el, text) => {
+      canvasPresent ||= el.tagName === 'CANVAS' || Boolean(el.querySelector('canvas'));
+      contentChunks.push(elementText(el));
       if (!text) return;
       chunks.push(text);
       // The document element's own rect. Never the shadow host's box.
@@ -581,7 +591,10 @@ const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, document
       : null;
     state.documentSelector = selector || null;
     state.surfaceText = text;
-    return { text, chars: text.length, rect, selector: selector || null };
+    return {
+      text, chars: text.length, rect, selector: selector || null,
+      documentText: contentChunks.join(' ').replace(/\s+/g, ' ').trim(), canvasPresent,
+    };
   };
   const tick = () => {
     if (state.firstElementAt === null) {
@@ -673,7 +686,7 @@ async function stateSnapshot(page) {
               ? 'screencast_ink'
               : 'dom_text';
       const surface = typeof window.__docProbeSurface === 'function' ? window.__docProbeSurface(which) : null;
-      const docText = surface && surface.text ? surface.text : '';
+      const docText = surface ? surface.documentText || '' : '';
       return {
         first_element_ms: s.firstElementAt === null || s.firstElementAt === undefined ? null : s.firstElementAt,
         first_element_info: s.firstElementInfo || null,
@@ -684,6 +697,7 @@ async function stateSnapshot(page) {
         page_text_chars: pageEl ? (pageEl.textContent || '').trim().length : null,
         document_text_chars: docText.length,
         document_text: docText.slice(0, 4000),
+        content_text_accessible: Boolean(docText) || !surface?.canvasPresent,
         document_selector: (surface && surface.selector) || s.documentSelector || null,
         surface_text: docText.slice(0, 4000),
         time_origin_ms: performance.timeOrigin,
@@ -811,7 +825,15 @@ async function loadResult(ctx, { navigationMs, readyMs, surface, witness, surfac
   const snap = await stateSnapshot(ctx.page);
   const fcp = fcpFrom(paints);
   const facts = witnessFacts(witness);
-  const at = surface && surface.at_ms !== null && surface.at_ms !== undefined ? surface.at_ms : null;
+  // Content qualifies the settled surface; it must not move the pixel clock.
+  // Canvas-only regions have no text oracle and remain explicitly unverified.
+  const expected = String(opt['expected-opening-text'] || '').replace(/\s+/gu, ' ').trim();
+  const actual = snap.document_text.replace(/\s+/gu, ' ').trim();
+  const contentVerified = Boolean(expected && actual.includes(expected));
+  const contentReason = !actual && snap.content_text_accessible
+    ? 'document_content_absent'
+    : actual && expected && !contentVerified ? 'document_content_mismatch' : null;
+  const at = !contentReason && surface && surface.at_ms !== null && surface.at_ms !== undefined ? surface.at_ms : null;
   return {
     mode: 'load',
     driver: 'playwright',
@@ -842,7 +864,10 @@ async function loadResult(ctx, { navigationMs, readyMs, surface, witness, surfac
     clock_skew_ms: facts.clock_skew_ms,
     clock_skew_acceptable: facts.clock_skew_acceptable,
     witness: facts.witness,
-    surface_reason: surfaceReason || null,
+    surface_reason: surfaceReason || contentReason || null,
+    content_verified: contentVerified,
+    content_text_accessible: snap.content_text_accessible,
+    expected_opening_text: expected || null,
     screencast_ink_match_tolerance: usableSignal === 'screencast_ink' ? SETTLED_MATCH_TOLERANCE : null,
     screencast_ink_inset_css_px: usableSignal === 'screencast_ink' ? 4 : null,
     screencast_ink_min_pixels: usableSignal === 'screencast_ink' ? screencastInkMinPixels : null,
