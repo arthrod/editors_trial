@@ -451,7 +451,8 @@ def write_support_matrix(summary, out_root):
         "suite": summary.get("suite", "criteria_input"),
         "criteria": build_support_matrix(summary),
     }
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    from perf.runner.browser_run import write_json
+    write_json(path, payload)
     return path
 
 
