@@ -374,11 +374,9 @@ function pageScrollCommand(command) {
   /**
    * The element that shows the document's content inside the container: the
    * first element that carries text, else the container's first child, else
-   * the container. Its box moves when the document scrolls — that is the
-   * evidence that the *document* scrolled and not merely that a frame
-   * changed.
+   * the container.
    */
-  const contentProbe = (el, isViewport) => {
+  const contentProbeElement = (el, isViewport) => {
     const findText = (node, guard) => {
       if (guard > 12) return null;
       for (const child of node.children) {
@@ -388,7 +386,6 @@ function pageScrollCommand(command) {
       }
       return null;
     };
-    let target = null;
     if (isViewport) {
       // The scrolling element's own content: its first child that is not
       // head-ish. The head does not move when the page scrolls.
@@ -404,23 +401,60 @@ function pageScrollCommand(command) {
         ) {
           continue;
         }
-        target = child;
-        break;
+        return child;
       }
-      if (!target) target = el;
-    } else {
-      target = findText(el, 0);
-      if (!target) target = el.firstElementChild || null;
-      if (!target) target = el;
+      return el;
     }
-    const rect = target.getBoundingClientRect();
-    return {
-      target_selector: shortSelector(target),
-      target_path: cssPath(target),
-      top: rect.top,
-      left: rect.left,
-      height: rect.height,
+    return findText(el, 0) || el.firstElementChild || el;
+  };
+
+  /**
+   * The candidates for the evidence that the document scrolled: the
+   * elements inside the container that are in the normal flow, so their box
+   * moves with the scrolled content.
+   *
+   * A fixed or sticky element (a floating panel, a date picker) holds text
+   * and never moves: a probe that takes the first element carrying text
+   * stops there and reports that the document did not scroll — while it
+   * did. The sample therefore records the element that *moved*.
+   */
+  const contentCandidates = (el, isViewport) => {
+    const out = [];
+    const push = (node) => {
+      if (!node || out.length >= 8) return;
+      for (const seen of out) if (seen === node) return;
+      let style = null;
+      try {
+        style = getComputedStyle(node);
+      } catch (error) {
+        return;
+      }
+      if (!style) return;
+      if (style.display === 'none' || style.visibility === 'hidden') return;
+      if (style.position === 'fixed' || style.position === 'sticky') return;
+      const rect = node.getBoundingClientRect();
+      if (rect.width <= 0 && rect.height <= 0) return;
+      out.push(node);
     };
+    push(contentProbeElement(el, isViewport));
+    const all = el.querySelectorAll('*');
+    for (const node of all) push(node);
+    if (!out.length) push(el);
+    return out.map((node) => {
+      const rect = node.getBoundingClientRect();
+      return {
+        target_selector: shortSelector(node),
+        target_path: cssPath(node),
+        top: rect.top,
+        left: rect.left,
+        height: rect.height,
+      };
+    });
+  };
+
+  const contentProbe = (el, isViewport) => {
+    const candidates = contentCandidates(el, isViewport);
+    return candidates[0] || null;
   };
 
   if (op === 'mask-caret') {
@@ -497,8 +531,9 @@ function pageScrollCommand(command) {
       scroll_range: range,
       container: record || null,
       container_how: chosen.how,
-      content_top: content.top,
+      content_top: content ? content.top : null,
       content: content,
+      content_candidates: contentCandidates(el, record.is_viewport),
     };
   }
 
@@ -516,8 +551,9 @@ function pageScrollCommand(command) {
     scroll_range: range,
     container: record || null,
     container_how: chosen.how,
-    content_top: content.top,
+    content_top: content ? content.top : null,
     content: content,
+    content_candidates: contentCandidates(el, record.is_viewport),
   };
 }
 
@@ -688,12 +724,36 @@ async function oneSample(context, page) {
 
   const container = scroll && scroll.container ? scroll.container : null;
   const delta = scroll ? scroll.scroll_top_delta : null;
-  const contentBefore = reset.content_top;
-  const contentAfter = scroll ? scroll.content_top : null;
-  const contentMoved =
-    typeof contentBefore === 'number' && typeof contentAfter === 'number'
-      ? contentBefore - contentAfter
-      : null;
+  // The evidence that the document scrolled: the element inside the
+  // container whose box moved with the scroll. A floating panel (fixed, or
+  // sticky) holds text and never moves, so the first element carrying text
+  // is not enough: the lane looks at the candidates and keeps the one that
+  // moved.
+  const beforeCandidates = (reset && reset.content_candidates) || [];
+  const afterCandidates = (scroll && scroll.content_candidates) || [];
+  let contentBefore = reset ? reset.content_top : null;
+  let contentAfter = scroll ? scroll.content_top : null;
+  let contentMoved = null;
+  let contentRecord = null;
+  const candidates = Math.min(beforeCandidates.length, afterCandidates.length);
+  for (let index = 0; index < candidates; index++) {
+    const before = beforeCandidates[index];
+    const after = afterCandidates[index];
+    if (!before || !after) continue;
+    if (before.target_path !== after.target_path) continue;
+    const moved = before.top - after.top;
+    if (typeof moved !== 'number') continue;
+    if (contentMoved === null || moved > contentMoved) {
+      contentMoved = moved;
+      contentBefore = before.top;
+      contentAfter = after.top;
+      contentRecord = after;
+    }
+  }
+  if (contentMoved === null && typeof contentBefore === 'number' && typeof contentAfter === 'number') {
+    contentMoved = contentBefore - contentAfter;
+  }
+  if (contentMoved === null) contentMoved = 0;
   if (!scroll || scroll.error) {
     return {
       outcome: 'failed',
@@ -783,7 +843,7 @@ async function oneSample(context, page) {
     content_top_before: contentBefore,
     content_top_after: contentAfter,
     content_moved_px: contentMoved,
-    content: scroll.content,
+    content: contentRecord || (scroll ? scroll.content : null),
     scroll_frame_ms: Math.round((witness.frame_page_ms - scroll.page_ms) * 1000) / 1000,
     search: discovery,
   };
