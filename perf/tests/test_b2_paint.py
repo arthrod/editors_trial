@@ -6,7 +6,6 @@ from pathlib import Path
 import subprocess
 import unittest
 import tempfile
-import statistics
 
 from perf.layers.classify import assert_visible_evidence
 from perf.runner import benchmark_warm_cold as runner
@@ -111,8 +110,22 @@ class BrowserIntegration(unittest.TestCase):
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
         self.assertEqual(proc.returncode, 0, proc.stderr)
         payload = json.loads(proc.stdout)
+        self.report_refusals(payload)
         self.browser_run.sample(name, {'command': cmd, 'payload': payload})
         return payload
+
+    def report_refusals(self, payload):
+        observations = [row for pair in payload.get('pairs', [])
+                        for arm in ('cold', 'warm')
+                        for row in (pair[arm], *pair[arm].get('burst', []))
+                        if 'outcome' in row]
+        reasons = {}
+        for row in observations:
+            if row['outcome'] != 'measured':
+                reason = row.get('failure_reason', 'unnamed')
+                reasons[reason] = reasons.get(reason, 0) + 1
+        print('B2_REFUSALS ' + json.dumps({'test': self.id(), 'total': len(observations),
+                                         'refusals': sum(reasons.values()), 'reasons': reasons}), flush=True)
 
     def test_accounted_production_probe(self):
         from perf.runner.browser_run import ACTIVE
@@ -127,6 +140,7 @@ class BrowserIntegration(unittest.TestCase):
                 'edit_selector': '[contenteditable="true"]',
             }
             payload = runner._run_browser_probe(target=target, corpus_path=self.fixture, pairs=1)
+            self.report_refusals(payload)
             rows = [r for r in self.browser_run.samples if r.get('criterion_id') in ('C05', 'C06')]
             self.assertEqual(len(rows), 8)
             for row in rows:
@@ -165,10 +179,15 @@ class BrowserIntegration(unittest.TestCase):
         p = self.probe('instant', '--fresh-context-probe', 'false')
         edit = p['pairs'][0]['cold']
         self.assertIn('mechanism', edit)
-        values = [edit['single_edit_ms'], *(item['edit_ms'] for item in edit['burst'])]
-        self.assertEqual(len(values), 4)
-        self.assertTrue(all(value is not None for value in values), edit)
-        self.assertLess(statistics.median(values), 33, edit)
+        observations = [(edit['single_edit_ms'], edit),
+                        *((item['edit_ms'], item) for item in edit['burst'])]
+        self.assertEqual(len(observations), 4)
+        for value, observation in observations:
+            if value is None:
+                self.assertEqual(observation.get('failure_reason'), 'witness_sparse', observation)
+            else:
+                self.assertGreaterEqual(value, 0, observation)
+                self.assertLess(value, 33, observation)
         self.assertIn('clock_skew', edit)
 
     def test_delayed(self):
@@ -523,6 +542,16 @@ class AdversarialBrowser(BrowserIntegration):
             if latency is not None:
                 self.assertEqual(edit['outcome'], 'measured', edit)
 
+    def ink_oracle(self, edit):
+        ink = edit['edit_confirmation']['fixture_ink']
+        # Equivalent to the witness epoch-to-page conversion, without applying
+        # page_offset_ms as a correction. The key event is on this page clock.
+        page_ms = ink['page_ms'] + (ink['time_origin_ms'] - edit['witness']['time_origin_ms'])
+        onset = page_ms - edit['event_timing']['event']['startTime']
+        interval = edit['clock_skew']['frame_interval_ms']
+        self.assertGreater(interval, 0)
+        return onset, interval
+
     def test_nr1_late800_waits_for_delayed_ink_or_refuses(self):
         p = self.probe(
             'late800',
@@ -537,9 +566,9 @@ class AdversarialBrowser(BrowserIntegration):
             edit = p['pairs'][0][arm]
             latency = edit['single_edit_ms']
             if latency is not None:
-                interval = float(edit.get('witness', {}).get('frame_interval_ms') or 16.667)
-                self.assertGreaterEqual(latency, 800, edit)
-                self.assertLessEqual(latency, 800 + 2 * interval, edit)
+                onset, interval = self.ink_oracle(edit)
+                self.assertGreaterEqual(latency, onset, edit)
+                self.assertLessEqual(latency, onset + 2 * interval + 1, edit)
             else:
                 self.assertEqual(edit.get('failure_reason'), 'witness_sparse', edit)
 
@@ -553,15 +582,15 @@ class AdversarialBrowser(BrowserIntegration):
             '--fresh-context-probe',
             'false',
         )
-        interval = float(p['pairs'][0]['cold'].get('witness', {}).get('frame_interval_ms') or 16.667)
-        bound = 2 * interval
         for arm in ('cold', 'warm'):
             edit = p['pairs'][0][arm]
             latency = edit['single_edit_ms']
             if latency is None:
                 self.assertEqual(edit.get('failure_reason'), 'witness_sparse', edit)
             else:
-                self.assertLessEqual(latency, bound, edit)
+                onset, interval = self.ink_oracle(edit)
+                self.assertGreaterEqual(latency, onset, edit)
+                self.assertLessEqual(latency, onset + 2 * interval + 1, edit)
                 self.assertEqual(edit['outcome'], 'measured', edit)
 
     def test_nr1_bgdecoy_immediate_stays_within_one_frame(self):
@@ -657,7 +686,8 @@ class RoundThreePolicy(unittest.TestCase):
                     'single_edit_ms': 200, 'edit_ms': 200, 'mechanism': 'cdp_screencast_changed_frame',
                     'clock_skew': {}, 'burst': [{'edit_ms': n} for n in (8, 12, 16)],
                 }}]}
-        RecordedProbe('test_no_delay').test_no_delay()
+        with self.assertRaises(AssertionError):
+            RecordedProbe('test_no_delay').test_no_delay()
 
     def test_all_refusal_reasons_are_published(self):
         from perf.tests.test_schema import _env
@@ -741,3 +771,55 @@ class SettlementIntegration(unittest.TestCase):
         )
         print(result.stdout)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+
+class RoundSevenOracles(unittest.TestCase):
+    def no_delay(self, single, burst):
+        class RecordedProbe(BrowserIntegration):
+            def probe(self, *args):
+                return {'pairs': [{'cold': {
+                    **single, 'mechanism': 'cdp_screencast_changed_frame',
+                    'clock_skew': {}, 'burst': burst,
+                }}]}
+        RecordedProbe('test_no_delay').test_no_delay()
+
+    def test_sparse_no_delay_is_accepted(self):
+        self.no_delay({'single_edit_ms': None, 'failure_reason': 'witness_sparse'},
+                      [{'edit_ms': 8}, {'edit_ms': None, 'failure_reason': 'witness_sparse'}, {'edit_ms': 12}])
+
+    def test_other_refusal_is_rejected(self):
+        with self.assertRaises(AssertionError):
+            self.no_delay({'single_edit_ms': None, 'failure_reason': 'no_frame'},
+                          [{'edit_ms': 8}] * 3)
+
+    def test_outlier_is_rejected_even_with_fast_peers(self):
+        with self.assertRaises(AssertionError):
+            self.no_delay({'single_edit_ms': 200}, [{'edit_ms': 8}] * 3)
+
+    def attack(self, mode, latency, onset=830, interval=20):
+        class RecordedProbe(AdversarialBrowser):
+            host = type('Host', (), {'url': 'http://fixture.invalid'})()
+
+            def probe(self, *args):
+                edit = {'single_edit_ms': latency, 'outcome': 'measured',
+                        'edit_confirmation': {'fixture_ink': {'page_ms': 100 + onset, 'time_origin_ms': 1000}},
+                        'event_timing': {'event': {'startTime': 100}},
+                        'witness': {'time_origin_ms': 1000},
+                        'clock_skew': {'frame_interval_ms': interval}}
+                return {'pairs': [{'cold': edit, 'warm': edit}]}
+        name = ('test_nr1_late800_waits_for_delayed_ink_or_refuses' if mode == 'late800'
+                else 'test_nr1_second_cover_does_not_replace_key_paint')
+        getattr(RecordedProbe(name), name)()
+
+    def test_actual_late_timer_and_calibrated_interval_are_accepted(self):
+        self.attack('late800', 871)
+
+    def test_decoy_and_late_frame_are_rejected(self):
+        for latency in (20, 829, 871.01):
+            with self.subTest(latency=latency), self.assertRaises(AssertionError):
+                self.attack('late800', latency)
+
+    def test_second_uses_glyph_set_and_rejects_cover(self):
+        self.attack('second', 45, onset=4)
+        with self.assertRaises(AssertionError):
+            self.attack('second', 400, onset=4)
