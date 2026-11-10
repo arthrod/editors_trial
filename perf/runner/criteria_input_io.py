@@ -230,13 +230,16 @@ def env_for(editor_id, editor_version, fixture_sha256, workload_row, docx_size, 
     return env
 
 
-def trial_from_entry(cid, entry, env):
+def trial_from_entry(cid, entry, env, witness=None):
     hints = entry.get("trial_hints") or {}
     if hints.get("cache_state") and hints["cache_state"] != env["cache_state"]:
         raise ValueError(
             "%s cache_state hint %r does not match the environment %r"
             % (cid, hints["cache_state"], env["cache_state"])
         )
+    if hints.get("repetition_unit"):
+        env = dict(env)
+        env["repetition_unit"] = hints["repetition_unit"]
     validate_environment(env)
     diagnostic = {
         "suite": "criteria_input",
@@ -247,6 +250,9 @@ def trial_from_entry(cid, entry, env):
         "observations": entry.get("observations") or [],
         "notes": entry.get("notes") or [],
     }
+    frame_interval = _frame_interval_ms(witness)
+    if frame_interval is not None:
+        diagnostic["frame_interval_ms"] = frame_interval
     outcome = entry["outcome"]
     if outcome != "measured":
         trial = _trial_dict(
@@ -300,7 +306,7 @@ def trials_from_payload(payload, *, editor_version, fixture_sha256, workload_row
             docx_size,
             cache_state,
         )
-        trials[cid] = trial_from_entry(cid, entry, env)
+        trials[cid] = trial_from_entry(cid, entry, env, witness=payload.get("paint_witness"))
     return trials
 
 
@@ -347,10 +353,24 @@ def write_support_matrix(summary, out_root):
     return path
 
 
+def _single_criterion_payload(payload, cid):
+    entry = payload["criteria"][cid]
+    return {
+        **payload,
+        "criteria_requested": [cid],
+        "criteria": {cid: entry},
+    }
+
+
 def write_trials_from_payload(payload, attempt_dir, **env_args):
     attempt_dir = Path(attempt_dir)
     written = []
-    for cid, trial in trials_from_payload(payload, **env_args).items():
+    for cid in payload["criteria_requested"]:
+        try:
+            single = _single_criterion_payload(payload, cid)
+            trial = trials_from_payload(single, **env_args)[cid]
+        except ValueError:
+            continue
         attempt_id = "%s-%s-%s" % (
             cid.lower(),
             trial["environment"]["editor_id"],

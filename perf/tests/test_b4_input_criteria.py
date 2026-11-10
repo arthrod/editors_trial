@@ -68,8 +68,17 @@ class WriterGuards(unittest.TestCase):
         entry = _entry(
             trial_hints={"cache_state": "warm_steady", "repetition_unit": "in_process_iteration"},
         )
-        entries = assert_payload_shape(_payload({"C07": entry}, witness=_witness()))
-        self.assertEqual(entries["C07"]["trial_hints"]["repetition_unit"], "in_process_iteration")
+        payload = _payload({"C07": entry}, witness=_witness())
+        assert_payload_shape(payload)
+        row, sha, size = fixture_identity()
+        trial = trials_from_payload(
+            payload,
+            editor_version="fake",
+            fixture_sha256=sha,
+            workload_row=row,
+            docx_size=size,
+        )["C07"]
+        self.assertEqual(trial["environment"]["repetition_unit"], "in_process_iteration")
 
     def test_measured_visible_requires_frame_interval(self):
         entry = _entry(samples_ms=[20.0])
@@ -207,6 +216,11 @@ class CriteriaProbeAcceptance(unittest.TestCase):
             httpd.server_close()
             thread.join(timeout=5)
 
+    def test_control_host_c07_not_failed_for_fixture_mismatch(self):
+        payload = self._run_host("control.html", criteria="C07")
+        c07 = payload["criteria"]["C07"]
+        self.assertNotEqual(c07.get("failure_reason"), "correctness: fixture_body_mismatch")
+
     def test_idle_page_yields_c04_not_applicable(self):
         payload = self._run_host("idle.html", criteria="C04")
         c04 = payload["criteria"]["C04"]
@@ -239,13 +253,15 @@ class CriteriaProbeAcceptance(unittest.TestCase):
         self.assertIn("correctness_adapter", c07.get("failure_reason", ""))
 
     def test_no_stored_c07_sample_below_frame_interval(self):
-        payload = self._run_host("idle.html", criteria="C07")
+        payload = self._run_host("control.html", criteria="C07")
         interval = (payload.get("paint_witness") or {}).get("frame_interval_ms")
         self.assertIsNotNone(interval)
         c07 = payload["criteria"]["C07"]
+        self.assertIn(c07["outcome"], ("measured", "failed"))
         if c07["outcome"] == "measured":
-            for sample in c07["samples_ms"]:
-                self.assertGreaterEqual(sample, interval)
+            self.assertTrue(c07["samples_ms"])
+        for sample in c07["samples_ms"]:
+            self.assertGreaterEqual(sample, interval)
         workload_row, sha, size = fixture_identity()
         trials = trials_from_payload(
             payload,
