@@ -359,29 +359,16 @@ class WitnessValidatorTests(unittest.TestCase):
 
     @staticmethod
     def good_record() -> dict:
-        """A record that carries every kind of evidence the validator demands:
-        a witnessed, document-scoped, caret-masked frame with pixels above the
-        threshold and an acceptable clock check from its run."""
-        return {
-            "outcome": "witnessed",
-            "frame_page_ms": 1234.5,
-            "frames_total": 7,
-            "frames_after": 3,
-            "diff_ratio": 0.01,
-            "threshold": 0.00005,
-            "min_pixels": 4,
-            "changed_pixels": 900,
-            "caret_masked": True,
-            "document_scoped": True,
-            "clock_skew_ms": 0.2,
-            "clock_skew_acceptable": True,
-            "clock_check": {
-                "kind": "clock_skew",
-                "acceptable": True,
-                "reason": None,
-                "page_offset_ms": 0.2,
-            },
-        }
+        """A real witnessed record, captured once from headless Chromium
+        through `witness.mjs`'s own CLI (`captured_frame_witness.json`),
+        deep-copied so each test corrupts its own copy.
+
+        Until #137 round 4 this was a hand-made 13-key "legacy" record. No
+        producer writes that shape (`witnessFrame()` always emits
+        `kind: 'frame_witness'`), and a record without the producer's
+        markers is refused `not_a_witness_record` now, so every fixture in
+        this file is the production shape, built from the capture."""
+        return json.loads(json.dumps(_load_captured_record()))
 
     # -- W5 --------------------------------------------------------------
 
@@ -672,7 +659,12 @@ class WitnessValidatorCounterexampleTests(unittest.TestCase):
     refused with a named reason; the good record still passes.
     """
 
-    #: (name, updates on the good record, the reason the refusal must name)
+    #: (name, updates on the good record, the reason the refusal must name).
+    #: Round 4: the fixture is the real capture, so the malformations the
+    #: lenient branch used to catch late (a missing clock check, a NaN
+    #: frame time, a scope flag over a region) are named by the strict
+    #: schema first -- `witness_schema_invalid` -- which is the honest
+    #: reason for a production record that stopped being the producer's.
     CASES = [
         (
             "missing-skew",
@@ -682,7 +674,7 @@ class WitnessValidatorCounterexampleTests(unittest.TestCase):
                 "clock_skew_acceptable": False,
                 "timestamp_kind": "monotonic_seconds",
             },
-            "clock_check_not_acceptable",
+            "witness_schema_invalid",
         ),
         ("null-outcome", {"outcome": None, "frame_page_ms": None}, "no_outcome"),
         (
@@ -695,8 +687,8 @@ class WitnessValidatorCounterexampleTests(unittest.TestCase):
             {"caret_masked": False, "caret_mask_error": "injection failed"},
             "caret_mask_failed",
         ),
-        ("nonfinite-time", {"frame_page_ms": float("nan")}, "nonfinite_time"),
-        ("not-document-scoped", {"document_scoped": False}, "not_document_scoped"),
+        ("nonfinite-time", {"frame_page_ms": float("nan")}, "witness_schema_invalid"),
+        ("not-document-scoped", {"document_scoped": False}, "witness_schema_invalid"),
     ]
 
     def load_validator(self):
@@ -810,19 +802,26 @@ class WitnessIssue137Tests(unittest.TestCase):
     def armed_good_record() -> dict:
         """The good record plus the fields a real run adds: the arm instant
         (`after_page_ms`, the page-clock value passed to `witnessFrame`) and
-        the diff's pixel totals."""
-        return WitnessValidatorTests.good_record() | {
-            "after_page_ms": 1200.0,
-            "total_pixels": 90000,
-        }
+        the diff's pixel totals. Since round 4 the fixture IS the real
+        capture -- already armed, already carrying its totals -- so this is
+        the production record itself."""
+        return WitnessValidatorTests.good_record()
 
-    #: (name, updates on the armed good record, the reason the refusal must name)
+    #: (name, updates on the armed good record, the reason the refusal must
+    #: name). Round 4: the fixture is a production record, so the cases a
+    #: hand-made record could only show as a bare type error (a NaN or
+    #: string arm, a wrong-typed pixel floor, a scope flag over a region)
+    #: are named by the strict schema first (`witness_schema_invalid`); the
+    #: evidence contradictions (pre-arm frame, flags over their own checks)
+    #: keep their own reasons. The frame-before-arm case uses a frame
+    #: between the capture's baseline and its arm, so the baseline rule
+    #: does not fire first.
     CASES = [
         # 1. a frame before its arm: ordinary valid JSON, impossible evidence.
-        ("frame-before-arm", {"frame_page_ms": 1100}, "frame_before_arm"),
+        ("frame-before-arm", {"frame_page_ms": 1500.0}, "frame_before_arm"),
         # 2. a non-finite arm through the direct API (the JSON reader refuses
         #    a bare NaN; the validator must not depend on the reader for it).
-        ("arm-nan", {"after_page_ms": float("nan")}, "invalid_arm_time"),
+        ("arm-nan", {"after_page_ms": float("nan")}, "witness_schema_invalid"),
         # 3. more frames after the marker than were ever recorded.
         (
             "frames-after-above-total",
@@ -833,7 +832,7 @@ class WitnessIssue137Tests(unittest.TestCase):
         (
             "min-pixels-not-a-number",
             {"changed_pixels": 0, "min_pixels": "4"},
-            "min_pixels_invalid",
+            "witness_schema_invalid",
         ),
         # 5. `acceptable: true` asserted over recorded anchor evidence that
         #    says no (the boolean was trusted over its own checks).
@@ -855,7 +854,7 @@ class WitnessIssue137Tests(unittest.TestCase):
         (
             "scoped-with-region-error",
             {"document_region_error": "selector missing"},
-            "document_scope_contradicted",
+            "witness_schema_invalid",
         ),
     ]
 
@@ -863,7 +862,7 @@ class WitnessIssue137Tests(unittest.TestCase):
     #: acceptable flag with its recorded checks erased, and an anchor that
     #: says unchecked while the checks dict claims otherwise.
     EXTRA_CASES = [
-        ("arm-not-a-number", {"after_page_ms": "1200"}, "invalid_arm_time"),
+        ("arm-not-a-number", {"after_page_ms": "1200"}, "witness_schema_invalid"),
         (
             "acceptable-without-recorded-checks",
             {
@@ -943,7 +942,8 @@ class WitnessIssue137Tests(unittest.TestCase):
         """The producer accepts a frame at `pageMs >= after_page_ms`; equality
         is the boundary and must not become a refusal."""
         validator = self.load_validator()
-        record = self.armed_good_record() | {"frame_page_ms": 1200.0}
+        record = self.armed_good_record()
+        record["frame_page_ms"] = record["after_page_ms"]
         verdict = validator.validate_witness(record)
         self.assertFalse(
             verdict.get("refused"), "a frame at the arm is causal: %r" % (verdict,)
@@ -952,7 +952,7 @@ class WitnessIssue137Tests(unittest.TestCase):
     def test_the_cli_refuses_a_pre_arm_frame(self):
         """The CLI is the publication gate; the pre-arm frame must exit 1."""
         validator = self.load_validator()
-        record = self.armed_good_record() | {"frame_page_ms": 1100}
+        record = self.armed_good_record() | {"frame_page_ms": 1500.0}
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "pre-arm.json"
             path.write_text(json.dumps(record), encoding="utf-8")
@@ -1003,9 +1003,10 @@ class WitnessIssue137Round3Tests(unittest.TestCase):
             verdict.get("refused"),
             "a null check is not evidence: %r" % (verdict,),
         )
-        self.assertEqual(verdict.get("reason"), "clock_check_evidence_missing")
-
-    # -- finding 2: all-true flags override impossible measurements --------
+        self.assertEqual(
+            verdict.get("reason"),
+            "clock_check_evidence_missing",
+        )
 
     def test_finding2_a_nested_offset_above_the_bound_is_refused(self):
         """The re-review's `offset_disagrees`: the nested page offset says
@@ -1051,7 +1052,12 @@ class WitnessIssue137Round3Tests(unittest.TestCase):
             "a zero pixel floor gates nothing, and zero changed pixels cannot "
             "carry a positive ratio: %r" % (verdict,),
         )
-        self.assertEqual(verdict.get("reason"), "min_pixels_invalid")
+        self.assertEqual(
+            verdict.get("reason"),
+            "witness_schema_invalid",
+            "round 4: a production record's pixel floor is the schema's to "
+            "check; a floor below 1 gates nothing: %r" % (verdict,),
+        )
 
     # -- finding 4: a null total-frame count bypasses the subset check -----
 
@@ -1064,7 +1070,12 @@ class WitnessIssue137Round3Tests(unittest.TestCase):
             "a null frames_total skips the subset check; a required count is "
             "an integer, never null: %r" % (verdict,),
         )
-        self.assertEqual(verdict.get("reason"), "invalid_record")
+        self.assertEqual(
+            verdict.get("reason"),
+            "witness_schema_invalid",
+            "round 4: a required count is the schema's to check; a null count "
+            "is an integer, never null: %r" % (verdict,),
+        )
 
     # -- finding 5: the mask flag contradicts its own error ----------------
 
@@ -1086,10 +1097,17 @@ class WitnessValidatorShapeTests(unittest.TestCase):
     """The validator's shape contract, pinned so the branches stay exercised.
 
     These are not counterexamples: every refusal here was already refused
-    before #137. They pin the reason each malformed shape names, the legacy
-    clock shapes that stay acceptable, and the CLI's exit codes, so the
-    witness module keeps its measured coverage above the 80 % lines /
-    70 % branches baseline (#137).
+    before #137. They pin the reason each malformed shape names and the
+    CLI's exit codes, so the witness module keeps its measured coverage
+    above the 80 % lines / 70 % branches baseline (#137).
+
+    Round 4: the fixture is the real capture (a production record), so the
+    malformations the lenient branch used to catch field-by-field
+    (``invalid_record``, ``no_frame_time``, ``invalid_arm_time``,
+    ``min_pixels_invalid``) are named by the strict schema first —
+    ``witness_schema_invalid`` — and the legacy clock shapes that this
+    class used to pin as ACCEPTED are refused ``not_a_witness_record``
+    (they carry none of the producer's markers; no producer writes them).
     """
 
     #: (name, updates on the good record, the reason the refusal must name)
@@ -1111,7 +1129,7 @@ class WitnessValidatorShapeTests(unittest.TestCase):
                 "clock_skew_ms": None,
                 "clock_skew_acceptable": None,
             },
-            "clock_check_missing",
+            "witness_schema_invalid",
         ),
         (
             "acceptable-flag-without-a-skew",
@@ -1120,9 +1138,9 @@ class WitnessValidatorShapeTests(unittest.TestCase):
                 "clock_skew_ms": None,
                 "clock_skew_acceptable": True,
             },
-            "clock_check_missing",
+            "witness_schema_invalid",
         ),
-        ("frame-time-missing", {"frame_page_ms": None}, "no_frame_time"),
+        ("frame-time-missing", {"frame_page_ms": None}, "witness_schema_invalid"),
         (
             "ratio-below-threshold",
             {"diff_ratio": 0.00001},
@@ -1133,27 +1151,37 @@ class WitnessValidatorShapeTests(unittest.TestCase):
         (
             "counts-not-integers",
             {"frames_total": "7", "frames_after": "3"},
-            "invalid_record",
+            "witness_schema_invalid",
         ),
-        ("count-negative", {"frames_total": -1}, "frame_counts_inconsistent"),
-        ("count-after-null", {"frames_after": None}, "invalid_record"),
-        ("diff-ratio-not-a-number", {"diff_ratio": "high"}, "invalid_record"),
-        ("diff-ratio-above-one", {"diff_ratio": 1.5}, "invalid_record"),
-        ("threshold-not-a-number", {"threshold": "tiny"}, "invalid_record"),
-        ("threshold-not-positive", {"threshold": 0.0}, "invalid_record"),
-        ("caret-masked-not-a-boolean", {"caret_masked": "yes"}, "caret_not_masked"),
+        ("count-negative", {"frames_total": -1}, "witness_schema_invalid"),
+        ("count-after-null", {"frames_after": None}, "witness_schema_invalid"),
+        ("diff-ratio-not-a-number", {"diff_ratio": "high"}, "witness_schema_invalid"),
+        ("diff-ratio-above-one", {"diff_ratio": 1.5}, "witness_schema_invalid"),
+        ("threshold-not-a-number", {"threshold": "tiny"}, "witness_schema_invalid"),
+        ("threshold-not-positive", {"threshold": 0.0}, "witness_schema_invalid"),
+        (
+            "caret-masked-not-a-boolean",
+            {"caret_masked": "yes"},
+            "witness_schema_invalid",
+        ),
         (
             "document-scoped-not-a-boolean",
             {"document_scoped": 1},
-            "not_document_scoped",
+            "witness_schema_invalid",
         ),
-        ("no-frame-with-a-frame-time", {"outcome": "no_frame"}, "no_frame"),
-        ("arm-infinite", {"after_page_ms": float("inf")}, "invalid_arm_time"),
+        (
+            "no-frame-with-a-frame-time",
+            {"outcome": "no_frame"},
+            "witness_schema_invalid",
+        ),
+        ("arm-infinite", {"after_page_ms": float("inf")}, "witness_schema_invalid"),
     ]
 
-    #: legacy clock shapes that stay acceptable: the deprecated `skew_ms`
-    #: alias, the nested clock_check offset, and the `clock_skew` dict.
-    ACCEPTED = [
+    #: the legacy clock shapes this class pinned as ACCEPTED before round 4.
+    #: No producer writes them (`witnessFrame()` always emits
+    #: `kind: 'frame_witness'`), so they are not witness records; the
+    #: discriminator refuses them, and the verdict stays parseable.
+    LEGACY_SHAPES = [
         {"clock_skew_ms": None, "skew_ms": 0.2, "clock_check": None},
         {"clock_skew_ms": None},
         {
@@ -1181,16 +1209,47 @@ class WitnessValidatorShapeTests(unittest.TestCase):
                     "%s must name its reason: %r" % (name, verdict),
                 )
 
-    def test_legacy_clock_shapes_stay_acceptable(self):
+    @staticmethod
+    def _strip_producer_markers(record: dict) -> dict:
+        """The capture with every producer marker removed: the "legacy
+        simple" shape the round-3 validator accepted on the strength of an
+        alias. Whatever else the record still carries, it no longer says
+        what the producer says."""
+        record = json.loads(json.dumps(record))
+        record.pop("kind", None)
+        record.pop("clock_check_source", None)
+        cc = record.get("clock_check")
+        if isinstance(cc, dict):
+            for key in (
+                "method",
+                "page_offset_samples",
+                "lag_bound_ms",
+                "conversion",
+                "change_page_ms",
+                "frame_page_ms",
+                "frame_lag_ms",
+            ):
+                cc.pop(key, None)
+        return record
+
+    def test_legacy_clock_shapes_are_refused_not_a_witness_record(self):
+        """Round 4 inverted this pin: the legacy shapes carry none of the
+        producer's markers, so they are not witness records. They stay
+        parseable — a verdict comes back, not a crash — but it can never be
+        ok for publication, whatever alias carries the skew."""
         validator = self.load_validator()
-        for i, updates in enumerate(self.ACCEPTED):
+        for i, updates in enumerate(self.LEGACY_SHAPES):
             with self.subTest(case=i):
-                record = WitnessValidatorTests.good_record() | updates
+                record = self._strip_producer_markers(
+                    WitnessValidatorTests.good_record()
+                ) | updates
                 verdict = validator.validate_witness(record)
-                self.assertFalse(
+                self.assertTrue(
                     verdict.get("refused"),
-                    "the legacy shape %r must stay acceptable: %r" % (updates, verdict),
+                    "the legacy shape %r must be refused: %r" % (updates, verdict),
                 )
+                self.assertFalse(verdict.get("ok"))
+                self.assertEqual(verdict.get("reason"), "not_a_witness_record")
 
     def test_an_explicit_skew_argument_is_used(self):
         """`skew=` overrides the record's own offset (the caller measured it)."""
@@ -1216,7 +1275,7 @@ class WitnessValidatorShapeTests(unittest.TestCase):
         del record["threshold"]
         verdict = validator.validate_witness(record)
         self.assertTrue(verdict.get("refused"))
-        self.assertEqual(verdict.get("reason"), "invalid_record")
+        self.assertEqual(verdict.get("reason"), "witness_schema_invalid")
         self.assertTrue(
             any("missing field" in str(e) for e in verdict.get("errors", [])),
             "the missing field must be named: %r" % (verdict.get("errors"),)
@@ -1228,7 +1287,7 @@ class WitnessValidatorShapeTests(unittest.TestCase):
         del record["changed_pixels"]
         verdict = validator.validate_witness(record)
         self.assertTrue(verdict.get("refused"))
-        self.assertEqual(verdict.get("reason"), "invalid_record")
+        self.assertEqual(verdict.get("reason"), "witness_schema_invalid")
 
     def test_the_cli_exit_codes(self):
         validator = self.load_validator()
