@@ -116,8 +116,12 @@ export const DEFAULT_WINDOW_MS = 500;
  * counting as a change.
  */
 export const DEFAULT_THRESHOLD = 0.00001;
-/** The absolute floor: a frame must differ in at least this many pixels. */
-export const DEFAULT_MIN_PIXELS = 8;
+/**
+ * The absolute floor: a frame must differ in at least this many pixels. A
+ * caret is thin (9 pixels on the fake host), so the floor stays low; the
+ * ratio threshold is the criterion that does the work on a full-size frame.
+ */
+export const DEFAULT_MIN_PIXELS = 4;
 /** The per-channel tolerance (8/255) below which a pixel counts as equal. */
 export const DEFAULT_CHANNEL_TOLERANCE = 8;
 /** The caret mask. It is injected before the baseline frame is taken. */
@@ -758,17 +762,20 @@ export async function witnessFrame(
   let outcome = 'no_frame';
   let framePageMs = null;
   let diffRatioValue = null;
+  let usedKind = kind.kind;
 
   while (Date.now() < deadline) {
     for (let i = checked; i < recorder.frames.length; i++) {
       const frame = recorder.frames[i];
       checked = i + 1;
       const frameKind = detectTimestampKind(frame);
+      const effectiveKind = frameKind.kind === 'unknown' ? kind.kind : frameKind.kind;
       const pageMs = convertFrameToPageMs(frame, {
         ...clock,
-        timestamp_kind: frameKind.kind === 'unknown' ? kind.kind : frameKind.kind,
+        timestamp_kind: effectiveKind,
       });
       if (pageMs === null) continue;
+      if (effectiveKind !== 'unknown') usedKind = effectiveKind;
       if (afterPageMs !== null && pageMs < afterPageMs) continue;
       framesAfter += 1;
       if (!baseDecoded) continue;
@@ -804,12 +811,15 @@ export async function witnessFrame(
     caret_mask_error: caret.caret_mask_error,
     window_ms: windowMs,
     after_page_ms: afterPageMs === null ? null : round(afterPageMs, 3),
-    baseline_page_ms: base.page_ms === null ? null : round(base.page_ms, 3),
+    baseline_page_ms:
+      base.frame && base.frame.seq >= 0
+        ? round(convertFrameToPageMs(base.frame, { ...clock, timestamp_kind: usedKind }), 3)
+        : null,
     baseline_source: base.source,
     changed_pixels: best ? best.changed : 0,
     total_pixels: best ? best.total : 0,
     max_diff_ratio: best ? round(best.ratio, 6) : 0,
-    timestamp_kind: kind.kind,
+    timestamp_kind: usedKind,
     time_origin_ms: round(clock.time_origin_ms, 3),
     clock_skew_ms: skewMs === null || skewMs === undefined ? null : round(skewMs, 3),
     clock_skew_method: 'page_clock_offset',
