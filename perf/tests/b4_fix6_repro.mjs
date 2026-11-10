@@ -29,10 +29,18 @@ function makeHost(deathAt) {
   let resolveCalls = 0;
   let typedReads = 0;
   const clicks = [];
+  const listeners = { crash: [], close: [] };
   const die = () => {
     dead = true;
+    for (const handler of listeners.crash) handler();
+    for (const handler of listeners.close) handler();
   };
   const page = {
+    isClosed: () => dead,
+    on(event, handler) {
+      if (event === 'crash') listeners.crash.push(handler);
+      if (event === 'close') listeners.close.push(handler);
+    },
     mouse: {
       click: async (x, y) => {
         clicks.push([x, y]);

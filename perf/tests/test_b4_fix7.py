@@ -162,22 +162,15 @@ def test_phase_boundary_table_covers_fix6_regressions(phases6):
 
 
 def test_phase_boundary_manifest_is_complete():
-    keys = {k for k, _ in PHASE_BOUNDARIES}
-    assert keys == {
-        'input_tap',
-        'ready_ms',
-        'c04_mid',
-        'after_c04',
-        'initial_read_state',
-        'frame_interval',
-        'alive_c04',
-        'alive_boundary',
-        'c07_mid',
-        'partial_c07',
-        'c09_mid',
-        'c08_refresh',
-        'c08_refresh_read',
-        'c08_mid',
-        'stop_send',
-        'after_c08',
-    }
+    proc = subprocess.run(
+        ['node', str(REPO / 'perf/tests/b4_suite_phase_manifest.mjs')],
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=30,
+    )
+    report = json.loads(proc.stdout)
+    assert report['ok'], report
+    nested = {'alive_c04', 'alive_boundary', 'partial_c07', 'after_c08'}
+    table_keys = {k for k, _ in PHASE_BOUNDARIES}
+    assert table_keys <= set(report['exported']) | nested

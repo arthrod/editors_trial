@@ -1547,33 +1547,106 @@ async function measureBulkInsert(page, witness, options, meta) {
 const PAGE_LOSS_RE =
   /Execution context was destroyed|Target (closed|crashed)|Session closed|Frame was detached|Protocol error.*Target closed|Page crashed/i;
 
+const HEALTH_PROBE_MS = 2000;
+
+/** @type {readonly string[]} Canonical suite failure-injection phases (@suite-phase tags must match). */
+export const RUN_CRITERIA_SUITE_PHASES = [
+  'input_tap',
+  'ready_ms',
+  'c04_mid',
+  'after_c04',
+  'initial_read_state',
+  'frame_interval',
+  'c07_mid',
+  'c09_mid',
+  'c08_refresh',
+  'c08_refresh_read',
+  'c08_mid',
+  'classify_criterion',
+  'classify_suite',
+  'classify_health_probe',
+  'stop_send',
+];
+
+function harnessErrorLabel(error) {
+  const msg = String(error);
+  const name = error?.name || 'Error';
+  const message = error?.message ?? msg;
+  return `harness_error: ${name}: ${message}`;
+}
+
+function attachPageLossTracker(page, cdp) {
+  let lost = false;
+  const mark = () => {
+    lost = true;
+  };
+  if (page && typeof page.on === 'function') {
+    page.on('crash', mark);
+    page.on('close', mark);
+  }
+  if (cdp && typeof cdp.on === 'function') {
+    cdp.on('Detached', mark);
+  }
+  return {
+    isLost() {
+      return lost || page?.isClosed?.() === true;
+    },
+  };
+}
+
+async function runHealthProbe(page, tracker) {
+  if (typeof page?.evaluate !== 'function') {
+    return { ok: false, error: new Error('health_probe_unavailable') };
+  }
+  let timer = null;
+  try {
+    await Promise.race([
+      page.evaluate(() => true),
+      new Promise((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`health_probe_timeout after ${HEALTH_PROBE_MS}ms`)),
+          HEALTH_PROBE_MS,
+        );
+      }),
+    ]);
+    return { ok: true };
+  } catch (probeErr) {
+    if (tracker?.isLost()) {
+      return { ok: false, error: probeErr, targetLost: true };
+    }
+    return { ok: false, error: probeErr };
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 /**
  * Label suite interruptions as page loss only when the browser target is gone.
  * A live page with a harness bug must read as harness_error, not page_lost.
  */
-async function classifySuiteError(page, error) {
-  if (page?.isClosed?.()) {
+async function classifySuiteError(page, error, tracker) {
+  if (tracker?.isLost() || page?.isClosed?.()) {
     return `page_lost: ${String(error)}`;
   }
   const msg = String(error);
   if (!PAGE_LOSS_RE.test(msg)) {
-    const name = error?.name || 'Error';
-    const message = error?.message ?? msg;
-    return `harness_error: ${name}: ${message}`;
+    return harnessErrorLabel(error);
   }
-  if (typeof page?.evaluate === 'function') {
-    try {
-      await page.evaluate(() => true);
-      const name = error?.name || 'Error';
-      const message = error?.message ?? msg;
-      return `harness_error: ${name}: ${message}`;
-    } catch (probeErr) {
-      if (page?.isClosed?.() || PAGE_LOSS_RE.test(String(probeErr))) {
-        return `page_lost: ${String(error)}`;
-      }
-    }
+  // @suite-phase classify_health_probe
+  const probe = await runHealthProbe(page, tracker);
+  if (tracker?.isLost()) {
+    return `page_lost: ${String(error)}`;
   }
-  return `page_lost: ${String(error)}`;
+  if (probe.ok) {
+    return harnessErrorLabel(error);
+  }
+  if (probe.targetLost) {
+    return `page_lost: ${String(error)}`;
+  }
+  const probeErr = probe.error;
+  const probeName = probeErr?.name || 'Error';
+  const probeMsg = probeErr?.message ?? String(probeErr);
+  return `${harnessErrorLabel(error)}; health_probe: ${probeName}: ${probeMsg}`;
 }
 
 // --------------------------------------------------------------------- suite
@@ -1618,6 +1691,7 @@ export async function runCriteriaSuite({
     correctnessAdapter: correctnessAdapterOption,
   };
   const adapter = correctnessAdapter(options);
+  const pageLoss = attachPageLossTracker(page, cdp);
 
   const entries = {};
   let witness = null;
@@ -1639,7 +1713,8 @@ export async function runCriteriaSuite({
     try {
       return await run();
     } catch (error) {
-      const reason = await classifySuiteError(page, error);
+      // @suite-phase classify_criterion
+      const reason = await classifySuiteError(page, error, pageLoss);
       return emptyEntry(criterionId, 'failed', reason);
     }
   }
@@ -1648,17 +1723,22 @@ export async function runCriteriaSuite({
   const measureOptions = { ...options, fixtureWaitForRestore };
 
   try {
+    // @suite-phase input_tap
     await page.evaluate(INSTALL_INPUT_TAP);
+    // @suite-phase ready_ms
     readyPageMs = await page.evaluate(() => performance.now());
 
     // C04 first and before anything else touches the page: a click of our own is
     // deferred work the criterion would otherwise count.
     if (criteria.includes('C04')) {
+      // @suite-phase c04_mid
       entries.C04 = await safeCriterion('C04', () => measureQuiescence(page, options, readyPageMs));
     }
 
+    // @suite-phase after_c04
     const resolvedPoints = await page.evaluate(RESOLVE_CLICK_POINTS, editSelector);
     points = { ...points, ...resolvedPoints };
+    // @suite-phase initial_read_state
     initialState = await readState(page, editSelector);
     const editableMissing = initialState.error || null;
 
@@ -1667,6 +1747,7 @@ export async function runCriteriaSuite({
       let recorder = null;
       try {
         recorder = getRecorder(cdp, { manageScreencast: true });
+        // @suite-phase frame_interval
         const interval = await frameInterval(page);
         witness = {
           recorder,
@@ -1752,7 +1833,8 @@ export async function runCriteriaSuite({
                   failures: [unavailable || 'click_points_unavailable'],
                 },
               })
-            : await safeCriterion('C07', () => measureClicks(page, witness, options, meta));
+            : // @suite-phase c07_mid
+              await safeCriterion('C07', () => measureClicks(page, witness, options, meta));
       }
     }
     if (criteria.includes('C09') && !entries.C09) {
@@ -1760,18 +1842,21 @@ export async function runCriteriaSuite({
         ? emptyEntry('C09', 'unsupported', canvasWithoutAdapter)
         : editableMissing
           ? emptyEntry('C09', 'failed', editableMissing)
-          : await safeCriterion('C09', () => measureUndo(page, witness, measureOptions, meta));
+          : // @suite-phase c09_mid
+            await safeCriterion('C09', () => measureUndo(page, witness, measureOptions, meta));
     }
     if (criteria.includes('C08') && entries.C09?.fixture_reset) {
       if (!entries.C09.fixture_reset.restored) {
         entries.C08 = emptyEntry('C08', 'failed', 'fixture_reset_failed_after_C09');
       } else {
+        // @suite-phase c08_refresh
         const refreshed = await page.evaluate(RESOLVE_CLICK_POINTS, editSelector);
         meta.points = refreshed.points || [];
         meta.point_source = refreshed.source || meta.point_source;
         if (refreshed.line_height_px !== undefined) {
           meta.editable.line_height_px = refreshed.line_height_px;
         }
+        // @suite-phase c08_refresh_read
         const refreshedState = await readState(page, editSelector);
         meta.editable.is_content_editable = refreshedState.is_content_editable === true;
         meta.editable.text_length =
@@ -1783,10 +1868,12 @@ export async function runCriteriaSuite({
         ? emptyEntry('C08', 'unsupported', canvasWithoutAdapter)
         : editableMissing
           ? emptyEntry('C08', 'failed', editableMissing)
-          : await safeCriterion('C08', () => measureBulkInsert(page, witness, options, meta));
+          : // @suite-phase c08_mid
+            await safeCriterion('C08', () => measureBulkInsert(page, witness, options, meta));
     }
   } catch (error) {
-    const reason = await classifySuiteError(page, error);
+    // @suite-phase classify_suite
+    const reason = await classifySuiteError(page, error, pageLoss);
     for (const id of criteria) {
       if (!entries[id]) {
         entries[id] = emptyEntry(id, 'failed', reason);
@@ -1795,6 +1882,7 @@ export async function runCriteriaSuite({
   }
 
   if (witness?.recorder) {
+    // @suite-phase stop_send
     await stopRecorder(cdp);
   } else if (witness && typeof witness.stop === 'function') {
     witness.stop();
