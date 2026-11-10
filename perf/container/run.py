@@ -73,7 +73,11 @@ def main():
                 entry.update(cell_counts(data))
                 verify_lane_profiles(directory, options[options.index('--execution-profile') + 1],
                                      options[options.index('--host-class') + 1])
-                verify_run(data)
+                if args.smoke:
+                    from .smoke import finish_smoke
+                    finish_smoke(directory, name, persist=False)
+                else:
+                    verify_run(data)
             except (ValueError, OSError) as exc:
                 entry['refusal'] = str(exc)
                 failures.append(f'{name}: {exc}')
