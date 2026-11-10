@@ -10,11 +10,28 @@
  *     --ready-selector ".status-ok" \
  *     --edit-selector "[data-slate-editor='true']" \
  *     --pairs 3
+ *
+ * Criteria mode (no warm/cold pairs, one page load, see criteria_input.mjs):
+ *
+ *   node perf/runner/warm_cold_browser.mjs \
+ *     --driver playwright --editor plate --criteria C04,C07,C09,C08 \
+ *     --url http://127.0.0.1:5208/ --corpus /abs/corpus.docx \
+ *     --corpus-route /corpus.docx --ready-selector ".status-ok" \
+ *     --edit-selector '[contenteditable="true"]'
+ *
+ * Optional: --frame-timeout, --quiescence-ms, --quiescence-timeout,
+ * --bulk-chars. The payload goes to stdout.
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
+
+import {
+  CRITERIA_SCHEMA,
+  parseCriteriaList,
+  runCriteriaSuite,
+} from './criteria_input.mjs';
 
 const require = createRequire(import.meta.url);
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -49,6 +66,24 @@ const skipEdit = opt['skip-edit'] === 'true' || opt['skip-edit'] === true;
 const pairs = Math.max(1, Number(opt.pairs || 3));
 const sampleRoute = opt['sample-route'] || corpusRoute;
 const waitAfterReadyMs = Number(opt['wait-after-ready'] || 0);
+const editorId = typeof opt.editor === 'string' ? opt.editor : null;
+const frameTimeoutMs = Number(opt['frame-timeout'] || 2000);
+const quiescenceMs = Number(opt['quiescence-ms'] || 500);
+const quiescenceTimeoutMs = Number(opt['quiescence-timeout'] || 10_000);
+const bulkChars = Number(opt['bulk-chars'] || 1500);
+let criteriaList = [];
+if (opt.criteria !== undefined) {
+  try {
+    criteriaList = parseCriteriaList(opt.criteria);
+  } catch (err) {
+    console.error(`warm_cold_browser: ${err.message}`);
+    process.exit(2);
+  }
+  if (criteriaList.length === 0) {
+    console.error('warm_cold_browser: --criteria named no criterion');
+    process.exit(2);
+  }
+}
 
 if (!url || !corpusFile) {
   console.error('warm_cold_browser: --url and --corpus are required');
@@ -133,7 +168,7 @@ async function loadPlaywright() {
 }
 
 async function loadPuppeteer() {
-  const spec = path.join(uiRoot, 'node_modules/puppeteer/lib/esm/puppeteer/puppeteer.js');
+  const spec = path.join(uiRoot, 'node_modules/puppeteer/lib/puppeteer/puppeteer.js');
   return import(pathToFileURL(spec).href);
 }
 
@@ -266,6 +301,92 @@ async function runPuppeteerPair() {
   };
 }
 
+/**
+ * One page load, the requested criteria, no navigation in between.
+ *
+ * The page is the non-warm arm: it is the first navigation of a fresh browser
+ * context, so C04 records `process_cold_fs_warm`. C07/C08/C09 run after the
+ * load, the ready signal and the C04 quiescence window, which is the declared
+ * preconditioning for `warm_steady` in their trial hints.
+ */
+async function runCriteriaSession() {
+  if (driver !== 'playwright') {
+    const entries = {};
+    for (const id of criteriaList) {
+      entries[id] = {
+        criterion_id: id,
+        outcome: 'unsupported',
+        samples_ms: [],
+        failure_reason: `criteria probe requires the playwright driver (got ${driver}): no CDP screencast frame witness`,
+        assertion: { name: null, passed: false, scope: null, checks: {}, failures: ['driver'] },
+        observations: [],
+        notes: [],
+      };
+    }
+    return {
+      probe: 'criteria_input',
+      schema: CRITERIA_SCHEMA,
+      driver,
+      editor_id: editorId,
+      url,
+      corpus_route: corpusRoute,
+      criteria_requested: criteriaList.slice(),
+      criteria: entries,
+      paint_witness: {
+        mechanism: null,
+        frames_seen: 0,
+        timeout_ms: frameTimeoutMs,
+        message: 'driver is not playwright',
+      },
+    };
+  }
+
+  const { chromium } = await loadPlaywright();
+  const browser = await chromium.launch({
+    headless: true,
+    args: ['--font-render-hinting=none', '--disable-lcd-text'],
+  });
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  await routeCorpus(context, corpusRoute, corpusBytes);
+  let clipboardPermission = null;
+  try {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'], {
+      origin: new URL(url).origin,
+    });
+    clipboardPermission = 'clipboard-read,clipboard-write';
+  } catch (err) {
+    clipboardPermission = `unavailable: ${String(err && err.message ? err.message : err)}`;
+  }
+  const page = await context.newPage();
+  const cdp = await context.newCDPSession(page);
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 120_000 });
+  const readyMs = await waitForReady(page, readySelector);
+  const payload = await runCriteriaSuite({
+    page,
+    cdp,
+    editSelector,
+    criteria: criteriaList,
+    frameTimeoutMs,
+    quiescenceMs,
+    quiescenceTimeoutMs,
+    bulkChars,
+  });
+  await context.close();
+  await browser.close();
+
+  payload.editor_id = editorId;
+  payload.url = url;
+  payload.corpus_route = corpusRoute;
+  payload.ready = {
+    selector: readySelector,
+    ready_ms: readyMs,
+    ready_page_ms: payload.ready.ready_page_ms,
+    note: payload.ready.note,
+  };
+  payload.clipboard_permission = clipboardPermission;
+  return payload;
+}
+
 async function coldOnlyFreshContext() {
   const { chromium } = await loadPlaywright();
   const browser = await chromium.launch({ headless: true });
@@ -281,6 +402,11 @@ async function coldOnlyFreshContext() {
 }
 
 const collected = [];
+if (criteriaList.length > 0) {
+  const payload = await runCriteriaSession();
+  process.stdout.write(JSON.stringify(payload));
+  process.exit(0);
+}
 for (let i = 0; i < pairs; i++) {
   if (driver === 'puppeteer') {
     collected.push(await runPuppeteerPair());

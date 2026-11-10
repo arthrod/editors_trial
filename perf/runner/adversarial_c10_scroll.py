@@ -115,7 +115,7 @@ def main() -> int:
         env=env,
         samples_ms=samples,
         editor_id=editor_id,
-        lane=default_lane(editor_id),
+        lane=BROWSER_TARGETS[editor_id].get("lane") or default_lane(editor_id),
         summary_stats=stats,
         publishable=False,
         publication_block_reason="adversarial scroll probe; ci_coarse",

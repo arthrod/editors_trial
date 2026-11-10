@@ -3,3 +3,6 @@ onlyBuiltDependencies:
   - esbuild
 allowBuilds:
   esbuild: true
+overrides:
+  # CVE-2026-103923: katex <0.18.2; micromark-extension-math@3 still asks for ^0.16
+  micromark-extension-math>katex: 0.19.1

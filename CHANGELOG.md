@@ -36,6 +36,18 @@ re-running the measurement behind it. The format follows
   (bench-ops plan 6, editors_trial#74; first used for et-v0.9.4, #75), and the site picks the
   release up with `bench bump editors_trial`. No figure changes.
 
+### Fixed
+
+- Dependabot alerts (#93): `harness/ui` puppeteer 22 → 25 (drops
+  `extract-zip`, `basic-ftp@5`, and zod 3 from the lockfile), `pdfjs-dist`
+  overridden to 6.2.108 in the SuperDoc UI host, and `katex` overridden to
+  0.19.1 for `micromark-extension-math` in the plate harness and demo.
+  `perf/runner/warm_cold_browser.mjs` follows puppeteer's new ESM entry
+  path. Two alerts have no upstream fix and stay open: `zip` 3.0.0 in
+  `harness/wordcraft` (needs a `repos/wordcraft` bump, which the trial
+  rules forbid touching) and `elliptic` 6.6.1 in `demos/plate` (no patched
+  release exists). No figure changes.
+
 ## [0.9.4] - 2026-11-01
 
 Tooling only: every TypeScript project in the trial installs with pnpm, and

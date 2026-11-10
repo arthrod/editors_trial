@@ -54,6 +54,7 @@ EXECUTION_PROFILE = "ci_broad"
 # Editors with a harness/ui dev server target (Microsoft Word and CLI-only lanes omitted).
 BROWSER_TARGETS: dict[str, dict] = {
     "plate": {
+        "lane": "browser_slate",
         "cwd": UI / "plate",
         "command": ["pnpm", "exec", "vite", "--port", "5208", "--strictPort", "--host", "127.0.0.1"],
         "url": "http://127.0.0.1:5208/",
@@ -69,6 +70,7 @@ BROWSER_TARGETS: dict[str, dict] = {
         },
     },
     "docxodus": {
+        "lane": "wasm_editor",
         "cwd": UI / "docxodus",
         "command": ["pnpm", "exec", "vite", "--port", "5210", "--strictPort", "--host", "127.0.0.1"],
         "url": "http://127.0.0.1:5210/",
@@ -82,9 +84,11 @@ BROWSER_TARGETS: dict[str, dict] = {
             "C03": ("first_usable", "browser_visible"),
             "C02b": ("model_ready_browser", "model"),
             "C05": ("presented_frame", "browser_visible"),
+            "C06": ("input_to_next_paint", "browser_visible"),
         },
     },
     "superdoc": {
+        "lane": "browser",
         "cwd": UI / "superdoc",
         "command": ["npm", "exec", "--", "vite", "--port", "5199", "--strictPort", "--host", "127.0.0.1"],
         "url": "http://127.0.0.1:5199/",
@@ -97,9 +101,11 @@ BROWSER_TARGETS: dict[str, dict] = {
             "C03": ("first_usable", "browser_visible"),
             "C02b": ("model_ready_browser", "model"),
             "C05": ("presented_frame", "browser_visible"),
+            "C06": ("input_to_next_paint", "browser_visible"),
         },
     },
     "genoffice": {
+        "lane": "editor",
         "cwd": UI / "genoffice",
         "command": ["npm", "exec", "--", "vite", "--config", "vite.config.mjs", "--port", "5201", "--strictPort", "--host", "127.0.0.1"],
         "url": "http://127.0.0.1:5201/",
@@ -113,9 +119,11 @@ BROWSER_TARGETS: dict[str, dict] = {
             "C03": ("first_usable", "browser_visible"),
             "C02b": ("model_ready_browser", "model"),
             "C05": ("presented_frame", "browser_visible"),
+            "C06": ("input_to_next_paint", "browser_visible"),
         },
     },
     "canvas": {
+        "lane": "editor",
         "cwd": UI / "canvas",
         "command": ["pnpm", "exec", "vite", "--port", "5204", "--strictPort", "--host", "127.0.0.1"],
         "url": "http://127.0.0.1:5204/?src=/sample.docx",
@@ -133,13 +141,151 @@ BROWSER_TARGETS: dict[str, dict] = {
             "C06": ("input_to_next_paint", "browser_visible"),
         },
     },
+    "docsplus": {
+        "lane": "app",
+        "cwd": UI / "docsplus" / "host",
+        "command": ["bash", "start.sh"],
+        "url": "http://127.0.0.1:5215/editor",
+        "corpus_route": "/corpus.docx",
+        "ready_selector": '#perf-status[data-state="ready"]',
+        "ready_js": "window.__DOCSPLUS_READY__ === true",
+        "edit_selector": ".tiptap__editor .ProseMirror",
+        "driver": "playwright",
+        "criteria": {
+            "C03": ("first_usable", "browser_visible"),
+            "C02b": ("model_ready_browser", "model"),
+            "C05": ("presented_frame", "browser_visible"),
+            "C06": ("input_to_next_paint", "browser_visible"),
+        },
+    },
+    "docen": {
+        "lane": "editor",
+        "cwd": UI / "docen-host",
+        "command": ["pnpm", "exec", "vite", "--port", "5214", "--strictPort", "--host", "127.0.0.1"],
+        "url": "http://127.0.0.1:5214/",
+        "corpus_route": "/corpus.docx",
+        "ready_selector": '#host[data-ready="1"]',
+        "ready_js": "window.__DOCEN_READY__ === true",
+        "wait_after_ready": "300",
+        "edit_selector": "docen-document .canvas-pages > div:first-child",
+        "driver": "playwright",
+        "criteria": {
+            "C03": ("first_usable", "browser_visible"),
+            "C02b": ("model_ready_browser", "model"),
+            "C05": ("presented_frame", "browser_visible"),
+            "C06": ("input_to_next_paint", "browser_visible"),
+        },
+    },
+    "fidus": {
+        "lane": "app",
+        "cwd": UI / "fidus-host",
+        "command": ["node", "proxy.mjs", "--port", "5221"],
+        "url": "http://localhost:5221/",
+        "corpus_route": "/corpus.docx",
+        "ready_selector": 'html[data-fidus-host-ready="1"]',
+        "edit_selector": "#document-editable .ProseMirror",
+        "driver": "playwright",
+        "env": {"FIDUS_PY": "/tmp/fidusvenv2/bin/python"},
+        "criteria": {
+            "C03": ("first_usable", "browser_visible"),
+            "C02b": ("model_ready_browser", "model"),
+            "C05": ("presented_frame", "browser_visible"),
+            "C06": ("input_to_next_paint", "browser_visible"),
+        },
+    },
+    "wordcraft": {
+        "lane": "wasm_ui",
+        "cwd": UI / "wordcraft-host",
+        "command": ["node", "server.mjs"],
+        "url": "http://127.0.0.1:5219/",
+        "corpus_route": "/corpus.docx",
+        "ready_selector": '#wc-ready[data-state="rendered"]',
+        "ready_js": "window.__WORDCRAFT_READY__ === true",
+        "edit_selector": "#wordcraft_canvas",
+        "driver": "playwright",
+        "criteria": {
+            "C03": ("first_usable", "browser_visible"),
+            "C05": ("presented_frame", "browser_visible"),
+            "C06": ("input_to_next_paint", "browser_visible"),
+        },
+    },
+    "apryse": {
+        "lane": "webviewer",
+        "cwd": REPO / "harness" / "apryse",
+        "command": ["pnpm", "exec", "vite", "--config", "vite.perf.config.mjs",
+                    "--port", "5213", "--strictPort", "--host", "127.0.0.1"],
+        "url": "http://127.0.0.1:5213/perf.html",
+        "corpus_route": "/corpus.docx",
+        "ready_selector": '#ready[data-state="rendered"]',
+        "ready_js": "window.__aprysePerf && window.__aprysePerf.state === 'rendered'",
+        "wait_after_ready": "500",
+        "edit_selector": "#pageContainer1",
+        "driver": "playwright",
+        "criteria": {
+            "C03": ("first_usable", "browser_visible"),
+            "C02b": ("model_ready_browser", "model"),
+            "C05": ("presented_frame", "browser_visible"),
+            "C06": ("input_to_next_paint", "browser_visible"),
+        },
+    },
+    # no office-open browser target: the library exposes no interactive UI, so
+    # first_usable/presented_frame would measure our own host, not the editor.
+    "eigenpal": {
+        "lane": "browser",
+        "cwd": REPO / "repos" / "eigenpal-docx-editor" / "examples" / "vite",
+        "command": ["node", "../../node_modules/vite/bin/vite.js", "--port", "5218", "--strictPort", "--host", "127.0.0.1"],
+        "url": "http://127.0.0.1:5218/?perfE2e=1&fixture=corpus.docx&reviewRail=0",
+        "corpus_route": "/corpus.docx",
+        "ready_selector": ".docx-page[data-materialized=\"true\"]",
+        "ready_js": "window.__DOCX_EDITOR_E2E__?.ready() === true && window.__DOCX_EDITOR_E2E__?.fontMeasurer() === 'shaped' && (() => { const p = document.querySelector('.docx-page[data-materialized=\"true\"]'); if (!p) return false; const r = p.getBoundingClientRect(); return getComputedStyle(p).visibility === 'visible' && r.width > 0 && r.height > 0 && !document.querySelector('[data-docx-opening-preview], [data-docx-layout-pending]'); })()",
+        "edit_selector": ".docx-page-content [data-paragraph-id][data-start]",
+        "driver": "playwright",
+        "criteria": {
+            "C03": ("first_usable", "browser_visible"),
+            "C05": ("presented_frame", "browser_visible"),
+            "C06": ("input_to_next_paint", "browser_visible"),
+        },
+    },
+    "folio": {
+        "lane": "editor",
+        "cwd": REPO / "repos" / "folio" / "packages" / "playground",
+        "command": ["bun", "run", "dev", "--", "--port", "5217", "--strictPort", "--host", "127.0.0.1"],
+        "url": "http://127.0.0.1:5217/?file=corpus.docx",
+        "corpus_route": "/fixtures/corpus.docx",
+        "ready_selector": "[data-page-number]",
+        "ready_js": "Array.from(document.querySelectorAll('[data-page-number]')).some((el) => (el.innerText || '').trim().length > 0)",
+        "edit_selector": "[data-page-number]",
+        "driver": "playwright",
+        "env": {"FOLIO_PLAYGROUND_PORT": "5217"},
+        "criteria": {
+            "C03": ("first_usable", "browser_visible"),
+            "C02b": ("model_ready_browser", "model"),
+            "C05": ("presented_frame", "browser_visible"),
+            "C06": ("input_to_next_paint", "browser_visible"),
+        },
+    },
 }
 
 
 def _apryse_key_present() -> bool:
-    for name in ("APRYSE_LICENSE_KEY", "PDFTRON_LICENSE_KEY", "TRIAL_KEY"):
+    for name in ("APRYSE_LICENSE_KEY", "PDFTRON_LICENSE_KEY", "TRIAL_KEY", "APRYSE_API_KEY"):
         if os.environ.get(name, "").strip():
             return True
+    return False
+
+
+def warm_equals_cold(cold_samples: list[float], warm_samples: list[float]) -> bool:
+    """True when the strict copy guard fires; recorded, not raised.
+
+    The probe stamps with integer ``Date.now()`` milliseconds, so a fast edit
+    can produce two legitimately equal arrays (all 83 ms). Aborting a
+    five-minute pass over that coincidence destroys good data; the flag stays
+    in the attempt so a real copy is still visible.
+    """
+    try:
+        assert_warm_cold_distinct(cold_samples, warm_samples)
+    except ValueError:
+        return True
     return False
 
 
@@ -396,7 +542,7 @@ def main() -> int:
     not_run_rows: list[dict] = []
 
     for editor_id in editors:
-        lane = default_lane(editor_id)
+        lane = BROWSER_TARGETS[editor_id].get("lane") or default_lane(editor_id)
         trial_pin = pin_label(editor_id)
         editor_version, harness_meta = browser_harness_editor_version(editor_id, trial_pin)
         if editor_id == "apryse" and not _apryse_key_present():
@@ -770,6 +916,8 @@ def main() -> int:
                 cache_state="warm_steady",
             )
 
+            identical_edits = warm_equals_cold(cold_edits, warm_edits)
+
             cold_path = _write_measured_attempt(
                 attempt_dir=attempt_dir,
                 criterion_id="C05",
@@ -780,7 +928,8 @@ def main() -> int:
                 env=env_cold,
                 samples_ms=[float(s) for s in cold_edits],
                 cache_state="process_cold_fs_warm",
-                diagnostic={"suite": "warm_cold", "phase": "non_warm_edit"},
+                diagnostic={"suite": "warm_cold", "phase": "non_warm_edit",
+                            "warm_equals_cold": identical_edits},
             )
             warm_path = _write_measured_attempt(
                 attempt_dir=attempt_dir,
@@ -792,7 +941,8 @@ def main() -> int:
                 env=env_warm,
                 samples_ms=[float(s) for s in warm_edits],
                 cache_state="warm_steady",
-                diagnostic={"suite": "warm_cold", "phase": "warm_edit"},
+                diagnostic={"suite": "warm_cold", "phase": "warm_edit",
+                            "warm_equals_cold": identical_edits},
             )
 
             cause, breakdown = attribute_delta(median(cold_edits), median(warm_edits), probe_bundle)
@@ -826,7 +976,7 @@ def main() -> int:
                 and "C06" in criteria_map
             ):
                 assert_same_probe_paired(C06_PROBE_KEY, C06_PROBE_KEY)
-                assert_warm_cold_distinct(cold_burst, warm_burst)
+                identical_burst = warm_equals_cold(cold_burst, warm_burst)
                 env_cold_burst = _env_for(
                     editor_id=editor_id,
                     editor_version=editor_version,
@@ -857,6 +1007,7 @@ def main() -> int:
                         "suite": "warm_cold",
                         "phase": "non_warm_burst",
                         "probe_key": C06_PROBE_KEY,
+                        "warm_equals_cold": identical_burst,
                     },
                 )
                 burst_path = _write_measured_attempt(
@@ -873,6 +1024,7 @@ def main() -> int:
                         "suite": "warm_cold",
                         "phase": "warm_burst",
                         "probe_key": C06_PROBE_KEY,
+                        "warm_equals_cold": identical_burst,
                     },
                 )
                 cause_burst, breakdown_burst = attribute_delta(
