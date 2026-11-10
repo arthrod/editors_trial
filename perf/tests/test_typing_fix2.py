@@ -4,9 +4,9 @@ from types import SimpleNamespace
 from pathlib import Path
 import pytest
 from perf.runner.benchmark_typing import latency_summary, type_document, session
+from perf.tests.test_typing_marathon import no_frame
 from perf.tests.test_typing_marathon import ResourceSampler
 from perf.tests.test_typing_marathon import FakePage, FakeCDP
-from perf.tests import test_witness
 
 
 def good(**overrides):
@@ -17,11 +17,13 @@ def good(**overrides):
 def test_partial_refusals_keep_distribution_and_counts():
     result = latency_summary([good(), good(document_scoped=False)])
     assert result['median_ms'] is None
-    assert latency_summary([good()]*100 + [{'outcome':'no_frame'}]*100)['median_ms'] == 4.5
+    mixed = latency_summary([good()]*100 + [no_frame()]*100)
+    assert mixed['median_ms'] == 4.5
+    assert mixed['refusal_codes'] == {'no_frame': 100}
     assert result['n_accepted'] == 1 and result['n_refused'] == 1
     assert result['refusal_codes'] == {'not_document_scoped':1}
     assert result['minimum_accepted'] == 2
-    assert latency_summary([good()] + [{'outcome':'no_frame'}]*2)['median_ms'] is None
+    assert latency_summary([good()] + [no_frame()]*2)['median_ms'] is None
 
 
 def test_null_keydown_refuses_without_exception():

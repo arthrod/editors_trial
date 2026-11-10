@@ -3,6 +3,7 @@
 import asyncio
 import pytest
 from perf.runner.benchmark_typing import latency_summary, type_document
+from perf.tests.test_typing_marathon import no_frame
 from perf.tests.test_typing_fix2 import good
 from perf.tests.test_typing_marathon import FakePage, exercise
 
@@ -49,7 +50,8 @@ def test_periodic_editor_cost_is_counted_in_throughput_kind(period):
     [(2, 1, 2, False), (100, 99, 100, False), (199, 100, 100, True), (201, 100, 101, False), (0, 0, 0, False)],
 )
 def test_latency_absolute_and_relative_floor(scheduled, accepted, minimum, publishes):
-    summary = latency_summary([good()] * accepted + [{'outcome': 'no_frame'}] * (scheduled - accepted))
+    summary = latency_summary([good()] * accepted + [no_frame()] * (scheduled - accepted))
+    assert summary['refusal_codes'].get('no_frame', 0) == scheduled - accepted
     assert summary['minimum_accepted'] == minimum
     assert (summary['median_ms'] is not None) is publishes
     if not publishes:
@@ -89,7 +91,7 @@ def test_refused_witness_only_contributes_instrumented_wall_time(cost):
         async def witness(char):
             await key(char)
             now[0] += 1
-            return {'outcome': 'no_frame', 'key_operation_ms': cost}
+            return {'witness': no_frame(), 'key_operation_ms': cost}
 
         return await type_document(
             page, TypingSamples(), witness, 'ab', selector='#editor', session_kind='latency', witness_every=2, clock=lambda: now[0]
@@ -161,7 +163,7 @@ def test_integration_floor_refusal_reaches_summary_cell(tmp_path):
                 'outcome': 'measured',
                 'load_ms': 12,
                 'throughput_chars_s': 100,
-                'key_to_paint': latency_summary([good(), {'outcome': 'no_frame'}]),
+                'key_to_paint': latency_summary([good(), no_frame()]),
             },
         )
         return 0
@@ -240,7 +242,7 @@ def test_instrumented_wall_counts_cadence_once_even_on_refusal(refused):
         async def witness(char):
             await page.type(char)
             now[0] += 1.01
-            return {'outcome': 'no_frame', 'key_operation_ms': 10} if refused else {**good(), 'frame_page_ms': 1240}
+            return {'witness': no_frame(), 'key_operation_ms': 10} if refused else {**good(), 'frame_page_ms': 1240}
 
         async def sleep(seconds):
             now[0] += seconds
@@ -263,3 +265,5 @@ def test_instrumented_wall_counts_cadence_once_even_on_refusal(refused):
     assert result['instrumented']['throughput_chars_s'] == pytest.approx(2 / 2.06)
     assert result['typing_wall_s'] == pytest.approx(2.06)
     assert result['witness_wall_s'] == pytest.approx(2.02)
+    if refused:
+        assert result['key_to_paint']['refusal_codes'] == {'no_frame': 2}

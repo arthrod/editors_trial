@@ -11,6 +11,16 @@ def implementation():
     from perf.tests.test_typing_marathon import ResourceSampler
     return type_document, ResourceSampler
 
+def no_frame():
+    from perf.tests.witness_records import publishable_witness_record
+    from perf.runner.witness import validate_witness
+    record = publishable_witness_record()
+    record.update(outcome='no_frame', frame_page_ms=None, frames_after=0,
+                  changed_pixels=0, diff_ratio=0, max_diff_ratio=0)
+    assert validate_witness(record)['reason'] == 'no_frame'
+    return record
+
+
 class FakePage:
     def __init__(self, drop=False, freeze=False):
         self.text = ''; self.sent = 0; self.drop = drop; self.freeze = freeze
@@ -72,7 +82,7 @@ async def exercise(text, *, drop=False, freeze=False):
     sampler = Sampler(run, page, FakeCDP(page))
     async def witness(char):
         await page.type(char)
-        return {'outcome': 'no_frame'}
+        return no_frame()
     result = await type_document(page, sampler, witness, text, selector='#editor',
         cadence_ms=0, witness_every=100000, sample_s=1, clock=clock)
     return result, sampler.series()
@@ -112,7 +122,7 @@ def test_normalization_and_divergence():
     assert divergence('abc','ab') == 2
     assert divergence('abc','axc') == 1
     assert latency_summary([])['median_ms'] is None
-    assert latency_summary([{'outcome':'no_frame'}])['refusals']
+    assert latency_summary([no_frame()])['refusals'] == ['no_frame']
 
 def test_sampler_cpu_percent_and_nulls():
     _, Sampler = implementation()
@@ -142,11 +152,11 @@ def test_sampled_keys_cadence_and_crash():
         async def sleep(seconds): sleeps.append(seconds)
         async def witness(char):
             await page.type(char)
-            return {'outcome':'no_frame'}
+            return no_frame()
         result = await type_document(page,sampler,witness,'abc',selector='#e',session_kind='latency',cadence_ms=20,
                                      witness_every=1,clock=clock,sleep=sleep)
         assert sleeps == [.02,.02,.02]
-        assert result['key_to_paint']['refusals']
+        assert result['key_to_paint']['refusals'] == ['no_frame'] * 3
         async def crash(char): raise RuntimeError('out of memory')
         result = await type_document(page,sampler,crash,'a',selector='#e',session_kind='latency',witness_every=1,clock=clock)
         assert result['failure_reason'] == 'out_of_memory'

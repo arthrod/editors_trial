@@ -4,6 +4,7 @@ import asyncio
 import inspect
 import pytest
 from perf.runner.benchmark_typing import type_document
+from perf.tests.test_typing_marathon import no_frame
 from perf.tests.test_typing_marathon import FakePage
 from perf.tests.test_typing_fix3 import TypingSamples
 from perf.tests.test_typing_fix2 import good
@@ -50,7 +51,7 @@ def test_latency_never_publishes_throughput_even_when_witness_refuses(refused):
         async def witness(char):
             await page.type(char)
             now[0] += 1
-            return {'outcome': 'no_frame'} if refused else good()
+            return no_frame() if refused else good()
 
         options = {'session_kind': 'latency'} if 'session_kind' in inspect.signature(type_document).parameters else {}
         result = await type_document(
@@ -59,6 +60,8 @@ def test_latency_never_publishes_throughput_even_when_witness_refuses(refused):
         assert result.get('instrumented', {}).get('throughput_chars_s') == 1
         assert result.get('throughput_chars_s') is None
         assert result['key_to_paint']['n_refused'] == (2 if refused else 0)
+        if refused:
+            assert result['key_to_paint']['refusal_codes'] == {'no_frame': 2}
 
     asyncio.run(run())
 
