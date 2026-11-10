@@ -383,17 +383,23 @@ async function measureEdit(page, selector, cdp) {
       try {
         // Classification runs off-thread; CDP remains free to acknowledge
         // every frame while the recorded snapshot is processed.
-        for (const candidate of [...recorder.frames]) {
+        // W has elapsed in arm(). Snapshot all evidence, sort by timestamp,
+        // and classify through the decision time, including late delivery.
+        const snapshot=[...recorder.frames].sort((a,b)=>
+          convertFrameToPageMs(a,clock)-convertFrameToPageMs(b,clock));
+        for (const candidate of snapshot) {
           if (candidate.ack !== 'acked' || !candidate.data) continue;
           const pageMs = convertFrameToPageMs(candidate,clock);
           if (pageMs === null || pageMs < markerMs || pageMs > markerMs + settleMaxWaitMs) continue;
           const classification = await classifier.classify(candidate.data);
           recorded.push({frame:candidate,pageMs,...classification});
-          // The first proven reference is final: later paints cannot move it.
           decision = settleFrames(recorded, {quietMs:quiescenceMs,maxWaitMs:settleMaxWaitMs,
             markerMs,minPixels:Math.ceil(DEFAULT_MIN_PIXELS*dpr*dpr),tolerance:DEFAULT_CHANNEL_TOLERANCE,
             frameIntervalMs:skew.frame_interval_ms});
-          if (!decision.failure_reason) break;
+          // All snapshot frames at or before this decision are now classified.
+          // Include equal timestamps too, before accepting the prefix.
+          const next=snapshot[snapshot.indexOf(candidate)+1];
+          if (!decision.failure_reason && (!next || convertFrameToPageMs(next,clock)>pageMs)) break;
         }
         decision = settleFrames(recorded, {quietMs:quiescenceMs,maxWaitMs:settleMaxWaitMs,
           markerMs,minPixels:Math.ceil(DEFAULT_MIN_PIXELS*dpr*dpr),tolerance:DEFAULT_CHANNEL_TOLERANCE,

@@ -90,7 +90,7 @@ test('round8 appended cover inside Q refuses',()=>{
  assert.equal(settleFrames(late).failure_reason,'settle_not_reached');
 });
 test('round8 gap one frame before onset is harmless',()=>{
- const times=Array.from({length:80},(_,i)=>i*16.666).filter((_,i)=>i!==8);
+ const times=Array.from({length:80},(_,i)=>i*16.666).filter((_,i)=>i!==9);
  assert.equal(settleFrames(sequence(t=>t<170?blank:glyph,base,times),{frameIntervalMs:16.666}).page_ms,times[10]);
 });
 for(const bg of [[255,255,255],[20,180,40],[20,20,24]]) for(const delta of [7,8,9]) test(`round8 contrast ${bg} delta ${delta}`,()=>{
@@ -120,4 +120,49 @@ test('round8 vertical gradient never publishes the background',()=>{
  const ink=image((x,y)=>points.some(([a,b])=>a===x&&b===y)?[0,0,0]:[200,200,30+y*4]);
  assert.equal(settleFrames(sequence(t=>t<400?grad:ink)).page_ms,undefined);
  assert.equal(settleFrames(sequence(t=>t<40?grad:ink,grad)).page_ms,40);
+});
+test('round8 tiny glyph below half of underlined reference selects underline frame',()=>assert.equal(settleFrames(sequence(t=>t<20?blank:t<200?eight:underline(eight))).page_ms,200));
+test('round8 near-mode gradient column retains sparse glyph',()=>{
+ const ps=Array.from({length:8},(_,i)=>[1,8+i*2]);
+ const grad=image(x=>[255-x*4,255-x*4,255-x*4]);
+ const ink=image((x,y)=>ps.some(([a,b])=>a===x&&b===y)?[0,0,0]:[255-x*4,255-x*4,255-x*4]);
+ assert.equal(settleFrames(sequence(t=>t<40?grad:ink,grad)).page_ms,40);
+});
+test('round8 transient sub-half decoy does not veto late800',()=>{
+ const ps=Array.from({length:166},(_,i)=>[1+i%18,2+Math.floor(i/18)]);
+ const final=draw(ps),decoy=draw(ps.slice(0,64));
+ assert.equal(settleFrames(sequence(t=>t===0?decoy:t<800?blank:final)).page_ms,800);
+});
+test('round8 incompatible transient ink does not veto late800',()=>{
+ const decoy=draw(points.slice(0,6),[0,100,0]);
+ assert.equal(settleFrames(sequence(t=>t===0?decoy:t<800?blank:eight)).page_ms,800);
+});
+test('round8 cover delivered at the same timestamp as the quiet endpoint refuses',()=>{
+ const f=sequence(t=>t<20?blank:eight);
+ f.push({pageMs:320,...classifyRegion(cover,base,[rect],1,rect)});
+ assert.equal(settleFrames(f).failure_reason,'settle_not_reached');
+});
+test('round8 second stage within tolerance preserves first paint',()=>{
+ const next={...eight,data:new Uint8Array(eight.data)};next.data[(2*20+2)*4]=250;
+ assert.equal(settleFrames(sequence(t=>t<40?blank:t<80?eight:next)).page_ms,40);
+});
+test('round8 shuffled timestamp hole remains sparse',()=>{
+ const f=sequence(t=>t<500?blank:eight,base,[0,20,40,500,520,540,560,580,600,620,640]);
+ const shuffled=[f[0],f[3],...f.slice(1,3),...f.slice(4)];
+ assert.equal(settleFrames(f).failure_reason,'witness_sparse');
+ assert.equal(settleFrames(shuffled).failure_reason,'witness_sparse');
+});
+test('round8 near-column gradient fringe within tolerance refuses',()=>{
+ const ps=Array.from({length:8},(_,i)=>[1,8+i*2]);
+ const grad=image(x=>[255-x*4,255-x*4,255-x*4]);
+ const fringe=image((x,y)=>{const v=255-x*4-(ps.some(([a,b])=>a===x&&b===y)?5:0);return [v,v,v];});
+ assert.equal(settleFrames(sequence(t=>t<40?grad:fringe,grad)).failure_reason,'settle_not_reached');
+});
+for (const extra of [1/4096,0.01]) test(`round8 onset timestamp precision ${extra} ms`,()=>{
+ const step=16.666015625;
+ const times=Array.from({length:80},(_,i)=>i*step+(i>=10?extra:0)).filter((_,i)=>i!==9);
+ const onset=10*step+extra;
+ const r=settleFrames(sequence(t=>t<onset?blank:glyph,base,times),{frameIntervalMs:16.7});
+ if(extra<0.001) assert.equal(r.page_ms,onset);
+ else assert.equal(r.failure_reason,'witness_sparse');
 });
