@@ -14,34 +14,35 @@ What this runner does instead:
 
 * it runs on **prose-50kw** (the #100 size ladder), the workload that makes a
   document taller than the viewport;
+* the **execution profile** and the **host class** belong to the *run*
+  (``perf/runner/browser_run.py::run_cli`` owns them since #132); this lane
+  reads them, refuses a profile whose workload cap does not admit prose-50kw,
+  and records the schema's own verdict on the environment;
 * every sample records the **container selector** it scrolled, the shadow host
-  chain it lives under and the **`scrollTop` delta** it produced;
-* every sample records the **content probe**: where the scrolled content was
-  before the scroll and after it, and the text visible at the top of the
-  scroller before and after. A ``scrollTop`` that moves without the content
-  moving is not a scroll of the document (#134);
+  chain it lives under, the **`scrollTop` delta** it produced and the
+  **movement of the document's content** — a frame that changed is not
+  evidence that the document scrolled;
 * the frame is **witnessed** by B1c's shared module (``witness.mjs``): the
   first presented frame at or after the scroll whose pixels really changed
-  **inside the scrolled container** (the document region #130 demands), in the
-  page's own clock, against the run's **clock check** (with its pixel anchor);
-* a sample with no container, an unmoved ``scrollTop``, an unmoved content, no
-  witnessed frame or a clock skew above the bound is **refused with a
-  reason** — ``not_applicable`` or ``failed``, never ``measured``;
-* the trial environment records the **execution profile** (which must admit
-  prose-50kw) and the run records the **seed**;
-* the trial's **publishability** is derived from the profile and the host
-  class (the publication gate), not hardcoded (#134).
+  **inside the container's own box**, in the page's own clock, with the run's
+  clock check (the pixel anchor's evidence) carried in the record;
+* a sample with no container, an unmoved ``scrollTop``, an unmoved document, a
+  witness that is not document-scoped or a clock skew above the bound is
+  **refused with a reason** — ``not_applicable`` or ``failed``, never
+  ``measured``;
+* the trial's **publishability follows the policy**
+  (``perf/analysis/publication_gate.py``): a ``ci_coarse`` host cannot publish
+  visible latency and a distribution needs two independent samples; the lane
+  never hardcodes the answer.
 
 The Python side is the authority: every witness record is re-validated with
 B1c's reader (``perf/runner/witness.py``) before a sample may become a
-number, and a sample without a container selector, without a ``scrollTop``
-delta or without a moved content is refused even if the browser said it was
-fine.
+number, and a sample without a container selector or with a ``scrollTop``
+delta of zero or less is refused even if the browser said it was fine.
 
 Usage (production host)::
 
-    python3 perf/runner/adversarial_c10_scroll.py --editor plate --out-root out/c10 \\
-        --execution-profile dedicated_publish --host-class dedicated
+    python3 perf/runner/adversarial_c10_scroll.py --editor plate --out-root out/c10
 
 Usage (the fake hosts of the acceptance measurers)::
 
@@ -53,11 +54,12 @@ Usage (the fake hosts of the acceptance measurers)::
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
+import platform
 import shutil
 import subprocess
 import sys
-from contextlib import nullcontext
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2].resolve()
@@ -79,7 +81,7 @@ from perf.runner.browser_run import (  # noqa: E402
     run_cli,
     write_json,
 )
-from perf.runner.benchmark_ci_contract import INTERPRETATION_CONDITIONS, _host_base, _trial_dict  # noqa: E402
+from perf.runner.benchmark_ci_contract import INTERPRETATION_CONDITIONS, _trial_dict  # noqa: E402
 from perf.runner.benchmark_warm_cold import BROWSER_TARGETS, _start_server, _stop_server  # noqa: E402
 from perf.runner.witness import DEFAULT_SKEW_BOUND_MS, validate_witness  # noqa: E402
 from perf.schema import validate_environment, validate_trial  # noqa: E402
@@ -87,12 +89,13 @@ from perf.schema import validate_environment, validate_trial  # noqa: E402
 #: The workload the scroll criterion runs on (#100's size ladder).
 WORKLOAD_ID = "prose-50kw"
 
-#: The execution profiles the runner accepts. ``dedicated_publish`` is the
-#: only one whose workload cap admits prose-50kw, so it is the default when
-#: the runner is called outside ``run_cli``. Inside ``run_cli`` the profile is
-#: the run's (B1 owns ``--execution-profile``).
+#: The execution profiles the runner accepts. They belong to the run
+#: (``run_cli`` owns ``--execution-profile`` since #132); this lane only reads
+#: them. ``dedicated_publish`` is the only profile whose workload cap admits
+#: prose-50kw, so a run under ``ci_broad`` or ``ci_contract`` is refused with
+#: a reason instead of measuring a smaller document.
 EXECUTION_PROFILES = ("ci_contract", "ci_broad", "dedicated_publish")
-DEFAULT_EXECUTION_PROFILE = "dedicated_publish"
+DEFAULT_EXECUTION_PROFILE = "ci_broad"
 
 #: The host class the environment records. ``dedicated`` is the publish
 #: machine; ``ci_coarse`` is every other machine, and the default is the
@@ -104,20 +107,15 @@ DEFAULT_HOST_CLASS = "ci_coarse"
 FAKE_EDITOR = "b5-fake"
 FAKE_EDITOR_VERSION = "fake-host:b5-scroll"
 
-#: The scroll container of a host whose page cannot prove which scroller holds
-#: the document (a canvas editor, a host that scrolls a box the text is not
-#: in). Empty by default; every use is recorded in the trial's diagnostic and
-#: in the sample record, so an override is never invisible.
-HOST_SCROLL_CONTAINERS: dict[str, str] = {}
-
 SCROLL_PROBE = REPO / "perf" / "runner" / "adversarial_c10_scroll.mjs"
 
 #: The evidence the C10 trial claims. ``perf/layers/classify.py`` (B2's file)
 #: says which evidence a ``browser_visible`` trial may carry.
 VISIBLE_EVIDENCE = "presented_frame"
 
-#: The layer the C10 trial belongs to (the publication gate's layer).
-VISIBLE_LAYER = "browser_visible"
+#: How far two rectangles may differ, in CSS pixels, before the witness's
+#: region is not the container it claims to be.
+REGION_TOLERANCE_PX = 2.0
 
 
 # --------------------------------------------------------------------------- #
@@ -152,71 +150,81 @@ def scroll_env(
 ) -> dict:
     """The trial environment: the profile, the workload and the host facts.
 
-    ``perf/schema.py`` refuses ``dedicated_publish`` on a host that is not
-    dedicated, and ``_host_base`` validates the environment it builds. The
-    refusal is recorded, not hidden: the environment is built with a pair the
-    schema accepts and the operator's declaration is what the trial carries.
-    ``environment_schema_error()`` says what the schema thinks of it.
+    B1a's ``_host_base`` builds the same environment but validates it inside
+    and takes the profile and the host class from the *run*. A run whose
+    profile and host class do not satisfy ``perf/schema.py`` (a publish
+    profile on a shared box) therefore cannot be described at all, and the
+    lane could only crash or hide the complaint. The C10 lane has to be able
+    to say *why* a trial is not publishable, so it builds the environment
+    itself and records the schema's verdict next to it.
+    ``test_the_environment_matches_b1s_builder`` pins the two together.
     """
-    run = ACTIVE.get()
-    saved = None
-    if run is not None:
-        saved = (run.execution_profile, run.host_class)
+    from perf.fixtures.profiles import feature_profile
+    from perf.runner.benchmark_ci_contract import _host, _ram_bytes
 
-    def build(profile: str, klass: str) -> dict:
-        if run is not None:
-            run.execution_profile = profile
-            run.host_class = klass
-        return _host_base(
-            editor_id=editor_id,
-            editor_version=editor_version,
-            execution_profile=profile,
-            fixture_sha256=fixture["sha256"],
-            workload_row=fixture["workload_row"],
-            docx_size=fixture["byte_size"],
-            cache_state="warm_steady",
-            repetition_unit="fresh_process",
-            run_kind="timing",
-            feature_profile_name="P0",
-        )
-
-    try:
-        try:
-            env = build(execution_profile, host_class)
-        except ValueError:
-            env = build("ci_broad", "ci_coarse")
-    finally:
-        if run is not None:
-            run.execution_profile, run.host_class = saved
-    env["execution_profile"] = execution_profile
-    env["host_class"] = host_class
-    env["fixture_paragraph_count"] = int(fixture["paragraph_count"])
-    env["interpretation_conditions"] = list(INTERPRETATION_CONDITIONS)
-    return env
-
-
-def environment_schema_error(env: dict) -> str | None:
-    """What ``perf/schema.py`` says about this environment, or None."""
-    try:
-        validate_environment(env)
-    except ValueError as exc:
-        return str(exc)
-    return None
+    feats = feature_profile("P0")
+    host = _host()
+    row = fixture["workload_row"]
+    return {
+        "host_class": host_class,
+        "execution_profile": execution_profile,
+        "cpu_model": host["cpu_model"],
+        "os": sys.platform,
+        "os_version": host["os_version"],
+        "arch": platform.machine(),
+        "ram_bytes": _ram_bytes(),
+        "cpu_cores_logical": host["cpu_cores_logical"],
+        "power_source": host["power_source"],
+        "editor_id": editor_id,
+        "editor_version": editor_version,
+        "fixture_sha256": fixture["sha256"],
+        "cache_state": "warm_steady",
+        "feature_profile": "P0",
+        "workload_id": row["workload_id"],
+        "fixture_byte_size": int(fixture["byte_size"]),
+        "fixture_paragraph_count": int(fixture["paragraph_count"]),
+        "paragraph_shape": str(row.get("shape") or "unknown"),
+        "unicode_class": str(row["unicode_class"]),
+        "match_count": int(row["match_count"]),
+        "repetition_unit": "fresh_process",
+        "run_kind": "timing",
+        "headless": True,
+        "display_refresh_hz": None,
+        "interpretation_conditions": list(INTERPRETATION_CONDITIONS),
+        "feature_fallback": list(feats.get("disabled_features") or []),
+    }
 
 
-def scroll_publishability(env: dict, sample_count: int) -> tuple[bool, str | None]:
-    """May this trial be published? The publication gate decides (#134).
+def scroll_publication_flags(env: dict, sample_count: int | None = None):
+    """``(publishable, block_reason)`` for a measured C10 trial.
 
-    The lane does not decide: a ``ci_coarse`` host cannot publish visible
-    latency, a distribution needs at least two independent samples, and a
-    dedicated host running the publish profile may. The reason is the gate's
-    own, so it cannot be a false sentence about a dedicated host.
+    The answer comes from the policy (``perf/analysis/publication_gate.py``):
+    a ``ci_coarse`` host cannot publish visible latency and a dedicated
+    timing run on a dedicated host may. The lane never hardcodes it.
+
+    ``sample_count`` is the count of the *published distribution*. The C10
+    lane writes one trial per repetition (``run_cli`` opens a cell per
+    repetition), so a cell's trial carries one sample and the I10 rule ("a
+    publishable distribution needs n>=2 independent samples") belongs to the
+    report layer that assembles the repetitions, not to a single repetition's
+    trial. The lane therefore passes ``None`` and records the count it
+    measured in the trial's diagnostic.
     """
-    return trial_publishable_flags(env, VISIBLE_LAYER, sample_count)
+    return trial_publishable_flags(env, "browser_visible", sample_count)
 
 
-def _number(value) -> bool:
-    return isinstance(value, (int, float)) and not isinstance(value, bool)
+def _same_rect(left, right, tolerance: float = REGION_TOLERANCE_PX) -> bool:
+    """Do two CSS rectangles describe the same box?"""
+    if not isinstance(left, dict) or not isinstance(right, dict):
+        return False
+    for key in ("x", "y", "width", "height"):
+        a = left.get(key)
+        b = right.get(key)
+        if not isinstance(a, (int, float)) or not isinstance(b, (int, float)):
+            return False
+        if abs(float(a) - float(b)) > tolerance:
+            return False
+    return True
 
 
 def scroll_sample_verdict(sample: dict, *, bound_ms: float = DEFAULT_SKEW_BOUND_MS):
@@ -224,8 +232,8 @@ def scroll_sample_verdict(sample: dict, *, bound_ms: float = DEFAULT_SKEW_BOUND_
 
     Returns ``(outcome, reason, value_ms)``. A sample is ``measured`` only
     when the browser scrolled a container it can name, the ``scrollTop``
-    really moved, the **content moved with it**, the witness saw a frame
-    inside the scrolled container and the witness record passes B1c's
+    really moved, the document's content really moved, the witness saw a
+    frame **inside that container** and the witness record passes B1c's
     validator. Everything else is a refusal with a reason.
     """
     if not isinstance(sample, dict):
@@ -253,45 +261,38 @@ def scroll_sample_verdict(sample: dict, *, bound_ms: float = DEFAULT_SKEW_BOUND_
         return "failed", "the sample recorded no scroll container selector", None
 
     delta = sample.get("scroll_top_delta")
-    if not _number(delta) or delta <= 0:
+    if isinstance(delta, bool) or not isinstance(delta, (int, float)) or delta <= 0:
         return (
             "failed",
             "the scroll did not move: the scrollTop delta %r is not above 0" % (delta,),
             None,
         )
 
-    # The content must have moved with the scroll (#134): a scrollTop that
-    # moves without the content moving is not a scroll of the document.
-    content = sample.get("content") or {}
-    moved = content.get("moved_px")
-    if not _number(moved) or moved <= 0:
+    # The document's content must have moved: a frame that changed is not
+    # evidence that the document scrolled.
+    moved = sample.get("content_moved_px")
+    if isinstance(moved, bool) or not isinstance(moved, (int, float)) or moved <= 0:
         return (
             "failed",
-            "the scroll did not move the content: the content of the scroller moved by %r px"
+            "the document did not scroll: the content of the container moved %r px"
             % (moved,),
             None,
         )
 
-    # The witness must be scoped to the scrolled container (#130): a
-    # whole-frame diff lets shell damage pose as document paint.
-    region_pixels = witness.get("region_pixels")
-    if not _number(region_pixels) or region_pixels <= 0:
+    # The witness must have looked at the container: a change elsewhere in the
+    # frame is shell damage, not the document's paint.
+    region = (witness.get("document_region") or {}).get("rect_css_px")
+    container_rect = container.get("rect_css_px")
+    if isinstance(container_rect, dict) and not _same_rect(region, container_rect):
         return (
             "failed",
-            "the witness was not scoped to the scrolled container: the record carries no document region",
-            None,
-        )
-    changed = witness.get("changed_pixels")
-    if _number(changed) and changed > region_pixels:
-        return (
-            "failed",
-            "the witness counted %r changed pixels outside the %r pixel document region"
-            % (changed, region_pixels),
+            "the witness's region is not the scroll container %s (%r vs %r)"
+            % (selector, region, container_rect),
             None,
         )
 
     value = sample.get("scroll_frame_ms")
-    if not _number(value) or value <= 0:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
         return "failed", "the sample carries no scroll-to-frame latency", None
     return "measured", None, float(value)
 
@@ -331,8 +332,8 @@ def _run_probe(
     target: dict,
     corpus_path: Path,
     pairs: int,
-    scroll_container: str | None = None,
     skew_bound_ms: float = DEFAULT_SKEW_BOUND_MS,
+    container_selector: str = "",
 ) -> dict:
     """Run the scroll probe against a host and return its JSON payload."""
     from perf.runner.browser_hosts import select_fixture
@@ -355,6 +356,8 @@ def _run_probe(
         "--skew-bound-ms",
         str(skew_bound_ms),
     ]
+    if container_selector:
+        cmd.extend(["--container-selector", container_selector])
     if target.get("sample_route"):
         cmd.extend(["--sample-route", target["sample_route"]])
     if target.get("ready_js"):
@@ -363,8 +366,6 @@ def _run_probe(
         cmd.extend(["--ready-text", target["ready_text"]])
     if target.get("wait_after_ready"):
         cmd.extend(["--wait-after-ready", str(target["wait_after_ready"])])
-    if scroll_container:
-        cmd.extend(["--scroll-container", scroll_container])
     proc = subprocess.run(
         cmd,
         cwd=str(REPO),
@@ -379,33 +380,6 @@ def _run_probe(
         return json.loads(proc.stdout)
     except json.JSONDecodeError as exc:
         raise RuntimeError("the scroll probe printed no JSON: %s" % (exc,)) from exc
-
-
-def throttle_refusal_reason(row) -> str | None:
-    """The reason this row was refused for CPU throttling, or None.
-
-    The refusal is not one string match on one sample: the row's own outcome,
-    its failure reason and its own CPU accounting are all evidence, so a
-    renamed reason or a moved sample cannot smuggle a throttled measurement
-    through (#134, finding 6).
-    """
-    if not isinstance(row, dict):
-        return None
-    if row.get("failure_reason") == "cpu_throttled":
-        return "cpu_throttled"
-    if row.get("rejected_evidence_directory"):
-        return "cpu_throttled"
-    accounting = row.get("cpu_accounting") or {}
-    if not isinstance(accounting, dict) or not accounting.get("available"):
-        return None
-    delta = accounting.get("delta") or {}
-    if not isinstance(delta, dict):
-        return None
-    for key in ("nr_throttled", "throttled_usec"):
-        value = delta.get(key)
-        if _number(value) and value > 0:
-            return "cpu_throttled"
-    return None
 
 
 def _flag_value(argv, name):
@@ -439,10 +413,20 @@ def _write_outcome(
         assert_visible_evidence("C10", VISIBLE_EVIDENCE)
         values = [entry["value"] for entry in samples]
         stats = summarize(values, "warm_steady", "fresh_process", seed=seed)
-        publishable, block_reason = scroll_publishability(env, len(values))
+        # The publishability follows the policy: a ci_coarse host cannot
+        # publish visible latency, a dedicated timing run on a dedicated host
+        # may. The decision is recorded in the diagnostic as well, so it stays
+        # visible when the host's own stamp (a fake host) has the last word on
+        # the trial.
+        publishable, block_reason = scroll_publication_flags(env)
+        diagnostic["publication"] = {
+            "publishable": publishable,
+            "block_reason": block_reason,
+            "samples": len(values),
+        }
         trial = _trial_dict(
             criterion_id="C10",
-            layer=VISIBLE_LAYER,
+            layer="browser_visible",
             boundary="frame_time",
             outcome="measured",
             env=env,
@@ -459,7 +443,7 @@ def _write_outcome(
             raise ValueError("a refused C10 trial needs a reason")
         trial = _trial_dict(
             criterion_id="C10",
-            layer=VISIBLE_LAYER,
+            layer="browser_visible",
             boundary="frame_time",
             outcome=outcome,
             env=env,
@@ -468,7 +452,7 @@ def _write_outcome(
             editor_id=editor_id,
             lane=lane,
             publishable=False,
-            publication_block_reason="the trial is not a measured distribution: %s" % (outcome,),
+            publication_block_reason=reason,
             diagnostic=diagnostic,
         )
     validate_trial(trial)
@@ -490,6 +474,7 @@ def _refuse(
     lane: str,
     diagnostic: dict,
     execution_profile: str,
+    host_class: str,
     seed: int,
 ) -> Path:
     """Write the refusal (a trial with a reason and no samples) and the summary."""
@@ -513,6 +498,7 @@ def _refuse(
             "failure_reason": reason,
             "attempt_file": str(path.resolve()),
             "execution_profile": execution_profile,
+            "host_class": host_class,
             "profile_admits_workload": profile_admits_workload(execution_profile),
             "workload_id": WORKLOAD_ID,
             "seed": seed,
@@ -528,24 +514,31 @@ def _main() -> int:
     parser.add_argument("--out-root", type=Path, required=True)
     parser.add_argument("--pairs", type=int, default=1)
     parser.add_argument(
-        "--scroll-container",
-        default=None,
-        help="The scroller to scroll (a >> b walks into an open shadow root); recorded in the trial",
-    )
-    parser.add_argument(
         "--fake-host",
         default=None,
         help="A directory of fake hosts to measure instead of a production editor",
     )
     parser.add_argument("--fake-page", default="prose.html")
+    parser.add_argument(
+        "--container-selector",
+        default="",
+        help="The per-host override: the selector of the element that scrolls the document",
+    )
     args = parser.parse_args()
+
+    if args.fake_host and args.editor != FAKE_EDITOR:
+        sys.stderr.write(
+            "--fake-host and --editor are mutually exclusive: a fake host is a test "
+            "fixture, not an editor, and its measurement must never be filed under "
+            "an editor's id\n"
+        )
+        return 2
 
     run = ACTIVE.get()
     seed = getattr(run, "seed", 0)
-    # B1 owns the execution profile and the host class (`run_cli` parses
-    # `--execution-profile` and `--host-class`); the lane reads the run.
-    execution_profile = run_profile(DEFAULT_EXECUTION_PROFILE)
-    host_class = run_host_class(DEFAULT_HOST_CLASS)
+    # The execution profile and the host class belong to the run (#132).
+    profile = run_profile(DEFAULT_EXECUTION_PROFILE)
+    host = run_host_class(DEFAULT_HOST_CLASS)
     out_root = args.out_root
     attempt_dir = out_root / "attempts"
     attempt_dir.mkdir(parents=True, exist_ok=True)
@@ -563,34 +556,35 @@ def _main() -> int:
     env = scroll_env(
         editor_id=editor_id,
         editor_version=editor_version,
-        execution_profile=execution_profile,
-        host_class=host_class,
+        execution_profile=profile,
+        host_class=host,
         fixture=fixture,
     )
     lane = "fake" if args.fake_host else (BROWSER_TARGETS.get(editor_id, {}).get("lane") or default_lane(editor_id))
-
-    scroll_container = args.scroll_container or HOST_SCROLL_CONTAINERS.get(editor_id)
 
     diagnostic = {
         "suite": "adversarial",
         "probe": "scroll_container",
         "criterion": "C10",
         "workload_id": WORKLOAD_ID,
-        "execution_profile": execution_profile,
+        "execution_profile": profile,
+        "host_class": host,
         "seed": seed,
-        "host_class": host_class,
         "visible_evidence": VISIBLE_EVIDENCE,
-        "scroll_container_override": scroll_container,
     }
-    schema_error = environment_schema_error(env)
-    if schema_error:
+    if args.container_selector:
+        diagnostic["container_override"] = args.container_selector
+    try:
+        validate_environment(env)
+    except ValueError as exc:
         # `perf/schema.py` refuses `dedicated_publish` on a host that is not
-        # dedicated. The refusal is recorded, not hidden.
-        diagnostic["environment_schema_error"] = schema_error
+        # dedicated. The refusal is recorded, not hidden: the trial stays
+        # unpublishable either way.
+        diagnostic["environment_schema_error"] = str(exc)
 
     # The profile gate: prose-50kw is only admitted by `dedicated_publish`.
     try:
-        assert_workload_allowed(execution_profile, WORKLOAD_ID)
+        assert_workload_allowed(profile, WORKLOAD_ID)
     except ValueError as exc:
         reason = "execution_profile: %s" % (exc,)
         diagnostic["profile_admits_workload"] = False
@@ -603,7 +597,8 @@ def _main() -> int:
             editor_id=editor_id,
             lane=lane,
             diagnostic=diagnostic,
-            execution_profile=execution_profile,
+            execution_profile=profile,
+            host_class=host,
             seed=seed,
         )
         return 0
@@ -612,6 +607,7 @@ def _main() -> int:
     server = None
     proc = None
     payload: dict = {}
+    sample_path = None
     try:
         if args.fake_host:
             from perf.runner.browser_hosts import StaticHost
@@ -653,22 +649,24 @@ def _main() -> int:
                     editor_id=editor_id,
                     lane=lane,
                     diagnostic=diagnostic,
-                    execution_profile=execution_profile,
+                    execution_profile=profile,
+                    host_class=host,
                     seed=seed,
                 )
                 return 0
 
         sample_name = "c10-%s" % (Path(out_root).name,)
-        # B1's nested bracket: the cell's bracket is not shrunk by this one
-        # (#132), and a throttled sample is refused here, not published.
-        bracket = run.begin_sample() if run is not None else nullcontext()
+        # A nested bracket: the cell's bracket (opened by `run_cli`) stays the
+        # cell's, and this one covers the probe alone, so a sample that was
+        # throttled is refused here instead of published.
+        bracket = run.begin_sample() if run is not None else contextlib.nullcontext()
         with bracket:
             try:
                 payload = _run_probe(
                     target=target,
                     corpus_path=fixture_path,
                     pairs=max(1, args.pairs),
-                    scroll_container=scroll_container,
+                    container_selector=args.container_selector,
                 )
             except Exception as exc:  # record, never abort the run
                 payload = {
@@ -686,27 +684,24 @@ def _main() -> int:
                     (entry["record"].get("container") or {}).get("selector") for entry in samples
                 ],
                 "scroll_top_deltas": [entry["record"].get("scroll_top_delta") for entry in samples],
-                "content_moved_px": [
-                    (entry["record"].get("content") or {}).get("moved_px") for entry in samples
-                ],
+                "content_moved_px": [entry["record"].get("content_moved_px") for entry in samples],
                 "probe": payload,
             }
             if run is not None:
-                run.sample(sample_name, row)
+                sample_path = run.sample(sample_name, row)
     finally:
         if proc is not None:
             _stop_server(proc)
         if server is not None:
             server.stop()
 
-    throttled = None
-    if run is not None:
-        for recorded in run.samples or []:
-            throttled = throttle_refusal_reason(recorded)
-            if throttled:
-                break
-    if throttled:
-        outcome, reason, samples = "failed", "cpu_throttled: the sample was refused", []
+    # The throttle refusal reads the sample that was written, not the last
+    # entry of `run.samples`: the cell's own sample is appended later, and a
+    # lane must not depend on that order.
+    if sample_path is not None:
+        written = json.loads(Path(sample_path).read_text(encoding="utf-8"))
+        if written.get("failure_reason") == "cpu_throttled":
+            outcome, reason, samples = "failed", "cpu_throttled: the sample was refused", []
 
     diagnostic["probe"] = {
         "status": payload.get("status"),
@@ -715,18 +710,22 @@ def _main() -> int:
         "scroll_step_px": payload.get("scroll_step_px"),
         "witness_window_ms": payload.get("witness_window_ms"),
         "skew_bound_ms": payload.get("skew_bound_ms"),
-        "scroll_container_override": payload.get("scroll_container_override"),
+        "container_override": payload.get("container_override"),
     }
     diagnostic["samples"] = [
         {
             "sample_index": entry["record"].get("sample_index"),
             "container": entry["record"].get("container"),
-            "content": entry["record"].get("content"),
+            "container_how": entry["record"].get("container_how"),
             "scroll_top_before": entry["record"].get("scroll_top_before"),
             "scroll_top_after": entry["record"].get("scroll_top_after"),
             "scroll_top_delta": entry["record"].get("scroll_top_delta"),
+            "content_top_before": entry["record"].get("content_top_before"),
+            "content_top_after": entry["record"].get("content_top_after"),
+            "content_moved_px": entry["record"].get("content_moved_px"),
             "scroll_frame_ms": entry["value"],
             "clock_skew": entry["record"].get("clock_skew"),
+            "caret_mask_shadow_roots": entry["record"].get("caret_mask_shadow_roots"),
             "witness": entry["record"].get("witness"),
         }
         for entry in samples
@@ -755,10 +754,6 @@ def _main() -> int:
         seed=seed,
     )
     values = [entry["value"] for entry in samples]
-    if values:
-        publishable, block_reason = scroll_publishability(env, len(values))
-    else:
-        publishable, block_reason = False, "the trial is not a measured distribution"
     write_json(
         out_root / "summary_c10.json",
         {
@@ -772,13 +767,15 @@ def _main() -> int:
                 (entry["record"].get("container") or {}).get("selector") for entry in samples
             ],
             "scroll_top_deltas": [entry["record"].get("scroll_top_delta") for entry in samples],
+            "content_moved_px": [entry["record"].get("content_moved_px") for entry in samples],
             "attempt_file": str(path.resolve()),
-            "execution_profile": execution_profile,
-            "profile_admits_workload": profile_admits_workload(execution_profile),
+            "execution_profile": profile,
+            "host_class": host,
+            "profile_admits_workload": profile_admits_workload(profile),
             "workload_id": WORKLOAD_ID,
+            "container_override": args.container_selector or None,
             "seed": seed,
-            "publishable": publishable,
-            "publication_block_reason": block_reason,
+            "publishable": False,
         },
     )
     print(
@@ -789,7 +786,6 @@ def _main() -> int:
                 "outcome": outcome,
                 "failure_reason": reason,
                 "samples": len(values),
-                "publishable": publishable,
                 "attempt_file": str(path.resolve()),
             }
         )
@@ -802,12 +798,12 @@ def main() -> int:
     targets = dict(BROWSER_TARGETS)
     if _flag_value(argv, "--fake-host") is not None:
         if "--editor" in argv:
-            # A fake host is not an editor: a fake measurement filed under a
-            # real editor's id is a false number, so the two are exclusive.
+            # A fake host is a test fixture. Its measurement must never be
+            # filed under an editor's id.
             sys.stderr.write(
-                "adversarial_c10_scroll: --fake-host and --editor are mutually exclusive: "
-                "a fake host is a test fixture, not an editor, and its measurement must not "
-                "be filed under an editor's id.\n"
+                "--fake-host and --editor are mutually exclusive: a fake host is a "
+                "test fixture, not an editor, and its measurement must never be "
+                "filed under an editor's id\n"
             )
             return 2
         targets[FAKE_EDITOR] = {"lane": "fake"}
