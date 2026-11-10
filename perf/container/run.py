@@ -2,11 +2,15 @@
 import argparse
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 import shlex
 import subprocess
 import sys
+from . import artifacts
 from .policy import RUNNERS, publication_jobs, verify_run, cell_counts, verify_profiles
+
+DEFAULT_OUT_ROOT = Path('perf/container/out/runs')
 
 
 def read_run(directory):
@@ -19,6 +23,28 @@ def read_run(directory):
         return data
     except (OSError, ValueError) as exc:
         raise ValueError(f'missing_summary: {directory}: {exc}') from exc
+
+
+def spawn_detached_campaign(argv: list[str], campaign_dir: Path, run_id: str) -> int:
+    campaign_dir.mkdir(parents=True, exist_ok=True)
+    log_path = campaign_dir / 'RUN.log'
+    env = {**os.environ, 'HF_RUN_CHILD': '1', 'HF_CAMPAIGN_ID': run_id}
+    with log_path.open('ab') as log_file:
+        proc = subprocess.Popen(
+            argv,
+            stdout=log_file,
+            stderr=subprocess.STDOUT,
+            stdin=subprocess.DEVNULL,
+            env=env,
+            start_new_session=True,
+        )
+    artifacts.atomic_write(campaign_dir / 'RUN.pid', f'{proc.pid}\n')
+    artifacts.atomic_write(campaign_dir / 'RUN.started', datetime.now(timezone.utc).isoformat() + '\n')
+    return proc.pid
+
+
+def refuse_existing(path: Path) -> bool:
+    return path.exists()
 
 
 def verify_lane_profiles(directory, profile, host_class):
@@ -38,8 +64,17 @@ def main():
     parser.add_argument('--host-class', default='ci_coarse')
     parser.add_argument('--seed', type=int, default=1)
     parser.add_argument('--seed2', type=int)
-    parser.add_argument('--out-root', type=Path, default=Path('perf/container/out/runs'))
+    parser.add_argument('--out-root', type=Path, default=DEFAULT_OUT_ROOT)
+    parser.add_argument('--detach', action='store_true')
     args = parser.parse_args()
+    if args.detach and os.environ.get('HF_RUN_CHILD') != '1':
+        stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
+        campaign_root = (args.out_root / stamp) if args.out_root == DEFAULT_OUT_ROOT else args.out_root
+        argv = [sys.executable, '-m', 'perf.container.run', *[a for a in sys.argv[1:] if a != '--detach'],
+                '--out-root', str(campaign_root)]
+        spawn_detached_campaign(argv, campaign_root, stamp)
+        print(stamp, flush=True)
+        return 0
     from perf.runner.benchmark_warm_cold import BROWSER_TARGETS
     from perf.runner.browser_hosts import host_policy
     editors = [name for name in BROWSER_TARGETS if name != 'apryse' and host_policy(name)['publishable']]
@@ -55,9 +90,14 @@ def main():
         subprocess.run(host_cmd, check=True)
     print('headless=true; LIBGL_ALWAYS_SOFTWARE=1; actual renderer recorded by BrowserRun')
     print('apryse: not_run: licence key not exported')
-    stamp = 'DRY-RUN' if args.dry_run else datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
+    stamp = os.environ.get('HF_CAMPAIGN_ID') or ('DRY-RUN' if args.dry_run else datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ'))
+    if not args.dry_run and args.out_root == DEFAULT_OUT_ROOT:
+        args.out_root = DEFAULT_OUT_ROOT / stamp
+    campaign_root = args.out_root
+    campaign_root.mkdir(parents=True, exist_ok=True)
     failures = []
     records = []
+    run_exit = 0
     for index, (name, options) in enumerate(jobs):
         run_id = f'{stamp}-{index:03d}'
         cmd = [sys.executable, '-m', 'perf.runner.' + name] if args.publish else [sys.executable, '-m', 'perf.container.smoke', name]
@@ -68,28 +108,42 @@ def main():
             entry = {'runner': name, 'seed': int(options[options.index('--seed') + 1]),
                      'run_dir': str(directory), **cell_counts({})}
             records.append(entry)
-            try:
-                result = subprocess.run(cmd, check=False)
-                entry['exit_code'] = result.returncode
-                data = read_run(directory)
-                entry.update(cell_counts(data))
-                verify_lane_profiles(directory, options[options.index('--execution-profile') + 1],
-                                     options[options.index('--host-class') + 1])
-                if args.smoke:
-                    from .smoke import finish_smoke
-                    finish_smoke(directory, name, persist=False)
-                else:
-                    verify_run(data)
-            except (ValueError, OSError) as exc:
-                entry['refusal'] = str(exc)
-                failures.append(f'{name}: {exc}')
+            job_exit = 0
+            if refuse_existing(directory):
+                job_exit = 2
+                entry['refusal'] = f'job_refused: directory exists: {directory}'
+                failures.append(f'{name}: {entry["refusal"]}')
+                artifacts.finalize_job(directory, job_exit)
+            else:
+                try:
+                    result = subprocess.run(cmd, check=False)
+                    job_exit = result.returncode
+                    entry['exit_code'] = job_exit
+                    data = read_run(directory)
+                    entry.update(cell_counts(data))
+                    verify_lane_profiles(directory, options[options.index('--execution-profile') + 1],
+                                         options[options.index('--host-class') + 1])
+                    if args.smoke:
+                        from .smoke import finish_smoke
+                        finish_smoke(directory, name, persist=False)
+                    else:
+                        verify_run(data)
+                except (ValueError, OSError) as exc:
+                    job_exit = 1
+                    entry['refusal'] = str(exc)
+                    failures.append(f'{name}: {exc}')
+            artifacts.finalize_job(directory, job_exit)
+            if job_exit != 0:
+                run_exit = 1
     if args.publish and not args.dry_run:
         destination = Path('out/e2-publication.json')
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_text(json.dumps({'runs': records, 'failures': failures}, indent=2) + '\n')
+    if not args.dry_run:
+        artifacts.atomic_write(campaign_root / 'RUN-DONE', f'exit_status={run_exit if not failures else 1}\n')
     if failures:
         raise RuntimeError('; '.join(failures))
-    return 0
+    return run_exit
 
 
 if __name__ == '__main__':

@@ -66,8 +66,8 @@ Docsplus and Fidus are excluded by B1's nonpublishable app-server policy.
 Dry-run commands are safe locally:
 
 ```bash
-bash -n perf/container/setup.sh perf/container/run.sh
-shellcheck perf/container/setup.sh perf/container/run.sh
+bash -n perf/container/setup.sh perf/container/run.sh perf/container/pull.sh
+shellcheck perf/container/setup.sh perf/container/run.sh perf/container/pull.sh
 bash perf/container/setup.sh --dry-run
 bash perf/container/run.sh --dry-run --smoke
 bash perf/container/run.sh --dry-run --publish --host-class shared_guarded --seed 1 --seed2 2
@@ -125,3 +125,27 @@ retry to select favorable samples.
 HF acceptance remains pending: successful image build, setup, four-runner smoke,
 real Plate readiness, and primary/reproduction publication evidence. Local tests
 cover planning and refusal policy, not those integration claims.
+
+## Data safety during a campaign
+
+The Space has no durable disk: anything left only under `/app` is lost on rebuild
+or factory reboot. Sleep is set to never (`gcTimeout` null as of 2026-11-10); still
+treat the VM as fragile.
+
+1. Start publication on the Space with `--detach` so the campaign survives an SSH
+   drop (`perf/container/run.sh --detach --publish …`). Each finished job gets an
+   atomic `MANIFEST.sha256` and `JOB-DONE`; the campaign directory gets `RUN-DONE`.
+2. On the Mac, run `perf/container/pull.sh` for the whole campaign:
+
+   ```bash
+   perf/container/pull.sh --target "$HF_SSH" --remote /app/perf/container/out \
+     --dest "$HOME/path/to/e2-logs/hf-data/e2-publish" --interval 60 \
+     --until-run YYYYMMDDTHHMMSSffffffZ
+   ```
+
+   Pull never deletes locally; changed bytes are kept as `name.prev-<UTC-stamp>`.
+   One line is printed per newly verified job and when `RUN-DONE` arrives.
+3. Do not restart or factory-reboot the Space and do not push its repository until
+   the final pull has verified `RUN-DONE` for that campaign.
+4. No HF token belongs in the container image: measurement data returns only via
+   pull (and the periodic SSH from pull serves as a Dev Mode keepalive).
