@@ -55,8 +55,38 @@ def count_tar_invocations(transport) -> int:
         return 0
     from perf.container import pull as pull_mod
 
-    needle = 'json.loads(base64.b64decode(sys.argv[1]))'
+    needle = pull_mod.TAR_STDIN_MARKER
     return sum(1 for cmd in transport.call_log if needle in cmd)
+
+
+def is_list_fragment(fragment: str) -> bool:
+    return "os.walk(root)" in fragment or 'for dp,_,fns in os.walk' in fragment
+
+
+def is_tar_fragment(fragment: str) -> bool:
+    from perf.container import pull as pull_mod
+
+    return pull_mod.TAR_STDIN_MARKER in fragment
+
+
+class WatchTransport:
+    """Wrap BashTransport to mutate the remote between list and tar."""
+
+    def __init__(self, remote_root: Path, *, on_before_list=None, on_before_tar=None):
+        from perf.container import pull as pull_mod
+
+        self.inner = pull_mod.BashTransport(remote_root)
+        self.remote_root = Path(remote_root)
+        self.on_before_list = on_before_list
+        self.on_before_tar = on_before_tar
+        self.call_log = self.inner.call_log
+
+    def run(self, fragment: str, *, stdin: bytes | None = None) -> bytes:
+        if is_list_fragment(fragment) and self.on_before_list:
+            self.on_before_list(self.remote_root)
+        if is_tar_fragment(fragment) and self.on_before_tar:
+            self.on_before_tar(self.remote_root, stdin)
+        return self.inner.run(fragment, stdin=stdin)
 
 
 @pytest.fixture
@@ -251,9 +281,9 @@ def test_corrupted_transfer_is_detected_and_refetched(remote_root, tmp_path, cap
 
     real_run = transport.run
 
-    def truncating_run(fragment: str) -> bytes:
-        data = real_run(fragment)
-        if 'base64.b64decode(sys.argv[1])' not in fragment:
+    def truncating_run(fragment: str, *, stdin: bytes | None = None) -> bytes:
+        data = real_run(fragment, stdin=stdin)
+        if pull_mod.TAR_STDIN_MARKER not in fragment:
             return data
         cuts['n'] += 1
         if cuts['n'] == 1:
@@ -291,9 +321,9 @@ def test_truncated_tar_inside_member_retries(remote_root, tmp_path, capsys):
     cuts = {'n': 0}
     real_run = transport.run
 
-    def truncating_run(fragment: str) -> bytes:
-        data = real_run(fragment)
-        if 'base64.b64decode(sys.argv[1])' not in fragment:
+    def truncating_run(fragment: str, *, stdin: bytes | None = None) -> bytes:
+        data = real_run(fragment, stdin=stdin)
+        if pull_mod.TAR_STDIN_MARKER not in fragment:
             return data
         return data[:520]
 
@@ -413,8 +443,28 @@ def test_bash_transport_runs_remote_commands_end_to_end(remote_root, tmp_path, c
     out = capsys.readouterr().out.splitlines()
     assert code == 1
     assert len([line for line in out if line.startswith('JOB-DONE ')]) == 3
-    assert out[-1] == f'RUN-DONE {run_id} exit_status=1'
+    assert out[-1].startswith(f'FINAL-VERIFIED {run_id} ')
     assert any('lstat' in c or 'os.walk' in c for c in transport.call_log)
+
+
+def test_spawn_detached_campaign_uses_new_session(tmp_path, monkeypatch):
+    from perf.container.run import spawn_detached_campaign
+
+    captured: dict = {}
+    real_popen = subprocess.Popen
+
+    def recording_popen(*args, **kwargs):
+        captured.update(kwargs)
+        return real_popen(*args, **kwargs)
+
+    monkeypatch.setattr(subprocess, 'Popen', recording_popen)
+    campaign = tmp_path / 'campaign'
+    campaign.mkdir()
+    child_script = tmp_path / 'child.py'
+    child_script.write_text('import time\ntime.sleep(0.2)\n')
+    child = [sys.executable, '-u', str(child_script)]
+    spawn_detached_campaign(child, campaign, 'session-test')
+    assert captured.get('start_new_session') is True
 
 
 def test_detached_child_survives_parent_exit(tmp_path):
@@ -452,12 +502,21 @@ def test_detached_child_ignores_sighup_to_pid(tmp_path):
 
     campaign = tmp_path / 'campaign'
     campaign.mkdir()
+    sighup_probe = tmp_path / 'sighup.txt'
     child_script = tmp_path / 'child.py'
-    child_script.write_text('import time\nfor _ in range(50):\n    time.sleep(0.1)\n')
+    child_script.write_text(
+        'import signal, time\nfrom pathlib import Path\n'
+        f'Path({str(sighup_probe)!r}).write_text(repr(signal.getsignal(signal.SIGHUP)))\n'
+        'for _ in range(50):\n    time.sleep(0.1)\n'
+    )
     child = [sys.executable, '-u', str(child_script)]
     spawn_detached_campaign(child, campaign, 'sighup-test')
     pid = int((campaign / 'RUN.pid').read_text().strip())
-    time.sleep(0.3)
+    for _ in range(30):
+        if sighup_probe.exists():
+            break
+        time.sleep(0.1)
+    assert signal.SIG_IGN.name in sighup_probe.read_text()
     os.kill(pid, signal.SIGHUP)
     time.sleep(0.5)
     os.kill(pid, 0)
@@ -503,7 +562,7 @@ def test_until_run_prints_jobs_and_exits_on_run_done(remote_root, tmp_path, caps
     out = capsys.readouterr().out.splitlines()
     assert code == 1
     assert len([line for line in out if line.startswith('JOB-DONE ')]) == 2
-    assert out[-1] == f'RUN-DONE {run_id} exit_status=1'
+    assert out[-1].startswith(f'FINAL-VERIFIED {run_id} ')
     warm = dest / f'runs/{run_id}/benchmark_warm_cold/{run_id}-000' / 'summary.json'
     assert warm.read_text() == '{"warm": true}'
     assert sha256_file(warm) == sha256_bytes(b'{"warm": true}')
@@ -527,11 +586,11 @@ def test_transport_failure_prints_pull_error_and_recovers(remote_root, tmp_path,
     real_run = transport.run
     calls = {'n': 0}
 
-    def flaky_run(fragment: str) -> bytes:
+    def flaky_run(fragment: str, *, stdin: bytes | None = None) -> bytes:
         calls['n'] += 1
-        if calls['n'] == 2 and 'base64.b64decode(sys.argv[1])' in fragment:
+        if calls['n'] == 2 and pull_mod.TAR_STDIN_MARKER in fragment:
             raise pull_mod.TransportError('broken pipe')
-        return real_run(fragment)
+        return real_run(fragment, stdin=stdin)
 
     transport.run = flaky_run
     code = pull_mod.pull_until(transport, remote_root, dest, run_id, interval=0, max_cycles=6)
@@ -644,6 +703,279 @@ def test_verify_job_manifest_checks_job_done_digest(remote_root, tmp_path):
     index = {f'job/JOB-DONE': {'sha256': sha256_bytes(job_done.encode())}}
     with pytest.raises(pull_mod.VerifyError, match='manifest_sha256'):
         pull_mod.verify_job_manifest(tmp_path, 'job', index)
+
+
+def test_until_run_fetches_job_written_in_run_done_gap(remote_root, tmp_path, capsys):
+    from perf.container import pull as pull_mod
+
+    run_id = '20260101T000000000060Z'
+    (remote_root / 'runs' / run_id).mkdir(parents=True)
+    write_job_tree(
+        remote_root,
+        run_id,
+        'benchmark_warm_cold',
+        f'{run_id}-000',
+        files={'summary.json': 'JOB-A'},
+        job_done=True,
+    )
+    last_job = f'{run_id}-001'
+
+    def before_list(root: Path):
+        nonlocal lists
+        lists += 1
+        if lists == 2:
+            write_job_tree(
+                root,
+                run_id,
+                'benchmark_input',
+                last_job,
+                files={'summary.json': 'LAST-JOB'},
+                job_done=True,
+            )
+            (root / 'runs' / run_id / 'RUN-DONE').write_text('exit_status=0\n')
+
+    lists = 0
+    dest = tmp_path / 'dest'
+    transport = WatchTransport(remote_root, on_before_list=before_list)
+    code = pull_mod.pull_until(transport, remote_root, dest, run_id, interval=0, max_cycles=12)
+    out = capsys.readouterr().out.splitlines()
+    assert code == 0
+    last = dest / f'runs/{run_id}/benchmark_input/{last_job}' / 'summary.json'
+    assert last.read_text() == 'LAST-JOB'
+    index = json.loads((dest / '.pull-index.json').read_text())
+    assert f'runs/{run_id}/benchmark_input/{last_job}/summary.json' in index
+    assert (dest / f'runs/{run_id}/benchmark_input/{last_job}' / 'JOB-DONE').exists()
+    assert any(line.startswith('FINAL-VERIFIED ') for line in out)
+    assert out[-1].startswith('FINAL-VERIFIED ')
+
+
+def test_until_run_updates_partial_to_final_before_exit(remote_root, tmp_path, capsys):
+    from perf.container import pull as pull_mod
+
+    run_id = '20260101T000000000061Z'
+    job_rel = f'runs/{run_id}/benchmark_warm_cold/{run_id}-000'
+    job = remote_root / job_rel
+    job.mkdir(parents=True)
+    (job / 'summary.json').write_text('PARTIAL-MEASUREMENT')
+    lists = 0
+
+    def before_list(root: Path):
+        nonlocal lists
+        lists += 1
+        if lists == 2:
+            (job / 'summary.json').write_text('FINAL-MEASUREMENT')
+            for name in ('MANIFEST.sha256', 'JOB-DONE'):
+                (job / name).unlink(missing_ok=True)
+            from perf.container import artifacts
+
+            artifacts.finalize_job(job, 0)
+            (root / 'runs' / run_id).mkdir(parents=True, exist_ok=True)
+            (root / 'runs' / run_id / 'RUN-DONE').write_text('exit_status=0\n')
+
+    dest = tmp_path / 'dest'
+    transport = WatchTransport(remote_root, on_before_list=before_list)
+    code = pull_mod.pull_until(transport, remote_root, dest, run_id, interval=0, max_cycles=12)
+    out = capsys.readouterr().out
+    assert code == 0
+    local = dest / job_rel / 'summary.json'
+    assert local.read_text() == 'FINAL-MEASUREMENT'
+    index = json.loads((dest / '.pull-index.json').read_text())
+    assert index[f'{job_rel}/summary.json'] == sha256_bytes(b'FINAL-MEASUREMENT')
+    assert (dest / job_rel / 'JOB-DONE').exists()
+    assert 'FINAL-VERIFIED' in out
+
+
+def test_list_copies_ok_despite_bad_filenames(remote_root, tmp_path, capsys):
+    from perf.container import pull as pull_mod
+
+    (remote_root / 'ok.txt').write_text('good')
+    bad_newline = remote_root / 'has\nnewline.txt'
+    bad_newline.write_text('bad')
+    bad_bytes = remote_root / bytes([0xFF, 0xFE, 0x2E, 0x74, 0x78, 0x74]).decode('latin-1')
+    bad_bytes.write_text('x')
+    dest = tmp_path / 'dest'
+    transport = local_transport(remote_root)
+    pull_mod.pull_cycle(transport, remote_root, dest)
+    out = capsys.readouterr().out
+    assert 'PULL-WARN' in out
+    assert (dest / 'ok.txt').read_text() == 'good'
+    index = json.loads((dest / '.pull-index.json').read_text())
+    assert index['ok.txt'] == sha256_bytes(b'good')
+    assert 'has\nnewline.txt' not in index
+
+
+def test_torn_pull_index_rebuilt_new_file_copied(remote_root, tmp_path, capsys):
+    from perf.container import pull as pull_mod
+
+    (remote_root / 'a.txt').write_text('first')
+    dest = tmp_path / 'dest'
+    transport = local_transport(remote_root)
+    pull_mod.pull_cycle(transport, remote_root, dest)
+    (dest / '.pull-index.json').write_text('{')
+    (remote_root / 'b.txt').write_text('SECOND-MEASUREMENT')
+    capsys.readouterr()
+    pull_mod.pull_cycle(transport, remote_root, dest)
+    out = capsys.readouterr().out
+    assert 'PULL-WARN index unreadable; rebuilding' in out
+    assert (dest / 'b.txt').read_text() == 'SECOND-MEASUREMENT'
+    corrupt = list(dest.glob('.pull-index.json.corrupt-*'))
+    assert len(corrupt) == 1
+    index = json.loads((dest / '.pull-index.json').read_text())
+    assert index['b.txt'] == sha256_bytes(b'SECOND-MEASUREMENT')
+
+
+def test_tar_batches_use_stdin_not_argv(remote_root, tmp_path):
+    from perf.container import pull as pull_mod
+
+    dest = tmp_path / 'dest'
+    transport = local_transport(remote_root)
+    for idx in range(500):
+        rel = f'bulk/{idx:04d}/' + ('x' * 230)
+        rel = rel[:240]
+        assert len(rel) == 240
+        path = remote_root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(str(idx))
+    pull_mod.pull_cycle(transport, remote_root, dest)
+    max_argv = max(len(cmd.encode()) for cmd in transport.call_log)
+    assert max_argv < 8 * 1024
+    assert count_tar_invocations(transport) >= 1
+
+
+def test_sha256_flip_at_data_byte_leaves_no_file(remote_root, tmp_path):
+    from perf.container import pull as pull_mod
+
+    run_id = '20260101T000000000080Z'
+    job_rel = f'runs/{run_id}/benchmark_warm_cold/{run_id}-000'
+    rel = f'{job_rel}/b.txt'
+    write_job_tree(
+        remote_root,
+        run_id,
+        'benchmark_warm_cold',
+        f'{run_id}-000',
+        files={'b.txt': 'B' * 8000},
+        job_done=True,
+    )
+    dest = tmp_path / 'dest'
+    transport = local_transport(remote_root)
+    real_run = transport.run
+
+    def flip_data_byte(fragment: str, *, stdin: bytes | None = None) -> bytes:
+        data = real_run(fragment, stdin=stdin)
+        if stdin is None or not is_tar_fragment(fragment):
+            return data
+        with tarfile.open(fileobj=io.BytesIO(data.lstrip(b'\n\r')), mode='r:') as tar:
+            member = tar.getmember(rel)
+            offset = member.offset_data + 10
+        buf = bytearray(data.lstrip(b'\n\r'))
+        buf[offset] ^= 0xFF
+        return bytes(buf)
+
+    transport.run = flip_data_byte
+    with pytest.raises(pull_mod.VerifyError, match='sha256 mismatch'):
+        pull_mod.pull_cycle(transport, remote_root, dest)
+    assert not (dest / rel).exists()
+    index_path = dest / '.pull-index.json'
+    if index_path.exists():
+        index = json.loads(index_path.read_text())
+        assert rel not in index
+    else:
+        assert not index_path.exists()
+
+
+def test_until_run_bad_remote_manifest_never_final(remote_root, tmp_path, capsys):
+    from perf.container import pull as pull_mod
+    from perf.container import artifacts
+
+    run_id = '20260101T000000000081Z'
+    (remote_root / 'runs' / run_id).mkdir(parents=True)
+    job = remote_root / f'runs/{run_id}/benchmark_warm_cold/{run_id}-000'
+    job.mkdir(parents=True)
+    (job / 'summary.json').write_text('{}')
+    artifacts.finalize_job(job, 0)
+    (job / 'cells').mkdir(exist_ok=True)
+    (job / 'cells' / 'extra.json').write_text('{}')
+    (remote_root / 'runs' / run_id / 'RUN-DONE').write_text('exit_status=0\n')
+    dest = tmp_path / 'dest'
+    transport = local_transport(remote_root)
+    code = pull_mod.pull_until(transport, remote_root, dest, run_id, interval=0, max_cycles=10)
+    out = capsys.readouterr().out
+    assert code == 0
+    assert 'FINAL-VERIFIED' not in out
+
+
+def test_remote_skip_missing_member_raises(remote_root, tmp_path):
+    from perf.container import pull as pull_mod
+
+    run_id = '20260101T000000000082Z'
+    job_rel = f'runs/{run_id}/benchmark_warm_cold/{run_id}-000'
+    gone = f'{job_rel}/gone.txt'
+    keep = f'{job_rel}/keep.txt'
+    job = remote_root / job_rel
+    job.mkdir(parents=True)
+    (job / 'gone.txt').write_text('1')
+    (job / 'keep.txt').write_text('2')
+    from perf.container import artifacts
+
+    artifacts.finalize_job(job, 0)
+    dest = tmp_path / 'dest'
+    transport = WatchTransport(
+        remote_root,
+        on_before_tar=lambda _root, stdin: (remote_root / gone).unlink(missing_ok=True),
+    )
+    with pytest.raises(pull_mod.VerifyError, match='missing members'):
+        pull_mod.pull_cycle(transport, remote_root, dest)
+    assert not (dest / gone).exists()
+    index = json.loads((dest / '.pull-index.json').read_text()) if (dest / '.pull-index.json').exists() else {}
+    assert gone not in index
+
+
+def test_sighup_sig_dfl_control_child_dies(tmp_path):
+    child = tmp_path / 'child.py'
+    child.write_text(
+        'import os, signal, time\n'
+        'signal.signal(signal.SIGHUP, signal.SIG_DFL)\n'
+        'time.sleep(30)\n'
+    )
+    signal.signal(signal.SIGHUP, signal.SIG_DFL)
+    proc = subprocess.Popen([sys.executable, '-u', str(child)])
+    time.sleep(0.2)
+    os.kill(proc.pid, signal.SIGHUP)
+    proc.wait(timeout=5)
+    assert proc.returncode != 0
+
+
+def test_custom_campaign_run_done_with_until_run(remote_root, tmp_path, capsys):
+    from perf.container import pull as pull_mod
+
+    run_id = '20261110T203054948922Z-33514-935073'
+    campaign = remote_root / run_id
+    campaign.mkdir(parents=True)
+    (campaign / 'summary.json').write_text('DEFAULT-MEASUREMENT')
+    (campaign / 'RUN-DONE').write_text('exit_status=0\n')
+    dest = tmp_path / 'mirror'
+    transport = local_transport(remote_root)
+    code = pull_mod.pull_until(transport, remote_root, dest, run_id, interval=0, max_cycles=5)
+    out = capsys.readouterr().out
+    assert code == 0
+    assert (dest / run_id / 'summary.json').read_text() == 'DEFAULT-MEASUREMENT'
+    assert 'FINAL-VERIFIED' in out
+
+
+def test_directory_symlink_pull_warn(remote_root, tmp_path, capsys):
+    from perf.container import pull as pull_mod
+
+    hidden = remote_root / 'hidden'
+    hidden.mkdir()
+    (hidden / 'secret.txt').write_text('HIDDEN')
+    (remote_root / 'dirlink').symlink_to(hidden, target_is_directory=True)
+    (remote_root / 'ok.txt').write_text('ok')
+    dest = tmp_path / 'dest'
+    transport = local_transport(remote_root)
+    pull_mod.pull_cycle(transport, remote_root, dest)
+    out = capsys.readouterr().out
+    assert 'PULL-WARN' in out and 'dirlink' in out
+    assert (dest / 'ok.txt').exists()
 
 
 def test_job_changed_line_when_file_added_after_verify(remote_root, tmp_path, capsys):
