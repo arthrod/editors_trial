@@ -556,12 +556,15 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
                     if path.parent.name == 'attempts' and isinstance(value, dict):
                         criterion = value.get('criterion_id')
                         if criterion:
-                            attempts[criterion] = attempts.get(criterion, 0) + 1
+                            diagnostic = value.get('diagnostic') or {}
+                            measure = value.get('measure') or diagnostic.get('size_rung') or diagnostic.get('measurement') or ''
+                            identity = (criterion, str(measure))
+                            attempts[identity] = attempts.get(identity, 0) + 1
                     reasons.extend(failure_reasons(value))
                     failed = failed or has_failure(value)
                     skipped.extend({'file': str(path), **row} for row in non_failure_outcomes(value))
                 if any(count > 1 for count in attempts.values()):
-                    # A launch contributes at most one attempt per criterion.
+                    # A launch contributes at most one attempt per criterion/measure.
                     # Remove invalid attempts from the measured tree but retain
                     # the complete cell for diagnosis, as with throttle refusals.
                     destination = run.directory / 'rejected-evidence' / name
