@@ -242,6 +242,7 @@ DOCUMENT_TARGETS = {
         "page_selector": None,
         "page_model": "continuous_flow",
         "edit_selector": "docen-document .canvas-pages > div:first-child",
+        "document_selector": ".canvas-pages > div:first-child",
         "usable_signal": "shadow_text",
         "ready_js": "window.__DOCEN_READY__ === true",
         "find_input_selector": None,
@@ -251,8 +252,10 @@ DOCUMENT_TARGETS = {
         "find_source_note": "no find surface verified for this host; C15 refuses by name",
         "note": (
             "docen renders pages as LeaferJS canvases inside docen-document's open shadow root "
-            "(.canvas-pages > div). Light-DOM textContent is empty. C11 uses the disclosed "
-            "shadow_text signal (open shadow root text), not the shell's first-contentful-paint. "
+            "(.canvas-pages > div). The document element is .canvas-pages > div:first-child inside "
+            "that shadow root; its own rect is the region. Other shadow text (toolbar, menus) is "
+            "not document text. Light-DOM textContent is empty. C11 uses the disclosed "
+            "shadow_text signal on that element, not the shell's first-contentful-paint. "
             "C12 still needs DOM block boxes the probe can see. "
             "edit_selector matches the shadow-piercing Playwright locator warm/cold already uses."
         ),
@@ -277,7 +280,8 @@ DOCUMENT_TARGETS = {
         ),
     },
     "apryse": {
-        "doc_selector": "#viewer",
+        "doc_selector": "#viewer apryse-webviewer",
+        "document_selector": "#pageContainer1",
         "page_selector": None,
         "page_model": "continuous_flow",
         "edit_selector": "#pageContainer1",
@@ -289,9 +293,11 @@ DOCUMENT_TARGETS = {
         "find_expected_matches": 5,
         "find_source_note": "no find surface verified for this host; C15 refuses by name",
         "note": (
-            "pageContainer1..N live inside the apryse-webviewer open shadow root, invisible to "
-            "light-DOM textContent. C11 uses the disclosed shadow_text signal (open shadow root "
-            "text), not the shell's first-contentful-paint. #viewer is the light-DOM WebViewer mount. "
+            "The shadow host is #viewer apryse-webviewer (harness/apryse/perf-main.js viewerRoot). "
+            "#viewer itself has no shadow root. The document element is #pageContainer1 inside that "
+            "shadow root; its own rect is the region. Toolbar and menu text in the same root is not "
+            "document text. C11 uses the disclosed shadow_text signal on that element, not the shell's "
+            "first-contentful-paint. "
             "page_model=continuous_flow records probe visibility, not a claim that WebViewer is "
             "unpaged - pagination exists (pageContainer1-4 observed) but page boxes cannot be "
             "counted from light DOM. edit_selector #pageContainer1 resolves through Playwright's "
@@ -528,15 +534,15 @@ def _needs_witness(probe: dict) -> bool:
     return "witness" in probe or probe.get("mode") in ("load", "reflow", "scale")
 
 
-def _require_witness(probe: dict) -> None:
+def _require_witness(probe: dict, facts: dict | None = None) -> None:
     if not _needs_witness(probe):
         return
     witness = probe.get("witness")
     if not isinstance(witness, dict):
-        raise ProbeRefusal("retained sample has no witness record")
+        raise ProbeRefusal("retained sample has no witness record", facts=facts)
     verdict = validate_witness(witness)
     if not verdict.get("ok"):
-        raise ProbeRefusal("witness refused: %s" % (verdict.get("reason") or "refused"))
+        raise ProbeRefusal("witness refused: %s" % (verdict.get("reason") or "refused"), facts=facts)
 
 
 def c11_measured_samples(probe: dict) -> list:
@@ -604,6 +610,13 @@ def c12_measured_sample(probe: dict) -> float:
     value = float(presented)
     if value < 0:
         raise ProbeRefusal("negative presented_frame_ms")
+    origin = _number_or_none(probe.get("input_page_ms"))
+    shift = _number_or_none(probe.get("observed_shift_page_ms"))
+    if origin is not None and shift is not None and origin + value + 80 < shift:
+        raise ProbeRefusal(
+            "presented frame precedes the anchor reflow (frame=%r shift=%r input=%r)"
+            % (origin + value, shift, origin)
+        )
     return value
 
 
@@ -635,7 +648,7 @@ def c14_measured_sample(probe: dict) -> float:
             outcome="unverified",
             facts=facts,
         )
-    _require_witness(probe)
+    _require_witness(probe, facts)
     usable = probe.get("usable_ms")
     if usable is None or isinstance(usable, bool):
         raise ProbeRefusal("no DOM usability mark (page/block element never appeared with text)", facts=facts)
@@ -889,6 +902,10 @@ def _probe_cmd(*, mode: str, target: dict, cfg: dict, corpus_path: Path, extra: 
         cmd.extend(["--ready-js", cfg["ready_js"]])
     if cfg.get("usable_signal"):
         cmd.extend(["--usable-signal", cfg["usable_signal"]])
+    if cfg.get("document_selector"):
+        cmd.extend(["--document-selector", cfg["document_selector"]])
+    elif (cfg.get("usable_signal") or "dom_text") != "shadow_text":
+        cmd.extend(["--document-selector", cfg["doc_selector"]])
     if target.get("wait_after_ready"):
         cmd.extend(["--wait-after-ready", str(target["wait_after_ready"])])
     cmd.extend(extra)

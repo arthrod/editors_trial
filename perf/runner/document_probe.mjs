@@ -10,22 +10,25 @@
  * Clocks. One page clock (`performance.now` + `performance.timeOrigin`) and the
  * B1c screencast witness. A shell paint is not the document.
  *   load    C11 is the first acked screencast frame at or after the disclosed
- *           document surface (DOM text, a non-blank canvas pixel, or open
- *           shadow-root text). FCP is recorded beside that frame and is not
- *           the sample. The witness window is 500 ms. No forced repaint.
- *   reflow  input (Enter at the document start, page clock) to the first
- *           acked frame at or after that input. Layout reads stay outside
- *           the observation window; forced_layout_ms is 0. Page.startScreencast
- *           frames are acked via the witness recorder (Page.screencastFrame).
- *           frame_source: 'cdp_screencast'.
+ *           document element (its own rect: inside the shadow root for a
+ *           shadow host, never the host box or toolbar text; a non-blank
+ *           canvas samples the page, not the top-left margin). FCP is recorded
+ *           beside that frame and is not the sample. The witness window is
+ *           500 ms. No forced repaint.
+ *   reflow  input (Enter at the document start, page clock) to the acked
+ *           frame at or after the anchor reflow, not the first input paint.
+ *           Layout reads stay outside the observation window; forced_layout_ms
+ *           is 0. Page.startScreencast frames are acked via the witness
+ *           recorder (Page.screencastFrame). frame_source: 'cdp_screencast'.
  *   scale   usable on an animation frame, then the next acked frame that
  *           differs after the document has settled. No post-load damage is
  *           not "no compositor frame": a 1 px outline outside the document
  *           is recorded as mechanism forced_repaint and is not a measured
  *           sample. The witness window is 500 ms.
- *   find    the editor's own find widget. Completion is the widget's own
- *           acknowledgement event. No widget is not_applicable with a reason.
- *           cap_ms is null: there is no fixed completion cap.
+ *   find    the editor's own find widget. Completion and first-match are the
+ *           full query's count text, tagged by the input value when that
+ *           reply was scheduled. A prefix reply never completes it. No widget
+ *           is not_applicable with a reason. cap_ms is null.
  *
  * Usage (from repo root, with a dev server already listening):
  *   node perf/runner/document_probe.mjs --mode load \
@@ -72,6 +75,7 @@ const readySelector = opt['ready-selector'] || '';
 const readyJs = opt['ready-js'] || '';
 const waitAfterReadyMs = Number(opt['wait-after-ready'] || 0);
 const docSelector = opt['doc-selector'] || '';
+const documentSelector = opt['document-selector'] || '';
 const pageSelector = opt['page-selector'] || '';
 const pageModel = opt['page-model'] || (pageSelector ? 'page' : 'continuous_flow');
 const editSelector = opt['edit-selector'] || docSelector;
@@ -202,7 +206,7 @@ function fcpFrom(paints) {
  * becomes true. textContent does not pierce an open shadow root and does not
  * see canvas pixels; those signals are checked on purpose.
  */
-const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal }) => {
+const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, documentSelector: documentSel }) => {
   const recorded =
     signal === 'canvas_pixel' ? 'canvas_pixel_non_blank' : signal === 'shadow_text' ? 'open_shadow_root_text' : 'dom_text';
   const state = (window.__docProbeState = {
@@ -231,32 +235,33 @@ const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal }) => {
     if (!(r.width > 0 && r.height > 0)) return null;
     return r;
   };
-  const lightText = (el) => {
-    if (!paintedBox(el)) return '';
-    return (el.innerText || '').replace(/\s+/g, ' ').trim();
+  const isChrome = (el) => {
+    if (!el || el.nodeType !== 1) return false;
+    const tag = el.tagName;
+    if (tag === 'BUTTON' || tag === 'NAV' || tag === 'MENU') return true;
+    const role = (el.getAttribute('role') || '').toLowerCase();
+    return role === 'toolbar' || role === 'menu' || role === 'menubar' || role === 'menuitem';
   };
-  const shadowTextOf = (el) => {
-    if (!el || !el.shadowRoot) return '';
+  // Text of one element. Toolbar, button and menu labels are not document text.
+  // Style and script source are not either. Hidden boxes are not paint.
+  const elementText = (el) => {
+    if (!paintedBox(el) || isChrome(el)) return '';
     const parts = [];
-    const visit = (root) => {
-      if (!root || typeof document.createTreeWalker !== 'function') return;
-      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-      let node = walker.nextNode();
-      while (node) {
-        const parent = node.parentElement;
-        const tag = parent ? parent.tagName : '';
-        if (tag !== 'STYLE' && tag !== 'SCRIPT' && tag !== 'NOSCRIPT' && parent && paintedBox(parent)) {
-          const chunk = (node.textContent || '').replace(/\s+/g, ' ').trim();
-          if (chunk) parts.push(chunk);
-        }
-        node = walker.nextNode();
+    const walk = (node) => {
+      if (!node) return;
+      if (node.nodeType === 3) {
+        const chunk = (node.textContent || '').replace(/\s+/g, ' ').trim();
+        if (chunk) parts.push(chunk);
+        return;
       }
-      const nested = root.querySelectorAll ? root.querySelectorAll('*') : [];
-      for (const child of nested) {
-        if (child.shadowRoot) visit(child.shadowRoot);
-      }
+      if (node.nodeType !== 1) return;
+      const tag = node.tagName;
+      if (tag === 'STYLE' || tag === 'SCRIPT' || tag === 'NOSCRIPT') return;
+      if (isChrome(node)) return;
+      if (node !== el && !paintedBox(node)) return;
+      for (const child of node.childNodes) walk(child);
     };
-    visit(el.shadowRoot);
+    walk(el);
     return parts.join(' ').replace(/\s+/g, ' ').trim();
   };
   const canvasDrawnEl = (el) => {
@@ -268,21 +273,27 @@ const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal }) => {
       g = null;
     }
     if (!g || typeof g.getImageData !== 'function') return false;
+    const w = el.width || 0;
+    const h = el.height || 0;
+    if (w < 1 || h < 1) return false;
     let data = null;
     try {
-      const w = Math.min(32, el.width || 0);
-      const h = Math.min(32, el.height || 0);
-      if (w < 1 || h < 1) return false;
       data = g.getImageData(0, 0, w, h).data;
     } catch {
       return false;
     }
-    for (let i = 0; i < data.length; i += 4) {
-      const r = data[i];
-      const gc = data[i + 1];
-      const b = data[i + 2];
-      const a = data[i + 3];
-      if (a > 16 && (r < 250 || gc < 250 || b < 250)) return true;
+    // The page, not its top-left margin. A white corner is a normal page.
+    const stride = w * h > 2000000 ? Math.ceil(Math.sqrt((w * h) / 2000000)) : 1;
+    for (let y = 0; y < h; y += stride) {
+      const row = y * w;
+      for (let x = 0; x < w; x += stride) {
+        const i = (row + x) * 4;
+        const r = data[i];
+        const gc = data[i + 1];
+        const b = data[i + 2];
+        const a = data[i + 3];
+        if (a > 16 && (r < 250 || gc < 250 || b < 250)) return true;
+      }
     }
     return false;
   };
@@ -310,8 +321,15 @@ const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal }) => {
     if (!(width > 0 && height > 0)) return null;
     return { x, y, width, height };
   };
+  const selectorFor = (which) => {
+    if (documentSel) return documentSel;
+    // Existing shadow fixtures put the document in a <p>. A missing per-host
+    // selector must not fall back to every text node in the shadow root.
+    if (which === 'shadow_text') return 'p';
+    return docSel;
+  };
   window.__docProbeSurface = (which) => {
-    const nodes = docSel ? Array.from(document.querySelectorAll(docSel)) : [];
+    const selector = selectorFor(which);
     let minX = Infinity;
     let minY = Infinity;
     let maxX = -Infinity;
@@ -326,32 +344,37 @@ const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal }) => {
       n += 1;
     };
     const chunks = [];
-    if (which === 'canvas_pixel') {
-      for (const el of nodes) {
-        if (!canvasDrawnEl(el)) continue;
-        chunks.push('drawn');
-        add(paintedBox(el));
-      }
-    } else if (which === 'shadow_text') {
-      for (const el of nodes) {
-        const chunk = shadowTextOf(el);
-        if (!chunk) continue;
-        chunks.push(chunk);
-        add(paintedBox(el));
+    const take = (el, text) => {
+      if (!text) return;
+      chunks.push(text);
+      // The document element's own rect. Never the shadow host's box.
+      add(paintedBox(el));
+    };
+    if (which === 'shadow_text') {
+      const hosts = docSel ? Array.from(document.querySelectorAll(docSel)) : [];
+      for (const host of hosts) {
+        const root = host && host.shadowRoot;
+        if (!root || !selector || typeof root.querySelectorAll !== 'function') continue;
+        for (const el of root.querySelectorAll(selector)) take(el, elementText(el));
       }
     } else {
-      for (const el of nodes) {
-        const chunk = lightText(el);
-        if (!chunk) continue;
-        chunks.push(chunk);
-        add(paintedBox(el));
+      const nodes = selector ? Array.from(document.querySelectorAll(selector)) : [];
+      if (which === 'canvas_pixel') {
+        for (const el of nodes) {
+          if (!canvasDrawnEl(el)) continue;
+          take(el, 'drawn');
+        }
+      } else {
+        for (const el of nodes) take(el, elementText(el));
       }
     }
     const text = chunks.join(' ').replace(/\s+/g, ' ').trim();
     const rect = n
       ? excludeMarker({ x: minX, y: minY, width: maxX - minX, height: maxY - minY })
       : null;
-    return { text, chars: text.length, rect };
+    state.documentSelector = selector || null;
+    state.surfaceText = text;
+    return { text, chars: text.length, rect, selector: selector || null };
   };
   const tick = () => {
     if (state.firstElementAt === null) {
@@ -387,6 +410,7 @@ async function newPage(browser) {
     pageSel: pageSelector,
     minTextChars: minTextChars,
     signal: usableSignal,
+    documentSelector,
   });
   return { context, page, errors, cdp: null, recorder: null };
 }
@@ -425,13 +449,12 @@ async function launch() {
 
 async function stateSnapshot(page) {
   return page.evaluate(
-    ({ docSel, pageSel }) => {
+    ({ docSel, pageSel, signal }) => {
       const s = window.__docProbeState || {};
       const pageEl = pageSel ? document.querySelector(pageSel) : null;
-      const docText = Array.from(document.querySelectorAll(docSel))
-        .map((el) => (el.textContent || '').trim())
-        .filter(Boolean)
-        .join(' ');
+      const which = signal === 'canvas_pixel' ? 'canvas_pixel' : signal === 'shadow_text' ? 'shadow_text' : 'dom_text';
+      const surface = typeof window.__docProbeSurface === 'function' ? window.__docProbeSurface(which) : null;
+      const docText = surface && surface.text ? surface.text : '';
       return {
         first_element_ms: s.firstElementAt === null || s.firstElementAt === undefined ? null : s.firstElementAt,
         first_element_info: s.firstElementInfo || null,
@@ -442,11 +465,13 @@ async function stateSnapshot(page) {
         page_text_chars: pageEl ? (pageEl.textContent || '').trim().length : null,
         document_text_chars: docText.length,
         document_text: docText.slice(0, 4000),
+        document_selector: (surface && surface.selector) || s.documentSelector || null,
+        surface_text: docText.slice(0, 4000),
         time_origin_ms: performance.timeOrigin,
         usable_signal: s.usableSignal || null,
       };
     },
-    { docSel: docSelector, pageSel: pageSelector },
+    { docSel: docSelector, pageSel: pageSelector, signal: usableSignal },
   );
 }
 
@@ -580,6 +605,8 @@ async function loadResult(ctx, { navigationMs, readyMs, surface, witness, surfac
     page_count_at_first: snap.page_count_at_first,
     document_text_chars: snap.document_text_chars,
     document_text: snap.document_text,
+    document_selector: snap.document_selector,
+    surface_text: snap.surface_text,
     presented_frame_ms: facts.presented_frame_ms,
     frames_total: facts.frames_total,
     frames_after_usable: facts.frames_after_usable,
@@ -767,6 +794,8 @@ async function runScale(browser) {
       page_count: snap.page_count,
       document_text_chars: snap.document_text_chars,
       document_text: snap.document_text,
+      document_selector: snap.document_selector,
+      surface_text: snap.surface_text,
       presented_frame_ms: mechanism === 'document_damage' ? facts.presented_frame_ms : chosen && chosen.outcome === 'witnessed' ? chosen.frame_page_ms : null,
       frames_total: decision ? decision.frames_total : 0,
       frames_after_usable: decision ? decision.frames_after : 0,
@@ -916,17 +945,49 @@ async function runReflow(browser) {
       input_page_ms: window.__c12InputMs === null || window.__c12InputMs === undefined ? null : window.__c12InputMs,
     }));
     const inputPageMs = meter.input_page_ms === null ? inputMark : meter.input_page_ms;
-    const region = await documentRegion(ctx.page);
-    const witness = await witnessFrame(ctx.page, ctx.cdp, {
-      afterPageMs: inputPageMs,
-      baseline: baseline || null,
-      windowMs: 3000,
-      caretMask: true,
-      settleMs: 0,
-      recorder: ctx.recorder,
-      minPixels: baseline ? 4 : 1,
-      region,
+    // The sample ends when the anchor block has moved, then on the screencast
+    // frame of that reflow. The first paint after Enter is not the reflow.
+    // The no-read window is already closed, so this poll is not inside it.
+    const shift = await ctx.page.evaluate(() => {
+      const el = window.__c12AnchorEl;
+      const before = window.__c12AnchorTop;
+      const deadline = performance.now() + 4000;
+      return new Promise((resolve) => {
+        const step = () => {
+          if (!el || !el.isConnected || typeof before !== 'number') {
+            resolve({ moved: false, top: null, at: null });
+            return;
+          }
+          const top = el.getBoundingClientRect().top;
+          const now = performance.now();
+          if (top > before + 0.5) {
+            resolve({ moved: true, top, at: now });
+            return;
+          }
+          if (now >= deadline) {
+            resolve({ moved: false, top, at: null });
+            return;
+          }
+          requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      });
     });
+    let witness = null;
+    if (shift.moved && typeof shift.at === 'number') {
+      const region = await documentRegion(ctx.page);
+      const afterPageMs = Math.max(inputPageMs + 1, shift.at - 40);
+      witness = await witnessFrame(ctx.page, ctx.cdp, {
+        afterPageMs,
+        baseline: baseline || null,
+        windowMs: 3000,
+        caretMask: true,
+        settleMs: 0,
+        recorder: ctx.recorder,
+        minPixels: baseline ? 4 : 1,
+        region,
+      });
+    }
     const after = await ctx.page.evaluate(
       ({ docSel, anchorText }) => {
         const kept = window.__c12AnchorEl;
@@ -947,7 +1008,7 @@ async function runReflow(browser) {
       },
       { docSel: docSelector, anchorText: before.anchor_text },
     );
-    const moved = after.top !== null && after.top > before.anchor_top + 0.5;
+    const moved = Boolean(shift.moved) && after.top !== null && after.top > before.anchor_top + 0.5;
     const framePageMs = witness && witness.outcome === 'witnessed' ? witness.frame_page_ms : null;
     const raw = framePageMs === null ? null : framePageMs - inputPageMs;
     const presented = raw;
@@ -971,7 +1032,7 @@ async function runReflow(browser) {
       anchor_top_after: after.top,
       input_page_ms: inputPageMs,
       observed_page_ms: framePageMs,
-      observed_shift_page_ms: framePageMs,
+      observed_shift_page_ms: typeof shift.at === 'number' ? shift.at : null,
       forced_layout_ms: 0,
       window_excludes_forced_layout: true,
       presented_frame_raw_ms: raw,
@@ -1050,11 +1111,15 @@ async function runFind(browser) {
           first_at: null,
           complete_at: null,
           last: '',
+          accepted_text: '',
           prefix_text: '',
+          prefixTexts: new Set(),
+          scheduling: false,
           expected: expected,
           query: query,
           inputSel: inputSel,
         });
+        const input = inputSel ? document.querySelector(inputSel) : null;
         const read = () => {
           const el = countSel ? document.querySelector(countSel) : null;
           const text = el ? (el.textContent || '').trim() : '';
@@ -1066,34 +1131,61 @@ async function runFind(browser) {
           const numbers = (text.match(/\d+/g) || []).map(Number);
           return numbers.length ? Math.max.apply(null, numbers) : null;
         };
-        const inputValue = () => {
-          const el = inputSel ? document.querySelector(inputSel) : null;
-          return el && typeof el.value === 'string' ? el.value : '';
+        // Completion and first-match are the full query's own count text.
+        // A reply scheduled while the input was still a prefix is not that
+        // response, even if it arrives after the input already shows the query.
+        const notePrefix = (text) => {
+          if (!text) return;
+          probe.prefixTexts.add(text);
+          probe.prefix_text = text;
         };
-        // A prefix acknowledgement is not completion. While the input is still
-        // a prefix, remember its count text and do not complete. Completion is
-        // a count/text change observed only after the value equals the query.
-        const check = () => {
-          const now = read();
-          probe.last = now.text;
-          if (inputValue() !== probe.query) {
-            probe.prefix_text = now.text;
-            return;
-          }
-          const changed = now.text !== probe.prefix_text;
-          if (probe.first_at === null && now.text) probe.first_at = performance.now();
-          const count = total(now.text, now.matches);
-          const done =
-            probe.expected === null
-              ? Boolean(now.text) && changed
-              : changed && count !== null && count === probe.expected;
-          if (done && probe.complete_at === null) probe.complete_at = performance.now();
+        const noteFull = (text) => {
+          if (!text) return;
+          const count = total(text, read().matches);
+          const matchesExpected = probe.expected === null || (count !== null && count === probe.expected);
+          if (!matchesExpected) return;
+          probe.last = text;
+          probe.accepted_text = text;
+          const now = performance.now();
+          if (probe.first_at === null) probe.first_at = now;
+          if (probe.complete_at === null) probe.complete_at = now;
         };
-        probe.check = check;
-        const obs = new MutationObserver(check);
-        obs.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true });
-        probe.stop = () => obs.disconnect();
-        check();
+        const nativeSetTimeout = window.setTimeout;
+        const origTimeout = nativeSetTimeout.bind(window);
+        // Capture runs before the page's element listener. A microtask queued
+        // there runs before that listener on this input path, so the flag stays
+        // up until bubble. Timers from later tasks are not a search response.
+        const arm = (event) => {
+          if (input && event.target === input) probe.scheduling = true;
+        };
+        const disarm = (event) => {
+          if (!input || event.target !== input) return;
+          const value = input.value;
+          const text = read().text;
+          if (value !== probe.query) notePrefix(text);
+          else if (text && !probe.prefixTexts.has(text)) noteFull(text);
+          probe.scheduling = false;
+        };
+        window.addEventListener('input', arm, true);
+        window.addEventListener('input', disarm, false);
+        window.setTimeout = function (fn, delay) {
+          const extra = Array.prototype.slice.call(arguments, 2);
+          const valueAtSchedule = input && typeof input.value === 'string' ? input.value : '';
+          const fromInput = probe.scheduling === true;
+          if (typeof fn !== 'function') return origTimeout.apply(window, arguments);
+          return origTimeout(function () {
+            const before = read().text;
+            const result = fn.apply(this, extra);
+            const after = read().text;
+            if (!fromInput) return result;
+            if (valueAtSchedule === probe.query) noteFull(after);
+            else if (after && after !== before) notePrefix(after);
+            return result;
+          }, delay);
+        };
+        probe.stop = () => {
+          window.setTimeout = nativeSetTimeout;
+        };
       },
       {
         countSel: findCountSelector,
@@ -1127,7 +1219,7 @@ async function runFind(browser) {
       const out = {
         first_match_ms: probe.first_at === null || probe.first_at === undefined ? null : probe.first_at,
         search_complete_ms: probe.complete_at === null || probe.complete_at === undefined ? null : probe.complete_at,
-        last_count_text: probe.last || '',
+        last_count_text: probe.accepted_text || '',
       };
       if (probe.stop) probe.stop();
       return out;

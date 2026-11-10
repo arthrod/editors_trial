@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>b3 shadow chrome is not the document</title>
+  </head>
+  <body style="margin: 20px">
+    <div class="doc-paragraph" style="width: 900px; height: 700px"></div>
+    <script>
+      // Toolbar text and the shadow host's box are not the document. The paper
+      // is empty until 8000 ms. The button repaints the whole time.
+      var root = document.querySelector('.doc-paragraph').attachShadow({ mode: 'open' });
+      root.innerHTML =
+        '<button>Open Save Print Settings</button><div id="paper" style="margin: 100px"></div>';
+      setInterval(function () {
+        root.querySelector('button').style.background = Math.random() > 0.5 ? 'red' : 'blue';
+      }, 100);
+      setTimeout(function () {
+        root.querySelector('#paper').textContent = 'Actual document text only now';
+      }, 8000);
+    </script>
+  </body>
+</html>
