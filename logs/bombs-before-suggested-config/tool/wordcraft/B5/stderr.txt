@@ -1,6 +1,0 @@
-read        : FAILED via wordcraft_docx::read
-read error display : malformed XML: an entity is not defined
-read error debug   : Xml("an entity is not defined")
-retrying tolerant path: wordcraft_docx::read_with_password(bytes, None)
-read_with_password error display : malformed XML: an entity is not defined
-read_with_password error debug   : Xml("an entity is not defined")

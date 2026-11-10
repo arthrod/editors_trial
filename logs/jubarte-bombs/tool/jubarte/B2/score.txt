@@ -1,2 +1,0 @@
-tool jubarte B2 fidelity: refused safety: bounded-reject catch: yes
-protection jubarte B2 level: bounded-refusal detail: INPUT_LIMIT named a ceiling on the zip entry count. No view was written.

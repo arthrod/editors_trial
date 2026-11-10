@@ -45,3 +45,4 @@ Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026)
 out_broken.vite-cache
 **/**/.vite-cache
 tmp-diag/
+logs/

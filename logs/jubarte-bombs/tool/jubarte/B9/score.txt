@@ -1,2 +1,0 @@
-tool jubarte B9 fidelity: not-in-view safety: ok catch: no
-protection jubarte B9 level: bounded-delivery detail: the view clamps the merged span to the renderer grid cap and summarizes the empty field paragraphs. The bibliography is not in the view.

@@ -1,3 +1,0 @@
-plugins: 45, presentation components: 42
-stylesheet: 3039 chars
-suggested BaseEditorKit plugins: 45

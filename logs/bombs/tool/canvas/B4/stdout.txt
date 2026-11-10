@@ -1,9 +1,0 @@
-
- RUN  v4.1.12 /Users/arthrod/temp/T/editors_trial/harness/canvas
-
-
- Test Files  1 passed (1)
-      Tests  1 passed (1)
-   Start at  06:31:32
-   Duration  25.76s (transform 4.45s, setup 43ms, import 5.01s, tests 20.04s, environment 569ms)
-

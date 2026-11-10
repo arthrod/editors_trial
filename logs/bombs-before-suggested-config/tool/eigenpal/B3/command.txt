@@ -1,2 +1,0 @@
-cwd: <editors_trial>/repos/eigenpal-docx-editor
-~/.bun/bin/bun <editors_trial>/harness/eigenpal.ts /tmp/editors-trial-bombs/bombs/B3.docx /tmp/editors-trial-bombs/runs/eigenpal/B3/out/out.docx store

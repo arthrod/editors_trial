@@ -1,2 +1,0 @@
-cwd: /Users/arthrod/temp/T/editors_trial/repos/eigenpal-docx-editor
-/Users/arthrod/.bun/bin/bun /Users/arthrod/temp/T/editors_trial/harness/eigenpal.ts /tmp/editors-trial-bombs/bombs/B6.docx /tmp/editors-trial-bombs/runs/eigenpal/B6/out/out.docx store

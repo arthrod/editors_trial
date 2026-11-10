@@ -1,1 +1,0 @@
-comparison libreoffice B7 fidelity: dropped safety: ok catch: yes

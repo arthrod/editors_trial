@@ -1,2 +1,0 @@
-cwd: /Users/arthrod/temp/T/editors_trial/repos/office-open
-/Users/arthrod/temp/T/editors_trial/repos/office-open/node_modules/.bin/tsx --tsconfig /Users/arthrod/temp/T/editors_trial/repos/office-open/packages/docx/tsconfig.json /Users/arthrod/temp/T/editors_trial/harness/officeopen/roundtrip.mts /tmp/editors-trial-bombs/bombs/B2.docx /tmp/editors-trial-bombs/runs/officeopen/B2/out/out.docx

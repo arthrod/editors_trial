@@ -1,2 +1,0 @@
-input has 2000 validity errors; jubarte validate /tmp/editors-trial-jubarte-bombs/bombs/B9.docx lists them
-wrote /tmp/editors-trial-jubarte-bombs/runs/B9/out/view.md (md, 707 bytes)

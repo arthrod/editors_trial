@@ -1,2 +1,0 @@
-tool jubarte B5 fidelity: preserved safety: ok catch: no
-protection jubarte B5 level: unexpanded-kept detail: the view keeps the unexpanded entity references and does not expand them

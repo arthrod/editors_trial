@@ -1,2 +1,0 @@
-cwd: /Users/arthrod/temp/T/editors_trial/harness/ui/docxodus
-/Users/arthrod/.nvm/versions/node/v26.13.0/bin/node roundtrip.mjs /tmp/editors-trial-bombs/bombs/B5.docx /tmp/editors-trial-bombs/runs1/docxodus/B5/out/out.docx

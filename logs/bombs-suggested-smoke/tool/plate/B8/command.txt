@@ -1,2 +1,0 @@
-cwd: <editors_trial>/harness/plate
-~/.bun/bin/bun --preload ./aliases.ts roundtrip.ts /tmp/editors-trial-bombs/bombs/B8.docx /tmp/editors-trial-bombs-smoke/plate/out/out.docx
