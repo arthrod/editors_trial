@@ -629,6 +629,11 @@ export async function clockSkew(
       ? round(typeof anchor.frame.mono === 'number' ? anchor.frame.mono * 1000 : null, 3)
       : null,
     frames_total: recorder.frames.length,
+    anchor_pixel_checked: anchor.pixel_checked,
+    anchor_diff_ratio:
+      anchor.frame_diff_ratio === null || anchor.frame_diff_ratio === undefined
+        ? null
+        : round(anchor.frame_diff_ratio, 6),
     notes: [
       'skew_ms is the error of the screencast->page-time conversion, measured as the page wall-clock/monotonic discrepancy since navigation',
       'frame_lag_ms is the compositor presentation latency, not a clock error',
@@ -642,7 +647,9 @@ export async function clockSkew(
 /**
  * Force a visible change at a known page time and find the frame that shows
  * it. The frame is chosen by its pixels, not by its timestamp, so the choice
- * does not depend on the conversion it then measures.
+ * does not depend on the conversion it then measures: the first frame whose
+ * decoded pixels differ from the frame before the change is the frame that
+ * shows it.
  */
 async function anchorFrame(page, recorder, clock, { waitMs }) {
   const before = recorder.frames.length;
@@ -660,8 +667,11 @@ async function anchorFrame(page, recorder, clock, { waitMs }) {
     }
     return t;
   });
+  const baselineFrame = recorder.frames[before - 1] || null;
+  const baselineDecoded = baselineFrame ? decodeFrame(recorder, baselineFrame) : null;
   const deadline = Date.now() + waitMs;
   let found = null;
+  let pixelChecked = false;
   while (Date.now() < deadline && !found) {
     for (let i = before; i < recorder.frames.length; i++) {
       const frame = recorder.frames[i];
@@ -669,8 +679,23 @@ async function anchorFrame(page, recorder, clock, { waitMs }) {
       if (kind.kind !== 'epoch_seconds' && kind.kind !== 'monotonic_seconds') continue;
       const pageMs = convertFrameToPageMs(frame, { ...clock, timestamp_kind: kind.kind });
       if (pageMs === null || pageMs < change) continue;
-      found = { frame, pageMs, kind };
-      break;
+      if (baselineDecoded && frame.data !== baselineFrame.data) {
+        const decoded = decodeFrame(recorder, frame);
+        if (decoded) {
+          const diff = diffRatio(baselineDecoded, decoded);
+          if (diff.ratio > DEFAULT_THRESHOLD) {
+            found = { frame, pageMs, kind, diff: diff.ratio };
+            pixelChecked = true;
+            break;
+          }
+        }
+      } else if (!baselineDecoded) {
+        // Nothing to compare against: the first frame at or after the change
+        // is the anchor.
+        found = { frame, pageMs, kind, diff: null };
+        pixelChecked = false;
+        break;
+      }
     }
     if (!found) await sleep(5);
   }
@@ -681,13 +706,21 @@ async function anchorFrame(page, recorder, clock, { waitMs }) {
     })
     .catch(() => {});
   if (!found) {
-    return { change_page_ms: change, frame_page_ms: null, frame_lag_ms: null, frame: null };
+    return {
+      change_page_ms: change,
+      frame_page_ms: null,
+      frame_lag_ms: null,
+      frame: null,
+      pixel_checked: false,
+    };
   }
   return {
     change_page_ms: change,
     frame_page_ms: found.pageMs,
     frame_lag_ms: found.pageMs - change,
     frame: found.frame,
+    pixel_checked: pixelChecked,
+    frame_diff_ratio: found.diff,
   };
 }
 
