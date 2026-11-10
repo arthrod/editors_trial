@@ -226,11 +226,15 @@ class SampleBrackets(unittest.TestCase):
             return {
                 "paints": [{"name": "first-contentful-paint", "start_ms": 10}],
                 "fcp_ms": 10,
+                "content_verified": True,
+                "document_text": "Loaded document opening",
             }
 
         run = RecordingRun()
         token = ACTIVE.set(run)
-        originals = (bd._probe_cmd, bd._run_probe)
+        originals = (bd._probe_cmd, bd._run_probe, bd.corpus_opening_text)
+        # This bracket unit test uses an in-memory corpus oracle, not a disk fixture.
+        bd.corpus_opening_text = lambda path: "Loaded document opening"
         bd._probe_cmd = fake_cmd
         bd._run_probe = fake_probe
         try:
@@ -241,7 +245,7 @@ class SampleBrackets(unittest.TestCase):
             bd._run_scale_samples(editor_id="plate", target=target, cfg=cfg, fixture_path="unused", count=2)
             self.assertEqual((run.begins, run.ends), (5, 5), (run.begins, run.ends))
         finally:
-            bd._probe_cmd, bd._run_probe = originals
+            bd._probe_cmd, bd._run_probe, bd.corpus_opening_text = originals
             ACTIVE.reset(token)
 
     def test_a_throttled_sample_is_refused_alone(self):
@@ -267,7 +271,9 @@ class SampleBrackets(unittest.TestCase):
 
         run = ThrottleRun()
         token = ACTIVE.set(run)
-        originals = (bd._probe_cmd, bd._run_probe)
+        originals = (bd._probe_cmd, bd._run_probe, bd.corpus_opening_text)
+        # This bracket unit test uses an in-memory corpus oracle, not a disk fixture.
+        bd.corpus_opening_text = lambda path: "Loaded document opening"
         bd._probe_cmd = fake_cmd
         bd._run_probe = fake_probe
         try:
@@ -283,5 +289,5 @@ class SampleBrackets(unittest.TestCase):
             self.assertEqual(run.begins, 1)
             self.assertEqual(len(run.samples), 1)
         finally:
-            bd._probe_cmd, bd._run_probe = originals
+            bd._probe_cmd, bd._run_probe, bd.corpus_opening_text = originals
             ACTIVE.reset(token)
