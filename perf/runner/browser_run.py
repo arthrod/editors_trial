@@ -80,6 +80,15 @@ def capture(call, *, stderr_tail=0):
                 sys.stderr.write(replay)
 
 
+def _read_accounting(reader):
+    """A broken accounting probe is unavailable evidence, never a lost run."""
+    try:
+        return reader()
+    except Exception as exc:
+        return {'available': False, 'reason': f'{type(exc).__name__}: {exc}',
+                'exception': {'type': type(exc).__name__, 'message': str(exc)}}
+
+
 def repo_roots():
     # Worktrees intentionally do not carry the editor checkouts or symlink them.
     return sorted({p.resolve() for p in (REPO / 'repos', (REPO / 'harness').resolve().parent / 'repos')
@@ -138,7 +147,7 @@ class BrowserRun:
         self.execution_profile = 'ci_broad'
         self.host_class = 'ci_coarse'
         self.accounting_reader = accounting_reader
-        self.accounting_start = accounting_reader()
+        self.accounting_start = _read_accounting(accounting_reader)
         self.sample_start = None
         self._sample_parents = []
         self.brackets_force_closed = 0
@@ -170,7 +179,7 @@ class BrowserRun:
         from contextlib import contextmanager
 
         self._sample_parents.append(self.sample_start)
-        self.sample_start = self.accounting_reader()
+        self.sample_start = _read_accounting(self.accounting_reader)
         depth = len(self._sample_parents)
 
         @contextmanager
@@ -220,7 +229,11 @@ class BrowserRun:
             row = {**row, 'brackets_force_closed': closed}
         diagnostic = shared_diagnostic or len(self._sample_parents) > 1
         before = self.sample_start or {'available': False, 'reason': 'before-sample accounting not captured'}
-        accounting = accounting_delta(before, self.accounting_reader())
+        after = _read_accounting(self.accounting_reader)
+        accounting = accounting_delta(before, after)
+        if 'exception' in before or 'exception' in after:
+            # Keep raised errors even when delta reports only the first outage.
+            accounting.update(before=before, after=after)
         if self.host_class == 'shared_guarded' and not accounting['available']:
             destination = self.directory / 'rejected-evidence' / name
             source = Path(row['cell_directory']) if row.get('cell_directory') else None
@@ -301,7 +314,7 @@ class BrowserRun:
         return path
 
     def finish(self, summary):
-        accounting = accounting_summary(self.accounting_start, self.accounting_reader(), self.samples)
+        accounting = accounting_summary(self.accounting_start, _read_accounting(self.accounting_reader), self.samples)
         tally, reasons = cell_tally(self.samples)
         after = self.snapshot()
         result = {**summary, 'run_id': self.run_id, 'seed': self.seed,
@@ -495,7 +508,7 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
         reader = read_cpu_accounting
         if isinstance(run_factory, partial) and run_factory.keywords.get('accounting_reader'):
             reader = run_factory.keywords['accounting_reader']
-        accounting = reader()
+        accounting = _read_accounting(reader)
         if not accounting.get('available'):
             parser.error('shared_guarded dedicated_publish requires readable cgroup v2 cpu accounting')
         cpu_max = (accounting.get('cpu_max') or '').split()
@@ -537,11 +550,27 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
                 reasons = []
                 skipped = []
                 failed = bool(status)
+                attempts = {}
                 for path in sorted(directory.rglob('*.json')):
                     value = json.loads(path.read_text())
+                    if path.parent.name == 'attempts' and isinstance(value, dict):
+                        criterion = value.get('criterion_id')
+                        if criterion:
+                            attempts[criterion] = attempts.get(criterion, 0) + 1
                     reasons.extend(failure_reasons(value))
                     failed = failed or has_failure(value)
                     skipped.extend({'file': str(path), **row} for row in non_failure_outcomes(value))
+                if any(count > 1 for count in attempts.values()):
+                    # A launch contributes at most one attempt per criterion.
+                    # Remove invalid attempts from the measured tree but retain
+                    # the complete cell for diagnosis, as with throttle refusals.
+                    destination = run.directory / 'rejected-evidence' / name
+                    destination.mkdir(parents=True, exist_ok=True)
+                    directory.rename(destination / 'cell')
+                    return {'outcome': 'failed', 'publishable': False,
+                            'failure_reason': 'multiple_attempts_per_launch',
+                            'exit_code': status,
+                            'rejected_evidence_directory': str(destination)}
                 return {'outcome': 'failed' if failed else 'ok',
                         'non_failure_outcomes': skipped,
                         'failure_reason': '; '.join(dict.fromkeys(reasons)) or (f'exit {status}' if status else None),

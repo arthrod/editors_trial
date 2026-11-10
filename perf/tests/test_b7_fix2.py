@@ -43,12 +43,16 @@ def test_real_runner_parser_integration(tmp_path, monkeypatch, module, boundary,
     monkeypatch.setattr(sys, 'argv', [module, '--out-root', str(tmp_path),
         '--execution-profile', 'dedicated_publish', '--host-class', host,
         '--editor' if single else '--editors', 'plate'])
+    parse_exit = None
     try:
         api.run_cli(runner._main, module, {'plate': {}}, count_flag=count, single=single,
             run_factory=partial(api.BrowserRun, snapshot=lambda: {}, accounting_reader=accounting),
             facts=(lambda: {}, lambda: {}))
-    except (ReachedCell, SystemExit):
+    except ReachedCell:
         pass
+    except SystemExit as exc:
+        parse_exit = exc
+    assert parse_exit is None, f"runner parser exited: {parse_exit}"
     assert seen == [('dedicated_publish', host, {'repetition': 0, 'editor_id': 'plate'})]
 
 
