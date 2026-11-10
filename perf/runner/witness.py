@@ -1187,7 +1187,6 @@ def validate_witness(record, skew=None, bound_ms=DEFAULT_SKEW_BOUND_MS):
     `ok` is true only for a record that may be published; `refused` is the
     opposite, with the reason.
     """
-    bound = float(bound_ms)
     errors = []
     # #137 round 4, N5: the caller's own arguments are checked before
     # anything else. A non-finite or non-positive bound makes every skew
@@ -1205,12 +1204,13 @@ def validate_witness(record, skew=None, bound_ms=DEFAULT_SKEW_BOUND_MS):
             ],
             "outcome": _outcome_of(record),
             "skew_ms": None,
-            "bound_ms": bound,
+            "bound_ms": float(bound_ms) if _number(bound_ms) else bound_ms,
             "skew_checked": False,
             "clock_check_ok": None,
             "document_scoped": None,
             "record": record,
         }
+    bound = float(bound_ms)
     if skew is not None and not _finite_number(skew):
         return {
             "ok": False,

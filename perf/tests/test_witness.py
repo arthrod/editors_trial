@@ -2348,6 +2348,8 @@ class WitnessIssue137Round4Tests(unittest.TestCase):
             ("zero", 0.0),
             ("negative", -2.0),
             ("not a number", "2"),
+            ("garbage", "garbage"),
+            ("a boolean", True),
         ):
             with self.subTest(bound=name):
                 verdict = validator.validate_witness(record, bound_ms=bound)
