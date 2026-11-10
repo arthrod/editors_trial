@@ -89,13 +89,15 @@ class BrowserHosts(unittest.TestCase):
 
     def test_integration_failed_build_is_not_attested_as_production(self):
         from perf.runner.browser_run import ACTIVE
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
         class FakeRun:
             hosts = {}
             fixtures = {}
-            out_root = Path('/unused')
+            out_root = Path(tmp.name)
         token = ACTIVE.set(FakeRun())
         try:
-            with self.assertRaises(FileNotFoundError):
+            with self.assertRaises(self.api.HostBuildError):
                 self.api.start_host('missing', {'cwd': FIXTURES / 'absent'}, lambda *a: None)
             self.assertFalse(ACTIVE.get().hosts['missing']['publishable'])
             self.assertIn('build', ACTIVE.get().hosts['missing']['publication_block_reason'])
