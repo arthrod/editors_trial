@@ -552,6 +552,7 @@ def validate_ready_attempts(rows):
 
 def _persist_attempt(attempt_dir, criterion_id, editor_id, trial):
     """Every written trial is an accounted BrowserRun sample, not just a cell."""
+    trial = {**trial, 'measure': (trial.get('environment') or {}).get('cache_state', '')}
     active = ACTIVE.get()
     name = "%s-%s-%s" % (criterion_id.lower(), editor_id, uuid.uuid4().hex[:10])
     if active is not None:
@@ -559,7 +560,7 @@ def _persist_attempt(attempt_dir, criterion_id, editor_id, trial):
         recorded = json.loads(sample_path.read_text())
         if recorded.get('failure_reason') == 'cpu_throttled':
             # B1 strips measurements; restore identity and refusal reasons, never numbers.
-            identity = {key: trial[key] for key in ('criterion_id', 'layer', 'boundary', 'environment', 'editor_id', 'lane') if key in trial}
+            identity = {key: trial[key] for key in ('criterion_id', 'measure', 'layer', 'boundary', 'environment', 'editor_id', 'lane') if key in trial}
             reasons = set(trial.get('failure_reasons') or [])
             if trial.get('failure_reason'):
                 reasons.add(trial['failure_reason'])
@@ -609,6 +610,9 @@ def _write_measured_attempt(
             return _persist_attempt(attempt_dir, criterion_id, editor_id, trial)
         diagnostic = {**diagnostic, 'observations':checked,
                       'clock_skew':[item['clock_skew'] for item in checked]}
+        intervals = [item['witness']['clock_check']['frame_interval_ms'] for item in checked]
+        diagnostic['frame_interval_ms'] = min(intervals)
+        diagnostic['frame_intervals_ms'] = intervals
     for skew in diagnostic.get('clock_skew') or []:
         check = input_sample_record({'clock_skew':skew}, criterion_id)
         if check['failure_reason']:
@@ -617,6 +621,12 @@ def _write_measured_attempt(
                 editor_id=editor_id, lane=lane, diagnostic=diagnostic)
             trial['clock_skew'] = diagnostic['clock_skew']
             return _persist_attempt(attempt_dir, criterion_id, editor_id, trial)
+    if criterion_id == 'C03':
+        intervals = [clock.get('frame_interval_ms') for clock in diagnostic.get('clock_skew') or []
+                     if clock.get('acceptable') is True]
+        if intervals and all(isinstance(value, (int, float)) and not isinstance(value, bool)
+                             and math.isfinite(value) and value > 0 for value in intervals):
+            diagnostic = {**diagnostic, 'frame_interval_ms': min(intervals), 'frame_intervals_ms': intervals}
     stats = summarize(samples_ms, cache_state, env["repetition_unit"], seed=0)
     pub, reason = trial_publishable_flags(env, layer, stats["n"])
     pub, reason = _finalize_publishable(pub, reason, env)
@@ -635,6 +645,9 @@ def _write_measured_attempt(
         diagnostic=diagnostic,
     )
     trial['clock_skew'] = diagnostic.get('clock_skew')
+    interval = diagnostic.get('frame_interval_ms')
+    if isinstance(interval, (int, float)) and not isinstance(interval, bool) and math.isfinite(interval) and interval > 0:
+        trial['sub_frame_samples'] = [sample < interval for sample in samples_ms]
     if criterion_id in ('C05', 'C06'):
         trial['mechanism'] = diagnostic.get('mechanism')
         trial['clock_skew'] = diagnostic.get('clock_skew')
