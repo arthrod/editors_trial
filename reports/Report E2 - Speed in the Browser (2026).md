@@ -1,8 +1,8 @@
 # Report E2 — Speed in the Browser (2026)
 
-This report has not been measured yet.
+This report is not yet measured.
 
-This report times what a person would see in the browser: first paint, typing, scrolling, and related interactions. It was measured on one Hugging Face cpu-upgrade Space (shared EC2, not dedicated CPUs): not yet measured, on not yet measured. not yet measured 0 of 0 cells reproduced between the two runs.
+This report concerns browser-visible first paint, typing, scrolling, and related interactions. No browser runs are available; not yet measured.
 
 ## What is measured
 
@@ -111,3 +111,7 @@ not yet measured
 ## How to reproduce
 
 See perf/container/README.md.
+
+## DOCX verification
+
+Word verification not recorded for this generated twin.

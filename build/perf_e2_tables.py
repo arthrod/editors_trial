@@ -58,7 +58,7 @@ def check_comparable(primary: Run, repro: Run) -> None:
     if a.get("versions") != b.get("versions"):
         raise ValueError("the reproduction attested other versions")
     ra, rb = a.get("rendering") or {}, b.get("rendering") or {}
-    for key in ("browser_version", "renderer", "headless"):
+    for key in ("browser_version", "playwright_version", "vendor", "renderer", "headless"):
         if ra.get(key) != rb.get(key):
             raise ValueError("the reproduction used other Playwright or Chromium versions")
     if a.get("host_class") != b.get("host_class"):
@@ -66,9 +66,28 @@ def check_comparable(primary: Run, repro: Run) -> None:
     if a.get("execution_profile") != b.get("execution_profile"):
         raise ValueError("the reproduction used another execution profile")
 
+    if _pins(primary.path) != _pins(repro.path):
+        raise ValueError("the reproduction attested other editor pins")
+
+
+def _pins(root: Path) -> dict:
+    pins = {}
+    for row in e2_cells._iter_trials(root):
+        pin = (row.get("environment") or {}).get("editor_version")
+        pins.setdefault(row["editor_id"], set()).add(str(pin) if pin is not None else "not recorded")
+    return {editor: sorted(values) for editor, values in pins.items()}
+
+
+def _summary(root: Path) -> dict:
+    return json.loads((root / "summary.json").read_text())
+
+
+def _scheduled(root: Path, editor: str) -> int:
+    return sum(1 for _, eid in _summary(root).get("order", []) if eid == editor)
+
 
 def _editors(primary: Path, repro: Path) -> list[str]:
-    ids: set[str] = set()
+    ids: set[str] = {eid for root in (primary, repro) for _, eid in _summary(root).get("order", [])}
 
     def collect(root: Path) -> None:
         for row in _iter_trials(root):
@@ -92,7 +111,7 @@ def _criteria_present(primary: Path, repro: Path) -> list[str]:
 
     collect(primary)
     collect(repro)
-    return [c for c in E2_CRITERIA if c in present]
+    return [c for c in E2_CRITERIA if c in present] or E2_CRITERIA
 
 
 def _iter_trials(run_directory: Path):
@@ -108,28 +127,42 @@ def _iter_trials(run_directory: Path):
 
 
 def _format_median(cell: dict, median: float) -> str:
-    frame = cell.get("frame_interval_ms") or 16.7
+    frame = cell.get("frame_interval_ms") or 0
     if median < frame:
         return "< 1 frame (%g ms)" % frame
     return "%.1f ms" % median
 
 
 def _cell_text(facts: dict, primary: Path, repro: Path, editor: str, criterion: str) -> str:
-    p_cell = e2_cells.build_run_cell(primary, editor, criterion, scheduled=SCHEDULED)
-    r_cell = e2_cells.build_run_cell(repro, editor, criterion, scheduled=SCHEDULED)
+    key = "perf.e2.%s.%s" % (editor, criterion)
+    facts[key + ".reproduced"] = False
+    cells = [e2_cells.build_run_cell(root, editor, criterion, scheduled=_scheduled(root, editor)) for root in (primary, repro)]
+    facts[key + ".primary"], facts[key + ".reproduction"] = cells
+    p_cell, r_cell = cells
+    reasons = []
+    for label, root, cell in zip(("first", "second"), (primary, repro), cells):
+        summary = _summary(root)
+        if summary.get("publishable") is not True or summary.get("publication_block_reason"):
+            reasons.append("%s run unpublishable: %s" % (label, summary.get("publication_block_reason") or summary.get("failure_reason") or "publishable not true"))
+        text = e2_cells.publication_text(cell)
+        if "not enough samples" in text:
+            reasons.append("%s: %s" % (label, text))
+        if not cell["scheduled"]:
+            reasons.append("%s: scheduled count not recorded" % label)
+    if reasons:
+        reason = "; ".join(reasons)
+        facts[key + ".reason"] = reason
+        facts.setdefault("_not_reproduced", []).append((DISPLAY.get(editor, editor), criterion, reason, "—"))
+        return reason
     p_text = e2_cells.publication_text(p_cell)
-    r_text = e2_cells.publication_text(r_cell)
-    if "not enough samples" in p_text:
-        return p_text
-    if "not enough samples" in r_text:
-        return r_text
-    frame = p_cell.get("frame_interval_ms") or r_cell.get("frame_interval_ms") or 16.7
+    frame = max(p_cell.get("frame_interval_ms") or 0, r_cell.get("frame_interval_ms") or 0)
+
     p_med = p_cell["stats"]["median"]
     r_med = r_cell["stats"]["median"]
     key = "perf.e2.%s.%s" % (editor, criterion)
     ok = reproduced(p_med, r_med, rel_tol=REL_TOL, abs_tol=frame)
     if not ok:
-        facts[key + ".reproduced"] = False
+        facts[key + ".reason"] = "medians outside tolerance"
         first = _format_median(p_cell, p_med)
         second = _format_median(r_cell, r_med)
         facts.setdefault("_not_reproduced", []).append(
@@ -153,7 +186,7 @@ def _not_reproduced_table(facts: dict) -> str:
     if not rows:
         return "Every figure that was measured in both runs reproduced."
     lines = [
-        "| Editor | Criterion | First run, median | Second run, median |",
+        "| Editor | Criterion | First run / reason | Second run, median |",
         "|---|---|---|---|",
     ]
     lines += ["| %s | %s | %s | %s |" % r for r in rows]
@@ -178,16 +211,23 @@ def _criterion_blurbs() -> dict[str, str]:
 
 def _host_block(summary: dict) -> str:
     h = summary.get("host") or {}
-    quota = h.get("cpu_quota")
-    n = h.get("cpu_cores_logical") or "?"
-    cpus = "all %s CPUs its kernel reports" % n if quota is None or (isinstance(quota, (int, float)) and quota >= n) else (
-        "a CPU quota of %g on %s logical CPUs" % (quota, n)
+    return "%s; CPU quota %s; logical CPUs %s; OS %s %s; power %s" % tuple(
+        h.get(key) if h.get(key) is not None else "not recorded"
+        for key in ("cpu_model", "cpu_quota", "cpu_cores_logical", "os", "os_version", "power_source")
     )
-    return "%s, %s, Linux %s, AC power" % (h.get("cpu_model", "?"), cpus, h.get("os_version", "?"))
 
 
-def _machine() -> str:
-    return "one Hugging Face cpu-upgrade Space (shared EC2, not dedicated CPUs)"
+def _machine(summary: dict | None = None) -> str:
+    return (summary or {}).get("host_class") or "not recorded"
+
+
+def _host_note(summary: dict) -> str:
+    playwright, chromium, renderer = _rendering(summary)
+    return ("Host class: %s. %s. Playwright %s; Chromium %s; renderer %s; headless %s. "
+            "Stolen CPU time: %s. Throttle: %s. Editor pins: %s." % (
+                _machine(summary), _host_block(summary), playwright, chromium, renderer,
+                (summary.get("rendering") or {}).get("headless", "not recorded"),
+                _steal(summary), _throttle(summary), summary.get("trial_pins", "not recorded")))
 
 
 def _steal(summary: dict) -> str:
@@ -205,6 +245,8 @@ def _throttle(summary: dict) -> str:
     if refused is None:
         refused = (summary.get("cpu_accounting") or {}).get("samples_refused")
     total = (summary.get("cpu_accounting") or {}).get("samples_total")
+    if total is None and "order" in summary:
+        total = len(summary["order"])
     if refused is None:
         return "not recorded"
     if total is not None:
@@ -215,7 +257,7 @@ def _throttle(summary: dict) -> str:
 def _rendering(summary: dict) -> tuple[str, str, str]:
     r = summary.get("rendering") or {}
     tools = (summary.get("versions") or {}).get("tools") or {}
-    playwright = tools.get("playwright") or "not recorded"
+    playwright = r.get("playwright_version") or tools.get("playwright") or "not recorded"
     chromium = r.get("browser_version") or "not recorded"
     renderer = r.get("renderer") or "not recorded"
     return playwright, chromium, renderer
@@ -225,7 +267,7 @@ def _not_run_editors(primary: Path, repro: Path, editors: list[str]) -> str:
     lines = []
     for editor in editors:
         for criterion in E2_CRITERIA:
-            p = e2_cells.build_run_cell(primary, editor, criterion, scheduled=SCHEDULED)
+            p = e2_cells.build_run_cell(primary, editor, criterion, scheduled=_scheduled(primary, editor))
             if p.get("stats"):
                 continue
             refusals = p.get("refusals") or {}
@@ -243,15 +285,17 @@ def _date(summary: dict) -> str:
     for key in ("started_at", "finished_at"):
         if summary.get(key):
             return str(summary[key])[:10]
-    return ""
+    return "not recorded"
 
 
 def unset_facts() -> dict:
     """Facts when ``report_e2_runs.json`` is absent: the template still renders."""
     blurbs = _criterion_blurbs()
     facts = {
+        "perf.e2.word_verification": "Word verification not recorded for this generated twin.",
         "perf.e2.measured": "not yet measured",
-        "perf.e2.status": "This report has not been measured yet.",
+        "perf.e2.status": "This report is not yet measured.",
+        "perf.e2.intro": "No browser runs are available; not yet measured.",
         "perf.e2.machine": _machine(),
         "perf.e2.host": "not yet measured",
         "perf.e2.host_class": "not yet measured",
@@ -290,6 +334,7 @@ def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
     s = primary.summary
     playwright, chromium, renderer = _rendering(s)
     facts: dict = {
+        "perf.e2.word_verification": "Word verification not recorded for this generated twin.",
         "perf.e2.measured": "measured",
         "perf.e2.status": "",
         "perf.e2.run_id": s["run_id"],
@@ -298,29 +343,23 @@ def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
         "perf.e2.repro_seed": repro.summary["seed"],
         "perf.e2.date": _date(s),
         "perf.e2.repro_date": _date(repro.summary),
-        "perf.e2.machine": _machine(),
+        "perf.e2.machine": _machine(s),
         "perf.e2.host": _host_block(s),
         "perf.e2.host_class": s.get("host_class", "?"),
-        "perf.e2.host_note": (
-            "The host is a shared EC2 instance with an 8-CPU cgroup quota (not dedicated cores). "
-            "Rendering used headless Chromium with software rasterization (%s). "
-            "Stolen CPU time during the run was %s. %s. "
-            "Other tenants could use the same machine; the load average counted every process on the kernel."
-            % (renderer, _steal(s), _throttle(s))
-        ),
+        "perf.e2.host_note": "First run: " + _host_note({**s, "trial_pins": _pins(primary.path)}) + "\n\nSecond run: " + _host_note({**repro.summary, "trial_pins": _pins(repro.path)}),
         "perf.e2.steal": _steal(s),
         "perf.e2.throttle": _throttle(s),
         "perf.e2.renderer": renderer,
         "perf.e2.playwright": playwright,
         "perf.e2.chromium": chromium,
-        "perf.e2.scheduled": SCHEDULED,
+        "perf.e2.scheduled": {"primary": {e: _scheduled(primary.path, e) for e in editors}, "reproduction": {e: _scheduled(repro.path, e) for e in editors}},
         "perf.e2.rel_tol_pct": REL_TOL_PCT,
         "perf.e2.rule": (
-            "Each cell is the median of up to %d repetitions per editor, in fresh browser contexts. "
-            "A figure is printed only when both runs kept at least 10 samples and the two medians agree "
-            "within %d percent of the larger median or within one witnessed frame interval, whichever is larger. "
-            "Medians below one frame are written as sub-frame buckets with the share of sub-frame samples and the p90."
-            % (SCHEDULED, REL_TOL_PCT)
+            "Each launch contributes the median of its own samples; n counts kept launches. "
+            "Scheduled counts come from each run's order. Both runs must be publishable and keep at least 10 launches. "
+            "The medians must agree within 10 percent of the larger median or the larger witnessed frame interval. "
+            "Without a witnessed interval only the 10 percent tolerance applies. Sub-frame medians are buckets; "
+            "sub-frame shares are shown only when recorded. p90 is over launch medians."
         ),
         "perf.e2.reproduce": "See perf/container/README.md.",
     }
@@ -336,4 +375,6 @@ def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
     published = [k for k in facts if k.endswith(".reproduced")]
     facts["perf.e2.cells_checked"] = len(published)
     facts["perf.e2.cells_reproduced"] = sum(1 for k in published if facts[k])
+    facts["perf.e2.intro"] = "%d of %d scheduled editor/criterion cells reproduced between the two runs. Dates: first %s; second %s." % (
+        facts["perf.e2.cells_reproduced"], facts["perf.e2.cells_checked"], _date(s), _date(repro.summary))
     return facts

@@ -98,6 +98,27 @@ def _frame_interval_ms(trials) -> float | None:
     return None
 
 
+def _read_rows(directory):
+    for path in sorted(directory.rglob("*.json")):
+        try:
+            row = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if isinstance(row, dict):
+            yield path, row
+
+
+def _iter_trials(run_directory: Path):
+    for _, row in _read_rows(run_directory / "cells"):
+        if row.get("criterion_id") and row.get("editor_id"):
+            yield row
+
+
+def _number(value):
+    import math
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
 def _one_repetition_value(trial: dict) -> tuple[float | None, bool | None]:
     if trial.get("outcome") != "measured":
         return None, None
@@ -128,66 +149,48 @@ def build_run_cell(run_directory: Path, editor_id: str, criterion_id: str, *, sc
     summary = _load_summary(run_directory)
     scheduled = _scheduled_for_editor(summary, editor_id, scheduled)
     blocked, block_reason = _run_blocks_publication(summary)
-
-    kept: list[float] = []
-    sub_frame: list[bool] = []
-    sub_frame_tracked = False
+    kept, raw, sub_frame, intervals = [], [], [], []
     refusals: Counter[str] = Counter()
-    trials_for_interval: list[dict] = []
-
-    for sample_row in _iter_sample_rows(run_directory):
-        if sample_row.get("editor_id") != editor_id:
+    refused_launches = {}
+    for path, row in _read_rows(run_directory / "samples"):
+        if row.get("editor_id") == editor_id and (row.get("outcome") in _REFUSAL_OUTCOMES or row.get("publishable") is False):
+            refused_launches[path.stem] = row.get("failure_reason") or row.get("publication_block_reason") or row.get("outcome") or "refused"
+    for reason in refused_launches.values():
+        refusals[str(reason).split(":", 1)[0]] += 1
+    seen = set()
+    for path, trial in _read_rows(run_directory / "cells"):
+        if trial.get("editor_id") != editor_id or trial.get("criterion_id") != criterion_id:
             continue
-        if sample_row.get("failure_reason") or sample_row.get("outcome") == "failed":
-            refusals[_refusal_key(sample_row)] += 1
+        launch = path.relative_to(run_directory / "cells").parts[0]
+        if launch in refused_launches or launch in seen:
             continue
-        if sample_row.get("outcome") not in ("ok", "measured"):
-            refusals[_refusal_key(sample_row)] += 1
+        if trial.get("publishable") is False:
+            refusals[_refusal_key(trial)] += 1
             continue
-
-        trial_path = _trial_path(run_directory, sample_row, criterion_id)
-        if trial_path is None:
-            refusals["missing_trial"] += 1
-            continue
-        try:
-            trial = json.loads(trial_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            refusals["corrupt_trial"] += 1
-            continue
-        trials_for_interval.append(trial)
-        value, sub = _one_repetition_value(trial)
-        if value is None:
-            if trial.get("publishable") is False:
-                refusals[_refusal_key(trial)] += 1
-            else:
-                refusals["unmeasured"] += 1
-            continue
-        kept.append(value)
-        if sub is not None:
-            sub_frame_tracked = True
-            sub_frame.append(sub)
-
-    frame_interval = _frame_interval_ms(trials_for_interval)
-    stats = None
-    if kept:
-        stats = {
-            "n": len(kept),
-            "median": percentile(kept, 50),
-            "p90": percentile(kept, 90),
-        }
-
+        outcome = trial.get("outcome")
+        if outcome == "measured":
+            samples = [float(x) for x in trial.get("samples_ms", []) if _number(x)]
+            if not samples:
+                continue
+            seen.add(launch)
+            raw.append(samples)
+            kept.append(percentile(samples, 50))
+            flags = trial.get("sub_frame_samples", (trial.get("diagnostic") or {}).get("sub_frame_samples"))
+            if flags is not None and len(flags) == len(samples) and all(isinstance(x, bool) for x in flags):
+                sub_frame.extend(flags)
+            interval = (trial.get("diagnostic") or {}).get("frame_interval_ms")
+            if _number(interval) and interval > 0:
+                intervals.append(float(interval))
+        elif outcome in _REFUSAL_OUTCOMES:
+            reason = trial.get("failure_reason") or trial.get("publication_block_reason") or outcome
+            refusals[str(reason).split(":", 1)[0]] += 1
     return {
-        "editor_id": editor_id,
-        "criterion_id": criterion_id,
-        "scheduled": scheduled,
-        "kept_ms": kept,
-        "sub_frame": sub_frame if sub_frame_tracked else [],
-        "sub_frame_tracked": sub_frame_tracked,
+        "editor_id": editor_id, "criterion_id": criterion_id, "scheduled": scheduled,
+        "blocked": blocked, "block_reason": block_reason,
+        "kept_ms": kept, "raw_samples_ms": raw, "sub_frame": sub_frame,
         "refusals": dict(refusals),
-        "frame_interval_ms": frame_interval,
-        "stats": stats,
-        "blocked": blocked,
-        "block_reason": block_reason,
+        "frame_interval_ms": percentile(intervals, 50) if intervals else None,
+        "stats": {"n": len(kept), "median": percentile(kept, 50), "p90": percentile(kept, 90)} if kept else None,
     }
 
 

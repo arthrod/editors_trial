@@ -2,7 +2,7 @@
 
 {{perf.e2.status}}
 
-This report times what a person would see in the browser: first paint, typing, scrolling, and related interactions. It was measured on {{perf.e2.machine}}: {{perf.e2.host}}, on {{perf.e2.date}}. {{perf.e2.rule}} {{perf.e2.cells_reproduced}} of {{perf.e2.cells_checked}} cells reproduced between the two runs.
+This report concerns browser-visible first paint, typing, scrolling, and related interactions. {{perf.e2.intro}}
 
 ## What is measured
 
@@ -111,3 +111,7 @@ Primary run `{{perf.e2.run_id}}`, seed {{perf.e2.seed}} ({{perf.e2.date}}). Repr
 ## How to reproduce
 
 {{perf.e2.reproduce}}
+
+## DOCX verification
+
+{{perf.e2.word_verification}}
