@@ -494,6 +494,9 @@ function pageScrollCommand(command) {
         reason = 'the operator named a scroll container that is not a scroller';
         rule = null;
       }
+    } else if (command && command.container) {
+      reason = 'container_selector_not_found';
+      rule = null;
     } else {
       chosen = found.chosen_index;
       reason = found.chosen_reason;

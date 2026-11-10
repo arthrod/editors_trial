@@ -154,6 +154,12 @@ class _FakeHost:
 
 
 class ScrollProbeTests(unittest.TestCase):
+    def test_missing_named_container_does_not_fall_back_to_auto_selection(self):
+        payload = self.probe("prose.html", extra=["--container-selector", "#absent"])
+        self.assertNotEqual(payload.get("outcome"), "measured", payload)
+        self.assertIn("container_selector_not_found", str(payload), payload)
+
+
     """The browser side of the lane, driven through the probe's own CLI."""
 
     base = ""
@@ -643,7 +649,7 @@ class ScrollRunnerTests(unittest.TestCase):
             "--out-root",
             str(out),
             "--pairs",
-            "1",
+            "30",
             "--seed",
             "7",
             "--execution-profile",

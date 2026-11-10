@@ -230,18 +230,6 @@ def _schema_host_classes() -> tuple[str, ...]:
     return tuple(found)
 
 
-def _run_cli_host_choices() -> tuple[str, ...]:
-    """The ``--host-class`` choices ``run_cli`` parses. B1 owns that parser."""
-    source = Path(run_cli.__code__.co_filename).read_text(encoding="utf-8")
-    match = re.search(
-        r"add_argument\(\s*['\"]--host-class['\"]\s*,\s*choices=\(([^)]*)\)",
-        source,
-    )
-    if match is None:
-        return ("ci_coarse", "dedicated")
-    return tuple(ast.literal_eval("(" + match.group(1) + ")"))
-
-
 HOST_CLASSES = tuple(dict.fromkeys((*_schema_host_classes(), "shared_guarded")))
 
 
@@ -499,66 +487,6 @@ def _option_name(token) -> str:
 def _has_option(argv, name: str) -> bool:
     """True when ``--name`` or ``--name=value`` is present."""
     return any(_option_name(token) == name for token in argv)
-
-
-def _flag_value(argv, name):
-    """The value of ``--name value`` or ``--name=value``, or None when absent."""
-    for index, token in enumerate(argv):
-        text = str(token)
-        if text == name:
-            if index + 1 < len(argv) and not str(argv[index + 1]).startswith("--"):
-                return argv[index + 1]
-            return None
-        if text.startswith(name + "="):
-            return text.split("=", 1)[1]
-    return None
-
-
-def _rewrite_option(argv, name: str, value: str) -> list:
-    """Replace every ``--name`` / ``--name=...`` with the spaced form ``--name value``."""
-    rewritten = []
-    index = 0
-    items = list(argv)
-    while index < len(items):
-        text = str(items[index])
-        if text == name:
-            rewritten.extend([name, value])
-            index += 1
-            if index < len(items) and not str(items[index]).startswith("--"):
-                index += 1
-            continue
-        if text.startswith(name + "="):
-            rewritten.extend([name, value])
-            index += 1
-            continue
-        rewritten.append(items[index])
-        index += 1
-    return rewritten
-
-
-def _stamping_browser_run(host_class: str):
-    """A ``BrowserRun`` that keeps a host class ``run_cli`` cannot parse yet.
-
-    ``run_cli`` assigns ``run.host_class`` after the factory returns, so a
-    value set in ``__init__`` is overwritten. The argv stand-in is
-    ``dedicated`` (a choice this branch's parser accepts). The first
-    assignment of that stand-in becomes the class the operator asked for.
-    Later assignments, including the ones ``scroll_env`` makes while it
-    builds and restores the run, pass through.
-    """
-
-    class StampedBrowserRun(BrowserRun):
-        def __setattr__(self, name, value):
-            if (
-                name == "host_class"
-                and value == "dedicated"
-                and not getattr(self, "_b5_host_stamped", False)
-            ):
-                object.__setattr__(self, "_b5_host_stamped", True)
-                value = host_class
-            super().__setattr__(name, value)
-
-    return StampedBrowserRun
 
 
 # --------------------------------------------------------------------------- #
@@ -967,19 +895,6 @@ def main() -> int:
         targets[FAKE_EDITOR] = {"lane": "fake"}
         argv = argv + ["--editor", FAKE_EDITOR]
 
-    # B7's run_cli lists shared_guarded. This branch's parser does not. A
-    # class the lane accepts and the parser does not is rewritten to a
-    # stand-in the parser accepts, then stamped back onto the run.
-    requested = _flag_value(argv, "--host-class")
-    factory = BrowserRun
-    if (
-        requested is not None
-        and requested in HOST_CLASSES
-        and requested not in _run_cli_host_choices()
-    ):
-        argv = _rewrite_option(argv, "--host-class", "dedicated")
-        factory = _stamping_browser_run(requested)
-
     sys.argv = [sys.argv[0], *argv]
     return run_cli(
         _main,
@@ -988,7 +903,7 @@ def main() -> int:
         count_flag="--pairs",
         default_count=3,
         single=True,
-        run_factory=factory,
+        run_factory=BrowserRun,
     )
 
 
