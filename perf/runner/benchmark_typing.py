@@ -293,6 +293,9 @@ async def session(target, text, args, directory):
                     await sampler.mark('quiescence')
                     await sampler.mark('end')
                     result['resource_endpoints']['end'] = await sampler.endpoint()
+    except ModuleNotFoundError as exc:
+        result.update(failure_reason='dependency_missing', refusal_code='dependency_missing',
+                      missing_module=exc.name, error=str(exc))
     except SessionRefusal as exc: result['failure_reason'] = str(exc)
     except (TimeoutError, asyncio.CancelledError): result['failure_reason'] = 'budget_exceeded'
     except Exception as exc:

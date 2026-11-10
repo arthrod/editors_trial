@@ -103,3 +103,18 @@ def test_missing_dependency_is_named_and_not_a_host_failure(tmp_path, module):
     assert trial['missing_module'] == module
     assert trial['outcome'] == 'refused'
     assert trial['throughput_chars_s'] is None
+
+
+def test_session_dependency_failure_is_not_relabelled_as_crash(tmp_path, monkeypatch):
+    from perf.runner import benchmark_typing as lane
+    class MissingSampler:
+        def __init__(self, *args, **kwargs):
+            raise ModuleNotFoundError("No module named 'psutil'", name='psutil')
+    monkeypatch.setattr(lane, 'TypingResourceSampler', MissingSampler)
+    result, rows = asyncio.run(lane.session(
+        {'url':'about:blank', 'edit_selector':'#editor'}, 'x',
+        SimpleNamespace(budget_s=30, cadence_ms=0, sample_s=5,
+                        witness_every=100, quiescence_s=0), tmp_path))
+    assert result['failure_reason'] == 'dependency_missing', result
+    assert result['refusal_code'] == 'dependency_missing'
+    assert result['missing_module'] == 'psutil'
