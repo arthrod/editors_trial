@@ -610,11 +610,11 @@ class B7FixRound(unittest.TestCase):
         self.assertEqual(cell["kept_ms"], [])
         self.assertIn("visible latency requires fresh_process", str(cell["refusals"]))
 
-    def test_run_cli_forwards_host_class_to_runner_argv(self):
+    def test_run_cli_exposes_profile_through_active_context(self):
         seen = []
 
         def main():
-            seen.append(list(sys.argv))
+            seen.append((list(sys.argv), api.execution_profile(), api.host_class()))
             return 0
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -654,8 +654,12 @@ class B7FixRound(unittest.TestCase):
                     ),
                     facts=(lambda: {}, lambda: {}),
                 )
-                self.assertTrue(any("--host-class" in call and "shared_guarded" in call for call in seen))
-                self.assertTrue(any("--execution-profile" in call and "dedicated_publish" in call for call in seen))
+                self.assertEqual(len(seen), PUBLICATION_REPETITIONS)
+                for argv, profile, host in seen:
+                    self.assertNotIn("--host-class", argv)
+                    self.assertNotIn("--execution-profile", argv)
+                    self.assertEqual(profile, "dedicated_publish")
+                    self.assertEqual(host, "shared_guarded")
             finally:
                 sys.argv = original
 
