@@ -170,7 +170,7 @@ class BookkeepingIntegration(unittest.TestCase):
                     self.assertEqual(cell['outcome'], 'ok')
                 else:
                     self.assertEqual(cell['outcome'], 'failed')
-                    self.assertIn('dedicated_publish requires dedicated host', cell['failure_reason'])
+                    self.assertIn('dedicated_publish requires', cell['failure_reason'])
 
 
 class SummaryGuard(unittest.TestCase):

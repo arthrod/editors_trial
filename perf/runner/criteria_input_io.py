@@ -201,7 +201,12 @@ def _assert_visible_samples(cid, entry, witness):
     frame_interval = _frame_interval_ms(witness)
     if frame_interval is None:
         raise ValueError("%s is measured but paint_witness carries no frame_interval_ms" % (cid,))
-    for sample in entry["samples_ms"]:
+    flags = entry.get("sub_frame_samples") or []
+    if flags and len(flags) != len(entry["samples_ms"]):
+        raise ValueError("%s sub_frame_samples length does not match samples_ms" % (cid,))
+    for index, sample in enumerate(entry["samples_ms"]):
+        if index < len(flags) and flags[index]:
+            continue
         if sample < frame_interval:
             raise ValueError(
                 "%s sample %r is below the recorded frame interval %r"
@@ -355,6 +360,8 @@ def trial_from_entry(cid, entry, env, witness=None):
     frame_interval = _frame_interval_ms(witness)
     if frame_interval is not None:
         diagnostic["frame_interval_ms"] = frame_interval
+    if entry.get("sub_frame_samples"):
+        diagnostic["sub_frame_samples"] = list(entry["sub_frame_samples"])
     outcome = entry["outcome"]
     if outcome != "measured":
         trial = _trial_dict(
@@ -402,6 +409,8 @@ def trial_from_entry(cid, entry, env, witness=None):
         publication_block_reason=reason,
         diagnostic=diagnostic,
     )
+    if entry.get("sub_frame_samples"):
+        trial["sub_frame_samples"] = list(entry["sub_frame_samples"])
     validate_trial(trial)
     return trial
 

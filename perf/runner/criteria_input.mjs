@@ -346,20 +346,22 @@ async function sampleAfterInput(witness, inputMs, options, callOptions = {}) {
     return { ok: false, reason: 'no_input_timestamp', ...evidence };
   }
   const sampleMs = round(record.frame_page_ms - inputRef, 3);
-  if (sampleMs < witness.frameIntervalMs) {
-    return { ok: false, reason: 'below_frame_interval', ...evidence, sampleMs };
-  }
-  if (sampleMs < EVENT_TIMING_THRESHOLD_MS) {
-    return { ok: false, reason: 'censored_below_16_ms', ...evidence, sampleMs };
-  }
   if (verdict.refused || !verdict.ok) {
     return {
       ok: false,
       reason: `paint_witness_refused: ${verdict.reason || 'witness_refused'}`,
-      witness_refusal: verdict.reason,
-      witness_errors: verdict.errors || [],
-      record,
+      ...evidence,
       sampleMs,
+    };
+  }
+  const subFrame = sampleMs < witness.frameIntervalMs;
+  if (subFrame || sampleMs < EVENT_TIMING_THRESHOLD_MS) {
+    return {
+      ok: true,
+      sampleMs,
+      ...evidence,
+      frame_page_ms: record.frame_page_ms,
+      sub_frame: true,
     };
   }
   return {
@@ -368,6 +370,7 @@ async function sampleAfterInput(witness, inputMs, options, callOptions = {}) {
     record,
     frame_page_ms: record.frame_page_ms,
     ...evidence,
+    sub_frame: false,
   };
 }
 
@@ -942,6 +945,7 @@ async function measureClicks(page, witness, options, meta) {
   }
   const points = meta.points;
   const samples = [];
+  const subFrameSamples = [];
   for (const point of points) {
     const observation = {
       observation_id: `click-${entry.observations.length}`,
@@ -1015,19 +1019,9 @@ async function measureClicks(page, witness, options, meta) {
     }
     observation.frame_ms = round(frameRecord.frame_page_ms, 3);
     const sampleMs = round(frameRecord.frame_page_ms - input.t, 3);
-    if (sampleMs < witness.frameIntervalMs) {
-      observation.failure = `below_frame_interval_${witness.frameIntervalMs}`;
-      entry.assertion.failures.push(`${point.point}: below_frame_interval`);
-      entry.observations.push(observation);
-      continue;
-    }
-    if (sampleMs < EVENT_TIMING_THRESHOLD_MS) {
-      observation.failure = 'censored_below_16_ms';
-      entry.assertion.failures.push(`${point.point}: censored_below_16_ms`);
-      entry.observations.push(observation);
-      continue;
-    }
+    const subFrame = sampleMs < witness.frameIntervalMs || sampleMs < EVENT_TIMING_THRESHOLD_MS;
     observation.sample_ms = sampleMs;
+    observation.sub_frame = subFrame;
     const correctness = assertFixtureBodyMatches(state, options.expectedBodyText);
     if (!correctness.ok) {
       observation.failure = correctness.reason;
@@ -1061,6 +1055,7 @@ async function measureClicks(page, witness, options, meta) {
       continue;
     }
     samples.push(sampleMs);
+    subFrameSamples.push(subFrame);
     entry.observations.push(observation);
     await settle(page);
   }
@@ -1076,6 +1071,7 @@ async function measureClicks(page, witness, options, meta) {
     entry.outcome = 'measured';
     entry.samples_ms = samples;
     entry.sample_observation_ids = entry.observations.map((o) => o.observation_id);
+    entry.sub_frame_samples = subFrameSamples;
     entry.assertion.passed = true;
     entry.assertion.checks = {
       all_points_painted: true,

@@ -15,6 +15,7 @@ for usage errors before any run directory exists.
 from __future__ import annotations
 
 import argparse
+from functools import partial
 from contextvars import ContextVar
 from contextlib import redirect_stderr
 from datetime import datetime, timezone
@@ -417,6 +418,9 @@ def rendering_facts():
     return json.loads(proc.stdout)
 
 
+PUBLICATION_REPETITIONS = 30
+
+
 def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=False, run_factory=BrowserRun, max_repetitions=None, facts=None):
     """Drive one measurement body per scheduled cell, record-don't-abort.
 
@@ -432,20 +436,35 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
     parser.add_argument('--seed', type=int, default=None)
     parser.add_argument('--run-id', default=None)
     parser.add_argument('--execution-profile', choices=('ci_contract', 'ci_broad', 'dedicated_publish'), default='ci_broad')
-    parser.add_argument('--host-class', choices=('ci_coarse', 'dedicated'), default='ci_coarse')
+    parser.add_argument('--host-class', choices=('ci_coarse', 'dedicated', 'shared_guarded'), default='ci_coarse')
     parser.add_argument('--editor' if single else '--editors', nargs=None if single else '+',
                         default='plate' if single else list(targets), dest='editors')
     if count_flag:
         parser.add_argument(count_flag, type=int, default=default_count, dest='repetitions')
     else:
         parser.add_argument('--repetitions', type=int, default=1)
+    argv = list(sys.argv)
     args, rest = parser.parse_known_args()
     if '--help' in rest or '-h' in rest:
-        print('Bookkeeping options: --seed INT --run-id ID --out-root PATH --repetitions INT (input only) --execution-profile {ci_contract,ci_broad,dedicated_publish} --host-class {ci_coarse,dedicated}')
+        print('Bookkeeping options: --seed INT --run-id ID --out-root PATH --repetitions INT (input only) --execution-profile {ci_contract,ci_broad,dedicated_publish} --host-class {ci_coarse,dedicated,shared_guarded}')
         return main()
     if '--list-support' in rest:
         return main()
     editors = [args.editors] if single else args.editors
+    if args.execution_profile == 'dedicated_publish' and not any(
+        flag in argv for flag in ((count_flag,) if count_flag else ()) + ('--repetitions',)
+    ):
+        args.repetitions = PUBLICATION_REPETITIONS
+    if args.execution_profile == 'dedicated_publish' and args.repetitions < PUBLICATION_REPETITIONS:
+        parser.error(
+            f'#136: dedicated_publish requires at least {PUBLICATION_REPETITIONS} repetitions per editor, got {args.repetitions}'
+        )
+    if args.execution_profile == 'dedicated_publish' and args.host_class == 'shared_guarded':
+        reader = read_cpu_accounting
+        if isinstance(run_factory, partial) and run_factory.keywords.get('accounting_reader'):
+            reader = run_factory.keywords['accounting_reader']
+        if not reader().get('available'):
+            parser.error('shared_guarded dedicated_publish requires readable cgroup v2 cpu accounting')
     if args.repetitions < 1 or any(editor not in targets for editor in editors):
         parser.error('positive repetitions and known editors required')
     if callable(max_repetitions):
@@ -492,8 +511,17 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
                 run.sample(name, row)
             finally:
                 CELL.reset(cell_token)
-        result = run.finish({'runner': runner, 'order': order, 'publishable': False,
-                             'host': host, 'headless': True, 'rendering': rendering})
+        accounting = accounting_summary(run.accounting_start, run.accounting_reader(), run.samples)
+        result = run.finish({
+            'runner': runner,
+            'order': order,
+            'publishable': False,
+            'host': host,
+            'headless': True,
+            'rendering': rendering,
+            'cpu_steal_percent': accounting.get('steal_percent'),
+            'cpu_throttle_refused_samples': accounting.get('samples_refused'),
+        })
         line = {key: result.get(key) for key in (
             'cells_total', 'cells_measured', 'cells_refused', 'cells_failed', 'cell_failure_reasons')}
         print(json.dumps({'run_id': run.run_id, 'summary': str(run.directory / 'summary.json'),
