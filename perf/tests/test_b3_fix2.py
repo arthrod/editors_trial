@@ -57,28 +57,9 @@ def _env():
 
 
 def _good_witness(**overrides) -> dict:
-    record = {
-        "outcome": "witnessed",
-        "frame_page_ms": 1808.0,
-        "frames_total": 7,
-        "frames_after": 3,
-        "diff_ratio": 0.01,
-        "threshold": 0.00005,
-        "min_pixels": 4,
-        "changed_pixels": 900,
-        "caret_masked": True,
-        "document_scoped": True,
-        "clock_skew_ms": 0.2,
-        "clock_skew_acceptable": True,
-        "clock_check": {
-            "kind": "clock_skew",
-            "acceptable": True,
-            "reason": None,
-            "page_offset_ms": 0.2,
-        },
-    }
-    record.update(overrides)
-    return record
+    from perf.tests.witness_records import publishable_witness_record
+    frame = overrides.pop('frame_page_ms', 1808)
+    return publishable_witness_record(frame, 1000, **overrides)
 
 
 def _region(payload: dict) -> dict:

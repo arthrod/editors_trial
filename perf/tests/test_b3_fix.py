@@ -10,34 +10,15 @@ from perf.runner.witness import validate_witness
 
 
 def _good_witness(**overrides) -> dict:
-    record = {
-        "outcome": "witnessed",
-        "frame_page_ms": 428.0,
-        "frames_total": 7,
-        "frames_after": 3,
-        "diff_ratio": 0.01,
-        "threshold": 0.00005,
-        "min_pixels": 4,
-        "changed_pixels": 900,
-        "caret_masked": True,
-        "document_scoped": True,
-        "clock_skew_ms": 0.2,
-        "clock_skew_acceptable": True,
-        "clock_check": {
-            "kind": "clock_skew",
-            "acceptable": True,
-            "reason": None,
-            "page_offset_ms": 0.2,
-        },
-    }
-    record.update(overrides)
-    return record
+    from perf.tests.witness_records import publishable_witness_record
+    frame = overrides.pop('frame_page_ms', 428)
+    return publishable_witness_record(frame, 100, **overrides)
 
 
 class ReviewRules(unittest.TestCase):
     def test_c11_refuses_a_witness_validate_witness_refuses(self):
         witness = _good_witness(document_scoped=False)
-        self.assertTrue(validate_witness(witness)["refused"])
+        self.assertEqual(validate_witness(witness)["reason"], "not_document_scoped")
         probe = {
             "mode": "load",
             "document_text_at_ms": 400.0,
@@ -49,7 +30,7 @@ class ReviewRules(unittest.TestCase):
         }
         with self.assertRaises(bd.ProbeRefusal) as caught:
             bd.c11_measured_samples(probe)
-        self.assertIn("witness", caught.exception.reason.lower())
+        self.assertEqual(caught.exception.reason, "witness refused: not_document_scoped")
 
     def test_c11_keeps_a_sample_whose_witness_validates(self):
         witness = _good_witness()
@@ -79,7 +60,7 @@ class ReviewRules(unittest.TestCase):
         }
         with self.assertRaises(bd.ProbeRefusal) as caught:
             bd.c14_measured_sample(probe)
-        self.assertIn("witness", caught.exception.reason.lower())
+        self.assertEqual(caught.exception.reason, "witness refused: not_document_scoped")
 
     def test_c12_must_refuse_failed_clock_check(self):
         probe = {
