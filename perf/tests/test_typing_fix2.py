@@ -200,7 +200,7 @@ def test_integration_bridge_insert_text_refuses_no_keydown_and_bounds_masks(tmp_
             await bridge.request(op='load',url=host.url+'/typing_fair.html',selector='#editor',ready_selector='.status-ok')
             # keyboard input needs a focused editor: the fake fixture focuses itself.
             record = await bridge.request(op='key',char='§',selector='#editor')
-            assert record['after_page_ms'] is None
+            assert record['witness']['after_page_ms'] is None
             assert record['refusal'] == 'no_keydown'
             assert latency_summary([record])['refusals'] == ['no_keydown']
             await bridge.request(op='key',char='a',selector='#editor')

@@ -41,6 +41,10 @@ def latency_summary(records):
     accepted = []; refusals = []
     for record in records:
         try:
+            response = record
+            record = response.get('witness', response)
+            if response.get('refusal') == 'no_keydown':
+                refusals.append('no_keydown'); continue
             if record.get('after_page_ms') is None and record.get('outcome') == 'witnessed':
                 refusals.append('no_keydown'); continue
             if record.get('refusal') == 'no_keydown':
@@ -51,7 +55,7 @@ def latency_summary(records):
             value = record['frame_page_ms'] - record['after_page_ms']
             if not math.isfinite(value) or value < 0:
                 refusals.append('negative_latency'); continue
-            interval = record.get('frame_interval_ms')
+            interval = response.get('frame_interval_ms', record['clock_check']['frame_interval_ms'])
             accepted.append({'ms':value, 'sub_frame': interval is None or value < interval or value < 16})
         except (TypeError, ValueError, KeyError, AttributeError):
             refusals.append('invalid_record')
@@ -91,7 +95,8 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
             key_start = clock()
             sampled = session_kind == "latency" and index >= next_witness and witness_eligible(char)
             if sampled:
-                record = await witness(char)
+                response = await witness(char)
+                record = dict(response) if 'witness' in response else {'witness': response}
                 record['bridge_elapsed_ms'] = (clock() - key_start) * 1000
                 records.append(record)
                 witness_wall += record['bridge_elapsed_ms'] / 1000

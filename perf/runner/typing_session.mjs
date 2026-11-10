@@ -49,6 +49,9 @@ for await (const line of lines) {
       }
     } else if (command.op === 'key') {
       if (sessionKind !== 'latency') throw Error('key witnesses forbidden in throughput sessions');
+      // stopRecorder discarded the previous operation's frames. Calibrate on
+      // this key's recorder before arming the measured action.
+      clock = await clockSkew(page, cdp);
       await page.evaluate(() => {
         window.__b9key = null;
         document.addEventListener('keydown', e => { window.__b9key = e.timeStamp; }, {once:true, capture:true});
@@ -61,7 +64,7 @@ for await (const line of lines) {
           return await page.evaluate(() => window.__b9key);
         },
       });
-      result = {...witness, frame_interval_ms:interval.median_ms};
+      result = {witness, frame_interval_ms:interval.median_ms};
       if (witness.after_page_ms === null) result = {...result, outcome:'no_frame', refusal:'no_keydown'};
     } else if (command.op === 'close') {
       await stopRecorder(cdp); await context.close(); break;
