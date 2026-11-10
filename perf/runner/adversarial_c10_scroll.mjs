@@ -181,18 +181,30 @@ function pageScrollCommand(command) {
     return { x: r.left, y: r.top, width: r.width, height: r.height };
   };
 
-  /** The element whose position proves that the content moved. */
+  /**
+   * The element whose position proves that the content moved.
+   *
+   * It must be an element *in the scrolled flow*: a fixed or sticky child
+   * (a load veil, a floating toolbar) does not move when the scroller
+   * scrolls, so it proves nothing. The tallest in-flow child is the
+   * scrolled content.
+   */
   const contentProbe = (root) => {
     if (!root) return null;
     const kids = root.children || [];
+    let best = null;
     for (let i = 0; i < kids.length; i++) {
       const kid = kids[i];
-      const r = kid.getBoundingClientRect();
-      if (r.height > 0 || trimLen(kid.textContent)) {
-        return { selector: shortSelector(kid), rect_top: r.top, height: r.height };
+      const style = getComputedStyle(kid);
+      if (style.position === 'fixed' || style.position === 'sticky') continue;
+      const rect = kid.getBoundingClientRect();
+      const text = trimLen(kid.textContent);
+      if (!(rect.height > 0 || text)) continue;
+      if (!best || rect.height > best.height) {
+        best = { selector: shortSelector(kid), rect_top: rect.top, height: rect.height };
       }
     }
-    return null;
+    return best;
   };
 
   /** The text visible at the top of the scroller: what the reader sees. */
@@ -201,9 +213,11 @@ function pageScrollCommand(command) {
     const kids = root.children || [];
     for (let i = 0; i < kids.length; i++) {
       const kid = kids[i];
-      const r = kid.getBoundingClientRect();
-      if (r.height <= 0) continue;
-      if (r.bottom <= box.y || r.top >= box.y + box.height) continue;
+      const style = getComputedStyle(kid);
+      if (style.position === 'fixed' || style.position === 'sticky') continue;
+      const rect = kid.getBoundingClientRect();
+      if (rect.height <= 0) continue;
+      if (rect.bottom <= box.y || rect.top >= box.y + box.height) continue;
       const text = trimLen(kid.textContent);
       if (!text) continue;
       return { selector: shortSelector(kid), text: (kid.textContent || '').trim().slice(0, 120) };
@@ -306,12 +320,28 @@ function pageScrollCommand(command) {
         if (range !== 0) return range;
         return a.index - b.index;
       });
+    // The scroller that holds the document text: the **innermost** scroller
+    // that holds text. An outer scroller that contains another text-bearing
+    // scroller scrolls the shell around the document, not the document (the
+    // viewport of an app whose document lives in a box is such a scroller).
+    const withText = order
+      .map((entry) => entry.record)
+      .filter((record) => record.own_text_chars > 0);
+    const inner = withText.filter(
+      (record) =>
+        !withText.some((other) => other !== record && nestedIn(record, other)),
+    );
+    const pool = inner.length ? inner : withText;
     return {
       records: order.map((entry) => entry.record),
       elements: order.map((entry) => elements[entry.index]),
       hidden: hidden.sort((a, b) => b.scroll_range - a.scroll_range),
       shadowRoots,
       inspected,
+      chosen_index: pool.length ? order.findIndex((entry) => entry.record === pool[0]) : -1,
+      chosen_reason: pool.length
+        ? 'the innermost scroller that holds the document text'
+        : 'no scroller holds the document text',
     };
   };
 
@@ -370,11 +400,8 @@ function pageScrollCommand(command) {
         reason = 'the operator named a scroll container that is not a scroller';
       }
     } else {
-      const withText = found.records.findIndex((record) => record.own_text_chars > 0);
-      if (withText >= 0) {
-        chosen = withText;
-        reason = 'the scroller that holds the document text';
-      }
+      chosen = found.chosen_index;
+      reason = found.chosen_reason;
     }
     return {
       candidates: found.records,
