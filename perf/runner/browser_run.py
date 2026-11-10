@@ -221,8 +221,7 @@ class BrowserRun:
         diagnostic = shared_diagnostic or len(self._sample_parents) > 1
         before = self.sample_start or {'available': False, 'reason': 'before-sample accounting not captured'}
         accounting = accounting_delta(before, self.accounting_reader())
-        current_accounting = self.accounting_reader()
-        if self.host_class == 'shared_guarded' and not current_accounting.get('available'):
+        if self.host_class == 'shared_guarded' and not accounting['available']:
             destination = self.directory / 'rejected-evidence' / name
             source = Path(row['cell_directory']) if row.get('cell_directory') else None
             if source is not None and source.exists():
@@ -523,15 +522,9 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
             name = f'{rep:04d}-{editor}'
             directory = run.directory / 'cells' / name
             cell_token = CELL.set({'repetition': rep, 'editor_id': editor})
-            profile_args = []
-            if args.execution_profile != 'ci_broad':
-                profile_args.extend(['--execution-profile', args.execution_profile])
-            if args.host_class != 'ci_coarse':
-                profile_args.extend(['--host-class', args.host_class])
             sys.argv = [
                 original[0],
                 *rest,
-                *profile_args,
                 '--out-root',
                 str(directory),
                 '--editor' if single else '--editors',

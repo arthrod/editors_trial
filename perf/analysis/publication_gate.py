@@ -4,7 +4,15 @@ from perf.runner.policy import publication_decision
 
 
 def trial_publishable_flags(env, scenario_layer: str, sample_count: int | None):
-    """Return ``(publishable, block_reason)`` for a **measured** timing trial."""
+    """Return ``(publishable, block_reason)`` for a measured timing trial.
+
+    #136 owner decision: a browser-lane fresh_process trial contributes ONE
+    value per launch. Its caller passes sample_count=None: publication n is
+    enforced at the cell level by perf.analysis.e2_cells (at least 10 launches
+    in each of two runs), stricter than per-trial I10. Every other trial kind,
+    including headless lanes and in_process series, must supply its actual n
+    and remains subject to I10 (n >= 2). Host and timing policy still apply.
+    """
     env = dict(env)
     env.setdefault("cache_state", "process_cold_fs_warm")
     env.setdefault("host_class", "ci_coarse")

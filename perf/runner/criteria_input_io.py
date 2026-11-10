@@ -390,10 +390,18 @@ def trial_from_entry(cid, entry, env, witness=None):
     sub_frame_samples = entry.get("sub_frame_samples")
     if cid == "C07" and len(samples) > 1:
         diagnostic["c07_click_samples_ms"] = list(samples)
-        sub_frame_samples = [any(sub_frame_samples)] if sub_frame_samples else None
+        if sub_frame_samples:
+            ordered = sorted(zip(samples, sub_frame_samples), key=lambda pair: pair[0])
+            middle = len(ordered) // 2
+            middle_flags = [ordered[middle][1]]
+            if len(ordered) % 2 == 0:
+                middle_flags.append(ordered[middle - 1][1])
+            sub_frame_samples = [all(middle_flags)]
         samples = [percentile(samples, 50)]
     stats = summarize(samples, env["cache_state"], env["repetition_unit"], seed=0)
-    publishable, reason = trial_publishable_flags(env, entry["layer"], stats["n"])
+    # One value per browser launch; the two-run cell gate owns publication n.
+    publication_n = None if env["repetition_unit"] == "fresh_process" else stats["n"]
+    publishable, reason = trial_publishable_flags(env, entry["layer"], publication_n)
     publishable, reason = _finalize_publishable(publishable, reason, env)
     trial = _trial_dict(
         criterion_id=cid,
