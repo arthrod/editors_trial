@@ -131,67 +131,63 @@ def _rounded_latency_ms(frame_ms, anchor_ms):
     return round(float(frame_ms) - float(anchor_ms), 3)
 
 
-def _observation_input_anchor(observation, witness):
-    input_ms = observation.get("input_ms")
-    if input_ms is not None:
-        return float(input_ms)
-    if isinstance(witness, dict) and witness.get("after_page_ms") is not None:
-        return float(witness["after_page_ms"])
-    return None
-
-
 def _assert_retained_sample_witness_deltas(cid, entry):
-    """Each retained sample must match its observation and witness timestamps."""
+    """Resolve samples by producer identity, never by coincident numeric value."""
     if entry.get("outcome") != "measured":
         return
     samples = entry.get("samples_ms") or []
-    if not samples:
-        return
-    pool = [
-        o
-        for o in (entry.get("observations") or [])
-        if isinstance(o, dict) and o.get("sample_ms") is not None
-    ]
-    for index, raw in enumerate(samples):
-        sample = float(raw)
-        match = None
-        for observation in pool:
-            if abs(float(observation["sample_ms"]) - sample) <= 0.001:
-                match = observation
-                break
-        if match is None:
-            raise ValueError(
-                "%s samples_ms[%d] %r has no observation with the same sample_ms"
-                % (cid, index, sample)
-            )
-        witness = match.get("witness")
-        if isinstance(witness, dict) and witness.get("frame_page_ms") is not None:
-            anchor = _observation_input_anchor(match, witness)
-            if anchor is not None:
-                delta = _rounded_latency_ms(witness["frame_page_ms"], anchor)
-                if abs(sample - delta) > 0.001:
-                    raise ValueError(
-                        "%s sample %r disagrees with witness latency %r"
-                        % (cid, sample, delta)
-                    )
-        pool.remove(match)
+    identities = entry.get("sample_observation_ids")
+    if not isinstance(identities, list) or len(identities) != len(samples):
+        raise ValueError(f"{cid} requires an observation identity for every sample")
+    observations = entry.get("observations") or []
+    by_id = {}
+    for observation in observations:
+        if not isinstance(observation, dict):
+            raise ValueError(f"{cid} observation must be an object")
+        identity = observation.get("observation_id")
+        if not isinstance(identity, str) or not identity or identity in by_id:
+            raise ValueError(f"{cid} observation identity missing or duplicated")
+        by_id[identity] = observation
+    used = set()
+    for identity, sample in zip(identities, samples):
+        if not isinstance(identity, str) or identity not in by_id or identity in used:
+            raise ValueError(f"{cid} retained observation identity missing or duplicated")
+        used.add(identity)
+        observation = by_id[identity]
+        witness = observation.get("witness") or {}
+        for field, witness_field in (("input_ms", "after_page_ms"), ("frame_ms", "frame_page_ms")):
+            value, anchor = observation.get(field), witness.get(witness_field)
+            if any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v)
+                   for v in (value, anchor)) or abs(value - anchor) > 0.001:
+                raise ValueError(f"{cid} observation {field} anchor disagrees with witness")
+        delta = _rounded_latency_ms(witness["frame_page_ms"], witness["after_page_ms"])
+        observed_sample = observation.get("sample_ms")
+        if (isinstance(observed_sample, bool) or not isinstance(observed_sample, (int, float))
+                or not math.isfinite(observed_sample) or abs(observed_sample - sample) > 0.001
+                or abs(sample - delta) > 0.001):
+            raise ValueError(f"{cid} sample {sample!r} disagrees with witness latency {delta!r}")
 
 
 def _witness_evidence_from_entry(entry):
+    observations = []
     for observation in entry.get("observations") or []:
         if not isinstance(observation, dict):
             continue
-        if observation.get("witness") is None and observation.get("witness_refusal") is None:
-            continue
-        out = {}
+        evidence = dict(observation)
         if observation.get("witness") is not None:
-            out["witness"] = observation["witness"]
-        if observation.get("witness_refusal") is not None:
-            out["witness_refusal"] = observation["witness_refusal"]
-        if observation.get("witness_errors"):
-            out["witness_errors"] = observation["witness_errors"]
-        return out
-    return {}
+            verdict = validate_witness(observation["witness"])
+            evidence["witness_verdict"] = verdict
+            if verdict.get("refused"):
+                evidence["witness_refusal"] = verdict.get("reason")
+                evidence["witness_errors"] = list(dict.fromkeys(
+                    (observation.get("witness_errors") or []) + (verdict.get("errors") or [])))
+        observations.append(evidence)
+    # Keep every observation, plus the first failing witness for older consumers.
+    failed = next((o for o in observations if o.get("witness_refusal")), {})
+    return {"observations": observations, **{
+        key: failed[key] for key in ("witness", "witness_refusal", "witness_errors", "witness_verdict")
+        if key in failed
+    }}
 
 
 def _assert_observation_witnesses(cid, entry):
@@ -379,6 +375,8 @@ def trial_from_entry(cid, entry, env, witness=None):
         "assertion": entry.get("assertion"),
         "evidence": entry.get("evidence"),
         "observations": entry.get("observations") or [],
+        "sample_observation_ids": entry.get("sample_observation_ids") or [],
+        "fixture_reset": entry.get("fixture_reset"),
         "notes": entry.get("notes") or [],
     }
     frame_interval = _frame_interval_ms(witness)

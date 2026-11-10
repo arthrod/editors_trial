@@ -143,7 +143,11 @@ export function validateWitnessRecord(record) {
       errors: [String(err && err.message ? err.message : err)],
     };
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    try {
+      rmSync(dir, { recursive: true, force: true });
+    } catch {
+      // A cleanup error must not replace the validator's evidence or verdict.
+    }
   }
 }
 
@@ -301,6 +305,10 @@ function attachPaintWitnessFailure(observation, painted) {
   }
   if (painted.record) {
     observation.witness = painted.record;
+    const verdict = painted.witness_verdict ?? validateWitnessRecord(painted.record);
+    observation.witness_verdict = verdict;
+    observation.witness_refusal = verdict.refused ? verdict.reason : null;
+    observation.witness_errors = verdict.errors || [];
   }
   if (painted.witness_refusal) {
     observation.witness_refusal = painted.witness_refusal;
@@ -321,8 +329,12 @@ async function sampleAfterInput(witness, inputMs, options, callOptions = {}) {
     return { ok: false, reason: 'paint_witness_unavailable' };
   }
   const record = await witness.paintAfter(inputMs, callOptions);
+  const verdict = validateWitnessRecord(record);
+  const evidence = { record, witness_verdict: verdict,
+    witness_refusal: verdict.refused ? verdict.reason : null,
+    witness_errors: verdict.errors || [] };
   if (!record || record.outcome !== 'witnessed' || record.frame_page_ms === null) {
-    return { ok: false, reason: 'no_painted_frame', record };
+    return { ok: false, reason: 'no_painted_frame', ...evidence };
   }
   const inputRef =
     typeof inputMs === 'number' && Number.isFinite(inputMs)
@@ -331,16 +343,15 @@ async function sampleAfterInput(witness, inputMs, options, callOptions = {}) {
         ? record.after_page_ms
         : null;
   if (inputRef === null) {
-    return { ok: false, reason: 'no_input_timestamp', record };
+    return { ok: false, reason: 'no_input_timestamp', ...evidence };
   }
   const sampleMs = round(record.frame_page_ms - inputRef, 3);
   if (sampleMs < witness.frameIntervalMs) {
-    return { ok: false, reason: 'below_frame_interval', record, sampleMs };
+    return { ok: false, reason: 'below_frame_interval', ...evidence, sampleMs };
   }
   if (sampleMs < EVENT_TIMING_THRESHOLD_MS) {
-    return { ok: false, reason: 'censored_below_16_ms', record, sampleMs };
+    return { ok: false, reason: 'censored_below_16_ms', ...evidence, sampleMs };
   }
-  const verdict = validateWitnessRecord(record);
   if (verdict.refused || !verdict.ok) {
     return {
       ok: false,
@@ -356,6 +367,7 @@ async function sampleAfterInput(witness, inputMs, options, callOptions = {}) {
     sampleMs,
     record,
     frame_page_ms: record.frame_page_ms,
+    ...evidence,
   };
 }
 
@@ -932,6 +944,7 @@ async function measureClicks(page, witness, options, meta) {
   const samples = [];
   for (const point of points) {
     const observation = {
+      observation_id: `click-${entry.observations.length}`,
       point: point.point,
       x: point.x,
       y: point.y,
@@ -949,6 +962,7 @@ async function measureClicks(page, witness, options, meta) {
         return tapped.t;
       },
     });
+    attachPaintWitnessFailure(observation, { record: frameRecord });
     if (input === null) {
       observation.failure = 'no_pointerdown_observed';
       entry.assertion.failures.push(`${point.point}: no_pointerdown_observed`);
@@ -1061,6 +1075,7 @@ async function measureClicks(page, witness, options, meta) {
   if (entry.assertion.failures.length === 0 && samples.length === points.length) {
     entry.outcome = 'measured';
     entry.samples_ms = samples;
+    entry.sample_observation_ids = entry.observations.map((o) => o.observation_id);
     entry.assertion.passed = true;
     entry.assertion.checks = {
       all_points_painted: true,
@@ -1134,128 +1149,148 @@ async function measureUndo(page, witness, options, meta) {
     entry.failure_reason = before.error;
     return entry;
   }
-  await clearInputs(page);
-  await page.keyboard.type('x');
-  const typedInput = await firstInput(page, { kind: 'keydown', key: 'x' });
-  if (typedInput === null) {
-    entry.failure_reason = 'no_keydown_observed_for_typed_character';
-    entry.assertion.failures.push('no_keydown_observed_for_typed_character');
+  let undoAttempted = false;
+  try {
     await clearInputs(page);
-    await page.keyboard.press(`${options.modifier}+Z`);
+    await page.keyboard.type('x');
+    const typedInput = await firstInput(page, { kind: 'keydown', key: 'x' });
+    if (typedInput === null) {
+      entry.failure_reason = 'no_keydown_observed_for_typed_character';
+      entry.assertion.failures.push('no_keydown_observed_for_typed_character');
+      return entry;
+    }
+    let typedState = await readState(page, meta.editable.selector);
+    let typedFrames = 0;
+    while (typedState.text_length !== before.text_length + 1 && typedFrames < 6) {
+      await sleep(16);
+      typedFrames += 1;
+      typedState = await readState(page, meta.editable.selector);
+    }
+    if (typedState.text_length !== before.text_length + 1) {
+      entry.failure_reason = 'typed_character_not_observable_in_document_text';
+      entry.observations.push({
+        point: point.point,
+        x: point.x,
+        y: point.y,
+        text_length_before: before.text_length,
+        text_length_after_typing: typedState.text_length,
+        frames_waited: typedFrames,
+      });
+      entry.assertion.failures.push('typed_character_not_observable_in_document_text');
+      return entry;
+    }
+    const insertOffset = before.selection_offset ?? before.text.length;
+    const expectedTyped = bodyAfterInsertion(before.text, 'x', insertOffset);
+    if (typedState.text !== expectedTyped) {
+      entry.failure_reason = `${CORRECTNESS_PREFIX} typed_character_or_position`;
+      entry.assertion.failures.push(entry.failure_reason);
+      return entry;
+    }
     await settle(page, 60);
-    return entry;
-  }
-  let typedState = await readState(page, meta.editable.selector);
-  let typedFrames = 0;
-  while (typedState.text_length !== before.text_length + 1 && typedFrames < 6) {
-    await sleep(16);
-    typedFrames += 1;
-    typedState = await readState(page, meta.editable.selector);
-  }
-  if (typedState.text_length !== before.text_length + 1) {
-    entry.failure_reason = 'typed_character_not_observable_in_document_text';
-    entry.observations.push({
+    let undoInput = null;
+    const observation = {
+      observation_id: "undo",
       point: point.point,
       x: point.x,
       y: point.y,
-      text_length_before: before.text_length,
+      input_ms: null,
+      text_length_before_typing: before.text_length,
       text_length_after_typing: typedState.text_length,
-      frames_waited: typedFrames,
+      frames_waited_for_typed_character: typedFrames,
+      modifier: options.modifier,
+    };
+    const painted = await sampleAfterInput(witness, null, options, {
+      arm: async () => {
+        await clearInputs(page);
+        undoAttempted = true;
+        await page.keyboard.press(`${options.modifier}+Z`);
+        undoInput =
+          (await firstInput(page, { kinds: ['keydown'], key: 'z' })) ||
+          (await firstInput(page, { kinds: ['keydown'], key: 'Z' }));
+        return undoInput?.t ?? null;
+      },
     });
-    entry.assertion.failures.push('typed_character_not_observable_in_document_text');
-    await clearInputs(page);
-    await page.keyboard.press(`${options.modifier}+Z`);
-    await settle(page, 60);
-    return entry;
-  }
-  const insertOffset = before.selection_offset ?? before.text.length;
-  const expectedTyped = bodyAfterInsertion(before.text, 'x', insertOffset);
-  if (typedState.text !== expectedTyped) {
-    entry.failure_reason = `${CORRECTNESS_PREFIX} typed_character_or_position`;
-    entry.assertion.failures.push(entry.failure_reason);
-    await clearInputs(page);
-    await page.keyboard.press(`${options.modifier}+Z`);
-    await settle(page, 60);
-    return entry;
-  }
-  await settle(page, 60);
-  let undoInput = null;
-  const observation = {
-    point: point.point,
-    x: point.x,
-    y: point.y,
-    input_ms: null,
-    text_length_before_typing: before.text_length,
-    text_length_after_typing: typedState.text_length,
-    frames_waited_for_typed_character: typedFrames,
-    modifier: options.modifier,
-  };
-  const painted = await sampleAfterInput(witness, null, options, {
-    arm: async () => {
-      await clearInputs(page);
-      await page.keyboard.press(`${options.modifier}+Z`);
-      undoInput =
-        (await firstInput(page, { kinds: ['keydown'], key: 'z' })) ||
-        (await firstInput(page, { kinds: ['keydown'], key: 'Z' }));
-      return undoInput?.t ?? null;
-    },
-  });
-  if (undoInput === null) {
-    entry.failure_reason = 'no_keydown_observed_for_undo';
-    entry.assertion.failures.push('no_keydown_observed_for_undo');
-    await clearInputs(page);
-    await page.keyboard.press(`${options.modifier}+Z`);
-    await settle(page, 60);
-    return entry;
-  }
-  observation.input_ms = round(undoInput.t, 3);
-  if (!painted.ok) {
-    observation.failure = painted.reason;
     attachPaintWitnessFailure(observation, painted);
+    if (undoInput === null) {
+      entry.observations.push(observation);
+      entry.failure_reason = 'no_keydown_observed_for_undo';
+      entry.assertion.failures.push('no_keydown_observed_for_undo');
+      return entry;
+    }
+    observation.input_ms = round(undoInput.t, 3);
+    if (!painted.ok) {
+      observation.failure = painted.reason;
+      attachPaintWitnessFailure(observation, painted);
+      entry.observations.push(observation);
+      entry.failure_reason = painted.reason;
+      entry.assertion.failures.push('undo_not_painted');
+      return entry;
+    }
+    let after = await readState(page, meta.editable.selector);
+    let framesToRevert = 1;
+    while (after.text !== before.text && framesToRevert < 6) {
+      await sleep(16);
+      framesToRevert += 1;
+      after = await readState(page, meta.editable.selector);
+    }
+    observation.frame_ms = round(painted.frame_page_ms, 3);
+    observation.sample_ms = painted.sampleMs;
+    observation.witness = painted.record;
+    observation.painted_frames_to_revert = framesToRevert;
+    observation.text_length_after_undo = after.text_length;
+    observation.text_restored = after.text === before.text;
+    observation.diagnostic_raf_ms = round(await rafDelta(page, undoInput.t), 3);
     entry.observations.push(observation);
-    entry.failure_reason = painted.reason;
-    entry.assertion.failures.push('undo_not_painted');
+    const restored = assertFixtureBodyMatches(after, options.expectedBodyText ?? before.text);
+    if (!restored.ok) {
+      entry.failure_reason = restored.reason;
+      entry.assertion.failures.push(restored.reason);
+      return entry;
+    }
+    if (!observation.text_restored) {
+      entry.failure_reason = `${CORRECTNESS_PREFIX} undo_did_not_restore_document_text`;
+      entry.assertion.failures.push(entry.failure_reason);
+      entry.notes.push(
+        'The typed character was visible before the undo, so the undo keystroke did not revert it within three painted frames.',
+      );
+      return entry;
+    }
+    entry.outcome = 'measured';
+    entry.samples_ms = [observation.sample_ms];
+    entry.sample_observation_ids = [observation.observation_id];
+    entry.assertion.passed = true;
+    entry.assertion.checks = {
+      typed_character_observed: true,
+      undo_restored_exact_text: true,
+      painted_frames_to_revert: framesToRevert,
+    };
+    entry.failure_reason = null;
     return entry;
+  } finally {
+    let current = await readState(page, meta.editable.selector);
+    if (current.text !== before.text && !undoAttempted) {
+      undoAttempted = true;
+      await page.keyboard.press(`${options.modifier}+Z`);
+      await settle(page, 60);
+      current = await readState(page, meta.editable.selector);
+    }
+    if (current.text !== before.text) {
+      entry.fixture_reset = { attempted: true, restored: false, reason: 'undo_did_not_restore_original' };
+      try {
+        await page.reload();
+        // Reload can finish before the editor imports its fixture. Wait for that body.
+        for (let attempt = 0; attempt < 100; attempt += 1) {
+          current = await readState(page, meta.editable.selector);
+          if (current.text === before.text) break;
+          await sleep(50);
+        }
+        entry.fixture_reset.restored = current.text === before.text;
+        await page.evaluate(INSTALL_INPUT_TAP);
+      } catch (error) {
+        entry.fixture_reset.error = String(error);
+      }
+    }
   }
-  let after = await readState(page, meta.editable.selector);
-  let framesToRevert = 1;
-  while (after.text !== before.text && framesToRevert < 6) {
-    await sleep(16);
-    framesToRevert += 1;
-    after = await readState(page, meta.editable.selector);
-  }
-  observation.frame_ms = round(painted.frame_page_ms, 3);
-  observation.sample_ms = painted.sampleMs;
-  observation.witness = painted.record;
-  observation.painted_frames_to_revert = framesToRevert;
-  observation.text_length_after_undo = after.text_length;
-  observation.text_restored = after.text === before.text;
-  observation.diagnostic_raf_ms = round(await rafDelta(page, undoInput.t), 3);
-  entry.observations.push(observation);
-  const restored = assertFixtureBodyMatches(after, options.expectedBodyText ?? before.text);
-  if (!restored.ok) {
-    entry.failure_reason = restored.reason;
-    entry.assertion.failures.push(restored.reason);
-    return entry;
-  }
-  if (!observation.text_restored) {
-    entry.failure_reason = `${CORRECTNESS_PREFIX} undo_did_not_restore_document_text`;
-    entry.assertion.failures.push(entry.failure_reason);
-    entry.notes.push(
-      'The typed character was visible before the undo, so the undo keystroke did not revert it within three painted frames.',
-    );
-    return entry;
-  }
-  entry.outcome = 'measured';
-  entry.samples_ms = [observation.sample_ms];
-  entry.assertion.passed = true;
-  entry.assertion.checks = {
-    typed_character_observed: true,
-    undo_restored_exact_text: true,
-    painted_frames_to_revert: framesToRevert,
-  };
-  entry.failure_reason = null;
-  return entry;
 }
 
 async function measureBulkInsert(page, witness, options, meta) {
@@ -1307,6 +1342,7 @@ async function measureBulkInsert(page, witness, options, meta) {
   }
   const minimumGrowth = options.bulkChars;
   const observation = {
+    observation_id: "paste",
     point: point.point,
     x: point.x,
     y: point.y,
@@ -1337,6 +1373,8 @@ async function measureBulkInsert(page, witness, options, meta) {
         return pasteInput?.t ?? null;
       },
     });
+    observation.method = 'clipboard_paste_keyboard';
+    attachPaintWitnessFailure(observation, painted);
     if (pasteInput !== null) {
       if (painted.ok) {
         const afterPaste = await readState(page, meta.editable.selector);
@@ -1360,6 +1398,7 @@ async function measureBulkInsert(page, witness, options, meta) {
           entry.observations.push(observation);
           entry.outcome = 'measured';
           entry.samples_ms = [observation.sample_ms];
+          entry.sample_observation_ids = [observation.observation_id];
           entry.assertion.passed = true;
           entry.assertion.checks = {
             text_length_grew: true,
@@ -1433,6 +1472,7 @@ async function measureBulkInsert(page, witness, options, meta) {
   const after = await readState(page, meta.editable.selector);
   const growth = after.text_length - pre.text_length;
   const fallback = {
+    observation_id: "fallback",
     point: point.point,
     x: point.x,
     y: point.y,
@@ -1454,6 +1494,7 @@ async function measureBulkInsert(page, witness, options, meta) {
     minimum_growth: minimumGrowth,
     blocked_paste: pasteError,
   };
+  attachPaintWitnessFailure(fallback, painted);
   entry.observations.push(fallback);
   if (!painted.ok) {
     entry.failure_reason = painted.reason;
@@ -1473,6 +1514,7 @@ async function measureBulkInsert(page, witness, options, meta) {
   }
   entry.outcome = 'measured';
   entry.samples_ms = [fallback.sample_ms];
+  entry.sample_observation_ids = [fallback.observation_id];
   entry.assertion.passed = true;
   entry.assertion.checks = {
     text_length_grew: true,
@@ -1637,6 +1679,14 @@ export async function runCriteriaSuite({
       : editableMissing
         ? emptyEntry('C09', 'failed', editableMissing)
         : await measureUndo(page, witness, options, meta);
+  }
+  if (criteria.includes('C08') && entries.C09?.fixture_reset) {
+    if (!entries.C09.fixture_reset.restored) {
+      entries.C08 = emptyEntry('C08', 'failed', 'fixture_reset_failed_after_C09');
+    } else {
+      const refreshed = await page.evaluate(RESOLVE_CLICK_POINTS, editSelector);
+      meta.points = refreshed.points || [];
+    }
   }
   if (criteria.includes('C08') && !entries.C08) {
     entries.C08 = canvasWithoutAdapter

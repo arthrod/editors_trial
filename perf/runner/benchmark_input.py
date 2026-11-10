@@ -152,20 +152,7 @@ def run_editor(editor_id: str, attempt_dir: Path) -> dict:
         for cid in payload["criteria_requested"]:
             row = written[cid]
             entry = payload["criteria"][cid]
-            if row["written"]:
-                criteria_summary[cid] = {
-                    "outcome": entry["outcome"],
-                    "samples_ms": entry["samples_ms"],
-                    "failure_reason": entry.get("failure_reason"),
-                    "attempt_file": str(Path(row["path"]).resolve()),
-                }
-            else:
-                criteria_summary[cid] = {
-                    "outcome": "failed",
-                    "samples_ms": [],
-                    "failure_reason": row["failure_reason"],
-                    "attempt_file": None,
-                }
+            criteria_summary[cid] = criterion_summary(row, entry)
         return {
             "editor_id": editor_id,
             "outcome": "ok",
@@ -174,6 +161,16 @@ def run_editor(editor_id: str, attempt_dir: Path) -> dict:
         }
     finally:
         _stop_server(started)
+
+
+def criterion_summary(row, entry):
+    if row["written"]:
+        return {
+            "outcome": entry["outcome"], "samples_ms": entry["samples_ms"],
+            "failure_reason": entry.get("failure_reason"),
+            "attempt_file": str(Path(row["path"]).resolve()),
+        }
+    return {**row, "outcome": "failed", "samples_ms": [], "attempt_file": None}
 
 
 def _main() -> int:
