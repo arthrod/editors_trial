@@ -437,27 +437,40 @@ const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, document
   };
   // Text of one element. Toolbar, button and menu labels are not document text.
   // Style and script source are not either. Hidden boxes are not paint.
-  const elementText = (el) => {
+  const elementText = (el, region = null) => {
     if (!paintedBox(el) || isChrome(el)) return '';
+    const excluded = (node) => {
+      for (let parent = node; parent; parent = parent.parentElement || parent.getRootNode()?.host) {
+        if (['STYLE', 'SCRIPT', 'NOSCRIPT', 'TEXTAREA', 'INPUT', 'SELECT'].includes(parent.tagName)
+            || parent.getAttribute('aria-hidden')?.toLowerCase() === 'true' || isChrome(parent)) return true;
+      }
+      return false;
+    };
+    if (excluded(el)) return '';
     if (el.tagName === 'IFRAME') {
-      // The frame is the scoped document region; read its same-origin body,
-      // never the surrounding host's toolbar or shell.
-      try { return el.contentDocument?.body ? elementText(el.contentDocument.body) : ''; }
+      // Frame body coordinates are local to the visible frame viewport.
+      try { return el.contentDocument?.body ? elementText(el.contentDocument.body,
+        { left: 0, top: 0, right: el.clientWidth, bottom: el.clientHeight }) : ''; }
       catch { return ''; }
     }
+    const bounds = region || el.getBoundingClientRect();
+    const view = el.ownerDocument.defaultView;
+    const intersects = (r) => r.width > 0 && r.height > 0
+      && r.right > Math.max(0, bounds.left) && r.left < Math.min(view.innerWidth, bounds.right)
+      && r.bottom > Math.max(0, bounds.top) && r.top < Math.min(view.innerHeight, bounds.bottom);
     const parts = [];
     const walk = (node) => {
       if (!node) return;
       if (node.nodeType === 3) {
+        const parent = node.parentElement;
+        if (!parent || excluded(parent)
+            || !parent.checkVisibility({ opacityProperty: true, visibilityProperty: true })
+            || !Array.from(parent.getClientRects()).some(intersects)) return;
         const chunk = (node.textContent || '').replace(/\s+/g, ' ').trim();
         if (chunk) parts.push(chunk);
         return;
       }
-      if (node.nodeType !== 1) return;
-      const tag = node.tagName;
-      if (tag === 'STYLE' || tag === 'SCRIPT' || tag === 'NOSCRIPT') return;
-      if (isChrome(node)) return;
-      if (node !== el && !paintedBox(node)) return;
+      if (node.nodeType !== 1 || excluded(node)) return;
       for (const child of node.childNodes) walk(child);
     };
     walk(el);
@@ -820,6 +833,17 @@ function witnessFacts(witness) {
   };
 }
 
+// Default full Unicode case folding exceptions to per-codepoint lowercasing.
+// Generated from Python unicodedata 17.0.0: c.casefold() != c.lower().
+const CONTENT_CASE_FOLD = Object.freeze({"µ": "μ", "ß": "ss", "ŉ": "ʼn", "ſ": "s", "ǰ": "ǰ", "ͅ": "ι", "ΐ": "ΐ", "ΰ": "ΰ", "ς": "σ", "ϐ": "β", "ϑ": "θ", "ϕ": "φ", "ϖ": "π", "ϰ": "κ", "ϱ": "ρ", "ϵ": "ε", "և": "եւ", "Ꭰ": "Ꭰ", "Ꭱ": "Ꭱ", "Ꭲ": "Ꭲ", "Ꭳ": "Ꭳ", "Ꭴ": "Ꭴ", "Ꭵ": "Ꭵ", "Ꭶ": "Ꭶ", "Ꭷ": "Ꭷ", "Ꭸ": "Ꭸ", "Ꭹ": "Ꭹ", "Ꭺ": "Ꭺ", "Ꭻ": "Ꭻ", "Ꭼ": "Ꭼ", "Ꭽ": "Ꭽ", "Ꭾ": "Ꭾ", "Ꭿ": "Ꭿ", "Ꮀ": "Ꮀ", "Ꮁ": "Ꮁ", "Ꮂ": "Ꮂ", "Ꮃ": "Ꮃ", "Ꮄ": "Ꮄ", "Ꮅ": "Ꮅ", "Ꮆ": "Ꮆ", "Ꮇ": "Ꮇ", "Ꮈ": "Ꮈ", "Ꮉ": "Ꮉ", "Ꮊ": "Ꮊ", "Ꮋ": "Ꮋ", "Ꮌ": "Ꮌ", "Ꮍ": "Ꮍ", "Ꮎ": "Ꮎ", "Ꮏ": "Ꮏ", "Ꮐ": "Ꮐ", "Ꮑ": "Ꮑ", "Ꮒ": "Ꮒ", "Ꮓ": "Ꮓ", "Ꮔ": "Ꮔ", "Ꮕ": "Ꮕ", "Ꮖ": "Ꮖ", "Ꮗ": "Ꮗ", "Ꮘ": "Ꮘ", "Ꮙ": "Ꮙ", "Ꮚ": "Ꮚ", "Ꮛ": "Ꮛ", "Ꮜ": "Ꮜ", "Ꮝ": "Ꮝ", "Ꮞ": "Ꮞ", "Ꮟ": "Ꮟ", "Ꮠ": "Ꮠ", "Ꮡ": "Ꮡ", "Ꮢ": "Ꮢ", "Ꮣ": "Ꮣ", "Ꮤ": "Ꮤ", "Ꮥ": "Ꮥ", "Ꮦ": "Ꮦ", "Ꮧ": "Ꮧ", "Ꮨ": "Ꮨ", "Ꮩ": "Ꮩ", "Ꮪ": "Ꮪ", "Ꮫ": "Ꮫ", "Ꮬ": "Ꮬ", "Ꮭ": "Ꮭ", "Ꮮ": "Ꮮ", "Ꮯ": "Ꮯ", "Ꮰ": "Ꮰ", "Ꮱ": "Ꮱ", "Ꮲ": "Ꮲ", "Ꮳ": "Ꮳ", "Ꮴ": "Ꮴ", "Ꮵ": "Ꮵ", "Ꮶ": "Ꮶ", "Ꮷ": "Ꮷ", "Ꮸ": "Ꮸ", "Ꮹ": "Ꮹ", "Ꮺ": "Ꮺ", "Ꮻ": "Ꮻ", "Ꮼ": "Ꮼ", "Ꮽ": "Ꮽ", "Ꮾ": "Ꮾ", "Ꮿ": "Ꮿ", "Ᏸ": "Ᏸ", "Ᏹ": "Ᏹ", "Ᏺ": "Ᏺ", "Ᏻ": "Ᏻ", "Ᏼ": "Ᏼ", "Ᏽ": "Ᏽ", "ᏸ": "Ᏸ", "ᏹ": "Ᏹ", "ᏺ": "Ᏺ", "ᏻ": "Ᏻ", "ᏼ": "Ᏼ", "ᏽ": "Ᏽ", "ᲀ": "в", "ᲁ": "д", "ᲂ": "о", "ᲃ": "с", "ᲄ": "т", "ᲅ": "т", "ᲆ": "ъ", "ᲇ": "ѣ", "ᲈ": "ꙋ", "ẖ": "ẖ", "ẗ": "ẗ", "ẘ": "ẘ", "ẙ": "ẙ", "ẚ": "aʾ", "ẛ": "ṡ", "ẞ": "ss", "ὐ": "ὐ", "ὒ": "ὒ", "ὔ": "ὔ", "ὖ": "ὖ", "ᾀ": "ἀι", "ᾁ": "ἁι", "ᾂ": "ἂι", "ᾃ": "ἃι", "ᾄ": "ἄι", "ᾅ": "ἅι", "ᾆ": "ἆι", "ᾇ": "ἇι", "ᾈ": "ἀι", "ᾉ": "ἁι", "ᾊ": "ἂι", "ᾋ": "ἃι", "ᾌ": "ἄι", "ᾍ": "ἅι", "ᾎ": "ἆι", "ᾏ": "ἇι", "ᾐ": "ἠι", "ᾑ": "ἡι", "ᾒ": "ἢι", "ᾓ": "ἣι", "ᾔ": "ἤι", "ᾕ": "ἥι", "ᾖ": "ἦι", "ᾗ": "ἧι", "ᾘ": "ἠι", "ᾙ": "ἡι", "ᾚ": "ἢι", "ᾛ": "ἣι", "ᾜ": "ἤι", "ᾝ": "ἥι", "ᾞ": "ἦι", "ᾟ": "ἧι", "ᾠ": "ὠι", "ᾡ": "ὡι", "ᾢ": "ὢι", "ᾣ": "ὣι", "ᾤ": "ὤι", "ᾥ": "ὥι", "ᾦ": "ὦι", "ᾧ": "ὧι", "ᾨ": "ὠι", "ᾩ": "ὡι", "ᾪ": "ὢι", "ᾫ": "ὣι", "ᾬ": "ὤι", "ᾭ": "ὥι", "ᾮ": "ὦι", "ᾯ": "ὧι", "ᾲ": "ὰι", "ᾳ": "αι", "ᾴ": "άι", "ᾶ": "ᾶ", "ᾷ": "ᾶι", "ᾼ": "αι", "ι": "ι", "ῂ": "ὴι", "ῃ": "ηι", "ῄ": "ήι", "ῆ": "ῆ", "ῇ": "ῆι", "ῌ": "ηι", "ῒ": "ῒ", "ΐ": "ΐ", "ῖ": "ῖ", "ῗ": "ῗ", "ῢ": "ῢ", "ΰ": "ΰ", "ῤ": "ῤ", "ῦ": "ῦ", "ῧ": "ῧ", "ῲ": "ὼι", "ῳ": "ωι", "ῴ": "ώι", "ῶ": "ῶ", "ῷ": "ῶι", "ῼ": "ωι", "ꭰ": "Ꭰ", "ꭱ": "Ꭱ", "ꭲ": "Ꭲ", "ꭳ": "Ꭳ", "ꭴ": "Ꭴ", "ꭵ": "Ꭵ", "ꭶ": "Ꭶ", "ꭷ": "Ꭷ", "ꭸ": "Ꭸ", "ꭹ": "Ꭹ", "ꭺ": "Ꭺ", "ꭻ": "Ꭻ", "ꭼ": "Ꭼ", "ꭽ": "Ꭽ", "ꭾ": "Ꭾ", "ꭿ": "Ꭿ", "ꮀ": "Ꮀ", "ꮁ": "Ꮁ", "ꮂ": "Ꮂ", "ꮃ": "Ꮃ", "ꮄ": "Ꮄ", "ꮅ": "Ꮅ", "ꮆ": "Ꮆ", "ꮇ": "Ꮇ", "ꮈ": "Ꮈ", "ꮉ": "Ꮉ", "ꮊ": "Ꮊ", "ꮋ": "Ꮋ", "ꮌ": "Ꮌ", "ꮍ": "Ꮍ", "ꮎ": "Ꮎ", "ꮏ": "Ꮏ", "ꮐ": "Ꮐ", "ꮑ": "Ꮑ", "ꮒ": "Ꮒ", "ꮓ": "Ꮓ", "ꮔ": "Ꮔ", "ꮕ": "Ꮕ", "ꮖ": "Ꮖ", "ꮗ": "Ꮗ", "ꮘ": "Ꮘ", "ꮙ": "Ꮙ", "ꮚ": "Ꮚ", "ꮛ": "Ꮛ", "ꮜ": "Ꮜ", "ꮝ": "Ꮝ", "ꮞ": "Ꮞ", "ꮟ": "Ꮟ", "ꮠ": "Ꮠ", "ꮡ": "Ꮡ", "ꮢ": "Ꮢ", "ꮣ": "Ꮣ", "ꮤ": "Ꮤ", "ꮥ": "Ꮥ", "ꮦ": "Ꮦ", "ꮧ": "Ꮧ", "ꮨ": "Ꮨ", "ꮩ": "Ꮩ", "ꮪ": "Ꮪ", "ꮫ": "Ꮫ", "ꮬ": "Ꮬ", "ꮭ": "Ꮭ", "ꮮ": "Ꮮ", "ꮯ": "Ꮯ", "ꮰ": "Ꮰ", "ꮱ": "Ꮱ", "ꮲ": "Ꮲ", "ꮳ": "Ꮳ", "ꮴ": "Ꮴ", "ꮵ": "Ꮵ", "ꮶ": "Ꮶ", "ꮷ": "Ꮷ", "ꮸ": "Ꮸ", "ꮹ": "Ꮹ", "ꮺ": "Ꮺ", "ꮻ": "Ꮻ", "ꮼ": "Ꮼ", "ꮽ": "Ꮽ", "ꮾ": "Ꮾ", "ꮿ": "Ꮿ", "ﬀ": "ff", "ﬁ": "fi", "ﬂ": "fl", "ﬃ": "ffi", "ﬄ": "ffl", "ﬅ": "st", "ﬆ": "st", "ﬓ": "մն", "ﬔ": "մե", "ﬕ": "մի", "ﬖ": "վն", "ﬗ": "մխ"});
+function normalizeDocumentText(value) {
+  const text = String(value || '').normalize('NFKC')
+    .replace(/[‘’‚‛“”„‟«»‹›″′'"\u00ad\u200b-\u200d\u2060\ufeff]/gu, '')
+    .replace(/\p{Dash}/gu, '-')
+    .replace(/[\s\p{White_Space}]+/gu, ' ').trim();
+  return Array.from(text, c => CONTENT_CASE_FOLD[c] ?? c.toLowerCase()).join('');
+}
+
 async function loadResult(ctx, { navigationMs, readyMs, surface, witness, surfaceReason }) {
   const paints = await paintEntries(ctx.page);
   const snap = await stateSnapshot(ctx.page);
@@ -827,8 +851,8 @@ async function loadResult(ctx, { navigationMs, readyMs, surface, witness, surfac
   const facts = witnessFacts(witness);
   // Content qualifies the settled surface; it must not move the pixel clock.
   // Canvas-only regions have no text oracle and remain explicitly unverified.
-  const expected = String(opt['expected-opening-text'] || '').replace(/\s+/gu, ' ').trim();
-  const actual = snap.document_text.replace(/\s+/gu, ' ').trim();
+  const expected = normalizeDocumentText(opt['expected-opening-text']);
+  const actual = normalizeDocumentText(snap.document_text);
   const contentVerified = Boolean(expected && actual.includes(expected));
   const contentReason = !actual && snap.content_text_accessible
     ? 'document_content_absent'
