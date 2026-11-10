@@ -6,7 +6,27 @@ from pathlib import Path
 import shlex
 import subprocess
 import sys
-from .policy import RUNNERS, publication_jobs, verify_run
+from .policy import RUNNERS, publication_jobs, verify_run, cell_counts, verify_profiles
+
+
+def read_run(directory):
+    try:
+        data = json.loads((directory / 'summary.json').read_text())
+        if not isinstance(data, dict) or not isinstance(data.get('samples'), list):
+            raise ValueError('expected a run object with a samples list')
+        if any(not isinstance(row, dict) for row in data['samples']):
+            raise ValueError('expected sample objects')
+        return data
+    except (OSError, ValueError) as exc:
+        raise ValueError(f'missing_summary: {directory}: {exc}') from exc
+
+
+def verify_lane_profiles(directory, profile, host_class):
+    # Throttled cells are moved by B1, not deleted. Inspect those too. C10's
+    # host_class is in its attempt environment, not its summary_c10.json.
+    for root in ('cells', 'rejected-evidence'):
+        for path in sorted((directory / root).rglob('*.json')):
+            verify_profiles([json.loads(path.read_text())], profile, host_class)
 
 
 def main():
@@ -35,22 +55,32 @@ def main():
     print('apryse: not_run: licence key not exported')
     stamp = 'DRY-RUN' if args.dry_run else datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
     failures = []
+    records = []
     for index, (name, options) in enumerate(jobs):
         run_id = f'{stamp}-{index:03d}'
         cmd = [sys.executable, '-m', 'perf.runner.' + name] if args.publish else [sys.executable, '-m', 'perf.container.smoke', name]
         cmd += ['--out-root', str(args.out_root), '--run-id', run_id, *options]
         print(shlex.join(cmd), flush=True)
         if not args.dry_run:
-            result = subprocess.run(cmd, check=False)
-            summary = args.out_root / name / run_id / 'summary.json'
+            directory = args.out_root / name / run_id
+            entry = {'runner': name, 'seed': int(options[options.index('--seed') + 1]),
+                     'run_dir': str(directory), **cell_counts({})}
+            records.append(entry)
             try:
-                if result.returncode:
-                    raise ValueError(f'runner exited {result.returncode}')
-                verify_run(json.loads(summary.read_text()))
+                result = subprocess.run(cmd, check=False)
+                entry['exit_code'] = result.returncode
+                data = read_run(directory)
+                entry.update(cell_counts(data))
+                verify_lane_profiles(directory, options[options.index('--execution-profile') + 1],
+                                     options[options.index('--host-class') + 1])
+                verify_run(data)
             except (ValueError, OSError) as exc:
-                if args.publish:
-                    raise
+                entry['refusal'] = str(exc)
                 failures.append(f'{name}: {exc}')
+    if args.publish and not args.dry_run:
+        destination = Path('out/e2-publication.json')
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(json.dumps({'runs': records, 'failures': failures}, indent=2) + '\n')
     if failures:
         raise RuntimeError('; '.join(failures))
     return 0

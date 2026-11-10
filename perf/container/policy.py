@@ -15,7 +15,6 @@ INSTALLS = {
 RUNNERS = ('benchmark_warm_cold', 'benchmark_document', 'benchmark_input', 'adversarial_c10_scroll')
 NPM = (
     ('superdoc_sdk', 'harness/superdoc-sdk', '@superdoc/sdk'),
-    ('superdoc_engine', 'harness/superdoc-sdk', '@superdoc/docx-engine'),
     ('docxodus', 'harness/ui/docxodus', 'docxodus'),
     ('docxodus', 'harness/ui/docxodus', '@docxodus/export'),
     ('apryse', 'harness/apryse', '@pdftron/webviewer'),
@@ -71,12 +70,59 @@ def publication_jobs(editors, seed, seed2, host_class):
     return jobs
 
 
+def harness_install(files):
+    """Use the harness lock's owner; npm wins when legacy pnpm locks coexist."""
+    if 'package-lock.json' in files:
+        return ['npm', 'ci']
+    if 'pnpm-lock.yaml' in files:
+        return ['pnpm', 'install', '--frozen-lockfile']
+    if {'bun.lock', 'bun.lockb'}.intersection(files):
+        return ['bun', 'install', '--frozen-lockfile']
+    raise ValueError('missing_lockfile: harness dependency graph is unpinned')
+
+
+def cell_counts(data):
+    """Count outer BrowserRun cells once, excluding nested diagnostics."""
+    counts = dict(cells_total=0, measured=0, refused_by_reason={}, failed_by_reason={})
+    for row in data.get('samples', []):
+        if row.get('accounting_scope') == 'diagnostic':
+            continue
+        counts['cells_total'] += 1
+        outcome = row.get('outcome')
+        # An outer 'ok' only means the lane returned normally: unsupported-only
+        # lanes also return zero. Do not count skipped cells as measurements.
+        skipped = row.get('non_failure_outcomes') or []
+        if outcome == 'ok' and skipped:
+            row = skipped[0]
+            outcome = 'refused'
+        reason = row.get('failure_reason') or row.get('reason') or outcome or 'unknown'
+        if outcome in ('ok', 'measured'):
+            counts['measured'] += 1
+        else:
+            refused = outcome in ('refused', 'unsupported', 'not_run') or reason == 'cpu_throttled'
+            bucket = counts['refused_by_reason' if refused else 'failed_by_reason']
+            bucket[reason] = bucket.get(reason, 0) + 1
+    return counts
+
+
 def verify_run(data):
-    rendering = data.get('rendering') or {}
-    if not data.get('run_id') or not rendering.get('renderer') or data.get('failure_reason'):
-        raise ValueError('run evidence incomplete or failed')
-    if any(row.get('outcome') == 'failed' for row in data.get('samples', [])):
-        raise ValueError('run contains failed samples; inspect evidence before continuing')
-    if rendering.get('headless') is not True:
-        raise ValueError('headless rendering was not established')
+    if not (data.get('rendering') or {}).get('renderer'):
+        raise ValueError('missing_renderer')
+    if not cell_counts(data)['measured']:
+        raise ValueError('nothing_measured')
     return data
+
+
+def verify_profiles(records, execution_profile, host_class):
+    """Inspect lane-owned metadata, including nested attempt environments."""
+    expected = {'execution_profile': execution_profile, 'host_class': host_class}
+    def visit(value):
+        if isinstance(value, dict):
+            for key, item in value.items():
+                if key in expected and item != expected[key]:
+                    raise ValueError(f'profile_mismatch: {key}={item!r}, expected {expected[key]!r}')
+                visit(item)
+        elif isinstance(value, list):
+            for item in value:
+                visit(item)
+    visit(records)

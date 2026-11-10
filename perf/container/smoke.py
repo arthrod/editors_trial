@@ -30,17 +30,30 @@ def main():
     from .policy import RUNNERS
     if name not in RUNNERS or '--execution-profile' not in sys.argv or sys.argv[sys.argv.index('--execution-profile') + 1] != 'ci_contract':
         raise ValueError('fake hosts are only allowed in ci_contract')
+    from .run import read_run, verify_lane_profiles
+    from .policy import verify_run
+    # Save wrapper flags before the runner's parsers rewrite argv.
+    options = list(sys.argv)
+    directory = Path(options[options.index('--out-root') + 1]) / name / options[options.index('--run-id') + 1]
+    profile = options[options.index('--execution-profile') + 1]
+    host_class = options[options.index('--host-class') + 1] if '--host-class' in options else 'ci_coarse'
     module = importlib.import_module('perf.runner.' + name)
     if name == 'adversarial_c10_scroll':
         sys.argv += ['--fake-host', str(FAKE), '--fake-page', 'index.html']
-        return module.main()
+        status = module.main()
+        verify_lane_profiles(directory, profile, host_class)
+        verify_run(read_run(directory))
+        return status
     target = dict(module.BROWSER_TARGETS['plate'])
     target.update(url='http://127.0.0.1:5208/', ready_selector='.status-ok',
                   edit_selector='[contenteditable="true"]', ready_js='window.b6Ready === true')
     module.BROWSER_TARGETS['plate'] = target
     sys.argv += ['--editors', 'plate']
     flag = {'benchmark_warm_cold': '--pairs', 'benchmark_document': '--samples', 'benchmark_input': None}[name]
-    return run_cli(module._main, name, module.BROWSER_TARGETS, count_flag=flag, default_count=1, run_factory=SmokeRun)
+    status = run_cli(module._main, name, module.BROWSER_TARGETS, count_flag=flag, default_count=1, run_factory=SmokeRun)
+    verify_lane_profiles(directory, profile, host_class)
+    verify_run(read_run(directory))
+    return status
 
 
 if __name__ == '__main__':

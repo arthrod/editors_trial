@@ -45,9 +45,13 @@ commands without network. Facts currently store nine-character SHAs, not full
 SHAs: actual setup fetches, resolves to a full 40-character SHA, verifies the
 prefix and checkout, and records it. Missing pins abort before installations.
 The six editor installs use exactly `build/update_editors.sh`'s package managers
-and flags (including its explicit npm command for genoffice). All harness package
-manifests are installed with pnpm, frozen where a pnpm lock exists. Explicit npm
-pins and Playwright 1.64.1 are then installed and verified/recorded. Wordcraft
+and flags (including its explicit npm command for genoffice). Harness manifests use their lockfile owner: npm ci for package-lock.json,
+pnpm install --frozen-lockfile for pnpm-lock.yaml, or bun install
+--frozen-lockfile for bun.lock/bun.lockb. Missing locks refuse setup; npm takes
+precedence where a legacy pnpm lock coexists. Explicit package pins are then
+installed as in update_editors.sh. Playwright 1.64.1 comes from the existing
+harness/ui frozen lock and is verified without adding to its manifest. The
+transitive SuperDoc engine is not added as a top-level dependency. Wordcraft
 builds both the release CLI and Trunk web application. Setup may change lockfiles
 in this disposable HF copy. No source changes are pushed back.
 
@@ -73,10 +77,14 @@ The HF smoke uses one static fake page for all four runners. For the three
 catalog-only runners, `plate` is explicitly a **driver alias**, not the measured
 editor; the smoke's host metadata and summary mark the substitution and forbid
 publication. C10 uses its native fake-host interface. Correctness refusals on the
-fake page are retained; a failed sample stops orchestration. This adapter has
+fake page are retained. The fake page satisfies the shared adapter readiness
+gate and C10's native gate. Each job checks lane-owned profile and host metadata,
+including attempts in rejected evidence, against the wrapper flags; disagreement
+is a profile_mismatch refusal. This adapter has
 not been exercised on HF. A real Plate production-host check is separately
 required: it builds through B1 and waits for the target's `ready_selector` and
-`ready_js` when present, printing `reached: true`. Keep that output and build log.
+`ready_js` when present, printing `reached: true`. A target with neither gate
+is refused before launching Chromium. Keep that output and build log.
 
 Publication runs every eligible host through all four runners twice with distinct
 seeds, with `dedicated_publish` and its default 30 repetitions. C10 takes singular
@@ -93,8 +101,17 @@ HF is a shared VM, not a dedicated machine. B1 requires readable cgroup v2
 accounting for `shared_guarded`, brackets samples, refuses CPU throttling under
 #129, and records steal time and refusal counts. Preserve every refusal and
 report N of M throttled samples, stolen time, shared tenancy and reproduced
-figures. A nonzero run, missing renderer or failed sample stops this wrapper;
-it does not silently retry to select favorable samples.
+figures. Recorded failures/refusals (including cpu_throttled) and runner nonzero
+exits do not stop the remaining jobs or the second seed. At the end,
+`out/e2-publication.json` records each runner/seed invocation, its run directory,
+exit code, outer cell total, measured cells, refused counts by reason, and failed
+counts by reason. Nested diagnostic rows do not inflate these cell counts; an
+outer ok cell containing skipped/refused outcomes is conservatively counted as
+refused using its first recorded reason, not as a complete measured cell.
+The wrapper exits nonzero for missing/unreadable summaries, missing renderer
+records, runs with no measured cells, or profile_mismatch. These errors are
+collected after all jobs; every original evidence file is retained. It does not
+retry to select favorable samples.
 
 HF acceptance remains pending: successful image build, setup, four-runner smoke,
 real Plate readiness, and primary/reproduction publication evidence. Local tests

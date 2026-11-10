@@ -2,6 +2,7 @@ import { createRequire } from 'node:module';
 const require = createRequire(new URL('../../harness/ui/package.json', import.meta.url));
 const { chromium } = require('playwright');
 const [url, selector, readyJs] = process.argv.slice(2);
+if (!selector && !readyJs) throw new Error('missing_readiness_gate');
 const browser = await chromium.launch({headless: true});
 try {
   const page = await browser.newPage();

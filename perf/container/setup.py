@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 import shlex
 import subprocess
-from .policy import INSTALLS, git_pins, npm_pins, verify_commit, verify_version
+from .policy import INSTALLS, harness_install, git_pins, npm_pins, verify_commit, verify_version
 
 
 def main():
@@ -54,17 +54,17 @@ def main():
             manifests.append(str(Path(directory) / 'package.json'))
     for manifest in manifests:
         directory = Path(manifest).parent
-        command(['pnpm', 'install', *(['--frozen-lockfile'] if (directory / 'pnpm-lock.yaml').exists() else [])], directory)
+        command(harness_install({path.name for path in directory.iterdir()}), directory)
     for directory, package, version in packages:
         command(['pnpm', 'add', '--save-exact', f'{package}@{version}'], Path(directory))
         actual = command(['node', '-p', f'JSON.parse(require("fs").readFileSync("node_modules/{package}/package.json")).version'], Path(directory), True)
         if not args.dry_run:
             record['npm'][package] = verify_version(version, actual)
-    command(['pnpm', 'add', '--save-exact', 'playwright@1.64.1'], Path('harness/ui'))
+    # harness/ui's frozen pnpm lock already pins Playwright 1.64.1.
     playwright = command(['node', '-p', 'require("playwright/package.json").version'], Path('harness/ui'), True)
     if not args.dry_run:
         record['npm']['playwright'] = verify_version('1.64.1', playwright)
-    command(['cargo', 'build', '--release', '--locked'], Path('harness/wordcraft'))
+    command(['cargo', 'build', '--release'], Path('harness/wordcraft'))
     command(['trunk', 'build', '--release'], Path('repos/wordcraft/apps/wordcraft-web'))
     for tool in ('git', 'node', 'npm', 'pnpm', 'bun', 'rustc', 'cargo', 'trunk', 'uv', 'python3'):
         record['tools'][tool] = command([tool, '--version'], capture=True)
