@@ -139,7 +139,12 @@ def _sample(**overrides) -> dict:
     """A probe sample the lane must judge: a scrolled container that moved."""
     sample = {
         "outcome": "measured",
-        "container": {"selector": "#doc"},
+        "container": {
+            "selector": "#doc",
+            # The container the probe scrolled. The authority compares this
+            # box to the witness's document_region (within 1 px).
+            "region_rect": {"x": 0, "y": 0, "width": 800, "height": 900},
+        },
         "content": {"moved_px": 600, "top_before": 12.0, "top_after": -588.0},
         "scroll_top_delta": 600,
         "scroll_frame_ms": 12.5,
@@ -558,6 +563,96 @@ class ScrollProbeTests(unittest.TestCase):
             % (selection,),
         )
 
+    # -- F2, round 2: the document's scroller, not the innermost one -----
+
+    def test_f2c_a_nested_note_does_not_steal_the_document(self):
+        """The document's scroller is the deepest-text owner, not the innermost survivor.
+
+        ``nested-note.html`` puts a short note inside ``#doc``. The note is
+        the innermost scroller. ``#doc`` holds the document text.
+        """
+        payload = self.probe("nested-note.html")
+        self.assertEqual(payload.get("outcome"), "measured", "%r" % (payload,))
+        sample = (payload.get("samples") or [{}])[0]
+        container = sample.get("container") or {}
+        self.assertEqual(
+            container.get("selector"),
+            "#doc",
+            "the nested note is not the document: %r" % (sample,),
+        )
+        self.assertNotEqual(container.get("selector"), "#note")
+        self.assertEqual(
+            container.get("container_rule") or sample.get("container_rule"),
+            "text",
+            "the document's own text chooses the container: %r" % (sample,),
+        )
+
+    def test_f2d_a_text_widget_beside_a_fitting_document_is_not_measured(self):
+        """A widget that contains the word Notes is not the document's scroller.
+
+        The document fits. It has no scroller. C10 is not applicable.
+        """
+        payload = self.probe("text-widget.html")
+        self.assertEqual(
+            payload.get("outcome"),
+            "not_applicable",
+            "the document has no scroller: %r" % (payload,),
+        )
+        self.assertNotEqual(payload.get("outcome"), "measured")
+        reason = str(payload.get("reason"))
+        self.assertIn("document", reason.lower(), "%r" % (payload,))
+        for sample in payload.get("samples") or []:
+            container = sample.get("container") or {}
+            self.assertNotEqual(
+                container.get("selector"),
+                "#widget",
+                "the widget must not be published as the document: %r" % (sample,),
+            )
+
+    def test_f2e_a_textless_canvas_scroller_is_the_surface(self):
+        """A canvas editor has no DOM text. The scroller that covers the viewport is the document.
+
+        The same shape as ``harness/ui/canvas`` ``#editor``: overflow-y auto
+        around a canvas, covering at least half the viewport. The label is
+        ``container_rule: surface``.
+        """
+        payload = self.probe("canvas.html")
+        self.assertEqual(payload.get("outcome"), "measured", "%r" % (payload,))
+        sample = (payload.get("samples") or [{}])[0]
+        container = sample.get("container") or {}
+        self.assertEqual(container.get("selector"), "#editor", "%r" % (sample,))
+        self.assertEqual(
+            container.get("container_rule") or sample.get("container_rule"),
+            "surface",
+            "a textless page uses the surface rule: %r" % (sample,),
+        )
+
+    def test_f2f_a_shadow_host_that_scrolls_counts_its_own_shadow_text(self):
+        """The host is the scroller. Its text lives in its own shadow root."""
+        payload = self.probe("shadow-host.html")
+        self.assertEqual(payload.get("outcome"), "measured", "%r" % (payload,))
+        sample = (payload.get("samples") or [{}])[0]
+        container = sample.get("container") or {}
+        self.assertEqual(container.get("selector"), "#host", "%r" % (sample,))
+        self.assertGreater(
+            container.get("own_text_chars") or 0,
+            0,
+            "the host's own shadow root is its text: %r" % (container,),
+        )
+
+    def test_f2g_container_selector_is_an_adapter_override(self):
+        """``--container-selector`` is the per-editor adapter. The label is ``adapter``."""
+        payload = self.probe("override.html", extra=["--container-selector", "#small"])
+        self.assertEqual(payload.get("outcome"), "measured", "%r" % (payload,))
+        sample = (payload.get("samples") or [{}])[0]
+        container = sample.get("container") or {}
+        self.assertEqual(container.get("selector"), "#small", "%r" % (sample,))
+        self.assertEqual(
+            container.get("container_rule") or sample.get("container_rule"),
+            "adapter",
+            "an adapter selector is labelled adapter: %r" % (sample,),
+        )
+
 
 class ScrollRunnerTests(unittest.TestCase):
     """The runner, end to end, against the fake hosts."""
@@ -705,6 +800,25 @@ class ScrollRunnerTests(unittest.TestCase):
             "no attempt may be written for a fake host under an editor's id: %r" % (attempts,),
         )
 
+    def test_m7_shared_guarded_is_a_host_class_the_lane_accepts(self):
+        """``--host-class shared_guarded`` is a lane choice, recorded with dedicated_publish.
+
+        B7 adds the class to ``perf/schema.py``. This branch's schema may
+        still reject it; the lane accepts it anyway and records it.
+        """
+        self.assertIn("shared_guarded", scroll.HOST_CLASSES)
+        result = self.run_runner(
+            page="fits.html",
+            extra=["--host-class", "shared_guarded"],
+        )
+        env = result["trial"].get("environment") or {}
+        self.assertEqual(
+            env.get("host_class"),
+            "shared_guarded",
+            "the trial must record the host class the operator asked for: %r" % (env,),
+        )
+        self.assertEqual(env.get("execution_profile"), "dedicated_publish")
+
 
 class ScrollUnitTests(unittest.TestCase):
     """The pure parts of the lane: the profile gate, the environment, the verdict."""
@@ -826,9 +940,18 @@ class ScrollUnitTests(unittest.TestCase):
         self.assertFalse(publishable, "a ci_coarse host may not publish visible latency")
         self.assertIn("ci_coarse", str(reason))
 
+        # One sample is a cell, not a distribution. The per-cell n>=2 rule
+        # does not apply; publication n is e2_cells.py (n >= 10 per run).
         publishable, reason = scroll.scroll_publishability(env_for("dedicated"), 1)
-        self.assertFalse(publishable, "one sample is not a distribution")
-        self.assertIn("n>=2", str(reason))
+        self.assertTrue(
+            publishable,
+            "a one-sample cell must not be stamped I10: %r" % (reason,),
+        )
+        self.assertNotIn("n>=2", str(reason))
+        doc = scroll.scroll_publishability.__doc__ or ""
+        self.assertIn("n>=2", doc, "the docstring must say the per-cell n>=2 rule is not applied")
+        self.assertIn("e2_cells.py", doc)
+        self.assertIn("n >= 10", doc)
 
     def test_f4b_a_measured_trial_carries_the_gate_s_verdict(self):
         """The trial's own publishability, not a hardcoded false."""
@@ -866,7 +989,205 @@ class ScrollUnitTests(unittest.TestCase):
             "a publishable trial must not carry a block reason: %r" % (trial,),
         )
 
-    # -- F6: the throttle refusal is evidence ----------------------------
+    def test_f4c_a_one_sample_cell_is_not_stamped_i10(self):
+        """``run_cli`` writes one sample per cell. That cell is not an I10 failure."""
+        fixture = scroll.scroll_fixture()
+        env = scroll.scroll_env(
+            editor_id="plate",
+            editor_version="test",
+            execution_profile="dedicated_publish",
+            host_class="dedicated",
+            fixture=fixture,
+        )
+        out = Path(tempfile.mkdtemp(prefix="b5-one-sample-"))
+        self.addCleanup(shutil.rmtree, str(out), True)
+        scroll._write_outcome(
+            attempt_dir=out / "attempts",
+            outcome="measured",
+            reason=None,
+            samples=[{"value": 12.5}],
+            env=env,
+            editor_id="plate",
+            lane="browser_visible",
+            diagnostic={},
+            seed=7,
+        )
+        trials = sorted((out / "attempts").glob("*.json"))
+        self.assertTrue(trials, "no attempt was written")
+        trial = json.loads(trials[0].read_text(encoding="utf-8"))
+        self.assertEqual(trial.get("outcome"), "measured")
+        self.assertEqual(len(trial.get("samples_ms") or []), 1)
+        self.assertIs(
+            trial.get("publishable"),
+            True,
+            "one sample must not be stamped I10: %r" % (trial.get("publication_block_reason"),),
+        )
+        self.assertNotIn("n>=2", str(trial.get("publication_block_reason")))
+        self.assertIsNone(trial.get("publication_block_reason"))
+
+    # -- F1, round 2: the blink record is not the container's region ------
+
+    def test_f1b_a_blink_region_is_not_the_container(self):
+        """The authority refuses a witness whose document_region is not the container.
+
+        The container is ``#doc`` at 800×900. The witness rectangle is the
+        40×40 blink. ``changed_pixels == region_pixels`` is not enough.
+        """
+        blink = _witness(
+            changed_pixels=1600,
+            region_pixels=1600,
+            document_region={
+                "source": "rect",
+                "selector": None,
+                "rect_css_px": {"x": 1000, "y": 10, "width": 40, "height": 40},
+            },
+        )
+        outcome, reason, value = self.verdict(
+            _sample(
+                witness=blink,
+                container={
+                    "selector": "#doc",
+                    "region_rect": {"x": 0, "y": 0, "width": 800, "height": 900},
+                },
+            )
+        )
+        self.assertEqual(outcome, "failed", "%r" % (reason,))
+        self.assertIn("region", reason.lower())
+        self.assertIsNone(value)
+
+        matched = self.verdict(_sample())
+        self.assertEqual(matched[0], "measured", "%r" % (matched,))
+
+        shifted = _witness(
+            document_region={
+                "source": "rect",
+                "selector": None,
+                "rect_css_px": {"x": 1, "y": 0, "width": 800, "height": 900},
+            }
+        )
+        within, within_reason, _within_value = self.verdict(_sample(witness=shifted))
+        self.assertEqual(within, "measured", "1 px is the same box: %r" % (within_reason,))
+
+        outside = _witness(
+            document_region={
+                "source": "rect",
+                "selector": None,
+                "rect_css_px": {"x": 1.1, "y": 0, "width": 800, "height": 900},
+            }
+        )
+        refused, refused_reason, refused_value = self.verdict(_sample(witness=outside))
+        self.assertEqual(refused, "failed", "%r" % (refused_reason,))
+        self.assertIsNone(refused_value)
+
+    # -- F3, round 2: every spelling of the flag, before run_cli ----------
+
+    def test_f3b_every_spelling_of_fake_host_is_refused_before_run_cli(self):
+        """``--fake-host=X``, ``--editor=plate`` and ``--editor plate`` never reach run_cli."""
+        from io import StringIO
+
+        calls = []
+        real = scroll.run_cli
+
+        def fake_run_cli(*args, **kwargs):
+            calls.append({"argv": list(sys.argv), "args": args, "kwargs": kwargs})
+            return 0
+
+        spellings = (
+            ["prog", "--fake-host=/tmp/b5-hosts", "--editor=plate"],
+            ["prog", "--fake-host=/tmp/b5-hosts", "--editor", "plate"],
+            ["prog", "--fake-host", "/tmp/b5-hosts", "--editor=plate"],
+        )
+        old_argv = sys.argv
+        old_err = sys.stderr
+        scroll.run_cli = fake_run_cli
+        try:
+            for argv in spellings:
+                calls.clear()
+                sys.argv = argv
+                sys.stderr = StringIO()
+                rc = scroll.main()
+                err = sys.stderr.getvalue()
+                self.assertEqual(rc, 2, "%r called run_cli (%r) stderr %r" % (argv, calls, err))
+                self.assertEqual(calls, [], "%r must be refused before run_cli" % (argv,))
+                self.assertIn("mutually exclusive", err)
+        finally:
+            scroll.run_cli = real
+            sys.argv = old_argv
+            sys.stderr = old_err
+
+    # -- F6, round 2: a prior throttled row cannot refuse a later cell ----
+
+    def test_f6b_a_prior_throttled_row_does_not_refuse_a_later_clean_cell(self):
+        """Only the current sample's own accounting can refuse it."""
+        from perf.runner.browser_run import ACTIVE, BrowserRun
+
+        out = Path(tempfile.mkdtemp(prefix="b5-throttle-"))
+        self.addCleanup(shutil.rmtree, str(out), True)
+        run = BrowserRun(
+            out,
+            "c10throttle",
+            seed=1,
+            run_id="throttle",
+            snapshot=lambda: {},
+            accounting_reader=lambda: {"available": False, "reason": "stub"},
+        )
+        run.execution_profile = "dedicated_publish"
+        run.host_class = "dedicated"
+        run.samples.append(
+            {
+                "outcome": "failed",
+                "failure_reason": "cpu_throttled",
+                "cpu_accounting": {
+                    "available": True,
+                    "delta": {"nr_throttled": 1, "throttled_usec": 5},
+                },
+                "editor_id": "b5-fake",
+                "repetition": 0,
+            }
+        )
+        payload = {
+            "status": "ok",
+            "outcome": "measured",
+            "reason": None,
+            "samples": [_sample()],
+            "scroll_step_px": 600,
+            "witness_window_ms": 900,
+            "skew_bound_ms": 2,
+            "scroll_container_override": None,
+        }
+        real_probe = scroll._run_probe
+        scroll._run_probe = lambda **kwargs: payload
+        token = ACTIVE.set(run)
+        old_argv = sys.argv
+        sys.argv = [
+            "adversarial_c10_scroll.py",
+            "--fake-host",
+            str(HOSTS),
+            "--fake-page",
+            "prose.html",
+            "--out-root",
+            str(out / "cell"),
+            "--pairs",
+            "1",
+            "--editor",
+            "b5-fake",
+        ]
+        try:
+            scroll._main()
+        finally:
+            ACTIVE.reset(token)
+            scroll._run_probe = real_probe
+            sys.argv = old_argv
+        trials = sorted((out / "cell").glob("attempts/*.json"))
+        self.assertTrue(trials, "the cell wrote no trial")
+        trial = json.loads(trials[0].read_text(encoding="utf-8"))
+        self.assertNotIn(
+            "cpu_throttled",
+            str(trial.get("failure_reason")),
+            "a prior throttled row refused this cell: %r" % (trial,),
+        )
+        self.assertEqual(trial.get("outcome"), "measured", "%r" % (trial,))
+        self.assertTrue(trial.get("samples_ms"), "%r" % (trial,))
 
     def test_f6_the_throttle_refusal_is_evidence_not_a_string(self):
         self.assertTrue(
