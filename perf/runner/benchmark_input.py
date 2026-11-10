@@ -34,6 +34,7 @@ from perf.runner.benchmark_warm_cold import (  # noqa: E402
     _stop_server,
 )
 from perf.runner.benchmark_ci_contract import _host_base  # noqa: E402
+from perf.runner.browser_run import run_cli, fixture_path as run_fixture, write_json, record_process
 from perf.runner.artifacts import write_attempt  # noqa: E402
 from perf.schema import validate_trial  # noqa: E402
 
@@ -54,12 +55,12 @@ def _fixture(editor_id: str) -> tuple[Path, str, int]:
     from perf.fixtures.profiles import size_ladder
 
     row = next(w for w in size_ladder() if w["workload_id"] == "micro-paragraphs")
-    path = REPO / "perf" / "out" / "_fixtures" / "micro-paragraphs.docx"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if not path.exists():
-        body = build_workload(row)["body"] + b"\n" + correctness_fixtures()["unicode"]
-        path.write_bytes(docx_zip_bytes(body))
-    data = path.read_bytes()
+    body = build_workload(row)["body"] + b"\n" + correctness_fixtures()["unicode"]
+    data = docx_zip_bytes(body)
+    from perf.runner.browser_run import ACTIVE
+    run = ACTIVE.get()
+    path = run_fixture(row["workload_id"], data,
+                       (run.directory if run else REPO / "perf/out") / "fixture.docx")
     return path, hashlib.sha256(data).hexdigest(), len(data), row
 
 
@@ -85,6 +86,8 @@ def _probe_command(editor_id: str, target: dict, fixture: Path) -> list[str]:
 def run_editor(editor_id: str, attempt_dir: Path) -> dict:
     target = BROWSER_TARGETS[editor_id]
     fixture, fixture_sha, fixture_size, workload_row = _fixture(editor_id)
+    from perf.runner.browser_hosts import select_fixture
+    select_fixture(target, fixture)
     started = _start_server(editor_id, target)
     t0 = time.time()
     try:
@@ -95,6 +98,7 @@ def run_editor(editor_id: str, attempt_dir: Path) -> dict:
             text=True,
             timeout=PROBE_TIMEOUT_S,
         )
+        record_process(proc)
         wall = round(time.time() - t0, 1)
         if proc.returncode != 0:
             return {"editor_id": editor_id, "outcome": "failed", "wall_s": wall,
@@ -117,7 +121,7 @@ def run_editor(editor_id: str, attempt_dir: Path) -> dict:
                     "outcome": payload["criteria"][cid]["outcome"],
                     "samples_ms": payload["criteria"][cid]["samples_ms"],
                     "failure_reason": payload["criteria"][cid].get("failure_reason"),
-                    "attempt_file": str(Path(path).resolve().relative_to(REPO.resolve())),
+                    "attempt_file": str(Path(path).resolve()),
                 }
                 for cid, path in zip(
                     payload["criteria_requested"],
@@ -129,7 +133,7 @@ def run_editor(editor_id: str, attempt_dir: Path) -> dict:
         _stop_server(started)
 
 
-def main() -> int:
+def _main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--editors", nargs="*", default=list(BROWSER_TARGETS))
     ap.add_argument("--out-root", default=None)
@@ -162,8 +166,12 @@ def main() -> int:
                    "failure_reason": "%s: %s" % (type(exc).__name__, exc)}
         summary["editors"].append(row)
         print("%-12s %s" % (editor_id, row["outcome"]), flush=True)
-        (out_root / "summary.json").write_text(json.dumps(summary, indent=1))
+    write_json(out_root / "summary.json", summary)
     return 0
+
+
+def main() -> int:
+    return run_cli(_main, 'benchmark_input', BROWSER_TARGETS, count_flag=None, default_count=1, single=False)
 
 
 if __name__ == "__main__":

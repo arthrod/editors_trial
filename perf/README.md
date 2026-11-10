@@ -294,3 +294,39 @@ derived; a later change to the summary function re-reads the raw files.
   and host class. Name all of them before saying one editor is faster.
 - The warm/cold suite's paired rows are diagnostics; they are not headline
   publications.
+
+### Browser invocation bookkeeping (B1)
+
+The four browser CLI entry points accept `--seed` and `--run-id`. They write
+`<out-root>/<runner>/<run-id>/summary.json`, immutable per-repetition/editor
+cell summaries and attempts, raw probe evidence, and workload/hash-named
+fixtures. A repeated run id is refused. Every repetition reshuffles editors
+using the recorded seed; probe clocks and measurement definitions are unchanged.
+Input criteria use `--repetitions` for the outer repetition count; the other
+runners retain `--pairs` or `--samples`.
+
+Vite hosts build through `perf/runner/hosts/vite.config.mjs` into
+`<out-root>/builds/<host>/<build-id>/`; config loading, output and cache paths
+stay outside `harness/` and `repos/`. The static server serves the current
+fixture on the host's corpus route. `browser_hosts.py` documents every host's
+build policy. Non-static Next/Django/Electron hosts require an already running
+service and are explicitly non-publishable; the runner never launches commands
+that would write their caches into a protected checkout. Wordcraft retains its
+existing Trunk server, with the build and host trees hashed.
+
+Every invocation snapshots every available editor checkout before and after,
+including the main checkout beside a symlinked harness. Dirty or changed
+porcelain sets `failure_reason: repos_modified`; no checkout is cleaned.
+Individual sample failures remain on disk and execution continues with exit 0.
+The invocation summary records headless Chromium renderer diagnostics and
+`host.py`'s container facts separately from the measured probes.
+
+Functional acceptance smoke (not a performance measurement):
+
+```sh
+python3 -I perf/runner/browser_smoke.py --out-root /tmp/b1-smoke
+python3 -I perf/runner/browser_smoke.py --out-root /tmp/b1-smoke --fail-repetition 1
+```
+
+The tiny fake Vite host uses Vite already installed under `harness/ui/`; it
+requires no dependency install in this repository.

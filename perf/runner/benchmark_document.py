@@ -61,6 +61,7 @@ from perf.fixtures.generate import (  # noqa: E402
     correctness_fixtures,
 )
 from perf.fixtures.profiles import assert_workload_allowed, size_ladder  # noqa: E402
+from perf.runner.browser_run import run_cli, fixture_path as run_fixture, write_json, record_process
 from perf.runner.artifacts import write_attempt  # noqa: E402
 from perf.runner.benchmark_ci_contract import (  # noqa: E402
     INTERPRETATION_CONDITIONS,
@@ -149,7 +150,6 @@ DOCUMENT_TARGETS = {
             "by design; the first block is the first-page equivalent."
         ),
     },
-
 
 
     "fidus": {
@@ -610,10 +610,12 @@ def _attempt_ref(path: Path) -> str:
     try:
         return str(path.relative_to(REPO))
     except ValueError:
-        return path.name
+        return str(path.resolve())
 
 
 def _probe_cmd(*, mode: str, target: dict, cfg: dict, corpus_path: Path, extra: list) -> list:
+    from perf.runner.browser_hosts import select_fixture
+    select_fixture(target, corpus_path)
     cmd = [
         shutil.which("node") or "node",
         str(PROBE),
@@ -648,6 +650,7 @@ def _probe_cmd(*, mode: str, target: dict, cfg: dict, corpus_path: Path, extra: 
 
 def _run_probe(cmd: list, *, editor_id: str) -> dict:
     proc = subprocess.run(cmd, cwd=str(REPO / "harness" / "ui"), capture_output=True, text=True, timeout=PROBE_TIMEOUT_S)
+    record_process(proc)
     payload = None
     if proc.stdout.strip():
         try:
@@ -918,7 +921,7 @@ def _run_find(*, editor_id: str, target: dict, cfg: dict, fixture_path: Path) ->
 # --------------------------------------------------------------------------- #
 
 
-def main() -> int:
+def _main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--editors", nargs="*", default=None, help="default: every browser host")
     parser.add_argument("--criteria", nargs="*", default=None, help="default: C11 C12 C14 C15")
@@ -956,7 +959,7 @@ def main() -> int:
     for workload_id in set(list(C14_RUNGS) + [spec["workload"] for spec in CRITERIA.values() if spec["workload"]]):
         rung = ladder[workload_id]
         fixture = build_fixture(rung)
-        fixture["path"] = fixture_dir / ("%s-split.docx" % workload_id)
+        fixture["path"] = fixture_dir / ("%s-%s.docx" % (workload_id, fixture["sha256"][:16]))
         try:
             assert_workload_allowed(EXECUTION_PROFILE, workload_id)
             allowed = True
@@ -965,8 +968,8 @@ def main() -> int:
             # paragraph count) but its bytes are never written to disk and never
             # reach an editor.
             allowed = False
-        if allowed and not fixture["path"].is_file():
-            fixture["path"].write_bytes(fixture["bytes"])
+        if allowed:
+            fixture["path"] = run_fixture(workload_id, fixture["bytes"], fixture["path"])
         fixtures[workload_id] = fixture
 
     rows: list = []
@@ -1518,7 +1521,6 @@ def main() -> int:
                 ),
                 "augmented_paragraphs": fixture.get("augmented_paragraphs", 0),
                 "augmentation": "perf.fixtures.generate.correctness_fixtures (unicode, emoji, bidi, ime)",
-                "file": _attempt_ref(fixture["path"]),
             }
             for workload_id, fixture in fixtures.items()
         },
@@ -1543,10 +1545,10 @@ def main() -> int:
         ],
     }
     out_root.mkdir(parents=True, exist_ok=True)
-    (out_root / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+    write_json(out_root / "summary.json", summary)
     measured = sum(1 for row in rows if row.get("outcome") == "measured")
     print("Wrote %s (%d cells, %d measured, %d refused)" % (out_root / "summary.json", len(rows), measured, len(rows) - measured))
-    return 1 if failures else 0
+    return 0
 
 
 def _quiet_machine_check() -> dict:
@@ -1584,10 +1586,14 @@ def _median_optional(values: list):
     return (clean[middle - 1] + clean[middle]) / 2.0
 
 
-if __name__ == "__main__":
-    raise SystemExit(main())
-
-
 def _host_cpu_model() -> str:
     """CPU brand string from ``perf.runner.host`` (``platform.processor()`` is "arm")."""
     return _contract_host()["cpu_model"]
+
+
+def main() -> int:
+    return run_cli(_main, 'benchmark_document', BROWSER_TARGETS, count_flag='--samples', default_count=SAMPLE_DEFAULT, single=False, max_repetitions=sample_budget_for_profile(EXECUTION_PROFILE, 'fresh_process'))
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

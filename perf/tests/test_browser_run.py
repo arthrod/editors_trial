@@ -190,3 +190,26 @@ class EntryPoints(unittest.TestCase):
                     run_cli(lambda: self.fail('must not run'), 'fake', {'a': {}})
         finally:
             sys.argv = original
+
+    def test_integration_attempts_carry_run_and_host_provenance(self):
+        from perf.runner.artifacts import write_attempt
+        from perf.runner.browser_run import ACTIVE, CELL, BrowserRun
+        with tempfile.TemporaryDirectory() as tmp:
+            run = BrowserRun(tmp, 'fake', snapshot=lambda: {})
+            run.hosts['fake'] = {'host_build': 'app_server', 'publishable': False,
+                                 'publication_block_reason': 'needs backend'}
+            token = ACTIVE.set(run)
+            cell = CELL.set({'editor_id': 'fake', 'repetition': 1})
+            try:
+                path = write_attempt(run.directory / 'attempts', 'failed', {
+                    'outcome': 'failed', 'failure_reason': 'readiness', 'boundary': 'model_ready',
+                    'samples_ms': [], 'editor_id': 'fake'})
+                row = json.loads(path.read_text())
+                self.assertEqual(row['run_id'], run.run_id)
+                self.assertEqual(row['repetition'], 1)
+                self.assertEqual(row['host_build'], 'app_server')
+                self.assertFalse(row['publishable'])
+                self.assertEqual(row['publication_block_reason'], 'needs backend')
+            finally:
+                CELL.reset(cell)
+                ACTIVE.reset(token)

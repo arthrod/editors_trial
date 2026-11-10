@@ -13,6 +13,16 @@ def write_attempt(directory, attempt_id, trial):
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     path = directory / (attempt_id + ".json")
+    from perf.runner.browser_run import ACTIVE, CELL
+    run = ACTIVE.get()
+    if run is not None:
+        trial = {**trial, "run_id": run.run_id, "seed": run.seed, **(CELL.get() or {})}
+        host = run.hosts.get(trial.get("editor_id"), {})
+        trial["host_build"] = host.get("host_build")
+        trial["host_provenance"] = host
+        if host.get("publishable") is False:
+            trial["publishable"] = False
+            trial["publication_block_reason"] = host["publication_block_reason"]
     payload = dump_trial(trial).encode("utf-8")
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
     fd = os.open(path, flags, 0o644)

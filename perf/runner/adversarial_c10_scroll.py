@@ -17,6 +17,7 @@ sys.path.insert(0, str(REPO))
 
 from perf.fixtures.generate import build_workload, correctness_fixtures, docx_zip_bytes  # noqa: E402
 from perf.fixtures.profiles import size_ladder  # noqa: E402
+from perf.runner.browser_run import run_cli, fixture_path as run_fixture, write_json, record_process
 from perf.runner.artifacts import write_attempt  # noqa: E402
 from perf.analysis.summarize import summarize  # noqa: E402
 from perf.runner.benchmark_ci_contract import INTERPRETATION_CONDITIONS, _host_base, _trial_dict  # noqa: E402
@@ -29,6 +30,8 @@ SCROLL_PROBE = REPO / "perf" / "runner" / "adversarial_c10_scroll.mjs"
 def _scroll_samples(*, target: dict, corpus_path: Path, pairs: int) -> list[float]:
     import shutil
 
+    from perf.runner.browser_hosts import select_fixture
+    select_fixture(target, corpus_path)
     node = shutil.which("node") or "node"
     cmd = [
         node,
@@ -59,13 +62,14 @@ def _scroll_samples(*, target: dict, corpus_path: Path, pairs: int) -> list[floa
         text=True,
         timeout=600,
     )
+    record_process(proc)
     if proc.returncode != 0:
         raise RuntimeError(proc.stderr or proc.stdout or "scroll probe failed")
     payload = json.loads(proc.stdout)
     return [float(x) for x in payload["scroll_frame_ms"]]
 
 
-def main() -> int:
+def _main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--editor", default="plate")
     parser.add_argument("--out-root", type=Path, required=True)
@@ -80,9 +84,7 @@ def main() -> int:
     out_root = args.out_root
     attempt_dir = out_root / "attempts"
     attempt_dir.mkdir(parents=True, exist_ok=True)
-    fixture_path = out_root / "micro-paragraphs.docx"
-    if not fixture_path.is_file():
-        fixture_path.write_bytes(docx_body)
+    fixture_path = run_fixture(workload_row["workload_id"], docx_body, out_root / "fixture.docx")
 
     from perf.adapters.capabilities import default_lane, pin_label  # noqa: E402
 
@@ -134,13 +136,16 @@ def main() -> int:
         "outcome": "measured",
         "median_ms": stats["median"],
         "samples_ms": samples,
-        "attempt_file": "perf/out/%s/attempts/%s"
-        % (out_root.name, path.name),
+        "attempt_file": str(path.resolve()),
         "publishable": False,
     }
-    summary_path.write_text(json.dumps(row, indent=2) + "\n", encoding="utf-8")
+    write_json(summary_path, row)
     print("Wrote %s (median %.1f ms)" % (path, stats["median"]))
     return 0
+
+
+def main() -> int:
+    return run_cli(_main, 'adversarial_c10_scroll', BROWSER_TARGETS, count_flag='--pairs', default_count=3, single=True)
 
 
 if __name__ == "__main__":

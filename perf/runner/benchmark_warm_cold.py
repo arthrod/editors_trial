@@ -26,6 +26,7 @@ from perf.analysis.publication_gate import trial_publishable_flags  # noqa: E402
 from perf.analysis.summarize import summarize  # noqa: E402
 from perf.fixtures.generate import build_workload, correctness_fixtures, docx_zip_bytes  # noqa: E402
 from perf.fixtures.profiles import assert_workload_allowed, feature_profile, size_ladder  # noqa: E402
+from perf.runner.browser_run import run_cli, fixture_path as run_fixture, write_json, record_process
 from perf.runner.artifacts import write_attempt  # noqa: E402
 from perf.runner.benchmark_ci_contract import (  # noqa: E402
     INTERPRETATION_CONDITIONS,
@@ -47,6 +48,7 @@ from perf.runner.cause_attribution import _median as median  # noqa: E402
 from perf.schema import validate_environment, validate_trial  # noqa: E402
 
 UI = REPO / "harness" / "ui"
+EDITOR_REPOS = (REPO / "repos") if (REPO / "repos").is_dir() else (REPO / "harness").resolve().parent / "repos"
 PROBE = REPO / "perf" / "runner" / "warm_cold_browser.mjs"
 
 PAIR_SAMPLES = 3
@@ -115,7 +117,7 @@ BROWSER_TARGETS: dict[str, dict] = {
         "wait_after_ready": "8000",
         "edit_selector": ".doc-page",
         "driver": "playwright",
-        "env": {"GENOFFICE_REPO": str(REPO / "repos" / "genoffice")},
+        "env": {"GENOFFICE_REPO": str(EDITOR_REPOS / "genoffice")},
         "criteria": {
             "C03": ("first_usable", "browser_visible"),
             "C02b": ("model_ready_browser", "model"),
@@ -233,7 +235,7 @@ BROWSER_TARGETS: dict[str, dict] = {
     # first_usable/presented_frame would measure our own host, not the editor.
     "eigenpal": {
         "lane": "browser",
-        "cwd": REPO / "repos" / "eigenpal-docx-editor" / "examples" / "vite",
+        "cwd": EDITOR_REPOS / "eigenpal-docx-editor" / "examples" / "vite",
         "command": ["node", "../../node_modules/vite/bin/vite.js", "--port", "5218", "--strictPort", "--host", "127.0.0.1"],
         "url": "http://127.0.0.1:5218/?perfE2e=1&fixture=corpus.docx&reviewRail=0",
         "corpus_route": "/corpus.docx",
@@ -249,7 +251,7 @@ BROWSER_TARGETS: dict[str, dict] = {
     },
     "folio": {
         "lane": "editor",
-        "cwd": REPO / "repos" / "folio" / "packages" / "playground",
+        "cwd": EDITOR_REPOS / "folio" / "packages" / "playground",
         "command": ["bun", "run", "dev", "--", "--port", "5217", "--strictPort", "--host", "127.0.0.1"],
         "url": "http://127.0.0.1:5217/?file=corpus.docx",
         "corpus_route": "/fixtures/corpus.docx",
@@ -294,10 +296,10 @@ def _attempt_ref(path: Path) -> str:
     try:
         return str(path.relative_to(REPO))
     except ValueError:
-        return path.name
+        return str(path.resolve())
 
 
-def _start_server(editor_id: str, target: dict) -> subprocess.Popen:
+def _legacy_start_server(editor_id: str, target: dict) -> subprocess.Popen:
     cwd = target["cwd"]
     if not cwd.is_dir():
         raise FileNotFoundError("missing harness host %s" % cwd)
@@ -330,7 +332,15 @@ def _start_server(editor_id: str, target: dict) -> subprocess.Popen:
     raise TimeoutError("%s server did not become ready" % editor_id)
 
 
-def _stop_server(proc: subprocess.Popen) -> None:
+def _start_server(editor_id: str, target: dict):
+    from perf.runner.browser_hosts import start_host
+    return start_host(editor_id, target, _legacy_start_server)
+
+
+def _stop_server(proc) -> None:
+    if hasattr(proc, "stop"):
+        proc.stop()
+        return
     if proc.poll() is not None:
         return
     try:
@@ -349,6 +359,8 @@ def _run_browser_probe(
     corpus_path: Path,
     pairs: int,
 ) -> dict:
+    from perf.runner.browser_hosts import select_fixture
+    select_fixture(target, corpus_path)
     node = shutil.which("node") or "node"
     cmd = [
         node,
@@ -387,6 +399,7 @@ def _run_browser_probe(
         text=True,
         timeout=600,
     )
+    record_process(proc)
     if proc.returncode != 0:
         raise RuntimeError(proc.stderr or proc.stdout or "probe failed")
     return json.loads(proc.stdout)
@@ -512,7 +525,7 @@ def _paired_summary_row(
     }
 
 
-def main() -> int:
+def _main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--workload", default="micro-paragraphs")
     parser.add_argument("--out-root", type=Path, default=None)
@@ -533,9 +546,7 @@ def main() -> int:
     out_root = args.out_root or (REPO / "perf" / "out" / ("warm_cold_%s" % run_day))
     attempt_dir = out_root / "attempts"
     attempt_dir.mkdir(parents=True, exist_ok=True)
-    fixture_path = out_root / "micro-paragraphs.docx"
-    if not fixture_path.is_file():
-        fixture_path.write_bytes(docx_body)
+    fixture_path = run_fixture(args.workload, docx_body, out_root / "fixture.docx")
 
     editors = args.editors or list(BROWSER_TARGETS.keys())
     paired_rows: list[dict] = []
@@ -898,7 +909,18 @@ def main() -> int:
                         }
                     )
                 continue
-            assert_warm_cold_distinct(cold_edits, warm_edits)
+            if warm_equals_cold(cold_edits, warm_edits):
+                from perf.runner.browser_run import ACTIVE, CELL
+                active = ACTIVE.get()
+                if active is not None:
+                    active.sample("saturation-%s-%s" % (CELL.get()["repetition"], editor_id), {
+                        "editor_id": editor_id, "outcome": "failed",
+                        "failure_reason": "warm_cold_identical", "cold_samples_ms": cold_edits,
+                        "warm_samples_ms": warm_edits,
+                    })
+                not_run_rows.append({"editor_id": editor_id, "outcome": "failed",
+                                     "failure_reason": "warm_cold_identical"})
+                continue
 
             env_cold = _env_for(
                 editor_id=editor_id,
@@ -1110,15 +1132,15 @@ def main() -> int:
 
     driver_checks: list[dict] = []
     if "plate" in editors:
+        proc = None
         try:
-            target = BROWSER_TARGETS["plate"]
-            proc = _start_server("plate", {**target, "driver": "puppeteer"})
+            target = {**BROWSER_TARGETS["plate"], "driver": "puppeteer"}
+            proc = _start_server("plate", target)
             puppeteer_payload = _run_browser_probe(
-                target={**target, "driver": "puppeteer"},
+                target=target,
                 corpus_path=fixture_path,
                 pairs=1,
             )
-            _stop_server(proc)
             pair0 = puppeteer_payload["pairs"][0]
             driver_checks.append(
                 {
@@ -1130,6 +1152,9 @@ def main() -> int:
             )
         except Exception as exc:
             driver_checks.append({"editor_id": "plate", "puppeteer_error": str(exc)})
+        finally:
+            if proc is not None:
+                _stop_server(proc)
 
     from perf.runner.cause_attribution import assert_no_duplicate_c02_c03_in_dir  # noqa: E402
 
@@ -1159,15 +1184,19 @@ def main() -> int:
         ],
     }
     out_root.mkdir(parents=True, exist_ok=True)
-    (out_root / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+    write_json(out_root / "summary.json", summary)
     print("Wrote %s" % (out_root / "summary.json",))
     return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
 
 
 def _host_cpu_model() -> str:
     """CPU brand string from ``perf.runner.host`` (``platform.processor()`` is "arm")."""
     return _contract_host()["cpu_model"]
+
+
+def main() -> int:
+    return run_cli(_main, 'benchmark_warm_cold', BROWSER_TARGETS, count_flag='--pairs', default_count=3, single=False)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
