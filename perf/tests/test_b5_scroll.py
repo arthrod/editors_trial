@@ -99,40 +99,13 @@ def _corpus(tmp: Path) -> Path:
 
 
 def _witness(**overrides) -> dict:
-    """A witness record that B1c's validator accepts (#130's contract).
-
-    The record is document-scoped, carries the run's clock check and the
-    pixel evidence; a test changes one field to make one claim fail.
-    """
-    record = {
-        "outcome": "witnessed",
-        "frame_page_ms": 100.0,
-        "frames_total": 3,
-        "frames_after": 1,
-        "diff_ratio": 0.1,
-        "threshold": 0.00001,
-        "min_pixels": 4,
-        "changed_pixels": 1000,
-        "caret_masked": True,
-        "document_scoped": True,
-        "document_region": {
-            "source": "rect",
-            "selector": None,
-            "rect_css_px": {"x": 0, "y": 0, "width": 800, "height": 900},
-        },
-        "region_pixels": 720000,
-        "clock_check": {
-            "kind": "clock_skew",
-            "acceptable": True,
-            "reason": None,
-            "page_offset_ms": 0.1,
-        },
-        "clock_skew_ms": 0.1,
-        "clock_skew_bound_ms": 2.0,
-        "clock_skew_acceptable": True,
-    }
-    record.update(overrides)
-    return record
+    from perf.tests.witness_records import publishable_witness_record
+    fields = {'document_region': {
+        'source': 'rect', 'selector': None,
+        'rect_css_px': {'x': 0, 'y': 0, 'width': 800, 'height': 900},
+    }}
+    fields.update(overrides)
+    return publishable_witness_record(100, 87.5, **fields)
 
 
 def _sample(**overrides) -> dict:
@@ -866,7 +839,7 @@ class ScrollUnitTests(unittest.TestCase):
             )
         )
         self.assertEqual(outcome, "failed")
-        self.assertIn("skew", reason.lower())
+        self.assertIn("clock_skew_above_bound", reason)
         self.assertIsNone(value)
 
     def test_an_unscoped_witness_is_refused(self):
@@ -875,7 +848,7 @@ class ScrollUnitTests(unittest.TestCase):
             _sample(witness=_witness(document_scoped=False))
         )
         self.assertEqual(outcome, "failed")
-        self.assertIn("document", reason.lower())
+        self.assertIn("not_document_scoped", reason)
         self.assertIsNone(value)
 
     def test_a_good_sample_is_measured(self):
@@ -1033,6 +1006,7 @@ class ScrollUnitTests(unittest.TestCase):
         The container is ``#doc`` at 800×900. The witness rectangle is the
         40×40 blink. ``changed_pixels == region_pixels`` is not enough.
         """
+        from perf.runner.witness import validate_witness
         blink = _witness(
             changed_pixels=1600,
             region_pixels=1600,
@@ -1042,6 +1016,7 @@ class ScrollUnitTests(unittest.TestCase):
                 "rect_css_px": {"x": 1000, "y": 10, "width": 40, "height": 40},
             },
         )
+        self.assertTrue(validate_witness(blink)['ok'], validate_witness(blink))
         outcome, reason, value = self.verdict(
             _sample(
                 witness=blink,
@@ -1078,6 +1053,7 @@ class ScrollUnitTests(unittest.TestCase):
         refused, refused_reason, refused_value = self.verdict(_sample(witness=outside))
         self.assertEqual(refused, "failed", "%r" % (refused_reason,))
         self.assertIsNone(refused_value)
+        self.assertIn("region", refused_reason.lower())
 
     # -- F3, round 2: every spelling of the flag, before run_cli ----------
 
