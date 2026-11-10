@@ -172,7 +172,7 @@ def _witness_evidence_from_entry(entry):
     observations = []
     for observation in entry.get("observations") or []:
         if not isinstance(observation, dict):
-            continue
+            raise ValueError("malformed observation in criterion entry")
         evidence = dict(observation)
         if observation.get("witness") is not None:
             verdict = validate_witness(observation["witness"])

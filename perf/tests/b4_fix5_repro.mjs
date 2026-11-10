@@ -1,0 +1,215 @@
+/**
+ * B4 fix round 5 probes (F1, m1–m3). Invoked from test_b4_fix5.py.
+ */
+import { pathToFileURL } from 'node:url';
+
+const repo = new URL('../..', import.meta.url).pathname.replace(/\/$/, '');
+const moduleUrl = pathToFileURL(`${repo}/perf/runner/criteria_input.mjs`).href;
+
+const { measureUndo, runCriteriaSuite } = await import(moduleUrl);
+
+const good = {
+  outcome: 'witnessed',
+  frame_page_ms: 140,
+  after_page_ms: 100,
+  frames_total: 7,
+  frames_after: 3,
+  diff_ratio: 0.01,
+  threshold: 0.00005,
+  min_pixels: 4,
+  changed_pixels: 900,
+  caret_masked: true,
+  document_scoped: true,
+  clock_skew_ms: 0.2,
+  clock_skew_acceptable: true,
+  clock_check: { kind: 'clock_skew', acceptable: true, reason: null, page_offset_ms: 0.2 },
+};
+const bad = { ...good, clock_check: { acceptable: false, reason: 'anchor_lag_above_bound' } };
+
+const meta = {
+  editable: { selector: '#doc', is_content_editable: true, text_length: 8 },
+  points: [{ point: 'last_text_line', x: 1, y: 1 }],
+};
+
+async function a10RefusedPaintPageDiesInFinally() {
+  let body = 'ORIGINAL';
+  let broken = false;
+  const page = {
+    mouse: { click: async () => {} },
+    keyboard: {
+      type: async () => {
+        body = 'ORIGxINAL';
+      },
+      press: async (k) => {
+        if (k.endsWith('+Z')) body = 'ORIGINAL';
+      },
+    },
+    evaluate: async (fn, arg) => {
+      if (broken) throw new Error('Execution context was destroyed');
+      if (fn.name === 'READ_EDITABLE_STATE')
+        return { text: body, text_length: body.length, selection_offset: 4 };
+      if (arg && (arg.kind || arg.kinds)) return { t: 100 };
+      return null;
+    },
+  };
+  const witness = {
+    frameIntervalMs: 16.667,
+    paintAfter: async (t, o) => {
+      if (o.arm) await o.arm();
+      broken = true;
+      return bad;
+    },
+  };
+  let thrown = null;
+  let entry = null;
+  try {
+    entry = await measureUndo(page, witness, { modifier: 'Control', expectedBodyText: 'ORIGINAL' }, meta);
+  } catch (error) {
+    thrown = String(error);
+  }
+  return {
+    thrown,
+    kept_reason: entry?.failure_reason ?? null,
+    kept_refusal: entry?.observations?.[0]?.witness_refusal ?? null,
+    fixture_reset: entry?.fixture_reset ?? null,
+  };
+}
+
+async function a11MeasuredPageDiesInFinally() {
+  let body = 'ORIGINAL';
+  let reads = 0;
+  const page = {
+    mouse: { click: async () => {} },
+    keyboard: {
+      type: async () => {
+        body = 'ORIGxINAL';
+      },
+      press: async (k) => {
+        if (k.endsWith('+Z')) body = 'ORIGINAL';
+      },
+    },
+    evaluate: async (fn, arg) => {
+      if (fn.name === 'READ_EDITABLE_STATE') {
+        reads += 1;
+        if (reads > 3) throw new Error('Execution context was destroyed');
+        return { text: body, text_length: body.length, selection_offset: 4 };
+      }
+      if (arg && (arg.kind || arg.kinds)) return { t: 100 };
+      return null;
+    },
+  };
+  const witness = {
+    frameIntervalMs: 16.667,
+    paintAfter: async (t, o) => {
+      if (o.arm) await o.arm();
+      return good;
+    },
+  };
+  let thrown = null;
+  let entry = null;
+  try {
+    entry = await measureUndo(page, witness, { modifier: 'Control', expectedBodyText: 'ORIGINAL' }, meta);
+  } catch (error) {
+    thrown = String(error);
+  }
+  return {
+    thrown,
+    outcome: entry?.outcome ?? null,
+    samples: entry?.samples_ms ?? null,
+    fixture_reset: entry?.fixture_reset ?? null,
+  };
+}
+
+async function c09OnlySkipsLongResetWait() {
+  let body = 'ORIGINAL';
+  const page = {
+    mouse: { click: async () => {} },
+    keyboard: {
+      type: async () => {
+        body = 'ORIGxINAL';
+      },
+      press: async () => {},
+    },
+    reload: async () => {
+      body = 'STUCK';
+    },
+    evaluate: async (fn, arg) => {
+      if (fn.name === 'READ_EDITABLE_STATE')
+        return { text: body, text_length: body.length, selection_offset: 4, is_content_editable: true };
+      if (fn.name === 'RESOLVE_CLICK_POINTS') return { points: [{ point: 'last_text_line', x: 1, y: 1 }] };
+      if (arg?.count) return [16.667, 16.667];
+      return null;
+    },
+  };
+  const cdp = { on() {}, off() {}, async send() {} };
+  const started = Date.now();
+  const payload = await runCriteriaSuite({
+    page,
+    cdp,
+    editSelector: '#doc',
+    criteria: ['C09'],
+    expectedBodyText: 'ORIGINAL',
+    correctnessAdapter: 'dom_innerText',
+  });
+  return {
+    duration_ms: Date.now() - started,
+    fixture_reset: payload.criteria.C09?.fixture_reset ?? null,
+  };
+}
+
+async function metaEditableRefreshedAfterReset() {
+  let body = 'ORIGINAL';
+  let undos = 0;
+  let reloaded = false;
+  const page = {
+    mouse: { click: async () => {} },
+    keyboard: {
+      type: async () => {
+        body = 'ORIGxINAL';
+      },
+      press: async (k) => {
+        if (!k.endsWith('+Z')) return;
+        undos += 1;
+        body = undos === 1 ? 'OLDER' : 'ANCIENT';
+      },
+    },
+    reload: async () => {
+      body = 'ORIGINAL';
+      reloaded = true;
+    },
+    evaluate: async (fn, arg) => {
+      if (fn.name === 'READ_EDITABLE_STATE') {
+        const len = reloaded ? 20 : body.length;
+        return { text: body, text_length: len, selection_offset: 4, is_content_editable: true };
+      }
+      if (fn.name === 'RESOLVE_CLICK_POINTS')
+        return { points: [{ point: 'after_reload', x: 2, y: 1 }], source: 'after_reload' };
+      if (arg && (arg.kind || arg.kinds)) return { t: 100 };
+      if (arg?.count) return [16.667, 16.667];
+      if (typeof arg === 'number') return 40.0;
+      return undefined;
+    },
+  };
+  const cdp = { on() {}, off() {}, async send() {} };
+  const payload = await runCriteriaSuite({
+    page,
+    cdp,
+    editSelector: '#doc',
+    criteria: ['C09', 'C08'],
+    expectedBodyText: 'ORIGINAL',
+    correctnessAdapter: 'dom_innerText',
+  });
+  return {
+    payload_text_length: payload.editable?.text_length ?? null,
+    c09_reset: payload.criteria.C09?.fixture_reset ?? null,
+  };
+}
+
+console.log(
+  JSON.stringify({
+    a10: await a10RefusedPaintPageDiesInFinally(),
+    a11: await a11MeasuredPageDiesInFinally(),
+    m2_skip_wait: await c09OnlySkipsLongResetWait(),
+    m1_meta_refresh: await metaEditableRefreshedAfterReset(),
+  }),
+);

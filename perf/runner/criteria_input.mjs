@@ -1267,27 +1267,42 @@ async function measureUndo(page, witness, options, meta) {
     entry.failure_reason = null;
     return entry;
   } finally {
-    let current = await readState(page, meta.editable.selector);
-    if (current.text !== before.text && !undoAttempted) {
-      undoAttempted = true;
-      await page.keyboard.press(`${options.modifier}+Z`);
-      await settle(page, 60);
-      current = await readState(page, meta.editable.selector);
-    }
-    if (current.text !== before.text) {
-      entry.fixture_reset = { attempted: true, restored: false, reason: 'undo_did_not_restore_original' };
-      try {
-        await page.reload();
-        // Reload can finish before the editor imports its fixture. Wait for that body.
-        for (let attempt = 0; attempt < 100; attempt += 1) {
-          current = await readState(page, meta.editable.selector);
-          if (current.text === before.text) break;
-          await sleep(50);
+    try {
+      let current = await readState(page, meta.editable.selector);
+      if (current.text !== before.text && !undoAttempted) {
+        undoAttempted = true;
+        await page.keyboard.press(`${options.modifier}+Z`);
+        await settle(page, 60);
+        current = await readState(page, meta.editable.selector);
+      }
+      if (current.text !== before.text) {
+        entry.fixture_reset = { attempted: true, restored: false, reason: 'undo_did_not_restore_original' };
+        try {
+          await page.reload();
+          const waitForBody = options.fixtureWaitForRestore !== false;
+          if (waitForBody) {
+            // Reload can finish before the editor imports its fixture. Wait for that body.
+            for (let attempt = 0; attempt < 100; attempt += 1) {
+              current = await readState(page, meta.editable.selector);
+              if (current.text === before.text) break;
+              await sleep(50);
+            }
+          } else {
+            current = await readState(page, meta.editable.selector);
+          }
+          entry.fixture_reset.restored = current.text === before.text;
+          await page.evaluate(INSTALL_INPUT_TAP);
+        } catch (error) {
+          entry.fixture_reset.error = String(error);
         }
-        entry.fixture_reset.restored = current.text === before.text;
-        await page.evaluate(INSTALL_INPUT_TAP);
-      } catch (error) {
-        entry.fixture_reset.error = String(error);
+      }
+    } catch (error) {
+      if (entry.fixture_reset) {
+        if (!entry.fixture_reset.error) {
+          entry.fixture_reset.error = String(error);
+        }
+      } else {
+        entry.fixture_reset = { attempted: true, restored: false, error: String(error) };
       }
     }
   }
@@ -1578,10 +1593,21 @@ export async function runCriteriaSuite({
   const entries = {};
   let witness = null;
 
+  async function safeCriterion(criterionId, run) {
+    try {
+      return await run();
+    } catch (error) {
+      return emptyEntry(criterionId, 'failed', `page_lost: ${String(error)}`);
+    }
+  }
+
+  const fixtureWaitForRestore = criteria.includes('C08');
+  const measureOptions = { ...options, fixtureWaitForRestore };
+
   // C04 first and before anything else touches the page: a click of our own is
   // deferred work the criterion would otherwise count.
   if (criteria.includes('C04')) {
-    entries.C04 = await measureQuiescence(page, options, readyPageMs);
+    entries.C04 = await safeCriterion('C04', () => measureQuiescence(page, options, readyPageMs));
   }
 
   const points = await page.evaluate(RESOLVE_CLICK_POINTS, editSelector);
@@ -1670,7 +1696,7 @@ export async function runCriteriaSuite({
                 failures: [unavailable || 'click_points_unavailable'],
               },
             })
-          : await measureClicks(page, witness, options, meta);
+          : await safeCriterion('C07', () => measureClicks(page, witness, options, meta));
     }
   }
   if (criteria.includes('C09') && !entries.C09) {
@@ -1678,7 +1704,7 @@ export async function runCriteriaSuite({
       ? emptyEntry('C09', 'unsupported', canvasWithoutAdapter)
       : editableMissing
         ? emptyEntry('C09', 'failed', editableMissing)
-        : await measureUndo(page, witness, options, meta);
+        : await safeCriterion('C09', () => measureUndo(page, witness, measureOptions, meta));
   }
   if (criteria.includes('C08') && entries.C09?.fixture_reset) {
     if (!entries.C09.fixture_reset.restored) {
@@ -1686,6 +1712,14 @@ export async function runCriteriaSuite({
     } else {
       const refreshed = await page.evaluate(RESOLVE_CLICK_POINTS, editSelector);
       meta.points = refreshed.points || [];
+      meta.point_source = refreshed.source || meta.point_source;
+      if (refreshed.line_height_px !== undefined) {
+        meta.editable.line_height_px = refreshed.line_height_px;
+      }
+      const refreshedState = await readState(page, editSelector);
+      meta.editable.is_content_editable = refreshedState.is_content_editable === true;
+      meta.editable.text_length =
+        refreshedState.text_length === undefined ? null : refreshedState.text_length;
     }
   }
   if (criteria.includes('C08') && !entries.C08) {
@@ -1693,7 +1727,7 @@ export async function runCriteriaSuite({
       ? emptyEntry('C08', 'unsupported', canvasWithoutAdapter)
       : editableMissing
         ? emptyEntry('C08', 'failed', editableMissing)
-        : await measureBulkInsert(page, witness, options, meta);
+        : await safeCriterion('C08', () => measureBulkInsert(page, witness, options, meta));
   }
 
   if (witness?.recorder) {
