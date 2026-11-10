@@ -66,7 +66,7 @@ def repo_snapshot():
 
 
 def repos_modified(before, after):
-    return before != after or any(before.values()) or any(after.values())
+    return before != after
 
 
 def write_json(path, value):
@@ -125,6 +125,22 @@ class BrowserRun:
                   'execution_profile': self.execution_profile, 'host_class': self.host_class,
                   'repos_before': self.before, 'repos_after': after,
                   'fixtures': [str(p) for p in self.fixtures.values()]}
+        from perf.runner.speed_headless import _dirty_verdict
+        allowed, refused = {}, {}
+        for checkout, porcelain in self.before.items():
+            if not porcelain:
+                continue
+            rows = [[line[:2].strip()[:1], line[3:]]
+                    for line in porcelain.splitlines() if len(line) > 3]
+            ok, reason = _dirty_verdict('repos/' + Path(checkout).name, rows)
+            if ok:
+                allowed[checkout] = reason
+            else:
+                refused[checkout] = {'reason': reason, 'paths': [row[1] for row in rows]}
+        result.update(repos_dirty_allowed=allowed, repos_dirty_at_start=refused,
+                      repos_unchanged=not repos_modified(self.before, after))
+        if refused:
+            result.update(failure_reason='repos_dirty_at_start', publishable=False)
         if repos_modified(self.before, after):
             result.update(outcome='failed', failure_reason='repos_modified', publishable=False)
         write_json(self.directory / 'summary.json', result)
