@@ -16,24 +16,36 @@ the ones the adversarial reviews forced closed):
 * a witnessed record must carry its evidence: at least one frame after the
   marker, pixels above the recorded threshold and floor, the caret mask
   applied. A record with no outcome at all is refused (``no_outcome``), not
-  quietly accepted. The arm instant (``after_page_ms``), when the record
-  carries one, must be a finite number (``invalid_arm_time``) and the witness
-  frame must not precede it (``frame_before_arm``); ``frames_after`` may not
-  exceed ``frames_total`` (``frame_counts_inconsistent``) and both counts are
-  required integers — a null count is refused, not skipped; a ``min_pixels``
-  that is not a number of at least 1 cannot gate anything, so it is refused
-  (``min_pixels_invalid``) instead of silently skipping the pixel floor;
+  quietly accepted. The arm instant (``after_page_ms``) must be a finite
+  number and the witness frame must not precede it
+  (``frame_before_arm``); ``frames_after`` may not exceed ``frames_total``
+  (``frame_counts_inconsistent``) and both counts are required integers —
+  a null count is refused, not skipped; a ``min_pixels`` below 1 cannot
+  gate anything, so it is refused instead of silently skipping the pixel
+  floor;
 * an asserted flag is not its evidence. Since #137 round 3 the validator does
   not weigh flags at all — it **recomputes** every derived verdict from the
   raw measurements and compares it with what the record claims:
 
-  - a record produced by ``witnessFrame()`` (it says ``kind:
-    "frame_witness"``, or carries a ``clock_check_source``, or its nested
-    clock check uses the ``page_clock_offset+pixel_anchor`` method) must
-    carry **every field the producer emits, with the producer's type,
-    presence and range** (``witness_schema_invalid`` / 
-    ``clock_check_schema_invalid``); a null where a number is required is
-    refused, and the same holds for the nested ``clock_check``;
+  - the discriminator is positive (#137 round 4): a record is a frame
+    witness **only if** it carries the producer's markers — ``kind:
+    "frame_witness"``, a ``clock_check_source``, or the production nested
+    clock check with its raw measurements (its method, its offset samples,
+    its lag bound, its conversion statement, its anchor times). A record
+    without them is not a witness record at all and is refused
+    (``not_a_witness_record``); there is no lenient "legacy" branch that
+    can return ok. The old hand-made "legacy simple" shape stays parseable
+    (the validator returns a verdict for it, never a crash), but its
+    verdict is that same distinct, never-publishable refusal;
+  - a witness record must carry **every field the producer emits, with the
+    producer's type, presence and range** (``witness_schema_invalid`` /
+    ``clock_check_schema_invalid``): a null where a number is required is
+    refused, and the same holds for the nested ``clock_check``. The schema
+    is closed (#137 round 4, N4): an unknown top-level or nested field is
+    refused (``witness_schema_invalid``); the allowed key sets are exactly
+    the keys ``witness.mjs`` emits, and the ``clock_skew`` alias slot is
+    not read at all (the producer never writes it on a frame-witness
+    record);
   - the nested check's ``checks`` are recomputed from the anchor's own
     times (causality: ``frame_page_ms >= change_page_ms - 2 ms``; lag:
     ``frame_lag_ms == frame_page_ms - change_page_ms`` and within
@@ -45,22 +57,17 @@ the ones the adversarial reviews forced closed):
     A claimed ``acceptable: true`` whose recomputation fails — or whose
     recorded ``checks`` are erased, null or false — is refused
     (``clock_check_evidence_contradicted`` / ``clock_check_evidence_missing``);
-  - every alias the record carries (``clock_skew_ms``, ``skew_ms``,
-    ``clock_skew_method``, ``clock_skew_bound_ms``,
+  - every alias the record carries (``clock_skew_ms``, the nested
+    ``skew_ms``, ``clock_skew_method``, ``clock_skew_bound_ms``,
     ``clock_skew_acceptable``, ``time_origin_ms``, ``marker_page_ms``) must
     agree with the evidence it restates, and the deprecated offset alias may
-    no longer hide a contradictory nested offset;
+    not hide a contradictory nested offset;
   - a record that claims ``document_scoped: true`` while carrying a
-    ``document_region_error`` is refused (``document_scope_contradicted``),
-    and ``caret_masked: true`` with a recorded ``caret_mask_error`` is
-    refused (``caret_mask_contradicted``).
+    ``document_region_error`` is refused (``witness_schema_invalid``: a
+    scoped record carries no region error), and ``caret_masked: true``
+    with a recorded ``caret_mask_error`` is refused
+    (``caret_mask_contradicted``).
 
-  Simple legacy records (the shape B2–B5 write: ``clock_skew_ms`` +
-    ``clock_skew_acceptable``, no production markers) keep their historical
-    validation — a finite offset within the bound — but the evidence rules
-    that reading a record's own fields (checks integrity, offset bound,
-    alias agreement, pixel consistency, mask and scope contradictions) apply
-    to them too;
 * the record must be document-scoped (``document_scoped: true``): a
   whole-frame diff lets shell damage pose as document paint, so a record
   without a region is refused (``not_document_scoped``);
@@ -68,23 +75,32 @@ the ones the adversarial reviews forced closed):
   nested ``clock_check`` record (`clockSkew()`'s output: the pixel anchor,
   its causality and lag bounds, the page offset), echoed by every
   ``witnessFrame()`` record. A missing or failed check is refused
-  (``clock_check_missing`` / ``clock_check_not_acceptable``), including the
-  legacy top-level shape (``clock_skew_acceptable`` + ``clock_skew_ms``),
-  which is accepted only when the flag is explicitly true and the offset is
-  finite and within the bound;
+  (``clock_check_not_acceptable``, or the strict schema's
+  ``witness_schema_invalid`` when the record carries no check object at
+  all);
+* the caller's own arguments are checked too (#137 round 4, N5): a
+  ``bound_ms`` that is not a finite positive number, or a supplied
+  ``skew`` that is not a finite number, is refused (``nonfinite_time``) —
+  never silently used as a bound that compares false against everything,
+  and never silently replaced by the record's own offset;
 * a refusal is an outcome, never a zero: `validate_witness` returns the
   verdict with a named ``reason`` and keeps the record's own payload.
 
-The named reasons: ``record_not_a_mapping``, ``clock_skew_above_bound``,
-``clock_check_missing``, ``clock_check_not_acceptable``,
+The named reasons: ``record_not_a_mapping``, ``not_a_witness_record``,
+``clock_skew_above_bound``, ``clock_check_not_acceptable``,
 ``clock_check_evidence_missing``, ``clock_check_evidence_contradicted``,
 ``clock_check_schema_invalid``, ``witness_schema_invalid``,
-``not_document_scoped``, ``document_scope_contradicted``, ``no_outcome``,
-``unknown_outcome``, ``no_frame``, ``nonfinite_time``, ``no_frame_time``,
-``invalid_arm_time``, ``frame_before_arm``, ``no_frame_after_marker``,
-``frame_counts_inconsistent``, ``no_pixel_evidence``, ``min_pixels_invalid``,
-``pixel_evidence_contradicted``, ``caret_mask_failed``,
+``not_document_scoped``, ``no_outcome``, ``unknown_outcome``, ``no_frame``,
+``nonfinite_time`` (a caller-supplied bound or skew that is not a finite
+number, or a non-positive bound), ``frame_before_arm``,
+``no_frame_after_marker``, ``frame_counts_inconsistent``,
+``no_pixel_evidence``, ``pixel_evidence_contradicted``,
+``caret_mask_failed``,
 ``caret_not_masked``, ``caret_mask_contradicted``, ``invalid_record``.
+(``no_frame_time``, ``invalid_arm_time``, ``min_pixels_invalid``,
+``document_scope_contradicted`` and ``clock_check_missing`` were the
+round-1..3 reasons of the lenient legacy branch; the strict schema names
+those malformations earlier, so the tokens are gone.)
 
 Usage:
 
@@ -237,31 +253,40 @@ def _median(values):
 
 
 def _skew_of(record, skew=None):
-    """The page-local clock offset of a record, in milliseconds, or None."""
+    """The page-local clock offset of a record, in milliseconds, or None.
+
+    A caller's explicit offset wins. The record's own aliases follow: the
+    deprecated top-level ``clock_skew_ms``, then the nested check's
+    ``page_offset_ms``. The ``clock_skew`` dict slot is deliberately not
+    read: the producer never writes it on a frame-witness record (it is a
+    section key of the ``--op all`` bundle, not of a witness record), and
+    the closed schema refuses the key outright (#137 round 4, N4)."""
     if _finite_number(skew):
         return float(skew)
-    for key in ("clock_skew_ms", "skew_ms"):
-        value = record.get(key)
-        if _finite_number(value):
-            return float(value)
+    value = record.get("clock_skew_ms")
+    if _finite_number(value):
+        return float(value)
     nested = record.get("clock_check")
     if isinstance(nested, dict) and _finite_number(nested.get("page_offset_ms")):
         return float(nested["page_offset_ms"])
-    nested = record.get("clock_skew")
-    if isinstance(nested, dict) and _finite_number(nested.get("skew_ms")):
-        return float(nested["skew_ms"])
     return None
 
 
 def _is_production_record(record):
-    """Does the record identify itself as a `witnessFrame()` production
-    record? Any of its markers does: the kind, the clock-check source, a
-    nested clock check that used the pixel-anchor method, or the nested
-    evidence only `clockSkew()` records (its offset samples, its lag bound,
-    its conversion statement, its anchor times). Erasing one marker leaves
-    the others, so no small set of coordinated corruptions can fall back to
-    the lenient legacy shape — and the legacy records B2–B5 write carry none
-    of these fields."""
+    """Does the record carry the producer's markers? (#137 round 4: the
+    discriminator is positive.)
+
+    A record IS a frame witness only when it says so the way
+    `witnessFrame()` says it: the ``kind``, the ``clock_check_source``, or
+    a nested clock check that carries the production method or the raw
+    measurements only `clockSkew()` records (its offset samples, its lag
+    bound, its conversion statement, its anchor times). Any one marker
+    makes it a witness record, which then faces the full strict schema;
+    erasing markers one at a time leaves the others (verified by test), and
+    the coordinated nine-field erasure leaves a record that is refused as
+    ``not_a_witness_record`` instead of falling back to anything lenient.
+    No producer writes a record without these markers: every B2–B5 writer
+    calls `witnessFrame()`, which always emits ``kind: 'frame_witness'``."""
     if record.get("kind") == PRODUCTION_KIND:
         return True
     if isinstance(record.get("clock_check_source"), str):
@@ -417,6 +442,13 @@ _PRODUCTION_FIELDS = (
     "elapsed_ms",
 )
 
+#: The closed set of top-level keys a frame-witness record may carry
+#: (#137 round 4, N4): every field `witnessFrame()` emits, plus
+#: `marker_page_ms`, which the CLI adds as its alias of the arm (a record
+#: made through the module API does not carry it). Anything else is a key
+#: the producer never writes, and the record is refused.
+_PRODUCTION_ALLOWED_KEYS = frozenset(_PRODUCTION_FIELDS) | {"marker_page_ms"}
+
 #: The fields `clockSkew()` always emits in a check of the production
 #: method (the page-offset-only legacy shape emits fewer, and is refused by
 #: its own unacceptable flag before this schema is reached).
@@ -453,6 +485,11 @@ _CLOCK_CHECK_FIELDS = (
     "notes",
 )
 
+#: The closed set of keys the nested clock check may carry (#137 round 4,
+#: N4): exactly `clockSkew()`'s output. The `page_offset_only` fallback
+#: shape emits a subset of it; nothing may add to it.
+_CLOCK_CHECK_ALLOWED_KEYS = frozenset(_CLOCK_CHECK_FIELDS)
+
 
 def _production_schema_violations(record):
     """(reason, message) pairs: every way a production record can violate the
@@ -463,6 +500,19 @@ def _production_schema_violations(record):
 
     def bad(message):
         out.append(("witness_schema_invalid", "witness schema: " + message))
+
+    # The schema is closed (#137 round 4, N4): a key the producer does not
+    # emit is a record the producer did not write -- including the
+    # `clock_skew` alias slot, which could otherwise restate an offset the
+    # reader would never cross-check.
+    for field in sorted(set(record) - _PRODUCTION_ALLOWED_KEYS):
+        bad("unknown field %r: the producer emits a closed set of keys" % (field,))
+    if isinstance(record.get("clock_check"), dict):
+        for field in sorted(set(record["clock_check"]) - _CLOCK_CHECK_ALLOWED_KEYS):
+            bad(
+                "unknown clock_check field %r: the producer emits a closed "
+                "set of keys" % (field,)
+            )
 
     # Every field the producer emits is present; a field that vanished is a
     # record that stopped being the evidence it claims (an erased alias, a
@@ -792,7 +842,7 @@ def _recomputed_checks(nested):
     }
 
 
-def _clock_evidence_violations(record, nested, bound, production=False):
+def _clock_evidence_violations(record, nested, bound):
     """(reason, message) pairs: the evidence contradictions of the nested
     clock check and of the aliases that restate it. The flag was already
     checked; everything here is recomputed from raw measurements."""
@@ -845,18 +895,13 @@ def _clock_evidence_violations(record, nested, bound, production=False):
                 % (float(offset), effective_bound)
             )
         alias = record.get("clock_skew_ms")
-        if (production or _finite_number(alias)) and (
-            alias is None or not _finite_number(alias) or abs(float(alias) - float(offset)) > 1e-9
-        ):
+        if alias is None or not _finite_number(alias) or abs(float(alias) - float(offset)) > 1e-9:
             contradicted(
                 "the deprecated clock_skew_ms alias (%r) disagrees with the "
                 "page offset it restates (%r)" % (alias, offset)
             )
         nested_alias = nested.get("skew_ms")
-        if (production or "skew_ms" in nested) and (
-            not _finite_number(nested_alias)
-            or abs(float(nested_alias) - float(offset)) > 1e-9
-        ):
+        if not _finite_number(nested_alias) or abs(float(nested_alias) - float(offset)) > 1e-9:
             contradicted(
                 "the nested skew_ms alias (%r) disagrees with the page offset "
                 "it restates (%r)" % (nested_alias, offset)
@@ -897,24 +942,27 @@ def _clock_evidence_violations(record, nested, bound, production=False):
             % (nested.get("reason"),)
         )
 
-    # The recomputation proper (production checks carry the raw fields).
-    if not isinstance(checks, dict) or nested.get("method") != PRODUCTION_CLOCK_METHOD:
-        return out
-    raw = _recomputed_checks(nested)
-    for key in CLOCK_CHECK_KEYS:
-        if key in checks and key in raw and bool(checks[key]) is not bool(raw[key]):
-            contradicted(
-                "the recorded check %s=%r disagrees with its own measurements "
-                "(recomputed %r)" % (key, checks[key], raw[key])
-            )
-    for key, claim, label in (
-        ("_median_is_offset", offset, "the samples' median"),
-        ("_spread_is_range", nested.get("page_offset_spread_ms"), "the samples' spread"),
-    ):
-        if key in raw and not raw[key]:
-            contradicted(
-                "%s (%r) is not what the samples give" % (label, claim)
-            )
+    # The recomputation proper (#137 round 4, N2: it is never gated on the
+    # check's method). A record that erased its method keeps its recorded
+    # claims and must still face them; `_recomputed_checks` recomputes each
+    # verdict from whatever raw measurements remain, so an erased raw field
+    # shows up as a claim its own evidence no longer supports.
+    if isinstance(checks, dict):
+        raw = _recomputed_checks(nested)
+        for key in CLOCK_CHECK_KEYS:
+            if key in checks and key in raw and bool(checks[key]) is not bool(raw[key]):
+                contradicted(
+                    "the recorded check %s=%r disagrees with its own measurements "
+                    "(recomputed %r)" % (key, checks[key], raw[key])
+                )
+        for key, claim, label in (
+            ("_median_is_offset", offset, "the samples' median"),
+            ("_spread_is_range", nested.get("page_offset_spread_ms"), "the samples' spread"),
+        ):
+            if key in raw and not raw[key]:
+                contradicted(
+                    "%s (%r) is not what the samples give" % (label, claim)
+                )
     change = nested.get("change_page_ms")
     frame = nested.get("frame_page_ms")
     lag = nested.get("frame_lag_ms")
@@ -1029,40 +1077,53 @@ def _mask_violations(record):
 #: names the verdict's reason. `skew` is the caller's explicit offset, which
 #: wins over the record's own (the same rule `_skew_of` applies) so a refusal
 #: names the check that actually failed for the effective skew.
+def _outcome_of(record):
+    """The record's outcome string, or None (a non-mapping has none)."""
+    if isinstance(record, dict):
+        outcome = record.get("outcome")
+        return outcome if isinstance(outcome, str) else None
+    return None
+
+
+def _scope_of(record):
+    """The record's document_scoped flag, or None (a non-mapping has none)."""
+    if isinstance(record, dict):
+        scoped = record.get("document_scoped")
+        return scoped if isinstance(scoped, bool) else None
+    return None
+
+
 def _reason_of(record, bound, errors, skew=None):
     del errors  # the tokens below are decided structurally, in order
     if not isinstance(record, dict):
         return "record_not_a_mapping"
-    production = _is_production_record(record)
+    # #137 round 4: the discriminator is positive. A record without the
+    # producer's markers is not a witness record at all; the strict schema
+    # below is what every record that IS one must satisfy. The reason
+    # tokens the lenient branch used to name (no_frame_time,
+    # invalid_arm_time, min_pixels_invalid, document_scope_contradicted,
+    # clock_check_missing) are unreachable for a record that passed the
+    # schema: the schema names those malformations first.
+    if not _is_production_record(record):
+        return "not_a_witness_record"
     nested = record.get("clock_check") if isinstance(record.get("clock_check"), dict) else None
     skew = _skew_of(record, skew)
-    flag = record.get("clock_skew_acceptable")
     if _finite_number(skew) and abs(float(skew)) > float(bound):
         return "clock_skew_above_bound"
-    if production:
-        schema = _production_schema_violations(record)
-        if schema:
-            return schema[0][0]
+    schema = _production_schema_violations(record)
+    if schema:
+        return schema[0][0]
     if nested is not None:
         if nested.get("acceptable") is not True:
             return "clock_check_not_acceptable"
-        evidence = _clock_evidence_violations(record, nested, bound, production)
+        evidence = _clock_evidence_violations(record, nested, bound)
         if evidence:
             return evidence[0][0]
-        if production:
-            schema = _clock_schema_violations(nested)
-            if schema:
-                return schema[0][0]
-    else:
-        if flag is not True:
-            return "clock_check_not_acceptable" if flag is False else "clock_check_missing"
-        if not _finite_number(skew):
-            return "clock_check_missing"
+        schema = _clock_schema_violations(nested)
+        if schema:
+            return schema[0][0]
     if record.get("document_scoped") is not True:
         return "not_document_scoped"
-    # #137: a scope flag asserted over the region's own recorded failure.
-    if record.get("document_region_error"):
-        return "document_scope_contradicted"
     outcome = record.get("outcome")
     if outcome is None:
         return "no_outcome"
@@ -1071,23 +1132,16 @@ def _reason_of(record, bound, errors, skew=None):
     if outcome == "no_frame":
         return "no_frame"
     frame_page_ms = record.get("frame_page_ms")
-    if _number(frame_page_ms) and not math.isfinite(float(frame_page_ms)):
-        return "nonfinite_time"
-    if not _number(frame_page_ms):
-        return "no_frame_time"
-    # #137: the arm, when the record carries one, must be a finite number, and
-    # the witness frame must not precede it -- the producer keeps a frame only
-    # at `pageMs >= afterPageMs`, so a frame below the recorded arm is
-    # evidence no run produced.
+    # #137: the witness frame must not precede its arm -- the producer keeps
+    # a frame only at `pageMs >= afterPageMs`, so a frame below the recorded
+    # arm is evidence no run produced. (A missing or non-finite arm or frame
+    # is the schema's to refuse.)
     after_page_ms = record.get("after_page_ms")
-    if after_page_ms is not None and not _finite_number(after_page_ms):
-        return "invalid_arm_time"
-    if _finite_number(after_page_ms) and float(frame_page_ms) < float(after_page_ms):
+    if _finite_number(after_page_ms) and _number(frame_page_ms) and float(frame_page_ms) < float(after_page_ms):
         return "frame_before_arm"
     frames_after = record.get("frames_after")
-    if isinstance(frames_after, int) and not isinstance(frames_after, bool):
-        if frames_after < 1:
-            return "no_frame_after_marker"
+    if _count(frames_after) is not None and frames_after < 1:
+        return "no_frame_after_marker"
     # #137: frames_after counts a subset of frames_total.
     if _count(frames_after) is not None and _count(record.get("frames_total")) is not None:
         if frames_after > record.get("frames_total"):
@@ -1102,10 +1156,6 @@ def _reason_of(record, bound, errors, skew=None):
         and not float(diff_ratio) > float(threshold)
     ):
         return "no_pixel_evidence"
-    # #137: a pixel floor of the wrong type gates nothing; refuse it instead
-    # of skipping the floor. Round 3: a floor below 1 gates nothing either.
-    if "min_pixels" in record and (not _finite_number(min_pixels) or float(min_pixels) < 1):
-        return "min_pixels_invalid"
     if _finite_number(changed) and _finite_number(min_pixels):
         if float(changed) < float(min_pixels):
             return "no_pixel_evidence"
@@ -1139,6 +1189,46 @@ def validate_witness(record, skew=None, bound_ms=DEFAULT_SKEW_BOUND_MS):
     """
     bound = float(bound_ms)
     errors = []
+    # #137 round 4, N5: the caller's own arguments are checked before
+    # anything else. A non-finite or non-positive bound makes every skew
+    # comparison false (a dead gate), and a non-finite skew argument used
+    # to be silently dropped in favour of the record's own offset; both are
+    # refusals now, never silent fallbacks.
+    if not _finite_number(bound_ms) or float(bound_ms) <= 0:
+        return {
+            "ok": False,
+            "refused": True,
+            "reason": "nonfinite_time",
+            "errors": [
+                "bound_ms must be a finite positive number of milliseconds "
+                "(got %r)" % (bound_ms,)
+            ],
+            "outcome": _outcome_of(record),
+            "skew_ms": None,
+            "bound_ms": bound,
+            "skew_checked": False,
+            "clock_check_ok": None,
+            "document_scoped": None,
+            "record": record,
+        }
+    if skew is not None and not _finite_number(skew):
+        return {
+            "ok": False,
+            "refused": True,
+            "reason": "nonfinite_time",
+            "errors": [
+                "a supplied skew must be a finite number of milliseconds "
+                "(got %r); it is never replaced by the record's own offset"
+                % (skew,)
+            ],
+            "outcome": _outcome_of(record),
+            "skew_ms": None,
+            "bound_ms": bound,
+            "skew_checked": False,
+            "clock_check_ok": None,
+            "document_scoped": None,
+            "record": record,
+        }
     if not isinstance(record, dict):
         return {
             "ok": False,
@@ -1154,7 +1244,30 @@ def validate_witness(record, skew=None, bound_ms=DEFAULT_SKEW_BOUND_MS):
             "record": None,
         }
 
-    production = _is_production_record(record)
+    # #137 round 4, N1: the discriminator is positive. A record without the
+    # producer's markers is not a witness record -- it stays parseable (a
+    # verdict is returned, never a crash), but the verdict is a refusal
+    # that can never be ok, no matter what else the record claims.
+    if not _is_production_record(record):
+        return {
+            "ok": False,
+            "refused": True,
+            "reason": "not_a_witness_record",
+            "errors": [
+                "the record carries none of the producer's markers (kind "
+                "%r, a clock_check_source, a production clock_check with "
+                "its raw measurements): it is not a frame_witness record "
+                "and can never be published" % (PRODUCTION_KIND,)
+            ],
+            "outcome": _outcome_of(record),
+            "skew_ms": _skew_of(record),
+            "bound_ms": bound,
+            "skew_checked": _skew_of(record) is not None,
+            "clock_check_ok": None,
+            "document_scoped": _scope_of(record),
+            "record": record,
+        }
+
     for field in _REQUIRED_FIELDS:
         if field not in record:
             errors.append("missing field %r" % (field,))
@@ -1273,17 +1386,14 @@ def validate_witness(record, skew=None, bound_ms=DEFAULT_SKEW_BOUND_MS):
             "the record is not document-scoped: a whole-frame diff lets shell "
             "damage pose as document paint (pass a region to witnessFrame)"
         )
-    # #137: the scope flag asserted over the region's own recorded failure.
-    elif record.get("document_region_error"):
-        errors.append(
-            "the record claims document_scoped=true but carries "
-            "document_region_error=%r" % (record.get("document_region_error"),)
-        )
+    # (#137 round 4: a scoped record carrying a document_region_error is
+    # the closed schema's to refuse -- "a scoped record carries no
+    # document_region_error" -- so no duplicate token is needed here.)
 
     # The clock check of the run (#130 defect 3): publication needs an
-    # acceptable one. The nested record is the real evidence; the legacy
-    # top-level shape is accepted only when it explicitly says acceptable and
-    # its offset is finite and within the bound.
+    # acceptable one. The nested record is the real evidence; a record
+    # without a check object is the strict schema's to refuse (the
+    # lenient top-level-alias branch is gone, #137 round 4).
     nested = record.get("clock_check")
     clock_check_ok = None
     if isinstance(nested, dict):
@@ -1299,41 +1409,18 @@ def validate_witness(record, skew=None, bound_ms=DEFAULT_SKEW_BOUND_MS):
         else:
             clock_check_ok = True
     else:
-        flag = record.get("clock_skew_acceptable")
-        skew_ms = _skew_of(record, skew)
-        if flag is not True:
-            clock_check_ok = False
-            if flag is False:
-                errors.append(
-                    "the record's clock check says acceptable=false "
-                    "(clock_skew_acceptable is false)"
-                )
-            else:
-                errors.append(
-                    "the record carries no clock check for its run "
-                    "(clock_check missing, clock_skew_acceptable absent)"
-                )
-        elif not _finite_number(skew_ms):
-            clock_check_ok = False
-            errors.append(
-                "the record claims an acceptable clock check without a finite "
-                "page offset"
-            )
-        else:
-            clock_check_ok = True
+        clock_check_ok = False
 
-    # #137 round 3: the strict production schema, the recomputed evidence,
+    # #137 rounds 3-4: the strict closed schema, the recomputed evidence,
     # the pixel consistency and the mask contradiction -- every token carries
     # its message into the verdict, and the first names the reason.
-    if production:
-        for _reason, message in _production_schema_violations(record):
-            errors.append(message)
+    for _reason, message in _production_schema_violations(record):
+        errors.append(message)
     if isinstance(nested, dict) and nested.get("acceptable") is True:
-        for _reason, message in _clock_evidence_violations(record, nested, bound, production):
+        for _reason, message in _clock_evidence_violations(record, nested, bound):
             errors.append(message)
-        if production:
-            for _reason, message in _clock_schema_violations(nested):
-                errors.append(message)
+        for _reason, message in _clock_schema_violations(nested):
+            errors.append(message)
     for _reason, message in _pixel_evidence_violations(record):
         errors.append(message)
     for _reason, message in _mask_violations(record):
@@ -1341,9 +1428,6 @@ def validate_witness(record, skew=None, bound_ms=DEFAULT_SKEW_BOUND_MS):
 
     skew_ms = _skew_of(record, skew)
     skew_checked = skew_ms is not None
-    if skew_checked and math.isnan(skew_ms):
-        errors.append("the clock skew is not a number")
-        skew_checked = False
     if skew_checked and abs(skew_ms) > bound:
         errors.append(
             "clock skew %.3f ms is above the bound of %.3f ms" % (skew_ms, bound)
