@@ -10,6 +10,7 @@ import signal
 import subprocess
 import sys
 from . import artifacts
+from .mirror import mirror_campaign_tail, mirror_job_directory
 from .policy import RUNNERS, publication_jobs, verify_run, cell_counts, verify_profiles
 
 DEFAULT_OUT_ROOT = Path('perf/container/out/runs')
@@ -174,6 +175,14 @@ def main(argv: list[str] | None = None):
                     failures.append(f'{name}: {exc}')
                 if directory.exists():
                     artifacts.finalize_job(directory, job_exit)
+                    if not args.dry_run:
+                        mirror_job_directory(
+                            stamp,
+                            name,
+                            run_id,
+                            directory,
+                            campaign_root / 'RUN.log',
+                        )
             if job_exit != 0:
                 run_exit = 1
         if args.publish and not args.dry_run:
@@ -183,6 +192,7 @@ def main(argv: list[str] | None = None):
     finally:
         if not args.dry_run:
             write_run_done(campaign_root, run_exit if not failures else 1)
+            mirror_campaign_tail(campaign_root, stamp, campaign_root / 'RUN.log')
     if failures:
         raise RuntimeError('; '.join(failures))
     return run_exit

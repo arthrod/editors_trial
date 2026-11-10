@@ -128,6 +128,23 @@ cover planning and refusal policy, not those integration claims.
 
 ## Data safety during a campaign
 
+Three copies of every measurement:
+
+1. **Space disk** (fragile): the campaign directory under `/app` while the Space
+   is running. Rebuild or factory reboot can erase it.
+2. **HF persistent bucket** (survives restarts): a private Hugging Face bucket
+   mounted read-write at `/data` via FUSE (`hf-mount`). After each job is sealed,
+   `run.py` mirrors the job directory to `/data/e2/<campaign-id>/<runner>/<job>/`
+   (override with `HF_MIRROR_ROOT`). Copies are verified against
+   `MANIFEST.sha256`; `MIRROR-OK` marks a good mirror. Mirror failures are logged
+   in `RUN.log` and never fail the job. Nothing in the mirror is deleted; a changed
+   file gets a `name.prev-<UTC-stamp>` sibling. The bucket allowance is free; no HF
+   token belongs in the container image.
+3. **Mac pull** (verified): `pull.sh` streams tar batches into a staging area,
+   hashes each member against the remote listing, and only then moves bytes into
+   place. `FINAL-VERIFIED` on the Mac rehashes every listed file and still is the
+   only permission to restart, rebuild, or push the Space.
+
 The Space has no durable disk: anything left only under `/app` is lost on rebuild
 or factory reboot. Sleep is set to never (`gcTimeout` null as of 2026-11-10); still
 treat the VM as fragile.
@@ -149,7 +166,9 @@ treat the VM as fragile.
    verified job. When the remote lists `RUN-DONE`, pull prints that marker for
    visibility but keeps copying until one full cycle after that finds nothing new,
    every listed file is present and hashed, and every sealed job passes manifest
-   verification. Only then it prints `FINAL-VERIFIED <run-id> files=<n> jobs=<k>`.
+   verification. Only then it prints
+   `FINAL-VERIFIED <run-id> files=<n> jobs=<k> run_exit=<s>` (pull exits 0; the
+   run's own exit status is on that line).
 3. Do not restart, factory-reboot, or push the Space repository until pull prints
    `FINAL-VERIFIED` for that campaign. A `RUN-DONE` line alone is not permission
    to change the Space.

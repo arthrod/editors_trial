@@ -9,6 +9,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -18,6 +19,8 @@ from pathlib import Path, PurePosixPath
 BATCH_MAX_BYTES = 64 * 1024 * 1024
 BATCH_MAX_FILES = 500
 BATCH_MAX_PATH_BYTES = 32 * 1024
+STREAM_CHUNK = 65536
+LISTED_SIZE_CAP = 3
 
 TAR_STDIN_MARKER = "sys.stdin.buffer.read()"
 
@@ -152,6 +155,17 @@ def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def sha256_file(path: Path) -> str:
+    hasher = hashlib.sha256()
+    with path.open('rb') as fh:
+        while True:
+            chunk = fh.read(STREAM_CHUNK)
+            if not chunk:
+                break
+            hasher.update(chunk)
+    return hasher.hexdigest()
+
+
 def safe_tar_member(name: str) -> None:
     pure = PurePosixPath(name)
     if pure.is_absolute() or '..' in pure.parts or name.endswith('/'):
@@ -219,7 +233,8 @@ def write_prev_copy(target: Path) -> None:
     stamp = time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())
     base = f'{target.name}.prev-{stamp}'
     data = target.read_bytes()
-    for suffix in range(1000):
+    suffix = 0
+    while True:
         name = base if suffix == 0 else f'{base}-{suffix}'
         prev = target.with_name(name)
         try:
@@ -227,12 +242,56 @@ def write_prev_copy(target: Path) -> None:
                 fh.write(data)
             return
         except FileExistsError:
+            suffix += 1
+
+
+def _new_staging_dir(dest_root: Path) -> Path:
+    for _ in range(100):
+        stamp = f'{os.getpid()}-{time.time_ns()}'
+        staging = dest_root / '.pull-staging' / stamp
+        try:
+            staging.mkdir(parents=True, exist_ok=False)
+            return staging
+        except FileExistsError:
             continue
-    raise OSError(f'could not allocate prev name for {target}')
+    raise OSError('could not allocate pull staging directory')
+
+
+def _stream_member_to_staging(
+    extracted: io.BufferedReader,
+    staging_path: Path,
+    listed_size: int,
+    expected_digest: str,
+    member_name: str,
+) -> None:
+    staging_path.parent.mkdir(parents=True, exist_ok=True)
+    cap = max(int(listed_size), 1) * LISTED_SIZE_CAP
+    hasher = hashlib.sha256()
+    total = 0
+    tmp = staging_path.with_name(f'{staging_path.name}.part-{os.getpid()}')
+    try:
+        with tmp.open('wb') as out:
+            while True:
+                chunk = extracted.read(STREAM_CHUNK)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > cap:
+                    raise VerifyError(f'listed size cap exceeded for {member_name}')
+                hasher.update(chunk)
+                out.write(chunk)
+        digest = hasher.hexdigest()
+        if digest != expected_digest:
+            raise VerifyError(f'sha256 mismatch for {member_name}')
+        os.replace(tmp, staging_path)
+    except Exception:
+        tmp.unlink(missing_ok=True)
+        raise
 
 
 def extract_tar_stream(stream: bytes, dest_root: Path, expected: dict[str, dict]) -> set[str]:
-    satisfied: set[str] = set()
+    staging = _new_staging_dir(dest_root)
+    staged: dict[str, Path] = {}
     try:
         data = stream.lstrip(b'\n\r')
         with tarfile.open(fileobj=io.BytesIO(data), mode='r:') as tar:
@@ -247,22 +306,33 @@ def extract_tar_stream(stream: bytes, dest_root: Path, expected: dict[str, dict]
                 extracted = tar.extractfile(member)
                 if extracted is None:
                     raise VerifyError(f'missing tar member: {member.name}')
-                blob = extracted.read()
-                digest = sha256_bytes(blob)
-                if digest != expected[member.name]['sha256']:
-                    raise VerifyError(f'sha256 mismatch for {member.name}')
-                target = dest_root / member.name
-                target.parent.mkdir(parents=True, exist_ok=True)
-                if target.exists() and target.read_bytes() != blob:
-                    write_prev_copy(target)
-                target.write_bytes(blob)
-                satisfied.add(member.name)
+                staging_path = staging / member.name
+                meta = expected[member.name]
+                _stream_member_to_staging(
+                    extracted,
+                    staging_path,
+                    int(meta.get('size', 0)),
+                    meta['sha256'],
+                    member.name,
+                )
+                staged[member.name] = staging_path
+        missing = set(expected) - set(staged)
+        if missing:
+            raise VerifyError(f'tar missing members: {sorted(missing)[:3]}')
+        satisfied: set[str] = set()
+        for rel, staging_path in staged.items():
+            target = dest_root / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            new_bytes = staging_path.read_bytes()
+            if target.exists() and target.read_bytes() != new_bytes:
+                write_prev_copy(target)
+            os.replace(staging_path, target)
+            satisfied.add(rel)
+        return satisfied
     except tarfile.TarError as exc:
         raise VerifyError(f'tar read error: {exc}') from exc
-    missing = set(expected) - satisfied
-    if missing:
-        raise VerifyError(f'tar missing members: {sorted(missing)[:3]}')
-    return satisfied
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
 
 
 def atomic_write_json(path: Path, payload: dict | list) -> None:
@@ -397,16 +467,38 @@ def iter_job_prefixes(index: dict[str, dict]) -> list[str]:
     return sorted(set(prefixes))
 
 
-def index_fully_synced(dest: Path, index: dict[str, dict]) -> bool:
+def paths_needing_fetch(dest: Path, index: dict[str, dict], prior: dict[str, str]) -> list[str]:
+    to_fetch: list[str] = []
+    for path, meta in index.items():
+        if prior.get(path) != meta['sha256']:
+            to_fetch.append(path)
+            continue
+        local = dest / path
+        if not local.is_file():
+            to_fetch.append(path)
+            continue
+        if sha256_file(local) != meta['sha256']:
+            to_fetch.append(path)
+    return to_fetch
+
+
+def local_bytes_match_listing(dest: Path, index: dict[str, dict]) -> bool:
     local_index = load_json_state(dest / '.pull-index.json', dest)
     if not isinstance(local_index, dict):
         return False
     for path, meta in index.items():
         if local_index.get(path) != meta['sha256']:
             return False
-        if not (dest / path).is_file():
+        local = dest / path
+        if not local.is_file():
+            return False
+        if sha256_file(local) != meta['sha256']:
             return False
     return True
+
+
+def index_fully_synced(dest: Path, index: dict[str, dict]) -> bool:
+    return local_bytes_match_listing(dest, index)
 
 
 def all_jobs_manifest_verified(dest: Path, index: dict[str, dict]) -> bool:
@@ -443,7 +535,7 @@ def pull_cycle(
     prior = load_json_state(local_index_path, dest)
     if not isinstance(prior, dict):
         prior = {}
-    to_fetch = [path for path, meta in index.items() if prior.get(path) != meta['sha256']]
+    to_fetch = paths_needing_fetch(dest, index, prior)
     verified_paths: dict[str, str] = {}
     if to_fetch:
         for batch in make_batches(to_fetch, index):
@@ -539,10 +631,11 @@ def pull_until(
     cycles = 0
     exit_status = 0
     run_done_seen = False
+    final_verified = False
     while True:
         cycles += 1
         if max_cycles is not None and cycles > max_cycles:
-            return exit_status
+            return 0 if final_verified else 1
         try:
             announced, fetched = pull_cycle(transport, remote_root, dest, announce=announced)
             index = list_remote(transport)
@@ -561,15 +654,19 @@ def pull_until(
                     if max_cycles is None:
                         time.sleep(interval)
                     continue
-            if run_done_seen and index_fully_synced(dest, index) and all_jobs_manifest_verified(dest, index):
+            if run_done_seen and local_bytes_match_listing(dest, index) and all_jobs_manifest_verified(dest, index):
                 local_index = load_json_state(dest / '.pull-index.json', dest)
                 rel, meta = find_run_done(index, run_id)
                 if meta and isinstance(local_index, dict) and local_index.get(rel) == meta['sha256']:
-                    print(
-                        f'FINAL-VERIFIED {run_id} files={len(local_index)} jobs={len(announced)}',
-                        flush=True,
-                    )
-                    return exit_status
+                    local_done = dest / rel
+                    if local_done.is_file() and sha256_file(local_done) == meta['sha256']:
+                        print(
+                            f'FINAL-VERIFIED {run_id} files={len(local_index)} '
+                            f'jobs={len(announced)} run_exit={exit_status}',
+                            flush=True,
+                        )
+                        final_verified = True
+                        return 0
             backoff = interval
         except (TransportError, VerifyError, tarfile.TarError, OSError, ValueError) as exc:
             print(f'PULL-ERROR {exc}', flush=True)
@@ -577,7 +674,7 @@ def pull_until(
             backoff = min(backoff * 2, 300)
         if max_cycles is None:
             time.sleep(interval)
-    return exit_status
+    return 0 if final_verified else 1
 
 
 def build_transport(target: str, remote: str) -> Transport:

@@ -1,0 +1,168 @@
+"""Best-effort mirror of sealed jobs to the HF persistent bucket (/data)."""
+from __future__ import annotations
+
+import hashlib
+import os
+import time
+from pathlib import Path
+
+from . import artifacts
+
+CHUNK = 65536
+_SKIP_LOGGED: set[str] = set()
+
+
+def sha256_file(path: Path) -> str:
+    hasher = hashlib.sha256()
+    with path.open('rb') as fh:
+        while True:
+            chunk = fh.read(CHUNK)
+            if not chunk:
+                break
+            hasher.update(chunk)
+    return hasher.hexdigest()
+
+
+def mirror_root() -> Path | None:
+    raw = os.environ.get('HF_MIRROR_ROOT', '/data/e2')
+    root = Path(raw)
+    try:
+        root.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        if str(root) not in _SKIP_LOGGED:
+            _SKIP_LOGGED.add(str(root))
+        return None
+    if not root.is_dir():
+        if str(root) not in _SKIP_LOGGED:
+            _SKIP_LOGGED.add(str(root))
+            return None
+    if not os.access(root, os.W_OK):
+        if str(root) not in _SKIP_LOGGED:
+            _SKIP_LOGGED.add(str(root))
+        return None
+    return root
+
+
+def _append_run_log(run_log: Path | None, line: str) -> None:
+    if run_log is None or not run_log.parent.exists():
+        return
+    with run_log.open('a', encoding='utf-8') as fh:
+        fh.write(line.rstrip() + '\n')
+        fh.flush()
+        os.fsync(fh.fileno())
+
+
+def _skip_line(root: Path, run_log: Path | None) -> None:
+    _append_run_log(run_log, f'mirror skip: HF_MIRROR_ROOT not writable: {root}')
+
+
+def write_prev_copy(target: Path) -> None:
+    stamp = time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())
+    base = f'{target.name}.prev-{stamp}'
+    data = target.read_bytes()
+    suffix = 0
+    while True:
+        name = base if suffix == 0 else f'{base}-{suffix}'
+        prev = target.with_name(name)
+        try:
+            with open(prev, 'xb') as fh:
+                fh.write(data)
+            return
+        except FileExistsError:
+            suffix += 1
+
+
+def copy_file_verified(src: Path, dst: Path, expected_digest: str) -> None:
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    if dst.exists() and sha256_file(dst) == expected_digest:
+        return
+    if dst.exists() and sha256_file(dst) != expected_digest:
+        write_prev_copy(dst)
+    tmp = dst.with_name(f'{dst.name}.tmp-{os.getpid()}')
+    try:
+        with src.open('rb') as inp, tmp.open('wb') as out:
+            while True:
+                chunk = inp.read(CHUNK)
+                if not chunk:
+                    break
+                out.write(chunk)
+            out.flush()
+            os.fsync(out.fileno())
+        digest = sha256_bytes(tmp.read_bytes())
+        if digest != expected_digest:
+            tmp.unlink(missing_ok=True)
+            raise ValueError(f'digest mismatch for {dst.name}')
+        os.replace(tmp, dst)
+        with dst.open('rb') as check:
+            reread = hashlib.sha256(check.read()).hexdigest()
+        if reread != expected_digest:
+            raise ValueError(f'reread mismatch for {dst.name}')
+    except Exception:
+        tmp.unlink(missing_ok=True)
+        raise
+
+
+def sha256_bytes(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _manifest_digest_map(job_dir: Path) -> dict[str, str]:
+    manifest = job_dir / 'MANIFEST.sha256'
+    mapping: dict[str, str] = {}
+    for line in manifest.read_text().splitlines():
+        if not line.strip():
+            continue
+        digest, rel = line.split('  ', 1)
+        mapping[rel] = digest
+    return mapping
+
+
+def mirror_job_directory(
+    campaign_id: str,
+    runner: str,
+    job_id: str,
+    job_dir: Path,
+    run_log: Path | None,
+) -> None:
+    root = mirror_root()
+    if root is None:
+        _skip_line(Path(os.environ.get('HF_MIRROR_ROOT', '/data/e2')), run_log)
+        return
+    if not (job_dir / 'JOB-DONE').exists():
+        _append_run_log(run_log, f'MIRROR-ERROR {job_id} missing JOB-DONE')
+        return
+    dest = root / campaign_id / runner / job_id
+    try:
+        mapping = _manifest_digest_map(job_dir)
+        for rel, digest in sorted(mapping.items()):
+            copy_file_verified(job_dir / rel, dest / rel, digest)
+        for name in ('MANIFEST.sha256', 'JOB-DONE'):
+            src = job_dir / name
+            digest = sha256_file(src)
+            copy_file_verified(src, dest / name, digest)
+        for rel, digest in sorted(mapping.items()):
+            if sha256_file(dest / rel) != digest:
+                raise ValueError(f'mirror verify failed for {rel}')
+        for name in ('MANIFEST.sha256', 'JOB-DONE'):
+            if sha256_file(dest / name) != sha256_file(job_dir / name):
+                raise ValueError(f'mirror verify failed for {name}')
+        manifest_sha = sha256_file(dest / 'MANIFEST.sha256')
+        artifacts.atomic_write(dest / 'MIRROR-OK', f'manifest_sha256={manifest_sha}\n')
+    except (OSError, ValueError) as exc:
+        _append_run_log(run_log, f'MIRROR-ERROR {job_id} {exc}')
+
+
+def mirror_campaign_tail(campaign_root: Path, campaign_id: str, run_log: Path | None) -> None:
+    root = mirror_root()
+    if root is None:
+        return
+    dest = root / campaign_id
+    try:
+        for name in ('RUN-DONE', 'RUN.log'):
+            src = campaign_root / name
+            if not src.is_file():
+                continue
+            digest = sha256_file(src)
+            copy_file_verified(src, dest / name, digest)
+    except (OSError, ValueError) as exc:
+        _append_run_log(run_log, f'MIRROR-ERROR campaign {exc}')
