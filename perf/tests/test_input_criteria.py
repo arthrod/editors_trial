@@ -110,17 +110,17 @@ def _entry(cid="C07", **overrides):
         "trial_hints": {"cache_state": "warm_steady", "repetition_unit": "in_process_iteration"},
         "observations": [
             {
-                "frame_ms": 100.0,
+                "frame_ms": 118.5,
                 "sample_ms": 18.5,
                 "witness": publishable_witness_record(118.5, 100.0),
             },
             {
-                "frame_ms": 200.0,
+                "frame_ms": 221.25,
                 "sample_ms": 21.25,
                 "witness": publishable_witness_record(221.25, 200.0),
             },
             {
-                "frame_ms": 300.0,
+                "frame_ms": 319.0,
                 "sample_ms": 19.0,
                 "witness": publishable_witness_record(319.0, 300.0),
             },
@@ -128,6 +128,14 @@ def _entry(cid="C07", **overrides):
         "notes": [],
     }
     entry.update(overrides)
+    for index, observation in enumerate(entry["observations"]):
+        observation.setdefault("observation_id", f"observation-{index}")
+        if isinstance(observation.get("witness"), dict):
+            observation.setdefault("input_ms", observation["witness"].get("after_page_ms"))
+    entry.setdefault("sample_observation_ids", [
+        observation["observation_id"]
+        for observation in entry["observations"][:len(entry["samples_ms"])]]
+    )
     return entry
 
 
@@ -198,7 +206,7 @@ class CriteriaPayloadHonesty(unittest.TestCase):
 
     def test_copied_sample_vectors_are_rejected(self):
         shared_witness = publishable_witness_record(21.0, 1.0)
-        shared_obs = {"frame_ms": 21.0, "sample_ms": 20.0, "witness": shared_witness}
+        shared_obs = {"input_ms": 1.0, "frame_ms": 21.0, "sample_ms": 20.0, "witness": shared_witness}
         c07 = _entry(cid="C07", samples_ms=[20.0])
         c07["observations"][0] = {**c07["observations"][0], **shared_obs}
         entries = {
@@ -264,6 +272,8 @@ class CriteriaPayloadHonesty(unittest.TestCase):
         observations[1]["caret_on_clicked_line"] = True
         for obs in observations:
             frame = float(obs["frame_ms"])
+            obs["input_ms"] = frame
+            obs["frame_ms"] = frame + 18.5
             obs["sample_ms"] = 18.5
             obs["witness"] = publishable_witness_record(frame + 18.5, frame)
         assert_payload_shape(

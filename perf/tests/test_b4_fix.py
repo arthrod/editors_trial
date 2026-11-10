@@ -122,6 +122,8 @@ class Issue131Writer(unittest.TestCase):
 
     def test_c08_rounding_does_not_drop_whole_payload(self):
         c07 = _entry(samples_ms=[20.0])
+        c07["observations"][0]["input_ms"] = 1.0
+        c07["observations"][0]["frame_ms"] = 21.0
         c07["observations"][0]["sample_ms"] = 20.0
         c07["observations"][0]["witness"] = publishable_witness_record(21.0, 1.0)
         c08 = _entry(
@@ -205,6 +207,8 @@ class Issue138WitnessAndWriter(unittest.TestCase):
             observations=[{"frame_ms": 101.0, "sample_ms": 1.0, "witness": bad}],
         )
         c07 = _entry(samples_ms=[20.0])
+        c07["observations"][0]["input_ms"] = 1.0
+        c07["observations"][0]["frame_ms"] = 21.0
         c07["observations"][0]["sample_ms"] = 20.0
         c07["observations"][0]["witness"] = publishable_witness_record(21.0, 1.0)
         payload = _payload({"C08": c08, "C07": c07})
