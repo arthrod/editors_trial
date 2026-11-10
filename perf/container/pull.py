@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import base64
 import hashlib
 import io
 import json
@@ -18,41 +17,72 @@ from pathlib import Path, PurePosixPath
 
 BATCH_MAX_BYTES = 64 * 1024 * 1024
 BATCH_MAX_FILES = 500
+BATCH_MAX_PATH_BYTES = 32 * 1024
+
+TAR_STDIN_MARKER = "sys.stdin.buffer.read()"
 
 REMOTE_LIST = (
     "python3 -I -c "
     + shlex.quote(
         "import hashlib,json,os,stat,sys\n"
-        "root=os.environ.get('REMOTE_ROOT','.')\n"
-        "sys.stdout.write('\\n');sys.stdout.flush()\n"
-        "for dp,_,fns in os.walk(root):\n"
+        "root='.'\n"
+        "def warn(path,reason):\n"
+        "  print(json.dumps({'pull_warn':reason,'path':path},ensure_ascii=True),flush=True)\n"
+        "def good_name(path):\n"
+        "  if '\\n' in path or '\\0' in path:\n"
+        "    warn(path,'not a regular file');return False\n"
+        "  try: path.encode('utf-8')\n"
+        "  except UnicodeEncodeError:\n"
+        "    warn(path,'not a regular file');return False\n"
+        "  return True\n"
+        "for dp,dns,fns in os.walk(root):\n"
+        "  for dn in dns:\n"
+        "    p=os.path.join(dp,dn)\n"
+        "    try: st=os.lstat(p)\n"
+        "    except OSError: continue\n"
+        "    if stat.S_ISLNK(st.st_mode):\n"
+        "      try:\n"
+        "        if stat.S_ISDIR(os.stat(p).st_mode):\n"
+        "          rel=os.path.relpath(p,root).replace(os.sep,'/')\n"
+        "          warn(rel,'directory symlink')\n"
+        "      except OSError: pass\n"
         "  for fn in fns:\n"
         "    p=os.path.join(dp,fn)\n"
         "    try: st=os.lstat(p)\n"
         "    except OSError: continue\n"
         "    rel=os.path.relpath(p,root).replace(os.sep,'/')\n"
+        "    if not good_name(rel): continue\n"
         "    if stat.S_ISLNK(st.st_mode):\n"
-        "      print(f'PULL-WARN {rel} not a regular file',flush=True); continue\n"
+        "      try: mode=os.stat(p).st_mode\n"
+        "      except OSError: warn(rel,'not a regular file');continue\n"
+        "      if stat.S_ISDIR(mode):\n"
+        "        warn(rel,'directory symlink');continue\n"
+        "      warn(rel,'not a regular file');continue\n"
         "    if not stat.S_ISREG(st.st_mode):\n"
-        "      print(f'PULL-WARN {rel} not a regular file',flush=True); continue\n"
-        "    if '\\n' in rel:\n"
-        "      print(f'PULL-WARN {rel} not a regular file',flush=True); continue\n"
+        "      warn(rel,'not a regular file');continue\n"
         "    with open(p,'rb') as fh: digest=hashlib.sha256(fh.read()).hexdigest()\n"
         "    print(json.dumps({'path':rel,'size':st.st_size,'mtime':int(st.st_mtime),"
-        "'sha256':digest}),flush=True)\n"
+        "'sha256':digest},ensure_ascii=True),flush=True)\n"
     )
 )
 
 REMOTE_TAR_SCRIPT = (
-    "import base64,json,os,sys,tarfile\n"
-    "root=os.environ.get('REMOTE_ROOT','.')\n"
-    "paths=json.loads(base64.b64decode(sys.argv[1]))\n"
+    "import io,os,stat,sys,tarfile\n"
+    "raw=sys.stdin.buffer.read()\n"
+    "paths=[p.decode() for p in raw.split(b'\\0') if p]\n"
     "sys.stdout.buffer.flush()\n"
     "with tarfile.open(fileobj=sys.stdout.buffer,mode='w|') as tar:\n"
     "  for rel in paths:\n"
-    "    path=os.path.join(root,rel)\n"
+    "    path=os.path.join('.',rel)\n"
     "    if not os.path.isfile(path): continue\n"
-    "    tar.add(path,arcname=rel,recursive=False)\n"
+    "    st=os.lstat(path)\n"
+    "    if stat.S_ISREG(st.st_mode) and st.st_nlink>1:\n"
+    "      with open(path,'rb') as fh: data=fh.read()\n"
+    "      info=tarfile.TarInfo(name=rel)\n"
+    "      info.size=len(data)\n"
+    "      tar.addfile(info,io.BytesIO(data))\n"
+    "    else:\n"
+    "      tar.add(path,arcname=rel,recursive=False)\n"
 )
 
 
@@ -65,8 +95,15 @@ class VerifyError(RuntimeError):
 
 
 class Transport:
-    def run(self, shell_fragment: str) -> bytes:
+    def run(self, shell_fragment: str, *, stdin: bytes | None = None) -> bytes:
         raise NotImplementedError
+
+
+def format_command_error(result: subprocess.CompletedProcess[bytes]) -> str:
+    raw = (result.stderr or result.stdout or b'command failed')[:500]
+    text = raw.decode('utf-8', 'replace')
+    text = ''.join(ch if ch.isprintable() or ch in '\n\t' else '?' for ch in text)
+    return text.strip()
 
 
 class SshTransport(Transport):
@@ -74,16 +111,16 @@ class SshTransport(Transport):
         self.target = target
         self.remote_root = remote_root
 
-    def run(self, shell_fragment: str) -> bytes:
-        command = f'cd {shlex.quote(self.remote_root)} && {shell_fragment}'
+    def run(self, shell_fragment: str, *, stdin: bytes | None = None) -> bytes:
+        command = f'cd {shlex.quote(self.remote_root)} && unset REMOTE_ROOT && {shell_fragment}'
         result = subprocess.run(
             ['ssh', self.target, command],
             capture_output=True,
             check=False,
+            input=stdin,
         )
         if result.returncode != 0:
-            text = result.stderr.decode() or result.stdout.decode() or 'ssh failed'
-            raise TransportError(text.strip())
+            raise TransportError(format_command_error(result))
         return result.stdout
 
 
@@ -94,16 +131,20 @@ class BashTransport(Transport):
         self.remote_root = Path(remote_root)
         self.call_log: list[str] = []
 
-    def run(self, shell_fragment: str) -> bytes:
+    def run(self, shell_fragment: str, *, stdin: bytes | None = None) -> bytes:
         self.call_log.append(shell_fragment)
         script = (
             f'export REMOTE_ROOT={shlex.quote(str(self.remote_root))}; '
-            f'cd "$REMOTE_ROOT" && {shell_fragment}'
+            f'cd "$REMOTE_ROOT" && unset REMOTE_ROOT && {shell_fragment}'
         )
-        result = subprocess.run(['bash', '-c', script], capture_output=True, check=False)
+        result = subprocess.run(
+            ['bash', '-c', script],
+            capture_output=True,
+            check=False,
+            input=stdin,
+        )
         if result.returncode != 0:
-            text = result.stderr.decode() or result.stdout.decode() or 'bash failed'
-            raise TransportError(text.strip())
+            raise TransportError(format_command_error(result))
         return result.stdout
 
 
@@ -119,47 +160,56 @@ def safe_tar_member(name: str) -> None:
         raise VerifyError(f'tar jail rejected member: {name!r}')
 
 
-def list_remote(transport: Transport) -> dict[str, dict]:
-    raw = transport.run(REMOTE_LIST).decode()
+def parse_listing(raw: str) -> dict[str, dict]:
     index: dict[str, dict] = {}
     for line in raw.splitlines():
         line = line.strip()
         if not line:
             continue
-        if line.startswith('PULL-WARN'):
-            print(line, flush=True)
-            continue
         row = json.loads(line)
+        if 'pull_warn' in row:
+            print(f"PULL-WARN {row['path']} {row['pull_warn']}", flush=True)
+            continue
         index[row['path']] = row
     return index
 
 
-def fetch_tar_command(paths: list[str]) -> str:
-    payload = base64.b64encode(json.dumps(paths).encode()).decode()
-    return f"python3 -I -c {shlex.quote(REMOTE_TAR_SCRIPT)} {shlex.quote(payload)}"
+def list_remote(transport: Transport) -> dict[str, dict]:
+    raw = transport.run(REMOTE_LIST).decode()
+    return parse_listing(raw)
+
+
+def fetch_tar_command() -> str:
+    return f"python3 -I -c {shlex.quote(REMOTE_TAR_SCRIPT)}"
 
 
 def fetch_tar(transport: Transport, paths: list[str]) -> bytes:
     if not paths:
         return b''
-    return transport.run(fetch_tar_command(paths))
+    payload = '\0'.join(paths).encode()
+    return transport.run(fetch_tar_command(), stdin=payload)
 
 
 def make_batches(paths: list[str], index: dict[str, dict]) -> list[list[str]]:
     batches: list[list[str]] = []
     batch: list[str] = []
     batch_bytes = 0
+    batch_path_bytes = 0
     for path in paths:
         size = int(index[path]['size'])
+        path_len = len(path.encode())
         if batch and (
             len(batch) >= BATCH_MAX_FILES
             or batch_bytes + size > BATCH_MAX_BYTES
+            or batch_path_bytes + path_len > BATCH_MAX_PATH_BYTES
         ):
             batches.append(batch)
             batch = []
             batch_bytes = 0
+            batch_path_bytes = 0
         batch.append(path)
         batch_bytes += size
+        batch_path_bytes += path_len
     if batch:
         batches.append(batch)
     return batches
@@ -197,15 +247,15 @@ def extract_tar_stream(stream: bytes, dest_root: Path, expected: dict[str, dict]
                 extracted = tar.extractfile(member)
                 if extracted is None:
                     raise VerifyError(f'missing tar member: {member.name}')
-                data = extracted.read()
-                digest = sha256_bytes(data)
+                blob = extracted.read()
+                digest = sha256_bytes(blob)
                 if digest != expected[member.name]['sha256']:
                     raise VerifyError(f'sha256 mismatch for {member.name}')
                 target = dest_root / member.name
                 target.parent.mkdir(parents=True, exist_ok=True)
-                if target.exists() and target.read_bytes() != data:
+                if target.exists() and target.read_bytes() != blob:
                     write_prev_copy(target)
-                target.write_bytes(data)
+                target.write_bytes(blob)
                 satisfied.add(member.name)
     except tarfile.TarError as exc:
         raise VerifyError(f'tar read error: {exc}') from exc
@@ -215,27 +265,61 @@ def extract_tar_stream(stream: bytes, dest_root: Path, expected: dict[str, dict]
     return satisfied
 
 
-def fetch_tar_batches(
-    transport: Transport,
-    paths: list[str],
-    index: dict[str, dict],
-    dest: Path,
-) -> set[str]:
-    verified: set[str] = set()
-    for batch in make_batches(paths, index):
-        stream = fetch_tar(transport, batch)
-        subset = {path: index[path] for path in batch}
-        verified |= extract_tar_stream(stream, dest, subset)
-    return verified
+def atomic_write_json(path: Path, payload: dict | list) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + f'.tmp-{os.getpid()}')
+    tmp.write_text(json.dumps(payload, sort_keys=True) + '\n')
+    fd = os.open(tmp, os.O_RDONLY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+    os.replace(tmp, path)
+    dir_fd = os.open(path.parent, os.O_RDONLY)
+    try:
+        os.fsync(dir_fd)
+    finally:
+        os.close(dir_fd)
 
 
-def load_json(path: Path) -> dict:
+def rebuild_local_index(dest: Path) -> dict[str, str]:
+    digest_by_path: dict[str, str] = {}
+    for path in dest.rglob('*'):
+        if not path.is_file():
+            continue
+        name = path.name
+        if name.startswith('.pull-') or '.pull-index.json.corrupt-' in name:
+            continue
+        rel = path.relative_to(dest).as_posix()
+        digest_by_path[rel] = sha256_bytes(path.read_bytes())
+    return digest_by_path
+
+
+def load_json_state(path: Path, dest: Path) -> dict | list:
+    empty: dict | list = [] if path.name == '.pull-announced.json' else {}
     if not path.exists():
-        return {}
-    return json.loads(path.read_text())
+        return empty
+    try:
+        return json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        stamp = time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())
+        print('PULL-WARN index unreadable; rebuilding', flush=True)
+        for suffix in range(1000):
+            corrupt = path.with_name(
+                f'{path.name}.corrupt-{stamp}' if suffix == 0 else f'{path.name}.corrupt-{stamp}-{suffix}'
+            )
+            try:
+                with open(corrupt, 'xb') as fh:
+                    fh.write(path.read_bytes())
+                break
+            except FileExistsError:
+                continue
+        if path.name == '.pull-index.json':
+            return rebuild_local_index(dest)
+        return empty
 
 
-def verify_job_manifest(dest_root: Path, job_prefix: str, remote_index: dict[str, dict]) -> int:
+def verify_job_manifest_impl(dest_root: Path, job_prefix: str, remote_index: dict[str, dict]) -> int:
     job_done_rel = f'{job_prefix}/JOB-DONE'
     if job_done_rel not in remote_index:
         return 0
@@ -258,6 +342,8 @@ def verify_job_manifest(dest_root: Path, job_prefix: str, remote_index: dict[str
     for path in sorted(job_dir.rglob('*')):
         if not path.is_file() or path.name in ('MANIFEST.sha256', 'JOB-DONE'):
             continue
+        if '.prev-' in path.name:
+            continue
         rel = path.relative_to(job_dir).as_posix()
         if rel not in listed:
             raise VerifyError(f'manifest missing file {job_prefix}/{rel}')
@@ -275,35 +361,95 @@ def verify_job_manifest(dest_root: Path, job_prefix: str, remote_index: dict[str
     return len(listed)
 
 
+def verify_job_manifest(dest_root: Path, job_prefix: str, remote_index: dict[str, dict]) -> int:
+    return verify_job_manifest_impl(dest_root, job_prefix, remote_index)
+
+
+def run_done_candidates(run_id: str) -> list[str]:
+    return [f'runs/{run_id}/RUN-DONE', f'{run_id}/RUN-DONE']
+
+
+def find_run_done(index: dict[str, dict], run_id: str) -> tuple[str | None, dict | None]:
+    for rel in run_done_candidates(run_id):
+        meta = index.get(rel)
+        if meta:
+            return rel, meta
+    return None, None
+
+
+def iter_job_prefixes(index: dict[str, dict]) -> list[str]:
+    prefixes: list[str] = []
+    seen: set[str] = set()
+    for path in index:
+        m = re.match(r'^(runs/[^/]+/[^/]+/[^/]+)/JOB-DONE$', path)
+        if not m:
+            m2 = re.match(r'^([^/]+)/([^/]+)/([^/]+)/JOB-DONE$', path)
+            if m2:
+                prefix = f'{m2.group(1)}/{m2.group(2)}/{m2.group(3)}'
+                if prefix not in seen:
+                    seen.add(prefix)
+                    prefixes.append(prefix)
+            continue
+        prefix = m.group(1)
+        if prefix not in seen:
+            seen.add(prefix)
+            prefixes.append(prefix)
+    return sorted(set(prefixes))
+
+
+def index_fully_synced(dest: Path, index: dict[str, dict]) -> bool:
+    local_index = load_json_state(dest / '.pull-index.json', dest)
+    if not isinstance(local_index, dict):
+        return False
+    for path, meta in index.items():
+        if local_index.get(path) != meta['sha256']:
+            return False
+        if not (dest / path).is_file():
+            return False
+    return True
+
+
+def all_jobs_manifest_verified(dest: Path, index: dict[str, dict]) -> bool:
+    for job_prefix in iter_job_prefixes(index):
+        job_done_rel = f'{job_prefix}/JOB-DONE'
+        if job_done_rel not in index:
+            continue
+        local_index = load_json_state(dest / '.pull-index.json', dest)
+        if not isinstance(local_index, dict):
+            return False
+        if local_index.get(job_done_rel) != index[job_done_rel]['sha256']:
+            return False
+        try:
+            verify_job_manifest_impl(dest, job_prefix, index)
+        except VerifyError:
+            return False
+    return True
+
+
 def pull_cycle(
     transport: Transport,
     remote_root: Path,
     dest: Path,
     *,
     announce: set[str] | None = None,
-    verified_jobs: set[str] | None = None,
-) -> set[str]:
+) -> tuple[set[str], int]:
     dest = Path(dest)
     announce_path = dest / '.pull-announced.json'
     if announce is None:
-        announce = set(json.loads(announce_path.read_text())) if announce_path.exists() else set()
-    if verified_jobs is None:
-        verified_jobs = set()
+        raw = load_json_state(announce_path, dest)
+        announce = set(raw) if isinstance(raw, list) else set()
     index = list_remote(transport)
     local_index_path = dest / '.pull-index.json'
-    prior = load_json(local_index_path)
+    prior = load_json_state(local_index_path, dest)
+    if not isinstance(prior, dict):
+        prior = {}
     to_fetch = [path for path, meta in index.items() if prior.get(path) != meta['sha256']]
     verified_paths: dict[str, str] = {}
     if to_fetch:
-        batches = make_batches(to_fetch, index)
-
-        def run_batch(batch: list[str]) -> set[str]:
+        for batch in make_batches(to_fetch, index):
             stream = fetch_tar(transport, batch)
             subset = {path: index[path] for path in batch}
-            return extract_tar_stream(stream, dest, subset)
-
-        for batch in batches:
-            satisfied = run_batch(batch)
+            satisfied = extract_tar_stream(stream, dest, subset)
             for path in satisfied:
                 verified_paths[path] = index[path]['sha256']
     new_index = dict(prior)
@@ -315,14 +461,17 @@ def pull_cycle(
         if prior.get(path) == meta['sha256']:
             new_index[path] = meta['sha256']
     dest.mkdir(parents=True, exist_ok=True)
-    local_index_path.write_text(json.dumps(dict(sorted(new_index.items()))) + '\n')
+    atomic_write_json(local_index_path, new_index)
     jobs: dict[str, str] = {}
     for path in index:
         m = re.match(r'^runs/([^/]+)/([^/]+)/([^/]+)/JOB-DONE$', path)
         if m:
             jobs[f'runs/{m.group(1)}/{m.group(2)}/{m.group(3)}'] = m.group(1)
+        m2 = re.match(r'^([^/]+)/([^/]+)/([^/]+)/JOB-DONE$', path)
+        if m2:
+            jobs[f'{m2.group(1)}/{m2.group(2)}/{m2.group(3)}'] = m2.group(1)
     for job_prefix, run_id in sorted(jobs.items()):
-        key = f'{run_id}/{job_prefix.removeprefix(f"runs/{run_id}/")}'
+        key = f'{run_id}/{job_prefix.removeprefix(f"runs/{run_id}/")}' if job_prefix.startswith('runs/') else job_prefix
         job_dir = dest / job_prefix
         if key in announce:
             manifest = job_dir / 'MANIFEST.sha256'
@@ -334,6 +483,8 @@ def pull_cycle(
                 }
                 for path in sorted(job_dir.rglob('*')):
                     if not path.is_file() or path.name in ('MANIFEST.sha256', 'JOB-DONE'):
+                        continue
+                    if '.prev-' in path.name:
                         continue
                     rel = path.relative_to(job_dir).as_posix()
                     if rel not in listed:
@@ -353,9 +504,25 @@ def pull_cycle(
                 status = int(line.split('=', 1)[1])
         print(f'JOB-DONE {key} status={status} files={files} verified', flush=True)
         announce.add(key)
-        verified_jobs.add(key)
-    announce_path.write_text(json.dumps(sorted(announce)) + '\n')
-    return announce
+    atomic_write_json(announce_path, sorted(announce))
+    return announce, len(verified_paths)
+
+
+def ensure_run_done_local(
+    transport: Transport,
+    dest: Path,
+    index: dict[str, dict],
+    run_done_rel: str,
+    meta: dict,
+) -> None:
+    idx = load_json_state(dest / '.pull-index.json', dest)
+    if not isinstance(idx, dict):
+        idx = {}
+    if idx.get(run_done_rel) != meta['sha256']:
+        stream = fetch_tar(transport, [run_done_rel])
+        extract_tar_stream(stream, dest, {run_done_rel: meta})
+        idx[run_done_rel] = meta['sha256']
+        atomic_write_json(dest / '.pull-index.json', idx)
 
 
 def pull_until(
@@ -368,32 +535,40 @@ def pull_until(
     max_cycles: int | None = None,
 ) -> int:
     announced: set[str] = set()
-    verified_jobs: set[str] = set()
     backoff = interval
     cycles = 0
     exit_status = 0
+    run_done_seen = False
     while True:
         cycles += 1
         if max_cycles is not None and cycles > max_cycles:
             return exit_status
         try:
-            pull_cycle(transport, remote_root, dest, announce=announced, verified_jobs=verified_jobs)
+            announced, fetched = pull_cycle(transport, remote_root, dest, announce=announced)
             index = list_remote(transport)
-            run_done_rel = f'runs/{run_id}/RUN-DONE'
-            run_done = index.get(run_done_rel)
-            if run_done:
+            run_done_rel, run_done = find_run_done(index, run_id)
+            if run_done and run_done_rel:
+                ensure_run_done_local(transport, dest, index, run_done_rel, run_done)
                 done_path = dest / run_done_rel
-                idx = load_json(dest / '.pull-index.json')
-                if idx.get(run_done_rel) != run_done['sha256']:
-                    stream = fetch_tar(transport, [run_done_rel])
-                    extract_tar_stream(stream, dest, {run_done_rel: run_done})
-                    idx[run_done_rel] = run_done['sha256']
-                    (dest / '.pull-index.json').write_text(json.dumps(dict(sorted(idx.items()))) + '\n')
                 if done_path.exists():
                     for line in done_path.read_text().splitlines():
                         if line.startswith('exit_status='):
                             exit_status = int(line.split('=', 1)[1])
                     print(f'RUN-DONE {run_id} exit_status={exit_status}', flush=True)
+                if not run_done_seen:
+                    run_done_seen = True
+                    backoff = interval
+                    if max_cycles is None:
+                        time.sleep(interval)
+                    continue
+            if run_done_seen and index_fully_synced(dest, index) and all_jobs_manifest_verified(dest, index):
+                local_index = load_json_state(dest / '.pull-index.json', dest)
+                rel, meta = find_run_done(index, run_id)
+                if meta and isinstance(local_index, dict) and local_index.get(rel) == meta['sha256']:
+                    print(
+                        f'FINAL-VERIFIED {run_id} files={len(local_index)} jobs={len(announced)}',
+                        flush=True,
+                    )
                     return exit_status
             backoff = interval
         except (TransportError, VerifyError, tarfile.TarError, OSError, ValueError) as exc:

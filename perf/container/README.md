@@ -140,12 +140,18 @@ treat the VM as fragile.
    ```bash
    perf/container/pull.sh --target "$HF_SSH" --remote /app/perf/container/out \
      --dest "$HOME/path/to/e2-logs/hf-data/e2-publish" --interval 60 \
-     --until-run YYYYMMDDTHHMMSSffffffZ
+     --until-run 20261110T203054948922Z-33514-935073
    ```
 
-   Pull never deletes locally; changed bytes are kept as `name.prev-<UTC-stamp>`.
-   One line is printed per newly verified job and when `RUN-DONE` arrives.
-3. Do not restart or factory-reboot the Space and do not push its repository until
-   the final pull has verified `RUN-DONE` for that campaign.
+   The `--until-run` value is the campaign run id printed by `run.sh --detach`
+   (`<UTC-stamp>-<pid>-<six-random-digits>`). Pull never deletes locally; changed
+   bytes are kept as `name.prev-<UTC-stamp>`. One line is printed per newly
+   verified job. When the remote lists `RUN-DONE`, pull prints that marker for
+   visibility but keeps copying until one full cycle after that finds nothing new,
+   every listed file is present and hashed, and every sealed job passes manifest
+   verification. Only then it prints `FINAL-VERIFIED <run-id> files=<n> jobs=<k>`.
+3. Do not restart, factory-reboot, or push the Space repository until pull prints
+   `FINAL-VERIFIED` for that campaign. A `RUN-DONE` line alone is not permission
+   to change the Space.
 4. No HF token belongs in the container image: measurement data returns only via
    pull (and the periodic SSH from pull serves as a Dev Mode keepalive).
