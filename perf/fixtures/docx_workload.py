@@ -436,9 +436,12 @@ def _legacy(row: dict) -> dict:
 
 
 def ladder_row_for_env(row: dict) -> dict:
-    """Return a ladder row safe for ``_host_base`` when ``paragraphs`` is unset."""
-    if row.get("paragraphs") is not None:
-        return row
+    """Describe a prose/corpus rung by the paragraphs of the DOCX actually served.
+
+    The ladder's ``paragraphs`` is the prose body count; the package also holds
+    headings, correctness lines and the sentinel (document and scroll already
+    record the package count).
+    """
     if row.get("shape") in ("prose", "corpus"):
         return {**row, "paragraphs": workload_docx(row["workload_id"])["paragraph_count"]}
     return row
