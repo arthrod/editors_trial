@@ -574,7 +574,8 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
                         if criterion:
                             diagnostic = value.get('diagnostic') or {}
                             measure = value.get('measure') or diagnostic.get('size_rung') or diagnostic.get('measurement') or ''
-                            identity = (criterion, str(measure))
+                            phase = value.get('measurement_phase') or ''
+                            identity = (criterion, str(measure), str(phase))
                             attempts[identity] = attempts.get(identity, 0) + 1
                     if runner == 'benchmark_typing' and isinstance(value, dict) and value.get('criterion_id') == 'TYPING':
                         typing_kept = (value.get('outcome') == 'measured' and not value.get('failure_reason')

@@ -713,6 +713,8 @@ def _browser_rows(
                 _stop_server(server)
 
     failures = [pair for pair in pairs if pair.get("error")]
+    from perf.runner.browser_run import host_class
+
     diagnostics = {
         "pairs": [_pair_diagnostic(pair) for pair in pairs],
         "harness": harness_meta,
@@ -720,7 +722,7 @@ def _browser_rows(
         "quiescence_ms": args.quiescence_ms,
         "retain_seconds": list(args.retain_seconds),
         "load_average": load_average(),
-        "host_class": "ci_coarse",
+        "host_class": host_class(),
     }
 
     def env_for(cache_state):
@@ -1453,17 +1455,24 @@ def _main() -> int:
         )
         print("%s done: %d attempts" % (editor_id, len([row for row in rows if row["editor_id"] == editor_id])))
 
+    from perf.runner.browser_run import host_class as lane_host_class
+
+    lane_host = lane_host_class()
     summary = {
         "runner": "perf/runner/benchmark_memory.py",
         "criterion_ids": ["C17", "C19", "C22"],
-        "host_class": "ci_coarse",
+        "host_class": lane_host,
         "execution_profile": args.execution_profile,
         "pairs": args.pairs,
         "sample_unit": "bytes (C17/C19); the harness series field is named samples_ms",
         "sampling_method": "ps -Ao pid=,ppid=,rss= summed over the process tree",
         "pss_uss_cgroup": None,
         "publishable": False,
-        "publication_block_reason": "ci_coarse host_class blocks headline publication",
+        "publication_block_reason": (
+            "ci_coarse host_class blocks headline publication"
+            if lane_host == "ci_coarse"
+            else "summary is not a trial; trials carry publishability"
+        ),
         "rows": rows,
         "support": support_table(),
         "environment": {
