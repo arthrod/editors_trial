@@ -176,6 +176,9 @@ def frame_record():
         'diff_ratio': 0.01,
         'threshold': 0.00001,
         'caret_masked': True,
+        'document_scoped': True,
+        'changed_pixels': 100,
+        'clock_check': {'acceptable': True, 'page_offset_ms': 0},
     }
 
 
