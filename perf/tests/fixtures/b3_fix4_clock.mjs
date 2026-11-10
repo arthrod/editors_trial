@@ -12,7 +12,7 @@ function pic(x) {
   }
   return {width:100,height:100,data};
 }
-for (const scenario of ['ordinary', 'unknown-first', 'missing-frame', 'unknown-only', 'failed-ack']) {
+for (const scenario of ['ordinary', 'unknown-first', 'missing-frame', 'unknown-only', 'failed-ack', 'screenshot-frame']) {
   const unknown = scenario === 'unknown-first';
   let now = origin+900;
   class Clock extends Date { static now(){ return now; } }
@@ -38,7 +38,7 @@ for (const scenario of ['ordinary', 'unknown-first', 'missing-frame', 'unknown-o
     if(code.includes('devicePixelRatio'))return 1;
     return 900;
   }};
-  context.rec={frames,decoded:new Map(pictures.map((p,i)=>[i,p])),cdp:{send:async()=>({data:png})}};
+  context.rec={frames,decoded:new Map(pictures.map((p,i)=>[i,p])),cdp:{send:async()=>{ if(scenario === 'screenshot-frame') { frames.push({seq:3,ack:'acked',ts:(origin+1000)/1000}); context.rec.decoded.set(3,{width:1,height:1,data:Buffer.alloc(4)}); } return {data:png}; }}};
   const result=await vm.runInContext('waitForScreencastInk(page,rec)',context);
   const expected = ['missing-frame','unknown-only','failed-ack'].includes(scenario) ? null : 520;
   assert.equal(result.at_ms,expected,`unknown first timestamp=${unknown}: disjoint flash must not qualify; never use poll time`);

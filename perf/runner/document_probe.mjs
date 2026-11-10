@@ -298,10 +298,13 @@ async function waitForScreencastInk(page, recorder) {
   if (!lastObserved || Date.now() - quietSince < 500) return refused('settled_frame_not_observed');
   // Exactly one settled capture. CDP clips use CSS coordinates; PNG pixels
   // are device pixels (scale=1 and the page's deviceScaleFactor).
+  // Freeze the observation at capture initiation. A clipped screenshot may
+  // itself emit a resized screencast frame; that is capture machinery, not
+  // a document paint preceding the settled reference.
+  const frames = recorder.frames.slice();
   const shot = await recorder.cdp.send('Page.captureScreenshot', {
     format: 'png', clip: { ...scope.rect_css, scale: 1 }, captureBeyondViewport: false,
   });
-  const frames = recorder.frames.slice();
   const decoded = decodePng(Buffer.from(shot.data, 'base64'));
   const reference = cropInkRegion(decoded, { x: 0, y: 0, width: decoded.width, height: decoded.height }, inset);
   if (settledInkPixels(reference) < screencastInkMinPixels) return refused('document_surface_absent');
