@@ -561,8 +561,12 @@ def _persist_attempt(attempt_dir, criterion_id, editor_id, trial):
             outcome if outcome in ('not_run', 'not_applicable', 'unsupported', 'unverified') else
             'malformed_samples' if reason.startswith(('record_', 'not_a_witness_record', 'unknown_outcome', 'invalid_record', 'no_outcome')) else
             'paint_witness_unavailable' if reason.startswith(('clock_', 'frame_', 'witness_', 'no_frame', 'missing_input', 'caret_', 'not_document_scoped', 'no_pixel_evidence', 'pixel_evidence_')) else
+            'witness_unavailable' if reason.startswith(('nonfinite_time', 'monotonic_origin_missing', 'negative_input_latency')) else
+            'harness_error' if reason.startswith('input_probe_error') else
             'crash')
     trial.setdefault('refusal_code', code)
+    if code and 'refusal_detail' not in trial:
+        trial['refusal_detail'] = reason
     active = ACTIVE.get()
     name = "%s-%s-%s" % (criterion_id.lower(), editor_id, uuid.uuid4().hex[:10])
     if active is not None:

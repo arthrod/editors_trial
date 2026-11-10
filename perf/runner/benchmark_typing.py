@@ -121,9 +121,10 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
         await sampler.mark('typed_100')
         expected = normalize(text)
         if actual != expected:
-            result.update(failure_reason='text_mismatch', first_divergence_offset=divergence(expected, actual))
+            result.update(failure_reason='text_mismatch', refusal_code='correctness_failure', first_divergence_offset=divergence(expected, actual))
     except (asyncio.TimeoutError, asyncio.CancelledError):
         result['failure_reason'] = 'budget_exceeded'
+        result['refusal_code'] = 'editor_timeout'
     except Exception as exc:
         result['failure_reason'] = 'out_of_memory' if 'out of memory' in str(exc).lower() else 'crash'
         result['error'] = str(exc)
@@ -145,7 +146,9 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
 
 
 class SessionRefusal(RuntimeError):
-    pass
+    def __init__(self, reason, refusal_code=None):
+        super().__init__(reason)
+        self.refusal_code = refusal_code
 
 
 class Bridge:
@@ -285,7 +288,7 @@ async def session(target, text, args, directory):
                             await (await download.value).save_as(directory/'export.docx')
                         except PlaywrightTimeoutError as exc:
                             result['save_reason'] = 'save_timeout'
-                            raise SessionRefusal('save_timeout') from exc
+                            raise SessionRefusal('save_timeout', refusal_code='editor_timeout') from exc
                         result.update(save_ms=(time.monotonic()-t0)*1000, save_reason=None)
                     await sampler.mark('save')
                     await sampler.mark('quiescence_start')
@@ -296,8 +299,13 @@ async def session(target, text, args, directory):
     except ModuleNotFoundError as exc:
         result.update(failure_reason='dependency_missing', refusal_code='dependency_missing',
                       missing_module=exc.name, error=str(exc))
-    except SessionRefusal as exc: result['failure_reason'] = str(exc)
-    except (TimeoutError, asyncio.CancelledError): result['failure_reason'] = 'budget_exceeded'
+    except SessionRefusal as exc:
+        result['failure_reason'] = str(exc)
+        if getattr(exc, 'refusal_code', None):
+            result['refusal_code'] = exc.refusal_code
+    except (TimeoutError, asyncio.CancelledError):
+        result['failure_reason'] = 'budget_exceeded'
+        result['refusal_code'] = 'editor_timeout'
     except Exception as exc:
         result.update(failure_reason='out_of_memory' if 'out of memory' in str(exc).lower() else 'crash', error=str(exc))
     finally:
@@ -363,7 +371,7 @@ def main_cell(argv=None, *, start_host=_start_server, stop_host=_stop_server):
             result, series = {'failure_reason': 'dependency_missing',
                               'refusal_code': 'dependency_missing',
                               'missing_module': exc.name, 'error': str(exc)}, []
-        except Exception as exc: result, series = {'failure_reason':'host_start_failed','error':str(exc)}, []
+        except Exception as exc: result, series = {'failure_reason':'host_start_failed','refusal_code':'host_build','error':str(exc)}, []
         finally:
             if server: stop_host(server)
         run = ACTIVE.get()
@@ -379,7 +387,13 @@ def main_cell(argv=None, *, start_host=_start_server, stop_host=_stop_server):
             execution_profile=run.execution_profile, host_class=run.host_class,
             host_provenance=run.hosts.get(editor), time_series='resources.json',
             resource_series_label='instrumented' if args.session_kind == 'latency' else 'measurement')
-        if trial.get('failure_reason'): trial['throughput_chars_s'] = None
+        if trial.get('failure_reason'):
+            trial['throughput_chars_s'] = None
+            trial.setdefault('refusal_detail', trial['failure_reason'])
+        key_to_paint = trial.get('key_to_paint') or {}
+        if trial.get('refusal_code') is None and key_to_paint.get('refusal_code') == 'insufficient_accepted':
+            trial['refusal_code'] = 'witness_unavailable'
+            trial['refusal_detail'] = 'insufficient_accepted'
         write_json(directory/'resources.json',series)
         write_json(directory/'attempts'/'typing.json',trial)
         print(json.dumps({'editor':editor,'failure_reason':trial.get('failure_reason'),'words_typed':trial.get('words_typed')}))

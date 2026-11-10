@@ -497,6 +497,36 @@ def _single_criterion_payload(payload, cid):
     }
 
 
+def _contract_refusal_trial(payload, cid, entry, env_args, reason):
+    """A refused trial for a payload entry that violates the probe contract."""
+    hints = entry.get("trial_hints") if isinstance(entry, dict) else None
+    cache_state = (hints or {}).get("cache_state") or "warm_steady"
+    env = env_for(
+        payload.get("editor_id") or "unknown",
+        env_args["editor_version"],
+        env_args["fixture_sha256"],
+        env_args["workload_row"],
+        env_args["docx_size"],
+        cache_state,
+    )
+    scenario = _catalog()[cid]
+    trial = _trial_dict(
+        criterion_id=cid,
+        layer=scenario["layer"],
+        boundary=scenario["boundary"],
+        outcome="failed",
+        env=env,
+        samples_ms=[],
+        failure_reason=reason,
+        editor_id=env["editor_id"],
+        lane=env.get("lane"),
+        diagnostic={"suite": "criteria_input", "probe": "criteria_input", "schema": PROBE_SCHEMA},
+    )
+    trial["refusal_code"] = "harness_error"
+    trial["refusal_detail"] = reason
+    return trial
+
+
 def write_trials_from_payload(payload, attempt_dir, **env_args):
     attempt_dir = Path(attempt_dir)
     by_criterion = {}
@@ -510,20 +540,22 @@ def write_trials_from_payload(payload, attempt_dir, **env_args):
                 witness_evidence = _witness_evidence_from_entry(entry)
             except ValueError:
                 witness_evidence = {"observations": []}
-                refusal = {
-                    "written": False,
-                    "path": None,
-                    "failure_reason": f"{exc}; malformed_observation",
-                    **witness_evidence,
-                }
+                reason = f"{exc}; malformed_observation"
             else:
-                refusal = {
-                    "written": False,
-                    "path": None,
-                    "failure_reason": str(exc),
-                    **witness_evidence,
-                }
-            by_criterion[cid] = refusal
+                reason = str(exc)
+            trial = _contract_refusal_trial(payload, cid, entry, env_args, reason)
+            attempt_id = "%s-%s-%s" % (
+                cid.lower(),
+                trial["environment"]["editor_id"],
+                uuid.uuid4().hex[:10],
+            )
+            path = write_attempt(attempt_dir, attempt_id, trial)
+            by_criterion[cid] = {
+                "written": False,
+                "path": path,
+                "failure_reason": reason,
+                **witness_evidence,
+            }
             continue
         attempt_id = "%s-%s-%s" % (
             cid.lower(),

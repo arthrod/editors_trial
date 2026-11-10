@@ -431,6 +431,7 @@ def _write_outcome(
     failure_reason: str,
     evidence: dict,
     diagnostic: dict | None = None,
+    refusal_code: str | None = None,
 ) -> Path:
     if not failure_reason or not failure_reason.strip():
         raise ValueError("a non-measured cell needs a failure_reason")
@@ -448,6 +449,9 @@ def _write_outcome(
         diagnostic=diagnostic,
     )
     trial["evidence"] = evidence
+    trial["refusal_detail"] = failure_reason
+    if refusal_code is not None:
+        trial["refusal_code"] = refusal_code
     if phase:
         trial["measurement_phase"] = phase
     validate_environment(env)
@@ -491,6 +495,12 @@ def _probe_command(target: dict, corpus_path: Path, *, burst: int, quiescence_ms
     return command
 
 
+def _probe_failure(reason: str, family: str) -> RuntimeError:
+    exc = RuntimeError(reason)
+    exc.refusal_family = family
+    return exc
+
+
 def _read_probe_line(proc: subprocess.Popen, deadline: float) -> str:
     while True:
         remaining = deadline - time.monotonic()
@@ -499,11 +509,11 @@ def _read_probe_line(proc: subprocess.Popen, deadline: float) -> str:
         ready, _, _ = select.select([proc.stdout], [], [], min(remaining, 1.0))
         if not ready:
             if proc.poll() is not None:
-                raise RuntimeError("probe exited (%s) without a RESULT" % (proc.returncode,))
+                raise _probe_failure("probe exited (%s) without a RESULT" % (proc.returncode,), "editor_crash")
             continue
         line = proc.stdout.readline()
         if not line:
-            raise RuntimeError("probe closed stdout without a RESULT")
+            raise _probe_failure("probe closed stdout without a RESULT", "editor_crash")
         line = line.strip()
         if line:
             return line
@@ -524,6 +534,19 @@ def _stop_process_group(proc: subprocess.Popen) -> None:
         except ProcessLookupError:
             proc.kill()
         proc.wait(timeout=10)
+
+
+def _pair_error_family(exc) -> str:
+    if "out of memory" in str(exc).lower():
+        return "out_of_memory"
+    family = getattr(exc, "refusal_family", None)
+    if family:
+        return family
+    if isinstance(exc, TimeoutError):
+        return "editor_timeout"
+    if isinstance(exc, (ValueError, OSError, subprocess.SubprocessError)):
+        return "harness_error"
+    return "crash"
 
 
 def _sample_roots(roots: list[int]) -> dict:
@@ -600,16 +623,16 @@ def _run_browser_pair(
                     record["retention"] = _retention_series(roots, retain_seconds)
                     record["closed"] = {"probe": details, "retention": record["retention"]}
                 else:
-                    raise RuntimeError("probe announced an unknown phase %r" % (name,))
+                    raise _probe_failure("probe announced an unknown phase %r" % (name,), "harness_error")
                 proc.stdin.write("go\n")
                 proc.stdin.flush()
             elif line.startswith("RESULT "):
                 record["result"] = json.loads(line[len("RESULT ") :])
                 break
             elif line.startswith("ERROR "):
-                raise RuntimeError(line[len("ERROR ") :])
+                raise _probe_failure(line[len("ERROR ") :], "editor_crash")
             else:
-                raise RuntimeError("probe said %r" % (line[:200],))
+                raise _probe_failure("probe said %r" % (line[:200],), "harness_error")
     finally:
         try:
             if proc.stdin and not proc.stdin.closed:
@@ -683,7 +706,8 @@ def _browser_rows(
             pair["index"] = index
             pairs.append(pair)
         except Exception as exc:  # noqa: BLE001 - the reason is the payload
-            pairs.append({"index": index, "error": str(exc)[:800]})
+            family = "host_build" if server is None else _pair_error_family(exc)
+            pairs.append({"index": index, "error": str(exc)[:800], "error_family": family})
         finally:
             if server is not None:
                 _stop_server(server)
@@ -738,6 +762,7 @@ def _browser_rows(
                 failure_reason=reason,
                 evidence={"state": "probe_failed", "phase": phase},
                 diagnostic=diagnostics,
+                refusal_code=failures[0].get("error_family") if failures else "witness_unavailable",
             )
             rows.append(_row("C17", phase, editor_id, "failed", reason, path))
             continue
@@ -863,6 +888,7 @@ def _browser_rows(
             failure_reason=reason,
             evidence={"state": "probe_failed"},
             diagnostic=c19_diagnostic,
+            refusal_code=failures[0].get("error_family") if failures else "witness_unavailable",
         )
         rows.append(_row("C19", None, editor_id, "failed", reason, path))
     elif reopen_failed:
@@ -880,6 +906,7 @@ def _browser_rows(
             failure_reason=reason,
             evidence={"state": "reopen_failed", "retained_samples": retained},
             diagnostic=c19_diagnostic,
+            refusal_code="editor_crash",
         )
         rows.append(_row("C19", None, editor_id, "failed", reason, path))
     else:
@@ -1079,6 +1106,7 @@ def _process_rows(
             failure_reason=reason,
             evidence={"state": "process_failed", "argv": argv},
             diagnostic=diagnostics,
+            refusal_code="editor_crash",
         )
         rows.append(_row("C17", PROCESS_PHASE, editor_id, "failed", reason, path))
     else:
@@ -1096,6 +1124,7 @@ def _process_rows(
                 failure_reason=reason,
                 evidence={"state": "no_sample"},
                 diagnostic=diagnostics,
+                refusal_code="witness_unavailable",
             )
             rows.append(_row("C17", PROCESS_PHASE, editor_id, "failed", reason, path))
         else:

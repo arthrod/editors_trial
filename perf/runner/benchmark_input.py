@@ -20,6 +20,7 @@ import os
 import subprocess
 import sys
 import time
+import uuid
 from datetime import date
 from pathlib import Path
 
@@ -118,28 +119,89 @@ def _probe_env(editor_id: str, target: dict, fixture: Path) -> dict:
     return env
 
 
+def _write_criteria_refusals(attempt_dir: Path, editor_id: str, workload_row: dict,
+                             fixture_sha: str, fixture_size: int, *,
+                             failure_reason: str, refusal_code: str) -> None:
+    """One refused trial per scheduled criterion for a launch that produced no payload."""
+    from perf.runner.benchmark_ci_contract import _trial_dict
+    catalog = criteria_input_io._catalog()
+    for cid in CRITERIA:
+        if list(attempt_dir.glob("%s-*.json" % cid.lower())):
+            continue
+        env = criteria_input_io.env_for(
+            editor_id, editor_id, fixture_sha, workload_row, fixture_size, "warm_steady")
+        trial = _trial_dict(
+            criterion_id=cid,
+            layer=catalog[cid]["layer"],
+            boundary=catalog[cid]["boundary"],
+            outcome="failed",
+            env=env,
+            samples_ms=[],
+            failure_reason=failure_reason,
+            editor_id=editor_id,
+            diagnostic={"suite": "criteria_input", "refusal_origin": "launch"},
+        )
+        trial["refusal_code"] = refusal_code
+        trial["refusal_detail"] = failure_reason
+        write_attempt(
+            attempt_dir,
+            "%s-%s-%s" % (cid.lower(), editor_id, uuid.uuid4().hex[:10]),
+            trial,
+        )
+
+
+def _refuse_run(editor_id: str, attempt_dir: Path, workload_row: dict,
+                fixture_sha: str, fixture_size: int, *,
+                reason: str, refusal_code: str, t0: float | None = None) -> dict:
+    _write_criteria_refusals(
+        attempt_dir, editor_id, workload_row, fixture_sha, fixture_size,
+        failure_reason=reason, refusal_code=refusal_code)
+    row = {"editor_id": editor_id, "outcome": "failed", "failure_reason": reason}
+    if t0 is not None:
+        row["wall_s"] = round(time.time() - t0, 1)
+    return row
+
+
 def run_editor(editor_id: str, attempt_dir: Path) -> dict:
     target = BROWSER_TARGETS[editor_id]
     fixture, fixture_sha, fixture_size, workload_row = _fixture(editor_id)
     from perf.runner.browser_hosts import select_fixture
-    select_fixture(target, fixture)
-    started = _start_server(editor_id, target)
+    try:
+        select_fixture(target, fixture)
+        started = _start_server(editor_id, target)
+    except Exception as exc:
+        return _refuse_run(
+            editor_id, attempt_dir, workload_row, fixture_sha, fixture_size,
+            reason="%s: %s" % (type(exc).__name__, exc), refusal_code="host_build")
     t0 = time.time()
     try:
-        proc = subprocess.run(
-            _probe_command(editor_id, target, fixture),
-            cwd=str(UI),
-            capture_output=True,
-            text=True,
-            timeout=PROBE_TIMEOUT_S,
-            env=_probe_env(editor_id, target, fixture),
-        )
+        try:
+            proc = subprocess.run(
+                _probe_command(editor_id, target, fixture),
+                cwd=str(UI),
+                capture_output=True,
+                text=True,
+                timeout=PROBE_TIMEOUT_S,
+                env=_probe_env(editor_id, target, fixture),
+            )
+        except subprocess.TimeoutExpired:
+            return _refuse_run(
+                editor_id, attempt_dir, workload_row, fixture_sha, fixture_size,
+                reason="probe exceeded the %ss timeout" % PROBE_TIMEOUT_S,
+                refusal_code="editor_timeout", t0=t0)
         record_process(proc)
         wall = round(time.time() - t0, 1)
         if proc.returncode != 0:
-            return {"editor_id": editor_id, "outcome": "failed", "wall_s": wall,
-                    "failure_reason": (proc.stderr or "")[-600:]}
-        payload = json.loads(proc.stdout)
+            return _refuse_run(
+                editor_id, attempt_dir, workload_row, fixture_sha, fixture_size,
+                reason=(proc.stderr or "")[-600:], refusal_code="editor_crash", t0=t0)
+        try:
+            payload = json.loads(proc.stdout)
+        except json.JSONDecodeError:
+            return _refuse_run(
+                editor_id, attempt_dir, workload_row, fixture_sha, fixture_size,
+                reason="probe output was not the criteria payload JSON",
+                refusal_code="harness_error", t0=t0)
         written = criteria_input_io.write_trials_from_payload(
             payload,
             attempt_dir,
@@ -159,6 +221,10 @@ def run_editor(editor_id: str, attempt_dir: Path) -> dict:
             "wall_s": wall,
             "criteria": criteria_summary,
         }
+    except Exception as exc:
+        return _refuse_run(
+            editor_id, attempt_dir, workload_row, fixture_sha, fixture_size,
+            reason="%s: %s" % (type(exc).__name__, exc), refusal_code="harness_error", t0=t0)
     finally:
         _stop_server(started)
 

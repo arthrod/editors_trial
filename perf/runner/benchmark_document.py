@@ -433,11 +433,12 @@ class ProbeRefusal(Exception):
     tests keep working. ``facts`` are the witness counts a refusal must keep.
     """
 
-    def __init__(self, reason: str, *, outcome: str = "failed", facts: dict | None = None):
+    def __init__(self, reason: str, *, outcome: str = "failed", facts: dict | None = None, refusal_code: str | None = None):
         super().__init__(reason)
         self.reason = reason
         self.outcome = outcome
         self.facts = dict(facts or {})
+        self.refusal_code = refusal_code
 
 
 # --------------------------------------------------------------------------- #
@@ -682,6 +683,7 @@ def c15_cell_after_refusal(refusal: ProbeRefusal) -> dict:
     return {
         "n": 0,
         "completion": None,
+        "refusal_code": getattr(refusal, "refusal_code", None),
         "measurements": {
             name: {"outcome": recorded, "samples_ms": [], "reason": refusal.reason}
             for name in C15_MEASUREMENTS
@@ -776,6 +778,7 @@ def write_c14_outcome(*, attempt_dir, editor_id, lane, env, probe, label, worklo
             diagnostic={**facts, "size_rung": label, "workload_id": workload_id},
             publishable=False,
             publication_block_reason=refusal.reason,
+            refusal_code=getattr(refusal, "refusal_code", None),
         )
     path, _trial = _write_measured(
         attempt_dir=attempt_dir,
@@ -801,10 +804,10 @@ def find_outcomes(probe: dict) -> dict:
     status = probe.get("status")
     if status == "not_applicable":
         if not reason:
-            raise ProbeRefusal("not_applicable without a reason")
+            raise ProbeRefusal("not_applicable without a reason", refusal_code="harness_error")
         for key in ("first_match_ms", "search_complete_ms"):
             if probe.get(key) is not None:
-                raise ProbeRefusal("not_applicable carries a %s timing" % key)
+                raise ProbeRefusal("not_applicable carries a %s timing" % key, refusal_code="harness_error")
         return {name: ("not_applicable", None, reason) for name in C15_MEASUREMENTS}
     if status != "measured":
         raise ProbeRefusal("find probe returned status %r" % (status,))
@@ -928,13 +931,32 @@ def _run_probe(cmd: list, *, editor_id: str) -> dict:
     if payload is None:
         raise ProbeRefusal(
             "probe produced no JSON for %s (exit %s): %s"
-            % (editor_id, proc.returncode, (proc.stderr or proc.stdout or "")[-300:].strip())
+            % (editor_id, proc.returncode, (proc.stderr or proc.stdout or "")[-300:].strip()),
+            refusal_code="harness_error" if proc.returncode in (0, 2) else "editor_crash",
         )
     if proc.returncode != 0 or payload.get("status") == "probe_error":
-        raise ProbeRefusal("probe error for %s: %s" % (editor_id, payload.get("reason") or proc.stderr[-300:]))
+        raise ProbeRefusal(
+            "probe error for %s: %s" % (editor_id, payload.get("reason") or proc.stderr[-300:]),
+            refusal_code=_probe_error_refusal_code(payload),
+        )
     if payload.get("error"):
         raise ProbeRefusal("probe refused %s: %s" % (editor_id, payload["error"]))
     return payload
+
+
+_PAGE_LOST_REASONS = (
+    "target closed", "page crashed", "browser has been closed", "browser closed",
+    "crash", "detached", "sigsegv", "sigill", "sigtrap", "timeout", "timed out",
+)
+
+
+def _probe_error_refusal_code(payload: dict) -> str:
+    """``editor_crash`` when the page/browser was lost; ``harness_error`` for our own failure."""
+    if payload.get("status") == "probe_error":
+        reason = str(payload.get("reason") or "").lower()
+        if any(token in reason for token in _PAGE_LOST_REASONS):
+            return "editor_crash"
+    return "harness_error"
 
 
 # --------------------------------------------------------------------------- #
@@ -1044,6 +1066,7 @@ def _write_refusal(
     diagnostic: dict | None = None,
     publishable: bool | None = None,
     publication_block_reason: str | None = None,
+    refusal_code: str | None = None,
 ) -> Path:
     spec = CRITERIA[criterion_id]
     if not failure_reason or not failure_reason.strip():
@@ -1066,10 +1089,12 @@ def _write_refusal(
     )
     classification_reason = failure_reason
     measurement, separator, detail = failure_reason.partition(": ")
-    if separator and measurement in C15_MEASUREMENTS:
+    if separator and (measurement in C15_MEASUREMENTS or measurement.startswith("rung ")):
         classification_reason = detail
     trial['measure'] = (diagnostic or {}).get('size_rung') or (diagnostic or {}).get('measurement') or ''
+    trial['refusal_detail'] = failure_reason
     trial['refusal_code'] = (outcome if outcome != 'failed' else
+        refusal_code if refusal_code else
         'cpu_throttled' if classification_reason.startswith('cpu_throttled') else
         'host_build' if classification_reason.startswith('host-error:') else
         'unverified' if classification_reason.startswith(('document_content_', 'no document surface', 'no DOM usability mark', 'text-shift assertion failed', 'C12 window includes', 'find widget ', 'find probe returned status', 'probe refused ')) else
@@ -1407,7 +1432,7 @@ def _main() -> int:
             )
 
         # C11/C12/C14 workloads are fixed; refuse without starting the host.
-        def _refuse_cell(criterion_id: str, workout_fixture: dict, reason: str, outcome: str = "not_run", extra: dict | None = None) -> None:
+        def _refuse_cell(criterion_id: str, workout_fixture: dict, reason: str, outcome: str = "not_run", extra: dict | None = None, refusal_code: str | None = None) -> None:
             env = _env_for(
                 editor_id=editor_id,
                 editor_version=editor_version,
@@ -1423,6 +1448,7 @@ def _main() -> int:
                 outcome=outcome,
                 failure_reason=reason,
                 diagnostic=extra,
+                refusal_code=refusal_code,
             )
             rows.append(
                 {
@@ -1502,7 +1528,8 @@ def _main() -> int:
                             count=args.samples,
                         )
                     except ProbeRefusal as refusal:
-                        _refuse_cell("C11", fixture, refusal.reason, outcome="failed")
+                        _refuse_cell("C11", fixture, refusal.reason, outcome="failed",
+                                     refusal_code=getattr(refusal, "refusal_code", None))
                         failures += 1
                         continue
                     path, trial = _write_measured(
@@ -1568,7 +1595,8 @@ def _main() -> int:
                             count=args.samples,
                         )
                     except ProbeRefusal as refusal:
-                        _refuse_cell("C12", fixture, refusal.reason, outcome="failed")
+                        _refuse_cell("C12", fixture, refusal.reason, outcome="failed",
+                                     refusal_code=getattr(refusal, "refusal_code", None))
                         failures += 1
                         continue
                     path, trial = _write_measured(
@@ -1687,6 +1715,7 @@ def _main() -> int:
                                 diagnostic={**facts, "size_rung": label, "workload_id": rung},
                                 publishable=False,
                                 publication_block_reason=reason,
+                                refusal_code=getattr(refusal, "refusal_code", None),
                             )
                             rung_rows.append(
                                 {
@@ -1875,6 +1904,7 @@ def _main() -> int:
                                 diagnostic={"measurement": measurement, "completion": cell.get("completion"), "minimum_n": C15_MIN_N},
                                 publishable=False,
                                 publication_block_reason="%s: %s" % (measurement, reason),
+                                refusal_code=cell.get("refusal_code"),
                             )
                             rows.append(
                                 {
