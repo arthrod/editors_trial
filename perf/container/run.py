@@ -46,7 +46,9 @@ def main():
     if args.publish and args.seed2 is None:
         parser.error('--publish requires --seed2')
     jobs = publication_jobs(editors, args.seed, args.seed2, args.host_class) if args.publish else [
-        (name, ['--execution-profile', 'ci_contract', '--host-class', 'ci_coarse', '--seed', str(args.seed)]) for name in RUNNERS]
+        (name, ['--execution-profile', 'ci_contract', '--host-class', 'ci_coarse', '--seed', str(args.seed)]
+         + (['--session-kind', kind] if kind else []))
+        for name in RUNNERS for kind in (('throughput', 'latency') if name == 'benchmark_typing' else (None,))]
     host_cmd = [sys.executable, '-m', 'perf.container.check_host']
     print(shlex.join(host_cmd), flush=True)
     if not args.dry_run:

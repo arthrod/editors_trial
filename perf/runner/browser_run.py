@@ -481,6 +481,8 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
         parser.add_argument(count_flag, type=int, default=default_count, dest='repetitions')
     else:
         parser.add_argument('--repetitions', type=int, default=1)
+    if runner == 'benchmark_typing':
+        parser.add_argument('--session-kind', choices=('throughput', 'latency'), default='throughput')
     argv = list(sys.argv)
     args, rest = parser.parse_known_args()
     if '--help' in rest or '-h' in rest:
@@ -488,6 +490,8 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
         return main()
     if '--list-support' in rest:
         return main()
+    if runner == 'benchmark_typing':
+        rest += ['--session-kind', args.session_kind]
     editors = [args.editors] if single else args.editors
     minimum_repetitions = TYPING_PUBLICATION_SESSIONS if runner == 'benchmark_typing' else PUBLICATION_REPETITIONS
     def _count_flag_explicit(tokens, flag):
@@ -566,8 +570,10 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
                             attempts[identity] = attempts.get(identity, 0) + 1
                     if runner == 'benchmark_typing' and isinstance(value, dict) and value.get('criterion_id') == 'TYPING':
                         typing_kept = (value.get('outcome') == 'measured' and not value.get('failure_reason')
-                                       and value.get('load_ms') is not None and value.get('throughput_chars_s') is not None
-                                       and (value.get('key_to_paint') or {}).get('median_ms') is not None)
+                                       and value.get('session_kind') == args.session_kind
+                                       and (value.get('throughput_chars_s') is not None if args.session_kind == 'throughput'
+                                            else value.get('load_ms') is not None
+                                            and (value.get('key_to_paint') or {}).get('median_ms') is not None))
                     reasons.extend(failure_reasons(value))
                     failed = failed or has_failure(value)
                     skipped.extend({'file': str(path), **row} for row in non_failure_outcomes(value))
@@ -578,12 +584,12 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
                     destination = run.directory / 'rejected-evidence' / name
                     destination.mkdir(parents=True, exist_ok=True)
                     directory.rename(destination / 'cell')
-                    return {**({'typing_session_kept': typing_kept} if runner == 'benchmark_typing' else {}),
+                    return {**({'typing_session_kept': typing_kept, 'session_kind': args.session_kind} if runner == 'benchmark_typing' else {}),
                         'outcome': 'failed', 'publishable': False,
                             'failure_reason': 'multiple_attempts_per_launch',
                             'exit_code': status,
                             'rejected_evidence_directory': str(destination)}
-                return {**({'typing_session_kept': typing_kept} if runner == 'benchmark_typing' else {}),
+                return {**({'typing_session_kept': typing_kept, 'session_kind': args.session_kind} if runner == 'benchmark_typing' else {}),
                         'outcome': 'failed' if failed else 'ok',
                         'non_failure_outcomes': skipped,
                         'failure_reason': '; '.join(dict.fromkeys(reasons)) or (f'exit {status}' if status else None),
@@ -597,12 +603,12 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
                 CELL.reset(cell_token)
         typing_gate = {}
         if runner == 'benchmark_typing' and args.execution_profile == 'dedicated_publish':
-            kept = {editor:sum(row.get('editor_id') == editor and row.get('outcome') == 'ok'
+            kept = {editor:{args.session_kind:sum(row.get('editor_id') == editor and row.get('outcome') == 'ok'
                                and not row.get('failure_reason') and row.get('typing_session_kept', False)
-                               for row in run.samples) for editor in editors}
+                               for row in run.samples)} for editor in editors}
             typing_gate = {'typing_sessions_kept':kept, 'typing_minimum_kept':TYPING_PUBLICATION_MIN_KEPT,
-                           'typing_session_isolation':'fresh_process'}
-            if any(n < TYPING_PUBLICATION_MIN_KEPT for n in kept.values()):
+                           'typing_session_isolation':'fresh_process', 'session_kind':args.session_kind}
+            if any(group[args.session_kind] < TYPING_PUBLICATION_MIN_KEPT for group in kept.values()):
                 typing_gate['failure_reason'] = 'insufficient_typing_sessions'
         result = run.finish({
             **typing_gate,

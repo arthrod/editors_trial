@@ -25,7 +25,9 @@ def test_real_browser_fake_editor(mode, size, tmp_path):
         assert result['first_divergence_offset'] == 29
     elif mode == 'freeze':
         assert result['failure_reason'] == 'budget_exceeded', result
-        assert result['characters_typed'] < size
+        assert 0 < result['characters_typed'] < size
+        assert result['progress']['characters_typed'] == result['characters_typed']
+        assert result['progress']['elapsed_s'] >= args.budget_s
     else:
         assert result['failure_reason'] is None, result
         phases = {r['milestone']:r for r in rows if r.get('milestone')}

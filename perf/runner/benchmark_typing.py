@@ -2,7 +2,8 @@
 """#143: one empty-document typing marathon per fresh BrowserRun cell.
 
 Run using uv ... python -I perf/runner/benchmark_typing.py. No paste or model
-insertion. Cadence is the declared pause after each key; witness overhead is separate.
+insertion. Cadence is the declared pause after each key. Throughput and latency
+use separate sessions; no instrumentation time is subtracted.
 The B9 record schema is additive: resources are bytes/ms, never samples_ms.
 """
 from __future__ import annotations
@@ -73,37 +74,28 @@ def witness_eligible(char):
     # Spaces/newlines do not require ink; other Unicode uses insertText.
     return len(char) == 1 and '!' <= char <= '~'
 
-async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
+async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0, session_kind="throughput",
                         witness_every=100, sample_s=5, clock=time.monotonic,
                         sleep=asyncio.sleep):
+    if session_kind not in ("throughput", "latency"):
+        raise ValueError("invalid session kind")
     sampler.selector = selector
     start = clock(); next_sample = start + sample_s
     next_witness = witness_every; witness_wall = 0; typing_unwitnessed = 0; unwitnessed = 0
     sampler.typed_text = ''
-    witness_editor_s = 0; excluded = 0; witness_cadence_s = 0
     records = []; sent = 0; marks = {math.ceil(len(text)*p/100):f'typed_{p}' for p in (25,50,75,100)}
     result = {'failure_reason':None, 'first_divergence_offset':None}
     try:
         await sampler.mark('typing_start')
         for index, char in enumerate(text, 1):
             key_start = clock()
-            sampled = index >= next_witness and witness_eligible(char)
+            sampled = session_kind == "latency" and index >= next_witness and witness_eligible(char)
             if sampled:
                 record = await witness(char)
                 record['bridge_elapsed_ms'] = (clock() - key_start) * 1000
                 records.append(record)
                 witness_wall += record['bridge_elapsed_ms'] / 1000
                 next_witness = index + witness_every
-                single = latency_summary([record])
-                cost = single['median_ms']
-                if cost is None:
-                    cost = record.get('key_operation_ms')
-                if type(cost) in (int, float) and math.isfinite(cost) and cost >= 0:
-                    witness_editor_s += cost / 1000
-                    witness_cadence_s += cadence_ms / 1000
-                else:
-                    # No timing evidence: remove this character from both sides.
-                    excluded += 1
             else:
                 if char == '\n': await page.keyboard.press('Enter')
                 else: await page.keyboard.type(char)
@@ -112,10 +104,16 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
             if not sampled: typing_unwitnessed += clock() - key_start
             sent = index; sampler.characters_typed = sent
             sampler.typed_text = text[:sent]
-            if index in marks: await sampler.mark(marks[index])
+            if index in marks and index < len(text): await sampler.mark(marks[index])
             elif clock() >= next_sample:
                 await sampler.sample(); next_sample = clock() + sample_s
+        # Yield one browser task turn before the final check. In particular, a
+        # zero-delay timer queued by the last input must finish inside this wall.
+        await page.evaluate('() => new Promise(resolve => setTimeout(resolve, 0))')
         actual = normalize(await page.evaluate('(s) => document.querySelector(s)?.innerText ?? ""', selector))
+        # Close the typing phase after the final DOM round-trip, so deferred
+        # work on the last key is present in its resource counters as well.
+        await sampler.mark('typed_100')
         expected = normalize(text)
         if actual != expected:
             result.update(failure_reason='text_mismatch', first_divergence_offset=divergence(expected, actual))
@@ -125,18 +123,21 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
         result['failure_reason'] = 'out_of_memory' if 'out of memory' in str(exc).lower() else 'crash'
         result['error'] = str(exc)
     elapsed = clock() - start
-    result.update(characters_typed=sent, words_typed=len(text[:sent].split()), typing_wall_s=elapsed,
-                  throughput_chars_s=(sent-excluded)/(typing_unwitnessed+witness_editor_s+witness_cadence_s)
-                    if not result['failure_reason'] and typing_unwitnessed+witness_editor_s+witness_cadence_s else None,
-                  throughput_basis='all_timed_characters_over_key_work_and_cadence_excluding_witness_machinery',
-                  throughput_characters=sent-excluded, throughput_excluded_characters=excluded,
-                  witnessed_editor_s=witness_editor_s, witnessed_cadence_s=witness_cadence_s,
-                  throughput_wall_chars_s=sent/elapsed if not result['failure_reason'] and elapsed else None,
-                  throughput_wall_basis='all_characters_over_typing_wall_including_instrumentation',
+    rate = sent/elapsed if not result['failure_reason'] and elapsed else None
+    result.update(session_kind=session_kind, characters_typed=sent,
+                  words_typed=len(text[:sent].split()), typing_wall_s=elapsed,
+                  throughput_chars_s=rate if session_kind == 'throughput' else None,
+                  throughput_basis='accepted_characters_over_unadjusted_typing_wall',
+                  throughput_characters=sent, throughput_excluded_characters=0,
                   typing_unwitnessed_s=typing_unwitnessed, unwitnessed_characters=unwitnessed,
-                  witness_wall_s=witness_wall,
-                  key_to_paint=latency_summary(records), witnesses=records)
+                  witness_wall_s=witness_wall, witnesses=records,
+                  instrumented={})
+    if session_kind == 'latency':
+        result['key_to_paint'] = latency_summary(records)
+        result['instrumented']['throughput_chars_s'] = rate
+        result['instrumented']['label'] = 'instrumented'
     return result
+
 
 class SessionRefusal(RuntimeError):
     pass
@@ -224,12 +225,13 @@ class TypingResourceSampler(AsyncResourceSampler):
 
 async def session(target, text, args, directory):
     from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeoutError
+    kind = getattr(args, 'session_kind', 'throughput')
     profile = directory / 'browser-profile'; profile.mkdir(parents=True)
     with socket.socket() as sock:
         sock.bind(('127.0.0.1',0)); port = sock.getsockname()[1]
     stderr = (directory/'browser.log').open('wb')
     process = await asyncio.create_subprocess_exec('node', str(Path(__file__).with_name('typing_session.mjs')),
-        str(port), str(profile), stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=stderr)
+        str(port), str(profile), kind, stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=stderr)
     bridge = Bridge(process); sampler = None; result = {'failure_reason':None, 'characters_typed':0, 'words_typed':0}
     started = time.monotonic()
     try:
@@ -265,7 +267,7 @@ async def session(target, text, args, directory):
                 await surface.click()
                 async def witness(char): return await bridge.request(op='key', char=char, selector=target['edit_selector'])
                 result.update(await type_document(page, sampler, witness, text, selector=target['edit_selector'],
-                    cadence_ms=args.cadence_ms, witness_every=args.witness_every, sample_s=args.sample_s))
+                    cadence_ms=args.cadence_ms, session_kind=kind, witness_every=args.witness_every, sample_s=args.sample_s))
                 if not result['failure_reason']:
                     # No unverified generic save button: require a host-declared path.
                     save = target.get('typing_save_selector')
@@ -300,15 +302,30 @@ async def session(target, text, args, directory):
             except TimeoutError: process.kill(); await process.wait()
         stderr.close()
     result['session_wall_s'] = time.monotonic()-started
+    result['session_kind'] = kind
+    if result['failure_reason']:
+        result['throughput_chars_s'] = None
+    if sampler and result['failure_reason'] == 'budget_exceeded':
+        result['characters_typed'] = sampler.characters_typed
+        result['words_typed'] = len(sampler.typed_text.split())
+    result['progress'] = {'characters_typed':result['characters_typed'],
+                          'elapsed_s':result['session_wall_s']}
     if sampler:
         result['resources'] = sampler.report()
         result['milestones'] = {r['milestone']:r for r in sampler.series() if r.get('milestone')}
+    result.setdefault('instrumented', {})['label'] = 'instrumented'
+    diagnostic_fields = ('resources', 'resource_endpoints', 'milestones') if kind == 'latency' else ('load_ms', 'load_refusal')
+    for field in diagnostic_fields:
+        if field in result: result['instrumented'][field] = result.pop(field)
+    result['published_fields'] = (['load_ms', 'key_to_paint'] if kind == 'latency'
+                                  else ['throughput_chars_s', 'resources', 'resource_endpoints'])
     return result, sampler.series() if sampler else []
 
 def main_cell(argv=None, *, start_host=_start_server, stop_host=_stop_server):
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--editors', nargs='+', default=list(BROWSER_TARGETS))
     ap.add_argument('--out-root', type=Path, required=True)
+    ap.add_argument('--session-kind', choices=('throughput', 'latency'), default='throughput')
     ap.add_argument('--cadence-ms', type=float, default=0)
     ap.add_argument('--witness-every', type=int, default=100)
     ap.add_argument('--sample-s', type=float, default=5)
@@ -339,16 +356,17 @@ def main_cell(argv=None, *, start_host=_start_server, stop_host=_stop_server):
             if server: stop_host(server)
         run = ACTIVE.get()
         trial = {
-            'schema':'perf.typing/1', 'isolation':'fresh_process', 'values_per_session':1, 'criterion_id':'TYPING', 'editor_id':editor,
+            'schema':'perf.typing/2', 'session_kind':args.session_kind, 'isolation':'fresh_process', 'values_per_session':1, 'criterion_id':'TYPING', 'editor_id':editor,
             'run_id':run.run_id, 'seed':run.seed, 'repetition':(CELL.get() or {}).get('repetition')}
         trial.update(result, outcome='refused' if result.get('failure_reason') else 'measured',
             publishable=False, publication_block_reason='inspect all witness and resource refusals; publication requires complete session set',
             fixture_sha256=hashlib.sha256(BRIEF.read_bytes()).hexdigest(),
             typed_text_sha256=hashlib.sha256(text.encode()).hexdigest(), fixture_words=len(text.split()),
-            cadence_ms=args.cadence_ms, witness_every=args.witness_every, sample_s=args.sample_s,
+            cadence_ms=args.cadence_ms, session_kind=args.session_kind, witness_every=args.witness_every, sample_s=args.sample_s,
             budget_s=args.budget_s, quiescence_s=args.quiescence_s,
             execution_profile=run.execution_profile, host_class=run.host_class,
-            host_provenance=run.hosts.get(editor), time_series='resources.json')
+            host_provenance=run.hosts.get(editor), time_series='resources.json',
+            resource_series_label='instrumented' if args.session_kind == 'latency' else 'measurement')
         if trial.get('failure_reason'): trial['throughput_chars_s'] = None
         write_json(directory/'resources.json',series)
         write_json(directory/'attempts'/'typing.json',trial)

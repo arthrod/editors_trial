@@ -2,7 +2,7 @@
 // JSON lines over stdin/stdout; only this file owns trusted sampled keystrokes.
 import readline from 'node:readline';
 import {loadPlaywright, witnessFrame, clockSkew, frameInterval, stopRecorder, getRecorder, CARET_MASK_CSS} from './witness.mjs';
-const [port, profile] = process.argv.slice(2);
+const [port, profile, sessionKind = "latency"] = process.argv.slice(2);
 const {chromium} = await loadPlaywright();
 const context = await chromium.launchPersistentContext(profile, {
   headless:true, viewport:{width:1280,height:900},
@@ -48,22 +48,20 @@ for await (const line of lines) {
       result = {usable_ms:usable, witness, frame_interval_ms:interval.median_ms};
       }
     } else if (command.op === 'key') {
+      if (sessionKind !== 'latency') throw Error('key witnesses forbidden in throughput sessions');
       await page.evaluate(() => {
         window.__b9key = null;
         document.addEventListener('keydown', e => { window.__b9key = e.timeStamp; }, {once:true, capture:true});
       });
-      let keyOperationMs;
       const witness = await witnessFrame(page, cdp, {
         region:{selector:command.selector}, clockCheck:clock, settleMs:0,
         arm: async () => {
-          const keyStart = performance.now();
           if (command.char === '\n') await page.keyboard.press('Enter');
           else await page.keyboard.type(command.char);
-          keyOperationMs = performance.now() - keyStart;
           return await page.evaluate(() => window.__b9key);
         },
       });
-      result = {...witness, key_operation_ms:keyOperationMs, frame_interval_ms:interval.median_ms};
+      result = {...witness, frame_interval_ms:interval.median_ms};
       if (witness.after_page_ms === null) result = {...result, outcome:'no_frame', refusal:'no_keydown'};
     } else if (command.op === 'close') {
       await stopRecorder(cdp); await context.close(); break;
