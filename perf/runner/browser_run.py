@@ -3,13 +3,23 @@
 The CLI adapter calls the existing measurement body with one repetition. It
 never changes the probe clocks. Cell summaries and attempts remain separate;
 the invocation summary indexes them instead of pooling distributions.
+
+Record-don't-abort: every scheduled cell is recorded, and the run-level
+signal aggregates them. The one-line JSON the run prints and summary.json
+carry cells_total, cells_measured, cells_refused (environmental refusals:
+cpu_throttled, quota-class reasons), cells_failed and the per-reason counts
+(cell_failure_reasons). run_cli exits 0 when at least one cell was measured,
+3 when none was (every cell failed or was environmentally refused), and 2
+for usage errors before any run directory exists.
 """
 from __future__ import annotations
 
 import argparse
 from contextvars import ContextVar
+from contextlib import redirect_stderr
 from datetime import datetime, timezone
 import hashlib
+import io
 import json
 from pathlib import Path
 import secrets
@@ -40,11 +50,33 @@ def schedule(editors, repetitions, seed):
             for editor in editor_order(editors, seed + rep)]
 
 
-def capture(call):
+def capture(call, *, stderr_tail=0):
+    """Run call, folding any exception into a failed row (record-don't-abort).
+
+    With stderr_tail, stderr the call writes is buffered and replayed after
+    the call, and a SystemExit carrying only an exit code (argparse's
+    parser.error) additionally records the last stderr_tail lines of that
+    stderr in the row: the message an operator saw on the console must
+    survive in the summary, not only "SystemExit: 2".
+    """
+    buffer = io.StringIO() if stderr_tail else None
     try:
-        return call()
+        if buffer is None:
+            return call()
+        with redirect_stderr(buffer):
+            return call()
     except (Exception, SystemExit) as exc:
-        return {'outcome': 'failed', 'failure_reason': f'{type(exc).__name__}: {exc}'}
+        row = {'outcome': 'failed', 'failure_reason': f'{type(exc).__name__}: {exc}'}
+        if buffer is not None and isinstance(exc, SystemExit) and isinstance(exc.code, int):
+            lines = [line for line in buffer.getvalue().splitlines() if line.strip()]
+            if lines:
+                row['failure_stderr_tail'] = '\n'.join(lines[-stderr_tail:])
+        return row
+    finally:
+        if buffer is not None:
+            replay = buffer.getvalue()
+            if replay:
+                sys.stderr.write(replay)
 
 
 def repo_roots():
@@ -78,6 +110,14 @@ def write_json(path, value):
         stream.write('\n')
 
 
+def _under(path, root):
+    try:
+        Path(path).relative_to(root)
+    except ValueError:
+        return False
+    return True
+
+
 class BrowserRun:
     def __init__(self, out_root, runner, *, seed=None, run_id=None, snapshot=repo_snapshot,
                  accounting_reader=read_cpu_accounting):
@@ -100,6 +140,8 @@ class BrowserRun:
         self.accounting_start = accounting_reader()
         self.sample_start = None
         self._sample_parents = []
+        self.brackets_force_closed = 0
+        self._cell_force_closed = {}
 
     def fixture(self, workload, data):
         if Path(workload).name != workload or workload in ('.', '..'):
@@ -120,6 +162,9 @@ class BrowserRun:
 
         sample() closes the innermost bracket. The context also closes an
         unfinished bracket when a probe raises, restoring its enclosing cell.
+        A bracket left open and later popped by another row is counted as a
+        forced closure (per run in brackets_force_closed, and per cell on the
+        cell row's marker), never silently absorbed.
         """
         from contextlib import contextmanager
 
@@ -141,21 +186,37 @@ class BrowserRun:
         if Path(name).name != name or name in ('.', '..'):
             raise ValueError('invalid sample name')
         cell = CELL.get()
+        cell_name = f'{cell["repetition"]:04d}-{cell["editor_id"]}' if cell else None
         # The cell owns depth one. Unfinished bare inner brackets must not
         # replace its CPU window or poison subsequent cells' accounting.
         closed = 0
-        if cell and name == f'{cell["repetition"]:04d}-{cell["editor_id"]}':
+        if cell and name == cell_name:
             while len(self._sample_parents) > 1:
                 self.sample_start = self._sample_parents.pop()
                 closed += 1
-        row = {**(cell or {}), **row}
-        if closed:
-            row = {**row, 'brackets_force_closed': closed}
+            self.brackets_force_closed += closed
+            # Forced closures that earlier rows already counted for this cell
+            # still surface on the cell's own row, not only on the row that
+            # consumed them, so a shared diagnostic cannot hide the leak.
+            closed += self._cell_force_closed.pop((cell['repetition'], cell['editor_id']), 0)
         # Legacy saturation diagnostics share the cell bracket without opening
         # one themselves. Do not consume that bracket or count the row as a cell.
         shared_diagnostic = bool(
-            cell and len(self._sample_parents) == 1 and name != f'{cell["repetition"]:04d}-{cell["editor_id"]}'
+            cell and len(self._sample_parents) == 1 and name != cell_name
         )
+        # A non-cell row written above depth one consumes a leaked inner
+        # bracket it did not open. The CPU accounting stays correct, but the
+        # closure is forced: count it per run and attribute it to the
+        # enclosing cell instead of silently absorbing the leak.
+        consumed_leak = bool(cell and name != cell_name and len(self._sample_parents) > 1)
+        if consumed_leak:
+            self.brackets_force_closed += 1
+            key = (cell['repetition'], cell['editor_id'])
+            self._cell_force_closed[key] = self._cell_force_closed.get(key, 0) + 1
+            closed += 1
+        row = {**(cell or {}), **row}
+        if closed:
+            row = {**row, 'brackets_force_closed': closed}
         diagnostic = shared_diagnostic or len(self._sample_parents) > 1
         before = self.sample_start or {'available': False, 'reason': 'before-sample accounting not captured'}
         accounting = accounting_delta(before, self.accounting_reader())
@@ -173,7 +234,15 @@ class BrowserRun:
             source = Path(row['cell_directory']) if row.get('cell_directory') else None
             if source is not None and source.exists():
                 destination.mkdir(parents=True, exist_ok=True)
-                source.rename(destination / 'cell')
+                moved = destination / 'cell'
+                source.rename(moved)
+                # The skip listing must point at where the evidence now lives;
+                # the pre-move path is gone the moment the refusal moves it.
+                row['non_failure_outcomes'] = [
+                    {**item, 'file': str(moved / Path(item['file']).relative_to(source))}
+                    if item.get('file') and _under(item['file'], source) else item
+                    for item in row.get('non_failure_outcomes', [])
+                ]
             write_json(destination / 'sample.json', row)
             value = {
                 key: value[key]
@@ -211,10 +280,13 @@ class BrowserRun:
 
     def finish(self, summary):
         accounting = accounting_summary(self.accounting_start, self.accounting_reader(), self.samples)
+        tally, reasons = cell_tally(self.samples)
         after = self.snapshot()
         result = {**summary, 'run_id': self.run_id, 'seed': self.seed,
                   'samples': self.samples, 'hosts': self.hosts, 'cpu_accounting': accounting,
                   'execution_profile': self.execution_profile, 'host_class': self.host_class,
+                  'brackets_force_closed': self.brackets_force_closed,
+                  **tally, 'cell_failure_reasons': reasons,
                   'repos_before': self.before, 'repos_after': after,
                   'fixtures': [str(p) for p in self.fixtures.values()]}
         host = result.get('host', {})
@@ -260,6 +332,34 @@ def fixture_path(workload, data, fallback):
 
 
 
+ENVIRONMENTAL_REFUSAL_REASONS = frozenset({'cpu_throttled'})
+
+
+def cell_tally(samples):
+    """Classify recorded cell rows for the run-level signal.
+
+    Diagnostic rows (saturation diagnostics, nested probes) are not cells.
+    A refused cell lost its sample to the environment (ENVIRONMENTAL_REFUSAL_
+    REASONS; quota-class reasons join that set when introduced); every other
+    failed cell row counts as failed. A run where nothing was measured
+    (cells_measured == 0) exits 3 instead of signalling success.
+    """
+    cells = [row for row in samples if row.get('accounting_scope') != 'diagnostic']
+    tally = {'cells_total': len(cells), 'cells_measured': 0, 'cells_refused': 0, 'cells_failed': 0}
+    reasons = {}
+    for row in cells:
+        if row.get('outcome') != 'failed':
+            tally['cells_measured'] += 1
+            continue
+        reason = row.get('failure_reason') or 'failed'
+        reasons[reason] = reasons.get(reason, 0) + 1
+        if reason in ENVIRONMENTAL_REFUSAL_REASONS:
+            tally['cells_refused'] += 1
+        else:
+            tally['cells_failed'] += 1
+    return tally, reasons
+
+
 def failure_reasons(value):
     if isinstance(value, dict):
         own = [value['failure_reason']] if value.get('outcome') == 'failed' and value.get('failure_reason') else []
@@ -271,7 +371,12 @@ def failure_reasons(value):
 
 
 def non_failure_outcomes(value):
-    """Retain skipped/refused rows without treating them as cell failures."""
+    """Retain skipped/refused rows without treating them as cell failures.
+
+    Each retained entry carries its evidence `file` path; when a refusal
+    quarantines the cell into rejected-evidence/, the path is repointed at
+    the moved file so the listing stays resolvable.
+    """
     if isinstance(value, dict):
         own = [value] if value.get('outcome') in ('not_run', 'refused', 'not_applicable', 'unsupported', 'unverified') else []
         return own + [row for child in value.values() for row in non_failure_outcomes(child)]
@@ -313,6 +418,15 @@ def rendering_facts():
 
 
 def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=False, run_factory=BrowserRun, max_repetitions=None, facts=None):
+    """Drive one measurement body per scheduled cell, record-don't-abort.
+
+    Every cell is recorded; the run-level one-line JSON and summary.json
+    aggregate them (cells_total, cells_measured, cells_refused, cells_failed,
+    cell_failure_reasons). Returns 0 when at least one cell was measured, 3
+    when none was (all failed or environmentally refused), and 2 for usage
+    errors raised before any run directory exists. A SystemExit carrying
+    only an exit code keeps the producing call's stderr tail in the row.
+    """
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument('--out-root', type=Path, default=REPO / 'perf' / 'out')
     parser.add_argument('--seed', type=int, default=None)
@@ -373,16 +487,19 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
                         'exit_code': status, 'cell_directory': str(directory)}
             try:
                 run.begin_sample()
-                row = capture(invoke)
+                row = capture(invoke, stderr_tail=5)
                 row.update(repetition=rep, editor_id=editor, cell_directory=str(directory))
                 run.sample(name, row)
             finally:
                 CELL.reset(cell_token)
         result = run.finish({'runner': runner, 'order': order, 'publishable': False,
                              'host': host, 'headless': True, 'rendering': rendering})
+        line = {key: result.get(key) for key in (
+            'cells_total', 'cells_measured', 'cells_refused', 'cells_failed', 'cell_failure_reasons')}
         print(json.dumps({'run_id': run.run_id, 'summary': str(run.directory / 'summary.json'),
-                          'samples': len(run.samples), 'failure_reason': result.get('failure_reason')}))
-        return 0
+                          'samples': len(run.samples), 'failure_reason': result.get('failure_reason'),
+                          **line}))
+        return 3 if result['cells_measured'] == 0 else 0
     finally:
         sys.argv = original
         ACTIVE.reset(token)

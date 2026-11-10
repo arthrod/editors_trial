@@ -2,6 +2,8 @@
 
 Run with python3 -I perf/tests/b1a_smoke.py plus run_cli options.
 --baseline-ref REF loads the two modules from an explicitly selected local commit.
+A --baseline-ref that does not resolve to a local commit (or whose commit lacks
+the modules) exits 2 with a single stderr line, no traceback.
 """
 
 import argparse
@@ -22,12 +24,22 @@ if '--baseline-ref' in sys.argv:
         raise SystemExit('--baseline-ref requires a local git ref')
     baseline = sys.argv[index + 1]
     del sys.argv[index:index + 2]
-    baseline = subprocess.check_output(
-        ['git', 'rev-parse', '--verify', '--end-of-options', baseline + '^{commit}'], text=True).strip()
+    probe = subprocess.run(
+        ['git', 'rev-parse', '--verify', '--end-of-options', baseline + '^{commit}'],
+        capture_output=True, text=True)
+    if probe.returncode:
+        print(f'--baseline-ref {baseline}: not a local commit', file=sys.stderr)
+        raise SystemExit(2)
+    baseline = probe.stdout.strip()
     for module in (browser_run, benchmark_ci_contract):
         relative = Path(module.__file__).relative_to(Path(__file__).resolve().parents[2])
-        source = subprocess.check_output(['git', 'show', baseline + ':' + str(relative)])
-        exec(compile(source, module.__file__, 'exec'), module.__dict__)
+        show = subprocess.run(['git', 'show', baseline + ':' + str(relative)],
+                              capture_output=True, text=True)
+        if show.returncode:
+            print(f'--baseline-ref {baseline}: {relative} missing at that commit',
+                  file=sys.stderr)
+            raise SystemExit(2)
+        exec(compile(show.stdout, module.__file__, 'exec'), module.__dict__)
 
 
 def cell():
