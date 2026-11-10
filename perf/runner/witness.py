@@ -102,9 +102,11 @@ the ones the adversarial reviews forced closed):
   all);
 * the caller's own arguments are checked too (#137 round 4, N5): a
   ``bound_ms`` that is not a finite positive number, or a supplied
-  ``skew`` that is not a finite number, is refused (``nonfinite_time``) —
-  never silently used as a bound that compares false against everything,
-  and never silently replaced by the record's own offset;
+  ``skew`` that is not a finite number inside the supported numeric
+  domain ``|x| <= 1e15`` (#137 round 8, R7-1), is refused
+  (``nonfinite_time``) — never silently used as a bound that compares
+  false against everything, and never silently replaced by the record's
+  own offset;
 * **no input can make validation raise** (#137 round 5 R4-1; round 6
   R5-1/R5-2): the nested schema runs **before** any helper reads the
   check's values, and the sample statistics are total over every JSON
@@ -117,13 +119,20 @@ the ones the adversarial reviews forced closed):
   itself is finite — every numeric field accepts only finite values with
   ``|x| <= 1e15``, and anything outside (a 1,000-digit frame count
   included) is the owning schema's refusal with the
-  ``value_out_of_range`` message token, checked before any arithmetic or
-  formatting reads the value — and every diagnostic that names a value
+  ``value_out_of_range`` message token, named before the value is ever
+  formatted (no diagnostic shows its digits; the guards keep every
+  arithmetic path total, though `validate_witness`'s own field checks do
+  read some values with guarded comparisons before the schema names
+  them — the sweep accumulates violations, it does not short-circuit
+  the passes after it) — and every diagnostic that names a value
   goes through one bounded, exception-safe describer (``_describe``: the
   type plus at most 64 characters; an out-of-domain integer is
   ``<int, N bits>``), so a 5,001-digit integer is refused, never
   formatted, and Python's integer-to-string conversion limit is never
-  touched (the verdict still echoes the record's own payload verbatim,
+  touched — since round 8 (R7-2) that includes the lag-bound
+  contradiction (the last raw site) and the CLI's own read/abort
+  diagnostics, whose paths and exceptions are described boundedly too
+  (the verdict still echoes the record's own payload verbatim,
   though: serializing a verdict whose record carries such a number is
   the caller's formatting decision — the CLI never meets one, its
   reader refuses those files first); and the CLI prints a JSON verdict
@@ -152,8 +161,9 @@ The named reasons: ``record_not_a_mapping``, ``not_a_witness_record``,
 ``clock_check_evidence_missing``, ``clock_check_evidence_contradicted``,
 ``clock_check_schema_invalid``, ``witness_schema_invalid``,
 ``not_document_scoped``, ``no_outcome``, ``unknown_outcome``, ``no_frame``,
-``nonfinite_time`` (a caller-supplied bound or skew that is not a finite
-number, or a non-positive bound), ``frame_before_arm``,
+``nonfinite_time`` (a caller-supplied bound or skew that is not a
+finite number inside the supported numeric domain ``|x| <= 1e15``,
+or a non-positive bound), ``frame_before_arm``,
 ``no_frame_after_marker``, ``frame_counts_inconsistent``,
 ``no_pixel_evidence``, ``pixel_evidence_contradicted``,
 ``caret_mask_failed``,
@@ -283,10 +293,12 @@ TIME_TOLERANCE_MS = 16e-4
 #: The producer writes page times around 1e12 ms (an epoch in
 #: milliseconds) and counts far below it; a number past 1e15 is one no
 #: producer ever wrote, and the owning schema refuses it with the
-#: ``value_out_of_range`` message token BEFORE any arithmetic or
-#: formatting reads the value. This replaces round 6's boundary: a
-#: huge-but-valid informational number is no longer accepted, it is
-#: refused. The comparison below is exact at any magnitude and never
+#: ``value_out_of_range`` message token. The token is emitted before the
+#: value is ever formatted (no diagnostic shows its digits, and every
+#: arithmetic pass that reads it is guarded to stay total — the sweep
+#: accumulates violations, it does not short-circuit the passes after
+#: it, so a guarded comparison may read the value first; none of them
+#: raises). The comparison below is exact at any magnitude and never
 #: converts a huge integer (comparing int with float is safe); the
 #: interpreter's integer-to-string conversion limit is never touched.
 NUMERIC_DOMAIN_LIMIT = 1e15
@@ -484,19 +496,26 @@ def _probe_side_px(dpr):
 def _skew_of(record, skew=None):
     """The page-local clock offset of a record, in milliseconds, or None.
 
-    A caller's explicit offset wins. The record's own aliases follow: the
-    deprecated top-level ``clock_skew_ms``, then the nested check's
-    ``page_offset_ms``. The ``clock_skew`` dict slot is deliberately not
+    A caller's explicit offset wins — absolutely (#137 round 8, R7-1):
+    an explicit offset that is not a finite number inside the supported
+    numeric domain is never silently swapped for the record's own; it
+    returns None here and the caller-argument boundary in
+    `validate_witness` refuses it. The record's own aliases follow only
+    when no explicit offset was supplied: the deprecated top-level
+    ``clock_skew_ms``, then the nested check's ``page_offset_ms``. The
+    ``clock_skew`` dict slot is deliberately not
     read: the producer never writes it on a frame-witness record (it is a
     section key of the ``--op all`` bundle, not of a witness record), and
     the closed schema refuses the key outright (#137 round 4, N4).
 
-    #137 round 7, R6-1: an offset outside the supported numeric domain is
-    not usable arithmetic input either -- the schema's domain sweep
-    refuses the field it came from, and no gate downstream (the skew
-    comparison included) reads the value first."""
-    if _finite_number(skew) and not _number_out_of_domain(skew):
-        return float(skew)
+    #137 round 7, R6-1: a record's own offset outside the supported
+    numeric domain is not usable arithmetic input either — the schema's
+    domain sweep refuses the field it came from, and no gate downstream
+    (the skew comparison included) reads the value first."""
+    if skew is not None:
+        if _finite_number(skew) and not _number_out_of_domain(skew):
+            return float(skew)
+        return None
     value = record.get("clock_skew_ms")
     if _finite_number(value) and not _number_out_of_domain(value):
         return float(value)
@@ -1676,7 +1695,11 @@ def _clock_evidence_violations(record, nested, bound):
             contradicted(
                 "lag_bound_ms (%s) is not the rule's bound max(%d intervals, %s ms) "
                 "= %s"
-                % (lag_bound, LAG_BOUND_INTERVALS, LAG_BOUND_MIN_MS, _describe(expected))
+                # #137 round 8, R7-2: the value is described, never
+                # formatted — the last raw diagnostic site (an int
+                # subclass whose repr raises crashed here; 10**308
+                # printed all 309 digits).
+                % (_describe(lag_bound), LAG_BOUND_INTERVALS, LAG_BOUND_MIN_MS, _describe(expected))
             )
     conversion = nested.get("conversion")
     if isinstance(conversion, dict):
@@ -1918,15 +1941,21 @@ def validate_witness(record, skew=None, bound_ms=DEFAULT_SKEW_BOUND_MS):
             "record": record,
         }
     bound = float(bound_ms)
-    if skew is not None and not _finite_number(skew):
+    if skew is not None and (not _finite_number(skew) or _number_out_of_domain(skew)):
+        # #137 round 8, R7-1: the boundary covers the numeric domain too.
+        # A finite skew past 1e15 used to pass this check and then be
+        # silently dropped by `_skew_of` in favour of the record's own
+        # offset — the refusal disappeared. An explicit offset wins
+        # absolutely: an unusable one is refused here, first.
         return {
             "ok": False,
             "refused": True,
             "reason": "nonfinite_time",
             "errors": [
                 "a supplied skew must be a finite number of milliseconds "
-                "(got %s); it is never replaced by the record's own offset"
-                % (_describe(skew),)
+                "inside the supported numeric domain |x| <= %g (got %s); "
+                "it is never replaced by the record's own offset"
+                % (NUMERIC_DOMAIN_LIMIT, _describe(skew))
             ],
             "outcome": _outcome_of(record),
             "skew_ms": None,
@@ -2166,6 +2195,20 @@ def validate_witness(record, skew=None, bound_ms=DEFAULT_SKEW_BOUND_MS):
     }
 
 
+def _describe_error(error):
+    """A bounded description of an exception for the CLI's own refusals
+    (#137 round 8, R7-2): its type name plus a truncated ``str()`` —
+    never a raising or unbounded ``__str__`` (the direct API's totality
+    discipline extends to the CLI's diagnostics, which the last-resort
+    printers must not turn into a second crash)."""
+    name = type(error).__name__
+    try:
+        detail = str(error)
+    except Exception:  # noqa: BLE001 -- describing it is the bug's report
+        detail = "<undescribable>"
+    return "%s: %s" % (name, detail[:DESCRIBE_MAX_CHARS])
+
+
 def _print_validation_aborted(error):
     """The CLI's last resort (#137 round 5, R4-1): validation itself raised,
     which no input may make happen -- the numeric paths are overflow-guarded
@@ -2180,8 +2223,8 @@ def _print_validation_aborted(error):
                 "refused": True,
                 "reason": "validation_aborted",
                 "errors": [
-                    "validation raised %s: %s (a validator bug: report it; "
-                    "the record is refused)" % (type(error).__name__, error)
+                    "validation raised %s (a validator bug: report it; "
+                    "the record is refused)" % (_describe_error(error),)
                 ],
             }
         )
@@ -2204,7 +2247,7 @@ def _print_record_unreadable(path, error):
                 "reason": "record_unreadable",
                 "errors": [
                     "cannot read the witness record %s: %s"
-                    % (path, error)
+                    % (_describe(path), _describe_error(error))
                 ],
             }
         )
@@ -2231,7 +2274,10 @@ def main(argv=None):
         record = load_witness(args.file)
     except (OSError, ValueError) as error:
         _print_record_unreadable(args.file, error)
-        sys.stderr.write("witness: cannot read %s: %s\n" % (args.file, error))
+        sys.stderr.write(
+            "witness: cannot read %s: %s\n"
+            % (_describe(args.file), _describe_error(error))
+        )
         return 2
 
     if isinstance(record, list):
