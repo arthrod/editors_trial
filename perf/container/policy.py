@@ -1,5 +1,7 @@
-"""Pure validation and command planning for the HF-only container workflow."""
+"""Validation and command planning for the HF-only container workflow."""
 import re
+import json
+from pathlib import Path
 
 EDITORS = ('plate eigenpal-docx-editor folio genoffice superdoc canvas-editor '
            'canvas-editor-plugin wordcraft docxodus docen office-open office-open-upstream '
@@ -81,34 +83,82 @@ def harness_install(files):
     raise ValueError('missing_lockfile: harness dependency graph is unpinned')
 
 
-def cell_counts(data):
-    """Count outer BrowserRun cells once, excluding nested diagnostics."""
-    counts = dict(cells_total=0, measured=0, refused_by_reason={}, failed_by_reason={})
+def read_trials(row):
+    """Read canonical attempts only; lane summaries duplicate these outcomes."""
+    directory = row.get('cell_directory')
+    if not directory:
+        return []
+    return [json.loads(path.read_text()) for path in sorted((Path(directory) / 'attempts').glob('*.json'))]
+
+
+def outcome_counts():
+    return dict(measured=0, refused_by_reason={}, failed_by_reason={}, not_run_by_reason={})
+
+
+def count_outcome(counts, row):
+    outcome = row.get('outcome')
+    if outcome == 'measured':
+        counts['measured'] += 1
+        return
+    reason = row.get('failure_reason') or row.get('reason') or outcome or 'unknown'
+    if outcome == 'not_run':
+        key = 'not_run_by_reason'
+    elif outcome in ('refused', 'unsupported', 'not_applicable', 'unverified') or reason == 'cpu_throttled':
+        key = 'refused_by_reason'
+    else:
+        key = 'failed_by_reason'
+    bucket = counts[key]
+    bucket[reason] = bucket.get(reason, 0) + 1
+
+
+def cell_counts(data, *, trial_reader=None):
+    """Count trial files by editor/criterion, separately retaining outer outcomes.
+
+    The injectable reader keeps aggregation testable without disk. Outer ok is
+    process completion, never measurement evidence. A failed cell can still
+    contain measured criteria; quarantined cells cannot.
+    """
+    trial_reader = trial_reader or read_trials
+    counts = dict(
+        cells_total=0,
+        trials_total=0,
+        **outcome_counts(),
+        by_editor_criterion={},
+        run_refused_by_reason={},
+        run_failed_by_reason={},
+        run_not_run_by_reason={},
+    )
     for row in data.get('samples', []):
         if row.get('accounting_scope') == 'diagnostic':
             continue
         counts['cells_total'] += 1
-        outcome = row.get('outcome')
-        # An outer 'ok' only means the lane returned normally: unsupported-only
-        # lanes also return zero. Do not count skipped cells as measurements.
-        skipped = row.get('non_failure_outcomes') or []
-        if outcome == 'ok' and skipped:
-            row = skipped[0]
-            outcome = 'refused'
-        reason = row.get('failure_reason') or row.get('reason') or outcome or 'unknown'
-        if outcome in ('ok', 'measured'):
-            counts['measured'] += 1
-        else:
-            refused = outcome in ('refused', 'unsupported', 'not_run') or reason == 'cpu_throttled'
-            bucket = counts['refused_by_reason' if refused else 'failed_by_reason']
-            bucket[reason] = bucket.get(reason, 0) + 1
+        if row.get('outcome') not in ('ok', 'measured'):
+            outer = outcome_counts()
+            count_outcome(outer, row)
+            for key in ('refused_by_reason', 'failed_by_reason', 'not_run_by_reason'):
+                for reason, number in outer[key].items():
+                    counts['run_' + key][reason] = counts['run_' + key].get(reason, 0) + number
+                    counts[key][reason] = counts[key].get(reason, 0) + number
+        if row.get('rejected_evidence_directory') or row.get('failure_reason') == 'cpu_throttled':
+            continue
+        for trial in trial_reader(row):
+            if not isinstance(trial, dict) or not trial.get('criterion_id') or not trial.get('outcome'):
+                raise ValueError('invalid_trial: criterion_id and outcome required')
+            editor = trial.get('editor_id') or row.get('editor_id')
+            if not editor:
+                raise ValueError('invalid_trial: editor_id required')
+            criterion = trial['criterion_id']
+            group = counts['by_editor_criterion'].setdefault(editor, {}).setdefault(criterion, outcome_counts())
+            counts['trials_total'] += 1
+            count_outcome(group, trial)
+            count_outcome(counts, trial)
     return counts
 
 
-def verify_run(data):
+def verify_run(data, *, trial_reader=None):
     if not (data.get('rendering') or {}).get('renderer'):
         raise ValueError('missing_renderer')
-    if not cell_counts(data)['measured']:
+    if not cell_counts(data, trial_reader=trial_reader)['measured']:
         raise ValueError('nothing_measured')
     return data
 

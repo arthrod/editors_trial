@@ -104,12 +104,17 @@ report N of M throttled samples, stolen time, shared tenancy and reproduced
 figures. Recorded failures/refusals (including cpu_throttled) and runner nonzero
 exits do not stop the remaining jobs or the second seed. At the end,
 `out/e2-publication.json` records each runner/seed invocation, its run directory,
-exit code, outer cell total, measured cells, refused counts by reason, and failed
-counts by reason. Nested diagnostic rows do not inflate these cell counts; an
-outer ok cell containing skipped/refused outcomes is conservatively counted as
-refused using its first recorded reason, not as a complete measured cell.
+exit code, outer cell total, trial-file total, and measured / refused-by-reason /
+failed-by-reason / not-run-by-reason trial counts under `by_editor_criterion`.
+Each editor/criterion group counts canonical `attempts/*.json` files, including
+separate document rungs and repetitions. Lane summaries and nested diagnostics
+are not additional trials. Measured and not-run siblings coexist; outer `ok`
+alone is never a measurement. Quarantined evidence is excluded from trial counts.
+`run_refused_by_reason`, `run_failed_by_reason`, and `run_not_run_by_reason` retain outer sample outcomes
+(including CPU throttling); aggregate reason counts include these as well as
+trial outcomes, so they are not a partition of `trials_total`.
 The wrapper exits nonzero for missing/unreadable summaries, missing renderer
-records, runs with no measured cells, or profile_mismatch. These errors are
+records, runs with no measured criterion trials, or profile_mismatch. These errors are
 collected after all jobs; every original evidence file is retained. It does not
 retry to select favorable samples.
 
