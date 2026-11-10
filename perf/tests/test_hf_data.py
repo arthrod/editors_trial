@@ -1621,3 +1621,154 @@ def test_job_changed_line_when_file_added_after_verify(remote_root, tmp_path, ca
     pull_mod.pull_cycle(transport, remote_root, dest)
     out = capsys.readouterr().out
     assert 'JOB-CHANGED' in out
+
+
+def test_mirror_script_runnable_with_python_I_from_any_cwd(tmp_path, monkeypatch):
+    """Production mirror argv must work as ``python3 -I <abs>/mirror.py`` from any cwd."""
+    from perf.container import artifacts
+    from perf.container import run as run_mod
+
+    campaign = tmp_path / 'campaign'
+    job = campaign / 'benchmark_warm_cold' / 'job-mirror-stdlib'
+    job.mkdir(parents=True)
+    payload = '{"samples": []}'
+    (job / 'summary.json').write_text(payload)
+    artifacts.finalize_job(job, 0)
+    run_log = campaign / 'RUN.log'
+    run_log.write_text('')
+    mirror_root = tmp_path / 'mirror'
+    monkeypatch.setenv('HF_MIRROR_ROOT', str(mirror_root))
+    stamp = 'camp-stdlib'
+    cmd = [
+        sys.executable,
+        '-I',
+        str(run_mod.mirror_script_path()),
+        'job',
+        stamp,
+        'benchmark_warm_cold',
+        'job-mirror-stdlib',
+        str(job),
+        str(run_log),
+    ]
+    result = subprocess.run(cmd, cwd='/tmp', capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    dest = mirror_root / stamp / 'benchmark_warm_cold' / 'job-mirror-stdlib'
+    assert (dest / 'MIRROR-OK').exists()
+    assert sha256_file(dest / 'summary.json') == sha256_file(job / 'summary.json')
+    assert sha256_file(dest / 'MANIFEST.sha256') == sha256_file(job / 'MANIFEST.sha256')
+
+
+def test_mirror_survivor_pid_on_every_later_job_without_refusal(tmp_path, monkeypatch):
+    from perf.container import artifacts
+    from perf.container import run as run_mod
+
+    alive_pid = 424242
+    stamp = '20260102T000000000001Z'
+    monkeypatch.setenv('HF_CAMPAIGN_ID', stamp)
+    monkeypatch.setenv('HF_MIRROR_TIMEOUT_S', '2')
+    monkeypatch.setattr(run_mod, 'RUNNERS', ('runner_a', 'runner_b', 'runner_c'))
+    campaign = tmp_path / 'campaign'
+    campaign.mkdir()
+    seen: list[str] = []
+    mirror_calls = {'n': 0}
+    real_popen = subprocess.Popen
+
+    class HungMirror:
+        returncode = None
+        pid = alive_pid
+
+        def __init__(self, *args, **kwargs):
+            self._args = args
+
+        def wait(self, timeout=None):
+            if timeout == 3:
+                raise subprocess.TimeoutExpired(self._args, timeout)
+            raise subprocess.TimeoutExpired(self._args, timeout or 2)
+
+        def kill(self):
+            return None
+
+        def poll(self):
+            return -9
+
+        @property
+        def stderr(self):
+            return io.StringIO('')
+
+    def fake_popen(cmd, **kwargs):
+        mirror_script = str(run_mod.mirror_script_path())
+        if len(cmd) >= 3 and Path(cmd[2]).name == 'mirror.py' or (len(cmd) >= 3 and mirror_script in cmd[2]):
+            mirror_calls['n'] += 1
+            return HungMirror()
+        return real_popen(cmd, **kwargs)
+
+    def fake_run(cmd, **kwargs):
+        if any('check_host' in part for part in cmd):
+            return subprocess.CompletedProcess(cmd, 0)
+        runner = cmd[3]
+        run_id = cmd[cmd.index('--run-id') + 1]
+        seen.append(runner)
+        job = campaign / runner / run_id
+        job.mkdir(parents=True, exist_ok=True)
+        (job / 'summary.json').write_text('{"samples": []}')
+        return subprocess.CompletedProcess(cmd, 0)
+
+    monkeypatch.setattr(subprocess, 'Popen', fake_popen)
+    monkeypatch.setattr(subprocess, 'run', fake_run)
+    with pytest.raises(RuntimeError):
+        run_mod.main(['--smoke', '--out-root', str(campaign)])
+    assert seen == ['runner_a', 'runner_b', 'runner_c']
+    run_meta = json.loads((campaign / 'campaign-meta.json').read_text())
+    assert run_meta.get('mirror_child_alive_pid') == alive_pid
+    for runner in ('runner_b', 'runner_c'):
+        job_dir = campaign / runner / f'{stamp}-{["runner_a", "runner_b", "runner_c"].index(runner):03d}'
+        meta = json.loads((job_dir / 'campaign-meta.json').read_text())
+        assert meta.get('mirror_child_alive_pid') == alive_pid
+        assert (job_dir / 'JOB-DONE').exists()
+
+
+def test_run_done_nonzero_when_last_job_campaign_meta_raises(tmp_path, monkeypatch):
+    from perf.container import artifacts
+    from perf.container import run as run_mod
+
+    stamp = '20260102T000000000002Z'
+    monkeypatch.setenv('HF_CAMPAIGN_ID', stamp)
+    monkeypatch.setattr(run_mod, 'RUNNERS', ('runner_a', 'runner_b'))
+    campaign = tmp_path / 'campaign'
+    campaign.mkdir()
+    seen: list[str] = []
+    real_atomic = artifacts.atomic_write
+
+    def guarded_atomic(path: Path, content: str) -> None:
+        if path.name == 'campaign-meta.json' and path.parent.name.startswith(stamp) and path.parent.parent.name == 'runner_b':
+            raise OSError(28, 'ENOSPC simulated')
+        return real_atomic(path, content)
+
+    monkeypatch.setattr(artifacts, 'atomic_write', guarded_atomic)
+
+    def fake_run(cmd, **kwargs):
+        if any('check_host' in part for part in cmd):
+            return subprocess.CompletedProcess(cmd, 0)
+        runner = cmd[3]
+        run_id = cmd[cmd.index('--run-id') + 1]
+        seen.append(runner)
+        job = campaign / runner / run_id
+        job.mkdir(parents=True, exist_ok=True)
+        (job / 'summary.json').write_text('{"samples": []}')
+        return subprocess.CompletedProcess(cmd, 0)
+
+    mirror_hits = {'n': 0}
+
+    def fake_mirror(*_args, **_kwargs):
+        mirror_hits['n'] += 1
+        if mirror_hits['n'] == 1:
+            return False, 424242
+        return True, None
+
+    monkeypatch.setattr(subprocess, 'run', fake_run)
+    monkeypatch.setattr(run_mod, 'run_mirror_process', fake_mirror)
+    with pytest.raises(RuntimeError):
+        run_mod.main(['--smoke', '--out-root', str(campaign)])
+    done = (campaign / 'RUN-DONE').read_text()
+    assert 'exit_status=1' in done
+    assert any('runner_b' in line and 'ENOSPC' in line for line in done.splitlines() if line.startswith('failure='))
