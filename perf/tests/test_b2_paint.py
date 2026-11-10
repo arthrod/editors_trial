@@ -518,7 +518,8 @@ class AdversarialBrowser(BrowserIntegration):
         for arm in ('cold', 'warm'):
             edit = p['pairs'][0][arm]
             latency = edit['single_edit_ms']
-            self.assertTrue(latency is None or (latency >= 150 and latency <= upper), edit)
+            self.assertIsNotNone(latency, edit)
+            self.assertTrue(latency >= 150 and latency <= upper, edit)
             if latency is not None:
                 self.assertEqual(edit['outcome'], 'measured', edit)
 
@@ -536,9 +537,11 @@ class AdversarialBrowser(BrowserIntegration):
             edit = p['pairs'][0][arm]
             latency = edit['single_edit_ms']
             if latency is not None:
+                interval = float(edit.get('witness', {}).get('frame_interval_ms') or 16.667)
                 self.assertGreaterEqual(latency, 800, edit)
+                self.assertLessEqual(latency, 800 + 2 * interval, edit)
             else:
-                self.assertIn(edit.get('failure_reason'), ('settle_not_reached', 'expected_edit_not_confirmed'), edit)
+                self.assertEqual(edit.get('failure_reason'), 'witness_sparse', edit)
 
     def test_nr1_second_cover_does_not_replace_key_paint(self):
         p = self.probe(
@@ -551,13 +554,15 @@ class AdversarialBrowser(BrowserIntegration):
             'false',
         )
         interval = float(p['pairs'][0]['cold'].get('witness', {}).get('frame_interval_ms') or 16.667)
-        bound = 2 * interval + 2
+        bound = 2 * interval
         for arm in ('cold', 'warm'):
             edit = p['pairs'][0][arm]
             latency = edit['single_edit_ms']
-            self.assertIsNotNone(latency, edit)
-            self.assertLessEqual(latency, bound, edit)
-            self.assertEqual(edit['outcome'], 'measured', edit)
+            if latency is None:
+                self.assertEqual(edit.get('failure_reason'), 'witness_sparse', edit)
+            else:
+                self.assertLessEqual(latency, bound, edit)
+                self.assertEqual(edit['outcome'], 'measured', edit)
 
     def test_nr1_bgdecoy_immediate_stays_within_one_frame(self):
         p = self.probe(
@@ -725,3 +730,14 @@ class RoundThreePolicy(unittest.TestCase):
                 self.assertFalse(row['publishable'])
             finally:
                 ACTIVE.reset(token)
+
+
+class SettlementIntegration(unittest.TestCase):
+    def test_pure_frame_sequence_contract(self):
+        result = subprocess.run(
+            ['node', '--experimental-test-coverage', '--test', str(ROOT / 'perf/tests/test_b2_settle.mjs'),
+             str(ROOT / 'perf/tests/test_b2_pixels.mjs')],
+            capture_output=True, text=True, timeout=30,
+        )
+        print(result.stdout)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

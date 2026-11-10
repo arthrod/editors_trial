@@ -58,22 +58,6 @@ function clipRectToDocument(rect, doc) {
   return { x, y, width: right - x, height: bottom - y };
 }
 
-function rectsMatchSettled(a, b, rects, dpr, doc, tolerance) {
-  for (const rect of rects) {
-    const clipped = clipRectToDocument(rect, doc);
-    if (!clipped) return false;
-    const region = {
-      x: clipped.x * dpr,
-      y: clipped.y * dpr,
-      width: clipped.width * dpr,
-      height: clipped.height * dpr,
-    };
-    const diff = diffRatio(a, b, { channelTolerance: tolerance, region });
-    if (!diff.comparable || diff.changed > 0) return false;
-  }
-  return rects.length > 0;
-}
-
 function rectDamageVsBaseline(baselinePixels, framePixels, rects, dpr, doc, tolerance) {
   return rects.map(rect => {
     const clipped = clipRectToDocument(rect, doc);
@@ -89,231 +73,8 @@ function rectDamageVsBaseline(baselinePixels, framePixels, rects, dpr, doc, tole
   });
 }
 
-function rectDamageTotal(baselinePixels, framePixels, rects, dpr, doc, tolerance) {
-  return rectDamageVsBaseline(baselinePixels, framePixels, rects, dpr, doc, tolerance)
-    .reduce((sum, row) => sum + row.changed_pixels, 0);
-}
-
-function framesQuietMatchReference(
-  frames, startIdx, referencePixels, quietMs, markerMs, rects, dpr, doc, tolerance, minPixels,
-) {
-  const startMs = frames[startIdx]?.pageMs;
-  if (startMs === null || startMs === undefined) return false;
-  if (quietMs <= 0) return true;
-  const endMs = startMs + quietMs;
-  let sawFrame = false;
-  for (let j = startIdx; j < frames.length; j++) {
-    const { pageMs, pixels } = frames[j];
-    if (pageMs < markerMs - 2) continue;
-    if (pageMs < startMs - 0.5) continue;
-    if (pageMs > endMs + 0.5) break;
-    sawFrame = true;
-    const drift = rectDamageTotal(referencePixels, pixels, rects, dpr, doc, tolerance);
-    if (drift >= minPixels) return false;
-  }
-  if (!sawFrame) return false;
-  for (let j = startIdx; j < frames.length; j++) {
-    const { pageMs, pixels } = frames[j];
-    if (pageMs < markerMs - 2) continue;
-    if (pageMs < startMs + quietMs - 8) continue;
-    const drift = rectDamageTotal(referencePixels, pixels, rects, dpr, doc, tolerance);
-    return drift < minPixels;
-  }
-  return false;
-}
-
-function inkTransitionBetween(frames, fromIdx, toIdx, decoyPixels, rects, dpr, doc, tolerance, minPixels) {
-  for (let j = fromIdx + 1; j <= toIdx; j++) {
-    if (rectDamageTotal(decoyPixels, frames[j].pixels, rects, dpr, doc, tolerance) >= minPixels) return true;
-  }
-  return false;
-}
-
-function laterInkAfterDecoy(
-  frames, fromIdx, decoyPixels, markerMs, maxWaitMs, rects, dpr, doc, tolerance, minPixels,
-) {
-  for (let j = fromIdx + 1; j < frames.length; j++) {
-    const { pageMs, pixels } = frames[j];
-    const delayMs = pageMs - markerMs;
-    if (delayMs >= 350) break;
-    if (rectDamageTotal(decoyPixels, pixels, rects, dpr, doc, tolerance) >= minPixels) return true;
-  }
-  return false;
-}
-
-function referenceInkIsTerminal(
-  frames, refIdx, refPixels, markerMs, maxWaitMs, rects, dpr, doc, tolerance, minPixels, baselinePixels,
-) {
-  const refInk = rectDamageTotal(baselinePixels, refPixels, rects, dpr, doc, tolerance);
-  let maxInk = refInk;
-  for (let j = 0; j < frames.length; j++) {
-    const { pageMs, pixels } = frames[j];
-    if (pageMs < markerMs - 2) continue;
-    if (pageMs > markerMs + maxWaitMs) break;
-    const delayMs = pageMs - markerMs;
-    if (delayMs >= 350 && delayMs < 500) continue;
-    maxInk = Math.max(maxInk, rectDamageTotal(baselinePixels, pixels, rects, dpr, doc, tolerance));
-  }
-  return maxInk < refInk + minPixels;
-}
-
-function laterInkBeforeQuietEnd(
-  frames, fromIdx, decoyPixels, quietMs, markerMs, maxWaitMs, rects, dpr, doc, tolerance, minPixels, baselinePixels,
-) {
-  const settledInk = rectDamageTotal(baselinePixels, decoyPixels, rects, dpr, doc, tolerance);
-  const quietEnd = frames[fromIdx].pageMs + quietMs;
-  for (let j = fromIdx + 1; j < frames.length; j++) {
-    const { pageMs, pixels } = frames[j];
-    if (pageMs > markerMs + maxWaitMs) break;
-    if (pageMs > quietEnd + 0.5) return false;
-    const ink = rectDamageTotal(baselinePixels, pixels, rects, dpr, doc, tolerance);
-    if (ink >= settledInk + minPixels) return true;
-  }
-  return false;
-}
-
-function findSettledGlyphReference(
-  candidates, baselinePixels, rects, dpr, doc, tolerance, minPixels, quietMs, markerMs, clock, maxWaitMs,
-) {
-  const frames = candidates.map((candidate) => {
-    const pageMs = convertFrameToPageMs(candidate, clock);
-    if (pageMs === null) return null;
-    return {
-      frame: candidate,
-      pageMs,
-      pixels: decodePng(Buffer.from(candidate.data, 'base64')),
-    };
-  }).filter(Boolean);
-  let decoyPixels = null;
-  let decoyIndex = -1;
-  for (let i = 0; i < frames.length; i++) {
-    const { pageMs, pixels } = frames[i];
-    if (pageMs < markerMs - 2) continue;
-    if (pageMs > markerMs + maxWaitMs) break;
-    const vsBase = rectDamageTotal(baselinePixels, pixels, rects, dpr, doc, tolerance);
-    if (decoyPixels === null && vsBase >= minPixels) {
-      decoyPixels = pixels;
-      decoyIndex = i;
-      break;
-    }
-  }
-  if (decoyIndex >= 0) {
-    const decoyMs = frames[decoyIndex].pageMs;
-    const decoyVsBase = rectDamageTotal(baselinePixels, decoyPixels, rects, dpr, doc, tolerance);
-    const decoyInk = decoyVsBase;
-    let delayedReveal = false;
-    for (let j = decoyIndex + 1; j < frames.length; j++) {
-      const { pageMs, pixels } = frames[j];
-      if (pageMs > markerMs + maxWaitMs) break;
-      const delayMs = pageMs - markerMs;
-      if (delayMs < 200) continue;
-      if (delayMs >= 350 && delayMs < 500) continue;
-      if (rectDamageTotal(baselinePixels, pixels, rects, dpr, doc, tolerance) >= decoyInk + minPixels) {
-        delayedReveal = true;
-        break;
-      }
-      if (delayMs >= 400 && rectDamageTotal(decoyPixels, pixels, rects, dpr, doc, tolerance) >= minPixels) {
-        delayedReveal = true;
-        break;
-      }
-    }
-    if (decoyMs - markerMs <= 200
-        && decoyVsBase >= minPixels
-        && !delayedReveal
-        && !laterInkBeforeQuietEnd(
-          frames, decoyIndex, decoyPixels, quietMs, markerMs, maxWaitMs, rects, dpr, doc, tolerance, minPixels, baselinePixels,
-        )
-        && framesQuietMatchReference(
-          frames, decoyIndex, decoyPixels, quietMs, markerMs, rects, dpr, doc, tolerance, minPixels,
-        )
-        && !laterInkAfterDecoy(
-          frames, decoyIndex, decoyPixels, markerMs, maxWaitMs, rects, dpr, doc, tolerance, minPixels,
-        )) {
-      return {
-        frame: frames[decoyIndex].frame,
-        pixels: decoyPixels,
-        page_ms: decoyMs,
-        settled_index: decoyIndex,
-      };
-    }
-  }
-  for (let i = 0; i < frames.length; i++) {
-    const { frame: candidate, pageMs, pixels } = frames[i];
-    if (pageMs < markerMs - 2) continue;
-    if (pageMs > markerMs + maxWaitMs) break;
-    const vsBase = rectDamageTotal(baselinePixels, pixels, rects, dpr, doc, tolerance);
-    if (decoyIndex < 0 && vsBase >= minPixels) {
-      decoyPixels = pixels;
-      decoyIndex = i;
-    }
-    if (decoyPixels === null) continue;
-
-    const vsDecoy = i === decoyIndex ? 0 : rectDamageTotal(decoyPixels, pixels, rects, dpr, doc, tolerance);
-    const decoyVsBase = rectDamageTotal(baselinePixels, decoyPixels, rects, dpr, doc, tolerance);
-    const decoyMs = decoyIndex >= 0 ? frames[decoyIndex].pageMs : null;
-    const delayMs = pageMs - markerMs;
-    const coverBand = vsDecoy >= minPixels && delayMs > 120 && delayMs < 500;
-    const isGlyphCandidate = vsBase >= minPixels && (i === decoyIndex || vsDecoy >= minPixels) && !coverBand;
-    const quietDisturbed = i === decoyIndex && laterInkBeforeQuietEnd(
-      frames, decoyIndex, decoyPixels, quietMs, markerMs, maxWaitMs, rects, dpr, doc, tolerance, minPixels, baselinePixels,
-    );
-    if (quietDisturbed) continue;
-    if ((i > decoyIndex && vsDecoy < minPixels && decoyVsBase >= minPixels
-          && !laterInkBeforeQuietEnd(
-            frames, decoyIndex, decoyPixels, quietMs, markerMs, maxWaitMs, rects, dpr, doc, tolerance, minPixels, baselinePixels,
-          ))
-        || isGlyphCandidate) {
-      const useDecoy = i > decoyIndex && vsDecoy < minPixels && decoyVsBase >= minPixels
-        && !laterInkBeforeQuietEnd(
-          frames, decoyIndex, decoyPixels, quietMs, markerMs, maxWaitMs, rects, dpr, doc, tolerance, minPixels, baselinePixels,
-        );
-      const startIdx = useDecoy ? decoyIndex : i;
-      const refPixels = useDecoy ? decoyPixels : pixels;
-      const immediatePaint = decoyMs !== null && decoyMs - markerMs <= 200
-        && !laterInkAfterDecoy(
-          frames, decoyIndex, decoyPixels, markerMs, maxWaitMs, rects, dpr, doc, tolerance, minPixels,
-        );
-      if ((useDecoy || isGlyphCandidate)
-          && framesQuietMatchReference(
-            frames, startIdx, refPixels, quietMs, markerMs, rects, dpr, doc, tolerance, minPixels,
-          )
-          && (immediatePaint && useDecoy
-            || referenceInkIsTerminal(
-              frames, startIdx, refPixels, markerMs, maxWaitMs, rects, dpr, doc, tolerance, minPixels, baselinePixels,
-            ))) {
-        const refFrame = useDecoy ? frames[decoyIndex].frame : candidate;
-        const refMs = useDecoy ? decoyMs : pageMs;
-        return { frame: refFrame, pixels: refPixels, page_ms: refMs, settled_index: startIdx };
-      }
-    }
-  }
-  if (decoyIndex >= 0 && decoyPixels !== null) {
-    const decoyVsBase = rectDamageTotal(baselinePixels, decoyPixels, rects, dpr, doc, tolerance);
-    const decoyMs = frames[decoyIndex].pageMs;
-    if (decoyVsBase >= minPixels
-        && !laterInkBeforeQuietEnd(
-          frames, decoyIndex, decoyPixels, quietMs, markerMs, maxWaitMs, rects, dpr, doc, tolerance, minPixels, baselinePixels,
-        )
-        && framesQuietMatchReference(
-          frames, decoyIndex, decoyPixels, quietMs, markerMs, rects, dpr, doc, tolerance, minPixels,
-        )
-        && ((decoyMs - markerMs <= 200
-          && !laterInkAfterDecoy(
-            frames, decoyIndex, decoyPixels, markerMs, maxWaitMs, rects, dpr, doc, tolerance, minPixels,
-          ))
-          || referenceInkIsTerminal(
-            frames, decoyIndex, decoyPixels, markerMs, maxWaitMs, rects, dpr, doc, tolerance, minPixels, baselinePixels,
-          ))) {
-      return {
-        frame: frames[decoyIndex].frame,
-        pixels: decoyPixels,
-        page_ms: decoyMs,
-        settled_index: decoyIndex,
-      };
-    }
-  }
-  return null;
-}
+import { settleFrames } from './b2_settle.mjs';
+import { createRegionClassifier } from './b2_pixels.mjs';
 
 import {
   CRITERIA_SCHEMA,
@@ -424,10 +185,13 @@ async function performEdit(page, selector, cdp) {
       edit_ms: null, paint_ms: null, failure_reason: 'input_probe_error: ' + String(error.message || error) };
   } finally {
     await page.evaluate(() => {
+      clearInterval(window.__b2?.pulseTimer);
+      window.__b2?.pulse?.remove();
       window.__b2?.observer?.disconnect();
       window.__b2?.mutationObserver?.disconnect();
       if (window.__b2?.onKey) window.removeEventListener('keydown', window.__b2.onKey, true);
     }).catch(() => {}); // A navigation may already have destroyed the context.
+    await stopRecorder(cdp);
   }
 }
 
@@ -448,6 +212,24 @@ async function measureEdit(page, selector, cdp) {
     const before = count();
     window.__b2 = { event: null, entries: [], supported: PerformanceObserver.supportedEntryTypes.includes('event') };
     const state = window.__b2;
+    // Arm only after dispatching the key: never alter the pre-key baseline
+    // or delay dispatch. Dense delivery must also witness short delayed
+    // reveals before witnessFrame returns.
+    state.startPulse = () => {
+      const box = documentElement.getBoundingClientRect();
+      const corner = [[innerWidth-4,innerHeight-4],[0,innerHeight-4],[innerWidth-4,0],[0,0]]
+        .find(([x,y]) => x+3<=box.left || x>=box.right || y+3<=box.top || y>=box.bottom);
+      if (corner) {
+        const pulse = document.createElement('div');
+        pulse.style.cssText = `position:fixed;left:${corner[0]}px;top:${corner[1]}px;width:3px;height:3px;pointer-events:none;z-index:2147483647`;
+        document.body.appendChild(pulse);
+        let phase = false;
+        state.pulse = pulse;
+        const tick = () => {phase=!phase;pulse.style.background=phase?'#00f':'#0f0';};
+        tick();
+        state.pulseTimer = setInterval(tick,16);
+      }
+    };
     const intersect = (a, b) => {
       const x = Math.max(a.x, b.x), y = Math.max(a.y, b.y);
       const right = Math.min(a.x + a.width, b.x + b.width);
@@ -545,8 +327,20 @@ async function measureEdit(page, selector, cdp) {
     arm: async () => {
       await cdp.send('Input.dispatchKeyEvent', {type:'keyDown', key:'x', code:'KeyX', text:'x', windowsVirtualKeyCode:88});
       await cdp.send('Input.dispatchKeyEvent', {type:'keyUp', key:'x', code:'KeyX', windowsVirtualKeyCode:88});
-      const event = await page.evaluate(() => window.__b2.event);
+      const event = await page.evaluate(() => {
+        window.__b2.startPulse();
+        const state=window.__b2;
+        return {...state.event, unconfirmable:state.insertions.length>0 &&
+          state.insertions.every(insertion=>insertion.proof.visible_rects.length===0)};
+      });
       if (!event?.trusted) throw new Error('trusted keydown not observed');
+      // Acquire the bounded witness sequence before B1's synchronous PNG
+      // reader runs. Otherwise that reader can starve acknowledgements while
+      // a delayed glyph is still pending. The timestamp window remains W.
+      // Empty insertion proofs cannot later pass confirmInsertion's fixed
+      // geometry check, so there is no settlement window to establish.
+      if (!event.unconfirmable) await page.waitForTimeout(settleMaxWaitMs);
+      await page.evaluate(() => clearInterval(window.__b2?.pulseTimer));
       return event.startTime;
     },
   });
@@ -564,12 +358,11 @@ async function measureEdit(page, selector, cdp) {
   confirmation.settled_channel_tolerance = DEFAULT_CHANNEL_TOLERANCE;
   confirmation.settled_quiescence_ms = quiescenceMs;
   confirmation.settle_max_wait_ms = settleMaxWaitMs;
+  confirmation.frame_collection = 'before_document_witness_decode';
   let settleFailure = null;
   if (baseline.frame && confirmation.visible_rects.length && frame.document_region?.device_pixel_ratio > 0) {
     const event = await page.evaluate(() => window.__b2?.event);
-    await page.waitForTimeout(settleMaxWaitMs);
     const recorder = baseline.recorder;
-    const acked = recorder.frames.filter(item => item.ack === 'acked' && item.data);
     const beforePixels = decodePng(Buffer.from(baseline.frame.data, 'base64'));
     const region = frame.document_region;
     const doc = region.rect_css_px;
@@ -583,40 +376,38 @@ async function measureEdit(page, selector, cdp) {
     if (clock.timestamp_kind === 'monotonic_seconds' && typeof clock.monotonic_origin_ms !== 'number') {
       settleFailure = 'monotonic_origin_missing';
     } else if (typeof markerMs === 'number') {
-      const candidates = acked.filter((item) => {
-        const pageMs = convertFrameToPageMs(item, clock);
-        return pageMs !== null && pageMs >= markerMs - 2;
-      });
-      const reference = settleFailure ? null : findSettledGlyphReference(
-        candidates,
-        beforePixels,
-        confirmation.visible_rects,
-        dpr,
-        doc,
-        DEFAULT_CHANNEL_TOLERANCE,
-        DEFAULT_MIN_PIXELS,
-        quiescenceMs,
-        markerMs,
-        clock,
-        settleMaxWaitMs,
-      );
-      if (!reference && !settleFailure) {
-        settleFailure = 'settle_not_reached';
-      }
-      if (reference) {
-        let match = null;
-        for (const candidate of candidates) {
-          const pageMs = convertFrameToPageMs(candidate, clock);
-          if (pageMs === null || pageMs < markerMs - 2) continue;
-          const candidatePixels = decodePng(Buffer.from(candidate.data, 'base64'));
-          const drift = rectDamageTotal(
-            candidatePixels, reference.pixels, confirmation.visible_rects, dpr, doc, DEFAULT_CHANNEL_TOLERANCE,
-          );
-          if (drift < DEFAULT_MIN_PIXELS) {
-            match = { frame: candidate, page_ms: pageMs };
-            break;
-          }
+      const recorded = [];
+      let decision;
+      const classifier = createRegionClassifier({baseline:baseline.frame.data,
+        rects:confirmation.visible_rects,dpr,doc,tolerance:DEFAULT_CHANNEL_TOLERANCE});
+      try {
+        // Classification runs off-thread; CDP remains free to acknowledge
+        // every frame while the recorded snapshot is processed.
+        for (const candidate of [...recorder.frames]) {
+          if (candidate.ack !== 'acked' || !candidate.data) continue;
+          const pageMs = convertFrameToPageMs(candidate,clock);
+          if (pageMs === null || pageMs < markerMs || pageMs > markerMs + settleMaxWaitMs) continue;
+          const classification = await classifier.classify(candidate.data);
+          recorded.push({frame:candidate,pageMs,...classification});
+          // The first proven reference is final: later paints cannot move it.
+          decision = settleFrames(recorded, {quietMs:quiescenceMs,maxWaitMs:settleMaxWaitMs,
+            markerMs,minPixels:Math.ceil(DEFAULT_MIN_PIXELS*dpr*dpr),tolerance:DEFAULT_CHANNEL_TOLERANCE,
+            frameIntervalMs:skew.frame_interval_ms});
+          if (!decision.failure_reason) break;
         }
+        decision = settleFrames(recorded, {quietMs:quiescenceMs,maxWaitMs:settleMaxWaitMs,
+          markerMs,minPixels:Math.ceil(DEFAULT_MIN_PIXELS*dpr*dpr),tolerance:DEFAULT_CHANNEL_TOLERANCE,
+          frameIntervalMs:skew.frame_interval_ms});
+      } finally {await classifier.close();}
+      confirmation.frame_diagnostic = recorded.map(({frame,pageMs,ink_pixels,regions}) =>
+        ({seq:frame.seq,page_ms:pageMs,delay_ms:pageMs-markerMs,ink_pixels,regions}));
+      confirmation.settle_decision = decision;
+      settleFailure = decision.failure_reason || null;
+      if (!settleFailure) {
+        const chosen = recorded[decision.reference_index];
+        const reference = {...chosen,page_ms:chosen.pageMs};
+        const first = recorded[decision.match_index];
+        const match = {...first,page_ms:first.pageMs};
         if (match) {
           const matchPixels = decodePng(Buffer.from(match.frame.data, 'base64'));
           confirmation.rect_damage = rectDamageVsBaseline(
@@ -662,9 +453,9 @@ async function measureEdit(page, selector, cdp) {
   return { mechanism, clock_skew:skew, witness:frame, event_timing:timing, edit_confirmation:confirmation,
     timestamp_note: 'Uncorrected frame-to-page conversion; page_offset_ms is not a conversion correction. See clock_skew conversion bounds.',
     outcome: ok ? 'measured' : 'failed',
-    failure_reason: ok ? null : (!confirmation.confirmed && confirmation.changed_pixels < DEFAULT_MIN_PIXELS
+    failure_reason: ok ? null : ((settleFailure === 'witness_sparse' || settleFailure === 'monotonic_origin_missing' ? settleFailure : null) || (!confirmation.confirmed && confirmation.changed_pixels < DEFAULT_MIN_PIXELS
       ? 'expected_edit_not_confirmed'
-      : settleFailure || (!frame.clock_skew_acceptable ? 'clock_check_not_acceptable' : !frame.document_scoped ? 'not_document_scoped' : frame.outcome !== 'witnessed' ? 'no_frame' : !confirmation.confirmed ? 'expected_edit_not_confirmed' : 'negative_input_latency')),
+      : settleFailure || (!frame.clock_skew_acceptable ? 'clock_check_not_acceptable' : !frame.document_scoped ? 'not_document_scoped' : frame.outcome !== 'witnessed' ? 'no_frame' : !confirmation.confirmed ? 'expected_edit_not_confirmed' : 'negative_input_latency'))),
     edit_ms:ok ? duration : null, paint_ms:ok ? duration : null };
 }
 
