@@ -1205,6 +1205,10 @@ def support_table() -> list[dict]:
     for editor_id in sorted(set(BROWSER_TARGETS) | set(PROCESS_TARGETS) | set(FEATURE_SWITCH_PROBE)):
         browser = _browser_target(editor_id)
         process = editor_id in PROCESS_TARGETS
+        # Docxodus's default #pages surface is rendered HTML; its editor mode
+        # requires an explicit UI transition. C06 registration alone does not
+        # establish an editable surface. Keep the runtime text-growth check.
+        typing_surface = bool(browser and "C06" in (browser.get("criteria") or {}) and editor_id != "docxodus")
         cwd = None
         if browser:
             try:
@@ -1216,10 +1220,10 @@ def support_table() -> list[dict]:
                 "editor_id": editor_id,
                 "browser_host": cwd,
                 "headless_process_lane": process,
-                "typing_surface": bool(browser and "C06" in (browser.get("criteria") or {})),
+                "typing_surface": typing_surface,
                 "c17": (
                     "ready + after_edit_burst + quiescent"
-                    if browser and "C06" in (browser.get("criteria") or {})
+                    if typing_surface
                     else (
                         "ready + quiescent (no verified typing surface)"
                         if browser
