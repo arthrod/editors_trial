@@ -433,6 +433,82 @@ class ScrollProbeTests(unittest.TestCase):
         )
 
 
+    # -- A8 --------------------------------------------------------------
+
+    def test_a8_damage_outside_the_document_does_not_witness_the_scroll(self):
+        """A frame that changed for another reason is not the scroll.
+
+        The fake host scrolls a document whose text is transparent: the scroll
+        moves the content, but the container paints the same pixels before and
+        after. Next to it a 40x40 square repaints on every animation frame.
+        A witness that diffs the whole frame sees that square and publishes it
+        as the scroll.
+        """
+        payload = self.probe("blink.html")
+        self.assertNotEqual(
+            payload.get("outcome"),
+            "measured",
+            "a scroll that paints no document pixel must not be published: the "
+            "frame that changed was somebody else's damage: %r" % (payload,),
+        )
+        samples = payload.get("samples") or []
+        self.assertTrue(samples, "the probe must report the sample it refused")
+        self.assertNotEqual(samples[0].get("outcome"), "measured")
+
+    # -- A9 --------------------------------------------------------------
+
+    def test_a9_the_content_probe_follows_the_scrolled_content(self):
+        """The evidence that the document scrolled must itself move.
+
+        The fake host puts a *fixed* panel (which holds text) inside the
+        scroller. A content probe that takes the first element carrying text
+        stops at the panel, the panel does not move when the document scrolls,
+        and the lane reports that the document did not scroll — while it did.
+        """
+        payload = self.probe("fixed-panel.html")
+        self.assertEqual(
+            payload.get("outcome"),
+            "measured",
+            "the document scrolls under a fixed panel: %r" % (payload,),
+        )
+        sample = (payload.get("samples") or [{}])[0]
+        self.assertGreater(
+            sample.get("content_moved_px") or 0,
+            0,
+            "the content that moved with the scroll must be recorded: %r" % (sample,),
+        )
+        self.assertNotEqual(
+            (sample.get("content") or {}).get("target_selector"),
+            "#panel",
+            "the content probe must not be the panel that does not move: %r" % (sample,),
+        )
+
+    # -- A10 -------------------------------------------------------------
+
+    def test_a10_the_per_host_override_names_the_container_and_is_recorded(self):
+        """A host may name its own container; the override is recorded."""
+        payload = self.probe("override.html", extra=["--container-selector", "#small"])
+        sample = (payload.get("samples") or [{}])[0]
+        self.assertEqual(sample.get("outcome"), "measured", "%r" % (payload,))
+        container = sample.get("container") or {}
+        self.assertEqual(
+            container.get("selector"),
+            "#small",
+            "the override must name the container: %r" % (sample,),
+        )
+        self.assertEqual(
+            sample.get("container_how"),
+            "override",
+            "the sample must record that the container came from an override: %r"
+            % (sample,),
+        )
+        self.assertEqual(
+            payload.get("container_override"),
+            "#small",
+            "the payload must record the override: %r" % (payload,),
+        )
+
+
 class ScrollRunnerTests(unittest.TestCase):
     """The runner, end to end, against the fake hosts."""
 
