@@ -13,20 +13,27 @@ def summary(samples=None):
             'samples': samples if samples is not None else [{'outcome': 'ok'}]}
 
 
+def measured_trials(row):
+    return [{'editor_id': 'plate', 'criterion_id': 'C03', 'outcome': 'measured'}] if row.get('outcome') == 'ok' else []
+
+
 def test_recorded_refusals_do_not_abort():
     data = summary([{'outcome': 'ok'}, {'outcome': 'failed', 'failure_reason': 'cpu_throttled'},
                     {'outcome': 'refused', 'reason': 'unsupported'},
                     {'outcome': 'failed', 'failure_reason': 'probe_crashed'},
                     {'accounting_scope': 'diagnostic', 'outcome': 'failed', 'failure_reason': 'clock'}])
     try:
-        result = policy.verify_run(data)
+        result = policy.verify_run(data, trial_reader=measured_trials)
     except ValueError as exc:
         pytest.fail(f'recorded outcomes aborted publication: {exc}')
     assert result == data
     assert hasattr(policy, 'cell_counts'), 'publication accounting missing'
-    assert policy.cell_counts(data) == {'cells_total': 4, 'measured': 1,
-        'refused_by_reason': {'cpu_throttled': 1, 'unsupported': 1},
-        'failed_by_reason': {'probe_crashed': 1}}
+    counts = policy.cell_counts(data, trial_reader=measured_trials)
+    assert counts['cells_total'] == 4
+    assert counts['measured'] == 1
+    assert counts['refused_by_reason'] == {'cpu_throttled': 1, 'unsupported': 1}
+    assert counts['failed_by_reason'] == {'probe_crashed': 1}
+
 
 
 @pytest.mark.parametrize('samples', [[], [{'outcome': 'failed', 'failure_reason': 'cpu_throttled'}]])
@@ -130,6 +137,11 @@ def test_publication_finishes_both_seeds_and_preserves_evidence(tmp_path, monkey
                 data['samples'] = data['samples'][1:]
             if defect == 'profile_mismatch':
                 lane['host_class'] = 'ci_coarse'
+        attempts = cell / 'attempts'
+        attempts.mkdir()
+        (attempts / 'c03.json').write_text(json.dumps({'editor_id': 'plate', 'criterion_id': 'C03', 'outcome': 'measured', 'samples_ms': [42]}))
+        if data['samples'][0]['outcome'] == 'ok':
+            data['samples'][0]['cell_directory'] = str(cell)
         (cell / 'summary.json').write_text(json.dumps(lane))
         (directory / 'summary.json').write_text(json.dumps(data))
         return SimpleNamespace(returncode=1)  # recorded refusals may exit nonzero
@@ -168,7 +180,10 @@ def test_skipped_only_cell_is_not_a_measurement():
         {'outcome': 'unsupported', 'reason': 'no_surface'}]}])
     with pytest.raises(ValueError, match='nothing_measured'):
         policy.verify_run(data)
-    assert policy.cell_counts(data)['refused_by_reason'] == {'no_surface': 1}
+    counts = policy.cell_counts(data, trial_reader=lambda row: [
+        {'editor_id': 'plate', 'criterion_id': 'C06', 'outcome': 'unsupported', 'reason': 'no_surface'}])
+    assert counts['measured'] == 0
+    assert counts['refused_by_reason'] == {'no_surface': 1}
 
 
 @pytest.mark.parametrize('runner', policy.RUNNERS)
@@ -187,7 +202,10 @@ def test_smoke_wrapper_checks_lane_metadata_and_marks_fake_host(tmp_path, monkey
         (cell / 'summary.json').write_text(json.dumps({'environment': {
             'execution_profile': 'dedicated_publish' if mismatch else 'ci_contract',
             'host_class': 'ci_coarse'}}))
-        (directory / 'summary.json').write_text(json.dumps(summary()))
+        attempts = cell / 'attempts'
+        attempts.mkdir()
+        (attempts / 'c03.json').write_text(json.dumps({'editor_id': 'plate', 'criterion_id': 'C03', 'outcome': 'measured', 'samples_ms': [42]}))
+        (directory / 'summary.json').write_text(json.dumps(summary([{'outcome': 'ok', 'cell_directory': str(cell)}])))
         return 0
 
     module = SimpleNamespace(main=lane, _main=lane, BROWSER_TARGETS={'plate': {}})

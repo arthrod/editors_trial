@@ -126,7 +126,7 @@ def test_runner_dry_run(mode):
 def test_run_evidence_fails_closed():
     p = api()
     good = {'run_id': 'r1', 'rendering': {'renderer': 'SwiftShader', 'headless': True}, 'samples': [{'outcome': 'ok'}]}
-    assert p.verify_run(good) == good
+    assert p.verify_run(good, trial_reader=lambda row: [{'editor_id': 'plate', 'criterion_id': 'C03', 'outcome': 'measured'}]) == good
     for change in ({'rendering': {}}, {'samples': []},
                    {'samples': [{'outcome': 'failed'}]}):
         with pytest.raises(ValueError):
