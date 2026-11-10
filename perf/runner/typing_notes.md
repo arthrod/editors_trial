@@ -1,55 +1,66 @@
 # B9 typing lane (#143)
 
-Run from this checkout with the Python dependencies prepared before measuring:
+Each BrowserRun cell starts a fresh Chromium process and profile, loads the empty
+DOCX, types one brief, checks normalized document text, and emits one session
+value plus resource time series. Python attaches to Node's Chromium; it does not
+launch another browser. No paste or model insertion is used. Unsupported editing
+surfaces refuse. The full fixture is 12,805 words, ending at a paragraph boundary.
+
+The owner-selected publication policy (pending the HF smoke) is 12 sessions per
+editor per seed, at least 10 kept per run, two distinct seeds, cadence 0
+(saturation), and 3,600 seconds per session. Other lanes retain B1's 30-repetition
+gate. Typing jobs pass cadence and budget explicitly. Records remain marked
+nonpublishable pending HF/resource/schema integration; this policy is not evidence
+that an editor can finish within its budget.
+
+The load baseline is a base64 PNG passed to the shared document-scoped C11
+witness with the pixel-anchor clock gate. Load time is the accepted frame's page
+time; a mutation timestamp alone is never a load figure.
+
+A witness becomes due every 100 keys (configurable), then moves to the next
+printable non-space ASCII key. This is a conservative subset of Playwright's US
+keyboard layout: spaces/newlines need not paint ink, while §, em dashes and curly
+quotes use insertText without keydown. After a deferred sample the next due index
+is its index plus the interval. A null keydown anchor refuses as `no_keydown`.
+Key-to-paint median/p90 use accepted samples, with scheduled/accepted/refused
+counts and refusal codes. At least ceil(50% of scheduled witnesses), minimum one,
+must validate. Otherwise the distribution is refused as `insufficient_accepted`.
+Individual evidence and sub-frame flags remain attached.
+
+`throughput_chars_s` divides unwitnessed characters by the sum of their keyboard
+operation times and declared cadence pauses. Witnessed characters and their
+entire bridge stalls are excluded from both numerator and denominator. Each
+witness keeps its shared `elapsed_ms` plus end-to-end `bridge_elapsed_ms`;
+`witness_wall_s` sums the latter. B9 removes duplicate stylesheets containing
+exactly the shared caret-mask CSS after each operation, retaining the newest
+mask and its cascade position. B1 otherwise adds one on every witness; leaving
+hundreds of global selectors in the page slows subsequent unwitnessed edits.
+Cleanup is charged to the bridge operation; B1 itself is unchanged. Resource sampling, final text extraction, and
+witnessing remain in `typing_wall_s` and the separately labeled
+`throughput_wall_chars_s`. Session wall additionally includes load, save,
+quiescence and teardown. Neither figure is a human typing speed.
+
+Backlog compares normalized typed and DOM text lengths using the same whitespace
+collapse as the end check. Raw characters sent and normalized lengths are retained.
+Profile bytes are deltas from the post-load mark; `profile_absolute_bytes` keeps
+the absolute values. These deltas still include browser-owned growth, not only
+editor writes. Missing counters stay null. Per-process disk I/O is unavailable on
+macOS; CDP provides received bytes but no complete sent-wire counter. CPU percent
+is per process, with 100% representing one core. No forced GC is used.
+
+Correct final text does not prove that the caret stayed at the insertion point.
+An editor that inserts correctly while parking its caret elsewhere can pass;
+caret pixels are deliberately masked by the shared witness. Save uses only a
+host-declared download path (SuperDoc); Playwright timeouts refuse as
+`save_timeout`. Plate has no declared save path.
+
+B6's dispatcher includes typing; its HF image installs Python playwright and
+psutil before sessions. No Docker build is part of this fix. B8's sampler is
+still changing: retain the provisional `typing_resources.ResourceSampler` with
+async mark/sample and synchronous series/totals until its interface is settled.
+
+Local CLI smoke (not publication):
 
 ```sh
-uv run --no-project --with playwright --with psutil python -I perf/runner/benchmark_typing.py --editors plate --words 1000 --cadence-ms 0 --out-root /path/to/new/output
+uv run --no-project --with playwright --with psutil python -I perf/runner/benchmark_typing.py --help
 ```
-
-The Python connection attaches to the **same** Chromium launched by
-`typing_session.mjs`; it does not launch a second browser. Each BrowserRun cell
-has a new browser profile. Node's installed harness Playwright supplies Chromium.
-Production hosts are built by the shared B1 wrapper; no host source is modified.
-The empty DOCX has one empty paragraph. Unsupported editable/correctness
-surfaces produce a named refusal rather than synthetic typing numbers.
-
-`--cadence-ms` is the minimum pause after each completed key, not an asserted
-human keystroke rate. Every 100th key is witnessed by default; recording and
-calibration overhead remains inside session wall time. Recorder frames are
-released after each witnessed key. A 5-second quiescence is declared before
-launch. `--words` is a smoke-only word prefix; it retains original whitespace.
-The full fixture stops at 12,805 words at the last complete paragraph below
-13,000. Hashes separately identify the committed fixture and the typed prefix.
-Whitespace normalization collapses DOM block separators; punctuation, word
-order, missing/extra words, and character substitutions remain significant.
-
-A `perf.typing/1` trial and `resources.json` belong to each BrowserRun cell.
-This is an additive long-session record, not a claim to be an existing latency
-criterion schema. The record is nonpublishable until integration is verified.
-Key latency is published as a summary only if every sampled witness validates;
-individual refused records remain attached. Sub-frame flags are retained.
-Missing counters are null with availability reasons. CDP gives received wire
-bytes but not a complete sent-wire-byte counter. Per-process disk counters are
-available through psutil on Linux; macOS lacks that API and must remain null.
-Process CPU uses CDP SystemInfo CPU time; percentages are deltas, with 100%
-representing one fully occupied core. Profile-size scans and instrumentation
-are included in elapsed time. No forced GC is used.
-
-## Integration handoffs
-
-* Replace the provisional asynchronous `typing_resources.ResourceSampler`
-  with B8's `resources.ResourceSampler`. It has `mark(phase)`, `sample()`,
-  `series()` and `totals(phase)`; constructor inputs are run/page/CDP. B9's local
-  run adapter supplies process snapshots, clock, network and profile sizing.
-  Confirm B8's sync/async convention and output units before switching imports.
-* B6's publication policy now schedules one typing job per editor per seed.
-  Its fake-host smoke dispatcher still hard-codes four runners and needs a
-  `benchmark_typing` dispatch entry. Its four-runner cardinality test needs an
-  additive update. Those files are outside this lane's edit authorization.
-* The HF Python environment must provide `playwright` and `psutil` before the
-  plain-Python publication orchestrator starts. Installing those packages is
-  not part of a timed session. The current container does not provision them.
-* B1 enforces 30 repetitions per seed for publication, exceeding #143's minimum
-  of three. This lane preserves that policy and distinct seeded schedules.
-* SuperDoc's declared `#export-docx` download path is supported when its typing
-  surface passes the correctness gate. Plate has no save path in its host.

@@ -26,6 +26,7 @@ class ResourceSampler:
         self.run, self.page, self.cdp = run, page, cdp
         self.rows = []; self.phase = 'load'; self.started = run.clock()
         self.previous = {}; self.previous_at = None
+        self.typed_text = ''; self.profile_baseline = None
         self.characters_typed = 0; self.selector = '[contenteditable="true"]'
     async def mark(self, phase):
         self.phase = phase
@@ -49,12 +50,18 @@ class ResourceSampler:
             role = p['role']
             if p.get('rss_bytes') is None or (role in rss and rss[role] is None): rss[role] = None
             else: rss[role] = rss.get(role, 0) + p['rss_bytes']
+        absolute = self.run.profile_size()
+        if self.phase == 'load': self.profile_baseline = absolute
+        typed_normalized = ' '.join(self.typed_text.split())
+        present_normalized = ' '.join(present.split())
         row = dict(at_s=at-self.started, phase=self.phase, characters_typed=self.characters_typed,
-            characters_present=len(present), backlog_chars=self.characters_typed-len(present),
+            characters_present=len(present_normalized), characters_typed_normalized=len(typed_normalized),
+            backlog_chars=len(typed_normalized)-len(present_normalized),
             heap_used_bytes=metrics.get('JSHeapUsedSize'), heap_total_bytes=metrics.get('JSHeapTotalSize'),
             main_thread_ms={name: metrics[name]*1000 if name in metrics else None for name in
                 ('ScriptDuration', 'LayoutDuration', 'RecalcStyleDuration', 'TaskDuration')},
-            processes=processes, rss_by_role_bytes=rss, profile_bytes=self.run.profile_size(),
+            processes=processes, rss_by_role_bytes=rss, profile_absolute_bytes=absolute,
+            profile_bytes=absolute-self.profile_baseline if absolute is not None and self.profile_baseline is not None else None,
             network=deepcopy(self.run.network), **page)
         self.rows.append(row)
         return row

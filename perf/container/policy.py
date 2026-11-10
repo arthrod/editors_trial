@@ -68,7 +68,9 @@ def publication_jobs(editors, seed, seed2, host_class):
             if runner == 'adversarial_c10_scroll':
                 jobs.extend((runner, base + ['--editor', editor]) for editor in editors)
             elif runner == 'benchmark_typing':
-                jobs.extend((runner, base + ['--editors', editor]) for editor in editors)
+                from perf.runner.browser_run import TYPING_PUBLICATION_SESSIONS
+                jobs.extend((runner, base + ['--repetitions', str(TYPING_PUBLICATION_SESSIONS),
+                    '--cadence-ms', '0', '--budget-s', '3600', '--editors', editor]) for editor in editors)
             else:
                 jobs.append((runner, base + ['--editors', *editors]))
     return jobs
@@ -167,6 +169,11 @@ def cell_counts(data, *, trial_reader=None):
 
 
 def verify_run(data, *, trial_reader=None):
+    if data.get('runner') == 'benchmark_typing' and data.get('execution_profile') == 'dedicated_publish':
+        from perf.runner.browser_run import TYPING_PUBLICATION_MIN_KEPT
+        kept = data.get('typing_sessions_kept') or {}
+        if not kept or any(n < TYPING_PUBLICATION_MIN_KEPT for n in kept.values()):
+            raise ValueError('insufficient_typing_sessions')
     if not (data.get('rendering') or {}).get('renderer'):
         raise ValueError('missing_renderer')
     if not cell_counts(data, trial_reader=trial_reader)['measured']:

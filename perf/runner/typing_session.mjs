@@ -1,7 +1,7 @@
 // B9 witness bridge. One Chromium launch; Python connects to this same browser.
 // JSON lines over stdin/stdout; only this file owns trusted sampled keystrokes.
 import readline from 'node:readline';
-import {loadPlaywright, witnessFrame, clockSkew, frameInterval, stopRecorder, getRecorder} from './witness.mjs';
+import {loadPlaywright, witnessFrame, clockSkew, frameInterval, stopRecorder, getRecorder, CARET_MASK_CSS} from './witness.mjs';
 const [port, profile] = process.argv.slice(2);
 const {chromium} = await loadPlaywright();
 const context = await chromium.launchPersistentContext(profile, {
@@ -21,7 +21,7 @@ for await (const line of lines) {
     const command = JSON.parse(line);
     let result;
     if (command.op === 'load') {
-      const baseline = await page.screenshot();
+      const baseline = (await page.screenshot()).toString('base64');
       const recorder = getRecorder(cdp);
       await cdp.send('Page.startScreencast', {format:'png', everyNthFrame:1, maxWidth:1280, maxHeight:900});
       recorder.started = true;
@@ -61,9 +61,17 @@ for await (const line of lines) {
         },
       });
       result = {...witness, frame_interval_ms:interval.median_ms};
+      if (witness.after_page_ms === null) result = {...result, outcome:'no_frame', refusal:'no_keydown'};
     } else if (command.op === 'close') {
       await stopRecorder(cdp); await context.close(); break;
     } else throw Error('unknown operation');
+    // B1 injects a fresh universal-selector mask each time. Hundreds of
+    // duplicate sheets slow later, unwitnessed edits. Retain the newest mask
+    // (preserving cascade order), and charge cleanup to this bridge operation.
+    await page.evaluate(css => {
+      const masks = [...document.querySelectorAll('style')].filter(el => el.textContent === css);
+      for (const old of masks.slice(0, -1)) old.remove();
+    }, CARET_MASK_CSS);
     await stopRecorder(cdp);
     console.log(JSON.stringify({result}));
   } catch (error) { console.log(JSON.stringify({error:String(error)})); }

@@ -36,38 +36,69 @@ def divergence(expected, actual):
     return next((i for i, (a,b) in enumerate(zip(expected, actual)) if a != b), min(len(expected), len(actual)))
 
 def latency_summary(records):
+    # A distribution requires at least half of the scheduled witnesses.
     accepted = []; refusals = []
     for record in records:
-        verdict = validate_witness(record)
-        if not verdict['ok']:
-            refusals.append(verdict['reason']); continue
-        value = record['frame_page_ms'] - record['after_page_ms']
-        if value < 0:
-            refusals.append('negative_latency'); continue
-        interval = record.get('frame_interval_ms')
-        accepted.append({'ms':value, 'sub_frame': interval is None or value < interval or value < 16})
+        try:
+            if record.get('after_page_ms') is None and record.get('outcome') == 'witnessed':
+                refusals.append('no_keydown'); continue
+            if record.get('refusal') == 'no_keydown':
+                refusals.append('no_keydown'); continue
+            verdict = validate_witness(record)
+            if not verdict['ok']:
+                refusals.append(verdict['reason']); continue
+            value = record['frame_page_ms'] - record['after_page_ms']
+            if not math.isfinite(value) or value < 0:
+                refusals.append('negative_latency'); continue
+            interval = record.get('frame_interval_ms')
+            accepted.append({'ms':value, 'sub_frame': interval is None or value < interval or value < 16})
+        except (TypeError, ValueError, KeyError, AttributeError):
+            refusals.append('invalid_record')
     values = sorted(r['ms'] for r in accepted)
-    return {'median_ms': values[len(values)//2] if values and not refusals else None,
-            'p90_ms': values[max(0, math.ceil(len(values)*.9)-1)] if values and not refusals else None,
+    minimum = max(1, math.ceil(len(records) * .5))
+    enough = len(values) >= minimum
+    return {'median_ms': values[len(values)//2] if enough else None,
+            'p90_ms': values[max(0, math.ceil(len(values)*.9)-1)] if enough else None,
+            'n_scheduled':len(records), 'n_accepted':len(values), 'n_refused':len(refusals),
+            'minimum_accepted':minimum, 'summary_refusal':None if enough else 'insufficient_accepted',
+            'refusal_codes':{code:refusals.count(code) for code in sorted(set(refusals))},
             'samples': accepted, 'refusals': refusals,
             'sub_frame': any(r['sub_frame'] for r in accepted)}
+
+
+def witness_eligible(char):
+    # Playwright's US keyboard layout delivers these visible keys via keydown.
+    # Spaces/newlines do not require ink; other Unicode uses insertText.
+    return len(char) == 1 and '!' <= char <= '~'
 
 async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
                         witness_every=100, sample_s=5, clock=time.monotonic,
                         sleep=asyncio.sleep):
     sampler.selector = selector
     start = clock(); next_sample = start + sample_s
+    next_witness = witness_every; witness_wall = 0; typing_unwitnessed = 0; unwitnessed = 0
+    sampler.typed_text = ''
     records = []; sent = 0; marks = {math.ceil(len(text)*p/100):f'typed_{p}' for p in (25,50,75,100)}
     result = {'failure_reason':None, 'first_divergence_offset':None}
     try:
         await sampler.mark('typing_start')
         for index, char in enumerate(text, 1):
-            if index % witness_every == 0:
-                records.append(await witness(char))
-            elif char == '\n': await page.keyboard.press('Enter')
-            else: await page.keyboard.type(char)
-            sent = index; sampler.characters_typed = sent
+            key_start = clock()
+            sampled = index >= next_witness and witness_eligible(char)
+            if sampled:
+                record = await witness(char)
+                record['bridge_elapsed_ms'] = (clock() - key_start) * 1000
+                records.append(record)
+                witness_wall += record['bridge_elapsed_ms'] / 1000
+                next_witness = index + witness_every
+            else:
+                if char == '\n': await page.keyboard.press('Enter')
+                else: await page.keyboard.type(char)
+                unwitnessed += 1
             if cadence_ms: await sleep(cadence_ms/1000)
+            if not sampled: typing_unwitnessed += clock() - key_start
+            sent = index; sampler.characters_typed = sent
+            sampler.typed_text = text[:sent]
             if index in marks: await sampler.mark(marks[index])
             elif clock() >= next_sample:
                 await sampler.sample(); next_sample = clock() + sample_s
@@ -82,7 +113,12 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
         result['error'] = str(exc)
     elapsed = clock() - start
     result.update(characters_typed=sent, words_typed=len(text[:sent].split()), typing_wall_s=elapsed,
-                  throughput_chars_s=sent/elapsed if not result['failure_reason'] and elapsed else None,
+                  throughput_chars_s=unwitnessed/typing_unwitnessed if not result['failure_reason'] and typing_unwitnessed else None,
+                  throughput_basis='unwitnessed_keys_including_declared_cadence',
+                  throughput_wall_chars_s=sent/elapsed if not result['failure_reason'] and elapsed else None,
+                  throughput_wall_basis='all_characters_over_typing_wall_including_instrumentation',
+                  typing_unwitnessed_s=typing_unwitnessed, unwitnessed_characters=unwitnessed,
+                  witness_wall_s=witness_wall,
                   key_to_paint=latency_summary(records), witnesses=records)
     return result
 
@@ -126,7 +162,7 @@ class ProcessResources:
         except OSError: return None
 
 async def session(target, text, args, directory):
-    from playwright.async_api import async_playwright
+    from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeoutError
     profile = directory / 'browser-profile'; profile.mkdir(parents=True)
     with socket.socket() as sock:
         sock.bind(('127.0.0.1',0)); port = sock.getsockname()[1]
@@ -168,9 +204,13 @@ async def session(target, text, args, directory):
                     result['save_ms'] = None; result['save_reason'] = 'host_has_no_declared_save_path'
                     if save:
                         t0 = time.monotonic()
-                        async with page.expect_download() as download:
-                            await page.locator(save).click()
-                        await (await download.value).save_as(directory/'export.docx')
+                        try:
+                            async with page.expect_download() as download:
+                                await page.locator(save).click()
+                            await (await download.value).save_as(directory/'export.docx')
+                        except PlaywrightTimeoutError as exc:
+                            result['save_reason'] = 'save_timeout'
+                            raise SessionRefusal('save_timeout') from exc
                         result.update(save_ms=(time.monotonic()-t0)*1000, save_reason=None)
                     await sampler.mark('save')
                     await asyncio.sleep(args.quiescence_s)
@@ -229,7 +269,7 @@ def main_cell(argv=None, *, start_host=_start_server, stop_host=_stop_server):
             if server: stop_host(server)
         run = ACTIVE.get()
         trial = {
-            'schema':'perf.typing/1', 'criterion_id':'TYPING', 'editor_id':editor,
+            'schema':'perf.typing/1', 'isolation':'fresh_process', 'values_per_session':1, 'criterion_id':'TYPING', 'editor_id':editor,
             'run_id':run.run_id, 'seed':run.seed, 'repetition':(CELL.get() or {}).get('repetition')}
         trial.update(result, outcome='refused' if result.get('failure_reason') else 'measured',
             publishable=False, publication_block_reason='B9 provisional resource adapter; inspect all witness and resource refusals',
@@ -244,6 +284,8 @@ def main_cell(argv=None, *, start_host=_start_server, stop_host=_stop_server):
         write_json(directory/'attempts'/'typing.json',trial)
         print(json.dumps({'editor':editor,'failure_reason':trial.get('failure_reason'),'words_typed':trial.get('words_typed')}))
     return 0
+
+_main = main_cell  # B6's common smoke dispatcher entrypoint.
 
 def main():
     return run_cli(main_cell,'benchmark_typing',BROWSER_TARGETS)

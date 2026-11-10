@@ -16,7 +16,8 @@ class SmokeRun(BrowserRun):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.hosts['plate'] = {
-            'host_build': 'fake_host', 'build_directory': str(Path(__file__).parents[1].resolve()),
+            'host_build': 'fake_host', 'build_directory': str((Path(__file__).parents[1] / 'tests/fixtures'
+                if args[1] == 'benchmark_typing' else Path(__file__).parents[1]).resolve()),
             'publishable': False, 'publication_block_reason': 'B6 fake page using plate driver, not Plate',
         }
 
@@ -89,9 +90,12 @@ def main():
                   edit_selector='[contenteditable="true"]', ready_js='window.b6Ready === true')
     if name in ('benchmark_input', 'benchmark_document'):
         target['url'] += '?lane=' + ('input' if name == 'benchmark_input' else 'document')
+    if name == 'benchmark_typing':
+        target.update(url='http://127.0.0.1:5208/typing_fair.html')
+        sys.argv += ['--words', '100', '--cadence-ms', '0', '--quiescence-s', '0']
     module.BROWSER_TARGETS['plate'] = target
     sys.argv += ['--editors', 'plate']
-    flag = {'benchmark_warm_cold': '--pairs', 'benchmark_document': '--samples', 'benchmark_input': None}[name]
+    flag = {'benchmark_warm_cold': '--pairs', 'benchmark_document': '--samples', 'benchmark_input': None, 'benchmark_typing': None}[name]
     status = run_cli(module._main, name, module.BROWSER_TARGETS, count_flag=flag, default_count=1, run_factory=SmokeRun)
     verify_lane_profiles(directory, profile, host_class)
     finish_smoke(directory, name)

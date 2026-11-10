@@ -455,6 +455,8 @@ def rendering_facts():
 
 
 PUBLICATION_REPETITIONS = 30
+TYPING_PUBLICATION_SESSIONS = 12
+TYPING_PUBLICATION_MIN_KEPT = 10
 
 
 def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=False, run_factory=BrowserRun, max_repetitions=None, facts=None):
@@ -487,6 +489,7 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
     if '--list-support' in rest:
         return main()
     editors = [args.editors] if single else args.editors
+    minimum_repetitions = TYPING_PUBLICATION_SESSIONS if runner == 'benchmark_typing' else PUBLICATION_REPETITIONS
     def _count_flag_explicit(tokens, flag):
         if flag:
             for token in tokens:
@@ -499,10 +502,10 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
 
     count_explicit = _count_flag_explicit(argv, count_flag)
     if args.execution_profile == 'dedicated_publish' and not count_explicit:
-        args.repetitions = PUBLICATION_REPETITIONS
-    if args.execution_profile == 'dedicated_publish' and args.repetitions < PUBLICATION_REPETITIONS:
+        args.repetitions = minimum_repetitions
+    if args.execution_profile == 'dedicated_publish' and args.repetitions < minimum_repetitions:
         parser.error(
-            f'#136: dedicated_publish requires at least {PUBLICATION_REPETITIONS} repetitions per editor, got {args.repetitions}'
+            f'#136: dedicated_publish requires at least {minimum_repetitions} repetitions per editor, got {args.repetitions}'
         )
     if args.execution_profile == 'dedicated_publish' and args.host_class == 'shared_guarded':
         reader = read_cpu_accounting
@@ -550,6 +553,7 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
                 reasons = []
                 skipped = []
                 failed = bool(status)
+                typing_kept = False
                 attempts = {}
                 for path in sorted(directory.rglob('*.json')):
                     value = json.loads(path.read_text())
@@ -560,6 +564,10 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
                             measure = value.get('measure') or diagnostic.get('size_rung') or diagnostic.get('measurement') or ''
                             identity = (criterion, str(measure))
                             attempts[identity] = attempts.get(identity, 0) + 1
+                    if runner == 'benchmark_typing' and isinstance(value, dict) and value.get('criterion_id') == 'TYPING':
+                        typing_kept = (value.get('outcome') == 'measured' and not value.get('failure_reason')
+                                       and value.get('load_ms') is not None and value.get('throughput_chars_s') is not None
+                                       and (value.get('key_to_paint') or {}).get('median_ms') is not None)
                     reasons.extend(failure_reasons(value))
                     failed = failed or has_failure(value)
                     skipped.extend({'file': str(path), **row} for row in non_failure_outcomes(value))
@@ -570,11 +578,13 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
                     destination = run.directory / 'rejected-evidence' / name
                     destination.mkdir(parents=True, exist_ok=True)
                     directory.rename(destination / 'cell')
-                    return {'outcome': 'failed', 'publishable': False,
+                    return {**({'typing_session_kept': typing_kept} if runner == 'benchmark_typing' else {}),
+                        'outcome': 'failed', 'publishable': False,
                             'failure_reason': 'multiple_attempts_per_launch',
                             'exit_code': status,
                             'rejected_evidence_directory': str(destination)}
-                return {'outcome': 'failed' if failed else 'ok',
+                return {**({'typing_session_kept': typing_kept} if runner == 'benchmark_typing' else {}),
+                        'outcome': 'failed' if failed else 'ok',
                         'non_failure_outcomes': skipped,
                         'failure_reason': '; '.join(dict.fromkeys(reasons)) or (f'exit {status}' if status else None),
                         'exit_code': status, 'cell_directory': str(directory)}
@@ -585,7 +595,17 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
                 run.sample(name, row)
             finally:
                 CELL.reset(cell_token)
+        typing_gate = {}
+        if runner == 'benchmark_typing' and args.execution_profile == 'dedicated_publish':
+            kept = {editor:sum(row.get('editor_id') == editor and row.get('outcome') == 'ok'
+                               and not row.get('failure_reason') and row.get('typing_session_kept', False)
+                               for row in run.samples) for editor in editors}
+            typing_gate = {'typing_sessions_kept':kept, 'typing_minimum_kept':TYPING_PUBLICATION_MIN_KEPT,
+                           'typing_session_isolation':'fresh_process'}
+            if any(n < TYPING_PUBLICATION_MIN_KEPT for n in kept.values()):
+                typing_gate['failure_reason'] = 'insufficient_typing_sessions'
         result = run.finish({
+            **typing_gate,
             'runner': runner,
             'order': order,
             'publishable': False,
