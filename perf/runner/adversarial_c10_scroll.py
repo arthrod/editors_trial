@@ -107,6 +107,21 @@ DEFAULT_HOST_CLASS = "ci_coarse"
 FAKE_EDITOR = "b5-fake"
 FAKE_EDITOR_VERSION = "fake-host:b5-scroll"
 
+#: The per-host container overrides. A host whose document paints no text
+#: (a canvas) gives the text rule nothing to hold, and the page itself would
+#: be measured instead of the document. Such a host names its own scroller
+#: here, and the override is recorded in the trial's diagnostic and in the
+#: sample.
+#:
+#: docen: the harness's docen host renders the document into a canvas, and
+#: its real scroller (`docen-document-area`) lives inside the component's
+#: shadow root. The light-DOM `#scroll-proxy` the harness plants for the
+#: older scanner is invisible and is rejected; the scroller that holds the
+#: document is the one in the shadow root.
+HOST_CONTAINER_OVERRIDES = {
+    "docen": "docen-document-area",
+}
+
 SCROLL_PROBE = REPO / "perf" / "runner" / "adversarial_c10_scroll.mjs"
 
 #: The evidence the C10 trial claims. ``perf/layers/classify.py`` (B2's file)
@@ -526,6 +541,10 @@ def _main() -> int:
     )
     args = parser.parse_args()
 
+    # The container override: the operator's, or the host's own (a host whose
+    # document paints no text cannot be found by the text rule).
+    container_selector = args.container_selector or HOST_CONTAINER_OVERRIDES.get(args.editor, "")
+
     if args.fake_host and args.editor != FAKE_EDITOR:
         sys.stderr.write(
             "--fake-host and --editor are mutually exclusive: a fake host is a test "
@@ -572,8 +591,8 @@ def _main() -> int:
         "seed": seed,
         "visible_evidence": VISIBLE_EVIDENCE,
     }
-    if args.container_selector:
-        diagnostic["container_override"] = args.container_selector
+    if container_selector:
+        diagnostic["container_override"] = container_selector
     try:
         validate_environment(env)
     except ValueError as exc:
@@ -666,7 +685,7 @@ def _main() -> int:
                     target=target,
                     corpus_path=fixture_path,
                     pairs=max(1, args.pairs),
-                    container_selector=args.container_selector,
+                    container_selector=container_selector,
                 )
             except Exception as exc:  # record, never abort the run
                 payload = {
@@ -773,7 +792,7 @@ def _main() -> int:
             "host_class": host,
             "profile_admits_workload": profile_admits_workload(profile),
             "workload_id": WORKLOAD_ID,
-            "container_override": args.container_selector or None,
+            "container_override": container_selector or None,
             "seed": seed,
             "publishable": False,
         },
