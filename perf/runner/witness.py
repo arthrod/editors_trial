@@ -62,15 +62,23 @@ the ones the adversarial reviews forced closed):
     recorded ``checks`` are erased, null or false — is refused
     (``clock_check_evidence_contradicted`` / ``clock_check_evidence_missing``).
     The anchor's evidence must also be **consistent with how
-    ``witness.mjs`` finds an anchor** (#137 round 5, R4-2): an anchor is
-    picked among the recorder's actual frames only when the probe
+    ``witness.mjs`` finds an anchor** (#137 round 5 R4-2; round 6
+    R5-3/R5-4): the producer keeps a pre-change baseline frame and
+    searches only later frames, so a claimed anchor needs at least
+    ``ANCHOR_MIN_FRAMES`` (two) recorder frames — one frame is as
+    impossible as zero — and both frame counts the record carries count
+    the same run's recorder, so the check's ``frames_total`` may not
+    exceed the record's own; the anchor is accepted only when the probe
     region's diff ratio is strictly above the producer's threshold
-    (``1e-5``) and at least ``4`` of its pixels changed, so a claimed
-    anchor with ``frames_total < 1``, an ``anchor_diff_ratio`` below the
-    threshold or below the probe region's pixel floor (both tolerant of
-    the producer's six-decimal rounding) is refused as a contradiction,
-    and the record's ``frames_ack_skipped`` — a count of frames the
-    recorder did record — may not exceed its ``frames_total``;
+    (``1e-5``) with at least ``4`` of its pixels changed, and that probe
+    is the producer's constant geometry — a square at the frame's
+    top-left corner, ``max(1, round(8 * dpr))`` px to a side at the same
+    dpr the record's ``document_region.device_pixel_ratio`` carries —
+    whose area is recomputed from that geometry, never taken from the
+    record, so an inflated "probe" cannot weaken the floor (both bounds
+    tolerant of the producer's six-decimal rounding); the record's
+    ``frames_ack_skipped`` — a count of frames the recorder did record —
+    may not exceed its ``frames_total``;
   - every alias the record carries (``clock_skew_ms``, the nested
     ``skew_ms``, ``clock_skew_method``, ``clock_skew_bound_ms``,
     ``clock_skew_acceptable``, ``time_origin_ms``, ``marker_page_ms``) must
@@ -97,13 +105,19 @@ the ones the adversarial reviews forced closed):
   ``skew`` that is not a finite number, is refused (``nonfinite_time``) —
   never silently used as a bound that compares false against everything,
   and never silently replaced by the record's own offset;
-* **no input can make validation raise** (#137 round 5, R4-1): numbers
-  outside the float domain the producer writes (a JSON integer such as
-  ``10**400``) and arithmetic that overflows it (a CSS rect multiplied
-  by a ``1e308`` device pixel ratio) are refused with the schema's named
-  reasons, never an ``OverflowError``; and the CLI prints a JSON verdict
-  even when validation itself fails (``validation_aborted``: a bug to
-  report, never a traceback and never a published number);
+* **no input can make validation raise** (#137 round 5 R4-1; round 6
+  R5-1/R5-2): the nested schema runs **before** any helper reads the
+  check's values, and the sample statistics are total over every JSON
+  value, so a malformed offset sample is the schema's own named refusal
+  (``clock_check_schema_invalid``); numbers outside the float domain the
+  producer writes (a JSON integer such as ``10**400``) and arithmetic
+  that overflows it (a CSS rect multiplied by a ``1e308`` device pixel
+  ratio) are refused with the schema's named reasons, never an
+  ``OverflowError``; and the CLI prints a JSON verdict **always** —
+  ``validation_aborted`` when validation itself fails (a bug to report)
+  and ``record_unreadable`` when the file is not a record at all
+  (unreadable, not valid JSON, a bare ``NaN``: exit 2, but stdout is
+  never empty), never a traceback and never a published number;
 * a refusal is an outcome, never a zero: `validate_witness` returns the
   verdict with a named ``reason`` and keeps the record's own payload.
 
@@ -130,6 +144,8 @@ number, or a non-positive bound), ``frame_before_arm``,
 ``no_pixel_evidence``, ``pixel_evidence_contradicted``,
 ``caret_mask_failed``,
 ``caret_not_masked``, ``caret_mask_contradicted``, ``invalid_record``,
+``record_unreadable`` (the CLI's read refusal: the file is not a record
+at all),
 and ``validation_aborted`` (the CLI's last-resort refusal when
 validation itself raises; nothing above may raise, so seeing it is a bug
 to report).
@@ -144,7 +160,7 @@ Usage:
 
 prints the verdict as JSON and exits 1 when the record is refused (2 when the
 file is not a record at all — unreadable, or not valid JSON such as a bare
-``NaN``).
+``NaN``; that refusal is printed as JSON too, reason ``record_unreadable``).
 """
 
 from __future__ import annotations
@@ -218,6 +234,23 @@ RATIO_TOLERANCE = 1e-6
 ANCHOR_DIFF_THRESHOLD = 1e-5
 ANCHOR_MIN_PIXELS = 4
 ANCHOR_RATIO_TOLERANCE = 5e-7 + 1e-9
+
+#: The anchor's probe is a square at the frame's top-left corner
+#: (`anchorFrame()` in witness.mjs: ``x=0, y=0, width=height=
+#: max(1, round(PROBE_CSS_PX * dpr))``). The dpr is the same reading the
+#: record's own ``document_region.device_pixel_ratio`` carries, so a
+#: scoped record's probe size is pinned to its own dpr (#137 round 6,
+#: R5-4): the floor is applied to the area this geometry gives, recomputed
+#: -- never to a size the record claims for itself.
+PROBE_ORIGIN_X = 0
+PROBE_ORIGIN_Y = 0
+PROBE_CSS_PX = 8.0
+
+#: `anchorFrame()` keeps a baseline frame from before the change (index
+#: ``before - 1``) and searches for the anchor only among later frames
+#: (from ``before``), so an anchor means at least this many recorder
+#: frames (#137 round 6, R5-3). One frame is as impossible as zero.
+ANCHOR_MIN_FRAMES = 2
 
 #: The producer rounds its times to 3 decimals, so a difference of rounded
 #: readings can drift by one and a half last-digits from the rounded
@@ -313,14 +346,16 @@ def _js_round(value):
 
 def _median(values):
     """The producer's median: the middle sample, or the mean of the two.
-    None when there are no samples, or a sample is outside the float
-    domain (the caller's recomputation then fails, named)."""
-    if not values:
+    None when there are no samples, the value is not a list, or a sample
+    is not a finite float the producer could have written (#137 round 6,
+    R5-1: total over every JSON value -- the caller's recomputation then
+    fails named, never with a TypeError or ValueError)."""
+    if not isinstance(values, list) or not values:
         return None
-    try:
-        ordered = sorted(float(v) for v in values)
-    except OverflowError:
+    as_floats = [_as_float(sample) for sample in values]
+    if any(sample is None for sample in as_floats):
         return None
+    ordered = sorted(as_floats)
     mid = len(ordered) // 2
     if len(ordered) % 2 == 1:
         return ordered[mid]
@@ -328,16 +363,30 @@ def _median(values):
 
 
 def _samples_range(values):
-    """max-min of the samples as floats, or None when one of them is
-    outside the float domain (R4-1: the spread's recomputation then fails
-    named, never with an OverflowError)."""
-    if not values:
+    """max-min of the samples as floats, or None when there are no samples,
+    the value is not a list, or one of them is outside the float domain the
+    producer writes (R4-1/R5-1: the spread's recomputation then fails
+    named, never with an exception)."""
+    if not isinstance(values, list) or not values:
         return None
-    try:
-        as_floats = [float(v) for v in values]
-    except OverflowError:
+    as_floats = [_as_float(sample) for sample in values]
+    if any(sample is None for sample in as_floats):
         return None
     return max(as_floats) - min(as_floats)
+
+
+def _probe_side_px(dpr):
+    """The producer's anchor-probe side in device pixels at a device pixel
+    ratio: ``max(1, round(PROBE_CSS_PX * dpr))``, the one expression
+    `anchorFrame()` writes for both width and height. None when the ratio
+    is not a positive finite number (the record carries no usable dpr, or
+    one whose probe is outside the representable range -- the schema's or
+    the anchor evidence's to refuse, each named)."""
+    ratio = _as_float(dpr)
+    if ratio is None or ratio <= 0:
+        return None
+    side = _js_round(PROBE_CSS_PX * ratio)
+    return None if side is None else max(1, side)
 
 
 def _skew_of(record, skew=None):
@@ -965,22 +1014,40 @@ def _clock_schema_violations(nested):
 # --------------------------------------------------------------------------
 
 
-def _anchor_pixel_evidence(nested):
+def _anchor_pixel_evidence(nested, dpr=None):
     """(ok, why-not) for the anchor's own diff evidence, checked exactly
-    against how `witness.mjs` finds an anchor (#137 round 5, R4-2).
+    against how `witness.mjs` finds an anchor (#137 round 5 R4-2; round 6
+    R5-3/R5-4).
 
     The producer picks an anchor only while iterating the recorder's
-    actual frames, and only when the probe region's raw diff ratio is
+    actual frames -- and only after keeping a pre-change baseline frame to
+    compare against -- so a claimed anchor needs at least
+    ``ANCHOR_MIN_FRAMES`` recorder frames, whatever the timestamps say. It
+    accepts a frame only when the probe region's raw diff ratio is
     strictly above ANCHOR_DIFF_THRESHOLD and at least ANCHOR_MIN_PIXELS of
-    its pixels changed. The recorded `anchor_diff_ratio` is that raw ratio
+    its pixels changed; the recorded `anchor_diff_ratio` is that raw ratio
     rounded to six decimals, so both bounds tolerate half a rounding step
-    (ANCHOR_RATIO_TOLERANCE) -- a floor-edge anchor is not refused."""
+    (ANCHOR_RATIO_TOLERANCE) -- a floor-edge anchor is not refused.
+
+    The probe itself is the producer's constant geometry: a square at the
+    frame's top-left corner whose side is ``max(1, round(PROBE_CSS_PX *
+    dpr))`` at the same dpr the record's document region records. A probe
+    that is not that geometry is not evidence the producer produced, and
+    the pixel floor is applied to the area that geometry gives --
+    recomputed here, never taken from the record's own claim -- so an
+    inflated "probe" cannot weaken the floor. When the record carries no
+    usable dpr (an unscoped record, refused for that by the schema and the
+    scope gate), the exact size cannot be cross-checked; the origin, the
+    square shape and the floor on the recomputed area still are.
+    """
     frames = nested.get("frames_total")
-    if _count(frames) is None or frames < 1:
+    if _count(frames) is None or frames < ANCHOR_MIN_FRAMES:
         return (
             False,
-            "an anchor is found among the recorder's own frames, but the "
-            "check records frames_total=%r" % (frames,),
+            "an anchor is a recorder frame after the pre-change baseline "
+            "(witness.mjs keeps a baseline frame and searches only later "
+            "frames), but the check records frames_total=%r: the "
+            "producer's minimum is %d frames" % (frames, ANCHOR_MIN_FRAMES),
         )
     ratio = _as_float(nested.get("anchor_diff_ratio"))
     if ratio is None:
@@ -996,30 +1063,64 @@ def _anchor_pixel_evidence(nested):
             "below which no frame is an anchor" % (ratio, ANCHOR_DIFF_THRESHOLD),
         )
     probe = nested.get("anchor_probe_region_px")
-    if isinstance(probe, dict):
-        width = _count(probe.get("width"))
-        height = _count(probe.get("height"))
-        if width is not None and height is not None and width >= 1 and height >= 1:
-            width_f = _as_float(width)
-            height_f = _as_float(height)
-            if width_f is None or height_f is None:
-                return (
-                    False,
-                    "the anchor's probe region (%rx%r px) is outside the float "
-                    "domain the producer writes" % (width, height),
-                )
-            area = width_f * height_f  # floats: the comparison cannot overflow
-            if ratio * area < ANCHOR_MIN_PIXELS - ANCHOR_RATIO_TOLERANCE * area:
-                return (
-                    False,
-                    "anchor_diff_ratio (%r) over the %dx%d px probe region is "
-                    "under the producer's %d-changed-pixel floor"
-                    % (ratio, width, height, ANCHOR_MIN_PIXELS),
-                )
+    if not isinstance(probe, dict):
+        return (
+            False,
+            "the anchor's probe region is the producer's own square at the "
+            "frame's corner (got %r)" % (probe,),
+        )
+    x = _count(probe.get("x"))
+    y = _count(probe.get("y"))
+    width = _count(probe.get("width"))
+    height = _count(probe.get("height"))
+    if x is None or y is None or width is None or height is None or width < 1 or height < 1:
+        return (
+            False,
+            "the anchor's probe region is not the producer's (x=y=0, a "
+            "positive square; got %r)" % (probe,),
+        )
+    if x != PROBE_ORIGIN_X or y != PROBE_ORIGIN_Y:
+        return (
+            False,
+            "the producer's anchor probe sits at the frame's top-left corner "
+            "(x=y=%d); this record claims x=%d, y=%d" % (PROBE_ORIGIN_X, x, y),
+        )
+    if width != height:
+        return (
+            False,
+            "the producer's anchor probe is square (max(1, round(%s*dpr)) px "
+            "to a side); this record claims %dx%d px" % (PROBE_CSS_PX, width, height),
+        )
+    expected_side = _probe_side_px(dpr)
+    if expected_side is not None and width != expected_side:
+        return (
+            False,
+            "the producer's probe is max(1, round(%s*dpr)) px to a side, and "
+            "this record's own device_pixel_ratio is %r, so its probe is "
+            "%dx%d px -- not the claimed %dx%d"
+            % (PROBE_CSS_PX, dpr, expected_side, expected_side, width, height),
+        )
+    width_f = _as_float(width)
+    height_f = _as_float(height)
+    if width_f is None or height_f is None:
+        return (
+            False,
+            "the anchor's probe region (%rx%r px) is outside the float "
+            "domain the producer writes" % (width, height),
+        )
+    area = width_f * height_f  # floats: the comparison cannot overflow
+    if ratio * area < ANCHOR_MIN_PIXELS - ANCHOR_RATIO_TOLERANCE * area:
+        return (
+            False,
+            "anchor_diff_ratio (%r) over the producer's %dx%d px probe region "
+            "(area %s px, recomputed from the geometry) is under the "
+            "producer's %d-changed-pixel floor"
+            % (ratio, width, height, area, ANCHOR_MIN_PIXELS),
+        )
     return True, None
 
 
-def _recomputed_checks(nested):
+def _recomputed_checks(nested, dpr=None):
     """The eight checks recomputed from the nested check's own raw
     measurements, exactly as `clockSkew()` derived them."""
     offset = nested.get("page_offset_ms")
@@ -1031,9 +1132,9 @@ def _recomputed_checks(nested):
     lag = nested.get("frame_lag_ms")
     lag_bound = nested.get("lag_bound_ms")
     median = _median(samples) if isinstance(samples, list) and samples else None
-    anchor_ok, _why_not = _anchor_pixel_evidence(nested)
+    anchor_ok, _why_not = _anchor_pixel_evidence(nested, dpr)
     frames_total = nested.get("frames_total")
-    has_frames = _count(frames_total) is not None and frames_total >= 1
+    has_frames = _count(frames_total) is not None and frames_total >= ANCHOR_MIN_FRAMES
     return {
         "timestamp_kind_known": nested.get("timestamp_kind") in KNOWN_TIMESTAMP_KINDS,
         "page_offset_within_bound": _finite_number(offset)
@@ -1041,12 +1142,13 @@ def _recomputed_checks(nested):
         and abs(float(offset)) <= float(bound) + 1e-9,
         "page_offset_spread_within_bound": _finite_number(spread)
         and float(spread) <= PAGE_OFFSET_SPREAD_BOUND_MS + 1e-9,
-        # R4-2: an anchor is found among the recorder's frames; zero frames
-        # can yield none, whatever the timestamp claims.
+        # R4-2/R5-3: an anchor is a recorder frame after the pre-change
+        # baseline; fewer than the producer's minimum frames can yield
+        # none, whatever the timestamp claims.
         "anchor_found": _finite_number(frame) and has_frames,
-        # R4-2: recomputed from the anchor's own diff evidence (frames to
-        # choose from, a ratio above the producer's threshold and its pixel
-        # floor), not from the flag it is supposed to prove.
+        # R4-2: recomputed from the anchor's own diff evidence (the frames
+        # to choose from, the producer's probe geometry, a ratio above its
+        # threshold and its pixel floor), not from the flag it proves.
         "anchor_pixel_checked": anchor_ok,
         "anchor_converted": _finite_number(frame),
         "anchor_causality": _finite_number(frame)
@@ -1172,8 +1274,14 @@ def _clock_evidence_violations(record, nested, bound):
     # claims and must still face them; `_recomputed_checks` recomputes each
     # verdict from whatever raw measurements remain, so an erased raw field
     # shows up as a claim its own evidence no longer supports.
+    #
+    # The anchor's probe size is checked at the dpr the record's own
+    # document region carries (R5-4): the producer reads the same
+    # window.devicePixelRatio for both.
+    region = record.get("document_region")
+    dpr = region.get("device_pixel_ratio") if isinstance(region, dict) else None
     if isinstance(checks, dict):
-        raw = _recomputed_checks(nested)
+        raw = _recomputed_checks(nested, dpr)
         for key in CLOCK_CHECK_KEYS:
             if key in checks and key in raw and bool(checks[key]) is not bool(raw[key]):
                 contradicted(
@@ -1193,9 +1301,24 @@ def _clock_evidence_violations(record, nested, bound):
     # pixel floor). Named here as well as through the recomputed checks
     # above, so the refusal names it even when the recorded checks were
     # left out entirely.
-    anchor_ok, why_not = _anchor_pixel_evidence(nested)
+    anchor_ok, why_not = _anchor_pixel_evidence(nested, dpr)
     if not anchor_ok:
         contradicted(why_not)
+    # #137 round 6, R5-3: the anchor is one of this run's recorder frames,
+    # found while the recorder was already running -- the check's
+    # frames_total counts them at the check's instant and the record's at
+    # the witness's end, over the same recorder whose frames only
+    # accumulate. A check claiming more frames than the run recorded is
+    # evidence no run produced (its anchor's index would sit past the
+    # record's own frames).
+    nested_frames = _count(nested.get("frames_total"))
+    record_frames = _count(record.get("frames_total"))
+    if nested_frames is not None and record_frames is not None and nested_frames > record_frames:
+        contradicted(
+            "the check's frames_total (%d) exceeds the record's own (%d): "
+            "both count the same run's recorder, whose frames only accumulate"
+            % (nested_frames, record_frames)
+        )
     change = nested.get("change_page_ms")
     frame = nested.get("frame_page_ms")
     lag = nested.get("frame_lag_ms")
@@ -1362,12 +1485,16 @@ def _reason_of(record, bound, errors, skew=None):
     if nested is not None:
         if nested.get("acceptable") is not True:
             return "clock_check_not_acceptable"
-        evidence = _clock_evidence_violations(record, nested, bound)
-        if evidence:
-            return evidence[0][0]
+        # #137 round 6, R5-1: the nested schema runs BEFORE the evidence
+        # recomputation reads the check's values -- a malformed sample or
+        # a wrong type is the schema's own named refusal, and no helper
+        # ever floats a value the schema has not checked.
         schema = _clock_schema_violations(nested)
         if schema:
             return schema[0][0]
+        evidence = _clock_evidence_violations(record, nested, bound)
+        if evidence:
+            return evidence[0][0]
     if record.get("document_scoped") is not True:
         return "not_document_scoped"
     outcome = record.get("outcome")
@@ -1658,15 +1785,18 @@ def validate_witness(record, skew=None, bound_ms=DEFAULT_SKEW_BOUND_MS):
     else:
         clock_check_ok = False
 
-    # #137 rounds 3-4: the strict closed schema, the recomputed evidence,
+    # #137 rounds 3-6: the strict closed schema, the recomputed evidence,
     # the pixel consistency and the mask contradiction -- every token carries
-    # its message into the verdict, and the first names the reason.
+    # its message into the verdict, and the first names the reason. The
+    # nested schema precedes its evidence (#137 round 6, R5-1), so the
+    # recomputation never reads a value the schema has not checked (its
+    # helpers are total over JSON values regardless -- belt and braces).
     for _reason, message in _production_schema_violations(record):
         errors.append(message)
     if isinstance(nested, dict) and nested.get("acceptable") is True:
-        for _reason, message in _clock_evidence_violations(record, nested, bound):
-            errors.append(message)
         for _reason, message in _clock_schema_violations(nested):
+            errors.append(message)
+        for _reason, message in _clock_evidence_violations(record, nested, bound):
             errors.append(message)
     for _reason, message in _pixel_evidence_violations(record):
         errors.append(message)
@@ -1721,6 +1851,29 @@ def _print_validation_aborted(error):
     )
 
 
+def _print_record_unreadable(path, error):
+    """The CLI's read refusal (#137 round 6, R5-2): the file is not a
+    record at all -- unreadable, not valid JSON, a bare ``NaN``. The exit
+    stays 2 (not a verdict on a record), but stdout keeps the contract
+    every consumer was promised: one JSON refusal, named, never silence."""
+    import sys
+
+    sys.stdout.write(
+        json.dumps(
+            {
+                "ok": False,
+                "refused": True,
+                "reason": "record_unreadable",
+                "errors": [
+                    "cannot read the witness record %s: %s"
+                    % (path, error)
+                ],
+            }
+        )
+        + "\n"
+    )
+
+
 def main(argv=None):
     import argparse
     import sys
@@ -1739,6 +1892,7 @@ def main(argv=None):
     try:
         record = load_witness(args.file)
     except (OSError, ValueError) as error:
+        _print_record_unreadable(args.file, error)
         sys.stderr.write("witness: cannot read %s: %s\n" % (args.file, error))
         return 2
 
