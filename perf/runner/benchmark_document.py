@@ -1062,11 +1062,15 @@ def _write_refusal(
         publishable=publishable,
         publication_block_reason=publication_block_reason,
     )
+    classification_reason = failure_reason
+    measurement, separator, detail = failure_reason.partition(": ")
+    if separator and measurement in C15_MEASUREMENTS:
+        classification_reason = detail
     trial['refusal_code'] = (outcome if outcome != 'failed' else
-        'cpu_throttled' if failure_reason.startswith('cpu_throttled') else
-        'host_build' if failure_reason.startswith('host-error:') else
-        'unverified' if failure_reason.startswith(('document_content_', 'no document surface')) else
-        'paint_witness_unavailable' if failure_reason.startswith(('witness ', 'clock_', 'frame_', 'clock skew ', 'no compositor frame', 'no presented frame', 'retained sample has no witness')) else
+        'cpu_throttled' if classification_reason.startswith('cpu_throttled') else
+        'host_build' if classification_reason.startswith('host-error:') else
+        'unverified' if classification_reason.startswith(('document_content_', 'no document surface', 'no DOM usability mark', 'text-shift assertion failed', 'C12 window includes', 'find widget ', 'find probe returned status', 'probe refused ')) else
+        'paint_witness_unavailable' if classification_reason.startswith(('witness ', 'clock_', 'frame_', 'clock skew ', 'no compositor frame', 'no presented frame', 'retained sample has no witness', 'presented frame precedes', 'negative presented', 'compositor frame timestamp', 'no first-contentful-paint', 'first-contentful-paint entry')) else
         'crash')
     validate_environment(env)
     validate_trial(trial)

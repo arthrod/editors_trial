@@ -44,6 +44,14 @@ import pytest
     ('no compositor frame captured at or after the observed y-shift', 'paint_witness_unavailable'),
     ('no presented frame at or after the document surface; FCP is not a C11 sample', 'paint_witness_unavailable'),
     ('no document surface; FCP is not a C11 sample', 'unverified'),
+    ('presented frame precedes the anchor reflow (frame=1 shift=20 input=0)', 'paint_witness_unavailable'),
+    ('negative presented_frame_ms', 'paint_witness_unavailable'),
+    ('compositor frame timestamp precedes the DOM usability mark; clock mismatch', 'paint_witness_unavailable'),
+    ('no DOM usability mark (page/block element never appeared with text)', 'unverified'),
+    ('text-shift assertion failed: anchor block did not move down', 'unverified'),
+    ("C12 window includes the probe's own forced layout", 'unverified'),
+    ('first_match: find widget acknowledged neither a first match nor completion', 'unverified'),
+    ('probe produced no JSON for plate (exit 1): failure', 'crash'),
     ('unexpected internal exception', 'crash'),
 ])
 def test_document_refusals_keep_their_classification(tmp_path, reason, code):
