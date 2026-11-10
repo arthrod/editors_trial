@@ -5,6 +5,7 @@ from enum import StrEnum
 
 class RefusalCode(StrEnum):
     HOST_BUILD = 'host_build'
+    DEPENDENCY_MISSING = 'dependency_missing'
     CPU_THROTTLED = 'cpu_throttled'
     CPU_ACCOUNTING_UNAVAILABLE = 'cpu_accounting_unavailable'
     QUARANTINED = 'quarantined'
