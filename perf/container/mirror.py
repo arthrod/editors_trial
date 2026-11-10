@@ -8,8 +8,6 @@ import sys
 import time
 from pathlib import Path
 
-from . import artifacts
-
 CHUNK = 1024 * 1024
 _SKIP_LOGGED: set[str] = set()
 
@@ -109,6 +107,23 @@ def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def atomic_write(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + f'.tmp-{os.getpid()}')
+    tmp.write_text(content)
+    fd = os.open(tmp, os.O_RDONLY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+    os.replace(tmp, path)
+    dir_fd = os.open(path.parent, os.O_RDONLY)
+    try:
+        os.fsync(dir_fd)
+    finally:
+        os.close(dir_fd)
+
+
 def _manifest_digest_map(job_dir: Path) -> dict[str, str]:
     manifest = job_dir / 'MANIFEST.sha256'
     mapping: dict[str, str] = {}
@@ -153,7 +168,7 @@ def mirror_job_directory(
         mirror_ok = dest / 'MIRROR-OK'
         if mirror_ok.exists():
             write_prev_copy(mirror_ok)
-        artifacts.atomic_write(mirror_ok, f'manifest_sha256={manifest_sha}\n')
+        atomic_write(mirror_ok, f'manifest_sha256={manifest_sha}\n')
     except (OSError, ValueError) as exc:
         _append_run_log(run_log, f'MIRROR-ERROR {job_id} {exc}')
 

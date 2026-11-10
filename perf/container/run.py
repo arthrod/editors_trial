@@ -238,47 +238,60 @@ def main(argv: list[str] | None = None):
             directory = campaign_root / name / run_id
             entry = {'runner': name, 'seed': int(options[options.index('--seed') + 1]),
                      'run_dir': str(directory), **cell_counts({})}
-            if pending_mirror_alive_pid is not None:
-                entry['mirror_child_alive_pid'] = pending_mirror_alive_pid
-                write_job_campaign_meta(directory, {'mirror_child_alive_pid': pending_mirror_alive_pid})
-                _append_mirror_log(run_log, f'mirror_child_alive_pid={pending_mirror_alive_pid} disclosed for {run_id}')
-                pending_mirror_alive_pid = None
             records.append(entry)
             job_exit = 0
-            if refuse_existing(directory):
-                job_exit = 2
-                entry['refusal'] = f'job_refused: directory exists: {directory}'
-                failures.append(f'{name}: {entry["refusal"]}')
-            else:
-                try:
-                    result = subprocess.run(cmd, check=False)
-                    job_exit = result.returncode
-                    entry['exit_code'] = job_exit
-                    data = read_run(directory)
-                    entry.update(cell_counts(data))
-                    verify_lane_profiles(directory, options[options.index('--execution-profile') + 1],
-                                         options[options.index('--host-class') + 1])
-                    if args.smoke:
-                        from .smoke import finish_smoke
-                        finish_smoke(directory, name, persist=False)
-                    else:
-                        verify_run(data)
-                except Exception as exc:
-                    job_exit = 1
-                    entry['refusal'] = str(exc)
-                    failures.append(f'{name}: {exc}')
-                if directory.exists():
-                    artifacts.finalize_job(directory, job_exit)
+            try:
+                if refuse_existing(directory):
+                    job_exit = 2
+                    entry['refusal'] = f'job_refused: directory exists: {directory}'
+                    failures.append(f'{name}: {entry["refusal"]}')
+                else:
                     try:
-                        _ok, alive = run_mirror_process(stamp, name, run_id, directory, run_log)
-                        if alive is not None:
-                            pending_mirror_alive_pid = alive
-                    except BaseException as exc:
-                        if isinstance(exc, (KeyboardInterrupt, SystemExit)):
-                            raise
-                        failures.append(f'{name}: mirror: {exc}')
-                        _append_mirror_log(run_log, f'MIRROR-ERROR {run_id} {exc}')
-            if job_exit != 0:
+                        result = subprocess.run(cmd, check=False)
+                        job_exit = result.returncode
+                        entry['exit_code'] = job_exit
+                        data = read_run(directory)
+                        entry.update(cell_counts(data))
+                        verify_lane_profiles(directory, options[options.index('--execution-profile') + 1],
+                                             options[options.index('--host-class') + 1])
+                        if args.smoke:
+                            from .smoke import finish_smoke
+                            finish_smoke(directory, name, persist=False)
+                        else:
+                            verify_run(data)
+                    except Exception as exc:
+                        job_exit = 1
+                        entry['refusal'] = str(exc)
+                        failures.append(f'{name}: {exc}')
+                    if directory.exists():
+                        artifacts.finalize_job(directory, job_exit)
+                        try:
+                            _ok, alive = run_mirror_process(stamp, name, run_id, directory, run_log)
+                            if alive is not None:
+                                pending_mirror_alive_pid = alive
+                                write_job_campaign_meta(
+                                    campaign_root, {'mirror_child_alive_pid': pending_mirror_alive_pid}
+                                )
+                        except BaseException as exc:
+                            if isinstance(exc, (KeyboardInterrupt, SystemExit)):
+                                raise
+                            failures.append(f'{name}: mirror: {exc}')
+                            _append_mirror_log(run_log, f'MIRROR-ERROR {run_id} {exc}')
+                        if pending_mirror_alive_pid is not None:
+                            entry['mirror_child_alive_pid'] = pending_mirror_alive_pid
+                            write_job_campaign_meta(
+                                directory, {'mirror_child_alive_pid': pending_mirror_alive_pid}
+                            )
+                            _append_mirror_log(
+                                run_log,
+                                f'mirror_child_alive_pid={pending_mirror_alive_pid} disclosed for {run_id}',
+                            )
+                if job_exit != 0:
+                    run_exit = 1
+            except BaseException as exc:
+                if isinstance(exc, (KeyboardInterrupt, SystemExit)):
+                    raise
+                failures.append(f'{name}: {exc}')
                 run_exit = 1
         if args.publish and not args.dry_run:
             destination = campaign_root / 'out' / 'e2-publication.json'
