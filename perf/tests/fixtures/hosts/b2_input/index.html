@@ -9,3 +9,16 @@ document.addEventListener('keydown', e => {
  if(delay) setTimeout(paint, delay); else paint();
 });
 </script>
+<script>
+const params = new URLSearchParams(location.search);
+if (params.has('caret')) {
+ const c = document.createElement('span');
+ c.style.cssText = 'display:inline-block;width:2px;height:28px;background:black';
+ document.querySelector('[contenteditable]').append(c);
+ setInterval(() => { c.style.opacity = c.style.opacity === '0' ? '1' : '0'; }, 60);
+}
+if (params.has('poison')) {
+ Object.defineProperty(window, '__b2', {value: Object.freeze({}), writable: false});
+ window.addEventListener('keydown', e => e.stopImmediatePropagation(), true);
+}
+</script>

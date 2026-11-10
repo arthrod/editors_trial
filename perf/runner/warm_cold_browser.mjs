@@ -126,6 +126,21 @@ async function waitForReady(page, selector, timeoutMs = 120_000, t0 = Date.now()
 }
 
 async function performEdit(page, selector, cdp) {
+  try {
+    return await measureEdit(page, selector, cdp);
+  } catch (error) {
+    return { mechanism: 'cdp_screencast_changed_frame', outcome: 'failed',
+      edit_ms: null, paint_ms: null, failure_reason: 'input_probe_error: ' + String(error.message || error) };
+  } finally {
+    await page.evaluate(() => {
+      window.__b2?.observer?.disconnect();
+      window.__b2?.mutationObserver?.disconnect();
+      if (window.__b2?.onKey) window.removeEventListener('keydown', window.__b2.onKey, true);
+    }).catch(() => {}); // A navigation may already have destroyed the context.
+  }
+}
+
+async function measureEdit(page, selector, cdp) {
   // Focus/actionability and witness calibration are preconditioning, outside
   // the event-to-frame interval. No typing delay is introduced.
   if (preEditClick) await page.click(preEditClick, { timeout: 30_000 });
@@ -134,15 +149,27 @@ async function performEdit(page, selector, cdp) {
   const mechanism = 'cdp_screencast_changed_frame';
   if (!skew.acceptable) return {
     mechanism, clock_skew: skew, outcome: 'failed', edit_ms: null,
-    failure_reason: skew.skew_ms === null ? 'clock_skew_unavailable' : 'clock_skew_above_bound',
+    failure_reason: skew.reason || 'clock_check_not_acceptable',
   };
-  await page.evaluate(() => {
+  await page.evaluate(selector => {
+    const documentElement = document.querySelector(selector);
+    const count = () => (documentElement.textContent.match(/x/g) || []).length;
+    const before = count();
     window.__b2 = { event: null, entries: [], supported: PerformanceObserver.supportedEntryTypes.includes('event') };
-    window.addEventListener('keydown', function onKey(e) {
+    const state = window.__b2;
+    state.edit_confirmation = {confirmed: false, before_count: before, expected: 'x', mutation_page_ms: null};
+    state.mutationObserver = new MutationObserver(() => {
+      if (count() > before && state.edit_confirmation.mutation_page_ms === null) {
+        state.edit_confirmation.mutation_page_ms = performance.now();
+      }
+    });
+    state.mutationObserver.observe(documentElement, {subtree: true, childList: true, characterData: true});
+    state.onKey = function onKey(e) {
       if (e.key !== 'x') return;
       window.__b2.event = { startTime: e.timeStamp, trusted: e.isTrusted };
       window.removeEventListener('keydown', onKey, true);
-    }, true);
+    };
+    window.addEventListener('keydown', state.onKey, true);
     if (window.__b2.supported) {
       window.__b2.observer = new PerformanceObserver(list => {
         window.__b2.entries.push(...list.getEntries().map(e => ({
@@ -152,9 +179,9 @@ async function performEdit(page, selector, cdp) {
       });
       window.__b2.observer.observe({type:'event', durationThreshold:16});
     }
-  });
+  }, selector);
   const frame = await witnessFrame(page, cdp, {
-    windowMs: Math.max(500, frameTimeoutMs), clockSkewMs: skew.skew_ms,
+    windowMs: Math.max(500, frameTimeoutMs), clockCheck: skew, region: {selector},
     arm: async () => {
       await cdp.send('Input.dispatchKeyEvent', {type:'keyDown', key:'x', code:'KeyX', text:'x', windowsVirtualKeyCode:88});
       await cdp.send('Input.dispatchKeyEvent', {type:'keyUp', key:'x', code:'KeyX', windowsVirtualKeyCode:88});
@@ -163,6 +190,16 @@ async function performEdit(page, selector, cdp) {
       return event.startTime;
     },
   });
+  // Check the document before waiting for Event Timing delivery. A later edit
+  // cannot retroactively turn an earlier caret frame into the edit's paint.
+  const confirmation = await page.evaluate(({selector, frameTime}) => {
+    const state = window.__b2;
+    const after = (document.querySelector(selector).textContent.match(/x/g) || []).length;
+    const proof = state.edit_confirmation;
+    return {...proof, after_count: after, confirmed: after > proof.before_count &&
+      proof.mutation_page_ms !== null && frameTime !== null &&
+      proof.mutation_page_ms <= frameTime + 2};
+  }, {selector, frameTime: frame.frame_page_ms});
   // An observer delivery deadline is not a latency: durations come only
   // from matching Event Timing entries, and absence is explicitly censored.
   const timing = await page.evaluate(async () => {
@@ -178,10 +215,11 @@ async function performEdit(page, selector, cdp) {
       duration_threshold_ms:16, duration_step_ms:8 };
   });
   const duration = frame.frame_page_ms === null ? null : frame.frame_page_ms - timing.event.startTime;
-  const ok = frame.outcome === 'witnessed' && frame.clock_skew_acceptable && duration >= 0;
-  return { mechanism, clock_skew:skew, witness:frame, event_timing:timing,
+  const ok = frame.outcome === 'witnessed' && frame.document_scoped && frame.clock_skew_acceptable && confirmation.confirmed && duration !== null && duration >= 0;
+  return { mechanism, clock_skew:skew, witness:frame, event_timing:timing, edit_confirmation:confirmation,
+    timestamp_note: 'Uncorrected frame-to-page conversion; page_offset_ms is not a conversion correction. See clock_skew conversion bounds.',
     outcome: ok ? 'measured' : 'failed',
-    failure_reason: ok ? null : !frame.clock_skew_acceptable ? 'clock_skew_above_bound' : 'no_frame',
+    failure_reason: ok ? null : !frame.clock_skew_acceptable ? 'clock_check_not_acceptable' : !frame.document_scoped ? 'not_document_scoped' : frame.outcome !== 'witnessed' ? 'no_frame' : !confirmation.confirmed ? 'expected_edit_not_confirmed' : 'negative_input_latency',
     edit_ms:ok ? duration : null, paint_ms:ok ? duration : null };
 }
 
@@ -231,9 +269,9 @@ async function runPlaywrightPair() {
     }
   }
 
+  await stopRecorder(cdp);
   const reloadT0 = Date.now();
   await coldPage.reload({ waitUntil: 'domcontentloaded', timeout: 120_000 });
-  await stopRecorder(cdp);
   const warmReady = await waitForReady(coldPage, readySelector, 120_000, reloadT0);
   const documentReloadSameContextMs = warmReady.first_usable_ms;
 
@@ -354,7 +392,7 @@ async function runCriteriaSession() {
     settle_ms: ready.settle_ms,
     clock_skew: ready.clock_skew,
     ready_page_ms: payload.ready.ready_page_ms,
-    note: payload.ready.note,
+    note: [payload.ready.note, 'ready_ms and first_usable_ms in criteria mode measure domcontentloaded to ready; pair and fresh modes include navigation.'].filter(Boolean).join(' '),
   };
   payload.clipboard_permission = clipboardPermission;
   return payload;

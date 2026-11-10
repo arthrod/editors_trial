@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import nullcontext
 import hashlib
 import json
 import math
@@ -398,19 +399,18 @@ def _run_browser_probe(
     if target.get("skip_edit"):
         cmd.extend(["--skip-edit", "true"])
     active = ACTIVE.get()
-    if active is not None:
-        active.begin_sample()
-    proc = subprocess.run(
-        cmd,
-        cwd=str(UI),
-        capture_output=True,
-        text=True,
-        timeout=600,
-    )
-    record_process(proc)
-    if proc.returncode != 0:
-        raise RuntimeError(proc.stderr or proc.stdout or "probe failed")
-    payload = json.loads(proc.stdout)
+    with active.begin_sample() if active is not None else nullcontext():
+        proc = subprocess.run(
+            cmd, cwd=str(UI), capture_output=True, text=True, timeout=600,
+        )
+        record_process(proc)
+        if proc.returncode != 0:
+            raise RuntimeError(proc.stderr or proc.stdout or "probe failed")
+        payload = json.loads(proc.stdout)
+        probe_accounting = None
+        if active is not None:
+            path = active.sample('probe-' + uuid.uuid4().hex, {'outcome': 'ok'})
+            probe_accounting = json.loads(path.read_text())
     for index, pair in enumerate(payload.get('pairs', [])):
         for arm in ('cold', 'warm'):
             data = pair.get(arm, {})
@@ -421,7 +421,12 @@ def _run_browser_probe(
                     row = input_sample_record(observation, cid)
                     row.update(arm=arm, pair=index, iteration=iteration,
                                server_cold=pair.get('server_cold', index == 0))
+                    if probe_accounting and probe_accounting.get('failure_reason') == 'cpu_throttled':
+                        row.update(outcome='failed', failure_reason='cpu_throttled', latency_ms=None)
+                    if probe_accounting:
+                        row['probe_cpu_accounting'] = probe_accounting['cpu_accounting']
                     if row['outcome'] != 'measured':
+                        observation['outcome'] = 'failed'
                         observation['edit_ms'] = None
                         observation['failure_reason'] = row['failure_reason']
                         if cid == 'C05':
@@ -429,7 +434,8 @@ def _run_browser_probe(
                         else:
                             data['sustained_typing_median_ms'] = None
                     if active is not None:
-                        active.sample('input-' + uuid.uuid4().hex, row)
+                        with active.begin_sample():
+                            active.sample('input-' + uuid.uuid4().hex, row)
     return payload
 
 
@@ -440,15 +446,19 @@ def input_sample_record(observation, criterion_id):
     skew = row.get('clock_skew') or {}
     value, bound = skew.get('skew_ms'), skew.get('bound_ms')
     reason = row.get('failure_reason')
-    if not isinstance(value, (int, float)) or not isinstance(bound, (int, float)):
+    if reason:
+        pass  # Preserve the actual sample refusal before secondary missing evidence.
+    elif isinstance(value, bool) or isinstance(bound, bool) or not isinstance(value, (int, float)) or not isinstance(bound, (int, float)):
         reason = 'clock_skew_unavailable'
-    elif not math.isfinite(value) or abs(value) > bound:
+    elif not math.isfinite(value) or not math.isfinite(bound) or bound < 0 or abs(value) > bound:
         reason = 'clock_skew_above_bound'
     elif not skew.get('acceptable'):
         reason = 'clock_skew_unavailable'
     if not reason and criterion_id in ('C05', 'C06') and 'edit_ms' in row:
+        if (row.get('edit_confirmation') or {}).get('confirmed') is not True:
+            reason = 'expected_edit_not_confirmed'
         verdict = validate_witness(row.get('witness'), skew=value, bound_ms=bound)
-        if verdict['refused']:
+        if not reason and verdict['refused']:
             reason = verdict['reason']
     timing = dict(row.get('event_timing') or {})
     entries = [event_timing_status(e['duration'], 16) for e in timing.get('entries', [])]
@@ -461,17 +471,33 @@ def input_sample_record(observation, criterion_id):
     return row
 
 
+def validate_ready_attempts(rows):
+    """Check every C02/C03 combination, including server-cold and warm C03."""
+    from perf.runner.cause_attribution import assert_c02_c03_distinct_boundaries
+
+    rows = list(rows)
+    for c02 in rows:
+        if c02.get('criterion_id') != 'C02':
+            continue
+        for c03 in rows:
+            if c03.get('criterion_id') == 'C03' and c03.get('editor_id') == c02.get('editor_id'):
+                assert_c02_c03_distinct_boundaries(c02, c03)
+
+
 def _persist_attempt(attempt_dir, criterion_id, editor_id, trial):
     """Every written trial is an accounted BrowserRun sample, not just a cell."""
-    trial.setdefault('clock_skew', {'available':False, 'reason':'no page-clock observation for this outcome'})
     active = ACTIVE.get()
     name = "%s-%s-%s" % (criterion_id.lower(), editor_id, uuid.uuid4().hex[:10])
     if active is not None:
         sample_path = active.sample(name, trial)
-        trial = json.loads(sample_path.read_text())
-        if trial.get('failure_reason') == 'cpu_throttled':
-            trial.update(samples_ms=[], latency_ms=None, summary_stats=None,
-                         publication_block_reason='cpu_throttled')
+        recorded = json.loads(sample_path.read_text())
+        if recorded.get('failure_reason') == 'cpu_throttled':
+            # B1 strips measurements; rebuild only the schema identity, never evidence.
+            identity = {key: trial[key] for key in ('criterion_id', 'layer', 'boundary', 'environment', 'editor_id', 'lane') if key in trial}
+            trial = {**identity, **recorded, 'samples_ms': [], 'latency_ms': None,
+                     'summary_stats': None, 'publication_block_reason': 'cpu_throttled'}
+        else:
+            trial = recorded
     return write_attempt(attempt_dir, name, trial)
 
 
@@ -489,6 +515,8 @@ def _write_measured_attempt(
     diagnostic: dict | None = None,
 ) -> Path:
     diagnostic = diagnostic or {}
+    if criterion_id == "C06":
+        diagnostic = {**diagnostic, "keys": 3, "isolated": True}
     if criterion_id == 'C05':
         assert_visible_evidence('C05', diagnostic.get('mechanism'))
     observations = diagnostic.get('observations', [])
@@ -540,6 +568,18 @@ def _write_measured_attempt(
         trial['clock_skew'] = diagnostic.get('clock_skew')
     validate_trial(trial)
     return _persist_attempt(attempt_dir, criterion_id, editor_id, trial)
+
+
+def _write_input_refusal(*, observations, failure_reason, **kwargs):
+    checked = [input_sample_record(o, kwargs['criterion_id']) for o in observations]
+    reason = next((o['failure_reason'] for o in checked if o.get('failure_reason')), failure_reason)
+    trial = _trial_dict(
+        **{k: v for k, v in kwargs.items() if k != 'attempt_dir'},
+        outcome='failed', samples_ms=[], failure_reason=reason,
+        diagnostic={'observations': checked, 'aggregation': 'all samples required',
+                    **({'keys': 3, 'isolated': True} if kwargs['criterion_id'] == 'C06' else {})},
+    )
+    return _persist_attempt(kwargs['attempt_dir'], kwargs['criterion_id'], kwargs['editor_id'], trial)
 
 
 def _write_not_run(
@@ -964,7 +1004,7 @@ def _main() -> int:
                 if pair.get("warm", {}).get("single_edit_ms") is not None
             ]
             if len(cold_edits) < len(payload["pairs"]) or len(warm_edits) < len(payload["pairs"]):
-                reason = "adapter-not-implemented: edit probe returned no timings"
+                reason = "missing_input_latency"
                 for cid in ("C05", "C06"):
                     if cid not in criteria_map:
                         continue
@@ -980,7 +1020,7 @@ def _main() -> int:
                         docx_size=docx_size,
                         cache_state="warm_steady",
                     )
-                    path = _write_not_run(
+                    path = _write_input_refusal(
                         attempt_dir=attempt_dir,
                         criterion_id=cid,
                         layer=layer,
@@ -988,14 +1028,15 @@ def _main() -> int:
                         editor_id=editor_id,
                         lane=lane,
                         env=env,
+                        observations=[p[a] for p in payload["pairs"] for a in ("cold", "warm")],
                         failure_reason=reason,
                     )
                     not_run_rows.append(
                         {
                             "criterion_id": cid,
                             "editor_id": editor_id,
-                            "outcome": "not_run",
-                            "failure_reason": reason,
+                            "outcome": "failed",
+                            "failure_reason": json.loads(path.read_text())["failure_reason"],
                             "attempt_file": _attempt_ref(path),
                         }
                     )
@@ -1174,7 +1215,7 @@ def _main() -> int:
                     )
                 )
             elif "C06" in criteria_map:
-                reason = "adapter-not-implemented: sustained_typing burst probe incomplete"
+                reason = "missing_input_latency"
                 boundary, layer = ("input_to_next_paint", "browser_visible")
                 env = _env_for(
                     editor_id=editor_id,
@@ -1184,7 +1225,7 @@ def _main() -> int:
                     docx_size=docx_size,
                     cache_state="warm_steady",
                 )
-                path = _write_not_run(
+                path = _write_input_refusal(
                     attempt_dir=attempt_dir,
                     criterion_id="C06",
                     layer=layer,
@@ -1192,14 +1233,15 @@ def _main() -> int:
                     editor_id=editor_id,
                     lane=lane,
                     env=env,
+                    observations=[o for p in payload["pairs"] for a in ("cold", "warm") for o in p[a].get("burst", [])],
                     failure_reason=reason,
                 )
                 not_run_rows.append(
                     {
                         "criterion_id": "C06",
                         "editor_id": editor_id,
-                        "outcome": "not_run",
-                        "failure_reason": reason,
+                        "outcome": "failed",
+                        "failure_reason": json.loads(path.read_text())["failure_reason"],
                         "attempt_file": _attempt_ref(path),
                     }
                 )
@@ -1263,9 +1305,7 @@ def _main() -> int:
             if proc is not None:
                 _stop_server(proc)
 
-    from perf.runner.cause_attribution import assert_no_duplicate_c02_c03_in_dir  # noqa: E402
-
-    assert_no_duplicate_c02_c03_in_dir(attempt_dir)
+    validate_ready_attempts(json.loads(path.read_text()) for path in attempt_dir.glob("*.json"))
 
     summary = {
         "suite": "warm_cold",

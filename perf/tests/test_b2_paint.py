@@ -214,6 +214,7 @@ class SamplePolicy(unittest.TestCase):
                 'outcome': 'measured',
                 'clock_skew': {'skew_ms': 0, 'bound_ms': 2, 'acceptable': True},
                 'witness': frame_record(),
+                'edit_confirmation': {'confirmed': True},
                 'event_timing': {'outcome': 'censored_below_16_ms', 'entries': []},
             },
             'C06',
@@ -224,7 +225,7 @@ class SamplePolicy(unittest.TestCase):
 
 
 class WriterIntegration(unittest.TestCase):
-    def write(self, *, skew=0, throttled=False):
+    def write(self, *, skew=0, throttled=False, criterion="C05"):
         from perf.runner.browser_run import BrowserRun, ACTIVE
         from perf.tests.test_browser_throttle import snapshot
         from perf.tests.test_schema import _env
@@ -242,11 +243,12 @@ class WriterIntegration(unittest.TestCase):
                     'edit_ms': 25,
                     'outcome': 'measured',
                     'witness': frame_record(),
+                'edit_confirmation': {'confirmed': True},
                     'clock_skew': {'skew_ms': skew, 'bound_ms': 2, 'acceptable': abs(skew) <= 2},
                 }
                 path = runner._write_measured_attempt(
                     attempt_dir=Path(tmp) / 'attempts',
-                    criterion_id='C05',
+                    criterion_id=criterion,
                     layer='browser_visible',
                     boundary='presented_frame',
                     editor_id='plate',
@@ -278,3 +280,125 @@ class WriterIntegration(unittest.TestCase):
         self.assertEqual(row['failure_reason'], 'cpu_throttled')
         self.assertEqual(row['samples_ms'], [])
         self.assertEqual(row['cpu_accounting']['delta']['nr_throttled'], 1)
+
+
+class ReviewPolicy(unittest.TestCase):
+    def test_f1_expected_edit_required(self):
+        row = runner.input_sample_record({
+            'edit_ms': 25, 'outcome': 'measured', 'witness': frame_record(),
+            'clock_skew': {'skew_ms': 0, 'bound_ms': 2, 'acceptable': True},
+            'edit_confirmation': {'confirmed': False},
+        }, 'C05')
+        self.assertEqual(row['failure_reason'], 'expected_edit_not_confirmed')
+        self.assertIsNone(row['latency_ms'])
+
+    def test_f4_refusal_reason_survives_missing_clock(self):
+        row = runner.input_sample_record({'outcome': 'failed', 'failure_reason': 'trusted_keydown_not_observed'}, 'C05')
+        self.assertEqual(row['failure_reason'], 'trusted_keydown_not_observed')
+
+    def test_boolean_clock_is_not_numeric(self):
+        row = runner.input_sample_record({'clock_skew': {'skew_ms': True, 'bound_ms': 2, 'acceptable': True}}, 'C05')
+        self.assertEqual(row['failure_reason'], 'clock_skew_unavailable')
+
+
+class ProbeBracketIntegration(unittest.TestCase):
+    def test_f2_exception_restores_cell_bracket(self):
+        from unittest.mock import patch
+        from perf.runner.browser_run import BrowserRun, ACTIVE
+        from perf.tests.test_browser_throttle import snapshot
+        with tempfile.TemporaryDirectory() as tmp:
+            readings = iter([snapshot(n=0), snapshot(n=0), snapshot(n=1), snapshot(n=1)])
+            run = BrowserRun(tmp, 'bracket', snapshot=lambda: {}, accounting_reader=lambda: next(readings))
+            token = ACTIVE.set(run)
+            try:
+                run.begin_sample()
+                # subprocess has no upstream fake: fail the process boundary only.
+                with patch.object(runner.subprocess, 'run', side_effect=RuntimeError('poisoned probe')):
+                    with self.assertRaisesRegex(RuntimeError, 'poisoned probe'):
+                        runner._run_browser_probe(target={'url':'http://fixture', 'corpus_route':'/x', 'edit_selector':'#doc'}, corpus_path=Path(tmp)/'x', pairs=1)
+                path = run.sample('cell', {'outcome':'ok'})
+                self.assertEqual(json.loads(path.read_text())['outcome'], 'failed')
+            finally:
+                ACTIVE.reset(token)
+
+
+@unittest.skipUnless(os.environ.get('B2_BROWSER'), 'opt-in browser integration')
+class AdversarialBrowser(BrowserIntegration):
+    def test_f1_custom_caret_does_not_prove_edit(self):
+        p = self.probe('caret', '--url', self.host.url + '/?delay=150&caret=1', '--fresh-context-probe', 'false')
+        for arm in ('cold', 'warm'):
+            edit = p['pairs'][0][arm]
+            self.assertTrue(edit['single_edit_ms'] is None or edit['single_edit_ms'] >= 150, edit)
+            if edit['single_edit_ms'] is not None:
+                self.assertTrue(edit['witness']['document_scoped'])
+
+    def test_f3_poisoned_edit_keeps_c03(self):
+        p = self.probe('poison', '--url', self.host.url + '/?poison=1', '--fresh-context-probe', 'false')
+        for arm in ('cold', 'warm'):
+            edit = p['pairs'][0][arm]
+            self.assertGreaterEqual(edit['first_usable_ms'], 0)
+            self.assertEqual(edit['outcome'], 'failed')
+            self.assertIsNone(edit['single_edit_ms'])
+            self.assertIn('failure_reason', edit)
+
+
+class ReviewArtifactIntegration(WriterIntegration):
+    def test_f8_c06_records_isolation(self):
+        row = self.write(criterion='C06')
+        self.assertEqual(row['diagnostic'].get('keys'), 3)
+        self.assertIs(row['diagnostic'].get('isolated'), True)
+
+    def test_f5_recorder_stop_precedes_reload_clock(self):
+        source = (ROOT / 'perf/runner/warm_cold_browser.mjs').read_text()
+        start = source.index('  const reloadT0 =')
+        end = source.index('  const documentReloadSameContextMs', start)
+        self.assertNotIn('stopRecorder', source[start:end])
+
+    def test_f4_count_gate_writes_failure_with_evidence(self):
+        from perf.tests.test_schema import _env
+        with tempfile.TemporaryDirectory() as tmp:
+            path = runner._write_input_refusal(
+                attempt_dir=Path(tmp), criterion_id='C06', layer='browser_visible',
+                boundary='input_to_next_paint', editor_id='plate', lane='browser', env=_env(),
+                failure_reason='missing_input_latency',
+                observations=[{'outcome':'failed', 'failure_reason':'no_frame', 'witness':{'outcome':'no_frame'}}],
+            )
+            row = json.loads(path.read_text())
+            self.assertEqual(row['outcome'], 'failed')
+            self.assertEqual(row['failure_reason'], 'no_frame')
+            self.assertEqual(row['diagnostic']['observations'][0]['witness']['outcome'], 'no_frame')
+
+
+class AllReadyAttempts(unittest.TestCase):
+    def test_f9_checks_every_c03_not_only_last(self):
+        self.assertTrue(hasattr(runner, 'validate_ready_attempts'))
+        rows = [
+            {'editor_id':'plate', 'criterion_id':'C02', 'outcome':'measured', 'boundary':'model_ready_browser', 'samples_ms':[10]},
+            {'editor_id':'plate', 'criterion_id':'C03', 'outcome':'measured', 'boundary':'first_usable', 'samples_ms':[10]},
+            {'editor_id':'plate', 'criterion_id':'C03', 'outcome':'measured', 'boundary':'first_usable', 'samples_ms':[20]},
+        ]
+        with self.assertRaisesRegex(ValueError, 'identical'):
+            runner.validate_ready_attempts(rows)
+        runner.validate_ready_attempts([rows[0], rows[2]])
+
+
+class SuccessfulProbeBracketIntegration(unittest.TestCase):
+    def test_build_throttle_survives_successful_inner_probe(self):
+        from unittest.mock import patch
+        from perf.runner.browser_run import BrowserRun, ACTIVE
+        from perf.tests.test_browser_throttle import snapshot
+        with tempfile.TemporaryDirectory() as tmp:
+            readings = iter([snapshot(n=0), snapshot(n=0), snapshot(n=1), snapshot(n=1), snapshot(n=1)])
+            run = BrowserRun(tmp, 'bracket-success', snapshot=lambda: {}, accounting_reader=lambda: next(readings))
+            token = ACTIVE.set(run)
+            try:
+                run.begin_sample()
+                process = subprocess.CompletedProcess(['node'], 0, '{"pairs": []}', '')
+                with patch.object(runner.subprocess, 'run', return_value=process):
+                    runner._run_browser_probe(target={'url':'http://fixture', 'corpus_route':'/x', 'edit_selector':'#doc'}, corpus_path=Path(tmp)/'x', pairs=1)
+                path = run.sample('cell', {'outcome':'ok'})
+                row = json.loads(path.read_text())
+                self.assertEqual(row['failure_reason'], 'cpu_throttled')
+                self.assertEqual(row['cpu_accounting']['delta']['nr_throttled'], 1)
+            finally:
+                ACTIVE.reset(token)
