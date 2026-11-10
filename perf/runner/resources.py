@@ -4,7 +4,12 @@
 root pid the run launched, and records RAM, CPU, disk and network with the
 unit in the field name. Linux-only counters stay
 ``not_available_on_platform`` on other hosts. They are never stored as zero.
-A genuine numeric zero stays zero. ``AsyncResourceSampler`` is the same
+A genuine numeric zero stays zero. Counter deltas (CPU, IO, network bytes
+and requests, long tasks, task/script/layout/style durations) need two
+samples. One sample emits the unavailable marker with reason
+``single_sample_phase``, never zero. Heap, RSS, PSS, USS, storage and
+profile size are levels taken from the last sample.
+``AsyncResourceSampler`` is the same
 contract over an async page and CDP session: ``mark(phase)`` returns a sample
 and leaves that phase active, ``totals(phase)`` requires the phase.
 
@@ -34,6 +39,28 @@ import time
 from perf.runner.memory_tree import tree_pids
 
 NOT_AVAILABLE = "not_available_on_platform"
+SINGLE_SAMPLE_PHASE = "single_sample_phase"
+
+# Phase quantities. A level (heap, RSS, storage) is not in this list.
+COUNTER_DELTA_FIELDS = (
+    "cpu_ms",
+    "renderer_cpu_ms",
+    "io_read_bytes",
+    "io_write_bytes",
+    "network_encoded_bytes",
+    "network_request_count",
+    "longtask_count",
+    "longtask_sum_ms",
+    "task_duration_ms",
+    "script_duration_ms",
+    "layout_duration_ms",
+    "recalc_style_duration_ms",
+)
+
+
+def unavailable_marker(reason):
+    """The unavailable marker. ``reason`` says why there is no number."""
+    return {"marker": NOT_AVAILABLE, "reason": reason}
 
 PAGE_SNAPSHOT_JS = """async () => {
   let est = null;
@@ -812,7 +839,7 @@ def phase_totals(rows):
     io_write, _io_write_status = _identity_delta(rows, "io_write_bytes")
     if "incomplete" in (status, cpu_status):
         status = "incomplete"
-    return {
+    totals = {
         "sample_count": len(rows),
         "js_heap_used_bytes": last.get("js_heap_used_bytes"),
         "js_heap_total_bytes": last.get("js_heap_total_bytes"),
@@ -840,6 +867,10 @@ def phase_totals(rows):
         "local_storage_bytes": last.get("local_storage_bytes"),
         "processes": last.get("processes") or [],
     }
+    if len(rows) < 2:
+        for key in COUNTER_DELTA_FIELDS:
+            totals[key] = unavailable_marker(SINGLE_SAMPLE_PHASE)
+    return totals
 
 
 class ResourceSampler:

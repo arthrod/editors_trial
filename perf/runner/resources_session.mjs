@@ -245,7 +245,28 @@ function crSessionOf(clientObject) {
   } catch {
     impl = null;
   }
-  if (impl && impl._session && typeof impl._session.send === 'function') return impl._session;
+  if (!impl) return null;
+  // Service workers keep the CDP session on the worker. Dedicated workers do
+  // not: Playwright stores it on the frame session, keyed by the same id as
+  // page._workers.
+  if (impl._session && typeof impl._session.send === 'function') return impl._session;
+  const owner = impl.attribution && impl.attribution.page;
+  const workers = owner && owner._workers;
+  const delegate = owner && owner.delegate;
+  if (!workers || !delegate || typeof workers.entries !== 'function') return null;
+  const frames = [];
+  if (delegate._mainFrameSession) frames.push(delegate._mainFrameSession);
+  if (delegate._sessions && typeof delegate._sessions.values === 'function') {
+    for (const frame of delegate._sessions.values()) frames.push(frame);
+  }
+  for (const [sessionId, worker] of workers) {
+    if (worker !== impl) continue;
+    for (const frame of frames) {
+      const sessions = frame && frame._workerSessions;
+      const session = sessions && typeof sessions.get === 'function' ? sessions.get(sessionId) : null;
+      if (session && typeof session.send === 'function') return session;
+    }
+  }
   return null;
 }
 

@@ -8,6 +8,12 @@ fields. They are never written to ``samples_ms``.
 Publication needs ``dedicated_publish``, 30 scheduled repetitions in each
 editor/workload group of each run, at least 10 kept measurements in each of
 those groups, and two distinct seeds.
+
+C17 and C19 are endpoint levels: natural and post-GC heap, RSS/PSS/USS,
+storage and profile size. They do not carry counter deltas. Those deltas
+are phase quantities. The publishable ones are named ``load_cpu_ms``,
+``edit_cpu_ms``, ``quiescence_cpu_ms`` (and the same prefixes for the other
+counter fields) and are also on the ``phases`` map.
 """
 
 from __future__ import annotations
@@ -33,6 +39,7 @@ from perf.runner.benchmark_warm_cold import BROWSER_TARGETS, _start_server, _sto
 from perf.runner.browser_hosts import select_fixture
 from perf.runner.browser_run import BrowserRun, run_cli, write_json
 from perf.runner.resources import (
+    COUNTER_DELTA_FIELDS,
     NOT_AVAILABLE,
     ResourceSampler,
     WallClock,
@@ -77,6 +84,9 @@ REFUSAL_CODES = (
 )
 
 PHASES = ("load", "after_load", "edit_burst", "quiescence", "after_edits", "save_export")
+NOT_APPLICABLE_ENDPOINT = "not_applicable_endpoint"
+_PUBLISHABLE_PHASES = (("load", "load"), ("edit_burst", "edit"), ("quiescence", "quiescence"))
+_ENDPOINT_LEVELS = ("pss_bytes", "uss_bytes", "profile_directory_bytes")
 SESSION = Path(__file__).with_name("resources_session.mjs")
 _META_KEYS = (
     "workload_id", "sha256", "byte_size", "paragraph_count", "word_count",
@@ -194,6 +204,43 @@ def _record_gc(sampler, phase):
     sampler.gc_heaps[phase] = heap
 
 
+def _last_sample(series, phase):
+    found = None
+    for row in series:
+        if row.get("phase") == phase:
+            found = row
+    return found
+
+
+def _endpoint_criterion(phase_name, phase_row, series):
+    """Levels only. Counter deltas are not applicable on an endpoint."""
+    view = {
+        key: value
+        for key, value in phase_row.items()
+        if key not in COUNTER_DELTA_FIELDS
+    }
+    for key in COUNTER_DELTA_FIELDS:
+        view[key] = NOT_APPLICABLE_ENDPOINT
+    last = _last_sample(series, phase_name)
+    if last is not None:
+        for key in _ENDPOINT_LEVELS:
+            view[key] = last.get(key, NOT_AVAILABLE)
+    view["phase"] = phase_name
+    return view
+
+
+def _named_phase_counters(phases):
+    named = {}
+    for phase, prefix in _PUBLISHABLE_PHASES:
+        row = phases.get(phase)
+        if not isinstance(row, dict):
+            continue
+        for key in COUNTER_DELTA_FIELDS:
+            if key in row:
+                named["%s_%s" % (prefix, key)] = row[key]
+    return named
+
+
 def assemble_trial(
     sampler, *, quiescence_reached, quiescence, edit_burst, editor_id, workload_id,
     workload_meta, execution_profile, host_class, save_phase, refusal_override=None,
@@ -217,7 +264,7 @@ def assemble_trial(
         raise ValueError("refusal code is not closed: %s" % (code,))
     criteria = {}
     if "after_load" in phases:
-        criteria["C17"] = {"phase": "after_load", **phases["after_load"]}
+        criteria["C17"] = _endpoint_criterion("after_load", phases["after_load"], series)
     if "after_edits" in phases and "after_load" in phases:
         growth_heap = NOT_AVAILABLE
         growth_rss = NOT_AVAILABLE
@@ -225,12 +272,9 @@ def assemble_trial(
             growth_heap = phases["after_edits"]["js_heap_used_bytes"] - phases["after_load"]["js_heap_used_bytes"]
         if _is_int(phases["after_edits"].get("rss_bytes")) and _is_int(phases["after_load"].get("rss_bytes")):
             growth_rss = phases["after_edits"]["rss_bytes"] - phases["after_load"]["rss_bytes"]
-        criteria["C19"] = {
-            "phase": "after_edits",
-            **phases["after_edits"],
-            "growth_js_heap_used_bytes": growth_heap,
-            "growth_rss_bytes": growth_rss,
-        }
+        criteria["C19"] = _endpoint_criterion("after_edits", phases["after_edits"], series)
+        criteria["C19"]["growth_js_heap_used_bytes"] = growth_heap
+        criteria["C19"]["growth_rss_bytes"] = growth_rss
     gc_heaps = getattr(sampler, "gc_heaps", None) or {}
     if "C17" in criteria and "after_load" in gc_heaps:
         criteria["C17"]["js_heap_used_bytes_after_gc"] = gc_heaps["after_load"]
@@ -269,6 +313,7 @@ def assemble_trial(
         "quiescence": {**dict(quiescence), "reached": bool(quiescence_reached)},
         "static_server": static_server,
         "phases": phases,
+        **_named_phase_counters(phases),
         "criteria": criteria,
         "peak_ram_bytes": _peak(series, "rss_bytes"),
         "peak_js_heap_used_bytes": _peak(series, "js_heap_used_bytes"),
