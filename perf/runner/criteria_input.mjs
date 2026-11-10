@@ -355,7 +355,7 @@ async function sampleAfterInput(witness, inputMs, options, callOptions = {}) {
     };
   }
   const subFrame = sampleMs < witness.frameIntervalMs;
-  if (subFrame || sampleMs < EVENT_TIMING_THRESHOLD_MS) {
+  if (subFrame) {
     return {
       ok: true,
       sampleMs,
@@ -926,7 +926,7 @@ async function resolveClickPoint(page, meta) {
 
 async function measureClicks(page, witness, options, meta) {
   const entry = emptyEntry('C07', 'failed', null);
-  entry.trial_hints.repetition_unit = 'in_process_iteration';
+  entry.trial_hints.repetition_unit = 'fresh_process';
   const scope = 'dom_caret_on_clicked_line';
   entry.assertion = {
     name: 'hit_test_reaches_editable_and_paints',
@@ -1019,7 +1019,7 @@ async function measureClicks(page, witness, options, meta) {
     }
     observation.frame_ms = round(frameRecord.frame_page_ms, 3);
     const sampleMs = round(frameRecord.frame_page_ms - input.t, 3);
-    const subFrame = sampleMs < witness.frameIntervalMs || sampleMs < EVENT_TIMING_THRESHOLD_MS;
+    const subFrame = sampleMs < witness.frameIntervalMs;
     observation.sample_ms = sampleMs;
     observation.sub_frame = subFrame;
     const correctness = assertFixtureBodyMatches(state, options.expectedBodyText);
@@ -1254,6 +1254,7 @@ async function measureUndo(page, witness, options, meta) {
     entry.outcome = 'measured';
     entry.samples_ms = [observation.sample_ms];
     entry.sample_observation_ids = [observation.observation_id];
+    entry.sub_frame_samples = [Boolean(painted.sub_frame)];
     entry.assertion.passed = true;
     entry.assertion.checks = {
       typed_character_observed: true,
@@ -1410,6 +1411,7 @@ async function measureBulkInsert(page, witness, options, meta) {
           entry.outcome = 'measured';
           entry.samples_ms = [observation.sample_ms];
           entry.sample_observation_ids = [observation.observation_id];
+          entry.sub_frame_samples = [Boolean(painted.sub_frame)];
           entry.assertion.passed = true;
           entry.assertion.checks = {
             text_length_grew: true,

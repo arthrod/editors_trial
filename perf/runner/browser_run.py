@@ -221,6 +221,28 @@ class BrowserRun:
         diagnostic = shared_diagnostic or len(self._sample_parents) > 1
         before = self.sample_start or {'available': False, 'reason': 'before-sample accounting not captured'}
         accounting = accounting_delta(before, self.accounting_reader())
+        current_accounting = self.accounting_reader()
+        if self.host_class == 'shared_guarded' and not current_accounting.get('available'):
+            destination = self.directory / 'rejected-evidence' / name
+            source = Path(row['cell_directory']) if row.get('cell_directory') else None
+            if source is not None and source.exists():
+                destination.mkdir(parents=True, exist_ok=True)
+                source.rename(destination / 'cell')
+            refusal_row = {
+                **{key: row[key] for key in ('run_id', 'seed', 'editor_id', 'repetition', 'exit_code') if key in row},
+                'outcome': 'failed',
+                'failure_reason': 'cpu_accounting_unavailable',
+                'publishable': False,
+                'rejected_evidence_directory': str(destination),
+                'cpu_accounting': accounting,
+                'accounting_scope': 'diagnostic' if diagnostic else 'sample',
+            }
+            write_json(destination / 'sample.json', refusal_row)
+            write_json(self.directory / 'samples' / (name + '.json'), refusal_row)
+            self.samples.append(refusal_row)
+            if not shared_diagnostic and self._sample_parents:
+                self.sample_start = self._sample_parents.pop()
+            return self.directory / 'samples' / (name + '.json')
         value = {
             **row,
             'run_id': self.run_id,
@@ -285,6 +307,8 @@ class BrowserRun:
         after = self.snapshot()
         result = {**summary, 'run_id': self.run_id, 'seed': self.seed,
                   'samples': self.samples, 'hosts': self.hosts, 'cpu_accounting': accounting,
+                  'cpu_steal_percent': accounting.get('steal_percent'),
+                  'cpu_throttle_refused_samples': accounting.get('samples_refused'),
                   'execution_profile': self.execution_profile, 'host_class': self.host_class,
                   'brackets_force_closed': self.brackets_force_closed,
                   **tally, 'cell_failure_reasons': reasons,
@@ -451,9 +475,18 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
     if '--list-support' in rest:
         return main()
     editors = [args.editors] if single else args.editors
-    if args.execution_profile == 'dedicated_publish' and not any(
-        flag in argv for flag in ((count_flag,) if count_flag else ()) + ('--repetitions',)
-    ):
+    def _count_flag_explicit(tokens, flag):
+        if flag:
+            for token in tokens:
+                if token == flag or token.startswith(flag + '='):
+                    return True
+        for token in tokens:
+            if token == '--repetitions' or token.startswith('--repetitions='):
+                return True
+        return False
+
+    count_explicit = _count_flag_explicit(argv, count_flag)
+    if args.execution_profile == 'dedicated_publish' and not count_explicit:
         args.repetitions = PUBLICATION_REPETITIONS
     if args.execution_profile == 'dedicated_publish' and args.repetitions < PUBLICATION_REPETITIONS:
         parser.error(
@@ -463,8 +496,12 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
         reader = read_cpu_accounting
         if isinstance(run_factory, partial) and run_factory.keywords.get('accounting_reader'):
             reader = run_factory.keywords['accounting_reader']
-        if not reader().get('available'):
+        accounting = reader()
+        if not accounting.get('available'):
             parser.error('shared_guarded dedicated_publish requires readable cgroup v2 cpu accounting')
+        cpu_max = (accounting.get('cpu_max') or '').split()
+        if len(cpu_max) >= 1 and cpu_max[0] == 'max':
+            parser.error('shared_guarded dedicated_publish requires a cgroup CPU quota (cpu.max is unlimited)')
     if args.repetitions < 1 or any(editor not in targets for editor in editors):
         parser.error('positive repetitions and known editors required')
     if callable(max_repetitions):
@@ -486,8 +523,20 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
             name = f'{rep:04d}-{editor}'
             directory = run.directory / 'cells' / name
             cell_token = CELL.set({'repetition': rep, 'editor_id': editor})
-            sys.argv = [original[0], *rest, '--out-root', str(directory),
-                        '--editor' if single else '--editors', editor]
+            profile_args = []
+            if args.execution_profile != 'ci_broad':
+                profile_args.extend(['--execution-profile', args.execution_profile])
+            if args.host_class != 'ci_coarse':
+                profile_args.extend(['--host-class', args.host_class])
+            sys.argv = [
+                original[0],
+                *rest,
+                *profile_args,
+                '--out-root',
+                str(directory),
+                '--editor' if single else '--editors',
+                editor,
+            ]
             if count_flag:
                 sys.argv += [count_flag, '1']
             def invoke():
@@ -511,7 +560,6 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
                 run.sample(name, row)
             finally:
                 CELL.reset(cell_token)
-        accounting = accounting_summary(run.accounting_start, run.accounting_reader(), run.samples)
         result = run.finish({
             'runner': runner,
             'order': order,
@@ -519,8 +567,6 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
             'host': host,
             'headless': True,
             'rendering': rendering,
-            'cpu_steal_percent': accounting.get('steal_percent'),
-            'cpu_throttle_refused_samples': accounting.get('samples_refused'),
         })
         line = {key: result.get(key) for key in (
             'cells_total', 'cells_measured', 'cells_refused', 'cells_failed', 'cell_failure_reasons')}

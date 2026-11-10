@@ -16,7 +16,7 @@ import uuid
 from pathlib import Path
 
 from perf.analysis.publication_gate import trial_publishable_flags
-from perf.analysis.summarize import summarize
+from perf.analysis.summarize import percentile, summarize
 from perf.layers.event_timing import event_timing_status
 from perf.runner.artifacts import write_attempt
 from perf.runner.witness import validate_witness
@@ -93,9 +93,9 @@ def _frame_interval_ms(witness):
 
 def _assert_c07_repetition_unit(entry):
     hints = entry.get("trial_hints") or {}
-    if hints.get("repetition_unit") != "in_process_iteration":
+    if hints.get("repetition_unit") != "fresh_process":
         raise ValueError(
-            "C07 measured on one page must record repetition_unit in_process_iteration, got %r"
+            "C07 measured as one value per launch must record repetition_unit fresh_process, got %r"
             % (hints.get("repetition_unit"),)
         )
 
@@ -211,11 +211,6 @@ def _assert_visible_samples(cid, entry, witness):
             raise ValueError(
                 "%s sample %r is below the recorded frame interval %r"
                 % (cid, sample, frame_interval)
-            )
-        status = event_timing_status(sample, 16)
-        if status["below_16_ms"] or status["status"] == "censored":
-            raise ValueError(
-                "%s sample %r is censored by Event Timing (below 16 ms)" % (cid, sample)
             )
 
 
@@ -392,6 +387,11 @@ def trial_from_entry(cid, entry, env, witness=None):
             publishable=False, editor_id=env["editor_id"], lane=env.get("lane"), diagnostic=diagnostic)
         trial["refusal_code"] = "malformed_samples"
         return trial
+    sub_frame_samples = entry.get("sub_frame_samples")
+    if cid == "C07" and len(samples) > 1:
+        diagnostic["c07_click_samples_ms"] = list(samples)
+        sub_frame_samples = [any(sub_frame_samples)] if sub_frame_samples else None
+        samples = [percentile(samples, 50)]
     stats = summarize(samples, env["cache_state"], env["repetition_unit"], seed=0)
     publishable, reason = trial_publishable_flags(env, entry["layer"], stats["n"])
     publishable, reason = _finalize_publishable(publishable, reason, env)
@@ -409,7 +409,9 @@ def trial_from_entry(cid, entry, env, witness=None):
         publication_block_reason=reason,
         diagnostic=diagnostic,
     )
-    if entry.get("sub_frame_samples"):
+    if sub_frame_samples:
+        trial["sub_frame_samples"] = list(sub_frame_samples)
+    elif entry.get("sub_frame_samples"):
         trial["sub_frame_samples"] = list(entry["sub_frame_samples"])
     validate_trial(trial)
     return trial

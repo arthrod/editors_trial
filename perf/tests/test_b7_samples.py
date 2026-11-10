@@ -87,11 +87,33 @@ def _trial(editor: str, criterion: str, outcome: str, samples=None, **extra):
 
 
 def _write_trial(root: Path, rep: int, editor: str, criterion: str, **kwargs):
-    cell = root / "cells" / f"{rep:04d}-{editor}" / "attempts"
+    cell_dir = root / "cells" / f"{rep:04d}-{editor}"
+    cell = cell_dir / "attempts"
     cell.mkdir(parents=True, exist_ok=True)
     path = cell / f"{criterion.lower()}.json"
-    path.write_text(json.dumps(_trial(editor, criterion, **kwargs)), encoding="utf-8")
+    trial = _trial(editor, criterion, **kwargs)
+    path.write_text(json.dumps(trial), encoding="utf-8")
+    sample_dir = root / "samples"
+    sample_dir.mkdir(parents=True, exist_ok=True)
+    sample = {
+        "outcome": "ok",
+        "editor_id": editor,
+        "repetition": rep,
+        "cell_directory": str(cell_dir),
+    }
+    if kwargs.get("outcome") != "measured" or kwargs.get("publishable") is False:
+        sample["outcome"] = "failed"
+        sample["failure_reason"] = kwargs.get("publication_block_reason") or kwargs.get("failure_reason") or "unmeasured"
+    (sample_dir / f"{rep:04d}-{editor}.json").write_text(json.dumps(sample), encoding="utf-8")
     return path
+
+
+def _write_summary(root: Path, editor: str, repetitions: int, **extra):
+    order = [(rep, editor) for rep in range(repetitions)]
+    (root / "summary.json").write_text(
+        json.dumps({"order": order, "publishable": True, **extra}),
+        encoding="utf-8",
+    )
 
 
 class PublicationRepetitions(unittest.TestCase):
@@ -135,6 +157,30 @@ class PublicationRepetitions(unittest.TestCase):
             finally:
                 sys.argv = original
 
+    def test_dedicated_publish_refuses_equals_form_count_below_thirty(self):
+        original = sys.argv
+        try:
+            sys.argv = [
+                "fake",
+                "--samples=29",
+                "--execution-profile",
+                "dedicated_publish",
+                "--host-class",
+                "dedicated",
+            ]
+            buf = io.StringIO()
+            with contextlib.redirect_stderr(buf), self.assertRaises(SystemExit) as caught:
+                run_cli(
+                    lambda: self.fail("must not run"),
+                    "fake",
+                    {"a": {}},
+                    count_flag="--samples",
+                )
+            self.assertEqual(caught.exception.code, 2)
+            self.assertIn("#136", buf.getvalue())
+        finally:
+            sys.argv = original
+
     def test_dedicated_publish_refuses_explicit_count_below_thirty(self):
         original = sys.argv
         try:
@@ -167,6 +213,7 @@ class E2Cells(unittest.TestCase):
         self.addCleanup(lambda: __import__("shutil").rmtree(root, ignore_errors=True))
         for rep in range(9):
             _write_trial(root, rep, "plate", "C07", outcome="measured", samples=[20.0])
+        _write_summary(root, "plate", 30)
         cell = e2_cells.build_run_cell(root, "plate", "C07", scheduled=30)
         text = e2_cells.publication_text(cell)
         self.assertIn("not enough samples", text)
@@ -177,6 +224,7 @@ class E2Cells(unittest.TestCase):
         self.addCleanup(lambda: __import__("shutil").rmtree(root, ignore_errors=True))
         for rep in range(10):
             _write_trial(root, rep, "plate", "C07", outcome="measured", samples=[20.0])
+        _write_summary(root, "plate", 30)
         cell = e2_cells.build_run_cell(root, "plate", "C07", scheduled=30)
         text = e2_cells.publication_text(cell)
         self.assertIn("20.0 ms", text)
@@ -191,8 +239,23 @@ class E2Cells(unittest.TestCase):
             _write_trial(primary, rep, "plate", "C07", outcome="measured", samples=[20.0])
         for rep in range(9):
             _write_trial(reproduction, rep, "plate", "C07", outcome="measured", samples=[20.0])
+        _write_summary(primary, "plate", 30)
+        _write_summary(reproduction, "plate", 30)
         text = e2_cells.publish_dual_runs(primary, reproduction, "plate", "C07", scheduled=30)
         self.assertIn("not enough samples", text)
+
+    def test_reproduction_median_mismatch_not_published(self):
+        primary = Path(tempfile.mkdtemp())
+        reproduction = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(primary, ignore_errors=True))
+        self.addCleanup(lambda: __import__("shutil").rmtree(reproduction, ignore_errors=True))
+        for rep in range(10):
+            _write_trial(primary, rep, "plate", "C07", outcome="measured", samples=[20.0])
+            _write_trial(reproduction, rep, "plate", "C07", outcome="measured", samples=[900.0])
+        _write_summary(primary, "plate", 30)
+        _write_summary(reproduction, "plate", 30)
+        text = e2_cells.publish_dual_runs(primary, reproduction, "plate", "C07", scheduled=30)
+        self.assertIn("not reproduced", text)
 
     def test_sub_frame_median_renders_bucket_not_number(self):
         root = Path(tempfile.mkdtemp())
@@ -207,6 +270,7 @@ class E2Cells(unittest.TestCase):
                 samples=[9.9],
                 sub_frame_samples=[True],
             )
+        _write_summary(root, "plate", 30)
         cell = e2_cells.build_run_cell(root, "plate", "C07", scheduled=30)
         text = e2_cells.publication_text(cell)
         self.assertIn("< 1 frame (16.7 ms)", text)
@@ -217,6 +281,7 @@ class E2Cells(unittest.TestCase):
         self.addCleanup(lambda: __import__("shutil").rmtree(root, ignore_errors=True))
         for rep in range(10):
             _write_trial(root, rep, "plate", "C07", outcome="measured", samples=[20.0])
+        _write_summary(root, "plate", 30)
         text = e2_cells.publication_text(e2_cells.build_run_cell(root, "plate", "C07", scheduled=30))
         self.assertIn("20.0 ms", text)
 
@@ -248,6 +313,42 @@ class SharedGuarded(unittest.TestCase):
                         api.BrowserRun,
                         snapshot=lambda: {},
                         accounting_reader=lambda: {"available": False, "reason": "missing"},
+                    ),
+                    facts=(lambda: {}, lambda: {}),
+                )
+            self.assertEqual(caught.exception.code, 2)
+        finally:
+            sys.argv = original
+
+    def test_shared_guarded_refused_with_unlimited_quota(self):
+        original = sys.argv
+        try:
+            sys.argv = [
+                "fake",
+                "--execution-profile",
+                "dedicated_publish",
+                "--host-class",
+                "shared_guarded",
+            ]
+            with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as caught:
+                run_cli(
+                    lambda: self.fail("must not run"),
+                    "fake",
+                    {"a": {}},
+                    run_factory=partial(
+                        api.BrowserRun,
+                        snapshot=lambda: {},
+                        accounting_reader=lambda: {
+                            "available": True,
+                            "nr_periods": 0,
+                            "nr_throttled": 0,
+                            "throttled_usec": 0,
+                            "cpu_ticks": {"total": 1, "steal": 0},
+                            "loadavg": [0.0, 0.0, 0.0],
+                            "cpu_max": "max 100000",
+                            "cpu_count_visible": 8,
+                            "cgroup_path": "/sys/fs/cgroup",
+                        },
                     ),
                     facts=(lambda: {}, lambda: {}),
                 )
@@ -290,7 +391,7 @@ class SharedGuarded(unittest.TestCase):
                             "throttled_usec": 0,
                             "cpu_ticks": {"total": 1, "steal": 0},
                             "loadavg": [0.0, 0.0, 0.0],
-                            "cpu_max": "max 100000",
+                            "cpu_max": "50000 100000",
                             "cpu_count_visible": 8,
                             "cgroup_path": "/sys/fs/cgroup",
                         },
@@ -403,7 +504,7 @@ class SubFrameProbe(unittest.TestCase):
         entry = _entry(
             samples_ms=[9.5, 10.1, 8.8],
             sub_frame_samples=[True, True, True],
-            trial_hints={"cache_state": "warm_steady", "repetition_unit": "in_process_iteration"},
+            trial_hints={"cache_state": "warm_steady", "repetition_unit": "fresh_process"},
         )
         payload = _payload({"C07": entry}, witness=_witness())
         assert_payload_shape(payload)
@@ -425,6 +526,138 @@ class SubFrameProbe(unittest.TestCase):
             self.skipTest(f"fake host did not measure in this environment: {c07.get('failure_reason')}")
         flags = c07.get("sub_frame_samples") or []
         self.assertTrue(any(flags), c07)
+
+
+class B7FixRound(unittest.TestCase):
+    def test_throttle_refused_sample_not_counted_as_kept(self):
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(root, ignore_errors=True))
+        _write_trial(root, 0, "plate", "C07", outcome="measured", samples=[20.0])
+        sample_path = root / "samples" / "0000-plate.json"
+        row = json.loads(sample_path.read_text())
+        row.update(outcome="failed", failure_reason="cpu_throttled")
+        sample_path.write_text(json.dumps(row), encoding="utf-8")
+        _write_summary(root, "plate", 30)
+        cell = e2_cells.build_run_cell(root, "plate", "C07", scheduled=30)
+        self.assertEqual(cell["kept_ms"], [])
+        self.assertIn("cpu_throttled", cell["refusals"])
+
+    def test_failed_run_summary_blocks_cell_figure(self):
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(root, ignore_errors=True))
+        for rep in range(10):
+            _write_trial(root, rep, "plate", "C07", outcome="measured", samples=[20.0])
+        _write_summary(
+            root,
+            "plate",
+            30,
+            outcome="failed",
+            failure_reason="repos_modified",
+            publishable=False,
+            publication_block_reason="cpu_accounting_unavailable",
+        )
+        text = e2_cells.publication_text(e2_cells.build_run_cell(root, "plate", "C07", scheduled=30))
+        self.assertIn("run not publishable", text)
+
+    def test_n_counts_repetitions_not_clicks(self):
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(root, ignore_errors=True))
+        for rep in range(4):
+            _write_trial(root, rep, "plate", "C07", outcome="measured", samples=[10.0, 20.0, 30.0])
+        _write_summary(root, "plate", 30)
+        cell = e2_cells.build_run_cell(root, "plate", "C07", scheduled=30)
+        self.assertEqual(cell["stats"]["n"], 4)
+        self.assertIn("not enough samples", e2_cells.publication_text(cell))
+
+    def test_no_frame_interval_withholds_numeric_sub_frame(self):
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(root, ignore_errors=True))
+        for rep in range(10):
+            _write_trial(
+                root,
+                rep,
+                "plate",
+                "C07",
+                outcome="measured",
+                samples=[20.0],
+                sub_frame_samples=[True],
+                diagnostic={},
+            )
+            trial_path = root / "cells" / f"{rep:04d}-plate" / "attempts" / "c07.json"
+            trial = json.loads(trial_path.read_text())
+            trial["diagnostic"] = {}
+            trial_path.write_text(json.dumps(trial), encoding="utf-8")
+        _write_summary(root, "plate", 30)
+        text = e2_cells.publication_text(e2_cells.build_run_cell(root, "plate", "C07", scheduled=30))
+        self.assertIn("no witnessed frame interval", text)
+
+    def test_non_publishable_trial_not_counted(self):
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(root, ignore_errors=True))
+        for rep in range(10):
+            _write_trial(
+                root,
+                rep,
+                "plate",
+                "C07",
+                outcome="measured",
+                samples=[20.0],
+                publishable=False,
+                publication_block_reason="visible latency requires fresh_process",
+            )
+        _write_summary(root, "plate", 30)
+        cell = e2_cells.build_run_cell(root, "plate", "C07", scheduled=30)
+        self.assertEqual(cell["kept_ms"], [])
+        self.assertIn("visible latency requires fresh_process", str(cell["refusals"]))
+
+    def test_run_cli_forwards_host_class_to_runner_argv(self):
+        seen = []
+
+        def main():
+            seen.append(list(sys.argv))
+            return 0
+
+        with tempfile.TemporaryDirectory() as tmp:
+            original = sys.argv
+            try:
+                sys.argv = [
+                    "fake",
+                    "--out-root",
+                    tmp,
+                    "--execution-profile",
+                    "dedicated_publish",
+                    "--host-class",
+                    "shared_guarded",
+                    "--editors",
+                    "a",
+                ]
+                run_cli(
+                    main,
+                    "fake",
+                    {"a": {}},
+                    count_flag="--samples",
+                    default_count=3,
+                    run_factory=partial(
+                        api.BrowserRun,
+                        snapshot=lambda: {},
+                        accounting_reader=lambda: {
+                            "available": True,
+                            "nr_periods": 0,
+                            "nr_throttled": 0,
+                            "throttled_usec": 0,
+                            "cpu_ticks": {"total": 1, "steal": 0},
+                            "loadavg": [0.0, 0.0, 0.0],
+                            "cpu_max": "50000 100000",
+                            "cpu_count_visible": 8,
+                            "cgroup_path": "/sys/fs/cgroup",
+                        },
+                    ),
+                    facts=(lambda: {}, lambda: {}),
+                )
+                self.assertTrue(any("--host-class" in call and "shared_guarded" in call for call in seen))
+                self.assertTrue(any("--execution-profile" in call and "dedicated_publish" in call for call in seen))
+            finally:
+                sys.argv = original
 
 
 class PolicyConflict(unittest.TestCase):

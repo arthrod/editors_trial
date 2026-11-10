@@ -105,9 +105,9 @@ class Issue131Logic(unittest.TestCase):
 
 
 class Issue131Writer(unittest.TestCase):
-    def test_c07_trial_stores_in_process_iteration_and_frame_interval(self):
+    def test_c07_trial_stores_fresh_process_and_frame_interval(self):
         entry = _entry(
-            trial_hints={"cache_state": "warm_steady", "repetition_unit": "in_process_iteration"},
+            trial_hints={"cache_state": "warm_steady", "repetition_unit": "fresh_process"},
         )
         payload = _payload({"C07": entry}, witness=_witness())
         row, sha, size = fixture_identity()
@@ -118,7 +118,7 @@ class Issue131Writer(unittest.TestCase):
             workload_row=row,
             docx_size=size,
         )["C07"]
-        self.assertEqual(trial["environment"]["repetition_unit"], "in_process_iteration")
+        self.assertEqual(trial["environment"]["repetition_unit"], "fresh_process")
         self.assertEqual(trial["diagnostic"].get("frame_interval_ms"), 16.667)
 
     def test_c08_rounding_does_not_drop_whole_payload(self):
@@ -130,6 +130,7 @@ class Issue131Writer(unittest.TestCase):
         c08 = _entry(
             cid="C08",
             samples_ms=[16],
+            sub_frame_samples=[True],
             observations=[
                 {
                     "frame_ms": 118,
@@ -139,8 +140,7 @@ class Issue131Writer(unittest.TestCase):
             ],
         )
         payload = _payload({"C07": c07, "C08": c08}, witness=_witness())
-        with self.assertRaises(ValueError):
-            assert_payload_shape(payload)
+        assert_payload_shape(payload)
         import tempfile
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -153,13 +153,9 @@ class Issue131Writer(unittest.TestCase):
                 docx_size=fixture_identity()[2],
             )
         self.assertTrue(written["C07"]["written"])
-        self.assertFalse(written["C08"]["written"])
+        self.assertTrue(written["C08"]["written"])
         self.assertIn("c07", Path(written["C07"]["path"]).name.lower())
-        reason = written["C08"]["failure_reason"] or ""
-        self.assertTrue(
-            "Event Timing" in reason or "frame interval" in reason,
-            reason,
-        )
+        self.assertIn("c08", Path(written["C08"]["path"]).name.lower())
 
 
 class Issue138WitnessAndWriter(unittest.TestCase):

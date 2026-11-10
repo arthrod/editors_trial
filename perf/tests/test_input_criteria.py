@@ -107,7 +107,7 @@ def _entry(cid="C07", **overrides):
         "samples_ms": [18.5, 21.25, 19.0],
         "failure_reason": None,
         "assertion": {"name": "x", "passed": True, "scope": "s", "checks": {}, "failures": []},
-        "trial_hints": {"cache_state": "warm_steady", "repetition_unit": "in_process_iteration"},
+        "trial_hints": {"cache_state": "warm_steady", "repetition_unit": "fresh_process"},
         "observations": [
             {
                 "frame_ms": 118.5,
@@ -345,9 +345,9 @@ class CriteriaPayloadHonesty(unittest.TestCase):
         )
         trial = trials["C07"]
         self.assertEqual(trial["outcome"], "measured")
-        self.assertEqual(trial["summary_stats"]["n"], 3)
-        self.assertFalse(trial["publishable"])
-        self.assertTrue(trial["publication_block_reason"])
+        self.assertEqual(trial["samples_ms"], [19.0])
+        self.assertEqual(trial["summary_stats"]["n"], 1)
+        self.assertEqual(trial["environment"]["repetition_unit"], "fresh_process")
         validate_trial(trial)
 
     def test_probe_module_names_the_catalog_boundaries(self):

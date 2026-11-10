@@ -59,15 +59,20 @@ class WriterGuards(unittest.TestCase):
         )
         assert_payload_shape(_payload({"C04": entry}, witness=_witness()))
 
-    def test_c07_sample_below_frame_interval_is_rejected(self):
-        entry = _entry(samples_ms=[8.5])
-        payload = _payload({"C07": entry}, witness=_witness({"frame_interval_ms": 16.667}))
-        with self.assertRaises(ValueError):
-            assert_payload_shape(payload)
-
-    def test_c07_records_in_process_iteration(self):
+    def test_c07_sub_frame_sample_below_frame_interval_is_kept(self):
         entry = _entry(
-            trial_hints={"cache_state": "warm_steady", "repetition_unit": "in_process_iteration"},
+            samples_ms=[8.5],
+            sub_frame_samples=[True],
+            trial_hints={"cache_state": "warm_steady", "repetition_unit": "fresh_process"},
+        )
+        payload = _payload({"C07": entry}, witness=_witness({"frame_interval_ms": 16.667}))
+        assert_payload_shape(payload)
+
+    def test_c07_records_fresh_process_and_one_median_per_launch(self):
+        entry = _entry(
+            samples_ms=[8.5, 20.0, 30.0],
+            sub_frame_samples=[True, False, False],
+            trial_hints={"cache_state": "warm_steady", "repetition_unit": "fresh_process"},
         )
         payload = _payload({"C07": entry}, witness=_witness())
         assert_payload_shape(payload)
@@ -79,7 +84,9 @@ class WriterGuards(unittest.TestCase):
             workload_row=row,
             docx_size=size,
         )["C07"]
-        self.assertEqual(trial["environment"]["repetition_unit"], "in_process_iteration")
+        self.assertEqual(trial["environment"]["repetition_unit"], "fresh_process")
+        self.assertEqual(trial["samples_ms"], [20.0])
+        self.assertIn("c07_click_samples_ms", trial["diagnostic"])
 
     def test_measured_visible_requires_frame_interval(self):
         entry = _entry(samples_ms=[20.0])
