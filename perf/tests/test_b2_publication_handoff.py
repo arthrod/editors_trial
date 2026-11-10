@@ -23,6 +23,10 @@ import pytest
     ('frame_interval_unavailable', 'paint_witness_unavailable'),
     ('expected_edit_not_confirmed', 'unverified'),
     ('cpu_throttled', 'cpu_throttled'),
+    ('not_document_scoped', 'paint_witness_unavailable'),
+    ('no_pixel_evidence', 'paint_witness_unavailable'),
+    ('not_a_witness_record', 'malformed_samples'),
+    ('record_not_a_mapping', 'malformed_samples'),
     ('browser_probe: process failed', 'crash'),
 ])
 def test_b2_refusal_is_structured_without_an_active_run(tmp_path, reason, code):

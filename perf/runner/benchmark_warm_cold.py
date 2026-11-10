@@ -559,7 +559,8 @@ def _persist_attempt(attempt_dir, criterion_id, editor_id, trial):
             'cpu_throttled' if reason.startswith('cpu_throttled') else
             'unverified' if reason.startswith('expected_edit_not_confirmed') else
             outcome if outcome in ('not_run', 'not_applicable', 'unsupported', 'unverified') else
-            'paint_witness_unavailable' if reason.startswith(('clock_', 'frame_', 'witness_', 'no_frame', 'missing_input', 'caret_')) else
+            'malformed_samples' if reason.startswith(('record_', 'not_a_witness_record', 'unknown_outcome', 'invalid_record', 'no_outcome')) else
+            'paint_witness_unavailable' if reason.startswith(('clock_', 'frame_', 'witness_', 'no_frame', 'missing_input', 'caret_', 'not_document_scoped', 'no_pixel_evidence', 'pixel_evidence_')) else
             'crash')
     trial.setdefault('refusal_code', code)
     active = ACTIVE.get()
