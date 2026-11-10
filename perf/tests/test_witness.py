@@ -3237,5 +3237,404 @@ class WitnessIssue137Round6Tests(unittest.TestCase):
         )
 
 
+class WitnessIssue137Round7Tests(unittest.TestCase):
+    """Issue #137, round 7 (codex's re-review `rereview-b1c-6.md`: R6-1).
+
+    The direct API's totality claim, finished. Round 6 closed the values
+    the recomputation reads; the *diagnostics* still formatted them:
+    ``%r``/``%d``/``%s`` of a 5,001-digit integer raises ``ValueError`` at
+    the interpreter's 4,300-digit conversion limit, so the refusal itself
+    crashed -- on 105 of the re-review's 110 substitution paths, in the
+    schema's own messages, and in the caller-argument refusals (a
+    ``bound_ms`` of ``10**5000``). The CLI was safe only because its JSON
+    reader refuses such an integer first; the direct API expressly claims
+    totality over parsed Python values.
+
+    R7-1 -- a finite supported numeric domain: every numeric field of the
+    record (top level, the nested check, its samples, the probe region,
+    the conversion statement, the document region and its rects) accepts
+    only finite values with ``|x| <= 1e15`` -- ints and floats; booleans
+    are not numbers. Anything outside is the schema's own named refusal
+    (``witness_schema_invalid`` / ``clock_check_schema_invalid``) whose
+    message carries the token ``value_out_of_range``, checked BEFORE any
+    arithmetic or formatting reads the value. This replaces round 6's
+    boundary: a huge-but-valid informational number (a 1,000-digit
+    ``frames_total`` was accepted with ``ok: true``) now refuses.
+
+    R7-2 -- one bounded, exception-safe describer (``_describe``) builds
+    every diagnostic that names a value: the value's type plus at most 64
+    characters, never ``str()``/``repr()``/``%d`` of an unbounded value,
+    and an integer outside the domain is shown only as ``<int, N bits>``.
+    The interpreter's protective conversion limit is never touched, and
+    the describer is total over any Python object (the direct API accepts
+    any mapping, so keys and values need not be JSON at all).
+    """
+
+    #: values outside the supported numeric domain, at numeric leaves
+    OUT_OF_DOMAIN = (
+        ("1e16", 1e16),
+        ("-1e16", -1e16),
+        ("10**400", 10**400),
+        ("float('1e308')", float("1e308")),
+    )
+
+    #: every diagnostic is built from fixed text plus descriptions; none
+    #: may run past this many characters.
+    MESSAGE_LIMIT = 512
+
+    def load_validator(self):
+        return _load_validator()
+
+    def captured(self) -> dict:
+        return json.loads(json.dumps(_load_captured_record()))
+
+    def validated(self, validator, record, **kwargs):
+        """The verdict, or a failure naming the exception no input may raise."""
+        try:
+            return validator.validate_witness(record, **kwargs)
+        except Exception as error:  # noqa: BLE001 -- the point of R6-1
+            self.fail(
+                "validate_witness raised %s: %s (no input may make it raise)"
+                % (type(error).__name__, error)
+            )
+
+    @staticmethod
+    def _summary(verdict):
+        """A bounded description of a verdict for a failure message. Never
+        ``repr()`` the verdict itself: it echoes the record, whose values
+        are exactly the unbounded ones under test (the R6-1 lesson applies
+        to test diagnostics too)."""
+        errors = verdict.get("errors") or ["<no error>"]
+        return "reason=%r, first error: %s" % (
+            verdict.get("reason"),
+            str(errors[0])[:160],
+        )
+
+    @staticmethod
+    def _paths(value, path=()):
+        """Every path of a record's tree -- the re-review's walk: the root,
+        every object field (recursively) and every array element."""
+        yield path
+        if isinstance(value, dict):
+            for key, item in value.items():
+                yield from WitnessIssue137Round7Tests._paths(item, path + (key,))
+        elif isinstance(value, list):
+            for index, item in enumerate(value):
+                yield from WitnessIssue137Round7Tests._paths(item, path + (index,))
+
+    @staticmethod
+    def _numeric_slots(value, path=()):
+        """Every path a numeric leaf sits at (object fields and array
+        elements alike), recursively."""
+        if isinstance(value, dict):
+            for key, item in value.items():
+                if isinstance(item, (int, float)) and not isinstance(item, bool):
+                    yield path + (key,)
+                else:
+                    yield from WitnessIssue137Round7Tests._numeric_slots(
+                        item, path + (key,)
+                    )
+        elif isinstance(value, list):
+            for index, item in enumerate(value):
+                if isinstance(item, (int, float)) and not isinstance(item, bool):
+                    yield path + (index,)
+                else:
+                    yield from WitnessIssue137Round7Tests._numeric_slots(
+                        item, path + (index,)
+                    )
+
+    def _set(self, record, path, value):
+        """A copy of the record with ``value`` substituted at ``path``."""
+        mutated = self.captured() if record is None else record
+        if not path:
+            return value
+        container = mutated
+        for key in path[:-1]:
+            container = container[key]
+        container[path[-1]] = value
+        return mutated
+
+    @staticmethod
+    def _area_reason(path):
+        """The schema token that owns a path: the nested check has its own."""
+        return (
+            "clock_check_schema_invalid"
+            if path and path[0] == "clock_check"
+            else "witness_schema_invalid"
+        )
+
+    # -- R6-1: the re-review's 110-path sweep, permanent ------------------
+
+    def test_a_five_thousand_digit_integer_at_every_path_is_refused(self):
+        """``10**5000`` substituted at every path of the real capture (the
+        root, every object field, every array element, every leaf) raised
+        ``ValueError`` on 105 of the re-review's 110 paths -- the refusal
+        itself crashed. Every path must return a refused verdict, never an
+        exception, with bounded messages."""
+        validator = self.load_validator()
+        fixture = self.captured()
+        paths = list(self._paths(fixture))
+        self.assertGreaterEqual(
+            len(paths), 100, "the sweep must cover the capture's every path"
+        )
+        for path in paths:
+            with self.subTest(path=".".join(map(str, path)) or "<root>"):
+                mutated = self._set(None, path, 10**5000)
+                verdict = self.validated(validator, mutated)
+                self.assertIsInstance(verdict, dict)
+                self.assertIn("ok", verdict)
+                self.assertTrue(
+                    verdict.get("refused"),
+                    "a 5,001-digit integer at %s must be refused (%s)"
+                    % (".".join(map(str, path)) or "<root>", self._summary(verdict)),
+                )
+                self.assertFalse(verdict["ok"])
+                for message in verdict.get("errors", []):
+                    self.assertLess(
+                        len(message),
+                        self.MESSAGE_LIMIT,
+                        "diagnostics are bounded: %r" % (message[:80],),
+                    )
+
+    # -- R7-1: the supported numeric domain --------------------------------
+
+    def test_numeric_leaves_outside_the_domain_refuse_value_out_of_range(self):
+        """``1e16``, ``-1e16``, ``10**400`` and ``float('1e308')`` at every
+        numeric leaf of the capture: the owning schema's refusal, with the
+        ``value_out_of_range`` token in the message, before any arithmetic
+        or formatting reads the value."""
+        validator = self.load_validator()
+        fixture = self.captured()
+        slots = list(self._numeric_slots(fixture))
+        self.assertGreaterEqual(
+            len(slots), 50, "the sweep must cover every numeric leaf"
+        )
+        for path in slots:
+            for name, value in self.OUT_OF_DOMAIN:
+                with self.subTest(leaf=".".join(map(str, path)), value=name):
+                    mutated = self._set(None, path, value)
+                    verdict = self.validated(validator, mutated)
+                    self.assertTrue(
+                        verdict.get("refused"),
+                        "%s at %s must be refused (%s)"
+                        % (name, ".".join(map(str, path)), self._summary(verdict)),
+                    )
+                    self.assertFalse(verdict["ok"])
+                    self.assertEqual(
+                        verdict.get("reason"),
+                        self._area_reason(path),
+                        "the domain is the owning schema's refusal: %s"
+                        % (self._summary(verdict),),
+                    )
+                    self.assertTrue(
+                        any(
+                            "value_out_of_range" in str(message)
+                            for message in verdict.get("errors", [])
+                        ),
+                        "the refusal names value_out_of_range: %r"
+                        % (verdict.get("errors", [])[:3],),
+                    )
+
+    def test_the_domain_boundary_is_drawn_at_1e15_and_not_tighter(self):
+        """``|x| <= 1e15`` is the domain, inclusive: a count of exactly
+        ``10**15`` frames (and an informational ``elapsed_ms`` of ``1e15``)
+        is inside it and the record still validates; one frame more is
+        ``value_out_of_range``."""
+        validator = self.load_validator()
+        at_limit = self.captured()
+        at_limit["frames_total"] = 10**15
+        at_limit["elapsed_ms"] = 1e15
+        verdict = self.validated(validator, at_limit)
+        self.assertFalse(
+            verdict.get("refused"),
+            "the boundary itself is in the domain: %r" % (verdict,),
+        )
+        over = self.captured()
+        over["frames_total"] = 10**15 + 1
+        verdict = self.validated(validator, over)
+        self.assertTrue(verdict.get("refused"))
+        self.assertEqual(verdict.get("reason"), "witness_schema_invalid")
+        self.assertTrue(
+            any(
+                "value_out_of_range" in str(message)
+                for message in verdict.get("errors", [])
+            )
+        )
+
+    def test_the_cli_refuses_a_parseable_thousand_digit_count(self):
+        """A 4,200-digit ``frames_total`` is legal JSON the reader accepts,
+        and the round-6 CLI published it (``ok: true``, exit 0): outside
+        the domain it must be a named refusal, and the CLI must still
+        print exactly one JSON verdict with no traceback."""
+        validator = self.load_validator()
+        record = self.captured()
+        record["frames_total"] = 10**4200
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "huge-count.json"
+            path.write_text(json.dumps(record), encoding="utf-8")
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                code = validator.main(["--file", str(path)])
+            self.assertEqual(code, 1)
+            verdict = json.loads(out.getvalue().strip())
+            self.assertTrue(verdict["refused"])
+            self.assertFalse(verdict["ok"])
+            self.assertEqual(verdict.get("reason"), "witness_schema_invalid")
+            proc = subprocess.run(
+                [sys.executable, "-I", str(WITNESS_PY), "--file", str(path)],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(proc.returncode, 1)
+            self.assertNotIn("Traceback", proc.stderr)
+            parsed = json.loads(proc.stdout)
+            self.assertTrue(parsed["refused"])
+
+    # -- R7-2: bounded, exception-safe diagnostics -------------------------
+
+    def test_huge_caller_arguments_are_described_not_formatted(self):
+        """The N5 refusals themselves must not crash on the value they
+        refuse: a bound or skew of ``10**5000`` is outside every domain,
+        and its refusal message describes it (by its bits), never its
+        digits."""
+        validator = self.load_validator()
+        record = self.captured()
+        for name, kwargs in (
+            ("bound 10**5000", {"bound_ms": 10**5000}),
+            ("skew 10**5000", {"skew": 10**5000}),
+        ):
+            with self.subTest(argument=name):
+                verdict = self.validated(validator, record, **kwargs)
+                self.assertTrue(verdict.get("refused"))
+                self.assertEqual(verdict.get("reason"), "nonfinite_time")
+                for message in verdict.get("errors", []):
+                    self.assertLess(
+                        len(message),
+                        self.MESSAGE_LIMIT,
+                        "the refusal itself is bounded: %r" % (message[:80],),
+                    )
+
+    def test_the_describer_is_bounded_and_exception_safe(self):
+        """``_describe``: at most 64 characters, the type named, no digits of
+        an out-of-domain integer, total over every Python value -- the
+        direct API accepts objects whose repr raises."""
+        validator = self.load_validator()
+        describe = validator._describe
+
+        class Evil:
+            def __repr__(self):
+                raise RuntimeError("no diagnostics through me")
+
+        for value in (
+            None,
+            True,
+            False,
+            0,
+            5,
+            -5,
+            10**15,
+            10**15 + 1,
+            -(10**15 + 1),
+            10**400,
+            10**5000,
+            -(10**5000),
+            0.0,
+            -0.5,
+            1e15,
+            1e308,
+            float("inf"),
+            float("-inf"),
+            float("nan"),
+            "",
+            "ok",
+            "x" * 10000,
+            [],
+            {},
+            [None] * 100,
+            Evil(),
+        ):
+            with self.subTest(value=type(value).__name__):
+                text = describe(value)
+                self.assertIsInstance(text, str)
+                self.assertLessEqual(
+                    len(text), 64, "the description is bounded: %r" % (text,)
+                )
+        self.assertEqual(
+            describe(10**5000),
+            "<int, %d bits>" % ((10**5000).bit_length(),),
+            "an out-of-domain integer is described by its bits",
+        )
+        self.assertIn("int", describe(5))
+        self.assertIn("str", describe("x" * 10000))
+
+    def test_direct_api_keys_the_producer_never_writes_are_total(self):
+        """The direct API accepts any Python mapping: non-string keys (and
+        two keys no order shares) are unknown-key evidence to describe, not
+        a ``TypeError`` out of ``sorted()`` or ``", ".join()``."""
+        validator = self.load_validator()
+        # two unknown keys of unorderable types: sorted() used to raise
+        mixed = self.captured()
+        mixed["zzz"] = 1
+        mixed[42] = 2
+        verdict = self.validated(validator, mixed)
+        self.assertTrue(verdict.get("refused"))
+        self.assertEqual(verdict.get("reason"), "witness_schema_invalid")
+        # a non-string key among the recorded checks: join() used to raise
+        int_key = self.captured()
+        int_key["clock_check"]["checks"] = dict(int_key["clock_check"]["checks"])
+        int_key["clock_check"]["checks"][42] = False
+        verdict = self.validated(validator, int_key)
+        self.assertTrue(verdict.get("refused"))
+        self.assertIn(
+            verdict.get("reason"),
+            ("witness_schema_invalid", "clock_check_schema_invalid"),
+            "the recursive closure names the unknown key wherever it sits "
+            "(the top-level schema runs first): %s" % (self._summary(verdict),),
+        )
+
+    # -- the controls round 7 must not move --------------------------------
+
+    def test_the_honest_capture_and_the_floor_edges_still_validate(self):
+        """The honest saved capture validates untouched, and so do the
+        floor-edge anchors (exactly the producer's 4 changed pixels over
+        its 8x8 probe at dpr 1, 4 over 16x16 at dpr 2): the domain and the
+        describer refuse nothing the producer writes."""
+        validator = self.load_validator()
+        verdict = self.validated(validator, self.captured())
+        self.assertFalse(
+            verdict.get("refused"),
+            "the honest capture still validates: %r" % (verdict,),
+        )
+        self.assertIsNone(verdict.get("reason"))
+        for dpr, edge in ((1, 4 / 64), (2, 4 / 256)):
+            with self.subTest(dpr=dpr):
+                at_floor = self.captured()
+                region = at_floor["document_region"]
+                if region["device_pixel_ratio"] != dpr:
+                    css = region["rect_css_px"]
+                    device = {
+                        key: int(float(css[key]) * dpr + 0.5)
+                        for key in ("x", "y", "width", "height")
+                    }
+                    at_floor["document_region"] = region | {
+                        "device_pixel_ratio": dpr,
+                        "rect_device_px": device,
+                    }
+                    at_floor["region_pixels"] = device["width"] * device["height"]
+                at_floor["clock_check"]["anchor_diff_ratio"] = edge
+                at_floor["clock_check"]["anchor_probe_region_px"] = {
+                    "x": 0,
+                    "y": 0,
+                    "width": 8 * dpr,
+                    "height": 8 * dpr,
+                }
+                verdict = self.validated(validator, at_floor)
+                self.assertFalse(
+                    verdict.get("refused"),
+                    "a floor-edge anchor still validates (dpr %s): %r"
+                    % (dpr, verdict),
+                )
+
+
 if __name__ == "__main__":
     unittest.main()
