@@ -10,7 +10,7 @@ from perf.container import policy
 
 def summary(samples=None):
     return {'run_id': 'r', 'rendering': {'renderer': 'SwiftShader', 'headless': True},
-            'samples': samples if samples is not None else [{'outcome': 'ok'}]}
+            'samples': samples if samples is not None else [{'outcome': 'ok', 'cell_directory': '/fake/live'}]}
 
 
 def measured_trials(row):
@@ -18,7 +18,7 @@ def measured_trials(row):
 
 
 def test_recorded_refusals_do_not_abort():
-    data = summary([{'outcome': 'ok'}, {'outcome': 'failed', 'failure_reason': 'cpu_throttled'},
+    data = summary([{'outcome': 'ok', 'cell_directory': '/fake/live'}, {'outcome': 'failed', 'failure_reason': 'cpu_throttled'},
                     {'outcome': 'refused', 'reason': 'unsupported'},
                     {'outcome': 'failed', 'failure_reason': 'probe_crashed'},
                     {'accounting_scope': 'diagnostic', 'outcome': 'failed', 'failure_reason': 'clock'}])
@@ -31,8 +31,10 @@ def test_recorded_refusals_do_not_abort():
     counts = policy.cell_counts(data, trial_reader=measured_trials)
     assert counts['cells_total'] == 4
     assert counts['measured'] == 1
-    assert counts['refused_by_reason'] == {'cpu_throttled': 1, 'unsupported': 1}
-    assert counts['failed_by_reason'] == {'probe_crashed': 1}
+    assert counts['run_refused_by_reason'] == {'cpu_throttled': 1, 'unsupported': 1}
+    assert counts['refused_by_reason'] == {}
+    assert counts['run_failed_by_reason'] == {'probe_crashed': 1}
+    assert counts['failed_by_reason'] == {}
 
 
 
@@ -127,7 +129,7 @@ def test_publication_finishes_both_seeds_and_preserves_evidence(tmp_path, monkey
         cell = directory / 'cells' / '0000-plate'
         cell.mkdir(parents=True)
         lane = {'execution_profile': 'dedicated_publish', 'host_class': 'shared_guarded'}
-        data = summary([{'outcome': 'ok'}, {'outcome': 'failed', 'failure_reason': 'cpu_throttled'}])
+        data = summary([{'outcome': 'ok', 'cell_directory': '/fake/live'}, {'outcome': 'failed', 'failure_reason': 'cpu_throttled'}])
         if len(calls) == 1:
             if defect == 'missing_summary':
                 return SimpleNamespace(returncode=1)
@@ -159,7 +161,8 @@ def test_publication_finishes_both_seeds_and_preserves_evidence(tmp_path, monkey
     report = json.loads((tmp_path / 'out/e2-publication.json').read_text())
     assert len(report['runs']) == len(calls)
     assert all(directory.exists() for _, _, directory in calls)
-    assert report['runs'][-1]['refused_by_reason'] == {'cpu_throttled': 1}
+    assert report['runs'][-1]['run_refused_by_reason'] == {'cpu_throttled': 1}
+    assert report['runs'][-1]['refused_by_reason'] == {}
     assert report['runs'][-1]['measured'] == 1
     if defect:
         assert defect in error
@@ -176,7 +179,7 @@ def test_setup_cargo_flags_and_playwright_install():
 
 
 def test_skipped_only_cell_is_not_a_measurement():
-    data = summary([{'outcome': 'ok', 'non_failure_outcomes': [
+    data = summary([{'outcome': 'ok', 'cell_directory': '/fake/live', 'non_failure_outcomes': [
         {'outcome': 'unsupported', 'reason': 'no_surface'}]}])
     with pytest.raises(ValueError, match='nothing_measured'):
         policy.verify_run(data)
