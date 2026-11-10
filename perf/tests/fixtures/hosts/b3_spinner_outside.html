@@ -9,6 +9,10 @@
 var c = document.querySelector('canvas'), g = c.getContext('2d');
 g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
 setTimeout(function(){
+  // The new load contract requires 500ms without any screencast frame.
+  // Leave a compositor opportunity after ink; stopping in the same callback
+  // can suppress the final screencast frame even though a screenshot sees it.
+  setTimeout(() => document.getElementById('spinner').style.animation = 'none', 400);
   g.fillStyle = '#111';
   g.fillRect(40, 40, 320, 200);
 }, 1200);

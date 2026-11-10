@@ -104,7 +104,7 @@ class Fix3Hosts(unittest.TestCase):
         )
         self.assertEqual(payload.get("usable_signal"), "screencast_ink", payload)
         self.assertIsNotNone(payload.get("document_text_at_ms"), payload.get("surface_reason"))
-        self.assertGreaterEqual(payload.get("document_text_at_ms") or 0, 0, payload)
+        self.assertGreaterEqual(payload.get("document_text_at_ms") or 0, 500, payload)
         samples = bd.c11_measured_samples(payload)
         self.assertGreaterEqual(samples[0], 0, samples)
 
