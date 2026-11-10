@@ -395,7 +395,9 @@ def _write_measured(
             raise ValueError("memory samples must be non-negative ints")
     stats = summarize(samples_bytes, env["cache_state"], env["repetition_unit"], seed=0)
     validate_sample_budget(env, len(samples_bytes))
-    publishable, reason = trial_publishable_flags(env, scenario["layer"], stats["n"])
+    # #136: fresh_process gives one value per launch; n is enforced per cell (e2_cells).
+    publishable, reason = trial_publishable_flags(
+        env, scenario["layer"], None if env["repetition_unit"] == "fresh_process" else stats["n"])
     publishable, reason = _finalize_publishable(publishable, reason, env)
     trial = _trial_dict(
         criterion_id=criterion_id,
