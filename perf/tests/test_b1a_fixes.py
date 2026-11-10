@@ -1,0 +1,193 @@
+"""Issue #132 regressions; filesystem/host calls are isolated integration tests."""
+
+import argparse
+import ast
+from functools import partial
+import json
+from pathlib import Path
+import sys
+import tempfile
+import unittest
+
+from perf.runner import browser_run as api
+from perf.runner.benchmark_ci_contract import _host_base
+from perf.schema import validate_environment
+
+
+class BookkeepingIntegration(unittest.TestCase):
+    def invoke(self, root, main, *options, **kwargs):
+        original = sys.argv
+        try:
+            sys.argv = ['fake', '--out-root', str(root), '--seed', '1', *options]
+            return api.run_cli(
+                main,
+                'fake',
+                {'a': {}},
+                run_factory=partial(api.BrowserRun, snapshot=lambda: {}),
+                facts=(lambda: {}, lambda: {}),
+                **kwargs,
+            )
+        finally:
+            sys.argv = original
+
+    def test_skips_are_listed_without_failing_healthy_cell(self):
+        with tempfile.TemporaryDirectory() as tmp:
+
+            def main():
+                root = Path(sys.argv[sys.argv.index('--out-root') + 1])
+                for outcome in ('not_run', 'refused', 'not_applicable', 'unsupported', 'unverified'):
+                    api.write_json(
+                        root / (outcome + '.json'), {'outcome': outcome, 'failure_reason': outcome + ' reason'}
+                    )
+                return 0
+
+            self.invoke(tmp, main)
+            row = json.loads(next(Path(tmp).glob('fake/*/summary.json')).read_text())['samples'][0]
+            self.assertEqual(row['outcome'], 'ok')
+            self.assertIsNone(row['failure_reason'])
+            self.assertEqual(
+                {r['outcome'] for r in row['non_failure_outcomes']},
+                {'not_run', 'refused', 'not_applicable', 'unsupported', 'unverified'},
+            )
+
+    def test_explicit_failure_and_exit_status_still_fail(self):
+        for status in (0, 3):
+            with self.subTest(status=status), tempfile.TemporaryDirectory() as tmp:
+
+                def main():
+                    root = Path(sys.argv[sys.argv.index('--out-root') + 1])
+                    api.write_json(root / 'attempt.json', {'outcome': 'failed', 'failure_reason': 'readiness'})
+                    return status
+
+                self.invoke(tmp, main)
+                row = json.loads(next(Path(tmp).glob('fake/*/summary.json')).read_text())['samples'][0]
+                self.assertEqual(row['outcome'], 'failed')
+                self.assertIn('readiness', row['failure_reason'])
+
+    def test_selected_profile_controls_total_budget(self):
+        from perf.schema import sample_budget_for_profile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            calls = []
+            try:
+                self.invoke(
+                    tmp,
+                    lambda: calls.append(1) or 0,
+                    '--execution-profile',
+                    'dedicated_publish',
+                    '--host-class',
+                    'dedicated',
+                    '--samples',
+                    '30',
+                    count_flag='--samples',
+                    max_repetitions=lambda profile: sample_budget_for_profile(profile, 'fresh_process'),
+                )
+            except TypeError as exc:
+                self.fail('profile-specific budget is not resolved: ' + str(exc))
+            self.assertEqual(len(calls), 30)
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(SystemExit) as caught:
+                self.invoke(
+                    tmp,
+                    lambda: self.fail('over-budget cell must not run'),
+                    '--samples',
+                    '6',
+                    count_flag='--samples',
+                    max_repetitions=lambda profile: sample_budget_for_profile(profile, 'fresh_process'),
+                )
+            self.assertEqual(caught.exception.code, 2)
+            self.assertEqual(list(Path(tmp).iterdir()), [])
+
+    def test_nonzero_exit_without_failure_row(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.invoke(tmp, lambda: 7)
+            row = json.loads(next(Path(tmp).glob('fake/*/summary.json')).read_text())['samples'][0]
+            self.assertEqual(row['outcome'], 'failed')
+            self.assertEqual(row['failure_reason'], 'exit 7')
+
+    def test_short_help_creates_no_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+
+            def main():
+                raise SystemExit(0)
+
+            with self.assertRaises(SystemExit) as caught:
+                self.invoke(tmp, main, '-h')
+            self.assertEqual(caught.exception.code, 0)
+            self.assertEqual(list(Path(tmp).iterdir()), [])
+
+    def test_fallback_accepts_identical_and_refuses_corrupt_bytes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            fallback = Path(tmp) / 'fixture.docx'
+            first = api.fixture_path('micro', b'same', fallback)
+            try:
+                second = api.fixture_path('micro', b'same', fallback)
+            except FileExistsError:
+                self.fail('identical fallback fixture must be reusable')
+            self.assertEqual(first, second)
+            first.write_bytes(b'corrupt')
+            with self.assertRaises(FileExistsError):
+                api.fixture_path('micro', b'same', fallback)
+            self.assertEqual(first.read_bytes(), b'corrupt')
+
+    def test_profile_and_host_reach_environment_and_summary(self):
+        for host_class in ('dedicated', 'ci_coarse'):
+            with self.subTest(host_class=host_class), tempfile.TemporaryDirectory() as tmp:
+
+                def main():
+                    parser = argparse.ArgumentParser()
+                    parser.add_argument('--out-root', type=Path)
+                    parser.add_argument('--editors', nargs='+')
+                    args, unknown = parser.parse_known_args()
+                    self.assertEqual(unknown, [], 'bookkeeping flags leaked to cell parser')
+                    env = _host_base(
+                        editor_id='fake',
+                        editor_version='1',
+                        execution_profile='ci_broad',
+                        fixture_sha256='a' * 64,
+                        workload_row=dict(
+                            workload_id='micro-paragraphs', paragraphs=1, unicode_class='ascii', match_count=0
+                        ),
+                        docx_size=1,
+                        cache_state='warm_steady',
+                        repetition_unit='fresh_process',
+                        run_kind='timing',
+                        feature_profile_name='P0',
+                    )
+                    api.write_json(args.out_root / 'trial.json', {'environment': env})
+                    return 0
+
+                self.invoke(tmp, main, '--execution-profile', 'dedicated_publish', '--host-class', host_class)
+                summary = json.loads(next(Path(tmp).glob('fake/*/summary.json')).read_text())
+                self.assertEqual(summary.get('execution_profile'), 'dedicated_publish')
+                self.assertEqual(summary.get('host_class'), host_class)
+                cell = summary['samples'][0]
+                if host_class == 'dedicated':
+                    env = json.loads((Path(cell['cell_directory']) / 'trial.json').read_text())['environment']
+                    self.assertEqual(env['execution_profile'], 'dedicated_publish')
+                    self.assertEqual(env['host_class'], host_class)
+                    validate_environment(env)
+                    self.assertEqual(cell['outcome'], 'ok')
+                else:
+                    self.assertEqual(cell['outcome'], 'failed')
+                    self.assertIn('dedicated_publish requires dedicated host', cell['failure_reason'])
+
+
+class SummaryGuard(unittest.TestCase):
+    def test_summary_modules_have_no_duplicate_keys_or_mutable_writes(self):
+        for name in (
+            'browser_run',
+            'browser_hosts',
+            'benchmark_warm_cold',
+            'benchmark_document',
+            'benchmark_input',
+            'adversarial_c10_scroll',
+        ):
+            with self.subTest(module=name):
+                tree = ast.parse((Path(__file__).parents[1] / 'runner' / (name + '.py')).read_text())
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.Dict):
+                        keys = [key.value for key in node.keys if isinstance(key, ast.Constant)]
+                        self.assertEqual(len(keys), len(set(keys)))
+                    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                        self.assertNotIn(node.func.attr, ('write_text', 'write_bytes'))

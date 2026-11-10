@@ -26,7 +26,7 @@ from perf.analysis.publication_gate import trial_publishable_flags  # noqa: E402
 from perf.analysis.summarize import summarize  # noqa: E402
 from perf.fixtures.generate import build_workload, correctness_fixtures, docx_zip_bytes  # noqa: E402
 from perf.fixtures.profiles import assert_workload_allowed, feature_profile, size_ladder  # noqa: E402
-from perf.runner.browser_run import run_cli, fixture_path as run_fixture, write_json, record_process
+from perf.runner.browser_run import execution_profile, host_class, run_cli, fixture_path as run_fixture, write_json, record_process
 from perf.runner.artifacts import write_attempt  # noqa: E402
 from perf.runner.benchmark_ci_contract import (  # noqa: E402
     INTERPRETATION_CONDITIONS,
@@ -485,7 +485,7 @@ def _env_for(
     env = _host_base(
         editor_id=editor_id,
         editor_version=editor_version,
-        execution_profile=EXECUTION_PROFILE,
+        execution_profile=execution_profile(EXECUTION_PROFILE),
         fixture_sha256=fixture_sha256,
         workload_row=workload_row,
         docx_size=docx_size,
@@ -534,7 +534,7 @@ def _main() -> int:
     args = parser.parse_args()
 
     workload_row = next(w for w in size_ladder() if w["workload_id"] == args.workload)
-    assert_workload_allowed(EXECUTION_PROFILE, args.workload)
+    assert_workload_allowed(execution_profile(EXECUTION_PROFILE), args.workload)
     built = build_workload(workload_row)
     cfs = correctness_fixtures()
     augmented_body = built["body"] + b"\n" + cfs["unicode"]
@@ -1162,8 +1162,8 @@ def _main() -> int:
 
     summary = {
         "suite": "warm_cold",
-        "execution_profile": EXECUTION_PROFILE,
-        "host_class": "ci_coarse",
+        "execution_profile": execution_profile(EXECUTION_PROFILE),
+        "host_class": host_class(),
         "workload_id": args.workload,
         "fixture_sha256": sha,
         "publishable": False,

@@ -24,6 +24,16 @@ ACTIVE = ContextVar('browser_run', default=None)
 CELL = ContextVar('browser_cell', default=None)
 
 
+def execution_profile(default='ci_broad'):
+    run = ACTIVE.get()
+    return run.execution_profile if run is not None else default
+
+
+def host_class(default='ci_coarse'):
+    run = ACTIVE.get()
+    return run.host_class if run is not None else default
+
+
 def schedule(editors, repetitions, seed):
     return [(rep, editor) for rep in range(repetitions)
             for editor in editor_order(editors, seed + rep)]
@@ -82,6 +92,8 @@ class BrowserRun:
         self.hosts = {}
         self.fixtures = {}
         self.samples = []
+        self.execution_profile = 'ci_broad'
+        self.host_class = 'ci_coarse'
 
     def fixture(self, workload, data):
         if Path(workload).name != workload or workload in ('.', '..'):
@@ -110,6 +122,7 @@ class BrowserRun:
         after = self.snapshot()
         result = {**summary, 'run_id': self.run_id, 'seed': self.seed,
                   'samples': self.samples, 'hosts': self.hosts,
+                  'execution_profile': self.execution_profile, 'host_class': self.host_class,
                   'repos_before': self.before, 'repos_after': after,
                   'fixtures': [str(p) for p in self.fixtures.values()]}
         if repos_modified(self.before, after):
@@ -124,20 +137,42 @@ def fixture_path(workload, data, fallback):
         return run.fixture(workload, data)
     path = Path(fallback).with_name(f'{workload}-{hashlib.sha256(data).hexdigest()[:16]}.docx')
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open('xb') as stream:
-        stream.write(data)
+    try:
+        with path.open('xb') as stream:
+            stream.write(data)
+    except FileExistsError:
+        if path.read_bytes() != data:
+            raise
     return path
 
 
 
 def failure_reasons(value):
     if isinstance(value, dict):
-        own = [value['failure_reason']] if value.get('failure_reason') else []
+        own = [value['failure_reason']] if value.get('outcome') == 'failed' and value.get('failure_reason') else []
         return own + [reason for key, child in value.items() if key != 'failure_reason'
                       for reason in failure_reasons(child)]
     if isinstance(value, list):
         return [reason for child in value for reason in failure_reasons(child)]
     return []
+
+
+def non_failure_outcomes(value):
+    """Retain skipped/refused rows without treating them as cell failures."""
+    if isinstance(value, dict):
+        own = [value] if value.get('outcome') in ('not_run', 'refused', 'not_applicable', 'unsupported', 'unverified') else []
+        return own + [row for child in value.values() for row in non_failure_outcomes(child)]
+    if isinstance(value, list):
+        return [row for child in value for row in non_failure_outcomes(child)]
+    return []
+
+
+def has_failure(value):
+    if isinstance(value, dict):
+        return value.get('outcome') == 'failed' or any(has_failure(child) for child in value.values())
+    if isinstance(value, list):
+        return any(has_failure(child) for child in value)
+    return False
 
 
 def record_process(proc):
@@ -163,6 +198,8 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
     parser.add_argument('--out-root', type=Path, default=REPO / 'perf' / 'out')
     parser.add_argument('--seed', type=int, default=None)
     parser.add_argument('--run-id', default=None)
+    parser.add_argument('--execution-profile', choices=('ci_contract', 'ci_broad', 'dedicated_publish'), default='ci_broad')
+    parser.add_argument('--host-class', choices=('ci_coarse', 'dedicated'), default='ci_coarse')
     parser.add_argument('--editor' if single else '--editors', nargs=None if single else '+',
                         default='plate' if single else list(targets), dest='editors')
     if count_flag:
@@ -170,17 +207,21 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
     else:
         parser.add_argument('--repetitions', type=int, default=1)
     args, rest = parser.parse_known_args()
-    if '--help' in rest:
-        print('Bookkeeping options: --seed INT --run-id ID --out-root PATH --repetitions INT (input only)')
+    if '--help' in rest or '-h' in rest:
+        print('Bookkeeping options: --seed INT --run-id ID --out-root PATH --repetitions INT (input only) --execution-profile {ci_contract,ci_broad,dedicated_publish} --host-class {ci_coarse,dedicated}')
         return main()
     if '--list-support' in rest:
         return main()
     editors = [args.editors] if single else args.editors
     if args.repetitions < 1 or any(editor not in targets for editor in editors):
         parser.error('positive repetitions and known editors required')
+    if callable(max_repetitions):
+        max_repetitions = max_repetitions(args.execution_profile)
     if max_repetitions is not None and args.repetitions > max_repetitions:
         parser.error(f'repetitions exceed profile budget ({max_repetitions})')
     run = run_factory(args.out_root, runner, seed=args.seed, run_id=args.run_id)
+    run.execution_profile = args.execution_profile
+    run.host_class = args.host_class
     token = ACTIVE.set(run)
     original = sys.argv
     order = schedule(editors, args.repetitions, run.seed)
@@ -200,14 +241,20 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
             def invoke():
                 status = main()
                 reasons = []
+                skipped = []
+                failed = bool(status)
                 for path in sorted(directory.rglob('*.json')):
-                    reasons.extend(failure_reasons(json.loads(path.read_text())))
-                return {'outcome': 'failed' if status or reasons else 'ok',
+                    value = json.loads(path.read_text())
+                    reasons.extend(failure_reasons(value))
+                    failed = failed or has_failure(value)
+                    skipped.extend({'file': str(path), **row} for row in non_failure_outcomes(value))
+                return {'outcome': 'failed' if failed else 'ok',
+                        'non_failure_outcomes': skipped,
                         'failure_reason': '; '.join(dict.fromkeys(reasons)) or (f'exit {status}' if status else None),
                         'exit_code': status, 'cell_directory': str(directory)}
             try:
                 row = capture(invoke)
-                row.update(repetition=rep, editor_id=editor)
+                row.update(repetition=rep, editor_id=editor, cell_directory=str(directory))
                 run.sample(name, row)
             finally:
                 CELL.reset(cell_token)

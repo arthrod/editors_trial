@@ -61,7 +61,7 @@ from perf.fixtures.generate import (  # noqa: E402
     correctness_fixtures,
 )
 from perf.fixtures.profiles import assert_workload_allowed, size_ladder  # noqa: E402
-from perf.runner.browser_run import run_cli, fixture_path as run_fixture, write_json, record_process
+from perf.runner.browser_run import execution_profile, host_class, run_cli, fixture_path as run_fixture, write_json, record_process
 from perf.runner.artifacts import write_attempt  # noqa: E402
 from perf.runner.benchmark_ci_contract import (  # noqa: E402
     INTERPRETATION_CONDITIONS,
@@ -678,7 +678,7 @@ def _env_for(*, editor_id: str, editor_version: str, fixture: dict, cache_state:
     env = _host_base(
         editor_id=editor_id,
         editor_version=editor_version,
-        execution_profile=EXECUTION_PROFILE,
+        execution_profile=execution_profile(EXECUTION_PROFILE),
         fixture_sha256=fixture["sha256"],
         workload_row=fixture["workload_row"],
         docx_size=fixture["byte_size"],
@@ -943,9 +943,9 @@ def _main() -> int:
         raise SystemExit("unsupported criterion id(s): %s" % (", ".join(unknown),))
     if args.samples < 1:
         raise SystemExit("--samples must be >= 1")
-    limit = sample_budget_for_profile(EXECUTION_PROFILE, "fresh_process")
+    limit = sample_budget_for_profile(execution_profile(EXECUTION_PROFILE), "fresh_process")
     if args.samples > limit:
-        raise SystemExit("--samples %d exceeds the %s fresh_process budget (%d)" % (args.samples, EXECUTION_PROFILE, limit))
+        raise SystemExit("--samples %d exceeds the %s fresh_process budget (%d)" % (args.samples, execution_profile(EXECUTION_PROFILE), limit))
 
     run_day = date.today().isoformat().replace("-", "_")
     out_root = args.out_root or (REPO / "perf" / "out" / ("document_%s" % run_day))
@@ -961,7 +961,7 @@ def _main() -> int:
         fixture = build_fixture(rung)
         fixture["path"] = fixture_dir / ("%s-%s.docx" % (workload_id, fixture["sha256"][:16]))
         try:
-            assert_workload_allowed(EXECUTION_PROFILE, workload_id)
+            assert_workload_allowed(execution_profile(EXECUTION_PROFILE), workload_id)
             allowed = True
         except ValueError:
             # A rung above the profile cap keeps its declared record (hash, size,
@@ -1196,7 +1196,7 @@ def _main() -> int:
                         fixture = fixtures[rung]
                         label = C14_RUNG_LABEL[rung]
                         try:
-                            assert_workload_allowed(EXECUTION_PROFILE, rung)
+                            assert_workload_allowed(execution_profile(EXECUTION_PROFILE), rung)
                         except ValueError as exc:
                             reason = "execution_profile: %s" % (exc,)
                             env = _env_for(
@@ -1504,8 +1504,8 @@ def _main() -> int:
     summary = {
         "suite": "document_criteria",
         "criteria": criteria,
-        "execution_profile": EXECUTION_PROFILE,
-        "host_class": "ci_coarse",
+        "execution_profile": execution_profile(EXECUTION_PROFILE),
+        "host_class": host_class(),
         "samples_per_cell": args.samples,
         "fixtures": {
             workload_id: {
@@ -1592,7 +1592,7 @@ def _host_cpu_model() -> str:
 
 
 def main() -> int:
-    return run_cli(_main, 'benchmark_document', BROWSER_TARGETS, count_flag='--samples', default_count=SAMPLE_DEFAULT, single=False, max_repetitions=sample_budget_for_profile(EXECUTION_PROFILE, 'fresh_process'))
+    return run_cli(_main, 'benchmark_document', BROWSER_TARGETS, count_flag='--samples', default_count=SAMPLE_DEFAULT, single=False, max_repetitions=lambda profile: sample_budget_for_profile(profile, 'fresh_process'))
 
 
 if __name__ == "__main__":

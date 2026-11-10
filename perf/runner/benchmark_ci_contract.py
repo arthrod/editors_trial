@@ -106,10 +106,13 @@ def _host_base(
     run_kind: str,
     feature_profile_name: str,
 ) -> dict:
+    from perf.runner.browser_run import execution_profile as run_profile, host_class
+
+    execution_profile = run_profile(execution_profile)
     feats = feature_profile(feature_profile_name)
     disabled = list(feats.get("disabled_features") or [])
-    return {
-        "host_class": "ci_coarse",
+    env = {
+        "host_class": host_class(),
         "execution_profile": execution_profile,
         "cpu_model": _host()["cpu_model"],
         "os": sys.platform,
@@ -136,6 +139,10 @@ def _host_base(
         "interpretation_conditions": list(INTERPRETATION_CONDITIONS),
         "feature_fallback": disabled,
     }
+    from perf.schema import validate_environment
+
+    validate_environment(env)
+    return env
 
 
 def _measure_cmd(
