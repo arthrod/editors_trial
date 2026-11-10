@@ -50,7 +50,7 @@ def main():
                       'tree_sha256': meta['tree_sha256'],
                       'outcomes': [row['outcome'] for row in run.samples],
                       'failure_reason': summary.get('failure_reason'),
-                      'repos_unchanged': summary['repos_before'] == summary['repos_after']}))
+                      'repos_unchanged': summary['repos_unchanged']}))
     return 0
 
 

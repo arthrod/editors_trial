@@ -31,7 +31,7 @@ class BrowserRun(unittest.TestCase):
     def test_repos_guard_detects_dirty_and_changed(self):
         self.assertFalse(self.api.repos_modified({'a': ''}, {'a': ''}))
         self.assertTrue(self.api.repos_modified({'a': ''}, {'a': ' M x'}))
-        self.assertTrue(self.api.repos_modified({'a': ' M x'}, {'a': ' M x'}))
+        self.assertFalse(self.api.repos_modified({'a': ' M x'}, {'a': ' M x'}))
 
     def test_integration_unique_immutable_files_and_fixture_names(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -213,3 +213,24 @@ class EntryPoints(unittest.TestCase):
             finally:
                 CELL.reset(cell)
                 ACTIVE.reset(token)
+
+
+class DirtyStartIntegration(unittest.TestCase):
+    def test_unaccepted_dirt_blocks_publication_without_claiming_modification(self):
+        from perf.runner.browser_run import BrowserRun
+        dirty = {'/elsewhere/repos/docen': ' M source.ts\n?? new.ts\n'}
+        with tempfile.TemporaryDirectory() as tmp:
+            result = BrowserRun(tmp, 'dirty', snapshot=lambda: dirty).finish({'publishable': True})
+        self.assertEqual(result.get('failure_reason'), 'repos_dirty_at_start')
+        self.assertFalse(result['publishable'])
+        self.assertIn('/elsewhere/repos/docen', result['repos_dirty_at_start'])
+        self.assertIn('source.ts', str(result['repos_dirty_at_start']))
+
+    def test_allowed_report_e_deletions_keep_reason(self):
+        from perf.runner.browser_run import BrowserRun
+        dirty = {'/elsewhere/repos/office-open': ' D scripts/coverage/a.py\n'}
+        with tempfile.TemporaryDirectory() as tmp:
+            result = BrowserRun(tmp, 'allowed', snapshot=lambda: dirty).finish({'publishable': True})
+        self.assertTrue(result['publishable'])
+        self.assertIn('27 coverage scripts deleted', result['repos_dirty_allowed']['/elsewhere/repos/office-open'])
+        self.assertTrue(result['repos_unchanged'])
