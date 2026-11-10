@@ -67,7 +67,9 @@ def capture(call, *, stderr_tail=0):
         with redirect_stderr(buffer):
             return call()
     except (Exception, SystemExit) as exc:
-        row = {'outcome': 'failed', 'failure_reason': f'{type(exc).__name__}: {exc}'}
+        from perf.runner.browser_hosts import HostBuildError
+        row = {'outcome': 'failed', 'refusal_code': 'host_build' if isinstance(exc, HostBuildError) else 'crash',
+               'failure_reason': f'{type(exc).__name__}: {exc}'}
         if buffer is not None and isinstance(exc, SystemExit) and isinstance(exc.code, int):
             lines = [line for line in buffer.getvalue().splitlines() if line.strip()]
             if lines:
@@ -136,7 +138,7 @@ class BrowserRun:
         for name in (runner, self.run_id):
             if Path(name).name != name or name in ('.', '..'):
                 raise ValueError('invalid run path component')
-        self.out_root = Path(out_root).resolve()
+        self.out_root = (REPO / out_root).resolve()
         self.directory = self.out_root / runner / self.run_id
         self.directory.mkdir(parents=True, exist_ok=False)
         self.snapshot = snapshot
@@ -244,6 +246,7 @@ class BrowserRun:
                 **{key: row[key] for key in ('run_id', 'seed', 'editor_id', 'repetition', 'exit_code') if key in row},
                 'outcome': 'failed',
                 'failure_reason': 'cpu_accounting_unavailable',
+                'refusal_code': 'cpu_accounting_unavailable',
                 'publishable': False,
                 'rejected_evidence_directory': str(destination),
                 'cpu_accounting': accounting,
@@ -255,8 +258,10 @@ class BrowserRun:
             if not shared_diagnostic and self._sample_parents:
                 self.sample_start = self._sample_parents.pop()
             return self.directory / 'samples' / (name + '.json')
+        from perf.runner.refusals import refusal_code
         value = {
             **row,
+            'refusal_code': refusal_code(row),
             'run_id': self.run_id,
             'seed': self.seed,
             'cpu_accounting': accounting,
@@ -303,9 +308,12 @@ class BrowserRun:
             value.update(
                 outcome='failed',
                 failure_reason='cpu_throttled',
+                refusal_code='cpu_throttled',
                 publishable=False,
                 rejected_evidence_directory=str(destination),
             )
+        elif not accounting['available']:
+            value.update(refusal_code='cpu_accounting_unavailable', publishable=False)
         path = self.directory / 'samples' / (name + '.json')
         write_json(path, value)
         self.samples.append(value)
@@ -591,6 +599,7 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
                             'rejected_evidence_directory': str(destination)}
                 return {**({'typing_session_kept': typing_kept, 'session_kind': args.session_kind} if runner == 'benchmark_typing' else {}),
                         'outcome': 'failed' if failed else 'ok',
+                        'refusal_code': 'crash' if failed else None,
                         'non_failure_outcomes': skipped,
                         'failure_reason': '; '.join(dict.fromkeys(reasons)) or (f'exit {status}' if status else None),
                         'exit_code': status, 'cell_directory': str(directory)}

@@ -19,28 +19,17 @@ from build.perf_e_tables import reproduced  # noqa: E402
 _REFUSAL_OUTCOMES = frozenset(
     {"failed", "refused", "not_applicable", "unsupported", "unverified", "not_run"}
 )
-_RUN_REFUSALS = frozenset({'cpu_throttled', 'cpu_accounting_unavailable', 'host_build'})
-
-
-def refusal_family(reason):
-    """Label the segment that decides a refusal, including wrapped exceptions."""
-    families = [
-        re.sub(r'^\w+(Error|Exception|Expired|Exit): ', '', part.strip()).split(':', 1)[0]
-        for part in str(reason).split('; ')
-    ]
-    return next((family for family in families if family in _RUN_REFUSALS), families[0])
+from perf.runner.refusals import RUN_REFUSALS as _RUN_REFUSALS, refusal_code
 
 
 def _trial_block(trial):
-    reason = trial.get('publication_block_reason')
-    if reason:
-        return refusal_family(reason)
-    if trial.get('host_build') == 'build_failed':
-        return 'host_build'
-    if trial.get('publishable') is False:
-        return refusal_family(trial.get('failure_reason') or 'publishable_false')
+    code = refusal_code(trial)
+    if code:
+        return code
+    if trial.get('publishable') is not True or _nested_unpublishable(trial.get('host_provenance')):
+        return 'publishable_not_true'
     if trial.get('outcome') != 'measured':
-        return refusal_family(trial.get('failure_reason') or trial.get('outcome') or 'unmeasured')
+        return 'crash'
     return None
 
 
@@ -120,6 +109,17 @@ def _frame_interval_ms(trials) -> float | None:
         if isinstance(value, (int, float)) and value > 0:
             return float(value)
     return None
+def _nested_unpublishable(value):
+    if isinstance(value, dict):
+        return value.get('publishable') is False or any(_nested_unpublishable(v) for v in value.values())
+    if isinstance(value, list):
+        return any(_nested_unpublishable(v) for v in value)
+    return False
+
+
+def trial_measure(trial):
+    diagnostic = trial.get('diagnostic') or {}
+    return str(trial.get('measure') or diagnostic.get('size_rung') or diagnostic.get('measurement') or '')
 
 
 def _read_rows(directory):
@@ -127,9 +127,12 @@ def _read_rows(directory):
         try:
             row = json.loads(path.read_text(encoding='utf-8'))
         except (OSError, json.JSONDecodeError):
+            yield path, {'refusal_code': 'unreadable_trial'}
             continue
         if isinstance(row, dict):
             yield path, row
+        else:
+            yield path, {'refusal_code': 'unreadable_trial'}
 
 
 def _iter_trials(run_directory: Path):
@@ -170,92 +173,78 @@ def _refusal_key(sample_or_trial: dict) -> str:
     return str(reason).split(":", 1)[0].strip()
 
 
-def build_run_cell(run_directory: Path, editor_id: str, criterion_id: str, *, scheduled: int = 30) -> dict:
+def build_run_cell(
+    run_directory: Path, editor_id: str, criterion_id: str, *, scheduled: int = 30, measure: str = ''
+) -> dict:
     summary = _load_summary(run_directory)
     scheduled = _scheduled_for_editor(summary, editor_id, scheduled)
     run_blocked, block_reason = _run_blocks_publication(summary)
     kept, raw, sub_frame, intervals = [], [], [], []
-    refusals: Counter[str] = Counter()
+    refusals = Counter()
     failed_launches = set()
     trials = defaultdict(list)
-    editor_launches = set()
+    refused_launches = {}
     for path, trial in _read_rows(run_directory / 'cells'):
+        launch = path.relative_to(run_directory / 'cells').parts[0]
+        if trial.get('refusal_code') == 'unreadable_trial' and launch.endswith('-' + editor_id):
+            refused_launches[launch] = 'unreadable_trial'
         if trial.get('editor_id') != editor_id or not trial.get('criterion_id'):
             continue
-        launch = path.relative_to(run_directory / 'cells').parts[0]
-        editor_launches.add(launch)
-        if trial['criterion_id'] == criterion_id:
+        code = refusal_code(trial)
+        if code in _RUN_REFUSALS:
+            refused_launches[launch] = code
+        if trial['criterion_id'] == criterion_id and trial_measure(trial) == measure:
             trials[launch].append(trial)
-    refused_launches = {
-        path.name: 'quarantined'
-        for path in (run_directory / 'rejected-evidence').glob('*')
-        if path.is_dir() and path.name.endswith('-' + editor_id)
-    }
+    for path in (run_directory / 'rejected-evidence').glob('*'):
+        if path.is_dir() and path.name.endswith('-' + editor_id):
+            refused_launches[path.name] = 'quarantined'
     for path, row in _read_rows(run_directory / 'samples'):
         if row.get('editor_id') != editor_id:
             continue
-        reason = row.get('failure_reason') or row.get('publication_block_reason')
-        family = refusal_family(reason) if reason else None
-        if family in _RUN_REFUSALS:
-            refused_launches[path.stem] = family
-        elif row.get('rejected_evidence_directory'):
-            refused_launches[path.stem] = 'quarantined'
-        elif reason and path.stem not in editor_launches:
-            refused_launches.setdefault(path.stem, family)
-    for launch, reason in refused_launches.items():
-        refusals[reason] += 1
+        code = refusal_code(row)
+        if code in _RUN_REFUSALS and refused_launches.get(path.stem) != 'unreadable_trial':
+            refused_launches[path.stem] = code
+        elif code and path.stem not in trials:
+            refused_launches.setdefault(path.stem, code)
+    for launch, code in refused_launches.items():
+        refusals[code] += 1
         failed_launches.add(launch)
     for launch, rows in trials.items():
         if launch in refused_launches:
             continue
-        candidates, blocked = [], []
-        for trial in rows:
-            reason = _trial_block(trial)
-            if reason:
-                blocked.append(reason)
-                continue
-            samples = [float(x) for x in trial.get('samples_ms', []) if _number(x)]
-            if not samples:
-                continue
-            median = percentile(samples, 50)
-            flags = trial.get('sub_frame_samples', (trial.get('diagnostic') or {}).get('sub_frame_samples'))
-            interval = (trial.get('diagnostic') or {}).get('frame_interval_ms')
-            interval = float(interval) if _number(interval) and interval > 0 else None
-            flag = None
-            if (
-                isinstance(flags, list)
-                and len(flags) == len(samples)
-                and all(isinstance(x, bool) for x in flags)
-                and interval
-            ):
-                ordered = sorted(zip(samples, flags))
-                # Even-sized sets have an interpolated median. Validate both
-                # central recorded samples against their own witnessed interval.
-                central = ordered[(len(ordered) - 1) // 2 : len(ordered) // 2 + 1]
-                if any(recorded != (value < interval) for value, recorded in central):
-                    blocked.append('sub_frame_flag_mismatch')
-                    continue
-                flag = median < interval
-            candidates.append((samples, median, interval, flag))
-        if blocked:
+        reason = 'conflicting_trials' if len(rows) != 1 else _trial_block(rows[0])
+        trial = rows[0]
+        samples = trial.get('samples_ms')
+        diagnostic = trial.get('diagnostic') or {}
+        flags = trial.get('sub_frame_samples', diagnostic.get('sub_frame_samples'))
+        interval = diagnostic.get('frame_interval_ms')
+        interval = float(interval) if _number(interval) and interval > 0 else None
+        if not reason and (
+            not isinstance(samples, list)
+            or not samples
+            or not all(_number(x) for x in samples)
+            or not isinstance(flags, list)
+            or len(flags) != len(samples)
+            or not all(type(x) is bool for x in flags)
+        ):
+            reason = 'malformed_samples'
+        if not reason and (
+            interval is None or any(flag != (sample < interval) for sample, flag in zip(samples, flags))
+        ):
+            reason = 'sub_frame_flag_mismatch'
+        if reason:
             failed_launches.add(launch)
-            if candidates:
-                refusals['conflicting_trials'] += 1
-            else:
-                refusals.update(set(blocked))
+            refusals[reason] += 1
             continue
-        if not candidates:
-            continue
-        samples, median, interval, flag = candidates[0]
+        median = percentile(samples, 50)
         raw.append(samples)
         kept.append(median)
-        if interval:
-            intervals.append(interval)
-        if flag is not None:
-            sub_frame.append(flag)
+        intervals.append(interval)
+        sub_frame.append(median < interval)
     return {
         'editor_id': editor_id,
         'criterion_id': criterion_id,
+        'measure': measure,
         'scheduled': scheduled,
         'kept_ms': kept,
         'raw_samples_ms': raw,
@@ -336,7 +325,7 @@ def publication_text(cell: dict) -> str:
 
 
 def publish_dual_runs(
-    primary: Path, reproduction: Path, editor_id: str, criterion_id: str, *, scheduled: int = 30
+    primary: Path, reproduction: Path, editor_id: str, criterion_id: str, *, scheduled: int = 30, measure: str = ''
 ) -> str:
     """Compatibility entry point; all publication gates live in the report path.
 
@@ -347,4 +336,4 @@ def publish_dual_runs(
 
     first, second = load_run(primary), load_run(reproduction)
     check_comparable(first, second)
-    return _cell_text({}, first.path, second.path, editor_id, criterion_id)
+    return _cell_text({}, first.path, second.path, editor_id, criterion_id, measure)

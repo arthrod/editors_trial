@@ -1021,6 +1021,8 @@ def _write_measured(
     if criterion_id == "C11":
         checks = diagnostic.get("samples") or []
         trial["content_verified"] = bool(checks) and all(d.get("content_verified") is True for d in checks)
+    trial['measure'] = diagnostic.get('size_rung') or diagnostic.get('measurement') or ''
+    trial['refusal_code'] = None if pub else 'publishable_not_true'
     validate_trial(trial)
     path = write_attempt(
         attempt_dir,
@@ -1066,6 +1068,7 @@ def _write_refusal(
     measurement, separator, detail = failure_reason.partition(": ")
     if separator and measurement in C15_MEASUREMENTS:
         classification_reason = detail
+    trial['measure'] = (diagnostic or {}).get('size_rung') or (diagnostic or {}).get('measurement') or ''
     trial['refusal_code'] = (outcome if outcome != 'failed' else
         'cpu_throttled' if classification_reason.startswith('cpu_throttled') else
         'host_build' if classification_reason.startswith('host-error:') else

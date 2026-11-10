@@ -94,9 +94,13 @@ Primary run `{{perf.e2.run_id}}`, seed {{perf.e2.seed}} ({{perf.e2.date}}). Repr
 
 ### C14 — large-document scaling
 
+Each C14 size rung is a separate measure; rungs are never pooled.
+
 {{perf.e2.table.C14}}
 
 ### C15 — search and replace
+
+Each C15 step is a separate measure; steps are never pooled.
 
 {{perf.e2.table.C15}}
 

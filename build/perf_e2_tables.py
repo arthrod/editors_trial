@@ -35,7 +35,7 @@ class Run:
 def load_run(path: Path) -> Run:
     path = Path(path)
     summary = json.loads((path / "summary.json").read_text(encoding="utf-8"))
-    if summary.get("execution_profile") != "dedicated_publish":
+    if summary.get("publishable") is True and not summary.get("publication_block_reason") and summary.get("execution_profile") != "dedicated_publish":
         raise ValueError(
             "%s is a %s run; Report E2 publishes dedicated_publish runs only"
             % (path, summary.get("execution_profile"))
@@ -45,6 +45,8 @@ def load_run(path: Path) -> Run:
 
 def check_comparable(primary: Run, repro: Run) -> None:
     """A reproduction is a second run of the same measurement, nothing else."""
+    if any(run.summary.get('publishable') is not True or run.summary.get('publication_block_reason') for run in (primary, repro)):
+        return
     if primary.path.resolve() == repro.path.resolve():
         raise ValueError("the reproduction is the same run directory")
     a, b = primary.summary, repro.summary
@@ -111,7 +113,7 @@ def _criteria_present(primary: Path, repro: Path) -> list[str]:
 
     collect(primary)
     collect(repro)
-    return [c for c in E2_CRITERIA if c in present] or E2_CRITERIA
+    return E2_CRITERIA
 
 
 def _iter_trials(run_directory: Path):
@@ -133,11 +135,11 @@ def _format_median(cell: dict, median: float) -> str:
     return "%.1f ms" % median
 
 
-def _cell_text(facts: dict, primary: Path, repro: Path, editor: str, criterion: str) -> str:
-    key = 'perf.e2.%s.%s' % (editor, criterion)
+def _cell_text(facts: dict, primary: Path, repro: Path, editor: str, criterion: str, measure: str = '') -> str:
+    key = 'perf.e2.%s.%s' % (editor, criterion) + ('.' + measure if measure else '')
     facts[key + '.reproduced'] = False
     cells = [
-        e2_cells.build_run_cell(root, editor, criterion, scheduled=_scheduled(root, editor))
+        e2_cells.build_run_cell(root, editor, criterion, scheduled=_scheduled(root, editor), measure=measure)
         for root in (primary, repro)
     ]
     facts[key + '.primary'], facts[key + '.reproduction'] = cells
@@ -180,7 +182,7 @@ def _cell_text(facts: dict, primary: Path, repro: Path, editor: str, criterion: 
 
     p_med = p_cell['stats']['median']
     r_med = r_cell['stats']['median']
-    key = 'perf.e2.%s.%s' % (editor, criterion)
+    key = 'perf.e2.%s.%s' % (editor, criterion) + ('.' + measure if measure else '')
     ok = reproduced(p_med, r_med, rel_tol=REL_TOL, abs_tol=frame)
     if not ok:
         facts[key + '.reason'] = 'medians outside tolerance'
@@ -200,10 +202,17 @@ def _cell_text(facts: dict, primary: Path, repro: Path, editor: str, criterion: 
 
 
 def _criterion_table(facts: dict, primary: Path, repro: Path, criterion: str, editors: list[str]) -> str:
-    lines = ['| Editor | %s |' % criterion, '|---|---|']
+    measures = sorted({e2_cells.trial_measure(row) for root in (primary, repro)
+                       for row in e2_cells._iter_trials(root) if row['criterion_id'] == criterion}) or ['']
+    distinct = criterion in ('C14', 'C15') or measures != ['']
+    lines = (['| Editor | Measure | %s |' % criterion, '|---|---|---|'] if distinct
+             else ['| Editor | %s |' % criterion, '|---|---|'])
     for editor in editors:
-        text = _cell_text(facts, primary, repro, editor, criterion)
-        lines.append("| %s | %s |" % (DISPLAY.get(editor, editor), text))
+        for measure in measures:
+            text = _cell_text(facts, primary, repro, editor, criterion, measure)
+            label = DISPLAY.get(editor, editor)
+            lines.append('| %s | %s | %s |' % (label, measure or 'unspecified', text) if distinct
+                         else '| %s | %s |' % (label, text))
     return "\n".join(lines)
 
 
@@ -384,8 +393,8 @@ def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
             "Each launch contributes the median of its own samples; n counts kept launches. "
             "Scheduled counts come from each run's order. Both runs must be publishable and keep at least 10 launches. "
             "The medians must agree within 10 percent of the larger median or the larger witnessed frame interval. "
-            "Without a witnessed interval only the 10 percent tolerance applies. Sub-frame medians are buckets; "
-            "sub-frame shares are shown only when recorded. p90 is over launch medians."
+            "Samples require complete boolean flags checked against a witnessed interval. Sub-frame medians are buckets; "
+            "p90 is over launch medians. C14 rungs and C15 steps are separate measures."
         ),
         "perf.e2.reproduce": "See perf/container/README.md.",
     }
@@ -401,6 +410,6 @@ def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
     published = [k for k in facts if k.endswith(".reproduced")]
     facts["perf.e2.cells_checked"] = len(published)
     facts["perf.e2.cells_reproduced"] = sum(1 for k in published if facts[k])
-    facts["perf.e2.intro"] = "%d of %d scheduled editor/criterion cells reproduced between the two runs. Dates: first %s; second %s." % (
+    facts["perf.e2.intro"] = "%d of %d scheduled editor/criterion/measure cells reproduced between the two runs. Dates: first %s; second %s." % (
         facts["perf.e2.cells_reproduced"], facts["perf.e2.cells_checked"], _date(s), _date(repro.summary))
     return facts

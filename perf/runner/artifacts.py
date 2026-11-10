@@ -23,6 +23,13 @@ def write_attempt(directory, attempt_id, trial):
         if host.get("publishable") is False:
             trial["publishable"] = False
             trial["publication_block_reason"] = host["publication_block_reason"]
+    from perf.runner.refusals import refusal_code
+    trial = dict(trial)
+    if 'refusal_code' not in trial:
+        outcome = trial.get('outcome')
+        trial['refusal_code'] = (None if outcome == 'measured' else
+                                 outcome if outcome in ('unsupported', 'not_applicable', 'unverified', 'not_run') else 'crash')
+    trial['refusal_code'] = refusal_code(trial)
     payload = dump_trial(trial).encode("utf-8")
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
     fd = os.open(path, flags, 0o644)
