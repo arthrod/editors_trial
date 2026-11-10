@@ -678,11 +678,11 @@ def _region_violations(record):
                 upper = rounded[axis] + rounded[span]
                 lower = max(0, rounded[axis])
                 value = device.get(span)
-                if _count(value) is None or not lower + 1 <= value <= upper:
+                if _count(value) is None or not 1 <= value <= upper - lower:
                     out.append(
                         "document_region.rect_device_px.%s (%s) does not fit the CSS "
                         "rect at the recorded dpr ([%s, %s])"
-                        % (span, _describe(value), _describe(lower + 1), _describe(upper))
+                        % (span, _describe(value), _describe(1), _describe(upper - lower))
                     )
     pixels = record.get("region_pixels")
     if (

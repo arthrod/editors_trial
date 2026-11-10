@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>witness fake host: a change 50 ms after the marker</title>
+    <style>
+      body {
+        margin: 0;
+        background: #ffffff;
+        color: #111111;
+        font: 16px/1.4 monospace;
+      }
+      #doc {
+        position: absolute; top: 99.1875px; height: 25.1875px; padding: 0;
+      }
+      #marker {
+        font-weight: bold;
+        padding: 8px 24px;
+        background: #eeeeee;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="marker">marker: idle</div>
+    <div id="doc">The document is idle until the marker arms the change.</div>
+    <script>
+      // The fake host of W1. The change lands 50 ms after the marker, in the
+      // page's own clock (performance.now()), so the witness frame must be at
+      // or after marker + 50 ms (minus the clock skew the module reports).
+      window.__witness = { marker_ms: null, change_ms: null, changed: false };
+      window.__witnessArm = function arm(delayMs) {
+        var delay = typeof delayMs === 'number' ? delayMs : 50;
+        return new Promise(function (resolve) {
+          var marker_ms = performance.now();
+          window.__witness.marker_ms = marker_ms;
+          setTimeout(function () {
+            var change_ms = performance.now();
+            document.getElementById('doc').textContent =
+              'The document changed ' + delay + ' ms after the marker.';
+            document.getElementById('marker').textContent = 'marker: armed';
+            window.__witness.change_ms = change_ms;
+            window.__witness.changed = true;
+            resolve({
+              after_page_ms: marker_ms,
+              marker_ms: marker_ms,
+              change_ms: change_ms,
+            });
+          }, delay);
+        });
+      };
+    </script>
+  </body>
+</html>
