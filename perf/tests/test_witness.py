@@ -1650,7 +1650,9 @@ class WitnessMutationTests(unittest.TestCase):
             "integer range are checkable (enforced by out-of-range and by "
             "frames_after's corruption)",
         ("", "frames_ack_skipped", "contradictory"):
-            "an informational count of skipped frames",
+            "a count of frames whose ack never settled; its integer range and "
+            "its subset relation to frames_total gate (round 5: it may not "
+            "exceed the total), and the corruption shifts it within the total",
         ("", "elapsed_ms", "contradictory"):
             "the wall-clock duration of the wait; informational",
         ("", "frame_page_ms", "contradictory"):
@@ -1691,14 +1693,18 @@ class WitnessMutationTests(unittest.TestCase):
         ("clock_check", "frame_monotonic_ms", "contradictory"):
             "a raw monotonic reading; not derivable from the record",
         ("clock_check", "frames_total", "contradictory"):
-            "the check's own frame count at its own instant (the check may run "
-            "on another recorder); informational",
+            "the check's own frame count at its own instant; an anchor needs "
+            "at least one of them (round 5: zero frames contradict a claimed "
+            "anchor), but which count at or above one the recorder had is not "
+            "derivable from the record",
         ("clock_check", "anchor_diff_ratio", "contradictory"):
-            "the anchor's own diff ratio; its > 0 range is enforced, the exact "
-            "value is not derivable from the record",
+            "the anchor's own diff ratio; its producer threshold and its pixel "
+            "floor over the probe region gate (round 5), but the exact value "
+            "above them is not derivable from the record",
         ("clock_check", "anchor_probe_region_px", "contradictory"):
-            "where the anchor probe sat; the anchor's verdict is recomputed "
-            "from the anchor's times, not from this rect",
+            "where the anchor probe sat; its area carries the producer's pixel "
+            "floor (round 5), but a one-pixel shift of the origin leaves the "
+            "area -- and the anchor's verdict -- unchanged",
         ("clock_check", "frame_interval_source", "contradictory"):
             "where the interval came from; informational",
         ("clock_check", "frame_interval_samples", "contradictory"):
