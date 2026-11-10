@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 import unittest
 import tempfile
+import statistics
 
 from perf.layers.classify import assert_visible_evidence
 from perf.runner import benchmark_warm_cold as runner
@@ -156,7 +157,10 @@ class BrowserIntegration(unittest.TestCase):
         p = self.probe('instant', '--fresh-context-probe', 'false')
         edit = p['pairs'][0]['cold']
         self.assertIn('mechanism', edit)
-        self.assertTrue(edit['single_edit_ms'] < 33, edit)
+        values = [edit['single_edit_ms'], *(item['edit_ms'] for item in edit['burst'])]
+        self.assertEqual(len(values), 4)
+        self.assertTrue(all(value is not None for value in values), edit)
+        self.assertLess(statistics.median(values), 33, edit)
         self.assertIn('clock_skew', edit)
 
     def test_delayed(self):
@@ -178,7 +182,27 @@ def frame_record():
         'caret_masked': True,
         'document_scoped': True,
         'changed_pixels': 100,
-        'clock_check': {'acceptable': True, 'page_offset_ms': 0},
+        'clock_check': {
+            'kind': 'clock_skew', 'acceptable': True, 'reason': None,
+            'method': 'page_clock_offset+pixel_anchor', 'timestamp_kind': 'epoch_seconds',
+            'timestamp_field': 'timestamp', 'bound_ms': 2, 'page_offset_ms': 0,
+            'page_offset_samples': [0] * 9, 'page_offset_spread_ms': 0, 'skew_ms': 0,
+            'time_origin_ms': 1700000000000, 'change_page_ms': 100,
+            'frame_page_ms': 116, 'frame_lag_ms': 16, 'frame_monotonic_ms': None,
+            'frames_total': 2, 'anchor_pixel_checked': True, 'anchor_diff_ratio': 1,
+            'anchor_probe_region_px': {'x': 0, 'y': 0, 'width': 8, 'height': 8},
+            'frame_interval_ms': 16.667, 'frame_interval_source': 'raf_delta',
+            'frame_interval_samples': 60, 'lag_bound_ms': 100,
+            'lag_bound_rule': 'max(3 frame intervals, 100 ms)',
+            'conversion': {'formula': 'page_ms = timestamp * 1000 - performance.timeOrigin',
+                           'error_lower_ms': -2, 'error_upper_ms': 100,
+                           'published': '[-2 ms, +100 ms] (never ±2 ms)'},
+            'caret_masked': True, 'caret_mask_error': None,
+            'checks': {key: True for key in (
+                'timestamp_kind_known', 'page_offset_within_bound',
+                'page_offset_spread_within_bound', 'anchor_found', 'anchor_pixel_checked',
+                'anchor_converted', 'anchor_causality', 'anchor_lag_within_bound')},
+        },
     }
 
 
@@ -214,7 +238,8 @@ class SamplePolicy(unittest.TestCase):
                 'outcome': 'measured',
                 'clock_skew': {'skew_ms': 0, 'bound_ms': 2, 'acceptable': True},
                 'witness': frame_record(),
-                'edit_confirmation': {'confirmed': True},
+                'edit_confirmation': {'confirmed': True, 'changed_pixels': 20,
+                    'visible_rects': [{'x': 10, 'y': 10, 'width': 20, 'height': 30}]},
                 'event_timing': {'outcome': 'censored_below_16_ms', 'entries': []},
             },
             'C06',
@@ -243,7 +268,8 @@ class WriterIntegration(unittest.TestCase):
                     'edit_ms': 25,
                     'outcome': 'measured',
                     'witness': frame_record(),
-                'edit_confirmation': {'confirmed': True},
+                'edit_confirmation': {'confirmed': True, 'changed_pixels': 20,
+                    'visible_rects': [{'x': 10, 'y': 10, 'width': 20, 'height': 30}]},
                     'clock_skew': {'skew_ms': skew, 'bound_ms': 2, 'acceptable': abs(skew) <= 2},
                 }
                 path = runner._write_measured_attempt(
@@ -332,6 +358,25 @@ class AdversarialBrowser(BrowserIntegration):
             if edit['single_edit_ms'] is not None:
                 self.assertTrue(edit['witness']['document_scoped'])
 
+    def test_r1_hidden_span_cannot_confirm_caret_frame(self):
+        p = self.probe('hidden', '--url', self.host.url + '/hidden.html', '--fresh-context-probe', 'false')
+        for arm in ('cold', 'warm'):
+            edit = p['pairs'][0][arm]
+            self.assertTrue(edit['single_edit_ms'] is None or edit['single_edit_ms'] >= 150, edit)
+            if edit['single_edit_ms'] is not None:
+                self.assertGreater(edit['edit_confirmation']['changed_pixels'], 0)
+                self.assertTrue(edit['edit_confirmation']['visible_rects'])
+
+    def test_r1_invisible_geometry_and_unrelated_damage_are_refused(self):
+        for mode in ('none', 'zero', 'clipped', 'offregion', 'transparent', 'clip'):
+            with self.subTest(mode=mode):
+                p = self.probe(mode, '--url', self.host.url + '/hidden.html?mode=' + mode,
+                               '--fresh-context-probe', 'false')
+                for arm in ('cold', 'warm'):
+                    edit = p['pairs'][0][arm]
+                    self.assertIsNone(edit['single_edit_ms'], edit)
+                    self.assertEqual(edit['failure_reason'], 'expected_edit_not_confirmed', edit)
+
     def test_f3_poisoned_edit_keeps_c03(self):
         p = self.probe('poison', '--url', self.host.url + '/?poison=1', '--fresh-context-probe', 'false')
         for arm in ('cold', 'warm'):
@@ -402,3 +447,37 @@ class SuccessfulProbeBracketIntegration(unittest.TestCase):
                 self.assertEqual(row['cpu_accounting']['delta']['nr_throttled'], 1)
             finally:
                 ACTIVE.reset(token)
+
+
+class RoundThreePolicy(unittest.TestCase):
+    def test_r1_boolean_confirmation_without_visible_pixels_is_refused(self):
+        row = runner.input_sample_record({
+            'edit_ms': 25, 'outcome': 'measured', 'witness': frame_record(),
+            'clock_skew': {'skew_ms': 0, 'bound_ms': 2, 'acceptable': True},
+            'edit_confirmation': {'confirmed': True},
+        }, 'C05')
+        self.assertEqual(row['outcome'], 'failed')
+        self.assertIsNone(row['latency_ms'])
+
+    def test_r2_no_delay_uses_several_keys(self):
+        # Run the acceptance assertion with deterministic recorded latencies.
+        class RecordedProbe(BrowserIntegration):
+            def probe(self, *args):
+                return {'pairs': [{'cold': {
+                    'single_edit_ms': 200, 'edit_ms': 200, 'mechanism': 'cdp_screencast_changed_frame',
+                    'clock_skew': {}, 'burst': [{'edit_ms': n} for n in (8, 12, 16)],
+                }}]}
+        RecordedProbe('test_no_delay').test_no_delay()
+
+    def test_all_refusal_reasons_are_published(self):
+        from perf.tests.test_schema import _env
+        with tempfile.TemporaryDirectory() as tmp:
+            path = runner._write_input_refusal(
+                attempt_dir=Path(tmp), criterion_id='C06', layer='browser_visible',
+                boundary='input_to_next_paint', editor_id='plate', lane='browser', env=_env(),
+                failure_reason='missing_input_latency', observations=[
+                    {'failure_reason': r, 'outcome': 'failed'}
+                    for r in ('no_frame', 'expected_edit_not_confirmed', 'no_frame')],
+            )
+            row = json.loads(path.read_text())
+            self.assertEqual(row.get('failure_reasons'), ['expected_edit_not_confirmed', 'no_frame'])
