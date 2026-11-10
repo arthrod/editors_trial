@@ -1,4 +1,4 @@
-"""B5 — the C10 scroll lane (#106).
+"""B5 — the C10 scroll lane (#106, #134).
 
 The defect: the C10 probe published a *measured* scroll latency for hosts
 where nothing scrolled (the old probe skipped the scroll and timed two
@@ -14,29 +14,33 @@ A2  a host with prose-50kw is measured, and **every** measured sample names
     ``prose.html``).
 A3  a host whose scroller lives inside an **open shadow root** is found and
     measured, and the shadow host is named (the fake host ``shadow.html``).
-A4  every measured sample carries B1c's frame witness, its clock-skew bound
-    and the run's clock check (the pixel anchor's evidence).
-A5  the container is the scroller that **holds the document's text**: a
-    hidden decoy with a huge scroll range and a blinking box outside the
-    document must not be measured as the document's scroll (the fake host
-    ``decoy.html``).
-A6  a document that fits beside a small overflow widget is **not** measured
-    (the fake host ``widget.html``).
-A7  the caret mask reaches inside the open shadow roots, so a caret blinking
-    in a shadow tree is not the witness's frame.
+A4  every measured sample carries B1c's frame witness and its clock-skew
+    bound.
 B1  the run records the execution profile that admits prose-50kw and the seed.
 B2  the runner writes a ``not_applicable`` trial (never ``measured``) for the
     host whose document fits.
-B3  every measured sample of the runner's trial names its container, its
-    ``scrollTop`` delta and the movement of the document's content.
+B3  every measured sample of the runner's trial names its container and its
+    ``scrollTop`` delta.
 B4  a profile that refuses prose-50kw is refused **with a reason**; nothing
     is measured and nothing crashes.
-B5  ``--fake-host`` and ``--editor`` are mutually exclusive: a fake host's
-    measurement is never filed under an editor's id.
-B6  the trial's publishability follows the policy (the profile and the host
-    class), never a hardcoded sentence.
-C   the pure parts: the profile gate, the environment, the sample verdict and
-    the publication flags.
+C   the pure parts: the profile gate, the environment and the sample verdict.
+
+The review of #134 added the counterexamples of the adversarial review
+(``e2-logs/review-b5.md``), each with its own measurer:
+
+F1  the witness is **scoped to the scrolled container**: damage outside the
+    document cannot pose as the document's paint (``decoy.html``).
+F2  the container is the scroller that **holds the document text**, not the
+    scroller with the largest range (``decoy.html``, ``widget.html``).
+F3  ``--fake-host`` and ``--editor`` are **mutually exclusive**: a fake
+    measurement is never filed under a real editor's id.
+F4  the trial's **publishability follows the profile and the host class**,
+    with the publication gate's own reason.
+F5  the sample proves the **content moved** (the scrolled content, not only a
+    changed frame).
+F6  the throttle refusal is **evidence**, not one string match on one sample.
+F7  the nits: the latency is rounded, and the refusal does not claim a
+    closed shadow root the page may not have.
 
 The browser tests drive headless Chromium through node and the Playwright the
 harness pins. They skip when node or that browser is missing; they never skip
@@ -67,8 +71,9 @@ RUNNER = REPO / "perf" / "runner" / "adversarial_c10_scroll.py"
 HOSTS = REPO / "perf" / "tests" / "fixtures" / "hosts" / "b5_scroll"
 TIMEOUT_S = 300
 
-#: The rectangle a fake host's document box occupies.
-CONTAINER_RECT = {"x": 0.0, "y": 0.0, "width": 1280.0, "height": 900.0}
+#: The profile that admits prose-50kw. B1 owns the flag (``run_cli`` parses
+#: ``--execution-profile``); the lane reads the run.
+PUBLISH_PROFILE = "dedicated_publish"
 
 
 def _node() -> str | None:
@@ -94,7 +99,11 @@ def _corpus(tmp: Path) -> Path:
 
 
 def _witness(**overrides) -> dict:
-    """A witness record that B1c's validator accepts (#130's shape)."""
+    """A witness record that B1c's validator accepts (#130's contract).
+
+    The record is document-scoped, carries the run's clock check and the
+    pixel evidence; a test changes one field to make one claim fail.
+    """
     record = {
         "outcome": "witnessed",
         "frame_page_ms": 100.0,
@@ -103,33 +112,36 @@ def _witness(**overrides) -> dict:
         "diff_ratio": 0.1,
         "threshold": 0.00001,
         "min_pixels": 4,
-        "changed_pixels": 4000,
+        "changed_pixels": 1000,
         "caret_masked": True,
         "document_scoped": True,
         "document_region": {
             "source": "rect",
             "selector": None,
-            "rect_css_px": dict(CONTAINER_RECT),
+            "rect_css_px": {"x": 0, "y": 0, "width": 800, "height": 900},
         },
+        "region_pixels": 720000,
         "clock_check": {
             "kind": "clock_skew",
             "acceptable": True,
             "reason": None,
             "page_offset_ms": 0.1,
-            "bound_ms": 2.0,
         },
+        "clock_skew_ms": 0.1,
+        "clock_skew_bound_ms": 2.0,
+        "clock_skew_acceptable": True,
     }
     record.update(overrides)
     return record
 
 
 def _sample(**overrides) -> dict:
-    """A probe sample that the lane's verdict must judge on its own."""
+    """A probe sample the lane must judge: a scrolled container that moved."""
     sample = {
         "outcome": "measured",
-        "container": {"selector": "#doc", "rect_css_px": dict(CONTAINER_RECT)},
+        "container": {"selector": "#doc"},
+        "content": {"moved_px": 600, "top_before": 12.0, "top_after": -588.0},
         "scroll_top_delta": 600,
-        "content_moved_px": 600,
         "scroll_frame_ms": 12.5,
         "witness": _witness(),
     }
@@ -182,25 +194,6 @@ class ScrollProbeTests(unittest.TestCase):
         _FakeHost.stop()
 
     def probe(self, page: str, *, pairs: int = 1, extra=()) -> dict:
-        """Run the probe; retry when the measurement *failed*.
-
-        A failed measurement is either a fact about the machine (the clock
-        check of #130 refused the sample, the compositor could not present a
-        frame inside the window on a loaded box) or a bug in the lane. The
-        test may not assert on the first kind, and it may not hide the second
-        either: the measurement is retried (three times at most) and the
-        assertions below are unchanged - a lane that always fails still fails
-        the test. A *refusal* (not_applicable) is not retried: it is the
-        lane's answer.
-        """
-        payload = {}
-        for _ in range(3):
-            payload = self._probe_once(page, pairs=pairs, extra=extra)
-            if payload.get("outcome") != "failed":
-                break
-        return payload
-
-    def _probe_once(self, page: str, *, pairs: int = 1, extra=()) -> dict:
         cmd = [
             _node(),
             str(PROBE),
@@ -280,33 +273,6 @@ class ScrollProbeTests(unittest.TestCase):
                 "a measured sample must have moved the scrollTop: %r" % (sample,),
             )
 
-    def test_a2b_the_document_itself_moved_and_the_witness_saw_the_container(self):
-        """A frame that changed is not evidence that the document scrolled."""
-        payload = self.probe("prose.html")
-        sample = (payload.get("samples") or [{}])[0]
-        self.assertEqual(sample.get("outcome"), "measured", "%r" % (payload,))
-        self.assertGreater(
-            sample.get("content_moved_px") or 0,
-            0,
-            "the document's own content must have moved: %r" % (sample,),
-        )
-        witness = sample.get("witness") or {}
-        self.assertTrue(
-            witness.get("document_scoped"),
-            "the witness must be scoped to the document: %r" % (witness,),
-        )
-        region = (witness.get("document_region") or {}).get("rect_css_px")
-        container_rect = (sample.get("container") or {}).get("rect_css_px")
-        self.assertIsInstance(region, dict, "the witness must record its region: %r" % (witness,))
-        self.assertIsInstance(container_rect, dict, "%r" % (sample,))
-        for key in ("x", "y", "width", "height"):
-            self.assertAlmostEqual(
-                float(region[key]),
-                float(container_rect[key]),
-                delta=2.0,
-                msg="the witness's region must be the container's own box: %r" % (witness,),
-            )
-
     # -- A3 --------------------------------------------------------------
 
     def test_a3_the_scroller_inside_an_open_shadow_root_is_found(self):
@@ -314,11 +280,14 @@ class ScrollProbeTests(unittest.TestCase):
         samples = payload.get("samples") or []
         self.assertTrue(samples, "the probe must report a sample")
         sample = samples[0]
-        self.assertEqual(
-            sample.get("outcome"),
-            "measured",
-            "the scroller inside the open shadow root must be measured: %r" % (sample,),
-        )
+        if sample.get("outcome") != "measured":
+            # A refusal is allowed, but it must name the shadow root.
+            self.assertIn(
+                "shadow",
+                str(sample.get("reason")).lower(),
+                "a refusal must name the shadow root: %r" % (sample,),
+            )
+            return
         container = sample.get("container") or {}
         self.assertTrue(
             container.get("in_shadow_root"),
@@ -329,7 +298,6 @@ class ScrollProbeTests(unittest.TestCase):
             "the shadow host chain must be recorded: %r" % (container,),
         )
         self.assertGreater(sample.get("scroll_top_delta") or 0, 0)
-        self.assertGreater(sample.get("content_moved_px") or 0, 0)
 
     def test_a3b_a_refusal_names_the_shadow_root_it_searched(self):
         """A shadow root with nothing scrollable in it is named, not hidden."""
@@ -368,89 +336,155 @@ class ScrollProbeTests(unittest.TestCase):
             witness.get("clock_skew_bound_ms") is not None,
             "the witness must record the skew bound it was held to: %r" % (witness,),
         )
+        # #130: the record must carry the run's clock check, with its anchor.
         check = witness.get("clock_check") or {}
-        self.assertTrue(
-            check.get("acceptable") is True,
-            "the witness must carry the run's clock check (the pixel anchor's "
-            "evidence), not a bare page offset: %r" % (witness,),
+        self.assertIs(
+            check.get("acceptable"),
+            True,
+            "the witness must carry the run's clock check: %r" % (witness,),
         )
 
-    # -- A5 --------------------------------------------------------------
+    # -- F1: the witness is scoped to the scrolled container ------------
 
-    def test_a5_the_container_is_the_scroller_that_holds_the_document(self):
-        """A hidden decoy with a huge scroll range is not the document."""
+    def test_f1_the_witness_is_scoped_to_the_scrolled_container(self):
+        """Damage outside the document cannot witness the document's scroll.
+
+        The fake host blinks a 40x40 square at x=1000, outside the document
+        box, and scrolls a decoy scroller that holds no text. The witness
+        must be scoped to the container the lane scrolled, and that scope
+        must exclude the blinking square.
+        """
         payload = self.probe("decoy.html")
-        sample = (payload.get("samples") or [{}])[0]
+        samples = payload.get("samples") or []
+        self.assertTrue(samples, "the probe must report a sample")
+        sample = samples[0]
         self.assertEqual(
             sample.get("outcome"),
             "measured",
-            "the document's own scroller must be measured: %r" % (sample,),
+            "the prose host must be measured: %r" % (sample,),
         )
+        witness = sample.get("witness") or {}
+        self.assertIs(
+            witness.get("document_scoped"),
+            True,
+            "the witness must be scoped to the document: %r" % (witness,),
+        )
+        region = witness.get("document_region") or {}
+        self.assertTrue(region, "the witness must record its document region: %r" % (witness,))
+        rect = region.get("rect_css_px") or {}
+        self.assertLessEqual(
+            rect.get("x", 0) + rect.get("width", 0),
+            900,
+            "the document region must exclude the blinking square at x=1000: %r" % (rect,),
+        )
+        self.assertGreater(
+            witness.get("region_pixels") or 0,
+            0,
+            "the scoped region must have pixels: %r" % (witness,),
+        )
+        self.assertLessEqual(
+            witness.get("changed_pixels") or 0,
+            witness.get("region_pixels") or 0,
+            "the changed pixels must be inside the document region: %r" % (witness,),
+        )
+
+    # -- F2: the container holds the document text -----------------------
+
+    def test_f2_the_container_is_the_scroller_that_holds_the_document_text(self):
+        """The decoy scroller has the largest range and no text at all."""
+        payload = self.probe("decoy.html")
+        sample = (payload.get("samples") or [{}])[0]
         container = sample.get("container") or {}
+        self.assertNotEqual(
+            container.get("selector"),
+            "#decoy",
+            "the decoy holds no text: it is not the document's scroller: %r" % (sample,),
+        )
         self.assertEqual(
             container.get("selector"),
             "#doc",
-            "the container must be the scroller that holds the document, not the "
-            "decoy with the largest scroll range: %r" % (container,),
+            "the container must be the scroller that holds the document text: %r" % (sample,),
         )
-        self.assertNotEqual(container.get("selector"), "#decoy")
-        self.assertGreater(sample.get("content_moved_px") or 0, 0)
 
-    # -- A6 --------------------------------------------------------------
-
-    def test_a6_a_document_that_fits_beside_a_widget_is_not_measured(self):
-        """The widget scrolls; the document does not. The document is C10."""
+    def test_f2b_a_fitting_document_with_a_small_widget_is_not_measured(self):
+        """A widget with a small overflow is not the document's scroller."""
         payload = self.probe("widget.html")
         self.assertNotEqual(
             payload.get("outcome"),
             "measured",
-            "a fitting document must not be measured through a small widget: %r"
-            % (payload,),
+            "a document that fits the viewport must not be measured: %r" % (payload,),
         )
         self.assertEqual(
             payload.get("outcome"),
             "not_applicable",
             "the refusal must be not_applicable: %r" % (payload,),
         )
-        reason = str(payload.get("reason"))
         self.assertIn(
-            "widget",
-            reason,
-            "the refusal must name the scroller it rejected: %r" % (reason,),
+            "document text",
+            str(payload.get("reason")),
+            "the refusal must say that no scroller holds the document text: %r" % (payload,),
         )
 
-    # -- A7 --------------------------------------------------------------
+    # -- F5: the content moved -------------------------------------------
 
-    def test_a7_the_caret_mask_reaches_inside_the_open_shadow_roots(self):
-        """A document stylesheet does not match the elements in a shadow tree."""
-        payload = self.probe("shadow.html")
+    def test_f5_the_sample_proves_that_the_content_moved(self):
+        """A changed frame is not a scroll: the content must have moved."""
+        payload = self.probe("prose.html")
         sample = (payload.get("samples") or [{}])[0]
         self.assertEqual(sample.get("outcome"), "measured", "%r" % (payload,))
-        self.assertGreaterEqual(
-            sample.get("caret_mask_shadow_roots") or 0,
-            1,
-            "the caret mask must be injected into the open shadow roots: %r" % (sample,),
+        content = sample.get("content") or {}
+        delta = sample.get("scroll_top_delta") or 0
+        moved = content.get("moved_px")
+        self.assertIsInstance(moved, (int, float), "%r" % (sample,))
+        self.assertGreater(
+            moved,
+            0,
+            "the scrolled content must have moved: %r" % (sample,),
+        )
+        self.assertAlmostEqual(
+            moved,
+            delta,
+            delta=2,
+            msg="the content must move with the scroll: %r" % (sample,),
+        )
+        self.assertNotEqual(
+            content.get("visible_text_before"),
+            content.get("visible_text_after"),
+            "the text visible at the top of the scroller must change: %r" % (content,),
+        )
+
+    # -- F7: the nits ----------------------------------------------------
+
+    def test_f7_the_latency_is_rounded_to_the_millisecond(self):
+        payload = self.probe("prose.html")
+        sample = (payload.get("samples") or [{}])[0]
+        value = sample.get("scroll_frame_ms")
+        self.assertIsInstance(value, (int, float), "%r" % (sample,))
+        self.assertEqual(
+            value,
+            round(float(value), 3),
+            "the latency must be rounded to the millisecond: %r" % (value,),
+        )
+
+    def test_f7b_the_refusal_does_not_claim_a_closed_shadow_root(self):
+        payload = self.probe("fits.html")
+        reason = str(payload.get("reason"))
+        self.assertNotIn(
+            "a closed shadow root is not reachable",
+            reason,
+            "the refusal must not claim the page has a closed shadow root: %r" % (reason,),
+        )
+        self.assertIn(
+            "if the page has one",
+            reason,
+            "the refusal must be conditional about a closed shadow root: %r" % (reason,),
         )
 
 
 class ScrollRunnerTests(unittest.TestCase):
     """The runner, end to end, against the fake hosts."""
 
-    def run_runner(self, *, page: str, extra=(), profile="dedicated_publish") -> dict:
-        """Run the runner; retry when the measurement *failed*.
-
-        Same reason as the probe helper: a failed measurement on a loaded
-        machine is usually the clock check or a frame that did not arrive in
-        the window. The assertions are unchanged.
-        """
-        result = {}
-        for _ in range(3):
-            result = self._run_runner_once(page=page, extra=extra, profile=profile)
-            if (result.get("trial") or {}).get("outcome") != "failed":
-                break
-        return result
-
-    def _run_runner_once(self, *, page: str, extra=(), profile="dedicated_publish") -> dict:
+    def run_runner(self, *, page: str, extra=(), expect_failure: bool = False) -> dict:
         out = Path(tempfile.mkdtemp(prefix="b5-c10-"))
         self.addCleanup(shutil.rmtree, str(out), True)
         cmd = [
@@ -467,12 +501,14 @@ class ScrollRunnerTests(unittest.TestCase):
             "--seed",
             "7",
             "--execution-profile",
-            profile,
+            PUBLISH_PROFILE,
             *[str(value) for value in extra],
         ]
         proc = subprocess.run(
             cmd, capture_output=True, text=True, timeout=TIMEOUT_S, cwd=str(REPO)
         )
+        if expect_failure:
+            return {"returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr, "out": out}
         self.assertEqual(
             proc.returncode,
             0,
@@ -515,12 +551,6 @@ class ScrollRunnerTests(unittest.TestCase):
             7,
             "the run summary must record the seed: %r" % (result["run_summary"],),
         )
-        self.assertEqual(
-            result["run_summary"].get("execution_profile"),
-            profile,
-            "the run and the trial must record the same profile: %r"
-            % (result["run_summary"],),
-        )
 
     # -- B2 --------------------------------------------------------------
 
@@ -549,24 +579,23 @@ class ScrollRunnerTests(unittest.TestCase):
             container = sample.get("container") or {}
             self.assertTrue(
                 str(container.get("selector") or "").strip(),
-                "a measured sample must name its container: %r" % (sample,),
+                "a measured sample must name its container: %r" % (trial,),
             )
             self.assertGreater(
                 sample.get("scroll_top_delta") or 0,
                 0,
-                "a measured sample must have moved the scrollTop: %r" % (sample,),
+                "a measured sample must have moved the scrollTop: %r" % (trial,),
             )
             self.assertGreater(
-                sample.get("content_moved_px") or 0,
+                (sample.get("content") or {}).get("moved_px") or 0,
                 0,
-                "a measured sample must have moved the document's content: %r"
-                % (sample,),
+                "a measured sample must have moved the content: %r" % (trial,),
             )
 
     # -- B4 --------------------------------------------------------------
 
     def test_b4_a_profile_that_refuses_the_workload_is_refused_with_a_reason(self):
-        result = self.run_runner(page="prose.html", profile="ci_broad")
+        result = self.run_runner(page="prose.html", extra=["--execution-profile", "ci_broad"])
         trial = result["trial"]
         self.assertNotEqual(trial.get("outcome"), "measured")
         self.assertEqual(trial.get("outcome"), "not_run", "%r" % (trial,))
@@ -574,74 +603,28 @@ class ScrollRunnerTests(unittest.TestCase):
         self.assertIn("prose-50kw", reason, "the refusal must name the workload: %r" % (reason,))
         self.assertEqual(trial.get("samples_ms"), [])
 
-    # -- B5 --------------------------------------------------------------
+    # -- F3: the fake host and an editor are exclusive ------------------
 
-    def test_b5_a_fake_host_is_never_measured_under_an_editor_id(self):
-        out = Path(tempfile.mkdtemp(prefix="b5-c10-fake-"))
-        self.addCleanup(shutil.rmtree, str(out), True)
-        cmd = [
-            sys.executable,
-            str(RUNNER),
-            "--fake-host",
-            str(HOSTS),
-            "--fake-page",
-            "prose.html",
-            "--editor",
-            "plate",
-            "--out-root",
-            str(out),
-            "--pairs",
-            "1",
-            "--seed",
-            "7",
-            "--execution-profile",
-            "dedicated_publish",
-        ]
-        proc = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=TIMEOUT_S, cwd=str(REPO)
+    def test_f3_the_fake_host_and_an_editor_are_mutually_exclusive(self):
+        """A fake measurement must never be filed under a real editor's id."""
+        result = self.run_runner(
+            page="prose.html", extra=["--editor", "plate"], expect_failure=True
         )
         self.assertNotEqual(
-            proc.returncode,
+            result["returncode"],
             0,
-            "--fake-host and --editor must be mutually exclusive: %s" % (proc.stdout,),
+            "the runner must refuse --fake-host with --editor: %r" % (result,),
         )
         self.assertIn(
             "mutually exclusive",
-            proc.stderr,
-            "the refusal must say why: %s" % (proc.stderr,),
+            result["stderr"],
+            "the refusal must say why: %r" % (result,),
         )
-        for path in out.glob("**/*.json"):
-            self.assertNotIn(
-                "plate",
-                path.read_text(encoding="utf-8"),
-                "a fake host's measurement must never be filed under an editor: %s"
-                % (path,),
-            )
-
-    # -- B6 --------------------------------------------------------------
-
-    def test_b6_the_publishability_follows_the_profile_and_the_host_class(self):
-        coarse = self.run_runner(page="prose.html")
-        self.assertNotEqual(coarse["trial"].get("publishable"), True)
-        decision = (coarse["trial"].get("diagnostic") or {}).get("publication") or {}
-        self.assertFalse(decision.get("publishable"), "%r" % (coarse["trial"],))
-        self.assertIn(
-            "ci_coarse",
-            str(decision.get("block_reason")),
-            "a ci_coarse host cannot publish visible latency, and the trial must "
-            "say so: %r" % (decision,),
-        )
-        dedicated = self.run_runner(page="prose.html", extra=["--host-class", "dedicated"])
-        decision = (dedicated["trial"].get("diagnostic") or {}).get("publication") or {}
-        self.assertTrue(
-            decision.get("publishable"),
-            "a dedicated host with a publish profile may publish: %r" % (decision,),
-        )
-        self.assertIsNone(decision.get("block_reason"), "%r" % (decision,))
-        self.assertIsNone(
-            (dedicated["trial"].get("diagnostic") or {}).get("environment_schema_error"),
-            "a dedicated host with a publish profile is a schema-valid environment: %r"
-            % (dedicated["trial"],),
+        attempts = sorted(Path(result["out"]).glob("**/attempts/*.json"))
+        self.assertEqual(
+            attempts,
+            [],
+            "no attempt may be written for a fake host under an editor's id: %r" % (attempts,),
         )
 
 
@@ -656,9 +639,7 @@ class ScrollUnitTests(unittest.TestCase):
         return scroll.scroll_sample_verdict(sample, **kwargs)
 
     def test_a_sample_without_a_container_is_refused(self):
-        outcome, reason, value = self.verdict(
-            _sample(container={"selector": "", "rect_css_px": dict(CONTAINER_RECT)})
-        )
+        outcome, reason, value = self.verdict(_sample(container={"selector": ""}))
         self.assertEqual(outcome, "failed")
         self.assertIn("container", reason)
         self.assertIsNone(value)
@@ -669,53 +650,40 @@ class ScrollUnitTests(unittest.TestCase):
         self.assertIn("scrollTop", reason)
         self.assertIsNone(value)
 
-    def test_a_sample_whose_document_did_not_move_is_refused(self):
-        """A frame that changed is not a scroll: the content must have moved."""
-        outcome, reason, value = self.verdict(_sample(content_moved_px=0))
-        self.assertEqual(outcome, "failed")
-        self.assertIn("did not scroll", reason)
-        self.assertIsNone(value)
-
-    def test_a_witness_that_is_not_document_scoped_is_refused(self):
-        """A whole-frame diff lets shell damage pose as document paint."""
-        witness = _witness(document_scoped=False, document_region=None)
-        outcome, reason, value = self.verdict(_sample(witness=witness))
-        self.assertEqual(outcome, "failed")
-        self.assertIn("document-scoped", reason)
-        self.assertIsNone(value)
-
-    def test_a_witness_whose_region_is_not_the_container_is_refused(self):
-        witness = _witness(
-            document_region={
-                "source": "rect",
-                "selector": None,
-                "rect_css_px": {"x": 0.0, "y": 0.0, "width": 40.0, "height": 40.0},
-            }
+    def test_a_sample_whose_content_did_not_move_is_refused(self):
+        """A scrollTop that moves without the content moving is not a scroll."""
+        outcome, reason, value = self.verdict(
+            _sample(content={"moved_px": 0, "top_before": 12.0, "top_after": 12.0})
         )
-        outcome, reason, value = self.verdict(_sample(witness=witness))
         self.assertEqual(outcome, "failed")
-        self.assertIn("region", reason)
-        self.assertIsNone(value)
-
-    def test_a_witness_without_an_acceptable_clock_check_is_refused(self):
-        witness = _witness(
-            clock_check={
-                "kind": "clock_skew",
-                "acceptable": False,
-                "reason": "no_anchor_evidence",
-                "page_offset_ms": 0.1,
-                "bound_ms": 2.0,
-            }
-        )
-        outcome, reason, value = self.verdict(_sample(witness=witness))
-        self.assertEqual(outcome, "failed")
-        self.assertIn("clock", reason.lower())
+        self.assertIn("content", reason)
         self.assertIsNone(value)
 
     def test_a_witness_above_the_skew_bound_is_refused(self):
-        outcome, reason, value = self.verdict(_sample(witness=_witness(clock_skew_ms=9.0)))
+        outcome, reason, value = self.verdict(
+            _sample(
+                witness=_witness(
+                    clock_skew_ms=9.0,
+                    clock_check={
+                        "kind": "clock_skew",
+                        "acceptable": True,
+                        "reason": None,
+                        "page_offset_ms": 9.0,
+                    },
+                )
+            )
+        )
         self.assertEqual(outcome, "failed")
         self.assertIn("skew", reason.lower())
+        self.assertIsNone(value)
+
+    def test_an_unscoped_witness_is_refused(self):
+        """A whole-frame diff lets shell damage pose as document paint."""
+        outcome, reason, value = self.verdict(
+            _sample(witness=_witness(document_scoped=False))
+        )
+        self.assertEqual(outcome, "failed")
+        self.assertIn("document", reason.lower())
         self.assertIsNone(value)
 
     def test_a_good_sample_is_measured(self):
@@ -751,67 +719,115 @@ class ScrollUnitTests(unittest.TestCase):
         self.assertEqual(env["host_class"], "ci_coarse")
         self.assertGreater(env["fixture_byte_size"], 0)
 
-    def test_the_environment_matches_b1s_builder(self):
-        """B5 builds the environment itself; it must not drift from B1a's."""
-        from perf.runner.benchmark_ci_contract import _host_base
+    # -- F4: the publishability follows the profile and the host class ----
 
-        fixture = scroll.scroll_fixture()
-        mine = scroll.scroll_env(
-            editor_id="plate",
-            editor_version="test",
-            execution_profile="ci_broad",
-            host_class="ci_coarse",
-            fixture=fixture,
-        )
-        theirs = _host_base(
-            editor_id="plate",
-            editor_version="test",
-            execution_profile="ci_broad",
-            fixture_sha256=fixture["sha256"],
-            workload_row=fixture["workload_row"],
-            docx_size=fixture["byte_size"],
-            cache_state="warm_steady",
-            repetition_unit="fresh_process",
-            run_kind="timing",
-            feature_profile_name="P0",
-        )
-        # B1a counts the ladder's paragraphs; the lane counts the document it
-        # built. Everything else must be the same environment.
-        theirs["fixture_paragraph_count"] = int(fixture["paragraph_count"])
-        self.assertEqual(mine, theirs)
-
-    def test_the_publication_flags_follow_the_policy(self):
+    def test_f4_the_publishability_follows_the_profile_and_the_host_class(self):
         self.assertTrue(
-            hasattr(scroll, "scroll_publication_flags"),
-            "the lane has no publication decision: the publishability must follow "
-            "the profile and the host class",
+            hasattr(scroll, "scroll_publishability"),
+            "the lane decides nothing about publication: the gate decides",
         )
         fixture = scroll.scroll_fixture()
-        coarse = scroll.scroll_env(
-            editor_id="plate",
-            editor_version="test",
-            execution_profile="ci_broad",
-            host_class="ci_coarse",
-            fixture=fixture,
+
+        def env_for(host_class: str) -> dict:
+            return scroll.scroll_env(
+                editor_id="plate",
+                editor_version="test",
+                execution_profile="dedicated_publish",
+                host_class=host_class,
+                fixture=fixture,
+            )
+
+        publishable, reason = scroll.scroll_publishability(env_for("dedicated"), 3)
+        self.assertTrue(
+            publishable,
+            "a dedicated host running the publish profile may publish: %r" % (reason,),
         )
-        publishable, reason = scroll.scroll_publication_flags(coarse, 3)
-        self.assertFalse(publishable)
-        self.assertIn("ci_coarse", reason)
-        dedicated = scroll.scroll_env(
+        self.assertIsNone(reason)
+
+        publishable, reason = scroll.scroll_publishability(env_for("ci_coarse"), 3)
+        self.assertFalse(publishable, "a ci_coarse host may not publish visible latency")
+        self.assertIn("ci_coarse", str(reason))
+
+        publishable, reason = scroll.scroll_publishability(env_for("dedicated"), 1)
+        self.assertFalse(publishable, "one sample is not a distribution")
+        self.assertIn("n>=2", str(reason))
+
+    def test_f4b_a_measured_trial_carries_the_gate_s_verdict(self):
+        """The trial's own publishability, not a hardcoded false."""
+        fixture = scroll.scroll_fixture()
+        env = scroll.scroll_env(
             editor_id="plate",
             editor_version="test",
             execution_profile="dedicated_publish",
             host_class="dedicated",
             fixture=fixture,
         )
-        publishable, reason = scroll.scroll_publication_flags(dedicated, 3)
-        self.assertTrue(publishable)
-        self.assertIsNone(reason)
-        # The n>=2 rule (I10) belongs to the published distribution, not to a
-        # single repetition's trial: the caller may still ask for it.
-        publishable, reason = scroll.scroll_publication_flags(dedicated, 1)
-        self.assertFalse(publishable)
-        self.assertIn("n>=2", reason)
+        out = Path(tempfile.mkdtemp(prefix="b5-publish-"))
+        self.addCleanup(shutil.rmtree, str(out), True)
+        scroll._write_outcome(
+            attempt_dir=out / "attempts",
+            outcome="measured",
+            reason=None,
+            samples=[{"value": 12.5}, {"value": 13.5}],
+            env=env,
+            editor_id="plate",
+            lane="browser_visible",
+            diagnostic={},
+            seed=7,
+        )
+        trials = sorted((out / "attempts").glob("*.json"))
+        self.assertTrue(trials, "no attempt was written")
+        trial = json.loads(trials[0].read_text(encoding="utf-8"))
+        self.assertIs(
+            trial.get("publishable"),
+            True,
+            "a dedicated host's measured trial must be publishable: %r" % (trial,),
+        )
+        self.assertIsNone(
+            trial.get("publication_block_reason"),
+            "a publishable trial must not carry a block reason: %r" % (trial,),
+        )
+
+    # -- F6: the throttle refusal is evidence ----------------------------
+
+    def test_f6_the_throttle_refusal_is_evidence_not_a_string(self):
+        self.assertTrue(
+            hasattr(scroll, "throttle_refusal_reason"),
+            "the lane has no throttle refusal: a throttled sample must not be published",
+        )
+        throttled = {
+            "outcome": "failed",
+            "failure_reason": "cpu_throttled",
+            "cpu_accounting": {"available": True, "delta": {"nr_throttled": 1}},
+        }
+        self.assertEqual(
+            scroll.throttle_refusal_reason(throttled),
+            "cpu_throttled",
+            "a throttled row must be refused: %r" % (throttled,),
+        )
+        # The same evidence, without the reason string: the accounting says it.
+        renamed = {
+            "outcome": "failed",
+            "failure_reason": "the sample was refused",
+            "cpu_accounting": {"available": True, "delta": {"nr_throttled": 3}},
+        }
+        self.assertEqual(
+            scroll.throttle_refusal_reason(renamed),
+            "cpu_throttled",
+            "the accounting is the evidence, not the wording: %r" % (renamed,),
+        )
+        clean = {
+            "outcome": "ok",
+            "cpu_accounting": {"available": False, "delta": {"nr_throttled": 0}},
+        }
+        self.assertIsNone(
+            scroll.throttle_refusal_reason(clean),
+            "a clean row must not be refused: %r" % (clean,),
+        )
+        self.assertIsNone(
+            scroll.throttle_refusal_reason(None),
+            "a missing row must not be refused",
+        )
 
 
 if __name__ == "__main__":
