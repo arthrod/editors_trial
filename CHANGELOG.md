@@ -23,7 +23,8 @@ re-running the measurement behind it. The format follows
   (or 2 ms). Steal time under 0.01 percent in both runs; no sample started
   above the load limit.
 - canvas-editor fails both runs at 250,000 words and on `complex.docx`,
-  three samples in a row each time. At 250,000 words the save exhausts
+  three runs in a row each time (the discarded warm-up and the first two
+  samples), after which the runner stopped the cell. At 250,000 words the save exhausts
   Node's default JavaScript heap. Two diagnostic reruns outside the runs:
   in Vitest's forks pool with the default heap, V8 stopped the save with
   "JavaScript heap out of memory" (heap full at 4,092 MB); in a worker

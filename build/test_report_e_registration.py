@@ -37,6 +37,12 @@ class ReportERegistration(unittest.TestCase):
         self.assertTrue(keys)
         self.assertEqual([k for k in keys if not k.startswith("perf.e.")], [])
 
+    def test_the_template_claims_no_untraced_cause_for_a_save(self):
+        # #124 finding 2, pi's #126 F1: where an editor does its export work was not traced
+        text = (render_reports.TEMPLATES / REL).read_text()
+        self.assertNotIn("during load", text)
+        self.assertNotIn("prepared during", text)
+
     def test_the_template_prose_does_not_rank(self):
         text = (render_reports.TEMPLATES / REL).read_text()
         assert_markdown_no_editor_speed_ranking(text)

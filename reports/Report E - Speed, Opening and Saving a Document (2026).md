@@ -27,7 +27,7 @@ Each sample is one fresh process that runs the editor's own import and export, t
 
 - **Load (C02).** From the start of the editor's import call until its document model is ready. Layer: model. Clock: layer model, boundary model_ready, cache state process_cold_fs_warm (fresh process, file system cache warm).
 - **Save (C16).** Right after load, in the same process, from the start of the editor's export call until the DOCX bytes exist. No edit is made first. Layer: model. Clock: layer model, boundary serialization_complete, cache state warm_steady (same process, right after load).
-- **Round trip.** Load plus save of the same sample. Some editors do part of the save's work during load, so the round trip is the fairer comparison of the two.
+- **Round trip.** Load plus save of the same sample. Each editor draws the line between its load and its save in a different place (see the table below), so the round trip is the fairer comparison of the two.
 - **Process.** The whole process, from spawn to exit: wall time, CPU time, and peak resident memory. This includes starting the runtime (Node, Bun, Vitest, or a native binary). It is what a command-line conversion costs, not what an editor costs once it is open.
 
 What each editor's timers cover:
