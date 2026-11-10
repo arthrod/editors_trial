@@ -372,7 +372,7 @@ def trial_from_entry(cid, entry, env, witness=None):
         reason = str(entry["failure_reason"])
         trial["refusal_code"] = (outcome if outcome in ("not_applicable", "not_run", "unsupported", "unverified") else
             "cpu_throttled" if reason.startswith("cpu_throttled") else
-            "unverified" if reason.startswith("correctness:") else
+            "unverified" if reason.startswith(("correctness:", "no_keydown_", "typed_character_not_observable", "no_click_point_resolved", "quiescence_not_reached_", "fixture_reset_failed", "editable_has_no_observable_text")) else
             "paint_witness_unavailable" if any(token in reason for token in ("no_painted_frame", "witness", "clock_skew", "frame_interval")) else
             "malformed_samples" if "malformed_observation" in reason else "crash")
         validate_trial(trial)

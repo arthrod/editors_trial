@@ -9,6 +9,13 @@ from perf.tests.test_schema import _env
     ('correctness: typed_character_or_position', 'unverified'),
     ('cpu_throttled', 'cpu_throttled'),
     ('malformed_observation', 'malformed_samples'),
+    ('no_keydown_observed_for_undo', 'unverified'),
+    ('typed_character_not_observable_in_document_text', 'unverified'),
+    ('no_click_point_resolved', 'unverified'),
+    ('quiescence_not_reached_within_3000ms', 'unverified'),
+    ('fixture_reset_failed', 'unverified'),
+    ('harness_error: TypeError: unexpected exception', 'crash'),
+    ('page_lost: Target closed', 'crash'),
     ('unexpected probe exception', 'crash'),
 ])
 def test_input_refusal_keeps_its_category(reason, code):
