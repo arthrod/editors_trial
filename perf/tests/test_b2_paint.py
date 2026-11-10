@@ -38,15 +38,43 @@ class Evidence(unittest.TestCase):
         self.assertIn('raf_callback', str(caught.exception))
 
     def test_schema_rejects_raf(self):
-        with self.assertRaises(ValueError):
-            validate_trial({
-                'criterion_id': 'C05',
-                'layer': 'browser_visible',
-                'boundary': 'presented_frame',
-                'mechanism': 'raf_callback',
-                'outcome': 'measured',
-                'samples_ms': [20],
-            })
+        for criterion in ('C05', 'C06'):
+            with self.subTest(criterion=criterion):
+                with self.assertRaisesRegex(ValueError, 'raf_callback'):
+                    validate_trial(self.trial(criterion, mechanism='raf_callback'))
+
+    @staticmethod
+    def trial(criterion, **extra):
+        return {
+            'criterion_id': criterion,
+            'layer': 'browser_visible',
+            'boundary': 'presented_frame',
+            'outcome': 'measured',
+            'samples_ms': [20],
+            **extra,
+        }
+
+    def test_schema_rejects_missing_mechanism(self):
+        for criterion in ('C05', 'C06'):
+            with self.subTest(criterion=criterion):
+                with self.assertRaisesRegex(ValueError, 'visible evidence'):
+                    validate_trial(self.trial(criterion))
+
+    def test_schema_accepts_visible_mechanism(self):
+        for criterion in ('C05', 'C06'):
+            for evidence in (
+                {'mechanism': 'cdp_screencast_changed_frame'},
+                {'diagnostic': {'mechanism': 'cdp_screencast_changed_frame'}},
+            ):
+                with self.subTest(criterion=criterion, evidence=evidence):
+                    validate_trial(self.trial(criterion, **evidence))
+
+    def test_schema_allows_refusals_without_mechanism(self):
+        for criterion in ('C05', 'C06'):
+            with self.subTest(criterion=criterion):
+                validate_trial(self.trial(
+                    criterion, outcome='failed', samples_ms=[], failure_reason='no_frame',
+                ))
 
 
 @unittest.skipUnless(os.environ.get('B2_BROWSER'), 'opt-in browser integration')
