@@ -962,6 +962,126 @@ class WitnessIssue137Tests(unittest.TestCase):
             )
 
 
+class WitnessIssue137Round3Tests(unittest.TestCase):
+    """Issue #137, round 3 (codex re-review `e2-logs/rereview-b1c-2.md`): the
+    five findings, as the re-review's own probe states them.
+
+    Round 2 closed the six exact counterexamples but still trusted flags over
+    evidence: erased checks, all-true flags over impossible measurements, and
+    pixel counts that cannot describe the recorded ratio were all accepted
+    (`ok: true`) at f21115b. Round 3 replaces flag-checking with a strict
+    schema plus recomputation of every derived verdict; these five findings
+    are the RED tests that generation was written against.
+    """
+
+    def load_validator(self):
+        return _load_validator()
+
+    # -- finding 1: erased or non-Boolean anchor checks still pass ---------
+
+    def test_finding1_erased_checks_are_refused(self):
+        validator = self.load_validator()
+        record = WitnessIssue137Tests.armed_good_record() | {
+            "clock_check": WitnessValidatorTests.good_record()["clock_check"]
+            | {"checks": {}}
+        }
+        verdict = validator.validate_witness(record)
+        self.assertTrue(
+            verdict.get("refused"),
+            "an acceptable clock check whose recorded checks were erased "
+            "proves nothing: %r" % (verdict,),
+        )
+
+    def test_finding1_null_check_values_are_refused(self):
+        validator = self.load_validator()
+        record = WitnessIssue137Tests.armed_good_record() | {
+            "clock_check": WitnessValidatorTests.good_record()["clock_check"]
+            | {"checks": {"anchor_found": None}, "anchor_pixel_checked": None}
+        }
+        verdict = validator.validate_witness(record)
+        self.assertTrue(
+            verdict.get("refused"),
+            "a null check is not evidence: %r" % (verdict,),
+        )
+        self.assertEqual(verdict.get("reason"), "clock_check_evidence_missing")
+
+    # -- finding 2: all-true flags override impossible measurements --------
+
+    def test_finding2_a_nested_offset_above_the_bound_is_refused(self):
+        """The re-review's `offset_disagrees`: the nested page offset says
+        1000 ms while the deprecated top-level alias stays small; the alias
+        must not hide the contradictory evidence."""
+        validator = self.load_validator()
+        record = WitnessIssue137Tests.armed_good_record() | {
+            "clock_check": WitnessValidatorTests.good_record()["clock_check"]
+            | {"page_offset_ms": 1000}
+        }
+        verdict = validator.validate_witness(record)
+        self.assertTrue(
+            verdict.get("refused"),
+            "a page offset of 1000 ms contradicts the acceptable flag even "
+            "when the deprecated alias is small: %r" % (verdict,),
+        )
+        self.assertEqual(verdict.get("reason"), "clock_check_evidence_contradicted")
+
+    # -- finding 3: pixel evidence reports impossible counts ---------------
+
+    def test_finding3_changed_pixels_above_total_are_refused(self):
+        validator = self.load_validator()
+        record = WitnessIssue137Tests.armed_good_record() | {
+            "changed_pixels": 900,
+            "total_pixels": 1,
+        }
+        verdict = validator.validate_witness(record)
+        self.assertTrue(
+            verdict.get("refused"),
+            "a subset of changed pixels cannot exceed the total: %r" % (verdict,),
+        )
+        self.assertEqual(verdict.get("reason"), "pixel_evidence_contradicted")
+
+    def test_finding3_zero_changed_pixels_with_a_zero_floor_are_refused(self):
+        validator = self.load_validator()
+        record = WitnessIssue137Tests.armed_good_record() | {
+            "changed_pixels": 0,
+            "min_pixels": 0,
+        }
+        verdict = validator.validate_witness(record)
+        self.assertTrue(
+            verdict.get("refused"),
+            "a zero pixel floor gates nothing, and zero changed pixels cannot "
+            "carry a positive ratio: %r" % (verdict,),
+        )
+        self.assertEqual(verdict.get("reason"), "min_pixels_invalid")
+
+    # -- finding 4: a null total-frame count bypasses the subset check -----
+
+    def test_finding4_a_null_total_frame_count_is_refused(self):
+        validator = self.load_validator()
+        record = WitnessIssue137Tests.armed_good_record() | {"frames_total": None}
+        verdict = validator.validate_witness(record)
+        self.assertTrue(
+            verdict.get("refused"),
+            "a null frames_total skips the subset check; a required count is "
+            "an integer, never null: %r" % (verdict,),
+        )
+        self.assertEqual(verdict.get("reason"), "invalid_record")
+
+    # -- finding 5: the mask flag contradicts its own error ----------------
+
+    def test_finding5_a_mask_error_contradicts_the_accepted_flag(self):
+        validator = self.load_validator()
+        record = WitnessIssue137Tests.armed_good_record() | {
+            "caret_mask_error": "injection failed"
+        }
+        verdict = validator.validate_witness(record)
+        self.assertTrue(
+            verdict.get("refused"),
+            "caret_masked=true with a recorded mask error is a flag asserted "
+            "over its own failure: %r" % (verdict,),
+        )
+        self.assertEqual(verdict.get("reason"), "caret_mask_contradicted")
+
+
 class WitnessValidatorShapeTests(unittest.TestCase):
     """The validator's shape contract, pinned so the branches stay exercised.
 
@@ -1151,6 +1271,698 @@ class WitnessValidatorShapeTests(unittest.TestCase):
             verdict = json.loads(out.getvalue().splitlines()[-1])
             self.assertFalse(verdict["refused"])
             self.assertEqual(verdict["records"], 2)
+
+
+def _load_captured_record() -> dict:
+    """A real witnessed record captured once from headless Chromium through
+    `witness.mjs`'s own CLI (the fixture `captured_frame_witness.json`, kept in
+    the tree so the mutation matrix runs without a browser)."""
+    path = FIXTURES / "captured_frame_witness.json"
+    if not path.is_file():
+        raise AssertionError(
+            "perf/tests/fixtures/witness/captured_frame_witness.json is missing; "
+            "recapture it with the real-Chromium witness test"
+        )
+    record = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(record, dict):
+        raise AssertionError("the captured fixture must be a JSON object")
+    return record
+
+
+class WitnessProductionEvidenceTests(unittest.TestCase):
+    """Round 3, part 1 and 2: the strict schema and the recomputation.
+
+    A record that identifies itself as a production `witnessFrame()` record
+    (`kind: frame_witness`, a `clock_check_source`, or a nested clock check of
+    the `page_clock_offset+pixel_anchor` method) must carry every field the
+    producer emits, with the producer's type and range, and every verdict the
+    record derives from its measurements -- the anchor's causality and lag,
+    the page offset and its spread, the diff ratio, the pixel counts, the
+    region's pixel arithmetic -- is recomputed from those measurements. A
+    null where a number is required is refused. The fixture is a real
+    captured record, so these tests pin the contract against what the
+    producer actually emits, not a hand-drawn copy of it.
+    """
+
+    def load_validator(self):
+        return _load_validator()
+
+    def setUp(self):
+        self.validator = self.load_validator()
+        self.record = _load_captured_record()
+
+    def refused(self, updates: dict, note: str) -> None:
+        mutated = json.loads(json.dumps(self.record))  # deep copy
+        for key, value in updates.items():
+            if key.startswith("clock_check."):
+                self.record_set(mutated, key, value)
+            else:
+                mutated[key] = value
+        verdict = self.validator.validate_witness(mutated)
+        self.assertTrue(
+            verdict.get("refused"), "%s must be refused: %r" % (note, verdict)
+        )
+
+    @staticmethod
+    def record_set(record, dotted_key, value):
+        parts = dotted_key.split(".")
+        target = record
+        for part in parts[:-1]:
+            target = target[part]
+        target[parts[-1]] = value
+
+    # -- the control: a real record validates -----------------------------
+
+    def test_the_captured_record_validates(self):
+        verdict = self.validator.validate_witness(self.record)
+        self.assertFalse(
+            verdict.get("refused"),
+            "the real captured record must validate: %r" % (verdict,),
+        )
+        self.assertIsNone(verdict.get("reason"))
+
+    # -- part 1: the strict schema ----------------------------------------
+
+    def test_a_missing_producer_field_is_refused(self):
+        for field in (
+            "kind",
+            "frames_ack_skipped",
+            "window_ms",
+            "window_requested_ms",
+            "baseline_source",
+            "region_pixels",
+            "total_pixels",
+            "max_diff_ratio",
+            "timestamp_kind",
+            "time_origin_ms",
+            "clock_check_source",
+            "clock_skew_method",
+            "clock_skew_bound_ms",
+            "clock_skew_acceptable",
+            "elapsed_ms",
+            "caret_mask_css",
+        ):
+            with self.subTest(field=field):
+                mutated = json.loads(json.dumps(self.record))
+                del mutated[field]
+                verdict = self.validator.validate_witness(mutated)
+                self.assertTrue(
+                    verdict.get("refused"),
+                    "a production record without %s must be refused: %r"
+                    % (field, verdict),
+                )
+
+    def test_a_null_where_a_number_is_required_is_refused(self):
+        for field in (
+            "frames_total",
+            "frames_after",
+            "diff_ratio",
+            "threshold",
+            "min_pixels",
+            "changed_pixels",
+            "total_pixels",
+            "region_pixels",
+            "time_origin_ms",
+            "clock_skew_bound_ms",
+        ):
+            with self.subTest(field=field):
+                self.refused({field: None}, "null %s" % (field,))
+
+    def test_out_of_range_producer_fields_are_refused(self):
+        self.refused({"window_ms": 499}, "window_ms below the producer's clamp")
+        self.refused({"min_pixels": 0}, "a zero pixel floor")
+        self.refused({"diff_ratio": 1.5}, "a ratio above 1")
+        self.refused({"frames_total": 4.5}, "a fractional frame count")
+        self.refused({"frames_ack_skipped": -1}, "a negative count")
+        self.refused({"kind": "clock_skew"}, "a kind the producer never emits")
+        self.refused(
+            {"clock_check_source": "bogus"}, "an unknown clock_check_source"
+        )
+        self.refused(
+            {"timestamp_kind": "unknown"},
+            "a witnessed frame needed a convertible timestamp",
+        )
+
+    def test_wrongly_typed_nested_evidence_is_refused(self):
+        self.refused({"clock_check.checks": "x"}, "checks as a string")
+        self.refused({"clock_check.page_offset_samples": "x"}, "samples as a string")
+        self.refused({"clock_check.notes": "x"}, "notes as a string")
+        self.refused({"clock_check.conversion": []}, "conversion as a list")
+
+    # -- part 2: recomputed verdicts ---------------------------------------
+
+    def test_the_anchor_causality_and_lag_are_recomputed(self):
+        # frame_page_ms 1000 ms before its own change, all flags true.
+        self.refused(
+            {
+                "clock_check.frame_page_ms": 0,
+                "clock_check.change_page_ms": 1000,
+                "clock_check.frame_lag_ms": -1000,
+            },
+            "an anchor frame that precedes its change",
+        )
+        cc = self.record["clock_check"]
+        # the recorded lag must equal frame_page_ms - change_page_ms
+        self.refused(
+            {"clock_check.frame_lag_ms": cc["frame_lag_ms"] + 1000},
+            "a lag that is not the anchor's own difference",
+        )
+        # a lag above the recorded bound
+        self.refused(
+            {"clock_check.frame_lag_ms": cc["lag_bound_ms"] + 1},
+            "an anchor lag above its bound",
+        )
+        # the bound itself is derived from the frame interval
+        self.refused(
+            {"clock_check.lag_bound_ms": cc["lag_bound_ms"] + 100},
+            "a lag bound the frame interval does not give",
+        )
+        self.refused(
+            {"clock_check.frame_interval_ms": cc["frame_interval_ms"] + 50},
+            "a frame interval the lag bound contradicts",
+        )
+
+    def test_the_page_offset_is_recomputed_from_its_samples(self):
+        cc = self.record["clock_check"]
+        self.refused(
+            {"clock_check.page_offset_ms": cc["page_offset_ms"] + 1},
+            "a page offset that is not the median of its samples",
+        )
+        self.refused(
+            {"clock_check.page_offset_samples": [5.0] * len(cc["page_offset_samples"])},
+            "samples whose median is not the recorded offset",
+        )
+        self.refused(
+            {"clock_check.page_offset_spread_ms": cc["page_offset_spread_ms"] + 1},
+            "a spread that is not max-min of the samples",
+        )
+        self.refused(
+            {"clock_check.page_offset_ms": 1000},
+            "a page offset above the bound (the alias must not hide it)",
+        )
+
+    def test_every_alias_must_agree_with_its_evidence(self):
+        cc = self.record["clock_check"]
+        self.refused(
+            {"clock_skew_ms": cc["page_offset_ms"] + 1},
+            "the deprecated clock_skew_ms alias"
+        )
+        self.refused(
+            {"clock_check.skew_ms": cc["page_offset_ms"] + 1},
+            "the nested deprecated skew_ms alias"
+        )
+        self.refused(
+            {"time_origin_ms": self.record["time_origin_ms"] + 1},
+            "the top-level time_origin_ms"
+        )
+        self.refused(
+            {"marker_page_ms": self.record["after_page_ms"] + 1},
+            "the marker_page_ms alias of the arm"
+        )
+        self.refused(
+            {"clock_skew_method": "bogus"}, "the clock_skew_method alias"
+        )
+        self.refused(
+            {"clock_skew_bound_ms": cc["bound_ms"] + 1},
+            "the clock_skew_bound_ms alias"
+        )
+        self.refused(
+            {"clock_skew_acceptable": False},
+            "the clock_skew_acceptable alias"
+        )
+        self.refused(
+            {"clock_check.reason": "anchor_missing"},
+            "an acceptable check with a refusal reason"
+        )
+
+    def test_the_pixel_evidence_is_recomputed(self):
+        self.refused(
+            {"diff_ratio": 1.0}, "a ratio that is not changed/total"
+        )
+        self.refused(
+            {"changed_pixels": self.record["changed_pixels"] + 1},
+            "changed pixels the ratio does not describe"
+        )
+        self.refused(
+            {"total_pixels": self.record["changed_pixels"] - 1},
+            "a total below the changed pixels"
+        )
+        self.refused(
+            {"max_diff_ratio": 0.5}, "a max ratio that is not changed/total"
+        )
+
+    def test_the_region_arithmetic_is_recomputed(self):
+        region = self.record["document_region"]
+        self.refused(
+            {"region_pixels": self.record["region_pixels"] + 1},
+            "region_pixels must be the device rect's area"
+        )
+        self.refused(
+            {
+                "document_region": region
+                | {
+                    "rect_device_px": region["rect_device_px"]
+                    | {"y": region["rect_device_px"]["y"] + 1}
+                }
+            },
+            "a device rect that is not the CSS rect at the recorded dpr",
+        )
+        self.refused(
+            {"document_region": region | {"device_pixel_ratio": 2}},
+            "a dpr the device rect contradicts",
+        )
+
+    def test_the_conversion_bound_is_recomputed(self):
+        cc = self.record["clock_check"]
+        self.refused(
+            {"clock_check.conversion": cc["conversion"] | {"error_lower_ms": -3}},
+            "the conversion's lower bound is -2 ms by causality",
+        )
+        self.refused(
+            {
+                "clock_check.conversion": cc["conversion"]
+                | {"error_upper_ms": cc["lag_bound_ms"] + 1}
+            },
+            "the conversion's upper bound is the lag bound",
+        )
+
+    def test_the_witness_frame_stays_causal_against_its_arm(self):
+        self.refused(
+            {"frame_page_ms": self.record["after_page_ms"] - 100},
+            "a witness frame before its arm",
+        )
+        self.refused(
+            {"baseline_page_ms": self.record["frame_page_ms"] + 100},
+            "a baseline taken after the witness frame",
+        )
+
+
+class WitnessMutationTests(unittest.TestCase):
+    """Round 3, part 3: the generated mutation test.
+
+    The fixture is a real captured record. For every field of that record
+    (top level, the nested clock check, the document region, the conversion)
+    each corruption -- delete, null, wrong type, out-of-range, contradictory
+    value -- must produce a refusal, or the (field, corruption) pair must be
+    listed in HARMLESS with the reason it cannot affect the verdict. The
+    corruptions are generated from the field's own type, so adding a producer
+    field without a schema rule shows up here as an unlisted acceptance, and
+    a justification for a corruption that is in fact refused fails the test.
+    """
+
+    DELETE = object()  # sentinel: the key is removed
+
+    #: (where, field, corruption) -> why the corruption cannot change the
+    #: verdict. Every entry is an in-range value change of a field that is an
+    #: input or an informational observation: only its type, range and its
+    #: checkable relations gate anything, and those are enforced by this same
+    #: matrix through the other corruptions and the recomputation tests.
+    HARMLESS = {
+        ("", "timestamp_kind", "contradictory"):
+            "which known kind the timestamps had is an observation the record "
+            "cannot prove; only a known kind gates (enforced by out-of-range)",
+        ("", "window_ms", "contradictory"):
+            "the wait budget actually used; informational for publication",
+        ("", "window_requested_ms", "contradictory"):
+            "the raw request before the producer's clamp; informational",
+        ("", "frames_total", "contradictory"):
+            "a raw frame count; only frames_after <= frames_total and the "
+            "integer range are checkable (enforced by out-of-range and by "
+            "frames_after's corruption)",
+        ("", "frames_ack_skipped", "contradictory"):
+            "an informational count of skipped frames",
+        ("", "elapsed_ms", "contradictory"):
+            "the wall-clock duration of the wait; informational",
+        ("", "frame_page_ms", "contradictory"):
+            "the measurement itself; only its causal relations (arm, baseline) "
+            "are checkable, and an in-range shift that keeps them cannot be "
+            "detected from the record alone",
+        ("", "baseline_page_ms", "null"):
+            "the producer emits null when the baseline came from the caller",
+        ("", "baseline_page_ms", "contradictory"):
+            "which frame was the baseline; only baseline <= witness frame is "
+            "checkable, and a shift below it cannot be detected from the record",
+        ("", "baseline_source", "contradictory"):
+            "which baseline was used; informational",
+        ("", "caret_mask_css", "contradictory"):
+            "the injected style text; the mask's effect is proven by pixels",
+        ("", "caret_mask_error", "contradictory"):
+            "an empty string is the producer's null-equivalent (no error)",
+        ("", "marker_page_ms", "delete"):
+            "marker_page_ms is the CLI's alias of after_page_ms; a record made "
+            "through the module API does not carry it, and when present it "
+            "must agree (enforced by the null and contradictory corruptions)",
+        ("", "clock_check_source", "contradictory"):
+            "whether the check ran inline or was handed over names the same "
+            "measured evidence; only page_offset_only would matter, and it is "
+            "refused (acceptable is then false)",
+        ("document_region", "selector", "contradictory"):
+            "which selector resolved the region; informational",
+        ("document_region", "rect_css_px", "contradictory"):
+            "the DOM rect; only the device rect it clamps to is checkable, so "
+            "a sub-pixel shift that clamps identically cannot be detected",
+        ("clock_check", "timestamp_kind", "contradictory"):
+            "same as the top-level kind: known vs unknown is what gates",
+        ("clock_check", "timestamp_field", "contradictory"):
+            "which metadata field carried the timestamp; informational",
+        ("clock_check", "frame_monotonic_ms", "null"):
+            "the producer emits null when the metadata carried no monotonic "
+            "reading",
+        ("clock_check", "frame_monotonic_ms", "contradictory"):
+            "a raw monotonic reading; not derivable from the record",
+        ("clock_check", "frames_total", "contradictory"):
+            "the check's own frame count at its own instant (the check may run "
+            "on another recorder); informational",
+        ("clock_check", "anchor_diff_ratio", "contradictory"):
+            "the anchor's own diff ratio; its > 0 range is enforced, the exact "
+            "value is not derivable from the record",
+        ("clock_check", "anchor_probe_region_px", "contradictory"):
+            "where the anchor probe sat; the anchor's verdict is recomputed "
+            "from the anchor's times, not from this rect",
+        ("clock_check", "frame_interval_source", "contradictory"):
+            "where the interval came from; informational",
+        ("clock_check", "frame_interval_samples", "contradictory"):
+            "how many rAF deltas were seen; informational",
+        ("clock_check", "frame_interval_ms", "null"):
+            "the producer emits null when no rAF delta arrived; the lag bound "
+            "must then be the rule's 100 ms minimum, which is recomputed",
+        ("clock_check", "frame_interval_samples", "null"):
+            "the producer's defensive null for an absent count; informational",
+        ("clock_check", "lag_bound_rule", "contradictory"):
+            "prose restating lag_bound_ms, which is recomputed",
+        ("clock_check", "caret_mask_error", "contradictory"):
+            "an empty string is the producer's null-equivalent (no error)",
+        ("clock_check", "notes", "contradictory"):
+            "prose; the numeric evidence is recomputed elsewhere",
+        ("clock_check.conversion", "formula", "contradictory"):
+            "prose restating the conversion, whose bounds are recomputed",
+        ("clock_check.conversion", "error_lower_why", "contradictory"): "prose",
+        ("clock_check.conversion", "error_upper_why", "contradictory"): "prose",
+        ("clock_check.conversion", "published", "contradictory"):
+            "prose restating the numeric bounds, which are recomputed",
+    }
+
+    def load_validator(self):
+        return _load_validator()
+
+    @staticmethod
+    def _set(record, where, field, value):
+        target = record
+        for part in [p for p in where.split(".") if p]:
+            target = target[part]
+        if value is WitnessMutationTests.DELETE:
+            del target[field]
+        else:
+            target[field] = value
+
+    def contradictory(self, record, where, field):
+        """The contradictory corruption for one field: a value of the right
+        type that contradicts what the record's other evidence says (for
+        derived fields), or None when the field's value is not derived -- an
+        in-range shift of such a field is then generated from its type and
+        must be justified in HARMLESS."""
+        cc = record["clock_check"]
+        region = record.get("document_region") or {}
+        other_kind = (
+            "monotonic_seconds"
+            if record.get("timestamp_kind") != "monotonic_seconds"
+            else "epoch_seconds"
+        )
+        other_nested_kind = (
+            "monotonic_seconds"
+            if cc.get("timestamp_kind") != "monotonic_seconds"
+            else "epoch_seconds"
+        )
+        rect = dict(region.get("rect_css_px") or {})
+        if rect:
+            rect = dict(rect, y=rect["y"] + 0.01)  # clamps to the same device y
+        table = {
+            ("", "kind"): lambda r: "clock_skew",
+            ("", "outcome"): lambda r: "no_frame",
+            ("", "frame_page_ms"): lambda r: r["frame_page_ms"] + 100.0,
+            ("", "frames_after"): lambda r: r["frames_total"] + 1,
+            ("", "diff_ratio"): lambda r: 1.0,
+            ("", "threshold"): lambda r: r["diff_ratio"] + 1.0,
+            ("", "min_pixels"): lambda r: float(r["changed_pixels"]) + 1.0,
+            ("", "caret_masked"): lambda r: False,
+            ("", "caret_mask_error"): lambda r: "",
+            ("", "after_page_ms"): lambda r: r["frame_page_ms"] + 100.0,
+            ("", "baseline_page_ms"): lambda r: r["frame_page_ms"] - 100.0,
+            ("", "baseline_source"): lambda r: "caller",
+            ("", "document_scoped"): lambda r: False,
+            ("", "document_region"): lambda r: dict(
+                region,
+                rect_device_px=dict(
+                    region["rect_device_px"], y=region["rect_device_px"]["y"] + 1
+                ),
+            ),
+            ("", "document_region_error"): lambda r: "selector missing",
+            ("", "region_pixels"): lambda r: float(r["region_pixels"]) + 1.0,
+            ("", "changed_pixels"): lambda r: r["changed_pixels"] + 1,
+            ("", "total_pixels"): lambda r: max(0, r["changed_pixels"] - 1),
+            ("", "max_diff_ratio"): lambda r: 0.5,
+            ("", "timestamp_kind"): lambda r: other_kind,
+            ("", "time_origin_ms"): lambda r: r["time_origin_ms"] + 1,
+            ("", "clock_check"): lambda r: {},
+            ("", "clock_check_source"): lambda r: "inline",
+            ("", "clock_skew_ms"): lambda r: cc["page_offset_ms"] + 1.0,
+            ("", "clock_skew_method"): lambda r: "bogus",
+            ("", "clock_skew_bound_ms"): lambda r: cc["bound_ms"] + 1.0,
+            ("", "clock_skew_acceptable"): lambda r: False,
+            ("", "marker_page_ms"): lambda r: r["after_page_ms"] + 1.0,
+            ("clock_check", "kind"): lambda r: "frame_witness",
+            ("clock_check", "acceptable"): lambda r: False,
+            ("clock_check", "reason"): lambda r: "anchor_missing",
+            ("clock_check", "checks"): lambda r: {k: False for k in cc["checks"]},
+            ("clock_check", "method"): lambda r: "page_clock_offset",
+            ("clock_check", "timestamp_kind"): lambda r: other_nested_kind,
+            ("clock_check", "bound_ms"): lambda r: cc["bound_ms"] + 1.0,
+            ("clock_check", "page_offset_ms"): lambda r: cc["page_offset_ms"] + 1.0,
+            (
+                "clock_check",
+                "page_offset_samples",
+            ): lambda r: [5.0] * len(cc["page_offset_samples"]),
+            (
+                "clock_check",
+                "page_offset_spread_ms",
+            ): lambda r: cc["page_offset_spread_ms"] + 1.0,
+            ("clock_check", "skew_ms"): lambda r: cc["page_offset_ms"] + 1.0,
+            ("clock_check", "time_origin_ms"): lambda r: cc["time_origin_ms"] + 1,
+            ("clock_check", "change_page_ms"): lambda r: cc["frame_page_ms"] + 100.0,
+            ("clock_check", "frame_page_ms"): lambda r: cc["frame_page_ms"] + 1000.0,
+            ("clock_check", "frame_lag_ms"): lambda r: cc["frame_lag_ms"] + 1000.0,
+            ("clock_check", "anchor_pixel_checked"): lambda r: False,
+            ("clock_check", "anchor_diff_ratio"): lambda r: 0.5,
+            (
+                "clock_check",
+                "anchor_probe_region_px",
+            ): lambda r: dict(cc["anchor_probe_region_px"], x=1),
+            ("clock_check", "frame_interval_ms"): lambda r: cc["frame_interval_ms"] + 50.0,
+            ("clock_check", "lag_bound_ms"): lambda r: cc["lag_bound_ms"] + 100.0,
+            ("clock_check", "conversion"): lambda r: {},
+            ("clock_check", "caret_masked"): lambda r: False,
+            ("clock_check", "caret_mask_error"): lambda r: "",
+            ("document_region", "source"): lambda r: "rect",
+            ("document_region", "rect_css_px"): lambda r: rect,
+            (
+                "document_region",
+                "rect_device_px",
+            ): lambda r: dict(region["rect_device_px"], y=region["rect_device_px"]["y"] + 1),
+            (
+                "document_region",
+                "device_pixel_ratio",
+            ): lambda r: 2.0,
+            ("clock_check.conversion", "error_lower_ms"): lambda r: -3.0,
+            (
+                "clock_check.conversion",
+                "error_upper_ms",
+            ): lambda r: cc["lag_bound_ms"] + 1.0,
+        }
+        maker = table.get((where, field))
+        return maker(record) if maker else None
+
+    def corruptions(self, record, where, field):
+        """The five corruptions for one field, generated from its value. A
+        corruption whose value equals the field's present value (null on a
+        field that is already null) is meaningless and skipped."""
+        target = record
+        for part in [p for p in where.split(".") if p]:
+            target = target[part]
+        value = target[field]
+        out = [("delete", self.DELETE), ("null", None)]
+        if isinstance(value, bool):
+            out.append(("wrong-type", "yes"))
+            # a bool has no range; its flip is the contradiction
+        elif isinstance(value, (int, float)):
+            out.append(("wrong-type", "4"))
+            out.append(("out-of-range", -1))
+        elif isinstance(value, str):
+            out.append(("wrong-type", 5))
+            out.append(("out-of-range", ""))
+        elif isinstance(value, list):
+            out.append(("wrong-type", "x"))
+            out.append(("out-of-range", []))
+        elif isinstance(value, dict):
+            out.append(("wrong-type", []))
+            out.append(("out-of-range", {}))
+        contradictory = self.contradictory(record, where, field)
+        if contradictory is None:
+            # not derived: an in-range shift of the same type; for these to
+            # be accepted the (field, "contradictory") pair must sit in
+            # HARMLESS with the reason, which is the point of the matrix.
+            if isinstance(value, bool):
+                contradictory = not value
+            elif isinstance(value, (int, float)):
+                contradictory = value + 1
+            elif isinstance(value, str):
+                contradictory = value + "-mutated"
+            elif isinstance(value, list):
+                contradictory = ["mutated"]
+        if contradictory is not None:
+            out.append(("contradictory", contradictory))
+        return [
+            (name, value_)
+            for name, value_ in out
+            if not (value_ is not self.DELETE and value_ == value)
+        ]
+
+    def fields(self, record):
+        """Every field of the record, one dotted where per level the schema
+        covers: top level, clock_check, document_region, conversion."""
+        out = [("", field) for field in sorted(record)]
+        out += [("clock_check", field) for field in sorted(record["clock_check"])]
+        if isinstance(record.get("document_region"), dict):
+            out += [
+                ("document_region", field)
+                for field in sorted(record["document_region"])
+            ]
+        if isinstance(record["clock_check"].get("conversion"), dict):
+            out += [
+                ("clock_check.conversion", field)
+                for field in sorted(record["clock_check"]["conversion"])
+            ]
+        return out
+
+    def test_every_single_field_corruption_is_refused_or_justified(self):
+        validator = self.load_validator()
+        record = _load_captured_record()
+        verdict = validator.validate_witness(record)
+        self.assertFalse(
+            verdict.get("refused"),
+            "the uncorrupted fixture must validate: %r" % (verdict,),
+        )
+        checked = 0
+        accepted = set()
+        for where, field in self.fields(record):
+            for name, value in self.corruptions(record, where, field):
+                with self.subTest(
+                    field="%s%s" % (where + "." if where else "", field),
+                    corruption=name,
+                ):
+                    mutated = json.loads(json.dumps(record))
+                    self._set(mutated, where, field, value)
+                    verdict = validator.validate_witness(mutated)
+                    checked += 1
+                    if not verdict.get("refused"):
+                        accepted.add((where, field, name))
+                        self.assertIn(
+                            (where, field, name),
+                            self.HARMLESS,
+                            "%s%s corrupted with %r was accepted without a "
+                            "justification"
+                            % (where + "." if where else "", field, value),
+                        )
+        # The matrix must actually cover the record, every justification must
+        # name a corruption that was really applied, and (the sharp edge) a
+        # justification may only exist for a corruption that is genuinely
+        # accepted -- otherwise the list quietly rots into lies.
+        self.assertGreaterEqual(
+            checked, 200, "the matrix must be generated, not hand-picked"
+        )
+        applied = set()
+        for where, field in self.fields(record):
+            for name, _value in self.corruptions(record, where, field):
+                applied.add((where, field, name))
+        for entry in self.HARMLESS:
+            self.assertIn(
+                entry,
+                applied,
+                "the justification %r names a corruption the matrix never "
+                "applied" % (entry,),
+            )
+            self.assertIn(
+                entry,
+                accepted,
+                "the justification %r names a corruption that is in fact "
+                "refused; remove it" % (entry,),
+            )
+
+    def test_the_harmless_list_stays_short(self):
+        """A justification is an exception; fifty of them would be a schema
+        with holes. The count is pinned so a new one is a visible decision
+        (the matrix is ~500 cells; the refusals are the overwhelming
+        majority)."""
+        self.assertLessEqual(
+            len(self.HARMLESS),
+            40,
+            "the harmless list grew: %r" % (sorted(self.HARMLESS),),
+        )
+
+class WitnessRealRecordTests(_WitnessBrowserCase):
+    """Round 3 against the real producer: a fresh capture validates, and the
+    re-review's browser-record mutations (its `browser.py` probe) on that
+    fresh capture are refused."""
+
+    def capture(self) -> dict:
+        return self.run_witness(
+            "--op",
+            "witness-frame",
+            "--url",
+            self.url("change_after_marker.html"),
+            "--after-js",
+            "window.__witnessArm()",
+            "--window-ms",
+            "900",
+            "--region",
+            "#doc",
+        )
+
+    def test_a_fresh_real_capture_validates(self):
+        record = self.capture()
+        validator = _load_validator()
+        verdict = validator.validate_witness(record)
+        self.assertFalse(
+            verdict.get("refused"),
+            "a fresh real capture must validate: %r" % (verdict,),
+        )
+        self.assertIsNone(verdict.get("reason"))
+
+    def test_the_rereview_mutations_on_a_fresh_capture_are_refused(self):
+        record = self.capture()
+        validator = _load_validator()
+        cc = record["clock_check"]
+        mutations = {
+            "erased_checks": {"checks": {}, "anchor_pixel_checked": None},
+            "lying_checks": {
+                "frame_page_ms": 0,
+                "change_page_ms": 1000,
+                "frame_lag_ms": -1000,
+            },
+            "offset_disagrees": {"page_offset_ms": 1000},
+        }
+        for name, change in mutations.items():
+            with self.subTest(case=name):
+                mutated = record | {"clock_check": cc | change}
+                verdict = validator.validate_witness(mutated)
+                self.assertTrue(
+                    verdict.get("refused"),
+                    "%s on a real record must be refused: %r" % (name, verdict),
+                )
+                self.assertIn(
+                    verdict.get("reason"),
+                    ("clock_check_evidence_missing", "clock_check_evidence_contradicted"),
+                    "%s must name the clock evidence: %r" % (name, verdict),
+                )
 
 
 if __name__ == "__main__":
