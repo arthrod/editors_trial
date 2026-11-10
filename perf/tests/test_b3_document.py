@@ -348,6 +348,7 @@ class FakeHostMeasurers(unittest.TestCase):
         ]
         first = self.probe("find", "b3_find.html", extra)
         self.assertEqual(first.get("status"), "measured", first)
+        self.assertGreater(first.get("frame_interval_ms") or 0, 0, first)
         self.assertEqual(first.get("completion"), "event", first)
         self.assertIn("cap_ms", first)
         self.assertIsNone(first.get("cap_ms"), first)

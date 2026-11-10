@@ -37,6 +37,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import platform
 import shutil
@@ -970,9 +971,25 @@ def _write_measured(
     diagnostic: dict,
     doc_output_text: str | None = None,
 ) -> tuple:
+    diagnostic = dict(diagnostic)
+    intervals = [(row.get("witness") or {}).get("clock_check", {}).get("frame_interval_ms", row.get("frame_interval_ms"))
+                 for row in diagnostic.get("samples", [diagnostic])]
+    if intervals and all(isinstance(value, (int, float)) and not isinstance(value, bool)
+                         and math.isfinite(value) and value > 0 for value in intervals):
+        diagnostic["frame_intervals_ms"] = intervals
+        if len(set(intervals)) == 1:
+            diagnostic["frame_interval_ms"] = intervals[0]
+    if "frame_interval_ms" not in diagnostic:
+        reason = "frame_interval_inconsistent" if intervals and len(set(intervals)) > 1 else "frame_interval_unavailable"
+        path = _write_refusal(attempt_dir=attempt_dir, criterion_id=criterion_id,
+            editor_id=editor_id, lane=lane, env=env, outcome="failed",
+            failure_reason=reason, diagnostic=diagnostic, publishable=False,
+            publication_block_reason=reason)
+        trial = json.loads(path.read_text())
+        return path, trial
     spec = CRITERIA[criterion_id]
     stats = summarize(samples, spec["cache_state"], env["repetition_unit"], seed=0)
-    pub, reason = trial_publishable_flags(env, spec["layer"], stats["n"])
+    pub, reason = trial_publishable_flags(env, spec["layer"], None if env["repetition_unit"] == "fresh_process" else stats["n"])
     parts = [part for part in (reason,) if part]
     catalog_row = _catalog_row(criterion_id)
     ok, interp_reason = evaluate_measured_trial(
@@ -998,6 +1015,9 @@ def _write_measured(
         publication_block_reason=block,
         diagnostic=diagnostic,
     )
+    interval = diagnostic.get("frame_interval_ms")
+    if isinstance(interval, (int, float)) and not isinstance(interval, bool) and math.isfinite(interval) and interval > 0:
+        trial["sub_frame_samples"] = [value < interval for value in samples]
     if criterion_id == "C11":
         checks = diagnostic.get("samples") or []
         trial["content_verified"] = bool(checks) and all(d.get("content_verified") is True for d in checks)
@@ -1042,6 +1062,12 @@ def _write_refusal(
         publishable=publishable,
         publication_block_reason=publication_block_reason,
     )
+    trial['refusal_code'] = (outcome if outcome != 'failed' else
+        'cpu_throttled' if failure_reason.startswith('cpu_throttled') else
+        'host_build' if failure_reason.startswith('host-error:') else
+        'unverified' if failure_reason.startswith(('document_content_', 'no document surface')) else
+        'paint_witness_unavailable' if failure_reason.startswith(('witness ', 'clock_', 'frame_', 'clock skew ', 'no compositor frame', 'no presented frame', 'retained sample has no witness')) else
+        'crash')
     validate_environment(env)
     validate_trial(trial)
     return write_attempt(
@@ -1138,6 +1164,7 @@ def _run_load_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path: 
         diagnostics.append(
             {
                 "content_verified": payload.get("content_verified") is True,
+                "witness": payload.get("witness"),
                 "document_text": payload.get("document_text"),
                 "expected_opening_text": expected,
                 "fcp_ms": payload.get("fcp_ms"),
@@ -1225,6 +1252,7 @@ def _run_scale_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path:
                 "frames_total": payload.get("frames_total"),
                 "frames_after_usable": payload.get("frames_after_usable"),
                 "mechanism": payload.get("mechanism"),
+                "witness": payload.get("witness"),
                 "usable_signal": payload.get("usable_signal"),
                 "clock_skew_ms": payload.get("clock_skew_ms"),
                 "navigation_ms": payload.get("navigation_ms"),
@@ -1502,9 +1530,9 @@ def _main() -> int:
                         {
                             "criterion_id": "C11",
                             "editor_id": editor_id,
-                            "outcome": "measured",
-                            "median_ms": trial["summary_stats"]["median"],
-                            "content_verified": trial["content_verified"],
+                            "outcome": trial["outcome"], "failure_reason": trial.get("failure_reason"),
+                            "median_ms": (trial.get("summary_stats") or {}).get("median"),
+                            "content_verified": trial.get("content_verified", False),
                             "first_element_median_ms": _median_optional([d.get("first_element_ms") for d in diagnostics]),
                             "document_text_median_ms": _median_optional([d.get("document_text_at_ms") for d in diagnostics]),
                             "page_count": diagnostics[-1].get("page_count"),
@@ -1563,8 +1591,8 @@ def _main() -> int:
                         {
                             "criterion_id": "C12",
                             "editor_id": editor_id,
-                            "outcome": "measured",
-                            "median_ms": trial["summary_stats"]["median"],
+                            "outcome": trial["outcome"], "failure_reason": trial.get("failure_reason"),
+                            "median_ms": (trial.get("summary_stats") or {}).get("median"),
                             "shift_px_median": _median_optional([d.get("shift_px") for d in diagnostics]),
                             "cache_state": CRITERIA["C12"]["cache_state"],
                             "attempt_file": _attempt_ref(path),
@@ -1724,9 +1752,9 @@ def _main() -> int:
                                 {
                                     "workload_id": rung,
                                     "size_rung": label,
-                                    "outcome": "measured",
-                                    "n": len(data["samples"]),
-                                    "median_ms": trial["summary_stats"]["median"],
+                                    "outcome": trial["outcome"], "failure_reason": trial.get("failure_reason"),
+                                    "n": len(trial.get("samples_ms") or []),
+                                    "median_ms": (trial.get("summary_stats") or {}).get("median"),
                                     "attempt_file": _attempt_ref(path),
                                 }
                             )
@@ -1736,8 +1764,8 @@ def _main() -> int:
                                     "editor_id": editor_id,
                                     "size_rung": label,
                                     "workload_id": rung,
-                                    "outcome": "measured",
-                                    "median_ms": trial["summary_stats"]["median"],
+                                    "outcome": trial["outcome"], "failure_reason": trial.get("failure_reason"),
+                                    "median_ms": (trial.get("summary_stats") or {}).get("median"),
                                     "n": len(data["samples"]),
                                     "cache_state": CRITERIA["C14"]["cache_state"],
                                     "attempt_file": _attempt_ref(path),
@@ -1795,6 +1823,7 @@ def _main() -> int:
                                 diagnostic={
                                     "suite": "document",
                                     "measurement": measurement,
+                                    "samples": payloads,
                                     "completion": cell.get("completion"),
                                     "minimum_n": C15_MIN_N,
                                     "clock": {
@@ -1817,9 +1846,9 @@ def _main() -> int:
                                     "criterion_id": "C15",
                                     "editor_id": editor_id,
                                     "measurement": measurement,
-                                    "outcome": "measured",
-                                    "n": len(samples),
-                                    "median_ms": trial["summary_stats"]["median"],
+                                    "outcome": trial["outcome"], "failure_reason": trial.get("failure_reason"),
+                                    "n": len(trial.get("samples_ms") or []),
+                                    "median_ms": (trial.get("summary_stats") or {}).get("median"),
                                     "cache_state": CRITERIA["C15"]["cache_state"],
                                     "attempt_file": _attempt_ref(path),
                                     "publishable": trial["publishable"],

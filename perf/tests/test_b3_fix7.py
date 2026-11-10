@@ -85,6 +85,7 @@ class CorpusOpeningIntegration(unittest.TestCase):
                 path, trial = bd._write_measured(
                     attempt_dir=Path(tmp), criterion_id='C11', editor_id='plate',
                     lane='browser_slate', env=_env(), samples=[56., 61.],
-                    diagnostic={'samples': [{'content_verified': c} for c in checks]})
+                    diagnostic={'samples': [{'content_verified': c} for c in checks],
+                                'frame_interval_ms': 16.7})
                 self.assertIs(trial['content_verified'], expected)
                 self.assertIs(json.loads(path.read_text())['content_verified'], expected)

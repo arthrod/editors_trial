@@ -48,6 +48,7 @@ import {
   decodePng,
   convertFrameToPageMs,
   frameAckSettled,
+  frameInterval,
   pageClock,
   detectTimestampKind,
   diffRatio,
@@ -1438,6 +1439,7 @@ async function runFind(browser) {
         completion: null,
       };
     }
+    const observedInterval = await frameInterval(ctx.page, { frames: 6 });
     await ctx.page.locator(findInputSelector).first().click({ timeout: 5000 });
     await ctx.page.evaluate(
       ({ countSel, matchSel, expected, query, inputSel }) => {
@@ -1563,6 +1565,7 @@ async function runFind(browser) {
     return {
       mode: 'find',
       status: eventCompleted ? 'measured' : 'unverified',
+      frame_interval_ms: observedInterval.median_ms,
       completion,
       cap_ms: null,
       completion_wait_ms: completionWaitMs,
