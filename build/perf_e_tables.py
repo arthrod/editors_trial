@@ -691,7 +691,7 @@ def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
     facts["perf.e.summary"] = _summary(facts, primary)
     facts["perf.e.lanes"] = _lanes(primary)
     facts["perf.e.versions"] = _versions(primary)
-    facts["perf.e.passthrough"] = _names(e for e, _, _ in _passthrough_editors(primary, repro))
+    facts["perf.e.passthrough"] = _names(t[0] for t in _passthrough_editors(primary, repro))
     facts["perf.e.passthrough_scope"] = _passthrough_scope(primary, repro)
     facts["perf.e.passthrough_n"] = len(_passthrough_editors(primary, repro))
     facts["perf.e.exceptions"] = _exceptions(facts, primary, repro)
@@ -872,7 +872,7 @@ def _save_notes(facts: dict) -> str:
     notes = []
     if facts.get("perf.e.passthrough_scope"):
         scope = facts["perf.e.passthrough_scope"]
-        if facts.get("perf.e.passthrough_n", 1) == 1:
+        if (facts.get("perf.e.passthrough_n") or len(scope.split("; "))) == 1:
             notes.append("- **The file is the input.** In both runs, on every sample of the documents named, this editor wrote back the exact bytes it was given: %s. "
                          "With nothing edited, it keeps the original package there; its save time on those documents is the time to decide that and hand the bytes back." % scope)
         else:
@@ -885,8 +885,8 @@ def _save_notes(facts: dict) -> str:
         if facts.get("perf.e.flat_save_rewrites"):
             files = (" Its saved file is not the input: the editor wrote a new file." if one
                      else " Their saved files are not the input: the editors wrote new files.")
-        notes.append("- **The save barely grows with the document.** %s.%s Where the editor does that work was not traced; "
-                     "the round trip counts load and save together." % (found, files))
+        notes.append("- **The save barely grows with the document.** %s.%s Where the %s that work was not traced; "
+                     "the round trip counts load and save together." % (found, files, "editor does" if one else "editors do"))
     if facts.get("perf.e.host_start"):
         notes.append("- **A host process.** %s." % facts["perf.e.host_start"])
     return "\n".join(notes) if notes else "- none"
@@ -898,25 +898,35 @@ def _names(editors) -> str:
 
 
 def _identical_everywhere(run: Run, wl: str, editor: str) -> bool | None:
-    """True if every good sample saved the input's exact bytes, False if any did not, None if no good sample."""
+    """True if every good sample recorded the input's exact bytes; False if any
+    good sample recorded different bytes; None if that cannot be told (no good
+    sample, or a good sample without a recorded output hash and none differing)."""
     good = [r for r in run.records.get((wl, editor), []) if _good(r)]
-    if not good:
+    source = run.summary["workloads"][wl]["sha256"]
+    hashes = [r.get("output_sha256") for r in good]
+    if any(h and h != source for h in hashes):
+        return False
+    if not hashes or not all(hashes):
         return None
-    return all(r.get("output_sha256") == run.summary["workloads"][wl]["sha256"] for r in good)
+    return True
 
 
-def _passthrough_editors(primary: Run, repro: Run) -> list[tuple[str, list[str], list[str]]]:
-    """(editor, documents written back byte for byte in both runs, documents it rewrote)."""
+def _passthrough_editors(primary: Run, repro: Run) -> list[tuple[str, list[str], list[str], list[str]]]:
+    """(editor, documents written back byte for byte in both runs, documents it
+    rewrote in either run, documents where a run cannot tell)."""
     out = []
     for editor in _timed_editors(primary):
-        same, other = [], []
+        same, other, unknown = [], [], []
         for wl in _workloads(primary):
             verdicts = [_identical_everywhere(run, wl, editor) for run in (primary, repro)]
-            if None in verdicts:
-                continue
-            (same if all(verdicts) else other).append(wl)
+            if False in verdicts:
+                other.append(wl)
+            elif None in verdicts:
+                unknown.append(wl)
+            else:
+                same.append(wl)
         if same:
-            out.append((editor, same, other))
+            out.append((editor, same, other, unknown))
     return out
 
 
@@ -926,14 +936,14 @@ def _and(items: list[str]) -> str:
 
 def _passthrough_scope(primary: Run, repro: Run) -> str:
     parts = []
-    for editor, same, other in _passthrough_editors(primary, repro):
+    for editor, same, other, unknown in _passthrough_editors(primary, repro):
         name = DISPLAY.get(editor, editor)
-        if not other:
+        if not other and not unknown:
             parts.append("%s on every document" % name)
             continue
-        docs = [WORKLOAD_LABEL.get(w, w) for w in same]
-        parts.append("%s on the %s document%s (it rewrote %s)" % (
-            name, _and(docs), "" if len(docs) == 1 else "s", _and([WORKLOAD_LABEL.get(w, w) for w in other])))
+        label = lambda wls: _and([WORKLOAD_LABEL.get(w, w) for w in wls])
+        why = (["it rewrote %s" % label(other)] if other else []) + (["not known for %s" % label(unknown)] if unknown else [])
+        parts.append("%s on the %s document%s (%s)" % (name, label(same), "" if len(same) == 1 else "s", "; ".join(why)))
     return "; ".join(parts)
 
 
@@ -1006,11 +1016,12 @@ def _error_line(stderr: str | None) -> str | None:
 
 def _last_error(run: Run, wl: str, editor: str) -> str | None:
     """The error of the last sample of the cell that failed, from its own stderr."""
-    failed = [r for r in run.records.get((wl, editor), []) if r.get("returncode") not in (0, None)]
+    # failed by the runner's own rule, so a timeout or an exit-0 sample that
+    # failed its marks or check is the latest failure too (#126)
+    failed = [(r.get("started_at") or "", i, r) for i, r in enumerate(run.records.get((wl, editor), [])) if not _good(r)]
     if not failed:
         return None
-    latest = max(failed, key=lambda r: r.get("started_at") or "")
-    return _error_line(latest.get("stderr_tail"))
+    return _error_line(max(failed, key=lambda t: (t[0], t[1]))[2].get("stderr_tail"))
 
 
 def _check_text(summary: dict) -> str:

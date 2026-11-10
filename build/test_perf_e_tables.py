@@ -1102,5 +1102,65 @@ class CodexReview124(unittest.TestCase):
         self.assertEqual(E._last_error(run, "w", "e"), "RangeError: new failure")
 
 
+
+class PiReview126(unittest.TestCase):
+    """#126: pi (zai/glm-5.3) review of the #124 fixes."""
+
+    def test_1_a_document_rewritten_in_one_run_and_unknown_in_the_other_is_not_every_document(self):
+        primary = _hash_run({("prose-500w", "e"): ["in-prose-500w"] * 3, ("complex-corpus", "e"): ["other"] * 3})
+        repro = _hash_run({("prose-500w", "e"): ["in-prose-500w"] * 3, ("complex-corpus", "e"): []})
+        scope = E._passthrough_scope(primary, repro)
+        self.assertNotIn("every document", scope)
+        self.assertIn("e on the 500 words document (it rewrote complex.docx)", scope)
+
+    def test_1_a_document_with_no_good_sample_in_one_run_is_named_as_not_known(self):
+        primary = _hash_run({("prose-500w", "e"): ["in-prose-500w"] * 3, ("complex-corpus", "e"): ["in-complex-corpus"] * 3})
+        repro = _hash_run({("prose-500w", "e"): ["in-prose-500w"] * 3, ("complex-corpus", "e"): []})
+        scope = E._passthrough_scope(primary, repro)
+        self.assertNotIn("every document", scope)
+        self.assertIn("e on the 500 words document (not known for complex.docx)", scope)
+
+    def test_2_a_missing_output_hash_is_not_a_rewrite(self):
+        rows = {("prose-500w", "e"): ["in-prose-500w"] * 3, ("complex-corpus", "e"): [None] * 3}
+        scope = E._passthrough_scope(_hash_run(rows), _hash_run(rows))
+        self.assertNotIn("rewrote", scope)
+        self.assertIn("not known for complex.docx", scope)
+
+    def test_2_a_recorded_differing_hash_beside_a_missing_one_is_a_rewrite(self):
+        rows = {("prose-500w", "e"): ["in-prose-500w"] * 3, ("complex-corpus", "e"): [None, "other", None]}
+        scope = E._passthrough_scope(_hash_run(rows), _hash_run(rows))
+        self.assertIn("(it rewrote complex.docx)", scope)
+
+    def _run(self, recs):
+        return E.Run(Path("."), {"workloads": {"w": {}}, "repetitions": 10}, records={("w", "e"): recs})
+
+    def test_3_a_newer_timeout_is_the_last_error_not_an_older_crash(self):
+        run = self._run([
+            _good_rec(returncode=1, started_at="2026-01-01T00:00:00+00:00", stderr_tail="TypeError: old crash\n"),
+            _good_rec(returncode=None, timed_out=True, started_at="2026-01-02T00:00:00+00:00", stderr_tail="Error: TIMEOUT kill\n")])
+        self.assertEqual(E._last_error(run, "w", "e"), "Error: TIMEOUT kill")
+
+    def test_3_a_newer_exit_0_sample_that_failed_its_marks_hides_the_older_crash(self):
+        run = self._run([
+            _good_rec(returncode=1, started_at="2026-01-01T00:00:00+00:00", stderr_tail="TypeError: old crash\n"),
+            _good_rec(started_at="2026-01-02T00:00:00+00:00", mark_counts={"model_ready_ms": 2, "save_ms": 1}, stderr_tail="")])
+        self.assertIsNone(E._last_error(run, "w", "e"))
+
+    def test_3_a_tie_goes_to_the_last_listed_sample(self):
+        run = self._run([
+            _good_rec(returncode=1, started_at="2026-01-01T00:00:00+00:00", stderr_tail="Error: first\n"),
+            _good_rec(returncode=1, started_at="2026-01-01T00:00:00+00:00", stderr_tail="Error: second\n")])
+        self.assertEqual(E._last_error(run, "w", "e"), "Error: second")
+
+    def test_4_plural_notes_agree(self):
+        note = E._save_notes({"perf.e.prepared_export": "A's save took 1 ms; B's save took 2 ms",
+                              "perf.e.passthrough_scope": "X on every document; Y on every document"})
+        self.assertIn("Where the editors do that work was not traced", note)
+        self.assertIn("these editors wrote back", note)
+        one = E._save_notes({"perf.e.prepared_export": "A's save took 1 ms", "perf.e.passthrough_scope": "X on every document"})
+        self.assertIn("Where the editor does that work was not traced", one)
+        self.assertIn("this editor wrote back", one)
+
+
 if __name__ == "__main__":
     unittest.main()
