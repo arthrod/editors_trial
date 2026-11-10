@@ -1352,14 +1352,252 @@ def test_run_invokes_mirror_after_each_job(tmp_path, monkeypatch):
     def track_mirror(campaign_id, runner, job_id, job_dir, run_log):
         calls.append(f'mirror:{runner}/{job_id}')
         assert (job_dir / 'JOB-DONE').exists()
+        return True, None
 
     monkeypatch.setattr(subprocess, 'run', fake_run)
     monkeypatch.setenv('HF_MIRROR_ROOT', str(tmp_path / 'mirror'))
-    monkeypatch.setattr(run_mod, 'mirror_job_directory', track_mirror)
+    monkeypatch.setattr(run_mod, 'run_mirror_process', track_mirror)
     with pytest.raises(RuntimeError):
         run_mod.main(['--smoke', '--out-root', str(campaign)])
     assert calls
     assert all('mirror:' in c for c in calls)
+
+
+def test_gate_rehash_refuses_corrupt_without_fetch_rehash(remote_root, tmp_path, capsys, monkeypatch):
+    """Fetch-side rehash stubbed out; local gate must still block FINAL-VERIFIED."""
+    from perf.container import pull as pull_mod
+
+    def index_only(dest, index, prior):
+        return [path for path, meta in index.items() if prior.get(path) != meta['sha256']]
+
+    monkeypatch.setattr(pull_mod, 'paths_needing_fetch', index_only)
+    run_id = '20260101T000000000211Z'
+    pub_rel = f'runs/{run_id}/e2-publication.json'
+    (remote_root / 'runs' / run_id).mkdir(parents=True)
+    (remote_root / pub_rel).write_text('PUB')
+    (remote_root / 'runs' / run_id / 'RUN-DONE').write_text('exit_status=0\n')
+    dest = tmp_path / 'dest'
+    transport = local_transport(remote_root)
+    pull_mod.pull_until(transport, remote_root, dest, run_id, interval=0, max_cycles=3)
+    capsys.readouterr()
+    (dest / pub_rel).write_text('CORRUPT-PUB')
+    code = pull_mod.pull_until(transport, remote_root, dest, run_id, interval=0, max_cycles=4)
+    out = capsys.readouterr().out
+    assert 'FINAL-VERIFIED' not in out
+    assert code != 0
+
+
+def test_mutation_gate_rehash_removed_allows_corrupt_final(remote_root, tmp_path, capsys, monkeypatch):
+    """Removing only the gate rehash is RED: false FINAL-VERIFIED on corrupt bytes."""
+    from perf.container import pull as pull_mod
+
+    monkeypatch.setattr(pull_mod, 'local_bytes_match_listing', lambda _dest, _index: True)
+    run_id = '20260101T000000000212Z'
+    pub_rel = f'runs/{run_id}/e2-publication.json'
+    (remote_root / 'runs' / run_id).mkdir(parents=True)
+    (remote_root / pub_rel).write_text('PUB')
+    (remote_root / 'runs' / run_id / 'RUN-DONE').write_text('exit_status=0\n')
+    dest = tmp_path / 'dest'
+    transport = local_transport(remote_root)
+    pull_mod.pull_until(transport, remote_root, dest, run_id, interval=0, max_cycles=3)
+    (dest / pub_rel).write_text('CORRUPT-PUB')
+    code = pull_mod.pull_until(transport, remote_root, dest, run_id, interval=0, max_cycles=4)
+    out = capsys.readouterr().out
+    assert code == 0
+    assert any('FINAL-VERIFIED' in line and 'CORRUPT' not in line for line in out.splitlines())
+
+
+def test_mirror_subprocess_hung_continues_campaign(tmp_path, monkeypatch):
+    from perf.container import run as run_mod
+
+    hang = tmp_path / 'hang_mirror.py'
+    hang.write_text(
+        'import signal, time\n'
+        'signal.signal(signal.SIGTERM, signal.SIG_IGN)\n'
+        'time.sleep(3600)\n'
+    )
+    stamp = '20260101T000000000213Z'
+    monkeypatch.setenv('HF_CAMPAIGN_ID', stamp)
+    monkeypatch.setenv('HF_MIRROR_PY', str(hang))
+    monkeypatch.setenv('HF_MIRROR_TIMEOUT_S', '2')
+    monkeypatch.setattr(run_mod, 'RUNNERS', ('runner_a', 'runner_b'))
+    campaign = tmp_path / 'campaign'
+    campaign.mkdir()
+    starts: dict[str, float] = {}
+
+    def fake_run(cmd, **kwargs):
+        if any('check_host' in part for part in cmd):
+            return subprocess.CompletedProcess(cmd, 0)
+        runner = cmd[3]
+        run_id = cmd[cmd.index('--run-id') + 1]
+        starts[runner] = time.time()
+        job = campaign / runner / run_id
+        job.mkdir(parents=True, exist_ok=True)
+        (job / 'summary.json').write_text('{"samples": []}')
+        return subprocess.CompletedProcess(cmd, 0)
+
+    monkeypatch.setattr(subprocess, 'run', fake_run)
+    t0 = time.time()
+    with pytest.raises(RuntimeError):
+        run_mod.main(['--smoke', '--out-root', str(campaign)])
+    elapsed = starts.get('runner_b', 0) - t0
+    assert elapsed < 8, f'runner_b started too late ({elapsed:.1f}s)'
+    run_log = (campaign / 'RUN.log').read_text()
+    assert 'MIRROR-ERROR' in run_log and 'timeout' in run_log
+    assert (campaign / 'RUN-DONE').exists()
+    done = (campaign / 'RUN-DONE').read_text()
+    assert 'runner_a' in str(starts)
+    assert 'runner_b' in str(starts)
+
+
+def test_mirror_memory_error_subprocess_continues(tmp_path, monkeypatch):
+    from perf.container import run as run_mod
+
+    oom = tmp_path / 'oom_mirror.py'
+    oom.write_text('raise MemoryError("tmp.read_bytes")\n')
+    stamp = '20260101T000000000214Z'
+    monkeypatch.setenv('HF_CAMPAIGN_ID', stamp)
+    monkeypatch.setenv('HF_MIRROR_PY', str(oom))
+    monkeypatch.setattr(run_mod, 'RUNNERS', ('runner_a', 'runner_b'))
+    campaign = tmp_path / 'campaign'
+    campaign.mkdir()
+    seen: list[str] = []
+
+    def fake_run(cmd, **kwargs):
+        if any('check_host' in part for part in cmd):
+            return subprocess.CompletedProcess(cmd, 0)
+        runner = cmd[3]
+        run_id = cmd[cmd.index('--run-id') + 1]
+        seen.append(runner)
+        job = campaign / runner / run_id
+        job.mkdir(parents=True, exist_ok=True)
+        (job / 'summary.json').write_text('{"samples": []}')
+        return subprocess.CompletedProcess(cmd, 0)
+
+    monkeypatch.setattr(subprocess, 'run', fake_run)
+    with pytest.raises(RuntimeError):
+        run_mod.main(['--smoke', '--out-root', str(campaign)])
+    assert seen == ['runner_a', 'runner_b']
+    assert (campaign / 'RUN-DONE').exists()
+    assert 'MIRROR-ERROR' in (campaign / 'RUN.log').read_text()
+
+
+def test_mirror_runs_only_between_jobs(tmp_path, monkeypatch):
+    from perf.container import run as run_mod
+
+    stamp = '20260101T000000000215Z'
+    monkeypatch.setenv('HF_CAMPAIGN_ID', stamp)
+    monkeypatch.setenv('HF_MIRROR_ROOT', str(tmp_path / 'mirror'))
+    monkeypatch.setattr(run_mod, 'RUNNERS', ('runner_a', 'runner_b'))
+    campaign = tmp_path / 'campaign'
+    campaign.mkdir()
+    events: list[tuple[str, str, float]] = []
+
+    def fake_run(cmd, **kwargs):
+        if any('check_host' in part for part in cmd):
+            return subprocess.CompletedProcess(cmd, 0)
+        runner = cmd[3]
+        now = time.time()
+        events.append(('runner-start', runner, now))
+        run_id = cmd[cmd.index('--run-id') + 1]
+        job = campaign / runner / run_id
+        job.mkdir(parents=True, exist_ok=True)
+        (job / 'summary.json').write_text('{"samples": []}')
+        proc = subprocess.CompletedProcess(cmd, 0)
+        events.append(('runner-end', runner, time.time()))
+        return proc
+
+    real_mirror = run_mod.run_mirror_process
+
+    def wrap_mirror(campaign_id, runner, job_id, job_dir, run_log):
+        events.append(('mirror-start', runner, time.time()))
+        out = real_mirror(campaign_id, runner, job_id, job_dir, run_log)
+        events.append(('mirror-end', runner, time.time()))
+        return out
+
+    monkeypatch.setattr(subprocess, 'run', fake_run)
+    monkeypatch.setattr(run_mod, 'run_mirror_process', wrap_mirror)
+    with pytest.raises(RuntimeError):
+        run_mod.main(['--smoke', '--out-root', str(campaign)])
+    by_runner: dict[str, dict[str, float]] = {}
+    for kind, runner, ts in events:
+        by_runner.setdefault(runner, {})[kind] = ts
+    for runner in ('runner_a', 'runner_b'):
+        row = by_runner[runner]
+        assert row['runner-end'] <= row['mirror-start'] < row['mirror-end']
+
+
+def test_pull_streams_large_commit_without_whole_read_bytes(remote_root, tmp_path, monkeypatch):
+    from perf.container import pull as pull_mod
+
+    run_id = '20260101T000000000216Z'
+    job_rel = f'runs/{run_id}/benchmark_warm_cold/{run_id}-000'
+    big = 'B' * 250_000
+    write_job_tree(
+        remote_root,
+        run_id,
+        'benchmark_warm_cold',
+        f'{run_id}-000',
+        files={'big.txt': big},
+        job_done=True,
+    )
+    dest = tmp_path / 'dest'
+    transport = local_transport(remote_root)
+    real_read_bytes = Path.read_bytes
+    calls: list[str] = []
+
+    def guarded_read_bytes(self):
+        if self.is_file() and self.stat().st_size > 200_000:
+            calls.append(self.name)
+            raise OSError('read_bytes refused on large file')
+        return real_read_bytes(self)
+
+    monkeypatch.setattr(Path, 'read_bytes', guarded_read_bytes)
+    pull_mod.pull_cycle(transport, remote_root, dest)
+    local_big = dest / job_rel / 'big.txt'
+    assert pull_mod.sha256_file(local_big) == sha256_bytes(big.encode())
+    assert 'big.txt' not in calls
+
+
+def test_stale_pull_staging_quarantined_not_indexed(tmp_path):
+    from perf.container import pull as pull_mod
+
+    dest = tmp_path / 'dest'
+    dest.mkdir()
+    stale = dest / '.pull-staging' / 'leftover-stamp'
+    stale.mkdir(parents=True)
+    (stale / 'orphan.txt').write_text('ORPHAN')
+    pull_mod.quarantine_stale_pull_staging(dest)
+    moved = list(dest.glob('.pull-staging.stale-*'))
+    assert len(moved) == 1
+    assert moved[0].is_dir()
+    assert (moved[0] / 'leftover-stamp' / 'orphan.txt').read_text() == 'ORPHAN'
+    index = pull_mod.rebuild_local_index(dest)
+    assert not index
+
+
+def test_final_verified_files_matches_listing_after_remote_delete(remote_root, tmp_path, capsys):
+    from perf.container import pull as pull_mod
+
+    run_id = '20260101T000000000217Z'
+    (remote_root / 'runs' / run_id).mkdir(parents=True)
+    (remote_root / 'note.txt').write_text('note')
+    (remote_root / 'runs' / run_id / 'RUN-DONE').write_text('exit_status=0\n')
+    dest = tmp_path / 'dest'
+    transport = local_transport(remote_root)
+    pull_mod.pull_until(transport, remote_root, dest, run_id, interval=0, max_cycles=4)
+    capsys.readouterr()
+    (remote_root / 'note.txt').unlink()
+    code = pull_mod.pull_until(transport, remote_root, dest, run_id, interval=0, max_cycles=4)
+    out = capsys.readouterr().out.splitlines()
+    final = [line for line in out if line.startswith('FINAL-VERIFIED ')][-1]
+    listing = pull_mod.list_remote(transport)
+    assert code == 0
+    assert f'files={len(listing)}' in final
+    gone_path = dest / '.pull-index-gone.json'
+    assert gone_path.exists()
+    gone = json.loads(gone_path.read_text())
+    assert 'note.txt' in gone
 
 
 def test_job_changed_line_when_file_added_after_verify(remote_root, tmp_path, capsys):
