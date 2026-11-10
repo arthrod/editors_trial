@@ -14,7 +14,7 @@ INSTALLS = {
     'canvas-editor': ['pnpm', 'install', '--no-frozen-lockfile'],
     'canvas-editor-plugin': ['pnpm', 'install', '--no-frozen-lockfile'],
 }
-RUNNERS = ('benchmark_warm_cold', 'benchmark_document', 'benchmark_input', 'adversarial_c10_scroll')
+RUNNERS = ('benchmark_warm_cold', 'benchmark_document', 'benchmark_input', 'adversarial_c10_scroll', 'benchmark_typing')
 NPM = (
     ('superdoc_sdk', 'harness/superdoc-sdk', '@superdoc/sdk'),
     ('docxodus', 'harness/ui/docxodus', 'docxodus'),
@@ -67,6 +67,8 @@ def publication_jobs(editors, seed, seed2, host_class):
             # C10 has a singular CLI; run_cli still interleaves its 30 repetitions.
             if runner == 'adversarial_c10_scroll':
                 jobs.extend((runner, base + ['--editor', editor]) for editor in editors)
+            elif runner == 'benchmark_typing':
+                jobs.extend((runner, base + ['--editors', editor]) for editor in editors)
             else:
                 jobs.append((runner, base + ['--editors', *editors]))
     return jobs
