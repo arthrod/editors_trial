@@ -15,6 +15,7 @@ import perf.runner.benchmark_warm_cold as warm_cold
 from perf.fixtures.profiles import size_ladder
 from perf.scenarios.catalog import scenarios
 from perf.schema import validate_trial
+from perf.tests import test_witness
 
 
 def _fixture(workload_id="micro-paragraphs"):
@@ -30,6 +31,13 @@ def _env(fixture=None, cache_state="process_cold_fs_warm"):
         fixture=fixture,
         cache_state=cache_state,
     )
+
+
+def _measured_diagnostic(**fields):
+    """Two sample witnesses satisfying the B3 observed-interval handoff."""
+    return {**fields, "samples": [
+        {"witness": test_witness.WitnessValidatorTests.good_record()} for _ in range(2)
+    ]}
 
 
 class CatalogAlignment(unittest.TestCase):
@@ -278,11 +286,12 @@ class AttemptShape(unittest.TestCase):
                 lane="browser_slate",
                 env=_env(),
                 samples=[56.0, 61.5],
-                diagnostic={"suite": "document"},
+                diagnostic=_measured_diagnostic(suite="document"),
             )
             on_disk = json.loads(path.read_text(encoding="utf-8"))
         validate_trial(trial)
         validate_trial(on_disk)
+        self.assertEqual(trial["outcome"], "measured")
         self.assertFalse(trial["publishable"])
         self.assertTrue(trial["publication_block_reason"])
         self.assertIn("ci_coarse", trial["publication_block_reason"])
@@ -297,14 +306,13 @@ class AttemptShape(unittest.TestCase):
                 lane="browser_slate",
                 env=_env(fixture, cache_state="process_cold_fs_warm"),
                 samples=[1240.0, 1310.0],
-                diagnostic={
-                    "suite": "document",
-                    "size_rung": "short",
-                    "workload_id": "short-paragraphs",
-                    "no_pooled_figure": True,
-                    "curve_medians_ms": {"micro-paragraphs": {"n": 2, "median_ms": 830.0}},
-                },
+                diagnostic=_measured_diagnostic(
+                    suite="document", size_rung="short", workload_id="short-paragraphs",
+                    no_pooled_figure=True,
+                    curve_medians_ms={"micro-paragraphs": {"n": 2, "median_ms": 830.0}},
+                ),
             )
+        self.assertEqual(trial["outcome"], "measured")
         self.assertEqual(trial["diagnostic"]["size_rung"], "short")
         self.assertTrue(trial["diagnostic"]["no_pooled_figure"])
         self.assertEqual(trial["environment"]["workload_id"], "short-paragraphs")
@@ -320,8 +328,9 @@ class AttemptShape(unittest.TestCase):
                 lane="browser_slate",
                 env=_env(fixture, cache_state="process_cold_fs_warm"),
                 samples=[830.0, 840.0],
-                diagnostic={"suite": "document", "size_rung": "micro", "workload_id": "micro-paragraphs"},
+                diagnostic=_measured_diagnostic(suite="document", size_rung="micro", workload_id="micro-paragraphs"),
             )
+        self.assertEqual(trial["outcome"], "measured")
         reason = trial["publication_block_reason"]
         self.assertIn("interpretation:", reason)
         self.assertIn("I01", reason)
@@ -340,7 +349,7 @@ class AttemptShape(unittest.TestCase):
                 env=_env(fixture),
                 samples=[830.0, 840.0],
                 doc_output_text=good,
-                diagnostic={"suite": "document", "size_rung": "micro", "workload_id": "micro-paragraphs"},
+                diagnostic=_measured_diagnostic(suite="document", size_rung="micro", workload_id="micro-paragraphs"),
             )
             _path, broken_trial = bd._write_measured(
                 attempt_dir=Path(tmp),
@@ -350,8 +359,10 @@ class AttemptShape(unittest.TestCase):
                 env=_env(fixture),
                 samples=[830.0, 840.0],
                 doc_output_text=broken,
-                diagnostic={"suite": "document", "size_rung": "micro", "workload_id": "micro-paragraphs"},
+                diagnostic=_measured_diagnostic(suite="document", size_rung="micro", workload_id="micro-paragraphs"),
             )
+        self.assertEqual(ok_trial["outcome"], "measured")
+        self.assertEqual(broken_trial["outcome"], "measured")
         self.assertNotIn("interpretation:", ok_trial["publication_block_reason"])
         self.assertIn("I02", broken_trial["publication_block_reason"])
 
