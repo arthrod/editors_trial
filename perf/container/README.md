@@ -106,13 +106,17 @@ exits do not stop the remaining jobs or the second seed. At the end,
 `out/e2-publication.json` records each runner/seed invocation, its run directory,
 exit code, outer cell total, trial-file total, and measured / refused-by-reason /
 failed-by-reason / not-run-by-reason trial counts under `by_editor_criterion`.
-Each editor/criterion group counts canonical `attempts/*.json` files, including
-separate document rungs and repetitions. Lane summaries and nested diagnostics
-are not additional trials. Measured and not-run siblings coexist; outer `ok`
-alone is never a measurement. Quarantined evidence is excluded from trial counts.
-`run_refused_by_reason`, `run_failed_by_reason`, and `run_not_run_by_reason` retain outer sample outcomes
-(including CPU throttling); aggregate reason counts include these as well as
-trial outcomes, so they are not a partition of `trials_total`.
+Each canonical `attempts/*.json` file counts exactly once, including separate
+rungs and repetitions. Lane summaries and diagnostics are not additional trials.
+The aggregate measured and reason counts sum attempt files only, equal the sum
+of `by_editor_criterion`, and partition `trials_total`; code asserts this invariant.
+`run_refused_by_reason`, `run_failed_by_reason`, and `run_not_run_by_reason` count
+only outer outcomes whose evidence was quarantined (`rejected_evidence_directory`)
+or which have no attempt files (for example, a runner crash before writing one).
+An outer folded `'; '.join(...)` reason is never counted when attempts are counted.
+Outer `ok` alone is never measurement evidence. Trials are skipped only when
+`rejected_evidence_directory` is set or `cell_directory` is absent, never because
+of a failure-reason string. A live `cpu_throttled` cell keeps measured siblings.
 The wrapper exits nonzero for missing/unreadable summaries, missing renderer
 records, runs with no measured criterion trials, or profile_mismatch. These errors are
 collected after all jobs; every original evidence file is retained. It does not

@@ -132,16 +132,14 @@ def cell_counts(data, *, trial_reader=None):
         if row.get('accounting_scope') == 'diagnostic':
             continue
         counts['cells_total'] += 1
-        if row.get('outcome') not in ('ok', 'measured'):
+        trials = [] if row.get('rejected_evidence_directory') or not row.get('cell_directory') else list(trial_reader(row))
+        if not trials and row.get('outcome') not in ('ok', 'measured'):
             outer = outcome_counts()
             count_outcome(outer, row)
             for key in ('refused_by_reason', 'failed_by_reason', 'not_run_by_reason'):
                 for reason, number in outer[key].items():
                     counts['run_' + key][reason] = counts['run_' + key].get(reason, 0) + number
-                    counts[key][reason] = counts[key].get(reason, 0) + number
-        if row.get('rejected_evidence_directory') or row.get('failure_reason') == 'cpu_throttled':
-            continue
-        for trial in trial_reader(row):
+        for trial in trials:
             if not isinstance(trial, dict) or not trial.get('criterion_id') or not trial.get('outcome'):
                 raise ValueError('invalid_trial: criterion_id and outcome required')
             editor = trial.get('editor_id') or row.get('editor_id')
@@ -152,6 +150,17 @@ def cell_counts(data, *, trial_reader=None):
             counts['trials_total'] += 1
             count_outcome(group, trial)
             count_outcome(counts, trial)
+    groups = [group for criteria in counts['by_editor_criterion'].values() for group in criteria.values()]
+    assert counts['measured'] == sum(group['measured'] for group in groups)
+    total = counts['measured']
+    for key in ('refused_by_reason', 'failed_by_reason', 'not_run_by_reason'):
+        aggregate = {}
+        for group in groups:
+            for reason, number in group[key].items():
+                aggregate[reason] = aggregate.get(reason, 0) + number
+        assert counts[key] == aggregate, f'{key} differs from criterion totals'
+        total += sum(aggregate.values())
+    assert total == counts['trials_total'], 'each attempt must count exactly once'
     return counts
 
 
