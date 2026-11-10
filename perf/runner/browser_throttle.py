@@ -34,6 +34,11 @@ def read_cpu_accounting(*, cgroup_root=None, proc_root='/proc', platform=None, c
                 }
             cgroup_root = limited[0][1] if limited else dirs[0]
         root, proc = Path(cgroup_root), Path(proc_root)
+        if not (root / 'cpu.max').exists() and (root / 'cpu.cfs_period_us').exists():
+            return {
+                'available': False,
+                'reason': 'cgroup v1 CPU accounting unsupported; throttle refusal unavailable (requires cgroup v2)',
+            }
         quota, period = (root / 'cpu.max').read_text().split()
         if int(period) <= 0 or (quota != 'max' and int(quota) <= 0):
             raise ValueError('invalid cpu.max quota/period')
@@ -93,6 +98,8 @@ def accounting_summary(before, after, samples):
     span = accounting_delta(before, after)
     rows = [row['cpu_accounting'] for row in samples]
     missing = [row['reason'] for row in rows if not row['available']]
+    diagnostics = [row for row in samples if row.get('accounting_scope') == 'diagnostic']
+    samples = [row for row in samples if row.get('accounting_scope') != 'diagnostic']
     readings = [before, after] + [r[side] for r in rows for side in ('before', 'after') if side in r]
     readings = [r for r in readings if r['available']]
     available = span['available'] and not missing
@@ -100,7 +107,10 @@ def accounting_summary(before, after, samples):
         available=available,
         samples_total=len(samples),
         samples_refused=sum(row.get('failure_reason') == 'cpu_throttled' for row in samples),
-        samples_unavailable=len(missing),
+        samples_unavailable=sum(not row['cpu_accounting']['available'] for row in samples),
+        diagnostics_total=len(diagnostics),
+        diagnostics_refused=sum(row.get('failure_reason') == 'cpu_throttled' for row in diagnostics),
+        diagnostics_unavailable=sum(not row['cpu_accounting']['available'] for row in diagnostics),
         steal_percent=span.get('steal_percent'),
         throttled_usec=span.get('delta', {}).get('throttled_usec'),
         loadavg_range=[

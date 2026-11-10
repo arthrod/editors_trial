@@ -158,6 +158,90 @@ class RunIntegration(unittest.TestCase):
         self.assertEqual(result['cpu_max'], '800000 100000')
         self.assertEqual(result['cpu_count_visible'], 64)
 
+    def test_p2_straddling_throttle_is_refused(self):
+        self.run.begin_sample()
+        self.current = snapshot(usec=94010)
+        row = json.loads(self.run.sample('straddling', dict(outcome='measured', samples_ms=[42])).read_text())
+        self.assertEqual(row['outcome'], 'failed')
+        self.assertEqual(row['failure_reason'], 'cpu_throttled')
+        self.assertNotIn('samples_ms', row)
+
+    def test_p5_refusal_removes_nested_measurements(self):
+        self.run.begin_sample()
+        self.current = snapshot(3, 50)
+        original = dict(
+            outcome='measured',
+            probe={'latency_ms': 10},
+            timings_ms_like=[1],
+            arbitrary_measurement={'value': 42, 'unit': 'ms'},
+        )
+        row = json.loads(self.run.sample('nested-timing', original).read_text())
+        self.assertNotIn('probe', row)
+        self.assertNotIn('timings_ms_like', row)
+        self.assertNotIn('arbitrary_measurement', row)
+        raw = json.loads((Path(row['rejected_evidence_directory']) / 'sample.json').read_text())
+        self.assertEqual(raw, original)
+        self.assertEqual(original['probe']['latency_ms'], 10)
+
+    def test_nested_brackets_restore_outer_and_count_diagnostics_separately(self):
+        self.run.begin_sample()
+        self.current = snapshot(3, 50)
+        self.run.begin_sample()
+        self.run.sample('inner', dict(outcome='measured', samples_ms=[10]))
+        self.run.sample('outer', dict(outcome='measured', samples_ms=[20]))
+        inner, outer = self.run.samples
+        self.assertEqual(outer['cpu_accounting']['before']['nr_throttled'], 2)
+        self.assertEqual(inner['outcome'], 'measured')
+        self.assertEqual(outer['failure_reason'], 'cpu_throttled')
+        totals = self.run.finish({})['cpu_accounting']
+        self.assertEqual((totals['samples_total'], totals['samples_refused']), (1, 1))
+        self.assertEqual(totals['diagnostics_total'], 1)
+        self.assertEqual(totals['diagnostics_refused'], 0)
+
+    def test_legacy_saturation_does_not_consume_cell_bracket(self):
+        from perf.runner.browser_run import CELL
+
+        token = CELL.set({'repetition': 0, 'editor_id': 'fake'})
+        try:
+            self.run.begin_sample()
+            self.current = snapshot(3, 50)
+            self.run.sample('saturation-0-fake', dict(outcome='failed', failure_reason='warm_cold_identical'))
+            self.run.sample('0000-fake', dict(outcome='ok'))
+        finally:
+            CELL.reset(token)
+        totals = self.run.finish({})['cpu_accounting']
+        self.assertEqual(totals['samples_total'], 1)
+        self.assertEqual(totals['samples_refused'], 1)
+        self.assertEqual(totals['diagnostics_refused'], 1)
+        self.assertEqual(self.run.samples[-1]['cpu_accounting']['before']['nr_throttled'], 2)
+
+    def test_quarantine_preserves_cell_named_sample_json(self):
+        cell = self.run.directory / 'cells' / 'cell'
+        cell.mkdir(parents=True)
+        (cell / 'sample.json').write_text('{"duration_ms": 42}')
+        self.run.begin_sample()
+        self.current = snapshot(3, 50)
+        error = None
+        try:
+            self.run.sample('cell', dict(outcome='ok', cell_directory=str(cell)))
+        except FileExistsError as exc:
+            error = exc
+        self.assertIsNone(error, 'raw row must not collide with existing cell evidence')
+        rejected = Path(self.run.samples[0]['rejected_evidence_directory'])
+        self.assertEqual((rejected / 'cell' / 'sample.json').read_text(), '{"duration_ms": 42}')
+        self.assertEqual(json.loads((rejected / 'sample.json').read_text())['outcome'], 'ok')
+
+    def test_context_bracket_restores_after_exception(self):
+        self.run.begin_sample()
+        self.current = snapshot(3, 50)
+        bracket = self.run.begin_sample()
+        self.assertTrue(hasattr(bracket, '__enter__'), 'bracket needs exception-safe context management')
+        with self.assertRaisesRegex(ValueError, 'probe failed'):
+            with bracket:
+                raise ValueError('probe failed')
+        self.run.sample('outer', dict(outcome='ok'))
+        self.assertEqual(self.run.samples[0]['cpu_accounting']['before']['nr_throttled'], 2)
+
     def test_missing_accounting_blocks_quota_container_only(self):
         self.current = dict(available=False, reason='no cgroup v2')
         self.run.begin_sample()
@@ -247,6 +331,23 @@ class BoundaryIntegration(unittest.TestCase):
             self.assertEqual(kept['outcome'], 'ok')
             self.assertEqual(kept['cpu_accounting']['delta']['nr_throttled'], 0)
             self.assertTrue(calls[1].exists())
+
+    def test_v1_reason_reaches_summary(self):
+        from perf.runner.browser_throttle import read_cpu_accounting
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'cpu.cfs_quota_us').write_text('800000')
+            (root / 'cpu.cfs_period_us').write_text('100000')
+
+            def read():
+                return read_cpu_accounting(cgroup_root=root, platform='linux')
+
+            run = BrowserRun(root, 'v1', seed=1, run_id='v1', snapshot=lambda: {}, accounting_reader=read)
+            result = run.finish({'host': {'container': True, 'cpu_quota': 8}})
+            self.assertIn('cgroup v1', result['cpu_accounting']['reason'])
+            self.assertIn('refusal unavailable', result['cpu_accounting']['reason'])
+            self.assertFalse(result['publishable'])
 
     def test_macos_summary_retains_known_host_cpu_count(self):
         with tempfile.TemporaryDirectory() as tmp:
