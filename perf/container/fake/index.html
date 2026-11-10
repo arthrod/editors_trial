@@ -1,0 +1,12 @@
+<!doctype html><meta charset="utf-8"><title>B6 fake host (not an editor)</title>
+<style>body{margin:0}#doc{height:90vh;overflow:auto}p{min-height:24px}</style>
+<div class="status-ok">Fake host ready</div>
+<div id="doc" contenteditable="true" data-slate-editor="true"></div>
+<script>
+const doc = document.querySelector('#doc');
+for(let i=0;i<1000;i++) {
+  const p=document.createElement('p');p.dataset.slateNode='element';
+  p.textContent='Fake document paragraph '+i+' '+('measurable prose '.repeat(50));doc.append(p);
+}
+window.b6Ready=true;
+</script>
