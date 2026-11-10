@@ -1585,7 +1585,7 @@ function attachPageLossTracker(page, cdp) {
     page.on('close', mark);
   }
   if (cdp && typeof cdp.on === 'function') {
-    cdp.on('Detached', mark);
+    cdp.on('close', mark);
   }
   return {
     isLost() {
