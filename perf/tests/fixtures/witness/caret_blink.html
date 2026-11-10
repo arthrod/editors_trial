@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>witness fake host: a blinking caret and nothing else</title>
+    <style>
+      body {
+        margin: 0;
+        background: #ffffff;
+        color: #111111;
+        font: 20px/1.6 monospace;
+      }
+      #ed {
+        border: 1px solid #333333;
+        padding: 12px;
+        width: 320px;
+        margin: 24px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="ed" contenteditable="true">the only thing that changes here is the caret</div>
+    <script>
+      // The fake host of W2. The caret blinks on Chromium's own cadence; the
+      // page's content never changes. A witness that is not caret-masked sees
+      // the blink as a frame; with `caret-color: transparent` the compositor
+      // still damages, but the pixels do not change, so there is no witness.
+      window.__witness = { marker_ms: null };
+      var editable = document.getElementById('ed');
+      // The caret is focused on load: the witness takes its baseline frame
+      // before the page is armed, so the caret must already be there.
+      editable.focus();
+      var range = document.createRange();
+      range.selectNodeContents(editable);
+      range.collapse(false);
+      var selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      window.__witnessArm = function arm() {
+        var marker_ms = performance.now();
+        window.__witness.marker_ms = marker_ms;
+        return Promise.resolve({ after_page_ms: marker_ms, marker_ms: marker_ms });
+      };
+    </script>
+  </body>
+</html>
