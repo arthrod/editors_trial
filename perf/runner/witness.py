@@ -113,7 +113,21 @@ the ones the adversarial reviews forced closed):
   producer writes (a JSON integer such as ``10**400``) and arithmetic
   that overflows it (a CSS rect multiplied by a ``1e308`` device pixel
   ratio) are refused with the schema's named reasons, never an
-  ``OverflowError``; and the CLI prints a JSON verdict **always** —
+  ``OverflowError``; since round 7 (R6-1) the supported numeric domain
+  itself is finite — every numeric field accepts only finite values with
+  ``|x| <= 1e15``, and anything outside (a 1,000-digit frame count
+  included) is the owning schema's refusal with the
+  ``value_out_of_range`` message token, checked before any arithmetic or
+  formatting reads the value — and every diagnostic that names a value
+  goes through one bounded, exception-safe describer (``_describe``: the
+  type plus at most 64 characters; an out-of-domain integer is
+  ``<int, N bits>``), so a 5,001-digit integer is refused, never
+  formatted, and Python's integer-to-string conversion limit is never
+  touched (the verdict still echoes the record's own payload verbatim,
+  though: serializing a verdict whose record carries such a number is
+  the caller's formatting decision — the CLI never meets one, its
+  reader refuses those files first); and the CLI prints a JSON verdict
+  **always** —
   ``validation_aborted`` when validation itself fails (a bug to report)
   and ``record_unreadable`` when the file is not a record at all
   (unreadable, not valid JSON, a bare ``NaN``: exit 2, but stdout is
@@ -144,6 +158,10 @@ number, or a non-positive bound), ``frame_before_arm``,
 ``no_pixel_evidence``, ``pixel_evidence_contradicted``,
 ``caret_mask_failed``,
 ``caret_not_masked``, ``caret_mask_contradicted``, ``invalid_record``,
+``value_out_of_range`` (not a verdict reason of its own: the message
+token the owning schema writes when a numeric field is outside the
+supported finite domain ``|x| <= 1e15``; the reason stays
+``witness_schema_invalid`` or ``clock_check_schema_invalid``),
 ``record_unreadable`` (the CLI's read refusal: the file is not a record
 at all),
 and ``validation_aborted`` (the CLI's last-resort refusal when
@@ -257,6 +275,27 @@ ANCHOR_MIN_FRAMES = 2
 #: difference of the raw readings.
 TIME_TOLERANCE_MS = 16e-4
 
+#: The supported numeric domain (#137 round 7, R6-1, the owner's
+#: decision): every numeric field of a witness record — a top-level
+#: field, a nested clock-check field, an offset sample, an anchor-probe
+#: coordinate, a conversion bound, a document-region number or one of its
+#: rects — accepts only finite values whose magnitude is at most this.
+#: The producer writes page times around 1e12 ms (an epoch in
+#: milliseconds) and counts far below it; a number past 1e15 is one no
+#: producer ever wrote, and the owning schema refuses it with the
+#: ``value_out_of_range`` message token BEFORE any arithmetic or
+#: formatting reads the value. This replaces round 6's boundary: a
+#: huge-but-valid informational number is no longer accepted, it is
+#: refused. The comparison below is exact at any magnitude and never
+#: converts a huge integer (comparing int with float is safe); the
+#: interpreter's integer-to-string conversion limit is never touched.
+NUMERIC_DOMAIN_LIMIT = 1e15
+
+#: The hard bound on one described value inside a diagnostic: no message
+#: the validator builds for one value runs past this (#137 round 7,
+#: R6-1).
+DESCRIBE_MAX_CHARS = 64
+
 #: The default number of page-offset samples `clockSkew()` takes (an odd
 #: count, so the median is a sample).
 CLOCK_OFFSET_SAMPLES = 9
@@ -292,6 +331,59 @@ def load_witness(path):
 
 def _number(value):
     return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _number_out_of_domain(value):
+    """True when ``value`` is a number (an int or float; booleans are not
+    numbers) outside the supported numeric domain: not finite, or of a
+    magnitude above ``NUMERIC_DOMAIN_LIMIT`` (#137 round 7, R6-1).
+
+    The chained comparison is exact at any magnitude — Python compares
+    int with float without converting either — and a NaN fails it, so
+    every non-finite float is outside the domain too."""
+    if not _number(value):
+        return False
+    return not (-NUMERIC_DOMAIN_LIMIT <= value <= NUMERIC_DOMAIN_LIMIT)
+
+
+def _describe(value):
+    """ONE bounded, exception-safe description of an input value, for every
+    diagnostic that names one (#137 round 7, R6-1).
+
+    Never ``str()``/``repr()``/``%d`` of an unbounded value: formatting a
+    5,001-digit integer raises ``ValueError`` at the interpreter's
+    4,300-digit conversion limit, which turned refusals into crashes
+    (R6-1). The description names the value's type and is at most
+    ``DESCRIBE_MAX_CHARS`` characters in total; an integer outside the
+    supported numeric domain is described only by its bit length
+    (``<int, N bits>``), never by its digits. Total over any Python
+    object — the direct API accepts mappings (keys and values alike)
+    the producer never wrote, including objects whose repr raises."""
+    try:
+        if value is None:
+            text = "null"
+        elif isinstance(value, bool):
+            text = "bool true" if value else "bool false"
+        elif isinstance(value, int):
+            if _number_out_of_domain(value):
+                text = "<int, %d bits>" % (value.bit_length(),)
+            else:
+                text = "int %d" % (value,)
+        elif isinstance(value, float):
+            text = "float %r" % (value,)  # a float's repr is short, always
+        elif isinstance(value, str):
+            text = "str '%s'%s" % (value[:40], "..." if len(value) > 40 else "")
+        elif isinstance(value, (list, tuple)):
+            text = "%s (%d items)" % (type(value).__name__, len(value))
+        elif isinstance(value, dict):
+            text = "object (%d keys)" % (len(value),)
+        else:
+            text = "<%s>" % (type(value).__name__,)
+    except Exception:  # noqa: BLE001 -- a describer that raises is the bug
+        text = "<undescribable>"
+    if len(text) > DESCRIBE_MAX_CHARS:
+        return text[: DESCRIBE_MAX_CHARS - 3] + "..."
+    return text
 
 
 def _as_float(value):
@@ -397,15 +489,22 @@ def _skew_of(record, skew=None):
     ``page_offset_ms``. The ``clock_skew`` dict slot is deliberately not
     read: the producer never writes it on a frame-witness record (it is a
     section key of the ``--op all`` bundle, not of a witness record), and
-    the closed schema refuses the key outright (#137 round 4, N4)."""
-    if _finite_number(skew):
+    the closed schema refuses the key outright (#137 round 4, N4).
+
+    #137 round 7, R6-1: an offset outside the supported numeric domain is
+    not usable arithmetic input either -- the schema's domain sweep
+    refuses the field it came from, and no gate downstream (the skew
+    comparison included) reads the value first."""
+    if _finite_number(skew) and not _number_out_of_domain(skew):
         return float(skew)
     value = record.get("clock_skew_ms")
-    if _finite_number(value):
+    if _finite_number(value) and not _number_out_of_domain(value):
         return float(value)
     nested = record.get("clock_check")
-    if isinstance(nested, dict) and _finite_number(nested.get("page_offset_ms")):
-        return float(nested["page_offset_ms"])
+    if isinstance(nested, dict):
+        offset = nested.get("page_offset_ms")
+        if _finite_number(offset) and not _number_out_of_domain(offset):
+            return float(offset)
     return None
 
 
@@ -461,14 +560,25 @@ def _rect_violations(prefix, rect, *, device):
         value = rect[key]
         if device:
             if _count(value) is None:
-                out.append("%s%s must be an integer (got %r)" % (prefix, key, value))
+                out.append(
+                    "%s%s must be an integer (got %s)" % (prefix, key, _describe(value))
+                )
             elif (key in ("x", "y") and value < 0) or (key in ("width", "height") and value < 1):
-                out.append("%s%s is out of the producer's range (%r)" % (prefix, key, value))
+                out.append(
+                    "%s%s is out of the producer's range (got %s)"
+                    % (prefix, key, _describe(value))
+                )
         else:
             if not _finite_number(value):
-                out.append("%s%s must be a finite number (got %r)" % (prefix, key, value))
+                out.append(
+                    "%s%s must be a finite number (got %s)"
+                    % (prefix, key, _describe(value))
+                )
             elif key in ("width", "height") and value <= 0:
-                out.append("%s%s must be positive (%r)" % (prefix, key, value))
+                out.append(
+                    "%s%s must be positive (got %s)"
+                    % (prefix, key, _describe(value))
+                )
     return out
 
 
@@ -480,25 +590,43 @@ def _region_violations(record):
         return ["document_region must be an object when the record is scoped"]
     source = region.get("source")
     if source not in ("selector", "rect"):
-        out.append("document_region.source must be 'selector' or 'rect' (got %r)" % (source,))
+        out.append(
+            "document_region.source must be 'selector' or 'rect' (got %s)"
+            % (_describe(source),)
+        )
     selector = region.get("selector")
     if source == "selector" and not _nonempty_str(selector):
-        out.append("a selector-sourced region names its selector (got %r)" % (selector,))
+        out.append(
+            "a selector-sourced region names its selector (got %s)"
+            % (_describe(selector),)
+        )
     if source == "rect" and selector is not None:
-        out.append("a rect-sourced region carries no selector (got %r)" % (selector,))
+        out.append(
+            "a rect-sourced region carries no selector (got %s)"
+            % (_describe(selector),)
+        )
     css = region.get("rect_css_px")
     device = region.get("rect_device_px")
     dpr = region.get("device_pixel_ratio")
     if not isinstance(css, dict):
-        out.append("document_region.rect_css_px must be an object (got %r)" % (css,))
+        out.append(
+            "document_region.rect_css_px must be an object (got %s)"
+            % (_describe(css),)
+        )
     if not isinstance(device, dict):
-        out.append("document_region.rect_device_px must be an object (got %r)" % (device,))
+        out.append(
+            "document_region.rect_device_px must be an object (got %s)"
+            % (_describe(device),)
+        )
     if isinstance(css, dict):
         out += _rect_violations("document_region.rect_css_px.", css, device=False)
     if isinstance(device, dict):
         out += _rect_violations("document_region.rect_device_px.", device, device=True)
     if not _finite_number(dpr) or float(dpr) <= 0:
-        out.append("document_region.device_pixel_ratio must be positive (got %r)" % (dpr,))
+        out.append(
+            "document_region.device_pixel_ratio must be positive (got %s)"
+            % (_describe(dpr),)
+        )
         return out
     # The arithmetic the producer did: device = round(css * dpr), clamped to
     # the frame. The clamp only ever shrinks a width or height and zeroes a
@@ -515,17 +643,17 @@ def _region_violations(record):
         }
         if any(value is None for value in rounded.values()):
             out.append(
-                "document_region's CSS rect at the recorded dpr (%r) is "
-                "outside the representable pixel range" % (dpr,)
+                "document_region's CSS rect at the recorded dpr (%s) is "
+                "outside the representable pixel range" % (_describe(dpr),)
             )
         else:
             for axis in ("x", "y"):
                 expected = max(0, rounded[axis])
                 if _count(device.get(axis)) is not None and device[axis] != expected:
                     out.append(
-                        "document_region.rect_device_px.%s (%r) is not the CSS rect at "
-                        "the recorded dpr (expected %d)"
-                        % (axis, device[axis], expected)
+                        "document_region.rect_device_px.%s (%s) is not the CSS rect at "
+                        "the recorded dpr (expected %s)"
+                        % (axis, _describe(device[axis]), _describe(expected))
                     )
             for axis, span in (("x", "width"), ("y", "height")):
                 upper = rounded[axis] + rounded[span]
@@ -533,9 +661,9 @@ def _region_violations(record):
                 value = device.get(span)
                 if _count(value) is None or not lower + 1 <= value <= upper:
                     out.append(
-                        "document_region.rect_device_px.%s (%r) does not fit the CSS "
-                        "rect at the recorded dpr ([%d, %d])"
-                        % (span, value, lower + 1, upper)
+                        "document_region.rect_device_px.%s (%s) does not fit the CSS "
+                        "rect at the recorded dpr ([%s, %s])"
+                        % (span, _describe(value), _describe(lower + 1), _describe(upper))
                     )
     pixels = record.get("region_pixels")
     if (
@@ -546,8 +674,8 @@ def _region_violations(record):
         area = device["width"] * device["height"]
         if _count(pixels) is None or pixels != area:
             out.append(
-                "region_pixels (%r) must be the device rect's area (%d)"
-                % (pixels, area)
+                "region_pixels (%s) must be the device rect's area (%s)"
+                % (_describe(pixels), _describe(area))
             )
     return out
 
@@ -659,6 +787,67 @@ _DOCUMENT_REGION_ALLOWED_KEYS = frozenset(
 )
 _RECT_ALLOWED_KEYS = frozenset(("x", "y", "width", "height"))
 
+#: Every numeric field of the record itself, of its document region and of
+#: the nested clock check (its anchor probe region and its conversion
+#: statement included): the fields the supported-numeric-domain check
+#: sweeps (#137 round 7, R6-1). The names are the producer's own, pinned
+#: to the real capture by the permanent tests.
+_TOP_LEVEL_NUMERIC_FIELDS = frozenset(
+    (
+        "frame_page_ms",
+        "frames_total",
+        "frames_after",
+        "frames_ack_skipped",
+        "diff_ratio",
+        "threshold",
+        "min_pixels",
+        "window_ms",
+        "window_requested_ms",
+        "elapsed_ms",
+        "time_origin_ms",
+        "max_diff_ratio",
+        "after_page_ms",
+        "baseline_page_ms",
+        "marker_page_ms",
+        "changed_pixels",
+        "total_pixels",
+        "region_pixels",
+        "clock_skew_ms",
+        "clock_skew_bound_ms",
+    )
+)
+_CHECK_NUMERIC_FIELDS = frozenset(
+    (
+        "bound_ms",
+        "page_offset_ms",
+        "skew_ms",
+        "page_offset_spread_ms",
+        "time_origin_ms",
+        "change_page_ms",
+        "frame_page_ms",
+        "frame_lag_ms",
+        "frame_monotonic_ms",
+        "frames_total",
+        "anchor_diff_ratio",
+        "frame_interval_ms",
+        "frame_interval_samples",
+        "lag_bound_ms",
+    )
+)
+_RECT_NUMERIC_FIELDS = frozenset(("x", "y", "width", "height"))
+_CONVERSION_NUMERIC_FIELDS = frozenset(("error_lower_ms", "error_upper_ms"))
+
+
+def _domain_message(what, value):
+    """The owning schema's ``value_out_of_range`` violation for one numeric
+    field outside the supported domain (#137 round 7, R6-1). The value is
+    described, never formatted."""
+    return (
+        "%s is outside the supported numeric domain (value_out_of_range): "
+        "every number the producer writes is finite with |x| <= %g (got %s)"
+        % (what, NUMERIC_DOMAIN_LIMIT, _describe(value))
+    )
+
 
 def _production_schema_violations(record):
     """(reason, message) pairs: every way a production record can violate the
@@ -669,6 +858,36 @@ def _production_schema_violations(record):
 
     def bad(message):
         out.append(("witness_schema_invalid", "witness schema: " + message))
+
+    # #137 round 7, R6-1: the supported numeric domain, checked BEFORE any
+    # arithmetic or formatting reads a value. Everything below (the
+    # per-field checks, the region arithmetic, the evidence recomputation)
+    # then only ever describes an out-of-domain number — through
+    # _describe, never by formatting it — and round 6's boundary is gone:
+    # a huge-but-valid informational number is refused here, not accepted.
+    for field in sorted(set(record) & _TOP_LEVEL_NUMERIC_FIELDS):
+        if _number_out_of_domain(record[field]):
+            bad(_domain_message(field, record[field]))
+    region = record.get("document_region")
+    if isinstance(region, dict):
+        if _number_out_of_domain(region.get("device_pixel_ratio")):
+            bad(
+                _domain_message(
+                    "document_region.device_pixel_ratio",
+                    region["device_pixel_ratio"],
+                )
+            )
+        for rect_key in ("rect_css_px", "rect_device_px"):
+            rect = region.get(rect_key)
+            if isinstance(rect, dict):
+                for field in sorted(set(rect) & _RECT_NUMERIC_FIELDS):
+                    if _number_out_of_domain(rect[field]):
+                        bad(
+                            _domain_message(
+                                "document_region.%s.%s" % (rect_key, field),
+                                rect[field],
+                            )
+                        )
 
     # The schema is closed, recursively (#137 round 4 N4; round 5: at every
     # object the producer emits). A key the producer does not emit — at the
@@ -681,10 +900,13 @@ def _production_schema_violations(record):
     def unknown_keys(obj, allowed, what):
         if not isinstance(obj, dict):
             return
-        for field in sorted(set(obj) - allowed):
+        # sorted by the described key (#137 round 7, R6-1): the direct API
+        # accepts mappings whose keys need share no order — and the message
+        # describes the key, it never formats it.
+        for field in sorted(set(obj) - allowed, key=_describe):
             bad(
-                "unknown %s field %r: the producer emits a closed set of keys"
-                % (what, field)
+                "unknown %s field %s: the producer emits a closed set of keys"
+                % (what, _describe(field))
             )
 
     unknown_keys(record, _PRODUCTION_ALLOWED_KEYS, "top-level")
@@ -723,15 +945,18 @@ def _production_schema_violations(record):
             bad("the record is missing its %s field" % (field,))
 
     if record.get("kind") != PRODUCTION_KIND:
-        bad("kind must be %r (got %r)" % (PRODUCTION_KIND, record.get("kind")))
+        bad(
+            "kind must be %r (got %s)"
+            % (PRODUCTION_KIND, _describe(record.get("kind")))
+        )
 
     # -- counts and numbers, with the producer's ranges --------------------
     for field in ("frames_total", "frames_after", "frames_ack_skipped"):
         value = record.get(field)
         if _count(value) is None:
-            bad("%s must be an integer (got %r)" % (field, value))
+            bad("%s must be an integer (got %s)" % (field, _describe(value)))
         elif value < 0:
-            bad("%s must not be negative (got %r)" % (field, value))
+            bad("%s must not be negative (got %s)" % (field, _describe(value)))
     # #137 round 5, R4-2: a skipped ack is one of the recorder's frames
     # (the producer counts it while iterating them), so it cannot outnumber
     # them.
@@ -740,9 +965,12 @@ def _production_schema_violations(record):
     ) is not None:
         if record["frames_ack_skipped"] > record["frames_total"]:
             bad(
-                "frames_ack_skipped (%r) exceeds frames_total (%r): a skipped "
+                "frames_ack_skipped (%s) exceeds frames_total (%s): a skipped "
                 "frame is still one of the recorder's frames"
-                % (record["frames_ack_skipped"], record["frames_total"])
+                % (
+                    _describe(record["frames_ack_skipped"]),
+                    _describe(record["frames_total"]),
+                )
             )
 
     for field, low in (
@@ -757,21 +985,21 @@ def _production_schema_violations(record):
     ):
         value = record.get(field)
         if not _finite_number(value):
-            bad("%s must be a finite number (got %r)" % (field, value))
+            bad("%s must be a finite number (got %s)" % (field, _describe(value)))
             continue
         if field in ("diff_ratio", "max_diff_ratio") and not 0.0 <= float(value) <= 1.0:
-            bad("%s must be between 0 and 1 (got %r)" % (field, value))
+            bad("%s must be between 0 and 1 (got %s)" % (field, _describe(value)))
         if field == "threshold" and float(value) <= 0:
-            bad("threshold must be positive (got %r)" % (value,))
+            bad("threshold must be positive (got %s)" % (_describe(value),))
         if low is not None and float(value) < low:
-            bad("%s must be at least %s (got %r)" % (field, low, value))
+            bad("%s must be at least %s (got %s)" % (field, low, _describe(value)))
 
     for field in ("changed_pixels", "total_pixels"):
         value = record.get(field)
         if _count(value) is None:
-            bad("%s must be an integer (got %r)" % (field, value))
+            bad("%s must be an integer (got %s)" % (field, _describe(value)))
         elif value < 0:
-            bad("%s must not be negative (got %r)" % (field, value))
+            bad("%s must not be negative (got %s)" % (field, _describe(value)))
     if witnessed and _count(record.get("total_pixels")) == 0:
         bad("a witnessed frame needs at least one pixel to differ in")
 
@@ -779,22 +1007,31 @@ def _production_schema_violations(record):
     frame_page_ms = record.get("frame_page_ms")
     if witnessed:
         if not _finite_number(frame_page_ms):
-            bad("a witnessed frame_page_ms is a finite number (got %r)" % (frame_page_ms,))
+            bad(
+                "a witnessed frame_page_ms is a finite number (got %s)"
+                % (_describe(frame_page_ms),)
+            )
     elif frame_page_ms is not None:
-        bad("a no_frame record has no frame_page_ms (got %r)" % (frame_page_ms,))
+        bad("a no_frame record has no frame_page_ms (got %s)" % (_describe(frame_page_ms),))
     after_page_ms = record.get("after_page_ms")
     if witnessed:
         if not _finite_number(after_page_ms):
             bad(
-                "a witnessed record carries its arm after_page_ms (got %r)"
-                % (after_page_ms,)
+                "a witnessed record carries its arm after_page_ms (got %s)"
+                % (_describe(after_page_ms),)
             )
     elif after_page_ms is not None and not _finite_number(after_page_ms):
-        bad("after_page_ms must be a finite number or null (got %r)" % (after_page_ms,))
+        bad(
+            "after_page_ms must be a finite number or null (got %s)"
+            % (_describe(after_page_ms),)
+        )
     if "baseline_page_ms" in record and record["baseline_page_ms"] is not None and (
         not _finite_number(record["baseline_page_ms"]) or float(record["baseline_page_ms"]) < 0
     ):
-        bad("baseline_page_ms must be a non-negative number or null (got %r)" % (record["baseline_page_ms"],))
+        bad(
+            "baseline_page_ms must be a non-negative number or null (got %s)"
+            % (_describe(record["baseline_page_ms"]),)
+        )
     # The baseline is the picture *before* the change; a baseline after the
     # witness frame is an order no run produced.
     if (
@@ -804,52 +1041,83 @@ def _production_schema_violations(record):
         > float(record["frame_page_ms"]) + CAUSALITY_SLOP_MS + TIME_TOLERANCE_MS
     ):
         bad(
-            "baseline_page_ms (%r) is after the witness frame (%r): the "
-            "baseline is taken before the change" % (record["baseline_page_ms"], record["frame_page_ms"])
+            "baseline_page_ms (%s) is after the witness frame (%s): the "
+            "baseline is taken before the change"
+            % (
+                _describe(record["baseline_page_ms"]),
+                _describe(record["frame_page_ms"]),
+            )
         )
     if "marker_page_ms" in record:
         marker = record["marker_page_ms"]
         if marker is not None and not _finite_number(marker):
-            bad("marker_page_ms must be a finite number or null (got %r)" % (marker,))
+            bad("marker_page_ms must be a finite number or null (got %s)" % (_describe(marker),))
         elif record.get("after_page_ms") != marker:
             bad(
-                "marker_page_ms (%r) is the CLI's alias of the arm after_page_ms (%r)"
-                % (marker, record.get("after_page_ms"))
+                "marker_page_ms (%s) is the CLI's alias of the arm after_page_ms (%s)"
+                % (_describe(marker), _describe(record.get("after_page_ms")))
             )
 
     # -- strings, flags, enums ----------------------------------------------
     if not _nonempty_str(record.get("timestamp_kind")):
-        bad("timestamp_kind must name the timestamps' kind (got %r)" % (record.get("timestamp_kind"),))
+        bad(
+            "timestamp_kind must name the timestamps' kind (got %s)"
+            % (_describe(record.get("timestamp_kind")),)
+        )
     elif witnessed and record["timestamp_kind"] not in KNOWN_TIMESTAMP_KINDS:
         bad(
-            "a witnessed frame needed a convertible timestamp kind (got %r)"
-            % (record["timestamp_kind"],)
+            "a witnessed frame needed a convertible timestamp kind (got %s)"
+            % (_describe(record["timestamp_kind"]),)
         )
     if not _nonempty_str(record.get("baseline_source")):
-        bad("baseline_source must name the baseline's source (got %r)" % (record.get("baseline_source"),))
+        bad(
+            "baseline_source must name the baseline's source (got %s)"
+            % (_describe(record.get("baseline_source")),)
+        )
     if not _nonempty_str(record.get("caret_mask_css")):
-        bad("caret_mask_css must be the injected style (got %r)" % (record.get("caret_mask_css"),))
+        bad(
+            "caret_mask_css must be the injected style (got %s)"
+            % (_describe(record.get("caret_mask_css")),)
+        )
     if record.get("clock_check_source") not in ("caller", "inline", "page_offset_only"):
         bad(
-            "clock_check_source must be caller, inline or page_offset_only (got %r)"
-            % (record.get("clock_check_source"),)
+            "clock_check_source must be caller, inline or page_offset_only (got %s)"
+            % (_describe(record.get("clock_check_source")),)
         )
     if not _bool(record.get("caret_masked")):
-        bad("caret_masked must be a boolean (got %r)" % (record.get("caret_masked"),))
+        bad("caret_masked must be a boolean (got %s)" % (_describe(record.get("caret_masked")),))
     if record.get("caret_mask_error") is not None and not isinstance(record.get("caret_mask_error"), str):
-        bad("caret_mask_error must be a string or null (got %r)" % (record.get("caret_mask_error"),))
+        bad(
+            "caret_mask_error must be a string or null (got %s)"
+            % (_describe(record.get("caret_mask_error")),)
+        )
     if not _bool(record.get("document_scoped")):
-        bad("document_scoped must be a boolean (got %r)" % (record.get("document_scoped"),))
+        bad(
+            "document_scoped must be a boolean (got %s)"
+            % (_describe(record.get("document_scoped")),)
+        )
     if not _bool(record.get("clock_skew_acceptable")):
-        bad("clock_skew_acceptable must be a boolean (got %r)" % (record.get("clock_skew_acceptable"),))
+        bad(
+            "clock_skew_acceptable must be a boolean (got %s)"
+            % (_describe(record.get("clock_skew_acceptable")),)
+        )
     if record.get("clock_skew_ms") is not None and not _finite_number(record.get("clock_skew_ms")):
-        bad("clock_skew_ms must be a finite number or null (got %r)" % (record.get("clock_skew_ms"),))
+        bad(
+            "clock_skew_ms must be a finite number or null (got %s)"
+            % (_describe(record.get("clock_skew_ms")),)
+        )
     if record.get("clock_skew_method") is not None and not _nonempty_str(record.get("clock_skew_method")):
-        bad("clock_skew_method must be a non-empty string or null (got %r)" % (record.get("clock_skew_method"),))
+        bad(
+            "clock_skew_method must be a non-empty string or null (got %s)"
+            % (_describe(record.get("clock_skew_method")),)
+        )
     if not _finite_number(record.get("clock_skew_bound_ms")) or (
         _finite_number(record.get("clock_skew_bound_ms")) and float(record["clock_skew_bound_ms"]) <= 0
     ):
-        bad("clock_skew_bound_ms must be positive (got %r)" % (record.get("clock_skew_bound_ms"),))
+        bad(
+            "clock_skew_bound_ms must be positive (got %s)"
+            % (_describe(record.get("clock_skew_bound_ms")),)
+        )
 
     # -- scope: the region the producer resolves for a scoped record --------
     scoped = record.get("document_scoped") is True
@@ -857,20 +1125,32 @@ def _production_schema_violations(record):
     error = record.get("document_region_error")
     if scoped:
         if error is not None:
-            bad("a scoped record carries no document_region_error (got %r)" % (error,))
+            bad(
+                "a scoped record carries no document_region_error (got %s)"
+                % (_describe(error),)
+            )
         out += [("witness_schema_invalid", "witness schema: " + m) for m in _region_violations(record)]
     else:
         if region is not None:
-            bad("an unscoped record carries no document_region (got %r)" % (region,))
+            bad(
+                "an unscoped record carries no document_region (got %s)"
+                % (_describe(region),)
+            )
         if record.get("region_pixels") is not None:
-            bad("an unscoped record carries no region_pixels (got %r)" % (record.get("region_pixels"),))
+            bad(
+                "an unscoped record carries no region_pixels (got %s)"
+                % (_describe(record.get("region_pixels")),)
+            )
         if error is not None and not isinstance(error, str):
-            bad("document_region_error must be a string or null (got %r)" % (error,))
+            bad("document_region_error must be a string or null (got %s)" % (_describe(error),))
 
     # -- the nested clock check is part of the record ----------------------
     nested = record.get("clock_check")
     if not isinstance(nested, dict):
-        bad("clock_check must be the run's clock-check record (got %r)" % (nested,))
+        bad(
+            "clock_check must be the run's clock-check record (got %s)"
+            % (_describe(nested),)
+        )
     return out
 
 
@@ -883,129 +1163,159 @@ def _clock_schema_violations(nested):
     def bad(message):
         out.append(("clock_check_schema_invalid", "clock check schema: " + message))
 
+    # #137 round 7, R6-1: the supported numeric domain for the check's own
+    # fields -- its offset samples, its anchor probe region and its
+    # conversion statement included -- before anything reads them.
+    for field in sorted(set(nested) & _CHECK_NUMERIC_FIELDS):
+        if _number_out_of_domain(nested[field]):
+            bad(_domain_message(field, nested[field]))
+    samples = nested.get("page_offset_samples")
+    if isinstance(samples, list):
+        for index, sample in enumerate(samples):
+            if _number_out_of_domain(sample):
+                bad(_domain_message("page_offset_samples[%d]" % (index,), sample))
+    probe = nested.get("anchor_probe_region_px")
+    if isinstance(probe, dict):
+        for field in sorted(set(probe) & _RECT_NUMERIC_FIELDS):
+            if _number_out_of_domain(probe[field]):
+                bad(
+                    _domain_message(
+                        "anchor_probe_region_px.%s" % (field,), probe[field]
+                    )
+                )
+    conversion = nested.get("conversion")
+    if isinstance(conversion, dict):
+        for field in sorted(set(conversion) & _CONVERSION_NUMERIC_FIELDS):
+            if _number_out_of_domain(conversion[field]):
+                bad(
+                    _domain_message(
+                        "conversion.%s" % (field,), conversion[field]
+                    )
+                )
+
     for field in _CLOCK_CHECK_FIELDS:
         if field not in nested:
             bad("the check is missing its %s field" % (field,))
 
     if nested.get("kind") != "clock_skew":
-        bad("kind must be 'clock_skew' (got %r)" % (nested.get("kind"),))
+        bad("kind must be 'clock_skew' (got %s)" % (_describe(nested.get("kind")),))
     if nested.get("method") != PRODUCTION_CLOCK_METHOD:
         bad(
-            "method must be %r (got %r)"
-            % (PRODUCTION_CLOCK_METHOD, nested.get("method"))
+            "method must be %r (got %s)"
+            % (PRODUCTION_CLOCK_METHOD, _describe(nested.get("method")))
         )
     if not _bool(nested.get("acceptable")):
-        bad("acceptable must be a boolean (got %r)" % (nested.get("acceptable"),))
+        bad("acceptable must be a boolean (got %s)" % (_describe(nested.get("acceptable")),))
     if nested.get("reason") is not None:
-        bad("an acceptable check records no reason (got %r)" % (nested.get("reason"),))
+        bad("an acceptable check records no reason (got %s)" % (_describe(nested.get("reason")),))
     checks = nested.get("checks")
     if not isinstance(checks, dict):
-        bad("checks must be the recorded checks (got %r)" % (checks,))
+        bad("checks must be the recorded checks (got %s)" % (_describe(checks),))
     else:
         for key in CLOCK_CHECK_KEYS:
             if key not in checks:
                 bad("the recorded checks are missing %r" % (key,))
             elif not _bool(checks[key]):
-                bad("the recorded check %r must be a boolean (got %r)" % (key, checks[key]))
+                bad("the recorded check %r must be a boolean (got %s)" % (key, _describe(checks[key])))
     if not _nonempty_str(nested.get("timestamp_kind")):
-        bad("timestamp_kind must name the timestamps' kind (got %r)" % (nested.get("timestamp_kind"),))
+        bad("timestamp_kind must name the timestamps' kind (got %s)" % (_describe(nested.get("timestamp_kind")),))
     elif nested["timestamp_kind"] not in KNOWN_TIMESTAMP_KINDS:
-        bad("an acceptable check needed a convertible timestamp kind (got %r)" % (nested["timestamp_kind"],))
+        bad("an acceptable check needed a convertible timestamp kind (got %s)" % (_describe(nested["timestamp_kind"]),))
     if not _nonempty_str(nested.get("timestamp_field")):
-        bad("timestamp_field must name the metadata field (got %r)" % (nested.get("timestamp_field"),))
+        bad("timestamp_field must name the metadata field (got %s)" % (_describe(nested.get("timestamp_field")),))
     bound = nested.get("bound_ms")
     if not _finite_number(bound) or float(bound) <= 0:
-        bad("bound_ms must be positive (got %r)" % (bound,))
+        bad("bound_ms must be positive (got %s)" % (_describe(bound),))
     if not _finite_number(nested.get("page_offset_ms")):
-        bad("page_offset_ms must be a finite number (got %r)" % (nested.get("page_offset_ms"),))
+        bad("page_offset_ms must be a finite number (got %s)" % (_describe(nested.get("page_offset_ms")),))
     if not _finite_number(nested.get("skew_ms")):
-        bad("skew_ms must be a finite number (got %r)" % (nested.get("skew_ms"),))
+        bad("skew_ms must be a finite number (got %s)" % (_describe(nested.get("skew_ms")),))
     samples = nested.get("page_offset_samples")
     if not isinstance(samples, list) or not samples:
-        bad("page_offset_samples must be a non-empty list (got %r)" % (samples,))
+        bad("page_offset_samples must be a non-empty list (got %s)" % (_describe(samples),))
     elif not all(_finite_number(s) for s in samples):
-        bad("page_offset_samples must be finite numbers (got %r)" % (samples,))
+        bad("page_offset_samples must be finite numbers (got %s)" % (_describe(samples),))
     spread = nested.get("page_offset_spread_ms")
     if not _finite_number(spread) or float(spread) < 0:
-        bad("page_offset_spread_ms must be a non-negative number (got %r)" % (spread,))
+        bad("page_offset_spread_ms must be a non-negative number (got %s)" % (_describe(spread),))
     if not _finite_number(nested.get("time_origin_ms")):
-        bad("time_origin_ms must be a finite number (got %r)" % (nested.get("time_origin_ms"),))
+        bad("time_origin_ms must be a finite number (got %s)" % (_describe(nested.get("time_origin_ms")),))
     for field in ("change_page_ms", "frame_page_ms", "frame_lag_ms"):
         if not _finite_number(nested.get(field)):
             bad(
-                "an acceptable check's anchor carries %s as a finite number (got %r)"
-                % (field, nested.get(field))
+                "an acceptable check's anchor carries %s as a finite number (got %s)"
+                % (field, _describe(nested.get(field)))
             )
     change = nested.get("change_page_ms")
     if _finite_number(change) and float(change) < 0:
-        bad("change_page_ms is a page time (got %r)" % (change,))
+        bad("change_page_ms is a page time (got %s)" % (_describe(change),))
     if nested.get("frame_monotonic_ms") is not None and (
         not _finite_number(nested.get("frame_monotonic_ms"))
         or float(nested["frame_monotonic_ms"]) < 0
     ):
-        bad("frame_monotonic_ms must be a non-negative number or null (got %r)" % (nested.get("frame_monotonic_ms"),))
+        bad("frame_monotonic_ms must be a non-negative number or null (got %s)" % (_describe(nested.get("frame_monotonic_ms")),))
     if _count(nested.get("frames_total")) is None or nested.get("frames_total", -1) < 0:
-        bad("the check's frames_total must be a non-negative integer (got %r)" % (nested.get("frames_total"),))
+        bad("the check's frames_total must be a non-negative integer (got %s)" % (_describe(nested.get("frames_total")),))
     if nested.get("anchor_pixel_checked") is not True:
-        bad("an acceptable check pixel-checked its anchor (got %r)" % (nested.get("anchor_pixel_checked"),))
+        bad("an acceptable check pixel-checked its anchor (got %s)" % (_describe(nested.get("anchor_pixel_checked")),))
     ratio = nested.get("anchor_diff_ratio")
     if not _finite_number(ratio) or not 0.0 < float(ratio) <= 1.0:
-        bad("anchor_diff_ratio must be in (0, 1] (got %r)" % (ratio,))
+        bad("anchor_diff_ratio must be in (0, 1] (got %s)" % (_describe(ratio),))
     probe = nested.get("anchor_probe_region_px")
     if not isinstance(probe, dict):
-        bad("anchor_probe_region_px must be an object (got %r)" % (probe,))
+        bad("anchor_probe_region_px must be an object (got %s)" % (_describe(probe),))
     else:
         for key in ("width", "height"):
             if _count(probe.get(key)) is None or probe[key] < 1:
-                bad("anchor_probe_region_px.%s must be at least 1 (got %r)" % (key, probe.get(key)))
+                bad("anchor_probe_region_px.%s must be at least 1 (got %s)" % (key, _describe(probe.get(key))))
         for key in ("x", "y"):
             if _count(probe.get(key)) is None:
-                bad("anchor_probe_region_px.%s must be an integer (got %r)" % (key, probe.get(key)))
+                bad("anchor_probe_region_px.%s must be an integer (got %s)" % (key, _describe(probe.get(key))))
     interval = nested.get("frame_interval_ms")
     if interval is not None and (not _finite_number(interval) or float(interval) <= 0):
-        bad("frame_interval_ms must be positive or null (got %r)" % (interval,))
+        bad("frame_interval_ms must be positive or null (got %s)" % (_describe(interval),))
     if not _nonempty_str(nested.get("frame_interval_source")):
-        bad("frame_interval_source must name the interval's source (got %r)" % (nested.get("frame_interval_source"),))
+        bad("frame_interval_source must name the interval's source (got %s)" % (_describe(nested.get("frame_interval_source")),))
     if nested.get("frame_interval_samples") is not None and (
         _count(nested.get("frame_interval_samples")) is None
         or nested["frame_interval_samples"] < 0
     ):
         bad(
-            "frame_interval_samples must be a non-negative integer or null (got %r)"
-            % (nested.get("frame_interval_samples"),)
+            "frame_interval_samples must be a non-negative integer or null (got %s)"
+            % (_describe(nested.get("frame_interval_samples")),)
         )
     lag_bound = nested.get("lag_bound_ms")
     if not _finite_number(lag_bound) or float(lag_bound) < LAG_BOUND_MIN_MS:
         bad(
-            "lag_bound_ms must be at least the rule's minimum %s ms (got %r)"
-            % (LAG_BOUND_MIN_MS, lag_bound)
+            "lag_bound_ms must be at least the rule's minimum %s ms (got %s)"
+            % (LAG_BOUND_MIN_MS, _describe(lag_bound))
         )
     if not _nonempty_str(nested.get("lag_bound_rule")):
-        bad("lag_bound_rule must state the bound's rule (got %r)" % (nested.get("lag_bound_rule"),))
+        bad("lag_bound_rule must state the bound's rule (got %s)" % (_describe(nested.get("lag_bound_rule")),))
     conversion = nested.get("conversion")
     if not isinstance(conversion, dict):
-        bad("conversion must state the published bound (got %r)" % (conversion,))
+        bad("conversion must state the published bound (got %s)" % (_describe(conversion),))
     else:
         for key in ("formula", "error_lower_why", "error_upper_why", "published"):
             if not _nonempty_str(conversion.get(key)):
-                bad("conversion.%s must be stated (got %r)" % (key, conversion.get(key)))
+                bad("conversion.%s must be stated (got %s)" % (key, _describe(conversion.get(key))))
         for key in ("error_lower_ms", "error_upper_ms"):
             if not _finite_number(conversion.get(key)):
-                bad("conversion.%s must be a finite number (got %r)" % (key, conversion.get(key)))
+                bad("conversion.%s must be a finite number (got %s)" % (key, _describe(conversion.get(key))))
     if not _bool(nested.get("caret_masked")):
-        bad("the check's caret_masked must be a boolean (got %r)" % (nested.get("caret_masked"),))
+        bad("the check's caret_masked must be a boolean (got %s)" % (_describe(nested.get("caret_masked")),))
     elif nested.get("caret_masked") is not True:
-        bad("an acceptable check masked its own caret (caret_masked=%r)" % (nested.get("caret_masked"),))
+        bad("an acceptable check masked its own caret (caret_masked=%s)" % (_describe(nested.get("caret_masked")),))
     if nested.get("caret_mask_error") is not None and not isinstance(nested.get("caret_mask_error"), str):
-        bad("the check's caret_mask_error must be a string or null (got %r)" % (nested.get("caret_mask_error"),))
+        bad("the check's caret_mask_error must be a string or null (got %s)" % (_describe(nested.get("caret_mask_error")),))
     elif isinstance(nested.get("caret_mask_error"), str) and nested["caret_mask_error"]:
         bad(
-            "an acceptable check records no mask failure (caret_mask_error=%r)"
-            % (nested["caret_mask_error"],)
+            "an acceptable check records no mask failure (caret_mask_error=%s)"
+            % (_describe(nested["caret_mask_error"]),)
         )
     notes = nested.get("notes")
     if not isinstance(notes, list) or not notes or not all(_nonempty_str(n) for n in notes):
-        bad("notes must be a non-empty list of strings (got %r)" % (notes,))
+        bad("notes must be a non-empty list of strings (got %s)" % (_describe(notes),))
     return out
 
 
@@ -1046,28 +1356,28 @@ def _anchor_pixel_evidence(nested, dpr=None):
             False,
             "an anchor is a recorder frame after the pre-change baseline "
             "(witness.mjs keeps a baseline frame and searches only later "
-            "frames), but the check records frames_total=%r: the "
-            "producer's minimum is %d frames" % (frames, ANCHOR_MIN_FRAMES),
+            "frames), but the check records frames_total=%s: the "
+            "producer's minimum is %d frames" % (_describe(frames), ANCHOR_MIN_FRAMES),
         )
     ratio = _as_float(nested.get("anchor_diff_ratio"))
     if ratio is None:
         return (
             False,
             "the anchor's own diff ratio is missing or outside the float "
-            "domain (anchor_diff_ratio=%r)" % (nested.get("anchor_diff_ratio"),),
+            "domain (anchor_diff_ratio=%s)" % (_describe(nested.get("anchor_diff_ratio")),),
         )
     if ratio < ANCHOR_DIFF_THRESHOLD - ANCHOR_RATIO_TOLERANCE:
         return (
             False,
-            "anchor_diff_ratio (%r) is below the producer's threshold %s, "
-            "below which no frame is an anchor" % (ratio, ANCHOR_DIFF_THRESHOLD),
+            "anchor_diff_ratio (%s) is below the producer's threshold %s, "
+            "below which no frame is an anchor" % (_describe(ratio), ANCHOR_DIFF_THRESHOLD),
         )
     probe = nested.get("anchor_probe_region_px")
     if not isinstance(probe, dict):
         return (
             False,
             "the anchor's probe region is the producer's own square at the "
-            "frame's corner (got %r)" % (probe,),
+            "frame's corner (got %s)" % (_describe(probe),),
         )
     x = _count(probe.get("x"))
     y = _count(probe.get("y"))
@@ -1077,45 +1387,60 @@ def _anchor_pixel_evidence(nested, dpr=None):
         return (
             False,
             "the anchor's probe region is not the producer's (x=y=0, a "
-            "positive square; got %r)" % (probe,),
+            "positive square; got %s)" % (_describe(probe),),
         )
     if x != PROBE_ORIGIN_X or y != PROBE_ORIGIN_Y:
         return (
             False,
             "the producer's anchor probe sits at the frame's top-left corner "
-            "(x=y=%d); this record claims x=%d, y=%d" % (PROBE_ORIGIN_X, x, y),
+            "(x=y=%d); this record claims x=%s, y=%s"
+            % (PROBE_ORIGIN_X, _describe(x), _describe(y)),
         )
     if width != height:
         return (
             False,
             "the producer's anchor probe is square (max(1, round(%s*dpr)) px "
-            "to a side); this record claims %dx%d px" % (PROBE_CSS_PX, width, height),
+            "to a side); this record claims %sx%s px"
+            % (PROBE_CSS_PX, _describe(width), _describe(height)),
         )
     expected_side = _probe_side_px(dpr)
     if expected_side is not None and width != expected_side:
         return (
             False,
             "the producer's probe is max(1, round(%s*dpr)) px to a side, and "
-            "this record's own device_pixel_ratio is %r, so its probe is "
-            "%dx%d px -- not the claimed %dx%d"
-            % (PROBE_CSS_PX, dpr, expected_side, expected_side, width, height),
+            "this record's own device_pixel_ratio is %s, so its probe is "
+            "%sx%s px -- not the claimed %sx%s"
+            % (
+                PROBE_CSS_PX,
+                _describe(dpr),
+                _describe(expected_side),
+                _describe(expected_side),
+                _describe(width),
+                _describe(height),
+            ),
         )
     width_f = _as_float(width)
     height_f = _as_float(height)
     if width_f is None or height_f is None:
         return (
             False,
-            "the anchor's probe region (%rx%r px) is outside the float "
-            "domain the producer writes" % (width, height),
+            "the anchor's probe region (%sx%s px) is outside the float "
+            "domain the producer writes" % (_describe(width), _describe(height)),
         )
     area = width_f * height_f  # floats: the comparison cannot overflow
     if ratio * area < ANCHOR_MIN_PIXELS - ANCHOR_RATIO_TOLERANCE * area:
         return (
             False,
-            "anchor_diff_ratio (%r) over the producer's %dx%d px probe region "
+            "anchor_diff_ratio (%s) over the producer's %sx%s px probe region "
             "(area %s px, recomputed from the geometry) is under the "
             "producer's %d-changed-pixel floor"
-            % (ratio, width, height, area, ANCHOR_MIN_PIXELS),
+            % (
+                _describe(ratio),
+                _describe(width),
+                _describe(height),
+                _describe(area),
+                ANCHOR_MIN_PIXELS,
+            ),
         )
     return True, None
 
@@ -1184,19 +1509,24 @@ def _clock_evidence_violations(record, nested, bound):
     checks = nested.get("checks")
     if "checks" in nested:
         if not isinstance(checks, dict):
-            missing("the check claims acceptable without its recorded checks (checks=%r)" % (checks,))
+            missing("the check claims acceptable without its recorded checks (checks=%s)" % (_describe(checks),))
         else:
-            false_checks = sorted(k for k, v in checks.items() if v is False)
+            # #137 round 7, R6-1: the keys are described, never formatted
+            # or joined raw -- the direct API accepts non-string keys, and
+            # ", ".join() over one raises.
+            false_checks = sorted(
+                (k for k, v in checks.items() if v is False), key=_describe
+            )
             if false_checks:
                 contradicted(
                     "the check claims acceptable but its recorded checks fail: %s"
-                    % (", ".join(false_checks),)
+                    % (", ".join(_describe(k) for k in false_checks),)
                 )
     anchor_flag = nested.get("anchor_pixel_checked")
     if anchor_flag is False:
         contradicted(
             "the check claims acceptable but the pixel anchor was not checked "
-            "(anchor_pixel_checked=%r)" % (anchor_flag,)
+            "(anchor_pixel_checked=%s)" % (_describe(anchor_flag),)
         )
     erased = []
     if isinstance(checks, dict):
@@ -1218,40 +1548,40 @@ def _clock_evidence_violations(record, nested, bound):
     if _finite_number(offset):
         if abs(float(offset)) > effective_bound + 1e-9:
             contradicted(
-                "the recorded page offset %.3f ms is above the bound of %.3f ms"
-                % (float(offset), effective_bound)
+                "the recorded page offset %s ms is above the bound of %s ms"
+                % (_describe(float(offset)), _describe(effective_bound))
             )
         alias = record.get("clock_skew_ms")
         if alias is None or not _finite_number(alias) or abs(float(alias) - float(offset)) > 1e-9:
             contradicted(
-                "the deprecated clock_skew_ms alias (%r) disagrees with the "
-                "page offset it restates (%r)" % (alias, offset)
+                "the deprecated clock_skew_ms alias (%s) disagrees with the "
+                "page offset it restates (%s)" % (_describe(alias), _describe(offset))
             )
         nested_alias = nested.get("skew_ms")
         if not _finite_number(nested_alias) or abs(float(nested_alias) - float(offset)) > 1e-9:
             contradicted(
-                "the nested skew_ms alias (%r) disagrees with the page offset "
-                "it restates (%r)" % (nested_alias, offset)
+                "the nested skew_ms alias (%s) disagrees with the page offset "
+                "it restates (%s)" % (_describe(nested_alias), _describe(offset))
             )
     method = nested.get("method")
     alias_method = record.get("clock_skew_method")
     if method is not None and alias_method != method:
         contradicted(
-            "the clock_skew_method alias (%r) disagrees with the check's method (%r)"
-            % (alias_method, method)
+            "the clock_skew_method alias (%s) disagrees with the check's method (%s)"
+            % (_describe(alias_method), _describe(method))
         )
     if _finite_number(nested_bound):
         alias_bound = record.get("clock_skew_bound_ms")
         if not _finite_number(alias_bound) or abs(float(alias_bound) - float(nested_bound)) > 1e-9:
             contradicted(
-                "the clock_skew_bound_ms alias (%r) disagrees with the check's "
-                "bound (%r)" % (alias_bound, nested_bound)
+                "the clock_skew_bound_ms alias (%s) disagrees with the check's "
+                "bound (%s)" % (_describe(alias_bound), _describe(nested_bound))
             )
     alias_acceptable = record.get("clock_skew_acceptable")
     if alias_acceptable is not (nested.get("acceptable") is True):
         contradicted(
-            "the clock_skew_acceptable alias (%r) disagrees with the check (%r)"
-            % (alias_acceptable, nested.get("acceptable"))
+            "the clock_skew_acceptable alias (%s) disagrees with the check (%s)"
+            % (_describe(alias_acceptable), _describe(nested.get("acceptable")))
         )
     nested_origin = nested.get("time_origin_ms")
     top_origin = record.get("time_origin_ms")
@@ -1259,14 +1589,14 @@ def _clock_evidence_violations(record, nested, bound):
         float(top_origin) - float(nested_origin)
     ) > 1e-9:
         contradicted(
-            "the record's time_origin_ms (%r) disagrees with the check's (%r)"
-            % (top_origin, nested_origin)
+            "the record's time_origin_ms (%s) disagrees with the check's (%s)"
+            % (_describe(top_origin), _describe(nested_origin))
         )
     marker = record.get("marker_page_ms")
     if nested.get("reason") is not None and nested.get("acceptable") is True:
         contradicted(
-            "an acceptable check records no refusal reason (reason=%r)"
-            % (nested.get("reason"),)
+            "an acceptable check records no refusal reason (reason=%s)"
+            % (_describe(nested.get("reason")),)
         )
 
     # The recomputation proper (#137 round 4, N2: it is never gated on the
@@ -1285,8 +1615,8 @@ def _clock_evidence_violations(record, nested, bound):
         for key in CLOCK_CHECK_KEYS:
             if key in checks and key in raw and bool(checks[key]) is not bool(raw[key]):
                 contradicted(
-                    "the recorded check %s=%r disagrees with its own measurements "
-                    "(recomputed %r)" % (key, checks[key], raw[key])
+                    "the recorded check %s=%s disagrees with its own measurements "
+                    "(recomputed %r)" % (key, _describe(checks[key]), raw[key])
                 )
         for key, claim, label in (
             ("_median_is_offset", offset, "the samples' median"),
@@ -1294,7 +1624,7 @@ def _clock_evidence_violations(record, nested, bound):
         ):
             if key in raw and not raw[key]:
                 contradicted(
-                    "%s (%r) is not what the samples give" % (label, claim)
+                    "%s (%s) is not what the samples give" % (label, _describe(claim))
                 )
     # #137 round 5, R4-2: the anchor's own diff evidence, checked against
     # how the producer finds an anchor (its frames, its threshold, its
@@ -1315,9 +1645,9 @@ def _clock_evidence_violations(record, nested, bound):
     record_frames = _count(record.get("frames_total"))
     if nested_frames is not None and record_frames is not None and nested_frames > record_frames:
         contradicted(
-            "the check's frames_total (%d) exceeds the record's own (%d): "
+            "the check's frames_total (%s) exceeds the record's own (%s): "
             "both count the same run's recorder, whose frames only accumulate"
-            % (nested_frames, record_frames)
+            % (_describe(nested_frames), _describe(record_frames))
         )
     change = nested.get("change_page_ms")
     frame = nested.get("frame_page_ms")
@@ -1325,13 +1655,14 @@ def _clock_evidence_violations(record, nested, bound):
     if _finite_number(frame) and _finite_number(change) and _finite_number(lag):
         if abs(float(lag) - (float(frame) - float(change))) > TIME_TOLERANCE_MS:
             contradicted(
-                "frame_lag_ms (%r) is not the anchor's own difference "
-                "frame_page_ms - change_page_ms (%r)" % (lag, float(frame) - float(change))
+                "frame_lag_ms (%s) is not the anchor's own difference "
+                "frame_page_ms - change_page_ms (%s)"
+                % (_describe(lag), _describe(float(frame) - float(change)))
             )
         if float(frame) < float(change) - CAUSALITY_SLOP_MS - TIME_TOLERANCE_MS:
             contradicted(
-                "the anchor frame (%r ms) precedes its own change (%r ms)"
-                % (frame, change)
+                "the anchor frame (%s ms) precedes its own change (%s ms)"
+                % (_describe(frame), _describe(change))
             )
     interval = nested.get("frame_interval_ms")
     lag_bound = nested.get("lag_bound_ms")
@@ -1343,24 +1674,25 @@ def _clock_evidence_violations(record, nested, bound):
         )
         if abs(float(lag_bound) - expected) > TIME_TOLERANCE_MS:
             contradicted(
-                "lag_bound_ms (%r) is not the rule's bound max(%d intervals, %s ms) "
-                "= %r" % (lag_bound, LAG_BOUND_INTERVALS, LAG_BOUND_MIN_MS, expected)
+                "lag_bound_ms (%s) is not the rule's bound max(%d intervals, %s ms) "
+                "= %s"
+                % (lag_bound, LAG_BOUND_INTERVALS, LAG_BOUND_MIN_MS, _describe(expected))
             )
     conversion = nested.get("conversion")
     if isinstance(conversion, dict):
         lower = conversion.get("error_lower_ms")
         if _finite_number(lower) and abs(float(lower) + CAUSALITY_SLOP_MS) > 1e-9:
             contradicted(
-                "the conversion's lower bound is -%s ms by causality (got %r)"
-                % (CAUSALITY_SLOP_MS, lower)
+                "the conversion's lower bound is -%s ms by causality (got %s)"
+                % (CAUSALITY_SLOP_MS, _describe(lower))
             )
         upper = conversion.get("error_upper_ms")
         if _finite_number(upper) and _finite_number(lag_bound) and abs(
             float(upper) - float(lag_bound)
         ) > 1e-9:
             contradicted(
-                "the conversion's upper bound is the lag bound (%r, got %r)"
-                % (lag_bound, upper)
+                "the conversion's upper bound is the lag bound (%s, got %s)"
+                % (_describe(lag_bound), _describe(upper))
             )
     return out
 
@@ -1380,7 +1712,7 @@ def _pixel_evidence_violations(record):
             (
                 "pixel_evidence_contradicted",
                 "a witnessed frame needs at least one pixel to differ in "
-                "(total_pixels=%r)" % (total,),
+                "(total_pixels=%s)" % (_describe(total),)
             )
         )
         return out
@@ -1390,7 +1722,8 @@ def _pixel_evidence_violations(record):
                 (
                     "pixel_evidence_contradicted",
                     "changed_pixels (%s) exceeds total_pixels (%s): a subset "
-                    "cannot be larger than the whole" % (changed, total),
+                    "cannot be larger than the whole"
+                    % (_describe(changed), _describe(total)),
                 )
             )
             return out
@@ -1401,10 +1734,10 @@ def _pixel_evidence_violations(record):
                 out.append(
                     (
                         "pixel_evidence_contradicted",
-                        "the pixel counts (changed_pixels=%r, total_pixels=%r) "
+                        "the pixel counts (changed_pixels=%s, total_pixels=%s) "
                         "are outside the float domain the producer writes, so "
                         "the ratios they claim cannot be recomputed"
-                        % (changed, total),
+                        % (_describe(changed), _describe(total)),
                     )
                 )
                 return out
@@ -1413,16 +1746,16 @@ def _pixel_evidence_violations(record):
                 out.append(
                     (
                         "pixel_evidence_contradicted",
-                        "diff_ratio (%r) is not changed_pixels / total_pixels (%r)"
-                        % (ratio, exact),
+                        "diff_ratio (%s) is not changed_pixels / total_pixels (%s)"
+                        % (_describe(ratio), _describe(exact)),
                     )
                 )
             if _finite_number(max_ratio) and abs(float(max_ratio) - exact) > RATIO_TOLERANCE:
                 out.append(
                     (
                         "pixel_evidence_contradicted",
-                        "max_diff_ratio (%r) is not changed_pixels / total_pixels (%r)"
-                        % (max_ratio, exact),
+                        "max_diff_ratio (%s) is not changed_pixels / total_pixels (%s)"
+                        % (_describe(max_ratio), _describe(exact)),
                     )
                 )
     return out
@@ -1436,7 +1769,7 @@ def _mask_violations(record):
             (
                 "caret_mask_contradicted",
                 "caret_masked=true but the mask recorded its own failure "
-                "(caret_mask_error=%r)" % (error,),
+                "(caret_mask_error=%s)" % (_describe(error),)
             )
         ]
     return []
@@ -1574,7 +1907,7 @@ def validate_witness(record, skew=None, bound_ms=DEFAULT_SKEW_BOUND_MS):
             "reason": "nonfinite_time",
             "errors": [
                 "bound_ms must be a finite positive number of milliseconds "
-                "(got %r)" % (bound_ms,)
+                "(got %s)" % (_describe(bound_ms),)
             ],
             "outcome": _outcome_of(record),
             "skew_ms": None,
@@ -1592,8 +1925,8 @@ def validate_witness(record, skew=None, bound_ms=DEFAULT_SKEW_BOUND_MS):
             "reason": "nonfinite_time",
             "errors": [
                 "a supplied skew must be a finite number of milliseconds "
-                "(got %r); it is never replaced by the record's own offset"
-                % (skew,)
+                "(got %s); it is never replaced by the record's own offset"
+                % (_describe(skew),)
             ],
             "outcome": _outcome_of(record),
             "skew_ms": None,
@@ -1650,7 +1983,7 @@ def validate_witness(record, skew=None, bound_ms=DEFAULT_SKEW_BOUND_MS):
     if outcome is None:
         errors.append("the record carries no outcome")
     elif outcome not in OUTCOMES:
-        errors.append("unknown outcome %r" % (outcome,))
+        errors.append("unknown outcome %s" % (_describe(outcome),))
     if outcome == "no_frame":
         # A refusal is an outcome, not a zero: there was no frame that showed
         # the change, so there is no latency to publish.
@@ -1674,15 +2007,16 @@ def validate_witness(record, skew=None, bound_ms=DEFAULT_SKEW_BOUND_MS):
         and float(frame_page_ms) < float(after_page_ms)
     ):
         errors.append(
-            "the witness frame (%r ms) precedes its arm after_page_ms=%r: a "
-            "frame before the change cannot show it" % (frame_page_ms, after_page_ms)
+            "the witness frame (%s ms) precedes its arm after_page_ms=%s: a "
+            "frame before the change cannot show it"
+            % (_describe(frame_page_ms), _describe(after_page_ms))
         )
 
     for field in ("frames_total", "frames_after"):
         value = record.get(field)
         if value is None or isinstance(value, bool) or not isinstance(value, int):
             # #137 round 3 (finding 4): a null count is refused, not skipped.
-            errors.append("%s must be an integer (got %r)" % (field, value))
+            errors.append("%s must be an integer (got %s)" % (field, _describe(value)))
         elif value < 0:
             errors.append("%s must not be negative" % (field,))
     if outcome == "witnessed":
@@ -1703,7 +2037,7 @@ def validate_witness(record, skew=None, bound_ms=DEFAULT_SKEW_BOUND_MS):
         errors.append(
             "frames_after (%s) exceeds frames_total (%s): a subset cannot be "
             "larger than the whole"
-            % (record["frames_after"], record["frames_total"])
+            % (_describe(record["frames_after"]), _describe(record["frames_total"]))
         )
 
     diff_ratio = record.get("diff_ratio")
@@ -1724,21 +2058,22 @@ def validate_witness(record, skew=None, bound_ms=DEFAULT_SKEW_BOUND_MS):
         elif not float(diff_ratio) > float(threshold):
             errors.append(
                 "a witnessed frame must differ by more than the threshold "
-                "(diff_ratio %r <= threshold %r)" % (diff_ratio, threshold)
+                "(diff_ratio %s <= threshold %s)"
+                % (_describe(diff_ratio), _describe(threshold))
             )
         changed = record.get("changed_pixels")
         min_pixels = record.get("min_pixels", DEFAULT_MIN_PIXELS)
         if not _finite_number(min_pixels) or float(min_pixels) < 1:
             errors.append(
-                "min_pixels must be a number of at least 1 (got %r)"
-                % (record.get("min_pixels"),)
+                "min_pixels must be a number of at least 1 (got %s)"
+                % (_describe(record.get("min_pixels")),)
             )
         elif not _finite_number(changed):
             errors.append("a witnessed frame needs changed_pixels")
         elif float(changed) < float(min_pixels):
             errors.append(
                 "a witnessed frame must differ in at least %s pixels "
-                "(changed_pixels %r)" % (min_pixels, changed)
+                "(changed_pixels %s)" % (_describe(min_pixels), _describe(changed))
             )
 
     caret_masked = record.get("caret_masked")
@@ -1747,7 +2082,8 @@ def validate_witness(record, skew=None, bound_ms=DEFAULT_SKEW_BOUND_MS):
     if caret_masked is not True:
         if record.get("caret_mask_error"):
             errors.append(
-                "the caret mask failed (%r), so the witness is not proven" % (record.get("caret_mask_error"),)
+                "the caret mask failed (%s), so the witness is not proven"
+                % (_describe(record.get("caret_mask_error")),)
             )
         else:
             errors.append("the caret mask was not applied (caret_masked is false)")
@@ -1776,7 +2112,8 @@ def validate_witness(record, skew=None, bound_ms=DEFAULT_SKEW_BOUND_MS):
             nested_reason = nested.get("reason")
             if isinstance(nested_reason, str) and nested_reason:
                 errors.append(
-                    "the run's clock check is not acceptable: %s" % (nested_reason,)
+                    "the run's clock check is not acceptable: %s"
+                    % (_describe(nested_reason),)
                 )
             else:
                 errors.append("the run's clock check is not acceptable")
@@ -1807,7 +2144,8 @@ def validate_witness(record, skew=None, bound_ms=DEFAULT_SKEW_BOUND_MS):
     skew_checked = skew_ms is not None
     if skew_checked and abs(skew_ms) > bound:
         errors.append(
-            "clock skew %.3f ms is above the bound of %.3f ms" % (skew_ms, bound)
+            "clock skew %s ms is above the bound of %s ms"
+            % (_describe(skew_ms), _describe(bound))
         )
 
     refused = bool(errors)
