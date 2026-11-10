@@ -17,7 +17,7 @@
  * Buffers), so a Python reader can validate it without knowing JavaScript.
  *
  * ---------------------------------------------------------------------------
- * Clocks, and what "skew" means here
+ * Clocks, and what this module can and cannot claim about them
  * ---------------------------------------------------------------------------
  * The page's clock is `performance.now()` (monotonic, origin = navigation
  * start) together with `performance.timeOrigin` (the wall clock at that
@@ -33,32 +33,56 @@
  *
  *     page_ms = timestamp * 1000 - performance.timeOrigin
  *
- * and the *error* of that conversion is what `clockSkew` measures. It is not
- * the compositor's latency: the frame that shows a change is produced one
- * frame interval later, and on a software renderer much later than that
- * (~13 ms was measured here). That latency is reported separately as
- * `frame_lag_ms`; it is a property of the machine, not of the clock.
- *
- * The conversion error is the difference between two readings of the same OS
- * clock, and it is measurable inside the page:
+ * NAME THINGS HONESTLY (this was issue #130's point): the page-local quantity
  *
  *     (Date.now() - performance.timeOrigin) - performance.now()
  *
- * is the wall-clock/monotonic discrepancy the renderer has accumulated since
- * navigation, which is exactly the error the conversion inherits (the
- * screencast timestamp and `performance.timeOrigin` are both wall-clock
- * readings of the same OS clock). `Date.now()` truncates to a millisecond, so
- * the probe takes several samples and reports the median; the residual spread
- * is reported as `page_offset_spread_ms`.
+ * is the page's wall-clock/monotonic discrepancy since navigation. It is
+ * reported as `page_offset_ms`. It is **not** the error of the
+ * screencast-to-page conversion, and on its own it proves nothing about a
+ * second process's timestamps: a screencast clock shifted by a whole second
+ * leaves `page_offset_ms` untouched. The records keep two deprecated aliases
+ * (`skew_ms` on a clock check, `clock_skew_ms` on a frame witness) that carry
+ * the page offset, because B2–B5 were written against them; readers must not
+ * interpret them as a conversion-error bound.
  *
- * A frame anchor is measured as well, because the skew must be tied to a
- * real frame: the probe forces a visible change at a known `performance.now()`
- * and captures the frame that shows it. That frame gives `frame_page_ms` (the
- * converted page time) and `frame_lag_ms` (the compositor's latency), and it
- * is what proves the conversion lands in the page's timeline at all.
+ * What the conversion error actually is, and the bound this module PUBLISHES:
+ * the only evidence available inside the page is a *pixel anchor* — force a
+ * visible change at a known `performance.now()` and take the first delivered
+ * frame (arrival order, no timestamp filter) whose pixels show it. For that
+ * frame, causality bounds the conversion from below and the anchor's lag
+ * bounds it from above:
  *
- * The caller refuses a sample when `|skew_ms| > bound_ms` (2 ms by default,
- * recorded in every record).
+ *   - lower bound: -2 ms. A frame cannot show a change before the change was
+ *     made, so an anchor converted to less than `change_page_ms - 2 ms` (2 ms
+ *     of slop for the change's own performance.now() read and the DOM
+ *     mutation around it) contradicts causality and the check fails. Hence
+ *     no conversion this module accepts claims the frame earlier than 2 ms
+ *     before the event it shows.
+ *   - upper bound: the anchor lag bound, `max(3 frame intervals, 100 ms)`,
+ *     where the frame interval is the run's measured median rAF delta
+ *     (recorded as `frame_interval_ms`). One frame interval is physics (the
+ *     change lands mid-frame); the measured presentation lag of the anchor on
+ *     this machine is ≈1 interval (~15 ms, under load ~16 ms), so three
+ *     intervals with a 100 ms floor is ~6x the observed worst case while the
+ *     injected-error class this gate exists for (±1000 ms) is 10x above it.
+ *
+ * The published claim is therefore **[-2 ms, +lag bound]** — an asymmetric
+ * interval, never "±2 ms": nothing in this module proves sub-2 ms accuracy
+ * on the positive side, and a positive conversion error is only caught once
+ * it pushes the anchor past the lag bound. `conversion` in every clock-check
+ * record states this bound.
+ *
+ * `acceptable` on a clock check is the AND of the recorded `checks`, and a
+ * refusal names the failed check in `reason`:
+ *
+ *   timestamp_kind_known, page_offset_within_bound, page_offset_spread_within_bound
+ *   (the spread of the page-offset samples, ≤ 2 ms), anchor_found,
+ *   anchor_pixel_checked, anchor_converted, anchor_causality (converted anchor
+ *   time ≥ change time − 2 ms), anchor_lag_within_bound. A missing anchor
+ *   fails closed. `frame_lag_ms` stays what it always was — the compositor's
+ *   presentation latency of the anchor, a property of the machine, never a
+ *   clock error.
  *
  * ---------------------------------------------------------------------------
  * The comparator
@@ -78,21 +102,49 @@
  *
  * A refusal is an outcome, never a zero: `outcome` is "witnessed" or
  * "no_frame", and a refusal keeps the payload (frames seen, biggest diff,
- * the mask, the skew) so the caller can record why.
+ * the mask, the clock check) so the caller can record why.
+ *
+ * ---------------------------------------------------------------------------
+ * The document region (#130: only document damage is the document's paint)
+ * ---------------------------------------------------------------------------
+ * A whole-frame diff lets a toolbar recolor, a spinner or any other shell
+ * animation publish a "document paint" time, so `witnessFrame` takes an
+ * optional `region`: `{selector: '#doc'}` (resolved to its bounding rect) or
+ * `{rect: {x, y, width, height}}` in CSS pixels. The rect is converted to
+ * device pixels (device pixel ratio recorded) and clamped to the captured
+ * frame; every diff — `changed_pixels`, `total_pixels`, `diff_ratio`,
+ * `max_diff_ratio` — is then scoped to those pixels. Without a region the
+ * record says `document_scoped: false`, nothing is thrown, and the Python
+ * validator refuses the record for publication (`not_document_scoped`). A
+ * region that cannot be resolved (unknown selector, empty rect) is recorded
+ * in `document_region_error` and also leaves the record unscoped.
  *
  * ---------------------------------------------------------------------------
  * How a lane calls this
  * ---------------------------------------------------------------------------
  *   const cdp = await context.newCDPSession(page);
- *   const skew = await clockSkew(page, cdp);          // before the interaction
- *   if (Math.abs(skew.skew_ms) > skew.bound_ms) { ...refuse... }
- *   const frame = await witnessFrame(page, cdp, { afterPageMs: eventPageMs });
+ *   // once per run: the clock check every sample of the run refers to
+ *   const check = await clockSkew(page, cdp);
+ *   if (!check.acceptable) { ...refuse the run, with check.reason... }
+ *   const frame = await witnessFrame(page, cdp, {
+ *     afterPageMs: eventPageMs,
+ *     region: { selector: '#doc' },
+ *     clockCheck: check,          // echoed into the record (clock_check_source)
+ *   });
  *
  * `witnessFrame` masks the caret, takes its baseline frame and only then
  * looks for the frame that shows the change, so the caller may pass
  * `afterPageMs` (a page-clock instant) or an `arm` callback that produces the
  * change and returns that instant. `afterPageMs` must be a page-clock value
  * (`performance.now()`), never a driver wall-clock value.
+ *
+ * Without a `clockCheck` the witness runs the full check inline (a lane that
+ * samples often should measure once per run and pass it in). A record's
+ * `clock_check.acceptable` is what the Python validator gates publication on;
+ * the legacy `clockSkewMs` number alone carries no anchor evidence and is
+ * recorded as an explicit unacceptable check. The window is clamped to at
+ * least `DEFAULT_WINDOW_MS` (500 ms, per the plan), and a frame counts as
+ * seen only once its screencast ack has completed.
  */
 
 import fs from 'node:fs';
@@ -104,8 +156,29 @@ import { fileURLToPath } from 'node:url';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '../..');
 
-/** The default bound on |skew_ms|; a caller refuses a sample above it. */
+/** The default bound on |page_offset_ms|; a clock check refuses above it. */
 export const DEFAULT_SKEW_BOUND_MS = 2;
+/** The bound on the spread of the page-offset samples (check d of the gate). */
+export const PAGE_OFFSET_SPREAD_BOUND_MS = 2;
+/**
+ * The causality slop, in ms: a frame cannot show a change before the change
+ * was made, so an anchor converted below `change_page_ms - CAUSALITY_SLOP_MS`
+ * fails the gate. The 2 ms covers the change's own performance.now() read and
+ * the DOM mutation around it. This is the published LOWER bound of the
+ * conversion: no accepted conversion claims a frame more than 2 ms before
+ * the event it shows.
+ */
+export const CAUSALITY_SLOP_MS = 2;
+/**
+ * The anchor lag bound is `max(ANCHOR_LAG_BOUND_INTERVALS frame intervals,
+ * ANCHOR_LAG_BOUND_MIN_MS)`. One interval is physics (a change lands
+ * mid-frame); the measured anchor lag is ≈1 interval (~15–16 ms here, loaded
+ * or not), so 3 intervals with a 100 ms floor is ~6x the observed worst
+ * case, and the injected ±1000 ms error class sits 10x above it. This is the
+ * published UPPER bound of the conversion (see the module header).
+ */
+export const ANCHOR_LAG_BOUND_INTERVALS = 3;
+export const ANCHOR_LAG_BOUND_MIN_MS = 100;
 /** The witness window: at least half a second, per the plan. */
 export const DEFAULT_WINDOW_MS = 500;
 /**
@@ -293,25 +366,52 @@ export function decodePng(buffer) {
   return { width, height, data: rgba, channels, color_type: colorType };
 }
 
-/** Compare two decoded frames; the ratio of pixels that differ. */
-export function diffRatio(a, b, { channelTolerance = DEFAULT_CHANNEL_TOLERANCE } = {}) {
-  const total = a.width * a.height;
-  if (!total) return { ratio: 1, changed: 0, total: 0, comparable: false };
+/**
+ * Compare two decoded frames; the ratio of pixels that differ. With a
+ * `region` ({x, y, width, height} in frame/device pixels, clamped to the
+ * frame) only the pixels inside it are compared and the ratio's denominator
+ * is the region's pixel count; without one the whole frame is compared.
+ */
+export function diffRatio(
+  a,
+  b,
+  { channelTolerance = DEFAULT_CHANNEL_TOLERANCE, region = null } = {},
+) {
+  const totalAll = a.width * a.height;
+  if (!totalAll) return { ratio: 1, changed: 0, total: 0, comparable: false };
   if (a.width !== b.width || a.height !== b.height) {
-    return { ratio: 1, changed: total, total, comparable: false };
+    return { ratio: 1, changed: totalAll, total: totalAll, comparable: false };
   }
+  let x0 = 0;
+  let y0 = 0;
+  let x1 = a.width;
+  let y1 = a.height;
+  if (region) {
+    x0 = Math.max(0, Math.floor(region.x));
+    y0 = Math.max(0, Math.floor(region.y));
+    x1 = Math.min(a.width, Math.ceil(region.x + region.width));
+    y1 = Math.min(a.height, Math.ceil(region.y + region.height));
+    if (x1 <= x0 || y1 <= y0) {
+      return { ratio: 0, changed: 0, total: 0, comparable: false };
+    }
+  }
+  const total = (x1 - x0) * (y1 - y0);
+  if (!total) return { ratio: 1, changed: 0, total: 0, comparable: false };
   const da = a.data;
   const db = b.data;
   let changed = 0;
-  for (let i = 0; i < total; i++) {
-    const p = i * 4;
-    if (
-      Math.abs(da[p] - db[p]) > channelTolerance ||
-      Math.abs(da[p + 1] - db[p + 1]) > channelTolerance ||
-      Math.abs(da[p + 2] - db[p + 2]) > channelTolerance ||
-      Math.abs(da[p + 3] - db[p + 3]) > channelTolerance
-    ) {
-      changed += 1;
+  for (let y = y0; y < y1; y++) {
+    for (let x = x0; x < x1; x++) {
+      const i = y * a.width + x;
+      const p = i * 4;
+      if (
+        Math.abs(da[p] - db[p]) > channelTolerance ||
+        Math.abs(da[p + 1] - db[p + 1]) > channelTolerance ||
+        Math.abs(da[p + 2] - db[p + 2]) > channelTolerance ||
+        Math.abs(da[p + 3] - db[p + 3]) > channelTolerance
+      ) {
+        changed += 1;
+      }
     }
   }
   return { ratio: changed / total, changed, total, comparable: true };
@@ -325,6 +425,11 @@ const recorders = new WeakMap();
  * The frame recorder: it listens to `Page.screencastFrame`, acks every frame
  * (an unacked frame stops the screencast) and keeps the frames with their
  * metadata. One recorder per CDP session, so the lanes can share it.
+ *
+ * A frame is recorded with `ack: 'pending'` and becomes `'acked'` (or
+ * `'error'`) when its `Page.screencastFrameAck` settles: the witness counts a
+ * frame as seen only once the ack completed, so a sample never rests on a
+ * frame the compositor was never told it could send past (#130).
  */
 export function getRecorder(cdp, options = {}) {
   let recorder = recorders.get(cdp);
@@ -342,28 +447,46 @@ export function getRecorder(cdp, options = {}) {
   };
   recorder.listener = (event) => {
     const metadata = event.metadata || {};
-    recorder.frames.push({
+    const frame = {
       data: event.data,
       ts: typeof metadata.timestamp === 'number' ? metadata.timestamp : null,
       mono:
         typeof metadata.monotonicTimestamp === 'number' ? metadata.monotonicTimestamp : null,
       receipt_ms: Date.now(),
       seq: recorder.frames.length,
-    });
+      ack: 'pending',
+    };
+    recorder.frames.push(frame);
     if (recorder.frames.length > 1200) {
       const drop = recorder.frames.length - 1200;
       recorder.frames.splice(0, drop);
       recorder.decoded.clear();
     }
-    cdp
-      .send('Page.screencastFrameAck', { sessionId: event.sessionId })
-      .catch(() => {
-        /* the session may be gone; the frame is kept anyway */
-      });
+    Promise.resolve()
+      .then(() => cdp.send('Page.screencastFrameAck', { sessionId: event.sessionId }))
+      .then(
+        () => {
+          frame.ack = 'acked';
+        },
+        () => {
+          frame.ack = 'error';
+          /* the session may be gone; the frame is kept, never counted as seen */
+        },
+      );
   };
   cdp.on('Page.screencastFrame', recorder.listener);
   recorders.set(cdp, recorder);
   return recorder;
+}
+
+/**
+ * Wait for a frame's screencast ack to settle (bounded); returns the final
+ * ack state ('pending' on timeout, 'acked' or 'error' otherwise).
+ */
+async function frameAckSettled(frame, timeoutMs = 400) {
+  const deadline = Date.now() + timeoutMs;
+  while (frame.ack === 'pending' && Date.now() < deadline) await sleep(2);
+  return frame.ack;
 }
 
 /** Stop the recorder's screencast and forget its frames. */
@@ -551,19 +674,24 @@ export async function frameInterval(page, { frames = 60, timeoutMs = 15000 } = {
   };
 }
 
-// ------------------------------------------------------------------- clock skew
+// ------------------------------------------------------------------- clock check
 
 /**
- * The clock-skew probe.
+ * The clock check (the probe earlier layers called "the clock-skew probe").
  *
- * It forces a visible change at a known `performance.now()`, captures the
- * screencast frame that shows it, converts that frame's timestamp to page
- * time and reports how far the conversion can be trusted.
+ * It masks the caret, measures the page-local clock offset
+ * (`page_offset_ms`, with its spread) and the frame interval, forces a
+ * visible change at a known `performance.now()` and finds, by pixels in
+ * arrival order, the first delivered frame that shows it — the pixel anchor.
+ * The anchor is what the screencast->page-time conversion is proven on; the
+ * page offset alone proves nothing about a second process's timestamps.
  *
- * `skew_ms` is the error of the conversion (see the file header): the page's
- * wall-clock/monotonic discrepancy, which the screencast timestamp inherits.
- * `frame_lag_ms` is the compositor's presentation latency — a property of the
- * machine, reported next to it and never folded into the skew.
+ * `acceptable` is the AND of the recorded `checks` (see the module header);
+ * a refusal names the failed check in `reason`. The published conversion
+ * bound — [-2 ms by causality, +`lag_bound_ms`] — is stated in `conversion`.
+ *
+ * `skew_ms` is a DEPRECATED alias of `page_offset_ms`, kept because B2–B5
+ * read it; it is not a conversion-error bound.
  */
 export async function clockSkew(
   page,
@@ -575,10 +703,18 @@ export async function clockSkew(
     changeWaitMs = 600,
     manageScreencast = true,
     recorder: givenRecorder = null,
+    frameIntervalMs = null,
+    caretMask = true,
+    settleMs = 200,
   } = {},
 ) {
   const recorder = givenRecorder || getRecorder(cdp, { manageScreencast });
   await ensureScreencast(recorder);
+
+  const caret = caretMask
+    ? await injectCaretMask(page)
+    : { caret_masked: false, caret_mask_css: CARET_MASK_CSS, caret_mask_error: null };
+  if (caretMask) await sleep(settleMs);
 
   const clock = await pageClock(page);
   const offsets = await page.evaluate(
@@ -594,6 +730,17 @@ export async function clockSkew(
     { count: samples, gap: sampleGapMs },
   );
   const pageOffsetMs = median(offsets);
+  const spreadMs = offsets.length ? Math.max(...offsets) - Math.min(...offsets) : null;
+
+  const interval =
+    typeof frameIntervalMs === 'number' && Number.isFinite(frameIntervalMs)
+      ? { median_ms: round(frameIntervalMs, 3), count: 0, source: 'caller' }
+      : await frameInterval(page, { frames: 60 });
+  const intervalMs = typeof interval.median_ms === 'number' ? interval.median_ms : null;
+  const lagBoundMs = Math.max(
+    intervalMs === null ? 0 : ANCHOR_LAG_BOUND_INTERVALS * intervalMs,
+    ANCHOR_LAG_BOUND_MIN_MS,
+  );
 
   const anchor = await anchorFrame(page, recorder, clock, { waitMs: changeWaitMs });
   const kind = anchor.frame
@@ -603,28 +750,65 @@ export async function clockSkew(
       : { kind: 'unknown', field: null };
   clock.timestamp_kind = kind.kind;
 
-  const skewMs = kind.kind === 'epoch_seconds' ? pageOffsetMs : null;
-  const acceptable =
-    typeof skewMs === 'number' && Math.abs(skewMs) <= boundMs && kind.kind !== 'unknown';
+  const anchorPageMs = anchor.frame_page_ms;
+  const anchorLagMs =
+    anchorPageMs === null || anchorPageMs === undefined
+      ? null
+      : anchorPageMs - anchor.change_page_ms;
+
+  const checks = {
+    timestamp_kind_known: kind.kind !== 'unknown',
+    page_offset_within_bound:
+      typeof pageOffsetMs === 'number' && Math.abs(pageOffsetMs) <= boundMs,
+    page_offset_spread_within_bound:
+      typeof spreadMs === 'number' && spreadMs <= PAGE_OFFSET_SPREAD_BOUND_MS,
+    anchor_found: Boolean(anchor.frame),
+    anchor_pixel_checked: anchor.pixel_checked === true,
+    anchor_converted: anchorPageMs !== null && anchorPageMs !== undefined,
+    anchor_causality:
+      anchorPageMs !== null &&
+      anchorPageMs !== undefined &&
+      anchorPageMs >= anchor.change_page_ms - CAUSALITY_SLOP_MS,
+    anchor_lag_within_bound: anchorLagMs !== null && anchorLagMs <= lagBoundMs,
+  };
+  // The refusal names the first failed check, in this order.
+  const reasonOrder = [
+    ['timestamp_kind_known', 'timestamp_kind_unknown'],
+    ['anchor_found', 'anchor_missing'],
+    ['anchor_pixel_checked', 'anchor_not_pixel_checked'],
+    ['anchor_converted', 'anchor_not_converted'],
+    ['anchor_causality', 'anchor_before_change'],
+    ['anchor_lag_within_bound', 'anchor_lag_above_bound'],
+    ['page_offset_within_bound', 'page_offset_above_bound'],
+    ['page_offset_spread_within_bound', 'page_offset_spread_above_bound'],
+  ];
+  let reason = null;
+  for (const [key, name] of reasonOrder) {
+    if (!checks[key]) {
+      reason = name;
+      break;
+    }
+  }
 
   return {
     kind: 'clock_skew',
-    skew_ms: skewMs === null ? null : round(skewMs, 3),
-    method: 'page_clock_offset+frame_anchor',
+    acceptable: reason === null,
+    reason,
+    checks,
+    method: 'page_clock_offset+pixel_anchor',
     timestamp_kind: kind.kind,
     timestamp_field: kind.field,
     bound_ms: boundMs,
-    acceptable,
     page_offset_ms: round(pageOffsetMs, 3),
     page_offset_samples: offsets.map((v) => round(v, 3)),
-    page_offset_spread_ms: round(
-      offsets.length ? Math.max(...offsets) - Math.min(...offsets) : null,
-      3,
-    ),
+    page_offset_spread_ms: round(spreadMs, 3),
+    // DEPRECATED alias of page_offset_ms (B2–B5 read it). Not a conversion
+    // error; never gate on it alone.
+    skew_ms: round(pageOffsetMs, 3),
     time_origin_ms: round(clock.time_origin_ms, 3),
     change_page_ms: round(anchor.change_page_ms, 3),
-    frame_page_ms: anchor.frame_page_ms === null ? null : round(anchor.frame_page_ms, 3),
-    frame_lag_ms: anchor.frame_lag_ms === null ? null : round(anchor.frame_lag_ms, 3),
+    frame_page_ms: anchorPageMs === null || anchorPageMs === undefined ? null : round(anchorPageMs, 3),
+    frame_lag_ms: anchorLagMs === null ? null : round(anchorLagMs, 3),
     frame_monotonic_ms: anchor.frame
       ? round(typeof anchor.frame.mono === 'number' ? anchor.frame.mono * 1000 : null, 3)
       : null,
@@ -634,9 +818,27 @@ export async function clockSkew(
       anchor.frame_diff_ratio === null || anchor.frame_diff_ratio === undefined
         ? null
         : round(anchor.frame_diff_ratio, 6),
+    anchor_probe_region_px: anchor.probe_region_px,
+    frame_interval_ms: intervalMs,
+    frame_interval_source: interval.source || 'raf_delta',
+    frame_interval_samples: interval.count ?? null,
+    lag_bound_ms: round(lagBoundMs, 3),
+    lag_bound_rule: `max(${ANCHOR_LAG_BOUND_INTERVALS} frame intervals, ${ANCHOR_LAG_BOUND_MIN_MS} ms)`,
+    conversion: {
+      formula: 'page_ms = timestamp * 1000 - performance.timeOrigin',
+      error_lower_ms: -CAUSALITY_SLOP_MS,
+      error_lower_why: 'causality: a frame cannot show a change before it was made (2 ms slop for the change timestamp)',
+      error_upper_ms: round(lagBoundMs, 3),
+      error_upper_why: 'the anchor lag bound: a positive conversion error is caught once it pushes the anchor past it',
+      published: `[-${CAUSALITY_SLOP_MS} ms, +${round(lagBoundMs, 3)} ms] (never "\u00b12 ms")`,
+    },
+    caret_masked: caret.caret_masked,
+    caret_mask_error: caret.caret_mask_error,
     notes: [
-      'skew_ms is the error of the screencast->page-time conversion, measured as the page wall-clock/monotonic discrepancy since navigation',
-      'frame_lag_ms is the compositor presentation latency, not a clock error',
+      'page_offset_ms is the page-local wall/monotonic discrepancy; it is NOT the screencast conversion error and never gates alone',
+      'the conversion is proven by the pixel anchor: the first delivered frame whose probe region changed, chosen in arrival order with no timestamp filter',
+      `the published conversion bound is [-${CAUSALITY_SLOP_MS} ms, +${round(lagBoundMs, 3)} ms]; the anchor is refused outside it`,
+      'frame_lag_ms is the compositor presentation latency of the anchor, not a clock error',
       kind.kind === 'epoch_seconds'
         ? 'metadata.timestamp is an epoch reading; page_ms = timestamp*1000 - performance.timeOrigin'
         : `metadata.timestamp is not an epoch reading (${kind.kind}); the conversion cannot be trusted without an anchor`,
@@ -646,13 +848,21 @@ export async function clockSkew(
 
 /**
  * Force a visible change at a known page time and find the frame that shows
- * it. The frame is chosen by its pixels, not by its timestamp, so the choice
- * does not depend on the conversion it then measures: the first frame whose
- * decoded pixels differ from the frame before the change is the frame that
- * shows it.
+ * it: the first delivered frame, in arrival order, whose pixels differ from
+ * the pre-change baseline inside the probe's own 8x8 region. There is NO
+ * timestamp filter here — the anchor must be chosen by pixels, or a wrong
+ * conversion would simply lose its own proof frame instead of failing the
+ * gate (#130 defect 1). The frame's ack must have completed before it counts.
  */
 async function anchorFrame(page, recorder, clock, { waitMs }) {
+  // A baseline frame must exist before the change, so the anchor is always
+  // proven by pixels.
+  const baselineWait = Date.now() + 1000;
+  while (recorder.frames.length === 0 && Date.now() < baselineWait) await sleep(5);
   const before = recorder.frames.length;
+  const baselineFrame = recorder.frames[before - 1] || null;
+  const baselineDecoded = baselineFrame ? decodeFrame(recorder, baselineFrame) : null;
+
   const change = await page.evaluate(() => {
     const t = performance.now();
     let probe = document.getElementById('__witness_probe__');
@@ -667,33 +877,41 @@ async function anchorFrame(page, recorder, clock, { waitMs }) {
     }
     return t;
   });
-  const baselineFrame = recorder.frames[before - 1] || null;
-  const baselineDecoded = baselineFrame ? decodeFrame(recorder, baselineFrame) : null;
+  const dpr = await page.evaluate(() => window.devicePixelRatio || 1).catch(() => 1);
+  // The probe's own corner of the frame: an unrelated damage elsewhere on
+  // the page (a spinner, a caret that survived the mask) must not become the
+  // anchor.
+  const probeRegion = {
+    x: 0,
+    y: 0,
+    width: Math.max(1, Math.round(8 * dpr)),
+    height: Math.max(1, Math.round(8 * dpr)),
+  };
+
   const deadline = Date.now() + waitMs;
   let found = null;
   let pixelChecked = false;
   while (Date.now() < deadline && !found) {
     for (let i = before; i < recorder.frames.length; i++) {
       const frame = recorder.frames[i];
-      const kind = detectTimestampKind(frame);
-      if (kind.kind !== 'epoch_seconds' && kind.kind !== 'monotonic_seconds') continue;
-      const pageMs = convertFrameToPageMs(frame, { ...clock, timestamp_kind: kind.kind });
-      if (pageMs === null || pageMs < change) continue;
-      if (baselineDecoded && frame.data !== baselineFrame.data) {
-        const decoded = decodeFrame(recorder, frame);
-        if (decoded) {
-          const diff = diffRatio(baselineDecoded, decoded);
-          if (diff.ratio > DEFAULT_THRESHOLD) {
-            found = { frame, pageMs, kind, diff: diff.ratio };
-            pixelChecked = true;
-            break;
-          }
-        }
-      } else if (!baselineDecoded) {
-        // Nothing to compare against: the first frame at or after the change
-        // is the anchor.
-        found = { frame, pageMs, kind, diff: null };
-        pixelChecked = false;
+      if (frame.ack === 'pending') {
+        if ((await frameAckSettled(frame)) !== 'acked') continue;
+      } else if (frame.ack !== 'acked') {
+        continue;
+      }
+      if (!baselineDecoded || !baselineFrame) break; // nothing to compare against
+      if (frame.data === baselineFrame.data) continue; // identical bytes: identical pixels
+      const decoded = decodeFrame(recorder, frame);
+      if (!decoded) continue;
+      const diff = diffRatio(baselineDecoded, decoded, { region: probeRegion });
+      if (diff.ratio > DEFAULT_THRESHOLD && diff.changed >= DEFAULT_MIN_PIXELS) {
+        const kind = detectTimestampKind(frame);
+        const pageMs =
+          kind.kind === 'unknown'
+            ? null
+            : convertFrameToPageMs(frame, { ...clock, timestamp_kind: kind.kind });
+        found = { frame, pageMs, kind, diff: diff.ratio };
+        pixelChecked = true;
         break;
       }
     }
@@ -711,30 +929,153 @@ async function anchorFrame(page, recorder, clock, { waitMs }) {
       frame_page_ms: null,
       frame_lag_ms: null,
       frame: null,
-      pixel_checked: false,
+      pixel_checked: pixelChecked,
+      probe_region_px: probeRegion,
     };
   }
   return {
     change_page_ms: change,
     frame_page_ms: found.pageMs,
-    frame_lag_ms: found.pageMs - change,
+    frame_lag_ms: found.pageMs === null ? null : found.pageMs - change,
     frame: found.frame,
     pixel_checked: pixelChecked,
     frame_diff_ratio: found.diff,
+    probe_region_px: probeRegion,
   };
 }
 
 // ----------------------------------------------------------------- frame witness
 
 /**
+ * Resolve the document region of a witness: `{selector}` (its bounding rect)
+ * or `{rect}` in CSS pixels, converted to device pixels and clamped to the
+ * captured frame. The result says whether the diff is document-scoped; a
+ * region that cannot be resolved is an error in the record, never a throw.
+ */
+async function resolveRegion(page, region, frameDecoded) {
+  if (!region || typeof region !== 'object') {
+    return {
+      scoped: false,
+      source: null,
+      selector: null,
+      rect_css: null,
+      rect_device: null,
+      dpr: null,
+      error: null,
+    };
+  }
+  let rect = null;
+  let source = null;
+  let selector = null;
+  let error = null;
+  try {
+    if (typeof region.selector === 'string' && region.selector) {
+      selector = region.selector;
+      const box = await page.evaluate((sel) => {
+        const el = document.querySelector(sel);
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return { x: r.left, y: r.top, width: r.width, height: r.height };
+      }, selector);
+      if (!box) {
+        error = `selector ${selector} matched no element`;
+      } else {
+        rect = box;
+        source = 'selector';
+      }
+    } else if (region.rect && typeof region.rect === 'object') {
+      const r = region.rect;
+      if (
+        [r.x, r.y, r.width, r.height].every(
+          (v) => typeof v === 'number' && Number.isFinite(v),
+        )
+      ) {
+        rect = { x: r.x, y: r.y, width: r.width, height: r.height };
+        source = 'rect';
+      } else {
+        error = 'region.rect needs finite numbers x, y, width, height';
+      }
+    } else {
+      error = 'region needs {selector} or {rect}';
+    }
+  } catch (e) {
+    error = String(e).split('\n')[0].slice(0, 200);
+  }
+  if (error) {
+    return {
+      scoped: false,
+      source,
+      selector,
+      rect_css: null,
+      rect_device: null,
+      dpr: null,
+      error,
+    };
+  }
+  const dpr = await page
+    .evaluate(() => window.devicePixelRatio || 1)
+    .catch(() => 1);
+  let device = {
+    x: Math.round(rect.x * dpr),
+    y: Math.round(rect.y * dpr),
+    width: Math.round(rect.width * dpr),
+    height: Math.round(rect.height * dpr),
+  };
+  if (frameDecoded) {
+    // Clamp to the captured frame: the document's visible part is what the
+    // witness can see.
+    const x0 = Math.max(0, device.x);
+    const y0 = Math.max(0, device.y);
+    const x1 = Math.min(frameDecoded.width, device.x + device.width);
+    const y1 = Math.min(frameDecoded.height, device.y + device.height);
+    device = {
+      x: x0,
+      y: y0,
+      width: Math.max(0, x1 - x0),
+      height: Math.max(0, y1 - y0),
+    };
+  }
+  if (device.width < 1 || device.height < 1) {
+    return {
+      scoped: false,
+      source,
+      selector,
+      rect_css: rect,
+      rect_device: device,
+      dpr,
+      error: 'the region is empty in the captured frame (outside the viewport?)',
+    };
+  }
+  return {
+    scoped: true,
+    source,
+    selector,
+    rect_css: rect,
+    rect_device: device,
+    dpr,
+    error: null,
+  };
+}
+
+/**
  * The frame witness: the first acked screencast frame at or after
  * `afterPageMs` (in the page's clock) whose decoded pixels differ from the
- * baseline frame by more than `threshold`.
+ * baseline frame by more than `threshold` — scoped to the document `region`
+ * when one is given (#130: damage outside the document is not the document's
+ * paint). Without a region the record is `document_scoped: false` and the
+ * Python validator refuses it for publication; nothing is thrown.
  *
  * `baseline` may be a frame from the recorder, a base64 PNG string, or null
  * (the recorder's most recent frame is used; if the page has not painted yet,
  * the module forces one repaint and takes the frame after it). The caret is
  * masked before the baseline is taken, and the record says so.
+ *
+ * The record carries the run's clock check: pass `clockCheck` (a `clockSkew()`
+ * record, measured once per run) or the witness runs the full check inline;
+ * `clock_check.acceptable` is what publication is gated on. The legacy
+ * `clockSkewMs` number alone carries no anchor evidence and is recorded as an
+ * explicitly unacceptable check. The window is clamped to at least
+ * `DEFAULT_WINDOW_MS`.
  *
  * A refusal is `outcome: "no_frame"` and it keeps the payload.
  */
@@ -754,14 +1095,45 @@ export async function witnessFrame(
     manageScreencast = true,
     recorder: givenRecorder = null,
     clockSkewMs = null,
+    clockCheck = null,
+    region = null,
   } = {},
 ) {
   const recorder = givenRecorder || getRecorder(cdp, { manageScreencast });
   await ensureScreencast(recorder);
+  const windowRequestedMs = windowMs;
+  if (windowMs < DEFAULT_WINDOW_MS) windowMs = DEFAULT_WINDOW_MS;
   const clock = await pageClock(page);
   const first = recorder.frames[0];
   const kind = first ? detectTimestampKind(first) : { kind: 'unknown', field: null };
   clock.timestamp_kind = kind.kind;
+
+  // The clock check this sample is gated on (#130 defect 1/3): the run's
+  // check when the caller measured one, a full inline check by default. A
+  // bare page-offset number is NOT a check and is recorded as such.
+  let check = null;
+  let checkSource = null;
+  if (clockCheck && typeof clockCheck === 'object' && clockCheck.kind === 'clock_skew') {
+    check = clockCheck;
+    checkSource = 'caller';
+  } else if (typeof clockSkewMs === 'number' && Number.isFinite(clockSkewMs)) {
+    checkSource = 'page_offset_only';
+    check = {
+      kind: 'clock_skew',
+      acceptable: false,
+      reason: 'no_anchor_evidence',
+      checks: null,
+      method: 'page_clock_offset',
+      page_offset_ms: round(clockSkewMs, 3),
+      bound_ms: DEFAULT_SKEW_BOUND_MS,
+      notes: [
+        'clockSkewMs carries only the page-local offset; the pixel anchor was not run for this sample, so the screencast conversion is unproven',
+      ],
+    };
+  } else {
+    check = await clockSkew(page, cdp, { recorder });
+    checkSource = 'inline';
+  }
 
   const caret = caretMask
     ? await injectCaretMask(page)
@@ -772,6 +1144,11 @@ export async function witnessFrame(
   // before the page is armed.
   const base = await resolveBaseline(page, recorder, baseline);
   const baseDecoded = base.frame ? decodeFrame(recorder, base.frame) : null;
+
+  // The document region is resolved before the page is armed, so a change
+  // that moves the layout cannot move its own target rect.
+  const scope = await resolveRegion(page, region, baseDecoded);
+  const diffRegion = scope.scoped ? scope.rect_device : null;
 
   if (arm) {
     const armed = await arm();
@@ -784,13 +1161,13 @@ export async function witnessFrame(
     if (typeof value === 'number') afterPageMs = value;
   }
 
-  const offset = clockSkewMs === null ? await pageClockOffset(page) : null;
-  const skewMs = clockSkewMs === null ? offset?.page_offset_ms ?? null : clockSkewMs;
+  const offset = check.page_offset_ms ?? null;
 
   const startedAt = Date.now();
   const deadline = startedAt + windowMs;
   let checked = 0;
   let framesAfter = 0;
+  let ackSkipped = 0;
   let best = null;
   let outcome = 'no_frame';
   let framePageMs = null;
@@ -801,6 +1178,16 @@ export async function witnessFrame(
     for (let i = checked; i < recorder.frames.length; i++) {
       const frame = recorder.frames[i];
       checked = i + 1;
+      // A frame counts as seen only once its screencast ack completed.
+      if (frame.ack === 'pending') {
+        if ((await frameAckSettled(frame)) !== 'acked') {
+          ackSkipped += 1;
+          continue;
+        }
+      } else if (frame.ack !== 'acked') {
+        ackSkipped += 1;
+        continue;
+      }
       const frameKind = detectTimestampKind(frame);
       const effectiveKind = frameKind.kind === 'unknown' ? kind.kind : frameKind.kind;
       const pageMs = convertFrameToPageMs(frame, {
@@ -815,11 +1202,11 @@ export async function witnessFrame(
       if (frame.data === base.frame.data) continue; // identical bytes: identical pixels
       const decoded = decodeFrame(recorder, frame);
       if (!decoded) continue;
-      const diff = diffRatio(baseDecoded, decoded, { channelTolerance });
+      const diff = diffRatio(baseDecoded, decoded, { channelTolerance, region: diffRegion });
       if (best === null || diff.ratio > best.ratio) {
         best = { ratio: diff.ratio, changed: diff.changed, total: diff.total };
       }
-      if (diff.ratio > threshold && diff.changed >= minPixels) {
+      if (diff.comparable && diff.ratio > threshold && diff.changed >= minPixels) {
         outcome = 'witnessed';
         framePageMs = pageMs;
         diffRatioValue = diff.ratio;
@@ -836,6 +1223,7 @@ export async function witnessFrame(
     frame_page_ms: framePageMs === null ? null : round(framePageMs, 3),
     frames_total: recorder.frames.length,
     frames_after: framesAfter,
+    frames_ack_skipped: ackSkipped,
     diff_ratio: diffRatioValue === null ? (best ? round(best.ratio, 6) : 0) : round(diffRatioValue, 6),
     threshold,
     min_pixels: minPixels,
@@ -843,22 +1231,41 @@ export async function witnessFrame(
     caret_mask_css: caret.caret_mask_css,
     caret_mask_error: caret.caret_mask_error,
     window_ms: windowMs,
+    window_requested_ms: windowRequestedMs,
     after_page_ms: afterPageMs === null ? null : round(afterPageMs, 3),
     baseline_page_ms:
       base.frame && base.frame.seq >= 0
         ? round(convertFrameToPageMs(base.frame, { ...clock, timestamp_kind: usedKind }), 3)
         : null,
     baseline_source: base.source,
+    document_scoped: scope.scoped,
+    document_region: scope.scoped
+      ? {
+          source: scope.source,
+          selector: scope.selector,
+          rect_css_px: scope.rect_css,
+          rect_device_px: scope.rect_device,
+          device_pixel_ratio: scope.dpr,
+        }
+      : null,
+    document_region_error: scope.error,
+    region_pixels: scope.scoped
+      ? scope.rect_device.width * scope.rect_device.height
+      : null,
+    // changed/total/max are scoped to the region when one is given
     changed_pixels: best ? best.changed : 0,
     total_pixels: best ? best.total : 0,
     max_diff_ratio: best ? round(best.ratio, 6) : 0,
     timestamp_kind: usedKind,
     time_origin_ms: round(clock.time_origin_ms, 3),
-    clock_skew_ms: skewMs === null || skewMs === undefined ? null : round(skewMs, 3),
-    clock_skew_method: 'page_clock_offset',
-    clock_skew_bound_ms: DEFAULT_SKEW_BOUND_MS,
-    clock_skew_acceptable:
-      typeof skewMs === 'number' && Math.abs(skewMs) <= DEFAULT_SKEW_BOUND_MS,
+    clock_check: check,
+    clock_check_source: checkSource,
+    // DEPRECATED aliases (B2–B5 read them): the page-local offset, and the
+    // clock check's own verdict. Neither is a conversion-error bound.
+    clock_skew_ms: offset === null ? null : round(offset, 3),
+    clock_skew_method: check.method || null,
+    clock_skew_bound_ms: check.bound_ms ?? DEFAULT_SKEW_BOUND_MS,
+    clock_skew_acceptable: check.acceptable === true,
     elapsed_ms: Date.now() - startedAt,
   };
 }
@@ -1110,18 +1517,36 @@ async function main(argv) {
     const needsCdp = op === 'clock-skew' || op === 'witness-frame' || op === 'all';
     let cdp = null;
     let recorder = null;
+    let clockRecord = null;
     if (needsCdp) {
       cdp = await context.newCDPSession(page);
       recorder = getRecorder(cdp, { manageScreencast: true });
       await ensureScreencast(recorder);
     }
     if (op === 'clock-skew' || op === 'all') {
-      sections.clock_skew = await clockSkew(page, cdp, {
+      sections.clock_skew = clockRecord = await clockSkew(page, cdp, {
         boundMs: number(opt.bound, DEFAULT_SKEW_BOUND_MS),
         recorder,
       });
     }
     if (op === 'witness-frame' || op === 'all') {
+      // The document region: a CSS selector or an explicit rect (CSS px).
+      let region = null;
+      if (typeof opt.region === 'string' && opt.region) {
+        region = { selector: opt.region };
+      } else if (typeof opt['region-rect'] === 'string') {
+        const parts = opt['region-rect'].split(',').map(Number);
+        if (parts.length === 4 && parts.every((v) => Number.isFinite(v))) {
+          region = {
+            rect: { x: parts[0], y: parts[1], width: parts[2], height: parts[3] },
+          };
+        }
+      }
+      // One clock check per run, shared with the witness, exactly as a lane
+      // is told to do it.
+      if (!clockRecord) {
+        clockRecord = await clockSkew(page, cdp, { recorder });
+      }
       // The arm runs *after* the baseline frame is taken, so the baseline is
       // the picture before the change and the witness sees the change.
       const armExpression =
@@ -1136,6 +1561,8 @@ async function main(argv) {
         threshold: number(opt.threshold, DEFAULT_THRESHOLD),
         caretMask: opt['caret-mask'] !== 'off' && opt['caret-mask'] !== false,
         recorder,
+        clockCheck: clockRecord,
+        region,
       });
       sections.witness_frame.marker_page_ms = sections.witness_frame.after_page_ms;
     }
