@@ -194,15 +194,23 @@ function correctnessAdapter(options) {
   return String(raw);
 }
 
-function eventTimingCensor(sampleMs) {
-  if (sampleMs < EVENT_TIMING_THRESHOLD_MS) {
-    return { kept: false, reason: 'censored_below_16_ms' };
+function adapterGate(adapter, isContentEditable) {
+  if (!adapter) {
+    return 'no_correctness_adapter: canvas surface without model API or pixel probe';
   }
-  const rounded = Math.floor((sampleMs + 4) / 8) * 8;
-  if (rounded < EVENT_TIMING_THRESHOLD_MS) {
-    return { kept: false, reason: 'censored_below_16_ms' };
+  if (adapter === 'dom_innerText' || adapter.startsWith('dom_')) {
+    if (!isContentEditable) {
+      return 'correctness_adapter_unusable_on_surface: dom_innerText requires a contenteditable DOM';
+    }
+    return null;
   }
-  return { kept: true, duration_ms: rounded };
+  return `correctness_adapter_not_implemented: ${adapter}`;
+}
+
+function bodyAfterInsertion(fixtureBody, insertText, offset) {
+  const text = normalizeNewlines(fixtureBody);
+  const at = Math.max(0, Math.min(offset === null || offset === undefined ? text.length : offset, text.length));
+  return text.slice(0, at) + insertText + text.slice(at);
 }
 
 function assertFixtureBodyMatches(state, expectedBody) {
@@ -216,25 +224,48 @@ function assertFixtureBodyMatches(state, expectedBody) {
   return { ok: true };
 }
 
-async function sampleAfterInput(witness, inputMs, options) {
+function assertBulkInsertBody(before, after, options) {
+  const fixture = options.expectedBodyText;
+  if (fixture !== null) {
+    const beforeMatch = assertFixtureBodyMatches(before, fixture);
+    if (!beforeMatch.ok) return beforeMatch;
+  }
+  const base = fixture ?? before.text;
+  const offset = before.selection_offset ?? before.text.length;
+  const expected = bodyAfterInsertion(base, options.block, offset);
+  if (normalizeNewlines(after.text) !== normalizeNewlines(expected)) {
+    return { ok: false, reason: `${CORRECTNESS_PREFIX} bulk_text_or_position` };
+  }
+  return { ok: true, expected };
+}
+
+async function sampleAfterInput(witness, inputMs, options, callOptions = {}) {
   if (!witness || typeof witness.paintAfter !== 'function') {
     return { ok: false, reason: 'paint_witness_unavailable' };
   }
-  const record = await witness.paintAfter(inputMs);
+  const record = await witness.paintAfter(inputMs, callOptions);
   if (!record || record.outcome !== 'witnessed' || record.frame_page_ms === null) {
     return { ok: false, reason: 'no_painted_frame', record };
   }
-  let sampleMs = round(record.frame_page_ms - inputMs, 3);
+  const inputRef =
+    typeof inputMs === 'number' && Number.isFinite(inputMs)
+      ? inputMs
+      : typeof record.after_page_ms === 'number'
+        ? record.after_page_ms
+        : null;
+  if (inputRef === null) {
+    return { ok: false, reason: 'no_input_timestamp', record };
+  }
+  const sampleMs = round(record.frame_page_ms - inputRef, 3);
   if (sampleMs < witness.frameIntervalMs) {
     return { ok: false, reason: 'below_frame_interval', record, sampleMs };
   }
-  const censored = eventTimingCensor(sampleMs);
-  if (!censored.kept) {
-    return { ok: false, reason: censored.reason, record, sampleMs };
+  if (sampleMs < EVENT_TIMING_THRESHOLD_MS) {
+    return { ok: false, reason: 'censored_below_16_ms', record, sampleMs };
   }
   return {
     ok: true,
-    sampleMs: censored.duration_ms,
+    sampleMs,
     record,
     frame_page_ms: record.frame_page_ms,
   };
@@ -368,6 +399,7 @@ const READ_EDITABLE_STATE = (selector) => {
   const selection = window.getSelection();
   let caret = null;
   let anchorInside = false;
+  let selectionOffset = null;
   if (selection && selection.rangeCount > 0) {
     const range = selection.getRangeAt(0);
     const startNode = range.startContainer;
@@ -382,6 +414,10 @@ const READ_EDITABLE_STATE = (selector) => {
       height: rect.height,
       collapsed: range.collapsed,
     };
+    const pre = range.cloneRange();
+    pre.selectNodeContents(el);
+    pre.setEnd(range.startContainer, range.startOffset);
+    selectionOffset = pre.toString().length;
   }
   const active = document.activeElement;
   return {
@@ -391,6 +427,7 @@ const READ_EDITABLE_STATE = (selector) => {
     active_inside: Boolean(active && (active === el || el.contains(active))),
     active_tag: active ? String(active.tagName || '').toLowerCase() : null,
     anchor_inside: anchorInside,
+    selection_offset: selectionOffset,
     caret,
     box: { left: box.left, top: box.top, right: box.right, bottom: box.bottom },
     scroll: { x: window.scrollX, y: window.scrollY },
@@ -578,10 +615,12 @@ const OBSERVE_QUIESCENCE = async ({ quietMs, timeoutMs }) => {
   requestAnimationFrame(tick);
   const deadline = startedAt + timeoutMs;
   let quietAt = null;
+  let quiescenceConfirmedMs = null;
   while (performance.now() < deadline) {
     await new Promise((resolve) => setTimeout(resolve, 50));
     if (performance.now() - lastActivity >= quietMs) {
       quietAt = lastActivity;
+      quiescenceConfirmedMs = performance.now();
       break;
     }
   }
@@ -594,7 +633,9 @@ const OBSERVE_QUIESCENCE = async ({ quietMs, timeoutMs }) => {
   return {
     quiescent: quietAt !== null,
     quiet_at: quietAt,
-    quiescence_event: quietAt === null ? null : 'quiescence_reached',
+    quiet_window_ms: quietMs,
+    quiescence_confirmed_ms: quiescenceConfirmedMs === null ? null : round(quiescenceConfirmedMs, 3),
+    quiescence_event: quietAt === null ? null : 'last_activity_before_quiet_window',
     observed_for_ms: round(endedAt - startedAt, 3),
     activity_count: activities.length,
     long_tasks: longTasks,
@@ -708,6 +749,9 @@ async function measureQuiescence(page, options, readyPageMs) {
     ready_page_ms: round(readyPageMs, 3),
     quiescent: result.quiescent,
     quiet_at_page_ms: result.quiet_at === null ? null : round(result.quiet_at, 3),
+    quiet_window_ms: result.quiet_window_ms,
+    quiescence_confirmed_page_ms:
+      result.quiescence_confirmed_ms === null ? null : round(result.quiescence_confirmed_ms, 3),
     elapsed_from_ready_ms: result.quiescent ? round(result.quiet_at - readyPageMs, 3) : null,
     observed_for_ms: result.observed_for_ms,
     activity_count: result.activity_count,
@@ -750,7 +794,7 @@ async function measureQuiescence(page, options, readyPageMs) {
   entry.samples_ms = [sample];
   entry.assertion.passed = true;
   entry.notes.push(
-    'One sample per page load: elapsed time ends at the quiescence_reached event, not at the last unrelated activity stamp.',
+    'One sample per page load: elapsed time ends at the last deferred-work activity before the quiet window; quiescence_confirmed_page_ms is when the window was satisfied.',
   );
   return entry;
 }
@@ -780,10 +824,7 @@ async function resolveClickPoint(page, meta) {
 async function measureClicks(page, witness, options, meta) {
   const entry = emptyEntry('C07', 'failed', null);
   entry.trial_hints.repetition_unit = 'in_process_iteration';
-  const scope =
-    meta.editable.is_content_editable
-      ? 'dom_caret_on_clicked_line'
-      : 'pointer_target_and_painted_frame';
+  const scope = 'dom_caret_on_clicked_line';
   entry.assertion = {
     name: 'hit_test_reaches_editable_and_paints',
     passed: false,
@@ -791,6 +832,14 @@ async function measureClicks(page, witness, options, meta) {
     checks: {},
     failures: [],
   };
+  if (!meta.editable.is_content_editable) {
+    entry.outcome = 'unsupported';
+    entry.failure_reason =
+      'correctness_adapter_unusable_on_surface: dom_innerText requires a contenteditable DOM';
+    entry.assertion.scope = 'not_observable';
+    entry.assertion.failures.push(entry.failure_reason);
+    return entry;
+  }
   const points = meta.points;
   const samples = [];
   for (const point of points) {
@@ -802,8 +851,16 @@ async function measureClicks(page, witness, options, meta) {
       scope,
     };
     await clearInputs(page);
-    await page.mouse.click(point.x, point.y);
-    const input = await firstInput(page, { kind: 'pointerdown' });
+    let input = null;
+    const frameRecord = await witness.paintAfter(null, {
+      arm: async () => {
+        await page.mouse.click(point.x, point.y);
+        const tapped = await firstInput(page, { kind: 'pointerdown' });
+        if (tapped === null) return null;
+        input = tapped;
+        return tapped.t;
+      },
+    });
     if (input === null) {
       observation.failure = 'no_pointerdown_observed';
       entry.assertion.failures.push(`${point.point}: no_pointerdown_observed`);
@@ -816,16 +873,13 @@ async function measureClicks(page, witness, options, meta) {
     observation.pointer_target_inside_editable = target.inside;
     await settle(page, 30);
     const stateAfterClick = await readState(page, meta.editable.selector);
-    if (scope === 'dom_caret_on_clicked_line') {
-      const correctnessEarly = assertFixtureBodyMatches(stateAfterClick, options.expectedBodyText);
-      if (!correctnessEarly.ok) {
-        observation.failure = correctnessEarly.reason;
-        entry.assertion.failures.push(`${point.point}: ${correctnessEarly.reason}`);
-        entry.observations.push(observation);
-        continue;
-      }
+    const correctnessEarly = assertFixtureBodyMatches(stateAfterClick, options.expectedBodyText);
+    if (!correctnessEarly.ok) {
+      observation.failure = correctnessEarly.reason;
+      entry.assertion.failures.push(`${point.point}: ${correctnessEarly.reason}`);
+      entry.observations.push(observation);
+      continue;
     }
-    const frameRecord = await witness.paintAfter(input.t);
     observation.witness = frameRecord;
     observation.diagnostic_raf_ms = round(await rafDelta(page, input.t), 3);
     const state = await readState(page, meta.editable.selector);
@@ -849,49 +903,45 @@ async function measureClicks(page, witness, options, meta) {
       continue;
     }
     observation.frame_ms = round(frameRecord.frame_page_ms, 3);
-    let sampleMs = round(frameRecord.frame_page_ms - input.t, 3);
+    const sampleMs = round(frameRecord.frame_page_ms - input.t, 3);
     if (sampleMs < witness.frameIntervalMs) {
       observation.failure = `below_frame_interval_${witness.frameIntervalMs}`;
       entry.assertion.failures.push(`${point.point}: below_frame_interval`);
       entry.observations.push(observation);
       continue;
     }
-    const censored = eventTimingCensor(sampleMs);
-    if (!censored.kept) {
-      observation.failure = censored.reason;
-      entry.assertion.failures.push(`${point.point}: ${censored.reason}`);
+    if (sampleMs < EVENT_TIMING_THRESHOLD_MS) {
+      observation.failure = 'censored_below_16_ms';
+      entry.assertion.failures.push(`${point.point}: censored_below_16_ms`);
       entry.observations.push(observation);
       continue;
     }
-    sampleMs = censored.duration_ms;
     observation.sample_ms = sampleMs;
-    if (scope === 'dom_caret_on_clicked_line') {
-      const correctness = assertFixtureBodyMatches(state, options.expectedBodyText);
-      if (!correctness.ok) {
-        observation.failure = correctness.reason;
-        entry.assertion.failures.push(`${point.point}: ${correctness.reason}`);
-        entry.observations.push(observation);
-        continue;
-      }
-      // A point on a text line must place the caret on that line. The page
-      // centre has no line box: it only has to keep the caret in the editable.
-      const caretOnLine =
-        point.line === null
-          ? true
-          : Boolean(
-              state.caret &&
-                state.caret.top >= point.line.top - 2 &&
-                state.caret.top <= point.line.bottom + 2,
-            );
-      observation.caret_on_clicked_line = caretOnLine;
-      if (!state.anchor_inside || !caretOnLine) {
-        observation.failure = state.anchor_inside
-          ? 'caret_not_on_clicked_line'
-          : 'caret_not_inside_editable';
-        entry.assertion.failures.push(`${point.point}: ${observation.failure}`);
-        entry.observations.push(observation);
-        continue;
-      }
+    const correctness = assertFixtureBodyMatches(state, options.expectedBodyText);
+    if (!correctness.ok) {
+      observation.failure = correctness.reason;
+      entry.assertion.failures.push(`${point.point}: ${correctness.reason}`);
+      entry.observations.push(observation);
+      continue;
+    }
+    // A point on a text line must place the caret on that line. The page
+    // centre has no line box: it only has to keep the caret in the editable.
+    const caretOnLine =
+      point.line === null
+        ? true
+        : Boolean(
+            state.caret &&
+              state.caret.top >= point.line.top - 2 &&
+              state.caret.top <= point.line.bottom + 2,
+          );
+    observation.caret_on_clicked_line = caretOnLine;
+    if (!state.anchor_inside || !caretOnLine) {
+      observation.failure = state.anchor_inside
+        ? 'caret_not_on_clicked_line'
+        : 'caret_not_inside_editable';
+      entry.assertion.failures.push(`${point.point}: ${observation.failure}`);
+      entry.observations.push(observation);
+      continue;
     }
     if (target.inside === false) {
       observation.failure = 'pointer_target_outside_editable';
@@ -1022,26 +1072,33 @@ async function measureUndo(page, witness, options, meta) {
     return entry;
   }
   await settle(page, 60);
-  await clearInputs(page);
-  await page.keyboard.press(`${options.modifier}+Z`);
-  const undoInput = await firstInput(page, { kinds: ['keydown'], key: 'z' }) ||
-    (await firstInput(page, { kinds: ['keydown'], key: 'Z' }));
-  if (undoInput === null) {
-    entry.failure_reason = 'no_keydown_observed_for_undo';
-    entry.assertion.failures.push('no_keydown_observed_for_undo');
-    return entry;
-  }
+  let undoInput = null;
   const observation = {
     point: point.point,
     x: point.x,
     y: point.y,
-    input_ms: round(undoInput.t, 3),
+    input_ms: null,
     text_length_before_typing: before.text_length,
     text_length_after_typing: typedState.text_length,
     frames_waited_for_typed_character: typedFrames,
     modifier: options.modifier,
   };
-  const painted = await sampleAfterInput(witness, undoInput.t, options);
+  const painted = await sampleAfterInput(witness, null, options, {
+    arm: async () => {
+      await clearInputs(page);
+      await page.keyboard.press(`${options.modifier}+Z`);
+      undoInput =
+        (await firstInput(page, { kinds: ['keydown'], key: 'z' })) ||
+        (await firstInput(page, { kinds: ['keydown'], key: 'Z' }));
+      return undoInput?.t ?? null;
+    },
+  });
+  if (undoInput === null) {
+    entry.failure_reason = 'no_keydown_observed_for_undo';
+    entry.assertion.failures.push('no_keydown_observed_for_undo');
+    return entry;
+  }
+  observation.input_ms = round(undoInput.t, 3);
   if (!painted.ok) {
     observation.failure = painted.reason;
     entry.observations.push(observation);
@@ -1156,14 +1213,19 @@ async function measureBulkInsert(page, witness, options, meta) {
     pasteError = String(err && err.message ? err.message : err);
   }
   if (pasteError === null) {
-    await clearInputs(page);
-    await page.keyboard.press(`${options.modifier}+V`);
-    const pasteInput = await firstInput(page, {
-      kinds: ['paste', 'beforeinput'],
-      inputTypePrefix: undefined,
+    let pasteInput = null;
+    const painted = await sampleAfterInput(witness, null, options, {
+      arm: async () => {
+        await clearInputs(page);
+        await page.keyboard.press(`${options.modifier}+V`);
+        pasteInput = await firstInput(page, {
+          kinds: ['paste', 'beforeinput'],
+          inputTypePrefix: undefined,
+        });
+        return pasteInput?.t ?? null;
+      },
     });
     if (pasteInput !== null) {
-      const painted = await sampleAfterInput(witness, pasteInput.t, options);
       if (painted.ok) {
         const afterPaste = await readState(page, meta.editable.selector);
         const growth = afterPaste.text_length - before.text_length;
@@ -1171,13 +1233,14 @@ async function measureBulkInsert(page, witness, options, meta) {
         observation.input_ms = round(pasteInput.t, 3);
         observation.frame_ms = round(painted.frame_page_ms, 3);
         observation.sample_ms = painted.sampleMs;
+        observation.witness = painted.record;
         observation.text_length_after = afterPaste.text_length;
         observation.growth = growth;
         observation.diagnostic_raf_ms = round(await rafDelta(page, pasteInput.t), 3);
         if (growth >= minimumGrowth) {
-          const tail = afterPaste.text.slice(-options.block.length);
-          if (tail !== options.block) {
-            entry.failure_reason = `${CORRECTNESS_PREFIX} bulk_text_or_position`;
+          const bodyCheck = assertBulkInsertBody(before, afterPaste, options);
+          if (!bodyCheck.ok) {
+            entry.failure_reason = bodyCheck.reason;
             entry.observations.push({ ...observation, failure: entry.failure_reason });
             entry.assertion.failures.push(entry.failure_reason);
             return entry;
@@ -1234,19 +1297,24 @@ async function measureBulkInsert(page, witness, options, meta) {
   await page.mouse.click(point.x, point.y);
   await settle(page, 150);
   const pre = await readState(page, meta.editable.selector);
-  const stamp = await page.evaluate((text) => {
-    const start = performance.now();
-    if (window.__perfInputPush) window.__perfInputPush('exec_command_insert_text', { start });
-    let ok = false;
-    let error = null;
-    try {
-      ok = document.execCommand('insertText', false, text);
-    } catch (err) {
-      error = String(err && err.message ? err.message : err);
-    }
-    return { start, ok, error };
-  }, options.block);
-  const painted = await sampleAfterInput(witness, stamp.start, options);
+  let stamp = null;
+  const painted = await sampleAfterInput(witness, null, options, {
+    arm: async () => {
+      stamp = await page.evaluate((text) => {
+        const start = performance.now();
+        if (window.__perfInputPush) window.__perfInputPush('exec_command_insert_text', { start });
+        let ok = false;
+        let error = null;
+        try {
+          ok = document.execCommand('insertText', false, text);
+        } catch (err) {
+          error = String(err && err.message ? err.message : err);
+        }
+        return { start, ok, error };
+      }, options.block);
+      return stamp?.start ?? null;
+    },
+  });
   const after = await readState(page, meta.editable.selector);
   const growth = after.text_length - pre.text_length;
   const fallback = {
@@ -1254,9 +1322,9 @@ async function measureBulkInsert(page, witness, options, meta) {
     x: point.x,
     y: point.y,
     method: 'exec_command_insert_text',
-    input_ms: round(stamp.start, 3),
-    exec_command_ok: stamp.ok,
-    exec_command_error: stamp.error,
+    input_ms: stamp ? round(stamp.start, 3) : null,
+    exec_command_ok: stamp ? stamp.ok : null,
+    exec_command_error: stamp ? stamp.error : null,
     frame_ms: painted.ok ? round(painted.frame_page_ms, 3) : null,
     sample_ms: painted.ok ? painted.sampleMs : null,
     text_length_before: pre.text_length,
@@ -1276,9 +1344,9 @@ async function measureBulkInsert(page, witness, options, meta) {
     entry.assertion.failures.push(entry.failure_reason);
     return entry;
   }
-  const tail = after.text.slice(-options.block.length);
-  if (tail !== options.block) {
-    entry.failure_reason = `${CORRECTNESS_PREFIX} bulk_text_or_position`;
+  const bodyCheck = assertBulkInsertBody(pre, after, options);
+  if (!bodyCheck.ok) {
+    entry.failure_reason = bodyCheck.reason;
     entry.assertion.failures.push(entry.failure_reason);
     return entry;
   }
@@ -1366,9 +1434,12 @@ export async function runCriteriaSuite({
         recorder,
         frameIntervalMs: interval.median_ms,
         started: true,
-        async paintAfter(pageMs) {
+        editSelector,
+        async paintAfter(pageMs, callOptions = {}) {
           return witnessFrame(page, cdp, {
             afterPageMs: pageMs,
+            arm: callOptions.arm ?? null,
+            region: { selector: editSelector },
             recorder,
             manageScreencast: false,
             windowMs: frameTimeoutMs,
@@ -1417,10 +1488,9 @@ export async function runCriteriaSuite({
 
   const unavailable = editableMissing || points.error || null;
   const needsDomAdapter = criteria.some((id) => id !== 'C04');
-  const canvasWithoutAdapter =
-    needsDomAdapter && !meta.editable.is_content_editable && !adapter
-      ? 'no_correctness_adapter: canvas surface without model API or pixel probe'
-      : null;
+  const adapterRefusal =
+    needsDomAdapter && adapterGate(adapter, meta.editable.is_content_editable);
+  const canvasWithoutAdapter = adapterRefusal;
   if (criteria.includes('C07')) {
     if (!entries.C07) {
       if (canvasWithoutAdapter) {
@@ -1506,3 +1576,11 @@ export async function runCriteriaSuite({
   };
   return payload;
 }
+
+export {
+  measureBulkInsert,
+  measureClicks,
+  measureQuiescence,
+  sampleAfterInput,
+  OBSERVE_QUIESCENCE,
+};
