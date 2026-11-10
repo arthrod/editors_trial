@@ -16,7 +16,7 @@ class TypingSamples:
 
 
 @pytest.mark.parametrize('period', [100, 101])
-def test_periodic_editor_cost_survives_witness_exclusion(period):
+def test_periodic_editor_cost_is_counted_in_throughput_kind(period):
     async def run(every):
         now = [0.0]
 
@@ -73,8 +73,8 @@ def test_typing_resources_use_shared_counter_and_level_schema():
     assert all(row['phase'] == 'typing' for row in series)
 
 
-@pytest.mark.parametrize('cost,expected_chars,expected_rate', [(200, 2, 2 / 0.201), (None, 1, 1000), (False, 1, 1000)])
-def test_refused_witness_uses_key_operation_or_excludes_one_character(cost, expected_chars, expected_rate):
+@pytest.mark.parametrize('cost', [200, None, False])
+def test_refused_witness_only_contributes_instrumented_wall_time(cost):
     async def run():
         now = [0.0]
         page = FakePage()
@@ -92,13 +92,15 @@ def test_refused_witness_uses_key_operation_or_excludes_one_character(cost, expe
             return {'outcome': 'no_frame', 'key_operation_ms': cost}
 
         return await type_document(
-            page, TypingSamples(), witness, 'ab', selector='#editor', witness_every=2, clock=lambda: now[0]
+            page, TypingSamples(), witness, 'ab', selector='#editor', session_kind='latency', witness_every=2, clock=lambda: now[0]
         )
 
     result = asyncio.run(run())
-    assert result['throughput_characters'] == expected_chars
-    assert result['throughput_excluded_characters'] == 2 - expected_chars
-    assert result['throughput_chars_s'] == pytest.approx(expected_rate)
+    assert result['throughput_characters'] == 2
+    assert result['throughput_excluded_characters'] == 0
+    assert result['throughput_chars_s'] is None
+    assert result['instrumented']['throughput_chars_s'] == pytest.approx(2 / 1.002)
+    assert result['key_to_paint']['n_refused'] == 1
 
 
 def test_shared_phase_deltas_and_endpoint_levels():
@@ -155,6 +157,7 @@ def test_integration_floor_refusal_reaches_summary_cell(tmp_path):
             directory / 'attempts' / 'typing.json',
             {
                 'criterion_id': 'TYPING',
+                'session_kind': 'latency',
                 'outcome': 'measured',
                 'load_ms': 12,
                 'throughput_chars_s': 100,
@@ -164,7 +167,7 @@ def test_integration_floor_refusal_reaches_summary_cell(tmp_path):
         return 0
 
     try:
-        sys.argv = ['test', '--out-root', str(tmp_path), '--run-id', 'floor', '--editors', 'plate']
+        sys.argv = ['test', '--out-root', str(tmp_path), '--run-id', 'floor', '--session-kind', 'latency', '--editors', 'plate']
         run_cli(
             cell,
             'benchmark_typing',
@@ -229,7 +232,7 @@ def test_integration_load_longtask_baseline_is_initialized(tmp_path):
 
 
 @pytest.mark.parametrize('refused', [False, True])
-def test_witnessed_cadence_is_counted_once(refused):
+def test_instrumented_wall_counts_cadence_once_even_on_refusal(refused):
     async def run():
         now = [0.0]
         page = FakePage()
@@ -248,6 +251,7 @@ def test_witnessed_cadence_is_counted_once(refused):
             witness,
             'ab',
             selector='#editor',
+            session_kind='latency',
             witness_every=1,
             cadence_ms=20,
             clock=lambda: now[0],
@@ -255,6 +259,7 @@ def test_witnessed_cadence_is_counted_once(refused):
         )
 
     result = asyncio.run(run())
-    assert result['throughput_chars_s'] == pytest.approx(2 / 0.06)
-    assert result['witnessed_editor_s'] == pytest.approx(0.02)
-    assert result['witnessed_cadence_s'] == pytest.approx(0.04)
+    assert result['throughput_chars_s'] is None
+    assert result['instrumented']['throughput_chars_s'] == pytest.approx(2 / 2.06)
+    assert result['typing_wall_s'] == pytest.approx(2.06)
+    assert result['witness_wall_s'] == pytest.approx(2.02)

@@ -51,7 +51,7 @@ async def typing(text, every=2):
         await page.type(char)
         now[0] += 1
         return {**good(), 'frame_page_ms':1240, 'elapsed_ms':1010}
-    result = await type_document(page,sampler,witness,text,selector='#editor', witness_every=every,clock=lambda:now[0])
+    result = await type_document(page,sampler,witness,text,selector='#editor', session_kind='latency', witness_every=every,clock=lambda:now[0])
     return result, chars, sampler
 
 
@@ -62,10 +62,10 @@ def test_schedule_skips_spaces_and_insert_text_characters(text, expected):
     assert result['characters_typed'] == len(text) and result['failure_reason'] is None
 
 
-def test_throughput_excludes_witness_stalls():
+def test_instrumented_wall_throughput_includes_witness_stalls():
     result, _, _ = asyncio.run(typing('abcdef'))
-    assert result['throughput_chars_s'] == pytest.approx(100)
-    assert result['throughput_wall_chars_s'] < 2
+    assert result['throughput_chars_s'] is None
+    assert result['instrumented']['throughput_chars_s'] == pytest.approx(6 / 3.06)
     assert result['unwitnessed_characters'] == 3
     assert result['witness_wall_s'] == pytest.approx(3.03)
 
@@ -92,7 +92,7 @@ def test_integration_fair_load_and_normalized_dom_backlog(tmp_path, repeat):
             'edit_selector':'#editor','ready_selector':'.status-ok'}, 'Heading\n\nWords here\n\nEnd §—“x',
             SimpleNamespace(budget_s=60,cadence_ms=0,sample_s=5,witness_every=5,quiescence_s=0),tmp_path))
     finally: host.stop()
-    assert result['load_ms'] is not None, result.get('load_witness')
+    assert result['instrumented']['load_ms'] is not None, result.get('load_witness')
     assert result['failure_reason'] is None, result
     assert result['characters_typed'] > 0
     assert rows[-1]['backlog_chars'] == 0
@@ -144,7 +144,7 @@ def test_integration_typing_kept_gate_per_editor(tmp_path, kept, refused):
         run = ACTIVE.get(); current = CELL.get()
         directory = Path(sys.argv[sys.argv.index('--out-root')+1])
         reason = 'text_mismatch' if current['editor_id'] == 'plate' and current['repetition'] >= kept else None
-        write_json(directory/'attempts'/'typing.json', {'criterion_id':'TYPING', 'outcome':'refused' if reason else 'measured',
+        write_json(directory/'attempts'/'typing.json', {'criterion_id':'TYPING', 'session_kind':'throughput', 'outcome':'refused' if reason else 'measured',
             'failure_reason':reason, 'load_ms':12, 'throughput_chars_s':100, 'key_to_paint':{'median_ms':16}})
         return 0
     try:
@@ -156,7 +156,7 @@ def test_integration_typing_kept_gate_per_editor(tmp_path, kept, refused):
     finally: sys.argv = old
     result = json.loads((tmp_path/'benchmark_typing/gate/summary.json').read_text())
     assert len(result['samples']) == 24
-    assert result['typing_sessions_kept'] == {'plate':kept,'folio':12}
+    assert result['typing_sessions_kept'] == {'plate':{'throughput':kept},'folio':{'throughput':12}}
     assert (result.get('failure_reason') == 'insufficient_typing_sessions') is refused
 
 
@@ -169,7 +169,7 @@ def test_summary_malformed_record_preserves_completed_typing():
         async def witness(char):
             await page.type(char)
             return {**good(),'frame_interval_ms':'malformed'}
-        result = await type_document(page,sampler,witness,'abc',selector='#editor',witness_every=1,clock=lambda:0)
+        result = await type_document(page,sampler,witness,'abc',selector='#editor',session_kind='latency',witness_every=1,clock=lambda:0)
         assert result['characters_typed'] == 3
         assert result['failure_reason'] is None
         assert result['key_to_paint']['refusals'] == ['invalid_record']*3
@@ -223,12 +223,12 @@ def test_publication_consumer_refuses_nine_kept_typing_sessions():
     from perf.container.policy import verify_run
     data = {'runner':'benchmark_typing','execution_profile':'dedicated_publish',
             'rendering':{'renderer':'test'},'samples':[{'editor_id':'plate','outcome':'ok','cell_directory':'fake-cell'}],
-            'typing_sessions_kept':{'plate':9}}
+            'session_kind':'throughput', 'typing_sessions_kept':{'plate':{'throughput':9}}}
     def trials(row): return [{'editor_id':'plate','criterion_id':'TYPING','outcome':'measured'}]
     with pytest.raises(ValueError, match='insufficient_typing_sessions'):
         verify_run(data, trial_reader=trials)
-    data['typing_sessions_kept']['plate'] = 10
+    data['typing_sessions_kept']['plate']['throughput'] = 10
     assert verify_run(data, trial_reader=trials) is data
     data['runner'] = 'benchmark_input'
-    data['typing_sessions_kept']['plate'] = 0
+    data['typing_sessions_kept']['plate']['throughput'] = 0
     assert verify_run(data, trial_reader=trials) is data

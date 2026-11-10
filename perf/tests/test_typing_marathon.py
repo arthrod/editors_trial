@@ -143,19 +143,19 @@ def test_sampled_keys_cadence_and_crash():
         async def witness(char):
             await page.type(char)
             return {'outcome':'no_frame'}
-        result = await type_document(page,sampler,witness,'abc',selector='#e',cadence_ms=20,
+        result = await type_document(page,sampler,witness,'abc',selector='#e',session_kind='latency',cadence_ms=20,
                                      witness_every=1,clock=clock,sleep=sleep)
         assert sleeps == [.02,.02,.02]
         assert result['key_to_paint']['refusals']
         async def crash(char): raise RuntimeError('out of memory')
-        result = await type_document(page,sampler,crash,'a',selector='#e',witness_every=1,clock=clock)
+        result = await type_document(page,sampler,crash,'a',selector='#e',session_kind='latency',witness_every=1,clock=clock)
         assert result['failure_reason'] == 'out_of_memory'
     asyncio.run(run())
 
 def test_publication_one_editor_per_typing_job():
     from perf.container.policy import publication_jobs
     jobs = [(name,args) for name,args in publication_jobs(['plate','folio'],1,2,'shared_guarded') if name == 'benchmark_typing']
-    assert len(jobs) == 4
+    assert len(jobs) == 8
     assert all(len(args[args.index('--editors')+1:]) == 1 for _,args in jobs)
 
 def test_latency_retains_subframe_flags_and_accepts_half_distribution():

@@ -36,7 +36,7 @@ def test_publication_two_distinct_seeds_and_all_runners():
     p = api()
     jobs = p.publication_jobs(['plate', 'folio'], 17, 29, 'shared_guarded')
     typing = [job for job in jobs if job[0] == 'benchmark_typing']
-    assert len(typing) == 2 * 2  # two editors, two seeds
+    assert len(typing) == 2 * 2 * 2  # two editors, two seeds, two session kinds
     assert len(jobs) == 10 + len(typing)
     assert {j[0] for j in jobs} == {'benchmark_warm_cold', 'benchmark_document', 'benchmark_input', 'adversarial_c10_scroll', 'benchmark_typing'}
     for name, args in jobs:
