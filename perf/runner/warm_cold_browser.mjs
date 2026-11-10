@@ -23,7 +23,7 @@
  * --bulk-chars. The payload goes to stdout.
  */
 import fs from 'node:fs';
-import { loadPlaywright, clockSkew, witnessFrame, stopRecorder } from './witness.mjs';
+import { loadPlaywright, clockSkew, witnessFrame, stopRecorder, captureBaseline, decodePng, diffRatio } from './witness.mjs';
 
 import {
   CRITERIA_SCHEMA,
@@ -157,10 +157,77 @@ async function measureEdit(page, selector, cdp) {
     const before = count();
     window.__b2 = { event: null, entries: [], supported: PerformanceObserver.supportedEntryTypes.includes('event') };
     const state = window.__b2;
-    state.edit_confirmation = {confirmed: false, before_count: before, expected: 'x', mutation_page_ms: null};
-    state.mutationObserver = new MutationObserver(() => {
-      if (count() > before && state.edit_confirmation.mutation_page_ms === null) {
-        state.edit_confirmation.mutation_page_ms = performance.now();
+    const intersect = (a, b) => {
+      const x = Math.max(a.x, b.x), y = Math.max(a.y, b.y);
+      const right = Math.min(a.x + a.width, b.x + b.width);
+      const bottom = Math.min(a.y + a.height, b.y + b.height);
+      return right > x && bottom > y ? {x, y, width: right-x, height: bottom-y} : null;
+    };
+    const textNodes = root => {
+      if (root.nodeType === Node.TEXT_NODE) return [root];
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      const nodes = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode);
+      return nodes;
+    };
+    const priorText = new WeakMap(textNodes(documentElement).map(n => [n, n.data]));
+    state.edit_confirmation = {confirmed: false, before_count: before, expected: 'x', mutations: []};
+    const visibleRects = (node, start, end) => {
+      const parent = node.parentElement;
+      if (!parent || !documentElement.contains(node) ||
+          !parent.checkVisibility({checkOpacity: true, checkVisibilityCSS: true})) return [];
+      let clip = intersect(documentElement.getBoundingClientRect(),
+        {x: 0, y: 0, width: innerWidth, height: innerHeight});
+      for (let el = parent; el && clip; el = el.parentElement) {
+        const css = getComputedStyle(el);
+        // Complex clipping/masks cannot be proven from bounding rectangles.
+        if (css.display === 'none' || css.visibility !== 'visible' || Number(css.opacity) === 0 ||
+            css.clipPath !== 'none' || css.clip !== 'auto' || css.maskImage !== 'none') return [];
+        const box = el.getBoundingClientRect();
+        const overflowX = ['hidden', 'clip', 'scroll', 'auto'].includes(css.overflowX);
+        const overflowY = ['hidden', 'clip', 'scroll', 'auto'].includes(css.overflowY);
+        if (overflowX || overflowY) clip = intersect(clip, {
+          x: overflowX ? box.x + el.clientLeft : clip.x,
+          y: overflowY ? box.y + el.clientTop : clip.y,
+          width: overflowX ? el.clientWidth : clip.width,
+          height: overflowY ? el.clientHeight : clip.height,
+        });
+      }
+      if (!clip) return [];
+      const range = document.createRange();
+      range.setStart(node, start); range.setEnd(node, end);
+      return [...range.getClientRects()].map(r => intersect(r, clip)).filter(Boolean);
+    };
+    state.insertions = [];
+    state.confirmInsertion = insertion => {
+      const current = insertion.ranges.flatMap(([start, end]) =>
+        insertion.node.data.slice(start, end) === 'x'
+          ? visibleRects(insertion.node, start, end) : []);
+      // A later reveal/move cannot validate an earlier snapshot, nor can a
+      // node hidden or detached since mutation delivery remain confirmed.
+      return JSON.stringify(current) === JSON.stringify(insertion.proof.visible_rects) ? current : [];
+    };
+    state.mutationObserver = new MutationObserver(records => {
+      if (!state.event?.trusted) return;
+      const nodes = new Set(records.flatMap(record => record.type === 'characterData'
+        ? [record.target] : [...record.addedNodes].flatMap(textNodes)));
+      for (const node of nodes) {
+        const old = priorText.get(node) || '', text = node.data;
+        priorText.set(node, text);
+        if ((text.match(/x/g) || []).length <= (old.match(/x/g) || []).length) continue;
+        let start = 0, end = text.length, oldEnd = old.length;
+        while (start < old.length && start < text.length && old[start] === text[start]) start++;
+        while (oldEnd > start && end > start && old[oldEnd-1] === text[end-1]) { oldEnd--; end--; }
+        const rects = [], ranges = [];
+        for (let i = start; i < end; i++) {
+          if (text[i] === 'x') {
+            ranges.push([i, i+1]);
+            rects.push(...visibleRects(node, i, i+1));
+          }
+        }
+        const proof = {mutation_page_ms: performance.now(), visible_rects: rects};
+        state.edit_confirmation.mutations.push(proof);
+        state.insertions.push({node, ranges, proof});
       }
     });
     state.mutationObserver.observe(documentElement, {subtree: true, childList: true, characterData: true});
@@ -180,7 +247,9 @@ async function measureEdit(page, selector, cdp) {
       window.__b2.observer.observe({type:'event', durationThreshold:16});
     }
   }, selector);
+  const baseline = await captureBaseline(page, cdp);
   const frame = await witnessFrame(page, cdp, {
+    baseline: baseline.frame,
     windowMs: Math.max(500, frameTimeoutMs), clockCheck: skew, region: {selector},
     arm: async () => {
       await cdp.send('Input.dispatchKeyEvent', {type:'keyDown', key:'x', code:'KeyX', text:'x', windowsVirtualKeyCode:88});
@@ -194,12 +263,42 @@ async function measureEdit(page, selector, cdp) {
   // cannot retroactively turn an earlier caret frame into the edit's paint.
   const confirmation = await page.evaluate(({selector, frameTime}) => {
     const state = window.__b2;
-    const after = (document.querySelector(selector).textContent.match(/x/g) || []).length;
     const proof = state.edit_confirmation;
-    return {...proof, after_count: after, confirmed: after > proof.before_count &&
-      proof.mutation_page_ms !== null && frameTime !== null &&
-      proof.mutation_page_ms <= frameTime + 2};
+    const after = (document.querySelector(selector).textContent.match(/x/g) || []).length;
+    const eligible = state.insertions.filter(m => frameTime !== null && m.proof.mutation_page_ms <= frameTime + 2);
+    return {...proof, after_count: after, confirmed: false,
+      visible_rects: eligible.flatMap(state.confirmInsertion), changed_pixels: 0};
   }, {selector, frameTime: frame.frame_page_ms});
+  // Reuse exactly the baseline handed to B1 and the frame B1 witnessed.
+  // Never compare a later screenshot: that could legitimize an earlier caret.
+  // B1 currently converts epoch timestamps; refuse other/ambiguous matches.
+  const candidates = frame.timestamp_kind === 'epoch_seconds' && frame.frame_page_ms !== null
+    ? baseline.recorder.frames.filter(f => f.ack === 'acked' && typeof f.ts === 'number' &&
+      Math.abs(f.ts * 1000 - frame.time_origin_ms - frame.frame_page_ms) < 0.002) : [];
+  if (candidates.length === 1 && baseline.frame && confirmation.visible_rects.length) {
+    const beforePixels = decodePng(Buffer.from(baseline.frame.data, 'base64'));
+    const afterPixels = decodePng(Buffer.from(candidates[0].data, 'base64'));
+    const region = frame.document_region;
+    const dpr = region?.device_pixel_ratio;
+    if (dpr > 0) {
+      confirmation.rect_damage = confirmation.visible_rects.map(rect => {
+        const doc = region.rect_css_px;
+        const x = Math.max(rect.x, doc.x), y = Math.max(rect.y, doc.y);
+        const right = Math.min(rect.x + rect.width, doc.x + doc.width);
+        const bottom = Math.min(rect.y + rect.height, doc.y + doc.height);
+        if (right <= x || bottom <= y) return {rect, changed_pixels: 0};
+        const diff = diffRatio(beforePixels, afterPixels, {region: {
+          x: x*dpr, y: y*dpr, width: (right-x)*dpr, height: (bottom-y)*dpr,
+        }});
+        return {rect, changed_pixels: diff.comparable ? diff.changed : 0};
+      });
+      confirmation.changed_pixels = confirmation.rect_damage.reduce((sum, r) => sum+r.changed_pixels, 0);
+      confirmation.baseline_seq = baseline.frame.seq;
+      confirmation.witness_seq = candidates[0].seq;
+      confirmation.witness_page_ms = frame.frame_page_ms;
+      confirmation.confirmed = confirmation.after_count > confirmation.before_count && confirmation.changed_pixels > 0;
+    }
+  }
   // An observer delivery deadline is not a latency: durations come only
   // from matching Event Timing entries, and absence is explicitly censored.
   const timing = await page.evaluate(async () => {

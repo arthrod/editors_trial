@@ -366,6 +366,8 @@ class AdversarialBrowser(BrowserIntegration):
             if edit['single_edit_ms'] is not None:
                 self.assertGreater(edit['edit_confirmation']['changed_pixels'], 0)
                 self.assertTrue(edit['edit_confirmation']['visible_rects'])
+            else:
+                self.assertEqual(edit['failure_reason'], 'expected_edit_not_confirmed', edit)
 
     def test_r1_invisible_geometry_and_unrelated_damage_are_refused(self):
         for mode in ('none', 'zero', 'clipped', 'offregion', 'transparent', 'clip'):
@@ -376,6 +378,14 @@ class AdversarialBrowser(BrowserIntegration):
                     edit = p['pairs'][0][arm]
                     self.assertIsNone(edit['single_edit_ms'], edit)
                     self.assertEqual(edit['failure_reason'], 'expected_edit_not_confirmed', edit)
+
+    def test_r1_visibility_must_survive_until_confirmation(self):
+        p = self.probe('microtask', '--url', self.host.url + '/hidden.html?mode=microtask',
+                       '--fresh-context-probe', 'false')
+        for arm in ('cold', 'warm'):
+            edit = p['pairs'][0][arm]
+            self.assertIsNone(edit['single_edit_ms'], edit)
+            self.assertEqual(edit['failure_reason'], 'expected_edit_not_confirmed', edit)
 
     def test_f3_poisoned_edit_keeps_c03(self):
         p = self.probe('poison', '--url', self.host.url + '/?poison=1', '--fresh-context-probe', 'false')
@@ -481,3 +491,62 @@ class RoundThreePolicy(unittest.TestCase):
             )
             row = json.loads(path.read_text())
             self.assertEqual(row.get('failure_reasons'), ['expected_edit_not_confirmed', 'no_frame'])
+
+    def test_r2_no_delay_keeps_median_bound(self):
+        class RecordedProbe(BrowserIntegration):
+            def probe(self, *args):
+                return {'pairs': [{'cold': {
+                    'single_edit_ms': 8, 'mechanism': 'cdp_screencast_changed_frame',
+                    'clock_skew': {}, 'burst': [{'edit_ms': n} for n in (40, 40, 40)],
+                }}]}
+        with self.assertRaises(AssertionError):
+            RecordedProbe('test_no_delay').test_no_delay()
+
+    def test_visible_proof_rejects_empty_or_invalid_geometry(self):
+        for pixels, rects in ((0, [{'x': 0, 'y': 0, 'width': 10, 'height': 10}]),
+                              (True, []), (float('nan'), []), (4, []),
+                              (4, [{'x': 0, 'y': 0, 'width': 0, 'height': 10}])):
+            with self.subTest(pixels=pixels, rects=rects):
+                row = runner.input_sample_record({
+                    'edit_ms': 25, 'outcome': 'measured', 'witness': frame_record(),
+                    'clock_skew': {'skew_ms': 0, 'bound_ms': 2, 'acceptable': True},
+                    'edit_confirmation': {'confirmed': True, 'changed_pixels': pixels, 'visible_rects': rects},
+                }, 'C05')
+                self.assertEqual(row['failure_reason'], 'expected_edit_not_confirmed')
+
+    def test_measured_writer_preserves_all_refusals(self):
+        from perf.tests.test_schema import _env
+        with tempfile.TemporaryDirectory() as tmp:
+            path = runner._write_measured_attempt(
+                attempt_dir=Path(tmp), criterion_id='C05', layer='browser_visible',
+                boundary='input_to_next_paint', editor_id='plate', lane='browser', env=_env(),
+                samples_ms=[20], cache_state='warm_steady',
+                diagnostic={'mechanism': 'cdp_screencast_changed_frame', 'observations': [
+                    {'failure_reason': r, 'outcome': 'failed'} for r in ('no_frame', 'expected_edit_not_confirmed')]},
+            )
+            row = json.loads(path.read_text())
+            self.assertEqual(row['failure_reasons'], ['expected_edit_not_confirmed', 'no_frame'])
+
+    def test_throttled_refusal_keeps_all_reasons(self):
+        from perf.runner.browser_run import BrowserRun, ACTIVE
+        from perf.tests.test_browser_throttle import snapshot
+        from perf.tests.test_schema import _env
+        with tempfile.TemporaryDirectory() as tmp:
+            readings = iter([snapshot(), snapshot(), snapshot(n=3)])
+            run = BrowserRun(tmp, 'refused', snapshot=lambda: {}, accounting_reader=lambda: next(readings))
+            token = ACTIVE.set(run)
+            try:
+                run.begin_sample()
+                path = runner._write_input_refusal(
+                    attempt_dir=Path(tmp)/'attempts', criterion_id='C06', layer='browser_visible',
+                    boundary='input_to_next_paint', editor_id='plate', lane='browser', env=_env(),
+                    failure_reason='missing_input_latency', observations=[
+                        {'failure_reason': r, 'outcome': 'failed'}
+                        for r in ('no_frame', 'expected_edit_not_confirmed')],
+                )
+                row = json.loads(path.read_text())
+                self.assertEqual(row.get('failure_reasons'), ['cpu_throttled', 'expected_edit_not_confirmed', 'no_frame'])
+                self.assertEqual(row['samples_ms'], [])
+                self.assertFalse(row['publishable'])
+            finally:
+                ACTIVE.reset(token)

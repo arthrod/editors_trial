@@ -455,7 +455,17 @@ def input_sample_record(observation, criterion_id):
     elif not skew.get('acceptable'):
         reason = 'clock_skew_unavailable'
     if not reason and criterion_id in ('C05', 'C06') and 'edit_ms' in row:
-        if (row.get('edit_confirmation') or {}).get('confirmed') is not True:
+        proof = row.get('edit_confirmation') or {}
+        pixels = proof.get('changed_pixels')
+        rects = proof.get('visible_rects')
+        visible = isinstance(rects, list) and bool(rects) and all(
+            isinstance(r, dict) and all(isinstance(r.get(k), (int, float))
+                and not isinstance(r.get(k), bool) and math.isfinite(r[k])
+                for k in ('x', 'y', 'width', 'height'))
+            and r['width'] > 0 and r['height'] > 0 for r in rects)
+        if (proof.get('confirmed') is not True or not visible
+                or isinstance(pixels, bool) or not isinstance(pixels, (int, float))
+                or not math.isfinite(pixels) or pixels <= 0):
             reason = 'expected_edit_not_confirmed'
         verdict = validate_witness(row.get('witness'), skew=value, bound_ms=bound)
         if not reason and verdict['refused']:
@@ -492,9 +502,14 @@ def _persist_attempt(attempt_dir, criterion_id, editor_id, trial):
         sample_path = active.sample(name, trial)
         recorded = json.loads(sample_path.read_text())
         if recorded.get('failure_reason') == 'cpu_throttled':
-            # B1 strips measurements; rebuild only the schema identity, never evidence.
+            # B1 strips measurements; restore identity and refusal reasons, never numbers.
             identity = {key: trial[key] for key in ('criterion_id', 'layer', 'boundary', 'environment', 'editor_id', 'lane') if key in trial}
-            trial = {**identity, **recorded, 'samples_ms': [], 'latency_ms': None,
+            reasons = set(trial.get('failure_reasons') or [])
+            if trial.get('failure_reason'):
+                reasons.add(trial['failure_reason'])
+            reasons.add('cpu_throttled')
+            trial = {**identity, **recorded, 'failure_reasons': sorted(reasons),
+                     'samples_ms': [], 'latency_ms': None,
                      'summary_stats': None, 'publication_block_reason': 'cpu_throttled'}
         else:
             trial = recorded
@@ -532,6 +547,7 @@ def _write_measured_attempt(
                 outcome='failed', env=env, samples_ms=[], failure_reason=reason,
                 editor_id=editor_id, lane=lane,
                 diagnostic={**diagnostic, 'observations':checked})
+            trial['failure_reasons'] = sorted({item.get('failure_reason') or 'missing_input_latency' for item in rejected})
             trial.update(mechanism=diagnostic.get('mechanism'),
                          clock_skew=[item.get('clock_skew') for item in checked])
             return _persist_attempt(attempt_dir, criterion_id, editor_id, trial)
@@ -579,6 +595,7 @@ def _write_input_refusal(*, observations, failure_reason, **kwargs):
         diagnostic={'observations': checked, 'aggregation': 'all samples required',
                     **({'keys': 3, 'isolated': True} if kwargs['criterion_id'] == 'C06' else {})},
     )
+    trial['failure_reasons'] = sorted({o['failure_reason'] for o in checked if o.get('failure_reason')} or {failure_reason})
     return _persist_attempt(kwargs['attempt_dir'], kwargs['criterion_id'], kwargs['editor_id'], trial)
 
 
@@ -686,7 +703,7 @@ def _main() -> int:
     editors = args.editors or list(BROWSER_TARGETS.keys())
     paired_rows: list[dict] = []
     summary_editors: list[dict] = []
-    not_run_rows: list[dict] = []
+    refusal_rows: list[dict] = []
 
     for editor_id in editors:
         lane = BROWSER_TARGETS[editor_id].get("lane") or default_lane(editor_id)
@@ -723,7 +740,7 @@ def _main() -> int:
                     env=env,
                     failure_reason=reason,
                 )
-                not_run_rows.append(
+                refusal_rows.append(
                     {
                         "criterion_id": cid,
                         "editor_id": editor_id,
@@ -760,7 +777,7 @@ def _main() -> int:
                     env=env,
                     failure_reason=reason,
                 )
-                not_run_rows.append(
+                refusal_rows.append(
                     {
                         "criterion_id": cid,
                         "editor_id": editor_id,
@@ -853,7 +870,7 @@ def _main() -> int:
             }
             if harness_meta:
                 row["harness_version"] = harness_meta
-            not_run_rows.append(row)
+            refusal_rows.append(row)
 
         # C03 / C02b — cold only (first load in fresh browser per pair)
         cold_load_specs = []
@@ -981,7 +998,7 @@ def _main() -> int:
                     env=env,
                     failure_reason="adapter-not-implemented: no warm edit surface without verified selector",
                 )
-                not_run_rows.append(
+                refusal_rows.append(
                     {
                         "criterion_id": cid,
                         "editor_id": editor_id,
@@ -1031,12 +1048,13 @@ def _main() -> int:
                         observations=[p[a] for p in payload["pairs"] for a in ("cold", "warm")],
                         failure_reason=reason,
                     )
-                    not_run_rows.append(
+                    refusal_rows.append(
                         {
                             "criterion_id": cid,
                             "editor_id": editor_id,
                             "outcome": "failed",
                             "failure_reason": json.loads(path.read_text())["failure_reason"],
+                            "failure_reasons": json.loads(path.read_text()).get("failure_reasons", []),
                             "attempt_file": _attempt_ref(path),
                         }
                     )
@@ -1050,7 +1068,7 @@ def _main() -> int:
                         "failure_reason": "warm_cold_identical", "cold_samples_ms": cold_edits,
                         "warm_samples_ms": warm_edits,
                     })
-                not_run_rows.append({"editor_id": editor_id, "outcome": "failed",
+                refusal_rows.append({"editor_id": editor_id, "outcome": "failed",
                                      "failure_reason": "warm_cold_identical"})
                 continue
 
@@ -1236,12 +1254,13 @@ def _main() -> int:
                     observations=[o for p in payload["pairs"] for a in ("cold", "warm") for o in p[a].get("burst", [])],
                     failure_reason=reason,
                 )
-                not_run_rows.append(
+                refusal_rows.append(
                     {
                         "criterion_id": "C06",
                         "editor_id": editor_id,
                         "outcome": "failed",
                         "failure_reason": json.loads(path.read_text())["failure_reason"],
+                        "failure_reasons": json.loads(path.read_text()).get("failure_reasons", []),
                         "attempt_file": _attempt_ref(path),
                     }
                 )
@@ -1269,7 +1288,7 @@ def _main() -> int:
                 env=env,
                 failure_reason="adapter-not-implemented: criterion %s not driven on warm_cold host yet" % cid,
             )
-            not_run_rows.append(
+            refusal_rows.append(
                 {
                     "criterion_id": cid,
                     "editor_id": editor_id,
@@ -1316,7 +1335,7 @@ def _main() -> int:
         "publishable": False,
         "pairs_per_cell": args.pairs,
         "paired": paired_rows,
-        "editors": summary_editors + not_run_rows,
+        "editors": summary_editors + refusal_rows,
         "host": {
             "os": sys.platform,
             "arch": platform.machine(),
