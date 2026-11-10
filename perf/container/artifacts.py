@@ -32,9 +32,15 @@ def atomic_write(path: Path, content: str) -> None:
 def build_manifest_lines(job_dir: Path) -> list[str]:
     lines = []
     for path in sorted(job_dir.rglob('*')):
-        if not path.is_file() or path.name in SKIP_NAMES:
+        if path.name in SKIP_NAMES:
+            continue
+        if path.is_symlink():
+            raise ValueError(f'symlink not allowed in manifest: {path}')
+        if not path.is_file():
             continue
         rel = path.relative_to(job_dir).as_posix()
+        if '\n' in rel or '\0' in rel:
+            raise ValueError(f'newline in manifest path: {rel!r}')
         digest = sha256_bytes(path.read_bytes())
         lines.append(f'{digest}  {rel}')
     return lines

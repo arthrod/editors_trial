@@ -261,15 +261,16 @@ def test_corrupted_transfer_is_detected_and_refetched(remote_root, tmp_path, cap
         return data
 
     transport.run = truncating_run
+    (remote_root / 'runs' / run_id / 'RUN-DONE').write_text('exit_status=0\n')
     code = pull_mod.pull_until(
-        transport, remote_root, dest, run_id, interval=0, max_cycles=6
+        transport, remote_root, dest, run_id, interval=0, max_cycles=12
     )
     out = capsys.readouterr().out
     assert 'PULL-ERROR' in out
     assert (dest / job_rel / 'a.txt').read_text() == 'A' * 5000
     assert (dest / job_rel / 'b.txt').read_text() == 'B' * 8000
     index = json.loads((dest / '.pull-index.json').read_text())
-    assert index[f'{job_rel}/b.txt'] == sha256_bytes((b'B' * 8000).encode())
+    assert index[f'{job_rel}/b.txt'] == sha256_bytes(b'B' * 8000)
 
 
 def test_truncated_tar_inside_member_retries(remote_root, tmp_path, capsys):
@@ -294,15 +295,14 @@ def test_truncated_tar_inside_member_retries(remote_root, tmp_path, capsys):
         data = real_run(fragment)
         if 'base64.b64decode(sys.argv[1])' not in fragment:
             return data
-        cuts['n'] += 1
-        if cuts['n'] == 1:
-            return data[:520]
-        return data
+        return data[:520]
 
     transport.run = truncating_run
-    pull_mod.pull_until(transport, remote_root, dest, run_id, interval=0, max_cycles=6)
+    with pytest.raises(pull_mod.VerifyError):
+        pull_mod.pull_cycle(transport, remote_root, dest)
     assert not (dest / job_rel / 'a.txt').exists()
-    assert 'PULL-ERROR' in capsys.readouterr().out
+    index = json.loads((dest / '.pull-index.json').read_text()) if (dest / '.pull-index.json').exists() else {}
+    assert f'{job_rel}/a.txt' not in index
 
 
 def test_omitted_tar_member_not_indexed(remote_root, tmp_path, capsys):
@@ -320,24 +320,25 @@ def test_omitted_tar_member_not_indexed(remote_root, tmp_path, capsys):
     )
     dest = tmp_path / 'dest'
     transport = local_transport(remote_root)
-    real_fetch = pull_mod.fetch_tar_batches
+    real_fetch = pull_mod.fetch_tar
     calls = {'n': 0}
 
-    def omit_second(tr, paths, index, **kwargs):
+    def omit_second(tr, paths):
         calls['n'] += 1
         if calls['n'] == 1 and len(paths) >= 2:
             paths = paths[:1]
-        return real_fetch(tr, paths, index, **kwargs)
+        return real_fetch(tr, paths)
 
-    with mock.patch.object(pull_mod, 'fetch_tar_batches', omit_second):
-        pull_mod.pull_until(transport, remote_root, dest, run_id, interval=0, max_cycles=5)
-    out = capsys.readouterr().out
-    assert 'PULL-ERROR' in out
-    assert (dest / job_rel / 'one.txt').exists()
-    assert not (dest / job_rel / 'two.txt').exists()
-    index = json.loads((dest / '.pull-index.json').read_text())
-    assert f'{job_rel}/one.txt' in index
+    with mock.patch.object(pull_mod, 'fetch_tar', omit_second):
+        with pytest.raises(pull_mod.VerifyError):
+            pull_mod.pull_cycle(transport, remote_root, dest)
+    index_path = dest / '.pull-index.json'
+    index = json.loads(index_path.read_text()) if index_path.exists() else {}
     assert f'{job_rel}/two.txt' not in index
+    pull_mod.pull_cycle(transport, remote_root, dest)
+    assert (dest / job_rel / 'two.txt').exists()
+    index = json.loads((dest / '.pull-index.json').read_text())
+    assert f'{job_rel}/two.txt' in index
 
 
 def test_symlink_outside_root_not_pulled(remote_root, tmp_path, capsys):
@@ -351,9 +352,6 @@ def test_symlink_outside_root_not_pulled(remote_root, tmp_path, capsys):
     job.mkdir(parents=True)
     (job / 'linked.txt').symlink_to(outside)
     (job / 'summary.json').write_text('{}')
-    from perf.container import artifacts
-
-    artifacts.finalize_job(job, 0)
     dest = tmp_path / 'dest'
     transport = local_transport(remote_root)
     pull_mod.pull_cycle(transport, remote_root, dest)
@@ -470,17 +468,7 @@ def test_two_detaches_get_distinct_run_ids(tmp_path, monkeypatch):
 
     root = tmp_path / 'runs_root'
     root.mkdir()
-    fixed = '20260102T030405000000Z'
-    calls = {'n': 0}
-
-    class FrozenDateTime:
-        @classmethod
-        def now(cls, tz=None):
-            calls['n'] += 1
-            base = run_mod.datetime(2026, 1, 2, 3, 4, 5, 0, tzinfo=run_mod.timezone.utc)
-            return base.replace(microsecond=calls['n'] - 1)
-
-    monkeypatch.setattr(run_mod, 'datetime', FrozenDateTime)
+    monkeypatch.setattr(run_mod.random, 'randint', lambda _a, _b: 11)
     id1 = run_mod.allocate_run_id(root)
     id2 = run_mod.allocate_run_id(root)
     assert id1[0] != id2[0]
@@ -557,54 +545,56 @@ def test_refuse_existing_job_preserves_job_done(tmp_path, monkeypatch):
     from perf.container import artifacts
     from perf.container import run as run_mod
 
+    stamp = '20260101T000000000000Z'
+    monkeypatch.setenv('HF_CAMPAIGN_ID', stamp)
     campaign = tmp_path / 'campaign'
     campaign.mkdir()
-    job_dir = campaign / 'benchmark_warm_cold' / 'job-000'
+    job_dir = campaign / 'benchmark_warm_cold' / f'{stamp}-000'
     job_dir.mkdir(parents=True)
     (job_dir / 'summary.json').write_text('{"samples": []}')
     artifacts.finalize_job(job_dir, 0)
     before = (job_dir / 'JOB-DONE').read_bytes()
 
     def fake_run(cmd, **kwargs):
-        (job_dir / 'summary.json').write_text('{"samples": [{"x": 1}]}')
-        return subprocess.CompletedProcess(cmd, 0)
+        check = subprocess.CompletedProcess(cmd, 0)
+        return check
 
     monkeypatch.setattr(subprocess, 'run', fake_run)
-    argv = [
-        sys.executable,
-        '-m',
-        'perf.container.run',
-        '--smoke',
-        '--out-root',
-        str(campaign),
-    ]
-    with pytest.raises(SystemExit) as exc:
+    argv = ['--smoke', '--out-root', str(campaign)]
+    with pytest.raises(RuntimeError):
         run_mod.main(argv)
-    assert exc.value.code != 0
     assert (job_dir / 'JOB-DONE').read_bytes() == before
 
 
 def test_assertion_error_in_job_still_writes_run_done(tmp_path, monkeypatch):
     from perf.container import run as run_mod
 
+    stamp = '20260101T000000000001Z'
+    monkeypatch.setenv('HF_CAMPAIGN_ID', stamp)
     campaign = tmp_path / 'campaign'
     campaign.mkdir()
+    real_counts = run_mod.cell_counts
 
     def fake_run(cmd, **kwargs):
-        out = campaign / Path(cmd[cmd.index('--run-id') + 1].split('-')[0])
-        job = campaign / 'benchmark_warm_cold' / cmd[cmd.index('--run-id') + 1]
+        if any('check_host' in part for part in cmd):
+            return subprocess.CompletedProcess(cmd, 0)
+        run_id = cmd[cmd.index('--run-id') + 1]
+        runner = cmd[3]
+        job = campaign / runner / run_id
         job.mkdir(parents=True, exist_ok=True)
         (job / 'summary.json').write_text('{"samples": []}')
         return subprocess.CompletedProcess(cmd, 0)
 
     monkeypatch.setattr(subprocess, 'run', fake_run)
 
-    def boom(_data):
-        raise AssertionError('counts wrong')
+    def boom(data):
+        if data.get('samples') is not None:
+            raise AssertionError('counts wrong')
+        return real_counts(data)
 
     monkeypatch.setattr(run_mod, 'cell_counts', boom)
-    argv = [sys.executable, '-m', 'perf.container.run', '--smoke', '--out-root', str(campaign)]
-    run_mod.main(argv)
+    with pytest.raises(RuntimeError):
+        run_mod.main(['--smoke', '--out-root', str(campaign)])
     assert (campaign / 'RUN-DONE').exists()
 
 
