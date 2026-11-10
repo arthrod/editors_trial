@@ -1278,7 +1278,7 @@ def _run_find_payloads(*, editor_id: str, target: dict, cfg: dict, fixture_path:
                 lambda: _run_find(editor_id=editor_id, target=target, cfg=cfg, fixture_path=fixture_path),
             )
         ]
-    limit = sample_budget_for_profile(EXECUTION_PROFILE, "fresh_process")
+    limit = sample_budget_for_profile(execution_profile(EXECUTION_PROFILE), "fresh_process")
     reps = max(int(count), C15_MIN_N)
     if reps > limit:
         reps = limit
