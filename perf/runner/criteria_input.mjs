@@ -1587,11 +1587,21 @@ export async function runCriteriaSuite({
   };
   const adapter = correctnessAdapter(options);
 
-  await page.evaluate(INSTALL_INPUT_TAP);
-  const readyPageMs = await page.evaluate(() => performance.now());
-
   const entries = {};
   let witness = null;
+  let readyPageMs = 0;
+  let points = { viewport: { width: 1280, height: 900 } };
+  let initialState = {};
+  let meta = {
+    editable: {
+      selector: editSelector,
+      is_content_editable: false,
+      text_length: null,
+      line_height_px: null,
+    },
+    points: [],
+    point_source: 'unavailable',
+  };
 
   async function safeCriterion(criterionId, run) {
     try {
@@ -1604,130 +1614,143 @@ export async function runCriteriaSuite({
   const fixtureWaitForRestore = criteria.includes('C08');
   const measureOptions = { ...options, fixtureWaitForRestore };
 
-  // C04 first and before anything else touches the page: a click of our own is
-  // deferred work the criterion would otherwise count.
-  if (criteria.includes('C04')) {
-    entries.C04 = await safeCriterion('C04', () => measureQuiescence(page, options, readyPageMs));
-  }
+  try {
+    await page.evaluate(INSTALL_INPUT_TAP);
+    readyPageMs = await page.evaluate(() => performance.now());
 
-  const points = await page.evaluate(RESOLVE_CLICK_POINTS, editSelector);
-  const initialState = await readState(page, editSelector);
-  const editableMissing = initialState.error || null;
+    // C04 first and before anything else touches the page: a click of our own is
+    // deferred work the criterion would otherwise count.
+    if (criteria.includes('C04')) {
+      entries.C04 = await safeCriterion('C04', () => measureQuiescence(page, options, readyPageMs));
+    }
 
-  const needsPaint = criteria.some((id) => id !== 'C04');
-  if (needsPaint) {
-    try {
-      const recorder = getRecorder(cdp, { manageScreencast: true });
-      const interval = await frameInterval(page);
-      witness = {
-        recorder,
-        frameIntervalMs: interval.median_ms,
-        started: true,
-        editSelector,
-        async paintAfter(pageMs, callOptions = {}) {
-          return witnessFrame(page, cdp, {
-            afterPageMs: pageMs,
-            arm: callOptions.arm ?? null,
-            region: { selector: editSelector },
-            recorder,
-            manageScreencast: false,
-            windowMs: frameTimeoutMs,
-            caretMask: true,
+    const resolvedPoints = await page.evaluate(RESOLVE_CLICK_POINTS, editSelector);
+    points = { ...points, ...resolvedPoints };
+    initialState = await readState(page, editSelector);
+    const editableMissing = initialState.error || null;
+
+    const needsPaint = criteria.some((id) => id !== 'C04');
+    if (needsPaint) {
+      try {
+        const recorder = getRecorder(cdp, { manageScreencast: true });
+        const interval = await frameInterval(page);
+        witness = {
+          recorder,
+          frameIntervalMs: interval.median_ms,
+          started: true,
+          editSelector,
+          async paintAfter(pageMs, callOptions = {}) {
+            return witnessFrame(page, cdp, {
+              afterPageMs: pageMs,
+              arm: callOptions.arm ?? null,
+              region: { selector: editSelector },
+              recorder,
+              manageScreencast: false,
+              windowMs: frameTimeoutMs,
+              caretMask: true,
+            });
+          },
+        };
+      } catch (err) {
+        witness = { started: false, startError: String(err), recorder: null, frameIntervalMs: null };
+      }
+      if (!witness.started) {
+        // The harness failed to attach the paint witness. That is our failure,
+        // not the editor's, and it must be named as such on every entry.
+        const reason = `paint_witness_unavailable: ${witness.startError}`;
+        for (const id of criteria) {
+          if (id === 'C04') continue;
+          entries[id] = emptyEntry(id, 'failed', reason, {
+            trial_hints: {
+              cache_state: CRITERIA_META[id].cache_state,
+              repetition_unit: 'fresh_process',
+              run_kind: 'timing',
+              feature_profile: 'P0',
+            },
+            assertion: {
+              name: null,
+              passed: false,
+              scope: null,
+              checks: { paint_witness_started: false },
+              failures: ['paint_witness_unavailable'],
+            },
           });
-        },
-      };
-    } catch (err) {
-      witness = { started: false, startError: String(err), recorder: null, frameIntervalMs: null };
-    }
-    if (!witness.started) {
-      // The harness failed to attach the paint witness. That is our failure,
-      // not the editor's, and it must be named as such on every entry.
-      const reason = `paint_witness_unavailable: ${witness.startError}`;
-      for (const id of criteria) {
-        if (id === 'C04') continue;
-        entries[id] = emptyEntry(id, 'failed', reason, {
-          trial_hints: {
-            cache_state: CRITERIA_META[id].cache_state,
-            repetition_unit: 'fresh_process',
-            run_kind: 'timing',
-            feature_profile: 'P0',
-          },
-          assertion: {
-            name: null,
-            passed: false,
-            scope: null,
-            checks: { paint_witness_started: false },
-            failures: ['paint_witness_unavailable'],
-          },
-        });
+        }
       }
     }
-  }
 
-  const meta = {
-    editable: {
-      selector: editSelector,
-      is_content_editable: initialState.is_content_editable === true,
-      text_length: initialState.text_length === undefined ? null : initialState.text_length,
-      line_height_px: points.line_height_px === undefined ? null : points.line_height_px,
-    },
-    points: points.points || [],
-    point_source: points.source || 'unavailable',
-  };
+    meta = {
+      editable: {
+        selector: editSelector,
+        is_content_editable: initialState.is_content_editable === true,
+        text_length: initialState.text_length === undefined ? null : initialState.text_length,
+        line_height_px: points.line_height_px === undefined ? null : points.line_height_px,
+      },
+      points: points.points || [],
+      point_source: points.source || 'unavailable',
+    };
 
-  const unavailable = editableMissing || points.error || null;
-  const needsDomAdapter = criteria.some((id) => id !== 'C04');
-  const adapterRefusal =
-    needsDomAdapter && adapterGate(adapter, meta.editable.is_content_editable);
-  const canvasWithoutAdapter = adapterRefusal;
-  if (criteria.includes('C07')) {
-    if (!entries.C07) {
-      if (canvasWithoutAdapter) {
-        entries.C07 = emptyEntry('C07', 'unsupported', canvasWithoutAdapter);
-      } else
-      entries.C07 =
-        unavailable || meta.points.length !== 3
-          ? emptyEntry('C07', 'failed', unavailable || 'click_points_unavailable', {
-              assertion: {
-                name: 'hit_test_reaches_editable_and_paints',
-                passed: false,
-                scope: null,
-                checks: { editable_found: !editableMissing, points_resolved: meta.points.length },
-                failures: [unavailable || 'click_points_unavailable'],
-              },
-            })
-          : await safeCriterion('C07', () => measureClicks(page, witness, options, meta));
-    }
-  }
-  if (criteria.includes('C09') && !entries.C09) {
-    entries.C09 = canvasWithoutAdapter
-      ? emptyEntry('C09', 'unsupported', canvasWithoutAdapter)
-      : editableMissing
-        ? emptyEntry('C09', 'failed', editableMissing)
-        : await safeCriterion('C09', () => measureUndo(page, witness, measureOptions, meta));
-  }
-  if (criteria.includes('C08') && entries.C09?.fixture_reset) {
-    if (!entries.C09.fixture_reset.restored) {
-      entries.C08 = emptyEntry('C08', 'failed', 'fixture_reset_failed_after_C09');
-    } else {
-      const refreshed = await page.evaluate(RESOLVE_CLICK_POINTS, editSelector);
-      meta.points = refreshed.points || [];
-      meta.point_source = refreshed.source || meta.point_source;
-      if (refreshed.line_height_px !== undefined) {
-        meta.editable.line_height_px = refreshed.line_height_px;
+    const unavailable = editableMissing || points.error || null;
+    const needsDomAdapter = criteria.some((id) => id !== 'C04');
+    const adapterRefusal =
+      needsDomAdapter && adapterGate(adapter, meta.editable.is_content_editable);
+    const canvasWithoutAdapter = adapterRefusal;
+    if (criteria.includes('C07')) {
+      if (!entries.C07) {
+        if (canvasWithoutAdapter) {
+          entries.C07 = emptyEntry('C07', 'unsupported', canvasWithoutAdapter);
+        } else
+        entries.C07 =
+          unavailable || meta.points.length !== 3
+            ? emptyEntry('C07', 'failed', unavailable || 'click_points_unavailable', {
+                assertion: {
+                  name: 'hit_test_reaches_editable_and_paints',
+                  passed: false,
+                  scope: null,
+                  checks: { editable_found: !editableMissing, points_resolved: meta.points.length },
+                  failures: [unavailable || 'click_points_unavailable'],
+                },
+              })
+            : await safeCriterion('C07', () => measureClicks(page, witness, options, meta));
       }
-      const refreshedState = await readState(page, editSelector);
-      meta.editable.is_content_editable = refreshedState.is_content_editable === true;
-      meta.editable.text_length =
-        refreshedState.text_length === undefined ? null : refreshedState.text_length;
     }
-  }
-  if (criteria.includes('C08') && !entries.C08) {
-    entries.C08 = canvasWithoutAdapter
-      ? emptyEntry('C08', 'unsupported', canvasWithoutAdapter)
-      : editableMissing
-        ? emptyEntry('C08', 'failed', editableMissing)
-        : await safeCriterion('C08', () => measureBulkInsert(page, witness, options, meta));
+    if (criteria.includes('C09') && !entries.C09) {
+      entries.C09 = canvasWithoutAdapter
+        ? emptyEntry('C09', 'unsupported', canvasWithoutAdapter)
+        : editableMissing
+          ? emptyEntry('C09', 'failed', editableMissing)
+          : await safeCriterion('C09', () => measureUndo(page, witness, measureOptions, meta));
+    }
+    if (criteria.includes('C08') && entries.C09?.fixture_reset) {
+      if (!entries.C09.fixture_reset.restored) {
+        entries.C08 = emptyEntry('C08', 'failed', 'fixture_reset_failed_after_C09');
+      } else {
+        const refreshed = await page.evaluate(RESOLVE_CLICK_POINTS, editSelector);
+        meta.points = refreshed.points || [];
+        meta.point_source = refreshed.source || meta.point_source;
+        if (refreshed.line_height_px !== undefined) {
+          meta.editable.line_height_px = refreshed.line_height_px;
+        }
+        const refreshedState = await readState(page, editSelector);
+        meta.editable.is_content_editable = refreshedState.is_content_editable === true;
+        meta.editable.text_length =
+          refreshedState.text_length === undefined ? null : refreshedState.text_length;
+      }
+    }
+    if (criteria.includes('C08') && !entries.C08) {
+      entries.C08 = canvasWithoutAdapter
+        ? emptyEntry('C08', 'unsupported', canvasWithoutAdapter)
+        : editableMissing
+          ? emptyEntry('C08', 'failed', editableMissing)
+          : await safeCriterion('C08', () => measureBulkInsert(page, witness, options, meta));
+    }
+  } catch (error) {
+    const reason = `page_lost: ${String(error)}`;
+    for (const id of criteria) {
+      if (!entries[id]) {
+        entries[id] = emptyEntry(id, 'failed', reason);
+      }
+    }
   }
 
   if (witness?.recorder) {

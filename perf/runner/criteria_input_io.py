@@ -500,12 +500,23 @@ def write_trials_from_payload(payload, attempt_dir, **env_args):
             trial = trials_from_payload(single, **env_args)[cid]
         except ValueError as exc:
             entry = payload["criteria"][cid]
-            refusal = {
-                "written": False,
-                "path": None,
-                "failure_reason": str(exc),
-                **_witness_evidence_from_entry(entry),
-            }
+            try:
+                witness_evidence = _witness_evidence_from_entry(entry)
+            except ValueError:
+                witness_evidence = {"observations": []}
+                refusal = {
+                    "written": False,
+                    "path": None,
+                    "failure_reason": f"{exc}; malformed_observation",
+                    **witness_evidence,
+                }
+            else:
+                refusal = {
+                    "written": False,
+                    "path": None,
+                    "failure_reason": str(exc),
+                    **witness_evidence,
+                }
             by_criterion[cid] = refusal
             continue
         attempt_id = "%s-%s-%s" % (
