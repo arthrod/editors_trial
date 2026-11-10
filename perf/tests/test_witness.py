@@ -1965,5 +1965,360 @@ class WitnessRealRecordTests(_WitnessBrowserCase):
                 )
 
 
+class WitnessIssue137Round4Tests(unittest.TestCase):
+    """Issue #137, round 4 (pi MiniMax-M3's re-review `rereview-b1c-3.md`).
+
+    N1/N2 -- the discriminator is positive. A record IS a frame witness only
+    when it carries the producer's markers (``kind: 'frame_witness'``, a
+    ``clock_check_source``, or the production nested clock check with its raw
+    measurements). A record without them is refused ``not_a_witness_record``
+    -- there is no lenient "legacy" branch that can return ok -- and erasing
+    the markers of a real record (nine fields, or one at a time) must not
+    downgrade it into one. If the old hand-made "legacy simple" shape stays
+    parseable at all, its verdict is that same distinct, never-publishable
+    refusal.
+
+    N4 -- the schema is closed: an unknown top-level or nested field is
+    refused ``witness_schema_invalid``; the allowed key sets are exactly the
+    keys the producer emits (asserted against the real capture), and the
+    ``clock_skew`` alias slot is not read unless the producer writes it (it
+    never does).
+
+    N5 -- a caller-supplied ``bound_ms`` must be a finite positive number and
+    a caller-supplied ``skew`` a finite number; anything else is refused
+    ``nonfinite_time`` instead of silently disabling the skew gate.
+    """
+
+    def load_validator(self):
+        return _load_validator()
+
+    def captured(self) -> dict:
+        return json.loads(json.dumps(_load_captured_record()))
+
+    @staticmethod
+    def hand_made_legacy_record() -> dict:
+        """The 13-key shape no producer writes: `witnessFrame()` always emits
+        ``kind: 'frame_witness'`` (perf/runner/witness.mjs), so this record
+        carries no clock-check evidence, no document region, no arm and no
+        pixel totals. The round-3 validator accepted it with ``ok: true`` and
+        B3's own decision code published its figures (re-review,
+        `publication_repro.py`)."""
+        return {
+            "outcome": "witnessed",
+            "frame_page_ms": 1234.5,
+            "frames_total": 7,
+            "frames_after": 3,
+            "diff_ratio": 0.01,
+            "threshold": 0.00005,
+            "min_pixels": 4,
+            "changed_pixels": 900,
+            "caret_masked": True,
+            "document_scoped": True,
+            "clock_skew_ms": 0.2,
+            "clock_skew_acceptable": True,
+            "clock_check": {
+                "kind": "clock_skew",
+                "acceptable": True,
+                "reason": None,
+                "page_offset_ms": 0.2,
+            },
+        }
+
+    #: the producer's markers: the two top-level ones and the seven nested
+    #: ones (N2: erasing exactly this set is what used to reach the fallback;
+    #: nine fields, not the six the round-3 report claimed).
+    TOP_MARKERS = ("kind", "clock_check_source")
+    NESTED_MARKERS = (
+        "method",
+        "page_offset_samples",
+        "lag_bound_ms",
+        "conversion",
+        "change_page_ms",
+        "frame_page_ms",
+        "frame_lag_ms",
+    )
+
+    # -- N1: a record with no markers is not a witness record -------------
+
+    def test_a_hand_made_legacy_record_is_refused_not_a_witness_record(self):
+        validator = self.load_validator()
+        for name, record in (
+            ("the 13-key legacy shape", self.hand_made_legacy_record()),
+            (
+                "the same, without any clock_check",
+                self.hand_made_legacy_record() | {"clock_check": None},
+            ),
+        ):
+            with self.subTest(case=name):
+                verdict = validator.validate_witness(record)
+                self.assertTrue(
+                    verdict.get("refused"),
+                    "%s must be refused: %r" % (name, verdict),
+                )
+                self.assertFalse(verdict.get("ok"))
+                self.assertEqual(verdict.get("reason"), "not_a_witness_record")
+
+    def test_the_legacy_clock_shapes_are_refused_not_a_witness_record(self):
+        """The shapes the round-3 file pinned as ACCEPTED (the deprecated
+        `skew_ms` alias, the `clock_skew` dict): still parseable -- the
+        validator returns a verdict, never crashes -- but never `ok`."""
+        validator = self.load_validator()
+        legacy = self.hand_made_legacy_record()
+        shapes = {
+            "skew_ms alias": legacy | {"clock_skew_ms": None, "skew_ms": 0.2},
+            "clock_skew dict": legacy
+            | {"clock_skew_ms": None, "clock_skew": {"skew_ms": 0.2}},
+            "empty record": {},
+        }
+        for name, record in shapes.items():
+            with self.subTest(case=name):
+                verdict = validator.validate_witness(record)  # parses, no crash
+                self.assertTrue(verdict.get("refused"), "%s: %r" % (name, verdict))
+                self.assertFalse(verdict.get("ok"))
+                self.assertEqual(verdict.get("reason"), "not_a_witness_record")
+
+    # -- N2: erasing markers must not downgrade a real record -------------
+
+    def test_the_nine_field_erasure_is_refused(self):
+        """N2's sharp case: the record keeps all eight `checks: true` and
+        loses every measurement that would prove them. The round-3 validator
+        accepted it because the recomputation returned early once the nested
+        method was gone."""
+        validator = self.load_validator()
+        for name, keep_checks in (("checks erased too", False), ("checks kept", True)):
+            with self.subTest(case=name):
+                record = self.captured()
+                checks = record["clock_check"].get("checks")
+                for key in self.TOP_MARKERS:
+                    record.pop(key, None)
+                for key in self.NESTED_MARKERS:
+                    record["clock_check"].pop(key, None)
+                if not keep_checks:
+                    record["clock_check"].pop("checks", None)
+                else:
+                    record["clock_check"]["checks"] = checks
+                self.assertFalse(
+                    validator._is_production_record(record),
+                    "the nine-field erasure is the fallback the re-review named",
+                )
+                verdict = validator.validate_witness(record)
+                self.assertTrue(
+                    verdict.get("refused"),
+                    "a real record whose markers were erased must still be "
+                    "refused (%s): %r" % (name, verdict),
+                )
+                self.assertEqual(verdict.get("reason"), "not_a_witness_record")
+
+    def test_erasing_one_marker_at_a_time_keeps_the_strict_schema(self):
+        """Each marker alone leaves the others (probe2 §E): the record stays a
+        production record and faces the strict schema, so no partial erasure
+        can reach a lenient branch."""
+        validator = self.load_validator()
+        for key in self.TOP_MARKERS:
+            record = self.captured()
+            record.pop(key)
+            self.assertTrue(
+                validator._is_production_record(record),
+                "without %s the record still carries the other markers" % (key,),
+            )
+            verdict = validator.validate_witness(record)
+            self.assertTrue(
+                verdict.get("refused"),
+                "a production record without %s must be refused: %r" % (key, verdict),
+            )
+            self.assertEqual(verdict.get("reason"), "witness_schema_invalid")
+        for key in self.NESTED_MARKERS:
+            record = self.captured()
+            record["clock_check"].pop(key)
+            self.assertTrue(
+                validator._is_production_record(record),
+                "without clock_check.%s the record still carries the other "
+                "markers" % (key,),
+            )
+            verdict = validator.validate_witness(record)
+            self.assertTrue(
+                verdict.get("refused"),
+                "a production record without clock_check.%s must be refused: %r"
+                % (key, verdict),
+            )
+
+    def test_a_witnessed_record_must_carry_its_evidence(self):
+        """No region (a whole-frame diff, the exact thing #130/W7 forbids),
+        no arm (the frame's causality check cannot run), no pixel totals
+        (changed=1e9 with ratio 0.01 was accepted): all refused."""
+        validator = self.load_validator()
+        cases = {}
+        no_region = self.captured()
+        del no_region["document_region"]
+        cases["no document_region"] = no_region
+        no_arm = self.captured()
+        del no_arm["after_page_ms"]
+        cases["no after_page_ms"] = no_arm
+        no_total = self.captured()
+        del no_total["total_pixels"]
+        no_total["changed_pixels"] = 10**9
+        cases["no total_pixels, changed=1e9"] = no_total
+        for name, record in cases.items():
+            with self.subTest(case=name):
+                verdict = validator.validate_witness(record)
+                self.assertTrue(
+                    verdict.get("refused"), "%s must be refused: %r" % (name, verdict)
+                )
+
+    def test_the_recorded_checks_must_exist(self):
+        """An acceptable check with its `checks` deleted (or replaced by the
+        minimal legacy shape) proves nothing."""
+        validator = self.load_validator()
+        deleted = self.captured()
+        del deleted["clock_check"]["checks"]
+        minimal = self.captured()
+        minimal["clock_check"] = {
+            "kind": "clock_skew",
+            "acceptable": True,
+            "reason": None,
+            "page_offset_ms": 0.2,
+        }
+        for name, record in (
+            ("checks deleted", deleted),
+            ("the minimal legacy nested check", minimal),
+        ):
+            with self.subTest(case=name):
+                verdict = validator.validate_witness(record)
+                self.assertTrue(
+                    verdict.get("refused"), "%s must be refused: %r" % (name, verdict)
+                )
+
+    def test_the_recomputation_is_not_gated_on_the_method(self):
+        """N2: with `clock_check.method` erased and the anchor times lying
+        (frame 1000 ms before its own change), the recomputation must still
+        run and name the contradiction -- the round-3 code returned early on
+        the missing method and let the eight `true` flags through."""
+        validator = self.load_validator()
+        record = self.captured()
+        del record["clock_check"]["method"]
+        record["clock_check"]["frame_page_ms"] = 0
+        record["clock_check"]["change_page_ms"] = 1000
+        record["clock_check"]["frame_lag_ms"] = -1000
+        verdict = validator.validate_witness(record)
+        self.assertTrue(
+            verdict.get("refused"),
+            "lying anchor times must be refused with or without the method: %r"
+            % (verdict,),
+        )
+        self.assertEqual(
+            verdict.get("reason"),
+            "clock_check_evidence_contradicted",
+            "the recomputation must name the contradiction, not the schema: %r"
+            % (verdict,),
+        )
+
+    def test_markers_on_a_hand_made_record_do_not_rescue_it(self):
+        """The re-review's asymmetry, the other way round: putting the two
+        top-level markers on the hand-made record makes it a production
+        record, and the strict schema then refuses it for the evidence it
+        lacks -- it can never pass as a legacy one instead."""
+        validator = self.load_validator()
+        record = self.hand_made_legacy_record() | {
+            "kind": "frame_witness",
+            "clock_check_source": "caller",
+        }
+        verdict = validator.validate_witness(record)
+        self.assertTrue(verdict.get("refused"), "%r" % (verdict,))
+        self.assertEqual(verdict.get("reason"), "witness_schema_invalid")
+
+    # -- N4: the closed schema --------------------------------------------
+
+    def test_an_unknown_field_is_refused(self):
+        validator = self.load_validator()
+        top = self.captured()
+        top["a_field_the_producer_never_writes"] = 1
+        nested = self.captured()
+        nested["clock_check"]["also_unknown"] = [1, 2, 3]
+        alias = self.captured()
+        alias["clock_skew"] = {"skew_ms": 1000.0}
+        for name, record in (
+            ("unknown top-level field", top),
+            ("unknown nested field", nested),
+            ("the clock_skew alias slot", alias),
+        ):
+            with self.subTest(case=name):
+                verdict = validator.validate_witness(record)
+                self.assertTrue(
+                    verdict.get("refused"), "%s must be refused: %r" % (name, verdict)
+                )
+                self.assertEqual(verdict.get("reason"), "witness_schema_invalid")
+
+    def test_the_clock_skew_alias_slot_is_not_read(self):
+        """The producer never writes a top-level `clock_skew` on a frame
+        witness record; the reader must not use it as evidence either."""
+        validator = self.load_validator()
+        record = self.captured() | {"clock_skew": {"skew_ms": 1000.0}}
+        self.assertNotEqual(
+            validator._skew_of(record),
+            1000.0,
+            "the alias slot the producer never writes must not be read",
+        )
+
+    def test_the_allowed_key_sets_equal_the_producers_emitted_keys(self):
+        """The closed schema's allowed sets are exactly the keys the producer
+        emits on a real capture -- not a hand-drawn copy of them."""
+        validator = self.load_validator()
+        record = _load_captured_record()
+        self.assertEqual(
+            set(record),
+            set(validator._PRODUCTION_ALLOWED_KEYS),
+            "the top-level allowed set must equal the capture's keys",
+        )
+        self.assertEqual(
+            set(record["clock_check"]),
+            set(validator._CLOCK_CHECK_ALLOWED_KEYS),
+            "the nested allowed set must equal the capture's clock_check keys",
+        )
+
+    # -- N5: the caller's own arguments -----------------------------------
+
+    def test_a_nonfinite_or_nonpositive_bound_argument_is_refused(self):
+        """A NaN or infinite bound makes every comparison false (a dead
+        gate); a non-positive one gates nothing. Both are refused instead of
+        silently disabling the skew check."""
+        validator = self.load_validator()
+        record = self.captured()
+        for name, bound in (
+            ("nan", float("nan")),
+            ("inf", float("inf")),
+            ("zero", 0.0),
+            ("negative", -2.0),
+            ("not a number", "2"),
+        ):
+            with self.subTest(bound=name):
+                verdict = validator.validate_witness(record, bound_ms=bound)
+                self.assertTrue(
+                    verdict.get("refused"),
+                    "bound_ms=%s must be refused, not silently used" % (name,),
+                )
+                self.assertFalse(verdict.get("ok"))
+                self.assertEqual(verdict.get("reason"), "nonfinite_time")
+        # the honest bound still works
+        self.assertFalse(validator.validate_witness(record, bound_ms=2.0)["refused"])
+
+    def test_a_nonfinite_skew_argument_is_refused(self):
+        """A caller that measured NaN must not get a pass: the round-3 code
+        silently dropped the argument and used the record's own offset."""
+        validator = self.load_validator()
+        record = self.captured()
+        for name, skew in (("nan", float("nan")), ("inf", float("inf"))):
+            with self.subTest(skew=name):
+                verdict = validator.validate_witness(record, skew=skew)
+                self.assertTrue(
+                    verdict.get("refused"),
+                    "skew=%s must be refused, never fallen back from" % (name,),
+                )
+                self.assertEqual(verdict.get("reason"), "nonfinite_time")
+        # a finite explicit skew still overrides the record's own
+        verdict = validator.validate_witness(record, skew=0.3)
+        self.assertFalse(verdict.get("refused"))
+        self.assertEqual(verdict.get("skew_ms"), 0.3)
+
+
 if __name__ == "__main__":
     unittest.main()
