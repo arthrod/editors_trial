@@ -96,6 +96,19 @@ class Fix3Hosts(unittest.TestCase):
         except json.JSONDecodeError as exc:
             self.fail("document_probe did not print JSON (%s)\nstdout: %r\nstderr: %r" % (exc, proc.stdout, proc.stderr))
 
+    def test_first_ink_frame_has_a_valid_pre_navigation_baseline(self):
+        from perf.runner.witness import validate_witness
+
+        payload = self.probe(
+            "load", "b3_iframe_doc.html",
+            ["--usable-signal", "screencast_ink", "--doc-selector", "#frame", "--timeout-ms", "8000"],
+        )
+        verdict = validate_witness(payload["witness"])
+        print(json.dumps({"witness": payload["witness"], "verdict": verdict}))
+        self.assertTrue(verdict["ok"], verdict)
+        self.assertAlmostEqual(payload["witness"]["frame_page_ms"], payload["document_text_at_ms"], places=3)
+        self.assertGreaterEqual(bd.c11_measured_samples(payload)[0], 0)
+
     def test_webgl_uses_screencast_ink(self):
         payload = self.probe(
             "load",

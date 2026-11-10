@@ -901,6 +901,10 @@ async function loadResult(ctx, { navigationMs, readyMs, surface, witness, surfac
 
 async function runLoad(browser) {
   const ctx = await newPage(browser);
+  // The first recorded navigation frame can already contain the document.
+  // Preserve real, full-viewport pixels from before navigation rather than
+  // letting witnessFrame choose a later frame as a historical baseline.
+  const navigationBaseline = (await ctx.page.screenshot()).toString('base64');
   await beginWitness(ctx);
   try {
     if (usableSignal === 'shadow_text' && !documentSelector) {
@@ -958,7 +962,7 @@ async function runLoad(browser) {
       const region = await documentRegion(ctx.page);
       witness = await witnessFrame(ctx.page, ctx.cdp, {
         afterPageMs: surface.at_ms,
-        baseline: baseline || null,
+        baseline: baseline || navigationBaseline,
         windowMs: DEFAULT_WINDOW_MS,
         caretMask: true,
         settleMs: 0,
