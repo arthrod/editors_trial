@@ -134,10 +134,14 @@ Three copies of every measurement:
    is running. Rebuild or factory reboot can erase it.
 2. **HF persistent bucket** (survives restarts): a private Hugging Face bucket
    mounted read-write at `/data` via FUSE (`hf-mount`). After each job is sealed,
-   `run.py` mirrors the job directory to `/data/e2/<campaign-id>/<runner>/<job>/`
-   (override with `HF_MIRROR_ROOT`). Copies are verified against
-   `MANIFEST.sha256`; `MIRROR-OK` marks a good mirror. Mirror failures are logged
-   in `RUN.log` and never fail the job. Nothing in the mirror is deleted; a changed
+   `run.py` starts `mirror.py` in a separate process after each `JOB-DONE`
+   (timeout `HF_MIRROR_TIMEOUT_S`, default 300) and mirrors to
+   `/data/e2/<campaign-id>/<runner>/<job>/` (override with `HF_MIRROR_ROOT`).
+   Copies are verified against `MANIFEST.sha256`; `MIRROR-OK` marks a good mirror.
+   Mirror failures are logged in `RUN.log` and never fail the job. A hung mirror
+   child is killed so the next runner can start; any survivor is disclosed in
+   `RUN.log` and the next job's `campaign-meta.json`. Nothing in the mirror is
+   deleted; a changed
    file gets a `name.prev-<UTC-stamp>` sibling. The bucket allowance is free; no HF
    token belongs in the container image.
 3. **Mac pull** (verified): `pull.sh` streams tar batches into a staging area,

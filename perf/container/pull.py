@@ -20,6 +20,7 @@ BATCH_MAX_BYTES = 64 * 1024 * 1024
 BATCH_MAX_FILES = 500
 BATCH_MAX_PATH_BYTES = 32 * 1024
 STREAM_CHUNK = 65536
+PREV_COPY_CHUNK = 1024 * 1024
 LISTED_SIZE_CAP = 3
 
 TAR_STDIN_MARKER = "sys.stdin.buffer.read()"
@@ -229,17 +230,51 @@ def make_batches(paths: list[str], index: dict[str, dict]) -> list[list[str]]:
     return batches
 
 
+def _pull_meta_skip(rel: str, name: str) -> bool:
+    if name.startswith('.pull-'):
+        return True
+    if rel.startswith('.pull-staging/') or '/.pull-staging/' in rel:
+        return True
+    if rel.startswith('.pull-staging.stale-') or '/.pull-staging.stale-' in rel:
+        return True
+    return False
+
+
+def quarantine_stale_pull_staging(dest: Path) -> None:
+    staging = dest / '.pull-staging'
+    if not staging.is_dir():
+        return
+    try:
+        next(staging.iterdir())
+    except StopIteration:
+        return
+    stamp = time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())
+    stale = dest / f'.pull-staging.stale-{stamp}'
+    for suffix in range(1000):
+        candidate = stale if suffix == 0 else Path(f'{stale}-{suffix}')
+        try:
+            staging.rename(candidate)
+            return
+        except FileExistsError:
+            continue
+        except OSError:
+            return
+
+
 def write_prev_copy(target: Path) -> None:
     stamp = time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())
     base = f'{target.name}.prev-{stamp}'
-    data = target.read_bytes()
     suffix = 0
     while True:
         name = base if suffix == 0 else f'{base}-{suffix}'
         prev = target.with_name(name)
         try:
-            with open(prev, 'xb') as fh:
-                fh.write(data)
+            with open(prev, 'xb') as out, target.open('rb') as inp:
+                while True:
+                    chunk = inp.read(PREV_COPY_CHUNK)
+                    if not chunk:
+                        break
+                    out.write(chunk)
             return
         except FileExistsError:
             suffix += 1
@@ -323,8 +358,7 @@ def extract_tar_stream(stream: bytes, dest_root: Path, expected: dict[str, dict]
         for rel, staging_path in staged.items():
             target = dest_root / rel
             target.parent.mkdir(parents=True, exist_ok=True)
-            new_bytes = staging_path.read_bytes()
-            if target.exists() and target.read_bytes() != new_bytes:
+            if target.exists() and sha256_file(target) != sha256_file(staging_path):
                 write_prev_copy(target)
             os.replace(staging_path, target)
             satisfied.add(rel)
@@ -357,12 +391,37 @@ def rebuild_local_index(dest: Path) -> dict[str, str]:
     for path in dest.rglob('*'):
         if not path.is_file():
             continue
-        name = path.name
-        if name.startswith('.pull-') or '.pull-index.json.corrupt-' in name:
-            continue
         rel = path.relative_to(dest).as_posix()
-        digest_by_path[rel] = sha256_bytes(path.read_bytes())
+        if _pull_meta_skip(rel, path.name) or '.pull-index.json.corrupt-' in path.name:
+            continue
+        digest_by_path[rel] = sha256_file(path)
     return digest_by_path
+
+
+def load_gone_index(dest: Path) -> dict[str, str]:
+    path = dest / '.pull-index-gone.json'
+    if not path.exists():
+        return {}
+    try:
+        raw = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return {}
+    return raw if isinstance(raw, dict) else {}
+
+
+def prune_index_to_listing(
+    index_map: dict[str, str],
+    listing: dict[str, dict],
+    dest: Path,
+) -> dict[str, str]:
+    pruned = {path: digest for path, digest in index_map.items() if path in listing}
+    gone = load_gone_index(dest)
+    for path, digest in index_map.items():
+        if path not in listing:
+            gone[path] = digest
+    if gone:
+        atomic_write_json(dest / '.pull-index-gone.json', gone)
+    return pruned
 
 
 def load_json_state(path: Path, dest: Path) -> dict | list:
@@ -407,7 +466,7 @@ def verify_job_manifest_impl(dest_root: Path, job_prefix: str, remote_index: dic
         path = job_dir / rel
         if not path.is_file():
             raise VerifyError(f'manifest lists missing file {job_prefix}/{rel}')
-        if sha256_bytes(path.read_bytes()) != digest:
+        if sha256_file(path) != digest:
             raise VerifyError(f'manifest mismatch for {job_prefix}/{rel}')
     for path in sorted(job_dir.rglob('*')):
         if not path.is_file() or path.name in ('MANIFEST.sha256', 'JOB-DONE'):
@@ -526,6 +585,7 @@ def pull_cycle(
     announce: set[str] | None = None,
 ) -> tuple[set[str], int]:
     dest = Path(dest)
+    quarantine_stale_pull_staging(dest)
     announce_path = dest / '.pull-announced.json'
     if announce is None:
         raw = load_json_state(announce_path, dest)
@@ -552,6 +612,7 @@ def pull_cycle(
             continue
         if prior.get(path) == meta['sha256']:
             new_index[path] = meta['sha256']
+    new_index = prune_index_to_listing(new_index, index, dest)
     dest.mkdir(parents=True, exist_ok=True)
     atomic_write_json(local_index_path, new_index)
     jobs: dict[str, str] = {}
@@ -661,7 +722,7 @@ def pull_until(
                     local_done = dest / rel
                     if local_done.is_file() and sha256_file(local_done) == meta['sha256']:
                         print(
-                            f'FINAL-VERIFIED {run_id} files={len(local_index)} '
+                            f'FINAL-VERIFIED {run_id} files={len(index)} '
                             f'jobs={len(announced)} run_exit={exit_status}',
                             flush=True,
                         )
