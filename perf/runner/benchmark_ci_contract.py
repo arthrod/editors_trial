@@ -106,8 +106,10 @@ def _host_base(
     run_kind: str,
     feature_profile_name: str,
 ) -> dict:
+    from perf.fixtures.docx_workload import ladder_row_for_env
     from perf.runner.browser_run import execution_profile as run_profile, host_class
 
+    workload_row = ladder_row_for_env(workload_row)
     execution_profile = run_profile(execution_profile)
     feats = feature_profile(feature_profile_name)
     disabled = list(feats.get("disabled_features") or [])

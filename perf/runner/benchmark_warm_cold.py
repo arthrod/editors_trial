@@ -798,12 +798,21 @@ def _main() -> int:
 
     workload_row = next(w for w in size_ladder() if w["workload_id"] == args.workload)
     assert_workload_allowed(execution_profile(EXECUTION_PROFILE), args.workload)
-    built = build_workload(workload_row)
-    cfs = correctness_fixtures()
-    augmented_body = built["body"] + b"\n" + cfs["unicode"]
-    docx_body = docx_zip_bytes(augmented_body)
-    sha = hashlib.sha256(docx_body).hexdigest()
-    docx_size = len(docx_body)
+    if workload_row["shape"] in ("prose", "corpus"):
+        from perf.fixtures.docx_workload import ladder_row_for_env, workload_docx
+
+        built_meta = workload_docx(workload_row["workload_id"])
+        docx_body = built_meta["docx"]
+        sha = built_meta["sha256"]
+        docx_size = built_meta["byte_size"]
+        workload_row = ladder_row_for_env(workload_row)
+    else:
+        built = build_workload(workload_row)
+        cfs = correctness_fixtures()
+        augmented_body = built["body"] + b"\n" + cfs["unicode"]
+        docx_body = docx_zip_bytes(augmented_body)
+        sha = hashlib.sha256(docx_body).hexdigest()
+        docx_size = len(docx_body)
 
     run_day = date.today().isoformat().replace("-", "_")
     out_root = args.out_root or (REPO / "perf" / "out" / ("warm_cold_%s" % run_day))

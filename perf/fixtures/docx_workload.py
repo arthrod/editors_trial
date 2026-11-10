@@ -435,6 +435,15 @@ def _legacy(row: dict) -> dict:
     }
 
 
+def ladder_row_for_env(row: dict) -> dict:
+    """Return a ladder row safe for ``_host_base`` when ``paragraphs`` is unset."""
+    if row.get("paragraphs") is not None:
+        return row
+    if row.get("shape") in ("prose", "corpus"):
+        return {**row, "paragraphs": workload_docx(row["workload_id"])["paragraph_count"]}
+    return row
+
+
 def workload_docx(workload_id: str, repo_root=None) -> dict:
     """Return the DOCX bytes and metadata for any size-ladder id.
 
