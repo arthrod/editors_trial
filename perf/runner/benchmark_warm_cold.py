@@ -553,6 +553,15 @@ def validate_ready_attempts(rows):
 def _persist_attempt(attempt_dir, criterion_id, editor_id, trial):
     """Every written trial is an accounted BrowserRun sample, not just a cell."""
     trial = {**trial, 'measure': (trial.get('environment') or {}).get('cache_state', '')}
+    reason = str(trial.get('failure_reason') or '')
+    outcome = trial.get('outcome')
+    code = (None if outcome == 'measured' else
+            'cpu_throttled' if reason.startswith('cpu_throttled') else
+            'unverified' if reason.startswith('expected_edit_not_confirmed') else
+            outcome if outcome in ('not_run', 'not_applicable', 'unsupported', 'unverified') else
+            'paint_witness_unavailable' if reason.startswith(('clock_', 'frame_', 'witness_', 'no_frame', 'missing_input', 'caret_')) else
+            'crash')
+    trial.setdefault('refusal_code', code)
     active = ACTIVE.get()
     name = "%s-%s-%s" % (criterion_id.lower(), editor_id, uuid.uuid4().hex[:10])
     if active is not None:
@@ -656,7 +665,7 @@ def _write_measured_attempt(
                              and math.isfinite(value) and value > 0 for value in intervals):
             diagnostic = {**diagnostic, 'frame_interval_ms': min(intervals), 'frame_intervals_ms': intervals}
     stats = summarize(samples_ms, cache_state, env["repetition_unit"], seed=0)
-    pub, reason = trial_publishable_flags(env, layer, stats["n"])
+    pub, reason = trial_publishable_flags(env, layer, None if env["repetition_unit"] == "fresh_process" else stats["n"])
     pub, reason = _finalize_publishable(pub, reason, env)
     trial = _trial_dict(
         criterion_id=criterion_id,
