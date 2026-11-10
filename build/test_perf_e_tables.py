@@ -1086,6 +1086,13 @@ class CodexReview124(unittest.TestCase):
         self.assertEqual({_cells(line.replace("\\|", "")) for line in table}, {3})
         self.assertIn("| WordCraft | load | save \\| extra |", table)
 
+    def test_4_zero_or_one_separator_also_gives_three_cells(self):
+        run = _hand_run(["wordcraft", "docen"], lanes={"wordcraft": "whole conversion", "docen": "load | save"})
+        table = E._lanes(run).splitlines()
+        self.assertEqual({_cells(line) for line in table}, {3})
+        self.assertIn("| WordCraft | whole conversion | — |", table)
+        self.assertIn("| Docen | load | save |", table)
+
     def test_5_the_last_error_is_the_latest_failed_sample_s_or_none(self):
         run = E.Run(Path("."), {"workloads": {"w": {}}, "repetitions": 10}, records={("w", "e"): [
             _good_rec(returncode=1, started_at="2026-01-01T00:00:00+00:00", stderr_tail="TypeError: old failure\n"),
