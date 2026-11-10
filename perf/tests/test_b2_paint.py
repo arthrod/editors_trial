@@ -199,47 +199,21 @@ class BrowserIntegration(unittest.TestCase):
 
 
 def frame_record():
-    return {
-        'outcome': 'witnessed',
-        'frame_page_ms': 125,
-        'frames_total': 2,
-        'frames_after': 1,
-        'diff_ratio': 0.01,
-        'threshold': 0.00001,
-        'caret_masked': True,
-        'document_scoped': True,
-        'changed_pixels': 100,
-        'clock_check': {
-            'kind': 'clock_skew', 'acceptable': True, 'reason': None,
-            'method': 'page_clock_offset+pixel_anchor', 'timestamp_kind': 'epoch_seconds',
-            'timestamp_field': 'timestamp', 'bound_ms': 2, 'page_offset_ms': 0,
-            'page_offset_samples': [0] * 9, 'page_offset_spread_ms': 0, 'skew_ms': 0,
-            'time_origin_ms': 1700000000000, 'change_page_ms': 100,
-            'frame_page_ms': 116, 'frame_lag_ms': 16, 'frame_monotonic_ms': None,
-            'frames_total': 2, 'anchor_pixel_checked': True, 'anchor_diff_ratio': 1,
-            'anchor_probe_region_px': {'x': 0, 'y': 0, 'width': 8, 'height': 8},
-            'frame_interval_ms': 16.667, 'frame_interval_source': 'raf_delta',
-            'frame_interval_samples': 60, 'lag_bound_ms': 100,
-            'lag_bound_rule': 'max(3 frame intervals, 100 ms)',
-            'conversion': {'formula': 'page_ms = timestamp * 1000 - performance.timeOrigin',
-                           'error_lower_ms': -2, 'error_upper_ms': 100,
-                           'published': '[-2 ms, +100 ms] (never ±2 ms)'},
-            'caret_masked': True, 'caret_mask_error': None,
-            'checks': {key: True for key in (
-                'timestamp_kind_known', 'page_offset_within_bound',
-                'page_offset_spread_within_bound', 'anchor_found', 'anchor_pixel_checked',
-                'anchor_converted', 'anchor_causality', 'anchor_lag_within_bound')},
-        },
-    }
+    from perf.tests.witness_records import publishable_witness_record
+    return publishable_witness_record(125, 100)
 
 
 class SamplePolicy(unittest.TestCase):
     def test_missing_frame_is_refused(self):
         row = runner.input_sample_record(
-            {'edit_ms': 25, 'outcome': 'measured', 'clock_skew': {'skew_ms': 0, 'bound_ms': 2, 'acceptable': True}},
+            {'edit_ms': 25, 'outcome': 'measured',
+             'clock_skew': {'skew_ms': 0, 'bound_ms': 2, 'acceptable': True},
+             'edit_confirmation': {'confirmed': True, 'changed_pixels': 20,
+                 'visible_rects': [{'x': 10, 'y': 10, 'width': 20, 'height': 30}]}},
             'C05',
         )
         self.assertEqual(row['outcome'], 'failed')
+        self.assertEqual(row['failure_reason'], 'record_not_a_mapping')
         self.assertIsNone(row['latency_ms'])
 
     def test_excessive_skew_is_refused(self):
@@ -676,6 +650,7 @@ class RoundThreePolicy(unittest.TestCase):
             'edit_confirmation': {'confirmed': True},
         }, 'C05')
         self.assertEqual(row['outcome'], 'failed')
+        self.assertEqual(row['failure_reason'], 'expected_edit_not_confirmed')
         self.assertIsNone(row['latency_ms'])
 
     def test_r2_no_delay_uses_several_keys(self):
