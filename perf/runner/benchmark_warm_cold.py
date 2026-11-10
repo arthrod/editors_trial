@@ -47,7 +47,7 @@ from perf.runner.cause_attribution import (  # noqa: E402
     probe_medians,
 )
 from perf.runner.cause_attribution import _median as median  # noqa: E402
-from perf.runner.witness import DEFAULT_SKEW_BOUND_MS, validate_witness
+from perf.runner.witness import DEFAULT_MIN_PIXELS, DEFAULT_SKEW_BOUND_MS, validate_witness
 from perf.layers.classify import assert_visible_evidence
 from perf.layers.event_timing import event_timing_status, samples_ms as event_samples_ms
 from perf.runner.browser_run import ACTIVE
@@ -439,6 +439,35 @@ def _run_browser_probe(
     return payload
 
 
+def _finite_clock_number(value):
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(float(value))
+
+
+def _witness_clock_skew_ms(witness):
+    if not isinstance(witness, dict):
+        return None
+    for key in ('clock_skew_ms', 'skew_ms'):
+        value = witness.get(key)
+        if _finite_clock_number(value):
+            return float(value)
+    nested = witness.get('clock_check')
+    if isinstance(nested, dict):
+        for key in ('page_offset_ms', 'skew_ms'):
+            value = nested.get(key)
+            if _finite_clock_number(value):
+                return float(value)
+    return None
+
+
+def _witness_declared_bound_ms(witness):
+    if not isinstance(witness, dict):
+        return None
+    nested = witness.get('clock_check')
+    if isinstance(nested, dict) and nested.get('bound_ms') is not None:
+        return nested.get('bound_ms')
+    return witness.get('bound_ms')
+
+
 def input_sample_record(observation, criterion_id):
     """Validate page-clock evidence; preserve censor/refusal without making zeros."""
     row = dict(observation)
@@ -448,6 +477,9 @@ def input_sample_record(observation, criterion_id):
     declared_bound = skew.get('bound_ms')
     bound = DEFAULT_SKEW_BOUND_MS
     reason = row.get('failure_reason')
+    witness = row.get('witness')
+    witness_skew = _witness_clock_skew_ms(witness)
+    witness_bound = _witness_declared_bound_ms(witness)
     if reason:
         pass  # Preserve the actual sample refusal before secondary missing evidence.
     elif isinstance(value, bool) or not isinstance(value, (int, float)):
@@ -463,6 +495,21 @@ def input_sample_record(observation, criterion_id):
         reason = 'clock_skew_above_bound'
     elif not skew.get('acceptable'):
         reason = 'clock_skew_unavailable'
+    elif witness_bound is not None and (
+        isinstance(witness_bound, bool)
+        or not isinstance(witness_bound, (int, float))
+        or not math.isfinite(witness_bound)
+        or float(witness_bound) != bound
+    ):
+        reason = 'clock_bound_mismatch'
+    elif witness_skew is not None and abs(witness_skew) > bound:
+        reason = 'clock_skew_above_bound'
+    elif (
+        witness_skew is not None
+        and _finite_clock_number(value)
+        and abs(witness_skew - float(value)) > bound
+    ):
+        reason = 'clock_disagreement'
     if not reason and criterion_id in ('C05', 'C06') and 'edit_ms' in row:
         proof = row.get('edit_confirmation') or {}
         pixels = proof.get('changed_pixels')
@@ -474,9 +521,9 @@ def input_sample_record(observation, criterion_id):
             and r['width'] > 0 and r['height'] > 0 for r in rects)
         if (proof.get('confirmed') is not True or not visible
                 or isinstance(pixels, bool) or not isinstance(pixels, (int, float))
-                or not math.isfinite(pixels) or pixels <= 0):
+                or not math.isfinite(pixels) or pixels < DEFAULT_MIN_PIXELS):
             reason = 'expected_edit_not_confirmed'
-        verdict = validate_witness(row.get('witness'), skew=value, bound_ms=bound)
+        verdict = validate_witness(row.get('witness'), bound_ms=bound)
         if not reason and verdict['refused']:
             reason = verdict['reason']
     timing = dict(row.get('event_timing') or {})

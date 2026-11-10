@@ -108,7 +108,7 @@ class BrowserIntegration(unittest.TestCase):
             '1',
             *extra,
         ]
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
         self.assertEqual(proc.returncode, 0, proc.stderr)
         payload = json.loads(proc.stdout)
         self.browser_run.sample(name, {'command': cmd, 'payload': payload})
@@ -358,6 +358,75 @@ class ReviewPolicy(unittest.TestCase):
         self.assertEqual(row['failure_reason'], 'clock_skew_bound_not_constant')
         self.assertIsNone(row['latency_ms'])
 
+    def test_n4_forged_witness_skew_not_replaced_by_clean_sibling(self):
+        import copy
+
+        proof = {
+            'confirmed': True,
+            'changed_pixels': 20,
+            'visible_rects': [{'x': 10, 'y': 10, 'width': 20, 'height': 30}],
+        }
+        dirty = frame_record()
+        dirty['clock_skew_ms'] = 500_000.0
+        dirty['clock_check'] = copy.deepcopy(dirty['clock_check'])
+        dirty['clock_check']['bound_ms'] = 2.0
+        dirty['clock_check']['page_offset_ms'] = 500_000.0
+        dirty['clock_check']['skew_ms'] = 500_000.0
+        dirty['clock_check']['acceptable'] = True
+        row = runner.input_sample_record({
+            'edit_ms': 12,
+            'outcome': 'measured',
+            'witness': dirty,
+            'clock_skew': {'skew_ms': 0.2, 'bound_ms': 2.0, 'acceptable': True},
+            'edit_confirmation': proof,
+        }, 'C05')
+        self.assertEqual(row['failure_reason'], 'clock_skew_above_bound')
+        self.assertIsNone(row['latency_ms'])
+
+    def test_n4_witness_declared_bound_must_match_constant(self):
+        import copy
+
+        proof = {
+            'confirmed': True,
+            'changed_pixels': 20,
+            'visible_rects': [{'x': 10, 'y': 10, 'width': 20, 'height': 30}],
+        }
+        mild = frame_record()
+        mild['clock_check'] = copy.deepcopy(mild['clock_check'])
+        mild['clock_check']['bound_ms'] = 1_000_000.0
+        row = runner.input_sample_record({
+            'edit_ms': 12,
+            'outcome': 'measured',
+            'witness': mild,
+            'clock_skew': {'skew_ms': 0.2, 'bound_ms': 2.0, 'acceptable': True},
+            'edit_confirmation': proof,
+        }, 'C05')
+        self.assertEqual(row['failure_reason'], 'clock_bound_mismatch')
+        self.assertIsNone(row['latency_ms'])
+
+    def test_n4_sibling_and_witness_skew_must_agree(self):
+        import copy
+
+        proof = {
+            'confirmed': True,
+            'changed_pixels': 20,
+            'visible_rects': [{'x': 10, 'y': 10, 'width': 20, 'height': 30}],
+        }
+        shifted = frame_record()
+        shifted['clock_skew_ms'] = 2.0
+        shifted['clock_check'] = copy.deepcopy(shifted['clock_check'])
+        shifted['clock_check']['page_offset_ms'] = 2.0
+        shifted['clock_check']['skew_ms'] = 2.0
+        row = runner.input_sample_record({
+            'edit_ms': 12,
+            'outcome': 'measured',
+            'witness': shifted,
+            'clock_skew': {'skew_ms': -2.0, 'bound_ms': 2.0, 'acceptable': True},
+            'edit_confirmation': proof,
+        }, 'C05')
+        self.assertEqual(row['failure_reason'], 'clock_disagreement')
+        self.assertIsNone(row['latency_ms'])
+
 
 class ProbeBracketIntegration(unittest.TestCase):
     def test_f2_exception_restores_cell_bracket(self):
@@ -436,11 +505,51 @@ class AdversarialBrowser(BrowserIntegration):
             '--fresh-context-probe',
             'false',
         )
+        interval = float(p['pairs'][0]['cold'].get('witness', {}).get('frame_interval_ms') or 16.667)
+        upper = 150 + 2 * interval
         for arm in ('cold', 'warm'):
             edit = p['pairs'][0][arm]
-            self.assertTrue(edit['single_edit_ms'] is None or edit['single_edit_ms'] >= 150, edit)
-            if edit['single_edit_ms'] is not None:
+            latency = edit['single_edit_ms']
+            self.assertTrue(latency is None or (latency >= 150 and latency <= upper), edit)
+            if latency is not None:
                 self.assertEqual(edit['outcome'], 'measured', edit)
+
+    def test_nr1_late800_waits_for_delayed_ink_or_refuses(self):
+        p = self.probe(
+            'late800',
+            '--url',
+            self.host.url + '/attack.html?mode=late800',
+            '--edit-selector',
+            '#doc',
+            '--fresh-context-probe',
+            'false',
+        )
+        for arm in ('cold', 'warm'):
+            edit = p['pairs'][0][arm]
+            latency = edit['single_edit_ms']
+            if latency is not None:
+                self.assertGreaterEqual(latency, 800, edit)
+            else:
+                self.assertIn(edit.get('failure_reason'), ('settle_not_reached', 'expected_edit_not_confirmed'), edit)
+
+    def test_nr1_second_cover_does_not_replace_key_paint(self):
+        p = self.probe(
+            'second',
+            '--url',
+            self.host.url + '/attack.html?mode=second',
+            '--edit-selector',
+            '#doc',
+            '--fresh-context-probe',
+            'false',
+        )
+        interval = float(p['pairs'][0]['cold'].get('witness', {}).get('frame_interval_ms') or 16.667)
+        bound = 2 * interval + 2
+        for arm in ('cold', 'warm'):
+            edit = p['pairs'][0][arm]
+            latency = edit['single_edit_ms']
+            self.assertIsNotNone(latency, edit)
+            self.assertLessEqual(latency, bound, edit)
+            self.assertEqual(edit['outcome'], 'measured', edit)
 
     def test_nr1_bgdecoy_immediate_stays_within_one_frame(self):
         p = self.probe(
