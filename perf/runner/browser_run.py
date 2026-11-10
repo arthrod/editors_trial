@@ -99,6 +99,7 @@ class BrowserRun:
         self.accounting_reader = accounting_reader
         self.accounting_start = accounting_reader()
         self.sample_start = None
+        self._sample_parents = []
 
     def fixture(self, workload, data):
         if Path(workload).name != workload or workload in ('.', '..'):
@@ -115,29 +116,79 @@ class BrowserRun:
         return path
 
     def begin_sample(self):
-        """Bracket the measurement, including any nested diagnostic samples."""
+        """Open a nested bracket; optionally use as a context for exception cleanup.
+
+        sample() closes the innermost bracket. The context also closes an
+        unfinished bracket when a probe raises, restoring its enclosing cell.
+        """
+        from contextlib import contextmanager
+
+        self._sample_parents.append(self.sample_start)
         self.sample_start = self.accounting_reader()
+        depth = len(self._sample_parents)
+
+        @contextmanager
+        def bracket():
+            try:
+                yield self
+            finally:
+                while len(self._sample_parents) >= depth:
+                    self.sample_start = self._sample_parents.pop()
+
+        return bracket()
 
     def sample(self, name, row):
         if Path(name).name != name or name in ('.', '..'):
             raise ValueError('invalid sample name')
+        cell = CELL.get()
+        # Legacy saturation diagnostics share the cell bracket without opening
+        # one themselves. Do not consume that bracket or count the row as a cell.
+        shared_diagnostic = bool(
+            cell and len(self._sample_parents) == 1 and name != f'{cell["repetition"]:04d}-{cell["editor_id"]}'
+        )
+        diagnostic = shared_diagnostic or len(self._sample_parents) > 1
         before = self.sample_start or {'available': False, 'reason': 'before-sample accounting not captured'}
         accounting = accounting_delta(before, self.accounting_reader())
-        value = {**row, 'run_id': self.run_id, 'seed': self.seed, 'cpu_accounting': accounting}
-        if accounting['available'] and accounting['delta']['nr_throttled'] > 0:
-            # The underlying cell/probe files remain raw evidence, not accepted times.
-            value = {key: val for key, val in value.items() if not key.endswith('_ms')}
-            value.update(outcome='failed', failure_reason='cpu_throttled', publishable=False)
-            if value.get('cell_directory'):
-                source = Path(value.pop('cell_directory'))
-                destination = self.directory / 'rejected-evidence' / name
-                if source.exists():
-                    destination.parent.mkdir(parents=True, exist_ok=True)
-                    source.rename(destination)
-                    value['rejected_evidence_directory'] = str(destination)
+        value = {
+            **row,
+            'run_id': self.run_id,
+            'seed': self.seed,
+            'cpu_accounting': accounting,
+            'accounting_scope': 'diagnostic' if diagnostic else 'sample',
+        }
+        if accounting['available'] and any(accounting['delta'][key] > 0 for key in ('nr_throttled', 'throttled_usec')):
+            # Keep arbitrary raw measurements only as forensic evidence. An
+            # allowlist avoids leaking nested or differently named timing fields.
+            destination = self.directory / 'rejected-evidence' / name
+            source = Path(row['cell_directory']) if row.get('cell_directory') else None
+            if source is not None and source.exists():
+                destination.mkdir(parents=True, exist_ok=True)
+                source.rename(destination / 'cell')
+            write_json(destination / 'sample.json', row)
+            value = {
+                key: value[key]
+                for key in (
+                    'run_id',
+                    'seed',
+                    'cpu_accounting',
+                    'accounting_scope',
+                    'editor_id',
+                    'repetition',
+                    'exit_code',
+                )
+                if key in value
+            }
+            value.update(
+                outcome='failed',
+                failure_reason='cpu_throttled',
+                publishable=False,
+                rejected_evidence_directory=str(destination),
+            )
         path = self.directory / 'samples' / (name + '.json')
         write_json(path, value)
         self.samples.append(value)
+        if not shared_diagnostic and self._sample_parents:
+            self.sample_start = self._sample_parents.pop()
         return path
 
     def finish(self, summary):
