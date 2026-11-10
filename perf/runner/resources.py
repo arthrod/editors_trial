@@ -23,6 +23,7 @@ The dev/static server is not the editor. Its pid is recorded and excluded.
 
 from __future__ import annotations
 
+import asyncio
 import copy
 import os
 from pathlib import Path
@@ -629,20 +630,40 @@ def _network_unavailable(reason):
     }
 
 
+def _wire_length(event):
+    """Integer ``encodedDataLength``, or None when the field is not a real int.
+
+    Zero is a real observation. A missing field, ``None``, a ``bool``, or any
+    other type is not zero: ``or 0`` would publish a transfer that was not seen.
+    """
+    if "encodedDataLength" not in event:
+        return None
+    value = event.get("encodedDataLength")
+    if not _is_int(value):
+        return None
+    return value
+
+
 def account_network(payload):
     """Recompute wire, decoded, and cache bytes from one full event list.
 
-    A bare list is a complete page observation (older sessions). A dict with
-    ``worker_observation`` other than ``ok`` refuses every numeric field:
-    a page-only total must not stand in for a worker that was not observed.
+    A bare list is a complete page observation (older sessions and FakeCdp).
+    A dict must say ``worker_observation == 'ok'`` and carry a real ``events``
+    list. A missing observation, a missing list, or a finished request with no
+    integer ``encodedDataLength`` is incomplete, never a complete zero.
+    A dict whose observation is not ``ok`` refuses every numeric field.
     Cache-hit wire length may be zero and is not replaced with the decoded body.
     """
     if isinstance(payload, dict):
-        observation = payload.get("worker_observation") or "ok"
+        if "worker_observation" not in payload:
+            return _network_unavailable("worker_observation_missing")
+        observation = payload.get("worker_observation")
         if observation != "ok":
             reason = payload.get("worker_observation_reason") or payload.get("reason") or "worker_targets_unobserved"
             return _network_unavailable(reason)
-        events = payload.get("events") or []
+        if "events" not in payload or not isinstance(payload.get("events"), list):
+            return _network_unavailable("cdp_events_unavailable")
+        events = payload["events"]
     elif isinstance(payload, list):
         events = payload
     else:
@@ -656,16 +677,15 @@ def account_network(payload):
     seen = set()
     for event in events:
         if not isinstance(event, dict):
-            continue
+            return _network_unavailable("encoded_length_missing")
         request_id = event.get("requestId")
-        if request_id is not None:
-            if request_id in seen:
-                continue
-            seen.add(request_id)
-        try:
-            wire = int(event.get("encodedDataLength") or 0)
-        except (TypeError, ValueError):
+        if request_id is not None and request_id in seen:
             continue
+        wire = _wire_length(event)
+        if wire is None:
+            return _network_unavailable("encoded_length_missing")
+        if request_id is not None:
+            seen.add(request_id)
         encoded += wire
         count += 1
         from_disk = bool(event.get("fromDiskCache"))
@@ -731,7 +751,13 @@ def process_accounting_status(rows):
 
 
 def _identity_delta(rows, key, *, role=None):
-    """Sum per-identity deltas. Exits and regressions are incomplete, not zero."""
+    """Sum per-identity deltas. A birth contributes its full last-sight counter.
+
+    The process was absent from the first sample, so its baseline is zero.
+    Subtracting the first sighting would drop work done before that sample.
+    An exit or a counter that goes backwards is incomplete, not a negative
+    delta and not zero. A platform-unavailable counter stays unavailable.
+    """
     status = process_accounting_status(rows)
     if status == "incomplete":
         return NOT_AVAILABLE, status
@@ -748,10 +774,11 @@ def _identity_delta(rows, key, *, role=None):
             continue
         previous = first.get(_process_identity(proc))
         if previous is None:
-            continue
-        if role is not None and previous.get("role") != role:
-            continue
-        before = previous.get(key)
+            before = 0
+        else:
+            if role is not None and previous.get("role") != role:
+                continue
+            before = previous.get(key)
         after = proc.get(key)
         if not _is_int(before) or not _is_int(after):
             unavailable = True
@@ -1173,18 +1200,83 @@ class _SyncFacade:
         return self.events_result
 
 
+_WORKER_ATTACH_FILTER = (
+    {"type": "service_worker"},
+    {"type": "worker"},
+    {"type": "shared_worker"},
+)
+
+
+def _callable_attr(owner, name):
+    """Read an attribute. A missing frame on a service worker is absence, not a crash.
+
+    Playwright raises ``Service Worker requests do not have an associated frame``
+    from the ``frame`` property. That request is still a worker transfer.
+    """
+    try:
+        value = getattr(owner, name, None)
+    except Exception:
+        return None
+    if not callable(value):
+        return value
+    try:
+        return value()
+    except Exception:
+        return None
+
+
+def _sizes_wire(sizes):
+    """Wire bytes from Playwright ``request.sizes()``.
+
+    CDP ``encodedDataLength`` is the header length plus the encoded body.
+    Python names the same fields ``response_headers_size`` and
+    ``response_body_size``.
+    """
+    if not isinstance(sizes, dict):
+        return None
+    headers = sizes.get("responseHeadersSize", sizes.get("response_headers_size"))
+    body = sizes.get("responseBodySize", sizes.get("response_body_size"))
+    if not _is_int(headers) or not _is_int(body) or headers < 0 or body < 0:
+        return None
+    return headers + body
+
+
 class AsyncResourceSampler(ResourceSampler):
     """Same phase contract as ``ResourceSampler`` for an async page and CDP session.
 
     ``mark(phase)`` samples and leaves ``phase`` active. ``totals(phase)`` requires
     the phase. ``series()`` is synchronous. Transport waits happen before the
     shared sync accounting path runs.
+
+    Call ``install`` before navigation. A session that already has ``events()``
+    keeps that transport. Native Playwright ``CDPSession`` has no ``events()``;
+    ``install`` listens with ``on``, requires browser ``Target.setAutoAttach``
+    ``flatten: true``, and feeds the same ``account_network`` core. Worker and
+    service-worker bodies come from ``requestfinished`` ``sizes()``.
     """
 
     def __init__(self, run, page, cdp, **kwargs):
         self._async_page = page
         self._async_cdp = cdp
+        self._transport_ready = False
+        self._event_buffer = None
+        self._pending = set()
+        self._request_state = {}
+        self._seen_native = set()
+        self._encoded_missing = False
+        self._worker_observation = "ok"
+        self._worker_reason = None
         super().__init__(run, _SyncFacade(), _SyncFacade(), **kwargs)
+
+    async def install(self):
+        """Subscribe before the first navigation. Idempotent."""
+        if self._transport_ready:
+            return
+        if hasattr(self._async_cdp, "events"):
+            self._transport_ready = True
+            return
+        await self._install_native()
+        self._transport_ready = True
 
     async def mark(self, phase):
         self._phase = phase
@@ -1201,7 +1293,179 @@ class AsyncResourceSampler(ResourceSampler):
             return None
         return await self.sample(record=False)
 
+    def _note_native(self, method, params, target_type):
+        if not isinstance(params, dict):
+            return
+        request_id = params.get("requestId")
+        if request_id is None:
+            return
+        if method == "Network.responseReceived":
+            response = params.get("response") or {}
+            self._request_state[request_id] = {
+                "fromDiskCache": bool(response.get("fromDiskCache")),
+                "fromServiceWorker": bool(response.get("fromServiceWorker")),
+                "targetType": target_type,
+            }
+            return
+        if method == "Network.dataReceived":
+            prior = dict(self._request_state.get(request_id) or {})
+            added = params.get("dataLength")
+            body = added if _is_int(added) else 0
+            prior["sawDecoded"] = True
+            prior["decodedBodyBytes"] = int(prior.get("decodedBodyBytes") or 0) + body
+            prior["targetType"] = prior.get("targetType") or target_type
+            self._request_state[request_id] = prior
+            return
+        if method != "Network.loadingFinished" or request_id in self._seen_native:
+            return
+        self._seen_native.add(request_id)
+        if not _is_int(params.get("encodedDataLength")) or "encodedDataLength" not in params:
+            self._encoded_missing = True
+            return
+        prior = self._request_state.get(request_id) or {}
+        row = {
+            "requestId": request_id,
+            "encodedDataLength": params["encodedDataLength"],
+            "fromDiskCache": bool(prior.get("fromDiskCache")),
+            "fromServiceWorker": bool(prior.get("fromServiceWorker")),
+            "targetType": target_type or prior.get("targetType") or "page",
+        }
+        if prior.get("sawDecoded"):
+            row["decodedBodyBytes"] = prior.get("decodedBodyBytes")
+        self._event_buffer.append(row)
+
+    def _fail_workers(self, reason="worker_targets_unobserved"):
+        self._worker_observation = "failed"
+        self._worker_reason = reason
+
+    async def _install_native(self):
+        cdp = self._async_cdp
+        self._event_buffer = []
+        self._request_state = {}
+        self._seen_native = set()
+        self._encoded_missing = False
+        self._worker_observation = "ok"
+        self._worker_reason = None
+        if not hasattr(cdp, "on"):
+            self._fail_workers("cdp_events_unavailable")
+            return
+        for method in ("Network.responseReceived", "Network.dataReceived", "Network.loadingFinished"):
+            cdp.on(method, lambda params, method=method: self._note_native(method, params, "page"))
+        try:
+            await cdp.send("Network.enable")
+        except Exception:
+            self._fail_workers("cdp_events_unavailable")
+            return
+        await self._attach_browser_workers()
+        self._listen_worker_requests()
+
+    async def _attach_browser_workers(self):
+        """Browser auto-attach only accepts the flatten protocol."""
+        page = self._async_page
+        context = getattr(page, "context", None)
+        browser = getattr(context, "browser", None) if context is not None else None
+        if callable(browser):
+            browser = _callable_attr(context, "browser")
+        opener = getattr(browser, "new_browser_cdp_session", None) if browser is not None else None
+        if opener is None:
+            self._fail_workers()
+            return
+        try:
+            session = opener()
+            if hasattr(session, "__await__"):
+                session = await session
+            if hasattr(session, "on"):
+                session.on("Target.attachedToTarget", self._on_browser_attached)
+            await session.send("Target.setAutoAttach", {
+                "autoAttach": True,
+                "waitForDebuggerOnStart": False,
+                "flatten": True,
+                "filter": list(_WORKER_ATTACH_FILTER),
+            })
+            try:
+                await session.send("Target.setDiscoverTargets", {"discover": True})
+            except Exception:
+                pass
+        except Exception:
+            self._fail_workers()
+
+    def _on_browser_attached(self, event):
+        """Flattened child sessions are not visible on the Python CDP object.
+
+        Bytes for those targets are taken from ``requestfinished`` instead.
+        A failed attach still refuses the numeric total.
+        """
+        if not isinstance(event, dict):
+            return
+        info = event.get("targetInfo") or {}
+        if info.get("type") not in ("service_worker", "worker", "shared_worker"):
+            return
+
+    def _listen_worker_requests(self):
+        page = self._async_page
+        context = getattr(page, "context", None)
+        if context is not None and hasattr(context, "on"):
+            context.on("requestfinished", self._on_request_finished)
+            context.on("serviceworker", lambda worker: None)
+        if hasattr(page, "on"):
+            page.on("worker", lambda worker: None)
+
+    def _is_worker_request(self, request):
+        worker = _callable_attr(request, "service_worker")
+        frame = _callable_attr(request, "frame")
+        if worker is not None:
+            return True
+        return frame is None
+
+    def _on_request_finished(self, request):
+        try:
+            if self._event_buffer is None or not self._is_worker_request(request):
+                return
+            task = asyncio.create_task(self._absorb_worker_request(request))
+        except Exception:
+            self._fail_workers()
+            return
+        self._pending.add(task)
+        task.add_done_callback(self._pending.discard)
+
+    async def _absorb_worker_request(self, request):
+        try:
+            sizes = request.sizes()
+            if hasattr(sizes, "__await__"):
+                sizes = await sizes
+        except Exception:
+            self._fail_workers()
+            return
+        wire = _sizes_wire(sizes)
+        if wire is None:
+            self._encoded_missing = True
+            return
+        guid = getattr(request, "_guid", None)
+        if guid is None:
+            guid = getattr(request, "guid", None)
+        self._event_buffer.append({
+            "requestId": guid if guid is not None else "sw-%s" % id(request),
+            "encodedDataLength": wire,
+            "targetType": "service_worker",
+        })
+
+    def _native_payload(self):
+        events = list(self._event_buffer or [])
+        if self._encoded_missing:
+            events.append({"requestId": "encoded-length-missing"})
+        if self._worker_observation != "ok":
+            return {
+                "worker_observation": "failed",
+                "worker_observation_reason": self._worker_reason or "worker_targets_unobserved",
+                "events": events,
+            }
+        return {"worker_observation": "ok", "events": events}
+
     async def _prefetch(self):
+        if not self._transport_ready:
+            await self.install()
+        if self._pending:
+            await asyncio.gather(*list(self._pending))
         page = self.page
         cdp = self.cdp
         cdp.send_results = {}
@@ -1219,8 +1483,12 @@ class AsyncResourceSampler(ResourceSampler):
             page.eval_error = None
         except Exception as exc:
             page.eval_error = exc
-        try:
-            cdp.events_result = await self._async_cdp.events("Network.loadingFinished")
+        if self._event_buffer is None:
+            try:
+                cdp.events_result = await self._async_cdp.events("Network.loadingFinished")
+                cdp.events_error = None
+            except Exception as exc:
+                cdp.events_error = exc
+        else:
+            cdp.events_result = self._native_payload()
             cdp.events_error = None
-        except Exception as exc:
-            cdp.events_error = exc

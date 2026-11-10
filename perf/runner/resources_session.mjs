@@ -26,7 +26,9 @@ const requestState = new Map();
 const pendingEnables = new Set();
 let workerObservation = 'ok';
 let workerObservationReason = null;
+let browserAttachment = 'pending';
 let cdpId = 1;
+const enabledWorkerSessions = new WeakSet();
 
 const WORKER_TYPES = new Set(['service_worker', 'worker', 'shared_worker']);
 const WORKER_FILTER = [
@@ -162,12 +164,14 @@ function noteCdpEvent(method, params, targetType) {
     return;
   }
   if (method !== 'Network.loadingFinished' || seenRequests.has(requestId)) return;
+  const hasEncoded = Object.prototype.hasOwnProperty.call(params, 'encodedDataLength');
+  const encoded = hasEncoded ? Number(params.encodedDataLength) : NaN;
+  if (!Number.isFinite(encoded)) return;
   seenRequests.add(requestId);
   const prior = requestState.get(requestId) || {};
-  const encoded = Number(params.encodedDataLength);
   const row = {
     requestId,
-    encodedDataLength: Number.isFinite(encoded) ? encoded : 0,
+    encodedDataLength: encoded,
     fromDiskCache: Boolean(prior.fromDiskCache),
     fromServiceWorker: Boolean(prior.fromServiceWorker),
     targetType: targetType || prior.targetType || 'page',
@@ -231,23 +235,124 @@ async function attachWorkers(session) {
   });
 }
 
-async function watchWorkers(browserContext, pageSession) {
-  // Non-flatten keeps worker Network events on this session. Playwright 1.64
-  // drops flattened child events unless it already owns that child session.
+function crSessionOf(clientObject) {
+  if (!clientObject) return null;
+  const connection = clientObject._connection;
+  if (!connection || typeof connection.toImpl !== 'function') return null;
+  let impl = null;
   try {
-    await attachWorkers(pageSession);
+    impl = connection.toImpl(clientObject);
   } catch {
-    /* a page session that rejects auto-attach still leaves the browser session */
+    impl = null;
   }
+  if (impl && impl._session && typeof impl._session.send === 'function') return impl._session;
+  return null;
+}
+
+function bindWorkerSession(crSession, targetType) {
+  if (!crSession || enabledWorkerSessions.has(crSession)) return;
+  enabledWorkerSessions.add(crSession);
+  crSession.on('Network.responseReceived', (params) => {
+    noteCdpEvent('Network.responseReceived', params, targetType);
+  });
+  crSession.on('Network.dataReceived', (params) => {
+    noteCdpEvent('Network.dataReceived', params, targetType);
+  });
+  crSession.on('Network.loadingFinished', (params) => {
+    noteCdpEvent('Network.loadingFinished', params, targetType);
+  });
+  Promise.resolve(crSession.send('Network.enable')).catch(() => {
+    markWorkersUnobserved('worker_targets_unobserved');
+  });
+}
+
+function adoptAttachedTarget(parent, event) {
+  const info = (event && event.targetInfo) || {};
+  if (!WORKER_TYPES.has(info.type) || !event.sessionId || !parent) return;
+  const sessions = parent._connection && parent._connection._sessions;
+  const owned = sessions ? sessions.get(event.sessionId) : null;
+  if (owned) {
+    bindWorkerSession(owned, info.type);
+    return;
+  }
+  const child = parent.createChildSession(event.sessionId, (method, params) => {
+    noteCdpEvent(method, params, info.type);
+  });
+  Promise.resolve(child.send('Network.enable')).catch(() => {
+    markWorkersUnobserved('worker_targets_unobserved');
+  });
+  if (event.waitingForDebugger) {
+    child.send('Runtime.runIfWaitingForDebugger').catch(() => {});
+  }
+}
+
+function wirePlaywrightWorkers(browserContext) {
+  const bind = (target, type) => bindWorkerSession(crSessionOf(target), type);
+  if (browserContext && typeof browserContext.on === 'function') {
+    browserContext.on('serviceworker', (worker) => bind(worker, 'service_worker'));
+  }
+  if (page && typeof page.on === 'function') {
+    page.on('worker', (worker) => bind(worker, 'worker'));
+  }
+  const workers = browserContext && typeof browserContext.serviceWorkers === 'function'
+    ? browserContext.serviceWorkers()
+    : [];
+  for (const worker of workers) bind(worker, 'service_worker');
+  const pageWorkers = page && typeof page.workers === 'function' ? page.workers() : [];
+  for (const worker of pageWorkers) bind(worker, 'worker');
+}
+
+async function watchWorkers(browserContext, pageSession) {
+  // Chrome rejects browser-level auto-attach unless flatten is true.
+  // Playwright 1.64 drops a flattened child event unless that sessionId is
+  // already in the connection map, so an unowned id is registered here and
+  // an id Playwright already owns is listened to in place.
+  // Zero workers is still a complete observation. Page-level flatten:false
+  // is only a fallback: it produced no worker events and can stick
+  // pendingEnables, which blanks the page total.
+  browserAttachment = 'pending';
   try {
     const browser = typeof browserContext.browser === 'function' ? browserContext.browser() : null;
     if (!browser || typeof browser.newBrowserCDPSession !== 'function') {
+      browserAttachment = 'failed';
       markWorkersUnobserved('worker_targets_unobserved');
-      return;
+    } else {
+      const browserSession = await browser.newBrowserCDPSession();
+      const parent = crSessionOf(browserSession);
+      if (!parent) {
+        browserAttachment = 'failed';
+        markWorkersUnobserved('worker_targets_unobserved');
+      } else {
+        browserSession.on('Target.attachedToTarget', (event) => {
+          adoptAttachedTarget(parent, event);
+        });
+        await browserSession.send('Target.setAutoAttach', {
+          autoAttach: true,
+          waitForDebuggerOnStart: false,
+          flatten: true,
+          filter: WORKER_FILTER,
+        });
+        try {
+          await browserSession.send('Target.setDiscoverTargets', { discover: true });
+        } catch {
+          /* discover is optional once auto-attach succeeded */
+        }
+        browserAttachment = 'ok';
+      }
     }
-    const browserSession = await browser.newBrowserCDPSession();
-    await browserSession.send('Target.setDiscoverTargets', { discover: true });
-    await attachWorkers(browserSession);
+  } catch {
+    browserAttachment = 'failed';
+    markWorkersUnobserved('worker_targets_unobserved');
+  }
+  if (browserAttachment !== 'ok') {
+    try {
+      await attachWorkers(pageSession);
+    } catch {
+      markWorkersUnobserved('worker_targets_unobserved');
+    }
+  }
+  try {
+    wirePlaywrightWorkers(browserContext);
   } catch {
     markWorkersUnobserved('worker_targets_unobserved');
   }
@@ -320,10 +425,25 @@ async function pageSnapshot() {
   });
 }
 
+function isFunctionSource(expression) {
+  const trimmed = String(expression || '').trim();
+  if (!trimmed) return false;
+  try {
+    return typeof new Function(`return (${trimmed})`)() === 'function';
+  } catch {
+    return false;
+  }
+}
+
 async function onEvaluate(params) {
   const expression = params.expression || '';
   if (expression.includes('navigator.storage') && expression.includes('longtask')) {
     return pageSnapshot();
+  }
+  // The bridge passes source text. A function source must be called, and a
+  // returned promise must be awaited, or the page value serializes as {}.
+  if (isFunctionSource(expression)) {
+    return page.evaluate(`(${expression.trim()})()`);
   }
   return page.evaluate(expression);
 }
@@ -335,7 +455,7 @@ async function onCdp(params) {
 async function onEvents(params) {
   if (params.method !== 'Network.loadingFinished') return [];
   const pending = pendingEnables.size > 0;
-  const failed = workerObservation !== 'ok' || pending;
+  const failed = browserAttachment !== 'ok' || workerObservation !== 'ok' || pending;
   return {
     events: networkEvents.slice(),
     worker_observation: failed ? 'failed' : 'ok',
@@ -356,42 +476,57 @@ async function readEditorText(selector) {
   }, selector);
 }
 
+function countToken(text, token) {
+  const source = String(text || '');
+  if (!token) return 0;
+  let count = 0;
+  let start = 0;
+  while (true) {
+    const at = source.indexOf(token, start);
+    if (at < 0) return count;
+    count += 1;
+    start = at + token.length;
+  }
+}
+
 async function onEdit(params) {
   const repetitions = Math.max(0, Number(params.repetitions || 0));
   const text = params.text || '';
   if (params.selector) {
     await page.locator(params.selector).first().click({ timeout: 30000 });
   }
+  let before = params.selector ? await readEditorText(params.selector) : '';
   for (let i = 0; i < repetitions; i++) {
     await page.keyboard.insertText(text);
   }
-  let editorText = '';
-  let applied = false;
-  if (!params.selector) {
-    editorText = '';
-    applied = false;
-  } else if (params.checkJs) {
+  let after = params.selector ? await readEditorText(params.selector) : '';
+  if (params.checkJs) {
     const hostResult = await page.evaluate((source) => {
       try {
         return eval(source);
       } catch (err) {
-        return { applied: false, error: String(err) };
+        return { error: String(err) };
       }
     }, params.checkJs);
     if (hostResult && typeof hostResult === 'object') {
-      applied = Boolean(hostResult.applied);
-      if (hostResult.editorText != null) editorText = String(hostResult.editorText);
-      else editorText = await readEditorText(params.selector);
-    } else {
-      applied = Boolean(hostResult);
-      editorText = await readEditorText(params.selector);
+      const hostBefore = hostResult.before != null ? hostResult.before : hostResult.beforeText;
+      const hostAfter = hostResult.after != null ? hostResult.after : hostResult.afterText;
+      if (hostBefore != null && hostAfter != null) {
+        before = String(hostBefore);
+        after = String(hostAfter);
+      }
     }
-  } else {
-    editorText = await readEditorText(params.selector);
-    const expected = text.repeat(repetitions);
-    applied = expected.length > 0 && editorText.includes(expected);
   }
-  return { applied, editorText, kind: 'keyboard.insertText', text, repetitions };
+  const applied = repetitions > 0 && text.length > 0
+    && countToken(after, text) - countToken(before, text) === repetitions;
+  return {
+    applied,
+    editorText: after,
+    beforeText: before,
+    kind: 'keyboard.insertText',
+    text,
+    repetitions,
+  };
 }
 
 async function onSave(params) {

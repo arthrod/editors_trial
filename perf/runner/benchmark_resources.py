@@ -5,8 +5,9 @@ One fresh Chromium launch per repetition, through ``run_cli`` / ``BrowserRun``.
 The dev/static server is not the editor. Resource numbers live in their own
 fields. They are never written to ``samples_ms``.
 
-Publication needs ``dedicated_publish``, 30 scheduled repetitions, at least
-10 kept measurements per editor and workload, and two distinct seeds.
+Publication needs ``dedicated_publish``, 30 scheduled repetitions in each
+editor/workload group of each run, at least 10 kept measurements in each of
+those groups, and two distinct seeds.
 """
 
 from __future__ import annotations
@@ -128,18 +129,50 @@ def _peak(series, key):
     return max(values)
 
 
-def _edit_applied(session, burst, result):
-    """Host ``edit_check`` wins, then the witness ``applied`` flag, then the DOM text."""
-    check = getattr(session, "edit_check", None)
-    if callable(check):
-        return bool(check())
-    if isinstance(result, dict) and "applied" in result:
-        return bool(result.get("applied"))
+def _token_count(text, token):
+    if not token:
+        return 0
+    count = 0
+    start = 0
+    while True:
+        at = text.find(token, start)
+        if at < 0:
+            return count
+        count += 1
+        start = at + len(token)
+
+
+def _burst_parts(burst):
     try:
         repetitions = int((burst or {}).get("repetitions") or 0)
     except (TypeError, ValueError):
         repetitions = 0
-    expected = str((burst or {}).get("text") or "") * repetitions
+    return str((burst or {}).get("text") or ""), repetitions
+
+
+def _delta_applied(before, after, token, repetitions):
+    if repetitions <= 0 or not token:
+        return False
+    return _token_count(str(after), token) - _token_count(str(before), token) == repetitions
+
+
+def _edit_applied(session, burst, result):
+    """This burst counts only when the target gained ``repetitions`` copies of ``text``.
+
+    A host ``edit_check`` must report the same before/after pair. Membership of
+    the final text is not a witness: the tokens may already have been there.
+    """
+    token, repetitions = _burst_parts(burst)
+    check = getattr(session, "edit_check", None)
+    if callable(check):
+        host = check()
+        if isinstance(host, dict) and "before" in host and "after" in host:
+            return _delta_applied(host.get("before"), host.get("after"), token, repetitions)
+        return False
+    if isinstance(result, dict) and "beforeText" in result:
+        return _delta_applied(result.get("beforeText"), result.get("editorText"), token, repetitions)
+    if isinstance(result, dict) and "applied" in result:
+        return bool(result.get("applied"))
     text = ""
     if isinstance(result, dict) and result.get("editorText") is not None:
         text = str(result.get("editorText"))
@@ -147,6 +180,7 @@ def _edit_applied(session, burst, result):
         reader = getattr(session, "editor_text", None)
         if callable(reader):
             text = str(reader() or "")
+    expected = token * repetitions
     if not expected:
         return False
     return expected in text
@@ -425,8 +459,24 @@ def _measured_groups(cells):
     return groups
 
 
+def _scheduled_groups(cells):
+    """Cells attempted per editor/workload, measured or not."""
+    groups = {}
+    for cell in cells:
+        key = (cell.get("editor_id"), cell.get("workload_id"))
+        groups[key] = groups.get(key, 0) + 1
+    return groups
+
+
+def _min_group_scheduled(cells):
+    groups = _scheduled_groups(cells)
+    if not groups:
+        return 0
+    return min(groups.values())
+
+
 def publication_verdict(cells, *, seeds, scheduled, execution_profile, host_class):
-    """30 scheduled, n >= 10 measured per editor and workload, two distinct seeds."""
+    """``scheduled`` is the smallest editor/workload group. n >= 10 measured. Two seeds."""
     reasons = []
     if execution_profile != "dedicated_publish":
         reasons.append("execution_profile_not_dedicated_publish")
@@ -544,8 +594,12 @@ def publication_from_run(run):
     elif _provenance_incomplete(primary_cells, runs[0]["hosts"]):
         extra.append("provenance_incomplete")
     for item in runs:
-        groups = _measured_groups(item["cells"])
-        if not groups or any(count < 10 for count in groups.values()):
+        scheduled_groups = _scheduled_groups(item["cells"])
+        measured = _measured_groups(item["cells"])
+        if not scheduled_groups or any(count < 30 for count in scheduled_groups.values()):
+            if "scheduled_below_30" not in extra:
+                extra.append("scheduled_below_30")
+        if not measured or any(count < 10 for count in measured.values()):
             if "kept_below_10" not in extra:
                 extra.append("kept_below_10")
     cells = []
@@ -555,7 +609,7 @@ def publication_from_run(run):
         cells.extend(item["cells"])
         if item["seed"] is not None and item["seed"] not in seeds:
             seeds.append(item["seed"])
-        scheduled_runs.append(len(item["cells"]))
+        scheduled_runs.append(_min_group_scheduled(item["cells"]))
     scheduled = min(scheduled_runs) if scheduled_runs else 0
     verdict = publication_verdict(
         cells,
