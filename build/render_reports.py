@@ -44,6 +44,7 @@ TWINS = {MAIN} | {
         "Report D1 - Jubarte on the Hostile Packages (2026)",
         "Report D2 - What Word Protects Against (2026)",
         "Report E - Speed, Opening and Saving a Document (2026)",
+        "Report E2 - Speed in the Browser (2026)",
     )
 }
 
