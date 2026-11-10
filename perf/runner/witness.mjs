@@ -483,7 +483,7 @@ export function getRecorder(cdp, options = {}) {
  * Wait for a frame's screencast ack to settle (bounded); returns the final
  * ack state ('pending' on timeout, 'acked' or 'error' otherwise).
  */
-async function frameAckSettled(frame, timeoutMs = 400) {
+export async function frameAckSettled(frame, timeoutMs = 400) {
   const deadline = Date.now() + timeoutMs;
   while (frame.ack === 'pending' && Date.now() < deadline) await sleep(2);
   return frame.ack;
@@ -540,7 +540,7 @@ function decodeFrame(recorder, frame) {
 
 // ---------------------------------------------------------------- page clock
 
-async function pageClock(page, extra = {}) {
+export async function pageClock(page, extra = {}) {
   const reading = await page.evaluate(() => ({
     time_origin_ms: performance.timeOrigin,
     now_ms: performance.now(),
@@ -575,7 +575,7 @@ export function detectTimestampKind(frame, nodeEpochMs = Date.now()) {
   return { kind: 'unknown', field: null };
 }
 
-function convertFrameToPageMs(frame, clock) {
+export function convertFrameToPageMs(frame, clock) {
   const kind = clock.timestamp_kind || detectTimestampKind(frame).kind;
   if (kind === 'epoch_seconds') {
     if (typeof frame.ts !== 'number') return null;

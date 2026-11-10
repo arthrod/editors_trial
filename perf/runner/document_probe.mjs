@@ -14,7 +14,8 @@
  *           shadow host, never the host box or toolbar text; a non-blank
  *           canvas samples the page, not the top-left margin). The
  *           screencast_ink signal marks usable when the region has persistent
- *           ink on the witness recorder's frames (min 64 px by default). FCP is recorded
+ *           ink matching one settled screenshot (min 64 non-mode pixels,
+ *           four CSS pixel inset, at most 0.5% differing pixels). FCP is recorded
  *           beside that frame and is not the sample. The witness window is
  *           500 ms. No forced repaint.
  *   reflow  input (Enter at the document start, page clock) to the acked
@@ -43,10 +44,11 @@ import zlib from 'node:zlib';
 
 import {
   DEFAULT_CHANNEL_TOLERANCE,
-  DEFAULT_MIN_PIXELS,
-  DEFAULT_THRESHOLD,
   DEFAULT_WINDOW_MS,
   decodePng,
+  convertFrameToPageMs,
+  frameAckSettled,
+  pageClock,
   detectTimestampKind,
   diffRatio,
   getRecorder,
@@ -165,12 +167,6 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function frameAckSettled(frame, timeoutMs = 400) {
-  const deadline = Date.now() + timeoutMs;
-  while (frame.ack === 'pending' && Date.now() < deadline) await sleep(2);
-  return frame.ack;
-}
-
 function decodeRecorderFrame(recorder, frame) {
   const cached = recorder.decoded.get(frame.seq);
   if (cached !== undefined) return cached;
@@ -182,39 +178,6 @@ function decodeRecorderFrame(recorder, frame) {
   }
   recorder.decoded.set(frame.seq, decoded);
   return decoded;
-}
-
-async function pageClockReading(page) {
-  return page.evaluate(() => ({
-    time_origin_ms: performance.timeOrigin,
-    now_ms: performance.now(),
-  }));
-}
-
-function convertFrameToPageMs(frame, clock) {
-  const kind = clock.timestamp_kind || detectTimestampKind(frame).kind;
-  if (kind === 'epoch_seconds') {
-    if (typeof frame.ts !== 'number') return null;
-    return frame.ts * 1000 - clock.time_origin_ms;
-  }
-  if (kind === 'monotonic_seconds') {
-    if (typeof frame.mono !== 'number' && typeof frame.ts !== 'number') return null;
-    const value = typeof frame.mono === 'number' ? frame.mono : frame.ts;
-    if (typeof clock.monotonic_origin_ms !== 'number') return null;
-    return value * 1000 - clock.monotonic_origin_ms;
-  }
-  return null;
-}
-
-function regionInkVsBaseline(baselineDecoded, frameDecoded, regionDevice, minPixels) {
-  if (!baselineDecoded || !frameDecoded) return { ink: false, changed: 0 };
-  const diff = diffRatio(baselineDecoded, frameDecoded, {
-    channelTolerance: DEFAULT_CHANNEL_TOLERANCE,
-    region: regionDevice,
-  });
-  const ink =
-    diff.comparable && diff.ratio > DEFAULT_THRESHOLD && diff.changed >= Math.max(minPixels, DEFAULT_MIN_PIXELS);
-  return { ink, changed: diff.changed, diff };
 }
 
 async function resolveInkRegionDevice(page, frameDecoded) {
@@ -247,89 +210,121 @@ async function resolveInkRegionDevice(page, frameDecoded) {
   return { scoped: true, rect_device: device, rect_css: rect, dpr, error: null };
 }
 
-/**
- * Usable via screencast: first acked frame at or after persistent ink in the
- * configured document region (full-region decode; no stride subsampling).
- */
+/** Crop in device pixels; inset excludes four CSS pixels of border/chrome. */
+function cropInkRegion(decoded, region, inset = 0) {
+  if (!decoded) return null;
+  const x = Math.max(0, Math.round(region.x + inset));
+  const y = Math.max(0, Math.round(region.y + inset));
+  const right = Math.min(decoded.width, Math.round(region.x + region.width - inset));
+  const bottom = Math.min(decoded.height, Math.round(region.y + region.height - inset));
+  const width = right - x, height = bottom - y;
+  if (width <= 0 || height <= 0) return null;
+  const data = Buffer.alloc(width * height * 4);
+  for (let row = 0; row < height; row++) {
+    data.set(decoded.data.subarray(
+      ((y + row) * decoded.width + x) * 4,
+      ((y + row) * decoded.width + right) * 4), row * width * 4);
+  }
+  return { width, height, data };
+}
+
+/** Ink is variation from the dominant RGBA colour, never a solid fill. */
+function settledInkPixels(decoded) {
+  if (!decoded) return 0;
+  const counts = new Map();
+  let mode = 0, highest = 0;
+  for (let i = 0; i < decoded.data.length; i += 4) {
+    const colour = decoded.data.readUInt32BE(i);
+    const count = (counts.get(colour) || 0) + 1;
+    counts.set(colour, count);
+    if (count > highest) { highest = count; mode = colour; }
+  }
+  const channels = [mode >>> 24, (mode >>> 16) & 255, (mode >>> 8) & 255, mode & 255];
+  let ink = 0;
+  for (let i = 0; i < decoded.data.length; i += 4) {
+    if (channels.some((value, c) => Math.abs(value - decoded.data[i + c]) > DEFAULT_CHANNEL_TOLERANCE)) ink++;
+  }
+  return ink;
+}
+
+// Pixel equality tolerance: at most 0.5% of inset pixels may differ by >8
+// channel levels. A candidate must match every subsequent acked frame.
+const SETTLED_MATCH_TOLERANCE = 0.005;
+function matchesSettled(frame, reference) {
+  if (!frame || !reference) return false;
+  const diff = diffRatio(frame, reference, { channelTolerance: DEFAULT_CHANNEL_TOLERANCE });
+  return diff.comparable && diff.ratio <= SETTLED_MATCH_TOLERANCE;
+}
+
 async function waitForScreencastInk(page, recorder) {
   await injectCaretMask(page);
-  const clock = await pageClockReading(page);
-  const firstFrame = recorder.frames[0];
-  clock.timestamp_kind = firstFrame ? detectTimestampKind(firstFrame).kind : 'unknown';
-  const deadline = Date.now() + timeoutMs;
-  let checked = 0;
-  let baselineFrame = null;
-  let baselineDecoded = null;
-  let regionDevice = null;
-  while (Date.now() < deadline) {
-    for (let i = checked; i < recorder.frames.length; i++) {
-      const frame = recorder.frames[i];
-      checked = i + 1;
-      if ((await frameAckSettled(frame)) !== 'acked') continue;
-      const decoded = decodeRecorderFrame(recorder, frame);
-      if (!decoded) continue;
-      if (!baselineFrame) {
-        const scope = await resolveInkRegionDevice(page, decoded);
-        if (!scope.scoped) continue;
-        regionDevice = scope.rect_device;
-        baselineFrame = frame;
-        baselineDecoded = decoded;
-        continue;
-      }
-      const cur = regionInkVsBaseline(baselineDecoded, decoded, regionDevice, screencastInkMinPixels);
-      if (!cur.ink) continue;
-      let persist = null;
-      let persistFrame = null;
-      for (let j = i + 1; j < recorder.frames.length; j++) {
-        if (recorder.frames[j].seq !== frame.seq) {
-          persistFrame = recorder.frames[j];
-          break;
-        }
-      }
-      if (!persistFrame) {
-        const before = recorder.frames.length;
-        await page
-          .evaluate(() => {
-            return new Promise((resolve) => {
-              requestAnimationFrame(() => requestAnimationFrame(() => resolve(0)));
-            });
-          })
-          .catch(() => {});
-        const forceDeadline = Date.now() + 500;
-        while (Date.now() < forceDeadline) {
-          for (let j = before; j < recorder.frames.length; j++) {
-            const candidate = recorder.frames[j];
-            if (candidate.seq !== frame.seq) {
-              persistFrame = candidate;
-              break;
-            }
-          }
-          if (persistFrame) break;
-          await sleep(8);
-        }
-      }
-      if (!persistFrame || persistFrame.seq === frame.seq) continue;
-      if ((await frameAckSettled(persistFrame)) !== 'acked') continue;
-      const persistDecoded = decodeRecorderFrame(recorder, persistFrame);
-      persist = regionInkVsBaseline(baselineDecoded, persistDecoded, regionDevice, screencastInkMinPixels);
-      if (!persist.ink) continue;
-      const pageMs = convertFrameToPageMs(frame, clock);
-      return {
-        at_ms: pageMs === null ? await page.evaluate(() => performance.now()) : pageMs,
-        signal: SIGNAL_NAME.screencast_ink,
-        baseline: baselineFrame,
-        ink_frame: frame,
-      };
-    }
-    await sleep(8);
-  }
-  return {
-    at_ms: null,
-    signal: SIGNAL_NAME.screencast_ink,
-    baseline: baselineFrame,
-    ink_frame: null,
-    region: null,
+  await page.waitForLoadState('load', { timeout: timeoutMs });
+  const clock = await pageClock(page);
+  const kind = detectTimestampKind(recorder.frames[0] || {});
+  const pageTime = (frame) => {
+    const frameKind = detectTimestampKind(frame);
+    return convertFrameToPageMs(frame, {
+      ...clock, timestamp_kind: frameKind.kind === 'unknown' ? kind.kind : frameKind.kind,
+    });
   };
+  const refused = (reason) => ({ at_ms: null, signal: SIGNAL_NAME.screencast_ink,
+    baseline: null, ink_frame: null, reason });
+  const scope = await resolveInkRegionDevice(page, null);
+  if (!scope.scoped) return refused('document_region_missing');
+  const inset = 4 * scope.dpr;
+  const deadline = Date.now() + timeoutMs;
+  // A blank initial frame is not load completion. Wait for potential ink,
+  // then 500ms without a new frame; a blank document exhausts the load wait.
+  let potentialInk = false;
+  let checked = 0;
+  let lastObserved = recorder.frames.at(-1);
+  let quietSince = Date.now();
+  while (Date.now() < deadline) {
+    const available = recorder.frames.length;
+    for (; checked < available; checked++) {
+      const frame = recorder.frames[checked];
+      const ms = pageTime(frame);
+      if (ms === null || ms < 0 || (await frameAckSettled(frame)) !== 'acked') continue;
+      const crop = cropInkRegion(decodeRecorderFrame(recorder, frame), scope.rect_device, inset);
+      potentialInk = settledInkPixels(crop) >= screencastInkMinPixels;
+    }
+    // Drain CDP events after synchronous PNG work. Time spent blocking the
+    // event loop is not evidence that the compositor stopped sending frames.
+    await sleep(8);
+    const last = recorder.frames.at(-1);
+    if (last !== lastObserved) { lastObserved = last; quietSince = Date.now(); }
+    if (potentialInk && last && Date.now() - quietSince >= 500) break;
+  }
+  if (!lastObserved || Date.now() - quietSince < 500) return refused('settled_frame_not_observed');
+  // Exactly one settled capture. CDP clips use CSS coordinates; PNG pixels
+  // are device pixels (scale=1 and the page's deviceScaleFactor).
+  const shot = await recorder.cdp.send('Page.captureScreenshot', {
+    format: 'png', clip: { ...scope.rect_css, scale: 1 }, captureBeyondViewport: false,
+  });
+  const frames = recorder.frames.slice();
+  const decoded = decodePng(Buffer.from(shot.data, 'base64'));
+  const reference = cropInkRegion(decoded, { x: 0, y: 0, width: decoded.width, height: decoded.height }, inset);
+  if (settledInkPixels(reference) < screencastInkMinPixels) return refused('document_surface_absent');
+  // Scan backwards: only the final uninterrupted matching suffix qualifies.
+  let candidate = null;
+  for (let i = frames.length - 1; i >= 0; i--) {
+    const frame = frames[i];
+    if ((await frameAckSettled(frame)) !== 'acked') continue;
+    const ms = pageTime(frame);
+    if (ms !== null && ms < 0) continue;
+    const crop = cropInkRegion(decodeRecorderFrame(recorder, frame), scope.rect_device, inset);
+    if (!matchesSettled(crop, reference)) break;
+    if (ms !== null) candidate = { frame, ms, index: i };
+  }
+  if (!candidate) return refused('settled_frame_not_observed');
+  let baseline = null;
+  for (let i = candidate.index - 1; i >= 0; i--) {
+    const frame = frames[i];
+    const ms = pageTime(frame);
+    if (ms !== null && ms >= 0 && (await frameAckSettled(frame)) === 'acked') { baseline = frame; break; }
+  }
+  return { at_ms: candidate.ms, signal: SIGNAL_NAME.screencast_ink,
+    baseline, ink_frame: candidate.frame, reason: null };
 }
 
 async function routeCorpus(context) {
@@ -545,7 +540,8 @@ const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, document
             if (el) take(el, 'region');
             continue;
           }
-          if (host) take(host, 'region');
+          const el = document.querySelector(selector);
+          if (el) take(el, 'region');
         }
       } else {
         const nodes = selector ? Array.from(document.querySelectorAll(selector)) : [];
@@ -718,10 +714,6 @@ async function documentRegion(page) {
     }, usableSignal)
     .catch(() => null);
   if (!rect || !(rect.width > 0) || !(rect.height > 0)) return null;
-  if (usableSignal === 'screencast_ink') {
-    const selector = documentSelector || docSelector;
-    return { rect, selector };
-  }
   return { rect };
 }
 
@@ -841,6 +833,8 @@ async function loadResult(ctx, { navigationMs, readyMs, surface, witness, surfac
     clock_skew_acceptable: facts.clock_skew_acceptable,
     witness: facts.witness,
     surface_reason: surfaceReason || null,
+    screencast_ink_match_tolerance: usableSignal === 'screencast_ink' ? SETTLED_MATCH_TOLERANCE : null,
+    screencast_ink_inset_css_px: usableSignal === 'screencast_ink' ? 4 : null,
     screencast_ink_min_pixels: usableSignal === 'screencast_ink' ? screencastInkMinPixels : null,
     page_errors: ctx.errors,
   };
@@ -892,7 +886,7 @@ async function runLoad(browser) {
         chars: ink.at_ms === null ? null : 1,
         signal: ink.signal,
       };
-      surfaceReason = ink.at_ms === null ? 'document_surface_absent' : null;
+      surfaceReason = ink.reason;
     } else {
       const waited = await watching;
       surface = waited.surface;
@@ -997,7 +991,7 @@ async function runScale(browser) {
     } else if (usableSignal === 'screencast_ink') {
       const ink = await waitForScreencastInk(ctx.page, ctx.recorder);
       surface = { at_ms: ink.at_ms, chars: ink.at_ms === null ? null : 1, signal: ink.signal };
-      surfaceReason = ink.at_ms === null ? 'document_surface_absent' : null;
+      surfaceReason = ink.reason;
     } else {
       surface = await waitForSurface(ctx.page);
     }
