@@ -14,6 +14,7 @@ payload that could produce a dishonest trial.
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
 import subprocess
@@ -26,6 +27,8 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
 from perf.runner import criteria_input_io
+from perf.runner.criteria_input_io import write_support_matrix
+from perf.runner.docx_plaintext import docx_body_text
 from perf.runner.benchmark_warm_cold import (  # noqa: E402
     BROWSER_TARGETS,
     PROBE,
@@ -64,6 +67,20 @@ def _fixture(editor_id: str) -> tuple[Path, str, int]:
     return path, hashlib.sha256(data).hexdigest(), len(data), row
 
 
+CANVAS_HOSTS = frozenset({"canvas", "apryse"})
+
+
+def _correctness_adapter(editor_id: str, target: dict) -> str | None:
+    declared = target.get("correctness_adapter")
+    if declared is False or declared == "none":
+        return None
+    if isinstance(declared, str) and declared:
+        return declared
+    if editor_id in CANVAS_HOSTS:
+        return None
+    return "dom_innerText"
+
+
 def _probe_command(editor_id: str, target: dict, fixture: Path) -> list[str]:
     cmd = [
         "node", str(PROBE),
@@ -83,6 +100,24 @@ def _probe_command(editor_id: str, target: dict, fixture: Path) -> list[str]:
     return cmd
 
 
+def _probe_env(editor_id: str, target: dict, fixture: Path) -> dict:
+    env = dict(os.environ)
+    body = docx_body_text(fixture)
+    env["PERF_EXPECTED_BODY_B64"] = base64.b64encode(body.encode("utf-8")).decode("ascii")
+    env.pop("PERF_EXPECTED_BODY_PATH", None)
+    adapter = _correctness_adapter(editor_id, target)
+    if adapter:
+        env["PERF_CORRECTNESS_ADAPTER"] = adapter
+    else:
+        env.pop("PERF_CORRECTNESS_ADAPTER", None)
+        env["PERF_CORRECTNESS_ADAPTER"] = ""
+    if adapter:
+        target.setdefault("correctness_adapter", adapter)
+    else:
+        target["correctness_adapter"] = None
+    return env
+
+
 def run_editor(editor_id: str, attempt_dir: Path) -> dict:
     target = BROWSER_TARGETS[editor_id]
     fixture, fixture_sha, fixture_size, workload_row = _fixture(editor_id)
@@ -97,6 +132,7 @@ def run_editor(editor_id: str, attempt_dir: Path) -> dict:
             capture_output=True,
             text=True,
             timeout=PROBE_TIMEOUT_S,
+            env=_probe_env(editor_id, target, fixture),
         )
         record_process(proc)
         wall = round(time.time() - t0, 1)
@@ -167,6 +203,7 @@ def _main() -> int:
         summary["editors"].append(row)
         print("%-12s %s" % (editor_id, row["outcome"]), flush=True)
     write_json(out_root / "summary.json", summary)
+    write_support_matrix(summary, out_root)
     return 0
 
 

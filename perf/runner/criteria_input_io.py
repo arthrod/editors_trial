@@ -10,12 +10,14 @@ could produce a dishonest trial. The honesty tests live in
 
 from __future__ import annotations
 
+import json
 import math
 import uuid
 from pathlib import Path
 
 from perf.analysis.publication_gate import trial_publishable_flags
 from perf.analysis.summarize import summarize
+from perf.layers.event_timing import event_timing_status
 from perf.runner.artifacts import write_attempt
 from perf.runner.benchmark_ci_contract import (
     INTERPRETATION_CONDITIONS,
@@ -26,13 +28,10 @@ from perf.runner.benchmark_ci_contract import (
 from perf.scenarios.catalog import scenarios
 from perf.schema import OUTCOMES, validate_environment, validate_trial
 
-def _catalog():
-    return {row["id"]: row for row in scenarios()}
-
-
 PROBE_SCHEMA = "perf.criteria_input/1"
 SUITE = ("C04", "C07", "C08", "C09")
 PAINT_MECHANISM = "cdp_screencast_frame"
+CORRECTNESS_PREFIX = "correctness:"
 
 
 def _catalog():
@@ -80,6 +79,43 @@ def assert_payload_shape(payload):
     return entries
 
 
+def _frame_interval_ms(witness):
+    value = (witness or {}).get("frame_interval_ms")
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError("paint_witness frame_interval_ms is not a number: %r" % (value,))
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError("paint_witness frame_interval_ms must be positive: %r" % (value,))
+    return float(value)
+
+
+def _assert_c07_repetition_unit(entry):
+    hints = entry.get("trial_hints") or {}
+    if hints.get("repetition_unit") != "in_process_iteration":
+        raise ValueError(
+            "C07 measured on one page must record repetition_unit in_process_iteration, got %r"
+            % (hints.get("repetition_unit"),)
+        )
+
+
+def _assert_visible_samples(cid, entry, witness):
+    frame_interval = _frame_interval_ms(witness)
+    if frame_interval is None:
+        raise ValueError("%s is measured but paint_witness carries no frame_interval_ms" % (cid,))
+    for sample in entry["samples_ms"]:
+        if sample < frame_interval:
+            raise ValueError(
+                "%s sample %r is below the recorded frame interval %r"
+                % (cid, sample, frame_interval)
+            )
+        status = event_timing_status(sample, 16)
+        if status["below_16_ms"] or status["status"] == "censored":
+            raise ValueError(
+                "%s sample %r is censored by Event Timing (below 16 ms)" % (cid, sample)
+            )
+
+
 def _assert_entry_honest(cid, entry, witness):
     outcome = entry.get("outcome")
     if outcome not in OUTCOMES:
@@ -122,8 +158,17 @@ def _assert_entry_honest(cid, entry, witness):
                 )
         if reason not in (None, ""):
             raise ValueError("%s is measured but carries failure_reason %r" % (cid, reason))
+        if entry["layer"] == "browser_visible":
+            _assert_visible_samples(cid, entry, witness)
         if cid == "C07":
+            _assert_c07_repetition_unit(entry)
             _assert_c07_observations(entry)
+        return
+    if outcome == "not_applicable":
+        if samples:
+            raise ValueError("%s not_applicable carries samples" % (cid,))
+        if not isinstance(reason, str) or not reason.strip():
+            raise ValueError("%s not_applicable has no failure_reason" % (cid,))
         return
     if samples:
         raise ValueError("%s outcome %r carries samples" % (cid, outcome))
@@ -257,6 +302,49 @@ def trials_from_payload(payload, *, editor_version, fixture_sha256, workload_row
         )
         trials[cid] = trial_from_entry(cid, entry, env)
     return trials
+
+
+def build_support_matrix(summary):
+    """Per-criterion hosts measured, refused, and failed: correctness."""
+    matrix = {}
+    for cid in SUITE:
+        matrix[cid] = {
+            "measured": [],
+            "refused": {},
+            "failed_correctness": [],
+            "not_applicable": [],
+        }
+    for row in summary.get("editors") or []:
+        editor_id = row.get("editor_id") or "unknown"
+        if row.get("outcome") != "ok":
+            for cid in SUITE:
+                matrix[cid]["refused"][editor_id] = row.get("failure_reason") or "host_run_failed"
+            continue
+        criteria = row.get("criteria") or {}
+        for cid in SUITE:
+            cell = criteria.get(cid) or {}
+            outcome = cell.get("outcome")
+            reason = cell.get("failure_reason") or ""
+            if outcome == "measured":
+                matrix[cid]["measured"].append(editor_id)
+            elif outcome == "not_applicable":
+                matrix[cid]["not_applicable"].append(editor_id)
+            elif reason.startswith(CORRECTNESS_PREFIX) or reason == "correctness" or ": correctness" in reason:
+                matrix[cid]["failed_correctness"].append(editor_id)
+            elif outcome in ("unsupported", "unverified", "failed", "not_run"):
+                matrix[cid]["refused"][editor_id] = reason or outcome
+    return matrix
+
+
+def write_support_matrix(summary, out_root):
+    out_root = Path(out_root)
+    path = out_root / "support_matrix.json"
+    payload = {
+        "suite": summary.get("suite", "criteria_input"),
+        "criteria": build_support_matrix(summary),
+    }
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return path
 
 
 def write_trials_from_payload(payload, attempt_dir, **env_args):
