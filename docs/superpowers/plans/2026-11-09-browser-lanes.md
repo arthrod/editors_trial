@@ -165,3 +165,92 @@ B1 first (everything uses it). Then B2, B3, B4, B5 in parallel worktrees (file-
 disjoint). B6 after B1. Stack order for merging: B1, B2, B3, B4, B5, B6.
 Reviews: each layer by an other-corpus reviewer (codex or grok), who runs the
 measurers. CI waited on only at B6.
+
+## Amendment 1 (after pi glm-5.3's plan review, 2026-11-09; all 16 findings accepted)
+
+Task split. B1 becomes three layers; B2–B5 import B1's modules, never each other.
+
+### B1a: bookkeeping, flags, Event Timing (in progress: codex)
+Adds to Task B1 above:
+- `--execution-profile` and `--seed` on all four browser runners, threaded into
+  `_env_for`/`_host_base` (today `EXECUTION_PROFILE = "ci_broad"` is hardcoded,
+  `benchmark_warm_cold.py:53`). (review 13)
+- Record-don't-abort names its sites: `assert_warm_cold_distinct(...)` called
+  directly at `benchmark_warm_cold.py:901`; `benchmark_input.py` rewriting
+  `summary.json` per editor; the dated out-dir pools in `benchmark_warm_cold.py`
+  (`:532-533`), `benchmark_input.py`, `benchmark_document.py`; the duplicate
+  `"file"` key at `benchmark_document.py:1513/1521`. A test per site. (review 11)
+- `aggregate_inp` filters censored entries; unit test. (review 8)
+- The browser delivers no Event Timing entry below `durationThreshold`, and
+  delivers durations in 8 ms steps. The censor is therefore applied where the
+  runner sees "no entry ≥ threshold for this interaction in the window": that
+  is an explicit recorded outcome `censored_below_16_ms`, never an absent
+  field. Published Event Timing durations are stated as 8 ms-stepped. (review 7)
+- A1 is relabelled: it tests the write-once guard, not determinism. (review 4)
+
+### B1b: production hosts, one adapter per host (new)
+`perf/runner/browser_hosts.py` gets a per-host build adapter. A host whose build
+fails is `failed: host_build` for that run; there is never a silent dev-server
+fallback. Per host (review 2, 9, 12):
+- plate: the config hardcodes `/Users/arthrod/temp/T/editors_trial`; the adapter
+  recomputes the aliases from the repo root it is given.
+- docxodus: copy `node_modules/docxodus/dist` (raw dist and the .NET `wasm/`
+  tree served today by `configureServer` middleware) into the build output.
+- genoffice: emit `desktop-stub.js` into the output; build with `GENOFFICE_REPO`.
+- apryse: build only when the key is present (record presence, never the key);
+  the static server sends COOP/COEP for it.
+- superdoc, canvas, docen-host: plain wrapper build; unproven until built.
+- eigenpal, folio: outDir and cacheDir outside `repos/`; folio's
+  `?file=corpus.docx` must resolve in the built app.
+- docsplus (Next), fidus (Django): `app_server`, not publishable, with the reason;
+  #107's `next build`/`next start` for docsplus is descoped in #128, said so.
+- wordcraft: already a release build; hashed.
+Acceptance: each of the nine Vite hosts builds, and its built page reaches its
+`ready_js` in headless Chromium (locally); a deliberately broken build gives
+`failed: host_build`, not a dev server; `repos/` porcelain empty after.
+
+### B1c: shared witness module (new)
+`perf/runner/witness.mjs` (+ Python reader): the frame witness (observe in rAF,
+next acked screencast frame, window ≥ 500 ms), the clock-skew probe (force one
+frame at a known `performance.now()`, convert its screencast timestamp, record
+the skew; samples are refused when |skew| exceeds 2 ms or a stated bound),
+the frame comparator (decode and pixel-diff with a stated threshold; caret
+masked or `caret-color: transparent` injected and recorded), the frame-interval
+estimate (median rAF delta), and the renderer string (fallback chain: `chrome://gpu`
+text, WebGL renderer with the unmask flag, launch args + Chromium version).
+The server/target interface (`_start_server`, `_stop_server`, `BROWSER_TARGETS`)
+moves to `perf/runner/browser_hosts.py` with a frozen signature. (review 5, 6, 15)
+Acceptance: skew recorded per run; a fake caret-blink-only host does not stop
+the witness clock; renderer string non-empty or the run records why.
+
+### Changes to B2–B6
+- B2: fix `waitForReady` once; `settle_ms` recorded for all three callers (pair
+  mode, criteria session, `coldOnlyFreshContext`). Acceptance 2 becomes: the
+  no-delay fake host's C05 names its mechanism and is `< 33 ms` or the explicit
+  outcome `censored_below_16_ms`; the 50 ms host is ≥ 50 ms *and* names a
+  page-side mechanism. Acceptance 3 becomes: the C05 writer calls
+  `assert_visible_evidence`, which raises on a `raf_callback` trial (test). (review 4, 16)
+- B3: forced-repaint samples are `mechanism: forced_repaint`, excluded from
+  publishable C14 (outcome `unverified`, witness facts kept). C15 is in scope:
+  event-driven completion instead of the 2 s cap, a minimum n, and
+  `not_applicable` with the reason for hosts without a find widget. (review 3, 10)
+- B4: acceptance adds a support matrix (per criterion: hosts measured, refused,
+  `failed: correctness`); canvas-surface hosts declare their adapter (model API
+  or pixel probe) or its absence before the run. (review 14)
+- B5: the trial env records a profile that admits prose-50kw. (review 13)
+- B6: the image installs dependencies itself (Linux): `pnpm install` for every
+  `harness/ui` host and the editor installs AGENTS.md allows under `repos/`, in
+  the image's writable copy, never the host checkout; `PLAYWRIGHT_BROWSERS_PATH`
+  and the playwright package pinned to the image's Chromium. Acceptance: one
+  *real* Vite host builds and reaches `ready_js` inside the container, beside
+  the fake-host smoke. (review 1)
+
+## Amendment 2 (2026-11-10): the publication machine, and throttling (#129)
+
+The owner chose Hugging Face `cpu-upgrade` for Report E2's runs: an 8-CPU cgroup quota on a shared EC2
+r6a.16xlarge (probe: stolen time 0.0027 %; a 16-worker burst was throttled 7 times, 5.18 s in total;
+other tenants kept the machine about 32 % busy). Layer B1d (#129) reads `cpu.stat` and `/proc/stat`
+steal around every sample and refuses a sample during which the cgroup was throttled
+(`failed: cpu_throttled`). The report states stolen time, throttled samples refused (N of M), that
+other tenants shared the machine, and that every printed figure reproduced in a second run.
+The twelve free `cpu-basic` Spaces `arthrod/e2-<host>` are for Linux builds and smokes only.
