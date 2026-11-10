@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>witness fake host: the shell changes, the document does not</title>
+    <style>
+      body {
+        margin: 0;
+        background: #ffffff;
+        color: #111111;
+        font: 16px/1.4 monospace;
+      }
+      #shell {
+        width: 100px;
+        height: 100px;
+        background: #ff0000;
+        color: #ffffff;
+        padding: 4px;
+      }
+      #doc {
+        padding: 24px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="shell">shell</div>
+    <main id="doc">Unchanged document</main>
+    <script>
+      // The fake host of the document-region tests (#130 defect 2): 50 ms
+      // after the marker only the shell's 100x100 block changes color. The
+      // document element keeps exactly this text forever. A witness scoped to
+      // #doc must therefore see no frame at all; a whole-frame witness (the
+      // defect) sees the shell's ~10000 pixels and fires.
+      window.__witness = { marker_ms: null, changed: false };
+      window.__witnessArm = function arm(delayMs) {
+        var delay = typeof delayMs === 'number' ? delayMs : 50;
+        return new Promise(function (resolve) {
+          var marker_ms = performance.now();
+          window.__witness.marker_ms = marker_ms;
+          setTimeout(function () {
+            document.getElementById('shell').style.background = '#0000ff';
+            window.__witness.changed = true;
+            resolve({ after_page_ms: marker_ms, marker_ms: marker_ms });
+          }, delay);
+        });
+      };
+    </script>
+  </body>
+</html>
