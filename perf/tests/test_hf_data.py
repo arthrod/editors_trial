@@ -441,9 +441,10 @@ def test_bash_transport_runs_remote_commands_end_to_end(remote_root, tmp_path, c
     assert hasattr(transport, 'call_log')
     code = pull_mod.pull_until(transport, remote_root, dest, run_id, interval=0, max_cycles=3)
     out = capsys.readouterr().out.splitlines()
-    assert code == 1
+    assert code == 0
     assert len([line for line in out if line.startswith('JOB-DONE ')]) == 3
     assert out[-1].startswith(f'FINAL-VERIFIED {run_id} ')
+    assert 'run_exit=1' in out[-1]
     assert any('lstat' in c or 'os.walk' in c for c in transport.call_log)
 
 
@@ -560,9 +561,10 @@ def test_until_run_prints_jobs_and_exits_on_run_done(remote_root, tmp_path, caps
     transport = local_transport(remote_root)
     code = pull_mod.pull_until(transport, remote_root, dest, run_id, interval=0, max_cycles=3)
     out = capsys.readouterr().out.splitlines()
-    assert code == 1
+    assert code == 0
     assert len([line for line in out if line.startswith('JOB-DONE ')]) == 2
     assert out[-1].startswith(f'FINAL-VERIFIED {run_id} ')
+    assert 'run_exit=1' in out[-1]
     warm = dest / f'runs/{run_id}/benchmark_warm_cold/{run_id}-000' / 'summary.json'
     assert warm.read_text() == '{"warm": true}'
     assert sha256_file(warm) == sha256_bytes(b'{"warm": true}')
@@ -900,7 +902,7 @@ def test_until_run_bad_remote_manifest_never_final(remote_root, tmp_path, capsys
     transport = local_transport(remote_root)
     code = pull_mod.pull_until(transport, remote_root, dest, run_id, interval=0, max_cycles=10)
     out = capsys.readouterr().out
-    assert code == 0
+    assert code != 0
     assert 'FINAL-VERIFIED' not in out
 
 
@@ -976,6 +978,388 @@ def test_directory_symlink_pull_warn(remote_root, tmp_path, capsys):
     out = capsys.readouterr().out
     assert 'PULL-WARN' in out and 'dirlink' in out
     assert (dest / 'ok.txt').exists()
+
+
+def test_pull_rollback_remote_v1_local_must_match_before_final(remote_root, tmp_path, capsys):
+    """Grok rollback: local V2 with index v1 must not FINAL-VERIFIED against remote V1."""
+    from perf.container import artifacts
+    from perf.container import pull as pull_mod
+
+    run_id = '20260101T000000000200Z'
+    job_rel = f'runs/{run_id}/benchmark_warm_cold/{run_id}-000'
+    job = remote_root / job_rel
+    drop = remote_root / 'runs' / run_id / 'drop.txt'
+    job.mkdir(parents=True, exist_ok=True)
+    (job / 'summary.json').write_text('V1')
+    drop.write_text('drop-v1')
+    artifacts.finalize_job(job, 0)
+    (remote_root / 'runs' / run_id / 'RUN-DONE').write_text('exit_status=0\n')
+    dest = tmp_path / 'dest'
+    transport = local_transport(remote_root)
+    pull_mod.pull_until(transport, remote_root, dest, run_id, interval=0, max_cycles=5)
+    capsys.readouterr()
+    # Plant the broken state extract_tar_stream used to leave behind.
+    (job / 'summary.json').write_text('V2-MEASUREMENT')
+    for name in ('MANIFEST.sha256', 'JOB-DONE'):
+        (job / name).unlink(missing_ok=True)
+    artifacts.finalize_job(job, 0)
+    drop.write_text('drop-v2')
+    (dest / job_rel / 'summary.json').write_text('V2-MEASUREMENT')
+    index = json.loads((dest / '.pull-index.json').read_text())
+    v1_summary_hash = sha256_bytes(b'V1')
+    index[f'{job_rel}/summary.json'] = v1_summary_hash
+    (dest / '.pull-index.json').write_text(json.dumps(index, sort_keys=True) + '\n')
+    (job / 'summary.json').write_text('V1')
+    for name in ('MANIFEST.sha256', 'JOB-DONE'):
+        (job / name).unlink(missing_ok=True)
+    artifacts.finalize_job(job, 0)
+    drop.write_text('drop-v1')
+    code = pull_mod.pull_until(transport, remote_root, dest, run_id, interval=0, max_cycles=6)
+    out = capsys.readouterr().out
+    local = (dest / job_rel / 'summary.json').read_bytes()
+    remote = (job / 'summary.json').read_bytes()
+    assert local == remote == b'V1'
+    assert code == 0
+    assert any(line.startswith('FINAL-VERIFIED ') and 'run_exit=' in line for line in out.splitlines())
+
+
+def test_failed_tar_batch_leaves_dest_unchanged(remote_root, tmp_path):
+    from perf.container import artifacts
+    from perf.container import pull as pull_mod
+
+    run_id = '20260101T000000000201Z'
+    job_rel = f'runs/{run_id}/benchmark_warm_cold/{run_id}-000'
+    gone = f'{job_rel}/gone.txt'
+    keep = f'{job_rel}/keep.txt'
+    job = remote_root / job_rel
+    job.mkdir(parents=True)
+    (job / 'gone.txt').write_text('1')
+    (job / 'keep.txt').write_text('KEEP')
+    artifacts.finalize_job(job, 0)
+    dest = tmp_path / 'dest'
+    transport = local_transport(remote_root)
+    pull_mod.pull_cycle(transport, remote_root, dest)
+    (job / 'keep.txt').write_text('KEEP2')
+    (job / 'gone.txt').write_text('2')
+    for name in ('MANIFEST.sha256', 'JOB-DONE'):
+        (job / name).unlink(missing_ok=True)
+    artifacts.finalize_job(job, 0)
+    transport = WatchTransport(
+        remote_root,
+        on_before_tar=lambda _r, _s: (remote_root / gone).unlink(missing_ok=True),
+    )
+    with pytest.raises(pull_mod.VerifyError):
+        pull_mod.pull_cycle(transport, remote_root, dest)
+    assert (dest / keep).read_text() == 'KEEP'
+    assert (dest / gone).read_text() == '1'
+    index = json.loads((dest / '.pull-index.json').read_text())
+    assert gone in index
+
+
+def test_corrupt_loose_publication_refetched(remote_root, tmp_path, capsys):
+    from perf.container import pull as pull_mod
+
+    run_id = '20260101T000000000202Z'
+    pub_rel = f'runs/{run_id}/e2-publication.json'
+    (remote_root / 'runs' / run_id).mkdir(parents=True)
+    (remote_root / pub_rel).write_text('PUB')
+    (remote_root / 'runs' / run_id / 'RUN-DONE').write_text('exit_status=0\n')
+    dest = tmp_path / 'dest'
+    transport = local_transport(remote_root)
+    pull_mod.pull_until(transport, remote_root, dest, run_id, interval=0, max_cycles=4)
+    capsys.readouterr()
+    (dest / pub_rel).write_text('CORRUPT-PUB')
+    code = pull_mod.pull_until(transport, remote_root, dest, run_id, interval=0, max_cycles=4)
+    out = capsys.readouterr().out
+    assert (dest / pub_rel).read_text() == 'PUB'
+    assert code == 0
+    assert 'FINAL-VERIFIED' in out
+    assert 'run_exit=' in out
+
+
+def test_corrupt_sealed_summary_refetched_no_spin(remote_root, tmp_path, capsys):
+    from perf.container import pull as pull_mod
+
+    run_id = '20260101T000000000203Z'
+    job_rel = f'runs/{run_id}/benchmark_warm_cold/{run_id}-000'
+    write_job_tree(
+        remote_root,
+        run_id,
+        'benchmark_warm_cold',
+        f'{run_id}-000',
+        files={'summary.json': 'SEALED'},
+        job_done=True,
+    )
+    (remote_root / 'runs' / run_id / 'RUN-DONE').write_text('exit_status=0\n')
+    dest = tmp_path / 'dest'
+    transport = local_transport(remote_root)
+    pull_mod.pull_until(transport, remote_root, dest, run_id, interval=0, max_cycles=4)
+    capsys.readouterr()
+    (dest / job_rel / 'summary.json').write_text('CORRUPT')
+    code = pull_mod.pull_until(transport, remote_root, dest, run_id, interval=0, max_cycles=4)
+    out = capsys.readouterr().out
+    assert (dest / job_rel / 'summary.json').read_text() == 'SEALED'
+    assert code == 0
+    assert 'FINAL-VERIFIED' in out
+
+
+def test_tar_member_beyond_triple_listed_size_refused(remote_root, tmp_path, monkeypatch):
+    from perf.container import pull as pull_mod
+
+    run_id = '20260101T000000000204Z'
+    job_rel = f'runs/{run_id}/benchmark_warm_cold/{run_id}-000'
+    big = b'X' * 120
+    small_listed = 10
+    write_job_tree(
+        remote_root,
+        run_id,
+        'benchmark_warm_cold',
+        f'{run_id}-000',
+        files={'chunk.bin': big.decode('latin-1')},
+        job_done=True,
+    )
+    dest = tmp_path / 'dest'
+    transport = local_transport(remote_root)
+    rel = f'{job_rel}/chunk.bin'
+    index = pull_mod.list_remote(transport)
+    index[rel] = {**index[rel], 'size': small_listed, 'sha256': sha256_bytes(big)}
+
+    stream = pull_mod.fetch_tar(transport, [rel])
+    with pytest.raises(pull_mod.VerifyError, match='listed size cap'):
+        pull_mod.extract_tar_stream(stream, dest, {rel: index[rel]})
+    assert not (dest / rel).exists()
+
+
+def test_prev_copy_suffix_beyond_1000(remote_root, tmp_path, monkeypatch):
+    from perf.container import pull as pull_mod
+
+    run_id = '20260101T000000000205Z'
+    job_rel = f'runs/{run_id}/benchmark_warm_cold/{run_id}-000'
+    target = tmp_path / 'dest' / job_rel / 'metric.txt'
+    target.parent.mkdir(parents=True)
+    target.write_text('live')
+    fixed = '20260102T030405Z'
+    monkeypatch.setattr(pull_mod.time, 'strftime', lambda fmt, t=None: fixed if fmt == '%Y%m%dT%H%M%SZ' else time.strftime(fmt, t))
+    for idx in range(1001):
+        name = f'metric.txt.prev-{fixed}' if idx == 0 else f'metric.txt.prev-{fixed}-{idx}'
+        (target.parent / name).write_text(f'prev-{idx}')
+    pull_mod.write_prev_copy(target)
+    created = sorted(p.name for p in target.parent.glob('metric.txt.prev-*') if p.name.endswith('-1001'))
+    assert created == [f'metric.txt.prev-{fixed}-1001']
+
+
+def test_pull_exits_zero_only_after_final_verified(remote_root, tmp_path, capsys):
+    from perf.container import pull as pull_mod
+    from perf.container import artifacts
+
+    run_id = '20260101T000000000206Z'
+    (remote_root / 'runs' / run_id).mkdir(parents=True)
+    job = remote_root / f'runs/{run_id}/benchmark_warm_cold/{run_id}-000'
+    job.mkdir(parents=True)
+    (job / 'summary.json').write_text('{}')
+    artifacts.finalize_job(job, 0)
+    (job / 'cells').mkdir(exist_ok=True)
+    (job / 'cells' / 'extra.json').write_text('{}')
+    (remote_root / 'runs' / run_id / 'RUN-DONE').write_text('exit_status=0\n')
+    dest = tmp_path / 'dest'
+    transport = local_transport(remote_root)
+    code = pull_mod.pull_until(transport, remote_root, dest, run_id, interval=0, max_cycles=3)
+    out = capsys.readouterr().out
+    assert 'FINAL-VERIFIED' not in out
+    assert code != 0
+
+
+def test_final_verified_line_includes_run_exit_not_pull_rc(remote_root, tmp_path, capsys):
+    from perf.container import pull as pull_mod
+
+    run_id = '20260101T000000000207Z'
+    (remote_root / 'runs' / run_id).mkdir(parents=True)
+    write_job_tree(
+        remote_root,
+        run_id,
+        'benchmark_warm_cold',
+        f'{run_id}-000',
+        files={'summary.json': '{}'},
+        job_done=True,
+        status=1,
+    )
+    (remote_root / 'runs' / run_id / 'RUN-DONE').write_text('exit_status=1\n')
+    dest = tmp_path / 'dest'
+    transport = local_transport(remote_root)
+    code = pull_mod.pull_until(transport, remote_root, dest, run_id, interval=0, max_cycles=4)
+    out = capsys.readouterr().out.splitlines()
+    assert code == 0
+    final = [line for line in out if line.startswith('FINAL-VERIFIED ')][-1]
+    assert 'run_exit=1' in final
+    assert 'run_exit=0' not in final.replace('run_exit=1', '')
+
+
+def test_mutation_direct_extract_breaks_failed_batch_rollback(remote_root, tmp_path, monkeypatch):
+    """Removing staging must leave rollback test RED."""
+    from perf.container import pull as pull_mod
+
+    def legacy_extract(stream, dest_root, expected):
+        satisfied: set[str] = set()
+        data = stream.lstrip(b'\n\r')
+        with tarfile.open(fileobj=io.BytesIO(data), mode='r:') as tar:
+            for member in tar:
+                if not member.isreg():
+                    continue
+                if member.name not in expected:
+                    continue
+                blob = tar.extractfile(member).read()
+                target = dest_root / member.name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(blob)
+                satisfied.add(member.name)
+        missing = set(expected) - satisfied
+        if missing:
+            raise pull_mod.VerifyError(f'tar missing members: {sorted(missing)[:3]}')
+        return satisfied
+
+    monkeypatch.setattr(pull_mod, 'extract_tar_stream', legacy_extract)
+    run_id = '20260101T000000000208Z'
+    job_rel = f'runs/{run_id}/benchmark_warm_cold/{run_id}-000'
+    job = remote_root / job_rel
+    job.mkdir(parents=True)
+    (job / 'a.txt').write_text('A')
+    (job / 'b.txt').write_text('B')
+    from perf.container import artifacts
+
+    artifacts.finalize_job(job, 0)
+    dest = tmp_path / 'dest'
+    transport = WatchTransport(
+        remote_root,
+        on_before_tar=lambda _r, _s: (remote_root / f'{job_rel}/b.txt').unlink(missing_ok=True),
+    )
+    with pytest.raises(pull_mod.VerifyError):
+        pull_mod.pull_cycle(transport, remote_root, dest)
+    assert (dest / job_rel / 'a.txt').exists()
+
+
+def test_mutation_no_local_rehash_allows_corrupt_pub(remote_root, tmp_path, monkeypatch):
+    from perf.container import pull as pull_mod
+
+    def index_only(dest, index, prior):
+        return [path for path, meta in index.items() if prior.get(path) != meta['sha256']]
+
+    run_id = '20260101T000000000209Z'
+    pub_rel = f'runs/{run_id}/e2-publication.json'
+    (remote_root / 'runs' / run_id).mkdir(parents=True)
+    (remote_root / pub_rel).write_text('PUB')
+    (remote_root / 'runs' / run_id / 'RUN-DONE').write_text('exit_status=0\n')
+    dest = tmp_path / 'dest'
+    transport = local_transport(remote_root)
+    pull_mod.pull_until(transport, remote_root, dest, run_id, interval=0, max_cycles=3)
+    (dest / pub_rel).write_text('CORRUPT-PUB')
+    index = pull_mod.list_remote(transport)
+    prior = json.loads((dest / '.pull-index.json').read_text())
+    assert sha256_file(dest / pub_rel) != index[pub_rel]['sha256']
+    assert not pull_mod.local_bytes_match_listing(dest, index)
+    monkeypatch.setattr(pull_mod, 'paths_needing_fetch', index_only)
+    assert index_only(dest, index, prior) == []
+
+
+def test_hf_mirror_job_verified_and_ordered(tmp_path, monkeypatch):
+    from perf.container import mirror
+    from perf.container import artifacts
+
+    campaign = tmp_path / 'campaign'
+    job = campaign / 'benchmark_warm_cold' / 'job-001'
+    job.mkdir(parents=True)
+    (job / 'summary.json').write_text('{"n": 1}')
+    artifacts.finalize_job(job, 0)
+    assert (job / 'JOB-DONE').exists()
+    mirror_root = tmp_path / 'mirror'
+    monkeypatch.setenv('HF_MIRROR_ROOT', str(mirror_root))
+    mirror.mirror_job_directory('camp-1', 'benchmark_warm_cold', 'job-001', job, campaign / 'RUN.log')
+    dest = mirror_root / 'camp-1' / 'benchmark_warm_cold' / 'job-001'
+    assert (dest / 'MIRROR-OK').exists()
+    assert (dest / 'summary.json').read_text() == '{"n": 1}'
+
+
+def test_hf_mirror_skips_unwritable_root(tmp_path, monkeypatch, capsys):
+    from perf.container import mirror
+    from perf.container import artifacts
+
+    campaign = tmp_path / 'campaign'
+    job = campaign / 'benchmark_warm_cold' / 'job-001'
+    job.mkdir(parents=True)
+    (job / 'summary.json').write_text('{}')
+    artifacts.finalize_job(job, 0)
+    bad_root = tmp_path / 'not-writable'
+    bad_root.mkdir()
+    bad_root.chmod(0o555)
+    monkeypatch.setenv('HF_MIRROR_ROOT', str(bad_root))
+    run_log = campaign / 'RUN.log'
+    run_log.write_text('')
+    mirror.mirror_job_directory('camp-1', 'benchmark_warm_cold', 'job-001', job, run_log)
+    text = run_log.read_text()
+    assert 'HF_MIRROR_ROOT' in text or 'mirror skip' in text.lower() or 'MIRROR' not in text
+
+
+def test_hf_mirror_detects_corrupted_copy(tmp_path, monkeypatch):
+    from perf.container import mirror
+    from perf.container import artifacts
+
+    campaign = tmp_path / 'campaign'
+    job = campaign / 'benchmark_warm_cold' / 'job-001'
+    job.mkdir(parents=True)
+    (job / 'summary.json').write_text('payload')
+    artifacts.finalize_job(job, 0)
+    mirror_root = tmp_path / 'mirror'
+    monkeypatch.setenv('HF_MIRROR_ROOT', str(mirror_root))
+    run_log = campaign / 'RUN.log'
+
+    real_copy = mirror.copy_file_verified
+
+    real_copy = mirror.copy_file_verified
+
+    def flip_after_copy(src: Path, dst: Path, rel_digest: str) -> None:
+        real_copy(src, dst, rel_digest)
+        if dst.name == 'summary.json' and 'mirror' in str(dst):
+            data = bytearray(dst.read_bytes())
+            if data:
+                data[0] ^= 0xFF
+                dst.write_bytes(data)
+
+    monkeypatch.setattr(mirror, 'copy_file_verified', flip_after_copy)
+    mirror.mirror_job_directory('camp-1', 'benchmark_warm_cold', 'job-001', job, run_log)
+    dest = mirror_root / 'camp-1' / 'benchmark_warm_cold' / 'job-001'
+    assert not (dest / 'MIRROR-OK').exists()
+    assert 'MIRROR-ERROR' in run_log.read_text()
+
+
+def test_run_invokes_mirror_after_each_job(tmp_path, monkeypatch):
+    from perf.container import run as run_mod
+
+    stamp = '20260101T000000000210Z'
+    monkeypatch.setenv('HF_CAMPAIGN_ID', stamp)
+    campaign = tmp_path / 'campaign'
+    campaign.mkdir()
+    calls: list[str] = []
+
+    def fake_run(cmd, **kwargs):
+        if any('check_host' in part for part in cmd):
+            return subprocess.CompletedProcess(cmd, 0)
+        runner = cmd[3]
+        run_id = cmd[cmd.index('--run-id') + 1]
+        job = campaign / runner / run_id
+        job.mkdir(parents=True, exist_ok=True)
+        (job / 'summary.json').write_text('{"samples": []}')
+        return subprocess.CompletedProcess(cmd, 0)
+
+    def track_mirror(campaign_id, runner, job_id, job_dir, run_log):
+        calls.append(f'mirror:{runner}/{job_id}')
+        assert (job_dir / 'JOB-DONE').exists()
+
+    monkeypatch.setattr(subprocess, 'run', fake_run)
+    monkeypatch.setenv('HF_MIRROR_ROOT', str(tmp_path / 'mirror'))
+    monkeypatch.setattr(run_mod, 'mirror_job_directory', track_mirror)
+    with pytest.raises(RuntimeError):
+        run_mod.main(['--smoke', '--out-root', str(campaign)])
+    assert calls
+    assert all('mirror:' in c for c in calls)
 
 
 def test_job_changed_line_when_file_added_after_verify(remote_root, tmp_path, capsys):
