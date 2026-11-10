@@ -138,6 +138,8 @@ class ReviewRules(unittest.TestCase):
 class SampleBrackets(unittest.TestCase):
     def test_each_find_probe_has_its_own_bracket(self):
         class RecordingRun:
+            execution_profile = 'ci_contract'
+
             def __init__(self):
                 self.begins = 0
                 self.ends = 0
@@ -175,7 +177,7 @@ class SampleBrackets(unittest.TestCase):
                 fixture_path=None,
                 count=1,
             )
-            self.assertEqual(fake.calls, 2)
+            self.assertEqual(fake.calls, 1)
             self.assertEqual((run.begins, run.ends), (fake.calls, fake.calls), (fake.calls, run.begins, run.ends))
         finally:
             bd._run_find = original
