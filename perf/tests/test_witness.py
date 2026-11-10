@@ -3401,8 +3401,9 @@ class WitnessIssue137Round7Tests(unittest.TestCase):
     def test_numeric_leaves_outside_the_domain_refuse_value_out_of_range(self):
         """``1e16``, ``-1e16``, ``10**400`` and ``float('1e308')`` at every
         numeric leaf of the capture: the owning schema's refusal, with the
-        ``value_out_of_range`` token in the message, before any arithmetic
-        or formatting reads the value."""
+        ``value_out_of_range`` token in the message, named before any
+        formatting shows the value's digits (the passes after the sweep
+        stay total; round 8 corrected the stronger wording here)."""
         validator = self.load_validator()
         fixture = self.captured()
         slots = list(self._numeric_slots(fixture))
@@ -3634,6 +3635,318 @@ class WitnessIssue137Round7Tests(unittest.TestCase):
                     "a floor-edge anchor still validates (dpr %s): %r"
                     % (dpr, verdict),
                 )
+
+
+class _BadReprInt(int):
+    """An int subclass whose every string conversion raises (#137 round 8,
+    R7-2): the diagnostics must never run one."""
+
+    def __repr__(self):
+        raise RuntimeError("repr must not run")
+
+    def __str__(self):
+        raise RuntimeError("str must not run")
+
+    def __format__(self, format_spec):
+        raise RuntimeError("format must not run")
+
+
+class _BadReprFloat(float):
+    """A float subclass whose every string conversion raises (R7-2)."""
+
+    def __repr__(self):
+        raise RuntimeError("repr must not run")
+
+    def __str__(self):
+        raise RuntimeError("str must not run")
+
+    def __format__(self, format_spec):
+        raise RuntimeError("format must not run")
+
+
+class WitnessIssue137Round8Tests(unittest.TestCase):
+    """Issue #137, round 8 (codex's re-review `rereview-b1c-7.md`: R7-1
+    major, R7-2 minor).
+
+    R7-1 -- an explicitly supplied skew outside the supported numeric
+    domain is the caller-argument boundary's own refusal, BEFORE any
+    fallback to the record's offset. Round 7's domain filter made
+    `_skew_of` discard a finite out-of-domain caller offset and fall
+    back to the record's own, so `validate_witness(record, skew=1e16)`
+    returned ``ok: true`` on the honest capture (the re-review's probe:
+    every value from ``1e15+1`` up was silently replaced; ``1cbaf2a`` had
+    refused each of them). The N5 contract is absolute: the caller's
+    explicit offset wins, and an unusable one is a refusal that must not
+    disappear. ``1e15`` itself stays in the domain, handled by the bound
+    as before (``clock_skew_above_bound``).
+
+    R7-2 -- every diagnostic that names an input-derived value goes
+    through ``_describe``: round 7 left the lag-bound contradiction
+    formatting its ``lag_bound`` raw (``%s``), which raises for an int
+    subclass whose repr raises and printed all 309 digits of ``10**308``;
+    and the CLI's read/abort helpers formatted their paths and exceptions
+    raw too. The whole validator is exercised with repr-raising numbers
+    at every numeric path, not only ``_describe(Evil())``.
+    """
+
+    #: every diagnostic is built from fixed text plus descriptions; none
+    #: may run past this many characters.
+    MESSAGE_LIMIT = 512
+
+    def load_validator(self):
+        return _load_validator()
+
+    def captured(self) -> dict:
+        return json.loads(json.dumps(_load_captured_record()))
+
+    def validated(self, validator, record, **kwargs):
+        """The verdict, or a failure naming the exception no input may raise."""
+        try:
+            return validator.validate_witness(record, **kwargs)
+        except Exception as error:  # noqa: BLE001 -- the point of R7-2
+            self.fail(
+                "validate_witness raised %s: %s (no input may make it raise)"
+                % (type(error).__name__, error)
+            )
+
+    @staticmethod
+    def _summary(verdict):
+        """A bounded description of a verdict for a failure message."""
+        errors = verdict.get("errors") or ["<no error>"]
+        return "reason=%r, first error: %s" % (
+            verdict.get("reason"),
+            str(errors[0])[:160],
+        )
+
+    @staticmethod
+    def _numeric_slots(value, path=()):
+        """Every path a numeric leaf sits at, recursively."""
+        if isinstance(value, dict):
+            for key, item in value.items():
+                if isinstance(item, (int, float)) and not isinstance(item, bool):
+                    yield path + (key,)
+                else:
+                    yield from WitnessIssue137Round8Tests._numeric_slots(
+                        item, path + (key,)
+                    )
+        elif isinstance(value, list):
+            for index, item in enumerate(value):
+                if isinstance(item, (int, float)) and not isinstance(item, bool):
+                    yield path + (index,)
+                else:
+                    yield from WitnessIssue137Round8Tests._numeric_slots(
+                        item, path + (index,)
+                    )
+
+    def _substitute(self, path, value):
+        """A copy of the capture with ``value`` substituted at ``path``."""
+        mutated = self.captured()
+        container = mutated
+        for key in path[:-1]:
+            container = container[key]
+        container[path[-1]] = value
+        return mutated
+
+    # -- R7-1: an explicit out-of-domain skew never falls back ----------
+
+    def test_an_explicit_out_of_domain_skew_is_refused_never_replaced(self):
+        """The re-review's values: ``1e15+1`` (float and int), ``1e16``,
+        ``-1e16``, ``1e308``, ``inf``, ``nan`` and ``10**5000`` supplied as
+        the caller's skew are each a refusal at the caller-argument
+        boundary -- never a silent replacement by the record's own offset
+        (the honest capture's ``-0.2``), whatever bound the caller also
+        supplies."""
+        validator = self.load_validator()
+        record = self.captured()
+        cases = (
+            ("1e15+1 (float)", 1e15 + 1),
+            ("10**15+1 (int)", 10**15 + 1),
+            ("1e16", 1e16),
+            ("-1e16", -1e16),
+            ("1e308", 1e308),
+            ("-1e308", -1e308),
+            ("inf", float("inf")),
+            ("nan", float("nan")),
+            ("10**5000", 10**5000),
+        )
+        for name, skew in cases:
+            with self.subTest(skew=name):
+                verdict = self.validated(validator, record, skew=skew)
+                self.assertTrue(
+                    verdict.get("refused"),
+                    "an explicit skew of %s must be refused (%s)"
+                    % (name, self._summary(verdict)),
+                )
+                self.assertFalse(verdict.get("ok"))
+                self.assertEqual(
+                    verdict.get("reason"),
+                    "nonfinite_time",
+                    "the caller-argument boundary owns the refusal: %s"
+                    % (self._summary(verdict),),
+                )
+                self.assertIsNone(
+                    verdict.get("skew_ms"),
+                    "the record's own offset must not stand in for %s" % (name,),
+                )
+                self.assertFalse(verdict.get("skew_checked"))
+                for message in verdict.get("errors", []):
+                    self.assertLess(
+                        len(message),
+                        self.MESSAGE_LIMIT,
+                        "the refusal itself is bounded: %r" % (message[:80],),
+                    )
+        # the refusal is the domain's, not the bound's: a bound wide enough
+        # to hold the skew still refuses it
+        verdict = self.validated(validator, record, skew=1.5e15, bound_ms=1e16)
+        self.assertTrue(
+            verdict.get("refused"),
+            "an out-of-domain skew refuses even under a wider bound (%s)"
+            % (self._summary(verdict),),
+        )
+        self.assertEqual(verdict.get("reason"), "nonfinite_time")
+
+    def test_an_in_domain_explicit_skew_keeps_the_bound_s_verdict(self):
+        """``1e15`` is inside the domain (the boundary is inclusive), so it
+        keeps round 7's behaviour: the skew gate refuses it as
+        ``clock_skew_above_bound`` with the caller's own value recorded,
+        and a usable explicit skew still wins over the record's offset."""
+        validator = self.load_validator()
+        record = self.captured()
+        verdict = self.validated(validator, record, skew=1e15)
+        self.assertTrue(verdict.get("refused"))
+        self.assertEqual(verdict.get("reason"), "clock_skew_above_bound")
+        self.assertEqual(verdict.get("skew_ms"), 1e15)
+        self.assertTrue(verdict.get("skew_checked"))
+        verdict = self.validated(validator, record, skew=0.3)
+        self.assertFalse(verdict.get("refused"))
+        self.assertEqual(verdict.get("skew_ms"), 0.3)
+        # the helper's own contract: an explicit unusable offset is never
+        # silently swapped for the record's (validate_witness refuses it)
+        self.assertIsNone(validator._skew_of(record, 1e16))
+        self.assertEqual(validator._skew_of(record, 0.3), 0.3)
+
+    # -- R7-2: no diagnostic formats an input-derived value raw ----------
+
+    def test_repr_raising_numbers_at_every_numeric_path_are_total(self):
+        """The whole validator, not only ``_describe``: an int/float
+        subclass whose ``__repr__``/``__str__``/``__format__`` raise,
+        substituted at every numeric leaf of the real capture -- same
+        value (the verdict must not move) and the re-review's wrong value
+        (101; every message bounded). No path may raise."""
+        validator = self.load_validator()
+        fixture = self.captured()
+        slots = list(self._numeric_slots(fixture))
+        self.assertGreaterEqual(
+            len(slots), 50, "the sweep must cover every numeric leaf"
+        )
+        for path in slots:
+            where = ".".join(map(str, path))
+            original = fixture
+            for key in path:
+                original = original[key]
+            if isinstance(original, int) and not isinstance(original, bool):
+                same, wrong = _BadReprInt(original), _BadReprInt(101)
+            else:
+                same, wrong = _BadReprFloat(float(original)), _BadReprFloat(101.0)
+            for name, value in (("same value", same), ("101", wrong)):
+                with self.subTest(leaf=where, value=name):
+                    verdict = self.validated(
+                        validator, self._substitute(path, value)
+                    )
+                    self.assertIsInstance(verdict, dict)
+                    for message in verdict.get("errors", []):
+                        self.assertLess(
+                            len(message),
+                            self.MESSAGE_LIMIT,
+                            "diagnostics are bounded at %s (%s): %r"
+                            % (where, name, message[:80]),
+                        )
+                    if name == "same value":
+                        self.assertFalse(
+                            verdict.get("refused"),
+                            "a same-value substitution changes no verdict at "
+                            "%s (%s)" % (where, self._summary(verdict)),
+                        )
+
+    def test_the_lag_bound_contradiction_describes_its_value(self):
+        """R7-2's own repro: ``lag_bound_ms`` set to a repr-raising int
+        (in domain, but contradicting the rule's bound) and to ``10**308``
+        (out of domain): the contradiction is named, never formatted --
+        the re-review measured a ``RuntimeError`` and a 389-character
+        diagnostic here."""
+        validator = self.load_validator()
+        record = self.captured()
+        correct = record["clock_check"]["lag_bound_ms"]
+        wrong = _BadReprInt(int(correct) + 1000)
+        verdict = self.validated(
+            validator, self._substitute(("clock_check", "lag_bound_ms"), wrong)
+        )
+        self.assertTrue(verdict.get("refused"))
+        self.assertEqual(
+            verdict.get("reason"),
+            "clock_check_evidence_contradicted",
+            "the wrong (in-domain) bound is the evidence's contradiction: %s"
+            % (self._summary(verdict),),
+        )
+        huge = self._substitute(("clock_check", "lag_bound_ms"), 10**308)
+        verdict = self.validated(validator, huge)
+        self.assertTrue(verdict.get("refused"))
+        for message in verdict.get("errors", []):
+            self.assertLess(
+                len(message),
+                self.MESSAGE_LIMIT,
+                "no diagnostic carries 309 digits: %r" % (message[:80],),
+            )
+
+    def test_the_cli_abort_and_read_refusals_are_bounded(self):
+        """The CLI's own diagnostics (the abort and read helpers, and the
+        stderr line) describe their paths and exceptions boundedly: an
+        exception whose ``__str__`` raises and a 100,000-character path
+        must not make the last-resort printers raise or print unbounded
+        text."""
+        validator = self.load_validator()
+
+        class EvilError(Exception):
+            def __repr__(self):
+                raise RuntimeError("repr must not run")
+
+            def __str__(self):
+                raise RuntimeError("str must not run")
+
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            validator._print_validation_aborted(EvilError("boom"))
+        verdict = json.loads(out.getvalue().strip())
+        self.assertEqual(verdict.get("reason"), "validation_aborted")
+        self.assertTrue(verdict.get("refused"))
+        for message in verdict.get("errors", []):
+            self.assertLess(
+                len(message), self.MESSAGE_LIMIT, "bounded: %r" % (message,)
+            )
+
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            validator._print_record_unreadable("z" * 100000, EvilError("boom"))
+        verdict = json.loads(out.getvalue().strip())
+        self.assertEqual(verdict.get("reason"), "record_unreadable")
+        self.assertLess(
+            len(out.getvalue()),
+            self.MESSAGE_LIMIT,
+            "the path is described, never echoed: %d chars"
+            % (len(out.getvalue()),),
+        )
+
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = validator.main(["--file", "z" * 100000])
+        self.assertEqual(code, 2)
+        self.assertEqual(json.loads(out.getvalue().strip()).get("reason"), "record_unreadable")
+        self.assertLess(len(out.getvalue()), self.MESSAGE_LIMIT)
+        self.assertLess(
+            len(err.getvalue()),
+            self.MESSAGE_LIMIT,
+            "the stderr line is bounded too: %d chars" % (len(err.getvalue()),),
+        )
 
 
 if __name__ == "__main__":
