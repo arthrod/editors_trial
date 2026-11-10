@@ -75,7 +75,8 @@ def test_raising_accounting_reader_continues_and_finishes_integration(tmp_path, 
     except Exception as exc:
         error = exc
     assert error is None, f'accounting outage escaped: {error!r}'
-    assert code == 0
+    # B1 contract: browser_run.py:633; e2-logs/b1-fix3-report.md F1.
+    assert code == (3 if host == 'shared_guarded' and broken_read == 'persistent' else 0)
     summary = json.loads((tmp_path / 'fake/outage/summary.json').read_text())
     assert len(summary['samples']) == 2
     first = summary['samples'][0]
@@ -114,7 +115,7 @@ def test_one_attempt_per_criterion_per_launch_integration(tmp_path, monkeypatch,
             run_factory=partial(api.BrowserRun, snapshot=lambda: {}, accounting_reader=accounting),
             facts=(lambda: {}, lambda: {}),
         )
-        == 0
+        == (3 if refused else 0)
     )
     summary = json.loads((tmp_path / 'fake/attempts/summary.json').read_text())
     sample = summary['samples'][0]

@@ -252,8 +252,8 @@ class E2Cells(unittest.TestCase):
         for rep in range(10):
             _write_trial(primary, rep, "plate", "C07", outcome="measured", samples=[20.0])
             _write_trial(reproduction, rep, "plate", "C07", outcome="measured", samples=[900.0])
-        _write_summary(primary, "plate", 30)
-        _write_summary(reproduction, "plate", 30)
+        _write_summary(primary, "plate", 30, execution_profile="dedicated_publish", run_id="primary", seed=1)
+        _write_summary(reproduction, "plate", 30, execution_profile="dedicated_publish", run_id="reproduction", seed=2)
         text = e2_cells.publish_dual_runs(primary, reproduction, "plate", "C07", scheduled=30)
         self.assertIn("not reproduced", text)
 
@@ -535,7 +535,7 @@ class B7FixRound(unittest.TestCase):
         _write_trial(root, 0, "plate", "C07", outcome="measured", samples=[20.0])
         sample_path = root / "samples" / "0000-plate.json"
         row = json.loads(sample_path.read_text())
-        row.update(outcome="failed", failure_reason="cpu_throttled")
+        row.update(outcome="failed", failure_reason="cpu_throttled", refusal_code="cpu_throttled")
         sample_path.write_text(json.dumps(row), encoding="utf-8")
         _write_summary(root, "plate", 30)
         cell = e2_cells.build_run_cell(root, "plate", "C07", scheduled=30)
@@ -589,7 +589,8 @@ class B7FixRound(unittest.TestCase):
             trial_path.write_text(json.dumps(trial), encoding="utf-8")
         _write_summary(root, "plate", 30)
         text = e2_cells.publication_text(e2_cells.build_run_cell(root, "plate", "C07", scheduled=30))
-        self.assertIn("no witnessed frame interval", text)
+        self.assertIn("sub_frame_flag_mismatch", text)
+        self.assertIn("n = 0", text)
 
     def test_non_publishable_trial_not_counted(self):
         root = Path(tempfile.mkdtemp())
@@ -608,7 +609,7 @@ class B7FixRound(unittest.TestCase):
         _write_summary(root, "plate", 30)
         cell = e2_cells.build_run_cell(root, "plate", "C07", scheduled=30)
         self.assertEqual(cell["kept_ms"], [])
-        self.assertIn("visible latency requires fresh_process", str(cell["refusals"]))
+        self.assertEqual(cell["refusals"].get("publishable_not_true"), 10)
 
     def test_run_cli_exposes_profile_through_active_context(self):
         seen = []
