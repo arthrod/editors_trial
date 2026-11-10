@@ -23,7 +23,70 @@
  * --bulk-chars. The payload goes to stdout.
  */
 import fs from 'node:fs';
-import { loadPlaywright, clockSkew, witnessFrame, stopRecorder, captureBaseline, decodePng, diffRatio } from './witness.mjs';
+import {
+  loadPlaywright,
+  clockSkew,
+  witnessFrame,
+  stopRecorder,
+  captureBaseline,
+  decodePng,
+  diffRatio,
+  DEFAULT_CHANNEL_TOLERANCE,
+} from './witness.mjs';
+
+function convertFrameToPageMs(frame, clock) {
+  const kind = clock.timestamp_kind || 'epoch_seconds';
+  if (kind === 'epoch_seconds') {
+    if (typeof frame.ts !== 'number') return null;
+    return frame.ts * 1000 - clock.time_origin_ms;
+  }
+  if (kind === 'monotonic_seconds') {
+    const value = typeof frame.mono === 'number' ? frame.mono : frame.ts;
+    if (typeof value !== 'number' || typeof clock.monotonic_origin_ms !== 'number') return null;
+    return value * 1000 - clock.monotonic_origin_ms;
+  }
+  return null;
+}
+
+function clipRectToDocument(rect, doc) {
+  const x = Math.max(rect.x, doc.x);
+  const y = Math.max(rect.y, doc.y);
+  const right = Math.min(rect.x + rect.width, doc.x + doc.width);
+  const bottom = Math.min(rect.y + rect.height, doc.y + doc.height);
+  if (right <= x || bottom <= y) return null;
+  return { x, y, width: right - x, height: bottom - y };
+}
+
+function rectsMatchSettled(a, b, rects, dpr, doc, tolerance) {
+  for (const rect of rects) {
+    const clipped = clipRectToDocument(rect, doc);
+    if (!clipped) return false;
+    const region = {
+      x: clipped.x * dpr,
+      y: clipped.y * dpr,
+      width: clipped.width * dpr,
+      height: clipped.height * dpr,
+    };
+    const diff = diffRatio(a, b, { channelTolerance: tolerance, region });
+    if (!diff.comparable || diff.changed > 0) return false;
+  }
+  return rects.length > 0;
+}
+
+function rectDamageVsBaseline(baselinePixels, framePixels, rects, dpr, doc, tolerance) {
+  return rects.map(rect => {
+    const clipped = clipRectToDocument(rect, doc);
+    if (!clipped) return { rect, changed_pixels: 0 };
+    const region = {
+      x: clipped.x * dpr,
+      y: clipped.y * dpr,
+      width: clipped.width * dpr,
+      height: clipped.height * dpr,
+    };
+    const diff = diffRatio(baselinePixels, framePixels, { channelTolerance: tolerance, region });
+    return { rect, changed_pixels: diff.comparable ? diff.changed : 0 };
+  });
+}
 
 import {
   CRITERIA_SCHEMA,
@@ -269,34 +332,57 @@ async function measureEdit(page, selector, cdp) {
     return {...proof, after_count: after, confirmed: false,
       visible_rects: eligible.flatMap(state.confirmInsertion), changed_pixels: 0};
   }, {selector, frameTime: frame.frame_page_ms});
-  // Reuse exactly the baseline handed to B1 and the frame B1 witnessed.
-  // Never compare a later screenshot: that could legitimize an earlier caret.
-  // B1 currently converts epoch timestamps; refuse other/ambiguous matches.
-  const candidates = frame.timestamp_kind === 'epoch_seconds' && frame.frame_page_ms !== null
-    ? baseline.recorder.frames.filter(f => f.ack === 'acked' && typeof f.ts === 'number' &&
-      Math.abs(f.ts * 1000 - frame.time_origin_ms - frame.frame_page_ms) < 0.002) : [];
-  if (candidates.length === 1 && baseline.frame && confirmation.visible_rects.length) {
+  let confirmationFramePageMs = frame.frame_page_ms;
+  confirmation.settled_channel_tolerance = DEFAULT_CHANNEL_TOLERANCE;
+  confirmation.settled_quiescence_ms = quiescenceMs;
+  if (baseline.frame && confirmation.visible_rects.length && frame.document_region?.device_pixel_ratio > 0) {
+    const event = await page.evaluate(() => window.__b2?.event);
+    await page.waitForTimeout(quiescenceMs);
+    const recorder = baseline.recorder;
+    const acked = recorder.frames.filter(item => item.ack === 'acked' && item.data);
+    const settledFrame = acked[acked.length - 1];
     const beforePixels = decodePng(Buffer.from(baseline.frame.data, 'base64'));
-    const afterPixels = decodePng(Buffer.from(candidates[0].data, 'base64'));
+    const settledPixels = settledFrame ? decodePng(Buffer.from(settledFrame.data, 'base64')) : null;
     const region = frame.document_region;
-    const dpr = region?.device_pixel_ratio;
-    if (dpr > 0) {
-      confirmation.rect_damage = confirmation.visible_rects.map(rect => {
-        const doc = region.rect_css_px;
-        const x = Math.max(rect.x, doc.x), y = Math.max(rect.y, doc.y);
-        const right = Math.min(rect.x + rect.width, doc.x + doc.width);
-        const bottom = Math.min(rect.y + rect.height, doc.y + doc.height);
-        if (right <= x || bottom <= y) return {rect, changed_pixels: 0};
-        const diff = diffRatio(beforePixels, afterPixels, {region: {
-          x: x*dpr, y: y*dpr, width: (right-x)*dpr, height: (bottom-y)*dpr,
-        }});
-        return {rect, changed_pixels: diff.comparable ? diff.changed : 0};
-      });
-      confirmation.changed_pixels = confirmation.rect_damage.reduce((sum, r) => sum+r.changed_pixels, 0);
-      confirmation.baseline_seq = baseline.frame.seq;
-      confirmation.witness_seq = candidates[0].seq;
-      confirmation.witness_page_ms = frame.frame_page_ms;
-      confirmation.confirmed = confirmation.after_count > confirmation.before_count && confirmation.changed_pixels > 0;
+    const doc = region.rect_css_px;
+    const dpr = region.device_pixel_ratio;
+    const clock = {
+      time_origin_ms: frame.time_origin_ms,
+      timestamp_kind: frame.timestamp_kind,
+    };
+    const markerMs = typeof event?.startTime === 'number' ? event.startTime : frame.after_page_ms;
+    const settledHasGlyph = settledPixels && rectDamageVsBaseline(
+      beforePixels, settledPixels, confirmation.visible_rects, dpr, doc, DEFAULT_CHANNEL_TOLERANCE,
+    ).some(row => row.changed_pixels > 0);
+    if (settledHasGlyph && typeof markerMs === 'number') {
+      let match = null;
+      for (const candidate of acked) {
+        const pageMs = convertFrameToPageMs(candidate, clock);
+        if (pageMs === null || pageMs < markerMs - 2) continue;
+        const candidatePixels = decodePng(Buffer.from(candidate.data, 'base64'));
+        if (rectsMatchSettled(
+          candidatePixels, settledPixels, confirmation.visible_rects, dpr, doc, DEFAULT_CHANNEL_TOLERANCE,
+        )) {
+          match = { frame: candidate, page_ms: pageMs };
+          break;
+        }
+      }
+      if (match) {
+        const matchPixels = decodePng(Buffer.from(match.frame.data, 'base64'));
+        confirmation.rect_damage = rectDamageVsBaseline(
+          beforePixels, matchPixels, confirmation.visible_rects, dpr, doc, DEFAULT_CHANNEL_TOLERANCE,
+        );
+        confirmation.changed_pixels = confirmation.rect_damage.reduce((sum, row) => sum + row.changed_pixels, 0);
+        confirmation.baseline_seq = baseline.frame.seq;
+        confirmation.settled_seq = settledFrame.seq;
+        confirmation.witness_seq = match.frame.seq;
+        confirmation.witness_page_ms = match.page_ms;
+        confirmation.settled_page_ms = convertFrameToPageMs(settledFrame, clock);
+        confirmationFramePageMs = match.page_ms;
+        confirmation.confirmed = (
+          confirmation.after_count > confirmation.before_count && confirmation.changed_pixels > 0
+        );
+      }
     }
   }
   // An observer delivery deadline is not a latency: durations come only
@@ -313,7 +399,9 @@ async function measureEdit(page, selector, cdp) {
       outcome: !state.supported ? 'unsupported' : matching().length ? 'observed' : 'censored_below_16_ms',
       duration_threshold_ms:16, duration_step_ms:8 };
   });
-  const duration = frame.frame_page_ms === null ? null : frame.frame_page_ms - timing.event.startTime;
+  const duration = confirmationFramePageMs === null || !timing.event
+    ? null
+    : confirmationFramePageMs - timing.event.startTime;
   const ok = frame.outcome === 'witnessed' && frame.document_scoped && frame.clock_skew_acceptable && confirmation.confirmed && duration !== null && duration >= 0;
   return { mechanism, clock_skew:skew, witness:frame, event_timing:timing, edit_confirmation:confirmation,
     timestamp_note: 'Uncorrected frame-to-page conversion; page_offset_ms is not a conversion correction. See clock_skew conversion bounds.',

@@ -47,7 +47,7 @@ from perf.runner.cause_attribution import (  # noqa: E402
     probe_medians,
 )
 from perf.runner.cause_attribution import _median as median  # noqa: E402
-from perf.runner.witness import validate_witness
+from perf.runner.witness import DEFAULT_SKEW_BOUND_MS, validate_witness
 from perf.layers.classify import assert_visible_evidence
 from perf.layers.event_timing import event_timing_status, samples_ms as event_samples_ms
 from perf.runner.browser_run import ACTIVE
@@ -444,13 +444,22 @@ def input_sample_record(observation, criterion_id):
     row = dict(observation)
     row['criterion_id'] = criterion_id
     skew = row.get('clock_skew') or {}
-    value, bound = skew.get('skew_ms'), skew.get('bound_ms')
+    value = skew.get('skew_ms')
+    declared_bound = skew.get('bound_ms')
+    bound = DEFAULT_SKEW_BOUND_MS
     reason = row.get('failure_reason')
     if reason:
         pass  # Preserve the actual sample refusal before secondary missing evidence.
-    elif isinstance(value, bool) or isinstance(bound, bool) or not isinstance(value, (int, float)) or not isinstance(bound, (int, float)):
+    elif isinstance(value, bool) or not isinstance(value, (int, float)):
         reason = 'clock_skew_unavailable'
-    elif not math.isfinite(value) or not math.isfinite(bound) or bound < 0 or abs(value) > bound:
+    elif declared_bound is not None and (
+        isinstance(declared_bound, bool)
+        or not isinstance(declared_bound, (int, float))
+        or not math.isfinite(declared_bound)
+        or float(declared_bound) != bound
+    ):
+        reason = 'clock_skew_bound_not_constant'
+    elif not math.isfinite(value) or abs(value) > bound:
         reason = 'clock_skew_above_bound'
     elif not skew.get('acceptable'):
         reason = 'clock_skew_unavailable'

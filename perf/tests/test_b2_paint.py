@@ -326,6 +326,38 @@ class ReviewPolicy(unittest.TestCase):
         row = runner.input_sample_record({'clock_skew': {'skew_ms': True, 'bound_ms': 2, 'acceptable': True}}, 'C05')
         self.assertEqual(row['failure_reason'], 'clock_skew_unavailable')
 
+    def test_n3_clock_bound_is_validator_constant_not_record(self):
+        proof = {
+            'confirmed': True,
+            'changed_pixels': 20,
+            'visible_rects': [{'x': 10, 'y': 10, 'width': 20, 'height': 30}],
+        }
+        row = runner.input_sample_record({
+            'edit_ms': 12,
+            'outcome': 'measured',
+            'witness': frame_record(),
+            'clock_skew': {'skew_ms': 0.2, 'bound_ms': 1_000_000.0, 'acceptable': True},
+            'edit_confirmation': proof,
+        }, 'C05')
+        self.assertEqual(row['failure_reason'], 'clock_skew_bound_not_constant')
+        self.assertIsNone(row['latency_ms'])
+
+    def test_n3_forged_skew_cannot_carry_inflated_bound(self):
+        proof = {
+            'confirmed': True,
+            'changed_pixels': 20,
+            'visible_rects': [{'x': 10, 'y': 10, 'width': 20, 'height': 30}],
+        }
+        row = runner.input_sample_record({
+            'edit_ms': 12,
+            'outcome': 'measured',
+            'witness': frame_record(),
+            'clock_skew': {'skew_ms': 500_000.0, 'bound_ms': 1_000_000.0, 'acceptable': True},
+            'edit_confirmation': proof,
+        }, 'C05')
+        self.assertEqual(row['failure_reason'], 'clock_skew_bound_not_constant')
+        self.assertIsNone(row['latency_ms'])
+
 
 class ProbeBracketIntegration(unittest.TestCase):
     def test_f2_exception_restores_cell_bracket(self):
@@ -395,6 +427,32 @@ class AdversarialBrowser(BrowserIntegration):
             self.assertEqual(edit['outcome'], 'failed')
             self.assertIsNone(edit['single_edit_ms'])
             self.assertIn('failure_reason', edit)
+
+    def test_nr1_bgdecoy_delayed_measures_settled_glyph(self):
+        p = self.probe(
+            'bgdecoy_delayed',
+            '--url',
+            self.host.url + '/bgdecoy_delayed.html',
+            '--fresh-context-probe',
+            'false',
+        )
+        for arm in ('cold', 'warm'):
+            edit = p['pairs'][0][arm]
+            self.assertTrue(edit['single_edit_ms'] is None or edit['single_edit_ms'] >= 150, edit)
+            if edit['single_edit_ms'] is not None:
+                self.assertEqual(edit['outcome'], 'measured', edit)
+
+    def test_nr1_bgdecoy_immediate_stays_within_one_frame(self):
+        p = self.probe(
+            'bgdecoy',
+            '--url',
+            self.host.url + '/bgdecoy.html',
+            '--fresh-context-probe',
+            'false',
+        )
+        edit = p['pairs'][0]['cold']
+        self.assertIsNotNone(edit.get('single_edit_ms'), edit)
+        self.assertLess(edit['single_edit_ms'], 33, edit)
 
 
 class ReviewArtifactIntegration(WriterIntegration):
