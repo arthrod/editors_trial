@@ -40,6 +40,7 @@ def main():
                 with urllib.request.urlopen(server.url + '/corpus.docx') as response:
                     assert response.read() == fixture.read_bytes(), 'corpus mismatch'
                 return {'outcome': 'ok', **json.loads(result.stdout)}
+            run.begin_sample()
             row = capture(probe)
             row['repetition'] = repetition
             run.sample(str(repetition), row)

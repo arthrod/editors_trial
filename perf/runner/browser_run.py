@@ -18,6 +18,7 @@ import sys
 import uuid
 
 from perf.runner.order import editor_order
+from perf.runner.browser_throttle import read_cpu_accounting, accounting_delta, accounting_summary
 
 REPO = Path(__file__).resolve().parents[2]
 ACTIVE = ContextVar('browser_run', default=None)
@@ -78,7 +79,8 @@ def write_json(path, value):
 
 
 class BrowserRun:
-    def __init__(self, out_root, runner, *, seed=None, run_id=None, snapshot=repo_snapshot):
+    def __init__(self, out_root, runner, *, seed=None, run_id=None, snapshot=repo_snapshot,
+                 accounting_reader=read_cpu_accounting):
         self.seed = seed if seed is not None else secrets.randbits(32)
         self.run_id = run_id or (datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S') + '-' + uuid.uuid4().hex)
         for name in (runner, self.run_id):
@@ -94,6 +96,9 @@ class BrowserRun:
         self.samples = []
         self.execution_profile = 'ci_broad'
         self.host_class = 'ci_coarse'
+        self.accounting_reader = accounting_reader
+        self.accounting_start = accounting_reader()
+        self.sample_start = None
 
     def fixture(self, workload, data):
         if Path(workload).name != workload or workload in ('.', '..'):
@@ -109,22 +114,45 @@ class BrowserRun:
         self.fixtures[key] = path
         return path
 
+    def begin_sample(self):
+        """Bracket the measurement, including any nested diagnostic samples."""
+        self.sample_start = self.accounting_reader()
+
     def sample(self, name, row):
         if Path(name).name != name or name in ('.', '..'):
             raise ValueError('invalid sample name')
-        value = {**row, 'run_id': self.run_id, 'seed': self.seed}
+        before = self.sample_start or {'available': False, 'reason': 'before-sample accounting not captured'}
+        accounting = accounting_delta(before, self.accounting_reader())
+        value = {**row, 'run_id': self.run_id, 'seed': self.seed, 'cpu_accounting': accounting}
+        if accounting['available'] and accounting['delta']['nr_throttled'] > 0:
+            # The underlying cell/probe files remain raw evidence, not accepted times.
+            value = {key: val for key, val in value.items() if not key.endswith('_ms')}
+            value.update(outcome='failed', failure_reason='cpu_throttled', publishable=False)
+            if value.get('cell_directory'):
+                source = Path(value.pop('cell_directory'))
+                destination = self.directory / 'rejected-evidence' / name
+                if source.exists():
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    source.rename(destination)
+                    value['rejected_evidence_directory'] = str(destination)
         path = self.directory / 'samples' / (name + '.json')
         write_json(path, value)
         self.samples.append(value)
         return path
 
     def finish(self, summary):
+        accounting = accounting_summary(self.accounting_start, self.accounting_reader(), self.samples)
         after = self.snapshot()
         result = {**summary, 'run_id': self.run_id, 'seed': self.seed,
-                  'samples': self.samples, 'hosts': self.hosts,
+                  'samples': self.samples, 'hosts': self.hosts, 'cpu_accounting': accounting,
                   'execution_profile': self.execution_profile, 'host_class': self.host_class,
                   'repos_before': self.before, 'repos_after': after,
                   'fixtures': [str(p) for p in self.fixtures.values()]}
+        host = result.get('host', {})
+        if accounting['cpu_count_visible'] is None:
+            accounting['cpu_count_visible'] = host.get('cpu_cores_logical')
+        if host.get('container') and host.get('cpu_quota') and not accounting['available']:
+            result.update(publishable=False, publication_block_reason='cpu_accounting_unavailable')
         from perf.runner.speed_headless import _dirty_verdict
         allowed, refused = {}, {}
         for checkout, porcelain in self.before.items():
@@ -269,6 +297,7 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
                         'failure_reason': '; '.join(dict.fromkeys(reasons)) or (f'exit {status}' if status else None),
                         'exit_code': status, 'cell_directory': str(directory)}
             try:
+                run.begin_sample()
                 row = capture(invoke)
                 row.update(repetition=rep, editor_id=editor, cell_directory=str(directory))
                 run.sample(name, row)
