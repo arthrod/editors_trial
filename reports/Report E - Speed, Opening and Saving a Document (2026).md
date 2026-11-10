@@ -123,8 +123,8 @@ Median in ms, with the 90th percentile. Clock: layer model, boundary serializati
 
 What the save figures include, found in the samples:
 
-- **The file is the input.** This editor wrote back the exact bytes it was given, on every sample: GenOffice. With nothing edited, it keeps the original package; its save time is the time to decide that and hand the bytes back.
-- **The export is prepared during load.** SuperDoc's save took 9.8 ms at 5,000 words and 13 ms at 250,000 words, while its load grew 13 times. Its saved file is a new serialisation, not the input, so the work is done before the save timer starts; the round trip counts it.
+- **The file is the input.** In both runs, on every sample of the documents named, this editor wrote back the exact bytes it was given: GenOffice on the 500 words, 5,000 words, 50,000 words and 250,000 words documents (it rewrote complex.docx). With nothing edited, it keeps the original package there; its save time on those documents is the time to decide that and hand the bytes back.
+- **The save barely grows with the document.** SuperDoc's save took 9.8 ms at 5,000 words and 13 ms at 250,000 words, while its load grew 13 times. Its saved file is not the input: the editor wrote a new file. Where the editor does that work was not traced; the round trip counts load and save together.
 - **A host process.** SuperDoc's native host starts before the load timer, in 555 ms (median at 500 words); that start is in the process figures, not in load.
 
 ## Process cost at 50,000 words
@@ -172,7 +172,7 @@ Every figure that is not printed, and why.
 
 What the canvas-editor failures are, from their logs and from one diagnostic rerun outside the two runs (a diagnosis, not a measurement; it printed no figure in this report):
 
-- **250,000 words.** Every one of these samples printed its load time and then died during the save; a sample that fails is not a time, so its load is counted as failed too. In the runs, the editor ran in a Vitest worker thread, so the death showed only as "Worker exited unexpectedly". Rerun with the test in a separate process, the same sample stopped with V8's "JavaScript heap out of memory" at Node's default heap limit. Rerun with a larger heap, it loaded, saved and passed its check. The editor needs more JavaScript heap than Node gives by default to save a document of this size; no lane in this report raises the default for any editor.
+- **250,000 words.** Every one of these samples printed its load time and then died during the save; a sample that fails is not a time, so its load is counted as failed too. In the runs, the editor ran in a Vitest worker thread, so the death showed only as "Worker exited unexpectedly". Rerun once in a separate process instead (Vitest's forks pool) with Node's default heap, the same sample stopped during the save with V8's "JavaScript heap out of memory", its heap full at the default limit. Rerun once in a worker thread, as in the runs, with a larger heap, it loaded and saved, and the saved file passed the same check as every sample in this report. The editor needs more JavaScript heap than Node gives by default to save a document of this size; no lane in this report raises the default for any editor.
 - **complex.docx.** The editor's import crashes on a table with vertically merged cells (`w:vMerge`), the crash described in the main report: the importer drops the merged continuation cells, and the layout engine then reads past the end of the table's column list.
 
 Text the check found missing from the saved files (the round trip still kept 98 percent of the words, so the samples count): Fidus Writer: emoji, unicode.

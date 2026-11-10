@@ -691,11 +691,14 @@ def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
     facts["perf.e.summary"] = _summary(facts, primary)
     facts["perf.e.lanes"] = _lanes(primary)
     facts["perf.e.versions"] = _versions(primary)
-    facts["perf.e.passthrough"] = _passthrough(primary)
+    facts["perf.e.passthrough"] = _names(e for e, _, _ in _passthrough_editors(primary, repro))
+    facts["perf.e.passthrough_scope"] = _passthrough_scope(primary, repro)
+    facts["perf.e.passthrough_n"] = len(_passthrough_editors(primary, repro))
     facts["perf.e.exceptions"] = _exceptions(facts, primary, repro)
     facts["perf.e.correctness_lost"] = _correctness_lost(primary)
     _host_start_facts(facts, primary, repro)
     facts["perf.e.prepared_export"] = _prepared_export(facts, _editors(primary))
+    facts["perf.e.flat_save_rewrites"] = _rewrites(primary, repro, _flat_save_editors(facts, _editors(primary)), "prose-250kw")
     facts["perf.e.host_start"] = _host_start(facts, primary)
     facts["perf.e.save_notes"] = _save_notes(facts)
     facts["perf.e.check"] = _check_text(s)
@@ -749,7 +752,8 @@ def _lanes(primary: Run) -> str:
     lines = ["| Editor | Load timer ends at | Save timer covers |", "|---|---|---|"]
     for e in _editors(primary):
         load, _, save = primary.summary["lanes"].get(e, "").partition(" | ")
-        lines.append("| %s | %s | %s |" % (DISPLAY.get(e, e), load.strip() or "—", save.strip() or "—"))
+        cell = lambda text: text.strip().replace("|", "\\|") or "—"
+        lines.append("| %s | %s | %s |" % (DISPLAY.get(e, e), cell(load), cell(save)))
     return "\n".join(lines)
 
 
@@ -779,9 +783,27 @@ def _package(name: str, val) -> str:
     return text if installed == declared else "%s (declared %s)" % (text, declared)
 
 
+def _flat_save_editors(facts: dict, editors: list[str]) -> list[str]:
+    """Editors whose save barely moves from 5,000 to 250,000 words while their load grows."""
+    return [e for e in editors if _prepared_export(facts, [e])]
+
+
+def _rewrites(primary: Run, repro: Run, editors: list[str], wl: str) -> bool:
+    """Every good sample of these editors, in both runs, saved a file that is not the input."""
+    if not editors:
+        return False
+    for run in (primary, repro):
+        source = run.summary["workloads"].get(wl, {}).get("sha256")
+        for editor in editors:
+            good = [r for r in run.records.get((wl, editor), []) if _good(r)]
+            if not good or any(not r.get("output_sha256") or r.get("output_sha256") == source for r in good):
+                return False
+    return True
+
+
 def _prepared_export(facts: dict, editors: list[str]) -> str:
     """Editors whose save barely moves from 5,000 to 250,000 words while their
-    load grows: the export work happens during load. Published cells only."""
+    load grows. An observation; where the work happens is not traced. Published cells only."""
     out = []
     for editor in editors:
         k = "perf.e.%s.%s.%s.median"
@@ -848,20 +870,23 @@ def _host_start(facts: dict, primary: Run) -> str:
 
 def _save_notes(facts: dict) -> str:
     notes = []
-    if facts.get("perf.e.passthrough", "none") != "none":
-        names = facts["perf.e.passthrough"]
-        if len(names.split(", ")) == 1:
-            notes.append("- **The file is the input.** This editor wrote back the exact bytes it was given, on every sample: %s. "
-                         "With nothing edited, it keeps the original package; its save time is the time to decide that and hand the bytes back." % names)
+    if facts.get("perf.e.passthrough_scope"):
+        scope = facts["perf.e.passthrough_scope"]
+        if facts.get("perf.e.passthrough_n", 1) == 1:
+            notes.append("- **The file is the input.** In both runs, on every sample of the documents named, this editor wrote back the exact bytes it was given: %s. "
+                         "With nothing edited, it keeps the original package there; its save time on those documents is the time to decide that and hand the bytes back." % scope)
         else:
-            notes.append("- **The file is the input.** These editors wrote back the exact bytes they were given, on every sample: %s. "
-                         "With nothing edited, they keep the original package; their save time is the time to decide that and hand the bytes back." % names)
+            notes.append("- **The file is the input.** In both runs, on every sample of the documents named, these editors wrote back the exact bytes they were given: %s. "
+                         "With nothing edited, they keep the original package there; their save time on those documents is the time to decide that and hand the bytes back." % scope)
     if facts.get("perf.e.prepared_export"):
         found = facts["perf.e.prepared_export"]
-        files = ("Its saved file is a new serialisation" if len(found.split("; ")) == 1
-                 else "Their saved files are new serialisations")
-        notes.append("- **The export is prepared during load.** %s. %s, not the input, "
-                     "so the work is done before the save timer starts; the round trip counts it." % (found, files))
+        one = len(found.split("; ")) == 1
+        files = ""
+        if facts.get("perf.e.flat_save_rewrites"):
+            files = (" Its saved file is not the input: the editor wrote a new file." if one
+                     else " Their saved files are not the input: the editors wrote new files.")
+        notes.append("- **The save barely grows with the document.** %s.%s Where the editor does that work was not traced; "
+                     "the round trip counts load and save together." % (found, files))
     if facts.get("perf.e.host_start"):
         notes.append("- **A host process.** %s." % facts["perf.e.host_start"])
     return "\n".join(notes) if notes else "- none"
@@ -870,6 +895,46 @@ def _save_notes(facts: dict) -> str:
 def _names(editors) -> str:
     names = sorted({DISPLAY.get(e, e) for e in editors}, key=str.casefold)
     return ", ".join(names) if names else "none"
+
+
+def _identical_everywhere(run: Run, wl: str, editor: str) -> bool | None:
+    """True if every good sample saved the input's exact bytes, False if any did not, None if no good sample."""
+    good = [r for r in run.records.get((wl, editor), []) if _good(r)]
+    if not good:
+        return None
+    return all(r.get("output_sha256") == run.summary["workloads"][wl]["sha256"] for r in good)
+
+
+def _passthrough_editors(primary: Run, repro: Run) -> list[tuple[str, list[str], list[str]]]:
+    """(editor, documents written back byte for byte in both runs, documents it rewrote)."""
+    out = []
+    for editor in _timed_editors(primary):
+        same, other = [], []
+        for wl in _workloads(primary):
+            verdicts = [_identical_everywhere(run, wl, editor) for run in (primary, repro)]
+            if None in verdicts:
+                continue
+            (same if all(verdicts) else other).append(wl)
+        if same:
+            out.append((editor, same, other))
+    return out
+
+
+def _and(items: list[str]) -> str:
+    return items[0] if len(items) == 1 else "%s and %s" % (", ".join(items[:-1]), items[-1])
+
+
+def _passthrough_scope(primary: Run, repro: Run) -> str:
+    parts = []
+    for editor, same, other in _passthrough_editors(primary, repro):
+        name = DISPLAY.get(editor, editor)
+        if not other:
+            parts.append("%s on every document" % name)
+            continue
+        docs = [WORKLOAD_LABEL.get(w, w) for w in same]
+        parts.append("%s on the %s document%s (it rewrote %s)" % (
+            name, _and(docs), "" if len(docs) == 1 else "s", _and([WORKLOAD_LABEL.get(w, w) for w in other])))
+    return "; ".join(parts)
 
 
 def _passthrough(primary: Run) -> str:
@@ -942,11 +1007,10 @@ def _error_line(stderr: str | None) -> str | None:
 def _last_error(run: Run, wl: str, editor: str) -> str | None:
     """The error of the last sample of the cell that failed, from its own stderr."""
     failed = [r for r in run.records.get((wl, editor), []) if r.get("returncode") not in (0, None)]
-    for rec in sorted(failed, key=lambda r: r.get("started_at") or "", reverse=True):
-        err = _error_line(rec.get("stderr_tail"))
-        if err:
-            return err
-    return None
+    if not failed:
+        return None
+    latest = max(failed, key=lambda r: r.get("started_at") or "")
+    return _error_line(latest.get("stderr_tail"))
 
 
 def _check_text(summary: dict) -> str:

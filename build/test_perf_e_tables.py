@@ -231,7 +231,7 @@ class ReportEFacts(unittest.TestCase):
     def test_save_notes_are_bullets_built_from_what_was_found(self):
         notes = self.facts["perf.e.save_notes"]
         self.assertTrue(notes.startswith("- **The file is the input.**"))
-        self.assertIn("Plate.js, WordCraft", notes)
+        self.assertIn("Plate.js on every document; WordCraft on every document", notes)
         self.assertNotIn("prepared during", notes)  # no fake editor has a flat save
 
     def test_a_non_publication_run_is_refused(self):
@@ -1019,17 +1019,80 @@ class PublicationDraft(unittest.TestCase):
         self.assertIn("last error: `TypeError: boom at the table at editor/src/layout.ts:12`", line)
 
     def test_save_notes_agree_in_number_with_their_editors(self):
-        one = E._save_notes({"perf.e.passthrough": "GenOffice",
-                             "perf.e.prepared_export": "SuperDoc's save took 9.8 ms at 5,000 words and 13 ms at 250,000 words, while its load grew 13 times"})
-        self.assertIn("This editor wrote back the exact bytes it was given, on every sample: GenOffice.", one)
-        self.assertIn("it keeps the original package; its save time", one)
-        self.assertIn("Its saved file is a new serialisation", one)
-        self.assertNotIn("These editors", one)
+        one = E._save_notes({"perf.e.passthrough_scope": "GenOffice on every document", "perf.e.passthrough_n": 1,
+                             "perf.e.prepared_export": "SuperDoc's save took 9.8 ms at 5,000 words and 13 ms at 250,000 words, while its load grew 13 times",
+                             "perf.e.flat_save_rewrites": True})
+        self.assertIn("this editor wrote back the exact bytes it was given: GenOffice on every document.", one)
+        self.assertIn("it keeps the original package there; its save time", one)
+        self.assertIn("Its saved file is not the input", one)
+        self.assertNotIn("these editors", one)
         self.assertNotIn("Their", one)
-        two = E._save_notes({"perf.e.passthrough": "GenOffice, Folio",
-                             "perf.e.prepared_export": "A's save took 1 ms; B's save took 2 ms"})
-        self.assertIn("These editors wrote back the exact bytes they were given, on every sample: GenOffice, Folio.", two)
-        self.assertIn("Their saved files are new serialisations", two)
+        two = E._save_notes({"perf.e.passthrough_scope": "GenOffice on every document; Folio on every document", "perf.e.passthrough_n": 2,
+                             "perf.e.prepared_export": "A's save took 1 ms; B's save took 2 ms", "perf.e.flat_save_rewrites": True})
+        self.assertIn("these editors wrote back the exact bytes they were given: GenOffice on every document; Folio on every document.", two)
+        self.assertIn("Their saved files are not the input", two)
+
+
+def _hash_run(rows, input_sha=None):
+    """rows: {(workload, editor): [output sha256 per good sample]}"""
+    wls = sorted({w for w, _ in rows})
+    summary = {"workloads": {w: {"sha256": (input_sha or {}).get(w, "in-" + w)} for w in wls}, "repetitions": 10}
+    records = {k: [_good_rec(output_sha256=h) for h in v] for k, v in rows.items()}
+    return E.Run(Path("."), summary, records=records)
+
+
+class CodexReview124(unittest.TestCase):
+    """#124: codex (gpt-6-astra) review of the Report E commits (#111)."""
+
+    def test_1_passthrough_is_scoped_to_the_documents_it_holds_for(self):
+        rows = {("prose-500w", "genoffice"): ["in-prose-500w"] * 3, ("complex-corpus", "genoffice"): ["other"] * 3,
+                ("prose-500w", "wordcraft"): ["in-prose-500w"] * 3, ("complex-corpus", "wordcraft"): ["in-complex-corpus"] * 3}
+        primary = _hash_run(rows)
+        scope = E._passthrough_scope(primary, primary)
+        self.assertIn("GenOffice on the 500 words document (it rewrote complex.docx)", scope)
+        self.assertIn("WordCraft on every document", scope)
+        note = E._save_notes({"perf.e.passthrough_scope": scope, "perf.e.passthrough_n": 2})
+        self.assertNotIn("every sample: GenOffice", note)
+        self.assertIn("In both runs", note)
+
+    def test_1_one_differing_sample_in_the_second_run_removes_the_document(self):
+        primary = _hash_run({("prose-500w", "genoffice"): ["in-prose-500w"] * 3})
+        repro = _hash_run({("prose-500w", "genoffice"): ["in-prose-500w", "in-prose-500w", "other"]})
+        self.assertEqual(E._passthrough_scope(primary, repro), "")
+
+    def test_2_a_flat_save_is_an_observation_not_a_cause(self):
+        facts = {"perf.e.sd.prose-5kw.save.median": 3.0, "perf.e.sd.prose-250kw.save.median": 3.5,
+                 "perf.e.sd.prose-5kw.load.median": 150.0, "perf.e.sd.prose-250kw.load.median": 2500.0}
+        found = E._prepared_export(facts, ["sd"])
+        note = E._save_notes({"perf.e.prepared_export": found, "perf.e.flat_save_rewrites": True})
+        self.assertNotIn("prepared during load", note)
+        self.assertNotIn("before the save timer starts", note)
+        self.assertIn("The save barely grows with the document.", note)
+        self.assertIn("not the input", note)
+        self.assertIn("was not traced", note)
+        unknown = E._save_notes({"perf.e.prepared_export": found, "perf.e.flat_save_rewrites": False})
+        self.assertNotIn("not the input", unknown)
+
+    def test_2_the_file_is_not_the_input_only_when_the_hashes_say_so(self):
+        rewrote = _hash_run({("prose-250kw", "sd"): ["new"] * 3})
+        kept = _hash_run({("prose-250kw", "sd"): ["new", "in-prose-250kw", "new"]})
+        self.assertTrue(E._rewrites(rewrote, rewrote, ["sd"], "prose-250kw"))
+        self.assertFalse(E._rewrites(kept, kept, ["sd"], "prose-250kw"))
+        self.assertFalse(E._rewrites(rewrote, rewrote, [], "prose-250kw"))
+
+    def test_4_a_second_separator_stays_inside_the_save_cell(self):
+        run = _hand_run(["wordcraft"], lanes={"wordcraft": "load | save | extra"})
+        table = E._lanes(run).splitlines()
+        self.assertEqual({_cells(line.replace("\\|", "")) for line in table}, {3})
+        self.assertIn("| WordCraft | load | save \\| extra |", table)
+
+    def test_5_the_last_error_is_the_latest_failed_sample_s_or_none(self):
+        run = E.Run(Path("."), {"workloads": {"w": {}}, "repetitions": 10}, records={("w", "e"): [
+            _good_rec(returncode=1, started_at="2026-01-01T00:00:00+00:00", stderr_tail="TypeError: old failure\n"),
+            _good_rec(returncode=137, started_at="2026-01-02T00:00:00+00:00", stderr_tail="Killed\n")]})
+        self.assertIsNone(E._last_error(run, "w", "e"))
+        run.records["w", "e"][1]["stderr_tail"] = "RangeError: new failure\n"
+        self.assertEqual(E._last_error(run, "w", "e"), "RangeError: new failure")
 
 
 if __name__ == "__main__":

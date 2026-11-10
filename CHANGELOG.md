@@ -24,14 +24,18 @@ re-running the measurement behind it. The format follows
   above the load limit.
 - canvas-editor fails both runs at 250,000 words and on `complex.docx`,
   three samples in a row each time. At 250,000 words the save exhausts
-  Node's default JavaScript heap (a diagnostic rerun outside the runs: V8
-  "JavaScript heap out of memory" with the test in its own process; with a
-  16 GB heap the same sample passes). `complex.docx` is the `w:vMerge`
-  import crash the main report already describes. No lane raises the heap.
+  Node's default JavaScript heap. Two diagnostic reruns outside the runs:
+  in Vitest's forks pool with the default heap, V8 stopped the save with
+  "JavaScript heap out of memory" (heap full at 4,092 MB); in a worker
+  thread, as in the runs, with a 16 GB heap, the same sample loaded, saved,
+  and its file passed the runner's own content check. `complex.docx` is the
+  `w:vMerge` import crash the main report already describes. No lane raises
+  the heap.
 - SuperDoc's save stays at 8–13 ms from 500 to 250,000 words. A probe
   outside the runs found the file complete (final size, ZIP end record,
   same hash two seconds later) when `doc.save` resolves, so the save clock
-  is not cut short: the export is prepared during load.
+  is not cut short. Where SuperDoc does the export work was not traced; the
+  report states the flat save as an observation, not a cause.
 
 ### Not re-measured
 
@@ -90,7 +94,12 @@ re-running the measurement behind it. The format follows
 - Report E's tables (#111): the lanes table has a load and a save column
   (GitHub Markdown dropped the save cell), package versions read as
   versions, LibreOffice is not a row of n/a in the timed tables, a failed
-  cell quotes its last error, and the save notes agree in number.
+  cell quotes the error of its latest failed sample, and the save notes
+  agree in number. After codex's review (#124): GenOffice's "the file is the
+  input" note names the four prose documents (it rewrote `complex.docx`; the
+  old note said "every sample"), SuperDoc's flat save is no longer explained
+  as work done during load, and the canvas-editor paragraph names both
+  diagnostic configurations.
 - Dependabot alerts (#93): `harness/ui` puppeteer 22 → 25 (drops
   `extract-zip`, `basic-ftp@5`, and zod 3 from the lockfile), `pdfjs-dist`
   overridden to 6.2.108 in the SuperDoc UI host, and `katex` overridden to
