@@ -53,7 +53,9 @@ Usage (the fake hosts of the acceptance measurers)::
 from __future__ import annotations
 
 import argparse
+import ast
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -72,6 +74,7 @@ from perf.layers.classify import assert_visible_evidence  # noqa: E402
 from perf.runner.artifacts import write_attempt  # noqa: E402
 from perf.runner.browser_run import (  # noqa: E402
     ACTIVE,
+    BrowserRun,
     execution_profile as run_profile,
     fixture_path as run_fixture,
     host_class as run_host_class,
@@ -97,8 +100,17 @@ DEFAULT_EXECUTION_PROFILE = "dedicated_publish"
 #: The host class the environment records. ``dedicated`` is the publish
 #: machine; ``ci_coarse`` is every other machine, and the default is the
 #: honest one: a shared box never claims to be dedicated.
-HOST_CLASSES = ("ci_coarse", "dedicated")
+#:
+#: ``shared_guarded`` is the class B7 adds to ``perf/schema.py``. This
+#: branch's schema may not list it yet. The lane accepts every class the
+#: schema lists, and ``shared_guarded``, so the two changes compose. ``main``
+#: stamps a class ``run_cli`` does not list yet; once B7's ``browser_run.py``
+#: lists it, that stamp is unused.
 DEFAULT_HOST_CLASS = "ci_coarse"
+
+#: A witness rectangle and the container's rectangle are the same box when
+#: every edge is within this many CSS pixels (#134, the blink record).
+REGION_TOLERANCE_PX = 1.0
 
 #: The editor id of the fake hosts the acceptance measurers use.
 FAKE_EDITOR = "b5-fake"
@@ -204,19 +216,72 @@ def environment_schema_error(env: dict) -> str | None:
     return None
 
 
-def scroll_publishability(env: dict, sample_count: int) -> tuple[bool, str | None]:
-    """May this trial be published? The publication gate decides (#134).
+def _schema_host_classes() -> tuple[str, ...]:
+    """The host classes ``perf/schema.py`` actually accepts, read from the file.
 
-    The lane does not decide: a ``ci_coarse`` host cannot publish visible
-    latency, a distribution needs at least two independent samples, and a
-    dedicated host running the publish profile may. The reason is the gate's
-    own, so it cannot be a false sentence about a dedicated host.
+    B7's schema lists ``shared_guarded``. This branch's schema may not. The
+    lane does not edit ``schema.py``.
     """
-    return trial_publishable_flags(env, VISIBLE_LAYER, sample_count)
+    source = (REPO / "perf" / "schema.py").read_text(encoding="utf-8")
+    match = re.search(r'env\["host_class"\] not in \(([^)]*)\)', source)
+    if match is None:
+        return ("dedicated", "ci_coarse")
+    found = ast.literal_eval("(" + match.group(1) + ")")
+    return tuple(found)
+
+
+def _run_cli_host_choices() -> tuple[str, ...]:
+    """The ``--host-class`` choices ``run_cli`` parses. B1 owns that parser."""
+    source = Path(run_cli.__code__.co_filename).read_text(encoding="utf-8")
+    match = re.search(
+        r"add_argument\(\s*['\"]--host-class['\"]\s*,\s*choices=\(([^)]*)\)",
+        source,
+    )
+    if match is None:
+        return ("ci_coarse", "dedicated")
+    return tuple(ast.literal_eval("(" + match.group(1) + ")"))
+
+
+HOST_CLASSES = tuple(dict.fromkeys((*_schema_host_classes(), "shared_guarded")))
+
+
+def scroll_publishability(env: dict, sample_count: int | None = None) -> tuple[bool, str | None]:
+    """May this cell be published? The publication gate decides (#134, #136).
+
+    One sample per cell is the design. ``run_cli`` gives one sample per fresh
+    launch, and #136 aggregates the launches. This per-cell gate does not
+    apply the per-cell n>=2 rule: a one-sample cell is not stamped I10.
+    Publication n is decided by ``perf/analysis/e2_cells.py`` (n >= 10 per
+    run). ``sample_count`` is the cell's count and is not that n.
+    """
+    del sample_count
+    return trial_publishable_flags(env, VISIBLE_LAYER, None)
 
 
 def _number(value) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _rect_of(value) -> dict | None:
+    """A CSS rectangle, or the ``rect_css_px`` nested in a document region."""
+    if not isinstance(value, dict):
+        return None
+    nested = value.get("rect_css_px")
+    if isinstance(nested, dict):
+        value = nested
+    rect = {}
+    for key in ("x", "y", "width", "height"):
+        number = value.get(key)
+        if not _number(number):
+            return None
+        rect[key] = float(number)
+    return rect
+
+
+def _rects_within(left, right, tolerance: float = REGION_TOLERANCE_PX) -> bool:
+    if left is None or right is None:
+        return False
+    return all(abs(left[key] - right[key]) <= tolerance for key in ("x", "y", "width", "height"))
 
 
 def scroll_sample_verdict(sample: dict, *, bound_ms: float = DEFAULT_SKEW_BOUND_MS):
@@ -269,6 +334,21 @@ def scroll_sample_verdict(sample: dict, *, bound_ms: float = DEFAULT_SKEW_BOUND_
             "failed",
             "the scroll did not move the content: the content of the scroller moved by %r px"
             % (moved,),
+            None,
+        )
+
+    # The witness must have watched this container. A 40×40 blink whose
+    # changed_pixels equal its own region_pixels is still not the document
+    # (#134). The two rectangles are the same box within 1 px.
+    container_rect = _rect_of(container.get("region_rect"))
+    if container_rect is None:
+        container_rect = _rect_of(container.get("rect_css_px"))
+    if container_rect is not None and not _rects_within(_rect_of(witness.get("document_region")), container_rect):
+        return (
+            "failed",
+            "the witness's document_region is not the scroll container's region_rect "
+            "(within %s px): %r vs %r"
+            % (REGION_TOLERANCE_PX, witness.get("document_region"), container.get("region_rect")),
             None,
         )
 
@@ -364,7 +444,7 @@ def _run_probe(
     if target.get("wait_after_ready"):
         cmd.extend(["--wait-after-ready", str(target["wait_after_ready"])])
     if scroll_container:
-        cmd.extend(["--scroll-container", scroll_container])
+        cmd.extend(["--container-selector", scroll_container])
     proc = subprocess.run(
         cmd,
         cwd=str(REPO),
@@ -408,13 +488,77 @@ def throttle_refusal_reason(row) -> str | None:
     return None
 
 
+def _option_name(token) -> str:
+    """``--name=value`` and ``--name`` both name ``--name``."""
+    text = str(token)
+    if text.startswith("--") and "=" in text:
+        return text.split("=", 1)[0]
+    return text
+
+
+def _has_option(argv, name: str) -> bool:
+    """True when ``--name`` or ``--name=value`` is present."""
+    return any(_option_name(token) == name for token in argv)
+
+
 def _flag_value(argv, name):
-    """The value of ``--name value`` in an argument list, or None."""
-    if name in argv:
-        at = argv.index(name)
-        if at + 1 < len(argv):
-            return argv[at + 1]
+    """The value of ``--name value`` or ``--name=value``, or None when absent."""
+    for index, token in enumerate(argv):
+        text = str(token)
+        if text == name:
+            if index + 1 < len(argv) and not str(argv[index + 1]).startswith("--"):
+                return argv[index + 1]
+            return None
+        if text.startswith(name + "="):
+            return text.split("=", 1)[1]
     return None
+
+
+def _rewrite_option(argv, name: str, value: str) -> list:
+    """Replace every ``--name`` / ``--name=...`` with the spaced form ``--name value``."""
+    rewritten = []
+    index = 0
+    items = list(argv)
+    while index < len(items):
+        text = str(items[index])
+        if text == name:
+            rewritten.extend([name, value])
+            index += 1
+            if index < len(items) and not str(items[index]).startswith("--"):
+                index += 1
+            continue
+        if text.startswith(name + "="):
+            rewritten.extend([name, value])
+            index += 1
+            continue
+        rewritten.append(items[index])
+        index += 1
+    return rewritten
+
+
+def _stamping_browser_run(host_class: str):
+    """A ``BrowserRun`` that keeps a host class ``run_cli`` cannot parse yet.
+
+    ``run_cli`` assigns ``run.host_class`` after the factory returns, so a
+    value set in ``__init__`` is overwritten. The argv stand-in is
+    ``dedicated`` (a choice this branch's parser accepts). The first
+    assignment of that stand-in becomes the class the operator asked for.
+    Later assignments, including the ones ``scroll_env`` makes while it
+    builds and restores the run, pass through.
+    """
+
+    class StampedBrowserRun(BrowserRun):
+        def __setattr__(self, name, value):
+            if (
+                name == "host_class"
+                and value == "dedicated"
+                and not getattr(self, "_b5_host_stamped", False)
+            ):
+                object.__setattr__(self, "_b5_host_stamped", True)
+                value = host_class
+            super().__setattr__(name, value)
+
+    return StampedBrowserRun
 
 
 # --------------------------------------------------------------------------- #
@@ -439,7 +583,8 @@ def _write_outcome(
         assert_visible_evidence("C10", VISIBLE_EVIDENCE)
         values = [entry["value"] for entry in samples]
         stats = summarize(values, "warm_steady", "fresh_process", seed=seed)
-        publishable, block_reason = scroll_publishability(env, len(values))
+        # None: one sample is a cell, not a distribution. e2_cells.py owns n >= 10.
+        publishable, block_reason = scroll_publishability(env, None)
         trial = _trial_dict(
             criterion_id="C10",
             layer=VISIBLE_LAYER,
@@ -528,9 +673,14 @@ def _main() -> int:
     parser.add_argument("--out-root", type=Path, required=True)
     parser.add_argument("--pairs", type=int, default=1)
     parser.add_argument(
+        "--container-selector",
+        default=None,
+        help="The editor adapter's scroller (a >> b walks into an open shadow root); recorded as container_rule adapter",
+    )
+    parser.add_argument(
         "--scroll-container",
         default=None,
-        help="The scroller to scroll (a >> b walks into an open shadow root); recorded in the trial",
+        help="Alias of --container-selector",
     )
     parser.add_argument(
         "--fake-host",
@@ -569,7 +719,9 @@ def _main() -> int:
     )
     lane = "fake" if args.fake_host else (BROWSER_TARGETS.get(editor_id, {}).get("lane") or default_lane(editor_id))
 
-    scroll_container = args.scroll_container or HOST_SCROLL_CONTAINERS.get(editor_id)
+    scroll_container = (
+        args.container_selector or args.scroll_container or HOST_SCROLL_CONTAINERS.get(editor_id)
+    )
 
     diagnostic = {
         "suite": "adversarial",
@@ -612,6 +764,7 @@ def _main() -> int:
     server = None
     proc = None
     payload: dict = {}
+    current_row = None
     try:
         if args.fake_host:
             from perf.runner.browser_hosts import StaticHost
@@ -692,19 +845,20 @@ def _main() -> int:
                 "probe": payload,
             }
             if run is not None:
+                # Only the row this cell just wrote can refuse it. A prior
+                # throttled repetition stays in run.samples and must not
+                # poison a later clean cell (#134).
+                before_n = len(run.samples)
                 run.sample(sample_name, row)
+                if len(run.samples) > before_n:
+                    current_row = run.samples[-1]
     finally:
         if proc is not None:
             _stop_server(proc)
         if server is not None:
             server.stop()
 
-    throttled = None
-    if run is not None:
-        for recorded in run.samples or []:
-            throttled = throttle_refusal_reason(recorded)
-            if throttled:
-                break
+    throttled = throttle_refusal_reason(current_row)
     if throttled:
         outcome, reason, samples = "failed", "cpu_throttled: the sample was refused", []
 
@@ -756,7 +910,7 @@ def _main() -> int:
     )
     values = [entry["value"] for entry in samples]
     if values:
-        publishable, block_reason = scroll_publishability(env, len(values))
+        publishable, block_reason = scroll_publishability(env, None)
     else:
         publishable, block_reason = False, "the trial is not a measured distribution"
     write_json(
@@ -798,21 +952,35 @@ def _main() -> int:
 
 
 def main() -> int:
-    argv = sys.argv[1:]
+    argv = list(sys.argv[1:])
     targets = dict(BROWSER_TARGETS)
-    if _flag_value(argv, "--fake-host") is not None:
-        if "--editor" in argv:
-            # A fake host is not an editor: a fake measurement filed under a
-            # real editor's id is a false number, so the two are exclusive.
-            sys.stderr.write(
-                "adversarial_c10_scroll: --fake-host and --editor are mutually exclusive: "
-                "a fake host is a test fixture, not an editor, and its measurement must not "
-                "be filed under an editor's id.\n"
-            )
-            return 2
+    # Every spelling (--fake-host=PATH, --editor=plate, --editor plate) is
+    # refused here, before run_cli can file the fake host under an editor id.
+    if _has_option(argv, "--fake-host") and _has_option(argv, "--editor"):
+        sys.stderr.write(
+            "adversarial_c10_scroll: --fake-host and --editor are mutually exclusive: "
+            "a fake host is a test fixture, not an editor, and its measurement must not "
+            "be filed under an editor's id.\n"
+        )
+        return 2
+    if _has_option(argv, "--fake-host"):
         targets[FAKE_EDITOR] = {"lane": "fake"}
         argv = argv + ["--editor", FAKE_EDITOR]
-        sys.argv = [sys.argv[0]] + argv
+
+    # B7's run_cli lists shared_guarded. This branch's parser does not. A
+    # class the lane accepts and the parser does not is rewritten to a
+    # stand-in the parser accepts, then stamped back onto the run.
+    requested = _flag_value(argv, "--host-class")
+    factory = BrowserRun
+    if (
+        requested is not None
+        and requested in HOST_CLASSES
+        and requested not in _run_cli_host_choices()
+    ):
+        argv = _rewrite_option(argv, "--host-class", "dedicated")
+        factory = _stamping_browser_run(requested)
+
+    sys.argv = [sys.argv[0], *argv]
     return run_cli(
         _main,
         "adversarial_c10_scroll",
@@ -820,6 +988,7 @@ def main() -> int:
         count_flag="--pairs",
         default_count=3,
         single=True,
+        run_factory=factory,
     )
 
 

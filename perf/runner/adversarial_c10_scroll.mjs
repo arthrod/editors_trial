@@ -15,9 +15,11 @@
  *      (a closed shadow root is not reachable from the page at all, and the
  *      refusal says so). The container is the scroller that holds the
  *      **document text** — not the scroller with the largest range. A
- *      scroller that holds no text (a decoy, a widget, a probe left over
- *      from an earlier scan) is not the document's scroller, and an
- *      operator may name one with `--scroll-container` (recorded).
+ *      scroller that holds the document's text (the deepest-text owner, not
+ *      the innermost survivor). A textless page uses the scroller that
+ *      covers at least half the viewport (`container_rule: surface`). An
+ *      editor adapter may name one with `--container-selector`
+ *      (`container_rule: adapter`). `--scroll-container` is the same flag.
  *   2. it *scrolls* it and records the container's selector, the shadow host
  *      chain it lives under, the `scrollTop` before and after and the
  *      **content probe**: the position of the scrolled content before and
@@ -87,7 +89,10 @@ const windowMs = Math.max(500, Number(opt['window-ms'] || 900));
 /** The clock-skew bound; the sample is refused above it. */
 const skewBoundMs = Number(opt['skew-bound-ms'] || DEFAULT_SKEW_BOUND_MS);
 /** The operator's scroll container (`a >> b` walks into an open shadow root). */
-const containerOverride = typeof opt['scroll-container'] === 'string' ? opt['scroll-container'] : '';
+const containerOverride =
+  (typeof opt['container-selector'] === 'string' && opt['container-selector']) ||
+  (typeof opt['scroll-container'] === 'string' && opt['scroll-container']) ||
+  '';
 const viewport = String(opt.viewport || '1280x900')
   .split('x')
   .map((value) => Number(value) || 1280);
@@ -144,28 +149,41 @@ function pageScrollCommand(command) {
   const trimLen = (text) => (text || '').trim().length;
 
   /**
-   * The text in an element's subtree, shadow roots included: a shadow root's
-   * text is not part of the host's `textContent`, so it is counted here.
+   * The text in an element's subtree, including that element's own shadow
+   * root. `textContent` does not cross a shadow boundary, and a shadow root
+   * is not a child node, so a host that is itself the scroller would
+   * otherwise count as empty.
+   *
+   * Script and style source is not document text.
    */
   const fullText = (el) => {
     let total = 0;
+    const skip = (node) => {
+      if (!node || node.nodeType !== 1 || !node.tagName) return false;
+      const tag = node.tagName.toLowerCase();
+      return tag === 'script' || tag === 'style' || tag === 'noscript';
+    };
     const walk = (node) => {
-      const children = node.childNodes || [];
-      for (let i = 0; i < children.length; i++) {
-        const child = children[i];
-        if (child.nodeType === 3) {
-          total += trimLen(child.nodeValue);
-        } else if (child.nodeType === 1) {
-          total += trimLen(child.textContent);
-          const hosts = child.querySelectorAll ? child.querySelectorAll('*') : [];
-          for (let j = 0; j < hosts.length; j++) {
-            if (hosts[j].shadowRoot) walk(hosts[j].shadowRoot);
-          }
-        }
+      if (!node || skip(node)) return;
+      if (node.nodeType === 3) {
+        total += trimLen(node.nodeValue);
+        return;
       }
+      if (node.nodeType === 1 && node.shadowRoot) walk(node.shadowRoot);
+      const children = node.childNodes || [];
+      for (let i = 0; i < children.length; i++) walk(children[i]);
     };
     walk(el);
     return total;
+  };
+
+  /** The children that scroll with this element, its own shadow root included. */
+  const flowChildren = (root) => {
+    if (!root) return [];
+    if (root.shadowRoot && root.shadowRoot.children && root.shadowRoot.children.length) {
+      return root.shadowRoot.children;
+    }
+    return root.children || [];
   };
 
   /** Is `inner` inside `outer`? The path crosses shadow hosts, so it does. */
@@ -191,10 +209,12 @@ function pageScrollCommand(command) {
    */
   const contentProbe = (root) => {
     if (!root) return null;
-    const kids = root.children || [];
+    const kids = flowChildren(root);
     let best = null;
     for (let i = 0; i < kids.length; i++) {
       const kid = kids[i];
+      const tag = (kid.tagName || '').toLowerCase();
+      if (tag === 'script' || tag === 'style' || tag === 'link') continue;
       const style = getComputedStyle(kid);
       if (style.position === 'fixed' || style.position === 'sticky') continue;
       const rect = kid.getBoundingClientRect();
@@ -210,9 +230,11 @@ function pageScrollCommand(command) {
   /** The text visible at the top of the scroller: what the reader sees. */
   const visibleContent = (root, box) => {
     if (!root) return null;
-    const kids = root.children || [];
+    const kids = flowChildren(root);
     for (let i = 0; i < kids.length; i++) {
       const kid = kids[i];
+      const tag = (kid.tagName || '').toLowerCase();
+      if (tag === 'script' || tag === 'style' || tag === 'link') continue;
       const style = getComputedStyle(kid);
       if (style.position === 'fixed' || style.position === 'sticky') continue;
       const rect = kid.getBoundingClientRect();
@@ -240,11 +262,32 @@ function pageScrollCommand(command) {
       in_shadow_root: hostChain.length > 0,
       shadow_hosts: hostChain.slice(),
       is_viewport: !!isViewport,
+      opacity: style.opacity === '' ? 1 : Number(style.opacity),
+      visibility: style.visibility || 'visible',
+      display: style.display || 'block',
+      aria_hidden: !!(el.getAttribute && el.getAttribute('aria-hidden') === 'true'),
       // The text is counted for the candidates only: counting it for every
       // element of the page would walk the whole document once per element.
       text_chars: 0,
+      own_text_chars: 0,
+      container_rule: null,
       region_rect: boxRect(el, isViewport),
     };
+  };
+
+  /** Why a scroller cannot show the document, or '' when it can. */
+  const invisibleReason = (record) => {
+    if (record.display === 'none') return 'display:none';
+    if (record.visibility === 'hidden') return 'visibility:hidden';
+    if (record.opacity !== null && record.opacity <= 0.01) return 'opacity:0';
+    if (record.aria_hidden) return 'aria-hidden=true';
+    const rect = record.region_rect || {};
+    if (!(rect.width > 0) || !(rect.height > 0)) return 'no visible box';
+    const vw = window.innerWidth || 0;
+    const vh = window.innerHeight || 0;
+    if (rect.x + rect.width <= 0 || rect.y + rect.height <= 0) return 'outside the viewport';
+    if (rect.x >= vw || rect.y >= vh) return 'outside the viewport';
+    return '';
   };
 
   /**
@@ -320,28 +363,76 @@ function pageScrollCommand(command) {
         if (range !== 0) return range;
         return a.index - b.index;
       });
-    // The scroller that holds the document text: the **innermost** scroller
-    // that holds text. An outer scroller that contains another text-bearing
-    // scroller scrolls the shell around the document, not the document (the
-    // viewport of an app whose document lives in a box is such a scroller).
-    const withText = order
-      .map((entry) => entry.record)
-      .filter((record) => record.own_text_chars > 0);
-    const inner = withText.filter(
-      (record) =>
-        !withText.some((other) => other !== record && nestedIn(record, other)),
-    );
-    const pool = inner.length ? inner : withText;
+    // Deepest-text owner: each character belongs to the innermost scroller
+    // that contains it (`own_text_chars`). The document's scroller is the
+    // owner of that text, not the innermost scroller that happens to contain
+    // some of it. A nested note loses to the scroller that holds the document.
+    const pageText = fullText(document.body || document.documentElement);
+    let owned = 0;
+    for (const record of records) owned += record.own_text_chars;
+    const outside = Math.max(0, pageText - owned);
+    const viewportArea = Math.max(1, (window.innerWidth || 0) * (window.innerHeight || 0));
+    const eligible = order.filter((entry) => !invisibleReason(entry.record));
+    let chosen = null;
+    let containerRule = null;
+    let chosenReason = 'no scroller holds the document text';
+    if (pageText > 0) {
+      const holders = eligible.filter((entry) => entry.record.own_text_chars > 0);
+      holders.sort((a, b) => {
+        const text = b.record.own_text_chars - a.record.own_text_chars;
+        if (text !== 0) return text;
+        // Shallower wins a tie: the document, not the note nested inside it.
+        const depth = (a.record.path || '').length - (b.record.path || '').length;
+        if (depth !== 0) return depth;
+        return a.index - b.index;
+      });
+      const best = holders[0];
+      if (best && best.record.own_text_chars > outside) {
+        chosen = best;
+        containerRule = 'text';
+        chosenReason =
+          'the scroller that holds the document text (' +
+          best.record.own_text_chars +
+          ' characters; the deepest text owner)';
+      } else if (holders.length) {
+        chosenReason =
+          'the document has no scroller: the document text is not inside a scroller (' +
+          holders
+            .map((entry) => entry.record.selector + ': ' + entry.record.own_text_chars + ' chars')
+            .join(', ') +
+          ')';
+      }
+    } else {
+      const areaOf = (record) => {
+        const rect = record.region_rect || {};
+        return Math.max(0, Number(rect.width) || 0) * Math.max(0, Number(rect.height) || 0);
+      };
+      const covering = eligible.filter((entry) => areaOf(entry.record) / viewportArea >= 0.5);
+      covering.sort((a, b) => {
+        const area = areaOf(b.record) - areaOf(a.record);
+        if (area !== 0) return area;
+        return b.record.scroll_range - a.record.scroll_range;
+      });
+      if (covering.length) {
+        chosen = covering[0];
+        containerRule = 'surface';
+        chosenReason =
+          'the page carries no text; the container is the scroller that covers the document surface';
+      } else {
+        chosenReason =
+          'the page carries no text and no scroll container covers at least half the viewport';
+      }
+    }
+    if (chosen) chosen.record.container_rule = containerRule;
     return {
       records: order.map((entry) => entry.record),
       elements: order.map((entry) => elements[entry.index]),
       hidden: hidden.sort((a, b) => b.scroll_range - a.scroll_range),
       shadowRoots,
       inspected,
-      chosen_index: pool.length ? order.findIndex((entry) => entry.record === pool[0]) : -1,
-      chosen_reason: pool.length
-        ? 'the innermost scroller that holds the document text'
-        : 'no scroller holds the document text',
+      chosen_index: chosen ? order.findIndex((entry) => entry.record === chosen.record) : -1,
+      chosen_reason: chosenReason,
+      container_rule: containerRule,
     };
   };
 
@@ -391,13 +482,17 @@ function pageScrollCommand(command) {
     let chosen = -1;
     let reason = null;
     const override = resolveOverride(command && command.container);
+    let rule = found.container_rule || null;
     if (override) {
       const at = found.elements.indexOf(override);
       if (at >= 0) {
         chosen = at;
         reason = 'the operator named the scroll container';
+        rule = 'adapter';
+        if (found.records[at]) found.records[at].container_rule = 'adapter';
       } else {
         reason = 'the operator named a scroll container that is not a scroller';
+        rule = null;
       }
     } else {
       chosen = found.chosen_index;
@@ -410,6 +505,7 @@ function pageScrollCommand(command) {
       elements_inspected: found.inspected,
       chosen_index: chosen,
       chosen_reason: reason,
+      container_rule: rule,
     };
   }
 
@@ -534,13 +630,15 @@ function noContainerReason(discovery) {
         candidates.map((row) => row.selector + ': ' + row.own_text_chars + ' chars').join(', ') + ')'
       : ''
     : '; no element with overflow-y auto|scroll and a scroll range above 0 was found';
+  const ruleText = discovery.chosen_reason ? '; ' + discovery.chosen_reason : '';
   return (
     'no scroll container: ' +
     (discovery.elements_inspected || 0) +
     ' element(s) inspected, ' +
     rootText +
     hiddenText +
-    textText
+    textText +
+    ruleText
   );
 }
 
@@ -628,6 +726,9 @@ async function oneSample(context, page) {
 
   const scrollEvent = await page.evaluate(pageScrollCommand, { op: 'scroll-event' });
   const container = scroll && scroll.container ? scroll.container : null;
+  if (container) {
+    container.container_rule = discovery.container_rule || container.container_rule || null;
+  }
   const delta = scroll ? scroll.scroll_top_delta : null;
   const content = (scroll && scroll.content) || null;
   if (!scroll || scroll.error) {
