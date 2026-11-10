@@ -61,6 +61,7 @@ from perf.runner.criteria_input_io import (  # noqa: E402
     assert_distinct_samples,
     assert_payload_shape,
     env_for,
+    publishable_witness_record,
     trial_from_entry,
     trials_from_payload,
     write_trials_from_payload,
@@ -107,7 +108,23 @@ def _entry(cid="C07", **overrides):
         "failure_reason": None,
         "assertion": {"name": "x", "passed": True, "scope": "s", "checks": {}, "failures": []},
         "trial_hints": {"cache_state": "warm_steady", "repetition_unit": "in_process_iteration"},
-        "observations": [{"frame_ms": 100.0}, {"frame_ms": 200.0}, {"frame_ms": 300.0}],
+        "observations": [
+            {
+                "frame_ms": 100.0,
+                "sample_ms": 18.5,
+                "witness": publishable_witness_record(118.5, 100.0),
+            },
+            {
+                "frame_ms": 200.0,
+                "sample_ms": 21.25,
+                "witness": publishable_witness_record(221.25, 200.0),
+            },
+            {
+                "frame_ms": 300.0,
+                "sample_ms": 19.0,
+                "witness": publishable_witness_record(319.0, 300.0),
+            },
+        ],
         "notes": [],
     }
     entry.update(overrides)
@@ -182,14 +199,26 @@ class CriteriaPayloadHonesty(unittest.TestCase):
     def test_copied_sample_vectors_are_rejected(self):
         entries = {
             "C07": _entry(cid="C07", samples_ms=[20.0]),
-            "C09": _entry(cid="C09", samples_ms=[20.0], observations=[{"frame_ms": 1.0}]),
+            "C09": _entry(
+                cid="C09",
+                samples_ms=[20.0],
+                observations=[
+                    {"frame_ms": 21.0, "sample_ms": 20.0, "witness": publishable_witness_record(21.0, 1.0)},
+                ],
+            ),
         }
         assert_payload_shape(_payload(entries))
         with self.assertRaises(ValueError):
             assert_distinct_samples(entries)
         distinct = {
             "C07": _entry(cid="C07", samples_ms=[20.0]),
-            "C09": _entry(cid="C09", samples_ms=[21.0], observations=[{"frame_ms": 1.0}]),
+            "C09": _entry(
+                cid="C09",
+                samples_ms=[21.0],
+                observations=[
+                    {"frame_ms": 22.0, "sample_ms": 21.0, "witness": publishable_witness_record(22.0, 1.0)},
+                ],
+            ),
         }
         assert_distinct_samples(distinct)
 
@@ -231,6 +260,10 @@ class CriteriaPayloadHonesty(unittest.TestCase):
         with self.assertRaises(ValueError):
             assert_payload_shape(_payload({"C07": _entry(observations=observations)}))
         observations[1]["caret_on_clicked_line"] = True
+        for obs in observations:
+            frame = float(obs["frame_ms"])
+            obs["sample_ms"] = 18.5
+            obs["witness"] = publishable_witness_record(frame + 18.5, frame)
         assert_payload_shape(_payload({"C07": _entry(observations=observations)}))
 
     def test_layer_and_boundary_must_match_the_catalog(self):
@@ -327,13 +360,16 @@ class CriteriaSmoke(unittest.TestCase):
             docx_size=size,
         )
         self.assertEqual(len(written), len(payload["criteria_requested"]))
-        for path in written:
-            trial = load_trial(path.read_text(encoding="utf-8"))
+        for row in written.values():
+            self.assertTrue(row["written"], row.get("failure_reason"))
+        for row in written.values():
+            trial = load_trial(row["path"].read_text(encoding="utf-8"))
             validate_trial(trial)
         observed = {}
-        for path in written:
-            trial = load_trial(path.read_text(encoding="utf-8"))
-            observed[trial["criterion_id"]] = trial["outcome"]
+        for cid, row in written.items():
+            if row["written"]:
+                trial = load_trial(row["path"].read_text(encoding="utf-8"))
+                observed[trial["criterion_id"]] = trial["outcome"]
         self.assertTrue(observed, "no attempt written")
 
 

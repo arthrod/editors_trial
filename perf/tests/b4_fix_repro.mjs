@@ -10,10 +10,36 @@ const moduleUrl = pathToFileURL(`${repo}/perf/runner/criteria_input.mjs`).href;
 
 const {
   measureBulkInsert,
+  measureUndo,
   sampleAfterInput,
+  validateWitnessRecord,
   OBSERVE_QUIESCENCE,
   measureClicks,
 } = await import(moduleUrl);
+
+function publishableRecord(framePageMs, afterPageMs) {
+  return {
+    outcome: 'witnessed',
+    frame_page_ms: framePageMs,
+    after_page_ms: afterPageMs,
+    frames_total: 7,
+    frames_after: 3,
+    diff_ratio: 0.01,
+    threshold: 0.00005,
+    min_pixels: 4,
+    changed_pixels: 900,
+    caret_masked: true,
+    document_scoped: true,
+    clock_skew_ms: 0.2,
+    clock_skew_acceptable: true,
+    clock_check: {
+      kind: 'clock_skew',
+      acceptable: true,
+      reason: null,
+      page_offset_ms: 0.2,
+    },
+  };
+}
 
 function fakeWitness(framePageMs) {
   return {
@@ -24,13 +50,9 @@ function fakeWitness(framePageMs) {
         inputT = await callOptions.arm();
       }
       if (inputT === null) {
-        return { outcome: 'witnessed', frame_page_ms: framePageMs };
+        return publishableRecord(framePageMs, framePageMs - 40);
       }
-      return {
-        outcome: 'witnessed',
-        frame_page_ms: inputT + 40,
-        after_page_ms: inputT,
-      };
+      return publishableRecord(inputT + 40, inputT);
     },
   };
 }
@@ -50,7 +72,7 @@ const corrupt = await (async () => {
     evaluate: async (fn, arg) => {
       if (fn.name === 'READ_EDITABLE_STATE') {
         reads += 1;
-        const text = reads >= 3 ? 'CORRUPTDBLOCK' : 'ORIGINAL';
+        const text = reads >= 2 ? 'CORRUPTDBLOCK' : 'ORIGINAL';
         return { text, text_length: text.length, selection_offset: 8 };
       }
       if (arg && typeof arg === 'object' && arg.kinds) return { t: 100 };
@@ -77,11 +99,7 @@ const corrupt = await (async () => {
 const rounding = await sampleAfterInput(
   {
     frameIntervalMs: 16.667,
-    paintAfter: async (pageMs) => ({
-      outcome: 'witnessed',
-      frame_page_ms: 118,
-      after_page_ms: pageMs,
-    }),
+    paintAfter: async (pageMs) => publishableRecord(118, pageMs),
   },
   100,
   {},
@@ -113,6 +131,56 @@ const sandbox = {
 };
 const quietMs = 200;
 const c04 = await vm.runInNewContext(`(${OBSERVE_QUIESCENCE.toString()})({quietMs:${quietMs},timeoutMs:1000})`, sandbox);
+
+const refusedWitness = await sampleAfterInput(
+  {
+    frameIntervalMs: 8.333,
+    paintAfter: async () => ({
+      outcome: 'witnessed',
+      frame_page_ms: 140,
+      after_page_ms: 100,
+      clock_check: { acceptable: false, reason: 'anchor_lag_above_bound' },
+      document_scoped: false,
+      caret_masked: false,
+      changed_pixels: 0,
+      frames_after: 0,
+    }),
+  },
+  100,
+  {},
+);
+
+const c09AtOffset = await (async () => {
+  let reads = 0;
+  const page = {
+    mouse: { click: async () => {} },
+    keyboard: {
+      type: async () => {},
+      press: async () => {},
+    },
+    evaluate: async (fn, arg) => {
+      if (fn.name === 'READ_EDITABLE_STATE') {
+        reads += 1;
+        let text = 'ORIGINAL';
+        if (reads === 2) text = 'ORIGxINAL';
+        return { text, text_length: text.length, selection_offset: 4 };
+      }
+      if (arg && typeof arg === 'object' && (arg.kinds || arg.kind)) {
+        return { t: 100 };
+      }
+      return null;
+    },
+  };
+  return measureUndo(
+    page,
+    witness,
+    { modifier: 'Control', expectedBodyText: 'ORIGINAL' },
+    {
+      editable: { selector: '#doc', is_content_editable: true, text_length: 8 },
+      points: [{ point: 'last_text_line', x: 1, y: 1 }],
+    },
+  );
+})();
 
 const nonDom = await (async () => {
   const page = {
@@ -151,6 +219,31 @@ console.log(
       quiet_window_ms: c04.quiet_window_ms,
       quiescence_confirmed_ms: c04.quiescence_confirmed_ms,
     },
+    refused_witness: {
+      ok: refusedWitness.ok,
+      reason: refusedWitness.reason,
+      witness_refusal: refusedWitness.witness_refusal,
+    },
+    c09_at_offset: {
+      outcome: c09AtOffset.outcome,
+      samples_ms: c09AtOffset.samples_ms,
+      failure_reason: c09AtOffset.failure_reason,
+      witness: Boolean(c09AtOffset.observations?.[0]?.witness),
+    },
+    validator: validateWitnessRecord({
+      outcome: 'witnessed',
+      frame_page_ms: 140,
+      after_page_ms: 100,
+      clock_check: { acceptable: false, reason: 'anchor_lag_above_bound' },
+      document_scoped: false,
+      caret_masked: false,
+      changed_pixels: 0,
+      frames_after: 0,
+      frames_total: 0,
+      diff_ratio: 0,
+      threshold: 0.00005,
+      min_pixels: 4,
+    }),
     non_dom: {
       outcome: nonDom.outcome,
       samples_ms: nonDom.samples_ms,

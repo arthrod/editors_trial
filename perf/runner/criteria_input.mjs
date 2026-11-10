@@ -88,8 +88,54 @@
  *     and is not visible-paint evidence (`perf/layers/classify.py`).
  */
 import fs from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
+
+const REPO_ROOT = fileURLToPath(new URL('../..', import.meta.url));
+
+export function validateWitnessRecord(record) {
+  if (!record || typeof record !== 'object') {
+    return {
+      ok: false,
+      refused: true,
+      reason: 'record_not_a_mapping',
+      errors: ['the witness record must be a JSON object'],
+    };
+  }
+  const dir = mkdtempSync(join(tmpdir(), 'perf-witness-'));
+  const file = join(dir, 'witness.json');
+  try {
+    writeFileSync(file, JSON.stringify(record));
+    const witnessPy = join(REPO_ROOT, 'perf/runner/witness.py');
+    const proc = spawnSync('python3', ['-I', witnessPy, '--file', file], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+    });
+    if (proc.status !== 0 && proc.status !== 1) {
+      return {
+        ok: false,
+        refused: true,
+        reason: 'witness_validator_failed',
+        errors: [(proc.stderr || proc.stdout || 'validator exit %s').trim()],
+      };
+    }
+    return JSON.parse(proc.stdout);
+  } catch (err) {
+    return {
+      ok: false,
+      refused: true,
+      reason: 'witness_validator_failed',
+      errors: [String(err && err.message ? err.message : err)],
+    };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
 
 import {
   frameInterval,
@@ -262,6 +308,17 @@ async function sampleAfterInput(witness, inputMs, options, callOptions = {}) {
   }
   if (sampleMs < EVENT_TIMING_THRESHOLD_MS) {
     return { ok: false, reason: 'censored_below_16_ms', record, sampleMs };
+  }
+  const verdict = validateWitnessRecord(record);
+  if (verdict.refused || !verdict.ok) {
+    return {
+      ok: false,
+      reason: `paint_witness_refused: ${verdict.reason || 'witness_refused'}`,
+      witness_refusal: verdict.reason,
+      witness_errors: verdict.errors || [],
+      record,
+      sampleMs,
+    };
   }
   return {
     ok: true,
@@ -902,6 +959,15 @@ async function measureClicks(page, witness, options, meta) {
       entry.observations.push(observation);
       continue;
     }
+    const witnessVerdict = validateWitnessRecord(frameRecord);
+    if (witnessVerdict.refused || !witnessVerdict.ok) {
+      observation.failure = `paint_witness_refused: ${witnessVerdict.reason || 'witness_refused'}`;
+      observation.witness_refusal = witnessVerdict.reason;
+      observation.witness_errors = witnessVerdict.errors || [];
+      entry.assertion.failures.push(`${point.point}: paint_witness_refused`);
+      entry.observations.push(observation);
+      continue;
+    }
     observation.frame_ms = round(frameRecord.frame_page_ms, 3);
     const sampleMs = round(frameRecord.frame_page_ms - input.t, 3);
     if (sampleMs < witness.frameIntervalMs) {
@@ -1063,12 +1129,19 @@ async function measureUndo(page, witness, options, meta) {
       frames_waited: typedFrames,
     });
     entry.assertion.failures.push('typed_character_not_observable_in_document_text');
+    await clearInputs(page);
+    await page.keyboard.press(`${options.modifier}+Z`);
+    await settle(page, 60);
     return entry;
   }
-  const expectedTyped = `${before.text}x`;
+  const insertOffset = before.selection_offset ?? before.text.length;
+  const expectedTyped = bodyAfterInsertion(before.text, 'x', insertOffset);
   if (typedState.text !== expectedTyped) {
     entry.failure_reason = `${CORRECTNESS_PREFIX} typed_character_or_position`;
     entry.assertion.failures.push(entry.failure_reason);
+    await clearInputs(page);
+    await page.keyboard.press(`${options.modifier}+Z`);
+    await settle(page, 60);
     return entry;
   }
   await settle(page, 60);
@@ -1115,6 +1188,7 @@ async function measureUndo(page, witness, options, meta) {
   }
   observation.frame_ms = round(painted.frame_page_ms, 3);
   observation.sample_ms = painted.sampleMs;
+  observation.witness = painted.record;
   observation.painted_frames_to_revert = framesToRevert;
   observation.text_length_after_undo = after.text_length;
   observation.text_restored = after.text === before.text;
@@ -1327,6 +1401,7 @@ async function measureBulkInsert(page, witness, options, meta) {
     exec_command_error: stamp ? stamp.error : null,
     frame_ms: painted.ok ? round(painted.frame_page_ms, 3) : null,
     sample_ms: painted.ok ? painted.sampleMs : null,
+    witness: painted.ok ? painted.record : null,
     text_length_before: pre.text_length,
     text_length_after: after.text_length,
     growth,
@@ -1581,6 +1656,7 @@ export {
   measureBulkInsert,
   measureClicks,
   measureQuiescence,
+  measureUndo,
   sampleAfterInput,
   OBSERVE_QUIESCENCE,
 };

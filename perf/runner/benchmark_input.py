@@ -148,22 +148,29 @@ def run_editor(editor_id: str, attempt_dir: Path) -> dict:
             workload_row=workload_row,
             docx_size=fixture_size,
         )
+        criteria_summary = {}
+        for cid in payload["criteria_requested"]:
+            row = written[cid]
+            entry = payload["criteria"][cid]
+            if row["written"]:
+                criteria_summary[cid] = {
+                    "outcome": entry["outcome"],
+                    "samples_ms": entry["samples_ms"],
+                    "failure_reason": entry.get("failure_reason"),
+                    "attempt_file": str(Path(row["path"]).resolve()),
+                }
+            else:
+                criteria_summary[cid] = {
+                    "outcome": "failed",
+                    "samples_ms": [],
+                    "failure_reason": row["failure_reason"],
+                    "attempt_file": None,
+                }
         return {
             "editor_id": editor_id,
             "outcome": "ok",
             "wall_s": wall,
-            "criteria": {
-                cid: {
-                    "outcome": payload["criteria"][cid]["outcome"],
-                    "samples_ms": payload["criteria"][cid]["samples_ms"],
-                    "failure_reason": payload["criteria"][cid].get("failure_reason"),
-                    "attempt_file": str(Path(path).resolve()),
-                }
-                for cid, path in zip(
-                    payload["criteria_requested"],
-                    [Path(p) for p in written],
-                )
-            },
+            "criteria": criteria_summary,
         }
     finally:
         _stop_server(started)

@@ -14,9 +14,12 @@ sys.path.insert(0, str(REPO))
 
 from perf.runner.criteria_input_io import (  # noqa: E402
     assert_payload_shape,
+    build_support_matrix,
+    publishable_witness_record,
     trials_from_payload,
     write_trials_from_payload,
 )
+from perf.runner.witness import validate_witness
 from perf.tests.test_input_criteria import (  # noqa: E402
     PAINT_MECHANISM,
     _entry,
@@ -63,7 +66,7 @@ class Issue131Logic(unittest.TestCase):
         corrupt = data["corrupt_prefix"]
         self.assertNotEqual(corrupt["outcome"], "measured")
         self.assertEqual(corrupt["samples_ms"], [])
-        self.assertIn("correctness", corrupt.get("failure_reason") or "")
+        self.assertIn("bulk_text_or_position", corrupt.get("failure_reason") or "")
 
     def test_c04_labels_last_activity_not_quiescence_reached(self):
         data = _run_node_repro()
@@ -85,6 +88,20 @@ class Issue131Logic(unittest.TestCase):
         self.assertNotEqual(non_dom["outcome"], "measured")
         self.assertEqual(non_dom["samples_ms"], [])
 
+    def test_sample_after_input_refuses_bad_witness(self):
+        data = _run_node_repro()
+        refused = data["refused_witness"]
+        self.assertFalse(refused["ok"])
+        self.assertIn("paint_witness_refused", refused["reason"] or "")
+        self.assertTrue(data["validator"]["refused"])
+
+    def test_c09_measures_insertion_at_captured_offset(self):
+        data = _run_node_repro()
+        c09 = data["c09_at_offset"]
+        self.assertEqual(c09["outcome"], "measured")
+        self.assertTrue(c09["samples_ms"])
+        self.assertTrue(c09["witness"])
+
 
 class Issue131Writer(unittest.TestCase):
     def test_c07_trial_stores_in_process_iteration_and_frame_interval(self):
@@ -105,7 +122,17 @@ class Issue131Writer(unittest.TestCase):
 
     def test_c08_rounding_does_not_drop_whole_payload(self):
         c07 = _entry(samples_ms=[20.0])
-        c08 = _entry(cid="C08", samples_ms=[16], observations=[{"frame_ms": 118}])
+        c08 = _entry(
+            cid="C08",
+            samples_ms=[16],
+            observations=[
+                {
+                    "frame_ms": 118,
+                    "sample_ms": 16,
+                    "witness": publishable_witness_record(118.0, 102.0),
+                },
+            ],
+        )
         payload = _payload({"C07": c07, "C08": c08}, witness=_witness())
         with self.assertRaises(ValueError):
             assert_payload_shape(payload)
@@ -120,9 +147,93 @@ class Issue131Writer(unittest.TestCase):
                 workload_row=fixture_identity()[0],
                 docx_size=fixture_identity()[2],
             )
-        self.assertEqual(len(written), 1)
-        c07_path = written[0]
-        self.assertIn("c07", Path(c07_path).name.lower())
+        self.assertTrue(written["C07"]["written"])
+        self.assertFalse(written["C08"]["written"])
+        self.assertIn("c07", Path(written["C07"]["path"]).name.lower())
+        reason = written["C08"]["failure_reason"] or ""
+        self.assertTrue(
+            "Event Timing" in reason or "frame interval" in reason,
+            reason,
+        )
+
+
+class Issue138WitnessAndWriter(unittest.TestCase):
+    def test_refused_witness_rejects_measured_c08_payload(self):
+        bad = publishable_witness_record(
+            140.0,
+            100.0,
+            clock_check={"acceptable": False, "reason": "anchor_lag_above_bound"},
+            document_scoped=False,
+            changed_pixels=0,
+            frames_after=0,
+            caret_masked=False,
+        )
+        self.assertTrue(validate_witness(bad)["refused"])
+        entry = _entry(
+            cid="C08",
+            samples_ms=[40.0],
+            observations=[{"frame_ms": 140.0, "sample_ms": 40.0, "witness": bad}],
+        )
+        payload = _payload({"C08": entry})
+        row, sha, size = fixture_identity()
+        with self.assertRaises(ValueError) as ctx:
+            trials_from_payload(
+                payload,
+                editor_version="fake",
+                fixture_sha256=sha,
+                workload_row=row,
+                docx_size=size,
+            )
+        self.assertIn("witness refused", str(ctx.exception))
+
+    def test_skipped_criterion_keeps_refusal_and_correct_paths(self):
+        good = publishable_witness_record(120.0, 100.0)
+        bad = publishable_witness_record(
+            101.0,
+            100.0,
+            clock_check={"acceptable": False, "reason": "anchor_lag_above_bound"},
+            document_scoped=False,
+            changed_pixels=0,
+            frames_after=0,
+            caret_masked=False,
+        )
+        c08 = _entry(
+            cid="C08",
+            samples_ms=[1.0],
+            observations=[{"frame_ms": 101.0, "sample_ms": 1.0, "witness": bad}],
+        )
+        c07 = _entry(samples_ms=[20.0])
+        payload = _payload({"C08": c08, "C07": c07})
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            written = write_trials_from_payload(
+                payload,
+                Path(tmp),
+                editor_version="fake",
+                fixture_sha256=fixture_identity()[1],
+                workload_row=fixture_identity()[0],
+                docx_size=fixture_identity()[2],
+            )
+        self.assertFalse(written["C08"]["written"])
+        self.assertTrue(written["C07"]["written"])
+        self.assertIn("witness refused", (written["C08"]["failure_reason"] or "").lower())
+        c08_summary = {
+            "outcome": "failed",
+            "samples_ms": [],
+            "failure_reason": written["C08"]["failure_reason"],
+            "attempt_file": None,
+        }
+        c07_summary = {
+            "outcome": "measured",
+            "samples_ms": c07["samples_ms"],
+            "failure_reason": None,
+            "attempt_file": str(Path(written["C07"]["path"]).resolve()),
+        }
+        summary = {"C08": c08_summary, "C07": c07_summary}
+        matrix = build_support_matrix({"editors": [{"editor_id": "fake", "outcome": "ok", "criteria": summary}]})
+        self.assertIn("fake", matrix["C07"]["measured"])
+        self.assertIn("fake", matrix["C08"]["refused"])
 
 
 class Issue131FixtureText(unittest.TestCase):

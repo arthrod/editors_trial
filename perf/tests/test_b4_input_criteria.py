@@ -21,6 +21,7 @@ from perf.runner.criteria_input_io import (  # noqa: E402
     trials_from_payload,
     write_trials_from_payload,
 )
+from perf.runner.witness import validate_witness
 from perf.runner.docx_plaintext import docx_body_text  # noqa: E402
 from perf.tests.test_input_criteria import (  # noqa: E402
     PAINT_MECHANISM,
@@ -220,6 +221,30 @@ class CriteriaProbeAcceptance(unittest.TestCase):
         payload = self._run_host("control.html", criteria="C07")
         c07 = payload["criteria"]["C07"]
         self.assertNotEqual(c07.get("failure_reason"), "correctness: fixture_body_mismatch")
+
+    def test_control_c08_measures_with_publishable_witness(self):
+        payload = self._run_host("control.html", criteria="C08")
+        c08 = payload["criteria"]["C08"]
+        self.assertEqual(c08["outcome"], "measured", c08.get("failure_reason"))
+        self.assertTrue(c08["samples_ms"])
+        for observation in c08.get("observations") or []:
+            witness = observation.get("witness")
+            if witness is None:
+                continue
+            verdict = validate_witness(witness)
+            self.assertFalse(verdict.get("refused"), "C08 witness: %r" % (verdict,))
+
+    def test_control_c09_correct_edit_not_rejected_for_position(self):
+        payload = self._run_host("control.html", criteria="C09")
+        c09 = payload["criteria"]["C09"]
+        reason = c09.get("failure_reason") or ""
+        self.assertNotIn("typed_character_or_position", reason)
+        self.assertNotIn("fixture_body_mismatch", reason)
+        if c09["outcome"] == "measured":
+            self.assertTrue(c09["samples_ms"])
+            witness = (c09.get("observations") or [{}])[0].get("witness")
+            self.assertIsInstance(witness, dict)
+            self.assertFalse(validate_witness(witness).get("refused"))
 
     def test_idle_page_yields_c04_not_applicable(self):
         payload = self._run_host("idle.html", criteria="C04")

@@ -19,6 +19,7 @@ from perf.analysis.publication_gate import trial_publishable_flags
 from perf.analysis.summarize import summarize
 from perf.layers.event_timing import event_timing_status
 from perf.runner.artifacts import write_attempt
+from perf.runner.witness import validate_witness
 from perf.runner.benchmark_ci_contract import (
     INTERPRETATION_CONDITIONS,
     _finalize_publishable,
@@ -32,6 +33,33 @@ PROBE_SCHEMA = "perf.criteria_input/1"
 SUITE = ("C04", "C07", "C08", "C09")
 PAINT_MECHANISM = "cdp_screencast_frame"
 CORRECTNESS_PREFIX = "correctness:"
+
+
+def publishable_witness_record(frame_page_ms=100.0, after_page_ms=80.0, **overrides):
+    """Minimal witness record that passes ``validate_witness`` for unit payloads."""
+    record = {
+        "outcome": "witnessed",
+        "frame_page_ms": float(frame_page_ms),
+        "after_page_ms": float(after_page_ms),
+        "frames_total": 7,
+        "frames_after": 3,
+        "diff_ratio": 0.01,
+        "threshold": 0.00005,
+        "min_pixels": 4,
+        "changed_pixels": 900,
+        "caret_masked": True,
+        "document_scoped": True,
+        "clock_skew_ms": 0.2,
+        "clock_skew_acceptable": True,
+        "clock_check": {
+            "kind": "clock_skew",
+            "acceptable": True,
+            "reason": None,
+            "page_offset_ms": 0.2,
+        },
+    }
+    record.update(overrides)
+    return record
 
 
 def _catalog():
@@ -99,6 +127,40 @@ def _assert_c07_repetition_unit(entry):
         )
 
 
+def _assert_observation_witnesses(cid, entry):
+    """Every retained visible-paint sample must carry a publishable witness record."""
+    if entry.get("layer") != "browser_visible" or entry.get("outcome") != "measured":
+        return
+    observations = entry.get("observations") or []
+    sample_count = len(entry.get("samples_ms") or [])
+    if not sample_count:
+        return
+    witnessed = 0
+    for observation in observations:
+        if not isinstance(observation, dict):
+            continue
+        if observation.get("frame_ms") is None and observation.get("sample_ms") is None:
+            continue
+        witness = observation.get("witness")
+        if not isinstance(witness, dict):
+            raise ValueError(
+                "%s observation at %s lacks witness evidence for a retained sample"
+                % (cid, observation.get("point") or witnessed)
+            )
+        verdict = validate_witness(witness)
+        if verdict.get("refused"):
+            reason = verdict.get("reason") or "witness_refused"
+            raise ValueError(
+                "%s witness refused for publication: %s" % (cid, reason)
+            )
+        witnessed += 1
+    if witnessed < sample_count:
+        raise ValueError(
+            "%s has %d samples but only %d observations with publishable witness evidence"
+            % (cid, sample_count, witnessed)
+        )
+
+
 def _assert_visible_samples(cid, entry, witness):
     frame_interval = _frame_interval_ms(witness)
     if frame_interval is None:
@@ -159,6 +221,7 @@ def _assert_entry_honest(cid, entry, witness):
         if reason not in (None, ""):
             raise ValueError("%s is measured but carries failure_reason %r" % (cid, reason))
         if entry["layer"] == "browser_visible":
+            _assert_observation_witnesses(cid, entry)
             _assert_visible_samples(cid, entry, witness)
         if cid == "C07":
             _assert_c07_repetition_unit(entry)
@@ -364,17 +427,27 @@ def _single_criterion_payload(payload, cid):
 
 def write_trials_from_payload(payload, attempt_dir, **env_args):
     attempt_dir = Path(attempt_dir)
-    written = []
+    by_criterion = {}
     for cid in payload["criteria_requested"]:
         try:
             single = _single_criterion_payload(payload, cid)
             trial = trials_from_payload(single, **env_args)[cid]
-        except ValueError:
+        except ValueError as exc:
+            by_criterion[cid] = {
+                "written": False,
+                "path": None,
+                "failure_reason": str(exc),
+            }
             continue
         attempt_id = "%s-%s-%s" % (
             cid.lower(),
             trial["environment"]["editor_id"],
             uuid.uuid4().hex[:10],
         )
-        written.append(write_attempt(attempt_dir, attempt_id, trial))
-    return written
+        path = write_attempt(attempt_dir, attempt_id, trial)
+        by_criterion[cid] = {
+            "written": True,
+            "path": path,
+            "failure_reason": None,
+        }
+    return by_criterion
