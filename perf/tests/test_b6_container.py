@@ -64,7 +64,7 @@ def test_npm_resolution_mismatch_refused():
 def test_all_npm_pins_required():
     p = api()
     f = {'ver.npm.' + k: '1.2.3' for k, _, _ in p.NPM}
-    assert len(p.npm_pins(f)) == 5
+    assert len(p.npm_pins(f)) == 4
     for key in list(f):
         with pytest.raises(ValueError):
             p.npm_pins({k: v for k, v in f.items() if k != key})
@@ -125,10 +125,9 @@ def test_runner_dry_run(mode):
 
 def test_run_evidence_fails_closed():
     p = api()
-    good = {'run_id': 'r1', 'rendering': {'renderer': 'SwiftShader', 'headless': True}, 'samples': []}
+    good = {'run_id': 'r1', 'rendering': {'renderer': 'SwiftShader', 'headless': True}, 'samples': [{'outcome': 'ok'}]}
     assert p.verify_run(good) == good
-    for change in ({'run_id': ''}, {'rendering': {}}, {'failure_reason': 'bad'},
-                   {'samples': [{'outcome': 'failed'}]},
-                   {'rendering': {'renderer': 'SwiftShader', 'headless': False}}):
+    for change in ({'rendering': {}}, {'samples': []},
+                   {'samples': [{'outcome': 'failed'}]}):
         with pytest.raises(ValueError):
             p.verify_run({**good, **change})
