@@ -43,6 +43,7 @@ import importlib.util
 import io
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -2030,6 +2031,64 @@ class WitnessRealRecordTests(_WitnessBrowserCase):
                     "%s must name the clock evidence: %r" % (name, verdict),
                 )
 
+    def test_the_round6_mutations_on_a_fresh_capture_are_refused(self):
+        """Round 6 (R5-3/R5-4) against the producer's own fresh output: the
+        invariants this round pins -- a baseline frame plus the anchor
+        frame, the check's frames within the run's own count, the probe a
+        square at the corner sized by the run's own dpr -- hold on the real
+        capture, and breaking each one is refused."""
+        record = self.capture()
+        validator = _load_validator()
+        cc = record["clock_check"]
+        # the invariants themselves, on the producer's own output
+        self.assertGreaterEqual(
+            cc["frames_total"],
+            validator.ANCHOR_MIN_FRAMES,
+            "a run that found an anchor has a baseline frame and an anchor "
+            "frame: %r" % (cc["frames_total"],),
+        )
+        self.assertLessEqual(
+            cc["frames_total"],
+            record["frames_total"],
+            "the recorder only accumulates between the check and the record",
+        )
+        side = validator._probe_side_px(record["document_region"]["device_pixel_ratio"])
+        self.assertEqual(
+            cc["anchor_probe_region_px"],
+            {"x": validator.PROBE_ORIGIN_X, "y": validator.PROBE_ORIGIN_Y, "width": side, "height": side},
+            "the fresh capture's probe is the producer's own geometry",
+        )
+        mutations = {
+            "one_anchor_frame": lambda r: r["clock_check"].__setitem__("frames_total", 1),
+            "check_beyond_the_run": lambda r: r["clock_check"].__setitem__(
+                "frames_total", r["frames_total"] + 1
+            ),
+            "probe_off_the_corner": lambda r: r["clock_check"][
+                "anchor_probe_region_px"
+            ].__setitem__("x", 1),
+            "probe_not_square": lambda r: r["clock_check"][
+                "anchor_probe_region_px"
+            ].__setitem__("width", 800),
+            "probe_not_this_dprs_size": lambda r: r["clock_check"][
+                "anchor_probe_region_px"
+            ].__setitem__("width", side * 2)
+            or r["clock_check"]["anchor_probe_region_px"].__setitem__("height", side * 2),
+        }
+        for name, mutate in mutations.items():
+            with self.subTest(case=name):
+                mutated = json.loads(json.dumps(record))
+                mutate(mutated)
+                verdict = validator.validate_witness(mutated)
+                self.assertTrue(
+                    verdict.get("refused"),
+                    "%s on a real record must be refused: %r" % (name, verdict),
+                )
+                self.assertEqual(
+                    verdict.get("reason"),
+                    "clock_check_evidence_contradicted",
+                    "%s: %r" % (name, verdict),
+                )
+
 
 class WitnessIssue137Round4Tests(unittest.TestCase):
     """Issue #137, round 4 (pi MiniMax-M3's re-review `rereview-b1c-3.md`).
@@ -2681,6 +2740,446 @@ class WitnessIssue137Round5Tests(unittest.TestCase):
         self.assertIsNotNone(verdict.get("ok"))
         self.assertFalse(verdict["ok"], "the zero-anchor record must not be ok: %r" % (verdict,))
         self.assertTrue(verdict["refused"])
+
+
+class WitnessIssue137Round6Tests(unittest.TestCase):
+    """Issue #137, round 6 (codex's re-review `rereview-b1c-5.md`).
+
+    R5-1 -- no input can raise, take two: the nested schema runs BEFORE any
+    helper reads the check's values, and the sample statistics are total
+    over every JSON value. A malformed ``page_offset_samples`` element
+    (``[null]`` crashed ``_median`` with a TypeError before the schema ran)
+    is a named ``clock_check_schema_invalid`` refusal, and a property sweep
+    feeds every leaf of a real capture with null, a string, a list, a dict,
+    a bool, NaN and ``10**400`` -- every cell must return a verdict, and
+    the CLI must print exactly one JSON verdict for every one of them.
+
+    R5-2 -- the CLI's read failures keep the same JSON-verdict contract: a
+    garbage, empty, truncated, non-UTF-8 or ``NaN`` file (or a directory)
+    gets a named ``record_unreadable`` verdict on stdout; the exit stays 2,
+    but stdout is never empty again.
+
+    R5-3 -- an anchor needs the recorder evidence the producer needs to
+    find one: `anchorFrame()` keeps a pre-change baseline frame (index
+    ``before - 1``) and searches only later frames (from ``before``), so a
+    claimed anchor on fewer than two recorder frames -- one frame is as
+    impossible as zero was -- is a contradiction, and so is a check whose
+    ``frames_total`` exceeds the record's own (the anchor is one of this
+    run's frames; the recorder only accumulates).
+
+    R5-4 -- the anchor probe is the producer's own geometry: a square at
+    the frame's top-left corner, ``max(1, round(8 * dpr))`` to a side at
+    the record's own device pixel ratio, and its area is recomputed from
+    that geometry -- never taken from the record -- before the producer's
+    four-changed-pixel floor is applied to it. An 800x8 "probe" cannot
+    weaken the floor, and a probe away from the corner or off the
+    producer's size rule is not one the producer emits.
+    """
+
+    #: every JSON value a leaf can be corrupted with (NaN is not JSON, but
+    #: the direct API receives Python objects, and the CLI's reader refuses
+    #: the ``NaN`` token the stdlib serializer would write for it).
+    BAD_VALUES = (
+        ("null", None),
+        ("string", "bad"),
+        ("list", []),
+        ("dict", {}),
+        ("list-of-string", ["bad"]),
+        ("bool-true", True),
+        ("bool-false", False),
+        ("nan", float("nan")),
+        ("huge-int", 10**400),
+    )
+
+    def load_validator(self):
+        return _load_validator()
+
+    def captured(self) -> dict:
+        return json.loads(json.dumps(_load_captured_record()))
+
+    def validated(self, validator, record):
+        """The verdict, or a failure naming the exception no input may raise."""
+        try:
+            return validator.validate_witness(record)
+        except Exception as error:  # noqa: BLE001 -- the point of R5-1
+            self.fail(
+                "validate_witness raised %s: %s (no input may make it raise)"
+                % (type(error).__name__, error)
+            )
+
+    @staticmethod
+    def _leaf_slots(value, path=()):
+        """Every assignment slot of a record's tree, recursively: one
+        ``(path, container, key)`` per object field and per list element.
+        The re-review's type sweep corrupts exactly these."""
+        if isinstance(value, dict):
+            for key, item in value.items():
+                yield path + (key,), value, key
+                yield from WitnessIssue137Round6Tests._leaf_slots(item, path + (key,))
+        elif isinstance(value, list):
+            for index, item in enumerate(value):
+                yield path + (index,), value, index
+                yield from WitnessIssue137Round6Tests._leaf_slots(item, path + (index,))
+
+    def _set(self, record, path, value):
+        container = record
+        for key in path[:-1]:
+            container = container[key]
+        container[path[-1]] = value
+
+    # -- R5-1: no input can raise -----------------------------------------
+
+    def test_malformed_page_offset_samples_are_a_named_schema_refusal(self):
+        """The re-review's own counterexample -- ``page_offset_samples`` =
+        ``[null]`` on an otherwise fresh capture crashed ``_median`` with a
+        TypeError (the recomputation read the samples before the nested
+        schema checked them), and its sweep found ValueError/TypeError for
+        strings, objects, lists and bools at every sample index. Each must
+        be the schema's own refusal."""
+        validator = self.load_validator()
+        fixture = self.captured()
+        samples = fixture["clock_check"]["page_offset_samples"]
+        self.assertGreaterEqual(
+            len(samples), 3, "the fixture carries the producer's own samples"
+        )
+        bad_lists = [
+            [None],
+            ["bad"],
+            [{}],
+            [[]],
+            [["bad"]],
+            [True],
+            [10**400],
+            [float("nan")],
+            "bad",
+            {},
+            None,
+            3,
+        ]
+        bad_lists += [
+            [None if index == slot else sample for index, sample in enumerate(samples)]
+            for slot in range(len(samples))
+        ]
+        for bad in bad_lists:
+            with self.subTest(samples=repr(bad)[:70]):
+                record = self.captured()
+                record["clock_check"]["page_offset_samples"] = bad
+                verdict = self.validated(validator, record)
+                self.assertTrue(
+                    verdict.get("refused"),
+                    "malformed samples must be refused: %r" % (verdict,),
+                )
+                self.assertFalse(verdict.get("ok"))
+                self.assertEqual(
+                    verdict.get("reason"),
+                    "clock_check_schema_invalid",
+                    "a sample the producer would not write is the schema's "
+                    "refusal, named before any recomputation: %r" % (verdict,),
+                )
+
+    def test_no_json_value_at_any_leaf_can_make_validation_raise(self):
+        """The property the round-5 report overclaimed: EVERY leaf of a real
+        capture (object fields and list elements, at every nesting level)
+        fed with null, a string, a list, a dict, a bool, NaN and 10**400
+        returns a verdict object -- never an exception."""
+        validator = self.load_validator()
+        fixture = self.captured()
+        slots = list(self._leaf_slots(fixture))
+        self.assertGreaterEqual(
+            len(slots), 60, "the sweep must be generated over the record's leaves"
+        )
+        seen = 0
+        for path, _container, _key in slots:
+            for name, value in self.BAD_VALUES:
+                with self.subTest(leaf=".".join(map(str, path)), value=name):
+                    seen += 1
+                    mutated = self.captured()
+                    self._set(mutated, path, value)
+                    verdict = self.validated(validator, mutated)
+                    self.assertIsInstance(verdict, dict)
+                    self.assertIn("ok", verdict)
+                    self.assertIn("refused", verdict)
+        self.assertGreaterEqual(seen, 500, "the sweep must cover every leaf")
+
+    def test_the_cli_prints_one_json_verdict_for_every_mutated_record(self):
+        """The same sweep through the CLI: each mutated capture goes to a
+        file (NaN serializes as the bare token the reader refuses), and
+        stdout must be exactly one JSON verdict -- a refusal for the
+        malformed file, a verdict for the record, never silence."""
+        validator = self.load_validator()
+        fixture = self.captured()
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "record.json"
+            for path_slots, _container, _key in self._leaf_slots(fixture):
+                for name, value in self.BAD_VALUES:
+                    with self.subTest(
+                        leaf=".".join(map(str, path_slots)), value=name
+                    ):
+                        mutated = self.captured()
+                        self._set(mutated, path_slots, value)
+                        path.write_text(json.dumps(mutated), encoding="utf-8")
+                        out = io.StringIO()
+                        with contextlib.redirect_stdout(out):
+                            code = validator.main(["--file", str(path)])
+                        self.assertIn(code, (0, 1, 2))
+                        printed = out.getvalue().strip()
+                        self.assertTrue(printed, "the CLI never prints nothing")
+                        verdict = json.loads(printed)
+                        self.assertIsInstance(verdict["ok"], bool)
+                        self.assertIsInstance(verdict["refused"], bool)
+
+    # -- R5-2: the CLI's read failures print their verdict ----------------
+
+    def test_the_cli_prints_a_json_verdict_for_files_it_cannot_read(self):
+        """Garbage, an empty file, a truncated object, non-UTF-8 bytes, a
+        bare NaN and a directory: exit stays 2, and stdout carries a named
+        ``record_unreadable`` refusal (round 5 left it empty, losing the
+        verdict consumers were promised)."""
+        validator = self.load_validator()
+        files = {
+            "garbage": b"not json",
+            "empty": b"",
+            "truncated": b"{",
+            "invalid utf-8": b"\xff\xfe\x00",
+            "a bare NaN": b"NaN",
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for name, data in files.items():
+                with self.subTest(file=name):
+                    path = root / (name.replace(" ", "_") + ".json")
+                    path.write_bytes(data)
+                    out = io.StringIO()
+                    with contextlib.redirect_stdout(out):
+                        code = validator.main(["--file", str(path)])
+                    self.assertEqual(code, 2, "%s is not a readable record" % (name,))
+                    verdict = json.loads(out.getvalue().strip())
+                    self.assertFalse(verdict["ok"])
+                    self.assertTrue(verdict["refused"])
+                    self.assertEqual(
+                        verdict.get("reason"),
+                        "record_unreadable",
+                        "the read refusal is named: %r" % (verdict,),
+                    )
+            with self.subTest(file="a directory"):
+                out = io.StringIO()
+                with contextlib.redirect_stdout(out):
+                    code = validator.main(["--file", str(root)])
+                self.assertEqual(code, 2)
+                self.assertEqual(
+                    json.loads(out.getvalue().strip()).get("reason"),
+                    "record_unreadable",
+                )
+            # a real subprocess run: no traceback, one JSON verdict
+            garbage = root / "garbage.json"
+            proc = subprocess.run(
+                [sys.executable, "-I", str(WITNESS_PY), "--file", str(garbage)],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(proc.returncode, 2)
+            self.assertNotIn("Traceback", proc.stderr)
+            self.assertTrue(json.loads(proc.stdout)["refused"])
+
+    # -- R5-3: the recorder evidence an anchor needs ----------------------
+
+    def test_an_anchor_needs_its_baseline_frame_and_its_own(self):
+        """`anchorFrame()` keeps a baseline from before the change and
+        searches only later frames, so a found anchor means at least two
+        recorder frames; and both frame counts the record carries count the
+        same run's recorder, which only accumulates. The re-review's
+        one-frame record (and a check claiming more frames than the run
+        recorded) sailed through to B3's published samples."""
+        validator = self.load_validator()
+
+        def refused(name, mutate):
+            record = self.captured()
+            mutate(record)
+            verdict = self.validated(validator, record)
+            self.assertFalse(
+                verdict.get("ok"), "%s must not be publishable: %r" % (name, verdict)
+            )
+            self.assertTrue(verdict.get("refused"), "%s: %r" % (name, verdict))
+            self.assertEqual(
+                verdict.get("reason"),
+                "clock_check_evidence_contradicted",
+                "%s: %r" % (name, verdict),
+            )
+
+        refused(
+            "one frame cannot hold a baseline and an anchor",
+            lambda r: r["clock_check"].__setitem__("frames_total", 1),
+        )
+        refused(
+            "zero frames (round 5's case, kept)",
+            lambda r: r["clock_check"].__setitem__("frames_total", 0),
+        )
+        refused(
+            "the check counts more frames than the run recorded",
+            lambda r: r["clock_check"].__setitem__("frames_total", r["frames_total"] + 1),
+        )
+
+    # -- R5-4: the probe geometry is the producer's -----------------------
+
+    def test_the_anchor_probe_is_the_producers_geometry(self):
+        """The producer emits exactly one probe: a square at the frame's
+        top-left corner whose side is max(1, round(8*dpr)) at the same dpr
+        the document region records. Nothing else may carry the pixel
+        floor: not a shifted origin, not a rectangle, not a square of a
+        size no dpr of this record produces."""
+        validator = self.load_validator()
+        for name, probe in (
+            ("a negative x", {"x": -1, "y": 0, "width": 8, "height": 8}),
+            ("a negative y", {"x": 0, "y": -1, "width": 8, "height": 8}),
+            ("off the corner", {"x": 5, "y": 7, "width": 8, "height": 8}),
+            ("not square", {"x": 0, "y": 0, "width": 800, "height": 8}),
+            ("not square the other way", {"x": 0, "y": 0, "width": 8, "height": 800}),
+            ("square but not this dpr's size", {"x": 0, "y": 0, "width": 16, "height": 16}),
+        ):
+            with self.subTest(probe=name):
+                record = self.captured()
+                record["clock_check"]["anchor_probe_region_px"] = probe
+                verdict = self.validated(validator, record)
+                self.assertTrue(
+                    verdict.get("refused"), "%s: %r" % (name, verdict)
+                )
+                self.assertEqual(
+                    verdict.get("reason"),
+                    "clock_check_evidence_contradicted",
+                    "%s: %r" % (name, verdict),
+                )
+
+    def test_an_impossible_probe_cannot_weaken_the_pixel_floor(self):
+        """The re-review's floor bypass, exactly: ``anchor_diff_ratio``
+        0.001 is refused over the producer's 8x8 probe, and merely widening
+        the probe to 800 px made the round-5 validator accept it (the
+        inflated area turned 0.064 changed pixels into 6.4). The floor is
+        applied to the area the producer's geometry gives, recomputed."""
+        validator = self.load_validator()
+        honest = self.captured()
+        honest["clock_check"]["anchor_diff_ratio"] = 0.001
+        verdict = self.validated(validator, honest)
+        self.assertTrue(
+            verdict.get("refused"),
+            "0.001 over the producer's 8x8 probe is under the floor: %r"
+            % (verdict,),
+        )
+        inflated = self.captured()
+        inflated["clock_check"]["anchor_diff_ratio"] = 0.001
+        inflated["clock_check"]["anchor_probe_region_px"]["width"] = 800
+        verdict = self.validated(validator, inflated)
+        self.assertFalse(
+            verdict.get("ok"),
+            "an 800x8 probe is not one the producer emits; it cannot weaken "
+            "the floor: %r" % (verdict,),
+        )
+        self.assertTrue(verdict.get("refused"))
+        self.assertEqual(verdict.get("reason"), "clock_check_evidence_contradicted")
+        # the producer's own probe still carries the floor's edge (round 5)
+        at_floor = self.captured()
+        at_floor["clock_check"]["anchor_diff_ratio"] = 4 / 64
+        self.assertFalse(self.validated(validator, at_floor).get("refused"))
+
+    # -- the drift guard: the constants come from the producer ------------
+
+    def test_the_validator_constants_are_derived_from_witness_mjs(self):
+        """Every constant the validator recomputes with is parsed out of
+        `witness.mjs` itself -- the bounds and floors, the anchor probe's
+        geometry, and the baseline-plus-anchor minimum -- so the validator
+        cannot drift from the producer it checks."""
+        validator = self.load_validator()
+        source = WITNESS_MJS.read_text(encoding="utf-8")
+
+        def producer_constant(name):
+            match = re.search(r"export const %s = (-?[0-9.]+);" % (name,), source)
+            self.assertIsNotNone(
+                match, "witness.mjs must still export %s" % (name,)
+            )
+            return float(match.group(1))
+
+        for validator_name, producer_name in (
+            ("CAUSALITY_SLOP_MS", "CAUSALITY_SLOP_MS"),
+            ("PAGE_OFFSET_SPREAD_BOUND_MS", "PAGE_OFFSET_SPREAD_BOUND_MS"),
+            ("LAG_BOUND_INTERVALS", "ANCHOR_LAG_BOUND_INTERVALS"),
+            ("LAG_BOUND_MIN_MS", "ANCHOR_LAG_BOUND_MIN_MS"),
+            ("PRODUCER_MIN_WINDOW_MS", "DEFAULT_WINDOW_MS"),
+            ("ANCHOR_DIFF_THRESHOLD", "DEFAULT_THRESHOLD"),
+            ("ANCHOR_MIN_PIXELS", "DEFAULT_MIN_PIXELS"),
+        ):
+            with self.subTest(constant=validator_name):
+                self.assertEqual(
+                    getattr(validator, validator_name),
+                    producer_constant(producer_name),
+                    "the validator's %s must be the producer's %s"
+                    % (validator_name, producer_name),
+                )
+
+        # the anchor probe: a square at the frame's top-left corner, its
+        # side max(1, round(PROBE_CSS_PX * dpr)) -- the same expression for
+        # width and height (the backreference), the same dpr reading the
+        # document region records.
+        probe = re.search(
+            r"const probeRegion = \{\s*x: (\d+),\s*y: (\d+),\s*"
+            r"width: Math\.max\(1, Math\.round\((\d+(?:\.\d+)?) \* dpr\)\),\s*"
+            r"height: Math\.max\(1, Math\.round\(\3 \* dpr\)\),\s*\};",
+            source,
+        )
+        self.assertIsNotNone(
+            probe, "witness.mjs must keep emitting the anchor's probe region"
+        )
+        self.assertEqual(
+            int(probe.group(1)),
+            validator.PROBE_ORIGIN_X,
+            "the producer's probe sits at x=0",
+        )
+        self.assertEqual(int(probe.group(2)), validator.PROBE_ORIGIN_Y)
+        self.assertEqual(
+            float(probe.group(3)),
+            validator.PROBE_CSS_PX,
+            "the producer's probe is 8 CSS px to a side",
+        )
+
+        # the anchor's own acceptance, in the producer's own code: strictly
+        # above the threshold, at least the floor's changed pixels.
+        self.assertIsNotNone(
+            re.search(
+                r"diff\.ratio > DEFAULT_THRESHOLD && diff\.changed >= DEFAULT_MIN_PIXELS",
+                source,
+            ),
+            "the producer's anchor acceptance keeps its threshold and floor",
+        )
+
+        # an anchor needs a baseline frame before the change plus a frame
+        # after it: the producer keeps the baseline at `before - 1`, gives
+        # up without one, and searches only frames from `before` -- so no
+        # recorder with fewer than two frames can yield an anchor.
+        for pattern in (
+            r"const baselineFrame = recorder\.frames\[before - 1\] \|\| null;",
+            r"if \(!baselineDecoded \|\| !baselineFrame\) break;",
+            r"for \(let i = before; i < recorder\.frames\.length; i\+\+\)",
+        ):
+            self.assertIsNotNone(
+                re.search(pattern, source),
+                "the producer's anchor search must keep %r" % (pattern,),
+            )
+        self.assertEqual(
+            validator.ANCHOR_MIN_FRAMES,
+            2,
+            "a baseline plus the anchor frame is the producer's minimum",
+        )
+
+        # the two frame counts the validator relates count the same
+        # recorder: the check's at its instant, the record's at the end.
+        self.assertEqual(
+            len(re.findall(r"frames_total: recorder\.frames\.length", source)),
+            2,
+            "the check and the record count the same recorder's frames",
+        )
+        self.assertGreaterEqual(
+            source.count("window.devicePixelRatio || 1"),
+            2,
+            "the probe and the document region read the same dpr",
+        )
 
 
 if __name__ == "__main__":
