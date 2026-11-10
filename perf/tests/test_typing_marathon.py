@@ -159,23 +159,18 @@ def test_publication_one_editor_per_typing_job():
     assert all(len(args[args.index('--editors')+1:]) == 1 for _,args in jobs)
 
 def test_latency_retains_subframe_flags_and_accepts_half_distribution():
-    from perf.tests.test_witness import WitnessValidatorTests
+    from perf.tests.test_typing_fix2 import good
     from perf.runner.benchmark_typing import latency_summary
-    record = WitnessValidatorTests.good_record()
-    record['clock_check'].update(method='page_clock_offset+pixel_anchor',
-        checks={'anchor_found':True, 'anchor_pixel_checked':True, 'anchor_converted':True,
-                'anchor_causality':True, 'anchor_lag_within_bound':True,
-                'timestamp_kind_known':True,'page_offset_within_bound':True,'page_offset_spread_within_bound':True})
-    record.update(after_page_ms=1230, frame_interval_ms=16.7)
+    record = good()
     summary = latency_summary([record])
     assert summary['median_ms'] == 4.5, summary
     assert summary['sub_frame'] is True
-    bad = {**record, 'document_scoped':False}
+    bad = good(document_scoped=False)
     assert latency_summary([record,bad])['median_ms'] is None
     assert latency_summary([record]*100 + [bad]*100)['median_ms'] == 4.5
     assert latency_summary([record,bad,bad])['median_ms'] is None
-    negative = {**record, 'after_page_ms':2000}
-    assert latency_summary([negative])['refusals'] == ['negative_latency']
+    negative = {**record, 'after_page_ms':2000, 'marker_page_ms':2000}
+    assert latency_summary([negative])['refusals'] == ['frame_before_arm']
 
 class FakePipe:
     def __init__(self, response=b''): self.response = response; self.written = b''

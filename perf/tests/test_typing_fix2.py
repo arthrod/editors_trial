@@ -9,16 +9,13 @@ from perf.tests.test_typing_marathon import FakePage, FakeCDP
 from perf.tests import test_witness
 
 
-def good():
-    record = test_witness.WitnessValidatorTests.good_record()
-    record['clock_check'].update(method='page_clock_offset+pixel_anchor', checks=dict.fromkeys(
-        ('anchor_found','anchor_pixel_checked','anchor_converted','anchor_causality',
-         'anchor_lag_within_bound','timestamp_kind_known','page_offset_within_bound','page_offset_spread_within_bound'), True))
-    return {**record, 'after_page_ms':1230, 'frame_interval_ms':16.7}
+def good(**overrides):
+    from perf.tests.witness_records import publishable_witness_record
+    return publishable_witness_record(1234.5, 1230, **overrides)
 
 
 def test_partial_refusals_keep_distribution_and_counts():
-    result = latency_summary([good(), {**good(), 'document_scoped':False}])
+    result = latency_summary([good(), good(document_scoped=False)])
     assert result['median_ms'] is None
     assert latency_summary([good()]*100 + [{'outcome':'no_frame'}]*100)['median_ms'] == 4.5
     assert result['n_accepted'] == 1 and result['n_refused'] == 1
@@ -172,7 +169,7 @@ def test_summary_malformed_record_preserves_completed_typing():
         result = await type_document(page,sampler,witness,'abc',selector='#editor',session_kind='latency',witness_every=1,clock=lambda:0)
         assert result['characters_typed'] == 3
         assert result['failure_reason'] is None
-        assert result['key_to_paint']['refusals'] == ['invalid_record']*3
+        assert result['key_to_paint']['refusals'] == ['witness_schema_invalid']*3
     asyncio.run(check())
 
 
