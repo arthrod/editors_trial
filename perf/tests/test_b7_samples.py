@@ -84,6 +84,10 @@ def _trial(editor: str, criterion: str, outcome: str, samples=None, **extra):
         "diagnostic": {"frame_interval_ms": 16.7},
     }
     row.update(extra)
+    row.setdefault('publishable', outcome == 'measured')
+    row.setdefault('refusal_code', None if outcome == 'measured' else 'crash')
+    frame = row.get('diagnostic', {}).get('frame_interval_ms')
+    row.setdefault('sub_frame_samples', [bool(frame and isinstance(x, (int, float)) and x < frame) for x in (samples or [])])
     return row
 
 

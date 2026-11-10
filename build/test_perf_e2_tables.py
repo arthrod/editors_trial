@@ -52,6 +52,10 @@ def _trial(editor: str, criterion: str, outcome: str, samples=None, **extra) -> 
         "diagnostic": {"frame_interval_ms": 16.7},
     }
     row.update(extra)
+    row.setdefault('publishable', outcome == 'measured')
+    row.setdefault('refusal_code', None if outcome == 'measured' else 'crash')
+    frame = row.get('diagnostic', {}).get('frame_interval_ms')
+    row.setdefault('sub_frame_samples', [bool(frame and isinstance(x, (int, float)) and x < frame) for x in (samples or [])])
     return row
 
 
@@ -195,7 +199,7 @@ class ReportE2Facts(unittest.TestCase):
         facts = E2.facts_from_runs(primary, repro)
         table = facts["perf.e2.table.C07"]
         self.assertIn("not enough samples", table)
-        self.assertIn("timeout", table)
+        self.assertIn("crash: 5", table)
 
     def test_not_run_editor_shows_recorded_reason(self):
         primary = _write_run(self.base / "primary", run_id="a", seed=1, editors=["plate", "docen"])
@@ -203,8 +207,8 @@ class ReportE2Facts(unittest.TestCase):
         for i in range(10):
             _write_trial(primary, i, "plate", "C07", outcome="measured", samples=[20.0])
             _write_trial(repro, i, "plate", "C07", outcome="measured", samples=[20.0])
-            _write_trial(primary, i, "docen", "C07", outcome="not_run", failure_reason="host_build: dev_server")
-            _write_trial(repro, i, "docen", "C07", outcome="not_run", failure_reason="host_build: dev_server")
+            _write_trial(primary, i, "docen", "C07", outcome="not_run", failure_reason="host_build: dev_server", refusal_code="host_build")
+            _write_trial(repro, i, "docen", "C07", outcome="not_run", failure_reason="host_build: dev_server", refusal_code="host_build")
         facts = E2.facts_from_runs(primary, repro)
         table = facts["perf.e2.table.C07"]
         self.assertIn("Docen", table)
@@ -275,14 +279,14 @@ def runs(fs):
                        order=[[i, e] for i in range(40) for e in ['plate', 'docen']])
         (root / 'summary.json').write_text(json.dumps(summary))
         for i in range(10):
-            _write_trial(root, i, 'plate', 'C07', outcome='measured', samples=[100], diagnostic={})
+            _write_trial(root, i, 'plate', 'C07', outcome='measured', samples=[100], diagnostic={'frame_interval_ms':16.7})
     return roots
 
 def change_summary(root, **kw):
     p = root / 'summary.json'
     p.write_text(json.dumps({**json.loads(p.read_text()), **kw}))
 
-def fill(root, samples, frame=None, n=10):
+def fill(root, samples, frame=16.7, n=10):
     for p in (root / 'cells').rglob('*.json'):
         p.unlink()
     for i in range(n):
@@ -294,7 +298,10 @@ def table(runs):
 
 def test_finding_01_no_invented_frame(runs):
     fill(runs[1], [115])
-    assert 'not reproduced' in table(runs)
+    fill(runs[0], [100], frame=None)
+    fill(runs[1], [115], frame=None)
+    assert 'sub_frame_flag_mismatch' in table(runs)
+    assert '100.0 ms' not in table(runs)
 
 def test_finding_02_symmetric_larger_interval(runs):
     fill(runs[0], [140], 16.7)
@@ -315,7 +322,7 @@ def test_finding_04_rejected_and_sample_refused(runs):
         dest.parent.mkdir(parents=True)
         source.rename(dest)
         (root / 'samples').mkdir()
-        (root / 'samples/0009-plate.json').write_text(json.dumps(dict(editor_id='plate', repetition=9, outcome='failed', failure_reason='cpu_throttled')))
+        (root / 'samples/0009-plate.json').write_text(json.dumps(dict(editor_id='plate', repetition=9, outcome='failed', failure_reason='cpu_throttled', refusal_code='cpu_throttled')))
     assert 'n = 9 of 40' in table(runs)
     assert 'cpu_throttled' in table(runs)
     # A refusal must also veto an otherwise measured file still under cells.
@@ -364,7 +371,7 @@ def test_finding_08_real_version_locations(runs, field):
 
 def test_finding_09_all_scheduled_editors_count(runs):
     facts = E2.facts_from_runs(*runs)
-    assert facts['perf.e2.cells_checked'] == 2
+    assert facts['perf.e2.cells_checked'] == 26
     assert facts['perf.e2.cells_reproduced'] == 1
     assert 'Docen' in facts['perf.e2.not_reproduced']
 
@@ -441,8 +448,8 @@ def test_sample_flags_and_invalid_trial_values(runs):
     (root / 'cells/extra.json').write_text('bad json')
     (root / 'cells/list.json').write_text('[]')
     cell = E2.e2_cells.build_run_cell(root, 'plate', 'C07')
-    assert cell['stats']['n'] == 9
-    assert cell['sub_frame'] == []
+    assert cell['stats']['n'] == 8
+    assert cell['refusals'] == {'malformed_samples': 2}
 
 def test_recorded_dates_and_accounting_fallback(runs):
     for root in runs:
@@ -452,12 +459,12 @@ def test_recorded_dates_and_accounting_fallback(runs):
     assert '3 of 80' in facts['perf.e2.host_note']
 
 
-def sample_row(root, rep, reason):
+def sample_row(root, rep, reason, code="crash"):
     directory = root / 'cells' / f'{rep:04d}-plate'
     samples = root / 'samples'
     samples.mkdir(exist_ok=True)
     (samples / f'{rep:04d}-plate.json').write_text(json.dumps(dict(
-        outcome='failed', non_failure_outcomes=[], failure_reason=reason,
+        outcome='failed', non_failure_outcomes=[], failure_reason=reason, refusal_code=code,
         exit_code=0, cell_directory=str(directory), repetition=rep, editor_id='plate')))
 
 
@@ -465,7 +472,7 @@ def test_failed_sibling_keeps_measured_criterion(runs):
     for root in runs:
         for rep in range(10):
             _write_trial(root, rep, 'plate', 'C04', outcome='failed',
-                         failure_reason='search_timeout: selector')
+                         failure_reason='search_timeout: selector', refusal_code='search_timeout')
             sample_row(root, rep, 'search_timeout: selector')
     facts = E2.facts_from_runs(*runs)
     assert facts['perf.e2.plate.C07.reproduced'] is True
@@ -478,7 +485,7 @@ def test_failed_sibling_keeps_measured_criterion(runs):
 @pytest.mark.parametrize('reason', ['cpu_throttled', 'cpu_accounting_unavailable', 'host_build: dev_server'])
 def test_launch_wide_refusal_still_vetoes_measured_trials(runs, reason):
     for root in runs:
-        sample_row(root, 9, reason)
+        sample_row(root, 9, reason, reason.split(':')[0])
     assert 'n = 9 of 40' in table(runs)
 
 
@@ -523,7 +530,10 @@ def test_dual_api_uses_same_raw_median_gate(runs, left, right, frames, expected)
         text = E2.e2_cells.publish_dual_runs(*pair, 'plate', 'C07')
         assert facts['perf.e2.plate.C07.reproduced'] is expected
         assert text in facts['perf.e2.table.C07']
-        assert ('not reproduced' in text) is not expected
+        if frames == (None, None):
+            assert 'sub_frame_flag_mismatch' in text
+        else:
+            assert ('not reproduced' in text) is not expected
 
 
 def test_partial_sub_frame_flags_do_not_publish_subset_share(runs):
@@ -531,7 +541,10 @@ def test_partial_sub_frame_flags_do_not_publish_subset_share(runs):
         for rep in range(5):
             _write_trial(root, rep, 'plate', 'C07', outcome='measured',
                          samples=[8], sub_frame_samples=[True])
+        for rep in range(5, 10):
+            _write_trial(root, rep, 'plate', 'C07', outcome='measured', samples=[20], sub_frame_samples=None)
     assert '% sub-frame' not in table(runs)
+    assert 'malformed_samples: 5' in table(runs)
 
 
 def test_sub_frame_share_counts_launch_medians_not_clicks(runs):

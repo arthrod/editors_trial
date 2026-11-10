@@ -38,6 +38,9 @@ def trial(root, rep, criterion='C07', name=None, **extra):
         criterion_id=criterion,
         outcome='measured',
         samples_ms=[20],
+        publishable=True,
+        refusal_code=None,
+        sub_frame_samples=[False],
         diagnostic={'frame_interval_ms': 16.7},
     )
     row.update(extra)
@@ -46,10 +49,10 @@ def trial(root, rep, criterion='C07', name=None, **extra):
     path.write_text(json.dumps(row))
 
 
-def sample(root, rep, reason):
+def sample(root, rep, reason, code="crash"):
     path = root / 'samples' / f'{rep:04d}-plate.json'
     path.parent.mkdir(exist_ok=True)
-    path.write_text(json.dumps(dict(editor_id='plate', failure_reason=reason, outcome='failed')))
+    path.write_text(json.dumps(dict(editor_id='plate', failure_reason=reason, outcome='failed', refusal_code=code)))
 
 
 def cell(root, criterion='C07'):
@@ -66,7 +69,7 @@ def cell(root, criterion='C07'):
 )
 def test_run_family_veto_and_label(runs, reason, family):
     for rep in range(10):
-        sample(runs[0], rep, reason)
+        sample(runs[0], rep, reason, family)
     assert cell(runs[0])['stats'] is None
     assert cell(runs[0])['refusals'] == {family: 10}
 
@@ -89,16 +92,16 @@ def test_conflicting_trials_independent_of_filename_order(runs, reverse):
 @pytest.mark.parametrize(
     'reason,family',
     [
-        ('host-error: page crashed', 'host-error'),
-        ('TimeoutExpired: Command node timed out', 'Command node timed out'),
-        ('TargetClosedError: Target page closed', 'Target page closed'),
-        ('harness-error: page crashed', 'harness-error'),
+        ('host-error: page crashed', 'crash'),
+        ('TimeoutExpired: Command node timed out', 'crash'),
+        ('TargetClosedError: Target page closed', 'crash'),
+        ('harness-error: page crashed', 'crash'),
         ('HostBuildError: host_build: failed; log: /tmp/build.log', 'host_build'),
     ],
 )
 def test_sample_without_trials_counted_for_every_criterion(runs, reason, family):
     for rep in range(10, 13):
-        sample(runs[0], rep, reason)
+        sample(runs[0], rep, reason, family)
     for criterion in ('C04', 'C07', 'C11'):
         assert cell(runs[0], criterion)['refusals'] == {family: 3}
     text = cells.publication_text(cell(runs[0]))
@@ -110,16 +113,16 @@ def test_sample_without_trials_counted_for_every_criterion(runs, reason, family)
 @pytest.mark.parametrize(
     'extra,family',
     [
-        ({'publishable': False}, 'publishable_false'),
-        ({'publication_block_reason': 'production build failed: plate'}, 'production build failed'),
-        ({'host_build': 'build_failed'}, 'host_build'),
+        ({'publishable': False}, 'publishable_not_true'),
+        ({'publication_block_reason': 'production build failed: plate', 'refusal_code': 'host_build'}, 'host_build'),
+        ({'host_build': 'build_failed', 'refusal_code': 'host_build'}, 'host_build'),
         (
             {
                 'publishable': False,
                 'publication_block_reason': 'production build failed: plate',
                 'host_build': 'build_failed',
             },
-            'production build failed',
+            'publishable_not_true',
         ),
     ],
 )
@@ -186,13 +189,13 @@ def test_blocked_reproduction_is_not_short_sample_claim(runs):
 
 def test_mixed_tracking_withholds_share(runs):
     for rep in range(5):
-        trial(runs[0], rep, sub_frame_samples=[False])
+        trial(runs[0], rep, sub_frame_samples=None)
     assert '% sub-frame' not in cells.publication_text(cell(runs[0]))
 
 
 def test_each_failure_family_retained(runs):
-    trial(runs[0], 10, outcome='failed', failure_reason='search_timeout: selector')
-    trial(runs[0], 11, outcome='failed', failure_reason='paint_witness_unavailable: CDP')
+    trial(runs[0], 10, outcome='failed', failure_reason='search_timeout: selector', refusal_code='search_timeout')
+    trial(runs[0], 11, outcome='failed', failure_reason='paint_witness_unavailable: CDP', refusal_code='paint_witness_unavailable')
     text = cells.publication_text(cell(runs[0]))
     assert 'search_timeout' in text and 'paint_witness_unavailable' in text
 
