@@ -45,6 +45,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -2379,6 +2380,301 @@ class WitnessIssue137Round4Tests(unittest.TestCase):
         verdict = validator.validate_witness(record, skew=0.3)
         self.assertFalse(verdict.get("refused"))
         self.assertEqual(verdict.get("skew_ms"), 0.3)
+
+
+class WitnessIssue137Round5Tests(unittest.TestCase):
+    """Issue #137, round 5 (codex's re-review `rereview-b1c-4.md`).
+
+    N4 -- the schema is closed RECURSIVELY: every object the producer emits
+    (the document region and its two rects, the nested check's recorded
+    checks, its anchor probe region, its conversion statement) carries an
+    allowed-key set derived from the real capture; an unknown key at any
+    object path is refused ``witness_schema_invalid``. Round 4 closed only
+    the first two levels.
+
+    R4-1 -- no input can make validation raise: numbers outside the float
+    domain the producer writes (``10**400``), and arithmetic that overflows
+    it (a CSS rect at a ``1e308`` dpr), are refused with a named reason
+    instead of aborting; the CLI always prints a JSON verdict, never a
+    traceback.
+
+    R4-2 -- the anchor evidence must be consistent with how ``witness.mjs``
+    finds an anchor: a claimed anchor needs the recorder's frames (the
+    check's ``frames_total >= 1``), the record's ``frames_ack_skipped`` is a
+    subset of its ``frames_total``, and the anchor's own diff ratio is at
+    the producer's threshold (1e-5) and its pixel floor (4 changed pixels
+    in the probe region), both tolerant of the six-decimal rounding. The
+    re-review's zero-anchor record reached B3's accepted sample output; it
+    must be refused before that.
+    """
+
+    def load_validator(self):
+        return _load_validator()
+
+    def captured(self) -> dict:
+        return json.loads(json.dumps(_load_captured_record()))
+
+    @staticmethod
+    def _object_paths(value, path=()):
+        """Every ``(path, object)`` of a record's object tree, recursively --
+        the same walk the re-review's `adversarial.py` used to place an
+        unknown key at every object path of the capture."""
+        if isinstance(value, dict):
+            yield path, value
+            for key, item in value.items():
+                yield from WitnessIssue137Round5Tests._object_paths(item, path + (key,))
+
+    def _at(self, record, path):
+        for key in path:
+            record = record[key]
+        return record
+
+    # -- N4: the schema is closed recursively ------------------------------
+
+    def test_an_unknown_key_is_refused_at_every_object_path(self):
+        """The generated closure test: the capture's object tree is walked,
+        an unknown key is added at every object path, and every one of those
+        records is refused `witness_schema_invalid`. Round 4 left six of
+        these paths open (document_region and its rects, checks, the probe
+        region, conversion)."""
+        validator = self.load_validator()
+        fixture = self.captured()
+        paths = list(self._object_paths(fixture))
+        self.assertGreaterEqual(
+            len(paths), 8, "the walk must cover the nested objects: %r" % ([".".join(p) for p, _ in paths],)
+        )
+        for path, _obj in paths:
+            with self.subTest(object_path=".".join(path) or "<root>"):
+                mutated = self.captured()
+                self._at(mutated, path)["unknown_field"] = 1
+                verdict = validator.validate_witness(mutated)
+                self.assertTrue(
+                    verdict.get("refused"),
+                    "an unknown key at %r must be refused: %r"
+                    % (".".join(path) or "<root>", verdict),
+                )
+                self.assertEqual(
+                    verdict.get("reason"),
+                    "witness_schema_invalid",
+                    "the closed schema names the unknown key at %r: %r"
+                    % (".".join(path) or "<root>", verdict),
+                )
+
+    def test_the_nested_allowed_key_sets_equal_the_capture(self):
+        """Every nested allowed set is derived from the real capture, not
+        hand-drawn: each equals the keys the producer emits at that path."""
+        validator = self.load_validator()
+        record = _load_captured_record()
+        for path, allowed in (
+            ("document_region", validator._DOCUMENT_REGION_ALLOWED_KEYS),
+            ("document_region.rect_css_px", validator._RECT_ALLOWED_KEYS),
+            ("document_region.rect_device_px", validator._RECT_ALLOWED_KEYS),
+            ("clock_check.checks", validator._CHECKS_ALLOWED_KEYS),
+            ("clock_check.anchor_probe_region_px", validator._PROBE_REGION_ALLOWED_KEYS),
+            ("clock_check.conversion", validator._CONVERSION_ALLOWED_KEYS),
+        ):
+            with self.subTest(object_path=path):
+                self.assertEqual(
+                    set(self._at(record, tuple(path.split(".")))),
+                    set(allowed),
+                    "the allowed set at %s must equal the capture's keys" % (path,),
+                )
+
+    # -- R4-1: no input can raise -----------------------------------------
+
+    def test_numbers_outside_the_float_domain_are_refused_not_raises(self):
+        """The re-review's overflow counterexamples: `10**400` is valid JSON
+        and `1e308` a finite float, and both aborted validation with
+        OverflowError. Each must get a named refusal instead."""
+        validator = self.load_validator()
+        for name, mutate, reason in (
+            (
+                "the css rect times a 1e308 dpr overflows the recomputation",
+                lambda r: r["document_region"].__setitem__("device_pixel_ratio", 1e308),
+                "witness_schema_invalid",
+            ),
+            (
+                "a frame time outside the float domain",
+                lambda r: r.__setitem__("frame_page_ms", 10**400),
+                "witness_schema_invalid",
+            ),
+        ):
+            with self.subTest(case=name):
+                record = self.captured()
+                mutate(record)
+                verdict = validator.validate_witness(record)  # must not raise
+                self.assertTrue(verdict.get("refused"), "%s must be refused: %r" % (name, verdict))
+                self.assertEqual(verdict.get("reason"), reason, "%s: %r" % (name, verdict))
+
+    def test_huge_caller_arguments_are_refused_nonfinite_time(self):
+        """A bound or skew too large for the float domain is outside every
+        bound the producer ever wrote; the N5 refusal must name it, not
+        crash on the conversion."""
+        validator = self.load_validator()
+        record = self.captured()
+        for name, kwargs in (
+            ("bound 10**400", {"bound_ms": 10**400}),
+            ("skew 10**400", {"skew": 10**400}),
+        ):
+            with self.subTest(argument=name):
+                verdict = validator.validate_witness(record, **kwargs)  # must not raise
+                self.assertTrue(verdict.get("refused"), "%s must be refused" % (name,))
+                self.assertEqual(verdict.get("reason"), "nonfinite_time")
+
+    def test_no_numeric_leaf_anywhere_can_crash_validation(self):
+        """The generated numeric sweep: every numeric leaf of the capture
+        (and of its sample lists) is replaced with `1e308` and `10**400`;
+        validation must always return a verdict object, never raise. The
+        re-review's exhaustive probe crashed on several of these."""
+        validator = self.load_validator()
+        fixture = self.captured()
+        seen = 0
+        for path, obj in self._object_paths(fixture):
+            for key, value in list(obj.items()):
+                slots = []
+                if isinstance(value, (int, float)) and not isinstance(value, bool):
+                    slots.append(None)  # the leaf itself
+                elif isinstance(value, list):
+                    slots.extend(
+                        index
+                        for index, item in enumerate(value)
+                        if isinstance(item, (int, float)) and not isinstance(item, bool)
+                    )
+                for slot in slots:
+                    for name, bad_value in (("1e308", 1e308), ("10**400", 10**400)):
+                        with self.subTest(
+                            field=".".join(path + (key,))
+                            + ("[]" if slot is not None else ""),
+                            value=name,
+                        ):
+                            seen += 1
+                            mutated = self.captured()
+                            target = self._at(mutated, path)
+                            if slot is None:
+                                target[key] = bad_value
+                            else:
+                                target[key][slot] = bad_value
+                            verdict = validator.validate_witness(mutated)
+                            self.assertIsInstance(verdict, dict)
+                            self.assertIn("ok", verdict)
+                            self.assertIn("refused", verdict)
+        self.assertGreaterEqual(seen, 100, "the sweep must be generated over the record")
+
+    def test_the_cli_prints_a_json_verdict_for_an_overflowing_record(self):
+        """The CLI is the publication gate: for the huge-int record that
+        crashed it (a traceback, no verdict on stdout), it must print one
+        JSON refusal and exit 1, and a subprocess run must show no
+        traceback on stderr."""
+        validator = self.load_validator()
+        record = self.captured()
+        record["frame_page_ms"] = 10**400
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "huge.json"
+            path.write_text(json.dumps(record), encoding="utf-8")
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                code = validator.main(["--file", str(path)])
+            self.assertEqual(code, 1)
+            verdict = json.loads(out.getvalue().strip())
+            self.assertTrue(verdict["refused"])
+            self.assertFalse(verdict["ok"])
+            self.assertTrue(verdict["reason"], "the refusal must be named")
+            proc = subprocess.run(
+                [sys.executable, "-I", str(WITNESS_PY), "--file", str(path)],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(proc.returncode, 1)
+            self.assertNotIn("Traceback", proc.stderr)
+            parsed = json.loads(proc.stdout)
+            self.assertTrue(parsed["refused"])
+
+    # -- R4-2: anchor evidence consistency --------------------------------
+
+    def test_impossible_anchor_evidence_is_refused(self):
+        """The re-review's three mutations, each independently accepted by
+        the round-4 validator and each impossible for the producer: an
+        anchor with no recorder frames, more skipped ACKs than frames, and
+        an anchor ratio below the producer's own threshold."""
+        validator = self.load_validator()
+
+        def case(name, mutate, reason):
+            record = self.captured()
+            mutate(record)
+            verdict = validator.validate_witness(record)
+            self.assertTrue(
+                verdict.get("refused"), "%s must be refused: %r" % (name, verdict)
+            )
+            self.assertEqual(verdict.get("reason"), reason, "%s: %r" % (name, verdict))
+
+        case(
+            "zero anchor frames",
+            lambda r: r["clock_check"].__setitem__("frames_total", 0),
+            "clock_check_evidence_contradicted",
+        )
+        case(
+            "impossible ack count",
+            lambda r: r.__setitem__("frames_ack_skipped", r["frames_total"] + 1),
+            "witness_schema_invalid",
+        )
+        case(
+            "anchor ratio below the producer threshold",
+            lambda r: r["clock_check"].__setitem__("anchor_diff_ratio", 1e-12),
+            "clock_check_evidence_contradicted",
+        )
+
+    def test_the_anchor_pixel_floor_is_rounding_tolerant(self):
+        """The floor is the producer's, not a tighter one: an anchor that
+        changed exactly the floor's pixels (4 in the 8x8 probe at dpr 1,
+        4 in a 16x16 probe at dpr 2) validates; one changed-pixel-equivalent
+        below it is refused. The six-decimal rounding of the recorded ratio
+        must not refuse the floor-edge anchor."""
+        validator = self.load_validator()
+        for dpr, edge in ((1, 4 / 64), (2, 4 / 256)):
+            with self.subTest(dpr=dpr):
+                at_floor = self.captured()
+                at_floor["clock_check"]["anchor_diff_ratio"] = edge
+                at_floor["clock_check"]["anchor_probe_region_px"] = {
+                    "x": 0,
+                    "y": 0,
+                    "width": 8 * dpr,
+                    "height": 8 * dpr,
+                }
+                verdict = validator.validate_witness(at_floor)
+                self.assertFalse(
+                    verdict.get("refused"),
+                    "an anchor at exactly the floor must validate (dpr %s): %r"
+                    % (dpr, verdict),
+                )
+                below = self.captured()
+                below["clock_check"]["anchor_diff_ratio"] = edge - 1e-3
+                below["clock_check"]["anchor_probe_region_px"] = {
+                    "x": 0,
+                    "y": 0,
+                    "width": 8 * dpr,
+                    "height": 8 * dpr,
+                }
+                verdict = validator.validate_witness(below)
+                self.assertTrue(
+                    verdict.get("refused"),
+                    "an anchor below the floor must be refused (dpr %s): %r"
+                    % (dpr, verdict),
+                )
+                self.assertEqual(verdict.get("reason"), "clock_check_evidence_contradicted")
+
+    def test_the_zero_anchor_record_cannot_be_a_published_sample(self):
+        """The publication gate is `validate_witness`'s ok: B3's
+        `_require_witness` refuses exactly on `not verdict['ok']` (the
+        re-review drove the zero-anchor record through B3's C11/C12 and got
+        accepted samples). The zero-anchor record's verdict must never be
+        ok, whatever else it claims."""
+        validator = self.load_validator()
+        record = self.captured()
+        record["clock_check"]["frames_total"] = 0
+        verdict = validator.validate_witness(record)
+        self.assertIsNotNone(verdict.get("ok"))
+        self.assertFalse(verdict["ok"], "the zero-anchor record must not be ok: %r" % (verdict,))
+        self.assertTrue(verdict["refused"])
 
 
 if __name__ == "__main__":
