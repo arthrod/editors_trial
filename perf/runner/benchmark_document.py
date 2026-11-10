@@ -61,7 +61,8 @@ from perf.fixtures.generate import (  # noqa: E402
     correctness_fixtures,
 )
 from perf.fixtures.profiles import assert_workload_allowed, size_ladder  # noqa: E402
-from perf.runner.browser_run import execution_profile, host_class, run_cli, fixture_path as run_fixture, write_json, record_process
+from perf.runner.browser_run import ACTIVE, execution_profile, host_class, run_cli, fixture_path as run_fixture, write_json, record_process
+from perf.runner.witness import validate_witness  # noqa: E402
 from perf.runner.artifacts import write_attempt  # noqa: E402
 from perf.runner.benchmark_ci_contract import (  # noqa: E402
     INTERPRETATION_CONDITIONS,
@@ -518,6 +519,26 @@ def _clock_skew_exceeds(probe: dict) -> bool:
     return skew is not None and abs(skew) > _CLOCK_SKEW_BOUND_MS
 
 
+def _needs_witness(probe: dict) -> bool:
+    """Production payloads carry a witness, or a load/reflow/scale mode.
+
+    Legacy probes in ``test_document_criteria.py`` omit both. Those stay on
+    the historical path. ``validate_witness`` is the public gate (#137).
+    """
+    return "witness" in probe or probe.get("mode") in ("load", "reflow", "scale")
+
+
+def _require_witness(probe: dict) -> None:
+    if not _needs_witness(probe):
+        return
+    witness = probe.get("witness")
+    if not isinstance(witness, dict):
+        raise ProbeRefusal("retained sample has no witness record")
+    verdict = validate_witness(witness)
+    if not verdict.get("ok"):
+        raise ProbeRefusal("witness refused: %s" % (verdict.get("reason") or "refused"))
+
+
 def c11_measured_samples(probe: dict) -> list:
     """C11 sample: presented frame at or after the document surface.
 
@@ -550,6 +571,7 @@ def c11_measured_samples(probe: dict) -> list:
             "clock skew exceeds the %s ms bound (clock_skew_ms=%r); FCP is not a C11 sample"
             % (_CLOCK_SKEW_BOUND_MS, probe.get("clock_skew_ms"))
         )
+    _require_witness(probe)
     if presented < 0:
         raise ProbeRefusal("negative presented frame")
     return [presented]
@@ -570,6 +592,12 @@ def c12_measured_sample(probe: dict) -> float:
     window_known = "window_excludes_forced_layout" in probe or probe.get("mode") == "reflow"
     if window_known and probe.get("window_excludes_forced_layout") is not True:
         raise ProbeRefusal("C12 window includes the probe's own forced layout")
+    if _clock_skew_exceeds(probe):
+        raise ProbeRefusal(
+            "clock skew exceeds the %s ms bound (clock_skew_ms=%r); the frame is not a C12 sample"
+            % (_CLOCK_SKEW_BOUND_MS, probe.get("clock_skew_ms"))
+        )
+    _require_witness(probe)
     presented = probe.get("presented_frame_ms")
     if presented is None:
         raise ProbeRefusal("no compositor frame captured at or after the observed y-shift")
@@ -586,8 +614,11 @@ def _c14_facts(probe: dict) -> dict:
         "frames_after_usable": probe.get("frames_after_usable"),
         "mechanism": probe.get("mechanism"),
         "witness": probe.get("witness"),
+        "forced_witness": probe.get("forced_witness"),
+        "presented_frame_ms": probe.get("presented_frame_ms"),
         "usable_signal": probe.get("usable_signal"),
         "clock_skew_ms": probe.get("clock_skew_ms"),
+        "clock_skew_acceptable": probe.get("clock_skew_acceptable"),
     }
 
 
@@ -604,6 +635,7 @@ def c14_measured_sample(probe: dict) -> float:
             outcome="unverified",
             facts=facts,
         )
+    _require_witness(probe)
     usable = probe.get("usable_ms")
     if usable is None or isinstance(usable, bool):
         raise ProbeRefusal("no DOM usability mark (page/block element never appeared with text)", facts=facts)
@@ -623,6 +655,23 @@ def c14_measured_sample(probe: dict) -> float:
             facts=facts,
         )
     return value
+
+
+def c15_cell_after_refusal(refusal: ProbeRefusal) -> dict:
+    """The C15 cell written when the find probe raises.
+
+    A crash stays ``failed``. ``not_applicable`` is only the host's own claim
+    that it has no find widget, which arrives as a payload status, not here.
+    """
+    recorded = getattr(refusal, "outcome", "failed") or "failed"
+    return {
+        "n": 0,
+        "completion": None,
+        "measurements": {
+            name: {"outcome": recorded, "samples_ms": [], "reason": refusal.reason}
+            for name in C15_MEASUREMENTS
+        },
+    }
 
 
 def c15_samples_from_payloads(payloads: list) -> dict:
@@ -660,20 +709,30 @@ def c15_samples_from_payloads(payloads: list) -> dict:
             "C15 recorded n=%d, below the minimum %d" % (n, C15_MIN_N),
             outcome="unverified",
         )
-    collected = {name: [] for name in ("first_match", "search_complete")}
+    # The minimum applies per measurement. One later unverified payload drops
+    # that measurement's samples; it must not be overwritten by an earlier hit.
+    timed = ("first_match", "search_complete")
+    collected = {name: [] for name in timed}
+    refused = {}
     outcomes = None
     for payload in payloads:
         outcomes = find_outcomes(payload)
-        for name in collected:
-            outcome, value, _reason = outcomes[name]
-            if outcome == "measured" and value is not None:
+        for name in timed:
+            outcome, value, reason = outcomes[name]
+            if outcome != "measured" or value is None:
+                refused[name] = reason or "unverified"
+            elif name not in refused:
                 collected[name].append(float(value))
     measurements = {}
     for name in C15_MEASUREMENTS:
         outcome, _value, reason = outcomes[name]
-        samples = collected.get(name, [])
-        if samples:
-            measurements[name] = {"outcome": "measured", "samples_ms": samples, "reason": None}
+        if name in refused or (name in collected and len(collected[name]) < C15_MIN_N):
+            why = refused.get(name) or (
+                "C15 recorded n=%d for %s, below the minimum %d" % (len(collected.get(name, [])), name, C15_MIN_N)
+            )
+            measurements[name] = {"outcome": "unverified", "samples_ms": [], "reason": why}
+        elif name in collected:
+            measurements[name] = {"outcome": "measured", "samples_ms": collected[name], "reason": None}
         else:
             measurements[name] = {"outcome": outcome, "samples_ms": [], "reason": reason}
     return {
@@ -986,13 +1045,52 @@ def _catalog_row(criterion_id: str) -> dict:
 # --------------------------------------------------------------------------- #
 
 
+def _in_sample_bracket(editor_id: str, criterion: str, produce):
+    """One nested BrowserRun sample per probe.
+
+    ``begin_sample`` opens the bracket. ``sample`` always closes it, including
+    when the probe raises. A throttled sample refuses that probe alone.
+    Recording runs without a ``samples`` list are not treated as throttled.
+    No active run means the probe is called directly (unit tests).
+    """
+    run = ACTIVE.get()
+    if run is None:
+        return produce()
+    run.begin_sample()
+    payload = None
+    error = None
+    try:
+        payload = produce()
+    except BaseException as exc:
+        error = exc
+    row = {
+        "editor_id": editor_id,
+        "criterion_id": criterion,
+        "outcome": "failed" if error else "measured",
+    }
+    if error is not None:
+        row["failure_reason"] = str(error)[:300]
+    run.sample("doc-%s-%s" % (criterion, uuid.uuid4().hex[:10]), row)
+    samples = getattr(run, "samples", None)
+    throttled = (
+        bool(samples)
+        and isinstance(samples[-1], dict)
+        and samples[-1].get("failure_reason") == "cpu_throttled"
+    )
+    if error is not None:
+        raise error
+    if throttled:
+        raise ProbeRefusal("cpu_throttled", outcome="failed")
+    return payload
+
+
 def _run_load_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path: Path, count: int) -> tuple:
     """C11: one fresh browser per sample; sample = navigation -> FCP entry."""
     cmd = _probe_cmd(mode="load", target=target, cfg=cfg, corpus_path=fixture_path, extra=[])
     samples = []
     diagnostics = []
     for _ in range(count):
-        payload = _run_probe(cmd, editor_id=editor_id)
+        payload = _in_sample_bracket(editor_id, "C11", lambda: _run_probe(cmd, editor_id=editor_id))
         values = c11_measured_samples(payload)
         samples.extend(values)
         diagnostics.append(
@@ -1033,7 +1131,7 @@ def _run_reflow_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path
     samples = []
     diagnostics = []
     for _ in range(count):
-        payload = _run_probe(cmd, editor_id=editor_id)
+        payload = _in_sample_bracket(editor_id, "C12", lambda: _run_probe(cmd, editor_id=editor_id))
         samples.append(c12_measured_sample(payload))
         diagnostics.append(
             {
@@ -1048,6 +1146,9 @@ def _run_reflow_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path
                 "frames_after_shift_observed": payload.get("frames_after_shift_observed"),
                 "navigation_ms": payload.get("navigation_ms"),
                 "ready_ms": payload.get("ready_ms"),
+                "clock_skew_ms": payload.get("clock_skew_ms"),
+                "clock_skew_acceptable": payload.get("clock_skew_acceptable"),
+                "witness": payload.get("witness"),
                 "page_errors": payload.get("page_errors"),
             }
         )
@@ -1065,7 +1166,7 @@ def _run_scale_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path:
     samples = []
     diagnostics = []
     for _ in range(count):
-        payload = _run_probe(cmd, editor_id=editor_id)
+        payload = _in_sample_bracket(editor_id, "C14", lambda: _run_probe(cmd, editor_id=editor_id))
         samples.append(c14_measured_sample(payload))
         diagnostics.append(
             {
@@ -1126,7 +1227,11 @@ def _run_find_payloads(*, editor_id: str, target: dict, cfg: dict, fixture_path:
     """
     if not cfg.get("find_input_selector"):
         return [
-            _run_find(editor_id=editor_id, target=target, cfg=cfg, fixture_path=fixture_path)
+            _in_sample_bracket(
+                editor_id,
+                "C15",
+                lambda: _run_find(editor_id=editor_id, target=target, cfg=cfg, fixture_path=fixture_path),
+            )
         ]
     limit = sample_budget_for_profile(EXECUTION_PROFILE, "fresh_process")
     reps = max(int(count), C15_MIN_N)
@@ -1134,7 +1239,11 @@ def _run_find_payloads(*, editor_id: str, target: dict, cfg: dict, fixture_path:
         reps = limit
     payloads = []
     for _ in range(reps):
-        payload = _run_find(editor_id=editor_id, target=target, cfg=cfg, fixture_path=fixture_path)
+        payload = _in_sample_bracket(
+            editor_id,
+            "C15",
+            lambda: _run_find(editor_id=editor_id, target=target, cfg=cfg, fixture_path=fixture_path),
+        )
         payloads.append(payload)
         if payload.get("status") == "not_applicable":
             break
@@ -1618,17 +1727,7 @@ def _main() -> int:
                         )
                         cell = c15_samples_from_payloads(payloads)
                     except ProbeRefusal as refusal:
-                        recorded = getattr(refusal, "outcome", "failed") or "failed"
-                        if recorded == "failed":
-                            recorded = "not_applicable"
-                        cell = {
-                            "n": 0,
-                            "completion": None,
-                            "measurements": {
-                                name: {"outcome": recorded, "samples_ms": [], "reason": refusal.reason}
-                                for name in C15_MEASUREMENTS
-                            },
-                        }
+                        cell = c15_cell_after_refusal(refusal)
                         payloads = []
                     payload = payloads[-1] if payloads else {}
                     for measurement in C15_MEASUREMENTS:

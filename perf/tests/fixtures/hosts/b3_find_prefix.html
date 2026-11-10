@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>b3 find prefix is not completion</title>
+    <style>
+      body { margin: 24px; background: #ffffff; color: #111111; font: 18px/1.4 sans-serif; }
+      input.find { display: block; margin-top: 12px; font: 16px sans-serif; }
+      .find-count { margin-top: 8px; }
+    </style>
+  </head>
+  <body>
+    <p class="doc-paragraph">NEEDLE and NEEDLE</p>
+    <input class="find" autocomplete="off" />
+    <div class="find-count" role="status"></div>
+    <script>
+      document.addEventListener('keydown', function (event) {
+        if ((event.ctrlKey || event.metaKey) && (event.key === 'f' || event.key === 'F')) event.preventDefault();
+      });
+      // "N" is acknowledged immediately. The full query is acknowledged 1500 ms
+      // after that full input. The prefix count is not completion of NEEDLE.
+      document.querySelector('input.find').addEventListener('input', function (event) {
+        if (event.target.value === 'N') document.querySelector('.find-count').textContent = '2 matches';
+        if (event.target.value === 'NEEDLE') {
+          setTimeout(function () {
+            document.querySelector('.find-count').textContent = '2 matches for full query';
+          }, 1500);
+        }
+      });
+    </script>
+  </body>
+</html>

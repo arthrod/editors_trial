@@ -281,7 +281,19 @@ class FakeHostMeasurers(unittest.TestCase):
     def test_static_host_c14_is_unverified_forced_repaint(self):
         payload = self.probe("scale", "b3_static.html", [])
         self.assertEqual(payload.get("mechanism"), "forced_repaint", payload)
-        self.assertGreaterEqual((payload.get("witness") or {}).get("window_ms") or 0, 500, payload)
+        witness = payload.get("witness") or {}
+        self.assertGreaterEqual(witness.get("window_ms") or 0, 500, payload)
+        self.assertTrue(witness.get("document_scoped"), payload)
+        self.assertEqual(witness.get("outcome"), "no_frame", payload)
+        rect = ((witness.get("document_region") or {}).get("rect_css_px")) or {}
+        overlaps_marker = (
+            rect.get("x", 0) < 8
+            and rect.get("y", 0) < 8
+            and rect.get("x", 0) + rect.get("width", 0) > 0
+            and rect.get("y", 0) + rect.get("height", 0) > 0
+        )
+        self.assertFalse(overlaps_marker, payload)
+        self.assertNotEqual(witness.get("changed_pixels"), 64, payload)
         with self.assertRaises(bd.ProbeRefusal) as caught:
             bd.c14_measured_sample(payload)
         self.assertEqual(getattr(caught.exception, "outcome", "failed"), "unverified")
@@ -363,3 +375,87 @@ class FakeHostMeasurers(unittest.TestCase):
             self.assertLessEqual(payload["presented_frame_ms"], raw + 1e-6, payload)
             sample = bd.c12_measured_sample(payload)
             self.assertLessEqual(sample, raw + 1e-6)
+
+    def test_hidden_text_is_not_a_document_surface(self):
+        payload = self.probe("load", "b3_hidden_late.html", ["--timeout-ms", "20000"])
+        at = payload.get("document_text_at_ms")
+        self.assertIsNotNone(at, payload)
+        self.assertGreaterEqual(at, 4500, payload)
+        samples = bd.c11_measured_samples(payload)
+        self.assertGreaterEqual(samples[0], 4500, payload)
+
+    def test_style_only_shadow_root_is_not_document_text(self):
+        payload = self.probe(
+            "load",
+            "b3_shadow_style.html",
+            ["--usable-signal", "shadow_text", "--timeout-ms", "20000"],
+        )
+        at = payload.get("document_text_at_ms")
+        self.assertIsNotNone(at, payload)
+        self.assertGreaterEqual(at, 4500, payload)
+        self.assertGreaterEqual(bd.c11_measured_samples(payload)[0], 4500, payload)
+
+    def test_ready_gate_still_presents_the_document_frame(self):
+        payload = self.probe(
+            "load",
+            "b3_shell_then_document.html",
+            ["--ready-js", "document.querySelector('.doc-paragraph')?.textContent.length>8"],
+        )
+        self.assertIsNotNone(payload.get("presented_frame_ms"), payload)
+        self.assertGreaterEqual(payload.get("document_text_at_ms") or 0, 350, payload)
+        samples = bd.c11_measured_samples(payload)
+        self.assertGreaterEqual(samples[0], 400.0, payload)
+        from perf.runner.witness import validate_witness
+
+        verdict = validate_witness(payload.get("witness"))
+        self.assertTrue(verdict["ok"], verdict)
+
+    def test_prefix_count_is_not_completion_of_the_full_query(self):
+        payload = self.probe(
+            "find",
+            "b3_find_prefix.html",
+            [
+                "--find-input-selector",
+                "input.find",
+                "--find-query",
+                "NEEDLE",
+                "--find-count-selector",
+                ".find-count",
+                "--find-expected-matches",
+                "2",
+                "--timeout-ms",
+                "8000",
+            ],
+        )
+        self.assertEqual(payload.get("status"), "measured", payload)
+        self.assertEqual(payload.get("completion"), "event", payload)
+        self.assertGreaterEqual(payload.get("search_complete_ms") or 0, 1000, payload)
+        self.assertIn("full query", payload.get("observed_count_text") or "", payload)
+
+    def test_find_wait_honors_the_probe_timeout(self):
+        payload = self.probe(
+            "find",
+            "b3_find_silent.html",
+            [
+                "--find-input-selector",
+                "input.find",
+                "--find-query",
+                "NEEDLE",
+                "--find-count-selector",
+                ".find-count",
+                "--timeout-ms",
+                "2500",
+            ],
+        )
+        self.assertEqual(payload.get("status"), "unverified", payload)
+        self.assertEqual(payload.get("completion"), "no_event", payload)
+        self.assertLess(payload.get("completion_wait_ms"), 8000, payload)
+
+    def test_reflow_observation_does_not_read_layout(self):
+        payload = self.probe("reflow", "b3_reflow.html", ["--edit-selector", ".doc-paragraph"])
+        self.assertTrue(payload.get("layout_window_armed"), payload)
+        self.assertEqual(payload.get("layout_reads_during_window"), 0, payload)
+        self.assertEqual(payload.get("forced_layout_ms"), 0, payload)
+        self.assertTrue(payload.get("moved"), payload)
+        sample = bd.c12_measured_sample(payload)
+        self.assertIsInstance(sample, float)
