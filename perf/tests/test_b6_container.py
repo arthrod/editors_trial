@@ -32,17 +32,25 @@ def test_missing_or_unsafe_pin_refused(key, value):
         api().git_pins(f, required=('plate',))
 
 
-def test_publication_two_distinct_seeds_and_all_four_runners():
+def test_publication_two_distinct_seeds_and_all_runners():
     p = api()
     jobs = p.publication_jobs(['plate', 'folio'], 17, 29, 'shared_guarded')
-    assert len(jobs) == 10
-    assert {j[0] for j in jobs} == {'benchmark_warm_cold', 'benchmark_document', 'benchmark_input', 'adversarial_c10_scroll'}
+    typing = [job for job in jobs if job[0] == 'benchmark_typing']
+    assert len(typing) == 2 * 2  # two editors, two seeds
+    assert len(jobs) == 10 + len(typing)
+    assert {j[0] for j in jobs} == {'benchmark_warm_cold', 'benchmark_document', 'benchmark_input', 'adversarial_c10_scroll', 'benchmark_typing'}
     for name, args in jobs:
         assert args[args.index('--execution-profile')+1] == 'dedicated_publish'
         assert args[args.index('--host-class')+1] == 'shared_guarded'
-        assert '--repetitions' not in args and '--pairs' not in args and '--samples' not in args
+        if name == 'benchmark_typing':
+            assert args[args.index('--repetitions')+1] == '12'
+        else:
+            assert '--repetitions' not in args
+        assert '--pairs' not in args and '--samples' not in args
         if name == 'adversarial_c10_scroll':
             assert args[-2] == '--editor' and args[-1] in ('plate', 'folio')
+        elif name == 'benchmark_typing':
+            assert args[-2] == '--editors' and args[-1] in ('plate', 'folio')
         else:
             assert args[-3:] == ['--editors', 'plate', 'folio']
     with pytest.raises(ValueError):
@@ -120,7 +128,11 @@ def test_runner_dry_run(mode):
         assert '--editor plate' in result.stdout
         assert '--execution-profile dedicated_publish' in result.stdout
         assert '--editors plate' in result.stdout
-        assert '--repetitions' not in result.stdout
+        for line in result.stdout.splitlines():
+            if 'perf.runner.benchmark_typing ' in line:
+                assert '--repetitions 12 --cadence-ms 0 --budget-s 3600' in line
+            else:
+                assert '--repetitions' not in line
 
 
 def test_run_evidence_fails_closed():

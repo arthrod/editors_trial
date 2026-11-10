@@ -142,7 +142,7 @@ def test_publication_one_editor_per_typing_job():
     assert len(jobs) == 4
     assert all(len(args[args.index('--editors')+1:]) == 1 for _,args in jobs)
 
-def test_latency_retains_subframe_flags_and_refuses_whole_distribution():
+def test_latency_retains_subframe_flags_and_accepts_half_distribution():
     from perf.tests.test_witness import WitnessValidatorTests
     from perf.runner.benchmark_typing import latency_summary
     record = WitnessValidatorTests.good_record()
@@ -155,7 +155,8 @@ def test_latency_retains_subframe_flags_and_refuses_whole_distribution():
     assert summary['median_ms'] == 4.5, summary
     assert summary['sub_frame'] is True
     bad = {**record, 'document_scoped':False}
-    assert latency_summary([record,bad])['median_ms'] is None
+    assert latency_summary([record,bad])['median_ms'] == 4.5
+    assert latency_summary([record,bad,bad])['median_ms'] is None
     negative = {**record, 'after_page_ms':2000}
     assert latency_summary([negative])['refusals'] == ['negative_latency']
 
