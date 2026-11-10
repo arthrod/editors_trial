@@ -592,6 +592,7 @@ def _write_measured_attempt(
     if criterion_id == 'C05':
         assert_visible_evidence('C05', diagnostic.get('mechanism'))
     observations = diagnostic.get('observations', [])
+    group_lengths = [len(entry) if isinstance(entry, list) else 1 for entry in observations]
     observations = [item for entry in observations for item in (entry if isinstance(entry, list) else [entry])]
     if criterion_id in ('C05', 'C06'):
         if not observations:
@@ -611,8 +612,35 @@ def _write_measured_attempt(
         diagnostic = {**diagnostic, 'observations':checked,
                       'clock_skew':[item['clock_skew'] for item in checked]}
         intervals = [item['witness']['clock_check']['frame_interval_ms'] for item in checked]
-        diagnostic['frame_interval_ms'] = min(intervals)
         diagnostic['frame_intervals_ms'] = intervals
+        interval_reason = None
+        selected = []
+        if not all(isinstance(value, (int, float)) and not isinstance(value, bool)
+                   and math.isfinite(value) and value > 0 for value in intervals):
+            interval_reason = 'frame_interval_unavailable'
+        else:
+            offset = 0
+            lengths = [len(checked)] if len(samples_ms) == 1 else group_lengths
+            for sample, length in zip(samples_ms, lengths):
+                group = checked[offset:offset + length]
+                offset += length
+                matches = [item['witness']['clock_check']['frame_interval_ms']
+                           for item in group if item['latency_ms'] == sample]
+                if matches:
+                    selected.append(min(matches))
+            if len(selected) != len(samples_ms):
+                interval_reason = 'frame_interval_unavailable'
+            elif len(set(selected)) != 1:
+                # The report contract has one witnessed interval per trial.
+                # Do not relabel samples from different calibrations.
+                interval_reason = 'frame_interval_inconsistent'
+        if interval_reason:
+            trial = _trial_dict(criterion_id=criterion_id, layer=layer, boundary=boundary,
+                outcome='failed', env=env, samples_ms=[], failure_reason=interval_reason,
+                editor_id=editor_id, lane=lane, diagnostic=diagnostic)
+            trial['refusal_code'] = 'paint_witness_unavailable'
+            return _persist_attempt(attempt_dir, criterion_id, editor_id, trial)
+        diagnostic['frame_interval_ms'] = selected[0]
     for skew in diagnostic.get('clock_skew') or []:
         check = input_sample_record({'clock_skew':skew}, criterion_id)
         if check['failure_reason']:
