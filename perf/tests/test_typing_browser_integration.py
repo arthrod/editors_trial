@@ -28,17 +28,18 @@ def test_real_browser_fake_editor(mode, size, tmp_path):
         assert result['characters_typed'] < size
     else:
         assert result['failure_reason'] is None, result
-        phases = {r['phase']:r for r in rows}
+        phases = {r['milestone']:r for r in rows if r.get('milestone')}
         end, start = phases['end'], phases['typing_start']
         if mode == 'heap':
-            assert end['heap_used_bytes'] - start['heap_used_bytes'] >= 8*1024**2
+            assert end['js_heap_used_bytes'] - start['js_heap_used_bytes'] >= 8*1024**2
         elif mode == 'cpu':
-            assert end['main_thread_ms']['TaskDuration'] - start['main_thread_ms']['TaskDuration'] >= 2000
+            assert result['resources']['phases']['typing']['task_duration_ms'] >= 2000
+            assert result['resources']['phases']['typing']['renderer_cpu_ms'] >= 1500
         elif mode == 'storage':
             assert end['storage_usage_bytes'] >= 10*1024**2
         elif mode == 'longtask':
-            assert end['long_tasks_count'] - start['long_tasks_count'] >= 2
-            assert end['long_tasks_ms'] - start['long_tasks_ms'] >= 400
+            assert result['resources']['phases']['typing']['longtask_count'] >= 2
+            assert result['resources']['phases']['typing']['longtask_sum_ms'] >= 400
 
 def test_host_failure_writes_one_trial_and_series(tmp_path):
     """Integration: real output artifacts, fake failed host; no editor measurement."""

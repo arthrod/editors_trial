@@ -8,7 +8,7 @@ SPEC = importlib.util.find_spec('perf.runner.benchmark_typing')
 def implementation():
     assert SPEC is not None, 'B9 typing runner has not been implemented'
     from perf.runner.benchmark_typing import type_document
-    from perf.runner.typing_resources import ResourceSampler
+    from perf.tests.test_typing_marathon import ResourceSampler
     return type_document, ResourceSampler
 
 class FakePage:
@@ -24,11 +24,11 @@ class FakePage:
         assert key == 'Enter'
         await self.type('\n')
     async def evaluate(self, script, arg=None):
-        if 'B9_RESOURCE' in script:
-            return {'long_tasks_count': self.sent // 5000,
-                    'long_tasks_ms': 200 * (self.sent // 5000),
-                    'storage_usage_bytes': 10 * 1024**2 if self.sent >= 5000 else 0,
-                    'storage_usage_details': {'indexedDB': 10 * 1024**2 if self.sent >= 5000 else 0}}
+        if 'navigator.storage' in script:
+            return {'longtaskCount': self.sent // 5000,
+                    'longtaskSumMs': 200 * (self.sent // 5000),
+                    'usage': 10 * 1024**2 if self.sent >= 5000 else 0,
+                    'usageDetails': {'indexedDB': 10 * 1024**2 if self.sent >= 5000 else 0}}
         return self.text
 
 class FakeCDP:
@@ -40,7 +40,21 @@ class FakeCDP:
                 'JSHeapTotalSize': 20 * 1024**2, 'TaskDuration': 2 if self.page.sent >= 5000 else 0,
                 'ScriptDuration': 2 if self.page.sent >= 5000 else 0,
                 'LayoutDuration': 0, 'RecalcStyleDuration': 0}.items()]}
+        if method == 'Runtime.getHeapUsage':
+            return {'usedSize':self.page.sent // 1000 * 1024**2, 'totalSize':20 * 1024**2}
         return {}
+    async def events(self, method): return []
+
+
+def ResourceSampler(run, page, cdp):
+    # Adapt test inputs to B8's injected clock/process-reader interfaces.
+    from perf.runner.benchmark_typing import TypingResourceSampler
+    def processes():
+        return [{**p, 'ppid':0, 'cmdline':'chrome --type=renderer', 'start_time':1}
+                for p in run.process_snapshot()]
+    return TypingResourceSampler(SimpleNamespace(editor_browser_pid=1, profile_dir=getattr(run,'profile_dir',None)),
+        page, cdp, clock=SimpleNamespace(monotonic=run.clock), process_reader=processes,
+        platform_name='darwin')
 
 class FakeClock:
     def __init__(self): self.value = 0
@@ -49,7 +63,7 @@ class FakeClock:
 async def exercise(text, *, drop=False, freeze=False):
     type_document, Sampler = implementation()
     page = FakePage(drop, freeze); clock = FakeClock()
-    async def processes():
+    def processes():
         return [{'pid': 1, 'role': 'renderer', 'rss_bytes': 42,
                  'cpu_ms': 2000 if page.sent >= 5000 else 0,
                  'read_bytes': 0, 'write_bytes': 0}]
@@ -72,14 +86,14 @@ def test_dropped_keystroke_refused():
 def test_growth_cpu_storage_and_long_tasks():
     result, series = asyncio.run(exercise('x' * 10000))
     assert result['failure_reason'] is None
-    by_phase = {row['phase']: row for row in series}
-    assert by_phase['typed_50']['heap_used_bytes'] == 5 * 1024**2
-    assert by_phase['typed_100']['heap_used_bytes'] == 10 * 1024**2
-    assert by_phase['typed_50']['main_thread_ms']['TaskDuration'] == 2000
+    by_phase = {row['milestone']: row for row in series}
+    assert by_phase['typed_50']['js_heap_used_bytes'] == 5 * 1024**2
+    assert by_phase['typed_100']['js_heap_used_bytes'] == 10 * 1024**2
+    assert by_phase['typed_50']['task_duration_ms'] == 2000
     assert by_phase['typed_50']['processes'][0]['cpu_ms'] == 2000
     assert by_phase['typed_50']['storage_usage_bytes'] == 10 * 1024**2
-    assert by_phase['typed_100']['long_tasks_count'] == 2
-    assert by_phase['typed_100']['long_tasks_ms'] == 400
+    assert by_phase['typed_100']['longtask_count'] == 2
+    assert by_phase['typed_100']['longtask_sum_ms'] == 400
     assert all(row['backlog_chars'] == 0 for row in series)
 
 def test_frozen_page_has_progress_and_budget_refusal():
@@ -104,23 +118,25 @@ def test_sampler_cpu_percent_and_nulls():
     _, Sampler = implementation()
     async def run():
         page = FakePage(); now = [0]; cpu = [0]
-        async def processes(): return [{'pid':1,'role':'renderer','cpu_ms':cpu[0], 'rss_bytes':None}]
+        def processes(): return [{'pid':1,'role':'renderer','cpu_ms':cpu[0], 'rss_bytes':None}]
         resources = SimpleNamespace(clock=lambda: now[0], process_snapshot=processes,
                                     profile_size=lambda:None, network={'received_bytes':None})
         sampler = Sampler(resources,page,FakeCDP(page))
         await sampler.mark('load'); now[0] = 4; cpu[0] = 2000
         await sampler.mark('typed_50')
-        assert sampler.series()[-1]['processes'][0]['cpu_percent'] == 50
-        assert sampler.series()[-1]['rss_by_role_bytes']['renderer'] is None
-        assert sampler.totals('missing') == {'last':None,'peaks': {'heap_used_bytes':None,'heap_total_bytes':None,'profile_bytes':None,'storage_usage_bytes':None}}
-        assert sampler.totals()['peaks']['heap_used_bytes'] == 0
+        assert sampler.series()[-1]['cpu_percent_by_role']['renderer'] == 50
+        assert sampler.series()[-1]['rss_bytes'] == 'not_available_on_platform'
+        import pytest
+        with pytest.raises(KeyError): sampler.totals('missing')
+        assert sampler.totals('typing')['peak_js_heap_used_bytes'] == 0
+        assert sampler.totals('typing')['cpu_ms'] == {'marker':'not_available_on_platform','reason':'single_sample_phase'}
     asyncio.run(run())
 
 def test_sampled_keys_cadence_and_crash():
     type_document, Sampler = implementation()
     async def run():
         page = FakePage(); clock = FakeClock(); sleeps = []
-        async def processes(): return []
+        def processes(): return []
         resources = SimpleNamespace(clock=clock, process_snapshot=processes, profile_size=lambda:0, network={})
         sampler = Sampler(resources,page,FakeCDP(page))
         async def sleep(seconds): sleeps.append(seconds)
@@ -155,7 +171,8 @@ def test_latency_retains_subframe_flags_and_accepts_half_distribution():
     assert summary['median_ms'] == 4.5, summary
     assert summary['sub_frame'] is True
     bad = {**record, 'document_scoped':False}
-    assert latency_summary([record,bad])['median_ms'] == 4.5
+    assert latency_summary([record,bad])['median_ms'] is None
+    assert latency_summary([record]*100 + [bad]*100)['median_ms'] == 4.5
     assert latency_summary([record,bad,bad])['median_ms'] is None
     negative = {**record, 'after_page_ms':2000}
     assert latency_summary([negative])['refusals'] == ['negative_latency']

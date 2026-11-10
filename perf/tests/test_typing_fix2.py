@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from pathlib import Path
 import pytest
 from perf.runner.benchmark_typing import latency_summary, type_document, session
-from perf.runner.typing_resources import ResourceSampler
+from perf.tests.test_typing_marathon import ResourceSampler
 from perf.tests.test_typing_marathon import FakePage, FakeCDP
 from perf.tests import test_witness
 
@@ -19,10 +19,11 @@ def good():
 
 def test_partial_refusals_keep_distribution_and_counts():
     result = latency_summary([good(), {**good(), 'document_scoped':False}])
-    assert result['median_ms'] == 4.5
+    assert result['median_ms'] is None
+    assert latency_summary([good()]*100 + [{'outcome':'no_frame'}]*100)['median_ms'] == 4.5
     assert result['n_accepted'] == 1 and result['n_refused'] == 1
     assert result['refusal_codes'] == {'not_document_scoped':1}
-    assert result['minimum_accepted'] == 1
+    assert result['minimum_accepted'] == 2
     assert latency_summary([good()] + [{'outcome':'no_frame'}]*2)['median_ms'] is None
 
 
@@ -41,7 +42,7 @@ async def typing(text, every=2):
             await super().type(char)
             now[0] += .01
     page = Page()
-    async def processes(): return []
+    def processes(): return []
     resources = SimpleNamespace(clock=lambda:now[0], process_snapshot=processes, profile_size=lambda:100, network={})
     sampler = ResourceSampler(resources,page,FakeCDP(page))
     chars = []
@@ -49,7 +50,7 @@ async def typing(text, every=2):
         chars.append(char)
         await page.type(char)
         now[0] += 1
-        return {**good(), 'elapsed_ms':1010}
+        return {**good(), 'frame_page_ms':1240, 'elapsed_ms':1010}
     result = await type_document(page,sampler,witness,text,selector='#editor', witness_every=every,clock=lambda:now[0])
     return result, chars, sampler
 
@@ -69,13 +70,13 @@ def test_throughput_excludes_witness_stalls():
     assert result['witness_wall_s'] == pytest.approx(3.03)
 
 
-def test_profile_delta_uses_load_baseline():
+def test_integration_profile_delta_uses_load_baseline(tmp_path):
     async def check():
-        page = FakePage(); size = [100]
-        async def processes(): return []
-        run = SimpleNamespace(clock=lambda:0,process_snapshot=processes,profile_size=lambda:size[0],network={})
+        page = FakePage(); size = tmp_path/'data'; size.write_bytes(b'x'*100)
+        def processes(): return []
+        run = SimpleNamespace(clock=lambda:0,process_snapshot=processes,profile_size=lambda:0,profile_dir=tmp_path,network={})
         sampler = ResourceSampler(run,page,FakeCDP(page))
-        await sampler.mark('load'); size[0] = 140
+        await sampler.mark('load'); size.write_bytes(b'x'*140)
         row = await sampler.mark('end')
         assert row['profile_bytes'] == 40
         assert row['profile_absolute_bytes'] == 140
@@ -162,7 +163,7 @@ def test_integration_typing_kept_gate_per_editor(tmp_path, kept, refused):
 def test_summary_malformed_record_preserves_completed_typing():
     async def check():
         page = FakePage()
-        async def processes(): return []
+        def processes(): return []
         sampler = ResourceSampler(SimpleNamespace(clock=lambda:0, process_snapshot=processes,
             profile_size=lambda:0,network={}),page,FakeCDP(page))
         async def witness(char):
