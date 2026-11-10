@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>b3 find widget</title>
+    <style>
+      body { margin: 24px; background: #ffffff; color: #111111; font: 18px/1.4 sans-serif; }
+      input.find { display: block; margin-top: 12px; font: 16px sans-serif; }
+      .find-count { margin-top: 8px; }
+    </style>
+  </head>
+  <body>
+    <p class="doc-paragraph">NEEDLE appears in the document body and NEEDLE appears again.</p>
+    <input class="find" hidden autocomplete="off" />
+    <div class="find-count" role="status"></div>
+    <script>
+      // The widget opens on the find shortcut and acknowledges the query 80 ms
+      // after the input event. Completion is that acknowledgement, not a timer
+      // in the probe.
+      var input = document.querySelector('input.find');
+      document.addEventListener('keydown', function (event) {
+        if ((event.ctrlKey || event.metaKey) && (event.key === 'f' || event.key === 'F')) {
+          event.preventDefault();
+          input.hidden = false;
+          input.focus();
+        }
+      });
+      input.addEventListener('input', function () {
+        setTimeout(function () {
+          document.querySelector('.find-count').textContent = '2 matches';
+        }, 80);
+      });
+    </script>
+  </body>
+</html>

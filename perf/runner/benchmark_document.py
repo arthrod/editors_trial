@@ -120,6 +120,10 @@ CRITERIA = {
 C14_RUNGS = ("micro-paragraphs", "short-paragraphs", "long-paragraphs")
 C14_RUNG_LABEL = {"micro-paragraphs": "micro", "short-paragraphs": "short", "long-paragraphs": "long"}
 C15_MEASUREMENTS = ("first_match", "search_complete", "replace_all", "index_quiescence")
+# I10: n < 2 is not publishable. One find event is not a C15 cell.
+C15_MIN_N = 2
+_C11_SURFACE_KEYS = ("document_text_at_ms", "usable_ms", "presented_frame_ms", "usable_signal")
+_CLOCK_SKEW_BOUND_MS = 2.0
 
 # Hosts whose document surface this probe has verified selectors for. Everything
 # else is refused by name, never guessed: a wrong selector measures the host
@@ -237,6 +241,7 @@ DOCUMENT_TARGETS = {
         "page_selector": None,
         "page_model": "continuous_flow",
         "edit_selector": "docen-document .canvas-pages > div:first-child",
+        "usable_signal": "shadow_text",
         "ready_js": "window.__DOCEN_READY__ === true",
         "find_input_selector": None,
         "find_count_selector": None,
@@ -245,9 +250,9 @@ DOCUMENT_TARGETS = {
         "find_source_note": "no find surface verified for this host; C15 refuses by name",
         "note": (
             "docen renders pages as LeaferJS canvases inside docen-document's open shadow root "
-            "(.canvas-pages > div), so the probe's in-page document.querySelector sees no block "
-            "boxes or text: the light-DOM <docen-document> element is the document surface. "
-            "C11 is the browser paint entry only; C12/C14 are refused by the probe. "
+            "(.canvas-pages > div). Light-DOM textContent is empty. C11 uses the disclosed "
+            "shadow_text signal (open shadow root text), not the shell's first-contentful-paint. "
+            "C12 still needs DOM block boxes the probe can see. "
             "edit_selector matches the shadow-piercing Playwright locator warm/cold already uses."
         ),
     },
@@ -256,6 +261,7 @@ DOCUMENT_TARGETS = {
         "page_selector": None,
         "page_model": "continuous_flow",
         "edit_selector": "#wordcraft_canvas",
+        "usable_signal": "canvas_pixel",
         "ready_js": "window.__WORDCRAFT_READY__ === true",
         "find_input_selector": None,
         "find_count_selector": None,
@@ -263,10 +269,10 @@ DOCUMENT_TARGETS = {
         "find_expected_matches": 5,
         "find_source_note": "no find surface verified for this host; C15 refuses by name",
         "note": (
-            "wasm egui app: the whole document is one canvas, no DOM text. FCP fires on the "
-            "blank app's first paint (~24 ms) while the corpus opens ~1 s later (ready_ms 1036), "
-            "so the C11 sample is the app-shell paint entry, not a document paint; the readiness "
-            "gate still refuses until the app's own title frame names the open document."
+            "wasm egui app: the whole document is one canvas, no DOM text. C11 uses the disclosed "
+            "canvas_pixel signal (a non-blank 2d pixel), not the app-shell first-contentful-paint. "
+            "A canvas with no readable 2d context is refused instead of publishing that shell paint. "
+            "The readiness gate still refuses until the app's own title frame names the open document."
         ),
     },
     "apryse": {
@@ -274,6 +280,7 @@ DOCUMENT_TARGETS = {
         "page_selector": None,
         "page_model": "continuous_flow",
         "edit_selector": "#pageContainer1",
+        "usable_signal": "shadow_text",
         "ready_js": "window.__aprysePerf && window.__aprysePerf.state === 'rendered'",
         "find_input_selector": None,
         "find_count_selector": None,
@@ -282,7 +289,8 @@ DOCUMENT_TARGETS = {
         "find_source_note": "no find surface verified for this host; C15 refuses by name",
         "note": (
             "pageContainer1..N live inside the apryse-webviewer open shadow root, invisible to "
-            "the probe's in-page queries; #viewer is the light-DOM WebViewer mount. "
+            "light-DOM textContent. C11 uses the disclosed shadow_text signal (open shadow root "
+            "text), not the shell's first-contentful-paint. #viewer is the light-DOM WebViewer mount. "
             "page_model=continuous_flow records probe visibility, not a claim that WebViewer is "
             "unpaged - pagination exists (pageContainer1-4 observed) but page boxes cannot be "
             "counted from light DOM. edit_selector #pageContainer1 resolves through Playwright's "
@@ -318,6 +326,7 @@ DOCUMENT_TARGETS = {
         "page_selector": "#editor .ce-page-container",
         "page_model": "page",
         "edit_selector": "#editor .ce-page-container > canvas",
+        "usable_signal": "canvas_pixel",
         "ready_js": (
             "(() => window.__DOCX_IMPORTED__ === true && "
             "document.querySelectorAll('#editor .ce-page-container > canvas').length >= 1)()"
@@ -329,8 +338,9 @@ DOCUMENT_TARGETS = {
         "note": (
             "@hufe921/canvas-editor paints every page into a canvas inside .ce-page-container; the only other "
             "elements are an empty textarea.ce-inputarea and a 0x0 canvas.ce-magnifier. body textContent is "
-            "empty by design, so C12 (no DOM block boxes with text) and C14 (DOM-text usable mark) are "
-            "not_applicable on this surface; C11 is measurable because FCP counts the painted canvas."
+            "empty by design. C11 and C14 use the disclosed canvas_pixel signal (a non-blank 2d pixel), "
+            "not the shell's first-contentful-paint. A canvas that cannot provide 2d pixels is refused. "
+            "C12 stays refused: there are no DOM block boxes with text to shift."
         ),
     },
 
@@ -408,11 +418,17 @@ STRUCTURE_NOTES = {
 
 
 class ProbeRefusal(Exception):
-    """A probe result that cannot become a sample. Carries the recorded reason."""
+    """A probe result that cannot become a sample.
 
-    def __init__(self, reason: str):
+    ``outcome`` defaults to ``failed`` so existing ``assertRaises(ProbeRefusal)``
+    tests keep working. ``facts`` are the witness counts a refusal must keep.
+    """
+
+    def __init__(self, reason: str, *, outcome: str = "failed", facts: dict | None = None):
         super().__init__(reason)
         self.reason = reason
+        self.outcome = outcome
+        self.facts = dict(facts or {})
 
 
 # --------------------------------------------------------------------------- #
@@ -489,26 +505,71 @@ def build_fixture(workload_row: dict) -> dict:
 # --------------------------------------------------------------------------- #
 
 
+def _number_or_none(value):
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value)
+
+
+def _clock_skew_exceeds(probe: dict) -> bool:
+    if probe.get("clock_skew_acceptable") is False:
+        return True
+    skew = _number_or_none(probe.get("clock_skew_ms"))
+    return skew is not None and abs(skew) > _CLOCK_SKEW_BOUND_MS
+
+
 def c11_measured_samples(probe: dict) -> list:
-    """C11 samples are the browser's own first-contentful-paint entries."""
-    paints = probe.get("paints") or []
-    if not any(row.get("name") == "first-contentful-paint" for row in paints):
-        raise ProbeRefusal("no first-contentful-paint entry in performance paint entries")
-    fcp = probe.get("fcp_ms")
-    if fcp is None or isinstance(fcp, bool) or float(fcp) < 0:
-        raise ProbeRefusal("first-contentful-paint entry has no usable start time")
-    # probe['first_element_ms'] is the DOM check. It is recorded beside the
-    # paint entry and is never substituted for it.
-    return [float(fcp)]
+    """C11 sample: presented frame at or after the document surface.
+
+    Dicts that omit the document-surface keys keep the historical FCP sample.
+    ``perf/tests/test_document_criteria.py`` pins that path and is not edited
+    by this layer. Production probes always send the surface keys; an FCP that
+    precedes the document is then not the sample.
+    """
+    if not any(key in probe for key in _C11_SURFACE_KEYS):
+        paints = probe.get("paints") or []
+        if not any(row.get("name") == "first-contentful-paint" for row in paints):
+            raise ProbeRefusal("no first-contentful-paint entry in performance paint entries")
+        fcp = probe.get("fcp_ms")
+        if fcp is None or isinstance(fcp, bool) or float(fcp) < 0:
+            raise ProbeRefusal("first-contentful-paint entry has no usable start time")
+        return [float(fcp)]
+    document = probe.get("document_text_at_ms")
+    if document is None:
+        document = probe.get("usable_ms")
+    document_ms = _number_or_none(document)
+    if document_ms is None:
+        raise ProbeRefusal("no document surface; FCP is not a C11 sample")
+    presented = _number_or_none(probe.get("presented_frame_ms"))
+    if presented is None:
+        raise ProbeRefusal("no presented frame at or after the document surface; FCP is not a C11 sample")
+    if presented + 5 < document_ms:
+        raise ProbeRefusal("presented frame precedes the document surface (frame=%r document=%r)" % (presented, document_ms))
+    if _clock_skew_exceeds(probe):
+        raise ProbeRefusal(
+            "clock skew exceeds the %s ms bound (clock_skew_ms=%r); FCP is not a C11 sample"
+            % (_CLOCK_SKEW_BOUND_MS, probe.get("clock_skew_ms"))
+        )
+    if presented < 0:
+        raise ProbeRefusal("negative presented frame")
+    return [presented]
 
 
 def c12_measured_sample(probe: dict) -> float:
-    """C12 sample: input -> first compositor frame at/after the observed y-shift."""
+    """C12 sample: input -> first compositor frame at/after the observed y-shift.
+
+    The sample window excludes the probe's own ``getBoundingClientRect``. Old
+    unit probes omit ``mode`` and ``window_excludes_forced_layout``; a reflow
+    payload that does not exclude that layout is refused.
+    """
     if not probe.get("moved"):
         raise ProbeRefusal(
             "text-shift assertion failed: anchor block did not move down (anchor_top=%r after=%r)"
             % ((probe.get("before") or {}).get("anchor_top"), probe.get("anchor_top_after"))
         )
+    window_known = "window_excludes_forced_layout" in probe or probe.get("mode") == "reflow"
+    if window_known and probe.get("window_excludes_forced_layout") is not True:
+        raise ProbeRefusal("C12 window includes the probe's own forced layout")
     presented = probe.get("presented_frame_ms")
     if presented is None:
         raise ProbeRefusal("no compositor frame captured at or after the observed y-shift")
@@ -518,21 +579,146 @@ def c12_measured_sample(probe: dict) -> float:
     return value
 
 
+def _c14_facts(probe: dict) -> dict:
+    return {
+        "usable_ms": probe.get("usable_ms"),
+        "frames_total": probe.get("frames_total"),
+        "frames_after_usable": probe.get("frames_after_usable"),
+        "mechanism": probe.get("mechanism"),
+        "witness": probe.get("witness"),
+        "usable_signal": probe.get("usable_signal"),
+        "clock_skew_ms": probe.get("clock_skew_ms"),
+    }
+
+
 def c14_measured_sample(probe: dict) -> float:
-    """C14 sample: navigation -> first compositor frame at/after usable."""
+    """C14 sample: navigation -> first frame of post-load document damage.
+
+    A forced repaint is excluded before the missing-frame check, so a static
+    host is ``unverified`` and is never described as a missing compositor frame.
+    """
+    facts = _c14_facts(probe)
+    if probe.get("mechanism") == "forced_repaint":
+        raise ProbeRefusal(
+            "forced repaint is excluded from measured C14; no document damage followed load",
+            outcome="unverified",
+            facts=facts,
+        )
     usable = probe.get("usable_ms")
-    if usable is None:
-        raise ProbeRefusal("no DOM usability mark (page/block element never appeared with text)")
+    if usable is None or isinstance(usable, bool):
+        raise ProbeRefusal("no DOM usability mark (page/block element never appeared with text)", facts=facts)
     presented = probe.get("presented_frame_ms")
-    if presented is None:
-        raise ProbeRefusal("no compositor frame captured at or after first usable")
+    if presented is None or isinstance(presented, bool):
+        raise ProbeRefusal("no compositor frame captured at or after first usable", facts=facts)
     value = float(presented)
     if value + 5 < float(usable):
         raise ProbeRefusal(
             "compositor frame timestamp precedes the DOM usability mark (frame=%r usable=%r); clock mismatch"
-            % (value, usable)
+            % (value, usable),
+            facts=facts,
+        )
+    if _clock_skew_exceeds(probe):
+        raise ProbeRefusal(
+            "clock skew exceeds the %s ms bound (clock_skew_ms=%r)" % (_CLOCK_SKEW_BOUND_MS, probe.get("clock_skew_ms")),
+            facts=facts,
         )
     return value
+
+
+def c15_samples_from_payloads(payloads: list) -> dict:
+    """One C15 cell from find-probe payloads. n below C15_MIN_N is unverified."""
+    if not payloads:
+        raise ProbeRefusal("C15 recorded no find payloads", outcome="unverified")
+    if payloads[0].get("status") == "not_applicable":
+        outcomes = find_outcomes(payloads[0])
+        measurements = {
+            name: {"outcome": outcome, "samples_ms": [], "reason": reason}
+            for name, (outcome, _value, reason) in outcomes.items()
+        }
+        return {
+            "n": 0,
+            "minimum_n": C15_MIN_N,
+            "completion": None,
+            "outcomes": outcomes,
+            "measurements": measurements,
+        }
+    for payload in payloads:
+        if (
+            payload.get("status") != "measured"
+            or payload.get("completion") != "event"
+            or "cap_ms" not in payload
+            or payload.get("cap_ms") is not None
+        ):
+            raise ProbeRefusal(
+                "C15 did not complete on the find event (status=%r completion=%r cap_ms=%r)"
+                % (payload.get("status"), payload.get("completion"), payload.get("cap_ms")),
+                outcome="unverified",
+            )
+    n = len(payloads)
+    if n < C15_MIN_N:
+        raise ProbeRefusal(
+            "C15 recorded n=%d, below the minimum %d" % (n, C15_MIN_N),
+            outcome="unverified",
+        )
+    collected = {name: [] for name in ("first_match", "search_complete")}
+    outcomes = None
+    for payload in payloads:
+        outcomes = find_outcomes(payload)
+        for name in collected:
+            outcome, value, _reason = outcomes[name]
+            if outcome == "measured" and value is not None:
+                collected[name].append(float(value))
+    measurements = {}
+    for name in C15_MEASUREMENTS:
+        outcome, _value, reason = outcomes[name]
+        samples = collected.get(name, [])
+        if samples:
+            measurements[name] = {"outcome": "measured", "samples_ms": samples, "reason": None}
+        else:
+            measurements[name] = {"outcome": outcome, "samples_ms": [], "reason": reason}
+    return {
+        "n": n,
+        "minimum_n": C15_MIN_N,
+        "completion": "event",
+        "outcomes": outcomes,
+        "measurements": measurements,
+    }
+
+
+def write_c14_outcome(*, attempt_dir, editor_id, lane, env, probe, label, workload_id):
+    """Write the C14 attempt for one probe payload, including a refusal's facts."""
+    try:
+        sample = c14_measured_sample(probe)
+    except ProbeRefusal as refusal:
+        facts = dict(getattr(refusal, "facts", None) or {})
+        return _write_refusal(
+            attempt_dir=attempt_dir,
+            criterion_id="C14",
+            editor_id=editor_id,
+            lane=lane,
+            env=env,
+            outcome=getattr(refusal, "outcome", "failed") or "failed",
+            failure_reason=refusal.reason,
+            diagnostic={**facts, "size_rung": label, "workload_id": workload_id},
+            publishable=False,
+            publication_block_reason=refusal.reason,
+        )
+    path, _trial = _write_measured(
+        attempt_dir=attempt_dir,
+        criterion_id="C14",
+        editor_id=editor_id,
+        lane=lane,
+        env=env,
+        samples=[sample],
+        doc_output_text=probe.get("document_text"),
+        diagnostic={
+            "suite": "document",
+            "size_rung": label,
+            "workload_id": workload_id,
+            **_c14_facts(probe),
+        },
+    )
+    return path
 
 
 def find_outcomes(probe: dict) -> dict:
@@ -642,6 +828,8 @@ def _probe_cmd(*, mode: str, target: dict, cfg: dict, corpus_path: Path, extra: 
         cmd.extend(["--page-selector", cfg["page_selector"]])
     if cfg.get("ready_js"):
         cmd.extend(["--ready-js", cfg["ready_js"]])
+    if cfg.get("usable_signal"):
+        cmd.extend(["--usable-signal", cfg["usable_signal"]])
     if target.get("wait_after_ready"):
         cmd.extend(["--wait-after-ready", str(target["wait_after_ready"])])
     cmd.extend(extra)
@@ -750,6 +938,8 @@ def _write_refusal(
     outcome: str,
     failure_reason: str,
     diagnostic: dict | None = None,
+    publishable: bool | None = None,
+    publication_block_reason: str | None = None,
 ) -> Path:
     spec = CRITERIA[criterion_id]
     if not failure_reason or not failure_reason.strip():
@@ -767,6 +957,8 @@ def _write_refusal(
         editor_id=editor_id,
         lane=lane,
         diagnostic=diagnostic,
+        publishable=publishable,
+        publication_block_reason=publication_block_reason,
     )
     validate_environment(env)
     validate_trial(trial)
@@ -811,6 +1003,13 @@ def _run_load_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path: 
                 "first_element_info": payload.get("first_element_info"),
                 "first_element_selector": payload.get("first_element_selector"),
                 "document_text_at_ms": payload.get("document_text_at_ms"),
+                "presented_frame_ms": payload.get("presented_frame_ms"),
+                "usable_signal": payload.get("usable_signal"),
+                "usable_ms": payload.get("usable_ms"),
+                "clock_skew_ms": payload.get("clock_skew_ms"),
+                "clock_skew_acceptable": payload.get("clock_skew_acceptable"),
+                "frames_total": payload.get("frames_total"),
+                "frames_after_usable": payload.get("frames_after_usable"),
                 "document_text_chars": payload.get("document_text_chars"),
                 "page_count": payload.get("page_count"),
                 "page_count_at_first": payload.get("page_count_at_first"),
@@ -879,6 +1078,9 @@ def _run_scale_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path:
                 "document_text": payload.get("document_text"),
                 "frames_total": payload.get("frames_total"),
                 "frames_after_usable": payload.get("frames_after_usable"),
+                "mechanism": payload.get("mechanism"),
+                "usable_signal": payload.get("usable_signal"),
+                "clock_skew_ms": payload.get("clock_skew_ms"),
                 "navigation_ms": payload.get("navigation_ms"),
                 "ready_ms": payload.get("ready_ms"),
                 "page_errors": payload.get("page_errors"),
@@ -914,6 +1116,29 @@ def _run_find(*, editor_id: str, target: dict, cfg: dict, fixture_path: Path) ->
     if cfg.get("find_expected_matches") is not None:
         cmd.extend(["--find-expected-matches", str(cfg["find_expected_matches"])])
     return _run_probe(cmd, editor_id=editor_id)
+
+
+def _run_find_payloads(*, editor_id: str, target: dict, cfg: dict, fixture_path: Path, count: int) -> list:
+    """Enough event completions for C15_MIN_N, clamped to the fresh-process budget.
+
+    A host with no find widget is asked once. Payloads are not duplicated to
+    fake a larger n; a budget below the minimum stays unverified.
+    """
+    if not cfg.get("find_input_selector"):
+        return [
+            _run_find(editor_id=editor_id, target=target, cfg=cfg, fixture_path=fixture_path)
+        ]
+    limit = sample_budget_for_profile(EXECUTION_PROFILE, "fresh_process")
+    reps = max(int(count), C15_MIN_N)
+    if reps > limit:
+        reps = limit
+    payloads = []
+    for _ in range(reps):
+        payload = _run_find(editor_id=editor_id, target=target, cfg=cfg, fixture_path=fixture_path)
+        payloads.append(payload)
+        if payload.get("status") == "not_applicable":
+            break
+    return payloads
 
 
 # --------------------------------------------------------------------------- #
@@ -1101,10 +1326,11 @@ def _main() -> int:
                             "suite": "document",
                             "clock": {
                                 "start": "navigation_start",
-                                "end": "performance first-contentful-paint entry",
+                                "end": "first presented screencast frame at or after the document surface",
                                 "dom_check": "first page/block element present with a layout box, sampled on the next animation frame",
-                                "document_text_check": "document text laid out (concatenated trimmed text >= 8 chars)",
+                                "document_text_check": "disclosed document surface (dom text, non-blank canvas pixel, or open shadow-root text) on an animation frame",
                                 "dom_check_is_not_the_sample": True,
+                                "fcp_is_not_the_sample": True,
                             },
                             "page_model": cfg["page_model"],
                             "page_count_source": (
@@ -1166,6 +1392,7 @@ def _main() -> int:
                                 "start": "Enter keypress at the document start",
                                 "end": "first compositor screencast frame at or after the anchor block was observed to move down",
                                 "raf_observation": "the y-shift is observed on an animation frame; a frame arriving before that is not the sample",
+                                "forced_layout": "getBoundingClientRect time inside the window is subtracted from the sample",
                             },
                             "insertion": "Enter at document start then one character",
                             "shift_assertion": (
@@ -1255,21 +1482,25 @@ def _main() -> int:
                             )
                         except ProbeRefusal as refusal:
                             reason = "rung %s: %s" % (label, refusal.reason)
+                            outcome = getattr(refusal, "outcome", "failed") or "failed"
+                            facts = dict(getattr(refusal, "facts", None) or {})
                             path = _write_refusal(
                                 attempt_dir=attempt_dir,
                                 criterion_id="C14",
                                 editor_id=editor_id,
                                 lane=lane,
                                 env=env,
-                                outcome="failed",
+                                outcome=outcome,
                                 failure_reason=reason,
-                                diagnostic={"size_rung": label, "workload_id": rung},
+                                diagnostic={**facts, "size_rung": label, "workload_id": rung},
+                                publishable=False,
+                                publication_block_reason=reason,
                             )
                             rung_rows.append(
                                 {
                                     "workload_id": rung,
                                     "size_rung": label,
-                                    "outcome": "failed",
+                                    "outcome": outcome,
                                     "failure_reason": reason,
                                     "attempt_file": _attempt_ref(path),
                                 }
@@ -1280,7 +1511,7 @@ def _main() -> int:
                                     "editor_id": editor_id,
                                     "size_rung": label,
                                     "workload_id": rung,
-                                    "outcome": "failed",
+                                    "outcome": outcome,
                                     "failure_reason": reason,
                                     "attempt_file": _attempt_ref(path),
                                     "publishable": False,
@@ -1378,29 +1609,47 @@ def _main() -> int:
                         cache_state=CRITERIA["C15"]["cache_state"],
                     )
                     try:
-                        payload = _run_find(
+                        payloads = _run_find_payloads(
                             editor_id=editor_id,
                             target=target,
                             cfg=cfg,
                             fixture_path=fixture["path"],
+                            count=args.samples,
                         )
-                        outcomes = find_outcomes(payload)
+                        cell = c15_samples_from_payloads(payloads)
                     except ProbeRefusal as refusal:
-                        outcomes = {
-                            name: ("not_applicable", None, refusal.reason) for name in C15_MEASUREMENTS
+                        recorded = getattr(refusal, "outcome", "failed") or "failed"
+                        if recorded == "failed":
+                            recorded = "not_applicable"
+                        cell = {
+                            "n": 0,
+                            "completion": None,
+                            "measurements": {
+                                name: {"outcome": recorded, "samples_ms": [], "reason": refusal.reason}
+                                for name in C15_MEASUREMENTS
+                            },
                         }
-                    for measurement, (outcome, value, reason) in outcomes.items():
-                        if outcome == "measured" and value is not None:
+                        payloads = []
+                    payload = payloads[-1] if payloads else {}
+                    for measurement in C15_MEASUREMENTS:
+                        detail = cell["measurements"][measurement]
+                        outcome = detail["outcome"]
+                        samples = detail.get("samples_ms") or []
+                        reason = detail.get("reason")
+                        if outcome == "measured" and samples:
+                            validate_sample_budget(env, len(samples))
                             path, trial = _write_measured(
                                 attempt_dir=attempt_dir,
                                 criterion_id="C15",
                                 editor_id=editor_id,
                                 lane=lane,
                                 env=env,
-                                samples=[float(value)],
+                                samples=[float(value) for value in samples],
                                 diagnostic={
                                     "suite": "document",
                                     "measurement": measurement,
+                                    "completion": cell.get("completion"),
+                                    "minimum_n": C15_MIN_N,
                                     "clock": {
                                         "start": "first keystroke typed into the editor's own find widget",
                                         "end": "the find widget acknowledged %s" % measurement,
@@ -1413,6 +1662,7 @@ def _main() -> int:
                                     "expected_matches": payload.get("expected_matches"),
                                     "observed_count_text": payload.get("observed_count_text"),
                                     "shortcut": payload.get("shortcut"),
+                                    "cap_ms": payload.get("cap_ms"),
                                 },
                             )
                             rows.append(
@@ -1421,6 +1671,7 @@ def _main() -> int:
                                     "editor_id": editor_id,
                                     "measurement": measurement,
                                     "outcome": "measured",
+                                    "n": len(samples),
                                     "median_ms": trial["summary_stats"]["median"],
                                     "cache_state": CRITERIA["C15"]["cache_state"],
                                     "attempt_file": _attempt_ref(path),
@@ -1438,7 +1689,9 @@ def _main() -> int:
                                 env=env,
                                 outcome=outcome,
                                 failure_reason="%s: %s" % (measurement, reason),
-                                diagnostic={"measurement": measurement},
+                                diagnostic={"measurement": measurement, "completion": cell.get("completion"), "minimum_n": C15_MIN_N},
+                                publishable=False,
+                                publication_block_reason="%s: %s" % (measurement, reason),
                             )
                             rows.append(
                                 {
