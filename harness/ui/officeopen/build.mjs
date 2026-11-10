@@ -23,6 +23,10 @@ await build({
   outfile: path.join(here, "bundle.js"),
   alias: {
     "@office-open/docx": path.join(REPO, "packages/docx/dist/index.mjs"),
+    // The library probes node:zlib and falls back to JS when it is missing;
+    // the stub keeps Chromium from logging a failed `node:` module load on
+    // every page load. See node-zlib-stub.js.
+    "node:zlib": path.join(here, "node-zlib-stub.js"),
   },
   logLevel: "info",
 });

@@ -1,0 +1,33 @@
+{
+  "ui": "/Users/arthrod/temp/T/editors_trial/harness/ui",
+  "result": {
+    "driver": "playwright",
+    "url": "http://127.0.0.1:5218/?perfE2e=1&fixture=corpus.docx&reviewRail=0",
+    "corpus_route": "/corpus.docx",
+    "ready_selector": ".docx-page[data-materialized=\"true\"]",
+    "edit_selector": ".docx-page-content [data-paragraph-id][data-start]",
+    "pairs": [
+      {
+        "browser_launch_only_ms": 375,
+        "document_navigation_only_ms": 1806,
+        "model_ready_browser_ms": 4288,
+        "document_reload_same_context_ms": 2017,
+        "cold": {
+          "first_usable_ms": 4288,
+          "model_ready_browser_ms": 4288,
+          "single_edit_ms": 108,
+          "presented_frame_ms": 18.5,
+          "sustained_typing_median_ms": 83
+        },
+        "warm": {
+          "single_edit_ms": 76,
+          "presented_frame_ms": 24.100000023841858,
+          "sustained_typing_median_ms": 83
+        }
+      }
+    ],
+    "fresh_context_load_ms": [
+      1807
+    ]
+  }
+}
