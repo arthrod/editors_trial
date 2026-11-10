@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import platform
 import shutil
@@ -45,6 +46,10 @@ from perf.runner.cause_attribution import (  # noqa: E402
     probe_medians,
 )
 from perf.runner.cause_attribution import _median as median  # noqa: E402
+from perf.runner.witness import validate_witness
+from perf.layers.classify import assert_visible_evidence
+from perf.layers.event_timing import event_timing_status, samples_ms as event_samples_ms
+from perf.runner.browser_run import ACTIVE
 from perf.schema import validate_environment, validate_trial  # noqa: E402
 
 UI = REPO / "harness" / "ui"
@@ -392,6 +397,9 @@ def _run_browser_probe(
         cmd.extend(["--wait-after-ready", str(target["wait_after_ready"])])
     if target.get("skip_edit"):
         cmd.extend(["--skip-edit", "true"])
+    active = ACTIVE.get()
+    if active is not None:
+        active.begin_sample()
     proc = subprocess.run(
         cmd,
         cwd=str(UI),
@@ -402,7 +410,69 @@ def _run_browser_probe(
     record_process(proc)
     if proc.returncode != 0:
         raise RuntimeError(proc.stderr or proc.stdout or "probe failed")
-    return json.loads(proc.stdout)
+    payload = json.loads(proc.stdout)
+    for index, pair in enumerate(payload.get('pairs', [])):
+        for arm in ('cold', 'warm'):
+            data = pair.get(arm, {})
+            for cid, observations in (('C05', [data]), ('C06', data.get('burst', []))):
+                for iteration, observation in enumerate(observations):
+                    if 'mechanism' not in observation:
+                        continue
+                    row = input_sample_record(observation, cid)
+                    row.update(arm=arm, pair=index, iteration=iteration,
+                               server_cold=pair.get('server_cold', index == 0))
+                    if row['outcome'] != 'measured':
+                        observation['edit_ms'] = None
+                        observation['failure_reason'] = row['failure_reason']
+                        if cid == 'C05':
+                            data['single_edit_ms'] = None
+                        else:
+                            data['sustained_typing_median_ms'] = None
+                    if active is not None:
+                        active.sample('input-' + uuid.uuid4().hex, row)
+    return payload
+
+
+def input_sample_record(observation, criterion_id):
+    """Validate page-clock evidence; preserve censor/refusal without making zeros."""
+    row = dict(observation)
+    row['criterion_id'] = criterion_id
+    skew = row.get('clock_skew') or {}
+    value, bound = skew.get('skew_ms'), skew.get('bound_ms')
+    reason = row.get('failure_reason')
+    if not isinstance(value, (int, float)) or not isinstance(bound, (int, float)):
+        reason = 'clock_skew_unavailable'
+    elif not math.isfinite(value) or abs(value) > bound:
+        reason = 'clock_skew_above_bound'
+    elif not skew.get('acceptable'):
+        reason = 'clock_skew_unavailable'
+    if not reason and criterion_id in ('C05', 'C06') and 'edit_ms' in row:
+        verdict = validate_witness(row.get('witness'), skew=value, bound_ms=bound)
+        if verdict['refused']:
+            reason = verdict['reason']
+    timing = dict(row.get('event_timing') or {})
+    entries = [event_timing_status(e['duration'], 16) for e in timing.get('entries', [])]
+    timing['samples_ms'] = event_samples_ms(entries)
+    timing['normalized_entries'] = entries
+    row['event_timing'] = timing
+    row['latency_ms'] = None if reason else row.get('edit_ms')
+    row['outcome'] = 'failed' if reason else row.get('outcome', 'measured')
+    row['failure_reason'] = reason
+    return row
+
+
+def _persist_attempt(attempt_dir, criterion_id, editor_id, trial):
+    """Every written trial is an accounted BrowserRun sample, not just a cell."""
+    trial.setdefault('clock_skew', {'available':False, 'reason':'no page-clock observation for this outcome'})
+    active = ACTIVE.get()
+    name = "%s-%s-%s" % (criterion_id.lower(), editor_id, uuid.uuid4().hex[:10])
+    if active is not None:
+        sample_path = active.sample(name, trial)
+        trial = json.loads(sample_path.read_text())
+        if trial.get('failure_reason') == 'cpu_throttled':
+            trial.update(samples_ms=[], latency_ms=None, summary_stats=None,
+                         publication_block_reason='cpu_throttled')
+    return write_attempt(attempt_dir, name, trial)
 
 
 def _write_measured_attempt(
@@ -418,6 +488,35 @@ def _write_measured_attempt(
     cache_state: str,
     diagnostic: dict | None = None,
 ) -> Path:
+    diagnostic = diagnostic or {}
+    if criterion_id == 'C05':
+        assert_visible_evidence('C05', diagnostic.get('mechanism'))
+    observations = diagnostic.get('observations', [])
+    observations = [item for entry in observations for item in (entry if isinstance(entry, list) else [entry])]
+    if criterion_id in ('C05', 'C06'):
+        if not observations:
+            raise ValueError('missing input observations')
+        checked = [input_sample_record(item, criterion_id) for item in observations]
+        rejected = [item for item in checked if item['outcome'] != 'measured' or item['latency_ms'] is None]
+        if rejected:
+            reason = rejected[0].get('failure_reason') or 'missing_input_latency'
+            trial = _trial_dict(criterion_id=criterion_id, layer=layer, boundary=boundary,
+                outcome='failed', env=env, samples_ms=[], failure_reason=reason,
+                editor_id=editor_id, lane=lane,
+                diagnostic={**diagnostic, 'observations':checked})
+            trial.update(mechanism=diagnostic.get('mechanism'),
+                         clock_skew=[item.get('clock_skew') for item in checked])
+            return _persist_attempt(attempt_dir, criterion_id, editor_id, trial)
+        diagnostic = {**diagnostic, 'observations':checked,
+                      'clock_skew':[item['clock_skew'] for item in checked]}
+    for skew in diagnostic.get('clock_skew') or []:
+        check = input_sample_record({'clock_skew':skew}, criterion_id)
+        if check['failure_reason']:
+            trial = _trial_dict(criterion_id=criterion_id, layer=layer, boundary=boundary,
+                outcome='failed', env=env, samples_ms=[], failure_reason=check['failure_reason'],
+                editor_id=editor_id, lane=lane, diagnostic=diagnostic)
+            trial['clock_skew'] = diagnostic['clock_skew']
+            return _persist_attempt(attempt_dir, criterion_id, editor_id, trial)
     stats = summarize(samples_ms, cache_state, env["repetition_unit"], seed=0)
     pub, reason = trial_publishable_flags(env, layer, stats["n"])
     pub, reason = _finalize_publishable(pub, reason, env)
@@ -435,12 +534,12 @@ def _write_measured_attempt(
         publication_block_reason=reason,
         diagnostic=diagnostic,
     )
+    trial['clock_skew'] = diagnostic.get('clock_skew')
+    if criterion_id in ('C05', 'C06'):
+        trial['mechanism'] = diagnostic.get('mechanism')
+        trial['clock_skew'] = diagnostic.get('clock_skew')
     validate_trial(trial)
-    return write_attempt(
-        attempt_dir,
-        "%s-%s-%s" % (criterion_id.lower(), editor_id, uuid.uuid4().hex[:10]),
-        trial,
-    )
+    return _persist_attempt(attempt_dir, criterion_id, editor_id, trial)
 
 
 def _write_not_run(
@@ -466,11 +565,7 @@ def _write_not_run(
         lane=lane,
     )
     validate_environment(env)
-    return write_attempt(
-        attempt_dir,
-        "%s-%s-%s" % (criterion_id.lower(), editor_id, uuid.uuid4().hex[:10]),
-        trial,
-    )
+    return _persist_attempt(attempt_dir, criterion_id, editor_id, trial)
 
 
 def _env_for(
@@ -641,6 +736,21 @@ def _main() -> int:
             if proc:
                 _stop_server(proc)
 
+        # run_cli invokes one pair per fresh server. Direct multi-pair probes
+        # also retain pair 1 separately rather than pooling it with later loads.
+        if len(payload['pairs']) > 1:
+            first_pair = payload['pairs'][0]
+            first_env = _env_for(editor_id=editor_id, editor_version=editor_version,
+                fixture_sha256=sha, workload_row=workload_row, docx_size=docx_size,
+                cache_state='process_cold_fs_warm')
+            _write_measured_attempt(attempt_dir=attempt_dir, criterion_id='C03',
+                layer='browser_visible', boundary='first_usable', editor_id=editor_id,
+                lane=lane, env=first_env, samples_ms=[first_pair['cold']['first_usable_ms']],
+                cache_state='process_cold_fs_warm', diagnostic={'server_cold':True,
+                    'settle_ms':first_pair['cold'].get('settle_ms'),
+                    'clock_skew':[first_pair['cold'].get('clock_skew')], 'pair':first_pair})
+            payload['pairs'] = payload['pairs'][1:]
+
         probe_rows = [
             {
                 "browser_launch_only_ms": row.get("browser_launch_only_ms"),
@@ -739,8 +849,13 @@ def _main() -> int:
                     "driver": payload.get("driver"),
                     "distinction": "browser_page_event",
                     "probes": probe_bundle,
+                    "settle_ms": [p["cold"].get("settle_ms") for p in payload["pairs"]],
+                    "clock_skew": [p["cold"].get("clock_skew") for p in payload["pairs"]],
+                    "server_cold": payload["pairs"][0].get("server_cold", True),
                 },
             )
+            if json.loads(cold_path.read_text()).get('outcome') != 'measured':
+                continue
             summary_row = {
                 "criterion_id": "C03" if cid == "C03" else "C02",
                 "editor_id": editor_id,
@@ -773,10 +888,21 @@ def _main() -> int:
             for pair in payload["pairs"]
             if pair.get("cold", {}).get("first_usable_ms") is not None
         ]
-        if reload_samples and cold_first and "C03" in criteria_map:
+        if reload_samples and cold_first and "C03" in criteria_map and c03_cold_attempt_ref:
             cause_load, breakdown = attribute_delta(
                 median(cold_first), median(reload_samples), probe_bundle
             )
+            warm_load_env = _env_for(editor_id=editor_id, editor_version=editor_version,
+                fixture_sha256=sha, workload_row=workload_row, docx_size=docx_size,
+                cache_state='warm_steady')
+            warm_load_path = _write_measured_attempt(attempt_dir=attempt_dir,
+                criterion_id='C03', layer='browser_visible', boundary='first_usable',
+                editor_id=editor_id, lane=lane, env=warm_load_env,
+                samples_ms=reload_samples, cache_state='warm_steady',
+                diagnostic={'settle_ms':[p['warm'].get('settle_ms') for p in payload['pairs']],
+                    'clock_skew':[p['warm'].get('clock_skew') for p in payload['pairs']]})
+            if json.loads(warm_load_path.read_text()).get('outcome') != 'measured':
+                continue
             paired_rows.append(
                 _paired_summary_row(
                     criterion_id="C03",
@@ -786,7 +912,7 @@ def _main() -> int:
                     warm_median=median(reload_samples),
                     cause=cause_load,
                     cold_path=c03_cold_attempt_ref,
-                    warm_path=c03_cold_attempt_ref,
+                    warm_path=_attempt_ref(warm_load_path),
                     probes={**probe_bundle, **breakdown},
                 )
             )
@@ -837,7 +963,7 @@ def _main() -> int:
                 for pair in payload["pairs"]
                 if pair.get("warm", {}).get("single_edit_ms") is not None
             ]
-            if len(cold_edits) < args.pairs or len(warm_edits) < args.pairs:
+            if len(cold_edits) < len(payload["pairs"]) or len(warm_edits) < len(payload["pairs"]):
                 reason = "adapter-not-implemented: edit probe returned no timings"
                 for cid in ("C05", "C06"):
                     if cid not in criteria_map:
@@ -917,7 +1043,10 @@ def _main() -> int:
                 samples_ms=[float(s) for s in cold_edits],
                 cache_state="process_cold_fs_warm",
                 diagnostic={"suite": "warm_cold", "phase": "non_warm_edit",
-                            "warm_equals_cold": identical_edits},
+                            "warm_equals_cold": identical_edits,
+                            "mechanism": "cdp_screencast_changed_frame",
+                            "clock_skew": [p["cold"].get("clock_skew") for p in payload["pairs"]],
+                            "observations": [p["cold"] for p in payload["pairs"]]},
             )
             warm_path = _write_measured_attempt(
                 attempt_dir=attempt_dir,
@@ -930,9 +1059,15 @@ def _main() -> int:
                 samples_ms=[float(s) for s in warm_edits],
                 cache_state="warm_steady",
                 diagnostic={"suite": "warm_cold", "phase": "warm_edit",
-                            "warm_equals_cold": identical_edits},
+                            "warm_equals_cold": identical_edits,
+                            "mechanism": "cdp_screencast_changed_frame",
+                            "clock_skew": [p["warm"].get("clock_skew") for p in payload["pairs"]],
+                            "observations": [p["warm"] for p in payload["pairs"]]},
             )
 
+            if any(json.loads(path.read_text()).get('outcome') != 'measured'
+                   for path in (cold_path, warm_path)):
+                continue
             cause, breakdown = attribute_delta(median(cold_edits), median(warm_edits), probe_bundle)
             paired_rows.append(
                 _paired_summary_row(
@@ -959,8 +1094,8 @@ def _main() -> int:
                 if pair.get("warm", {}).get(C06_PROBE_KEY) is not None
             ]
             if (
-                len(cold_burst) >= args.pairs
-                and len(warm_burst) >= args.pairs
+                len(cold_burst) >= len(payload["pairs"])
+                and len(warm_burst) >= len(payload["pairs"])
                 and "C06" in criteria_map
             ):
                 assert_same_probe_paired(C06_PROBE_KEY, C06_PROBE_KEY)
@@ -996,6 +1131,8 @@ def _main() -> int:
                         "phase": "non_warm_burst",
                         "probe_key": C06_PROBE_KEY,
                         "warm_equals_cold": identical_burst,
+                        "mechanism": "cdp_screencast_changed_frame",
+                        "observations": [p["cold"].get("burst", []) for p in payload["pairs"]],
                     },
                 )
                 burst_path = _write_measured_attempt(
@@ -1013,8 +1150,13 @@ def _main() -> int:
                         "phase": "warm_burst",
                         "probe_key": C06_PROBE_KEY,
                         "warm_equals_cold": identical_burst,
+                        "mechanism": "cdp_screencast_changed_frame",
+                        "observations": [p["warm"].get("burst", []) for p in payload["pairs"]],
                     },
                 )
+                if any(json.loads(path.read_text()).get('outcome') != 'measured'
+                       for path in (c06_cold_path, burst_path)):
+                    continue
                 cause_burst, breakdown_burst = attribute_delta(
                     median(cold_burst), median(warm_burst), probe_bundle
                 )
