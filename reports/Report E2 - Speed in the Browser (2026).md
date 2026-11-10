@@ -94,9 +94,13 @@ not yet measured
 
 ### C14 — large-document scaling
 
+Each C14 size rung is a separate measure; rungs are never pooled.
+
 not yet measured
 
 ### C15 — search and replace
+
+Each C15 step is a separate measure; steps are never pooled.
 
 not yet measured
 

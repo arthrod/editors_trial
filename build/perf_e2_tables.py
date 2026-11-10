@@ -361,6 +361,17 @@ def unset_facts() -> dict:
     return facts
 
 
+def legacy_snapshot_facts(facts: dict) -> dict:
+    """A pre-E2 snapshot has no browser measurements, never implicit numbers.
+
+    Partial E2 snapshots remain strict: missing fields indicate corrupt or
+    stale measurement evidence and must still fail rendering.
+    """
+    if any(key.startswith('perf.e2.') for key in facts):
+        return facts
+    return {**unset_facts(), **facts}
+
+
 def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
     primary, repro = load_run(primary_dir), load_run(repro_dir)
     check_comparable(primary, repro)
