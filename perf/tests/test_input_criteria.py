@@ -106,7 +106,7 @@ def _entry(cid="C07", **overrides):
         "samples_ms": [18.5, 21.25, 19.0],
         "failure_reason": None,
         "assertion": {"name": "x", "passed": True, "scope": "s", "checks": {}, "failures": []},
-        "trial_hints": {"cache_state": "warm_steady", "repetition_unit": "fresh_process"},
+        "trial_hints": {"cache_state": "warm_steady", "repetition_unit": "in_process_iteration"},
         "observations": [{"frame_ms": 100.0}, {"frame_ms": 200.0}, {"frame_ms": 300.0}],
         "notes": [],
     }
@@ -121,7 +121,12 @@ def _payload(entries, witness=None):
         "criteria_requested": list(entries),
         "criteria": entries,
         "paint_witness": witness
-        or {"mechanism": PAINT_MECHANISM, "frames_seen": 12, "timeout_ms": 2000},
+        or {
+            "mechanism": PAINT_MECHANISM,
+            "frames_seen": 12,
+            "timeout_ms": 2000,
+            "frame_interval_ms": 16.667,
+        },
     }
 
 
