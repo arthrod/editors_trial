@@ -33,6 +33,7 @@ import {
   diffRatio,
   DEFAULT_CHANNEL_TOLERANCE,
   DEFAULT_MIN_PIXELS,
+  frameAckSettled,
 } from './witness.mjs';
 
 function convertFrameToPageMs(frame, clock) {
@@ -388,9 +389,11 @@ async function measureEdit(page, selector, cdp) {
         const snapshot=[...recorder.frames].sort((a,b)=>
           convertFrameToPageMs(a,clock)-convertFrameToPageMs(b,clock));
         for (const candidate of snapshot) {
-          if (candidate.ack !== 'acked' || !candidate.data) continue;
           const pageMs = convertFrameToPageMs(candidate,clock);
           if (pageMs === null || pageMs < markerMs || pageMs > markerMs + settleMaxWaitMs) continue;
+          if ((await frameAckSettled(candidate)) !== 'acked' || !candidate.data) {
+            throw new Error('snapshot_frame_unacknowledged');
+          }
           const classification = await classifier.classify(candidate.data);
           recorded.push({frame:candidate,pageMs,...classification});
           decision = settleFrames(recorded, {quietMs:quiescenceMs,maxWaitMs:settleMaxWaitMs,
