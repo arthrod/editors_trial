@@ -214,9 +214,18 @@ class PhaseSession:
 
     def edit(self, burst):
         self.edited = dict(burst)
+        text = str(burst.get("text") or "")
+        repetitions = int(burst.get("repetitions") or 0)
         if self.mode == "measure":
             self.world.set_heap(48 * MiB)
             self.world.burn_renderer_cpu_ms(400)
+            self._editor_text = text * repetitions
+            return {"applied": True, "editorText": self._editor_text}
+        self._editor_text = "ready"
+        return {"applied": False, "editorText": "ready"}
+
+    def editor_text(self):
+        return getattr(self, "_editor_text", "")
 
     def after_edits(self):
         if self.mode == "measure":

@@ -70,6 +70,9 @@ REFUSAL_CODES = (
     "js_heap_not_measured",
     "series_empty",
     "workload_not_on_ladder",
+    "edit_not_applied",
+    "process_counters_incomplete",
+    "longtask_unavailable",
 )
 
 PHASES = ("load", "after_load", "edit_burst", "quiescence", "after_edits", "save_export")
@@ -125,14 +128,44 @@ def _peak(series, key):
     return max(values)
 
 
+def _edit_applied(session, burst, result):
+    """Host ``edit_check`` wins, then the witness ``applied`` flag, then the DOM text."""
+    check = getattr(session, "edit_check", None)
+    if callable(check):
+        return bool(check())
+    if isinstance(result, dict) and "applied" in result:
+        return bool(result.get("applied"))
+    try:
+        repetitions = int((burst or {}).get("repetitions") or 0)
+    except (TypeError, ValueError):
+        repetitions = 0
+    expected = str((burst or {}).get("text") or "") * repetitions
+    text = ""
+    if isinstance(result, dict) and result.get("editorText") is not None:
+        text = str(result.get("editorText"))
+    else:
+        reader = getattr(session, "editor_text", None)
+        if callable(reader):
+            text = str(reader() or "")
+    if not expected:
+        return False
+    return expected in text
+
+
+def _record_gc(sampler, phase):
+    sample = sampler.sample_after_gc()
+    heap = sample.get("js_heap_used_bytes") if isinstance(sample, dict) else NOT_AVAILABLE
+    if not _is_int(heap):
+        heap = NOT_AVAILABLE
+    sampler.gc_heaps[phase] = heap
+
+
 def assemble_trial(
     sampler, *, quiescence_reached, quiescence, edit_burst, editor_id, workload_id,
-    workload_meta, execution_profile, host_class, save_phase,
+    workload_meta, execution_profile, host_class, save_phase, refusal_override=None,
 ):
     series = sampler.series()
-    code = _refusal_code(series, quiescence_reached=quiescence_reached)
-    if code is not None and code not in REFUSAL_CODES:
-        raise ValueError("refusal code is not closed: %s" % (code,))
+    code = refusal_override or _refusal_code(series, quiescence_reached=quiescence_reached)
     phases = {}
     for phase in ("load", "after_load", "edit_burst", "quiescence", "after_edits"):
         if any(row.get("phase") == phase for row in series):
@@ -141,6 +174,13 @@ def assemble_trial(
         phases["save_export"] = save_phase
     elif any(row.get("phase") == "save_export" for row in series):
         phases["save_export"] = sampler.totals("save_export")
+    if code is None:
+        for phase in phases.values():
+            if isinstance(phase, dict) and phase.get("process_accounting") == "incomplete":
+                code = "process_counters_incomplete"
+                break
+    if code is not None and code not in REFUSAL_CODES:
+        raise ValueError("refusal code is not closed: %s" % (code,))
     criteria = {}
     if "after_load" in phases:
         criteria["C17"] = {"phase": "after_load", **phases["after_load"]}
@@ -157,6 +197,19 @@ def assemble_trial(
             "growth_js_heap_used_bytes": growth_heap,
             "growth_rss_bytes": growth_rss,
         }
+    gc_heaps = getattr(sampler, "gc_heaps", None) or {}
+    if "C17" in criteria and "after_load" in gc_heaps:
+        criteria["C17"]["js_heap_used_bytes_after_gc"] = gc_heaps["after_load"]
+    if "C19" in criteria and ("after_load" in gc_heaps or "after_edits" in gc_heaps):
+        before_gc = gc_heaps.get("after_load", NOT_AVAILABLE)
+        after_gc = gc_heaps.get("after_edits", NOT_AVAILABLE)
+        criteria["C19"]["js_heap_used_bytes_after_gc"] = after_gc
+        if _is_int(before_gc) and _is_int(after_gc):
+            criteria["C19"]["retained_growth_js_heap_bytes"] = after_gc - before_gc
+            criteria["C19"]["retained_growth_refusal"] = None
+        else:
+            criteria["C19"]["retained_growth_js_heap_bytes"] = NOT_AVAILABLE
+            criteria["C19"]["retained_growth_refusal"] = "gc_unsupported"
     meta = workload_meta or {}
     static_server = series[-1]["static_server"] if series else {
         "pid": getattr(sampler.run, "static_server_pid", None),
@@ -185,8 +238,15 @@ def assemble_trial(
         "criteria": criteria,
         "peak_ram_bytes": _peak(series, "rss_bytes"),
         "peak_js_heap_used_bytes": _peak(series, "js_heap_used_bytes"),
+        "profile_directory_baseline": "before_load",
         "profile_directory_bytes_before": series[0]["profile_directory_bytes"] if series else NOT_AVAILABLE,
+        "profile_directory_bytes_before_load": series[0]["profile_directory_bytes"] if series else NOT_AVAILABLE,
         "profile_directory_bytes_after": series[-1]["profile_directory_bytes"] if series else NOT_AVAILABLE,
+        "profile_directory_growth_bytes": (
+            series[-1]["profile_directory_bytes"] - series[0]["profile_directory_bytes"]
+            if series and _is_int(series[0].get("profile_directory_bytes")) and _is_int(series[-1].get("profile_directory_bytes"))
+            else NOT_AVAILABLE
+        ),
         "bundle_bytes": series[-1]["bundle_bytes"] if series else NOT_AVAILABLE,
         "series": series,
         "field_sources": "perf.runner.resources.FIELD_SOURCES",
@@ -199,36 +259,51 @@ def collect_phases(
 ):
     save_phase = {"outcome": "not_applicable", "reason": "host_has_no_save"}
     reached = True
+    refusal_override = None
     if not already_sampled:
-        # Mark before the work, then sample after it. A phase that only
-        # samples once records a zero delta and hides the bytes or CPU the
-        # phase just spent.
-        sampler.mark("load")
-        session.load()
-        sampler.sample()
-        sampler.mark("after_load")
-        after_load = getattr(session, "after_load", None)
-        if after_load is not None:
-            after_load()
-        sampler.sample()
-        sampler.mark("edit_burst")
-        session.edit(edit_burst)
-        sampler.sample()
-        sampler.mark("quiescence")
-        reached = drive_quiescence(sampler, clock, quiescence)
-        sampler.mark("after_edits")
-        after_edits = getattr(session, "after_edits", None)
-        if after_edits is not None:
-            after_edits()
-        sampler.sample()
-        if getattr(session, "has_save", False):
-            sampler.mark("save_export")
-            session.save()
+        # Same settle before C17 and before C19. The natural sample is the
+        # endpoint. A forced GC sample is labelled and kept out of the series.
+        try:
+            sampler.mark("load")
+            session.load()
             sampler.sample()
-            save_phase = None
-        close = getattr(session, "close", None)
-        if close is not None:
-            close()
+            sampler.mark("after_load")
+            after_load = getattr(session, "after_load", None)
+            if after_load is not None:
+                after_load()
+            reached = drive_quiescence(sampler, clock, quiescence)
+            if not reached:
+                if getattr(sampler, "quiescence_block", None) == "longtask_unavailable":
+                    refusal_override = "longtask_unavailable"
+            else:
+                sampler.sample()
+                _record_gc(sampler, "after_load")
+                sampler.mark("edit_burst")
+                edited = session.edit(edit_burst)
+                sampler.sample()
+                if not _edit_applied(session, edit_burst, edited):
+                    refusal_override = "edit_not_applied"
+                else:
+                    after_edits = getattr(session, "after_edits", None)
+                    if after_edits is not None:
+                        after_edits()
+                    sampler.mark("quiescence")
+                    reached = drive_quiescence(sampler, clock, quiescence)
+                    if not reached:
+                        if getattr(sampler, "quiescence_block", None) == "longtask_unavailable":
+                            refusal_override = "longtask_unavailable"
+                    else:
+                        sampler.mark("after_edits")
+                        _record_gc(sampler, "after_edits")
+                        if getattr(session, "has_save", False):
+                            sampler.mark("save_export")
+                            session.save()
+                            sampler.sample()
+                            save_phase = None
+        finally:
+            close = getattr(session, "close", None)
+            if close is not None:
+                close()
     return assemble_trial(
         sampler,
         quiescence_reached=reached,
@@ -240,6 +315,7 @@ def collect_phases(
         execution_profile=execution_profile,
         host_class=host_class,
         save_phase=save_phase,
+        refusal_override=refusal_override,
     )
 
 
@@ -334,8 +410,23 @@ def measure_editor(
     return trial
 
 
+def _measured_groups(cells):
+    """Every editor/workload that appears, counted by measured cells only.
+
+    A failed group stays in the map at zero. Skipping non-measured cells would
+    drop that group and let the other editor publish alone.
+    """
+    groups = {}
+    for cell in cells:
+        key = (cell.get("editor_id"), cell.get("workload_id"))
+        groups.setdefault(key, 0)
+        if cell.get("outcome") == "measured":
+            groups[key] += 1
+    return groups
+
+
 def publication_verdict(cells, *, seeds, scheduled, execution_profile, host_class):
-    """30 scheduled, n >= 10 kept per editor and workload, two distinct seeds."""
+    """30 scheduled, n >= 10 measured per editor and workload, two distinct seeds."""
     reasons = []
     if execution_profile != "dedicated_publish":
         reasons.append("execution_profile_not_dedicated_publish")
@@ -343,12 +434,7 @@ def publication_verdict(cells, *, seeds, scheduled, execution_profile, host_clas
         reasons.append("host_class_not_publishable")
     if scheduled < 30:
         reasons.append("scheduled_below_30")
-    groups = {}
-    for cell in cells:
-        if cell.get("outcome") != "measured":
-            continue
-        key = (cell.get("editor_id"), cell.get("workload_id"))
-        groups[key] = groups.get(key, 0) + 1
+    groups = _measured_groups(cells)
     if not groups or any(count < 10 for count in groups.values()):
         reasons.append("kept_below_10")
     distinct = []
@@ -366,27 +452,123 @@ def publication_verdict(cells, *, seeds, scheduled, execution_profile, host_clas
     }
 
 
+def _companion_successful(summary, cells):
+    """A companion is a measurement run, not a pair-gate flag.
+
+    ``summary.publishable`` is the pair gate. The first seed is unpublished
+    until the second seed exists, so requiring that flag deadlocks the pair.
+    """
+    if not isinstance(summary, dict):
+        return False
+    if summary.get("failure_reason"):
+        return False
+    if summary.get("outcome") == "failed":
+        return False
+    return any(cell.get("outcome") == "measured" for cell in cells)
+
+
+def _provenance(profile, host_class, cells, hosts):
+    fixtures = tuple(sorted({
+        (cell.get("editor_id"), cell.get("workload_id"), cell.get("fixture_sha256"))
+        for cell in cells
+        if cell.get("outcome") == "measured"
+    }))
+    trees = []
+    if isinstance(hosts, dict):
+        for editor, info in hosts.items():
+            if isinstance(info, dict) and info.get("tree_sha256"):
+                trees.append((editor, info.get("tree_sha256")))
+    return (profile, host_class, fixtures, tuple(sorted(trees)))
+
+
+def _provenance_incomplete(cells, hosts):
+    editors = set()
+    for cell in cells:
+        if cell.get("outcome") != "measured":
+            continue
+        editors.add(cell.get("editor_id"))
+        if not cell.get("fixture_sha256"):
+            return True
+    present = {}
+    if isinstance(hosts, dict):
+        for editor, info in hosts.items():
+            if isinstance(info, dict) and info.get("tree_sha256"):
+                present[editor] = info["tree_sha256"]
+    return any(editor not in present for editor in editors)
+
+
 def publication_from_run(run):
-    cells = _resource_cells(run.directory)
-    seeds = [run.seed]
-    scheduled_runs = [len(cells)]
+    """Validate each run before pooling. Scheduled is the smaller run.
+
+    An empty companion must not be reported as scheduled 30, and its failed
+    gate must not disappear behind the primary run's measured cells.
+    """
+    primary_cells = _resource_cells(run.directory)
+    runs = [{
+        "cells": primary_cells,
+        "seed": getattr(run, "seed", None),
+        "profile": getattr(run, "execution_profile", None),
+        "host_class": getattr(run, "host_class", None),
+        "hosts": getattr(run, "hosts", None) or {},
+        "summary": None,
+    }]
+    extra = []
     companion = getattr(run, "companion_summary", None)
     if companion:
-        other = json.loads(Path(companion).read_text())
-        other_seed = other.get("seed")
-        if other_seed is not None and other_seed not in seeds:
-            seeds.append(other_seed)
-        other_cells = _resource_cells(Path(companion).parent)
-        scheduled_runs.append(len(other_cells))
-        cells.extend(other_cells)
-    scheduled = max(scheduled_runs) if scheduled_runs else 0
-    return publication_verdict(
+        try:
+            other = json.loads(Path(companion).read_text())
+        except (OSError, json.JSONDecodeError):
+            other = None
+        if not isinstance(other, dict):
+            other = {}
+            other_cells = []
+            extra.append("companion_not_successful")
+        else:
+            other_cells = _resource_cells(Path(companion).parent)
+            if not _companion_successful(other, other_cells):
+                extra.append("companion_not_successful")
+        runs.append({
+            "cells": other_cells,
+            "seed": other.get("seed"),
+            "profile": other.get("execution_profile"),
+            "host_class": other.get("host_class"),
+            "hosts": other.get("hosts") if isinstance(other.get("hosts"), dict) else {},
+            "summary": other,
+        })
+        if _provenance(runs[0]["profile"], runs[0]["host_class"], primary_cells, runs[0]["hosts"]) != _provenance(
+            runs[1]["profile"], runs[1]["host_class"], other_cells, runs[1]["hosts"],
+        ):
+            extra.append("companion_provenance_mismatch")
+        if _provenance_incomplete(primary_cells, runs[0]["hosts"]) or _provenance_incomplete(other_cells, runs[1]["hosts"]):
+            extra.append("provenance_incomplete")
+    elif _provenance_incomplete(primary_cells, runs[0]["hosts"]):
+        extra.append("provenance_incomplete")
+    for item in runs:
+        groups = _measured_groups(item["cells"])
+        if not groups or any(count < 10 for count in groups.values()):
+            if "kept_below_10" not in extra:
+                extra.append("kept_below_10")
+    cells = []
+    seeds = []
+    scheduled_runs = []
+    for item in runs:
+        cells.extend(item["cells"])
+        if item["seed"] is not None and item["seed"] not in seeds:
+            seeds.append(item["seed"])
+        scheduled_runs.append(len(item["cells"]))
+    scheduled = min(scheduled_runs) if scheduled_runs else 0
+    verdict = publication_verdict(
         cells,
         seeds=seeds,
         scheduled=scheduled,
         execution_profile=run.execution_profile,
         host_class=run.host_class,
     )
+    for reason in extra:
+        if reason not in verdict["publication_block_reasons"]:
+            verdict["publication_block_reasons"].append(reason)
+    verdict["publishable"] = not verdict["publication_block_reasons"]
+    return verdict
 
 
 def _resource_cells(directory):
@@ -542,11 +724,15 @@ class LiveSession:
         self._bridge.request("load", timeout=180)
 
     def edit(self, burst):
-        self._bridge.request("edit", {
+        params = {
             "selector": (self._target or {}).get("edit_selector") or "",
             "text": burst["text"],
             "repetitions": burst["repetitions"],
-        }, timeout=60)
+        }
+        check_js = (self._target or {}).get("check_js") or ""
+        if check_js:
+            params["checkJs"] = check_js
+        return self._bridge.request("edit", params, timeout=60)
 
     def save(self):
         self._bridge.request("save", {"selector": (self._target or {}).get("save_selector") or ""}, timeout=60)

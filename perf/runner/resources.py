@@ -4,12 +4,26 @@
 root pid the run launched, and records RAM, CPU, disk and network with the
 unit in the field name. Linux-only counters stay
 ``not_available_on_platform`` on other hosts. They are never stored as zero.
+A genuine numeric zero stays zero. ``AsyncResourceSampler`` is the same
+contract over an async page and CDP session: ``mark(phase)`` returns a sample
+and leaves that phase active, ``totals(phase)`` requires the phase.
+
+Field schema. ``js_heap_used_bytes`` is the natural CDP heap, in bytes.
+``js_heap_used_bytes_after_gc`` is a labelled sample taken after
+``HeapProfiler.collectGarbage`` and is not written into the natural series.
+``retained_growth_js_heap_bytes`` is the after-edit GC heap minus the
+after-load GC heap, in bytes. A failed or unsupported collection refuses only
+that field (``retained_growth_refusal`` = ``gc_unsupported``). ``cpu_percent``
+is summed over cores. ``network_encoded_bytes`` is wire bytes.
+``network_decoded_body_bytes`` is decoded body bytes. Cache hits stay in
+``network_from_disk_cache_bytes`` and ``network_from_service_worker_bytes``.
 
 The dev/static server is not the editor. Its pid is recorded and excluded.
 """
 
 from __future__ import annotations
 
+import copy
 import os
 from pathlib import Path
 import platform
@@ -21,12 +35,24 @@ from perf.runner.memory_tree import tree_pids
 NOT_AVAILABLE = "not_available_on_platform"
 
 PAGE_SNAPSHOT_JS = """async () => {
-  const est = (navigator.storage && navigator.storage.estimate)
-    ? await navigator.storage.estimate()
-    : {usage: 0, usageDetails: {}};
-  const details = est.usageDetails || {};
-  let localStorageBytes = 0;
+  let est = null;
+  if (navigator.storage && navigator.storage.estimate) {
+    try {
+      est = await navigator.storage.estimate();
+    } catch (err) {
+      est = null;
+    }
+  }
+  const details = est && est.usageDetails ? est.usageDetails : null;
+  const member = (source, name, alias) => {
+    if (!source) return null;
+    if (Object.prototype.hasOwnProperty.call(source, name)) return source[name];
+    if (alias && Object.prototype.hasOwnProperty.call(source, alias)) return source[alias];
+    return null;
+  };
+  let localStorageBytes = null;
   try {
+    localStorageBytes = 0;
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       const value = localStorage.getItem(key) || "";
@@ -35,17 +61,19 @@ PAGE_SNAPSHOT_JS = """async () => {
   } catch (err) {
     localStorageBytes = null;
   }
-  const tasks = window.__resourceLongTasks || {count: 0, sum: 0};
+  const tasks = window.__resourceLongTasks;
+  const longtaskKnown = !!(tasks && tasks.available !== false && tasks.count != null && tasks.sum != null);
   return {
-    usage: est.usage || 0,
-    usageDetails: {
-      indexedDB: details.indexedDB || 0,
-      caches: details.caches || details.cacheStorage || 0,
-      serviceWorkerRegistrations: details.serviceWorkerRegistrations || details.serviceWorker || 0,
-    },
+    usage: est && est.usage != null ? est.usage : null,
+    usageDetails: details ? {
+      indexedDB: member(details, "indexedDB"),
+      caches: member(details, "caches", "cacheStorage"),
+      serviceWorkerRegistrations: member(details, "serviceWorkerRegistrations", "serviceWorker"),
+    } : null,
     localStorageBytes,
-    longtaskCount: tasks.count || 0,
-    longtaskSumMs: tasks.sum || 0,
+    longtaskCount: longtaskKnown ? tasks.count : null,
+    longtaskSumMs: longtaskKnown ? tasks.sum : null,
+    longtaskReason: longtaskKnown ? null : ((tasks && tasks.reason) || "longtask_unavailable"),
   };
 }"""
 
@@ -70,7 +98,7 @@ FIELD_SOURCES = {
     "pss_bytes": "Linux /proc/<pid>/smaps_rollup Pss, bytes; not_available_on_platform elsewhere",
     "uss_bytes": "Linux smaps_rollup Private_Clean + Private_Dirty, bytes; not_available_on_platform elsewhere",
     "cpu_ms": "cumulative user+system CPU, Linux /proc/<pid>/stat utime+stime or macOS ps time, ms",
-    "cpu_percent": "CPU ms over wall ms since the previous sample, percent",
+    "cpu_percent": "CPU ms over wall ms since the previous sample, percent, summed over cores (250% = 2.5 cores), not capped at 100",
     "renderer_cpu_ms": "delta of renderer cpu_ms across a phase, ms",
     "io_read_bytes": "Linux /proc/<pid>/io read_bytes; not_available_on_platform elsewhere",
     "io_write_bytes": "Linux /proc/<pid>/io write_bytes; not_available_on_platform elsewhere",
@@ -82,7 +110,7 @@ FIELD_SOURCES = {
     "network_encoded_bytes": "CDP Network.loadingFinished encodedDataLength sum, bytes",
     "network_request_count": "count of Network.loadingFinished events",
     "profile_directory_bytes": "byte size of the browser profile directory",
-    "bundle_bytes": "byte size of the built bundle the host serves",
+    "bundle_bytes": "on-disk recursive footprint of the built bundle, not bytes served",
     "cgroup_cpu_usec": "cgroup v2 cpu.stat usage_usec",
     "cgroup_memory_current_bytes": "cgroup v2 memory.current, bytes",
     "cgroup_memory_peak_bytes": "cgroup v2 memory.peak, bytes",
@@ -140,6 +168,27 @@ def parse_ps_time(text):
         raise ValueError("ps time")
     total = days * 86400 + int(hours) * 3600 + int(minutes) * 60 + float(seconds)
     return int(round(total * 1000))
+
+
+def parse_ps_lstart(text):
+    """Parse ``ps -axww -o pid=,lstart=``. ``lstart`` is ctime and may contain spaces.
+
+    ``etime`` changes every second and is not a stable identity. This parser
+    never reads it.
+    """
+    found = {}
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        pid_text, _, started = stripped.partition(" ")
+        try:
+            pid = int(pid_text)
+        except ValueError:
+            continue
+        if started.strip():
+            found[pid] = started.strip()
+    return found
 
 
 def parse_ps_resource_table(text):
@@ -207,6 +256,8 @@ def parse_linux_process(*, pid, stat, cmdline, status, io_text, rollup, hz):
     ppid = int(rest[1])
     utime = int(rest[11])
     stime = int(rest[12])
+    # Field 22 (starttime) is rest[19]. A short stat has no stable start tick.
+    start_time = int(rest[19]) if len(rest) > 19 else None
     rss_kb = _kb_field(status, "VmRSS")
     pss_kb = _kb_field(rollup, "Pss") if rollup else None
     private_clean = _kb_field(rollup, "Private_Clean") if rollup else None
@@ -226,6 +277,7 @@ def parse_linux_process(*, pid, stat, cmdline, status, io_text, rollup, hz):
         "io_read_bytes": _io_field(io_text, "read_bytes"),
         "io_write_bytes": _io_field(io_text, "write_bytes"),
         "role": role_of(cmdline),
+        "start_time": start_time,
     }
 
 
@@ -386,7 +438,17 @@ def _default_process_reader(platform_name):
         )
         if proc.returncode != 0:
             raise RuntimeError((proc.stderr or "").strip()[:300])
-        return parse_ps_resource_table(proc.stdout or "")
+        rows = parse_ps_resource_table(proc.stdout or "")
+        started = subprocess.run(
+            ["ps", "-axww", "-o", "pid=,lstart="],
+            capture_output=True, text=True, timeout=10, check=False,
+        )
+        if started.returncode == 0:
+            lstarts = parse_ps_lstart(started.stdout or "")
+            for row in rows:
+                if row["pid"] in lstarts:
+                    row["start_time"] = lstarts[row["pid"]]
+        return rows
 
     return read_ps
 
@@ -467,11 +529,20 @@ def _window_quiet(samples, now, declaration):
 
 
 def drive_quiescence(sampler, clock, declaration):
-    """Sample until the declared settle holds, or ``max_wait_s`` elapses."""
+    """Sample until the declared settle holds, or ``max_wait_s`` elapses.
+
+    An unknown long-task count cannot prove quiet. That refuses immediately
+    instead of treating a synthesized zero as two seconds of silence.
+    """
     start = clock.monotonic()
+    sampler.quiescence_block = None
     while True:
         sampler.sample()
         now = clock.monotonic()
+        last = sampler.series()[-1]
+        if not _is_int(last.get("longtask_count")):
+            sampler.quiescence_block = "longtask_unavailable"
+            return False
         if _window_quiet(sampler.series(), now, declaration):
             return True
         if now - start >= float(declaration["max_wait_s"]):
@@ -487,11 +558,220 @@ def _delta(first, last, key):
     return NOT_AVAILABLE
 
 
+def _optional_number(value):
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(round(value))
+    return None
+
+
+def _detail_number(details, name, alias=None):
+    if not isinstance(details, dict):
+        return NOT_AVAILABLE
+    if name in details:
+        raw = details[name]
+    elif alias and alias in details:
+        raw = details[alias]
+    else:
+        return NOT_AVAILABLE
+    parsed = _optional_number(raw)
+    if parsed is None:
+        return NOT_AVAILABLE
+    return parsed
+
+
+def storage_from_snapshot(snap):
+    """Storage and long-task fields. Missing keys stay unavailable, never zero."""
+    missing = {
+        "storage_usage_bytes": NOT_AVAILABLE,
+        "storage_indexeddb_bytes": NOT_AVAILABLE,
+        "storage_cache_bytes": NOT_AVAILABLE,
+        "storage_service_worker_bytes": NOT_AVAILABLE,
+        "local_storage_bytes": NOT_AVAILABLE,
+        "longtask_count": NOT_AVAILABLE,
+        "longtask_sum_ms": NOT_AVAILABLE,
+    }
+    if not isinstance(snap, dict) or not snap:
+        return missing
+    if "usage" in snap:
+        parsed = _optional_number(snap.get("usage"))
+        missing["storage_usage_bytes"] = parsed if parsed is not None else NOT_AVAILABLE
+    details = snap.get("usageDetails") if "usageDetails" in snap else None
+    missing["storage_indexeddb_bytes"] = _detail_number(details, "indexedDB")
+    missing["storage_cache_bytes"] = _detail_number(details, "caches", "cacheStorage")
+    missing["storage_service_worker_bytes"] = _detail_number(
+        details, "serviceWorkerRegistrations", "serviceWorker",
+    )
+    if "localStorageBytes" in snap:
+        parsed = _optional_number(snap.get("localStorageBytes"))
+        missing["local_storage_bytes"] = parsed if parsed is not None else NOT_AVAILABLE
+    if "longtaskCount" in snap:
+        parsed = _optional_number(snap.get("longtaskCount"))
+        missing["longtask_count"] = parsed if parsed is not None else NOT_AVAILABLE
+    if "longtaskSumMs" in snap:
+        parsed = _optional_number(snap.get("longtaskSumMs"))
+        missing["longtask_sum_ms"] = parsed if parsed is not None else NOT_AVAILABLE
+    return missing
+
+
+def _network_unavailable(reason):
+    return {
+        "network_encoded_bytes": NOT_AVAILABLE,
+        "network_request_count": NOT_AVAILABLE,
+        "network_decoded_body_bytes": NOT_AVAILABLE,
+        "network_from_disk_cache_bytes": NOT_AVAILABLE,
+        "network_from_service_worker_bytes": NOT_AVAILABLE,
+        "network_observation": "incomplete",
+        "network_observation_reason": reason,
+    }
+
+
+def account_network(payload):
+    """Recompute wire, decoded, and cache bytes from one full event list.
+
+    A bare list is a complete page observation (older sessions). A dict with
+    ``worker_observation`` other than ``ok`` refuses every numeric field:
+    a page-only total must not stand in for a worker that was not observed.
+    Cache-hit wire length may be zero and is not replaced with the decoded body.
+    """
+    if isinstance(payload, dict):
+        observation = payload.get("worker_observation") or "ok"
+        if observation != "ok":
+            reason = payload.get("worker_observation_reason") or payload.get("reason") or "worker_targets_unobserved"
+            return _network_unavailable(reason)
+        events = payload.get("events") or []
+    elif isinstance(payload, list):
+        events = payload
+    else:
+        return _network_unavailable("cdp_events_unavailable")
+    encoded = 0
+    count = 0
+    decoded = 0
+    decoded_complete = True
+    disk = 0
+    worker = 0
+    seen = set()
+    for event in events:
+        if not isinstance(event, dict):
+            continue
+        request_id = event.get("requestId")
+        if request_id is not None:
+            if request_id in seen:
+                continue
+            seen.add(request_id)
+        try:
+            wire = int(event.get("encodedDataLength") or 0)
+        except (TypeError, ValueError):
+            continue
+        encoded += wire
+        count += 1
+        from_disk = bool(event.get("fromDiskCache"))
+        from_worker = bool(event.get("fromServiceWorker"))
+        if "decodedBodyBytes" not in event or event.get("decodedBodyBytes") is None:
+            decoded_complete = False
+            continue
+        try:
+            body = int(event["decodedBodyBytes"])
+        except (TypeError, ValueError):
+            decoded_complete = False
+            continue
+        decoded += body
+        if from_disk:
+            disk += body
+        if from_worker:
+            worker += body
+    return {
+        "network_encoded_bytes": encoded,
+        "network_request_count": count,
+        "network_decoded_body_bytes": decoded if decoded_complete else NOT_AVAILABLE,
+        "network_from_disk_cache_bytes": disk if decoded_complete else NOT_AVAILABLE,
+        "network_from_service_worker_bytes": worker if decoded_complete else NOT_AVAILABLE,
+        "network_observation": "ok",
+        "network_observation_reason": None,
+    }
+
+
+def _process_identity(row):
+    return (row.get("pid"), row.get("start_time"))
+
+
+def _process_list(sample):
+    return list(sample.get("processes") or [])
+
+
+def process_accounting_status(rows):
+    """``incomplete`` when an identity disappears or a numeric counter goes backwards.
+
+    A counter that is unavailable on this platform (the marker, not an int)
+    does not make the phase incomplete. A process that appears only on the
+    last sample is new, not an exit.
+    """
+    if not rows:
+        return "complete"
+    last_ids = {_process_identity(row) for row in _process_list(rows[-1])}
+    first_seen = {}
+    for index, sample in enumerate(rows):
+        for proc in _process_list(sample):
+            identity = _process_identity(proc)
+            if index < len(rows) - 1 and identity not in last_ids:
+                return "incomplete"
+            previous = first_seen.get(identity)
+            if previous is None:
+                first_seen[identity] = proc
+                continue
+            for key in ("cpu_ms", "io_read_bytes", "io_write_bytes"):
+                before = previous.get(key)
+                after = proc.get(key)
+                if _is_int(before) and _is_int(after) and after < before:
+                    return "incomplete"
+    return "complete"
+
+
+def _identity_delta(rows, key, *, role=None):
+    """Sum per-identity deltas. Exits and regressions are incomplete, not zero."""
+    status = process_accounting_status(rows)
+    if status == "incomplete":
+        return NOT_AVAILABLE, status
+    if not rows:
+        return NOT_AVAILABLE, status
+    first = {}
+    for proc in _process_list(rows[0]):
+        first[_process_identity(proc)] = proc
+    total = 0
+    saw = False
+    unavailable = False
+    for proc in _process_list(rows[-1]):
+        if role is not None and proc.get("role") != role:
+            continue
+        previous = first.get(_process_identity(proc))
+        if previous is None:
+            continue
+        if role is not None and previous.get("role") != role:
+            continue
+        before = previous.get(key)
+        after = proc.get(key)
+        if not _is_int(before) or not _is_int(after):
+            unavailable = True
+            continue
+        total += after - before
+        saw = True
+    if unavailable or not saw:
+        return NOT_AVAILABLE, status
+    return total, status
+
+
 def _renderer_cpu(sample):
     total = 0
+    saw = False
     for row in sample.get("processes") or []:
         if row.get("role") == "renderer" and _is_int(row.get("cpu_ms")):
             total += row["cpu_ms"]
+            saw = True
+    if not saw:
+        return NOT_AVAILABLE
     return total
 
 
@@ -499,6 +779,12 @@ def phase_totals(rows):
     first, last = rows[0], rows[-1]
     rss_values = [row["rss_bytes"] for row in rows if _is_int(row.get("rss_bytes"))]
     heap_values = [row["js_heap_used_bytes"] for row in rows if _is_int(row.get("js_heap_used_bytes"))]
+    renderer_cpu, status = _identity_delta(rows, "cpu_ms", role="renderer")
+    cpu_ms, cpu_status = _identity_delta(rows, "cpu_ms")
+    io_read, _io_status = _identity_delta(rows, "io_read_bytes")
+    io_write, _io_write_status = _identity_delta(rows, "io_write_bytes")
+    if "incomplete" in (status, cpu_status):
+        status = "incomplete"
     return {
         "sample_count": len(rows),
         "js_heap_used_bytes": last.get("js_heap_used_bytes"),
@@ -507,8 +793,9 @@ def phase_totals(rows):
         "rss_bytes": last.get("rss_bytes"),
         "peak_rss_bytes": max(rss_values) if rss_values else NOT_AVAILABLE,
         "peak_js_heap_used_bytes": max(heap_values) if heap_values else NOT_AVAILABLE,
-        "renderer_cpu_ms": _renderer_cpu(last) - _renderer_cpu(first),
-        "cpu_ms": _delta(first, last, "cpu_ms"),
+        "renderer_cpu_ms": renderer_cpu,
+        "cpu_ms": cpu_ms,
+        "process_accounting": status,
         "task_duration_ms": _delta(first, last, "task_duration_ms"),
         "script_duration_ms": _delta(first, last, "script_duration_ms"),
         "layout_duration_ms": _delta(first, last, "layout_duration_ms"),
@@ -517,8 +804,8 @@ def phase_totals(rows):
         "longtask_sum_ms": _delta(first, last, "longtask_sum_ms"),
         "network_encoded_bytes": _delta(first, last, "network_encoded_bytes"),
         "network_request_count": _delta(first, last, "network_request_count"),
-        "io_read_bytes": _delta(first, last, "io_read_bytes"),
-        "io_write_bytes": _delta(first, last, "io_write_bytes"),
+        "io_read_bytes": io_read,
+        "io_write_bytes": io_write,
         "storage_usage_bytes": last.get("storage_usage_bytes"),
         "storage_indexeddb_bytes": last.get("storage_indexeddb_bytes"),
         "storage_cache_bytes": last.get("storage_cache_bytes"),
@@ -544,18 +831,30 @@ class ResourceSampler:
         self._net_count = 0
         self._enabled = False
         self._bundle_bytes = None
+        self._network_account = account_network([])
+        self.quiescence_block = None
+        self.gc_heaps = {}
 
     def mark(self, phase):
         self._phase = phase
         return self.sample()
 
-    def sample(self):
+    def sample(self, record=True):
         row = self._observe()
-        self._samples.append(row)
+        if record:
+            self._samples.append(row)
         return row
 
+    def sample_after_gc(self):
+        """Forced-GC heap for a labelled endpoint. Never appended to the series."""
+        try:
+            self.cdp.send("HeapProfiler.collectGarbage")
+        except Exception:
+            return None
+        return self.sample(record=False)
+
     def series(self):
-        return [dict(row) for row in self._samples]
+        return [copy.deepcopy(row) for row in self._samples]
 
     def totals(self, phase):
         rows = [row for row in self._samples if row.get("phase") == phase]
@@ -579,6 +878,7 @@ class ResourceSampler:
         heap = self._heap()
         storage = self._storage()
         network_bytes, network_count = self._network()
+        network = self._network_account
         processes, status, read_error = self._processes()
         cgroup = self._cgroup(processes)
         rss_values = [row["rss_bytes"] for row in processes if _is_int(row.get("rss_bytes"))]
@@ -588,7 +888,7 @@ class ResourceSampler:
         io_read, io_write = _sum_optional(processes, "io_read_bytes"), _sum_optional(processes, "io_write_bytes")
         pss, uss = _sum_optional(processes, "pss_bytes"), _sum_optional(processes, "uss_bytes")
         previous = self._samples[-1] if self._samples else None
-        cpu_percent = _cpu_percent(previous, now, cpu_ms)
+        cpu_percent, cpu_percent_by_role = _annotate_cpu_percent(processes, previous, now)
         gap, gap_large = _gap(rss_bytes, cgroup.get("cgroup_memory_current_bytes"))
         browser_pid = getattr(self.run, "editor_browser_pid", None)
         server_pid = getattr(self.run, "static_server_pid", None)
@@ -616,11 +916,17 @@ class ResourceSampler:
             "local_storage_bytes": storage["local_storage_bytes"],
             "network_encoded_bytes": network_bytes,
             "network_request_count": network_count,
+            "network_decoded_body_bytes": network.get("network_decoded_body_bytes", NOT_AVAILABLE),
+            "network_from_disk_cache_bytes": network.get("network_from_disk_cache_bytes", NOT_AVAILABLE),
+            "network_from_service_worker_bytes": network.get("network_from_service_worker_bytes", NOT_AVAILABLE),
+            "network_observation": network.get("network_observation", "ok"),
+            "network_observation_reason": network.get("network_observation_reason"),
             "rss_bytes": rss_bytes,
             "pss_bytes": pss,
             "uss_bytes": uss,
             "cpu_ms": cpu_ms,
             "cpu_percent": cpu_percent,
+            "cpu_percent_by_role": cpu_percent_by_role,
             "io_read_bytes": io_read,
             "io_write_bytes": io_write,
             "processes": processes,
@@ -679,55 +985,23 @@ class ResourceSampler:
         return missing
 
     def _storage(self):
-        missing = {
-            "storage_usage_bytes": NOT_AVAILABLE,
-            "storage_indexeddb_bytes": NOT_AVAILABLE,
-            "storage_cache_bytes": NOT_AVAILABLE,
-            "storage_service_worker_bytes": NOT_AVAILABLE,
-            "local_storage_bytes": NOT_AVAILABLE,
-            "longtask_count": NOT_AVAILABLE,
-            "longtask_sum_ms": NOT_AVAILABLE,
-        }
         try:
             snap = self.page.evaluate(PAGE_SNAPSHOT_JS)
         except Exception:
-            return missing
-        if not isinstance(snap, dict):
-            return missing
-        details = snap.get("usageDetails") or {}
-        local = snap.get("localStorageBytes")
-        try:
-            missing.update({
-                "storage_usage_bytes": int(snap.get("usage") or 0),
-                "storage_indexeddb_bytes": int(details.get("indexedDB") or 0),
-                "storage_cache_bytes": int(details.get("caches") or 0),
-                "storage_service_worker_bytes": int(details.get("serviceWorkerRegistrations") or 0),
-                "local_storage_bytes": NOT_AVAILABLE if local is None else int(local),
-                "longtask_count": int(snap.get("longtaskCount") or 0),
-                "longtask_sum_ms": int(round(float(snap.get("longtaskSumMs") or 0))),
-            })
-        except (TypeError, ValueError):
-            return missing
-        return missing
+            snap = None
+        return storage_from_snapshot(snap)
 
     def _network(self):
         try:
-            events = self.cdp.events("Network.loadingFinished") or []
+            payload = self.cdp.events("Network.loadingFinished")
         except Exception:
-            events = []
-        for event in events:
-            if not isinstance(event, dict):
-                continue
-            request_id = event.get("requestId")
-            if request_id in self._seen_requests:
-                continue
-            self._seen_requests.add(request_id)
-            try:
-                self._net_bytes += int(event.get("encodedDataLength") or 0)
-            except (TypeError, ValueError):
-                continue
-            self._net_count += 1
-        return self._net_bytes, self._net_count
+            payload = None
+        if payload is None:
+            self._network_account = _network_unavailable("cdp_events_unavailable")
+        else:
+            self._network_account = account_network(payload)
+        account = self._network_account
+        return account["network_encoded_bytes"], account["network_request_count"]
 
     def _processes(self):
         browser_pid = getattr(self.run, "editor_browser_pid", None)
@@ -786,6 +1060,7 @@ def _normalize_process(row, platform_name):
         "rss_bytes": int(row["rss_bytes"]) if _is_int(row.get("rss_bytes")) else NOT_AVAILABLE,
         "cpu_ms": int(row["cpu_ms"]) if _is_int(row.get("cpu_ms")) else NOT_AVAILABLE,
         "role": role_of(row.get("cmdline") or ""),
+        "start_time": row.get("start_time"),
     }
     for key in _LINUX_ONLY:
         value = row.get(key, NOT_AVAILABLE)
@@ -813,9 +1088,139 @@ def _cpu_percent(previous, now, cpu_ms):
     return (cpu_ms - previous["cpu_ms"]) / wall_ms * 100.0
 
 
+def _annotate_cpu_percent(processes, previous, now):
+    """Per-process and per-role percents. A lost identity makes the sample percent None.
+
+    Percents are summed across cores. 250 means two and a half cores, not a cap at 100.
+    """
+    previous_rows = {}
+    if previous is not None:
+        for row in previous.get("processes") or []:
+            previous_rows[_process_identity(row)] = row
+    wall_ms = None
+    if previous is not None:
+        wall_ms = (now - previous["monotonic_s"]) * 1000.0
+    current_ids = {_process_identity(row) for row in processes}
+    lost_roles = set()
+    lost = False
+    if previous is not None:
+        for identity, row in previous_rows.items():
+            if identity not in current_ids:
+                lost = True
+                lost_roles.add(row.get("role"))
+    by_role = {}
+    for row in processes:
+        prior = previous_rows.get(_process_identity(row))
+        percent = None
+        if prior is not None and wall_ms is not None and wall_ms > 0:
+            before = prior.get("cpu_ms")
+            after = row.get("cpu_ms")
+            if _is_int(before) and _is_int(after):
+                percent = (after - before) / wall_ms * 100.0
+        row["cpu_percent"] = percent
+        role = row.get("role")
+        if role in lost_roles or percent is None:
+            if previous is not None:
+                by_role[role] = None
+            continue
+        if by_role.get(role) is None and role in by_role:
+            continue
+        by_role[role] = (by_role.get(role) or 0) + percent
+    if lost or previous is None:
+        return None, by_role
+    percents = [row.get("cpu_percent") for row in processes]
+    if any(percent is None for percent in percents):
+        return None, by_role
+    if not percents:
+        return None, by_role
+    return sum(percents), by_role
+
+
 def _gap(rss_bytes, cgroup_bytes):
     if not _is_int(rss_bytes) or not _is_int(cgroup_bytes):
         return NOT_AVAILABLE, NOT_AVAILABLE
     gap = abs(cgroup_bytes - rss_bytes)
     threshold = max(_GAP_BYTES, int(0.25 * max(cgroup_bytes, rss_bytes)))
     return gap, gap > threshold
+
+
+class _SyncFacade:
+    """Sync stand-in filled from one awaited prefetch. Accounting stays in ResourceSampler."""
+
+    def __init__(self):
+        self.send_results = {}
+        self.send_errors = {}
+        self.eval_result = None
+        self.eval_error = None
+        self.events_result = None
+        self.events_error = None
+
+    def send(self, method, params=None):
+        if method in self.send_errors:
+            raise self.send_errors[method]
+        if method not in self.send_results:
+            raise AssertionError(method)
+        return self.send_results[method]
+
+    def evaluate(self, expression):
+        if self.eval_error is not None:
+            raise self.eval_error
+        return self.eval_result
+
+    def events(self, method):
+        if self.events_error is not None:
+            raise self.events_error
+        return self.events_result
+
+
+class AsyncResourceSampler(ResourceSampler):
+    """Same phase contract as ``ResourceSampler`` for an async page and CDP session.
+
+    ``mark(phase)`` samples and leaves ``phase`` active. ``totals(phase)`` requires
+    the phase. ``series()`` is synchronous. Transport waits happen before the
+    shared sync accounting path runs.
+    """
+
+    def __init__(self, run, page, cdp, **kwargs):
+        self._async_page = page
+        self._async_cdp = cdp
+        super().__init__(run, _SyncFacade(), _SyncFacade(), **kwargs)
+
+    async def mark(self, phase):
+        self._phase = phase
+        return await self.sample()
+
+    async def sample(self, record=True):
+        await self._prefetch()
+        return super().sample(record=record)
+
+    async def sample_after_gc(self):
+        try:
+            await self._async_cdp.send("HeapProfiler.collectGarbage")
+        except Exception:
+            return None
+        return await self.sample(record=False)
+
+    async def _prefetch(self):
+        page = self.page
+        cdp = self.cdp
+        cdp.send_results = {}
+        cdp.send_errors = {}
+        methods = ["Performance.getMetrics", "Runtime.getHeapUsage"]
+        if not self._enabled:
+            methods = ["Performance.enable", "Network.enable", *methods]
+        for method in methods:
+            try:
+                cdp.send_results[method] = await self._async_cdp.send(method)
+            except Exception as exc:
+                cdp.send_errors[method] = exc
+        try:
+            page.eval_result = await self._async_page.evaluate(PAGE_SNAPSHOT_JS)
+            page.eval_error = None
+        except Exception as exc:
+            page.eval_error = exc
+        try:
+            cdp.events_result = await self._async_cdp.events("Network.loadingFinished")
+            cdp.events_error = None
+        except Exception as exc:
+            cdp.events_error = exc

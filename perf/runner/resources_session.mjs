@@ -22,6 +22,18 @@ let cdp = null;
 let opts = {};
 const networkEvents = [];
 const seenRequests = new Set();
+const requestState = new Map();
+const pendingEnables = new Set();
+let workerObservation = 'ok';
+let workerObservationReason = null;
+let cdpId = 1;
+
+const WORKER_TYPES = new Set(['service_worker', 'worker', 'shared_worker']);
+const WORKER_FILTER = [
+  { type: 'service_worker' },
+  { type: 'worker' },
+  { type: 'shared_worker' },
+];
 
 function reply(id, result) {
   process.stdout.write(`${JSON.stringify({ id, result })}\n`);
@@ -63,17 +75,31 @@ async function onLaunch(params) {
     args: ['--font-render-hinting=none', '--disable-lcd-text'],
   });
   await context.addInitScript(() => {
-    window.__resourceLongTasks = { count: 0, sum: 0 };
+    window.__resourceLongTasks = { count: 0, sum: 0, available: true };
     try {
-      const obs = new PerformanceObserver((list) => {
-        for (const entry of list.getEntries()) {
-          window.__resourceLongTasks.count += 1;
-          window.__resourceLongTasks.sum += entry.duration;
-        }
-      });
-      obs.observe({ type: 'longtask', buffered: true });
+      if (typeof PerformanceObserver !== 'function') {
+        window.__resourceLongTasks = {
+          available: false,
+          reason: 'longtask_observer_failed',
+          count: null,
+          sum: null,
+        };
+      } else {
+        const obs = new PerformanceObserver((list) => {
+          for (const entry of list.getEntries()) {
+            window.__resourceLongTasks.count += 1;
+            window.__resourceLongTasks.sum += entry.duration;
+          }
+        });
+        obs.observe({ type: 'longtask', buffered: true });
+      }
     } catch {
-      /* longtask is not implemented in every engine */
+      window.__resourceLongTasks = {
+        available: false,
+        reason: 'longtask_observer_failed',
+        count: null,
+        sum: null,
+      };
     }
   });
   const corpusRoute = params.corpusRoute || '/corpus.docx';
@@ -91,18 +117,140 @@ async function onLaunch(params) {
   });
   page = context.pages()[0] || await context.newPage();
   cdp = await context.newCDPSession(page);
+  cdp.on('Network.responseReceived', (event) => {
+    noteCdpEvent('Network.responseReceived', event, 'page');
+  });
+  cdp.on('Network.dataReceived', (event) => {
+    noteCdpEvent('Network.dataReceived', event, 'page');
+  });
   cdp.on('Network.loadingFinished', (event) => {
-    const requestId = event.requestId;
-    if (!requestId || seenRequests.has(requestId)) return;
-    seenRequests.add(requestId);
-    networkEvents.push({
-      requestId,
-      encodedDataLength: event.encodedDataLength || 0,
-    });
+    noteCdpEvent('Network.loadingFinished', event, 'page');
   });
   await cdp.send('Performance.enable');
   await cdp.send('Network.enable');
+  await watchWorkers(context, cdp);
   return { browserPid: launchedBrowserPid(context) };
+}
+
+function rememberRequest(requestId, patch) {
+  const prior = requestState.get(requestId) || {};
+  requestState.set(requestId, { ...prior, ...patch });
+}
+
+function noteCdpEvent(method, params, targetType) {
+  if (!params) return;
+  const requestId = params.requestId;
+  if (!requestId) return;
+  if (method === 'Network.responseReceived') {
+    const response = params.response || {};
+    rememberRequest(requestId, {
+      fromDiskCache: Boolean(response.fromDiskCache),
+      fromServiceWorker: Boolean(response.fromServiceWorker),
+      targetType,
+    });
+    return;
+  }
+  if (method === 'Network.dataReceived') {
+    const prior = requestState.get(requestId) || {};
+    const added = Number(params.dataLength);
+    const body = Number.isFinite(added) ? added : 0;
+    rememberRequest(requestId, {
+      sawDecoded: true,
+      decodedBodyBytes: Number(prior.decodedBodyBytes || 0) + body,
+      targetType: prior.targetType || targetType,
+    });
+    return;
+  }
+  if (method !== 'Network.loadingFinished' || seenRequests.has(requestId)) return;
+  seenRequests.add(requestId);
+  const prior = requestState.get(requestId) || {};
+  const encoded = Number(params.encodedDataLength);
+  const row = {
+    requestId,
+    encodedDataLength: Number.isFinite(encoded) ? encoded : 0,
+    fromDiskCache: Boolean(prior.fromDiskCache),
+    fromServiceWorker: Boolean(prior.fromServiceWorker),
+    targetType: targetType || prior.targetType || 'page',
+  };
+  if (prior.sawDecoded) row.decodedBodyBytes = prior.decodedBodyBytes;
+  networkEvents.push(row);
+}
+
+function markWorkersUnobserved(reason) {
+  workerObservation = 'failed';
+  workerObservationReason = reason || 'worker_targets_unobserved';
+}
+
+async function sendToTarget(session, sessionId, method, params) {
+  const id = cdpId;
+  cdpId += 1;
+  pendingEnables.add(id);
+  await session.send('Target.sendMessageToTarget', {
+    sessionId,
+    message: JSON.stringify({ id, method, params: params || {} }),
+  });
+}
+
+function consumeTargetMessage(payload) {
+  let parsed = null;
+  try {
+    parsed = JSON.parse(payload && payload.message ? payload.message : '');
+  } catch {
+    parsed = null;
+  }
+  if (!parsed) return;
+  if (parsed.id != null) pendingEnables.delete(parsed.id);
+  if (!parsed.method) return;
+  noteCdpEvent(parsed.method, parsed.params || {}, 'worker');
+}
+
+async function attachWorkers(session) {
+  session.on('Target.attachedToTarget', (event) => {
+    const info = event.targetInfo || {};
+    if (!WORKER_TYPES.has(info.type)) return;
+    const sessionId = event.sessionId;
+    sendToTarget(session, sessionId, 'Network.enable')
+      .then(() => {
+        if (event.waitingForDebugger) {
+          return sendToTarget(session, sessionId, 'Runtime.runIfWaitingForDebugger');
+        }
+        return null;
+      })
+      .catch(() => {
+        markWorkersUnobserved('worker_targets_unobserved');
+      });
+  });
+  session.on('Target.receivedMessageFromTarget', (event) => {
+    consumeTargetMessage(event);
+  });
+  await session.send('Target.setAutoAttach', {
+    autoAttach: true,
+    waitForDebuggerOnStart: false,
+    flatten: false,
+    filter: WORKER_FILTER,
+  });
+}
+
+async function watchWorkers(browserContext, pageSession) {
+  // Non-flatten keeps worker Network events on this session. Playwright 1.64
+  // drops flattened child events unless it already owns that child session.
+  try {
+    await attachWorkers(pageSession);
+  } catch {
+    /* a page session that rejects auto-attach still leaves the browser session */
+  }
+  try {
+    const browser = typeof browserContext.browser === 'function' ? browserContext.browser() : null;
+    if (!browser || typeof browser.newBrowserCDPSession !== 'function') {
+      markWorkersUnobserved('worker_targets_unobserved');
+      return;
+    }
+    const browserSession = await browser.newBrowserCDPSession();
+    await browserSession.send('Target.setDiscoverTargets', { discover: true });
+    await attachWorkers(browserSession);
+  } catch {
+    markWorkersUnobserved('worker_targets_unobserved');
+  }
 }
 
 async function onLoad() {
@@ -129,12 +277,24 @@ async function onLoad() {
 
 async function pageSnapshot() {
   return page.evaluate(async () => {
-    const est = (navigator.storage && navigator.storage.estimate)
-      ? await navigator.storage.estimate()
-      : { usage: 0, usageDetails: {} };
-    const details = est.usageDetails || {};
-    let localStorageBytes = 0;
+    let est = null;
+    if (navigator.storage && navigator.storage.estimate) {
+      try {
+        est = await navigator.storage.estimate();
+      } catch {
+        est = null;
+      }
+    }
+    const details = est && est.usageDetails ? est.usageDetails : null;
+    const member = (source, name, alias) => {
+      if (!source) return null;
+      if (Object.prototype.hasOwnProperty.call(source, name)) return source[name];
+      if (alias && Object.prototype.hasOwnProperty.call(source, alias)) return source[alias];
+      return null;
+    };
+    let localStorageBytes = null;
     try {
+      localStorageBytes = 0;
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         const value = localStorage.getItem(key) || '';
@@ -143,17 +303,19 @@ async function pageSnapshot() {
     } catch {
       localStorageBytes = null;
     }
-    const tasks = window.__resourceLongTasks || { count: 0, sum: 0 };
+    const tasks = window.__resourceLongTasks;
+    const longtaskKnown = Boolean(tasks && tasks.available !== false && tasks.count != null && tasks.sum != null);
     return {
-      usage: est.usage || 0,
-      usageDetails: {
-        indexedDB: details.indexedDB || 0,
-        caches: details.caches || details.cacheStorage || 0,
-        serviceWorkerRegistrations: details.serviceWorkerRegistrations || details.serviceWorker || 0,
-      },
+      usage: est && est.usage != null ? est.usage : null,
+      usageDetails: details ? {
+        indexedDB: member(details, 'indexedDB'),
+        caches: member(details, 'caches', 'cacheStorage'),
+        serviceWorkerRegistrations: member(details, 'serviceWorkerRegistrations', 'serviceWorker'),
+      } : null,
       localStorageBytes,
-      longtaskCount: tasks.count || 0,
-      longtaskSumMs: tasks.sum || 0,
+      longtaskCount: longtaskKnown ? tasks.count : null,
+      longtaskSumMs: longtaskKnown ? tasks.sum : null,
+      longtaskReason: longtaskKnown ? null : ((tasks && tasks.reason) || 'longtask_unavailable'),
     };
   });
 }
@@ -172,7 +334,26 @@ async function onCdp(params) {
 
 async function onEvents(params) {
   if (params.method !== 'Network.loadingFinished') return [];
-  return networkEvents.slice();
+  const pending = pendingEnables.size > 0;
+  const failed = workerObservation !== 'ok' || pending;
+  return {
+    events: networkEvents.slice(),
+    worker_observation: failed ? 'failed' : 'ok',
+    worker_observation_reason: failed
+      ? (workerObservationReason || 'worker_targets_unobserved')
+      : null,
+  };
+}
+
+async function readEditorText(selector) {
+  if (!selector) return '';
+  return page.evaluate((sel) => {
+    const el = document.querySelector(sel);
+    if (!el) return '';
+    const tag = String(el.tagName || '').toUpperCase();
+    if ((tag === 'INPUT' || tag === 'TEXTAREA') && 'value' in el) return String(el.value || '');
+    return String(el.innerText || el.textContent || '');
+  }, selector);
 }
 
 async function onEdit(params) {
@@ -184,7 +365,33 @@ async function onEdit(params) {
   for (let i = 0; i < repetitions; i++) {
     await page.keyboard.insertText(text);
   }
-  return { kind: 'keyboard.insertText', text, repetitions };
+  let editorText = '';
+  let applied = false;
+  if (!params.selector) {
+    editorText = '';
+    applied = false;
+  } else if (params.checkJs) {
+    const hostResult = await page.evaluate((source) => {
+      try {
+        return eval(source);
+      } catch (err) {
+        return { applied: false, error: String(err) };
+      }
+    }, params.checkJs);
+    if (hostResult && typeof hostResult === 'object') {
+      applied = Boolean(hostResult.applied);
+      if (hostResult.editorText != null) editorText = String(hostResult.editorText);
+      else editorText = await readEditorText(params.selector);
+    } else {
+      applied = Boolean(hostResult);
+      editorText = await readEditorText(params.selector);
+    }
+  } else {
+    editorText = await readEditorText(params.selector);
+    const expected = text.repeat(repetitions);
+    applied = expected.length > 0 && editorText.includes(expected);
+  }
+  return { applied, editorText, kind: 'keyboard.insertText', text, repetitions };
 }
 
 async function onSave(params) {
