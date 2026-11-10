@@ -33,6 +33,12 @@ def validate_trial(trial):
     outcome = trial["outcome"]
     if outcome not in OUTCOMES:
         raise ValueError("unknown outcome %r" % (outcome,))
+    if trial.get("criterion_id") in ("C05", "C06") and outcome == "measured":
+        from perf.layers.classify import assert_visible_evidence
+
+        mechanism = trial.get("mechanism") or (trial.get("diagnostic") or {}).get("mechanism")
+        # C06 uses the same input-to-paint evidence rule as C05.
+        assert_visible_evidence("C05", mechanism)
     claims = set(trial.get("claims") or [])
     boundary = trial["boundary"]
     for blocked_boundary, blocked_claim, message in _FORBIDDEN:
