@@ -256,6 +256,26 @@ function matchesSettled(frame, reference) {
   return diff.comparable && diff.ratio <= SETTLED_MATCH_TOLERANCE;
 }
 
+/** A uniform final fill only counts if it retains earlier spatial ink.
+ * Returning to a blank baseline (a flash disappearing) never qualifies.
+ */
+function retainsStagedInk(initial, spatial, reference) {
+  if (!initial || !spatial || !reference ||
+      initial.width !== reference.width || initial.height !== reference.height ||
+      spatial.width !== reference.width || spatial.height !== reference.height) return false;
+  let retained = 0, lost = 0;
+  for (let i = 0; i < initial.data.length; i += 4) {
+    let changed = false, matches = true;
+    for (let c = 0; c < 4; c++) {
+      changed ||= Math.abs(spatial.data[i+c] - initial.data[i+c]) > DEFAULT_CHANNEL_TOLERANCE;
+      matches &&= Math.abs(spatial.data[i+c] - reference.data[i+c]) <= DEFAULT_CHANNEL_TOLERANCE;
+    }
+    if (changed) { if (matches) retained++; else lost++; }
+  }
+  return retained >= screencastInkMinPixels &&
+    lost / (initial.width * initial.height) <= SETTLED_MATCH_TOLERANCE;
+}
+
 async function waitForScreencastInk(page, recorder) {
   await injectCaretMask(page);
   await page.waitForLoadState('load', { timeout: timeoutMs });
@@ -271,29 +291,41 @@ async function waitForScreencastInk(page, recorder) {
     baseline: null, ink_frame: null, reason });
   const scope = await resolveInkRegionDevice(page, null);
   if (!scope.scoped) return refused('document_region_missing');
+  if (scope.dpr !== 1) return refused('unsupported_device_scale');
   const inset = 4 * scope.dpr;
   const deadline = Date.now() + timeoutMs;
   // A blank initial frame is not load completion. Wait for potential ink,
-  // then 500ms without a new frame; a blank document exhausts the load wait.
+  // then 500ms without a document-region change, ignoring animated chrome.
   let potentialInk = false;
   let checked = 0;
-  let lastObserved = recorder.frames.at(-1);
+  let initialCrop = null;
+  let spatialCrop = null;
+  let previousCrop = null;
+  let lastObserved = null;
   let quietSince = Date.now();
   while (Date.now() < deadline) {
     const available = recorder.frames.length;
     for (; checked < available; checked++) {
       const frame = recorder.frames[checked];
       const ms = pageTime(frame);
-      if (ms === null || ms < 0 || (await frameAckSettled(frame)) !== 'acked') continue;
+      if ((ms !== null && ms < 0) || (await frameAckSettled(frame)) !== 'acked') continue;
       const crop = cropInkRegion(decodeRecorderFrame(recorder, frame), scope.rect_device, inset);
-      potentialInk = settledInkPixels(crop) >= screencastInkMinPixels;
+      // A staged paint may end in a uniform bitmap. Require spatial ink in
+      // an earlier acked frame; a single uniform fill still cannot qualify.
+      initialCrop ||= crop;
+      if (settledInkPixels(crop) >= screencastInkMinPixels) {
+        potentialInk = true;
+        spatialCrop = crop;
+      }
+      if (!matchesSettled(crop, previousCrop)) quietSince = Date.now();
+      previousCrop = crop;
+      lastObserved = frame;
     }
     // Drain CDP events after synchronous PNG work. Time spent blocking the
     // event loop is not evidence that the compositor stopped sending frames.
     await sleep(8);
-    const last = recorder.frames.at(-1);
-    if (last !== lastObserved) { lastObserved = last; quietSince = Date.now(); }
-    if (potentialInk && last && Date.now() - quietSince >= 500) break;
+    if (checked < recorder.frames.length) continue;
+    if (potentialInk && lastObserved && Date.now() - quietSince >= 500) break;
   }
   if (!lastObserved || Date.now() - quietSince < 500) return refused('settled_frame_not_observed');
   // Exactly one settled capture. CDP clips use CSS coordinates; PNG pixels
@@ -307,7 +339,8 @@ async function waitForScreencastInk(page, recorder) {
   });
   const decoded = decodePng(Buffer.from(shot.data, 'base64'));
   const reference = cropInkRegion(decoded, { x: 0, y: 0, width: decoded.width, height: decoded.height }, inset);
-  if (settledInkPixels(reference) < screencastInkMinPixels) return refused('document_surface_absent');
+  if (settledInkPixels(reference) < screencastInkMinPixels &&
+      !retainsStagedInk(initialCrop, spatialCrop, reference)) return refused('document_surface_absent');
   // Scan backwards: only the final uninterrupted matching suffix qualifies.
   let candidate = null;
   for (let i = frames.length - 1; i >= 0; i--) {
@@ -602,7 +635,7 @@ const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, document
 };
 
 async function newPage(browser) {
-  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 1 });
   await routeCorpus(context);
   const page = await context.newPage();
   const errors = [];
@@ -829,7 +862,7 @@ async function loadResult(ctx, { navigationMs, readyMs, surface, witness, surfac
     document_selector: snap.document_selector,
     surface_text: snap.surface_text,
     presented_frame_ms: facts.presented_frame_ms,
-    frames_total: facts.frames_total,
+    frames_total: ctx.recorder ? ctx.recorder.frames.length : facts.frames_total,
     frames_after_usable: facts.frames_after_usable,
     frame_source: 'cdp_screencast',
     clock_skew_ms: facts.clock_skew_ms,

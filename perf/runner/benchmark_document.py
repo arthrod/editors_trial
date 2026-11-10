@@ -1419,6 +1419,7 @@ def _main() -> int:
             continue
 
         proc = None
+        launch_row_start = len(rows)
         try:
             proc = _start_server(editor_id, target)
 
@@ -1829,7 +1830,10 @@ def _main() -> int:
         except Exception as exc:  # host never came up
             failures += 1
             reason = "host-error: %s" % (str(exc)[:400],)
+            attempted = {row["criterion_id"] for row in rows[launch_row_start:]}
             for criterion_id in criteria:
+                if criterion_id in attempted:
+                    continue
                 if criterion_id == "C15":
                     env = _env_for(
                         editor_id=editor_id,
