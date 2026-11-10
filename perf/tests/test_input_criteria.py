@@ -197,14 +197,16 @@ class CriteriaPayloadHonesty(unittest.TestCase):
             assert_payload_shape(_payload({"C04": _entry(cid="C04", samples_ms=[-0.5])}))
 
     def test_copied_sample_vectors_are_rejected(self):
+        shared_witness = publishable_witness_record(21.0, 1.0)
+        shared_obs = {"frame_ms": 21.0, "sample_ms": 20.0, "witness": shared_witness}
+        c07 = _entry(cid="C07", samples_ms=[20.0])
+        c07["observations"][0] = {**c07["observations"][0], **shared_obs}
         entries = {
-            "C07": _entry(cid="C07", samples_ms=[20.0]),
+            "C07": c07,
             "C09": _entry(
                 cid="C09",
                 samples_ms=[20.0],
-                observations=[
-                    {"frame_ms": 21.0, "sample_ms": 20.0, "witness": publishable_witness_record(21.0, 1.0)},
-                ],
+                observations=[dict(shared_obs)],
             ),
         }
         assert_payload_shape(_payload(entries))
@@ -264,7 +266,9 @@ class CriteriaPayloadHonesty(unittest.TestCase):
             frame = float(obs["frame_ms"])
             obs["sample_ms"] = 18.5
             obs["witness"] = publishable_witness_record(frame + 18.5, frame)
-        assert_payload_shape(_payload({"C07": _entry(observations=observations)}))
+        assert_payload_shape(
+            _payload({"C07": _entry(observations=observations, samples_ms=[18.5, 18.5, 18.5])})
+        )
 
     def test_layer_and_boundary_must_match_the_catalog(self):
         entry = _entry(cid="C07", boundary="presented_frame")

@@ -127,6 +127,73 @@ def _assert_c07_repetition_unit(entry):
         )
 
 
+def _rounded_latency_ms(frame_ms, anchor_ms):
+    return round(float(frame_ms) - float(anchor_ms), 3)
+
+
+def _observation_input_anchor(observation, witness):
+    input_ms = observation.get("input_ms")
+    if input_ms is not None:
+        return float(input_ms)
+    if isinstance(witness, dict) and witness.get("after_page_ms") is not None:
+        return float(witness["after_page_ms"])
+    return None
+
+
+def _assert_retained_sample_witness_deltas(cid, entry):
+    """Each retained sample must match its observation and witness timestamps."""
+    if entry.get("outcome") != "measured":
+        return
+    samples = entry.get("samples_ms") or []
+    if not samples:
+        return
+    pool = [
+        o
+        for o in (entry.get("observations") or [])
+        if isinstance(o, dict) and o.get("sample_ms") is not None
+    ]
+    for index, raw in enumerate(samples):
+        sample = float(raw)
+        match = None
+        for observation in pool:
+            if abs(float(observation["sample_ms"]) - sample) <= 0.001:
+                match = observation
+                break
+        if match is None:
+            raise ValueError(
+                "%s samples_ms[%d] %r has no observation with the same sample_ms"
+                % (cid, index, sample)
+            )
+        witness = match.get("witness")
+        if isinstance(witness, dict) and witness.get("frame_page_ms") is not None:
+            anchor = _observation_input_anchor(match, witness)
+            if anchor is not None:
+                delta = _rounded_latency_ms(witness["frame_page_ms"], anchor)
+                if abs(sample - delta) > 0.001:
+                    raise ValueError(
+                        "%s sample %r disagrees with witness latency %r"
+                        % (cid, sample, delta)
+                    )
+        pool.remove(match)
+
+
+def _witness_evidence_from_entry(entry):
+    for observation in entry.get("observations") or []:
+        if not isinstance(observation, dict):
+            continue
+        if observation.get("witness") is None and observation.get("witness_refusal") is None:
+            continue
+        out = {}
+        if observation.get("witness") is not None:
+            out["witness"] = observation["witness"]
+        if observation.get("witness_refusal") is not None:
+            out["witness_refusal"] = observation["witness_refusal"]
+        if observation.get("witness_errors"):
+            out["witness_errors"] = observation["witness_errors"]
+        return out
+    return {}
+
+
 def _assert_observation_witnesses(cid, entry):
     """Every retained visible-paint sample must carry a publishable witness record."""
     if entry.get("layer") != "browser_visible" or entry.get("outcome") != "measured":
@@ -222,6 +289,7 @@ def _assert_entry_honest(cid, entry, witness):
             raise ValueError("%s is measured but carries failure_reason %r" % (cid, reason))
         if entry["layer"] == "browser_visible":
             _assert_observation_witnesses(cid, entry)
+            _assert_retained_sample_witness_deltas(cid, entry)
             _assert_visible_samples(cid, entry, witness)
         if cid == "C07":
             _assert_c07_repetition_unit(entry)
@@ -433,11 +501,14 @@ def write_trials_from_payload(payload, attempt_dir, **env_args):
             single = _single_criterion_payload(payload, cid)
             trial = trials_from_payload(single, **env_args)[cid]
         except ValueError as exc:
-            by_criterion[cid] = {
+            entry = payload["criteria"][cid]
+            refusal = {
                 "written": False,
                 "path": None,
                 "failure_reason": str(exc),
+                **_witness_evidence_from_entry(entry),
             }
+            by_criterion[cid] = refusal
             continue
         attempt_id = "%s-%s-%s" % (
             cid.lower(),

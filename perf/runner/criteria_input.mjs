@@ -107,7 +107,17 @@ export function validateWitnessRecord(record) {
       errors: ['the witness record must be a JSON object'],
     };
   }
-  const dir = mkdtempSync(join(tmpdir(), 'perf-witness-'));
+  let dir;
+  try {
+    dir = mkdtempSync(join(tmpdir(), 'perf-witness-'));
+  } catch (err) {
+    return {
+      ok: false,
+      refused: true,
+      reason: 'witness_validator_failed',
+      errors: [String(err && err.message ? err.message : err)],
+    };
+  }
   const file = join(dir, 'witness.json');
   try {
     writeFileSync(file, JSON.stringify(record));
@@ -283,6 +293,27 @@ function assertBulkInsertBody(before, after, options) {
     return { ok: false, reason: `${CORRECTNESS_PREFIX} bulk_text_or_position` };
   }
   return { ok: true, expected };
+}
+
+function attachPaintWitnessFailure(observation, painted) {
+  if (!painted || typeof painted !== 'object') {
+    return;
+  }
+  if (painted.record) {
+    observation.witness = painted.record;
+  }
+  if (painted.witness_refusal) {
+    observation.witness_refusal = painted.witness_refusal;
+  }
+  if (painted.witness_errors && painted.witness_errors.length) {
+    observation.witness_errors = painted.witness_errors;
+  }
+  if (painted.frame_page_ms !== null && painted.frame_page_ms !== undefined) {
+    observation.frame_ms = round(painted.frame_page_ms, 3);
+  }
+  if (painted.sampleMs !== null && painted.sampleMs !== undefined) {
+    observation.sample_ms = painted.sampleMs;
+  }
 }
 
 async function sampleAfterInput(witness, inputMs, options, callOptions = {}) {
@@ -1109,6 +1140,9 @@ async function measureUndo(page, witness, options, meta) {
   if (typedInput === null) {
     entry.failure_reason = 'no_keydown_observed_for_typed_character';
     entry.assertion.failures.push('no_keydown_observed_for_typed_character');
+    await clearInputs(page);
+    await page.keyboard.press(`${options.modifier}+Z`);
+    await settle(page, 60);
     return entry;
   }
   let typedState = await readState(page, meta.editable.selector);
@@ -1169,11 +1203,15 @@ async function measureUndo(page, witness, options, meta) {
   if (undoInput === null) {
     entry.failure_reason = 'no_keydown_observed_for_undo';
     entry.assertion.failures.push('no_keydown_observed_for_undo');
+    await clearInputs(page);
+    await page.keyboard.press(`${options.modifier}+Z`);
+    await settle(page, 60);
     return entry;
   }
   observation.input_ms = round(undoInput.t, 3);
   if (!painted.ok) {
     observation.failure = painted.reason;
+    attachPaintWitnessFailure(observation, painted);
     entry.observations.push(observation);
     entry.failure_reason = painted.reason;
     entry.assertion.failures.push('undo_not_painted');
@@ -1352,7 +1390,10 @@ async function measureBulkInsert(page, witness, options, meta) {
           entry.assertion.failures.push(entry.failure_reason);
           return entry;
         }
+        observation.method = 'clipboard_paste_keyboard';
+        observation.input_ms = round(pasteInput.t, 3);
         observation.failure = painted.reason;
+        attachPaintWitnessFailure(observation, painted);
         entry.observations.push(observation);
         pasteError = painted.reason;
       }
@@ -1399,9 +1440,14 @@ async function measureBulkInsert(page, witness, options, meta) {
     input_ms: stamp ? round(stamp.start, 3) : null,
     exec_command_ok: stamp ? stamp.ok : null,
     exec_command_error: stamp ? stamp.error : null,
-    frame_ms: painted.ok ? round(painted.frame_page_ms, 3) : null,
-    sample_ms: painted.ok ? painted.sampleMs : null,
-    witness: painted.ok ? painted.record : null,
+    frame_ms:
+      painted.frame_page_ms !== null && painted.frame_page_ms !== undefined
+        ? round(painted.frame_page_ms, 3)
+        : null,
+    sample_ms: painted.sampleMs !== null && painted.sampleMs !== undefined ? painted.sampleMs : null,
+    witness: painted.record ?? null,
+    witness_refusal: painted.witness_refusal ?? null,
+    witness_errors: painted.witness_errors?.length ? painted.witness_errors : null,
     text_length_before: pre.text_length,
     text_length_after: after.text_length,
     growth,
