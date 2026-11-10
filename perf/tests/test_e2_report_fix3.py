@@ -1,4 +1,5 @@
 """Reviewer trees for #140; filesystem effects use upstream pyfakefs."""
+
 import json
 from pathlib import Path
 
@@ -12,18 +13,33 @@ def runs(fs):
     roots = [Path('/runs/primary'), Path('/runs/repro')]
     for seed, root in enumerate(roots):
         root.mkdir(parents=True)
-        (root / 'summary.json').write_text(json.dumps(dict(
-            run_id=root.name, seed=seed, execution_profile='dedicated_publish',
-            host_class='dedicated', publishable=True, host={}, rendering={},
-            order=[[i, 'plate'] for i in range(30)])))
+        (root / 'summary.json').write_text(
+            json.dumps(
+                dict(
+                    run_id=root.name,
+                    seed=seed,
+                    execution_profile='dedicated_publish',
+                    host_class='dedicated',
+                    publishable=True,
+                    host={},
+                    rendering={},
+                    order=[[i, 'plate'] for i in range(30)],
+                )
+            )
+        )
         for rep in range(10):
             trial(root, rep)
     return roots
 
 
 def trial(root, rep, criterion='C07', name=None, **extra):
-    row = dict(editor_id='plate', criterion_id=criterion, outcome='measured',
-               samples_ms=[20], diagnostic={'frame_interval_ms': 16.7})
+    row = dict(
+        editor_id='plate',
+        criterion_id=criterion,
+        outcome='measured',
+        samples_ms=[20],
+        diagnostic={'frame_interval_ms': 16.7},
+    )
     row.update(extra)
     path = root / 'cells' / f'{rep:04d}-plate' / 'attempts' / (name or criterion + '.json')
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -40,11 +56,14 @@ def cell(root, criterion='C07'):
     return cells.build_run_cell(root, 'plate', criterion)
 
 
-@pytest.mark.parametrize('reason,family', [
-    ('HostBuildError: host_build: production build failed: plate exited 1; log: /tmp/build.log', 'host_build'),
-    ('search_timeout: selector; host_build', 'host_build'),
-    ('search_timeout: selector; cpu_throttled: quota', 'cpu_throttled'),
-])
+@pytest.mark.parametrize(
+    'reason,family',
+    [
+        ('HostBuildError: host_build: production build failed: plate exited 1; log: /tmp/build.log', 'host_build'),
+        ('search_timeout: selector; host_build', 'host_build'),
+        ('search_timeout: selector; cpu_throttled: quota', 'cpu_throttled'),
+    ],
+)
 def test_run_family_veto_and_label(runs, reason, family):
     for rep in range(10):
         sample(runs[0], rep, reason)
@@ -55,19 +74,28 @@ def test_run_family_veto_and_label(runs, reason, family):
 @pytest.mark.parametrize('reverse', [False, True])
 def test_conflicting_trials_independent_of_filename_order(runs, reverse):
     for rep in range(10):
-        trial(runs[0], rep, name='A.json' if reverse else 'Z.json',
-              outcome='not_run', failure_reason='host-error: page crashed', samples_ms=[])
+        trial(
+            runs[0],
+            rep,
+            name='A.json' if reverse else 'Z.json',
+            outcome='not_run',
+            failure_reason='host-error: page crashed',
+            samples_ms=[],
+        )
     assert cell(runs[0])['stats'] is None
     assert cell(runs[0])['refusals'] == {'conflicting_trials': 10}
 
 
-@pytest.mark.parametrize('reason,family', [
-    ('host-error: page crashed', 'host-error'),
-    ('TimeoutExpired: Command node timed out', 'Command node timed out'),
-    ('TargetClosedError: Target page closed', 'Target page closed'),
-    ('harness-error: page crashed', 'harness-error'),
-    ('HostBuildError: host_build: failed; log: /tmp/build.log', 'host_build'),
-])
+@pytest.mark.parametrize(
+    'reason,family',
+    [
+        ('host-error: page crashed', 'host-error'),
+        ('TimeoutExpired: Command node timed out', 'Command node timed out'),
+        ('TargetClosedError: Target page closed', 'Target page closed'),
+        ('harness-error: page crashed', 'harness-error'),
+        ('HostBuildError: host_build: failed; log: /tmp/build.log', 'host_build'),
+    ],
+)
 def test_sample_without_trials_counted_for_every_criterion(runs, reason, family):
     for rep in range(10, 13):
         sample(runs[0], rep, reason)
@@ -79,12 +107,22 @@ def test_sample_without_trials_counted_for_every_criterion(runs, reason, family)
     assert family in text
 
 
-@pytest.mark.parametrize('extra,family', [
-    ({'publishable': False}, 'publishable_false'),
-    ({'publication_block_reason': 'production build failed: plate'}, 'production build failed'),
-    ({'host_build': 'build_failed'}, 'host_build'),
-    ({'publishable': False, 'publication_block_reason': 'production build failed: plate', 'host_build': 'build_failed'}, 'production build failed'),
-])
+@pytest.mark.parametrize(
+    'extra,family',
+    [
+        ({'publishable': False}, 'publishable_false'),
+        ({'publication_block_reason': 'production build failed: plate'}, 'production build failed'),
+        ({'host_build': 'build_failed'}, 'host_build'),
+        (
+            {
+                'publishable': False,
+                'publication_block_reason': 'production build failed: plate',
+                'host_build': 'build_failed',
+            },
+            'production build failed',
+        ),
+    ],
+)
 def test_trial_publication_blocks(runs, extra, family):
     for rep in range(10):
         trial(runs[0], rep, **extra)
@@ -92,19 +130,26 @@ def test_trial_publication_blocks(runs, extra, family):
     assert cell(runs[0])['refusals'] == {family: 10}
 
 
-@pytest.mark.parametrize('samples,flags,frame', [
-    ([10, 12, 14], [True]*3, 8.3), ([8]*3, [False]*3, 16.7),
-    ([12], [True], 8.3), ([8], [False], 16.7),
-])
+@pytest.mark.parametrize(
+    'samples,flags,frame',
+    [([10, 12, 14], [True] * 3, 8.3), ([8] * 3, [False] * 3, 16.7), ([12], [True], 8.3), ([8], [False], 16.7)],
+)
 def test_recorded_median_flag_mismatch_refuses(runs, samples, flags, frame):
     for rep in range(10):
-        trial(runs[0], rep, samples_ms=samples, sub_frame_samples=flags,
-              diagnostic={'frame_interval_ms': frame})
+        trial(runs[0], rep, samples_ms=samples, sub_frame_samples=flags, diagnostic={'frame_interval_ms': frame})
     assert cell(runs[0])['stats'] is None
     assert cell(runs[0])['refusals'] == {'sub_frame_flag_mismatch': 10}
 
 
-@pytest.mark.parametrize('reason', ['host-error: page crashed', 'TargetClosedError: Target page closed', 'TimeoutExpired: Command node timed out', 'harness-error: page crashed'])
+@pytest.mark.parametrize(
+    'reason',
+    [
+        'host-error: page crashed',
+        'TargetClosedError: Target page closed',
+        'TimeoutExpired: Command node timed out',
+        'harness-error: page crashed',
+    ],
+)
 def test_crash_sibling_preserves_measurement_and_its_reason(runs, reason):
     for root in runs:
         for rep in range(10):
@@ -152,23 +197,28 @@ def test_each_failure_family_retained(runs):
     assert 'search_timeout' in text and 'paint_witness_unavailable' in text
 
 
-@pytest.mark.parametrize('extra', [
-    {'outcome': 'refused', 'failure_reason': 'paint_witness_unavailable'},
-    {'publishable': False, 'publication_block_reason': 'host_build: failed'},
-])
+@pytest.mark.parametrize(
+    'extra',
+    [
+        {'outcome': 'refused', 'failure_reason': 'paint_witness_unavailable'},
+        {'publishable': False, 'publication_block_reason': 'host_build: failed'},
+    ],
+)
 def test_refused_companion_conflicts(runs, extra):
     trial(runs[0], 0, name='companion.json', **extra)
     assert cell(runs[0])['stats']['n'] == 9
     assert cell(runs[0])['refusals'] == {'conflicting_trials': 1}
 
 
-@pytest.mark.parametrize('samples,flags,frame,share', [
-    ([10, 12, 14], [False]*3, 8.3, '0%'),
-    ([30, 8, 20], [False, True, False], 16.7, '0%'),
-    ([8]*3, [True]*3, 16.7, '100%'),
-])
+@pytest.mark.parametrize(
+    'samples,flags,frame,share',
+    [
+        ([10, 12, 14], [False] * 3, 8.3, '0%'),
+        ([30, 8, 20], [False, True, False], 16.7, '0%'),
+        ([8] * 3, [True] * 3, 16.7, '100%'),
+    ],
+)
 def test_matching_median_flags_publish(runs, samples, flags, frame, share):
     for rep in range(10):
-        trial(runs[0], rep, samples_ms=samples, sub_frame_samples=flags,
-              diagnostic={'frame_interval_ms': frame})
+        trial(runs[0], rep, samples_ms=samples, sub_frame_samples=flags, diagnostic={'frame_interval_ms': frame})
     assert share + ' sub-frame launches' in cells.publication_text(cell(runs[0]))

@@ -134,47 +134,73 @@ def _format_median(cell: dict, median: float) -> str:
 
 
 def _cell_text(facts: dict, primary: Path, repro: Path, editor: str, criterion: str) -> str:
-    key = "perf.e2.%s.%s" % (editor, criterion)
-    facts[key + ".reproduced"] = False
-    cells = [e2_cells.build_run_cell(root, editor, criterion, scheduled=_scheduled(root, editor)) for root in (primary, repro)]
-    facts[key + ".primary"], facts[key + ".reproduction"] = cells
+    key = 'perf.e2.%s.%s' % (editor, criterion)
+    facts[key + '.reproduced'] = False
+    cells = [
+        e2_cells.build_run_cell(root, editor, criterion, scheduled=_scheduled(root, editor))
+        for root in (primary, repro)
+    ]
+    facts[key + '.primary'], facts[key + '.reproduction'] = cells
     p_cell, r_cell = cells
     reasons = []
-    for label, root, cell in zip(("first", "second"), (primary, repro), cells):
+    for label, root, cell in zip(('first', 'second'), (primary, repro), cells):
         summary = _summary(root)
-        if summary.get("publishable") is not True or summary.get("publication_block_reason"):
-            reasons.append("%s run unpublishable: %s" % (label, summary.get("publication_block_reason") or summary.get("failure_reason") or "publishable not true"))
+        blocked = summary.get('publishable') is not True or summary.get('publication_block_reason')
+        if blocked:
+            reasons.append(
+                '%s run unpublishable: %s'
+                % (
+                    label,
+                    summary.get('publication_block_reason') or summary.get('failure_reason') or 'publishable not true',
+                )
+                + ' (blocked)'
+            )
         text = e2_cells.publication_text(cell)
-        if "not enough samples" in text:
-            reasons.append("%s: %s" % (label, text))
-        if not cell["scheduled"]:
-            reasons.append("%s: scheduled count not recorded" % label)
+        if blocked:
+            failures = e2_cells.failure_text(cell)
+            if failures:
+                reasons.append('%s: %s' % (label, failures))
+        elif 'not enough samples' in text:
+            reasons.append('%s: %s' % (label, text))
+        if not cell['scheduled']:
+            reasons.append('%s: scheduled count not recorded' % label)
     if reasons:
-        reason = "; ".join(reasons)
-        facts[key + ".reason"] = reason
-        facts.setdefault("_not_reproduced", []).append((DISPLAY.get(editor, editor), criterion, reason, "—"))
+        for label, cell in zip(('first', 'second'), cells):
+            failures = e2_cells.failure_text(cell)
+            if failures and cell['stats'] and cell['stats']['n'] >= 10:
+                entry = '%s: %s' % (label, failures)
+                if entry not in reasons:
+                    reasons.append(entry)
+        reason = '; '.join(reasons)
+        facts[key + '.reason'] = reason
+        facts.setdefault('_not_reproduced', []).append((DISPLAY.get(editor, editor), criterion, reason, '—'))
         return reason
     p_text = e2_cells.publication_text(p_cell)
-    frame = max(p_cell.get("frame_interval_ms") or 0, r_cell.get("frame_interval_ms") or 0)
+    frame = max(p_cell.get('frame_interval_ms') or 0, r_cell.get('frame_interval_ms') or 0)
 
-    p_med = p_cell["stats"]["median"]
-    r_med = r_cell["stats"]["median"]
-    key = "perf.e2.%s.%s" % (editor, criterion)
+    p_med = p_cell['stats']['median']
+    r_med = r_cell['stats']['median']
+    key = 'perf.e2.%s.%s' % (editor, criterion)
     ok = reproduced(p_med, r_med, rel_tol=REL_TOL, abs_tol=frame)
     if not ok:
-        facts[key + ".reason"] = "medians outside tolerance"
+        facts[key + '.reason'] = 'medians outside tolerance'
         first = _format_median(p_cell, p_med)
         second = _format_median(r_cell, r_med)
-        facts.setdefault("_not_reproduced", []).append(
-            (DISPLAY.get(editor, editor), criterion, first, second)
-        )
-        return "not reproduced (first %s; second %s)" % (first, second)
-    facts[key + ".reproduced"] = True
-    return p_text
+        facts.setdefault('_not_reproduced', []).append((DISPLAY.get(editor, editor), criterion, first, second))
+        failures = [
+            '%s: %s' % (label, e2_cells.failure_text(cell))
+            for label, cell in zip(('first', 'second'), cells)
+            if cell.get('refusals')
+        ]
+        suffix = '; ' + '; '.join(failures) if failures else ''
+        return 'not reproduced (first %s; second %s)%s' % (first, second, suffix)
+    facts[key + '.reproduced'] = True
+    failures = e2_cells.failure_text(r_cell)
+    return p_text + ('; second: ' + failures if failures else '')
 
 
 def _criterion_table(facts: dict, primary: Path, repro: Path, criterion: str, editors: list[str]) -> str:
-    lines = ["| Editor | %s |" % criterion, "|---|---|"]
+    lines = ['| Editor | %s |' % criterion, '|---|---|']
     for editor in editors:
         text = _cell_text(facts, primary, repro, editor, criterion)
         lines.append("| %s | %s |" % (DISPLAY.get(editor, editor), text))
