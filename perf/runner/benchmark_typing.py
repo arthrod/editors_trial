@@ -356,6 +356,10 @@ def main_cell(argv=None, *, start_host=_start_server, stop_host=_stop_server):
         try:
             server = start_host(editor,target)
             result, series = asyncio.run(session(target,text,args,directory))
+        except ModuleNotFoundError as exc:
+            result, series = {'failure_reason': 'dependency_missing',
+                              'refusal_code': 'dependency_missing',
+                              'missing_module': exc.name, 'error': str(exc)}, []
         except Exception as exc: result, series = {'failure_reason':'host_start_failed','error':str(exc)}, []
         finally:
             if server: stop_host(server)

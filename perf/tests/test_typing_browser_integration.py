@@ -81,3 +81,25 @@ def test_unsupported_or_nonempty_surface_refuses_before_typing(mode, reason, tmp
     assert result['characters_typed'] == 0
     assert result['session_wall_s'] > 0
     assert rows
+
+@pytest.mark.parametrize('module', ['playwright', 'psutil'])
+def test_missing_dependency_is_named_and_not_a_host_failure(tmp_path, module):
+    """Integration: dependency loading fails at startup; preserve its classification."""
+    import json
+    from perf.runner.benchmark_typing import main_cell
+    from perf.runner.browser_run import ACTIVE, BrowserRun
+    run = BrowserRun(tmp_path/'runs', 'benchmark_typing', snapshot=lambda: {})
+    token = ACTIVE.set(run)
+    def missing_dependency(editor, target):
+        raise ModuleNotFoundError(f"No module named '{module}'", name=module)
+    try:
+        main_cell(['--editors', 'plate', '--words', '1', '--out-root', str(tmp_path/'cell')],
+                  start_host=missing_dependency)
+    finally:
+        ACTIVE.reset(token)
+    trial = json.loads((tmp_path/'cell/attempts/typing.json').read_text())
+    assert trial['failure_reason'] == 'dependency_missing', trial
+    assert trial['refusal_code'] == 'dependency_missing'
+    assert trial['missing_module'] == module
+    assert trial['outcome'] == 'refused'
+    assert trial['throughput_chars_s'] is None
