@@ -36,9 +36,9 @@ test('changing ink without a quiet window refuses',()=>{
  const f=Array.from({length:80},(_,i)=>({pageMs:i*20,values:[i%2?0:255],ink_pixels:20}));
  assert.equal(settleFrames(f).page_ms,undefined);
 });
-test('a later proven window can use an earlier matching glyph frame',()=>{
+test('a later proven window cannot cross an ink regression',()=>{
  const f=Array.from({length:80},(_,i)=>({pageMs:i*20,values:[i===1?255:0],ink_pixels:20}));
- assert.equal(settleFrames(f).page_ms,0);
+ assert.equal(settleFrames(f).page_ms,40);
 });
 test('sparse onset refuses even when a later quiet window is dense',()=>{
  const f=frames([0,20,...dense.filter(t=>t>=900)],t=>t<800?blank:glyph);
@@ -56,8 +56,68 @@ test('onset precision uses the calibrated display interval when delivery is slow
    .map(row=>({...row,...classifyRegion(row.pixels,base,[rect],1,rect)}));
  assert.equal(settleFrames(f,{frameIntervalMs:16.667}).failure_reason,'witness_sparse');
 });
-test('a missing frame immediately before the last pre-ink frame leaves onset uncertain',()=>{
+test('a missing frame before the last pre-ink frame does not obscure onset',()=>{
  const times=Array.from({length:80},(_,i)=>0.7+i*16.666).filter((_,i)=>i!==48);
  const f=frames(times,t=>t<833.9?blank:glyph).map(row=>({...row,...classifyRegion(row.pixels,base,[rect],1,rect)}));
- assert.equal(settleFrames(f,{frameIntervalMs:16.667}).failure_reason,'witness_sparse');
+ assert.equal(settleFrames(f,{frameIntervalMs:16.667}).page_ms,times.find(t=>t>=833.9));
+});
+
+// Reviewer constructions from issue #133, round 8. All images are in memory.
+const points=[[6,8],[7,9],[8,10],[9,11],[10,12],[11,13],[8,14],[9,16]];
+const image=fill=>{const p=pixels([0,0,0]);for(let y=0;y<30;y++)for(let x=0;x<20;x++)p.data.set([...fill(x,y),255],(y*20+x)*4);return p;};
+const draw=(ps,color=[0,0,0],bg=[255,255,255])=>image((x,y)=>ps.some(([a,b])=>a===x&&b===y)?color:bg);
+const sequence=(paint,before=base,times=dense)=>times.map(pageMs=>({pageMs,...classifyRegion(paint(pageMs),before,[rect],1,rect)}));
+const eight=draw(points),six=draw(points.slice(0,6));
+test('round8 two-stage subset first paint is 40',()=>assert.equal(settleFrames(sequence(t=>t<40?blank:t<80?six:eight)).page_ms,40));
+test('round8 less than half waits for 80',()=>assert.equal(settleFrames(sequence(t=>t<40?blank:t<80?draw(points.slice(0,3)):eight)).page_ms,80));
+test('round8 removed stroke waits for 80',()=>assert.equal(settleFrames(sequence(t=>t<40?blank:t<80?draw([...points.slice(0,6),[2,2]]):eight)).page_ms,80));
+test('round8 one added pixel of delta 15 preserves first paint',()=>{
+ const added=image((x,y)=>x===2&&y===2?[240,255,255]:Array.from(eight.data.slice((y*20+x)*4,(y*20+x)*4+3)));
+ assert.equal(settleFrames(sequence(t=>t<40?blank:t<80?eight:added)).page_ms,40);
+});
+const underline=p=>{const c={...p,data:new Uint8Array(p.data)};for(let x=4;x<16;x++)c.data.set([255,0,0,255],(24*20+x)*4);return c;};
+test('round8 realistic glyph underline inside Q keeps first paint',()=>assert.equal(settleFrames(sequence(t=>t<20?blank:t<200?glyph:underline(glyph))).page_ms,20));
+test('round8 underline after Q keeps first paint',()=>assert.equal(settleFrames(sequence(t=>t<20?blank:t<500?eight:underline(eight))).page_ms,20));
+test('round8 moved underline has the in-order answer',()=>{
+ const ordered=sequence(t=>t<20?blank:t<200?glyph:underline(glyph));
+ const late=[...ordered.filter(f=>f.pageMs!==200),ordered.find(f=>f.pageMs===200)];
+ assert.equal(settleFrames(late).page_ms,20);
+ assert.equal(settleFrames(late).page_ms,settleFrames(ordered).page_ms);
+});
+test('round8 appended cover inside Q refuses',()=>{
+ const ordered=sequence(t=>t<20?blank:t===160?cover:eight);
+ const late=[...ordered.filter(f=>f.pageMs!==160),ordered.find(f=>f.pageMs===160)];
+ assert.equal(settleFrames(late).failure_reason,'settle_not_reached');
+});
+test('round8 gap one frame before onset is harmless',()=>{
+ const times=Array.from({length:80},(_,i)=>i*16.666).filter((_,i)=>i!==8);
+ assert.equal(settleFrames(sequence(t=>t<170?blank:glyph,base,times),{frameIntervalMs:16.666}).page_ms,times[10]);
+});
+for(const bg of [[255,255,255],[20,180,40],[20,20,24]]) for(const delta of [7,8,9]) test(`round8 contrast ${bg} delta ${delta}`,()=>{
+ const col=bg.map(v=>v>245?v-delta:v+delta),before=draw([],undefined,bg),ink=draw(points,col,bg);
+ const r=settleFrames(sequence(t=>t<40?before:ink,before));
+ assert.equal(r.page_ms,delta>8?40:undefined);
+});
+for(const n of [8,207]) test(`round8 ordinary sparse text ${n} pixels`,()=>{
+ const ps=Array.from({length:n},(_,i)=>[1+i%18,2+Math.floor(i/18)]);
+ assert.equal(settleFrames(sequence(t=>t<40?blank:draw(ps))).page_ms,40);
+});
+for(const dark of [false,true]) test(`round8 modal glyph and later small mark refuse ${dark}`,()=>{
+ const bg=dark?[20,20,24]:[255,255,255],fg=dark?[236,236,240]:[0,0,0];
+ const before=draw([],undefined,bg),heavy=image((x,y)=>x>=1&&x<19&&y>=1&&y<29?fg:bg);
+ const marked={...heavy,data:new Uint8Array(heavy.data)};
+ for(let y=2;y<4;y++)for(let x=2;x<5;x++)marked.data.set([255,0,0,255],(y*20+x)*4);
+ assert.equal(settleFrames(sequence(t=>t<40?before:heavy,before)).failure_reason,'settle_not_reached');
+ assert.equal(settleFrames(sequence(t=>t<40?before:t<100?heavy:marked,before)).failure_reason,'settle_not_reached');
+});
+test('round8 horizontal far-column glyph refuses',()=>{
+ const grad=image(x=>[255-x*4,255-x*4,255-x*4]);
+ const ink=image((x,y)=>points.some(([a,b])=>a===x&&b===y)?[0,0,0]:[255-x*4,255-x*4,255-x*4]);
+ assert.equal(settleFrames(sequence(t=>t<40?grad:ink,grad)).failure_reason,'settle_not_reached');
+});
+test('round8 vertical gradient never publishes the background',()=>{
+ const grad=image((x,y)=>[200,200,30+y*4]);
+ const ink=image((x,y)=>points.some(([a,b])=>a===x&&b===y)?[0,0,0]:[200,200,30+y*4]);
+ assert.equal(settleFrames(sequence(t=>t<400?grad:ink)).page_ms,undefined);
+ assert.equal(settleFrames(sequence(t=>t<40?grad:ink,grad)).page_ms,40);
 });
