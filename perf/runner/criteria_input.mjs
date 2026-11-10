@@ -1544,6 +1544,38 @@ async function measureBulkInsert(page, witness, options, meta) {
   return entry;
 }
 
+const PAGE_LOSS_RE =
+  /Execution context was destroyed|Target (closed|crashed)|Session closed|Frame was detached|Protocol error.*Target closed|Page crashed/i;
+
+/**
+ * Label suite interruptions as page loss only when the browser target is gone.
+ * A live page with a harness bug must read as harness_error, not page_lost.
+ */
+async function classifySuiteError(page, error) {
+  if (page?.isClosed?.()) {
+    return `page_lost: ${String(error)}`;
+  }
+  const msg = String(error);
+  if (!PAGE_LOSS_RE.test(msg)) {
+    const name = error?.name || 'Error';
+    const message = error?.message ?? msg;
+    return `harness_error: ${name}: ${message}`;
+  }
+  if (typeof page?.evaluate === 'function') {
+    try {
+      await page.evaluate(() => true);
+      const name = error?.name || 'Error';
+      const message = error?.message ?? msg;
+      return `harness_error: ${name}: ${message}`;
+    } catch (probeErr) {
+      if (page?.isClosed?.() || PAGE_LOSS_RE.test(String(probeErr))) {
+        return `page_lost: ${String(error)}`;
+      }
+    }
+  }
+  return `page_lost: ${String(error)}`;
+}
+
 // --------------------------------------------------------------------- suite
 
 /**
@@ -1607,7 +1639,8 @@ export async function runCriteriaSuite({
     try {
       return await run();
     } catch (error) {
-      return emptyEntry(criterionId, 'failed', `page_lost: ${String(error)}`);
+      const reason = await classifySuiteError(page, error);
+      return emptyEntry(criterionId, 'failed', reason);
     }
   }
 
@@ -1631,8 +1664,9 @@ export async function runCriteriaSuite({
 
     const needsPaint = criteria.some((id) => id !== 'C04');
     if (needsPaint) {
+      let recorder = null;
       try {
-        const recorder = getRecorder(cdp, { manageScreencast: true });
+        recorder = getRecorder(cdp, { manageScreencast: true });
         const interval = await frameInterval(page);
         witness = {
           recorder,
@@ -1652,7 +1686,14 @@ export async function runCriteriaSuite({
           },
         };
       } catch (err) {
-        witness = { started: false, startError: String(err), recorder: null, frameIntervalMs: null };
+        witness = {
+          started: false,
+          startError: String(err),
+          recorder,
+          frameIntervalMs: null,
+          frames: [],
+          ackErrors: [],
+        };
       }
       if (!witness.started) {
         // The harness failed to attach the paint witness. That is our failure,
@@ -1745,7 +1786,7 @@ export async function runCriteriaSuite({
           : await safeCriterion('C08', () => measureBulkInsert(page, witness, options, meta));
     }
   } catch (error) {
-    const reason = `page_lost: ${String(error)}`;
+    const reason = await classifySuiteError(page, error);
     for (const id of criteria) {
       if (!entries[id]) {
         entries[id] = emptyEntry(id, 'failed', reason);
@@ -1786,11 +1827,14 @@ export async function runCriteriaSuite({
     },
     paint_witness: {
       mechanism: 'cdp_screencast_frame',
-      frames_seen: witness?.recorder ? witness.recorder.frames.length : witness ? witness.frames.length : 0,
+      frames_seen:
+        witness?.recorder?.frames?.length ??
+        (Array.isArray(witness?.frames) ? witness.frames.length : 0),
       frame_interval_ms: witness?.frameIntervalMs ?? null,
       timeout_ms: frameTimeoutMs,
       message: witness && witness.started === false ? `screencast unavailable: ${witness.startError}` : null,
-      ack_errors: witness?.recorder ? [] : witness ? witness.ackErrors.slice(0, 3) : [],
+      ack_errors:
+        witness?.recorder != null ? [] : (witness?.ackErrors ?? []).slice(0, 3),
     },
     criteria_requested: criteria.slice(),
     criteria: entries,
