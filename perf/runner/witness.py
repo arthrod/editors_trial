@@ -16,7 +16,20 @@ the adversarial review forced closed):
 * a witnessed record must carry its evidence: at least one frame after the
   marker, pixels above the recorded threshold and floor, the caret mask
   applied. A record with no outcome at all is refused (``no_outcome``), not
-  quietly accepted;
+  quietly accepted. Since #137 the evidence is also checked for consistency
+  with itself (#130's reviewer round two): the arm instant
+  (``after_page_ms``), when the record carries one, must be a finite number
+  (``invalid_arm_time``) and the witness frame must not precede it
+  (``frame_before_arm``); ``frames_after`` may not exceed ``frames_total``
+  (``frame_counts_inconsistent``); and a ``min_pixels`` that is not a
+  non-negative number cannot gate anything, so it is refused
+  (``min_pixels_invalid``) instead of silently skipping the pixel floor;
+* an asserted flag is not its evidence: a clock check that claims
+  ``acceptable: true`` while its own recorded ``checks`` say otherwise is
+  refused (``clock_check_evidence_contradicted``), as is one whose recorded
+  checks are erased rather than all-true (``clock_check_evidence_missing``);
+  a record that claims ``document_scoped: true`` while carrying a
+  ``document_region_error`` is refused (``document_scope_contradicted``);
 * the record must be document-scoped (``document_scoped: true``): a
   whole-frame diff lets shell damage pose as document paint, so a record
   without a region is refused (``not_document_scoped``);
@@ -33,10 +46,12 @@ the adversarial review forced closed):
 
 The named reasons: ``record_not_a_mapping``, ``clock_skew_above_bound``,
 ``clock_check_missing``, ``clock_check_not_acceptable``,
-``not_document_scoped``, ``no_outcome``, ``unknown_outcome``, ``no_frame``,
-``nonfinite_time``, ``no_frame_time``, ``no_frame_after_marker``,
-``no_pixel_evidence``, ``caret_mask_failed``, ``caret_not_masked``,
-``invalid_record``.
+``clock_check_evidence_missing``, ``clock_check_evidence_contradicted``,
+``not_document_scoped``, ``document_scope_contradicted``, ``no_outcome``,
+``unknown_outcome``, ``no_frame``, ``nonfinite_time``, ``no_frame_time``,
+``invalid_arm_time``, ``frame_before_arm``, ``no_frame_after_marker``,
+``frame_counts_inconsistent``, ``no_pixel_evidence``, ``min_pixels_invalid``,
+``caret_mask_failed``, ``caret_not_masked``, ``invalid_record``.
 
 Usage:
 
@@ -103,6 +118,13 @@ def _finite_number(value):
     return _number(value) and math.isfinite(float(value))
 
 
+def _count(value):
+    """A frame count: an integer that is not a boolean, or None."""
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    return None
+
+
 def _skew_of(record, skew=None):
     """The page-local clock offset of a record, in milliseconds, or None."""
     if _finite_number(skew):
@@ -121,19 +143,35 @@ def _skew_of(record, skew=None):
 
 
 #: (reason, predicate on the record) in precedence order; the first failure
-#: names the verdict's reason.
-def _reason_of(record, bound, errors):
+#: names the verdict's reason. `skew` is the caller's explicit offset, which
+#: wins over the record's own (the same rule `_skew_of` applies) so a refusal
+#: names the check that actually failed for the effective skew.
+def _reason_of(record, bound, errors, skew=None):
     del errors  # the tokens below are decided structurally, in order
     if not isinstance(record, dict):
         return "record_not_a_mapping"
     nested = record.get("clock_check") if isinstance(record.get("clock_check"), dict) else None
-    skew = _skew_of(record)
+    skew = _skew_of(record, skew)
     flag = record.get("clock_skew_acceptable")
     if _finite_number(skew) and abs(float(skew)) > float(bound):
         return "clock_skew_above_bound"
     if nested is not None:
         if nested.get("acceptable") is not True:
             return "clock_check_not_acceptable"
+        # #137: the flag must be backed by the evidence it summarizes. A check
+        # that records `checks` erased (present but null -- absent is the
+        # simple shape) proves nothing, and a recorded `False` check
+        # contradicts the acceptable flag, as does an anchor it says was
+        # never pixel-checked.
+        if "checks" in nested:
+            checks = nested["checks"]
+            if not isinstance(checks, dict):
+                return "clock_check_evidence_missing"
+            if any(value is False for value in checks.values()):
+                return "clock_check_evidence_contradicted"
+        anchor_checked = nested.get("anchor_pixel_checked")
+        if anchor_checked is not None and anchor_checked is not True:
+            return "clock_check_evidence_contradicted"
     else:
         if flag is not True:
             return "clock_check_not_acceptable" if flag is False else "clock_check_missing"
@@ -141,6 +179,9 @@ def _reason_of(record, bound, errors):
             return "clock_check_missing"
     if record.get("document_scoped") is not True:
         return "not_document_scoped"
+    # #137: a scope flag asserted over the region's own recorded failure.
+    if record.get("document_region_error"):
+        return "document_scope_contradicted"
     outcome = record.get("outcome")
     if outcome is None:
         return "no_outcome"
@@ -153,10 +194,23 @@ def _reason_of(record, bound, errors):
         return "nonfinite_time"
     if not _number(frame_page_ms):
         return "no_frame_time"
+    # #137: the arm, when the record carries one, must be a finite number, and
+    # the witness frame must not precede it -- the producer keeps a frame only
+    # at `pageMs >= afterPageMs`, so a frame below the recorded arm is
+    # evidence no run produced.
+    after_page_ms = record.get("after_page_ms")
+    if after_page_ms is not None and not _finite_number(after_page_ms):
+        return "invalid_arm_time"
+    if _finite_number(after_page_ms) and float(frame_page_ms) < float(after_page_ms):
+        return "frame_before_arm"
     frames_after = record.get("frames_after")
     if isinstance(frames_after, int) and not isinstance(frames_after, bool):
         if frames_after < 1:
             return "no_frame_after_marker"
+    # #137: frames_after counts a subset of frames_total.
+    if _count(frames_after) is not None and _count(record.get("frames_total")) is not None:
+        if frames_after > record.get("frames_total"):
+            return "frame_counts_inconsistent"
     diff_ratio = record.get("diff_ratio")
     threshold = record.get("threshold")
     changed = record.get("changed_pixels")
@@ -167,8 +221,12 @@ def _reason_of(record, bound, errors):
         and not float(diff_ratio) > float(threshold)
     ):
         return "no_pixel_evidence"
-    if _finite_number(changed) and isinstance(min_pixels, int):
-        if float(changed) < min_pixels:
+    # #137: a pixel floor of the wrong type gates nothing; refuse it instead
+    # of skipping the floor.
+    if "min_pixels" in record and (not _finite_number(min_pixels) or float(min_pixels) < 0):
+        return "min_pixels_invalid"
+    if _finite_number(changed) and _finite_number(min_pixels):
+        if float(changed) < float(min_pixels):
             return "no_pixel_evidence"
     if record.get("caret_masked") is not True:
         if record.get("caret_mask_error"):
@@ -229,6 +287,20 @@ def validate_witness(record, skew=None, bound_ms=DEFAULT_SKEW_BOUND_MS):
     if outcome == "no_frame" and frame_page_ms is not None:
         errors.append("a no_frame witness has no frame_page_ms")
 
+    # #137: the arm instant, when the record carries one, and causality.
+    after_page_ms = record.get("after_page_ms")
+    if after_page_ms is not None and not _finite_number(after_page_ms):
+        errors.append("after_page_ms must be a finite number or null")
+    if (
+        _finite_number(after_page_ms)
+        and _finite_number(frame_page_ms)
+        and float(frame_page_ms) < float(after_page_ms)
+    ):
+        errors.append(
+            "the witness frame (%r ms) precedes its arm after_page_ms=%r: a "
+            "frame before the change cannot show it" % (frame_page_ms, after_page_ms)
+        )
+
     for field in ("frames_total", "frames_after"):
         value = record.get(field)
         if value is None:
@@ -246,6 +318,17 @@ def validate_witness(record, skew=None, bound_ms=DEFAULT_SKEW_BOUND_MS):
                 )
         else:
             errors.append("a witnessed frame needs a frames_after count")
+    # #137: frames_after counts a subset of frames_total.
+    if (
+        _count(record.get("frames_after")) is not None
+        and _count(record.get("frames_total")) is not None
+        and record["frames_after"] > record["frames_total"]
+    ):
+        errors.append(
+            "frames_after (%s) exceeds frames_total (%s): a subset cannot be "
+            "larger than the whole"
+            % (record["frames_after"], record["frames_total"])
+        )
 
     diff_ratio = record.get("diff_ratio")
     if diff_ratio is not None:
@@ -269,14 +352,18 @@ def validate_witness(record, skew=None, bound_ms=DEFAULT_SKEW_BOUND_MS):
             )
         changed = record.get("changed_pixels")
         min_pixels = record.get("min_pixels", DEFAULT_MIN_PIXELS)
-        if not _finite_number(changed):
+        if not _finite_number(min_pixels) or float(min_pixels) < 0:
+            errors.append(
+                "min_pixels must be a non-negative number (got %r)"
+                % (record.get("min_pixels"),)
+            )
+        elif not _finite_number(changed):
             errors.append("a witnessed frame needs changed_pixels")
-        elif isinstance(min_pixels, int) and not isinstance(min_pixels, bool):
-            if float(changed) < min_pixels:
-                errors.append(
-                    "a witnessed frame must differ in at least %s pixels "
-                    "(changed_pixels %r)" % (min_pixels, changed)
-                )
+        elif float(changed) < float(min_pixels):
+            errors.append(
+                "a witnessed frame must differ in at least %s pixels "
+                "(changed_pixels %r)" % (min_pixels, changed)
+            )
 
     caret_masked = record.get("caret_masked")
     if caret_masked is not None and not isinstance(caret_masked, bool):
@@ -297,6 +384,12 @@ def validate_witness(record, skew=None, bound_ms=DEFAULT_SKEW_BOUND_MS):
             "the record is not document-scoped: a whole-frame diff lets shell "
             "damage pose as document paint (pass a region to witnessFrame)"
         )
+    # #137: the scope flag asserted over the region's own recorded failure.
+    elif record.get("document_region_error"):
+        errors.append(
+            "the record claims document_scoped=true but carries "
+            "document_region_error=%r" % (record.get("document_region_error"),)
+        )
 
     # The clock check of the run (#130 defect 3): publication needs an
     # acceptable one. The nested record is the real evidence; the legacy
@@ -316,6 +409,32 @@ def validate_witness(record, skew=None, bound_ms=DEFAULT_SKEW_BOUND_MS):
                 errors.append("the run's clock check is not acceptable")
         else:
             clock_check_ok = True
+            # #137: an acceptable flag must be backed by the evidence it
+            # summarizes: erased checks prove nothing, and a recorded False
+            # check or an unchecked pixel anchor contradicts it.
+            checks = nested.get("checks")
+            if "checks" in nested and not isinstance(checks, dict):
+                clock_check_ok = False
+                errors.append(
+                    "the run's clock check claims acceptable without its "
+                    "recorded checks (checks=%r)" % (checks,)
+                )
+            elif isinstance(checks, dict):
+                failed = sorted(key for key, value in checks.items() if value is False)
+                if failed:
+                    clock_check_ok = False
+                    errors.append(
+                        "the run's clock check claims acceptable but its "
+                        "recorded checks fail: %s" % (", ".join(failed),)
+                    )
+            anchor_checked = nested.get("anchor_pixel_checked")
+            if anchor_checked is not None and anchor_checked is not True:
+                clock_check_ok = False
+                errors.append(
+                    "the run's clock check claims acceptable but the pixel "
+                    "anchor was not checked (anchor_pixel_checked=%r)"
+                    % (anchor_checked,)
+                )
     else:
         flag = record.get("clock_skew_acceptable")
         skew_ms = _skew_of(record, skew)
@@ -351,7 +470,7 @@ def validate_witness(record, skew=None, bound_ms=DEFAULT_SKEW_BOUND_MS):
         )
 
     refused = bool(errors)
-    reason = _reason_of(record, bound, errors) if refused else None
+    reason = _reason_of(record, bound, errors, skew_ms) if refused else None
 
     return {
         "ok": not refused,

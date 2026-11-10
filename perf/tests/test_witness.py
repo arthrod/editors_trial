@@ -38,7 +38,9 @@ missing implementation is a failure and not a silent pass.
 
 from __future__ import annotations
 
+import contextlib
 import importlib.util
+import io
 import json
 import os
 import shutil
@@ -791,6 +793,364 @@ class WitnessValidatorCounterexampleTests(unittest.TestCase):
                 0,
                 "a NaN record must not be published (rc=0): %s" % (proc.stdout,),
             )
+
+
+class WitnessIssue137Tests(unittest.TestCase):
+    """Issue #137 (the #130 follow-up): evidence the validator asserted, not checked.
+
+    Each record in `CASES` is one case of the issue (the re-review's findings
+    3-4); every one was accepted with ``ok: true`` by the validator as it
+    stood after #130 (reproduction: `e2-logs/b1c-fix2/repro-before.log`, the
+    reviewer's `/tmp/rerev-b1c-b4/validator.py` against this tree). Each must
+    be refused with its own named reason, and the armed good record — the
+    same fields a real `witnessFrame()` run records — must still pass.
+    """
+
+    @staticmethod
+    def armed_good_record() -> dict:
+        """The good record plus the fields a real run adds: the arm instant
+        (`after_page_ms`, the page-clock value passed to `witnessFrame`) and
+        the diff's pixel totals."""
+        return WitnessValidatorTests.good_record() | {
+            "after_page_ms": 1200.0,
+            "total_pixels": 90000,
+        }
+
+    #: (name, updates on the armed good record, the reason the refusal must name)
+    CASES = [
+        # 1. a frame before its arm: ordinary valid JSON, impossible evidence.
+        ("frame-before-arm", {"frame_page_ms": 1100}, "frame_before_arm"),
+        # 2. a non-finite arm through the direct API (the JSON reader refuses
+        #    a bare NaN; the validator must not depend on the reader for it).
+        ("arm-nan", {"after_page_ms": float("nan")}, "invalid_arm_time"),
+        # 3. more frames after the marker than were ever recorded.
+        (
+            "frames-after-above-total",
+            {"frames_total": 0},
+            "frame_counts_inconsistent",
+        ),
+        # 4. a pixel floor of the wrong type skips the floor: 0 pixels pass.
+        (
+            "min-pixels-not-a-number",
+            {"changed_pixels": 0, "min_pixels": "4"},
+            "min_pixels_invalid",
+        ),
+        # 5. `acceptable: true` asserted over recorded anchor evidence that
+        #    says no (the boolean was trusted over its own checks).
+        (
+            "acceptable-over-anchor-evidence",
+            {
+                "clock_check": {
+                    "kind": "clock_skew",
+                    "acceptable": True,
+                    "reason": None,
+                    "page_offset_ms": 0.2,
+                    "anchor_pixel_checked": False,
+                    "checks": {"anchor_found": False},
+                }
+            },
+            "clock_check_evidence_contradicted",
+        ),
+        # 6. `document_scoped: true` with the region's failure recorded next to it.
+        (
+            "scoped-with-region-error",
+            {"document_region_error": "selector missing"},
+            "document_scope_contradicted",
+        ),
+    ]
+
+    #: the same fail-open family, one step further: a wrong-typed arm, an
+    #: acceptable flag with its recorded checks erased, and an anchor that
+    #: says unchecked while the checks dict claims otherwise.
+    EXTRA_CASES = [
+        ("arm-not-a-number", {"after_page_ms": "1200"}, "invalid_arm_time"),
+        (
+            "acceptable-without-recorded-checks",
+            {
+                "clock_check": {
+                    "kind": "clock_skew",
+                    "acceptable": True,
+                    "reason": None,
+                    "page_offset_ms": 0.2,
+                    "checks": None,
+                }
+            },
+            "clock_check_evidence_missing",
+        ),
+        (
+            "acceptable-over-unchecked-anchor",
+            {
+                "clock_check": {
+                    "kind": "clock_skew",
+                    "acceptable": True,
+                    "reason": None,
+                    "page_offset_ms": 0.2,
+                    "anchor_pixel_checked": False,
+                    "checks": {"anchor_found": True, "anchor_pixel_checked": True},
+                }
+            },
+            "clock_check_evidence_contradicted",
+        ),
+    ]
+
+    def load_validator(self):
+        return _load_validator()
+
+    def assert_refused_for(self, validator, record, name, reason):
+        verdict = validator.validate_witness(record)
+        self.assertTrue(
+            verdict.get("refused"),
+            "%s must be refused (pre-fix it was accepted): %r" % (name, verdict),
+        )
+        self.assertFalse(verdict.get("ok"))
+        self.assertEqual(
+            verdict.get("reason"),
+            reason,
+            "%s must name its reason: %r" % (name, verdict),
+        )
+        self.assertTrue(
+            verdict.get("errors"), "%s must carry its evidence tokens" % (name,)
+        )
+
+    def test_each_case_is_refused_with_its_own_reason(self):
+        validator = self.load_validator()
+        for name, updates, reason in self.CASES:
+            with self.subTest(case=name):
+                self.assert_refused_for(
+                    validator, self.armed_good_record() | updates, name, reason
+                )
+
+    def test_each_hardening_case_is_refused_with_its_own_reason(self):
+        validator = self.load_validator()
+        for name, updates, reason in self.EXTRA_CASES:
+            with self.subTest(case=name):
+                self.assert_refused_for(
+                    validator, self.armed_good_record() | updates, name, reason
+                )
+
+    def test_the_armed_good_record_still_passes(self):
+        validator = self.load_validator()
+        verdict = validator.validate_witness(self.armed_good_record())
+        self.assertFalse(
+            verdict.get("refused"),
+            "the armed good record must pass exactly like the plain one: %r"
+            % (verdict,),
+        )
+        self.assertTrue(verdict.get("ok"))
+        self.assertIsNone(verdict.get("reason"))
+
+    def test_a_frame_at_the_arm_is_not_refused(self):
+        """The producer accepts a frame at `pageMs >= after_page_ms`; equality
+        is the boundary and must not become a refusal."""
+        validator = self.load_validator()
+        record = self.armed_good_record() | {"frame_page_ms": 1200.0}
+        verdict = validator.validate_witness(record)
+        self.assertFalse(
+            verdict.get("refused"), "a frame at the arm is causal: %r" % (verdict,)
+        )
+
+    def test_the_cli_refuses_a_pre_arm_frame(self):
+        """The CLI is the publication gate; the pre-arm frame must exit 1."""
+        validator = self.load_validator()
+        record = self.armed_good_record() | {"frame_page_ms": 1100}
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "pre-arm.json"
+            path.write_text(json.dumps(record), encoding="utf-8")
+            rc = validator.main(["--file", str(path)])
+            self.assertEqual(
+                rc, 1, "the CLI must refuse a frame before its arm (rc=%s)" % (rc,)
+            )
+
+
+class WitnessValidatorShapeTests(unittest.TestCase):
+    """The validator's shape contract, pinned so the branches stay exercised.
+
+    These are not counterexamples: every refusal here was already refused
+    before #137. They pin the reason each malformed shape names, the legacy
+    clock shapes that stay acceptable, and the CLI's exit codes, so the
+    witness module keeps its measured coverage above the 80 % lines /
+    70 % branches baseline (#137).
+    """
+
+    #: (name, updates on the good record, the reason the refusal must name)
+    REFUSED = [
+        (
+            "nested-check-not-acceptable-with-reason",
+            {"clock_check": {"acceptable": False, "reason": "anchor_lag_above_bound"}},
+            "clock_check_not_acceptable",
+        ),
+        (
+            "nested-check-not-acceptable-silent",
+            {"clock_check": {"acceptable": False, "reason": None}},
+            "clock_check_not_acceptable",
+        ),
+        (
+            "no-clock-check-anywhere",
+            {
+                "clock_check": None,
+                "clock_skew_ms": None,
+                "clock_skew_acceptable": None,
+            },
+            "clock_check_missing",
+        ),
+        (
+            "acceptable-flag-without-a-skew",
+            {
+                "clock_check": None,
+                "clock_skew_ms": None,
+                "clock_skew_acceptable": True,
+            },
+            "clock_check_missing",
+        ),
+        ("frame-time-missing", {"frame_page_ms": None}, "no_frame_time"),
+        (
+            "ratio-below-threshold",
+            {"diff_ratio": 0.00001},
+            "no_pixel_evidence",
+        ),
+        ("below-pixel-floor", {"changed_pixels": 1}, "no_pixel_evidence"),
+        ("caret-not-masked", {"caret_masked": False}, "caret_not_masked"),
+        (
+            "counts-not-integers",
+            {"frames_total": "7", "frames_after": "3"},
+            "invalid_record",
+        ),
+        ("count-negative", {"frames_total": -1}, "frame_counts_inconsistent"),
+        ("count-after-null", {"frames_after": None}, "invalid_record"),
+        ("diff-ratio-not-a-number", {"diff_ratio": "high"}, "invalid_record"),
+        ("diff-ratio-above-one", {"diff_ratio": 1.5}, "invalid_record"),
+        ("threshold-not-a-number", {"threshold": "tiny"}, "invalid_record"),
+        ("threshold-not-positive", {"threshold": 0.0}, "invalid_record"),
+        ("caret-masked-not-a-boolean", {"caret_masked": "yes"}, "caret_not_masked"),
+        (
+            "document-scoped-not-a-boolean",
+            {"document_scoped": 1},
+            "not_document_scoped",
+        ),
+        ("no-frame-with-a-frame-time", {"outcome": "no_frame"}, "no_frame"),
+        ("arm-infinite", {"after_page_ms": float("inf")}, "invalid_arm_time"),
+    ]
+
+    #: legacy clock shapes that stay acceptable: the deprecated `skew_ms`
+    #: alias, the nested clock_check offset, and the `clock_skew` dict.
+    ACCEPTED = [
+        {"clock_skew_ms": None, "skew_ms": 0.2, "clock_check": None},
+        {"clock_skew_ms": None},
+        {
+            "clock_skew_ms": None,
+            "clock_check": None,
+            "clock_skew": {"skew_ms": 0.2},
+        },
+    ]
+
+    def load_validator(self):
+        return _load_validator()
+
+    def test_each_malformed_shape_names_its_reason(self):
+        validator = self.load_validator()
+        for name, updates, reason in self.REFUSED:
+            with self.subTest(case=name):
+                record = WitnessValidatorTests.good_record() | updates
+                verdict = validator.validate_witness(record)
+                self.assertTrue(
+                    verdict.get("refused"), "%s must be refused: %r" % (name, verdict)
+                )
+                self.assertEqual(
+                    verdict.get("reason"),
+                    reason,
+                    "%s must name its reason: %r" % (name, verdict),
+                )
+
+    def test_legacy_clock_shapes_stay_acceptable(self):
+        validator = self.load_validator()
+        for i, updates in enumerate(self.ACCEPTED):
+            with self.subTest(case=i):
+                record = WitnessValidatorTests.good_record() | updates
+                verdict = validator.validate_witness(record)
+                self.assertFalse(
+                    verdict.get("refused"),
+                    "the legacy shape %r must stay acceptable: %r" % (updates, verdict),
+                )
+
+    def test_an_explicit_skew_argument_is_used(self):
+        """`skew=` overrides the record's own offset (the caller measured it)."""
+        validator = self.load_validator()
+        record = WitnessValidatorTests.good_record()
+        verdict = validator.validate_witness(record, skew=0.3)
+        self.assertFalse(verdict.get("refused"))
+        self.assertEqual(verdict.get("skew_ms"), 0.3)
+        verdict = validator.validate_witness(record, skew=5.0)
+        self.assertTrue(verdict.get("refused"))
+        self.assertEqual(verdict.get("reason"), "clock_skew_above_bound")
+
+    def test_a_record_that_is_not_a_mapping_is_refused(self):
+        validator = self.load_validator()
+        verdict = validator.validate_witness(None)
+        self.assertTrue(verdict.get("refused"))
+        self.assertEqual(verdict.get("reason"), "record_not_a_mapping")
+        self.assertIsNone(verdict.get("record"))
+
+    def test_missing_threshold_is_refused(self):
+        validator = self.load_validator()
+        record = WitnessValidatorTests.good_record()
+        del record["threshold"]
+        verdict = validator.validate_witness(record)
+        self.assertTrue(verdict.get("refused"))
+        self.assertEqual(verdict.get("reason"), "invalid_record")
+        self.assertTrue(
+            any("missing field" in str(e) for e in verdict.get("errors", [])),
+            "the missing field must be named: %r" % (verdict.get("errors"),)
+        )
+
+    def test_missing_changed_pixels_is_refused(self):
+        validator = self.load_validator()
+        record = WitnessValidatorTests.good_record()
+        del record["changed_pixels"]
+        verdict = validator.validate_witness(record)
+        self.assertTrue(verdict.get("refused"))
+        self.assertEqual(verdict.get("reason"), "invalid_record")
+
+    def test_the_cli_exit_codes(self):
+        validator = self.load_validator()
+        good = WitnessValidatorTests.good_record()
+        bad = good | {"outcome": "no_frame"}
+        with tempfile.TemporaryDirectory() as tmp:
+            good_path = Path(tmp) / "good.json"
+            good_path.write_text(json.dumps(good), encoding="utf-8")
+            bad_path = Path(tmp) / "bad.json"
+            bad_path.write_text(json.dumps(bad), encoding="utf-8")
+            missing_path = Path(tmp) / "missing.json"
+            junk_path = Path(tmp) / "junk.json"
+            junk_path.write_text("{", encoding="utf-8")
+            bundle_path = Path(tmp) / "bundle.json"
+            bundle_path.write_text(json.dumps([good, bad]), encoding="utf-8")
+            all_good_path = Path(tmp) / "all-good.json"
+            all_good_path.write_text(json.dumps([good, good]), encoding="utf-8")
+            scalar_path = Path(tmp) / "scalar.json"
+            scalar_path.write_text("5", encoding="utf-8")
+
+            with contextlib.redirect_stdout(io.StringIO()) as out:
+                self.assertEqual(validator.main(["--file", str(good_path)]), 0)
+                self.assertEqual(validator.main(["--file", str(bad_path)]), 1)
+                self.assertEqual(validator.main(["--file", str(missing_path)]), 2)
+                self.assertEqual(validator.main(["--file", str(junk_path)]), 2)
+                self.assertEqual(validator.main(["--file", str(scalar_path)]), 1)
+                self.assertEqual(
+                    validator.main(["--file", str(bundle_path)]),
+                    1,
+                    "a bundle with one refused record exits 1",
+                )
+                bundle = json.loads(out.getvalue().splitlines()[-1])
+                self.assertEqual(bundle["records"], 2)
+                self.assertTrue(bundle["refused"])
+                self.assertEqual(
+                    validator.main(["--file", str(all_good_path)]),
+                    0,
+                    "a bundle of good records exits 0",
+                )
+            verdict = json.loads(out.getvalue().splitlines()[-1])
+            self.assertFalse(verdict["refused"])
+            self.assertEqual(verdict["records"], 2)
 
 
 if __name__ == "__main__":
