@@ -1,0 +1,16 @@
+<!doctype html><meta charset="utf-8"><title>Periodic typing cost</title>
+<style>#editor {border:1px solid black;width:900px;min-height:500px;white-space:pre-wrap}</style>
+<div id="editor" contenteditable="true"></div><div class="status-ok">ready</div>
+<script>
+const args = new URLSearchParams(location.search);
+const every = Number(args.get('every') || 100), burn = Number(args.get('burn') || 200);
+let count = 0;
+const editor = document.querySelector('#editor');
+editor.addEventListener('input', () => {
+  if (++count % every === 0) {
+    const until = performance.now() + burn;
+    while (performance.now() < until) {}
+  }
+});
+editor.focus();
+</script>

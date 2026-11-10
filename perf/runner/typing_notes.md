@@ -23,13 +23,16 @@ keyboard layout: spaces/newlines need not paint ink, while §, em dashes and cur
 quotes use insertText without keydown. After a deferred sample the next due index
 is its index plus the interval. A null keydown anchor refuses as `no_keydown`.
 Key-to-paint median/p90 use accepted samples, with scheduled/accepted/refused
-counts and refusal codes. At least ceil(50% of scheduled witnesses), minimum one,
-must validate. Otherwise the distribution is refused as `insufficient_accepted`.
+counts and refusal codes. At least max(ceil(50% of scheduled), min(100, scheduled)) witnesses
+must validate; an empty distribution never publishes. The refusal also reaches
+the run summary cell through the nested refused outcome. Otherwise the distribution is refused as `insufficient_accepted`.
 Individual evidence and sub-frame flags remain attached.
 
-`throughput_chars_s` divides unwitnessed characters by the sum of their keyboard
-operation times and declared cadence pauses. Witnessed characters and their
-entire bridge stalls are excluded from both numerator and denominator. Each
+`throughput_chars_s` divides all timed characters by unwitnessed key time plus
+each witnessed key’s own key-to-paint time and declared cadence pauses. A refused
+witness uses the measured keyboard operation time (without witness machinery);
+if that timing is unavailable, its character is excluded from both sides and
+counted in `throughput_excluded_characters`. Only instrumentation is excluded. Each
 witness keeps its shared `elapsed_ms` plus end-to-end `bridge_elapsed_ms`;
 `witness_wall_s` sums the latter. B9 removes duplicate stylesheets containing
 exactly the shared caret-mask CSS after each operation, retaining the newest
@@ -44,9 +47,15 @@ Backlog compares normalized typed and DOM text lengths using the same whitespace
 collapse as the end check. Raw characters sent and normalized lengths are retained.
 Profile bytes are deltas from the post-load mark; `profile_absolute_bytes` keeps
 the absolute values. These deltas still include browser-owned growth, not only
-editor writes. Missing counters stay null. Per-process disk I/O is unavailable on
-macOS; CDP provides received bytes but no complete sent-wire counter. CPU percent
-is per process, with 100% representing one core. No forced GC is used.
+editor writes. B8's `AsyncResourceSampler` owns resource measurements, installs
+network listeners before navigation, and attributes only the launched browser's
+process tree. Missing counters use B8's `not_available_on_platform` marker.
+Load, typing and quiescence have separate first-to-last counter deltas, with
+per-role CPU deltas. A one-sample phase has no counter delta. Milestones are
+additive labels and do not split the typing phase. Heap, RSS, storage and profile
+are levels; after-load and end endpoints include separately labelled post-GC
+heap. GC samples are excluded from the natural series. Endpoint counters are
+`not_applicable_endpoint`. CPU percent sums cores (100% represents one core).
 
 Correct final text does not prove that the caret stayed at the insertion point.
 An editor that inserts correctly while parking its caret elsewhere can pass;
@@ -55,9 +64,7 @@ host-declared download path (SuperDoc); Playwright timeouts refuse as
 `save_timeout`. Plate has no declared save path.
 
 B6's dispatcher includes typing; its HF image installs Python playwright and
-psutil before sessions. No Docker build is part of this fix. B8's sampler is
-still changing: retain the provisional `typing_resources.ResourceSampler` with
-async mark/sample and synchronous series/totals until its interface is settled.
+psutil before sessions. No Docker build is part of this fix. The local fallback sampler has been removed; B9 uses B8's shared accounting.
 
 Local CLI smoke (not publication):
 

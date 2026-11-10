@@ -52,15 +52,18 @@ for await (const line of lines) {
         window.__b9key = null;
         document.addEventListener('keydown', e => { window.__b9key = e.timeStamp; }, {once:true, capture:true});
       });
+      let keyOperationMs;
       const witness = await witnessFrame(page, cdp, {
         region:{selector:command.selector}, clockCheck:clock, settleMs:0,
         arm: async () => {
+          const keyStart = performance.now();
           if (command.char === '\n') await page.keyboard.press('Enter');
           else await page.keyboard.type(command.char);
+          keyOperationMs = performance.now() - keyStart;
           return await page.evaluate(() => window.__b9key);
         },
       });
-      result = {...witness, frame_interval_ms:interval.median_ms};
+      result = {...witness, key_operation_ms:keyOperationMs, frame_interval_ms:interval.median_ms};
       if (witness.after_page_ms === null) result = {...result, outcome:'no_frame', refusal:'no_keydown'};
     } else if (command.op === 'close') {
       await stopRecorder(cdp); await context.close(); break;

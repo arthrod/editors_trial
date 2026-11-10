@@ -2,7 +2,7 @@
 """#143: one empty-document typing marathon per fresh BrowserRun cell.
 
 Run using uv ... python -I perf/runner/benchmark_typing.py. No paste or model
-insertion. Cadence is a minimum inter-key pause, including witness overhead.
+insertion. Cadence is the declared pause after each key; witness overhead is separate.
 The B9 record schema is additive: resources are bytes/ms, never samples_ms.
 """
 from __future__ import annotations
@@ -22,7 +22,7 @@ sys.path.insert(0, str(REPO))
 from perf.runner.browser_run import ACTIVE, CELL, run_cli, write_json, fixture_path
 from perf.runner.benchmark_warm_cold import BROWSER_TARGETS, _start_server, _stop_server
 from perf.runner.browser_hosts import select_fixture
-from perf.runner.typing_resources import ResourceSampler, INIT_SCRIPT
+from perf.runner.resources import AsyncResourceSampler, NOT_AVAILABLE, COUNTER_DELTA_FIELDS, phase_totals
 from perf.runner.witness import validate_witness
 
 BRIEF = REPO / 'perf/fixtures/briefs/sg-brief-13000w.txt'
@@ -55,11 +55,13 @@ def latency_summary(records):
         except (TypeError, ValueError, KeyError, AttributeError):
             refusals.append('invalid_record')
     values = sorted(r['ms'] for r in accepted)
-    minimum = max(1, math.ceil(len(records) * .5))
-    enough = len(values) >= minimum
+    minimum = max(math.ceil(len(records) * .5), min(100, len(records)))
+    enough = bool(values) and len(values) >= minimum
     return {'median_ms': values[len(values)//2] if enough else None,
             'p90_ms': values[max(0, math.ceil(len(values)*.9)-1)] if enough else None,
             'n_scheduled':len(records), 'n_accepted':len(values), 'n_refused':len(refusals),
+            'outcome':'measured' if enough else 'refused',
+            'refusal_code':None if enough else 'insufficient_accepted',
             'minimum_accepted':minimum, 'summary_refusal':None if enough else 'insufficient_accepted',
             'refusal_codes':{code:refusals.count(code) for code in sorted(set(refusals))},
             'samples': accepted, 'refusals': refusals,
@@ -78,6 +80,7 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
     start = clock(); next_sample = start + sample_s
     next_witness = witness_every; witness_wall = 0; typing_unwitnessed = 0; unwitnessed = 0
     sampler.typed_text = ''
+    witness_editor_s = 0; excluded = 0; witness_cadence_s = 0
     records = []; sent = 0; marks = {math.ceil(len(text)*p/100):f'typed_{p}' for p in (25,50,75,100)}
     result = {'failure_reason':None, 'first_divergence_offset':None}
     try:
@@ -91,6 +94,16 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
                 records.append(record)
                 witness_wall += record['bridge_elapsed_ms'] / 1000
                 next_witness = index + witness_every
+                single = latency_summary([record])
+                cost = single['median_ms']
+                if cost is None:
+                    cost = record.get('key_operation_ms')
+                if type(cost) in (int, float) and math.isfinite(cost) and cost >= 0:
+                    witness_editor_s += cost / 1000
+                    witness_cadence_s += cadence_ms / 1000
+                else:
+                    # No timing evidence: remove this character from both sides.
+                    excluded += 1
             else:
                 if char == '\n': await page.keyboard.press('Enter')
                 else: await page.keyboard.type(char)
@@ -113,8 +126,11 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
         result['error'] = str(exc)
     elapsed = clock() - start
     result.update(characters_typed=sent, words_typed=len(text[:sent].split()), typing_wall_s=elapsed,
-                  throughput_chars_s=unwitnessed/typing_unwitnessed if not result['failure_reason'] and typing_unwitnessed else None,
-                  throughput_basis='unwitnessed_keys_including_declared_cadence',
+                  throughput_chars_s=(sent-excluded)/(typing_unwitnessed+witness_editor_s+witness_cadence_s)
+                    if not result['failure_reason'] and typing_unwitnessed+witness_editor_s+witness_cadence_s else None,
+                  throughput_basis='all_timed_characters_over_key_work_and_cadence_excluding_witness_machinery',
+                  throughput_characters=sent-excluded, throughput_excluded_characters=excluded,
+                  witnessed_editor_s=witness_editor_s, witnessed_cadence_s=witness_cadence_s,
                   throughput_wall_chars_s=sent/elapsed if not result['failure_reason'] and elapsed else None,
                   throughput_wall_basis='all_characters_over_typing_wall_including_instrumentation',
                   typing_unwitnessed_s=typing_unwitnessed, unwitnessed_characters=unwitnessed,
@@ -137,29 +153,74 @@ class Bridge:
         if 'error' in response: raise RuntimeError(response['error'])
         return response['result']
 
-class ProcessResources:
-    def __init__(self, browser_cdp, profile):
-        self.browser_cdp = browser_cdp; self.profile = profile
-        self.network = {'received_bytes':0, 'sent_bytes':None,
-                        'sent_reason':'CDP exposes no complete request wire-byte counter'}
-        self.clock = time.monotonic
-    async def process_snapshot(self):
-        import psutil
-        rows = []
-        for item in (await self.browser_cdp.send('SystemInfo.getProcessInfo'))['processInfo']:
-            row = {'pid':item['id'], 'role':item['type'], 'cpu_ms':item['cpuTime']*1000,
-                   'rss_bytes':None, 'read_bytes':None, 'write_bytes':None}
-            try:
-                proc = psutil.Process(item['id']); row['rss_bytes'] = proc.memory_info().rss
-                if hasattr(proc, 'io_counters'):
-                    io = proc.io_counters(); row.update(read_bytes=io.read_bytes, write_bytes=io.write_bytes)
-                else: row['io_unavailable_reason'] = 'per-process disk counters unavailable on this OS'
-            except (psutil.Error, OSError) as exc: row['unavailable_reason'] = type(exc).__name__
-            rows.append(row)
-        return rows
-    def profile_size(self):
-        try: return sum(p.stat().st_size for p in self.profile.rglob('*') if p.is_file())
-        except OSError: return None
+# Same observer state consumed by B8's PAGE_SNAPSHOT_JS.
+INIT_SCRIPT = """() => {
+ window.__resourceLongTasks = {count:0, sum:0, available:true};
+ try {
+   if (!PerformanceObserver.supportedEntryTypes.includes('longtask')) throw Error('unsupported');
+   new PerformanceObserver(list => { for (const e of list.getEntries()) {
+     window.__resourceLongTasks.count++; window.__resourceLongTasks.sum += e.duration;
+   }}).observe({type:'longtask', buffered:true});
+ } catch { window.__resourceLongTasks = {available:false}; }
+}"""
+
+
+class TypingResourceSampler(AsyncResourceSampler):
+    """Only typing progress is B9-specific; every resource comes from B8."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.characters_typed = 0
+        self.typed_text = ''
+        self.selector = '[contenteditable="true"]'
+        self.milestone = None
+        self.profile_baseline = None
+
+    async def mark(self, milestone):
+        self.milestone = milestone
+        phase = ('typing' if milestone == 'typing_start' or milestone.startswith('typed_')
+                 else 'load' if milestone.startswith('load')
+                 else 'quiescence' if milestone in ('quiescence_start', 'quiescence', 'end')
+                 else milestone)
+        try:
+            return await super().mark(phase)
+        finally:
+            self.milestone = None
+
+    async def sample(self, record=True):
+        row = await super().sample(record=record)
+        row.update(milestone=self.milestone, characters_typed=self.characters_typed)
+        present = await self._async_page.evaluate(
+            '(s) => document.querySelector(s)?.innerText ?? ""', self.selector)
+        typed = normalize(self.typed_text)
+        row.update(milestone=self.milestone, characters_typed=self.characters_typed,
+            characters_present=len(normalize(present)), characters_typed_normalized=len(typed),
+            backlog_chars=len(typed)-len(normalize(present)))
+        absolute = row['profile_directory_bytes']
+        if self.milestone == 'load': self.profile_baseline = absolute
+        row['profile_absolute_bytes'] = absolute
+        row['profile_bytes'] = (absolute-self.profile_baseline
+            if isinstance(absolute, int) and isinstance(self.profile_baseline, int) else NOT_AVAILABLE)
+        return row
+
+    def report(self):
+        rows = self.series()
+        phases = {phase:self.totals(phase) for phase in dict.fromkeys(r['phase'] for r in rows)}
+        for phase, totals in phases.items():
+            phase_rows = [r for r in rows if r['phase'] == phase]
+            totals['cpu_ms_by_role'] = {
+                role:phase_totals([{**r, 'processes':[p for p in r['processes'] if p['role'] == role]}
+                                  for r in phase_rows])['cpu_ms']
+                for role in sorted({p['role'] for r in phase_rows for p in r['processes']})}
+        peaks = phase_totals(rows) if rows else {}
+        return {'phases':phases, 'peak_rss_bytes':peaks.get('peak_rss_bytes'),
+                'peak_js_heap_used_bytes':peaks.get('peak_js_heap_used_bytes'),
+                'last':rows[-1] if rows else None}
+
+    async def endpoint(self):
+        natural = await self.sample()
+        gc = await self.sample_after_gc()
+        return {**natural, **dict.fromkeys(COUNTER_DELTA_FIELDS, 'not_applicable_endpoint'),
+                'js_heap_used_bytes_after_gc':gc['js_heap_used_bytes'] if gc else NOT_AVAILABLE}
 
 async def session(target, text, args, directory):
     from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeoutError
@@ -179,16 +240,23 @@ async def session(target, text, args, directory):
                 browser = await pw.chromium.connect_over_cdp(f'http://127.0.0.1:{port}')
                 context = browser.contexts[0]; page = context.pages[0]
                 await context.add_init_script('('+INIT_SCRIPT+')()')
-                cdp = await context.new_cdp_session(page); await cdp.send('Performance.enable'); await cdp.send('Network.enable')
-                resources = ProcessResources(await browser.new_browser_cdp_session(), profile)
-                cdp.on('Network.loadingFinished', lambda event: resources.network.__setitem__('received_bytes', resources.network['received_bytes']+event['encodedDataLength']))
-                sampler = ResourceSampler(resources, page, cdp); sampler.selector = target['edit_selector']
+                await page.evaluate(INIT_SCRIPT)
+                cdp = await context.new_cdp_session(page)
+                browser_cdp = await browser.new_browser_cdp_session()
+                processes = (await browser_cdp.send('SystemInfo.getProcessInfo'))['processInfo']
+                browser_pid = next(p['id'] for p in processes if p['type'] == 'browser')
+                resources = SimpleNamespace(editor_browser_pid=browser_pid, profile_dir=profile)
+                sampler = TypingResourceSampler(resources, page, cdp)
+                sampler.selector = target['edit_selector']
+                await sampler.install()
+                await sampler.mark('load_start')
                 load = await bridge.request(op='load', url=target['url'], selector=target['edit_selector'],
                     ready_selector=target.get('ready_selector'), ready_js=target.get('ready_js'))
                 verdict = validate_witness(load['witness'])
                 result.update(load_witness=load, load_ms=load['witness']['frame_page_ms'] if verdict['ok'] else None,
                               load_refusal=verdict['reason'])
                 await sampler.mark('load')
+                result['resource_endpoints'] = {'after_load':await sampler.endpoint()}
                 surface = page.locator(target['edit_selector']).first
                 if not await surface.evaluate('(el) => el.isContentEditable'):
                     raise SessionRefusal('no_correctness_adapter')
@@ -213,9 +281,11 @@ async def session(target, text, args, directory):
                             raise SessionRefusal('save_timeout') from exc
                         result.update(save_ms=(time.monotonic()-t0)*1000, save_reason=None)
                     await sampler.mark('save')
+                    await sampler.mark('quiescence_start')
                     await asyncio.sleep(args.quiescence_s)
                     await sampler.mark('quiescence')
                     await sampler.mark('end')
+                    result['resource_endpoints']['end'] = await sampler.endpoint()
     except SessionRefusal as exc: result['failure_reason'] = str(exc)
     except (TimeoutError, asyncio.CancelledError): result['failure_reason'] = 'budget_exceeded'
     except Exception as exc:
@@ -231,8 +301,8 @@ async def session(target, text, args, directory):
         stderr.close()
     result['session_wall_s'] = time.monotonic()-started
     if sampler:
-        result['resources'] = sampler.totals()
-        result['milestones'] = {r['phase']:r for r in sampler.series() if r['phase'] != 'periodic'}
+        result['resources'] = sampler.report()
+        result['milestones'] = {r['milestone']:r for r in sampler.series() if r.get('milestone')}
     return result, sampler.series() if sampler else []
 
 def main_cell(argv=None, *, start_host=_start_server, stop_host=_stop_server):
@@ -272,7 +342,7 @@ def main_cell(argv=None, *, start_host=_start_server, stop_host=_stop_server):
             'schema':'perf.typing/1', 'isolation':'fresh_process', 'values_per_session':1, 'criterion_id':'TYPING', 'editor_id':editor,
             'run_id':run.run_id, 'seed':run.seed, 'repetition':(CELL.get() or {}).get('repetition')}
         trial.update(result, outcome='refused' if result.get('failure_reason') else 'measured',
-            publishable=False, publication_block_reason='B9 provisional resource adapter; inspect all witness and resource refusals',
+            publishable=False, publication_block_reason='inspect all witness and resource refusals; publication requires complete session set',
             fixture_sha256=hashlib.sha256(BRIEF.read_bytes()).hexdigest(),
             typed_text_sha256=hashlib.sha256(text.encode()).hexdigest(), fixture_words=len(text.split()),
             cadence_ms=args.cadence_ms, witness_every=args.witness_every, sample_s=args.sample_s,
