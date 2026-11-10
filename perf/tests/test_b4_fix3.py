@@ -13,8 +13,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
+from perf.tests.witness_records import publishable_witness_record
 from perf.runner.criteria_input_io import (  # noqa: E402
-    publishable_witness_record,
     trials_from_payload,
     write_trials_from_payload,
 )
@@ -49,7 +49,7 @@ class R1RefusedWitnessEvidence(unittest.TestCase):
         self.assertEqual(data["outcome"], "failed")
         self.assertIn("paint_witness_refused", data["failure_reason"] or "")
         self.assertIsInstance(data["witness"], dict)
-        self.assertEqual(data["sentinel"], {"sentinel": "whole-record"})
+        self.assertEqual(data["sentinel"], "whole-record")
         self.assertEqual(data["witness_refusal"], "clock_check_not_acceptable")
         self.assertTrue(data["witness_errors"])
 

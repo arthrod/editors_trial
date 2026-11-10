@@ -1,3 +1,4 @@
+import { publishableRecord, refusedRecord } from './witness_records.mjs';
 /**
  * Reproducers for B4 fix round 3 (re-review R1–R4). Invoked from test_b4_fix3.py.
  */
@@ -9,32 +10,8 @@ const moduleUrl = pathToFileURL(`${repo}/perf/runner/criteria_input.mjs`).href;
 const { measureBulkInsert, measureUndo, validateWitnessRecord, sampleAfterInput } =
   await import(moduleUrl);
 
-const good = {
-  outcome: 'witnessed',
-  frame_page_ms: 140,
-  after_page_ms: 100,
-  frames_total: 7,
-  frames_after: 3,
-  diff_ratio: 0.01,
-  threshold: 0.00005,
-  min_pixels: 4,
-  changed_pixels: 900,
-  caret_masked: true,
-  document_scoped: true,
-  clock_skew_ms: 0.2,
-  clock_skew_acceptable: true,
-  clock_check: {
-    kind: 'clock_skew',
-    acceptable: true,
-    reason: null,
-    page_offset_ms: 0.2,
-  },
-  extra_nested: { sentinel: 'whole-record' },
-};
-const bad = {
-  ...good,
-  clock_check: { acceptable: false, reason: 'anchor_lag_above_bound' },
-};
+const good = publishableRecord();
+const bad = refusedRecord();
 
 function fakePage(mode) {
   let body = 'ORIGINAL';
@@ -98,7 +75,7 @@ async function c09Refused() {
     witness: obs.witness ?? null,
     witness_refusal: obs.witness_refusal ?? null,
     witness_errors: obs.witness_errors ?? null,
-    sentinel: obs.witness?.extra_nested ?? null,
+    sentinel: obs.witness?.clock_check?.notes.at(-1) ?? null,
   };
 }
 

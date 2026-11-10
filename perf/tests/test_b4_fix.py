@@ -12,10 +12,10 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
+from perf.tests.witness_records import publishable_witness_record
 from perf.runner.criteria_input_io import (  # noqa: E402
     assert_payload_shape,
     build_support_matrix,
-    publishable_witness_record,
     trials_from_payload,
     write_trials_from_payload,
 )
@@ -93,7 +93,8 @@ class Issue131Logic(unittest.TestCase):
         refused = data["refused_witness"]
         self.assertFalse(refused["ok"])
         self.assertIn("paint_witness_refused", refused["reason"] or "")
-        self.assertTrue(data["validator"]["refused"])
+        self.assertEqual(data["validator"]["reason"], "clock_check_not_acceptable")
+        self.assertEqual(refused["witness_refusal"], "clock_check_not_acceptable")
 
     def test_c09_measures_insertion_at_captured_offset(self):
         data = _run_node_repro()
@@ -172,7 +173,7 @@ class Issue138WitnessAndWriter(unittest.TestCase):
             frames_after=0,
             caret_masked=False,
         )
-        self.assertTrue(validate_witness(bad)["refused"])
+        self.assertEqual(validate_witness(bad)["reason"], "clock_check_not_acceptable")
         entry = _entry(
             cid="C08",
             samples_ms=[40.0],

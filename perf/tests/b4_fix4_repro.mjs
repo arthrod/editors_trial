@@ -1,3 +1,4 @@
+import { publishableRecord, refusedRecord, noFrameRecord } from './witness_records.mjs';
 /**
  * Reproducers for B4 fix round 3 (re-review R1–R4). Invoked from test_b4_fix3.py.
  */
@@ -9,32 +10,8 @@ const moduleUrl = pathToFileURL(`${repo}/perf/runner/criteria_input.mjs`).href;
 const { measureBulkInsert, measureUndo, measureClicks, runCriteriaSuite, validateWitnessRecord, sampleAfterInput } =
   await import(moduleUrl);
 
-const good = {
-  outcome: 'witnessed',
-  frame_page_ms: 140,
-  after_page_ms: 100,
-  frames_total: 7,
-  frames_after: 3,
-  diff_ratio: 0.01,
-  threshold: 0.00005,
-  min_pixels: 4,
-  changed_pixels: 900,
-  caret_masked: true,
-  document_scoped: true,
-  clock_skew_ms: 0.2,
-  clock_skew_acceptable: true,
-  clock_check: {
-    kind: 'clock_skew',
-    acceptable: true,
-    reason: null,
-    page_offset_ms: 0.2,
-  },
-  extra_nested: { sentinel: 'whole-record' },
-};
-const bad = {
-  ...good,
-  clock_check: { acceptable: false, reason: 'anchor_lag_above_bound' },
-};
+const good = publishableRecord();
+const bad = refusedRecord();
 
 function fakePage(mode) {
   let body = 'ORIGINAL';
@@ -98,7 +75,7 @@ async function c09Refused() {
     witness: obs.witness ?? null,
     witness_refusal: obs.witness_refusal ?? null,
     witness_errors: obs.witness_errors ?? null,
-    sentinel: obs.witness?.extra_nested ?? null,
+    sentinel: obs.witness?.clock_check?.notes.at(-1) ?? null,
   };
 }
 
@@ -183,7 +160,7 @@ async function failedResetSuite() {
 async function cleanupProbe() {
 let body='ORIGINAL', undos=0;
 const page={reload:async()=>{body='ORIGINAL'},mouse:{click:async()=>{}}, keyboard:{type:async()=>{body='ORIGxINAL'},press:async()=>{undos++; if(undos>1)body='ORIGINAL'}},evaluate:async(fn,arg)=>{if(fn.name==='READ_EDITABLE_STATE')return {text:body,text_length:body.length,selection_offset:4}; if(arg && (arg.kind||arg.kinds))return {t:100}; return null;}};
-const witness={frameIntervalMs:16.667,paintAfter:async(t,o)=>{await o.arm(); return {outcome:'no_frame',frame_page_ms:null,after_page_ms:100,sentinel:'refusal'};}};
+const witness={frameIntervalMs:16.667,paintAfter:async(t,o)=>{await o.arm(); return noFrameRecord();}};
 const result=await measureUndo(page,witness,{modifier:'Control',expectedBodyText:'ORIGINAL'},{editable:{selector:'#doc',is_content_editable:true,text_length:8},points:[{point:'last_text_line',x:1,y:1}]});
 return {reason:result.failure_reason,body,undos,fixture_reset:result.fixture_reset};
 

@@ -35,33 +35,6 @@ PAINT_MECHANISM = "cdp_screencast_frame"
 CORRECTNESS_PREFIX = "correctness:"
 
 
-def publishable_witness_record(frame_page_ms=100.0, after_page_ms=80.0, **overrides):
-    """Minimal witness record that passes ``validate_witness`` for unit payloads."""
-    record = {
-        "outcome": "witnessed",
-        "frame_page_ms": float(frame_page_ms),
-        "after_page_ms": float(after_page_ms),
-        "frames_total": 7,
-        "frames_after": 3,
-        "diff_ratio": 0.01,
-        "threshold": 0.00005,
-        "min_pixels": 4,
-        "changed_pixels": 900,
-        "caret_masked": True,
-        "document_scoped": True,
-        "clock_skew_ms": 0.2,
-        "clock_skew_acceptable": True,
-        "clock_check": {
-            "kind": "clock_skew",
-            "acceptable": True,
-            "reason": None,
-            "page_offset_ms": 0.2,
-        },
-    }
-    record.update(overrides)
-    return record
-
-
 def _catalog():
     return {row["id"]: row for row in scenarios()}
 

@@ -53,6 +53,7 @@ from perf.schema import OUTCOMES, load_trial, validate_environment, validate_tri
 PROBE = REPO / "perf" / "runner" / "criteria_input.mjs"
 
 
+from perf.tests.witness_records import publishable_witness_record
 from perf.runner.criteria_input_io import (  # noqa: E402
     PAINT_MECHANISM,
     PROBE_SCHEMA,
@@ -61,7 +62,6 @@ from perf.runner.criteria_input_io import (  # noqa: E402
     assert_distinct_samples,
     assert_payload_shape,
     env_for,
-    publishable_witness_record,
     trial_from_entry,
     trials_from_payload,
     write_trials_from_payload,

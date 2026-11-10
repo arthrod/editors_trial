@@ -1,3 +1,4 @@
+import { publishableRecord, refusedRecord } from './witness_records.mjs';
 /**
  * Isolated reproducers for B4 review findings (#131). Invoked from test_b4_fix.py.
  */
@@ -16,30 +17,6 @@ const {
   OBSERVE_QUIESCENCE,
   measureClicks,
 } = await import(moduleUrl);
-
-function publishableRecord(framePageMs, afterPageMs) {
-  return {
-    outcome: 'witnessed',
-    frame_page_ms: framePageMs,
-    after_page_ms: afterPageMs,
-    frames_total: 7,
-    frames_after: 3,
-    diff_ratio: 0.01,
-    threshold: 0.00005,
-    min_pixels: 4,
-    changed_pixels: 900,
-    caret_masked: true,
-    document_scoped: true,
-    clock_skew_ms: 0.2,
-    clock_skew_acceptable: true,
-    clock_check: {
-      kind: 'clock_skew',
-      acceptable: true,
-      reason: null,
-      page_offset_ms: 0.2,
-    },
-  };
-}
 
 function fakeWitness(framePageMs) {
   return {
@@ -135,16 +112,7 @@ const c04 = await vm.runInNewContext(`(${OBSERVE_QUIESCENCE.toString()})({quietM
 const refusedWitness = await sampleAfterInput(
   {
     frameIntervalMs: 8.333,
-    paintAfter: async () => ({
-      outcome: 'witnessed',
-      frame_page_ms: 140,
-      after_page_ms: 100,
-      clock_check: { acceptable: false, reason: 'anchor_lag_above_bound' },
-      document_scoped: false,
-      caret_masked: false,
-      changed_pixels: 0,
-      frames_after: 0,
-    }),
+    paintAfter: async () => refusedRecord(),
   },
   100,
   {},
@@ -230,20 +198,7 @@ console.log(
       failure_reason: c09AtOffset.failure_reason,
       witness: Boolean(c09AtOffset.observations?.[0]?.witness),
     },
-    validator: validateWitnessRecord({
-      outcome: 'witnessed',
-      frame_page_ms: 140,
-      after_page_ms: 100,
-      clock_check: { acceptable: false, reason: 'anchor_lag_above_bound' },
-      document_scoped: false,
-      caret_masked: false,
-      changed_pixels: 0,
-      frames_after: 0,
-      frames_total: 0,
-      diff_ratio: 0,
-      threshold: 0.00005,
-      min_pixels: 4,
-    }),
+    validator: validateWitnessRecord(refusedRecord()),
     non_dom: {
       outcome: nonDom.outcome,
       samples_ms: nonDom.samples_ms,

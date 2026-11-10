@@ -6,10 +6,10 @@ from pathlib import Path
 
 import pytest
 
+from perf.tests.witness_records import publishable_witness_record
 from perf.runner.criteria_input_io import (
     _assert_retained_sample_witness_deltas,
     _witness_evidence_from_entry,
-    publishable_witness_record,
 )
 
 REPO = Path(__file__).resolve().parents[2]
@@ -25,7 +25,7 @@ def probes():
 
 def test_truncated_paste_keeps_refused_record(probes):
     obs = probes['c08_refused']['observations'][0]
-    assert obs.get('witness', {}).get('extra_nested') == {'sentinel': 'whole-record'}
+    assert obs.get('witness', {}).get('clock_check', {}).get('notes', [])[-1] == 'whole-record'
     assert obs.get('witness_refusal') == 'clock_check_not_acceptable'
     assert obs.get('witness_errors')
 
@@ -42,6 +42,7 @@ def test_missing_undo_input_keeps_witness(probes):
 
 
 def test_noop_undo_resets_fixture(probes):
+    assert probes['cleanup']['reason'] == 'no_painted_frame'
     assert probes['cleanup']['body'] == 'ORIGINAL'
     assert probes['cleanup']['fixture_reset']['restored'] is True
 
@@ -74,12 +75,14 @@ def entry(observations, identity='good', sample=40.0):
 def test_writer_returns_failed_witness():
     good = observation()
     bad = observation('bad')
-    bad['witness']['clock_check'] = dict(acceptable=False, reason='anchor_lag_above_bound')
+    bad['witness']['clock_check'].update(acceptable=False, reason='anchor_lag_above_bound')
+    bad['witness']['clock_skew_acceptable'] = False
     bad['witness_errors'] = ['sentinel-refusal']
     result = _witness_evidence_from_entry(entry([good, bad]))
     assert result['witness']['clock_check']['acceptable'] is False
     assert 'sentinel-refusal' in result['witness_errors']
     assert result['witness_verdict']['refused'] is True
+    assert result['witness_verdict']['reason'] == 'clock_check_not_acceptable'
 
 
 def test_different_anchor_refused():
@@ -131,8 +134,9 @@ def test_refused_summary_preserves_writer_evidence():
 
 def test_missing_click_retains_record_and_verdict(probes):
     obs = probes['missing_click']['observations'][0]
-    assert obs.get('witness', {}).get('extra_nested') == {'sentinel': 'whole-record'}
+    assert obs.get('witness', {}).get('clock_check', {}).get('notes', [])[-1] == 'whole-record'
     assert obs.get('witness_verdict', {}).get('refused') is True
+    assert obs['witness_verdict']['reason'] == 'clock_check_not_acceptable'
 
 
 def test_producer_carries_retained_identity(probes):
