@@ -369,9 +369,22 @@ def trial_from_entry(cid, entry, env, witness=None):
             lane=env.get("lane"),
             diagnostic=diagnostic,
         )
+        reason = str(entry["failure_reason"])
+        trial["refusal_code"] = (outcome if outcome in ("not_applicable", "not_run", "unsupported", "unverified") else
+            "cpu_throttled" if reason.startswith("cpu_throttled") else
+            "unverified" if reason.startswith("correctness:") else
+            "paint_witness_unavailable" if any(token in reason for token in ("no_painted_frame", "witness", "clock_skew", "frame_interval")) else
+            "malformed_samples" if "malformed_observation" in reason else "crash")
         validate_trial(trial)
         return trial
     samples = [float(s) for s in entry["samples_ms"]]
+    if cid in ("C04", "C08", "C09") and env["repetition_unit"] == "fresh_process" and len(samples) > 1:
+        diagnostic["rejected_samples_ms"] = samples
+        trial = _trial_dict(criterion_id=cid, layer=entry["layer"], boundary=entry["boundary"],
+            outcome="failed", env=env, samples_ms=[], failure_reason="fresh_process_multi_sample",
+            publishable=False, editor_id=env["editor_id"], lane=env.get("lane"), diagnostic=diagnostic)
+        trial["refusal_code"] = "malformed_samples"
+        return trial
     stats = summarize(samples, env["cache_state"], env["repetition_unit"], seed=0)
     publishable, reason = trial_publishable_flags(env, entry["layer"], stats["n"])
     publishable, reason = _finalize_publishable(publishable, reason, env)
