@@ -557,41 +557,6 @@ def _main() -> int:
         lane = BROWSER_TARGETS[editor_id].get("lane") or default_lane(editor_id)
         trial_pin = pin_label(editor_id)
         editor_version, harness_meta = browser_harness_editor_version(editor_id, trial_pin)
-        if editor_id == "apryse" and not _apryse_key_present():
-            reason = "apryse: trial key not present in environment"
-            for cid, (boundary, layer) in {
-                "C03": ("first_usable", "browser_visible"),
-                "C05": ("presented_frame", "browser_visible"),
-            }.items():
-                env = _env_for(
-                    editor_id=editor_id,
-                    editor_version=editor_version,
-                    fixture_sha256=sha,
-                    workload_row=workload_row,
-                    docx_size=docx_size,
-                    cache_state="process_cold_fs_warm",
-                )
-                path = _write_not_run(
-                    attempt_dir=attempt_dir,
-                    criterion_id=cid,
-                    layer=layer,
-                    boundary=boundary,
-                    editor_id=editor_id,
-                    lane=lane,
-                    env=env,
-                    failure_reason=reason,
-                )
-                not_run_rows.append(
-                    {
-                        "criterion_id": cid,
-                        "editor_id": editor_id,
-                        "outcome": "not_run",
-                        "failure_reason": reason,
-                        "attempt_file": _attempt_ref(path),
-                    }
-                )
-            continue
-
         target = BROWSER_TARGETS.get(editor_id)
         if target and target.get("enabled") is False:
             target = None
