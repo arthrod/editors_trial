@@ -1,0 +1,523 @@
+"""Resource sampler and the publishable browser resource lane.
+
+A fake page is the measurer: the sampler must report what that page did,
+in byte and millisecond fields, and the lane must refuse a series that
+did not actually move or a quiescence condition that never held.
+"""
+
+import json
+import tempfile
+import unittest
+from pathlib import Path
+
+from perf.runner.benchmark_resources import (
+    EDIT_BURST,
+    QUIESCENCE,
+    REFUSAL_CODES,
+    RESOURCE_WORKLOADS,
+    collect_phases,
+    measure_editor,
+    publication_verdict,
+)
+from perf.runner.resources import (
+    NOT_AVAILABLE,
+    ResourceSampler,
+    parse_cgroup_text,
+    parse_linux_process,
+    parse_ps_resource_table,
+    parse_ps_time,
+    role_of,
+)
+
+MiB = 1024 * 1024
+
+
+class World:
+    def __init__(self):
+        self.heap_used = 8 * MiB
+        self.heap_total = 16 * MiB
+        self.runtime_used = 8 * MiB
+        self.runtime_total = 16 * MiB
+        self.task_s = 0.0
+        self.script_s = 0.0
+        self.layout_s = 0.0
+        self.style_s = 0.0
+        self.storage_usage = 0
+        self.indexeddb = 0
+        self.caches = 0
+        self.service_workers = 0
+        self.local_storage_bytes = 0
+        self.longtask_count = 0
+        self.longtask_sum_ms = 0
+        self.network = []
+        self.processes = [
+            _proc(10, 1, "chrome", rss=40 * MiB, cpu_ms=10),
+            _proc(11, 10, "chrome --type=renderer", rss=80 * MiB, cpu_ms=20),
+            _proc(12, 10, "chrome --type=gpu-process", rss=30 * MiB, cpu_ms=5),
+            _proc(50, 1, "chrome --type=renderer", rss=90 * MiB, cpu_ms=99),
+            _proc(99, 1, "node vite", rss=15 * MiB, cpu_ms=3),
+        ]
+
+    def allocate(self, nbytes):
+        self.heap_used += nbytes
+        self.heap_total += nbytes
+        self.runtime_used += nbytes
+        self.runtime_total += nbytes
+
+    def burn_renderer_cpu_ms(self, cpu_ms):
+        for row in self.processes:
+            if row["pid"] == 11:
+                row["cpu_ms"] += cpu_ms
+
+    def write_indexeddb(self, nbytes):
+        self.indexeddb += nbytes
+        self.storage_usage += nbytes
+
+    def download(self, nbytes):
+        self.network.append(nbytes)
+
+    def set_heap(self, nbytes):
+        self.heap_used = nbytes
+        self.heap_total = nbytes + MiB
+        self.runtime_used = nbytes
+        self.runtime_total = nbytes + MiB
+
+
+def _proc(pid, ppid, cmdline, *, rss, cpu_ms):
+    return {
+        "pid": pid,
+        "ppid": ppid,
+        "cmdline": cmdline,
+        "rss_bytes": rss,
+        "cpu_ms": cpu_ms,
+        "pss_bytes": 1,
+        "uss_bytes": 1,
+        "io_read_bytes": 1,
+        "io_write_bytes": 1,
+    }
+
+
+class FakePage:
+    def __init__(self, world):
+        self.world = world
+
+    def evaluate(self, expression):
+        if "navigator.storage" not in expression or "longtask" not in expression:
+            raise AssertionError("snapshot script is not the resource probe")
+        return {
+            "usage": self.world.storage_usage,
+            "usageDetails": {
+                "indexedDB": self.world.indexeddb,
+                "caches": self.world.caches,
+                "serviceWorkerRegistrations": self.world.service_workers,
+            },
+            "localStorageBytes": self.world.local_storage_bytes,
+            "longtaskCount": self.world.longtask_count,
+            "longtaskSumMs": self.world.longtask_sum_ms,
+        }
+
+
+class FakeCdp:
+    def __init__(self, world):
+        self.world = world
+
+    def send(self, method, params=None):
+        if method in ("Performance.enable", "Network.enable"):
+            return {}
+        if method == "Performance.getMetrics":
+            return {
+                "metrics": [
+                    {"name": "JSHeapUsedSize", "value": self.world.heap_used},
+                    {"name": "JSHeapTotalSize", "value": self.world.heap_total},
+                    {"name": "TaskDuration", "value": self.world.task_s},
+                    {"name": "ScriptDuration", "value": self.world.script_s},
+                    {"name": "LayoutDuration", "value": self.world.layout_s},
+                    {"name": "RecalcStyleDuration", "value": self.world.style_s},
+                ]
+            }
+        if method == "Runtime.getHeapUsage":
+            return {"usedSize": self.world.runtime_used, "totalSize": self.world.runtime_total}
+        raise AssertionError(method)
+
+    def events(self, method):
+        if method != "Network.loadingFinished":
+            return []
+        return [
+            {"requestId": "req-%d" % index, "encodedDataLength": size}
+            for index, size in enumerate(self.world.network)
+        ]
+
+
+class FakeRun:
+    def __init__(self, directory):
+        self.directory = Path(directory)
+        self.directory.mkdir(parents=True, exist_ok=True)
+        self.editor_browser_pid = 10
+        self.static_server_pid = 99
+        self.profile_dir = None
+        self.bundle_bytes = 4096
+        self.seed = 7
+        self.out_root = self.directory
+
+    def fixture(self, workload, data):
+        path = self.directory / "fixtures" / ("%s.docx" % workload)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if not path.exists():
+            path.write_bytes(data)
+        return path
+
+
+class ManualClock:
+    def __init__(self, world, *, disturb):
+        self.t = 0.0
+        self.world = world
+        self.disturb = disturb
+
+    def monotonic(self):
+        return self.t
+
+    def sleep(self, seconds):
+        self.t += seconds
+        if self.disturb:
+            self.world.longtask_count += 1
+            self.world.longtask_sum_ms += 80
+            self.world.heap_used += 8 * MiB
+            self.world.runtime_used = self.world.heap_used
+
+
+class PhaseSession:
+    """In-process stand-in for one browser launch. No Chromium, no server."""
+
+    def __init__(self, world, *, mode):
+        self.world = world
+        self.mode = mode
+        self.page = FakePage(world)
+        self.cdp = FakeCdp(world)
+        self.browser_pid = 10
+        self.server_pid = 99
+        self.profile_dir = None
+        self.bundle_bytes = 4096
+        self.has_save = False
+        self.edited = None
+
+    def process_reader(self):
+        return [dict(row) for row in self.world.processes]
+
+    def load(self):
+        if self.mode == "measure":
+            self.world.set_heap(40 * MiB)
+            self.world.download(6 * MiB)
+
+    def after_load(self):
+        if self.mode == "measure":
+            self.world.set_heap(42 * MiB)
+
+    def edit(self, burst):
+        self.edited = dict(burst)
+        if self.mode == "measure":
+            self.world.set_heap(48 * MiB)
+            self.world.burn_renderer_cpu_ms(400)
+
+    def after_edits(self):
+        if self.mode == "measure":
+            self.world.set_heap(49 * MiB)
+
+    def save(self):
+        raise AssertionError("this host has no save")
+
+    def close(self):
+        return None
+
+
+def make_sampler(world, *, clock=None, platform_name="darwin", browser_pid=10):
+    directory = tempfile.mkdtemp()
+    run = FakeRun(directory)
+    run.editor_browser_pid = browser_pid
+    page = FakePage(world)
+    cdp = FakeCdp(world)
+    return ResourceSampler(
+        run,
+        page,
+        cdp,
+        process_reader=lambda: [dict(row) for row in world.processes],
+        platform_name=platform_name,
+        clock=clock or ManualClock(world, disturb=False),
+    )
+
+
+SHORT_QUIESCENCE = {
+    "no_longtask_s": 2.0,
+    "heap_band_percent": 5.0,
+    "max_wait_s": 6.0,
+    "poll_s": 1.0,
+}
+
+
+class SamplerMeasurements(unittest.TestCase):
+    def test_allocating_200_mib_reports_at_least_that_much_js_heap(self):
+        world = World()
+        sampler = make_sampler(world)
+        world.allocate(200 * MiB)
+        sample = sampler.sample()
+        self.assertGreaterEqual(sample["js_heap_used_bytes"], 200 * MiB)
+        self.assertGreaterEqual(sample["js_heap_runtime_used_bytes"], 200 * MiB)
+        self.assertNotIn("samples_ms", sample)
+        self.assertNotIn("samples_ms", sampler.series()[0])
+
+    def test_burning_cpu_for_two_seconds_records_renderer_cpu_ms(self):
+        world = World()
+        sampler = make_sampler(world)
+        sampler.mark("burn")
+        world.burn_renderer_cpu_ms(2000)
+        sampler.sample()
+        self.assertGreaterEqual(sampler.totals("burn")["renderer_cpu_ms"], 1800)
+
+    def test_indexeddb_write_of_50_mib_is_storage_usage(self):
+        world = World()
+        sampler = make_sampler(world)
+        world.write_indexeddb(50 * MiB)
+        sample = sampler.sample()
+        self.assertGreaterEqual(sample["storage_usage_bytes"], 50 * MiB)
+        self.assertGreaterEqual(sample["storage_indexeddb_bytes"], 50 * MiB)
+
+    def test_downloading_5_mib_records_network_bytes(self):
+        world = World()
+        sampler = make_sampler(world)
+        world.download(5 * MiB)
+        sample = sampler.sample()
+        self.assertGreaterEqual(sample["network_encoded_bytes"], 5 * MiB)
+        self.assertGreaterEqual(sample["network_request_count"], 1)
+
+    def test_three_process_tree_is_recorded_by_role_and_excludes_the_server(self):
+        world = World()
+        sampler = make_sampler(world)
+        sample = sampler.sample()
+        roles = sorted(row["role"] for row in sample["processes"])
+        self.assertEqual(roles, ["browser", "gpu", "renderer"])
+        self.assertEqual(sorted(row["pid"] for row in sample["processes"]), [10, 11, 12])
+        self.assertNotIn(50, [row["pid"] for row in sample["processes"]])
+        self.assertNotIn(99, [row["pid"] for row in sample["processes"]])
+        self.assertEqual(sample["static_server"]["pid"], 99)
+        self.assertFalse(sample["static_server"]["counted_as_editor"])
+        self.assertIn("The dev/static server is not the editor.", sample["static_server"]["note"])
+        for row in sample["processes"]:
+            self.assertEqual(row["pss_bytes"], NOT_AVAILABLE)
+            self.assertEqual(row["uss_bytes"], NOT_AVAILABLE)
+            self.assertEqual(row["io_read_bytes"], NOT_AVAILABLE)
+            self.assertEqual(row["io_write_bytes"], NOT_AVAILABLE)
+            self.assertNotEqual(row["pss_bytes"], 0)
+        self.assertEqual(sample["cgroup_memory_current_bytes"], NOT_AVAILABLE)
+        self.assertNotEqual(sample["cgroup_memory_current_bytes"], 0)
+        self.assertEqual(sample["cgroup_rss_gap_bytes"], NOT_AVAILABLE)
+
+    def test_missing_launch_pid_does_not_guess_another_browser(self):
+        world = World()
+        sampler = make_sampler(world, browser_pid=None)
+        sample = sampler.sample()
+        self.assertEqual(sample["processes"], [])
+        self.assertEqual(sample["process_tree_status"], "process_tree_not_launched")
+        self.assertEqual(sample["rss_bytes"], NOT_AVAILABLE)
+
+    def test_network_service_is_its_own_role(self):
+        self.assertEqual(
+            role_of("chrome --type=utility --utility-sub-type=network.mojom.NetworkService"),
+            "network_service",
+        )
+
+    def test_linux_proc_fields_keep_their_units(self):
+        stat = "11 (chrome) R 10 11 11 0 11 0 1 2 3 4 100 50 0 0"
+        status = "VmRSS:\t2048 kB\n"
+        io = "read_bytes: 4096\nwrite_bytes: 8192\n"
+        rollup = "Rss:\t2048 kB\nPss:\t1500 kB\nPrivate_Clean:\t100 kB\nPrivate_Dirty:\t200 kB\n"
+        row = parse_linux_process(
+            pid=11,
+            stat=stat,
+            cmdline="chrome --type=renderer",
+            status=status,
+            io_text=io,
+            rollup=rollup,
+            hz=100,
+        )
+        self.assertEqual(row["ppid"], 10)
+        self.assertEqual(row["cpu_ms"], 1500)
+        self.assertEqual(row["rss_bytes"], 2048 * 1024)
+        self.assertEqual(row["pss_bytes"], 1500 * 1024)
+        self.assertEqual(row["uss_bytes"], 300 * 1024)
+        self.assertEqual(row["io_read_bytes"], 4096)
+        self.assertEqual(row["io_write_bytes"], 8192)
+        self.assertEqual(row["role"], "renderer")
+
+    def test_cgroup_gap_is_recorded(self):
+        parsed = parse_cgroup_text(
+            cpu_stat="usage_usec 5000000\nuser_usec 1\nsystem_usec 1\n",
+            memory_current="419430400\n",
+            memory_peak="524288000\n",
+            io_stat="259:0 rbytes=100 wbytes=200 rios=1 wios=1 dbytes=0 dios=0\n",
+        )
+        self.assertEqual(parsed["cgroup_cpu_usec"], 5000000)
+        self.assertEqual(parsed["cgroup_memory_current_bytes"], 400 * MiB)
+        self.assertEqual(parsed["cgroup_memory_peak_bytes"], 500 * MiB)
+        self.assertEqual(parsed["cgroup_io_read_bytes"], 100)
+        self.assertEqual(parsed["cgroup_io_write_bytes"], 200)
+        world = World()
+        sampler = make_sampler(world, platform_name="linux")
+        sampler.cgroup_reader = lambda pid: parsed
+        sample = sampler.sample()
+        self.assertGreater(sample["cgroup_rss_gap_bytes"], 50 * MiB)
+        self.assertTrue(sample["cgroup_gap_large"])
+        self.assertNotEqual(sample["cgroup_rss_gap_bytes"], 0)
+
+    def test_macos_ps_time_is_the_dev_cpu_fallback(self):
+        self.assertEqual(parse_ps_time("0:02.00"), 2000)
+        table = parse_ps_resource_table("  11  10  2048  0:02.00 chrome --type=renderer\n")
+        self.assertEqual(table[0]["pid"], 11)
+        self.assertEqual(table[0]["ppid"], 10)
+        self.assertEqual(table[0]["rss_bytes"], 2048 * 1024)
+        self.assertEqual(table[0]["cpu_ms"], 2000)
+        self.assertEqual(table[0]["pss_bytes"], NOT_AVAILABLE)
+        self.assertEqual(table[0]["io_read_bytes"], NOT_AVAILABLE)
+
+
+class LaneRefusals(unittest.TestCase):
+    def test_constant_series_is_refused(self):
+        world = World()
+        sampler = make_sampler(world)
+        sampler.mark("after_load")
+        sampler.sample()
+        trial = collect_phases(
+            sampler,
+            PhaseSession(world, mode="idle"),
+            ManualClock(world, disturb=False),
+            quiescence=SHORT_QUIESCENCE,
+            edit_burst=EDIT_BURST,
+            editor_id="plate",
+            workload_id="prose-500w",
+            workload_meta={"sha256": "a" * 64, "byte_size": 10, "paragraph_count": 1, "word_count": 1},
+            execution_profile="ci_broad",
+            host_class="ci_coarse",
+            already_sampled=True,
+        )
+        self.assertEqual(trial["outcome"], "refused")
+        self.assertEqual(trial["refusal_code"], "constant_series")
+        self.assertIn(trial["refusal_code"], REFUSAL_CODES)
+        self.assertNotIn("samples_ms", trial)
+        self.assertNotIn("samples_ms", json.dumps(trial))
+
+    def test_copied_phase_series_is_refused(self):
+        world = World()
+        clock = ManualClock(world, disturb=False)
+        sampler = make_sampler(world, clock=clock)
+        world.set_heap(10 * MiB)
+        sampler.mark("left")
+        world.set_heap(20 * MiB)
+        sampler.sample()
+        world.set_heap(10 * MiB)
+        sampler.mark("right")
+        world.set_heap(20 * MiB)
+        sampler.sample()
+        from perf.runner.resources import classify_series
+
+        self.assertEqual(classify_series(sampler.series(), quiescence_reached=True), "copied_series")
+
+    def test_quiescence_never_reached_is_refused(self):
+        world = World()
+        clock = ManualClock(world, disturb=True)
+        sampler = make_sampler(world, clock=clock)
+        trial = collect_phases(
+            sampler,
+            PhaseSession(world, mode="idle"),
+            clock,
+            quiescence=SHORT_QUIESCENCE,
+            edit_burst=EDIT_BURST,
+            editor_id="plate",
+            workload_id="prose-500w",
+            workload_meta={"sha256": "b" * 64, "byte_size": 10, "paragraph_count": 1, "word_count": 1},
+            execution_profile="ci_broad",
+            host_class="ci_coarse",
+        )
+        self.assertFalse(trial["quiescence"]["reached"])
+        self.assertEqual(trial["outcome"], "refused")
+        self.assertEqual(trial["refusal_code"], "quiescence_not_reached")
+        self.assertIn("quiescence_not_reached", REFUSAL_CODES)
+
+    def test_workload_prose_50kw_runs_in_a_fake_host(self):
+        holder = {}
+
+        def factory(ctx):
+            holder["ctx"] = ctx
+            world = World()
+            return PhaseSession(world, mode="measure")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            run = FakeRun(tmp)
+            trial = measure_editor(
+                editor_id="plate",
+                workload_id="prose-50kw",
+                run=run,
+                execution_profile="dedicated_publish",
+                host_class="dedicated",
+                session_factory=factory,
+                clock=ManualClock(None, disturb=False),
+                quiescence=SHORT_QUIESCENCE,
+            )
+        seen = holder["ctx"]
+        self.assertEqual(seen["workload_id"], "prose-50kw")
+        self.assertEqual(seen["editor_id"], "plate")
+        self.assertGreaterEqual(seen["workload_meta"]["word_count"], 50_000)
+        self.assertEqual(trial["workload_id"], "prose-50kw")
+        self.assertEqual(trial["editor_id"], "plate")
+        self.assertEqual(trial["outcome"], "measured")
+        self.assertIsNone(trial["refusal_code"])
+        self.assertNotIn("samples_ms", trial)
+        self.assertNotIn("samples_ms", json.dumps(trial))
+        self.assertIn("prose-50kw", RESOURCE_WORKLOADS)
+        self.assertGreaterEqual(trial["criteria"]["C17"]["js_heap_used_bytes"], 1)
+        self.assertGreaterEqual(trial["criteria"]["C19"]["js_heap_used_bytes"], 1)
+        self.assertIn("growth_js_heap_used_bytes", trial["criteria"]["C19"])
+        self.assertGreaterEqual(trial["peak_ram_bytes"], 1)
+        self.assertEqual(trial["edit_burst"]["kind"], EDIT_BURST["kind"])
+        self.assertEqual(trial["edit_burst"]["repetitions"], EDIT_BURST["repetitions"])
+        self.assertTrue(trial["quiescence"]["reached"])
+        self.assertIn("no_longtask_s", QUIESCENCE)
+        self.assertIn("heap_band_percent", QUIESCENCE)
+        self.assertIn("max_wait_s", QUIESCENCE)
+        self.assertFalse(trial["static_server"]["counted_as_editor"])
+        self.assertEqual(seen["edited"]["text"], EDIT_BURST["text"])
+        self.assertEqual(seen["edited"]["repetitions"], EDIT_BURST["repetitions"])
+        self.assertGreater(seen["workload_meta"]["byte_size"], 0)
+
+    def test_publication_needs_thirty_scheduled_ten_kept_and_two_seeds(self):
+        kept = [
+            {"outcome": "measured", "editor_id": "plate", "workload_id": "prose-500w"}
+            for _ in range(10)
+        ]
+        one = publication_verdict(
+            kept,
+            seeds=[1],
+            scheduled=30,
+            execution_profile="dedicated_publish",
+            host_class="dedicated",
+        )
+        self.assertFalse(one["publishable"])
+        self.assertIn("second_seed_required", one["publication_block_reasons"])
+        short = publication_verdict(
+            kept[:9],
+            seeds=[1, 2],
+            scheduled=30,
+            execution_profile="dedicated_publish",
+            host_class="dedicated",
+        )
+        self.assertIn("kept_below_10", short["publication_block_reasons"])
+        both = publication_verdict(
+            kept,
+            seeds=[1, 2],
+            scheduled=30,
+            execution_profile="dedicated_publish",
+            host_class="dedicated",
+        )
+        self.assertTrue(both["publishable"])
+        self.assertEqual(both["publication_block_reasons"], [])
+
+
+if __name__ == "__main__":
+    unittest.main()

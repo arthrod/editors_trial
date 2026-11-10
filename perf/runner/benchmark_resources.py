@@ -1,0 +1,645 @@
+#!/usr/bin/env python3
+"""Browser resource lane: RAM, CPU, disk and network per editor and document size.
+
+One fresh Chromium launch per repetition, through ``run_cli`` / ``BrowserRun``.
+The dev/static server is not the editor. Resource numbers live in their own
+fields. They are never written to ``samples_ms``.
+
+Publication needs ``dedicated_publish``, 30 scheduled repetitions, at least
+10 kept measurements per editor and workload, and two distinct seeds.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+import threading
+import uuid
+from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
+
+REPO = Path(__file__).resolve().parents[2]
+if str(REPO) not in sys.path:
+    sys.path.insert(0, str(REPO))
+
+from perf.fixtures.docx_workload import workload_docx
+from perf.fixtures.profiles import assert_workload_allowed
+from perf.runner.benchmark_warm_cold import BROWSER_TARGETS, _start_server, _stop_server
+from perf.runner.browser_hosts import select_fixture
+from perf.runner.browser_run import BrowserRun, run_cli, write_json
+from perf.runner.resources import (
+    NOT_AVAILABLE,
+    ResourceSampler,
+    WallClock,
+    classify_series,
+    drive_quiescence,
+)
+from perf.schema import sample_budget_for_profile
+
+RESOURCE_WORKLOADS = (
+    "prose-500w",
+    "prose-5kw",
+    "prose-50kw",
+    "prose-250kw",
+    "complex-corpus",
+)
+
+EDIT_BURST = {
+    "kind": "keyboard.insertText",
+    "text": "B8",
+    "repetitions": 8,
+}
+
+QUIESCENCE = {
+    "no_longtask_s": 2.0,
+    "heap_band_percent": 5.0,
+    "max_wait_s": 15.0,
+    "poll_s": 0.5,
+}
+
+REFUSAL_CODES = (
+    "constant_series",
+    "copied_series",
+    "quiescence_not_reached",
+    "process_tree_missing",
+    "process_tree_not_launched",
+    "js_heap_not_measured",
+    "series_empty",
+    "workload_not_on_ladder",
+)
+
+PHASES = ("load", "after_load", "edit_burst", "quiescence", "after_edits", "save_export")
+SESSION = Path(__file__).with_name("resources_session.mjs")
+_META_KEYS = (
+    "workload_id", "sha256", "byte_size", "paragraph_count", "word_count",
+    "shape", "unicode_class", "match_count",
+)
+
+
+def _is_int(value):
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _store_fixture(run, workload_id, data):
+    if hasattr(run, "fixture"):
+        return Path(run.fixture(workload_id, data))
+    path = Path(run.directory) / "fixtures" / ("%s.docx" % workload_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+    try:
+        view = memoryview(data)
+        while view:
+            written = os.write(fd, view)
+            if written <= 0:
+                raise OSError("short write")
+            view = view[written:]
+    finally:
+        os.close(fd)
+    return path
+
+
+def _public_meta(meta):
+    return {key: meta[key] for key in _META_KEYS if key in meta}
+
+
+def _refusal_code(series, *, quiescence_reached):
+    if not series:
+        return "series_empty"
+    if any(row.get("process_tree_status") == "process_tree_not_launched" for row in series):
+        return "process_tree_not_launched"
+    if any(row.get("process_tree_status") == "process_tree_missing" for row in series):
+        return "process_tree_missing"
+    if any(not _is_int(row.get("js_heap_used_bytes")) for row in series):
+        return "js_heap_not_measured"
+    return classify_series(series, quiescence_reached=quiescence_reached)
+
+
+def _peak(series, key):
+    values = [row[key] for row in series if _is_int(row.get(key))]
+    if not values:
+        return NOT_AVAILABLE
+    return max(values)
+
+
+def assemble_trial(
+    sampler, *, quiescence_reached, quiescence, edit_burst, editor_id, workload_id,
+    workload_meta, execution_profile, host_class, save_phase,
+):
+    series = sampler.series()
+    code = _refusal_code(series, quiescence_reached=quiescence_reached)
+    if code is not None and code not in REFUSAL_CODES:
+        raise ValueError("refusal code is not closed: %s" % (code,))
+    phases = {}
+    for phase in ("load", "after_load", "edit_burst", "quiescence", "after_edits"):
+        if any(row.get("phase") == phase for row in series):
+            phases[phase] = sampler.totals(phase)
+    if save_phase is not None:
+        phases["save_export"] = save_phase
+    elif any(row.get("phase") == "save_export" for row in series):
+        phases["save_export"] = sampler.totals("save_export")
+    criteria = {}
+    if "after_load" in phases:
+        criteria["C17"] = {"phase": "after_load", **phases["after_load"]}
+    if "after_edits" in phases and "after_load" in phases:
+        growth_heap = NOT_AVAILABLE
+        growth_rss = NOT_AVAILABLE
+        if _is_int(phases["after_edits"].get("js_heap_used_bytes")) and _is_int(phases["after_load"].get("js_heap_used_bytes")):
+            growth_heap = phases["after_edits"]["js_heap_used_bytes"] - phases["after_load"]["js_heap_used_bytes"]
+        if _is_int(phases["after_edits"].get("rss_bytes")) and _is_int(phases["after_load"].get("rss_bytes")):
+            growth_rss = phases["after_edits"]["rss_bytes"] - phases["after_load"]["rss_bytes"]
+        criteria["C19"] = {
+            "phase": "after_edits",
+            **phases["after_edits"],
+            "growth_js_heap_used_bytes": growth_heap,
+            "growth_rss_bytes": growth_rss,
+        }
+    meta = workload_meta or {}
+    static_server = series[-1]["static_server"] if series else {
+        "pid": getattr(sampler.run, "static_server_pid", None),
+        "counted_as_editor": False,
+        "note": "The dev/static server is not the editor.",
+    }
+    return {
+        "record_kind": "browser_resources",
+        "editor_id": editor_id,
+        "workload_id": workload_id,
+        "outcome": "refused" if code else "measured",
+        "refusal_code": code,
+        "failure_reason": code,
+        "execution_profile": execution_profile,
+        "host_class": host_class,
+        "platform": sampler.platform_name,
+        "fresh_launch": True,
+        "fixture_sha256": meta.get("sha256"),
+        "fixture_byte_size": meta.get("byte_size"),
+        "fixture_paragraph_count": meta.get("paragraph_count"),
+        "word_count": meta.get("word_count"),
+        "edit_burst": dict(edit_burst),
+        "quiescence": {**dict(quiescence), "reached": bool(quiescence_reached)},
+        "static_server": static_server,
+        "phases": phases,
+        "criteria": criteria,
+        "peak_ram_bytes": _peak(series, "rss_bytes"),
+        "peak_js_heap_used_bytes": _peak(series, "js_heap_used_bytes"),
+        "profile_directory_bytes_before": series[0]["profile_directory_bytes"] if series else NOT_AVAILABLE,
+        "profile_directory_bytes_after": series[-1]["profile_directory_bytes"] if series else NOT_AVAILABLE,
+        "bundle_bytes": series[-1]["bundle_bytes"] if series else NOT_AVAILABLE,
+        "series": series,
+        "field_sources": "perf.runner.resources.FIELD_SOURCES",
+    }
+
+
+def collect_phases(
+    sampler, session, clock, *, quiescence, edit_burst, editor_id, workload_id,
+    workload_meta, execution_profile, host_class, already_sampled=False,
+):
+    save_phase = {"outcome": "not_applicable", "reason": "host_has_no_save"}
+    reached = True
+    if not already_sampled:
+        # Mark before the work, then sample after it. A phase that only
+        # samples once records a zero delta and hides the bytes or CPU the
+        # phase just spent.
+        sampler.mark("load")
+        session.load()
+        sampler.sample()
+        sampler.mark("after_load")
+        after_load = getattr(session, "after_load", None)
+        if after_load is not None:
+            after_load()
+        sampler.sample()
+        sampler.mark("edit_burst")
+        session.edit(edit_burst)
+        sampler.sample()
+        sampler.mark("quiescence")
+        reached = drive_quiescence(sampler, clock, quiescence)
+        sampler.mark("after_edits")
+        after_edits = getattr(session, "after_edits", None)
+        if after_edits is not None:
+            after_edits()
+        sampler.sample()
+        if getattr(session, "has_save", False):
+            sampler.mark("save_export")
+            session.save()
+            sampler.sample()
+            save_phase = None
+        close = getattr(session, "close", None)
+        if close is not None:
+            close()
+    return assemble_trial(
+        sampler,
+        quiescence_reached=reached,
+        quiescence=quiescence,
+        edit_burst=edit_burst,
+        editor_id=editor_id,
+        workload_id=workload_id,
+        workload_meta=workload_meta,
+        execution_profile=execution_profile,
+        host_class=host_class,
+        save_phase=save_phase,
+    )
+
+
+def _early_refusal(*, editor_id, workload_id, code, execution_profile, host_class):
+    if code not in REFUSAL_CODES:
+        raise ValueError(code)
+    return {
+        "record_kind": "browser_resources",
+        "editor_id": editor_id,
+        "workload_id": workload_id,
+        "outcome": "refused",
+        "refusal_code": code,
+        "failure_reason": code,
+        "execution_profile": execution_profile,
+        "host_class": host_class,
+        "fresh_launch": False,
+        "criteria": {},
+        "series": [],
+        "static_server": {
+            "counted_as_editor": False,
+            "note": "The dev/static server is not the editor.",
+        },
+    }
+
+
+def measure_editor(
+    *, editor_id, workload_id, run, execution_profile, host_class,
+    session_factory=None, clock=None, quiescence=None, platform_name=None,
+):
+    """One fresh launch of ``editor_id`` on ``workload_id``."""
+    quiescence = dict(QUIESCENCE if quiescence is None else quiescence)
+    if workload_id not in RESOURCE_WORKLOADS:
+        return _early_refusal(
+            editor_id=editor_id, workload_id=workload_id, code="workload_not_on_ladder",
+            execution_profile=execution_profile, host_class=host_class,
+        )
+    try:
+        assert_workload_allowed(execution_profile, workload_id)
+    except ValueError:
+        return _early_refusal(
+            editor_id=editor_id, workload_id=workload_id, code="workload_not_on_ladder",
+            execution_profile=execution_profile, host_class=host_class,
+        )
+    meta = workload_docx(workload_id, REPO)
+    fixture = _store_fixture(run, workload_id, meta["docx"])
+    public = _public_meta(meta)
+    ctx = {
+        "editor_id": editor_id,
+        "workload_id": workload_id,
+        "workload_meta": public,
+        "fixture_path": str(fixture),
+        "execution_profile": execution_profile,
+        "host_class": host_class,
+        "edited": None,
+        "run": run,
+    }
+    factory = session_factory or live_session_factory
+    session = factory(ctx)
+    launch = getattr(session, "launch", None)
+    if launch is not None:
+        launch(run)
+    run.editor_browser_pid = getattr(session, "browser_pid", None)
+    run.static_server_pid = getattr(session, "server_pid", None)
+    if getattr(session, "bundle_bytes", None) is not None:
+        run.bundle_bytes = session.bundle_bytes
+    if getattr(session, "profile_dir", None) is not None:
+        run.profile_dir = session.profile_dir
+    if getattr(session, "bundle_path", None) is not None:
+        run.bundle_path = session.bundle_path
+    reader = getattr(session, "process_reader", None)
+    sampler = ResourceSampler(
+        run,
+        session.page,
+        session.cdp,
+        process_reader=reader,
+        platform_name=platform_name,
+        clock=clock or WallClock(),
+    )
+    trial = collect_phases(
+        sampler,
+        session,
+        sampler.clock,
+        quiescence=quiescence,
+        edit_burst=EDIT_BURST,
+        editor_id=editor_id,
+        workload_id=workload_id,
+        workload_meta=public,
+        execution_profile=execution_profile,
+        host_class=host_class,
+    )
+    ctx["edited"] = dict(EDIT_BURST)
+    return trial
+
+
+def publication_verdict(cells, *, seeds, scheduled, execution_profile, host_class):
+    """30 scheduled, n >= 10 kept per editor and workload, two distinct seeds."""
+    reasons = []
+    if execution_profile != "dedicated_publish":
+        reasons.append("execution_profile_not_dedicated_publish")
+    if host_class not in ("dedicated", "shared_guarded"):
+        reasons.append("host_class_not_publishable")
+    if scheduled < 30:
+        reasons.append("scheduled_below_30")
+    groups = {}
+    for cell in cells:
+        if cell.get("outcome") != "measured":
+            continue
+        key = (cell.get("editor_id"), cell.get("workload_id"))
+        groups[key] = groups.get(key, 0) + 1
+    if not groups or any(count < 10 for count in groups.values()):
+        reasons.append("kept_below_10")
+    distinct = []
+    for seed in seeds:
+        if seed not in distinct:
+            distinct.append(seed)
+    if len(distinct) < 2:
+        reasons.append("second_seed_required")
+    return {
+        "publishable": not reasons,
+        "publication_block_reasons": reasons,
+        "scheduled": scheduled,
+        "kept": sum(groups.values()) if groups else 0,
+        "seeds": distinct,
+    }
+
+
+def publication_from_run(run):
+    cells = _resource_cells(run.directory)
+    seeds = [run.seed]
+    scheduled_runs = [len(cells)]
+    companion = getattr(run, "companion_summary", None)
+    if companion:
+        other = json.loads(Path(companion).read_text())
+        other_seed = other.get("seed")
+        if other_seed is not None and other_seed not in seeds:
+            seeds.append(other_seed)
+        other_cells = _resource_cells(Path(companion).parent)
+        scheduled_runs.append(len(other_cells))
+        cells.extend(other_cells)
+    scheduled = max(scheduled_runs) if scheduled_runs else 0
+    return publication_verdict(
+        cells,
+        seeds=seeds,
+        scheduled=scheduled,
+        execution_profile=run.execution_profile,
+        host_class=run.host_class,
+    )
+
+
+def _resource_cells(directory):
+    root = Path(directory) / "cells"
+    if not root.is_dir():
+        return []
+    cells = []
+    for path in sorted(root.glob("*/resource.json")):
+        cells.append(json.loads(path.read_text()))
+    return cells
+
+
+class ResourceRun(BrowserRun):
+    def finish(self, summary):
+        publication = publication_from_run(self)
+        merged = {**summary, "resource_publication": publication}
+        if not publication["publishable"]:
+            merged["publishable"] = False
+            merged["publication_block_reason"] = "; ".join(publication["publication_block_reasons"])
+        return super().finish(merged)
+
+
+def _free_port():
+    import socket
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
+
+
+def _target_copy(editor_id):
+    base = BROWSER_TARGETS[editor_id]
+    target = dict(base)
+    if "command" in target:
+        target["command"] = list(target["command"])
+    parts = urlsplit(target["url"])
+    port = _free_port()
+    host = parts.hostname or "127.0.0.1"
+    target["url"] = urlunsplit((parts.scheme, "%s:%d" % (host, port), parts.path, parts.query, parts.fragment))
+    return target
+
+
+class _Bridge:
+    def __init__(self, proc, errors):
+        self.proc = proc
+        self.errors = errors
+        self._id = 0
+        self._lock = threading.Lock()
+
+    def request(self, method, params=None, timeout=180):
+        import time
+        with self._lock:
+            self._id += 1
+            ident = self._id
+            line = json.dumps({"id": ident, "method": method, "params": params or {}})
+            self.proc.stdin.write(line + "\n")
+            self.proc.stdin.flush()
+            deadline = time.time() + timeout
+            while time.time() < deadline:
+                raw = self.proc.stdout.readline()
+                if raw == "":
+                    tail = "".join(self.errors)[-800:]
+                    raise RuntimeError("resource session closed: %s" % tail)
+                message = json.loads(raw)
+                if message.get("id") != ident:
+                    continue
+                if message.get("error"):
+                    raise RuntimeError(message["error"])
+                return message.get("result")
+            raise TimeoutError(method)
+
+
+class _BridgePage:
+    def __init__(self, bridge):
+        self._bridge = bridge
+
+    def evaluate(self, expression):
+        return self._bridge.request("evaluate", {"expression": expression}, timeout=60)
+
+
+class _BridgeCdp:
+    def __init__(self, bridge):
+        self._bridge = bridge
+
+    def send(self, method, params=None):
+        return self._bridge.request("cdp", {"method": method, "params": params or {}}, timeout=60)
+
+    def events(self, method):
+        return self._bridge.request("events", {"method": method}, timeout=30)
+
+
+class LiveSession:
+    """Playwright session for one editor launch. The static server is separate."""
+
+    def __init__(self, ctx):
+        self.ctx = ctx
+        self.has_save = False
+        self.browser_pid = None
+        self.server_pid = None
+        self.profile_dir = None
+        self.bundle_path = None
+        self.bundle_bytes = None
+        self.page = None
+        self.cdp = None
+        self._server = None
+        self._proc = None
+        self._bridge = None
+        self._target = None
+
+    def launch(self, run):
+        editor_id = self.ctx["editor_id"]
+        target = _target_copy(editor_id)
+        select_fixture(target, Path(self.ctx["fixture_path"]))
+        self._target = target
+        self._server = _start_server(editor_id, target)
+        self.server_pid = os.getpid()
+        profile = Path(run.directory) / "profiles" / editor_id / uuid.uuid4().hex
+        profile.mkdir(parents=True, exist_ok=True)
+        self.profile_dir = profile
+        host_meta = run.hosts.get(editor_id) or {}
+        if host_meta.get("build_directory"):
+            self.bundle_path = host_meta["build_directory"]
+        node = shutil.which("node") or "node"
+        errors = []
+        proc = subprocess.Popen(
+            [node, str(SESSION)],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        threading.Thread(target=_drain, args=(proc.stderr, errors), daemon=True).start()
+        self._proc = proc
+        self._bridge = _Bridge(proc, errors)
+        ready_js = target.get("ready_js") or ""
+        wait_ms = int(target.get("wait_after_ready") or 0)
+        result = self._bridge.request("launch", {
+            "url": target["url"],
+            "profileDir": str(profile),
+            "corpusPath": self.ctx["fixture_path"],
+            "corpusRoute": target.get("corpus_route") or "/corpus.docx",
+            "readySelector": target.get("ready_selector") or "",
+            "readyJs": ready_js,
+            "waitAfterReadyMs": wait_ms,
+            "editSelector": target.get("edit_selector") or "",
+            "saveSelector": target.get("save_selector") or "",
+        })
+        self.browser_pid = result.get("browserPid")
+        self.has_save = bool(target.get("save_selector"))
+        self.page = _BridgePage(self._bridge)
+        self.cdp = _BridgeCdp(self._bridge)
+
+    def load(self):
+        self._bridge.request("load", timeout=180)
+
+    def edit(self, burst):
+        self._bridge.request("edit", {
+            "selector": (self._target or {}).get("edit_selector") or "",
+            "text": burst["text"],
+            "repetitions": burst["repetitions"],
+        }, timeout=60)
+
+    def save(self):
+        self._bridge.request("save", {"selector": (self._target or {}).get("save_selector") or ""}, timeout=60)
+
+    def close(self):
+        if self._bridge is not None and self._proc is not None and self._proc.poll() is None:
+            try:
+                self._bridge.request("close", timeout=30)
+            except Exception:
+                pass
+        if self._proc is not None and self._proc.poll() is None:
+            self._proc.terminate()
+            try:
+                self._proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                self._proc.kill()
+        if self._server is not None:
+            _stop_server(self._server)
+            self._server = None
+
+
+def _drain(stream, sink):
+    for line in stream:
+        sink.append(line)
+
+
+def live_session_factory(ctx):
+    return LiveSession(ctx)
+
+
+def _main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--editors", nargs="*", default=list(BROWSER_TARGETS))
+    parser.add_argument("--out-root", default=None)
+    parser.add_argument("--workload", default="prose-500w")
+    parser.add_argument("--list-support", action="store_true")
+    parser.add_argument("--companion-summary", default=None)
+    args = parser.parse_args()
+    if args.list_support:
+        for editor_id in BROWSER_TARGETS:
+            print("%s workloads=%s" % (editor_id, ",".join(RESOURCE_WORKLOADS)))
+        return 0
+    from perf.runner.browser_run import ACTIVE
+    run = ACTIVE.get()
+    editor_id = (args.editors or [None])[0]
+    if run is not None and args.companion_summary:
+        run.companion_summary = args.companion_summary
+    out = Path(args.out_root) if args.out_root else REPO / "perf" / "out" / "resources"
+    out.mkdir(parents=True, exist_ok=True)
+    try:
+        trial = measure_editor(
+            editor_id=editor_id,
+            workload_id=args.workload,
+            run=run,
+            execution_profile=run.execution_profile if run is not None else "ci_broad",
+            host_class=run.host_class if run is not None else "ci_coarse",
+            session_factory=getattr(run, "session_factory", None),
+            clock=WallClock(),
+            quiescence=QUIESCENCE,
+        )
+    except Exception as exc:
+        trial = {
+            "record_kind": "browser_resources",
+            "editor_id": editor_id,
+            "workload_id": args.workload,
+            "outcome": "failed",
+            "refusal_code": None,
+            "failure_reason": "%s: %s" % (type(exc).__name__, exc),
+        }
+    write_json(out / "resource.json", trial)
+    if trial.get("outcome") == "refused":
+        write_json(out / "refusal.json", {
+            "outcome": "refused",
+            "refusal_code": trial.get("refusal_code"),
+            "failure_reason": trial.get("refusal_code") or "refused",
+        })
+    elif trial.get("outcome") == "failed":
+        write_json(out / "failure.json", {
+            "outcome": "failed",
+            "failure_reason": trial.get("failure_reason") or "resource_lane_failed",
+        })
+    return 0
+
+
+def main():
+    return run_cli(
+        _main,
+        "benchmark_resources",
+        BROWSER_TARGETS,
+        run_factory=ResourceRun,
+        max_repetitions=lambda profile: sample_budget_for_profile(profile, "fresh_process"),
+    )
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
