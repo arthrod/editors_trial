@@ -23,9 +23,7 @@
  * --bulk-chars. The payload goes to stdout.
  */
 import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-import { createRequire } from 'node:module';
+import { loadPlaywright, clockSkew, witnessFrame, stopRecorder } from './witness.mjs';
 
 import {
   CRITERIA_SCHEMA,
@@ -33,10 +31,6 @@ import {
   runCriteriaSuite,
 } from './criteria_input.mjs';
 
-const require = createRequire(import.meta.url);
-const here = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(here, '../..');
-const uiRoot = path.resolve(repoRoot, 'harness/ui');
 
 const argv = process.argv.slice(2);
 const opt = {};
@@ -92,17 +86,7 @@ if (!url || !corpusFile) {
 
 const corpusBytes = fs.readFileSync(corpusFile);
 
-async function nextPaintMs(page) {
-  return page.evaluate(async () => {
-    const t0 = performance.now();
-    await new Promise((r) => requestAnimationFrame(() => r(null)));
-    await new Promise((r) => requestAnimationFrame(() => r(null)));
-    return performance.now() - t0;
-  });
-}
-
-async function waitForReady(page, selector, timeoutMs = 120_000) {
-  const t0 = Date.now();
+async function waitForReady(page, selector, timeoutMs = 120_000, t0 = Date.now()) {
   if (readyJs) {
     await page.waitForFunction(
       (expr) => {
@@ -128,23 +112,77 @@ async function waitForReady(page, selector, timeoutMs = 120_000) {
   } else {
     await page.waitForSelector(selector, { timeout: timeoutMs, state: 'visible' });
   }
+  const first_usable_ms = Date.now() - t0;
+  const settleStart = Date.now();
   if (waitAfterReadyMs > 0) {
     await page.waitForTimeout(waitAfterReadyMs);
   }
-  return Date.now() - t0;
+  const settle_ms = Date.now() - settleStart;
+  const calibration = await page.context().newCDPSession(page);
+  const clock_skew = await clockSkew(page, calibration);
+  await stopRecorder(calibration);
+  await calibration.detach();
+  return { first_usable_ms, settle_ms, clock_skew };
 }
 
-async function performEdit(page, selector) {
-  const t0 = Date.now();
-  if (preEditClick) {
-    await page.click(preEditClick, { timeout: 30_000 });
-    await page.waitForTimeout(400);
-  }
-  const target = page.locator(selector).first();
-  await target.click({ timeout: 30_000 });
-  await page.keyboard.type('x', { delay: 12 });
-  const paint = await nextPaintMs(page);
-  return { edit_ms: Date.now() - t0, paint_ms: paint };
+async function performEdit(page, selector, cdp) {
+  // Focus/actionability and witness calibration are preconditioning, outside
+  // the event-to-frame interval. No typing delay is introduced.
+  if (preEditClick) await page.click(preEditClick, { timeout: 30_000 });
+  await page.locator(selector).first().click({ timeout: 30_000 });
+  const skew = await clockSkew(page, cdp);
+  const mechanism = 'cdp_screencast_changed_frame';
+  if (!skew.acceptable) return {
+    mechanism, clock_skew: skew, outcome: 'failed', edit_ms: null,
+    failure_reason: skew.skew_ms === null ? 'clock_skew_unavailable' : 'clock_skew_above_bound',
+  };
+  await page.evaluate(() => {
+    window.__b2 = { event: null, entries: [], supported: PerformanceObserver.supportedEntryTypes.includes('event') };
+    window.addEventListener('keydown', function onKey(e) {
+      if (e.key !== 'x') return;
+      window.__b2.event = { startTime: e.timeStamp, trusted: e.isTrusted };
+      window.removeEventListener('keydown', onKey, true);
+    }, true);
+    if (window.__b2.supported) {
+      window.__b2.observer = new PerformanceObserver(list => {
+        window.__b2.entries.push(...list.getEntries().map(e => ({
+          name:e.name, startTime:e.startTime, duration:e.duration, interactionId:e.interactionId
+        })));
+        window.__b2.notify?.();
+      });
+      window.__b2.observer.observe({type:'event', durationThreshold:16});
+    }
+  });
+  const frame = await witnessFrame(page, cdp, {
+    windowMs: Math.max(500, frameTimeoutMs), clockSkewMs: skew.skew_ms,
+    arm: async () => {
+      await cdp.send('Input.dispatchKeyEvent', {type:'keyDown', key:'x', code:'KeyX', text:'x', windowsVirtualKeyCode:88});
+      await cdp.send('Input.dispatchKeyEvent', {type:'keyUp', key:'x', code:'KeyX', windowsVirtualKeyCode:88});
+      const event = await page.evaluate(() => window.__b2.event);
+      if (!event?.trusted) throw new Error('trusted keydown not observed');
+      return event.startTime;
+    },
+  });
+  // An observer delivery deadline is not a latency: durations come only
+  // from matching Event Timing entries, and absence is explicitly censored.
+  const timing = await page.evaluate(async () => {
+    const state = window.__b2;
+    const matching = () => state.entries.filter(e => e.name === 'keydown' && Math.abs(e.startTime-state.event.startTime)<0.1);
+    if (state.supported && !matching().length) await new Promise(resolve => {
+      const timer = setTimeout(resolve, 500);
+      state.notify = () => { if (matching().length) { clearTimeout(timer); resolve(); } };
+    });
+    state.observer?.disconnect();
+    return { event: state.event, entries: matching(), supported:state.supported,
+      outcome: !state.supported ? 'unsupported' : matching().length ? 'observed' : 'censored_below_16_ms',
+      duration_threshold_ms:16, duration_step_ms:8 };
+  });
+  const duration = frame.frame_page_ms === null ? null : frame.frame_page_ms - timing.event.startTime;
+  const ok = frame.outcome === 'witnessed' && frame.clock_skew_acceptable && duration >= 0;
+  return { mechanism, clock_skew:skew, witness:frame, event_timing:timing,
+    outcome: ok ? 'measured' : 'failed',
+    failure_reason: ok ? null : !frame.clock_skew_acceptable ? 'clock_skew_above_bound' : 'no_frame',
+    edit_ms:ok ? duration : null, paint_ms:ok ? duration : null };
 }
 
 async function routeCorpus(context, routePath, bytes) {
@@ -162,16 +200,6 @@ async function routeCorpus(context, routePath, bytes) {
   });
 }
 
-async function loadPlaywright() {
-  const spec = path.join(uiRoot, 'node_modules/playwright/index.mjs');
-  return import(pathToFileURL(spec).href);
-}
-
-async function loadPuppeteer() {
-  const spec = path.join(uiRoot, 'node_modules/puppeteer/lib/puppeteer/puppeteer.js');
-  return import(pathToFileURL(spec).href);
-}
-
 async function runPlaywrightPair() {
   const { chromium } = await loadPlaywright();
   const launchT0 = Date.now();
@@ -184,35 +212,39 @@ async function runPlaywrightPair() {
   const coldContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   await routeCorpus(coldContext, corpusRoute, corpusBytes);
   const coldPage = await coldContext.newPage();
+  const cdp = await coldContext.newCDPSession(coldPage);
 
   const navT0 = Date.now();
   await coldPage.goto(url, { waitUntil: 'domcontentloaded', timeout: 120_000 });
   const documentNavigationMs = Date.now() - navT0;
 
-  const modelReadyMs = await waitForReady(coldPage, readySelector);
+  const coldReady = await waitForReady(coldPage, readySelector, 120_000, navT0);
+  const modelReadyMs = coldReady.first_usable_ms;
   let coldEdit = { edit_ms: null, paint_ms: null };
   let warmEdit = { edit_ms: null, paint_ms: null };
   const warmBurst = [];
   const coldBurst = [];
   if (!skipEdit) {
-    coldEdit = await performEdit(coldPage, editSelector);
+    coldEdit = await performEdit(coldPage, editSelector, cdp);
     for (let i = 0; i < 3; i++) {
-      coldBurst.push((await performEdit(coldPage, editSelector)).edit_ms);
+      coldBurst.push(await performEdit(coldPage, editSelector, cdp));
     }
   }
 
   const reloadT0 = Date.now();
   await coldPage.reload({ waitUntil: 'domcontentloaded', timeout: 120_000 });
-  await waitForReady(coldPage, readySelector);
-  const documentReloadSameContextMs = Date.now() - reloadT0;
+  await stopRecorder(cdp);
+  const warmReady = await waitForReady(coldPage, readySelector, 120_000, reloadT0);
+  const documentReloadSameContextMs = warmReady.first_usable_ms;
 
   if (!skipEdit) {
-    warmEdit = await performEdit(coldPage, editSelector);
+    warmEdit = await performEdit(coldPage, editSelector, cdp);
     for (let i = 0; i < 3; i++) {
-      warmBurst.push((await performEdit(coldPage, editSelector)).edit_ms);
+      warmBurst.push(await performEdit(coldPage, editSelector, cdp));
     }
   }
 
+  await stopRecorder(cdp);
   await coldContext.close();
   await browser.close();
 
@@ -222,81 +254,19 @@ async function runPlaywrightPair() {
     model_ready_browser_ms: modelReadyMs,
     document_reload_same_context_ms: documentReloadSameContextMs,
     cold: {
+      ...coldReady, ...coldEdit, burst: coldBurst,
       first_usable_ms: modelReadyMs,
       model_ready_browser_ms: modelReadyMs,
       single_edit_ms: coldEdit.edit_ms,
       presented_frame_ms: coldEdit.paint_ms,
       sustained_typing_median_ms:
-        coldBurst.length > 0 ? coldBurst.sort((a, b) => a - b)[Math.floor(coldBurst.length / 2)] : null,
+        coldBurst.every(e => e.edit_ms !== null) && coldBurst.length ? coldBurst.map(e => e.edit_ms).sort((a,b) => a-b)[1] : null,
     },
     warm: {
+      ...warmReady, ...warmEdit, burst: warmBurst,
       single_edit_ms: warmEdit.edit_ms,
       presented_frame_ms: warmEdit.paint_ms,
-      sustained_typing_median_ms: warmBurst.sort((a, b) => a - b)[1],
-    },
-  };
-}
-
-async function runPuppeteerPair() {
-  const puppeteer = await loadPuppeteer();
-  const launchT0 = Date.now();
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: ['--font-render-hinting=none', '--disable-lcd-text'],
-  });
-  const browserLaunchMs = Date.now() - launchT0;
-  const page = await browser.newPage();
-  await page.setViewport({ width: 1280, height: 900 });
-  await page.setRequestInterception(true);
-  page.on('request', (req) => {
-    const u = new URL(req.url());
-    if (u.pathname === corpusRoute || u.pathname === sampleRoute) {
-      req.respond({
-        status: 200,
-        contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        body: corpusBytes,
-      });
-      return;
-    }
-    req.continue();
-  });
-
-  const navT0 = Date.now();
-  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 120_000 });
-  const documentNavigationMs = Date.now() - navT0;
-
-  await page.waitForSelector(readySelector, { visible: true, timeout: 120_000 });
-  const modelReadyMs = Date.now() - navT0;
-
-  const coldEditT0 = Date.now();
-  await page.click(editSelector);
-  await page.keyboard.type('x', { delay: 12 });
-  const coldEditMs = Date.now() - coldEditT0;
-
-  const reloadT0 = Date.now();
-  await page.reload({ waitUntil: 'domcontentloaded', timeout: 120_000 });
-  await page.waitForSelector(readySelector, { visible: true, timeout: 120_000 });
-  const documentReloadSameContextMs = Date.now() - reloadT0;
-
-  const warmEditT0 = Date.now();
-  await page.click(editSelector);
-  await page.keyboard.type('x', { delay: 12 });
-  const warmEditMs = Date.now() - warmEditT0;
-
-  await browser.close();
-
-  return {
-    browser_launch_only_ms: browserLaunchMs,
-    document_navigation_only_ms: documentNavigationMs,
-    model_ready_browser_ms: modelReadyMs,
-    document_reload_same_context_ms: documentReloadSameContextMs,
-    cold: {
-      first_usable_ms: modelReadyMs,
-      model_ready_browser_ms: modelReadyMs,
-      single_edit_ms: coldEditMs,
-    },
-    warm: {
-      single_edit_ms: warmEditMs,
+      sustained_typing_median_ms: warmBurst.every(e => e.edit_ms !== null) && warmBurst.length ? warmBurst.map(e => e.edit_ms).sort((a,b) => a-b)[1] : null,
     },
   };
 }
@@ -360,7 +330,7 @@ async function runCriteriaSession() {
   const page = await context.newPage();
   const cdp = await context.newCDPSession(page);
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 120_000 });
-  const readyMs = await waitForReady(page, readySelector);
+  const ready = await waitForReady(page, readySelector);
   const payload = await runCriteriaSuite({
     page,
     cdp,
@@ -379,7 +349,10 @@ async function runCriteriaSession() {
   payload.corpus_route = corpusRoute;
   payload.ready = {
     selector: readySelector,
-    ready_ms: readyMs,
+    ready_ms: ready.first_usable_ms,
+    first_usable_ms: ready.first_usable_ms,
+    settle_ms: ready.settle_ms,
+    clock_skew: ready.clock_skew,
     ready_page_ms: payload.ready.ready_page_ms,
     note: payload.ready.note,
   };
@@ -395,10 +368,9 @@ async function coldOnlyFreshContext() {
   const page = await context.newPage();
   const t0 = Date.now();
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 120_000 });
-  await waitForReady(page, readySelector);
-  const ms = Date.now() - t0;
+  const ready = await waitForReady(page, readySelector, 120_000, t0);
   await browser.close();
-  return ms;
+  return ready;
 }
 
 const collected = [];
@@ -409,7 +381,7 @@ if (criteriaList.length > 0) {
 }
 for (let i = 0; i < pairs; i++) {
   if (driver === 'puppeteer') {
-    collected.push(await runPuppeteerPair());
+    throw new Error('puppeteer input timing unsupported: requires shared CDP frame witness');
   } else {
     collected.push(await runPlaywrightPair());
   }
@@ -430,7 +402,8 @@ const result = {
   corpus_route: corpusRoute,
   ready_selector: readySelector,
   edit_selector: editSelector,
-  pairs: collected,
+  server_cold_pair: collected[0] || null,
+  pairs: collected.map((pair, index) => ({...pair, server_cold: index === 0})),
   fresh_context_load_ms: freshContextMedians,
 };
 

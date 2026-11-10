@@ -24,7 +24,7 @@ _MARKS = {
 
 _VISIBLE_OK = {
     "C03": {"presented_frame", "external_pixel", "first_contentful_paint"},
-    "C05": {"presented_frame", "external_pixel", "raf_plus_later_paint"},
+    "C05": {"presented_frame", "external_pixel", "raf_plus_later_paint", "cdp_screencast_changed_frame"},
     "C10": {"frame_time", "presented_frame", "external_pixel"},
     "C12": {"presented_frame", "external_pixel"},
 }
