@@ -1,0 +1,11 @@
+<!doctype html><html><body style="margin:0">
+<canvas id="doc" width="500" height="300" style="display:block"></canvas>
+<script>
+const c=document.getElementById('doc'),g=c.getContext('2d');
+g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);
+setTimeout(()=>{
+  g.fillStyle='#224466';g.fillRect(50,50,400,200);
+  g.fillStyle='#fff';g.font='24px sans-serif';g.fillText('Loading…',180,150);
+},200);
+setTimeout(()=>{g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height)},700);
+</script></body></html>

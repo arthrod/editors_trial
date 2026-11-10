@@ -1,0 +1,13 @@
+<!doctype html><html><body style="margin:0">
+<canvas id="doc" width="500" height="300" style="display:block"></canvas>
+<script>
+const c=document.getElementById('doc'),g=c.getContext('2d');
+g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);
+setTimeout(()=>{
+  for(let x=0;x<c.width;x+=20){
+    g.fillStyle=x%40===0?'#111':'#fff';
+    g.fillRect(x,0,20,c.height);
+  }
+},250);
+setTimeout(()=>{g.fillStyle='#111';g.fillRect(0,0,c.width,c.height)},600);
+</script></body></html>
