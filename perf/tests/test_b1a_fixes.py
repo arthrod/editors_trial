@@ -174,6 +174,54 @@ class BookkeepingIntegration(unittest.TestCase):
 
 
 class SummaryGuard(unittest.TestCase):
+    @staticmethod
+    def write_violations(tree):
+        """Reject mutable/unknown writes; exclusive opens must be statically evident."""
+        violations = []
+        parents = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
+        def exclusive(call):
+            mode = next((k.value for k in call.keywords if k.arg == 'mode'), None)
+            if mode is None and len(call.args) > (1 if isinstance(call.func, ast.Name) else 0):
+                mode = call.args[1 if isinstance(call.func, ast.Name) else 0]
+            return isinstance(mode, ast.Constant) and isinstance(mode.value, str) and 'x' in mode.value
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            name = ast.unparse(node.func)
+            if name.endswith(('.write_text', '.write_bytes')):
+                violations.append(node)
+            elif name == 'os.open':
+                flags = node.args[1] if len(node.args) > 1 else ast.Constant(None)
+                if isinstance(flags, ast.Name):
+                    assignments = [n.value for n in ast.walk(tree) if isinstance(n, ast.Assign)
+                                   and any(isinstance(t, ast.Name) and t.id == flags.id for t in n.targets)]
+                    flags = assignments[0] if len(assignments) == 1 else flags
+                text = ast.unparse(flags)
+                if 'os.O_EXCL' not in text or 'os.O_CREAT' not in text or 'os.O_TRUNC' in text:
+                    violations.append(node)
+            elif name == 'open' or name.endswith('.open'):
+                if not exclusive(node):
+                    # Read-only literal modes (including omitted mode) are allowed.
+                    offset = 1 if isinstance(node.func, ast.Name) else 0
+                    mode = next((k.value for k in node.keywords if k.arg == 'mode'),
+                                node.args[offset] if len(node.args) > offset else ast.Constant('r'))
+                    if not isinstance(mode, ast.Constant) or mode.value not in ('r', 'rb', 'rt'):
+                        violations.append(node)
+            elif name == 'json.dump':
+                parent = parents.get(node)
+                safe = False
+                while parent is not None:
+                    if isinstance(parent, ast.With):
+                        safe = any(isinstance(item.context_expr, ast.Call) and exclusive(item.context_expr)
+                                   and len(node.args) > 1 and ast.unparse(item.optional_vars) == ast.unparse(node.args[1])
+                                   for item in parent.items if item.optional_vars is not None)
+                        if safe:
+                            break
+                    parent = parents.get(parent)
+                if not safe:
+                    violations.append(node)
+        return violations
+
     def test_summary_modules_have_no_duplicate_keys_or_mutable_writes(self):
         for name in (
             'browser_run',
@@ -182,12 +230,25 @@ class SummaryGuard(unittest.TestCase):
             'benchmark_document',
             'benchmark_input',
             'adversarial_c10_scroll',
+            'criteria_input_io',
+            'benchmark_ci_contract',
+            'artifacts',
         ):
             with self.subTest(module=name):
                 tree = ast.parse((Path(__file__).parents[1] / 'runner' / (name + '.py')).read_text())
+                # Exact legacy exceptions: these are the non-browser CI CLI's
+                # fixture bytes and summary, outside B1 ownership. No new writer
+                # in these modules is exempt, including browser environment code.
+                legacy = {
+                    "indocx.write_bytes(docx_body)",
+                    "summary_path.write_text(json.dumps(payload, indent=2) + '\\n', encoding='utf-8')",
+                } if name == 'benchmark_ci_contract' else set()
+                for node in self.write_violations(tree):
+                    self.assertIn(ast.unparse(node), legacy)
                 for node in ast.walk(tree):
                     if isinstance(node, ast.Dict):
                         keys = [key.value for key in node.keys if isinstance(key, ast.Constant)]
                         self.assertEqual(len(keys), len(set(keys)))
                     if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
-                        self.assertNotIn(node.func.attr, ('write_text', 'write_bytes'))
+                        if name != 'benchmark_ci_contract':
+                            self.assertNotIn(node.func.attr, ('write_text', 'write_bytes'))

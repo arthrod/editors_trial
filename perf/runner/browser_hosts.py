@@ -143,6 +143,7 @@ def build_host(editor, target, out_root, *, repos_root=None):
         metadata['key_present'] = bool(key)
     def redact(text):
         return text.replace(key, '[REDACTED]') if key else text
+    build_log = ''
     try:
         if editor == 'apryse' and not key:
             raise RuntimeError('apryse_key_absent')
@@ -165,7 +166,7 @@ def build_host(editor, target, out_root, *, repos_root=None):
             env['APRYSE_API_KEY'] = key
         command = ['node', str(vite / 'bin/vite.js'), 'build', '--config', str(WRAPPER.resolve()), '--configLoader', 'native']
         proc = subprocess.run(command, cwd=cwd, env=env, capture_output=True, text=True, timeout=600)
-        log_path.write_text(redact(proc.stdout + proc.stderr), encoding='utf-8')
+        build_log = redact(proc.stdout + proc.stderr)
         if proc.returncode:
             raise RuntimeError(f'{editor} production build exited {proc.returncode}')
         dist = build_root / 'dist'
@@ -182,15 +183,17 @@ def build_host(editor, target, out_root, *, repos_root=None):
                 'command': command, 'publishable': True, 'publication_block_reason': None}
     except Exception as exc:
         reason = redact(str(exc))
-        with log_path.open('a', encoding='utf-8') as log:
-            # Timeout output is retained too; exception strings do not include it.
-            if isinstance(exc, subprocess.TimeoutExpired):
-                for output in (exc.stdout, exc.stderr):
-                    if output:
-                        log.write(redact(output.decode(errors='replace') if isinstance(output, bytes) else output))
-            log.write('\n' + reason + '\n')
+        # Accumulate before the single exclusive write, retaining timeout output.
+        if isinstance(exc, subprocess.TimeoutExpired):
+            for output in (exc.stdout, exc.stderr):
+                if output:
+                    build_log += redact(output.decode(errors='replace') if isinstance(output, bytes) else output)
+        build_log += '\n' + reason + '\n'
         metadata.update(reason=reason, publication_block_reason='production build failed: ' + reason)
         raise HostBuildError(metadata) from exc
+    finally:
+        with log_path.open('x', encoding='utf-8') as log:
+            log.write(build_log)
 
 
 def start_host(editor, target, legacy_start):

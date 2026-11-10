@@ -43,7 +43,7 @@ def schedule(editors, repetitions, seed):
 def capture(call):
     try:
         return call()
-    except Exception as exc:
+    except (Exception, SystemExit) as exc:
         return {'outcome': 'failed', 'failure_reason': f'{type(exc).__name__}: {exc}'}
 
 
@@ -141,6 +141,16 @@ class BrowserRun:
         if Path(name).name != name or name in ('.', '..'):
             raise ValueError('invalid sample name')
         cell = CELL.get()
+        # The cell owns depth one. Unfinished bare inner brackets must not
+        # replace its CPU window or poison subsequent cells' accounting.
+        closed = 0
+        if cell and name == f'{cell["repetition"]:04d}-{cell["editor_id"]}':
+            while len(self._sample_parents) > 1:
+                self.sample_start = self._sample_parents.pop()
+                closed += 1
+        row = {**(cell or {}), **row}
+        if closed:
+            row = {**row, 'brackets_force_closed': closed}
         # Legacy saturation diagnostics share the cell bracket without opening
         # one themselves. Do not consume that bracket or count the row as a cell.
         shared_diagnostic = bool(
@@ -175,9 +185,17 @@ class BrowserRun:
                     'editor_id',
                     'repetition',
                     'exit_code',
+                    'brackets_force_closed',
                 )
                 if key in value
             }
+            # Skip metadata survives refusal; arbitrary nested measurements do not.
+            if 'non_failure_outcomes' in row:
+                value['non_failure_outcomes'] = [
+                    {key: item[key] for key in ('file', 'outcome', 'failure_reason',
+                                               'criterion_id', 'editor_id', 'repetition') if key in item}
+                    for item in row['non_failure_outcomes']
+                ]
             value.update(
                 outcome='failed',
                 failure_reason='cpu_throttled',
@@ -263,6 +281,12 @@ def non_failure_outcomes(value):
 
 
 def has_failure(value):
+    """Explicit failures, including warm_cold_identical, fail the cell.
+
+    Saturation invalidates the claimed cold/warm distinction, so B1 keeps the
+    producer's failure verdict. Routine not_run/refused rows remain non-failures.
+    B1 must not silently reinterpret a lane's explicit failed measurement.
+    """
     if isinstance(value, dict):
         return value.get('outcome') == 'failed' or any(has_failure(child) for child in value.values())
     if isinstance(value, list):

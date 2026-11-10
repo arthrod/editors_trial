@@ -1,7 +1,7 @@
 """Independent bookkeeping fake-host smoke; no editor timing claims.
 
 Run with python3 -I perf/tests/b1a_smoke.py plus run_cli options.
---baseline loads the two original modules from commit 987284c for comparison.
+--baseline-ref REF loads the two modules from an explicitly selected local commit.
 """
 
 import argparse
@@ -15,10 +15,18 @@ from perf.runner import browser_run, benchmark_ci_contract
 from perf.runner.browser_hosts import StaticHost
 
 if '--baseline' in sys.argv:
-    sys.argv.remove('--baseline')
+    raise SystemExit('use --baseline-ref REF with an available local commit')
+if '--baseline-ref' in sys.argv:
+    index = sys.argv.index('--baseline-ref')
+    if index + 1 == len(sys.argv):
+        raise SystemExit('--baseline-ref requires a local git ref')
+    baseline = sys.argv[index + 1]
+    del sys.argv[index:index + 2]
+    baseline = subprocess.check_output(
+        ['git', 'rev-parse', '--verify', '--end-of-options', baseline + '^{commit}'], text=True).strip()
     for module in (browser_run, benchmark_ci_contract):
         relative = Path(module.__file__).relative_to(Path(__file__).resolve().parents[2])
-        source = subprocess.check_output(['git', 'show', '987284c:' + str(relative)])
+        source = subprocess.check_output(['git', 'show', baseline + ':' + str(relative)])
         exec(compile(source, module.__file__, 'exec'), module.__dict__)
 
 
