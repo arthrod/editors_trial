@@ -122,6 +122,11 @@ def trial_measure(trial):
     return str(trial.get('measure') or diagnostic.get('size_rung') or diagnostic.get('measurement') or '')
 
 
+def trial_workload(trial):
+    return str(trial.get('workload_id') or (trial.get('environment') or {}).get('workload_id')
+               or (trial.get('diagnostic') or {}).get('workload_id') or '')
+
+
 def _read_rows(directory):
     for path in sorted(directory.rglob('*.json')):
         try:
@@ -174,7 +179,7 @@ def _refusal_key(sample_or_trial: dict) -> str:
 
 
 def build_run_cell(
-    run_directory: Path, editor_id: str, criterion_id: str, *, scheduled: int = 30, measure: str = ''
+    run_directory: Path, editor_id: str, criterion_id: str, *, scheduled: int = 30, measure: str = '', workload_id: str | None = None
 ) -> dict:
     summary = _load_summary(run_directory)
     scheduled = _scheduled_for_editor(summary, editor_id, scheduled)
@@ -190,6 +195,8 @@ def build_run_cell(
             refused_launches[launch] = 'unreadable_trial'
         if trial.get('editor_id') != editor_id or not trial.get('criterion_id'):
             continue
+        if workload_id is not None and trial_workload(trial) != workload_id:
+            continue
         code = refusal_code(trial)
         if code in _RUN_REFUSALS:
             refused_launches[launch] = code
@@ -199,7 +206,10 @@ def build_run_cell(
         if path.is_dir() and path.name.endswith('-' + editor_id):
             refused_launches[path.name] = 'quarantined'
     for path, row in _read_rows(run_directory / 'samples'):
-        if row.get('editor_id') != editor_id:
+        if (path.parent != run_directory / 'samples'
+                or row.get('editor_id') != editor_id or row.get('accounting_scope') == 'diagnostic'
+                or not re.fullmatch(r'\d+-' + re.escape(editor_id), path.stem)
+                or row.get('outcome') in ('ok', 'measured')):
             continue
         code = refusal_code(row)
         if code in _RUN_REFUSALS and refused_launches.get(path.stem) != 'unreadable_trial':
@@ -245,6 +255,7 @@ def build_run_cell(
         'editor_id': editor_id,
         'criterion_id': criterion_id,
         'measure': measure,
+        'workload_id': workload_id,
         'scheduled': scheduled,
         'kept_ms': kept,
         'raw_samples_ms': raw,
@@ -325,7 +336,7 @@ def publication_text(cell: dict) -> str:
 
 
 def publish_dual_runs(
-    primary: Path, reproduction: Path, editor_id: str, criterion_id: str, *, scheduled: int = 30, measure: str = ''
+    primary: Path, reproduction: Path, editor_id: str, criterion_id: str, *, scheduled: int = 30, measure: str = '', workload_id: str | None = None
 ) -> str:
     """Compatibility entry point; all publication gates live in the report path.
 
@@ -336,4 +347,4 @@ def publish_dual_runs(
 
     first, second = load_run(primary), load_run(reproduction)
     check_comparable(first, second)
-    return _cell_text({}, first.path, second.path, editor_id, criterion_id, measure)
+    return _cell_text({}, first.path, second.path, editor_id, criterion_id, measure, workload_id)

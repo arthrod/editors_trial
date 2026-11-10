@@ -135,11 +135,11 @@ def _format_median(cell: dict, median: float) -> str:
     return "%.1f ms" % median
 
 
-def _cell_text(facts: dict, primary: Path, repro: Path, editor: str, criterion: str, measure: str = '') -> str:
-    key = 'perf.e2.%s.%s' % (editor, criterion) + ('.' + measure if measure else '')
+def _cell_text(facts: dict, primary: Path, repro: Path, editor: str, criterion: str, measure: str = '', workload_id: str | None = None) -> str:
+    key = 'perf.e2.%s.%s' % (editor, criterion) + ('.' + measure if measure else '') + ('.' + workload_id if workload_id else '')
     facts[key + '.reproduced'] = False
     cells = [
-        e2_cells.build_run_cell(root, editor, criterion, scheduled=_scheduled(root, editor), measure=measure)
+        e2_cells.build_run_cell(root, editor, criterion, scheduled=_scheduled(root, editor), measure=measure, workload_id=workload_id)
         for root in (primary, repro)
     ]
     facts[key + '.primary'], facts[key + '.reproduction'] = cells
@@ -182,7 +182,7 @@ def _cell_text(facts: dict, primary: Path, repro: Path, editor: str, criterion: 
 
     p_med = p_cell['stats']['median']
     r_med = r_cell['stats']['median']
-    key = 'perf.e2.%s.%s' % (editor, criterion) + ('.' + measure if measure else '')
+    key = 'perf.e2.%s.%s' % (editor, criterion) + ('.' + measure if measure else '') + ('.' + workload_id if workload_id else '')
     ok = reproduced(p_med, r_med, rel_tol=REL_TOL, abs_tol=frame)
     if not ok:
         facts[key + '.reason'] = 'medians outside tolerance'
@@ -202,17 +202,19 @@ def _cell_text(facts: dict, primary: Path, repro: Path, editor: str, criterion: 
 
 
 def _criterion_table(facts: dict, primary: Path, repro: Path, criterion: str, editors: list[str]) -> str:
-    measures = sorted({e2_cells.trial_measure(row) for root in (primary, repro)
-                       for row in e2_cells._iter_trials(root) if row['criterion_id'] == criterion}) or ['']
-    distinct = criterion in ('C14', 'C15') or measures != ['']
-    lines = (['| Editor | Measure | %s |' % criterion, '|---|---|---|'] if distinct
-             else ['| Editor | %s |' % criterion, '|---|---|'])
-    for editor in editors:
-        for measure in measures:
-            text = _cell_text(facts, primary, repro, editor, criterion, measure)
-            label = DISPLAY.get(editor, editor)
-            lines.append('| %s | %s | %s |' % (label, measure or 'unspecified', text) if distinct
-                         else '| %s | %s |' % (label, text))
+    groups = sorted({(e2_cells.trial_workload(row), e2_cells.trial_measure(row))
+                     for root in (primary, repro) for row in e2_cells._iter_trials(root)
+                     if row['criterion_id'] == criterion}) or [('', '')]
+    has_workload = any(workload for workload, _ in groups)
+    distinct = criterion in ('C14', 'C15') or any(measure for _, measure in groups)
+    columns = ['Editor'] + (['Workload'] if has_workload else []) + (['Measure'] if distinct else []) + [criterion]
+    lines = ['| ' + ' | '.join(columns) + ' |', '|' + '---|' * len(columns)]
+    for workload, measure in groups:
+        for editor in editors:
+            text = _cell_text(facts, primary, repro, editor, criterion, measure, workload)
+            row = [DISPLAY.get(editor, editor)] + ([workload or 'unspecified'] if has_workload else [])
+            row += ([measure or 'unspecified'] if distinct else []) + [text]
+            lines.append('| ' + ' | '.join(row) + ' |')
     return "\n".join(lines)
 
 

@@ -1277,6 +1277,7 @@ def _print_support() -> None:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--editor", action="append", default=None, help="editor id; repeat for several (sequential)")
+    parser.add_argument("--editors", nargs="+", dest="editor")
     parser.add_argument("--workload", default="micro-paragraphs")
     parser.add_argument("--execution-profile", default="ci_contract", choices=("ci_contract", "ci_broad"))
     parser.add_argument("--pairs", type=int, default=1, help="fresh hosts per editor (bounded by the profile budget)")
@@ -1290,7 +1291,7 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main() -> int:
+def _main() -> int:
     parser = _build_parser()
     args = parser.parse_args()
 
@@ -1314,10 +1315,16 @@ def main() -> int:
         parser.error("--retain-seconds must be positive")
     args.retain_seconds = retain_seconds
 
+    from perf.runner.browser_run import execution_profile
+    args.execution_profile = execution_profile(args.execution_profile)
     assert_workload_allowed(args.execution_profile, args.workload)
     workload_row = next(row for row in size_ladder() if row["workload_id"] == args.workload)
-    built = build_workload(workload_row)
-    docx_body = docx_zip_bytes(built["body"])
+    if workload_row['shape'] in ('prose', 'corpus'):
+        from perf.fixtures.docx_workload import workload_docx
+        docx_body = workload_docx(args.workload)['docx']
+    else:
+        built = build_workload(workload_row)
+        docx_body = docx_zip_bytes(built["body"])
     fixture_sha = hashlib.sha256(docx_body).hexdigest()
     docx_size = len(docx_body)
 
@@ -1474,6 +1481,14 @@ def main() -> int:
     summary_path.write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
     print("summary: %s" % (_attempt_ref(summary_path),))
     return 0
+
+
+def main() -> int:
+    # Container invocations use B1 bookkeeping; retain the standalone CLI.
+    if any(arg.split('=', 1)[0] in ('--run-id', '--seed', '--host-class') for arg in sys.argv[1:]):
+        from perf.runner.browser_run import run_cli
+        return run_cli(_main, "benchmark_memory", BROWSER_TARGETS, count_flag="--pairs")
+    return _main()
 
 
 if __name__ == "__main__":

@@ -62,18 +62,27 @@ def publication_jobs(editors, seed, seed2, host_class):
         raise ValueError('publication requires editors, distinct seeds and shared_guarded')
     jobs = []
     for value in (seed, seed2):
-        for runner in RUNNERS:
+        for runner in (*RUNNERS, 'benchmark_memory', 'benchmark_resources'):
             base = ['--execution-profile', 'dedicated_publish', '--host-class', host_class, '--seed', str(value)]
-            # C10 has a singular CLI; run_cli still interleaves its 30 repetitions.
-            if runner == 'adversarial_c10_scroll':
-                jobs.extend((runner, base + ['--editor', editor]) for editor in editors)
-            elif runner == 'benchmark_typing':
+            if runner == 'benchmark_typing':
                 from perf.runner.browser_run import TYPING_PUBLICATION_SESSIONS
                 jobs.extend((runner, base + ['--repetitions', str(TYPING_PUBLICATION_SESSIONS),
                     '--cadence-ms', '0', '--budget-s', '3600', '--session-kind', kind, '--editors', editor])
                     for editor in editors for kind in ('throughput', 'latency'))
-            else:
-                jobs.append((runner, base + ['--editors', *editors]))
+                continue
+            from perf.fixtures.docx_workload import PROSE_LADDER, CORPUS_ROW
+            for row in [*PROSE_LADDER, CORPUS_ROW]:
+                args = base + ['--workload', row['workload_id']]
+                if runner == 'adversarial_c10_scroll':
+                    jobs.extend((runner, args + ['--editor', editor]) for editor in editors)
+                else:
+                    args += ['--editors', *editors]
+                    if runner == 'benchmark_document':
+                        args += ['--criteria', 'C11', 'C12', 'C15']
+                    jobs.append((runner, args))
+            if runner == 'benchmark_document':
+                # C14 traverses the entire ladder itself, once per seed.
+                jobs.append((runner, base + ['--editors', *editors, '--criteria', 'C14']))
     return jobs
 
 

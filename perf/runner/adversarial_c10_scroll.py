@@ -147,10 +147,10 @@ def profile_admits_workload(execution_profile: str, workload_id: str = WORKLOAD_
     return workload_id in allowed_workloads(execution_profile)
 
 
-def scroll_fixture() -> dict:
+def scroll_fixture(workload_id: str = WORKLOAD_ID) -> dict:
     """The prose-50kw document: its bytes, its metadata and its ladder row."""
-    row = next(r for r in size_ladder() if r["workload_id"] == WORKLOAD_ID)
-    built = workload_docx(WORKLOAD_ID)
+    row = next(r for r in size_ladder() if r["workload_id"] == workload_id)
+    built = workload_docx(workload_id)
     return {**built, "workload_row": row}
 
 
@@ -608,8 +608,8 @@ def _refuse(
             "failure_reason": reason,
             "attempt_file": str(path.resolve()),
             "execution_profile": execution_profile,
-            "profile_admits_workload": profile_admits_workload(execution_profile),
-            "workload_id": WORKLOAD_ID,
+            "profile_admits_workload": profile_admits_workload(execution_profile, diagnostic["workload_id"]),
+            "workload_id": diagnostic["workload_id"],
             "seed": seed,
             "publishable": False,
         },
@@ -619,6 +619,7 @@ def _refuse(
 
 def _main() -> int:
     parser = argparse.ArgumentParser()
+    parser.add_argument("--workload", default=WORKLOAD_ID)
     parser.add_argument("--editor", default="plate")
     parser.add_argument("--out-root", type=Path, required=True)
     parser.add_argument("--pairs", type=int, default=1)
@@ -650,8 +651,8 @@ def _main() -> int:
     attempt_dir = out_root / "attempts"
     attempt_dir.mkdir(parents=True, exist_ok=True)
 
-    fixture = scroll_fixture()
-    fixture_path = run_fixture(WORKLOAD_ID, fixture["docx"], out_root / "fixture.docx")
+    fixture = scroll_fixture(args.workload)
+    fixture_path = run_fixture(args.workload, fixture["docx"], out_root / "fixture.docx")
 
     editor_id = args.editor
     editor_version = FAKE_EDITOR_VERSION
@@ -677,7 +678,7 @@ def _main() -> int:
         "suite": "adversarial",
         "probe": "scroll_container",
         "criterion": "C10",
-        "workload_id": WORKLOAD_ID,
+        "workload_id": args.workload,
         "execution_profile": execution_profile,
         "seed": seed,
         "host_class": host_class,
@@ -692,7 +693,7 @@ def _main() -> int:
 
     # The profile gate: prose-50kw is only admitted by `dedicated_publish`.
     try:
-        assert_workload_allowed(execution_profile, WORKLOAD_ID)
+        assert_workload_allowed(execution_profile, args.workload)
     except ValueError as exc:
         reason = "execution_profile: %s" % (exc,)
         diagnostic["profile_admits_workload"] = False
@@ -881,8 +882,8 @@ def _main() -> int:
             "scroll_top_deltas": [entry["record"].get("scroll_top_delta") for entry in samples],
             "attempt_file": str(path.resolve()),
             "execution_profile": execution_profile,
-            "profile_admits_workload": profile_admits_workload(execution_profile),
-            "workload_id": WORKLOAD_ID,
+            "profile_admits_workload": profile_admits_workload(execution_profile, args.workload),
+            "workload_id": args.workload,
             "seed": seed,
             "publishable": publishable,
             "publication_block_reason": block_reason,

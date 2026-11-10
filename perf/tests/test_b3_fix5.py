@@ -75,7 +75,8 @@ class HostErrorPreservation(unittest.TestCase):
         env = dict(failures=0, exc=RuntimeError('later probe broke'),
                    criteria=['C11', 'C12'], rows=rows, launch_row_start=1,
                    editor_id='current', CRITERIA=bd.CRITERIA,
-                   fixtures={bd.CRITERIA['C12']['workload']: {}},
+                   specs={**bd.CRITERIA, 'C12': {**bd.CRITERIA['C12'], 'workload': 'prose-500w'}},
+                   fixtures={'prose-500w': {}},
                    _refuse_cell=lambda cid, fixture, reason: writes.append(cid))
         exec(compile(ast.fix_missing_locations(ast.Module(body=handler.body, type_ignores=[])),
                      bd.__file__, 'exec'), env)

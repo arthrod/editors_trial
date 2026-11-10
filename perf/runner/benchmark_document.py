@@ -119,8 +119,8 @@ CRITERIA = {
     },
 }
 
-C14_RUNGS = ("micro-paragraphs", "short-paragraphs", "long-paragraphs")
-C14_RUNG_LABEL = {"micro-paragraphs": "micro", "short-paragraphs": "short", "long-paragraphs": "long"}
+C14_RUNGS = ("prose-500w", "prose-5kw", "prose-50kw", "prose-250kw", "complex-corpus")
+C14_RUNG_LABEL = {rung: rung for rung in C14_RUNGS}
 C15_MEASUREMENTS = ("first_match", "search_complete", "replace_all", "index_quiescence")
 # I10: n < 2 is not publishable. One find event is not a C15 cell.
 C15_MIN_N = 2
@@ -490,6 +490,11 @@ def build_fixture(workload_row: dict) -> dict:
     to its corpus for the same reason. The appended paragraphs are recorded, so
     the paragraph count stays truthful.
     """
+    if workload_row['shape'] in ('prose', 'corpus'):
+        from perf.fixtures.docx_workload import workload_docx
+        built = workload_docx(workload_row['workload_id'])
+        return {**built, 'workload_row': workload_row, 'bytes': built['docx'],
+                'augmented_paragraphs': 4 if workload_row['shape'] == 'prose' else 0}
     built = build_workload(workload_row)
     correctness = correctness_fixtures()
     augmented = (
@@ -1363,6 +1368,7 @@ def _run_find_payloads(*, editor_id: str, target: dict, cfg: dict, fixture_path:
 def _main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--editors", nargs="*", default=None, help="default: every browser host")
+    parser.add_argument("--workload", default="micro-paragraphs")
     parser.add_argument("--criteria", nargs="*", default=None, help="default: C11 C12 C14 C15")
     parser.add_argument("--samples", type=int, default=SAMPLE_DEFAULT, help="fresh processes per cell (ci_broad budget: 5)")
     parser.add_argument("--out-root", type=Path, default=None)
@@ -1393,9 +1399,11 @@ def _main() -> int:
     fixture_dir = out_root / "fixtures"
     fixture_dir.mkdir(parents=True, exist_ok=True)
 
+    specs = {cid: {**spec, 'workload': args.workload if cid in ('C11', 'C12') else spec['workload']}
+             for cid, spec in CRITERIA.items()}
     ladder = {row["workload_id"]: row for row in size_ladder()}
     fixtures: dict = {}
-    for workload_id in set(list(C14_RUNGS) + [spec["workload"] for spec in CRITERIA.values() if spec["workload"]]):
+    for workload_id in {rung for cid in criteria for rung in (C14_RUNGS if cid == "C14" else (specs[cid]["workload"],))}:
         rung = ladder[workload_id]
         fixture = build_fixture(rung)
         fixture["path"] = fixture_dir / ("%s-%s.docx" % (workload_id, fixture["sha256"][:16]))
@@ -1469,7 +1477,7 @@ def _main() -> int:
                     env = _env_for(
                         editor_id=editor_id,
                         editor_version=editor_version,
-                        fixture=fixtures[CRITERIA["C15"]["workload"]],
+                        fixture=fixtures[specs["C15"]["workload"]],
                         cache_state=CRITERIA["C15"]["cache_state"],
                     )
                     for measurement in C15_MEASUREMENTS:
@@ -1501,7 +1509,7 @@ def _main() -> int:
                         reason = "%s; rung %s not driven" % (refuse_reason, C14_RUNG_LABEL[rung])
                         _refuse_cell("C14", fixtures[rung], reason, extra={"size_rung": C14_RUNG_LABEL[rung], "workload_id": rung})
                 else:
-                    _refuse_cell(criterion_id, fixtures[CRITERIA[criterion_id]["workload"]], refuse_reason)
+                    _refuse_cell(criterion_id, fixtures[specs[criterion_id]["workload"]], refuse_reason)
             continue
 
         proc = None
@@ -1511,7 +1519,7 @@ def _main() -> int:
 
             for criterion_id in criteria:
                 if criterion_id == "C11":
-                    fixture = fixtures[CRITERIA["C11"]["workload"]]
+                    fixture = fixtures[specs["C11"]["workload"]]
                     env = _env_for(
                         editor_id=editor_id,
                         editor_version=editor_version,
@@ -1578,7 +1586,7 @@ def _main() -> int:
                     )
 
                 if criterion_id == "C12":
-                    fixture = fixtures[CRITERIA["C12"]["workload"]]
+                    fixture = fixtures[specs["C12"]["workload"]]
                     env = _env_for(
                         editor_id=editor_id,
                         editor_version=editor_version,
@@ -1822,7 +1830,7 @@ def _main() -> int:
                         )
 
                 if criterion_id == "C15":
-                    fixture = fixtures[CRITERIA["C15"]["workload"]]
+                    fixture = fixtures[specs["C15"]["workload"]]
                     env = _env_for(
                         editor_id=editor_id,
                         editor_version=editor_version,
@@ -1931,7 +1939,7 @@ def _main() -> int:
                     env = _env_for(
                         editor_id=editor_id,
                         editor_version=editor_version,
-                        fixture=fixtures[CRITERIA["C15"]["workload"]],
+                        fixture=fixtures[specs["C15"]["workload"]],
                         cache_state=CRITERIA["C15"]["cache_state"],
                     )
                     for measurement in C15_MEASUREMENTS:
@@ -1965,7 +1973,7 @@ def _main() -> int:
                             extra={"size_rung": C14_RUNG_LABEL[rung], "workload_id": rung},
                         )
                 else:
-                    _refuse_cell(criterion_id, fixtures[CRITERIA[criterion_id]["workload"]], reason)
+                    _refuse_cell(criterion_id, fixtures[specs[criterion_id]["workload"]], reason)
         finally:
             if proc is not None:
                 _stop_server(proc)

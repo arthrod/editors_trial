@@ -46,7 +46,7 @@ CRITERIA = ("C04", "C07", "C09", "C08")
 PROBE_TIMEOUT_S = 300
 
 
-def _fixture(editor_id: str) -> tuple[Path, str, int]:
+def _fixture(editor_id: str, workload_id: str = "micro-paragraphs") -> tuple[Path, str, int]:
     """The same generated micro workload the warm/cold suite uses.
 
     ``docx_zip_bytes`` stamps a fresh timestamp on every call, so the file is
@@ -58,9 +58,13 @@ def _fixture(editor_id: str) -> tuple[Path, str, int]:
     from perf.fixtures.generate import build_workload, correctness_fixtures, docx_zip_bytes
     from perf.fixtures.profiles import size_ladder
 
-    row = next(w for w in size_ladder() if w["workload_id"] == "micro-paragraphs")
-    body = build_workload(row)["body"] + b"\n" + correctness_fixtures()["unicode"]
-    data = docx_zip_bytes(body)
+    row = next(w for w in size_ladder() if w["workload_id"] == workload_id)
+    if row['shape'] in ('prose', 'corpus'):
+        from perf.fixtures.docx_workload import workload_docx
+        data = workload_docx(workload_id)['docx']
+    else:
+        body = build_workload(row)["body"] + b"\n" + correctness_fixtures()["unicode"]
+        data = docx_zip_bytes(body)
     from perf.runner.browser_run import ACTIVE
     run = ACTIVE.get()
     path = run_fixture(row["workload_id"], data,
@@ -162,9 +166,9 @@ def _refuse_run(editor_id: str, attempt_dir: Path, workload_row: dict,
     return row
 
 
-def run_editor(editor_id: str, attempt_dir: Path) -> dict:
+def run_editor(editor_id: str, attempt_dir: Path, workload_id: str = "micro-paragraphs") -> dict:
     target = BROWSER_TARGETS[editor_id]
-    fixture, fixture_sha, fixture_size, workload_row = _fixture(editor_id)
+    fixture, fixture_sha, fixture_size, workload_row = _fixture(editor_id, workload_id)
     from perf.runner.browser_hosts import select_fixture
     try:
         select_fixture(target, fixture)
@@ -242,6 +246,7 @@ def criterion_summary(row, entry):
 def _main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--editors", nargs="*", default=list(BROWSER_TARGETS))
+    ap.add_argument("--workload", default="micro-paragraphs")
     ap.add_argument("--out-root", default=None)
     ap.add_argument("--list-support", action="store_true")
     args = ap.parse_args()
@@ -266,7 +271,7 @@ def _main() -> int:
             print("unknown editor %r" % editor_id, file=sys.stderr)
             continue
         try:
-            row = run_editor(editor_id, attempt_dir)
+            row = run_editor(editor_id, attempt_dir, args.workload)
         except Exception as exc:  # a host failure is data, not a crash
             row = {"editor_id": editor_id, "outcome": "failed",
                    "failure_reason": "%s: %s" % (type(exc).__name__, exc)}

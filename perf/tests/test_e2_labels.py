@@ -92,7 +92,7 @@ def _stub_b4_launch(tmp_path, monkeypatch):
     row = _b4_env_args(tmp_path)
     fixture = tmp_path / 'fixture.docx'
     fixture.write_bytes(b'x')
-    monkeypatch.setattr(binput, '_fixture', lambda e: (fixture, 'a' * 64, 1, row))
+    monkeypatch.setattr(binput, '_fixture', lambda e, workload_id='micro-paragraphs': (fixture, 'a' * 64, 1, row))
     import perf.runner.browser_hosts as hosts
     monkeypatch.setattr(hosts, 'select_fixture', lambda *a: None)
     monkeypatch.setattr(binput, '_stop_server', lambda s: None)
