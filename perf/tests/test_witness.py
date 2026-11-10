@@ -825,9 +825,14 @@ class WitnessIssue137Tests(unittest.TestCase):
         #    a bare NaN; the validator must not depend on the reader for it).
         ("arm-nan", {"after_page_ms": float("nan")}, "witness_schema_invalid"),
         # 3. more frames after the marker than were ever recorded.
+        #    (Round 6: the case used to set frames_total to 0, but a record
+        #    with zero frames now contradicts the anchor's own evidence
+        #    first -- the check counted three -- so the case raises
+        #    frames_after past any window's frame count instead, which is
+        #    what its name tests.)
         (
             "frames-after-above-total",
-            {"frames_total": 0},
+            {"frames_after": 10**6},
             "frame_counts_inconsistent",
         ),
         # 4. a pixel floor of the wrong type skips the floor: 0 pixels pass.
@@ -837,7 +842,10 @@ class WitnessIssue137Tests(unittest.TestCase):
             "witness_schema_invalid",
         ),
         # 5. `acceptable: true` asserted over recorded anchor evidence that
-        #    says no (the boolean was trusted over its own checks).
+        #    says no (the boolean was trusted over its own checks). (Round
+        #    6: the schema runs before the recomputation, so this minimal
+        #    hand-made check is named as malformed first; the flag-over-
+        #    evidence contradiction is still in errors.)
         (
             "acceptable-over-anchor-evidence",
             {
@@ -850,7 +858,7 @@ class WitnessIssue137Tests(unittest.TestCase):
                     "checks": {"anchor_found": False},
                 }
             },
-            "clock_check_evidence_contradicted",
+            "clock_check_schema_invalid",
         ),
         # 6. `document_scoped: true` with the region's failure recorded next to it.
         (
@@ -862,7 +870,12 @@ class WitnessIssue137Tests(unittest.TestCase):
 
     #: the same fail-open family, one step further: a wrong-typed arm, an
     #: acceptable flag with its recorded checks erased, and an anchor that
-    #: says unchecked while the checks dict claims otherwise.
+    #: says unchecked while the checks dict claims otherwise. (Round 6:
+    #: both nested-evidence cases are named by the schema's token now --
+    #: the schema runs before the recomputation, and a check that is
+    #: missing or lying about its evidence is malformed before it is
+    #: contradictory; the refusal and the evidence tokens in errors are
+    #: unchanged.)
     EXTRA_CASES = [
         ("arm-not-a-number", {"after_page_ms": "1200"}, "witness_schema_invalid"),
         (
@@ -876,7 +889,7 @@ class WitnessIssue137Tests(unittest.TestCase):
                     "checks": None,
                 }
             },
-            "clock_check_evidence_missing",
+            "clock_check_schema_invalid",
         ),
         (
             "acceptable-over-unchecked-anchor",
@@ -890,7 +903,7 @@ class WitnessIssue137Tests(unittest.TestCase):
                     "checks": {"anchor_found": True, "anchor_pixel_checked": True},
                 }
             },
-            "clock_check_evidence_contradicted",
+            "clock_check_schema_invalid",
         ),
     ]
 
@@ -1005,9 +1018,16 @@ class WitnessIssue137Round3Tests(unittest.TestCase):
             verdict.get("refused"),
             "a null check is not evidence: %r" % (verdict,),
         )
+        # round 6: the schema runs before the recomputation, so the missing
+        # recorded checks are the schema's token; the erased-evidence token
+        # is still in errors.
         self.assertEqual(
             verdict.get("reason"),
-            "clock_check_evidence_missing",
+            "clock_check_schema_invalid",
+        )
+        self.assertTrue(
+            any("erased or non-boolean" in str(e) for e in verdict.get("errors", [])),
+            "the erased checks are still named: %r" % (verdict.get("errors"),),
         )
 
     def test_finding2_a_nested_offset_above_the_bound_is_refused(self):
@@ -1647,9 +1667,10 @@ class WitnessMutationTests(unittest.TestCase):
         ("", "window_requested_ms", "contradictory"):
             "the raw request before the producer's clamp; informational",
         ("", "frames_total", "contradictory"):
-            "a raw frame count; only frames_after <= frames_total and the "
-            "integer range are checkable (enforced by out-of-range and by "
-            "frames_after's corruption)",
+            "a raw frame count; only frames_after <= frames_total, the check's "
+            "own count <= it (round 6: the same run's recorder only "
+            "accumulates) and the integer range are checkable (enforced by "
+            "out-of-range and by frames_after's corruption)",
         ("", "frames_ack_skipped", "contradictory"):
             "a count of frames whose ack never settled; its integer range and "
             "its subset relation to frames_total gate (round 5: it may not "
@@ -1695,17 +1716,21 @@ class WitnessMutationTests(unittest.TestCase):
             "a raw monotonic reading; not derivable from the record",
         ("clock_check", "frames_total", "contradictory"):
             "the check's own frame count at its own instant; an anchor needs "
-            "at least one of them (round 5: zero frames contradict a claimed "
-            "anchor), but which count at or above one the recorder had is not "
-            "derivable from the record",
+            "the producer's minimum of two of them -- a baseline plus the "
+            "anchor frame (round 5 refused zero, round 6 one) -- and the "
+            "count may not exceed the record's own (round 6), but which "
+            "count in between the recorder had is not derivable from the "
+            "record",
         ("clock_check", "anchor_diff_ratio", "contradictory"):
             "the anchor's own diff ratio; its producer threshold and its pixel "
-            "floor over the probe region gate (round 5), but the exact value "
-            "above them is not derivable from the record",
-        ("clock_check", "anchor_probe_region_px", "contradictory"):
-            "where the anchor probe sat; its area carries the producer's pixel "
-            "floor (round 5), but a one-pixel shift of the origin leaves the "
-            "area -- and the anchor's verdict -- unchanged",
+            "floor over the producer's probe region gate (round 5; round 6 "
+            "pins the probe's geometry to the record's own dpr), but the "
+            "exact value above them is not derivable from the record",
+        # ("clock_check", "anchor_probe_region_px", "contradictory") was
+        # here until round 5, justifying a one-pixel origin shift with the
+        # unchanged area. Round 6 (R5-4) removed it: the producer emits a
+        # constant origin (x=y=0), so a shifted probe is a record the
+        # producer never wrote and is refused.
         ("clock_check", "frame_interval_source", "contradictory"):
             "where the interval came from; informational",
         ("clock_check", "frame_interval_samples", "contradictory"):
@@ -2027,8 +2052,15 @@ class WitnessRealRecordTests(_WitnessBrowserCase):
                 )
                 self.assertIn(
                     verdict.get("reason"),
-                    ("clock_check_evidence_missing", "clock_check_evidence_contradicted"),
-                    "%s must name the clock evidence: %r" % (name, verdict),
+                    (
+                        "clock_check_evidence_missing",
+                        "clock_check_evidence_contradicted",
+                        # round 6: the schema runs before the recomputation,
+                        # so the erased checks are the schema's token first
+                        "clock_check_schema_invalid",
+                    ),
+                    "%s must name the clock check's own refusal: %r"
+                    % (name, verdict),
                 )
 
     def test_the_round6_mutations_on_a_fresh_capture_are_refused(self):
@@ -2317,7 +2349,12 @@ class WitnessIssue137Round4Tests(unittest.TestCase):
         """N2: with `clock_check.method` erased and the anchor times lying
         (frame 1000 ms before its own change), the recomputation must still
         run and name the contradiction -- the round-3 code returned early on
-        the missing method and let the eight `true` flags through."""
+        the missing method and let the eight `true` flags through.
+        (Round 6: the reason token is the schema's now, because the schema
+        runs before the recomputation and the erased method is a
+        malformation; what the test protects -- the recomputation runs
+        anyway and the lying times are named in errors -- is asserted
+        below.)"""
         validator = self.load_validator()
         record = self.captured()
         del record["clock_check"]["method"]
@@ -2332,9 +2369,14 @@ class WitnessIssue137Round4Tests(unittest.TestCase):
         )
         self.assertEqual(
             verdict.get("reason"),
-            "clock_check_evidence_contradicted",
-            "the recomputation must name the contradiction, not the schema: %r"
-            % (verdict,),
+            "clock_check_schema_invalid",
+            "the erased method is a schema malformation the schema names first "
+            "(round 6): %r" % (verdict,),
+        )
+        self.assertTrue(
+            any("precedes its own change" in str(e) for e in verdict.get("errors", [])),
+            "the recomputation still ran and named the lying anchor times: %r"
+            % (verdict.get("errors"),),
         )
 
     def test_markers_on_a_hand_made_record_do_not_rescue_it(self):
@@ -2693,11 +2735,30 @@ class WitnessIssue137Round5Tests(unittest.TestCase):
         changed exactly the floor's pixels (4 in the 8x8 probe at dpr 1,
         4 in a 16x16 probe at dpr 2) validates; one changed-pixel-equivalent
         below it is refused. The six-decimal rounding of the recorded ratio
-        must not refuse the floor-edge anchor."""
+        must not refuse the floor-edge anchor.
+
+        (Round 6 corrected this test's premise: a 16x16 probe is the
+        producer's only at dpr 2 -- its side is max(1, round(8*dpr)) at the
+        record's own device_pixel_ratio -- so the dpr-2 case now also sets
+        the record's dpr and the device rect the producer would derive
+        from it, instead of asking for a probe no dpr of the record
+        produces.)"""
         validator = self.load_validator()
         for dpr, edge in ((1, 4 / 64), (2, 4 / 256)):
             with self.subTest(dpr=dpr):
                 at_floor = self.captured()
+                if at_floor["document_region"]["device_pixel_ratio"] != dpr:
+                    region = at_floor["document_region"]
+                    css = region["rect_css_px"]
+                    device = {
+                        key: int(float(css[key]) * dpr + 0.5)
+                        for key in ("x", "y", "width", "height")
+                    }
+                    at_floor["document_region"] = (
+                        region
+                        | {"device_pixel_ratio": dpr, "rect_device_px": device}
+                    )
+                    at_floor["region_pixels"] = device["width"] * device["height"]
                 at_floor["clock_check"]["anchor_diff_ratio"] = edge
                 at_floor["clock_check"]["anchor_probe_region_px"] = {
                     "x": 0,
@@ -2711,14 +2772,8 @@ class WitnessIssue137Round5Tests(unittest.TestCase):
                     "an anchor at exactly the floor must validate (dpr %s): %r"
                     % (dpr, verdict),
                 )
-                below = self.captured()
+                below = json.loads(json.dumps(at_floor))
                 below["clock_check"]["anchor_diff_ratio"] = edge - 1e-3
-                below["clock_check"]["anchor_probe_region_px"] = {
-                    "x": 0,
-                    "y": 0,
-                    "width": 8 * dpr,
-                    "height": 8 * dpr,
-                }
                 verdict = validator.validate_witness(below)
                 self.assertTrue(
                     verdict.get("refused"),
