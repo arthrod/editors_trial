@@ -925,7 +925,13 @@ def _probe_cmd(*, mode: str, target: dict, cfg: dict, corpus_path: Path, extra: 
 
 
 def _run_probe(cmd: list, *, editor_id: str) -> dict:
-    proc = subprocess.run(cmd, cwd=str(REPO / "harness" / "ui"), capture_output=True, text=True, timeout=PROBE_TIMEOUT_S)
+    try:
+        proc = subprocess.run(cmd, cwd=str(REPO / "harness" / "ui"), capture_output=True, text=True, timeout=PROBE_TIMEOUT_S)
+    except subprocess.TimeoutExpired:
+        raise ProbeRefusal(
+            "probe error for %s: editor did not finish within %ss" % (editor_id, PROBE_TIMEOUT_S),
+            refusal_code="editor_crash",
+        )
     record_process(proc)
     payload = None
     if proc.stdout.strip():

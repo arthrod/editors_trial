@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>painted document inside aria-hidden</title>
+    <style>
+      body { margin: 0; background: #ffffff; color: #111111; font: 18px/1.4 sans-serif; }
+      .doc-paragraph { margin: 0; padding: 24px 20px; }
+    </style>
+  </head>
+  <body>
+    <!-- Folio and SuperDoc mark the painted page aria-hidden because a
+         separate accessibility surface exists. The glyphs are still paint. -->
+    <div aria-hidden="true">
+      <p class="doc-paragraph">Visible document sentence for the probe.</p>
+      <p class="doc-paragraph" style="visibility: hidden">HIDDENONLY should not count as paint.</p>
+    </div>
+  </body>
+</html>

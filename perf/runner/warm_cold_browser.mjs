@@ -143,6 +143,9 @@ async function waitForReady(page, selector, timeoutMs = 120_000, t0 = Date.now()
   if (readyJs) {
     await page.waitForFunction(
       (expr) => {
+        // Canvas boot stores the import failure here and never sets __DOCX_IMPORTED__.
+        const editorError = window.__DOCX_ERROR__;
+        if (typeof editorError === 'string' && editorError) throw new Error(editorError);
         try {
           // eslint-disable-next-line no-eval
           return Boolean(eval(expr));

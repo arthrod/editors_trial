@@ -360,6 +360,9 @@ async function waitForReady(page) {
   if (readyJs) {
     await page.waitForFunction(
       (expr) => {
+        // Canvas boot stores the import failure here and never sets __DOCX_IMPORTED__.
+        const editorError = window.__DOCX_ERROR__;
+        if (typeof editorError === 'string' && editorError) throw new Error(editorError);
         try {
           // eslint-disable-next-line no-eval
           return Boolean(eval(expr));
@@ -443,8 +446,10 @@ const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, document
     if (!paintedBox(el) || isChrome(el)) return '';
     const excluded = (node) => {
       for (let parent = node; parent; parent = parent.parentElement || parent.getRootNode()?.host) {
+        // aria-hidden on a painted page is the editor's accessibility split
+        // (folio .paged-editor__pages, superdoc .superdoc-fragment), not unpainted text.
         if (['STYLE', 'SCRIPT', 'NOSCRIPT', 'TEXTAREA', 'INPUT', 'SELECT'].includes(parent.tagName)
-            || parent.getAttribute('aria-hidden')?.toLowerCase() === 'true' || isChrome(parent)) return true;
+            || isChrome(parent)) return true;
       }
       return false;
     };
