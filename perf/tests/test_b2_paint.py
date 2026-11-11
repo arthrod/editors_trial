@@ -475,6 +475,15 @@ class ReviewPolicy(unittest.TestCase):
         self.assertIsNone(row['latency_ms'])
 
 
+
+def _real_fixture(directory):
+    """The probe reads the fixture's opening text before it starts: a real package, not a name."""
+    from perf.fixtures.docx_workload import workload_docx
+    path = Path(directory) / 'x.docx'
+    path.write_bytes(workload_docx('prose-500w')['docx'])
+    return path
+
+
 class ProbeBracketIntegration(unittest.TestCase):
     def test_f2_exception_restores_cell_bracket(self):
         from unittest.mock import patch
@@ -489,7 +498,7 @@ class ProbeBracketIntegration(unittest.TestCase):
                 # subprocess has no upstream fake: fail the process boundary only.
                 with patch.object(runner.subprocess, 'run', side_effect=RuntimeError('poisoned probe')):
                     with self.assertRaisesRegex(RuntimeError, 'poisoned probe'):
-                        runner._run_browser_probe(target={'url':'http://fixture', 'corpus_route':'/x', 'edit_selector':'#doc'}, corpus_path=Path(tmp)/'x', pairs=1)
+                        runner._run_browser_probe(target={'url':'http://fixture', 'corpus_route':'/x', 'edit_selector':'#doc'}, corpus_path=_real_fixture(tmp), pairs=1)
                 path = run.sample('cell', {'outcome':'ok'})
                 self.assertEqual(json.loads(path.read_text())['outcome'], 'failed')
             finally:
@@ -688,7 +697,7 @@ class SuccessfulProbeBracketIntegration(unittest.TestCase):
                 run.begin_sample()
                 process = subprocess.CompletedProcess(['node'], 0, '{"pairs": []}', '')
                 with patch.object(runner.subprocess, 'run', return_value=process):
-                    runner._run_browser_probe(target={'url':'http://fixture', 'corpus_route':'/x', 'edit_selector':'#doc'}, corpus_path=Path(tmp)/'x', pairs=1)
+                    runner._run_browser_probe(target={'url':'http://fixture', 'corpus_route':'/x', 'edit_selector':'#doc'}, corpus_path=_real_fixture(tmp), pairs=1)
                 path = run.sample('cell', {'outcome':'ok'})
                 row = json.loads(path.read_text())
                 self.assertEqual(row['failure_reason'], 'cpu_throttled')
