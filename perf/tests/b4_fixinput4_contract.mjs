@@ -3,13 +3,17 @@
  * editor-model text, and the input-surface gate.
  */
 import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { publishableRecord } from './witness_records.mjs';
+import { decodePng } from '../runner/witness.mjs';
+import { INK_DARK_LUMA, inkClickPoints } from '../runner/ink_points.mjs';
 import {
   READ_EDITABLE_STATE,
   READ_SUPERDOC_TEXT,
   RESOLVE_CLICK_POINTS,
   caretOverlapsLine,
+  clickPaintRegion,
   comparableDocumentText,
   differsBySingleInsertion,
   measureClicks,
@@ -436,6 +440,152 @@ try {
   assert(first && first.y > 28, 'the first-line click is below the toolbar');
 } finally {
   await browser.close();
+}
+
+// ------------------------------------------------------------------ r3c07
+// The click-point scan is pixel based and shared by every editor: all three
+// points must sit on painted ink (a caret is expected next to the click, so
+// it lands inside the watched box), in the document text block — never on
+// page whitespace, ribbon chrome, rulers, or a status bar.
+const INK_FIXTURES = new URL('./fixtures/ink/', import.meta.url);
+function inkFixture(name, clip) {
+  const img = decodePng(readFileSync(fileURLToPath(new URL(name, INK_FIXTURES))));
+  return { img, clip, origin: { x: 0, y: 0 } };
+}
+function pixelLuma(img, x, y) {
+  const p = (Math.round(y) * img.width + Math.round(x)) * 4;
+  return 0.299 * img.data[p] + 0.587 * img.data[p + 1] + 0.114 * img.data[p + 2];
+}
+function assertInkPoint(img, geo, point, label) {
+  if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) {
+    assert(false, `${label}: ${point && point.point} resolves a coordinate`);
+    return;
+  }
+  const px = point.x - geo.origin.x;
+  const py = point.y - geo.origin.y;
+  const clip = geo.clip;
+  assert(
+    point.x >= clip.left && point.x < clip.right && point.y >= clip.top && point.y < clip.bottom,
+    `${label}: ${point.point} stays inside the clip`,
+  );
+  assert(
+    pixelLuma(img, px, py) < INK_DARK_LUMA,
+    `${label}: ${point.point} at (${point.x},${point.y}) is on painted ink, not whitespace`,
+  );
+  assert(point.line && point.line.top <= point.y && point.y <= point.line.bottom, `${label}: ${point.point} carries its line box`);
+  const region = clickPaintRegion(point).rect;
+  assert(
+    region.y <= point.line.top && region.y + region.height >= point.line.bottom,
+    `${label}: the watched box contains the clicked line of ${point.point}`,
+  );
+}
+function assertInkGrid(img, geo, label) {
+  const ink = inkClickPoints(img, geo.clip);
+  assert(ink.source === 'ink_runs', `${label}: the point source is named ink_runs`);
+  assert(ink.points.length === 3, `${label}: three click points resolve`);
+  for (const name of ['page_centre', 'first_text_line', 'last_text_line']) {
+    const point = ink.points.find((p) => p.point === name);
+    assertInkPoint(img, geo, point, label);
+  }
+  const named = ['first_text_line', 'page_centre', 'last_text_line'].map((name) =>
+    ink.points.find((p) => p.point === name),
+  );
+  if (named.some((p) => !p)) return ink;
+  const ordered = named.map((p) => p.y);
+  assert(ordered[0] < ordered[1] && ordered[1] < ordered[2], `${label}: first < centre < last by painted line`);
+  assert(ink.line_height_px > 4, `${label}: a line height is measured from the ink`);
+  return ink;
+}
+
+{
+  // plate's failing point: (640, 480.5) was the geometric clip centre — an
+  // inter-paragraph gap; the caret snapped to a line end outside the box.
+  const { img, clip, origin } = inkFixture('plate_clip.png', { left: 190, top: 61, right: 1090, bottom: 900 });
+  const ink = assertInkGrid(img, { clip, origin }, 'plate');
+  const centre = ink.points.find((p) => p.point === 'page_centre');
+  assert(centre && Math.abs(centre.y - 480.5) > 8, 'plate page_centre moved off the paragraph gap');
+}
+{
+  // canvas's failing point: (640, 458) was a paragraph gap inside the
+  // painted page canvas; the model caret painted 283 px below the box.
+  const { img, clip, origin } = inkFixture('canvas_clip.png', { left: 232, top: 16, right: 1048, bottom: 900 });
+  const ink = assertInkGrid(img, { clip, origin }, 'canvas');
+  const firstLine = ink.points.find((p) => p.point === 'first_text_line');
+  assert(firstLine && Math.abs(firstLine.y - 148.6) > 5, 'canvas first_text_line moved off the heading gap');
+}
+{
+  // wordcraft paints everything — ribbon, rulers, page, status bar — into
+  // one window-wide canvas; the click points must come from the document
+  // text block, not the chrome.
+  const { img, clip, origin } = inkFixture('wordcraft_clip.png', { left: 0, top: 0, right: 1280, bottom: 900 });
+  const ink = assertInkGrid(img, { clip, origin }, 'wordcraft');
+  for (const point of ink.points) {
+    assert(point.y > 240 && point.y < 860, `wordcraft ${point.point} is inside the page text, not ribbon or status bar`);
+    assert(point.x > 240 && point.x < 1040, `wordcraft ${point.point} is inside the page column, not a ruler`);
+  }
+}
+
+// Synthetic covers: no ink, a single line, chrome above the document, a
+// status bar below it, and margin ticks beside the text column.
+function synthImage(width, height) {
+  const data = new Uint8ClampedArray(width * height * 4).fill(255);
+  return { width, height, data };
+}
+function synthInk(img, x0, x1, y) {
+  for (let x = Math.round(x0); x < Math.round(x1); x += 1) {
+    const p = (Math.round(y) * img.width + x) * 4;
+    img.data[p] = 0;
+    img.data[p + 1] = 0;
+    img.data[p + 2] = 0;
+  }
+}
+// A text line is ~14 px of glyph rows broken by intra-glyph white rows.
+function synthLine(img, x0, x1, top) {
+  for (let y = top; y < top + 14; y += 1) {
+    if (y % 5 === 4) continue; // a descender gap inside the line
+    let x = x0;
+    while (x < x1) {
+      const word = 18 + ((x / 7) % 20);
+      synthInk(img, x, Math.min(x + word, x1), y);
+      x += word + 6;
+    }
+  }
+}
+
+{
+  const empty = inkClickPoints(synthImage(800, 600), { left: 0, top: 0, right: 800, bottom: 600 });
+  assert(empty.points.length === 0, 'an image with no ink yields no click points');
+}
+{
+  const img = synthImage(800, 600);
+  synthLine(img, 100, 700, 100); // one painted text line only
+  const geo = { clip: { left: 0, top: 0, right: 800, bottom: 600 }, origin: { x: 0, y: 0 } };
+  const ink = inkClickPoints(img, geo.clip);
+  assert(ink.points.length === 3, 'a single painted line still yields the three named points');
+  for (const point of ink.points) assertInkPoint(img, geo, point, 'single-line');
+}
+{
+  const img = synthImage(800, 700);
+  // ribbon: dense scattered icon ink above a large gap
+  for (let y = 10; y < 60; y += 2) for (let x = 20; x < 780; x += 9) synthInk(img, x, x + 3, y);
+  // document: three paragraphs of two lines each
+  for (const top of [200, 226, 260, 286, 320, 346]) synthLine(img, 100, 700, top);
+  // status bar: a thin wide band of text below another large gap
+  synthLine(img, 10, 790, 660);
+  const geo = { clip: { left: 0, top: 0, right: 800, bottom: 700 }, origin: { x: 0, y: 0 } };
+  const ink = inkClickPoints(img, geo.clip);
+  assert(ink.points.length === 3, 'chrome around the document still yields three points');
+  for (const point of ink.points) {
+    assert(point.y > 190 && point.y < 370, `synthetic ${point.point} stays in the document block, off ribbon and status bar`);
+    assertInkPoint(img, geo, point, 'synthetic');
+  }
+}
+{
+  const img = synthImage(800, 700);
+  for (let y = 200; y < 500; y += 12) synthInk(img, 10, 13, y); // ruler ticks in the left margin
+  for (const top of [210, 236, 330, 356]) synthLine(img, 100, 700, top);
+  const ink = inkClickPoints(img, { left: 0, top: 0, right: 800, bottom: 700 });
+  for (const point of ink.points) assert(point.x > 60, 'synthetic points stay off the ruler tick column');
 }
 
 if (failed) process.exit(1);

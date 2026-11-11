@@ -154,11 +154,13 @@ export function validateWitnessRecord(record) {
 }
 
 import {
+  decodePng,
   frameInterval,
   getRecorder,
   stopRecorder,
   witnessFrame,
 } from './witness.mjs';
+import { inkClickPoints } from './ink_points.mjs';
 
 export const CRITERIA_INPUT_VERSION = 1;
 export const CRITERIA_SCHEMA = 'perf.criteria_input/1';
@@ -321,9 +323,10 @@ export const CLICK_PAINT_NOT_OBSERVED = 'click_paint_not_observed';
  * The watched region is a fixed box around the click point:
  *   - width: 48 CSS px, centred on the click x (CLICK_REGION_HALF_WIDTH_PX);
  *   - height: the clicked line box plus CLICK_REGION_LINE_PAD_PX px above and
- *     below, so the box contains a caret placed on the clicked line; a point
- *     with no line box (page centre, surface fractions) gets a 48 px tall box
- *     around the click y;
+ *     below, so the box contains a caret placed on the clicked line (with
+ *     ink-run points the line box is the painted line's band grown by half
+ *     the median line gap, which is what the caret spans); a point with no
+ *     line box gets a 48 px tall box around the click y;
  *   - the height is capped at CLICK_REGION_MAX_HEIGHT_PX (the unmasked-rect
  *     ceiling witness.py accepts), sliding toward the click y when capped.
  * The sample ends at the first screencast frame with a change inside that
@@ -1487,6 +1490,131 @@ const POINTER_TARGET_SURFACE = (spec) => {
 };
 
 /**
+ * Hit checks for ink-scan click points, run page-side after the points are
+ * chosen: elementFromPoint must land inside the editable (or the surface),
+ * and a DOM point must be a text hit the same way RESOLVE_CLICK_POINTS
+ * demands — not a button, a link, or (for superdoc) outside the text runs.
+ * Page context: no Node closures.
+ */
+const CHECK_CLICK_HITS = (payload) => {
+  const ctx = (payload && payload.context) || {};
+  let inside = null;
+  let el = null;
+  if (ctx.kind === 'surface') {
+    const spec = ctx.spec || {};
+    if (spec.shadow) {
+      const host = document.querySelector(spec.shadow);
+      const root = host && host.shadowRoot;
+      el = (root && spec.pageRoot && root.querySelector(spec.pageRoot)) || host;
+      inside = host;
+    } else {
+      el = document.querySelector(spec.pageRoot || spec.selector);
+      inside = el;
+    }
+  } else {
+    el = document.querySelector(ctx.selector);
+    inside = el;
+  }
+  if (!inside) return { error: 'editable_not_found' };
+  const runsPresent = Boolean(el && el.querySelector && el.querySelector('.superdoc-text-run'));
+  const out = [];
+  for (const point of (payload && payload.points) || []) {
+    const target = document.elementFromPoint(point.x, point.y);
+    let hit;
+    let textHit;
+    if (ctx.kind === 'surface') {
+      const spec = ctx.spec || {};
+      hit = Boolean(
+        target &&
+          (inside === target ||
+            inside.contains(target) ||
+            (spec.shadow && typeof target.closest === 'function' && Boolean(target.closest(spec.shadow)))),
+      );
+    } else {
+      hit = Boolean(target && (inside === target || inside.contains(target)));
+      textHit = hit;
+      if (hit && typeof target.closest === 'function') {
+        if (target.closest('button, a, input, select, textarea, [role="button"]')) {
+          textHit = false;
+        } else if (runsPresent) {
+          textHit = Boolean(target.closest('.superdoc-text-run'));
+        }
+      }
+    }
+    out.push({ slot: point.slot, hit_inside_editable: hit, text_hit: textHit });
+  }
+  return { points: out };
+};
+
+/**
+ * Aim the three C07 click points at painted ink: one routine for every
+ * editor. The page-side resolver still finds the clip (the editable or the
+ * painted surface box); a screenshot of that clip is scanned for text-line
+ * ink bands, the document block is picked, and each named slot gets up to
+ * four candidate points on ink. CHECK_CLICK_HITS then walks each slot's
+ * candidates until one hits the editable, so an occluded line falls back to
+ * the next painted line instead of clicking chrome. When the scan finds no
+ * ink the resolver's own points stand — a click that then paints nothing is
+ * refused by name as before.
+ */
+async function refineClickPointsWithInk(page, resolved, context) {
+  const clip = resolved && resolved.clip;
+  if (
+    !clip ||
+    !(Number.isFinite(clip.right - clip.left) && clip.right - clip.left >= 8) ||
+    !(Number.isFinite(clip.bottom - clip.top) && clip.bottom - clip.top >= 8)
+  ) {
+    return resolved;
+  }
+  const shot = await page
+    .screenshot({
+      clip: { x: clip.left, y: clip.top, width: clip.right - clip.left, height: clip.bottom - clip.top },
+    })
+    .catch(() => null);
+  if (!shot) return resolved;
+  const img = decodePng(shot);
+  if (!img || !img.width || !img.height) return resolved;
+  const ink = inkClickPoints(
+    img,
+    { left: 0, top: 0, right: img.width, bottom: img.height },
+    { left: clip.left, top: clip.top, right: clip.right, bottom: clip.bottom },
+  );
+  const wanted = ['page_centre', 'first_text_line', 'last_text_line'];
+  const candidates = [];
+  for (const slot of wanted) {
+    const list = (ink.slots && ink.slots[slot]) || [];
+    if (!list.length) return resolved;
+    for (const point of list) candidates.push({ slot, x: point.x, y: point.y, ref: point });
+  }
+  const hits = await page
+    .evaluate(CHECK_CLICK_HITS, { context, points: candidates.map(({ slot, x, y }) => ({ slot, x, y })) })
+    .catch(() => null);
+  const points = [];
+  for (const slot of wanted) {
+    const list = ink.slots[slot];
+    let index = -1;
+    if (hits && Array.isArray(hits.points)) {
+      index = hits.points.findIndex((h) => h.slot === slot && h.hit_inside_editable !== false && h.text_hit !== false);
+      if (index < 0) index = hits.points.findIndex((h) => h.slot === slot);
+    }
+    const chosen = index >= 0 ? candidates[index].ref : list[0];
+    const flags = index >= 0 ? hits.points[index] : null;
+    if (flags) {
+      chosen.hit_inside_editable = flags.hit_inside_editable;
+      if (flags.text_hit !== undefined) chosen.text_hit = flags.text_hit;
+    }
+    points.push(chosen);
+  }
+  resolved.points = points;
+  resolved.source = 'ink_runs';
+  if (ink.line_height_px !== null && ink.line_height_px !== undefined) {
+    resolved.line_height_px = ink.line_height_px;
+  }
+  resolved.ink = { bands: ink.bands, column: ink.column };
+  return resolved;
+}
+
+/**
  * READ_EDITABLE_STATE's counterpart for surfaces whose document state is not
  * in the light DOM. Returns the same shape: text/length/source, caret, focus,
  * selection — plus caret_block_text for folio's paragraph check. Page context.
@@ -2170,10 +2298,13 @@ async function measureClicks(page, witness, options, meta) {
     }
   }
   entry.notes.push(
-    'Three deterministic points resolved from the visible text line boxes (page centre, first visible line, last visible line). No scrolling: a point outside the viewport is not used.',
+    'Three deterministic points resolved from the painted text lines (page centre, first visible line, last visible line): one ink-run scan of the surface clip aims every editor the same way, so each click lands on a painted glyph and the editor places its caret beside the click. No scrolling: a point outside the viewport is not used.',
   );
   entry.notes.push(
     'One witness per point (r3lanes4 #2): the first click, with no caret mask, watched over a fixed 48 px wide box centred on the click x that spans the clicked line box ±4 px (48 px tall around the click y when the point has no line box); the sample ends at the first frame with a change inside that box after the pointerdown, and a first click that paints nothing inside the box refuses the point.',
+  );
+  entry.notes.push(
+    'All three points must paint for C07 to be measured — same bar for every editor. A point whose first click paints nothing inside its box is a named refusal of that point and fails the criterion.',
   );
   return entry;
 }
@@ -3232,8 +3363,15 @@ export async function runCriteriaSuite({
     const surfacePoints = surfaceKind === 'model' || surfaceKind === 'flag';
     const pointResolver = surfacePoints ? RESOLVE_SURFACE_CLICK_POINTS : RESOLVE_CLICK_POINTS;
     const pointSelector = surfacePoints ? surfaceSpec : activeSelector;
+    const pointContext = surfacePoints
+      ? { kind: 'surface', spec: surfaceSpec }
+      : { kind: 'dom', selector: activeSelector };
+    // r3c07: the same ink scan aims every editor's clicks at a painted text
+    // line; the resolver's own points stand only when the scan finds no ink.
     // @suite-phase after_c04
-    const resolvedPoints = await page.evaluate(pointResolver, pointSelector);
+    const resolvedPoints = await page
+      .evaluate(pointResolver, pointSelector)
+      .then((resolved) => refineClickPointsWithInk(page, resolved, pointContext));
     points = { ...points, ...resolvedPoints };
     const metaInitial = { surface: surfaceSpec, editable: { selector: activeSelector } };
     // @suite-phase initial_read_state
@@ -3361,7 +3499,9 @@ export async function runCriteriaSuite({
         entries.C08 = emptyEntry('C08', 'failed', 'fixture_reset_failed_after_C09');
       } else {
         // @suite-phase c08_refresh
-        const refreshed = await page.evaluate(pointResolver, pointSelector);
+        const refreshed = await page
+          .evaluate(pointResolver, pointSelector)
+          .then((resolved) => refineClickPointsWithInk(page, resolved, pointContext));
         meta.points = refreshed.points || [];
         meta.point_source = refreshed.source || meta.point_source;
         if (refreshed.line_height_px !== undefined) {
