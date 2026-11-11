@@ -132,22 +132,45 @@ Three copies of every measurement:
 
 1. **Space disk** (fragile): the campaign directory under `/app` while the Space
    is running. Rebuild or factory reboot can erase it.
-2. **HF persistent bucket** (survives restarts): a private Hugging Face bucket
-   mounted read-write at `/data` via FUSE (`hf-mount`). After each job is sealed,
+2. **HF Storage Bucket** (survives restarts): the private bucket
+   `arthrod/editors-trial-e2-runs` on Hugging Face. After each job is sealed,
    `run.py` starts `mirror.py` in a separate process after each `JOB-DONE`
-   (timeout `HF_MIRROR_TIMEOUT_S`, default 300) and mirrors to
-   `/data/e2/<campaign-id>/<runner>/<job>/` (override with `HF_MIRROR_ROOT`).
-   Copies are verified against `MANIFEST.sha256`; `MIRROR-OK` marks a good mirror.
-   Mirror failures are logged in `RUN.log` and never fail the job. A hung mirror
-   child is killed so the next runner can start; any survivor is disclosed in
-   `RUN.log` and the next job's `campaign-meta.json`. Nothing in the mirror is
-   deleted; a changed
-   file gets a `name.prev-<UTC-stamp>` sibling. The bucket allowance is free; no HF
-   token belongs in the container image.
-3. **Mac pull** (verified): `pull.sh` streams tar batches into a staging area,
-   hashes each member against the remote listing, and only then moves bytes into
-   place. `FINAL-VERIFIED` on the Mac rehashes every listed file and still is the
-   only permission to restart, rebuild, or push the Space.
+   (timeout `HF_MIRROR_TIMEOUT_S`, default 300) which uploads the job's
+   generated files to `runs/<space>/<campaign id>/<runner>/<job>/` and the
+   campaign-level files (`RUN.log`, `RUN-DONE`, job manifests) to
+   `runs/<space>/<campaign id>/`. The space name is `SPACE_ID` when set, else
+   the hostname. After uploading it lists the remote prefix and compares
+   paths and sizes, logging exactly one `BUCKET-OK <job> <n> <bytes>` or
+   `BUCKET-ERROR <job> <reason>` line per job in `RUN.log`; failures are
+   retried on the next seal and the campaign tail re-checks every sealed job
+   and uploads what is missing. The bucket phase has its own deadline inside
+   the mirror timeout (`HF_BUCKET_TIMEOUT_S`, default 90% of it): a stuck
+   upload is interrupted and logged as `BUCKET-ERROR <job> bucket timeout`,
+   and a hung mirror child is still killed by the outer timeout so the next
+   runner can start. `mirror.py` also keeps the legacy sha256-verified copy
+   under `HF_MIRROR_ROOT` (`/data/e2` by default) whenever that path exists
+   and is writable; `MIRROR-OK` marks a good local mirror.
+   The write token comes from the Space secret `HF_BUCKET_TOKEN`; a Dev Mode
+   ssh session may not carry the Space's secrets, so `/proc/1/environ` is the
+   fallback. The token is used in memory only — never written to `RUN.log`,
+   stderr, or any run file, and exception text is redacted before logging.
+   With no token (or no `huggingface_hub`) `BUCKET-SKIP no_token` /
+   `BUCKET-SKIP no_huggingface_hub` is logged once per run and the
+   measurement continues. `huggingface_hub==2.4.0` is installed into the
+   image's `/home/user/python-runtime` venv, the same interpreter
+   `mirror.py` runs under.
+   The bucket gets generated measurement data only. `mirror.BUCKET_EXCLUDES`
+   (one constant, relative to each job or campaign root) drops
+   `builds/*`, `*/builds/*`, `dist/*`, `*/dist/*`, `node_modules/*`,
+   `*/node_modules/*`, `fixtures/*`, `*/fixtures/*`, `repos/*`, `*/repos/*`,
+   and `*.docx`: editor builds, dist and dependency trees, job fixture
+   copies, anything under `repos/`, and every `.docx` input document never
+   leave the Space.
+3. **Mac pull** (verified, now the second copy): `pull.sh` streams tar
+   batches into a staging area, hashes each member against the remote
+   listing, and only then moves bytes into place. `FINAL-VERIFIED` on the
+   Mac rehashes every listed file and still is the only permission to
+   restart, rebuild, or push the Space.
 
 The Space has no durable disk: anything left only under `/app` is lost on rebuild
 or factory reboot. Sleep is set to never (`gcTimeout` null as of 2026-11-10); still
@@ -173,8 +196,31 @@ treat the VM as fragile.
    verification. Only then it prints
    `FINAL-VERIFIED <run-id> files=<n> jobs=<k> run_exit=<s>` (pull exits 0; the
    run's own exit status is on that line).
-3. Do not restart, factory-reboot, or push the Space repository until pull prints
-   `FINAL-VERIFIED` for that campaign. A `RUN-DONE` line alone is not permission
-   to change the Space.
-4. No HF token belongs in the container image: measurement data returns only via
-   pull (and the periodic SSH from pull serves as a Dev Mode keepalive).
+3. To fetch a campaign from the bucket instead — the first copy, useful when
+   the Space is paused or its disk was lost — run `bucket_pull.py` on the
+   Mac with a read token in `HF_BUCKET_TOKEN`:
+
+   ```bash
+   HF_BUCKET_TOKEN=... python3 -I perf/container/bucket_pull.py \
+     --dest "$HOME/path/to/e2-logs/bucket/e2-publish" \
+     --space arthrod/e2-publish --run 20261110T203054948922Z-33514-935073
+   ```
+
+   Omit `--run` to fetch every run of the Space. Files land under
+   `<dest>/runs/<space>/...` mirroring the bucket layout. Each sealed job is
+   downloaded into a staging dir and verified against its `MANIFEST.sha256`
+   (every listed file's sha256, no unlisted files, the `manifest_sha256`
+   recorded in `JOB-DONE`) before it is installed; a job that fails stays
+   quarantined under `.bucket-staging*`. Replaced local files are preserved
+   as `name.prev-<UTC-stamp>` and nothing local is ever deleted. It prints
+   `BUCKET-PULL-ERROR <job> <reason>` per failed job and one
+   `BUCKET-PULL <scope> files=<n> bytes=<b> ok=<j> failed=<k>` summary line,
+   exiting non-zero on any mismatch, download error, or missing token.
+4. Do not restart, factory-reboot, or push the Space repository until pull
+   prints `FINAL-VERIFIED` for that campaign (or `bucket_pull.py` has
+   fetched and verified every sealed job of the run). A `RUN-DONE` line
+   alone is not permission to change the Space.
+5. The bucket token lives only in the Space secret `HF_BUCKET_TOKEN` — never
+   in the container image or the checkout — and `BUCKET_EXCLUDES` keeps
+   builds, fixtures, `repos/`, and `.docx` inputs out of the bucket. The
+   periodic SSH from `pull.sh` still serves as a Dev Mode keepalive.
