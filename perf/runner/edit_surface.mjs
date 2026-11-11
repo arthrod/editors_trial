@@ -82,7 +82,8 @@ export const DOCUMENT_TEXT_SURFACES = {
   plate: { kind: 'dom', root: '[contenteditable="true"]', whole: true },
   // Paginated viewer: only mounted pages carry text at load time.
   docxodus: { kind: 'dom', root: '#pages', whole: false },
-  superdoc: { kind: 'dom', root: '.superdoc-page', whole: false },
+  // v2 keeps one clean text copy on .superdoc-line; .superdoc-page can be empty in the walker.
+  superdoc: { kind: 'dom', root: '#editor .superdoc-line', whole: false },
   genoffice: { kind: 'dom', root: '.doc-page.ProseMirror:not(.mp-page)', whole: false },
   eigenpal: { kind: 'model', model: 'eigenpal' },
   folio: { kind: 'dom', root: '[data-page-number]', whole: false },

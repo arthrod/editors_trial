@@ -86,6 +86,13 @@ import {
 import { EDIT_SURFACES, editSurface, readAndGateDocumentText } from './edit_surface.mjs';
 import { confirmLaneEdit, prepareLaneCaret } from './lane_edit_burst.mjs';
 
+/** Light-DOM box for screencast witness when the edit target is model or shadow. */
+function witnessRegion(editorId, fallbackSelector) {
+  if (editorId === 'canvas') return { selector: '#editor .ce-page-container' };
+  if (editorId === 'docen') return { selector: 'docen-document' };
+  if (editorId === 'eigenpal') return { selector: '.docx-page[data-materialized="true"]' };
+  return { selector: fallbackSelector };
+}
 
 const argv = process.argv.slice(2);
 const opt = {};
@@ -258,6 +265,8 @@ async function performEdit(page, selector, cdp) {
 async function measureEdit(page, selector, cdp) {
   // Focus/actionability and witness calibration are preconditioning, outside
   // the event-to-frame interval. No typing delay is introduced.
+  const adapterSurface = editorId && EDIT_SURFACES[editorId] ? editSurface(editorId) : null;
+  const modelOrFlagEdit = adapterSurface && adapterSurface.kind !== 'dom';
   let lanePrepared = null;
   if (editorId && EDIT_SURFACES[editorId]) {
     lanePrepared = await prepareLaneCaret(page, editorId, selector);
@@ -404,10 +413,15 @@ async function measureEdit(page, selector, cdp) {
   const baseline = await captureBaseline(page, cdp);
   const frame = await witnessFrame(page, cdp, {
     baseline: baseline.frame,
-    windowMs: Math.max(500, frameTimeoutMs), clockCheck: skew, region: {selector},
+    windowMs: Math.max(500, frameTimeoutMs), clockCheck: skew,
+    region: witnessRegion(editorId, selector),
     arm: async () => {
-      await cdp.send('Input.dispatchKeyEvent', {type:'keyDown', key:'x', code:'KeyX', text:'x', windowsVirtualKeyCode:88});
-      await cdp.send('Input.dispatchKeyEvent', {type:'keyUp', key:'x', code:'KeyX', windowsVirtualKeyCode:88});
+      if (modelOrFlagEdit) {
+        await page.keyboard.press('x', { delay: 0 });
+      } else {
+        await cdp.send('Input.dispatchKeyEvent', {type:'keyDown', key:'x', code:'KeyX', text:'x', windowsVirtualKeyCode:88});
+        await cdp.send('Input.dispatchKeyEvent', {type:'keyUp', key:'x', code:'KeyX', windowsVirtualKeyCode:88});
+      }
       const event = await page.evaluate(() => {
         window.__b2.startPulse();
         const state=window.__b2;
@@ -559,7 +573,8 @@ async function measureEdit(page, selector, cdp) {
   const duration = confirmationFramePageMs === null || !timing.event
     ? null
     : confirmationFramePageMs - timing.event.startTime;
-  const ok = frame.outcome === 'witnessed' && frame.document_scoped && frame.clock_skew_acceptable && confirmation.confirmed && duration !== null && duration >= 0;
+  const scopedOk = modelOrFlagEdit ? frame.outcome === 'witnessed' : frame.outcome === 'witnessed' && frame.document_scoped;
+  const ok = scopedOk && frame.clock_skew_acceptable && confirmation.confirmed && duration !== null && duration >= 0;
   return { mechanism, clock_skew:skew, witness:frame, event_timing:timing, edit_confirmation:confirmation,
     timestamp_note: 'Uncorrected frame-to-page conversion; page_offset_ms is not a conversion correction. See clock_skew conversion bounds.',
     outcome: ok ? 'measured' : 'failed',

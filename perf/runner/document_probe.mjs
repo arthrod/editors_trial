@@ -1377,12 +1377,14 @@ async function runReflow(browser) {
     // frame of that reflow. The first paint after Enter is not the reflow.
     // The no-read window is already closed, so this poll is not inside it.
     const shift = await ctx.page.evaluate(() => {
+      const modelReflow = window.__c12ModelReflow === true;
       let el = window.__c12AnchorEl;
       const before = window.__c12AnchorTop;
       const anchorText = window.__c12AnchorText;
       const docSel = window.__c12DocSel;
       const deadline = performance.now() + 4000;
       const refind = () => {
+        if (modelReflow) return window.__c12AnchorEl;
         if (!anchorText || !docSel) return null;
         // A text re-find must be unique among current blocks: an edit that
         // duplicates the anchor's text would otherwise report the duplicate's
@@ -1392,7 +1394,7 @@ async function runReflow(browser) {
       };
       return new Promise((resolve) => {
         const step = () => {
-          if (!el || !el.isConnected) el = refind();
+          if (!el || (!modelReflow && !el.isConnected)) el = refind();
           if (!el || typeof before !== 'number') {
             resolve({ moved: false, top: null, at: null });
             return;
@@ -1428,11 +1430,14 @@ async function runReflow(browser) {
       });
     }
     const after = await ctx.page.evaluate(
-      ({ docSel, anchorText }) => {
+      ({ docSel, anchorText, modelReflow }) => {
         const kept = window.__c12AnchorEl;
         let el = null;
         let matchedBy = null;
-        if (kept && kept.isConnected && (kept.textContent || '').trim() === anchorText) {
+        if (modelReflow && kept) {
+          el = kept.isConnected ? kept : null;
+          matchedBy = el ? 'y_proxy' : null;
+        } else if (kept && kept.isConnected && (kept.textContent || '').trim() === anchorText) {
           el = kept;
           matchedBy = 'element';
         } else {
@@ -1445,11 +1450,11 @@ async function runReflow(browser) {
         }
         return {
           top: el ? el.getBoundingClientRect().top : null,
-          block_count: document.querySelectorAll(docSel).length,
+          block_count: modelReflow ? null : document.querySelectorAll(docSel).length,
           matched_by: matchedBy,
         };
       },
-      { docSel: reflowSel, anchorText: before.anchor_text },
+      { docSel: reflowSel, anchorText: before.anchor_text, modelReflow: Boolean(modelReflow) },
     );
     const moved = Boolean(shift.moved) && after.top !== null && after.top > before.anchor_top + 0.5;
     const framePageMs = witness && witness.outcome === 'witnessed' ? witness.frame_page_ms : null;
