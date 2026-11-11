@@ -121,6 +121,11 @@ single shared application. Before measuring:
 - Issues first: every piece of work is a GitHub issue (ending with
   `@coderabbitai plan`) before code is written; a tracking issue lists them.
 - Nothing under `repos/` is modified. Installing its dependencies is allowed.
+- Hugging Face hardware: **only `cpu-basic` or `cpu-upgrade`, nothing else**
+  (Arthur, 2026-11-11). No other CPU tier, no GPU, no Sandbox or Job
+  hardware, and no persistent-storage add-on. Never change a Space's
+  hardware or add a paid Space without asking first, and pause every paid
+  Space as soon as its run is pulled.
 - Run Python that reads untrusted input (hostile packages, downloaded
   archives) with `python3 -I`.
 - Use pnpm and biome in TypeScript projects; uv in Python projects.
