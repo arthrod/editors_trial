@@ -62,6 +62,14 @@ def _bucket_client(token: str):
     return HfApi(token=token)
 
 
+def _safe_reason(exc: BaseException, token: str | None) -> str:
+    text = str(exc) or type(exc).__name__
+    if token:
+        text = text.replace(token, '<redacted>')
+    text = ' '.join(text.split())
+    return text[:160] or 'error'
+
+
 def _local_sizes(root: Path) -> dict[str, int]:
     sizes: dict[str, int] = {}
     for path in sorted(root.rglob('*')):
@@ -107,13 +115,48 @@ def _remote_sizes(client, bucket: str, prefix: str, token: str) -> dict[str, int
 
 def _bucket_sync(campaign_root: Path, campaign_id: str, run_log: Path | None, *, audit_all: bool = False) -> None:
     try:
-        _bucket_sync_inner(campaign_root, campaign_id, run_log, audit_all=audit_all)
+        token = _bucket_token()
     except Exception:
-        pass
+        token = None
+    try:
+        _bucket_sync_inner(campaign_root, campaign_id, run_log, audit_all=audit_all, token=token)
+    except Exception as exc:
+        _append_run_log(run_log, f'BUCKET-ERROR campaign {_safe_reason(exc, token)}')
 
 
-def _bucket_sync_inner(campaign_root: Path, campaign_id: str, run_log: Path | None, *, audit_all: bool) -> None:
-    token = _bucket_token()
+def _sync_job_to_bucket(client, bucket: str, run_prefix: str, rel: str, job_dir: Path,
+                        expected: dict[str, int], remote: dict[str, int], token: str) -> str:
+    """Upload missing bytes and verify the remote listing; return the RUN.log line."""
+    prefix = f'{run_prefix}/{rel}'
+    need = sorted(r for r, s in expected.items() if remote.get(f'{prefix}/{r}') != s)
+    expected_full = {f'{prefix}/{r}': s for r, s in expected.items()}
+    if not need:
+        view = {p: s for p, s in remote.items() if p.startswith(prefix + '/')}
+        extra = sorted(p for p in view if p not in expected_full)
+        if extra:
+            return f'BUCKET-ERROR {rel} remote mismatch missing=0 extra={len(extra)}'
+        return f'BUCKET-OK {rel} {len(expected)} {sum(expected.values())}'
+    try:
+        client.batch_bucket_files(
+            bucket,
+            add=[(job_dir / r, f'{prefix}/{r}') for r in need],
+            token=token,
+        )
+    except Exception as exc:
+        return f'BUCKET-ERROR {rel} {_safe_reason(exc, token)}'
+    try:
+        view = _remote_sizes(client, bucket, prefix + '/', token)
+    except Exception as exc:
+        return f'BUCKET-ERROR {rel} verify: {_safe_reason(exc, token)}'
+    missing = sorted(p for p, s in expected_full.items() if view.get(p) != s)
+    extra = sorted(p for p in view if p not in expected_full)
+    if missing or extra:
+        return f'BUCKET-ERROR {rel} remote mismatch missing={len(missing)} extra={len(extra)}'
+    return f'BUCKET-OK {rel} {len(expected)} {sum(expected.values())}'
+
+
+def _bucket_sync_inner(campaign_root: Path, campaign_id: str, run_log: Path | None,
+                       *, audit_all: bool, token: str | None) -> None:
     if not token:
         return
     try:
@@ -126,22 +169,18 @@ def _bucket_sync_inner(campaign_root: Path, campaign_id: str, run_log: Path | No
     run_prefix = f'runs/{_space_name()}/{campaign_id}'
     try:
         remote = _remote_sizes(client, bucket, run_prefix + '/', token)
-    except Exception:
+    except Exception as exc:
+        _append_run_log(run_log, f'BUCKET-ERROR campaign {_safe_reason(exc, token)}')
         return
     jobs = _sealed_job_dirs(campaign_root)
     for rel, job_dir in sorted(jobs.items()):
-        prefix = f'{run_prefix}/{rel}'
         expected = _local_sizes(job_dir)
-        need = sorted(r for r, s in expected.items() if remote.get(f'{prefix}/{r}') != s)
-        if need:
-            try:
-                client.batch_bucket_files(
-                    bucket,
-                    add=[(job_dir / r, f'{prefix}/{r}') for r in need],
-                    token=token,
-                )
-            except Exception:
-                continue
+        prefix = f'{run_prefix}/{rel}'
+        untouched = all(remote.get(f'{prefix}/{r}') == s for r, s in expected.items())
+        line = _sync_job_to_bucket(client, bucket, run_prefix, rel, job_dir, expected, remote, token)
+        if untouched and not audit_all and line.startswith('BUCKET-OK '):
+            continue
+        _append_run_log(run_log, line)
     campaign_files = _campaign_file_sizes(campaign_root)
     need = sorted(r for r, s in campaign_files.items() if remote.get(f'{run_prefix}/{r}') != s)
     if need:
@@ -151,8 +190,8 @@ def _bucket_sync_inner(campaign_root: Path, campaign_id: str, run_log: Path | No
                 add=[(campaign_root / r, f'{run_prefix}/{r}') for r in need],
                 token=token,
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            _append_run_log(run_log, f'BUCKET-ERROR campaign {_safe_reason(exc, token)}')
 
 
 def sha256_file(path: Path) -> str:

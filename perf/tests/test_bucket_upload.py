@@ -232,3 +232,135 @@ class TestExclusions:
                        or '/repos/' in path or path.endswith('.docx') or '/dist/' in path
                        for path in bucket_env.files)
         assert f'{prefix}/runner_a/{run_id}-000/evidence/e.json' in bucket_env.files
+
+
+class TestVerifyAndLogLines:
+    def test_bucket_ok_line_counts_files_and_bytes(self, tmp_path, bucket_env):
+        from perf.container import mirror
+
+        remote = tmp_path / 'remote'
+        run_id = 'camp-10'
+        job_dir = seal_job(
+            remote, run_id, 'runner_a', f'{run_id}-000',
+            {'summary.json': '12345', 'cells/c1/attempts/a.json': 'x' * 20},
+        )
+        run_log = campaign_root(remote, run_id) / 'RUN.log'
+        mirror.mirror_job_directory(run_id, 'runner_a', f'{run_id}-000', job_dir, run_log)
+        expected = 4  # summary.json, cells/..., MANIFEST.sha256, JOB-DONE
+        manifest_bytes = (job_dir / 'MANIFEST.sha256').stat().st_size
+        done_bytes = (job_dir / 'JOB-DONE').stat().st_size
+        total = 5 + 20 + manifest_bytes + done_bytes
+        assert bucket_lines(run_log, 'runner_a/camp-10-000') == [
+            f'BUCKET-OK runner_a/{run_id}-000 {expected} {total}'
+        ]
+
+    def test_upload_failure_logs_one_error_line_and_returns(self, tmp_path, bucket_env):
+        from perf.container import mirror
+
+        remote = tmp_path / 'remote'
+        run_id = 'camp-11'
+        job_dir = seal_job(remote, run_id, 'runner_a', f'{run_id}-000', {'summary.json': '{}'})
+        run_log = campaign_root(remote, run_id) / 'RUN.log'
+        bucket_env.fail_on_batch = True
+        mirror.mirror_job_directory(run_id, 'runner_a', f'{run_id}-000', job_dir, run_log)
+        lines = bucket_lines(run_log, f'runner_a/{run_id}-000')
+        assert len(lines) == 1 and lines[0].startswith('BUCKET-ERROR ')
+        assert 'simulated upload failure' in lines[0]
+
+    def test_remote_mismatch_after_upload_logs_error(self, tmp_path, bucket_env):
+        from perf.container import mirror
+
+        remote = tmp_path / 'remote'
+        run_id = 'camp-12'
+        job_dir = seal_job(remote, run_id, 'runner_a', f'{run_id}-000', {'summary.json': '{}'})
+        run_log = campaign_root(remote, run_id) / 'RUN.log'
+        prefix = f'runs/arthrod/e2-publish/{run_id}/runner_a/{run_id}-000'
+        bucket_env.drop_dests.add(f'{prefix}/summary.json')
+        mirror.mirror_job_directory(run_id, 'runner_a', f'{run_id}-000', job_dir, run_log)
+        lines = bucket_lines(run_log, f'runner_a/{run_id}-000')
+        assert len(lines) == 1
+        assert lines[0].startswith('BUCKET-ERROR ') and 'mismatch' in lines[0]
+
+    def test_failed_upload_retried_on_the_next_seal(self, tmp_path, bucket_env):
+        from perf.container import mirror
+
+        remote = tmp_path / 'remote'
+        run_id = 'camp-13'
+        campaign = campaign_root(remote, run_id)
+        run_log = campaign / 'RUN.log'
+        job1 = seal_job(remote, run_id, 'runner_a', f'{run_id}-000', {'summary.json': '{"a": 1}'})
+        bucket_env.fail_on_batch = True
+        mirror.mirror_job_directory(run_id, 'runner_a', f'{run_id}-000', job1, run_log)
+        assert bucket_lines(run_log, f'runner_a/{run_id}-000')[0].startswith('BUCKET-ERROR ')
+        assert f'runs/arthrod/e2-publish/{run_id}/runner_a/{run_id}-000/summary.json' not in bucket_env.files
+        bucket_env.fail_on_batch = False
+        job2 = seal_job(remote, run_id, 'runner_b', f'{run_id}-001', {'summary.json': '{"b": 2}'})
+        mirror.mirror_job_directory(run_id, 'runner_b', f'{run_id}-001', job2, run_log)
+        prefix = f'runs/arthrod/e2-publish/{run_id}'
+        assert f'{prefix}/runner_a/{run_id}-000/summary.json' in bucket_env.files
+        ok_lines = [
+            line for line in bucket_lines(run_log)
+            if line.startswith('BUCKET-OK ')
+        ]
+        assert f'BUCKET-OK runner_a/{run_id}-000 3 {sum(p.stat().st_size for p in job1.rglob("*") if p.is_file())}' in ok_lines
+        assert any(line.startswith(f'BUCKET-OK runner_b/{run_id}-001 ') for line in ok_lines)
+
+    def test_tail_rechecks_every_job_and_logs_one_line_each(self, tmp_path, bucket_env):
+        from perf.container import mirror
+
+        remote = tmp_path / 'remote'
+        run_id = 'camp-14'
+        campaign = campaign_root(remote, run_id)
+        run_log = campaign / 'RUN.log'
+        jobs = [
+            seal_job(remote, run_id, 'runner_a', f'{run_id}-000', {'summary.json': '{}'}),
+            seal_job(remote, run_id, 'runner_b', f'{run_id}-001', {'summary.json': '{}'}),
+        ]
+        mirror.mirror_campaign_tail(campaign, run_id, run_log)
+        for job in jobs:
+            rel = job.relative_to(campaign).as_posix()
+            assert len(bucket_lines(run_log, rel)) == 1
+            assert bucket_lines(run_log, rel)[0].startswith('BUCKET-OK ')
+
+    def test_tail_reuploads_files_missing_from_remote(self, tmp_path, bucket_env):
+        from perf.container import mirror
+
+        remote = tmp_path / 'remote'
+        run_id = 'camp-15'
+        campaign = campaign_root(remote, run_id)
+        run_log = campaign / 'RUN.log'
+        job_dir = seal_job(remote, run_id, 'runner_a', f'{run_id}-000', {'summary.json': 'data'})
+        mirror.mirror_job_directory(run_id, 'runner_a', f'{run_id}-000', job_dir, run_log)
+        gone = f'runs/arthrod/e2-publish/{run_id}/runner_a/{run_id}-000/summary.json'
+        del bucket_env.files[gone]
+        mirror.mirror_campaign_tail(campaign, run_id, run_log)
+        assert bucket_env.files[gone] == b'data'
+        assert bucket_lines(run_log, f'runner_a/{run_id}-000')[-1].startswith('BUCKET-OK ')
+
+    def test_unexpected_remote_file_is_a_verify_mismatch(self, tmp_path, bucket_env):
+        from perf.container import mirror
+
+        remote = tmp_path / 'remote'
+        run_id = 'camp-16'
+        campaign = campaign_root(remote, run_id)
+        run_log = campaign / 'RUN.log'
+        job_dir = seal_job(remote, run_id, 'runner_a', f'{run_id}-000', {'summary.json': '{}'})
+        mirror.mirror_job_directory(run_id, 'runner_a', f'{run_id}-000', job_dir, run_log)
+        bucket_env.files[f'runs/arthrod/e2-publish/{run_id}/runner_a/{run_id}-000/stale.txt'] = b'x'
+        mirror.mirror_campaign_tail(campaign, run_id, run_log)
+        last = bucket_lines(run_log, f'runner_a/{run_id}-000')[-1]
+        assert last.startswith('BUCKET-ERROR ') and 'mismatch' in last
+
+    def test_seal_pass_does_not_relog_complete_jobs(self, tmp_path, bucket_env):
+        from perf.container import mirror
+
+        remote = tmp_path / 'remote'
+        run_id = 'camp-17'
+        campaign = campaign_root(remote, run_id)
+        run_log = campaign / 'RUN.log'
+        job1 = seal_job(remote, run_id, 'runner_a', f'{run_id}-000', {'summary.json': '{}'})
+        mirror.mirror_job_directory(run_id, 'runner_a', f'{run_id}-000', job1, run_log)
+        job2 = seal_job(remote, run_id, 'runner_b', f'{run_id}-001', {'summary.json': '{}'})
+        mirror.mirror_job_directory(run_id, 'runner_b', f'{run_id}-001', job2, run_log)
+        assert len(bucket_lines(run_log, f'runner_a/{run_id}-000')) == 1
+        assert len(bucket_lines(run_log, f'runner_b/{run_id}-001')) == 1
