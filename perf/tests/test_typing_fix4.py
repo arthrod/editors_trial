@@ -239,6 +239,9 @@ def test_integration_throughput_bridge_stops_screencast_before_typing(tmp_path):
     # absolute URI or node exits ERR_MODULE_NOT_FOUND at launch.
     script = script.replace("'./chrome_trace.mjs'", json.dumps((source.parent / 'chrome_trace.mjs').as_uri()))
     script = script.replace("'./edit_surface.mjs'", json.dumps((source.parent / 'edit_surface.mjs').as_uri()))
+    # lax layer (owner 2026-11-11): the session takes its load timeouts from
+    # the shared policy module; the observed copy needs its absolute URI too.
+    script = script.replace("'./load_timeout.mjs'", json.dumps((source.parent / 'load_timeout.mjs').as_uri()))
     script = script.replace(
         'let clock, interval;',
         """

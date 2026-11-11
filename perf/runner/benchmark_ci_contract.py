@@ -40,6 +40,7 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
 from perf.adapters.capabilities import default_lane, editor_pins, pin_label  # noqa: E402
+from perf.runner.load_timeouts import load_timeout_ms  # noqa: E402
 from perf.analysis.interpretation import evaluate_measured_trial  # noqa: E402
 from perf.analysis.publication_gate import trial_publishable_flags  # noqa: E402
 from perf.analysis.summarize import summarize  # noqa: E402
@@ -138,6 +139,10 @@ def _host_base(
         "run_kind": run_kind,
         "headless": True,
         "display_refresh_hz": None,
+        # Lax layer (owner 2026-11-11): the ready/navigation timeout this
+        # workload's loads wait (300 s; 600 s on prose-250kw), so a trial
+        # discloses the relaxed bound that gated it.
+        "load_timeout_ms": load_timeout_ms(workload_row["workload_id"]),
         "interpretation_conditions": list(INTERPRETATION_CONDITIONS),
         "feature_fallback": disabled,
     }

@@ -19,6 +19,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { startChromeTrace, stopChromeTrace } from './chrome_trace.mjs';
+import { loadTimeoutMs } from './load_timeout.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '../..');
@@ -785,7 +786,8 @@ await page.addInitScript(installHooks);
 let payload = null;
 let failure = null;
 try {
-  await page.goto(spec.url, { waitUntil: 'domcontentloaded', timeout: Number(spec.nav_timeout_ms || 120000) });
+  const loadTimeout = Number(spec.nav_timeout_ms || loadTimeoutMs());
+await page.goto(spec.url, { waitUntil: 'domcontentloaded', timeout: loadTimeout });
   await waitForReady(page, spec);
   payload = await page.evaluate(runOps, {
     surface: spec.surface,
@@ -815,6 +817,7 @@ const out = {
   clock: payload ? payload.clock : null,
   ops: payload ? payload.ops : {},
   errors: (payload ? payload.errors : []).concat(pageErrors.map((error) => ({ stage: 'pageerror', error }))),
+  nav_timeout_ms: loadTimeout,
   failure,
 };
 process.stdout.write(JSON.stringify(out));

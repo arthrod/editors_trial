@@ -9,7 +9,7 @@ def test_one_fresh_process_sample_is_not_a_distribution_refusal(tmp_path):
         attempt_dir=tmp_path, criterion_id='C03', layer='browser_visible',
         boundary='first_usable', editor_id='plate', lane='browser',
         env=_env(), samples_ms=[25], cache_state='process_cold_fs_warm',
-        diagnostic={'clock_skew': [{'acceptable': True, 'skew_ms': 0, 'bound_ms': 2, 'frame_interval_ms': 8.3}]})
+        diagnostic={'clock_skew': [{'acceptable': True, 'skew_ms': 0, 'bound_ms': 5, 'frame_interval_ms': 8.3}]})
     trial = json.loads(path.read_text())
     assert 'I10' not in (trial.get('publication_block_reason') or ''), trial
     assert trial['publishable'] is True, trial

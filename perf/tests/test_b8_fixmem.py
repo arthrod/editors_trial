@@ -84,6 +84,9 @@ def test_browser_rows_static_host_measures_without_server_pid(attempt_dir):
         quiescence_ms=2000,
         retain_seconds=(1.0, 5.0),
         probe_timeout=30.0,
+        # lax layer (owner 2026-11-11): _run_browser_pair takes the workload
+        # for its load-timeout env.
+        workload="micro-paragraphs",
     )
     with mock.patch.object(memory, "_start_server", return_value=_StaticHostLike()):
         with mock.patch.object(memory, "_stop_server", return_value=None):

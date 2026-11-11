@@ -53,7 +53,7 @@ the ones the adversarial reviews forced closed):
   - the nested check's ``checks`` are recomputed from the anchor's own
     times (causality: ``frame_page_ms >= change_page_ms - 2 ms``; lag:
     ``frame_lag_ms == frame_page_ms - change_page_ms`` and within
-    ``lag_bound_ms == max(3 frame intervals, 100 ms)``), from the page
+    ``lag_bound_ms == max(3 frame intervals, 250 ms)``), from the page
     offset's own samples (``page_offset_ms`` is their median, the spread
     their max-min, both within their bounds), and from the pixel diff
     (``diff_ratio == changed_pixels / total_pixels`` within rounding,
@@ -204,7 +204,10 @@ from pathlib import Path
 #: clock *check* applies it to ``page_offset_ms``; it is not, and was never,
 #: a bound on the screencast conversion error (see witness.mjs's header for
 #: the published conversion bound: [-2 ms, +the anchor lag bound]).
-DEFAULT_SKEW_BOUND_MS = 2.0
+#: Lax layer (owner decision 2026-11-11): 2.0 -> 5.0 ms; the bound is echoed
+#: on every record (``clock_skew_bound_ms`` / ``bound_ms``) so a trial
+#: discloses which value gated it.
+DEFAULT_SKEW_BOUND_MS = 5.0
 
 #: The absolute pixel floor a witnessed frame must differ by, unless the
 #: record carries its own ``min_pixels``.
@@ -245,8 +248,11 @@ PAGE_OFFSET_SPREAD_BOUND_MS = 2.0
 
 #: The anchor lag bound rule: max(ANCHOR_LAG_BOUND_INTERVALS frame
 #: intervals, ANCHOR_LAG_BOUND_MIN_MS ms). ANCHOR_LAG_BOUND_* in witness.mjs.
+#: Lax layer (owner decision 2026-11-11): the floor moves 100.0 -> 250.0 ms
+#: (wordcraft anchor lags 101.3-151.8 ms refused C10/C11/C14 on HF); the
+#: recomputed bound is recorded on every record (``lag_bound_ms``).
 LAG_BOUND_INTERVALS = 3
-LAG_BOUND_MIN_MS = 100.0
+LAG_BOUND_MIN_MS = 250.0
 
 #: `witnessFrame()` clamps its window to at least DEFAULT_WINDOW_MS.
 PRODUCER_MIN_WINDOW_MS = 500.0

@@ -126,7 +126,7 @@ C15_MEASUREMENTS = ("first_match", "search_complete", "replace_all", "index_quie
 # I10: n < 2 is not publishable. One find event is not a C15 cell.
 C15_MIN_N = 2
 _C11_SURFACE_KEYS = ("document_text_at_ms", "usable_ms", "presented_frame_ms", "usable_signal")
-_CLOCK_SKEW_BOUND_MS = 2.0
+_CLOCK_SKEW_BOUND_MS = 5.0  # lax layer (owner 2026-11-11): 2.0 -> 5.0; the refusal message carries the bound
 
 # Hosts whose document surface this probe has verified selectors for. Everything
 # else is refused by name, never guessed: a wrong selector measures the host

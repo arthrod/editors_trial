@@ -47,14 +47,23 @@ test('sparse onset refuses even when a later quiet window is dense',()=>{
 test('two matching endpoints separated by more than Q cannot establish quiet',()=>{
  assert.equal(settle(frames([0,900],()=>glyph)).failure_reason,'witness_sparse');
 });
-test('onset lost across more than two frame intervals refuses even below the quiet gap bound',()=>{
- const times=[...Array.from({length:51},(_,i)=>i*16),...Array.from({length:30},(_,i)=>850+i*16)];
- assert.equal(settle(frames(times,t=>t<850?blank:glyph)).failure_reason,'witness_sparse');
+test('onset lost across more than the 100 ms floor refuses even below the quiet gap bound',()=>{
+ // Lax layer (owner 2026-11-11): a 50 ms onset gap (the folio shakedown
+ // signature) is now inside the floor and measures; 150 ms is beyond the
+ // evidence and still refuses.
+ const gap=(first,extra)=>[...Array.from({length:51},(_,i)=>i*16),...Array.from({length:30},(_,i)=>first+extra+i*16)];
+ assert.equal(settle(frames(gap(850,0),t=>t<850?blank:glyph)).page_ms,850);
+ assert.equal(settle(frames(gap(950,0),t=>t<950?blank:glyph)).failure_reason,'witness_sparse');
 });
 test('onset precision uses the calibrated display interval when delivery is slower',()=>{
  const f=frames([0,50,100,150,200,250,300,350,400,450,500],t=>t<100?blank:glyph)
    .map(row=>({...row,...classifyRegion(row.pixels,base,[rect],1,rect)}));
- assert.equal(settleFrames(f,{frameIntervalMs:16.667}).failure_reason,'witness_sparse');
+ // Lax layer (owner 2026-11-11): a 50 ms onset between two delivered frames
+ // is inside the 100 ms floor the shakedown evidence supports (folio C05/C06
+ // cells: glyph 50/66.7/100 ms after the last ink-less delivered frame), so
+ // it no longer refuses; the calibration still caps precision below the floor
+ // only through the max() rule, and a gap beyond the floor still refuses.
+ assert.equal(settleFrames(f,{frameIntervalMs:16.667}).page_ms,100);
 });
 test('a missing frame before the last pre-ink frame does not obscure onset',()=>{
  const times=Array.from({length:80},(_,i)=>0.7+i*16.666).filter((_,i)=>i!==48);
@@ -163,8 +172,12 @@ for (const extra of [1/4096,0.01]) test(`round8 onset timestamp precision ${extr
  const times=Array.from({length:80},(_,i)=>i*step+(i>=10?extra:0)).filter((_,i)=>i!==9);
  const onset=10*step+extra;
  const r=settleFrames(sequence(t=>t<onset?blank:glyph,base,times),{frameIntervalMs:16.7});
- if(extra<0.001) assert.equal(r.page_ms,onset);
- else assert.equal(r.failure_reason,'witness_sparse');
+ // Lax layer (owner 2026-11-11): a ~2-interval onset (~33.34 ms) is inside
+ // the 100 ms floor, so both precision variants measure; the floor itself,
+ // not the roundoff tolerance, is what still refuses beyond it.
+ assert.equal(r.page_ms,onset);
+ const far=times.map(t=>t+onset+50);
+ assert.equal(settleFrames(sequence(t=>t<onset+50?blank:glyph,base,[0,...far]),{frameIntervalMs:16.7}).failure_reason,'witness_sparse');
 });
 test('a long input-processing interval before the first delivered frame is latency, not a delivery gap',()=>{
  // Plate on the HF campaign: the keydown blocks the main thread for 103 ms,
@@ -178,4 +191,29 @@ test('a long input-processing interval before the first delivered frame is laten
  const times=Array.from({length:120},(_,i)=>103.2+i*16.7);
  const r=settle(frames(times,()=>glyph));
  assert.equal(r.page_ms,103.2);
+});
+// -- lax layer (owner decision 2026-11-11; issue #155 item 6) -----------------
+// The shakedown's witness_sparse cells split in two shapes. Folio C05/C06
+// cells show the glyph arriving 50/66.7/100 ms after the last ink-less
+// DELIVERED frame (onset gaps), so a 100 ms onset floor is exactly as far
+// as the evidence supports. Plate (all refusals) and genoffice carry ink
+// from their first delivered frame and never prove quiet — that shape is
+// not an onset/gap refusal, no bound here accepts it, and a sample whose
+// witness never painted must never become a timing.
+test('the folio shakedown onset gaps (50, 66.7, 100 ms) are accepted',()=>{
+ for(const gap of [50,66.7,100]) {
+  const times=[0,...Array.from({length:60},(_,i)=>gap+i*16.7)];
+  const r=settleFrames(sequence(t=>t<gap?blank:glyph,base,times),{frameIntervalMs:16.667});
+  assert.equal(r.page_ms,gap,'gap '+gap+' ms must be the measured onset');
+ }
+});
+test('an onset gap beyond the 100 ms floor still refuses',()=>{
+ const times=[0,...Array.from({length:60},(_,i)=>150+i*16.7)];
+ const r=settleFrames(sequence(t=>t<150?blank:glyph,base,times),{frameIntervalMs:16.667});
+ assert.equal(r.failure_reason,'witness_sparse');
+});
+test('the onset bound is recorded on the decision',()=>{
+ const times=[0,...Array.from({length:60},(_,i)=>100+i*16.7)];
+ const r=settleFrames(sequence(t=>t<100?blank:glyph,base,times),{frameIntervalMs:16.667});
+ assert.equal(r.onset_bound_ms,100);
 });

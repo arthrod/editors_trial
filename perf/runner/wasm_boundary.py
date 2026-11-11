@@ -55,6 +55,7 @@ from perf.fixtures.generate import build_workload, correctness_fixtures, docx_zi
 from perf.fixtures.profiles import size_ladder  # noqa: E402
 from perf.layers.wasm import assert_wasm_report, required_wasm_operations  # noqa: E402
 from perf.runner.artifacts import write_attempt  # noqa: E402
+from perf.runner.load_timeouts import load_timeout_ms  # noqa: E402
 from perf.runner.benchmark_ci_contract import (  # noqa: E402
     INTERPRETATION_CONDITIONS,
     _finalize_publishable,
@@ -409,6 +410,9 @@ def _spec_for(editor_id: str, corpus_path: Path, samples: int, compile_samples: 
         "ready_selector": editor.get("ready_selector"),
         "ready_js": editor.get("ready_js"),
         "ready_timeout_ms": editor.get("ready_timeout_ms"),
+        # Lax layer (owner 2026-11-11): navigation waits are minutes, not
+        # 120 s; recorded in the spec so the probe output discloses it.
+        "nav_timeout_ms": load_timeout_ms(WORKLOAD_ID),
         "corpus_path": str(corpus_path),
         "corpus_route": editor.get("corpus_route"),
         "surface": editor["surface"],

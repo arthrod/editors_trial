@@ -66,6 +66,7 @@ import { hasDocumentTextSurface, readAndGateDocumentText } from './edit_surface.
 import { startChromeTrace, stopChromeTrace } from './chrome_trace.mjs';
 import { gatherReflowBefore, REFLOW_MODEL_EDITORS, prepareLaneCaret, reflowBlockSelector } from './lane_edit_burst.mjs';
 import { EDIT_SURFACES } from './edit_surface.mjs';
+import { loadTimeoutMs } from './load_timeout.mjs';
 
 /** Screencast ink needs at least this many region pixels above the witness threshold. */
 const SCREENCAST_INK_MIN_PIXELS = 64;
@@ -104,7 +105,7 @@ const pageModel = opt['page-model'] || (pageSelector ? 'page' : 'continuous_flow
 const editSelector = opt['edit-selector'] || docSelector;
 const editorId = typeof opt.editor === 'string' ? opt.editor : '';
 const settleMs = Number(opt['settle-ms'] || 0);
-const timeoutMs = Number(opt['timeout-ms'] || 120000);
+const timeoutMs = Number(opt['timeout-ms'] || loadTimeoutMs());
 const anchorIndex = Number(opt['anchor-index'] || 1);
 const minTextChars = Number(opt['min-text-chars'] || 8);
 const findInputSelector = opt['find-input-selector'] || '';
@@ -430,7 +431,7 @@ function fcpFrom(paints) {
  * becomes true. textContent does not pierce an open shadow root and does not
  * see canvas pixels; those signals are checked on purpose.
  */
-const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, documentSelector: documentSel }) => {
+const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, documentSelector: documentSel, textWaitBudgetMs }) => {
   const recorded =
     signal === 'canvas_pixel'
       ? 'canvas_pixel_non_blank'
@@ -692,7 +693,9 @@ const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, document
         state.docTextCharsAt = chars;
       }
     }
-    if (state.docTextAt === null && signal !== 'screencast_ink' && performance.now() < 120000) {
+    // The lax layer (owner 2026-11-11) replaced a hardcoded 120 s with the
+    // probe's own --timeout-ms budget, injected here: this runs in the page.
+    if (state.docTextAt === null && signal !== 'screencast_ink' && performance.now() < textWaitBudgetMs) {
       requestAnimationFrame(tick);
     }
   };
@@ -712,6 +715,7 @@ async function newPage(browser) {
     minTextChars: minTextChars,
     signal: usableSignal,
     documentSelector,
+    textWaitBudgetMs: timeoutMs,
   });
   return { context, page, errors, cdp: null, recorder: null, trace };
 }
@@ -1748,7 +1752,8 @@ try {
   else if (mode === 'scale') result = await runScale(browser);
   else if (mode === 'reflow') result = await runReflow(browser);
   else result = await runFind(browser);
-  process.stdout.write(JSON.stringify(result));
+  // Lax layer (owner 2026-11-11): every payload discloses the load timeout used.
+  process.stdout.write(JSON.stringify({ ...result, load_timeout_ms: timeoutMs }));
 } catch (error) {
   process.stdout.write(
     JSON.stringify({

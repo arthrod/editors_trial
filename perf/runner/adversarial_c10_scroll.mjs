@@ -58,6 +58,7 @@ import {
   witnessFrame,
 } from './witness.mjs';
 import { startChromeTrace, stopChromeTrace } from './chrome_trace.mjs';
+import { loadTimeoutMs } from './load_timeout.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -90,6 +91,8 @@ const scrollStep = Math.max(1, Number(opt['scroll-step'] || 600));
 const windowMs = Math.max(500, Number(opt['window-ms'] || 900));
 /** The clock-skew bound; the sample is refused above it. */
 const skewBoundMs = Number(opt['skew-bound-ms'] || DEFAULT_SKEW_BOUND_MS);
+// Lax layer (owner 2026-11-11): ready/navigation waits are minutes, not 120 s.
+const loadTimeout = loadTimeoutMs();
 /** The operator's scroll container (`a >> b` walks into an open shadow root). */
 const containerOverride =
   (typeof opt['container-selector'] === 'string' && opt['container-selector']) ||
@@ -598,16 +601,16 @@ async function waitForReady(page) {
         }
       },
       readyJs,
-      { timeout: 120_000 },
+      { timeout: loadTimeout },
     );
   } else if (readyText) {
     await page.waitForFunction(
       ({ text }) => (document.body.innerText || '').includes(text),
       { text: readyText },
-      { timeout: 120_000 },
+      { timeout: loadTimeout },
     );
   } else {
-    await page.waitForSelector(readySelector, { timeout: 120_000, state: 'visible' });
+    await page.waitForSelector(readySelector, { timeout: loadTimeout, state: 'visible' });
   }
   if (waitAfterReadyMs > 0) await page.waitForTimeout(waitAfterReadyMs);
 }
@@ -847,7 +850,7 @@ try {
       await routeCorpus(context);
       const page = await context.newPage();
       const trace = await startChromeTrace(browser, page, 'C10');
-      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 120_000 });
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: loadTimeout });
       await waitForReady(page);
       const sample = await oneSample(context, page);
       samples.push({ sample_index: i, ...sample });
@@ -877,6 +880,7 @@ const payload = {
   reason: measured.length ? null : refused.length ? refused[0].reason : 'the probe produced no sample',
   samples,
   scroll_step_px: scrollStep,
+  load_timeout_ms: loadTimeout,
   witness_window_ms: windowMs,
   skew_bound_ms: skewBoundMs,
   scroll_container_override: containerOverride || null,

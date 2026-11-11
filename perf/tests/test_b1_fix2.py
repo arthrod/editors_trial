@@ -34,7 +34,7 @@ def test_rr2_system_exit_is_recorded(tmp_path, monkeypatch):
 
 
 def reading(n):
-    return dict(available=True, nr_periods=10, nr_throttled=n, throttled_usec=n*10,
+    return dict(available=True, nr_periods=10, nr_throttled=n, throttled_usec=n*10000,  # lax layer (owner 2026-11-11): 10 ms per event is above the max(1 ms, 1 %) tolerance
                 cpu_ticks=dict(total=100, steal=0), loadavg=[0, 0, 0],
                 cpu_max='100 100', cpu_count_visible=1, cgroup_path='/fake')
 

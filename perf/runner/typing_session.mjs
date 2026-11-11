@@ -16,6 +16,10 @@ import {
   armTrustedKeyCounter,
   trustedKeyCount,
 } from './edit_surface.mjs';
+import {loadTimeoutMs} from './load_timeout.mjs';
+// Lax layer (owner 2026-11-11): the editable can take minutes to mount on the
+// big documents; Playwright's 30 s defaults refused loads that completed.
+const loadTimeout = loadTimeoutMs();
 const [port, profile, sessionKind = "latency"] = process.argv.slice(2);
 const {chromium} = await loadPlaywright();
 const context = await chromium.launchPersistentContext(profile, {
@@ -53,24 +57,24 @@ for await (const line of lines) {
         new MutationObserver(probe).observe(document, {subtree:true, childList:true, attributes:true});
         probe();
       }, {usableJs});
-      await page.goto(command.url, {waitUntil:'domcontentloaded'});
-      if (command.ready_js) await page.waitForFunction(command.ready_js);
-      else if (command.ready_selector) await page.locator(command.ready_selector).first().waitFor();
+      await page.goto(command.url, {waitUntil:'domcontentloaded', timeout:loadTimeout});
+      if (command.ready_js) await page.waitForFunction(command.ready_js, undefined, {timeout:loadTimeout});
+      else if (command.ready_selector) await page.locator(command.ready_selector).first().waitFor({timeout:loadTimeout});
       // A lazy editable (folio's hidden ProseMirror) mounts on the first
       // document click; it cannot exist before, so `selector` alone would
       // never appear. Editors whose editable already exists get no click
       // inside the load measurement.
       if (command.load_click_selector) await page.locator(command.load_click_selector).first().click();
-      await page.locator(command.wait_selector || command.selector).first().waitFor();
+      await page.locator(command.wait_selector || command.selector).first().waitFor({timeout:loadTimeout});
       const usable = await page.evaluate(() => window.__b9usable);
       if (usable === null) {
-        result = {usable_ms:null, witness:null, frame_interval_ms:null, refusal:'no_correctness_adapter'};
+        result = {usable_ms:null, witness:null, frame_interval_ms:null, load_timeout_ms:loadTimeout, refusal:'no_correctness_adapter'};
       } else {
       clock = await clockSkew(page, cdp);
       interval = await frameInterval(page);
       const witness = await witnessFrame(page, cdp, {baseline, afterPageMs:usable,
         region:{selector:command.present_selector || command.selector}, clockCheck:clock, settleMs:0});
-      result = {usable_ms:usable, witness, frame_interval_ms:interval.median_ms};
+      result = {usable_ms:usable, witness, frame_interval_ms:interval.median_ms, load_timeout_ms:loadTimeout};
       }
     } else if (command.op === 'key') {
       if (sessionKind !== 'latency') throw Error('key witnesses forbidden in throughput sessions');

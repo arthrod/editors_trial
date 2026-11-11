@@ -196,6 +196,7 @@ async function main() {
     burst: { iterations: burst, text: burstText, method: 'keyboard.type' },
     quiescence_ms: quiescenceMs,
     reopen,
+    load_timeout_ms: loadTimeout,
     ready_ms: null,
     edit_effective: null,
     edit_error: null,

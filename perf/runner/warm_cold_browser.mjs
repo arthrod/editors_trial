@@ -76,6 +76,7 @@ function rectDamageVsBaseline(baselinePixels, framePixels, rects, dpr, doc, tole
 }
 
 import { settleFrames } from './b2_settle.mjs';
+import { loadTimeoutMs } from './load_timeout.mjs';
 import { createRegionClassifier } from './b2_pixels.mjs';
 
 import {
@@ -155,7 +156,9 @@ if (!url || !corpusFile) {
 
 const corpusBytes = fs.readFileSync(corpusFile);
 
-async function waitForReady(page, selector, timeoutMs = 120_000, t0 = Date.now()) {
+const loadTimeout = loadTimeoutMs();
+
+async function waitForReady(page, selector, timeoutMs = loadTimeout, t0 = Date.now()) {
   if (readyJs || errorJs) {
     await page.waitForFunction(
       ({ expr, errExpr }) => {
@@ -615,10 +618,10 @@ async function runPlaywrightPair() {
   const cdp = await coldContext.newCDPSession(coldPage);
 
   const navT0 = Date.now();
-  await coldPage.goto(url, { waitUntil: 'domcontentloaded', timeout: 120_000 });
+  await coldPage.goto(url, { waitUntil: 'domcontentloaded', timeout: loadTimeout });
   const documentNavigationMs = Date.now() - navT0;
 
-  const coldReady = await waitForReady(coldPage, readySelector, 120_000, navT0);
+  const coldReady = await waitForReady(coldPage, readySelector, loadTimeout, navT0);
   const modelReadyMs = coldReady.first_usable_ms;
   let coldEdit = { edit_ms: null, paint_ms: null };
   let warmEdit = { edit_ms: null, paint_ms: null };
@@ -633,8 +636,8 @@ async function runPlaywrightPair() {
 
   await stopRecorder(cdp);
   const reloadT0 = Date.now();
-  await coldPage.reload({ waitUntil: 'domcontentloaded', timeout: 120_000 });
-  const warmReady = await waitForReady(coldPage, readySelector, 120_000, reloadT0);
+  await coldPage.reload({ waitUntil: 'domcontentloaded', timeout: loadTimeout });
+  const warmReady = await waitForReady(coldPage, readySelector, loadTimeout, reloadT0);
   const documentReloadSameContextMs = warmReady.first_usable_ms;
 
   if (!skipEdit) {
@@ -650,6 +653,7 @@ async function runPlaywrightPair() {
   await browser.close();
 
   return {
+    load_timeout_ms: loadTimeout,
     browser_launch_only_ms: browserLaunchMs,
     document_navigation_only_ms: documentNavigationMs,
     model_ready_browser_ms: modelReadyMs,
@@ -731,7 +735,7 @@ async function runCriteriaSession() {
   const page = await context.newPage();
   const trace = await startChromeTrace(browser, page, criteriaList[0] || 'input');
   const cdp = await context.newCDPSession(page);
-  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 120_000 });
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: loadTimeout });
   const ready = await waitForReady(page, readySelector);
   const payload = await runCriteriaSuite({
     page,
@@ -761,6 +765,7 @@ async function runCriteriaSession() {
     note: [payload.ready.note, 'ready_ms and first_usable_ms in criteria mode measure domcontentloaded to ready; pair and fresh modes include navigation.'].filter(Boolean).join(' '),
   };
   payload.clipboard_permission = clipboardPermission;
+  payload.load_timeout_ms = loadTimeout;
   return payload;
 }
 
@@ -772,8 +777,8 @@ async function coldOnlyFreshContext() {
   const page = await context.newPage();
   const trace = await startChromeTrace(browser, page, 'warm_cold');
   const t0 = Date.now();
-  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 120_000 });
-  const ready = await waitForReady(page, readySelector, 120_000, t0);
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: loadTimeout });
+  const ready = await waitForReady(page, readySelector, loadTimeout, t0);
   await stopChromeTrace(browser, trace);
   await browser.close();
   return ready;

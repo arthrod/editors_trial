@@ -96,7 +96,8 @@ def _stub_b4_launch(tmp_path, monkeypatch):
     import perf.runner.browser_hosts as hosts
     monkeypatch.setattr(hosts, 'select_fixture', lambda *a: None)
     monkeypatch.setattr(binput, '_stop_server', lambda s: None)
-    monkeypatch.setattr(binput, '_probe_env', lambda *a: {})
+    # 3ce91fad passed the workload to _probe_env; the stub takes it too.
+    monkeypatch.setattr(binput, '_probe_env', lambda *a, **k: {})
     return row
 
 
@@ -296,7 +297,10 @@ def test_b8_probe_failure_writes_family(tmp_path, monkeypatch):
     monkeypatch.setattr(bmem, '_run_browser_pair', dead_pair)
     args = SimpleNamespace(pairs=1, burst=0, quiescence_ms=0, retain_seconds=[],
                            probe_timeout=5, execution_profile='ci_broad',
-                           host_class='ci_coarse')
+                           host_class='ci_coarse',
+                           # lax layer (owner 2026-11-11): _run_browser_pair
+                           # takes the workload for its load-timeout env.
+                           workload='micro-paragraphs')
     target = {'url': 'http://127.0.0.1:1', 'lane': 'browser'}
     bmem._browser_rows(
         editor_id='plate', lane='browser', target=target, attempt_dir=tmp_path,

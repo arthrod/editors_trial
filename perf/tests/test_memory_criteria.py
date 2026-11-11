@@ -397,6 +397,9 @@ class BrowserFlowWithFakePairs(unittest.TestCase):
                 "quiescence_ms": 2000,
                 "retain_seconds": (1.0, 5.0),
                 "probe_timeout": 30.0,
+                # lax layer (owner 2026-11-11): _run_browser_pair takes the
+                # workload to export its load-timeout environment.
+                "workload": "prose-500w",
             },
         )()
         attempt_dir = Path(self._tmp.name) / "attempts"

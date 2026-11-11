@@ -27,6 +27,7 @@ from pathlib import Path
 import secrets
 import subprocess
 import sys
+import time
 import uuid
 
 from perf.runner.order import editor_order
@@ -86,10 +87,16 @@ def capture(call, *, stderr_tail=0):
 def _read_accounting(reader):
     """A broken accounting probe is unavailable evidence, never a lost run."""
     try:
-        return reader()
+        reading = reader()
     except Exception as exc:
         return {'available': False, 'reason': f'{type(exc).__name__}: {exc}',
                 'exception': {'type': type(exc).__name__, 'message': str(exc)}}
+    # The monotonic stamp carries no accounting meaning of its own; it lets
+    # accounting_delta state the sample's span, which the throttle tolerance
+    # is a percentage of (lax layer, owner decision 2026-11-11).
+    if isinstance(reading, dict):
+        return {**reading, 'monotonic_ms': time.monotonic() * 1000.0}
+    return reading
 
 
 def repo_roots():
@@ -284,7 +291,11 @@ class BrowserRun:
         env_block = self.publication_block_from_environment()
         if env_block:
             value.update(publishable=False, publication_block_reason=env_block)
-        if accounting['available'] and any(accounting['delta'][key] > 0 for key in ('nr_throttled', 'throttled_usec')):
+        from perf.runner.browser_throttle import throttled_within_tolerance
+        _delta = accounting.get('delta') or {}
+        _throttled_usec = _delta.get('throttled_usec')
+        _throttled_usec = _throttled_usec if isinstance(_throttled_usec, (int, float)) and not isinstance(_throttled_usec, bool) else 0
+        if accounting['available'] and not throttled_within_tolerance(_delta, accounting.get('span_ms')):
             # Keep arbitrary raw measurements only as forensic evidence. An
             # allowlist avoids leaking nested or differently named timing fields.
             destination = self.directory / 'rejected-evidence' / name
@@ -336,6 +347,14 @@ class BrowserRun:
                 publishable=False,
                 publication_block_reason='cpu_accounting_unavailable',
             )
+        elif accounting['available']:
+            # Lax layer (owner decision 2026-11-11): throttling within
+            # max(1 ms, 1 % of the sample's span) keeps the sample, with the
+            # throttled microseconds recorded on the row so the trial and the
+            # report can disclose what was tolerated.
+            _events = _delta.get('nr_throttled')
+            value['throttled_usec'] = int(_throttled_usec)
+            value['nr_throttled'] = int(_events) if isinstance(_events, (int, float)) and not isinstance(_events, bool) else 0
         path = self.directory / 'samples' / (name + '.json')
         write_json(path, value)
         self.samples.append(value)

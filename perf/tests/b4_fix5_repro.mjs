@@ -31,11 +31,16 @@ async function a10RefusedPaintPageDiesInFinally() {
       },
     },
     evaluate: async (fn, arg) => {
+    // ae64d81a (2026-11-10, "Fix input harness click paint") added this
+    // resolve call to the undo/bulk paths; the fake answers it.
+    if (fn.name === 'RESOLVE_CLICK_POINTS')
+      return {
+        points: [{ point: 'first_text_line', x: 10, y: 10, line: { top: 5, bottom: 15 }, hit_inside_editable: true }],
+        source: 'text_line_rects',
+      };
       if (broken) throw new Error('Execution context was destroyed');
       if (fn.name === 'READ_EDITABLE_STATE')
         return { text: body, text_length: body.length, selection_offset: 4, active_inside: true, anchor_inside: true };
-      if (fn.name === 'RESOLVE_CLICK_POINTS')
-        return { points: [{ point: 'last_text_line', x: 1, y: 1 }] };
       if (arg && (arg.kind || arg.kinds)) return { t: 100 };
       return null;
     },
@@ -77,6 +82,13 @@ async function a11MeasuredPageDiesInFinally() {
       },
     },
     evaluate: async (fn, arg) => {
+      // ae64d81a (2026-11-10, "Fix input harness click paint") added the
+      // click-point resolve and the focus read; the fake answers both.
+      if (fn.name === 'RESOLVE_CLICK_POINTS')
+        return {
+          points: [{ point: 'first_text_line', x: 10, y: 10, line: { top: 5, bottom: 15 }, hit_inside_editable: true }],
+          source: 'text_line_rects',
+        };
       if (fn.name === 'READ_EDITABLE_STATE') {
         reads += 1;
         if (reads > 3) throw new Error('Execution context was destroyed');

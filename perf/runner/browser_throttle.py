@@ -85,13 +85,67 @@ def accounting_delta(before, after):
     if reason:
         return dict(available=False, reason=reason, before=before, after=after)
     total = delta['total_ticks']
+    # The sample's own wall-clock span, when the readings carry a monotonic
+    # stamp (browser_run's probe adds one); the throttle tolerance is a
+    # fraction of it (lax layer, owner decision 2026-11-11).
+    span = None
+    if _monotonic_ms(before) is not None and _monotonic_ms(after) is not None:
+        span = _monotonic_ms(after) - _monotonic_ms(before)
+        if span < 0:
+            span = None
     return dict(
         available=True,
         before=before,
         after=after,
         delta=delta,
+        span_ms=span,
         steal_percent=100 * delta['steal_ticks'] / total if total else None,
     )
+
+
+def _monotonic_ms(reading):
+    value = reading.get('monotonic_ms') if isinstance(reading, dict) else None
+    if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value):
+        return float(value)
+    return None
+
+
+#: Lax layer (owner decision 2026-11-11; issue #155 item 6): a sample whose
+#: cgroup throttled away no more than max(1 ms, 1 % of the sample's own
+#: wall-clock span) stays measurable -- the scheduler's occasional 100-200 us
+#: slice theft is not the editor's result -- with ``throttled_usec`` recorded
+#: on the kept row; anything above refuses exactly as before.
+THROTTLE_TOLERANCE_MIN_USEC = 1000.0
+THROTTLE_TOLERANCE_SPAN_FRACTION = 0.01
+
+
+def throttle_tolerance_usec(span_ms=None):
+    """max(1 ms, 1 % of the sample's span) in microseconds.
+
+    An unknown span (``None``) keeps only the 1 ms floor: without a span the
+    percentage part is unverified, so it is never assumed."""
+    span = (
+        float(span_ms)
+        if isinstance(span_ms, (int, float)) and not isinstance(span_ms, bool)
+        and math.isfinite(span_ms) and span_ms >= 0
+        else None
+    )
+    span_usec = span * 1000.0 if span is not None else 0.0
+    return max(THROTTLE_TOLERANCE_MIN_USEC, THROTTLE_TOLERANCE_SPAN_FRACTION * span_usec)
+
+
+def throttled_within_tolerance(delta, span_ms=None):
+    """True when a sample's throttling stays within the tolerance.
+
+    ``delta`` is an accounting ``delta`` mapping; a missing or non-numeric
+    ``throttled_usec`` carries no throttling to tolerate."""
+    if not isinstance(delta, dict):
+        return True
+    usec = delta.get('throttled_usec')
+    if isinstance(usec, bool) or not isinstance(usec, (int, float)) or not math.isfinite(usec):
+        return True
+    tolerance = throttle_tolerance_usec(span_ms)
+    return float(usec) <= tolerance
 
 
 def accounting_summary(before, after, samples):
@@ -107,6 +161,13 @@ def accounting_summary(before, after, samples):
         available=available,
         samples_total=len(samples),
         samples_refused=sum(row.get('failure_reason') == 'cpu_throttled' for row in samples),
+        samples_throttled_kept=sum(
+            row.get('failure_reason') != 'cpu_throttled'
+            and isinstance(row.get('throttled_usec'), (int, float))
+            and not isinstance(row.get('throttled_usec'), bool)
+            and row.get('throttled_usec') > 0
+            for row in samples
+        ),
         samples_unavailable=sum(not row['cpu_accounting']['available'] for row in samples),
         diagnostics_total=len(diagnostics),
         diagnostics_refused=sum(row.get('failure_reason') == 'cpu_throttled' for row in diagnostics),

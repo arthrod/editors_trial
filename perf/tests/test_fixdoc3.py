@@ -241,6 +241,8 @@ def _write_c14_trial(root: Path, rep: int, measure: str, samples: list, sample_m
         "refusal_code": None,
         "sub_frame_samples": [False] * len(samples),
         "workload_id": "prose-500w",
+        # 0af7d5d2 (#149): a kept trial must carry a built-editor identity.
+        "environment": {"editor_id": "plate", "editor_version": "pin-1", "workload_id": "prose-500w"},
         "measure": measure,
         "diagnostic": {
             "frame_interval_ms": 16.7,

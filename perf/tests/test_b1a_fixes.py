@@ -242,7 +242,14 @@ class SummaryGuard(unittest.TestCase):
                 legacy = {
                     "indocx.write_bytes(docx_body)",
                     "summary_path.write_text(json.dumps(payload, indent=2) + '\\n', encoding='utf-8')",
-                } if name == 'benchmark_ci_contract' else set()
+                } if name == 'benchmark_ci_contract' else (
+                    # 61518eec (2026-11-10, "Pass input-lane expected body via
+                    # file instead of env b64"): the expected-body sidecar is
+                    # probe input written once per editor before launch, not a
+                    # mutable summary or fixture of record.
+                    {"body_path.write_text(body, encoding='utf-8')"}
+                    if name == 'benchmark_input' else set()
+                )
                 for node in self.write_violations(tree):
                     self.assertIn(ast.unparse(node), legacy)
                 for node in ast.walk(tree):
@@ -250,5 +257,7 @@ class SummaryGuard(unittest.TestCase):
                         keys = [key.value for key in node.keys if isinstance(key, ast.Constant)]
                         self.assertEqual(len(keys), len(set(keys)))
                     if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
-                        if name != 'benchmark_ci_contract':
+                        # the same adjudicated exemptions as the legacy set
+                        # above (61518eec's expected-body sidecar).
+                        if name != 'benchmark_ci_contract' and ast.unparse(node) not in legacy:
                             self.assertNotIn(node.func.attr, ('write_text', 'write_bytes'))

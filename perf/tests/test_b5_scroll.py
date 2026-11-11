@@ -1199,15 +1199,26 @@ class ScrollUnitTests(unittest.TestCase):
             "a throttled row must be refused: %r" % (throttled,),
         )
         # The same evidence, without the reason string: the accounting says it.
+        # Lax layer (owner 2026-11-11): the refusal is governed by
+        # throttled_usec above max(1 ms, 1 % of the span); the count alone
+        # with a tolerated amount is kept (and disclosed on the row).
         renamed = {
             "outcome": "failed",
             "failure_reason": "the sample was refused",
-            "cpu_accounting": {"available": True, "delta": {"nr_throttled": 3}},
+            "cpu_accounting": {"available": True, "delta": {"nr_throttled": 3, "throttled_usec": 2500}},
         }
         self.assertEqual(
             scroll.throttle_refusal_reason(renamed),
             "cpu_throttled",
             "the accounting is the evidence, not the wording: %r" % (renamed,),
+        )
+        tolerated = {
+            "outcome": "measured",
+            "cpu_accounting": {"available": True, "delta": {"nr_throttled": 3, "throttled_usec": 900}},
+        }
+        self.assertIsNone(
+            scroll.throttle_refusal_reason(tolerated),
+            "throttling within max(1 ms, 1 %% of the span) is kept and disclosed: %r" % (tolerated,),
         )
         clean = {
             "outcome": "ok",

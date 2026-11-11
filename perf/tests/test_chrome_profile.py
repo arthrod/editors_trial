@@ -31,7 +31,7 @@ class ChromeProfileExclusion(unittest.TestCase):
             "samples_ms": [100.0],
             "sub_frame_samples": [False],
             "diagnostic": {"frame_interval_ms": 16.0},
-            "environment": {"editor_id": "plate", "workload_id": "prose-500w"},
+            "environment": {"editor_id": "plate", "editor_version": "pin-1", "workload_id": "prose-500w"},
             **_TREE,
         }
 
@@ -98,7 +98,7 @@ class ChromeProfileExclusion(unittest.TestCase):
             "samples_ms": [100.0],
             "sub_frame_samples": [False],
             "diagnostic": {"frame_interval_ms": 16.0},
-            "environment": {"editor_id": "plate", "workload_id": "prose-500w"},
+            "environment": {"editor_id": "plate", "editor_version": "pin-1", "workload_id": "prose-500w"},
             **_TREE,
         }
         nested = {**measured, "accounting_scope": "sample"}
@@ -299,7 +299,7 @@ class ChromeProfileExclusion(unittest.TestCase):
                 "samples_ms": [100.0],
                 "sub_frame_samples": [False],
                 "diagnostic": {"frame_interval_ms": 16.0},
-                "environment": {"editor_id": "plate", "workload_id": "prose-500w"},
+                "environment": {"editor_id": "plate", "editor_version": "pin-1", "workload_id": "prose-500w"},
                 **_TREE,
             }
             profiled = {

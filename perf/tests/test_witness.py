@@ -377,7 +377,9 @@ class WitnessValidatorTests(unittest.TestCase):
     def test_w5_the_validator_refuses_a_skew_above_the_bound(self):
         validator = self.load_validator()
         record = self.good_record()
-        record["clock_skew_ms"] = 5.0
+        # lax layer (owner 2026-11-11): the bound moved 2 -> 5 ms, so 5.0 is
+        # at the bound and passes; the probe sits above it.
+        record["clock_skew_ms"] = 6.0
         verdict = validator.validate_witness(record)
         self.assertTrue(
             verdict.get("refused"), "a skew above the bound must be refused: %r" % (verdict,)
@@ -1280,7 +1282,10 @@ class WitnessValidatorShapeTests(unittest.TestCase):
         verdict = validator.validate_witness(record, skew=0.3)
         self.assertFalse(verdict.get("refused"))
         self.assertEqual(verdict.get("skew_ms"), 0.3)
+        # lax layer (owner 2026-11-11): 5.0 ms now sits inside the bound.
         verdict = validator.validate_witness(record, skew=5.0)
+        self.assertFalse(verdict.get("refused"))
+        verdict = validator.validate_witness(record, skew=5.5)
         self.assertTrue(verdict.get("refused"))
         self.assertEqual(verdict.get("reason"), "clock_skew_above_bound")
 
@@ -1519,7 +1524,9 @@ class WitnessProductionEvidenceTests(unittest.TestCase):
             "a lag bound the frame interval does not give",
         )
         self.refused(
-            {"clock_check.frame_interval_ms": cc["frame_interval_ms"] + 50},
+            # lax layer (owner 2026-11-11): the floor is 250 ms now, so the
+            # corrupted interval must triple past it to contradict the bound.
+            {"clock_check.frame_interval_ms": cc["frame_interval_ms"] + 100},
             "a frame interval the lag bound contradicts",
         )
 
@@ -1737,7 +1744,7 @@ class WitnessMutationTests(unittest.TestCase):
             "how many rAF deltas were seen; informational",
         ("clock_check", "frame_interval_ms", "null"):
             "the producer emits null when no rAF delta arrived; the lag bound "
-            "must then be the rule's 100 ms minimum, which is recomputed",
+            "must then be the rule's 250 ms minimum, which is recomputed",
         ("clock_check", "frame_interval_samples", "null"):
             "the producer's defensive null for an absent count; informational",
         ("clock_check", "lag_bound_rule", "contradictory"):
@@ -1849,7 +1856,7 @@ class WitnessMutationTests(unittest.TestCase):
                 "clock_check",
                 "anchor_probe_region_px",
             ): lambda r: dict(cc["anchor_probe_region_px"], x=1),
-            ("clock_check", "frame_interval_ms"): lambda r: cc["frame_interval_ms"] + 50.0,
+            ("clock_check", "frame_interval_ms"): lambda r: cc["frame_interval_ms"] + 100.0,
             ("clock_check", "lag_bound_ms"): lambda r: cc["lag_bound_ms"] + 100.0,
             ("clock_check", "conversion"): lambda r: {},
             ("clock_check", "caret_masked"): lambda r: False,

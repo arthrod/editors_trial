@@ -253,7 +253,7 @@ class SamplePolicy(unittest.TestCase):
     def test_missing_frame_is_refused(self):
         row = runner.input_sample_record(
             {'edit_ms': 25, 'outcome': 'measured',
-             'clock_skew': {'skew_ms': 0, 'bound_ms': 2, 'acceptable': True},
+             'clock_skew': {'skew_ms': 0, 'bound_ms': 5, 'acceptable': True},
              'edit_confirmation': {'confirmed': True, 'changed_pixels': 20,
                  'visible_rects': [{'x': 10, 'y': 10, 'width': 20, 'height': 30}]}},
             'C05',
@@ -269,7 +269,7 @@ class SamplePolicy(unittest.TestCase):
                 'mechanism': 'cdp_screencast_changed_frame',
                 'edit_ms': 25,
                 'outcome': 'measured',
-                'clock_skew': {'skew_ms': 3, 'bound_ms': 2, 'acceptable': False},
+                'clock_skew': {'skew_ms': 7, 'bound_ms': 5, 'acceptable': False},
             },
             'C05',
         )
@@ -283,7 +283,7 @@ class SamplePolicy(unittest.TestCase):
                 'mechanism': 'cdp_screencast_changed_frame',
                 'edit_ms': 25,
                 'outcome': 'measured',
-                'clock_skew': {'skew_ms': 0, 'bound_ms': 2, 'acceptable': True},
+                'clock_skew': {'skew_ms': 0, 'bound_ms': 5, 'acceptable': True},
                 'witness': frame_record(),
                 'edit_confirmation': {'confirmed': True, 'changed_pixels': 20,
                     'visible_rects': [{'x': 10, 'y': 10, 'width': 20, 'height': 30}]},
@@ -305,7 +305,7 @@ class WriterIntegration(unittest.TestCase):
 
         LOG_ROOT.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(dir=LOG_ROOT) as tmp:
-            readings = iter([snapshot(), snapshot(), snapshot(n=3 if throttled else 2)])
+            readings = iter([snapshot(), snapshot(), snapshot(3, 10_050) if throttled else snapshot(2)])
             run = BrowserRun(tmp, 'writer', snapshot=lambda: {}, accounting_reader=lambda: next(readings))
             token = ACTIVE.set(run)
             try:
@@ -317,7 +317,7 @@ class WriterIntegration(unittest.TestCase):
                     'witness': frame_record(),
                 'edit_confirmation': {'confirmed': True, 'changed_pixels': 20,
                     'visible_rects': [{'x': 10, 'y': 10, 'width': 20, 'height': 30}]},
-                    'clock_skew': {'skew_ms': skew, 'bound_ms': 2, 'acceptable': abs(skew) <= 2},
+                    'clock_skew': {'skew_ms': skew, 'bound_ms': 5, 'acceptable': abs(skew) <= 5},
                 }
                 path = runner._write_measured_attempt(
                     attempt_dir=Path(tmp) / 'attempts',
@@ -342,11 +342,11 @@ class WriterIntegration(unittest.TestCase):
         self.assertEqual(row['samples_ms'], [25])
 
     def test_writer_refuses_skew_with_evidence(self):
-        row = self.write(skew=3)
+        row = self.write(skew=7)  # lax layer: the bound is 5 ms now
         self.assertEqual(row['failure_reason'], 'clock_skew_above_bound')
         self.assertEqual(row['samples_ms'], [])
         self.assertIn('clock_skew', row)
-        self.assertEqual(row['clock_skew'][0]['skew_ms'], 3)
+        self.assertEqual(row['clock_skew'][0]['skew_ms'], 7)
 
     def test_writer_refuses_cpu_throttled(self):
         row = self.write(throttled=True)
@@ -359,7 +359,7 @@ class ReviewPolicy(unittest.TestCase):
     def test_f1_expected_edit_required(self):
         row = runner.input_sample_record({
             'edit_ms': 25, 'outcome': 'measured', 'witness': frame_record(),
-            'clock_skew': {'skew_ms': 0, 'bound_ms': 2, 'acceptable': True},
+            'clock_skew': {'skew_ms': 0, 'bound_ms': 5, 'acceptable': True},
             'edit_confirmation': {'confirmed': False},
         }, 'C05')
         self.assertEqual(row['failure_reason'], 'expected_edit_not_confirmed')
@@ -386,7 +386,7 @@ class ReviewPolicy(unittest.TestCase):
         self.assertEqual(row['failure_reason'], 'trusted_keydown_not_observed')
 
     def test_boolean_clock_is_not_numeric(self):
-        row = runner.input_sample_record({'clock_skew': {'skew_ms': True, 'bound_ms': 2, 'acceptable': True}}, 'C05')
+        row = runner.input_sample_record({'clock_skew': {'skew_ms': True, 'bound_ms': 5, 'acceptable': True}}, 'C05')
         self.assertEqual(row['failure_reason'], 'clock_skew_unavailable')
 
     def test_n3_clock_bound_is_validator_constant_not_record(self):
@@ -432,7 +432,7 @@ class ReviewPolicy(unittest.TestCase):
         dirty = frame_record()
         dirty['clock_skew_ms'] = 500_000.0
         dirty['clock_check'] = copy.deepcopy(dirty['clock_check'])
-        dirty['clock_check']['bound_ms'] = 2.0
+        dirty['clock_check']['bound_ms'] = 5.0  # lax layer: the forged clean bound is the new constant
         dirty['clock_check']['page_offset_ms'] = 500_000.0
         dirty['clock_check']['skew_ms'] = 500_000.0
         dirty['clock_check']['acceptable'] = True
@@ -440,7 +440,7 @@ class ReviewPolicy(unittest.TestCase):
             'edit_ms': 12,
             'outcome': 'measured',
             'witness': dirty,
-            'clock_skew': {'skew_ms': 0.2, 'bound_ms': 2.0, 'acceptable': True},
+            'clock_skew': {'skew_ms': 0.2, 'bound_ms': 5.0, 'acceptable': True},
             'edit_confirmation': proof,
         }, 'C05')
         self.assertEqual(row['failure_reason'], 'clock_skew_above_bound')
@@ -461,7 +461,7 @@ class ReviewPolicy(unittest.TestCase):
             'edit_ms': 12,
             'outcome': 'measured',
             'witness': mild,
-            'clock_skew': {'skew_ms': 0.2, 'bound_ms': 2.0, 'acceptable': True},
+            'clock_skew': {'skew_ms': 0.2, 'bound_ms': 5.0, 'acceptable': True},
             'edit_confirmation': proof,
         }, 'C05')
         self.assertEqual(row['failure_reason'], 'clock_bound_mismatch')
@@ -476,15 +476,17 @@ class ReviewPolicy(unittest.TestCase):
             'visible_rects': [{'x': 10, 'y': 10, 'width': 20, 'height': 30}],
         }
         shifted = frame_record()
-        shifted['clock_skew_ms'] = 2.0
+        # lax layer (owner 2026-11-11): the bound is 5 ms, so the sibling and
+        # witness must disagree by more than that to refuse.
+        shifted['clock_skew_ms'] = 4.0
         shifted['clock_check'] = copy.deepcopy(shifted['clock_check'])
-        shifted['clock_check']['page_offset_ms'] = 2.0
-        shifted['clock_check']['skew_ms'] = 2.0
+        shifted['clock_check']['page_offset_ms'] = 4.0
+        shifted['clock_check']['skew_ms'] = 4.0
         row = runner.input_sample_record({
             'edit_ms': 12,
             'outcome': 'measured',
             'witness': shifted,
-            'clock_skew': {'skew_ms': -2.0, 'bound_ms': 2.0, 'acceptable': True},
+            'clock_skew': {'skew_ms': -4.0, 'bound_ms': 5.0, 'acceptable': True},
             'edit_confirmation': proof,
         }, 'C05')
         self.assertEqual(row['failure_reason'], 'clock_disagreement')
@@ -506,7 +508,7 @@ class ProbeBracketIntegration(unittest.TestCase):
         from perf.runner.browser_run import BrowserRun, ACTIVE
         from perf.tests.test_browser_throttle import snapshot
         with tempfile.TemporaryDirectory() as tmp:
-            readings = iter([snapshot(n=0), snapshot(n=0), snapshot(n=1), snapshot(n=1)])
+            readings = iter([snapshot(n=0), snapshot(n=0), snapshot(1, 10_050), snapshot(1, 10_050)])  # lax layer: above the tolerance
             run = BrowserRun(tmp, 'bracket', snapshot=lambda: {}, accounting_reader=lambda: next(readings))
             token = ACTIVE.set(run)
             try:
@@ -706,7 +708,7 @@ class SuccessfulProbeBracketIntegration(unittest.TestCase):
         from perf.runner.browser_run import BrowserRun, ACTIVE
         from perf.tests.test_browser_throttle import snapshot
         with tempfile.TemporaryDirectory() as tmp:
-            readings = iter([snapshot(n=0), snapshot(n=0), snapshot(n=1), snapshot(n=1), snapshot(n=1)])
+            readings = iter([snapshot(n=0), snapshot(n=0), snapshot(1, 10_050), snapshot(1, 10_050), snapshot(1, 10_050)])  # lax layer: above the tolerance
             run = BrowserRun(tmp, 'bracket-success', snapshot=lambda: {}, accounting_reader=lambda: next(readings))
             token = ACTIVE.set(run)
             try:
@@ -726,7 +728,7 @@ class RoundThreePolicy(unittest.TestCase):
     def test_r1_boolean_confirmation_without_visible_pixels_is_refused(self):
         row = runner.input_sample_record({
             'edit_ms': 25, 'outcome': 'measured', 'witness': frame_record(),
-            'clock_skew': {'skew_ms': 0, 'bound_ms': 2, 'acceptable': True},
+            'clock_skew': {'skew_ms': 0, 'bound_ms': 5, 'acceptable': True},
             'edit_confirmation': {'confirmed': True},
         }, 'C05')
         self.assertEqual(row['outcome'], 'failed')
@@ -774,7 +776,7 @@ class RoundThreePolicy(unittest.TestCase):
             with self.subTest(pixels=pixels, rects=rects):
                 row = runner.input_sample_record({
                     'edit_ms': 25, 'outcome': 'measured', 'witness': frame_record(),
-                    'clock_skew': {'skew_ms': 0, 'bound_ms': 2, 'acceptable': True},
+                    'clock_skew': {'skew_ms': 0, 'bound_ms': 5, 'acceptable': True},
                     'edit_confirmation': {'confirmed': True, 'changed_pixels': pixels, 'visible_rects': rects},
                 }, 'C05')
                 self.assertEqual(row['failure_reason'], 'expected_edit_not_confirmed')
@@ -797,7 +799,7 @@ class RoundThreePolicy(unittest.TestCase):
         from perf.tests.test_browser_throttle import snapshot
         from perf.tests.test_schema import _env
         with tempfile.TemporaryDirectory() as tmp:
-            readings = iter([snapshot(), snapshot(), snapshot(n=3)])
+            readings = iter([snapshot(), snapshot(), snapshot(3, 10_050)])  # lax layer: above the max(1 ms, 1 %) tolerance
             run = BrowserRun(tmp, 'refused', snapshot=lambda: {}, accounting_reader=lambda: next(readings))
             token = ACTIVE.set(run)
             try:

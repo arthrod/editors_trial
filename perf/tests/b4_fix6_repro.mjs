@@ -181,7 +181,8 @@ async function scenario(deathAt) {
 }
 
 const order = ['c04_mid', 'after_c04', 'c07_mid', 'c09_mid', 'c08_refresh', 'c08_mid'];
+process.stderr.write('start\\n');
 const results = {};
-for (const deathAt of order) results[deathAt] = await scenario(deathAt);
+for (const deathAt of order) { process.stderr.write('scenario ' + deathAt + '\\n'); results[deathAt] = await scenario(deathAt); }
 
 console.log(JSON.stringify(results, null, 0));

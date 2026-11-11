@@ -55,6 +55,7 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -433,12 +434,17 @@ def _run_probe(
         cmd.extend(["--wait-after-ready", str(target["wait_after_ready"])])
     if scroll_container:
         cmd.extend(["--container-selector", scroll_container])
+    from perf.runner.load_timeouts import load_timeout_env
+
     proc = subprocess.run(
         cmd,
         cwd=str(REPO),
         capture_output=True,
         text=True,
         timeout=900,
+        # Lax layer (owner 2026-11-11): the probe's ready/navigation waits are
+        # minutes, not 120 s; the 900 s wall clock above stays above them.
+        env={**os.environ, **load_timeout_env(WORKLOAD_ID)},
     )
     record_process(proc)
     if proc.returncode != 0:
@@ -469,10 +475,14 @@ def throttle_refusal_reason(row) -> str | None:
     delta = accounting.get("delta") or {}
     if not isinstance(delta, dict):
         return None
-    for key in ("nr_throttled", "throttled_usec"):
-        value = delta.get(key)
-        if _number(value) and value > 0:
-            return "cpu_throttled"
+    # Lax layer (owner decision 2026-11-11): the same tolerance the run
+    # recorder applies -- max(1 ms, 1 % of the sample's span) of throttled
+    # time is tolerated and disclosed on the row, only more refuses. A row
+    # without a recorded span keeps the 1 ms floor (never the percentage).
+    from perf.runner.browser_throttle import throttled_within_tolerance
+
+    if not throttled_within_tolerance(delta, accounting.get("span_ms")):
+        return "cpu_throttled"
     return None
 
 

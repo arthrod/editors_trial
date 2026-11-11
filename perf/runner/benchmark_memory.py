@@ -615,7 +615,15 @@ def _run_browser_pair(
     retain_seconds,
     probe_timeout_s: float,
     editor_id: str = "",
+    workload: str = "micro-paragraphs",
 ) -> dict:
+    from perf.runner.load_timeouts import load_timeout_env, load_timeout_ms
+
+    # Lax layer (owner 2026-11-11): the probe may wait minutes for a big
+    # document to load; our own wall clock stays above that wait so the
+    # probe's ready timeout governs, never this deadline.
+    load_timeout_s = load_timeout_ms(workload) / 1000.0
+    probe_timeout_s = max(probe_timeout_s, load_timeout_s + 120.0)
     command = _probe_command(
         target,
         corpus_path,
@@ -633,6 +641,7 @@ def _run_browser_pair(
         text=True,
         bufsize=1,
         start_new_session=True,
+        env={**os.environ, **load_timeout_env(workload)},
     )
     roots: list[int] = []
     deadline = time.monotonic() + probe_timeout_s
@@ -755,6 +764,7 @@ def _browser_rows(
                 retain_seconds=args.retain_seconds,
                 probe_timeout_s=args.probe_timeout,
                 editor_id=editor_id,
+                workload=args.workload,
             )
             pair["index"] = index
             pairs.append(pair)

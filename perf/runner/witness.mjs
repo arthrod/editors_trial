@@ -59,13 +59,16 @@
  *     mutation around it) contradicts causality and the check fails. Hence
  *     no conversion this module accepts claims the frame earlier than 2 ms
  *     before the event it shows.
- *   - upper bound: the anchor lag bound, `max(3 frame intervals, 100 ms)`,
- *     where the frame interval is the run's measured median rAF delta
+ *   - upper bound: the anchor lag bound, `max(3 frame intervals, 250 ms)`
+ *     (lax layer, owner decision 2026-11-11: the 100 ms floor refused
+ *     wordcraft's 101.3–151.8 ms anchor lags on HF), where the frame
+ *     interval is the run's measured median rAF delta
  *     (recorded as `frame_interval_ms`). One frame interval is physics (the
  *     change lands mid-frame); the measured presentation lag of the anchor on
  *     this machine is ≈1 interval (~15 ms, under load ~16 ms), so three
- *     intervals with a 100 ms floor is ~6x the observed worst case while the
- *     injected-error class this gate exists for (±1000 ms) is 10x above it.
+ *     intervals with a 250 ms floor stays far above the observed worst case
+ *     while the injected-error class this gate exists for (±1000 ms) sits
+ *     well above it.
  *
  * The published claim is therefore **[-2 ms, +lag bound]** — an asymmetric
  * interval, never "±2 ms": nothing in this module proves sub-2 ms accuracy
@@ -156,8 +159,13 @@ import { fileURLToPath } from 'node:url';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '../..');
 
-/** The default bound on |page_offset_ms|; a clock check refuses above it. */
-export const DEFAULT_SKEW_BOUND_MS = 2;
+/** The default bound on |page_offset_ms|; a clock check refuses above it.
+ * Lax layer (owner decision 2026-11-11): 2 ms -> 5 ms; the page-offset
+ * measurement on the HF campaign sat inside ±2 ms for every accepted cell,
+ * and the refused wordcraft cells refused on the anchor lag, not here — but
+ * the 2 ms edge left no room for scheduler noise on the shared hosts. The
+ * bound is recorded on every clock check (bound_ms / clock_skew_bound_ms). */
+export const DEFAULT_SKEW_BOUND_MS = 5;
 /** The bound on the spread of the page-offset samples (check d of the gate). */
 export const PAGE_OFFSET_SPREAD_BOUND_MS = 2;
 /**
@@ -176,9 +184,16 @@ export const CAUSALITY_SLOP_MS = 2;
  * or not), so 3 intervals with a 100 ms floor is ~6x the observed worst
  * case, and the injected ±1000 ms error class sits 10x above it. This is the
  * published UPPER bound of the conversion (see the module header).
+ * Lax layer (owner decision 2026-11-11): the floor moves 100 ms -> 250 ms.
+ * HF shakedown evidence: wordcraft's anchor frame lags ran 101.3–151.8 ms
+ * (e.g. e2-wordcraft C10 cells, frame_lag 107.9–151.8 ms over a 100 ms
+ * bound), refusing C10/C11 and the document lane's C14 clock checks while
+ * the conversion itself stayed sound; 250 ms keeps a ≥1.6x margin over the
+ * worst observed lag. The bound is recomputed and recorded on every record
+ * (lag_bound_ms + lag_bound_rule) so the trial discloses it.
  */
 export const ANCHOR_LAG_BOUND_INTERVALS = 3;
-export const ANCHOR_LAG_BOUND_MIN_MS = 100;
+export const ANCHOR_LAG_BOUND_MIN_MS = 250;
 /** The witness window: at least half a second, per the plan. */
 export const DEFAULT_WINDOW_MS = 500;
 /**

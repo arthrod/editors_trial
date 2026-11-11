@@ -65,8 +65,9 @@ export function classifyRegion(pixels, baseline, rects, dpr, doc, tolerance = 8)
  * sub-half transient decoys cannot veto the eventual glyph reference.
  * A modal-colour glyph followed only by a mark <25% of its expected ink refuses.
  * A sparse onset between two delivered frames refuses: it cannot establish
- * the first paint — onset gaps over two median intervals refuse, even when
- * below the quiet-window gap bound. When no frame was delivered between the
+ * the first paint — onset gaps over max(2 median intervals, 100 ms) refuse
+ * (the 100 ms floor is the lax layer, owner decision 2026-11-11; see
+ * ONSET_BOUND_FLOOR_MS below), even when below the quiet-window gap bound. When no frame was delivered between the
  * marker and the onset, that interval is the input's own processing time,
  * not a delivery gap, and it does not refuse. A supplied display calibration caps the
  * onset interval when screencast delivery is slower. Only the gap immediately
@@ -74,6 +75,12 @@ export function classifyRegion(pixels, baseline, rects, dpr, doc, tolerance = 8)
  * timestamp conversion roundoff at the onset bound; it is not a frame allowance.
  * Later covers cannot replace a proven reference.
  */
+/** The onset bound floor in ms (lax layer, owner decision 2026-11-11): the
+ * worst onset gap the HF shakedown evidence supports accepting (folio C05/C06
+ * cells: 50/66.7/100 ms between the last ink-less delivered frame and the
+ * glyph). Exported so tests and disclosures can name it. */
+export const ONSET_BOUND_FLOOR_MS = 100;
+
 export function settleFrames(frames, {quietMs=300,maxWaitMs=3000,markerMs=0,minPixels=4,tolerance=8,frameIntervalMs=null}={}) {
   const eligible=frames.filter(f=>Number.isFinite(f.pageMs)&&f.pageMs>=markerMs&&f.pageMs<=markerMs+maxWaitMs).sort((a,b)=>a.pageMs-b.pageMs);
   const intervals=eligible.slice(1).map((f,i)=>f.pageMs-eligible[i].pageMs).filter(n=>n>0).sort((a,b)=>a-b);
@@ -82,7 +89,15 @@ export function settleFrames(frames, {quietMs=300,maxWaitMs=3000,markerMs=0,minP
   const gapBound=Math.max(2*median,100);
   const onsetInterval = Number.isFinite(frameIntervalMs) && frameIntervalMs>0
     ? (median>0?Math.min(median,frameIntervalMs):frameIntervalMs) : median;
-  const onsetBound = onsetInterval>0 ? 2*onsetInterval : gapBound;
+  // Lax layer (owner decision 2026-11-11; issue #155 item 6): the onset
+  // bound keeps a 100 ms floor. The HF shakedown's folio C05/C06 cells show
+  // the glyph arriving 50/66.7/100 ms after the last ink-less DELIVERED
+  // frame while the main thread blocked compositor delivery, and a 2-interval
+  // bound refused every one of them. No evidence asks for more: no refusal
+  // showed an onset gap beyond 100 ms, the delivery-gap bound above stays
+  // untouched (no refusal exceeded it), and a sample whose witness never
+  // painted still never becomes a timing (it has no cover to walk back to).
+  const onsetBound = onsetInterval>0 ? Math.max(2*onsetInterval,ONSET_BOUND_FLOOR_MS) : gapBound;
   const matches=(a,b)=>a.values.length===b.values.length && a.values.every((v,i)=>Math.abs(v-b.values[i])<=tolerance);
   const covers=(f,ref)=>{
     if(f.ink_pixels<minPixels || f.ink_pixels<ref.ink_pixels/2) return false;

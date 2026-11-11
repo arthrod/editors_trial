@@ -30,9 +30,13 @@ def test_honest_render(host, case, expected):
     assert result['content_verified'] is True, result
     assert result['usable_ms'] is not None, result
 
+# 8ac764ae (2026-11-10, "count painted aria-hidden text"): folio and
+# superdoc paint the document inside aria-hidden, so painted aria-hidden text
+# IS the document surface now -- test_fixdoc_surface.py::PaintedAriaHidden
+# carries the replacement assertion -- and 'aria_hidden' left this list.
 @pytest.mark.parametrize('case', [
     'offscreen', 'below_region', 'textarea', 'input', 'opacity_ancestor',
-    'aria_hidden', 'display_none', 'visibility_hidden',
+    'display_none', 'visibility_hidden',
 ])
 def test_hidden_correct_text_cannot_verify(host, case):
     result = content.ContentHosts.check(host, 'b3_fix8_text.html?case='+case, BASE)

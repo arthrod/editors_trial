@@ -31,6 +31,13 @@ function fakePage(mode) {
       },
     },
     evaluate: async (fn, arg) => {
+      // ae64d81a (2026-11-10, "Fix input harness click paint") added the
+      // click-point resolve and the focus read; the fakes answer both.
+      if (fn.name === 'RESOLVE_CLICK_POINTS')
+        return {
+          points: [{ point: 'first_text_line', x: 10, y: 10, line: { top: 5, bottom: 15 }, hit_inside_editable: true }],
+          source: 'text_line_rects',
+        };
       if (fn.name === 'READ_EDITABLE_STATE') {
         return {
           text: body,
@@ -38,14 +45,6 @@ function fakePage(mode) {
           selection_offset: 4,
           active_inside: true,
           anchor_inside: true,
-        };
-      }
-      if (fn.name === 'RESOLVE_CLICK_POINTS') {
-        return {
-          points: [
-            { point: 'page_centre', x: 1, y: 1, hit_inside_editable: true },
-            { point: 'last_text_line', x: 1, y: 1, hit_inside_editable: true },
-          ],
         };
       }
       if (arg && typeof arg === 'object' && (arg.kind || arg.kinds)) {

@@ -459,8 +459,10 @@ def _run_browser_probe(
     corpus_path: Path,
     pairs: int,
     editor_id: str | None = None,
+    workload: str = "micro-paragraphs",
 ) -> dict:
     from perf.runner.browser_hosts import select_fixture
+    from perf.runner.load_timeouts import load_timeout_env, load_timeout_ms
     select_fixture(target, corpus_path)
     node = shutil.which("node") or "node"
     cmd = [
@@ -507,7 +509,15 @@ def _run_browser_probe(
     active = ACTIVE.get()
     with active.begin_sample() if active is not None else nullcontext():
         proc = subprocess.run(
-            cmd, cwd=str(UI), capture_output=True, text=True, timeout=600,
+            cmd,
+            cwd=str(UI),
+            capture_output=True,
+            text=True,
+            # Lax layer (owner 2026-11-11): the probe waits minutes for a big
+            # document to load; this wall clock stays above that wait plus the
+            # edit phase so the probe's own ready timeout governs, not us.
+            timeout=load_timeout_ms(workload) / 1000 + 300,
+            env={**os.environ, **load_timeout_env(workload)},
         )
         record_process(proc)
         if proc.returncode != 0:
@@ -1109,6 +1119,7 @@ def _main() -> int:
                 corpus_path=fixture_path,
                 pairs=args.pairs,
                 editor_id=editor_id,
+                workload=args.workload,
             )
         except Exception as exc:
             reason = "browser_probe: %s" % (exc,)
@@ -1694,6 +1705,7 @@ def _main() -> int:
                 corpus_path=fixture_path,
                 pairs=1,
                 editor_id="plate",
+                workload=args.workload,
             )
             pair0 = puppeteer_payload["pairs"][0]
             driver_checks.append(
