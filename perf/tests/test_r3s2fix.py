@@ -299,3 +299,124 @@ def test_usable_selector_on_an_editable_element_stamps(tmp_path):
     produce a usable stamp, so the session gets past the load gate."""
     result = _typing_session(tmp_path, "typing_fair.html", "#editor")
     assert result.get("failure_reason") != "no_correctness_adapter", result
+
+
+# ---------------------------------------------------------------------------
+# Item 8 (MAJOR 6): a measured unpublishable warm/cold row keeps its
+# publication_block_reason on disk (writer, c22a326e), and the reader counts
+# the launch by name instead of publishing the rest of the cell as though the
+# launch did not exist.
+# ---------------------------------------------------------------------------
+
+
+def test_measured_unpublishable_attempt_keeps_block_reason_on_disk(tmp_path):
+    """c22a326e: _persist_attempt must not pop the block reason — dump_trial
+    requires it when publishable is false, so popping deleted the attempt."""
+    from perf.runner import benchmark_warm_cold as wc
+
+    trial = {
+        "criterion_id": "C03",
+        "editor_id": "plate",
+        "outcome": "measured",
+        "latency_ms": 12.0,
+        "samples_ms": [12.0],
+        "layer": "browser_visible",
+        "boundary": "first_usable",
+        "environment": {"cache_state": "cold"},
+        "publishable": False,
+        "publication_block_reason": "cpu_accounting_unavailable",
+        "cpu_accounting": {"available": False},
+        "accounting_scope": "diagnostic",
+    }
+    attempt_dir = tmp_path / "attempts"
+    attempt_dir.mkdir()
+    path = wc._persist_attempt(attempt_dir, "C03", "plate", dict(trial))
+    attempt = json.loads(Path(path).read_text())
+    assert attempt["outcome"] == "measured"
+    assert attempt["publishable"] is False
+    assert attempt["publication_block_reason"] == "cpu_accounting_unavailable"
+    assert attempt["cpu_accounting"] == {"available": False}
+
+
+def _accounting_jobs(tmp_path):
+    """The reviewer's accounting_cell: 11 good C03 attempts per seed plus the
+    12th launch that only exists as a measured-unpublishable samples row."""
+    roots = []
+    for seed, space in ((1, "acc-a"), (2, "acc-b")):
+        root = _write_job(
+            tmp_path / space,
+            "benchmark_input",
+            "j%d" % seed,
+            seed,
+            range(12),
+            criterion="C03",
+            summary=_summary(
+                "acc-%d" % seed,
+                seed,
+                order=[[i, "plate"] for i in range(12)],
+                hosts={"plate": {"tree_sha256": "tree-a"}},
+            ),
+        )
+        job = root / "benchmark_input" / ("j%d" % seed)
+        attempt = job / "cells" / "0011-plate" / "attempts" / "c03.json"
+        attempt.unlink()
+        sample = {
+            "editor_id": "plate",
+            "criterion_id": "C03",
+            "outcome": "measured",
+            "publishable": False,
+            "publication_block_reason": "cpu_accounting_unavailable",
+            "refusal_code": "cpu_accounting_unavailable",
+            "samples_ms": [20.0],
+        }
+        (job / "samples").mkdir(parents=True, exist_ok=True)
+        (job / "samples" / "0011-plate.json").write_text(json.dumps(sample))
+        roots.append(root)
+    return roots
+
+
+def test_samples_row_for_a_measured_unpublishable_launch_is_named(tmp_path):
+    """The 12th launch must exist in the cell's accounting: a named refusal,
+    never invisible."""
+    roots = _accounting_jobs(tmp_path)
+    cell = cells.read_criterion_cell(roots, "plate", "C03")
+    for group in cell["groups"]:
+        refusals = group.get("refusals") or {}
+        assert refusals.get("cpu_accounting_unavailable") == 1, (
+            "the measured-unpublishable launch must be counted by name: %r" % (refusals,)
+        )
+
+
+def test_unpublishable_attempt_file_counts_as_a_named_refusal(tmp_path):
+    """The production shape post-c22a326e: the attempt file is on disk with
+    its block reason; the reader counts it, not publishes around it."""
+    roots = []
+    for seed, space in ((1, "acc-c"), (2, "acc-d")):
+        root = _write_job(
+            tmp_path / space,
+            "benchmark_input",
+            "j%d" % seed,
+            seed,
+            range(12),
+            criterion="C03",
+            summary=_summary(
+                "acc2-%d" % seed,
+                seed,
+                order=[[i, "plate"] for i in range(12)],
+                hosts={"plate": {"tree_sha256": "tree-a"}},
+            ),
+        )
+        job = root / "benchmark_input" / ("j%d" % seed)
+        attempt = job / "cells" / "0011-plate" / "attempts" / "c03.json"
+        row = json.loads(attempt.read_text())
+        row["publishable"] = False
+        row["publication_block_reason"] = "cpu_accounting_unavailable"
+        attempt.write_text(json.dumps(row))
+        roots.append(root)
+    cell = cells.read_criterion_cell(roots, "plate", "C03")
+    for group in cell["groups"]:
+        refusals = group.get("refusals") or {}
+        assert sum(refusals.values()) == 1, "one launch refused by name: %r" % (refusals,)
+        assert refusals.get("publishable_not_true") == 1
+        stats = group.get("stats") or {}
+        assert stats.get("n") == 11

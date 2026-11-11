@@ -721,7 +721,12 @@ def _build_cell_from_jobs(
             if (path.parent != job / 'samples'
                     or row.get('editor_id') != editor_id or row.get('accounting_scope') == 'diagnostic'
                     or not re.fullmatch(r'\d+-' + re.escape(editor_id), path.stem)
-                    or row.get('outcome') in ('ok', 'measured')):
+                    or (row.get('outcome') in ('ok', 'measured')
+                        and not row.get('refusal_code')
+                        and not row.get('publication_block_reason'))):
+                # A measured samples row that still records a refusal (its
+                # launch produced no publishable attempt) names that launch;
+                # skipping it publishes the cell as though it never ran.
                 continue
             key = _launch_key(run_directory, job, path.stem, qualify=qualify)
             code = refusal_code(row)
