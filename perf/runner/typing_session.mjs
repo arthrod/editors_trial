@@ -46,17 +46,35 @@ for await (const line of lines) {
       await cdp.send('Page.startScreencast', {format:'png', everyNthFrame:1, maxWidth:1280, maxHeight:900});
       recorder.started = true;
       const usableJs = command.usable_js || usableExpression(command.editor_id, command.selector);
-      await page.addInitScript(({usableJs}) => {
+      const usableSelector = command.usable_selector || null;
+      await page.addInitScript(({usableJs, usableSelector}) => {
         window.__b9usable = null;
+        const ready = () => {
+          if (usableSelector) {
+            const el = document.querySelector(usableSelector);
+            return !!(el && el.getBoundingClientRect().height > 0);
+          }
+          try {
+            return Boolean(eval(usableJs));
+          } catch {
+            return false;
+          }
+        };
         const probe = () => {
           if (window.__b9usable !== null) return;
           try {
-            if (eval(usableJs)) window.__b9usable = performance.now();
+            if (ready()) window.__b9usable = performance.now();
           } catch { /* the page is not far enough along to answer */ }
         };
         new MutationObserver(probe).observe(document, {subtree:true, childList:true, attributes:true});
         probe();
-      }, {usableJs});
+        // Wasm hosts set readiness on window without a matching DOM mutation.
+        const tick = () => {
+          probe();
+          if (window.__b9usable === null) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }, {usableJs, usableSelector});
       await page.goto(command.url, {waitUntil:'domcontentloaded', timeout:loadTimeout});
       if (command.ready_js) await page.waitForFunction(command.ready_js, undefined, {timeout:loadTimeout});
       else if (command.ready_selector) await page.locator(command.ready_selector).first().waitFor({timeout:loadTimeout});
@@ -65,17 +83,19 @@ for await (const line of lines) {
       // never appear. Editors whose editable already exists get no click
       // inside the load measurement.
       if (command.load_click_selector) await page.locator(command.load_click_selector).first().click();
-      await page.locator(command.wait_selector || command.selector).first().waitFor({timeout:loadTimeout});
+      const loadWaitSel = command.load_wait_selector || command.wait_selector
+        || command.ready_selector || command.selector;
+      await page.locator(loadWaitSel).first().waitFor({timeout:loadTimeout});
       const usable = await page.evaluate(() => window.__b9usable);
       if (usable === null) {
         result = {usable_ms:null, witness:null, frame_interval_ms:null, load_timeout_ms:loadTimeout, refusal:'no_correctness_adapter'};
       } else {
-      clock = await clockSkew(page, cdp);
-      interval = await frameInterval(page);
+      interval = await frameInterval(page, {frames: 30, timeoutMs: 3000});
       if (typeof interval?.median_ms !== 'number' || !Number.isFinite(interval.median_ms)) {
         result = {usable_ms:usable, witness:null, frame_interval_ms:null, load_timeout_ms:loadTimeout,
           refusal:'frame_interval_unavailable'};
       } else {
+      clock = await clockSkew(page, cdp);
       const witness = await witnessFrame(page, cdp, {baseline, afterPageMs:usable,
         region:{selector:command.present_selector || command.selector}, clockCheck:clock, settleMs:0});
       result = {usable_ms:usable, witness, frame_interval_ms:interval.median_ms, load_timeout_ms:loadTimeout};
@@ -138,7 +158,9 @@ for await (const line of lines) {
     } else if (command.op === 'close') {
       await stopRecorder(cdp);
       await stopChromeTrace(traceBrowser, traceHandle);
-      await context.close(); break;
+      console.log(JSON.stringify({result: {closed: true}}));
+      await context.close();
+      break;
     } else throw Error('unknown operation');
     // B1 injects a fresh universal-selector mask each time. Hundreds of
     // duplicate sheets slow later, unwitnessed edits. Retain the newest mask

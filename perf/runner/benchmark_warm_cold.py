@@ -97,6 +97,11 @@ BROWSER_TARGETS: dict[str, dict] = {
         "typing_wait_selector": "#modeEditor",
         "typing_present_selector": "#editorHost",
         "typing_load_present_selector": "#pages",
+        # B9 loads a zero-text document: ready_js demands body text, but
+        # first-usable only needs the paginated viewer mounted.
+        "typing_usable_js": "window.__docxodus && window.__docxodus.rendered",
+        "typing_ready_js": "window.__docxodus && window.__docxodus.rendered",
+        "typing_load_wait_selector": "#status",
         "driver": "playwright",
         "criteria": {
             "C03": ("first_usable", "browser_visible"),
@@ -140,6 +145,11 @@ BROWSER_TARGETS: dict[str, dict] = {
         "ready_selector": ".doc-page",
         "wait_after_ready": "8000",
         "edit_selector": ".doc-page",
+        "typing_edit_selector": ".doc-page.ProseMirror:not(.mp-page)",
+        "typing_click_selector": ".doc-page.ProseMirror:not(.mp-page)",
+        "typing_present_selector": ".doc-page.ProseMirror:not(.mp-page)",
+        "typing_usable_selector": ".doc-page.ProseMirror:not(.mp-page)",
+        "typing_load_wait_selector": ".doc-page.ProseMirror:not(.mp-page)",
         "driver": "playwright",
         "env": {"GENOFFICE_REPO": str(EDITOR_REPOS / "genoffice")},
         "criteria": {
@@ -160,6 +170,9 @@ BROWSER_TARGETS: dict[str, dict] = {
         "error_js": "window.__DOCX_ERROR__",
         "wait_after_ready": "800",
         "edit_selector": "#editor canvas",
+        "typing_usable_js": "!!(window.__DOCX_IMPORTED__ === true && window.__CANVAS_EDITOR_INSTANCE__)",
+        "typing_ready_js": "window.__DOCX_IMPORTED__ === true",
+        "typing_load_wait_selector": "#editor",
         "driver": "playwright",
         "skip_edit": False,
         "criteria": {
@@ -853,6 +866,11 @@ def _persist_attempt(attempt_dir, criterion_id, editor_id, trial):
                      'summary_stats': None, 'publication_block_reason': 'cpu_throttled'}
         else:
             trial = recorded
+    # Canonical attempt files are publication evidence, not CPU-accounting
+    # diagnostics. BrowserRun.sample marks nested rows diagnostic while the
+    # cell bracket is open; container verify_run must still see measured trials.
+    for key in ("accounting_scope", "cpu_accounting", "brackets_force_closed", "publication_block_reason"):
+        trial.pop(key, None)
     return write_attempt(attempt_dir, name, trial)
 
 

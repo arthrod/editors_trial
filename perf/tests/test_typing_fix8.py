@@ -409,6 +409,8 @@ def test_docxodus_and_superdoc_declare_typing_surfaces():
     from perf.runner.benchmark_warm_cold import BROWSER_TARGETS
 
     assert BROWSER_TARGETS["docxodus"]["typing_edit_selector"] == '#editorHost [contenteditable="true"]'
+    assert BROWSER_TARGETS["docxodus"]["typing_usable_js"] == "window.__docxodus && window.__docxodus.rendered"
+    assert "textContent" not in (BROWSER_TARGETS["docxodus"].get("typing_ready_js") or "")
     assert BROWSER_TARGETS["superdoc"]["typing_edit_selector"]
 
 

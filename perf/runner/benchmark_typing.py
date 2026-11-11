@@ -640,20 +640,35 @@ async def session(target, text, args, directory):
                 click_sel = target.get('typing_click_selector', edit_sel)
                 load_click_sel = target.get('typing_load_click_selector')
                 load_present_sel = target.get('typing_load_present_selector', present_sel)
+                load_wait_sel = (
+                    target.get('typing_load_wait_selector')
+                    or target.get('typing_wait_selector')
+                    or target.get('ready_selector')
+                )
                 model_js = target.get('typing_model_js')
                 ready_js = target['typing_ready_js'] if 'typing_ready_js' in target else target.get('ready_js')
+                usable_selector = target.get('typing_usable_selector')
+                if usable_selector:
+                    # CSP-blocked hosts (genoffice) cannot pass eval-based ready gates.
+                    ready_js = None
                 usable_js = target.get('typing_usable_js') or ready_js
                 editor_id = target.get('editor_id', '')
                 sampler = TypingResourceSampler(resources, page, cdp)
                 sampler.selector = present_sel
                 await sampler.install()
                 await sampler.mark('load_start')
+                ready_selector = (
+                    target.get('typing_ready_selector')
+                    or target.get('typing_load_wait_selector')
+                    or target.get('ready_selector')
+                )
                 load = await bridge.request(op='load', url=target['url'], selector=edit_sel,
                     present_selector=None if load_present_sel == edit_sel else load_present_sel,
                     load_click_selector=load_click_sel,
+                    load_wait_selector=load_wait_sel,
                     wait_selector=target.get('typing_wait_selector'),
-                    usable_js=usable_js, editor_id=editor_id,
-                    ready_selector=target.get('ready_selector'), ready_js=ready_js)
+                    usable_js=usable_js, usable_selector=usable_selector, editor_id=editor_id,
+                    ready_selector=ready_selector, ready_js=ready_js)
                 if load.get('usable_ms') is None:
                     refusal = load.get('refusal') or 'paint_witness_unavailable'
                     code = ('unverified' if refusal == 'no_correctness_adapter'

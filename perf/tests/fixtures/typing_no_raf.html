@@ -1,0 +1,8 @@
+<!doctype html><meta charset="utf-8"><title>no-raf</title>
+<style>#editor {border:1px solid black; width:900px; min-height:200px}</style>
+<div id="editor" contenteditable="true"></div><div class="status-ok">ready</div>
+<script>
+  window.requestAnimationFrame = () => 0;
+  window.cancelAnimationFrame = () => {};
+  window.b6Ready = true;
+</script>

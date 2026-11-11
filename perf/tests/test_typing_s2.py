@@ -63,11 +63,154 @@ def test_bridge_request_uses_unlimited_reader():
     asyncio.run(run())
 
 
-def test_typing_session_refuses_key_without_frame_interval():
-    source = (Path(__file__).parents[1] / "runner/typing_session.mjs").read_text()
-    key = source[source.index("command.op === 'key'") : source.index("command.op === 'enter_edit_mode'")]
-    assert "frame_interval_unavailable" in key
-    assert "interval?.median_ms" in key or "typeof interval?.median_ms" in key or "interval &&" in key
+def test_typing_session_refuses_latency_without_frame_interval(tmp_path):
+    """Drive the real bridge against a fixture whose rAF never fires."""
+    import asyncio
+    import socket
+
+    pytest.importorskip("playwright.async_api")
+    from perf.runner.benchmark_typing import Bridge
+    from perf.runner.browser_hosts import StaticHost
+
+    host = StaticHost(Path(__file__).parent / "fixtures")
+
+    async def run():
+        with socket.socket() as sock:
+            sock.bind(("127.0.0.1", 0))
+            port = sock.getsockname()[1]
+        process = await asyncio.create_subprocess_exec(
+            "node",
+            str(Path(__file__).parents[1] / "runner/typing_session.mjs"),
+            str(port),
+            str(tmp_path / "profile"),
+            "latency",
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        bridge = Bridge(process)
+        try:
+            await asyncio.wait_for(process.stdout.readline(), 30)
+            load = await bridge.request(
+                op="load",
+                url=host.url + "/typing_no_raf.html",
+                selector="#editor",
+                ready_selector=".status-ok",
+                editor_id="plate",
+            )
+            assert load.get("frame_interval_ms") is None
+            assert load.get("refusal") == "frame_interval_unavailable"
+            key = await bridge.request(op="key", char="a", selector="#editor")
+            assert key.get("refusal") == "frame_interval_unavailable"
+        finally:
+            await bridge.request(op="close")
+            process.terminate()
+            await asyncio.wait_for(process.wait(), 15)
+
+    try:
+        asyncio.run(run())
+    finally:
+        host.stop()
+
+
+def test_typing_session_load_witness_on_global_ready_fixture(tmp_path):
+    """Load usable_ms must be set when ready is only a window global."""
+    import asyncio
+    import socket
+
+    pytest.importorskip("playwright.async_api")
+    from perf.runner.benchmark_typing import Bridge
+    from perf.runner.browser_hosts import StaticHost
+
+    host = StaticHost(Path(__file__).parent / "fixtures")
+    usable_js = "window.__TYPING_HOST_READY__ === true"
+
+    async def run():
+        with socket.socket() as sock:
+            sock.bind(("127.0.0.1", 0))
+            port = sock.getsockname()[1]
+        process = await asyncio.create_subprocess_exec(
+            "node",
+            str(Path(__file__).parents[1] / "runner/typing_session.mjs"),
+            str(port),
+            str(tmp_path / "profile-global"),
+            "latency",
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        bridge = Bridge(process)
+        try:
+            await asyncio.wait_for(process.stdout.readline(), 30)
+            load = await bridge.request(
+                op="load",
+                url=host.url + "/typing_global_ready.html",
+                selector="#editor",
+                ready_js=usable_js,
+                usable_js=usable_js,
+                editor_id="canvas",
+            )
+            assert load.get("refusal") != "no_correctness_adapter"
+            assert load.get("usable_ms") is not None
+            assert isinstance(load.get("frame_interval_ms"), (int, float))
+        finally:
+            await bridge.request(op="close")
+            process.terminate()
+            await asyncio.wait_for(process.wait(), 15)
+
+    try:
+        asyncio.run(run())
+    finally:
+        host.stop()
+
+
+def test_typing_session_load_witness_on_fair_fixture(tmp_path):
+    """Load must publish a frame interval on a host with a working rAF loop."""
+    import asyncio
+    import socket
+
+    pytest.importorskip("playwright.async_api")
+    from perf.runner.benchmark_typing import Bridge
+    from perf.runner.browser_hosts import StaticHost
+
+    host = StaticHost(Path(__file__).parent / "fixtures")
+
+    async def run():
+        with socket.socket() as sock:
+            sock.bind(("127.0.0.1", 0))
+            port = sock.getsockname()[1]
+        process = await asyncio.create_subprocess_exec(
+            "node",
+            str(Path(__file__).parents[1] / "runner/typing_session.mjs"),
+            str(port),
+            str(tmp_path / "profile2"),
+            "latency",
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        bridge = Bridge(process)
+        try:
+            await asyncio.wait_for(process.stdout.readline(), 30)
+            load = await bridge.request(
+                op="load",
+                url=host.url + "/typing_fair.html",
+                selector="#editor",
+                ready_selector=".status-ok",
+                editor_id="plate",
+            )
+            assert isinstance(load.get("frame_interval_ms"), (int, float))
+            assert load.get("usable_ms") is not None
+            assert load.get("witness")
+        finally:
+            await bridge.request(op="close")
+            process.terminate()
+            await asyncio.wait_for(process.wait(), 15)
+
+    try:
+        asyncio.run(run())
+    finally:
+        host.stop()
 
 
 def test_typing_stops_when_ten_kept_unreachable(tmp_path):
@@ -134,3 +277,7 @@ def test_typing_stops_when_ten_kept_unreachable(tmp_path):
     skipped = [json.loads(p.read_text()) for p in not_run if json.loads(p.read_text()).get("outcome") == "not_run"]
     assert len(skipped) == 12 - not_kept
     assert {row.get("failure_reason") for row in skipped} == {"typing_sessions_unreachable"}
+    for row in skipped:
+        assert row.get("throughput_chars_s") is None
+        assert row.get("load_ms") is None
+        assert row.get("key_to_paint") is None

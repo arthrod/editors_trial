@@ -24,6 +24,7 @@ export const EDIT_SURFACES = {
     root: '#editorHost [contenteditable="true"]',
     // The host opens in its paginated viewer. Editing happens in the block editor.
     enter: { click: '#modeEditor', ready: 'window.__docxodus && window.__docxodus.editor === true' },
+    usable: '!!(window.__docxodus && window.__docxodus.rendered)',
   },
   superdoc: {
     kind: 'dom',
