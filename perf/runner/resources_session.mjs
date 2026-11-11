@@ -13,6 +13,8 @@ import path from 'node:path';
 import readline from 'node:readline';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { applyResourceBurst } from './resource_burst_edit.mjs';
+
 const here = path.dirname(fileURLToPath(import.meta.url));
 const uiRoot = path.resolve(here, '../../harness/ui');
 
@@ -486,68 +488,14 @@ async function onEvents(params) {
   };
 }
 
-async function readEditorText(selector) {
-  if (!selector) return '';
-  return page.evaluate((sel) => {
-    const el = document.querySelector(sel);
-    if (!el) return '';
-    const tag = String(el.tagName || '').toUpperCase();
-    if ((tag === 'INPUT' || tag === 'TEXTAREA') && 'value' in el) return String(el.value || '');
-    return String(el.innerText || el.textContent || '');
-  }, selector);
-}
-
-function countToken(text, token) {
-  const source = String(text || '');
-  if (!token) return 0;
-  let count = 0;
-  let start = 0;
-  while (true) {
-    const at = source.indexOf(token, start);
-    if (at < 0) return count;
-    count += 1;
-    start = at + token.length;
-  }
-}
-
 async function onEdit(params) {
-  const repetitions = Math.max(0, Number(params.repetitions || 0));
-  const text = params.text || '';
-  if (params.selector) {
-    await page.locator(params.selector).first().click({ timeout: 30000 });
-  }
-  let before = params.selector ? await readEditorText(params.selector) : '';
-  for (let i = 0; i < repetitions; i++) {
-    await page.keyboard.insertText(text);
-  }
-  let after = params.selector ? await readEditorText(params.selector) : '';
-  if (params.checkJs) {
-    const hostResult = await page.evaluate((source) => {
-      try {
-        return eval(source);
-      } catch (err) {
-        return { error: String(err) };
-      }
-    }, params.checkJs);
-    if (hostResult && typeof hostResult === 'object') {
-      const hostBefore = hostResult.before != null ? hostResult.before : hostResult.beforeText;
-      const hostAfter = hostResult.after != null ? hostResult.after : hostResult.afterText;
-      if (hostBefore != null && hostAfter != null) {
-        before = String(hostBefore);
-        after = String(hostAfter);
-      }
-    }
-  }
-  const applied = repetitions > 0 && text.length > 0
-    && countToken(after, text) - countToken(before, text) === repetitions;
-  return {
-    applied,
-    editorText: after,
-    beforeText: before,
-    kind: 'keyboard.insertText',
-    text,
-    repetitions,
-  };
+  const witness = params.witness || opts.editWitness || { mode: 'dom_text' };
+  return applyResourceBurst(page, cdp, {
+    selector: params.selector || opts.editSelector || '',
+    text: params.text || '',
+    repetitions: params.repetitions,
+    witness,
+  });
 }
 
 async function onSave(params) {

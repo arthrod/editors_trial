@@ -35,6 +35,7 @@ if str(REPO) not in sys.path:
 
 from perf.fixtures.docx_workload import workload_docx
 from perf.fixtures.profiles import assert_workload_allowed
+from perf.runner.benchmark_input import CANVAS_HOSTS
 from perf.runner.benchmark_warm_cold import BROWSER_TARGETS, _start_server, _stop_server
 from perf.runner.browser_hosts import select_fixture
 from perf.runner.browser_run import BrowserRun, run_cli, write_json
@@ -57,10 +58,20 @@ RESOURCE_WORKLOADS = (
 )
 
 EDIT_BURST = {
-    "kind": "keyboard.insertText",
+    "kind": "keyboard.type",
     "text": "B8",
     "repetitions": 8,
 }
+
+PAINT_INK_EDITORS = frozenset(CANVAS_HOSTS) | frozenset({"wordcraft", "superdoc"})
+
+
+def _edit_witness(editor_id: str) -> dict:
+    if editor_id == "canvas":
+        return {"mode": "canvas_model"}
+    if editor_id in PAINT_INK_EDITORS:
+        return {"mode": "paint_ink"}
+    return {"mode": "dom_text"}
 
 QUIESCENCE = {
     "no_longtask_s": 2.0,
@@ -816,6 +827,7 @@ class LiveSession:
             "waitAfterReadyMs": wait_ms,
             "editSelector": target.get("edit_selector") or "",
             "saveSelector": target.get("save_selector") or "",
+            "editWitness": _edit_witness(editor_id),
         })
         self.browser_pid = result.get("browserPid")
         self.has_save = bool(target.get("save_selector"))
@@ -826,15 +838,14 @@ class LiveSession:
         self._bridge.request("load", timeout=180)
 
     def edit(self, burst):
+        editor_id = self.ctx["editor_id"]
         params = {
             "selector": (self._target or {}).get("edit_selector") or "",
             "text": burst["text"],
             "repetitions": burst["repetitions"],
+            "witness": _edit_witness(editor_id),
         }
-        check_js = (self._target or {}).get("check_js") or ""
-        if check_js:
-            params["checkJs"] = check_js
-        return self._bridge.request("edit", params, timeout=60)
+        return self._bridge.request("edit", params, timeout=120)
 
     def save(self):
         self._bridge.request("save", {"selector": (self._target or {}).get("save_selector") or ""}, timeout=60)
