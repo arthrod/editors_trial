@@ -68,6 +68,120 @@ def _run_shakedown(run_directory: Path) -> str | None:
     return None
 
 
+def _run_shakedown_job(job: Path) -> str | None:
+    """The first shakedown mark under one job directory only."""
+    cells_dir = job / 'cells'
+    if not cells_dir.is_dir():
+        return None
+    for directory in sorted(cells_dir.glob('*/attempts')):
+        for _path, row in _read_rows(directory):
+            mark = _shakedown_reason(row)
+            if mark:
+                return mark
+    return None
+
+
+def _job_launch_names(job: Path, editor_id: str) -> list[str]:
+    names = []
+    cells_dir = job / 'cells'
+    if not cells_dir.is_dir():
+        return names
+    for directory in sorted(cells_dir.glob('*/attempts')):
+        name = directory.parent.name
+        if name.endswith('-' + editor_id):
+            names.append(name)
+    return names
+
+
+def _seed_block_gate(
+    summaries: list[dict | None], job_pairs: list[tuple[Path, Path]], editor_id: str
+) -> tuple[bool, str | None]:
+    specs, orders = [], []
+    for summary in summaries:
+        if not summary:
+            continue
+        block = summary.get('block')
+        if isinstance(block, dict) and block.get('index'):
+            specs.append(block)
+        order = summary.get('order') or []
+        if order:
+            orders.append({(rep, ed) for rep, ed in order})
+    if specs:
+        ofs = {item['of'] for item in specs if item.get('of')}
+        reps = {item['repetitions'] for item in specs if item.get('repetitions')}
+        indices = [item['index'] for item in specs]
+        if len(ofs) != 1 or len(reps) != 1:
+            return True, 'inconsistent block layout across jobs of one seed'
+        of_val, rep_val = ofs.pop(), reps.pop()
+        if of_val * rep_val != 30:
+            return True, 'block layout does not cover 30 repetitions'
+        if len(set(indices)) != len(indices):
+            return True, 'duplicate block index in one seed'
+        missing = sorted(set(range(1, of_val + 1)) - set(indices))
+        if missing:
+            return True, 'missing blocks %s' % ','.join(map(str, missing))
+    if len(orders) > 1:
+        seen: set = set()
+        overlap = False
+        for reps in orders:
+            if seen & reps:
+                overlap = True
+                break
+            seen |= reps
+        if overlap:
+            single_root = len({run for run, _ in job_pairs}) == 1
+            if not single_root:
+                return True, 'overlapping launch schedules in one seed'
+    return False, None
+
+
+def _block_slice_key(summary: dict | None) -> tuple[int, int] | None:
+    block = (summary or {}).get('block') or {}
+    if block.get('index') and block.get('of'):
+        return int(block['of']), int(block['index'])
+    return None
+
+
+def _filter_job_pairs(
+    job_pairs: list[tuple[Path, Path]], editor_id: str
+) -> tuple[list[tuple[Path, Path]], bool, str | None]:
+    """Drop a duplicate pull of one job; refuse a second run of the same launches."""
+    launch_owner: dict[str, str] = {}
+    block_owner: dict[tuple[int, int], str] = {}
+    qualify = _overlap_qualify_jobs(job_pairs, editor_id)
+    filtered: list[tuple[Path, Path]] = []
+    blocked, block_reason = False, None
+    for run_directory, job in job_pairs:
+        summary = _load_summary(job) or {}
+        run_id = str(summary.get('run_id') or job.name)
+        launches = _job_launch_names(job, editor_id)
+        if not launches:
+            filtered.append((run_directory, job))
+            continue
+        owners = {launch_owner[launch] for launch in launches if launch in launch_owner}
+        if owners == {run_id} and owners:
+            continue
+        if owners - {run_id}:
+            slice_key = _block_slice_key(summary)
+            multi_root = len({run for run, _ in job_pairs}) > 1
+            if slice_key and slice_key in block_owner and block_owner[slice_key] != run_id:
+                blocked = True
+                block_reason = 'launches measured twice: a block was re-run'
+            elif not qualify:
+                blocked = True
+                block_reason = 'launches measured twice: a block was re-run'
+            elif multi_root:
+                blocked = True
+                block_reason = 'launches measured twice: a block was re-run'
+        filtered.append((run_directory, job))
+        for launch in launches:
+            launch_owner.setdefault(launch, run_id)
+        slice_key = _block_slice_key(summary)
+        if slice_key:
+            block_owner.setdefault(slice_key, run_id)
+    return filtered, blocked, block_reason
+
+
 def _trial_block(trial):
     code = refusal_code(trial)
     if code:
@@ -208,14 +322,14 @@ def _iter_attempt_rows(run_directory: Path):
     yield from _attempt_rows_of(run_directory, _job_roots(run_directory))
 
 
-def _attempt_rows_of(run_directory: Path, jobs):
+def _attempt_rows_of(run_directory: Path, jobs, *, qualify: set[Path] | None = None):
     for job in jobs:
         for directory in sorted((job / 'cells').glob('*/attempts')):
             for path, row in _read_rows(directory):
                 # Measured attempts only, never a profiling subtree or a traced repetition.
                 if _diagnostic_trial_path(path) or _diagnostic_trial_row(row):
                     continue
-                yield _launch_key(run_directory, job, directory.parent.name), path, row
+                yield _launch_key(run_directory, job, directory.parent.name, qualify=qualify), path, row
 
 
 def _job_measures(run_directory: Path, job: Path, editor_id: str, criterion_id: str) -> bool:
@@ -263,10 +377,25 @@ def _job_roots(run_directory: Path) -> list[Path]:
     return jobs or [run_directory]
 
 
-def _launch_key(run_directory: Path, job: Path, launch: str) -> str:
-    """Launch identity is per job: a resumed one-editor job numbers its
-    launches from 0000 again, so two jobs must never collide on a name."""
-    return launch if job == Path(run_directory) else '%s/%s' % (job.name, launch)
+def _overlap_qualify_jobs(job_pairs: list[tuple[Path, Path]], editor_id: str) -> set[Path]:
+    """Jobs whose launch names collide within the pool (campaign 2 one-editor jobs)."""
+    owner: dict[str, Path] = {}
+    qualify: set[Path] = set()
+    for _root, job in job_pairs:
+        for name in _job_launch_names(job, editor_id):
+            if name in owner and owner[name] != job:
+                qualify.add(job)
+                qualify.add(owner[name])
+            else:
+                owner[name] = job
+    return qualify
+
+
+def _launch_key(run_directory: Path, job: Path, launch: str, *, qualify: set[Path] | None = None) -> str:
+    """Per-seed names when disjoint; per-job when one-editor jobs reuse rep indices."""
+    if qualify and job in qualify and job != Path(run_directory):
+        return '%s/%s' % (job.name, launch)
+    return launch
 
 
 def _iter_trials(run_directory: Path):
@@ -307,7 +436,7 @@ def _refusal_key(sample_or_trial: dict) -> str:
     return str(reason).split(":", 1)[0].strip()
 
 
-_FIGURE_FIELDS = frozenset({'stats', 'kept_ms', 'raw_samples_ms', 'sub_frame'})
+_FIGURE_FIELDS = frozenset({'stats', 'kept_ms', 'raw_samples_ms', 'sub_frame', 'frame_interval_ms'})
 
 
 def public_cell_dict(cell: dict, *, published: bool = False) -> dict:
@@ -338,17 +467,24 @@ def _build_cell_from_jobs(
             'editor_id': editor_id, 'criterion_id': criterion_id, 'measure': measure, 'workload_id': workload_id,
             'scheduled': 0, 'stats': None, 'blocked': False, 'block_reason': None, 'refusals': {},
         }
+    job_pairs, rerun_blocked, rerun_reason = _filter_job_pairs(job_pairs, editor_id)
     jobs = [job for _, job in job_pairs]
     summaries = [_load_summary(job) for job in jobs]
+    qualify = _overlap_qualify_jobs(job_pairs, editor_id)
+    layout_blocked, layout_reason = _seed_block_gate(summaries, job_pairs, editor_id)
     orders = [summary for summary in summaries if (summary or {}).get('order')]
     scheduled = sum(_scheduled_for_editor(summary, editor_id, 0) for summary in orders) if orders else 0
     run_blocked, block_reason = next(
         ((True, reason) for summary in summaries for blocked, reason in [_run_blocks_publication(summary)] if blocked),
         (False, None),
     )
+    if layout_blocked:
+        run_blocked, block_reason = True, layout_reason
+    elif rerun_blocked:
+        run_blocked, block_reason = True, rerun_reason
     if not run_blocked:
-        for run_directory, _job in job_pairs:
-            mark = _run_shakedown(run_directory)
+        for _run_directory, job in job_pairs:
+            mark = _run_shakedown_job(job)
             if mark:
                 run_blocked, block_reason = True, mark
                 break
@@ -362,7 +498,7 @@ def _build_cell_from_jobs(
     witnessed_cell = False
     verified_content = []
     for run_directory, job in job_pairs:
-        for launch, path, trial in _attempt_rows_of(run_directory, [job]):
+        for launch, path, trial in _attempt_rows_of(run_directory, [job], qualify=qualify):
             if trial.get('refusal_code') == 'unreadable_trial' and launch.endswith('-' + editor_id):
                 if launch in refused_launches:
                     additional[launch].add(refused_launches[launch])
@@ -384,7 +520,7 @@ def _build_cell_from_jobs(
     for run_directory, job in job_pairs:
         for path in (job / 'rejected-evidence').glob('*'):
             if path.is_dir() and path.name.endswith('-' + editor_id):
-                key = _launch_key(run_directory, job, path.name)
+                key = _launch_key(run_directory, job, path.name, qualify=qualify)
                 if key in refused_launches:
                     additional[key].add(refused_launches[key])
                 refused_launches[key] = 'quarantined'
@@ -394,7 +530,7 @@ def _build_cell_from_jobs(
                     or not re.fullmatch(r'\d+-' + re.escape(editor_id), path.stem)
                     or row.get('outcome') in ('ok', 'measured')):
                 continue
-            key = _launch_key(run_directory, job, path.stem)
+            key = _launch_key(run_directory, job, path.stem, qualify=qualify)
             code = refusal_code(row)
             if code and refused_launches.get(key) in ('quarantined', 'unreadable_trial'):
                 additional[key].add(code)
@@ -540,9 +676,14 @@ def _criterion_cell_block(seeds, groups, by_seed, editor_id: str) -> str | None:
     missing = _criterion_block(seeds, groups)
     if missing:
         return missing
-    pins = [_criterion_pins(by_seed[seed], editor_id) for seed in seeds]
-    if any(not pin or len(pin) != 1 for pin in pins):
-        return 'the built editor is not recorded'
+    pins = []
+    for name, seed in zip(('first', 'second'), seeds):
+        pin = _criterion_pins(by_seed[seed], editor_id)
+        if not pin:
+            return 'the built editor is not recorded'
+        if len(pin) > 1:
+            return '%s seed: more than one editor build recorded' % name
+        pins.append(pin)
     if pins[0] != pins[1]:
         return 'the two seeds measured different editor builds'
     return None
