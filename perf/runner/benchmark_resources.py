@@ -706,6 +706,9 @@ def _target_copy(editor_id):
     port = _free_port()
     host = parts.hostname or "127.0.0.1"
     target["url"] = urlunsplit((parts.scheme, "%s:%d" % (host, port), parts.path, parts.query, parts.fragment))
+    # wordcraft-host/server.mjs listens on PORT (default 5219) and does not read the URL.
+    if editor_id == "wordcraft":
+        target["env"] = {**(target.get("env") or {}), "PORT": str(port)}
     return target
 
 
@@ -782,7 +785,7 @@ class LiveSession:
         select_fixture(target, Path(self.ctx["fixture_path"]))
         self._target = target
         self._server = _start_server(editor_id, target)
-        self.server_pid = os.getpid()
+        self.server_pid = getattr(self._server, "pid", None) or os.getpid()
         profile = Path(run.directory) / "profiles" / editor_id / uuid.uuid4().hex
         profile.mkdir(parents=True, exist_ok=True)
         self.profile_dir = profile
