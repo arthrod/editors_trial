@@ -71,48 +71,58 @@ def _records(job: Path):
             yield path.parent.name, record
 
 
-def _resource_jobs(roots):
-    for root in roots:
-        for job in cells._job_roots(Path(root)):
+def _resource_job_pairs(roots):
+    for root in map(Path, roots):
+        for job in cells._job_roots(root):
             summary = cells._load_summary(job) or {}
             if summary.get('runner') == 'benchmark_resources' or job.parent.name == 'benchmark_resources':
-                yield job, summary
+                yield root, job, summary
 
 
-def read_cell(roots, editor: str, workload: str) -> dict:
-    groups: dict = {}
-    for job, summary in _resource_jobs(roots):
+def _job_matches_workload(job: Path, summary: dict, editor: str, workload: str) -> bool:
+    mine = [(launch, record) for launch, record in _records(job)
+            if launch.endswith('-' + editor) and record.get('workload_id') == workload
+            and record.get('editor_id', editor) == editor]
+    if mine:
+        return True
+    scheduled = cells._scheduled_for_editor(summary, editor, 0)
+    if scheduled and workload in json.dumps(summary.get('argv') or summary.get('options') or ''):
+        return True
+    return False
+
+
+def _aggregate_seed(entries, editor: str, workload: str) -> dict:
+    entries = [(root, job, summary) for root, job, summary in entries
+               if _job_matches_workload(job, summary, editor, workload)]
+    group = {
+        'scheduled': 0, 'kept': [], 'refusals': Counter(), 'errors': Counter(), 'never_idle': 0,
+        'blocked': None, 'pins': set(),
+    }
+    if not entries:
+        return group
+    job_pairs = [(root, job) for root, job, _summary in entries]
+    job_pairs, rerun_blocked, rerun_reason = cells._filter_job_pairs(job_pairs, editor, qualify_keys=False)
+    if rerun_blocked:
+        group['blocked'] = rerun_reason
+        return group
+    summaries = [cells._load_summary(job) or {} for _root, job in job_pairs]
+    layout_blocked, layout_reason = cells._seed_block_gate(summaries, job_pairs, editor)
+    if layout_blocked:
+        group['blocked'] = layout_reason
+        return group
+    job_by_path = {job: summary for _root, job, summary in entries}
+    for root, job in job_pairs:
+        summary = job_by_path.get(job) or cells._load_summary(job) or {}
         mine = [(launch, record) for launch, record in _records(job)
                 if launch.endswith('-' + editor) and record.get('workload_id') == workload
                 and record.get('editor_id', editor) == editor]
         scheduled = cells._scheduled_for_editor(summary, editor, 0)
-        if not mine and not scheduled:
-            continue
-        if not mine:
-            # A job that wrote no record still names its document in its options.
-            if workload not in json.dumps(summary.get('argv') or summary.get('options') or ''):
-                continue
-        group = groups.setdefault(summary.get('seed'), {
-            'scheduled': 0, 'kept': [], 'refusals': Counter(), 'errors': Counter(), 'never_idle': 0,
-            'blocked': None, 'pins': set(), 'launches': {},
-        })
-        # A launch name is one launch of the seed's schedule. The same run
-        # pulled twice counts once; a second run of the same launches is a
-        # re-run, and which one to keep is not the reader's choice.
-        run_id = summary.get('run_id') or str(job)
-        owners = {group['launches'].get(launch) for launch, _record in mine} - {None}
-        if owners == {run_id}:
-            continue
-        if owners and not group['blocked']:
-            group['blocked'] = 'launches measured twice: a block was re-run'
-        for launch, _record in mine:
-            group['launches'].setdefault(launch, run_id)
         group['scheduled'] += scheduled or len(mine)
         blocked, why = cells._run_blocks_publication(summary)
         if blocked and not group['blocked']:
             group['blocked'] = str(why)
-        tree = ((summary.get('hosts') or {}).get(editor) or {}).get('tree_sha256')
-        group['pins'].add(tree if isinstance(tree, str) and tree else None)
+        pin = cells.build_identity(summary, editor, [record for _launch, record in mine])
+        group['pins'].add(pin)
         for _launch, record in mine:
             reason = launch_refusal(record)
             if reason:
@@ -123,6 +133,14 @@ def read_cell(roots, editor: str, workload: str) -> dict:
             group['kept'].append(record)
             if 'capped' in (record.get('settle') or {}).values():
                 group['never_idle'] += 1
+    return group
+
+
+def read_cell(roots, editor: str, workload: str) -> dict:
+    by_seed: dict = {}
+    for root, job, summary in _resource_job_pairs(roots):
+        by_seed.setdefault(summary.get('seed'), []).append((root, job, summary))
+    groups: dict = {seed: _aggregate_seed(entries, editor, workload) for seed, entries in by_seed.items()}
     seeds = sorted(groups, key=lambda seed: (seed is None, seed))
     ordered = [groups[seed] for seed in seeds]
     errors = Counter()

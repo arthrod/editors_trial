@@ -694,6 +694,18 @@ def _typing_group_for_seed(roots, editor, kind, seed):
 _TYPING_FIGURE_FIELDS = frozenset({'kept', 'progress'})
 
 
+def _typing_progress_for_table(progress) -> list:
+    """Progress without wall-clock fields on withheld cells (NIT G)."""
+    cleaned = []
+    for item in progress or ():
+        if not isinstance(item, dict):
+            continue
+        note = {key: value for key, value in item.items() if key not in ('elapsed_s', 'session_wall_s')}
+        if note:
+            cleaned.append(note)
+    return cleaned
+
+
 def _typing_facts_group(group, fields, *, published: bool = False):
     if published:
         return {**group, "kept": [{name: row[name] for name in fields if name in row} for row in group["kept"]]}
@@ -715,9 +727,18 @@ def typing_table(facts, roots, editor, kind):
     reasons = []
     for name, group in zip(('first', 'second'), groups):
         if group['blocked'] or group['scheduled'] != 12 or len(group['kept']) < 10:
-            reasons.append(f"{name}: not enough sessions or run blocked (n = {len(group['kept'])} of {group['scheduled']}; {group['block_reason'] or group['refusals']}); progress {group['progress']}")
+            progress = _typing_progress_for_table(group['progress'])
+            suffix = f"; progress {progress}" if progress else ""
+            reasons.append(
+                f"{name}: not enough sessions or run blocked (n = {len(group['kept'])} of {group['scheduled']}; "
+                f"{group['block_reason'] or group['refusals']}){suffix}"
+            )
     if reasons:
         return label + ': ' + '; '.join(reasons) + instrumented
+    builds = [group.get('build_pin') for group in groups]
+    if builds[0] is None or builds[1] is None or builds[0] != builds[1]:
+        facts[key + '.reproduced'] = False
+        return label + ': the two seeds measured different editor builds' + instrumented
     try:
         check_roots_comparable(roots)
     except ValueError as exc:

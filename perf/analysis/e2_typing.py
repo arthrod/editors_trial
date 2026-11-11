@@ -142,6 +142,16 @@ def _sessions_from_jobs(job_pairs: list[tuple[Path, Path]], editor: str, kind: s
         blocked = True
         reason = next((summary.get('failure_reason') for summary in policy if summary.get('failure_reason')), None) or 'run policy'
     seeds = {summary.get('seed') for summary in summaries if summary.get('seed') is not None}
+    pins = set()
+    for summary in summaries:
+        pin = cells.build_identity(summary, editor)
+        if pin:
+            pins.add(pin)
+    for row in kept:
+        pin = cells.editor_pin(row)
+        if pin:
+            pins.add(pin)
+    build_pin = next(iter(pins)) if len(pins) == 1 else None
     return dict(
         scheduled=scheduled,
         kept=kept,
@@ -149,5 +159,6 @@ def _sessions_from_jobs(job_pairs: list[tuple[Path, Path]], editor: str, kind: s
         progress=progress,
         blocked=blocked,
         block_reason=reason,
+        build_pin=build_pin,
         seed=seeds.pop() if len(seeds) == 1 else None,
     )

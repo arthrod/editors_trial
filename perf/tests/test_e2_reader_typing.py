@@ -204,7 +204,7 @@ def test_typing_reproduction_requires_same_editor_build_tree(runs):
             row['host_provenance'] = {'host_build': 'production', 'publishable': True, 'tree_sha256': tree}
             path.write_text(json.dumps(row))
     text = render(runs, 'throughput')
-    assert 'other editor pins' in text
+    assert 'different editor builds' in text or 'other editor pins' in text
     assert '123 chars/s' not in text
 
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 from pathlib import Path
+import hashlib
 import json
 import sys
 import re
@@ -20,6 +21,20 @@ _REFUSAL_OUTCOMES = frozenset(
     {"failed", "refused", "not_applicable", "unsupported", "unverified", "not_run"}
 )
 from perf.runner.refusals import RUN_REFUSALS as _RUN_REFUSALS, refusal_code
+
+
+def build_identity(summary: dict | None, editor_id: str, rows: list[dict] | None = None) -> str | None:
+    """Built-editor identity: summary ``hosts`` first, trial provenance as fallback (#149)."""
+    host = ((summary or {}).get('hosts') or {}).get(editor_id) or {}
+    if isinstance(host, dict):
+        tree = host.get('tree_sha256')
+        if isinstance(tree, str) and tree:
+            return tree
+    for row in rows or ():
+        pin = editor_pin(row)
+        if pin:
+            return pin
+    return None
 
 
 def editor_pin(row):
@@ -90,7 +105,55 @@ def _job_launch_names(job: Path, editor_id: str) -> list[str]:
         name = directory.parent.name
         if name.endswith('-' + editor_id):
             names.append(name)
+    suffix = '-' + editor_id
+    for directory in sorted(cells_dir.iterdir()):
+        if not directory.is_dir() or directory.name in names:
+            continue
+        if directory.name.endswith(suffix) and (directory / 'resource.json').is_file():
+            names.append(directory.name)
     return names
+
+
+def _job_run_fingerprint(job: Path, editor_id: str) -> tuple[frozenset[str], str]:
+    """Launch set and content hash for one job; used to compare duplicate pulls."""
+    launches = _job_launch_names(job, editor_id)
+    launch_set = frozenset(launches)
+    digests: list[str] = []
+    for launch in sorted(launches):
+        cell = job / 'cells' / launch
+        attempts = cell / 'attempts'
+        if attempts.is_dir():
+            for path in sorted(attempts.glob('*.json')):
+                try:
+                    digests.append(hashlib.sha256(path.read_bytes()).hexdigest())
+                except OSError:
+                    digests.append('unreadable')
+        elif (cell / 'resource.json').is_file():
+            try:
+                digests.append(hashlib.sha256((cell / 'resource.json').read_bytes()).hexdigest())
+            except OSError:
+                digests.append('unreadable')
+    body = '%s:%s' % (','.join(sorted(launch_set)), ','.join(digests))
+    return launch_set, hashlib.sha256(body.encode()).hexdigest()
+
+
+def _same_root_duplicate_whole_schedule(
+    job_pairs: list[tuple[Path, Path]], editor_id: str
+) -> bool:
+    """Two whole jobs in one root that repeated the same full launch list (#154)."""
+    roots = {run for run, _ in job_pairs}
+    if len(roots) != 1:
+        return False
+    jobs = [job for _run, job in job_pairs]
+    if any(_block_slice_key(_load_summary(job)) for job in jobs):
+        return False
+    sets = [frozenset(_job_launch_names(job, editor_id)) for job in jobs]
+    if len(sets) < 2:
+        return False
+    full = sets[0]
+    if len(full) < 30:
+        return False
+    return len({s for s in sets}) == 1
 
 
 def _seed_block_gate(
@@ -106,6 +169,8 @@ def _seed_block_gate(
         order = summary.get('order') or []
         if order:
             orders.append({(rep, ed) for rep, ed in order})
+    if _same_root_duplicate_whole_schedule(job_pairs, editor_id):
+        return True, 'overlapping launch schedules in one seed'
     if specs:
         ofs = {item['of'] for item in specs if item.get('of')}
         reps = {item['repetitions'] for item in specs if item.get('repetitions')}
@@ -129,8 +194,8 @@ def _seed_block_gate(
                 break
             seen |= reps
         if overlap:
-            single_root = len({run for run, _ in job_pairs}) == 1
-            if not single_root:
+            qualify = _overlap_qualify_jobs(job_pairs, editor_id)
+            if not qualify:
                 return True, 'overlapping launch schedules in one seed'
     return False, None
 
@@ -143,25 +208,59 @@ def _block_slice_key(summary: dict | None) -> tuple[int, int] | None:
 
 
 def _filter_job_pairs(
-    job_pairs: list[tuple[Path, Path]], editor_id: str
+    job_pairs: list[tuple[Path, Path]], editor_id: str, *, qualify_keys: bool = True
 ) -> tuple[list[tuple[Path, Path]], bool, str | None]:
     """Drop a duplicate pull of one job; refuse a second run of the same launches."""
+    seen_pairs: set[tuple[str, str]] = set()
+    unique_pairs: list[tuple[Path, Path]] = []
+    for run_directory, job in job_pairs:
+        key = (str(run_directory), str(job))
+        if key in seen_pairs:
+            continue
+        seen_pairs.add(key)
+        unique_pairs.append((run_directory, job))
+    job_pairs = unique_pairs
     launch_owner: dict[str, str] = {}
+    bare_owner: dict[str, str] = {}
     block_owner: dict[tuple[int, int], str] = {}
-    qualify = _overlap_qualify_jobs(job_pairs, editor_id)
+    qualify = _overlap_qualify_jobs(job_pairs, editor_id) if qualify_keys else set()
     filtered: list[tuple[Path, Path]] = []
     blocked, block_reason = False, None
+    skip_jobs: set[Path] = set()
+    by_run_id: dict[str, list[tuple[Path, Path, tuple[frozenset[str], str]]]] = defaultdict(list)
     for run_directory, job in job_pairs:
+        summary = _load_summary(job) or {}
+        run_id = str(summary.get('run_id') or job.name)
+        launches = _job_launch_names(job, editor_id)
+        if launches:
+            by_run_id[run_id].append((run_directory, job, _job_run_fingerprint(job, editor_id)))
+    for run_id, copies in by_run_id.items():
+        if len(copies) == 1:
+            continue
+        fingerprints = {fp for _root, _job, fp in copies}
+        if len(fingerprints) > 1:
+            blocked = True
+            block_reason = 'duplicate run_id with conflicting copies'
+        else:
+            for _root, job, _fp in sorted(copies, key=lambda item: (str(item[0]), str(item[1])))[1:]:
+                skip_jobs.add(job)
+    if blocked:
+        return [], True, block_reason
+    for run_directory, job in job_pairs:
+        if job in skip_jobs:
+            continue
         summary = _load_summary(job) or {}
         run_id = str(summary.get('run_id') or job.name)
         launches = _job_launch_names(job, editor_id)
         if not launches:
             filtered.append((run_directory, job))
             continue
-        owners = {launch_owner[launch] for launch in launches if launch in launch_owner}
+        keys = [_launch_key(run_directory, job, launch, qualify=qualify) for launch in launches]
+        owners = {launch_owner[key] for key in keys if key in launch_owner}
         if owners == {run_id} and owners:
             continue
-        if owners - {run_id}:
+        bare_owners = {bare_owner[launch] for launch in launches if launch in bare_owner}
+        if bare_owners - {run_id}:
             slice_key = _block_slice_key(summary)
             multi_root = len({run for run, _ in job_pairs}) > 1
             if slice_key and slice_key in block_owner and block_owner[slice_key] != run_id:
@@ -175,7 +274,8 @@ def _filter_job_pairs(
                 block_reason = 'launches measured twice: a block was re-run'
         filtered.append((run_directory, job))
         for launch in launches:
-            launch_owner.setdefault(launch, run_id)
+            bare_owner.setdefault(launch, run_id)
+            launch_owner.setdefault(_launch_key(run_directory, job, launch, qualify=qualify), run_id)
         slice_key = _block_slice_key(summary)
         if slice_key:
             block_owner.setdefault(slice_key, run_id)
@@ -374,7 +474,7 @@ def _job_roots(run_directory: Path) -> list[Path]:
         for campaign in sorted((run_directory / 'runs').iterdir()):
             if campaign.is_dir():
                 jobs.extend(_job_roots(campaign))
-    return jobs or [run_directory]
+    return jobs
 
 
 def _overlap_qualify_jobs(job_pairs: list[tuple[Path, Path]], editor_id: str) -> set[Path]:
@@ -488,6 +588,27 @@ def _build_cell_from_jobs(
             if mark:
                 run_blocked, block_reason = True, mark
                 break
+    if run_blocked:
+        return {
+            'editor_id': editor_id,
+            'criterion_id': criterion_id,
+            'measure': measure,
+            'workload_id': workload_id,
+            'sample_unit': 'bytes' if criterion_id in ('C17', 'C19') else 'ms',
+            'witnessed': False,
+            'scheduled': scheduled,
+            'kept_ms': [],
+            'raw_samples_ms': [],
+            'sub_frame': [],
+            'refusals': {},
+            'additional_refusals': {},
+            'content_verified': False,
+            'failed_launches': 0,
+            'frame_interval_ms': None,
+            'stats': None,
+            'blocked': True,
+            'block_reason': block_reason,
+        }
     kept, raw, sub_frame, intervals = [], [], [], []
     refusals = Counter()
     sample_unit = 'bytes' if criterion_id in ('C17', 'C19') else 'ms'
