@@ -69,8 +69,12 @@ def _downward_probe(**overrides):
 
 class C12DownwardMove(unittest.TestCase):
     def test_hf_downward_anchor_is_a_sample(self):
-        sample = bd.c12_measured_sample(_downward_probe())
-        self.assertEqual(sample, 40.0)
+        # An unproven y-shift (moved is not true) is not a sample, even when
+        # the recorded tops are lower. A probe that says the anchor moved is.
+        with self.assertRaises(bd.ProbeRefusal) as caught:
+            bd.c12_measured_sample(_downward_probe())
+        self.assertIn("did not move down", caught.exception.reason)
+        self.assertEqual(bd.c12_measured_sample(_downward_probe(moved=True)), 40.0)
 
     def test_equal_top_still_refuses(self):
         probe = _downward_probe(anchor_top_after=1708.703125)
