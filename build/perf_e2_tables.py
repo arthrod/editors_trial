@@ -520,8 +520,24 @@ def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
     return facts_from_roots([primary_dir, repro_dir])
 
 
+def _require_campaign_roots(roots) -> list[Path]:
+    if not isinstance(roots, list):
+        raise TypeError('report_e2_runs.json "roots" must be a list of campaign directories')
+    if not roots:
+        raise ValueError('report_e2_runs.json "roots" must name at least one campaign directory')
+    resolved = []
+    for root in roots:
+        path = Path(root)
+        if not path.is_dir():
+            raise FileNotFoundError('campaign root does not exist: %s' % path)
+        if not e2_cells._job_roots(path):
+            raise ValueError('no measured jobs under %s' % path)
+        resolved.append(path)
+    return resolved
+
+
 def facts_from_roots(roots) -> dict:
-    roots = [Path(r) for r in roots]
+    roots = _require_campaign_roots(roots)
     classic = len(roots) == 2 and all((root / "summary.json").is_file() for root in roots)
     if classic:
         primary, repro = load_run(roots[0]), load_run(roots[1])
@@ -656,33 +672,32 @@ def fmt_resource(value, unit="bytes") -> str:
 
 
 def _typing_group_for_seed(roots, editor, kind, seed):
-    from perf.analysis.e2_typing import read_sessions
-    from collections import Counter
+    from perf.analysis import e2_cells
+    from perf.analysis.e2_typing import _sessions_from_jobs
 
-    parts = []
+    job_pairs = []
     for root in roots:
-        group = read_sessions(Path(root), editor, kind)
-        if group.get("seed") not in (None, seed):
-            continue
-        if group.get("scheduled") or group.get("kept") or group.get("blocked"):
-            parts.append(group)
-    if not parts:
+        root = Path(root)
+        for job in e2_cells._lane_jobs(root, e2_cells._job_roots(root), editor, 'TYPING'):
+            summary = e2_cells._load_summary(job) or {}
+            if summary.get('seed') not in (None, seed):
+                continue
+            if summary.get('order') or (job / 'cells').is_dir():
+                job_pairs.append((root, job))
+    if not job_pairs:
         return dict(scheduled=0, kept=[], refusals={}, blocked=True, block_reason="not in these runs", progress=[], seed=seed)
-    merged = dict(parts[0])
-    for part in parts[1:]:
-        merged["scheduled"] = merged.get("scheduled", 0) + part.get("scheduled", 0)
-        merged["kept"] = (merged.get("kept") or []) + (part.get("kept") or [])
-        merged["refusals"] = dict(Counter(merged.get("refusals") or {}) + Counter(part.get("refusals") or {}))
-        merged["blocked"] = merged.get("blocked") or part.get("blocked")
-        merged["block_reason"] = merged.get("block_reason") or part.get("block_reason")
-    merged["seed"] = seed
-    return merged
+    group = _sessions_from_jobs(job_pairs, editor, kind)
+    group["seed"] = seed
+    return group
 
 
-def _typing_facts_group(group, fields):
-    if group.get("blocked") or len(group.get("kept") or []) < 10:
-        return {key: value for key, value in group.items() if key != "kept"}
-    return {**group, "kept": [{name: row[name] for name in fields if name in row} for row in group["kept"]]}
+_TYPING_FIGURE_FIELDS = frozenset({'kept', 'progress'})
+
+
+def _typing_facts_group(group, fields, *, published: bool = False):
+    if published:
+        return {**group, "kept": [{name: row[name] for name in fields if name in row} for row in group["kept"]]}
+    return {key: value for key, value in group.items() if key not in _TYPING_FIGURE_FIELDS}
 
 
 def typing_table(facts, roots, editor, kind):
@@ -695,8 +710,6 @@ def typing_table(facts, roots, editor, kind):
     groups = [_typing_group_for_seed(roots, editor, kind, seed) for seed in seeds[:2]]
     key = f'perf.e2.{editor}.TYPING.{kind}'
     fields = ('load_ms', 'key_to_paint') if kind == 'latency' else ('throughput_chars_s', 'resources', 'resource_endpoints')
-    public_groups = [_typing_facts_group(group, fields) for group in groups]
-    facts[key + '.primary'], facts[key + '.reproduction'] = public_groups
     facts[key + '.reproduced'] = False
     instrumented = ' Latency-session throughput and resources are instrumented; figures withheld.' if kind == 'latency' else ''
     reasons = []
@@ -706,14 +719,15 @@ def typing_table(facts, roots, editor, kind):
     if reasons:
         return label + ': ' + '; '.join(reasons) + instrumented
     try:
-        if len(roots) == 2:
-            check_comparable(*(Run(Path(root), {**_summary(Path(root)), 'publishable': True}) for root in roots))
-        else:
-            check_roots_comparable(roots)
+        check_roots_comparable(roots)
     except ValueError as exc:
+        facts[key + '.primary'] = _typing_facts_group(groups[0], fields)
+        facts[key + '.reproduction'] = _typing_facts_group(groups[1], fields)
         return label + ': ' + str(exc) + instrumented
     # Fixture identity is part of the experiment, including across seeds.
     if len({(row['fixture_sha256'], row['typed_text_sha256']) for group in groups for row in group['kept']}) != 1:
+        facts[key + '.primary'] = _typing_facts_group(groups[0], fields)
+        facts[key + '.reproduction'] = _typing_facts_group(groups[1], fields)
         return label + ': fixture mismatch' + instrumented
     values = []
     for group in groups:
@@ -753,6 +767,9 @@ def typing_table(facts, roots, editor, kind):
             refused = sum(row['key_to_paint']['n_refused'] for row in group['kept'])
             lines.append(f'{name}: accepted {accepted}; refused {refused} key witnesses.')
     facts[key + '.reproduced'] = all_reproduced
+    published = all_reproduced
+    facts[key + '.primary'] = _typing_facts_group(groups[0], fields, published=published)
+    facts[key + '.reproduction'] = _typing_facts_group(groups[1], fields, published=published)
     return '\n'.join(lines)
 
 
