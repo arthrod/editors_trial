@@ -49,5 +49,10 @@ def campaign_provenance(roots):
                     cpu_throttle_refused_samples=summary.get('cpu_throttle_refused_samples'),
                 )
             )
+        if not jobs and not (root / 'RUN.log').is_file():
+            raise ValueError(
+                f'campaign root has no runs/ and no campaign jobs: {root} '
+                '(pass a Space directory containing runs/, or a campaign directory)'
+            )
         records.append(dict(space=space, campaign=str(root), cpu_affinity_pinned=affinity, jobs=jobs))
     return records

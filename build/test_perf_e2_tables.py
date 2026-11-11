@@ -411,8 +411,14 @@ def fake_legacy_tree(fs):
 
 @pytest.mark.parametrize('left,right', [(True, False), (False, True)])
 def test_both_run_verdicts_required(runs, left, right):
-    change_summary(runs[0], publishable=left)
-    change_summary(runs[1], publishable=right)
+    # A genuinely blocked run (real publication_block_reason, as the runner
+    # writes for cpu-accounting loss or dirty repos) on either side refuses.
+    # publishable False alone is the job-summary shape whose publishability
+    # lives in the trials (see test_job_summaries_delegate_publishability).
+    change_summary(runs[0], publishable=left,
+                   **({} if left else {'publication_block_reason': 'cpu_accounting_unavailable'}))
+    change_summary(runs[1], publishable=right,
+                   **({} if right else {'publication_block_reason': 'cpu_accounting_unavailable'}))
     assert 'unpublishable' in table(runs)
     assert E2.facts_from_runs(*runs)['perf.e2.cells_reproduced'] == 0
 
@@ -557,6 +563,18 @@ def test_sub_frame_share_counts_launch_medians_not_clicks(runs):
         _write_trial(root, 0, 'plate', 'C07', outcome='measured',
                      samples=[8]*100, sub_frame_samples=[True]*100)
     assert '10% sub-frame launches' in table(runs)
+
+
+def test_job_summaries_delegate_publishability_to_trials(runs):
+    # browser_run.py hardwires job summaries to publishable False and sets
+    # publication_block_reason only for cpu-accounting loss or dirty repos;
+    # publishability rides on each trial. A job summary in that real shape
+    # must not blank every timing cell behind "publishable not true".
+    for root in runs:
+        change_summary(root, publishable=False)
+    assert 'unpublishable' not in table(runs)
+    assert '100.0 ms' in table(runs)
+    assert E2.facts_from_runs(*runs)['perf.e2.plate.C07.reproduced'] is True
 
 
 def test_quarantine_refusals_are_scoped_to_editor(runs):

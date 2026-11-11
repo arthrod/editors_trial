@@ -74,24 +74,26 @@ def resource_values(value, prefix=''):
 
 
 def read_sessions(root: Path, editor: str, kind: str):
-    summary = cells._load_summary(root) or {}
-    scheduled = cells._scheduled_for_editor(summary, editor, 0)
+    jobs = cells._lane_jobs(root, cells._job_roots(root), editor, 'TYPING')
+    summaries = [cells._load_summary(job) or {} for job in jobs]
+    orders = [summary for summary in summaries if summary.get('order')]
+    scheduled = sum(cells._scheduled_for_editor(summary, editor, 0) for summary in orders) if orders else 0
     grouped = defaultdict(list)
     vetoes = {}
-    for path, row in cells._iter_attempt_rows(root):
-        launch = path.relative_to(root / 'cells').parts[0]
+    for launch, path, row in cells._attempt_rows_of(root, jobs):
         if row.get('refusal_code') == 'unreadable_trial' and launch.endswith('-' + editor):
             vetoes[launch] = 'unreadable_trial'
         if row.get('editor_id') == editor and row.get('criterion_id') == 'TYPING' and row.get('session_kind') == kind:
             grouped[launch].append(row)
-    for path, row in cells._read_rows(root / 'samples'):
-        if path.parent == root / 'samples' and row.get('editor_id') == editor:
-            code = cells.refusal_code(row)
-            if code in cells._RUN_REFUSALS:
-                vetoes[path.stem] = code
-    for path in (root / 'rejected-evidence').glob('*'):
-        if path.is_dir() and path.name.endswith('-' + editor):
-            vetoes[path.name] = 'quarantined'
+    for job in jobs:
+        for path, row in cells._read_rows(job / 'samples'):
+            if path.parent == job / 'samples' and row.get('editor_id') == editor:
+                code = cells.refusal_code(row)
+                if code in cells._RUN_REFUSALS:
+                    vetoes[cells._launch_key(root, job, path.stem)] = code
+        for path in (job / 'rejected-evidence').glob('*'):
+            if path.is_dir() and path.name.endswith('-' + editor):
+                vetoes[cells._launch_key(root, job, path.name)] = 'quarantined'
     kept, progress = [], []
     refusals = Counter()
     for launch in sorted(set(grouped) | set(vetoes)):
@@ -102,13 +104,21 @@ def read_sessions(root: Path, editor: str, kind: str):
             progress.extend(row['progress'] for row in rows if row.get('progress'))
         else:
             kept.append(rows[0])
-    blocked, reason = cells._run_blocks_publication(summary)
-    if (
-        summary.get('failure_reason')
+    blocked, reason = next(
+        ((True, why) for summary in summaries for blocked, why in [cells._run_blocks_publication(summary)] if blocked),
+        (False, None),
+    )
+    policy = [
+        summary
+        for summary in summaries
+        if summary.get('failure_reason')
         or summary.get('execution_profile') != 'dedicated_publish'
         or summary.get('host_class') not in ('dedicated', 'shared_guarded')
-    ):
-        blocked, reason = True, summary.get('failure_reason') or 'run policy'
+    ]
+    if policy:
+        blocked = True
+        reason = next((summary.get('failure_reason') for summary in policy if summary.get('failure_reason')), None) or 'run policy'
+    seeds = {summary.get('seed') for summary in summaries if summary.get('seed') is not None}
     return dict(
         scheduled=scheduled,
         kept=kept,
@@ -116,5 +126,5 @@ def read_sessions(root: Path, editor: str, kind: str):
         progress=progress,
         blocked=blocked,
         block_reason=reason,
-        seed=summary.get('seed'),
+        seed=seeds.pop() if len(seeds) == 1 else None,
     )

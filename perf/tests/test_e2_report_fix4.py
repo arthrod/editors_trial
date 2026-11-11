@@ -210,7 +210,8 @@ def test_accounting_code(fs):
 def test_blocked_precedes_profile_check(pair):
     path = pair[1] / 'summary.json'
     data = json.loads(path.read_text())
-    data.update(publishable=False, execution_profile='ci_contract')
+    # A genuinely blocked run reports its block, not a profile mismatch.
+    data.update(publishable=False, execution_profile='ci_contract', failure_reason='repos_modified')
     path.write_text(json.dumps(data))
     try:
         text = cells.publish_dual_runs(*pair, 'plate', 'C07')

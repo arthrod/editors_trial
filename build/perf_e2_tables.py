@@ -45,7 +45,7 @@ def load_run(path: Path) -> Run:
 
 def check_comparable(primary: Run, repro: Run) -> None:
     """A reproduction is a second run of the same measurement, nothing else."""
-    if any(e2_cells._run_blocks_publication(run.summary)[0] or (run.summary.get('publishable') is not True and run.summary.get('publication_block_reason') != 'summary is not a trial; trials carry publishability') for run in (primary, repro)):
+    if any(e2_cells._run_blocks_publication(run.summary)[0] for run in (primary, repro)):
         return
     if primary.path.resolve() == repro.path.resolve():
         raise ValueError("the reproduction is the same run directory")
@@ -76,6 +76,12 @@ def _pins(root: Path) -> dict:
     pins = {}
     for row in e2_cells._iter_trials(root):
         pin = (row.get("environment") or {}).get("editor_version")
+        if pin is None:
+            # Typing session rows carry no environment; the built editor tree
+            # they do carry is the pin a reproduction has to share.
+            provenance = row.get("host_provenance")
+            if isinstance(provenance, dict):
+                pin = provenance.get("tree_sha256")
         pins.setdefault(row["editor_id"], set()).add(str(pin) if pin is not None else "not recorded")
     return {editor: sorted(values) for editor, values in pins.items()}
 
@@ -142,7 +148,7 @@ def _cell_text(facts: dict, primary: Path, repro: Path, editor: str, criterion: 
     reasons = []
     for label, root, cell in zip(('first', 'second'), (primary, repro), cells):
         summary = _summary(root)
-        blocked = e2_cells._run_blocks_publication(summary)[0] or (summary.get('publishable') is not True and summary.get('publication_block_reason') != 'summary is not a trial; trials carry publishability')
+        blocked = e2_cells._run_blocks_publication(summary)[0]
         if blocked:
             reasons.append(
                 '%s run unpublishable: %s'
@@ -412,7 +418,8 @@ def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
             "Each launch contributes the median of its own samples; n counts kept launches. "
             "Scheduled counts come from each run's order. Both runs must be publishable and keep at least 10 launches. "
             "The medians must agree within 10 percent of the larger median or the larger witnessed frame interval. "
-            "Samples require complete boolean flags checked against a witnessed interval. Sub-frame medians are buckets; "
+            "Samples of frame-witnessed criteria require complete boolean flags checked against a witnessed interval; "
+            "model-layer clocks such as C04 and byte counts publish without them, and sub-frame medians are buckets; "
             "p90 is over launch medians. C14 rungs and C14 measures (presented_frame, usable_no_damage) and C15 steps "
             "are separate measures; a no-damage C14 sample is the DOM document-surface time, never a compositor frame."
         ),

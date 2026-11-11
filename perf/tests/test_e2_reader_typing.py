@@ -193,6 +193,32 @@ def test_typing_reproduction_versions_must_match(runs):
     assert 'other Playwright or Chromium' in text and '123 chars/s' not in text
 
 
+def test_typing_reproduction_requires_same_editor_build_tree(runs):
+    # Typing session rows carry no environment.editor_version; the built
+    # editor tree in host_provenance is the pin a reproduction must share.
+    typing_pair(runs)
+    for root, tree in zip(runs, ('tree-a', 'tree-b')):
+        for i in range(12):
+            path = root / f'cells/{i:04d}-plate/attempts/TYPING.json'
+            row = json.loads(path.read_text())
+            row['host_provenance'] = {'host_build': 'production', 'publishable': True, 'tree_sha256': tree}
+            path.write_text(json.dumps(row))
+    text = render(runs, 'throughput')
+    assert 'other editor pins' in text
+    assert '123 chars/s' not in text
+
+
+def test_typing_reproduction_allows_matching_editor_build_tree(runs):
+    typing_pair(runs)
+    for root in runs:
+        for i in range(12):
+            path = root / f'cells/{i:04d}-plate/attempts/TYPING.json'
+            row = json.loads(path.read_text())
+            row['host_provenance'] = {'host_build': 'production', 'publishable': True, 'tree_sha256': 'tree-a'}
+            path.write_text(json.dumps(row))
+    assert 'chars/s' in render(runs, 'throughput')
+
+
 def test_latency_instrumented_values_never_enter_public_facts(runs):
     typing_pair(runs, 'latency')
     facts = {}

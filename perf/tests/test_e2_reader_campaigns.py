@@ -83,6 +83,18 @@ def test_missing_campaign_is_rejected(fs):
         report.facts_from_campaigns(['/missing'])
 
 
+def test_space_directory_without_runs_is_rejected(fs):
+    import pytest
+
+    # A nested pull directory (shard0/, publish-3/, snapshots) is not a
+    # campaign; a silent 0-job record would hide the misconfiguration.
+    space = Path('/evidence/space-without-runs')
+    (space / 'shard0' / 'runs').mkdir(parents=True)
+    (space / 'publish-3').mkdir()
+    with pytest.raises(ValueError, match='no runs/ and no campaign jobs'):
+        report.facts_from_campaigns([space])
+
+
 def test_nested_pull_uses_explicit_space_identity(fs):
     root = campaign(fs, 'space-a/shard0', 'campaign-a')
     # Nested pull directory names must not masquerade as HF Space names.

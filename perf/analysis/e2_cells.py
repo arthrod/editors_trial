@@ -152,16 +152,68 @@ def _diagnostic_trial_row(row: dict) -> bool:
 
 
 def _iter_attempt_rows(run_directory: Path):
-    """Measured attempts only: each launch's own attempts folder, never a profiling subtree."""
-    for directory in sorted((run_directory / 'cells').glob('*/attempts')):
-        for path, row in _read_rows(directory):
-            if _diagnostic_trial_path(path) or _diagnostic_trial_row(row):
-                continue
-            yield path, row
+    yield from _attempt_rows_of(run_directory, _job_roots(run_directory))
+
+
+def _attempt_rows_of(run_directory: Path, jobs):
+    for job in jobs:
+        for directory in sorted((job / 'cells').glob('*/attempts')):
+            for path, row in _read_rows(directory):
+                # Measured attempts only, never a profiling subtree or a traced repetition.
+                if _diagnostic_trial_path(path) or _diagnostic_trial_row(row):
+                    continue
+                yield _launch_key(run_directory, job, directory.parent.name), path, row
+
+
+def _job_measures(run_directory: Path, job: Path, editor_id: str, criterion_id: str) -> bool:
+    return any(
+        row.get('editor_id') == editor_id and row.get('criterion_id') == criterion_id
+        for _, _, row in _attempt_rows_of(run_directory, [job])
+    )
+
+
+def _lane_jobs(run_directory: Path, jobs, editor_id: str, criterion_id: str):
+    """Only the runner lane that measures this criterion contributes
+    launches: a campaign run directory holds jobs of many runners, and a
+    warm/cold refusal must not veto an input-lane cell."""
+    if len(jobs) < 2:
+        return jobs
+    lanes = {
+        job.parent.name
+        for job in jobs
+        if _job_measures(run_directory, job, editor_id, criterion_id)
+    }
+    return [job for job in jobs if not lanes or job.parent.name in lanes]
+
+
+def _job_roots(run_directory: Path) -> list[Path]:
+    """The job directories of a run directory.
+
+    A run directory is one job (``cells/`` beside ``summary.json``) or a
+    campaign run whose jobs sit under ``<runner>/<job>/``: campaign 2 runs
+    one editor per job, so one cell's launches can be spread over several
+    job directories.
+    """
+    run_directory = Path(run_directory)
+    parts = ('cells', 'samples', 'rejected-evidence', 'summary.json')
+    if any((run_directory / part).exists() for part in parts):
+        return [run_directory]
+    jobs = [
+        job
+        for job in sorted(run_directory.glob('*/*'))
+        if job.is_dir() and any((job / part).exists() for part in parts)
+    ]
+    return jobs or [run_directory]
+
+
+def _launch_key(run_directory: Path, job: Path, launch: str) -> str:
+    """Launch identity is per job: a resumed one-editor job numbers its
+    launches from 0000 again, so two jobs must never collide on a name."""
+    return launch if job == Path(run_directory) else '%s/%s' % (job.name, launch)
 
 
 def _iter_trials(run_directory: Path):
-    for _, row in _iter_attempt_rows(run_directory):
+    for _, _, row in _iter_attempt_rows(run_directory):
         if row.get('criterion_id') and row.get('editor_id'):
             yield row
 
@@ -201,9 +253,14 @@ def _refusal_key(sample_or_trial: dict) -> str:
 def build_run_cell(
     run_directory: Path, editor_id: str, criterion_id: str, *, scheduled: int = 30, measure: str = '', workload_id: str | None = None
 ) -> dict:
-    summary = _load_summary(run_directory)
-    scheduled = _scheduled_for_editor(summary, editor_id, scheduled)
-    run_blocked, block_reason = _run_blocks_publication(summary)
+    jobs = _lane_jobs(run_directory, _job_roots(run_directory), editor_id, criterion_id)
+    summaries = [_load_summary(job) for job in jobs]
+    orders = [summary for summary in summaries if (summary or {}).get('order')]
+    scheduled = sum(_scheduled_for_editor(summary, editor_id, 0) for summary in orders) if orders else scheduled
+    run_blocked, block_reason = next(
+        ((True, reason) for summary in summaries for blocked, reason in [_run_blocks_publication(summary)] if blocked),
+        (False, None),
+    )
     kept, raw, sub_frame, intervals = [], [], [], []
     refusals = Counter()
     sample_unit = 'bytes' if criterion_id in ('C17', 'C19') else 'ms'
@@ -211,11 +268,9 @@ def build_run_cell(
     trials = defaultdict(list)
     refused_launches = {}
     additional = defaultdict(set)
+    witnessed_cell = False
     verified_content = []
-    for path, trial in _iter_attempt_rows(run_directory):
-        launch = path.relative_to(run_directory / 'cells').parts[0]
-        if _diagnostic_trial_path(path) or _diagnostic_trial_row(trial):
-            continue
+    for launch, path, trial in _attempt_rows_of(run_directory, jobs):
         if trial.get('refusal_code') == 'unreadable_trial' and launch.endswith('-' + editor_id):
             if launch in refused_launches:
                 additional[launch].add(refused_launches[launch])
@@ -234,24 +289,27 @@ def build_run_cell(
                 refused_launches[launch] = code
         if trial['criterion_id'] == criterion_id and trial_measure(trial) == measure:
             trials[launch].append(trial)
-    for path in (run_directory / 'rejected-evidence').glob('*'):
-        if path.is_dir() and path.name.endswith('-' + editor_id):
-            if path.name in refused_launches:
-                additional[path.name].add(refused_launches[path.name])
-            refused_launches[path.name] = 'quarantined'
-    for path, row in _read_rows(run_directory / 'samples'):
-        if (path.parent != run_directory / 'samples'
-                or row.get('editor_id') != editor_id or row.get('accounting_scope') == 'diagnostic'
-                or not re.fullmatch(r'\d+-' + re.escape(editor_id), path.stem)
-                or row.get('outcome') in ('ok', 'measured')):
-            continue
-        code = refusal_code(row)
-        if code and refused_launches.get(path.stem) in ('quarantined', 'unreadable_trial'):
-            additional[path.stem].add(code)
-        elif code in _RUN_REFUSALS:
-            refused_launches[path.stem] = code
-        elif code and path.stem not in trials:
-            refused_launches.setdefault(path.stem, code)
+    for job in jobs:
+        for path in (job / 'rejected-evidence').glob('*'):
+            if path.is_dir() and path.name.endswith('-' + editor_id):
+                key = _launch_key(run_directory, job, path.name)
+                if key in refused_launches:
+                    additional[key].add(refused_launches[key])
+                refused_launches[key] = 'quarantined'
+        for path, row in _read_rows(job / 'samples'):
+            if (path.parent != job / 'samples'
+                    or row.get('editor_id') != editor_id or row.get('accounting_scope') == 'diagnostic'
+                    or not re.fullmatch(r'\d+-' + re.escape(editor_id), path.stem)
+                    or row.get('outcome') in ('ok', 'measured')):
+                continue
+            key = _launch_key(run_directory, job, path.stem)
+            code = refusal_code(row)
+            if code and refused_launches.get(key) in ('quarantined', 'unreadable_trial'):
+                additional[key].add(code)
+            elif code in _RUN_REFUSALS:
+                refused_launches[key] = code
+            elif code and key not in trials:
+                refused_launches.setdefault(key, code)
     for launch, code in refused_launches.items():
         refusals[code] += 1
         failed_launches.add(launch)
@@ -265,16 +323,20 @@ def build_run_cell(
         flags = trial.get('sub_frame_samples', diagnostic.get('sub_frame_samples'))
         interval = diagnostic.get('frame_interval_ms')
         interval = float(interval) if _number(interval) and interval > 0 else None
+        # Frame-witness flags exist only where the writer witnesses paints
+        # (browser_visible layer); model-layer clocks like C04 and byte counts
+        # publish without them. An absent layer keeps the strict contract.
+        witnessed = sample_unit != 'bytes' and trial.get('layer', 'browser_visible') == 'browser_visible'
         if not reason and (
             not isinstance(samples, list)
             or not samples
             or not all(_number(x) for x in samples)
             or (sample_unit == 'bytes' and (trial.get('sample_unit') != 'bytes' or not all(type(x) is int and x >= 0 for x in samples)))
-            or (sample_unit != 'bytes' and (not isinstance(flags, list)
+            or (witnessed and (not isinstance(flags, list)
                 or len(flags) != len(samples) or not all(type(x) is bool for x in flags)))
         ):
             reason = 'malformed_samples'
-        if not reason and sample_unit != 'bytes' and (
+        if not reason and witnessed and (
             interval is None or any(flag != (sample < interval) for sample, flag in zip(samples, flags))
         ):
             reason = 'sub_frame_flag_mismatch'
@@ -297,7 +359,8 @@ def build_run_cell(
         verified_content.append(trial.get('content_verified') is True)
         raw.append(samples)
         kept.append(median)
-        if sample_unit != 'bytes':
+        witnessed_cell = witnessed_cell or witnessed
+        if witnessed:
             intervals.append(interval)
             sub_frame.append(median < interval)
     return {
@@ -306,6 +369,7 @@ def build_run_cell(
         'measure': measure,
         'workload_id': workload_id,
         'sample_unit': sample_unit,
+        'witnessed': witnessed_cell,
         'scheduled': scheduled,
         'kept_ms': kept,
         'raw_samples_ms': raw,
@@ -383,7 +447,10 @@ def publication_text(cell: dict) -> str:
         return f"{stats['median']:.1f} bytes; p90 {stats['p90']:.1f} bytes{failure_suffix}"
     frame_interval = cell.get('frame_interval_ms')
     if frame_interval is None:
-        return f'no witnessed frame interval (n = {n_kept} of {scheduled})'
+        if cell.get('witnessed', True):
+            return f'no witnessed frame interval (n = {n_kept} of {scheduled})'
+        # Not a frame-witnessed clock: no interval to bucket or check against.
+        return f"{stats['median']:.1f} ms; p90 {stats['p90']:.1f} ms{failure_suffix}"
     median = stats['median']
     p90 = stats['p90']
     share = _sub_frame_share(cell)
