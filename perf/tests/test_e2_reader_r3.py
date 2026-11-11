@@ -88,17 +88,21 @@ def test_under_n_stores_no_median_in_facts(tmp_path):
 
 
 def test_pooled_spaces_group_criterion_launches_by_seed(tmp_path):
-  def job(space, job_id, seed, n):
+  def job(space, job_id, seed, reps):
       root = tmp_path / space / 'runs' / 'camp' / 'benchmark_input' / job_id
       root.mkdir(parents=True)
-      (root / 'summary.json').write_text(json.dumps(_summary(job_id, seed, order=[[i, 'plate'] for i in range(n)])))
-      for i in range(n):
+      (root / 'summary.json').write_text(json.dumps(_summary(job_id, seed, order=[[i, 'plate'] for i in reps])))
+      for i in reps:
           cell = root / 'cells' / f'{i:04d}-plate' / 'attempts'
           cell.mkdir(parents=True)
           (cell / 'c07.json').write_text(json.dumps(_trial([20.0])))
       return tmp_path / space / 'runs' / 'camp'
 
-  roots = [job('space-a', 'j1', 1, 15), job('space-b', 'j2', 1, 15), job('space-c', 'j3', 2, 30)]
+  roots = [
+      job('space-a', 'j1', 1, range(0, 15)),
+      job('space-b', 'j2', 1, range(15, 30)),
+      job('space-c', 'j3', 2, range(30)),
+  ]
   cell = cells.read_criterion_cell(roots, 'plate', 'C07')
   assert cell['published'] is True
   assert [group['stats']['n'] for group in cell['groups']] == [30, 30]
