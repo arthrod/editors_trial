@@ -185,6 +185,8 @@ def _read_rows(directory):
         try:
             row = json.loads(path.read_text(encoding='utf-8'))
         except (OSError, json.JSONDecodeError):
+            if path.name.startswith('chrome-profile-'):
+                continue  # a truncated trace record is diagnostic, never a trial
             yield path, {'refusal_code': 'unreadable_trial'}
             continue
         if isinstance(row, dict):

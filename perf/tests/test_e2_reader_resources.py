@@ -10,14 +10,14 @@ TREE = 'a' * 64
 
 
 def _job(root: Path, name: str, *, editor='plate', workload='prose-250kw', seed=1, launches=30, records=None,
-         summary=None, tree=TREE):
+         summary=None, tree=TREE, first=0):
     job = root / 'benchmark_resources' / name
     (job / 'cells').mkdir(parents=True)
     base = {
         'runner': 'benchmark_resources', 'run_id': name, 'seed': seed, 'publishable': False,
         'publication_block_reason': 'summary is not a trial; trials carry publishability',
         'execution_profile': 'dedicated_publish', 'host_class': 'shared_guarded',
-        'order': [[i, editor] for i in range(launches)],
+        'order': [[first + i, editor] for i in range(launches)],
         'hosts': {editor: {'host_build': 'production', 'publishable': True, 'tree_sha256': tree}},
     }
     (job / 'summary.json').write_text(json.dumps({**base, **(summary or {})}))
@@ -25,7 +25,7 @@ def _job(root: Path, name: str, *, editor='plate', workload='prose-250kw', seed=
         record = (records[index] if records else _record(editor, workload))
         if record is None:
             continue
-        cell = job / 'cells' / f'{index:04d}-{editor}'
+        cell = job / 'cells' / f'{first + index:04d}-{editor}'
         cell.mkdir()
         (cell / 'resource.json').write_text(json.dumps(record))
     return job
@@ -62,7 +62,7 @@ def test_two_seeds_that_agree_publish_each_measure(tmp_path):
 def test_pooled_spaces_are_grouped_by_seed_not_by_root(tmp_path):
     # Interleaved blocks: one seed's launches can sit on several Spaces.
     _job(tmp_path / 'space-a', 'j1', seed=1, launches=15)
-    _job(tmp_path / 'space-b', 'j2', seed=1, launches=15)
+    _job(tmp_path / 'space-b', 'j2', seed=1, launches=15, first=15)
     _job(tmp_path / 'space-c', 'j3', seed=2, launches=30)
     cell = res.read_cell([tmp_path / 'space-a', tmp_path / 'space-b', tmp_path / 'space-c'], 'plate', 'prose-250kw')
     assert cell['published'] is True

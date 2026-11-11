@@ -8,6 +8,7 @@
  */
 import {
   EDIT_SURFACES,
+  insertedOnce,
   placeCaret,
   readCaretScope,
   readModifiedFlag,
@@ -137,7 +138,9 @@ async function armTrustedKeyCounter(page) {
   await page.evaluate(() => {
     window.__b8burst = { keys: 0 };
     const onKey = (event) => {
-      if (event.isTrusted && event.key && event.key.length === 1) {
+      // A key counts when an element holds focus: a key sent to the page body reached no editor.
+      const onEditor = event.target && event.target !== document.body && event.target !== document.documentElement;
+      if (event.isTrusted && event.key && event.key.length === 1 && onEditor) {
         window.__b8burst.keys += 1;
       }
     };
@@ -325,7 +328,13 @@ async function verifyOnSurface(page, opts, prepared) {
       afterText = await readCaretScope(page, prepared.editorId, prepared.point);
       delta = countToken(afterText, opts.text) - base;
       if (delta === opts.repetitions) {
-        status = 'verified';
+        // The same block must hold the burst as one insertion; a block that
+        // was replaced under the caret is not this edit.
+        if (insertedOnce(prepared.beforeText, afterText, opts.text.repeat(opts.repetitions))) {
+          status = 'verified';
+        } else {
+          reason = 'not_one_insertion';
+        }
         break;
       }
       if (Date.now() >= deadline) {

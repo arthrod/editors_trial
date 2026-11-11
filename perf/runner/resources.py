@@ -765,6 +765,21 @@ def process_accounting_status(rows):
     if not rows:
         return "complete"
     last_ids = {_process_identity(row) for row in _process_list(rows[-1])}
+    # A process missed by the first sample is not a birth: it would bill its
+    # lifetime CPU to this window. A birth started after every process the
+    # first sample saw; one with no start time cannot be told apart.
+    opening = _process_list(rows[0])
+    opening_ids = {_process_identity(row) for row in opening}
+    opening_starts = [row.get("start_time") for row in opening if _is_int(row.get("start_time"))]
+    for sample in rows[1:]:
+        for proc in _process_list(sample):
+            if _process_identity(proc) in opening_ids:
+                continue
+            start = proc.get("start_time")
+            if start is None:
+                return "incomplete"
+            if _is_int(start) and opening_starts and start < max(opening_starts):
+                return "incomplete"
     first_seen = {}
     for index, sample in enumerate(rows):
         for proc in _process_list(sample):

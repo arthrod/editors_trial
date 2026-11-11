@@ -53,6 +53,13 @@ export const FIND_TEXT_LINE = ({ root, exclude, minChars }) => {
       if (text.trim().length < minChars) continue;
       const parent = node.parentElement;
       if (!parent || (exclude && parent.closest(exclude))) continue;
+      // A page header or footer is not the body line every editor is aimed at.
+      let margin = false;
+      for (let up = parent; up && up !== el; up = up.parentElement) {
+        const name = `${up.tagName} ${typeof up.className === 'string' ? up.className : ''}`;
+        if (/\b(header|footer)\b|page-?(header|footer)/i.test(name)) margin = true;
+      }
+      if (margin) continue;
       const style = getComputedStyle(parent);
       if (style.visibility === 'hidden' || style.display === 'none') continue;
       const range = document.createRange();
@@ -61,7 +68,8 @@ export const FIND_TEXT_LINE = ({ root, exclude, minChars }) => {
       if (!rect || rect.width < 20 || rect.height < 4) continue;
       if (rect.top < 0 || rect.bottom > innerHeight || rect.left < 0 || rect.right > innerWidth) continue;
       return {
-        x: rect.left + Math.min(rect.width / 2, 40),
+        // The start of the line: the same character in every editor, whatever its font.
+        x: rect.left + 1,
         y: rect.top + rect.height / 2,
         line: text.trim().slice(0, 60),
       };
@@ -199,6 +207,28 @@ export async function readCaretScope(page, editorId, point) {
     });
   }
   return null;
+}
+
+/**
+ * True when `after` is `before` with `inserted` put in at one place and
+ * nothing else changed. A line that wraps may lose its tail to the next line.
+ */
+export function insertedOnce(before, after, inserted) {
+  const a = String(before || '');
+  const b = String(after || '');
+  if (!inserted) return false;
+  let at = b.indexOf(inserted);
+  while (at >= 0) {
+    const tailBefore = a.slice(at);
+    const tailAfter = b.slice(at + inserted.length);
+    // A wrapped line keeps most of its old text; an emptied block is another block.
+    const wrapped = tailBefore.startsWith(tailAfter) && tailAfter.length * 2 >= tailBefore.length;
+    if (b.slice(0, at) === a.slice(0, at) && (wrapped || tailAfter.startsWith(tailBefore))) {
+      return true;
+    }
+    at = b.indexOf(inserted, at + 1);
+  }
+  return false;
 }
 
 export function countToken(text, token) {

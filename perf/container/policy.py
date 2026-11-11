@@ -146,21 +146,32 @@ def read_trials(row):
     directory = row.get('cell_directory')
     if not directory:
         return []
-    trials = [json.loads(path.read_text()) for path in sorted((Path(directory) / 'attempts').glob('*.json'))]
-    if trials:
+    trials, measured = [], False
+    for path in sorted((Path(directory) / 'attempts').glob('*.json')):
+        sidecar = path.name.startswith('chrome-profile-')
+        try:
+            trial = json.loads(path.read_text())
+        except ValueError:
+            if sidecar:
+                continue  # a truncated trace record is not a trial
+            raise
+        trials.append(trial)
+        measured = measured or not (sidecar or trial.get('outcome') == 'profiled'
+                                    or trial.get('accounting_scope') == 'diagnostic')
+    if measured:
         return trials
     # The resources lane writes one record per launch, not attempt files.
     record_path = Path(directory) / 'resource.json'
     if record_path.is_file():
         record = json.loads(record_path.read_text())
         if record.get('record_kind') == 'browser_resources' and record.get('outcome'):
-            return [{
+            return trials + [{
                 'criterion_id': 'B8',
                 'editor_id': record.get('editor_id'),
                 'outcome': record['outcome'],
                 'failure_reason': record.get('refusal_code') or record.get('failure_reason'),
             }]
-    return []
+    return trials
 
 
 def outcome_counts():

@@ -83,7 +83,7 @@ def read_cell(roots, editor: str, workload: str) -> dict:
     groups: dict = {}
     for job, summary in _resource_jobs(roots):
         mine = [(launch, record) for launch, record in _records(job)
-                if launch.endswith('-' + editor) and record.get('workload_id', workload) == workload
+                if launch.endswith('-' + editor) and record.get('workload_id') == workload
                 and record.get('editor_id', editor) == editor]
         scheduled = cells._scheduled_for_editor(summary, editor, 0)
         if not mine and not scheduled:
@@ -94,8 +94,19 @@ def read_cell(roots, editor: str, workload: str) -> dict:
                 continue
         group = groups.setdefault(summary.get('seed'), {
             'scheduled': 0, 'kept': [], 'refusals': Counter(), 'errors': Counter(), 'never_idle': 0,
-            'blocked': None, 'pins': set(),
+            'blocked': None, 'pins': set(), 'launches': {},
         })
+        # A launch name is one launch of the seed's schedule. The same run
+        # pulled twice counts once; a second run of the same launches is a
+        # re-run, and which one to keep is not the reader's choice.
+        run_id = summary.get('run_id') or str(job)
+        owners = {group['launches'].get(launch) for launch, _record in mine} - {None}
+        if owners == {run_id}:
+            continue
+        if owners and not group['blocked']:
+            group['blocked'] = 'launches measured twice: a block was re-run'
+        for launch, _record in mine:
+            group['launches'].setdefault(launch, run_id)
         group['scheduled'] += scheduled or len(mine)
         blocked, why = cells._run_blocks_publication(summary)
         if blocked and not group['blocked']:
