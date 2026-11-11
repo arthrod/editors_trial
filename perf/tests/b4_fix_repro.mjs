@@ -57,6 +57,7 @@ const corrupt = await (async () => {
           text,
           text_length: text.length,
           selection_offset: 8,
+          is_content_editable: true,
           active_inside: true,
           anchor_inside: true,
         };
@@ -147,6 +148,7 @@ const c09AtOffset = await (async () => {
           text,
           text_length: text.length,
           selection_offset: 4,
+          is_content_editable: true,
           active_inside: true,
           anchor_inside: true,
         };

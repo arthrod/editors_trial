@@ -27,6 +27,7 @@ import json
 import os
 import platform
 import resource
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -296,6 +297,15 @@ def _run_libreoffice(indocx: Path, outdocx: Path) -> tuple[float, str, str, floa
     outdir = outdocx.parent
     outdir.mkdir(parents=True, exist_ok=True)
     stem = indocx.stem
+    # LibreOffice names its product after the input stem, so converting into
+    # ``outdir`` itself overwrites the still-open input -- which LibreOffice
+    # 26.8 refuses with SfxBaseModel::impl_store 0x4c0c whenever the
+    # directory is not the per-user darwin temp (a local TMPDIR under the
+    # repo, for example). Convert into a fresh sibling directory and move the
+    # product where the caller expects it; the measured process, its output
+    # and its wall clock are unchanged.
+    convert_dir = outdir / ("lo-out-%s" % uuid.uuid4().hex[:12])
+    convert_dir.mkdir(parents=True, exist_ok=True)
     r0 = resource.getrusage(resource.RUSAGE_CHILDREN)
     start = time.perf_counter()
     cmd = [
@@ -305,7 +315,7 @@ def _run_libreoffice(indocx: Path, outdocx: Path) -> tuple[float, str, str, floa
         "--convert-to",
         "docx",
         "--outdir",
-        str(outdir),
+        str(convert_dir),
         str(indocx),
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
@@ -313,11 +323,14 @@ def _run_libreoffice(indocx: Path, outdocx: Path) -> tuple[float, str, str, floa
     elapsed_ms = (time.perf_counter() - start) * 1000.0
     child_cpu_ms = ((r1.ru_utime - r0.ru_utime) + (r1.ru_stime - r0.ru_stime)) * 1000.0
     if result.returncode != 0:
+        shutil.rmtree(convert_dir, ignore_errors=True)
         raise RuntimeError("soffice failed: %s" % (result.stderr or result.stdout,))
-    produced = outdir / ("%s.docx" % stem)
+    produced = convert_dir / ("%s.docx" % stem)
     if not produced.is_file():
+        shutil.rmtree(convert_dir, ignore_errors=True)
         raise RuntimeError("libreoffice did not produce output")
     produced.replace(outdocx)
+    shutil.rmtree(convert_dir, ignore_errors=True)
     combined_out = result.stdout or ""
     return elapsed_ms, combined_out, result.stderr or "", child_cpu_ms
 
