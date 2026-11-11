@@ -215,7 +215,7 @@ export function gatherReflowBefore({ docSel, editorId, useModel, model }) {
     anchor_index: picked.anchorIndex,
     anchor_text: picked.anchorText,
     anchor_top: window.__c12AnchorTop,
-    first_block_top: blocks[0].getBoundingClientRect().top,
+    first_block_top: entries[0].el.getBoundingClientRect().top,
     first_block_text: picked.firstText,
   };
 }
