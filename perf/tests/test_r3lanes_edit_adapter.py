@@ -8,6 +8,11 @@ REPO = Path(__file__).resolve().parents[2]
 
 
 class LaneEditBurstModule(unittest.TestCase):
+    def test_reflow_block_selector_uses_editor_dom_for_docxodus(self):
+        text = (REPO / "perf" / "runner" / "lane_edit_burst.mjs").read_text(encoding="utf-8")
+        self.assertIn("reflowBlockSelector", text)
+        self.assertIn("#editorHost", text)
+
     def test_lane_edit_burst_exists_and_reexports_prepare_edit_surface(self):
         path = REPO / "perf" / "runner" / "lane_edit_burst.mjs"
         self.assertTrue(path.is_file(), "lane_edit_burst.mjs is the shared entry for editing lanes")

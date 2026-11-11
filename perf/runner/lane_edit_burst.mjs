@@ -4,7 +4,13 @@
  * prepareEditSurface, caret placement, and verification reads stay outside any
  * measured timing window the lane owns.
  */
-import { prepareEditSurface, editSurface, waitForTokenDelta, readModifiedFlag } from './edit_surface.mjs';
+import {
+  EDIT_SURFACES,
+  prepareEditSurface,
+  editSurface,
+  waitForTokenDelta,
+  readModifiedFlag,
+} from './edit_surface.mjs';
 import {
   prepareResourceBurst,
   typeResourceBurst,
@@ -13,6 +19,20 @@ import {
 
 export const LANE_LOAD_TIMEOUT_MS = 600_000;
 export const LANE_POLL_BOUND_MS = 600_000;
+
+/** Block selector for C12 reflow after the shared adapter has entered edit mode. */
+export function reflowBlockSelector(editorId, fallback) {
+  if (!editorId || !EDIT_SURFACES[editorId]) return fallback;
+  if (editorId === 'docxodus') return '#editorHost p, #editorHost [data-anchor]';
+  if (editorId === 'superdoc') return '.superdoc-line';
+  if (editorId === 'genoffice') return '.doc-page p';
+  if (editorId === 'eigenpal') return '[data-paragraph-id]';
+  if (editorId === 'folio') return '[data-page-number] p';
+  if (editorId === 'plate') return '[data-slate-node="element"]';
+  const surface = editSurface(editorId);
+  if (surface.kind === 'dom' && surface.block) return surface.block;
+  return fallback;
+}
 
 export async function runLaneEditBurst(page, cdp, { editorId, selector, text, repetitions, pollBoundMs }) {
   const poll = pollBoundMs ?? LANE_POLL_BOUND_MS;

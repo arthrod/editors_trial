@@ -63,7 +63,7 @@ import {
 import { normalizeDocumentText } from './document_text_normalize.mjs';
 import { openingContentVerdict } from './perf_model_text.mjs';
 import { startChromeTrace, stopChromeTrace } from './chrome_trace.mjs';
-import { prepareLaneCaret } from './lane_edit_burst.mjs';
+import { prepareLaneCaret, reflowBlockSelector } from './lane_edit_burst.mjs';
 
 /** Screencast ink needs at least this many region pixels above the witness threshold. */
 const SCREENCAST_INK_MIN_PIXELS = 64;
@@ -1253,6 +1253,7 @@ async function runReflow(browser) {
     const readyMs = await waitForReady(ctx.page);
     if (settleMs > 0) await ctx.page.waitForTimeout(settleMs);
 
+    const reflowSel = reflowBlockSelector(editorId, docSelector);
     const before = await ctx.page.evaluate(
       ({ docSel }) => {
         const blocks = Array.from(document.querySelectorAll(docSel));
@@ -1297,7 +1298,7 @@ async function runReflow(browser) {
           first_block_text: (blocks[0].textContent || '').trim().slice(0, 40),
         };
       },
-      { docSel: docSelector },
+      { docSel: reflowSel },
     );
     if (!before.ok) {
       return {
@@ -1468,7 +1469,7 @@ async function runReflow(browser) {
           matched_by: matchedBy,
         };
       },
-      { docSel: docSelector, anchorText: before.anchor_text },
+      { docSel: reflowSel, anchorText: before.anchor_text },
     );
     const moved = Boolean(shift.moved) && after.top !== null && after.top > before.anchor_top + 0.5;
     const framePageMs = witness && witness.outcome === 'witnessed' ? witness.frame_page_ms : null;
