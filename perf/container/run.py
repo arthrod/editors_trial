@@ -104,9 +104,17 @@ def refuse_existing(path: Path) -> bool:
 
 
 def verify_lane_profiles(directory, profile, host_class):
+    from perf.analysis.e2_cells import _diagnostic_trial_path
+
     for root in ('cells', 'rejected-evidence'):
         for path in sorted((directory / root).rglob('*.json')):
-            verify_profiles([json.loads(path.read_text())], profile, host_class)
+            if _diagnostic_trial_path(path):
+                continue
+            try:
+                row = json.loads(path.read_text())
+            except (OSError, json.JSONDecodeError):
+                continue
+            verify_profiles([row], profile, host_class)
 
 
 def write_run_done(campaign_root: Path, exit_status: int, failures: list[str] | None = None,

@@ -16,6 +16,72 @@ if str(REPO) not in sys.path:
 
 
 class ChromeProfileExclusion(unittest.TestCase):
+    def test_truncated_profile_invoke_does_not_refuse_measured_launch(self):
+        """Reviewer planted tree: truncated diagnostic json must not refuse the measured launch."""
+        from perf.analysis.e2_cells import build_run_cell
+
+        measured = {
+            "criterion_id": "C11",
+            "editor_id": "plate",
+            "outcome": "measured",
+            "publishable": True,
+            "refusal_code": None,
+            "samples_ms": [100.0],
+            "sub_frame_samples": [False],
+            "diagnostic": {"frame_interval_ms": 16.0},
+            "environment": {"editor_id": "plate", "workload_id": "prose-500w"},
+        }
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for rep in range(12):
+                cell = root / "cells" / f"{rep:04d}-plate"
+                attempts = cell / "attempts"
+                attempts.mkdir(parents=True)
+                (attempts / "c11.json").write_text(json.dumps(measured))
+            invoke = root / "cells" / "0011-plate" / "profile-invoke" / "attempts"
+            invoke.mkdir(parents=True)
+            (invoke / "c11-partial.json").write_text("{")
+            (root / "samples").mkdir()
+            for rep in range(12):
+                (root / "samples" / f"{rep:04d}-plate.json").write_text(
+                    json.dumps(
+                        {
+                            "editor_id": "plate",
+                            "repetition": rep,
+                            "outcome": "ok",
+                            "accounting_scope": "sample",
+                            "cell_directory": str(root / "cells" / f"{rep:04d}-plate"),
+                        }
+                    )
+                )
+            (root / "summary.json").write_text(
+                json.dumps({"order": [(i, "plate") for i in range(12)], "publishable": True})
+            )
+            cell_row = build_run_cell(root, "plate", "C11", scheduled=12)
+            self.assertEqual(len(cell_row["kept_ms"]), 12)
+            self.assertNotIn("unreadable_trial", cell_row.get("refusals", {}))
+
+    def test_verify_lane_profiles_skips_diagnostic_garbage(self):
+        from perf.container.run import verify_lane_profiles
+
+        trial = {
+            "criterion_id": "C11",
+            "editor_id": "plate",
+            "outcome": "measured",
+            "environment": {"execution_profile": "dedicated_publish", "host_class": "shared_guarded"},
+        }
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            attempts = root / "cells" / "0011-plate" / "attempts"
+            attempts.mkdir(parents=True)
+            (attempts / "c11.json").write_text(json.dumps(trial))
+            garbage = root / "cells" / "0011-plate" / "profile-invoke" / "attempts"
+            garbage.mkdir(parents=True)
+            (garbage / "c11-partial.json").write_text("{")
+            verify_lane_profiles(root, "dedicated_publish", "shared_guarded")
+
     def test_profile_invoke_attempts_do_not_blank_cell(self):
         """Reviewer demo: nested profile-invoke attempts must not create conflicting_trials."""
         from perf.analysis.e2_cells import build_run_cell

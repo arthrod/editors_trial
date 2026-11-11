@@ -141,8 +141,8 @@ def _read_rows(directory):
 
 
 def _diagnostic_trial_path(path: Path) -> bool:
-    """Traced re-invocations write measured-shaped attempts under profile-invoke."""
-    return 'profile-invoke' in path.parts
+    """Chrome-profile traces and traced re-invocations live under these subtrees."""
+    return 'profile-invoke' in path.parts or 'profile' in path.parts
 
 
 def _diagnostic_trial_row(row: dict) -> bool:
@@ -202,10 +202,10 @@ def build_run_cell(
     refused_launches = {}
     for path, trial in _read_rows(run_directory / 'cells'):
         launch = path.relative_to(run_directory / 'cells').parts[0]
-        if trial.get('refusal_code') == 'unreadable_trial' and launch.endswith('-' + editor_id):
-            refused_launches[launch] = 'unreadable_trial'
         if _diagnostic_trial_path(path) or _diagnostic_trial_row(trial):
             continue
+        if trial.get('refusal_code') == 'unreadable_trial' and launch.endswith('-' + editor_id):
+            refused_launches[launch] = 'unreadable_trial'
         if trial.get('editor_id') != editor_id or not trial.get('criterion_id'):
             continue
         if workload_id is not None and trial_workload(trial) != workload_id:
