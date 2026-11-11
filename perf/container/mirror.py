@@ -1,15 +1,158 @@
-"""Best-effort mirror of sealed jobs to the HF persistent bucket (/data)."""
+"""Best-effort mirror of sealed jobs to the HF persistent bucket (/data).
+
+Each sealed job is also uploaded to the private HF Storage Bucket so a Space
+restart loses at most the job in progress (#162). Bucket layout mirrors the
+campaign directory: `runs/<space>/<run id>/<runner>/<job>/...` for job files
+and `runs/<space>/<run id>/...` for campaign-level files (RUN.log, RUN-DONE).
+Only generated measurement data is uploaded: BUCKET_EXCLUDES drops editor
+builds, dependency trees, fixture copies and the .docx inputs.
+"""
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import hashlib
 import os
+import socket
 import sys
 import time
 from pathlib import Path
 
 CHUNK = 1024 * 1024
 _SKIP_LOGGED: set[str] = set()
+
+BUCKET_ID_DEFAULT = 'arthrod/editors-trial-e2-runs'
+# The bucket gets generated data only. Editor builds, dependency trees, job
+# fixture copies and .docx inputs never leave the Space.
+BUCKET_EXCLUDES: tuple[str, ...] = (
+    'builds/*', '*/builds/*',
+    'dist/*', '*/dist/*',
+    'node_modules/*', '*/node_modules/*',
+    'fixtures/*', '*/fixtures/*',
+    'repos/*', '*/repos/*',
+    '*.docx',
+)
+# Tests inject a fake client here: callable(token) -> client with
+# list_bucket_tree / batch_bucket_files. None means the real HfApi.
+BUCKET_CLIENT_FACTORY = None
+
+
+def bucket_excluded(rel: str) -> bool:
+    return any(fnmatch.fnmatchcase(rel, pattern) for pattern in BUCKET_EXCLUDES)
+
+
+def _bucket_id() -> str:
+    return os.environ.get('HF_BUCKET_ID', BUCKET_ID_DEFAULT)
+
+
+def _space_name() -> str:
+    space = os.environ.get('SPACE_ID', '').strip().strip('/')
+    return space or socket.gethostname()
+
+
+def _bucket_token() -> str | None:
+    return os.environ.get('HF_BUCKET_TOKEN') or None
+
+
+def _bucket_client(token: str):
+    if BUCKET_CLIENT_FACTORY is not None:
+        return BUCKET_CLIENT_FACTORY(token)
+    from huggingface_hub import HfApi
+
+    return HfApi(token=token)
+
+
+def _local_sizes(root: Path) -> dict[str, int]:
+    sizes: dict[str, int] = {}
+    for path in sorted(root.rglob('*')):
+        if path.is_symlink() or not path.is_file():
+            continue
+        rel = path.relative_to(root).as_posix()
+        if bucket_excluded(rel):
+            continue
+        sizes[rel] = path.stat().st_size
+    return sizes
+
+
+def _sealed_job_dirs(campaign_root: Path) -> dict[str, Path]:
+    jobs: dict[str, Path] = {}
+    for done in sorted(campaign_root.glob('*/*/JOB-DONE')):
+        job_dir = done.parent
+        jobs[job_dir.relative_to(campaign_root).as_posix()] = job_dir
+    return jobs
+
+
+def _campaign_file_sizes(campaign_root: Path) -> dict[str, int]:
+    sizes: dict[str, int] = {}
+    for path in sorted(campaign_root.rglob('*')):
+        if path.is_symlink() or not path.is_file():
+            continue
+        rel = path.relative_to(campaign_root).as_posix()
+        if bucket_excluded(rel):
+            continue
+        parts = rel.split('/')
+        if len(parts) >= 3 and (campaign_root / parts[0] / parts[1]).is_dir():
+            continue
+        sizes[rel] = path.stat().st_size
+    return sizes
+
+
+def _remote_sizes(client, bucket: str, prefix: str, token: str) -> dict[str, int]:
+    sizes: dict[str, int] = {}
+    for item in client.list_bucket_tree(bucket, prefix=prefix, recursive=True, token=token):
+        if getattr(item, 'type', None) == 'file':
+            sizes[item.path] = int(item.size)
+    return sizes
+
+
+def _bucket_sync(campaign_root: Path, campaign_id: str, run_log: Path | None, *, audit_all: bool = False) -> None:
+    try:
+        _bucket_sync_inner(campaign_root, campaign_id, run_log, audit_all=audit_all)
+    except Exception:
+        pass
+
+
+def _bucket_sync_inner(campaign_root: Path, campaign_id: str, run_log: Path | None, *, audit_all: bool) -> None:
+    token = _bucket_token()
+    if not token:
+        return
+    try:
+        client = _bucket_client(token)
+    except Exception:
+        return
+    if client is None:
+        return
+    bucket = _bucket_id()
+    run_prefix = f'runs/{_space_name()}/{campaign_id}'
+    try:
+        remote = _remote_sizes(client, bucket, run_prefix + '/', token)
+    except Exception:
+        return
+    jobs = _sealed_job_dirs(campaign_root)
+    for rel, job_dir in sorted(jobs.items()):
+        prefix = f'{run_prefix}/{rel}'
+        expected = _local_sizes(job_dir)
+        need = sorted(r for r, s in expected.items() if remote.get(f'{prefix}/{r}') != s)
+        if need:
+            try:
+                client.batch_bucket_files(
+                    bucket,
+                    add=[(job_dir / r, f'{prefix}/{r}') for r in need],
+                    token=token,
+                )
+            except Exception:
+                continue
+    campaign_files = _campaign_file_sizes(campaign_root)
+    need = sorted(r for r, s in campaign_files.items() if remote.get(f'{run_prefix}/{r}') != s)
+    if need:
+        try:
+            client.batch_bucket_files(
+                bucket,
+                add=[(campaign_root / r, f'{run_prefix}/{r}') for r in need],
+                token=token,
+            )
+        except Exception:
+            pass
 
 
 def sha256_file(path: Path) -> str:
@@ -145,48 +288,48 @@ def mirror_job_directory(
     root = mirror_root()
     if root is None:
         _skip_line(Path(os.environ.get('HF_MIRROR_ROOT', '/data/e2')), run_log)
-        return
-    if not (job_dir / 'JOB-DONE').exists():
+    elif not (job_dir / 'JOB-DONE').exists():
         _append_run_log(run_log, f'MIRROR-ERROR {job_id} missing JOB-DONE')
-        return
-    dest = root / campaign_id / runner / job_id
-    try:
-        mapping = _manifest_digest_map(job_dir)
-        for rel, digest in sorted(mapping.items()):
-            copy_file_verified(job_dir / rel, dest / rel, digest)
-        for name in ('MANIFEST.sha256', 'JOB-DONE'):
-            src = job_dir / name
-            digest = sha256_file(src)
-            copy_file_verified(src, dest / name, digest)
-        for rel, digest in sorted(mapping.items()):
-            if sha256_file(dest / rel) != digest:
-                raise ValueError(f'mirror verify failed for {rel}')
-        for name in ('MANIFEST.sha256', 'JOB-DONE'):
-            if sha256_file(dest / name) != sha256_file(job_dir / name):
-                raise ValueError(f'mirror verify failed for {name}')
-        manifest_sha = sha256_file(dest / 'MANIFEST.sha256')
-        mirror_ok = dest / 'MIRROR-OK'
-        if mirror_ok.exists():
-            write_prev_copy(mirror_ok)
-        atomic_write(mirror_ok, f'manifest_sha256={manifest_sha}\n')
-    except (OSError, ValueError) as exc:
-        _append_run_log(run_log, f'MIRROR-ERROR {job_id} {exc}')
+    else:
+        dest = root / campaign_id / runner / job_id
+        try:
+            mapping = _manifest_digest_map(job_dir)
+            for rel, digest in sorted(mapping.items()):
+                copy_file_verified(job_dir / rel, dest / rel, digest)
+            for name in ('MANIFEST.sha256', 'JOB-DONE'):
+                src = job_dir / name
+                digest = sha256_file(src)
+                copy_file_verified(src, dest / name, digest)
+            for rel, digest in sorted(mapping.items()):
+                if sha256_file(dest / rel) != digest:
+                    raise ValueError(f'mirror verify failed for {rel}')
+            for name in ('MANIFEST.sha256', 'JOB-DONE'):
+                if sha256_file(dest / name) != sha256_file(job_dir / name):
+                    raise ValueError(f'mirror verify failed for {name}')
+            manifest_sha = sha256_file(dest / 'MANIFEST.sha256')
+            mirror_ok = dest / 'MIRROR-OK'
+            if mirror_ok.exists():
+                write_prev_copy(mirror_ok)
+            atomic_write(mirror_ok, f'manifest_sha256={manifest_sha}\n')
+        except (OSError, ValueError) as exc:
+            _append_run_log(run_log, f'MIRROR-ERROR {job_id} {exc}')
+    _bucket_sync(Path(job_dir).parent.parent, campaign_id, run_log)
 
 
 def mirror_campaign_tail(campaign_root: Path, campaign_id: str, run_log: Path | None) -> None:
     root = mirror_root()
-    if root is None:
-        return
-    dest = root / campaign_id
-    try:
-        for name in ('RUN-DONE', 'RUN.log'):
-            src = campaign_root / name
-            if not src.is_file():
-                continue
-            digest = sha256_file(src)
-            copy_file_verified(src, dest / name, digest)
-    except (OSError, ValueError) as exc:
-        _append_run_log(run_log, f'MIRROR-ERROR campaign {exc}')
+    if root is not None:
+        dest = root / campaign_id
+        try:
+            for name in ('RUN-DONE', 'RUN.log'):
+                src = campaign_root / name
+                if not src.is_file():
+                    continue
+                digest = sha256_file(src)
+                copy_file_verified(src, dest / name, digest)
+        except (OSError, ValueError) as exc:
+            _append_run_log(run_log, f'MIRROR-ERROR campaign {exc}')
+    _bucket_sync(campaign_root, campaign_id, run_log, audit_all=True)
 
 
 def main(argv: list[str] | None = None) -> int:
