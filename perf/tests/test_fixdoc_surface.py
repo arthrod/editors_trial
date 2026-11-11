@@ -60,8 +60,10 @@ class ProbeBudget(unittest.TestCase):
         self.assertNotIn("host-error", reason)
         self.assertNotIn("Command [", reason)
         self.assertIn("folio", reason)
-        self.assertIn(str(bd.PROBE_TIMEOUT_S), reason)
-        # Our own 600 s kill has no evidence the editor crashed (review F6).
+        # The kill is the probe budget plus the 30 s wall grace, and the
+        # reason names that wall, not the bare budget.
+        self.assertIn(str(int(bd._subprocess_timeout_s(cmd))), reason)
+        # Our own wall-clock kill has no evidence the editor crashed (review F6).
         self.assertEqual(caught.exception.refusal_code, "harness_error")
 
 
