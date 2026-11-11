@@ -166,3 +166,16 @@ for (const extra of [1/4096,0.01]) test(`round8 onset timestamp precision ${extr
  if(extra<0.001) assert.equal(r.page_ms,onset);
  else assert.equal(r.failure_reason,'witness_sparse');
 });
+test('a long input-processing interval before the first delivered frame is latency, not a delivery gap',()=>{
+ // Plate on the HF campaign: the keydown blocks the main thread for 103 ms,
+ // so no frame is delivered between the input and the first inked frame
+ // (HF e2-docsplus 20261111T005304106862Z-11568-203191-091 cell 0001-plate:
+ // marker 7901.7, first frame 8004.9, ink 78 px, dense 16.7 ms afterwards,
+ // refused witness_sparse). No frame was delivered in (marker, onset), so
+ // no earlier presentation can hide there, and the input itself bounds the
+ // onset by causality: the paint cannot predate the key. Only a gap between
+ // two delivered frames can hide an earlier paint.
+ const times=Array.from({length:120},(_,i)=>103.2+i*16.7);
+ const r=settle(frames(times,()=>glyph));
+ assert.equal(r.page_ms,103.2);
+});

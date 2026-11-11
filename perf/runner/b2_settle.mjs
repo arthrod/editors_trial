@@ -64,9 +64,11 @@ export function classifyRegion(pixels, baseline, rects, dpr, doc, tolerance = 8)
  * A disappearing qualifying glyph before quiet proof refuses; unrelated or
  * sub-half transient decoys cannot veto the eventual glyph reference.
  * A modal-colour glyph followed only by a mark <25% of its expected ink refuses.
- * A sparse onset also refuses: it cannot establish
- * the first paint: onset gaps over two median intervals refuse, even when
- * below the quiet-window gap bound. A supplied display calibration caps the
+ * A sparse onset between two delivered frames refuses: it cannot establish
+ * the first paint — onset gaps over two median intervals refuse, even when
+ * below the quiet-window gap bound. When no frame was delivered between the
+ * marker and the onset, that interval is the input's own processing time,
+ * not a delivery gap, and it does not refuse. A supplied display calibration caps the
  * onset interval when screencast delivery is slower. Only the gap immediately
  * before the selected onset matters. A 0.001 ms numerical tolerance covers
  * timestamp conversion roundoff at the onset bound; it is not a frame allowance.
@@ -111,8 +113,17 @@ export function settleFrames(frames, {quietMs=300,maxWaitMs=3000,markerMs=0,minP
       return {failure_reason:'settle_not_reached',frame_interval_ms:median,gap_bound_ms:gapBound,onset_bound_ms:onsetBound};
     let first=i;
     while(first>0 && covers(eligible[first-1],ref)) first--;
+    // Only a gap between two delivered frames (first>0) can hide an earlier
+    // presentation of the glyph. When the onset frame is the first frame
+    // delivered at or after the marker (first===0), nothing was delivered in
+    // (marker, onset): the recorder delivers every compositor commit (each
+    // frame is acked before the next can be sent), so nothing was presented
+    // in that interval, and the input itself bounds the onset by causality —
+    // a paint cannot predate its keydown. Refusing on that interval would
+    // refuse the very input-processing latency this criterion measures
+    // (Plate on HF: 103 ms of blocking keydown handling, then dense frames).
     const onset=eligible[first].pageMs-(first?eligible[first-1].pageMs:markerMs);
-    if(onset>onsetBound+0.001) {sparse=true;continue;}
+    if(first>0 && onset>onsetBound+0.001) {sparse=true;continue;}
     return {reference_index:frames.indexOf(ref),match_index:frames.indexOf(eligible[first]),page_ms:eligible[first].pageMs,frame_interval_ms:median,gap_bound_ms:gapBound,onset_bound_ms:onsetBound};
   }
   return {failure_reason:sparse?'witness_sparse':'settle_not_reached',frame_interval_ms:median,gap_bound_ms:gapBound,onset_bound_ms:onsetBound};

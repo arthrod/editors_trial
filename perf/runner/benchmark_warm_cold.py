@@ -308,6 +308,35 @@ def _apryse_key_present() -> bool:
     return False
 
 
+# This lane's edit surfaces. #pages is docxodus's read-only
+# convertDocxToPaginatedHtml render (0 contenteditable at boot): typing there
+# can never edit, so the warm/cold edit engages the block editor behind
+# #modeEditor, which mounts [data-anchor] contenteditable blocks at docxodus
+# 15.0.0 (verified live: one CDP 'x' after the mount lands in #editorHost
+# textContent, 118 -> 119 x's). The mount is preconditioning (pre_edit_click),
+# outside the timed key-to-frame interval; the warm reload re-boots render
+# mode and re-mounts. Only warm_cold_browser.mjs has --pre-edit-click
+# plumbing, so the shared base entry keeps the surface the borrowing lanes
+# (input, typing, resources, c10) resolve with --edit-selector alone.
+WARM_COLD_EDIT_SURFACE = {
+    "docxodus": {
+        "pre_edit_click": "#modeEditor",
+        "edit_selector": '#editorHost [contenteditable="true"]',
+    },
+}
+
+
+def warm_cold_target(editor_id: str):
+    """This lane's target: the shared host entry with the lane's edit surface.
+
+    ``None`` when no browser target is configured for the editor.
+    """
+    target = BROWSER_TARGETS.get(editor_id)
+    if target is None:
+        return None
+    return {**target, **WARM_COLD_EDIT_SURFACE.get(editor_id, {})}
+
+
 def warm_equals_cold(cold_samples: list[float], warm_samples: list[float]) -> bool:
     """True when the strict copy guard fires; recorded, not raised.
 
@@ -859,7 +888,7 @@ def _main() -> int:
         lane = BROWSER_TARGETS[editor_id].get("lane") or default_lane(editor_id)
         trial_pin = pin_label(editor_id)
         editor_version, harness_meta = browser_harness_editor_version(editor_id, trial_pin)
-        target = BROWSER_TARGETS.get(editor_id)
+        target = warm_cold_target(editor_id)
         if target and target.get("enabled") is False:
             target = None
         if not target:

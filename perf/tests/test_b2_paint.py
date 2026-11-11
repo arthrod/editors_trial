@@ -197,6 +197,34 @@ class BrowserIntegration(unittest.TestCase):
         self.assertGreaterEqual(edit['single_edit_ms'], 50)
         self.assertIn('clock_skew', edit)
 
+    def test_replaced_block_still_measures(self):
+        # Eigenpal re-creates the edited paragraph element: an observer rooted
+        # at the arm-time first match is detached and the x lands in the new
+        # first-matching element (HF e2-docsplus ...-091 cell 0004-eigenpal,
+        # b=0 a=1 muts=0). The lane must follow the live document, not the
+        # arm-time element.
+        p = self.probe('replace', '--url', self.host.url + '/?replace=1', '--fresh-context-probe', 'false')
+        for arm in ('cold', 'warm'):
+            edit = p['pairs'][0][arm]
+            latency = edit['single_edit_ms']
+            self.assertIsNotNone(latency, edit)
+            self.assertEqual(edit['outcome'], 'measured', edit)
+            self.assertTrue(0 <= latency < 100, edit)
+
+    def test_decoy_frame_before_delayed_glyph_measures_the_glyph(self):
+        # Superdoc on HF: a small decoy change paints right after the key, the
+        # glyph's DOM mutation is delivered later (259 ms observer delivery
+        # lag), so the witness frame predates the mutation stamp and the
+        # delivery-time eligibility filter refused a real edit (HF e2-publish-2
+        # ...-001 cell 0008-superdoc, witness 6355.9, stamps 6586.3).
+        p = self.probe('decoy', '--url', self.host.url + '/?decoy=1&delay=300', '--fresh-context-probe', 'false')
+        for arm in ('cold', 'warm'):
+            edit = p['pairs'][0][arm]
+            latency = edit['single_edit_ms']
+            self.assertIsNotNone(latency, edit)
+            self.assertEqual(edit['outcome'], 'measured', edit)
+            self.assertGreaterEqual(latency, 300, edit)
+
 
 def frame_record():
     from perf.tests.witness_records import publishable_witness_record
@@ -204,6 +232,24 @@ def frame_record():
 
 
 class SamplePolicy(unittest.TestCase):
+    def test_docxodus_warm_cold_types_into_the_block_editor_not_the_read_only_render(self):
+        # The render surface (#pages, convertDocxToPaginatedHtml output) is
+        # static: no caret, no keyboard surface (0 contenteditable at boot).
+        # The block editor (#modeEditor) mounts [data-anchor] contenteditable
+        # blocks at docxodus 15.0.0 — verified live: one CDP 'x' after the
+        # mount lands in #editorHost textContent (118 -> 119 x's). The
+        # warm/cold target must engage that surface, or every C05/C06 cell
+        # refuses expected_edit_not_confirmed without the editor ever being
+        # asked (all 122 HF warm/cold attempts, every rung). The borrowing
+        # lanes pass --edit-selector only (no --pre-edit-click plumbing), so
+        # the shared base entry stays on the surface they resolve.
+        target = runner.warm_cold_target('docxodus')
+        self.assertEqual(target.get('pre_edit_click'), '#modeEditor')
+        self.assertEqual(target['edit_selector'], '#editorHost [contenteditable="true"]')
+        base = runner.BROWSER_TARGETS['docxodus']
+        self.assertEqual(base['edit_selector'], '#pages')
+        self.assertNotIn('pre_edit_click', base)
+
     def test_missing_frame_is_refused(self):
         row = runner.input_sample_record(
             {'edit_ms': 25, 'outcome': 'measured',
@@ -466,10 +512,19 @@ class AdversarialBrowser(BrowserIntegration):
             edit = p['pairs'][0][arm]
             self.assertTrue(edit['single_edit_ms'] is None or edit['single_edit_ms'] >= 150, edit)
             if edit['single_edit_ms'] is not None:
-                self.assertGreater(edit['edit_confirmation']['changed_pixels'], 0)
-                self.assertTrue(edit['edit_confirmation']['visible_rects'])
+                self.assertGreater(edit['edit_confirmation']['changed_pixels'], 0, edit)
+                self.assertTrue(edit['edit_confirmation']['visible_rects'], edit)
+                self.assertTrue(edit['witness']['document_scoped'])
             else:
-                self.assertEqual(edit['failure_reason'], 'expected_edit_not_confirmed', edit)
+                # The hidden span itself is never confirmable (empty rects),
+                # so a refusal is expected_edit_not_confirmed. The genuinely
+                # visible 150 ms insertion may also reach settlement (the
+                # delivery-time eligibility filter is gone); when the blink-
+                # driven frame stream is too sparse to prove its quiet
+                # window, the honest refusal is witness_sparse. Both refuse;
+                # neither confirms anything below the real 150 ms paint.
+                self.assertIn(edit['failure_reason'],
+                              ('expected_edit_not_confirmed', 'witness_sparse'), edit)
 
     def test_r1_invisible_geometry_and_unrelated_damage_are_refused(self):
         for mode in ('none', 'zero', 'clipped', 'offregion', 'transparent', 'clip'):

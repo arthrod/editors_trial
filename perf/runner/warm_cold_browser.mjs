@@ -290,7 +290,17 @@ async function measureEdit(page, selector, cdp) {
   };
   await page.evaluate(selector => {
     const documentElement = document.querySelector(selector);
-    const count = () => (documentElement.textContent.match(/x/g) || []).length;
+    // The edit confirmation follows the live document, never the arm-time
+    // elements: Eigenpal re-creates the edited paragraph, so the arm-time
+    // first match is detached while the typed x lands in the new first
+    // matching element (HF e2-docsplus 20261111T005304106862Z-...-091 cell
+    // 0004-eigenpal: before_count 0, after_count 1, mutations 0), and a
+    // selector can legitimately match many document fragments. Counts, the
+    // observer scope and the visibility clip are computed against every
+    // element matching the selector at the moment they are needed.
+    const matches = () => [...document.querySelectorAll(selector)];
+    const count = () => matches().reduce((n, el) => n + (el.textContent.match(/x/g) || []).length, 0);
+    const inDocument = node => matches().some(el => el.contains(node));
     const before = count();
     window.__b2 = { event: null, entries: [], supported: PerformanceObserver.supportedEntryTypes.includes('event') };
     const state = window.__b2;
@@ -325,13 +335,16 @@ async function measureEdit(page, selector, cdp) {
       while (walker.nextNode()) nodes.push(walker.currentNode);
       return nodes;
     };
-    const priorText = new WeakMap(textNodes(documentElement).map(n => [n, n.data]));
+    const priorText = new WeakMap(matches().flatMap(el => textNodes(el)).map(n => [n, n.data]));
     state.edit_confirmation = {confirmed: false, before_count: before, expected: 'x', mutations: []};
     const visibleRects = (node, start, end) => {
       const parent = node.parentElement;
-      if (!parent || !documentElement.contains(node) ||
+      if (!parent || !inDocument(node) ||
           !parent.checkVisibility({checkOpacity: true, checkVisibilityCSS: true})) return [];
-      let clip = intersect(documentElement.getBoundingClientRect(),
+      let scope = null;
+      for (let el = parent; el; el = el.parentElement) if (el.matches(selector)) { scope = el; break; }
+      if (!scope) return [];
+      let clip = intersect(scope.getBoundingClientRect(),
         {x: 0, y: 0, width: innerWidth, height: innerHeight});
       for (let el = parent; el && clip; el = el.parentElement) {
         const css = getComputedStyle(el);
@@ -367,6 +380,7 @@ async function measureEdit(page, selector, cdp) {
       const nodes = new Set(records.flatMap(record => record.type === 'characterData'
         ? [record.target] : [...record.addedNodes].flatMap(textNodes)));
       for (const node of nodes) {
+        if (!inDocument(node)) continue;
         const old = priorText.get(node) || '', text = node.data;
         priorText.set(node, text);
         if ((text.match(/x/g) || []).length <= (old.match(/x/g) || []).length) continue;
@@ -385,7 +399,7 @@ async function measureEdit(page, selector, cdp) {
         state.insertions.push({node, ranges, proof});
       }
     });
-    state.mutationObserver.observe(documentElement, {subtree: true, childList: true, characterData: true});
+    state.mutationObserver.observe(document.body, {subtree: true, childList: true, characterData: true});
     state.onKey = function onKey(e) {
       if (e.key !== 'x') return;
       window.__b2.event = { startTime: e.timeStamp, trusted: e.isTrusted };
@@ -427,12 +441,20 @@ async function measureEdit(page, selector, cdp) {
     },
   });
   // Check the document before waiting for Event Timing delivery. A later edit
-  // cannot retroactively turn an earlier caret frame into the edit's paint.
+  // cannot retroactively turn an earlier caret frame into the edit's paint —
+  // but MutationObserver delivery can lag the DOM change by the editor's
+  // whole processing time (superdoc on HF: witness frame 6355.9 ms, delivery
+  // stamp 6586.3 ms for one keydown), so the delivery timestamp is an upper
+  // bound on the mutation time, never the mutation time, and must not gate
+  // an insertion against the witnessed frame. Causality is proven where it
+  // is measured: the settle classifier requires this insertion's own ink,
+  // against the pre-key baseline, in frames at or after the input.
   const confirmation = await page.evaluate(({selector, frameTime}) => {
     const state = window.__b2;
     const proof = state.edit_confirmation;
-    const after = (document.querySelector(selector).textContent.match(/x/g) || []).length;
-    const eligible = state.insertions.filter(m => frameTime !== null && m.proof.mutation_page_ms <= frameTime + 2);
+    const after = [...document.querySelectorAll(selector)].reduce(
+      (n, el) => n + (el.textContent.match(/x/g) || []).length, 0);
+    const eligible = frameTime !== null ? state.insertions : [];
     return {...proof, after_count: after, confirmed: false,
       visible_rects: eligible.flatMap(state.confirmInsertion), changed_pixels: 0};
   }, {selector, frameTime: frame.frame_page_ms});
