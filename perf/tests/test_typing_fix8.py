@@ -498,6 +498,33 @@ def test_correctness_read_waits_for_the_settled_document():
     assert "deadline" in body and "stable_since" in body
 
 
+def test_docx_paragraphs_split_on_real_elements_not_regex():
+    """`_W_P`'s non-greedy `.*?</w:p>` mis-splits a w:p containing a nested
+    w:p (textboxes, AlternateContent fallbacks): it glued the outer runs and
+    cut the paragraph early (review NIT 5). Paragraphs now come from the
+    parsed structure; a nested paragraph is its own segment."""
+    import zipfile
+
+    from perf.runner.docx_plaintext import docx_body_text, docx_body_text_and_absorbed
+
+    document = (
+        b'<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'
+        b'<w:p><w:r><w:t>outer one</w:t></w:r><w:r><w:txbxContent>'
+        b'<w:p><w:r><w:t>textbox</w:t></w:r></w:p></w:txbxContent></w:r>'
+        b'<w:r><w:t> outer two</w:t></w:r></w:p>'
+        b'<w:p><w:pPr><w:numPr/></w:pPr></w:p>'
+        b'<w:p><w:r><w:t>last</w:t></w:r></w:p></w:body></w:document>'
+    )
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("word/document.xml", document)
+    buf.seek(0)
+    assert docx_body_text(buf, paragraph_separator="|") == "outer one outer two|textbox||last"
+    buf.seek(0)
+    text, absorbed = docx_body_text_and_absorbed(buf)
+    assert text == "outer one outer two\ntextbox\n\nlast" and absorbed == 1
+
+
 def test_genoffice_stub_disables_autocorrect():
     """Genoffice's autocorrect rewrites typed text (`(c)` → `©`, smart quotes)
     — real-run RED divergence at normalized offset 928 was the app's own
