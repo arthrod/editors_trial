@@ -951,11 +951,12 @@ function witnessFacts(witness) {
   };
 }
 
-async function loadResult(ctx, { navigationMs, readyMs, surface, witness, surfaceReason }) {
+async function loadResult(ctx, { navigationMs, readyMs, surface, witness, surfaceReason, baseline = null }) {
   const paints = await paintEntries(ctx.page);
   const snap = await stateSnapshot(ctx.page);
   const fcp = fcpFrom(paints);
-  const facts = witnessFacts(witness);
+  let finalWitness = witness;
+  let facts = witnessFacts(finalWitness);
   // Content qualifies the settled surface; it must not move the pixel clock.
   const expectedRaw = opt['expected-opening-text'] || '';
   const verdict = openingContentVerdict({
@@ -972,9 +973,27 @@ async function loadResult(ctx, { navigationMs, readyMs, surface, witness, surfac
   // Model hosts (docen screencast_ink): content is in the model while the ink
   // stamp may lag; once the gate passes and a witness frame exists, bind the
   // surface clock to the first layout box or ready time, not FCP.
-  if (at === null && contentVerified && snap.model_oracle === 'perf_model') {
-    const fallback = snap.first_element_ms ?? readyMs;
-    if (fallback !== null && fallback !== undefined) at = fallback;
+  if (contentVerified && snap.model_oracle === 'perf_model') {
+    const inkAt =
+      surface && surface.at_ms !== null && surface.at_ms !== undefined ? surface.at_ms : null;
+  const fallback = snap.first_element_ms ?? readyMs;
+    const candidates = [at, inkAt, fallback].filter((value) => typeof value === 'number');
+    if (candidates.length) at = Math.max(...candidates);
+  }
+  // Screencast ink may miss a stamp while the model gate already passed; witness then.
+  if (at !== null && facts.presented_frame_ms === null && ctx.recorder && ctx.cdp) {
+    const region = await documentRegion(ctx.page);
+    finalWitness = await witnessFrame(ctx.page, ctx.cdp, {
+      afterPageMs: at,
+      baseline: baseline || null,
+      windowMs: DEFAULT_WINDOW_MS,
+      caretMask: true,
+      settleMs: 0,
+      recorder: ctx.recorder,
+      minPixels: baseline ? 4 : 1,
+      region,
+    });
+    facts = witnessFacts(finalWitness);
   }
   return {
     mode: 'load',
@@ -1096,6 +1115,7 @@ async function runLoad(browser) {
       surface,
       witness,
       surfaceReason,
+      baseline: baseline || navigationBaseline,
     });
   } finally {
     await endWitness(ctx);
@@ -1464,6 +1484,21 @@ async function runReflow(browser) {
       { docSel: reflowSel, anchorText: before.anchor_text, modelReflow: Boolean(modelReflow) },
     );
     const moved = Boolean(shift.moved) && after.top !== null && after.top > before.anchor_top + 0.5;
+    if (modelReflow && !moved) {
+      return {
+        mode: 'reflow',
+        status: 'not_applicable',
+        reason:
+          'paragraphs live in the editor model only; no disclosed DOM block box moves independently of the page container, so a y-shift cannot be attributed',
+        navigation_ms: navigationMs,
+        ready_ms: readyMs,
+        before,
+        anchor_top_after: after.top,
+        window_excludes_forced_layout: true,
+        forced_layout_ms: 0,
+        page_errors: ctx.errors,
+      };
+    }
     const framePageMs = witness && witness.outcome === 'witnessed' ? witness.frame_page_ms : null;
     const raw = framePageMs === null ? null : framePageMs - inputPageMs;
     const presented = raw;

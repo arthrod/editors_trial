@@ -600,6 +600,8 @@ def c12_measured_sample(probe: dict) -> float:
     unit probes omit ``mode`` and ``window_excludes_forced_layout``; a reflow
     payload that does not exclude that layout is refused.
     """
+    if probe.get("status") == "not_applicable":
+        raise ProbeRefusal(probe.get("reason") or "C12 not_applicable", outcome="not_applicable")
     before_top = _number_or_none((probe.get("before") or {}).get("anchor_top"))
     after_top = _number_or_none(probe.get("anchor_top_after"))
     # A replaced anchor keeps the old node disconnected, so the poll can report
@@ -1766,11 +1768,13 @@ def _main() -> int:
                             count=args.samples,
                         )
                     except ProbeRefusal as refusal:
-                        content_outcome = (
-                            "unverified"
-                            if refusal.reason.startswith(("document_content_", "document_content_unverified"))
-                            else getattr(refusal, "outcome", "failed") or "failed"
-                        )
+                        refusal_code = getattr(refusal, "refusal_code", None)
+                        if refusal_code == "editor_load_failed":
+                            content_outcome = "unverified"
+                        elif refusal.reason.startswith(("document_content_", "document_content_unverified")):
+                            content_outcome = "unverified"
+                        else:
+                            content_outcome = getattr(refusal, "outcome", "failed") or "failed"
                         if content_outcome == "failed" and refusal.reason.startswith("document_content_"):
                             content_outcome = "unverified"
                         _refuse_cell(
@@ -1785,7 +1789,8 @@ def _main() -> int:
                             refusal_code=getattr(refusal, "refusal_code", None)
                             or ("unverified" if content_outcome == "unverified" else None),
                         )
-                        failures += 1
+                        if content_outcome == "failed":
+                            failures += 1
                         continue
                     path, trial = _write_measured(
                         attempt_dir=attempt_dir,
@@ -1845,6 +1850,17 @@ def _main() -> int:
                             outcome="not_applicable",
                         )
                         continue
+                    if editor_id == "docxodus":
+                        _refuse_cell(
+                            "C12",
+                            fixture,
+                            (
+                                "docxodus 15.0.0 has no keyboard-driven y-shift surface: paginated #pages "
+                                "is static and #modeEditor blocks are not contenteditable at this pin"
+                            ),
+                            outcome="not_applicable",
+                        )
+                        continue
                     env = _env_for(
                         editor_id=editor_id,
                         editor_version=editor_version,
@@ -1861,9 +1877,16 @@ def _main() -> int:
                             count=args.samples,
                         )
                     except ProbeRefusal as refusal:
-                        _refuse_cell("C12", fixture, refusal.reason, outcome="failed",
-                                     refusal_code=getattr(refusal, "refusal_code", None))
-                        failures += 1
+                        c12_outcome = getattr(refusal, "outcome", "failed") or "failed"
+                        _refuse_cell(
+                            "C12",
+                            fixture,
+                            refusal.reason,
+                            outcome=c12_outcome,
+                            refusal_code=getattr(refusal, "refusal_code", None),
+                        )
+                        if c12_outcome == "failed":
+                            failures += 1
                         continue
                     path, trial = _write_measured(
                         attempt_dir=attempt_dir,
