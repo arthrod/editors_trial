@@ -668,6 +668,91 @@ export async function placeCaret(
   return { point, focused };
 }
 
+/** Page context. SuperDoc caret paragraph from the editor model, not painted lines. */
+export const READ_SUPERDOC_CARET_MODEL = () => {
+  const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+  try {
+    const sd = globalThis.__SUPERDOC_E2E__;
+    const handle = sd && sd.ui && sd.ui.selection;
+    if (!handle || typeof handle.getSnapshot !== 'function') {
+      return { offset: null, paragraphText: null, focused: false, source: 'superdoc_model' };
+    }
+    const snap = handle.getSnapshot();
+    const target = snap && snap.selectionTarget;
+    const start = target && target.start;
+    const end = target && target.end;
+    const offset = start && Number.isFinite(start.offset) ? start.offset : null;
+  const expanded =
+    start &&
+    end &&
+    (start.blockId !== end.blockId || start.offset !== end.offset || start.edge !== end.edge);
+  if (expanded && typeof handle.apply === 'function') {
+    try {
+      handle.apply({ kind: 'selection', start, end: start, story: target.story });
+    } catch {
+      /* best effort */
+    }
+  }
+    let paragraphText = null;
+    if (typeof snap.quotedText === 'string' && snap.quotedText.trim()) {
+      paragraphText = norm(snap.quotedText);
+    }
+    if (!paragraphText && start && typeof start.blockId === 'string') {
+      const esc = start.blockId.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      const line =
+        document.querySelector(`[data-source-node-id="${esc}"]`) ||
+        document.querySelector(`[blockId="${esc}"]`);
+      if (line) paragraphText = norm(line.textContent);
+    }
+    let focused = false;
+    let active = document.activeElement;
+    while (active && active.shadowRoot && active.shadowRoot.activeElement) {
+      active = active.shadowRoot.activeElement;
+    }
+    focused = Boolean(active && active !== document.body && active !== document.documentElement);
+    return { offset, paragraphText, focused, source: 'superdoc_model', blockId: start && start.blockId };
+  } catch {
+    return { offset: null, paragraphText: null, focused: false, source: 'superdoc_model' };
+  }
+};
+
+/** Page context. Place the SuperDoc model caret at paragraph start via the public selection handle. */
+export const PLACE_SUPERDOC_PARAGRAPH_START = ({ expectedText }) => {
+  const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+  const want = norm(expectedText);
+  if (!want) return { ok: false, reason: 'no_expected_paragraph' };
+  try {
+    const sd = globalThis.__SUPERDOC_E2E__;
+    const handle = sd && sd.ui && sd.ui.selection;
+    if (!handle || typeof handle.apply !== 'function' || typeof handle.getSnapshot !== 'function') {
+      return { ok: false, reason: 'superdoc_selection_unavailable' };
+    }
+    const snap = handle.getSnapshot();
+    const story = snap && snap.selectionTarget && snap.selectionTarget.story;
+    const lines = Array.from(document.querySelectorAll('#editor .superdoc-line'));
+    let blockId = null;
+    for (const line of lines) {
+      const text = norm(line.textContent);
+      if (text !== want) continue;
+      blockId =
+        line.getAttribute('data-source-node-id') ||
+        line.getAttribute('blockId') ||
+        line.getAttribute('data-block-id');
+      if (blockId) break;
+    }
+    if (!blockId) return { ok: false, reason: 'paragraph_block_unresolved' };
+    handle.apply({
+      kind: 'selection',
+      start: { blockId, offset: 0, edge: 'start' },
+      end: { blockId, offset: 0, edge: 'start' },
+      story,
+    });
+    return { ok: true, blockId };
+  } catch (error) {
+    return { ok: false, reason: String(error && error.message ? error.message : error).slice(0, 200) };
+  }
+};
+
 /** Page context. Offset of the caret from the start of its text block (0 = block start). */
 export const READ_CARET_BLOCK_OFFSET = ({ editorId, blockSelector }) => {
   const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
@@ -677,17 +762,13 @@ export const READ_CARET_BLOCK_OFFSET = ({ editorId, blockSelector }) => {
   }
   const focused = Boolean(active && active !== document.body && active !== document.documentElement);
   if (editorId === 'superdoc') {
-    try {
-      const sd = globalThis.__SUPERDOC_E2E__;
-      const snap = sd && sd.ui && sd.ui.selection && sd.ui.selection.getSnapshot
-        ? sd.ui.selection.getSnapshot()
-        : null;
-      const start = snap && snap.selectionTarget && snap.selectionTarget.start;
-      const off = start && Number.isFinite(start.offset) ? start.offset : null;
-      return { offset: off, focused, source: 'superdoc_model' };
-    } catch {
-      return { offset: null, focused, source: 'superdoc_model' };
-    }
+    const model = READ_SUPERDOC_CARET_MODEL();
+    return {
+      offset: model.offset,
+      focused: model.focused,
+      source: model.source,
+      paragraphText: model.paragraphText,
+    };
   }
   if (editorId === 'folio') {
     const pm = document.querySelector('.paged-editor__hidden-pm .ProseMirror');
@@ -702,7 +783,7 @@ export const READ_CARET_BLOCK_OFFSET = ({ editorId, blockSelector }) => {
         : range.startContainer;
     const block =
       startEl && typeof startEl.closest === 'function'
-        ? startEl.closest('p,li,h1,h2,h3,h4,h5,h6,td,th')
+        ? startEl.closest('p,li,h1,h2,h3,h4,h5,h6,td,th,[data-block-id]')
         : null;
     if (!block || !pm.contains(block)) {
       return { offset: null, focused, source: 'hidden_pm' };
@@ -752,16 +833,31 @@ export const READ_CARET_BLOCK_OFFSET = ({ editorId, blockSelector }) => {
 export async function verifyCaretAtParagraphStart(
   page,
   editorId,
-  { blockSelector = null, clickPoint = null } = {},
+  { blockSelector = null, clickPoint = null, expectedParagraphText = null } = {},
 ) {
   const primary = blockSelector || String(EDIT_SURFACES[editorId]?.block || '').trim() || null;
+  const normExpected = expectedParagraphText ? String(expectedParagraphText).replace(/\s+/g, ' ').trim() : null;
   const readOffset = async () =>
     page.evaluate(READ_CARET_BLOCK_OFFSET, {
       editorId: editorId || '',
       blockSelector: primary,
     });
   let read = await readOffset();
-  if (read.offset !== 0 && clickPoint && Number.isFinite(clickPoint.x)) {
+  const paragraphMismatch = () =>
+    normExpected &&
+    read &&
+    typeof read.paragraphText === 'string' &&
+    read.paragraphText &&
+    read.paragraphText !== normExpected;
+  const needsPlacement = () =>
+    read.offset !== 0 ||
+    paragraphMismatch() ||
+    (editorId === 'folio' && read.offset === null && clickPoint && Number.isFinite(clickPoint.x));
+  if (needsPlacement() && editorId === 'superdoc' && normExpected) {
+    await page.evaluate(PLACE_SUPERDOC_PARAGRAPH_START, { expectedText: normExpected });
+    await page.waitForTimeout(80);
+    read = await readOffset();
+  } else if (needsPlacement() && clickPoint && Number.isFinite(clickPoint.x)) {
     await page.evaluate(COLLAPSE_CARET_AT_CLICK_BLOCK, {
       x: clickPoint.x,
       y: clickPoint.y,
@@ -775,6 +871,25 @@ export async function verifyCaretAtParagraphStart(
       const pm = document.querySelector('.paged-editor__hidden-pm .ProseMirror');
       if (pm && typeof pm.focus === 'function') pm.focus();
     });
+    try {
+      await page.waitForFunction(
+        () => {
+          const pm = document.querySelector('.paged-editor__hidden-pm .ProseMirror');
+          const sel = typeof document.getSelection === 'function' ? document.getSelection() : null;
+          return Boolean(
+            pm &&
+              sel &&
+              sel.rangeCount > 0 &&
+              sel.getRangeAt(0).startContainer &&
+              pm.contains(sel.getRangeAt(0).startContainer),
+          );
+        },
+        null,
+        { timeout: 5000, polling: 50 },
+      );
+    } catch {
+      /* bounded */
+    }
     read = await readOffset();
   }
   if (!read.focused) {
@@ -782,6 +897,15 @@ export async function verifyCaretAtParagraphStart(
   }
   if (read.offset !== 0) {
     return { ok: false, reason: 'caret_not_at_paragraph_start', detail: 'nonzero_offset', ...read };
+  }
+  if (paragraphMismatch()) {
+    return {
+      ok: false,
+      reason: 'caret_not_at_paragraph_start',
+      detail: 'paragraph_text_mismatch',
+      expected: normExpected,
+      ...read,
+    };
   }
   return { ok: true, ...read };
 }

@@ -21,8 +21,8 @@ import {
 
 export const LANE_LOAD_TIMEOUT_MS = 600_000;
 export const LANE_POLL_BOUND_MS = 600_000;
-/** Same bound as confirmLaneEdit: poll until a post-keystroke edit shows in evidence. */
-export const LANE_EDIT_CONFIRM_MS = LANE_POLL_BOUND_MS;
+/** Outside measured windows: poll until Enter+x is visible in the C12 census. */
+export const LANE_EDIT_CONFIRM_MS = 10_000;
 
 /**
  * Editors whose C12 has no paragraph geometry (r3lanes4 ruling 4): the host
@@ -679,11 +679,8 @@ export async function placeC12BodyCaret(page, editorId, reflowSel, excludeSel) {
   const blockSelector = String(reflowSel || '').split(',')[0].trim() || null;
   const surface = editSurface(editorId);
   if (surface.hidden) {
-    const mounted = await page.evaluate((hiddenSel) => Boolean(document.querySelector(hiddenSel)), surface.hidden);
-    if (!mounted) {
-      await page.mouse.click(pick.click.x, pick.click.y);
-      await page.waitForTimeout(150);
-    }
+    await page.mouse.click(pick.click.x, pick.click.y);
+    await page.waitForTimeout(150);
   }
   let placed = null;
   try {
@@ -702,6 +699,7 @@ export async function placeC12BodyCaret(page, editorId, reflowSel, excludeSel) {
   const verified = await verifyCaretAtParagraphStart(page, editorId, {
     blockSelector,
     clickPoint: pick.click,
+    expectedParagraphText: pick.caretText,
   });
   if (!verified.ok) {
     return {

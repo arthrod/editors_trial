@@ -1541,14 +1541,99 @@ async function runReflow(browser) {
     await ctx.page.keyboard.press('Enter');
     await ctx.page.keyboard.type('x', { delay: 0 });
     const snapshot = await ctx.page.evaluate(() => window.__c12BeforeSnapshot || null);
+    const editConfirmMs = Math.min(timeoutMs, 10_000);
     const editSeen = await waitForC12CaretEdit(
       ctx.page,
       editorId,
       reflowSel,
       excludeSel,
       snapshot,
+      { timeoutMs: editConfirmMs },
     );
+    const evaluateAnchorIdentity = () =>
+      ctx.page.evaluate(
+        ({ checkSrc, diagSrc, blockTextSrc, entriesSrc, eid, excl, docSel }) => {
+          const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+          let readBlock = (block) => norm(block.innerText || block.textContent);
+          try {
+            // eslint-disable-next-line no-eval
+            const fn = eval(blockTextSrc);
+            if (typeof fn === 'function') {
+              readBlock = (block) => fn(block, norm);
+            }
+          } catch {
+            /* keep default */
+          }
+          const snap = window.__c12BeforeSnapshot;
+          if (!snap || !docSel) return { ok: false, reason: 'anchor_identity_ambiguous' };
+          let check = null;
+          let collect = null;
+          try {
+            // eslint-disable-next-line no-eval
+            check = (0, eval)(`(function(){ ${checkSrc}; return ANCHOR_REFIND_CONTEXT_OK; })()`);
+          } catch {
+            check = null;
+          }
+          try {
+            // eslint-disable-next-line no-eval
+            collect = (0, eval)(`(function(){ ${entriesSrc}; return c12BlockEntries; })()`);
+          } catch {
+            collect = null;
+          }
+          if (typeof check !== 'function' || typeof collect !== 'function') {
+            return { ok: false, reason: 'anchor_identity_ambiguous' };
+          }
+          const entries = collect(eid, docSel, excl || '', readBlock);
+          const blocks = entries.map((entry) => entry.el);
+          const verdict = check(snap, blocks, readBlock);
+          if (verdict && verdict.ok === false) {
+            let diagnose = null;
+            try {
+              // eslint-disable-next-line no-eval
+              const diagFn = (0, eval)(`(function(){ ${diagSrc}; return C12_IDENTITY_REFUSAL_DIAGNOSTIC; })()`);
+              if (typeof diagFn === 'function') {
+                const texts = entries.map((entry) => entry.text);
+                diagnose = diagFn(snap, texts, norm, 8, 80);
+              }
+            } catch {
+              diagnose = null;
+            }
+            return { ...verdict, identity_diagnostic: diagnose };
+          }
+          return verdict;
+        },
+        {
+          checkSrc: `${ANCHOR_REFIND_CONTEXT_OK_PAGE_SRC}`,
+          diagSrc: `${C12_IDENTITY_DIAGNOSTIC_PAGE_SRC}`,
+          blockTextSrc: `${C12_BLOCK_TEXT}`,
+          entriesSrc: `${C12_BLOCK_ENTRIES_PAGE_SRC}`,
+          eid: editorId || '',
+          excl: excludeSel,
+          docSel: reflowSel,
+        },
+      );
     if (!editSeen || editSeen.ok !== true) {
+      const anchorOnEditMiss = await evaluateAnchorIdentity();
+      if (anchorOnEditMiss && anchorOnEditMiss.ok === false) {
+        return {
+          mode: 'reflow',
+          driver: 'playwright',
+          url,
+          navigation_ms: navigationMs,
+          ready_ms: readyMs,
+          before,
+          error: anchorOnEditMiss.reason || 'anchor_identity_ambiguous',
+          identity_diagnostic: anchorOnEditMiss.identity_diagnostic || null,
+          edit_confirmation: editSeen || null,
+          moved: false,
+          anchor_top_after: null,
+          anchor_after_top: null,
+          shift_px: null,
+          window_excludes_forced_layout: true,
+          forced_layout_ms: 0,
+          page_errors: ctx.errors,
+        };
+      }
       const identityDiagnostic = await ctx.page.evaluate(
         ({ diagSrc, entriesSrc, blockTextSrc, eid, excl, docSel }) => {
           const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
@@ -1610,67 +1695,7 @@ async function runReflow(browser) {
         page_errors: ctx.errors,
       };
     }
-    const anchorIdentity = await ctx.page.evaluate(
-      ({ checkSrc, diagSrc, blockTextSrc, entriesSrc, eid, excl, docSel }) => {
-        const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
-        let readBlock = (block) => norm(block.innerText || block.textContent);
-        try {
-          // eslint-disable-next-line no-eval
-          const fn = eval(blockTextSrc);
-          if (typeof fn === 'function') {
-            readBlock = (block) => fn(block, norm);
-          }
-        } catch {
-          /* keep default */
-        }
-        const snapshot = window.__c12BeforeSnapshot;
-        if (!snapshot || !docSel) return { ok: false, reason: 'anchor_identity_ambiguous' };
-        let check = null;
-        let collect = null;
-        try {
-          // eslint-disable-next-line no-eval
-          check = (0, eval)(`(function(){ ${checkSrc}; return ANCHOR_REFIND_CONTEXT_OK; })()`);
-        } catch {
-          check = null;
-        }
-        try {
-          // eslint-disable-next-line no-eval
-          collect = (0, eval)(`(function(){ ${entriesSrc}; return c12BlockEntries; })()`);
-        } catch {
-          collect = null;
-        }
-        if (typeof check !== 'function' || typeof collect !== 'function') {
-          return { ok: false, reason: 'anchor_identity_ambiguous' };
-        }
-        const entries = collect(eid, docSel, excl || '', readBlock);
-        const blocks = entries.map((entry) => entry.el);
-        const verdict = check(snapshot, blocks, readBlock);
-        if (verdict && verdict.ok === false) {
-          let diagnose = null;
-          try {
-            // eslint-disable-next-line no-eval
-            const diagFn = (0, eval)(`(function(){ ${diagSrc}; return C12_IDENTITY_REFUSAL_DIAGNOSTIC; })()`);
-            if (typeof diagFn === 'function') {
-              const texts = entries.map((entry) => entry.text);
-              diagnose = diagFn(snapshot, texts, norm, 8, 80);
-            }
-          } catch {
-            diagnose = null;
-          }
-          return { ...verdict, identity_diagnostic: diagnose };
-        }
-        return verdict;
-      },
-      {
-        checkSrc: `${ANCHOR_REFIND_CONTEXT_OK_PAGE_SRC}`,
-        diagSrc: `${C12_IDENTITY_DIAGNOSTIC_PAGE_SRC}`,
-        blockTextSrc: `${C12_BLOCK_TEXT}`,
-        entriesSrc: `${C12_BLOCK_ENTRIES_PAGE_SRC}`,
-        eid: editorId || '',
-        excl: excludeSel,
-        docSel: reflowSel,
-      },
-    );
+    const anchorIdentity = await evaluateAnchorIdentity();
     if (anchorIdentity && anchorIdentity.ok === false) {
       return {
         mode: 'reflow',

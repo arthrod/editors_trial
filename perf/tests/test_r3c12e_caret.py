@@ -107,6 +107,22 @@ class C12BodyCaretUsesAdapter(unittest.TestCase):
         self.assertIn("edit_not_observed", probe)
         self.assertIn("caret_not_at_paragraph_start", lane)
 
+    def test_superdoc_caret_verify_reads_model_paragraph(self):
+        surface = (REPO / "perf/runner/edit_surface.mjs").read_text(encoding="utf-8")
+        self.assertIn("READ_SUPERDOC_CARET_MODEL", surface)
+        self.assertIn("PLACE_SUPERDOC_PARAGRAPH_START", surface)
+        self.assertIn("expectedParagraphText", surface)
+        lane = (REPO / "perf/runner/lane_edit_burst.mjs").read_text(encoding="utf-8")
+        self.assertIn("expectedParagraphText: pick.caretText", lane)
+
+    def test_superdoc_caret_verify_reads_model_paragraph(self):
+        surface = (REPO / "perf/runner/edit_surface.mjs").read_text(encoding="utf-8")
+        self.assertIn("READ_SUPERDOC_CARET_MODEL", surface)
+        self.assertIn("PLACE_SUPERDOC_PARAGRAPH_START", surface)
+        self.assertIn("expectedParagraphText", surface)
+        lane = (REPO / "perf/runner/lane_edit_burst.mjs").read_text(encoding="utf-8")
+        self.assertIn("expectedParagraphText: pick.caretText", lane)
+
 
 if __name__ == "__main__":
     unittest.main()
