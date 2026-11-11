@@ -38,19 +38,30 @@ _LIST_MARKER = re.compile(
     r'^(?:\((?:\d{1,6}|[A-Za-z]|[ivxlcdmIVXLCDM]{1,7})\)'
     r'|(?:\d{1,6}|[A-Za-z]|[ivxlcdmIVXLCDM]{2,7})[.)])\s*')
 
+# Auto-corrected quotation marks: a correct word processor turns the typed
+# straight quote into a typographic one (docen, genoffice). Like the marker
+# class this folds a glyph variant, never a character: a missing or extra
+# quote still fails the compare.
+_QUOTE_FOLD = str.maketrans({
+    '\u2018': "'", '\u2019': "'", '\u201a': "'", '\u201b': "'", '`': "'",
+    '\u201c': '"', '\u201d': '"', '\u201e': '"', '\u201f': '"',
+    '\u00ab': '"', '\u00bb': '"',
+})
+
 def normalize_marked(text):
     """The single correctness normaliser, applied identically on both sides.
 
-    The only tolerated class is the paragraph-leading auto-numbering marker
-    followed by text: an editor may keep a typed "1. " as literal text or
-    absorb it into a real list label, and neither is a content defect. A
-    paragraph that IS only a marker ("v.", "12.") carries no text to absorb
-    into — it leaves no residue here, and marker_only_strings accounts for
-    it, so a dropped marker-only paragraph cannot pass. Returns
-    (text, ignored)."""
+    The only tolerated classes are the paragraph-leading auto-numbering
+    marker followed by text (an editor may keep a typed "1. " as literal
+    text or absorb it into a real list label, and neither is a content
+    defect) and auto-corrected quotation marks (a typed straight quote may
+    come back curly). A paragraph that IS only a marker ("v.", "12.")
+    carries no text to absorb into — it leaves no residue here, and
+    marker_only_strings accounts for it, so a dropped marker-only
+    paragraph cannot pass. Returns (text, ignored)."""
     ignored = 0
     lines = []
-    for line in text.split('\n'):
+    for line in text.translate(_QUOTE_FOLD).split('\n'):
         line = line.strip()
         while (match := _LIST_MARKER.match(line)):
             rest = line[match.end():]
@@ -103,9 +114,9 @@ def normalize(text):
 # exposes as element attributes (folio's data-list-marker). Only items with
 # no text of their own count — those are the marker-only paragraphs.
 ABSORBED_MARKERS_JS = """(s) => {
-  const el = document.querySelector(s);
-  if (!el) return [];
-  return Array.from(el.querySelectorAll('[data-list-marker]'))
+  const els = Array.from(document.querySelectorAll(s));
+  if (!els.length) return [];
+  return els.flatMap((el) => Array.from(el.querySelectorAll('[data-list-marker]')))
     .filter((n) => !String(n.innerText || n.textContent || '').trim())
     .map((n) => String(n.getAttribute('data-list-marker') || '').trim())
     .filter(Boolean);
@@ -113,9 +124,13 @@ ABSORBED_MARKERS_JS = """(s) => {
 
 async def read_document_text(page, *, selector, model_js=None):
     """The whole document's text: the declared model adapter, else the
-    editable surface's innerText."""
+    editable surface's innerText. The surface may match many elements —
+    docxodus wires one contenteditable per block — so every match's
+    innerText joins with a paragraph separator."""
     if model_js is None:
-        return await page.evaluate('(s) => document.querySelector(s)?.innerText ?? ""', selector)
+        return await page.evaluate(
+            '(s) => Array.from(document.querySelectorAll(s))'
+            '.map((el) => String(el.innerText ?? el.textContent ?? "")).join("\\n")', selector)
     payload = await page.evaluate(model_js)
     if isinstance(payload, dict):
         docx = payload.get('docx_bytes')
@@ -172,14 +187,16 @@ def witness_eligible(char):
 async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0, session_kind="throughput",
                         witness_every=100, sample_s=5, clock=time.monotonic,
                         sleep=asyncio.sleep, present_selector=None, model_js=None, expected_text=None,
-                        read_document=None, flag_verifier=None):
+                        read_document=None, flag_verifier=None, correctness_oracle=None):
     if session_kind not in ("throughput", "latency"):
         raise ValueError("invalid session kind")
     # `selector` reads the document text; `present_selector` reads what the
     # user can SEE (the painted region), which may repaint asynchronously
     # (folio's visible pages lag the editable ProseMirror by ~200 ms).
     sampler.selector = present_selector or selector
-    oracle = 'model_document_text' if (read_document is not None or model_js) else 'dom_document_text'
+    oracle = (correctness_oracle
+              or ('model_document_text' if (read_document is not None or model_js)
+                  else 'dom_document_text'))
     if read_document is None:
         async def read_document():
             return {'text': await read_document_text(page, selector=selector, model_js=model_js),
@@ -242,6 +259,23 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
             read = None
             try:
                 read = await read_document()
+                # Worker-driven renderers commit asynchronously and in bursts:
+                # superdoc's second page mounted ~1s after the last key, so a
+                # snapshot read truncated the document mid-paragraph (real-run
+                # RED: divergence at normalized 1582, two marker-only
+                # paragraphs missing). Judge the settled document — the text
+                # must stay unchanged across a continuous window, not just one
+                # poll that caught a commit stall.
+                deadline = time.monotonic() + 15
+                stable_since = time.monotonic()
+                while read is not None and time.monotonic() < deadline:
+                    await asyncio.sleep(0.1)
+                    nxt = await read_document()
+                    if nxt != read:
+                        read = nxt
+                        stable_since = time.monotonic()
+                    elif time.monotonic() - stable_since >= 1.5:
+                        break
             except Exception as exc:
                 if re.search(r'crash|closed|detached', str(exc), re.I):
                     raise
@@ -467,8 +501,9 @@ async def session(target, text, args, directory):
                 placed = await bridge.request(op='place_caret', editor_id=editor_id,
                     selector=click_sel, empty_document=True, focus_timeout_ms=15000)
                 surface_kind = (placed or {}).get('surface') or 'dom'
-                flag_verifier = None; read_document = None
+                flag_verifier = None; read_document = None; oracle_name = 'dom_document_text'
                 if model_js is not None:
+                    oracle_name = 'model_document_text'
                     async def read_document():
                         payload = await page.evaluate(model_js)
                         if isinstance(payload, dict) and isinstance(payload.get('docx_bytes'), list):
@@ -480,20 +515,32 @@ async def session(target, text, args, directory):
                     await bridge.request(op='arm_trusted_keys')
                     min_keys = len(text) - text.count('\n')
                     async def flag_verifier():
+                        # The dirty marker is the app's window title, emitted on
+                        # an egui frame — the title may lag the last key by a
+                        # frame or two, so poll briefly before judging it.
+                        flag = None
+                        # Software-rasterised WordCraft can take seconds to
+                        # emit the dirty title after a long burst.
+                        deadline = time.monotonic() + 15
+                        while True:
+                            flag = await bridge.request(op='modified_flag', editor_id=editor_id)
+                            if not flag or flag.get('modified') is True or time.monotonic() >= deadline:
+                                break
+                            await asyncio.sleep(0.1)
                         keys = await bridge.request(op='trusted_key_count')
-                        return {'flag': await bridge.request(op='modified_flag', editor_id=editor_id),
+                        return {'flag': flag,
                                 'trusted_keys': (keys or {}).get('keys'),
                                 'min_keys': min_keys}
                 elif surface_kind == 'model':
+                    oracle_name = 'model_document_text'
+                # The bridge's readers join every element matching the surface —
+                # docxodus mounts one contenteditable per block, genoffice and
+                # folio one region per page. A querySelector first-match would
+                # truncate the document at its first paragraph.
+                if read_document is None and surface_kind in ('dom', 'model'):
                     async def read_document():
                         return await bridge.request(op='read_document', editor_id=editor_id,
                                                     selector=edit_sel)
-                else:
-                    async def read_document():
-                        text_now = await page.evaluate(
-                            '(s) => document.querySelector(s)?.innerText ?? ""', edit_sel)
-                        absorbed = await page.evaluate(ABSORBED_MARKERS_JS, edit_sel)
-                        return {'text': text_now, 'absorbed_markers': absorbed}
                 if read_document is not None:
                     baseline = await read_document()
                     if baseline.get('text') is None:
@@ -506,7 +553,8 @@ async def session(target, text, args, directory):
                 result.update(await type_document(page, sampler, witness, text, selector=edit_sel,
                     cadence_ms=args.cadence_ms, session_kind=kind, witness_every=args.witness_every, sample_s=args.sample_s,
                     present_selector=present_sel, expected_text=getattr(args, 'expected_text', None),
-                    read_document=read_document, flag_verifier=flag_verifier))
+                    read_document=read_document, flag_verifier=flag_verifier,
+                    correctness_oracle=oracle_name))
                 if not result['failure_reason']:
                     # No unverified generic save button: require a host-declared path.
                     save = target.get('typing_save_selector')
@@ -592,7 +640,11 @@ def main_cell(argv=None, *, start_host=_start_server, stop_host=_stop_server):
         tokens = list(re.finditer(r'\S+', text)); text = text[:tokens[min(args.words,len(tokens))-1].end()]
     from perf.fixtures.generate import docx_zip_bytes
     # Zero-text DOCX, not select-all/delete after loading a populated document.
-    empty = fixture_path('typing-empty', docx_zip_bytes(b'\n'), args.out_root/'empty.docx')
+    # section_properties: docxodus's paginated mount only wires body paragraphs
+    # inside a page box; a sectPr-less body leaves the lone <w:p/> outside the
+    # edit root with no editable surface at all.
+    empty = fixture_path('typing-empty', docx_zip_bytes(b'\n', section_properties=True),
+                         args.out_root/'empty.docx')
     for editor in args.editors:
         target = dict(BROWSER_TARGETS[editor]); target['editor_id'] = editor
         if editor == 'superdoc': target['typing_save_selector'] = '#export-docx'

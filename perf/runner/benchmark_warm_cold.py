@@ -114,9 +114,15 @@ BROWSER_TARGETS: dict[str, dict] = {
         "ready_selector": "#editor .superdoc__document",
         "wait_after_ready": "2000",
         "edit_selector": "#editor .superdoc__document",
-        # `.superdoc__document` is a wrapper; the editable is the ProseMirror
-        # inside (SuperDoc's own focus helper: `[role="textbox"]…, .ProseMirror`).
-        "typing_edit_selector": "#editor .ProseMirror",
+        # SuperDoc v2 (2.29.0-next.3) has no .ProseMirror: the document paints
+        # into a worker-driven DOM — .superdoc-page carries one clean text copy,
+        # .superdoc-line is the line a user clicks, and the mounted stage is
+        # [role="textbox"]. The stage's own innerText is unusable (a hidden
+        # print-semantics tree duplicates every line).
+        "typing_edit_selector": "#editor .superdoc-page",
+        "typing_click_selector": "#editor .superdoc-line",
+        "typing_wait_selector": "#editor [role='textbox']",
+        "typing_present_selector": "#editor .superdoc-page",
         "driver": "playwright",
         "criteria": {
             "C03": ("first_usable", "browser_visible"),

@@ -406,3 +406,105 @@ def test_place_caret_empty_document_clicks_and_waits_for_focus():
     assert "emptyDocument" in source
     body = source.split("export async function placeCaret")[1].split("readCaretScope")[0]
     assert "EDITOR_HAS_FOCUS" in body
+
+
+def test_typing_fixture_carries_section_properties():
+    """The lane's empty DOCX must end the body with w:sectPr: docxodus's
+    paginated mount drops a sectPr-less body's paragraph outside the edit
+    root, leaving no editable block (real-run RED: 30s CE timeout)."""
+    import io
+    import zipfile
+
+    from perf.fixtures.generate import docx_zip_bytes
+
+    zin = zipfile.ZipFile(io.BytesIO(docx_zip_bytes(b"\n", section_properties=True)))
+    document = zin.read("word/document.xml").decode("utf-8")
+    assert "<w:sectPr>" in document
+    # Existing callers stay byte-identical without the flag.
+    plain = zipfile.ZipFile(io.BytesIO(docx_zip_bytes(b"\n")))
+    assert "<w:sectPr>" not in plain.read("word/document.xml").decode("utf-8")
+
+    source = (REPO / "perf/runner/benchmark_typing.py").read_text()
+    assert "docx_zip_bytes(b'\\n', section_properties=True)" in source
+
+
+def test_dom_document_read_joins_every_matching_element():
+    """querySelector's first match truncates a multi-element surface at its
+    first block: docxodus wires one contenteditable per paragraph, genoffice
+    and folio one region per page (real-run RED: divergence at offset 23,
+    first paragraph only)."""
+    source = (REPO / "perf/runner/edit_surface.mjs").read_text()
+    body = source.split("READ_DOM_TEXT_WITH_MARKERS")[1].split("armTrustedKeyCounter")[0]
+    assert "querySelectorAll" in body
+    assert "querySelector(" not in body
+    session = (REPO / "perf/runner/benchmark_typing.py").read_text()
+    reader = session.split("async def read_document_text")[1].split("def divergence")[0]
+    assert "querySelectorAll" in reader
+
+
+def test_autocorrected_quotes_fold_but_missing_quote_fails():
+    """A correct word processor turns typed straight quotes curly (docen and
+    genoffice diverge at the brief's first " — real-run RED offset 787). The
+    fold is symmetric: a dropped quote still fails."""
+    from perf.runner.benchmark_typing import normalize_marked
+
+    expected, _ = normalize_marked('an "aggravated felony."')
+    curly, _ = normalize_marked('an \u201caggravated felony.\u201d')
+    assert curly == expected
+    missing, _ = normalize_marked('an aggravated felony.')
+    assert missing != expected
+
+
+def test_trusted_keys_count_layoutless_characters():
+    """Chars with no key on the layout produce no keydown at all (the brief's
+    §) — still trusted typed input, must count (real-run RED: 1933 < 1934).
+    The counter needs a second channel beyond keydown: a trusted
+    beforeinput/insertText observer, deduplicated so a mapped char counts once."""
+    source = (REPO / "perf/runner/edit_surface.mjs").read_text()
+    body = source.split("armTrustedKeyCounter")[1].split("trustedKeyCount")[0]
+    assert "keydown" in body and "beforeinput" in body and "insertText" in body
+    assert "pending" in body  # dedup: an insertText consumes its pending keydown
+
+
+def test_flag_verifier_polls_for_the_title_frame():
+    """WordCraft's dirty bullet rides the next egui frame — a single read
+    right after the last key can miss it (real-run RED:
+    modified_flag_unchanged with all keys trusted)."""
+    source = (REPO / "perf/runner/benchmark_typing.py").read_text()
+    body = source.split("async def flag_verifier")[1].split("elif surface_kind")[0]
+    assert "deadline" in body and "modified" in body
+
+
+def test_legacy_servers_receive_the_fixture_via_corpus_docx():
+    """select_fixture only reached StaticHost: a legacy-spawned node server
+    (wordcraft-host reads CORPUS_DOCX once at spawn) kept serving its own
+    default corpus — wordcraft typed into fixture/complex.docx and the flag
+    never flipped (real-run RED: edit_not_applied, modified=false)."""
+    from perf.runner import browser_hosts
+
+    target = {"env": {"PORT": "1"}}
+    browser_hosts.select_fixture(target, Path("/tmp/zero.docx"))
+    assert target["env"]["CORPUS_DOCX"] == "/tmp/zero.docx"
+
+
+def test_correctness_read_waits_for_the_settled_document():
+    """Worker-driven renderers commit the tail asynchronously: superdoc's
+    second page mounted ~1s after the last key, so the snapshot read
+    truncated the document mid-paragraph (real-run RED: divergence at
+    normalized 1582, two marker-only paragraphs missing). The final read
+    must poll until two reads agree before comparing."""
+    source = (REPO / "perf/runner/benchmark_typing.py").read_text()
+    body = source.split("read = await read_document()")[1].split("except Exception")[0]
+    assert "deadline" in body and "stable_since" in body
+
+
+def test_genoffice_stub_disables_autocorrect():
+    """Genoffice's autocorrect rewrites typed text (`(c)` → `©`, smart quotes)
+    — real-run RED divergence at normalized offset 928 was the app's own
+    substitution, not a dropped key. The app persists the switches under
+    `aidocs.autocorrect` and reads them per keystroke; the stub pins them off
+    so the document equals the authored text."""
+    stub = (REPO / "harness/ui/genoffice/desktop-stub.js").read_text()
+    assert "aidocs.autocorrect" in stub
+    for rule in ("smartQuotes", "symbols", "dashes", "autoLists", "ordinals"):
+        assert f"{rule}: false" in stub

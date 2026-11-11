@@ -241,6 +241,10 @@ def start_host(editor, target, legacy_start):
 def select_fixture(target, fixture):
     """Switch the corpus route between document workloads, before navigation."""
     target['fixture'] = fixture
+    if fixture is not None:
+        # Legacy-started node servers (wordcraft-host, officeopen) read
+        # CORPUS_DOCX once at spawn; target['fixture'] only reaches StaticHost.
+        target.setdefault('env', {})['CORPUS_DOCX'] = str(fixture)
     server = target.get('_static_server')
     if server is not None:
         server.fixture = fixture

@@ -21,6 +21,19 @@
   // rendered page gets the full window width.
   try {
     localStorage.setItem('aidocs.showAi', '0')
+    // The correctness oracle compares the document against the exact typed
+    // text; autocorrect (smart quotes, (c)->©, --, ...) would make the two
+    // legitimately differ.  The app persists these switches in localStorage
+    // and reads them on every keystroke, so pinning them here is the same as
+    // a user turning the features off before typing.
+    localStorage.setItem('aidocs.autocorrect', JSON.stringify({
+      smartQuotes: false,
+      dashes: false,
+      autoLists: false,
+      symbols: false,
+      ordinals: false,
+      capitalize: false,
+    }))
   } catch (e) {
     /* storage unavailable */
   }

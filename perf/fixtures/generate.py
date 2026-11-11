@@ -81,14 +81,19 @@ def correctness_fixtures():
     }
 
 
-def docx_zip_bytes(body: bytes) -> bytes:
+def docx_zip_bytes(body: bytes, *, section_properties: bool = False) -> bytes:
     """Minimal OOXML package: one ``<w:p>`` per line of ``body``.
 
     Each newline-terminated line of ``body`` becomes its own paragraph (an
     empty line is an empty ``<w:p/>``). Entries carry a fixed timestamp, so
     the same body always zips to the same bytes (editors_trial#88, #100).
+
+    ``section_properties`` appends a ``<w:sectPr>`` body tail — required by
+    paginated renderers (docxodus) to place body paragraphs inside a page
+    box; without it the lone paragraph mounts outside the paginated edit
+    root and is never wired editable.
     """
-    from perf.fixtures.docx_workload import deterministic_zip
+    from perf.fixtures.docx_workload import _SECT_PR, deterministic_zip
 
     inner = body.decode("utf-8", errors="replace")
     lines = inner.split("\n")
@@ -109,8 +114,8 @@ def docx_zip_bytes(body: bytes) -> bytes:
     document_xml = (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
-        "<w:body>%s</w:body></w:document>"
-    ) % "".join(paragraphs)
+        "<w:body>%s%s</w:body></w:document>"
+    ) % ("".join(paragraphs), _SECT_PR if section_properties else "")
     return deterministic_zip(
         [
             ("[Content_Types].xml", _CONTENT_TYPES.encode("utf-8")),

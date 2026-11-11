@@ -28,6 +28,10 @@ export const EDIT_SURFACES = {
     root: '#editor .superdoc-line, #editor .superdoc__document, #editor .superdoc-page',
     exclude: '.superdoc-page-header, .superdoc-page-footer',
     block: '.superdoc-line',
+    // v2 paints the document into a worker-driven DOM behind a hidden
+    // textarea; nothing on the page is contenteditable, so usability is the
+    // mounted stage, not a contenteditable probe.
+    usable: '!!document.querySelector("#editor [role=\'textbox\']")',
   },
   genoffice: { kind: 'dom', root: '.doc-page' },
   eigenpal: { kind: 'dom', root: '.docx-page-content [data-paragraph-id][data-start]' },
@@ -278,6 +282,7 @@ export function usableExpression(editorId, selector) {
     return '!!(window.__WORDCRAFT_HOST__ && Array.isArray(window.__WORDCRAFT_HOST__.titles)'
       + ' && window.__WORDCRAFT_HOST__.titles.length > 0)';
   }
+  if (surface.usable) return surface.usable;
   return `(() => { const el = document.querySelector(${sel});`
     + ' return !!(el && el.isContentEditable && el.getBoundingClientRect().height > 0); })()';
 }
@@ -322,10 +327,14 @@ export const READ_MODEL_DOCUMENT_TEXT = (model) => {
  * items with no text of their own count — those are marker-only paragraphs.
  */
 export const READ_DOM_TEXT_WITH_MARKERS = (selector) => {
-  const el = document.querySelector(selector);
-  if (!el) return { text: '', absorbed_markers: [] };
-  const text = String(el.innerText ?? el.textContent ?? '');
-  const absorbed = Array.from(el.querySelectorAll('[data-list-marker]'))
+  // The surface may be many elements: docxodus wires one contenteditable per
+  // block, genoffice and folio one region per page. querySelector's first
+  // match would truncate the document at its first paragraph.
+  const els = Array.from(document.querySelectorAll(selector));
+  if (!els.length) return { text: '', absorbed_markers: [] };
+  const text = els.map((el) => String(el.innerText ?? el.textContent ?? '')).join('\n');
+  const absorbed = els
+    .flatMap((el) => Array.from(el.querySelectorAll('[data-list-marker]')))
     .filter((n) => !String(n.innerText || n.textContent || '').trim())
     .map((n) => String(n.getAttribute('data-list-marker') || '').trim())
     .filter(Boolean);
@@ -334,14 +343,30 @@ export const READ_DOM_TEXT_WITH_MARKERS = (selector) => {
 
 export async function armTrustedKeyCounter(page) {
   await page.evaluate(() => {
-    window.__b9trusted = { keys: 0 };
-    const onKey = (event) => {
+    window.__b9trusted = { keys: 0, pending: Object.create(null) };
+    // Two trusted channels carry a typed character: keydown when the layout
+    // maps it (the § produces none), insertText in every case. Dedup so a
+    // mapped char counts once: its insertText consumes the pending keydown.
+    const onKeydown = (event) => {
       if (event.isTrusted && event.key && event.key.length === 1) {
         window.__b9trusted.keys += 1;
+        window.__b9trusted.pending[event.key] = (window.__b9trusted.pending[event.key] || 0) + 1;
       }
     };
-    window.__b9trusted.stop = () => document.removeEventListener('keydown', onKey, true);
-    document.addEventListener('keydown', onKey, true);
+    const onInput = (event) => {
+      if (!(event.isTrusted && event.inputType === 'insertText')) return;
+      for (const ch of event.data || '') {
+        const pending = window.__b9trusted.pending[ch] || 0;
+        if (pending > 0) window.__b9trusted.pending[ch] = pending - 1;
+        else window.__b9trusted.keys += 1;
+      }
+    };
+    window.__b9trusted.stop = () => {
+      document.removeEventListener('keydown', onKeydown, true);
+      document.removeEventListener('beforeinput', onInput, true);
+    };
+    document.addEventListener('keydown', onKeydown, true);
+    document.addEventListener('beforeinput', onInput, true);
   });
 }
 
