@@ -10,7 +10,7 @@ import signal
 import subprocess
 import sys
 from . import artifacts
-from .policy import RUNNERS, job_editor, publication_jobs, verify_run, cell_counts, verify_profiles
+from .policy import RUNNERS, job_editor, publication_jobs, shakedown_options, verify_run, cell_counts, verify_profiles
 
 DEFAULT_OUT_ROOT = Path('perf/container/out/runs')
 
@@ -116,6 +116,8 @@ def write_run_done(campaign_root: Path, exit_status: int, failures: list[str] | 
         # A Space runs a subset of the campaign: say which, so a merge can check coverage.
         lines.append('selected_jobs=' + ','.join(str(i) for i in selection['jobs']) + '\n')
         lines.append(f"total_jobs={selection['total_jobs']}\n")
+        if selection.get('shakedown') is not None:
+            lines.append(f"shakedown={selection['shakedown']}\n")
     for failure in failures or []:
         lines.append(f'failure={failure}\n')
     artifacts.atomic_write(campaign_root / 'RUN-DONE', ''.join(lines))
@@ -222,6 +224,8 @@ def main(argv: list[str] | None = None):
     parser.add_argument('--shard', default=None, help='I/N: run only jobs whose global index %% N == I (whole jobs; ids keep the global index)')
     parser.add_argument('--runners', nargs='+', action='extend', default=None, help='run only these runners')
     parser.add_argument('--editors', nargs='+', action='extend', default=None, help='run only jobs measuring these editors')
+    parser.add_argument('--shakedown', type=int, default=None,
+                        help='N: every selected job with N repetitions (typing: one 900 s session); never publishable')
     parser.add_argument('--jobs', default=None, help='comma list of global job indices (from perf.container.plan)')
     args = parser.parse_args(argv)
     from perf.runner.benchmark_warm_cold import BROWSER_TARGETS
@@ -235,11 +239,15 @@ def main(argv: list[str] | None = None):
         parser.error('--editors and --jobs need --publish')
     if args.publish and args.seed2 is None:
         parser.error('--publish requires --seed2')
+    if args.shakedown is not None and (not args.publish or args.shakedown < 1):
+        parser.error('--shakedown N needs --publish and N >= 1')
     jobs = publication_jobs(editors, args.seed, args.seed2, args.host_class) if args.publish else [
         (name, ['--execution-profile', 'ci_contract', '--host-class', 'ci_coarse', '--seed', str(args.seed)]
          + (['--session-kind', kind] if kind else []))
         for name in RUNNERS for kind in (('throughput', 'latency') if name == 'benchmark_typing' else (None,))
     ]
+    if args.shakedown is not None:
+        jobs = [(name, shakedown_options(name, options, args.shakedown)) for name, options in jobs]
     if args.runners is not None:
         unknown = sorted(set(args.runners) - {name for name, _options in jobs})
         if unknown:
@@ -273,7 +281,8 @@ def main(argv: list[str] | None = None):
             return False
         return args.editors is None or job_editor(options) in args.editors
 
-    selection = ({'jobs': [i for i in range(len(jobs)) if selected(i)], 'total_jobs': len(jobs)}
+    selection = ({'jobs': [i for i in range(len(jobs)) if selected(i)], 'total_jobs': len(jobs),
+                  **({'shakedown': args.shakedown} if args.shakedown is not None else {})}
                  if args.publish else None)
     if selection is not None and not selection['jobs']:
         parser.error('the selection matches no job')
@@ -297,6 +306,9 @@ def main(argv: list[str] | None = None):
         return 0
     if shard is not None:
         print(f'shard={shard[0]}/{shard[1]}', flush=True)
+    child_env = {**os.environ, 'PERF_SHAKEDOWN': '1'} if args.shakedown is not None else None
+    if args.shakedown is not None:
+        print(f'shakedown={args.shakedown}: few repetitions, never publishable', flush=True)
     if not args.dry_run and hasattr(os, 'sched_setaffinity'):
         print(pin_to_quota(), flush=True)
     host_cmd = [sys.executable, '-m', 'perf.container.check_host']
@@ -338,7 +350,7 @@ def main(argv: list[str] | None = None):
                     failures.append(f'{name}: {entry["refusal"]}')
                 else:
                     try:
-                        result = subprocess.run(cmd, check=False)
+                        result = subprocess.run(cmd, check=False, env=child_env)
                         job_exit = result.returncode
                         entry['exit_code'] = job_exit
                         data = read_run(directory)

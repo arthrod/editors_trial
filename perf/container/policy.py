@@ -232,3 +232,18 @@ def job_key(name, options):
     """A job's cell identity without its seed: the two seeds of a cell share it."""
     at = options.index('--seed')
     return (name, tuple(options[:at] + options[at + 2:]))
+
+
+SHAKEDOWN_COUNT_FLAG = {'benchmark_warm_cold': '--pairs', 'benchmark_document': '--samples',
+                        'benchmark_memory': '--pairs', 'adversarial_c10_scroll': '--pairs',
+                        'benchmark_input': '--repetitions', 'benchmark_resources': '--repetitions'}
+
+
+def shakedown_options(name, options, count):
+    """A publication job cut to ``count`` repetitions (typing: one 900 s session)."""
+    if name == 'benchmark_typing':
+        out = list(options)
+        out[out.index('--repetitions') + 1] = '1'
+        out[out.index('--budget-s') + 1] = '900'
+        return out
+    return [*options, SHAKEDOWN_COUNT_FLAG[name], str(count)]

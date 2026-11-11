@@ -22,6 +22,7 @@ from datetime import datetime, timezone
 import hashlib
 import io
 import json
+import os
 from pathlib import Path
 import secrets
 import subprocess
@@ -357,6 +358,9 @@ class BrowserRun:
             result.update(failure_reason='repos_dirty_at_start', publishable=False)
         if repos_modified(self.before, after):
             result.update(outcome='failed', failure_reason='repos_modified', publishable=False)
+        if getattr(self, 'shakedown', False):
+            result.update(shakedown=True, publishable=False,
+                          publication_block_reason='shakedown: few repetitions to find bugs; never a publication run')
         write_json(self.directory / 'summary.json', result)
         return result
 
@@ -515,7 +519,9 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
     count_explicit = _count_flag_explicit(argv, count_flag)
     if args.execution_profile == 'dedicated_publish' and not count_explicit:
         args.repetitions = minimum_repetitions
-    if args.execution_profile == 'dedicated_publish' and args.repetitions < minimum_repetitions:
+    # Shakedown (run.py --shakedown): every rung, few repetitions, never publishable.
+    shakedown = os.environ.get('PERF_SHAKEDOWN') == '1'
+    if args.execution_profile == 'dedicated_publish' and args.repetitions < minimum_repetitions and not shakedown:
         parser.error(
             f'#136: dedicated_publish requires at least {minimum_repetitions} repetitions per editor, got {args.repetitions}'
         )
@@ -538,6 +544,7 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
     run = run_factory(args.out_root, runner, seed=args.seed, run_id=args.run_id)
     run.execution_profile = args.execution_profile
     run.host_class = args.host_class
+    run.shakedown = shakedown
     token = ACTIVE.set(run)
     original = sys.argv
     order = schedule(editors, args.repetitions, run.seed)
