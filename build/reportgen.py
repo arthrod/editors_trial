@@ -45,6 +45,13 @@ def fmt(value, spec: str | None) -> str:
 
 
 def render(template: str, facts: dict) -> str:
+    if '{{perf.e2.' in template:
+        if __package__:
+            from .perf_e2_tables import legacy_snapshot_facts
+        else:
+            from perf_e2_tables import legacy_snapshot_facts
+        facts = legacy_snapshot_facts(facts)
+
     def sub(m: re.Match) -> str:
         key, spec = m.group(1), m.group(2)
         if key not in facts:

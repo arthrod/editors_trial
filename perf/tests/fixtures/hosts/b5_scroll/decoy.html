@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>B5 fake host: a decoy scroller and damage outside the document</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #ffffff;
+        color: #111111;
+        font: 14px/1.5 monospace;
+      }
+      /*
+        The document: a scrollable box 800 px wide. The blinking element at
+        x=1000 is OUTSIDE that box: damage outside the document must not
+        witness the document's scroll.
+      */
+      #doc {
+        box-sizing: border-box;
+        width: 800px;
+        height: 100vh;
+        overflow-y: auto;
+        padding: 12px;
+      }
+      p {
+        margin: 0 0 8px;
+      }
+      /*
+        The decoy: an off-screen scroller with a huge range and no text at
+        all. A probe that picks the scroller with the largest range scrolls
+        this one, sees no change on screen and publishes another element's
+        damage as the scroll.
+      */
+      #decoy {
+        position: fixed;
+        left: -4000px;
+        top: 0;
+        width: 40px;
+        height: 40px;
+        overflow-y: scroll;
+        background: #eeeeee;
+      }
+      #decoy .pad {
+        height: 300000px;
+      }
+      /* Damage that has nothing to do with the scroll: it changes every frame. */
+      #blink {
+        position: fixed;
+        left: 1000px;
+        top: 10px;
+        width: 40px;
+        height: 40px;
+        animation: b5-blink 40ms steps(1) infinite;
+      }
+      @keyframes b5-blink {
+        0% {
+          background: #ff0000;
+        }
+        100% {
+          background: #00ff00;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="doc"></div>
+    <div id="decoy"><div class="pad"></div></div>
+    <div id="blink"></div>
+    <script src="/corpus.js"></script>
+    <script>
+      window.__b5.render(document.getElementById('doc')).catch(function (error) {
+        window.__b5Error = String(error);
+        window.__docxReady = true;
+      });
+    </script>
+  </body>
+</html>

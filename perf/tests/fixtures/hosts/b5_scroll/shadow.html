@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>B5 fake host: prose-50kw inside an open shadow root</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #ffffff;
+        color: #111111;
+        font: 14px/1.5 monospace;
+      }
+      #host {
+        height: 100vh;
+      }
+      p {
+        margin: 0 0 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- The scroller lives inside an OPEN shadow root: `document.querySelectorAll`
+         never sees it, and a probe that does not pierce shadow roots finds
+         nothing here. -->
+    <div id="host"></div>
+    <script src="/corpus.js"></script>
+    <script>
+      (function () {
+        var host = document.getElementById('host');
+        var root = host.attachShadow({ mode: 'open' });
+        var style = document.createElement('style');
+        style.textContent =
+          '#doc { box-sizing: border-box; height: 100vh; overflow-y: auto; padding: 12px; }' +
+          'p { margin: 0 0 8px; }';
+        root.appendChild(style);
+        var doc = document.createElement('div');
+        doc.id = 'doc';
+        root.appendChild(doc);
+        window.__b5.render(doc).catch(function (error) {
+          window.__b5Error = String(error);
+          window.__docxReady = true;
+        });
+      })();
+    </script>
+  </body>
+</html>

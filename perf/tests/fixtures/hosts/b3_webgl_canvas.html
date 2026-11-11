@@ -1,0 +1,16 @@
+<!doctype html>
+<html><body style="margin:0">
+<canvas class="doc-paragraph" width="400" height="300"></canvas>
+<script>
+const gl = document.querySelector('canvas').getContext('webgl');
+gl.clearColor(1, 1, 1, 1);
+gl.clear(gl.COLOR_BUFFER_BIT);
+// Real, non-uniform WebGL ink. No DOM/background mutation assists capture.
+setTimeout(() => {
+  gl.enable(gl.SCISSOR_TEST);
+  gl.scissor(40, 40, 200, 120);
+  gl.clearColor(0.08, 0.08, 0.08, 1);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.finish();
+}, 500);
+</script></body></html>

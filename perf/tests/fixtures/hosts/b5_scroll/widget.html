@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>B5 fake host: a document that fits, with a small overflow widget</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #ffffff;
+        color: #111111;
+        font: 14px/1.5 monospace;
+      }
+      /* The document fits the viewport: there is nothing to scroll. */
+      #doc {
+        padding: 12px;
+      }
+      p {
+        margin: 0 0 8px;
+      }
+      /*
+        A widget with a small overflow and no document text in it: it is a
+        scroller, but it is not the document's scroller. A probe that scrolls
+        it publishes the widget's scroll as the document's scroll latency.
+      */
+      #widget {
+        width: 120px;
+        height: 24px;
+        overflow-y: auto;
+        border: 1px solid #cccccc;
+      }
+      #widget .pad {
+        height: 80px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="doc"></div>
+    <div id="widget"><div class="pad"></div></div>
+    <script src="/corpus.js"></script>
+    <script>
+      window.__b5.render(document.getElementById('doc'), 2).catch(function (error) {
+        window.__b5Error = String(error);
+        window.__docxReady = true;
+      });
+    </script>
+  </body>
+</html>

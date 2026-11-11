@@ -1,0 +1,70 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>c07 quiet-box canvas plant host</title>
+<style>
+  body { margin: 0; background: #fff; }
+  canvas { display: block; margin: 40px auto; }
+</style>
+</head>
+<body>
+<canvas id="doc" width="480" height="400"></canvas>
+<script>
+// A WordCraft-like flag surface: the document paints on a canvas, exposes a
+// title/modified flag only, and no readable caret or selection.
+// ?plant=blink|quiet — blink repaints inside every text line's click box
+// forever; quiet paints nothing until the first pointerdown draws a caret.
+window.__WORDCRAFT_HOST__ = { titles: ['fixture'], modified: false };
+const plant = new URLSearchParams(location.search).get('plant') || 'quiet';
+const canvas = document.getElementById('doc');
+const ctx = canvas.getContext('2d');
+const LINES = [
+  'fixture line one alpha bravo charlie',
+  'fixture line two delta echo foxtrot',
+  'fixture line three golf hotel india',
+  'fixture line four juliet kilo lima',
+  'fixture line five mike november oscar',
+];
+const LINE_H = 26;
+const TOP = 30;
+let caretX = -1, caretY = -1;
+let blinkOn = true;
+
+function draw() {
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#111';
+  ctx.font = '16px Georgia, serif';
+  ctx.textBaseline = 'top';
+  for (let i = 0; i < LINES.length; i += 1) {
+    ctx.fillText(LINES[i], 30, TOP + i * (LINE_H + 10));
+  }
+  if (caretX >= 0) {
+    ctx.fillStyle = '#000';
+    ctx.fillRect(caretX, caretY, 2, LINE_H - 4);
+  }
+  if (plant === 'blink' && blinkOn) {
+    // Blinking bars inside every line band: every click box keeps repainting.
+    ctx.fillStyle = '#000';
+    for (let i = 0; i < LINES.length; i += 1) {
+      ctx.fillRect(30, TOP + i * (LINE_H + 10), 360, 20);
+    }
+  }
+}
+
+draw();
+canvas.addEventListener('pointerdown', (event) => {
+  const r = canvas.getBoundingClientRect();
+  // The caret arrives where the click landed, inside the watched box.
+  caretX = event.clientX - r.left;
+  caretY = event.clientY - r.top - 10;
+  window.__WORDCRAFT_HOST__.modified = true;
+  draw();
+});
+if (plant === 'blink') {
+  setInterval(() => { blinkOn = !blinkOn; draw(); }, 300);
+}
+</script>
+</body>
+</html>

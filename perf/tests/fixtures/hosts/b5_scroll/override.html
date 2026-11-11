@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>B5 fake host: a second, visible scroller next to the document</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #ffffff;
+        color: #111111;
+        font: 14px/1.5 monospace;
+      }
+      #doc {
+        box-sizing: border-box;
+        height: 100vh;
+        overflow-y: auto;
+        padding: 12px;
+      }
+      /*
+        A second, visible scroller. It holds no text, so the automatic choice
+        is the document; a per-host override may name this one instead, and
+        the sample records that the container came from an override.
+      */
+      #small {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        width: 200px;
+        height: 100px;
+        overflow-y: auto;
+        border: 1px solid #cccccc;
+        background: #ffffff;
+      }
+      #small-content {
+        height: 400px;
+        background: repeating-linear-gradient(#ff0000 0 20px, #00ff00 20px 40px);
+      }
+      p {
+        margin: 0 0 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="doc"></div>
+    <div id="small"><div id="small-content"></div></div>
+    <script src="/corpus.js"></script>
+    <script>
+      window.__b5.render(document.getElementById('doc')).catch(function (error) {
+        window.__b5Error = String(error);
+        window.__docxReady = true;
+      });
+    </script>
+  </body>
+</html>

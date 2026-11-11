@@ -101,6 +101,12 @@ class Ladder(unittest.TestCase):
                 "mixed-utf8",
                 "search-dense",
                 "paginated-equivalent",
+                # editors_trial#100: the speed report's realistic ladder
+                "prose-500w",
+                "prose-5kw",
+                "prose-50kw",
+                "prose-250kw",
+                "complex-corpus",
             ],
         )
         self.assertEqual(len(set(ids)), len(ids))
@@ -142,9 +148,9 @@ class Ladder(unittest.TestCase):
 
 
 class WorkloadCaps(unittest.TestCase):
-    def test_contract_allows_micro_only(self):
+    def test_contract_allows_micro_and_the_smallest_prose_rung(self):
         allowed = allowed_workloads("ci_contract")
-        self.assertEqual(allowed, frozenset({"micro-paragraphs", "micro-search"}))
+        self.assertEqual(allowed, frozenset({"micro-paragraphs", "micro-search", "prose-500w"}))
         assert_workload_allowed("ci_contract", "micro-paragraphs")
         with self.assertRaises(ValueError) as caught:
             assert_workload_allowed("ci_contract", "short-paragraphs")

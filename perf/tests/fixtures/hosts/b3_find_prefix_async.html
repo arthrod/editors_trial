@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>b3 async prefix is not the full query</title>
+  </head>
+  <body>
+    <p class="doc-paragraph">NEEDLE and NEEDLE</p>
+    <input class="find" autocomplete="off" />
+    <div class="find-count"></div>
+    <script>
+      document.addEventListener('keydown', function (event) {
+        if ((event.ctrlKey || event.metaKey) && (event.key === 'f' || event.key === 'F')) event.preventDefault();
+      });
+      // The prefix reply is late. It must not complete the search just because
+      // the input already shows NEEDLE when the reply lands.
+      document.querySelector('input.find').addEventListener('input', function (event) {
+        if (event.target.value === 'N') {
+          setTimeout(function () {
+            document.querySelector('.find-count').textContent = '2 prefix matches';
+          }, 250);
+        }
+        if (event.target.value === 'NEEDLE') {
+          setTimeout(function () {
+            document.querySelector('.find-count').textContent = '2 full query matches';
+          }, 1800);
+        }
+      });
+    </script>
+  </body>
+</html>

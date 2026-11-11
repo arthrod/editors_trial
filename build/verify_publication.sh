@@ -27,7 +27,7 @@
 #                 off by default because it is slow and it needs the desktop
 #                 session; run it before a release.
 set -uo pipefail
-BASE="/Users/arthrod/temp/T/editors_trial"
+BASE="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$BASE"
 
 WITH_WORD=0

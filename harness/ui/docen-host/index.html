@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>docen — warm/cold browser host</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        font-family:
+          "Segoe UI", system-ui, -apple-system, sans-serif;
+        color: #3b3b3b;
+      }
+      /* The document component fills the viewport (same layout as the repo's
+         own demo: document.html's .demo-doc). */
+      #host {
+        display: flex;
+        height: 100%;
+      }
+      #host docen-document {
+        display: flex;
+        flex: 1 1 auto;
+        height: 100%;
+        min-width: 0;
+      }
+      /* See the comment in <body>: invisible, non-interactive, only here so a
+         light-DOM scroll probe can find a box with the document's height. */
+      #scroll-proxy {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 2px;
+        /* height is set from docen-document-area's clientHeight in main.ts, so
+           the proxy's scroll range equals the real scroller's. */
+        overflow-y: scroll;
+        opacity: 0;
+        pointer-events: none;
+        z-index: 0;
+      }
+      #scroll-proxy-spacer {
+        width: 1px;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Light-DOM scroll proxy for perf/runner/adversarial_c10_scroll.mjs.
+         That probe only scans document.querySelectorAll('*') for the largest
+         overflow:auto|scroll box, and docen's real scroller
+         (docen-document-area) lives inside <docen-document>'s shadow root.
+         This 2px invisible column mirrors the real scrollHeight; main.ts
+         copies its scrollTop into the real scroller (and back). -->
+    <div id="scroll-proxy" aria-hidden="true"><div id="scroll-proxy-spacer"></div></div>
+    <div id="host" data-ready="0"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

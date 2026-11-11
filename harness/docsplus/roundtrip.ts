@@ -37,6 +37,8 @@ const DOCX_STYLE_MAP = [
   'strike => s'
 ]
 
+const PERF_ONLY = process.env.PERF_ONLY === '1'
+
 const inPath = process.argv[2]
 const outPath = process.argv[3]
 if (!inPath || !outPath) {
@@ -46,7 +48,7 @@ if (!inPath || !outPath) {
 
 const HARNESS = dirname(new URL(import.meta.url).pathname)
 const scratch = resolve(process.env.EVIDENCE_DIR || resolve(HARNESS, 'evidence'))
-await mkdir(scratch, { recursive: true })
+if (!PERF_ONLY) await mkdir(scratch, { recursive: true })
 
 /** Loopback stand-in for the pad's object storage. */
 const store = new Map<string, { bytes: Buffer; type: string }>()
@@ -94,12 +96,15 @@ const doc = importResult.content
 console.log(`[import] title      = ${JSON.stringify(importResult.title)}`)
 console.log(`[import] warnings   = ${importResult.warnings.length}`)
 for (const w of importResult.warnings) console.log(`         - ${w.code}: ${w.message}`)
-await writeFile(resolve(scratch, 'import.tiptap.json'), JSON.stringify(doc, null, 2))
+let rendered = ''
+if (!PERF_ONLY) {
+  await writeFile(resolve(scratch, 'import.tiptap.json'), JSON.stringify(doc, null, 2))
 
-// --- 2. intermediate HTML (what the converter actually sees) --------------
-const rendered = await renderDocumentHtml(doc, importResult.title, origin, null)
-await writeFile(resolve(scratch, 'rendered.html'), rendered)
-console.log(`[render] html length = ${rendered.length}`)
+  // --- 2. intermediate HTML (what the converter actually sees) --------------
+  rendered = await renderDocumentHtml(doc, importResult.title, origin, null)
+  await writeFile(resolve(scratch, 'rendered.html'), rendered)
+  console.log(`[render] html length = ${rendered.length}`)
+}
 
 // --- 3. export -------------------------------------------------------------
 const tSave0 = performance.now()
@@ -112,7 +117,7 @@ console.log(`[export] wrote ${outPath} (${out.length}B)`)
 // The product path ends at exportDocx. The mammoth scan below is harness
 // evidence for the fidelity report. A bomb run must not let that scan decide
 // the process status.
-if (process.env.EDITOR_CONFIG === 'suggested') {
+if (PERF_ONLY || process.env.EDITOR_CONFIG === 'suggested') {
   server.close()
   process.exit(0)
 }

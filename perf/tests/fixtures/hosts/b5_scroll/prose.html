@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>B5 fake host: prose-50kw in a scroll container</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #ffffff;
+        color: #111111;
+        font: 14px/1.5 monospace;
+      }
+      #doc {
+        box-sizing: border-box;
+        height: 100vh;
+        overflow-y: auto;
+        padding: 12px;
+      }
+      p {
+        margin: 0 0 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- The whole prose-50kw document in one scrollable box. -->
+    <div id="doc"></div>
+    <script src="/corpus.js"></script>
+    <script>
+      window.__b5.render(document.getElementById('doc')).catch(function (error) {
+        window.__b5Error = String(error);
+        window.__docxReady = true;
+      });
+    </script>
+  </body>
+</html>

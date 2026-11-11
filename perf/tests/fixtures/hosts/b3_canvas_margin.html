@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>b3 canvas margin</title>
+  </head>
+  <body>
+    <canvas class="doc-paragraph" width="800" height="600"></canvas>
+    <script>
+      // The page margin stays white. Document ink is inset. A corner sample
+      // never sees it.
+      var canvas = document.querySelector('canvas');
+      var g = canvas.getContext('2d');
+      g.fillStyle = 'white';
+      g.fillRect(0, 0, canvas.width, canvas.height);
+      setTimeout(function () {
+        g.fillStyle = 'black';
+        g.font = '24px serif';
+        g.fillText('Actual document text', 80, 100);
+      }, 400);
+    </script>
+  </body>
+</html>

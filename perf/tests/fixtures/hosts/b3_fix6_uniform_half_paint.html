@@ -1,0 +1,8 @@
+<!doctype html><html><body style="margin:0">
+<canvas id="doc" width="500" height="300" style="display:block"></canvas>
+<script>
+const c=document.getElementById('doc'),g=c.getContext('2d');
+g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);
+setTimeout(()=>{g.fillStyle='#111';g.fillRect(0,0,250,300)},300);
+setTimeout(()=>{g.fillStyle='#111';g.fillRect(250,0,250,300)},600);
+</script></body></html>

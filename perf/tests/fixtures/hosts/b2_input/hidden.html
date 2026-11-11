@@ -1,0 +1,25 @@
+<!doctype html><meta charset="utf-8"><title>hidden model node: DOM x immediately, painted at 150 ms</title>
+<div class="status-ok">ready</div><div contenteditable="true" style="font:32px monospace;min-height:100px;position:relative">fixture<span id="cc" style="display:inline-block;width:2px;height:28px;background:#000"></span><span id="model" style="visibility:hidden"></span></div>
+<script>
+const mode = new URLSearchParams(location.search).get('mode');
+const modelStyle = {microtask:'position:absolute;left:400px;top:10px',none:'display:none', zero:'display:inline-block;width:0;height:0;overflow:hidden', clipped:'display:inline-block;width:1px;height:1px;overflow:hidden;text-indent:100px', offregion:'position:absolute;left:1800px', transparent:'color:transparent;position:absolute;left:400px;top:10px', clip:'clip-path:inset(100%)'};
+if(mode) document.getElementById('model').style.cssText = modelStyle[mode];
+setInterval(() => { const c = document.getElementById('cc');
+  c.style.opacity = c.style.opacity === '0' ? '1' : '0'; }, 60);
+document.addEventListener('keydown', e => {
+  if (e.key !== 'x') return;
+  e.preventDefault();
+  const model = document.getElementById('model');
+  if (mode === 'microtask') {
+    model.style.visibility = 'visible';
+    document.getElementById('cc').style.cssText = 'position:absolute;left:400px;top:10px;width:2px;height:28px;background:black';
+  }
+  model.append('x');
+  if (mode === 'microtask') queueMicrotask(() => {model.style.visibility = 'hidden';});                    // hidden: counts in textContent NOW
+  if (!mode) setTimeout(() => {                    // the glyph becomes visible only later
+    const ed = document.querySelector('[contenteditable]');
+    ed.insertBefore(document.createTextNode('x'), model);
+    model.textContent = '';
+  }, 150);
+});
+</script>

@@ -173,6 +173,10 @@ document.getElementById('file')!.addEventListener('change', async (ev: any) => {
 
 document.getElementById('modeEditor')!.addEventListener('click', async () => {
   try {
+    // Already mounted: the perf lane's pre-edit click fires before every
+    // measured edit; re-mounting would discard the previous edits and make
+    // each sample measure a fresh mount instead of the loaded editor.
+    if (state.editor) return;
     const bytes = await loadBytes();
     await mountEditor(bytes);
     state.mode = 'editor';

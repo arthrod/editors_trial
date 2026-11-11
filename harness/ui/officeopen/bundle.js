@@ -1,3 +1,20 @@
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __esm = (fn, res, err2) => function __init() {
+  if (err2) throw err2[0];
+  try {
+    return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+  } catch (e) {
+    throw err2 = [e], e;
+  }
+};
+
+// node-zlib-stub.js
+var node_zlib_stub_exports = {};
+var init_node_zlib_stub = __esm({
+  "node-zlib-stub.js"() {
+  }
+});
+
 // ../../../repos/office-open/packages/core/src/smartart/categories.ts
 var LAYOUT_CATEGORIES = {
   default: "list",
@@ -17017,7 +17034,7 @@ if (typeof bunApi?.deflateSync === "function") {
   }
 }
 try {
-  const zlib = await import("node:zlib");
+  const zlib = await Promise.resolve().then(() => (init_node_zlib_stub(), node_zlib_stub_exports));
   if (typeof zlib.deflateRawSync !== "function") throw new Error("no native deflate");
   _zlibModule = zlib;
   if (_nativeDeflate === void 0) {
@@ -42086,6 +42103,31 @@ function buildBalloons(doc, ctx) {
 }
 var status = document.getElementById("status");
 var out = document.getElementById("out");
+var inputProbe = document.getElementById("input-probe");
+function resetReady() {
+  window.__OFFICEOPEN_READY__ = false;
+  delete document.documentElement.dataset.officeopenReady;
+  status.classList.remove("status-ok", "status-err");
+  if (inputProbe) inputProbe.textContent = "";
+}
+async function markReady(source, timings) {
+  await new Promise(
+    (resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(null)))
+  );
+  timings.ready_ms = Math.round(performance.now());
+  window.__OFFICEOPEN_READY__ = true;
+  document.documentElement.dataset.officeopenReady = "1";
+  window.__OFFICEOPEN_TIMINGS__ = timings;
+  status.textContent = `ready \u2014 rendered ${source}`;
+  status.classList.add("status-ok");
+}
+function markError(err2) {
+  window.__OFFICEOPEN_READY__ = false;
+  window.__OFFICEOPEN_ERROR__ = String(err2 && err2.stack ? err2.stack : err2);
+  status.textContent = "render failed";
+  status.classList.add("status-err");
+  out.appendChild(el("pre", "err", window.__OFFICEOPEN_ERROR__));
+}
 function report(doc, source) {
   console.log("[office-open] parsed with @office-open/docx parseDocument() from", source);
   console.log(
@@ -42114,22 +42156,38 @@ function report(doc, source) {
   );
 }
 async function load(bytes, source) {
+  resetReady();
   out.innerHTML = "";
   status.textContent = "parsing\u2026";
+  const timings = { started_ms: Math.round(performance.now()) };
   try {
     const doc = await parseDocument(bytes);
+    timings.parse_ms = Math.round(performance.now()) - timings.started_ms;
     for (const k of Object.keys(census)) delete census[k];
     const view = renderDocument(doc);
     out.appendChild(view);
     anchorBalloons(view);
-    status.textContent = `parsed ${source}`;
-    report(doc, source);
+    timings.render_ms = Math.round(performance.now()) - timings.started_ms;
     window.__officeOpen = { doc, census };
+    report(doc, source);
+    await markReady(source, timings);
   } catch (e) {
-    status.textContent = "parse failed";
     console.error("[office-open] parse failed", e);
-    out.appendChild(el("pre", "err", String(e && e.stack ? e.stack : e)));
+    markError(e);
   }
+}
+var CORPUS_ROUTES = ["/corpus.docx", "/sample.docx"];
+async function fetchCorpus() {
+  for (const route of CORPUS_ROUTES) {
+    try {
+      const res = await fetch(route);
+      if (res.ok) return { route, bytes: await res.arrayBuffer() };
+      console.log(`[office-open] ${route} not available:`, res.status);
+    } catch (e) {
+      console.log(`[office-open] ${route} fetch failed:`, e.message);
+    }
+  }
+  return null;
 }
 async function boot() {
   const input = document.getElementById("corpus-file");
@@ -42137,15 +42195,18 @@ async function boot() {
     const f = input.files && input.files[0];
     if (f) await load(await f.arrayBuffer(), f.name);
   });
-  try {
-    const res = await fetch("/sample.docx");
-    if (res.ok) {
-      await load(await res.arrayBuffer(), "/sample.docx");
-      return;
-    }
-    console.log("[office-open] /sample.docx not available:", res.status);
-  } catch (e) {
-    console.log("[office-open] /sample.docx fetch failed:", e.message);
+  if (inputProbe) {
+    inputProbe.addEventListener("input", () => {
+      console.log(
+        "[office-open] input probe (host contenteditable, not an office-open edit pipeline):",
+        JSON.stringify(inputProbe.textContent)
+      );
+    });
+  }
+  const corpus = await fetchCorpus();
+  if (corpus) {
+    await load(corpus.bytes, corpus.route);
+    return;
   }
   status.textContent = "no sample served \u2014 pick a .docx";
 }

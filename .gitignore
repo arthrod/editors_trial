@@ -34,3 +34,17 @@ coverage/
 !.env.example
 !.env.*.example
 .DS_Store
+.zwork
+Arthur Souza Rodrigues — Design System.zip
+.crush
+.impeccable
+.scratch/
+coord
+.pytest_cache
+Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md
+Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).docx
+out_broken.vite-cache
+**/**/.vite-cache
+tmp-diag/
+logs/
+.scratch/

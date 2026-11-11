@@ -1,0 +1,94 @@
+{
+  "url": "http://127.0.0.1:5219/",
+  "corpus": "/tmp/perf-run-logs/corpus-perf.docx",
+  "corpus_bytes": 1203,
+  "ready_js": "window.__WORDCRAFT_READY__ === true",
+  "edit_selector": "#wordcraft_canvas",
+  "console": [
+    "2026-11-09T00:07:54.844Z console.warning: The `integrity` attribute is currently ignored for preload destinations that do not support subresource integrity. See https://crbug.com/981419 for more information",
+    "2026-11-09T00:07:54.950Z console.warning: No available adapters.",
+    "2026-11-09T00:07:54.975Z console.warning: [egui_wgpu] egui-wgpu/src/lib.rs:478: Software rasterizer detected - loss of performance expected. backend: Gl, device_type: Cpu, name: \"ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)\", driver_info: \"WebGL 2.0 (OpenGL ES 3.0 Chromium)\", subgroup_size: 4..=128, transient_saves_memory: None, limit_bucket: None",
+    "2026-11-09T00:07:55.021Z console.info: [wordcraft_web::web] wordcraft-web/src/web.rs:53: wordcraft-web: wgpu backend Gl",
+    "2026-11-09T00:07:55.030Z console.info: [eframe::web::web_runner] eframe/src/web/web_runner.rs:98: event handlers installed.",
+    "2026-11-09T00:07:55.116Z console.warning: [.WebGL-0x12c0043f600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+    "2026-11-09T00:07:55.124Z console.warning: [.WebGL-0x12c0043f600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+    "2026-11-09T00:07:55.217Z console.warning: [eframe::web::app_runner] eframe/src/web/app_runner.rs:353: Unhandled egui viewport command: Title(\"WordCraft\") - not implemented in web backend",
+    "2026-11-09T00:07:55.351Z console.warning: [.WebGL-0x12c0043f600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+    "2026-11-09T00:07:55.370Z console.warning: [.WebGL-0x12c0043f600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)",
+    "2026-11-09T00:07:55.536Z console.warning: [eframe::web::app_runner] eframe/src/web/app_runner.rs:353: Unhandled egui viewport command: Title(\"corpus - WordCraft\") - not implemented in web backend",
+    "2026-11-09T00:07:55.859Z console.warning: [eframe::web::app_runner] eframe/src/web/app_runner.rs:353: Unhandled egui viewport command: Title(\"corpus • - WordCraft\") - not implemented in web backend"
+  ],
+  "page_errors": [],
+  "navigation_ms": 63,
+  "ready": true,
+  "first_usable_ms": 844,
+  "host": {
+    "state": "rendered",
+    "t0": 51.59999996423721,
+    "readyAt": 824.8000000119209,
+    "readyMs": 773,
+    "openedBytes": 1203,
+    "openSentAt": 248,
+    "titles": [
+      {
+        "t": 351,
+        "title": "WordCraft"
+      },
+      {
+        "t": 671,
+        "title": "corpus - WordCraft"
+      }
+    ],
+    "titleFrame": {
+      "t": 671,
+      "title": "corpus - WordCraft"
+    },
+    "errors": [],
+    "scrollForwards": 0,
+    "lastScrollDelta": 0
+  },
+  "canvas_box": {
+    "x": 0,
+    "y": 0,
+    "width": 1280,
+    "height": 900
+  },
+  "edit_ms": 124,
+  "paint_ms": 29.899999976158142,
+  "canvas_changed_after_typing": true,
+  "canvas_png_bytes": {
+    "before": 67131,
+    "after": 67422
+  },
+  "still_rendered": true,
+  "focused_element": "input#",
+  "host_after": {
+    "state": "rendered",
+    "t0": 51.59999996423721,
+    "readyAt": 824.8000000119209,
+    "readyMs": 773,
+    "openedBytes": 1203,
+    "openSentAt": 248,
+    "titles": [
+      {
+        "t": 351,
+        "title": "WordCraft"
+      },
+      {
+        "t": 671,
+        "title": "corpus - WordCraft"
+      },
+      {
+        "t": 993,
+        "title": "corpus • - WordCraft"
+      }
+    ],
+    "titleFrame": {
+      "t": 671,
+      "title": "corpus - WordCraft"
+    },
+    "errors": [],
+    "scrollForwards": 0,
+    "lastScrollDelta": 0
+  }
+}

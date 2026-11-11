@@ -1,0 +1,13 @@
+{
+  "url": "https://www.justice.gov/osg/brief/lopez-v-gonzales-toledo-flores-v-united-states-brief-merits",
+  "title": "Lopez v. Gonzales; Toledo-Flores v. United States - Brief for the Respondents (Merits)",
+  "retrieved_at": "2026-11-10T09:46:22.372953+00:00",
+  "source_sha256": "6b78b42b4df06ab52f065ec5b67b405afc5f218f9d795995bdcf7a8c2dd85563",
+  "sha256": "b59c14da5144a28531cc7d0a59829f18503e40c8a1f4b6e09837800861f42b99",
+  "word_count": 12805,
+  "source_word_count": 19212,
+  "paragraphs": 163,
+  "public_domain": "United States Government work, Office of the Solicitor General",
+  "cut_rule": "Longest prefix of complete HTML paragraphs at or below 13000 whitespace-delimited words; no padding.",
+  "normalization": "HTML entities decoded; intra-paragraph whitespace collapsed; paragraphs separated by two newlines. Headings, numbered sections and quoted paragraphs retain source text; no rich-text formatting inferred."
+}

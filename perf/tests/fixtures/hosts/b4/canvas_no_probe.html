@@ -1,0 +1,21 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>b4 canvas surface without correctness adapter</title>
+    <style>
+      #doc { width: 640px; height: 200px; border: 1px solid #ccc; }
+    </style>
+  </head>
+  <body>
+    <div id="ready" class="status-ok">ready</div>
+    <canvas id="doc" width="640" height="200"></canvas>
+    <script>
+      const canvas = document.getElementById('doc');
+      const ctx = canvas.getContext('2d');
+      ctx.font = '16px sans-serif';
+      ctx.fillText('fixture line one', 12, 40);
+      ctx.fillText('fixture line two', 12, 72);
+    </script>
+  </body>
+</html>

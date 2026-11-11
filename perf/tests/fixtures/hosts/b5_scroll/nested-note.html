@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>document scroller containing a nested text widget</title>
+    <style>
+      html, body { margin: 0; padding: 0; height: 100%; background: #fff; color: #111; font: 14px/1.5 monospace; }
+      #doc { box-sizing: border-box; height: 100vh; overflow-y: auto; padding: 12px; }
+      p { margin: 0 0 8px; }
+      #note { width: 140px; height: 36px; overflow-y: auto; border: 1px solid #c00; }
+      #note .pad { height: 240px; background: #eee; }
+    </style>
+  </head>
+  <body>
+    <div id="doc">
+      <div id="note"><p>nested note</p><div class="pad"></div></div>
+    </div>
+    <script>
+      var doc = document.getElementById('doc');
+      for (var i = 0; i < 80; i++) {
+        var p = document.createElement('p');
+        p.textContent = 'Document paragraph ' + i + ' is the text the reader scrolls.';
+        doc.appendChild(p);
+      }
+      window.__docxReady = true;
+    </script>
+  </body>
+</html>

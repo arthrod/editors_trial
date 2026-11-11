@@ -1,0 +1,10 @@
+<!doctype html>
+<html><body>
+<iframe id="frame" class="doc-paragraph" style="width:600px;height:400px;border:1px solid #ccc"></iframe>
+<script>
+setTimeout(function () {
+  document.getElementById('frame').srcdoc =
+    "<p style='margin:24px;font:16px serif'>Iframe document text here</p>";
+}, 350);
+</script>
+</body></html>

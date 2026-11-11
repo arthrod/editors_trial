@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>witness fake host: a plain page</title>
+    <style>
+      body {
+        margin: 0;
+        background: #ffffff;
+        color: #111111;
+        font: 16px/1.4 monospace;
+        padding: 24px;
+      }
+      #block {
+        width: 320px;
+        height: 120px;
+        background: #3366cc;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="block"></div>
+    <p>A plain page: it paints once and then nothing damages the compositor.</p>
+    <script>
+      // The fake host of the clock-skew, frame-interval and renderer probes.
+      window.__witness = { marker_ms: null };
+      window.__witnessArm = function arm() {
+        var marker_ms = performance.now();
+        window.__witness.marker_ms = marker_ms;
+        return Promise.resolve({ after_page_ms: marker_ms, marker_ms: marker_ms });
+      };
+    </script>
+  </body>
+</html>

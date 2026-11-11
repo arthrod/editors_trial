@@ -116,12 +116,15 @@ perf/
   fixtures/
     profiles.py              feature profiles P0–P3 and the workload size ladder
     generate.py              deterministic workload bytes and correctness fixtures
+    docx_workload.py         realistic DOCX ladder: prose-500w … prose-250kw, complex-corpus
     oracles.py               Unicode/grapheme/bidi/IME oracles
   layers/
     classify.py              timing mark -> layer; visible-evidence rules
     event_timing.py          Event Timing threshold, rounding, INP
     wasm.py                  C24 WASM boundary operation contract
   runner/
+    speed_headless.py        Report E: headless C02/C16 + process wall/CPU/peak RSS, publishable
+    host.py                  host record read from the OS; quiet-machine check
     benchmark_ci_contract.py headless C02/C16/C21 contract runner
     benchmark_warm_cold.py   browser warm-vs-cold suite (C02/C03/C05/C06)
     adversarial_c10_scroll.py one-off C10 scroll probe
@@ -161,8 +164,60 @@ perf/
   plate/docxodus/canvas, npm for superdoc/genoffice — plus
   `playwright`/`puppeteer` at `harness/ui`. The runner starts each dev
   server itself.
-- Publishable visible-latency numbers need a dedicated host and the
-  `dedicated_publish` profile, which no runner accepts yet.
+- Publishable numbers need a dedicated host and the `dedicated_publish`
+  profile. Only `speed_headless.py` accepts it, for the headless layer.
+  The browser, input and memory runners do not, and have open defects
+  that would make a published figure wrong (#104–#110, #113–#117).
+
+### Headless speed runner (Report E)
+
+```sh
+# a check run (never publishable)
+PYTHONPATH=. python3 -I perf/runner/speed_headless.py \
+  --execution-profile ci_broad --repetitions 2 --workloads prose-500w
+# a publication run: quiet machine, AC power, every checkout on its pin
+PYTHONPATH=. python3 -I perf/runner/speed_headless.py \
+  --execution-profile dedicated_publish --repetitions 30 --seed 20261109 \
+  --workloads prose-500w prose-5kw prose-50kw prose-250kw complex-corpus \
+  --wait-quiet 1800
+```
+
+One fresh process per sample runs the editor's own import and export with
+`PERF_ONLY=1`; its `PERF model_ready_ms` is C02, its `PERF save_ms` is C16,
+and `wait4` gives the sample's own CPU time and peak resident memory.
+Repetitions are interleaved in an order shuffled per repetition from the
+seed, after one discarded warm-up per editor and workload. Every sample is
+written once to `samples/<workload>/<editor>/r###.json` with its command,
+environment keys, exit status, marks and how often each was printed, output
+hash, output check, load average and power source.
+
+A sample fails, and is never a time, if it times out, exits non-zero, prints
+any of its lane's marks other than exactly once, or saves a file that does
+not hold the document. The check reads input and output with one extractor
+(`docx_paragraph_texts`): the output must keep 98 % of the input's words as
+a multiset, be at most 2 % longer, and end with the sentinel (`complex.docx`:
+50 %, at most 1.5 times). A failed sample keeps its full stdout, stderr and
+output file next to its record. A process the lane leaves running is killed
+and the sample's CPU and memory are marked incomplete. An editor that fails
+three times in a row on a workload stops being sampled there.
+
+`dedicated_publish` refuses to start without a warm-up, when
+`host.quiet_machine_check()` fails (AGENTS.md §3: it fails closed, excludes
+only the runner's own process tree, and counts a Word driver however idle),
+on battery power, or when `attest_versions` finds a checkout off its pin,
+a changed tracked file (outside `ALLOWED_DELETIONS`, recorded with its
+reason) or an installed package that is not the declared version. It
+rebuilds WordCraft first (`BUILD_STEPS`). The summary records the runner's
+provenance: its own and its modules' hashes, every file each lane's command
+names, and the repository head.
+
+A row is publishable only on that profile, with n >= 10, no excluded sample,
+at most 10 % of samples started above the load limit, and every sample on AC
+power. Report E's tables come from two such runs (`build/perf_e_tables.py`;
+`out/report_e_runs.json` names them). The tables builder refuses a summary
+whose rows its sample files do not give, and a "reproduction" that is the
+same run, has the same seed, or differs in documents, host, versions, timer
+boundaries or code.
 
 ### Contract runner (headless)
 
@@ -239,3 +294,39 @@ derived; a later change to the summary function re-reads the raw files.
   and host class. Name all of them before saying one editor is faster.
 - The warm/cold suite's paired rows are diagnostics; they are not headline
   publications.
+
+### Browser invocation bookkeeping (B1)
+
+The four browser CLI entry points accept `--seed` and `--run-id`. They write
+`<out-root>/<runner>/<run-id>/summary.json`, immutable per-repetition/editor
+cell summaries and attempts, raw probe evidence, and workload/hash-named
+fixtures. A repeated run id is refused. Every repetition reshuffles editors
+using the recorded seed; probe clocks and measurement definitions are unchanged.
+Input criteria use `--repetitions` for the outer repetition count; the other
+runners retain `--pairs` or `--samples`.
+
+Vite hosts build through `perf/runner/hosts/vite.config.mjs` into
+`<out-root>/builds/<host>/<build-id>/`; config loading, output and cache paths
+stay outside `harness/` and `repos/`. The static server serves the current
+fixture on the host's corpus route. `browser_hosts.py` documents every host's
+build policy. Non-static Next/Django/Electron hosts require an already running
+service and are explicitly non-publishable; the runner never launches commands
+that would write their caches into a protected checkout. Wordcraft retains its
+existing Trunk server, with the build and host trees hashed.
+
+Every invocation snapshots every available editor checkout before and after,
+including the main checkout beside a symlinked harness. Dirty or changed
+porcelain sets `failure_reason: repos_modified`; no checkout is cleaned.
+Individual sample failures remain on disk and execution continues with exit 0.
+The invocation summary records headless Chromium renderer diagnostics and
+`host.py`'s container facts separately from the measured probes.
+
+Functional acceptance smoke (not a performance measurement):
+
+```sh
+python3 -I perf/runner/browser_smoke.py --out-root /tmp/b1-smoke
+python3 -I perf/runner/browser_smoke.py --out-root /tmp/b1-smoke --fail-repetition 1
+```
+
+The tiny fake Vite host uses Vite already installed under `harness/ui/`; it
+requires no dependency install in this repository.

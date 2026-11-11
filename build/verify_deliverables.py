@@ -17,7 +17,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import word_batch  # noqa: E402
 
-BASE = "/Users/arthrod/temp/T/editors_trial"
+BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # The publication set: every report that ships as a DOCX twin, plus the
 # fixture the whole trial is measured against. The archived combined Report A
 # is not a deliverable - it was superseded by Report A and Report A2.
@@ -38,6 +38,10 @@ DELIVERABLES = [
                                     "Packages (2026).docx"), "report D1"),
     (os.path.join(BASE, "reports", "Report D2 - What Word Protects Against "
                                     "(2026).docx"), "report D2"),
+    (os.path.join(BASE, "reports", "Report E - Speed, Opening and Saving a "
+                                    "Document (2026).docx"), "report E"),
+    (os.path.join(BASE, "reports", "Report E2 - Speed in the Browser "
+                                    "(2026).docx"), "report E2"),
     (os.path.join(BASE, "fixture", "complex.docx"), "fixture"),
 ]
 

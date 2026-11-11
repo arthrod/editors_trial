@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>fitting document beside a widget that has text</title>
+    <style>
+      html, body { margin: 0; padding: 0; background: #fff; color: #111; font: 14px/1.5 monospace; }
+      #doc { padding: 12px; }
+      p { margin: 0 0 8px; }
+      #widget { width: 120px; height: 24px; overflow-y: auto; border: 1px solid #ccc; }
+      #widget .pad { height: 80px; }
+    </style>
+  </head>
+  <body>
+    <div id="doc">
+      <p>The document fits the viewport. Two short paragraphs and nothing taller.</p>
+      <p>There is no document scroller on this page.</p>
+    </div>
+    <div id="widget"><p>Notes</p><div class="pad"></div></div>
+    <script>window.__docxReady = true;</script>
+  </body>
+</html>

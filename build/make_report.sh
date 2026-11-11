@@ -12,7 +12,7 @@
 #
 # usage: build/make_report.sh <report.md> [out.docx]
 set -euo pipefail
-BASE="/Users/arthrod/temp/T/editors_trial"
+BASE="$(cd "$(dirname "$0")/.." && pwd)"
 SRC="$1"
 OUT="${2:-${SRC%.md}.docx}"
 

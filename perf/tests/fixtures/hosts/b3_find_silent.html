@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>b3 find widget never acknowledges</title>
+    <style>
+      body { margin: 24px; background: #ffffff; color: #111111; font: 18px/1.4 sans-serif; }
+      input.find { display: block; margin-top: 12px; font: 16px sans-serif; }
+    </style>
+  </head>
+  <body>
+    <p class="doc-paragraph">NEEDLE sits in the document and the widget never answers.</p>
+    <input class="find" hidden autocomplete="off" />
+    <div class="find-count" role="status"></div>
+    <script>
+      var input = document.querySelector('input.find');
+      document.addEventListener('keydown', function (event) {
+        if ((event.ctrlKey || event.metaKey) && (event.key === 'f' || event.key === 'F')) {
+          event.preventDefault();
+          input.hidden = false;
+          input.focus();
+        }
+      });
+      // The widget opens and accepts input. It never writes a count.
+    </script>
+  </body>
+</html>

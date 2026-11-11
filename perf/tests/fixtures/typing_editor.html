@@ -1,0 +1,37 @@
+<!doctype html><meta charset="utf-8"><title>B9 resource calibration editor</title>
+<style>#editor {border:1px solid black; width:900px; min-height:500px; white-space:pre-wrap}</style>
+<div id="editor" contenteditable="true"></div><div class="status-ok">ready</div>
+<script>
+const mode = new URLSearchParams(location.search).get('mode');
+const editor = document.querySelector('#editor');
+if (mode === 'readonly') editor.contentEditable = 'false';
+if (mode === 'prefilled') editor.innerText = 'existing document';
+let count = 0, heaps = [];
+editor.addEventListener('beforeinput', event => {
+  if (mode === 'drop' && count === 2) {event.preventDefault(); count++;}
+});
+editor.addEventListener('input', async () => {
+  count++;
+  if (mode === 'freeze' && count === 10) while (true) {}
+  if (mode === 'heap' && count % 1000 === 0) heaps.push(new Array(131072).fill(count + 0.5));
+  if (mode === 'longtask' && count % 5000 === 0) {
+    const until = performance.now()+200; while(performance.now()<until) {}
+  }
+  if (mode === 'cpu' && count === 5000) {
+    const until = performance.now()+2000; while(performance.now()<until) {}
+  }
+  if (mode === 'storage' && count === 5000) {
+    const request = indexedDB.open('b9');
+    request.onupgradeneeded = () => request.result.createObjectStore('data');
+    request.onsuccess = () => {
+      const tx = request.result.transaction('data','readwrite');
+      // Random bytes avoid storage compression concealing the requested 10 MiB.
+      const bytes = new Uint8Array(10*1024*1024);
+      for(let i=0;i<bytes.length;i+=65536) crypto.getRandomValues(bytes.subarray(i,i+65536));
+      tx.objectStore('data').put(bytes,'payload');
+      tx.oncomplete = () => request.result.close();
+    };
+  }
+});
+window.__b9retainedHeaps = heaps;
+</script>

@@ -1,0 +1,14 @@
+<!doctype html><html><body style="margin:0">
+<canvas id="doc" width="500" height="300" style="display:block"></canvas>
+<script>
+const c=document.getElementById('doc'),g=c.getContext('2d');
+g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);
+function paintHalf(x) {
+  g.save();g.beginPath();g.rect(x,0,250,300);g.clip();
+  g.fillStyle='#111';g.font='32px monospace';
+  for(let y=55;y<300;y+=55) g.fillText('DOCUMENT TEXT CONTENT',20,y);
+  g.restore();
+}
+setTimeout(()=>paintHalf(0),300);
+setTimeout(()=>paintHalf(250),600);
+</script></body></html>

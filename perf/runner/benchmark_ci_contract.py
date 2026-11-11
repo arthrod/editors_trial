@@ -21,11 +21,13 @@ Usage (from repo root)::
 from __future__ import annotations
 
 import argparse
+import functools
 import hashlib
 import json
 import os
 import platform
 import resource
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -39,6 +41,7 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
 from perf.adapters.capabilities import default_lane, editor_pins, pin_label  # noqa: E402
+from perf.runner.load_timeouts import load_timeout_ms  # noqa: E402
 from perf.analysis.interpretation import evaluate_measured_trial  # noqa: E402
 from perf.analysis.publication_gate import trial_publishable_flags  # noqa: E402
 from perf.analysis.summarize import summarize  # noqa: E402
@@ -81,15 +84,15 @@ def _attempt_ref(path: Path) -> str:
 
 
 def _ram_bytes() -> int:
-    try:
-        with open("/proc/meminfo", encoding="utf-8") as handle:
-            for line in handle:
-                if line.startswith("MemTotal:"):
-                    parts = line.split()
-                    return int(parts[1]) * 1024
-    except OSError:
-        pass
-    return 512 * 1024 * 1024
+    """Physical RAM of this host, read by ``perf.runner.host`` (never a default)."""
+    return _host()["ram_bytes"]
+
+
+@functools.lru_cache(maxsize=1)
+def _host() -> dict:
+    from perf.runner.host import host_record
+
+    return host_record()
 
 
 def _host_base(
@@ -105,16 +108,23 @@ def _host_base(
     run_kind: str,
     feature_profile_name: str,
 ) -> dict:
+    from perf.fixtures.docx_workload import ladder_row_for_env
+    from perf.runner.browser_run import execution_profile as run_profile, host_class
+
+    workload_row = ladder_row_for_env(workload_row)
+    execution_profile = run_profile(execution_profile)
     feats = feature_profile(feature_profile_name)
     disabled = list(feats.get("disabled_features") or [])
-    return {
-        "host_class": "ci_coarse",
+    env = {
+        "host_class": host_class(),
         "execution_profile": execution_profile,
-        "cpu_model": platform.processor() or "unknown",
+        "cpu_model": _host()["cpu_model"],
         "os": sys.platform,
+        "os_version": _host()["os_version"],
         "arch": platform.machine(),
         "ram_bytes": _ram_bytes(),
-        "power_source": "unknown",
+        "cpu_cores_logical": _host()["cpu_cores_logical"],
+        "power_source": _host()["power_source"],
         "editor_id": editor_id,
         "editor_version": editor_version,
         "fixture_sha256": fixture_sha256,
@@ -130,9 +140,17 @@ def _host_base(
         "run_kind": run_kind,
         "headless": True,
         "display_refresh_hz": None,
+        # Lax layer (owner 2026-11-11): the ready/navigation timeout this
+        # workload's loads wait (300 s; 600 s on prose-250kw), so a trial
+        # discloses the relaxed bound that gated it.
+        "load_timeout_ms": load_timeout_ms(workload_row["workload_id"]),
         "interpretation_conditions": list(INTERPRETATION_CONDITIONS),
         "feature_fallback": disabled,
     }
+    from perf.schema import validate_environment
+
+    validate_environment(env)
+    return env
 
 
 def _measure_cmd(
@@ -279,6 +297,15 @@ def _run_libreoffice(indocx: Path, outdocx: Path) -> tuple[float, str, str, floa
     outdir = outdocx.parent
     outdir.mkdir(parents=True, exist_ok=True)
     stem = indocx.stem
+    # LibreOffice names its product after the input stem, so converting into
+    # ``outdir`` itself overwrites the still-open input -- which LibreOffice
+    # 26.8 refuses with SfxBaseModel::impl_store 0x4c0c whenever the
+    # directory is not the per-user darwin temp (a local TMPDIR under the
+    # repo, for example). Convert into a fresh sibling directory and move the
+    # product where the caller expects it; the measured process, its output
+    # and its wall clock are unchanged.
+    convert_dir = outdir / ("lo-out-%s" % uuid.uuid4().hex[:12])
+    convert_dir.mkdir(parents=True, exist_ok=True)
     r0 = resource.getrusage(resource.RUSAGE_CHILDREN)
     start = time.perf_counter()
     cmd = [
@@ -288,7 +315,7 @@ def _run_libreoffice(indocx: Path, outdocx: Path) -> tuple[float, str, str, floa
         "--convert-to",
         "docx",
         "--outdir",
-        str(outdir),
+        str(convert_dir),
         str(indocx),
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
@@ -296,11 +323,14 @@ def _run_libreoffice(indocx: Path, outdocx: Path) -> tuple[float, str, str, floa
     elapsed_ms = (time.perf_counter() - start) * 1000.0
     child_cpu_ms = ((r1.ru_utime - r0.ru_utime) + (r1.ru_stime - r0.ru_stime)) * 1000.0
     if result.returncode != 0:
+        shutil.rmtree(convert_dir, ignore_errors=True)
         raise RuntimeError("soffice failed: %s" % (result.stderr or result.stdout,))
-    produced = outdir / ("%s.docx" % stem)
+    produced = convert_dir / ("%s.docx" % stem)
     if not produced.is_file():
+        shutil.rmtree(convert_dir, ignore_errors=True)
         raise RuntimeError("libreoffice did not produce output")
     produced.replace(outdocx)
+    shutil.rmtree(convert_dir, ignore_errors=True)
     combined_out = result.stdout or ""
     return elapsed_ms, combined_out, result.stderr or "", child_cpu_ms
 

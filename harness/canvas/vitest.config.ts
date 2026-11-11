@@ -1,9 +1,10 @@
 import { defineConfig } from 'vitest/config'
 import { fileURLToPath } from 'node:url'
 
-const CANVAS = '/Users/arthrod/temp/T/editors_trial/repos/canvas-editor'
-const PLUGIN =
-  '/Users/arthrod/temp/T/editors_trial/repos/canvas-editor-plugin/packages/docx'
+// paths from this file, so the harness runs from any checkout (#118)
+const TRIAL = fileURLToPath(new URL('../../', import.meta.url))
+const CANVAS = TRIAL + 'repos/canvas-editor'
+const PLUGIN = TRIAL + 'repos/canvas-editor-plugin/packages/docx'
 
 export default defineConfig({
   // Vite's dependency cache can move. The config bundle cannot: Vite writes

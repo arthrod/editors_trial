@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>b3 shadow style is not document text</title>
+    <style>
+      body { margin: 0; background: #ffffff; color: #111111; font: 18px/1.4 sans-serif; }
+      h1 { margin: 0; padding: 16px 20px; background: #d9f0df; font-size: 18px; }
+    </style>
+  </head>
+  <body>
+    <h1>Shell only</h1>
+    <div class="doc-paragraph"></div>
+    <script>
+      // At 400 ms the shadow root receives only a style element. CSS source is
+      // not document text. The paragraph arrives at 5000 ms.
+      var root = document.querySelector('.doc-paragraph').attachShadow({ mode: 'open' });
+      setTimeout(function () {
+        root.innerHTML = '<style>p { color: black; padding: 24px; }</style>';
+      }, 400);
+      setTimeout(function () {
+        root.innerHTML += '<p>Actual document text appears now</p>';
+      }, 5000);
+    </script>
+  </body>
+</html>

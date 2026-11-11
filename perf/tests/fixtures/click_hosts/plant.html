@@ -1,0 +1,92 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>c07 quiet-box plant host</title>
+<style>
+  body { margin: 0; background: #fff; min-height: 1400px; }
+  #doc {
+    contenteditable: true;
+    width: 420px;
+    margin: 60px auto;
+    font: 16px/24px Georgia, serif;
+    color: #111;
+    outline: none;
+    white-space: pre-wrap;
+  }
+  #doc p { margin: 0 0 12px 0; }
+  #doc:focus { outline: none; }
+</style>
+</head>
+<body>
+<div id="doc" contenteditable="true"><p>fixture line one alpha bravo charlie</p><p>fixture line two delta echo foxtrot</p><p>fixture line three golf hotel india</p><p>fixture line four juliet kilo lima</p><p>fixture line five mike november oscar</p></div>
+<script>
+// ?plant=blink|hover|toolbar|scroll|quiet — reviewer plants repaint inside the
+// watched click box; 'quiet' leaves every box untouched before the click.
+const plant = new URLSearchParams(location.search).get('plant') || 'quiet';
+const doc = document.getElementById('doc');
+
+function bands() {
+  // One strip over each text line, wide enough that any ink-chosen click box
+  // overlaps it.
+  const host = document.createElement('div');
+  document.body.appendChild(host);
+  const strips = [];
+  for (const p of doc.querySelectorAll('p')) {
+    const r = p.getBoundingClientRect();
+    const s = document.createElement('div');
+    s.style.cssText = `position:fixed;left:${r.left}px;top:${r.top + 2}px;width:360px;height:20px;pointer-events:none;background:transparent;`;
+    host.appendChild(s);
+    strips.push(s);
+  }
+  return strips;
+}
+
+if (plant === 'blink') {
+  // Caret-like 2px black bars tiled across every line so a watched box placed
+  // anywhere on the line contains at least one blinking bar.
+  const strips = bands();
+  for (const s of strips) {
+    s.style.background = 'repeating-linear-gradient(90deg,#000 0 2px,transparent 2px 20px)';
+  }
+  let on = true;
+  setInterval(() => {
+    on = !on;
+    for (const s of strips) s.style.display = on ? 'block' : 'none';
+  }, 300);
+} else if (plant === 'hover') {
+  // A hover-style highlight sweeping inside every line's box.
+  const strips = bands();
+  let on = false;
+  setInterval(() => {
+    on = !on;
+    for (const s of strips) s.style.background = on ? 'rgba(255,200,0,0.6)' : 'transparent';
+  }, 300);
+} else if (plant === 'toolbar') {
+  // A chrome strip overlapping the first line plus blinkers in the rest, so
+  // every watched box sees a toolbar-like repaint.
+  const r = doc.querySelector('p').getBoundingClientRect();
+  const bar = document.createElement('div');
+  bar.style.cssText = `position:fixed;left:${r.left}px;top:${r.top}px;width:360px;height:24px;background:#334;pointer-events:none;z-index:10;`;
+  document.body.appendChild(bar);
+  let n = 0;
+  setInterval(() => {
+    n += 1;
+    bar.style.background = n % 2 ? '#334' : '#445';
+  }, 300);
+  const strips = bands();
+  strips[0].remove();
+  let on = true;
+  setInterval(() => {
+    on = !on;
+    for (const s of strips) s.style.background = on ? 'rgba(0,120,255,0.5)' : 'transparent';
+  }, 300);
+} else if (plant === 'scroll') {
+  // Scroll jitter: the document shifts two pixels back and forth forever.
+  setInterval(() => {
+    window.scrollBy(0, window.scrollY > 0 ? -2 : 2);
+  }, 250);
+}
+</script>
+</body>
+</html>

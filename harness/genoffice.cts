@@ -22,6 +22,7 @@ const { join, resolve } = require('node:path');
 const REPO = join(__dirname, '..', 'repos', 'genoffice');
 
 async function main() {
+  const PERF_ONLY = process.env.PERF_ONLY === '1';
   const inPath = resolve(process.argv[2]);
   const outPath = resolve(process.argv[3]);
 
@@ -57,12 +58,15 @@ async function main() {
   console.log(`PERF model_ready_ms=${(t1 - t0).toFixed(6)}`);
 
   // 4. Export back out (no edits -> the selective-save plan should keep original blocks).
+  const perfSaveStart = PERF_ONLY ? performance.now() : undefined;
   const plan = pmDocToSavePlan(editor.getJSON() as never, parsed.blocks);
-  console.log(`[genoffice] plan kinds: ${JSON.stringify(plan.saveBlocks.map((b) => b.kind))}`);
-  const ts0 = performance.now();
+  const showPlan = () => console.log(`[genoffice] plan kinds: ${JSON.stringify(plan.saveBlocks.map((b) => b.kind))}`);
+  if (!PERF_ONLY) showPlan();
+  const ts0 = perfSaveStart ?? performance.now();
   const out = await saveDocx(parsed, plan.saveBlocks);
   const ts1 = performance.now();
   console.log(`PERF save_ms=${(ts1 - ts0).toFixed(6)}`);
+  if (PERF_ONLY) showPlan();
   writeFileSync(outPath, out);
   console.log(`[genoffice] wrote ${out.byteLength} bytes`);
 }

@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>split keeps equal-text count at 1</title>
+    <style>
+      body { margin: 24px; background: #fff; color: #111; font: 18px/1.5 sans-serif; }
+      .doc-paragraph { display: block; margin: 0 0 8px; min-height: 1.2em; }
+    </style>
+  </head>
+  <body>
+    <div class="doc-paragraph" id="caret" contenteditable="true">AAAA BBBB</div>
+    <div class="doc-paragraph" id="anchor">BBBB</div>
+    <script>
+      document.addEventListener('keydown', function (event) {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        var anchor = document.getElementById('anchor');
+        if (!anchor) return;
+        anchor.remove();
+        var caret = document.getElementById('caret');
+        caret.textContent = 'xAAAA';
+        var neu = document.createElement('div');
+        neu.className = 'doc-paragraph';
+        neu.id = 'split-new';
+        neu.textContent = 'BBBB';
+        neu.style.marginTop = '480px';
+        caret.after(neu);
+      }, true);
+    </script>
+  </body>
+</html>

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>B5 fake host: a document that fits the viewport</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: #ffffff;
+        color: #111111;
+        font: 14px/1.5 monospace;
+      }
+      #doc {
+        padding: 12px;
+      }
+      p {
+        margin: 0 0 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- The document fits: two paragraphs, no scroll container anywhere. -->
+    <div id="doc"></div>
+    <script src="/corpus.js"></script>
+    <script>
+      window.__b5.render(document.getElementById('doc'), 2).catch(function (error) {
+        window.__b5Error = String(error);
+        window.__docxReady = true;
+      });
+    </script>
+  </body>
+</html>

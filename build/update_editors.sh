@@ -67,6 +67,7 @@ install folio bun install
 install genoffice npm install --no-audit --no-fund
 install canvas-editor pnpm install --no-frozen-lockfile
 install canvas-editor-plugin pnpm install --no-frozen-lockfile
+install docen pnpm install --frozen-lockfile --ignore-scripts
 
 SDK_NOW=$(node -p "require('./harness/superdoc-sdk/node_modules/@superdoc/sdk/package.json').version" 2>/dev/null || true)
 SDK=$(python3 build/pin_versions.py npm @superdoc/sdk next ${SDK_NOW:+--current "$SDK_NOW"} ${RELEASE_DATE:+--date "$RELEASE_DATE"})

@@ -1,0 +1,8 @@
+<!doctype html><html><body style="margin:0">
+<div id="doc" style="width:500px;height:320px;border:1px solid #333;padding:12px;font:18px monospace"
+     contenteditable="true">Document body with enough static text to count as real ink in the region.</div>
+<script>
+const el=document.getElementById('doc'); el.focus();
+const r=document.createRange(); r.selectNodeContents(el); r.collapse(false);
+const s=window.getSelection(); s.removeAllRanges(); s.addRange(r);
+</script></body></html>

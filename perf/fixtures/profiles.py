@@ -62,7 +62,17 @@ def size_ladder():
         {"workload_id": "mixed-utf8", "paragraphs": 10, "paragraph_chars": 80, "unicode_class": "mixed", "match_count": 0, "seed": 1, "shape": "mixed"},
         {"workload_id": "search-dense", "paragraphs": 200, "paragraph_chars": 40, "unicode_class": "ascii", "match_count": 1000, "seed": 1, "shape": "search"},
         {"workload_id": "paginated-equivalent", "paragraphs": 6, "paragraph_chars": 400, "unicode_class": "ascii", "match_count": 0, "seed": 1, "shape": "pages"},
-    ]
+    ] + _realistic_rows()
+
+
+def _realistic_rows():
+    """The speed report's ladder: real-word prose by size, then the fidelity corpus.
+
+    Imported lazily: ``perf.fixtures.docx_workload`` builds on ``generate``.
+    """
+    from perf.fixtures.docx_workload import CORPUS_ROW, PROSE_LADDER
+
+    return [dict(row) for row in PROSE_LADDER] + [dict(CORPUS_ROW)]
 
 
 def assert_not_hostile(path, root):
@@ -78,7 +88,7 @@ def assert_not_hostile(path, root):
 def allowed_workloads(execution_profile):
     ladder_ids = {row["workload_id"] for row in size_ladder()}
     if execution_profile == "ci_contract":
-        return frozenset({"micro-paragraphs", "micro-search"})
+        return frozenset({"micro-paragraphs", "micro-search", "prose-500w"})
     if execution_profile == "ci_broad":
         return frozenset(
             {
@@ -87,6 +97,8 @@ def allowed_workloads(execution_profile):
                 "short-paragraphs",
                 "mixed-utf8",
                 "search-dense",
+                "prose-500w",
+                "prose-5kw",
             }
         )
     if execution_profile == "dedicated_publish":

@@ -1,0 +1,82 @@
+<!doctype html><meta charset="utf-8"><title>b2 rereview attack host</title>
+<div class="status-ok">ready</div>
+<div contenteditable="true" id="doc" style="font:32px monospace;min-height:120px;position:relative">fixture<span id="slot" style="display:inline-block;background:#ff0;padding:0 4px;color:transparent;position:relative"></span><span id="outside" style="display:inline-block;width:8px;height:8px;background:#0f0"></span></div>
+<script>
+const q = new URLSearchParams(location.search);
+const mode = q.get('mode') || 'late800';
+const inkAt = Number(q.get('ink') || (mode === 'late450' ? 450 : mode === 'late800' ? 800 : 0));
+// Test-only oracle: performance.now uses the same page clock as keydown.
+// Carry a copy through the existing diagnostic object, never into the measurer.
+function recordInkSet() {
+  window.__b2FixtureInk = {page_ms: performance.now(), time_origin_ms: performance.timeOrigin};
+  window.__b2.edit_confirmation.fixture_ink = {...window.__b2FixtureInk};
+}
+const slot = document.getElementById('slot');
+if (mode === 'same') {
+  slot.style.width = '22px';
+  slot.style.height = '37px';
+  slot.style.overflow = 'hidden';
+  slot.style.background = '#ff0';
+  slot.style.color = '#ff0';
+}
+const outside = document.getElementById('outside');
+if (q.get('pump') !== '0') {
+  setInterval(() => { outside.style.background = outside.style.background === 'rgb(0, 0, 255)' ? '#0f0' : '#00f'; }, 40);
+}
+if (mode === 'caret') {
+  const blink = document.createElement('span');
+  blink.id = 'blink';
+  blink.style.cssText = 'position:absolute;left:0;top:0;width:22px;height:32px;background:#000;z-index:2';
+  slot.appendChild(blink);
+  setInterval(() => { blink.style.opacity = blink.style.opacity === '0' ? '1' : '0'; }, 50);
+}
+document.addEventListener('keydown', e => {
+  if (e.key !== 'x') return;
+  e.preventDefault();
+  if (mode === 'revert') {
+    slot.append('x');
+    slot.style.color = 'black';
+    slot.style.background = '#ffffff';
+    setTimeout(() => {
+      slot.style.color = 'transparent';
+      slot.style.background = '#ff0';
+    }, 80);
+    return;
+  }
+  if (mode === 'flash') {
+    slot.append('x');
+    slot.style.color = '#ff0';
+    slot.style.background = '#f00';
+    setTimeout(() => { slot.style.background = '#ff0'; }, 40);
+    return;
+  }
+  if (mode === 'second') {
+    slot.append('x');
+    slot.style.color = 'black';
+    slot.style.background = '#ffffff';
+    recordInkSet();
+    setTimeout(() => {
+      const cover = document.createElement('span');
+      cover.style.cssText = 'position:absolute;left:0;top:0;width:80px;height:40px;background:#f00;z-index:3';
+      slot.appendChild(cover);
+    }, 400);
+    return;
+  }
+  if (mode === 'caret') {
+    slot.append('x');
+    slot.style.background = '#ffffff';
+    setTimeout(() => { slot.style.color = 'black'; }, 250);
+    return;
+  }
+  if (mode === 'same') {
+    slot.append('x');
+    slot.style.background = '#f00';
+    setTimeout(() => { slot.style.background = '#ff0'; }, 40);
+    return;
+  }
+  // late ink: transparent x and background flip now, ink after inkAt.
+  slot.append('x');
+  slot.style.background = '#ffffff';
+  setTimeout(() => { slot.style.color = 'black'; recordInkSet(); }, inkAt);
+});
+</script>

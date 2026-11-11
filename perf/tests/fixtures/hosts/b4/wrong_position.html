@@ -1,0 +1,21 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>b4 wrong caret position</title>
+  </head>
+  <body>
+    <div id="ready" class="status-ok">ready</div>
+    <div id="doc" contenteditable="true" style="white-space: pre-wrap">fixture line one
+fixture line two
+</div>
+    <script>
+      const doc = document.getElementById('doc');
+      doc.addEventListener('pointerdown', () => {
+        const lines = doc.innerText.split('\n');
+        lines[0] = 'WRONG ' + lines[0];
+        doc.innerText = lines.join('\n');
+      });
+    </script>
+  </body>
+</html>

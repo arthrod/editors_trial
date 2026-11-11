@@ -2,6 +2,7 @@
 
 import json
 import unittest
+import tempfile
 from pathlib import Path
 
 from perf.runner.cause_attribution import (
@@ -149,14 +150,33 @@ class WarmColdHonesty(unittest.TestCase):
             },
         )
 
-    def test_c02_c03_honesty_enforced_on_corrected_unblocked_output(self):
-        root = Path(__file__).resolve().parents[2] / "perf" / "out" / "unblocked_2026_11_07b"
-        attempt_dir = root / "attempts"
-        self.assertTrue(
-            attempt_dir.is_dir(),
-            "corrected unblocked run must exist at perf/out/unblocked_2026_11_07b/",
-        )
-        assert_no_duplicate_c02_c03_in_dir(attempt_dir)
+    def _write_c02_c03_pair(self, attempt_dir, c03_samples):
+        for criterion, boundary, samples in (
+            ("C02", "model_ready_browser", [1.0, 2.0, 3.0]),
+            ("C03", "first_usable", c03_samples),
+        ):
+            (attempt_dir / (criterion + ".json")).write_text(json.dumps({
+                "editor_id": "fixture-editor",
+                "criterion_id": criterion,
+                "outcome": "measured",
+                "boundary": boundary,
+                "samples_ms": samples,
+            }), encoding="utf-8")
+
+    def test_c02_c03_duplicate_attempts_rejected_in_temp_directory(self):
+        """Filesystem integration: deterministic duplicate attempts must be refused."""
+        with tempfile.TemporaryDirectory() as tmp:
+            attempt_dir = Path(tmp)
+            self._write_c02_c03_pair(attempt_dir, [1.0, 2.0, 3.0])
+            with self.assertRaisesRegex(ValueError, "must not publish identical samples_ms"):
+                assert_no_duplicate_c02_c03_in_dir(attempt_dir)
+
+    def test_c02_c03_clean_attempts_accepted_in_temp_directory(self):
+        """Filesystem integration: distinct measured boundaries have distinct samples."""
+        with tempfile.TemporaryDirectory() as tmp:
+            attempt_dir = Path(tmp)
+            self._write_c02_c03_pair(attempt_dir, [4.0, 5.0, 6.0])
+            assert_no_duplicate_c02_c03_in_dir(attempt_dir)
 
     def test_warm_cold_summary_never_labels_os_cache_cold(self):
         root = Path(__file__).resolve().parents[2] / "perf" / "out"

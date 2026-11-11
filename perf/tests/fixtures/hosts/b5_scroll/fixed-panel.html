@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>B5 fake host: a fixed panel above the scrolled document</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #ffffff;
+        color: #111111;
+        font: 14px/1.5 monospace;
+      }
+      #doc {
+        box-sizing: border-box;
+        height: 100vh;
+        overflow-y: auto;
+        padding: 12px;
+      }
+      /*
+        A floating panel inside the scroller: it holds text, but it is fixed
+        to the viewport, so it does NOT move when the document scrolls. A
+        content probe that takes the first element carrying text stops here
+        and reports that the document did not scroll, while the document did
+        scroll underneath it.
+      */
+      #panel {
+        position: fixed;
+        top: 8px;
+        right: 8px;
+        width: 160px;
+        padding: 6px;
+        border: 1px solid #cccccc;
+        background: #ffffff;
+      }
+      p {
+        margin: 0 0 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="doc">
+      <div id="panel">floating panel</div>
+      <div id="content"></div>
+    </div>
+    <script src="/corpus.js"></script>
+    <script>
+      window.__b5.render(document.getElementById('content')).catch(function (error) {
+        window.__b5Error = String(error);
+        window.__docxReady = true;
+      });
+    </script>
+  </body>
+</html>

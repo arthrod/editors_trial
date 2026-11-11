@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>canvas scroller with no DOM text</title>
+    <style>
+      html, body { margin: 0; padding: 0; height: 100%; background: #fff; }
+      #editor { height: 100vh; overflow-y: auto; }
+    </style>
+  </head>
+  <body>
+    <div id="editor"><canvas id="page" width="800" height="4000"></canvas></div>
+    <script>
+      var c = document.getElementById('page');
+      var g = c.getContext('2d');
+      g.fillStyle = '#111';
+      g.fillRect(40, 40, 400, 80);
+      g.fillRect(40, 2000, 400, 80);
+      window.__docxReady = true;
+    </script>
+  </body>
+</html>

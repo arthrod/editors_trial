@@ -1,0 +1,9 @@
+<!doctype html><html><head><style>
+@font-face{font-family:Late;src:url('data:font/woff2;base64,d09GMgABAAAAAAOkAA0AAAAABsQAAANjAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP0ZGVE0cGh4GYACCORkFCgKQAbhQCAvgBgyCBjALDBYDBwgJKz6JZwYQoFDAoZiN4P+H2x72i0u0DwwuVFFH4hxg4BAAE4Qi/8fjOx5P/wfB8Hwd41/q/5/5/4/J8HwfFf6v+f+PyfB8HwfFf6v+f+PyfB8HwfFf6v+f+PyfB8HweVnY2VjYXRvciBvZmZsaW5l') format('woff2');font-display:block}
+#doc{width:500px;height:300px;font-size:22px;padding:12px;font-family:Late,serif}
+</style></head><body>
+<div id="doc">Early system font text at four hundred ms.</div>
+<script>
+setTimeout(()=>{doc.textContent='Late webfont text after swap.';doc.style.color='#123456'},400);
+setTimeout(()=>{doc.style.fontFamily='Late,serif'},900);
+</script></body></html>

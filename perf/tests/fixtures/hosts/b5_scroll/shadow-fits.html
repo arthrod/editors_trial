@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>B5 fake host: an open shadow root with a document that fits</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: #ffffff;
+        color: #111111;
+        font: 14px/1.5 monospace;
+      }
+      #host {
+        height: auto;
+      }
+      p {
+        margin: 0 0 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <!--
+      An OPEN shadow root that holds a document which fits the viewport: there
+      is no scroll container anywhere, but there *is* a shadow root. A probe
+      that only looked at the document would say "no container" and stop; the
+      refusal has to name the shadow root it searched, so that a shadow-DOM
+      host is never mistaken for a host without a scroller.
+    -->
+    <div id="host"></div>
+    <script src="/corpus.js"></script>
+    <script>
+      (function () {
+        var host = document.getElementById('host');
+        var root = host.attachShadow({ mode: 'open' });
+        var doc = document.createElement('div');
+        doc.id = 'doc';
+        root.appendChild(doc);
+        window.__b5.render(doc, 2).catch(function (error) {
+          window.__b5Error = String(error);
+          window.__docxReady = true;
+        });
+      })();
+    </script>
+  </body>
+</html>

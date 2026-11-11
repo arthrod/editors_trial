@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>b3 apryse nested shadow</title>
+  </head>
+  <body>
+    <div id="viewer">
+      <apryse-webviewer style="display: block; width: 800px; height: 500px"></apryse-webviewer>
+    </div>
+    <script>
+      // The real mount is #viewer apryse-webviewer, not #viewer. The document
+      // element is #pageContainer1 inside that shadow root. The button is chrome.
+      var host = document.querySelector('#viewer apryse-webviewer');
+      var root = host.attachShadow({ mode: 'open' });
+      root.innerHTML =
+        '<button>Open Save Print Settings</button>' +
+        '<div id="pageContainer1" style="margin: 48px"><p>Actual visible document text</p></div>';
+    </script>
+  </body>
+</html>

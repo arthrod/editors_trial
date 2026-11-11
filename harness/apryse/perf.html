@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Apryse WebViewer — browser perf host (editors trial)</title>
+  <style>
+    html, body { margin: 0; height: 100%; font: 13px/1.4 -apple-system, system-ui, sans-serif; }
+    #viewer { width: 100%; height: 100vh; }
+    /* The ready badge is hidden until WebViewer has painted the document; the
+       probe waits for it (and for window.__aprysePerf.state === 'rendered'),
+       so its visibility is the host's only readiness signal. */
+    #ready { position: fixed; right: 8px; bottom: 8px; z-index: 10; padding: 4px 8px;
+             background: #b91c1c; color: #fff; border-radius: 4px; display: none; }
+    #ready[data-state="rendered"] { display: block; background: #15803d; }
+  </style>
+</head>
+<body>
+  <div id="viewer"></div>
+  <div id="ready" data-state="booting">booting</div>
+  <script type="module" src="/perf-main.js"></script>
+</body>
+</html>

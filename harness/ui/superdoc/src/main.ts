@@ -19,6 +19,10 @@ const superdoc = new SuperDoc({
   },
 });
 
+// The input gate reads the editor model (activeEditor.doc.getText), not the
+// painted line runs. Those runs drop a wrapping space.
+(window as Window & { __SUPERDOC_E2E__?: SuperDoc }).__SUPERDOC_E2E__ = superdoc;
+
 exportButton.addEventListener('click', async () => {
   exportButton.disabled = true;
   try {

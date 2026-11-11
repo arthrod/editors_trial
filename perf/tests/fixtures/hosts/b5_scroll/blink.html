@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>B5 fake host: a scroll that paints nothing, next to a blinking shell</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #ffffff;
+        color: #111111;
+        font: 14px/1.5 monospace;
+      }
+      /*
+        The document's text is transparent: the scroll really moves the
+        content (the scrollTop moves and the content moves with it), but the
+        container paints exactly the same pixels before and after. A witness
+        that diffs the whole frame sees the blinking shell next to it and
+        publishes that frame as the scroll.
+      */
+      #doc {
+        box-sizing: border-box;
+        margin-left: 120px;
+        height: 300px;
+        overflow-y: auto;
+        padding: 12px;
+        color: transparent;
+        background: #ffffff;
+      }
+      /*
+        The blinking shell: 40x40 pixels outside the document's rectangle,
+        repainted on every animation frame.
+      */
+      #blink {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        width: 40px;
+        height: 40px;
+        background: #ff0000;
+      }
+      p {
+        margin: 0 0 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="blink"></div>
+    <div id="doc"></div>
+    <script src="/corpus.js"></script>
+    <script>
+      (function () {
+        var blink = document.getElementById('blink');
+        var on = false;
+        function tick() {
+          on = !on;
+          blink.style.background = on ? '#ff0000' : '#00ff00';
+          requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+        window.__b5.render(document.getElementById('doc')).catch(function (error) {
+          window.__b5Error = String(error);
+          window.__docxReady = true;
+        });
+      })();
+    </script>
+  </body>
+</html>
