@@ -215,6 +215,8 @@ def main(argv: list[str] | None = None):
     parser.add_argument('--out-root', type=Path, default=DEFAULT_OUT_ROOT)
     parser.add_argument('--detach', action='store_true')
     parser.add_argument('--shard', default=None, help='I/N: run only jobs whose global index %% N == I (whole jobs; ids keep the global index)')
+    parser.add_argument('--runners', nargs='+', default=None, help='re-run only these runners (applied before --shard)')
+    parser.add_argument('--editors', nargs='+', default=None, help='re-run only these editors (applied before --shard)')
     args = parser.parse_args(argv)
     if args.detach and os.environ.get('HF_RUN_CHILD') != '1':
         try:
@@ -237,6 +239,11 @@ def main(argv: list[str] | None = None):
     from perf.runner.benchmark_warm_cold import BROWSER_TARGETS
     from perf.runner.browser_hosts import host_policy
     editors = [name for name in BROWSER_TARGETS if name != 'apryse' and host_policy(name)['publishable']]
+    if args.editors is not None:
+        unknown = sorted(set(args.editors) - set(editors))
+        if unknown:
+            parser.error(f'--editors: not publishable editors: {unknown}')
+        editors = [name for name in editors if name in args.editors]
     if args.publish and args.seed2 is None:
         parser.error('--publish requires --seed2')
     jobs = publication_jobs(editors, args.seed, args.seed2, args.host_class) if args.publish else [
@@ -244,6 +251,11 @@ def main(argv: list[str] | None = None):
          + (['--session-kind', kind] if kind else []))
         for name in RUNNERS for kind in (('throughput', 'latency') if name == 'benchmark_typing' else (None,))
     ]
+    if args.runners is not None:
+        unknown = sorted(set(args.runners) - {name for name, _options in jobs})
+        if unknown:
+            parser.error(f'--runners: unknown runners: {unknown}')
+        jobs = [job for job in jobs if job[0] in args.runners]
     shard = None
     if args.shard is not None:
         try:
