@@ -548,6 +548,56 @@ export async function prepareEditSurface(page, editorId, { timeoutMs = 600000, t
  * `emptyDocument`: the document has no text line to find (the typing lane
  * loads a zero-text document) — click the declared surface itself.
  */
+/** Page context. Collapse the selection at offset 0 of the block under a click point. */
+export const COLLAPSE_CARET_AT_CLICK_BLOCK = ({ x, y, blockSelector, editorId }) => {
+  const hit = document.elementFromPoint(x, y);
+  if (!hit) return { ok: false, reason: 'no hit target' };
+  const block = blockSelector ? hit.closest(blockSelector) : hit;
+  if (!block) return { ok: false, reason: 'no block' };
+  const startMark = block.querySelector && block.querySelector('[data-start="0"]');
+  const caretHost = startMark || block;
+  try {
+    const range = document.createRange();
+    const target =
+      caretHost.firstChild && caretHost.firstChild.nodeType === 3 ? caretHost.firstChild : caretHost;
+    range.setStart(target, 0);
+    range.collapse(true);
+    const sel = document.getSelection();
+    if (sel) {
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+    if (editorId === 'superdoc') {
+      try {
+        const sd = globalThis.__SUPERDOC_E2E__;
+        const handle = sd && sd.ui && sd.ui.selection;
+        if (handle && typeof handle.getSnapshot === 'function' && typeof handle.apply === 'function') {
+          const snap = handle.getSnapshot();
+          const targetSel = snap && snap.selectionTarget;
+          const start = targetSel && targetSel.start;
+          if (start && typeof start.offset === 'number') {
+            handle.apply({
+              kind: 'selection',
+              start: { ...start, offset: 0, edge: 'start' },
+              end: { ...start, offset: 0, edge: 'start' },
+              story: targetSel.story,
+            });
+          }
+        }
+      } catch {
+        /* model apply is best effort */
+      }
+    }
+    if (editorId === 'folio') {
+      const pm = document.querySelector('.paged-editor__hidden-pm .ProseMirror');
+      if (pm && typeof pm.focus === 'function') pm.focus();
+    }
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, reason: String(error && error.message ? error.message : error) };
+  }
+};
+
 export async function placeCaret(
   page,
   editorId,
@@ -557,6 +607,7 @@ export async function placeCaret(
     emptyDocument = false,
     clickPoint = null,
     atBlockStart = false,
+    blockSelector = null,
   } = {},
 ) {
   const surface = editSurface(editorId);
@@ -573,6 +624,14 @@ export async function placeCaret(
       if (editorId === 'superdoc' || editorId === 'eigenpal' || editorId === 'folio') {
         await page.keyboard.press('Home');
       }
+      const primary =
+        blockSelector || String(surface.block || '').trim() || String(selector || '').split(',')[0].trim();
+      await page.evaluate(COLLAPSE_CARET_AT_CLICK_BLOCK, {
+        x: point.x,
+        y: point.y,
+        blockSelector: primary || null,
+        editorId: editorId || '',
+      });
     }
   } else if (surface.kind === 'dom' && !emptyDocument) {
     point = await page.evaluate(FIND_TEXT_LINE, {
@@ -690,12 +749,34 @@ export const READ_CARET_BLOCK_OFFSET = ({ editorId, blockSelector }) => {
   }
 };
 
-export async function verifyCaretAtParagraphStart(page, editorId, { blockSelector = null } = {}) {
+export async function verifyCaretAtParagraphStart(
+  page,
+  editorId,
+  { blockSelector = null, clickPoint = null } = {},
+) {
   const primary = blockSelector || String(EDIT_SURFACES[editorId]?.block || '').trim() || null;
-  const read = await page.evaluate(READ_CARET_BLOCK_OFFSET, {
-    editorId: editorId || '',
-    blockSelector: primary,
-  });
+  const readOffset = async () =>
+    page.evaluate(READ_CARET_BLOCK_OFFSET, {
+      editorId: editorId || '',
+      blockSelector: primary,
+    });
+  let read = await readOffset();
+  if (read.offset !== 0 && clickPoint && Number.isFinite(clickPoint.x)) {
+    await page.evaluate(COLLAPSE_CARET_AT_CLICK_BLOCK, {
+      x: clickPoint.x,
+      y: clickPoint.y,
+      blockSelector: primary || null,
+      editorId: editorId || '',
+    });
+    read = await readOffset();
+  }
+  if (editorId === 'folio') {
+    await page.evaluate(() => {
+      const pm = document.querySelector('.paged-editor__hidden-pm .ProseMirror');
+      if (pm && typeof pm.focus === 'function') pm.focus();
+    });
+    read = await readOffset();
+  }
   if (!read.focused) {
     return { ok: false, reason: 'caret_not_at_paragraph_start', detail: 'editor_not_focused', ...read };
   }

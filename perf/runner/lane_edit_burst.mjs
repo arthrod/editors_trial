@@ -676,6 +676,7 @@ export async function placeC12BodyCaret(page, editorId, reflowSel, excludeSel) {
     },
   );
   if (!pick || pick.ok !== true || !pick.click) return pick;
+  const blockSelector = String(reflowSel || '').split(',')[0].trim() || null;
   const surface = editSurface(editorId);
   if (surface.hidden) {
     const mounted = await page.evaluate((hiddenSel) => Boolean(document.querySelector(hiddenSel)), surface.hidden);
@@ -689,6 +690,7 @@ export async function placeC12BodyCaret(page, editorId, reflowSel, excludeSel) {
     placed = await placeCaret(page, editorId, reflowSel, {
       clickPoint: pick.click,
       atBlockStart: true,
+      blockSelector,
       focusTimeoutMs: 5000,
     });
   } catch (error) {
@@ -697,8 +699,10 @@ export async function placeC12BodyCaret(page, editorId, reflowSel, excludeSel) {
       reason: String(error && error.message ? error.message : error).slice(0, 200),
     };
   }
-  const blockSelector = String(reflowSel || '').split(',')[0].trim() || null;
-  const verified = await verifyCaretAtParagraphStart(page, editorId, { blockSelector });
+  const verified = await verifyCaretAtParagraphStart(page, editorId, {
+    blockSelector,
+    clickPoint: pick.click,
+  });
   if (!verified.ok) {
     return {
       ok: false,
