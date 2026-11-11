@@ -25,13 +25,17 @@ export const EDIT_SURFACES = {
   },
   superdoc: {
     kind: 'dom',
-    root: '#editor .superdoc-page',
+    root: '#editor .superdoc__document, #editor .superdoc-page',
     exclude: '.superdoc-page-header, .superdoc-page-footer',
     block: '.superdoc-line',
   },
   genoffice: { kind: 'dom', root: '.doc-page' },
   eigenpal: { kind: 'dom', root: '.docx-page-content [data-paragraph-id][data-start]' },
-  folio: { kind: 'dom', root: '[data-page-number]' },
+  folio: {
+    kind: 'dom',
+    root: '.layout-page-content [data-block-id], [data-page-number]',
+    block: '[data-block-id]',
+  },
   canvas: { kind: 'model', model: 'canvas_editor' },
   docen: { kind: 'model', model: 'docen' },
   // No text is reachable: the app draws into one canvas and this pin has no API.
@@ -154,8 +158,9 @@ export async function prepareEditSurface(page, editorId, { timeoutMs = 600000 } 
   let textLine = null;
   if (surface.kind === 'dom' && surface.root) {
     const request = { root: surface.root, exclude: surface.exclude || null, minChars: 12 };
+    const textLineMs = Math.min(timeoutMs, 120_000);
     try {
-      await page.waitForFunction(FIND_TEXT_LINE, request, { timeout: timeoutMs, polling: 100 });
+      await page.waitForFunction(FIND_TEXT_LINE, request, { timeout: textLineMs, polling: 100 });
       textLine = true;
     } catch {
       textLine = false;

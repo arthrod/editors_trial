@@ -223,8 +223,35 @@ class DirtyStartIntegration(unittest.TestCase):
             result = BrowserRun(tmp, 'dirty', snapshot=lambda: dirty).finish({'publishable': True})
         self.assertEqual(result.get('failure_reason'), 'repos_dirty_at_start')
         self.assertFalse(result['publishable'])
+        self.assertEqual(result.get('publication_block_reason'), 'repos_dirty_at_start')
         self.assertIn('/elsewhere/repos/docen', result['repos_dirty_at_start'])
         self.assertIn('source.ts', str(result['repos_dirty_at_start']))
+
+    def test_dirty_start_sample_carries_publication_block_reason(self):
+        from perf.runner.browser_run import ACTIVE, BrowserRun
+        dirty = {'/elsewhere/repos/docen': ' M source.ts\n'}
+        with tempfile.TemporaryDirectory() as tmp:
+            run = BrowserRun(tmp, 'dirty', snapshot=lambda: dirty)
+            token = ACTIVE.set(run)
+            try:
+                path = run.sample('0000-plate', {'editor_id': 'plate', 'repetition': 0, 'outcome': 'not_run'})
+                row = json.loads(path.read_text())
+            finally:
+                ACTIVE.reset(token)
+        self.assertEqual(row.get('publication_block_reason'), 'repos_dirty_at_start')
+        self.assertFalse(row['publishable'])
+
+    def test_cpu_accounting_unavailable_sample_carries_publication_block_reason(self):
+        from perf.runner.browser_run import ACTIVE, BrowserRun
+        with tempfile.TemporaryDirectory() as tmp:
+            run = BrowserRun(tmp, 'acct', snapshot=lambda: {}, accounting_reader=lambda: {'available': False})
+            token = ACTIVE.set(run)
+            try:
+                path = run.sample('0000-plate', {'editor_id': 'plate', 'repetition': 0, 'outcome': 'ok'})
+                row = json.loads(path.read_text())
+            finally:
+                ACTIVE.reset(token)
+        self.assertEqual(row.get('publication_block_reason'), 'cpu_accounting_unavailable')
 
     def test_allowed_report_e_deletions_keep_reason(self):
         from perf.runner.browser_run import BrowserRun

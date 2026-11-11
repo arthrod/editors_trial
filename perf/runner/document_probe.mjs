@@ -63,7 +63,8 @@ import {
 import { normalizeDocumentText } from './document_text_normalize.mjs';
 import { openingContentVerdict } from './perf_model_text.mjs';
 import { startChromeTrace, stopChromeTrace } from './chrome_trace.mjs';
-import { prepareLaneCaret, reflowBlockSelector } from './lane_edit_burst.mjs';
+import { gatherReflowBefore, REFLOW_MODEL_EDITORS, prepareLaneCaret, reflowBlockSelector } from './lane_edit_burst.mjs';
+import { EDIT_SURFACES } from './edit_surface.mjs';
 
 /** Screencast ink needs at least this many region pixels above the witness threshold. */
 const SCREENCAST_INK_MIN_PIXELS = 64;
@@ -1253,66 +1254,6 @@ async function runReflow(browser) {
     const readyMs = await waitForReady(ctx.page);
     if (settleMs > 0) await ctx.page.waitForTimeout(settleMs);
 
-    const reflowSel = reflowBlockSelector(editorId, docSelector);
-    const before = await ctx.page.evaluate(
-      ({ docSel }) => {
-        const blocks = Array.from(document.querySelectorAll(docSel));
-        if (blocks.length < 2) {
-          return { ok: false, reason: 'fewer than two document blocks; nothing below the insertion to move' };
-        }
-        const counts = new Map();
-        for (const block of blocks) {
-          const text = (block.textContent || '').trim();
-          if (!text) continue;
-          counts.set(text, (counts.get(text) || 0) + 1);
-        }
-        // The anchor is a block with unique text below the insertion point. Index
-        // identity is not usable: inserting at the top renumbers every block and
-        // makes an unchanged index look like an unchanged position.
-        let anchor = null;
-        for (let i = blocks.length - 1; i >= 1; i--) {
-          const text = (blocks[i].textContent || '').trim();
-          if (text && counts.get(text) === 1) {
-            anchor = { el: blocks[i], index: i, text };
-            break;
-          }
-        }
-        if (!anchor) {
-          return {
-            ok: false,
-            reason: 'no block below the insertion point has unique non-empty text; a y-shift could not be attributed',
-            blocks: blocks.length,
-          };
-        }
-        window.__c12AnchorEl = anchor.el;
-        window.__c12AnchorTop = anchor.el.getBoundingClientRect().top;
-        window.__c12AnchorText = anchor.text;
-        window.__c12DocSel = docSel;
-        return {
-          ok: true,
-          blocks: blocks.length,
-          anchor_index: anchor.index,
-          anchor_text: anchor.text,
-          anchor_top: window.__c12AnchorTop,
-          first_block_top: blocks[0].getBoundingClientRect().top,
-          first_block_text: (blocks[0].textContent || '').trim().slice(0, 40),
-        };
-      },
-      { docSel: reflowSel },
-    );
-    if (!before.ok) {
-      return {
-        mode: 'reflow',
-        driver: 'playwright',
-        url,
-        navigation_ms: navigationMs,
-        ready_ms: readyMs,
-        error: before.reason,
-        window_excludes_forced_layout: true,
-        forced_layout_ms: 0,
-      };
-    }
-
     if (editorId) {
       const prepared = await prepareLaneCaret(ctx.page, editorId, editSelector, { timeoutMs });
       if (prepared.placeError) {
@@ -1327,7 +1268,30 @@ async function runReflow(browser) {
           forced_layout_ms: 0,
         };
       }
-    } else {
+    }
+
+    const reflowSel = reflowBlockSelector(editorId, docSelector);
+    const modelReflow = editorId && REFLOW_MODEL_EDITORS.has(editorId);
+    const before = await ctx.page.evaluate(gatherReflowBefore, {
+      docSel: reflowSel,
+      editorId,
+      useModel: modelReflow,
+      model: modelReflow ? EDIT_SURFACES[editorId].model : null,
+    });
+    if (!before.ok) {
+      return {
+        mode: 'reflow',
+        driver: 'playwright',
+        url,
+        navigation_ms: navigationMs,
+        ready_ms: readyMs,
+        error: before.reason,
+        window_excludes_forced_layout: true,
+        forced_layout_ms: 0,
+      };
+    }
+
+    if (!editorId) {
       const box = await ctx.page.locator(editSelector).first().boundingBox();
       if (!box) {
         return {

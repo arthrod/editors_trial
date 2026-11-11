@@ -13,6 +13,21 @@ class LaneEditBurstModule(unittest.TestCase):
         self.assertIn("reflowBlockSelector", text)
         self.assertIn("#editorHost", text)
 
+    def test_reflow_selectors_match_document_lane_hosts(self):
+        text = (REPO / "perf" / "runner" / "lane_edit_burst.mjs").read_text(encoding="utf-8")
+        self.assertIn("'.doc-paragraph'", text)
+        self.assertIn("'.layout-page-content [data-block-id]'", text)
+        self.assertIn("gatherReflowBefore", text)
+
+    def test_superdoc_edit_surface_uses_live_document_class(self):
+        text = (REPO / "perf" / "runner" / "edit_surface.mjs").read_text(encoding="utf-8")
+        self.assertIn("superdoc__document", text)
+
+    def test_prepare_edit_surface_caps_text_line_wait(self):
+        text = (REPO / "perf" / "runner" / "edit_surface.mjs").read_text(encoding="utf-8")
+        self.assertIn("textLineMs", text)
+        self.assertIn("120_000", text)
+
     def test_lane_edit_burst_exists_and_reexports_prepare_edit_surface(self):
         path = REPO / "perf" / "runner" / "lane_edit_burst.mjs"
         self.assertTrue(path.is_file(), "lane_edit_burst.mjs is the shared entry for editing lanes")
@@ -53,6 +68,12 @@ class DocumentReflowUsesAdapter(unittest.TestCase):
         text = (REPO / "perf" / "runner" / "document_probe.mjs").read_text(encoding="utf-8")
         self.assertIn("prepareLaneCaret", text)
         self.assertIn("opt.editor", text)
+        self.assertIn("gatherReflowBefore", text)
+
+    def test_wordcraft_c12_is_not_applicable_before_probe(self):
+        text = (REPO / "perf" / "runner" / "benchmark_document.py").read_text(encoding="utf-8")
+        self.assertIn('editor_id == "wordcraft"', text)
+        self.assertIn("not_applicable", text)
 
     def test_probe_cmd_passes_editor_to_document_probe(self):
         import perf.runner.benchmark_document as doc

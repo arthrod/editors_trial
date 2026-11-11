@@ -156,6 +156,19 @@ class BrowserRun:
         self.brackets_force_closed = 0
         self._cell_force_closed = {}
 
+    def publication_block_from_environment(self) -> str | None:
+        """Run-wide refusal when an editor checkout was dirty before measurement."""
+        from perf.runner.speed_headless import _dirty_verdict
+
+        for checkout, porcelain in self.before.items():
+            if not porcelain:
+                continue
+            rows = [[line[:2].strip()[:1], line[3:]] for line in porcelain.splitlines() if len(line) > 3]
+            ok, _reason = _dirty_verdict("repos/" + Path(checkout).name, rows)
+            if not ok:
+                return "repos_dirty_at_start"
+        return None
+
     def fixture(self, workload, data):
         if Path(workload).name != workload or workload in ('.', '..'):
             raise ValueError('invalid workload')
@@ -268,6 +281,9 @@ class BrowserRun:
             'cpu_accounting': accounting,
             'accounting_scope': 'diagnostic' if diagnostic else 'sample',
         }
+        env_block = self.publication_block_from_environment()
+        if env_block:
+            value.update(publishable=False, publication_block_reason=env_block)
         if accounting['available'] and any(accounting['delta'][key] > 0 for key in ('nr_throttled', 'throttled_usec')):
             # Keep arbitrary raw measurements only as forensic evidence. An
             # allowlist avoids leaking nested or differently named timing fields.
@@ -311,10 +327,15 @@ class BrowserRun:
                 failure_reason='cpu_throttled',
                 refusal_code='cpu_throttled',
                 publishable=False,
+                publication_block_reason='cpu_throttled',
                 rejected_evidence_directory=str(destination),
             )
-        elif not accounting['available']:
-            value.update(refusal_code='cpu_accounting_unavailable', publishable=False)
+        elif not accounting['available'] and not value.get('publication_block_reason'):
+            value.update(
+                refusal_code='cpu_accounting_unavailable',
+                publishable=False,
+                publication_block_reason='cpu_accounting_unavailable',
+            )
         path = self.directory / 'samples' / (name + '.json')
         write_json(path, value)
         self.samples.append(value)
@@ -355,7 +376,11 @@ class BrowserRun:
         result.update(repos_dirty_allowed=allowed, repos_dirty_at_start=refused,
                       repos_unchanged=not repos_modified(self.before, after))
         if refused:
-            result.update(failure_reason='repos_dirty_at_start', publishable=False)
+            result.update(
+                failure_reason='repos_dirty_at_start',
+                publishable=False,
+                publication_block_reason='repos_dirty_at_start',
+            )
         if repos_modified(self.before, after):
             result.update(outcome='failed', failure_reason='repos_modified', publishable=False)
         if getattr(self, 'block', None):

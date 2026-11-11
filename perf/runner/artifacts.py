@@ -20,7 +20,11 @@ def write_attempt(directory, attempt_id, trial):
         host = run.hosts.get(trial.get("editor_id"), {})
         trial["host_build"] = host.get("host_build")
         trial["host_provenance"] = host
-        if host.get("publishable") is False:
+        env_block = run.publication_block_from_environment()
+        if env_block:
+            trial["publishable"] = False
+            trial["publication_block_reason"] = env_block
+        elif host.get("publishable") is False:
             trial["publishable"] = False
             trial["publication_block_reason"] = host["publication_block_reason"]
     from perf.runner.refusals import refusal_code

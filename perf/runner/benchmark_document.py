@@ -1742,6 +1742,17 @@ def _main() -> int:
 
                 if criterion_id == "C12":
                     fixture = fixtures[specs["C12"]["workload"]]
+                    if editor_id == "wordcraft":
+                        _refuse_cell(
+                            "C12",
+                            fixture,
+                            (
+                                "wordcraft exposes no document text or block geometry at this pin "
+                                "(one WebGL canvas; correctness is only the modified window-title bullet)"
+                            ),
+                            outcome="not_applicable",
+                        )
+                        continue
                     env = _env_for(
                         editor_id=editor_id,
                         editor_version=editor_version,
