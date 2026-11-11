@@ -89,6 +89,14 @@ BROWSER_TARGETS: dict[str, dict] = {
         "error_js": "window.__docxodus && window.__docxodus.error",
         "wait_after_ready": "500",
         "edit_selector": "#pages",
+        # B9 loads a zero-text document in the block editor behind #modeEditor
+        # (#pages is the read-only paginated viewer); the load-visible region
+        # is the viewer, the typing region the mounted edit host.
+        "typing_edit_selector": '#editorHost [contenteditable="true"]',
+        "typing_click_selector": '#editorHost [contenteditable="true"]',
+        "typing_wait_selector": "#modeEditor",
+        "typing_present_selector": "#editorHost",
+        "typing_load_present_selector": "#pages",
         "driver": "playwright",
         "criteria": {
             "C03": ("first_usable", "browser_visible"),
@@ -106,6 +114,9 @@ BROWSER_TARGETS: dict[str, dict] = {
         "ready_selector": "#editor .superdoc__document",
         "wait_after_ready": "2000",
         "edit_selector": "#editor .superdoc__document",
+        # `.superdoc__document` is a wrapper; the editable is the ProseMirror
+        # inside (SuperDoc's own focus helper: `[role="textbox"]…, .ProseMirror`).
+        "typing_edit_selector": "#editor .ProseMirror",
         "driver": "playwright",
         "criteria": {
             "C03": ("first_usable", "browser_visible"),
@@ -256,7 +267,7 @@ BROWSER_TARGETS: dict[str, dict] = {
         # correctness read goes through the model: saveBytes() exports the
         # document, `docx_body_text` turns it into paragraph-aware plaintext.
         "typing_edit_selector": ".docx-pages",
-        "typing_click_selector": ".docx-page-content [data-paragraph-id]",
+        "typing_click_selector": ".docx-page-content",
         "typing_model_js": (
             "(async () => { const hook = window.__DOCX_EDITOR_E2E__; "
             "if (!hook || !hook.saveBytes) return null; "

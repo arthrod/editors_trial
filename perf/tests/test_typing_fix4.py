@@ -238,6 +238,7 @@ def test_integration_throughput_bridge_stops_screencast_before_typing(tmp_path):
     # The observed copy runs from tmp_path; every sibling import needs an
     # absolute URI or node exits ERR_MODULE_NOT_FOUND at launch.
     script = script.replace("'./chrome_trace.mjs'", json.dumps((source.parent / 'chrome_trace.mjs').as_uri()))
+    script = script.replace("'./edit_surface.mjs'", json.dumps((source.parent / 'edit_surface.mjs').as_uri()))
     script = script.replace(
         'let clock, interval;',
         """

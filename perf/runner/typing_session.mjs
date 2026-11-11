@@ -1,8 +1,21 @@
 // B9 witness bridge. One Chromium launch; Python connects to this same browser.
 // JSON lines over stdin/stdout; only this file owns trusted sampled keystrokes.
+// The shared edit adapter owns edit-mode entry, caret placement, and the
+// non-DOM correctness reads (model text, modified flag, trusted key count).
 import readline from 'node:readline';
 import {loadPlaywright, witnessFrame, clockSkew, frameInterval, stopRecorder, getRecorder, CARET_MASK_CSS} from './witness.mjs';
 import {startChromeTrace, stopChromeTrace} from './chrome_trace.mjs';
+import {
+  editSurface,
+  prepareEditSurface,
+  placeCaret,
+  readModifiedFlag,
+  usableExpression,
+  READ_MODEL_DOCUMENT_TEXT,
+  READ_DOM_TEXT_WITH_MARKERS,
+  armTrustedKeyCounter,
+  trustedKeyCount,
+} from './edit_surface.mjs';
 const [port, profile, sessionKind = "latency"] = process.argv.slice(2);
 const {chromium} = await loadPlaywright();
 const context = await chromium.launchPersistentContext(profile, {
@@ -28,14 +41,18 @@ for await (const line of lines) {
       const recorder = getRecorder(cdp);
       await cdp.send('Page.startScreencast', {format:'png', everyNthFrame:1, maxWidth:1280, maxHeight:900});
       recorder.started = true;
-      await page.addInitScript(({selector}) => {
+      const usableJs = command.usable_js || usableExpression(command.editor_id, command.selector);
+      await page.addInitScript(({usableJs}) => {
         window.__b9usable = null;
-        new MutationObserver(() => {
-          const el = document.querySelector(selector);
-          if (window.__b9usable === null && el?.isContentEditable && el.getBoundingClientRect().height > 0)
-            window.__b9usable = performance.now();
-        }).observe(document, {subtree:true, childList:true, attributes:true});
-      }, {selector:command.selector});
+        const probe = () => {
+          if (window.__b9usable !== null) return;
+          try {
+            if (eval(usableJs)) window.__b9usable = performance.now();
+          } catch { /* the page is not far enough along to answer */ }
+        };
+        new MutationObserver(probe).observe(document, {subtree:true, childList:true, attributes:true});
+        probe();
+      }, {usableJs});
       await page.goto(command.url, {waitUntil:'domcontentloaded'});
       if (command.ready_js) await page.waitForFunction(command.ready_js);
       else if (command.ready_selector) await page.locator(command.ready_selector).first().waitFor();
@@ -44,7 +61,7 @@ for await (const line of lines) {
       // never appear. Editors whose editable already exists get no click
       // inside the load measurement.
       if (command.load_click_selector) await page.locator(command.load_click_selector).first().click();
-      await page.locator(command.selector).first().waitFor();
+      await page.locator(command.wait_selector || command.selector).first().waitFor();
       const usable = await page.evaluate(() => window.__b9usable);
       if (usable === null) {
         result = {usable_ms:null, witness:null, frame_interval_ms:null, refusal:'no_correctness_adapter'};
@@ -74,6 +91,36 @@ for await (const line of lines) {
       });
       result = {witness, frame_interval_ms:interval.median_ms};
       if (witness.after_page_ms === null) result = {...result, outcome:'no_frame', refusal:'no_keydown'};
+    } else if (command.op === 'enter_edit_mode') {
+      const prepared = await prepareEditSurface(page, command.editor_id || '',
+        {textLineTimeoutMs: command.text_line_timeout_ms ?? null});
+      const surface = editSurface(command.editor_id || '');
+      result = {...prepared, surface: surface.kind};
+    } else if (command.op === 'place_caret') {
+      const placed = await placeCaret(page, command.editor_id || '', command.selector,
+        {focusTimeoutMs: command.focus_timeout_ms ?? 5000,
+         emptyDocument: Boolean(command.empty_document)});
+      const surface = editSurface(command.editor_id || '');
+      result = {...placed, surface: surface.kind};
+    } else if (command.op === 'read_document') {
+      const surface = editSurface(command.editor_id || '');
+      if (surface.kind === 'model') {
+        const payload = await page.evaluate(READ_MODEL_DOCUMENT_TEXT, surface.model);
+        result = payload
+          ? {text: payload.text, absorbed_markers: [], absorbed_count: payload.absorbed_items || 0}
+          : {text: null, absorbed_markers: [], absorbed_count: 0};
+      } else if (surface.kind === 'dom') {
+        result = await page.evaluate(READ_DOM_TEXT_WITH_MARKERS, command.selector);
+      } else {
+        result = {text: null, absorbed_markers: [], absorbed_count: 0};
+      }
+    } else if (command.op === 'modified_flag') {
+      result = await readModifiedFlag(page, command.editor_id || '');
+    } else if (command.op === 'arm_trusted_keys') {
+      await armTrustedKeyCounter(page);
+      result = {armed: true};
+    } else if (command.op === 'trusted_key_count') {
+      result = {keys: await trustedKeyCount(page)};
     } else if (command.op === 'close') {
       await stopRecorder(cdp);
       await stopChromeTrace(traceBrowser, traceHandle);

@@ -83,7 +83,9 @@ def test_typing_targets_declare_empty_document_selectors():
     from perf.runner.benchmark_warm_cold import BROWSER_TARGETS
     eigenpal = BROWSER_TARGETS['eigenpal']
     assert eigenpal['typing_edit_selector'] == '.docx-pages'
-    assert eigenpal['typing_click_selector'] == '.docx-page-content [data-paragraph-id]'
+    # `data-paragraph-id` marks text spans; a zero-text document has none, so
+    # the caret click lands on the page content box the engine hit-tests.
+    assert eigenpal['typing_click_selector'] == '.docx-page-content'
     folio = BROWSER_TARGETS['folio']
     # A zero-text document still paints a page; B9 readiness cannot require text.
     assert folio['typing_ready_js'] is None

@@ -34,3 +34,22 @@ def docx_body_text(path, paragraph_separator: str = "") -> str:
         for block in _W_P.findall(data)
     )
     return paragraph_separator.join(paragraphs)
+
+
+_W_NUMPR = re.compile(rb"<w:numPr\b", re.I)
+
+
+def docx_body_text_and_absorbed(path) -> tuple[str, int]:
+    """``(text, absorbed_count)``: paragraph-joined body text plus the count
+    of paragraphs that carry a list number (``w:numPr``) but no text run —
+    those are marker-only paragraphs the editor absorbed into real list
+    items, the only relocation the correctness compare may tolerate."""
+    with zipfile.ZipFile(path, "r") as zf:
+        data = zf.read("word/document.xml")
+    texts, absorbed = [], 0
+    for block in _W_P.findall(data):
+        text = "".join(_run_text(run) for run in _W_T.findall(block))
+        if not text.strip() and _W_NUMPR.search(block):
+            absorbed += 1
+        texts.append(text)
+    return "\n".join(texts), absorbed

@@ -263,7 +263,100 @@ export async function readModifiedFlag(page, editorId) {
   return page.evaluate(READ_MODIFIED_FLAG, surface.flag);
 }
 
-export async function prepareEditSurface(page, editorId, { timeoutMs = 600000 } = {}) {
+/** The JS expression a load observer evaluates to stamp "first usable". */
+export function usableExpression(editorId, selector) {
+  const surface = editSurface(editorId);
+  const sel = JSON.stringify(selector || surface.root || '');
+  if (surface.kind === 'model') {
+    if (surface.model === 'docen') {
+      return '!!(window.__DOCEN__ && window.__DOCEN__.editor && window.__DOCEN__.editor.state)';
+    }
+    return '!!(window.__CANVAS_EDITOR_INSTANCE__ && window.__CANVAS_EDITOR_INSTANCE__.command'
+      + ' && typeof window.__CANVAS_EDITOR_INSTANCE__.command.getValue === "function")';
+  }
+  if (surface.kind === 'flag') {
+    return '!!(window.__WORDCRAFT_HOST__ && Array.isArray(window.__WORDCRAFT_HOST__.titles)'
+      + ' && window.__WORDCRAFT_HOST__.titles.length > 0)';
+  }
+  return `(() => { const el = document.querySelector(${sel});`
+    + ' return !!(el && el.isContentEditable && el.getBoundingClientRect().height > 0); })()';
+}
+
+/**
+ * The whole document's text from the editor's model — the correctness read
+ * for surfaces whose DOM cannot carry text (canvas, docen). Paragraphs keep
+ * their own lines so a marker-only paragraph stays visible to the compare.
+ * For docen the paragraph separator must be explicit: textBetween's default
+ * flattens blocks onto one line, hiding marker-only paragraphs.
+ */
+export const READ_MODEL_DOCUMENT_TEXT = (model) => {
+  if (model === 'docen') {
+    const editor = window.__DOCEN__ && window.__DOCEN__.editor;
+    if (!editor || !editor.state || !editor.state.doc) return null;
+    const doc = editor.state.doc;
+    let absorbed = 0;
+    doc.descendants((node) => {
+      const name = String((node.type && node.type.name) || '');
+      if (/item|list/i.test(name) && node.textContent === '') absorbed += 1;
+      return true;
+    });
+    return { text: String(doc.textBetween(0, doc.content.size, '\n')), absorbed_items: absorbed };
+  }
+  if (model === 'canvas_editor') {
+    const inst = window.__CANVAS_EDITOR_INSTANCE__;
+    const cmd = inst && inst.command;
+    if (!cmd || typeof cmd.getText !== 'function') return null;
+    const parts = cmd.getText() || {};
+    const text = ['header', 'main', 'footer']
+      .map((zone) => String(parts[zone] || ''))
+      .filter(Boolean)
+      .join('\n');
+    return { text, absorbed_items: 0 };
+  }
+  return null;
+};
+
+/**
+ * DOM surface text plus the markers an editor absorbed out of the text but
+ * still exposes as element attributes (folio's data-list-marker). Only
+ * items with no text of their own count — those are marker-only paragraphs.
+ */
+export const READ_DOM_TEXT_WITH_MARKERS = (selector) => {
+  const el = document.querySelector(selector);
+  if (!el) return { text: '', absorbed_markers: [] };
+  const text = String(el.innerText ?? el.textContent ?? '');
+  const absorbed = Array.from(el.querySelectorAll('[data-list-marker]'))
+    .filter((n) => !String(n.innerText || n.textContent || '').trim())
+    .map((n) => String(n.getAttribute('data-list-marker') || '').trim())
+    .filter(Boolean);
+  return { text, absorbed_markers: absorbed };
+};
+
+export async function armTrustedKeyCounter(page) {
+  await page.evaluate(() => {
+    window.__b9trusted = { keys: 0 };
+    const onKey = (event) => {
+      if (event.isTrusted && event.key && event.key.length === 1) {
+        window.__b9trusted.keys += 1;
+      }
+    };
+    window.__b9trusted.stop = () => document.removeEventListener('keydown', onKey, true);
+    document.addEventListener('keydown', onKey, true);
+  });
+}
+
+export async function trustedKeyCount(page) {
+  return page.evaluate(() => {
+    try {
+      window.__b9trusted?.stop?.();
+    } catch {
+      /* the page may already have navigated away */
+    }
+    return Number(window.__b9trusted?.keys || 0);
+  });
+}
+
+export async function prepareEditSurface(page, editorId, { timeoutMs = 600000, textLineTimeoutMs = null } = {}) {
   const surface = editSurface(editorId);
   const enter = surface.enter;
   if (enter) {
@@ -286,7 +379,9 @@ export async function prepareEditSurface(page, editorId, { timeoutMs = 600000 } 
   if (surface.kind === 'dom' && surface.root) {
     const request = { root: surface.root, exclude: surface.exclude || null, minChars: 12 };
     try {
-      await page.waitForFunction(FIND_TEXT_LINE, request, { timeout: timeoutMs, polling: 100 });
+      await page.waitForFunction(FIND_TEXT_LINE, request, {
+        timeout: textLineTimeoutMs === null ? timeoutMs : textLineTimeoutMs, polling: 100,
+      });
       textLine = true;
     } catch {
       textLine = false;
@@ -298,11 +393,13 @@ export async function prepareEditSurface(page, editorId, { timeoutMs = 600000 } 
 /**
  * Click where a user would start typing and wait for focus.
  * Returns the click point, or throws 'edit_surface_no_text_line'.
+ * `emptyDocument`: the document has no text line to find (the typing lane
+ * loads a zero-text document) — click the declared surface itself.
  */
-export async function placeCaret(page, editorId, selector, { focusTimeoutMs = 5000 } = {}) {
+export async function placeCaret(page, editorId, selector, { focusTimeoutMs = 5000, emptyDocument = false } = {}) {
   const surface = editSurface(editorId);
   let point = null;
-  if (surface.kind === 'dom') {
+  if (surface.kind === 'dom' && !emptyDocument) {
     point = await page.evaluate(FIND_TEXT_LINE, {
       root: surface.root || selector,
       exclude: surface.exclude || null,

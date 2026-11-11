@@ -17,6 +17,7 @@ import re
 import socket
 import sys
 import time
+from collections import Counter
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -25,7 +26,7 @@ sys.path.insert(0, str(REPO))
 from perf.runner.browser_run import ACTIVE, CELL, run_cli, write_json, fixture_path
 from perf.runner.benchmark_warm_cold import BROWSER_TARGETS, _start_server, _stop_server
 from perf.runner.browser_hosts import select_fixture
-from perf.runner.docx_plaintext import docx_body_text
+from perf.runner.docx_plaintext import docx_body_text, docx_body_text_and_absorbed
 from perf.runner.resources import AsyncResourceSampler, NOT_AVAILABLE, COUNTER_DELTA_FIELDS, phase_totals
 from perf.runner.witness import validate_witness
 
@@ -40,21 +41,75 @@ _LIST_MARKER = re.compile(
 def normalize_marked(text):
     """The single correctness normaliser, applied identically on both sides.
 
-    The only tolerated class is the paragraph-leading auto-numbering marker:
-    an editor may keep a typed "1. " as literal text or absorb it into a real
-    list label, and neither is a content defect. Returns (text, ignored)."""
+    The only tolerated class is the paragraph-leading auto-numbering marker
+    followed by text: an editor may keep a typed "1. " as literal text or
+    absorb it into a real list label, and neither is a content defect. A
+    paragraph that IS only a marker ("v.", "12.") carries no text to absorb
+    into — it leaves no residue here, and marker_only_strings accounts for
+    it, so a dropped marker-only paragraph cannot pass. Returns
+    (text, ignored)."""
     ignored = 0
     lines = []
     for line in text.split('\n'):
         line = line.strip()
         while (match := _LIST_MARKER.match(line)):
+            rest = line[match.end():]
+            if not rest.strip():
+                line = ''
+                break
             ignored += 1
-            line = line[match.end():]
+            line = rest
         lines.append(line)
     return ' '.join(' '.join(lines).split()), ignored
 
+def marker_only_strings(text):
+    """The marker strings of paragraphs whose entire text is one marker
+    ("v.", "12.", and "1. a." contributes its final marker). The flat
+    normalized text cannot show these lines, so the compare gates them
+    separately: a dropped one is content loss; an absorbed empty list item
+    is not."""
+    only = []
+    for line in text.split('\n'):
+        line = line.strip()
+        while True:
+            match = _LIST_MARKER.match(line)
+            if not match:
+                break
+            rest = line[match.end():]
+            if not rest.strip():
+                only.append(line[:match.end()].rstrip())
+                break
+            line = rest
+    return only
+
+def stripped_marker_strings(text):
+    """Every paragraph-leading marker normalisation removes — the strings
+    tolerance may excuse, never a bare count."""
+    stripped = []
+    for line in text.split('\n'):
+        line = line.strip()
+        while (match := _LIST_MARKER.match(line)):
+            rest = line[match.end():]
+            if not rest.strip():
+                break
+            stripped.append(line[:match.end()].rstrip())
+            line = rest
+    return stripped
+
 def normalize(text):
     return normalize_marked(text)[0]
+
+# Page context: list markers an editor absorbed out of the text and still
+# exposes as element attributes (folio's data-list-marker). Only items with
+# no text of their own count — those are the marker-only paragraphs.
+ABSORBED_MARKERS_JS = """(s) => {
+  const el = document.querySelector(s);
+  if (!el) return [];
+  return Array.from(el.querySelectorAll('[data-list-marker]'))
+    .filter((n) => !String(n.innerText || n.textContent || '').trim())
+    .map((n) => String(n.getAttribute('data-list-marker') || '').trim())
+    .filter(Boolean);
+}"""
 
 async def read_document_text(page, *, selector, model_js=None):
     """The whole document's text: the declared model adapter, else the
@@ -116,18 +171,28 @@ def witness_eligible(char):
 
 async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0, session_kind="throughput",
                         witness_every=100, sample_s=5, clock=time.monotonic,
-                        sleep=asyncio.sleep, present_selector=None, model_js=None, expected_text=None):
+                        sleep=asyncio.sleep, present_selector=None, model_js=None, expected_text=None,
+                        read_document=None, flag_verifier=None):
     if session_kind not in ("throughput", "latency"):
         raise ValueError("invalid session kind")
     # `selector` reads the document text; `present_selector` reads what the
     # user can SEE (the painted region), which may repaint asynchronously
     # (folio's visible pages lag the editable ProseMirror by ~200 ms).
     sampler.selector = present_selector or selector
+    oracle = 'model_document_text' if (read_document is not None or model_js) else 'dom_document_text'
+    if read_document is None:
+        async def read_document():
+            return {'text': await read_document_text(page, selector=selector, model_js=model_js),
+                    'absorbed_markers': ([str(m) for m in await page.evaluate(ABSORBED_MARKERS_JS, selector)]
+                                       if model_js is None else [])}
     start = clock(); next_sample = start + sample_s
     next_witness = witness_every; witness_wall = 0; typing_unwitnessed = 0; unwitnessed = 0
     sampler.typed_text = ''
     records = []; sent = 0; marks = {math.ceil(len(text)*p/100):f'typed_{p}' for p in (25,50,75,100)}
     result = {'failure_reason':None, 'first_divergence_offset':None, 'tolerated_list_markers':0}
+    if expected_text is not None:
+        result['expected_text_override'] = True
+    elapsed = None
     try:
         await sampler.mark('typing_start')
         for index, char in enumerate(text, 1):
@@ -154,25 +219,77 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
         # Yield one browser task turn before the final check. In particular, a
         # zero-delay timer queued by the last input must finish inside this wall.
         await page.evaluate('() => new Promise(resolve => setTimeout(resolve, 0))')
-        actual_text = await read_document_text(page, selector=selector, model_js=model_js)
+        # The wall ends when the last key's already-queued work has drained;
+        # the correctness read below (a whole-document export on model
+        # surfaces) is measurement, not typing.
+        elapsed = clock() - start
+        if flag_verifier is not None:
+            verdict = await flag_verifier()
+            flag = verdict.get('flag')
+            trusted = verdict.get('trusted_keys') or 0
+            result.update(correctness_oracle='editor_modified_flag', text_correctness=None,
+                          verified=['modified_flag', 'trusted_keys'],
+                          modified_flag=flag, trusted_keys=trusted,
+                          expected_min_keys=verdict.get('min_keys'))
+            if not flag or flag.get('modified') is not True:
+                result.update(failure_reason='edit_not_applied',
+                              refusal_code='unverified' if not flag else 'correctness_failure',
+                              edit_refusal='modified_flag_unreadable' if not flag else 'modified_flag_unchanged')
+            elif trusted < result['expected_min_keys']:
+                result.update(failure_reason='edit_not_applied', refusal_code='correctness_failure',
+                              edit_refusal='trusted_keys_below_min')
+        else:
+            read = None
+            try:
+                read = await read_document()
+            except Exception as exc:
+                if re.search(r'crash|closed|detached', str(exc), re.I):
+                    raise
+                result.update(failure_reason='no_correctness_adapter', refusal_code='unverified',
+                              error=str(exc))
+            if read is not None:
+                actual_text = read.get('text') if isinstance(read, dict) else read
+                absorbed = read.get('absorbed_markers') if isinstance(read, dict) else None
+                if actual_text is None:
+                    result.update(failure_reason='no_correctness_adapter', refusal_code='unverified')
+                else:
+                    expected_source = text if expected_text is None else expected_text
+                    actual, actual_markers = normalize_marked(actual_text)
+                    expected, expected_markers = normalize_marked(expected_source)
+                    expected_only = marker_only_strings(expected_source)
+                    actual_only = marker_only_strings(actual_text)
+                    missing = Counter(expected_only) - Counter(actual_only)
+                    surplus = Counter(actual_only) - Counter(expected_only)
+                    absorbed = [str(m) for m in absorbed or []]
+                    absorbed_total = len(absorbed) + int(read.get('absorbed_count') or 0)
+                    # A marker-only paragraph the text lost must be answered by
+                    # an absorbed empty list item; nothing may manufacture one.
+                    marker_gap = bool(surplus) or sum(missing.values()) > absorbed_total
+                    tolerated = sorted(
+                        (Counter(stripped_marker_strings(expected_source))
+                         - Counter(stripped_marker_strings(actual_text))).elements())
+                    tolerated += sorted(missing.elements())[:absorbed_total]
+                    result.update(tolerated_list_markers=abs(expected_markers - actual_markers),
+                                  tolerated_marker_strings=tolerated,
+                                  correctness_oracle=oracle,
+                                  marker_only={'expected': expected_only, 'in_text': actual_only,
+                                               'absorbed': absorbed, 'absorbed_count': absorbed_total,
+                                               'missing': sorted(missing.elements()),
+                                               'surplus': sorted(surplus.elements())})
+                    if actual != expected or marker_gap:
+                        result.update(failure_reason='text_mismatch', refusal_code='correctness_failure',
+                                      first_divergence_offset=(divergence(expected, actual)
+                                                               if actual != expected else None))
         # Close the typing phase after the final document read, so deferred
         # work on the last key is present in its resource counters as well.
         await sampler.mark('typed_100')
-        if actual_text is None:
-            result.update(failure_reason='no_correctness_adapter')
-        else:
-            actual, actual_markers = normalize_marked(actual_text)
-            expected, expected_markers = normalize_marked(text if expected_text is None else expected_text)
-            result['tolerated_list_markers'] = abs(expected_markers - actual_markers)
-            if actual != expected:
-                result.update(failure_reason='text_mismatch', refusal_code='correctness_failure', first_divergence_offset=divergence(expected, actual))
     except (asyncio.TimeoutError, asyncio.CancelledError):
         result['failure_reason'] = 'budget_exceeded'
         result['refusal_code'] = 'editor_timeout'
     except Exception as exc:
         result['failure_reason'] = 'out_of_memory' if 'out of memory' in str(exc).lower() else 'crash'
         result['error'] = str(exc)
-    elapsed = clock() - start
+    elapsed = clock() - start if elapsed is None else elapsed
     rate = sent/elapsed if not result['failure_reason'] and elapsed else None
     result.update(session_kind=session_kind, characters_typed=sent,
                   words_typed=len(text[:sent].split()), typing_wall_s=elapsed,
@@ -302,14 +419,19 @@ async def session(target, text, args, directory):
                 resources = SimpleNamespace(editor_browser_pid=browser_pid, profile_dir=profile)
                 # The shared edit_selector must match the OTHER lanes' surfaces;
                 # B9 loads a zero-text document, so typing may need different
-                # elements: `typing_edit_selector` is the element that must be
-                # contenteditable and whose innerText is the document,
+                # elements: `typing_edit_selector` is the element whose text is
+                # the document (or the focus target on model/flag surfaces),
                 # `typing_present_selector` the visible region whose innerText
                 # is paint progress, `typing_click_selector` the element that
                 # takes the focus click (e.g. a lazy ProseMirror mounts on the
                 # first page click), `typing_load_click_selector` the lazy-mount
                 # click that must happen inside the load measurement (absent
                 # for an editor whose editable exists without one),
+                # `typing_load_present_selector` the region painted at load
+                # when it differs (docxodus edits in a view that replaces the
+                # loaded viewer), `typing_wait_selector` the element waited on
+                # before edit prep (the mode button when the editable mounts
+                # later), `typing_usable_js` the first-usable expression,
                 # `typing_model_js` a model adapter for the correctness read,
                 # `typing_ready_js` overrides a ready_js that requires
                 # non-empty text — impossible here.
@@ -317,32 +439,74 @@ async def session(target, text, args, directory):
                 present_sel = target.get('typing_present_selector', edit_sel)
                 click_sel = target.get('typing_click_selector', edit_sel)
                 load_click_sel = target.get('typing_load_click_selector')
+                load_present_sel = target.get('typing_load_present_selector', present_sel)
                 model_js = target.get('typing_model_js')
                 ready_js = target['typing_ready_js'] if 'typing_ready_js' in target else target.get('ready_js')
+                usable_js = target.get('typing_usable_js') or ready_js
+                editor_id = target.get('editor_id', '')
                 sampler = TypingResourceSampler(resources, page, cdp)
                 sampler.selector = present_sel
                 await sampler.install()
                 await sampler.mark('load_start')
                 load = await bridge.request(op='load', url=target['url'], selector=edit_sel,
-                    present_selector=None if present_sel == edit_sel else present_sel,
+                    present_selector=None if load_present_sel == edit_sel else load_present_sel,
                     load_click_selector=load_click_sel,
+                    wait_selector=target.get('typing_wait_selector'),
+                    usable_js=usable_js, editor_id=editor_id,
                     ready_selector=target.get('ready_selector'), ready_js=ready_js)
                 verdict = validate_witness(load['witness'])
                 result.update(load_witness=load, load_ms=load['witness']['frame_page_ms'] if verdict['ok'] else None,
                               load_refusal=verdict['reason'])
                 await sampler.mark('load')
                 result['resource_endpoints'] = {'after_load':await sampler.endpoint()}
-                surface = page.locator(edit_sel).first
-                if not await surface.evaluate('(el) => el.isContentEditable'):
-                    raise SessionRefusal('no_correctness_adapter')
-                if normalize(await surface.inner_text()):
-                    raise SessionRefusal('document_not_empty')
-                await page.locator(click_sel).first.click()
+                # The shared adapter owns edit-mode entry and caret placement;
+                # a zero-text document has no text line, so the caret click
+                # goes to the declared surface (empty_document).
+                await bridge.request(op='enter_edit_mode', editor_id=editor_id,
+                                     text_line_timeout_ms=30000)
+                placed = await bridge.request(op='place_caret', editor_id=editor_id,
+                    selector=click_sel, empty_document=True, focus_timeout_ms=15000)
+                surface_kind = (placed or {}).get('surface') or 'dom'
+                flag_verifier = None; read_document = None
+                if model_js is not None:
+                    async def read_document():
+                        payload = await page.evaluate(model_js)
+                        if isinstance(payload, dict) and isinstance(payload.get('docx_bytes'), list):
+                            body, absorbed = docx_body_text_and_absorbed(io.BytesIO(bytes(payload['docx_bytes'])))
+                            return {'text': body, 'absorbed_markers': [], 'absorbed_count': absorbed}
+                        value = payload.get('text') if isinstance(payload, dict) else payload
+                        return {'text': value if isinstance(value, str) else None, 'absorbed_markers': []}
+                elif surface_kind == 'flag':
+                    await bridge.request(op='arm_trusted_keys')
+                    min_keys = len(text) - text.count('\n')
+                    async def flag_verifier():
+                        keys = await bridge.request(op='trusted_key_count')
+                        return {'flag': await bridge.request(op='modified_flag', editor_id=editor_id),
+                                'trusted_keys': (keys or {}).get('keys'),
+                                'min_keys': min_keys}
+                elif surface_kind == 'model':
+                    async def read_document():
+                        return await bridge.request(op='read_document', editor_id=editor_id,
+                                                    selector=edit_sel)
+                else:
+                    async def read_document():
+                        text_now = await page.evaluate(
+                            '(s) => document.querySelector(s)?.innerText ?? ""', edit_sel)
+                        absorbed = await page.evaluate(ABSORBED_MARKERS_JS, edit_sel)
+                        return {'text': text_now, 'absorbed_markers': absorbed}
+                if read_document is not None:
+                    baseline = await read_document()
+                    if baseline.get('text') is None:
+                        raise SessionRefusal('no_correctness_adapter', refusal_code='unverified')
+                    if normalize(baseline['text']):
+                        raise SessionRefusal('document_not_empty')
+                if not placed.get('focused'):
+                    result['focus_refusal'] = 'editor_focus_not_acquired'
                 async def witness(char): return await bridge.request(op='key', char=char, selector=present_sel)
                 result.update(await type_document(page, sampler, witness, text, selector=edit_sel,
                     cadence_ms=args.cadence_ms, session_kind=kind, witness_every=args.witness_every, sample_s=args.sample_s,
-                    present_selector=present_sel, model_js=model_js,
-                    expected_text=getattr(args, 'expected_text', None)))
+                    present_selector=present_sel, expected_text=getattr(args, 'expected_text', None),
+                    read_document=read_document, flag_verifier=flag_verifier))
                 if not result['failure_reason']:
                     # No unverified generic save button: require a host-declared path.
                     save = target.get('typing_save_selector')
@@ -430,7 +594,7 @@ def main_cell(argv=None, *, start_host=_start_server, stop_host=_stop_server):
     # Zero-text DOCX, not select-all/delete after loading a populated document.
     empty = fixture_path('typing-empty', docx_zip_bytes(b'\n'), args.out_root/'empty.docx')
     for editor in args.editors:
-        target = dict(BROWSER_TARGETS[editor]);
+        target = dict(BROWSER_TARGETS[editor]); target['editor_id'] = editor
         if editor == 'superdoc': target['typing_save_selector'] = '#export-docx'
         directory = args.out_root; directory.mkdir(parents=True,exist_ok=True)
         select_fixture(target, empty); server = None
