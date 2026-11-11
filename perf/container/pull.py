@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import hashlib
 import io
 import json
@@ -175,6 +176,9 @@ def safe_tar_member(name: str) -> None:
         raise VerifyError(f'tar jail rejected member: {name!r}')
 
 
+EXCLUDE: tuple[str, ...] = ()
+
+
 def parse_listing(raw: str) -> dict[str, dict]:
     index: dict[str, dict] = {}
     for line in raw.splitlines():
@@ -184,6 +188,8 @@ def parse_listing(raw: str) -> dict[str, dict]:
         row = json.loads(line)
         if 'pull_warn' in row:
             print(f"PULL-WARN {row['path']} {row['pull_warn']}", flush=True)
+            continue
+        if any(fnmatch.fnmatchcase(row['path'], pattern) for pattern in EXCLUDE):
             continue
         index[row['path']] = row
     return index
@@ -751,7 +757,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument('--dest', type=Path, required=True)
     parser.add_argument('--interval', type=float, default=60)
     parser.add_argument('--until-run')
+    parser.add_argument('--exclude', action='append', default=[], help='glob of remote paths never pulled')
     args = parser.parse_args(argv)
+    global EXCLUDE
+    EXCLUDE = tuple(args.exclude)
     transport = build_transport(args.target, args.remote)
     args.dest.mkdir(parents=True, exist_ok=True)
     if args.until_run:
