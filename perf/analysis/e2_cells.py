@@ -639,6 +639,27 @@ def _build_cell_from_jobs(
             if mark:
                 run_blocked, block_reason = True, mark
                 break
+    if not run_blocked:
+        # Attempt files a job's order never named are not this seed's
+        # measurements: they must not aggregate, and the cell is refused.
+        unscheduled = []
+        for (_run_directory, job), summary in zip(job_pairs, summaries):
+            order = (summary or {}).get('order') or []
+            if not order:
+                continue
+            allowed = {
+                '%04d-%s' % (rep, editor_id)
+                for rep, ed in order
+                if ed == editor_id and isinstance(rep, int)
+            }
+            unscheduled.extend(
+                name
+                for name in _job_measured_launch_names(job, editor_id)
+                if name not in allowed
+            )
+        if unscheduled:
+            run_blocked = True
+            block_reason = 'launch files not named in the job order'
     if run_blocked:
         return {
             'editor_id': editor_id,

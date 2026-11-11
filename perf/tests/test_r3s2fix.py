@@ -14,6 +14,7 @@ from build import perf_e2_tables as report
 from perf.analysis import e2_cells as cells
 from perf.runner.witness import validate_witness
 from perf.tests.test_e2_reader_r3reader3 import _summary, _write_job
+from perf.tests.test_e2_reader_r3reader4 import _blocks_camp
 from perf.tests.test_witness import WitnessValidatorTests
 
 REPO = Path(__file__).resolve().parents[2]
@@ -130,3 +131,50 @@ def test_attempt_pins_disagreeing_across_seeds_refuses(tmp_path):
     assert not cell["published"]
     text = report._cell_text({}, [first, second], "plate", "C07")
     assert "99999" not in text and "20.0 ms" not in text
+
+
+# ---------------------------------------------------------------------------
+# Item 3 (MAJOR 4): launch files a job's order never named are not aggregated;
+# the cell is refused. A byte-identical re-pull of the same run keeps
+# deduplicating and publishing. Real data (hf-data-shakedown2): 66 ordered
+# jobs, 0 unscheduled launch cells.
+# ---------------------------------------------------------------------------
+
+
+def _add_outlier_files(camp: Path, job_name: str, start: int, count: int, value: float):
+    """The reviewer's add_outlier_files: copies of one attempt at `value`
+    under launch names the order never declared."""
+    job = camp / "benchmark_input" / job_name
+    for index in range(start, start + count):
+        directory = job / "cells" / ("%04d-plate" % index) / "attempts"
+        directory.mkdir(parents=True, exist_ok=True)
+        row = json.loads((job / "cells" / "0000-plate" / "attempts" / "c07.json").read_text())
+        row["samples_ms"] = [value]
+        row["sub_frame_samples"] = [False]
+        (directory / "c07.json").write_text(json.dumps(row))
+
+
+def test_unscheduled_launch_files_in_a_block_refuse_cell(tmp_path):
+    a = _blocks_camp(tmp_path, "extra-a", 1)
+    b = _blocks_camp(tmp_path, "extra-b", 2)
+    _add_outlier_files(a, "b01", 1000, 31, 99999.0)
+    _add_outlier_files(b, "b01", 1000, 31, 99999.0)
+    cell = cells.read_criterion_cell([a, b], "plate", "C07")
+    assert not cell["published"], "31 unscheduled launch files must refuse the cell: %r" % (
+        cell.get("reason"),
+    )
+    text = report._cell_text({}, [a, b], "plate", "C07")
+    assert "99999" not in text
+    assert "61 of 30" not in text
+
+
+def test_legitimate_identical_repull_still_publishes(tmp_path):
+    a = _blocks_camp(tmp_path, "leg-a", 1)
+    b = _blocks_camp(tmp_path, "leg-b", 2)
+    shutil.copytree(a / "benchmark_input" / "b01", a / "benchmark_input" / "b01-repull")
+    cell = cells.read_criterion_cell([a, b], "plate", "C07")
+    assert cell["published"], "a byte-identical re-pull must deduplicate and publish: %r" % (
+        cell.get("reason"),
+    )
+    text = report._cell_text({}, [a, b], "plate", "C07")
+    assert "20.0 ms" in text
