@@ -254,6 +254,12 @@ PAGE_OFFSET_SPREAD_BOUND_MS = 2.0
 LAG_BOUND_INTERVALS = 3
 LAG_BOUND_MIN_MS = 250.0
 
+#: A lag bound above the floor must rest on a measured interval: at least
+#: this many rAF deltas (ANCHOR_LAG_INTERVAL_MIN_SAMPLES in witness.mjs,
+#: r3s2fix MAJOR 2 — two stalled frames of 1350 ms used to buy a 4050 ms
+#: bound, so a 4 s key-to-paint stayed inside it).
+LAG_BOUND_INTERVAL_MIN_SAMPLES = 10
+
 #: `witnessFrame()` clamps its window to at least DEFAULT_WINDOW_MS.
 PRODUCER_MIN_WINDOW_MS = 500.0
 
@@ -1820,9 +1826,28 @@ def _clock_evidence_violations(record, nested, bound):
     interval = nested.get("frame_interval_ms")
     lag_bound = nested.get("lag_bound_ms")
     if _finite_number(lag_bound):
+        interval_samples = _count(nested.get("frame_interval_samples"))
+        if (
+            float(lag_bound) > LAG_BOUND_MIN_MS + TIME_TOLERANCE_MS
+            and (
+                interval_samples is None
+                or interval_samples < LAG_BOUND_INTERVAL_MIN_SAMPLES
+            )
+        ):
+            contradicted(
+                "a lag bound above the %s ms floor needs at least %d frame "
+                "interval samples, not %s"
+                % (
+                    _describe(LAG_BOUND_MIN_MS),
+                    LAG_BOUND_INTERVAL_MIN_SAMPLES,
+                    _describe(nested.get("frame_interval_samples")),
+                )
+            )
         expected = (
             max(LAG_BOUND_INTERVALS * float(interval), LAG_BOUND_MIN_MS)
             if _finite_number(interval)
+            and interval_samples is not None
+            and interval_samples >= LAG_BOUND_INTERVAL_MIN_SAMPLES
             else LAG_BOUND_MIN_MS
         )
         if abs(float(lag_bound) - expected) > TIME_TOLERANCE_MS:

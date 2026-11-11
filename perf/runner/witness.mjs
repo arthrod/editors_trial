@@ -194,6 +194,22 @@ export const CAUSALITY_SLOP_MS = 2;
  */
 export const ANCHOR_LAG_BOUND_INTERVALS = 3;
 export const ANCHOR_LAG_BOUND_MIN_MS = 250;
+/** The 3-intervals term may raise the lag bound only off a measured frame
+ * interval: fewer than this many rAF deltas and the bound is the floor
+ * (r3s2fix MAJOR 2 — two stalled frames of 1350 ms used to buy 4050 ms). */
+export const ANCHOR_LAG_INTERVAL_MIN_SAMPLES = 10;
+/** `max(3 intervals, floor)` when the interval rests on enough deltas, else
+ * the floor. `intervalMs` null or a short sample count both floor it. */
+export function anchorLagBoundMs(intervalMs, intervalSamples) {
+  if (
+    typeof intervalMs === 'number' &&
+    Number.isFinite(intervalMs) &&
+    intervalSamples >= ANCHOR_LAG_INTERVAL_MIN_SAMPLES
+  ) {
+    return Math.max(ANCHOR_LAG_BOUND_INTERVALS * intervalMs, ANCHOR_LAG_BOUND_MIN_MS);
+  }
+  return ANCHOR_LAG_BOUND_MIN_MS;
+}
 /** The witness window: at least half a second, per the plan. */
 export const DEFAULT_WINDOW_MS = 500;
 /**
@@ -766,6 +782,7 @@ export async function clockSkew(
     manageScreencast = true,
     recorder: givenRecorder = null,
     frameIntervalMs = null,
+    frameIntervalSamples = null,
     caretMask = true,
     settleMs = 200,
   } = {},
@@ -796,13 +813,10 @@ export async function clockSkew(
 
   const interval =
     typeof frameIntervalMs === 'number' && Number.isFinite(frameIntervalMs)
-      ? { median_ms: round(frameIntervalMs, 3), count: 0, source: 'caller' }
+      ? { median_ms: round(frameIntervalMs, 3), count: frameIntervalSamples ?? 0, source: 'caller' }
       : await frameInterval(page, { frames: 60 });
   const intervalMs = typeof interval.median_ms === 'number' ? interval.median_ms : null;
-  const lagBoundMs = Math.max(
-    intervalMs === null ? 0 : ANCHOR_LAG_BOUND_INTERVALS * intervalMs,
-    ANCHOR_LAG_BOUND_MIN_MS,
-  );
+  const lagBoundMs = anchorLagBoundMs(intervalMs, interval.count ?? 0);
 
   const anchor = await anchorFrame(page, recorder, clock, { waitMs: changeWaitMs });
   const kind = anchor.frame
@@ -885,7 +899,10 @@ export async function clockSkew(
     frame_interval_source: interval.source || 'raf_delta',
     frame_interval_samples: interval.count ?? null,
     lag_bound_ms: round(lagBoundMs, 3),
-    lag_bound_rule: `max(${ANCHOR_LAG_BOUND_INTERVALS} frame intervals, ${ANCHOR_LAG_BOUND_MIN_MS} ms)`,
+    lag_bound_rule:
+      (interval.count ?? 0) >= ANCHOR_LAG_INTERVAL_MIN_SAMPLES
+        ? `max(${ANCHOR_LAG_BOUND_INTERVALS} frame intervals, ${ANCHOR_LAG_BOUND_MIN_MS} ms)`
+        : `${ANCHOR_LAG_BOUND_MIN_MS} ms (frame interval rests on ${interval.count ?? 0} samples, fewer than ${ANCHOR_LAG_INTERVAL_MIN_SAMPLES})`,
     conversion: {
       formula: 'page_ms = timestamp * 1000 - performance.timeOrigin',
       error_lower_ms: -CAUSALITY_SLOP_MS,

@@ -108,7 +108,7 @@ for await (const line of lines) {
       } else {
       // stopRecorder discarded the previous operation's frames. Calibrate on
       // this key's recorder before arming the measured action.
-      clock = await clockSkew(page, cdp, {frameIntervalMs:interval.median_ms, settleMs:0, samples:9, sampleGapMs:5, changeWaitMs:150});
+      clock = await clockSkew(page, cdp, {frameIntervalMs:interval.median_ms, frameIntervalSamples:interval.count, settleMs:0, samples:9, sampleGapMs:5, changeWaitMs:150});
       await page.evaluate(() => {
         window.__b9key = null;
         document.addEventListener('keydown', e => { window.__b9key = e.timeStamp; }, {once:true, capture:true});
