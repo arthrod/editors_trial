@@ -64,6 +64,14 @@ async function boot() {
 
   console.log('[host] docx imported')
   Reflect.set(window, '__DOCX_IMPORTED__', true)
+  Reflect.set(window, '__PERF_MODEL_TEXT__', () => {
+    const cmd = instance.command as unknown as {
+      getText: () => { header: string; main: string; footer: string }
+    }
+  return [cmd.getText().header, cmd.getText().main, cmd.getText().footer]
+      .filter((part) => part && part.trim())
+      .join('\n')
+  })
 
   // --- navigate to the requested spot ------------------------------------
   if (SCROLL_TEXT) {

@@ -23,6 +23,11 @@
  *   window.__WORDCRAFT_READY__ === true          <-- ready_js
  *   #wc-ready[data-state="rendered"]             <-- ready_selector
  *   window.__WORDCRAFT_HOST__                    <-- diagnostics (state, titles, errors)
+ *
+ * Content oracle: the Trunk/WASM app exposes no JS API for session plain text
+ * (plain_text lives in Rust only). There is no __PERF_MODEL_TEXT__; C03/C11
+ * refuse canvas samples as document_content_unverifiable rather than timing
+ * unverified loads.
  */
 (() => {
   const config = window.__WORDCRAFT_HOST_CFG__ || {};

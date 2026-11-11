@@ -143,6 +143,11 @@ async function boot(): Promise<void> {
 
   Reflect.set(window, "__DOCEN__", el);
   Reflect.set(window, "__DOCEN_PAINT__", paint);
+  Reflect.set(window, "__PERF_MODEL_TEXT__", () => {
+    const editor = el.editor;
+    if (!editor) return "";
+    return editor.state.doc.textBetween(0, editor.state.doc.content.size, " ");
+  });
   Reflect.set(window, "__DOCEN_READY__", true);
   host.dataset.ready = "1";
   console.log("[host] ready:", JSON.stringify(paint), "filename=", el.getAttribute("filename"));

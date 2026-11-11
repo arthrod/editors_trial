@@ -1198,7 +1198,11 @@ def _run_load_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path: 
     for _ in range(count):
         payload = _in_sample_bracket(editor_id, "C11", lambda: _run_probe(cmd, editor_id=editor_id))
         if payload.get("content_verified") is not True:
-            if payload.get("surface_reason") in ("document_content_absent", "document_content_mismatch"):
+            if payload.get("surface_reason") in (
+                "document_content_absent",
+                "document_content_mismatch",
+                "document_content_unverifiable",
+            ):
                 raise ProbeRefusal(payload["surface_reason"])
             if payload.get("content_text_accessible") is not False:
                 raise ProbeRefusal("document_content_unverified")

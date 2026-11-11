@@ -57,11 +57,11 @@ class ContentHosts(helpers.DocumentQuietHosts):
         self.assertIsNotNone(p['usable_ms'], p)
         self.assertTrue(p['content_verified'])
 
-    def test_canvas_explicitly_unverified(self):
+    def test_canvas_without_model_refuses_unverifiable(self):
         p = self.check('b3_fix7_ruler_canvas.html')
-        self.assertIsNotNone(p['usable_ms'], p)
-        self.assertIs(p['content_verified'], False)
-        self.assertEqual(p['document_text'], '')
+        self.assertFalse(p['content_verified'], p)
+        self.assertEqual(p['surface_reason'], 'document_content_unverifiable', p)
+        self.assertIsNone(p['usable_ms'], p)
 
 class CorpusOpeningIntegration(unittest.TestCase):
     def test_expected_uses_shared_docx_extractor(self):

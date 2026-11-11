@@ -60,6 +60,7 @@ import {
   witnessFrame,
 } from './witness.mjs';
 import { normalizeDocumentText } from './document_text_normalize.mjs';
+import { openingContentVerdict } from './perf_model_text.mjs';
 import { startChromeTrace, stopChromeTrace } from './chrome_trace.mjs';
 
 /** Screencast ink needs at least this many region pixels above the witness threshold. */
@@ -713,7 +714,25 @@ async function stateSnapshot(page) {
               ? 'screencast_ink'
               : 'dom_text';
       const surface = typeof window.__docProbeSurface === 'function' ? window.__docProbeSurface(which) : null;
-      const docText = surface ? surface.documentText || '' : '';
+      let docText = surface ? surface.documentText || '' : '';
+      let model_oracle = 'dom';
+      let content_text_accessible = Boolean(docText) || !surface?.canvasPresent;
+      const canvasPresent = Boolean(surface?.canvasPresent);
+      if (canvasPresent) {
+        const fn = window.__PERF_MODEL_TEXT__;
+        if (typeof fn === 'function') {
+          try {
+            docText = String(fn() ?? '');
+          } catch {
+            docText = '';
+          }
+          model_oracle = 'perf_model';
+          content_text_accessible = true;
+        } else {
+          model_oracle = 'absent';
+          content_text_accessible = false;
+        }
+      }
       return {
         first_element_ms: s.firstElementAt === null || s.firstElementAt === undefined ? null : s.firstElementAt,
         first_element_info: s.firstElementInfo || null,
@@ -724,7 +743,9 @@ async function stateSnapshot(page) {
         page_text_chars: pageEl ? (pageEl.textContent || '').trim().length : null,
         document_text_chars: docText.length,
         document_text: docText.slice(0, 4000),
-        content_text_accessible: Boolean(docText) || !surface?.canvasPresent,
+        content_text_accessible,
+        canvas_present: canvasPresent,
+        model_oracle,
         document_selector: (surface && surface.selector) || s.documentSelector || null,
         surface_text: docText.slice(0, 4000),
         time_origin_ms: performance.timeOrigin,
@@ -853,13 +874,15 @@ async function loadResult(ctx, { navigationMs, readyMs, surface, witness, surfac
   const fcp = fcpFrom(paints);
   const facts = witnessFacts(witness);
   // Content qualifies the settled surface; it must not move the pixel clock.
-  // Canvas-only regions have no text oracle and remain explicitly unverified.
-  const expected = normalizeDocumentText(opt['expected-opening-text']);
-  const actual = normalizeDocumentText(snap.document_text);
-  const contentVerified = Boolean(expected && actual.includes(expected));
-  const contentReason = !actual && snap.content_text_accessible
-    ? 'document_content_absent'
-    : actual && expected && !contentVerified ? 'document_content_mismatch' : null;
+  const expectedRaw = opt['expected-opening-text'] || '';
+  const verdict = openingContentVerdict({
+    expected: expectedRaw,
+    actual: snap.document_text,
+    canvasPresent: Boolean(snap.canvas_present),
+    modelOracle: snap.model_oracle || 'dom',
+  });
+  const contentVerified = verdict.content_verified;
+  const contentReason = contentVerified ? null : verdict.surface_reason;
   const at = !contentReason && surface && surface.at_ms !== null && surface.at_ms !== undefined ? surface.at_ms : null;
   return {
     mode: 'load',
@@ -891,10 +914,10 @@ async function loadResult(ctx, { navigationMs, readyMs, surface, witness, surfac
     clock_skew_ms: facts.clock_skew_ms,
     clock_skew_acceptable: facts.clock_skew_acceptable,
     witness: facts.witness,
-    surface_reason: surfaceReason || contentReason || null,
+    surface_reason: contentReason || surfaceReason || null,
     content_verified: contentVerified,
     content_text_accessible: snap.content_text_accessible,
-    expected_opening_text: expected || null,
+    expected_opening_text: normalizeDocumentText(expectedRaw) || null,
     screencast_ink_match_tolerance: usableSignal === 'screencast_ink' ? SETTLED_MATCH_TOLERANCE : null,
     screencast_ink_inset_css_px: usableSignal === 'screencast_ink' ? 4 : null,
     screencast_ink_min_pixels: usableSignal === 'screencast_ink' ? screencastInkMinPixels : null,

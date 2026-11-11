@@ -83,6 +83,7 @@ import {
   parseCriteriaList,
   runCriteriaSuite,
 } from './criteria_input.mjs';
+import { openingContentVerdict } from './perf_model_text.mjs';
 
 
 const argv = process.argv.slice(2);
@@ -119,6 +120,7 @@ const quiescenceMs = opt['quiescence-ms'] !== undefined ? Number(opt['quiescence
 const settleMaxWaitMs = opt['settle-max-wait-ms'] !== undefined ? Number(opt['settle-max-wait-ms']) : 3000;
 const quiescenceTimeoutMs = Number(opt['quiescence-timeout'] || 10_000);
 const bulkChars = Number(opt['bulk-chars'] || 1500);
+const expectedOpeningText = typeof opt['expected-opening-text'] === 'string' ? opt['expected-opening-text'] : '';
 let criteriaList = [];
 if (opt.criteria !== undefined) {
   try {
@@ -179,7 +181,32 @@ async function waitForReady(page, selector, timeoutMs = 120_000, t0 = Date.now()
   const clock_skew = await clockSkew(page, calibration);
   await stopRecorder(calibration);
   await calibration.detach();
+  await verifyCanvasOpening(page);
   return { first_usable_ms, settle_ms, clock_skew };
+}
+
+async function verifyCanvasOpening(page) {
+  if (!expectedOpeningText) return;
+  const snap = await page.evaluate(() => {
+    const canvasPresent = document.querySelectorAll('canvas').length > 0;
+    if (!canvasPresent) return { canvasPresent: false, text: '', model_oracle: 'dom' };
+    const fn = window.__PERF_MODEL_TEXT__;
+    if (typeof fn !== 'function') {
+      return { canvasPresent: true, text: '', model_oracle: 'absent' };
+    }
+    try {
+      return { canvasPresent: true, text: String(fn() ?? ''), model_oracle: 'perf_model' };
+    } catch {
+      return { canvasPresent: true, text: '', model_oracle: 'perf_model' };
+    }
+  });
+  const verdict = openingContentVerdict({
+    expected: expectedOpeningText,
+    actual: snap.text,
+    canvasPresent: snap.canvasPresent,
+    modelOracle: snap.model_oracle,
+  });
+  if (verdict.surface_reason) throw new Error(verdict.surface_reason);
 }
 
 async function performEdit(page, selector, cdp) {
