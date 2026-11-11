@@ -46,7 +46,21 @@ def build_manifest_lines(job_dir: Path) -> list[str]:
     return lines
 
 
+def remove_browser_profiles(job_dir: Path) -> None:
+    """Delete the browsers' own user-data folders: state, not evidence.
+
+    Chrome keeps rewriting and deleting files there after a launch ends, so a
+    manifest that names them cannot be verified, and they dwarf the evidence.
+    """
+    import shutil
+    targets = [job_dir / 'profiles', *job_dir.glob('cells/*/browser-profile')]
+    for target in targets:
+        if target.is_dir() and not target.is_symlink():
+            shutil.rmtree(target, ignore_errors=True)
+
+
 def finalize_job(job_dir: Path, exit_status: int) -> None:
+    remove_browser_profiles(job_dir)
     lines = build_manifest_lines(job_dir)
     manifest_body = '\n'.join(lines) + ('\n' if lines else '')
     manifest_path = job_dir / 'MANIFEST.sha256'
