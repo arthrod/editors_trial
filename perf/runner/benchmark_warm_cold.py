@@ -1088,6 +1088,7 @@ def _write_content_refusals(
     content_refusal: dict,
     content_meta: dict,
     gate: dict | None = None,
+    skip_criteria: tuple[str, ...] = (),
 ) -> list[dict]:
     """Write one named refusal per criterion and load arm."""
     reason = content_refusal.get("surface_reason") or "document_content_unverifiable"
@@ -1102,6 +1103,8 @@ def _write_content_refusals(
     rows = []
     for raw_cid, (boundary, layer) in criteria_map.items():
         cid = "C02" if raw_cid == "C02b" else raw_cid
+        if cid in skip_criteria:
+            continue
         arms = ("cold",) if cid == "C02" else ("cold", "warm")
         for arm in arms:
             cache_state = "process_cold_fs_warm" if arm == "cold" else "warm_steady"
@@ -1375,6 +1378,7 @@ def _main() -> int:
                     content_refusal=content_refusal,
                     content_meta=content_meta,
                     gate=gate,
+                    skip_criteria=("C05", "C06") if glyph_na_early else (),
                 )
             )
             if glyph_na_early:
