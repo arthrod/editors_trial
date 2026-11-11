@@ -50,7 +50,7 @@ def _load_server():
 
 
 class ProbeBudget(unittest.TestCase):
-    def test_timeout_is_an_editor_refusal_not_host_error(self):
+    def test_timeout_is_our_wall_clock_kill_not_an_editor_crash(self):
         cmd = ["/usr/bin/node", "/app/perf/runner/document_probe.mjs", "--mode", "scale"]
         expired = subprocess.TimeoutExpired(cmd, bd.PROBE_TIMEOUT_S)
         with patch.object(bd.subprocess, "run", side_effect=expired):
@@ -61,7 +61,8 @@ class ProbeBudget(unittest.TestCase):
         self.assertNotIn("Command [", reason)
         self.assertIn("folio", reason)
         self.assertIn(str(bd.PROBE_TIMEOUT_S), reason)
-        self.assertEqual(caught.exception.refusal_code, "editor_crash")
+        # Our own 600 s kill has no evidence the editor crashed (review F6).
+        self.assertEqual(caught.exception.refusal_code, "harness_error")
 
 
 class PaintedAriaHidden(unittest.TestCase):

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>b3 late document damage</title>
+    <style>
+      body { margin: 24px; background: #ffffff; color: #111111; font: 18px/1.5 sans-serif; }
+      .doc-paragraph { display: block; margin: 0 0 8px; min-height: 1.2em; width: 30em; }
+    </style>
+  </head>
+  <body>
+    <div class="doc-paragraph">Alpha opening line of the document.</div>
+    <div class="doc-paragraph" id="beta">Beta second line stays put.</div>
+    <script>
+      // Two early repaints give the settle step identical frames to lock on;
+      // the late repaint inside the post-settle window is document damage, so
+      // the C14 sample is the compositor frame that presented it (mechanism
+      // document_damage), not the DOM surface time.
+      var beta = document.getElementById('beta');
+      setTimeout(function () { if (beta) beta.style.color = '#222222'; }, 30);
+      setTimeout(function () { if (beta) beta.style.color = '#111111'; }, 90);
+      setTimeout(function () { if (beta) beta.style.color = '#123456'; }, 550);
+    </script>
+  </body>
+</html>

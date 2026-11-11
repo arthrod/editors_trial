@@ -94,7 +94,7 @@ not yet measured
 
 ### C14 — large-document scaling
 
-Each C14 size rung is a separate measure; rungs are never pooled.
+Each C14 size rung is a separate measure, and within a rung each clock is its own measure: `presented_frame` (document damage followed load; the sample ends at the first compositor screencast frame at or after the document became usable) and `usable_no_damage` (no damage followed; the sample ends at the DOM document-surface mark and is never labelled a compositor frame). Rungs and measures are never pooled.
 
 not yet measured
 

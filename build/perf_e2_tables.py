@@ -405,7 +405,8 @@ def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
             "Scheduled counts come from each run's order. Both runs must be publishable and keep at least 10 launches. "
             "The medians must agree within 10 percent of the larger median or the larger witnessed frame interval. "
             "Samples require complete boolean flags checked against a witnessed interval. Sub-frame medians are buckets; "
-            "p90 is over launch medians. C14 rungs and C15 steps are separate measures."
+            "p90 is over launch medians. C14 rungs and C14 measures (presented_frame, usable_no_damage) and C15 steps "
+            "are separate measures; a no-damage C14 sample is the DOM document-surface time, never a compositor frame."
         ),
         "perf.e2.reproduce": "See perf/container/README.md.",
     }

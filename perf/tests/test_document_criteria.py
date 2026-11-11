@@ -111,7 +111,7 @@ class C12RequiresTheShiftAndAFrame(unittest.TestCase):
 
     def test_a_missing_shift_is_a_refusal(self):
         with self.assertRaises(bd.ProbeRefusal) as caught:
-            bd.c12_measured_sample(self._probe(moved=False, presented_frame_ms=None))
+            bd.c12_measured_sample(self._probe(moved=False, presented_frame_ms=None, anchor_top_after=None))
         self.assertIn("text-shift", caught.exception.reason)
 
     def test_a_shift_without_a_frame_is_a_refusal(self):

@@ -648,11 +648,54 @@ def _c14_facts(probe: dict) -> dict:
     }
 
 
+# A C14 sample is one of two clocks, never both and never a pool of the two:
+# damage after load ends at the compositor frame that showed it; no damage
+# ends at the DOM document-surface mark. The measure travels with the sample
+# into the attempt row, the reader groups by it, and a no-damage sample is
+# never labelled a compositor frame.
+C14_FRAME_MEASURE = "presented_frame"
+C14_NO_DAMAGE_MEASURE = "usable_no_damage"
+C14_MEASURES = (C14_FRAME_MEASURE, C14_NO_DAMAGE_MEASURE)
+C14_CLOCK_BY_MEASURE = {
+    C14_FRAME_MEASURE: {
+        "start": "navigation_start",
+        "end": "first compositor screencast frame at or after the document became usable",
+        "dom_usability": "document text laid out (concatenated trimmed text >= 8 chars, element has a layout box)",
+    },
+    C14_NO_DAMAGE_MEASURE: {
+        "start": "navigation_start",
+        "end": (
+            "the DOM document-surface time (usable_ms); no document damage followed load, so no presented "
+            "frame bounds this sample and it is not a frame time"
+        ),
+        "dom_usability": "document text laid out (concatenated trimmed text >= 8 chars, element has a layout box)",
+    },
+}
+
+
+def c14_sample_measure(probe: dict) -> str:
+    """Which C14 clock this payload's sample comes from (``_c14_facts`` territory)."""
+    return C14_NO_DAMAGE_MEASURE if probe.get("mechanism") == "forced_repaint" else C14_FRAME_MEASURE
+
+
+class C14Sample(float):
+    """A C14 timing that carries the clock which produced it."""
+
+    measure = C14_FRAME_MEASURE
+
+    def __new__(cls, value, measure=C14_FRAME_MEASURE):
+        sample = super().__new__(cls, value)
+        sample.measure = measure
+        return sample
+
+
 def c14_measured_sample(probe: dict) -> float:
     """C14 sample: navigation -> first frame of post-load document damage.
 
-    No document damage is the document-surface time. ``no_damage_followed``
-    records that. A rejected clock still refuses. A missing surface still refuses.
+    No document damage is the document-surface time; the sample carries its
+    measure (``usable_no_damage``) so it is never published or pooled as a
+    compositor-frame time (``presented_frame``). A rejected clock still
+    refuses on both paths. A missing surface still refuses.
     """
     facts = _c14_facts(probe)
     if probe.get("mechanism") == "forced_repaint":
@@ -664,7 +707,7 @@ def c14_measured_sample(probe: dict) -> float:
         usable = probe.get("usable_ms")
         if usable is None or isinstance(usable, bool):
             raise ProbeRefusal("no DOM usability mark (page/block element never appeared with text)", facts=facts)
-        return float(usable)
+        return C14Sample(float(usable), C14_NO_DAMAGE_MEASURE)
     _require_witness(probe, facts)
     usable = probe.get("usable_ms")
     if usable is None or isinstance(usable, bool):
@@ -684,7 +727,7 @@ def c14_measured_sample(probe: dict) -> float:
             "clock skew exceeds the %s ms bound (clock_skew_ms=%r)" % (_CLOCK_SKEW_BOUND_MS, probe.get("clock_skew_ms")),
             facts=facts,
         )
-    return value
+    return C14Sample(value, C14_FRAME_MEASURE)
 
 
 def c15_cell_after_refusal(refusal: ProbeRefusal) -> dict:
@@ -794,6 +837,7 @@ def write_c14_outcome(*, attempt_dir, editor_id, lane, env, probe, label, worklo
             publication_block_reason=refusal.reason,
             refusal_code=getattr(refusal, "refusal_code", None),
         )
+    facts = _c14_facts(probe)
     path, _trial = _write_measured(
         attempt_dir=attempt_dir,
         criterion_id="C14",
@@ -806,10 +850,51 @@ def write_c14_outcome(*, attempt_dir, editor_id, lane, env, probe, label, worklo
             "suite": "document",
             "size_rung": label,
             "workload_id": workload_id,
-            **_c14_facts(probe),
+            "measurement": sample.measure,
+            "clock": dict(C14_CLOCK_BY_MEASURE[sample.measure]),
+            "samples": [{"measure": sample.measure, "clock": dict(C14_CLOCK_BY_MEASURE[sample.measure]), **facts}],
+            **facts,
         },
     )
     return path
+
+
+def write_c14_rung_refusals(
+    *,
+    attempt_dir,
+    editor_id,
+    lane,
+    env,
+    label,
+    workload_id,
+    reason,
+    outcome="failed",
+    facts=None,
+    refusal_code=None,
+):
+    """One C14 refusal attempt per measure.
+
+    A refusal predates any sample, so it cannot know which clock the rung
+    would have produced; both measures' cells count the failed launch.
+    """
+    paths = []
+    for measure in C14_MEASURES:
+        paths.append(
+            _write_refusal(
+                attempt_dir=attempt_dir,
+                criterion_id="C14",
+                editor_id=editor_id,
+                lane=lane,
+                env=env,
+                outcome=outcome,
+                failure_reason=reason,
+                diagnostic={**(facts or {}), "size_rung": label, "workload_id": workload_id, "measurement": measure},
+                publishable=False,
+                publication_block_reason=reason,
+                refusal_code=refusal_code,
+            )
+        )
+    return paths
 
 
 def find_outcomes(probe: dict) -> dict:
@@ -939,7 +1024,9 @@ def _run_probe(cmd: list, *, editor_id: str) -> dict:
     except subprocess.TimeoutExpired:
         raise ProbeRefusal(
             "probe error for %s: editor did not finish within %ss" % (editor_id, PROBE_TIMEOUT_S),
-            refusal_code="editor_crash",
+            # Our own wall-clock kill, not an evidenced editor crash: a stalled
+            # build, a wrong ready_js or a probe bug lands here too (review F6).
+            refusal_code="harness_error",
         )
     record_process(proc)
     payload = None
@@ -1063,7 +1150,7 @@ def _write_measured(
     if criterion_id == "C11":
         checks = diagnostic.get("samples") or []
         trial["content_verified"] = bool(checks) and all(d.get("content_verified") is True for d in checks)
-    trial['measure'] = diagnostic.get('size_rung') or diagnostic.get('measurement') or ''
+    trial['measure'] = diagnostic.get('measurement') or diagnostic.get('size_rung') or ''
     trial['refusal_code'] = None if pub else 'publishable_not_true'
     validate_trial(trial)
     path = write_attempt(
@@ -1111,13 +1198,13 @@ def _write_refusal(
     measurement, separator, detail = failure_reason.partition(": ")
     if separator and (measurement in C15_MEASUREMENTS or measurement.startswith("rung ")):
         classification_reason = detail
-    trial['measure'] = (diagnostic or {}).get('size_rung') or (diagnostic or {}).get('measurement') or ''
+    trial['measure'] = (diagnostic or {}).get('measurement') or (diagnostic or {}).get('size_rung') or ''
     trial['refusal_detail'] = failure_reason
     trial['refusal_code'] = (outcome if outcome != 'failed' else
         refusal_code if refusal_code else
         'cpu_throttled' if classification_reason.startswith('cpu_throttled') else
         'host_build' if classification_reason.startswith('host-error:') else
-        'unverified' if classification_reason.startswith(('document_content_', 'no document surface', 'no DOM usability mark', 'text-shift assertion failed', 'C12 window includes', 'find widget ', 'find probe returned status', 'probe refused ')) else
+        'unverified' if classification_reason.startswith(('document_content_', 'no document surface', 'no DOM usability mark', 'text-shift assertion failed', 'C12 window includes', 'mixed C14 measures', 'find widget ', 'find probe returned status', 'probe refused ')) else
         'paint_witness_unavailable' if classification_reason.startswith(('witness ', 'clock_', 'frame_', 'clock skew ', 'no compositor frame', 'no presented frame', 'retained sample has no witness', 'presented frame precedes', 'negative presented', 'compositor frame timestamp', 'no first-contentful-paint', 'first-contentful-paint entry')) else
         'crash')
     validate_environment(env)
@@ -1322,9 +1409,12 @@ def _run_scale_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path:
     diagnostics = []
     for _ in range(count):
         payload = _in_sample_bracket(editor_id, "C14", lambda: _run_probe(cmd, editor_id=editor_id))
-        samples.append(c14_measured_sample(payload))
+        sample = c14_measured_sample(payload)
+        samples.append(sample)
         diagnostics.append(
             {
+                "measure": sample.measure,
+                "clock": dict(C14_CLOCK_BY_MEASURE[sample.measure]),
                 "usable_ms": payload.get("usable_ms"),
                 "usable_source": payload.get("usable_source"),
                 "first_element_ms": payload.get("first_element_ms"),
@@ -1343,6 +1433,19 @@ def _run_scale_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path:
                 "ready_ms": payload.get("ready_ms"),
                 "page_errors": payload.get("page_errors"),
             }
+        )
+    measures = [sample.measure for sample in samples]
+    if len(set(measures)) > 1:
+        # The two measures are different quantities: a compositor-frame time
+        # and a DOM timestamp. One rung pools one clock, never a mix of both.
+        raise ProbeRefusal(
+            "mixed C14 measures in one rung (%s): a compositor-frame sample and a no-damage DOM sample are not pooled"
+            % ", ".join(measures),
+            refusal_code="unverified",
+            facts={
+                "sample_measures": measures,
+                "no_damage_followed": any(measure == C14_NO_DAMAGE_MEASURE for measure in measures),
+            },
         )
     return samples, diagnostics
 
@@ -1554,7 +1657,8 @@ def _main() -> int:
                 elif criterion_id == "C14":
                     for rung in C14_RUNGS:
                         reason = "%s; rung %s not driven" % (refuse_reason, C14_RUNG_LABEL[rung])
-                        _refuse_cell("C14", fixtures[rung], reason, extra={"size_rung": C14_RUNG_LABEL[rung], "workload_id": rung})
+                        for measure in C14_MEASURES:
+                            _refuse_cell("C14", fixtures[rung], reason, extra={"size_rung": C14_RUNG_LABEL[rung], "workload_id": rung, "measurement": measure})
                 else:
                     _refuse_cell(criterion_id, fixtures[specs[criterion_id]["workload"]], refuse_reason)
             continue
@@ -1707,38 +1811,38 @@ def _main() -> int:
                                 fixture=fixture,
                                 cache_state=CRITERIA["C14"]["cache_state"],
                             )
-                            path = _write_refusal(
+                            for path in write_c14_rung_refusals(
                                 attempt_dir=attempt_dir,
-                                criterion_id="C14",
                                 editor_id=editor_id,
                                 lane=lane,
                                 env=env,
+                                label=label,
+                                workload_id=rung,
+                                reason=reason,
                                 outcome="not_run",
-                                failure_reason=reason,
-                                diagnostic={"size_rung": label, "workload_id": rung},
-                            )
-                            rung_rows.append(
-                                {
-                                    "workload_id": rung,
-                                    "size_rung": label,
-                                    "outcome": "not_run",
-                                    "failure_reason": reason,
-                                    "attempt_file": _attempt_ref(path),
-                                }
-                            )
-                            rows.append(
-                                {
-                                    "criterion_id": "C14",
-                                    "editor_id": editor_id,
-                                    "size_rung": label,
-                                    "workload_id": rung,
-                                    "outcome": "not_run",
-                                    "failure_reason": reason,
-                                    "attempt_file": _attempt_ref(path),
-                                    "publishable": False,
-                                    "support_note": support_note,
-                                }
-                            )
+                            ):
+                                rung_rows.append(
+                                    {
+                                        "workload_id": rung,
+                                        "size_rung": label,
+                                        "outcome": "not_run",
+                                        "failure_reason": reason,
+                                        "attempt_file": _attempt_ref(path),
+                                    }
+                                )
+                                rows.append(
+                                    {
+                                        "criterion_id": "C14",
+                                        "editor_id": editor_id,
+                                        "size_rung": label,
+                                        "workload_id": rung,
+                                        "outcome": "not_run",
+                                        "failure_reason": reason,
+                                        "attempt_file": _attempt_ref(path),
+                                        "publishable": False,
+                                        "support_note": support_note,
+                                    }
+                                )
                             continue
                         env = _env_for(
                             editor_id=editor_id,
@@ -1759,41 +1863,40 @@ def _main() -> int:
                             reason = "rung %s: %s" % (label, refusal.reason)
                             outcome = getattr(refusal, "outcome", "failed") or "failed"
                             facts = dict(getattr(refusal, "facts", None) or {})
-                            path = _write_refusal(
+                            for path in write_c14_rung_refusals(
                                 attempt_dir=attempt_dir,
-                                criterion_id="C14",
                                 editor_id=editor_id,
                                 lane=lane,
                                 env=env,
+                                label=label,
+                                workload_id=rung,
+                                reason=reason,
                                 outcome=outcome,
-                                failure_reason=reason,
-                                diagnostic={**facts, "size_rung": label, "workload_id": rung},
-                                publishable=False,
-                                publication_block_reason=reason,
+                                facts=facts,
                                 refusal_code=getattr(refusal, "refusal_code", None),
-                            )
-                            rung_rows.append(
-                                {
-                                    "workload_id": rung,
-                                    "size_rung": label,
-                                    "outcome": outcome,
-                                    "failure_reason": reason,
-                                    "attempt_file": _attempt_ref(path),
-                                }
-                            )
-                            rows.append(
-                                {
-                                    "criterion_id": "C14",
-                                    "editor_id": editor_id,
-                                    "size_rung": label,
-                                    "workload_id": rung,
-                                    "outcome": outcome,
-                                    "failure_reason": reason,
-                                    "attempt_file": _attempt_ref(path),
-                                    "publishable": False,
-                                    "support_note": support_note,
-                                }
-                            )
+                            ):
+                                rung_rows.append(
+                                    {
+                                        "workload_id": rung,
+                                        "size_rung": label,
+                                        "outcome": outcome,
+                                        "failure_reason": reason,
+                                        "attempt_file": _attempt_ref(path),
+                                    }
+                                )
+                                rows.append(
+                                    {
+                                        "criterion_id": "C14",
+                                        "editor_id": editor_id,
+                                        "size_rung": label,
+                                        "workload_id": rung,
+                                        "outcome": outcome,
+                                        "failure_reason": reason,
+                                        "attempt_file": _attempt_ref(path),
+                                        "publishable": False,
+                                        "support_note": support_note,
+                                    }
+                                )
                             failures += 1
                             continue
                         rung_attempts[rung] = {"samples": samples, "diagnostics": diagnostics, "env": env}
@@ -1811,11 +1914,13 @@ def _main() -> int:
                                 "median_ms": summarize(
                                     data["samples"], CRITERIA["C14"]["cache_state"], "fresh_process", seed=0
                                 )["median"],
+                                "measure": (data["diagnostics"][0] or {}).get("measure"),
                             }
                             for rung, data in rung_attempts.items()
                         }
                         for rung, data in rung_attempts.items():
                             label = C14_RUNG_LABEL[rung]
+                            rung_measure = (data["diagnostics"][0] or {}).get("measure")
                             path, trial = _write_measured(
                                 attempt_dir=attempt_dir,
                                 criterion_id="C14",
@@ -1828,12 +1933,9 @@ def _main() -> int:
                                     "suite": "document",
                                     "size_rung": label,
                                     "workload_id": rung,
-                                    "clock": {
-                                        "start": "navigation_start",
-                                        "end": "first compositor screencast frame at or after the document became usable",
-                                        "dom_usability": "document text laid out (concatenated trimmed text >= 8 chars, element has a layout box)",
+                                    "measurement": rung_measure,
+                                    "clock": dict(C14_CLOCK_BY_MEASURE[rung_measure]),
                                     "correctness_evidence": "rendered DOM text, checked against I01-I03 by evaluate_measured_trial",
-                                    },
                                     "no_pooled_figure": True,
                                     "curve_medians_ms": curve,
                                     "samples": data["diagnostics"],
@@ -2013,12 +2115,13 @@ def _main() -> int:
                         )
                 elif criterion_id == "C14":
                     for rung in C14_RUNGS:
-                        _refuse_cell(
-                            "C14",
-                            fixtures[rung],
-                            reason,
-                            extra={"size_rung": C14_RUNG_LABEL[rung], "workload_id": rung},
-                        )
+                        for measure in C14_MEASURES:
+                            _refuse_cell(
+                                "C14",
+                                fixtures[rung],
+                                reason,
+                                extra={"size_rung": C14_RUNG_LABEL[rung], "workload_id": rung, "measurement": measure},
+                            )
                 else:
                     _refuse_cell(criterion_id, fixtures[specs[criterion_id]["workload"]], reason)
         finally:

@@ -1385,7 +1385,11 @@ async function runReflow(browser) {
       const deadline = performance.now() + 4000;
       const refind = () => {
         if (!anchorText || !docSel) return null;
-        return Array.from(document.querySelectorAll(docSel)).find((block) => (block.textContent || '').trim() === anchorText) || null;
+        // A text re-find must be unique among current blocks: an edit that
+        // duplicates the anchor's text would otherwise report the duplicate's
+        // position as a move of the anchor.
+        const matches = Array.from(document.querySelectorAll(docSel)).filter((block) => (block.textContent || '').trim() === anchorText);
+        return matches.length === 1 ? matches[0] : null;
       };
       return new Promise((resolve) => {
         const step = () => {
@@ -1433,8 +1437,12 @@ async function runReflow(browser) {
           el = kept;
           matchedBy = 'element';
         } else {
-          el = Array.from(document.querySelectorAll(docSel)).find((block) => (block.textContent || '').trim() === anchorText) || null;
-          if (el) matchedBy = 'text';
+          // Same rule as the poll's re-find: only a unique text match re-finds.
+          const matches = Array.from(document.querySelectorAll(docSel)).filter((block) => (block.textContent || '').trim() === anchorText);
+          if (matches.length === 1) {
+            el = matches[0];
+            matchedBy = 'text';
+          }
         }
         return {
           top: el ? el.getBoundingClientRect().top : null,

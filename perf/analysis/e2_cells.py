@@ -258,6 +258,17 @@ def build_run_cell(
             interval is None or any(flag != (sample < interval) for sample, flag in zip(samples, flags))
         ):
             reason = 'sub_frame_flag_mismatch'
+        if not reason and criterion_id == 'C14':
+            # A C14 sample is one clock: a compositor-frame time or the no-damage
+            # DOM mark. A trial that pools both (or disagrees with the measure it
+            # is filed under) is refused, never published as one number.
+            per_sample = {
+                row.get('measure')
+                for row in (diagnostic.get('samples') or [])
+                if isinstance(row, dict) and row.get('measure') is not None
+            }
+            if len(per_sample) > 1 or (per_sample and measure and per_sample != {measure}):
+                reason = 'mixed_c14_measures'
         if reason:
             failed_launches.add(launch)
             refusals[reason] += 1
