@@ -50,23 +50,26 @@ def test_c14_uses_whole_ladder():
 
 
 def test_workloads_have_separate_cells_and_table_groups(fs):
+    # A cell stores figures only when it publishes: two seeds, ten kept launches each (#154.1).
     roots = [Path('/primary'), Path('/repro')]
-    for root in roots:
+    for seed, root in enumerate(roots, 1):
         root.mkdir()
-        (root / 'summary.json').write_text(json.dumps({'order': [[0, 'plate']], 'publishable': True}))
+        (root / 'summary.json').write_text(json.dumps(
+            {'order': [[i, 'plate'] for i in range(10)], 'publishable': True, 'seed': seed}))
         for workload, value in zip(LADDER[:2], (20, 40)):
-            path = root / 'cells/0000-plate/attempts' / (workload + '.json')
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(json.dumps(dict(editor_id='plate', criterion_id='C11', workload_id=workload,
-                outcome='measured', publishable=True, refusal_code=None, samples_ms=[value],
-                sub_frame_samples=[False], diagnostic={'frame_interval_ms': 16.7},
-                host_provenance={'host_build': 'production', 'publishable': True, 'tree_sha256': 'tree-a'})))
+            for launch in range(10):
+                path = root / f'cells/{launch:04d}-plate/attempts' / (workload + '.json')
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(json.dumps(dict(editor_id='plate', criterion_id='C11', workload_id=workload,
+                    outcome='measured', publishable=True, refusal_code=None, samples_ms=[value],
+                    sub_frame_samples=[False], diagnostic={'frame_interval_ms': 16.7},
+                    host_provenance={'host_build': 'production', 'publishable': True, 'tree_sha256': 'tree-a'})))
     facts = {}
     table = _criterion_table(facts, roots, 'C11', ['plate'])
     assert all(workload in table for workload in LADDER[:2])
     cells = [v for k, v in facts.items() if k.endswith('.primary')]
     assert len(cells) == 2
-    assert [c['kept_ms'] for c in cells] == [[20], [40]]
+    assert [c['kept_ms'] for c in cells] == [[20.0] * 10, [40.0] * 10]
     assert {c['workload_id'] for c in cells} == set(LADDER[:2])
 
 
