@@ -599,11 +599,12 @@ def c12_measured_sample(probe: dict) -> float:
     """
     if probe.get("status") == "not_applicable":
         raise ProbeRefusal(probe.get("reason") or "C12 not_applicable", outcome="not_applicable")
-    before_top = _number_or_none((probe.get("before") or {}).get("anchor_top"))
-    after_top = _number_or_none(probe.get("anchor_top_after"))
-    # A replaced anchor keeps the old node disconnected, so the poll can report
-    # moved=false while the text-matched block is lower on the page.
-    if not probe.get("moved") and not (before_top is not None and after_top is not None and after_top > before_top):
+    if probe.get("error"):
+        raise ProbeRefusal(
+            "probe refused C12: %s" % probe.get("error"),
+            refusal_code="anchor_identity_ambiguous" if probe.get("error") == "anchor_identity_ambiguous" else None,
+        )
+    if probe.get("moved") is not True:
         raise ProbeRefusal(
             "text-shift assertion failed: anchor block did not move down (anchor_top=%r after=%r)"
             % ((probe.get("before") or {}).get("anchor_top"), probe.get("anchor_top_after"))
@@ -621,8 +622,8 @@ def c12_measured_sample(probe: dict) -> float:
     if presented is None:
         raise ProbeRefusal("no compositor frame captured at or after the observed y-shift")
     value = float(presented)
-    if value < 0:
-        raise ProbeRefusal("negative presented_frame_ms")
+    if value <= 0:
+        raise ProbeRefusal("presented_frame_ms must be greater than zero (got %r)" % presented)
     origin = _number_or_none(probe.get("input_page_ms"))
     shift = _number_or_none(probe.get("observed_shift_page_ms"))
     if origin is not None and shift is not None and origin + value + 0.05 < shift:

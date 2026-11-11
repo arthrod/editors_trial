@@ -1,6 +1,4 @@
-"""r3lanes4/r3c12b: docxodus C12 is measured; the reflow anchor is the nearest
-block below the caret (occurrence disambiguates equal text).
-"""
+"""r3lanes4/r3c12b/r3c12d: the C12 anchor is the first body paragraph after the caret paragraph."""
 from __future__ import annotations
 
 import json
@@ -33,36 +31,33 @@ const mod = await import({json.dumps(str(LANE_EDIT_BURST))});
 class PickAnchorBelowCaret(NodeContract):
     pass
 
-    def test_nearest_unique_block_below_the_caret_is_the_anchor(self):
+    def test_first_paragraph_after_the_caret_is_the_anchor(self):
         out = self.node(
             """
 assert.equal(typeof mod.PICK_ANCHOR_BELOW, 'function');
-// The caret sits in a body line of the first block (top 100). A first-page
-// paragraph (top 150) and a later-page paragraph (top 1281) are both unique;
-// only the in-viewport one below the caret may carry the shift.
 const entries = [
-  { text: 'In property law...', top: 100 },
-  { text: 'duplicated paragraph', top: 200 },
-  { text: 'duplicated paragraph', top: 300 },
-  { text: 'The next paragraph moves with the insertion.', top: 150 },
-  { text: 'A later page paragraph that does not move.', top: 1281.78 },
+  { text: 'In property law...', top: 100, bottom: 118 },
+  { text: 'The next paragraph moves with the insertion.', top: 150, bottom: 168 },
+  { text: 'duplicated paragraph', top: 200, bottom: 218 },
+  { text: 'duplicated paragraph', top: 300, bottom: 318 },
+  { text: 'A later page paragraph that does not move.', top: 1281.78, bottom: 1299 },
 ];
 const picked = mod.PICK_ANCHOR_BELOW(entries, { top: 102, bottom: 118 }, 900);
 assert.equal(picked.ok, true, JSON.stringify(picked));
 assert.equal(picked.anchorText, 'The next paragraph moves with the insertion.');
-assert.equal(picked.anchorIndex, 3);
+assert.equal(picked.anchorIndex, 1);
 console.log(JSON.stringify(picked));
 """
         )
         self.assertTrue(out["ok"])
-        self.assertEqual(out["anchorIndex"], 3)
+        self.assertEqual(out["anchorIndex"], 1)
 
     def test_last_unique_block_off_viewport_is_never_the_anchor(self):
         out = self.node(
             """
 const entries = [
-  { text: 'caret line', top: 90 },
-  { text: 'first page paragraph', top: 150 },
+  { text: 'caret line', top: 90, bottom: 96 },
+  { text: 'first page paragraph', top: 150, bottom: 168 },
   { text: 'later page paragraph one', top: 1281.78 },
   { text: 'later page paragraph two', top: 1411.59 },
 ];
@@ -78,32 +73,33 @@ console.log(JSON.stringify(picked));
         out = self.node(
             """
 const entries = [
-  { text: 'caret line', top: 90 },
-  { text: 'later page paragraph one', top: 1281.78 },
-  { text: 'later page paragraph two', top: 1411.59 },
+  { text: 'caret line', top: 90, bottom: 96 },
+  { text: 'later page paragraph one', top: 1281.78, bottom: 1299 },
+  { text: 'later page paragraph two', top: 1411.59, bottom: 1429 },
 ];
 const picked = mod.PICK_ANCHOR_BELOW(entries, { top: 80, bottom: 96 }, 900);
 assert.equal(picked.ok, false, JSON.stringify(picked));
-assert.match(picked.reason, /below the caret/);
+assert.match(picked.reason, /off the viewport|below the caret/);
 console.log(JSON.stringify(picked));
 """
         )
         self.assertFalse(out["ok"])
-        self.assertIn("below the caret", out["reason"])
+        self.assertTrue("below the caret" in out["reason"] or "off the viewport" in out["reason"])
 
-    def test_duplicate_text_below_uses_nearest_not_a_farther_unique_block(self):
+    def test_anchor_is_the_next_paragraph_in_document_order(self):
         out = self.node(
             """
 const entries = [
-  { text: 'A', top: 10 },
-  { text: 'B', top: 40 },
-  { text: 'B', top: 80 },
-  { text: 'C', top: 120 },
+  { text: 'A', top: 10, bottom: 20 },
+  { text: 'B', top: 40, bottom: 52 },
+  { text: 'B', top: 80, bottom: 92 },
+  { text: 'C', top: 120, bottom: 132 },
 ];
 const picked = mod.PICK_ANCHOR_BELOW(entries, { top: 5, bottom: 20 }, 800);
 assert.equal(picked.ok, true, JSON.stringify(picked));
 assert.equal(picked.anchorText, 'B');
 assert.equal(picked.anchorIndex, 1);
+assert.equal(picked.anchorOccurrence, 1);
 console.log(JSON.stringify(picked));
 """
         )
@@ -156,13 +152,12 @@ class DocxodusC12IsProbed(unittest.TestCase):
         self.assertIn("PICK_ANCHOR_BELOW", text)
         self.assertIn("pickBelow", text)
 
-    def test_c12_reflow_witness_uses_the_block_editor_host_on_docxodus(self):
+    def test_c12_reflow_witness_uses_the_shared_document_region(self):
         text = (REPO / "perf/runner/document_probe.mjs").read_text(encoding="utf-8")
         self.assertIn("reflowDocumentRegion", text)
-        self.assertIn("reflowWitnessSelector", text)
         burst = LANE_EDIT_BURST.read_text(encoding="utf-8")
         self.assertIn("reflowWitnessSelector", burst)
-        self.assertIn("#editorHost", burst)
+        self.assertNotIn("if (editorId === 'docxodus') return '#editorHost'", burst)
 
 
 class ReflowBlockSelectors(NodeContract):
@@ -170,6 +165,15 @@ class ReflowBlockSelectors(NodeContract):
         out = self.node(
             """
 assert.equal(mod.reflowBlockSelector('superdoc', '.fallback'), '#editor .superdoc-line');
+console.log(JSON.stringify(true));
+"""
+        )
+        self.assertTrue(out)
+
+    def test_eigenpal_uses_paragraph_fragments_not_line_spans(self):
+        out = self.node(
+            """
+assert.equal(mod.reflowBlockSelector('eigenpal', '.fallback'), '.docx-paragraph-fragment');
 console.log(JSON.stringify(true));
 """
         )

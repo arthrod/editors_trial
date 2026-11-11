@@ -390,7 +390,10 @@ class DuplicateAnchorTextIsNotAMove(unittest.TestCase):
         self.assertFalse(payload.get("moved"), payload)
         with self.assertRaises(bd.ProbeRefusal) as caught:
             bd.c12_measured_sample(payload)
-        self.assertIn("did not move down", caught.exception.reason)
+        self.assertTrue(
+            "did not move down" in caught.exception.reason or "anchor_identity_ambiguous" in caught.exception.reason,
+            caught.exception.reason,
+        )
 
     def test_a_rerendered_anchor_with_stable_duplicate_text_measures(self):
         cmd = [

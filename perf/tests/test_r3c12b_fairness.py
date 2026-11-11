@@ -39,6 +39,9 @@ const snapshot = {
   anchorText: 'Beta',
   anchorTextCount: 1,
   anchorOccurrence: 1,
+  caretIndex: 0,
+  anchorIndex: 1,
+  blockTexts: ['Alpha', 'Beta'],
 };
 const blocks = [{ innerText: 'Alpha' }, { innerText: 'Beta' }, { innerText: 'Beta' }];
 const read = (b) => String(b.innerText || '');
@@ -58,6 +61,9 @@ const snapshot = {
   anchorText: 'Beta',
   anchorTextCount: 1,
   anchorOccurrence: 1,
+  caretIndex: 0,
+  anchorIndex: 1,
+  blockTexts: ['Alpha', 'Beta', 'Gamma'],
 };
 const blocks = [{ innerText: 'xAlpha' }, { innerText: 'Beta' }, { innerText: 'Gamma' }];
 const read = (b) => String(b.innerText || '');
@@ -76,9 +82,12 @@ const snapshot = {
   anchorText: 'Beta',
   anchorTextCount: 2,
   anchorOccurrence: 1,
+  caretIndex: 0,
+  anchorIndex: 1,
+  blockTexts: ['Alpha', 'Beta', 'Beta'],
 };
 const blocks = [
-  { innerText: 'Alpha' },
+  { innerText: 'xAlpha' },
   { innerText: 'Beta' },
   { innerText: 'Beta' },
 ];
@@ -112,23 +121,21 @@ console.log(JSON.stringify(picked));
         self.assertEqual(out["anchorIndex"], 1)
         self.assertEqual(out["anchorOccurrence"], 1)
 
-    def test_second_occurrence_is_identified_among_equal_text_blocks(self):
+    def test_anchor_is_the_paragraph_after_the_caret_not_a_later_equal_one(self):
         out = self.node(
             """
 const entries = [
-  { text: 'A', top: 10 },
-  { text: 'B', top: 40 },
-  { text: 'B', top: 80 },
+  { text: 'A', top: 10, bottom: 20 },
+  { text: 'B', top: 40, bottom: 52 },
+  { text: 'B', top: 80, bottom: 92 },
 ];
-const picked = mod.PICK_ANCHOR_BELOW(entries, { top: 70, bottom: 76 }, 800);
-assert.equal(picked.ok, true, JSON.stringify(picked));
-assert.equal(picked.anchorText, 'B');
-assert.equal(picked.anchorIndex, 2);
-assert.equal(picked.anchorOccurrence, 2);
+const picked = mod.PICK_ANCHOR_BELOW(entries, { top: 5, bottom: 20 }, 800);
+assert.equal(picked.anchorIndex, 1);
+assert.equal(picked.anchorOccurrence, 1);
 console.log(JSON.stringify(picked));
 """
         )
-        self.assertEqual(out["anchorOccurrence"], 2)
+        self.assertEqual(out["anchorOccurrence"], 1)
 
 
 class C12SampleEnd(unittest.TestCase):

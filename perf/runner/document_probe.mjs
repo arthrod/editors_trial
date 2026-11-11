@@ -72,6 +72,7 @@ import {
   ANCHOR_REFIND_CONTEXT_OK_PAGE_SRC,
   REFIND_ANCHOR,
   REFIND_ANCHOR_PAGE_SRC,
+  C12_BLOCK_ENTRIES_PAGE_SRC,
   C12_BLOCK_TEXT,
   ensureReflowCaret,
   gatherReflowBefore,
@@ -1461,13 +1462,13 @@ async function runReflow(browser) {
     // THAT caret on the same screen (r3lanes4 ruling 3). This is still all
     // before the Enter listener arms, outside the measured window.
     const editSurface = editorId && EDIT_SURFACES[editorId] ? EDIT_SURFACES[editorId] : null;
+    const excludeSel = editSurface && editSurface.exclude ? editSurface.exclude : '';
     const before = await ctx.page.evaluate(gatherReflowBefore, {
+      editorId: editorId || '',
       docSel: reflowSel,
-      excludeSel: editSurface && editSurface.exclude ? editSurface.exclude : '',
-      // r3lanes4 rulings 3+4: the DOM census only. The anchor is the nearest
-      // unique block below the caret on the same screen; the picker travels
-      // as source because page.evaluate arguments must be serializable.
+      excludeSel,
       pickBelowSrc: PICK_ANCHOR_BELOW.toString(),
+      entriesSrc: C12_BLOCK_ENTRIES_PAGE_SRC,
     });
     if (!before.ok) {
       return {
@@ -1501,7 +1502,7 @@ async function runReflow(browser) {
     await ctx.page.keyboard.type('x', { delay: 0 });
     await ctx.page.waitForTimeout(50);
     const anchorIdentity = await ctx.page.evaluate(
-      ({ checkSrc, blockTextSrc }) => {
+      ({ checkSrc, blockTextSrc, entriesSrc, eid, excl, docSel }) => {
         const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
         let readBlock = (block) => norm(block.innerText || block.textContent);
         try {
@@ -1514,20 +1515,36 @@ async function runReflow(browser) {
           /* keep default */
         }
         const snapshot = window.__c12BeforeSnapshot;
-        const docSel = window.__c12DocSel;
-        if (!snapshot || !docSel) return { ok: true };
+        if (!snapshot || !docSel) return { ok: false, reason: 'anchor_identity_ambiguous' };
         let check = null;
+        let collect = null;
         try {
           // eslint-disable-next-line no-eval
           check = (0, eval)(`(function(){ ${checkSrc}; return ANCHOR_REFIND_CONTEXT_OK; })()`);
         } catch {
           check = null;
         }
-        if (typeof check !== 'function') return { ok: true };
-        const blocks = Array.from(document.querySelectorAll(docSel));
+        try {
+          // eslint-disable-next-line no-eval
+          collect = (0, eval)(`(function(){ ${entriesSrc}; return c12BlockEntries; })()`);
+        } catch {
+          collect = null;
+        }
+        if (typeof check !== 'function' || typeof collect !== 'function') {
+          return { ok: false, reason: 'anchor_identity_ambiguous' };
+        }
+        const entries = collect(eid, docSel, excl || '', readBlock);
+        const blocks = entries.map((entry) => entry.el);
         return check(snapshot, blocks, readBlock);
       },
-      { checkSrc: `${ANCHOR_REFIND_CONTEXT_OK_PAGE_SRC}`, blockTextSrc: `${C12_BLOCK_TEXT}` },
+      {
+        checkSrc: `${ANCHOR_REFIND_CONTEXT_OK_PAGE_SRC}`,
+        blockTextSrc: `${C12_BLOCK_TEXT}`,
+        entriesSrc: `${C12_BLOCK_ENTRIES_PAGE_SRC}`,
+        eid: editorId || '',
+        excl: excludeSel,
+        docSel: reflowSel,
+      },
     );
     if (anchorIdentity && anchorIdentity.ok === false) {
       return {
@@ -1686,6 +1703,68 @@ async function runReflow(browser) {
         blockTextSrc: `${C12_BLOCK_TEXT}`,
       },
     );
+    const endIdentity = await ctx.page.evaluate(
+      ({ checkSrc, blockTextSrc, entriesSrc, eid, excl, docSel }) => {
+        const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+        let readBlock = (block) => norm(block.innerText || block.textContent);
+        try {
+          // eslint-disable-next-line no-eval
+          const fn = eval(blockTextSrc);
+          if (typeof fn === 'function') {
+            readBlock = (block) => fn(block, norm);
+          }
+        } catch {
+          /* keep default */
+        }
+        const snapshot = window.__c12BeforeSnapshot;
+        if (!snapshot || !docSel) return { ok: false, reason: 'anchor_identity_ambiguous' };
+        let check = null;
+        let collect = null;
+        try {
+          // eslint-disable-next-line no-eval
+          check = (0, eval)(`(function(){ ${checkSrc}; return ANCHOR_REFIND_CONTEXT_OK; })()`);
+          // eslint-disable-next-line no-eval
+          collect = (0, eval)(`(function(){ ${entriesSrc}; return c12BlockEntries; })()`);
+        } catch {
+          return { ok: false, reason: 'anchor_identity_ambiguous' };
+        }
+        if (typeof check !== 'function' || typeof collect !== 'function') {
+          return { ok: false, reason: 'anchor_identity_ambiguous' };
+        }
+        const entries = collect(eid, docSel, excl || '', readBlock);
+        const blocks = entries.map((entry) => entry.el);
+        const verdict = check(snapshot, blocks, readBlock);
+        const refusal = window.__c12AnchorRefusal || null;
+        if (refusal) return { ok: false, reason: refusal };
+        return verdict;
+      },
+      {
+        checkSrc: `${ANCHOR_REFIND_CONTEXT_OK_PAGE_SRC}`,
+        blockTextSrc: `${C12_BLOCK_TEXT}`,
+        entriesSrc: `${C12_BLOCK_ENTRIES_PAGE_SRC}`,
+        eid: editorId || '',
+        excl: excludeSel,
+        docSel: reflowSel,
+      },
+    );
+    if (endIdentity && endIdentity.ok === false) {
+      return {
+        mode: 'reflow',
+        driver: 'playwright',
+        url,
+        navigation_ms: navigationMs,
+        ready_ms: readyMs,
+        before,
+        error: endIdentity.reason || 'anchor_identity_ambiguous',
+        moved: false,
+        anchor_top_after: null,
+        anchor_after_top: null,
+        shift_px: null,
+        window_excludes_forced_layout: true,
+        forced_layout_ms: 0,
+        page_errors: ctx.errors,
+      };
+    }
     const moved = Boolean(shift.moved) && after.top !== null && after.top > before.anchor_top + 0.5;
     const framePageMs = witness && witness.outcome === 'witnessed' ? witness.frame_page_ms : null;
     const raw = framePageMs === null ? null : framePageMs - inputPageMs;

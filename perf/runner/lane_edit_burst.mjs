@@ -47,7 +47,7 @@ export const PICK_ANCHOR_BELOW = (entries, caret, viewportHeight) => {
   if (!caret || !Number.isFinite(Number(caret.bottom))) {
     return {
       ok: false,
-      reason: 'no caret box at the insertion; the block below the caret cannot be identified',
+      reason: 'no caret box at the insertion; the paragraph below the caret cannot be identified',
       blocks: entries.length,
     };
   }
@@ -58,31 +58,53 @@ export const PICK_ANCHOR_BELOW = (entries, caret, viewportHeight) => {
       blocks: entries.length,
     };
   }
-  let anchor = null;
-  for (let i = 0; i < entries.length; i++) {
-    const entry = entries[i];
-    const top = Number(entry.top);
-    if (!entry.text || !Number.isFinite(top)) continue;
-    // Blocks flush under the caret (top ~= caret.bottom) still carry the shift.
-    if (top < Number(caret.bottom) - 0.5) continue;
-    if (top >= Number(viewportHeight)) continue;
-    if (!anchor || top < anchor.top) anchor = { ...entry, index: i, top };
+  let caretIndex = 0;
+  if (caret && Number.isFinite(Number(caret.bottom))) {
+    for (let idx = 0; idx < entries.length; idx++) {
+      const top = Number(entries[idx].top);
+      const bottom =
+        Number.isFinite(Number(entries[idx].bottom)) && Number(entries[idx].bottom) > top
+          ? Number(entries[idx].bottom)
+          : top + 1;
+      if (Number(caret.bottom) > top + 0.5 && Number(caret.top) < bottom - 0.5) {
+        caretIndex = idx;
+        break;
+      }
+    }
   }
-  if (!anchor) {
+  const anchorIndex = caretIndex + 1;
+  if (anchorIndex >= entries.length) {
     return {
       ok: false,
-      reason: 'no document block below the caret in the viewport; a y-shift could not be attributed',
+      reason: 'no document block below the caret paragraph; a y-shift could not be attributed',
+      blocks: entries.length,
+    };
+  }
+  const anchor = entries[anchorIndex];
+  const top = Number(anchor.top);
+  if (!anchor.text || !Number.isFinite(top)) {
+    return {
+      ok: false,
+      reason: 'anchor paragraph has no measurable box',
+      blocks: entries.length,
+    };
+  }
+  if (top >= Number(viewportHeight)) {
+    return {
+      ok: false,
+      reason: 'anchor paragraph is off the viewport; a y-shift could not be attributed',
       blocks: entries.length,
     };
   }
   let occurrence = 0;
-  for (let i = 0; i <= anchor.index; i++) {
+  for (let i = 0; i <= anchorIndex; i++) {
     if (entries[i].text === anchor.text) occurrence += 1;
   }
   return {
     ok: true,
     anchorText: anchor.text,
-    anchorIndex: anchor.index,
+    anchorIndex,
+    caretIndex,
     anchorOccurrence: occurrence,
     blockCount: entries.length,
     firstText: String(entries[0].text || '').slice(0, 40),
@@ -133,18 +155,17 @@ export const LIST_MODEL_PARAGRAPHS = (model) => {
 };
 
 /** Paint witness region for C12 reflow when it differs from the load surface. */
-export function reflowWitnessSelector(editorId) {
-  if (editorId === 'docxodus') return '#editorHost';
+export function reflowWitnessSelector(_editorId) {
   return '';
 }
 
 /** Block selector for C12 reflow after the shared adapter has entered edit mode. */
 export function reflowBlockSelector(editorId, fallback) {
   if (!editorId || !EDIT_SURFACES[editorId]) return fallback;
-  if (editorId === 'docxodus') return '#editorHost p, #editorHost [data-anchor]';
+  if (editorId === 'docxodus') return '#editorHost p';
   if (editorId === 'superdoc') return '#editor .superdoc-line';
-  if (editorId === 'genoffice') return '.doc-page p';
-  if (editorId === 'eigenpal') return '[data-paragraph-id]';
+  if (editorId === 'genoffice') return '.doc-page.ProseMirror:not(.mp-page) p';
+  if (editorId === 'eigenpal') return '.docx-paragraph-fragment';
   if (editorId === 'folio') return '.layout-page-content [data-block-id]';
   if (editorId === 'plate') return '.doc-paragraph';
   const surface = editSurface(editorId);
@@ -155,67 +176,108 @@ export function reflowBlockSelector(editorId, fallback) {
 /** Visible text of one reflow block; innerText matches what users see when runs split. */
 export const C12_BLOCK_TEXT = (block, norm) => norm(block.innerText || block.textContent);
 
-/**
- * Occurrence re-find is allowed only when the equal-text block count is unchanged
- * and the prefix before the anchor still matches (one Enter insertion permitted).
- */
-export function ANCHOR_REFIND_CONTEXT_OK(snapshot, blocks, readBlock) {
-  const caretBlockTextMatches = (beforeText, afterText) => {
-    if (beforeText === afterText) return true;
-    // The reflow probe types one ascii key after Enter at the caret block.
-    if (afterText === `x${beforeText}`) return true;
-    return false;
-  };
-  if (!snapshot || !snapshot.anchorText) return { ok: true };
-  const anchorText = snapshot.anchorText;
-  const texts = blocks.map((block) => readBlock(block)).filter((text) => text);
-  const beforeCount = Number(snapshot.anchorTextCount);
-  if (!Number.isFinite(beforeCount)) return { ok: true };
-  const afterCount = texts.filter((text) => text === anchorText).length;
+/** Paragraph-level painted blocks for C12: one census across before, after, identity and re-find. */
+export function c12BlockEntries(editorId, docSel, excludeSel, readBlock) {
+  const excluded = excludeSel ? Array.from(document.querySelectorAll(excludeSel)) : [];
+  const skip = (el) => excluded.some((root) => root === el || root.contains(el));
+  const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+  const read = (el) => norm(readBlock(el));
+
+  if (editorId === 'superdoc') {
+    const lines = Array.from(document.querySelectorAll('#editor .superdoc-line')).filter((el) => !skip(el));
+    const order = [];
+    const groups = new Map();
+    for (const line of lines) {
+      let pid = line.getAttribute('data-paragraph-id');
+      if (!pid) {
+        const holder = line.closest('[data-paragraph-id]');
+        pid = holder ? holder.getAttribute('data-paragraph-id') : '';
+      }
+      if (!pid) pid = `__singleton__:${order.length}`;
+      if (!groups.has(pid)) {
+        groups.set(pid, []);
+        order.push(pid);
+      }
+      groups.get(pid).push(line);
+    }
+    const out = [];
+    for (const pid of order) {
+      const grp = groups.get(pid);
+      const text = norm(grp.map((el) => readBlock(el)).join(' '));
+      if (!text) continue;
+      const el = grp[0];
+      const rect = el.getBoundingClientRect();
+      out.push({ el, text, top: rect.top, bottom: rect.bottom });
+    }
+    out.sort((a, b) => a.top - b.top);
+    return out;
+  }
+
+  let query = docSel;
+  if (editorId === 'eigenpal') query = '.docx-paragraph-fragment';
+  else if (editorId === 'genoffice') query = '.doc-page.ProseMirror:not(.mp-page) p';
+  else if (editorId === 'docxodus') query = '#editorHost p';
+  else if (editorId === 'folio') query = '.layout-page-content [data-block-id]';
+  else if (editorId === 'plate') query = '.doc-paragraph';
+
+  return Array.from(document.querySelectorAll(query))
+    .filter((el) => !skip(el))
+    .map((el) => {
+      const text = read(el);
+      if (!text) return null;
+      const rect = el.getBoundingClientRect();
+      return { el, text, top: rect.top, bottom: rect.bottom };
+    })
+    .filter(Boolean);
+}
+
+/** Resolve anchor paragraph index after Enter+x (r3c12d ruling 3). */
+export function C12_RESOLVE_ANCHOR_INDEX(snapshot, texts, norm) {
+  const n = (t) => norm(t);
+  const joinMid = (parts) => n(parts.filter((p) => n(p)).join(' '));
+  if (!snapshot || !Array.isArray(snapshot.blockTexts)) {
+    return { ok: false, reason: 'anchor_identity_ambiguous' };
+  }
+  const B = snapshot.blockTexts.map(n);
+  const A = texts.map(n);
+  const c = Number(snapshot.caretIndex);
+  const i = Number(snapshot.anchorIndex);
+  const anchorText = n(snapshot.anchorText || B[i] || '');
+  if (!Number.isFinite(c) || !Number.isFinite(i) || c < 0 || i < 0) {
+    return { ok: false, reason: 'anchor_identity_ambiguous' };
+  }
+  const beforeCount = B.filter((t) => t === anchorText).length;
+  const afterCount = A.filter((t) => t === anchorText).length;
   if (afterCount !== beforeCount) {
     return { ok: false, reason: 'anchor_identity_ambiguous' };
   }
-  if (beforeCount === 1) {
-    return { ok: true };
+  const prefixEq = (a, b) => a.length === b.length && a.every((t, k) => t === b[k]);
+  const candidates = [];
+  for (let j = 0; j < A.length; j++) {
+    const delta = j - i;
+    if (delta !== 0 && delta !== 1) continue;
+    if (!prefixEq(A.slice(0, c), B.slice(0, c))) continue;
+    const change = joinMid(A.slice(c, j));
+    const expected = n(`x${B[c]}`);
+    if (change !== expected) continue;
+    const K = Math.max(1, Math.min(5, A.length - j, B.length - i));
+    if (!prefixEq(A.slice(j, j + K), B.slice(i, i + K))) continue;
+    candidates.push(j);
   }
-  const wantOccurrence = Number(snapshot.anchorOccurrence);
-  if (!Number.isFinite(wantOccurrence) || wantOccurrence < 1) return { ok: true };
-  let seen = 0;
-  let afterAnchorIndex = -1;
-  for (let i = 0; i < texts.length; i++) {
-    if (texts[i] !== anchorText) continue;
-    seen += 1;
-    if (seen === wantOccurrence) {
-      afterAnchorIndex = i;
-      break;
-    }
-  }
-  if (afterAnchorIndex < 0) return { ok: false, reason: 'anchor_identity_ambiguous' };
-  const beforePrefix = Array.isArray(snapshot.prefixTexts) ? snapshot.prefixTexts : [];
-  const afterPrefix = texts.slice(0, afterAnchorIndex);
-  if (afterPrefix.length === beforePrefix.length) {
-    if (beforePrefix.length && !caretBlockTextMatches(beforePrefix[0], afterPrefix[0])) {
-      return { ok: false, reason: 'anchor_identity_ambiguous' };
-    }
-    if (afterPrefix.slice(1).join('\u0000') !== beforePrefix.slice(1).join('\u0000')) {
-      return { ok: false, reason: 'anchor_identity_ambiguous' };
-    }
-    return { ok: true };
-  }
-  if (afterPrefix.length === beforePrefix.length + 1) {
-    if (beforePrefix.length === 0) return { ok: false, reason: 'anchor_identity_ambiguous' };
-    if (!caretBlockTextMatches(beforePrefix[0], afterPrefix[0])) {
-      return { ok: false, reason: 'anchor_identity_ambiguous' };
-    }
-    if (afterPrefix.slice(2).join('\u0000') !== beforePrefix.slice(1).join('\u0000')) {
-      return { ok: false, reason: 'anchor_identity_ambiguous' };
-    }
-    return { ok: true };
-  }
-  return { ok: false, reason: 'anchor_identity_ambiguous' };
+  if (candidates.length !== 1) return { ok: false, reason: 'anchor_identity_ambiguous' };
+  return { ok: true, anchorIndex: candidates[0] };
 }
 
-/** Pick the anchor block among equal-text matches after a DOM re-render. */
+export function ANCHOR_REFIND_CONTEXT_OK(snapshot, blocks, readBlock) {
+  const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+  if (!snapshot || !Array.isArray(snapshot.blockTexts)) {
+    return { ok: false, reason: 'anchor_identity_ambiguous' };
+  }
+  const texts = blocks.map((block) => norm(readBlock(block))).filter((text) => text);
+  return C12_RESOLVE_ANCHOR_INDEX(snapshot, texts, norm);
+}
+
+/** Pick the anchor block at the resolved paragraph index after a DOM re-render. */
 export function REFIND_ANCHOR(
   docSel,
   anchorText,
@@ -225,58 +287,43 @@ export function REFIND_ANCHOR(
   anchorOccurrence = null,
 ) {
   if (!anchorText || !docSel) return null;
-  const blocks = Array.from(document.querySelectorAll(docSel));
+  const editorId = typeof window !== 'undefined' ? window.__c12EditorId || '' : '';
+  const excludeSel = typeof window !== 'undefined' ? window.__c12ExcludeSel || '' : '';
+  const snapshot = typeof window !== 'undefined' ? window.__c12BeforeSnapshot : null;
   const readBlock =
     typeof blockText === 'function'
       ? blockText
       : (block, normalizer) => normalizer(block.innerText || block.textContent);
   const read = (block) => readBlock(block, norm);
-  const snapshot = typeof window !== 'undefined' ? window.__c12BeforeSnapshot : null;
-  const useOccurrence = Number.isFinite(Number(anchorOccurrence)) && Number(anchorOccurrence) >= 1;
-  if (useOccurrence && snapshot) {
-    const check = ANCHOR_REFIND_CONTEXT_OK(snapshot, blocks, read);
-    if (!check.ok) {
-      if (typeof window !== 'undefined') window.__c12AnchorRefusal = check.reason;
-      return null;
-    }
-  }
-  if (useOccurrence) {
-    let seen = 0;
-    for (const block of blocks) {
-      if (read(block) !== anchorText) continue;
-      seen += 1;
-      if (seen === Number(anchorOccurrence)) return block;
-    }
+  const entries = c12BlockEntries(editorId, docSel, excludeSel, read);
+  if (!snapshot || !Array.isArray(snapshot.blockTexts)) {
+    if (typeof window !== 'undefined') window.__c12AnchorRefusal = 'anchor_identity_ambiguous';
     return null;
   }
-  const matches = blocks.filter((block) => blockText(block, norm) === anchorText);
-  if (matches.length === 1) return matches[0];
-  if (matches.length > 1 && Number.isFinite(Number(anchorTop))) {
-    let best = null;
-    let bestDist = Infinity;
-    for (const block of matches) {
-      const top = block.getBoundingClientRect().top;
-      const dist = Math.abs(top - Number(anchorTop));
-      if (dist < bestDist) {
-        bestDist = dist;
-        best = block;
-      }
-    }
-    return best;
+  const texts = entries.map((entry) => entry.text);
+  const resolved = C12_RESOLVE_ANCHOR_INDEX(snapshot, texts, norm);
+  if (!resolved.ok) {
+    if (typeof window !== 'undefined') window.__c12AnchorRefusal = resolved.reason;
+    return null;
   }
-  return null;
+  const j = resolved.anchorIndex;
+  const kept = typeof window !== 'undefined' ? window.__c12AnchorEl : null;
+  if (kept && kept.isConnected && entries[j] && kept === entries[j].el) return kept;
+  return entries[j] ? entries[j].el : null;
 }
 
 const toPageExport = (fn) => fn.toString().replace(/^export\s+/, '');
 
 /** Page-evaluable source for ANCHOR_REFIND_CONTEXT_OK alone. */
-export const ANCHOR_REFIND_CONTEXT_OK_PAGE_SRC = toPageExport(ANCHOR_REFIND_CONTEXT_OK);
+export const ANCHOR_REFIND_CONTEXT_OK_PAGE_SRC = `${toPageExport(c12BlockEntries)};\n${toPageExport(C12_RESOLVE_ANCHOR_INDEX)};\n${toPageExport(ANCHOR_REFIND_CONTEXT_OK)}`;
 
 /** Both helpers eval'd together in the page (REFIND_ANCHOR calls ANCHOR_REFIND_CONTEXT_OK). */
 export const REFIND_ANCHOR_PAGE_SRC = `${ANCHOR_REFIND_CONTEXT_OK_PAGE_SRC};\n${toPageExport(REFIND_ANCHOR)}`;
 
+export const C12_BLOCK_ENTRIES_PAGE_SRC = toPageExport(c12BlockEntries);
+
 /** Page context. C12 block census after the caret is placed (light-DOM blocks). */
-export function gatherReflowBefore({ docSel, pickBelowSrc, excludeSel }) {
+export function gatherReflowBefore({ editorId, docSel, pickBelowSrc, excludeSel, entriesSrc }) {
   // The shared picker (PICK_ANCHOR_BELOW) travels as source: page.evaluate
   // arguments must be serializable values.
   let pickBelow = null;
@@ -309,15 +356,22 @@ export function gatherReflowBefore({ docSel, pickBelowSrc, excludeSel }) {
 
   const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
   const readBlock = (block) => norm(block.innerText || block.textContent);
-  const excluded = excludeSel ? Array.from(document.querySelectorAll(excludeSel)) : [];
-  const entries = Array.from(document.querySelectorAll(docSel))
-    .filter((block) => !excluded.some((root) => root === block || root.contains(block)))
-    .map((block) => ({
-      el: block,
-      text: readBlock(block),
-      top: block.getBoundingClientRect().top,
-    }))
-    .filter((entry) => entry.text);
+  let collect = null;
+  if (typeof entriesSrc === 'string' && entriesSrc) {
+    try {
+      // eslint-disable-next-line no-eval
+      collect = (0, eval)(`(function(){ ${entriesSrc}; return c12BlockEntries; })()`);
+    } catch {
+      collect = null;
+    }
+  }
+  const eid = String(editorId || '');
+  const entries =
+    typeof collect === 'function'
+      ? collect(eid, docSel, excludeSel || '', readBlock)
+      : [];
+  window.__c12EditorId = eid;
+  window.__c12ExcludeSel = excludeSel || '';
   let caret = caretBox();
   // Some hosts keep the selection in an off-DOM textbox; Home then reports
   // (0,0). After restoreReflowCaret, treat the caret as inside the first
@@ -348,6 +402,8 @@ export function gatherReflowBefore({ docSel, pickBelowSrc, excludeSel }) {
     anchorTextCount,
     anchorOccurrence: picked.anchorOccurrence,
     anchorIndex: picked.anchorIndex,
+    caretIndex: picked.caretIndex,
+    blockTexts,
   };
   return {
     ok: true,
