@@ -143,16 +143,11 @@ DOCUMENT_TARGETS = {
             "Array.from(document.querySelectorAll('.doc-paragraph'))"
             ".map((el) => (el.textContent || '').trim()).join('').length > 20"
         ),
-        "find_input_selector": (
-            "input[placeholder*=\"Find\" i], input[placeholder*=\"Search\" i], "
-            "[class*=\"find\"] input, [class*=\"search\"] input"
-        ),
-        "find_count_selector": "[class*=\"count\"], [class*=\"result\"], [role=\"status\"]",
+        "find_input_selector": None,
+        "find_count_selector": None,
         "find_query": "NEEDLE",
         "find_expected_matches": 5,
-        "find_source_note": (
-            "source reading: the host's Plate plugin set (harness/ui/plate/src/main.tsx) contains no find plugin"
-        ),
+        "find_source_note": "no find UI in the measured host",
         "note": (
             "Report C and the design doc record plate as one continuous flow, so page count is not applicable "
             "by design; the first block is the first-page equivalent."
@@ -221,17 +216,11 @@ DOCUMENT_TARGETS = {
             "return getComputedStyle(p).visibility === 'visible' && r.width > 0 && r.height > 0 && "
             "!document.querySelector('[data-docx-opening-preview], [data-docx-layout-pending]'); })()"
         ),
-        "find_input_selector": (
-            "input[placeholder*=\"Find\" i], input[placeholder*=\"Search\" i], "
-            "[class*=\"find\"] input, [class*=\"search\"] input"
-        ),
-        "find_count_selector": "[class*=\"count\"], [role=\"status\"]",
+        "find_input_selector": None,
+        "find_count_selector": None,
         "find_query": "NEEDLE",
         "find_expected_matches": 5,
-        "find_source_note": (
-            "probe observation (this change): no find widget appears after Control+f/Meta+f on this host; "
-            "the generic selector set stays so a future toolbar changes the verdict without a config edit"
-        ),
+        "find_source_note": "no find UI in the measured host",
         "note": (
             "Paged host that materialises pages lazily: only pages near the viewport carry DOM text, so a "
             "ready gate must not require document text (the short rung's only real text is on a "
@@ -321,10 +310,11 @@ DOCUMENT_TARGETS = {
             "let n = 0; ps.forEach((el) => { n += (el.textContent || '').trim().length; }); "
             "return n > 20; })()"
         ),
-        "find_source_note": (
-            "no find UI on this host: probe --mode find (2026-11-08, /tmp/perf-run-logs/doc-config-docxodus-find.json) "
-            "returned not_applicable 'no find widget appears after Control+f/Meta+f'"
-        ),
+        "find_input_selector": None,
+        "find_count_selector": None,
+        "find_query": "NEEDLE",
+        "find_expected_matches": 5,
+        "find_source_note": "no find UI in the measured host",
         "note": (
             "Default surface is convertDocxToPaginatedHtml output: materialized .page-box page divs "
             "(816x1056 at 1280px) with one p per source paragraph, static (no caret). The Block-editor mount "
@@ -380,12 +370,14 @@ DOCUMENT_TARGETS = {
         "edit_selector": ".doc-page.ProseMirror:not(.mp-page) p",
         "ready_selector": ".doc-page",
         "ready_js": None,
-        "find_input_selector": ".find-input",
-        "find_count_selector": ".find-count",
+        "find_input_selector": None,
+        "find_count_selector": None,
         "find_query": "NEEDLE",
         "find_expected_matches": 5,
         "find_source_note": (
-            "source reading: genoffice FindPanel.tsx renders .find-input and an aria-live .find-count (repos/genoffice/apps/docs/src/renderer/components/FindPanel.tsx:517,532); the count selector was not exercised end-to-end in this change"
+            "no find UI in the measured host: FindPanel exists in the product app, but the trial host "
+            "opens find only after the editor has focus (click) and then Control+f; the C15 probe drives "
+            "a shortcut alone"
         ),
         "settle_ms": 800,
         "note": (
@@ -403,17 +395,11 @@ DOCUMENT_TARGETS = {
             "const text = Array.from(pages).map((p) => (p.textContent || '').trim()).join(''); "
             "return text.length > 20; })()"
         ),
-        "find_input_selector": (
-            "input[placeholder*=\"Find\" i], input[placeholder*=\"Search\" i], "
-            "[class*=\"find\"] input, [class*=\"search\"] input"
-        ),
-        "find_count_selector": "[class*=\"count\"], [role=\"status\"]",
+        "find_input_selector": None,
+        "find_count_selector": None,
         "find_query": "NEEDLE",
         "find_expected_matches": 5,
-        "find_source_note": (
-            "source reading: SuperDoc ships a .sd-find-replace surface and superdoc.ui.search, but this host "
-            "constructs SuperDoc without a UI handle"
-        ),
+        "find_source_note": "no find UI in the measured host",
         "note": (
             "SuperDoc v2 renders absolutely positioned .superdoc-page boxes with one .superdoc-line per laid-out "
             "line and edits through a hidden textarea, so block boxes exist for the y-shift assertion."
