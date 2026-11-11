@@ -136,32 +136,37 @@ export function gatherReflowBefore({ docSel, editorId, useModel, model }) {
     return null;
   };
 
-  const pickAnchor = (texts) => {
-    if (texts.length < 2) {
+  const pickAnchor = (entries) => {
+    if (entries.length < 2) {
       return { ok: false, reason: 'fewer than two document blocks; nothing below the insertion to move' };
     }
     const counts = new Map();
-    for (const text of texts) {
-      counts.set(text, (counts.get(text) || 0) + 1);
+    for (const entry of entries) {
+      counts.set(entry.text, (counts.get(entry.text) || 0) + 1);
     }
-    let anchorText = null;
-    let anchorIndex = -1;
-    for (let i = texts.length - 1; i >= 1; i--) {
-      const text = texts[i];
-      if (text && counts.get(text) === 1) {
-        anchorText = text;
-        anchorIndex = i;
+    let anchor = null;
+    for (let i = entries.length - 1; i >= 1; i--) {
+      const entry = entries[i];
+      if (entry.text && counts.get(entry.text) === 1) {
+        anchor = { ...entry, index: i };
         break;
       }
     }
-    if (!anchorText) {
+    if (!anchor) {
       return {
         ok: false,
         reason: 'no block below the insertion point has unique non-empty text; a y-shift could not be attributed',
-        blocks: texts.length,
+        blocks: entries.length,
       };
     }
-    return { ok: true, anchorText, anchorIndex, blockCount: texts.length, firstText: texts[0].slice(0, 40) };
+    return {
+      ok: true,
+      anchorText: anchor.text,
+      anchorIndex: anchor.index,
+      anchorEl: anchor.el || null,
+      blockCount: entries.length,
+      firstText: entries[0].text.slice(0, 40),
+    };
   };
 
   if (useModel) {
@@ -169,7 +174,7 @@ export function gatherReflowBefore({ docSel, editorId, useModel, model }) {
     if (!Array.isArray(paragraphs)) {
       return { ok: false, reason: 'fewer than two document blocks; nothing below the insertion to move' };
     }
-    const picked = pickAnchor(paragraphs);
+    const picked = pickAnchor(paragraphs.map((text) => ({ text })));
     if (!picked.ok) return picked;
     const proxy = yProxy(editorId);
     if (!proxy) {
@@ -192,13 +197,14 @@ export function gatherReflowBefore({ docSel, editorId, useModel, model }) {
     };
   }
 
-  const blocks = Array.from(document.querySelectorAll(docSel));
-  const texts = blocks.map((block) => (block.textContent || '').trim()).filter(Boolean);
-  const picked = pickAnchor(texts);
+  const entries = Array.from(document.querySelectorAll(docSel))
+    .map((block) => ({ el: block, text: (block.textContent || '').trim() }))
+    .filter((entry) => entry.text);
+  const picked = pickAnchor(entries);
   if (!picked.ok) {
-    return { ...picked, blocks: blocks.length };
+    return { ...picked, blocks: entries.length };
   }
-  window.__c12AnchorEl = blocks[picked.anchorIndex];
+  window.__c12AnchorEl = picked.anchorEl;
   window.__c12AnchorTop = window.__c12AnchorEl.getBoundingClientRect().top;
   window.__c12AnchorText = picked.anchorText;
   window.__c12DocSel = docSel;
