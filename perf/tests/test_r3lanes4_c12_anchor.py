@@ -152,12 +152,12 @@ class DocxodusC12IsProbed(unittest.TestCase):
         self.assertIn("PICK_ANCHOR_BELOW", text)
         self.assertIn("pickBelow", text)
 
-    def test_c12_reflow_witness_uses_the_shared_document_region(self):
+    def test_c12_reflow_witness_uses_editor_host_only_for_docxodus_block_mode(self):
         text = (REPO / "perf/runner/document_probe.mjs").read_text(encoding="utf-8")
         self.assertIn("reflowDocumentRegion", text)
         burst = LANE_EDIT_BURST.read_text(encoding="utf-8")
         self.assertIn("reflowWitnessSelector", burst)
-        self.assertNotIn("if (editorId === 'docxodus') return '#editorHost'", burst)
+        self.assertIn("if (editorId === 'docxodus') return '#editorHost'", burst)
 
 
 class ReflowBlockSelectors(NodeContract):

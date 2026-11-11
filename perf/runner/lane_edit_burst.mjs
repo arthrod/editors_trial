@@ -155,7 +155,10 @@ export const LIST_MODEL_PARAGRAPHS = (model) => {
 };
 
 /** Paint witness region for C12 reflow when it differs from the load surface. */
-export function reflowWitnessSelector(_editorId) {
+export function reflowWitnessSelector(editorId) {
+  // Docxodus block-editor mode paints only inside #editorHost; the paginated
+  // viewer chrome would otherwise pollute the shared documentRegion witness.
+  if (editorId === 'docxodus') return '#editorHost';
   return '';
 }
 
