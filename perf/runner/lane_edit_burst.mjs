@@ -20,8 +20,14 @@ import {
 export const LANE_LOAD_TIMEOUT_MS = 600_000;
 export const LANE_POLL_BOUND_MS = 600_000;
 
-/** Editors whose C12 blocks are read from the editor model, not light-DOM text nodes. */
-export const REFLOW_MODEL_EDITORS = new Set(['canvas', 'docen']);
+/**
+ * Editors whose C12 has no paragraph geometry (r3lanes4 ruling 4): the host
+ * paints whole pages (canvas pixels / a shadow model) and the only DOM box is
+ * the page container, which is not a paragraph. A y-shift of the container can
+ * never be attributed to one paragraph, so C12 is not_applicable for them —
+ * never measured from a page box.
+ */
+export const C12_NO_PARAGRAPH_GEOMETRY = new Set(['canvas', 'docen']);
 
 /**
  * The C12 anchor: the nearest unique block BELOW the caret that is on the
@@ -82,21 +88,11 @@ export const PICK_ANCHOR_BELOW = (entries, caret, viewportHeight) => {
 };
 
 
-/** Block selector for C12 reflow after the shared adapter has entered edit mode. */
-export function reflowBlockSelector(editorId, fallback) {
-  if (!editorId || !EDIT_SURFACES[editorId]) return fallback;
-  if (editorId === 'docxodus') return '#editorHost p, #editorHost [data-anchor]';
-  if (editorId === 'superdoc') return '.superdoc-line';
-  if (editorId === 'genoffice') return '.doc-page p';
-  if (editorId === 'eigenpal') return '[data-paragraph-id]';
-  if (editorId === 'folio') return '.layout-page-content [data-block-id]';
-  if (editorId === 'plate') return '.doc-paragraph';
-  const surface = editSurface(editorId);
-  if (surface.kind === 'dom' && surface.block) return surface.block;
-  return fallback;
-}
-
-/** Page context: paragraph texts from the model APIs canvas/docen use elsewhere. */
+/**
+ * Page context: paragraph texts from the canvas/docen model APIs. Used only
+ * as C12 evidence (the paragraphs that exist in the model while the DOM has
+ * no paragraph boxes); never a measurement path (r3lanes4 ruling 4).
+ */
 export const LIST_MODEL_PARAGRAPHS = (model) => {
   if (model === 'docen') {
     const editor = window.__DOCEN__ && window.__DOCEN__.editor;
@@ -134,21 +130,22 @@ export const LIST_MODEL_PARAGRAPHS = (model) => {
   return null;
 };
 
-/** Page context: y-shift proxy for canvas/docen when paragraphs live only in the model. */
-export const REFLOW_Y_PROXY = (editorId) => {
-  if (editorId === 'canvas') {
-    return document.querySelector('#editor .ce-page-container');
-  }
-  if (editorId === 'docen') {
-    const host = document.querySelector('docen-document');
-    const root = host && host.shadowRoot;
-    return (root && root.querySelector('.canvas-pages > div')) || null;
-  }
-  return null;
-};
+/** Block selector for C12 reflow after the shared adapter has entered edit mode. */
+export function reflowBlockSelector(editorId, fallback) {
+  if (!editorId || !EDIT_SURFACES[editorId]) return fallback;
+  if (editorId === 'docxodus') return '#editorHost p, #editorHost [data-anchor]';
+  if (editorId === 'superdoc') return '.superdoc-line';
+  if (editorId === 'genoffice') return '.doc-page p';
+  if (editorId === 'eigenpal') return '[data-paragraph-id]';
+  if (editorId === 'folio') return '.layout-page-content [data-block-id]';
+  if (editorId === 'plate') return '.doc-paragraph';
+  const surface = editSurface(editorId);
+  if (surface.kind === 'dom' && surface.block) return surface.block;
+  return fallback;
+}
 
-/** Page context. C12 block census after edit-surface prep (dom or model paragraphs). */
-export function gatherReflowBefore({ docSel, editorId, useModel, model, pickBelowSrc }) {
+/** Page context. C12 block census after the caret is placed (light-DOM blocks). */
+export function gatherReflowBefore({ docSel, pickBelowSrc }) {
   // The shared picker (PICK_ANCHOR_BELOW) travels as source: page.evaluate
   // arguments must be serializable values.
   let pickBelow = null;
@@ -160,85 +157,6 @@ export function gatherReflowBefore({ docSel, editorId, useModel, model, pickBelo
       pickBelow = null;
     }
   }
-  const listModelParagraphs = (kind) => {
-    if (kind === 'docen') {
-      const editor = window.__DOCEN__ && window.__DOCEN__.editor;
-      if (!editor || !editor.state) return null;
-      const out = [];
-      editor.state.doc.descendants((node) => {
-        if (node.isTextblock) {
-          const text = String(node.textContent || '').trim();
-          if (text) out.push(text);
-        }
-      });
-      return out;
-    }
-    if (kind === 'canvas_editor') {
-      const inst = window.__CANVAS_EDITOR_INSTANCE__;
-      const cmd = inst && inst.command;
-      if (!cmd || typeof cmd.getValue !== 'function') return null;
-      const out = [];
-      const walk = (node) => {
-        if (Array.isArray(node)) return node.forEach(walk);
-        if (!node || typeof node !== 'object') return;
-        if (typeof node.value === 'string') {
-          const text = node.value.trim();
-          if (text) out.push(text);
-        }
-        for (const key of ['valueList', 'trList', 'tdList']) {
-          if (node[key]) walk(node[key]);
-        }
-      };
-      const data = cmd.getValue().data;
-      if (!data || typeof data !== 'object') return null;
-      for (const zone of ['header', 'main', 'footer']) walk(data[zone]);
-      return out;
-    }
-    return null;
-  };
-  const yProxy = (key) => {
-    if (key === 'canvas') return document.querySelector('#editor .ce-page-container');
-    if (key === 'docen') {
-      const host = document.querySelector('docen-document');
-      const root = host && host.shadowRoot;
-      return (root && root.querySelector('.canvas-pages > div')) || null;
-    }
-    return null;
-  };
-
-  const pickAnchor = (entries) => {
-    if (entries.length < 2) {
-      return { ok: false, reason: 'fewer than two document blocks; nothing below the insertion to move' };
-    }
-    const counts = new Map();
-    for (const entry of entries) {
-      counts.set(entry.text, (counts.get(entry.text) || 0) + 1);
-    }
-    let anchor = null;
-    for (let i = entries.length - 1; i >= 1; i--) {
-      const entry = entries[i];
-      if (entry.text && counts.get(entry.text) === 1) {
-        anchor = { ...entry, index: i };
-        break;
-      }
-    }
-    if (!anchor) {
-      return {
-        ok: false,
-        reason: 'no block below the insertion point has unique non-empty text; a y-shift could not be attributed',
-        blocks: entries.length,
-      };
-    }
-    return {
-      ok: true,
-      anchorText: anchor.text,
-      anchorIndex: anchor.index,
-      anchorEl: anchor.el || null,
-      blockCount: entries.length,
-      firstText: entries[0].text.slice(0, 40),
-    };
-  };
-
   // The caret box of the placed caret, read before any Enter: the anchor is
   // the block below THIS box on the same screen (r3lanes4 ruling 3).
   const caretBox = () => {
@@ -257,34 +175,6 @@ export function gatherReflowBefore({ docSel, editorId, useModel, model, pickBelo
       return null;
     }
   };
-
-  if (useModel) {
-    const paragraphs = listModelParagraphs(model);
-    if (!Array.isArray(paragraphs)) {
-      return { ok: false, reason: 'fewer than two document blocks; nothing below the insertion to move' };
-    }
-    const picked = pickAnchor(paragraphs.map((text) => ({ text })));
-    if (!picked.ok) return picked;
-    const proxy = yProxy(editorId);
-    if (!proxy) {
-      return { ok: false, reason: 'edit target has no box' };
-    }
-    window.__c12AnchorEl = proxy;
-    window.__c12AnchorTop = proxy.getBoundingClientRect().top;
-    window.__c12AnchorText = picked.anchorText;
-    window.__c12DocSel = docSel;
-    window.__c12ModelReflow = true;
-    return {
-      ok: true,
-      blocks: picked.blockCount,
-      anchor_index: picked.anchorIndex,
-      anchor_text: picked.anchorText,
-      anchor_top: window.__c12AnchorTop,
-      first_block_top: window.__c12AnchorTop,
-      first_block_text: picked.firstText,
-      model_oracle: model,
-    };
-  }
 
   const entries = Array.from(document.querySelectorAll(docSel))
     .map((block) => ({

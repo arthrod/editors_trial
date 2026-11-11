@@ -65,9 +65,10 @@ import { openingContentVerdict } from './perf_model_text.mjs';
 import { hasDocumentTextSurface, readAndGateDocumentText } from './edit_surface.mjs';
 import { startChromeTrace, stopChromeTrace } from './chrome_trace.mjs';
 import {
-  gatherReflowBefore,
+  C12_NO_PARAGRAPH_GEOMETRY,
+  LIST_MODEL_PARAGRAPHS,
   PICK_ANCHOR_BELOW,
-  REFLOW_MODEL_EDITORS,
+  gatherReflowBefore,
   prepareLaneCaret,
   reflowBlockSelector,
 } from './lane_edit_burst.mjs';
@@ -1307,6 +1308,51 @@ async function runReflow(browser) {
     const readyMs = await waitForReady(ctx.page);
     if (settleMs > 0) await ctx.page.waitForTimeout(settleMs);
 
+    if (editorId && C12_NO_PARAGRAPH_GEOMETRY.has(editorId)) {
+      // r3lanes4 ruling 4: the page container is not a paragraph. canvas and
+      // docen paint whole pages; no DOM block box can carry a paragraph's
+      // y-shift, so C12 is not_applicable with the census as evidence —
+      // never measured from a page box.
+      const modelKind = EDIT_SURFACES[editorId] && EDIT_SURFACES[editorId].model;
+      const census = await ctx.page.evaluate(
+        ({ modelSrc, model, docSel }) => {
+          let modelParagraphs = null;
+          try {
+            if (typeof modelSrc === 'string' && modelSrc) {
+              // eslint-disable-next-line no-eval
+              const list = eval(modelSrc);
+              const paragraphs = list(model);
+              modelParagraphs = Array.isArray(paragraphs) ? paragraphs.length : null;
+            }
+          } catch {
+            modelParagraphs = null;
+          }
+          const blocks = Array.from(document.querySelectorAll(docSel));
+          const withText = blocks.filter((block) => (block.textContent || '').trim()).length;
+          return { model_paragraphs: modelParagraphs, dom_blocks: withText, dom_nodes: blocks.length };
+        },
+        { modelSrc: LIST_MODEL_PARAGRAPHS.toString(), model: modelKind, docSel: docSelector || editSelector },
+      );
+      const container =
+        editorId === 'canvas'
+          ? '#editor .ce-page-container (host paints into <canvas>)'
+          : 'docen-document shadow .canvas-pages > div (page pitch)';
+      return {
+        mode: 'reflow',
+        status: 'not_applicable',
+        reason:
+          `no paragraph geometry to attribute a C12 y-shift: this host paints whole pages ` +
+          `(${container}); the only DOM box is the page container, which is not a paragraph ` +
+          `(model_paragraphs=${census.model_paragraphs}, dom_blocks=${census.dom_blocks})`,
+        evidence: { ...census, page_container: container, model: modelKind },
+        navigation_ms: navigationMs,
+        ready_ms: readyMs,
+        window_excludes_forced_layout: true,
+        forced_layout_ms: 0,
+        page_errors: ctx.errors,
+      };
+    }
+
     if (editorId) {
       const prepared = await prepareLaneCaret(ctx.page, editorId, editSelector, { timeoutMs });
       if (prepared.placeError) {
@@ -1324,7 +1370,6 @@ async function runReflow(browser) {
     }
 
     const reflowSel = reflowBlockSelector(editorId, docSelector);
-    const modelReflow = editorId && REFLOW_MODEL_EDITORS.has(editorId);
 
     if (!editorId) {
       const box = await ctx.page.locator(editSelector).first().boundingBox();
@@ -1354,11 +1399,9 @@ async function runReflow(browser) {
     // before the Enter listener arms, outside the measured window.
     const before = await ctx.page.evaluate(gatherReflowBefore, {
       docSel: reflowSel,
-      editorId,
-      useModel: modelReflow,
-      model: modelReflow ? EDIT_SURFACES[editorId].model : null,
-      // Playwright cannot serialize a function argument, so the shared
-      // picker travels as its source.
+      // r3lanes4 rulings 3+4: the DOM census only. The anchor is the nearest
+      // unique block below the caret on the same screen; the picker travels
+      // as source because page.evaluate arguments must be serializable.
       pickBelowSrc: PICK_ANCHOR_BELOW.toString(),
     });
     if (!before.ok) {
@@ -1422,14 +1465,12 @@ async function runReflow(browser) {
     // frame of that reflow. The first paint after Enter is not the reflow.
     // The no-read window is already closed, so this poll is not inside it.
     const shift = await ctx.page.evaluate(() => {
-      const modelReflow = window.__c12ModelReflow === true;
       let el = window.__c12AnchorEl;
       const before = window.__c12AnchorTop;
       const anchorText = window.__c12AnchorText;
       const docSel = window.__c12DocSel;
       const deadline = performance.now() + 4000;
       const refind = () => {
-        if (modelReflow) return window.__c12AnchorEl;
         if (!anchorText || !docSel) return null;
         // A text re-find must be unique among current blocks: an edit that
         // duplicates the anchor's text would otherwise report the duplicate's
@@ -1439,7 +1480,7 @@ async function runReflow(browser) {
       };
       return new Promise((resolve) => {
         const step = () => {
-          if (!el || (!modelReflow && !el.isConnected)) el = refind();
+          if (!el || !el.isConnected) el = refind();
           if (!el || typeof before !== 'number') {
             resolve({ moved: false, top: null, at: null });
             return;
@@ -1475,14 +1516,11 @@ async function runReflow(browser) {
       });
     }
     const after = await ctx.page.evaluate(
-      ({ docSel, anchorText, modelReflow }) => {
+      ({ docSel, anchorText }) => {
         const kept = window.__c12AnchorEl;
         let el = null;
         let matchedBy = null;
-        if (modelReflow && kept) {
-          el = kept.isConnected ? kept : null;
-          matchedBy = el ? 'y_proxy' : null;
-        } else if (kept && kept.isConnected && (kept.textContent || '').trim() === anchorText) {
+        if (kept && kept.isConnected && (kept.textContent || '').trim() === anchorText) {
           el = kept;
           matchedBy = 'element';
         } else {
@@ -1495,28 +1533,13 @@ async function runReflow(browser) {
         }
         return {
           top: el ? el.getBoundingClientRect().top : null,
-          block_count: modelReflow ? null : document.querySelectorAll(docSel).length,
+          block_count: document.querySelectorAll(docSel).length,
           matched_by: matchedBy,
         };
       },
-      { docSel: reflowSel, anchorText: before.anchor_text, modelReflow: Boolean(modelReflow) },
+      { docSel: reflowSel, anchorText: before.anchor_text },
     );
     const moved = Boolean(shift.moved) && after.top !== null && after.top > before.anchor_top + 0.5;
-    if (modelReflow && !moved) {
-      return {
-        mode: 'reflow',
-        status: 'not_applicable',
-        reason:
-          'paragraphs live in the editor model only; no disclosed DOM block box moves independently of the page container, so a y-shift cannot be attributed',
-        navigation_ms: navigationMs,
-        ready_ms: readyMs,
-        before,
-        anchor_top_after: after.top,
-        window_excludes_forced_layout: true,
-        forced_layout_ms: 0,
-        page_errors: ctx.errors,
-      };
-    }
     const framePageMs = witness && witness.outcome === 'witnessed' ? witness.frame_page_ms : null;
     const raw = framePageMs === null ? null : framePageMs - inputPageMs;
     const presented = raw;

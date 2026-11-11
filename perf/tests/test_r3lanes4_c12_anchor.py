@@ -13,7 +13,7 @@ LANE_EDIT_BURST = REPO / "perf/runner/lane_edit_burst.mjs"
 BENCHMARK_DOCUMENT = REPO / "perf/runner/benchmark_document.py"
 
 
-class PickAnchorBelowCaret(unittest.TestCase):
+class NodeContract(unittest.TestCase):
     def node(self, body: str) -> dict:
         script = f"""
 import assert from 'node:assert/strict';
@@ -28,6 +28,10 @@ const mod = await import({json.dumps(str(LANE_EDIT_BURST))});
         )
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
         return json.loads(proc.stdout)
+
+
+class PickAnchorBelowCaret(NodeContract):
+    pass
 
     def test_nearest_unique_block_below_the_caret_is_the_anchor(self):
         out = self.node(
@@ -133,6 +137,38 @@ class DocxodusC12IsProbed(unittest.TestCase):
         text = (REPO / "perf/runner/document_probe.mjs").read_text(encoding="utf-8")
         self.assertIn("PICK_ANCHOR_BELOW", text)
         self.assertIn("pickBelow", text)
+
+
+class YProxyRemoved(NodeContract):
+    """r3lanes4 ruling 4: the page container is not a paragraph."""
+
+    def test_the_y_proxy_publish_path_is_gone(self):
+        text = LANE_EDIT_BURST.read_text(encoding="utf-8")
+        self.assertNotIn("REFLOW_MODEL_EDITORS", text)
+        self.assertNotIn("REFLOW_Y_PROXY", text)
+        self.assertNotIn("useModel", text)
+        self.assertNotIn("y_proxy", text)
+
+    def test_canvas_and_docen_are_named_no_paragraph_geometry(self):
+        text = (REPO / "perf/runner/document_probe.mjs").read_text(encoding="utf-8")
+        self.assertIn("C12_NO_PARAGRAPH_GEOMETRY", text)
+        self.assertIn("no paragraph geometry", text)
+        # The refusal carries its evidence: the model paragraphs that exist and
+        # the DOM blocks that do not.
+        self.assertIn("model_paragraphs", text)
+        self.assertIn("dom_blocks", text)
+
+    def test_the_no_geometry_set_is_canvas_and_docen(self):
+        out = self.node(
+            """
+assert.equal(typeof mod.C12_NO_PARAGRAPH_GEOMETRY, 'object');
+assert.equal(mod.C12_NO_PARAGRAPH_GEOMETRY.has('canvas'), true);
+assert.equal(mod.C12_NO_PARAGRAPH_GEOMETRY.has('docen'), true);
+assert.equal(mod.C12_NO_PARAGRAPH_GEOMETRY.has('plate'), false);
+console.log(JSON.stringify([...mod.C12_NO_PARAGRAPH_GEOMETRY]));
+"""
+        )
+        self.assertEqual(sorted(out), ["canvas", "docen"])
 
 
 if __name__ == "__main__":
