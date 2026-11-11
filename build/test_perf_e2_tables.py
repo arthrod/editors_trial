@@ -319,8 +319,16 @@ def test_finding_02_symmetric_larger_interval(runs):
 def test_finding_03_kept_frame_median(runs):
     for root in runs:
         fill(root, [8], 16.7)
-        _write_trial(root, -1, 'plate', 'C07', outcome='not_run', diagnostic={'frame_interval_ms': 1})
+        # r3s2fix 3 refuses a launch the order never named, so the not_run
+        # rows sit on scheduled reps (10–19, inside the 0..39 order, clear
+        # of fill's 0–9). One frame of 1 cannot move a median of ten equal
+        # 16.7 ms intervals; ten of them can. Included, the kept-frame
+        # median leaves 16.7; excluded, it stays 16.7.
+        for rep in range(10, 20):
+            _write_trial(root, rep, 'plate', 'C07', outcome='not_run', diagnostic={'frame_interval_ms': 1})
     assert '< 1 frame (16.7 ms)' in table(runs)
+    cell = E2.e2_cells.build_run_cell(runs[0], 'plate', 'C07')
+    assert cell['frame_interval_ms'] == 16.7
 
 def test_finding_04_rejected_and_sample_refused(runs):
     for root in runs:
