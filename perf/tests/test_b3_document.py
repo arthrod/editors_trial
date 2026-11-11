@@ -101,9 +101,14 @@ class C14Verdict(unittest.TestCase):
             "frames_total": 11,
             "frames_after_usable": 4,
             "mechanism": "forced_repaint",
+            "clock_skew_ms": 0.4,
             "witness": {"outcome": "witnessed", "window_ms": 500, "frames_total": 11, "frames_after": 4},
         }
         self.assertEqual(bd.c14_measured_sample(probe), 140.0)
+        # r3reader4: a forced-repaint sample with no recorded page clock is refused
+        unclocked = {k: v for k, v in probe.items() if k != "clock_skew_ms"}
+        with self.assertRaises(bd.ProbeRefusal):
+            bd.c14_measured_sample(unclocked)
         facts = bd._c14_facts(probe)
         self.assertEqual(facts.get("mechanism"), "forced_repaint")
         self.assertEqual(facts.get("usable_ms"), 140.0)
