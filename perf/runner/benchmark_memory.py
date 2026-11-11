@@ -505,6 +505,7 @@ def _probe_command(
         command.extend(["--wait-after-ready", str(target["wait_after_ready"])])
     if editor_id:
         command.extend(["--editor", editor_id])
+    command.extend(["--poll-bound-ms", "90000"])
     return command
 
 

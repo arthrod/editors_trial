@@ -53,7 +53,11 @@ const waitAfterReadyMs = Number(opt['wait-after-ready'] || 0);
 const editSelector = opt['edit-selector'] || '';
 const editorId = typeof opt.editor === 'string' ? opt.editor : '';
 const errorJs = opt['error-js'] || '';
-const pollBoundMs = Number(opt['poll-bound-ms'] || LANE_POLL_BOUND_MS);
+const MEMORY_EDIT_POLL_CAP_MS = 90_000;
+const pollBoundMs = Math.min(
+  Number(opt['poll-bound-ms'] || LANE_POLL_BOUND_MS),
+  MEMORY_EDIT_POLL_CAP_MS,
+);
 const burst = Math.max(0, Number(opt.burst || 0));
 const burstText = opt['burst-text'] || 'abcdefghij';
 const quiescenceMs = Math.max(0, Number(opt['quiescence-ms'] || 2000));

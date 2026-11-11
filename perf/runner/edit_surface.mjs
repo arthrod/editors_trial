@@ -25,7 +25,7 @@ export const EDIT_SURFACES = {
   },
   superdoc: {
     kind: 'dom',
-    root: '#editor .superdoc__document, #editor .superdoc-page',
+    root: '#editor .superdoc-line, #editor .superdoc__document, #editor .superdoc-page',
     exclude: '.superdoc-page-header, .superdoc-page-footer',
     block: '.superdoc-line',
   },

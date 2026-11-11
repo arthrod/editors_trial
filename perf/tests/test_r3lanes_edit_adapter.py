@@ -46,6 +46,7 @@ class MemoryProbeUsesAdapter(unittest.TestCase):
     def test_memory_probe_ready_timeout_allows_big_documents(self):
         text = (REPO / "perf" / "runner" / "memory_probe.mjs").read_text(encoding="utf-8")
         self.assertIn("LANE_LOAD_TIMEOUT_MS", text)
+        self.assertIn("MEMORY_EDIT_POLL_CAP_MS", text)
 
     def test_probe_command_passes_editor_id(self):
         import perf.runner.benchmark_memory as mem
@@ -61,6 +62,7 @@ class MemoryProbeUsesAdapter(unittest.TestCase):
         joined = " ".join(cmd)
         self.assertIn("--editor", joined)
         self.assertIn("canvas", joined)
+        self.assertIn("--poll-bound-ms", joined)
 
 
 class DocumentReflowUsesAdapter(unittest.TestCase):
