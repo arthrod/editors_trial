@@ -40,7 +40,7 @@ class ProbeLaunchStrings(unittest.TestCase):
             for editor_id in BROWSER_TARGETS:
                 target = dict(BROWSER_TARGETS[editor_id])
                 cmd = _probe_command(editor_id, target, fixture)
-                env = _probe_env(editor_id, target, fixture)
+                env = _probe_env(editor_id, target, fixture, workload_id=workload_id)
                 for idx, part in enumerate(cmd):
                     n = len(part.encode("utf-8"))
                     if n >= MAX_ARG_STRLEN:
@@ -64,7 +64,7 @@ class ProbeLaunchStrings(unittest.TestCase):
         for workload_id in ("prose-50kw", "prose-250kw"):
             fixture, _sha, size, _row = _fixture("superdoc", workload_id)
             self.assertGreaterEqual(size, 144_000 if workload_id == "prose-50kw" else 700_000)
-            env = _probe_env("superdoc", dict(BROWSER_TARGETS["superdoc"]), fixture)
+            env = _probe_env("superdoc", dict(BROWSER_TARGETS["superdoc"]), fixture, workload_id=workload_id)
             path = env.get("PERF_EXPECTED_BODY_PATH")
             self.assertIsNotNone(path)
             body_path = Path(path)
@@ -78,7 +78,7 @@ class ProbeNodeStarts(unittest.TestCase):
 
     def test_node_accepts_probe_env_for_prose_50kw(self):
         fixture, _sha, _size, _row = _fixture("plate", "prose-50kw")
-        env = {**os.environ, **_probe_env("plate", dict(BROWSER_TARGETS["plate"]), fixture)}
+        env = {**os.environ, **_probe_env("plate", dict(BROWSER_TARGETS["plate"]), fixture, workload_id="prose-50kw")}
         cmd = [
             "node",
             "-e",

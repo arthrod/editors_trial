@@ -104,13 +104,22 @@ def _probe_command(editor_id: str, target: dict, fixture: Path) -> list[str]:
     return cmd
 
 
-def _probe_env(editor_id: str, target: dict, fixture: Path) -> dict:
+def _probe_env(editor_id: str, target: dict, fixture: Path, *, workload_id: str) -> dict:
     env = dict(os.environ)
-    body = docx_body_text(fixture)
-    body_path = fixture.with_name(fixture.stem + ".expected-body.txt")
-    body_path.write_text(body, encoding="utf-8")
-    env["PERF_EXPECTED_BODY_PATH"] = str(body_path.resolve())
     env.pop("PERF_EXPECTED_BODY_B64", None)
+    env.pop("PERF_EXPECTED_BODY_PATH", None)
+    env.pop("PERF_EXPECTED_OPENING_TEXT", None)
+    if workload_id == "complex-corpus":
+        from perf.runner.benchmark_document import corpus_opening_text
+
+        opening = corpus_opening_text(fixture)
+        if opening:
+            env["PERF_EXPECTED_OPENING_TEXT"] = opening
+    else:
+        body = docx_body_text(fixture)
+        body_path = fixture.with_name(fixture.stem + ".expected-body.txt")
+        body_path.write_text(body, encoding="utf-8")
+        env["PERF_EXPECTED_BODY_PATH"] = str(body_path.resolve())
     adapter = _correctness_adapter(editor_id, target)
     if adapter:
         env["PERF_CORRECTNESS_ADAPTER"] = adapter
@@ -187,7 +196,7 @@ def run_editor(editor_id: str, attempt_dir: Path, workload_id: str = "micro-para
                 capture_output=True,
                 text=True,
                 timeout=PROBE_TIMEOUT_S,
-                env=_probe_env(editor_id, target, fixture),
+                env=_probe_env(editor_id, target, fixture, workload_id=workload_id),
             )
         except subprocess.TimeoutExpired:
             return _refuse_run(

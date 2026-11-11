@@ -95,6 +95,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
+import { normalizeDocumentText } from './document_text_normalize.mjs';
 
 const REPO_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 
@@ -234,6 +235,28 @@ function normalizeNewlines(text) {
   return String(text || '').replace(/\r\n/g, '\n');
 }
 
+/** Fixture w:t has no paragraph breaks; DOM range text may insert newlines only between blocks. */
+function comparableDocumentText(text) {
+  return normalizeNewlines(text).replace(/\n/g, '');
+}
+
+function rangeTextOfElement(el) {
+  if (!el || typeof el.ownerDocument?.createRange !== 'function') {
+    return '';
+  }
+  const range = el.ownerDocument.createRange();
+  range.selectNodeContents(el);
+  return range.toString();
+}
+
+function resolveDocumentTextRoot(el) {
+  if (el && typeof el.matches === 'function' && el.matches('[data-paragraph-id][data-start]')) {
+    const root = typeof el.closest === 'function' ? el.closest('.docx-page-content') : null;
+    if (root) return root;
+  }
+  return el;
+}
+
 function loadExpectedBody(options) {
   const inline = options.expectedBodyText;
   if (typeof inline === 'string' && inline.length) return inline;
@@ -244,6 +267,14 @@ function loadExpectedBody(options) {
   const path = process.env.PERF_EXPECTED_BODY_PATH || options.expectedBodyPath;
   if (typeof path === 'string' && path && fs.existsSync(path)) {
     return fs.readFileSync(path, 'utf8');
+  }
+  return null;
+}
+
+function loadExpectedOpening() {
+  const raw = process.env.PERF_EXPECTED_OPENING_TEXT;
+  if (typeof raw === 'string' && raw.trim()) {
+    return raw;
   }
   return null;
 }
@@ -278,10 +309,25 @@ function assertFixtureBodyMatches(state, expectedBody) {
   if (!state || state.error) {
     return { ok: false, reason: `${CORRECTNESS_PREFIX} ${state?.error || 'text_unreadable'}` };
   }
-  if (normalizeNewlines(state.text) !== normalizeNewlines(expectedBody)) {
+  if (comparableDocumentText(state.text) !== comparableDocumentText(expectedBody)) {
     return { ok: false, reason: `${CORRECTNESS_PREFIX} fixture_body_mismatch` };
   }
   return { ok: true };
+}
+
+function assertPreEditDocumentLoaded(state, options) {
+  if (!state || state.error) {
+    return { ok: false, reason: `${CORRECTNESS_PREFIX} ${state?.error || 'text_unreadable'}` };
+  }
+  if (options.expectedOpeningText) {
+    const expected = normalizeDocumentText(options.expectedOpeningText);
+    const actual = normalizeDocumentText(state.text);
+    if (!expected || !actual || !actual.includes(expected)) {
+      return { ok: false, reason: `${CORRECTNESS_PREFIX} document_opening_mismatch` };
+    }
+    return { ok: true };
+  }
+  return assertFixtureBodyMatches(state, options.expectedBodyText);
 }
 
 function assertBulkInsertBody(before, after, options) {
@@ -498,7 +544,24 @@ const READ_EDITABLE_STATE = (selector) => {
   const el = document.querySelector(selector);
   if (!el) return { error: 'editable_not_found' };
   const box = el.getBoundingClientRect();
-  const text = typeof el.innerText === 'string' ? el.innerText : '';
+  const fragmentParagraph = typeof el.matches === 'function' && el.matches('[data-paragraph-id][data-start]');
+  const paragraphNodes = fragmentParagraph
+    ? Array.from(document.querySelectorAll('.docx-page-content [data-paragraph-id][data-start]'))
+    : [];
+  const rangeText = (node) => {
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    return range.toString();
+  };
+  let textRoot = el;
+  if (fragmentParagraph) {
+    const pageContent = typeof el.closest === 'function' ? el.closest('.docx-page-content') : null;
+    if (pageContent) textRoot = pageContent;
+  }
+  const text =
+    paragraphNodes.length > 0
+      ? paragraphNodes.map((node) => rangeText(node)).join('')
+      : rangeText(textRoot);
   const selection = window.getSelection();
   let caret = null;
   let anchorInside = false;
@@ -517,10 +580,24 @@ const READ_EDITABLE_STATE = (selector) => {
       height: rect.height,
       collapsed: range.collapsed,
     };
-    const pre = range.cloneRange();
-    pre.selectNodeContents(el);
-    pre.setEnd(range.startContainer, range.startOffset);
-    selectionOffset = pre.toString().length;
+    if (paragraphNodes.length > 0) {
+      let offset = 0;
+      for (const paragraph of paragraphNodes) {
+        if (paragraph.contains(startElement) || paragraph === startElement) {
+          const pre = range.cloneRange();
+          pre.selectNodeContents(paragraph);
+          pre.setEnd(range.startContainer, range.startOffset);
+          selectionOffset = offset + pre.toString().length;
+          break;
+        }
+        offset += rangeText(paragraph).length;
+      }
+    } else {
+      const pre = range.cloneRange();
+      pre.selectNodeContents(textRoot);
+      pre.setEnd(range.startContainer, range.startOffset);
+      selectionOffset = pre.toString().length;
+    }
   }
   const active = document.activeElement;
   return {
@@ -979,7 +1056,7 @@ async function measureClicks(page, witness, options, meta) {
     observation.pointer_target_inside_editable = target.inside;
     await settle(page, 30);
     const stateAfterClick = await readState(page, meta.editable.selector);
-    const correctnessEarly = assertFixtureBodyMatches(stateAfterClick, options.expectedBodyText);
+    const correctnessEarly = assertPreEditDocumentLoaded(stateAfterClick, options);
     if (!correctnessEarly.ok) {
       observation.failure = correctnessEarly.reason;
       entry.assertion.failures.push(`${point.point}: ${correctnessEarly.reason}`);
@@ -1022,7 +1099,7 @@ async function measureClicks(page, witness, options, meta) {
     const subFrame = sampleMs < witness.frameIntervalMs;
     observation.sample_ms = sampleMs;
     observation.sub_frame = subFrame;
-    const correctness = assertFixtureBodyMatches(state, options.expectedBodyText);
+    const correctness = assertPreEditDocumentLoaded(state, options);
     if (!correctness.ok) {
       observation.failure = correctness.reason;
       entry.assertion.failures.push(`${point.point}: ${correctness.reason}`);
@@ -1237,7 +1314,8 @@ async function measureUndo(page, witness, options, meta) {
     observation.text_restored = after.text === before.text;
     observation.diagnostic_raf_ms = round(await rafDelta(page, undoInput.t), 3);
     entry.observations.push(observation);
-    const restored = assertFixtureBodyMatches(after, options.expectedBodyText ?? before.text);
+    const undoExpected = options.expectedOpeningText ? before.text : (options.expectedBodyText ?? before.text);
+    const restored = assertFixtureBodyMatches(after, undoExpected);
     if (!restored.ok) {
       entry.failure_reason = restored.reason;
       entry.assertion.failures.push(restored.reason);
@@ -1686,6 +1764,7 @@ export async function runCriteriaSuite({
     block,
     modifier: process.platform === 'darwin' ? 'Meta' : 'Control',
     expectedBodyText: loadExpectedBody({ expectedBodyText, expectedBodyPath }),
+    expectedOpeningText: loadExpectedOpening(),
     correctnessAdapter: correctnessAdapterOption,
   };
   const adapter = correctnessAdapter(options);
@@ -1942,4 +2021,10 @@ export {
   measureUndo,
   sampleAfterInput,
   OBSERVE_QUIESCENCE,
+  assertFixtureBodyMatches,
+  assertPreEditDocumentLoaded,
+  bodyAfterInsertion,
+  comparableDocumentText,
+  rangeTextOfElement,
+  resolveDocumentTextRoot,
 };
