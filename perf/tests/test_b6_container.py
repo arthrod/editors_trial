@@ -109,6 +109,9 @@ def test_setup_dry_run_and_missing_pin(tmp_path):
         assert f'clone {name} https://github.com/{slug}.git pin={pin}' in result.stdout
     for name, command in api().INSTALLS.items():
         assert ' '.join(command) in result.stdout
+    # Source aliases resolve third-party imports from the editor workspace,
+    # not from the harness that supplies Vite. A fresh HF clone needs this.
+    assert '(cd repos/docen && pnpm install --frozen-lockfile --ignore-scripts)' in result.stdout
     del f['ver.plate.commit']
     path = tmp_path / 'facts.json'
     path.write_text(json.dumps(f))

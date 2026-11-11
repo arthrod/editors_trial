@@ -13,6 +13,7 @@ INSTALLS = {
     'genoffice': ['npm', 'install', '--no-audit', '--no-fund'],
     'canvas-editor': ['pnpm', 'install', '--no-frozen-lockfile'],
     'canvas-editor-plugin': ['pnpm', 'install', '--no-frozen-lockfile'],
+    'docen': ['pnpm', 'install', '--frozen-lockfile', '--ignore-scripts'],
 }
 RUNNERS = ('benchmark_warm_cold', 'benchmark_document', 'benchmark_input', 'adversarial_c10_scroll', 'benchmark_typing')
 NPM = (
