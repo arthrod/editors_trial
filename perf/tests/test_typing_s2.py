@@ -66,6 +66,8 @@ def test_bridge_request_uses_unlimited_reader():
 def test_typing_session_refuses_latency_without_frame_interval(tmp_path):
     """Drive the real bridge against a fixture whose rAF never fires."""
     import asyncio
+    import os
+    import signal
     import socket
 
     pytest.importorskip("playwright.async_api")
@@ -87,25 +89,41 @@ def test_typing_session_refuses_latency_without_frame_interval(tmp_path):
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            start_new_session=True,
         )
         bridge = Bridge(process)
+
+        async def stop_child():
+            # Kill the session group. Do not wait for op=close first: a child
+            # stuck in page.evaluate is not reading stdin, so close never
+            # returns and a terminate() after it never runs. pytest-timeout
+            # raises SIGALRM in this process only; it does not signal node.
+            if process.returncode is None:
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    process.kill()
+            try:
+                await asyncio.wait_for(process.wait(), 5)
+            except (asyncio.TimeoutError, ProcessLookupError):
+                pass
+
         try:
             await asyncio.wait_for(process.stdout.readline(), 30)
-            load = await bridge.request(
+            load = await asyncio.wait_for(bridge.request(
                 op="load",
                 url=host.url + "/typing_no_raf.html",
                 selector="#editor",
                 ready_selector=".status-ok",
                 editor_id="plate",
-            )
+            ), 20)
             assert load.get("frame_interval_ms") is None
             assert load.get("refusal") == "frame_interval_unavailable"
-            key = await bridge.request(op="key", char="a", selector="#editor")
+            key = await asyncio.wait_for(
+                bridge.request(op="key", char="a", selector="#editor"), 15)
             assert key.get("refusal") == "frame_interval_unavailable"
         finally:
-            await bridge.request(op="close")
-            process.terminate()
-            await asyncio.wait_for(process.wait(), 15)
+            await stop_child()
 
     try:
         asyncio.run(run())

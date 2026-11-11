@@ -698,11 +698,22 @@ export async function frameInterval(page, { frames = 60, timeoutMs = 15000 } = {
       const started = performance.now();
       await new Promise((resolve) => {
         let last = null;
+        let settled = false;
+        const finish = () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          resolve();
+        };
+        // The budget check inside tick never runs when rAF does not call
+        // back (a page can replace requestAnimationFrame with a no-op).
+        const timer = setTimeout(finish, budget);
         const tick = (t) => {
+          if (settled) return;
           if (last !== null) out.push(t - last);
           last = t;
           if (out.length >= count || performance.now() - started > budget) {
-            resolve();
+            finish();
             return;
           }
           requestAnimationFrame(tick);
