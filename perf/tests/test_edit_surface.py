@@ -166,5 +166,56 @@ class LoadFailureIsAFinding(unittest.TestCase):
         self.assertIn("computeRowColInfo", trial["editor_error"])
 
 
+class EditorCrashIsAFinding(unittest.TestCase):
+    def crash(self, method):
+        world = World()
+
+        class Crashing(PhaseSession):
+            pass
+
+        def boom(self, *args):
+            raise RuntimeError("keyboard.type: Target crashed \n    at typeResourceBurst (x.mjs:1:1)")
+
+        setattr(Crashing, method, boom)
+        clock = ManualClock(world, disturb=False)
+        return collect_phases(
+            make_sampler(world, clock=clock), Crashing(world, mode="measure"), clock,
+            quiescence=SHORT_QUIESCENCE, edit_burst=EDIT_BURST, editor_id="canvas",
+            workload_id="prose-250kw",
+            workload_meta={"sha256": "c" * 64, "byte_size": 10, "paragraph_count": 1, "word_count": 1},
+            execution_profile="ci_broad", host_class="ci_coarse",
+        )
+
+    def test_a_tab_that_dies_while_typing_is_the_editors_result(self):
+        # canvas-editor at 250k words: the renderer dies on the first keys.
+        trial = self.crash("type_edit")
+        self.assertEqual(trial["outcome"], "refused")
+        self.assertEqual(trial["refusal_code"], "editor_crashed")
+        self.assertEqual(trial["editor_error"], "renderer crashed during edit")
+        self.assertEqual(trial["edit_cpu_publication"], "withheld")
+
+    def test_a_tab_that_dies_while_opening_is_the_editors_result(self):
+        trial = self.crash("load")
+        self.assertEqual(trial["refusal_code"], "editor_crashed")
+        self.assertEqual(trial["editor_error"], "renderer crashed during load")
+
+    def test_any_other_harness_error_still_raises(self):
+        world = World()
+
+        class Broken(PhaseSession):
+            def type_edit(self, burst):
+                raise RuntimeError("bridge closed")
+
+        clock = ManualClock(world, disturb=False)
+        with self.assertRaises(RuntimeError):
+            collect_phases(
+                make_sampler(world, clock=clock), Broken(world, mode="measure"), clock,
+                quiescence=SHORT_QUIESCENCE, edit_burst=EDIT_BURST, editor_id="canvas",
+                workload_id="prose-250kw",
+                workload_meta={"sha256": "c" * 64, "byte_size": 10, "paragraph_count": 1, "word_count": 1},
+                execution_profile="ci_broad", host_class="ci_coarse",
+            )
+
+
 if __name__ == "__main__":
     unittest.main()

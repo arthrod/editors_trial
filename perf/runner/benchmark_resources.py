@@ -98,6 +98,7 @@ REFUSAL_CODES = (
     "workload_not_on_ladder",
     "edit_not_applied",
     "editor_load_failed",
+    "editor_crashed",
     "process_counters_incomplete",
     "longtask_unavailable",
 )
@@ -477,6 +478,7 @@ def collect_phases(
     edit_cpu_boundary = None
     publish_edit_cpu = False
     edit_cpu_withhold_reason = "legacy_combined_edit_window"
+    stage = "load"
     if not already_sampled:
         # Same settle before C17 and before C19. The natural sample is the
         # endpoint. A forced GC sample is labelled and kept out of the series.
@@ -499,6 +501,7 @@ def collect_phases(
                     editor_error=editor_error,
                 )
             sampler.sample()
+            stage = "settle after load"
             sampler.mark("after_load")
             after_load = getattr(session, "after_load", None)
             if after_load is not None:
@@ -516,6 +519,7 @@ def collect_phases(
                 type_edit = getattr(session, "type_edit", None)
                 verify_edit = getattr(session, "verify_edit", None)
                 split_protocol = all(callable(value) for value in (prepare, type_edit, verify_edit))
+                stage = "edit"
                 if split_protocol:
                     prepared = prepare(edit_burst)
                     sampler.mark("edit_burst")
@@ -578,6 +582,7 @@ def collect_phases(
                     after_edits = getattr(session, "after_edits", None)
                     if after_edits is not None:
                         after_edits()
+                    stage = "settle after edit"
                     sampler.mark("quiescence")
                     edit_reached = drive_quiescence(sampler, clock, quiescence)
                     settle["after_edit"] = "reached" if edit_reached else "capped"
@@ -592,6 +597,20 @@ def collect_phases(
                             session.save()
                             sampler.sample()
                             save_phase = None
+        except RuntimeError as exc:
+            # A renderer that dies is the editor's result for this document
+            # (canvas-editor at 250k words), not a harness failure.
+            if not _renderer_crashed(exc):
+                raise
+            return assemble_trial(
+                sampler, quiescence_reached=False, settle=settle, quiescence=quiescence,
+                edit_burst=edit_burst, editor_id=editor_id, workload_id=workload_id,
+                workload_meta=workload_meta, execution_profile=execution_profile,
+                host_class=host_class, save_phase=save_phase,
+                refusal_override="editor_crashed", edit_oracle=edit_oracle,
+                publish_edit_cpu=False, edit_cpu_withhold_reason="editor_crashed",
+                editor_error="renderer crashed during %s" % stage,
+            )
         finally:
             close = getattr(session, "close", None)
             if close is not None:
@@ -616,6 +635,11 @@ def collect_phases(
         publish_edit_cpu=publish_edit_cpu,
         edit_cpu_withhold_reason=edit_cpu_withhold_reason,
     )
+
+
+def _renderer_crashed(exc):
+    text = str(exc)
+    return "Target crashed" in text or "Page crashed" in text
 
 
 def _early_refusal(*, editor_id, workload_id, code, execution_profile, host_class):
