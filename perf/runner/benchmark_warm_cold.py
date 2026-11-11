@@ -605,6 +605,40 @@ def _payload_content_gate(payload: dict) -> dict | None:
 NO_GLYPH_GEOMETRY_REASON = "no_glyph_geometry_to_witness_the_keystrokes_own_paint"
 
 
+def _glyph_geometry_under_content_refusal(editor_id: str, payload: dict) -> dict | None:
+    """Glyph not_applicable when content refuses first (wordcraft flag path)."""
+    glyph = _glyph_geometry_refusal(payload)
+    if glyph is not None:
+        return glyph
+    if editor_id != "wordcraft":
+        return None
+    adapters = set()
+    confirmed = False
+    for pair in payload.get("pairs", []):
+        for arm in ("cold", "warm"):
+            data = pair.get(arm) or {}
+            if "mechanism" not in data:
+                continue
+            adapter = ((data.get("edit_confirmation") or {}).get("adapter") or {})
+            kind = adapter.get("adapter")
+            if kind == "flag":
+                adapters.add(kind)
+                if adapter.get("confirmed") is True or (adapter.get("after_count") or 0) >= 1:
+                    confirmed = True
+    if not adapters or not confirmed:
+        return None
+    return {
+        "reason": NO_GLYPH_GEOMETRY_REASON,
+        "adapters": sorted(adapters),
+        "edit_landed_in_model": True,
+        "note": (
+            "the end event of a published C05/C06 sample is the inserted glyph's own ink; "
+            "this editor's edit surface has no glyph geometry (model/flag adapter), so no "
+            "paint of the keystroke itself can be witnessed"
+        ),
+    }
+
+
 def _glyph_geometry_refusal(payload: dict) -> dict | None:
     """The shared not_applicable evidence for model/flag editors, or None.
 
@@ -1363,7 +1397,7 @@ def _main() -> int:
         gates_by_editor[editor_id] = gate
 
         content_refusal = _content_refusal(payload)
-        glyph_na_early = _glyph_geometry_refusal(payload) if content_refusal else None
+        glyph_na_early = _glyph_geometry_under_content_refusal(editor_id, payload) if content_refusal else None
         if content_refusal:
             refusal_rows.extend(
                 _write_content_refusals(

@@ -150,7 +150,7 @@ class WordcraftGlyphRow(unittest.TestCase):
             ]
         }
         self.assertIsNotNone(bw._content_refusal(payload))
-        glyph = bw._glyph_geometry_refusal(payload)
+        glyph = bw._glyph_geometry_under_content_refusal("wordcraft", payload)
         self.assertIsNotNone(glyph)
         with tempfile.TemporaryDirectory(dir=REPO / ".scratch" / "tmp") as tmp:
             attempt_dir = Path(tmp)
