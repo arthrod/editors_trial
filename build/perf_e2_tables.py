@@ -748,7 +748,8 @@ def typing_table(facts, roots, editor, kind):
         facts[key + '.reproduction'] = _typing_facts_group(groups[1], fields)
         return label + ': ' + str(exc) + instrumented
     # Fixture identity is part of the experiment, including across seeds.
-    if len({(row['fixture_sha256'], row['typed_text_sha256']) for group in groups for row in group['kept']}) != 1:
+    if len({(row['fixture_sha256'], row['typed_text_sha256'], row.get('fixture_docx_sha256'))
+            for group in groups for row in group['kept']}) != 1:
         facts[key + '.primary'] = _typing_facts_group(groups[0], fields)
         facts[key + '.reproduction'] = _typing_facts_group(groups[1], fields)
         return label + ': fixture mismatch' + instrumented
