@@ -73,25 +73,55 @@ def normalize_marked(text):
         lines.append(line)
     return ' '.join(' '.join(lines).split()), ignored
 
+def marker_only_of_line(line):
+    """The marker string when this line's entire text is markers, else None.
+
+    "v." yields "v."; "1. a." yields its final marker "a."; a line with any
+    other text yields None."""
+    line = line.strip()
+    while (match := _LIST_MARKER.match(line)):
+        rest = line[match.end():]
+        if not rest.strip():
+            return line[:match.end()].rstrip()
+        line = rest
+    return None
+
+
 def marker_only_strings(text):
     """The marker strings of paragraphs whose entire text is one marker
     ("v.", "12.", and "1. a." contributes its final marker). The flat
     normalized text cannot show these lines, so the compare gates them
     separately: a dropped one is content loss; an absorbed empty list item
     is not."""
-    only = []
-    for line in text.split('\n'):
-        line = line.strip()
-        while True:
-            match = _LIST_MARKER.match(line)
-            if not match:
-                break
-            rest = line[match.end():]
-            if not rest.strip():
-                only.append(line[:match.end()].rstrip())
-                break
-            line = rest
-    return only
+    return [marker for line in text.split('\n')
+            if (marker := marker_only_of_line(line)) is not None]
+
+
+def marker_only_positions(text):
+    """``{line_index: marker}`` for every marker-only paragraph — the
+    positions absorbed-list evidence must answer for one by one."""
+    return {index: marker for index, line in enumerate(text.split('\n'))
+            if (marker := marker_only_of_line(line)) is not None}
+
+
+def absorbed_positions(read):
+    """``{line_index: marker}`` the editor reports as absorbed list items.
+
+    Entries are ``{'index': i, 'marker': label-or-None}``; a bare integer is
+    an index with an unknown label, and any other shape has no position at
+    all — evidence without a position can never excuse a missing marker.
+    """
+    positions = {}
+    for entry in (read.get('absorbed_markers') or []):
+        if isinstance(entry, dict):
+            index, marker = entry.get('index'), entry.get('marker')
+        elif isinstance(entry, (int, float)) and not isinstance(entry, bool):
+            index, marker = entry, None
+        else:
+            index, marker = -1, str(entry)
+        if isinstance(index, (int, float)) and not isinstance(index, bool) and index >= 0:
+            positions[int(index)] = marker
+    return positions
 
 def stripped_marker_strings(text):
     """Every paragraph-leading marker normalisation removes — the strings
@@ -112,14 +142,37 @@ def normalize(text):
 
 # Page context: list markers an editor absorbed out of the text and still
 # exposes as element attributes (folio's data-list-marker). Only items with
-# no text of their own count — those are the marker-only paragraphs.
+# no text of their own count — those are the marker-only paragraphs. Each
+# entry carries the item's line index inside the read text: evidence is
+# positional, never a count.
 ABSORBED_MARKERS_JS = """(s) => {
   const els = Array.from(document.querySelectorAll(s));
   if (!els.length) return [];
-  return els.flatMap((el) => Array.from(el.querySelectorAll('[data-list-marker]')))
-    .filter((n) => !String(n.innerText || n.textContent || '').trim())
-    .map((n) => String(n.getAttribute('data-list-marker') || '').trim())
-    .filter(Boolean);
+  const linesOf = (node) => {
+    const t = String(node.innerText ?? '');
+    if (t) return t.split('\\n').length;
+    const style = getComputedStyle(node);
+    return (style.display === 'none' || style.visibility === 'hidden') ? 0 : 1;
+  };
+  const indexWithin = (root, node) => {
+    let count = 0;
+    for (let cur = node; cur && cur !== root; cur = cur.parentElement) {
+      for (let sib = cur.previousElementSibling; sib; sib = sib.previousElementSibling)
+        count += linesOf(sib);
+    }
+    return count;
+  };
+  const absorbed = [];
+  let base = 0;
+  for (const el of els) {
+    for (const node of el.querySelectorAll('[data-list-marker]')) {
+      if (String(node.innerText || node.textContent || '').trim()) continue;
+      absorbed.push({index: base + indexWithin(el, node),
+        marker: String(node.getAttribute('data-list-marker') || '').trim()});
+    }
+    base += String(el.innerText ?? '').split('\\n').length;
+  }
+  return absorbed;
 }"""
 
 async def read_document_text(page, *, selector, model_js=None):
@@ -187,21 +240,25 @@ def witness_eligible(char):
 async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0, session_kind="throughput",
                         witness_every=100, sample_s=5, clock=time.monotonic,
                         sleep=asyncio.sleep, present_selector=None, model_js=None, expected_text=None,
-                        read_document=None, flag_verifier=None, correctness_oracle=None):
+                        read_document=None, flag_verifier=None, correctness_oracle=None,
+                        present_text=True):
     if session_kind not in ("throughput", "latency"):
         raise ValueError("invalid session kind")
     # `selector` reads the document text; `present_selector` reads what the
     # user can SEE (the painted region), which may repaint asynchronously
     # (folio's visible pages lag the editable ProseMirror by ~200 ms).
+    # `present_text` says that region's innerText is meaningful at all — a
+    # model or flag surface only burns the sample evaluate for a null.
     sampler.selector = present_selector or selector
+    sampler.present_text = present_text
     oracle = (correctness_oracle
               or ('model_document_text' if (read_document is not None or model_js)
                   else 'dom_document_text'))
     if read_document is None:
         async def read_document():
             return {'text': await read_document_text(page, selector=selector, model_js=model_js),
-                    'absorbed_markers': ([str(m) for m in await page.evaluate(ABSORBED_MARKERS_JS, selector)]
-                                       if model_js is None else [])}
+                    'absorbed_markers': (await page.evaluate(ABSORBED_MARKERS_JS, selector)
+                                         if model_js is None else [])}
     start = clock(); next_sample = start + sample_s
     next_witness = witness_every; witness_wall = 0; typing_unwitnessed = 0; unwitnessed = 0
     sampler.typed_text = ''
@@ -238,23 +295,29 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
         await page.evaluate('() => new Promise(resolve => setTimeout(resolve, 0))')
         # The wall ends when the last key's already-queued work has drained;
         # the correctness read below (a whole-document export on model
-        # surfaces) is measurement, not typing.
+        # surfaces) is measurement, not typing — and never bills its work to
+        # the typing resource phase.
         elapsed = clock() - start
+        await sampler.mark('typed_100')
         if flag_verifier is not None:
             verdict = await flag_verifier()
             flag = verdict.get('flag')
             trusted = verdict.get('trusted_keys') or 0
+            # No unverified timings are published: a flag surface exposes no
+            # document text, so a session on it can never prove what was
+            # typed. Record the flag and key count as evidence — and only
+            # evidence — whatever they say.
             result.update(correctness_oracle='editor_modified_flag', text_correctness=None,
                           verified=['modified_flag', 'trusted_keys'],
                           modified_flag=flag, trusted_keys=trusted,
-                          expected_min_keys=verdict.get('min_keys'))
+                          expected_min_keys=verdict.get('min_keys'),
+                          failure_reason='document_text_not_readable',
+                          refusal_code='unverified')
             if not flag or flag.get('modified') is not True:
-                result.update(failure_reason='edit_not_applied',
-                              refusal_code='unverified' if not flag else 'correctness_failure',
-                              edit_refusal='modified_flag_unreadable' if not flag else 'modified_flag_unchanged')
+                result['edit_refusal'] = ('modified_flag_unreadable' if not flag
+                                          else 'modified_flag_unchanged')
             elif trusted < result['expected_min_keys']:
-                result.update(failure_reason='edit_not_applied', refusal_code='correctness_failure',
-                              edit_refusal='trusted_keys_below_min')
+                result['edit_refusal'] = 'trusted_keys_below_min'
         else:
             read = None
             try:
@@ -283,40 +346,54 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
                               error=str(exc))
             if read is not None:
                 actual_text = read.get('text') if isinstance(read, dict) else read
-                absorbed = read.get('absorbed_markers') if isinstance(read, dict) else None
                 if actual_text is None:
                     result.update(failure_reason='no_correctness_adapter', refusal_code='unverified')
                 else:
                     expected_source = text if expected_text is None else expected_text
                     actual, actual_markers = normalize_marked(actual_text)
                     expected, expected_markers = normalize_marked(expected_source)
-                    expected_only = marker_only_strings(expected_source)
-                    actual_only = marker_only_strings(actual_text)
-                    missing = Counter(expected_only) - Counter(actual_only)
-                    surplus = Counter(actual_only) - Counter(expected_only)
-                    absorbed = [str(m) for m in absorbed or []]
-                    absorbed_total = len(absorbed) + int(read.get('absorbed_count') or 0)
-                    # A marker-only paragraph the text lost must be answered by
-                    # an absorbed empty list item; nothing may manufacture one.
-                    marker_gap = bool(surplus) or sum(missing.values()) > absorbed_total
+                    expected_marker_at = marker_only_positions(expected_source)
+                    actual_lines = actual_text.split('\n')
+                    actual_marker_at = marker_only_positions(actual_text)
+                    absorbed_at = absorbed_positions(read if isinstance(read, dict) else {})
+                    # Absorbed evidence answers for a missing marker only at
+                    # the marker's own index, and only when that line is the
+                    # item's empty slot or its rendered label — never a text
+                    # line and never an item elsewhere.
+                    def excused(index):
+                        if index not in absorbed_at:
+                            return False
+                        line = actual_lines[index] if index < len(actual_lines) else ''
+                        return not line.strip() or actual_marker_at.get(index) is not None
+                    missing = [{'index': i, 'marker': m} for i, m in expected_marker_at.items()
+                               if actual_marker_at.get(i) != m and not excused(i)]
+                    surplus = [{'index': i, 'marker': m} for i, m in actual_marker_at.items()
+                               if expected_marker_at.get(i) != m
+                               and not (i in absorbed_at and i in expected_marker_at)]
+                    marker_gap = bool(surplus) or bool(missing)
                     tolerated = sorted(
                         (Counter(stripped_marker_strings(expected_source))
                          - Counter(stripped_marker_strings(actual_text))).elements())
-                    tolerated += sorted(missing.elements())[:absorbed_total]
+                    tolerated += sorted(m for i, m in expected_marker_at.items()
+                                        if actual_marker_at.get(i) != m and excused(i))
                     result.update(tolerated_list_markers=abs(expected_markers - actual_markers),
                                   tolerated_marker_strings=tolerated,
+                                  tolerated_quote_autocorrect_chars=sum(
+                                      1 for ch in actual_text if ord(ch) in _QUOTE_FOLD),
                                   correctness_oracle=oracle,
-                                  marker_only={'expected': expected_only, 'in_text': actual_only,
-                                               'absorbed': absorbed, 'absorbed_count': absorbed_total,
-                                               'missing': sorted(missing.elements()),
-                                               'surplus': sorted(surplus.elements())})
+                                  marker_only={'expected': marker_only_strings(expected_source),
+                                               'in_text': marker_only_strings(actual_text),
+                                               'absorbed': [{'index': i, 'marker': absorbed_at[i]}
+                                                            for i in sorted(absorbed_at)],
+                                               'missing': missing,
+                                               'surplus': surplus})
                     if actual != expected or marker_gap:
                         result.update(failure_reason='text_mismatch', refusal_code='correctness_failure',
                                       first_divergence_offset=(divergence(expected, actual)
                                                                if actual != expected else None))
-        # Close the typing phase after the final document read, so deferred
-        # work on the last key is present in its resource counters as well.
-        await sampler.mark('typed_100')
+        # The verification work (document read, flag poll, export) gets its
+        # own resource phase after the typing wall closes.
+        await sampler.mark('correctness_read')
     except (asyncio.TimeoutError, asyncio.CancelledError):
         result['failure_reason'] = 'budget_exceeded'
         result['refusal_code'] = 'editor_timeout'
@@ -325,7 +402,9 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
         result['error'] = str(exc)
     elapsed = clock() - start if elapsed is None else elapsed
     rate = sent/elapsed if not result['failure_reason'] and elapsed else None
-    result.update(session_kind=session_kind, characters_typed=sent,
+    outcome = ('measured' if not result['failure_reason']
+               else 'unverified' if result.get('refusal_code') == 'unverified' else 'refused')
+    result.update(session_kind=session_kind, characters_typed=sent, outcome=outcome,
                   words_typed=len(text[:sent].split()), typing_wall_s=elapsed,
                   throughput_chars_s=rate if session_kind == 'throughput' else None,
                   throughput_basis='accepted_characters_over_unadjusted_typing_wall',
@@ -378,6 +457,9 @@ class TypingResourceSampler(AsyncResourceSampler):
         self.selector = '[contenteditable="true"]'
         self.milestone = None
         self.profile_baseline = None
+        # DOM surfaces read the painted region's innerText per sample. Model
+        # and flag surfaces have no readable DOM text — the read is wasted.
+        self.present_text = True
 
     async def mark(self, milestone):
         self.milestone = milestone
@@ -393,12 +475,16 @@ class TypingResourceSampler(AsyncResourceSampler):
     async def sample(self, record=True):
         row = await super().sample(record=record)
         row.update(milestone=self.milestone, characters_typed=self.characters_typed)
-        present = await self._async_page.evaluate(
-            '(s) => document.querySelector(s)?.innerText ?? ""', self.selector)
         typed = normalize(self.typed_text)
-        row.update(milestone=self.milestone, characters_typed=self.characters_typed,
-            characters_present=len(normalize(present)), characters_typed_normalized=len(typed),
-            backlog_chars=len(typed)-len(normalize(present)))
+        if self.present_text:
+            present = await self._async_page.evaluate(
+                '(s) => document.querySelector(s)?.innerText ?? ""', self.selector)
+            row.update(characters_present=len(normalize(present)),
+                       characters_typed_normalized=len(typed),
+                       backlog_chars=len(typed)-len(normalize(present)))
+        else:
+            row.update(characters_present=None, characters_typed_normalized=len(typed),
+                       backlog_chars=None)
         absolute = row['profile_directory_bytes']
         if self.milestone == 'load': self.profile_baseline = absolute
         row['profile_absolute_bytes'] = absolute
@@ -497,7 +583,7 @@ async def session(target, text, args, directory):
                 # a zero-text document has no text line, so the caret click
                 # goes to the declared surface (empty_document).
                 await bridge.request(op='enter_edit_mode', editor_id=editor_id,
-                                     text_line_timeout_ms=30000)
+                                     text_line_timeout_ms=0)
                 placed = await bridge.request(op='place_caret', editor_id=editor_id,
                     selector=click_sel, empty_document=True, focus_timeout_ms=15000)
                 surface_kind = (placed or {}).get('surface') or 'dom'
@@ -508,7 +594,7 @@ async def session(target, text, args, directory):
                         payload = await page.evaluate(model_js)
                         if isinstance(payload, dict) and isinstance(payload.get('docx_bytes'), list):
                             body, absorbed = docx_body_text_and_absorbed(io.BytesIO(bytes(payload['docx_bytes'])))
-                            return {'text': body, 'absorbed_markers': [], 'absorbed_count': absorbed}
+                            return {'text': body, 'absorbed_markers': absorbed}
                         value = payload.get('text') if isinstance(payload, dict) else payload
                         return {'text': value if isinstance(value, str) else None, 'absorbed_markers': []}
                 elif surface_kind == 'flag':
@@ -547,6 +633,13 @@ async def session(target, text, args, directory):
                         raise SessionRefusal('no_correctness_adapter', refusal_code='unverified')
                     if normalize(baseline['text']):
                         raise SessionRefusal('document_not_empty')
+                    # Refuse before typing when nothing can take the input: a
+                    # read-only document surface and focus that never reached
+                    # an editor (editable=False AND unfocused) mean the keys
+                    # would go to the page, not a document.
+                    if (surface_kind == 'dom' and baseline.get('editable') is False
+                            and not placed.get('focused')):
+                        raise SessionRefusal('no_correctness_adapter', refusal_code='unverified')
                 if not placed.get('focused'):
                     result['focus_refusal'] = 'editor_focus_not_acquired'
                 async def witness(char): return await bridge.request(op='key', char=char, selector=present_sel)
@@ -554,7 +647,8 @@ async def session(target, text, args, directory):
                     cadence_ms=args.cadence_ms, session_kind=kind, witness_every=args.witness_every, sample_s=args.sample_s,
                     present_selector=present_sel, expected_text=getattr(args, 'expected_text', None),
                     read_document=read_document, flag_verifier=flag_verifier,
-                    correctness_oracle=oracle_name))
+                    correctness_oracle=oracle_name,
+                    present_text=(surface_kind == 'dom')))
                 if not result['failure_reason']:
                     # No unverified generic save button: require a host-declared path.
                     save = target.get('typing_save_selector')
@@ -664,9 +758,12 @@ def main_cell(argv=None, *, start_host=_start_server, stop_host=_stop_server):
         trial = {
             'schema':'perf.typing/2', 'session_kind':args.session_kind, 'isolation':'fresh_process', 'values_per_session':1, 'criterion_id':'TYPING', 'editor_id':editor,
             'run_id':run.run_id, 'seed':run.seed, 'repetition':(CELL.get() or {}).get('repetition')}
-        trial.update(result, outcome='refused' if result.get('failure_reason') else 'measured',
+        trial.update(result, outcome=(result.get('outcome') or
+                ('unverified' if result.get('refusal_code') == 'unverified'
+                 else 'refused' if result.get('failure_reason') else 'measured')),
             publishable=False, publication_block_reason='inspect all witness and resource refusals; publication requires complete session set',
             fixture_sha256=hashlib.sha256(BRIEF.read_bytes()).hexdigest(),
+            fixture_docx_sha256=hashlib.sha256(empty.read_bytes()).hexdigest(),
             typed_text_sha256=hashlib.sha256(text.encode()).hexdigest(), fixture_words=len(text.split()),
             cadence_ms=args.cadence_ms, session_kind=args.session_kind, witness_every=args.witness_every, sample_s=args.sample_s,
             budget_s=args.budget_s, quiescence_s=args.quiescence_s,

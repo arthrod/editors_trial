@@ -538,6 +538,24 @@ PUBLICATION_REPETITIONS = 30
 TYPING_PUBLICATION_SESSIONS = 12
 TYPING_PUBLICATION_MIN_KEPT = 10
 
+TEXT_CORRECTNESS_ORACLES = frozenset({'dom_document_text', 'model_document_text'})
+
+
+def typing_session_kept(value, session_kind):
+    """One typing attempt counts toward the kept-session gate.
+
+    Only a text oracle can prove what was typed: a session on a flag or
+    missing oracle is unverified evidence — it is recorded, never kept
+    ("no unverified timings are published").
+    """
+    if value.get('correctness_oracle') not in TEXT_CORRECTNESS_ORACLES:
+        return False
+    return (value.get('outcome') == 'measured' and not value.get('failure_reason')
+            and value.get('session_kind') == session_kind
+            and (value.get('throughput_chars_s') is not None if session_kind == 'throughput'
+                 else value.get('load_ms') is not None
+                 and (value.get('key_to_paint') or {}).get('median_ms') is not None))
+
 RUNNER_PROFILE_CRITERION = {
     'benchmark_warm_cold': 'B1',
     'benchmark_document': 'C11',
@@ -748,11 +766,7 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
                             identity = (criterion, str(measure), str(phase), str(rung))
                             attempts[identity] = attempts.get(identity, 0) + 1
                     if runner == 'benchmark_typing' and isinstance(value, dict) and value.get('criterion_id') == 'TYPING':
-                        typing_kept = (value.get('outcome') == 'measured' and not value.get('failure_reason')
-                                       and value.get('session_kind') == args.session_kind
-                                       and (value.get('throughput_chars_s') is not None if args.session_kind == 'throughput'
-                                            else value.get('load_ms') is not None
-                                            and (value.get('key_to_paint') or {}).get('median_ms') is not None))
+                        typing_kept = typing_session_kept(value, args.session_kind)
                     reasons.extend(failure_reasons(value))
                     failed = failed or has_failure(value)
                     skipped.extend({'file': str(path), **row} for row in non_failure_outcomes(value))

@@ -24,6 +24,12 @@ def session_refusal(row, kind):
         return 'publishable_not_true'
     if row.get('outcome') != 'measured':
         return 'not_measured'
+    if row.get('correctness_oracle') not in ('dom_document_text', 'model_document_text'):
+        # Only a document text oracle can prove what was typed. A session on
+        # a flag (or missing) oracle is unverified evidence — it is recorded
+        # with its flag and key count but never counts as kept, and an old
+        # row that called itself measured is refused on sight.
+        return 'document_text_not_readable'
     if cells.editor_pin(row) is None:
         # A session that records no built-editor identity cannot pair with
         # another run's sessions (#149).

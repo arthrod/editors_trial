@@ -326,9 +326,14 @@ def offset_targets(targets: dict, offset: int) -> dict:
     import re
     moved = {}
     for editor, target in targets.items():
-        port = int(re.search(r":(\d+)/", target["url"]).group(1)) + offset
+        declared = re.search(r":(\d+)/", target["url"]).group(1)
+        port = int(declared) + offset
         row = {**target, "url": re.sub(r":\d+/", ":%d/" % port, target["url"], count=1)}
-        row["env"] = {**target.get("env", {}), "PORT": str(port)}
+        # Env values that carry the declared port (folio's playground port)
+        # move with it; anything else (paths, keys) stays verbatim.
+        row["env"] = {key: (str(port) if value == declared else value)
+                      for key, value in target.get("env", {}).items()}
+        row["env"]["PORT"] = str(port)
         command = list(target.get("command", []))
         for index, token in enumerate(command[:-1]):
             if token == "--port":

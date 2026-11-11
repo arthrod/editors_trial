@@ -73,16 +73,18 @@ def docx_body_text(path, paragraph_separator: str = "") -> str:
     return paragraph_separator.join(text for text, _ in _paragraphs(data))
 
 
-def docx_body_text_and_absorbed(path) -> tuple[str, int]:
-    """``(text, absorbed_count)``: paragraph-joined body text plus the count
-    of paragraphs that carry a list number (``w:numPr``) but no text run —
-    those are marker-only paragraphs the editor absorbed into real list
-    items, the only relocation the correctness compare may tolerate."""
+def docx_body_text_and_absorbed(path) -> tuple[str, list]:
+    """``(text, absorbed)``: paragraph-joined body text plus the absorbed
+    marker-only paragraphs. Each entry is ``{'index': i, 'marker': None}``
+    where ``i`` is the paragraph's line position in ``text``: a ``w:p`` that
+    carries a list number (``w:numPr``) but no text run. Evidence is
+    positional on purpose — only the item AT a missing marker's index can
+    answer for it, never a count or an item elsewhere."""
     with zipfile.ZipFile(path, "r") as zf:
         data = zf.read("word/document.xml")
-    texts, absorbed = [], 0
+    texts, absorbed = [], []
     for text, has_numpr in _paragraphs(data):
         if not text.strip() and has_numpr:
-            absorbed += 1
+            absorbed.append({'index': len(texts), 'marker': None})
         texts.append(text)
     return "\n".join(texts), absorbed

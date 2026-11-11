@@ -384,10 +384,15 @@ export const READ_MODEL_DOCUMENT_TEXT = (model) => {
     const editor = window.__DOCEN__ && window.__DOCEN__.editor;
     if (!editor || !editor.state || !editor.state.doc) return null;
     const doc = editor.state.doc;
-    let absorbed = 0;
-    doc.descendants((node) => {
+    // Absorbed evidence is positional: the line index of every empty list
+    // item inside the returned text. Only an item AT a missing marker-only
+    // paragraph's index can answer for it — never a count elsewhere.
+    const absorbed = [];
+    doc.descendants((node, pos) => {
       const name = String((node.type && node.type.name) || '');
-      if (/item|list/i.test(name) && node.textContent === '') absorbed += 1;
+      if (/item|list/i.test(name) && node.textContent === '') {
+        absorbed.push(doc.textBetween(0, pos, '\n').split('\n').length - 1);
+      }
       return true;
     });
     return { text: String(doc.textBetween(0, doc.content.size, '\n')), absorbed_items: absorbed };
@@ -401,7 +406,7 @@ export const READ_MODEL_DOCUMENT_TEXT = (model) => {
       .map((zone) => String(parts[zone] || ''))
       .filter(Boolean)
       .join('\n');
-    return { text, absorbed_items: 0 };
+    return { text, absorbed_items: [] };
   }
   return null;
 };
@@ -410,20 +415,53 @@ export const READ_MODEL_DOCUMENT_TEXT = (model) => {
  * DOM surface text plus the markers an editor absorbed out of the text but
  * still exposes as element attributes (folio's data-list-marker). Only
  * items with no text of their own count — those are marker-only paragraphs.
+ * Each absorbed entry carries its line index inside `text`: evidence is
+ * positional, so only the item sitting AT a missing marker's position can
+ * excuse it. `editable` reports whether the read surface can take typed
+ * input itself (a read-only or paint-only DOM cannot).
  */
 export const READ_DOM_TEXT_WITH_MARKERS = (selector) => {
   // The surface may be many elements: docxodus wires one contenteditable per
   // block, genoffice and folio one region per page. querySelector's first
   // match would truncate the document at its first paragraph.
   const els = Array.from(document.querySelectorAll(selector));
-  if (!els.length) return { text: '', absorbed_markers: [] };
+  if (!els.length) return { text: '', absorbed_markers: [], editable: false };
+  // innerText lines of an element; an empty rendered block is one line,
+  // a hidden one contributes none.
+  const linesOf = (node) => {
+    const t = String(node.innerText ?? '');
+    if (t) return t.split('\n').length;
+    const style = getComputedStyle(node);
+    return style.display === 'none' || style.visibility === 'hidden' ? 0 : 1;
+  };
+  // The element's line index inside its surface element: the lines every
+  // preceding sibling (at every ancestor level) contributes to innerText.
+  const indexWithin = (root, node) => {
+    let count = 0;
+    for (let cur = node; cur && cur !== root; cur = cur.parentElement) {
+      for (let sib = cur.previousElementSibling; sib; sib = sib.previousElementSibling) {
+        count += linesOf(sib);
+      }
+    }
+    return count;
+  };
+  const absorbed = [];
+  let base = 0;
+  for (const el of els) {
+    for (const node of el.querySelectorAll('[data-list-marker]')) {
+      if (String(node.innerText || node.textContent || '').trim()) continue;
+      absorbed.push({
+        index: base + indexWithin(el, node),
+        marker: String(node.getAttribute('data-list-marker') || '').trim(),
+      });
+    }
+    base += String(el.innerText ?? '').split('\n').length;
+  }
   const text = els.map((el) => String(el.innerText ?? el.textContent ?? '')).join('\n');
-  const absorbed = els
-    .flatMap((el) => Array.from(el.querySelectorAll('[data-list-marker]')))
-    .filter((n) => !String(n.innerText || n.textContent || '').trim())
-    .map((n) => String(n.getAttribute('data-list-marker') || '').trim())
-    .filter(Boolean);
-  return { text, absorbed_markers: absorbed };
+  const editable = els.some(
+    (el) => el.isContentEditable
+      || el.querySelectorAll('[contenteditable="true"], [contenteditable=""]').length > 0);
+  return { text, absorbed_markers: absorbed, editable };
 };
 
 export async function armTrustedKeyCounter(page) {
@@ -485,8 +523,9 @@ export async function prepareEditSurface(page, editorId, { timeoutMs = 600000, t
   }
   // A host can say "ready" before a long document has a painted line
   // (SuperDoc at 250k words). Editing starts when there is text to click.
+  // A zero-text document never gains a text line: a 0 timeout skips the wait.
   let textLine = null;
-  if (surface.kind === 'dom' && surface.root) {
+  if (surface.kind === 'dom' && surface.root && textLineTimeoutMs !== 0) {
     const request = { root: surface.root, exclude: surface.exclude || null, minChars: 12 };
     try {
       await page.waitForFunction(FIND_TEXT_LINE, request, {

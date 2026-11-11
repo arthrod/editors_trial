@@ -72,7 +72,9 @@ def test_typing_resources_use_shared_counter_and_level_schema():
     assert last['longtask_count'] == 2
     assert last['longtask_sum_ms'] == 400
     assert last['task_duration_ms'] == 2000
-    assert all(row['phase'] == 'typing' for row in series)
+    # typing is the only measured phase; the closing mark samples the
+    # verification read in its own phase.
+    assert {row['phase'] for row in series} == {'typing', 'correctness_read'}
 
 
 @pytest.mark.parametrize('cost', [200, None, False])

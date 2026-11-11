@@ -111,12 +111,13 @@ for await (const line of lines) {
       if (surface.kind === 'model') {
         const payload = await page.evaluate(READ_MODEL_DOCUMENT_TEXT, surface.model);
         result = payload
-          ? {text: payload.text, absorbed_markers: [], absorbed_count: payload.absorbed_items || 0}
-          : {text: null, absorbed_markers: [], absorbed_count: 0};
+          ? {text: payload.text,
+             absorbed_markers: (payload.absorbed_items || []).map((index) => ({index, marker: null}))}
+          : {text: null, absorbed_markers: []};
       } else if (surface.kind === 'dom') {
         result = await page.evaluate(READ_DOM_TEXT_WITH_MARKERS, command.selector);
       } else {
-        result = {text: null, absorbed_markers: [], absorbed_count: 0};
+        result = {text: null, absorbed_markers: []};
       }
     } else if (command.op === 'modified_flag') {
       result = await readModifiedFlag(page, command.editor_id || '');

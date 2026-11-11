@@ -77,13 +77,17 @@ CAPTION = (
 
 
 class DropMarkersPage:
-    """A page that drops every ``v.`` paragraph from the correctness read."""
+    """A page that drops every ``v.`` paragraph from the correctness read.
 
-    def __init__(self, drop="v.", absorbed=None):
+    ``blank=True`` leaves the empty paragraph slot behind — the shape a real
+    absorbed list item takes — instead of removing the line outright."""
+
+    def __init__(self, drop="v.", absorbed=None, blank=False):
         self.text = ""
         self.sent = 0
         self.drop = drop
         self.absorbed = absorbed or []
+        self.blank = blank
         self.keyboard = self
 
     async def type(self, char):
@@ -99,6 +103,9 @@ class DropMarkersPage:
             return {"longtaskCount": 0, "longtaskSumMs": 0, "usage": 0, "usageDetails": {}}
         if "data-list-marker" in script:
             return list(self.absorbed)
+        if self.blank:
+            return "\n".join("" if line.strip() == self.drop else line
+                             for line in self.text.split("\n"))
         return "\n".join(line for line in self.text.split("\n") if line.strip() != self.drop)
 
 
@@ -136,18 +143,21 @@ def test_marker_only_kept_literal_still_passes():
 
 def test_marker_only_absorbed_into_empty_list_items_passes():
     """Folio-shaped absorption: the ``v.`` text is gone from innerText but
-    every paragraph survives as an empty list item carrying
-    ``data-list-marker`` — the marker is evidence, not text."""
-    page = DropMarkersPage(drop="v.", absorbed=["v.", "v."])
+    every paragraph survives as an empty list item AT ITS OWN POSITION
+    carrying ``data-list-marker`` — the marker is evidence, not text."""
+    absorbed = [{"index": 2, "marker": "v."}, {"index": 5, "marker": "v."}]
+    page = DropMarkersPage(drop="v.", absorbed=absorbed, blank=True)
     result = _type(page, CAPTION)
     assert result["failure_reason"] is None, result
-    assert result["marker_only"]["absorbed"] == ["v.", "v."]
+    assert result["marker_only"]["absorbed"] == absorbed
 
 
 def test_marker_only_absorbed_with_renumbered_label_is_tolerated():
     """An absorbed marker-only item may carry the list's own label: the
-    paragraph exists, and tolerance matches the marker+text class."""
-    page = DropMarkersPage(drop="v.", absorbed=["i.", "i."])
+    paragraph exists at the same index, and tolerance matches the
+    marker+text class."""
+    absorbed = [{"index": 2, "marker": "i."}, {"index": 5, "marker": "i."}]
+    page = DropMarkersPage(drop="v.", absorbed=absorbed, blank=True)
     result = _type(page, CAPTION)
     assert result["failure_reason"] is None, result
 
@@ -238,7 +248,9 @@ def test_type_document_accepts_oracle_overrides():
 
 def test_wordcraft_flag_session_records_exactly_what_is_verified():
     """WordCraft: the only oracle is the modified flag plus the trusted key
-    count; the row must say exactly that and claim no text correctness."""
+    count; the row must say exactly that and claim no text correctness.
+    Since no unverified timing is publishable, the session is recorded
+    ``unverified`` with the flag and key count kept as evidence."""
     from perf.tests.test_typing_marathon import FakePage
 
     page = FakePage()
@@ -248,7 +260,8 @@ def test_wordcraft_flag_session_records_exactly_what_is_verified():
                 "trusted_keys": 6, "min_keys": 6}
 
     result = _type(page, "abc\ndef", flag_verifier=flag_verifier)
-    assert result["failure_reason"] is None, result
+    assert result["failure_reason"] == "document_text_not_readable", result
+    assert result["outcome"] == "unverified"
     assert result["correctness_oracle"] == "editor_modified_flag"
     assert result["verified"] == ["modified_flag", "trusted_keys"]
     assert result["text_correctness"] is None
@@ -257,7 +270,7 @@ def test_wordcraft_flag_session_records_exactly_what_is_verified():
     assert result["modified_flag"]["modified"] is True
 
 
-def test_flag_unchanged_after_typing_refuses_as_not_applied():
+def test_flag_unchanged_after_typing_records_the_flag_verdict():
     from perf.tests.test_typing_marathon import FakePage
 
     async def flag_verifier():
@@ -265,8 +278,8 @@ def test_flag_unchanged_after_typing_refuses_as_not_applied():
                 "trusted_keys": 6, "min_keys": 6}
 
     result = _type(FakePage(), "abc\ndef", flag_verifier=flag_verifier)
-    assert result["failure_reason"] == "edit_not_applied"
-    assert result["refusal_code"] == "correctness_failure"
+    assert result["failure_reason"] == "document_text_not_readable"
+    assert result["refusal_code"] == "unverified"
     assert result["edit_refusal"] == "modified_flag_unchanged"
 
 
@@ -277,12 +290,12 @@ def test_flag_unreadable_is_unverified_not_correctness_failure():
         return {"flag": None, "trusted_keys": 6, "min_keys": 6}
 
     result = _type(FakePage(), "abc\ndef", flag_verifier=flag_verifier)
-    assert result["failure_reason"] == "edit_not_applied"
+    assert result["failure_reason"] == "document_text_not_readable"
     assert result["refusal_code"] == "unverified"
     assert result["edit_refusal"] == "modified_flag_unreadable"
 
 
-def test_trusted_keys_below_min_refuses():
+def test_trusted_keys_below_min_is_unverified_evidence():
     from perf.tests.test_typing_marathon import FakePage
 
     async def flag_verifier():
@@ -290,7 +303,7 @@ def test_trusted_keys_below_min_refuses():
                 "trusted_keys": 3, "min_keys": 6}
 
     result = _type(FakePage(), "abc\ndef", flag_verifier=flag_verifier)
-    assert result["failure_reason"] == "edit_not_applied"
+    assert result["failure_reason"] == "document_text_not_readable"
     assert result["edit_refusal"] == "trusted_keys_below_min"
 
 
@@ -522,7 +535,8 @@ def test_docx_paragraphs_split_on_real_elements_not_regex():
     assert docx_body_text(buf, paragraph_separator="|") == "outer one outer two|textbox||last"
     buf.seek(0)
     text, absorbed = docx_body_text_and_absorbed(buf)
-    assert text == "outer one outer two\ntextbox\n\nlast" and absorbed == 1
+    assert text == "outer one outer two\ntextbox\n\nlast"
+    assert absorbed == [{"index": 2, "marker": None}]
 
 
 def test_genoffice_stub_disables_autocorrect():

@@ -101,6 +101,7 @@ def test_integration_kept_gate_uses_only_selected_kind(tmp_path, kind, kept):
                 'criterion_id': 'TYPING',
                 'session_kind': kind,
                 'outcome': 'measured',
+                'correctness_oracle': 'dom_document_text',
                 'throughput_chars_s': 100 if kind == 'throughput' and ok else None,
                 'load_ms': 12 if kind == 'latency' else None,
                 'key_to_paint': {'median_ms': 16 if kind == 'latency' and ok else None},
@@ -360,7 +361,8 @@ def test_final_typing_sample_follows_deferred_editor_work():
 
         result = await type_document(page, Samples(), witness, 'abc', selector='#editor', clock=lambda: now[0])
         assert result['failure_reason'] is None
-        assert captured[-1] == ('typed_100', True)
+        # The typing phase closes before the correctness read's own phase.
+        assert captured[-2:] == [('typed_100', True), ('correctness_read', True)]
         assert result['typing_wall_s'] == 0.7
         assert result['throughput_chars_s'] == pytest.approx(3 / 0.7)
 
