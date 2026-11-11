@@ -5,7 +5,7 @@ import sys
 
 import pytest
 
-from perf.fixtures.docx_workload import workload_docx
+from perf.fixtures.docx_workload import workload_docx, workload_for_lane
 from perf.fixtures.profiles import size_ladder
 from perf.runner import adversarial_c10_scroll as scroll
 from perf.runner import benchmark_document as bdoc
@@ -20,8 +20,8 @@ LADDER = ("prose-500w", "prose-5kw", "prose-50kw", "prose-250kw", "complex-corpu
 
 @pytest.mark.parametrize("workload_id", LADDER)
 def test_warm_cold_ladder_builds_fixture_and_matching_env(tmp_path, monkeypatch, workload_id):
-    meta = workload_docx(workload_id)
-    expected_sha = hashlib.sha256(meta["docx"]).hexdigest()
+    meta = workload_for_lane(workload_id, "warm_cold")
+    expected_sha = meta["sha256"]
 
     out_root = tmp_path / "cell"
     run = BrowserRun(tmp_path, "warm", seed=1, run_id="r", snapshot=lambda: {})
@@ -64,7 +64,7 @@ def test_warm_cold_ladder_builds_fixture_and_matching_env(tmp_path, monkeypatch,
     assert trials
     env = json.loads(trials[0].read_text())["environment"]
     assert env["fixture_sha256"] == expected_sha
-    assert env["fixture_byte_size"] == len(meta["docx"])
+    assert env["fixture_byte_size"] == meta.get("byte_size", len(meta["docx"]))
 
 
 def test_complex_corpus_envs_carry_paragraph_count(tmp_path):

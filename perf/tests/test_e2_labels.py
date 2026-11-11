@@ -173,9 +173,23 @@ def test_b4_contract_violation_writes_harness_error_trial(tmp_path):
 
 # ---- F5/R2: B9 typing refusal labels ---------------------------------------
 
-def _run_main_cell(tmp_path, monkeypatch, session_result):
-    monkeypatch.setattr(btyping, 'fixture_path', lambda *a: tmp_path / 'empty.docx')
+def _stub_typing_empty_docx(tmp_path, monkeypatch):
+    """main_cell hashes the empty DOCX after the session; the stub must materialise it."""
+    from perf.fixtures.generate import docx_zip_bytes
+
+    data = docx_zip_bytes(b'\n', section_properties=True)
+    path = tmp_path / 'empty.docx'
+
+    def materialise(*_a, **_k):
+        path.write_bytes(data)
+        return path
+
+    monkeypatch.setattr(btyping, 'fixture_path', materialise)
     monkeypatch.setattr(btyping, 'select_fixture', lambda *a: None)
+
+
+def _run_main_cell(tmp_path, monkeypatch, session_result):
+    _stub_typing_empty_docx(tmp_path, monkeypatch)
 
     async def fake_session(target, text, args, directory):
         return session_result, []
@@ -201,8 +215,7 @@ def test_b9_budget_exceeded_labels_editor_timeout(tmp_path, monkeypatch):
 
 
 def test_b9_host_start_failed_labels_host_build(tmp_path, monkeypatch):
-    monkeypatch.setattr(btyping, 'fixture_path', lambda *a: tmp_path / 'empty.docx')
-    monkeypatch.setattr(btyping, 'select_fixture', lambda *a: None)
+    _stub_typing_empty_docx(tmp_path, monkeypatch)
     run = SimpleNamespace(run_id='r1', seed=1, execution_profile='ci_broad',
                           host_class='ci_coarse', hosts={})
     token = btyping.ACTIVE.set(run)

@@ -111,6 +111,7 @@ def _write_typing_job(root: Path, job_id, seed, sessions=12, *, kind='throughput
             outcome='measured', publishable=True, refusal_code=None, failure_reason=None,
             publication_block_reason=None, execution_profile='dedicated_publish', host_class='dedicated',
             isolation='fresh_process', values_per_session=1, cadence_ms=0, budget_s=3600,
+            correctness_oracle='dom_document_text',
             fixture_sha256=fixture, typed_text_sha256='txt' * 10, fixture_words=12805, words_typed=12805,
             session_wall_s=wall, load_ms=load, throughput_chars_s=cps, characters_typed=77031,
             host_provenance=dict(host_build='production', publishable=True, tree_sha256=tree),
