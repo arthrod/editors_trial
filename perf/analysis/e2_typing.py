@@ -24,6 +24,10 @@ def session_refusal(row, kind):
         return row['publication_block_reason']
     if row.get('publishable') is not True and row.get('publication_block_reason') != DEFERRED:
         return 'publishable_not_true'
+    if cells.editor_pin(row) is None:
+        # A session that records no built-editor identity cannot pair with
+        # another run's sessions (#149).
+        return 'pin_not_recorded'
     if (
         row.get('schema') != 'perf.typing/2'
         or row.get('session_kind') != kind
@@ -108,6 +112,11 @@ def read_sessions(root: Path, editor: str, kind: str):
         ((True, why) for summary in summaries for blocked, why in [cells._run_blocks_publication(summary)] if blocked),
         (False, None),
     )
+    if not blocked:
+        # A shakedown mark on any trial of the run blocks the whole run (#149).
+        mark = cells._run_shakedown(root)
+        if mark:
+            blocked, reason = True, mark
     policy = [
         summary
         for summary in summaries

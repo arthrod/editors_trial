@@ -59,7 +59,8 @@ def test_workloads_have_separate_cells_and_table_groups(fs):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps(dict(editor_id='plate', criterion_id='C11', workload_id=workload,
                 outcome='measured', publishable=True, refusal_code=None, samples_ms=[value],
-                sub_frame_samples=[False], diagnostic={'frame_interval_ms': 16.7})))
+                sub_frame_samples=[False], diagnostic={'frame_interval_ms': 16.7},
+                host_provenance={'host_build': 'production', 'publishable': True, 'tree_sha256': 'tree-a'})))
     facts = {}
     table = _criterion_table(facts, *roots, 'C11', ['plate'])
     assert all(workload in table for workload in LADDER[:2])
@@ -85,7 +86,8 @@ def test_f1_diagnostics_cannot_drop_measured_launch(fs):
     path.parent.mkdir(parents=True)
     path.write_text(json.dumps(dict(editor_id='plate', criterion_id='C11', outcome='measured',
         publishable=True, refusal_code=None, samples_ms=[20], sub_frame_samples=[False],
-        diagnostic={'frame_interval_ms': 16.7})))
+        diagnostic={'frame_interval_ms': 16.7},
+        host_provenance={'host_build': 'production', 'publishable': True, 'tree_sha256': 'tree-a'})))
     samples = root / 'samples'
     samples.mkdir()
     for name in ('0000-plate', 'doc-C11-x', 'probe-x', 'input-x', 'c10-0000-plate', 'saturation-0-plate'):
@@ -116,7 +118,8 @@ def test_other_workload_refusal_does_not_veto_cell(fs):
             criterion_id='C11', environment={'workload_id': workload},
             outcome='measured' if code is None else 'not_run', publishable=code is None,
             refusal_code=code, samples_ms=[20], sub_frame_samples=[False],
-            diagnostic={'frame_interval_ms': 16.7})))
+            diagnostic={'frame_interval_ms': 16.7},
+            host_provenance={'host_build': 'production', 'publishable': True, 'tree_sha256': 'tree-a'})))
     cell = build_run_cell(root, 'plate', 'C11', workload_id='prose-500w')
     assert cell['kept_ms'] == [20]
     assert cell['refusals'] == {}

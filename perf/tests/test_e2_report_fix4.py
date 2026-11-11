@@ -207,14 +207,22 @@ def test_accounting_code(fs):
     assert json.loads(path.read_text())['refusal_code'] == 'cpu_accounting_unavailable'
 
 
-def test_blocked_precedes_profile_check(pair):
+def test_blocked_run_still_reports_its_block(pair):
     path = pair[1] / 'summary.json'
     data = json.loads(path.read_text())
-    # A genuinely blocked run reports its block, not a profile mismatch.
-    data.update(publishable=False, execution_profile='ci_contract', failure_reason='repos_modified')
+    # A genuinely blocked run still renders its block reason; only the
+    # comparability guards (host/seed/pin/profile) precede the early-return,
+    # so a blocked repro also fails those checks instead of hiding them (#149).
+    data.update(publishable=False, publication_block_reason='repos_modified')
     path.write_text(json.dumps(data))
-    try:
-        text = cells.publish_dual_runs(*pair, 'plate', 'C07')
-    except ValueError as exc:
-        pytest.fail(f'blocked run reached profile check: {exc}')
+    text = cells.publish_dual_runs(*pair, 'plate', 'C07')
     assert 'blocked' in text
+
+
+def test_blocked_run_still_fails_comparability_guards(pair):
+    path = pair[1] / 'summary.json'
+    data = json.loads(path.read_text())
+    data.update(publishable=False, publication_block_reason='repos_modified', execution_profile='ci_contract')
+    path.write_text(json.dumps(data))
+    with pytest.raises(ValueError, match='execution profile'):
+        cells.publish_dual_runs(*pair, 'plate', 'C07')

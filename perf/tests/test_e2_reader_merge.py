@@ -33,6 +33,7 @@ def write_job(run, job_id, editor, reps, *, refused_sample=None, quarantined=())
                     samples_ms=[20],
                     sub_frame_samples=[False],
                     diagnostic={'frame_interval_ms': 16.7},
+                    host_provenance={'host_build': 'production', 'publishable': True, 'tree_sha256': 'tree-a'},
                 )
             )
         )

@@ -42,6 +42,8 @@ def trial(root, rep, criterion='C07', name=None, **extra):
         refusal_code=None,
         sub_frame_samples=[False],
         diagnostic={'frame_interval_ms': 16.7},
+        # Built-editor identity every real trial carries (#149).
+        host_provenance={'host_build': 'production', 'publishable': True, 'tree_sha256': 'tree-a'},
     )
     row.update(extra)
     path = root / 'cells' / f'{rep:04d}-plate' / 'attempts' / (name or criterion + '.json')

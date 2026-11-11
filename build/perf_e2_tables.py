@@ -44,9 +44,12 @@ def load_run(path: Path) -> Run:
 
 
 def check_comparable(primary: Run, repro: Run) -> None:
-    """A reproduction is a second run of the same measurement, nothing else."""
-    if any(e2_cells._run_blocks_publication(run.summary)[0] for run in (primary, repro)):
-        return
+    """A reproduction is a second run of the same measurement, nothing else.
+
+    The host/seed/pin guards run before the run-blocked early-return: a
+    blocked run is still diagnosable ("blocked repro never fails same
+    seed" hid operator errors, #149).
+    """
     if primary.path.resolve() == repro.path.resolve():
         raise ValueError("the reproduction is the same run directory")
     a, b = primary.summary, repro.summary
@@ -67,23 +70,42 @@ def check_comparable(primary: Run, repro: Run) -> None:
         raise ValueError("the reproduction used another host class")
     if a.get("execution_profile") != b.get("execution_profile"):
         raise ValueError("the reproduction used another execution profile")
-
-    if _pins(primary.path) != _pins(repro.path):
-        raise ValueError("the reproduction attested other editor pins")
+    _require_same_pins(primary.path, repro.path)
+    if any(e2_cells._run_blocks_publication(run.summary)[0] for run in (primary, repro)):
+        return
 
 
 def _pins(root: Path) -> dict:
+    """Built-editor identity per editor (#149).
+
+    ``host_provenance.tree_sha256`` — the built editor — is the pin whenever
+    present, for every lane; ``environment.editor_version`` counts only when
+    it is a real pin, not the editor slug the runner stamps there. A trial
+    with neither records "not recorded".
+    """
     pins = {}
     for row in e2_cells._iter_trials(root):
-        pin = (row.get("environment") or {}).get("editor_version")
-        if pin is None:
-            # Typing session rows carry no environment; the built editor tree
-            # they do carry is the pin a reproduction has to share.
-            provenance = row.get("host_provenance")
-            if isinstance(provenance, dict):
-                pin = provenance.get("tree_sha256")
-        pins.setdefault(row["editor_id"], set()).add(str(pin) if pin is not None else "not recorded")
+        pin = e2_cells.editor_pin(row)
+        pins.setdefault(row["editor_id"], set()).add(pin if pin else "not recorded")
     return {editor: sorted(values) for editor, values in pins.items()}
+
+
+def _require_same_pins(primary: Path, repro: Path) -> None:
+    """Both runs must have measured the same built editor (#149).
+
+    Only recorded pins conflict: an editor whose trials record no identity
+    refuses per launch (``pin_not_recorded`` in ``e2_cells``) rather than
+    vetoing every other editor's cells.
+    """
+    a, b = _pins(primary), _pins(repro)
+    for editor in sorted(set(a) | set(b)):
+        recorded_a = set(a.get(editor, ())) - {"not recorded"}
+        recorded_b = set(b.get(editor, ())) - {"not recorded"}
+        if recorded_a and recorded_b and recorded_a != recorded_b:
+            raise ValueError(
+                "the reproduction attested other editor pins (%s: %s vs %s; built-editor tree)"
+                % (editor, ", ".join(sorted(recorded_a)), ", ".join(sorted(recorded_b)))
+            )
 
 
 def _summary(root: Path) -> dict:
@@ -148,13 +170,16 @@ def _cell_text(facts: dict, primary: Path, repro: Path, editor: str, criterion: 
     reasons = []
     for label, root, cell in zip(('first', 'second'), (primary, repro), cells):
         summary = _summary(root)
-        blocked = e2_cells._run_blocks_publication(summary)[0]
+        # A run blocks through its summary or through any of its trials (a
+        # shakedown mark, #149); either way the cell never publishes.
+        blocked = e2_cells._run_blocks_publication(summary)[0] or cell.get('blocked')
         if blocked:
             reasons.append(
                 '%s run unpublishable: %s'
                 % (
                     label,
-                    summary.get('publication_block_reason') or summary.get('failure_reason') or 'publishable not true',
+                    summary.get('publication_block_reason') or summary.get('failure_reason')
+                    or cell.get('block_reason') or 'publishable not true',
                 )
                 + ' (blocked)'
             )
@@ -416,7 +441,13 @@ def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
         "perf.e2.rel_tol_pct": REL_TOL_PCT,
         "perf.e2.rule": (
             "Each launch contributes the median of its own samples; n counts kept launches. "
-            "Scheduled counts come from each run's order. Both runs must be publishable and keep at least 10 launches. "
+            "Scheduled counts come from each run's order. Publishability is decided per trial — job "
+            "summaries delegate it to their trials — and a cell publishes only from trials that are "
+            "publishable and record the built editor's identity (host_provenance.tree_sha256, else a "
+            "pinned editor_version); a trial recording neither is refused as pin not recorded, and a "
+            "reproduction across different built-editor trees is refused. Both runs must keep at least "
+            "10 launches per cell, and a run-level block — a shakedown run, dirty repos, unavailable "
+            "CPU accounting or a failed run — refuses the whole run. "
             "The medians must agree within 10 percent of the larger median or the larger witnessed frame interval. "
             "Samples of frame-witnessed criteria require complete boolean flags checked against a witnessed interval; "
             "model-layer clocks such as C04 and byte counts publish without them, and sub-frame medians are buckets; "

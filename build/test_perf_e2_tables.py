@@ -49,6 +49,9 @@ def _trial(editor: str, criterion: str, outcome: str, samples=None, **extra) -> 
         "layer": "browser_visible",
         "boundary": "input_to_next_paint",
         "environment": _env(editor),
+        # The built-editor identity every real trial carries (#149); the
+        # runner stamps environment.editor_version with the slug, not a pin.
+        "host_provenance": {"host_build": "production", "publishable": True, "tree_sha256": "tree-fixture"},
         "diagnostic": {"frame_interval_ms": 16.7},
     }
     row.update(extra)
@@ -355,13 +358,12 @@ def test_finding_07_unpublishable_run(runs):
     assert 'cpu_accounting_unavailable' in table(runs)
     assert '100.0 ms' not in table(runs)
 
-@pytest.mark.parametrize('field', ['pin', 'playwright_version', 'vendor', 'browser_version', 'host_class'])
+@pytest.mark.parametrize('field', ['tree', 'playwright_version', 'vendor', 'browser_version', 'host_class'])
 def test_finding_08_real_version_locations(runs, field):
-    if field == 'pin':
-        for root in runs:
-            for p in (root / 'cells').rglob('*.json'):
-                row = json.loads(p.read_text()); row['environment']['editor_version'] = root.name
-                p.write_text(json.dumps(row))
+    if field == 'tree':
+        for p in (runs[1] / 'cells').rglob('*.json'):
+            row = json.loads(p.read_text()); row['host_provenance']['tree_sha256'] = 'tree-other'
+            p.write_text(json.dumps(row))
     elif field == 'host_class':
         change_summary(runs[1], host_class='other')
     else:

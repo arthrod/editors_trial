@@ -22,12 +22,61 @@ _REFUSAL_OUTCOMES = frozenset(
 from perf.runner.refusals import RUN_REFUSALS as _RUN_REFUSALS, refusal_code
 
 
+def editor_pin(row):
+    """The built-editor identity a trial must carry (#149).
+
+    The runner stamps ``environment.editor_version`` with ``pin_label``
+    (``perf/runner/speed_headless.py``) — the editor slug, not a pin — so
+    only ``host_provenance.tree_sha256``, the hash of the built editor, and a
+    genuinely pinned ``editor_version`` (not equal to the slug) identify the
+    measured build. ``None`` means the trial records no identity.
+    """
+    provenance = row.get('host_provenance')
+    if isinstance(provenance, dict):
+        tree = provenance.get('tree_sha256')
+        if isinstance(tree, str) and tree:
+            return tree
+    version = (row.get('environment') or {}).get('editor_version')
+    if isinstance(version, str) and version and version != row.get('editor_id'):
+        return version
+    return None
+
+
+def _shakedown_reason(row) -> str | None:
+    """A shakedown mark anywhere in a run: never a publication run (#149).
+
+    ``perf/runner/browser_run.py`` finishes a shakedown run with
+    ``shakedown: True``, ``publishable: False`` and a
+    ``publication_block_reason`` starting ``shakedown``; the same marks are
+    honoured wherever they appear — summary or trial — regardless of the
+    other fields around them.
+    """
+    if row.get('shakedown') is True:
+        return 'shakedown: few repetitions to find bugs; never a publication run'
+    if row.get('publishable') is False:
+        reason = str(row.get('publication_block_reason') or '')
+        if reason.startswith('shakedown'):
+            return reason
+    return None
+
+
+def _run_shakedown(run_directory: Path) -> str | None:
+    """The first shakedown mark on any trial of the run, if there is one."""
+    for _, _, row in _iter_attempt_rows(run_directory):
+        mark = _shakedown_reason(row)
+        if mark:
+            return mark
+    return None
+
+
 def _trial_block(trial):
     code = refusal_code(trial)
     if code:
         return code
     if trial.get('publishable') is not True or _nested_unpublishable(trial.get('host_provenance')):
         return 'publishable_not_true'
+    if editor_pin(trial) is None:
+        return 'pin_not_recorded'
     if trial.get('outcome') != 'measured':
         return 'crash'
     return None
@@ -56,6 +105,9 @@ def _run_blocks_publication(summary: dict | None) -> tuple[bool, str | None]:
     if summary.get("outcome") == "failed":
         return True, summary.get("failure_reason") or "run failed"
     reason = summary.get("publication_block_reason")
+    mark = _shakedown_reason(summary)
+    if mark:
+        return True, mark
     if summary.get("publishable") is False and reason and reason != 'summary is not a trial; trials carry publishability':
         return True, str(reason)
     if summary.get("failure_reason") in ("repos_modified", "repos_dirty_at_start"):
@@ -261,6 +313,11 @@ def build_run_cell(
         ((True, reason) for summary in summaries for blocked, reason in [_run_blocks_publication(summary)] if blocked),
         (False, None),
     )
+    if not run_blocked:
+        # A shakedown mark on any trial of the run blocks the whole run, even
+        # when the job summary omits it (#149).
+        block_reason = _run_shakedown(run_directory)
+        run_blocked = block_reason is not None
     kept, raw, sub_frame, intervals = [], [], [], []
     refusals = Counter()
     sample_unit = 'bytes' if criterion_id in ('C17', 'C19') else 'ms'
