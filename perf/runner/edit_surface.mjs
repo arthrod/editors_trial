@@ -716,6 +716,38 @@ export const READ_SUPERDOC_CARET_MODEL = () => {
   }
 };
 
+/** Page context. Collapse the Folio hidden ProseMirror caret at a paragraph's start. */
+export const PLACE_FOLIO_PARAGRAPH_START = ({ expectedText }) => {
+  const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+  const want = norm(expectedText);
+  if (!want) return { ok: false, reason: 'no_expected_paragraph' };
+  const pm = document.querySelector('.paged-editor__hidden-pm .ProseMirror');
+  if (!pm) return { ok: false, reason: 'hidden_pm_missing' };
+  if (typeof pm.focus === 'function') pm.focus();
+  let target = null;
+  for (const block of pm.querySelectorAll('[data-block-id], p, h1, h2, h3, h4, h5, h6, li')) {
+    const text = norm(block.innerText || block.textContent);
+    if (text !== want) continue;
+    target = block;
+    break;
+  }
+  if (!target) return { ok: false, reason: 'paragraph_not_found' };
+  try {
+    const range = document.createRange();
+    const node = target.firstChild && target.firstChild.nodeType === 3 ? target.firstChild : target;
+    range.setStart(node, 0);
+    range.collapse(true);
+    const sel = document.getSelection();
+    if (sel) {
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, reason: String(error && error.message ? error.message : error).slice(0, 200) };
+  }
+};
+
 /** Page context. Place the SuperDoc model caret at paragraph start via the public selection handle. */
 export const PLACE_SUPERDOC_PARAGRAPH_START = ({ expectedText }) => {
   const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
@@ -762,13 +794,43 @@ export const READ_CARET_BLOCK_OFFSET = ({ editorId, blockSelector }) => {
   }
   const focused = Boolean(active && active !== document.body && active !== document.documentElement);
   if (editorId === 'superdoc') {
-    const model = READ_SUPERDOC_CARET_MODEL();
-    return {
-      offset: model.offset,
-      focused: model.focused,
-      source: model.source,
-      paragraphText: model.paragraphText,
-    };
+    try {
+      const sd = globalThis.__SUPERDOC_E2E__;
+      const handle = sd && sd.ui && sd.ui.selection;
+      if (!handle || typeof handle.getSnapshot !== 'function') {
+        return { offset: null, paragraphText: null, focused, source: 'superdoc_model' };
+      }
+      const snap = handle.getSnapshot();
+      const target = snap && snap.selectionTarget;
+      const start = target && target.start;
+      const end = target && target.end;
+      const offset = start && Number.isFinite(start.offset) ? start.offset : null;
+      const expanded =
+        start &&
+        end &&
+        (start.blockId !== end.blockId || start.offset !== end.offset || start.edge !== end.edge);
+      if (expanded && typeof handle.apply === 'function') {
+        try {
+          handle.apply({ kind: 'selection', start, end: start, story: target.story });
+        } catch {
+          /* best effort */
+        }
+      }
+      let paragraphText = null;
+      if (typeof snap.quotedText === 'string' && snap.quotedText.trim()) {
+        paragraphText = norm(snap.quotedText);
+      }
+      if (!paragraphText && start && typeof start.blockId === 'string') {
+        const esc = start.blockId.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        const line =
+          document.querySelector(`[data-source-node-id="${esc}"]`) ||
+          document.querySelector(`[blockId="${esc}"]`);
+        if (line) paragraphText = norm(line.textContent);
+      }
+      return { offset, paragraphText, focused, source: 'superdoc_model', blockId: start && start.blockId };
+    } catch {
+      return { offset: null, paragraphText: null, focused, source: 'superdoc_model' };
+    }
   }
   if (editorId === 'folio') {
     const pm = document.querySelector('.paged-editor__hidden-pm .ProseMirror');
@@ -855,6 +917,10 @@ export async function verifyCaretAtParagraphStart(
     (editorId === 'folio' && read.offset === null && clickPoint && Number.isFinite(clickPoint.x));
   if (needsPlacement() && editorId === 'superdoc' && normExpected) {
     await page.evaluate(PLACE_SUPERDOC_PARAGRAPH_START, { expectedText: normExpected });
+    await page.waitForTimeout(80);
+    read = await readOffset();
+  } else if (needsPlacement() && editorId === 'folio' && normExpected) {
+    await page.evaluate(PLACE_FOLIO_PARAGRAPH_START, { expectedText: normExpected });
     await page.waitForTimeout(80);
     read = await readOffset();
   } else if (needsPlacement() && clickPoint && Number.isFinite(clickPoint.x)) {

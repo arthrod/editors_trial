@@ -111,15 +111,12 @@ class C12BodyCaretUsesAdapter(unittest.TestCase):
         surface = (REPO / "perf/runner/edit_surface.mjs").read_text(encoding="utf-8")
         self.assertIn("READ_SUPERDOC_CARET_MODEL", surface)
         self.assertIn("PLACE_SUPERDOC_PARAGRAPH_START", surface)
+        self.assertIn("PLACE_FOLIO_PARAGRAPH_START", surface)
         self.assertIn("expectedParagraphText", surface)
-        lane = (REPO / "perf/runner/lane_edit_burst.mjs").read_text(encoding="utf-8")
-        self.assertIn("expectedParagraphText: pick.caretText", lane)
-
-    def test_superdoc_caret_verify_reads_model_paragraph(self):
-        surface = (REPO / "perf/runner/edit_surface.mjs").read_text(encoding="utf-8")
-        self.assertIn("READ_SUPERDOC_CARET_MODEL", surface)
-        self.assertIn("PLACE_SUPERDOC_PARAGRAPH_START", surface)
-        self.assertIn("expectedParagraphText", surface)
+        offset_fn = surface.split("export const READ_CARET_BLOCK_OFFSET")[1].split(
+            "\nexport async function verifyCaretAtParagraphStart"
+        )[0]
+        self.assertNotIn("READ_SUPERDOC_CARET_MODEL()", offset_fn)
         lane = (REPO / "perf/runner/lane_edit_burst.mjs").read_text(encoding="utf-8")
         self.assertIn("expectedParagraphText: pick.caretText", lane)
 
