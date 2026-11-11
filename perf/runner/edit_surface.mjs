@@ -548,10 +548,33 @@ export async function prepareEditSurface(page, editorId, { timeoutMs = 600000, t
  * `emptyDocument`: the document has no text line to find (the typing lane
  * loads a zero-text document) — click the declared surface itself.
  */
-export async function placeCaret(page, editorId, selector, { focusTimeoutMs = 5000, emptyDocument = false } = {}) {
+export async function placeCaret(
+  page,
+  editorId,
+  selector,
+  {
+    focusTimeoutMs = 5000,
+    emptyDocument = false,
+    clickPoint = null,
+    atBlockStart = false,
+  } = {},
+) {
   const surface = editSurface(editorId);
   let point = null;
-  if (surface.kind === 'dom' && !emptyDocument) {
+  if (clickPoint && Number.isFinite(clickPoint.x) && Number.isFinite(clickPoint.y)) {
+    point = {
+      x: clickPoint.x,
+      y: clickPoint.y,
+      line: clickPoint.line ? String(clickPoint.line) : null,
+    };
+    await page.mouse.click(point.x, point.y);
+    if (atBlockStart) {
+      await page.keyboard.press('Home');
+      if (editorId === 'superdoc' || editorId === 'eigenpal' || editorId === 'folio') {
+        await page.keyboard.press('Home');
+      }
+    }
+  } else if (surface.kind === 'dom' && !emptyDocument) {
     point = await page.evaluate(FIND_TEXT_LINE, {
       root: surface.root || selector,
       exclude: surface.exclude || null,
@@ -584,6 +607,102 @@ export async function placeCaret(page, editorId, selector, { focusTimeoutMs = 50
     frames,
   );
   return { point, focused };
+}
+
+/** Page context. Offset of the caret from the start of its text block (0 = block start). */
+export const READ_CARET_BLOCK_OFFSET = ({ editorId, blockSelector }) => {
+  const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+  let active = document.activeElement;
+  while (active && active.shadowRoot && active.shadowRoot.activeElement) {
+    active = active.shadowRoot.activeElement;
+  }
+  const focused = Boolean(active && active !== document.body && active !== document.documentElement);
+  if (editorId === 'superdoc') {
+    try {
+      const sd = globalThis.__SUPERDOC_E2E__;
+      const snap = sd && sd.ui && sd.ui.selection && sd.ui.selection.getSnapshot
+        ? sd.ui.selection.getSnapshot()
+        : null;
+      const start = snap && snap.selectionTarget && snap.selectionTarget.start;
+      const off = start && Number.isFinite(start.offset) ? start.offset : null;
+      return { offset: off, focused, source: 'superdoc_model' };
+    } catch {
+      return { offset: null, focused, source: 'superdoc_model' };
+    }
+  }
+  if (editorId === 'folio') {
+    const pm = document.querySelector('.paged-editor__hidden-pm .ProseMirror');
+    const sel = typeof document.getSelection === 'function' ? document.getSelection() : null;
+    if (!pm || !sel || sel.rangeCount === 0) {
+      return { offset: null, focused, source: 'hidden_pm' };
+    }
+    const range = sel.getRangeAt(0);
+    const startEl =
+      range.startContainer && range.startContainer.nodeType === 3
+        ? range.startContainer.parentNode
+        : range.startContainer;
+    const block =
+      startEl && typeof startEl.closest === 'function'
+        ? startEl.closest('p,li,h1,h2,h3,h4,h5,h6,td,th')
+        : null;
+    if (!block || !pm.contains(block)) {
+      return { offset: null, focused, source: 'hidden_pm' };
+    }
+    try {
+      const pre = range.cloneRange();
+      pre.selectNodeContents(block);
+      pre.setEnd(range.startContainer, range.startOffset);
+      return { offset: norm(pre.toString()).length, focused, source: 'hidden_pm' };
+    } catch {
+      return { offset: null, focused, source: 'hidden_pm' };
+    }
+  }
+  const sel = typeof document.getSelection === 'function' ? document.getSelection() : null;
+  if (!sel || sel.rangeCount === 0) {
+    return { offset: null, focused, source: 'dom' };
+  }
+  const range = sel.getRangeAt(0);
+  const startEl =
+    range.startContainer && range.startContainer.nodeType === 3
+      ? range.startContainer.parentNode
+      : range.startContainer;
+  const blockSel =
+    blockSelector ||
+    (editorId === 'plate'
+      ? '.doc-paragraph'
+      : editorId === 'eigenpal'
+        ? '[data-paragraph-id]'
+        : editorId === 'folio'
+          ? '[data-block-id]'
+          : 'p,h1,h2,h3,h4,h5,h6,li,td,th,[data-slate-node="element"],[data-paragraph-id],.superdoc-line');
+  const block =
+    startEl && typeof startEl.closest === 'function' ? startEl.closest(blockSel) : null;
+  if (!block) {
+    return { offset: null, focused, source: 'dom' };
+  }
+  try {
+    const pre = range.cloneRange();
+    pre.selectNodeContents(block);
+    pre.setEnd(range.startContainer, range.startOffset);
+    return { offset: norm(pre.toString()).length, focused, source: 'dom' };
+  } catch {
+    return { offset: null, focused, source: 'dom' };
+  }
+};
+
+export async function verifyCaretAtParagraphStart(page, editorId, { blockSelector = null } = {}) {
+  const primary = blockSelector || String(EDIT_SURFACES[editorId]?.block || '').trim() || null;
+  const read = await page.evaluate(READ_CARET_BLOCK_OFFSET, {
+    editorId: editorId || '',
+    blockSelector: primary,
+  });
+  if (!read.focused) {
+    return { ok: false, reason: 'caret_not_at_paragraph_start', detail: 'editor_not_focused', ...read };
+  }
+  if (read.offset !== 0) {
+    return { ok: false, reason: 'caret_not_at_paragraph_start', detail: 'nonzero_offset', ...read };
+  }
+  return { ok: true, ...read };
 }
 
 export async function readCaretScope(page, editorId, point) {

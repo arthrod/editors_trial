@@ -8,6 +8,8 @@ import {
   EDIT_SURFACES,
   prepareEditSurface,
   editSurface,
+  placeCaret,
+  verifyCaretAtParagraphStart,
   waitForTokenDelta,
   readModifiedFlag,
 } from './edit_surface.mjs';
@@ -19,6 +21,8 @@ import {
 
 export const LANE_LOAD_TIMEOUT_MS = 600_000;
 export const LANE_POLL_BOUND_MS = 600_000;
+/** Same bound as confirmLaneEdit: poll until a post-keystroke edit shows in evidence. */
+export const LANE_EDIT_CONFIRM_MS = LANE_POLL_BOUND_MS;
 
 /**
  * Editors whose C12 has no paragraph geometry (r3lanes4 ruling 4): the host
@@ -241,30 +245,18 @@ export function C12_IDENTITY_REFUSAL_DIAGNOSTIC(snapshot, texts, norm, limit = 8
   if (!prefixEq(A.slice(0, c), B.slice(0, c))) {
     return { ...base, failed: 'c' };
   }
-  let sawCaretMismatch = false;
-  let sawTailMismatch = false;
-  for (let j = 0; j < A.length; j++) {
-    const delta = j - i;
-    if (delta !== 0 && delta !== 1) continue;
-    if (!prefixEq(A.slice(0, c), B.slice(0, c))) continue;
-    const change = joinMid(A.slice(c, j));
-    const expected = n(`x${B[c]}`);
-    if (change !== expected) {
-      sawCaretMismatch = true;
-      continue;
-    }
-    const K = Math.max(1, Math.min(5, A.length - j, B.length - i));
-    if (!prefixEq(A.slice(j, j + K), B.slice(i, i + K))) {
-      sawTailMismatch = true;
-    }
+  const expectedCaret = n(`x${B[c]}`);
+  if (n(A[c]) === n(B[c])) {
+    return { ...base, failed: 'c' };
   }
-  if (sawCaretMismatch) return { ...base, failed: 'd' };
-  if (sawTailMismatch || candidates.length !== 1) return { ...base, failed: 'e' };
+  if (n(A[c]) !== expectedCaret) {
+    return { ...base, failed: 'd' };
+  }
   return { ...base, failed: 'e' };
 }
 
-/** Page context: collapse the selection at the start of the fixture's first body block. */
-export function placeC12BodyCaretPage({ editorId, docSel, excludeSel }) {
+/** Page context: click point at the start of the fixture's first body census block. */
+export function c12BodyCaretClick({ editorId, docSel, excludeSel }) {
   const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
   const readBlock = (block) => {
     if (block && block.classList && block.classList.contains('superdoc-line')) {
@@ -281,25 +273,20 @@ export function placeC12BodyCaretPage({ editorId, docSel, excludeSel }) {
   try {
     const startMark = el.querySelector && el.querySelector('[data-start="0"]');
     const caretHost = startMark || el;
-    const range = document.createRange();
-    const target =
-      caretHost.firstChild && caretHost.firstChild.nodeType === 3 ? caretHost.firstChild : caretHost;
-    range.setStart(target, 0);
-    range.collapse(true);
-    const sel = document.getSelection();
-    if (sel) {
-      sel.removeAllRanges();
-      sel.addRange(range);
-    }
-  caretHost.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    caretHost.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     const rect = caretHost.getBoundingClientRect();
     if (rect && rect.height > 0) {
-      click = { x: rect.left + 1, y: rect.top + rect.height / 2 };
+      click = {
+        x: rect.left + 1,
+        y: rect.top + rect.height / 2,
+        line: String(pick.caretText || '').slice(0, 60),
+      };
     }
     window.__c12ForcedCaretIndex = pick.caretIndex;
   } catch {
-    return { ok: false, reason: 'could not place selection at body block start' };
+    return { ok: false, reason: 'could not resolve body block click point' };
   }
+  if (!click) return { ok: false, reason: 'body block has no click box' };
   return {
     ok: true,
     caretIndex: pick.caretIndex,
@@ -482,7 +469,7 @@ export const REFIND_ANCHOR_PAGE_SRC = `${ANCHOR_REFIND_CONTEXT_OK_PAGE_SRC};\n${
 
 export const C12_BLOCK_ENTRIES_PAGE_SRC = toPageExport(c12BlockEntries);
 
-export const C12_BODY_CARET_PAGE_SRC = `${C12_BLOCK_ENTRIES_PAGE_SRC};\n${toPageExport(c12FirstBodyCaretIndex)};\n${toPageExport(placeC12BodyCaretPage)}`;
+export const C12_BODY_CARET_PAGE_SRC = `${C12_BLOCK_ENTRIES_PAGE_SRC};\n${toPageExport(c12FirstBodyCaretIndex)};\n${toPageExport(c12BodyCaretClick)}`;
 
 export const C12_IDENTITY_DIAGNOSTIC_PAGE_SRC = `${toPageExport(C12_IDENTITY_REFUSAL_DIAGNOSTIC)}`;
 
@@ -669,17 +656,17 @@ export async function runLaneEditBurst(page, cdp, { editorId, selector, text, re
 
 /** Place the caret at the start of the first body block in the shared C12 census. */
 export async function placeC12BodyCaret(page, editorId, reflowSel, excludeSel) {
-  const placed = await page.evaluate(
+  const pick = await page.evaluate(
     ({ editorId, docSel, excludeSel, bundleSrc }) => {
-      let place = null;
+      let resolveClick = null;
       try {
         // eslint-disable-next-line no-eval
-        place = (0, eval)(`(function(){ ${bundleSrc}; return placeC12BodyCaretPage; })()`);
+        resolveClick = (0, eval)(`(function(){ ${bundleSrc}; return c12BodyCaretClick; })()`);
       } catch {
-        place = null;
+        resolveClick = null;
       }
-      if (typeof place !== 'function') return { ok: false, reason: 'body caret bundle failed' };
-      return place({ editorId, docSel, excludeSel });
+      if (typeof resolveClick !== 'function') return { ok: false, reason: 'body caret bundle failed' };
+      return resolveClick({ editorId, docSel, excludeSel });
     },
     {
       editorId: editorId || '',
@@ -688,18 +675,111 @@ export async function placeC12BodyCaret(page, editorId, reflowSel, excludeSel) {
       bundleSrc: C12_BODY_CARET_PAGE_SRC,
     },
   );
-  const needsClick = new Set(['superdoc', 'eigenpal', 'folio']);
-  if (placed && placed.ok) {
-    if (placed.click && needsClick.has(String(editorId || ''))) {
-      await page.mouse.click(placed.click.x, placed.click.y);
-      await page.keyboard.press('Home');
-      await page.keyboard.press('Home');
-    } else {
-      await page.keyboard.press('Home');
+  if (!pick || pick.ok !== true || !pick.click) return pick;
+  const surface = editSurface(editorId);
+  if (surface.hidden) {
+    const mounted = await page.evaluate((hiddenSel) => Boolean(document.querySelector(hiddenSel)), surface.hidden);
+    if (!mounted) {
+      await page.mouse.click(pick.click.x, pick.click.y);
+      await page.waitForTimeout(150);
     }
-    await page.waitForTimeout(80);
   }
-  return placed;
+  let placed = null;
+  try {
+    placed = await placeCaret(page, editorId, reflowSel, {
+      clickPoint: pick.click,
+      atBlockStart: true,
+      focusTimeoutMs: 5000,
+    });
+  } catch (error) {
+    return {
+      ok: false,
+      reason: String(error && error.message ? error.message : error).slice(0, 200),
+    };
+  }
+  const blockSelector = String(reflowSel || '').split(',')[0].trim() || null;
+  const verified = await verifyCaretAtParagraphStart(page, editorId, { blockSelector });
+  if (!verified.ok) {
+    return {
+      ok: false,
+      reason: verified.reason || 'caret_not_at_paragraph_start',
+      caretIndex: pick.caretIndex,
+      caretText: pick.caretText,
+      caret_verify: verified,
+      point: placed.point,
+      focused: placed.focused,
+    };
+  }
+  await page.waitForTimeout(80);
+  return {
+    ok: true,
+    caretIndex: pick.caretIndex,
+    caretText: pick.caretText,
+    click: pick.click,
+    point: placed.point,
+    focused: placed.focused,
+    caret_verify: verified,
+  };
+}
+
+/** Poll the C12 census until the caret paragraph changes (outside the measured window). */
+export async function waitForC12CaretEdit(
+  page,
+  editorId,
+  reflowSel,
+  excludeSel,
+  snapshot,
+  { timeoutMs = LANE_EDIT_CONFIRM_MS, pollMs = 50 } = {},
+) {
+  const c = snapshot && Number.isFinite(Number(snapshot.caretIndex)) ? Number(snapshot.caretIndex) : -1;
+  const beforeText =
+    snapshot && Array.isArray(snapshot.blockTexts) && c >= 0
+      ? String(snapshot.blockTexts[c] || '')
+      : '';
+  const deadline = Date.now() + timeoutMs;
+  let lastTexts = null;
+  while (Date.now() < deadline) {
+    const sampled = await page.evaluate(
+      ({ editorId, docSel, excludeSel, bundleSrc, blockTextSrc }) => {
+        const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+        let readBlock = (block) => norm(block.innerText || block.textContent);
+        try {
+          // eslint-disable-next-line no-eval
+          const fn = eval(blockTextSrc);
+          if (typeof fn === 'function') readBlock = (block) => fn(block, norm);
+        } catch {
+          /* keep default */
+        }
+        let collect = null;
+        try {
+          // eslint-disable-next-line no-eval
+          collect = (0, eval)(`(function(){ ${bundleSrc}; return c12BlockEntries; })()`);
+        } catch {
+          collect = null;
+        }
+        if (typeof collect !== 'function') return { ok: false, reason: 'census unavailable' };
+        const entries = collect(String(editorId || ''), docSel, excludeSel || '', readBlock);
+        return { ok: true, texts: entries.map((entry) => entry.text) };
+      },
+      {
+        editorId: editorId || '',
+        docSel: reflowSel,
+        excludeSel: excludeSel || '',
+        bundleSrc: C12_BLOCK_ENTRIES_PAGE_SRC,
+        blockTextSrc: `${C12_BLOCK_TEXT}`,
+      },
+    );
+    if (sampled && sampled.ok && Array.isArray(sampled.texts)) {
+      lastTexts = sampled.texts;
+      const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+      const afterText = c >= 0 && c < sampled.texts.length ? norm(sampled.texts[c]) : '';
+      if (afterText && afterText !== norm(beforeText)) {
+        return { ok: true, texts: sampled.texts };
+      }
+    }
+    await page.waitForTimeout(pollMs);
+  }
+  return { ok: false, reason: 'edit_not_observed', texts: lastTexts, caretIndex: c, beforeText };
 }
 
 /** After Control+Home/Home, some hosts leave a zero-height selection (off-DOM). */

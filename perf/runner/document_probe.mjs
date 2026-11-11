@@ -81,6 +81,7 @@ import {
   prepareLaneCaret,
   reflowBlockSelector,
   reflowWitnessSelector,
+  waitForC12CaretEdit,
 } from './lane_edit_burst.mjs';
 import { EDIT_SURFACES } from './edit_surface.mjs';
 import { loadTimeoutMs } from './load_timeout.mjs';
@@ -1483,19 +1484,18 @@ async function runReflow(browser) {
     }
     let bodyCaret = await placeC12BodyCaret(ctx.page, editorId, reflowSel, excludeSelEarly);
     if (!bodyCaret || bodyCaret.ok !== true) {
-      if (editorId !== 'superdoc') {
-        return {
-          mode: 'reflow',
-          driver: 'playwright',
-          url,
-          navigation_ms: navigationMs,
-          ready_ms: readyMs,
-          error: bodyCaret?.reason || 'c12_body_caret_unavailable',
-          window_excludes_forced_layout: true,
-          forced_layout_ms: 0,
-          page_errors: ctx.errors,
-        };
-      }
+      return {
+        mode: 'reflow',
+        driver: 'playwright',
+        url,
+        navigation_ms: navigationMs,
+        ready_ms: readyMs,
+        error: bodyCaret?.reason || 'c12_body_caret_unavailable',
+        caret_placement: bodyCaret || null,
+        window_excludes_forced_layout: true,
+        forced_layout_ms: 0,
+        page_errors: ctx.errors,
+      };
     }
 
     // The census runs after the caret is finally placed (the adapter's click,
@@ -1540,7 +1540,76 @@ async function runReflow(browser) {
     });
     await ctx.page.keyboard.press('Enter');
     await ctx.page.keyboard.type('x', { delay: 0 });
-    await ctx.page.waitForTimeout(50);
+    const snapshot = await ctx.page.evaluate(() => window.__c12BeforeSnapshot || null);
+    const editSeen = await waitForC12CaretEdit(
+      ctx.page,
+      editorId,
+      reflowSel,
+      excludeSel,
+      snapshot,
+    );
+    if (!editSeen || editSeen.ok !== true) {
+      const identityDiagnostic = await ctx.page.evaluate(
+        ({ diagSrc, entriesSrc, blockTextSrc, eid, excl, docSel }) => {
+          const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+          let readBlock = (block) => norm(block.innerText || block.textContent);
+          try {
+            // eslint-disable-next-line no-eval
+            const fn = eval(blockTextSrc);
+            if (typeof fn === 'function') readBlock = (block) => fn(block, norm);
+          } catch {
+            /* keep default */
+          }
+          const snap = window.__c12BeforeSnapshot;
+          let collect = null;
+          try {
+            // eslint-disable-next-line no-eval
+            collect = (0, eval)(`(function(){ ${entriesSrc}; return c12BlockEntries; })()`);
+          } catch {
+            collect = null;
+          }
+          let diagnose = null;
+          if (snap && typeof collect === 'function') {
+            const entries = collect(eid, docSel, excl || '', readBlock);
+            const texts = entries.map((entry) => entry.text);
+            try {
+              // eslint-disable-next-line no-eval
+              const diagFn = (0, eval)(`(function(){ ${diagSrc}; return C12_IDENTITY_REFUSAL_DIAGNOSTIC; })()`);
+              if (typeof diagFn === 'function') diagnose = diagFn(snap, texts, norm, 8, 80);
+            } catch {
+              diagnose = null;
+            }
+          }
+          return diagnose;
+        },
+        {
+          diagSrc: `${C12_IDENTITY_DIAGNOSTIC_PAGE_SRC}`,
+          blockTextSrc: `${C12_BLOCK_TEXT}`,
+          entriesSrc: `${C12_BLOCK_ENTRIES_PAGE_SRC}`,
+          eid: editorId || '',
+          excl: excludeSel,
+          docSel: reflowSel,
+        },
+      );
+      return {
+        mode: 'reflow',
+        driver: 'playwright',
+        url,
+        navigation_ms: navigationMs,
+        ready_ms: readyMs,
+        before,
+        error: editSeen?.reason || 'edit_not_observed',
+        identity_diagnostic: identityDiagnostic,
+        edit_confirmation: editSeen || null,
+        moved: false,
+        anchor_top_after: null,
+        anchor_after_top: null,
+        shift_px: null,
+        window_excludes_forced_layout: true,
+        forced_layout_ms: 0,
+        page_errors: ctx.errors,
+      };
+    }
     const anchorIdentity = await ctx.page.evaluate(
       ({ checkSrc, diagSrc, blockTextSrc, entriesSrc, eid, excl, docSel }) => {
         const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();

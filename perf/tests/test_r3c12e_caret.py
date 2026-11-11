@@ -49,7 +49,7 @@ console.log(JSON.stringify(pick));
 
 
 class C12IdentityDiagnostic(NodeContract):
-    def test_refusal_reports_condition_c_and_truncated_lists(self):
+    def test_refusal_reports_condition_e_when_tail_mismatches(self):
         out = self.node(
             """
 const snapshot = {
@@ -60,14 +60,52 @@ const snapshot = {
 };
 const texts = ['xAlpha', 'Beta', 'WRONG'];
 const diag = mod.C12_IDENTITY_REFUSAL_DIAGNOSTIC(snapshot, texts, (t) => String(t).trim(), 8, 80);
-assert.equal(diag.failed, 'd', JSON.stringify(diag));
+assert.equal(diag.failed, 'e', JSON.stringify(diag));
 assert.equal(diag.before_blocks.length, 3);
 assert.equal(diag.after_blocks.length, 3);
 assert.equal(diag.caretIndex, 0);
 console.log(JSON.stringify(diag));
 """
         )
-        self.assertEqual(out["failed"], "d")
+        self.assertEqual(out["failed"], "e")
+
+    def test_unchanged_caret_paragraph_reports_condition_c(self):
+        out = self.node(
+            """
+const snapshot = {
+  caretIndex: 1,
+  anchorIndex: 2,
+  blockTexts: ['H', 'In property property each completion', 'Director partial'],
+  anchorText: 'Director partial',
+};
+const texts = ['H', 'In property property each completion', 'Director partial'];
+const diag = mod.C12_IDENTITY_REFUSAL_DIAGNOSTIC(snapshot, texts, (t) => String(t).trim(), 8, 80);
+assert.equal(diag.failed, 'c', JSON.stringify(diag));
+console.log(JSON.stringify(diag));
+"""
+        )
+        self.assertEqual(out["failed"], "c")
+
+
+class C12BodyCaretUsesAdapter(unittest.TestCase):
+    def test_place_c12_body_caret_calls_shared_place_caret(self):
+        lane = (REPO / "perf/runner/lane_edit_burst.mjs").read_text(encoding="utf-8")
+        probe = (REPO / "perf/runner/document_probe.mjs").read_text(encoding="utf-8")
+        surface = (REPO / "perf/runner/edit_surface.mjs").read_text(encoding="utf-8")
+        self.assertIn("placeCaret", lane)
+        self.assertIn("verifyCaretAtParagraphStart", surface)
+        self.assertNotIn("placeC12BodyCaretPage", probe)
+        place_fn = lane.split("export async function placeC12BodyCaret")[1].split("export async function ensureReflowCaret")[0]
+        self.assertIn("placeCaret(", place_fn)
+        self.assertNotIn("placeC12BodyCaretPage", place_fn)
+
+    def test_edit_not_observed_is_a_named_refusal(self):
+        lane = (REPO / "perf/runner/lane_edit_burst.mjs").read_text(encoding="utf-8")
+        probe = (REPO / "perf/runner/document_probe.mjs").read_text(encoding="utf-8")
+        self.assertIn("edit_not_observed", lane)
+        self.assertIn("waitForC12CaretEdit", lane)
+        self.assertIn("edit_not_observed", probe)
+        self.assertIn("caret_not_at_paragraph_start", lane)
 
 
 if __name__ == "__main__":
