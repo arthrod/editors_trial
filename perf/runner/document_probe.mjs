@@ -74,8 +74,10 @@ import {
   REFIND_ANCHOR_PAGE_SRC,
   C12_BLOCK_ENTRIES_PAGE_SRC,
   C12_BLOCK_TEXT,
+  C12_IDENTITY_DIAGNOSTIC_PAGE_SRC,
   ensureReflowCaret,
   gatherReflowBefore,
+  placeC12BodyCaret,
   prepareLaneCaret,
   reflowBlockSelector,
   reflowWitnessSelector,
@@ -1455,14 +1457,52 @@ async function runReflow(browser) {
     await ctx.page.waitForTimeout(100);
 
     const reflowSel = reflowBlockSelector(editorId, docSelector);
-    await ensureReflowCaret(ctx.page, reflowSel, { settleMs: 100 });
+    const editSurface = editorId && EDIT_SURFACES[editorId] ? EDIT_SURFACES[editorId] : null;
+    const excludeSelEarly = editSurface && editSurface.exclude ? editSurface.exclude : '';
+    await ensureReflowCaret(ctx.page, reflowSel, {
+      settleMs: 100,
+      editorId,
+      excludeSel: excludeSelEarly,
+    });
+    if (editorId === 'superdoc') {
+      try {
+        await ctx.page.waitForFunction(
+          () => {
+            const lines = Array.from(document.querySelectorAll('#editor .superdoc-line'));
+            return lines.some((line) => {
+              const text = String(line.textContent || '').replace(/\s+/g, ' ').trim();
+              return text.length >= 24 && !/^(Article \d+\.|Section \d+\.\d+\s)/.test(text);
+            });
+          },
+          null,
+          { timeout: 60000, polling: 100 },
+        );
+      } catch {
+        /* best effort */
+      }
+    }
+    let bodyCaret = await placeC12BodyCaret(ctx.page, editorId, reflowSel, excludeSelEarly);
+    if (!bodyCaret || bodyCaret.ok !== true) {
+      if (editorId !== 'superdoc') {
+        return {
+          mode: 'reflow',
+          driver: 'playwright',
+          url,
+          navigation_ms: navigationMs,
+          ready_ms: readyMs,
+          error: bodyCaret?.reason || 'c12_body_caret_unavailable',
+          window_excludes_forced_layout: true,
+          forced_layout_ms: 0,
+          page_errors: ctx.errors,
+        };
+      }
+    }
 
     // The census runs after the caret is finally placed (the adapter's click,
     // then Control+Home/Home): the anchor is the nearest unique block below
     // THAT caret on the same screen (r3lanes4 ruling 3). This is still all
     // before the Enter listener arms, outside the measured window.
-    const editSurface = editorId && EDIT_SURFACES[editorId] ? EDIT_SURFACES[editorId] : null;
-    const excludeSel = editSurface && editSurface.exclude ? editSurface.exclude : '';
+    const excludeSel = excludeSelEarly;
     const before = await ctx.page.evaluate(gatherReflowBefore, {
       editorId: editorId || '',
       docSel: reflowSel,
@@ -1502,7 +1542,7 @@ async function runReflow(browser) {
     await ctx.page.keyboard.type('x', { delay: 0 });
     await ctx.page.waitForTimeout(50);
     const anchorIdentity = await ctx.page.evaluate(
-      ({ checkSrc, blockTextSrc, entriesSrc, eid, excl, docSel }) => {
+      ({ checkSrc, diagSrc, blockTextSrc, entriesSrc, eid, excl, docSel }) => {
         const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
         let readBlock = (block) => norm(block.innerText || block.textContent);
         try {
@@ -1535,10 +1575,26 @@ async function runReflow(browser) {
         }
         const entries = collect(eid, docSel, excl || '', readBlock);
         const blocks = entries.map((entry) => entry.el);
-        return check(snapshot, blocks, readBlock);
+        const verdict = check(snapshot, blocks, readBlock);
+        if (verdict && verdict.ok === false) {
+          let diagnose = null;
+          try {
+            // eslint-disable-next-line no-eval
+            const diagFn = (0, eval)(`(function(){ ${diagSrc}; return C12_IDENTITY_REFUSAL_DIAGNOSTIC; })()`);
+            if (typeof diagFn === 'function') {
+              const texts = entries.map((entry) => entry.text);
+              diagnose = diagFn(snapshot, texts, norm, 8, 80);
+            }
+          } catch {
+            diagnose = null;
+          }
+          return { ...verdict, identity_diagnostic: diagnose };
+        }
+        return verdict;
       },
       {
         checkSrc: `${ANCHOR_REFIND_CONTEXT_OK_PAGE_SRC}`,
+        diagSrc: `${C12_IDENTITY_DIAGNOSTIC_PAGE_SRC}`,
         blockTextSrc: `${C12_BLOCK_TEXT}`,
         entriesSrc: `${C12_BLOCK_ENTRIES_PAGE_SRC}`,
         eid: editorId || '',
@@ -1555,6 +1611,7 @@ async function runReflow(browser) {
         ready_ms: readyMs,
         before,
         error: anchorIdentity.reason || 'anchor_identity_ambiguous',
+        identity_diagnostic: anchorIdentity.identity_diagnostic || null,
         moved: false,
         anchor_top_after: null,
         anchor_after_top: null,
@@ -1704,7 +1761,7 @@ async function runReflow(browser) {
       },
     );
     const endIdentity = await ctx.page.evaluate(
-      ({ checkSrc, blockTextSrc, entriesSrc, eid, excl, docSel }) => {
+      ({ checkSrc, diagSrc, blockTextSrc, entriesSrc, eid, excl, docSel }) => {
         const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
         let readBlock = (block) => norm(block.innerText || block.textContent);
         try {
@@ -1734,12 +1791,27 @@ async function runReflow(browser) {
         const entries = collect(eid, docSel, excl || '', readBlock);
         const blocks = entries.map((entry) => entry.el);
         const verdict = check(snapshot, blocks, readBlock);
+        if (verdict && verdict.ok === false) {
+          let diagnose = null;
+          try {
+            // eslint-disable-next-line no-eval
+            const diagFn = (0, eval)(`(function(){ ${diagSrc}; return C12_IDENTITY_REFUSAL_DIAGNOSTIC; })()`);
+            if (typeof diagFn === 'function') {
+              const texts = entries.map((entry) => entry.text);
+              diagnose = diagFn(snapshot, texts, norm, 8, 80);
+            }
+          } catch {
+            diagnose = null;
+          }
+          return { ...verdict, identity_diagnostic: diagnose };
+        }
         const refusal = window.__c12AnchorRefusal || null;
         if (refusal) return { ok: false, reason: refusal };
         return verdict;
       },
       {
         checkSrc: `${ANCHOR_REFIND_CONTEXT_OK_PAGE_SRC}`,
+        diagSrc: `${C12_IDENTITY_DIAGNOSTIC_PAGE_SRC}`,
         blockTextSrc: `${C12_BLOCK_TEXT}`,
         entriesSrc: `${C12_BLOCK_ENTRIES_PAGE_SRC}`,
         eid: editorId || '',
@@ -1756,6 +1828,7 @@ async function runReflow(browser) {
         ready_ms: readyMs,
         before,
         error: endIdentity.reason || 'anchor_identity_ambiguous',
+        identity_diagnostic: endIdentity.identity_diagnostic || null,
         moved: false,
         anchor_top_after: null,
         anchor_after_top: null,

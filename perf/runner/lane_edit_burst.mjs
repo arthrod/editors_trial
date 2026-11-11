@@ -176,8 +176,145 @@ export function reflowBlockSelector(editorId, fallback) {
   return fallback;
 }
 
+/** Prose fixture headings at the start of body paragraphs (docx_workload). */
+export const C12_PROSE_HEADING_LINE = (text) =>
+  /^(Article \d+\.|Section \d+\.\d+\s)/.test(String(text || '').replace(/\s+/g, ' ').trim());
+
+/** Document-order index of the first census block that is not a fixture heading. */
+export function c12FirstBodyCaretIndex(entries) {
+  const heading = (text) =>
+    /^(Article \d+\.|Section \d+\.\d+\s)/.test(String(text || '').replace(/\s+/g, ' ').trim());
+  if (!Array.isArray(entries) || !entries.length) {
+    return { ok: false, reason: 'no blocks in census' };
+  }
+  for (let idx = 0; idx < entries.length; idx += 1) {
+    const text = String(entries[idx].text || '');
+    if (!heading(text)) {
+      return { ok: true, caretIndex: idx, caretText: text };
+    }
+  }
+  return { ok: false, reason: 'only heading blocks in census' };
+}
+
+/** Refusal-only diagnostic for ruling 3 (a)–(e); paragraph lists truncated. */
+export function C12_IDENTITY_REFUSAL_DIAGNOSTIC(snapshot, texts, norm, limit = 8, trunc = 80) {
+  const n = (t) => norm(t);
+  const clip = (list) => list.slice(0, limit).map((t) => String(t || '').slice(0, trunc));
+  const base = {
+    caretIndex: snapshot && Number.isFinite(Number(snapshot.caretIndex)) ? Number(snapshot.caretIndex) : null,
+    anchorIndex: snapshot && Number.isFinite(Number(snapshot.anchorIndex)) ? Number(snapshot.anchorIndex) : null,
+    before_blocks: clip(snapshot && Array.isArray(snapshot.blockTexts) ? snapshot.blockTexts : []),
+    after_blocks: clip(texts.map(n)),
+    failed: null,
+  };
+  if (!snapshot || !Array.isArray(snapshot.blockTexts)) {
+    return { ...base, failed: 'a' };
+  }
+  const B = snapshot.blockTexts.map(n);
+  const A = texts.map(n);
+  const c = Number(snapshot.caretIndex);
+  const i = Number(snapshot.anchorIndex);
+  if (!Number.isFinite(c) || !Number.isFinite(i) || c < 0 || i < 0) {
+    return { ...base, failed: 'a' };
+  }
+  const anchorText = n(snapshot.anchorText || B[i] || '');
+  const beforeCount = B.filter((t) => t === anchorText).length;
+  const afterCount = A.filter((t) => t === anchorText).length;
+  if (afterCount !== beforeCount) {
+    return { ...base, failed: 'b' };
+  }
+  const joinMid = (parts) => n(parts.filter((p) => n(p)).join(' '));
+  const prefixEq = (a, b) => a.length === b.length && a.every((t, k) => t === b[k]);
+  const candidates = [];
+  for (let j = 0; j < A.length; j++) {
+    const delta = j - i;
+    if (delta !== 0 && delta !== 1) continue;
+    if (!prefixEq(A.slice(0, c), B.slice(0, c))) continue;
+    const change = joinMid(A.slice(c, j));
+    const expected = n(`x${B[c]}`);
+    if (change !== expected) continue;
+    const K = Math.max(1, Math.min(5, A.length - j, B.length - i));
+    if (!prefixEq(A.slice(j, j + K), B.slice(i, i + K))) continue;
+    candidates.push(j);
+  }
+  if (candidates.length === 1) return base;
+  if (!prefixEq(A.slice(0, c), B.slice(0, c))) {
+    return { ...base, failed: 'c' };
+  }
+  let sawCaretMismatch = false;
+  let sawTailMismatch = false;
+  for (let j = 0; j < A.length; j++) {
+    const delta = j - i;
+    if (delta !== 0 && delta !== 1) continue;
+    if (!prefixEq(A.slice(0, c), B.slice(0, c))) continue;
+    const change = joinMid(A.slice(c, j));
+    const expected = n(`x${B[c]}`);
+    if (change !== expected) {
+      sawCaretMismatch = true;
+      continue;
+    }
+    const K = Math.max(1, Math.min(5, A.length - j, B.length - i));
+    if (!prefixEq(A.slice(j, j + K), B.slice(i, i + K))) {
+      sawTailMismatch = true;
+    }
+  }
+  if (sawCaretMismatch) return { ...base, failed: 'd' };
+  if (sawTailMismatch || candidates.length !== 1) return { ...base, failed: 'e' };
+  return { ...base, failed: 'e' };
+}
+
+/** Page context: collapse the selection at the start of the fixture's first body block. */
+export function placeC12BodyCaretPage({ editorId, docSel, excludeSel }) {
+  const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+  const readBlock = (block) => {
+    if (block && block.classList && block.classList.contains('superdoc-line')) {
+      return norm(block.textContent);
+    }
+    return norm(block.innerText || block.textContent);
+  };
+  if (typeof c12BlockEntries !== 'function') return { ok: false, reason: 'census unavailable' };
+  const entries = c12BlockEntries(String(editorId || ''), docSel, excludeSel || '', readBlock);
+  const pick = c12FirstBodyCaretIndex(entries);
+  if (!pick.ok || !entries[pick.caretIndex]) return { ok: false, reason: pick.reason || 'no body block' };
+  const el = entries[pick.caretIndex].el;
+  let click = null;
+  try {
+    const startMark = el.querySelector && el.querySelector('[data-start="0"]');
+    const caretHost = startMark || el;
+    const range = document.createRange();
+    const target =
+      caretHost.firstChild && caretHost.firstChild.nodeType === 3 ? caretHost.firstChild : caretHost;
+    range.setStart(target, 0);
+    range.collapse(true);
+    const sel = document.getSelection();
+    if (sel) {
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+  caretHost.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    const rect = caretHost.getBoundingClientRect();
+    if (rect && rect.height > 0) {
+      click = { x: rect.left + 1, y: rect.top + rect.height / 2 };
+    }
+    window.__c12ForcedCaretIndex = pick.caretIndex;
+  } catch {
+    return { ok: false, reason: 'could not place selection at body block start' };
+  }
+  return {
+    ok: true,
+    caretIndex: pick.caretIndex,
+    caretText: String(pick.caretText || '').slice(0, 80),
+    click,
+  };
+}
+
 /** Visible text of one reflow block; innerText matches what users see when runs split. */
-export const C12_BLOCK_TEXT = (block, norm) => norm(block.innerText || block.textContent);
+export const C12_BLOCK_TEXT = (block, norm) => {
+  if (block && block.classList && block.classList.contains('superdoc-line')) {
+    return norm(block.textContent);
+  }
+  return norm(block.innerText || block.textContent);
+};
 
 /** Paragraph-level painted blocks for C12: one census across before, after, identity and re-find. */
 export function c12BlockEntries(editorId, docSel, excludeSel, readBlock) {
@@ -185,18 +322,34 @@ export function c12BlockEntries(editorId, docSel, excludeSel, readBlock) {
   const skip = (el) => excluded.some((root) => root === el || root.contains(el));
   const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
   const read = (el) => norm(readBlock(el));
+  const dropFixtureHeading = (text) =>
+    /^(Article \d+\.|Section \d+\.\d+\s)/.test(norm(text)) ? null : { text: norm(text) };
 
   if (editorId === 'superdoc') {
     const lines = Array.from(document.querySelectorAll('#editor .superdoc-line')).filter((el) => !skip(el));
     const order = [];
     const groups = new Map();
+    let orphanRun = null;
+    let orphanTop = null;
     for (const line of lines) {
+      const lineTop = line.getBoundingClientRect().top;
       let pid = line.getAttribute('data-paragraph-id');
       if (!pid) {
         const holder = line.closest('[data-paragraph-id]');
         pid = holder ? holder.getAttribute('data-paragraph-id') : '';
       }
-      if (!pid) pid = `__singleton__:${order.length}`;
+      if (!pid) {
+        if (orphanRun && orphanTop !== null && lineTop - orphanTop > 28) {
+          orphanRun = null;
+          orphanTop = null;
+        }
+        if (!orphanRun) orphanRun = `__linegroup__:${order.length}`;
+        pid = orphanRun;
+        orphanTop = lineTop;
+      } else {
+        orphanRun = null;
+        orphanTop = null;
+      }
       if (!groups.has(pid)) {
         groups.set(pid, []);
         order.push(pid);
@@ -210,7 +363,9 @@ export function c12BlockEntries(editorId, docSel, excludeSel, readBlock) {
       if (!text) continue;
       const el = grp[0];
       const rect = el.getBoundingClientRect();
-      out.push({ el, text, top: rect.top, bottom: rect.bottom });
+      const kept = dropFixtureHeading(text);
+      if (!kept) continue;
+      out.push({ el, text: kept.text, top: rect.top, bottom: rect.bottom });
     }
     out.sort((a, b) => a.top - b.top);
     return out;
@@ -228,8 +383,10 @@ export function c12BlockEntries(editorId, docSel, excludeSel, readBlock) {
     .map((el) => {
       const text = read(el);
       if (!text) return null;
+      const kept = dropFixtureHeading(text);
+      if (!kept) return null;
       const rect = el.getBoundingClientRect();
-      return { el, text, top: rect.top, bottom: rect.bottom };
+      return { el, text: kept.text, top: rect.top, bottom: rect.bottom };
     })
     .filter(Boolean);
 }
@@ -325,6 +482,10 @@ export const REFIND_ANCHOR_PAGE_SRC = `${ANCHOR_REFIND_CONTEXT_OK_PAGE_SRC};\n${
 
 export const C12_BLOCK_ENTRIES_PAGE_SRC = toPageExport(c12BlockEntries);
 
+export const C12_BODY_CARET_PAGE_SRC = `${C12_BLOCK_ENTRIES_PAGE_SRC};\n${toPageExport(c12FirstBodyCaretIndex)};\n${toPageExport(placeC12BodyCaretPage)}`;
+
+export const C12_IDENTITY_DIAGNOSTIC_PAGE_SRC = `${toPageExport(C12_IDENTITY_REFUSAL_DIAGNOSTIC)}`;
+
 /** Page context. C12 block census after the caret is placed (light-DOM blocks). */
 export function gatherReflowBefore({ editorId, docSel, pickBelowSrc, excludeSel, entriesSrc }) {
   // The shared picker (PICK_ANCHOR_BELOW) travels as source: page.evaluate
@@ -358,7 +519,12 @@ export function gatherReflowBefore({ editorId, docSel, pickBelowSrc, excludeSel,
   };
 
   const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
-  const readBlock = (block) => norm(block.innerText || block.textContent);
+  const readBlock = (block) => {
+    if (block && block.classList && block.classList.contains('superdoc-line')) {
+      return norm(block.textContent);
+    }
+    return norm(block.innerText || block.textContent);
+  };
   let collect = null;
   if (typeof entriesSrc === 'string' && entriesSrc) {
     try {
@@ -376,18 +542,61 @@ export function gatherReflowBefore({ editorId, docSel, pickBelowSrc, excludeSel,
   window.__c12EditorId = eid;
   window.__c12ExcludeSel = excludeSel || '';
   let caret = caretBox();
-  // Some hosts keep the selection in an off-DOM textbox; Home then reports
-  // (0,0). After restoreReflowCaret, treat the caret as inside the first
-  // visible reflow block so the anchor is the next block down, not the one
-  // being split by Enter at the document start.
-  if ((!caret || caret.bottom <= caret.top + 1) && entries.length) {
-    const r = entries[0].el.getBoundingClientRect();
-    if (r.height > 0) caret = { top: r.top, bottom: r.top + Math.min(1, r.height) };
+  const forcedCaret = Number(window.__c12ForcedCaretIndex);
+  let picked = null;
+  if (Number.isFinite(forcedCaret) && forcedCaret >= 0 && forcedCaret < entries.length) {
+    const caretEntry = entries[forcedCaret];
+    const anchorIndex = forcedCaret + 1;
+    if (anchorIndex >= entries.length) {
+      return {
+        ok: false,
+        reason: 'no document block below the caret paragraph; a y-shift could not be attributed',
+        blocks: entries.length,
+      };
+    }
+    const anchor = entries[anchorIndex];
+    const top = Number(anchor.top);
+    if (!anchor.text || !Number.isFinite(top)) {
+      return { ok: false, reason: 'anchor paragraph has no measurable box', blocks: entries.length };
+    }
+    if (top >= Number(window.innerHeight)) {
+      return {
+        ok: false,
+        reason: 'anchor paragraph is off the viewport; a y-shift could not be attributed',
+        blocks: entries.length,
+      };
+    }
+    let occurrence = 0;
+    for (let i = 0; i <= anchorIndex; i += 1) {
+      if (entries[i].text === anchor.text) occurrence += 1;
+    }
+    const cr = caretEntry.el.getBoundingClientRect();
+    caret = { top: cr.top, bottom: cr.bottom || cr.top + 1 };
+    picked = {
+      ok: true,
+      anchorText: anchor.text,
+      anchorIndex,
+      caretIndex: forcedCaret,
+      anchorOccurrence: occurrence,
+      blockCount: entries.length,
+      firstText: String(entries[0].text || '').slice(0, 40),
+    };
+  } else {
+    // Some hosts keep the selection in an off-DOM textbox; Home then reports
+    // (0,0). After restoreReflowCaret, treat the caret as inside the first
+    // visible reflow block so the anchor is the next block down, not the one
+    // being split by Enter at the document start.
+    if ((!caret || caret.bottom <= caret.top + 1) && entries.length) {
+      const r = entries[0].el.getBoundingClientRect();
+      if (r.height > 0) caret = { top: r.top, bottom: r.top + Math.min(1, r.height) };
+    }
+    // The anchor is the nearest block below the caret on the same screen.
+    picked =
+      typeof pickBelow === 'function'
+        ? pickBelow(entries, caret, window.innerHeight)
+        : { ok: false, reason: 'anchor picker unavailable; a y-shift could not be attributed' };
   }
-  // The anchor is the nearest block below the caret on the same screen.
-  const picked = typeof pickBelow === 'function'
-    ? pickBelow(entries, caret, window.innerHeight)
-    : { ok: false, reason: 'anchor picker unavailable; a y-shift could not be attributed' };  if (!picked.ok) {
+  if (!picked.ok) {
     return { ...picked, blocks: entries.length, caret_top: caret ? caret.top : null };
   }
   window.__c12AnchorEl = entries[picked.anchorIndex].el;
@@ -408,6 +617,7 @@ export function gatherReflowBefore({ editorId, docSel, pickBelowSrc, excludeSel,
     caretIndex: picked.caretIndex,
     blockTexts,
   };
+  const caretParagraph = entries[picked.caretIndex] ? String(entries[picked.caretIndex].text || '') : '';
   return {
     ok: true,
     blocks: picked.blockCount,
@@ -419,6 +629,8 @@ export function gatherReflowBefore({ editorId, docSel, pickBelowSrc, excludeSel,
     anchor_top: window.__c12AnchorTop,
     first_block_top: entries[0].el.getBoundingClientRect().top,
     first_block_text: picked.firstText,
+    caret_index: picked.caretIndex,
+    caret_paragraph_text: caretParagraph,
     caret_top: caret ? caret.top : null,
   };
 }
@@ -455,8 +667,47 @@ export async function runLaneEditBurst(page, cdp, { editorId, selector, text, re
   };
 }
 
+/** Place the caret at the start of the first body block in the shared C12 census. */
+export async function placeC12BodyCaret(page, editorId, reflowSel, excludeSel) {
+  const placed = await page.evaluate(
+    ({ editorId, docSel, excludeSel, bundleSrc }) => {
+      let place = null;
+      try {
+        // eslint-disable-next-line no-eval
+        place = (0, eval)(`(function(){ ${bundleSrc}; return placeC12BodyCaretPage; })()`);
+      } catch {
+        place = null;
+      }
+      if (typeof place !== 'function') return { ok: false, reason: 'body caret bundle failed' };
+      return place({ editorId, docSel, excludeSel });
+    },
+    {
+      editorId: editorId || '',
+      docSel: reflowSel,
+      excludeSel: excludeSel || '',
+      bundleSrc: C12_BODY_CARET_PAGE_SRC,
+    },
+  );
+  const needsClick = new Set(['superdoc', 'eigenpal', 'folio']);
+  if (placed && placed.ok) {
+    if (placed.click && needsClick.has(String(editorId || ''))) {
+      await page.mouse.click(placed.click.x, placed.click.y);
+      await page.keyboard.press('Home');
+      await page.keyboard.press('Home');
+    } else {
+      await page.keyboard.press('Home');
+    }
+    await page.waitForTimeout(80);
+  }
+  return placed;
+}
+
 /** After Control+Home/Home, some hosts leave a zero-height selection (off-DOM). */
-export async function ensureReflowCaret(page, reflowSel, { settleMs = 100 } = {}) {
+export async function ensureReflowCaret(
+  page,
+  reflowSel,
+  { settleMs = 100, editorId = '', excludeSel = '' } = {},
+) {
   const primary = String(reflowSel || '').split(',')[0].trim();
   const need = await page.evaluate((sel) => {
     const pick = typeof document.getSelection === 'function' ? document.getSelection() : null;
@@ -479,7 +730,12 @@ export async function ensureReflowCaret(page, reflowSel, { settleMs = 100 } = {}
     return badRect || !inReflow();
   }, primary);
   if (!need) return { restored: false };
-  if (!primary) return { restored: false, reason: 'no reflow selector' };
+  const bodyCaret = await placeC12BodyCaret(page, editorId, reflowSel, excludeSel);
+  if (bodyCaret && bodyCaret.ok) {
+    if (settleMs > 0) await page.waitForTimeout(settleMs);
+    return { restored: true, ...bodyCaret };
+  }
+  if (!primary) return { restored: false, reason: bodyCaret?.reason || 'no reflow selector' };
   const box = await page.locator(primary).first().boundingBox();
   if (!box) return { restored: false, reason: 'no caret box' };
   await page.mouse.click(box.x + 3, box.y + Math.min(8, Math.max(2, box.height / 2)));
