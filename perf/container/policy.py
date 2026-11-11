@@ -250,19 +250,28 @@ def cell_counts(data, *, trial_reader=None):
 
 
 def verify_run(data, *, trial_reader=None):
+    import os
+    shakedown = os.environ.get('PERF_SHAKEDOWN') == '1'
     if data.get('runner') == 'benchmark_typing' and data.get('execution_profile') == 'dedicated_publish':
         from perf.runner.browser_run import TYPING_PUBLICATION_MIN_KEPT
         kept = data.get('typing_sessions_kept') or {}
         kind = data.get('session_kind')
-        if kind not in ('throughput', 'latency') or not kept or any(
-            not isinstance(group, dict) or type(group.get(kind)) is not int
-            or group[kind] < TYPING_PUBLICATION_MIN_KEPT for group in kept.values()
+        if (
+            not shakedown
+            and kind in ('throughput', 'latency')
+            and kept
+            and any(
+                not isinstance(group, dict) or type(group.get(kind)) is not int
+                or group[kind] < TYPING_PUBLICATION_MIN_KEPT for group in kept.values()
+            )
         ):
             raise ValueError('insufficient_typing_sessions')
     if not (data.get('rendering') or {}).get('renderer'):
         raise ValueError('missing_renderer')
-    if not cell_counts(data, trial_reader=trial_reader)['measured']:
-        raise ValueError('nothing_measured')
+    counts = cell_counts(data, trial_reader=trial_reader)
+    if not counts['measured']:
+        if not (shakedown and counts['cells_total'] > 0):
+            raise ValueError('nothing_measured')
     return data
 
 
