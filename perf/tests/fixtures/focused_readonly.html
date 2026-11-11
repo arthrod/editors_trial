@@ -1,0 +1,8 @@
+<!doctype html><meta charset="utf-8"><title>focused readonly</title>
+<style>#editor {border:1px solid black; width:900px; min-height:200px; white-space:pre-wrap}</style>
+<div id="editor" contenteditable="false" tabindex="0"></div>
+<div class="status-ok">ready</div>
+<script>
+const editor = document.querySelector('#editor');
+editor.addEventListener('mousedown', (event) => event.currentTarget.focus());
+</script>

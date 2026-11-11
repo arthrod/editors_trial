@@ -125,7 +125,7 @@ def test_publication_predicate_never_keeps_a_flag_oracle_row():
                 'correctness_oracle': 'editor_modified_flag',
                 'throughput_chars_s': 100}
     assert typing_session_kept(flag_row, 'throughput') is False
-    kept_row = {**flag_row, 'correctness_oracle': 'dom_document_text'}
+    kept_row = {**flag_row, 'correctness_oracle': 'dom_document_text', 'refusal_code': None}
     assert typing_session_kept(kept_row, 'throughput') is True
     unverified_row = {**flag_row, 'correctness_oracle': 'editor_modified_flag',
                       'outcome': 'unverified',
@@ -260,9 +260,10 @@ def test_typed_100_is_marked_before_the_correctness_read():
 
 
 def test_model_surfaces_skip_the_present_dom_sample():
-    from perf.runner import benchmark_typing
-    source = __import__('inspect').getsource(benchmark_typing)
-    assert 'present_text' in source
+    from perf.tests.test_typing_r3typing3 import _probe_type
+    import asyncio
+    result = asyncio.run(_probe_type('x' * 80, 'x' * 80, present_text=False, pay_dom_s=0.25))
+    assert result['_inner_reads'] == 0
 
 
 def test_enter_edit_mode_does_not_wait_for_a_text_line_in_empty_documents():
