@@ -3,6 +3,7 @@
 Each test turns one shape from /Users/arthrod/temp/T/e2-g-rev/.scratch/review-s2/
 (probe_py.py, probe_js.mjs, probe_follow.py) from "publishes" to "refused".
 """
+import asyncio
 import json
 import shutil
 import subprocess
@@ -237,3 +238,64 @@ def test_genoffice_find_note_makes_no_product_claim():
     assert "control+f" not in lowered and "ctrl" not in lowered
     assert "findpanel" not in lowered
     assert "not measured" in lowered
+
+
+# ---------------------------------------------------------------------------
+# Item 7 (MAJOR 10): a usable stamp that comes from a selector must require
+# the element to be contentEditable — the same gate usable_js already uses
+# (edit_surface.mjs usableExpression). A visible non-editable element is not
+# a usable editor surface. Same rule for every editor that uses a selector.
+# ---------------------------------------------------------------------------
+
+
+def _typing_options():
+    from types import SimpleNamespace
+
+    return SimpleNamespace(
+        budget_s=30,
+        cadence_ms=0,
+        sample_s=5,
+        witness_every=100,
+        quiescence_s=0,
+    )
+
+
+def _typing_session(tmp_path, fixture, usable_selector):
+    pytest.importorskip("playwright.async_api")
+    pytest.importorskip("psutil")
+    from perf.runner.benchmark_typing import session
+    from perf.runner.browser_hosts import StaticHost
+
+    host = StaticHost(Path(__file__).parent / "fixtures")
+    try:
+        result, _rows = asyncio.run(
+            session(
+                {
+                    "url": host.url + "/" + fixture,
+                    "edit_selector": "#editor",
+                    "ready_selector": ".status-ok",
+                    "typing_usable_selector": usable_selector,
+                },
+                "abc",
+                _typing_options(),
+                tmp_path,
+            )
+        )
+    finally:
+        host.stop()
+    return result
+
+
+def test_usable_selector_on_a_non_editable_element_never_stamps(tmp_path):
+    """focused_readonly's .status-ok is a visible div, not editable: the
+    usable stamp must stay null, so the session refuses at the load gate."""
+    result = _typing_session(tmp_path, "focused_readonly.html", ".status-ok")
+    assert result["failure_reason"] == "no_correctness_adapter", result
+    assert result["characters_typed"] == 0
+
+
+def test_usable_selector_on_an_editable_element_stamps(tmp_path):
+    """typing_fair's #editor is contenteditable: the selector path must still
+    produce a usable stamp, so the session gets past the load gate."""
+    result = _typing_session(tmp_path, "typing_fair.html", "#editor")
+    assert result.get("failure_reason") != "no_correctness_adapter", result

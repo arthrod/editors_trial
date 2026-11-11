@@ -207,7 +207,10 @@ def test_focused_readonly_dom_refuses_before_keys(tmp_path):
                     "url": host.url + "/focused_readonly.html",
                     "edit_selector": "#editor",
                     "ready_selector": ".status-ok",
-                    "typing_usable_selector": ".status-ok",
+                    # r3s2fix 7: a usable stamp from a selector needs an
+                    # editable element now, so this session stamps on the
+                    # decoy and still reaches the read-only surface gate.
+                    "typing_usable_selector": ".usable-decoy",
                 },
                 "abc",
                 SimpleNamespace(

@@ -52,7 +52,7 @@ for await (const line of lines) {
         const ready = () => {
           if (usableSelector) {
             const el = document.querySelector(usableSelector);
-            return !!(el && el.getBoundingClientRect().height > 0);
+            return !!(el && el.isContentEditable && el.getBoundingClientRect().height > 0);
           }
           try {
             return Boolean(eval(usableJs));
