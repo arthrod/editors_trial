@@ -545,12 +545,12 @@ def test_docx_paragraphs_split_on_real_elements_not_regex():
 
 
 def test_genoffice_stub_disables_autocorrect():
-    """Genoffice's autocorrect rewrites typed text (`(c)` → `©`, smart quotes)
-    — real-run RED divergence at normalized offset 928 was the app's own
-    substitution, not a dropped key. The app persists the switches under
-    `aidocs.autocorrect` and reads them per keystroke; the stub pins them off
-    so the document equals the authored text."""
+    """Product defaults live in repos/genoffice
+    apps/docs/src/renderer/autocorrect-pref.ts AUTOCORRECT_DEFAULTS
+    (smartQuotes, dashes, autoLists, symbols and ordinals are on;
+    capitalize is off). The stub must not pin those switches off: an absent
+    aidocs.autocorrect key is how the renderer keeps those defaults."""
     stub = (REPO / "harness/ui/genoffice/desktop-stub.js").read_text()
-    assert "aidocs.autocorrect" in stub
+    assert "aidocs.autocorrect" not in stub
     for rule in ("smartQuotes", "symbols", "dashes", "autoLists", "ordinals"):
-        assert f"{rule}: false" in stub
+        assert f"{rule}: false" not in stub
