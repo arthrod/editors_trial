@@ -220,3 +220,20 @@ def test_presented_frame_with_a_clock_within_bound_measures():
     sample = bd.c14_measured_sample(_c14_presented_frame_probe())
     assert float(sample) == 160.0
     assert sample.measure == bd.C14_FRAME_MEASURE
+
+
+# ---------------------------------------------------------------------------
+# Item 6 (MAJOR 9): the GenOffice find note must not claim anything about the
+# product's focus behaviour — the product source (App.tsx:5875..6098) opens
+# find from a window keydown listener whenever a document is set, with no
+# focus gate. C15 (find) is not measured for any editor in this report.
+# ---------------------------------------------------------------------------
+
+
+def test_genoffice_find_note_makes_no_product_claim():
+    note = bd.DOCUMENT_TARGETS["genoffice"]["find_source_note"]
+    lowered = note.lower()
+    assert "focus" not in lowered
+    assert "control+f" not in lowered and "ctrl" not in lowered
+    assert "findpanel" not in lowered
+    assert "not measured" in lowered

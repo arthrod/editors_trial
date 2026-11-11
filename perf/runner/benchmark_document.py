@@ -374,11 +374,7 @@ DOCUMENT_TARGETS = {
         "find_count_selector": None,
         "find_query": "NEEDLE",
         "find_expected_matches": 5,
-        "find_source_note": (
-            "no find UI in the measured host: FindPanel exists in the product app, but the trial host "
-            "opens find only after the editor has focus (click) and then Control+f; the C15 probe drives "
-            "a shortcut alone"
-        ),
+        "find_source_note": "C15 (find) is not measured for this host",
         "settle_ms": 800,
         "note": (
             "genoffice mounts one live ProseMirror per document with class 'doc-page ProseMirror' (App.tsx:1250 editor attributes); non-active pages in the multipage grid are painted clones carrying the extra class mp-page, so :not(.mp-page) selects only the editable page. Paragraphs are plain <p> blocks inside it; verified 9 p boxes (micro) and 24 p boxes (long rung) with distinct tops in the live page. ready_js MUST stay null: the host HTML carries a CSP meta (script-src 'self'), so the probe's eval-based ready_js throws EvalError inside waitForFunction and never passes (observed); the runner then passes --ready-selector .doc-page from BROWSER_TARGETS, the CSP-safe readiness gate."
