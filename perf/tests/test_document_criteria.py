@@ -168,7 +168,10 @@ class C14RequiresUsableThenAFrame(unittest.TestCase):
         self.assertIn("clock mismatch", caught.exception.reason)
 
     def test_a_frame_after_usability_is_the_sample(self):
-        self.assertEqual(bd.c14_measured_sample({"usable_ms": 800.0, "presented_frame_ms": 812.5}), 812.5)
+        self.assertEqual(
+            bd.c14_measured_sample({"usable_ms": 800.0, "presented_frame_ms": 812.5, "clock_skew_ms": 0.1}),
+            812.5,
+        )
 
 
 class C14LadderIsNeverPooled(unittest.TestCase):
