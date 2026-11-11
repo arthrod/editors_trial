@@ -1,4 +1,4 @@
-"""Split the 178 publication jobs across Spaces by whole jobs (Arthur, 2026-11-11).
+"""Split the publication jobs across Spaces by whole jobs (Arthur, 2026-11-11).
 
 Each job keeps all nine editors on one machine; shards keep the global job
 index in the run id so results from every Space merge without collisions.
@@ -20,7 +20,7 @@ def _index(line):
 
 def test_shards_partition_every_job_once(capsys):
     full = _dry(capsys)
-    assert len(full) == 178
+    assert len(full) == 594
     seen = []
     for i in range(8):
         part = _dry(capsys, '--shard', f'{i}/8')

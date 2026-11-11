@@ -71,18 +71,20 @@ def publication_jobs(editors, seed, seed2, host_class):
                     for editor in editors for kind in ('throughput', 'latency'))
                 continue
             from perf.fixtures.docx_workload import PROSE_LADDER, CORPUS_ROW
+            # One editor per job (Arthur, 2026-11-11): every job is independent
+            # and can run on any Space; the planner spreads them.
             for row in [*PROSE_LADDER, CORPUS_ROW]:
                 args = base + ['--workload', row['workload_id']]
-                if runner == 'adversarial_c10_scroll':
-                    jobs.extend((runner, args + ['--editor', editor]) for editor in editors)
-                else:
-                    args += ['--editors', *editors]
-                    if runner == 'benchmark_document':
-                        args += ['--criteria', 'C11', 'C12', 'C15']
-                    jobs.append((runner, args))
+                for editor in editors:
+                    if runner == 'adversarial_c10_scroll':
+                        jobs.append((runner, args + ['--editor', editor]))
+                    elif runner == 'benchmark_document':
+                        jobs.append((runner, args + ['--editors', editor, '--criteria', 'C11', 'C12', 'C15']))
+                    else:
+                        jobs.append((runner, args + ['--editors', editor]))
             if runner == 'benchmark_document':
-                # C14 traverses the entire ladder itself, once per seed.
-                jobs.append((runner, base + ['--editors', *editors, '--criteria', 'C14']))
+                # C14 traverses the entire ladder itself, once per seed and editor.
+                jobs.extend((runner, base + ['--editors', editor, '--criteria', 'C14']) for editor in editors)
     return jobs
 
 
@@ -208,3 +210,25 @@ def verify_profiles(records, execution_profile, host_class):
             for item in value:
                 visit(item)
     visit(records)
+
+
+def job_editor(options):
+    """The one editor a publication job measures (``--editor X`` or ``--editors X``)."""
+    for flag in ('--editor', '--editors'):
+        if flag in options:
+            start = options.index(flag) + 1
+            names = []
+            for token in options[start:]:
+                if token.startswith('--'):
+                    break
+                names.append(token)
+            if len(names) != 1:
+                raise ValueError(f'job must name exactly one editor: {names}')
+            return names[0]
+    raise ValueError('job names no editor')
+
+
+def job_key(name, options):
+    """A job's cell identity without its seed: the two seeds of a cell share it."""
+    at = options.index('--seed')
+    return (name, tuple(options[:at] + options[at + 2:]))

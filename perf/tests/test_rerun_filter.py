@@ -1,7 +1,7 @@
 """Re-run only the lanes and editors a fix touched (#129, fix round 2026-11-11).
 
---runners and --editors narrow the publication job list before --shard splits
-it; with neither flag the job list is unchanged.
+--runners and --editors select jobs from the publication job list; a job keeps
+its global index whatever selects it; with no flag every job runs.
 """
 import pytest
 
@@ -16,12 +16,12 @@ def _jobs(capsys, *extra):
 
 
 def test_no_filter_keeps_all_jobs(capsys):
-    assert len(_jobs(capsys)) == 178
+    assert len(_jobs(capsys)) == 594
 
 
 def test_runners_filter_keeps_only_those_runners(capsys):
     lines = _jobs(capsys, '--runners', 'benchmark_memory', 'benchmark_input')
-    assert len(lines) == 20
+    assert len(lines) == 2 * 2 * 5 * 9  # two runners, two seeds, five rungs, nine editors
     assert all('perf.runner.benchmark_memory ' in line or 'perf.runner.benchmark_input ' in line for line in lines)
 
 
@@ -36,11 +36,11 @@ def test_editors_filter_narrows_every_job(capsys):
 
 def test_filters_then_shard_partition_the_filtered_jobs(capsys):
     full = _jobs(capsys, '--runners', 'benchmark_document', '--editors', 'canvas', 'folio', 'superdoc')
-    assert len(full) == 12
+    assert len(full) == 3 * 12  # three editors, (five rungs + C14) x two seeds
     parts = [_jobs(capsys, '--runners', 'benchmark_document', '--editors', 'canvas', 'folio', 'superdoc',
                    '--shard', f'{i}/4') for i in range(4)]
-    assert all(len(part) == 3 for part in parts)
     assert sorted(sum(parts, [])) == sorted(full)
+    assert len(sum(parts, [])) == len(set(sum(parts, [])))
 
 
 @pytest.mark.parametrize('extra', [['--runners', 'benchmark_nope'], ['--editors', 'apryse'], ['--editors', 'nobody']])

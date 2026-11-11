@@ -37,7 +37,9 @@ def test_publication_two_distinct_seeds_and_all_runners():
     jobs = p.publication_jobs(['plate', 'folio'], 17, 29, 'shared_guarded')
     typing = [job for job in jobs if job[0] == 'benchmark_typing']
     assert len(typing) == 2 * 2 * 2  # two editors, two seeds, two session kinds
-    assert len(jobs) == 2 * (5 * 5 + 5 * 2 + 1) + len(typing)
+    # one editor per job: per seed and editor, five rung jobs in each of five lanes,
+    # C14, and five C10 rungs
+    assert len(jobs) == 2 * 2 * (5 * 5 + 1 + 5) + len(typing)
     assert {j[0] for j in jobs} == {'benchmark_warm_cold', 'benchmark_document', 'benchmark_input', 'adversarial_c10_scroll', 'benchmark_typing', 'benchmark_memory', 'benchmark_resources'}
     for name, args in jobs:
         assert args[args.index('--execution-profile')+1] == 'dedicated_publish'
@@ -52,7 +54,8 @@ def test_publication_two_distinct_seeds_and_all_runners():
         elif name == 'benchmark_typing':
             assert args[-2] == '--editors' and args[-1] in ('plate', 'folio')
         else:
-            assert args[args.index('--editors'):args.index('--editors') + 3] == ['--editors', 'plate', 'folio']
+            at = args.index('--editors')
+            assert args[at + 1] in ('plate', 'folio') and (at + 2 == len(args) or args[at + 2].startswith('--'))
     with pytest.raises(ValueError):
         p.publication_jobs(['plate'], 17, 17, 'shared_guarded')
     with pytest.raises(ValueError):

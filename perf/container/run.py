@@ -10,7 +10,7 @@ import signal
 import subprocess
 import sys
 from . import artifacts
-from .policy import RUNNERS, publication_jobs, verify_run, cell_counts, verify_profiles
+from .policy import RUNNERS, job_editor, publication_jobs, verify_run, cell_counts, verify_profiles
 
 DEFAULT_OUT_ROOT = Path('perf/container/out/runs')
 
@@ -109,8 +109,13 @@ def verify_lane_profiles(directory, profile, host_class):
             verify_profiles([json.loads(path.read_text())], profile, host_class)
 
 
-def write_run_done(campaign_root: Path, exit_status: int, failures: list[str] | None = None) -> None:
+def write_run_done(campaign_root: Path, exit_status: int, failures: list[str] | None = None,
+                   selection: dict | None = None) -> None:
     lines = [f'exit_status={exit_status}\n']
+    if selection is not None:
+        # A Space runs a subset of the campaign: say which, so a merge can check coverage.
+        lines.append('selected_jobs=' + ','.join(str(i) for i in selection['jobs']) + '\n')
+        lines.append(f"total_jobs={selection['total_jobs']}\n")
     for failure in failures or []:
         lines.append(f'failure={failure}\n')
     artifacts.atomic_write(campaign_root / 'RUN-DONE', ''.join(lines))
@@ -215,9 +220,63 @@ def main(argv: list[str] | None = None):
     parser.add_argument('--out-root', type=Path, default=DEFAULT_OUT_ROOT)
     parser.add_argument('--detach', action='store_true')
     parser.add_argument('--shard', default=None, help='I/N: run only jobs whose global index %% N == I (whole jobs; ids keep the global index)')
-    parser.add_argument('--runners', nargs='+', default=None, help='re-run only these runners (applied before --shard)')
-    parser.add_argument('--editors', nargs='+', default=None, help='re-run only these editors (applied before --shard)')
+    parser.add_argument('--runners', nargs='+', action='extend', default=None, help='run only these runners')
+    parser.add_argument('--editors', nargs='+', action='extend', default=None, help='run only jobs measuring these editors')
+    parser.add_argument('--jobs', default=None, help='comma list of global job indices (from perf.container.plan)')
     args = parser.parse_args(argv)
+    from perf.runner.benchmark_warm_cold import BROWSER_TARGETS
+    from perf.runner.browser_hosts import host_policy
+    editors = [name for name in BROWSER_TARGETS if name != 'apryse' and host_policy(name)['publishable']]
+    if args.editors is not None:
+        unknown = sorted(set(args.editors) - set(editors))
+        if unknown:
+            parser.error(f'--editors: not publishable editors: {unknown}')
+    if not args.publish and (args.editors is not None or args.jobs is not None):
+        parser.error('--editors and --jobs need --publish')
+    if args.publish and args.seed2 is None:
+        parser.error('--publish requires --seed2')
+    jobs = publication_jobs(editors, args.seed, args.seed2, args.host_class) if args.publish else [
+        (name, ['--execution-profile', 'ci_contract', '--host-class', 'ci_coarse', '--seed', str(args.seed)]
+         + (['--session-kind', kind] if kind else []))
+        for name in RUNNERS for kind in (('throughput', 'latency') if name == 'benchmark_typing' else (None,))
+    ]
+    if args.runners is not None:
+        unknown = sorted(set(args.runners) - {name for name, _options in jobs})
+        if unknown:
+            parser.error(f'--runners: unknown runners: {unknown}')
+    picked_ids = None
+    if args.jobs is not None:
+        try:
+            ids = [int(token) for token in args.jobs.split(',')]
+        except ValueError:
+            parser.error('--jobs must be a comma list of job indices')
+        if len(set(ids)) != len(ids) or any(not 0 <= i < len(jobs) for i in ids):
+            parser.error(f'--jobs: indices must be distinct and in 0..{len(jobs) - 1}')
+        picked_ids = set(ids)
+    shard = None
+    if args.shard is not None:
+        try:
+            part, total = (int(value) for value in args.shard.split('/'))
+        except ValueError:
+            parser.error('--shard must be I/N')
+        if total < 1 or not 0 <= part < total:
+            parser.error('--shard must be I/N with 0 <= I < N')
+        shard = (part, total)
+
+    def selected(index):
+        name, options = jobs[index]
+        if shard is not None and index % shard[1] != shard[0]:
+            return False
+        if picked_ids is not None and index not in picked_ids:
+            return False
+        if args.runners is not None and name not in args.runners:
+            return False
+        return args.editors is None or job_editor(options) in args.editors
+
+    selection = ({'jobs': [i for i in range(len(jobs)) if selected(i)], 'total_jobs': len(jobs)}
+                 if args.publish else None)
+    if selection is not None and not selection['jobs']:
+        parser.error('the selection matches no job')
     if args.detach and os.environ.get('HF_RUN_CHILD') != '1':
         try:
             run_id, campaign_root = allocate_run_id(args.out_root)
@@ -236,36 +295,8 @@ def main(argv: list[str] | None = None):
         spawn_detached_campaign(child_argv, campaign_root, run_id)
         print(run_id, flush=True)
         return 0
-    from perf.runner.benchmark_warm_cold import BROWSER_TARGETS
-    from perf.runner.browser_hosts import host_policy
-    editors = [name for name in BROWSER_TARGETS if name != 'apryse' and host_policy(name)['publishable']]
-    if args.editors is not None:
-        unknown = sorted(set(args.editors) - set(editors))
-        if unknown:
-            parser.error(f'--editors: not publishable editors: {unknown}')
-        editors = [name for name in editors if name in args.editors]
-    if args.publish and args.seed2 is None:
-        parser.error('--publish requires --seed2')
-    jobs = publication_jobs(editors, args.seed, args.seed2, args.host_class) if args.publish else [
-        (name, ['--execution-profile', 'ci_contract', '--host-class', 'ci_coarse', '--seed', str(args.seed)]
-         + (['--session-kind', kind] if kind else []))
-        for name in RUNNERS for kind in (('throughput', 'latency') if name == 'benchmark_typing' else (None,))
-    ]
-    if args.runners is not None:
-        unknown = sorted(set(args.runners) - {name for name, _options in jobs})
-        if unknown:
-            parser.error(f'--runners: unknown runners: {unknown}')
-        jobs = [job for job in jobs if job[0] in args.runners]
-    shard = None
-    if args.shard is not None:
-        try:
-            part, total = (int(value) for value in args.shard.split('/'))
-        except ValueError:
-            parser.error('--shard must be I/N')
-        if total < 1 or not 0 <= part < total:
-            parser.error('--shard must be I/N with 0 <= I < N')
-        shard = (part, total)
-        print(f'shard={part}/{total}', flush=True)
+    if shard is not None:
+        print(f'shard={shard[0]}/{shard[1]}', flush=True)
     if not args.dry_run and hasattr(os, 'sched_setaffinity'):
         print(pin_to_quota(), flush=True)
     host_cmd = [sys.executable, '-m', 'perf.container.check_host']
@@ -286,7 +317,7 @@ def main(argv: list[str] | None = None):
     run_log = campaign_root / 'RUN.log'
     try:
         for index, (name, options) in enumerate(jobs):
-            if shard is not None and index % shard[1] != shard[0]:
+            if not selected(index):
                 continue
             run_id = f'{stamp}-{index:03d}'
             cmd = [sys.executable, '-m', 'perf.runner.' + name] if args.publish else [sys.executable, '-m', 'perf.container.smoke', name]
@@ -356,15 +387,15 @@ def main(argv: list[str] | None = None):
         if args.publish and not args.dry_run:
             destination = campaign_root / 'out' / 'e2-publication.json'
             destination.parent.mkdir(parents=True, exist_ok=True)
-            destination.write_text(json.dumps({'runs': records, 'failures': failures}, indent=2) + '\n')
+            destination.write_text(json.dumps({'runs': records, 'failures': failures, 'selection': selection}, indent=2) + '\n')
     finally:
         if not args.dry_run:
             for index, (name, _options) in enumerate(jobs):
-                if index not in jobs_started and (shard is None or index % shard[1] == shard[0]):
+                if index not in jobs_started and selected(index):
                     run_id = f'{stamp}-{index:03d}'
                     failures.append(f'{name}/{run_id}: job_not_run')
             done_exit = 1 if failures else run_exit
-            write_run_done(campaign_root, done_exit, failures)
+            write_run_done(campaign_root, done_exit, failures, selection)
             try:
                 run_mirror_tail(campaign_root, stamp, run_log)
             except BaseException as exc:
