@@ -41,8 +41,9 @@ for await (const line of lines) {
       else if (command.ready_selector) await page.locator(command.ready_selector).first().waitFor();
       // A lazy editable (folio's hidden ProseMirror) mounts on the first
       // document click; it cannot exist before, so `selector` alone would
-      // never appear.
-      if (command.click_selector) await page.locator(command.click_selector).first().click();
+      // never appear. Editors whose editable already exists get no click
+      // inside the load measurement.
+      if (command.load_click_selector) await page.locator(command.load_click_selector).first().click();
       await page.locator(command.selector).first().waitFor();
       const usable = await page.evaluate(() => window.__b9usable);
       if (usable === null) {

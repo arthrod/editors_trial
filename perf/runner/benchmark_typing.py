@@ -10,8 +10,10 @@ from __future__ import annotations
 import argparse
 import asyncio
 import hashlib
+import io
 import json
 import math
+import re
 import socket
 import sys
 import time
@@ -23,15 +25,49 @@ sys.path.insert(0, str(REPO))
 from perf.runner.browser_run import ACTIVE, CELL, run_cli, write_json, fixture_path
 from perf.runner.benchmark_warm_cold import BROWSER_TARGETS, _start_server, _stop_server
 from perf.runner.browser_hosts import select_fixture
+from perf.runner.docx_plaintext import docx_body_text
 from perf.runner.resources import AsyncResourceSampler, NOT_AVAILABLE, COUNTER_DELTA_FIELDS, phase_totals
 from perf.runner.witness import validate_witness
 
 BRIEF = REPO / 'perf/fixtures/briefs/sg-brief-13000w.txt'
 
+# Auto-numbering triggers a correct word processor may absorb into a real list
+# marker when they lead a paragraph: "1.", "a.", "(i)", "iv)", "A)".
+_LIST_MARKER = re.compile(
+    r'^(?:\((?:\d{1,6}|[A-Za-z]|[ivxlcdmIVXLCDM]{1,7})\)'
+    r'|(?:\d{1,6}|[A-Za-z]|[ivxlcdmIVXLCDM]{2,7})[.)])\s*')
+
+def normalize_marked(text):
+    """The single correctness normaliser, applied identically on both sides.
+
+    The only tolerated class is the paragraph-leading auto-numbering marker:
+    an editor may keep a typed "1. " as literal text or absorb it into a real
+    list label, and neither is a content defect. Returns (text, ignored)."""
+    ignored = 0
+    lines = []
+    for line in text.split('\n'):
+        line = line.strip()
+        while (match := _LIST_MARKER.match(line)):
+            ignored += 1
+            line = line[match.end():]
+        lines.append(line)
+    return ' '.join(' '.join(lines).split()), ignored
+
 def normalize(text):
-    # DOM engines use different block separators. Preserve all words/punctuation,
-    # including order and duplicates, while normalizing block whitespace only.
-    return ' '.join(text.split())
+    return normalize_marked(text)[0]
+
+async def read_document_text(page, *, selector, model_js=None):
+    """The whole document's text: the declared model adapter, else the
+    editable surface's innerText."""
+    if model_js is None:
+        return await page.evaluate('(s) => document.querySelector(s)?.innerText ?? ""', selector)
+    payload = await page.evaluate(model_js)
+    if isinstance(payload, dict):
+        docx = payload.get('docx_bytes')
+        if isinstance(docx, list):
+            return docx_body_text(io.BytesIO(bytes(docx)), paragraph_separator='\n')
+        payload = payload.get('text')
+    return payload if isinstance(payload, str) else None
 
 def divergence(expected, actual):
     return next((i for i, (a,b) in enumerate(zip(expected, actual)) if a != b), min(len(expected), len(actual)))
@@ -80,7 +116,7 @@ def witness_eligible(char):
 
 async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0, session_kind="throughput",
                         witness_every=100, sample_s=5, clock=time.monotonic,
-                        sleep=asyncio.sleep, present_selector=None):
+                        sleep=asyncio.sleep, present_selector=None, model_js=None, expected_text=None):
     if session_kind not in ("throughput", "latency"):
         raise ValueError("invalid session kind")
     # `selector` reads the document text; `present_selector` reads what the
@@ -91,7 +127,7 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
     next_witness = witness_every; witness_wall = 0; typing_unwitnessed = 0; unwitnessed = 0
     sampler.typed_text = ''
     records = []; sent = 0; marks = {math.ceil(len(text)*p/100):f'typed_{p}' for p in (25,50,75,100)}
-    result = {'failure_reason':None, 'first_divergence_offset':None}
+    result = {'failure_reason':None, 'first_divergence_offset':None, 'tolerated_list_markers':0}
     try:
         await sampler.mark('typing_start')
         for index, char in enumerate(text, 1):
@@ -118,13 +154,18 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
         # Yield one browser task turn before the final check. In particular, a
         # zero-delay timer queued by the last input must finish inside this wall.
         await page.evaluate('() => new Promise(resolve => setTimeout(resolve, 0))')
-        actual = normalize(await page.evaluate('(s) => document.querySelector(s)?.innerText ?? ""', selector))
-        # Close the typing phase after the final DOM round-trip, so deferred
+        actual_text = await read_document_text(page, selector=selector, model_js=model_js)
+        # Close the typing phase after the final document read, so deferred
         # work on the last key is present in its resource counters as well.
         await sampler.mark('typed_100')
-        expected = normalize(text)
-        if actual != expected:
-            result.update(failure_reason='text_mismatch', refusal_code='correctness_failure', first_divergence_offset=divergence(expected, actual))
+        if actual_text is None:
+            result.update(failure_reason='no_correctness_adapter')
+        else:
+            actual, actual_markers = normalize_marked(actual_text)
+            expected, expected_markers = normalize_marked(text if expected_text is None else expected_text)
+            result['tolerated_list_markers'] = abs(expected_markers - actual_markers)
+            if actual != expected:
+                result.update(failure_reason='text_mismatch', refusal_code='correctness_failure', first_divergence_offset=divergence(expected, actual))
     except (asyncio.TimeoutError, asyncio.CancelledError):
         result['failure_reason'] = 'budget_exceeded'
         result['refusal_code'] = 'editor_timeout'
@@ -243,7 +284,7 @@ async def session(target, text, args, directory):
     stderr = (directory/'browser.log').open('wb')
     process = await asyncio.create_subprocess_exec('node', str(Path(__file__).with_name('typing_session.mjs')),
         str(port), str(profile), kind, stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=stderr)
-    bridge = Bridge(process); sampler = None; result = {'failure_reason':None, 'characters_typed':0, 'words_typed':0}
+    bridge = Bridge(process); sampler = None; result = {'failure_reason':None, 'characters_typed':0, 'words_typed':0, 'tolerated_list_markers':0}
     started = time.monotonic()
     try:
         async with asyncio.timeout(args.budget_s):
@@ -265,12 +306,18 @@ async def session(target, text, args, directory):
                 # contenteditable and whose innerText is the document,
                 # `typing_present_selector` the visible region whose innerText
                 # is paint progress, `typing_click_selector` the element that
-                # takes the activating/focus click (e.g. a lazy ProseMirror
-                # mounts on the first page click), `typing_ready_js` overrides
-                # a ready_js that requires non-empty text — impossible here.
+                # takes the focus click (e.g. a lazy ProseMirror mounts on the
+                # first page click), `typing_load_click_selector` the lazy-mount
+                # click that must happen inside the load measurement (absent
+                # for an editor whose editable exists without one),
+                # `typing_model_js` a model adapter for the correctness read,
+                # `typing_ready_js` overrides a ready_js that requires
+                # non-empty text — impossible here.
                 edit_sel = target.get('typing_edit_selector', target['edit_selector'])
                 present_sel = target.get('typing_present_selector', edit_sel)
                 click_sel = target.get('typing_click_selector', edit_sel)
+                load_click_sel = target.get('typing_load_click_selector')
+                model_js = target.get('typing_model_js')
                 ready_js = target['typing_ready_js'] if 'typing_ready_js' in target else target.get('ready_js')
                 sampler = TypingResourceSampler(resources, page, cdp)
                 sampler.selector = present_sel
@@ -278,7 +325,7 @@ async def session(target, text, args, directory):
                 await sampler.mark('load_start')
                 load = await bridge.request(op='load', url=target['url'], selector=edit_sel,
                     present_selector=None if present_sel == edit_sel else present_sel,
-                    click_selector=None if click_sel == edit_sel else click_sel,
+                    load_click_selector=load_click_sel,
                     ready_selector=target.get('ready_selector'), ready_js=ready_js)
                 verdict = validate_witness(load['witness'])
                 result.update(load_witness=load, load_ms=load['witness']['frame_page_ms'] if verdict['ok'] else None,
@@ -294,7 +341,8 @@ async def session(target, text, args, directory):
                 async def witness(char): return await bridge.request(op='key', char=char, selector=present_sel)
                 result.update(await type_document(page, sampler, witness, text, selector=edit_sel,
                     cadence_ms=args.cadence_ms, session_kind=kind, witness_every=args.witness_every, sample_s=args.sample_s,
-                    present_selector=present_sel))
+                    present_selector=present_sel, model_js=model_js,
+                    expected_text=getattr(args, 'expected_text', None)))
                 if not result['failure_reason']:
                     # No unverified generic save button: require a host-declared path.
                     save = target.get('typing_save_selector')
@@ -377,7 +425,6 @@ def main_cell(argv=None, *, start_host=_start_server, stop_host=_stop_server):
     if args.words is not None and args.words <= 0: ap.error('--words must be positive')
     text = BRIEF.read_text().rstrip()
     if args.words:
-        import re
         tokens = list(re.finditer(r'\S+', text)); text = text[:tokens[min(args.words,len(tokens))-1].end()]
     from perf.fixtures.generate import docx_zip_bytes
     # Zero-text DOCX, not select-all/delete after loading a populated document.

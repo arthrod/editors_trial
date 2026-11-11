@@ -71,6 +71,7 @@ def test_folio_shaped_lazy_editable_is_measured(tmp_path):
             'typing_edit_selector': '.paged-editor__hidden-pm .ProseMirror',
             'typing_present_selector': '.paged-editor__pages',
             'typing_click_selector': '[data-page-number]',
+            'typing_load_click_selector': '[data-page-number]',
             'ready_selector': '[data-page-number]'}, tmp_path)
     finally:
         host.stop()
@@ -89,3 +90,5 @@ def test_typing_targets_declare_empty_document_selectors():
     assert folio['typing_edit_selector'] == '.paged-editor__hidden-pm .ProseMirror'
     assert folio['typing_present_selector'] == '.paged-editor__pages'
     assert folio['typing_click_selector'] == '[data-page-number]'
+    # The hidden ProseMirror only mounts on a click, inside the load window.
+    assert folio['typing_load_click_selector'] == '[data-page-number]'

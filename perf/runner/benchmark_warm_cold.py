@@ -252,9 +252,17 @@ BROWSER_TARGETS: dict[str, dict] = {
         "ready_js": "window.__DOCX_EDITOR_E2E__?.ready() === true && window.__DOCX_EDITOR_E2E__?.fontMeasurer() === 'shaped' && (() => { const p = document.querySelector('.docx-page[data-materialized=\"true\"]'); if (!p) return false; const r = p.getBoundingClientRect(); return getComputedStyle(p).visibility === 'visible' && r.width > 0 && r.height > 0 && !document.querySelector('[data-docx-opening-preview], [data-docx-layout-pending]'); })()",
         "edit_selector": ".docx-page-content [data-paragraph-id][data-start]",
         # B9 loads a zero-text document: no `data-start` span exists until text
-        # is typed, and the correctness read needs the whole-document innerText.
+        # is typed. `.docx-pages` is a virtualized paint window, so the
+        # correctness read goes through the model: saveBytes() exports the
+        # document, `docx_body_text` turns it into paragraph-aware plaintext.
         "typing_edit_selector": ".docx-pages",
         "typing_click_selector": ".docx-page-content [data-paragraph-id]",
+        "typing_model_js": (
+            "(async () => { const hook = window.__DOCX_EDITOR_E2E__; "
+            "if (!hook || !hook.saveBytes) return null; "
+            "const bytes = await hook.saveBytes(); "
+            "return bytes ? { docx_bytes: Array.from(bytes) } : null; })()"
+        ),
         "driver": "playwright",
         "criteria": {
             "C03": ("first_usable", "browser_visible"),
@@ -280,6 +288,7 @@ BROWSER_TARGETS: dict[str, dict] = {
         "typing_edit_selector": ".paged-editor__hidden-pm .ProseMirror",
         "typing_present_selector": ".paged-editor__pages",
         "typing_click_selector": "[data-page-number]",
+        "typing_load_click_selector": "[data-page-number]",
         "driver": "playwright",
         "env": {"FOLIO_PLAYGROUND_PORT": "5217"},
         "criteria": {

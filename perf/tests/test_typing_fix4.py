@@ -235,6 +235,9 @@ def test_integration_throughput_bridge_stops_screencast_before_typing(tmp_path):
 
     source = Path(__file__).parents[1] / 'runner/typing_session.mjs'
     script = source.read_text().replace("'./witness.mjs'", json.dumps((source.parent / 'witness.mjs').as_uri()))
+    # The observed copy runs from tmp_path; every sibling import needs an
+    # absolute URI or node exits ERR_MODULE_NOT_FOUND at launch.
+    script = script.replace("'./chrome_trace.mjs'", json.dumps((source.parent / 'chrome_trace.mjs').as_uri()))
     script = script.replace(
         'let clock, interval;',
         """
