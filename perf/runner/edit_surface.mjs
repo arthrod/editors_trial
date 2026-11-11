@@ -39,12 +39,28 @@ export const EDIT_SURFACES = {
     kind: 'dom',
     root: '.layout-page-content [data-block-id], [data-page-number]',
     block: '[data-block-id]',
+    // The painted [data-page-number] pages are a virtualized window, not the
+    // document. Text and selection live in an offscreen ProseMirror that a
+    // click on a painted page mounts; read it, never the mounted DOM sum.
+    hidden: '.paged-editor__hidden-pm .ProseMirror',
   },
-  canvas: { kind: 'model', model: 'canvas_editor' },
-  docen: { kind: 'model', model: 'docen' },
+  canvas: {
+    kind: 'model',
+    model: 'canvas_editor',
+    // One painted page per canvas element; the first one is the C07 surface.
+    pageRoot: '#editor .ce-page-container > canvas, #editor canvas',
+    inputHost: '#editor',
+  },
+  docen: {
+    kind: 'model',
+    model: 'docen',
+    // <docen-document> paints pages and the input bridge inside a shadow root.
+    shadow: 'docen-document',
+    pageRoot: '.canvas-pages > div',
+  },
   // No text is reachable: the app draws into one canvas and this pin has no API.
   // Its window title gains a bullet when the document is modified.
-  wordcraft: { kind: 'flag', flag: 'wordcraft_title' },
+  wordcraft: { kind: 'flag', flag: 'wordcraft_title', pageRoot: '#wordcraft_canvas' },
 };
 
 export function editSurface(editorId) {

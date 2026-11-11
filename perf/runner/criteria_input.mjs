@@ -96,6 +96,7 @@ import { fileURLToPath } from 'node:url';
 import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 import { normalizeDocumentText } from './document_text_normalize.mjs';
+import { editSurface } from './edit_surface.mjs';
 
 const REPO_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 
@@ -312,6 +313,7 @@ export function caretOverlapsLine(caret, line) {
 
 export const DOCUMENT_PROTECTED_READ_ONLY = 'document_protected_read_only';
 export const CARET_MOVE_NOT_PAINTED = 'caret_move_not_painted';
+export const CLICK_PAINT_NOT_OBSERVED = 'click_paint_not_observed';
 
 function adapterGate(adapter) {
   if (!adapter) {
@@ -379,6 +381,11 @@ function assertPreEditDocumentLoaded(state, options) {
   if (!state || state.error) {
     return { ok: false, reason: `${CORRECTNESS_PREFIX} ${state?.error || 'text_unreadable'}` };
   }
+  if (state.text_source === 'modified_flag') {
+    // A flag surface has no document text to compare against; C08/C09 are
+    // already named not_applicable and C07 checks no text.
+    return { ok: true };
+  }
   if (options.openingRequired && !options.expectedOpeningText) {
     return {
       ok: false,
@@ -423,9 +430,10 @@ function attachPaintWitnessFailure(observation, painted) {
   if (!painted || typeof painted !== 'object') {
     return;
   }
+  let verdict = painted.witness_verdict ?? null;
   if (painted.record) {
     observation.witness = painted.record;
-    const verdict = painted.witness_verdict ?? validateWitnessRecord(painted.record);
+    verdict = verdict ?? validateWitnessRecord(painted.record);
     observation.witness_verdict = verdict;
     observation.witness_refusal = verdict.refused ? verdict.reason : null;
     observation.witness_errors = verdict.errors || [];
@@ -439,7 +447,11 @@ function attachPaintWitnessFailure(observation, painted) {
   if (painted.frame_page_ms !== null && painted.frame_page_ms !== undefined) {
     observation.frame_ms = round(painted.frame_page_ms, 3);
   }
-  if (painted.sampleMs !== null && painted.sampleMs !== undefined) {
+  // A sample_ms only exists when the frame itself was publishable. A refused
+  // witness still reports a frame timestamp; copying it would publish a
+  // latency the witness rejected.
+  const refused = Boolean((verdict && verdict.refused) || painted.witness_refusal);
+  if (!refused && painted.sampleMs !== null && painted.sampleMs !== undefined) {
     observation.sample_ms = painted.sampleMs;
   }
 }
@@ -1321,6 +1333,339 @@ export function pointerTargetInsideEditable(editable, target) {
   return editable === target;
 }
 
+// ------------------------------------------------- shadow/model/flag surfaces
+//
+// The edit_surface.mjs adapter owns the per-editor table (EDIT_SURFACES). The
+// four editors below have no document text in the light DOM: folio paints a
+// virtualized window over a hidden ProseMirror, docen paints pages and a
+// textarea bridge inside a shadow root, canvas paints a canvas over an editor
+// model, wordcraft paints one canvas and exposes only a modified flag. These
+// page functions read each surface the way the adapter describes it — they
+// are called with the surface spec the adapter returns, never with a second
+// per-editor table.
+
+/**
+ * Click points for a surface with no DOM text lines: the first painted page
+ * (or the whole canvas) at the same three fractions RESOLVE_CLICK_POINTS
+ * uses. docen's points carry a ~12 px band around the click y: the shadow
+ * caret overlay has a real rect, so the caret-on-line check still applies.
+ * Page context: no Node closures.
+ */
+const RESOLVE_SURFACE_CLICK_POINTS = (spec) => {
+  const round = (value, digits = 1) => {
+    const factor = 10 ** digits;
+    return Math.round(value * factor) / factor;
+  };
+  let el = null;
+  let host = null;
+  if (spec && spec.shadow) {
+    host = document.querySelector(spec.shadow);
+    const root = host && host.shadowRoot;
+    el = root && spec.pageRoot ? root.querySelector(spec.pageRoot) : null;
+    if (!el) el = host;
+  } else {
+    el = document.querySelector((spec && spec.pageRoot) || (spec && spec.selector));
+  }
+  if (!el) return { error: 'editable_not_found' };
+  const box = el.getBoundingClientRect();
+  const viewport = { width: window.innerWidth, height: window.innerHeight };
+  const clip = {
+    left: Math.max(box.left, 0),
+    top: Math.max(box.top, 0),
+    right: Math.min(box.right, viewport.width),
+    bottom: Math.min(box.bottom, viewport.height),
+  };
+  if (clip.right - clip.left < 8 || clip.bottom - clip.top < 8) {
+    return { error: 'editable_not_in_viewport', box, viewport };
+  }
+  const clampX = (x) => Math.min(Math.max(x, clip.left + 2), clip.right - 2);
+  const clampY = (y) => Math.min(Math.max(y, clip.top + 2), clip.bottom - 2);
+  const height = clip.bottom - clip.top;
+  const band = spec && spec.caretBand ? Number(spec.caretBand) : 0;
+  const point = (name, fraction) => {
+    const y = round(clampY(clip.top + fraction * height), 1);
+    return {
+      point: name,
+      x: round(clampX((clip.left + clip.right) / 2), 1),
+      y,
+      line: band > 0 ? { top: round(y - band, 1), bottom: round(y + band, 1) } : null,
+    };
+  };
+  const points = [
+    point('page_centre', 0.5),
+    point('first_text_line', 0.15),
+    point('last_text_line', 0.85),
+  ];
+  const inside = host || el;
+  for (const p of points) {
+    const target = document.elementFromPoint(p.x, p.y);
+    p.hit_inside_editable = Boolean(
+      target &&
+        (inside === target ||
+          inside.contains(target) ||
+          (spec && spec.shadow && target.closest && Boolean(target.closest(spec.shadow)))),
+    );
+  }
+  return {
+    points,
+    source: 'surface_box_fraction',
+    clip,
+    box: { left: round(box.left, 1), top: round(box.top, 1), right: round(box.right, 1), bottom: round(box.bottom, 1) },
+    viewport,
+  };
+};
+
+/** The tapped pointerdown target inside a model/flag/shadow surface. */
+const POINTER_TARGET_SURFACE = (spec) => {
+  const target = window.__perfCriteria ? window.__perfCriteria.target : null;
+  if (!target) return { inside: null, reason: 'no_pointer_target' };
+  if (spec && spec.shadow) {
+    const host = document.querySelector(spec.shadow);
+    if (!host) return { inside: null, reason: 'editable_not_found' };
+    return {
+      inside:
+        host === target ||
+        host.contains(target) ||
+        (typeof target.getRootNode === 'function' && target.getRootNode() === host.shadowRoot),
+      reason: null,
+    };
+  }
+  const el = document.querySelector((spec && (spec.inputHost || spec.pageRoot)) || (spec && spec.selector));
+  if (!el) return { inside: null, reason: 'editable_not_found' };
+  return { inside: el === target || el.contains(target), reason: null };
+};
+
+/**
+ * READ_EDITABLE_STATE's counterpart for surfaces whose document state is not
+ * in the light DOM. Returns the same shape: text/length/source, caret, focus,
+ * selection — plus caret_block_text for folio's paragraph check. Page context.
+ */
+const READ_SURFACE_STATE = (spec) => {
+  const base = {
+    text: '',
+    text_length: 0,
+    text_source: null,
+    is_content_editable: false,
+    input_reachable: false,
+    read_only: false,
+    active_inside: false,
+    active_tag: null,
+    anchor_inside: false,
+    selection_offset: null,
+    selection_expanded: false,
+    caret: null,
+    caret_block_text: null,
+    box: null,
+    scroll: { x: window.scrollX, y: window.scrollY },
+  };
+  const boxOf = (el) => {
+    const r = el && el.getBoundingClientRect ? el.getBoundingClientRect() : null;
+    return r ? { left: r.left, top: r.top, right: r.right, bottom: r.bottom } : null;
+  };
+  if (!spec || typeof spec !== 'object') return { error: 'editable_not_found' };
+
+  if (spec.kind === 'flag') {
+    const el = document.querySelector(spec.selector || spec.pageRoot);
+    const host = window.__WORDCRAFT_HOST__;
+    const titles = host && Array.isArray(host.titles) ? host.titles : [];
+    const title = titles.length ? String(titles[titles.length - 1].title || '') : null;
+    if (!el) return { ...base, error: 'editable_not_found' };
+    return {
+      ...base,
+      text_source: 'modified_flag',
+      input_reachable: true,
+      flag: title === null ? null : { title, modified: title.includes('•') },
+      box: boxOf(el),
+    };
+  }
+
+  if (spec.kind === 'model' && spec.model === 'docen') {
+    const host = document.querySelector(spec.shadow);
+    const root = host && host.shadowRoot;
+    const editor = window.__DOCEN__ && window.__DOCEN__.editor;
+    if (!root) return { ...base, error: 'editable_not_found' };
+    if (!editor || !editor.state || !editor.state.doc) {
+      return { ...base, error: 'editor_model_unavailable' };
+    }
+    const doc = editor.state.doc;
+    const text = String(doc.textBetween(0, doc.content.size, '\n'));
+    const sel = editor.state.selection;
+    const bridge = root.querySelector('textarea[data-docen-bridge-input]') || root.querySelector('textarea');
+    const bridgeFocused = Boolean(bridge && root.activeElement === bridge);
+    let caret = null;
+    for (const div of root.querySelectorAll('div')) {
+      const cs = getComputedStyle(div);
+      if (
+        cs.position === 'absolute' &&
+        parseFloat(cs.width) <= 3 &&
+        parseFloat(cs.height) > 4 &&
+        cs.display !== 'none' &&
+        cs.visibility !== 'hidden'
+      ) {
+        const r = div.getBoundingClientRect();
+        if (r.height > 4 && r.width <= 3 && r.left > 0) {
+          caret = { top: r.top, bottom: r.bottom, left: r.left, right: r.right, height: r.height, collapsed: !(sel && !sel.empty) };
+          break;
+        }
+      }
+    }
+    if (!caret && bridge) {
+      const r = bridge.getBoundingClientRect();
+      caret = { top: r.top, bottom: r.bottom, left: r.left, right: r.right, height: r.height, collapsed: !(sel && !sel.empty) };
+    }
+    const pageEl = spec.pageRoot ? root.querySelector(spec.pageRoot) : host;
+    return {
+      ...base,
+      text,
+      text_length: text.length,
+      text_source: 'docen_model',
+      input_reachable: editor.isEditable !== false,
+      read_only: editor.isEditable === false,
+      active_inside: bridgeFocused,
+      active_tag: root.activeElement ? String(root.activeElement.tagName || '').toLowerCase() : null,
+      anchor_inside: bridgeFocused || Boolean(sel && sel.from > 0),
+      selection_offset: sel ? sel.from : null,
+      selection_expanded: Boolean(sel && !sel.empty),
+      caret,
+      caret_block_text: sel && sel.$from ? String(sel.$from.parent.textContent || '') : null,
+      box: boxOf(pageEl || host),
+    };
+  }
+
+  if (spec.kind === 'model' && spec.model === 'canvas_editor') {
+    const inst = window.__CANVAS_EDITOR_INSTANCE__;
+    const cmd = inst && inst.command;
+    if (!cmd || typeof cmd.getText !== 'function') {
+      return { ...base, error: 'editor_model_unavailable' };
+    }
+    const parts = cmd.getText() || {};
+    const text = ['header', 'main', 'footer']
+      .map((zone) => String(parts[zone] || ''))
+      .filter(Boolean)
+      .join('\n');
+    let range = null;
+    try {
+      range = typeof cmd.getRange === 'function' ? cmd.getRange() : null;
+    } catch {
+      range = null;
+    }
+    const el = document.querySelector(spec.pageRoot) || document.querySelector(spec.inputHost || spec.selector);
+    const editorRoot = document.querySelector(spec.inputHost || '#editor');
+    const active = document.activeElement;
+    const placed = Boolean(range && Number.isFinite(range.startIndex) && range.startIndex >= 0);
+    return {
+      ...base,
+      text,
+      text_length: text.length,
+      text_source: 'canvas_model',
+      input_reachable: true,
+      active_inside: Boolean(active && editorRoot && editorRoot.contains(active)),
+      active_tag: active ? String(active.tagName || '').toLowerCase() : null,
+      anchor_inside: placed,
+      selection_offset: placed ? range.startIndex : null,
+      selection_expanded: placed && range.startIndex !== range.endIndex,
+      caret: null,
+      box: boxOf(el),
+    };
+  }
+
+  if (spec.hidden) {
+    const pm = document.querySelector(spec.hidden);
+    const painted = spec.selector ? document.querySelector(spec.selector) : null;
+    if (!pm) {
+      return { ...base, error: 'editable_not_found', box: boxOf(painted) };
+    }
+    const text = String(pm.innerText ?? pm.textContent ?? '');
+    const sel = window.getSelection();
+    let caret = null;
+    let anchorInside = false;
+    let selectionOffset = null;
+    let caretBlockText = null;
+    let expanded = false;
+    if (sel && sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0);
+      const startEl =
+        range.startContainer && range.startContainer.nodeType === 3
+          ? range.startContainer.parentNode
+          : range.startContainer;
+      anchorInside = Boolean(startEl && pm.contains(startEl));
+      expanded = !range.collapsed;
+      const block =
+        startEl && typeof startEl.closest === 'function'
+          ? startEl.closest('p,li,h1,h2,h3,h4,h5,h6,td,th')
+          : null;
+      caretBlockText = block ? String(block.innerText ?? block.textContent ?? '') : null;
+      try {
+        const pre = range.cloneRange();
+        pre.selectNodeContents(pm);
+        pre.setEnd(range.startContainer, range.startOffset);
+        selectionOffset = pre.toString().length;
+      } catch {
+        selectionOffset = null;
+      }
+      const rect = range.getBoundingClientRect();
+      if (rect && rect.height > 0 && rect.left > 0) {
+        caret = { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right, height: rect.height, collapsed: range.collapsed };
+      }
+    }
+    const active = document.activeElement;
+    return {
+      ...base,
+      text,
+      text_length: text.length,
+      text_source: 'hidden_pm',
+      is_content_editable: pm.isContentEditable === true,
+      input_reachable: pm.isContentEditable === true,
+      read_only: pm.isContentEditable !== true,
+      active_inside: Boolean(active && (active === pm || pm.contains(active))),
+      active_tag: active ? String(active.tagName || '').toLowerCase() : null,
+      anchor_inside: anchorInside,
+      selection_offset: selectionOffset,
+      selection_expanded: expanded,
+      caret,
+      caret_block_text: caretBlockText,
+      box: boxOf(painted),
+    };
+  }
+  return { ...base, error: 'editable_not_found' };
+};
+
+/** Read document state the way the surface's adapter describes it. */
+async function readStateFor(page, meta) {
+  const spec = meta && meta.surface;
+  const selector = meta && meta.editable && meta.editable.selector;
+  if (spec && (spec.kind === 'model' || spec.kind === 'flag' || spec.hidden)) {
+    const state = await page.evaluate(READ_SURFACE_STATE, spec);
+    return state && typeof state === 'object' ? state : { error: 'editable_not_found' };
+  }
+  return readState(page, selector);
+}
+
+async function resolveFreshClickPointFor(page, meta, prefer = 'line') {
+  const spec = meta && meta.surface;
+  if (spec && (spec.kind === 'model' || spec.kind === 'flag')) {
+    const resolved = await page.evaluate(RESOLVE_SURFACE_CLICK_POINTS, spec);
+    if (!resolved || resolved.error) return null;
+    const candidates = (resolved.points || []).filter((p) => p.hit_inside_editable !== false);
+    const order =
+      prefer === 'centre'
+        ? ['page_centre', 'last_text_line', 'first_text_line']
+        : ['last_text_line', 'first_text_line', 'page_centre'];
+    const pick = order.map((name) => candidates.find((p) => p.point === name)).find(Boolean) || candidates[0];
+    if (pick && Number.isFinite(pick.x) && Number.isFinite(pick.y)) return pick;
+    return null;
+  }
+  return resolveFreshClickPoint(page, meta && meta.editable && meta.editable.selector, prefer);
+}
+
+async function pointerTargetInsideFor(page, meta) {
+  const spec = meta && meta.surface;
+  if (spec && (spec.kind === 'model' || spec.kind === 'flag' || spec.hidden)) {
+    return page.evaluate(POINTER_TARGET_SURFACE, spec);
+  }
+  return pointerTargetInside(page, meta && meta.editable && meta.editable.selector);
+}
+
 async function resolveFreshClickPoint(page, selector, prefer = 'line') {
   const resolved = await page.evaluate(RESOLVE_CLICK_POINTS, selector);
   if (!resolved || resolved.error) return null;
@@ -1389,13 +1734,13 @@ async function ensureCollapsedCaretAtClick(page, selector) {
   }, selector);
 }
 
-async function waitForPasteGrowth(page, selector, before, options, minimumGrowth, maxWaitMs = 2000) {
+async function waitForPasteGrowth(page, meta, before, options, minimumGrowth, maxWaitMs = 2000) {
   const deadline = Date.now() + maxWaitMs;
   let last = null;
   let sawStable = 0;
   let lastGrowth = null;
   while (Date.now() < deadline) {
-    last = await readState(page, selector);
+    last = await readStateFor(page, meta);
     const growth = last.text_length - before.text_length;
     if (growth >= minimumGrowth) {
       if (growth === lastGrowth) {
@@ -1408,7 +1753,7 @@ async function waitForPasteGrowth(page, selector, before, options, minimumGrowth
     }
     await sleep(16);
   }
-  return last ?? (await readState(page, selector));
+  return last ?? (await readStateFor(page, meta));
 }
 
 /** Two animation frames plus a short idle so the next action starts on a quiet page. */
@@ -1543,8 +1888,46 @@ function caretPaintRegion(caret, point) {
   return null;
 }
 
-/** A second input→frame sample of a caret move, with the caret mask off. */
-async function witnessUnmaskedCaretMove(page, witness, point, state, key = 'ArrowRight') {
+/**
+ * A click somewhere else on the edit surface, used to move the caret before
+ * the measured re-click. The setup click is never timed: it only exists so
+ * the re-click on `point` is a real caret move and not a no-op on the spot
+ * the first click already placed it. Prefer another text line (same column),
+ * then any other resolved point, and as a last resort nudge along the line.
+ */
+function setupClickPoint(point, meta) {
+  const points = (meta && meta.points) || [];
+  const differs = (p) =>
+    p &&
+    p !== point &&
+    Number.isFinite(p.x) &&
+    Number.isFinite(p.y) &&
+    (Math.abs(p.x - point.x) > 4 || Math.abs(p.y - point.y) > 4);
+  const linePoint = points.find((p) => differs(p) && p.line);
+  const anyPoint = points.find(differs);
+  const other = linePoint || anyPoint;
+  if (other) return { x: other.x, y: other.y };
+  const dx = point.x > 40 ? -40 : 40;
+  return { x: Math.max(2, point.x + dx), y: point.y };
+}
+
+/**
+ * C07's stimulus is the click; a sample may only be the click's own painted
+ * frame. When the caret mask hid the first click's caret, the retry re-clicks
+ * the same (x, y) with the mask off and the witness on the caret's own rect:
+ * the click's own stimulus, observed. A setup click first moves the caret so
+ * the re-click is a real move. A key is never a stand-in for the click.
+ */
+async function witnessUnmaskedReclick(page, witness, point, state, meta) {
+  const setup = setupClickPoint(point, meta);
+  if (setup && page.mouse && typeof page.mouse.click === 'function') {
+    try {
+      await page.mouse.click(setup.x, setup.y);
+      await settle(page, 60);
+    } catch {
+      // A double without a working mouse re-clicks the point anyway.
+    }
+  }
   const region = caretPaintRegion(state && state.caret, point);
   let input = null;
   const record = await witness.paintAfter(null, {
@@ -1552,14 +1935,14 @@ async function witnessUnmaskedCaretMove(page, witness, point, state, key = 'Arro
     region: region || undefined,
     arm: async () => {
       await clearInputs(page);
-      if (page.keyboard && typeof page.keyboard.press === 'function') {
-        await page.keyboard.press(key);
-      }
-      input = await firstInput(page, { kind: 'keydown' });
-      return input ? input.t : null;
+      await page.mouse.click(point.x, point.y);
+      const tapped = await firstInput(page, { kind: 'pointerdown' });
+      if (tapped === null) return null;
+      input = tapped;
+      return tapped.t;
     },
   });
-  return { record, input };
+  return { record, input, setup };
 }
 
 /** Docxodus records an edit on blur. Undo before that blur has nothing to revert. */
@@ -1593,7 +1976,16 @@ function caretMovePainted(retry, verdict) {
 async function measureClicks(page, witness, options, meta) {
   const entry = emptyEntry('C07', 'failed', null);
   entry.trial_hints.repetition_unit = 'fresh_process';
-  const scope = 'dom_caret_on_clicked_line';
+  const surface = (meta && meta.surface) || {};
+  // What C07 may assert depends on what the surface can show: a flag surface
+  // can only prove pointer-inside plus paint; canvas can place its model
+  // caret; docen and DOM surfaces expose a caret rect on the clicked line.
+  const scope =
+    surface.kind === 'flag'
+      ? 'pointer_inside_editable_and_paints'
+      : surface.model === 'canvas_editor'
+        ? 'model_caret_placed_and_paints'
+        : 'dom_caret_on_clicked_line';
   entry.assertion = {
     name: 'hit_test_reaches_editable_and_paints',
     passed: false,
@@ -1638,7 +2030,10 @@ async function measureClicks(page, witness, options, meta) {
     if (input === null && point.line && meta.editable && meta.editable.selector) {
       let freshPoint = null;
       try {
-        const fresh = await page.evaluate(RESOLVE_CLICK_POINTS, meta.editable.selector);
+        const surfacePoints = surface.kind === 'model' || surface.kind === 'flag';
+        const fresh = surfacePoints
+          ? await page.evaluate(RESOLVE_SURFACE_CLICK_POINTS, surface)
+          : await page.evaluate(RESOLVE_CLICK_POINTS, meta.editable.selector);
         freshPoint = (fresh && fresh.points ? fresh.points : []).find((p) => p.point === point.point);
       } catch {
         freshPoint = null;
@@ -1668,10 +2063,10 @@ async function measureClicks(page, witness, options, meta) {
     }
     observation.input_ms = round(input.t, 3);
     observation.pointer_target = input.target || null;
-    const target = await pointerTargetInside(page, meta.editable.selector);
+    const target = await pointerTargetInsideFor(page, meta);
     observation.pointer_target_inside_editable = target.inside;
     await settle(page, 30);
-    const stateAfterClick = await readState(page, meta.editable.selector);
+    const stateAfterClick = await readStateFor(page, meta);
     const correctnessEarly = assertPreEditDocumentLoaded(stateAfterClick, options);
     if (!correctnessEarly.ok) {
       observation.failure = correctnessEarly.reason;
@@ -1682,7 +2077,7 @@ async function measureClicks(page, witness, options, meta) {
     }
     observation.witness = frameRecord;
     observation.diagnostic_raf_ms = round(await rafDelta(page, input.t), 3);
-    const state = await readState(page, meta.editable.selector);
+    const state = await readStateFor(page, meta);
     observation.active_tag = state.active_tag || null;
     observation.active_inside = state.active_inside === true;
     observation.anchor_inside = state.anchor_inside === true;
@@ -1702,9 +2097,34 @@ async function measureClicks(page, witness, options, meta) {
     }
     // A point on a text line must place the caret on that line. The page
     // centre has no line box: it only has to keep the caret in the editable.
-    const caretOnLine = point.line === null ? true : caretOverlapsLine(state.caret, point.line);
-    observation.caret_on_clicked_line = caretOnLine;
-    if (!state.anchor_inside || !caretOnLine) {
+    // A flag surface exposes no caret or selection at all; canvas exposes the
+    // model range instead of a DOM rect; everything else needs the rect on
+    // the clicked line.
+    let caretPlaced;
+    if (surface.kind === 'flag') {
+      caretPlaced = true;
+      observation.caret_on_clicked_line = null;
+    } else if (surface.model === 'canvas_editor') {
+      caretPlaced = state.anchor_inside === true;
+      observation.caret_on_clicked_line = null;
+      observation.model_selection_offset = state.selection_offset ?? null;
+    } else if (surface.model === 'docen') {
+      // The overlay caret snaps to a whole line: a click between lines lands
+      // it one line below. Assert the caret's vertical centre is near the
+      // click row (~1.6 line heights), not that it overlaps the click band.
+      const cy =
+        state.caret && Number.isFinite(state.caret.top) && Number.isFinite(state.caret.bottom)
+          ? (state.caret.top + state.caret.bottom) / 2
+          : null;
+      const near = cy !== null && Math.abs(cy - point.y) <= (surface.caretBand || 40);
+      observation.caret_on_clicked_line = near;
+      caretPlaced = state.anchor_inside === true && near;
+    } else {
+      const caretOnLine = point.line === null ? true : caretOverlapsLine(state.caret, point.line);
+      observation.caret_on_clicked_line = caretOnLine;
+      caretPlaced = state.anchor_inside === true && caretOnLine;
+    }
+    if (!caretPlaced) {
       observation.failure = state.anchor_inside
         ? `${CORRECTNESS_PREFIX} caret_not_on_clicked_line`
         : 'caret_not_inside_editable';
@@ -1744,39 +2164,26 @@ async function measureClicks(page, witness, options, meta) {
         continue;
       }
       // A masked screencast that never paints the caret is not a latency.
-      // Retry once, unmasked, on the caret's own region. The sample is that
-      // frame or nothing: the timeout clock is never stored.
-      let retry = await witnessUnmaskedCaretMove(page, witness, point, state, 'ArrowRight');
-      let retryRecord = retry.record;
-      let retryVerdict = retryRecord ? validateWitnessRecord(retryRecord) : { refused: true, ok: false };
-      let retryPainted = caretMovePainted(retry, retryVerdict);
-      // ArrowRight at the end of a line does not move. One ArrowLeft is still
-      // a caret move. A second no-frame is a refusal, not a timeout sample.
-      const arrowWasStill =
-        !retryPainted &&
-        retryRecord &&
-        retryRecord.outcome === 'no_frame' &&
-        ((retryRecord.frames_after || 0) > 0 || (retryRecord.frames_total || 0) > 0) &&
-        (retryRecord.changed_pixels === 0 || retryRecord.changed_pixels == null);
-      if (arrowWasStill) {
-        const left = await witnessUnmaskedCaretMove(page, witness, point, state, 'ArrowLeft');
-        const leftVerdict = left.record ? validateWitnessRecord(left.record) : { refused: true, ok: false };
-        if (caretMovePainted(left, leftVerdict)) {
-          retry = left;
-          retryRecord = left.record;
-          retryVerdict = leftVerdict;
-          retryPainted = true;
-        }
-      }
-      observation.caret_paint_attempt = 'unmasked_caret_region';
+      // C07's stimulus is the click, so the retry is the same click, never a
+      // key: re-click the same point, unmasked, watching the caret's own rect.
+      // The sample is the click's frame or nothing — a timeout clock is never
+      // stored.
+      const retry = await witnessUnmaskedReclick(page, witness, point, state, meta);
+      const retryRecord = retry.record;
+      const retryVerdict = retryRecord ? validateWitnessRecord(retryRecord) : { refused: true, ok: false };
+      const retryPainted = caretMovePainted(retry, retryVerdict);
+      observation.caret_paint_attempt = 'unmasked_reclick';
+      if (retry.setup) observation.setup_click = retry.setup;
+      observation.masked_witness = frameRecord;
+      observation.masked_input_ms = observation.input_ms;
       observation.witness = retryRecord || frameRecord;
       observation.witness_verdict = retryVerdict;
       observation.witness_errors = retryVerdict.errors || [];
       if (!retryPainted) {
-        observation.failure = CARET_MOVE_NOT_PAINTED;
+        observation.failure = CLICK_PAINT_NOT_OBSERVED;
         observation.witness_refusal = retryVerdict.reason ?? null;
         delete observation.sample_ms;
-        entry.assertion.failures.push(`${point.point}: ${CARET_MOVE_NOT_PAINTED}`);
+        entry.assertion.failures.push(`${point.point}: ${CLICK_PAINT_NOT_OBSERVED}`);
         entry.observations.push(observation);
         continue;
       }
@@ -1877,7 +2284,7 @@ async function measureUndo(page, witness, options, meta) {
     checks: {},
     failures: [],
   };
-  const point = await resolveFreshClickPoint(page, meta.editable.selector);
+  const point = await resolveFreshClickPointFor(page, meta);
   if (!point) {
     entry.failure_reason = 'no_click_point_resolved';
     entry.assertion.failures.push('no_click_point_resolved');
@@ -1886,13 +2293,13 @@ async function measureUndo(page, witness, options, meta) {
   await clearInputs(page);
   await page.mouse.click(point.x, point.y);
   await settle(page);
-  const target = await pointerTargetInside(page, meta.editable.selector);
+  const target = await pointerTargetInsideFor(page, meta);
   if (target?.inside === false) {
     entry.failure_reason = 'pointer_target_outside_editable';
     entry.assertion.failures.push('pointer_target_outside_editable');
     return entry;
   }
-  const before = await readState(page, meta.editable.selector);
+  const before = await readStateFor(page, meta);
   if (before.error) {
     entry.failure_reason = before.error;
     return entry;
@@ -1908,7 +2315,7 @@ async function measureUndo(page, witness, options, meta) {
     (before.caret && before.caret.collapsed === false)
   ) {
     await ensureCollapsedCaretAtClick(page, meta.editable.selector);
-    let rechecked = await readState(page, meta.editable.selector);
+    let rechecked = await readStateFor(page, meta);
     const stillExpanded = (state) =>
       (state.caret && state.caret.collapsed === false) || state.selection_expanded === true;
     if (stillExpanded(rechecked) && page.keyboard && typeof page.keyboard.press === 'function') {
@@ -1916,7 +2323,7 @@ async function measureUndo(page, witness, options, meta) {
       // a word selection in the focused editor and does not edit the text.
       await page.keyboard.press('ArrowRight');
       await settle(page, 40);
-      rechecked = await readState(page, meta.editable.selector);
+      rechecked = await readStateFor(page, meta);
     }
     if (stillExpanded(rechecked)) {
       entry.failure_reason = 'selection_not_collapsed_before_typing';
@@ -1934,12 +2341,12 @@ async function measureUndo(page, witness, options, meta) {
       entry.assertion.failures.push('no_keydown_observed_for_typed_character');
       return entry;
     }
-    let typedState = await readState(page, meta.editable.selector);
+    let typedState = await readStateFor(page, meta);
     let typedFrames = 0;
     while (typedState.text_length !== before.text_length + 1 && typedFrames < 6) {
       await sleep(16);
       typedFrames += 1;
-      typedState = await readState(page, meta.editable.selector);
+      typedState = await readStateFor(page, meta);
     }
     if (typedState.text_length !== before.text_length + 1) {
       entry.failure_reason = focusAfterClick
@@ -1981,7 +2388,7 @@ async function measureUndo(page, witness, options, meta) {
         // A unit double with no document keeps the typed text as it is.
       }
       await settle(page, 80);
-      const committed = await readState(page, meta.editable.selector);
+      const committed = await readStateFor(page, meta);
       if (
         committed.text !== expectedTyped &&
         !differsBySingleInsertion(before.text, committed.text, 'x')
@@ -2038,7 +2445,7 @@ async function measureUndo(page, witness, options, meta) {
       attachPaintWitnessFailure(observation, painted);
       let afterUndo = null;
       try {
-        afterUndo = await readState(page, meta.editable.selector);
+        afterUndo = await readStateFor(page, meta);
       } catch {
         afterUndo = null;
       }
@@ -2059,12 +2466,12 @@ async function measureUndo(page, witness, options, meta) {
       entry.assertion.failures.push('undo_not_painted');
       return entry;
     }
-    let after = await readState(page, meta.editable.selector);
+    let after = await readStateFor(page, meta);
     let framesToRevert = 1;
     while (after.text !== before.text && framesToRevert < 6) {
       await sleep(16);
       framesToRevert += 1;
-      after = await readState(page, meta.editable.selector);
+      after = await readStateFor(page, meta);
     }
     observation.frame_ms = round(painted.frame_page_ms, 3);
     observation.sample_ms = painted.sampleMs;
@@ -2112,12 +2519,12 @@ async function measureUndo(page, witness, options, meta) {
     return entry;
   } finally {
     try {
-      let current = await readState(page, meta.editable.selector);
+      let current = await readStateFor(page, meta);
       if (current.text !== before.text && !undoAttempted) {
         undoAttempted = true;
         await page.keyboard.press(`${options.modifier}+Z`);
         await settle(page, 60);
-        current = await readState(page, meta.editable.selector);
+        current = await readStateFor(page, meta);
       }
       if (current.text !== before.text) {
         entry.fixture_reset = { attempted: true, restored: false, reason: 'undo_did_not_restore_original' };
@@ -2137,12 +2544,12 @@ async function measureUndo(page, witness, options, meta) {
           if (waitForBody) {
             // Reload can finish before the editor imports its fixture. Wait for that body.
             for (let attempt = 0; attempt < 100; attempt += 1) {
-              current = await readState(page, meta.editable.selector);
+              current = await readStateFor(page, meta);
               if (current.text === before.text) break;
               await sleep(50);
             }
           } else {
-            current = await readState(page, meta.editable.selector);
+            current = await readStateFor(page, meta);
           }
           entry.fixture_reset.restored = current.text === before.text;
           await page.evaluate(INSTALL_INPUT_TAP);
@@ -2198,7 +2605,7 @@ async function measureBulkInsert(page, witness, options, meta) {
     checks: {},
     failures: [],
   };
-  const point = await resolveFreshClickPoint(page, meta.editable.selector, 'centre');
+  const point = await resolveFreshClickPointFor(page, meta, 'centre');
   if (!point) {
     entry.failure_reason = 'no_click_point_resolved';
     entry.assertion.failures.push('no_click_point_resolved');
@@ -2207,13 +2614,13 @@ async function measureBulkInsert(page, witness, options, meta) {
   await clearInputs(page);
   await page.mouse.click(point.x, point.y);
   await settle(page, 200);
-  const target = await pointerTargetInside(page, meta.editable.selector);
+  const target = await pointerTargetInsideFor(page, meta);
   if (target?.inside === false) {
     entry.failure_reason = 'pointer_target_outside_editable';
     entry.assertion.failures.push('pointer_target_outside_editable');
     return entry;
   }
-  const before = await readState(page, meta.editable.selector);
+  const before = await readStateFor(page, meta);
   if (before.error) {
     entry.failure_reason = before.error;
     return entry;
@@ -2263,7 +2670,7 @@ async function measureBulkInsert(page, witness, options, meta) {
       if (painted.ok) {
         const afterPaste = await waitForPasteGrowth(
           page,
-          meta.editable.selector,
+          meta,
           before,
           options,
           minimumGrowth,
@@ -2309,7 +2716,7 @@ async function measureBulkInsert(page, witness, options, meta) {
         entry.assertion.failures.push(observation.failure);
         return entry;
       } else {
-        const afterPaste = await readState(page, meta.editable.selector);
+        const afterPaste = await readStateFor(page, meta);
         const growth = afterPaste.text_length - before.text_length;
         if (growth > 0 && growth < minimumGrowth) {
           entry.failure_reason = `${CORRECTNESS_PREFIX} truncated_paste`;
@@ -2342,7 +2749,7 @@ async function measureBulkInsert(page, witness, options, meta) {
   // method, never merged with a paste sample.
   await page.mouse.click(point.x, point.y);
   await settle(page, 150);
-  const pre = await readState(page, meta.editable.selector);
+  const pre = await readStateFor(page, meta);
   let stamp = null;
   const painted = await sampleAfterInput(witness, null, options, {
     arm: async () => {
@@ -2361,7 +2768,7 @@ async function measureBulkInsert(page, witness, options, meta) {
       return stamp?.start ?? null;
     },
   });
-  const after = await waitForPasteGrowth(page, meta.editable.selector, pre, options, minimumGrowth);
+  const after = await waitForPasteGrowth(page, meta, pre, options, minimumGrowth);
   const growth = after.text_length - pre.text_length;
   const fallback = {
     observation_id: "fallback",
@@ -2376,7 +2783,8 @@ async function measureBulkInsert(page, witness, options, meta) {
       painted.frame_page_ms !== null && painted.frame_page_ms !== undefined
         ? round(painted.frame_page_ms, 3)
         : null,
-    sample_ms: painted.sampleMs !== null && painted.sampleMs !== undefined ? painted.sampleMs : null,
+    // A refused witness is not a latency: only an ok paint carries sample_ms.
+    sample_ms: painted.ok && painted.sampleMs !== null && painted.sampleMs !== undefined ? painted.sampleMs : null,
     witness: painted.record ?? null,
     witness_refusal: painted.witness_refusal ?? null,
     witness_errors: painted.witness_errors?.length ? painted.witness_errors : null,
@@ -2535,16 +2943,40 @@ const PROBE_CHAR = '‡';
  * text changed and the probe character was removed again. A locked document
  * is document_protected_read_only. A dirty document is not measured.
  */
-async function probeDocumentChanges(page, selector) {
-  const before = await readState(page, selector);
+async function probeDocumentChanges(page, meta) {
+  const selector = meta && meta.editable && meta.editable.selector;
+  const spec = meta && meta.surface;
+  const surfaceKind = spec && (spec.kind === 'model' || spec.kind === 'flag' || spec.hidden) ? spec.kind : 'dom';
+  if (spec && spec.hidden) {
+    // folio mounts its hidden ProseMirror on the first click into the painted
+    // pages; without it there is no document state to read at all.
+    const pmExists = await page.evaluate((s) => Boolean(document.querySelector(s)), spec.hidden);
+    if (!pmExists) {
+      const mount = spec.selector ? await page.evaluate(
+        (sel) => {
+          const el = document.querySelector(sel);
+          const r = el && el.getBoundingClientRect();
+          return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null;
+        },
+        spec.selector,
+      ) : null;
+      if (mount) {
+        await page.mouse.click(mount.x, mount.y);
+        await settle(page, 300);
+      }
+    }
+  }
+  const before = await readStateFor(page, meta);
   if (!before || before.error) {
     return {
       usable: false,
-      refusal: `${CORRECTNESS_PREFIX} input_did_not_change_document`,
+      refusal: (before && before.error) || `${CORRECTNESS_PREFIX} input_did_not_change_document`,
       probed: true,
     };
   }
-  const resolved = await page.evaluate(RESOLVE_CLICK_POINTS, selector);
+  const resolved = spec && surfaceKind !== 'dom'
+    ? await page.evaluate(RESOLVE_SURFACE_CLICK_POINTS, spec)
+    : await page.evaluate(RESOLVE_CLICK_POINTS, selector);
   const points = (resolved && resolved.points) || [];
   const point =
     points.find((p) => p.point === 'last_text_line' && p.hit_inside_editable !== false) ||
@@ -2568,7 +3000,7 @@ async function probeDocumentChanges(page, selector) {
   await clearInputs(page);
   await page.keyboard.type(PROBE_CHAR);
   await settle(page, 400);
-  const after = await readState(page, selector);
+  const after = await readStateFor(page, meta);
   const beforeText = before.text || '';
   const afterText = after && typeof after.text === 'string' ? after.text : '';
   const grew = afterText.length > beforeText.length && afterText.length - beforeText.length <= 4;
@@ -2576,12 +3008,12 @@ async function probeDocumentChanges(page, selector) {
   if (changed) {
     await page.keyboard.press('Backspace');
     await settle(page, 80);
-    let restored = await readState(page, selector);
+    let restored = await readStateFor(page, meta);
     if ((restored.text || '') !== beforeText) {
       const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
       await page.keyboard.press(`${modifier}+Z`);
       await settle(page, 80);
-      restored = await readState(page, selector);
+      restored = await readStateFor(page, meta);
     }
     if ((restored.text || '') !== beforeText) {
       return { usable: false, refusal: `${CORRECTNESS_PREFIX} probe_not_restored`, probed: true };
@@ -2646,7 +3078,17 @@ async function openEditorMode(page) {
  * click and key change the document. Contenteditable surfaces skip the probe.
  * A page that does not describe itself (unit doubles) is left alone.
  */
-async function prepareInputSurface(page, editSelector) {
+async function prepareInputSurface(page, editSelector, surfaceSpec = null) {
+  const spec = surfaceSpec && typeof surfaceSpec === 'object' ? surfaceSpec : null;
+  if (spec && (spec.kind === 'model' || spec.hidden)) {
+    // Model/shadow surfaces cannot describe themselves through DESCRIBE_INPUT_SURFACE
+    // (shadow DOM, painted canvas, or a hidden editor). Click + probe directly.
+    const probe = await probeDocumentChanges(page, {
+      surface: spec,
+      editable: { selector: editSelector },
+    });
+    return { selector: editSelector, kind: spec.kind, skipped: false, ...probe };
+  }
   const described = await page.evaluate(DESCRIBE_INPUT_SURFACE, { selector: editSelector });
   if (!described || typeof described !== 'object') {
     return { selector: editSelector, usable: null, skipped: true, refusal: null };
@@ -2710,7 +3152,10 @@ async function prepareInputSurface(page, editSelector) {
   if (!current || current.kind === 'missing') {
     return { selector: editSelector, usable: null, skipped: true, refusal: null };
   }
-  const probe = await probeDocumentChanges(page, selector);
+  const probe = await probeDocumentChanges(page, {
+    surface: surfaceSpec,
+    editable: { selector },
+  });
   return { selector, kind: current.kind, skipped: false, ...probe };
 }
 
@@ -2741,6 +3186,7 @@ export async function runCriteriaSuite({
   expectedBodyText = null,
   expectedBodyPath = null,
   correctnessAdapter: correctnessAdapterOption = undefined,
+  editorId = null,
 }) {
   const startedAt = Date.now();
   const startedIso = new Date(startedAt).toISOString();
@@ -2759,6 +3205,14 @@ export async function runCriteriaSuite({
   };
   const adapter = correctnessAdapter(options);
   const pageLoss = attachPageLossTracker(page, cdp);
+  const surfaceSpec = { ...editSurface(editorId || ''), selector: editSelector };
+  // docen's caret overlay snaps to a whole text line; ~40 px is the click's
+  // own line plus its line-snap slack, not a different paragraph.
+  if (surfaceSpec.model === 'docen') surfaceSpec.caretBand = 40;
+  const surfaceKind =
+    surfaceSpec.kind === 'model' || surfaceSpec.kind === 'flag' || surfaceSpec.hidden
+      ? surfaceSpec.kind
+      : 'dom';
 
   const entries = {};
   let witness = null;
@@ -2806,9 +3260,33 @@ export async function runCriteriaSuite({
 
     // C04 is done. Edit lanes may now click the host's editor mode. The gate
     // asks whether a click and a key change the document.
-    if (criteria.some((id) => id !== 'C04') && domAdapter(adapter)) {
+    if (criteria.some((id) => id !== 'C04') && domAdapter(adapter) && surfaceKind === 'flag') {
+      // A flag surface paints but exposes no document text to verify against:
+      // C07 (click -> paint) still runs; C08/C09 are named not_applicable.
+      preparedSurface = { selector: editSelector, usable: null, skipped: true, refusal: null, kind: 'flag' };
+      for (const id of ['C08', 'C09']) {
+        if (criteria.includes(id) && !entries[id]) {
+          const na = emptyEntry(
+            id,
+            'not_applicable',
+            'document_text_not_readable: editor exposes only a modified flag',
+            {
+              assertion: {
+                name: id === 'C08' ? 'bulk_insert_grows_document' : 'undo_restores_document',
+                passed: false,
+                scope: null,
+                checks: { document_text_readable: false },
+                failures: ['document_text_not_readable'],
+              },
+            },
+          );
+          na.notes.push('window.__WORDCRAFT_HOST__ title flag is the only change witness at this pin');
+          entries[id] = na;
+        }
+      }
+    } else if (criteria.some((id) => id !== 'C04') && domAdapter(adapter)) {
       // @suite-phase prepare_input_surface
-      preparedSurface = await prepareInputSurface(page, editSelector);
+      preparedSurface = await prepareInputSurface(page, editSelector, surfaceSpec);
       if (preparedSurface && preparedSurface.selector) activeSelector = preparedSurface.selector;
       if (preparedSurface && preparedSurface.refusal) {
         for (const id of ['C07', 'C09', 'C08']) {
@@ -2821,11 +3299,15 @@ export async function runCriteriaSuite({
       }
     }
 
+    const surfacePoints = surfaceKind === 'model' || surfaceKind === 'flag';
+    const pointResolver = surfacePoints ? RESOLVE_SURFACE_CLICK_POINTS : RESOLVE_CLICK_POINTS;
+    const pointSelector = surfacePoints ? surfaceSpec : activeSelector;
     // @suite-phase after_c04
-    const resolvedPoints = await page.evaluate(RESOLVE_CLICK_POINTS, activeSelector);
+    const resolvedPoints = await page.evaluate(pointResolver, pointSelector);
     points = { ...points, ...resolvedPoints };
+    const metaInitial = { surface: surfaceSpec, editable: { selector: activeSelector } };
     // @suite-phase initial_read_state
-    initialState = await readState(page, activeSelector);
+    initialState = await readStateFor(page, metaInitial);
     const editableMissing = initialState.error || null;
 
     const needsPaint = criteria.some((id) => id !== 'C04');
@@ -2841,10 +3323,13 @@ export async function runCriteriaSuite({
           started: true,
           editSelector: activeSelector,
           async paintAfter(pageMs, callOptions = {}) {
+            // A shadow surface's editSelector crosses the boundary and never
+            // resolves in the light DOM; the shadow host is the document box.
+            const witnessSelector = surfaceSpec.shadow || activeSelector;
             return witnessFrame(page, cdp, {
               afterPageMs: pageMs,
               arm: callOptions.arm ?? null,
-              region: callOptions.region ?? { selector: activeSelector },
+              region: callOptions.region ?? { selector: witnessSelector },
               recorder,
               manageScreencast: false,
               windowMs: frameTimeoutMs,
@@ -2899,6 +3384,7 @@ export async function runCriteriaSuite({
       },
       points: points.points || [],
       point_source: points.source || 'unavailable',
+      surface: surfaceSpec,
     };
     if (preparedSurface && preparedSurface.usable === true) {
       meta.editable.input_reachable = true;
@@ -2945,14 +3431,14 @@ export async function runCriteriaSuite({
         entries.C08 = emptyEntry('C08', 'failed', 'fixture_reset_failed_after_C09');
       } else {
         // @suite-phase c08_refresh
-        const refreshed = await page.evaluate(RESOLVE_CLICK_POINTS, activeSelector);
+        const refreshed = await page.evaluate(pointResolver, pointSelector);
         meta.points = refreshed.points || [];
         meta.point_source = refreshed.source || meta.point_source;
         if (refreshed.line_height_px !== undefined) {
           meta.editable.line_height_px = refreshed.line_height_px;
         }
         // @suite-phase c08_refresh_read
-        const refreshedState = await readState(page, activeSelector);
+        const refreshedState = await readStateFor(page, meta);
         meta.editable.is_content_editable = refreshedState.is_content_editable === true;
         if (refreshedState.input_reachable === true) meta.editable.input_reachable = true;
         meta.editable.text_source = refreshedState.text_source || meta.editable.text_source;

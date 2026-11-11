@@ -37,9 +37,16 @@ assert(
   '1 px of an 18 px caret is not on the line',
 );
 
-function clickPage(onKey, keys) {
-  return {
-    mouse: { click: async () => {} },
+function clickPage(onKey, keys, pointerTimes) {
+  const times = pointerTimes || [40, 90, 95, 100];
+  let pointerReads = 0;
+  const mouseClicks = [];
+  const page = {
+    mouse: {
+      click: async (x, y) => {
+        mouseClicks.push([x, y]);
+      },
+    },
     keyboard: {
       press: async (key) => {
         if (keys) keys.push(key);
@@ -58,12 +65,18 @@ function clickPage(onKey, keys) {
         };
       }
       if (typeof arg === 'string') return { inside: true, reason: null };
-      if (arg && arg.kind === 'pointerdown') return { t: 40, target: {} };
+      if (arg && arg.kind === 'pointerdown') {
+        const t = times[Math.min(pointerReads, times.length - 1)];
+        pointerReads += 1;
+        return { t, target: {} };
+      }
       if (arg && arg.kind === 'keydown') return { t: 90, key: 'ArrowRight' };
       if (typeof arg === 'number') return 12;
       return null;
     },
   };
+  page.mouseClicks = mouseClicks;
+  return page;
 }
 
 const meta = {
@@ -79,8 +92,9 @@ const meta = {
   ],
 };
 
+const refusedPage = clickPage(null, [], [40, 90]);
 const refused = await measureClicks(
-  clickPage(),
+  refusedPage,
   {
     frameIntervalMs: 16.667,
     paintAfter: async (_t, callOptions = {}) => {
@@ -93,8 +107,8 @@ const refused = await measureClicks(
 );
 assert(refused.outcome === 'failed', 'two dark frames refuse C07');
 assert(
-  String(refused.failure_reason || '').includes('caret_move_not_painted'),
-  'the refusal is caret_move_not_painted',
+  String(refused.failure_reason || '').includes('click_paint_not_observed'),
+  'the refusal is click_paint_not_observed',
 );
 assert(refused.samples_ms.length === 0, 'a timeout is not a sample');
 assert(
@@ -105,8 +119,9 @@ assert(
 let paintCalls = 0;
 let seenRetry = null;
 const retryKeys = [];
+const retryPage = clickPage(null, retryKeys, [40, 90]);
 const paintedRetry = await measureClicks(
-  clickPage(null, retryKeys),
+  retryPage,
   {
     frameIntervalMs: 16.667,
     paintAfter: async (_t, callOptions = {}) => {
@@ -122,35 +137,46 @@ const paintedRetry = await measureClicks(
   { frameTimeoutMs: 2000, expectedBodyText: null },
   meta,
 );
-assert(paintedRetry.outcome === 'measured', 'the unmasked caret frame is the sample');
-assert(paintedRetry.samples_ms[0] === 90, 'sample is frame_page_ms minus the ArrowRight input');
+assert(paintedRetry.outcome === 'measured', 'the unmasked click frame is the sample');
+assert(paintedRetry.samples_ms[0] === 90, 'sample is frame_page_ms minus the re-click pointerdown');
 assert(paintedRetry.observations[0].caret_dom_response !== true, 'caret_dom_response is not a bypass');
 assert(seenRetry && seenRetry.caretMask === false, 'the retry turns the caret mask off');
 assert(seenRetry && seenRetry.region && seenRetry.region.rect, 'the retry watches the caret rect');
-assert(retryKeys.includes('ArrowRight'), 'the retry moves the caret with ArrowRight');
-assert(!retryKeys.includes('ArrowLeft'), 'a painted ArrowRight does not press ArrowLeft');
+assert(
+  retryKeys.length === 0 || (!retryKeys.includes('ArrowRight') && !retryKeys.includes('ArrowLeft')),
+  'C07 never substitutes a key for the click',
+);
+assert(
+  retryPage.mouseClicks.length >= 2 && retryPage.mouseClicks.at(-1)[0] === 12 && retryPage.mouseClicks.at(-1)[1] === 890,
+  'the retry re-clicks the same point, it never presses a key',
+);
 
 let stillCalls = 0;
 const stillKeys = [];
-const arrowLeft = await measureClicks(
-  clickPage(null, stillKeys),
+const stillPage = clickPage(null, stillKeys, [40, 90]);
+const stillCaret = await measureClicks(
+  stillPage,
   {
     frameIntervalMs: 16.667,
     paintAfter: async (_t, callOptions = {}) => {
       if (callOptions.arm) await callOptions.arm();
       stillCalls += 1;
-      if (stillCalls < 3) {
-        return { outcome: 'no_frame', changed_pixels: 0, caret_masked: stillCalls === 1, frames_after: 1, frames_total: 2 };
-      }
-      return publishableRecord(180, 90);
+      return { outcome: 'no_frame', changed_pixels: 0, caret_masked: stillCalls === 1, frames_after: 1, frames_total: 2 };
     },
   },
   { frameTimeoutMs: 2000, expectedBodyText: null },
   meta,
 );
-assert(arrowLeft.outcome === 'measured', 'ArrowLeft paints when ArrowRight is a still caret');
-assert(arrowLeft.samples_ms[0] === 90, 'the ArrowLeft frame is the sample');
-assert(stillKeys.join(',') === 'ArrowRight,ArrowLeft', 'ArrowLeft runs only after ArrowRight stays still');
+assert(stillCaret.outcome === 'failed', 'an unmasked re-click that never paints is a refusal');
+assert(
+  String(stillCaret.failure_reason || '').includes('click_paint_not_observed'),
+  'the refusal names click_paint_not_observed',
+);
+assert(stillCaret.samples_ms.length === 0, 'no sample without a painted frame');
+assert(
+  stillKeys.length === 0 || (!stillKeys.includes('ArrowRight') && !stillKeys.includes('ArrowLeft')),
+  'no ArrowRight/ArrowLeft fallback exists',
+);
 
 assert(
   comparableDocumentText('cafe\u0301') === comparableDocumentText('caf\u00e9'),

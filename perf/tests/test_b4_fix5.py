@@ -43,7 +43,11 @@ def test_measured_c09_survives_page_loss_in_finally(probes):
 
 
 def test_c09_only_skips_long_fixture_wait(probes):
-    assert probes['m2_skip_wait']['duration_ms'] < 2000
+    # The long restore wait polls the document ~100 times; when C09 runs
+    # without C08 the restore is a single read. Wall-clock duration is a bad
+    # proxy here because the double's cdp emits no screencast frames and the
+    # witness burns its fixed baseline waits — measure the poll count instead.
+    assert probes['m2_skip_wait']['reads_after_reload'] <= 2
     assert probes['m2_skip_wait']['fixture_reset']['restored'] is False
 
 

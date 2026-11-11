@@ -377,7 +377,12 @@ def trial_from_entry(cid, entry, env, witness=None):
             "cpu_throttled" if reason.startswith("cpu_throttled") else
             "document_protected_read_only" if "document_protected_read_only" in reason else
             "caret_move_not_painted" if "caret_move_not_painted" in reason else
+            "click_paint_not_observed" if "click_paint_not_observed" in reason else
             "editor_mode_did_not_open" if "editor_mode_did_not_open" in reason else
+            "editable_not_found" if reason.startswith(("editable_not_found", "editable_not_in_viewport")) else
+            "surface_not_dom_editable" if reason.startswith(("surface_not_dom_editable", "no_correctness_adapter")) else
+            "surface_not_dom_editable" if reason.startswith(("editor_model_unavailable", "document_text_not_readable")) else
+            "click_points_unavailable" if "click_points_unavailable" in reason else
             "unverified" if (
                 reason.startswith((
                     "correctness:",
@@ -392,6 +397,7 @@ def trial_from_entry(cid, entry, env, witness=None):
                 or "caret_not_on_clicked_line" in reason
                 or "editor_did_not_take_focus_after_click" in reason
                 or "no_pointerdown_observed" in reason
+                or "pointer_target_outside_editable" in reason
             ) else
             "paint_witness_unavailable" if any(
                 token in reason for token in ("no_painted_frame", "witness", "clock_skew", "frame_interval")

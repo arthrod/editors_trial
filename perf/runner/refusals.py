@@ -43,6 +43,10 @@ class RefusalCode(StrEnum):
     DOCUMENT_PROTECTED_READ_ONLY = 'document_protected_read_only'
     CARET_MOVE_NOT_PAINTED = 'caret_move_not_painted'
     EDITOR_MODE_DID_NOT_OPEN = 'editor_mode_did_not_open'
+    CLICK_PAINT_NOT_OBSERVED = 'click_paint_not_observed'
+    EDITABLE_NOT_FOUND = 'editable_not_found'
+    SURFACE_NOT_DOM_EDITABLE = 'surface_not_dom_editable'
+    CLICK_POINTS_UNAVAILABLE = 'click_points_unavailable'
 
 
 RUN_REFUSALS = frozenset({

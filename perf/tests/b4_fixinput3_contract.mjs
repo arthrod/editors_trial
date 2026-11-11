@@ -167,8 +167,8 @@ assert(
   'C09 names missing focus instead of blaming document text',
 );
 
-// A masked caret with no screencast frame is not a sample. The unmasked retry
-// has to paint, or the point is caret_move_not_painted.
+// A masked caret with no screencast frame is not a sample. The unmasked
+// re-click has to paint, or the point is click_paint_not_observed.
 const c07CaretDom = await (async () => {
   const page = {
     mouse: { click: async () => {} },
@@ -213,10 +213,10 @@ const c07CaretDom = await (async () => {
     },
   );
 })();
-assert(c07CaretDom.outcome === 'failed', 'C07 refuses a caret move that never paints');
+assert(c07CaretDom.outcome === 'failed', 'C07 refuses a click that never paints');
 assert(
-  String(c07CaretDom.failure_reason || '').includes('caret_move_not_painted'),
-  'C07 names caret_move_not_painted',
+  String(c07CaretDom.failure_reason || '').includes('click_paint_not_observed'),
+  'C07 names click_paint_not_observed',
 );
 assert(
   !(c07CaretDom.observations || []).some((observation) => observation.sample_ms != null),

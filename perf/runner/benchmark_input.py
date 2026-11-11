@@ -78,7 +78,10 @@ def _fixture(editor_id: str, workload_id: str = "micro-paragraphs") -> tuple[Pat
     return path, hashlib.sha256(data).hexdigest(), len(data), served
 
 
-CANVAS_HOSTS = frozenset({"canvas", "apryse"})
+# Hosts that paint into a canvas and expose no document text at this pin.
+# `canvas` left this set when the input lane learned its command.getText()
+# model reader (perf/runner/edit_surface.mjs, READ_SURFACE_STATE).
+CANVAS_HOSTS = frozenset({"apryse"})
 
 
 def _correctness_adapter(editor_id: str, target: dict) -> str | None:

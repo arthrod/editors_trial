@@ -33,7 +33,9 @@ async function a10RefusedPaintPageDiesInFinally() {
     evaluate: async (fn, arg) => {
       if (broken) throw new Error('Execution context was destroyed');
       if (fn.name === 'READ_EDITABLE_STATE')
-        return { text: body, text_length: body.length, selection_offset: 4 };
+        return { text: body, text_length: body.length, selection_offset: 4, active_inside: true, anchor_inside: true };
+      if (fn.name === 'RESOLVE_CLICK_POINTS')
+        return { points: [{ point: 'last_text_line', x: 1, y: 1 }] };
       if (arg && (arg.kind || arg.kinds)) return { t: 100 };
       return null;
     },
@@ -78,8 +80,10 @@ async function a11MeasuredPageDiesInFinally() {
       if (fn.name === 'READ_EDITABLE_STATE') {
         reads += 1;
         if (reads > 3) throw new Error('Execution context was destroyed');
-        return { text: body, text_length: body.length, selection_offset: 4 };
+        return { text: body, text_length: body.length, selection_offset: 4, active_inside: true, anchor_inside: true };
       }
+      if (fn.name === 'RESOLVE_CLICK_POINTS')
+        return { points: [{ point: 'last_text_line', x: 1, y: 1 }] };
       if (arg && (arg.kind || arg.kinds)) return { t: 100 };
       return null;
     },
@@ -108,6 +112,8 @@ async function a11MeasuredPageDiesInFinally() {
 
 async function c09OnlySkipsLongResetWait() {
   let body = 'ORIGINAL';
+  let reloaded = false;
+  let readsAfterReload = 0;
   const page = {
     mouse: { click: async () => {} },
     keyboard: {
@@ -118,17 +124,20 @@ async function c09OnlySkipsLongResetWait() {
     },
     reload: async () => {
       body = 'STUCK';
+      reloaded = true;
     },
     evaluate: async (fn, arg) => {
-      if (fn.name === 'READ_EDITABLE_STATE')
-        return { text: body, text_length: body.length, selection_offset: 4, is_content_editable: true };
+      if (fn.name === 'READ_EDITABLE_STATE') {
+        if (reloaded) readsAfterReload += 1;
+        return { text: body, text_length: body.length, selection_offset: 4, active_inside: true, anchor_inside: true, is_content_editable: true };
+      }
       if (fn.name === 'RESOLVE_CLICK_POINTS') return { points: [{ point: 'last_text_line', x: 1, y: 1 }] };
+      if (arg && (arg.kind || arg.kinds)) return { t: 100 };
       if (arg?.count) return [16.667, 16.667];
       return null;
     },
   };
   const cdp = { on() {}, off() {}, async send() {} };
-  const started = Date.now();
   const payload = await runCriteriaSuite({
     page,
     cdp,
@@ -136,9 +145,14 @@ async function c09OnlySkipsLongResetWait() {
     criteria: ['C09'],
     expectedBodyText: 'ORIGINAL',
     correctnessAdapter: 'dom_innerText',
+    // The double's cdp never emits screencast frames; keep the frame wait
+    // short so this probe measures the fixture wait, not frame timeouts.
+    frameTimeoutMs: 120,
   });
   return {
-    duration_ms: Date.now() - started,
+    // The long restore wait polls the document ~100 times; a skipped wait
+    // reads once. That is the assertion the wall-clock bound approximated.
+    reads_after_reload: readsAfterReload,
     fixture_reset: payload.criteria.C09?.fixture_reset ?? null,
   };
 }
@@ -166,7 +180,7 @@ async function metaEditableRefreshedAfterReset() {
     evaluate: async (fn, arg) => {
       if (fn.name === 'READ_EDITABLE_STATE') {
         const len = reloaded ? 20 : body.length;
-        return { text: body, text_length: len, selection_offset: 4, is_content_editable: true };
+        return { text: body, text_length: len, selection_offset: 4, active_inside: true, anchor_inside: true, is_content_editable: true };
       }
       if (fn.name === 'RESOLVE_CLICK_POINTS')
         return { points: [{ point: 'after_reload', x: 2, y: 1 }], source: 'after_reload' };

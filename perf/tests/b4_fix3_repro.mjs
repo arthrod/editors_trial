@@ -32,7 +32,10 @@ function fakePage(mode) {
     },
     evaluate: async (fn, arg) => {
       if (fn.name === 'READ_EDITABLE_STATE') {
-        return { text: body, text_length: body.length, selection_offset: 4 };
+        return { text: body, text_length: body.length, selection_offset: 4, active_inside: true, anchor_inside: true };
+      }
+      if (fn.name === 'RESOLVE_CLICK_POINTS') {
+        return { points: [{ point: 'last_text_line', x: 1, y: 1 }] };
       }
       if (arg && typeof arg === 'object' && (arg.kind || arg.kinds)) {
         return mode === 'c09_missing_input' ? null : { t: 100 };

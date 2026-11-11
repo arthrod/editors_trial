@@ -712,6 +712,7 @@ async function runCriteriaSession() {
     quiescenceMs,
     quiescenceTimeoutMs,
     bulkChars,
+    editorId,
   });
   await stopChromeTrace(browser, trace);
   await context.close();
