@@ -1353,6 +1353,8 @@ def corpus_content_expectations(corpus_path: Path) -> dict:
 
 
 def corpus_content_expectation_flags(corpus_path: Path) -> list[str]:
+    if not Path(corpus_path).is_file():
+        return []
     meta = corpus_content_expectations(corpus_path)
     flags: list[str] = []
     if meta.get("closing"):
@@ -1410,6 +1412,8 @@ def expected_body_path_for(corpus_path: Path, content_meta: dict) -> Path | None
     Only for workloads whose w:t body baseline is unambiguous (ruling 5b):
     complex-corpus keeps opening_only and passes no body.
     """
+    if not Path(corpus_path).is_file():
+        return None
     if content_meta["length_check"] == "coarse":
         return None
     from perf.runner.docx_plaintext import docx_body_text

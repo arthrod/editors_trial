@@ -68,9 +68,13 @@ import {
   C12_NO_PARAGRAPH_GEOMETRY,
   LIST_MODEL_PARAGRAPHS,
   PICK_ANCHOR_BELOW,
+  REFIND_ANCHOR,
+  C12_BLOCK_TEXT,
+  ensureReflowCaret,
   gatherReflowBefore,
   prepareLaneCaret,
   reflowBlockSelector,
+  reflowWitnessSelector,
 } from './lane_edit_burst.mjs';
 import { EDIT_SURFACES } from './edit_surface.mjs';
 import { loadTimeoutMs } from './load_timeout.mjs';
@@ -878,6 +882,41 @@ async function readSurface(page) {
 }
 
 /** Text-bearing (or drawn-canvas) rect, with the 8x8 calibration square outside it. */
+async function unionRegionRect(page, selector) {
+  if (!selector) return null;
+  return page
+    .evaluate((sel) => {
+      const nodes = Array.from(document.querySelectorAll(sel));
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+      let n = 0;
+      for (const el of nodes) {
+        const r = el.getBoundingClientRect();
+        if (!(r.width > 0 && r.height > 0)) continue;
+        minX = Math.min(minX, r.left);
+        minY = Math.min(minY, r.top);
+        maxX = Math.max(maxX, r.right);
+        maxY = Math.max(maxY, r.bottom);
+        n += 1;
+      }
+      if (!n) return null;
+      return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+    }, selector)
+    .catch(() => null);
+}
+
+/** C12 witness region: the reflow surface when load and edit surfaces differ. */
+async function reflowDocumentRegion(page, editorId) {
+  const witnessSel = reflowWitnessSelector(editorId);
+  if (witnessSel) {
+    const rect = await unionRegionRect(page, witnessSel);
+    if (rect && rect.width > 0 && rect.height > 0) return { rect };
+  }
+  return documentRegion(page);
+}
+
 async function documentRegion(page) {
   const rect = await page
     .evaluate((signal) => {
@@ -1389,8 +1428,6 @@ async function runReflow(browser) {
       }
     }
 
-    const reflowSel = reflowBlockSelector(editorId, docSelector);
-
     if (!editorId) {
       const box = await ctx.page.locator(editSelector).first().boundingBox();
       if (!box) {
@@ -1413,12 +1450,17 @@ async function runReflow(browser) {
     await ctx.page.keyboard.press('Home');
     await ctx.page.waitForTimeout(100);
 
+    const reflowSel = reflowBlockSelector(editorId, docSelector);
+    await ensureReflowCaret(ctx.page, reflowSel, { settleMs: 100 });
+
     // The census runs after the caret is finally placed (the adapter's click,
     // then Control+Home/Home): the anchor is the nearest unique block below
     // THAT caret on the same screen (r3lanes4 ruling 3). This is still all
     // before the Enter listener arms, outside the measured window.
+    const editSurface = editorId && EDIT_SURFACES[editorId] ? EDIT_SURFACES[editorId] : null;
     const before = await ctx.page.evaluate(gatherReflowBefore, {
       docSel: reflowSel,
+      excludeSel: editSurface && editSurface.exclude ? editSurface.exclude : '',
       // r3lanes4 rulings 3+4: the DOM census only. The anchor is the nearest
       // unique block below the caret on the same screen; the picker travels
       // as source because page.evaluate arguments must be serializable.
@@ -1484,23 +1526,29 @@ async function runReflow(browser) {
     // The sample ends when the anchor block has moved, then on the screencast
     // frame of that reflow. The first paint after Enter is not the reflow.
     // The no-read window is already closed, so this poll is not inside it.
-    const shift = await ctx.page.evaluate(() => {
+    const shift = await ctx.page.evaluate(
+      (refindSrc) => {
       let el = window.__c12AnchorEl;
       const before = window.__c12AnchorTop;
       const anchorText = window.__c12AnchorText;
       const docSel = window.__c12DocSel;
       const deadline = performance.now() + 4000;
-      const refind = () => {
-        if (!anchorText || !docSel) return null;
-        // A text re-find must be unique among current blocks: an edit that
-        // duplicates the anchor's text would otherwise report the duplicate's
-        // position as a move of the anchor.
-        const matches = Array.from(document.querySelectorAll(docSel)).filter((block) => (block.textContent || '').trim() === anchorText);
-        return matches.length === 1 ? matches[0] : null;
-      };
+      const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+      const readBlock = (block) => norm(block.innerText || block.textContent);
+      let refind = null;
+      let blockText = null;
+      try {
+        // eslint-disable-next-line no-eval
+        refind = eval(refindSrc);
+      } catch {
+        refind = null;
+      }
+      const resolveAnchor = () =>
+        typeof refind === 'function' ? refind(docSel, anchorText, before, norm, readBlock) : null;
       return new Promise((resolve) => {
         const step = () => {
-          if (!el || !el.isConnected) el = refind();
+          if (!el || !el.isConnected) el = resolveAnchor();
+          else if (readBlock(el) !== anchorText) el = resolveAnchor();
           if (!el || typeof before !== 'number') {
             resolve({ moved: false, top: null, at: null });
             return;
@@ -1519,10 +1567,12 @@ async function runReflow(browser) {
         };
         requestAnimationFrame(step);
       });
-    });
+    },
+      `${REFIND_ANCHOR}`,
+    );
     let witness = null;
     if (shift.moved && typeof shift.at === 'number') {
-      const region = await documentRegion(ctx.page);
+      const region = await reflowDocumentRegion(ctx.page, editorId);
       const afterPageMs = Math.max(inputPageMs + 1, shift.at - 40);
       witness = await witnessFrame(ctx.page, ctx.cdp, {
         afterPageMs,
@@ -1536,19 +1586,35 @@ async function runReflow(browser) {
       });
     }
     const after = await ctx.page.evaluate(
-      ({ docSel, anchorText }) => {
+      ({ docSel, anchorText, anchorTop, refindSrc, blockTextSrc }) => {
+        const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+        let readBlock = (block) => norm(block.innerText || block.textContent);
+        try {
+          // eslint-disable-next-line no-eval
+          const fn = eval(blockTextSrc);
+          if (typeof fn === 'function') {
+            readBlock = (block) => fn(block, norm);
+          }
+        } catch {
+          /* keep default */
+        }
         const kept = window.__c12AnchorEl;
         let el = null;
         let matchedBy = null;
-        if (kept && kept.isConnected && (kept.textContent || '').trim() === anchorText) {
+        if (kept && kept.isConnected && readBlock(kept) === anchorText) {
           el = kept;
           matchedBy = 'element';
         } else {
-          // Same rule as the poll's re-find: only a unique text match re-finds.
-          const matches = Array.from(document.querySelectorAll(docSel)).filter((block) => (block.textContent || '').trim() === anchorText);
-          if (matches.length === 1) {
-            el = matches[0];
-            matchedBy = 'text';
+          let refind = null;
+          try {
+            // eslint-disable-next-line no-eval
+            refind = eval(refindSrc);
+          } catch {
+            refind = null;
+          }
+          if (typeof refind === 'function') {
+            el = refind(docSel, anchorText, anchorTop, norm, readBlock);
+            if (el) matchedBy = 'text';
           }
         }
         return {
@@ -1557,7 +1623,13 @@ async function runReflow(browser) {
           matched_by: matchedBy,
         };
       },
-      { docSel: reflowSel, anchorText: before.anchor_text },
+      {
+        docSel: reflowSel,
+        anchorText: before.anchor_text,
+        anchorTop: before.anchor_top,
+        refindSrc: `${REFIND_ANCHOR}`,
+        blockTextSrc: `${C12_BLOCK_TEXT}`,
+      },
     );
     const moved = Boolean(shift.moved) && after.top !== null && after.top > before.anchor_top + 0.5;
     const framePageMs = witness && witness.outcome === 'witnessed' ? witness.frame_page_ms : null;

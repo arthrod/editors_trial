@@ -196,12 +196,12 @@ class SampleBrackets(unittest.TestCase):
             def sample(self, *args, **kwargs):
                 self.ends += 1
 
-        def fake_cmd(*, mode, target, cfg, corpus_path, extra):
-            del target, cfg, corpus_path, extra
+        def fake_cmd(*, mode, target, cfg, corpus_path, extra, editor_id=""):
+            del target, cfg, corpus_path, extra, editor_id
             return ["node", "document_probe.mjs", "--mode", mode]
 
-        def fake_probe(cmd, *, editor_id):
-            del editor_id
+        def fake_probe(cmd, *, editor_id, env=None):
+            del editor_id, env
             mode = cmd[cmd.index("--mode") + 1]
             if mode == "reflow":
                 return {"moved": True, "presented_frame_ms": 40, "window_excludes_forced_layout": True}

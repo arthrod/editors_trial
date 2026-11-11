@@ -138,7 +138,8 @@ class C12RequiresTheShiftAndAFrame(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn("__c12AnchorEl", source)
-        self.assertIn("unique non-empty text", source)
+        self.assertIn("PICK_ANCHOR_BELOW", source)
+        self.assertIn("__c12AnchorText", source)
         self.assertNotIn("const byIndex", source)
 
     def test_the_frame_clock_is_a_compositor_frame_not_a_raf_callback(self):

@@ -130,11 +130,17 @@ export const LIST_MODEL_PARAGRAPHS = (model) => {
   return null;
 };
 
+/** Paint witness region for C12 reflow when it differs from the load surface. */
+export function reflowWitnessSelector(editorId) {
+  if (editorId === 'docxodus') return '#editorHost';
+  return '';
+}
+
 /** Block selector for C12 reflow after the shared adapter has entered edit mode. */
 export function reflowBlockSelector(editorId, fallback) {
   if (!editorId || !EDIT_SURFACES[editorId]) return fallback;
   if (editorId === 'docxodus') return '#editorHost p, #editorHost [data-anchor]';
-  if (editorId === 'superdoc') return '.superdoc-line';
+  if (editorId === 'superdoc') return '#editor .superdoc-line';
   if (editorId === 'genoffice') return '.doc-page p';
   if (editorId === 'eigenpal') return '[data-paragraph-id]';
   if (editorId === 'folio') return '.layout-page-content [data-block-id]';
@@ -144,8 +150,34 @@ export function reflowBlockSelector(editorId, fallback) {
   return fallback;
 }
 
+/** Visible text of one reflow block; innerText matches what users see when runs split. */
+export const C12_BLOCK_TEXT = (block, norm) => norm(block.innerText || block.textContent);
+
+/** Pick the anchor block among equal-text matches after a DOM re-render. */
+export const REFIND_ANCHOR = (docSel, anchorText, anchorTop, norm, blockText = C12_BLOCK_TEXT) => {
+  if (!anchorText || !docSel) return null;
+  const matches = Array.from(document.querySelectorAll(docSel)).filter(
+    (block) => blockText(block, norm) === anchorText,
+  );
+  if (matches.length === 1) return matches[0];
+  if (matches.length > 1 && Number.isFinite(Number(anchorTop))) {
+    let best = null;
+    let bestDist = Infinity;
+    for (const block of matches) {
+      const top = block.getBoundingClientRect().top;
+      const dist = Math.abs(top - Number(anchorTop));
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = block;
+      }
+    }
+    return best;
+  }
+  return null;
+};
+
 /** Page context. C12 block census after the caret is placed (light-DOM blocks). */
-export function gatherReflowBefore({ docSel, pickBelowSrc }) {
+export function gatherReflowBefore({ docSel, pickBelowSrc, excludeSel }) {
   // The shared picker (PICK_ANCHOR_BELOW) travels as source: page.evaluate
   // arguments must be serializable values.
   let pickBelow = null;
@@ -176,14 +208,26 @@ export function gatherReflowBefore({ docSel, pickBelowSrc }) {
     }
   };
 
+  const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+  const readBlock = (block) => norm(block.innerText || block.textContent);
+  const excluded = excludeSel ? Array.from(document.querySelectorAll(excludeSel)) : [];
   const entries = Array.from(document.querySelectorAll(docSel))
+    .filter((block) => !excluded.some((root) => root === block || root.contains(block)))
     .map((block) => ({
       el: block,
-      text: (block.textContent || '').trim(),
+      text: readBlock(block),
       top: block.getBoundingClientRect().top,
     }))
     .filter((entry) => entry.text);
-  const caret = caretBox();
+  let caret = caretBox();
+  // Some hosts keep the selection in an off-DOM textbox; Home then reports
+  // (0,0). After restoreReflowCaret, treat the caret as inside the first
+  // visible reflow block so the anchor is the next block down, not the one
+  // being split by Enter at the document start.
+  if ((!caret || caret.bottom <= caret.top + 1) && entries.length) {
+    const r = entries[0].el.getBoundingClientRect();
+    if (r.height > 0) caret = { top: r.top, bottom: r.bottom };
+  }
   // The anchor is the nearest unique block below the caret on the same
   // screen, never the last unique block of the document (r3lanes4 ruling 3).
   const picked = typeof pickBelow === 'function'
@@ -238,6 +282,39 @@ export async function runLaneEditBurst(page, cdp, { editorId, selector, text, re
     edit_error: verified.oracle && verified.oracle.reason ? verified.oracle.reason : null,
     prepared,
   };
+}
+
+/** After Control+Home/Home, some hosts leave a zero-height selection (off-DOM). */
+export async function ensureReflowCaret(page, reflowSel, { settleMs = 100 } = {}) {
+  const primary = String(reflowSel || '').split(',')[0].trim();
+  const need = await page.evaluate((sel) => {
+    const pick = typeof document.getSelection === 'function' ? document.getSelection() : null;
+    if (!pick || pick.rangeCount === 0) return true;
+    const rect = pick.getRangeAt(0).getBoundingClientRect();
+    const badRect = !(rect.height > 0.5 && rect.bottom > rect.top);
+    if (!sel) return badRect;
+    let node = pick.anchorNode;
+    let el = node && node.nodeType === 3 ? node.parentElement : node;
+    const inReflow = () => {
+      for (; el; el = el.parentElement) {
+        try {
+          if (el.matches && el.matches(sel)) return true;
+        } catch {
+          return false;
+        }
+      }
+      return false;
+    };
+    return badRect || !inReflow();
+  }, primary);
+  if (!need) return { restored: false };
+  if (!primary) return { restored: false, reason: 'no reflow selector' };
+  const box = await page.locator(primary).first().boundingBox();
+  if (!box) return { restored: false, reason: 'no caret box' };
+  await page.mouse.click(box.x + 3, box.y + Math.min(8, Math.max(2, box.height / 2)));
+  await page.keyboard.press('Home');
+  if (settleMs > 0) await page.waitForTimeout(settleMs);
+  return { restored: true };
 }
 
 /** Caret and pre-edit read only; used when the lane measures its own keystroke window. */

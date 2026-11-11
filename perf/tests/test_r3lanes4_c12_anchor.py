@@ -138,6 +138,25 @@ class DocxodusC12IsProbed(unittest.TestCase):
         self.assertIn("PICK_ANCHOR_BELOW", text)
         self.assertIn("pickBelow", text)
 
+    def test_c12_reflow_witness_uses_the_block_editor_host_on_docxodus(self):
+        text = (REPO / "perf/runner/document_probe.mjs").read_text(encoding="utf-8")
+        self.assertIn("reflowDocumentRegion", text)
+        self.assertIn("reflowWitnessSelector", text)
+        burst = LANE_EDIT_BURST.read_text(encoding="utf-8")
+        self.assertIn("reflowWitnessSelector", burst)
+        self.assertIn("#editorHost", burst)
+
+
+class ReflowBlockSelectors(NodeContract):
+    def test_superdoc_reflow_blocks_stay_inside_the_editor(self):
+        out = self.node(
+            """
+assert.equal(mod.reflowBlockSelector('superdoc', '.fallback'), '#editor .superdoc-line');
+console.log(JSON.stringify(true));
+"""
+        )
+        self.assertTrue(out)
+
 
 class YProxyRemoved(NodeContract):
     """r3lanes4 ruling 4: the page container is not a paragraph."""
