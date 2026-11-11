@@ -56,7 +56,7 @@ def _run_blocks_publication(summary: dict | None) -> tuple[bool, str | None]:
     if summary.get("outcome") == "failed":
         return True, summary.get("failure_reason") or "run failed"
     reason = summary.get("publication_block_reason")
-    if summary.get("publishable") is False and reason:
+    if summary.get("publishable") is False and reason and reason != 'summary is not a trial; trials carry publishability':
         return True, str(reason)
     if summary.get("failure_reason") in ("repos_modified", "repos_dirty_at_start"):
         return True, str(summary.get("failure_reason"))
@@ -119,7 +119,9 @@ def _nested_unpublishable(value):
 
 def trial_measure(trial):
     diagnostic = trial.get('diagnostic') or {}
-    return str(trial.get('measure') or diagnostic.get('size_rung') or diagnostic.get('measurement') or '')
+    measure = str(trial.get('measure') or diagnostic.get('size_rung') or diagnostic.get('measurement') or '')
+    phase = trial.get('measurement_phase') if trial.get('criterion_id') == 'C17' else None
+    return ':'.join(filter(None, (measure, str(phase or ''))))
 
 
 def trial_workload(trial):
@@ -197,6 +199,7 @@ def build_run_cell(
     run_blocked, block_reason = _run_blocks_publication(summary)
     kept, raw, sub_frame, intervals = [], [], [], []
     refusals = Counter()
+    sample_unit = 'bytes' if criterion_id in ('C17', 'C19') else 'ms'
     failed_launches = set()
     trials = defaultdict(list)
     refused_launches = {}
@@ -246,12 +249,12 @@ def build_run_cell(
             not isinstance(samples, list)
             or not samples
             or not all(_number(x) for x in samples)
-            or not isinstance(flags, list)
-            or len(flags) != len(samples)
-            or not all(type(x) is bool for x in flags)
+            or (sample_unit == 'bytes' and (trial.get('sample_unit') != 'bytes' or not all(type(x) is int and x >= 0 for x in samples)))
+            or (sample_unit != 'bytes' and (not isinstance(flags, list)
+                or len(flags) != len(samples) or not all(type(x) is bool for x in flags)))
         ):
             reason = 'malformed_samples'
-        if not reason and (
+        if not reason and sample_unit != 'bytes' and (
             interval is None or any(flag != (sample < interval) for sample, flag in zip(samples, flags))
         ):
             reason = 'sub_frame_flag_mismatch'
@@ -262,13 +265,15 @@ def build_run_cell(
         median = percentile(samples, 50)
         raw.append(samples)
         kept.append(median)
-        intervals.append(interval)
-        sub_frame.append(median < interval)
+        if sample_unit != 'bytes':
+            intervals.append(interval)
+            sub_frame.append(median < interval)
     return {
         'editor_id': editor_id,
         'criterion_id': criterion_id,
         'measure': measure,
         'workload_id': workload_id,
+        'sample_unit': sample_unit,
         'scheduled': scheduled,
         'kept_ms': kept,
         'raw_samples_ms': raw,
@@ -334,6 +339,8 @@ def publication_text(cell: dict) -> str:
         return f'not enough samples (n = {n_kept} of {scheduled}; reasons {reason_text})'
     failures = failure_text(cell)
     failure_suffix = f'; {failures}' if failures else ''
+    if cell.get('sample_unit') == 'bytes':
+        return f"{stats['median']:.1f} bytes; p90 {stats['p90']:.1f} bytes{failure_suffix}"
     frame_interval = cell.get('frame_interval_ms')
     if frame_interval is None:
         return f'no witnessed frame interval (n = {n_kept} of {scheduled})'

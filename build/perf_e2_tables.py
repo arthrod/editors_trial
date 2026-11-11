@@ -45,7 +45,7 @@ def load_run(path: Path) -> Run:
 
 def check_comparable(primary: Run, repro: Run) -> None:
     """A reproduction is a second run of the same measurement, nothing else."""
-    if any(run.summary.get('publishable') is not True or run.summary.get('publication_block_reason') for run in (primary, repro)):
+    if any(e2_cells._run_blocks_publication(run.summary)[0] or (run.summary.get('publishable') is not True and run.summary.get('publication_block_reason') != 'summary is not a trial; trials carry publishability') for run in (primary, repro)):
         return
     if primary.path.resolve() == repro.path.resolve():
         raise ValueError("the reproduction is the same run directory")
@@ -125,6 +125,8 @@ def _iter_trials(run_directory: Path):
 
 
 def _format_median(cell: dict, median: float) -> str:
+    if cell.get("sample_unit") == "bytes":
+        return "%.1f bytes" % median
     frame = cell.get("frame_interval_ms") or 0
     if median < frame:
         return "< 1 frame (%g ms)" % frame
@@ -143,7 +145,7 @@ def _cell_text(facts: dict, primary: Path, repro: Path, editor: str, criterion: 
     reasons = []
     for label, root, cell in zip(('first', 'second'), (primary, repro), cells):
         summary = _summary(root)
-        blocked = summary.get('publishable') is not True or summary.get('publication_block_reason')
+        blocked = e2_cells._run_blocks_publication(summary)[0] or (summary.get('publishable') is not True and summary.get('publication_block_reason') != 'summary is not a trial; trials carry publishability')
         if blocked:
             reasons.append(
                 '%s run unpublishable: %s'
