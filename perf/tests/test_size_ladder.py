@@ -79,8 +79,10 @@ def test_f1_real_smoke_launch_accounting():
         pytest.skip('real smoke evidence not installed (integration test)')
     cell = build_run_cell(root, 'plate', 'C11', scheduled=1)
     print(f"F1 C11 failed={cell['failed_launches']} kept={len(cell['kept_ms'])} refusals={cell['refusals']}")
-    assert (cell['failed_launches'], len(cell['kept_ms'])) == (1, 0)
-    assert cell['refusals'] == {'publishable_not_true': 1}
+    # The smoke run started with a dirty repos/ checkout: a blocked run is
+    # named and nothing of it is aggregated (reader review, MAJOR A).
+    assert cell['blocked'] is True and cell['block_reason'] == 'repos_dirty_at_start'
+    assert cell['kept_ms'] == [] and cell['stats'] is None
 
 
 def test_f1_diagnostics_cannot_drop_measured_launch(fs):
