@@ -1587,26 +1587,239 @@ def _main() -> int:
                             "attempt_file": _attempt_ref(path),
                         }
                     )
-                continue
-            cold_edits = [
-                pair["cold"]["single_edit_ms"]
-                for pair in payload["pairs"]
-                if pair.get("cold", {}).get("single_edit_ms") is not None
-            ]
-            warm_edits = [
-                pair["warm"]["single_edit_ms"]
-                for pair in payload["pairs"]
-                if pair.get("warm", {}).get("single_edit_ms") is not None
-            ]
-            if len(cold_edits) < len(payload["pairs"]) or len(warm_edits) < len(payload["pairs"]):
-                reason = "missing_input_latency"
-                for cid in ("C05", "C06"):
-                    if cid not in criteria_map:
+                # No continue: the C07+ not_run courtesy rows below still appear
+                # on this editor's grid like on every other editor's.
+            if glyph_na is None:
+                cold_edits = [
+                    pair["cold"]["single_edit_ms"]
+                    for pair in payload["pairs"]
+                    if pair.get("cold", {}).get("single_edit_ms") is not None
+                ]
+                warm_edits = [
+                    pair["warm"]["single_edit_ms"]
+                    for pair in payload["pairs"]
+                    if pair.get("warm", {}).get("single_edit_ms") is not None
+                ]
+                if len(cold_edits) < len(payload["pairs"]) or len(warm_edits) < len(payload["pairs"]):
+                    reason = "missing_input_latency"
+                    for cid in ("C05", "C06"):
+                        if cid not in criteria_map:
+                            continue
+                        boundary, layer = {
+                            "C05": ("presented_frame", "browser_visible"),
+                            "C06": ("input_to_next_paint", "browser_visible"),
+                        }[cid]
+                        env = _env_for(
+                            editor_id=editor_id,
+                            editor_version=editor_version,
+                            fixture_sha256=sha,
+                            workload_row=workload_row,
+                            docx_size=docx_size,
+                            cache_state="warm_steady",
+                        )
+                        path = _write_input_refusal(
+                            attempt_dir=attempt_dir,
+                            criterion_id=cid,
+                            layer=layer,
+                            boundary=boundary,
+                            editor_id=editor_id,
+                            lane=lane,
+                            env=env,
+                            observations=[p[a] for p in payload["pairs"] for a in ("cold", "warm")],
+                            failure_reason=reason,
+                            content_meta=content_meta,
+                        )
+                        refusal_rows.append(
+                            {
+                                "criterion_id": cid,
+                                "editor_id": editor_id,
+                                "outcome": "failed",
+                                "failure_reason": json.loads(path.read_text())["failure_reason"],
+                                "failure_reasons": json.loads(path.read_text()).get("failure_reasons", []),
+                                "attempt_file": _attempt_ref(path),
+                            }
+                        )
+                    continue
+                if warm_equals_cold(cold_edits, warm_edits):
+                    from perf.runner.browser_run import ACTIVE, CELL
+                    active = ACTIVE.get()
+                    if active is not None:
+                        active.sample("saturation-%s-%s" % (CELL.get()["repetition"], editor_id), {
+                            "editor_id": editor_id, "outcome": "failed",
+                            "failure_reason": "warm_cold_identical", "cold_samples_ms": cold_edits,
+                            "warm_samples_ms": warm_edits,
+                        })
+                    refusal_rows.append({"editor_id": editor_id, "outcome": "failed",
+                                         "failure_reason": "warm_cold_identical"})
+                    continue
+
+                env_cold = _env_for(
+                    editor_id=editor_id,
+                    editor_version=editor_version,
+                    fixture_sha256=sha,
+                    workload_row=workload_row,
+                    docx_size=docx_size,
+                    cache_state="process_cold_fs_warm",
+                )
+                env_warm = _env_for(
+                    editor_id=editor_id,
+                    editor_version=editor_version,
+                    fixture_sha256=sha,
+                    workload_row=workload_row,
+                    docx_size=docx_size,
+                    cache_state="warm_steady",
+                )
+
+                identical_edits = warm_equals_cold(cold_edits, warm_edits)
+
+                cold_path = _write_measured_attempt(
+                    attempt_dir=attempt_dir,
+                    criterion_id="C05",
+                    layer="browser_visible",
+                    boundary="presented_frame",
+                    editor_id=editor_id,
+                    lane=lane,
+                    env=env_cold,
+                    samples_ms=[float(s) for s in cold_edits],
+                    cache_state="process_cold_fs_warm",
+                    diagnostic={"suite": "warm_cold", "phase": "non_warm_edit",
+                                "warm_equals_cold": identical_edits,
+                                "mechanism": "cdp_screencast_changed_frame",
+                                "clock_skew": [p["cold"].get("clock_skew") for p in payload["pairs"]],
+                                "observations": [p["cold"] for p in payload["pairs"]],
+                                **_content_length_diagnostic(content_meta, gate)},
+                )
+                warm_path = _write_measured_attempt(
+                    attempt_dir=attempt_dir,
+                    criterion_id="C05",
+                    layer="browser_visible",
+                    boundary="presented_frame",
+                    editor_id=editor_id,
+                    lane=lane,
+                    env=env_warm,
+                    samples_ms=[float(s) for s in warm_edits],
+                    cache_state="warm_steady",
+                    diagnostic={"suite": "warm_cold", "phase": "warm_edit",
+                                "warm_equals_cold": identical_edits,
+                                "mechanism": "cdp_screencast_changed_frame",
+                                "clock_skew": [p["warm"].get("clock_skew") for p in payload["pairs"]],
+                                "observations": [p["warm"] for p in payload["pairs"]],
+                                **_content_length_diagnostic(content_meta, gate)},
+                )
+
+                if any(json.loads(path.read_text()).get('outcome') != 'measured'
+                       for path in (cold_path, warm_path)):
+                    continue
+                cause, breakdown = attribute_delta(median(cold_edits), median(warm_edits), probe_bundle)
+                paired_rows.append(
+                    _paired_summary_row(
+                        criterion_id="C05",
+                        editor_id=editor_id,
+                        boundary="presented_frame",
+                        cold_median=median(cold_edits),
+                        warm_median=median(warm_edits),
+                        cause=cause,
+                        cold_path=_attempt_ref(cold_path),
+                        warm_path=_attempt_ref(warm_path),
+                        probes={**probe_bundle, **breakdown},
+                    )
+                )
+
+                cold_burst = [
+                    pair["cold"].get(C06_PROBE_KEY)
+                    for pair in payload["pairs"]
+                    if pair.get("cold", {}).get(C06_PROBE_KEY) is not None
+                ]
+                warm_burst = [
+                    pair["warm"].get(C06_PROBE_KEY)
+                    for pair in payload["pairs"]
+                    if pair.get("warm", {}).get(C06_PROBE_KEY) is not None
+                ]
+                if (
+                    len(cold_burst) >= len(payload["pairs"])
+                    and len(warm_burst) >= len(payload["pairs"])
+                    and "C06" in criteria_map
+                ):
+                    assert_same_probe_paired(C06_PROBE_KEY, C06_PROBE_KEY)
+                    identical_burst = warm_equals_cold(cold_burst, warm_burst)
+                    env_cold_burst = _env_for(
+                        editor_id=editor_id,
+                        editor_version=editor_version,
+                        fixture_sha256=sha,
+                        workload_row=workload_row,
+                        docx_size=docx_size,
+                        cache_state="process_cold_fs_warm",
+                    )
+                    env_warm_burst = _env_for(
+                        editor_id=editor_id,
+                        editor_version=editor_version,
+                        fixture_sha256=sha,
+                        workload_row=workload_row,
+                        docx_size=docx_size,
+                        cache_state="warm_steady",
+                    )
+                    c06_cold_path = _write_measured_attempt(
+                        attempt_dir=attempt_dir,
+                        criterion_id="C06",
+                        layer="browser_visible",
+                        boundary="input_to_next_paint",
+                        editor_id=editor_id,
+                        lane=lane,
+                        env=env_cold_burst,
+                        samples_ms=[float(s) for s in cold_burst],
+                        cache_state="process_cold_fs_warm",
+                        diagnostic={
+                            "suite": "warm_cold",
+                            "phase": "non_warm_burst",
+                            "probe_key": C06_PROBE_KEY,
+                            "warm_equals_cold": identical_burst,
+                            "mechanism": "cdp_screencast_changed_frame",
+                            "observations": [p["cold"].get("burst", []) for p in payload["pairs"]],
+                            **_content_length_diagnostic(content_meta, gate),
+                        },
+                    )
+                    burst_path = _write_measured_attempt(
+                        attempt_dir=attempt_dir,
+                        criterion_id="C06",
+                        layer="browser_visible",
+                        boundary="input_to_next_paint",
+                        editor_id=editor_id,
+                        lane=lane,
+                        env=env_warm_burst,
+                        samples_ms=[float(s) for s in warm_burst],
+                        cache_state="warm_steady",
+                        diagnostic={
+                            "suite": "warm_cold",
+                            "phase": "warm_burst",
+                            "probe_key": C06_PROBE_KEY,
+                            "warm_equals_cold": identical_burst,
+                            "mechanism": "cdp_screencast_changed_frame",
+                            "observations": [p["warm"].get("burst", []) for p in payload["pairs"]],
+                            **_content_length_diagnostic(content_meta, gate),
+                        },
+                    )
+                    if any(json.loads(path.read_text()).get('outcome') != 'measured'
+                           for path in (c06_cold_path, burst_path)):
                         continue
-                    boundary, layer = {
-                        "C05": ("presented_frame", "browser_visible"),
-                        "C06": ("input_to_next_paint", "browser_visible"),
-                    }[cid]
+                    cause_burst, breakdown_burst = attribute_delta(
+                        median(cold_burst), median(warm_burst), probe_bundle
+                    )
+                    paired_rows.append(
+                        _paired_summary_row(
+                            criterion_id="C06",
+                            editor_id=editor_id,
+                            boundary="input_to_next_paint",
+                            cold_median=median(cold_burst),
+                            warm_median=median(warm_burst),
+                            cause=cause_burst,
+                            cold_path=_attempt_ref(c06_cold_path),
+                            warm_path=_attempt_ref(burst_path),
+                            probes={**probe_bundle, **breakdown_burst},
+                        )
+                    )
+                elif "C06" in criteria_map:
+                    reason = "missing_input_latency"
+                    boundary, layer = ("input_to_next_paint", "browser_visible")
                     env = _env_for(
                         editor_id=editor_id,
                         editor_version=editor_version,
@@ -1617,19 +1830,20 @@ def _main() -> int:
                     )
                     path = _write_input_refusal(
                         attempt_dir=attempt_dir,
-                        criterion_id=cid,
+                        criterion_id="C06",
                         layer=layer,
                         boundary=boundary,
                         editor_id=editor_id,
                         lane=lane,
                         env=env,
-                        observations=[p[a] for p in payload["pairs"] for a in ("cold", "warm")],
+                        observations=[o for p in payload["pairs"] for a in ("cold", "warm") for o in p[a].get("burst", [])],
                         failure_reason=reason,
                         content_meta=content_meta,
+                        gate=gate,
                     )
                     refusal_rows.append(
                         {
-                            "criterion_id": cid,
+                            "criterion_id": "C06",
                             "editor_id": editor_id,
                             "outcome": "failed",
                             "failure_reason": json.loads(path.read_text())["failure_reason"],
@@ -1637,218 +1851,6 @@ def _main() -> int:
                             "attempt_file": _attempt_ref(path),
                         }
                     )
-                continue
-            if warm_equals_cold(cold_edits, warm_edits):
-                from perf.runner.browser_run import ACTIVE, CELL
-                active = ACTIVE.get()
-                if active is not None:
-                    active.sample("saturation-%s-%s" % (CELL.get()["repetition"], editor_id), {
-                        "editor_id": editor_id, "outcome": "failed",
-                        "failure_reason": "warm_cold_identical", "cold_samples_ms": cold_edits,
-                        "warm_samples_ms": warm_edits,
-                    })
-                refusal_rows.append({"editor_id": editor_id, "outcome": "failed",
-                                     "failure_reason": "warm_cold_identical"})
-                continue
-
-            env_cold = _env_for(
-                editor_id=editor_id,
-                editor_version=editor_version,
-                fixture_sha256=sha,
-                workload_row=workload_row,
-                docx_size=docx_size,
-                cache_state="process_cold_fs_warm",
-            )
-            env_warm = _env_for(
-                editor_id=editor_id,
-                editor_version=editor_version,
-                fixture_sha256=sha,
-                workload_row=workload_row,
-                docx_size=docx_size,
-                cache_state="warm_steady",
-            )
-
-            identical_edits = warm_equals_cold(cold_edits, warm_edits)
-
-            cold_path = _write_measured_attempt(
-                attempt_dir=attempt_dir,
-                criterion_id="C05",
-                layer="browser_visible",
-                boundary="presented_frame",
-                editor_id=editor_id,
-                lane=lane,
-                env=env_cold,
-                samples_ms=[float(s) for s in cold_edits],
-                cache_state="process_cold_fs_warm",
-                diagnostic={"suite": "warm_cold", "phase": "non_warm_edit",
-                            "warm_equals_cold": identical_edits,
-                            "mechanism": "cdp_screencast_changed_frame",
-                            "clock_skew": [p["cold"].get("clock_skew") for p in payload["pairs"]],
-                            "observations": [p["cold"] for p in payload["pairs"]],
-                            **_content_length_diagnostic(content_meta, gate)},
-            )
-            warm_path = _write_measured_attempt(
-                attempt_dir=attempt_dir,
-                criterion_id="C05",
-                layer="browser_visible",
-                boundary="presented_frame",
-                editor_id=editor_id,
-                lane=lane,
-                env=env_warm,
-                samples_ms=[float(s) for s in warm_edits],
-                cache_state="warm_steady",
-                diagnostic={"suite": "warm_cold", "phase": "warm_edit",
-                            "warm_equals_cold": identical_edits,
-                            "mechanism": "cdp_screencast_changed_frame",
-                            "clock_skew": [p["warm"].get("clock_skew") for p in payload["pairs"]],
-                            "observations": [p["warm"] for p in payload["pairs"]],
-                            **_content_length_diagnostic(content_meta, gate)},
-            )
-
-            if any(json.loads(path.read_text()).get('outcome') != 'measured'
-                   for path in (cold_path, warm_path)):
-                continue
-            cause, breakdown = attribute_delta(median(cold_edits), median(warm_edits), probe_bundle)
-            paired_rows.append(
-                _paired_summary_row(
-                    criterion_id="C05",
-                    editor_id=editor_id,
-                    boundary="presented_frame",
-                    cold_median=median(cold_edits),
-                    warm_median=median(warm_edits),
-                    cause=cause,
-                    cold_path=_attempt_ref(cold_path),
-                    warm_path=_attempt_ref(warm_path),
-                    probes={**probe_bundle, **breakdown},
-                )
-            )
-
-            cold_burst = [
-                pair["cold"].get(C06_PROBE_KEY)
-                for pair in payload["pairs"]
-                if pair.get("cold", {}).get(C06_PROBE_KEY) is not None
-            ]
-            warm_burst = [
-                pair["warm"].get(C06_PROBE_KEY)
-                for pair in payload["pairs"]
-                if pair.get("warm", {}).get(C06_PROBE_KEY) is not None
-            ]
-            if (
-                len(cold_burst) >= len(payload["pairs"])
-                and len(warm_burst) >= len(payload["pairs"])
-                and "C06" in criteria_map
-            ):
-                assert_same_probe_paired(C06_PROBE_KEY, C06_PROBE_KEY)
-                identical_burst = warm_equals_cold(cold_burst, warm_burst)
-                env_cold_burst = _env_for(
-                    editor_id=editor_id,
-                    editor_version=editor_version,
-                    fixture_sha256=sha,
-                    workload_row=workload_row,
-                    docx_size=docx_size,
-                    cache_state="process_cold_fs_warm",
-                )
-                env_warm_burst = _env_for(
-                    editor_id=editor_id,
-                    editor_version=editor_version,
-                    fixture_sha256=sha,
-                    workload_row=workload_row,
-                    docx_size=docx_size,
-                    cache_state="warm_steady",
-                )
-                c06_cold_path = _write_measured_attempt(
-                    attempt_dir=attempt_dir,
-                    criterion_id="C06",
-                    layer="browser_visible",
-                    boundary="input_to_next_paint",
-                    editor_id=editor_id,
-                    lane=lane,
-                    env=env_cold_burst,
-                    samples_ms=[float(s) for s in cold_burst],
-                    cache_state="process_cold_fs_warm",
-                    diagnostic={
-                        "suite": "warm_cold",
-                        "phase": "non_warm_burst",
-                        "probe_key": C06_PROBE_KEY,
-                        "warm_equals_cold": identical_burst,
-                        "mechanism": "cdp_screencast_changed_frame",
-                        "observations": [p["cold"].get("burst", []) for p in payload["pairs"]],
-                        **_content_length_diagnostic(content_meta, gate),
-                    },
-                )
-                burst_path = _write_measured_attempt(
-                    attempt_dir=attempt_dir,
-                    criterion_id="C06",
-                    layer="browser_visible",
-                    boundary="input_to_next_paint",
-                    editor_id=editor_id,
-                    lane=lane,
-                    env=env_warm_burst,
-                    samples_ms=[float(s) for s in warm_burst],
-                    cache_state="warm_steady",
-                    diagnostic={
-                        "suite": "warm_cold",
-                        "phase": "warm_burst",
-                        "probe_key": C06_PROBE_KEY,
-                        "warm_equals_cold": identical_burst,
-                        "mechanism": "cdp_screencast_changed_frame",
-                        "observations": [p["warm"].get("burst", []) for p in payload["pairs"]],
-                        **_content_length_diagnostic(content_meta, gate),
-                    },
-                )
-                if any(json.loads(path.read_text()).get('outcome') != 'measured'
-                       for path in (c06_cold_path, burst_path)):
-                    continue
-                cause_burst, breakdown_burst = attribute_delta(
-                    median(cold_burst), median(warm_burst), probe_bundle
-                )
-                paired_rows.append(
-                    _paired_summary_row(
-                        criterion_id="C06",
-                        editor_id=editor_id,
-                        boundary="input_to_next_paint",
-                        cold_median=median(cold_burst),
-                        warm_median=median(warm_burst),
-                        cause=cause_burst,
-                        cold_path=_attempt_ref(c06_cold_path),
-                        warm_path=_attempt_ref(burst_path),
-                        probes={**probe_bundle, **breakdown_burst},
-                    )
-                )
-            elif "C06" in criteria_map:
-                reason = "missing_input_latency"
-                boundary, layer = ("input_to_next_paint", "browser_visible")
-                env = _env_for(
-                    editor_id=editor_id,
-                    editor_version=editor_version,
-                    fixture_sha256=sha,
-                    workload_row=workload_row,
-                    docx_size=docx_size,
-                    cache_state="warm_steady",
-                )
-                path = _write_input_refusal(
-                    attempt_dir=attempt_dir,
-                    criterion_id="C06",
-                    layer=layer,
-                    boundary=boundary,
-                    editor_id=editor_id,
-                    lane=lane,
-                    env=env,
-                    observations=[o for p in payload["pairs"] for a in ("cold", "warm") for o in p[a].get("burst", [])],
-                    failure_reason=reason,
-                    content_meta=content_meta,
-                    gate=gate,
-                )
-                refusal_rows.append(
-                    {
-                        "criterion_id": "C06",
-                        "editor_id": editor_id,
-                        "outcome": "failed",
-                        "failure_reason": json.loads(path.read_text())["failure_reason"],
-                        "failure_reasons": json.loads(path.read_text()).get("failure_reasons", []),
-                        "attempt_file": _attempt_ref(path),
-                    }
-                )
 
         for cid in ("C07", "C08", "C09", "C10", "C22", "C23"):
             boundary, layer = {
