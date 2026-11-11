@@ -22,13 +22,18 @@ _TYPING = 360
 _C14 = 150
 
 
-def estimate(name, options):
+_BUILD = 3  # minutes: one production host build per one-editor run
+
+
+def estimate(name, options, shakedown=None):
+    """Minutes for one job; with ``shakedown=N``, N repetitions (+1 traced) of the 30."""
     if name == 'benchmark_typing':
-        return _TYPING
+        return 15 if shakedown else _TYPING
     if '--criteria' in options and 'C14' in options:
-        return _C14
-    workload = options[options.index('--workload') + 1]
-    return _BASE[name] * _RUNG[workload]
+        full = _C14
+    else:
+        full = _BASE[name] * _RUNG[options[options.index('--workload') + 1]]
+    return full if not shakedown else full * (shakedown + 1) / 30 + _BUILD
 
 
 def assign(jobs, costs, spaces):
@@ -57,13 +62,14 @@ def main(argv=None):
     parser.add_argument('--spaces', type=int, required=True)
     parser.add_argument('--seed', type=int, default=1)
     parser.add_argument('--seed2', type=int, default=2)
+    parser.add_argument('--shakedown', type=int, default=None)
     parser.add_argument('--skip', default='', help='comma list of job indices already measured')
     args = parser.parse_args(argv)
     editors = [name for name in BROWSER_TARGETS if name != 'apryse' and host_policy(name)['publishable']]
     jobs = publication_jobs(editors, args.seed, args.seed2, 'shared_guarded')
     skip = {int(t) for t in args.skip.split(',') if t}
     todo = [i for i in range(len(jobs)) if i not in skip]
-    costs = [estimate(*jobs[i]) for i in todo]
+    costs = [estimate(*jobs[i], shakedown=args.shakedown) for i in todo]
     packed = assign([jobs[i] for i in todo], costs, args.spaces)
     out = [{'space': s, 'minutes': round(sum(costs[k] for k in space)),
             'jobs': ','.join(str(todo[k]) for k in space)} for s, space in enumerate(packed)]

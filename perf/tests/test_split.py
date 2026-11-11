@@ -131,3 +131,14 @@ def test_run_done_and_publication_record_the_selection(tmp_path, monkeypatch):
 def test_empty_selection_is_refused():
     with pytest.raises(SystemExit):
         run.main([*BASE, '--runners', 'adversarial_c10_scroll', '--jobs', '0'])
+
+
+def test_shakedown_estimates_are_short_and_still_balanced():
+    jobs = _jobs()
+    full = [plan.estimate(name, options) for name, options in jobs]
+    short = [plan.estimate(name, options, shakedown=2) for name, options in jobs]
+    assert all(s < f for s, f in zip(short, full))
+    assert max(s for (name, _o), s in zip(jobs, short) if name == 'benchmark_typing') <= 20
+    spaces = plan.assign(jobs, short, 20)
+    loads = [sum(short[i] for i in space) for space in spaces]
+    assert max(loads) <= max(sum(short) / 20, max(short)) * 4 / 3 + max(short)
