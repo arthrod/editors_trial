@@ -128,6 +128,20 @@ const expectedClosingSentinel =
   typeof opt['expected-closing-sentinel'] === 'string' ? opt['expected-closing-sentinel'] : '';
 const fixtureTextChars = Number(opt['fixture-text-chars'] || 0);
 const lengthCheckMode = typeof opt['length-check-mode'] === 'string' ? opt['length-check-mode'] : null;
+// r3lanes4 ruling 5b: the fixture body the way the input lane passes it
+// (PERF_EXPECTED_BODY_PATH). Used by the virtualized mounted-text check on
+// prose workloads; complex-corpus passes no body (coarse mode ignores it).
+const expectedBodyText = (() => {
+  const path = process.env.PERF_EXPECTED_BODY_PATH;
+  if (typeof path === 'string' && path && fs.existsSync(path)) {
+    try {
+      return fs.readFileSync(path, 'utf8');
+    } catch {
+      return null;
+    }
+  }
+  return null;
+})();
 const errorJs = typeof opt['error-js'] === 'string' ? opt['error-js'] : '';
 if (!SIGNAL_INPUTS.has(usableSignal)) {
   console.error('document_probe: --usable-signal must be dom_text|canvas_pixel|shadow_text|screencast_ink');
@@ -838,6 +852,7 @@ async function stateSnapshot(page) {
       fixtureChars: fixtureTextChars,
       lengthCheckMode,
       root: documentSelector || docSelector || editSelector,
+      expectedBody: expectedBodyText,
     }));
   } else if (!snap.document_text.trim() && snap.canvas_present) {
     applyGatedRead(await readAndGateDocumentText(page, 'canvas', {
@@ -845,6 +860,7 @@ async function stateSnapshot(page) {
       expectedClosing: expectedClosingSentinel,
       fixtureChars: fixtureTextChars,
       lengthCheckMode,
+      expectedBody: expectedBodyText,
     }));
   }
   return snap;
@@ -1038,6 +1054,10 @@ async function loadResult(ctx, { navigationMs, readyMs, surface, witness, surfac
     witness: facts.witness,
     surface_reason: contentReason || surfaceReason || null,
     content_verified: contentVerified,
+    content_length_check: snap.content_length_check ?? null,
+    length_enforced: snap.length_enforced ?? null,
+    content_check: snap.content_check ?? null,
+    content_check_reason: snap.content_check_reason ?? null,
     content_text_accessible: snap.content_text_accessible,
     editor_error: snap.editor_error || null,
     expected_opening_text: normalizeDocumentText(expectedRaw) || null,

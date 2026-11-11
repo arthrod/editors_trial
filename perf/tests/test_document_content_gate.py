@@ -557,5 +557,236 @@ console.log(JSON.stringify(result));
         self.assertNotIn("REAL DOCUMENT CONTENT", payload["text"])
 
 
+class R3lanes4ContentGate(unittest.TestCase):
+    """Ruling r3lanes4 #5: honest persisted gate fields, mounted-text check,
+    75-125% coarse band."""
+
+    def node_gate(self, body: str):
+        script = f"""
+import assert from 'node:assert/strict';
+const gate = await import({json.dumps(str(REPO / "perf/runner/perf_model_text.mjs"))});
+{body}
+"""
+        proc = subprocess.run(
+            ["node", "--input-type=module", "-e", script],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        return json.loads(proc.stdout)
+
+    def test_coarse_band_is_75_to_125_percent(self):
+        out = self.node_gate("""
+const ratio = (chars) => gate.evaluatePerfModelDocument({
+  text: 'x'.repeat(chars), expectedOpening: 'x', expectedClosing: '',
+  fixtureChars: 1202, lengthCheckMode: 'coarse',
+});
+const out = {
+  at60: ratio(721).lengthOk,
+  at75: ratio(902).lengthOk,
+  at110: ratio(1322).lengthOk,
+  at126: ratio(1515).lengthOk,
+};
+console.log(JSON.stringify(out));
+""")
+        self.assertIs(out["at60"], False)
+        self.assertIs(out["at75"], True)
+        self.assertIs(out["at110"], True)
+        self.assertIs(out["at126"], False)
+
+    def test_coarse_band_refuses_the_real_half_of_the_real_fixture(self):
+        import io
+        import zipfile
+        from perf.fixtures.docx_workload import docx_paragraph_texts, workload_docx
+
+        blob = workload_docx("complex-corpus")["docx"]
+        with zipfile.ZipFile(io.BytesIO(blob)) as archive:
+            paragraphs = docx_paragraph_texts(archive.read("word/document.xml"))
+        text = "\n".join(paragraphs)
+        half = text[: len(text) // 2]
+        out = self.node_gate(
+            "const check = gate.evaluatePerfModelDocument({"
+            f"text: {json.dumps(half)}, expectedOpening: {json.dumps(text[:24])}, expectedClosing: '',"
+            f"fixtureChars: {len(text)}, lengthCheckMode: 'coarse',"
+            "}); console.log(JSON.stringify({ok: check.ok, lengthOk: check.lengthOk, ratio: check.model_chars / %d}));"
+            % len(text)
+        )
+        self.assertFalse(out["lengthOk"])
+        self.assertFalse(out["ok"])
+        self.assertLess(out["ratio"], 0.75)
+
+    def test_virtualized_another_document_with_same_opening_fails(self):
+        body = (
+            "In property law the titled claim ascends the register. "
+            "The fixture continues with its own registered paragraphs and closing "
+            "words that never appear anywhere else in this string at all."
+        )
+        out = self.node_gate("""
+const check = gate.evaluateDomDocument({
+  text: 'In property law the titled claim ascends the register. ENTIRELY different body words',
+  expectedOpening: 'In property law the titled claim ascends the register.',
+  expectedClosing: '',
+  fixtureChars: %d,
+  whole: false,
+  fixtureBody: %s,
+});
+console.log(JSON.stringify({ok: check.ok, content_check: check.content_check,
+  mounted: check.mounted_text_in_fixture, reason: check.surface_reason}));
+""" % (len(body), json.dumps(body))
+        )
+        self.assertIs(out["ok"], False)
+        self.assertEqual(out["content_check"], "mounted_text_in_fixture")
+        self.assertIs(out["mounted"], False)
+        self.assertEqual(out["reason"], "document_content_mismatch")
+
+    def test_virtualized_mounted_window_of_the_fixture_passes(self):
+        body = (
+            "In property law the titled claim ascends the register. "
+            "A second paragraph carries the middle of the document. "
+            "The final sentence closes the fixture."
+        )
+        out = self.node_gate("""
+const check = gate.evaluateDomDocument({
+  text: 'a second paragraph carries the MIDDLE of the document.',
+  expectedOpening: 'a second paragraph',
+  expectedClosing: '',
+  fixtureChars: %d,
+  whole: false,
+  fixtureBody: %s,
+});
+console.log(JSON.stringify({ok: check.ok, content_check: check.content_check,
+  mounted: check.mounted_text_in_fixture}));
+""" % (len(body), json.dumps(body))
+        )
+        self.assertIs(out["ok"], True)
+        self.assertEqual(out["content_check"], "mounted_text_in_fixture")
+        self.assertIs(out["mounted"], True)
+
+    def test_virtualized_without_body_keeps_opening_only(self):
+        out = self.node_gate("""
+const check = gate.evaluateDomDocument({
+  text: 'REAL DOCUMENT CONTENT only the opening is mounted',
+  expectedOpening: 'REAL DOCUMENT CONTENT',
+  expectedClosing: 'Last paragraph.',
+  fixtureChars: 4213,
+  whole: false,
+});
+console.log(JSON.stringify({ok: check.ok, content_check: check.content_check}));
+""")
+        self.assertIs(out["ok"], True)
+        self.assertEqual(out["content_check"], "opening_only")
+
+    def test_virtualized_complex_corpus_keeps_opening_only_and_says_so(self):
+        out = self.node_gate("""
+const check = gate.evaluateDomDocument({
+  text: 'REAL DOCUMENT CONTENT and something else entirely',
+  expectedOpening: 'REAL DOCUMENT CONTENT',
+  expectedClosing: '',
+  fixtureChars: 1202,
+  lengthCheckMode: 'coarse',
+  whole: false,
+  fixtureBody: 'a body that is not used on complex-corpus',
+});
+console.log(JSON.stringify({ok: check.ok, content_check: check.content_check,
+  reason: check.content_check_reason}));
+""")
+        self.assertIs(out["ok"], True)
+        self.assertEqual(out["content_check"], "opening_only")
+        self.assertIn("ambiguous", out["reason"])
+
+    def test_absent_oracle_records_not_run(self):
+        out = self.node_gate("""
+const meta = gate.documentContentGateMeta({
+  documentRead: { text: '', chars: 0, oracle: 'absent', source: 'unavailable', error: null },
+  whole: false,
+  expectedOpening: 'REAL DOCUMENT CONTENT',
+  expectedClosing: 'Last paragraph.',
+  fixtureChars: 4213,
+  lengthCheckMode: 'applied',
+});
+console.log(JSON.stringify({length_check: meta.length_check, enforced: meta.length_enforced,
+  content_check: meta.content_check, verdict: meta.verdict.surface_reason}));
+""")
+        self.assertEqual(out["length_check"], "not_run")
+        self.assertIs(out["enforced"], False)
+        self.assertEqual(out["content_check"], "not_run")
+        self.assertEqual(out["verdict"], "document_content_unverifiable")
+
+    def test_virtualized_meta_reports_the_gate_it_ran(self):
+        out = self.node_gate("""
+const meta = gate.documentContentGateMeta({
+  documentRead: { text: 'the mounted window of the fixture body', chars: 34, oracle: 'dom', source: 'dom', error: null },
+  whole: false,
+  expectedOpening: 'the mounted',
+  expectedClosing: '',
+  fixtureChars: 4213,
+  lengthCheckMode: 'applied',
+  fixtureBody: 'the mounted window of the fixture body and the rest of it',
+});
+console.log(JSON.stringify({length_check: meta.length_check, enforced: meta.length_enforced,
+  content_check: meta.content_check, verdict_ok: meta.verdict.content_verified}));
+""")
+        self.assertEqual(out["length_check"], "opening_only")
+        self.assertIs(out["enforced"], False)
+        self.assertEqual(out["content_check"], "mounted_text_in_fixture")
+        self.assertIs(out["verdict_ok"], True)
+
+    def corpus(self, workload_id: str) -> Path:
+        from perf.fixtures.docx_workload import workload_docx
+
+        path = Path(tempfile.mkdtemp(dir=REPO / ".scratch" / "tmp")) / f"{workload_id}.docx"
+        path.write_bytes(workload_docx(workload_id)["docx"])
+        self.addCleanup(path.parent.rmdir)
+        self.addCleanup(path.unlink, missing_ok=True)
+        return path
+
+    def test_gate_length_check_profiles_per_editor(self):
+        prose = bd.corpus_content_expectations(self.corpus("prose-500w"))
+        complex_meta = bd.corpus_content_expectations(self.corpus("complex-corpus"))
+        self.assertEqual(
+            bd.gate_length_check_for("docxodus", prose),
+            {"length_check": "opening_only", "length_enforced": False, "content_check": "mounted_text_in_fixture"},
+        )
+        self.assertEqual(
+            bd.gate_length_check_for("superdoc", complex_meta),
+            {"length_check": "opening_only", "length_enforced": False, "content_check": "opening_only"},
+        )
+        self.assertEqual(
+            bd.gate_length_check_for("wordcraft", prose),
+            {"length_check": "not_run", "length_enforced": False, "content_check": "not_run"},
+        )
+        self.assertEqual(
+            bd.gate_length_check_for("plate", prose),
+            {"length_check": "applied", "length_enforced": True, "content_check": "full"},
+        )
+        self.assertEqual(
+            bd.gate_length_check_for("canvas", complex_meta)["length_check"], "coarse",
+        )
+
+    def test_warm_cold_diagnostic_prefers_the_gate_that_ran(self):
+        meta = {"length_check": "applied", "length_check_reason": None}
+        diagnostic = bw._content_length_diagnostic(
+            meta,
+            {"length_check": "opening_only", "length_enforced": False, "content_check": "mounted_text_in_fixture"},
+        )
+        self.assertEqual(diagnostic["content_length_check"], "opening_only")
+        self.assertIs(diagnostic["content_length_enforced"], False)
+        self.assertEqual(diagnostic["content_check"], "mounted_text_in_fixture")
+
+    def test_load_result_returns_the_gate_fields(self):
+        text = (REPO / "perf/runner/document_probe.mjs").read_text(encoding="utf-8")
+        load_block = text.split("async function loadResult")[1].split("async function runLoad")[0]
+        self.assertIn("content_length_check", load_block)
+        self.assertIn("length_enforced", load_block)
+        self.assertIn("content_check", load_block)
+
+    def test_document_probe_reads_the_expected_body_path(self):
+        text = (REPO / "perf/runner/document_probe.mjs").read_text(encoding="utf-8")
+        self.assertIn("PERF_EXPECTED_BODY_PATH", text)
+        warm = (WARM_COLD).read_text(encoding="utf-8")
+        self.assertIn("PERF_EXPECTED_BODY_PATH", warm)
+
+
 if __name__ == "__main__":
     unittest.main()

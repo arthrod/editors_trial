@@ -3,9 +3,14 @@ import { normalizeDocumentText } from './document_text_normalize.mjs';
 /** Fixture model length may differ by this fraction of the joined corpus text. */
 export const MODEL_LENGTH_TOLERANCE = 0.02;
 
-/** Coarse band for complex fixtures whose w:t baseline is editor-dependent. */
-export const MODEL_COARSE_MIN_RATIO = 0.5;
-export const MODEL_COARSE_MAX_RATIO = 1.5;
+/**
+ * Coarse band for complex fixtures whose w:t baseline is editor-dependent.
+ * r3lanes4 ruling 5c: 75% to 125%. The live Docen model reads 1106 of 1202
+ * w:t characters (92%); a real half of the real fixture (50%) is a different
+ * document and must be refused.
+ */
+export const MODEL_COARSE_MIN_RATIO = 0.75;
+export const MODEL_COARSE_MAX_RATIO = 1.25;
 
 const flatText = (value) => value.replace(/[\s\p{White_Space}]+/gu, '');
 
@@ -97,7 +102,9 @@ export function evaluatePerfModelDocument({
   const normText = normalizeDocumentText(text);
   const normOpening = normalizeDocumentText(expectedOpening);
   const normClosing = normalizeDocumentText(expectedClosing);
-  const modelChars = text.length;
+  // Code points, not UTF-16 units: fixtureChars is a Python code-point count
+  // and the two units differ on non-BMP characters (r3lanes4 NIT fix).
+  const modelChars = Array.from(text).length;
   const openingPresent = normOpening ? normText.includes(normOpening) : true;
   const closingPresent = closingAtEnd(normText, normClosing);
   const lengthOk = lengthBandOk(modelChars, fixtureChars, mode);
@@ -121,8 +128,21 @@ export function evaluatePerfModelDocument({
 const OPENING_ONLY_REASON =
   'editor DOM holds only the visible pages; closing witness and length band are not enforced';
 
+const COMPLEX_BODY_AMBIGUOUS_REASON =
+  'complex-corpus body baseline is ambiguous (tracked revisions, field instructions/stubs, ' +
+  'AlternateContent fallback): the mounted-text-in-fixture check is not defined, so the ' +
+  'opening witness alone runs';
+
+const MOUNTED_TEXT_REASON =
+  'virtualized DOM: opening witness plus the mounted visible text (whitespace-flattened) ' +
+  'must be a contiguous substring of the fixture body (whitespace-flattened)';
+
 /**
- * DOM document gate. Virtualized hosts (`whole: false`) verify opening text only.
+ * DOM document gate. Virtualized hosts (`whole: false`) verify the opening
+ * text and, on prose workloads (r3lanes4 ruling 5b), that the mounted visible
+ * text, whitespace-flattened, is a contiguous substring of the fixture body,
+ * whitespace-flattened — so another document with the same opening fails.
+ * complex-corpus keeps opening_only: its w:t body baseline is editor-dependent.
  */
 export function evaluateDomDocument({
   text,
@@ -131,21 +151,40 @@ export function evaluateDomDocument({
   fixtureChars,
   lengthCheckMode = null,
   whole = true,
+  fixtureBody = null,
 }) {
   if (!whole) {
     const normText = normalizeDocumentText(text);
     const normOpening = normalizeDocumentText(expectedOpening);
     const openingPresent = normOpening ? normText.includes(normOpening) : true;
+    const bodyFlat = flatText(normalizeDocumentText(fixtureBody));
+    if (bodyFlat && lengthCheckMode !== 'coarse') {
+      const mountedFlat = flatText(normText);
+      const mountedInFixture = Boolean(mountedFlat) && bodyFlat.includes(mountedFlat);
+      const ok = Boolean(normText) && openingPresent && mountedInFixture;
+      return {
+        ok,
+        openingPresent,
+        closingPresent: null,
+        lengthOk: null,
+        model_chars: Array.from(text).length,
+        surface_reason: ok ? null : (!normText ? 'document_content_absent' : 'document_content_mismatch'),
+        content_check: 'mounted_text_in_fixture',
+        content_check_reason: MOUNTED_TEXT_REASON,
+        mounted_text_in_fixture: mountedInFixture,
+        length_check_mode: 'opening_only',
+      };
+    }
     const ok = Boolean(normText) && openingPresent;
     return {
       ok,
       openingPresent,
       closingPresent: null,
       lengthOk: null,
-      model_chars: text.length,
+      model_chars: Array.from(text).length,
       surface_reason: ok ? null : (!normText ? 'document_content_absent' : 'document_content_mismatch'),
       content_check: 'opening_only',
-      content_check_reason: OPENING_ONLY_REASON,
+      content_check_reason: lengthCheckMode === 'coarse' ? COMPLEX_BODY_AMBIGUOUS_REASON : OPENING_ONLY_REASON,
       length_check_mode: 'opening_only',
     };
   }
@@ -240,6 +279,7 @@ export function documentContentGateMeta({
   expectedClosing,
   fixtureChars,
   lengthCheckMode,
+  fixtureBody = null,
 }) {
   const mode =
     lengthCheckMode
@@ -265,6 +305,7 @@ export function documentContentGateMeta({
       fixtureChars,
       lengthCheckMode: mode,
       whole: whole !== false,
+      fixtureBody,
     });
     content_check = domDocumentCheck.content_check;
     content_check_reason = domDocumentCheck.content_check_reason;
@@ -277,8 +318,17 @@ export function documentContentGateMeta({
     domDocumentCheck,
     editorError: documentRead.error,
   });
+  // r3lanes4 ruling 5a: the disclosed fields say what the gate RAN for this
+  // editor, never the corpus policy. An absent oracle (wordcraft) ran no
+  // content check at all: not_run, not applied/coarse.
   let length_check = 'not_applicable';
-  if (documentRead.oracle === 'dom' && domDocumentCheck?.content_check === 'opening_only') {
+  if (documentRead.oracle === 'absent') {
+    length_check = 'not_run';
+    content_check = 'not_run';
+    content_check_reason = 'editor exposes no document text at this pin; no content check ran';
+  } else if (documentRead.oracle === 'dom' && domDocumentCheck?.content_check === 'opening_only') {
+    length_check = 'opening_only';
+  } else if (documentRead.oracle === 'dom' && domDocumentCheck?.content_check === 'mounted_text_in_fixture') {
     length_check = 'opening_only';
   } else if (mode === 'coarse' && fixtureChars > 0) {
     length_check = 'coarse';

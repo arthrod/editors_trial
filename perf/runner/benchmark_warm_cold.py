@@ -465,6 +465,7 @@ def _run_browser_probe(
     pairs: int,
     editor_id: str | None = None,
     workload: str = "micro-paragraphs",
+    env: dict | None = None,
 ) -> dict:
     from perf.runner.browser_hosts import select_fixture
     from perf.runner.load_timeouts import load_timeout_env, load_timeout_ms
@@ -511,7 +512,10 @@ def _run_browser_probe(
         cmd.extend(["--skip-edit", "true"])
     if editor_id:
         cmd.extend(["--editor", editor_id])
+    import os
+
     active = ACTIVE.get()
+    run_env = dict(os.environ) if env is None else {**os.environ, **env}
     with active.begin_sample() if active is not None else nullcontext():
         proc = subprocess.run(
             cmd,
@@ -522,7 +526,7 @@ def _run_browser_probe(
             # document to load; this wall clock stays above that wait plus the
             # edit phase so the probe's own ready timeout governs, not us.
             timeout=load_timeout_ms(workload) / 1000 + 300,
-            env={**os.environ, **load_timeout_env(workload)},
+            env={**run_env, **load_timeout_env(workload)},
         )
         record_process(proc)
         if proc.returncode != 0:
@@ -563,12 +567,42 @@ def _run_browser_probe(
     return payload
 
 
-def _content_length_diagnostic(content_meta: dict) -> dict:
-    """The fixture-baseline decision copied into every warm/cold attempt."""
-    return {
-        "content_length_check": content_meta["length_check"],
+def _content_length_diagnostic(content_meta: dict, gate: dict | None = None) -> dict:
+    """The length-check disclosure copied into every warm/cold attempt.
+
+    r3lanes4 ruling 5a: when the gate's own fields are known (payload or the
+    per-editor profile) they win over the corpus policy — a virtualized
+    editor ran opening_only, an absent oracle ran nothing.
+    """
+    gate = gate or {}
+    length_check = gate.get("length_check") or content_meta["length_check"]
+    out = {
+        "content_length_check": length_check,
         "content_length_check_reason": content_meta["length_check_reason"],
     }
+    if gate and length_check != content_meta["length_check"]:
+        out["content_length_check_reason"] = (
+            "gate ran %s for this editor; corpus policy was %s"
+            % (length_check, content_meta["length_check"])
+        )
+    if gate:
+        out["content_length_enforced"] = gate.get("length_enforced")
+        out["content_check"] = gate.get("content_check")
+    return out
+
+
+def _payload_content_gate(payload: dict) -> dict | None:
+    """The gate fields the probe's own content check reported, if any."""
+    for pair in payload.get("pairs", []):
+        for arm in ("cold", "warm"):
+            check = (pair.get(arm) or {}).get("content_check")
+            if isinstance(check, dict) and check.get("length_check"):
+                return {
+                    "length_check": check.get("length_check"),
+                    "length_enforced": check.get("length_enforced"),
+                    "content_check": check.get("content_check"),
+                }
+    return None
 
 
 #: Ruling r3lanes4 #1: a C05/C06 sample is published only on the glyph-ink
@@ -906,14 +940,14 @@ def _write_measured_attempt(
 
 
 def _write_input_refusal(*, observations, failure_reason, content_meta=None, outcome='failed',
-                        diagnostic_extra=None, **kwargs):
+                        diagnostic_extra=None, gate=None, **kwargs):
     checked = [input_sample_record(o, kwargs['criterion_id']) for o in observations]
     reason = next((o['failure_reason'] for o in checked if o.get('failure_reason')), failure_reason)
     diagnostic = {'observations': checked, 'aggregation': 'all samples required',
                     **({'keys': 3, 'isolated': True} if kwargs['criterion_id'] == 'C06' else {}),
                     **(diagnostic_extra or {})}
     if content_meta:
-        diagnostic.update(_content_length_diagnostic(content_meta))
+        diagnostic.update(_content_length_diagnostic(content_meta, gate))
     trial = _trial_dict(
         **{k: v for k, v in kwargs.items() if k not in ('attempt_dir', 'content_meta')},
         outcome=outcome, samples_ms=[], failure_reason=reason,
@@ -934,8 +968,9 @@ def _write_not_run(
     env: dict,
     failure_reason: str,
     content_meta: dict | None = None,
+    gate: dict | None = None,
 ) -> Path:
-    diagnostic = _content_length_diagnostic(content_meta) if content_meta else None
+    diagnostic = _content_length_diagnostic(content_meta, gate) if content_meta else None
     trial = _trial_dict(
         criterion_id=criterion_id,
         layer=layer,
@@ -999,6 +1034,15 @@ def _write_content_refusals(
     reason = content_refusal.get("surface_reason") or "document_content_unverifiable"
     editor_error = content_refusal.get("editor_error")
     failure_reason = reason if not editor_error else "%s: %s" % (reason, editor_error)
+    gate = (
+        {
+            "length_check": content_refusal.get("length_check"),
+            "length_enforced": content_refusal.get("length_enforced"),
+            "content_check": content_refusal.get("content_check"),
+        }
+        if content_refusal.get("length_check")
+        else None
+    )
     rows = []
     for raw_cid, (boundary, layer) in criteria_map.items():
         cid = "C02" if raw_cid == "C02b" else raw_cid
@@ -1026,7 +1070,7 @@ def _write_content_refusals(
                     "suite": "warm_cold",
                     "arm": arm,
                     "content_refusal": content_refusal,
-                    **_content_length_diagnostic(content_meta),
+                    **_content_length_diagnostic(content_meta, gate),
                 },
             )
             rows.append(
@@ -1131,6 +1175,7 @@ def _main() -> int:
     paired_rows: list[dict] = []
     summary_editors: list[dict] = []
     refusal_rows: list[dict] = []
+    gates_by_editor: dict[str, dict] = {}
 
     for editor_id in editors:
         lane = BROWSER_TARGETS[editor_id].get("lane") or default_lane(editor_id)
@@ -1157,6 +1202,10 @@ def _main() -> int:
                     "C07": ("input_to_next_paint", "browser_visible"),
                     "C02": ("model_ready_browser", "model"),
                 }[cid]
+                from perf.runner.benchmark_document import gate_length_check_for
+
+                not_run_gate = gate_length_check_for(editor_id, content_meta)
+                gates_by_editor[editor_id] = not_run_gate
                 path = _write_not_run(
                     attempt_dir=attempt_dir,
                     criterion_id=cid,
@@ -1167,6 +1216,7 @@ def _main() -> int:
                     env=env,
                     failure_reason=reason,
                     content_meta=content_meta,
+                    gate=not_run_gate,
                 )
                 refusal_rows.append(
                     {
@@ -1182,15 +1232,26 @@ def _main() -> int:
         proc = None
         try:
             proc = _start_server(editor_id, target)
+            from perf.runner.benchmark_document import expected_body_path_for
+
+            body_path = expected_body_path_for(fixture_path, content_meta)
+            probe_env = {
+                "PERF_EXPECTED_BODY_PATH": str(body_path) if body_path else "",
+            }
             payload = _run_browser_probe(
                 target=target,
                 corpus_path=fixture_path,
                 pairs=args.pairs,
                 editor_id=editor_id,
                 workload=args.workload,
+                env=probe_env,
             )
         except Exception as exc:
             reason = "browser_probe: %s" % (exc,)
+            from perf.runner.benchmark_document import gate_length_check_for
+
+            gate = gate_length_check_for(editor_id, content_meta)
+            gates_by_editor[editor_id] = gate
             env = _env_for(
                 editor_id=editor_id,
                 editor_version=editor_version,
@@ -1211,6 +1272,7 @@ def _main() -> int:
                     env=env,
                     failure_reason=reason,
                     content_meta=content_meta,
+                    gate=gate,
                 )
                 refusal_rows.append(
                     {
@@ -1227,6 +1289,14 @@ def _main() -> int:
         finally:
             if proc:
                 _stop_server(proc)
+
+        # r3lanes4 ruling 5a: what the gate ran for THIS editor — the probe's
+        # own disclosure when it ran, else the per-editor profile — never the
+        # corpus policy.
+        from perf.runner.benchmark_document import gate_length_check_for
+
+        gate = _payload_content_gate(payload) or gate_length_check_for(editor_id, content_meta)
+        gates_by_editor[editor_id] = gate
 
         content_refusal = _content_refusal(payload)
         if content_refusal:
@@ -1259,7 +1329,7 @@ def _main() -> int:
                 cache_state='process_cold_fs_warm', diagnostic={'server_cold':True,
                     'settle_ms':first_pair['cold'].get('settle_ms'),
                     'clock_skew':[first_pair['cold'].get('clock_skew')], 'pair':first_pair,
-                    **_content_length_diagnostic(content_meta)})
+                    **_content_length_diagnostic(content_meta, gate)})
             payload['pairs'] = payload['pairs'][1:]
 
         probe_rows = [
@@ -1364,7 +1434,7 @@ def _main() -> int:
                     "settle_ms": [p["cold"].get("settle_ms") for p in payload["pairs"]],
                     "clock_skew": [p["cold"].get("clock_skew") for p in payload["pairs"]],
                     "server_cold": payload["pairs"][0].get("server_cold", True),
-                    **_content_length_diagnostic(content_meta),
+                    **_content_length_diagnostic(content_meta, gate),
                 },
             )
             if json.loads(cold_path.read_text()).get('outcome') != 'measured':
@@ -1414,7 +1484,7 @@ def _main() -> int:
                 samples_ms=reload_samples, cache_state='warm_steady',
                 diagnostic={'settle_ms':[p['warm'].get('settle_ms') for p in payload['pairs']],
                     'clock_skew':[p['warm'].get('clock_skew') for p in payload['pairs']],
-                    **_content_length_diagnostic(content_meta)})
+                    **_content_length_diagnostic(content_meta, gate)})
             if json.loads(warm_load_path.read_text()).get('outcome') != 'measured':
                 continue
             paired_rows.append(
@@ -1501,6 +1571,7 @@ def _main() -> int:
                                       if "mechanism" in o],
                         failure_reason=glyph_na["reason"],
                         content_meta=content_meta,
+                        gate=gate,
                         outcome="not_applicable",
                         diagnostic_extra={
                             "suite": "warm_cold",
@@ -1614,7 +1685,7 @@ def _main() -> int:
                             "mechanism": "cdp_screencast_changed_frame",
                             "clock_skew": [p["cold"].get("clock_skew") for p in payload["pairs"]],
                             "observations": [p["cold"] for p in payload["pairs"]],
-                            **_content_length_diagnostic(content_meta)},
+                            **_content_length_diagnostic(content_meta, gate)},
             )
             warm_path = _write_measured_attempt(
                 attempt_dir=attempt_dir,
@@ -1631,7 +1702,7 @@ def _main() -> int:
                             "mechanism": "cdp_screencast_changed_frame",
                             "clock_skew": [p["warm"].get("clock_skew") for p in payload["pairs"]],
                             "observations": [p["warm"] for p in payload["pairs"]],
-                            **_content_length_diagnostic(content_meta)},
+                            **_content_length_diagnostic(content_meta, gate)},
             )
 
             if any(json.loads(path.read_text()).get('outcome') != 'measured'
@@ -1702,7 +1773,7 @@ def _main() -> int:
                         "warm_equals_cold": identical_burst,
                         "mechanism": "cdp_screencast_changed_frame",
                         "observations": [p["cold"].get("burst", []) for p in payload["pairs"]],
-                        **_content_length_diagnostic(content_meta),
+                        **_content_length_diagnostic(content_meta, gate),
                     },
                 )
                 burst_path = _write_measured_attempt(
@@ -1722,7 +1793,7 @@ def _main() -> int:
                         "warm_equals_cold": identical_burst,
                         "mechanism": "cdp_screencast_changed_frame",
                         "observations": [p["warm"].get("burst", []) for p in payload["pairs"]],
-                        **_content_length_diagnostic(content_meta),
+                        **_content_length_diagnostic(content_meta, gate),
                     },
                 )
                 if any(json.loads(path.read_text()).get('outcome') != 'measured'
@@ -1766,6 +1837,7 @@ def _main() -> int:
                     observations=[o for p in payload["pairs"] for a in ("cold", "warm") for o in p[a].get("burst", [])],
                     failure_reason=reason,
                     content_meta=content_meta,
+                    gate=gate,
                 )
                 refusal_rows.append(
                     {
@@ -1848,8 +1920,14 @@ def _main() -> int:
         "host_class": host_class(),
         "workload_id": args.workload,
         "fixture_sha256": sha,
-        "content_length_check": content_meta["length_check"],
-        "content_length_check_reason": content_meta["length_check_reason"],
+        "corpus_length_check": content_meta["length_check"],
+        "corpus_length_check_reason": content_meta["length_check_reason"],
+        "content_gate_by_editor": gates_by_editor,
+        "content_length_check": (
+            sorted({row["length_check"] for row in gates_by_editor.values()})[0]
+            if gates_by_editor and len({row["length_check"] for row in gates_by_editor.values()}) == 1
+            else None
+        ),
         "publishable": False,
         "pairs_per_cell": args.pairs,
         "paired": paired_rows,

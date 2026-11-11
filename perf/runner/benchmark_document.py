@@ -1026,9 +1026,12 @@ def _probe_cmd(*, mode: str, target: dict, cfg: dict, corpus_path: Path, extra: 
     return cmd
 
 
-def _run_probe(cmd: list, *, editor_id: str) -> dict:
+def _run_probe(cmd: list, *, editor_id: str, env: dict | None = None) -> dict:
+    import os
+    run_env = dict(os.environ) if env is None else {**os.environ, **env}
     try:
-        proc = subprocess.run(cmd, cwd=str(REPO / "harness" / "ui"), capture_output=True, text=True, timeout=PROBE_TIMEOUT_S)
+        proc = subprocess.run(cmd, cwd=str(REPO / "harness" / "ui"), capture_output=True, text=True,
+                              timeout=PROBE_TIMEOUT_S, env=run_env)
     except subprocess.TimeoutExpired:
         raise ProbeRefusal(
             "probe error for %s: editor did not finish within %ss" % (editor_id, PROBE_TIMEOUT_S),
@@ -1336,7 +1339,7 @@ def corpus_content_expectations(corpus_path: Path) -> dict:
                 "fixture contains tracked revisions, field instructions/stubs, or "
                 "AlternateContent fallback text; accepted model text is editor-dependent; "
                 "a 2% mass band is undefined; opening and closing witnesses remain in force "
-                "with a coarse 50%–150% w:t character band"
+                "with a coarse 75%–125% w:t character band"
             ),
         }
     return {
@@ -1359,6 +1362,66 @@ def corpus_content_expectation_flags(corpus_path: Path) -> list[str]:
     if meta.get("length_check"):
         flags.extend(["--length-check-mode", meta["length_check"]])
     return flags
+
+
+#: What the content gate can run per editor, mirroring EDIT_SURFACES /
+#: DOCUMENT_TEXT_SURFACES in perf/runner/edit_surface.mjs (r3lanes4 ruling 5a):
+#: the persisted content_length_check / length_enforced / content_check fields
+#: describe what the gate ran for THIS editor, never the corpus policy.
+GATE_SURFACES = {
+    "plate": {"oracle": "dom", "whole": True},
+    "docxodus": {"oracle": "dom", "whole": False},
+    "superdoc": {"oracle": "dom", "whole": False},
+    "genoffice": {"oracle": "dom", "whole": False},
+    "folio": {"oracle": "dom", "whole": False},
+    "eigenpal": {"oracle": "model"},
+    "canvas": {"oracle": "model"},
+    "docen": {"oracle": "model"},
+    "wordcraft": {"oracle": "absent"},
+}
+
+
+def gate_length_check_for(editor_id: str, content_meta: dict) -> dict:
+    """The gate disclosure for one editor on one workload.
+
+    A virtualized DOM editor runs opening_only (plus the mounted-text check on
+    prose, r3lanes4 ruling 5b); a model-oracle editor runs the corpus length
+    band on the model text; an absent oracle (wordcraft) ran nothing. Editors
+    outside the trial table use the generic whole-document DOM path, which
+    runs the corpus policy.
+    """
+    surface = GATE_SURFACES.get(editor_id)
+    if surface is None:
+        enforced = content_meta["length_check"] in ("applied", "coarse")
+        return {"length_check": content_meta["length_check"], "length_enforced": enforced, "content_check": "full"}
+    if surface["oracle"] == "absent":
+        return {"length_check": "not_run", "length_enforced": False, "content_check": "not_run"}
+    if surface["oracle"] == "dom" and surface.get("whole") is False:
+        check = "opening_only" if content_meta["length_check"] == "coarse" else "mounted_text_in_fixture"
+        return {"length_check": "opening_only", "length_enforced": False, "content_check": check}
+    enforced = content_meta["length_check"] in ("applied", "coarse")
+    check = "full" if surface["oracle"] == "dom" else "model_text"
+    return {"length_check": content_meta["length_check"], "length_enforced": enforced, "content_check": check}
+
+
+def expected_body_path_for(corpus_path: Path, content_meta: dict) -> Path | None:
+    """The fixture body file the input lane already uses, written once.
+
+    Only for workloads whose w:t body baseline is unambiguous (ruling 5b):
+    complex-corpus keeps opening_only and passes no body.
+    """
+    if content_meta["length_check"] == "coarse":
+        return None
+    from perf.runner.docx_plaintext import docx_body_text
+
+    body = docx_body_text(corpus_path)
+    body_path = corpus_path.with_name(corpus_path.stem + ".expected-body.txt")
+    try:
+        with open(body_path, "x", encoding="utf-8") as handle:
+            handle.write(body)
+    except FileExistsError:
+        pass
+    return body_path
 
 
 def _run_load_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path: Path, count: int) -> tuple:
@@ -1386,10 +1449,22 @@ def _run_load_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path: 
         extra=extra,
     )
     cmd.extend(["--editor", editor_id])
+    # r3lanes4 ruling 5b: hand the probe the fixture body the way the input
+    # lane does, so the virtualized mounted-text check can run on prose.
+    body_path = expected_body_path_for(Path(fixture_path), content_meta)
+    probe_env = {"PERF_EXPECTED_BODY_PATH": str(body_path)} if body_path else {"PERF_EXPECTED_BODY_PATH": ""}
     samples = []
     diagnostics = []
     for _ in range(count):
-        payload = _in_sample_bracket(editor_id, "C11", lambda: _run_probe(cmd, editor_id=editor_id))
+        payload = _in_sample_bracket(editor_id, "C11", lambda: _run_probe(cmd, editor_id=editor_id, env=probe_env))
+        gate = gate_length_check_for(editor_id, content_meta)
+        for key, payload_key in (
+            ("length_check", "content_length_check"),
+            ("length_enforced", "length_enforced"),
+            ("content_check", "content_check"),
+        ):
+            if payload.get(payload_key) is not None:
+                gate[key] = payload[payload_key]
         if payload.get("content_verified") is not True:
             if payload.get("surface_reason") in (
                 "document_content_absent",
@@ -1411,8 +1486,10 @@ def _run_load_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path: 
                 "witness": payload.get("witness"),
                 "document_text": payload.get("document_text"),
                 "expected_opening_text": expected,
-                "content_length_check": content_meta["length_check"],
+                "content_length_check": gate["length_check"],
                 "content_length_check_reason": content_meta["length_check_reason"],
+                "content_length_enforced": gate["length_enforced"],
+                "content_check": gate["content_check"],
                 "fcp_ms": payload.get("fcp_ms"),
                 "first_element_ms": payload.get("first_element_ms"),
                 "first_element_delta_from_fcp_ms": payload.get("first_element_delta_from_fcp_ms"),
@@ -1783,7 +1860,8 @@ def _main() -> int:
                             refusal.reason,
                             outcome=content_outcome,
                             extra={
-                                "content_length_check": content_meta["length_check"],
+                                "content_length_check": gate_length_check_for(editor_id, content_meta)["length_check"],
+                                "content_check": gate_length_check_for(editor_id, content_meta)["content_check"],
                                 "content_length_check_reason": content_meta["length_check_reason"],
                             },
                             refusal_code=getattr(refusal, "refusal_code", None)

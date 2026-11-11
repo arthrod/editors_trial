@@ -247,6 +247,7 @@ export async function readAndGateDocumentText(
     fixtureChars = 0,
     lengthCheckMode = null,
     root = null,
+    expectedBody = null,
   } = {},
 ) {
   const surface = documentTextSurface(editorId);
@@ -259,6 +260,7 @@ export async function readAndGateDocumentText(
     expectedClosing,
     fixtureChars,
     lengthCheckMode,
+    fixtureBody: expectedBody,
   });
   return { ...read, ...gate, whole };
 }

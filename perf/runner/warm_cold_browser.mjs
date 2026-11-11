@@ -132,6 +132,18 @@ const bulkChars = Number(opt['bulk-chars'] || 1500);
 const expectedOpeningText = typeof opt['expected-opening-text'] === 'string' ? opt['expected-opening-text'] : '';
 const expectedClosingSentinel =
   typeof opt['expected-closing-sentinel'] === 'string' ? opt['expected-closing-sentinel'] : '';
+// r3lanes4 ruling 5b: the fixture body the way the input lane passes it.
+const expectedBodyText = (() => {
+  const path = process.env.PERF_EXPECTED_BODY_PATH;
+  try {
+    if (typeof path === 'string' && path && fs.existsSync(path)) {
+      return fs.readFileSync(path, 'utf8');
+    }
+  } catch {
+    return null;
+  }
+  return null;
+})();
 const fixtureTextChars = Number(opt['fixture-text-chars'] || 0);
 const lengthCheckMode = typeof opt['length-check-mode'] === 'string' ? opt['length-check-mode'] : null;
 const errorJs = typeof opt['error-js'] === 'string' ? opt['error-js'] : '';
@@ -228,6 +240,7 @@ async function verifyCanvasOpening(page) {
     fixtureChars: fixtureTextChars,
     lengthCheckMode,
     root: editSelector,
+    expectedBody: expectedBodyText,
   });
   const { verdict } = gated;
   return {

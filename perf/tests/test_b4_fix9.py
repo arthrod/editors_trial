@@ -54,12 +54,20 @@ def _manifest_report() -> dict:
     return report
 
 
+ANSI_RE = re.compile(r'\x1b\[[0-9;]*[A-Za-z]')
+
+
+def _plain(text: str) -> str:
+    """util.inspect colors (FORCE_COLOR=1 ignores NO_COLOR) must not defeat the parser."""
+    return ANSI_RE.sub('', text)
+
+
 def test_real_cdp_detach_is_page_lost():
     proc = _run_node(PROBE_DIR / 'detach.mjs', '--crash-only', timeout=120)
     assert proc.returncode == 0, proc.stderr
     matches = re.findall(
         r"reason:\s*['\"]((page_lost|harness_error)[^'\"]*)['\"]",
-        proc.stdout + proc.stderr,
+        _plain(proc.stdout + proc.stderr),
     )
     reasons = [m[0] for m in matches]
     assert reasons, proc.stdout

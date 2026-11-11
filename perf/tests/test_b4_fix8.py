@@ -52,12 +52,20 @@ def fix8_repro():
     return json.loads(proc.stdout)
 
 
+ANSI_RE = re.compile(r'\x1b\[[0-9;]*[A-Za-z]')
+
+
+def _plain(text: str) -> str:
+    """util.inspect colors (FORCE_COLOR=1 ignores NO_COLOR) must not defeat the parser."""
+    return ANSI_RE.sub('', text)
+
+
 def test_real_renderer_crash_is_page_lost():
     proc = _run_node(PROBE_DIR / 'browser-probes.mjs', '--crash-only')
     assert proc.returncode == 0
     matches = re.findall(
         r"reason:\s*['\"]((page_lost|harness_error)[^'\"]*)['\"]",
-        proc.stdout + proc.stderr,
+        _plain(proc.stdout + proc.stderr),
     )
     matches = [m[0] for m in matches]
     assert matches, proc.stdout
