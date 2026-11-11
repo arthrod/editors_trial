@@ -79,25 +79,34 @@ def resource_values(value, prefix=''):
 
 def read_sessions(root: Path, editor: str, kind: str):
     jobs = cells._lane_jobs(root, cells._job_roots(root), editor, 'TYPING')
+    job_pairs = [(root, job) for job in jobs]
+    return _sessions_from_jobs(job_pairs, editor, kind)
+
+
+def _sessions_from_jobs(job_pairs: list[tuple[Path, Path]], editor: str, kind: str) -> dict:
+    job_pairs, rerun_blocked, rerun_reason = cells._filter_job_pairs(job_pairs, editor)
+    jobs = [job for _root, job in job_pairs]
     summaries = [cells._load_summary(job) or {} for job in jobs]
     orders = [summary for summary in summaries if summary.get('order')]
     scheduled = sum(cells._scheduled_for_editor(summary, editor, 0) for summary in orders) if orders else 0
+    qualify = cells._overlap_qualify_jobs(job_pairs, editor)
+    layout_blocked, layout_reason = cells._seed_block_gate(summaries, job_pairs, editor)
     grouped = defaultdict(list)
     vetoes = {}
-    for launch, path, row in cells._attempt_rows_of(root, jobs):
-        if row.get('refusal_code') == 'unreadable_trial' and launch.endswith('-' + editor):
-            vetoes[launch] = 'unreadable_trial'
-        if row.get('editor_id') == editor and row.get('criterion_id') == 'TYPING' and row.get('session_kind') == kind:
-            grouped[launch].append(row)
-    for job in jobs:
+    for root, job in job_pairs:
+        for launch, path, row in cells._attempt_rows_of(root, [job], qualify=qualify):
+            if row.get('refusal_code') == 'unreadable_trial' and launch.endswith('-' + editor):
+                vetoes[launch] = 'unreadable_trial'
+            if row.get('editor_id') == editor and row.get('criterion_id') == 'TYPING' and row.get('session_kind') == kind:
+                grouped[launch].append(row)
         for path, row in cells._read_rows(job / 'samples'):
             if path.parent == job / 'samples' and row.get('editor_id') == editor:
                 code = cells.refusal_code(row)
                 if code in cells._RUN_REFUSALS:
-                    vetoes[cells._launch_key(root, job, path.stem)] = code
+                    vetoes[cells._launch_key(root, job, path.stem, qualify=qualify)] = code
         for path in (job / 'rejected-evidence').glob('*'):
             if path.is_dir() and path.name.endswith('-' + editor):
-                vetoes[cells._launch_key(root, job, path.name)] = 'quarantined'
+                vetoes[cells._launch_key(root, job, path.name, qualify=qualify)] = 'quarantined'
     kept, progress = [], []
     refusals = Counter()
     for launch in sorted(set(grouped) | set(vetoes)):
@@ -112,11 +121,16 @@ def read_sessions(root: Path, editor: str, kind: str):
         ((True, why) for summary in summaries for blocked, why in [cells._run_blocks_publication(summary)] if blocked),
         (False, None),
     )
+    if layout_blocked:
+        blocked, reason = True, layout_reason
+    elif rerun_blocked:
+        blocked, reason = True, rerun_reason
     if not blocked:
-        # A shakedown mark on any trial of the run blocks the whole run (#149).
-        mark = cells._run_shakedown(root)
-        if mark:
-            blocked, reason = True, mark
+        for _root, job in job_pairs:
+            mark = cells._run_shakedown_job(job)
+            if mark:
+                blocked, reason = True, mark
+                break
     policy = [
         summary
         for summary in summaries
