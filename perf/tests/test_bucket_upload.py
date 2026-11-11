@@ -52,6 +52,13 @@ class FakeBucketClient:
                 continue
             self.files[dest] = Path(src).read_bytes()
 
+    def download_bucket_files(self, bucket_id, *, files=None, token=None):
+        self.calls.append(('download', sorted(r for r, _l in (files or []))))
+        for remote_path, local in files or []:
+            local = Path(local)
+            local.parent.mkdir(parents=True, exist_ok=True)
+            local.write_bytes(self.files[remote_path])
+
 
 def seal_job(remote: Path, run_id: str, runner: str, job_id: str, files: dict[str, str], status: int = 0) -> Path:
     job = remote / 'runs' / run_id / runner / job_id
@@ -644,3 +651,157 @@ class TestSetup:
         source = Path('perf/container/mirror.py').read_text()
         head = source.split('def ', 1)[0]
         assert 'import huggingface_hub' not in head
+
+
+def fill_bucket(client: FakeBucketClient, remote: Path, run_id: str, *,
+                space: str = 'arthrod/e2-publish') -> None:
+    """Push the sealed campaign tree into the fake bucket as mirror.py would."""
+    campaign = campaign_root(remote, run_id)
+    run_log = campaign / 'RUN.log'
+    if not run_log.exists():
+        run_log.write_text('run log\n')
+    for path in sorted(campaign.rglob('*')):
+        if path.is_file():
+            rel = path.relative_to(campaign).as_posix()
+            client.files[f'runs/{space}/{run_id}/{rel}'] = path.read_bytes()
+
+
+class TestBucketPull:
+    def test_downloads_run_and_verifies_manifest(self, tmp_path, bucket_env, monkeypatch, capsys):
+        from perf.container import bucket_pull
+
+        remote = tmp_path / 'remote'
+        run_id = 'camp-40'
+        campaign_root(remote, run_id)
+        seal_job(remote, run_id, 'runner_a', f'{run_id}-000', {'summary.json': '{}', 'cells/c.json': '{}'})
+        fill_bucket(bucket_env, remote, run_id)
+        monkeypatch.setattr(bucket_pull, 'CLIENT_FACTORY', lambda token: bucket_env)
+        dest = tmp_path / 'pulled'
+        rc = bucket_pull.main(['--dest', str(dest), '--space', 'arthrod/e2-publish', '--run', run_id])
+        assert rc == 0
+        job = dest / 'runs' / 'arthrod/e2-publish' / run_id / 'runner_a' / f'{run_id}-000'
+        assert (job / 'summary.json').is_file()
+        assert (job / 'cells/c.json').is_file()
+        assert (job / 'JOB-DONE').is_file()
+        assert (dest / 'runs' / 'arthrod/e2-publish' / run_id / 'RUN.log').is_file()
+        summary = capsys.readouterr().out.strip().splitlines()[-1]
+        assert summary.startswith(f'BUCKET-PULL arthrod/e2-publish/{run_id}')
+        assert 'ok=1' in summary and 'failed=0' in summary
+
+    def test_corrupt_remote_file_fails_and_is_not_installed(self, tmp_path, bucket_env, monkeypatch, capsys):
+        from perf.container import bucket_pull
+
+        remote = tmp_path / 'remote'
+        run_id = 'camp-41'
+        campaign_root(remote, run_id)
+        seal_job(remote, run_id, 'runner_a', f'{run_id}-000', {'summary.json': '{"ok":1}'})
+        fill_bucket(bucket_env, remote, run_id)
+        key = f'runs/arthrod/e2-publish/{run_id}/runner_a/{run_id}-000/summary.json'
+        bucket_env.files[key] = b'{"corrupted":true}'
+        monkeypatch.setattr(bucket_pull, 'CLIENT_FACTORY', lambda token: bucket_env)
+        dest = tmp_path / 'pulled'
+        rc = bucket_pull.main(['--dest', str(dest), '--space', 'arthrod/e2-publish', '--run', run_id])
+        assert rc == 1
+        bad = dest / 'runs' / 'arthrod/e2-publish' / run_id / 'runner_a' / f'{run_id}-000' / 'summary.json'
+        assert not bad.exists() or bad.read_text() == '{"ok":1}'
+        assert 'BUCKET-PULL' in capsys.readouterr().out
+
+    def test_downloads_all_runs_of_space(self, tmp_path, bucket_env, monkeypatch):
+        from perf.container import bucket_pull
+
+        remote = tmp_path / 'remote'
+        for idx, run_id in enumerate(('camp-42a', 'camp-42b')):
+            campaign_root(remote, run_id)
+            seal_job(remote, run_id, 'runner_a', f'{run_id}-000', {'summary.json': '{}'})
+            fill_bucket(bucket_env, remote, run_id)
+        monkeypatch.setattr(bucket_pull, 'CLIENT_FACTORY', lambda token: bucket_env)
+        dest = tmp_path / 'pulled'
+        rc = bucket_pull.main(['--dest', str(dest), '--space', 'arthrod/e2-publish'])
+        assert rc == 0
+        for run_id in ('camp-42a', 'camp-42b'):
+            job = dest / 'runs' / 'arthrod/e2-publish' / run_id / 'runner_a' / f'{run_id}-000'
+            assert (job / 'summary.json').is_file()
+
+    def test_manifest_file_missing_remote_is_error(self, tmp_path, bucket_env, monkeypatch):
+        from perf.container import bucket_pull
+
+        remote = tmp_path / 'remote'
+        run_id = 'camp-43'
+        campaign_root(remote, run_id)
+        seal_job(remote, run_id, 'runner_a', f'{run_id}-000', {'summary.json': '{}', 'cells/c.json': '{}'})
+        fill_bucket(bucket_env, remote, run_id)
+        del bucket_env.files[f'runs/arthrod/e2-publish/{run_id}/runner_a/{run_id}-000/cells/c.json']
+        monkeypatch.setattr(bucket_pull, 'CLIENT_FACTORY', lambda token: bucket_env)
+        rc = bucket_pull.main(['--dest', str(tmp_path / 'pulled'), '--space', 'arthrod/e2-publish', '--run', run_id])
+        assert rc == 1
+
+    def test_extra_remote_job_file_is_mismatch(self, tmp_path, bucket_env, monkeypatch):
+        from perf.container import bucket_pull
+
+        remote = tmp_path / 'remote'
+        run_id = 'camp-44'
+        campaign_root(remote, run_id)
+        seal_job(remote, run_id, 'runner_a', f'{run_id}-000', {'summary.json': '{}'})
+        fill_bucket(bucket_env, remote, run_id)
+        bucket_env.files[f'runs/arthrod/e2-publish/{run_id}/runner_a/{run_id}-000/stray.txt'] = b'stray'
+        monkeypatch.setattr(bucket_pull, 'CLIENT_FACTORY', lambda token: bucket_env)
+        rc = bucket_pull.main(['--dest', str(tmp_path / 'pulled'), '--space', 'arthrod/e2-publish', '--run', run_id])
+        assert rc == 1
+
+    def test_never_deletes_local_files(self, tmp_path, bucket_env, monkeypatch):
+        from perf.container import bucket_pull
+
+        remote = tmp_path / 'remote'
+        run_id = 'camp-45'
+        campaign_root(remote, run_id)
+        seal_job(remote, run_id, 'runner_a', f'{run_id}-000', {'summary.json': '{"v":2}'})
+        fill_bucket(bucket_env, remote, run_id)
+        monkeypatch.setattr(bucket_pull, 'CLIENT_FACTORY', lambda token: bucket_env)
+        dest = tmp_path / 'pulled'
+        keep = dest / 'runs' / 'arthrod/e2-publish' / run_id / 'runner_a' / f'{run_id}-000'
+        keep.mkdir(parents=True)
+        old = keep / 'summary.json'
+        old.write_text('{"v":1}')
+        extra = dest / 'notes.txt'
+        extra.write_text('local note')
+        rc = bucket_pull.main(['--dest', str(dest), '--space', 'arthrod/e2-publish', '--run', run_id])
+        assert rc == 0
+        assert extra.read_text() == 'local note'
+        prev = list(keep.glob('summary.json.prev-*'))
+        assert prev and prev[0].read_text() == '{"v":1}'
+        assert old.read_text() == '{"v":2}'
+
+    def test_no_token_exits_nonzero_without_network(self, tmp_path, monkeypatch, capsys):
+        from perf.container import bucket_pull
+
+        monkeypatch.delenv('HF_BUCKET_TOKEN', raising=False)
+        monkeypatch.setattr(bucket_pull, 'PROC1_ENVIRON', str(tmp_path / 'nope'))
+        called = []
+
+        def factory(token):
+            called.append(token)
+            return FakeBucketClient()
+
+        monkeypatch.setattr(bucket_pull, 'CLIENT_FACTORY', factory)
+        rc = bucket_pull.main(['--dest', str(tmp_path / 'pulled'), '--space', 'arthrod/e2-publish'])
+        assert rc != 0
+        assert called == []
+        out = capsys.readouterr().out
+        assert 'no_token' in out
+
+    def test_token_never_printed_on_error(self, tmp_path, monkeypatch, capsys):
+        from perf.container import bucket_pull
+
+        token = 'test-pull-token-0003'
+        monkeypatch.setenv('HF_BUCKET_TOKEN', token)
+        client = FakeBucketClient()
+
+        def leaky(bucket_id, *, prefix=None, recursive=None, token=None):
+            raise RuntimeError(f'auth failed for {token}')
+
+        client.list_bucket_tree = leaky
+        monkeypatch.setattr(bucket_pull, 'CLIENT_FACTORY', lambda t: client)
+        rc = bucket_pull.main(['--dest', str(tmp_path / 'p'), '--space', 'arthrod/e2-publish'])
+        captured = capsys.readouterr()
+        assert rc != 0
+        assert token not in captured.out and token not in captured.err
