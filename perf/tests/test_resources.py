@@ -588,6 +588,28 @@ class LaneRefusals(unittest.TestCase):
         self.assertEqual(trial["edit_oracle"]["status"], "verified")
         self.assertNotIn("quiescence_not_reached", REFUSAL_CODES)
 
+    def test_work_done_after_the_ready_signal_is_published_as_open_settle(self):
+        # SuperDoc says "ready" at 250k words before the document is laid out, and
+        # Docxodus opens its editor after its viewer. That work is the cost of opening.
+        world = World()
+        clock = ManualClock(world, disturb=False)
+        sampler = make_sampler(world, clock=clock)
+
+        class LateWork(PhaseSession):
+            def after_load(self):
+                super().after_load()
+                self.world.burn_renderer_cpu_ms(700)
+
+        trial = collect_phases(
+            sampler, LateWork(world, mode="measure"), clock,
+            quiescence=SHORT_QUIESCENCE, edit_burst=EDIT_BURST, editor_id="plate",
+            workload_id="prose-500w",
+            workload_meta={"sha256": "b" * 64, "byte_size": 10, "paragraph_count": 1, "word_count": 1},
+            execution_profile="ci_broad", host_class="ci_coarse",
+        )
+        self.assertGreaterEqual(trial["open_settle_cpu_ms"], 700)
+        self.assertIn("open_settle_network_encoded_bytes", trial)
+
     def test_a_settled_editor_says_so(self):
         world = World()
         clock = ManualClock(world, disturb=False)

@@ -104,7 +104,9 @@ REFUSAL_CODES = (
 
 PHASES = ("load", "after_load", "edit_burst", "quiescence", "after_edits", "save_export")
 NOT_APPLICABLE_ENDPOINT = "not_applicable_endpoint"
-_PUBLISHABLE_PHASES = (("load", "load"), ("edit_burst", "edit"), ("quiescence", "quiescence"))
+_PUBLISHABLE_PHASES = (
+    ("load", "load"), ("after_load", "open_settle"), ("edit_burst", "edit"), ("quiescence", "quiescence"),
+)
 _ENDPOINT_LEVELS = ("pss_bytes", "uss_bytes", "profile_directory_bytes")
 SESSION = Path(__file__).with_name("resources_session.mjs")
 _META_KEYS = (

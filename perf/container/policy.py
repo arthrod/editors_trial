@@ -106,7 +106,21 @@ def read_trials(row):
     directory = row.get('cell_directory')
     if not directory:
         return []
-    return [json.loads(path.read_text()) for path in sorted((Path(directory) / 'attempts').glob('*.json'))]
+    trials = [json.loads(path.read_text()) for path in sorted((Path(directory) / 'attempts').glob('*.json'))]
+    if trials:
+        return trials
+    # The resources lane writes one record per launch, not attempt files.
+    record_path = Path(directory) / 'resource.json'
+    if record_path.is_file():
+        record = json.loads(record_path.read_text())
+        if record.get('record_kind') == 'browser_resources' and record.get('outcome'):
+            return [{
+                'criterion_id': 'B8',
+                'editor_id': record.get('editor_id'),
+                'outcome': record['outcome'],
+                'failure_reason': record.get('refusal_code') or record.get('failure_reason'),
+            }]
+    return []
 
 
 def outcome_counts():
