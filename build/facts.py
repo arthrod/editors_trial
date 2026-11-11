@@ -360,7 +360,12 @@ def perf_e2_facts(path: Path, facts: dict) -> None:
         facts.update(perf_e2_tables.unset_facts())
         return
     runs = json.loads(path.read_text())
-    facts.update(perf_e2_tables.facts_from_runs(ROOT / runs["primary"], ROOT / runs["repro"]))
+    if "primary" in runs or "repro" in runs:
+        facts.update(perf_e2_tables.facts_from_runs(ROOT / runs["primary"], ROOT / runs["repro"]))
+    else:
+        facts.update(perf_e2_tables.unset_facts())
+    if "campaigns" in runs:
+        facts.update(perf_e2_tables.facts_from_campaigns([ROOT / root for root in runs["campaigns"]]))
 
 
 def count_facts(facts: dict) -> None:

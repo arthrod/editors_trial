@@ -331,6 +331,7 @@ def unset_facts() -> dict:
     """Facts when ``report_e2_runs.json`` is absent: the template still renders."""
     blurbs = _criterion_blurbs()
     facts = {
+        "perf.e2.provenance": "Per-Space provenance not supplied.",
         "perf.e2.table.TYPING": "not in these runs.",
         "perf.e2.word_verification": "Word verification not recorded for this generated twin.",
         "perf.e2.measured": "not yet measured",
@@ -385,6 +386,7 @@ def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
     s = primary.summary
     playwright, chromium, renderer = _rendering(s)
     facts: dict = {
+        "perf.e2.provenance": "Per-Space provenance not supplied.",
         "perf.e2.table.TYPING": "not in these runs.",
         "perf.e2.word_verification": "Word verification not recorded for this generated twin.",
         "perf.e2.measured": "measured",
@@ -521,3 +523,16 @@ def typing_table(facts, primary, repro, editor, kind):
             lines.append(f'{name}: accepted {accepted}; refused {refused} key witnesses.')
     facts[key + '.reproduced'] = all_reproduced
     return '\n'.join(lines)
+
+
+def facts_from_campaigns(roots):
+    """Inventory all shards; selecting paired publication runs remains explicit."""
+    from perf.analysis.e2_campaigns import campaign_provenance
+    records = campaign_provenance(roots)
+    lines = []
+    for campaign in records:
+        affinity = '; '.join(campaign['cpu_affinity_pinned']) or 'not recorded'
+        lines.append(f"- Space **{campaign['space']}**, campaign `{Path(campaign['campaign']).name}`: {affinity}.")
+        for job in campaign['jobs']:
+            lines.append(f"  - Space **{job['space']}**, {job['runner']}, job `{job['run_id']}`, seed {job['seed']}: {job['status']}. Stolen CPU: {_steal(job)}. Throttle: {_throttle(job)}.")
+    return {'perf.e2.campaigns': records, 'perf.e2.provenance': '\n'.join(lines) or 'No campaign roots supplied.'}

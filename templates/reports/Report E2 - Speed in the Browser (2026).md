@@ -38,6 +38,8 @@ Each criterion is one browser-visible or model clock on the same corpus the head
 
 {{perf.e2.host_note}}
 
+{{perf.e2.provenance}}
+
 Playwright {{perf.e2.playwright}}, Chromium {{perf.e2.chromium}}. Renderer: {{perf.e2.renderer}}.
 
 ## The rule
