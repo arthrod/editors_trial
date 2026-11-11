@@ -116,3 +116,36 @@ def test_a_one_editor_lane_takes_several_editors_in_a_block(tmp_path, monkeypatc
     _code, summary = _run(tmp_path, monkeypatch, '--editors', *EDITORS, '--pairs', '3', '--block', '1/10', single=True)
     assert {editor for _rep, editor in summary['order']} == set(EDITORS)
     assert len(summary['samples']) == 9
+
+
+def test_a_shakedown_can_rehearse_the_block_layout():
+    """One repetition of every editor in a block job: the publication layout, never publishable."""
+    jobs = _blocks()
+    name, options = next(job for job in jobs if job[0] == 'benchmark_resources')
+    cut = policy.shakedown_options(name, options, 1)
+    flag = policy.SHAKEDOWN_COUNT_FLAG[name]
+    # argparse keeps the last value of a repeated flag
+    assert [cut[i + 1] for i, token in enumerate(cut) if token == flag][-1] == '1'
+    assert policy.job_editors(cut) == EDITORS and '--block' in cut
+
+
+def test_a_shakedown_block_runs_one_repetition_per_editor(tmp_path, monkeypatch):
+    monkeypatch.setenv('PERF_SHAKEDOWN', '1')
+    monkeypatch.setattr(sys, 'argv', [
+        'fake', '--out-root', str(tmp_path), '--run-id', 'b', '--seed', '7',
+        '--execution-profile', 'dedicated_publish', '--host-class', 'dedicated',
+        '--editors', *EDITORS, '--pairs', '3', '--block', '1/10', '--pairs', '1'])
+    api.run_cli(
+        lambda: 0, 'fake', {name: {} for name in EDITORS}, count_flag='--pairs',
+        run_factory=partial(api.BrowserRun, snapshot=lambda: {}, accounting_reader=accounting),
+        facts=(lambda: {}, lambda: {}))
+    summary = json.loads((tmp_path / 'fake/b/summary.json').read_text())
+    assert len(summary['samples']) == 3 and summary['shakedown'] is True
+    assert summary['publishable'] is False
+
+
+def test_the_planner_costs_a_rehearsed_block():
+    block = ('benchmark_resources', ['--chrome-profile', '--seed', '1', '--workload', 'prose-500w', '--editors', *EDITORS,
+                                    '--block', '1/10', '--repetitions', '3'])
+    one = ('benchmark_resources', ['--seed', '1', '--workload', 'prose-500w', '--editors', 'plate'])
+    assert plan.estimate(*block, shakedown=1) == pytest.approx(plan.estimate(*one) * 3 * 2 / 30 + plan._BUILD * 3)

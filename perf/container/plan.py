@@ -40,6 +40,9 @@ def estimate(name, options, shakedown=None):
         editors = len(job_editors(options))
         share = int(options[options.index(SHAKEDOWN_COUNT_FLAG[name]) + 1]) / 30
         traced = 2 if '--chrome-profile' in options else 1
+        if shakedown:
+            # A rehearsal: N repetitions of every editor, plus the traced one.
+            return full * editors * (shakedown + traced - 1) / 30 + _BUILD * editors
         return full * editors * share * traced + _BUILD * editors
     return full if not shakedown else full * (shakedown + 1) / 30 + _BUILD
 

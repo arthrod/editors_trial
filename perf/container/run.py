@@ -251,8 +251,8 @@ def main(argv: list[str] | None = None):
         parser.error('--publish requires --seed2')
     if args.shakedown is not None and (not args.publish or args.shakedown < 1):
         parser.error('--shakedown N needs --publish and N >= 1')
-    if args.blocks is not None and (not args.publish or args.shakedown is not None):
-        parser.error('--blocks N needs --publish and excludes --shakedown')
+    if args.blocks is not None and not args.publish:
+        parser.error('--blocks N needs --publish')
     jobs = publication_jobs(editors, args.seed, args.seed2, args.host_class, blocks=args.blocks) if args.publish else [
         (name, ['--execution-profile', 'ci_contract', '--host-class', 'ci_coarse', '--seed', str(args.seed)]
          + (['--session-kind', kind] if kind else []))
