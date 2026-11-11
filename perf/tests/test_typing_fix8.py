@@ -203,13 +203,15 @@ def test_marker_only_strings_collects_the_caption_markers():
 
 def test_tolerated_marker_strings_record_absorbed_markers():
     """The attempt row records WHICH markers tolerance covered, not a bare
-    count (review fix direction: strings, not tallies)."""
+    count. The "1." is excused only by the list item at that line."""
     import re as _re
 
     from perf.tests.test_typing_marathon import FakePage
 
     class AutoNumber(FakePage):
         async def evaluate(self, script, arg=None):
+            if "data-list-marker" in script:
+                return [{"index": 1, "marker": "1."}]
             text = await super().evaluate(script, arg)
             if isinstance(text, str):
                 return _re.sub(r"\n1\. ", "\n", text)
@@ -217,7 +219,8 @@ def test_tolerated_marker_strings_record_absorbed_markers():
 
     result = _type(AutoNumber(), "STATEMENT\n1. a. Under the Act\nEnd")
     assert result["failure_reason"] is None, result
-    assert "1." in result["tolerated_marker_strings"]
+    assert result["tolerated_marker_strings"] == ["1."]
+    assert result["tolerated_list_markers"] == [{"index": 1, "marker": "1."}]
 
 
 # --- #155.1: the typing lane drives the shared edit adapter -----------------

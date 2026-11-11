@@ -165,22 +165,32 @@ def test_docx_model_read_beats_the_paint_window():
 
 
 def test_absorbed_marker_passes_and_is_counted():
-    """Folio-shaped: the editor converts a typed "1. " trigger into a real
-    list marker, so the digits never reach the text."""
+    """A typed "1. " that becomes a list item is tolerated only when that
+    item sits on the line. "a." stays in the text. No item, no excuse."""
     import re
 
     from perf.tests.test_typing_marathon import FakePage
 
     class AutoNumberPage(FakePage):
+        def __init__(self, absorbed):
+            super().__init__()
+            self.absorbed = absorbed
+
         async def evaluate(self, script, arg=None):
+            if "data-list-marker" in script:
+                return list(self.absorbed)
             text = await super().evaluate(script, arg)
             if isinstance(text, str):
                 return re.sub(r"\n1\. ", "\n", text)
             return text
 
-    result = _type(AutoNumberPage(), "STATEMENT\n1. a. Under the Act\nEnd")
-    assert result["failure_reason"] is None
-    assert result["tolerated_list_markers"] == 1
+    text = "STATEMENT\n1. a. Under the Act\nEnd"
+    refused = _type(AutoNumberPage([]), text)
+    assert refused["failure_reason"] == "text_mismatch"
+    result = _type(AutoNumberPage([{"index": 1, "marker": "1."}]), text)
+    assert result["failure_reason"] is None, result
+    assert result["tolerated_list_markers"] == [{"index": 1, "marker": "1."}]
+    assert "1." in result["tolerated_marker_strings"]
 
 
 def test_dropped_paragraph_still_fails_on_both_surfaces():

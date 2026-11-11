@@ -404,24 +404,36 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
                         if not markers:
                             continue
                         slot = slot_for(i)
-                        paired = False
+                        chosen = None
                         for j in slot:
+                            if j >= len(actual_lines):
+                                continue
                             act_markers, act_rest = prefix_marker_rest(actual_lines[j])
                             if normalize_marked(act_rest)[0] != normalize_marked(rest)[0]:
                                 continue
-                            if act_markers:
-                                paired = True
-                                break
-                            if j in absorbed_at and j not in used_absorbed:
-                                used_absorbed.add(j)
-                                for marker in markers:
-                                    tolerated.append(marker)
-                                    tolerated_by_line.append({'index': i, 'marker': marker})
-                                paired = True
-                                break
-                        if not paired:
+                            chosen = (j, list(act_markers))
+                            break
+                        if chosen is None:
                             for marker in markers:
                                 missing.append({'index': i, 'marker': marker})
+                            continue
+                        j, act_queue = chosen
+                        # Match markers that are still in the text, in order.
+                        # One absorbed list item excuses one vanished marker
+                        # on this line and never a second.
+                        unmet = []
+                        for marker in markers:
+                            if act_queue and act_queue[0] == marker:
+                                act_queue.pop(0)
+                                continue
+                            unmet.append(marker)
+                        if unmet and j in absorbed_at and j not in used_absorbed:
+                            used_absorbed.add(j)
+                            excused = unmet.pop(0)
+                            tolerated.append(excused)
+                            tolerated_by_line.append({'index': i, 'marker': excused})
+                        for marker in unmet:
+                            missing.append({'index': i, 'marker': marker})
                     marker_only_tolerated = set()
                     for i, marker in sorted(expected_marker_at.items()):
                         slot = slot_for(i)
@@ -444,17 +456,30 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
                                 for j in sorted(actual_marker_at) if j not in used_text]
                                + [{'index': j, 'marker': absorbed_at[j]}
                                   for j in sorted(absorbed_at) if j not in used_absorbed])
-                    tolerated_idx = {t['index'] for t in tolerated_by_line}
+                    excused_at = {}
+                    for entry in tolerated_by_line:
+                        excused_at.setdefault(entry['index'], []).append(entry['marker'])
                     compare_lines = []
                     for idx, line in enumerate(expected_lines):
                         if idx in marker_only_tolerated:
                             compare_lines.append('')
+                            continue
+                        excused = excused_at.get(idx) or []
+                        if not excused:
+                            compare_lines.append(line)
+                            continue
+                        markers, rest = prefix_marker_rest(line)
+                        pending = list(excused)
+                        kept = []
+                        for marker in markers:
+                            if pending and pending[0] == marker:
+                                pending.pop(0)
+                                continue
+                            kept.append(marker)
+                        if kept:
+                            compare_lines.append((" ".join(kept) + (" " + rest if rest else "")).strip())
                         else:
-                            markers, rest = prefix_marker_rest(line)
-                            if markers and idx in tolerated_idx:
-                                compare_lines.append(rest)
-                            else:
-                                compare_lines.append(line)
+                            compare_lines.append(rest)
                     actual, _ = normalize_marked(actual_text)
                     expected, _ = normalize_marked('\n'.join(compare_lines))
                     if actual == expected and not missing:
