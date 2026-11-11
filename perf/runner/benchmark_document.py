@@ -1071,7 +1071,9 @@ def _run_probe(cmd: list, *, editor_id: str, env: dict | None = None) -> dict:
             refusal_code=_probe_error_refusal_code(payload),
         )
     if payload.get("error"):
-        raise ProbeRefusal("probe refused %s: %s" % (editor_id, payload["error"]))
+        err = str(payload["error"])
+        refusal_code = "anchor_identity_ambiguous" if err == "anchor_identity_ambiguous" else None
+        raise ProbeRefusal("probe refused %s: %s" % (editor_id, err), refusal_code=refusal_code)
     return payload
 
 

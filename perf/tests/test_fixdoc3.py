@@ -381,12 +381,45 @@ class DuplicateAnchorTextIsNotAMove(unittest.TestCase):
         before = (payload.get("before") or {}).get("anchor_top")
         after = payload.get("anchor_top_after")
         self.assertIsInstance(before, (int, float), payload)
+        self.assertEqual(payload.get("error"), "anchor_identity_ambiguous", payload)
         # The real anchor never moved: it was replaced in place at the same top.
         self.assertNotIsInstance(after, (int, float), payload)
         self.assertFalse(payload.get("moved"), payload)
         with self.assertRaises(bd.ProbeRefusal) as caught:
             bd.c12_measured_sample(payload)
         self.assertIn("did not move down", caught.exception.reason)
+
+    def test_a_rerendered_anchor_with_stable_duplicate_text_measures(self):
+        cmd = [
+            _node(),
+            str(PROBE),
+            "--mode",
+            "reflow",
+            "--url",
+            "%s/b3_fixdoc3_dup_rerender.html" % self.base_url,
+            "--corpus",
+            str(self.corpus),
+            "--doc-selector",
+            ".doc-paragraph",
+            "--page-model",
+            "continuous_flow",
+            "--edit-selector",
+            ".doc-paragraph",
+            "--timeout-ms",
+            "20000",
+        ]
+        proc = subprocess.run(cmd, cwd=str(REPO), capture_output=True, text=True, timeout=TIMEOUT_S)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        before = (payload.get("before") or {}).get("anchor_top")
+        after = payload.get("anchor_top_after")
+        self.assertIsInstance(before, (int, float), payload)
+        self.assertIsInstance(after, (int, float), payload)
+        self.assertGreater(after, before, payload)
+        self.assertTrue(payload.get("moved"), payload)
+        self.assertEqual((payload.get("before") or {}).get("anchor_occurrence"), 1)
+        sample = bd.c12_measured_sample(payload)
+        self.assertIsInstance(sample, float)
 
 
 class RealHostScaleSamples(unittest.TestCase):

@@ -68,7 +68,10 @@ import {
   C12_NO_PARAGRAPH_GEOMETRY,
   LIST_MODEL_PARAGRAPHS,
   PICK_ANCHOR_BELOW,
+  ANCHOR_REFIND_CONTEXT_OK,
+  ANCHOR_REFIND_CONTEXT_OK_PAGE_SRC,
   REFIND_ANCHOR,
+  REFIND_ANCHOR_PAGE_SRC,
   C12_BLOCK_TEXT,
   ensureReflowCaret,
   gatherReflowBefore,
@@ -1496,6 +1499,54 @@ async function runReflow(browser) {
     });
     await ctx.page.keyboard.press('Enter');
     await ctx.page.keyboard.type('x', { delay: 0 });
+    await ctx.page.waitForTimeout(50);
+    const anchorIdentity = await ctx.page.evaluate(
+      ({ checkSrc, blockTextSrc }) => {
+        const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+        let readBlock = (block) => norm(block.innerText || block.textContent);
+        try {
+          // eslint-disable-next-line no-eval
+          const fn = eval(blockTextSrc);
+          if (typeof fn === 'function') {
+            readBlock = (block) => fn(block, norm);
+          }
+        } catch {
+          /* keep default */
+        }
+        const snapshot = window.__c12BeforeSnapshot;
+        const docSel = window.__c12DocSel;
+        if (!snapshot || !docSel) return { ok: true };
+        let check = null;
+        try {
+          // eslint-disable-next-line no-eval
+          check = (0, eval)(`(function(){ ${checkSrc}; return ANCHOR_REFIND_CONTEXT_OK; })()`);
+        } catch {
+          check = null;
+        }
+        if (typeof check !== 'function') return { ok: true };
+        const blocks = Array.from(document.querySelectorAll(docSel));
+        return check(snapshot, blocks, readBlock);
+      },
+      { checkSrc: `${ANCHOR_REFIND_CONTEXT_OK_PAGE_SRC}`, blockTextSrc: `${C12_BLOCK_TEXT}` },
+    );
+    if (anchorIdentity && anchorIdentity.ok === false) {
+      return {
+        mode: 'reflow',
+        driver: 'playwright',
+        url,
+        navigation_ms: navigationMs,
+        ready_ms: readyMs,
+        before,
+        error: anchorIdentity.reason || 'anchor_identity_ambiguous',
+        moved: false,
+        anchor_top_after: null,
+        anchor_after_top: null,
+        shift_px: null,
+        window_excludes_forced_layout: true,
+        forced_layout_ms: 0,
+        page_errors: ctx.errors,
+      };
+    }
     // The observation window waits for frames. It does not read layout.
     // getBoundingClientRect inside this window would flush layout and the
     // duration cannot be subtracted back out of the presented frame.
@@ -1539,7 +1590,7 @@ async function runReflow(browser) {
       let blockText = null;
       try {
         // eslint-disable-next-line no-eval
-        refind = eval(refindSrc);
+        refind = (0, eval)(`(function(){ ${refindSrc}; return REFIND_ANCHOR; })()`);
       } catch {
         refind = null;
       }
@@ -1571,7 +1622,7 @@ async function runReflow(browser) {
         requestAnimationFrame(step);
       });
     },
-      `${REFIND_ANCHOR}`,
+      `${REFIND_ANCHOR_PAGE_SRC}`,
     );
     let witness = null;
     if (shift.moved && typeof shift.at === 'number') {
@@ -1611,7 +1662,7 @@ async function runReflow(browser) {
           let refind = null;
           try {
             // eslint-disable-next-line no-eval
-            refind = eval(refindSrc);
+            refind = (0, eval)(`(function(){ ${refindSrc}; return REFIND_ANCHOR; })()`);
           } catch {
             refind = null;
           }
@@ -1631,7 +1682,7 @@ async function runReflow(browser) {
         anchorText: before.anchor_text,
         anchorTop: before.anchor_top,
         anchorOccurrence: before.anchor_occurrence,
-        refindSrc: `${REFIND_ANCHOR}`,
+        refindSrc: `${REFIND_ANCHOR_PAGE_SRC}`,
         blockTextSrc: `${C12_BLOCK_TEXT}`,
       },
     );

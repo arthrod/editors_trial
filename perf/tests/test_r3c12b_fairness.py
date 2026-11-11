@@ -30,6 +30,67 @@ const mod = await import({json.dumps(str(LANE_EDIT_BURST))});
         return json.loads(proc.stdout)
 
 
+class AnchorRefindContext(NodeContract):
+    def test_refuse_when_equal_text_count_increases(self):
+        out = self.node(
+            """
+const snapshot = {
+  prefixTexts: ['Alpha'],
+  anchorText: 'Beta',
+  anchorTextCount: 1,
+  anchorOccurrence: 1,
+};
+const blocks = [{ innerText: 'Alpha' }, { innerText: 'Beta' }, { innerText: 'Beta' }];
+const read = (b) => String(b.innerText || '');
+const check = mod.ANCHOR_REFIND_CONTEXT_OK(snapshot, blocks, read);
+assert.equal(check.ok, false, JSON.stringify(check));
+assert.equal(check.reason, 'anchor_identity_ambiguous');
+console.log(JSON.stringify(check));
+"""
+        )
+        self.assertFalse(out["ok"])
+
+    def test_unique_anchor_text_skips_prefix_when_count_is_one(self):
+        out = self.node(
+            """
+const snapshot = {
+  prefixTexts: ['Alpha'],
+  anchorText: 'Beta',
+  anchorTextCount: 1,
+  anchorOccurrence: 1,
+};
+const blocks = [{ innerText: 'xAlpha' }, { innerText: 'Beta' }, { innerText: 'Gamma' }];
+const read = (b) => String(b.innerText || '');
+const check = mod.ANCHOR_REFIND_CONTEXT_OK(snapshot, blocks, read);
+assert.equal(check.ok, true, JSON.stringify(check));
+console.log(JSON.stringify(check));
+"""
+        )
+        self.assertTrue(out["ok"])
+
+    def test_allow_when_prefix_matches_after_rerender(self):
+        out = self.node(
+            """
+const snapshot = {
+  prefixTexts: ['Alpha'],
+  anchorText: 'Beta',
+  anchorTextCount: 2,
+  anchorOccurrence: 1,
+};
+const blocks = [
+  { innerText: 'Alpha' },
+  { innerText: 'Beta' },
+  { innerText: 'Beta' },
+];
+const read = (b) => String(b.innerText || '');
+const check = mod.ANCHOR_REFIND_CONTEXT_OK(snapshot, blocks, read);
+assert.equal(check.ok, true, JSON.stringify(check));
+console.log(JSON.stringify(check));
+"""
+        )
+        self.assertTrue(out["ok"])
+
+
 class PickNearestBlockBelow(NodeContract):
     def test_duplicate_text_picks_the_nearest_block_below_not_a_farther_unique_one(self):
         out = self.node(

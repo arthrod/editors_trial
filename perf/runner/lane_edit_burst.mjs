@@ -155,24 +155,99 @@ export function reflowBlockSelector(editorId, fallback) {
 /** Visible text of one reflow block; innerText matches what users see when runs split. */
 export const C12_BLOCK_TEXT = (block, norm) => norm(block.innerText || block.textContent);
 
+/**
+ * Occurrence re-find is allowed only when the equal-text block count is unchanged
+ * and the prefix before the anchor still matches (one Enter insertion permitted).
+ */
+export function ANCHOR_REFIND_CONTEXT_OK(snapshot, blocks, readBlock) {
+  const caretBlockTextMatches = (beforeText, afterText) => {
+    if (beforeText === afterText) return true;
+    // The reflow probe types one ascii key after Enter at the caret block.
+    if (afterText === `x${beforeText}`) return true;
+    return false;
+  };
+  if (!snapshot || !snapshot.anchorText) return { ok: true };
+  const anchorText = snapshot.anchorText;
+  const texts = blocks.map((block) => readBlock(block)).filter((text) => text);
+  const beforeCount = Number(snapshot.anchorTextCount);
+  if (!Number.isFinite(beforeCount)) return { ok: true };
+  const afterCount = texts.filter((text) => text === anchorText).length;
+  if (afterCount !== beforeCount) {
+    return { ok: false, reason: 'anchor_identity_ambiguous' };
+  }
+  if (beforeCount === 1) {
+    return { ok: true };
+  }
+  const wantOccurrence = Number(snapshot.anchorOccurrence);
+  if (!Number.isFinite(wantOccurrence) || wantOccurrence < 1) return { ok: true };
+  let seen = 0;
+  let afterAnchorIndex = -1;
+  for (let i = 0; i < texts.length; i++) {
+    if (texts[i] !== anchorText) continue;
+    seen += 1;
+    if (seen === wantOccurrence) {
+      afterAnchorIndex = i;
+      break;
+    }
+  }
+  if (afterAnchorIndex < 0) return { ok: false, reason: 'anchor_identity_ambiguous' };
+  const beforePrefix = Array.isArray(snapshot.prefixTexts) ? snapshot.prefixTexts : [];
+  const afterPrefix = texts.slice(0, afterAnchorIndex);
+  if (afterPrefix.length === beforePrefix.length) {
+    if (beforePrefix.length && !caretBlockTextMatches(beforePrefix[0], afterPrefix[0])) {
+      return { ok: false, reason: 'anchor_identity_ambiguous' };
+    }
+    if (afterPrefix.slice(1).join('\u0000') !== beforePrefix.slice(1).join('\u0000')) {
+      return { ok: false, reason: 'anchor_identity_ambiguous' };
+    }
+    return { ok: true };
+  }
+  if (afterPrefix.length === beforePrefix.length + 1) {
+    if (beforePrefix.length === 0) return { ok: false, reason: 'anchor_identity_ambiguous' };
+    if (!caretBlockTextMatches(beforePrefix[0], afterPrefix[0])) {
+      return { ok: false, reason: 'anchor_identity_ambiguous' };
+    }
+    if (afterPrefix.slice(2).join('\u0000') !== beforePrefix.slice(1).join('\u0000')) {
+      return { ok: false, reason: 'anchor_identity_ambiguous' };
+    }
+    return { ok: true };
+  }
+  return { ok: false, reason: 'anchor_identity_ambiguous' };
+}
+
 /** Pick the anchor block among equal-text matches after a DOM re-render. */
-export const REFIND_ANCHOR = (
+export function REFIND_ANCHOR(
   docSel,
   anchorText,
   anchorTop,
   norm,
-  blockText = C12_BLOCK_TEXT,
+  blockText,
   anchorOccurrence = null,
-) => {
+) {
   if (!anchorText || !docSel) return null;
   const blocks = Array.from(document.querySelectorAll(docSel));
-  if (Number.isFinite(Number(anchorOccurrence)) && Number(anchorOccurrence) >= 1) {
+  const readBlock =
+    typeof blockText === 'function'
+      ? blockText
+      : (block, normalizer) => normalizer(block.innerText || block.textContent);
+  const read = (block) => readBlock(block, norm);
+  const snapshot = typeof window !== 'undefined' ? window.__c12BeforeSnapshot : null;
+  const useOccurrence = Number.isFinite(Number(anchorOccurrence)) && Number(anchorOccurrence) >= 1;
+  if (useOccurrence && snapshot) {
+    const check = ANCHOR_REFIND_CONTEXT_OK(snapshot, blocks, read);
+    if (!check.ok) {
+      if (typeof window !== 'undefined') window.__c12AnchorRefusal = check.reason;
+      return null;
+    }
+  }
+  if (useOccurrence) {
     let seen = 0;
     for (const block of blocks) {
-      if (blockText(block, norm) !== anchorText) continue;
+      if (read(block) !== anchorText) continue;
       seen += 1;
       if (seen === Number(anchorOccurrence)) return block;
     }
+    return null;
   }
   const matches = blocks.filter((block) => blockText(block, norm) === anchorText);
   if (matches.length === 1) return matches[0];
@@ -190,7 +265,15 @@ export const REFIND_ANCHOR = (
     return best;
   }
   return null;
-};
+}
+
+const toPageExport = (fn) => fn.toString().replace(/^export\s+/, '');
+
+/** Page-evaluable source for ANCHOR_REFIND_CONTEXT_OK alone. */
+export const ANCHOR_REFIND_CONTEXT_OK_PAGE_SRC = toPageExport(ANCHOR_REFIND_CONTEXT_OK);
+
+/** Both helpers eval'd together in the page (REFIND_ANCHOR calls ANCHOR_REFIND_CONTEXT_OK). */
+export const REFIND_ANCHOR_PAGE_SRC = `${ANCHOR_REFIND_CONTEXT_OK_PAGE_SRC};\n${toPageExport(REFIND_ANCHOR)}`;
 
 /** Page context. C12 block census after the caret is placed (light-DOM blocks). */
 export function gatherReflowBefore({ docSel, pickBelowSrc, excludeSel }) {
@@ -256,12 +339,24 @@ export function gatherReflowBefore({ docSel, pickBelowSrc, excludeSel }) {
   window.__c12AnchorOccurrence = picked.anchorOccurrence;
   window.__c12DocSel = docSel;
   window.__c12ModelReflow = false;
+  const blockTexts = entries.map((entry) => entry.text);
+  const anchorTextCount = blockTexts.filter((text) => text === picked.anchorText).length;
+  const prefixTexts = blockTexts.slice(0, picked.anchorIndex);
+  window.__c12BeforeSnapshot = {
+    prefixTexts,
+    anchorText: picked.anchorText,
+    anchorTextCount,
+    anchorOccurrence: picked.anchorOccurrence,
+    anchorIndex: picked.anchorIndex,
+  };
   return {
     ok: true,
     blocks: picked.blockCount,
     anchor_index: picked.anchorIndex,
     anchor_text: picked.anchorText,
     anchor_occurrence: picked.anchorOccurrence,
+    anchor_text_count: anchorTextCount,
+    prefix_texts: prefixTexts,
     anchor_top: window.__c12AnchorTop,
     first_block_top: entries[0].el.getBoundingClientRect().top,
     first_block_text: picked.firstText,

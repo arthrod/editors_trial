@@ -48,6 +48,7 @@ class RefusalCode(StrEnum):
     EDITABLE_NOT_FOUND = 'editable_not_found'
     SURFACE_NOT_DOM_EDITABLE = 'surface_not_dom_editable'
     CLICK_POINTS_UNAVAILABLE = 'click_points_unavailable'
+    ANCHOR_IDENTITY_AMBIGUOUS = 'anchor_identity_ambiguous'
 
 
 RUN_REFUSALS = frozenset({
