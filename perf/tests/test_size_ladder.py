@@ -62,7 +62,7 @@ def test_workloads_have_separate_cells_and_table_groups(fs):
                 sub_frame_samples=[False], diagnostic={'frame_interval_ms': 16.7},
                 host_provenance={'host_build': 'production', 'publishable': True, 'tree_sha256': 'tree-a'})))
     facts = {}
-    table = _criterion_table(facts, *roots, 'C11', ['plate'])
+    table = _criterion_table(facts, roots, 'C11', ['plate'])
     assert all(workload in table for workload in LADDER[:2])
     cells = [v for k, v in facts.items() if k.endswith('.primary')]
     assert len(cells) == 2

@@ -43,6 +43,16 @@ def load_run(path: Path) -> Run:
     return Run(path, summary)
 
 
+def _run_for_root(path: Path) -> Run:
+    path = Path(path)
+    if (path / "summary.json").is_file():
+        return load_run(path)
+    jobs = e2_cells._job_roots(path)
+    if not jobs:
+        raise FileNotFoundError(path)
+    return Run(jobs[0], e2_cells._load_summary(jobs[0]) or {})
+
+
 def check_comparable(primary: Run, repro: Run) -> None:
     """A reproduction is a second run of the same measurement, nothing else.
 
@@ -71,8 +81,9 @@ def check_comparable(primary: Run, repro: Run) -> None:
     if a.get("execution_profile") != b.get("execution_profile"):
         raise ValueError("the reproduction used another execution profile")
     _require_same_pins(primary.path, repro.path)
-    if any(e2_cells._run_blocks_publication(run.summary)[0] for run in (primary, repro)):
-        return
+
+
+_PIN_SENTINEL = object()
 
 
 def _pins(root: Path) -> dict:
@@ -86,8 +97,8 @@ def _pins(root: Path) -> dict:
     pins = {}
     for row in e2_cells._iter_trials(root):
         pin = e2_cells.editor_pin(row)
-        pins.setdefault(row["editor_id"], set()).add(pin if pin else "not recorded")
-    return {editor: sorted(values) for editor, values in pins.items()}
+        pins.setdefault(row["editor_id"], set()).add(pin if pin else _PIN_SENTINEL)
+    return {editor: sorted("not recorded" if value is _PIN_SENTINEL else value for value in values) for editor, values in pins.items()}
 
 
 def _require_same_pins(primary: Path, repro: Path) -> None:
@@ -116,17 +127,48 @@ def _scheduled(root: Path, editor: str) -> int:
     return sum(1 for _, eid in _summary(root).get("order", []) if eid == editor)
 
 
+def _distinct_seeds(roots) -> list:
+    values = {
+        (summary or {}).get("seed")
+        for root in roots
+        for job in e2_cells._job_roots(Path(root))
+        for summary in [e2_cells._load_summary(job)]
+        if summary and summary.get("seed") is not None
+    }
+    return sorted(values, key=lambda seed: (seed is None, seed))
+
+
+def _scheduled_sum(roots, seed_index: int, editor: str) -> int:
+    seeds = _distinct_seeds(roots)
+    if seed_index >= len(seeds):
+        return 0
+    target = seeds[seed_index]
+    total = 0
+    for root in roots:
+        for job in e2_cells._job_roots(Path(root)):
+            summary = e2_cells._load_summary(job) or {}
+            if summary.get("seed") == target:
+                total += e2_cells._scheduled_for_editor(summary, editor, 0)
+    return total
+
+
 def _editors(primary: Path, repro: Path) -> list[str]:
-    ids: set[str] = {eid for root in (primary, repro) for _, eid in _summary(root).get("order", [])}
+    ids: set[str] = set()
 
     def collect(root: Path) -> None:
+        for job in e2_cells._job_roots(root):
+            summary = e2_cells._load_summary(job) or {}
+            for _, eid in summary.get("order", []) or []:
+                if eid:
+                    ids.add(eid)
         for row in _iter_trials(root):
             eid = row.get("editor_id")
             if eid:
                 ids.add(eid)
 
     collect(primary)
-    collect(repro)
+    if repro != primary:
+        collect(repro)
     return sorted(ids, key=lambda e: DISPLAY.get(e, e).casefold())
 
 
@@ -140,7 +182,8 @@ def _criteria_present(primary: Path, repro: Path) -> list[str]:
                 present.add(cid)
 
     collect(primary)
-    collect(repro)
+    if repro != primary:
+        collect(repro)
     return sorted(present)
 
 
@@ -158,57 +201,53 @@ def _format_median(cell: dict, median: float) -> str:
     return "%.1f ms" % median + suffix
 
 
-def _cell_text(facts: dict, primary: Path, repro: Path, editor: str, criterion: str, measure: str = '', workload_id: str | None = None) -> str:
+def _cell_text(facts: dict, roots, editor: str, criterion: str, measure: str = '', workload_id: str | None = None) -> str:
     key = 'perf.e2.%s.%s' % (editor, criterion) + ('.' + measure if measure else '') + ('.' + workload_id if workload_id else '')
     facts[key + '.reproduced'] = False
-    cells = [
-        e2_cells.build_run_cell(root, editor, criterion, scheduled=_scheduled(root, editor), measure=measure, workload_id=workload_id)
-        for root in (primary, repro)
-    ]
-    facts[key + '.primary'], facts[key + '.reproduction'] = cells
-    p_cell, r_cell = cells
-    reasons = []
-    for label, root, cell in zip(('first', 'second'), (primary, repro), cells):
-        summary = _summary(root)
-        # A run blocks through its summary or through any of its trials (a
-        # shakedown mark, #149); either way the cell never publishes.
-        blocked = e2_cells._run_blocks_publication(summary)[0] or cell.get('blocked')
-        if blocked:
-            reasons.append(
-                '%s run unpublishable: %s'
-                % (
-                    label,
-                    summary.get('publication_block_reason') or summary.get('failure_reason')
-                    or cell.get('block_reason') or 'publishable not true',
-                )
-                + ' (blocked)'
-            )
-        text = e2_cells.publication_text(cell)
-        if blocked:
-            failures = e2_cells.failure_text(cell)
-            if failures:
-                reasons.append('%s: %s' % (label, failures))
-        elif 'not enough samples' in text:
-            reasons.append('%s: %s' % (label, text))
-        if not cell['scheduled']:
-            reasons.append('%s: scheduled count not recorded' % label)
-    if reasons:
-        for label, cell in zip(('first', 'second'), cells):
-            failures = e2_cells.failure_text(cell)
-            if failures and cell['stats'] and cell['stats']['n'] >= 10:
-                entry = '%s: %s' % (label, failures)
-                if entry not in reasons:
-                    reasons.append(entry)
-        reason = '; '.join(reasons)
+    pooled = e2_cells.read_criterion_cell(roots, editor, criterion, measure=measure, workload_id=workload_id)
+    groups = pooled.get('groups') or []
+    if len(groups) < 2:
+        reason = pooled.get('reason') or 'two seeds required'
         facts[key + '.reason'] = reason
-        facts.setdefault('_not_reproduced', []).append((DISPLAY.get(editor, editor), criterion, workload_id or '—', measure or '—', reason, '—'))
+        return reason
+    p_cell, r_cell = groups[0], groups[1]
+    facts[key + '.primary'] = e2_cells.public_cell_dict(p_cell)
+    facts[key + '.reproduction'] = e2_cells.public_cell_dict(r_cell)
+    for label, cell in zip(('first', 'second'), groups):
+        if not cell.get('scheduled'):
+            reason = '%s: scheduled count not recorded' % label
+            facts[key + '.reason'] = reason
+            return reason
+    if not pooled['published']:
+        reasons = []
+        for label, cell in zip(('first', 'second'), groups):
+            if cell.get('blocked'):
+                reasons.append(
+                    '%s run unpublishable: %s (blocked)' % (label, cell.get('block_reason') or 'run blocked'))
+                failures = e2_cells.failure_text(cell)
+                if failures:
+                    reasons.append('%s: %s' % (label, failures))
+            else:
+                text = e2_cells.publication_text(cell)
+                if 'not enough samples' in text or 'not publishable' in text:
+                    reasons.append('%s: %s' % (label, text))
+            if not cell.get('scheduled'):
+                reasons.append('%s: scheduled count not recorded' % label)
+        reason = '; '.join(reasons) if reasons else pooled['reason']
+        facts[key + '.reason'] = reason
+        if reason not in ('two seeds required', 'not in these runs'):
+            facts.setdefault('_not_reproduced', []).append(
+                (DISPLAY.get(editor, editor), criterion, workload_id or '—', measure or '—', reason, '—')
+            )
+        elif _scheduled_sum(roots, 0, editor) or _scheduled_sum(roots, 1, editor):
+            facts.setdefault('_not_reproduced', []).append(
+                (DISPLAY.get(editor, editor), criterion, workload_id or '—', measure or '—', reason, '—')
+            )
         return reason
     p_text = e2_cells.publication_text(p_cell)
     frame = max(p_cell.get('frame_interval_ms') or 0, r_cell.get('frame_interval_ms') or 0)
-
     p_med = p_cell['stats']['median']
     r_med = r_cell['stats']['median']
-    key = 'perf.e2.%s.%s' % (editor, criterion) + ('.' + measure if measure else '') + ('.' + workload_id if workload_id else '')
     ok = reproduced(p_med, r_med, rel_tol=REL_TOL, abs_tol=frame)
     if not ok:
         facts[key + '.reason'] = 'medians outside tolerance'
@@ -217,20 +256,22 @@ def _cell_text(facts: dict, primary: Path, repro: Path, editor: str, criterion: 
         facts.setdefault('_not_reproduced', []).append((DISPLAY.get(editor, editor), criterion, workload_id or '—', measure or '—', first, second))
         failures = [
             '%s: %s' % (label, e2_cells.failure_text(cell))
-            for label, cell in zip(('first', 'second'), cells)
+            for label, cell in zip(('first', 'second'), groups)
             if cell.get('refusals')
         ]
         suffix = '; ' + '; '.join(failures) if failures else ''
         return 'not reproduced (first %s; second %s)%s' % (first, second, suffix)
     facts[key + '.reproduced'] = True
+    facts[key + '.primary'] = e2_cells.public_cell_dict(p_cell, published=True)
+    facts[key + '.reproduction'] = e2_cells.public_cell_dict(r_cell, published=True)
     failures = e2_cells.failure_text(r_cell)
     suffix = '; second: content not verified' if criterion == 'C11' and r_cell.get('content_verified') is not True and p_cell.get('content_verified') is True else ''
     return p_text + suffix + ('; second: ' + failures if failures else '')
 
 
-def _criterion_table(facts: dict, primary: Path, repro: Path, criterion: str, editors: list[str]) -> str:
+def _criterion_table(facts: dict, roots, criterion: str, editors: list[str]) -> str:
     groups = sorted({(e2_cells.trial_workload(row), e2_cells.trial_measure(row))
-                     for root in (primary, repro) for row in e2_cells._iter_trials(root)
+                     for root in roots for row in e2_cells._iter_trials(root)
                      if row['criterion_id'] == criterion})
     if not groups:
         return 'not in these runs.'
@@ -240,7 +281,7 @@ def _criterion_table(facts: dict, primary: Path, repro: Path, criterion: str, ed
     lines = ['| ' + ' | '.join(columns) + ' |', '|' + '---|' * len(columns)]
     for workload, measure in groups:
         for editor in editors:
-            text = _cell_text(facts, primary, repro, editor, criterion, measure, workload)
+            text = _cell_text(facts, roots, editor, criterion, measure, workload)
             row = [DISPLAY.get(editor, editor)] + ([workload or 'unspecified'] if has_workload else [])
             row += ([measure or 'unspecified'] if distinct else []) + [text]
             lines.append('| ' + ' | '.join(row) + ' |')
@@ -287,6 +328,46 @@ def _machine(summary: dict | None = None) -> str:
     return (summary or {}).get("host_class") or "not recorded"
 
 
+def _space_name(root: Path) -> str:
+    root = Path(root)
+    if (root / "runs").is_dir():
+        return root.name
+    if root.parent.name == "runs":
+        return root.parent.parent.name
+    return root.name
+
+
+def _all_job_summaries(roots) -> list[dict]:
+    rows = []
+    for root in map(Path, roots):
+        for job in e2_cells._job_roots(root):
+            summary = e2_cells._load_summary(job)
+            if summary:
+                rows.append({**summary, "space": _space_name(root)})
+    return rows
+
+
+def check_roots_comparable(roots) -> None:
+    """Versions and pins must match across every shard; host class must agree."""
+    summaries = _all_job_summaries(roots)
+    if len(summaries) < 2:
+        return
+    first = summaries[0]
+    for summary in summaries[1:]:
+        if summary.get("versions") != first.get("versions"):
+            raise ValueError("the reproduction attested other versions")
+        ra, rb = first.get("rendering") or {}, summary.get("rendering") or {}
+        for key in ("browser_version", "playwright_version", "vendor", "renderer", "headless"):
+            if ra.get(key) != rb.get(key):
+                raise ValueError("the reproduction used other Playwright or Chromium versions")
+        if summary.get("host_class") != first.get("host_class"):
+            raise ValueError("the reproduction used another host class")
+        if summary.get("execution_profile") != first.get("execution_profile"):
+            raise ValueError("the reproduction used another execution profile")
+    for index, root in enumerate(roots[1:], 1):
+        _require_same_pins(Path(roots[0]), Path(root))
+
+
 def _host_note(summary: dict) -> str:
     playwright, chromium, renderer = _rendering(summary)
     return ("Host class: %s. %s. Playwright %s; Chromium %s; renderer %s; headless %s. "
@@ -294,6 +375,30 @@ def _host_note(summary: dict) -> str:
                 _machine(summary), _host_block(summary), playwright, chromium, renderer,
                 (summary.get("rendering") or {}).get("headless", "not recorded"),
                 _steal(summary), _throttle(summary), summary.get("trial_pins", "not recorded")))
+
+
+def _host_note_campaign(roots) -> str:
+    summaries = _all_job_summaries(roots)
+    if not summaries:
+        return "not yet measured"
+    spaces = sorted({row.get("space", "not recorded") for row in summaries})
+    host_class = summaries[0].get("host_class", "not recorded")
+    lines = [
+        "Each seed ran on the same hardware class (%s) on separate virtual machines "
+        "(Spaces %s), not on one host." % (host_class, ", ".join(spaces)),
+    ]
+    by_seed: dict = {}
+    for row in summaries:
+        by_seed.setdefault(row.get("seed"), []).append(row)
+    pin_roots = [Path(root) for root in roots if e2_cells._job_roots(Path(root))]
+    trial_pins = _pins(pin_roots[0]) if pin_roots else {}
+    for label, seed in zip(("First", "Second"), sorted(by_seed, key=lambda value: (value is None, value))[:2]):
+        row = by_seed[seed][0]
+        lines.append(
+            "%s seed (Space %s): %s"
+            % (label, row.get("space", "?"), _host_note({**row, "trial_pins": trial_pins}))
+        )
+    return "\n\n".join(lines)
 
 
 def _steal(summary: dict) -> str:
@@ -337,7 +442,7 @@ def _not_run_editors(primary: Path, repro: Path, editors: list[str]) -> str:
     lines = []
     for editor in editors:
         for criterion in E2_CRITERIA:
-            p = e2_cells.build_run_cell(primary, editor, criterion, scheduled=_scheduled(primary, editor))
+            p = e2_cells.build_run_cell(primary, editor, criterion, scheduled=_scheduled_sum([primary], 0, editor))
             if p.get("stats"):
                 continue
             refusals = p.get("refusals") or {}
@@ -412,11 +517,33 @@ def legacy_snapshot_facts(facts: dict) -> dict:
 
 
 def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
-    primary, repro = load_run(primary_dir), load_run(repro_dir)
-    check_comparable(primary, repro)
-    editors = _editors(primary.path, repro.path)
-    criteria = _criteria_present(primary.path, repro.path)
-    s = primary.summary
+    return facts_from_roots([primary_dir, repro_dir])
+
+
+def facts_from_roots(roots) -> dict:
+    roots = [Path(r) for r in roots]
+    classic = len(roots) == 2 and all((root / "summary.json").is_file() for root in roots)
+    if classic:
+        primary, repro = load_run(roots[0]), load_run(roots[1])
+        try:
+            check_comparable(primary, repro)
+        except ValueError:
+            raise
+    else:
+        check_roots_comparable(roots)
+    editors = sorted({
+        eid
+        for root in roots
+        for eid in _editors(root, root)
+    }, key=lambda e: DISPLAY.get(e, e).casefold())
+    criteria = sorted({
+        cid
+        for root in roots
+        for cid in _criteria_present(root, root)
+    })
+    primary = _run_for_root(roots[0]) if roots else Run(Path("."), {})
+    repro = _run_for_root(roots[1]) if len(roots) > 1 else primary
+    s = primary.summary if roots else {}
     playwright, chromium, renderer = _rendering(s)
     facts: dict = {
         "perf.e2.provenance": "Per-Space provenance not supplied.",
@@ -424,22 +551,30 @@ def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
         "perf.e2.word_verification": "Word verification not recorded for this generated twin.",
         "perf.e2.measured": "measured",
         "perf.e2.status": "",
-        "perf.e2.run_id": s["run_id"],
-        "perf.e2.repro_run_id": repro.summary["run_id"],
-        "perf.e2.seed": s["seed"],
-        "perf.e2.repro_seed": repro.summary["seed"],
+        "perf.e2.run_id": s.get("run_id", "not recorded"),
+        "perf.e2.repro_run_id": repro.summary.get("run_id", "not recorded"),
+        "perf.e2.seed": s.get("seed", "—"),
+        "perf.e2.repro_seed": repro.summary.get("seed", "—"),
         "perf.e2.date": _date(s),
         "perf.e2.repro_date": _date(repro.summary),
         "perf.e2.machine": _machine(s),
         "perf.e2.host": _host_block(s),
         "perf.e2.host_class": s.get("host_class", "?"),
-        "perf.e2.host_note": "First run: " + _host_note({**s, "trial_pins": _pins(primary.path)}) + "\n\nSecond run: " + _host_note({**repro.summary, "trial_pins": _pins(repro.path)}),
+        "perf.e2.host_note": (
+            _host_note_campaign(roots)
+            if len({_space_name(root) for root in roots}) > 1 or any((Path(root) / "runs").is_dir() for root in roots)
+            else "First run: " + _host_note({**s, "trial_pins": _pins(primary.path)})
+            + "\n\nSecond run: " + _host_note({**repro.summary, "trial_pins": _pins(repro.path)})
+        ),
         "perf.e2.steal": _steal(s),
         "perf.e2.throttle": _throttle(s),
         "perf.e2.renderer": renderer,
         "perf.e2.playwright": playwright,
         "perf.e2.chromium": chromium,
-        "perf.e2.scheduled": {"primary": {e: _scheduled(primary.path, e) for e in editors}, "reproduction": {e: _scheduled(repro.path, e) for e in editors}},
+        "perf.e2.scheduled": {
+            "primary": {e: _scheduled_sum(roots, 0, e) for e in editors},
+            "reproduction": {e: _scheduled_sum(roots, 1, e) for e in editors},
+        },
         "perf.e2.rel_tol_pct": REL_TOL_PCT,
         "perf.e2.rule": (
             "Each launch contributes the median of its own samples; n counts kept launches. "
@@ -462,16 +597,16 @@ def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
     for cid in E2_CRITERIA:
         facts["perf.e2.criterion.%s" % cid] = blurbs.get(cid, cid)
     for cid in criteria:
-        facts["perf.e2.table.%s" % cid] = _criterion_table(facts, primary.path, repro.path, cid, editors)
+        facts["perf.e2.table.%s" % cid] = _criterion_table(facts, roots, cid, editors)
     for cid in E2_CRITERIA:
         facts.setdefault("perf.e2.table.%s" % cid, "not in these runs.")
     typing_groups = sorted({(row['editor_id'], row.get('session_kind'))
-                            for root in (primary.path, repro.path) for row in _iter_trials(root)
+                            for root in roots for row in _iter_trials(root)
                             if row['criterion_id'] == 'TYPING' and row.get('session_kind') in ('throughput', 'latency')})
     if typing_groups:
-        facts['perf.e2.table.TYPING'] = '\n\n'.join(typing_table(facts, primary.path, repro.path, editor, kind) for editor, kind in typing_groups)
-    facts.update(resource_facts([primary.path, repro.path], editors))
-    facts["perf.e2.not_run"] = _not_run_editors(primary.path, repro.path, editors)
+        facts['perf.e2.table.TYPING'] = '\n\n'.join(typing_table(facts, roots, editor, kind) for editor, kind in typing_groups)
+    facts.update(resource_facts(roots, editors))
+    facts["perf.e2.not_run"] = _not_run_editors(roots[0], roots[-1], editors)
     facts["perf.e2.not_reproduced"] = _not_reproduced_table(facts)
     published = [k for k in facts if k.endswith(".reproduced")]
     facts["perf.e2.cells_checked"] = len(published)
@@ -520,19 +655,50 @@ def fmt_resource(value, unit="bytes") -> str:
     return f'{value:g} {unit}'
 
 
-def typing_table(facts, primary, repro, editor, kind):
+def _typing_group_for_seed(roots, editor, kind, seed):
+    from perf.analysis.e2_typing import read_sessions
+    from collections import Counter
+
+    parts = []
+    for root in roots:
+        group = read_sessions(Path(root), editor, kind)
+        if group.get("seed") not in (None, seed):
+            continue
+        if group.get("scheduled") or group.get("kept") or group.get("blocked"):
+            parts.append(group)
+    if not parts:
+        return dict(scheduled=0, kept=[], refusals={}, blocked=True, block_reason="not in these runs", progress=[], seed=seed)
+    merged = dict(parts[0])
+    for part in parts[1:]:
+        merged["scheduled"] = merged.get("scheduled", 0) + part.get("scheduled", 0)
+        merged["kept"] = (merged.get("kept") or []) + (part.get("kept") or [])
+        merged["refusals"] = dict(Counter(merged.get("refusals") or {}) + Counter(part.get("refusals") or {}))
+        merged["blocked"] = merged.get("blocked") or part.get("blocked")
+        merged["block_reason"] = merged.get("block_reason") or part.get("block_reason")
+    merged["seed"] = seed
+    return merged
+
+
+def _typing_facts_group(group, fields):
+    if group.get("blocked") or len(group.get("kept") or []) < 10:
+        return {key: value for key, value in group.items() if key != "kept"}
+    return {**group, "kept": [{name: row[name] for name in fields if name in row} for row in group["kept"]]}
+
+
+def typing_table(facts, roots, editor, kind):
     from perf.analysis.e2_typing import read_sessions, resource_values
-    groups = [read_sessions(root, editor, kind) for root in (primary, repro)]
+    label = f'{DISPLAY.get(editor, editor)} — {kind}'
+    seeds = _distinct_seeds(roots)
+    if len(seeds) < 2 or (len(seeds) == 2 and seeds[0] == seeds[1]):
+        return label + ': two distinct seeds and runs required.' + (
+            ' Latency-session throughput and resources are instrumented; figures withheld.' if kind == 'latency' else '')
+    groups = [_typing_group_for_seed(roots, editor, kind, seed) for seed in seeds[:2]]
     key = f'perf.e2.{editor}.TYPING.{kind}'
     fields = ('load_ms', 'key_to_paint') if kind == 'latency' else ('throughput_chars_s', 'resources', 'resource_endpoints')
-    public_groups = [{**group, 'kept': [{name: row[name] for name in fields if name in row}
-                                      for row in group['kept']]} for group in groups]
+    public_groups = [_typing_facts_group(group, fields) for group in groups]
     facts[key + '.primary'], facts[key + '.reproduction'] = public_groups
     facts[key + '.reproduced'] = False
-    label = f'{DISPLAY.get(editor, editor)} — {kind}'
     instrumented = ' Latency-session throughput and resources are instrumented; figures withheld.' if kind == 'latency' else ''
-    if groups[0]['seed'] is None or groups[0]['seed'] == groups[1]['seed'] or primary == repro:
-        return label + ': two distinct seeds and runs required.' + instrumented
     reasons = []
     for name, group in zip(('first', 'second'), groups):
         if group['blocked'] or group['scheduled'] != 12 or len(group['kept']) < 10:
@@ -540,7 +706,10 @@ def typing_table(facts, primary, repro, editor, kind):
     if reasons:
         return label + ': ' + '; '.join(reasons) + instrumented
     try:
-        check_comparable(*(Run(root, {**_summary(root), 'publishable': True}) for root in (primary, repro)))
+        if len(roots) == 2:
+            check_comparable(*(Run(Path(root), {**_summary(Path(root)), 'publishable': True}) for root in roots))
+        else:
+            check_roots_comparable(roots)
     except ValueError as exc:
         return label + ': ' + str(exc) + instrumented
     # Fixture identity is part of the experiment, including across seeds.

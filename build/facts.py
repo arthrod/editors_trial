@@ -360,7 +360,10 @@ def perf_e2_facts(path: Path, facts: dict) -> None:
         facts.update(perf_e2_tables.unset_facts())
         return
     runs = json.loads(path.read_text())
-    if "primary" in runs or "repro" in runs:
+    if "roots" in runs:
+        resolved = [Path(root) if Path(root).is_absolute() else ROOT / root for root in runs["roots"]]
+        facts.update(perf_e2_tables.facts_from_roots(resolved))
+    elif "primary" in runs or "repro" in runs:
         facts.update(perf_e2_tables.facts_from_runs(ROOT / runs["primary"], ROOT / runs["repro"]))
     else:
         facts.update(perf_e2_tables.unset_facts())

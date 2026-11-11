@@ -49,7 +49,7 @@ def test_c04_median_is_not_bucketed_by_an_ambient_frame_interval(runs):
     assert cell['frame_interval_ms'] is None
     assert '< 1 frame' not in cells.publication_text(cell)
     facts = {}
-    text = report._cell_text(facts, *runs, 'plate', 'C04')
+    text = report._cell_text(facts, list(runs), 'plate', 'C04')
     assert facts['perf.e2.plate.C04.reproduced'] is True
     assert '2.3 ms' in text and '< 1 frame' not in text
 

@@ -53,10 +53,9 @@ def _shakedown_reason(row) -> str | None:
     """
     if row.get('shakedown') is True:
         return 'shakedown: few repetitions to find bugs; never a publication run'
-    if row.get('publishable') is False:
-        reason = str(row.get('publication_block_reason') or '')
-        if reason.startswith('shakedown'):
-            return reason
+    reason = str(row.get('publication_block_reason') or '')
+    if reason.startswith('shakedown'):
+        return reason
     return None
 
 
@@ -75,10 +74,10 @@ def _trial_block(trial):
         return code
     if trial.get('publishable') is not True or _nested_unpublishable(trial.get('host_provenance')):
         return 'publishable_not_true'
-    if editor_pin(trial) is None:
-        return 'pin_not_recorded'
     if trial.get('outcome') != 'measured':
         return 'crash'
+    if editor_pin(trial) is None:
+        return 'pin_not_recorded'
     return None
 
 
@@ -255,6 +254,10 @@ def _job_roots(run_directory: Path) -> list[Path]:
         for job in sorted(run_directory.glob('*/*'))
         if job.is_dir() and any((job / part).exists() for part in parts)
     ]
+    if not jobs and (run_directory / 'runs').is_dir():
+        for campaign in sorted((run_directory / 'runs').iterdir()):
+            if campaign.is_dir():
+                jobs.extend(_job_roots(campaign))
     return jobs or [run_directory]
 
 
@@ -302,22 +305,51 @@ def _refusal_key(sample_or_trial: dict) -> str:
     return str(reason).split(":", 1)[0].strip()
 
 
+_FIGURE_FIELDS = frozenset({'stats', 'kept_ms', 'raw_samples_ms', 'sub_frame'})
+
+
+def public_cell_dict(cell: dict, *, published: bool = False) -> dict:
+    """Facts payload for one seed group: figures only when the cell publishes."""
+    if published:
+        return dict(cell)
+    return {key: value for key, value in cell.items() if key not in _FIGURE_FIELDS}
+
+
 def build_run_cell(
     run_directory: Path, editor_id: str, criterion_id: str, *, scheduled: int = 30, measure: str = '', workload_id: str | None = None
 ) -> dict:
-    jobs = _lane_jobs(run_directory, _job_roots(run_directory), editor_id, criterion_id)
+    job_pairs = [(run_directory, job) for job in _lane_jobs(run_directory, _job_roots(run_directory), editor_id, criterion_id)]
+    return _build_cell_from_jobs(job_pairs, editor_id, criterion_id, scheduled=scheduled, measure=measure, workload_id=workload_id)
+
+
+def _build_cell_from_jobs(
+    job_pairs: list[tuple[Path, Path]],
+    editor_id: str,
+    criterion_id: str,
+    *,
+    scheduled: int = 30,
+    measure: str = '',
+    workload_id: str | None = None,
+) -> dict:
+    if not job_pairs:
+        return {
+            'editor_id': editor_id, 'criterion_id': criterion_id, 'measure': measure, 'workload_id': workload_id,
+            'scheduled': 0, 'stats': None, 'blocked': False, 'block_reason': None, 'refusals': {},
+        }
+    jobs = [job for _, job in job_pairs]
     summaries = [_load_summary(job) for job in jobs]
     orders = [summary for summary in summaries if (summary or {}).get('order')]
-    scheduled = sum(_scheduled_for_editor(summary, editor_id, 0) for summary in orders) if orders else scheduled
+    scheduled = sum(_scheduled_for_editor(summary, editor_id, 0) for summary in orders) if orders else 0
     run_blocked, block_reason = next(
         ((True, reason) for summary in summaries for blocked, reason in [_run_blocks_publication(summary)] if blocked),
         (False, None),
     )
     if not run_blocked:
-        # A shakedown mark on any trial of the run blocks the whole run, even
-        # when the job summary omits it (#149).
-        block_reason = _run_shakedown(run_directory)
-        run_blocked = block_reason is not None
+        for run_directory, _job in job_pairs:
+            mark = _run_shakedown(run_directory)
+            if mark:
+                run_blocked, block_reason = True, mark
+                break
     kept, raw, sub_frame, intervals = [], [], [], []
     refusals = Counter()
     sample_unit = 'bytes' if criterion_id in ('C17', 'C19') else 'ms'
@@ -327,26 +359,27 @@ def build_run_cell(
     additional = defaultdict(set)
     witnessed_cell = False
     verified_content = []
-    for launch, path, trial in _attempt_rows_of(run_directory, jobs):
-        if trial.get('refusal_code') == 'unreadable_trial' and launch.endswith('-' + editor_id):
-            if launch in refused_launches:
-                additional[launch].add(refused_launches[launch])
-            refused_launches[launch] = 'unreadable_trial'
-        if trial.get('editor_id') != editor_id or not trial.get('criterion_id'):
-            continue
-        if workload_id is not None and trial_workload(trial) != workload_id:
-            continue
-        code = refusal_code(trial)
-        if code in _RUN_REFUSALS:
-            if refused_launches.get(launch) == 'unreadable_trial':
-                additional[launch].add(code)
-            else:
+    for run_directory, job in job_pairs:
+        for launch, path, trial in _attempt_rows_of(run_directory, [job]):
+            if trial.get('refusal_code') == 'unreadable_trial' and launch.endswith('-' + editor_id):
                 if launch in refused_launches:
                     additional[launch].add(refused_launches[launch])
-                refused_launches[launch] = code
-        if trial['criterion_id'] == criterion_id and trial_measure(trial) == measure:
-            trials[launch].append(trial)
-    for job in jobs:
+                refused_launches[launch] = 'unreadable_trial'
+            if trial.get('editor_id') != editor_id or not trial.get('criterion_id'):
+                continue
+            if workload_id is not None and trial_workload(trial) != workload_id:
+                continue
+            code = refusal_code(trial)
+            if code in _RUN_REFUSALS:
+                if refused_launches.get(launch) == 'unreadable_trial':
+                    additional[launch].add(code)
+                else:
+                    if launch in refused_launches:
+                        additional[launch].add(refused_launches[launch])
+                    refused_launches[launch] = code
+            if trial['criterion_id'] == criterion_id and trial_measure(trial) == measure:
+                trials[launch].append(trial)
+    for run_directory, job in job_pairs:
         for path in (job / 'rejected-evidence').glob('*'):
             if path.is_dir() and path.name.endswith('-' + editor_id):
                 key = _launch_key(run_directory, job, path.name)
@@ -441,6 +474,78 @@ def build_run_cell(
     }
 
 
+def _criterion_job_pairs(roots, editor_id: str, criterion_id: str) -> dict:
+    groups: dict = {}
+    for root in map(Path, roots):
+        for job in _lane_jobs(root, _job_roots(root), editor_id, criterion_id):
+            summary = _load_summary(job) or {}
+            scheduled = _scheduled_for_editor(summary, editor_id, 0)
+            if not scheduled and not _job_measures(root, job, editor_id, criterion_id):
+                continue
+            seed = summary.get('seed')
+            groups.setdefault(seed, []).append((root, job))
+    return groups
+
+
+def _criterion_pins(job_pairs: list[tuple[Path, Path]], editor_id: str) -> set:
+    pins: set = set()
+    for run_directory, job in job_pairs:
+        for _launch, _path, row in _attempt_rows_of(run_directory, [job]):
+            if row.get('editor_id') == editor_id:
+                pin = editor_pin(row)
+                if pin:
+                    pins.add(pin)
+    return pins
+
+
+def _criterion_block(seeds, groups) -> str | None:
+    if not groups:
+        return 'not in these runs'
+    if len(groups) != 2 or None in seeds:
+        return 'two seeds required'
+    for name, group in zip(('first', 'second'), groups):
+        if group['blocked']:
+            reason = group.get('block_reason') or 'run blocked'
+            return '%s seed: run blocked (%s)' % (name, reason)
+    for name, group in zip(('first', 'second'), groups):
+        stats = group.get('stats') or {}
+        n_kept = stats.get('n', 0)
+        if n_kept < MIN_PUBLISH_N:
+            reasons = ', '.join('%s %d' % item for item in sorted((group.get('refusals') or {}).items()))
+            return '%s seed: %d of %d launches kept%s' % (
+                name, n_kept, group.get('scheduled', 0), ' (%s)' % reasons if reasons else '')
+    return None
+
+
+def read_criterion_cell(
+    roots, editor_id: str, criterion_id: str, *, measure: str = '', workload_id: str | None = None
+) -> dict:
+    """Pool launches by seed across any number of campaign roots (#154)."""
+    by_seed = _criterion_job_pairs(roots, editor_id, criterion_id)
+    seeds = sorted(by_seed, key=lambda seed: (seed is None, seed))
+    groups = [
+        _build_cell_from_jobs(by_seed[seed], editor_id, criterion_id, measure=measure, workload_id=workload_id)
+        for seed in seeds
+    ]
+    cell = {'published': False, 'reason': None, 'seeds': seeds, 'groups': groups, 'by_seed': by_seed}
+    cell['reason'] = _criterion_cell_block(seeds, groups, by_seed, editor_id)
+    if not cell['reason']:
+        cell['published'] = True
+    return cell
+
+
+def _criterion_cell_block(seeds, groups, by_seed, editor_id: str) -> str | None:
+    missing = _criterion_block(seeds, groups)
+    if missing:
+        return missing
+    pins = [_criterion_pins(by_seed[seed], editor_id) for seed in seeds]
+    if any(not pin or len(pin) != 1 for pin in pins):
+        return 'the built editor is not recorded'
+    if pins[0] != pins[1]:
+        return 'the two seeds measured different editor builds'
+    return None
+
+
 def _sub_frame_share(cell: dict) -> float | None:
     flags = cell.get('sub_frame') or []
     if not flags or len(flags) != len(cell.get('kept_ms', [])):
@@ -531,4 +636,4 @@ def publish_dual_runs(
 
     first, second = load_run(primary), load_run(reproduction)
     check_comparable(first, second)
-    return _cell_text({}, first.path, second.path, editor_id, criterion_id, measure, workload_id)
+    return _cell_text({}, [first.path, second.path], editor_id, criterion_id, measure, workload_id)

@@ -131,7 +131,7 @@ def test_typing_session_without_identity_refuses(runs):
             row = json.loads(path.read_text())
             row.pop('host_provenance', None)
             path.write_text(json.dumps(row))
-    text = report.typing_table({}, *runs, 'plate', 'throughput')
+    text = report.typing_table({}, list(runs), 'plate', 'throughput')
     assert 'pin_not_recorded' in text and 'chars/s' not in text
 
 
@@ -139,7 +139,7 @@ def test_typing_run_with_shakedown_trial_never_publishes(runs):
     typing_pair(runs)
     path = runs[1] / 'cells/0000-plate/attempts/TYPING.json'
     path.write_text(json.dumps({**json.loads(path.read_text()), 'shakedown': True}))
-    text = report.typing_table({}, *runs, 'plate', 'throughput')
+    text = report.typing_table({}, list(runs), 'plate', 'throughput')
     assert 'shakedown' in text and 'chars/s' not in text
 
 

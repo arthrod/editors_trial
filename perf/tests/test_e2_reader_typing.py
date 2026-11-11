@@ -65,7 +65,7 @@ def typing_pair(runs, kind='throughput', count=12, **updates):
 
 def render(runs, kind):
     assert callable(getattr(report, 'typing_table', None)), 'B9 reader absent'
-    return report.typing_table({}, *runs, 'plate', kind)
+    return report.typing_table({}, list(runs), 'plate', kind)
 
 
 def test_throughput_resources_and_markers(runs):
@@ -222,7 +222,7 @@ def test_typing_reproduction_allows_matching_editor_build_tree(runs):
 def test_latency_instrumented_values_never_enter_public_facts(runs):
     typing_pair(runs, 'latency')
     facts = {}
-    report.typing_table(facts, *runs, 'plate', 'latency')
+    report.typing_table(facts, list(runs), 'plate', 'latency')
     serialized = json.dumps(facts)
     assert '999999' not in serialized and '987654321' not in serialized
     assert 'throughput_chars_s' not in serialized and 'resources' not in serialized

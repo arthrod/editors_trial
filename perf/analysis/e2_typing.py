@@ -18,12 +18,12 @@ def session_refusal(row, kind):
         return row['failure_reason']
     if cells.refusal_code(row):
         return cells.refusal_code(row)
-    if row.get('outcome') != 'measured':
-        return 'not_measured'
     if row.get('publication_block_reason') not in (None, DEFERRED):
         return row['publication_block_reason']
     if row.get('publishable') is not True and row.get('publication_block_reason') != DEFERRED:
         return 'publishable_not_true'
+    if row.get('outcome') != 'measured':
+        return 'not_measured'
     if cells.editor_pin(row) is None:
         # A session that records no built-editor identity cannot pair with
         # another run's sessions (#149).

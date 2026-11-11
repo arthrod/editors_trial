@@ -38,7 +38,7 @@ def test_ledger_retains_measure_and_workload(runs):
     for root in runs:
         trial(root, 0, 'C14', measure='50kw', workload_id='prose')
     facts = {}
-    report._cell_text(facts, *runs, 'plate', 'C14', '50kw', 'prose')
+    report._cell_text(facts, list(runs), 'plate', 'C14', '50kw', 'prose')
     text = report._not_reproduced_table(facts)
     assert '50kw' in text and 'prose' in text
 
@@ -55,7 +55,7 @@ def test_empty_criteria_do_not_invent_cells(runs):
     facts = report.facts_from_runs(*runs)
     assert facts['perf.e2.cells_checked'] == 1
     assert 'unspecified' not in facts['perf.e2.table.C14']
-    assert 'unspecified' not in report._criterion_table({}, *runs, 'C15', ['plate'])
+    assert 'unspecified' not in report._criterion_table({}, list(runs), 'C15', ['plate'])
 
 
 @pytest.mark.parametrize('verified', [True, False, None])
@@ -63,7 +63,7 @@ def test_c11_content_is_not_inferred(runs, verified):
     for root in runs:
         for i in range(10):
             trial(root, i, 'C11', content_verified=verified)
-    text = report._cell_text({}, *runs, 'plate', 'C11')
+    text = report._cell_text({}, list(runs), 'plate', 'C11')
     assert ('content not verified' in text) == (verified is not True)
 
 
@@ -71,7 +71,7 @@ def test_reproduction_content_is_also_disclosed(runs):
     for root in runs:
         for i in range(10):
             trial(root, i, 'C11', content_verified=root == runs[0])
-    assert 'content not verified' in report._cell_text({}, *runs, 'plate', 'C11')
+    assert 'content not verified' in report._cell_text({}, list(runs), 'plate', 'C11')
 
 
 def test_accounting_outage_reaches_host_note():
@@ -113,7 +113,7 @@ def test_unverified_content_also_labels_nonreproduced_medians(runs):
     for root, value in zip(runs, (20, 200)):
         for i in range(10):
             trial(root, i, 'C11', samples_ms=[value], content_verified=False)
-    text = report._cell_text({}, *runs, 'plate', 'C11')
+    text = report._cell_text({}, list(runs), 'plate', 'C11')
     assert 'not reproduced' in text
     assert text.count('content not verified') == 2
 

@@ -14,6 +14,8 @@ REPO = Path(__file__).resolve().parents[2]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
+_TREE = {"host_provenance": {"tree_sha256": "tree-fixture", "host_build": "production", "publishable": True}}
+
 
 class ChromeProfileExclusion(unittest.TestCase):
     def test_truncated_profile_invoke_does_not_refuse_measured_launch(self):
@@ -30,6 +32,7 @@ class ChromeProfileExclusion(unittest.TestCase):
             "sub_frame_samples": [False],
             "diagnostic": {"frame_interval_ms": 16.0},
             "environment": {"editor_id": "plate", "workload_id": "prose-500w"},
+            **_TREE,
         }
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -96,6 +99,7 @@ class ChromeProfileExclusion(unittest.TestCase):
             "sub_frame_samples": [False],
             "diagnostic": {"frame_interval_ms": 16.0},
             "environment": {"editor_id": "plate", "workload_id": "prose-500w"},
+            **_TREE,
         }
         nested = {**measured, "accounting_scope": "sample"}
 
@@ -195,8 +199,10 @@ class ChromeProfileExclusion(unittest.TestCase):
             "criterion_id": "C10",
             "editor_id": "plate",
             "outcome": "measured",
+            "publishable": True,
             "environment": {"workload_id": "prose-500w"},
             "diagnostic": {},
+            **_TREE,
         }
         profiled = {
             "criterion_id": "C10",
@@ -214,7 +220,7 @@ class ChromeProfileExclusion(unittest.TestCase):
             (attempts / "profile-c10.json").write_text(json.dumps(profiled))
             (root / "summary.json").write_text(json.dumps({"order": [(0, "plate")], "publishable": True}))
             facts: dict = {}
-            table = _criterion_table(facts, root, root, "C10", ["plate"])
+            table = _criterion_table(facts, [root, root], "C10", ["plate"])
             self.assertNotIn("unspecified", table)
 
     def test_profile_pass_samples_are_diagnostic(self):
@@ -294,6 +300,7 @@ class ChromeProfileExclusion(unittest.TestCase):
                 "sub_frame_samples": [False],
                 "diagnostic": {"frame_interval_ms": 16.0},
                 "environment": {"editor_id": "plate", "workload_id": "prose-500w"},
+                **_TREE,
             }
             profiled = {
                 **measured,

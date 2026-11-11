@@ -32,7 +32,7 @@ def test_byte_trials_keep_phases_without_timing_fields(runs, criterion, phase):
     cell = cells.build_run_cell(runs[0], 'plate', criterion, measure=phase)
     assert cell['refusals'] == {}
     assert cell['stats']['n'] == 10
-    text = report._cell_text({}, *runs, 'plate', criterion, phase)
+    text = report._cell_text({}, list(runs), 'plate', criterion, phase)
     assert 'bytes' in text and ' ms' not in text
 
 
@@ -41,7 +41,7 @@ def test_memory_summary_delegates_only_its_neutral_flag(runs):
         s = json.loads((root / 'summary.json').read_text())
         s.update(publishable=False, publication_block_reason='summary is not a trial; trials carry publishability')
         (root / 'summary.json').write_text(json.dumps(s))
-    assert 'unpublishable' not in report._cell_text({}, *runs, 'plate', 'C07')
+    assert 'unpublishable' not in report._cell_text({}, list(runs), 'plate', 'C07')
     assert not cells.build_run_cell(runs[0], 'plate', 'C07')['blocked']
     s.update(outcome='failed', failure_reason='repos_modified')
     (runs[0] / 'summary.json').write_text(json.dumps(s))
