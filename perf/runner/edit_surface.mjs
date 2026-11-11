@@ -82,8 +82,8 @@ export const DOCUMENT_TEXT_SURFACES = {
   plate: { kind: 'dom', root: '[contenteditable="true"]', whole: true },
   // Paginated viewer: only mounted pages carry text at load time.
   docxodus: { kind: 'dom', root: '#pages', whole: false },
-  // v2 keeps one clean text copy on .superdoc-line; .superdoc-page can be empty in the walker.
-  superdoc: { kind: 'dom', root: '#editor .superdoc-line', whole: false },
+  // v2: one clean copy on .superdoc-page innerText (lines may not expose text nodes to the walker).
+  superdoc: { kind: 'dom', root: '#editor .superdoc-page', whole: false, domText: 'innerText' },
   genoffice: { kind: 'dom', root: '.doc-page.ProseMirror:not(.mp-page)', whole: false },
   eigenpal: { kind: 'model', model: 'eigenpal' },
   folio: { kind: 'dom', root: '[data-page-number]', whole: false },
@@ -109,7 +109,7 @@ export function documentTextSurface(editorId) {
  * (for model hosts) total length, while persisted evidence keeps only an
  * excerpt.
  */
-export const READ_EDITOR_DOCUMENT_TEXT = ({ kind, root, model, deep = false }) => {
+export const READ_EDITOR_DOCUMENT_TEXT = ({ kind, root, model, deep = false, domText = null }) => {
   const result = (text, oracle, source, error = null) => ({
     text: String(text || ''),
     chars: String(text || '').length,
@@ -213,8 +213,14 @@ export const READ_EDITOR_DOCUMENT_TEXT = ({ kind, root, model, deep = false }) =
   const roots = root
     ? Array.from(deep ? queryDeep(root) : document.querySelectorAll(root))
     : [];
+  const pickDom = (element) => {
+    if (domText === 'innerText') {
+      return String(element.innerText ?? element.textContent ?? '');
+    }
+    return visibleTextFromRoot(element);
+  };
   const text = roots
-    .map((element) => visibleTextFromRoot(element))
+    .map((element) => pickDom(element))
     .filter((part) => part.length > 0)
     .join('\n');
   return result(text, 'dom', 'dom');
@@ -225,7 +231,10 @@ export async function readEditorDocumentText(page, editorId, { root = null } = {
   const request = hasDocumentTextSurface(editorId)
     ? surface
     : { kind: 'dom', root, deep: true };
-  return page.evaluate(READ_EDITOR_DOCUMENT_TEXT, request);
+  return page.evaluate(
+    READ_EDITOR_DOCUMENT_TEXT,
+    { ...request, domText: surface.domText || null },
+  );
 }
 
 /** Whole-document read plus opening/closing/length gate for one editor. */

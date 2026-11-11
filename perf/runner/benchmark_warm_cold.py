@@ -642,6 +642,8 @@ def input_sample_record(observation, criterion_id):
         reason = 'clock_disagreement'
     if not reason and criterion_id in ('C05', 'C06') and 'edit_ms' in row:
         proof = row.get('edit_confirmation') or {}
+        adapter = proof.get('adapter') or {}
+        adapter_confirmed = adapter.get('confirmed') is True and adapter.get('adapter') in ('model', 'flag')
         pixels = proof.get('changed_pixels')
         rects = proof.get('visible_rects')
         visible = isinstance(rects, list) and bool(rects) and all(
@@ -649,7 +651,7 @@ def input_sample_record(observation, criterion_id):
                 and not isinstance(r.get(k), bool) and math.isfinite(r[k])
                 for k in ('x', 'y', 'width', 'height'))
             and r['width'] > 0 and r['height'] > 0 for r in rects)
-        if (proof.get('confirmed') is not True or not visible
+        if not adapter_confirmed and (proof.get('confirmed') is not True or not visible
                 or isinstance(pixels, bool) or not isinstance(pixels, (int, float))
                 or not math.isfinite(pixels) or pixels < DEFAULT_MIN_PIXELS):
             reason = 'expected_edit_not_confirmed'

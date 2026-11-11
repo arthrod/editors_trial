@@ -365,6 +365,22 @@ class ReviewPolicy(unittest.TestCase):
         self.assertEqual(row['failure_reason'], 'expected_edit_not_confirmed')
         self.assertIsNone(row['latency_ms'])
 
+    def test_model_adapter_confirmed_skips_dom_pixel_proof(self):
+        row = runner.input_sample_record({
+            'edit_ms': 24,
+            'outcome': 'measured',
+            'witness': frame_record(),
+            'clock_skew': {'skew_ms': 0, 'bound_ms': 2, 'acceptable': True},
+            'edit_confirmation': {
+                'confirmed': True,
+                'changed_pixels': 0,
+                'visible_rects': [],
+                'adapter': {'adapter': 'model', 'confirmed': True},
+            },
+        }, 'C05')
+        self.assertIsNone(row['failure_reason'])
+        self.assertEqual(row['outcome'], 'measured')
+
     def test_f4_refusal_reason_survives_missing_clock(self):
         row = runner.input_sample_record({'outcome': 'failed', 'failure_reason': 'trusted_keydown_not_observed'}, 'C05')
         self.assertEqual(row['failure_reason'], 'trusted_keydown_not_observed')

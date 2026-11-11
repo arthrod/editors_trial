@@ -162,7 +162,7 @@ assert.equal(mod.hasDocumentTextSurface('apryse'), false);
 const expected = {
   plate: { kind: 'dom', root: '[contenteditable="true"]', whole: true },
   docxodus: { kind: 'dom', root: '#pages', whole: false },
-  superdoc: { kind: 'dom', root: '#editor .superdoc-line', whole: false },
+  superdoc: { kind: 'dom', root: '#editor .superdoc-page', whole: false },
   genoffice: { kind: 'dom', root: '.doc-page.ProseMirror:not(.mp-page)', whole: false },
   eigenpal: { kind: 'model', model: 'eigenpal' },
   folio: { kind: 'dom', root: '[data-page-number]', whole: false },
