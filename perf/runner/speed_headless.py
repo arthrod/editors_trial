@@ -181,8 +181,16 @@ def _dirty_tracked(path: Path) -> list[list[str]] | None:
 def _dirty_verdict(rel: str, dirty: list[list[str]] | None) -> tuple[bool, str | None]:
     if dirty is None:
         return False, "git status failed"
+    # macOS Finder drops untracked .DS_Store files everywhere; they are not
+    # the editors' code, so they never refuse a run (any other untracked or
+    # tracked change still does).
+    def _is_finder(path: str) -> bool:
+        return path == ".DS_Store" or path.endswith("/.DS_Store")
+
+    finder_noise = [path for code, path in dirty if code == "?" and _is_finder(path)]
+    dirty = [row for row in dirty if not (row[0] == "?" and _is_finder(row[1]))]
     if not dirty:
-        return True, None
+        return True, ("%d untracked .DS_Store Finder files" % len(finder_noise)) if finder_noise else None
     allowed = ALLOWED_DELETIONS.get(rel)
     if allowed and all(code == "D" and path.startswith(allowed[0]) for code, path in dirty):
         return True, "%d deletions under %s: %s" % (len(dirty), allowed[0], allowed[1])

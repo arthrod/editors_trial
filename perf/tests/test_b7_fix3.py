@@ -92,6 +92,60 @@ def test_raising_accounting_reader_continues_and_finishes_integration(tmp_path, 
         assert summary['samples'][1]['cpu_accounting']['available'] is True
 
 
+@pytest.mark.parametrize('with_duplicate', [False, True])
+def test_one_attempt_per_criterion_measure_and_rung_per_launch_integration(tmp_path, monkeypatch, with_duplicate):
+    """72cec1e8 (#151) publishes each C14 rung under its own measurement name,
+    so one launch carries the same (criterion, measure) for several rungs; the
+    rung is part of the attempt's identity, and only a true duplicate within
+    one rung refuses."""
+    def main():
+        directory = Path(sys.argv[sys.argv.index('--out-root') + 1])
+        for index, rung in enumerate(['prose-500w', 'prose-5kw']):
+            api.write_json(
+                directory / str(index) / 'attempts' / f'c14-{rung}.json',
+                {
+                    'criterion_id': 'C14',
+                    'measure': 'presented_frame',
+                    'outcome': 'measured',
+                    'samples_ms': [21.0],
+                    'publishable': True,
+                    'diagnostic': {'size_rung': rung},
+                },
+            )
+        if with_duplicate:
+            # a genuine duplicate: the same rung twice
+            api.write_json(
+                directory / '2' / 'attempts' / 'c14-dup.json',
+                {
+                    'criterion_id': 'C14',
+                    'measure': 'presented_frame',
+                    'outcome': 'measured',
+                    'samples_ms': [22.0],
+                    'publishable': True,
+                    'diagnostic': {'size_rung': 'prose-500w'},
+                },
+            )
+        return 0
+
+    monkeypatch.setattr(
+        sys, 'argv', ['fake', '--out-root', str(tmp_path), '--run-id', 'rungs', '--seed', '7', '--editors', 'plate']
+    )
+    expected = 3 if with_duplicate else 0
+    assert api.run_cli(
+        main,
+        'fake',
+        {'plate': {}},
+        run_factory=partial(api.BrowserRun, snapshot=lambda: {}, accounting_reader=lambda: {'available': False, 'reason': 'darwin'}),
+        facts=(lambda: {}, lambda: {}),
+    ) == expected
+    summary = json.loads((tmp_path / 'fake/rungs/summary.json').read_text())
+    sample = summary['samples'][0]
+    if with_duplicate:
+        assert sample['failure_reason'] == 'multiple_attempts_per_launch'
+    else:
+        assert sample['outcome'] == 'ok'
+
+
 @pytest.mark.parametrize('criteria,refused', [(['C08', 'C08'], True), (['C08', 'C09'], False)])
 def test_one_attempt_per_criterion_per_launch_integration(tmp_path, monkeypatch, criteria, refused):
     def main():

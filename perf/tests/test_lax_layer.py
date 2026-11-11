@@ -295,3 +295,27 @@ class ThrottleTolerance(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class UnavailableAccountingDisclosure(unittest.TestCase):
+    """A sample whose CPU accounting is unavailable stays measurable with the
+    refusal named; a publishable=False row carries its block reason (darwin
+    local runs at ``--host-class dedicated`` hit this on every sample)."""
+
+    def test_unavailable_accounting_rows_carry_a_block_reason(self):
+        from perf.runner.browser_run import BrowserRun
+
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        run = BrowserRun(
+            tmp.name, "fake", seed=8, run_id="lax2", snapshot=lambda: {},
+            accounting_reader=lambda: {"available": False, "reason": "cgroup v2 CPU accounting unavailable on darwin"},
+        )
+        run.begin_sample()
+        path = run.sample("kept", dict(outcome="measured", samples_ms=[12]))
+        row = json.loads(path.read_text())
+        self.assertEqual(row["outcome"], "measured")
+        self.assertEqual(row["refusal_code"], "cpu_accounting_unavailable")
+        self.assertFalse(row["publishable"])
+        self.assertEqual(row["publication_block_reason"], "cpu_accounting_unavailable")
+        self.assertEqual(row["samples_ms"], [12])

@@ -342,6 +342,8 @@ class BrowserRun:
                 rejected_evidence_directory=str(destination),
             )
         elif not accounting['available'] and not value.get('publication_block_reason'):
+            # The row keeps its measurements (unavailable accounting is not
+            # throttling), stays unpublishable, and names why.
             value.update(
                 refusal_code='cpu_accounting_unavailable',
                 publishable=False,
@@ -738,7 +740,12 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
                             diagnostic = value.get('diagnostic') or {}
                             measure = value.get('measure') or diagnostic.get('size_rung') or diagnostic.get('measurement') or ''
                             phase = value.get('measurement_phase') or ''
-                            identity = (criterion, str(measure), str(phase))
+                            # 72cec1e8 (#151) publishes each size rung under
+                            # its own measurement name, so one launch can carry
+                            # the same (criterion, measure) for several rungs;
+                            # the rung is part of the attempt's identity.
+                            rung = diagnostic.get('size_rung') or ''
+                            identity = (criterion, str(measure), str(phase), str(rung))
                             attempts[identity] = attempts.get(identity, 0) + 1
                     if runner == 'benchmark_typing' and isinstance(value, dict) and value.get('criterion_id') == 'TYPING':
                         typing_kept = (value.get('outcome') == 'measured' and not value.get('failure_reason')

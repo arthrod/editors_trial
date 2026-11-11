@@ -453,6 +453,27 @@ class Attestation(unittest.TestCase):
         self.assertFalse(sh._dirty_verdict("repos/plate", [["D", "scripts/coverage/xsd.ts"]])[0])
         self.assertEqual(sh._dirty_verdict("repos/plate", []), (True, None))
 
+    def test_finder_ds_store_noise_is_not_a_checkout_change(self):
+        # macOS Finder drops untracked .DS_Store files into every directory;
+        # they are not the editors' code, so the verdict allows them (the
+        # reason names them) while any other untracked file still refuses.
+        ok, why = sh._dirty_verdict("repos/docen", [["?", ".DS_Store"]])
+        self.assertTrue(ok)
+        self.assertIn(".DS_Store", why)
+        ok2, why2 = sh._dirty_verdict(
+            "repos/docen", [["?", ".DS_Store"], ["?", "scratch.ts"]]
+        )
+        self.assertFalse(ok2)
+        # Finder drops them in subdirectories too.
+        ok3, why3 = sh._dirty_verdict(
+            "repos/fiduswriter-document-ts", [["?", "demo/.DS_Store"], ["?", ".DS_Store"]]
+        )
+        self.assertTrue(ok3)
+        self.assertFalse(
+            sh._dirty_verdict("repos/fiduswriter-document-ts", [["M", "demo/.DS_Store"]])[0]
+        )
+        self.assertFalse(sh._dirty_verdict("repos/docen", [["M", ".DS_Store"]])[0])
+
     def test_docsplus_attests_the_copy_it_runs(self):
         self.assertIn("harness/docsplus/repo-copy", sh.ATTEST["docsplus"]["checkouts"])
 
