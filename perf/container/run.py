@@ -214,6 +214,7 @@ def main(argv: list[str] | None = None):
     parser.add_argument('--seed2', type=int)
     parser.add_argument('--out-root', type=Path, default=DEFAULT_OUT_ROOT)
     parser.add_argument('--detach', action='store_true')
+    parser.add_argument('--shard', default=None, help='I/N: run only jobs whose global index %% N == I (whole jobs; ids keep the global index)')
     args = parser.parse_args(argv)
     if args.detach and os.environ.get('HF_RUN_CHILD') != '1':
         try:
@@ -243,6 +244,16 @@ def main(argv: list[str] | None = None):
          + (['--session-kind', kind] if kind else []))
         for name in RUNNERS for kind in (('throughput', 'latency') if name == 'benchmark_typing' else (None,))
     ]
+    shard = None
+    if args.shard is not None:
+        try:
+            part, total = (int(value) for value in args.shard.split('/'))
+        except ValueError:
+            parser.error('--shard must be I/N')
+        if total < 1 or not 0 <= part < total:
+            parser.error('--shard must be I/N with 0 <= I < N')
+        shard = (part, total)
+        print(f'shard={part}/{total}', flush=True)
     if not args.dry_run and hasattr(os, 'sched_setaffinity'):
         print(pin_to_quota(), flush=True)
     host_cmd = [sys.executable, '-m', 'perf.container.check_host']
@@ -263,6 +274,8 @@ def main(argv: list[str] | None = None):
     run_log = campaign_root / 'RUN.log'
     try:
         for index, (name, options) in enumerate(jobs):
+            if shard is not None and index % shard[1] != shard[0]:
+                continue
             run_id = f'{stamp}-{index:03d}'
             cmd = [sys.executable, '-m', 'perf.runner.' + name] if args.publish else [sys.executable, '-m', 'perf.container.smoke', name]
             cmd += ['--out-root', str(campaign_root), '--run-id', run_id, *options]
@@ -335,7 +348,7 @@ def main(argv: list[str] | None = None):
     finally:
         if not args.dry_run:
             for index, (name, _options) in enumerate(jobs):
-                if index not in jobs_started:
+                if index not in jobs_started and (shard is None or index % shard[1] == shard[0]):
                     run_id = f'{stamp}-{index:03d}'
                     failures.append(f'{name}/{run_id}: job_not_run')
             done_exit = 1 if failures else run_exit
