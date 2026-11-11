@@ -71,7 +71,7 @@ def bucket_env(tmp_path, monkeypatch):
 
     client = FakeBucketClient()
     monkeypatch.setattr(mirror, 'BUCKET_CLIENT_FACTORY', lambda token: client)
-    monkeypatch.setenv('HF_BUCKET_TOKEN', 'hf_unit_test_token')
+    monkeypatch.setenv('HF_BUCKET_TOKEN', 'unit-test-token')
     monkeypatch.setenv('SPACE_ID', 'arthrod/e2-publish')
     monkeypatch.setenv('HF_MIRROR_ROOT', str(tmp_path / 'mirror'))
     monkeypatch.delenv('HF_BUCKET_ID', raising=False)
@@ -364,3 +364,127 @@ class TestVerifyAndLogLines:
         mirror.mirror_job_directory(run_id, 'runner_b', f'{run_id}-001', job2, run_log)
         assert len(bucket_lines(run_log, f'runner_a/{run_id}-000')) == 1
         assert len(bucket_lines(run_log, f'runner_b/{run_id}-001')) == 1
+
+
+class TestToken:
+    def test_no_token_logs_bucket_skip_once_per_run(self, tmp_path, monkeypatch):
+        from perf.container import mirror
+
+        monkeypatch.delenv('HF_BUCKET_TOKEN', raising=False)
+        monkeypatch.setattr(mirror, 'PROC1_ENVIRON', str(tmp_path / 'absent-environ'))
+        client = FakeBucketClient()
+        monkeypatch.setattr(mirror, 'BUCKET_CLIENT_FACTORY', lambda token: client)
+        remote = tmp_path / 'remote'
+        run_id = 'camp-20'
+        campaign = campaign_root(remote, run_id)
+        run_log = campaign / 'RUN.log'
+        job1 = seal_job(remote, run_id, 'runner_a', f'{run_id}-000', {'summary.json': '{}'})
+        mirror.mirror_job_directory(run_id, 'runner_a', f'{run_id}-000', job1, run_log)
+        job2 = seal_job(remote, run_id, 'runner_b', f'{run_id}-001', {'summary.json': '{}'})
+        mirror.mirror_job_directory(run_id, 'runner_b', f'{run_id}-001', job2, run_log)
+        mirror.mirror_campaign_tail(campaign, run_id, run_log)
+        text = run_log.read_text() if run_log.exists() else ''
+        assert text.count('BUCKET-SKIP no_token') == 1
+        assert 'BUCKET-OK' not in text and 'BUCKET-ERROR' not in text
+        assert client.files == {} and not any(c[0] == 'batch' for c in client.calls)
+
+    def test_proc1_environ_supplies_token_when_env_missing(self, tmp_path, monkeypatch):
+        from perf.container import mirror
+
+        environ = tmp_path / 'environ'
+        environ.write_bytes(b'PATH=/usr/bin\0HF_BUCKET_TOKEN=proc1-test-token\0OTHER=1\0')
+        monkeypatch.delenv('HF_BUCKET_TOKEN', raising=False)
+        monkeypatch.setattr(mirror, 'PROC1_ENVIRON', str(environ))
+        assert mirror._bucket_token() == 'proc1-test-token'
+
+    def test_env_token_wins_over_proc1_environ(self, tmp_path, monkeypatch):
+        from perf.container import mirror
+
+        environ = tmp_path / 'environ'
+        environ.write_bytes(b'HF_BUCKET_TOKEN=proc1-test-token\0')
+        monkeypatch.setenv('HF_BUCKET_TOKEN', 'env-test-token')
+        monkeypatch.setattr(mirror, 'PROC1_ENVIRON', str(environ))
+        assert mirror._bucket_token() == 'env-test-token'
+
+    def test_unreadable_proc1_environ_means_no_token(self, tmp_path, monkeypatch):
+        from perf.container import mirror
+
+        monkeypatch.delenv('HF_BUCKET_TOKEN', raising=False)
+        monkeypatch.setattr(mirror, 'PROC1_ENVIRON', str(tmp_path / 'not-there'))
+        assert mirror._bucket_token() is None
+
+    def test_upload_runs_on_proc1_token(self, tmp_path, bucket_env, monkeypatch):
+        from perf.container import mirror
+
+        environ = tmp_path / 'environ'
+        environ.write_bytes(b'HF_BUCKET_TOKEN=proc1-test-token\0')
+        monkeypatch.delenv('HF_BUCKET_TOKEN')
+        monkeypatch.setattr(mirror, 'PROC1_ENVIRON', str(environ))
+        remote = tmp_path / 'remote'
+        run_id = 'camp-21'
+        job_dir = seal_job(remote, run_id, 'runner_a', f'{run_id}-000', {'summary.json': '{}'})
+        mirror.mirror_job_directory(run_id, 'runner_a', f'{run_id}-000', job_dir,
+                                    campaign_root(remote, run_id) / 'RUN.log')
+        assert f'runs/arthrod/e2-publish/{run_id}/runner_a/{run_id}-000/summary.json' in bucket_env.files
+
+    def test_missing_library_logs_skip_once(self, tmp_path, monkeypatch):
+        from perf.container import mirror
+
+        monkeypatch.setenv('HF_BUCKET_TOKEN', 'test-token-x')
+        monkeypatch.setattr(mirror, 'BUCKET_CLIENT_FACTORY', None)
+        monkeypatch.setitem(sys.modules, 'huggingface_hub', None)
+        remote = tmp_path / 'remote'
+        run_id = 'camp-22'
+        campaign = campaign_root(remote, run_id)
+        run_log = campaign / 'RUN.log'
+        job1 = seal_job(remote, run_id, 'runner_a', f'{run_id}-000', {'summary.json': '{}'})
+        mirror.mirror_job_directory(run_id, 'runner_a', f'{run_id}-000', job1, run_log)
+        mirror.mirror_campaign_tail(campaign, run_id, run_log)
+        text = run_log.read_text() if run_log.exists() else ''
+        assert text.count('BUCKET-SKIP no_huggingface_hub') == 1
+
+    def test_token_never_appears_in_log_stderr_or_run_files(self, tmp_path, monkeypatch, capsys):
+        from perf.container import mirror
+
+        token = 'test-token-neverlogged-0001'
+        monkeypatch.setenv('HF_BUCKET_TOKEN', token)
+
+        def leaky_batch(bucket_id, *, add=None, copy=None, delete=None, token=None):
+            raise RuntimeError(f'401 Unauthorized: token {token} rejected')
+
+        client = FakeBucketClient()
+        client.batch_bucket_files = leaky_batch
+        monkeypatch.setattr(mirror, 'BUCKET_CLIENT_FACTORY', lambda t: client)
+        remote = tmp_path / 'remote'
+        run_id = 'camp-23'
+        campaign = campaign_root(remote, run_id)
+        run_log = campaign / 'RUN.log'
+        job_dir = seal_job(remote, run_id, 'runner_a', f'{run_id}-000', {'summary.json': '{}'})
+        mirror.mirror_job_directory(run_id, 'runner_a', f'{run_id}-000', job_dir, run_log)
+        text = run_log.read_text()
+        assert token not in text
+        assert 'BUCKET-ERROR' in text and '<redacted>' in text
+        for path in campaign.rglob('*'):
+            if path.is_file():
+                assert token.encode() not in path.read_bytes(), path
+        captured = capsys.readouterr()
+        assert token not in captured.out and token not in captured.err
+
+    def test_mirror_main_sanitizes_token_in_exception_text(self, tmp_path, monkeypatch, capsys):
+        from perf.container import mirror
+
+        token = 'test-token-in-exc-0002'
+        monkeypatch.setenv('HF_BUCKET_TOKEN', token)
+
+        def boom(run_log, line):
+            raise RuntimeError(f'log append failed with {token}')
+
+        monkeypatch.setattr(mirror, '_append_run_log', boom)
+        remote = tmp_path / 'remote'
+        run_id = 'camp-24'
+        campaign = campaign_root(remote, run_id)
+        run_log = campaign / 'RUN.log'
+        job_dir = seal_job(remote, run_id, 'runner_a', f'{run_id}-000', {'summary.json': '{}'})
+        rc = mirror.main(['job', run_id, 'runner_a', f'{run_id}-000', str(job_dir), str(run_log)])
+        captured = capsys.readouterr()
+        assert token not in captured.err and token not in captured.out

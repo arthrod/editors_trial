@@ -35,6 +35,9 @@ BUCKET_EXCLUDES: tuple[str, ...] = (
 # Tests inject a fake client here: callable(token) -> client with
 # list_bucket_tree / batch_bucket_files. None means the real HfApi.
 BUCKET_CLIENT_FACTORY = None
+# Runs are started over Dev Mode ssh, whose session may not carry the Space's
+# secrets; the Space's own process environment is the fallback.
+PROC1_ENVIRON = '/proc/1/environ'
 
 
 def bucket_excluded(rel: str) -> bool:
@@ -51,7 +54,19 @@ def _space_name() -> str:
 
 
 def _bucket_token() -> str | None:
-    return os.environ.get('HF_BUCKET_TOKEN') or None
+    token = os.environ.get('HF_BUCKET_TOKEN')
+    if token:
+        return token
+    prefix = b'HF_BUCKET_TOKEN='
+    try:
+        raw = Path(PROC1_ENVIRON).read_bytes()
+    except OSError:
+        return None
+    for field in raw.split(b'\0'):
+        if field.startswith(prefix):
+            value = field[len(prefix):].decode('utf-8', 'replace')
+            return value or None
+    return None
 
 
 def _bucket_client(token: str):
@@ -68,6 +83,16 @@ def _safe_reason(exc: BaseException, token: str | None) -> str:
         text = text.replace(token, '<redacted>')
     text = ' '.join(text.split())
     return text[:160] or 'error'
+
+
+def _log_skip_once(run_log: Path | None, line: str) -> None:
+    if run_log is not None and run_log.is_file():
+        try:
+            if line in run_log.read_text(encoding='utf-8', errors='replace'):
+                return
+        except OSError:
+            pass
+    _append_run_log(run_log, line)
 
 
 def _local_sizes(root: Path) -> dict[str, int]:
@@ -158,12 +183,15 @@ def _sync_job_to_bucket(client, bucket: str, run_prefix: str, rel: str, job_dir:
 def _bucket_sync_inner(campaign_root: Path, campaign_id: str, run_log: Path | None,
                        *, audit_all: bool, token: str | None) -> None:
     if not token:
+        _log_skip_once(run_log, 'BUCKET-SKIP no_token')
         return
     try:
         client = _bucket_client(token)
     except Exception:
+        _log_skip_once(run_log, 'BUCKET-SKIP no_huggingface_hub')
         return
     if client is None:
+        _log_skip_once(run_log, 'BUCKET-SKIP no_huggingface_hub')
         return
     bucket = _bucket_id()
     run_prefix = f'runs/{_space_name()}/{campaign_id}'
@@ -385,16 +413,24 @@ def main(argv: list[str] | None = None) -> int:
     tail.add_argument('campaign_id')
     tail.add_argument('run_log', type=Path)
     args = parser.parse_args(argv)
-    if args.command == 'job':
-        mirror_job_directory(
-            args.campaign_id,
-            args.runner,
-            args.job_id,
-            args.job_dir,
-            args.run_log,
-        )
-    else:
-        mirror_campaign_tail(args.campaign_root, args.campaign_id, args.run_log)
+    try:
+        if args.command == 'job':
+            mirror_job_directory(
+                args.campaign_id,
+                args.runner,
+                args.job_id,
+                args.job_dir,
+                args.run_log,
+            )
+        else:
+            mirror_campaign_tail(args.campaign_root, args.campaign_id, args.run_log)
+    except Exception as exc:
+        try:
+            token = _bucket_token()
+        except Exception:
+            token = None
+        print(_safe_reason(exc, token), file=sys.stderr)
+        return 1
     return 0
 
 
