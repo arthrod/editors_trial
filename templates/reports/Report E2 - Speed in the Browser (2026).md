@@ -112,6 +112,12 @@ Each C15 step is a separate measure; steps are never pooled.
 
 {{perf.e2.table.C19}}
 
+### B9 — typing marathon
+
+Each kind schedules 12 sessions per editor per seed and requires at least 10 kept. Throughput sessions publish chars/s and resources. Latency sessions publish load and key-to-paint with witness counts; their instrumented throughput and resources are withheld.
+
+{{perf.e2.table.TYPING}}
+
 ## Not measured in the browser run
 
 {{perf.e2.not_run}}

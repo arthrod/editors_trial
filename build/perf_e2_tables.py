@@ -331,6 +331,7 @@ def unset_facts() -> dict:
     """Facts when ``report_e2_runs.json`` is absent: the template still renders."""
     blurbs = _criterion_blurbs()
     facts = {
+        "perf.e2.table.TYPING": "not in these runs.",
         "perf.e2.word_verification": "Word verification not recorded for this generated twin.",
         "perf.e2.measured": "not yet measured",
         "perf.e2.status": "This report is not yet measured.",
@@ -384,6 +385,7 @@ def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
     s = primary.summary
     playwright, chromium, renderer = _rendering(s)
     facts: dict = {
+        "perf.e2.table.TYPING": "not in these runs.",
         "perf.e2.word_verification": "Word verification not recorded for this generated twin.",
         "perf.e2.measured": "measured",
         "perf.e2.status": "",
@@ -421,6 +423,11 @@ def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
         facts["perf.e2.table.%s" % cid] = _criterion_table(facts, primary.path, repro.path, cid, editors)
     for cid in E2_CRITERIA:
         facts.setdefault("perf.e2.table.%s" % cid, "not in these runs.")
+    typing_groups = sorted({(row['editor_id'], row.get('session_kind'))
+                            for root in (primary.path, repro.path) for row in _iter_trials(root)
+                            if row['criterion_id'] == 'TYPING' and row.get('session_kind') in ('throughput', 'latency')})
+    if typing_groups:
+        facts['perf.e2.table.TYPING'] = '\n\n'.join(typing_table(facts, primary.path, repro.path, editor, kind) for editor, kind in typing_groups)
     facts["perf.e2.not_run"] = _not_run_editors(primary.path, repro.path, editors)
     facts["perf.e2.not_reproduced"] = _not_reproduced_table(facts)
     published = [k for k in facts if k.endswith(".reproduced")]
@@ -447,3 +454,70 @@ def fmt_resource(value, unit="bytes") -> str:
     if unit == 'bytes':
         return f'{value / 1024:.1f} KiB' if abs(value) >= 1024 else f'{value:g} B'
     return f'{value:g} {unit}'
+
+
+def typing_table(facts, primary, repro, editor, kind):
+    from perf.analysis.e2_typing import read_sessions, resource_values
+    groups = [read_sessions(root, editor, kind) for root in (primary, repro)]
+    key = f'perf.e2.{editor}.TYPING.{kind}'
+    fields = ('load_ms', 'key_to_paint') if kind == 'latency' else ('throughput_chars_s', 'resources', 'resource_endpoints')
+    public_groups = [{**group, 'kept': [{name: row[name] for name in fields if name in row}
+                                      for row in group['kept']]} for group in groups]
+    facts[key + '.primary'], facts[key + '.reproduction'] = public_groups
+    facts[key + '.reproduced'] = False
+    label = f'{DISPLAY.get(editor, editor)} — {kind}'
+    instrumented = ' Latency-session throughput and resources are instrumented; figures withheld.' if kind == 'latency' else ''
+    if groups[0]['seed'] is None or groups[0]['seed'] == groups[1]['seed'] or primary == repro:
+        return label + ': two distinct seeds and runs required.' + instrumented
+    reasons = []
+    for name, group in zip(('first', 'second'), groups):
+        if group['blocked'] or group['scheduled'] != 12 or len(group['kept']) < 10:
+            reasons.append(f"{name}: not enough sessions or run blocked (n = {len(group['kept'])} of {group['scheduled']}; {group['block_reason'] or group['refusals']}); progress {group['progress']}")
+    if reasons:
+        return label + ': ' + '; '.join(reasons) + instrumented
+    try:
+        check_comparable(*(Run(root, {**_summary(root), 'publishable': True}) for root in (primary, repro)))
+    except ValueError as exc:
+        return label + ': ' + str(exc) + instrumented
+    # Fixture identity is part of the experiment, including across seeds.
+    if len({(row['fixture_sha256'], row['typed_text_sha256']) for group in groups for row in group['kept']}) != 1:
+        return label + ': fixture mismatch' + instrumented
+    values = []
+    for group in groups:
+        metrics = {}
+        for row in group['kept']:
+            pairs = [('throughput_chars_s', row['throughput_chars_s'])] if kind == 'throughput' else [
+                ('load_ms', row['load_ms']), ('key_to_paint.median_ms', row['key_to_paint']['median_ms']),
+                ('key_to_paint.p90_ms', row['key_to_paint']['p90_ms'])]
+            if kind == 'throughput':
+                for field in ('resources', 'resource_endpoints'):
+                    pairs.extend(resource_values(row.get(field, {}), field))
+            for name, value in pairs:
+                metrics.setdefault(name, []).append(value)
+        values.append(metrics)
+    lines = [label + f"; first n = {len(groups[0]['kept'])} of 12; second n = {len(groups[1]['kept'])} of 12." + instrumented,
+             '| Measure | First seed | Second seed |', '|---|---|---|']
+    all_reproduced = True
+    for name in sorted(set(values[0]) | set(values[1])):
+        series = [v.get(name, []) for v in values]
+        numeric = [[x for x in items if e2_cells._number(x)] for items in series]
+        unit = 'chars/s' if name == 'throughput_chars_s' else 'ms' if name.endswith('_ms') else 'bytes' if name.endswith('_bytes') else 'count' if name.endswith('_count') else ''
+        if all(len(items) >= 10 for items in numeric):
+            medians = [e2_cells.percentile(items, 50) for items in numeric]
+            agrees = reproduced(*medians, rel_tol=REL_TOL, abs_tol=0)
+            all_reproduced &= agrees
+            text = [fmt_resource(m, unit) + f' (n = {len(items)})' for m, items in zip(medians, numeric)] if agrees else ['not reproduced', 'not reproduced']
+        else:
+            text = ['; '.join(sorted({fmt_resource(x, unit) for x in items if not e2_cells._number(x)})) or 'not enough samples' for items in series]
+        for i, items in enumerate(series):
+            markers = sorted({fmt_resource(x, unit) for x in items if not e2_cells._number(x)})
+            if len(numeric[i]) >= 10 and markers:
+                text[i] += '; ' + '; '.join(markers)
+        lines.append('| ' + name + ' | ' + ' | '.join(text) + ' |')
+    if kind == 'latency':
+        for name, group in zip(('first', 'second'), groups):
+            accepted = sum(row['key_to_paint']['n_accepted'] for row in group['kept'])
+            refused = sum(row['key_to_paint']['n_refused'] for row in group['kept'])
+            lines.append(f'{name}: accepted {accepted}; refused {refused} key witnesses.')
+    facts[key + '.reproduced'] = all_reproduced
+    return '\n'.join(lines)
