@@ -33,6 +33,14 @@ def estimate(name, options, shakedown=None):
         full = _C14
     else:
         full = _BASE[name] * _RUNG[options[options.index('--workload') + 1]]
+    if '--block' in options:
+        # A block: every editor, a few of the 30 repetitions, one host build each;
+        # its first block is traced, which doubles the launches.
+        from .policy import SHAKEDOWN_COUNT_FLAG, job_editors
+        editors = len(job_editors(options))
+        share = int(options[options.index(SHAKEDOWN_COUNT_FLAG[name]) + 1]) / 30
+        traced = 2 if '--chrome-profile' in options else 1
+        return full * editors * share * traced + _BUILD * editors
     return full if not shakedown else full * (shakedown + 1) / 30 + _BUILD
 
 
@@ -64,9 +72,10 @@ def main(argv=None):
     parser.add_argument('--seed2', type=int, default=2)
     parser.add_argument('--shakedown', type=int, default=None)
     parser.add_argument('--skip', default='', help='comma list of job indices already measured')
+    parser.add_argument('--blocks', type=int, default=None, help='interleaved blocks per seed (publication layout)')
     args = parser.parse_args(argv)
     editors = [name for name in BROWSER_TARGETS if name != 'apryse' and host_policy(name)['publishable']]
-    jobs = publication_jobs(editors, args.seed, args.seed2, 'shared_guarded')
+    jobs = publication_jobs(editors, args.seed, args.seed2, 'shared_guarded', blocks=args.blocks)
     skip = {int(t) for t in args.skip.split(',') if t}
     todo = [i for i in range(len(jobs)) if i not in skip]
     costs = [estimate(*jobs[i], shakedown=args.shakedown) for i in todo]

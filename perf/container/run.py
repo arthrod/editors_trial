@@ -10,7 +10,7 @@ import signal
 import subprocess
 import sys
 from . import artifacts
-from .policy import RUNNERS, job_editor, publication_jobs, shakedown_options, verify_run, cell_counts, verify_profiles
+from .policy import RUNNERS, job_editors, publication_jobs, shakedown_options, verify_run, cell_counts, verify_profiles
 
 DEFAULT_OUT_ROOT = Path('perf/container/out/runs')
 
@@ -235,6 +235,8 @@ def main(argv: list[str] | None = None):
     parser.add_argument('--shakedown', type=int, default=None,
                         help='N: every selected job with N repetitions (typing: one 900 s session); never publishable')
     parser.add_argument('--jobs', default=None, help='comma list of global job indices (from perf.container.plan)')
+    parser.add_argument('--blocks', type=int, default=None,
+                        help='N: the publication layout, N interleaved blocks per seed, every editor in each')
     args = parser.parse_args(argv)
     from perf.runner.benchmark_warm_cold import BROWSER_TARGETS
     from perf.runner.browser_hosts import host_policy
@@ -249,7 +251,9 @@ def main(argv: list[str] | None = None):
         parser.error('--publish requires --seed2')
     if args.shakedown is not None and (not args.publish or args.shakedown < 1):
         parser.error('--shakedown N needs --publish and N >= 1')
-    jobs = publication_jobs(editors, args.seed, args.seed2, args.host_class) if args.publish else [
+    if args.blocks is not None and (not args.publish or args.shakedown is not None):
+        parser.error('--blocks N needs --publish and excludes --shakedown')
+    jobs = publication_jobs(editors, args.seed, args.seed2, args.host_class, blocks=args.blocks) if args.publish else [
         (name, ['--execution-profile', 'ci_contract', '--host-class', 'ci_coarse', '--seed', str(args.seed)]
          + (['--session-kind', kind] if kind else []))
         for name in RUNNERS for kind in (('throughput', 'latency') if name == 'benchmark_typing' else (None,))
@@ -287,7 +291,7 @@ def main(argv: list[str] | None = None):
             return False
         if args.runners is not None and name not in args.runners:
             return False
-        return args.editors is None or job_editor(options) in args.editors
+        return args.editors is None or bool(set(job_editors(options)) & set(args.editors))
 
     selection = ({'jobs': [i for i in range(len(jobs)) if selected(i)], 'total_jobs': len(jobs),
                   **({'shakedown': args.shakedown} if args.shakedown is not None else {})}

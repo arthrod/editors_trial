@@ -358,6 +358,8 @@ class BrowserRun:
             result.update(failure_reason='repos_dirty_at_start', publishable=False)
         if repos_modified(self.before, after):
             result.update(outcome='failed', failure_reason='repos_modified', publishable=False)
+        if getattr(self, 'block', None):
+            result['block'] = self.block
         if getattr(self, 'shakedown', False):
             result.update(shakedown=True, publishable=False,
                           publication_block_reason='shakedown: few repetitions to find bugs; never a publication run')
@@ -557,6 +559,11 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
         parser.add_argument('--session-kind', choices=('throughput', 'latency'), default='throughput')
     parser.add_argument('--chrome-profile', action='store_true',
                         help='after each cell, run one traced diagnostic repetition')
+    # A block is one of N jobs that together make one seed's schedule: every
+    # editor, a few repetitions each, on one machine (interleaved blocks).
+    parser.add_argument('--block', default=None, metavar='K/N')
+    if single:
+        parser.add_argument('--editors', nargs='+', default=None, dest='block_editors')
     argv = list(sys.argv)
     args, rest = parser.parse_known_args()
     if '--help' in rest or '-h' in rest:
@@ -567,6 +574,17 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
     if runner == 'benchmark_typing':
         rest += ['--session-kind', args.session_kind]
     editors = [args.editors] if single else args.editors
+    if single and args.block_editors:
+        editors = args.block_editors
+    block = None
+    if args.block is not None:
+        try:
+            index, total = (int(value) for value in args.block.split('/'))
+        except ValueError:
+            parser.error('--block must be K/N')
+        if total < 1 or not 1 <= index <= total:
+            parser.error('--block must be K/N with 1 <= K <= N')
+        block = (index, total)
     minimum_repetitions = TYPING_PUBLICATION_SESSIONS if runner == 'benchmark_typing' else PUBLICATION_REPETITIONS
     def _count_flag_explicit(tokens, flag):
         if flag:
@@ -583,9 +601,10 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
         args.repetitions = minimum_repetitions
     # Shakedown (run.py --shakedown): every rung, few repetitions, never publishable.
     shakedown = os.environ.get('PERF_SHAKEDOWN') == '1'
-    if args.execution_profile == 'dedicated_publish' and args.repetitions < minimum_repetitions and not shakedown:
+    planned = args.repetitions * (block[1] if block else 1)
+    if args.execution_profile == 'dedicated_publish' and planned < minimum_repetitions and not shakedown:
         parser.error(
-            f'#136: dedicated_publish requires at least {minimum_repetitions} repetitions per editor, got {args.repetitions}'
+            f'#136: dedicated_publish requires at least {minimum_repetitions} repetitions per editor, got {planned}'
         )
     if args.execution_profile == 'dedicated_publish' and args.host_class == 'shared_guarded':
         reader = read_cpu_accounting
@@ -610,6 +629,13 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
     token = ACTIVE.set(run)
     original = sys.argv
     order = schedule(editors, args.repetitions, run.seed)
+    if block:
+        # The blocks of a seed are consecutive slices of its one schedule, so
+        # pooled they are that schedule and no launch name repeats.
+        first = (block[0] - 1) * args.repetitions
+        order = [item for item in schedule(editors, block[1] * args.repetitions, run.seed)
+                 if first <= item[0] < first + args.repetitions]
+        run.block = {'index': block[0], 'of': block[1], 'repetitions': args.repetitions}
     from perf.runner.host import host_record
     host_probe, renderer_probe = facts or (host_record, rendering_facts)
     host = capture(host_probe)

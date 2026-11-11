@@ -58,9 +58,12 @@ def npm_pins(facts):
     return result
 
 
-def publication_jobs(editors, seed, seed2, host_class):
+def publication_jobs(editors, seed, seed2, host_class, blocks=None):
+    """Every job of a campaign. ``blocks=N`` is the publication layout (interleaved blocks)."""
     if not editors or seed == seed2 or host_class != 'shared_guarded':
         raise ValueError('publication requires editors, distinct seeds and shared_guarded')
+    if blocks is not None:
+        return _block_jobs(list(editors), (seed, seed2), host_class, blocks)
     jobs = []
     for value in (seed, seed2):
         for runner in (*RUNNERS, 'benchmark_memory', 'benchmark_resources'):
@@ -87,6 +90,43 @@ def publication_jobs(editors, seed, seed2, host_class):
             if runner == 'benchmark_document':
                 # C14 traverses the entire ladder itself, once per seed and editor.
                 jobs.extend((runner, base + ['--editors', editor, '--criteria', 'C14']) for editor in editors)
+    return jobs
+
+
+def _block_jobs(editors, seeds, host_class, blocks):
+    """Interleaved blocks (Arthur, 2026-11-11).
+
+    Each job measures every editor, a few repetitions each, in the seeded
+    interleaved order, so the editors of a cell share one machine and one
+    hour. The N blocks of a seed are slices of its single schedule. Typing
+    keeps one editor per job: a session is an hour of one editor.
+    Traces are taken in the first block of each seed only.
+    """
+    from perf.fixtures.docx_workload import PROSE_LADDER, CORPUS_ROW
+    from perf.runner.browser_run import PUBLICATION_REPETITIONS, TYPING_PUBLICATION_SESSIONS
+    if blocks < 1 or PUBLICATION_REPETITIONS % blocks:
+        raise ValueError(f'blocks must divide {PUBLICATION_REPETITIONS}')
+    each = str(PUBLICATION_REPETITIONS // blocks)
+    jobs = []
+    for value in seeds:
+        head = ['--execution-profile', 'dedicated_publish', '--host-class', host_class]
+        for runner in (*RUNNERS, 'benchmark_memory', 'benchmark_resources'):
+            if runner == 'benchmark_typing':
+                jobs.extend((runner, head + ['--chrome-profile', '--seed', str(value),
+                    '--repetitions', str(TYPING_PUBLICATION_SESSIONS), '--cadence-ms', '0', '--budget-s', '3600',
+                    '--session-kind', kind, '--editors', editor])
+                    for editor in editors for kind in ('throughput', 'latency'))
+                continue
+            tails = [['--workload', row['workload_id'], '--editors', *editors,
+                      *(['--criteria', 'C11', 'C12', 'C15'] if runner == 'benchmark_document' else [])]
+                     for row in [*PROSE_LADDER, CORPUS_ROW]]
+            if runner == 'benchmark_document':
+                tails.append(['--editors', *editors, '--criteria', 'C14'])
+            for tail in tails:
+                for index in range(1, blocks + 1):
+                    jobs.append((runner, head + (['--chrome-profile'] if index == 1 else [])
+                                 + ['--seed', str(value), *tail, '--block', f'{index}/{blocks}',
+                                    SHAKEDOWN_COUNT_FLAG[runner], each]))
     return jobs
 
 
@@ -230,8 +270,8 @@ def verify_profiles(records, execution_profile, host_class):
     visit(records)
 
 
-def job_editor(options):
-    """The one editor a publication job measures (``--editor X`` or ``--editors X``)."""
+def job_editors(options):
+    """The editors a publication job measures (``--editor X`` or ``--editors X ...``)."""
     for flag in ('--editor', '--editors'):
         if flag in options:
             start = options.index(flag) + 1
@@ -240,10 +280,17 @@ def job_editor(options):
                 if token.startswith('--'):
                     break
                 names.append(token)
-            if len(names) != 1:
-                raise ValueError(f'job must name exactly one editor: {names}')
-            return names[0]
+            if names:
+                return names
     raise ValueError('job names no editor')
+
+
+def job_editor(options):
+    """The one editor of a one-editor job."""
+    names = job_editors(options)
+    if len(names) != 1:
+        raise ValueError(f'job must name exactly one editor: {names}')
+    return names[0]
 
 
 def job_key(name, options):
