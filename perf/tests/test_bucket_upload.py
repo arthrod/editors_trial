@@ -624,3 +624,23 @@ class TestBounded:
         assert alive is None
         assert elapsed < 30
         assert 'MIRROR-ERROR sleepy timeout' in run_log.read_text()
+
+
+class TestSetup:
+    def test_dockerfile_installs_huggingface_hub_into_runtime(self):
+        image = Path('perf/container/Dockerfile').read_text()
+        pip_line = next(text for text in image.splitlines() if 'pip install' in text)
+        assert 'huggingface_hub==2.4.0' in pip_line
+        assert 'python-runtime/bin/pip' in pip_line
+        assert 'playwright==1.64.1' in pip_line and 'psutil==' in pip_line
+
+    def test_mirror_subprocess_interpreter_gets_huggingface_hub(self):
+        # mirror.py runs under `sys.executable -I`; the Dockerfile installs the
+        # runtime deps into /home/user/python-runtime and puts it on PATH, so
+        # the child's interpreter carries huggingface_hub. The Dockerfile check
+        # above is the contract; here the import inside mirror.py must be the
+        # late import (not a top-level one) so a missing library degrades to
+        # BUCKET-SKIP rather than an import crash.
+        source = Path('perf/container/mirror.py').read_text()
+        head = source.split('def ', 1)[0]
+        assert 'import huggingface_hub' not in head

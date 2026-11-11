@@ -17,7 +17,7 @@ RUN curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-to
  && curl -fsSL https://bun.sh/install | bash
 # Python runtime dependencies are installed before any measured session.
 RUN python3 -m venv /home/user/python-runtime \
- && /home/user/python-runtime/bin/pip install --no-cache-dir playwright==1.64.1 psutil==7.2.2
+ && /home/user/python-runtime/bin/pip install --no-cache-dir playwright==1.64.1 psutil==7.2.2 huggingface_hub==2.4.0
 ENV PATH=/home/user/python-runtime/bin:$PATH
 WORKDIR /app
 EXPOSE 7860
