@@ -327,8 +327,8 @@ DOCUMENT_TARGETS = {
         "note": (
             "Default surface is convertDocxToPaginatedHtml output: materialized .page-box page divs "
             "(816x1056 at 1280px) with one p per source paragraph, static (no caret). The Block-editor mount "
-            "(#modeEditor) renders [data-anchor] p blocks but at docxodus 15.0.0 wires 0 contenteditable blocks, "
-            "so no keyboard-driven y-shift surface exists on either mode; C12 is not_applicable."
+            "(#modeEditor) renders [contenteditable][data-anchor] blocks at docxodus 15.0.0; the edit "
+            "adapter enters it and C12 measures the y-shift of the first-screen paragraphs below the caret."
         ),
     },
     "canvas": {
@@ -1846,17 +1846,6 @@ def _main() -> int:
                             (
                                 "wordcraft exposes no document text or block geometry at this pin "
                                 "(one WebGL canvas; correctness is only the modified window-title bullet)"
-                            ),
-                            outcome="not_applicable",
-                        )
-                        continue
-                    if editor_id == "docxodus":
-                        _refuse_cell(
-                            "C12",
-                            fixture,
-                            (
-                                "docxodus 15.0.0 has no keyboard-driven y-shift surface: paginated #pages "
-                                "is static and #modeEditor blocks are not contenteditable at this pin"
                             ),
                             outcome="not_applicable",
                         )

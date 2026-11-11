@@ -64,7 +64,13 @@ import { normalizeDocumentText } from './document_text_normalize.mjs';
 import { openingContentVerdict } from './perf_model_text.mjs';
 import { hasDocumentTextSurface, readAndGateDocumentText } from './edit_surface.mjs';
 import { startChromeTrace, stopChromeTrace } from './chrome_trace.mjs';
-import { gatherReflowBefore, REFLOW_MODEL_EDITORS, prepareLaneCaret, reflowBlockSelector } from './lane_edit_burst.mjs';
+import {
+  gatherReflowBefore,
+  PICK_ANCHOR_BELOW,
+  REFLOW_MODEL_EDITORS,
+  prepareLaneCaret,
+  reflowBlockSelector,
+} from './lane_edit_burst.mjs';
 import { EDIT_SURFACES } from './edit_surface.mjs';
 import { loadTimeoutMs } from './load_timeout.mjs';
 
@@ -1319,24 +1325,6 @@ async function runReflow(browser) {
 
     const reflowSel = reflowBlockSelector(editorId, docSelector);
     const modelReflow = editorId && REFLOW_MODEL_EDITORS.has(editorId);
-    const before = await ctx.page.evaluate(gatherReflowBefore, {
-      docSel: reflowSel,
-      editorId,
-      useModel: modelReflow,
-      model: modelReflow ? EDIT_SURFACES[editorId].model : null,
-    });
-    if (!before.ok) {
-      return {
-        mode: 'reflow',
-        driver: 'playwright',
-        url,
-        navigation_ms: navigationMs,
-        ready_ms: readyMs,
-        error: before.reason,
-        window_excludes_forced_layout: true,
-        forced_layout_ms: 0,
-      };
-    }
 
     if (!editorId) {
       const box = await ctx.page.locator(editSelector).first().boundingBox();
@@ -1359,6 +1347,32 @@ async function runReflow(browser) {
     await ctx.page.waitForTimeout(150);
     await ctx.page.keyboard.press('Home');
     await ctx.page.waitForTimeout(100);
+
+    // The census runs after the caret is finally placed (the adapter's click,
+    // then Control+Home/Home): the anchor is the nearest unique block below
+    // THAT caret on the same screen (r3lanes4 ruling 3). This is still all
+    // before the Enter listener arms, outside the measured window.
+    const before = await ctx.page.evaluate(gatherReflowBefore, {
+      docSel: reflowSel,
+      editorId,
+      useModel: modelReflow,
+      model: modelReflow ? EDIT_SURFACES[editorId].model : null,
+      // Playwright cannot serialize a function argument, so the shared
+      // picker travels as its source.
+      pickBelowSrc: PICK_ANCHOR_BELOW.toString(),
+    });
+    if (!before.ok) {
+      return {
+        mode: 'reflow',
+        driver: 'playwright',
+        url,
+        navigation_ms: navigationMs,
+        ready_ms: readyMs,
+        error: before.reason,
+        window_excludes_forced_layout: true,
+        forced_layout_ms: 0,
+      };
+    }
 
     const frameDeadline = Date.now() + 1500;
     while (ctx.recorder.frames.length === 0 && Date.now() < frameDeadline) await sleep(10);

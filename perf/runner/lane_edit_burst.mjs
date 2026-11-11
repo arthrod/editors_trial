@@ -23,6 +23,65 @@ export const LANE_POLL_BOUND_MS = 600_000;
 /** Editors whose C12 blocks are read from the editor model, not light-DOM text nodes. */
 export const REFLOW_MODEL_EDITORS = new Set(['canvas', 'docen']);
 
+/**
+ * The C12 anchor: the nearest unique block BELOW the caret that is on the
+ * same screen as the caret (r3lanes4 ruling 3). The last unique block of the
+ * document could sit on a later page that never moves when the insertion
+ * reflows the first screen, so it can never carry the measured shift.
+ *
+ * Pure and self-contained (no module references): document_probe passes it
+ * into the page as an argument to gatherReflowBefore.
+ *
+ * entries: [{ text, top }] with tops in CSS px; caret: { top, bottom } or
+ * null; viewportHeight: window.innerHeight.
+ */
+export const PICK_ANCHOR_BELOW = (entries, caret, viewportHeight) => {
+  if (!Array.isArray(entries) || entries.length < 2) {
+    return { ok: false, reason: 'fewer than two document blocks; nothing below the insertion to move' };
+  }
+  if (!caret || !Number.isFinite(Number(caret.bottom))) {
+    return {
+      ok: false,
+      reason: 'no caret box at the insertion; the block below the caret cannot be identified',
+      blocks: entries.length,
+    };
+  }
+  if (!Number.isFinite(Number(viewportHeight)) || !(viewportHeight > 0)) {
+    return {
+      ok: false,
+      reason: 'viewport height unavailable; a same-screen block below the caret cannot be identified',
+      blocks: entries.length,
+    };
+  }
+  const counts = new Map();
+  for (const entry of entries) counts.set(entry.text, (counts.get(entry.text) || 0) + 1);
+  let anchor = null;
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    const top = Number(entry.top);
+    if (!entry.text || counts.get(entry.text) !== 1) continue;
+    if (!Number.isFinite(top)) continue;
+    if (top <= Number(caret.bottom)) continue;
+    if (top >= Number(viewportHeight)) continue;
+    if (!anchor || top < anchor.top) anchor = { ...entry, index: i, top };
+  }
+  if (!anchor) {
+    return {
+      ok: false,
+      reason: 'no unique document block below the caret in the viewport; a y-shift could not be attributed',
+      blocks: entries.length,
+    };
+  }
+  return {
+    ok: true,
+    anchorText: anchor.text,
+    anchorIndex: anchor.index,
+    blockCount: entries.length,
+    firstText: String(entries[0].text || '').slice(0, 40),
+  };
+};
+
+
 /** Block selector for C12 reflow after the shared adapter has entered edit mode. */
 export function reflowBlockSelector(editorId, fallback) {
   if (!editorId || !EDIT_SURFACES[editorId]) return fallback;
@@ -89,7 +148,18 @@ export const REFLOW_Y_PROXY = (editorId) => {
 };
 
 /** Page context. C12 block census after edit-surface prep (dom or model paragraphs). */
-export function gatherReflowBefore({ docSel, editorId, useModel, model }) {
+export function gatherReflowBefore({ docSel, editorId, useModel, model, pickBelowSrc }) {
+  // The shared picker (PICK_ANCHOR_BELOW) travels as source: page.evaluate
+  // arguments must be serializable values.
+  let pickBelow = null;
+  if (typeof pickBelowSrc === 'string' && pickBelowSrc) {
+    try {
+      // eslint-disable-next-line no-eval
+      pickBelow = eval(pickBelowSrc);
+    } catch {
+      pickBelow = null;
+    }
+  }
   const listModelParagraphs = (kind) => {
     if (kind === 'docen') {
       const editor = window.__DOCEN__ && window.__DOCEN__.editor;
@@ -169,6 +239,25 @@ export function gatherReflowBefore({ docSel, editorId, useModel, model }) {
     };
   };
 
+  // The caret box of the placed caret, read before any Enter: the anchor is
+  // the block below THIS box on the same screen (r3lanes4 ruling 3).
+  const caretBox = () => {
+    try {
+      const sel = typeof document.getSelection === 'function' ? document.getSelection() : null;
+      if (!sel || sel.rangeCount === 0) return null;
+      const range = sel.getRangeAt(0).cloneRange();
+      let rect = range.getBoundingClientRect();
+      if ((!rect || !rect.height) && typeof range.getClientRects === 'function') {
+        const rects = range.getClientRects();
+        if (rects.length) rect = rects[0];
+      }
+      if (!rect || !Number.isFinite(rect.top) || !Number.isFinite(rect.bottom)) return null;
+      return { top: rect.top, bottom: rect.bottom };
+    } catch {
+      return null;
+    }
+  };
+
   if (useModel) {
     const paragraphs = listModelParagraphs(model);
     if (!Array.isArray(paragraphs)) {
@@ -198,13 +287,21 @@ export function gatherReflowBefore({ docSel, editorId, useModel, model }) {
   }
 
   const entries = Array.from(document.querySelectorAll(docSel))
-    .map((block) => ({ el: block, text: (block.textContent || '').trim() }))
+    .map((block) => ({
+      el: block,
+      text: (block.textContent || '').trim(),
+      top: block.getBoundingClientRect().top,
+    }))
     .filter((entry) => entry.text);
-  const picked = pickAnchor(entries);
-  if (!picked.ok) {
-    return { ...picked, blocks: entries.length };
+  const caret = caretBox();
+  // The anchor is the nearest unique block below the caret on the same
+  // screen, never the last unique block of the document (r3lanes4 ruling 3).
+  const picked = typeof pickBelow === 'function'
+    ? pickBelow(entries, caret, window.innerHeight)
+    : { ok: false, reason: 'anchor picker unavailable; a y-shift could not be attributed' };  if (!picked.ok) {
+    return { ...picked, blocks: entries.length, caret_top: caret ? caret.top : null };
   }
-  window.__c12AnchorEl = picked.anchorEl;
+  window.__c12AnchorEl = entries[picked.anchorIndex].el;
   window.__c12AnchorTop = window.__c12AnchorEl.getBoundingClientRect().top;
   window.__c12AnchorText = picked.anchorText;
   window.__c12DocSel = docSel;
@@ -217,6 +314,7 @@ export function gatherReflowBefore({ docSel, editorId, useModel, model }) {
     anchor_top: window.__c12AnchorTop,
     first_block_top: entries[0].el.getBoundingClientRect().top,
     first_block_text: picked.firstText,
+    caret_top: caret ? caret.top : null,
   };
 }
 
