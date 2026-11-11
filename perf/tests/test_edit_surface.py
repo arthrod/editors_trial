@@ -29,7 +29,15 @@ DOM_PAGE = """<!doctype html><meta charset="utf-8"><body style="margin:0">
     </div>
   </div>
 </div>
-<script>LATE</script>
+<script>
+const PARA1 = "First body paragraph of the document under test.";
+const PARA2 = "Second body paragraph of the document under test.";
+let landed = "";
+window.__SUPERDOC_E2E__ = {
+  activeEditor: { doc: { getText: async () => PARA1 + landed + String.fromCharCode(10) + PARA2 } }
+};
+LATE
+</script>
 </body>"""
 
 FLAG_PAGE = """<!doctype html><meta charset="utf-8"><body style="margin:0">
@@ -95,28 +103,39 @@ class EditSurfaceTest(unittest.TestCase):
         return prepared, bridge.request("edit_verify", {**params, "prepared": prepared}, timeout=60)
 
     def test_caret_goes_to_the_first_body_line_never_the_header(self):
-        bridge = self.session(DOM_PAGE.replace("LATE", ""), {"readySelector": "#editor", "editorId": "superdoc"})
+        # The click still uses the painted body line. The burst oracle is the
+        # model (d82b9e0c): paint is not evidence that the keys landed.
+        mirror = """document.getElementById('body').addEventListener('beforeinput', (e) => {
+          if (e.data) landed += e.data;
+        });"""
+        bridge = self.session(DOM_PAGE.replace("LATE", mirror), {"readySelector": "#editor", "editorId": "superdoc"})
         bridge.request("load", timeout=60)
         bridge.request("enter_edit_mode", timeout=60)
         prepared, result = self.burst(bridge, "superdoc", "#editor")
         self.assertEqual(prepared["line"], "First body paragraph of the document under test.")
+        self.assertNotIn("Header text", prepared["line"])
         oracle = result["oracle"]
-        self.assertEqual(oracle["status"], "verified")
-        self.assertEqual(oracle["mode"], "caret_block_text")
+        self.assertEqual(oracle["status"], "verified", oracle)
+        self.assertEqual(oracle["mode"], "editor_model_text")
         self.assertEqual(oracle["text_delta"], 2)
-        # scoped to the block at the caret: the second paragraph is not read
-        self.assertNotIn("Second body", result["editorText"])
-        self.assertIn("B8B8", result["editorText"])
+        self.assertIn("First body paragraph of the document under test.B8B8", result["editorText"])
+        self.assertIn("Second body paragraph of the document under test.", result["editorText"])
+        self.assertNotIn("Header text", result["editorText"])
 
     def test_a_burst_painted_late_is_still_verified(self):
+        # Paint and the model both gain the burst 600ms after the key. The
+        # oracle polls the model, so a late landing is still verified.
         late = """document.getElementById('body').addEventListener('beforeinput', (e) => {
           e.preventDefault(); const d = e.data; setTimeout(() => {
-            const p = document.querySelector('#body p'); p.textContent = p.textContent + d; }, 600); });"""
+            const p = document.querySelector('#body p'); p.textContent = p.textContent + d;
+            landed += d; }, 600); });"""
         bridge = self.session(DOM_PAGE.replace("LATE", late), {"readySelector": "#editor", "editorId": "superdoc"})
         bridge.request("load", timeout=60)
         _, result = self.burst(bridge, "superdoc", "#editor")
-        self.assertEqual(result["oracle"]["status"], "verified")
+        self.assertEqual(result["oracle"]["status"], "verified", result["oracle"])
+        self.assertEqual(result["oracle"]["mode"], "editor_model_text")
         self.assertGreaterEqual(result["oracle"]["poll_attempts"], 2)
+        self.assertIn("B8B8", result["editorText"])
 
     def test_modified_flag_verifies_a_canvas_editor_without_text(self):
         dirty = "window.__WORDCRAFT_HOST__.titles.push({ t: 2, title: 'corpus \u2022 - WordCraft' });"
