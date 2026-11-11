@@ -252,7 +252,9 @@ def test_c14_no_damage_without_clock_fields_refused():
 
     with pytest.raises(ProbeRefusal):
         c14_measured_sample({"mechanism": "forced_repaint", "usable_ms": 1234.5})
-    assert c14_measured_sample({"usable_ms": 800.0, "presented_frame_ms": 812.5}) == 812.5
+    # r3s2fix 4: the presented-frame path now needs a recorded clock too;
+    # production probes always record clock_skew_ms per sample.
+    assert c14_measured_sample({"usable_ms": 800.0, "presented_frame_ms": 812.5, "clock_skew_ms": 0.1}) == 812.5
 
 
 # MAJOR 12 — relaxed bounds disclosure

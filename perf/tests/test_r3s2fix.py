@@ -12,6 +12,7 @@ import pytest
 
 from build import perf_e2_tables as report
 from perf.analysis import e2_cells as cells
+from perf.runner import benchmark_document as bd
 from perf.runner.witness import validate_witness
 from perf.tests.test_e2_reader_r3reader3 import _summary, _write_job
 from perf.tests.test_e2_reader_r3reader4 import _blocks_camp
@@ -178,3 +179,44 @@ def test_legitimate_identical_repull_still_publishes(tmp_path):
     )
     text = report._cell_text({}, [a, b], "plate", "C07")
     assert "20.0 ms" in text
+
+
+# ---------------------------------------------------------------------------
+# Item 4 (MAJOR 7): the presented-frame C14 path must use the same
+# missing-or-exceeds clock check as forced_repaint — an unverifiable page
+# clock refuses the sample. Real data (hf-data-shakedown2): 20 presented-
+# frame rows, all carry diagnostic.samples[i].clock_skew_ms.
+# ---------------------------------------------------------------------------
+
+
+def _c14_presented_frame_probe(**overrides):
+    probe = {
+        "usable_ms": 140.0,
+        "presented_frame_ms": 160.0,
+        "frames_total": 11,
+        "frames_after_usable": 4,
+        "clock_skew_ms": 0.4,
+    }
+    probe.update(overrides)
+    return probe
+
+
+def test_presented_frame_without_a_recorded_clock_refuses():
+    probe = _c14_presented_frame_probe()
+    del probe["clock_skew_ms"]
+    with pytest.raises(bd.ProbeRefusal) as caught:
+        bd.c14_measured_sample(probe)
+    assert "clock" in caught.value.reason.lower()
+
+
+def test_presented_frame_with_an_excessive_clock_refuses():
+    probe = _c14_presented_frame_probe(clock_skew_ms=bd._CLOCK_SKEW_BOUND_MS + 1.0)
+    with pytest.raises(bd.ProbeRefusal) as caught:
+        bd.c14_measured_sample(probe)
+    assert "clock" in caught.value.reason.lower()
+
+
+def test_presented_frame_with_a_clock_within_bound_measures():
+    sample = bd.c14_measured_sample(_c14_presented_frame_probe())
+    assert float(sample) == 160.0
+    assert sample.measure == bd.C14_FRAME_MEASURE

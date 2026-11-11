@@ -724,7 +724,7 @@ def c14_measured_sample(probe: dict) -> float:
             % (value, usable),
             facts=facts,
         )
-    if _clock_skew_exceeds(probe):
+    if _clock_skew_missing_or_exceeds(probe):
         raise ProbeRefusal(
             "clock skew exceeds the %s ms bound (clock_skew_ms=%r)" % (_CLOCK_SKEW_BOUND_MS, probe.get("clock_skew_ms")),
             facts=facts,
