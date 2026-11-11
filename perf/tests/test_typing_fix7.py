@@ -13,10 +13,9 @@ The repair this file pins:
 - ``typing_model_js`` lets a target declare a model adapter for the
   correctness read (eigenpal: ``__DOCX_EDITOR_E2E__.saveBytes()`` → docx
   bytes → paragraph-aware text); the DOM innerText stays the default.
-- ``normalize_marked`` is the single normaliser on BOTH sides: it ignores
-  paragraph-leading auto-numbering markers ("1.", "a.", "(i)") and reports
-  how many it ignored; the session records ``tolerated_list_markers`` as the
-  count present on exactly one side (the tolerance actually exercised).
+- ``normalize_marked`` quote-folds and collapses whitespace. It does not
+  strip list markers; a vanished marker is excused only when an absorbed
+  list item pairs with it. ``tolerated_list_markers`` is that list.
 - ``typing_load_click_selector`` is the lazy-mount click inside the load
   measurement, separate from ``typing_click_selector`` (the focus click
   after load): an editor whose editable already exists is not clicked
@@ -99,11 +98,15 @@ def test_docx_body_text_decodes_xml_entities():
 
 
 def test_normalize_marked_strips_auto_numbering_markers_only():
-    from perf.runner.benchmark_typing import normalize_marked
+    """Flat compare keeps marker text. prefix_marker_rest still recognises
+    a line-leading marker; a vanished one is not excused here."""
+    from perf.runner.benchmark_typing import normalize_marked, prefix_marker_rest
 
     for marker in ("1.", "12.", "a.", "Z.", "i.", "iv.", "(i)", "(iv)", "(a)", "(12)", "1)", "b)"):
         text, count = normalize_marked(marker + " rest of paragraph")
-        assert (text, count) == ("rest of paragraph", 1), marker
+        assert (text, count) == (marker + " rest of paragraph", 0), marker
+        found, rest = prefix_marker_rest(marker + " rest of paragraph")
+        assert found == [marker] and rest == "rest of paragraph", marker
     for not_marker in (
         "Nos. 05-547 and 05-7664",
         "No. 05-547",
@@ -117,17 +120,21 @@ def test_normalize_marked_strips_auto_numbering_markers_only():
         text, count = normalize_marked(not_marker)
         assert count == 0, not_marker
         assert text == " ".join(not_marker.split())
+        assert prefix_marker_rest(not_marker)[0] == [], not_marker
 
 
 def test_normalize_marked_counts_one_sided_tolerance():
+    """Markers stay in the flat text, so a one-sided "1." still differs.
+    The comparator, not this function, excuses it."""
     from perf.runner.benchmark_typing import normalize_marked
 
     expected, expected_markers = normalize_marked("STATEMENT\n1. a. Under the Act\nEnd")
     actual, actual_markers = normalize_marked("STATEMENT\na. Under the Act\nEnd")
-    assert expected == actual == "STATEMENT Under the Act End"
-    assert abs(expected_markers - actual_markers) == 1
+    assert expected_markers == actual_markers == 0
+    assert expected != actual
+    assert "1." in expected and "1." not in actual
     literal, same = normalize_marked("STATEMENT\n1. a. Under the Act\nEnd")
-    assert abs(same - expected_markers) == 0
+    assert literal == expected and same == 0
 
 
 def test_normalize_still_collapses_whitespace():
@@ -154,7 +161,7 @@ def test_docx_model_read_beats_the_paint_window():
     assert result["failure_reason"] == "text_mismatch"
     result = _type(VirtualizedPage(), text, model_js="saveBytes()")
     assert result["failure_reason"] is None
-    assert result["tolerated_list_markers"] == 0
+    assert result["tolerated_list_markers"] == []
 
 
 def test_absorbed_marker_passes_and_is_counted():
@@ -265,7 +272,7 @@ def test_session_passes_load_click_and_model_overrides(tmp_path):
         host.stop()
     assert result["failure_reason"] is None, result
     assert result["characters_typed"] == 7
-    assert result["tolerated_list_markers"] == 0
+    assert result["tolerated_list_markers"] == []
 
 
 def test_targets_declare_model_and_load_click_contracts():
@@ -284,13 +291,15 @@ def test_targets_declare_model_and_load_click_contracts():
 def test_dropped_paragraph_in_real_brief_still_fails():
     """A paragraph removed from the campaign fixture still diverges after
     marker-tolerant normalisation on both sides."""
-    from perf.runner.benchmark_typing import divergence, normalize_marked
+    from perf.runner.benchmark_typing import (
+        divergence, marker_only_of_line, normalize_marked, prefix_marker_rest,
+    )
 
     lines = (REPO / "perf/fixtures/briefs/sg-brief-13000w.txt").read_text().rstrip().split("\n")
-    assert any(line.startswith(("1.", "a.", "A.", "I.", "v.")) for line in lines)
+    assert any(prefix_marker_rest(line)[0] or marker_only_of_line(line) for line in lines)
     expected, expected_markers = normalize_marked("\n".join(lines))
     dropped = [line for index, line in enumerate(lines) if index != 200]
     actual, _ = normalize_marked("\n".join(dropped))
-    assert expected_markers > 0
+    assert expected_markers == 0
     assert actual != expected
     assert 0 < divergence(expected, actual) < len(expected)
