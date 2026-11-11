@@ -66,6 +66,39 @@ def spawn_detached_campaign(argv: list[str], campaign_dir: Path, run_id: str) ->
     return proc.pid
 
 
+def quota_cpus(cpu_max: str, affinity: set[int]) -> set[int] | None:
+    """CPUs to pin to so the campaign can never exceed its cgroup CPU quota (#129).
+
+    HF grants a quota (cpu.max) smaller than the CPU set it schedules on; a
+    browser spread wider than the quota is throttled inside a period. None means
+    no pin: no quota, unreadable, or the affinity already fits.
+    """
+    parts = cpu_max.split()
+    if len(parts) != 2 or parts[0] == 'max':
+        return None
+    try:
+        count = max(1, int(parts[0]) // int(parts[1]))
+    except (ValueError, ZeroDivisionError):
+        return None
+    if len(affinity) <= count:
+        return None
+    return set(sorted(affinity)[:count])
+
+
+def pin_to_quota(read=lambda: Path('/sys/fs/cgroup/cpu.max').read_text()) -> str:
+    """Pin this process (children inherit) to the quota's CPU count; return a log line."""
+    try:
+        text = read().strip()
+    except OSError:
+        text = ''
+    affinity = os.sched_getaffinity(0)
+    cpus = quota_cpus(text, affinity)
+    if cpus is not None:
+        os.sched_setaffinity(0, cpus)
+    pinned = ','.join(str(cpu) for cpu in sorted(cpus)) if cpus is not None else 'none'
+    return f'cpu_affinity_pinned={pinned} cpu.max={text or "unreadable"} visible={len(affinity)}'
+
+
 def refuse_existing(path: Path) -> bool:
     return path.exists()
 
@@ -210,6 +243,8 @@ def main(argv: list[str] | None = None):
          + (['--session-kind', kind] if kind else []))
         for name in RUNNERS for kind in (('throughput', 'latency') if name == 'benchmark_typing' else (None,))
     ]
+    if not args.dry_run and hasattr(os, 'sched_setaffinity'):
+        print(pin_to_quota(), flush=True)
     host_cmd = [sys.executable, '-m', 'perf.container.check_host']
     print(shlex.join(host_cmd), flush=True)
     if not args.dry_run:
