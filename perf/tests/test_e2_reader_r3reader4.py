@@ -114,6 +114,10 @@ def test_criterion_refuses_different_summary_build_trees(tmp_path):
     b = _write_job(
         tmp_path / "sb", "benchmark_input", "j2", 2, range(30),
         summary=_summary("j2", 2, hosts={"plate": {"tree_sha256": "tree-b"}}),
+        # r3s2fix: attempts' pins are unioned with the summary pin now, so
+        # this job's attempts must record its own build or the seed refuses
+        # on the within-seed conflict before the cross-seed comparison.
+        tree="tree-b",
     )
     pooled = cells.read_criterion_cell([a, b], "plate", "C07")
     assert pooled["published"] is False

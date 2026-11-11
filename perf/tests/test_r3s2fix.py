@@ -10,7 +10,10 @@ from pathlib import Path
 
 import pytest
 
+from build import perf_e2_tables as report
+from perf.analysis import e2_cells as cells
 from perf.runner.witness import validate_witness
+from perf.tests.test_e2_reader_r3reader3 import _summary, _write_job
 from perf.tests.test_witness import WitnessValidatorTests
 
 REPO = Path(__file__).resolve().parents[2]
@@ -78,3 +81,52 @@ def test_frame_interval_bound_rule_in_node():
     script = Path(__file__).with_name("r3s2fix_frame_interval.mjs")
     proc = subprocess.run([node, str(script)], capture_output=True, text=True, timeout=60)
     assert proc.returncode == 0, proc.stdout + proc.stderr
+
+
+# ---------------------------------------------------------------------------
+# Item 2 (MAJOR 3): the summary pin must not hide the attempts' pins. A seed
+# whose summary says tree-a while its attempts record tree-b measured more
+# than one build; the cell is refused, never published under the summary pin.
+# Real data (hf-data-shakedown2): 244 job/editor pin pairs, 0 conflicts.
+# ---------------------------------------------------------------------------
+
+
+def _input_job(root, job_id, seed, *, summary_tree, attempt_tree, value=20.0):
+    return _write_job(
+        root, "benchmark_input", job_id, seed, range(30),
+        summary=_summary(job_id, seed, hosts={"plate": {"tree_sha256": summary_tree}}),
+        tree=attempt_tree, values={rep: value for rep in range(30)},
+    )
+
+
+def test_summary_pin_conflicting_attempt_pins_refuses_cell(tmp_path):
+    first = _input_job(tmp_path / "s0", "j0", 0, summary_tree="tree-a", attempt_tree="tree-b")
+    second = _input_job(tmp_path / "s1", "j1", 1, summary_tree="tree-a", attempt_tree="tree-b")
+    cell = cells.read_criterion_cell([first, second], "plate", "C07")
+    assert not cell["published"], "a seed with two recorded builds must not publish: %r" % (
+        cell.get("reason"),
+    )
+    text = report._cell_text({}, [first, second], "plate", "C07")
+    assert "20.0 ms" not in text
+
+
+def test_summary_pin_matching_attempt_pins_still_publishes(tmp_path):
+    first = _input_job(tmp_path / "s0", "j0", 0, summary_tree="tree-a", attempt_tree="tree-a")
+    second = _input_job(tmp_path / "s1", "j1", 1, summary_tree="tree-a", attempt_tree="tree-a")
+    cell = cells.read_criterion_cell([first, second], "plate", "C07")
+    assert cell["published"], "one recorded build per seed must publish: %r" % (
+        cell.get("reason"),
+    )
+    text = report._cell_text({}, [first, second], "plate", "C07")
+    assert "20.0 ms" in text
+
+
+def test_attempt_pins_disagreeing_across_seeds_refuses(tmp_path):
+    """The reviewer's disagreeing-samples shape: seed1 tree-b, seed2 tree-c,
+    both summaries claiming tree-a."""
+    first = _input_job(tmp_path / "s0", "j0", 0, summary_tree="tree-a", attempt_tree="tree-b", value=20.0)
+    second = _input_job(tmp_path / "s1", "j1", 1, summary_tree="tree-a", attempt_tree="tree-c", value=99999.0)
+    cell = cells.read_criterion_cell([first, second], "plate", "C07")
+    assert not cell["published"]
+    text = report._cell_text({}, [first, second], "plate", "C07")
+    assert "99999" not in text and "20.0 ms" not in text

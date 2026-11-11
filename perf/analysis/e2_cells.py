@@ -804,7 +804,8 @@ def _criterion_pins(job_pairs: list[tuple[Path, Path]], editor_id: str) -> set:
         pin = build_identity(summary, editor_id)
         if pin:
             pins.add(pin)
-            continue
+        # A summary pin never hides the attempts' recorded builds: a conflict
+        # means the seed measured more than one build, which refuses the cell.
         for _launch, _path, row in _attempt_rows_of(run_directory, [job]):
             if row.get('editor_id') == editor_id:
                 trial_pin = editor_pin(row)
