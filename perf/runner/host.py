@@ -398,6 +398,9 @@ def _processes() -> list[tuple[int, int, float, str]] | None:
         parts = line.split(None, 3)
         if len(parts) < 3:
             continue
+        if len(parts) > 3 and parts[3].rstrip().endswith("<defunct>"):
+            # A zombie runs nothing; ps still reports its lifetime CPU average.
+            continue
         try:
             rows.append((int(parts[0]), int(parts[1]), float(parts[2]), parts[3].strip() if len(parts) > 3 else ""))
         except ValueError:

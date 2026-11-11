@@ -631,3 +631,17 @@ class MacHasNoLinuxEvidence(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_a_defunct_process_is_not_a_running_job(monkeypatch):
+    """A zombie holds no CPU; ps reports its lifetime average (campaign 2, 2026-11-11)."""
+    from perf.runner import host as host_module
+
+    listing = "\n".join([
+        "    1     0  0.0 /tmp/init-process",
+        "  812     1 33.8 [chrome] <defunct>",
+        "  900     1  0.1 sshd",
+    ])
+    monkeypatch.setattr(host_module, "_run", lambda command: listing)
+    rows = host_module._processes()
+    assert [row[0] for row in rows] == [1, 900]
