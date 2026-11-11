@@ -67,7 +67,8 @@ export const PICK_ANCHOR_BELOW = (entries, caret, viewportHeight) => {
     const top = Number(entry.top);
     if (!entry.text || counts.get(entry.text) !== 1) continue;
     if (!Number.isFinite(top)) continue;
-    if (top <= Number(caret.bottom)) continue;
+    // Blocks flush under the caret (top ~= caret.bottom) still carry the shift.
+    if (top < Number(caret.bottom) - 0.5) continue;
     if (top >= Number(viewportHeight)) continue;
     if (!anchor || top < anchor.top) anchor = { ...entry, index: i, top };
   }
@@ -226,7 +227,7 @@ export function gatherReflowBefore({ docSel, pickBelowSrc, excludeSel }) {
   // being split by Enter at the document start.
   if ((!caret || caret.bottom <= caret.top + 1) && entries.length) {
     const r = entries[0].el.getBoundingClientRect();
-    if (r.height > 0) caret = { top: r.top, bottom: r.bottom };
+    if (r.height > 0) caret = { top: r.top, bottom: r.top + Math.min(1, r.height) };
   }
   // The anchor is the nearest unique block below the caret on the same
   // screen, never the last unique block of the document (r3lanes4 ruling 3).

@@ -390,7 +390,7 @@ class ReviewPolicy(unittest.TestCase):
             'edit_ms': 21,
             'outcome': 'measured',
             'witness': frame_record(),
-            'clock_skew': {'skew_ms': 0, 'bound_ms': 2, 'acceptable': True},
+            'clock_skew': {'skew_ms': 0, 'bound_ms': 5, 'acceptable': True},
             'edit_confirmation': {
                 'confirmed': True,
                 'changed_pixels': 0,
@@ -408,7 +408,7 @@ class ReviewPolicy(unittest.TestCase):
             'edit_ms': 24,
             'outcome': 'measured',
             'witness': frame_record(),
-            'clock_skew': {'skew_ms': 0, 'bound_ms': 2, 'acceptable': True},
+            'clock_skew': {'skew_ms': 0, 'bound_ms': 5, 'acceptable': True},
             'edit_confirmation': {
                 'confirmed': False,
                 'changed_pixels': 0,

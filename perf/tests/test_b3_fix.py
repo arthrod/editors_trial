@@ -250,8 +250,8 @@ class SampleBrackets(unittest.TestCase):
             del mode, target, cfg, corpus_path, extra
             return ["node", "document_probe.mjs", "--mode", "load"]
 
-        def fake_probe(cmd, *, editor_id):
-            del cmd, editor_id
+        def fake_probe(cmd, *, editor_id, env=None):
+            del cmd, editor_id, env
             return {"paints": [{"name": "first-contentful-paint", "start_ms": 10}], "fcp_ms": 10}
 
         run = ThrottleRun()
