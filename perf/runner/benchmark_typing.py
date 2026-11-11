@@ -9,6 +9,7 @@ The B9 record schema is additive: resources are bytes/ms, never samples_ms.
 from __future__ import annotations
 import argparse
 import asyncio
+import difflib
 import hashlib
 import io
 import json
@@ -356,28 +357,66 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
                     actual_lines = actual_text.split('\n')
                     actual_marker_at = marker_only_positions(actual_text)
                     absorbed_at = absorbed_positions(read if isinstance(read, dict) else {})
-                    # Absorbed evidence answers for a missing marker only at
-                    # the marker's own index, and only when that line is the
-                    # item's empty slot or its rendered label — never a text
-                    # line and never an item elsewhere.
-                    def excused(index):
-                        if index not in absorbed_at:
-                            return False
-                        line = actual_lines[index] if index < len(actual_lines) else ''
-                        return not line.strip() or actual_marker_at.get(index) is not None
-                    missing = [{'index': i, 'marker': m} for i, m in expected_marker_at.items()
-                               if actual_marker_at.get(i) != m and not excused(i)]
-                    surplus = [{'index': i, 'marker': m} for i, m in actual_marker_at.items()
-                               if expected_marker_at.get(i) != m
-                               and not (i in absorbed_at and i in expected_marker_at)]
-                    marker_gap = bool(surplus) or bool(missing)
+                    # The two texts are on different line bases — a DOM read
+                    # may emit extra blank lines per paragraph, a model read a
+                    # header line — so an expected paragraph index cannot be
+                    # looked up in the actual text directly. Align the
+                    # normalized line sequences instead; the slot a marker
+                    # paragraph occupies is its aligned line widened to the
+                    # blank/marker run around it (or its replace block). A
+                    # marker is answered only by a trace inside its own slot:
+                    # its marker-only line, or the empty absorbed item AT
+                    # that position — never by an item elsewhere, and one
+                    # item never answers for two paragraphs.
+                    expected_norm = [normalize_marked(line)[0]
+                                     for line in expected_source.split('\n')]
+                    actual_norm = [normalize_marked(line)[0] for line in actual_lines]
+                    opcodes = difflib.SequenceMatcher(
+                        None, expected_norm, actual_norm, autojunk=False).get_opcodes()
+
+                    def slot_for(index):
+                        for tag, a1, a2, b1, b2 in opcodes:
+                            if a1 <= index < a2:
+                                if tag != 'equal':
+                                    return range(b1, b2)
+                                j = b1 + (index - a1)
+                                lo = j
+                                while lo > 0 and actual_norm[lo - 1] == '':
+                                    lo -= 1
+                                hi = j
+                                while hi + 1 < len(actual_norm) and actual_norm[hi + 1] == '':
+                                    hi += 1
+                                return range(lo, hi + 1)
+                        return range(len(actual_norm), len(actual_norm))
+
+                    used_text, used_absorbed = set(), set()
+                    missing = []
                     tolerated = sorted(
                         (Counter(stripped_marker_strings(expected_source))
                          - Counter(stripped_marker_strings(actual_text))).elements())
-                    tolerated += sorted(m for i, m in expected_marker_at.items()
-                                        if actual_marker_at.get(i) != m and excused(i))
+                    for i, marker in sorted(expected_marker_at.items()):
+                        slot = slot_for(i)
+                        hit = next((j for j in slot
+                                    if j in actual_marker_at and j not in used_text), None)
+                        if hit is not None:
+                            used_text.add(hit)
+                            if actual_marker_at[hit] != marker:
+                                tolerated.append(marker)
+                            continue
+                        hit = next((j for j in slot
+                                    if j in absorbed_at and j not in used_absorbed), None)
+                        if hit is not None:
+                            used_absorbed.add(hit)
+                            tolerated.append(marker)
+                            continue
+                        missing.append({'index': i, 'marker': marker})
+                    surplus = ([{'index': j, 'marker': actual_marker_at[j]}
+                                for j in sorted(actual_marker_at) if j not in used_text]
+                               + [{'index': j, 'marker': absorbed_at[j]}
+                                  for j in sorted(absorbed_at) if j not in used_absorbed])
+                    marker_gap = bool(surplus) or bool(missing)
                     result.update(tolerated_list_markers=abs(expected_markers - actual_markers),
-                                  tolerated_marker_strings=tolerated,
+                                  tolerated_marker_strings=sorted(tolerated),
                                   tolerated_quote_autocorrect_chars=sum(
                                       1 for ch in actual_text if ord(ch) in _QUOTE_FOLD),
                                   correctness_oracle=oracle,
