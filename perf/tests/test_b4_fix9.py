@@ -2,16 +2,15 @@
 
 import json
 import re
-import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
 
 REPO = Path(__file__).resolve().parents[2]
-PROBE_DIR = Path('/Users/arthrod/temp/T/e2-logs/b4-fix9')
+PROBE_DIR = Path(__file__).resolve().parent / 'probes' / 'b4_fix9'
 RUNNER = REPO / 'perf/runner/criteria_input.mjs'
-MUTANT = PROBE_DIR / 'mutated-criteria_input.mjs'
+PHASE_ANCHOR = '  try {\n    // @suite-phase input_tap\n'
 
 NESTED_INJECTION_PHASES = {'alive_c04', 'alive_boundary', 'partial_c07', 'after_c08'}
 REPRO_DEATH_KEYS = {
@@ -77,7 +76,11 @@ def test_real_cdp_detach_is_page_lost():
 def test_phase_manifest_rejects_untagged_await_in_mutant():
     backup = RUNNER.read_text(encoding='utf8')
     try:
-        shutil.copyfile(MUTANT, RUNNER)
+        # One await with no phase tag, placed where the suite's first phase starts.
+        assert backup.count(PHASE_ANCHOR) == 1
+        RUNNER.write_text(backup.replace(
+            PHASE_ANCHOR, '  try {\n    await Promise.resolve("UNTAGGED NEW BOUNDARY");\n    // @suite-phase input_tap\n'),
+            encoding='utf8')
         proc = subprocess.run(
             ['node', str(REPO / 'perf/tests/b4_suite_phase_manifest.mjs')],
             capture_output=True,

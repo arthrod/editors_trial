@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[2]
-PROBE_DIR = Path('/Users/arthrod/temp/T/e2-logs/b4-fix8')
+PROBE_DIR = Path(__file__).resolve().parent / 'probes' / 'b4_fix8'
 RUNNER = REPO / 'perf/runner/criteria_input.mjs'
 
 NESTED_INJECTION_PHASES = {'alive_c04', 'alive_boundary', 'partial_c07', 'after_c08'}
