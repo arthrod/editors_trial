@@ -301,6 +301,29 @@ BROWSER_TARGETS: dict[str, dict] = {
 }
 
 
+def offset_targets(targets: dict, offset: int) -> dict:
+    """Every host on ``port + offset``. Local sessions only: two agents proving a fix on one
+    machine must not collide on the fixed host ports. A publication run never sets it."""
+    if not offset:
+        return targets
+    import re
+    moved = {}
+    for editor, target in targets.items():
+        port = int(re.search(r":(\d+)/", target["url"]).group(1)) + offset
+        row = {**target, "url": re.sub(r":\d+/", ":%d/" % port, target["url"], count=1)}
+        row["env"] = {**target.get("env", {}), "PORT": str(port)}
+        command = list(target.get("command", []))
+        for index, token in enumerate(command[:-1]):
+            if token == "--port":
+                command[index + 1] = str(port)
+        row["command"] = command
+        moved[editor] = row
+    return moved
+
+
+BROWSER_TARGETS = offset_targets(BROWSER_TARGETS, int(os.environ.get("PERF_PORT_OFFSET") or 0))
+
+
 def _apryse_key_present() -> bool:
     for name in ("APRYSE_LICENSE_KEY", "PDFTRON_LICENSE_KEY", "TRIAL_KEY", "APRYSE_API_KEY"):
         if os.environ.get(name, "").strip():
