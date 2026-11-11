@@ -7,10 +7,11 @@
  * typing window, and pixels cannot prove that document text landed.
  */
 import {
+  BURST_VERIFY_MODEL,
   EDIT_SURFACES,
   insertedOnce,
   placeCaret,
-  readCaretScope,
+  readBurstVerifyText,
   readModifiedFlag,
 } from './edit_surface.mjs';
 
@@ -239,6 +240,7 @@ const ORACLE_MODE = {
   dom: 'caret_block_text',
   model: 'caret_model_text',
   flag: 'editor_modified_flag',
+  editor_model: 'editor_model_text',
 };
 
 /**
@@ -248,10 +250,11 @@ const ORACLE_MODE = {
  */
 async function prepareOnSurface(page, opts) {
   const surface = EDIT_SURFACES[opts.editorId];
+  const modelBurst = BURST_VERIFY_MODEL.has(opts.editorId);
   const prepared = {
     surface: surface.kind,
     editorId: opts.editorId,
-    oracleMode: ORACLE_MODE[surface.kind],
+    oracleMode: modelBurst ? ORACLE_MODE.editor_model : ORACLE_MODE[surface.kind],
     witnessMode: opts.witness.mode,
     preTypeSettleMs: opts.preTypeSettleMs,
     repetitions: opts.repetitions,
@@ -276,7 +279,7 @@ async function prepareOnSurface(page, opts) {
   if (surface.kind === 'flag') {
     prepared.beforeFlag = await readModifiedFlag(page, opts.editorId);
   } else {
-    prepared.beforeText = await readCaretScope(page, opts.editorId, prepared.point);
+    prepared.beforeText = await readBurstVerifyText(page, opts.editorId, prepared.point);
   }
   await armTrustedKeyCounter(page);
   return prepared;
@@ -325,7 +328,7 @@ async function verifyOnSurface(page, opts, prepared) {
     const base = countToken(prepared.beforeText, opts.text);
     while (true) {
       attempts += 1;
-      afterText = await readCaretScope(page, prepared.editorId, prepared.point);
+      afterText = await readBurstVerifyText(page, prepared.editorId, prepared.point);
       delta = countToken(afterText, opts.text) - base;
       if (delta === opts.repetitions) {
         // The same block must hold the burst as one insertion; a block that
@@ -358,7 +361,7 @@ async function verifyOnSurface(page, opts, prepared) {
     witness_mode: prepared.oracleMode,
     status,
     reason,
-    model_hook: prepared.surface === 'model',
+    model_hook: prepared.surface === 'model' || BURST_VERIFY_MODEL.has(prepared.editorId),
     model_hook_error: null,
     trusted_keys: keys,
     min_trusted_keys: minKeys,

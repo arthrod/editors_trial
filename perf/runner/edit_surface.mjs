@@ -598,6 +598,49 @@ export async function readCaretScope(page, editorId, point) {
   return null;
 }
 
+/** Editors whose burst oracle must read the model, not painted DOM at the caret. */
+export const BURST_VERIFY_MODEL = new Set(['superdoc', 'eigenpal']);
+
+/** Page context. SuperDoc model text for burst verification (painted lines lag). */
+export const READ_SUPERDOC_BURST_TEXT = async () => {
+  try {
+    const sd = globalThis.__SUPERDOC_E2E__;
+    const doc = sd && sd.activeEditor && sd.activeEditor.doc;
+    if (!doc || typeof doc.getText !== 'function') return null;
+    const value = await doc.getText({});
+    return typeof value === 'string' ? value : null;
+  } catch {
+    return null;
+  }
+};
+
+/** Page context. Eigenpal session body for burst verification (virtualized paint jumps). */
+export const READ_EIGENPAL_BURST_TEXT = () => {
+  const hook = globalThis.__DOCX_EDITOR_E2E__;
+  const editor = hook && typeof hook.getEditor === 'function' ? hook.getEditor() : null;
+  const session = editor && editor.surface && editor.surface.session;
+  if (!session || typeof session.bodyText !== 'function') return null;
+  try {
+    return session.bodyText();
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Text for keyboard-burst verification: model hosts whose painted DOM lies
+ * about whether keystrokes landed, everyone else stays caret-scoped.
+ */
+export async function readBurstVerifyText(page, editorId, point) {
+  if (editorId === 'superdoc') {
+    return page.evaluate(READ_SUPERDOC_BURST_TEXT);
+  }
+  if (editorId === 'eigenpal') {
+    return page.evaluate(READ_EIGENPAL_BURST_TEXT);
+  }
+  return readCaretScope(page, editorId, point);
+}
+
 /**
  * True when `after` is `before` with `inserted` put in at one place and
  * nothing else changed. A line that wraps may lose its tail to the next line.
@@ -643,7 +686,7 @@ export async function waitForTokenDelta(page, editorId, point, { token, before, 
   let text = before;
   let delta = 0;
   while (true) {
-    text = await readCaretScope(page, editorId, point);
+    text = await readBurstVerifyText(page, editorId, point);
     delta = countToken(text, token) - base;
     if (delta === expected || Date.now() >= deadline) break;
     await page.waitForTimeout(pollMs);
