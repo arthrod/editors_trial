@@ -38,6 +38,8 @@ Each criterion is one browser-visible or model clock on the same corpus the head
 
 not yet measured
 
+Per-Space provenance not supplied.
+
 Playwright not yet measured, Chromium not yet measured. Renderer: not yet measured.
 
 ## The rule
@@ -103,6 +105,28 @@ not yet measured
 Each C15 step is a separate measure; steps are never pooled.
 
 not yet measured
+
+### C17 — memory by phase
+
+not yet measured
+
+### C19 — retained memory
+
+not yet measured
+
+### B8 — resources while opening and editing
+
+**B8 — resources while opening and editing.** One fresh browser per launch opens the document, waits until the editor is idle, types sixteen characters into a body line on the first screen, and waits again. CPU is the processor time of the whole browser process tree: to open (from navigation until idle, including work an editor does after it reports ready), during the edit (the keystrokes plus half a second), and while settling afterwards. Peak memory is the resident memory of that tree. An edit counts only when it is verified in the document: the text of the block at the caret, read from the page or from the editor's model, gained exactly the typed text; WordCraft, which exposes no text, is verified by its own modified flag. An editor that never goes idle is measured over a 30-second cap and flagged. The complex document is loaded without its read-only protection, which the editors honour.
+
+Each cell shows the first seed's median and the second seed's median. A figure is printed only when the two agree within 10 percent (20 ms for CPU).
+
+not yet measured
+
+### B9 — typing marathon
+
+Each kind schedules 12 sessions per editor per seed and requires at least 10 kept. Throughput sessions publish chars/s and resources. Latency sessions publish load and key-to-paint with witness counts; their instrumented throughput and resources are withheld.
+
+not in these runs.
 
 ## Not measured in the browser run
 
