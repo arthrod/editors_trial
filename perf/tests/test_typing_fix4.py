@@ -102,6 +102,9 @@ def test_integration_kept_gate_uses_only_selected_kind(tmp_path, kind, kept):
                 'session_kind': kind,
                 'outcome': 'measured',
                 'correctness_oracle': 'dom_document_text',
+                # The writer always stores refusal_code (null when measured).
+                # A missing key is a crash, so the gate below is the metric.
+                'refusal_code': None,
                 'throughput_chars_s': 100 if kind == 'throughput' and ok else None,
                 'load_ms': 12 if kind == 'latency' else None,
                 'key_to_paint': {'median_ms': 16 if kind == 'latency' and ok else None},

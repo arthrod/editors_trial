@@ -144,7 +144,9 @@ def test_integration_typing_kept_gate_per_editor(tmp_path, kept, refused):
         directory = Path(sys.argv[sys.argv.index('--out-root')+1])
         reason = 'text_mismatch' if current['editor_id'] == 'plate' and current['repetition'] >= kept else None
         write_json(directory/'attempts'/'typing.json', {'criterion_id':'TYPING', 'session_kind':'throughput', 'outcome':'refused' if reason else 'measured',
-            'correctness_oracle':'dom_document_text', 'failure_reason':reason, 'load_ms':12, 'throughput_chars_s':100, 'key_to_paint':{'median_ms':16}})
+            'correctness_oracle':'dom_document_text', 'failure_reason':reason,
+            'refusal_code': None if reason is None else 'correctness_failure',
+            'load_ms':12, 'throughput_chars_s':100, 'key_to_paint':{'median_ms':16}})
         return 0
     try:
         sys.argv = ['test','--execution-profile','dedicated_publish','--host-class','dedicated',
