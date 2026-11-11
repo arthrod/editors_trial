@@ -866,11 +866,9 @@ def _persist_attempt(attempt_dir, criterion_id, editor_id, trial):
                      'summary_stats': None, 'publication_block_reason': 'cpu_throttled'}
         else:
             trial = recorded
-    # Canonical attempt files are publication evidence, not CPU-accounting
-    # diagnostics. BrowserRun.sample marks nested rows diagnostic while the
-    # cell bracket is open; container verify_run must still see measured trials.
-    for key in ("accounting_scope", "cpu_accounting", "brackets_force_closed", "publication_block_reason"):
-        trial.pop(key, None)
+    # Nested BrowserRun.sample rows carry accounting_scope=diagnostic while a
+    # cell bracket is open; attempt files on disk are always publication trials.
+    trial.pop("accounting_scope", None)
     return write_attempt(attempt_dir, name, trial)
 
 

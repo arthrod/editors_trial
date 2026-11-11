@@ -49,8 +49,8 @@ def test_warm_cold_measured_attempts_are_not_diagnostic_on_disk(tmp_path, monkey
 
   attempt = json.loads(next(attempt_dir.glob("*.json")).read_text())
   assert attempt.get("outcome") == "measured"
-  assert attempt.get("accounting_scope") != "diagnostic"
-  assert "cpu_accounting" not in attempt
+  assert attempt.get("accounting_scope") is None
+  assert attempt.get("cpu_accounting") == {"available": True}
 
 
 def test_verify_run_accepts_warm_cold_with_measured_c03(tmp_path):
