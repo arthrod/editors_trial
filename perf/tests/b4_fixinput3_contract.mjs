@@ -11,7 +11,9 @@ import {
 } from '../runner/criteria_input.mjs';
 
 let failed = 0;
+let checks = 0;
 function assert(cond, msg) {
+  checks += 1;
   if (!cond) {
     console.error(`FAIL: ${msg}`);
     failed += 1;
@@ -165,10 +167,12 @@ assert(
   'C09 names missing focus instead of blaming document text',
 );
 
-// BLOCKER-1: masked caret with no screencast frame still measures when DOM caret moved.
+// A masked caret with no screencast frame is not a sample. The unmasked retry
+// has to paint, or the point is caret_move_not_painted.
 const c07CaretDom = await (async () => {
   const page = {
     mouse: { click: async () => {} },
+    keyboard: { press: async () => {} },
     evaluate: async (fn, arg) => {
       if (fn.name === 'READ_EDITABLE_STATE') {
         return {
@@ -193,7 +197,7 @@ const c07CaretDom = await (async () => {
     frameIntervalMs: 16.667,
     paintAfter: async (_t, callOptions = {}) => {
       if (callOptions.arm) await callOptions.arm();
-      return { outcome: 'no_frame', changed_pixels: 0, caret_masked: true };
+      return { outcome: 'no_frame', changed_pixels: 0, caret_masked: true, frames_after: 1, frames_total: 2 };
     },
   };
   const { measureClicks } = await import('../runner/criteria_input.mjs');
@@ -209,13 +213,21 @@ const c07CaretDom = await (async () => {
     },
   );
 })();
-assert(c07CaretDom.outcome === 'measured', 'C07 accepts caret-dom response when witness sees no_frame');
+assert(c07CaretDom.outcome === 'failed', 'C07 refuses a caret move that never paints');
 assert(
-  c07CaretDom.observations[0]?.caret_dom_response === true,
-  'C07 records caret_dom_response',
+  String(c07CaretDom.failure_reason || '').includes('caret_move_not_painted'),
+  'C07 names caret_move_not_painted',
+);
+assert(
+  !(c07CaretDom.observations || []).some((observation) => observation.sample_ms != null),
+  'C07 keeps no sample from a timeout clock',
+);
+assert(
+  !(c07CaretDom.observations || []).some((observation) => observation.caret_dom_response === true),
+  'C07 does not keep a caret-dom bypass',
 );
 
 if (failed) {
   process.exit(1);
 }
-console.log(`b4_fixinput3_contract: ${8} checks ok`);
+console.log(`b4_fixinput3_contract: ${checks} checks ok`);

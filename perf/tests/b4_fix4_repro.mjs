@@ -32,7 +32,21 @@ function fakePage(mode) {
     },
     evaluate: async (fn, arg) => {
       if (fn.name === 'READ_EDITABLE_STATE') {
-        return { text: body, text_length: body.length, selection_offset: 4 };
+        return {
+          text: body,
+          text_length: body.length,
+          selection_offset: 4,
+          active_inside: true,
+          anchor_inside: true,
+        };
+      }
+      if (fn.name === 'RESOLVE_CLICK_POINTS') {
+        return {
+          points: [
+            { point: 'page_centre', x: 1, y: 1, hit_inside_editable: true },
+            { point: 'last_text_line', x: 1, y: 1, hit_inside_editable: true },
+          ],
+        };
       }
       if (arg && typeof arg === 'object' && (arg.kind || arg.kinds)) {
         return mode === 'missing_paste' || mode === 'c09_missing_input' && (arg.key === 'z' || arg.key === 'Z') ? null : { t: 100 };
@@ -149,7 +163,7 @@ async function failedResetSuite() {
     keyboard: {type: async () => {body = 'ORIGxINAL'}, press: async () => {}},
     reload: async () => {throw new Error('reload refused')},
     evaluate: async (fn, arg) => {
-      if (fn.name === 'READ_EDITABLE_STATE') return {text: body, text_length: body.length, selection_offset: 4, is_content_editable: true};
+      if (fn.name === 'READ_EDITABLE_STATE') return {text: body, text_length: body.length, selection_offset: 4, is_content_editable: true, active_inside: true, anchor_inside: true};
       if (fn.name === 'RESOLVE_CLICK_POINTS') return {points: [{point: 'last_text_line', x: 1, y: 1}]};
       if (arg?.count) return [16.667, 16.667];
       return null;
@@ -159,7 +173,7 @@ async function failedResetSuite() {
 }
 async function cleanupProbe() {
 let body='ORIGINAL', undos=0;
-const page={reload:async()=>{body='ORIGINAL'},mouse:{click:async()=>{}}, keyboard:{type:async()=>{body='ORIGxINAL'},press:async()=>{undos++; if(undos>1)body='ORIGINAL'}},evaluate:async(fn,arg)=>{if(fn.name==='READ_EDITABLE_STATE')return {text:body,text_length:body.length,selection_offset:4}; if(arg && (arg.kind||arg.kinds))return {t:100}; return null;}};
+const page={reload:async()=>{body='ORIGINAL'},mouse:{click:async()=>{}}, keyboard:{type:async()=>{body='ORIGxINAL'},press:async()=>{undos++; if(undos>1)body='ORIGINAL'}},evaluate:async(fn,arg)=>{if(fn.name==='READ_EDITABLE_STATE')return {text:body,text_length:body.length,selection_offset:4,active_inside:true,anchor_inside:true}; if(fn.name==='RESOLVE_CLICK_POINTS')return {points:[{point:'last_text_line',x:1,y:1,hit_inside_editable:true}]}; if(arg && (arg.kind||arg.kinds))return {t:100}; return null;}};
 const witness={frameIntervalMs:16.667,paintAfter:async(t,o)=>{await o.arm(); return noFrameRecord();}};
 const result=await measureUndo(page,witness,{modifier:'Control',expectedBodyText:'ORIGINAL'},{editable:{selector:'#doc',is_content_editable:true,text_length:8},points:[{point:'last_text_line',x:1,y:1}]});
 return {reason:result.failure_reason,body,undos,fixture_reset:result.fixture_reset};

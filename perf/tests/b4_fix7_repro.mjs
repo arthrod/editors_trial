@@ -114,14 +114,17 @@ function makeHost(deathAt) {
       }
       if (name === 'RESOLVE_CLICK_POINTS') {
         resolveCalls += 1;
-        if (deathAt === 'c08_refresh_read' && resolveCalls === 2) {
+        // Resolve 1 is the post-C04 hit test. Resolve 2 is C09's own click.
+        // The refresh resolve is the third; the next editable read is the one
+        // the c08_refresh_read death is about.
+        if (deathAt === 'c08_refresh_read' && resolveCalls === 3) {
           postRefreshResolve = true;
         }
         if (deathAt === 'after_c04' && resolveCalls === 1) {
           die();
           throw new Error('Execution context was destroyed');
         }
-        if (deathAt === 'c08_refresh' && resolveCalls === 2) {
+        if (deathAt === 'c08_refresh' && resolveCalls === 3) {
           die();
           throw new Error('Execution context was destroyed');
         }

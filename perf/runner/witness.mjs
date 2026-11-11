@@ -644,6 +644,31 @@ export async function injectCaretMask(page) {
   }
 }
 
+/** Drop a mask left by an earlier sample. A caret retry that stays masked cannot paint. */
+export async function removeCaretMask(page) {
+  try {
+    const removed = await page.evaluate(() => {
+      const style = document.querySelector('style[data-perf-caret-mask]');
+      if (!style) return false;
+      style.remove();
+      return true;
+    });
+    return {
+      caret_masked: false,
+      caret_mask_css: null,
+      caret_mask_error: null,
+      caret_mask_removed: removed === true,
+    };
+  } catch (error) {
+    return {
+      caret_masked: false,
+      caret_mask_css: null,
+      caret_mask_error: String(error).slice(0, 200),
+      caret_mask_removed: false,
+    };
+  }
+}
+
 // ----------------------------------------------------------------- frame interval
 
 /**
@@ -1178,10 +1203,10 @@ export async function witnessFrame(
     checkSource = 'inline';
   }
 
-  const caret = caretMask
-    ? await injectCaretMask(page)
-    : { caret_masked: false, caret_mask_css: CARET_MASK_CSS, caret_mask_error: null };
-  if (caretMask) await sleep(settleMs);
+  const caret = caretMask ? await injectCaretMask(page) : await removeCaretMask(page);
+  // Unmasking paints. Settle that paint into the baseline so the sample is the
+  // next input, not the stylesheet removal.
+  if (caretMask || caret.caret_mask_removed) await sleep(settleMs);
 
   // The baseline must be the picture *before* the change, so it is taken
   // before the page is armed.

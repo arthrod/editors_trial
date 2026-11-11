@@ -431,6 +431,8 @@ def assemble_trial(
         "platform": sampler.platform_name,
         "fresh_launch": True,
         "fixture_sha256": meta.get("sha256"),
+        "fixture_variant": meta.get("fixture_variant"),
+        "fixture_source_sha256": meta.get("fixture_source_sha256"),
         "fixture_byte_size": meta.get("byte_size"),
         "fixture_paragraph_count": meta.get("paragraph_count"),
         "word_count": meta.get("word_count"),

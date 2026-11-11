@@ -127,13 +127,6 @@ def _assert_retained_sample_witness_deltas(cid, entry):
             raise ValueError(f"{cid} retained observation identity missing or duplicated")
         used.add(identity)
         observation = by_id[identity]
-        if observation.get("caret_dom_response") is True:
-            if observation.get("sample_ms") is None or abs(observation["sample_ms"] - sample) > 0.001:
-                raise ValueError(
-                    "%s caret-dom sample %r disagrees with observation sample_ms"
-                    % (cid, sample)
-                )
-            continue
         witness = observation.get("witness") or {}
         for field, witness_field in (("input_ms", "after_page_ms"), ("frame_ms", "frame_page_ms")):
             value, anchor = observation.get(field), witness.get(witness_field)
@@ -183,9 +176,6 @@ def _assert_observation_witnesses(cid, entry):
         if not isinstance(observation, dict):
             continue
         if observation.get("frame_ms") is None and observation.get("sample_ms") is None:
-            continue
-        if observation.get("caret_dom_response") is True:
-            witnessed += 1
             continue
         witness = observation.get("witness")
         if not isinstance(witness, dict):
@@ -382,11 +372,33 @@ def trial_from_entry(cid, entry, env, witness=None):
             diagnostic=diagnostic,
         )
         reason = str(entry["failure_reason"])
-        trial["refusal_code"] = (outcome if outcome in ("not_applicable", "not_run", "unsupported", "unverified") else
+        trial["refusal_code"] = (
+            outcome if outcome in ("not_applicable", "not_run", "unsupported", "unverified") else
             "cpu_throttled" if reason.startswith("cpu_throttled") else
-            "unverified" if reason.startswith(("correctness:", "no_keydown_", "typed_character_not_observable", "no_click_point_resolved", "quiescence_not_reached_", "fixture_reset_failed", "editable_has_no_observable_text")) else
-            "paint_witness_unavailable" if any(token in reason for token in ("no_painted_frame", "witness", "clock_skew", "frame_interval")) else
-            "malformed_samples" if "malformed_observation" in reason else "crash")
+            "document_protected_read_only" if "document_protected_read_only" in reason else
+            "caret_move_not_painted" if "caret_move_not_painted" in reason else
+            "editor_mode_did_not_open" if "editor_mode_did_not_open" in reason else
+            "unverified" if (
+                reason.startswith((
+                    "correctness:",
+                    "no_keydown_",
+                    "typed_character_not_observable",
+                    "no_click_point_resolved",
+                    "quiescence_not_reached_",
+                    "fixture_reset_failed",
+                    "editable_has_no_observable_text",
+                    "selection_not_collapsed_before_typing",
+                ))
+                or "caret_not_on_clicked_line" in reason
+                or "editor_did_not_take_focus_after_click" in reason
+                or "no_pointerdown_observed" in reason
+            ) else
+            "paint_witness_unavailable" if any(
+                token in reason for token in ("no_painted_frame", "witness", "clock_skew", "frame_interval")
+            ) else
+            "malformed_samples" if "malformed_observation" in reason else
+            "crash"
+        )
         validate_trial(trial)
         return trial
     samples = [float(s) for s in entry["samples_ms"]]
@@ -450,7 +462,16 @@ def trials_from_payload(payload, *, editor_version, fixture_sha256, workload_row
             docx_size,
             cache_state,
         )
-        trials[cid] = trial_from_entry(cid, entry, env, witness=payload.get("paint_witness"))
+        trial = trial_from_entry(cid, entry, env, witness=payload.get("paint_witness"))
+        row = workload_row or {}
+        variant = payload.get("fixture_variant") or row.get("fixture_variant")
+        if variant:
+            diagnostic = trial.setdefault("diagnostic", {})
+            diagnostic["fixture_variant"] = variant
+            diagnostic["fixture_source_sha256"] = (
+                payload.get("fixture_source_sha256") or row.get("fixture_source_sha256")
+            )
+        trials[cid] = trial
     return trials
 
 

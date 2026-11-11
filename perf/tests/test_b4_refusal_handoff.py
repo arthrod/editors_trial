@@ -17,6 +17,15 @@ from perf.tests.test_schema import _env
     ('harness_error: TypeError: unexpected exception', 'crash'),
     ('page_lost: Target closed', 'crash'),
     ('unexpected probe exception', 'crash'),
+    ('correctness: caret_not_on_clicked_line', 'unverified'),
+    ('last_text_line: caret_not_on_clicked_line', 'unverified'),
+    ('first_text_line: caret_move_not_painted', 'caret_move_not_painted'),
+    ('document_protected_read_only', 'document_protected_read_only'),
+    ('editor_mode_did_not_open', 'editor_mode_did_not_open'),
+    ('editor_did_not_take_focus_after_click', 'unverified'),
+    ('page_centre: editor_did_not_take_focus_after_click', 'unverified'),
+    ('first_text_line: no_pointerdown_observed', 'unverified'),
+    ('selection_not_collapsed_before_typing', 'unverified'),
 ])
 def test_input_refusal_keeps_its_category(reason, code):
     trial = trial_from_entry('C08', {'layer':'browser_visible', 'boundary':'presented_frame',

@@ -93,7 +93,9 @@ function makeHost(deathAt) {
           die();
           throw new Error('Execution context was destroyed');
         }
-        if (deathAt === 'c08_refresh' && resolveCalls === 2) {
+        // Resolve 1 is the post-C04 hit test. Resolve 2 is C09's own click.
+        // The refresh resolve is the third.
+        if (deathAt === 'c08_refresh' && resolveCalls === 3) {
           die();
           throw new Error('Execution context was destroyed');
         }

@@ -58,9 +58,12 @@ def _fixture(editor_id: str, workload_id: str = "micro-paragraphs") -> tuple[Pat
     from perf.fixtures.profiles import size_ladder
 
     row = next(w for w in size_ladder() if w["workload_id"] == workload_id)
+    variant = None
     if row['shape'] in ('prose', 'corpus'):
-        from perf.fixtures.docx_workload import workload_docx
-        data = workload_docx(workload_id)['docx']
+        from perf.fixtures.docx_workload import workload_for_lane
+        built = workload_for_lane(workload_id, "input")
+        data = built["docx"]
+        variant = built
     else:
         body = build_workload(row)["body"] + b"\n" + correctness_fixtures()["unicode"]
         data = docx_zip_bytes(body)
@@ -68,7 +71,11 @@ def _fixture(editor_id: str, workload_id: str = "micro-paragraphs") -> tuple[Pat
     run = ACTIVE.get()
     path = run_fixture(row["workload_id"], data,
                        (run.directory if run else REPO / "perf/out") / "fixture.docx")
-    return path, hashlib.sha256(data).hexdigest(), len(data), row
+    served = dict(row)
+    if variant and variant.get("fixture_variant"):
+        served["fixture_variant"] = variant["fixture_variant"]
+        served["fixture_source_sha256"] = variant["fixture_source_sha256"]
+    return path, hashlib.sha256(data).hexdigest(), len(data), served
 
 
 CANVAS_HOSTS = frozenset({"canvas", "apryse"})
@@ -104,7 +111,8 @@ def _probe_command(editor_id: str, target: dict, fixture: Path) -> list[str]:
     return cmd
 
 
-def _probe_env(editor_id: str, target: dict, fixture: Path, *, workload_id: str) -> dict:
+def _probe_env(editor_id: str, target: dict, fixture: Path, *, workload_id: str,
+               workload_row: dict | None = None) -> dict:
     env = dict(os.environ)
     env.pop("PERF_EXPECTED_BODY_B64", None)
     env.pop("PERF_EXPECTED_BODY_PATH", None)
@@ -132,6 +140,12 @@ def _probe_env(editor_id: str, target: dict, fixture: Path, *, workload_id: str)
         target.setdefault("correctness_adapter", adapter)
     else:
         target["correctness_adapter"] = None
+    if workload_row and workload_row.get("fixture_variant"):
+        env["PERF_FIXTURE_VARIANT"] = workload_row["fixture_variant"]
+        env["PERF_FIXTURE_SOURCE_SHA256"] = workload_row["fixture_source_sha256"]
+    else:
+        env.pop("PERF_FIXTURE_VARIANT", None)
+        env.pop("PERF_FIXTURE_SOURCE_SHA256", None)
     return env
 
 
@@ -198,7 +212,8 @@ def run_editor(editor_id: str, attempt_dir: Path, workload_id: str = "micro-para
                 capture_output=True,
                 text=True,
                 timeout=PROBE_TIMEOUT_S,
-                env=_probe_env(editor_id, target, fixture, workload_id=workload_id),
+                env=_probe_env(editor_id, target, fixture, workload_id=workload_id,
+                               workload_row=workload_row),
             )
         except subprocess.TimeoutExpired:
             return _refuse_run(

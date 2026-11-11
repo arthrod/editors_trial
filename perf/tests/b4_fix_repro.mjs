@@ -47,10 +47,19 @@ const corrupt = await (async () => {
       }),
     }),
     evaluate: async (fn, arg) => {
+      if (fn.name === 'RESOLVE_CLICK_POINTS') {
+        return { points: [{ point: 'page_centre', x: 10, y: 10, hit_inside_editable: true }] };
+      }
       if (fn.name === 'READ_EDITABLE_STATE') {
         reads += 1;
         const text = reads >= 2 ? 'CORRUPTDBLOCK' : 'ORIGINAL';
-        return { text, text_length: text.length, selection_offset: 8 };
+        return {
+          text,
+          text_length: text.length,
+          selection_offset: 8,
+          active_inside: true,
+          anchor_inside: true,
+        };
       }
       if (arg && typeof arg === 'object' && arg.kinds) return { t: 100 };
       if (arg && typeof arg === 'object' && arg.quietMs !== undefined) return null;
@@ -127,11 +136,20 @@ const c09AtOffset = await (async () => {
       press: async () => {},
     },
     evaluate: async (fn, arg) => {
+      if (fn.name === 'RESOLVE_CLICK_POINTS') {
+        return { points: [{ point: 'page_centre', x: 10, y: 10, hit_inside_editable: true }] };
+      }
       if (fn.name === 'READ_EDITABLE_STATE') {
         reads += 1;
         let text = 'ORIGINAL';
         if (reads === 2) text = 'ORIGxINAL';
-        return { text, text_length: text.length, selection_offset: 4 };
+        return {
+          text,
+          text_length: text.length,
+          selection_offset: 4,
+          active_inside: true,
+          anchor_inside: true,
+        };
       }
       if (arg && typeof arg === 'object' && (arg.kinds || arg.kind)) {
         return { t: 100 };

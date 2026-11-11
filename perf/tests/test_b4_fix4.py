@@ -42,7 +42,7 @@ def test_missing_undo_input_keeps_witness(probes):
 
 
 def test_noop_undo_resets_fixture(probes):
-    assert probes['cleanup']['reason'] == 'no_painted_frame'
+    assert probes['cleanup']['reason'] == 'correctness: undo_did_not_restore_document_text'
     assert probes['cleanup']['body'] == 'ORIGINAL'
     assert probes['cleanup']['fixture_reset']['restored'] is True
 

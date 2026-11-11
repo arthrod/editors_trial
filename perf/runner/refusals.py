@@ -40,6 +40,9 @@ class RefusalCode(StrEnum):
     I10 = 'I10'
     I11 = 'I11'
     I12 = 'I12'
+    DOCUMENT_PROTECTED_READ_ONLY = 'document_protected_read_only'
+    CARET_MOVE_NOT_PAINTED = 'caret_move_not_painted'
+    EDITOR_MODE_DID_NOT_OPEN = 'editor_mode_did_not_open'
 
 
 RUN_REFUSALS = frozenset({

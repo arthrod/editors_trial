@@ -167,7 +167,10 @@ domain ``|x| <= 1e15``), ``frame_before_arm``,
 ``no_frame_after_marker``, ``frame_counts_inconsistent``,
 ``no_pixel_evidence``, ``pixel_evidence_contradicted``,
 ``caret_mask_failed``,
-``caret_not_masked``, ``caret_mask_contradicted``, ``invalid_record``,
+``caret_not_masked`` (not an unmasked caret-rect retry: ``caret_masked``
+false, ``caret_mask_css`` null, no mask error, document-scoped, and a
+``rect`` region at most 48 by 96 CSS pixels — a whole-document unmasked
+diff stays ``caret_not_masked``), ``caret_mask_contradicted``, ``invalid_record``,
 ``value_out_of_range`` (not a verdict reason of its own: the message
 token the owning schema writes when a numeric field is outside the
 supported finite domain ``|x| <= 1e15``; the reason stays
@@ -1093,7 +1096,7 @@ def _production_schema_violations(record):
             "baseline_source must name the baseline's source (got %s)"
             % (_describe(record.get("baseline_source")),)
         )
-    if not _nonempty_str(record.get("caret_mask_css")):
+    if not _nonempty_str(record.get("caret_mask_css")) and not _intentional_unmasked_caret(record):
         bad(
             "caret_mask_css must be the injected style (got %s)"
             % (_describe(record.get("caret_mask_css")),)
@@ -1784,6 +1787,46 @@ def _pixel_evidence_violations(record):
     return out
 
 
+# A caret-move retry diffs only the caret box with the mask removed. The
+# boxes the producer builds are about 16 CSS px wide and one caret tall.
+# Anything larger is a document diff and still needs the mask.
+_UNMASKED_CARET_MAX_CSS_WIDTH = 48
+_UNMASKED_CARET_MAX_CSS_HEIGHT = 96
+
+
+def _intentional_unmasked_caret(record):
+    """True when the producer deliberately witnessed a caret move unmasked.
+
+    The clock check stays masked. Only the frame record drops the mask, and
+    only over a caret-sized rect. A whole-document unmasked diff is refused.
+    """
+    if not isinstance(record, dict):
+        return False
+    if record.get("caret_masked") is not False:
+        return False
+    if record.get("caret_mask_css") is not None:
+        return False
+    if record.get("caret_mask_error") is not None:
+        return False
+    if record.get("document_scoped") is not True:
+        return False
+    region = record.get("document_region")
+    if not isinstance(region, dict) or region.get("source") != "rect":
+        return False
+    css = region.get("rect_css_px")
+    if not isinstance(css, dict):
+        return False
+    width = css.get("width")
+    height = css.get("height")
+    if not _finite_number(width) or not _finite_number(height):
+        return False
+    if not 0 < float(width) <= _UNMASKED_CARET_MAX_CSS_WIDTH:
+        return False
+    if not 0 < float(height) <= _UNMASKED_CARET_MAX_CSS_HEIGHT:
+        return False
+    return True
+
+
 def _mask_violations(record):
     """(reason, message) pairs for the caret-mask contradiction."""
     error = record.get("caret_mask_error")
@@ -1892,7 +1935,7 @@ def _reason_of(record, bound, errors, skew=None):
     pixels = _pixel_evidence_violations(record)
     if pixels:
         return pixels[0][0]
-    if record.get("caret_masked") is not True:
+    if record.get("caret_masked") is not True and not _intentional_unmasked_caret(record):
         if record.get("caret_mask_error"):
             return "caret_mask_failed"
         return "caret_not_masked"
@@ -2108,7 +2151,7 @@ def validate_witness(record, skew=None, bound_ms=DEFAULT_SKEW_BOUND_MS):
     caret_masked = record.get("caret_masked")
     if caret_masked is not None and not isinstance(caret_masked, bool):
         errors.append("caret_masked must be a boolean")
-    if caret_masked is not True:
+    if caret_masked is not True and not _intentional_unmasked_caret(record):
         if record.get("caret_mask_error"):
             errors.append(
                 "the caret mask failed (%s), so the witness is not proven"
