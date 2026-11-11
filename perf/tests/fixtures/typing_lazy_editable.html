@@ -1,0 +1,29 @@
+<!doctype html><meta charset="utf-8"><title>B9 lazy editable surface</title>
+<style>
+.paged-editor__pages {border:1px solid black; width:900px; white-space:pre-wrap}
+.layout-page {height:1056px}
+.ProseMirror {min-height:20px; width:800px}
+.paged-editor__hidden-pm {position:absolute; left:0; top:0}
+.paged-editor__hidden-pm-wrapper {position:fixed; left:-9999px; top:0; width:1px; height:1px; overflow:hidden; opacity:0; contain:layout paint}
+</style>
+<div class="paged-editor__pages"><div class="layout-page" data-page-number="1"></div></div>
+<div class="paged-editor__hidden-pm-wrapper"><div class="paged-editor__hidden-pm"></div></div>
+<script>
+// Folio-shaped surface: the painted page accepts the click, which mounts the
+// real editable ProseMirror off-screen and focuses it; the visible page then
+// repaints the mirror's text.
+document.querySelector('[data-page-number]').addEventListener('click', () => {
+  const host = document.querySelector('.paged-editor__hidden-pm');
+  let pm = host.querySelector('.ProseMirror');
+  if (!pm) {
+    pm = document.createElement('div');
+    pm.className = 'ProseMirror';
+    pm.contentEditable = 'true';
+    pm.addEventListener('input', () => {
+      document.querySelector('[data-page-number]').innerText = pm.innerText;
+    });
+    host.appendChild(pm);
+  }
+  pm.focus();
+});
+</script>

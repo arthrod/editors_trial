@@ -858,6 +858,38 @@ export async function clockSkew(
 }
 
 /**
+ * The `token: detail` refusal string for a failed `clockSkew` record. The
+ * token is `reason` verbatim, except `page_offset_above_bound`, which keeps
+ * the established cross-lane token `clock_skew_above_bound` (the Python
+ * validator's name for the same check). No other failed check may carry that
+ * token: an in-bound signed offset such as -0.7 ms is not "above the bound",
+ * and the failing check — e.g. wordcraft's `anchor_lag_above_bound` — must be
+ * named honestly.
+ */
+export function clockSkewRefusalReason(skew) {
+  const reason = (skew && skew.reason) || 'clock_check_not_acceptable';
+  const token = reason === 'page_offset_above_bound' ? 'clock_skew_above_bound' : reason;
+  const details = {
+    timestamp_kind_unknown: () =>
+      'the screencast timestamp kind is ' + skew.timestamp_kind +
+      ', so a frame cannot be placed in the page clock',
+    anchor_missing: () => 'no screencast frame carries the change',
+    anchor_not_pixel_checked: () => 'the anchor frame could not be pixel-checked against the change',
+    anchor_not_converted: () => 'the anchor frame could not be placed in the page clock',
+    anchor_before_change: () => 'the anchor frame precedes the change it must prove',
+    anchor_lag_above_bound: () =>
+      'the anchor frame lag ' + skew.frame_lag_ms + ' ms is above the bound of ' +
+      skew.lag_bound_ms + ' ms',
+    page_offset_above_bound: () =>
+      'the clock skew ' + skew.skew_ms + ' ms is above the bound of ' + skew.bound_ms + ' ms',
+    page_offset_spread_above_bound: () =>
+      'the clock skew spread ' + skew.page_offset_spread_ms + ' ms is above the bound',
+  };
+  const detail = details[reason];
+  return token + ': ' + (detail ? detail() : 'the clock check failed');
+}
+
+/**
  * Force a visible change at a known page time and find the frame that shows
  * it: the first delivered frame, in arrival order, whose pixels differ from
  * the pre-change baseline inside the probe's own 8x8 region. There is NO

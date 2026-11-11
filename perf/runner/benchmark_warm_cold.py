@@ -248,6 +248,10 @@ BROWSER_TARGETS: dict[str, dict] = {
         "ready_selector": ".docx-page[data-materialized=\"true\"]",
         "ready_js": "window.__DOCX_EDITOR_E2E__?.ready() === true && window.__DOCX_EDITOR_E2E__?.fontMeasurer() === 'shaped' && (() => { const p = document.querySelector('.docx-page[data-materialized=\"true\"]'); if (!p) return false; const r = p.getBoundingClientRect(); return getComputedStyle(p).visibility === 'visible' && r.width > 0 && r.height > 0 && !document.querySelector('[data-docx-opening-preview], [data-docx-layout-pending]'); })()",
         "edit_selector": ".docx-page-content [data-paragraph-id][data-start]",
+        # B9 loads a zero-text document: no `data-start` span exists until text
+        # is typed, and the correctness read needs the whole-document innerText.
+        "typing_edit_selector": ".docx-pages",
+        "typing_click_selector": ".docx-page-content [data-paragraph-id]",
         "driver": "playwright",
         "criteria": {
             "C03": ("first_usable", "browser_visible"),
@@ -264,6 +268,15 @@ BROWSER_TARGETS: dict[str, dict] = {
         "ready_selector": "[data-page-number]",
         "ready_js": "Array.from(document.querySelectorAll('[data-page-number]')).some((el) => (el.innerText || '').trim().length > 0)",
         "edit_selector": "[data-page-number]",
+        # B9 loads a zero-text document: `ready_js` (non-empty page text) can
+        # never pass, and the editable is a hidden ProseMirror mounted by the
+        # first page click; the painted pages are what the user sees but
+        # repaint asynchronously, so they are the present region, not the
+        # correctness surface.
+        "typing_ready_js": None,
+        "typing_edit_selector": ".paged-editor__hidden-pm .ProseMirror",
+        "typing_present_selector": ".paged-editor__pages",
+        "typing_click_selector": "[data-page-number]",
         "driver": "playwright",
         "env": {"FOLIO_PLAYGROUND_PORT": "5217"},
         "criteria": {

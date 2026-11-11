@@ -36,6 +36,10 @@ for await (const line of lines) {
       await page.goto(command.url, {waitUntil:'domcontentloaded'});
       if (command.ready_js) await page.waitForFunction(command.ready_js);
       else if (command.ready_selector) await page.locator(command.ready_selector).first().waitFor();
+      // A lazy editable (folio's hidden ProseMirror) mounts on the first
+      // document click; it cannot exist before, so `selector` alone would
+      // never appear.
+      if (command.click_selector) await page.locator(command.click_selector).first().click();
       await page.locator(command.selector).first().waitFor();
       const usable = await page.evaluate(() => window.__b9usable);
       if (usable === null) {
@@ -44,7 +48,7 @@ for await (const line of lines) {
       clock = await clockSkew(page, cdp);
       interval = await frameInterval(page);
       const witness = await witnessFrame(page, cdp, {baseline, afterPageMs:usable,
-        region:{selector:command.selector}, clockCheck:clock, settleMs:0});
+        region:{selector:command.present_selector || command.selector}, clockCheck:clock, settleMs:0});
       result = {usable_ms:usable, witness, frame_interval_ms:interval.median_ms};
       }
     } else if (command.op === 'key') {

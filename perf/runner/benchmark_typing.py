@@ -80,10 +80,13 @@ def witness_eligible(char):
 
 async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0, session_kind="throughput",
                         witness_every=100, sample_s=5, clock=time.monotonic,
-                        sleep=asyncio.sleep):
+                        sleep=asyncio.sleep, present_selector=None):
     if session_kind not in ("throughput", "latency"):
         raise ValueError("invalid session kind")
-    sampler.selector = selector
+    # `selector` reads the document text; `present_selector` reads what the
+    # user can SEE (the painted region), which may repaint asynchronously
+    # (folio's visible pages lag the editable ProseMirror by ~200 ms).
+    sampler.selector = present_selector or selector
     start = clock(); next_sample = start + sample_s
     next_witness = witness_every; witness_wall = 0; typing_unwitnessed = 0; unwitnessed = 0
     sampler.typed_text = ''
@@ -256,26 +259,42 @@ async def session(target, text, args, directory):
                 processes = (await browser_cdp.send('SystemInfo.getProcessInfo'))['processInfo']
                 browser_pid = next(p['id'] for p in processes if p['type'] == 'browser')
                 resources = SimpleNamespace(editor_browser_pid=browser_pid, profile_dir=profile)
+                # The shared edit_selector must match the OTHER lanes' surfaces;
+                # B9 loads a zero-text document, so typing may need different
+                # elements: `typing_edit_selector` is the element that must be
+                # contenteditable and whose innerText is the document,
+                # `typing_present_selector` the visible region whose innerText
+                # is paint progress, `typing_click_selector` the element that
+                # takes the activating/focus click (e.g. a lazy ProseMirror
+                # mounts on the first page click), `typing_ready_js` overrides
+                # a ready_js that requires non-empty text — impossible here.
+                edit_sel = target.get('typing_edit_selector', target['edit_selector'])
+                present_sel = target.get('typing_present_selector', edit_sel)
+                click_sel = target.get('typing_click_selector', edit_sel)
+                ready_js = target['typing_ready_js'] if 'typing_ready_js' in target else target.get('ready_js')
                 sampler = TypingResourceSampler(resources, page, cdp)
-                sampler.selector = target['edit_selector']
+                sampler.selector = present_sel
                 await sampler.install()
                 await sampler.mark('load_start')
-                load = await bridge.request(op='load', url=target['url'], selector=target['edit_selector'],
-                    ready_selector=target.get('ready_selector'), ready_js=target.get('ready_js'))
+                load = await bridge.request(op='load', url=target['url'], selector=edit_sel,
+                    present_selector=None if present_sel == edit_sel else present_sel,
+                    click_selector=None if click_sel == edit_sel else click_sel,
+                    ready_selector=target.get('ready_selector'), ready_js=ready_js)
                 verdict = validate_witness(load['witness'])
                 result.update(load_witness=load, load_ms=load['witness']['frame_page_ms'] if verdict['ok'] else None,
                               load_refusal=verdict['reason'])
                 await sampler.mark('load')
                 result['resource_endpoints'] = {'after_load':await sampler.endpoint()}
-                surface = page.locator(target['edit_selector']).first
+                surface = page.locator(edit_sel).first
                 if not await surface.evaluate('(el) => el.isContentEditable'):
                     raise SessionRefusal('no_correctness_adapter')
                 if normalize(await surface.inner_text()):
                     raise SessionRefusal('document_not_empty')
-                await surface.click()
-                async def witness(char): return await bridge.request(op='key', char=char, selector=target['edit_selector'])
-                result.update(await type_document(page, sampler, witness, text, selector=target['edit_selector'],
-                    cadence_ms=args.cadence_ms, session_kind=kind, witness_every=args.witness_every, sample_s=args.sample_s))
+                await page.locator(click_sel).first.click()
+                async def witness(char): return await bridge.request(op='key', char=char, selector=present_sel)
+                result.update(await type_document(page, sampler, witness, text, selector=edit_sel,
+                    cadence_ms=args.cadence_ms, session_kind=kind, witness_every=args.witness_every, sample_s=args.sample_s,
+                    present_selector=present_sel))
                 if not result['failure_reason']:
                     # No unverified generic save button: require a host-declared path.
                     save = target.get('typing_save_selector')

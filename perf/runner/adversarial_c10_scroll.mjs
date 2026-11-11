@@ -52,6 +52,7 @@ import { fileURLToPath } from 'node:url';
 import {
   DEFAULT_SKEW_BOUND_MS,
   clockSkew,
+  clockSkewRefusalReason,
   getRecorder,
   loadPlaywright,
   witnessFrame,
@@ -651,14 +652,9 @@ async function oneSample(context, page) {
 
   const skew = await clockSkew(page, cdp, { boundMs: skewBoundMs, recorder });
   if (!skew.acceptable) {
-    const why =
-      skew.skew_ms === null || skew.skew_ms === undefined
-        ? 'the screencast timestamp kind is ' + skew.timestamp_kind +
-          ', so a frame cannot be placed in the page clock'
-        : 'the clock skew ' + skew.skew_ms + ' ms is above the bound of ' + skew.bound_ms + ' ms';
     return {
       outcome: 'failed',
-      reason: 'clock_skew_above_bound: ' + why,
+      reason: clockSkewRefusalReason(skew),
       clock_skew: skew,
       witness: null,
       container: null,
