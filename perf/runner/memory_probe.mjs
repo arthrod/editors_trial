@@ -24,6 +24,10 @@ import readline from 'node:readline';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { startChromeTrace, stopChromeTrace } from './chrome_trace.mjs';
 import { LANE_LOAD_TIMEOUT_MS, LANE_POLL_BOUND_MS, runLaneEditBurst } from './lane_edit_burst.mjs';
+import { loadTimeoutMs } from './load_timeout.mjs';
+
+// The memory lane's own floor (600 s) stays when the workload policy is shorter.
+const loadTimeout = Math.max(LANE_LOAD_TIMEOUT_MS, loadTimeoutMs());
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '../..');
@@ -118,7 +122,7 @@ function launchedBrowserPid(browserContext) {
   return null;
 }
 
-async function waitForReady(page, timeoutMs = LANE_LOAD_TIMEOUT_MS) {
+async function waitForReady(page, timeoutMs = loadTimeout) {
   if (readyJs) {
     await page.waitForFunction(
       (expr) => {
@@ -172,8 +176,8 @@ async function openEditor(browser, traceLabel = 'C17-first') {
   const page = await context.newPage();
   const trace = await startChromeTrace(browser, page, traceLabel);
   const t0 = Date.now();
-  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: LANE_LOAD_TIMEOUT_MS });
-  await waitForReady(page, LANE_LOAD_TIMEOUT_MS);
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: loadTimeout });
+  await waitForReady(page, loadTimeout);
   return { context, page, readyMs: Date.now() - t0, trace };
 }
 
