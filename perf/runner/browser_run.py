@@ -549,6 +549,9 @@ def typing_session_kept(value, session_kind):
     missing oracle is unverified evidence — it is recorded, never kept
     ("no unverified timings are published").
     """
+    from perf.runner.refusals import refusal_code
+    if refusal_code(value) is not None:
+        return False
     if value.get('correctness_oracle') not in TEXT_CORRECTNESS_ORACLES:
         return False
     return (value.get('outcome') == 'measured' and not value.get('failure_reason')
