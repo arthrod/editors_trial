@@ -10,7 +10,7 @@ import sys
 import re
 
 from perf.analysis.summarize import percentile
-from perf.runner.speed_headless import MIN_PUBLISH_N
+from perf.runner.browser_run import PUBLICATION_MIN_KEPT, PUBLICATION_REPETITIONS
 
 _REPO = Path(__file__).resolve().parents[2]
 if str(_REPO) not in sys.path:
@@ -170,13 +170,18 @@ def _same_root_duplicate_whole_schedule(
     jobs = [job for _run, job in job_pairs]
     if any(_block_slice_key(_load_summary(job)) for job in jobs):
         return False
-    sets = [frozenset(_job_launch_names(job, editor_id)) for job in jobs]
-    if len(sets) < 2:
+    # A whole schedule covers the order that job claims. A campaign-2 job that
+    # reuses launch names holds only a prefix of a longer order, so it is pooled
+    # with its siblings; two copies of a full list are not.
+    wholes: list[frozenset[str]] = []
+    for job in jobs:
+        names = frozenset(_job_launch_names(job, editor_id))
+        claimed = _scheduled_for_editor(_load_summary(job), editor_id, PUBLICATION_REPETITIONS)
+        if len(names) >= PUBLICATION_REPETITIONS and len(names) >= claimed:
+            wholes.append(names)
+    if len(wholes) < 2:
         return False
-    full = sets[0]
-    if len(full) < 30:
-        return False
-    return len({s for s in sets}) == 1
+    return len(set(wholes)) == 1
 
 
 def _seed_block_gate(
@@ -211,8 +216,8 @@ def _seed_block_gate(
         if len(ofs) != 1 or len(reps) != 1:
             return True, 'inconsistent block layout across jobs of one seed'
         of_val, rep_val = ofs.pop(), reps.pop()
-        if of_val * rep_val != 30:
-            return True, 'block layout does not cover 30 repetitions'
+        if of_val * rep_val != PUBLICATION_REPETITIONS:
+            return True, 'block layout does not cover %d repetitions' % PUBLICATION_REPETITIONS
         if len(set(indices)) != len(indices):
             return True, 'duplicate block index in one seed'
         out_of_range = sorted({index for index in indices if index < 1 or index > of_val})
@@ -228,7 +233,7 @@ def _seed_block_gate(
                 return True, 'block %d has no launch files' % block.get('index')
     elif len(jobs) >= 2:
         sets = [frozenset(_job_launch_names(job, editor_id)) for job in jobs]
-        full_schedules = [item for item in sets if len(item) >= 30]
+        full_schedules = [item for item in sets if len(item) >= PUBLICATION_REPETITIONS]
         if len(full_schedules) >= 2 and len({item for item in full_schedules}) > 1:
             return True, 'inconsistent launch schedules in one seed'
     if len(orders) > 1:
@@ -593,7 +598,7 @@ def public_cell_dict(cell: dict, *, published: bool = False) -> dict:
 
 
 def build_run_cell(
-    run_directory: Path, editor_id: str, criterion_id: str, *, scheduled: int = 30, measure: str = '', workload_id: str | None = None
+    run_directory: Path, editor_id: str, criterion_id: str, *, scheduled: int = PUBLICATION_REPETITIONS, measure: str = '', workload_id: str | None = None
 ) -> dict:
     job_pairs = [(run_directory, job) for job in _lane_jobs(run_directory, _job_roots(run_directory), editor_id, criterion_id)]
     return _build_cell_from_jobs(job_pairs, editor_id, criterion_id, scheduled=scheduled, measure=measure, workload_id=workload_id)
@@ -604,7 +609,7 @@ def _build_cell_from_jobs(
     editor_id: str,
     criterion_id: str,
     *,
-    scheduled: int = 30,
+    scheduled: int = PUBLICATION_REPETITIONS,
     measure: str = '',
     workload_id: str | None = None,
 ) -> dict:
@@ -820,7 +825,7 @@ def _criterion_block(seeds, groups) -> str | None:
     for name, group in zip(('first', 'second'), groups):
         stats = group.get('stats') or {}
         n_kept = stats.get('n', 0)
-        if n_kept < MIN_PUBLISH_N:
+        if n_kept < PUBLICATION_MIN_KEPT:
             reasons = ', '.join('%s %d' % item for item in sorted((group.get('refusals') or {}).items()))
             return '%s seed: %d of %d launches kept%s' % (
                 name, n_kept, group.get('scheduled', 0), ' (%s)' % reasons if reasons else '')
@@ -882,7 +887,7 @@ def failure_text(cell: dict) -> str:
     count = cell.get('failed_launches', sum(reasons.values()))
     extra = cell.get('additional_refusals') or {}
     also = '; also ' + '; '.join(f'{k}: {v}' for k, v in sorted(extra.items())) if extra else ''
-    return f'{count} of {cell.get("scheduled", 30)} launches failed: {counts}{also}'
+    return f'{count} of {cell.get("scheduled", PUBLICATION_REPETITIONS)} launches failed: {counts}{also}'
 
 
 def _format_median(median: float, frame_interval: float) -> str:
@@ -908,9 +913,9 @@ def publication_text(cell: dict) -> str:
         return f"run not publishable ({reason})"
 
     stats = cell.get('stats')
-    scheduled = cell.get('scheduled', 30)
+    scheduled = cell.get('scheduled', PUBLICATION_REPETITIONS)
     n_kept = stats['n'] if stats else 0
-    if n_kept < MIN_PUBLISH_N:
+    if n_kept < PUBLICATION_MIN_KEPT:
         reasons = cell.get('refusals') or {}
         reason_text = '; '.join(f'{key}: {count}' for key, count in sorted(reasons.items())) or 'none counted'
         additional = cell.get('additional_refusals') or {}
@@ -920,27 +925,36 @@ def publication_text(cell: dict) -> str:
     failure_suffix = f'; n = {n_kept} of {scheduled}' + (f'; {failures}' if failures else '')
     if cell.get('criterion_id') == 'C11' and cell.get('content_verified') is not True:
         failure_suffix += ' — content not verified'
+    kept = cell.get('kept_ms') or []
+    unit = 'bytes' if cell.get('sample_unit') == 'bytes' else 'ms'
+    # A percentile of a short kept set is not stable. Print it only at a full schedule.
+    spread = (
+        f'range {min(kept):.1f} to {max(kept):.1f} {unit}'
+        if n_kept < PUBLICATION_REPETITIONS and kept else None
+    )
     if cell.get('sample_unit') == 'bytes':
-        return f"{stats['median']:.1f} bytes; p90 {stats['p90']:.1f} bytes{failure_suffix}"
+        clock = spread if spread else f"p90 {stats['p90']:.1f} bytes"
+        return f"{stats['median']:.1f} bytes; {clock}{failure_suffix}"
     frame_interval = cell.get('frame_interval_ms')
     if frame_interval is None:
         if cell.get('witnessed', True):
             return f'no witnessed frame interval (n = {n_kept} of {scheduled})'
         # Not a frame-witnessed clock: no interval to bucket or check against.
-        return f"{stats['median']:.1f} ms; p90 {stats['p90']:.1f} ms{failure_suffix}"
+        clock = spread if spread else f"p90 {stats['p90']:.1f} ms"
+        return f"{stats['median']:.1f} ms; {clock}{failure_suffix}"
     median = stats['median']
-    p90 = stats['p90']
     share = _sub_frame_share(cell)
     share_text = f'; {share * 100:.0f}% sub-frame launches' if share is not None else ''
+    clock = spread if spread else _format_p90(cell, stats['p90'], frame_interval)
     if median < frame_interval:
         return (
-            f'< 1 frame ({frame_interval:g} ms){share_text}; {_format_p90(cell, p90, frame_interval)}{failure_suffix}'
+            f'< 1 frame ({frame_interval:g} ms){share_text}; {clock}{failure_suffix}'
         )
-    return f'{median:.1f} ms{share_text}; {_format_p90(cell, p90, frame_interval)}{failure_suffix}'
+    return f'{median:.1f} ms{share_text}; {clock}{failure_suffix}'
 
 
 def publish_dual_runs(
-    primary: Path, reproduction: Path, editor_id: str, criterion_id: str, *, scheduled: int = 30, measure: str = '', workload_id: str | None = None
+    primary: Path, reproduction: Path, editor_id: str, criterion_id: str, *, scheduled: int = PUBLICATION_REPETITIONS, measure: str = '', workload_id: str | None = None
 ) -> str:
     """Compatibility entry point; all publication gates live in the report path.
 

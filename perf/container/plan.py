@@ -14,6 +14,8 @@ job, read off campaign 1 (2026-11-11); only their ratios matter.
 import argparse
 import json
 
+from perf.runner.browser_run import PUBLICATION_REPETITIONS
+
 # Minutes per one-editor job by rung; 'C14' walks the whole ladder.
 _RUNG = {'prose-500w': 1.0, 'prose-5kw': 1.3, 'prose-50kw': 2.2, 'prose-250kw': 6.0, 'complex-corpus': 1.3}
 _BASE = {'benchmark_warm_cold': 20, 'benchmark_document': 40, 'benchmark_input': 15,
@@ -26,7 +28,7 @@ _BUILD = 3  # minutes: one production host build per one-editor run
 
 
 def estimate(name, options, shakedown=None):
-    """Minutes for one job; with ``shakedown=N``, N repetitions (+1 traced) of the 30."""
+    """Minutes for one job; with ``shakedown=N``, N repetitions (+1 traced) of the schedule."""
     if name == 'benchmark_typing':
         return 15 if shakedown else _TYPING
     if '--criteria' in options and 'C14' in options:
@@ -34,17 +36,17 @@ def estimate(name, options, shakedown=None):
     else:
         full = _BASE[name] * _RUNG[options[options.index('--workload') + 1]]
     if '--block' in options:
-        # A block: every editor, a few of the 30 repetitions, one host build each;
+        # A block: every editor, a few of the scheduled repetitions, one host build each;
         # its first block is traced, which doubles the launches.
         from .policy import SHAKEDOWN_COUNT_FLAG, job_editors
         editors = len(job_editors(options))
-        share = int(options[options.index(SHAKEDOWN_COUNT_FLAG[name]) + 1]) / 30
+        share = int(options[options.index(SHAKEDOWN_COUNT_FLAG[name]) + 1]) / PUBLICATION_REPETITIONS
         traced = 2 if '--chrome-profile' in options else 1
         if shakedown:
             # A rehearsal: N repetitions of every editor, plus the traced one.
-            return full * editors * (shakedown + traced - 1) / 30 + _BUILD * editors
+            return full * editors * (shakedown + traced - 1) / PUBLICATION_REPETITIONS + _BUILD * editors
         return full * editors * share * traced + _BUILD * editors
-    return full if not shakedown else full * (shakedown + 1) / 30 + _BUILD
+    return full if not shakedown else full * (shakedown + 1) / PUBLICATION_REPETITIONS + _BUILD
 
 
 def assign(jobs, costs, spaces):
@@ -75,7 +77,7 @@ def main(argv=None):
     parser.add_argument('--seed2', type=int, default=2)
     parser.add_argument('--shakedown', type=int, default=None)
     parser.add_argument('--skip', default='', help='comma list of job indices already measured')
-    parser.add_argument('--blocks', type=int, default=None, help='interleaved blocks per seed (publication layout)')
+    parser.add_argument('--blocks', type=int, default=2, help='interleaved blocks per seed (publication layout)')
     args = parser.parse_args(argv)
     editors = [name for name in BROWSER_TARGETS if name != 'apryse' and host_policy(name)['publishable']]
     jobs = publication_jobs(editors, args.seed, args.seed2, 'shared_guarded', blocks=args.blocks)
@@ -85,6 +87,9 @@ def main(argv=None):
     packed = assign([jobs[i] for i in todo], costs, args.spaces)
     out = [{'space': s, 'minutes': round(sum(costs[k] for k in space)),
             'jobs': ','.join(str(todo[k]) for k in space)} for s, space in enumerate(packed)]
+    each = PUBLICATION_REPETITIONS // args.blocks
+    print('publication: %d blocks of %d, %d jobs, %d minutes across %d spaces' % (
+        args.blocks, each, len(todo), round(sum(costs)), args.spaces))
     print(json.dumps(out, indent=1))
 
 

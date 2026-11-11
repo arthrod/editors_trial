@@ -5,9 +5,10 @@ One fresh Chromium launch per repetition, through ``run_cli`` / ``BrowserRun``.
 The dev/static server is not the editor. Resource numbers live in their own
 fields. They are never written to ``samples_ms``.
 
-Publication needs ``dedicated_publish``, 30 scheduled repetitions in each
-editor/workload group of each run, at least 10 kept measurements in each of
-those groups, and two distinct seeds.
+Publication needs ``dedicated_publish``, ``PUBLICATION_REPETITIONS`` scheduled
+repetitions in each editor/workload group of each run, at least
+``PUBLICATION_MIN_KEPT`` kept measurements in each of those groups, and two
+distinct seeds.
 
 C17 and C19 are endpoint levels: natural and post-GC heap, RSS/PSS/USS,
 storage and profile size. They do not carry counter deltas. Those deltas
@@ -27,6 +28,8 @@ import sys
 import threading
 import uuid
 from pathlib import Path
+
+from perf.runner.browser_run import PUBLICATION_MIN_KEPT, PUBLICATION_REPETITIONS
 from urllib.parse import urlsplit, urlunsplit
 
 REPO = Path(__file__).resolve().parents[2]
@@ -780,17 +783,17 @@ def _min_group_scheduled(cells):
 
 
 def publication_verdict(cells, *, seeds, scheduled, execution_profile, host_class):
-    """``scheduled`` is the smallest editor/workload group. n >= 10 measured. Two seeds."""
+    """``scheduled`` is the smallest editor/workload group. Kept must reach PUBLICATION_MIN_KEPT. Two seeds."""
     reasons = []
     if execution_profile != "dedicated_publish":
         reasons.append("execution_profile_not_dedicated_publish")
     if host_class not in ("dedicated", "shared_guarded"):
         reasons.append("host_class_not_publishable")
-    if scheduled < 30:
-        reasons.append("scheduled_below_30")
+    if scheduled < PUBLICATION_REPETITIONS:
+        reasons.append(f"scheduled_below_{PUBLICATION_REPETITIONS}")
     groups = _measured_groups(cells)
-    if not groups or any(count < 10 for count in groups.values()):
-        reasons.append("kept_below_10")
+    if not groups or any(count < PUBLICATION_MIN_KEPT for count in groups.values()):
+        reasons.append(f"kept_below_{PUBLICATION_MIN_KEPT}")
     distinct = []
     for seed in seeds:
         if seed not in distinct:
@@ -854,7 +857,7 @@ def _provenance_incomplete(cells, hosts):
 def publication_from_run(run):
     """Validate each run before pooling. Scheduled is the smaller run.
 
-    An empty companion must not be reported as scheduled 30, and its failed
+    An empty companion must not be reported as a full schedule, and its failed
     gate must not disappear behind the primary run's measured cells.
     """
     primary_cells = _resource_cells(run.directory)
@@ -900,12 +903,14 @@ def publication_from_run(run):
     for item in runs:
         scheduled_groups = _scheduled_groups(item["cells"])
         measured = _measured_groups(item["cells"])
-        if not scheduled_groups or any(count < 30 for count in scheduled_groups.values()):
-            if "scheduled_below_30" not in extra:
-                extra.append("scheduled_below_30")
-        if not measured or any(count < 10 for count in measured.values()):
-            if "kept_below_10" not in extra:
-                extra.append("kept_below_10")
+        scheduled_reason = f"scheduled_below_{PUBLICATION_REPETITIONS}"
+        kept_reason = f"kept_below_{PUBLICATION_MIN_KEPT}"
+        if not scheduled_groups or any(count < PUBLICATION_REPETITIONS for count in scheduled_groups.values()):
+            if scheduled_reason not in extra:
+                extra.append(scheduled_reason)
+        if not measured or any(count < PUBLICATION_MIN_KEPT for count in measured.values()):
+            if kept_reason not in extra:
+                extra.append(kept_reason)
     cells = []
     seeds = []
     scheduled_runs = []

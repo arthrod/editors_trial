@@ -46,6 +46,8 @@ Playwright {{perf.e2.playwright}}, Chromium {{perf.e2.chromium}}. Renderer: {{pe
 
 ## The rule
 
+{{perf.e2.sample_plan}}
+
 {{perf.e2.rule}}
 
 Primary run `{{perf.e2.run_id}}`, seed {{perf.e2.seed}} ({{perf.e2.date}}). Reproduction run `{{perf.e2.repro_run_id}}`, seed {{perf.e2.repro_seed}} ({{perf.e2.repro_date}}).

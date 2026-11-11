@@ -84,7 +84,7 @@ class PublicationGate(unittest.TestCase):
             host_class="dedicated",
         )
         self.assertFalse(verdict["publishable"])
-        self.assertIn("kept_below_10", verdict["publication_block_reasons"])
+        self.assertIn("kept_below_5", verdict["publication_block_reasons"])
 
     def test_companion_provenance_must_match(self):
         sha = "a" * 64

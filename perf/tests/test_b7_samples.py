@@ -167,7 +167,7 @@ class PublicationRepetitions(unittest.TestCase):
         try:
             sys.argv = [
                 "fake",
-                "--samples=29",
+                "--samples=9",
                 "--execution-profile",
                 "dedicated_publish",
                 "--host-class",
@@ -192,7 +192,7 @@ class PublicationRepetitions(unittest.TestCase):
             sys.argv = [
                 "fake",
                 "--samples",
-                "29",
+                "9",
                 "--execution-profile",
                 "dedicated_publish",
                 "--host-class",
@@ -211,10 +211,43 @@ class PublicationRepetitions(unittest.TestCase):
         finally:
             sys.argv = original
 
+    def test_dedicated_publish_accepts_the_scheduled_sample_count(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            original = sys.argv
+            try:
+                sys.argv = [
+                    "fake",
+                    "--out-root",
+                    tmp,
+                    "--seed",
+                    "7",
+                    "--samples",
+                    "10",
+                    "--execution-profile",
+                    "dedicated_publish",
+                    "--host-class",
+                    "dedicated",
+                    "--editors",
+                    "a",
+                ]
+                code = run_cli(
+                    lambda: 0,
+                    "fake",
+                    {"a": {}},
+                    count_flag="--samples",
+                    run_factory=partial(api.BrowserRun, snapshot=lambda: {}),
+                    facts=(lambda: {}, lambda: {}),
+                )
+                self.assertEqual(code, 0)
+                summary = json.loads(next(Path(tmp).glob("fake/*/summary.json")).read_text())
+                self.assertEqual(len(summary["order"]), 10)
+            finally:
+                sys.argv = original
+
 
 @pytest.mark.usefixtures("fs")
 class E2Cells(unittest.TestCase):
-    def test_nine_kept_samples_not_enough(self):
+    def test_nine_kept_samples_print_median_and_range(self):
         root = Path(tempfile.mkdtemp())
         self.addCleanup(lambda: __import__("shutil").rmtree(root, ignore_errors=True))
         for rep in range(9):
@@ -222,8 +255,60 @@ class E2Cells(unittest.TestCase):
         _write_summary(root, "plate", 30)
         cell = e2_cells.build_run_cell(root, "plate", "C07", scheduled=30)
         text = e2_cells.publication_text(cell)
+        self.assertNotIn("not enough samples", text)
+        self.assertIn("n = 9 of 30", text)
+        self.assertNotIn("p90", text)
+        self.assertIn("range", text)
+
+    def test_five_of_ten_prints_median_and_range(self):
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(root, ignore_errors=True))
+        for rep, sample in enumerate([10.0, 20.0, 30.0, 40.0, 50.0]):
+            _write_trial(root, rep, "plate", "C07", outcome="measured", samples=[sample])
+        _write_summary(root, "plate", 10)
+        cell = e2_cells.build_run_cell(root, "plate", "C07")
+        text = e2_cells.publication_text(cell)
+        self.assertIn("n = 5 of 10", text)
+        self.assertNotIn("not enough", text)
+        self.assertNotIn("p90", text)
+        self.assertIn("range 10.0 to 50.0 ms", text)
+        self.assertIn("30.0 ms", text)
+
+    def test_four_of_ten_is_not_enough(self):
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(root, ignore_errors=True))
+        for rep in range(4):
+            _write_trial(root, rep, "plate", "C07", outcome="measured", samples=[20.0])
+        _write_summary(root, "plate", 10)
+        cell = e2_cells.build_run_cell(root, "plate", "C07")
+        text = e2_cells.publication_text(cell)
         self.assertIn("not enough samples", text)
-        self.assertIn(f"n = 9 of 30", text)
+        self.assertIn("n = 4 of 10", text)
+
+    def test_ten_of_ten_prints_p90(self):
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(root, ignore_errors=True))
+        for rep in range(10):
+            _write_trial(root, rep, "plate", "C07", outcome="measured", samples=[20.0])
+        _write_summary(root, "plate", 10)
+        cell = e2_cells.build_run_cell(root, "plate", "C07")
+        text = e2_cells.publication_text(cell)
+        self.assertIn("p90", text)
+        self.assertIn("n = 10 of 10", text)
+        self.assertNotIn("range", text)
+
+    def test_five_byte_samples_print_range_not_p90(self):
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(root, ignore_errors=True))
+        for rep, sample in enumerate([100, 200, 300, 400, 500]):
+            _write_trial(root, rep, "plate", "C19", outcome="measured", samples=[sample], sample_unit="bytes")
+        _write_summary(root, "plate", 10)
+        cell = e2_cells.build_run_cell(root, "plate", "C19")
+        text = e2_cells.publication_text(cell)
+        self.assertIn("range 100.0 to 500.0 bytes", text)
+        self.assertNotIn("p90", text)
+        self.assertIn("n = 5 of 10", text)
+        self.assertNotIn("not enough", text)
 
     def test_ten_kept_samples_publish_figure(self):
         root = Path(tempfile.mkdtemp())
@@ -234,6 +319,7 @@ class E2Cells(unittest.TestCase):
         cell = e2_cells.build_run_cell(root, "plate", "C07", scheduled=30)
         text = e2_cells.publication_text(cell)
         self.assertIn("20.0 ms", text)
+        self.assertIn("p90", text)
         self.assertNotIn("not enough", text)
 
     def test_reproduction_failure_blocks_publication(self):
@@ -243,7 +329,7 @@ class E2Cells(unittest.TestCase):
         self.addCleanup(lambda: __import__("shutil").rmtree(reproduction, ignore_errors=True))
         for rep in range(10):
             _write_trial(primary, rep, "plate", "C07", outcome="measured", samples=[20.0])
-        for rep in range(9):
+        for rep in range(4):
             _write_trial(reproduction, rep, "plate", "C07", outcome="measured", samples=[20.0])
         for seed, root in enumerate((primary, reproduction)):
             (root / "summary.json").write_text(json.dumps({

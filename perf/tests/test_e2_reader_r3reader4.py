@@ -19,30 +19,30 @@ from perf.tests.test_e2_reader_r3reader3 import (
 def _blocks_camp(tmp_path, space, seed, *, extra_job=None, delete_block10=False, extra_block11=False):
     base = tmp_path / space
     camp = None
-    for index in range(1, 11):
-        reps = range((index - 1) * 3, index * 3)
+    for index in range(1, 3):
+        reps = range((index - 1) * 5, index * 5)
         camp = _write_job(
             base, "benchmark_input", "b%02d" % index, seed, reps,
             summary=_summary(
                 "run-b%02d-%s" % (index, seed), seed,
                 order=[[r, "plate"] for r in reps],
-                block={"index": index, "of": 10, "repetitions": 3},
+                block={"index": index, "of": 2, "repetitions": 5},
                 hosts={"plate": {"tree_sha256": "tree-a"}},
             ),
         )
     if extra_block11:
-        extra = range(30, 33)
+        extra = range(10, 15)
         _write_job(
             base, "benchmark_input", "extra", seed, extra,
             summary=_summary(
                 "run-extra-%s" % seed, seed, order=[[r, "plate"] for r in extra],
-                block={"index": 11, "of": 10, "repetitions": 3},
+                block={"index": 3, "of": 2, "repetitions": 5},
                 hosts={"plate": {"tree_sha256": "tree-a"}},
             ),
             values={i: 80.0 for i in extra},
         )
     if delete_block10:
-        empty = camp / "benchmark_input" / "b10" / "cells"
+        empty = camp / "benchmark_input" / "b02" / "cells"
         for child in empty.iterdir():
             for f in child.rglob("*"):
                 if f.is_file():
@@ -262,6 +262,24 @@ def test_relaxed_bounds_template_matches_constants():
     assert "{{perf.e2.relaxed_bounds}}" in template
     for fragment in ("5 ms", "300 s", "600 s", "100 ms", "250 ms", "2%"):
         assert fragment in paragraph
+
+
+def test_sample_plan_paragraph_matches_constants(tmp_path):
+    from perf.runner import lax_bounds
+    from perf.runner.browser_run import PUBLICATION_MIN_KEPT, PUBLICATION_REPETITIONS
+
+    paragraph = lax_bounds.publication_sample_paragraph()
+    template = (Path(__file__).resolve().parents[2] / "templates" / "reports" / "Report E2 - Speed in the Browser (2026).md").read_text()
+    assert PUBLICATION_REPETITIONS == 10
+    assert PUBLICATION_MIN_KEPT == 5
+    assert "first pass" in paragraph
+    assert "10" in paragraph and "5" in paragraph
+    assert "90th percentile" in paragraph
+    assert "{{perf.e2.sample_plan}}" in template
+    assert report.unset_facts()["perf.e2.sample_plan"] == paragraph
+    a = _write_job(tmp_path / "a", "benchmark_input", "j1", 1, range(10))
+    b = _write_job(tmp_path / "b", "benchmark_input", "j2", 2, range(10))
+    assert report.facts_from_roots([a, b])["perf.e2.sample_plan"] == paragraph
 
 
 # MINOR 13 — warm/cold row without bound_ms

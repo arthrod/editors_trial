@@ -127,7 +127,7 @@ class ReportE2Facts(unittest.TestCase):
         writer(repro)
         return primary, repro
 
-    def test_nine_kept_samples_not_enough(self):
+    def test_nine_kept_samples_print_median_and_range(self):
         primary, _ = self._pair(
             {"run_id": "a", "seed": 1, "editors": ["plate"]},
             {"run_id": "b", "seed": 2, "editors": ["plate"]},
@@ -135,8 +135,10 @@ class ReportE2Facts(unittest.TestCase):
         )
         facts = E2.facts_from_runs(primary, self.base / "repro")
         table = facts["perf.e2.table.C07"]
-        self.assertIn("not enough samples", table)
+        self.assertNotIn("not enough samples", table)
         self.assertIn("n = 9 of 30", table)
+        self.assertNotIn("p90", table)
+        self.assertIn("range", table)
 
     def test_ten_kept_samples_publish_when_runs_agree(self):
         def fill(root):
@@ -151,6 +153,8 @@ class ReportE2Facts(unittest.TestCase):
         facts = E2.facts_from_runs(primary, repro)
         table = facts["perf.e2.table.C07"]
         self.assertIn("20.0 ms", table)
+        self.assertIn("p90", table)
+        self.assertNotIn("range", table)
         self.assertNotIn("not reproduced", table)
 
     def test_non_reproducing_pair_shows_both_medians(self):
@@ -397,8 +401,8 @@ def test_finding_13_missing_flags_are_unknown(runs):
     assert 'sub-frame samples' not in table(runs)
 
 def test_finding_14_asymmetric_gate_and_sample_mutation(runs):
-    fill(runs[1], [100], n=9)
-    assert 'n = 9 of 40' in table(runs)
+    fill(runs[1], [100], n=4)
+    assert 'n = 4 of 40' in table(runs)
     fill(runs[1], [100])
     before = table(runs)
     for root in runs:
@@ -517,13 +521,13 @@ def test_dual_api_requires_readable_summaries(runs, bad_summary):
 @pytest.mark.parametrize('short_primary', [False, True])
 def test_dual_api_reports_blocked_reproduction(runs, short_primary):
     if short_primary:
-        fill(runs[0], [100], n=9)
+        fill(runs[0], [100], n=4)
     change_summary(runs[1], publishable=False, publication_block_reason='repos_modified')
     text = E2.e2_cells.publish_dual_runs(*runs, 'plate', 'C07')
     assert 'second run unpublishable: repos_modified' in text
     assert '100.0 ms' not in text
     if short_primary:
-        assert 'n = 9 of 40' in text
+        assert 'n = 4 of 40' in text
 
 
 @pytest.mark.parametrize('left,right,frames,expected', [
@@ -551,8 +555,11 @@ def test_partial_sub_frame_flags_do_not_publish_subset_share(runs):
                          samples=[8], sub_frame_samples=[True])
         for rep in range(5, 10):
             _write_trial(root, rep, 'plate', 'C07', outcome='measured', samples=[20], sub_frame_samples=None)
-    assert '% sub-frame' not in table(runs)
-    assert 'malformed_samples: 5' in table(runs)
+    text = table(runs)
+    # Kept launches publish their own share. Malformed launches stay out of it.
+    assert '100% sub-frame launches' in text
+    assert '50% sub-frame' not in text
+    assert 'malformed_samples: 5' in text
 
 
 def test_sub_frame_share_counts_launch_medians_not_clicks(runs):

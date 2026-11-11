@@ -128,7 +128,7 @@ def test_blocked_cell_does_not_leak_frame_interval(tmp_path):
 
 def test_under_n_cell_does_not_leak_frame_interval(tmp_path):
     primary, repro = _classic_roots(tmp_path)
-    for i in range(25):
+    for i in range(26):
         (primary / 'cells' / ('%04d-plate' % i) / 'attempts' / 'c07.json').unlink()
     facts = report.facts_from_runs(primary, repro)
     assert str(DISTINCTIVE_FRAME) not in json.dumps(facts)
@@ -281,9 +281,9 @@ def test_inconsistent_block_repetitions_block_seed(tmp_path):
 
 def test_two_trees_within_one_seed_names_build_drift(tmp_path):
     roots = [
-        _write_job(tmp_path / 'space-a', 'benchmark_input', 'j1', 1, range(15), tree='tree-a'),
-        _write_job(tmp_path / 'space-b', 'benchmark_input', 'j2', 1, range(15, 30), tree='tree-b'),
-        _write_job(tmp_path / 'space-c', 'benchmark_input', 'j3', 2, range(30), tree='tree-a'),
+        _write_job(tmp_path / 'space-a', 'benchmark_input', 'j1', 1, range(5), tree='tree-a'),
+        _write_job(tmp_path / 'space-b', 'benchmark_input', 'j2', 1, range(5, 10), tree='tree-b'),
+        _write_job(tmp_path / 'space-c', 'benchmark_input', 'j3', 2, range(10), tree='tree-a'),
     ]
     pooled = cells.read_criterion_cell(roots, 'plate', 'C07')
     assert pooled['published'] is False

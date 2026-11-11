@@ -2,7 +2,7 @@
 
 One block is one job that measures every editor, a few repetitions each, in
 the seeded interleaved order. The blocks of one seed are slices of the single
-30-repetition schedule, so pooled they are that schedule exactly.
+scheduled publication, so pooled they are that schedule exactly.
 """
 import json
 import sys
@@ -23,7 +23,7 @@ def _opt(options, flag):
 
 
 def _blocks():
-    return policy.publication_jobs(EDITORS, 1, 2, 'shared_guarded', blocks=10)
+    return policy.publication_jobs(EDITORS, 1, 2, 'shared_guarded', blocks=2)
 
 
 def test_default_layout_is_unchanged_one_editor_per_job():
@@ -42,7 +42,7 @@ def test_every_block_job_measures_every_editor():
             assert _opt(options, '--block') is not None
 
 
-def test_each_cell_has_every_block_once_and_thirty_repetitions():
+def test_each_cell_has_two_blocks_of_five():
     groups = defaultdict(list)
     for name, options in _blocks():
         if name == 'benchmark_typing':
@@ -52,20 +52,37 @@ def test_each_cell_has_every_block_once_and_thirty_repetitions():
         groups[cell].append((_opt(options, '--block'), count))
     assert groups
     for cell, rows in groups.items():
-        assert sorted(block for block, _count in rows) == sorted('%d/10' % k for k in range(1, 11)), cell
-        assert sum(count for _block, count in rows) == 30, cell
+        assert sorted(block for block, _count in rows) == ['1/2', '2/2'], cell
+        assert sorted(count for _block, count in rows) == [5, 5], cell
+        assert sum(count for _block, count in rows) == 10, cell
 
 
 def test_traces_are_taken_in_the_first_block_only():
     for name, options in _blocks():
         if name == 'benchmark_typing':
             continue
-        assert ('--chrome-profile' in options) == (_opt(options, '--block') == '1/10'), (name, options)
+        assert ('--chrome-profile' in options) == (_opt(options, '--block') == '1/2'), (name, options)
 
 
-def test_blocks_must_divide_the_repetitions():
+def test_publication_constants_are_ten_scheduled_and_five_kept():
+    assert api.PUBLICATION_MIN_KEPT == 5
+    assert api.PUBLICATION_REPETITIONS == 10
+
+
+@pytest.mark.parametrize('blocks', [1, 2, 5, 10])
+def test_legal_blocks_are_slices_of_ten(blocks):
+    jobs = policy.publication_jobs(EDITORS, 1, 2, 'shared_guarded', blocks=blocks)
+    counts = [
+        int(_opt(options, policy.SHAKEDOWN_COUNT_FLAG[name]))
+        for name, options in jobs if name != 'benchmark_typing']
+    assert counts
+    assert set(counts) == {10 // blocks}
+
+
+@pytest.mark.parametrize('blocks', [3, 4, 6, 7, 8, 9])
+def test_blocks_that_do_not_divide_ten_are_refused(blocks):
     with pytest.raises(ValueError):
-        policy.publication_jobs(EDITORS, 1, 2, 'shared_guarded', blocks=7)
+        policy.publication_jobs(EDITORS, 1, 2, 'shared_guarded', blocks=blocks)
 
 
 def test_job_key_separates_blocks_and_joins_seeds():
@@ -76,8 +93,8 @@ def test_job_key_separates_blocks_and_joins_seeds():
 def test_planner_costs_a_block_by_its_editors_and_repetitions():
     one = ('benchmark_resources', ['--seed', '1', '--workload', 'prose-500w', '--editors', 'plate'])
     block = ('benchmark_resources', ['--seed', '1', '--workload', 'prose-500w', '--editors', *EDITORS,
-                                    '--block', '1/10', '--repetitions', '3'])
-    assert plan.estimate(*block) == pytest.approx(plan.estimate(*one) * 3 * 3 / 30 + plan._BUILD * 3)
+                                    '--block', '1/2', '--repetitions', '5'])
+    assert plan.estimate(*block) == pytest.approx(plan.estimate(*one) * 3 * 5 / 10 + plan._BUILD * 3)
 
 
 def _run(tmp_path, monkeypatch, *extra, single=False):
@@ -101,9 +118,9 @@ def test_a_block_is_a_slice_of_the_full_schedule(tmp_path, monkeypatch):
     assert sorted(sample['repetition'] for sample in summary['samples']) == sorted([3, 4, 5] * 3)
 
 
-def test_a_block_too_small_for_thirty_is_refused(tmp_path, monkeypatch):
+def test_a_block_too_small_for_the_schedule_is_refused(tmp_path, monkeypatch):
     with pytest.raises(SystemExit):
-        _run(tmp_path, monkeypatch, '--editors', *EDITORS, '--pairs', '2', '--block', '2/10')
+        _run(tmp_path, monkeypatch, '--editors', *EDITORS, '--pairs', '2', '--block', '2/2')
 
 
 @pytest.mark.parametrize('block', ['0/10', '11/10', 'x', '3'])
@@ -146,6 +163,26 @@ def test_a_shakedown_block_runs_one_repetition_per_editor(tmp_path, monkeypatch)
 
 def test_the_planner_costs_a_rehearsed_block():
     block = ('benchmark_resources', ['--chrome-profile', '--seed', '1', '--workload', 'prose-500w', '--editors', *EDITORS,
-                                    '--block', '1/10', '--repetitions', '3'])
+                                    '--block', '1/2', '--repetitions', '5'])
     one = ('benchmark_resources', ['--seed', '1', '--workload', 'prose-500w', '--editors', 'plate'])
-    assert plan.estimate(*block, shakedown=1) == pytest.approx(plan.estimate(*one) * 3 * 2 / 30 + plan._BUILD * 3)
+    assert plan.estimate(*block, shakedown=1) == pytest.approx(plan.estimate(*one) * 3 * 2 / 10 + plan._BUILD * 3)
+
+
+def test_two_blocks_of_five_are_slices_of_one_schedule(tmp_path, monkeypatch):
+    _code, summary = _run(tmp_path, monkeypatch, '--editors', *EDITORS, '--pairs', '5', '--block', '2/2')
+    full = api.schedule(EDITORS, 10, 7)
+    assert [tuple(item) for item in summary['order']] == [item for item in full if 5 <= item[0] < 10]
+    assert summary['block'] == {'index': 2, 'of': 2, 'repetitions': 5}
+
+
+def test_planner_default_is_two_blocks_of_five(capsys):
+    plan.main(['--spaces', '20'])
+    first, _, rest = capsys.readouterr().out.partition('\n')
+    assert first.startswith('publication: 2 blocks of 5,')
+    assert 'jobs' in first and 'minutes' in first and '20 spaces' in first
+    assert len(json.loads(rest)) == 20
+
+
+def test_planner_refuses_a_block_count_that_does_not_divide_ten():
+    with pytest.raises(ValueError):
+        plan.main(['--spaces', '2', '--blocks', '3'])

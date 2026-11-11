@@ -35,6 +35,20 @@ def relaxed_bounds_paragraph() -> str:
     return "Relaxed bounds: " + " ".join(_RELAXED_BOUND_LINES)
 
 
+def publication_sample_paragraph() -> str:
+    """First-pass sample plan for Report E2. Numbers come from the publication constants."""
+    from perf.runner.browser_run import PUBLICATION_MIN_KEPT, PUBLICATION_REPETITIONS
+
+    return (
+        "This is a first pass with fewer samples than planned. "
+        f"Each cell schedules {PUBLICATION_REPETITIONS} samples per editor per seed "
+        f"and is published when at least {PUBLICATION_MIN_KEPT} samples are kept. "
+        f"The 90th percentile is printed only when at least {PUBLICATION_REPETITIONS} samples are kept; "
+        f"with {PUBLICATION_MIN_KEPT} to {PUBLICATION_REPETITIONS - 1} kept, the table prints the median "
+        "and the range from the smallest kept sample to the largest, because a percentile of a short sample is not a stable figure."
+    )
+
+
 def throttle_tolerance_description() -> str:
     return "max(%d ms, %g%% of the span)" % (
         int(THROTTLE_TOLERANCE_MIN_USEC / 1000),
@@ -44,6 +58,7 @@ def throttle_tolerance_description() -> str:
 
 __all__ = [
     "CONTENT_LENGTH_REL_TOL",
+    "publication_sample_paragraph",
     "relaxed_bounds_paragraph",
     "load_timeout_ms",
     "DEFAULT_LOAD_TIMEOUT_MS",

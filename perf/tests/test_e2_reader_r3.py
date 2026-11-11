@@ -80,11 +80,11 @@ def test_under_n_stores_no_median_in_facts(tmp_path):
   primary, repro = tmp_path / 'primary', tmp_path / 'repro'
   _write_run(primary, run_id='a', seed=1)
   _write_run(repro, run_id='b', seed=2)
-  for i in range(25):
+  for i in range(26):
       (primary / 'cells' / f'{i:04d}-plate' / 'attempts' / 'c07.json').unlink()
   facts = report.facts_from_runs(primary, repro)
   assert str(DISTINCTIVE_MEDIAN) not in json.dumps(facts)
-  assert '5 of 30' in facts['perf.e2.table.C07']
+  assert '4 of 30' in facts['perf.e2.table.C07']
 
 
 def test_pooled_spaces_group_criterion_launches_by_seed(tmp_path):
@@ -99,13 +99,36 @@ def test_pooled_spaces_group_criterion_launches_by_seed(tmp_path):
       return tmp_path / space / 'runs' / 'camp'
 
   roots = [
-      job('space-a', 'j1', 1, range(0, 15)),
-      job('space-b', 'j2', 1, range(15, 30)),
-      job('space-c', 'j3', 2, range(30)),
+      job('space-a', 'j1', 1, range(0, 5)),
+      job('space-b', 'j2', 1, range(5, 10)),
+      job('space-c', 'j3', 2, range(10)),
   ]
   cell = cells.read_criterion_cell(roots, 'plate', 'C07')
   assert cell['published'] is True
-  assert [group['stats']['n'] for group in cell['groups']] == [30, 30]
+  assert [group['stats']['n'] for group in cell['groups']] == [10, 10]
+
+
+def test_five_of_ten_publishes_median_and_range_not_p90(tmp_path):
+  def write(root, run_id, seed):
+      root.mkdir(parents=True)
+      summary = _summary(run_id, seed, order=[[i, 'plate'] for i in range(10)])
+      (root / 'summary.json').write_text(json.dumps(summary))
+      for i, value in enumerate([10.0, 20.0, 30.0, 40.0, 50.0]):
+          cell = root / 'cells' / f'{i:04d}-plate' / 'attempts'
+          cell.mkdir(parents=True)
+          row = _trial([value])
+          row['diagnostic'] = dict(frame_interval_ms=1.0)
+          row['sub_frame_samples'] = [False]
+          (cell / 'c07.json').write_text(json.dumps(row))
+  write(tmp_path / 'primary', 'a', 1)
+  write(tmp_path / 'repro', 'b', 2)
+  facts = report.facts_from_runs(tmp_path / 'primary', tmp_path / 'repro')
+  text = facts['perf.e2.table.C07']
+  assert 'not enough' not in text
+  assert 'p90' not in text
+  assert 'range 10.0 to 50.0 ms' in text
+  assert 'n = 5 of 10' in text
+  assert '30.0 ms' in text
 
 
 def test_host_note_names_spaces_not_same_machine(tmp_path):

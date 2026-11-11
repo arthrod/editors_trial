@@ -690,13 +690,21 @@ class LaneRefusals(unittest.TestCase):
         self.assertFalse(one["publishable"])
         self.assertIn("second_seed_required", one["publication_block_reasons"])
         short = publication_verdict(
-            kept[:9],
+            kept[:4],
             seeds=[1, 2],
             scheduled=30,
             execution_profile="dedicated_publish",
             host_class="dedicated",
         )
-        self.assertIn("kept_below_10", short["publication_block_reasons"])
+        self.assertIn("kept_below_5", short["publication_block_reasons"])
+        scheduled_short = publication_verdict(
+            kept,
+            seeds=[1, 2],
+            scheduled=9,
+            execution_profile="dedicated_publish",
+            host_class="dedicated",
+        )
+        self.assertIn("scheduled_below_10", scheduled_short["publication_block_reasons"])
         both = publication_verdict(
             kept,
             seeds=[1, 2],

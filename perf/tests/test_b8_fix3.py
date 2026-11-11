@@ -88,8 +88,8 @@ def _proc(pid, cpu):
 
 
 class SchedulingPerGroup(unittest.TestCase):
-    def test_ten_cells_per_group_are_refused(self):
-        """extra.py: three groups of ten scheduled cells must not publish."""
+    def test_ten_cells_per_group_publish(self):
+        """Ten scheduled and ten kept in each group is a full publication cell."""
         hosts = {"plate": {"tree_sha256": "tree"}}
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -100,9 +100,23 @@ class SchedulingPerGroup(unittest.TestCase):
                 ]
                 _write_run(root / name, cells, seed=seed, hosts=hosts)
             verdict = _publish(root)
+        self.assertTrue(verdict["publishable"], verdict)
+        self.assertNotIn("scheduled_below_10", verdict["publication_block_reasons"])
+        self.assertNotIn("kept_below_5", verdict["publication_block_reasons"])
+
+    def test_four_cells_per_group_are_below_the_schedule(self):
+        hosts = {"plate": {"tree_sha256": "tree"}}
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for name, seed in (("a", 1), ("b", 2)):
+                cells = [
+                    _cell("plate", "w%d" % (index // 4), "measured", fixture_sha="fixture%d" % (index // 4))
+                    for index in range(12)
+                ]
+                _write_run(root / name, cells, seed=seed, hosts=hosts)
+            verdict = _publish(root)
         self.assertFalse(verdict["publishable"], verdict)
-        self.assertIn("scheduled_below_30", verdict["publication_block_reasons"])
-        self.assertNotIn("kept_below_10", verdict["publication_block_reasons"])
+        self.assertIn("scheduled_below_10", verdict["publication_block_reasons"])
 
     def test_thirty_scheduled_and_ten_measured_per_group_can_publish(self):
         hosts = {"plate": {"tree_sha256": "tree"}}

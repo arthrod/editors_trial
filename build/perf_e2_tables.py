@@ -17,12 +17,12 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from perf.analysis import e2_cells
+from perf.runner.browser_run import PUBLICATION_MIN_KEPT, PUBLICATION_REPETITIONS
 from perf.scenarios.catalog import scenarios
 
 from build.perf_e_tables import DISPLAY, REL_TOL, _SAME_HOST, _pct, reproduced
 
 E2_CRITERIA = [f"C{i:02d}" for i in range(3, 16)] + ["C17", "C19"]
-SCHEDULED = 30
 REL_TOL_PCT = round(REL_TOL * 100)
 
 
@@ -496,7 +496,8 @@ def unset_facts() -> dict:
         "perf.e2.reproduce": "See perf/container/README.md.",
         "perf.e2.rel_tol_pct": REL_TOL_PCT,
         "perf.e2.relaxed_bounds": __import__("perf.runner.lax_bounds", fromlist=["relaxed_bounds_paragraph"]).relaxed_bounds_paragraph(),
-        "perf.e2.scheduled": SCHEDULED,
+        "perf.e2.sample_plan": __import__("perf.runner.lax_bounds", fromlist=["publication_sample_paragraph"]).publication_sample_paragraph(),
+        "perf.e2.scheduled": PUBLICATION_REPETITIONS,
     }
     for cid in E2_CRITERIA:
         facts["perf.e2.criterion.%s" % cid] = blurbs.get(cid, cid)
@@ -594,6 +595,7 @@ def facts_from_roots(roots) -> dict:
         },
         "perf.e2.rel_tol_pct": REL_TOL_PCT,
         "perf.e2.relaxed_bounds": __import__("perf.runner.lax_bounds", fromlist=["relaxed_bounds_paragraph"]).relaxed_bounds_paragraph(),
+        "perf.e2.sample_plan": __import__("perf.runner.lax_bounds", fromlist=["publication_sample_paragraph"]).publication_sample_paragraph(),
         "perf.e2.rule": (
             "Each launch contributes the median of its own samples; n counts kept launches. "
             "Scheduled counts come from each run's order. Publishability is decided per trial — job "
@@ -601,11 +603,13 @@ def facts_from_roots(roots) -> dict:
             "publishable and record the built editor's identity (host_provenance.tree_sha256, else a "
             "pinned editor_version); a trial recording neither is refused as pin not recorded, and a "
             "reproduction across different built-editor trees is refused. Both runs must keep at least "
-            "10 launches per cell, and a run-level block — a shakedown run, dirty repos, unavailable "
+            f"{PUBLICATION_MIN_KEPT} launches per cell, and a run-level block — a shakedown run, dirty repos, unavailable "
             "CPU accounting or a failed run — refuses the whole run. "
             "The medians must agree within 10 percent of the larger median or the larger witnessed frame interval. "
             "Samples of frame-witnessed criteria require complete boolean flags checked against a witnessed interval; "
             "model-layer clocks such as C04 and byte counts publish without them, and sub-frame medians are buckets; "
+            f"p90 is printed only when at least {PUBLICATION_REPETITIONS} launches are kept; "
+            f"with {PUBLICATION_MIN_KEPT} to {PUBLICATION_REPETITIONS - 1} kept, the table prints the median and the range. "
             "p90 is over launch medians. C14 rungs and C14 measures (presented_frame, usable_no_damage) and C15 steps "
             "are separate measures; a no-damage C14 sample is the DOM document-surface time, never a compositor frame."
         ),

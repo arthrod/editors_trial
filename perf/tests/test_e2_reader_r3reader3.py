@@ -127,6 +127,19 @@ def _write_typing_job(root: Path, job_id, seed, sessions=12, *, kind='throughput
 # MAJOR A
 
 
+def test_sameroot_full_publication_schedule_is_refused(tmp_path):
+    reps = range(10)
+    order = [[i, 'plate'] for i in reps]
+    root = tmp_path / 'space-a'
+    _write_job(root, 'benchmark_input', 'j1', 1, reps, summary=_summary('j1', 1, order=order))
+    _write_job(root, 'benchmark_input', 'j1r', 1, reps,
+               summary=_summary('j1r', 1, order=order), values={i: 80.0 for i in reps})
+    seed2 = _write_job(tmp_path / 'space-b', 'benchmark_input', 'j2', 2, reps)
+    pooled = cells.read_criterion_cell([root / 'runs' / 'camp', seed2], 'plate', 'C07')
+    assert pooled['published'] is False, pooled['reason']
+    assert 'overlapping' in (pooled['reason'] or '')
+
+
 def test_sameroot_full_rerun_without_block_is_refused(tmp_path):
     root = tmp_path / 'space-a'
     _write_job(root, 'benchmark_input', 'j1', 1, range(30), summary=_summary('j1', 1))
@@ -142,31 +155,49 @@ def test_sameroot_full_rerun_without_block_is_refused(tmp_path):
 # MAJOR B
 
 
-def test_of10_with_only_9_blocks_refuses_criterion_and_b8(tmp_path):
-    roots = []
-    for index in range(1, 10):
-        reps = range((index - 1) * 3, index * 3)
-        roots.append(_write_job(
-            (tmp_path / ('space-%02d' % index)), 'benchmark_input', 'j%d' % index, 1, reps,
-            summary=_summary('j%d' % index, 1,
-                             block={'index': index, 'of': 10, 'repetitions': 3})))
-    seed2 = _write_job(tmp_path / 'space-seed2', 'benchmark_input', 'j2', 2, range(30))
-    roots.append(seed2)
+def test_of2_with_only_the_first_block_refuses_criterion_and_b8(tmp_path):
+    reps = range(5)
+    roots = [_write_job(
+        tmp_path / 'space-01', 'benchmark_input', 'j1', 1, reps,
+        summary=_summary('j1', 1, order=[[r, 'plate'] for r in reps],
+                         block={'index': 1, 'of': 2, 'repetitions': 5}))]
+    roots.append(_write_job(tmp_path / 'space-seed2', 'benchmark_input', 'j2', 2, range(10)))
     pooled = cells.read_criterion_cell(roots, 'plate', 'C07')
     assert pooled['published'] is False
-    assert 'missing blocks 10' in (pooled['reason'] or '')
+    assert 'missing blocks 2' in (pooled['reason'] or '')
 
-    rroots = []
-    for index in range(1, 10):
-        reps = range((index - 1) * 3, index * 3)
-        rroots.append(_write_resource_job(
-            (tmp_path / ('rb-%02d' % index)), 'r%d' % index, 1, reps=reps,
-            summary=_summary('r%d' % index, 1, order=[[r, 'plate'] for r in reps],
-                             block={'index': index, 'of': 10, 'repetitions': 3})))
+    rreps = range(5)
+    rroots = [_write_resource_job(
+        tmp_path / 'rb-01', 'r1', 1, reps=rreps,
+        summary=_summary('r1', 1, order=[[r, 'plate'] for r in rreps],
+                         block={'index': 1, 'of': 2, 'repetitions': 5}))]
     rroots.append(_write_resource_job(tmp_path / 'rb-seed2', 'r2', 2, launches=10))
     cell = e2_resources.read_cell(rroots, 'plate', 'prose-500w')
     assert cell['published'] is False, cell['reason']
-    assert 'missing blocks 10' in (cell['reason'] or '')
+    assert 'missing blocks 2' in (cell['reason'] or '')
+
+
+def test_block_product_other_than_the_schedule_is_refused(tmp_path):
+    reps = range(10)
+    roots = [_write_job(
+        tmp_path / 'a', 'benchmark_input', 'j1', 1, reps,
+        summary=_summary('j1', 1, order=[[r, 'plate'] for r in reps],
+                         block={'index': 1, 'of': 3, 'repetitions': 10}))]
+    roots.append(_write_job(tmp_path / 'b', 'benchmark_input', 'j2', 2, range(10)))
+    pooled = cells.read_criterion_cell(roots, 'plate', 'C07')
+    assert pooled['published'] is False
+    assert 'cover' in (pooled['reason'] or '')
+
+
+def test_two_unmarked_full_schedules_in_one_seed_are_inconsistent(tmp_path):
+    roots = [
+        _write_job(tmp_path / 'a', 'benchmark_input', 'j1', 1, range(10)),
+        _write_job(tmp_path / 'b', 'benchmark_input', 'j2', 1, range(10, 20)),
+        _write_job(tmp_path / 'c', 'benchmark_input', 'j3', 2, range(10)),
+    ]
+    pooled = cells.read_criterion_cell(roots, 'plate', 'C07')
+    assert pooled['published'] is False
+    assert 'inconsistent' in (pooled['reason'] or '')
 
 
 # MAJOR C

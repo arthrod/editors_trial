@@ -61,12 +61,12 @@ def test_two_seeds_that_agree_publish_each_measure(tmp_path):
 
 def test_pooled_spaces_are_grouped_by_seed_not_by_root(tmp_path):
     # Interleaved blocks: one seed's launches can sit on several Spaces.
-    _job(tmp_path / 'space-a', 'j1', seed=1, launches=15)
-    _job(tmp_path / 'space-b', 'j2', seed=1, launches=15, first=15)
-    _job(tmp_path / 'space-c', 'j3', seed=2, launches=30)
+    _job(tmp_path / 'space-a', 'j1', seed=1, launches=5)
+    _job(tmp_path / 'space-b', 'j2', seed=1, launches=5, first=5)
+    _job(tmp_path / 'space-c', 'j3', seed=2, launches=10)
     cell = res.read_cell([tmp_path / 'space-a', tmp_path / 'space-b', tmp_path / 'space-c'], 'plate', 'prose-250kw')
     assert cell['published'] is True
-    assert cell['kept'] == [30, 30]
+    assert cell['kept'] == [10, 10]
 
 
 def test_one_seed_is_not_a_publication(tmp_path):
@@ -76,13 +76,19 @@ def test_one_seed_is_not_a_publication(tmp_path):
     assert cell['measures'] == {}
 
 
-def test_fewer_than_ten_kept_launches_do_not_publish_and_store_no_median(tmp_path):
+def test_fewer_than_the_minimum_kept_launches_do_not_publish_and_store_no_median(tmp_path):
     refused = _record(outcome='refused', refusal_code='editor_crashed', editor_error='renderer crashed during edit')
-    cell = _two_seeds(tmp_path, records=[_record()] * 9 + [refused] * 21)
+    cell = _two_seeds(tmp_path, launches=10, records=[_record()] * 4 + [refused] * 6)
     assert cell['published'] is False
-    assert cell['reason'] == 'second seed: 9 of 30 launches kept (editor_crashed 21)'
+    assert cell['reason'] == 'second seed: 4 of 10 launches kept (editor_crashed 6)'
     assert cell['measures'] == {}
-    assert cell['editor_errors'] == {'renderer crashed during edit': 21}
+    assert cell['editor_errors'] == {'renderer crashed during edit': 6}
+
+
+def test_five_kept_of_ten_publishes(tmp_path):
+    refused = _record(outcome='refused', refusal_code='editor_crashed')
+    cell = _two_seeds(tmp_path, launches=10, records=[_record()] * 5 + [refused] * 5)
+    assert cell['published'] is True, cell['reason']
 
 
 def test_a_measure_that_disagrees_is_not_reproduced_and_keeps_no_figure(tmp_path):
