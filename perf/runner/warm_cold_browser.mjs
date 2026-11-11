@@ -35,6 +35,7 @@ import {
   DEFAULT_MIN_PIXELS,
   frameAckSettled,
 } from './witness.mjs';
+import { startChromeTrace, stopChromeTrace } from './chrome_trace.mjs';
 
 function convertFrameToPageMs(frame, clock) {
   const kind = clock.timestamp_kind || 'epoch_seconds';
@@ -498,6 +499,7 @@ async function runPlaywrightPair() {
   const coldContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   await routeCorpus(coldContext, corpusRoute, corpusBytes);
   const coldPage = await coldContext.newPage();
+  const trace = await startChromeTrace(browser, coldPage, 'warm_cold');
   const cdp = await coldContext.newCDPSession(coldPage);
 
   const navT0 = Date.now();
@@ -532,6 +534,7 @@ async function runPlaywrightPair() {
 
   await stopRecorder(cdp);
   await coldContext.close();
+  await stopChromeTrace(browser, trace);
   await browser.close();
 
   return {
@@ -614,6 +617,7 @@ async function runCriteriaSession() {
     clipboardPermission = `unavailable: ${String(err && err.message ? err.message : err)}`;
   }
   const page = await context.newPage();
+  const trace = await startChromeTrace(browser, page, criteriaList[0] || 'input');
   const cdp = await context.newCDPSession(page);
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 120_000 });
   const ready = await waitForReady(page, readySelector);
@@ -628,6 +632,7 @@ async function runCriteriaSession() {
     bulkChars,
   });
   await context.close();
+  await stopChromeTrace(browser, trace);
   await browser.close();
 
   payload.editor_id = editorId;
@@ -652,9 +657,11 @@ async function coldOnlyFreshContext() {
   const context = await browser.newContext();
   await routeCorpus(context, corpusRoute, corpusBytes);
   const page = await context.newPage();
+  const trace = await startChromeTrace(browser, page, 'warm_cold');
   const t0 = Date.now();
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 120_000 });
   const ready = await waitForReady(page, readySelector, 120_000, t0);
+  await stopChromeTrace(browser, trace);
   await browser.close();
   return ready;
 }

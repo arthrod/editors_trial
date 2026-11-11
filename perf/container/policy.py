@@ -64,7 +64,8 @@ def publication_jobs(editors, seed, seed2, host_class):
     jobs = []
     for value in (seed, seed2):
         for runner in (*RUNNERS, 'benchmark_memory', 'benchmark_resources'):
-            base = ['--execution-profile', 'dedicated_publish', '--host-class', host_class, '--seed', str(value)]
+            base = ['--execution-profile', 'dedicated_publish', '--host-class', host_class,
+                    '--chrome-profile', '--seed', str(value)]
             if runner == 'benchmark_typing':
                 from perf.runner.browser_run import TYPING_PUBLICATION_SESSIONS
                 jobs.extend((runner, base + ['--repetitions', str(TYPING_PUBLICATION_SESSIONS),
@@ -159,6 +160,8 @@ def cell_counts(data, *, trial_reader=None):
         for trial in trials:
             if not isinstance(trial, dict) or not trial.get('criterion_id') or not trial.get('outcome'):
                 raise ValueError('invalid_trial: criterion_id and outcome required')
+            if trial.get('outcome') == 'profiled' or trial.get('accounting_scope') == 'diagnostic':
+                continue
             editor = trial.get('editor_id') or row.get('editor_id')
             if not editor:
                 raise ValueError('invalid_trial: editor_id required')

@@ -60,6 +60,7 @@ import {
   witnessFrame,
 } from './witness.mjs';
 import { normalizeDocumentText } from './document_text_normalize.mjs';
+import { startChromeTrace, stopChromeTrace } from './chrome_trace.mjs';
 
 /** Screencast ink needs at least this many region pixels above the witness threshold. */
 const SCREENCAST_INK_MIN_PIXELS = 64;
@@ -645,6 +646,7 @@ async function newPage(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 1 });
   await routeCorpus(context);
   const page = await context.newPage();
+  const trace = await startChromeTrace(browser, page, opt.mode || 'document');
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e).slice(0, 300)));
   await page.addInitScript(INIT_SCRIPT, {
@@ -654,7 +656,12 @@ async function newPage(browser) {
     signal: usableSignal,
     documentSelector,
   });
-  return { context, page, errors, cdp: null, recorder: null };
+  return { context, page, errors, cdp: null, recorder: null, trace };
+}
+
+async function releaseContext(browser, ctx) {
+  await stopChromeTrace(browser, ctx.trace);
+  await ctx.context.close();
 }
 
 /**
@@ -976,7 +983,7 @@ async function runLoad(browser) {
     });
   } finally {
     await endWitness(ctx);
-    await ctx.context.close();
+    await releaseContext(browser, ctx);
   }
 }
 
@@ -1140,7 +1147,7 @@ async function runScale(browser) {
     };
   } finally {
     await endWitness(ctx);
-    await ctx.context.close();
+    await releaseContext(browser, ctx);
   }
 }
 
@@ -1380,7 +1387,7 @@ async function runReflow(browser) {
     };
   } finally {
     await endWitness(ctx);
-    await ctx.context.close();
+    await releaseContext(browser, ctx);
   }
 }
 
@@ -1577,7 +1584,7 @@ async function runFind(browser) {
       reason: eventCompleted ? null : 'find widget did not acknowledge the query on its own event',
     };
   } finally {
-    await ctx.context.close();
+    await releaseContext(browser, ctx);
   }
 }
 

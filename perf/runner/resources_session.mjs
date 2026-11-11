@@ -12,6 +12,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { startChromeTrace, stopChromeTrace } from './chrome_trace.mjs';
 
 import { applyResourceBurst } from './resource_burst_edit.mjs';
 
@@ -21,6 +22,8 @@ const uiRoot = path.resolve(here, '../../harness/ui');
 let context = null;
 let page = null;
 let cdp = null;
+let traceHandle = null;
+let traceBrowser = null;
 let opts = {};
 const networkEvents = [];
 const seenRequests = new Set();
@@ -120,6 +123,8 @@ async function onLaunch(params) {
     await route.continue();
   });
   page = context.pages()[0] || await context.newPage();
+  traceBrowser = typeof context.browser === 'function' ? context.browser() : null;
+  traceHandle = traceBrowser ? await startChromeTrace(traceBrowser, page, 'C18') : null;
   cdp = await context.newCDPSession(page);
   cdp.on('Network.responseReceived', (event) => {
     noteCdpEvent('Network.responseReceived', event, 'page');
@@ -506,6 +511,9 @@ async function onSave(params) {
 
 async function onClose() {
   try {
+    await stopChromeTrace(traceBrowser, traceHandle);
+    traceHandle = null;
+    traceBrowser = null;
     if (context) await context.close();
   } catch {
     /* the browser may already have exited */

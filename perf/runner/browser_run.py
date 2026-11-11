@@ -470,6 +470,59 @@ PUBLICATION_REPETITIONS = 30
 TYPING_PUBLICATION_SESSIONS = 12
 TYPING_PUBLICATION_MIN_KEPT = 10
 
+RUNNER_PROFILE_CRITERION = {
+    'benchmark_warm_cold': 'B1',
+    'benchmark_document': 'C11',
+    'benchmark_input': 'C07',
+    'adversarial_c10_scroll': 'C10',
+    'benchmark_memory': 'C17',
+    'benchmark_resources': 'C18',
+    'benchmark_typing': 'TYPING',
+}
+
+
+def _attempt_counts_excluded(row: dict) -> bool:
+    return row.get('outcome') == 'profiled' or row.get('accounting_scope') == 'diagnostic'
+
+
+def _run_chrome_profile_pass(main, runner, *, directory, editor, rep, rest, single, count_flag, original_argv):
+    import os
+    from perf.runner.artifacts import write_attempt
+    from perf.runner.chrome_profile import record_profile_traces
+
+    profile_dir = directory / 'profile'
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    invoke_root = directory / 'profile-invoke'
+    invoke_root.mkdir(parents=True, exist_ok=True)
+    saved = {key: os.environ.get(key) for key in (
+        'PERF_CHROME_PROFILE', 'PERF_CHROME_PROFILE_DIR', 'PERF_CHROME_TRACE_PATH',
+        'PERF_CHROME_PROFILE_BUDGET_S')}
+    os.environ['PERF_CHROME_PROFILE'] = '1'
+    os.environ['PERF_CHROME_PROFILE_DIR'] = str(profile_dir)
+    os.environ.pop('PERF_CHROME_TRACE_PATH', None)
+    if runner == 'benchmark_typing':
+        os.environ['PERF_CHROME_PROFILE_BUDGET_S'] = '60'
+    sys.argv = [
+        original_argv[0],
+        *rest,
+        '--out-root',
+        str(invoke_root),
+        '--editor' if single else '--editors',
+        editor,
+    ]
+    if count_flag:
+        sys.argv += [count_flag, '1']
+    try:
+        capture(main, stderr_tail=5)
+    finally:
+        for key, value in saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+    record_profile_traces(directory, editor, RUNNER_PROFILE_CRITERION.get(runner, 'PROFILE'),
+                          write_fn=write_attempt)
+
 
 def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=False, run_factory=BrowserRun, max_repetitions=None, facts=None):
     """Drive one measurement body per scheduled cell, record-don't-abort.
@@ -495,6 +548,8 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
         parser.add_argument('--repetitions', type=int, default=1)
     if runner == 'benchmark_typing':
         parser.add_argument('--session-kind', choices=('throughput', 'latency'), default='throughput')
+    parser.add_argument('--chrome-profile', action='store_true',
+                        help='after each cell, run one traced diagnostic repetition')
     argv = list(sys.argv)
     args, rest = parser.parse_known_args()
     if '--help' in rest or '-h' in rest:
@@ -575,7 +630,11 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
                 typing_kept = False
                 attempts = {}
                 for path in sorted(directory.rglob('*.json')):
+                    if 'profile-invoke' in path.parts:
+                        continue
                     value = json.loads(path.read_text())
+                    if isinstance(value, dict) and _attempt_counts_excluded(value):
+                        continue
                     if path.parent.name == 'attempts' and isinstance(value, dict):
                         criterion = value.get('criterion_id')
                         if criterion:
@@ -616,6 +675,10 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
                 row = capture(invoke, stderr_tail=5)
                 row.update(repetition=rep, editor_id=editor, cell_directory=str(directory))
                 run.sample(name, row)
+                if args.chrome_profile:
+                    _run_chrome_profile_pass(
+                        main, runner, directory=directory, editor=editor, rep=rep,
+                        rest=rest, single=single, count_flag=count_flag, original_argv=original)
             finally:
                 CELL.reset(cell_token)
         typing_gate = {}

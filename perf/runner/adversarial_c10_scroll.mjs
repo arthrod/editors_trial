@@ -57,6 +57,7 @@ import {
   loadPlaywright,
   witnessFrame,
 } from './witness.mjs';
+import { startChromeTrace, stopChromeTrace } from './chrome_trace.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -845,10 +846,12 @@ try {
       });
       await routeCorpus(context);
       const page = await context.newPage();
+      const trace = await startChromeTrace(browser, page, 'C10');
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 120_000 });
       await waitForReady(page);
       const sample = await oneSample(context, page);
       samples.push({ sample_index: i, ...sample });
+      await stopChromeTrace(browser, trace);
       await context.close().catch(() => {});
     } finally {
       await browser.close().catch(() => {});

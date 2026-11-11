@@ -17,6 +17,7 @@ OUTCOMES = (
     "unverified",
     "failed",
     "not_run",
+    "profiled",
 )
 
 _PROFILE_BUDGET = {
@@ -33,6 +34,12 @@ def validate_trial(trial):
     outcome = trial["outcome"]
     if outcome not in OUTCOMES:
         raise ValueError("unknown outcome %r" % (outcome,))
+    if outcome == "profiled":
+        if trial.get("publishable") is not False:
+            raise ValueError("profiled trials are never publishable")
+        if trial.get("accounting_scope") != "diagnostic":
+            raise ValueError("profiled trials must use diagnostic accounting")
+        return
     if trial.get("criterion_id") in ("C05", "C06") and outcome == "measured":
         from perf.layers.classify import assert_visible_evidence
 

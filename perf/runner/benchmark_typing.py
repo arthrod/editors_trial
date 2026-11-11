@@ -368,6 +368,10 @@ def main_cell(argv=None, *, start_host=_start_server, stop_host=_stop_server):
     ap.add_argument('--quiescence-s', type=float, default=5)
     ap.add_argument('--words', type=int, default=None, help='smoke-only prefix; full fixture by default')
     args = ap.parse_args(argv)
+    import os
+    if os.environ.get('PERF_CHROME_PROFILE') == '1':
+        cap = float(os.environ.get('PERF_CHROME_PROFILE_BUDGET_S', '60'))
+        args.budget_s = min(args.budget_s, cap)
     if args.cadence_ms < 0 or min(args.witness_every,args.sample_s,args.budget_s) <= 0 or args.quiescence_s < 0:
         ap.error('cadence/quiescence must be nonnegative; sample interval, witness interval and budget positive')
     if args.words is not None and args.words <= 0: ap.error('--words must be positive')

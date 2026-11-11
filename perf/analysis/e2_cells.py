@@ -195,6 +195,8 @@ def build_run_cell(
             refused_launches[launch] = 'unreadable_trial'
         if trial.get('editor_id') != editor_id or not trial.get('criterion_id'):
             continue
+        if trial.get('outcome') == 'profiled' or trial.get('accounting_scope') == 'diagnostic':
+            continue
         if workload_id is not None and trial_workload(trial) != workload_id:
             continue
         code = refusal_code(trial)

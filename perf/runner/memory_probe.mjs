@@ -22,6 +22,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { startChromeTrace, stopChromeTrace } from './chrome_trace.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '../..');
@@ -152,10 +153,16 @@ async function openEditor(browser) {
   const context = await browser.newContext({ viewport });
   await routeCorpus(context);
   const page = await context.newPage();
+  const trace = await startChromeTrace(browser, page, 'C17');
   const t0 = Date.now();
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 120_000 });
   await waitForReady(page);
-  return { context, page, readyMs: Date.now() - t0 };
+  return { context, page, readyMs: Date.now() - t0, trace };
+}
+
+async function closeSession(browser, session) {
+  await stopChromeTrace(browser, session.trace);
+  await session.context.close();
 }
 
 async function main() {
@@ -217,20 +224,20 @@ async function main() {
     await phase('quiescent', { browser_pid: browserPid, idle_ms: quiescenceMs });
 
     if (!reopen) {
-      await first.context.close();
+      await closeSession(browser, first);
       await browser.close();
       process.stdout.write(`RESULT ${JSON.stringify(result)}\n`);
       return;
     }
 
-    await first.context.close();
+    await closeSession(browser, first);
     await phase('closed', { browser_pid: browserPid, context_closed: true });
 
     try {
       const second = await openEditor(browser);
       result.reopen_ready_ms = second.readyMs;
       await phase('reopened', { browser_pid: browserPid, reopen_ready_ms: second.readyMs });
-      await second.context.close();
+      await closeSession(browser, second);
     } catch (err) {
       result.reopen_error = String(err.message || err).slice(0, 400);
       await phase('reopened', {

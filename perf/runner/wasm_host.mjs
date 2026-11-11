@@ -18,6 +18,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { startChromeTrace, stopChromeTrace } from './chrome_trace.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '../..');
@@ -776,6 +777,7 @@ if (spec.corpus_path) {
 }
 
 const page = await context.newPage();
+const traceHandle = await startChromeTrace(browser, page, 'C24');
 const pageErrors = [];
 page.on('pageerror', (error) => pageErrors.push(String(error).slice(0, 400)));
 await page.addInitScript(installHooks);
@@ -799,6 +801,7 @@ try {
   failure = String(error && error.message ? error.message : error);
 }
 
+await stopChromeTrace(browser, traceHandle);
 await browser.close();
 
 const out = {

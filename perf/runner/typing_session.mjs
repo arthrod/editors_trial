@@ -2,14 +2,17 @@
 // JSON lines over stdin/stdout; only this file owns trusted sampled keystrokes.
 import readline from 'node:readline';
 import {loadPlaywright, witnessFrame, clockSkew, frameInterval, stopRecorder, getRecorder, CARET_MASK_CSS} from './witness.mjs';
+import {startChromeTrace, stopChromeTrace} from './chrome_trace.mjs';
 const [port, profile, sessionKind = "latency"] = process.argv.slice(2);
 const {chromium} = await loadPlaywright();
 const context = await chromium.launchPersistentContext(profile, {
   headless:true, viewport:{width:1280,height:900},
   args:[`--remote-debugging-port=${port}`, '--font-render-hinting=none', '--disable-lcd-text'],
 });
+const traceBrowser = typeof context.browser === 'function' ? context.browser() : null;
 process.on('SIGTERM', async () => { await context.close(); process.exit(0); });
-const page = context.pages()[0];
+const page = context.pages()[0] || await context.newPage();
+const traceHandle = traceBrowser ? await startChromeTrace(traceBrowser, page, 'TYPING') : null;
 page.on('console', message => console.error(`[browser ${message.type()}] ${message.text()}`));
 page.on('pageerror', error => console.error(`[browser uncaught] ${error}`));
 const cdp = await context.newCDPSession(page);
@@ -71,7 +74,9 @@ for await (const line of lines) {
       result = {witness, frame_interval_ms:interval.median_ms};
       if (witness.after_page_ms === null) result = {...result, outcome:'no_frame', refusal:'no_keydown'};
     } else if (command.op === 'close') {
-      await stopRecorder(cdp); await context.close(); break;
+      await stopRecorder(cdp);
+      await stopChromeTrace(traceBrowser, traceHandle);
+      await context.close(); break;
     } else throw Error('unknown operation');
     // B1 injects a fresh universal-selector mask each time. Hundreds of
     // duplicate sheets slow later, unwitnessed edits. Retain the newest mask
