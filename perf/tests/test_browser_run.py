@@ -65,15 +65,6 @@ class BrowserRun(unittest.TestCase):
 class EntryPoints(unittest.TestCase):
     def test_all_four_entrypoints_use_run_cli_and_write_once(self):
         import ast
-        # Commit 61518eec ("Pass input-lane expected body via file instead of
-        # env b64", 2026-11-10) deliberately added exactly one write_text to
-        # benchmark_input: the probe's expected-body sidecar, written once per
-        # editor before the probe runs. It is probe input, not a mutable
-        # summary or fixture of record, so the ban exempts precisely that
-        # line and nothing else.
-        allowed_once = {
-            'benchmark_input': 'body_path.write_text(body, encoding="utf-8")',
-        }
         for name in ['benchmark_warm_cold', 'benchmark_document', 'benchmark_input', 'adversarial_c10_scroll']:
             with self.subTest(runner=name):
                 source = (Path(__file__).parents[1] / 'runner' / (name + '.py')).read_text()
@@ -84,10 +75,6 @@ class EntryPoints(unittest.TestCase):
                     if isinstance(node, ast.Dict):
                         keys = [n.value for n in node.keys if isinstance(n, ast.Constant)]
                         self.assertEqual(len(keys), len(set(keys)), 'duplicate dictionary key')
-                exemption = allowed_once.get(name)
-                if exemption:
-                    self.assertEqual(source.count(exemption), 1, 'the one reviewed sidecar write moved')
-                    source = source.replace(exemption, '')
                 self.assertNotIn('.write_text(', source, 'mutable summary')
                 self.assertNotIn('.write_bytes(', source, 'mutable fixture')
 
