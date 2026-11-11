@@ -143,6 +143,29 @@ def _entry(cid="C07", **overrides):
         observation.setdefault("observation_id", f"observation-{index}")
         if isinstance(observation.get("witness"), dict):
             observation.setdefault("input_ms", observation["witness"].get("after_page_ms"))
+    if cid == "C07" and "observations" not in overrides:
+        # The r3c07b contract: every retained click sample carries the
+        # quiet-window proof (on the observation and inside its witness), a
+        # fresh/untouched state, distinct coordinates, and the caret on its
+        # clicked line — the same shape criteria_input.mjs emits.
+        for index, observation in enumerate(entry["observations"]):
+            y = 200.0 + index * 250.0
+            quiet = {
+                "required_ms": 1000, "budget_ms": 8000, "proven": True,
+                "observed_ms": 1240.5, "start_page_ms": 2100.0,
+                "end_page_ms": 3340.5, "changes_seen": 0, "events": [],
+                "exhausted": False, "violated": False,
+            }
+            observation.setdefault("x", 640.0)
+            observation.setdefault("y", y)
+            observation.setdefault("line", {"top": y - 10, "bottom": y + 10})
+            observation.setdefault("scope", "quiet_box_first_paint")
+            observation.setdefault("anchor_inside", True)
+            observation.setdefault("caret_on_clicked_line", True)
+            observation.setdefault("quiet_window", dict(quiet))
+            observation.setdefault("fresh_state", {"state": "untouched_verified"})
+            if isinstance(observation.get("witness"), dict):
+                observation["witness"].setdefault("quiet_window", dict(quiet))
     entry.setdefault("sample_observation_ids", [
         observation["observation_id"]
         for observation in entry["observations"][:len(entry["samples_ms"])]]
@@ -218,14 +241,12 @@ class CriteriaPayloadHonesty(unittest.TestCase):
     def test_copied_sample_vectors_are_rejected(self):
         shared_witness = publishable_witness_record(21.0, 1.0)
         shared_obs = {"input_ms": 1.0, "frame_ms": 21.0, "sample_ms": 20.0, "witness": shared_witness}
-        c07 = _entry(cid="C07", samples_ms=[20.0])
-        c07["observations"][0] = {**c07["observations"][0], **shared_obs}
         entries = {
-            "C07": c07,
+            "C07": _entry(cid="C07", samples_ms=[20.0, 20.0]),
             "C09": _entry(
                 cid="C09",
-                samples_ms=[20.0],
-                observations=[dict(shared_obs)],
+                samples_ms=[20.0, 20.0],
+                observations=[dict(shared_obs), dict(shared_obs)],
             ),
         }
         assert_payload_shape(_payload(entries))
@@ -278,12 +299,24 @@ class CriteriaPayloadHonesty(unittest.TestCase):
                 "caret_on_clicked_line": True,
             },
         ]
-        for obs in observations:
+        for index, obs in enumerate(observations):
             frame = float(obs["frame_ms"])
             obs["input_ms"] = frame
             obs["frame_ms"] = frame + 18.5
             obs["sample_ms"] = 18.5
             obs["witness"] = publishable_witness_record(frame + 18.5, frame)
+            y = 200.0 + index * 250.0
+            quiet = {
+                "required_ms": 1000, "budget_ms": 8000, "proven": True,
+                "observed_ms": 1240.5, "start_page_ms": 2100.0,
+                "end_page_ms": 3340.5, "changes_seen": 0, "events": [],
+                "exhausted": False, "violated": False,
+            }
+            obs["x"] = 640.0
+            obs["y"] = y
+            obs["quiet_window"] = dict(quiet)
+            obs["witness"]["quiet_window"] = dict(quiet)
+            obs["fresh_state"] = {"state": "untouched_verified"}
         with self.assertRaisesRegex(ValueError, "caret not on the clicked line"):
             assert_payload_shape(_payload({"C07": _entry(
                 observations=observations, samples_ms=[18.5, 18.5, 18.5],

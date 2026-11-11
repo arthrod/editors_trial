@@ -1,11 +1,14 @@
 /**
  * B4 fix round 7: frame-interval witness setup and harness_error vs page_lost; extra suite phases.
  */
-import { pathToFileURL } from 'node:url';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { quietWindow, noFrameRecord } from './witness_records.mjs';
 
 const repo = new URL('../..', import.meta.url).pathname.replace(/\/$/, '');
 const moduleUrl = pathToFileURL(`${repo}/perf/runner/criteria_input.mjs`).href;
 const { runCriteriaSuite } = await import(moduleUrl);
+const INK_PNG = readFileSync(fileURLToPath(new URL('./fixtures/ink/plate_clip.png', import.meta.url)));
 
 const QUIESCENT = {
   quiescent: true,
@@ -66,10 +69,11 @@ function makeHost(deathAt) {
       body = 'ORIGINAL';
       reloaded = true;
     },
+    screenshot: async () => INK_PNG,
     evaluate: async (fn, arg) => {
       if (dead) throw new Error('Execution context was destroyed');
       const name = fn.name;
-      if (deathAt === 'alive_boundary' && name === 'RESOLVE_CLICK_POINTS') {
+      if (deathAt === 'alive_boundary' && name === 'RESOLVE_CLICK_CLIP') {
         throw new TypeError('synthetic live-page harness bug');
       }
       if (deathAt === 'alive_c04' && name === 'OBSERVE_QUIESCENCE') {
@@ -112,30 +116,33 @@ function makeHost(deathAt) {
           caret: { top: 1, bottom: 2, height: 1 },
         };
       }
-      if (name === 'RESOLVE_CLICK_POINTS') {
+      if (name === 'RESOLVE_CLICK_CLIP') {
         resolveCalls += 1;
-        // Resolve 1 is the post-C04 hit test. Resolve 2 is C09's own click.
-        // The refresh resolve is the third; the next editable read is the one
-        // the c08_refresh_read death is about.
-        if (deathAt === 'c08_refresh_read' && resolveCalls === 3) {
+        // Resolve 1 is the post-C04 ink scan. C09 reuses those points; the
+        // C08 refresh resolve is the second; the next editable read is the
+        // one the c08_refresh_read death is about.
+        if (deathAt === 'c08_refresh_read' && resolveCalls === 2) {
           postRefreshResolve = true;
         }
         if (deathAt === 'after_c04' && resolveCalls === 1) {
           die();
           throw new Error('Execution context was destroyed');
         }
-        if (deathAt === 'c08_refresh' && resolveCalls === 3) {
+        if (deathAt === 'c08_refresh' && resolveCalls === 2) {
           die();
           throw new Error('Execution context was destroyed');
         }
         return {
-          points: [
-            { point: 'last_text_line', x: 1, y: 1, line: { top: 1, bottom: 2 } },
-            { point: 'mid_text_line', x: 2, y: 2, line: { top: 1, bottom: 2 } },
-            { point: 'first_text_line', x: 3, y: 3, line: { top: 1, bottom: 2 } },
-          ],
-          source: 'text_lines',
+          clip: { left: 0, top: 0, right: 640, bottom: 900 },
+          box: { x: 0, y: 0, width: 640, height: 900 },
+          viewport: { width: 1280, height: 900 },
         };
+      }
+      if (name === 'CHECK_CLICK_HITS') {
+        return { points: ((arg && arg.points) || []).map(() => ({ hit_inside_editable: true })) };
+      }
+      if (name === 'DOCUMENT_UNTOUCHED') {
+        return { events: [], anchor_inside: false, active_inside: false, tapped: 0 };
       }
       if (name === 'OBSERVE_QUIESCENCE') {
         if (deathAt === 'c04_mid') {
@@ -194,9 +201,20 @@ function makeHost(deathAt) {
       }
     },
   };
+  const witness = {
+    frameIntervalMs: 16.667,
+    paintAfter: async (t, o = {}) => {
+      if (o.arm) await o.arm();
+      const record = noFrameRecord();
+      record.frames_total = 1;
+      record.quiet_window = quietWindow();
+      return record;
+    },
+  };
   return {
     page,
     cdp,
+    witness,
     state: () => ({ dead, undos, reloaded, clicks: clicks.length, stopCalls, offCalls }),
   };
 }
@@ -214,6 +232,7 @@ async function scenario(deathAt) {
       criteria: ['C04', 'C07', 'C09', 'C08'],
       expectedBodyText: 'ORIGINAL',
       correctnessAdapter: 'dom_innerText',
+      witness: host.witness,
     });
   } catch (error) {
     thrown = String(error);

@@ -170,7 +170,7 @@ const corpusBytes = fs.readFileSync(corpusFile);
 
 const loadTimeout = loadTimeoutMs();
 
-async function waitForReady(page, selector, timeoutMs = loadTimeout, t0 = Date.now()) {
+async function awaitReadySignal(page, selector, timeoutMs) {
   if (readyJs || errorJs) {
     await page.waitForFunction(
       ({ expr, errExpr }) => {
@@ -213,6 +213,10 @@ async function waitForReady(page, selector, timeoutMs = loadTimeout, t0 = Date.n
   } else {
     await page.waitForSelector(selector, { timeout: timeoutMs, state: 'visible' });
   }
+}
+
+async function waitForReady(page, selector, timeoutMs = loadTimeout, t0 = Date.now()) {
+  await awaitReadySignal(page, selector, timeoutMs);
   const first_usable_ms = Date.now() - t0;
   const settleStart = Date.now();
   if (waitAfterReadyMs > 0) {
@@ -760,6 +764,18 @@ async function runCriteriaSession() {
     quiescenceTimeoutMs,
     bulkChars,
     editorId,
+    // r3c07b: each C07 point needs a fresh untouched state. Reloading the
+    // same page restores it; the ready gate re-runs so a reload that breaks
+    // the editor surfaces as a reload failure, not a click on a dead page.
+    // The running screencast is untouched — this wait skips the clock-skew
+    // calibration a full waitForReady does.
+    reloadPage: async () => {
+      await page.reload({ waitUntil: 'domcontentloaded', timeout: loadTimeout });
+      await awaitReadySignal(page, readySelector, loadTimeout);
+      if (waitAfterReadyMs > 0) {
+        await page.waitForTimeout(waitAfterReadyMs);
+      }
+    },
   });
   await stopChromeTrace(browser, trace);
   await context.close();

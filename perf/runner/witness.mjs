@@ -519,7 +519,7 @@ export async function stopRecorder(cdp) {
   }
 }
 
-async function ensureScreencast(recorder) {
+export async function ensureScreencast(recorder) {
   if (recorder.started) return recorder;
   if (!recorder.manageScreencast) {
     recorder.started = true;
@@ -1180,6 +1180,8 @@ export async function witnessFrame(
     clockSkewMs = null,
     clockCheck = null,
     region = null,
+    quietMs = 0,
+    quietBudgetMs = 8000,
   } = {},
 ) {
   const recorder = givenRecorder || getRecorder(cdp, { manageScreencast });
@@ -1225,13 +1227,180 @@ export async function witnessFrame(
 
   // The baseline must be the picture *before* the change, so it is taken
   // before the page is armed.
-  const base = await resolveBaseline(page, recorder, baseline);
-  const baseDecoded = base.frame ? decodeFrame(recorder, base.frame) : null;
+  let base = await resolveBaseline(page, recorder, baseline);
+  let baseDecoded = base.frame ? decodeFrame(recorder, base.frame) : null;
 
   // The document region is resolved before the page is armed, so a change
   // that moves the layout cannot move its own target rect.
   const scope = await resolveRegion(page, region, baseDecoded);
   const diffRegion = scope.scoped ? scope.rect_device : null;
+  const wallStart = Date.now();
+  let usedKindEarly = kind.kind;
+  let quietAckSkipped = 0;
+
+  // r3c07b ruling #1: the watched box must be shown quiet — no changed pixel
+  // inside the region — for at least quietMs before the page is armed. The
+  // screencast is the same witness that later times the input: a composited
+  // frame that differs from the baseline inside the region is a repaint the
+  // click could borrow. A change resets the quiet clock rather than refusing
+  // outright — a one-off settle paint may still leave a provably quiet box —
+  // but a box that repaints periodically (a blinking caret, a hover, a
+  // toolbar) never reaches quiet inside the budget and the sample is refused
+  // before the arm ever fires.
+  let quiet_window = null;
+  if (quietMs > 0) {
+    // The watch floor is the baseline's own page time when it is a real
+    // screencast frame: a repaint between the baseline capture and this
+    // point would otherwise slip through the floor uncounted. Only frames
+    // at or before the baseline are skipped — their pixels ARE the picture
+    // the diff compares against.
+    let watchStartPageMs =
+      base.frame && base.frame.seq >= 0
+        ? convertFrameToPageMs(base.frame, { ...clock, timestamp_kind: usedKindEarly })
+        : null;
+    if (watchStartPageMs === null) {
+      watchStartPageMs = await page.evaluate(() => performance.now()).catch(() => null);
+    }
+    const events = [];
+    let changesSeen = 0;
+    let quietSince = watchStartPageMs;
+    let observedMs = 0;
+    let proven = false;
+    let checkedQuiet = 0;
+    const quietDeadline = Date.now() + quietBudgetMs;
+    while (Date.now() < quietDeadline) {
+      for (let i = checkedQuiet; i < recorder.frames.length; i++) {
+        const frame = recorder.frames[i];
+        checkedQuiet = i + 1;
+        if (frame.ack === 'pending') {
+          if ((await frameAckSettled(frame)) !== 'acked') {
+            quietAckSkipped += 1;
+            continue;
+          }
+        } else if (frame.ack !== 'acked') {
+          quietAckSkipped += 1;
+          continue;
+        }
+        const frameKind = detectTimestampKind(frame);
+        const effectiveKind = frameKind.kind === 'unknown' ? kind.kind : frameKind.kind;
+        const pageMs = convertFrameToPageMs(frame, {
+          ...clock,
+          timestamp_kind: effectiveKind,
+        });
+        if (pageMs === null) continue;
+        if (effectiveKind !== 'unknown') usedKindEarly = effectiveKind;
+        // A frame that predates the watch carries pre-watch pixels; it cannot
+        // prove or break quiet for this window.
+        if (watchStartPageMs !== null && pageMs <= watchStartPageMs) continue;
+        if (!baseDecoded) continue;
+        if (base.frame && frame.data === base.frame.data) continue;
+        const decoded = decodeFrame(recorder, frame);
+        if (!decoded) continue;
+        const diff = diffRegion
+          ? diffRatio(baseDecoded, decoded, { channelTolerance, region: diffRegion })
+          : diffRatio(baseDecoded, decoded, { channelTolerance });
+        if (diff.comparable && diff.ratio > threshold && diff.changed >= minPixels) {
+          changesSeen += 1;
+          if (events.length < 12) {
+            events.push({
+              frame_page_ms: round(pageMs, 3),
+              changed: diff.changed,
+              ratio: round(diff.ratio, 6),
+            });
+          }
+          quietSince = pageMs;
+        }
+      }
+      const nowPageMs = await page
+        .evaluate(() => performance.now())
+        .catch(() => null);
+      if (nowPageMs !== null && quietSince !== null) {
+        observedMs = nowPageMs - quietSince;
+      }
+      if (quietSince !== null && observedMs >= quietMs) {
+        proven = true;
+        break;
+      }
+      await sleep(4);
+    }
+    const violated = !proven && changesSeen > 0;
+    quiet_window = {
+      required_ms: quietMs,
+      budget_ms: quietBudgetMs,
+      proven,
+      observed_ms: round(observedMs, 3),
+      start_page_ms: watchStartPageMs === null ? null : round(watchStartPageMs, 3),
+      end_page_ms:
+        watchStartPageMs === null ? null : round(watchStartPageMs + observedMs, 3),
+      changes_seen: changesSeen,
+      events,
+      exhausted: !proven,
+      violated,
+    };
+    if (!proven) {
+      // A box that was not quiet before the click is a named refusal: the arm
+      // never fires and there is no frame to read as the input's paint.
+      return {
+        kind: 'frame_witness',
+        outcome: 'no_frame',
+        frame_page_ms: null,
+        frames_total: recorder.frames.length,
+        frames_after: 0,
+        frames_ack_skipped: quietAckSkipped,
+        diff_ratio: 0,
+        threshold,
+        min_pixels: minPixels,
+        caret_masked: caret.caret_masked,
+        caret_mask_css: caret.caret_mask_css,
+        caret_mask_error: caret.caret_mask_error,
+        window_ms: windowMs,
+        window_requested_ms: windowRequestedMs,
+        after_page_ms: afterPageMs === null ? null : round(afterPageMs, 3),
+        baseline_page_ms:
+          base.frame && base.frame.seq >= 0
+            ? round(
+                convertFrameToPageMs(base.frame, { ...clock, timestamp_kind: usedKindEarly }),
+                3,
+              )
+            : null,
+        baseline_source: base.source,
+        document_scoped: scope.scoped,
+        document_region: scope.scoped
+          ? {
+              source: scope.source,
+              selector: scope.selector,
+              rect_css_px: scope.rect_css,
+              rect_device_px: scope.rect_device,
+              device_pixel_ratio: scope.dpr,
+            }
+          : null,
+        document_region_error: scope.error,
+        region_pixels: scope.scoped
+          ? scope.rect_device.width * scope.rect_device.height
+          : null,
+        changed_pixels: 0,
+        total_pixels: 0,
+        max_diff_ratio: 0,
+        timestamp_kind: usedKindEarly,
+        time_origin_ms: round(clock.time_origin_ms, 3),
+        clock_check: check,
+        clock_check_source: checkSource,
+        clock_skew_ms:
+          check.page_offset_ms == null ? null : round(check.page_offset_ms, 3),
+        clock_skew_method: check.method || null,
+        clock_skew_bound_ms: check.bound_ms ?? DEFAULT_SKEW_BOUND_MS,
+        clock_skew_acceptable: check.acceptable === true,
+        elapsed_ms: Date.now() - wallStart,
+        quiet_window,
+      };
+    }
+    // The quiet window ran after the baseline was taken; a frame that painted
+    // inside the region during the watch (and reset the quiet clock) must not
+    // later read as the input's own paint. Re-baseline on the latest picture.
+    const refreshed = await resolveBaseline(page, recorder, null);
+    base = refreshed;
+    baseDecoded = base.frame ? decodeFrame(recorder, base.frame) : null;
+  }
 
   if (arm) {
     const armed = await arm();
@@ -1255,7 +1424,7 @@ export async function witnessFrame(
   let outcome = 'no_frame';
   let framePageMs = null;
   let diffRatioValue = null;
-  let usedKind = kind.kind;
+  let usedKind = usedKindEarly;
 
   while (Date.now() < deadline) {
     for (let i = checked; i < recorder.frames.length; i++) {
@@ -1350,6 +1519,7 @@ export async function witnessFrame(
     clock_skew_bound_ms: check.bound_ms ?? DEFAULT_SKEW_BOUND_MS,
     clock_skew_acceptable: check.acceptable === true,
     elapsed_ms: Date.now() - startedAt,
+    ...(quiet_window ? { quiet_window } : {}),
   };
 }
 

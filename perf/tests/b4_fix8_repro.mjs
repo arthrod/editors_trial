@@ -38,7 +38,7 @@ function makeCrashHost() {
     evaluate: async (fn) => {
       const name = fn.name;
       if (name === 'OBSERVE_QUIESCENCE') return QUIESCENT;
-      if (name === 'RESOLVE_CLICK_POINTS') {
+      if (name === 'RESOLVE_CLICK_CLIP') {
         for (const handler of listeners.crash) handler();
         crashed = true;
         throw new Error('renderer process unavailable [unusual wrapper message]');

@@ -73,9 +73,6 @@ const bulkPaste = await (async () => {
       first: () => ({ boundingBox: async () => ({ x: 1, y: 1, width: 120, height: 40 }) }),
     }),
     evaluate: async (fn, arg) => {
-      if (fn.name === 'RESOLVE_CLICK_POINTS') {
-        return { points: [{ point: 'page_centre', x: 10, y: 10, hit_inside_editable: true }] };
-      }
       if (fn.name === 'READ_EDITABLE_STATE') {
         reads += 1;
         if (reads <= 2) return { ...before, active_inside: true };
@@ -125,13 +122,6 @@ const undoNoFocus = await (async () => {
       first: () => ({ boundingBox: async () => ({ x: 1, y: 1, width: 120, height: 40 }) }),
     }),
     evaluate: async (fn, arg) => {
-      if (fn.name === 'RESOLVE_CLICK_POINTS') {
-        return {
-          points: [
-            { point: 'page_centre', x: 10, y: 10, hit_inside_editable: true },
-          ],
-        };
-      }
       if (fn.name === 'READ_EDITABLE_STATE') {
         return {
           text: 'ABCDEF',
@@ -151,7 +141,10 @@ const undoNoFocus = await (async () => {
     page,
     fakeWitness(),
     { modifier: 'Control', expectedBodyText: 'ABCDEF' },
-    { editable: { selector: '#doc', is_content_editable: true, text_length: 6 } },
+    {
+      editable: { selector: '#doc', is_content_editable: true, text_length: 6 },
+      points: [{ point: 'page_centre', x: 10, y: 10, hit_inside_editable: true }],
+    },
   );
 })();
 
@@ -175,6 +168,9 @@ const c07CaretDom = await (async () => {
     mouse: { click: async () => {} },
     keyboard: { press: async () => {} },
     evaluate: async (fn, arg) => {
+      if (fn.name === 'DOCUMENT_UNTOUCHED') {
+        return { events: [], anchor_inside: false, active_inside: false, tapped: 0 };
+      }
       if (fn.name === 'READ_EDITABLE_STATE') {
         return {
           text: 'AB',
@@ -194,24 +190,28 @@ const c07CaretDom = await (async () => {
       return null;
     },
   };
+  const { quietWindow } = await import('./witness_records.mjs');
   const witness = {
     frameIntervalMs: 16.667,
     paintAfter: async (_t, callOptions = {}) => {
       if (callOptions.arm) await callOptions.arm();
-      return { outcome: 'no_frame', changed_pixels: 0, caret_masked: false, frames_after: 1, frames_total: 2 };
+      return {
+        outcome: 'no_frame', changed_pixels: 0, caret_masked: false,
+        frames_after: 1, frames_total: 2, quiet_window: quietWindow(),
+      };
     },
   };
   const { measureClicks } = await import('../runner/criteria_input.mjs');
   return measureClicks(
     page,
-    witness,
-    { frameTimeoutMs: 2000, expectedBodyText: null },
     {
       editable: { selector: '#doc', is_content_editable: true },
       points: [
         { point: 'first_text_line', x: 1, y: 1, line: { top: 8, bottom: 22 }, hit_inside_editable: true },
+        { point: 'last_text_line', x: 30, y: 40, line: { top: 8, bottom: 22 }, hit_inside_editable: true },
       ],
     },
+    { frameTimeoutMs: 2000, expectedBodyText: null, witness },
   );
 })();
 assert(c07CaretDom.outcome === 'failed', 'C07 refuses a click that never paints');

@@ -5,19 +5,19 @@
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { publishableRecord } from './witness_records.mjs';
+import { publishableRecord, quietWindow } from './witness_records.mjs';
 import { decodePng } from '../runner/witness.mjs';
 import { INK_DARK_LUMA, inkClickPoints } from '../runner/ink_points.mjs';
 import {
   READ_EDITABLE_STATE,
   READ_SUPERDOC_TEXT,
-  RESOLVE_CLICK_POINTS,
   caretOverlapsLine,
   clickPaintRegion,
   comparableDocumentText,
   differsBySingleInsertion,
   measureClicks,
   prepareInputSurface,
+  resolveInkClickPoints,
 } from '../runner/criteria_input.mjs';
 
 const require = createRequire(fileURLToPath(new URL('../../harness/ui/package.json', import.meta.url)));
@@ -58,14 +58,21 @@ function clickPage(onKey, keys, pointerTimes) {
       type: async (text) => onKey && onKey(text),
     },
     evaluate: async (fn, arg) => {
+      if (fn && fn.name === 'DOCUMENT_UNTOUCHED') {
+        return { events: [], anchor_inside: false, active_inside: false, tapped: 0 };
+      }
       if (fn && fn.name === 'READ_EDITABLE_STATE') {
+        const lastClick = mouseClicks[mouseClicks.length - 1];
+        const clickedY = lastClick ? lastClick[1] : null;
         return {
           text: 'AB',
           text_length: 2,
           is_content_editable: true,
           active_inside: true,
           anchor_inside: true,
-          caret: { ...plateCaret, collapsed: true },
+          caret: clickedY == null
+            ? { ...plateCaret, collapsed: true }
+            : { top: clickedY - 9, bottom: clickedY + 9, height: 18, left: 10, right: 12, collapsed: true },
         };
       }
       if (typeof arg === 'string') return { inside: true, reason: null };
@@ -86,6 +93,13 @@ function clickPage(onKey, keys, pointerTimes) {
 const meta = {
   editable: { selector: '#doc', is_content_editable: true },
   points: [
+    {
+      point: 'first_text_line',
+      x: 60,
+      y: 603,
+      line: { top: 594, bottom: 612 },
+      hit_inside_editable: true,
+    },
     {
       point: 'last_text_line',
       x: 12,
@@ -122,6 +136,7 @@ function unmaskedBoxRecord(frameMs, markerMs, changed = 240) {
   record.changed_pixels = changed;
   record.diff_ratio = changed / area;
   record.max_diff_ratio = changed / area;
+  record.quiet_window = quietWindow();
   return record;
 }
 
@@ -130,17 +145,23 @@ let refusedCalls = 0;
 let refusedOptions = null;
 const refused = await measureClicks(
   refusedPage,
+  meta,
   {
-    frameIntervalMs: 16.667,
-    paintAfter: async (_t, callOptions = {}) => {
-      refusedCalls += 1;
-      refusedOptions = callOptions;
-      if (callOptions.arm) await callOptions.arm();
-      return { outcome: 'no_frame', changed_pixels: 0, caret_masked: false, frames_after: 1, frames_total: 2 };
+    frameTimeoutMs: 2000,
+    expectedBodyText: null,
+    witness: {
+      frameIntervalMs: 16.667,
+      paintAfter: async (_t, callOptions = {}) => {
+        refusedCalls += 1;
+        refusedOptions = callOptions;
+        if (callOptions.arm) await callOptions.arm();
+        return {
+          outcome: 'no_frame', changed_pixels: 0, caret_masked: false,
+          frames_after: 1, frames_total: 2, quiet_window: quietWindow(),
+        };
+      },
     },
   },
-  { frameTimeoutMs: 2000, expectedBodyText: null },
-  meta,
 );
 assert(refused.outcome === 'failed', 'a click that paints nothing in the box refuses C07');
 assert(
@@ -148,10 +169,10 @@ assert(
   'the refusal names the first click painting nothing in the click region',
 );
 assert(refused.samples_ms.length === 0, 'a timeout is not a sample');
-assert(refusedCalls === 1, 'one witness for one click; no second look');
+assert(refusedCalls === meta.points.length, 'one witness for one click per point; no second look');
 assert(refusedOptions.caretMask === false, 'the one click runs with no caret mask');
 assert(refusedOptions.region && refusedOptions.region.rect, 'the witness watches the fixed click box');
-assert(refusedPage.mouseClicks.length === 1, 'no setup click, no re-click: the first click is the only click');
+assert(refusedPage.mouseClicks.length === meta.points.length, 'no setup click, no re-click: the first click is the only click');
 assert(
   !refused.observations.some((observation) => observation.sample_ms != null || observation.caret_dom_response === true),
   'no caret-dom sample is kept',
@@ -163,23 +184,26 @@ let seenMask = null;
 const singlePage = clickPage(null, [], [40]);
 const painted = await measureClicks(
   singlePage,
+  meta,
   {
-    frameIntervalMs: 16.667,
-    paintAfter: async (_t, callOptions = {}) => {
-      paintCalls += 1;
-      if (callOptions.arm) await callOptions.arm();
-      seenRegion = callOptions.region;
-      seenMask = callOptions.caretMask;
-      return unmaskedBoxRecord(180, 40);
+    frameTimeoutMs: 2000,
+    expectedBodyText: null,
+    witness: {
+      frameIntervalMs: 16.667,
+      paintAfter: async (_t, callOptions = {}) => {
+        paintCalls += 1;
+        if (callOptions.arm) await callOptions.arm();
+        seenRegion = callOptions.region;
+        seenMask = callOptions.caretMask;
+        return unmaskedBoxRecord(180, 40);
+      },
     },
   },
-  { frameTimeoutMs: 2000, expectedBodyText: null },
-  meta,
 );
 assert(painted.outcome === 'measured', 'the first click frame is the sample');
 assert(painted.samples_ms[0] === 140, 'sample is frame_page_ms minus the click pointerdown (180-40)');
 assert(painted.observations[0].caret_dom_response !== true, 'caret_dom_response is not a bypass');
-assert(paintCalls === 1, 'the first click is the only witness');
+assert(paintCalls === meta.points.length, 'one click is one witness per point');
 assert(seenMask === false, 'the click runs unmasked');
 assert(seenRegion && seenRegion.rect, 'the witness watches a fixed box around the click point');
 assert(seenRegion.rect.width === 48, 'the documented box is 48 CSS px wide');
@@ -196,23 +220,29 @@ assert(
   !Object.prototype.hasOwnProperty.call(painted.observations[0], 'caret_paint_attempt'),
   'no unmasked-reclick fields survive',
 );
-assert(singlePage.mouseClicks.length === 1, 'one click only');
+assert(singlePage.mouseClicks.length === meta.points.length, 'one click only per point');
 
 let deadCalls = 0;
 const deadKeys = [];
 const deadPage = clickPage(null, deadKeys, [40]);
 const deadScreencast = await measureClicks(
   deadPage,
+  meta,
   {
-    frameIntervalMs: 16.667,
-    paintAfter: async (_t, callOptions = {}) => {
-      deadCalls += 1;
-      if (callOptions.arm) await callOptions.arm();
-      return { outcome: 'no_frame', changed_pixels: 0, caret_masked: false, frames_after: 0, frames_total: 0 };
+    frameTimeoutMs: 2000,
+    expectedBodyText: null,
+    witness: {
+      frameIntervalMs: 16.667,
+      paintAfter: async (_t, callOptions = {}) => {
+        deadCalls += 1;
+        if (callOptions.arm) await callOptions.arm();
+        return {
+          outcome: 'no_frame', changed_pixels: 0, caret_masked: false,
+          frames_after: 0, frames_total: 0, quiet_window: quietWindow(),
+        };
+      },
     },
   },
-  { frameTimeoutMs: 2000, expectedBodyText: null },
-  meta,
 );
 assert(deadScreencast.outcome === 'failed', 'a dead screencast is not a sample');
 assert(
@@ -220,7 +250,7 @@ assert(
   'no frames at all is no_painted_frame, not the click refusal',
 );
 assert(deadScreencast.samples_ms.length === 0, 'no sample without a painted frame');
-assert(deadCalls === 1 && deadPage.mouseClicks.length === 1, 'still one click, one witness');
+assert(deadCalls === meta.points.length && deadPage.mouseClicks.length === meta.points.length, 'still one click, one witness per point');
 assert(
   deadKeys.length === 0 || (!deadKeys.includes('ArrowRight') && !deadKeys.includes('ArrowLeft')),
   'C07 never substitutes a key for the click',
@@ -269,17 +299,17 @@ function paintedProbePage(active) {
           anchor_inside: false,
         };
       }
-      if (fn && fn.name === 'RESOLVE_CLICK_POINTS') {
-        return { points: [{ point: 'last_text_line', x: 8, y: 40, hit_inside_editable: true }] };
-      }
       return null;
     },
   };
 }
+const PROBE_POINTS = [{ point: 'last_text_line', x: 8, y: 40, hit_inside_editable: true }];
 
 const focusedUnchanged = await prepareInputSurface(
   paintedProbePage({ inside: true, tag: 'textarea' }),
   '#editor .superdoc__document',
+  null,
+  PROBE_POINTS,
 );
 assert(
   String(focusedUnchanged.refusal || '').includes('input_did_not_change_document'),
@@ -291,6 +321,8 @@ try {
   const protectedRefusal = await prepareInputSurface(
     paintedProbePage({ inside: true, tag: 'textarea' }),
     '#editor .superdoc__document',
+    null,
+    PROBE_POINTS,
   );
   assert(
     protectedRefusal.refusal === 'document_protected_read_only',
@@ -299,6 +331,8 @@ try {
   const missedClick = await prepareInputSurface(
     paintedProbePage({ inside: false, tag: 'div' }),
     '#editor .superdoc__document',
+    null,
+    PROBE_POINTS,
   );
   assert(
     String(missedClick.refusal || '').includes('input_did_not_change_document'),
@@ -349,14 +383,13 @@ const locked = {
     if (fn && fn.name === 'READ_EDITABLE_STATE') {
       return { text: 'LOCKED', text_length: 6, read_only: true, is_content_editable: false };
     }
-    if (fn && fn.name === 'RESOLVE_CLICK_POINTS') {
-      return { points: [{ point: 'last_text_line', x: 4, y: 4, hit_inside_editable: true }] };
-    }
     if (arg && (arg.kind || arg.kinds)) return null;
     return null;
   },
 };
-const lockedSurface = await prepareInputSurface(locked, '#doc');
+const lockedSurface = await prepareInputSurface(locked, '#doc', null, [
+  { point: 'last_text_line', x: 4, y: 4, hit_inside_editable: true },
+]);
 assert(lockedSurface.refusal === 'document_protected_read_only', 'a locked surface names document_protected_read_only');
 
 const browser = await chromium.launch({ headless: true });
@@ -432,11 +465,17 @@ try {
   await page.setContent(`<!doctype html><div id="bar" style="height:28px">toolbar</div>
     <div id="doc" style="height:220px;width:420px;overflow:hidden">
       <p style="margin:0;position:relative;top:-18px">FIRST LINE UNDER THE TOOLBAR</p>
-      <p style="margin:24px 0 0">SECOND LINE INSIDE THE EDITOR SURFACE</p>
+      <p style="margin:24px 0 0;line-height:24px">SECOND LINE INSIDE THE EDITOR SURFACE<br>THIRD LINE INSIDE THE EDITOR SURFACE</p>
     </div>`);
-  const resolved = await page.evaluate(RESOLVE_CLICK_POINTS, '#doc');
-  const first = (resolved.points || []).find((point) => point.point === 'first_text_line');
-  assert(first && first.hit_inside_editable === true, 'an occluded first line moves onto a hittable line');
+  const resolved = await resolveInkClickPoints(page, { kind: 'dom', selector: '#doc' });
+  const points = (resolved && resolved.points) || [];
+  assert(points.length >= 2, 'the ink scan resolves at least two distinct painted lines');
+  assert(
+    new Set(points.map((point) => `${point.x}|${point.y}`)).size === points.length,
+    'no resolved point is measured twice',
+  );
+  const first = points.find((point) => point.point === 'first_text_line');
+  assert(first && first.hit_inside_editable === true, 'the first line hit-tests inside the editable');
   assert(first && first.y > 28, 'the first-line click is below the toolbar');
 } finally {
   await browser.close();

@@ -31,13 +31,6 @@ function fakePage(mode) {
       },
     },
     evaluate: async (fn, arg) => {
-    // ae64d81a (2026-11-10, "Fix input harness click paint") added this
-    // resolve call to the undo/bulk paths; the fake answers it.
-    if (fn.name === 'RESOLVE_CLICK_POINTS')
-      return {
-        points: [{ point: 'first_text_line', x: 10, y: 10, line: { top: 5, bottom: 15 }, hit_inside_editable: true }],
-        source: 'text_line_rects',
-      };
       if (fn.name === 'READ_EDITABLE_STATE') {
         return { text: body, text_length: body.length, selection_offset: 4, active_inside: true, anchor_inside: true };
       }

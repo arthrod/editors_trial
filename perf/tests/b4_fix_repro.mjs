@@ -1,4 +1,4 @@
-import { publishableRecord, refusedRecord } from './witness_records.mjs';
+import { publishableRecord, quietWindow, refusedRecord } from './witness_records.mjs';
 /**
  * Isolated reproducers for B4 review findings (#131). Invoked from test_b4_fix.py.
  */
@@ -47,9 +47,6 @@ const corrupt = await (async () => {
       }),
     }),
     evaluate: async (fn, arg) => {
-      if (fn.name === 'RESOLVE_CLICK_POINTS') {
-        return { points: [{ point: 'page_centre', x: 10, y: 10, hit_inside_editable: true }] };
-      }
       if (fn.name === 'READ_EDITABLE_STATE') {
         reads += 1;
         const text = reads >= 2 ? 'CORRUPTDBLOCK' : 'ORIGINAL';
@@ -137,9 +134,6 @@ const c09AtOffset = await (async () => {
       press: async () => {},
     },
     evaluate: async (fn, arg) => {
-      if (fn.name === 'RESOLVE_CLICK_POINTS') {
-        return { points: [{ point: 'page_centre', x: 10, y: 10, hit_inside_editable: true }] };
-      }
       if (fn.name === 'READ_EDITABLE_STATE') {
         reads += 1;
         let text = 'ORIGINAL';
@@ -174,13 +168,9 @@ const nonDom = await (async () => {
   const page = {
     mouse: { click: async () => {} },
     evaluate: async (fn, arg) => {
-    // ae64d81a (2026-11-10, "Fix input harness click paint") added this
-    // resolve call to the undo/bulk paths; the fake answers it.
-    if (fn.name === 'RESOLVE_CLICK_POINTS')
-      return {
-        points: [{ point: 'first_text_line', x: 10, y: 10, line: { top: 5, bottom: 15 }, hit_inside_editable: true }],
-        source: 'text_line_rects',
-      };
+      if (fn.name === 'DOCUMENT_UNTOUCHED') {
+        return { events: [], anchor_inside: false, active_inside: false, tapped: 0 };
+      }
       if (fn.name === 'READ_EDITABLE_STATE') {
         return { text: 'WRONG', text_length: 5, anchor_inside: false };
       }
@@ -189,14 +179,21 @@ const nonDom = await (async () => {
       return null;
     },
   };
+  const clickWitness = {
+    frameIntervalMs: witness.frameIntervalMs,
+    paintAfter: async (t, callOptions) => {
+      const record = await witness.paintAfter(t, callOptions);
+      record.quiet_window = quietWindow();
+      return record;
+    },
+  };
   return measureClicks(
     page,
-    witness,
-    { expectedBodyText: 'ORIGINAL' },
     {
       editable: { selector: '#doc', is_content_editable: false },
       points: [1, 2, 3].map((i) => ({ point: `point${i}`, x: i, y: i, line: null })),
     },
+    { expectedBodyText: 'ORIGINAL', witness: clickWitness },
   );
 })();
 

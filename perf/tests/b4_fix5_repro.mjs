@@ -31,13 +31,6 @@ async function a10RefusedPaintPageDiesInFinally() {
       },
     },
     evaluate: async (fn, arg) => {
-    // ae64d81a (2026-11-10, "Fix input harness click paint") added this
-    // resolve call to the undo/bulk paths; the fake answers it.
-    if (fn.name === 'RESOLVE_CLICK_POINTS')
-      return {
-        points: [{ point: 'first_text_line', x: 10, y: 10, line: { top: 5, bottom: 15 }, hit_inside_editable: true }],
-        source: 'text_line_rects',
-      };
       if (broken) throw new Error('Execution context was destroyed');
       if (fn.name === 'READ_EDITABLE_STATE')
         return { text: body, text_length: body.length, selection_offset: 4, active_inside: true, anchor_inside: true };
@@ -84,18 +77,11 @@ async function a11MeasuredPageDiesInFinally() {
     evaluate: async (fn, arg) => {
       // ae64d81a (2026-11-10, "Fix input harness click paint") added the
       // click-point resolve and the focus read; the fake answers both.
-      if (fn.name === 'RESOLVE_CLICK_POINTS')
-        return {
-          points: [{ point: 'first_text_line', x: 10, y: 10, line: { top: 5, bottom: 15 }, hit_inside_editable: true }],
-          source: 'text_line_rects',
-        };
       if (fn.name === 'READ_EDITABLE_STATE') {
         reads += 1;
         if (reads > 3) throw new Error('Execution context was destroyed');
         return { text: body, text_length: body.length, selection_offset: 4, active_inside: true, anchor_inside: true };
       }
-      if (fn.name === 'RESOLVE_CLICK_POINTS')
-        return { points: [{ point: 'last_text_line', x: 1, y: 1 }] };
       if (arg && (arg.kind || arg.kinds)) return { t: 100 };
       return null;
     },
@@ -143,7 +129,6 @@ async function c09OnlySkipsLongResetWait() {
         if (reloaded) readsAfterReload += 1;
         return { text: body, text_length: body.length, selection_offset: 4, active_inside: true, anchor_inside: true, is_content_editable: true };
       }
-      if (fn.name === 'RESOLVE_CLICK_POINTS') return { points: [{ point: 'last_text_line', x: 1, y: 1 }] };
       if (arg && (arg.kind || arg.kinds)) return { t: 100 };
       if (arg?.count) return [16.667, 16.667];
       return null;
@@ -160,6 +145,7 @@ async function c09OnlySkipsLongResetWait() {
     // The double's cdp never emits screencast frames; keep the frame wait
     // short so this probe measures the fixture wait, not frame timeouts.
     frameTimeoutMs: 120,
+    resolvedPoints: [{ point: 'last_text_line', x: 1, y: 1, hit_inside_editable: true }],
   });
   return {
     // The long restore wait polls the document ~100 times; a skipped wait
@@ -194,8 +180,6 @@ async function metaEditableRefreshedAfterReset() {
         const len = reloaded ? 20 : body.length;
         return { text: body, text_length: len, selection_offset: 4, active_inside: true, anchor_inside: true, is_content_editable: true };
       }
-      if (fn.name === 'RESOLVE_CLICK_POINTS')
-        return { points: [{ point: 'after_reload', x: 2, y: 1 }], source: 'after_reload' };
       if (arg && (arg.kind || arg.kinds)) return { t: 100 };
       if (arg?.count) return [16.667, 16.667];
       if (typeof arg === 'number') return 40.0;
@@ -210,6 +194,7 @@ async function metaEditableRefreshedAfterReset() {
     criteria: ['C09', 'C08'],
     expectedBodyText: 'ORIGINAL',
     correctnessAdapter: 'dom_innerText',
+    resolvedPoints: [{ point: 'after_reload', x: 2, y: 1, hit_inside_editable: true }],
   });
   return {
     payload_text_length: payload.editable?.text_length ?? null,

@@ -2439,9 +2439,10 @@ class WitnessIssue137Round4Tests(unittest.TestCase):
         validator = self.load_validator()
         record = _load_captured_record()
         self.assertEqual(
-            set(record),
+            set(record) | {"quiet_window"},
             set(validator._PRODUCTION_ALLOWED_KEYS),
-            "the top-level allowed set must equal the capture's keys",
+            "the top-level allowed set must equal the capture's keys plus "
+            "the optional quiet_window block the r3c07b C07 path emits",
         )
         self.assertEqual(
             set(record["clock_check"]),
@@ -3230,12 +3231,13 @@ class WitnessIssue137Round6Tests(unittest.TestCase):
             "a baseline plus the anchor frame is the producer's minimum",
         )
 
-        # the two frame counts the validator relates count the same
-        # recorder: the check's at its instant, the record's at the end.
+        # the three frame counts the validator relates count the same
+        # recorder: the check's at its instant, the quiet refusal's record,
+        # and the measured record's at the end.
         self.assertEqual(
             len(re.findall(r"frames_total: recorder\.frames\.length", source)),
-            2,
-            "the check and the record count the same recorder's frames",
+            3,
+            "the check and the records count the same recorder's frames",
         )
         self.assertGreaterEqual(
             source.count("window.devicePixelRatio || 1"),

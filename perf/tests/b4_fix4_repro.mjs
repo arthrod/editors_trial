@@ -1,4 +1,4 @@
-import { publishableRecord, refusedRecord, noFrameRecord } from './witness_records.mjs';
+import { publishableRecord, quietWindow, refusedRecord, noFrameRecord } from './witness_records.mjs';
 /**
  * Reproducers for B4 fix round 3 (re-review R1–R4). Invoked from test_b4_fix3.py.
  */
@@ -31,13 +31,8 @@ function fakePage(mode) {
       },
     },
     evaluate: async (fn, arg) => {
-      // ae64d81a (2026-11-10, "Fix input harness click paint") added the
-      // click-point resolve and the focus read; the fakes answer both.
-      if (fn.name === 'RESOLVE_CLICK_POINTS')
-        return {
-          points: [{ point: 'first_text_line', x: 10, y: 10, line: { top: 5, bottom: 15 }, hit_inside_editable: true }],
-          source: 'text_line_rects',
-        };
+      if (fn.name === 'DOCUMENT_UNTOUCHED')
+        return { events: [], anchor_inside: false, active_inside: false, tapped: 0 };
       if (fn.name === 'READ_EDITABLE_STATE') {
         return {
           text: body,
@@ -150,7 +145,18 @@ function tmpdirMissing() {
 
 async function clickMissing() {
   const {page, witness} = fakePage('missing_paste');
-  return measureClicks(page, witness, {}, {editable: {selector: '#doc', is_content_editable: true}, points: [{point: 'last_text_line', x: 1, y: 1}]});
+  const quietWitness = {
+    frameIntervalMs: witness.frameIntervalMs,
+    paintAfter: async (t, o = {}) => {
+      const record = await witness.paintAfter(t, o);
+      record.quiet_window = quietWindow();
+      return record;
+    },
+  };
+  return measureClicks(page,
+    {editable: {selector: '#doc', is_content_editable: true},
+     points: [{point: 'first_text_line', x: 5, y: 5}, {point: 'last_text_line', x: 1, y: 1}]},
+    {witness: quietWitness});
 }
 async function positiveUndo() {
   const {page, witness} = fakePage('positive');
@@ -163,16 +169,16 @@ async function failedResetSuite() {
     reload: async () => {throw new Error('reload refused')},
     evaluate: async (fn, arg) => {
       if (fn.name === 'READ_EDITABLE_STATE') return {text: body, text_length: body.length, selection_offset: 4, is_content_editable: true, active_inside: true, anchor_inside: true};
-      if (fn.name === 'RESOLVE_CLICK_POINTS') return {points: [{point: 'last_text_line', x: 1, y: 1}]};
       if (arg?.count) return [16.667, 16.667];
       return null;
     }};
   const cdp = {on() {}, off() {}, async send() {}};
-  return runCriteriaSuite({page, cdp, editSelector: '#doc', criteria: ['C09'], expectedBodyText: 'ORIGINAL', correctnessAdapter: 'dom_innerText'});
+  return runCriteriaSuite({page, cdp, editSelector: '#doc', criteria: ['C09'], expectedBodyText: 'ORIGINAL', correctnessAdapter: 'dom_innerText',
+    resolvedPoints: [{point: 'last_text_line', x: 1, y: 1, hit_inside_editable: true}]});
 }
 async function cleanupProbe() {
 let body='ORIGINAL', undos=0;
-const page={reload:async()=>{body='ORIGINAL'},mouse:{click:async()=>{}}, keyboard:{type:async()=>{body='ORIGxINAL'},press:async()=>{undos++; if(undos>1)body='ORIGINAL'}},evaluate:async(fn,arg)=>{if(fn.name==='READ_EDITABLE_STATE')return {text:body,text_length:body.length,selection_offset:4,active_inside:true,anchor_inside:true}; if(fn.name==='RESOLVE_CLICK_POINTS')return {points:[{point:'last_text_line',x:1,y:1,hit_inside_editable:true}]}; if(arg && (arg.kind||arg.kinds))return {t:100}; return null;}};
+const page={reload:async()=>{body='ORIGINAL'},mouse:{click:async()=>{}}, keyboard:{type:async()=>{body='ORIGxINAL'},press:async()=>{undos++; if(undos>1)body='ORIGINAL'}},evaluate:async(fn,arg)=>{if(fn.name==='READ_EDITABLE_STATE')return {text:body,text_length:body.length,selection_offset:4,active_inside:true,anchor_inside:true}; if(arg && (arg.kind||arg.kinds))return {t:100}; return null;}};
 const witness={frameIntervalMs:16.667,paintAfter:async(t,o)=>{await o.arm(); return noFrameRecord();}};
 const result=await measureUndo(page,witness,{modifier:'Control',expectedBodyText:'ORIGINAL'},{editable:{selector:'#doc',is_content_editable:true,text_length:8},points:[{point:'last_text_line',x:1,y:1}]});
 return {reason:result.failure_reason,body,undos,fixture_reset:result.fixture_reset};

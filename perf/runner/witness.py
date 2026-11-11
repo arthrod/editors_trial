@@ -751,7 +751,15 @@ _PRODUCTION_FIELDS = (
 #: `marker_page_ms`, which the CLI adds as its alias of the arm (a record
 #: made through the module API does not carry it). Anything else is a key
 #: the producer never writes, and the record is refused.
-_PRODUCTION_ALLOWED_KEYS = frozenset(_PRODUCTION_FIELDS) | {"marker_page_ms"}
+#: ``quiet_window`` is the r3c07b C07 evidence block: present only when the
+#: producer proved the watched box repainted nothing for at least
+#: ``required_ms`` before the arm fired. Other criteria's records do not
+#: carry it, so it sits in the allowed set without joining the required
+#: field list.
+_PRODUCTION_ALLOWED_KEYS = frozenset(_PRODUCTION_FIELDS) | {
+    "marker_page_ms",
+    "quiet_window",
+}
 
 #: The fields `clockSkew()` always emits in a check of the production
 #: method (the page-offset-only legacy shape emits fewer, and is refused by
@@ -815,6 +823,24 @@ _DOCUMENT_REGION_ALLOWED_KEYS = frozenset(
 )
 _RECT_ALLOWED_KEYS = frozenset(("x", "y", "width", "height"))
 
+#: The closed key set of a ``quiet_window`` block (r3c07b): what the
+#: producer's quiet proof emits — no more, no less.
+_QUIET_WINDOW_ALLOWED_KEYS = frozenset(
+    (
+        "required_ms",
+        "budget_ms",
+        "proven",
+        "observed_ms",
+        "start_page_ms",
+        "end_page_ms",
+        "changes_seen",
+        "events",
+        "exhausted",
+        "violated",
+    )
+)
+_QUIET_EVENT_ALLOWED_KEYS = frozenset(("frame_page_ms", "changed", "ratio"))
+
 #: Every numeric field of the record itself, of its document region and of
 #: the nested clock check (its anchor probe region and its conversion
 #: statement included): the fields the supported-numeric-domain check
@@ -875,6 +901,98 @@ def _domain_message(what, value):
         "every number the producer writes is finite with |x| <= %g (got %s)"
         % (what, NUMERIC_DOMAIN_LIMIT, _describe(value))
     )
+
+
+def _quiet_window_violations(quiet, witnessed, bad):
+    """The r3c07b quiet-box block's own invariants.
+
+    A ``witnessed`` record whose quiet window exists must carry a *proven*
+    one: a sample timed against a box that repainted inside the required
+    window is a latency the witness never earned. A ``no_frame`` record may
+    carry either proof state — the quiet refusal itself is a named outcome
+    and a proven window can still end in no_frame (the click painted
+    nothing inside the box).
+    """
+    for field in ("required_ms", "budget_ms", "observed_ms"):
+        value = quiet.get(field)
+        if not _finite_number(value) or float(value) < 0:
+            bad(
+                "quiet_window.%s must be a non-negative number (got %s)"
+                % (field, _describe(value))
+            )
+    for field in ("proven", "exhausted", "violated"):
+        if not _bool(quiet.get(field)):
+            bad(
+                "quiet_window.%s must be a boolean (got %s)"
+                % (field, _describe(quiet.get(field)))
+            )
+    seen = quiet.get("changes_seen")
+    if _count(seen) is None or seen < 0:
+        bad("quiet_window.changes_seen must be a count (got %s)" % (_describe(seen),))
+    events = quiet.get("events")
+    if not isinstance(events, list):
+        bad("quiet_window.events must be a list (got %s)" % (_describe(events),))
+    elif _count(seen) is not None and len(events) > seen:
+        bad(
+            "quiet_window.events (%d) cannot outnumber changes_seen (%d)"
+            % (len(events), seen)
+        )
+    else:
+        for event in events:
+            if not isinstance(event, dict):
+                bad("quiet_window.events entries are objects (got %s)" % (_describe(event),))
+                continue
+            for key in sorted(set(event) - _QUIET_EVENT_ALLOWED_KEYS, key=_describe):
+                bad(
+                    "unknown quiet_window.events field %s: the producer emits a closed set of keys"
+                    % (_describe(key),)
+                )
+            for field in ("frame_page_ms", "ratio"):
+                if not _finite_number(event.get(field)):
+                    bad(
+                        "quiet_window.events.%s must be a finite number (got %s)"
+                        % (field, _describe(event.get(field)))
+                    )
+            if _count(event.get("changed")) is None or event.get("changed", -1) < 0:
+                bad(
+                    "quiet_window.events.changed must be a count (got %s)"
+                    % (_describe(event.get("changed")),)
+                )
+    for field in ("start_page_ms", "end_page_ms"):
+        value = quiet.get(field)
+        if value is not None and not _finite_number(value):
+            bad(
+                "quiet_window.%s must be a finite number or null (got %s)"
+                % (field, _describe(value))
+            )
+    proven = quiet.get("proven") is True
+    if quiet.get("exhausted") is True and proven:
+        bad("quiet_window cannot be exhausted and proven")
+    if quiet.get("violated") is True and _count(seen) == 0:
+        bad("quiet_window.violated requires at least one change seen")
+    if proven:
+        required = quiet.get("required_ms")
+        observed = quiet.get("observed_ms")
+        if _finite_number(required) and _finite_number(observed) and float(observed) < float(required):
+            bad(
+                "quiet_window.observed_ms (%s) is below required_ms (%s): the window is not proven"
+                % (_describe(observed), _describe(required))
+            )
+        if _finite_number(required) and float(required) < 1000:
+            bad(
+                "quiet_window.required_ms below 1000 (%s) is not the C07 quiet box"
+                % (_describe(required),)
+            )
+    if witnessed:
+        if not proven:
+            bad(
+                "a witnessed frame needs quiet_window.proven: a latency timed "
+                "against a box the proof could not show quiet"
+            )
+        elif quiet.get("violated") is True or quiet.get("exhausted") is True:
+            bad(
+                "a witnessed frame needs a quiet_window with no violation and no exhaustion"
+            )
 
 
 def _production_schema_violations(record):
@@ -963,6 +1081,13 @@ def _production_schema_violations(record):
                 _RECT_ALLOWED_KEYS,
                 "document_region.%s" % (rect_key,),
             )
+    quiet = record.get("quiet_window")
+    if quiet is not None:
+        if not isinstance(quiet, dict):
+            bad("quiet_window must be an object (got %s)" % (_describe(quiet),))
+        else:
+            unknown_keys(quiet, _QUIET_WINDOW_ALLOWED_KEYS, "quiet_window")
+            _quiet_window_violations(quiet, witnessed, bad)
 
     # Every field the producer emits is present; a field that vanished is a
     # record that stopped being the evidence it claims (an erased alias, a

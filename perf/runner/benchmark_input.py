@@ -114,6 +114,8 @@ def _probe_command(editor_id: str, target: dict, fixture: Path) -> list[str]:
     ]
     if target.get("ready_js"):
         cmd += ["--ready-js", target["ready_js"]]
+    if target.get("error_js"):
+        cmd += ["--error-js", target["error_js"]]
     if target.get("wait_after_ready"):
         cmd += ["--wait-after-ready", str(target["wait_after_ready"])]
     return cmd
@@ -242,6 +244,16 @@ def run_editor(editor_id: str, attempt_dir: Path, workload_id: str = "micro-para
         record_process(proc)
         wall = round(time.time() - t0, 1)
         if proc.returncode != 0:
+            # The editor's own load error is a named refusal with the editor's
+            # message — the same classification the document lane uses
+            # (benchmark_document.py), never a bare 'editor_crash' stack.
+            err_blob = proc.stderr or proc.stdout or ""
+            if "editor_load_failed" in err_blob:
+                detail = err_blob.split("editor_load_failed:", 1)[-1].strip()[:400]
+                return _refuse_run(
+                    editor_id, attempt_dir, workload_row, fixture_sha, fixture_size,
+                    reason="editor_load_failed: %s" % detail,
+                    refusal_code="editor_load_failed", t0=t0)
             return _refuse_run(
                 editor_id, attempt_dir, workload_row, fixture_sha, fixture_size,
                 reason=(proc.stderr or "")[-600:], refusal_code="editor_crash", t0=t0)

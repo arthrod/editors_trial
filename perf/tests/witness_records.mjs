@@ -19,6 +19,23 @@ export function publishableRecord(framePageMs = 140, afterPageMs = 100) {
   return record;
 }
 
+export const PROVEN_QUIET_WINDOW = {
+  required_ms: 1000,
+  budget_ms: 8000,
+  proven: true,
+  observed_ms: 1240.5,
+  start_page_ms: 10.0,
+  end_page_ms: 1250.5,
+  changes_seen: 0,
+  events: [],
+  exhausted: false,
+  violated: false,
+};
+
+export function quietWindow() {
+  return { ...PROVEN_QUIET_WINDOW, events: [] };
+}
+
 export function refusedRecord(framePageMs = 140, afterPageMs = 100) {
   const record = publishableRecord(framePageMs, afterPageMs);
   record.clock_check.acceptable = record.clock_skew_acceptable = false;

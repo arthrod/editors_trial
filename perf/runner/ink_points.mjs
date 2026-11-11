@@ -24,10 +24,12 @@
  *      by more than INK_COLUMN_EDGE_PX are chrome that spans the clip
  *      (ribbons, rulers, status bars); the column is the percentile span of
  *      the band extents;
- *   5. the remaining bands group into blocks (paragraph-gap slack); the
- *      block with the most ink rows is the document body;
- *   6. first_text_line / last_text_line are that block's first/last band;
- *      page_centre is the band nearest the block's vertical centre.
+ *   5. the column's bands chain into bodies at paragraph spacing (a
+ *      paragraph-per-line layout like eigenpal's merges into one body; a
+ *      ribbon or status bar separated by a real page gap stays its own
+ *      chain); the chain with the most lines is the document body;
+ *   6. first_text_line / last_text_line are the body's first/last band;
+ *      page_centre is the band nearest the body's vertical centre.
  *
  * A click point sits at the centre of the ink run nearest the line's extent
  * centre on the band's middle row — a painted glyph, so the editor's hit
@@ -169,30 +171,40 @@ export function inkClickPoints(img, clipImg, clipCss = clipImg) {
     if (!columnBands.length) columnBands = bands;
   }
 
-  // Blocks: bands separated by more than a paragraph gap split. The block
-  // with the most ink rows is the document body.
+  // r3c07b ruling #3: the body is the chain of lines linked at paragraph
+  // spacing (mergeGap). A paragraph-per-line layout — eigenpal's one-line
+  // caret roots — merges into one body; a ribbon or status bar cut off by
+  // a real page gap stays its own chain and never wins the line count.
   const heights = columnBands.map((b) => b.height).sort((a, b) => a - b);
   const medianHeight = heights[Math.floor(heights.length / 2)];
-  const blockGap = Math.max(Math.round(medianHeight * 1.6), Math.round(scale(28)));
-  const blocks = [];
+  const mergeGap = Math.max(Math.round(medianHeight * 3), Math.round(scale(48)));
+  const chains = [];
   for (const band of columnBands) {
-    const block = blocks[blocks.length - 1];
-    if (block && band.top - block.bottom <= blockGap) {
-      block.bands.push(band);
-      block.bottom = band.bottom;
-      block.inkRows += band.inkRows;
+    const chain = chains[chains.length - 1];
+    if (chain && band.top - chain.bottom <= mergeGap) {
+      chain.bands.push(band);
+      chain.bottom = band.bottom;
+      chain.inkRows += band.inkRows;
     } else {
-      blocks.push({ top: band.top, bottom: band.bottom, bands: [band], inkRows: band.inkRows });
+      chains.push({ top: band.top, bottom: band.bottom, bands: [band], inkRows: band.inkRows });
     }
   }
-  const block = blocks.length ? blocks.reduce((a, b) => (b.inkRows > a.inkRows ? b : a)) : null;
-  if (!block || !block.bands.length) return empty;
+  const chain = chains.length
+    ? chains.reduce((a, b) =>
+        b.bands.length > a.bands.length ||
+        (b.bands.length === a.bands.length && b.inkRows > a.inkRows)
+          ? b
+          : a,
+      )
+    : null;
+  if (!chain || !chain.bands.length) return empty;
+  const bodyBands = chain.bands;
 
   // The painted line's box: the band grown by half the median gap between
   // neighbouring bands, so it approximates the line pitch the caret spans.
   const gaps = [];
-  for (let i = 1; i < block.bands.length; i += 1) {
-    const gap = block.bands[i].top - block.bands[i - 1].bottom - 1;
+  for (let i = 1; i < bodyBands.length; i += 1) {
+    const gap = bodyBands[i].top - bodyBands[i - 1].bottom - 1;
     if (gap > 0) gaps.push(gap);
   }
   gaps.sort((a, b) => a - b);
@@ -234,14 +246,14 @@ export function inkClickPoints(img, clipImg, clipCss = clipImg) {
     };
   };
 
-  const blockCentre = (block.top + block.bottom) / 2;
-  const byDistance = [...block.bands].sort(
+  const blockCentre = (chain.top + chain.bottom) / 2;
+  const byDistance = [...bodyBands].sort(
     (a, b) => Math.abs((a.top + a.bottom) / 2 - blockCentre) - Math.abs((b.top + b.bottom) / 2 - blockCentre),
   );
   const slotBands = {
-    first_text_line: block.bands.slice(0, INK_CANDIDATES_PER_SLOT),
+    first_text_line: bodyBands.slice(0, INK_CANDIDATES_PER_SLOT),
     page_centre: byDistance.slice(0, INK_CANDIDATES_PER_SLOT),
-    last_text_line: block.bands.slice(-INK_CANDIDATES_PER_SLOT).reverse(),
+    last_text_line: bodyBands.slice(-INK_CANDIDATES_PER_SLOT).reverse(),
   };
   const slots = {};
   const points = [];
@@ -257,7 +269,7 @@ export function inkClickPoints(img, clipImg, clipCss = clipImg) {
   return {
     points,
     slots,
-    bands: block.bands.length,
+    bands: bodyBands.length,
     column: column ? { x0: round1(toCssX(column.x0)), x1: round1(toCssX(column.x1)) } : null,
     line_height_px: round1(scale(medianHeight)),
     source: 'ink_runs',

@@ -277,25 +277,68 @@ def _assert_entry_honest(cid, entry, witness):
 
 
 def _assert_c07_observations(entry):
-    """A measured hit-test sample must show where the caret landed.
+    """A measured C07 keeps the r3c07b contract on every retained sample.
 
-    A point resolved from a text line box has to place the caret on that line;
-    the page centre has no line box and only has to keep the caret in the
-    editable surface. Without this, three painted frames with no caret proof
-    would read as hit-test latency.
+    At least two distinct painted points measure C07; the same coordinates are
+    never measured twice. Every observation that produced a sample must carry:
+    a proven quiet window (required_ms >= 1000), fresh-state evidence
+    (reloaded or tap/selection-verified untouched), and — where the surface
+    exposes a caret — the caret on the clicked line. A refused point keeps its
+    named failure in its own observation and produces no sample.
     """
+    samples = entry.get("samples_ms") or []
+    if len(samples) < 2:
+        raise ValueError(
+            "C07 measured with %d samples, expected at least two distinct painted points"
+            % (len(samples),)
+        )
     observations = [o for o in (entry.get("observations") or []) if isinstance(o, dict)]
-    if len(observations) != 3:
-        raise ValueError("C07 measured with %d observations, expected 3" % (len(observations),))
+    sampled_ids = set(entry.get("sample_observation_ids") or [])
+    seen_xy = set()
+    kept = 0
     for observation in observations:
-        if observation.get("scope") != "dom_caret_on_clicked_line":
+        xy = (observation.get("x"), observation.get("y"))
+        if all(v is not None for v in xy):
+            if xy in seen_xy:
+                raise ValueError(
+                    "C07 measured the same coordinates twice (%r, %r): points must be distinct"
+                    % xy
+                )
+            seen_xy.add(xy)
+        is_sample = (
+            observation.get("observation_id") in sampled_ids
+            or observation.get("sample_ms") is not None
+        )
+        if not is_sample:
             continue
+        kept += 1
         point = observation.get("point")
-        if observation.get("line") is not None:
-            if observation.get("caret_on_clicked_line") is not True:
-                raise ValueError("C07 %s: caret not on the clicked line" % (point,))
-        elif observation.get("anchor_inside") is not True:
-            raise ValueError("C07 %s: caret not inside the editable" % (point,))
+        if observation.get("failure"):
+            raise ValueError("C07 %s: a refused observation cannot carry a sample" % (point,))
+        quiet = observation.get("quiet_window")
+        if not isinstance(quiet, dict) or quiet.get("proven") is not True:
+            raise ValueError("C07 %s: sample lacks a proven quiet window" % (point,))
+        required = quiet.get("required_ms")
+        if not isinstance(required, (int, float)) or isinstance(required, bool) or required < 1000:
+            raise ValueError("C07 %s: quiet required_ms under 1000" % (point,))
+        if quiet.get("violated") is True or quiet.get("exhausted") is True:
+            raise ValueError("C07 %s: quiet window violated or exhausted" % (point,))
+        # The proof lives in the frame witness the sample is timed against;
+        # the observation's copy is only an echo of it.
+        witness_quiet = (observation.get("witness") or {}).get("quiet_window")
+        if not isinstance(witness_quiet, dict) or witness_quiet.get("proven") is not True:
+            raise ValueError(
+                "C07 %s: the frame witness does not carry the quiet-window proof" % (point,)
+            )
+        fresh = observation.get("fresh_state") or {}
+        if fresh.get("state") not in ("reloaded", "untouched_verified"):
+            raise ValueError("C07 %s: no fresh-state evidence for the click" % (point,))
+        if observation.get("caret_on_clicked_line") is False:
+            raise ValueError("C07 %s: caret not on the clicked line" % (point,))
+    if kept < 2:
+        raise ValueError(
+            "C07 measured with %d sample observations, expected at least 2" % (kept,)
+        )
 
 
 def assert_distinct_samples(entries):
@@ -385,6 +428,7 @@ def trial_from_entry(cid, entry, env, witness=None, workload_row=None):
         trial["refusal_code"] = (
             outcome if outcome in ("not_applicable", "not_run", "unsupported", "unverified") else
             "cpu_throttled" if reason.startswith("cpu_throttled") else
+            "editor_load_failed" if reason.startswith("editor_load_failed") else
             "document_protected_read_only" if "document_protected_read_only" in reason else
             "caret_move_not_painted" if "caret_move_not_painted" in reason else
             "click_paint_not_observed" if "click_paint_not_observed" in reason else
@@ -404,6 +448,10 @@ def trial_from_entry(cid, entry, env, witness=None, workload_row=None):
                     "fixture_reset_failed",
                     "editable_has_no_observable_text",
                     "selection_not_collapsed_before_typing",
+                    "click_box_not_quiet_before_click",
+                    "editor_state_not_untouched",
+                    "fewer_than_two_distinct_painted_lines",
+                    "quiet_window_evidence_missing",
                 ))
                 or "caret_not_on_clicked_line" in reason
                 or "editor_did_not_take_focus_after_click" in reason

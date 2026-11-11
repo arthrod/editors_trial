@@ -61,8 +61,8 @@ class WriterGuards(unittest.TestCase):
 
     def test_c07_sub_frame_sample_below_frame_interval_is_kept(self):
         entry = _entry(
-            samples_ms=[8.5],
-            sub_frame_samples=[True],
+            samples_ms=[8.5, 20.0],
+            sub_frame_samples=[True, False],
             trial_hints={"cache_state": "warm_steady", "repetition_unit": "fresh_process"},
         )
         payload = _payload({"C07": entry}, witness=_witness({"frame_interval_ms": 16.667}))
