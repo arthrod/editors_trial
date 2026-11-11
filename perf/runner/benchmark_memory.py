@@ -75,6 +75,7 @@ from perf.runner.benchmark_warm_cold import (  # noqa: E402
     _stop_server,
 )
 from perf.runner.harness_ui_versions import browser_harness_editor_version  # noqa: E402
+from perf.runner.resources import STATIC_SERVER_NOTE  # noqa: E402
 from perf.runner.memory_tree import (  # noqa: E402
     PS_COMMAND,
     assert_phases_not_copied,
@@ -551,6 +552,30 @@ def _pair_error_family(exc) -> str:
     return "crash"
 
 
+def _host_memory_root(server) -> int | None:
+    """RSS root for a browser host process, if it is a separate editor server."""
+    pid = getattr(server, "pid", None)
+    if isinstance(pid, int) and pid > 0:
+        return pid
+    return None
+
+
+def _memory_host_diagnostic(server) -> dict:
+    host_pid = _host_memory_root(server)
+    if host_pid is not None:
+        return {
+            "memory_roots": "host_process_and_probe",
+            "host_server_pid": host_pid,
+            "counted_in_rss": True,
+        }
+    return {
+        "memory_roots": "probe_browser_tree_only",
+        "host_server_pid": None,
+        "counted_in_rss": False,
+        "static_host_note": STATIC_SERVER_NOTE,
+    }
+
+
 def _sample_roots(roots: list[int]) -> dict:
     sample = sample_process_trees([pid for pid in roots if pid])
     validate_tree_sample(sample)
@@ -581,7 +606,7 @@ def _run_browser_pair(
     *,
     target: dict,
     corpus_path: Path,
-    server_pid: int,
+    server_pid: int | None,
     burst: int,
     quiescence_ms: int,
     retain_seconds,
@@ -598,7 +623,7 @@ def _run_browser_pair(
         bufsize=1,
         start_new_session=True,
     )
-    roots = [server_pid, proc.pid]
+    roots = [pid for pid in (server_pid, proc.pid) if pid]
     deadline = time.monotonic() + probe_timeout_s
     record = {
         "phases": {},
@@ -692,14 +717,17 @@ def _browser_rows(
             rows.append(_row(criterion, phase, editor_id, "not_run", reason, path))
         return rows
 
+    memory_host = None
     for index in range(args.pairs):
         server = None
         try:
             server = _start_server(editor_id, target)
+            if memory_host is None:
+                memory_host = _memory_host_diagnostic(server)
             pair = _run_browser_pair(
                 target=target,
                 corpus_path=fixture_path,
-                server_pid=server.pid,
+                server_pid=_host_memory_root(server),
                 burst=args.burst,
                 quiescence_ms=args.quiescence_ms,
                 retain_seconds=args.retain_seconds,
@@ -725,6 +753,7 @@ def _browser_rows(
         "retain_seconds": list(args.retain_seconds),
         "load_average": load_average(),
         "host_class": host_class(),
+        "memory_host": memory_host or {"memory_roots": "unknown", "counted_in_rss": None},
     }
 
     def env_for(cache_state):
