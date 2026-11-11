@@ -55,29 +55,34 @@ _QUOTE_FOLD = str.maketrans({
 })
 
 def normalize_marked(text):
-    """The single correctness normaliser, applied identically on both sides.
+    """Quote-fold and whitespace collapse for the flat body compare.
 
-    The only tolerated classes are the paragraph-leading auto-numbering
-    marker followed by text (an editor may keep a typed "1. " as literal
-    text or absorb it into a real list label, and neither is a content
-    defect) and auto-corrected quotation marks (a typed straight quote may
-    come back curly). A paragraph that IS only a marker ("v.", "12.")
-    carries no text to absorb into — it leaves no residue here, and
-    marker_only_strings accounts for it, so a dropped marker-only
-    paragraph cannot pass. Returns (text, ignored)."""
-    ignored = 0
-    lines = []
-    for line in text.translate(_QUOTE_FOLD).split('\n'):
-        line = line.strip()
-        while (match := _LIST_MARKER.match(line)):
-            rest = line[match.end():]
-            if not rest.strip():
-                line = ''
-                break
-            ignored += 1
-            line = rest
-        lines.append(line)
-    return ' '.join(' '.join(lines).split()), ignored
+    List markers stay in the text here — a vanished marker is excused only
+  only when list-item evidence pairs at that line (marker_only and
+    prefix-marker passes below). Returns (text, 0)."""
+    lines = [line.strip() for line in text.translate(_QUOTE_FOLD).split('\n')]
+    return ' '.join(' '.join(lines).split()), 0
+
+
+def prefix_marker_rest(line):
+    """Leading list markers with following text: (marker tokens, rest line)."""
+    line = line.strip().translate(_QUOTE_FOLD)
+    markers = []
+    while (match := _LIST_MARKER.match(line)):
+        rest = line[match.end():]
+        if not rest.strip():
+            break
+        markers.append(line[:match.end()].rstrip())
+        line = rest.strip()
+    return markers, line
+
+
+def line_align_norm(line):
+    """Line text for diff alignment — body without a typed prefix marker."""
+    if marker_only_of_line(line) is not None:
+        return ''
+    markers, rest = prefix_marker_rest(line)
+    return normalize_marked(rest if markers else line)[0]
 
 def marker_only_of_line(line):
     """The marker string when this line's entire text is markers, else None.
@@ -360,8 +365,6 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
                     result.update(failure_reason='no_correctness_adapter', refusal_code='unverified')
                 else:
                     expected_source = text if expected_text is None else expected_text
-                    actual, actual_markers = normalize_marked(actual_text)
-                    expected, expected_markers = normalize_marked(expected_source)
                     expected_marker_at = marker_only_positions(expected_source)
                     actual_lines = actual_text.split('\n')
                     actual_marker_at = marker_only_positions(actual_text)
@@ -377,9 +380,9 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
                     # its marker-only line, or the empty absorbed item AT
                     # that position — never by an item elsewhere, and one
                     # item never answers for two paragraphs.
-                    expected_norm = [normalize_marked(line)[0]
-                                     for line in expected_source.split('\n')]
-                    actual_norm = [normalize_marked(line)[0] for line in actual_lines]
+                    expected_lines = expected_source.split('\n')
+                    expected_norm = [line_align_norm(line) for line in expected_lines]
+                    actual_norm = [line_align_norm(line) for line in actual_lines]
                     opcodes = difflib.SequenceMatcher(
                         None, expected_norm, actual_norm, autojunk=False).get_opcodes()
 
@@ -389,20 +392,37 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
                                 if tag != 'equal':
                                     return range(b1, b2)
                                 j = b1 + (index - a1)
-                                lo = j
-                                while lo > 0 and actual_norm[lo - 1] == '':
-                                    lo -= 1
-                                hi = j
-                                while hi + 1 < len(actual_norm) and actual_norm[hi + 1] == '':
-                                    hi += 1
-                                return range(lo, hi + 1)
+                                return range(j, j + 1)
                         return range(len(actual_norm), len(actual_norm))
 
                     used_text, used_absorbed = set(), set()
                     missing = []
-                    tolerated = sorted(
-                        (Counter(stripped_marker_strings(expected_source))
-                         - Counter(stripped_marker_strings(actual_text))).elements())
+                    tolerated = []
+                    tolerated_by_line = []
+                    for i, exp_line in enumerate(expected_lines):
+                        markers, rest = prefix_marker_rest(exp_line)
+                        if not markers:
+                            continue
+                        slot = slot_for(i)
+                        paired = False
+                        for j in slot:
+                            act_markers, act_rest = prefix_marker_rest(actual_lines[j])
+                            if normalize_marked(act_rest)[0] != normalize_marked(rest)[0]:
+                                continue
+                            if act_markers:
+                                paired = True
+                                break
+                            if j in absorbed_at and j not in used_absorbed:
+                                used_absorbed.add(j)
+                                for marker in markers:
+                                    tolerated.append(marker)
+                                    tolerated_by_line.append({'index': i, 'marker': marker})
+                                paired = True
+                                break
+                        if not paired:
+                            for marker in markers:
+                                missing.append({'index': i, 'marker': marker})
+                    marker_only_tolerated = set()
                     for i, marker in sorted(expected_marker_at.items()):
                         slot = slot_for(i)
                         hit = next((j for j in slot
@@ -417,14 +437,30 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
                         if hit is not None:
                             used_absorbed.add(hit)
                             tolerated.append(marker)
+                            marker_only_tolerated.add(i)
                             continue
                         missing.append({'index': i, 'marker': marker})
                     surplus = ([{'index': j, 'marker': actual_marker_at[j]}
                                 for j in sorted(actual_marker_at) if j not in used_text]
                                + [{'index': j, 'marker': absorbed_at[j]}
                                   for j in sorted(absorbed_at) if j not in used_absorbed])
+                    tolerated_idx = {t['index'] for t in tolerated_by_line}
+                    compare_lines = []
+                    for idx, line in enumerate(expected_lines):
+                        if idx in marker_only_tolerated:
+                            compare_lines.append('')
+                        else:
+                            markers, rest = prefix_marker_rest(line)
+                            if markers and idx in tolerated_idx:
+                                compare_lines.append(rest)
+                            else:
+                                compare_lines.append(line)
+                    actual, _ = normalize_marked(actual_text)
+                    expected, _ = normalize_marked('\n'.join(compare_lines))
+                    if actual == expected and not missing:
+                        surplus = [s for s in surplus if s.get('marker') is not None]
                     marker_gap = bool(surplus) or bool(missing)
-                    result.update(tolerated_list_markers=abs(expected_markers - actual_markers),
+                    result.update(tolerated_list_markers=tolerated_by_line,
                                   tolerated_marker_strings=sorted(tolerated),
                                   tolerated_quote_autocorrect_chars=sum(
                                       1 for ch in actual_text if ord(ch) in _QUOTE_FOLD),
@@ -464,6 +500,10 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
         result['key_to_paint'] = latency_summary(records)
         result['instrumented']['throughput_chars_s'] = rate
         result['instrumented']['label'] = 'instrumented'
+    if not result.get('failure_reason'):
+        result['refusal_code'] = None
+    elif 'refusal_code' not in result:
+        result['refusal_code'] = 'crash'
     return result
 
 
@@ -740,9 +780,11 @@ async def session(target, text, args, directory):
                     # read-only document surface and focus that never reached
                     # an editor (editable=False AND unfocused) mean the keys
                     # would go to the page, not a document.
-                    if (surface_kind == 'dom' and baseline.get('editable') is False
-                            and not placed.get('focused')):
-                        raise SessionRefusal('no_correctness_adapter', refusal_code='unverified')
+                    if surface_kind == 'dom' and baseline.get('editable') is False:
+                        if not placed.get('focused'):
+                            raise SessionRefusal('no_correctness_adapter', refusal_code='unverified')
+                        if placed.get('input_editable') is False:
+                            raise SessionRefusal('no_editable_surface', refusal_code='unverified')
                 if not placed.get('focused'):
                     result['focus_refusal'] = 'editor_focus_not_acquired'
                 async def witness(char): return await bridge.request(op='key', char=char, selector=present_sel)
@@ -751,7 +793,7 @@ async def session(target, text, args, directory):
                     present_selector=present_sel, expected_text=getattr(args, 'expected_text', None),
                     read_document=read_document, flag_verifier=flag_verifier,
                     correctness_oracle=oracle_name,
-                    present_text=(surface_kind == 'dom')))
+                    present_text=(surface_kind == 'dom' and model_js is None)))
                 if not result['failure_reason']:
                     # No unverified generic save button: require a host-declared path.
                     save = target.get('typing_save_selector')
@@ -885,6 +927,8 @@ def main_cell(argv=None, *, start_host=_start_server, stop_host=_stop_server):
         if trial.get('failure_reason'):
             trial['throughput_chars_s'] = None
             trial.setdefault('refusal_detail', trial['failure_reason'])
+        if not trial.get('failure_reason'):
+            trial['refusal_code'] = None
         key_to_paint = trial.get('key_to_paint') or {}
         if trial.get('refusal_code') is None and key_to_paint.get('refusal_code') == 'insufficient_accepted':
             trial['refusal_code'] = 'witness_unavailable'

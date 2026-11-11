@@ -665,7 +665,14 @@ export async function placeCaret(
     }),
     frames,
   );
-  return { point, focused };
+  const input_editable = await page.evaluate(() => {
+    const el = document.activeElement;
+    if (!el || el === document.body || el === document.documentElement) return false;
+    if (el.isContentEditable) return true;
+    if (el.matches('textarea, input')) return !el.readOnly && !el.disabled;
+    return false;
+  });
+  return { point, focused, input_editable };
 }
 
 /** Page context. SuperDoc caret paragraph from the editor model, not painted lines. */
