@@ -131,7 +131,12 @@ def _probe_env(editor_id: str, target: dict, fixture: Path, *, workload_id: str,
     else:
         body = docx_body_text(fixture)
         body_path = fixture.with_name(fixture.stem + ".expected-body.txt")
-        body_path.write_text(body, encoding="utf-8")
+        try:
+            # Written once per fixture; a later launch reads the same text.
+            with open(body_path, "x", encoding="utf-8") as handle:
+                handle.write(body)
+        except FileExistsError:
+            pass
         env["PERF_EXPECTED_BODY_PATH"] = str(body_path.resolve())
     adapter = _correctness_adapter(editor_id, target)
     if adapter:

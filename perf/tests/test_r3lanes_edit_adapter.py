@@ -26,7 +26,8 @@ class LaneEditBurstModule(unittest.TestCase):
     def test_the_callers_timeout_bounds_the_text_line_wait(self):
         # No cap of its own: the resources lane allows 600 s for a 250k-word document.
         text = (REPO / "perf" / "runner" / "edit_surface.mjs").read_text(encoding="utf-8")
-        self.assertIn("{ timeout: timeoutMs, polling: 100 }", text)
+        self.assertNotIn("120_000", text)
+        self.assertIn("textLineTimeoutMs === null ? timeoutMs : textLineTimeoutMs", text)
 
     def test_lane_edit_burst_exists_and_reexports_prepare_edit_surface(self):
         path = REPO / "perf" / "runner" / "lane_edit_burst.mjs"

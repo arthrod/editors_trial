@@ -52,13 +52,14 @@ def test_edit_lanes_load_the_variant_and_load_lanes_keep_the_original():
     from perf.fixtures.docx_workload import workload_docx, workload_for_lane
 
     original = workload_docx("complex-corpus")
-    for lane in ("input", "resources"):
+    # Every lane that edits loads the variant; a lane that only reads keeps the original.
+    for lane in ("input", "resources", "memory", "document", "warm_cold"):
         variant = workload_for_lane("complex-corpus", lane)
         assert variant["fixture_variant"] == "complex-corpus-without-document-protection"
         assert variant["fixture_source_sha256"] == original["sha256"]
         assert variant["sha256"] != original["sha256"]
         assert b"w:documentProtection" not in variant["docx"]
-    assert workload_for_lane("complex-corpus", "document")["sha256"] == original["sha256"]
+    assert workload_for_lane("complex-corpus", "scroll")["sha256"] == original["sha256"]
     prose = workload_docx("prose-500w")
     assert workload_for_lane("prose-500w", "input")["sha256"] == prose["sha256"]
     assert "fixture_variant" not in workload_for_lane("prose-500w", "input")
