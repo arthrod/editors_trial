@@ -533,8 +533,8 @@ async function runPlaywrightPair() {
   }
 
   await stopRecorder(cdp);
-  await coldContext.close();
   await stopChromeTrace(browser, trace);
+  await coldContext.close();
   await browser.close();
 
   return {
@@ -631,8 +631,8 @@ async function runCriteriaSession() {
     quiescenceTimeoutMs,
     bulkChars,
   });
-  await context.close();
   await stopChromeTrace(browser, trace);
+  await context.close();
   await browser.close();
 
   payload.editor_id = editorId;

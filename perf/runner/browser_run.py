@@ -17,7 +17,7 @@ from __future__ import annotations
 import argparse
 from functools import partial
 from contextvars import ContextVar
-from contextlib import redirect_stderr
+from contextlib import nullcontext, redirect_stderr
 from datetime import datetime, timezone
 import hashlib
 import io
@@ -512,16 +512,23 @@ def _run_chrome_profile_pass(main, runner, *, directory, editor, rep, rest, sing
     ]
     if count_flag:
         sys.argv += [count_flag, '1']
+    run = ACTIVE.get()
     try:
-        capture(main, stderr_tail=5)
+        bracket = run.begin_sample() if run is not None else nullcontext()
+        with bracket:
+            capture(main, stderr_tail=5)
     finally:
         for key, value in saved.items():
             if value is None:
                 os.environ.pop(key, None)
             else:
                 os.environ[key] = value
-    record_profile_traces(directory, editor, RUNNER_PROFILE_CRITERION.get(runner, 'PROFILE'),
-                          write_fn=write_attempt)
+    capture(
+        lambda: record_profile_traces(
+            directory, editor, RUNNER_PROFILE_CRITERION.get(runner, 'PROFILE'), write_fn=write_attempt
+        ),
+        stderr_tail=5,
+    )
 
 
 def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=False, run_factory=BrowserRun, max_repetitions=None, facts=None):

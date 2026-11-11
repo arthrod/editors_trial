@@ -149,11 +149,11 @@ function bodyTextLength(page) {
   return page.evaluate(() => (document.body?.innerText || '').length);
 }
 
-async function openEditor(browser) {
+async function openEditor(browser, traceLabel = 'C17-first') {
   const context = await browser.newContext({ viewport });
   await routeCorpus(context);
   const page = await context.newPage();
-  const trace = await startChromeTrace(browser, page, 'C17');
+  const trace = await startChromeTrace(browser, page, traceLabel);
   const t0 = Date.now();
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 120_000 });
   await waitForReady(page);
@@ -234,7 +234,7 @@ async function main() {
     await phase('closed', { browser_pid: browserPid, context_closed: true });
 
     try {
-      const second = await openEditor(browser);
+      const second = await openEditor(browser, 'C17-reopen');
       result.reopen_ready_ms = second.readyMs;
       await phase('reopened', { browser_pid: browserPid, reopen_ready_ms: second.readyMs });
       await closeSession(browser, second);

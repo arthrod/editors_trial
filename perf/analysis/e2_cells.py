@@ -140,8 +140,19 @@ def _read_rows(directory):
             yield path, {'refusal_code': 'unreadable_trial'}
 
 
+def _diagnostic_trial_path(path: Path) -> bool:
+    """Traced re-invocations write measured-shaped attempts under profile-invoke."""
+    return 'profile-invoke' in path.parts
+
+
+def _diagnostic_trial_row(row: dict) -> bool:
+    return row.get('outcome') == 'profiled' or row.get('accounting_scope') == 'diagnostic'
+
+
 def _iter_trials(run_directory: Path):
-    for _, row in _read_rows(run_directory / 'cells'):
+    for path, row in _read_rows(run_directory / 'cells'):
+        if _diagnostic_trial_path(path) or _diagnostic_trial_row(row):
+            continue
         if row.get('criterion_id') and row.get('editor_id'):
             yield row
 
@@ -193,9 +204,9 @@ def build_run_cell(
         launch = path.relative_to(run_directory / 'cells').parts[0]
         if trial.get('refusal_code') == 'unreadable_trial' and launch.endswith('-' + editor_id):
             refused_launches[launch] = 'unreadable_trial'
-        if trial.get('editor_id') != editor_id or not trial.get('criterion_id'):
+        if _diagnostic_trial_path(path) or _diagnostic_trial_row(trial):
             continue
-        if trial.get('outcome') == 'profiled' or trial.get('accounting_scope') == 'diagnostic':
+        if trial.get('editor_id') != editor_id or not trial.get('criterion_id'):
             continue
         if workload_id is not None and trial_workload(trial) != workload_id:
             continue

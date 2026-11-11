@@ -117,14 +117,10 @@ def _criteria_present(primary: Path, repro: Path) -> list[str]:
 
 
 def _iter_trials(run_directory: Path):
-    for path in sorted(run_directory.rglob("*.json")):
-        if path.name == "summary.json":
+    for path, row in e2_cells._read_rows(run_directory / "cells"):
+        if e2_cells._diagnostic_trial_path(path) or e2_cells._diagnostic_trial_row(row):
             continue
-        try:
-            row = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            continue
-        if isinstance(row, dict) and row.get("criterion_id") and row.get("editor_id"):
+        if row.get("criterion_id") and row.get("editor_id"):
             yield row
 
 
