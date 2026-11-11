@@ -25,9 +25,10 @@
  *           recorder (Page.screencastFrame). frame_source: 'cdp_screencast'.
  *   scale   usable on an animation frame, then the next acked frame that
  *           differs after the document has settled. No post-load damage is
- *           not "no compositor frame": a 1 px outline outside the document
- *           is recorded as mechanism forced_repaint and is not a measured
- *           sample. The witness window is 500 ms.
+ *           measured as the document-surface time and recorded as no damage
+ *           followed. A 1 px outline outside the document is mechanism
+ *           forced_repaint and is not itself the sample. The witness window
+ *           is 500 ms.
  *   find    the editor's own find widget. Completion and first-match are the
  *           full query's count text, tagged by the input value when that
  *           reply was scheduled. A prefix reply never completes it. No widget
@@ -610,6 +611,32 @@ const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, document
         for (const el of nodes) take(el, elementText(el));
       }
     }
+    // Opening headings sit outside paragraph selectors (plate h1.editor-heading,
+    // docxodus h1.docx-Heading1, genoffice h1). They belong to the content oracle
+    // only. The timing surface stays the selector's own boxes.
+    const openingHeadings = () => {
+      if (!selector) return '';
+      const matched = Array.from(document.querySelectorAll(selector));
+      if (!matched.length) return '';
+      const seen = new Set();
+      const parts = [];
+      const takeHeading = (heading) => {
+        if (!heading || seen.has(heading)) return;
+        const tag = heading.tagName || '';
+        if (tag.length !== 2 || tag[0] !== 'H' || tag[1] < '1' || tag[1] > '6') return;
+        if (matched.some((node) => node === heading || node.contains(heading) || heading.contains(node))) return;
+        seen.add(heading);
+        const text = elementText(heading);
+        if (text) parts.push(text);
+      };
+      for (const node of matched) {
+        let parent = node.parentElement;
+        for (let depth = 0; parent && depth < 6; depth += 1, parent = parent.parentElement) {
+          for (const heading of parent.querySelectorAll('h1,h2,h3,h4,h5,h6')) takeHeading(heading);
+        }
+      }
+      return parts.join(' ');
+    };
     const text = chunks.join(' ').replace(/\s+/g, ' ').trim();
     const rect = n
       ? excludeMarker({ x: minX, y: minY, width: maxX - minX, height: maxY - minY })
@@ -618,7 +645,7 @@ const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, document
     state.surfaceText = text;
     return {
       text, chars: text.length, rect, selector: selector || null,
-      documentText: contentChunks.join(' ').replace(/\s+/g, ' ').trim(), canvasPresent,
+      documentText: [openingHeadings(), contentChunks.join(' ')].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim(), canvasPresent,
     };
   };
   const tick = () => {
@@ -1256,6 +1283,8 @@ async function runReflow(browser) {
         }
         window.__c12AnchorEl = anchor.el;
         window.__c12AnchorTop = anchor.el.getBoundingClientRect().top;
+        window.__c12AnchorText = anchor.text;
+        window.__c12DocSel = docSel;
         return {
           ok: true,
           blocks: blocks.length,
@@ -1349,12 +1378,19 @@ async function runReflow(browser) {
     // frame of that reflow. The first paint after Enter is not the reflow.
     // The no-read window is already closed, so this poll is not inside it.
     const shift = await ctx.page.evaluate(() => {
-      const el = window.__c12AnchorEl;
+      let el = window.__c12AnchorEl;
       const before = window.__c12AnchorTop;
+      const anchorText = window.__c12AnchorText;
+      const docSel = window.__c12DocSel;
       const deadline = performance.now() + 4000;
+      const refind = () => {
+        if (!anchorText || !docSel) return null;
+        return Array.from(document.querySelectorAll(docSel)).find((block) => (block.textContent || '').trim() === anchorText) || null;
+      };
       return new Promise((resolve) => {
         const step = () => {
-          if (!el || !el.isConnected || typeof before !== 'number') {
+          if (!el || !el.isConnected) el = refind();
+          if (!el || typeof before !== 'number') {
             resolve({ moved: false, top: null, at: null });
             return;
           }

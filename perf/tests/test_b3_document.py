@@ -92,9 +92,9 @@ class C11SampleIsTheDocumentFrame(unittest.TestCase):
 
 
 class C14Verdict(unittest.TestCase):
-    """#109: a forced repaint is unverified, and a refusal keeps the witness counts."""
+    """No document damage is a sample, and a refusal keeps the witness counts."""
 
-    def test_forced_repaint_is_unverified_and_not_a_missing_frame(self):
+    def test_forced_repaint_measures_usable_and_is_not_a_missing_frame(self):
         probe = {
             "usable_ms": 140.0,
             "presented_frame_ms": 680.0,
@@ -103,13 +103,11 @@ class C14Verdict(unittest.TestCase):
             "mechanism": "forced_repaint",
             "witness": {"outcome": "witnessed", "window_ms": 500, "frames_total": 11, "frames_after": 4},
         }
-        with self.assertRaises(bd.ProbeRefusal) as caught:
-            bd.c14_measured_sample(probe)
-        self.assertEqual(getattr(caught.exception, "outcome", "failed"), "unverified")
-        self.assertNotIn("no compositor frame", caught.exception.reason)
-        facts = getattr(caught.exception, "facts", {}) or {}
+        self.assertEqual(bd.c14_measured_sample(probe), 140.0)
+        facts = bd._c14_facts(probe)
         self.assertEqual(facts.get("mechanism"), "forced_repaint")
         self.assertEqual(facts.get("usable_ms"), 140.0)
+        self.assertTrue(facts.get("no_damage_followed"))
         self.assertIn("witness", facts)
 
     def test_a_refused_attempt_keeps_the_witness_counts(self):
@@ -278,7 +276,7 @@ class FakeHostMeasurers(unittest.TestCase):
             self.assertGreater(samples[0], fcp, payload)
         self.assertEqual(payload.get("usable_signal"), "dom_text")
 
-    def test_static_host_c14_is_unverified_forced_repaint(self):
+    def test_static_host_c14_measures_when_no_damage_follows(self):
         payload = self.probe("scale", "b3_static.html", [])
         self.assertEqual(payload.get("mechanism"), "forced_repaint", payload)
         witness = payload.get("witness") or {}
@@ -294,11 +292,10 @@ class FakeHostMeasurers(unittest.TestCase):
         )
         self.assertFalse(overlaps_marker, payload)
         self.assertNotEqual(witness.get("changed_pixels"), 64, payload)
-        with self.assertRaises(bd.ProbeRefusal) as caught:
-            bd.c14_measured_sample(payload)
-        self.assertEqual(getattr(caught.exception, "outcome", "failed"), "unverified")
-        self.assertNotIn("no compositor frame", caught.exception.reason)
-        facts = getattr(caught.exception, "facts", {}) or {}
+        sample = bd.c14_measured_sample(payload)
+        self.assertEqual(sample, payload.get("usable_ms"))
+        facts = bd._c14_facts(payload)
+        self.assertTrue(facts.get("no_damage_followed"))
         self.assertEqual(facts.get("usable_ms"), payload.get("usable_ms"))
         self.assertEqual(facts.get("frames_total"), payload.get("frames_total"))
         self.assertEqual(facts.get("frames_after_usable"), payload.get("frames_after_usable"))

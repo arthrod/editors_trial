@@ -110,7 +110,10 @@ export function openingContentVerdict({ expected, actual, modelOracle, modelDocu
   if (!normActual) {
     return { content_verified: false, surface_reason: 'document_content_absent' };
   }
-  const content_verified = normActual.includes(normExpected);
+  // Paragraph separators and a space before punctuation are not a different
+  // document (owner decision: tolerant text comparison).
+  const flat = (value) => value.replace(/[\s\p{White_Space}]+/gu, '');
+  const content_verified = flat(normActual).includes(flat(normExpected));
   if (!content_verified) {
     return { content_verified: false, surface_reason: 'document_content_mismatch' };
   }

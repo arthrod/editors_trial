@@ -108,7 +108,7 @@ class ReviewRules(unittest.TestCase):
         self.assertEqual(cell["measurements"]["search_complete"]["outcome"], "measured", cell)
         self.assertGreaterEqual(len(cell["measurements"]["search_complete"]["samples_ms"]), bd.C15_MIN_N)
 
-    def test_c14_refusal_keeps_forced_witness(self):
+    def test_c14_no_damage_keeps_forced_witness(self):
         forced = {"outcome": "witnessed", "frame_page_ms": 700}
         probe = {
             "usable_ms": 100,
@@ -121,11 +121,12 @@ class ReviewRules(unittest.TestCase):
             "witness": {"outcome": "no_frame"},
             "forced_witness": forced,
         }
-        with self.assertRaises(bd.ProbeRefusal) as caught:
-            bd.c14_measured_sample(probe)
-        self.assertEqual(caught.exception.facts.get("forced_witness"), forced, caught.exception.facts)
-        self.assertIn("presented_frame_ms", caught.exception.facts)
-        self.assertIn("clock_skew_acceptable", caught.exception.facts)
+        self.assertEqual(bd.c14_measured_sample(probe), 100.0)
+        facts = bd._c14_facts(probe)
+        self.assertEqual(facts.get("forced_witness"), forced, facts)
+        self.assertIn("presented_frame_ms", facts)
+        self.assertIn("clock_skew_acceptable", facts)
+        self.assertTrue(facts.get("no_damage_followed"))
 
     def test_c15_probe_failure_stays_failed(self):
         refusal = bd.ProbeRefusal("browser crashed", outcome="failed")

@@ -598,7 +598,11 @@ def c12_measured_sample(probe: dict) -> float:
     unit probes omit ``mode`` and ``window_excludes_forced_layout``; a reflow
     payload that does not exclude that layout is refused.
     """
-    if not probe.get("moved"):
+    before_top = _number_or_none((probe.get("before") or {}).get("anchor_top"))
+    after_top = _number_or_none(probe.get("anchor_top_after"))
+    # A replaced anchor keeps the old node disconnected, so the poll can report
+    # moved=false while the text-matched block is lower on the page.
+    if not probe.get("moved") and not (before_top is not None and after_top is not None and after_top > before_top):
         raise ProbeRefusal(
             "text-shift assertion failed: anchor block did not move down (anchor_top=%r after=%r)"
             % ((probe.get("before") or {}).get("anchor_top"), probe.get("anchor_top_after"))
@@ -640,22 +644,27 @@ def _c14_facts(probe: dict) -> dict:
         "usable_signal": probe.get("usable_signal"),
         "clock_skew_ms": probe.get("clock_skew_ms"),
         "clock_skew_acceptable": probe.get("clock_skew_acceptable"),
+        "no_damage_followed": probe.get("mechanism") == "forced_repaint",
     }
 
 
 def c14_measured_sample(probe: dict) -> float:
     """C14 sample: navigation -> first frame of post-load document damage.
 
-    A forced repaint is excluded before the missing-frame check, so a static
-    host is ``unverified`` and is never described as a missing compositor frame.
+    No document damage is the document-surface time. ``no_damage_followed``
+    records that. A rejected clock still refuses. A missing surface still refuses.
     """
     facts = _c14_facts(probe)
     if probe.get("mechanism") == "forced_repaint":
-        raise ProbeRefusal(
-            "forced repaint is excluded from measured C14; no document damage followed load",
-            outcome="unverified",
-            facts=facts,
-        )
+        if _clock_skew_exceeds(probe):
+            raise ProbeRefusal(
+                "clock skew exceeds the %s ms bound (clock_skew_ms=%r)" % (_CLOCK_SKEW_BOUND_MS, probe.get("clock_skew_ms")),
+                facts=facts,
+            )
+        usable = probe.get("usable_ms")
+        if usable is None or isinstance(usable, bool):
+            raise ProbeRefusal("no DOM usability mark (page/block element never appeared with text)", facts=facts)
+        return float(usable)
     _require_witness(probe, facts)
     usable = probe.get("usable_ms")
     if usable is None or isinstance(usable, bool):
@@ -1326,6 +1335,7 @@ def _run_scale_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path:
                 "frames_total": payload.get("frames_total"),
                 "frames_after_usable": payload.get("frames_after_usable"),
                 "mechanism": payload.get("mechanism"),
+                "no_damage_followed": payload.get("mechanism") == "forced_repaint",
                 "witness": payload.get("witness"),
                 "usable_signal": payload.get("usable_signal"),
                 "clock_skew_ms": payload.get("clock_skew_ms"),
