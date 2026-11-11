@@ -157,7 +157,16 @@ class C14NoDamage(unittest.TestCase):
         self.assertIn("clock skew", caught.exception.reason)
 
     def test_missing_surface_still_refuses(self):
-        probe = {"mode": "scale", "mechanism": "forced_repaint", "usable_ms": None}
+        # A forced-repaint sample must carry an in-bounds clock before the
+        # surface is judged. With that clock present, a missing surface
+        # still refuses.
+        probe = {
+            "mode": "scale",
+            "mechanism": "forced_repaint",
+            "usable_ms": None,
+            "clock_skew_ms": 0.2,
+            "clock_skew_acceptable": True,
+        }
         with self.assertRaises(bd.ProbeRefusal) as caught:
             bd.c14_measured_sample(probe)
         self.assertIn("no DOM usability mark", caught.exception.reason)
