@@ -1,5 +1,8 @@
 import { normalizeDocumentText } from './document_text_normalize.mjs';
 
+/** Fixture model length may differ by this fraction of the joined corpus text. */
+export const MODEL_LENGTH_TOLERANCE = 0.02;
+
 /** Plain text from `window.__PERF_MODEL_TEXT__` when the host provides it. */
 export function readPerfModelText() {
   const fn = typeof window !== 'undefined' ? window.__PERF_MODEL_TEXT__ : null;
@@ -13,24 +16,39 @@ export function readPerfModelText() {
   }
 }
 
+export function domTextFromSelector(selector) {
+  const pick = (el) => (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
+  if (!selector) return pick(document.body || document.documentElement);
+  const el = document.querySelector(selector);
+  return el ? pick(el) : '';
+}
+
 /**
- * When the document surface is canvas-only, DOM text is not an oracle. Prefer
- * the host model hook; otherwise mark the sample unverifiable.
+ * Canvas hosts with a text layer (Apryse) keep DOM/shadow text. The model hook is
+ * used only when the surface is canvas-only (no disclosed DOM text) and the hook exists.
  */
-export function resolveDocumentText({ domText, canvasPresent }) {
+export function resolveDocumentText({ domText, canvasPresent, hookPresent = false }) {
+  const trimmedDom = (domText || '').trim();
   if (!canvasPresent) {
     return {
       text: domText,
-      content_text_accessible: Boolean(domText),
+      content_text_accessible: Boolean(trimmedDom),
       model_oracle: 'dom',
     };
   }
-  const model = readPerfModelText();
-  if (model.hook) {
+  if (hookPresent && !trimmedDom) {
+    const model = readPerfModelText();
     return {
       text: model.text,
-      content_text_accessible: true,
+      content_text_accessible: Boolean((model.text || '').trim()),
       model_oracle: 'perf_model',
+    };
+  }
+  if (trimmedDom) {
+    return {
+      text: domText,
+      content_text_accessible: true,
+      model_oracle: 'dom',
     };
   }
   return {
@@ -40,20 +58,57 @@ export function resolveDocumentText({ domText, canvasPresent }) {
   };
 }
 
-export function openingContentVerdict({ expected, actual, canvasPresent, modelOracle }) {
+/**
+ * Whole-document gate for perf_model: opening and closing sentinels plus length band.
+ * Runs on the full model string in the page; the runner receives integers and flags only.
+ */
+export function evaluatePerfModelDocument({ text, expectedOpening, expectedClosing, fixtureChars }) {
+  const normText = normalizeDocumentText(text);
+  const normOpening = normalizeDocumentText(expectedOpening);
+  const normClosing = normalizeDocumentText(expectedClosing);
+  const modelChars = text.length;
+  const openingPresent = normOpening ? normText.includes(normOpening) : true;
+  const closingPresent = normClosing ? normText.includes(normClosing) : true;
+  const lengthOk =
+    fixtureChars > 0
+      ? Math.abs(modelChars - fixtureChars) / fixtureChars <= MODEL_LENGTH_TOLERANCE
+      : true;
+  const ok = Boolean(normText) && openingPresent && closingPresent && lengthOk;
+  let surface_reason = null;
+  if (!ok) {
+    if (!normText) surface_reason = 'document_content_absent';
+    else surface_reason = 'document_content_mismatch';
+  }
+  return {
+    ok,
+    openingPresent,
+    closingPresent,
+    lengthOk,
+    model_chars: modelChars,
+    surface_reason,
+  };
+}
+
+export function openingContentVerdict({ expected, actual, modelOracle, modelDocumentCheck }) {
   const normExpected = normalizeDocumentText(expected);
-  const normActual = normalizeDocumentText(actual);
   if (!normExpected) {
     return { content_verified: false, surface_reason: null };
   }
-  if (canvasPresent && modelOracle === 'absent') {
-    return { content_verified: false, surface_reason: 'document_content_unverifiable' };
-  }
-  if (!normActual) {
+  if (modelOracle === 'perf_model') {
+    if (modelDocumentCheck?.ok) {
+      return { content_verified: true, surface_reason: null };
+    }
     return {
       content_verified: false,
-      surface_reason: modelOracle === 'perf_model' || !canvasPresent ? 'document_content_absent' : 'document_content_unverifiable',
+      surface_reason: modelDocumentCheck?.surface_reason || 'document_content_mismatch',
     };
+  }
+  if (modelOracle === 'absent') {
+    return { content_verified: false, surface_reason: 'document_content_unverifiable' };
+  }
+  const normActual = normalizeDocumentText(actual);
+  if (!normActual) {
+    return { content_verified: false, surface_reason: 'document_content_absent' };
   }
   const content_verified = normActual.includes(normExpected);
   if (!content_verified) {

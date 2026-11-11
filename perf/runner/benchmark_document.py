@@ -1186,13 +1186,40 @@ def corpus_opening_text(corpus_path: Path) -> str:
     return next((" ".join(p.split()[:8]) for p in paragraphs if p.strip()), "")
 
 
+def corpus_content_expectations(corpus_path: Path) -> dict:
+    """Opening snippet, closing sentinel when present, and joined fixture text length."""
+    import zipfile
+    from perf.fixtures.docx_workload import SENTINEL_PREFIX, docx_paragraph_texts
+    with zipfile.ZipFile(corpus_path) as archive:
+        paragraphs = docx_paragraph_texts(archive.read("word/document.xml"))
+    text = "\n".join(paragraphs)
+    sentinel = None
+    if paragraphs and paragraphs[-1].startswith(SENTINEL_PREFIX):
+        sentinel = paragraphs[-1]
+    return {
+        "opening": corpus_opening_text(corpus_path),
+        "sentinel": sentinel,
+        "text_chars": len(text),
+    }
+
+
+def corpus_content_expectation_flags(corpus_path: Path) -> list[str]:
+    meta = corpus_content_expectations(corpus_path)
+    flags: list[str] = []
+    if meta.get("sentinel"):
+        flags.extend(["--expected-closing-sentinel", meta["sentinel"]])
+    if meta.get("text_chars"):
+        flags.extend(["--fixture-text-chars", str(meta["text_chars"])])
+    return flags
+
+
 def _run_load_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path: Path, count: int) -> tuple:
     """C11: fresh browser, corpus content check, then document-frame timing."""
     expected = corpus_opening_text(fixture_path)
     if not expected:
         raise ProbeRefusal("document_content_expectation_absent")
-    cmd = _probe_cmd(mode="load", target=target, cfg=cfg, corpus_path=fixture_path,
-                     extra=["--expected-opening-text", expected])
+    extra = ["--expected-opening-text", expected, *corpus_content_expectation_flags(fixture_path)]
+    cmd = _probe_cmd(mode="load", target=target, cfg=cfg, corpus_path=fixture_path, extra=extra)
     samples = []
     diagnostics = []
     for _ in range(count):

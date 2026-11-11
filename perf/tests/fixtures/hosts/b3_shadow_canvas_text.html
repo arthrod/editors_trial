@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8" /><title>shadow canvas text layer</title></head>
+  <body>
+    <div id="host"></div>
+    <script>
+      const root = document.querySelector('#host').attachShadow({ mode: 'open' });
+      root.innerHTML =
+        '<div id="pageContainer1" style="width:500px;padding:24px;background:#fff;font:24px serif">' +
+        '<canvas width="120" height="60" style="display:block;background:#eee"></canvas>' +
+        '<p>REAL DOCUMENT CONTENT in the text layer</p></div>';
+    </script>
+  </body>
+</html>

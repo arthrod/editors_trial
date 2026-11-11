@@ -111,6 +111,9 @@ const findShortcuts = (opt['find-shortcuts'] || 'Control+f,Meta+f').split(',').m
 const SIGNAL_INPUTS = new Set(['dom_text', 'canvas_pixel', 'shadow_text', 'screencast_ink']);
 const usableSignal = opt['usable-signal'] || 'dom_text';
 const screencastInkMinPixels = Number(opt['screencast-ink-min-pixels'] || SCREENCAST_INK_MIN_PIXELS);
+const expectedClosingSentinel =
+  typeof opt['expected-closing-sentinel'] === 'string' ? opt['expected-closing-sentinel'] : '';
+const fixtureTextChars = Number(opt['fixture-text-chars'] || 0);
 if (!SIGNAL_INPUTS.has(usableSignal)) {
   console.error('document_probe: --usable-signal must be dom_text|canvas_pixel|shadow_text|screencast_ink');
   process.exit(2);
@@ -701,8 +704,17 @@ async function launch() {
 }
 
 async function stateSnapshot(page) {
+  const expectedOpening = typeof opt['expected-opening-text'] === 'string' ? opt['expected-opening-text'] : '';
   return page.evaluate(
-    ({ docSel, pageSel, signal }) => {
+    ({ docSel, pageSel, signal, normOpening, normClosing, fixtureChars, tolerance }) => {
+      const CONTENT_CASE_FOLD = {"µ":"μ","ß":"ss","ŉ":"ʼn","ſ":"s","ǰ":"ǰ","ͅ":"ι","ΐ":"ΐ","ΰ":"ΰ","ς":"σ","ϐ":"β","ϑ":"θ","ϕ":"φ","ϖ":"π","ϰ":"κ","ϱ":"ρ","ϵ":"ε","և":"եւ","ẖ":"ẖ","ẗ":"ẗ","ẘ":"ẘ","ẙ":"ẙ","ẚ":"aʾ","ẛ":"ṡ","ẞ":"ss","ὐ":"ὐ","ὒ":"ὒ","ὔ":"ὔ","ὖ":"ὖ","ι":"ι","ῤ":"ῤ","ﬀ":"ff","ﬁ":"fi","ﬂ":"fl","ﬃ":"ffi","ﬄ":"ffl","ﬅ":"st","ﬆ":"st"};
+      const normalize = (value) => {
+        const text = String(value || '').normalize('NFKC')
+          .replace(/[‘’‚‛“”„‟«»‹›″′'"\u00ad\u200b-\u200d\u2060\ufeff]/gu, '')
+          .replace(/\p{Dash}/gu, '-')
+          .replace(/[\s\p{White_Space}]+/gu, ' ').trim();
+        return Array.from(text, (c) => CONTENT_CASE_FOLD[c] ?? c.toLowerCase()).join('');
+      };
       const s = window.__docProbeState || {};
       const pageEl = pageSel ? document.querySelector(pageSel) : null;
       const which =
@@ -716,22 +728,41 @@ async function stateSnapshot(page) {
       const surface = typeof window.__docProbeSurface === 'function' ? window.__docProbeSurface(which) : null;
       let docText = surface ? surface.documentText || '' : '';
       let model_oracle = 'dom';
-      let content_text_accessible = Boolean(docText) || !surface?.canvasPresent;
+      let content_text_accessible = Boolean(docText.trim());
+      let model_document_check = null;
+      let document_text_chars = docText.length;
       const canvasPresent = Boolean(surface?.canvasPresent);
-      if (canvasPresent) {
-        const fn = window.__PERF_MODEL_TEXT__;
-        if (typeof fn === 'function') {
-          try {
-            docText = String(fn() ?? '');
-          } catch {
-            docText = '';
-          }
-          model_oracle = 'perf_model';
-          content_text_accessible = true;
-        } else {
-          model_oracle = 'absent';
-          content_text_accessible = false;
+      const hookPresent = typeof window.__PERF_MODEL_TEXT__ === 'function';
+      const trimmedDom = docText.trim();
+      if (canvasPresent && hookPresent && !trimmedDom) {
+        let modelText = '';
+        try {
+          modelText = String(window.__PERF_MODEL_TEXT__() ?? '');
+        } catch {
+          modelText = '';
         }
+        docText = modelText;
+        document_text_chars = modelText.length;
+        model_oracle = 'perf_model';
+        const normText = normalize(modelText);
+        const openingPresent = normOpening ? normText.includes(normOpening) : true;
+        const closingPresent = normClosing ? normText.includes(normClosing) : true;
+        const lengthOk = fixtureChars > 0
+          ? Math.abs(modelText.length - fixtureChars) / fixtureChars <= tolerance
+          : true;
+        const ok = Boolean(normText) && openingPresent && closingPresent && lengthOk;
+        model_document_check = {
+          ok,
+          model_chars: modelText.length,
+          surface_reason: ok ? null : (!normText ? 'document_content_absent' : 'document_content_mismatch'),
+        };
+        content_text_accessible = ok;
+      } else if (canvasPresent && trimmedDom) {
+        model_oracle = 'dom';
+        content_text_accessible = true;
+      } else if (canvasPresent && !hookPresent && !trimmedDom) {
+        model_oracle = 'absent';
+        content_text_accessible = false;
       }
       return {
         first_element_ms: s.firstElementAt === null || s.firstElementAt === undefined ? null : s.firstElementAt,
@@ -741,18 +772,27 @@ async function stateSnapshot(page) {
         page_count_at_first: s.pageCountAtFirst === null || s.pageCountAtFirst === undefined ? null : s.pageCountAtFirst,
         page_count: pageSel ? document.querySelectorAll(pageSel).length : null,
         page_text_chars: pageEl ? (pageEl.textContent || '').trim().length : null,
-        document_text_chars: docText.length,
+        document_text_chars,
         document_text: docText.slice(0, 4000),
         content_text_accessible,
         canvas_present: canvasPresent,
         model_oracle,
+        model_document_check,
         document_selector: (surface && surface.selector) || s.documentSelector || null,
         surface_text: docText.slice(0, 4000),
         time_origin_ms: performance.timeOrigin,
         usable_signal: s.usableSignal || null,
       };
     },
-    { docSel: docSelector, pageSel: pageSelector, signal: usableSignal },
+    {
+      docSel: docSelector,
+      pageSel: pageSelector,
+      signal: usableSignal,
+      normOpening: normalizeDocumentText(expectedOpening),
+      normClosing: normalizeDocumentText(expectedClosingSentinel),
+      fixtureChars: fixtureTextChars,
+      tolerance: 0.02,
+    },
   );
 }
 
@@ -878,8 +918,8 @@ async function loadResult(ctx, { navigationMs, readyMs, surface, witness, surfac
   const verdict = openingContentVerdict({
     expected: expectedRaw,
     actual: snap.document_text,
-    canvasPresent: Boolean(snap.canvas_present),
     modelOracle: snap.model_oracle || 'dom',
+    modelDocumentCheck: snap.model_document_check,
   });
   const contentVerified = verdict.content_verified;
   const contentReason = contentVerified ? null : verdict.surface_reason;

@@ -83,7 +83,8 @@ import {
   parseCriteriaList,
   runCriteriaSuite,
 } from './criteria_input.mjs';
-import { openingContentVerdict } from './perf_model_text.mjs';
+import { normalizeDocumentText } from './document_text_normalize.mjs';
+import { evaluatePerfModelDocument, openingContentVerdict } from './perf_model_text.mjs';
 
 
 const argv = process.argv.slice(2);
@@ -121,6 +122,9 @@ const settleMaxWaitMs = opt['settle-max-wait-ms'] !== undefined ? Number(opt['se
 const quiescenceTimeoutMs = Number(opt['quiescence-timeout'] || 10_000);
 const bulkChars = Number(opt['bulk-chars'] || 1500);
 const expectedOpeningText = typeof opt['expected-opening-text'] === 'string' ? opt['expected-opening-text'] : '';
+const expectedClosingSentinel =
+  typeof opt['expected-closing-sentinel'] === 'string' ? opt['expected-closing-sentinel'] : '';
+const fixtureTextChars = Number(opt['fixture-text-chars'] || 0);
 let criteriaList = [];
 if (opt.criteria !== undefined) {
   try {
@@ -187,24 +191,70 @@ async function waitForReady(page, selector, timeoutMs = 120_000, t0 = Date.now()
 
 async function verifyCanvasOpening(page) {
   if (!expectedOpeningText) return;
-  const snap = await page.evaluate(() => {
-    const canvasPresent = document.querySelectorAll('canvas').length > 0;
-    if (!canvasPresent) return { canvasPresent: false, text: '', model_oracle: 'dom' };
-    const fn = window.__PERF_MODEL_TEXT__;
-    if (typeof fn !== 'function') {
-      return { canvasPresent: true, text: '', model_oracle: 'absent' };
-    }
-    try {
-      return { canvasPresent: true, text: String(fn() ?? ''), model_oracle: 'perf_model' };
-    } catch {
-      return { canvasPresent: true, text: '', model_oracle: 'perf_model' };
-    }
-  });
+  const snap = await page.evaluate(
+    ({ editSel, normOpening, normClosing, fixtureChars, tolerance }) => {
+      const CONTENT_CASE_FOLD = {"µ":"μ","ß":"ss","ŉ":"ʼn","ſ":"s","ǰ":"ǰ","ͅ":"ι","ΐ":"ΐ","ΰ":"ΰ","ς":"σ","ϐ":"β","ϑ":"θ","ϕ":"φ","ϖ":"π","ϰ":"κ","ϱ":"ρ","ϵ":"ε","և":"եւ","ẖ":"ẖ","ẗ":"ẗ","ẘ":"ẘ","ẙ":"ẙ","ẚ":"aʾ","ẛ":"ṡ","ẞ":"ss","ὐ":"ὐ","ὒ":"ὒ","ὔ":"ὔ","ὖ":"ὖ","ι":"ι","ῤ":"ῤ","ﬀ":"ff","ﬁ":"fi","ﬂ":"fl","ﬃ":"ffi","ﬄ":"ffl","ﬅ":"st","ﬆ":"st"};
+      const normalize = (value) => {
+        const text = String(value || '').normalize('NFKC')
+          .replace(/[‘’‚‛“”„‟«»‹›″′'"\u00ad\u200b-\u200d\u2060\ufeff]/gu, '')
+          .replace(/\p{Dash}/gu, '-')
+          .replace(/[\s\p{White_Space}]+/gu, ' ').trim();
+        return Array.from(text, (c) => CONTENT_CASE_FOLD[c] ?? c.toLowerCase()).join('');
+      };
+      const pick = (el) => (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
+      const domText = (() => {
+        if (!editSel) return pick(document.body || document.documentElement);
+        const el = document.querySelector(editSel);
+        return el ? pick(el) : '';
+      })();
+      const canvasPresent = document.querySelectorAll('canvas').length > 0;
+      const hookPresent = typeof window.__PERF_MODEL_TEXT__ === 'function';
+      const trimmedDom = domText.trim();
+      let model_oracle = 'dom';
+      let text = domText;
+      let modelDocumentCheck = null;
+      if (canvasPresent && hookPresent && !trimmedDom) {
+        model_oracle = 'perf_model';
+        try {
+          text = String(window.__PERF_MODEL_TEXT__() ?? '');
+        } catch {
+          text = '';
+        }
+        const normText = normalize(text);
+        const modelChars = text.length;
+        const openingPresent = normOpening ? normText.includes(normOpening) : true;
+        const closingPresent = normClosing ? normText.includes(normClosing) : true;
+        const lengthOk = fixtureChars > 0
+          ? Math.abs(modelChars - fixtureChars) / fixtureChars <= tolerance
+          : true;
+        const ok = Boolean(normText) && openingPresent && closingPresent && lengthOk;
+        modelDocumentCheck = {
+          ok,
+          model_chars: modelChars,
+          surface_reason: ok ? null : (!normText ? 'document_content_absent' : 'document_content_mismatch'),
+        };
+      } else if (canvasPresent && !trimmedDom && !hookPresent) {
+        model_oracle = 'absent';
+      }
+      return {
+        text: model_oracle === 'perf_model' ? text.slice(0, 4000) : text,
+        model_oracle,
+        modelDocumentCheck,
+      };
+    },
+    {
+      editSel: editSelector,
+      normOpening: normalizeDocumentText(expectedOpeningText),
+      normClosing: normalizeDocumentText(expectedClosingSentinel),
+      fixtureChars: fixtureTextChars,
+      tolerance: 0.02,
+    },
+  );
   const verdict = openingContentVerdict({
     expected: expectedOpeningText,
     actual: snap.text,
-    canvasPresent: snap.canvasPresent,
     modelOracle: snap.model_oracle,
+    modelDocumentCheck: snap.modelDocumentCheck,
   });
   if (verdict.surface_reason) throw new Error(verdict.surface_reason);
 }

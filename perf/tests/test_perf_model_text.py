@@ -25,10 +25,33 @@ console.log(JSON.stringify(verdict));
         self.assertIsNone(v["surface_reason"])
 
     def test_canvas_without_hook_is_unverifiable(self):
-        v = self.verdict(expected="Alpha bravo", actual="", canvasPresent=True, modelOracle="absent")
+        v = self.verdict(expected="Alpha bravo", actual="", modelOracle="absent")
         self.assertFalse(v["content_verified"])
         self.assertEqual(v["surface_reason"], "document_content_unverifiable")
 
+    def test_canvas_with_dom_text_layer_verifies(self):
+        v = self.verdict(
+            expected="Alpha bravo",
+            actual="Alpha bravo in shadow text",
+            modelOracle="dom",
+        )
+        self.assertTrue(v["content_verified"])
+        self.assertIsNone(v["surface_reason"])
+
+    def test_canvas_model_requires_whole_document_check(self):
+        v = self.verdict(
+            expected="Alpha bravo",
+            actual="Alpha bravo",
+            modelOracle="perf_model",
+            modelDocumentCheck={"ok": False, "surface_reason": "document_content_mismatch"},
+        )
+        self.assertFalse(v["content_verified"])
+        self.assertEqual(v["surface_reason"], "document_content_mismatch")
+
     def test_canvas_model_mismatch(self):
-        v = self.verdict(expected="Alpha bravo", actual="Wrong", canvasPresent=True, modelOracle="perf_model")
+        v = self.verdict(
+            expected="Alpha bravo",
+            actual="Wrong",
+            modelOracle="dom",
+        )
         self.assertEqual(v["surface_reason"], "document_content_mismatch")

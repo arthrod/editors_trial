@@ -421,10 +421,11 @@ def _run_browser_probe(
         cmd.extend(["--pre-edit-click", target["pre_edit_click"]])
     if target.get("wait_after_ready"):
         cmd.extend(["--wait-after-ready", str(target["wait_after_ready"])])
-    from perf.runner.benchmark_document import corpus_opening_text
+    from perf.runner.benchmark_document import corpus_content_expectation_flags, corpus_opening_text
     opening = corpus_opening_text(corpus_path)
     if opening:
         cmd.extend(["--expected-opening-text", opening])
+        cmd.extend(corpus_content_expectation_flags(corpus_path))
     if target.get("skip_edit"):
         cmd.extend(["--skip-edit", "true"])
     active = ACTIVE.get()
