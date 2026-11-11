@@ -14,7 +14,6 @@ payload that could produce a dishonest trial.
 from __future__ import annotations
 
 import argparse
-import base64
 import json
 import os
 import subprocess
@@ -108,8 +107,10 @@ def _probe_command(editor_id: str, target: dict, fixture: Path) -> list[str]:
 def _probe_env(editor_id: str, target: dict, fixture: Path) -> dict:
     env = dict(os.environ)
     body = docx_body_text(fixture)
-    env["PERF_EXPECTED_BODY_B64"] = base64.b64encode(body.encode("utf-8")).decode("ascii")
-    env.pop("PERF_EXPECTED_BODY_PATH", None)
+    body_path = fixture.with_name(fixture.stem + ".expected-body.txt")
+    body_path.write_text(body, encoding="utf-8")
+    env["PERF_EXPECTED_BODY_PATH"] = str(body_path.resolve())
+    env.pop("PERF_EXPECTED_BODY_B64", None)
     adapter = _correctness_adapter(editor_id, target)
     if adapter:
         env["PERF_CORRECTNESS_ADAPTER"] = adapter
