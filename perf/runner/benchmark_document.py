@@ -491,8 +491,9 @@ def build_fixture(workload_row: dict) -> dict:
     the paragraph count stays truthful.
     """
     if workload_row['shape'] in ('prose', 'corpus'):
-        from perf.fixtures.docx_workload import workload_docx
-        built = workload_docx(workload_row['workload_id'])
+        from perf.fixtures.docx_workload import workload_for_lane
+
+        built = workload_for_lane(workload_row['workload_id'], "document", REPO)
         return {**built, 'workload_row': workload_row, 'bytes': built['docx'],
                 'augmented_paragraphs': 4 if workload_row['shape'] == 'prose' else 0}
     built = build_workload(workload_row)
@@ -975,7 +976,7 @@ def _attempt_ref(path: Path) -> str:
         return str(path.resolve())
 
 
-def _probe_cmd(*, mode: str, target: dict, cfg: dict, corpus_path: Path, extra: list) -> list:
+def _probe_cmd(*, mode: str, target: dict, cfg: dict, corpus_path: Path, extra: list, editor_id: str = "") -> list:
     from perf.runner.browser_hosts import select_fixture
     select_fixture(target, corpus_path)
     cmd = [
@@ -1014,6 +1015,8 @@ def _probe_cmd(*, mode: str, target: dict, cfg: dict, corpus_path: Path, extra: 
         cmd.extend(["--document-selector", cfg["doc_selector"]])
     if target.get("wait_after_ready"):
         cmd.extend(["--wait-after-ready", str(target["wait_after_ready"])])
+    if editor_id:
+        cmd.extend(["--editor", editor_id])
     cmd.extend(extra)
     return cmd
 
@@ -1369,6 +1372,7 @@ def _run_reflow_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path
         cfg=cfg,
         corpus_path=fixture_path,
         extra=["--settle-ms", str(SETTLE_MS)],
+        editor_id=editor_id,
     )
     samples = []
     diagnostics = []

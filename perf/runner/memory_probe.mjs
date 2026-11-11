@@ -23,6 +23,7 @@ import path from 'node:path';
 import readline from 'node:readline';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { startChromeTrace, stopChromeTrace } from './chrome_trace.mjs';
+import { LANE_LOAD_TIMEOUT_MS, LANE_POLL_BOUND_MS, runLaneEditBurst } from './lane_edit_burst.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '../..');
@@ -50,6 +51,9 @@ const readySelector = opt['ready-selector'] || '';
 const readyJs = opt['ready-js'] || '';
 const waitAfterReadyMs = Number(opt['wait-after-ready'] || 0);
 const editSelector = opt['edit-selector'] || '';
+const editorId = typeof opt.editor === 'string' ? opt.editor : '';
+const errorJs = opt['error-js'] || '';
+const pollBoundMs = Number(opt['poll-bound-ms'] || LANE_POLL_BOUND_MS);
 const burst = Math.max(0, Number(opt.burst || 0));
 const burstText = opt['burst-text'] || 'abcdefghij';
 const quiescenceMs = Math.max(0, Number(opt['quiescence-ms'] || 2000));
@@ -110,10 +114,12 @@ function launchedBrowserPid(browserContext) {
   return null;
 }
 
-async function waitForReady(page, timeoutMs = 120_000) {
+async function waitForReady(page, timeoutMs = LANE_LOAD_TIMEOUT_MS) {
   if (readyJs) {
     await page.waitForFunction(
       (expr) => {
+        const editorError = window.__DOCX_ERROR__;
+        if (typeof editorError === 'string' && editorError) throw new Error(editorError);
         try {
           // eslint-disable-next-line no-eval
           return Boolean(eval(expr));
@@ -126,6 +132,17 @@ async function waitForReady(page, timeoutMs = 120_000) {
     );
   } else if (readySelector) {
     await page.waitForSelector(readySelector, { timeout: timeoutMs, state: 'visible' });
+  }
+  if (errorJs) {
+    const loadError = await page.evaluate((expr) => {
+      try {
+        const value = eval(expr);
+        return typeof value === 'string' && value ? value : null;
+      } catch {
+        return null;
+      }
+    }, errorJs);
+    if (loadError) throw new Error(loadError);
   }
   if (waitAfterReadyMs > 0) await page.waitForTimeout(waitAfterReadyMs);
 }
@@ -145,18 +162,14 @@ async function routeCorpus(context) {
   });
 }
 
-function bodyTextLength(page) {
-  return page.evaluate(() => (document.body?.innerText || '').length);
-}
-
 async function openEditor(browser, traceLabel = 'C17-first') {
   const context = await browser.newContext({ viewport });
   await routeCorpus(context);
   const page = await context.newPage();
   const trace = await startChromeTrace(browser, page, traceLabel);
   const t0 = Date.now();
-  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 120_000 });
-  await waitForReady(page);
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: LANE_LOAD_TIMEOUT_MS });
+  await waitForReady(page, LANE_LOAD_TIMEOUT_MS);
   return { context, page, readyMs: Date.now() - t0, trace };
 }
 
@@ -196,28 +209,34 @@ async function main() {
     result.ready_ms = first.readyMs;
     await phase('ready', { ready_ms: first.readyMs, browser_pid: browserPid });
 
-    const before = await bodyTextLength(first.page);
-    if (burst > 0 && editSelector) {
+    let editOracle = null;
+    if (burst > 0 && editSelector && editorId) {
       try {
-        await first.page.locator(editSelector).first().click({ timeout: 30_000 });
-        for (let i = 0; i < burst; i++) {
-          await first.page.keyboard.type(burstText, { delay: 0 });
-          result.typed_chars += burstText.length;
-        }
-        await first.page.evaluate(() => new Promise((r) => requestAnimationFrame(() => r(null))));
+        const burstResult = await runLaneEditBurst(first.page, null, {
+          editorId,
+          selector: editSelector,
+          text: burstText,
+          repetitions: burst,
+          pollBoundMs,
+        });
+        editOracle = burstResult.oracle;
+        result.edit_effective = burstResult.edit_effective === true;
+        result.edit_error = burstResult.edit_error;
+        result.typed_chars = burst * burstText.length;
       } catch (err) {
         result.edit_error = String(err.message || err).slice(0, 400);
+        result.edit_effective = false;
       }
+    } else if (burst > 0 && editSelector) {
+      result.edit_error = 'memory_probe: --editor is required for edit verification';
+      result.edit_effective = false;
     }
-    const after = await bodyTextLength(first.page);
-    result.edit_effective = after > before;
     await phase('edited', {
       browser_pid: browserPid,
       edit_effective: result.edit_effective,
-      text_length_before: before,
-      text_length_after: after,
       typed_chars: result.typed_chars,
       edit_error: result.edit_error,
+      edit_oracle: editOracle,
     });
 
     await first.page.waitForTimeout(quiescenceMs);

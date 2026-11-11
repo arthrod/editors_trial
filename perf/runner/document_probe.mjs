@@ -63,6 +63,7 @@ import {
 import { normalizeDocumentText } from './document_text_normalize.mjs';
 import { openingContentVerdict } from './perf_model_text.mjs';
 import { startChromeTrace, stopChromeTrace } from './chrome_trace.mjs';
+import { prepareLaneCaret } from './lane_edit_burst.mjs';
 
 /** Screencast ink needs at least this many region pixels above the witness threshold. */
 const SCREENCAST_INK_MIN_PIXELS = 64;
@@ -99,6 +100,7 @@ const documentSelector = opt['document-selector'] || '';
 const pageSelector = opt['page-selector'] || '';
 const pageModel = opt['page-model'] || (pageSelector ? 'page' : 'continuous_flow');
 const editSelector = opt['edit-selector'] || docSelector;
+const editorId = typeof opt.editor === 'string' ? opt.editor : '';
 const settleMs = Number(opt['settle-ms'] || 0);
 const timeoutMs = Number(opt['timeout-ms'] || 120000);
 const anchorIndex = Number(opt['anchor-index'] || 1);
@@ -1310,21 +1312,37 @@ async function runReflow(browser) {
       };
     }
 
-    const box = await ctx.page.locator(editSelector).first().boundingBox();
-    if (!box) {
-      return {
-        mode: 'reflow',
-        driver: 'playwright',
-        url,
-        navigation_ms: navigationMs,
-        ready_ms: readyMs,
-        error: 'edit target has no box',
-        window_excludes_forced_layout: true,
-        forced_layout_ms: 0,
-      };
+    if (editorId) {
+      const prepared = await prepareLaneCaret(ctx.page, editorId, editSelector, { timeoutMs });
+      if (prepared.placeError) {
+        return {
+          mode: 'reflow',
+          driver: 'playwright',
+          url,
+          navigation_ms: navigationMs,
+          ready_ms: readyMs,
+          error: prepared.placeError,
+          window_excludes_forced_layout: true,
+          forced_layout_ms: 0,
+        };
+      }
+    } else {
+      const box = await ctx.page.locator(editSelector).first().boundingBox();
+      if (!box) {
+        return {
+          mode: 'reflow',
+          driver: 'playwright',
+          url,
+          navigation_ms: navigationMs,
+          ready_ms: readyMs,
+          error: 'edit target has no box',
+          window_excludes_forced_layout: true,
+          forced_layout_ms: 0,
+        };
+      }
+      await ctx.page.mouse.click(box.x + 3, box.y + Math.min(8, Math.max(2, box.height / 2)));
+      await ctx.page.waitForTimeout(150);
     }
-    await ctx.page.mouse.click(box.x + 3, box.y + Math.min(8, Math.max(2, box.height / 2)));
-    await ctx.page.waitForTimeout(150);
     await ctx.page.keyboard.press('Control+Home');
     await ctx.page.waitForTimeout(150);
     await ctx.page.keyboard.press('Home');

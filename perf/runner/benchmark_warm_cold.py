@@ -441,6 +441,7 @@ def _run_browser_probe(
     target: dict,
     corpus_path: Path,
     pairs: int,
+    editor_id: str = "",
 ) -> dict:
     from perf.runner.browser_hosts import select_fixture
     select_fixture(target, corpus_path)
@@ -480,6 +481,8 @@ def _run_browser_probe(
         cmd.extend(corpus_content_expectation_flags(corpus_path))
     if target.get("skip_edit"):
         cmd.extend(["--skip-edit", "true"])
+    if editor_id:
+        cmd.extend(["--editor", editor_id])
     active = ACTIVE.get()
     with active.begin_sample() if active is not None else nullcontext():
         proc = subprocess.run(
@@ -881,9 +884,9 @@ def _main() -> int:
     workload_row = next(w for w in size_ladder() if w["workload_id"] == args.workload)
     assert_workload_allowed(execution_profile(EXECUTION_PROFILE), args.workload)
     if workload_row["shape"] in ("prose", "corpus"):
-        from perf.fixtures.docx_workload import ladder_row_for_env, workload_docx
+        from perf.fixtures.docx_workload import ladder_row_for_env, workload_for_lane
 
-        built_meta = workload_docx(workload_row["workload_id"])
+        built_meta = workload_for_lane(workload_row["workload_id"], "warm_cold", REPO)
         docx_body = built_meta["docx"]
         sha = built_meta["sha256"]
         docx_size = built_meta["byte_size"]
@@ -956,7 +959,9 @@ def _main() -> int:
         proc = None
         try:
             proc = _start_server(editor_id, target)
-            payload = _run_browser_probe(target=target, corpus_path=fixture_path, pairs=args.pairs)
+            payload = _run_browser_probe(
+                target=target, corpus_path=fixture_path, pairs=args.pairs, editor_id=editor_id,
+            )
         except Exception as exc:
             reason = "browser_probe: %s" % (exc,)
             env = _env_for(
@@ -1510,6 +1515,7 @@ def _main() -> int:
                 target=target,
                 corpus_path=fixture_path,
                 pairs=1,
+                editor_id="plate",
             )
             pair0 = puppeteer_payload["pairs"][0]
             driver_checks.append(

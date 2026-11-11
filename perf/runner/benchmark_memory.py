@@ -465,7 +465,15 @@ def _write_outcome(
 # ---------------------------------------------------------------------------
 
 
-def _probe_command(target: dict, corpus_path: Path, *, burst: int, quiescence_ms: int, reopen: bool) -> list[str]:
+def _probe_command(
+    target: dict,
+    corpus_path: Path,
+    *,
+    burst: int,
+    quiescence_ms: int,
+    reopen: bool,
+    editor_id: str = "",
+) -> list[str]:
     node = shutil.which("node") or "node"
     command = [
         node,
@@ -491,8 +499,12 @@ def _probe_command(target: dict, corpus_path: Path, *, burst: int, quiescence_ms
     ]
     if target.get("ready_js"):
         command.extend(["--ready-js", target["ready_js"]])
+    if target.get("error_js"):
+        command.extend(["--error-js", target["error_js"]])
     if target.get("wait_after_ready"):
         command.extend(["--wait-after-ready", str(target["wait_after_ready"])])
+    if editor_id:
+        command.extend(["--editor", editor_id])
     return command
 
 
@@ -601,8 +613,16 @@ def _run_browser_pair(
     quiescence_ms: int,
     retain_seconds,
     probe_timeout_s: float,
+    editor_id: str = "",
 ) -> dict:
-    command = _probe_command(target, corpus_path, burst=burst, quiescence_ms=quiescence_ms, reopen=True)
+    command = _probe_command(
+        target,
+        corpus_path,
+        burst=burst,
+        quiescence_ms=quiescence_ms,
+        reopen=True,
+        editor_id=editor_id,
+    )
     proc = subprocess.Popen(
         command,
         cwd=str(UI),
@@ -733,6 +753,7 @@ def _browser_rows(
                 quiescence_ms=args.quiescence_ms,
                 retain_seconds=args.retain_seconds,
                 probe_timeout_s=args.probe_timeout,
+                editor_id=editor_id,
             )
             pair["index"] = index
             pairs.append(pair)
@@ -1355,8 +1376,9 @@ def _main() -> int:
     assert_workload_allowed(args.execution_profile, args.workload)
     workload_row = next(row for row in size_ladder() if row["workload_id"] == args.workload)
     if workload_row['shape'] in ('prose', 'corpus'):
-        from perf.fixtures.docx_workload import workload_docx
-        docx_body = workload_docx(args.workload)['docx']
+        from perf.fixtures.docx_workload import workload_for_lane
+
+        docx_body = workload_for_lane(args.workload, "memory", REPO)['docx']
     else:
         built = build_workload(workload_row)
         docx_body = docx_zip_bytes(built["body"])

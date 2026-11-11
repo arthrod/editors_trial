@@ -453,7 +453,7 @@ _DOCUMENT_PROTECTION = re.compile(
     br"<w:documentProtection\b[^>]*/>|<w:documentProtection\b[^>]*>.*?</w:documentProtection>",
     re.DOTALL,
 )
-EDIT_LANES = frozenset({"input", "resources"})
+EDIT_LANES = frozenset({"input", "resources", "memory", "document", "warm_cold"})
 EDIT_VARIANT = "complex-corpus-without-document-protection"
 
 

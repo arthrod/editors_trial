@@ -85,6 +85,8 @@ import {
 } from './criteria_input.mjs';
 import { normalizeDocumentText } from './document_text_normalize.mjs';
 import { evaluatePerfModelDocument, openingContentVerdict } from './perf_model_text.mjs';
+import { EDIT_SURFACES, editSurface } from './edit_surface.mjs';
+import { confirmLaneEdit, prepareLaneCaret } from './lane_edit_burst.mjs';
 
 
 const argv = process.argv.slice(2);
@@ -280,8 +282,14 @@ async function performEdit(page, selector, cdp) {
 async function measureEdit(page, selector, cdp) {
   // Focus/actionability and witness calibration are preconditioning, outside
   // the event-to-frame interval. No typing delay is introduced.
-  if (preEditClick) await page.click(preEditClick, { timeout: 30_000 });
-  await page.locator(selector).first().click({ timeout: 30_000 });
+  let lanePrepared = null;
+  if (editorId && EDIT_SURFACES[editorId]) {
+    lanePrepared = await prepareLaneCaret(page, editorId, selector);
+    if (lanePrepared.placeError) throw new Error(lanePrepared.placeError);
+  } else {
+    if (preEditClick) await page.click(preEditClick, { timeout: 30_000 });
+    await page.locator(selector).first().click({ timeout: 30_000 });
+  }
   const skew = await clockSkew(page, cdp);
   const mechanism = 'cdp_screencast_changed_frame';
   if (!skew.acceptable) return {
@@ -298,8 +306,8 @@ async function measureEdit(page, selector, cdp) {
     // selector can legitimately match many document fragments. Counts, the
     // observer scope and the visibility clip are computed against every
     // element matching the selector at the moment they are needed.
-    const matches = () => [...document.querySelectorAll(selector)];
-    const count = () => matches().reduce((n, el) => n + (el.textContent.match(/x/g) || []).length, 0);
+    const matches = () => (selector ? [...document.querySelectorAll(selector)] : []);
+    const count = () => matches().reduce((n, el) => n + ((el.textContent || '').match(/x/g) || []).length, 0);
     const inDocument = node => matches().some(el => el.contains(node));
     const before = count();
     window.__b2 = { event: null, entries: [], supported: PerformanceObserver.supportedEntryTypes.includes('event') };
@@ -452,12 +460,25 @@ async function measureEdit(page, selector, cdp) {
   const confirmation = await page.evaluate(({selector, frameTime}) => {
     const state = window.__b2;
     const proof = state.edit_confirmation;
-    const after = [...document.querySelectorAll(selector)].reduce(
-      (n, el) => n + (el.textContent.match(/x/g) || []).length, 0);
+    const nodes = selector ? [...document.querySelectorAll(selector)] : [];
+    const after = nodes.reduce((n, el) => n + ((el.textContent || '').match(/x/g) || []).length, 0);
     const eligible = frameTime !== null ? state.insertions : [];
     return {...proof, after_count: after, confirmed: false,
       visible_rects: eligible.flatMap(state.confirmInsertion), changed_pixels: 0};
   }, {selector, frameTime: frame.frame_page_ms});
+  if (editorId && lanePrepared) {
+    const adapter = await confirmLaneEdit(page, editorId, lanePrepared.point, {
+      token: 'x',
+      before: lanePrepared.beforeText,
+      beforeFlag: lanePrepared.beforeFlag,
+      expected: 1,
+    });
+    confirmation.adapter = adapter;
+    if (adapter.confirmed) {
+      confirmation.confirmed = true;
+      confirmation.after_count = Math.max(confirmation.after_count || 0, adapter.after_count || 1);
+    }
+  }
   let confirmationFramePageMs = frame.frame_page_ms;
   confirmation.settled_channel_tolerance = DEFAULT_CHANNEL_TOLERANCE;
   confirmation.settled_quiescence_ms = quiescenceMs;
