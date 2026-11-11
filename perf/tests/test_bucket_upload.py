@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -488,3 +489,138 @@ class TestToken:
         rc = mirror.main(['job', run_id, 'runner_a', f'{run_id}-000', str(job_dir), str(run_log)])
         captured = capsys.readouterr()
         assert token not in captured.err and token not in captured.out
+
+
+class TestBounded:
+    def test_budget_is_inside_mirror_timeout(self, monkeypatch):
+        from perf.container import mirror
+
+        monkeypatch.delenv('HF_BUCKET_TIMEOUT_S', raising=False)
+        monkeypatch.setenv('HF_MIRROR_TIMEOUT_S', '100')
+        budget = mirror._bucket_budget_s()
+        assert 0 < budget < 100
+        monkeypatch.setenv('HF_BUCKET_TIMEOUT_S', '5')
+        assert mirror._bucket_budget_s() == 5.0
+
+    def test_stuck_upload_deadline_logs_per_job_timeout(self, tmp_path, bucket_env, monkeypatch):
+        from perf.container import mirror
+
+        def stuck(bucket_id, *, add=None, copy=None, delete=None, token=None):
+            raise mirror._BucketDeadline('bucket timeout')
+
+        bucket_env.batch_bucket_files = stuck
+        remote = tmp_path / 'remote'
+        run_id = 'camp-30'
+        campaign = campaign_root(remote, run_id)
+        run_log = campaign / 'RUN.log'
+        seal_job(remote, run_id, 'runner_a', f'{run_id}-000', {'summary.json': '{}'})
+        seal_job(remote, run_id, 'runner_b', f'{run_id}-001', {'summary.json': '{}'})
+        mirror.mirror_campaign_tail(campaign, run_id, run_log)
+        text = run_log.read_text()
+        assert f'BUCKET-ERROR runner_a/{run_id}-000 bucket timeout' in text
+        assert f'runner_b/{run_id}-001' not in text
+
+    def test_deadline_mid_verify_is_logged_not_raised(self, tmp_path, bucket_env):
+        from perf.container import mirror
+
+        calls = {'n': 0}
+
+        def lister(bucket_id, *, prefix='', recursive=False, token=None):
+            calls['n'] += 1
+            if calls['n'] > 1:
+                raise mirror._BucketDeadline('bucket timeout')
+            return iter(())
+
+        bucket_env.list_bucket_tree = lister
+        remote = tmp_path / 'remote'
+        run_id = 'camp-31'
+        campaign = campaign_root(remote, run_id)
+        run_log = campaign / 'RUN.log'
+        seal_job(remote, run_id, 'runner_a', f'{run_id}-000', {'summary.json': '{}'})
+        mirror.mirror_campaign_tail(campaign, run_id, run_log)
+        text = run_log.read_text()
+        assert 'bucket timeout' in text
+
+    def test_one_bad_job_does_not_block_the_next(self, tmp_path, bucket_env):
+        from perf.container import mirror
+
+        def picky(bucket_id, *, add=None, copy=None, delete=None, token=None):
+            for src, _ in (add or []):
+                if f'{run_id}-000' in str(src):
+                    raise RuntimeError('upload rejected')
+            for src, dst in (add or []):
+                bucket_env_put(bucket_env.files, src, dst)
+
+        def bucket_env_put(files, src, dst):
+            files[dst] = Path(src).read_bytes()
+
+        bucket_env.batch_bucket_files = picky
+        remote = tmp_path / 'remote'
+        run_id = 'camp-32'
+        campaign = campaign_root(remote, run_id)
+        run_log = campaign / 'RUN.log'
+        seal_job(remote, run_id, 'runner_a', f'{run_id}-000', {'summary.json': '{}'})
+        seal_job(remote, run_id, 'runner_b', f'{run_id}-001', {'summary.json': '{}'})
+        mirror.mirror_campaign_tail(campaign, run_id, run_log)
+        text = run_log.read_text()
+        assert f'BUCKET-ERROR runner_a/{run_id}-000' in text
+        assert f'BUCKET-OK runner_b/{run_id}-001' in text
+
+    def test_unreadable_job_dir_does_not_block_the_next(self, tmp_path, bucket_env, monkeypatch):
+        from perf.container import mirror
+
+        real_local_sizes = mirror._local_sizes
+
+        def flaky(root):
+            if f'{run_id}-000' in str(root):
+                raise OSError('job dir vanished')
+            return real_local_sizes(root)
+
+        monkeypatch.setattr(mirror, '_local_sizes', flaky)
+        remote = tmp_path / 'remote'
+        run_id = 'camp-35'
+        campaign = campaign_root(remote, run_id)
+        run_log = campaign / 'RUN.log'
+        seal_job(remote, run_id, 'runner_a', f'{run_id}-000', {'summary.json': '{}'})
+        seal_job(remote, run_id, 'runner_b', f'{run_id}-001', {'summary.json': '{}'})
+        mirror.mirror_campaign_tail(campaign, run_id, run_log)
+        text = run_log.read_text()
+        assert f'BUCKET-ERROR runner_a/{run_id}-000' in text
+        assert f'BUCKET-OK runner_b/{run_id}-001' in text
+
+    def test_bucket_sync_failure_never_fails_mirror_or_local_copy(self, tmp_path, bucket_env):
+        from perf.container import mirror
+
+        def broken(bucket_id, *, add=None, copy=None, delete=None, token=None):
+            raise RuntimeError('bucket down')
+
+        bucket_env.batch_bucket_files = broken
+        bucket_env.list_bucket_tree = lambda *a, **k: iter(())
+        remote = tmp_path / 'remote'
+        run_id = 'camp-33'
+        campaign = campaign_root(remote, run_id)
+        run_log = campaign / 'RUN.log'
+        job_dir = seal_job(remote, run_id, 'runner_a', f'{run_id}-000', {'summary.json': '{}'})
+        mirror.mirror_job_directory(run_id, 'runner_a', f'{run_id}-000', job_dir, run_log)
+        dest = Path(os.environ['HF_MIRROR_ROOT']) / run_id / 'runner_a' / f'{run_id}-000'
+        assert (dest / 'summary.json').is_file()
+        assert (dest / 'MIRROR-OK').is_file()
+        assert f'BUCKET-ERROR runner_a/{run_id}-000' in run_log.read_text()
+
+    def test_stuck_mirror_child_killed_at_mirror_timeout(self, tmp_path, monkeypatch):
+        from perf.container import run
+
+        stub = tmp_path / 'stub_mirror.py'
+        stub.write_text('import time\ntime.sleep(600)\n')
+        run_log_dir = tmp_path / 'runs' / 'camp-34'
+        run_log_dir.mkdir(parents=True)
+        run_log = run_log_dir / 'RUN.log'
+        monkeypatch.setenv('HF_MIRROR_PY', str(stub))
+        monkeypatch.setenv('HF_MIRROR_TIMEOUT_S', '1')
+        started = time.monotonic()
+        ok, alive = run.run_mirror_subprocess(['job', 'camp-34'], run_log, label='sleepy')
+        elapsed = time.monotonic() - started
+        assert ok is False
+        assert alive is None
+        assert elapsed < 30
+        assert 'MIRROR-ERROR sleepy timeout' in run_log.read_text()

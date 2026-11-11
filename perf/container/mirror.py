@@ -10,9 +10,11 @@ builds, dependency trees, fixture copies and the .docx inputs.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import fnmatch
 import hashlib
 import os
+import signal
 import socket
 import sys
 import time
@@ -95,6 +97,47 @@ def _log_skip_once(run_log: Path | None, line: str) -> None:
     _append_run_log(run_log, line)
 
 
+class _BucketDeadline(BaseException):
+    """SIGALRM deadline for the bucket sync; BaseException so generic error
+    handlers never swallow it and keep uploading past the budget."""
+
+
+def _raise_bucket_deadline(signum, frame):
+    raise _BucketDeadline('bucket timeout')
+
+
+def _bucket_budget_s() -> float:
+    # The bucket phase must stay inside the existing mirror child budget
+    # (HF_MIRROR_TIMEOUT_S): default 90% of it, HF_BUCKET_TIMEOUT_S overrides.
+    try:
+        return max(0.0, float(os.environ['HF_BUCKET_TIMEOUT_S']))
+    except (KeyError, ValueError):
+        pass
+    try:
+        return max(1.0, 0.9 * float(os.environ.get('HF_MIRROR_TIMEOUT_S', '300')))
+    except ValueError:
+        return 270.0
+
+
+@contextlib.contextmanager
+def _bucket_deadline(seconds: float):
+    if seconds <= 0 or not hasattr(signal, 'setitimer'):
+        yield
+        return
+    try:
+        previous_handler = signal.signal(signal.SIGALRM, _raise_bucket_deadline)
+    except (ValueError, OSError):
+        yield
+        return
+    previous_timer = signal.setitimer(signal.ITIMER_REAL, seconds)
+    try:
+        yield
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.setitimer(signal.ITIMER_REAL, *previous_timer)
+        signal.signal(signal.SIGALRM, previous_handler)
+
+
 def _local_sizes(root: Path) -> dict[str, int]:
     sizes: dict[str, int] = {}
     for path in sorted(root.rglob('*')):
@@ -144,7 +187,10 @@ def _bucket_sync(campaign_root: Path, campaign_id: str, run_log: Path | None, *,
     except Exception:
         token = None
     try:
-        _bucket_sync_inner(campaign_root, campaign_id, run_log, audit_all=audit_all, token=token)
+        with _bucket_deadline(_bucket_budget_s()):
+            _bucket_sync_inner(campaign_root, campaign_id, run_log, audit_all=audit_all, token=token)
+    except _BucketDeadline:
+        _append_run_log(run_log, 'BUCKET-ERROR campaign bucket timeout')
     except Exception as exc:
         _append_run_log(run_log, f'BUCKET-ERROR campaign {_safe_reason(exc, token)}')
 
@@ -202,10 +248,18 @@ def _bucket_sync_inner(campaign_root: Path, campaign_id: str, run_log: Path | No
         return
     jobs = _sealed_job_dirs(campaign_root)
     for rel, job_dir in sorted(jobs.items()):
-        expected = _local_sizes(job_dir)
-        prefix = f'{run_prefix}/{rel}'
-        untouched = all(remote.get(f'{prefix}/{r}') == s for r, s in expected.items())
-        line = _sync_job_to_bucket(client, bucket, run_prefix, rel, job_dir, expected, remote, token)
+        try:
+            expected = _local_sizes(job_dir)
+            prefix = f'{run_prefix}/{rel}'
+            untouched = all(remote.get(f'{prefix}/{r}') == s for r, s in expected.items())
+            line = _sync_job_to_bucket(client, bucket, run_prefix, rel, job_dir,
+                                       expected, remote, token)
+        except _BucketDeadline:
+            _append_run_log(run_log, f'BUCKET-ERROR {rel} bucket timeout')
+            return
+        except Exception as exc:
+            _append_run_log(run_log, f'BUCKET-ERROR {rel} {_safe_reason(exc, token)}')
+            continue
         if untouched and not audit_all and line.startswith('BUCKET-OK '):
             continue
         _append_run_log(run_log, line)
