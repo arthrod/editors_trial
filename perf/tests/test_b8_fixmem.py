@@ -105,20 +105,34 @@ def test_browser_rows_static_host_measures_without_server_pid(attempt_dir):
     assert ("C19", None, "measured") in outcomes
     trial = json.loads(next(attempt_dir.glob("c17-ready-*.json")).read_text())
     host = trial["diagnostic"]["memory_host"]
-    assert host["counted_in_rss"] is False
-    assert host["host_server_pid"] is None
+    assert host["host_server_counted_in_rss"] is False
+    assert host["host_server_pid_first_pair"] is None
     assert STATIC_SERVER_NOTE in host["static_host_note"]
 
 
 def test_memory_host_diagnostic_legacy_host_pid_not_counted():
     host = memory._memory_host_diagnostic(_LegacyHostLike())
-    assert host["memory_roots"] == "probe_browser_tree_only"
-    assert host["host_server_pid"] == 4242
-    assert host["counted_in_rss"] is False
+    assert host["memory_roots"] == "editor_browser_tree_only"
+    assert host["host_server_pid_first_pair"] == 4242
+    assert host["host_server_counted_in_rss"] is False
     assert STATIC_SERVER_NOTE in host["static_host_note"]
 
 
-def test_run_browser_pair_roots_are_probe_process_only(tmp_path):
+PROBE_BROWSER_TABLE = """\
+  500     1  100000
+  501   500  200000
+  502   501  300000
+"""
+
+
+def test_chromium_tree_sample_excludes_node_probe_driver():
+    """Sampling at the launched browser must not count the node probe parent."""
+    sample = sample_process_tree(501, ps_reader=lambda: PROBE_BROWSER_TABLE, platform_name="darwin")
+    assert 500 not in sample["pids"]
+    assert sample["pids"] == [501, 502]
+
+
+def test_run_browser_pair_roots_are_launched_browser_not_probe(tmp_path):
     fake_proc = mock.MagicMock()
     fake_proc.pid = 501
     fake_proc.stdin = mock.MagicMock()
@@ -126,10 +140,26 @@ def test_run_browser_pair_roots_are_probe_process_only(tmp_path):
     fake_proc.returncode = 0
     fixture = tmp_path / "fixture.docx"
     fixture.write_bytes(b"docx")
+    phase_ready = 'PHASE ready {"ready_ms": 10, "browser_pid": 601}'
+    lines = iter([phase_ready, "RESULT {}"])
+
+    def read_line(proc, deadline):
+        return next(lines)
+
     with mock.patch.object(memory.subprocess, "Popen", return_value=fake_proc):
-        with mock.patch.object(memory, "_read_probe_line", return_value="RESULT {}"):
+        with mock.patch.object(memory, "_read_probe_line", side_effect=read_line):
             with mock.patch.object(memory, "_stop_process_group"):
-                record = memory._run_browser_pair(
+                with mock.patch.object(memory, "_sample_roots") as sample_roots:
+                    sample_roots.return_value = {
+                        "rss_bytes": 1,
+                        "process_count": 1,
+                        "pids": [601],
+                        "method": "ps_rss_sum",
+                        "platform": "darwin",
+                        "ps_command": "ps",
+                        "roots": [601],
+                    }
+                    record = memory._run_browser_pair(
                     target={"url": "http://127.0.0.1:1/", "corpus_route": "/x"},
                     corpus_path=fixture,
                     burst=0,
@@ -137,7 +167,10 @@ def test_run_browser_pair_roots_are_probe_process_only(tmp_path):
                     retain_seconds=[],
                     probe_timeout_s=5.0,
                 )
-    assert record["roots"] == [501]
+    assert record["roots"] == [601]
+    assert 501 not in record["roots"]
+    sample_roots.assert_called()
+    assert sample_roots.call_args[0][0] == [601]
 
 
 def test_browser_rows_legacy_host_does_not_sample_server_pid(attempt_dir):
@@ -167,5 +200,5 @@ def test_browser_rows_legacy_host_does_not_sample_server_pid(attempt_dir):
                     )
     trial = json.loads(next(attempt_dir.glob("c17-ready-*.json")).read_text())
     host = trial["diagnostic"]["memory_host"]
-    assert host["host_server_pid"] == 4242
-    assert host["counted_in_rss"] is False
+    assert host["host_server_pid_first_pair"] == 4242
+    assert host["host_server_counted_in_rss"] is False

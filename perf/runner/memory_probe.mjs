@@ -93,6 +93,22 @@ async function loadPlaywright() {
   return import(pathToFileURL(spec).href);
 }
 
+function launchedBrowserPid(browserContext) {
+  const viaPublic = typeof browserContext.browser === 'function' ? browserContext.browser() : null;
+  const publicProc = viaPublic && typeof viaPublic.process === 'function' ? viaPublic.process() : null;
+  if (publicProc && Number.isInteger(publicProc.pid) && publicProc.pid > 0) return publicProc.pid;
+  // Playwright 1.64 hides ChildProcess on the client Browser. The in-process
+  // connection still points at the server browser this call launched.
+  const connection = browserContext._connection;
+  const impl = connection && typeof connection.toImpl === 'function' ? connection.toImpl(browserContext) : null;
+  const serverBrowser = impl && impl._browser;
+  const proc = serverBrowser && serverBrowser.options && serverBrowser.options.browserProcess
+    ? serverBrowser.options.browserProcess.process
+    : null;
+  if (proc && Number.isInteger(proc.pid) && proc.pid > 0) return proc.pid;
+  return null;
+}
+
 async function waitForReady(page, timeoutMs = 120_000) {
   if (readyJs) {
     await page.waitForFunction(
@@ -148,6 +164,7 @@ async function main() {
     headless: true,
     args: ['--font-render-hinting=none', '--disable-lcd-text'],
   });
+  let browserPid = null;
   const result = {
     driver: 'playwright',
     url,
@@ -165,8 +182,12 @@ async function main() {
 
   try {
     const first = await openEditor(browser);
+    browserPid = launchedBrowserPid(first.context);
+    if (!browserPid) {
+      throw new Error('could not read launched browser pid');
+    }
     result.ready_ms = first.readyMs;
-    await phase('ready', { ready_ms: first.readyMs });
+    await phase('ready', { ready_ms: first.readyMs, browser_pid: browserPid });
 
     const before = await bodyTextLength(first.page);
     if (burst > 0 && editSelector) {
@@ -184,6 +205,7 @@ async function main() {
     const after = await bodyTextLength(first.page);
     result.edit_effective = after > before;
     await phase('edited', {
+      browser_pid: browserPid,
       edit_effective: result.edit_effective,
       text_length_before: before,
       text_length_after: after,
@@ -192,7 +214,7 @@ async function main() {
     });
 
     await first.page.waitForTimeout(quiescenceMs);
-    await phase('quiescent', { idle_ms: quiescenceMs });
+    await phase('quiescent', { browser_pid: browserPid, idle_ms: quiescenceMs });
 
     if (!reopen) {
       await first.context.close();
@@ -202,16 +224,20 @@ async function main() {
     }
 
     await first.context.close();
-    await phase('closed', { context_closed: true });
+    await phase('closed', { browser_pid: browserPid, context_closed: true });
 
     try {
       const second = await openEditor(browser);
       result.reopen_ready_ms = second.readyMs;
-      await phase('reopened', { reopen_ready_ms: second.readyMs });
+      await phase('reopened', { browser_pid: browserPid, reopen_ready_ms: second.readyMs });
       await second.context.close();
     } catch (err) {
       result.reopen_error = String(err.message || err).slice(0, 400);
-      await phase('reopened', { reopen_ready_ms: null, reopen_error: result.reopen_error });
+      await phase('reopened', {
+        browser_pid: browserPid,
+        reopen_ready_ms: null,
+        reopen_error: result.reopen_error,
+      });
     }
 
     await browser.close();

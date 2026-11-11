@@ -356,9 +356,7 @@ def _evidence(*, phase, method_sample, phases, extra=None):
         "platform": method_sample["platform"],
         "sample_unit": "bytes",
         "ps_command": method_sample["ps_command"],
-        "tree_roots": "the editor's dev server and the probe that owns the browser"
-        if len(method_sample.get("roots") or []) > 1
-        else "the editor process",
+        "tree_roots": "the Chromium process tree rooted at the browser process this run launched",
         "phases_sampled": list(phases),
         "phase": phase,
         "pss_bytes": None,
@@ -562,9 +560,9 @@ def _host_memory_root(server) -> int | None:
 
 def _memory_host_diagnostic(server) -> dict:
     return {
-        "memory_roots": "probe_browser_tree_only",
-        "host_server_pid": _host_memory_root(server),
-        "counted_in_rss": False,
+        "memory_roots": "editor_browser_tree_only",
+        "host_server_pid_first_pair": _host_memory_root(server),
+        "host_server_counted_in_rss": False,
         "static_host_note": STATIC_SERVER_NOTE,
     }
 
@@ -615,7 +613,7 @@ def _run_browser_pair(
         bufsize=1,
         start_new_session=True,
     )
-    roots = [proc.pid]
+    roots: list[int] = []
     deadline = time.monotonic() + probe_timeout_s
     record = {
         "phases": {},
@@ -635,10 +633,21 @@ def _run_browser_pair(
                 _, name, payload = line.split(" ", 2)
                 details = json.loads(payload)
                 if name in ("ready", "edited", "quiescent", "reopened"):
+                    browser_pid = details.get("browser_pid")
+                    if isinstance(browser_pid, int) and browser_pid > 0 and not roots:
+                        roots = [browser_pid]
+                    if not roots:
+                        raise _probe_failure("probe did not report browser_pid", "harness_error")
                     sample = _sample_roots(roots)
                     record["phases"][name] = {"sample": sample, "probe": details}
                     record[name] = record["phases"][name]
                 elif name == "closed":
+                    if not roots:
+                        browser_pid = details.get("browser_pid")
+                        if isinstance(browser_pid, int) and browser_pid > 0:
+                            roots = [browser_pid]
+                    if not roots:
+                        raise _probe_failure("probe did not report browser_pid before close", "harness_error")
                     record["retention"] = _retention_series(roots, retain_seconds)
                     record["closed"] = {"probe": details, "retention": record["retention"]}
                 else:
@@ -659,6 +668,7 @@ def _run_browser_pair(
         except OSError:
             pass
         _stop_process_group(proc)
+    record["roots"] = roots
     record["probe_exit"] = proc.returncode
     return record
 
@@ -744,7 +754,8 @@ def _browser_rows(
         "retain_seconds": list(args.retain_seconds),
         "load_average": load_average(),
         "host_class": host_class(),
-        "memory_host": memory_host or {"memory_roots": "unknown", "counted_in_rss": None},
+        "memory_host": memory_host
+        or {"memory_roots": "unknown", "host_server_counted_in_rss": None},
     }
 
     def env_for(cache_state):
