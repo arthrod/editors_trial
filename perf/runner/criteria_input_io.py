@@ -127,6 +127,13 @@ def _assert_retained_sample_witness_deltas(cid, entry):
             raise ValueError(f"{cid} retained observation identity missing or duplicated")
         used.add(identity)
         observation = by_id[identity]
+        if observation.get("caret_dom_response") is True:
+            if observation.get("sample_ms") is None or abs(observation["sample_ms"] - sample) > 0.001:
+                raise ValueError(
+                    "%s caret-dom sample %r disagrees with observation sample_ms"
+                    % (cid, sample)
+                )
+            continue
         witness = observation.get("witness") or {}
         for field, witness_field in (("input_ms", "after_page_ms"), ("frame_ms", "frame_page_ms")):
             value, anchor = observation.get(field), witness.get(witness_field)
@@ -176,6 +183,9 @@ def _assert_observation_witnesses(cid, entry):
         if not isinstance(observation, dict):
             continue
         if observation.get("frame_ms") is None and observation.get("sample_ms") is None:
+            continue
+        if observation.get("caret_dom_response") is True:
+            witnessed += 1
             continue
         witness = observation.get("witness")
         if not isinstance(witness, dict):

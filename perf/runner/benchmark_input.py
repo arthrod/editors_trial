@@ -115,6 +115,8 @@ def _probe_env(editor_id: str, target: dict, fixture: Path, *, workload_id: str)
         opening = corpus_opening_text(fixture)
         if opening:
             env["PERF_EXPECTED_OPENING_TEXT"] = opening
+        else:
+            env["PERF_INPUT_OPENING_REQUIRED"] = "1"
     else:
         body = docx_body_text(fixture)
         body_path = fixture.with_name(fixture.stem + ".expected-body.txt")

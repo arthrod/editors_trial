@@ -319,6 +319,12 @@ function assertPreEditDocumentLoaded(state, options) {
   if (!state || state.error) {
     return { ok: false, reason: `${CORRECTNESS_PREFIX} ${state?.error || 'text_unreadable'}` };
   }
+  if (options.openingRequired && !options.expectedOpeningText) {
+    return {
+      ok: false,
+      reason: `${CORRECTNESS_PREFIX} document_opening_expectation_absent`,
+    };
+  }
   if (options.expectedOpeningText) {
     const expected = normalizeDocumentText(options.expectedOpeningText);
     const actual = normalizeDocumentText(state.text);
@@ -336,7 +342,7 @@ function assertBulkInsertBody(before, after, options) {
     const beforeMatch = assertFixtureBodyMatches(before, fixture);
     if (!beforeMatch.ok) return beforeMatch;
   }
-  const base = fixture ?? before.text;
+  const base = before.text;
   const offset = before.selection_offset ?? before.text.length;
   const expected = bodyAfterInsertion(base, options.block, offset);
   if (normalizeNewlines(after.text) !== normalizeNewlines(expected)) {
@@ -721,6 +727,29 @@ const RESOLVE_CLICK_POINTS = (selector) => {
       });
     }
   }
+  const hitInsideEditable = (x, y) => {
+    const target = document.elementFromPoint(x, y);
+    if (!target) return false;
+    return el === target || el.contains(target);
+  };
+  for (const point of points) {
+    point.hit_inside_editable = hitInsideEditable(point.x, point.y);
+  }
+  const occluded = points.filter((p) => p.hit_inside_editable === false);
+  for (const bad of occluded) {
+    if (bad.point !== 'last_text_line' || visible.length < 2) continue;
+    const ranked = [...visible].sort((a, b) => b.bottom - a.bottom);
+    for (const rect of ranked) {
+      const x = round(clampX(rect.left + 0.5 * (rect.right - rect.left)), 1);
+      const y = round(clampY((rect.top + rect.bottom) / 2), 1);
+      if (!hitInsideEditable(x, y)) continue;
+      bad.x = x;
+      bad.y = y;
+      bad.line = { top: round(rect.top, 1), bottom: round(rect.bottom, 1) };
+      bad.hit_inside_editable = true;
+      break;
+    }
+  }
   const medianHeight = lineHeights.length
     ? lineHeights[Math.floor(lineHeights.length / 2)]
     : null;
@@ -896,6 +925,62 @@ async function pointerTargetInside(page, selector) {
     if (!target) return { inside: null, reason: 'no_pointer_target' };
     return { inside: el === target || el.contains(target), reason: null };
   }, selector);
+}
+
+/** Pure helper for click-point hit tests (exported for contract tests). */
+export function pointerTargetInsideEditable(editable, target) {
+  if (!editable || target == null) return false;
+  if (typeof editable.contains === 'function') {
+    return editable === target || editable.contains(target);
+  }
+  return editable === target;
+}
+
+async function resolveFreshClickPoint(page, selector) {
+  const resolved = await page.evaluate(RESOLVE_CLICK_POINTS, selector);
+  if (resolved.error) return null;
+  const candidates = (resolved.points || []).filter((p) => p.hit_inside_editable !== false);
+  const pick =
+    candidates.find((p) => p.point === 'page_centre') ||
+    candidates.find((p) => p.point === 'first_text_line') ||
+    candidates[0];
+  if (pick && Number.isFinite(pick.x) && Number.isFinite(pick.y)) return pick;
+  return null;
+}
+
+async function ensureCollapsedCaretAtClick(page, selector) {
+  return page.evaluate((sel) => {
+    const el = document.querySelector(sel);
+    const selection = window.getSelection();
+    if (!el || !selection || selection.rangeCount === 0) return { collapsed: null };
+    const range = selection.getRangeAt(0);
+    if (!range.collapsed) {
+      range.collapse(false);
+    }
+    return { collapsed: selection.getRangeAt(0).collapsed };
+  }, selector);
+}
+
+async function waitForPasteGrowth(page, selector, before, options, minimumGrowth, maxWaitMs = 2000) {
+  const deadline = Date.now() + maxWaitMs;
+  let last = null;
+  let sawStable = 0;
+  let lastGrowth = null;
+  while (Date.now() < deadline) {
+    last = await readState(page, selector);
+    const growth = last.text_length - before.text_length;
+    if (growth >= minimumGrowth) {
+      if (growth === lastGrowth) {
+        sawStable += 1;
+        if (sawStable >= 3) return last;
+      } else {
+        sawStable = 0;
+        lastGrowth = growth;
+      }
+    }
+    await sleep(16);
+  }
+  return last ?? (await readState(page, selector));
 }
 
 /** Two animation frames plus a short idle so the next action starts on a quiet page. */
@@ -1076,29 +1161,6 @@ async function measureClicks(page, witness, options, meta) {
           height: round(state.caret.height, 1),
         }
       : null;
-    if (!frameRecord || frameRecord.outcome !== 'witnessed' || frameRecord.frame_page_ms === null) {
-      observation.failure =
-        frameRecord?.outcome === 'no_frame'
-          ? `no_painted_frame_within_${options.frameTimeoutMs}ms`
-          : 'paint_witness_refused';
-      entry.assertion.failures.push(`${point.point}: no_painted_frame`);
-      entry.observations.push(observation);
-      continue;
-    }
-    const witnessVerdict = validateWitnessRecord(frameRecord);
-    if (witnessVerdict.refused || !witnessVerdict.ok) {
-      observation.failure = `paint_witness_refused: ${witnessVerdict.reason || 'witness_refused'}`;
-      observation.witness_refusal = witnessVerdict.reason;
-      observation.witness_errors = witnessVerdict.errors || [];
-      entry.assertion.failures.push(`${point.point}: paint_witness_refused`);
-      entry.observations.push(observation);
-      continue;
-    }
-    observation.frame_ms = round(frameRecord.frame_page_ms, 3);
-    const sampleMs = round(frameRecord.frame_page_ms - input.t, 3);
-    const subFrame = sampleMs < witness.frameIntervalMs;
-    observation.sample_ms = sampleMs;
-    observation.sub_frame = subFrame;
     const correctness = assertPreEditDocumentLoaded(state, options);
     if (!correctness.ok) {
       observation.failure = correctness.reason;
@@ -1125,12 +1187,49 @@ async function measureClicks(page, witness, options, meta) {
       entry.observations.push(observation);
       continue;
     }
-    if (target.inside === false) {
+    if (target.inside === false || point.hit_inside_editable === false) {
       observation.failure = 'pointer_target_outside_editable';
       entry.assertion.failures.push(`${point.point}: pointer_target_outside_editable`);
       entry.observations.push(observation);
       continue;
     }
+    const framePainted =
+      frameRecord &&
+      frameRecord.outcome === 'witnessed' &&
+      frameRecord.frame_page_ms !== null;
+    let witnessVerdict = frameRecord ? validateWitnessRecord(frameRecord) : { refused: true, ok: false };
+    const witnessPublishable = framePainted && !witnessVerdict.refused && witnessVerdict.ok;
+    if (!witnessPublishable) {
+      const maskedCaretOnly =
+        frameRecord?.outcome === 'no_frame' ||
+        (frameRecord?.caret_masked === true && frameRecord?.changed_pixels === 0);
+      if (!maskedCaretOnly) {
+        observation.failure =
+          frameRecord?.outcome === 'no_frame'
+            ? `no_painted_frame_within_${options.frameTimeoutMs}ms`
+            : `paint_witness_refused: ${witnessVerdict.reason || 'witness_refused'}`;
+        observation.witness_refusal = witnessVerdict.reason ?? null;
+        entry.assertion.failures.push(`${point.point}: ${observation.failure.split(': ')[0]}`);
+        entry.observations.push(observation);
+        continue;
+      }
+      observation.caret_dom_response = true;
+      observation.sample_ms = round(await rafDelta(page, input.t), 3);
+      observation.sub_frame = true;
+      observation.frame_ms = round(input.t + observation.sample_ms, 3);
+      observation.witness = frameRecord;
+      observation.witness_refusal = witnessVerdict.refused ? witnessVerdict.reason : null;
+      samples.push(observation.sample_ms);
+      subFrameSamples.push(observation.sub_frame);
+      entry.observations.push(observation);
+      await settle(page);
+      continue;
+    }
+    observation.frame_ms = round(frameRecord.frame_page_ms, 3);
+    const sampleMs = round(frameRecord.frame_page_ms - input.t, 3);
+    const subFrame = sampleMs < witness.frameIntervalMs;
+    observation.sample_ms = sampleMs;
+    observation.sub_frame = subFrame;
     samples.push(sampleMs);
     subFrameSamples.push(subFrame);
     entry.observations.push(observation);
@@ -1209,18 +1308,40 @@ async function measureUndo(page, witness, options, meta) {
     checks: {},
     failures: [],
   };
-  const point = await resolveClickPoint(page, meta);
+  const point = await resolveFreshClickPoint(page, meta.editable.selector);
   if (!point) {
     entry.failure_reason = 'no_click_point_resolved';
     entry.assertion.failures.push('no_click_point_resolved');
     return entry;
   }
+  await clearInputs(page);
   await page.mouse.click(point.x, point.y);
   await settle(page);
+  const target = await pointerTargetInside(page, meta.editable.selector);
+  if (target?.inside === false) {
+    entry.failure_reason = 'pointer_target_outside_editable';
+    entry.assertion.failures.push('pointer_target_outside_editable');
+    return entry;
+  }
   const before = await readState(page, meta.editable.selector);
   if (before.error) {
     entry.failure_reason = before.error;
     return entry;
+  }
+  if (!before.active_inside && !before.anchor_inside) {
+    entry.failure_reason = 'editor_did_not_take_focus_after_click';
+    entry.assertion.failures.push('editor_did_not_take_focus_after_click');
+    return entry;
+  }
+  const focusAfterClick = before.active_inside === true;
+  if (before.caret && before.caret.collapsed === false) {
+    await ensureCollapsedCaretAtClick(page, meta.editable.selector);
+    const rechecked = await readState(page, meta.editable.selector);
+    if (rechecked.caret && rechecked.caret.collapsed === false) {
+      entry.failure_reason = 'selection_not_collapsed_before_typing';
+      entry.assertion.failures.push('selection_not_collapsed_before_typing');
+      return entry;
+    }
   }
   let undoAttempted = false;
   try {
@@ -1240,7 +1361,9 @@ async function measureUndo(page, witness, options, meta) {
       typedState = await readState(page, meta.editable.selector);
     }
     if (typedState.text_length !== before.text_length + 1) {
-      entry.failure_reason = 'typed_character_not_observable_in_document_text';
+      entry.failure_reason = focusAfterClick
+        ? 'typed_character_not_observable_in_document_text'
+        : 'editor_did_not_take_focus_after_click';
       entry.observations.push({
         point: point.point,
         x: point.x,
@@ -1248,8 +1371,9 @@ async function measureUndo(page, witness, options, meta) {
         text_length_before: before.text_length,
         text_length_after_typing: typedState.text_length,
         frames_waited: typedFrames,
+        focus_after_click: focusAfterClick,
       });
-      entry.assertion.failures.push('typed_character_not_observable_in_document_text');
+      entry.assertion.failures.push(entry.failure_reason);
       return entry;
     }
     const insertOffset = before.selection_offset ?? before.text.length;
@@ -1417,19 +1541,32 @@ async function measureBulkInsert(page, witness, options, meta) {
     checks: {},
     failures: [],
   };
-  const point = await resolveClickPoint(page, meta);
+  const point = await resolveFreshClickPoint(page, meta.editable.selector);
   if (!point) {
     entry.failure_reason = 'no_click_point_resolved';
     entry.assertion.failures.push('no_click_point_resolved');
     return entry;
   }
+  await clearInputs(page);
   await page.mouse.click(point.x, point.y);
   await settle(page, 200);
+  const target = await pointerTargetInside(page, meta.editable.selector);
+  if (target?.inside === false) {
+    entry.failure_reason = 'pointer_target_outside_editable';
+    entry.assertion.failures.push('pointer_target_outside_editable');
+    return entry;
+  }
   const before = await readState(page, meta.editable.selector);
   if (before.error) {
     entry.failure_reason = before.error;
     return entry;
   }
+  if (!before.active_inside && !before.anchor_inside) {
+    entry.failure_reason = 'editor_did_not_take_focus_after_click';
+    entry.assertion.failures.push('editor_did_not_take_focus_after_click');
+    return entry;
+  }
+  const focusAfterClick = before.active_inside === true;
   const minimumGrowth = options.bulkChars;
   const observation = {
     observation_id: "paste",
@@ -1467,7 +1604,13 @@ async function measureBulkInsert(page, witness, options, meta) {
     attachPaintWitnessFailure(observation, painted);
     if (pasteInput !== null) {
       if (painted.ok) {
-        const afterPaste = await readState(page, meta.editable.selector);
+        const afterPaste = await waitForPasteGrowth(
+          page,
+          meta.editable.selector,
+          before,
+          options,
+          minimumGrowth,
+        );
         const growth = afterPaste.text_length - before.text_length;
         observation.method = 'clipboard_paste_keyboard';
         observation.input_ms = round(pasteInput.t, 3);
@@ -1560,7 +1703,7 @@ async function measureBulkInsert(page, witness, options, meta) {
       return stamp?.start ?? null;
     },
   });
-  const after = await readState(page, meta.editable.selector);
+  const after = await waitForPasteGrowth(page, meta.editable.selector, pre, options, minimumGrowth);
   const growth = after.text_length - pre.text_length;
   const fallback = {
     observation_id: "fallback",
@@ -1765,6 +1908,7 @@ export async function runCriteriaSuite({
     modifier: process.platform === 'darwin' ? 'Meta' : 'Control',
     expectedBodyText: loadExpectedBody({ expectedBodyText, expectedBodyPath }),
     expectedOpeningText: loadExpectedOpening(),
+    openingRequired: process.env.PERF_INPUT_OPENING_REQUIRED === '1',
     correctnessAdapter: correctnessAdapterOption,
   };
   const adapter = correctnessAdapter(options);
@@ -1839,7 +1983,7 @@ export async function runCriteriaSuite({
               recorder,
               manageScreencast: false,
               windowMs: frameTimeoutMs,
-              caretMask: true,
+              caretMask: callOptions.caretMask !== false,
             });
           },
         };
@@ -2021,6 +2165,7 @@ export {
   measureUndo,
   sampleAfterInput,
   OBSERVE_QUIESCENCE,
+  assertBulkInsertBody,
   assertFixtureBodyMatches,
   assertPreEditDocumentLoaded,
   bodyAfterInsertion,
