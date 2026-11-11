@@ -158,9 +158,8 @@ export async function prepareEditSurface(page, editorId, { timeoutMs = 600000 } 
   let textLine = null;
   if (surface.kind === 'dom' && surface.root) {
     const request = { root: surface.root, exclude: surface.exclude || null, minChars: 12 };
-    const textLineMs = Math.min(timeoutMs, 120_000);
     try {
-      await page.waitForFunction(FIND_TEXT_LINE, request, { timeout: textLineMs, polling: 100 });
+      await page.waitForFunction(FIND_TEXT_LINE, request, { timeout: timeoutMs, polling: 100 });
       textLine = true;
     } catch {
       textLine = false;
