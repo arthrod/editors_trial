@@ -241,6 +241,47 @@ class TestExclusions:
                        for path in bucket_env.files)
         assert f'{prefix}/runner_a/{run_id}-000/evidence/e.json' in bucket_env.files
 
+    def test_job_with_excluded_trees_uploads_generated_json_and_logs(self, tmp_path, bucket_env):
+        from perf.container import mirror
+
+        remote = tmp_path / 'remote'
+        run_id = 'camp-7'
+        campaign = campaign_root(remote, run_id)
+        generated = {
+            'summary.json': '{"samples": 1}',
+            'samples/s1.json': '{"n": 1}',
+            'evidence/e.json': '{}',
+            'logs/job.log': 'measured ok\n',
+        }
+        excluded = {
+            'builds/editor/app.js': 'BUILD',
+            'dist/bundle.js': 'DIST',
+            'node_modules/pkg/index.js': 'MODULES',
+            'fixtures/case/in.txt': 'FIXTURE',
+            'input.docx': 'DOCX-INPUT',
+        }
+        job_dir = seal_job(
+            remote, run_id, 'runner_a', f'{run_id}-000',
+            {**generated, **excluded},
+        )
+        run_log = campaign / 'RUN.log'
+        run_log.write_text('campaign start\n')
+        mirror.mirror_job_directory(run_id, 'runner_a', f'{run_id}-000', job_dir, run_log)
+        prefix = f'runs/arthrod/e2-publish/{run_id}'
+        job_prefix = f'{prefix}/runner_a/{run_id}-000/'
+        uploaded = {
+            path[len(job_prefix):] for path in bucket_env.files if path.startswith(job_prefix)
+        }
+        assert uploaded == set(generated) | {'MANIFEST.sha256', 'JOB-DONE'}
+        for rel, text in generated.items():
+            assert bucket_env.files[f'{job_prefix}{rel}'] == text.encode(), rel
+        assert bucket_env.files[f'{prefix}/RUN.log'] == run_log.read_bytes()
+        banned = {b'BUILD', b'DIST', b'MODULES', b'FIXTURE', b'DOCX-INPUT'}
+        leaked = [path for path, data in bucket_env.files.items() if data in banned]
+        assert leaked == []
+        for rel in excluded:
+            assert (job_dir / rel).is_file(), rel
+
 
 class TestVerifyAndLogLines:
     def test_bucket_ok_line_counts_files_and_bytes(self, tmp_path, bucket_env):
