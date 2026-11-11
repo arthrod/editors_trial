@@ -168,9 +168,11 @@ def test_typing_empty_order_rerun_refused(tmp_path):
 
 
 def test_unpublished_typing_partial_agreement_withholds_figures(tmp_path):
+    # The order must name the 12 written cells or the group is refused on
+    # scheduled != 12 before the cpu comparison this test is about.
     roots = [
-        _write_typing_job(tmp_path / "sa", "t1", 1, summary=_summary("t1", 1, hosts={"plate": {"tree_sha256": "tree-a"}})),
-        _write_typing_job(tmp_path / "sb", "t2", 2, summary=_summary("t2", 2, hosts={"plate": {"tree_sha256": "tree-a"}})),
+        _write_typing_job(tmp_path / "sa", "t1", 1, summary=_summary("t1", 1, order=[[i, "plate"] for i in range(12)], hosts={"plate": {"tree_sha256": "tree-a"}})),
+        _write_typing_job(tmp_path / "sb", "t2", 2, summary=_summary("t2", 2, order=[[i, "plate"] for i in range(12)], hosts={"plate": {"tree_sha256": "tree-a"}})),
     ]
     # Disagree on one resource measure, agree on throughput.
     for root in roots:
@@ -187,7 +189,9 @@ def test_unpublished_typing_partial_agreement_withholds_figures(tmp_path):
     assert facts["perf.e2.plate.TYPING.throughput.reproduced"] is False
     table = facts.get("perf.e2.table.TYPING", "")
     assert "111" not in table and "99999" not in table
-    assert "chars/s" not in table or "not reproduced" in table
+    # The cell is unpublished, so its agreeing throughput figure is withheld
+    # too: a rendered "chars/s" median means the withholding was removed.
+    assert "chars/s" not in table
 
 
 def test_unpublished_cell_facts_contain_no_timing_figures(tmp_path):
