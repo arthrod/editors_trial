@@ -62,6 +62,11 @@ def unavailable_marker(reason):
     """The unavailable marker. ``reason`` says why there is no number."""
     return {"marker": NOT_AVAILABLE, "reason": reason}
 
+
+def withheld_marker(reason):
+    """A measured field deliberately withheld from publication."""
+    return {"marker": "withheld", "reason": reason}
+
 PAGE_SNAPSHOT_JS = """async () => {
   let est = null;
   if (navigator.storage && navigator.storage.estimate) {
@@ -128,6 +133,7 @@ FIELD_SOURCES = {
     "cpu_ms": "cumulative user+system CPU, Linux /proc/<pid>/stat utime+stime or macOS ps time, ms",
     "cpu_percent": "CPU ms over wall ms since the previous sample, percent, summed over cores (250% = 2.5 cores), not capped at 100",
     "renderer_cpu_ms": "delta of renderer cpu_ms across a phase, ms",
+    "edit_cpu_ms": "browser-tree process CPU from immediately after the baseline probe through keyboard.type plus the fixed settle; verification and full endpoint probes are outside the boundary",
     "io_read_bytes": "Linux /proc/<pid>/io read_bytes; not_available_on_platform elsewhere",
     "io_write_bytes": "Linux /proc/<pid>/io write_bytes; not_available_on_platform elsewhere",
     "storage_usage_bytes": "navigator.storage.estimate usage, bytes",
@@ -910,6 +916,20 @@ class ResourceSampler:
         except Exception:
             return None
         return self.sample(record=False)
+
+    def process_snapshot(self):
+        """A process-only boundary: no CDP, page evaluation, or storage probe."""
+        processes, status, error = self._processes()
+        return {
+            "monotonic_s": self.clock.monotonic(),
+            "processes": processes,
+            "process_tree_status": status,
+            "process_tree_error": error,
+        }
+
+    def process_counter_delta(self, before, after, key, *, role=None):
+        """CPU delta between two process-only boundaries."""
+        return _identity_delta([before, after], key, role=role)
 
     def series(self):
         return [copy.deepcopy(row) for row in self._samples]

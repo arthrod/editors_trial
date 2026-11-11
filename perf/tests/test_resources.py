@@ -117,6 +117,14 @@ class FakePage:
         }
 
 
+class ProbeCostPage(FakePage):
+    """A page whose full resource probe costs renderer CPU."""
+
+    def evaluate(self, expression):
+        self.world.burn_renderer_cpu_ms(500)
+        return super().evaluate(expression)
+
+
 class FakeCdp:
     def __init__(self, world):
         self.world = world
@@ -212,6 +220,40 @@ class PhaseSession:
         if self.mode == "measure":
             self.world.set_heap(42 * MiB)
 
+    def prepare_edit(self, burst):
+        return {"beforeText": "", "pre_type_settle_ms": 300}
+
+    def type_edit(self, burst):
+        self.edited = dict(burst)
+        text = str(burst.get("text") or "")
+        repetitions = int(burst.get("repetitions") or 0)
+        if self.mode == "measure":
+            self.world.set_heap(48 * MiB)
+            self.world.burn_renderer_cpu_ms(400)
+            self._editor_text = text * repetitions
+        else:
+            self._editor_text = "ready"
+        return {"typed": True, "typing_duration_ms": 1.0}
+
+    def verify_edit(self, burst, prepared):
+        verified = self.mode == "measure"
+        return {
+            "applied": verified,
+            "beforeText": prepared.get("beforeText", ""),
+            "editorText": getattr(self, "_editor_text", "ready"),
+            "kind": "keyboard.type",
+            "oracle": {
+                "mode": "dom_text",
+                "witness_mode": "dom_text",
+                "status": "verified" if verified else "edit_not_applied",
+                "reason": None if verified else "text_delta_mismatch",
+                "model_hook": False,
+                "trusted_keys": 16 if verified else 0,
+                "expected_text_delta": int(burst.get("repetitions") or 0),
+                "text_delta": int(burst.get("repetitions") or 0) if verified else 0,
+            },
+        }
+
     def edit(self, burst):
         self.edited = dict(burst)
         text = str(burst.get("text") or "")
@@ -238,11 +280,11 @@ class PhaseSession:
         return None
 
 
-def make_sampler(world, *, clock=None, platform_name="darwin", browser_pid=10):
+def make_sampler(world, *, clock=None, platform_name="darwin", browser_pid=10, page=None):
     directory = tempfile.mkdtemp()
     run = FakeRun(directory)
     run.editor_browser_pid = browser_pid
-    page = FakePage(world)
+    page = page or FakePage(world)
     cdp = FakeCdp(world)
     return ResourceSampler(
         run,
@@ -387,6 +429,95 @@ class SamplerMeasurements(unittest.TestCase):
         self.assertEqual(table[0]["io_read_bytes"], NOT_AVAILABLE)
 
 
+class SplitWindowSession:
+    """A session whose oracle work is deliberately much more expensive than typing."""
+
+    def __init__(self, world, *, oracle_status="verified"):
+        self.world = world
+        self.oracle_status = oracle_status
+        self.page = FakePage(world)
+        self.cdp = FakeCdp(world)
+        self.browser_pid = 10
+        self.server_pid = 99
+        self.profile_dir = None
+        self.bundle_bytes = 4096
+        self.has_save = False
+        self.events = []
+        self._editor_text = ""
+
+    def process_reader(self):
+        return [dict(row) for row in self.world.processes]
+
+    def load(self):
+        self.world.set_heap(40 * MiB)
+
+    def after_load(self):
+        self.world.set_heap(42 * MiB)
+
+    def prepare_edit(self, burst):
+        self.events.append("prepare")
+        self.world.burn_renderer_cpu_ms(100)
+        return {"beforeText": "", "pre_type_settle_ms": 300}
+
+    def type_edit(self, burst):
+        self.events.append("type")
+        self.world.set_heap(48 * MiB)
+        self.world.burn_renderer_cpu_ms(10)
+        self._editor_text = str(burst.get("text") or "") * int(burst.get("repetitions") or 0)
+        return {"typed": True, "typing_duration_ms": 2.0}
+
+    def verify_edit(self, burst, prepared):
+        self.events.append("verify")
+        self.world.burn_renderer_cpu_ms(1000)
+        verified = self.oracle_status == "verified"
+        return {
+            "applied": verified,
+            "beforeText": "",
+            "editorText": self._editor_text,
+            "kind": "keyboard.type",
+            "oracle": {
+                "mode": "dom_text",
+                "status": self.oracle_status,
+                "model_hook": False,
+                "trusted_keys": 16,
+                "text_delta": 8 if verified else None,
+                "expected_text_delta": 8,
+                "poll_attempts": 1,
+                "poll_bound_ms": 2000,
+            },
+        }
+
+    def edit(self, burst):
+        """The pre-fix combined path; kept so RED proves the old boundary is wrong."""
+        self.events.append("legacy_combined")
+        self.world.set_heap(48 * MiB)
+        self.world.burn_renderer_cpu_ms(1010)
+        self._editor_text = str(burst.get("text") or "") * int(burst.get("repetitions") or 0)
+        return {
+            "applied": True,
+            "beforeText": "",
+            "editorText": self._editor_text,
+            "kind": "keyboard.type",
+            "oracle": {
+                "mode": "dom_text",
+                "status": "verified",
+                "model_hook": False,
+                "trusted_keys": 16,
+                "text_delta": 8,
+                "expected_text_delta": 8,
+            },
+        }
+
+    def editor_text(self):
+        return self._editor_text
+
+    def after_edits(self):
+        self.world.set_heap(49 * MiB)
+
+    def close(self):
+        return None
+
+
 class LaneRefusals(unittest.TestCase):
     def test_constant_series_is_refused(self):
         world = World()
@@ -428,13 +559,16 @@ class LaneRefusals(unittest.TestCase):
 
         self.assertEqual(classify_series(sampler.series(), quiescence_reached=True), "copied_series")
 
-    def test_quiescence_never_reached_is_refused(self):
+    def test_an_editor_that_never_idles_is_measured_and_flagged(self):
+        # Owner decision 2026-11-11 (#155.3): WordCraft repaints forever. Its load
+        # and edit counters are real; refusing the cell hid that it never idles.
         world = World()
         clock = ManualClock(world, disturb=True)
         sampler = make_sampler(world, clock=clock)
+        session = PhaseSession(world, mode="measure")
         trial = collect_phases(
             sampler,
-            PhaseSession(world, mode="idle"),
+            session,
             clock,
             quiescence=SHORT_QUIESCENCE,
             edit_burst=EDIT_BURST,
@@ -445,9 +579,33 @@ class LaneRefusals(unittest.TestCase):
             host_class="ci_coarse",
         )
         self.assertFalse(trial["quiescence"]["reached"])
-        self.assertEqual(trial["outcome"], "refused")
-        self.assertEqual(trial["refusal_code"], "quiescence_not_reached")
-        self.assertIn("quiescence_not_reached", REFUSAL_CODES)
+        self.assertEqual(trial["settle"], {"after_load": "capped", "after_edit": "capped"})
+        self.assertEqual(trial["outcome"], "measured")
+        self.assertIsNone(trial["refusal_code"])
+        self.assertEqual(session.edited, EDIT_BURST)
+        for phase in ("edit_burst", "quiescence", "after_edits"):
+            self.assertIn(phase, trial["phases"])
+        self.assertEqual(trial["edit_oracle"]["status"], "verified")
+        self.assertNotIn("quiescence_not_reached", REFUSAL_CODES)
+
+    def test_a_settled_editor_says_so(self):
+        world = World()
+        clock = ManualClock(world, disturb=False)
+        sampler = make_sampler(world, clock=clock)
+        trial = collect_phases(
+            sampler,
+            PhaseSession(world, mode="measure"),
+            clock,
+            quiescence=SHORT_QUIESCENCE,
+            edit_burst=EDIT_BURST,
+            editor_id="plate",
+            workload_id="prose-500w",
+            workload_meta={"sha256": "b" * 64, "byte_size": 10, "paragraph_count": 1, "word_count": 1},
+            execution_profile="ci_broad",
+            host_class="ci_coarse",
+        )
+        self.assertTrue(trial["quiescence"]["reached"])
+        self.assertEqual(trial["settle"], {"after_load": "reached", "after_edit": "reached"})
 
     def test_workload_prose_50kw_runs_in_a_fake_host(self):
         holder = {}
@@ -526,6 +684,84 @@ class LaneRefusals(unittest.TestCase):
         )
         self.assertTrue(both["publishable"])
         self.assertEqual(both["publication_block_reasons"], [])
+
+
+class EditWindowAndOracleTest(unittest.TestCase):
+    def collect_split_trial(self, editor_id, *, oracle_status="verified"):
+        world = World()
+        clock = ManualClock(world, disturb=False)
+        sampler = make_sampler(world, clock=clock, page=ProbeCostPage(world))
+        session = SplitWindowSession(world, oracle_status=oracle_status)
+        trial = collect_phases(
+            sampler,
+            session,
+            clock,
+            quiescence=SHORT_QUIESCENCE,
+            edit_burst=EDIT_BURST,
+            editor_id=editor_id,
+            workload_id="prose-500w",
+            workload_meta={"sha256": "a" * 64, "byte_size": 10, "paragraph_count": 1, "word_count": 500},
+            execution_profile="ci_broad",
+            host_class="ci_coarse",
+        )
+        return trial, session
+
+    def test_edit_cpu_window_is_typing_plus_one_fixed_settle_for_every_editor(self):
+        measured = []
+        for editor_id in ("plate", "canvas"):
+            trial, session = self.collect_split_trial(editor_id)
+            self.assertEqual(trial["edit_cpu_ms"], 10, trial)
+            measurement = trial["edit_measurement"]
+            measured.append(measurement["settle_ms"])
+            self.assertGreaterEqual(measurement["measured_window_duration_ms"], 500)
+            self.assertEqual(measurement["pre_type_settle_ms"], 300)
+            self.assertEqual(session.events, ["prepare", "type", "verify"])
+        self.assertEqual(measured, [500, 500])
+
+    def test_unverified_paint_edit_withholds_all_edit_cpu_but_keeps_other_metrics(self):
+        trial, _ = self.collect_split_trial("superdoc", oracle_status="edit_unverified")
+        self.assertEqual(trial["outcome"], "measured")
+        self.assertTrue(trial.get("edit_unverified"))
+        self.assertEqual(trial["edit_oracle"]["status"], "edit_unverified")
+        self.assertNotIn("edit_cpu_ms", trial)
+        self.assertNotIn("edit_renderer_cpu_ms", trial)
+        self.assertIn("load_cpu_ms", trial)
+        self.assertIn("quiescence_cpu_ms", trial)
+        self.assertIn("quiescence", trial["phases"])
+        self.assertIn("C19", trial["criteria"])
+
+        def numeric_cpu_keys(value):
+            found = []
+            if isinstance(value, dict):
+                for key, child in value.items():
+                    if "cpu" in key.lower() and isinstance(child, (int, float)):
+                        found.append(key)
+                    found.extend(numeric_cpu_keys(child))
+            elif isinstance(value, list):
+                for child in value:
+                    found.extend(numeric_cpu_keys(child))
+            return found
+
+        edit_phase = trial["phases"]["edit_burst"]
+        edit_rows = [row for row in trial["series"] if row.get("phase") == "edit_burst"]
+        self.assertEqual(numeric_cpu_keys(edit_phase), [])
+        self.assertEqual(numeric_cpu_keys(edit_rows), [])
+        self.assertEqual(edit_phase["cpu_ms"]["marker"], "withheld")
+        self.assertEqual(edit_phase["renderer_cpu_ms"]["marker"], "withheld")
+        for row in edit_rows:
+            self.assertEqual(row["cpu_ms"]["marker"], "withheld")
+            self.assertEqual(row["cgroup_cpu_usec"]["marker"], "withheld")
+            for process in row["processes"]:
+                self.assertEqual(process["cpu_ms"]["marker"], "withheld")
+
+    def test_cell_records_edit_oracle_evidence(self):
+        trial, _ = self.collect_split_trial("plate")
+        oracle = trial.get("edit_oracle") or {}
+        self.assertEqual(oracle.get("mode"), "dom_text")
+        self.assertEqual(oracle.get("status"), "verified")
+        self.assertEqual(oracle.get("trusted_keys"), 16)
+        self.assertEqual(oracle.get("text_delta"), 8)
+        self.assertEqual(oracle.get("expected_text_delta"), 8)
 
 
 if __name__ == "__main__":

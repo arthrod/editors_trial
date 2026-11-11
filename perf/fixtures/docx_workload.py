@@ -447,6 +447,66 @@ def ladder_row_for_env(row: dict) -> dict:
     return row
 
 
+# Edit lanes (input, resources) drop only this element. Load-only lanes keep
+# the original complex-corpus package, protection and all.
+_DOCUMENT_PROTECTION = re.compile(
+    br"<w:documentProtection\b[^>]*/>|<w:documentProtection\b[^>]*>.*?</w:documentProtection>",
+    re.DOTALL,
+)
+EDIT_LANES = frozenset({"input", "resources"})
+EDIT_VARIANT = "complex-corpus-without-document-protection"
+
+
+def strip_document_protection(docx: bytes) -> bytes:
+    """Return a deterministic package with only ``w:documentProtection`` removed.
+
+    Every other part is copied uncompressed-identical. ``word/settings.xml``
+    loses that one element and nothing else. The zip is rewritten with the
+    fixed timestamp used for prose packages, so the sha256 does not move
+    between calls.
+    """
+    src = zipfile.ZipFile(io.BytesIO(docx))
+    names = src.namelist()
+    if "word/settings.xml" not in names:
+        raise ValueError("complex fixture has no word/settings.xml")
+    entries: list[tuple[str, bytes]] = []
+    for name in names:
+        data = src.read(name)
+        if name == "word/settings.xml":
+            data = _remove_document_protection(data)
+        entries.append((name, data))
+    return deterministic_zip(entries)
+
+
+def _remove_document_protection(xml: bytes) -> bytes:
+    updated, removed = _DOCUMENT_PROTECTION.subn(b"", xml, count=1)
+    if removed != 1 or b"w:documentProtection" in updated:
+        raise ValueError("expected exactly one w:documentProtection element")
+    if updated == xml:
+        raise ValueError("documentProtection strip did not change settings.xml")
+    return updated
+
+
+def workload_for_lane(workload_id: str, lane: str, repo_root=None) -> dict:
+    """Bytes a lane loads.
+
+    Input and resources load complex-corpus with document protection removed.
+    Every other lane, and every other workload, gets ``workload_docx``.
+    """
+    meta = workload_docx(workload_id, repo_root)
+    if lane not in EDIT_LANES or workload_id != "complex-corpus":
+        return meta
+    variant = strip_document_protection(meta["docx"])
+    return {
+        **meta,
+        "docx": variant,
+        "sha256": hashlib.sha256(variant).hexdigest(),
+        "byte_size": len(variant),
+        "fixture_variant": EDIT_VARIANT,
+        "fixture_source_sha256": meta["sha256"],
+    }
+
+
 def workload_docx(workload_id: str, repo_root=None) -> dict:
     """Return the DOCX bytes and metadata for any size-ladder id.
 

@@ -13,8 +13,14 @@ import path from 'node:path';
 import readline from 'node:readline';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { startChromeTrace, stopChromeTrace } from './chrome_trace.mjs';
+import { prepareEditSurface } from './edit_surface.mjs';
 
-import { applyResourceBurst } from './resource_burst_edit.mjs';
+import {
+  applyResourceBurst,
+  prepareResourceBurst,
+  typeResourceBurst,
+  verifyResourceBurst,
+} from './resource_burst_edit.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const uiRoot = path.resolve(here, '../../harness/ui');
@@ -25,6 +31,8 @@ let cdp = null;
 let traceHandle = null;
 let traceBrowser = null;
 let opts = {};
+// A 250k-word document takes some editors minutes to open (owner decision: long timeouts on big documents).
+const LOAD_TIMEOUT_MS = 600000;
 const networkEvents = [];
 const seenRequests = new Set();
 const requestState = new Map();
@@ -387,22 +395,39 @@ async function watchWorkers(browserContext, pageSession) {
 }
 
 async function onLoad() {
-  await page.goto(opts.url, { waitUntil: 'domcontentloaded', timeout: 120000 });
-  if (opts.readyJs) {
-    await page.waitForFunction(
-      (expr) => {
+  await page.goto(opts.url, { waitUntil: 'domcontentloaded', timeout: LOAD_TIMEOUT_MS });
+  // An editor that throws while opening the document says so through its
+  // host (opts.errorJs). That is the editor's result, reported at once, not
+  // a harness timeout two minutes later.
+  const state = await page.waitForFunction(
+    ({ readyJs, readySelector, errorJs }) => {
+      const run = (expr) => {
         try {
-          return Boolean(eval(expr));
+          return eval(expr);
         } catch {
-          return false;
+          return undefined;
         }
-      },
-      opts.readyJs,
-      { timeout: 120000 },
-    );
-  } else if (opts.readySelector) {
-    await page.waitForSelector(opts.readySelector, { timeout: 120000, state: 'visible' });
-  }
+      };
+      if (errorJs) {
+        const error = run(errorJs);
+        if (error) return { error: String(error).slice(0, 400) };
+      }
+      if (readyJs) return run(readyJs) ? { ready: true } : false;
+      if (readySelector) {
+        const el = document.querySelector(readySelector);
+        if (!el) return false;
+        const rect = el.getBoundingClientRect();
+        const style = getComputedStyle(el);
+        const visible = rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
+        return visible ? { ready: true } : false;
+      }
+      return { ready: true };
+    },
+    { readyJs: opts.readyJs || '', readySelector: opts.readySelector || '', errorJs: opts.errorJs || '' },
+    { timeout: LOAD_TIMEOUT_MS, polling: 50 },
+  );
+  const outcome = await state.jsonValue();
+  if (outcome && outcome.error) throw new Error(`editor_load_failed: ${outcome.error}`);
   const waitMs = Number(opts.waitAfterReadyMs || 0);
   if (waitMs > 0) await page.waitForTimeout(waitMs);
   return { ready: true };
@@ -493,14 +518,38 @@ async function onEvents(params) {
   };
 }
 
-async function onEdit(params) {
-  const witness = params.witness || opts.editWitness || { mode: 'dom_text' };
-  return applyResourceBurst(page, cdp, {
+function editParams(params = {}) {
+  return {
+    editorId: params.editorId || opts.editorId || '',
     selector: params.selector || opts.editSelector || '',
     text: params.text || '',
     repetitions: params.repetitions,
-    witness,
-  });
+    witness: params.witness || opts.editWitness || { mode: 'dom_text' },
+    preTypeSettleMs: params.preTypeSettleMs,
+    settleMs: params.settleMs,
+    pollBoundMs: params.pollBoundMs,
+    pollIntervalMs: params.pollIntervalMs,
+  };
+}
+
+async function onEnterEditMode() {
+  return prepareEditSurface(page, opts.editorId || '');
+}
+
+async function onEditPrepare(params) {
+  return prepareResourceBurst(page, editParams(params));
+}
+
+async function onEditType(params) {
+  return typeResourceBurst(page, editParams(params));
+}
+
+async function onEditVerify(params) {
+  return verifyResourceBurst(page, cdp, editParams(params), params.prepared || {});
+}
+
+async function onEdit(params) {
+  return applyResourceBurst(page, cdp, editParams(params));
 }
 
 async function onSave(params) {
@@ -530,6 +579,10 @@ const handlers = {
   evaluate: onEvaluate,
   cdp: onCdp,
   events: onEvents,
+  enter_edit_mode: onEnterEditMode,
+  edit_prepare: onEditPrepare,
+  edit_type: onEditType,
+  edit_verify: onEditVerify,
   edit: onEdit,
   save: onSave,
   close: onClose,

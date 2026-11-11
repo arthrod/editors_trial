@@ -186,13 +186,27 @@ class CpuPhaseLive(unittest.TestCase):
                         bridge.request("load", timeout=60)
                         page.evaluate("() => window.burn(2000)")
 
-                    def edit(self, burst):
-                        page.evaluate("() => window.burn(1000)")
-                        return bridge.request("edit", {
+                    def params(self, burst):
+                        return {
                             "selector": "#editor",
                             "text": burst["text"],
                             "repetitions": burst["repetitions"],
-                        }, timeout=60)
+                            "witness": {"mode": "dom_text"},
+                        }
+
+                    def prepare_edit(self, burst):
+                        return bridge.request("edit_prepare", self.params(burst), timeout=60)
+
+                    def type_edit(self, burst):
+                        page.evaluate("() => window.burn(1000)")
+                        return bridge.request("edit_type", self.params(burst), timeout=60)
+
+                    def verify_edit(self, burst, prepared):
+                        return bridge.request(
+                            "edit_verify",
+                            {**self.params(burst), "prepared": prepared},
+                            timeout=60,
+                        )
 
                 trial = collect_phases(
                     sampler,

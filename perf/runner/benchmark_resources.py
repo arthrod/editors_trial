@@ -33,7 +33,7 @@ REPO = Path(__file__).resolve().parents[2]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
-from perf.fixtures.docx_workload import workload_docx
+from perf.fixtures.docx_workload import workload_for_lane
 from perf.fixtures.profiles import assert_workload_allowed
 from perf.runner.benchmark_input import CANVAS_HOSTS
 from perf.runner.benchmark_warm_cold import BROWSER_TARGETS, _start_server, _stop_server
@@ -46,6 +46,7 @@ from perf.runner.resources import (
     WallClock,
     classify_series,
     drive_quiescence,
+    withheld_marker,
 )
 from perf.schema import sample_budget_for_profile
 
@@ -63,6 +64,13 @@ EDIT_BURST = {
     "repetitions": 8,
 }
 
+# The measured browser-tree CPU interval is keyboard.type plus this settle.
+# Focus/model preparation and all verification happen outside it.
+EDIT_PRE_TYPE_SETTLE_MS = 300
+EDIT_SETTLE_MS = 500
+EDIT_ORACLE_POLL_BOUND_MS = 10000
+EDIT_ORACLE_POLL_INTERVAL_MS = 50
+
 PAINT_INK_EDITORS = frozenset(CANVAS_HOSTS) | frozenset({"wordcraft", "superdoc"})
 
 
@@ -76,20 +84,20 @@ def _edit_witness(editor_id: str) -> dict:
 QUIESCENCE = {
     "no_longtask_s": 2.0,
     "heap_band_percent": 5.0,
-    "max_wait_s": 15.0,
+    "max_wait_s": 30.0,
     "poll_s": 0.5,
 }
 
 REFUSAL_CODES = (
     "constant_series",
     "copied_series",
-    "quiescence_not_reached",
     "process_tree_missing",
     "process_tree_not_launched",
     "js_heap_not_measured",
     "series_empty",
     "workload_not_on_ladder",
     "edit_not_applied",
+    "editor_load_failed",
     "process_counters_incomplete",
     "longtask_unavailable",
 )
@@ -177,13 +185,44 @@ def _delta_applied(before, after, token, repetitions):
     return _token_count(str(after), token) - _token_count(str(before), token) == repetitions
 
 
+def _edit_oracle(result):
+    """Compact, serializable evidence for the oracle used by one edit."""
+    if not isinstance(result, dict):
+        return {"mode": "not_run", "status": "not_run", "reason": "edit_not_run"}
+    oracle = result.get("oracle")
+    if isinstance(oracle, dict):
+        return dict(oracle)
+    return {
+        "mode": result.get("witness") or "unknown",
+        "witness_mode": result.get("witness") or "unknown",
+        "status": "verified" if result.get("applied") else "edit_not_applied",
+        "reason": None if result.get("applied") else "legacy_edit_not_applied",
+        "model_hook": None,
+        "trusted_keys": result.get("trusted_keys"),
+        "expected_text_delta": None,
+        "text_delta": None,
+    }
+
+
 def _edit_applied(session, burst, result):
     """This burst counts only when the target gained ``repetitions`` copies of ``text``.
 
     A host ``edit_check`` must report the same before/after pair. Membership of
     the final text is not a witness: the tokens may already have been there.
+    A structured oracle is recomputed here rather than trusted by its flag.
     """
     token, repetitions = _burst_parts(burst)
+    oracle = result.get("oracle") if isinstance(result, dict) else None
+    if isinstance(oracle, dict):
+        if oracle.get("status") != "verified":
+            return False
+        expected = oracle.get("expected_text_delta")
+        delta = oracle.get("text_delta")
+        keys = oracle.get("trusted_keys")
+        min_keys = len(token) * repetitions
+        if all(_is_int(value) for value in (expected, delta, keys)):
+            return expected == repetitions and delta == repetitions and keys >= min_keys
+        return bool(result.get("applied"))
     check = getattr(session, "edit_check", None)
     if callable(check):
         host = check()
@@ -240,24 +279,80 @@ def _endpoint_criterion(phase_name, phase_row, series):
     return view
 
 
-def _named_phase_counters(phases):
+def _named_phase_counters(phases, *, include_edit_cpu=True):
     named = {}
     for phase, prefix in _PUBLISHABLE_PHASES:
         row = phases.get(phase)
         if not isinstance(row, dict):
             continue
         for key in COUNTER_DELTA_FIELDS:
+            if prefix == "edit" and not include_edit_cpu and key in ("cpu_ms", "renderer_cpu_ms"):
+                continue
             if key in row:
                 named["%s_%s" % (prefix, key)] = row[key]
     return named
 
 
+_EDIT_CPU_PHASE_FIELDS = (
+    "cpu_ms",
+    "renderer_cpu_ms",
+    "task_duration_ms",
+    "script_duration_ms",
+    "layout_duration_ms",
+    "recalc_style_duration_ms",
+    "longtask_sum_ms",
+)
+_EDIT_CPU_SAMPLE_FIELDS = (
+    "cpu_ms",
+    "cpu_percent",
+    "cpu_percent_by_role",
+    "cgroup_cpu_usec",
+    "task_duration_ms",
+    "script_duration_ms",
+    "layout_duration_ms",
+    "recalc_style_duration_ms",
+    "longtask_sum_ms",
+)
+
+
+def _withhold_edit_cpu(phases, series, reason):
+    """Replace every numeric edit CPU path with an explicit withheld marker."""
+    marker = withheld_marker(reason)
+    phase = phases.get("edit_burst")
+    if isinstance(phase, dict):
+        for key in _EDIT_CPU_PHASE_FIELDS:
+            if key in phase:
+                phase[key] = dict(marker)
+        for process in phase.get("processes") or []:
+            if not isinstance(process, dict):
+                continue
+            for key in ("cpu_ms", "cpu_percent", "cpu_percent_by_role"):
+                if key in process:
+                    process[key] = dict(marker)
+    for row in series:
+        if row.get("phase") != "edit_burst":
+            continue
+        for key in _EDIT_CPU_SAMPLE_FIELDS:
+            if key in row:
+                row[key] = dict(marker)
+        for process in row.get("processes") or []:
+            if not isinstance(process, dict):
+                continue
+            for key in ("cpu_ms", "cpu_percent", "cpu_percent_by_role"):
+                if key in process:
+                    process[key] = dict(marker)
+
+
 def assemble_trial(
     sampler, *, quiescence_reached, quiescence, edit_burst, editor_id, workload_id,
     workload_meta, execution_profile, host_class, save_phase, refusal_override=None,
+    edit_oracle=None, edit_unverified=False, edit_measurement=None,
+    edit_cpu_boundary=None, publish_edit_cpu=True, edit_cpu_withhold_reason=None,
+    settle=None, editor_error=None,
 ):
     series = sampler.series()
-    code = refusal_override or _refusal_code(series, quiescence_reached=quiescence_reached)
+    # A settle that hit its cap is a flag on the cell (``settle``), not a refusal.
+    code = refusal_override or _refusal_code(series, quiescence_reached=True)
     phases = {}
     for phase in ("load", "after_load", "edit_burst", "quiescence", "after_edits"):
         if any(row.get("phase") == phase for row in series):
@@ -273,6 +368,22 @@ def assemble_trial(
                 break
     if code is not None and code not in REFUSAL_CODES:
         raise ValueError("refusal code is not closed: %s" % (code,))
+    oracle = dict(edit_oracle or {"mode": "not_run", "status": "not_run"})
+    edit_unverified = bool(edit_unverified or oracle.get("status") == "edit_unverified")
+    publish_edit_cpu = bool(
+        publish_edit_cpu
+        and not edit_unverified
+        and code != "edit_not_applied"
+    )
+    if publish_edit_cpu and isinstance(edit_cpu_boundary, dict) and "edit_burst" in phases:
+        for key in ("cpu_ms", "renderer_cpu_ms"):
+            if key in edit_cpu_boundary:
+                phases["edit_burst"][key] = edit_cpu_boundary[key]
+        if "process_accounting" in edit_cpu_boundary:
+            phases["edit_burst"]["process_accounting"] = edit_cpu_boundary["process_accounting"]
+    if not publish_edit_cpu:
+        reason = edit_cpu_withhold_reason or ("edit_unverified" if edit_unverified else "edit_cpu_withheld")
+        _withhold_edit_cpu(phases, series, reason)
     criteria = {}
     if "after_load" in phases:
         criteria["C17"] = _endpoint_criterion("after_load", phases["after_load"], series)
@@ -321,10 +432,16 @@ def assemble_trial(
         "fixture_paragraph_count": meta.get("paragraph_count"),
         "word_count": meta.get("word_count"),
         "edit_burst": dict(edit_burst),
+        "edit_oracle": oracle,
+        "edit_unverified": edit_unverified,
+        "edit_measurement": dict(edit_measurement or {}),
+        "edit_cpu_publication": "published" if publish_edit_cpu else "withheld",
         "quiescence": {**dict(quiescence), "reached": bool(quiescence_reached)},
+        "settle": dict(settle or {}),
+        "editor_error": editor_error,
         "static_server": static_server,
         "phases": phases,
-        **_named_phase_counters(phases),
+        **_named_phase_counters(phases, include_edit_cpu=publish_edit_cpu),
         "criteria": criteria,
         "peak_ram_bytes": _peak(series, "rss_bytes"),
         "peak_js_heap_used_bytes": _peak(series, "js_heap_used_bytes"),
@@ -349,39 +466,122 @@ def collect_phases(
 ):
     save_phase = {"outcome": "not_applicable", "reason": "host_has_no_save"}
     reached = True
+    settle = {}
     refusal_override = None
+    edit_result = None
+    edit_oracle = {"mode": "not_run", "status": "not_run", "reason": "edit_not_run"}
+    edit_unverified = False
+    edit_measurement = {}
+    edit_cpu_boundary = None
+    publish_edit_cpu = False
+    edit_cpu_withhold_reason = "legacy_combined_edit_window"
     if not already_sampled:
         # Same settle before C17 and before C19. The natural sample is the
         # endpoint. A forced GC sample is labelled and kept out of the series.
         try:
             sampler.mark("load")
-            session.load()
+            try:
+                session.load()
+            except RuntimeError as exc:
+                if "editor_load_failed" not in str(exc):
+                    raise
+                editor_error = str(exc).split("editor_load_failed:", 1)[1].strip()[:400]
+                sampler.sample()
+                return assemble_trial(
+                    sampler, quiescence_reached=False, settle=settle, quiescence=quiescence,
+                    edit_burst=edit_burst, editor_id=editor_id, workload_id=workload_id,
+                    workload_meta=workload_meta, execution_profile=execution_profile,
+                    host_class=host_class, save_phase=save_phase,
+                    refusal_override="editor_load_failed", edit_oracle=edit_oracle,
+                    publish_edit_cpu=False, edit_cpu_withhold_reason="editor_load_failed",
+                    editor_error=editor_error,
+                )
             sampler.sample()
             sampler.mark("after_load")
             after_load = getattr(session, "after_load", None)
             if after_load is not None:
                 after_load()
+            # An editor that never goes idle (WordCraft repaints forever) is
+            # measured over the capped settle and flagged, not refused.
             reached = drive_quiescence(sampler, clock, quiescence)
-            if not reached:
-                if getattr(sampler, "quiescence_block", None) == "longtask_unavailable":
-                    refusal_override = "longtask_unavailable"
+            settle["after_load"] = "reached" if reached else "capped"
+            if getattr(sampler, "quiescence_block", None) == "longtask_unavailable":
+                refusal_override = "longtask_unavailable"
             else:
                 sampler.sample()
                 _record_gc(sampler, "after_load")
-                sampler.mark("edit_burst")
-                edited = session.edit(edit_burst)
-                sampler.sample()
-                if not _edit_applied(session, edit_burst, edited):
-                    refusal_override = "edit_not_applied"
+                prepare = getattr(session, "prepare_edit", None)
+                type_edit = getattr(session, "type_edit", None)
+                verify_edit = getattr(session, "verify_edit", None)
+                split_protocol = all(callable(value) for value in (prepare, type_edit, verify_edit))
+                if split_protocol:
+                    prepared = prepare(edit_burst)
+                    sampler.mark("edit_burst")
+                    cpu_before = sampler.process_snapshot()
+                    typed = type_edit(edit_burst)
+                    clock.sleep(EDIT_SETTLE_MS / 1000.0)
+                    cpu_after = sampler.process_snapshot()
+                    sampler.sample()
+                    edit_result = verify_edit(edit_burst, prepared)
+                    cpu_ms, cpu_status = sampler.process_counter_delta(cpu_before, cpu_after, "cpu_ms")
+                    renderer_cpu_ms, renderer_status = sampler.process_counter_delta(
+                        cpu_before, cpu_after, "cpu_ms", role="renderer",
+                    )
+                    edit_cpu_boundary = {
+                        "cpu_ms": cpu_ms,
+                        "renderer_cpu_ms": renderer_cpu_ms,
+                        "process_accounting": (
+                            "incomplete" if "incomplete" in (cpu_status, renderer_status) else cpu_status
+                        ),
+                    }
+                    publish_edit_cpu = True
+                    edit_measurement = {
+                        "window": "keystrokes_plus_fixed_settle",
+                        "protocol": "split",
+                        "pre_type_settle_ms": prepared.get("pre_type_settle_ms", EDIT_PRE_TYPE_SETTLE_MS),
+                        "settle_ms": EDIT_SETTLE_MS,
+                        "typing_duration_ms": typed.get("typing_duration_ms") if isinstance(typed, dict) else None,
+                        "measured_window_duration_ms": (
+                            (cpu_after.get("monotonic_s", 0) - cpu_before.get("monotonic_s", 0)) * 1000.0
+                        ),
+                        "cpu_boundary": "process_only_before_type_after_settle",
+                        "verification_outside_measured_phase": True,
+                    }
                 else:
+                    # Compatibility for old test doubles. Its witness window is
+                    # unknown, so its edit CPU is withheld rather than published.
+                    sampler.mark("edit_burst")
+                    edit_result = session.edit(edit_burst)
+                    sampler.sample()
+                    publish_edit_cpu = False
+                    edit_cpu_withhold_reason = "legacy_combined_edit_window"
+                    edit_measurement = {
+                        "window": "legacy_combined_unpublishable",
+                        "protocol": "legacy_combined",
+                        "pre_type_settle_ms": None,
+                        "settle_ms": None,
+                        "typing_duration_ms": None,
+                        "measured_window_duration_ms": None,
+                        "cpu_boundary": None,
+                        "verification_outside_measured_phase": False,
+                    }
+                edit_oracle = _edit_oracle(edit_result)
+                edit_unverified = edit_oracle.get("status") == "edit_unverified"
+                if edit_unverified:
+                    edit_cpu_withhold_reason = "edit_unverified"
+                elif not _edit_applied(session, edit_burst, edit_result):
+                    refusal_override = "edit_not_applied"
+                    edit_cpu_withhold_reason = "edit_not_applied"
+                if refusal_override != "edit_not_applied":
                     after_edits = getattr(session, "after_edits", None)
                     if after_edits is not None:
                         after_edits()
                     sampler.mark("quiescence")
-                    reached = drive_quiescence(sampler, clock, quiescence)
-                    if not reached:
-                        if getattr(sampler, "quiescence_block", None) == "longtask_unavailable":
-                            refusal_override = "longtask_unavailable"
+                    edit_reached = drive_quiescence(sampler, clock, quiescence)
+                    settle["after_edit"] = "reached" if edit_reached else "capped"
+                    reached = reached and edit_reached
+                    if getattr(sampler, "quiescence_block", None) == "longtask_unavailable":
+                        refusal_override = "longtask_unavailable"
                     else:
                         sampler.mark("after_edits")
                         _record_gc(sampler, "after_edits")
@@ -397,6 +597,7 @@ def collect_phases(
     return assemble_trial(
         sampler,
         quiescence_reached=reached,
+        settle=settle,
         quiescence=quiescence,
         edit_burst=edit_burst,
         editor_id=editor_id,
@@ -406,6 +607,12 @@ def collect_phases(
         host_class=host_class,
         save_phase=save_phase,
         refusal_override=refusal_override,
+        edit_oracle=edit_oracle,
+        edit_unverified=edit_unverified,
+        edit_measurement=edit_measurement,
+        edit_cpu_boundary=edit_cpu_boundary,
+        publish_edit_cpu=publish_edit_cpu,
+        edit_cpu_withhold_reason=edit_cpu_withhold_reason,
     )
 
 
@@ -449,9 +656,12 @@ def measure_editor(
             editor_id=editor_id, workload_id=workload_id, code="workload_not_on_ladder",
             execution_profile=execution_profile, host_class=host_class,
         )
-    meta = workload_docx(workload_id, REPO)
+    meta = workload_for_lane(workload_id, "resources", REPO)
     fixture = _store_fixture(run, workload_id, meta["docx"])
     public = _public_meta(meta)
+    if meta.get("fixture_variant"):
+        public["fixture_variant"] = meta["fixture_variant"]
+        public["fixture_source_sha256"] = meta["fixture_source_sha256"]
     ctx = {
         "editor_id": editor_id,
         "workload_id": workload_id,
@@ -828,6 +1038,8 @@ class LiveSession:
             "editSelector": target.get("edit_selector") or "",
             "saveSelector": target.get("save_selector") or "",
             "editWitness": _edit_witness(editor_id),
+            "editorId": editor_id,
+            "errorJs": target.get("error_js") or "",
         })
         self.browser_pid = result.get("browserPid")
         self.has_save = bool(target.get("save_selector"))
@@ -835,17 +1047,40 @@ class LiveSession:
         self.cdp = _BridgeCdp(self._bridge)
 
     def load(self):
-        self._bridge.request("load", timeout=180)
+        self._bridge.request("load", timeout=660)
 
-    def edit(self, burst):
+    def after_load(self):
+        # An editor whose host opens in a viewer (Docxodus) enters its editing
+        # mode here: before the settle, outside the measured edit window.
+        self._bridge.request("enter_edit_mode", timeout=660)
+
+    def _edit_params(self, burst):
         editor_id = self.ctx["editor_id"]
-        params = {
+        return {
+            "editorId": editor_id,
             "selector": (self._target or {}).get("edit_selector") or "",
             "text": burst["text"],
             "repetitions": burst["repetitions"],
             "witness": _edit_witness(editor_id),
+            "preTypeSettleMs": EDIT_PRE_TYPE_SETTLE_MS,
+            "settleMs": EDIT_SETTLE_MS,
+            "pollBoundMs": EDIT_ORACLE_POLL_BOUND_MS,
+            "pollIntervalMs": EDIT_ORACLE_POLL_INTERVAL_MS,
         }
-        return self._bridge.request("edit", params, timeout=120)
+
+    def prepare_edit(self, burst):
+        return self._bridge.request("edit_prepare", self._edit_params(burst), timeout=300)
+
+    def type_edit(self, burst):
+        return self._bridge.request("edit_type", self._edit_params(burst), timeout=600)
+
+    def verify_edit(self, burst, prepared):
+        params = self._edit_params(burst)
+        params["prepared"] = prepared
+        return self._bridge.request("edit_verify", params, timeout=120)
+
+    def edit(self, burst):
+        return self._bridge.request("edit", self._edit_params(burst), timeout=120)
 
     def save(self):
         self._bridge.request("save", {"selector": (self._target or {}).get("save_selector") or ""}, timeout=60)
@@ -917,11 +1152,15 @@ def _main():
         }
     write_json(out / "resource.json", trial)
     if trial.get("outcome") == "refused":
-        write_json(out / "refusal.json", {
+        refusal = {
             "outcome": "refused",
             "refusal_code": trial.get("refusal_code"),
             "failure_reason": trial.get("refusal_code") or "refused",
-        })
+        }
+        for key in ("edit_oracle", "edit_measurement", "edit_unverified", "edit_cpu_publication"):
+            if key in trial:
+                refusal[key] = trial[key]
+        write_json(out / "refusal.json", refusal)
     elif trial.get("outcome") == "failed":
         write_json(out / "failure.json", {
             "outcome": "failed",
