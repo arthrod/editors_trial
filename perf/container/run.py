@@ -306,7 +306,10 @@ def main(argv: list[str] | None = None):
         return 0
     if shard is not None:
         print(f'shard={shard[0]}/{shard[1]}', flush=True)
-    child_env = {**os.environ, 'PERF_SHAKEDOWN': '1'} if args.shakedown is not None else None
+    # The child's shakedown flag comes from this command only, never from a stray shell variable.
+    child_env = {k: v for k, v in os.environ.items() if k != 'PERF_SHAKEDOWN'}
+    if args.shakedown is not None:
+        child_env['PERF_SHAKEDOWN'] = '1'
     if args.shakedown is not None:
         print(f'shakedown={args.shakedown}: few repetitions, never publishable', flush=True)
     if not args.dry_run and hasattr(os, 'sched_setaffinity'):

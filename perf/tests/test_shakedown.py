@@ -95,3 +95,32 @@ def test_run_cli_without_shakedown_still_refuses_few_repetitions(tmp_path, monke
     with pytest.raises(SystemExit):
         _cli(str(tmp_path), ['--execution-profile', 'dedicated_publish', '--host-class', 'dedicated',
                              '--editors', 'a', '--samples', '2'], monkeypatch, {})
+
+
+def test_publication_children_never_inherit_a_stray_shakedown_env(tmp_path, monkeypatch):
+    # review-shake: a publication command run in a shell with PERF_SHAKEDOWN=1 stamped the
+    # shakedown reason onto 30-launch summaries.
+    campaign = tmp_path / 'campaign'
+    envs = []
+
+    def fake_run(cmd, *a, **k):
+        if any('check_host' in part for part in cmd):
+            return subprocess.CompletedProcess(cmd, 0)
+        env = k.get('env')
+        envs.append('inherited' if env is None else env.get('PERF_SHAKEDOWN', 'absent'))
+        run_id = cmd[cmd.index('--run-id') + 1]
+        job = campaign / cmd[2].rsplit('.', 1)[1] / run_id
+        job.mkdir(parents=True, exist_ok=True)
+        (job / 'summary.json').write_text('{"samples": []}')
+        return subprocess.CompletedProcess(cmd, 0)
+
+    monkeypatch.setattr(subprocess, 'run', fake_run)
+    monkeypatch.setattr(run, 'run_mirror_tail', lambda *a, **k: None)
+    monkeypatch.setattr(run, 'pin_to_quota', lambda: 'cpu_affinity_pinned=none', raising=False)
+    monkeypatch.setenv('PERF_SHAKEDOWN', '1')
+    try:
+        run.main(['--publish', '--host-class', 'shared_guarded', '--seed', '1', '--seed2', '2',
+                  '--jobs', '3,17', '--out-root', str(campaign)])
+    except (SystemExit, RuntimeError):
+        pass
+    assert envs == ['absent', 'absent']
