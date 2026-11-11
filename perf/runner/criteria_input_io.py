@@ -330,7 +330,7 @@ def env_for(editor_id, editor_version, fixture_sha256, workload_row, docx_size, 
     return env
 
 
-def trial_from_entry(cid, entry, env, witness=None):
+def trial_from_entry(cid, entry, env, witness=None, workload_row=None):
     hints = entry.get("trial_hints") or {}
     if hints.get("cache_state") and hints["cache_state"] != env["cache_state"]:
         raise ValueError(
@@ -341,6 +341,15 @@ def trial_from_entry(cid, entry, env, witness=None):
         env = dict(env)
         env["repetition_unit"] = hints["repetition_unit"]
     validate_environment(env)
+    from perf.runner.benchmark_document import (
+        content_gate_record,
+        content_meta_for_workload,
+        gate_length_check_for,
+    )
+
+    row = workload_row or {}
+    content_meta = content_meta_for_workload(row.get("workload_id") or "micro-paragraphs")
+    gate = gate_length_check_for(env["editor_id"], content_meta)
     diagnostic = {
         "suite": "criteria_input",
         "probe": "criteria_input",
@@ -351,6 +360,7 @@ def trial_from_entry(cid, entry, env, witness=None):
         "sample_observation_ids": entry.get("sample_observation_ids") or [],
         "fixture_reset": entry.get("fixture_reset"),
         "notes": entry.get("notes") or [],
+        **content_gate_record(content_meta, gate),
     }
     frame_interval = _frame_interval_ms(witness)
     if frame_interval is not None:
@@ -469,7 +479,9 @@ def trials_from_payload(payload, *, editor_version, fixture_sha256, workload_row
             docx_size,
             cache_state,
         )
-        trial = trial_from_entry(cid, entry, env, witness=payload.get("paint_witness"))
+        trial = trial_from_entry(
+            cid, entry, env, witness=payload.get("paint_witness"), workload_row=workload_row
+        )
         row = workload_row or {}
         variant = payload.get("fixture_variant") or row.get("fixture_variant")
         if variant:
@@ -537,6 +549,12 @@ def _single_criterion_payload(payload, cid):
 
 def _contract_refusal_trial(payload, cid, entry, env_args, reason):
     """A refused trial for a payload entry that violates the probe contract."""
+    from perf.runner.benchmark_document import (
+        content_gate_record,
+        content_meta_for_workload,
+        gate_length_check_for,
+    )
+
     hints = entry.get("trial_hints") if isinstance(entry, dict) else None
     cache_state = (hints or {}).get("cache_state") or "warm_steady"
     env = env_for(
@@ -558,7 +576,18 @@ def _contract_refusal_trial(payload, cid, entry, env_args, reason):
         failure_reason=reason,
         editor_id=env["editor_id"],
         lane=env.get("lane"),
-        diagnostic={"suite": "criteria_input", "probe": "criteria_input", "schema": PROBE_SCHEMA},
+        diagnostic={
+            "suite": "criteria_input",
+            "probe": "criteria_input",
+            "schema": PROBE_SCHEMA,
+            **content_gate_record(
+                content_meta_for_workload((env_args.get("workload_row") or {}).get("workload_id") or "micro-paragraphs"),
+                gate_length_check_for(
+                    payload.get("editor_id") or "unknown",
+                    content_meta_for_workload((env_args.get("workload_row") or {}).get("workload_id") or "micro-paragraphs"),
+                ),
+            ),
+        },
     )
     trial["refusal_code"] = "harness_error"
     trial["refusal_detail"] = reason

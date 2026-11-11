@@ -628,7 +628,7 @@ def c12_measured_sample(probe: dict) -> float:
         raise ProbeRefusal("negative presented_frame_ms")
     origin = _number_or_none(probe.get("input_page_ms"))
     shift = _number_or_none(probe.get("observed_shift_page_ms"))
-    if origin is not None and shift is not None and origin + value + 80 < shift:
+    if origin is not None and shift is not None and origin + value + 0.05 < shift:
         raise ProbeRefusal(
             "presented frame precedes the anchor reflow (frame=%r shift=%r input=%r)"
             % (origin + value, shift, origin)
@@ -1198,12 +1198,18 @@ def _write_refusal(
     publishable: bool | None = None,
     publication_block_reason: str | None = None,
     refusal_code: str | None = None,
+    content_meta: dict | None = None,
+    gate: dict | None = None,
 ) -> Path:
     spec = CRITERIA[criterion_id]
     if not failure_reason or not failure_reason.strip():
         raise ValueError("refusal for %s/%s needs a reason" % (criterion_id, editor_id))
     if outcome not in ("not_run", "not_applicable", "unsupported", "unverified", "failed"):
         raise ValueError("refusal outcome %r" % (outcome,))
+    diagnostic = dict(diagnostic or {})
+    if content_meta is not None:
+        gate = gate or gate_length_check_for(editor_id, content_meta)
+        diagnostic.update(content_gate_record(content_meta, gate))
     trial = _trial_dict(
         criterion_id=criterion_id,
         layer=spec["layer"],
@@ -1383,6 +1389,39 @@ GATE_SURFACES = {
 }
 
 
+def content_meta_for_workload(workload_id: str, corpus_path: Path | None = None) -> dict:
+    if corpus_path and Path(corpus_path).is_file():
+        return corpus_content_expectations(corpus_path)
+    if workload_id == "complex-corpus":
+        return {
+            "length_check": "coarse",
+            "length_check_reason": (
+                "AlternateContent fallback text; accepted model text is editor-dependent; "
+                "a 2% mass band is undefined; opening and closing witnesses remain in force "
+                "with a coarse 75%–125% w:t character band"
+            ),
+        }
+    return {"length_check": "applied", "length_check_reason": None}
+
+
+def content_gate_record(content_meta: dict, gate: dict | None = None) -> dict:
+    """Persisted disclosure of what the content gate ran for one editor (ruling 5a)."""
+    gate = gate or {}
+    length_check = gate.get("length_check") or content_meta.get("length_check")
+    out = {
+        "content_length_check": length_check,
+        "content_length_check_reason": content_meta.get("length_check_reason"),
+    }
+    if gate:
+        if "length_enforced" in gate:
+            out["content_length_enforced"] = gate.get("length_enforced")
+        if gate.get("content_check") is not None:
+            out["content_check"] = gate.get("content_check")
+        elif "content_check" in gate:
+            out["content_check"] = gate.get("content_check")
+    return out
+
+
 def gate_length_check_for(editor_id: str, content_meta: dict) -> dict:
     """The gate disclosure for one editor on one workload.
 
@@ -1534,6 +1573,11 @@ def _run_reflow_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path
     for _ in range(count):
         payload = _in_sample_bracket(editor_id, "C12", lambda: _run_probe(cmd, editor_id=editor_id))
         samples.append(c12_measured_sample(payload))
+        content_meta = corpus_content_expectations(fixture_path) if Path(fixture_path).is_file() else {
+            "length_check": "not_applicable",
+            "length_check_reason": None,
+        }
+        gate = gate_length_check_for(editor_id, content_meta)
         diagnostics.append(
             {
                 "shift_px": payload.get("shift_px"),
@@ -1542,6 +1586,7 @@ def _run_reflow_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path
                 "block_count_after": payload.get("block_count_after"),
                 "insertion_created_block": payload.get("insertion_created_block"),
                 "anchor_top_after": payload.get("anchor_top_after"),
+                "anchor_occurrence": (payload.get("before") or {}).get("anchor_occurrence"),
                 "first_frame_after_input_ms": payload.get("first_frame_after_input_ms"),
                 "frames_total": payload.get("frames_total"),
                 "frames_after_shift_observed": payload.get("frames_after_shift_observed"),
@@ -1551,6 +1596,9 @@ def _run_reflow_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path
                 "clock_skew_acceptable": payload.get("clock_skew_acceptable"),
                 "witness": payload.get("witness"),
                 "page_errors": payload.get("page_errors"),
+                "observed_shift_page_ms": payload.get("observed_shift_page_ms"),
+                "input_page_ms": payload.get("input_page_ms"),
+                **content_gate_record(content_meta, gate),
             }
         )
     return samples, diagnostics
@@ -1733,6 +1781,7 @@ def _main() -> int:
     rows: list = []
     scaling: list = []
     failures = 0
+    gates_by_editor: dict = {}
 
     for editor_id in editors:
         target = BROWSER_TARGETS[editor_id]
@@ -1741,6 +1790,13 @@ def _main() -> int:
         cfg = DOCUMENT_TARGETS.get(editor_id)
         support_note = (cfg or {}).get("note")
         find_source_note = (cfg or {}).get("find_source_note")
+        prose_fixture = fixtures[specs["C11"]["workload"]]
+        editor_content_meta = corpus_content_expectations(prose_fixture["path"]) if prose_fixture["path"].is_file() else {
+            "length_check": "not_applicable",
+            "length_check_reason": None,
+        }
+        gates_by_editor[editor_id] = gate_length_check_for(editor_id, editor_content_meta)
+
         refuse_reason = None
         if cfg is None:
             structure = STRUCTURE_NOTES.get(editor_id, "no verified document-structure selectors for this host")
@@ -1758,6 +1814,7 @@ def _main() -> int:
                 fixture=workout_fixture,
                 cache_state=CRITERIA[criterion_id]["cache_state"],
             )
+            wmeta = corpus_content_expectations(workout_fixture["path"]) if workout_fixture["path"].is_file() else editor_content_meta
             path = _write_refusal(
                 attempt_dir=attempt_dir,
                 criterion_id=criterion_id,
@@ -1768,6 +1825,8 @@ def _main() -> int:
                 failure_reason=reason,
                 diagnostic=extra,
                 refusal_code=refusal_code,
+                content_meta=wmeta,
+                gate=gates_by_editor[editor_id],
             )
             rows.append(
                 {
@@ -1972,12 +2031,12 @@ def _main() -> int:
                                 "start": "Enter keypress at the document start",
                                 "end": "first compositor screencast frame at or after the anchor block was observed to move down",
                                 "raf_observation": "the y-shift is observed on an animation frame; a frame arriving before that is not the sample",
-                                "forced_layout": "getBoundingClientRect time inside the window is subtracted from the sample",
+                                "forced_layout": "layout reads are outside the timed window; forced_layout_ms on the probe is always 0",
                             },
                             "insertion": "Enter at document start then one character",
                             "shift_assertion": (
-                                "the anchor block (unique text below the insertion point, located by DOM identity "
-                                "or text) moves down by >0.5 px"
+                                "the anchor block (nearest block below the insertion point, located by DOM identity, "
+                                "text, and occurrence among equal-text blocks) moves down by >0.5 px"
                             ),
                             "samples": diagnostics,
                         },
@@ -2332,6 +2391,7 @@ def _main() -> int:
     summary = {
         "suite": "document_criteria",
         "criteria": criteria,
+        "content_gate_by_editor": gates_by_editor,
         "execution_profile": execution_profile(EXECUTION_PROFILE),
         "host_class": host_class(),
         "samples_per_cell": args.samples,

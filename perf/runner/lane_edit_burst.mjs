@@ -30,10 +30,9 @@ export const LANE_POLL_BOUND_MS = 600_000;
 export const C12_NO_PARAGRAPH_GEOMETRY = new Set(['canvas', 'docen']);
 
 /**
- * The C12 anchor: the nearest unique block BELOW the caret that is on the
- * same screen as the caret (r3lanes4 ruling 3). The last unique block of the
- * document could sit on a later page that never moves when the insertion
- * reflows the first screen, so it can never carry the measured shift.
+ * The C12 anchor: the nearest block BELOW the caret on the same screen
+ * (r3c12b ruling 3). Equal text is disambiguated by document-order
+ * occurrence among blocks with that text, never by skipping to a farther block.
  *
  * Pure and self-contained (no module references): document_probe passes it
  * into the page as an argument to gatherReflowBefore.
@@ -59,14 +58,11 @@ export const PICK_ANCHOR_BELOW = (entries, caret, viewportHeight) => {
       blocks: entries.length,
     };
   }
-  const counts = new Map();
-  for (const entry of entries) counts.set(entry.text, (counts.get(entry.text) || 0) + 1);
   let anchor = null;
   for (let i = 0; i < entries.length; i++) {
     const entry = entries[i];
     const top = Number(entry.top);
-    if (!entry.text || counts.get(entry.text) !== 1) continue;
-    if (!Number.isFinite(top)) continue;
+    if (!entry.text || !Number.isFinite(top)) continue;
     // Blocks flush under the caret (top ~= caret.bottom) still carry the shift.
     if (top < Number(caret.bottom) - 0.5) continue;
     if (top >= Number(viewportHeight)) continue;
@@ -75,14 +71,19 @@ export const PICK_ANCHOR_BELOW = (entries, caret, viewportHeight) => {
   if (!anchor) {
     return {
       ok: false,
-      reason: 'no unique document block below the caret in the viewport; a y-shift could not be attributed',
+      reason: 'no document block below the caret in the viewport; a y-shift could not be attributed',
       blocks: entries.length,
     };
+  }
+  let occurrence = 0;
+  for (let i = 0; i <= anchor.index; i++) {
+    if (entries[i].text === anchor.text) occurrence += 1;
   }
   return {
     ok: true,
     anchorText: anchor.text,
     anchorIndex: anchor.index,
+    anchorOccurrence: occurrence,
     blockCount: entries.length,
     firstText: String(entries[0].text || '').slice(0, 40),
   };
@@ -155,11 +156,25 @@ export function reflowBlockSelector(editorId, fallback) {
 export const C12_BLOCK_TEXT = (block, norm) => norm(block.innerText || block.textContent);
 
 /** Pick the anchor block among equal-text matches after a DOM re-render. */
-export const REFIND_ANCHOR = (docSel, anchorText, anchorTop, norm, blockText = C12_BLOCK_TEXT) => {
+export const REFIND_ANCHOR = (
+  docSel,
+  anchorText,
+  anchorTop,
+  norm,
+  blockText = C12_BLOCK_TEXT,
+  anchorOccurrence = null,
+) => {
   if (!anchorText || !docSel) return null;
-  const matches = Array.from(document.querySelectorAll(docSel)).filter(
-    (block) => blockText(block, norm) === anchorText,
-  );
+  const blocks = Array.from(document.querySelectorAll(docSel));
+  if (Number.isFinite(Number(anchorOccurrence)) && Number(anchorOccurrence) >= 1) {
+    let seen = 0;
+    for (const block of blocks) {
+      if (blockText(block, norm) !== anchorText) continue;
+      seen += 1;
+      if (seen === Number(anchorOccurrence)) return block;
+    }
+  }
+  const matches = blocks.filter((block) => blockText(block, norm) === anchorText);
   if (matches.length === 1) return matches[0];
   if (matches.length > 1 && Number.isFinite(Number(anchorTop))) {
     let best = null;
@@ -229,8 +244,7 @@ export function gatherReflowBefore({ docSel, pickBelowSrc, excludeSel }) {
     const r = entries[0].el.getBoundingClientRect();
     if (r.height > 0) caret = { top: r.top, bottom: r.top + Math.min(1, r.height) };
   }
-  // The anchor is the nearest unique block below the caret on the same
-  // screen, never the last unique block of the document (r3lanes4 ruling 3).
+  // The anchor is the nearest block below the caret on the same screen.
   const picked = typeof pickBelow === 'function'
     ? pickBelow(entries, caret, window.innerHeight)
     : { ok: false, reason: 'anchor picker unavailable; a y-shift could not be attributed' };  if (!picked.ok) {
@@ -239,6 +253,7 @@ export function gatherReflowBefore({ docSel, pickBelowSrc, excludeSel }) {
   window.__c12AnchorEl = entries[picked.anchorIndex].el;
   window.__c12AnchorTop = window.__c12AnchorEl.getBoundingClientRect().top;
   window.__c12AnchorText = picked.anchorText;
+  window.__c12AnchorOccurrence = picked.anchorOccurrence;
   window.__c12DocSel = docSel;
   window.__c12ModelReflow = false;
   return {
@@ -246,6 +261,7 @@ export function gatherReflowBefore({ docSel, pickBelowSrc, excludeSel }) {
     blocks: picked.blockCount,
     anchor_index: picked.anchorIndex,
     anchor_text: picked.anchorText,
+    anchor_occurrence: picked.anchorOccurrence,
     anchor_top: window.__c12AnchorTop,
     first_block_top: entries[0].el.getBoundingClientRect().top,
     first_block_text: picked.firstText,

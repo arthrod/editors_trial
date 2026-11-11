@@ -684,6 +684,13 @@ def _main() -> int:
         args.container_selector or args.scroll_container or HOST_SCROLL_CONTAINERS.get(editor_id)
     )
 
+    from perf.runner.benchmark_document import (
+        content_gate_record,
+        content_meta_for_workload,
+        gate_length_check_for,
+    )
+
+    content_meta = content_meta_for_workload(args.workload)
     diagnostic = {
         "suite": "adversarial",
         "probe": "scroll_container",
@@ -694,6 +701,7 @@ def _main() -> int:
         "host_class": host_class,
         "visible_evidence": VISIBLE_EVIDENCE,
         "scroll_container_override": scroll_container,
+        **content_gate_record(content_meta, gate_length_check_for(editor_id, content_meta)),
     }
     schema_error = environment_schema_error(env)
     if schema_error:

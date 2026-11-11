@@ -39,6 +39,11 @@ from perf.runner.benchmark_input import CANVAS_HOSTS
 from perf.runner.benchmark_warm_cold import BROWSER_TARGETS, _start_server, _stop_server
 from perf.runner.browser_hosts import select_fixture
 from perf.runner.browser_run import BrowserRun, run_cli, write_json
+from perf.runner.benchmark_document import (
+    content_gate_record,
+    content_meta_for_workload,
+    gate_length_check_for,
+)
 from perf.runner.resources import (
     COUNTER_DELTA_FIELDS,
     NOT_AVAILABLE,
@@ -414,6 +419,8 @@ def assemble_trial(
             criteria["C19"]["retained_growth_js_heap_bytes"] = NOT_AVAILABLE
             criteria["C19"]["retained_growth_refusal"] = "gc_unsupported"
     meta = workload_meta or {}
+    content_meta = content_meta_for_workload(workload_id)
+    gate_fields = content_gate_record(content_meta, gate_length_check_for(editor_id, content_meta))
     static_server = series[-1]["static_server"] if series else {
         "pid": getattr(sampler.run, "static_server_pid", None),
         "counted_as_editor": False,
@@ -448,6 +455,7 @@ def assemble_trial(
         "phases": phases,
         **_named_phase_counters(phases, include_edit_cpu=publish_edit_cpu),
         "criteria": criteria,
+        **gate_fields,
         "peak_ram_bytes": _peak(series, "rss_bytes"),
         "peak_js_heap_used_bytes": _peak(series, "js_heap_used_bytes"),
         "profile_directory_baseline": "before_load",
@@ -647,6 +655,7 @@ def _renderer_crashed(exc):
 def _early_refusal(*, editor_id, workload_id, code, execution_profile, host_class):
     if code not in REFUSAL_CODES:
         raise ValueError(code)
+    content_meta = content_meta_for_workload(workload_id)
     return {
         "record_kind": "browser_resources",
         "editor_id": editor_id,
@@ -663,6 +672,7 @@ def _early_refusal(*, editor_id, workload_id, code, execution_profile, host_clas
             "counted_as_editor": False,
             "note": "The dev/static server is not the editor.",
         },
+        **content_gate_record(content_meta, gate_length_check_for(editor_id, content_meta)),
     }
 
 

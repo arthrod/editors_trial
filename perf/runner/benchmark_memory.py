@@ -778,6 +778,14 @@ def _browser_rows(
     failures = [pair for pair in pairs if pair.get("error")]
     from perf.runner.browser_run import host_class
 
+    from perf.runner.benchmark_document import (
+        content_gate_record,
+        content_meta_for_workload,
+        gate_length_check_for,
+    )
+
+    workload_id = workload_row.get("workload_id") or "prose-500w"
+    content_meta = content_meta_for_workload(workload_id, fixture_path)
     diagnostics = {
         "pairs": [_pair_diagnostic(pair) for pair in pairs],
         "harness": harness_meta,
@@ -788,6 +796,7 @@ def _browser_rows(
         "host_class": host_class(),
         "memory_host": memory_host
         or {"memory_roots": "unknown", "host_server_counted_in_rss": None},
+        **content_gate_record(content_meta, gate_length_check_for(editor_id, content_meta)),
     }
 
     def env_for(cache_state):

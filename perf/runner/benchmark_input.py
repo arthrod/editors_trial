@@ -40,6 +40,11 @@ from perf.runner.benchmark_ci_contract import _host_base  # noqa: E402
 from perf.runner.browser_run import run_cli, fixture_path as run_fixture, write_json, record_process
 from perf.runner.artifacts import write_attempt  # noqa: E402
 from perf.schema import validate_trial  # noqa: E402
+from perf.runner.benchmark_document import (  # noqa: E402
+    content_gate_record,
+    content_meta_for_workload,
+    gate_length_check_for,
+)
 
 CRITERIA = ("C04", "C07", "C09", "C08")
 PROBE_TIMEOUT_S = 300
@@ -168,6 +173,8 @@ def _write_criteria_refusals(attempt_dir: Path, editor_id: str, workload_row: di
             continue
         env = criteria_input_io.env_for(
             editor_id, editor_id, fixture_sha, workload_row, fixture_size, "warm_steady")
+        meta = content_meta_for_workload(workload_row.get("workload_id") or "micro-paragraphs")
+        gate = gate_length_check_for(editor_id, meta)
         trial = _trial_dict(
             criterion_id=cid,
             layer=catalog[cid]["layer"],
@@ -177,7 +184,11 @@ def _write_criteria_refusals(attempt_dir: Path, editor_id: str, workload_row: di
             samples_ms=[],
             failure_reason=failure_reason,
             editor_id=editor_id,
-            diagnostic={"suite": "criteria_input", "refusal_origin": "launch"},
+            diagnostic={
+                "suite": "criteria_input",
+                "refusal_origin": "launch",
+                **content_gate_record(meta, gate),
+            },
         )
         trial["refusal_code"] = refusal_code
         trial["refusal_detail"] = failure_reason

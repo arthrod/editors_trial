@@ -1543,8 +1543,11 @@ async function runReflow(browser) {
       } catch {
         refind = null;
       }
+      const anchorOccurrence = window.__c12AnchorOccurrence;
       const resolveAnchor = () =>
-        typeof refind === 'function' ? refind(docSel, anchorText, before, norm, readBlock) : null;
+        typeof refind === 'function'
+          ? refind(docSel, anchorText, before, norm, readBlock, anchorOccurrence)
+          : null;
       return new Promise((resolve) => {
         const step = () => {
           if (!el || !el.isConnected) el = resolveAnchor();
@@ -1573,7 +1576,7 @@ async function runReflow(browser) {
     let witness = null;
     if (shift.moved && typeof shift.at === 'number') {
       const region = await reflowDocumentRegion(ctx.page, editorId);
-      const afterPageMs = Math.max(inputPageMs + 1, shift.at - 40);
+      const afterPageMs = Math.max(inputPageMs + 1, shift.at);
       witness = await witnessFrame(ctx.page, ctx.cdp, {
         afterPageMs,
         baseline: baseline || null,
@@ -1586,7 +1589,7 @@ async function runReflow(browser) {
       });
     }
     const after = await ctx.page.evaluate(
-      ({ docSel, anchorText, anchorTop, refindSrc, blockTextSrc }) => {
+      ({ docSel, anchorText, anchorTop, anchorOccurrence, refindSrc, blockTextSrc }) => {
         const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
         let readBlock = (block) => norm(block.innerText || block.textContent);
         try {
@@ -1613,7 +1616,7 @@ async function runReflow(browser) {
             refind = null;
           }
           if (typeof refind === 'function') {
-            el = refind(docSel, anchorText, anchorTop, norm, readBlock);
+            el = refind(docSel, anchorText, anchorTop, norm, readBlock, anchorOccurrence);
             if (el) matchedBy = 'text';
           }
         }
@@ -1627,6 +1630,7 @@ async function runReflow(browser) {
         docSel: reflowSel,
         anchorText: before.anchor_text,
         anchorTop: before.anchor_top,
+        anchorOccurrence: before.anchor_occurrence,
         refindSrc: `${REFIND_ANCHOR}`,
         blockTextSrc: `${C12_BLOCK_TEXT}`,
       },

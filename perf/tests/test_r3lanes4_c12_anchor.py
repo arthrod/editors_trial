@@ -1,5 +1,5 @@
-"""r3lanes4 ruling 3: docxodus C12 is measured, and the reflow anchor is the
-nearest unique block below the caret in the viewport, not the last unique block.
+"""r3lanes4/r3c12b: docxodus C12 is measured; the reflow anchor is the nearest
+block below the caret (occurrence disambiguates equal text).
 """
 from __future__ import annotations
 
@@ -74,7 +74,7 @@ console.log(JSON.stringify(picked));
         )
         self.assertEqual(out["anchorText"], "first page paragraph")
 
-    def test_no_unique_block_below_the_caret_in_viewport_refuses(self):
+    def test_no_block_below_the_caret_in_viewport_refuses(self):
         out = self.node(
             """
 const entries = [
@@ -90,6 +90,24 @@ console.log(JSON.stringify(picked));
         )
         self.assertFalse(out["ok"])
         self.assertIn("below the caret", out["reason"])
+
+    def test_duplicate_text_below_uses_nearest_not_a_farther_unique_block(self):
+        out = self.node(
+            """
+const entries = [
+  { text: 'A', top: 10 },
+  { text: 'B', top: 40 },
+  { text: 'B', top: 80 },
+  { text: 'C', top: 120 },
+];
+const picked = mod.PICK_ANCHOR_BELOW(entries, { top: 5, bottom: 20 }, 800);
+assert.equal(picked.ok, true, JSON.stringify(picked));
+assert.equal(picked.anchorText, 'B');
+assert.equal(picked.anchorIndex, 1);
+console.log(JSON.stringify(picked));
+"""
+        )
+        self.assertEqual(out["anchorIndex"], 1)
 
     def test_missing_caret_box_refuses_with_a_named_reason(self):
         out = self.node(

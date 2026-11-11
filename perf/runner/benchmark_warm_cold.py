@@ -568,26 +568,17 @@ def _run_browser_probe(
 
 
 def _content_length_diagnostic(content_meta: dict, gate: dict | None = None) -> dict:
-    """The length-check disclosure copied into every warm/cold attempt.
+    """The length-check disclosure copied into every warm/cold attempt."""
+    from perf.runner.benchmark_document import content_gate_record
 
-    r3lanes4 ruling 5a: when the gate's own fields are known (payload or the
-    per-editor profile) they win over the corpus policy — a virtualized
-    editor ran opening_only, an absent oracle ran nothing.
-    """
     gate = gate or {}
-    length_check = gate.get("length_check") or content_meta["length_check"]
-    out = {
-        "content_length_check": length_check,
-        "content_length_check_reason": content_meta["length_check_reason"],
-    }
-    if gate and length_check != content_meta["length_check"]:
+    out = content_gate_record(content_meta, gate)
+    length_check = out.get("content_length_check")
+    if gate and length_check != content_meta.get("length_check"):
         out["content_length_check_reason"] = (
             "gate ran %s for this editor; corpus policy was %s"
-            % (length_check, content_meta["length_check"])
+            % (length_check, content_meta.get("length_check"))
         )
-    if gate:
-        out["content_length_enforced"] = gate.get("length_enforced")
-        out["content_check"] = gate.get("content_check")
     return out
 
 
@@ -1017,6 +1008,73 @@ def _write_unverified(
     return _persist_attempt(attempt_dir, criterion_id, editor_id, trial)
 
 
+def _record_glyph_na_under_content_refusal(
+    *,
+    attempt_dir: Path,
+    editor_id: str,
+    lane: str,
+    editor_version: str,
+    workload_row: dict,
+    fixture_sha256: str,
+    docx_size: int,
+    criteria_map: dict,
+    content_refusal: dict,
+    glyph_na: dict,
+    content_meta: dict,
+    gate: dict | None,
+) -> list[dict]:
+    """Wordcraft (and any flag/model host): content refuses first, glyph row still recorded."""
+    reason = content_refusal.get("surface_reason") or "document_content_unverifiable"
+    editor_error = content_refusal.get("editor_error")
+    failure_reason = reason if not editor_error else "%s: %s" % (reason, editor_error)
+    rows = []
+    for cid in ("C05", "C06"):
+        if cid not in criteria_map:
+            continue
+        boundary, layer = {
+            "C05": ("presented_frame", "browser_visible"),
+            "C06": ("input_to_next_paint", "browser_visible"),
+        }[cid]
+        env = _env_for(
+            editor_id=editor_id,
+            editor_version=editor_version,
+            fixture_sha256=fixture_sha256,
+            workload_row=workload_row,
+            docx_size=docx_size,
+            cache_state="warm_steady",
+        )
+        path = _write_input_refusal(
+            attempt_dir=attempt_dir,
+            criterion_id=cid,
+            layer=layer,
+            boundary=boundary,
+            editor_id=editor_id,
+            lane=lane,
+            env=env,
+            observations=[],
+            failure_reason=failure_reason,
+            content_meta=content_meta,
+            gate=gate,
+            outcome="not_applicable",
+            diagnostic_extra={
+                "suite": "warm_cold",
+                "content_refusal": content_refusal,
+                "glyph_geometry": glyph_na,
+                "edit_landed_in_model": glyph_na.get("edit_landed_in_model"),
+            },
+        )
+        rows.append(
+            {
+                "criterion_id": cid,
+                "editor_id": editor_id,
+                "outcome": "not_applicable",
+                "failure_reason": failure_reason,
+                "attempt_file": _attempt_ref(path),
+            }
+        )
+    return rows
+
+
 def _write_content_refusals(
     *,
     attempt_dir: Path,
@@ -1029,20 +1087,18 @@ def _write_content_refusals(
     criteria_map: dict,
     content_refusal: dict,
     content_meta: dict,
+    gate: dict | None = None,
 ) -> list[dict]:
     """Write one named refusal per criterion and load arm."""
     reason = content_refusal.get("surface_reason") or "document_content_unverifiable"
     editor_error = content_refusal.get("editor_error")
     failure_reason = reason if not editor_error else "%s: %s" % (reason, editor_error)
-    gate = (
-        {
+    if gate is None and content_refusal.get("length_check"):
+        gate = {
             "length_check": content_refusal.get("length_check"),
             "length_enforced": content_refusal.get("length_enforced"),
             "content_check": content_refusal.get("content_check"),
         }
-        if content_refusal.get("length_check")
-        else None
-    )
     rows = []
     for raw_cid, (boundary, layer) in criteria_map.items():
         cid = "C02" if raw_cid == "C02b" else raw_cid
@@ -1295,10 +1351,16 @@ def _main() -> int:
         # corpus policy.
         from perf.runner.benchmark_document import gate_length_check_for
 
-        gate = _payload_content_gate(payload) or gate_length_check_for(editor_id, content_meta)
+        gate = gate_length_check_for(editor_id, content_meta)
+        probe_gate = _payload_content_gate(payload)
+        if probe_gate:
+            for key in ("length_check", "length_enforced", "content_check"):
+                if probe_gate.get(key) is not None:
+                    gate[key] = probe_gate[key]
         gates_by_editor[editor_id] = gate
 
         content_refusal = _content_refusal(payload)
+        glyph_na_early = _glyph_geometry_refusal(payload) if content_refusal else None
         if content_refusal:
             refusal_rows.extend(
                 _write_content_refusals(
@@ -1312,8 +1374,26 @@ def _main() -> int:
                     criteria_map=dict(target.get("criteria", {})),
                     content_refusal=content_refusal,
                     content_meta=content_meta,
+                    gate=gate,
                 )
             )
+            if glyph_na_early:
+                refusal_rows.extend(
+                    _record_glyph_na_under_content_refusal(
+                        attempt_dir=attempt_dir,
+                        editor_id=editor_id,
+                        lane=lane,
+                        editor_version=editor_version,
+                        workload_row=workload_row,
+                        fixture_sha256=sha,
+                        docx_size=docx_size,
+                        criteria_map=dict(target.get("criteria", {})),
+                        content_refusal=content_refusal,
+                        glyph_na=glyph_na_early,
+                        content_meta=content_meta,
+                        gate=gate,
+                    )
+                )
             continue
 
         # run_cli invokes one pair per fresh server. Direct multi-pair probes

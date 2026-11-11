@@ -30,6 +30,11 @@ from perf.runner.browser_hosts import select_fixture
 from perf.runner.docx_plaintext import docx_body_text, docx_body_text_and_absorbed
 from perf.runner.resources import AsyncResourceSampler, NOT_AVAILABLE, COUNTER_DELTA_FIELDS, phase_totals
 from perf.runner.witness import validate_witness
+from perf.runner.benchmark_document import (
+    content_gate_record,
+    content_meta_for_workload,
+    gate_length_check_for,
+)
 
 BRIEF = REPO / 'perf/fixtures/briefs/sg-brief-13000w.txt'
 
@@ -794,6 +799,10 @@ def main_cell(argv=None, *, start_host=_start_server, stop_host=_stop_server):
         finally:
             if server: stop_host(server)
         run = ACTIVE.get()
+        typing_gate = content_gate_record(
+            content_meta_for_workload('prose-500w'),
+            gate_length_check_for(editor, content_meta_for_workload('prose-500w')),
+        )
         trial = {
             'schema':'perf.typing/2', 'session_kind':args.session_kind, 'isolation':'fresh_process', 'values_per_session':1, 'criterion_id':'TYPING', 'editor_id':editor,
             'run_id':run.run_id, 'seed':run.seed, 'repetition':(CELL.get() or {}).get('repetition')}
@@ -809,6 +818,7 @@ def main_cell(argv=None, *, start_host=_start_server, stop_host=_stop_server):
             execution_profile=run.execution_profile, host_class=run.host_class,
             host_provenance=run.hosts.get(editor), time_series='resources.json',
             resource_series_label='instrumented' if args.session_kind == 'latency' else 'measurement')
+        trial.update(typing_gate)
         if trial.get('failure_reason'):
             trial['throughput_chars_s'] = None
             trial.setdefault('refusal_detail', trial['failure_reason'])
