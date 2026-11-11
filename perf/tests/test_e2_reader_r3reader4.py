@@ -266,7 +266,7 @@ def test_relaxed_bounds_template_matches_constants():
     paragraph = lax_bounds.relaxed_bounds_paragraph()
     template = (Path(__file__).resolve().parents[2] / "templates" / "reports" / "Report E2 - Speed in the Browser (2026).md").read_text()
     assert "{{perf.e2.relaxed_bounds}}" in template
-    for fragment in ("5 ms", "300 s", "600 s", "100 ms", "250 ms", "2%"):
+    for fragment in ("5 ms", "300 s", "600 s", "100 ms", "250 ms", "2%", "75%", "125%", "complex-corpus"):
         assert fragment in paragraph
 
 

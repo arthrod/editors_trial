@@ -17,6 +17,8 @@ from perf.runner.witness import DEFAULT_SKEW_BOUND_MS, LAG_BOUND_INTERVALS, LAG_
 ONSET_BOUND_FLOOR_MS = 100
 
 # Document / typing content length check tolerance (issue #155).
+# The complex document (complex-corpus) uses the coarser 75%-125% band of
+# MODEL_COARSE_MIN_RATIO / MODEL_COARSE_MAX_RATIO in perf_model_text.mjs.
 CONTENT_LENGTH_REL_TOL = 0.02
 
 _RELAXED_BOUND_LINES = (
@@ -26,7 +28,8 @@ _RELAXED_BOUND_LINES = (
     f"Sparse-witness settle onset floor: {ONSET_BOUND_FLOOR_MS} ms.",
     "CPU throttle tolerance: max(1 ms, 1% of the sample span).",
     f"Witness anchor lag: max({LAG_BOUND_INTERVALS} frame intervals, {LAG_BOUND_MIN_MS:g} ms).",
-    f"Typing/document content length tolerance: {CONTENT_LENGTH_REL_TOL * 100:g}%.",
+    f"Typing/document content length tolerance: {CONTENT_LENGTH_REL_TOL * 100:g}% for the prose "
+    "documents; the complex document (complex-corpus) is accepted at 75% to 125% of the expected length.",
 )
 
 
