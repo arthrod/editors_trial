@@ -22,13 +22,16 @@ _BASE = {'benchmark_warm_cold': 20, 'benchmark_document': 40, 'benchmark_input':
          'adversarial_c10_scroll': 10, 'benchmark_memory': 20, 'benchmark_resources': 20}
 _TYPING = 360
 _C14 = 150
+# Campaign 1 (2026-11-11) timed one job over 30 repetitions. _BASE and _C14 are
+# those minutes. PUBLICATION_REPETITIONS is how many a publication job runs now.
+_CALIBRATED_REPS = 30
 
 
 _BUILD = 3  # minutes: one production host build per one-editor run
 
 
 def estimate(name, options, shakedown=None):
-    """Minutes for one job; with ``shakedown=N``, N repetitions (+1 traced) of the schedule."""
+    """Minutes for one job; with ``shakedown=N``, N repetitions (+1 traced) of the calibrated 30."""
     if name == 'benchmark_typing':
         return 15 if shakedown else _TYPING
     if '--criteria' in options and 'C14' in options:
@@ -36,17 +39,20 @@ def estimate(name, options, shakedown=None):
     else:
         full = _BASE[name] * _RUNG[options[options.index('--workload') + 1]]
     if '--block' in options:
-        # A block: every editor, a few of the scheduled repetitions, one host build each;
-        # its first block is traced, which doubles the launches.
+        # A block: every editor, its absolute repetition count out of the calibrated 30,
+        # one host build each. Its first block is traced, which doubles the launches.
         from .policy import SHAKEDOWN_COUNT_FLAG, job_editors
         editors = len(job_editors(options))
-        share = int(options[options.index(SHAKEDOWN_COUNT_FLAG[name]) + 1]) / PUBLICATION_REPETITIONS
+        reps = int(options[options.index(SHAKEDOWN_COUNT_FLAG[name]) + 1])
         traced = 2 if '--chrome-profile' in options else 1
         if shakedown:
             # A rehearsal: N repetitions of every editor, plus the traced one.
-            return full * editors * (shakedown + traced - 1) / PUBLICATION_REPETITIONS + _BUILD * editors
-        return full * editors * share * traced + _BUILD * editors
-    return full if not shakedown else full * (shakedown + 1) / PUBLICATION_REPETITIONS + _BUILD
+            return full * editors * (shakedown + traced - 1) / _CALIBRATED_REPS + _BUILD * editors
+        return full * editors * reps / _CALIBRATED_REPS * traced + _BUILD * editors
+    # A one-editor job runs the publication schedule, not the 30 that were timed.
+    if shakedown:
+        return full * (shakedown + 1) / _CALIBRATED_REPS + _BUILD
+    return full * PUBLICATION_REPETITIONS / _CALIBRATED_REPS
 
 
 def assign(jobs, costs, spaces):
