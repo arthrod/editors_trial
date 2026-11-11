@@ -104,6 +104,14 @@ Each C15 step is a separate measure; steps are never pooled.
 
 {{perf.e2.table.C15}}
 
+### C17 — memory by phase
+
+{{perf.e2.table.C17}}
+
+### C19 — retained memory
+
+{{perf.e2.table.C19}}
+
 ## Not measured in the browser run
 
 {{perf.e2.not_run}}

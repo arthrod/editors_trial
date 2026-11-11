@@ -21,7 +21,7 @@ from perf.scenarios.catalog import scenarios
 
 from build.perf_e_tables import DISPLAY, REL_TOL, _SAME_HOST, _pct, reproduced
 
-E2_CRITERIA = [f"C{i:02d}" for i in range(3, 16)]
+E2_CRITERIA = [f"C{i:02d}" for i in range(3, 16)] + ["C17", "C19"]
 SCHEDULED = 30
 REL_TOL_PCT = round(REL_TOL * 100)
 
@@ -113,24 +113,21 @@ def _criteria_present(primary: Path, repro: Path) -> list[str]:
 
     collect(primary)
     collect(repro)
-    return E2_CRITERIA
+    return sorted(present)
 
 
 def _iter_trials(run_directory: Path):
-    for path, row in e2_cells._read_rows(run_directory / "cells"):
-        if e2_cells._diagnostic_trial_path(path) or e2_cells._diagnostic_trial_row(row):
-            continue
-        if row.get("criterion_id") and row.get("editor_id"):
-            yield row
+    yield from e2_cells._iter_trials(run_directory)
 
 
 def _format_median(cell: dict, median: float) -> str:
     if cell.get("sample_unit") == "bytes":
         return "%.1f bytes" % median
+    suffix = " — content not verified" if cell.get("criterion_id") == "C11" and cell.get("content_verified") is not True else ""
     frame = cell.get("frame_interval_ms") or 0
     if median < frame:
-        return "< 1 frame (%g ms)" % frame
-    return "%.1f ms" % median
+        return "< 1 frame (%g ms)" % frame + suffix
+    return "%.1f ms" % median + suffix
 
 
 def _cell_text(facts: dict, primary: Path, repro: Path, editor: str, criterion: str, measure: str = '', workload_id: str | None = None) -> str:
@@ -173,7 +170,7 @@ def _cell_text(facts: dict, primary: Path, repro: Path, editor: str, criterion: 
                     reasons.append(entry)
         reason = '; '.join(reasons)
         facts[key + '.reason'] = reason
-        facts.setdefault('_not_reproduced', []).append((DISPLAY.get(editor, editor), criterion, reason, '—'))
+        facts.setdefault('_not_reproduced', []).append((DISPLAY.get(editor, editor), criterion, workload_id or '—', measure or '—', reason, '—'))
         return reason
     p_text = e2_cells.publication_text(p_cell)
     frame = max(p_cell.get('frame_interval_ms') or 0, r_cell.get('frame_interval_ms') or 0)
@@ -186,7 +183,7 @@ def _cell_text(facts: dict, primary: Path, repro: Path, editor: str, criterion: 
         facts[key + '.reason'] = 'medians outside tolerance'
         first = _format_median(p_cell, p_med)
         second = _format_median(r_cell, r_med)
-        facts.setdefault('_not_reproduced', []).append((DISPLAY.get(editor, editor), criterion, first, second))
+        facts.setdefault('_not_reproduced', []).append((DISPLAY.get(editor, editor), criterion, workload_id or '—', measure or '—', first, second))
         failures = [
             '%s: %s' % (label, e2_cells.failure_text(cell))
             for label, cell in zip(('first', 'second'), cells)
@@ -196,13 +193,16 @@ def _cell_text(facts: dict, primary: Path, repro: Path, editor: str, criterion: 
         return 'not reproduced (first %s; second %s)%s' % (first, second, suffix)
     facts[key + '.reproduced'] = True
     failures = e2_cells.failure_text(r_cell)
-    return p_text + ('; second: ' + failures if failures else '')
+    suffix = '; second: content not verified' if criterion == 'C11' and r_cell.get('content_verified') is not True and p_cell.get('content_verified') is True else ''
+    return p_text + suffix + ('; second: ' + failures if failures else '')
 
 
 def _criterion_table(facts: dict, primary: Path, repro: Path, criterion: str, editors: list[str]) -> str:
     groups = sorted({(e2_cells.trial_workload(row), e2_cells.trial_measure(row))
                      for root in (primary, repro) for row in e2_cells._iter_trials(root)
-                     if row['criterion_id'] == criterion}) or [('', '')]
+                     if row['criterion_id'] == criterion})
+    if not groups:
+        return 'not in these runs.'
     has_workload = any(workload for workload, _ in groups)
     distinct = criterion in ('C14', 'C15') or any(measure for _, measure in groups)
     columns = ['Editor'] + (['Workload'] if has_workload else []) + (['Measure'] if distinct else []) + [criterion]
@@ -221,10 +221,10 @@ def _not_reproduced_table(facts: dict) -> str:
     if not rows:
         return "Every figure that was measured in both runs reproduced."
     lines = [
-        "| Editor | Criterion | First run / reason | Second run, median |",
-        "|---|---|---|---|",
+        "| Editor | Criterion | Workload | Measure | First run / reason | Second run, median |",
+        "|---|---|---|---|---|---|",
     ]
-    lines += ["| %s | %s | %s | %s |" % r for r in rows]
+    lines += ["| %s | %s | %s | %s | %s | %s |" % r for r in rows]
     return "\n".join(lines)
 
 
@@ -276,6 +276,10 @@ def _steal(summary: dict) -> str:
 
 
 def _throttle(summary: dict) -> str:
+    accounting = summary.get("cpu_accounting") or {}
+    unavailable = accounting.get("samples_unavailable")
+    if unavailable:
+        return "%s of %s samples had CPU accounting unavailable; %s refused for cgroup CPU throttling" % (unavailable, accounting.get("samples_total", "?"), accounting.get("samples_refused", "not recorded"))
     refused = summary.get("cpu_throttle_refused_samples")
     if refused is None:
         refused = (summary.get("cpu_accounting") or {}).get("samples_refused")
@@ -425,3 +429,21 @@ def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
     facts["perf.e2.intro"] = "%d of %d scheduled editor/criterion/measure cells reproduced between the two runs. Dates: first %s; second %s." % (
         facts["perf.e2.cells_reproduced"], facts["perf.e2.cells_checked"], _date(s), _date(repro.summary))
     return facts
+
+
+def fmt_resource(value, unit="bytes") -> str:
+    """Render resource markers without converting absence into a numeric zero."""
+    if isinstance(value, dict):
+        if value.get('marker') == 'not_available_on_platform':
+            reason = value.get('reason')
+            return 'not available on this platform' + (f' ({reason})' if reason else '')
+        return 'not recorded'
+    if value == 'not_applicable_endpoint':
+        return 'not applicable at this endpoint'
+    if value == 'not_available_on_platform':
+        return 'not available on this platform'
+    if not e2_cells._number(value):
+        return 'not recorded'
+    if unit == 'bytes':
+        return f'{value / 1024:.1f} KiB' if abs(value) >= 1024 else f'{value:g} B'
+    return f'{value:g} {unit}'

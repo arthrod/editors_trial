@@ -371,7 +371,7 @@ def test_finding_08_real_version_locations(runs, field):
 
 def test_finding_09_all_scheduled_editors_count(runs):
     facts = E2.facts_from_runs(*runs)
-    assert facts['perf.e2.cells_checked'] == 26
+    assert facts['perf.e2.cells_checked'] == 2  # two scheduled editors; only C07 is present
     assert facts['perf.e2.cells_reproduced'] == 1
     assert 'Docen' in facts['perf.e2.not_reproduced']
 

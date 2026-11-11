@@ -151,10 +151,17 @@ def _diagnostic_trial_row(row: dict) -> bool:
     return row.get('outcome') == 'profiled' or row.get('accounting_scope') == 'diagnostic'
 
 
+def _iter_attempt_rows(run_directory: Path):
+    """Measured attempts only: each launch's own attempts folder, never a profiling subtree."""
+    for directory in sorted((run_directory / 'cells').glob('*/attempts')):
+        for path, row in _read_rows(directory):
+            if _diagnostic_trial_path(path) or _diagnostic_trial_row(row):
+                continue
+            yield path, row
+
+
 def _iter_trials(run_directory: Path):
-    for path, row in _read_rows(run_directory / 'cells'):
-        if _diagnostic_trial_path(path) or _diagnostic_trial_row(row):
-            continue
+    for _, row in _iter_attempt_rows(run_directory):
         if row.get('criterion_id') and row.get('editor_id'):
             yield row
 
@@ -203,11 +210,15 @@ def build_run_cell(
     failed_launches = set()
     trials = defaultdict(list)
     refused_launches = {}
-    for path, trial in _read_rows(run_directory / 'cells'):
+    additional = defaultdict(set)
+    verified_content = []
+    for path, trial in _iter_attempt_rows(run_directory):
         launch = path.relative_to(run_directory / 'cells').parts[0]
         if _diagnostic_trial_path(path) or _diagnostic_trial_row(trial):
             continue
         if trial.get('refusal_code') == 'unreadable_trial' and launch.endswith('-' + editor_id):
+            if launch in refused_launches:
+                additional[launch].add(refused_launches[launch])
             refused_launches[launch] = 'unreadable_trial'
         if trial.get('editor_id') != editor_id or not trial.get('criterion_id'):
             continue
@@ -215,11 +226,18 @@ def build_run_cell(
             continue
         code = refusal_code(trial)
         if code in _RUN_REFUSALS:
-            refused_launches[launch] = code
+            if refused_launches.get(launch) == 'unreadable_trial':
+                additional[launch].add(code)
+            else:
+                if launch in refused_launches:
+                    additional[launch].add(refused_launches[launch])
+                refused_launches[launch] = code
         if trial['criterion_id'] == criterion_id and trial_measure(trial) == measure:
             trials[launch].append(trial)
     for path in (run_directory / 'rejected-evidence').glob('*'):
         if path.is_dir() and path.name.endswith('-' + editor_id):
+            if path.name in refused_launches:
+                additional[path.name].add(refused_launches[path.name])
             refused_launches[path.name] = 'quarantined'
     for path, row in _read_rows(run_directory / 'samples'):
         if (path.parent != run_directory / 'samples'
@@ -228,7 +246,9 @@ def build_run_cell(
                 or row.get('outcome') in ('ok', 'measured')):
             continue
         code = refusal_code(row)
-        if code in _RUN_REFUSALS and refused_launches.get(path.stem) != 'unreadable_trial':
+        if code and refused_launches.get(path.stem) in ('quarantined', 'unreadable_trial'):
+            additional[path.stem].add(code)
+        elif code in _RUN_REFUSALS:
             refused_launches[path.stem] = code
         elif code and path.stem not in trials:
             refused_launches.setdefault(path.stem, code)
@@ -274,6 +294,7 @@ def build_run_cell(
             refusals[reason] += 1
             continue
         median = percentile(samples, 50)
+        verified_content.append(trial.get('content_verified') is True)
         raw.append(samples)
         kept.append(median)
         if sample_unit != 'bytes':
@@ -290,6 +311,8 @@ def build_run_cell(
         'raw_samples_ms': raw,
         'sub_frame': sub_frame,
         'refusals': dict(refusals),
+        'additional_refusals': dict(Counter(code for launch, codes in additional.items() for code in codes if code != refused_launches.get(launch))),
+        'content_verified': bool(verified_content) and all(verified_content),
         'failed_launches': len(failed_launches),
         'frame_interval_ms': percentile(intervals, 50) if intervals else None,
         'stats': {'n': len(kept), 'median': percentile(kept, 50), 'p90': percentile(kept, 90)} if kept else None,
@@ -316,7 +339,9 @@ def failure_text(cell: dict) -> str:
         return ''
     counts = '; '.join(f'{key}: {count}' for key, count in sorted(reasons.items()))
     count = cell.get('failed_launches', sum(reasons.values()))
-    return f'{count} of {cell.get("scheduled", 30)} launches failed: {counts}'
+    extra = cell.get('additional_refusals') or {}
+    also = '; also ' + '; '.join(f'{k}: {v}' for k, v in sorted(extra.items())) if extra else ''
+    return f'{count} of {cell.get("scheduled", 30)} launches failed: {counts}{also}'
 
 
 def _format_median(median: float, frame_interval: float) -> str:
@@ -347,9 +372,13 @@ def publication_text(cell: dict) -> str:
     if n_kept < MIN_PUBLISH_N:
         reasons = cell.get('refusals') or {}
         reason_text = '; '.join(f'{key}: {count}' for key, count in sorted(reasons.items())) or 'none counted'
-        return f'not enough samples (n = {n_kept} of {scheduled}; reasons {reason_text})'
+        additional = cell.get('additional_refusals') or {}
+        extra = '; also ' + '; '.join(f'{k}: {v}' for k, v in sorted(additional.items())) if additional else ''
+        return f'not enough samples (n = {n_kept} of {scheduled}; reasons {reason_text}{extra})'
     failures = failure_text(cell)
-    failure_suffix = f'; {failures}' if failures else ''
+    failure_suffix = f'; n = {n_kept} of {scheduled}' + (f'; {failures}' if failures else '')
+    if cell.get('criterion_id') == 'C11' and cell.get('content_verified') is not True:
+        failure_suffix += ' — content not verified'
     if cell.get('sample_unit') == 'bytes':
         return f"{stats['median']:.1f} bytes; p90 {stats['p90']:.1f} bytes{failure_suffix}"
     frame_interval = cell.get('frame_interval_ms')

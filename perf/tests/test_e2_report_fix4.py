@@ -44,7 +44,8 @@ def test_codes_ignore_message(pair, message, code):
         (directory / f'{rep:04d}-plate.json').write_text(json.dumps(row))
     assert cell(root)['refusals'] == ({'host_build': 10} if code == 'host_build' else {})
     assert cell(root, 'C04')['refusals'] == {code or 'crash': 10}
-    assert '10' in report.facts_from_runs(*pair)['perf.e2.table.C04']
+    assert '10' in report._cell_text({}, *pair, 'plate', 'C04')
+    assert report.facts_from_runs(*pair)['perf.e2.table.C04'] == 'not in these runs.'
 
 
 @pytest.mark.parametrize(
