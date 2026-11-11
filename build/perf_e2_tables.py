@@ -395,6 +395,8 @@ def unset_facts() -> dict:
     for cid in E2_CRITERIA:
         facts["perf.e2.criterion.%s" % cid] = blurbs.get(cid, cid)
         facts["perf.e2.table.%s" % cid] = "not yet measured"
+    facts["perf.e2.criterion.B8"] = RESOURCES_BLURB
+    facts["perf.e2.table.B8"] = "not yet measured"
     return facts
 
 
@@ -468,6 +470,7 @@ def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
                             if row['criterion_id'] == 'TYPING' and row.get('session_kind') in ('throughput', 'latency')})
     if typing_groups:
         facts['perf.e2.table.TYPING'] = '\n\n'.join(typing_table(facts, primary.path, repro.path, editor, kind) for editor, kind in typing_groups)
+    facts.update(resource_facts([primary.path, repro.path], editors))
     facts["perf.e2.not_run"] = _not_run_editors(primary.path, repro.path, editors)
     facts["perf.e2.not_reproduced"] = _not_reproduced_table(facts)
     published = [k for k in facts if k.endswith(".reproduced")]
@@ -475,6 +478,27 @@ def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
     facts["perf.e2.cells_reproduced"] = sum(1 for k in published if facts[k])
     facts["perf.e2.intro"] = "%d of %d scheduled editor/criterion/measure cells reproduced between the two runs. Dates: first %s; second %s." % (
         facts["perf.e2.cells_reproduced"], facts["perf.e2.cells_checked"], _date(s), _date(repro.summary))
+    return facts
+
+
+RESOURCES_BLURB = (
+    "**B8 — resources while opening and editing.** One fresh browser per launch opens the document, waits "
+    "until the editor is idle, types sixteen characters into a body line on the first screen, and waits "
+    "again. CPU is the processor time of the whole browser process tree: to open (from navigation until "
+    "idle, including work an editor does after it reports ready), during the edit (the keystrokes plus "
+    "half a second), and while settling afterwards. Peak memory is the resident memory of that tree. An "
+    "edit counts only when it is verified in the document: the text of the block at the caret, read from "
+    "the page or from the editor's model, gained exactly the typed text; WordCraft, which exposes no text, "
+    "is verified by its own modified flag. An editor that never goes idle is measured over a 30-second cap "
+    "and flagged. The complex document is loaded without its read-only protection, which the editors honour."
+)
+
+
+def resource_facts(roots, editors) -> dict:
+    """The B8 section: every seed's launches from every run directory given."""
+    from perf.analysis import e2_resources
+    facts: dict = {"perf.e2.criterion.B8": RESOURCES_BLURB}
+    facts["perf.e2.table.B8"] = e2_resources.resources_tables(facts, roots, editors, DISPLAY)
     return facts
 
 

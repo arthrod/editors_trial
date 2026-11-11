@@ -114,6 +114,14 @@ Each C15 step is a separate measure; steps are never pooled.
 
 {{perf.e2.table.C19}}
 
+### B8 — resources while opening and editing
+
+{{perf.e2.criterion.B8}}
+
+Each cell shows the first seed's median and the second seed's median. A figure is printed only when the two agree within 10 percent (20 ms for CPU).
+
+{{perf.e2.table.B8}}
+
 ### B9 — typing marathon
 
 Each kind schedules 12 sessions per editor per seed and requires at least 10 kept. Throughput sessions publish chars/s and resources. Latency sessions publish load and key-to-paint with witness counts; their instrumented throughput and resources are withheld.
