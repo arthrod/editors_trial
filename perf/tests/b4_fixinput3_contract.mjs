@@ -167,8 +167,9 @@ assert(
   'C09 names missing focus instead of blaming document text',
 );
 
-// A masked caret with no screencast frame is not a sample. The unmasked
-// re-click has to paint, or the point is click_paint_not_observed.
+// A click whose fixed box never paints is not a sample: the FIRST click is
+// the only witness (r3lanes4 ruling 2), so a dark box refuses the point with
+// first_click_painted_nothing_in_click_region.
 const c07CaretDom = await (async () => {
   const page = {
     mouse: { click: async () => {} },
@@ -197,7 +198,7 @@ const c07CaretDom = await (async () => {
     frameIntervalMs: 16.667,
     paintAfter: async (_t, callOptions = {}) => {
       if (callOptions.arm) await callOptions.arm();
-      return { outcome: 'no_frame', changed_pixels: 0, caret_masked: true, frames_after: 1, frames_total: 2 };
+      return { outcome: 'no_frame', changed_pixels: 0, caret_masked: false, frames_after: 1, frames_total: 2 };
     },
   };
   const { measureClicks } = await import('../runner/criteria_input.mjs');
@@ -215,8 +216,8 @@ const c07CaretDom = await (async () => {
 })();
 assert(c07CaretDom.outcome === 'failed', 'C07 refuses a click that never paints');
 assert(
-  String(c07CaretDom.failure_reason || '').includes('click_paint_not_observed'),
-  'C07 names click_paint_not_observed',
+  String(c07CaretDom.failure_reason || '').includes('first_click_painted_nothing_in_click_region'),
+  'C07 names first_click_painted_nothing_in_click_region',
 );
 assert(
   !(c07CaretDom.observations || []).some((observation) => observation.sample_ms != null),
