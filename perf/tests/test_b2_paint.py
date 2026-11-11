@@ -365,7 +365,7 @@ class ReviewPolicy(unittest.TestCase):
         self.assertEqual(row['failure_reason'], 'expected_edit_not_confirmed')
         self.assertIsNone(row['latency_ms'])
 
-    def test_model_adapter_confirmed_skips_dom_pixel_proof(self):
+    def test_model_adapter_without_glyph_rects_is_not_applicable(self):
         row = runner.input_sample_record({
             'edit_ms': 24,
             'outcome': 'measured',
@@ -375,11 +375,51 @@ class ReviewPolicy(unittest.TestCase):
                 'confirmed': True,
                 'changed_pixels': 0,
                 'visible_rects': [],
-                'adapter': {'adapter': 'model', 'confirmed': True},
+                'adapter': {'adapter': 'model', 'confirmed': True,
+                            'before_count': 0, 'after_count': 1},
             },
         }, 'C05')
-        self.assertIsNone(row['failure_reason'])
-        self.assertEqual(row['outcome'], 'measured')
+        self.assertEqual(row['outcome'], 'not_applicable')
+        self.assertEqual(row['failure_reason'], runner.NO_GLYPH_GEOMETRY_REASON)
+        self.assertIsNone(row['latency_ms'])
+        # The evidence that the edit did land in the model travels with the row.
+        self.assertEqual(row['edit_confirmation']['adapter']['after_count'], 1)
+
+    def test_flag_adapter_without_glyph_rects_is_not_applicable(self):
+        row = runner.input_sample_record({
+            'edit_ms': 21,
+            'outcome': 'measured',
+            'witness': frame_record(),
+            'clock_skew': {'skew_ms': 0, 'bound_ms': 2, 'acceptable': True},
+            'edit_confirmation': {
+                'confirmed': True,
+                'changed_pixels': 0,
+                'visible_rects': [],
+                'adapter': {'adapter': 'flag', 'confirmed': True,
+                            'before_count': 0, 'after_count': 1},
+            },
+        }, 'C06')
+        self.assertEqual(row['outcome'], 'not_applicable')
+        self.assertEqual(row['failure_reason'], runner.NO_GLYPH_GEOMETRY_REASON)
+        self.assertIsNone(row['latency_ms'])
+
+    def test_model_adapter_unconfirmed_is_still_a_refusal(self):
+        row = runner.input_sample_record({
+            'edit_ms': 24,
+            'outcome': 'measured',
+            'witness': frame_record(),
+            'clock_skew': {'skew_ms': 0, 'bound_ms': 2, 'acceptable': True},
+            'edit_confirmation': {
+                'confirmed': False,
+                'changed_pixels': 0,
+                'visible_rects': [],
+                'adapter': {'adapter': 'model', 'confirmed': False,
+                            'reason': 'caret_scope_token_mismatch'},
+            },
+        }, 'C05')
+        self.assertEqual(row['outcome'], 'failed')
+        self.assertEqual(row['failure_reason'], 'expected_edit_not_confirmed')
+        self.assertIsNone(row['latency_ms'])
 
     def test_f4_refusal_reason_survives_missing_clock(self):
         row = runner.input_sample_record({'outcome': 'failed', 'failure_reason': 'trusted_keydown_not_observed'}, 'C05')
@@ -388,6 +428,66 @@ class ReviewPolicy(unittest.TestCase):
     def test_boolean_clock_is_not_numeric(self):
         row = runner.input_sample_record({'clock_skew': {'skew_ms': True, 'bound_ms': 5, 'acceptable': True}}, 'C05')
         self.assertEqual(row['failure_reason'], 'clock_skew_unavailable')
+
+    def test_glyph_geometry_refusal_is_detected_from_the_payload(self):
+        observation = {
+            'mechanism': 'cdp_screencast_changed_frame',
+            'edit_ms': None,
+            'outcome': 'not_applicable',
+            'failure_reason': runner.NO_GLYPH_GEOMETRY_REASON,
+            'witness': frame_record(),
+            'clock_skew': {'skew_ms': 0, 'bound_ms': 2, 'acceptable': True},
+            'edit_confirmation': {
+                'confirmed': True,
+                'changed_pixels': 0,
+                'visible_rects': [],
+                'adapter': {'adapter': 'model', 'confirmed': True, 'after_count': 1},
+            },
+        }
+        payload = {'pairs': [{'cold': {'single_edit_ms': None, 'burst': [dict(observation)]},
+                              'warm': {'single_edit_ms': None, 'burst': [dict(observation)]}}]}
+        refusal = runner._glyph_geometry_refusal(payload)
+        self.assertIsNotNone(refusal)
+        self.assertEqual(refusal['reason'], runner.NO_GLYPH_GEOMETRY_REASON)
+        self.assertEqual(refusal['adapters'], ['model'])
+        self.assertTrue(refusal['edit_landed_in_model'])
+
+    def test_glyph_geometry_refusal_absent_for_dom_editors(self):
+        observation = {
+            'mechanism': 'cdp_screencast_changed_frame',
+            'edit_ms': 24,
+            'outcome': 'measured',
+            'witness': frame_record(),
+            'clock_skew': {'skew_ms': 0, 'bound_ms': 2, 'acceptable': True},
+            'edit_confirmation': {
+                'confirmed': True,
+                'changed_pixels': 40,
+                'visible_rects': [{'x': 1, 'y': 1, 'width': 8, 'height': 18}],
+                'adapter': {'adapter': 'dom', 'confirmed': True},
+            },
+        }
+        payload = {'pairs': [{'cold': {'single_edit_ms': 24, 'burst': [dict(observation)]},
+                              'warm': {'single_edit_ms': 25, 'burst': [dict(observation)]}}]}
+        self.assertIsNone(runner._glyph_geometry_refusal(payload))
+
+    def test_glyph_geometry_refusal_requires_the_edit_to_have_landed(self):
+        observation = {
+            'mechanism': 'cdp_screencast_changed_frame',
+            'edit_ms': None,
+            'outcome': 'failed',
+            'failure_reason': 'expected_edit_not_confirmed',
+            'witness': frame_record(),
+            'clock_skew': {'skew_ms': 0, 'bound_ms': 2, 'acceptable': True},
+            'edit_confirmation': {
+                'confirmed': False,
+                'changed_pixels': 0,
+                'visible_rects': [],
+                'adapter': {'adapter': 'model', 'confirmed': False},
+            },
+        }
+        payload = {'pairs': [{'cold': {'single_edit_ms': None, 'burst': [dict(observation)]},
+                              'warm': {'single_edit_ms': None, 'burst': [dict(observation)]}}]}
+        self.assertIsNone(runner._glyph_geometry_refusal(payload))
 
     def test_n3_clock_bound_is_validator_constant_not_record(self):
         proof = {

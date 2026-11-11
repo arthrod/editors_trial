@@ -550,7 +550,7 @@ def _run_browser_probe(
                     if probe_accounting:
                         row['probe_cpu_accounting'] = probe_accounting['cpu_accounting']
                     if row['outcome'] != 'measured':
-                        observation['outcome'] = 'failed'
+                        observation['outcome'] = row['outcome'] if row['outcome'] == 'not_applicable' else 'failed'
                         observation['edit_ms'] = None
                         observation['failure_reason'] = row['failure_reason']
                         if cid == 'C05':
@@ -568,6 +568,55 @@ def _content_length_diagnostic(content_meta: dict) -> dict:
     return {
         "content_length_check": content_meta["length_check"],
         "content_length_check_reason": content_meta["length_check_reason"],
+    }
+
+
+#: Ruling r3lanes4 #1: a C05/C06 sample is published only on the glyph-ink
+#: end event (the inserted glyph's own client rects, inked against the
+#: pre-key baseline). An editor whose adapter is the model or the modified
+#: flag exposes no glyph geometry that could witness the keystroke's own
+#: paint, so the row is not_applicable — with the evidence that the edit did
+#: land in the model — never a latency.
+NO_GLYPH_GEOMETRY_REASON = "no_glyph_geometry_to_witness_the_keystrokes_own_paint"
+
+
+def _glyph_geometry_refusal(payload: dict) -> dict | None:
+    """The shared not_applicable evidence for model/flag editors, or None.
+
+    Every cold/warm edit observation in the payload must agree: the adapter
+    is `model` or `flag` and it confirmed the edit landed. A DOM editor, or a
+    model editor whose keystroke never landed, returns None and keeps the
+    normal measured/failed path.
+    """
+    adapters = set()
+    confirmed = True
+    seen = False
+    for pair in payload.get("pairs", []):
+        for arm in ("cold", "warm"):
+            data = pair.get(arm) or {}
+            for observation in [data] + list(data.get("burst") or []):
+                if "mechanism" not in observation:
+                    continue
+                seen = True
+                adapter = ((observation.get("edit_confirmation") or {}).get("adapter") or {})
+                kind = adapter.get("adapter")
+                if kind in ("model", "flag"):
+                    adapters.add(kind)
+                    if adapter.get("confirmed") is not True:
+                        confirmed = False
+                elif kind == "dom":
+                    return None
+    if not seen or not adapters or not confirmed:
+        return None
+    return {
+        "reason": NO_GLYPH_GEOMETRY_REASON,
+        "adapters": sorted(adapters),
+        "edit_landed_in_model": True,
+        "note": (
+            "the end event of a published C05/C06 sample is the inserted glyph's own ink; "
+            "this editor's edit surface has no glyph geometry (model/flag adapter), so no "
+            "paint of the keystroke itself can be witnessed"
+        ),
     }
 
 
@@ -658,7 +707,8 @@ def input_sample_record(observation, criterion_id):
     if not reason and criterion_id in ('C05', 'C06') and 'edit_ms' in row:
         proof = row.get('edit_confirmation') or {}
         adapter = proof.get('adapter') or {}
-        adapter_confirmed = adapter.get('confirmed') is True and adapter.get('adapter') in ('model', 'flag')
+        adapter_kind = adapter.get('adapter')
+        adapter_confirmed = adapter.get('confirmed') is True
         pixels = proof.get('changed_pixels')
         rects = proof.get('visible_rects')
         visible = isinstance(rects, list) and bool(rects) and all(
@@ -666,9 +716,20 @@ def input_sample_record(observation, criterion_id):
                 and not isinstance(r.get(k), bool) and math.isfinite(r[k])
                 for k in ('x', 'y', 'width', 'height'))
             and r['width'] > 0 and r['height'] > 0 for r in rects)
-        if not adapter_confirmed and (proof.get('confirmed') is not True or not visible
-                or isinstance(pixels, bool) or not isinstance(pixels, (int, float))
-                or not math.isfinite(pixels) or pixels < DEFAULT_MIN_PIXELS):
+        if adapter_kind in ('model', 'flag'):
+            # r3lanes4 ruling 1: no glyph geometry can witness the keystroke's
+            # own paint. The edit landing in the model is recorded as evidence;
+            # the latency itself is not_applicable, and an edit that never
+            # landed stays a named refusal.
+            if adapter_confirmed:
+                row['latency_ms'] = None
+                row['outcome'] = 'not_applicable'
+                row['failure_reason'] = NO_GLYPH_GEOMETRY_REASON
+                return row
+            reason = 'expected_edit_not_confirmed'
+        elif proof.get('confirmed') is not True or not visible \
+                or isinstance(pixels, bool) or not isinstance(pixels, (int, float)) \
+                or not math.isfinite(pixels) or pixels < DEFAULT_MIN_PIXELS:
             reason = 'expected_edit_not_confirmed'
         verdict = validate_witness(row.get('witness'), bound_ms=bound)
         if not reason and verdict['refused']:
@@ -844,16 +905,18 @@ def _write_measured_attempt(
     return _persist_attempt(attempt_dir, criterion_id, editor_id, trial)
 
 
-def _write_input_refusal(*, observations, failure_reason, content_meta=None, **kwargs):
+def _write_input_refusal(*, observations, failure_reason, content_meta=None, outcome='failed',
+                        diagnostic_extra=None, **kwargs):
     checked = [input_sample_record(o, kwargs['criterion_id']) for o in observations]
     reason = next((o['failure_reason'] for o in checked if o.get('failure_reason')), failure_reason)
     diagnostic = {'observations': checked, 'aggregation': 'all samples required',
-                    **({'keys': 3, 'isolated': True} if kwargs['criterion_id'] == 'C06' else {})}
+                    **({'keys': 3, 'isolated': True} if kwargs['criterion_id'] == 'C06' else {}),
+                    **(diagnostic_extra or {})}
     if content_meta:
         diagnostic.update(_content_length_diagnostic(content_meta))
     trial = _trial_dict(
         **{k: v for k, v in kwargs.items() if k not in ('attempt_dir', 'content_meta')},
-        outcome='failed', samples_ms=[], failure_reason=reason,
+        outcome=outcome, samples_ms=[], failure_reason=reason,
         diagnostic=diagnostic,
     )
     trial['failure_reasons'] = sorted({o['failure_reason'] for o in checked if o.get('failure_reason')} or {failure_reason})
@@ -1404,6 +1467,56 @@ def _main() -> int:
             continue
 
         if ("C05" in criteria_map or "C06" in criteria_map) and not target.get("skip_edit"):
+            # r3lanes4 ruling 1: model/flag editors have no glyph geometry to
+            # witness the keystroke's own paint. Their C05/C06 cells are a named
+            # not_applicable carrying the evidence that the edit landed; C03
+            # stays measured above.
+            glyph_na = _glyph_geometry_refusal(payload)
+            if glyph_na:
+                for cid in ("C05", "C06"):
+                    if cid not in criteria_map:
+                        continue
+                    boundary, layer = {
+                        "C05": ("presented_frame", "browser_visible"),
+                        "C06": ("input_to_next_paint", "browser_visible"),
+                    }[cid]
+                    env = _env_for(
+                        editor_id=editor_id,
+                        editor_version=editor_version,
+                        fixture_sha256=sha,
+                        workload_row=workload_row,
+                        docx_size=docx_size,
+                        cache_state="warm_steady",
+                    )
+                    path = _write_input_refusal(
+                        attempt_dir=attempt_dir,
+                        criterion_id=cid,
+                        layer=layer,
+                        boundary=boundary,
+                        editor_id=editor_id,
+                        lane=lane,
+                        env=env,
+                        observations=[o for p in payload["pairs"] for a in ("cold", "warm")
+                                      for o in ([p[a]] + list(p[a].get("burst") or []))
+                                      if "mechanism" in o],
+                        failure_reason=glyph_na["reason"],
+                        content_meta=content_meta,
+                        outcome="not_applicable",
+                        diagnostic_extra={
+                            "suite": "warm_cold",
+                            "glyph_geometry": glyph_na,
+                        },
+                    )
+                    refusal_rows.append(
+                        {
+                            "criterion_id": cid,
+                            "editor_id": editor_id,
+                            "outcome": "not_applicable",
+                            "failure_reason": glyph_na["reason"],
+                            "attempt_file": _attempt_ref(path),
+                        }
+                    )
+                continue
             cold_edits = [
                 pair["cold"]["single_edit_ms"]
                 for pair in payload["pairs"]
