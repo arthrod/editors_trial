@@ -47,6 +47,133 @@ export function editSurface(editorId) {
   return EDIT_SURFACES[editorId] || { kind: 'dom', root: null };
 }
 
+/**
+ * One whole-document text source per editor.
+ *
+ * These roots are deliberately separate from the caret roots above. A caret
+ * root may be one paragraph (Eigenpal), one page (Folio), or a hidden editing
+ * surface (Docxodus); the content gate must ask the editor what document it
+ * says it has, not inspect the first edit fragment.
+ */
+export const DOCUMENT_TEXT_SURFACES = {
+  plate: { kind: 'dom', root: '[contenteditable="true"]' },
+  docxodus: { kind: 'dom', root: '#pages' },
+  superdoc: { kind: 'dom', root: '.superdoc-page' },
+  genoffice: { kind: 'dom', root: '.doc-page.ProseMirror:not(.mp-page)' },
+  eigenpal: { kind: 'model', model: 'eigenpal' },
+  folio: { kind: 'dom', root: '[data-page-number]' },
+  canvas: { kind: 'model', model: 'canvas_editor' },
+  docen: { kind: 'model', model: 'docen' },
+  // WordCraft exposes no document text at this pin, only its modified flag.
+  wordcraft: { kind: 'unavailable' },
+};
+
+export function hasDocumentTextSurface(editorId) {
+  return Object.prototype.hasOwnProperty.call(DOCUMENT_TEXT_SURFACES, editorId);
+}
+
+export function documentTextSurface(editorId) {
+  return DOCUMENT_TEXT_SURFACES[editorId] || { kind: 'dom', root: null };
+}
+
+/**
+ * Page context. Read the editor's whole document, not a caret-scoped block.
+ *
+ * The result is deliberately bounded by the caller: this function returns the
+ * full text so the content gate can compare its opening, closing witness and
+ * (for model hosts) total length, while persisted evidence keeps only an
+ * excerpt.
+ */
+export const READ_EDITOR_DOCUMENT_TEXT = ({ kind, root, model, deep = false }) => {
+  const result = (text, oracle, source, error = null) => ({
+    text: String(text || ''),
+    chars: String(text || '').length,
+    oracle,
+    source,
+    error: error ? String(error) : null,
+  });
+
+  if (kind === 'unavailable') {
+    return result('', 'absent', model || 'unavailable');
+  }
+
+  if (kind === 'model' && model === 'eigenpal') {
+    const hook = window.__DOCX_EDITOR_E2E__;
+    const editor = hook && typeof hook.getEditor === 'function' ? hook.getEditor() : null;
+    const session = editor && editor.surface && editor.surface.session;
+    if (!session || typeof session.bodyText !== 'function') {
+      return result('', 'absent', 'eigenpal_model', 'eigenpal model unavailable');
+    }
+    try {
+      return result(session.bodyText(), 'perf_model', 'eigenpal_model');
+    } catch (error) {
+      return result('', 'absent', 'eigenpal_model', error && error.message ? error.message : error);
+    }
+  }
+
+  if (kind === 'model' && model === 'docen') {
+    const editor = window.__DOCEN__ && window.__DOCEN__.editor;
+    const doc = editor && editor.state && editor.state.doc;
+    if (!doc) return result('', 'absent', 'docen_model', 'docen model unavailable');
+    try {
+      const text = typeof doc.textBetween === 'function'
+        ? doc.textBetween(0, doc.content.size, ' ')
+        : String(doc.textContent || '');
+      return result(text, 'perf_model', 'docen_model');
+    } catch (error) {
+      return result('', 'absent', 'docen_model', error && error.message ? error.message : error);
+    }
+  }
+
+  if (kind === 'model' && model === 'canvas_editor') {
+    try {
+      const command = window.__CANVAS_EDITOR_INSTANCE__ && window.__CANVAS_EDITOR_INSTANCE__.command;
+      if (command && typeof command.getText === 'function') {
+        const value = command.getText();
+        const text = [value.header, value.main, value.footer]
+          .filter((part) => part && String(part).trim())
+          .join('\n');
+        return result(text, 'perf_model', 'canvas_model');
+      }
+      const hook = window.__PERF_MODEL_TEXT__;
+      if (typeof hook === 'function') {
+        return result(String(hook() ?? ''), 'perf_model', 'canvas_model');
+      }
+      return result('', 'absent', 'canvas_model', 'canvas model unavailable');
+    } catch (error) {
+      return result('', 'absent', 'canvas_model', error && error.message ? error.message : error);
+    }
+  }
+
+  const queryDeep = (selector) => {
+    const found = [];
+    const visit = (root) => {
+      for (const element of root.querySelectorAll(selector)) found.push(element);
+      for (const element of root.querySelectorAll('*')) {
+        if (element.shadowRoot) visit(element.shadowRoot);
+      }
+    };
+    visit(document);
+    return found;
+  };
+  const roots = root
+    ? Array.from(deep ? queryDeep(root) : document.querySelectorAll(root))
+    : [];
+  const text = roots
+    .map((element) => String(element.textContent || ''))
+    .filter((part) => part.length > 0)
+    .join('\n');
+  return result(text, 'dom', 'dom');
+};
+
+export async function readEditorDocumentText(page, editorId, { root = null } = {}) {
+  const surface = documentTextSurface(editorId);
+  const request = hasDocumentTextSurface(editorId)
+    ? surface
+    : { kind: 'dom', root, deep: true };
+  return page.evaluate(READ_EDITOR_DOCUMENT_TEXT, request);
+}
+
 /** Page context. First body text line fully inside the viewport. */
 export const FIND_TEXT_LINE = ({ root, exclude, minChars }) => {
   const roots = root ? Array.from(document.querySelectorAll(root)) : [];

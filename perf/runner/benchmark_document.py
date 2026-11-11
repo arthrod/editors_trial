@@ -40,6 +40,7 @@ import json
 import math
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -1286,27 +1287,56 @@ def corpus_opening_text(corpus_path: Path) -> str:
 
 
 def corpus_content_expectations(corpus_path: Path) -> dict:
-    """Opening snippet, closing sentinel when present, and joined fixture text length."""
+    """Opening snippet, closing witness, and a baseline only when it is defined.
+
+    A raw ``w:t`` count is not a universal model length for revision/field or
+    alternate-content fixtures: editors legitimately accept different text
+    (for example current text versus tracked-move source). In that case the
+    2% mass band has no like-for-like baseline and is explicitly not applied.
+    """
     import zipfile
     from perf.fixtures.docx_workload import SENTINEL_PREFIX, docx_paragraph_texts
     with zipfile.ZipFile(corpus_path) as archive:
-        paragraphs = docx_paragraph_texts(archive.read("word/document.xml"))
+        document_xml = archive.read("word/document.xml")
+    paragraphs = docx_paragraph_texts(document_xml)
     text = "\n".join(paragraphs)
     sentinel = None
     if paragraphs and paragraphs[-1].startswith(SENTINEL_PREFIX):
         sentinel = paragraphs[-1]
+    ambiguous_model_text = re.search(
+        br"<w:(?:moveFrom|moveTo|del|ins)(?:\s|>)|<w:fldChar\b|<w:instrText\b|<mc:AlternateContent\b",
+        document_xml,
+    )
+    if ambiguous_model_text:
+        closing = next((paragraph for paragraph in reversed(paragraphs) if paragraph.strip()), None)
+        return {
+            "opening": corpus_opening_text(corpus_path),
+            "sentinel": sentinel,
+            "closing": closing,
+            "text_chars": None,
+            "length_check": "not_applicable",
+            "length_check_reason": (
+                "fixture contains tracked revisions, field instructions/stubs, or "
+                "AlternateContent fallback text; accepted model text is editor-dependent, "
+                "so a universal character baseline is undefined; opening and closing "
+                "witnesses remain in force"
+            ),
+        }
     return {
         "opening": corpus_opening_text(corpus_path),
         "sentinel": sentinel,
+        "closing": sentinel,
         "text_chars": len(text),
+        "length_check": "applied",
+        "length_check_reason": None,
     }
 
 
 def corpus_content_expectation_flags(corpus_path: Path) -> list[str]:
     meta = corpus_content_expectations(corpus_path)
     flags: list[str] = []
-    if meta.get("sentinel"):
-        flags.extend(["--expected-closing-sentinel", meta["sentinel"]])
+    if meta.get("closing"):
+        flags.extend(["--expected-closing-sentinel", meta["closing"]])
     if meta.get("text_chars"):
         flags.extend(["--fixture-text-chars", str(meta["text_chars"])])
     return flags
@@ -1315,10 +1345,28 @@ def corpus_content_expectation_flags(corpus_path: Path) -> list[str]:
 def _run_load_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path: Path, count: int) -> tuple:
     """C11: fresh browser, corpus content check, then document-frame timing."""
     expected = corpus_opening_text(fixture_path)
+    if Path(fixture_path).is_file():
+        content_meta = corpus_content_expectations(fixture_path)
+    else:
+        content_meta = {
+            "opening": expected,
+            "sentinel": None,
+            "closing": None,
+            "text_chars": 0,
+            "length_check": "not_applicable",
+            "length_check_reason": "in-memory corpus oracle; no package baseline available",
+        }
     if not expected:
         raise ProbeRefusal("document_content_expectation_absent")
     extra = ["--expected-opening-text", expected, *corpus_content_expectation_flags(fixture_path)]
-    cmd = _probe_cmd(mode="load", target=target, cfg=cfg, corpus_path=fixture_path, extra=extra)
+    cmd = _probe_cmd(
+        mode="load",
+        target=target,
+        cfg=cfg,
+        corpus_path=fixture_path,
+        extra=extra,
+    )
+    cmd.extend(["--editor", editor_id])
     samples = []
     diagnostics = []
     for _ in range(count):
@@ -1329,7 +1377,11 @@ def _run_load_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path: 
                 "document_content_mismatch",
                 "document_content_unverifiable",
             ):
-                raise ProbeRefusal(payload["surface_reason"])
+                reason = payload["surface_reason"]
+                editor_error = payload.get("editor_error")
+                if editor_error:
+                    reason = "%s: %s" % (reason, editor_error)
+                raise ProbeRefusal(reason)
             if payload.get("content_text_accessible") is not False:
                 raise ProbeRefusal("document_content_unverified")
         values = c11_measured_samples(payload)
@@ -1340,6 +1392,8 @@ def _run_load_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path: 
                 "witness": payload.get("witness"),
                 "document_text": payload.get("document_text"),
                 "expected_opening_text": expected,
+                "content_length_check": content_meta["length_check"],
+                "content_length_check_reason": content_meta["length_check_reason"],
                 "fcp_ms": payload.get("fcp_ms"),
                 "first_element_ms": payload.get("first_element_ms"),
                 "first_element_delta_from_fcp_ms": payload.get("first_element_delta_from_fcp_ms"),
@@ -1374,6 +1428,7 @@ def _run_reflow_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path
         extra=["--settle-ms", str(SETTLE_MS)],
         editor_id=editor_id,
     )
+    cmd.extend(["--editor", editor_id])
     samples = []
     diagnostics = []
     for _ in range(count):
@@ -1409,6 +1464,7 @@ def _run_scale_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path:
         corpus_path=fixture_path,
         extra=["--settle-ms", "0"],
     )
+    cmd.extend(["--editor", editor_id])
     samples = []
     diagnostics = []
     for _ in range(count):
@@ -1478,6 +1534,7 @@ def _run_find(*, editor_id: str, target: dict, cfg: dict, fixture_path: Path) ->
             cfg.get("find_query", ""),
         ],
     )
+    cmd.extend(["--editor", editor_id])
     if cfg.get("find_expected_matches") is not None:
         cmd.extend(["--find-expected-matches", str(cfg["find_expected_matches"])])
     return _run_probe(cmd, editor_id=editor_id)
@@ -1675,6 +1732,7 @@ def _main() -> int:
             for criterion_id in criteria:
                 if criterion_id == "C11":
                     fixture = fixtures[specs["C11"]["workload"]]
+                    content_meta = corpus_content_expectations(fixture["path"])
                     env = _env_for(
                         editor_id=editor_id,
                         editor_version=editor_version,
@@ -1691,8 +1749,17 @@ def _main() -> int:
                             count=args.samples,
                         )
                     except ProbeRefusal as refusal:
-                        _refuse_cell("C11", fixture, refusal.reason, outcome="failed",
-                                     refusal_code=getattr(refusal, "refusal_code", None))
+                        _refuse_cell(
+                            "C11",
+                            fixture,
+                            refusal.reason,
+                            outcome="failed",
+                            extra={
+                                "content_length_check": content_meta["length_check"],
+                                "content_length_check_reason": content_meta["length_check_reason"],
+                            },
+                            refusal_code=getattr(refusal, "refusal_code", None),
+                        )
                         failures += 1
                         continue
                     path, trial = _write_measured(

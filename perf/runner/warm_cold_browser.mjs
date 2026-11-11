@@ -83,9 +83,8 @@ import {
   parseCriteriaList,
   runCriteriaSuite,
 } from './criteria_input.mjs';
-import { normalizeDocumentText } from './document_text_normalize.mjs';
 import { evaluatePerfModelDocument, openingContentVerdict } from './perf_model_text.mjs';
-import { EDIT_SURFACES, editSurface } from './edit_surface.mjs';
+import { EDIT_SURFACES, editSurface, readEditorDocumentText } from './edit_surface.mjs';
 import { confirmLaneEdit, prepareLaneCaret } from './lane_edit_burst.mjs';
 
 
@@ -187,78 +186,41 @@ async function waitForReady(page, selector, timeoutMs = 120_000, t0 = Date.now()
   const clock_skew = await clockSkew(page, calibration);
   await stopRecorder(calibration);
   await calibration.detach();
-  await verifyCanvasOpening(page);
-  return { first_usable_ms, settle_ms, clock_skew };
+  const content_check = await verifyCanvasOpening(page);
+  return { first_usable_ms, settle_ms, clock_skew, content_check };
 }
 
 async function verifyCanvasOpening(page) {
-  if (!expectedOpeningText) return;
-  const snap = await page.evaluate(
-    ({ editSel, normOpening, normClosing, fixtureChars, tolerance }) => {
-      const CONTENT_CASE_FOLD = {"µ":"μ","ß":"ss","ŉ":"ʼn","ſ":"s","ǰ":"ǰ","ͅ":"ι","ΐ":"ΐ","ΰ":"ΰ","ς":"σ","ϐ":"β","ϑ":"θ","ϕ":"φ","ϖ":"π","ϰ":"κ","ϱ":"ρ","ϵ":"ε","և":"եւ","ẖ":"ẖ","ẗ":"ẗ","ẘ":"ẘ","ẙ":"ẙ","ẚ":"aʾ","ẛ":"ṡ","ẞ":"ss","ὐ":"ὐ","ὒ":"ὒ","ὔ":"ὔ","ὖ":"ὖ","ι":"ι","ῤ":"ῤ","ﬀ":"ff","ﬁ":"fi","ﬂ":"fl","ﬃ":"ffi","ﬄ":"ffl","ﬅ":"st","ﬆ":"st"};
-      const normalize = (value) => {
-        const text = String(value || '').normalize('NFKC')
-          .replace(/[‘’‚‛“”„‟«»‹›″′'"\u00ad\u200b-\u200d\u2060\ufeff]/gu, '')
-          .replace(/\p{Dash}/gu, '-')
-          .replace(/[\s\p{White_Space}]+/gu, ' ').trim();
-        return Array.from(text, (c) => CONTENT_CASE_FOLD[c] ?? c.toLowerCase()).join('');
-      };
-      const pick = (el) => (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
-      const domText = (() => {
-        if (!editSel) return pick(document.body || document.documentElement);
-        const el = document.querySelector(editSel);
-        return el ? pick(el) : '';
-      })();
-      const canvasPresent = document.querySelectorAll('canvas').length > 0;
-      const hookPresent = typeof window.__PERF_MODEL_TEXT__ === 'function';
-      const trimmedDom = domText.trim();
-      let model_oracle = 'dom';
-      let text = domText;
-      let modelDocumentCheck = null;
-      if (canvasPresent && hookPresent && !trimmedDom) {
-        model_oracle = 'perf_model';
-        try {
-          text = String(window.__PERF_MODEL_TEXT__() ?? '');
-        } catch {
-          text = '';
-        }
-        const normText = normalize(text);
-        const modelChars = text.length;
-        const openingPresent = normOpening ? normText.includes(normOpening) : true;
-        const closingPresent = normClosing ? normText.includes(normClosing) : true;
-        const lengthOk = fixtureChars > 0
-          ? Math.abs(modelChars - fixtureChars) / fixtureChars <= tolerance
-          : true;
-        const ok = Boolean(normText) && openingPresent && closingPresent && lengthOk;
-        modelDocumentCheck = {
-          ok,
-          model_chars: modelChars,
-          surface_reason: ok ? null : (!normText ? 'document_content_absent' : 'document_content_mismatch'),
-        };
-      } else if (canvasPresent && !trimmedDom && !hookPresent) {
-        model_oracle = 'absent';
-      }
-      return {
-        text: model_oracle === 'perf_model' ? text.slice(0, 4000) : text,
-        model_oracle,
-        modelDocumentCheck,
-      };
-    },
-    {
-      editSel: editSelector,
-      normOpening: normalizeDocumentText(expectedOpeningText),
-      normClosing: normalizeDocumentText(expectedClosingSentinel),
-      fixtureChars: fixtureTextChars,
-      tolerance: 0.02,
-    },
-  );
+  if (!expectedOpeningText) {
+    return { content_verified: true, surface_reason: null, skipped: true };
+  }
+  const snap = await readEditorDocumentText(page, editorId, { root: editSelector });
+  const modelDocumentCheck = snap.oracle === 'perf_model'
+    ? evaluatePerfModelDocument({
+        text: snap.text,
+        expectedOpening: expectedOpeningText,
+        expectedClosing: expectedClosingSentinel,
+        fixtureChars: fixtureTextChars,
+      })
+    : null;
   const verdict = openingContentVerdict({
     expected: expectedOpeningText,
     actual: snap.text,
-    modelOracle: snap.model_oracle,
-    modelDocumentCheck: snap.modelDocumentCheck,
+    modelOracle: snap.oracle,
+    modelDocumentCheck,
+    editorError: snap.error,
   });
-  if (verdict.surface_reason) throw new Error(verdict.surface_reason);
+  return {
+    content_verified: verdict.content_verified,
+    surface_reason: verdict.surface_reason,
+    editor_error: snap.error,
+    model_oracle: snap.oracle,
+    model_source: snap.source,
+    document_text_chars: snap.chars,
+    document_text: snap.text.slice(0, 4000),
+    length_check: fixtureTextChars > 0 ? 'applied' : 'not_applicable',
+    model_document_check: modelDocumentCheck,
+  };
 }
 
 async function performEdit(page, selector, cdp) {

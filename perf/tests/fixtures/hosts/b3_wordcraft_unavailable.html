@@ -1,0 +1,15 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; }
+  #host { display: block; width: 1px; height: 1px; }
+  #wordcraft_canvas { display: block; width: 600px; height: 400px; background: white; }
+</style>
+<div id="host" data-ready="1"></div>
+<canvas id="wordcraft_canvas" width="600" height="400"></canvas>
+<script>
+  const context = document.querySelector('#wordcraft_canvas').getContext('2d');
+  context.fillStyle = 'black';
+  context.fillRect(20, 20, 200, 40);
+  window.__WORDCRAFT_READY__ = true;
+</script>

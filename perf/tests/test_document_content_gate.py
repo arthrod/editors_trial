@@ -1,0 +1,444 @@
+"""Shared whole-document reader and content-gate regressions (#146/#152)."""
+from __future__ import annotations
+
+import json
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+from perf.runner import benchmark_document as bd
+from perf.runner import benchmark_warm_cold as bw
+from perf.tests import test_b3_fix3 as helpers
+
+REPO = Path(__file__).resolve().parents[2]
+EDIT_SURFACE = REPO / "perf/runner/edit_surface.mjs"
+WARM_COLD = REPO / "perf/runner/warm_cold_browser.mjs"
+HOSTS = REPO / "perf/tests/fixtures/hosts"
+
+
+class DocumentReaderContract(unittest.TestCase):
+    def node(self, body: str) -> dict:
+        script = f"""
+import assert from 'node:assert/strict';
+const mod = await import({json.dumps(str(EDIT_SURFACE))});
+{body}
+"""
+        proc = subprocess.run(
+            ["node", "--input-type=module", "-e", script],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        return json.loads(proc.stdout)
+
+    def test_eigenpal_reader_aggregates_every_document_root(self):
+        payload = self.node(
+            """
+assert.equal(typeof mod.READ_EDITOR_DOCUMENT_TEXT, 'function');
+const roots = [
+  { textContent: 'REAL DOCUMENT CONTENT\\nFirst paragraph of the document.' },
+  { textContent: 'Second paragraph of the document.' },
+];
+globalThis.document = {
+  querySelectorAll(selector) {
+    assert.equal(selector, '.docx-page-content');
+    return roots;
+  },
+};
+const result = mod.READ_EDITOR_DOCUMENT_TEXT({
+  kind: 'dom', root: '.docx-page-content',
+});
+assert.equal(result.text, 'REAL DOCUMENT CONTENT\\nFirst paragraph of the document.\\nSecond paragraph of the document.');
+assert.equal(result.chars, result.text.length);
+assert.equal(result.oracle, 'dom');
+console.log(JSON.stringify(result));
+"""
+        )
+        self.assertEqual(payload["oracle"], "dom")
+        self.assertIn("Second paragraph", payload["text"])
+
+    def test_eigenpal_reader_uses_the_full_editor_model(self):
+        payload = self.node(
+            """
+assert.equal(typeof mod.READ_EDITOR_DOCUMENT_TEXT, 'function');
+globalThis.window = {
+  __DOCX_EDITOR_E2E__: {
+    getEditor() {
+      return {
+        surface: {
+          session: {
+            bodyText() { return 'REAL DOCUMENT CONTENT complete model text'; },
+          },
+        },
+      };
+    },
+  },
+};
+const result = mod.READ_EDITOR_DOCUMENT_TEXT({ kind: 'model', model: 'eigenpal' });
+assert.equal(result.text, 'REAL DOCUMENT CONTENT complete model text');
+assert.equal(result.oracle, 'perf_model');
+assert.equal(result.source, 'eigenpal_model');
+console.log(JSON.stringify(result));
+"""
+        )
+        self.assertEqual(payload["oracle"], "perf_model")
+        self.assertIn("complete model text", payload["text"])
+
+    def test_dom_reader_prefers_text_content_without_forcing_layout(self):
+        payload = self.node(
+            """
+assert.equal(typeof mod.READ_EDITOR_DOCUMENT_TEXT, 'function');
+globalThis.document = {
+  querySelectorAll() {
+    return [{ textContent: 'Document model text', innerText: 'Layout-dependent text' }];
+  },
+};
+const result = mod.READ_EDITOR_DOCUMENT_TEXT({ kind: 'dom', root: '#document' });
+assert.equal(result.text, 'Document model text');
+console.log(JSON.stringify(result));
+"""
+        )
+        self.assertEqual(payload["text"], "Document model text")
+
+    def test_dom_reader_never_falls_back_to_layout_dependent_inner_text(self):
+        payload = self.node(
+            """
+assert.equal(typeof mod.READ_EDITOR_DOCUMENT_TEXT, 'function');
+let innerTextReads = 0;
+const element = {
+  get textContent() { return ''; },
+  get innerText() { innerTextReads += 1; return 'Layout-dependent text'; },
+};
+globalThis.document = { querySelectorAll() { return [element]; } };
+const result = mod.READ_EDITOR_DOCUMENT_TEXT({ kind: 'dom', root: '#document' });
+assert.equal(innerTextReads, 0);
+assert.equal(result.text, '');
+console.log(JSON.stringify(result));
+"""
+        )
+        self.assertEqual(payload["text"], "")
+
+    def test_docen_reader_uses_the_complete_prosemirror_document(self):
+        payload = self.node(
+            """
+assert.equal(typeof mod.READ_EDITOR_DOCUMENT_TEXT, 'function');
+let readRange = null;
+globalThis.window = {
+  __DOCEN__: {
+    editor: {
+      state: {
+        doc: {
+          content: { size: 23 },
+          textBetween(from, to, separator) {
+            readRange = { from, to, separator };
+            return 'REAL DOCUMENT CONTENT complete model text';
+          },
+        },
+      },
+    },
+  },
+};
+const result = mod.READ_EDITOR_DOCUMENT_TEXT({ kind: 'model', model: 'docen' });
+assert.deepEqual(readRange, { from: 0, to: 23, separator: ' ' });
+assert.equal(result.text, 'REAL DOCUMENT CONTENT complete model text');
+assert.equal(result.chars, 41);
+assert.equal(result.oracle, 'perf_model');
+console.log(JSON.stringify(result));
+"""
+        )
+        self.assertEqual(payload["oracle"], "perf_model")
+        self.assertIn("complete model text", payload["text"])
+
+    def test_each_editor_has_one_document_text_descriptor(self):
+        payload = self.node(
+            """
+assert.equal(typeof mod.documentTextSurface, 'function');
+assert.equal(typeof mod.hasDocumentTextSurface, 'function');
+assert.equal(mod.hasDocumentTextSurface('eigenpal'), true);
+assert.equal(mod.hasDocumentTextSurface('apryse'), false);
+const expected = {
+  plate: { kind: 'dom', root: '[contenteditable="true"]' },
+  docxodus: { kind: 'dom', root: '#pages' },
+  superdoc: { kind: 'dom', root: '.superdoc-page' },
+  genoffice: { kind: 'dom', root: '.doc-page.ProseMirror:not(.mp-page)' },
+  eigenpal: { kind: 'model', model: 'eigenpal' },
+  folio: { kind: 'dom', root: '[data-page-number]' },
+  canvas: { kind: 'model', model: 'canvas_editor' },
+  docen: { kind: 'model', model: 'docen' },
+  wordcraft: { kind: 'unavailable' },
+};
+const actual = Object.fromEntries(Object.keys(expected).map((id) => [id, mod.documentTextSurface(id)]));
+assert.deepEqual(actual, expected);
+console.log(JSON.stringify(actual));
+"""
+        )
+        self.assertEqual(set(payload), {"plate", "docxodus", "superdoc", "genoffice", "eigenpal", "folio", "canvas", "docen", "wordcraft"})
+
+
+class CorpusLengthBaseline(unittest.TestCase):
+    def corpus(self, workload_id: str) -> Path:
+        from perf.fixtures.docx_workload import workload_docx
+
+        path = Path(tempfile.mkdtemp(dir=REPO / ".scratch" / "tmp")) / f"{workload_id}.docx"
+        path.write_bytes(workload_docx(workload_id)["docx"])
+        self.addCleanup(path.parent.rmdir)
+        self.addCleanup(path.unlink, missing_ok=True)
+        return path
+
+    def test_prose_keeps_the_two_percent_mass_band(self):
+        meta = bd.corpus_content_expectations(self.corpus("prose-500w"))
+        self.assertIn("length_check", meta)
+        self.assertEqual(meta["length_check"], "applied")
+        self.assertIsNone(meta["length_check_reason"])
+        self.assertGreater(meta["text_chars"], 4000)
+        flags = bd.corpus_content_expectation_flags(self.corpus("prose-500w"))
+        self.assertIn("--fixture-text-chars", flags)
+
+    def test_complex_corpus_drops_an_undefined_mass_band_and_says_why(self):
+        path = self.corpus("complex-corpus")
+        meta = bd.corpus_content_expectations(path)
+        self.assertIn("length_check", meta)
+        self.assertEqual(meta["length_check"], "not_applicable")
+        self.assertIsNone(meta["text_chars"])
+        self.assertIn("revision", meta["length_check_reason"])
+        self.assertIn("field", meta["length_check_reason"])
+        self.assertIn("alternate", meta["length_check_reason"].lower())
+        self.assertEqual(meta["closing"], "Last paragraph.")
+        flags = bd.corpus_content_expectation_flags(path)
+        self.assertNotIn("--fixture-text-chars", flags)
+        self.assertIn("--expected-closing-sentinel", flags)
+        self.assertEqual(flags[flags.index("--expected-closing-sentinel") + 1], "Last paragraph.")
+
+
+class WarmColdNamedRefusal(unittest.TestCase):
+    def test_content_length_disclosure_is_shared_by_every_warm_attempt(self):
+        self.assertTrue(hasattr(bw, "_content_length_diagnostic"))
+        self.assertEqual(
+            bw._content_length_diagnostic(
+                {"length_check": "not_applicable", "length_check_reason": "editor-dependent model"}
+            ),
+            {
+                "content_length_check": "not_applicable",
+                "content_length_check_reason": "editor-dependent model",
+            },
+        )
+
+    def test_content_refusal_writes_named_c03_c05_c06_attempts(self):
+        from perf.fixtures.profiles import size_ladder
+
+        self.assertTrue(hasattr(bw, "_write_content_refusals"))
+        workload = next(row for row in size_ladder() if row["workload_id"] == "prose-500w")
+        with tempfile.TemporaryDirectory(dir=REPO / ".scratch" / "tmp") as tmp:
+            rows = bw._write_content_refusals(
+                attempt_dir=Path(tmp),
+                editor_id="wordcraft",
+                lane="wasm_ui",
+                editor_version="test-version",
+                workload_row=workload,
+                fixture_sha256="0" * 64,
+                docx_size=1234,
+                criteria_map={
+                    "C03": ("first_usable", "browser_visible"),
+                    "C05": ("presented_frame", "browser_visible"),
+                    "C06": ("input_to_next_paint", "browser_visible"),
+                },
+                content_refusal={"surface_reason": "document_content_unverifiable", "editor_error": None},
+                content_meta={"length_check": "applied", "length_check_reason": None},
+            )
+            attempts = [json.loads(path.read_text()) for path in Path(tmp).glob("*.json")]
+        self.assertEqual(len(rows), 6)
+        self.assertEqual({row["outcome"] for row in rows}, {"unverified"})
+        self.assertEqual({row["failure_reason"] for row in rows}, {"document_content_unverifiable"})
+        self.assertEqual({trial["criterion_id"] for trial in attempts}, {"C03", "C05", "C06"})
+        self.assertEqual({trial["refusal_code"] for trial in attempts}, {"unverified"})
+
+    def test_content_refusal_is_persisted_as_unverified_not_a_crash(self):
+        from perf.tests.test_schema import _env
+
+        with tempfile.TemporaryDirectory(dir=REPO / ".scratch" / "tmp") as tmp:
+            path = bw._write_unverified(
+                attempt_dir=Path(tmp),
+                criterion_id="C03",
+                layer="browser_visible",
+                boundary="first_usable",
+                editor_id="wordcraft",
+                lane="wasm_ui",
+                env=_env(),
+                failure_reason="document_content_unverifiable",
+                diagnostic={"content_refusal": {"surface_reason": "document_content_unverifiable"}},
+            )
+            trial = json.loads(path.read_text())
+        self.assertEqual(trial["outcome"], "unverified")
+        self.assertEqual(trial["refusal_code"], "unverified")
+        self.assertEqual(trial["failure_reason"], "document_content_unverifiable")
+        self.assertEqual(trial["samples_ms"], [])
+
+
+class WarmColdDocumentReader(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.server, _thread, cls.base_url = helpers._load_server().serve(HOSTS)
+        cls._corpus_dir = tempfile.TemporaryDirectory(dir=REPO / ".scratch" / "tmp")
+        cls.corpus = Path(cls._corpus_dir.name) / "corpus.docx"
+        cls.corpus.write_bytes(b"PK\x03\x04fixture")
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+        cls.server.server_close()
+        cls._corpus_dir.cleanup()
+
+    def probe(self, host: str, editor: str, ready: str, edit_selector: str) -> dict:
+        cmd = [
+            "node",
+            str(WARM_COLD),
+            "--driver",
+            "playwright",
+            "--editor",
+            editor,
+            "--url",
+            f"{self.base_url}/{host}",
+            "--corpus",
+            str(self.corpus),
+            "--corpus-route",
+            "/corpus.docx",
+            "--ready-selector",
+            ready,
+            "--edit-selector",
+            edit_selector,
+            "--pairs",
+            "1",
+            "--skip-edit",
+            "true",
+            "--fresh-context-probe",
+            "false",
+            "--expected-opening-text",
+            "REAL DOCUMENT CONTENT",
+        ]
+        try:
+            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        except subprocess.TimeoutExpired as exc:
+            self.fail("warm/cold content probe did not terminate: %s" % exc)
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        return json.loads(proc.stdout)
+
+    def test_eigenpal_reads_the_document_not_the_first_edit_fragment(self):
+        payload = self.probe(
+            "b3_eigenpal_document.html",
+            "eigenpal",
+            '#host[data-ready="1"]',
+            ".docx-page-content [data-paragraph-id][data-start]",
+        )
+        check = payload["pairs"][0]["cold"]["content_check"]
+        self.assertTrue(check["content_verified"], check)
+        self.assertIsNone(check["surface_reason"])
+        self.assertIn("Second paragraph", check["document_text"])
+
+    def test_docen_reads_the_model_behind_its_shadow_root(self):
+        payload = self.probe(
+            "b3_docen_document.html",
+            "docen",
+            '#host[data-ready="1"]',
+            "docen-document .canvas-pages > div:first-child",
+        )
+        check = payload["pairs"][0]["cold"]["content_check"]
+        self.assertTrue(check["content_verified"], check)
+        self.assertIsNone(check["surface_reason"])
+        self.assertIn("complete model text", check["document_text"])
+
+    def test_non_trial_editor_keeps_the_generic_shadow_text_path(self):
+        cmd = [
+            "node",
+            str(REPO / "perf/runner/document_probe.mjs"),
+            "--mode",
+            "load",
+            "--editor",
+            "apryse",
+            "--url",
+            f"{self.base_url}/b3_shadow_canvas_text.html",
+            "--corpus",
+            str(self.corpus),
+            "--corpus-route",
+            "/corpus.docx",
+            "--doc-selector",
+            "#host",
+            "--document-selector",
+            "#pageContainer1",
+            "--usable-signal",
+            "shadow_text",
+            "--timeout-ms",
+            "4000",
+            "--expected-opening-text",
+            "REAL DOCUMENT CONTENT",
+        ]
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertTrue(payload["content_verified"], payload)
+        self.assertIn("REAL DOCUMENT CONTENT", payload["document_text"])
+
+    def test_non_trial_editor_warm_keeps_the_open_shadow_text_path(self):
+        payload = self.probe(
+            "b3_shadow_canvas_text.html",
+            "apryse",
+            "#host",
+            "#pageContainer1",
+        )
+        check = payload["pairs"][0]["cold"]["content_check"]
+        self.assertTrue(check["content_verified"], check)
+        self.assertIsNone(check["surface_reason"])
+
+    def test_complex_corpus_truncation_is_still_refused_by_the_closing_witness(self):
+        from perf.fixtures.docx_workload import workload_docx
+
+        corpus = Path(tempfile.mkdtemp(dir=REPO / ".scratch" / "tmp")) / "complex.docx"
+        corpus.write_bytes(workload_docx("complex-corpus")["docx"])
+        self.addCleanup(corpus.parent.rmdir)
+        self.addCleanup(corpus.unlink, missing_ok=True)
+        meta = bd.corpus_content_expectations(corpus)
+        cmd = [
+            "node",
+            str(REPO / "perf/runner/document_probe.mjs"),
+            "--mode",
+            "load",
+            "--editor",
+            "canvas",
+            "--url",
+            f"{self.base_url}/b3_complex_model_truncated.html",
+            "--corpus",
+            str(corpus),
+            "--corpus-route",
+            "/corpus.docx",
+            "--doc-selector",
+            "#doc",
+            "--usable-signal",
+            "screencast_ink",
+            "--timeout-ms",
+            "4000",
+            "--expected-opening-text",
+            meta["opening"],
+            *bd.corpus_content_expectation_flags(corpus),
+        ]
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertFalse(payload["content_verified"], payload)
+        self.assertEqual(payload["surface_reason"], "document_content_mismatch", payload)
+
+    def test_wordcraft_unavailable_text_is_a_named_refusal_not_a_throw(self):
+        payload = self.probe(
+            "b3_wordcraft_unavailable.html",
+            "wordcraft",
+            '#host[data-ready="1"]',
+            "#wordcraft_canvas",
+        )
+        check = payload["pairs"][0]["cold"]["content_check"]
+        self.assertFalse(check["content_verified"], check)
+        self.assertEqual(check["surface_reason"], "document_content_unverifiable")
+        self.assertEqual(bw._content_refusal(payload)["surface_reason"], "document_content_unverifiable")
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -48,6 +48,17 @@ console.log(JSON.stringify(verdict));
         self.assertFalse(v["content_verified"])
         self.assertEqual(v["surface_reason"], "document_content_mismatch")
 
+    def test_editor_error_is_a_named_unverifiable_refusal(self):
+        v = self.verdict(
+            expected="Alpha bravo",
+            actual="",
+            modelOracle="absent",
+            editorError="TypeError: model read failed",
+        )
+        self.assertFalse(v["content_verified"])
+        self.assertEqual(v["surface_reason"], "document_content_unverifiable")
+        self.assertEqual(v["editor_error"], "TypeError: model read failed")
+
     def test_canvas_model_mismatch(self):
         v = self.verdict(
             expected="Alpha bravo",

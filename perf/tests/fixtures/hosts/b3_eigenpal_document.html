@@ -1,0 +1,29 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+  body { margin: 0; font: 16px sans-serif; }
+  #host { padding: 24px; }
+  .docx-page-content { width: 720px; }
+</style>
+<div id="host" data-ready="1">
+  <div class="docx-page-content">
+    <h1>REAL DOCUMENT CONTENT</h1>
+    <p data-paragraph-id="p-1" data-start="0">First paragraph of the document.</p>
+    <p data-paragraph-id="p-2" data-start="1">Second paragraph of the document.</p>
+  </div>
+</div>
+<script>
+  window.__DOCX_EDITOR_E2E__ = {
+    getEditor() {
+      return {
+        surface: {
+          session: {
+            bodyText() {
+              return 'REAL DOCUMENT CONTENT\nFirst paragraph of the document.\nSecond paragraph of the document.';
+            },
+          },
+        },
+      };
+    },
+  };
+</script>

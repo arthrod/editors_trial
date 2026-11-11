@@ -71,6 +71,7 @@ class CanvasModelOracle(unittest.TestCase):
     payload = {
         'content_verified': False,
         'surface_reason': 'document_content_unverifiable',
+        'editor_error': 'TypeError: model read failed',
         'content_text_accessible': False,
     }
     originals = (bd._run_probe,)
@@ -81,7 +82,10 @@ class CanvasModelOracle(unittest.TestCase):
         corpus.write_bytes(bd.docx_paragraph_bytes(b'REAL DOCUMENT CONTENT\n'))
         cfg = dict(doc_selector='#doc', edit_selector='#doc', page_model='continuous_flow', usable_signal='screencast_ink')
         target = dict(url='http://fixture/b3_canvas.html', corpus_route='/corpus.docx')
-        with self.assertRaisesRegex(bd.ProbeRefusal, 'document_content_unverifiable'):
+        with self.assertRaisesRegex(
+            bd.ProbeRefusal,
+            r'document_content_unverifiable: TypeError: model read failed',
+        ):
           bd._run_load_samples(editor_id='fixture', target=target, cfg=cfg, fixture_path=corpus, count=1)
     finally:
       bd._run_probe = originals[0]

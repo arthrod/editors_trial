@@ -89,33 +89,41 @@ export function evaluatePerfModelDocument({ text, expectedOpening, expectedClosi
   };
 }
 
-export function openingContentVerdict({ expected, actual, modelOracle, modelDocumentCheck }) {
+export function openingContentVerdict({ expected, actual, modelOracle, modelDocumentCheck, editorError = null }) {
   const normExpected = normalizeDocumentText(expected);
   if (!normExpected) {
-    return { content_verified: false, surface_reason: null };
+    return { content_verified: false, surface_reason: null, editor_error: editorError || null };
+  }
+  if (editorError) {
+    return {
+      content_verified: false,
+      surface_reason: 'document_content_unverifiable',
+      editor_error: String(editorError),
+    };
   }
   if (modelOracle === 'perf_model') {
     if (modelDocumentCheck?.ok) {
-      return { content_verified: true, surface_reason: null };
+      return { content_verified: true, surface_reason: null, editor_error: null };
     }
     return {
       content_verified: false,
       surface_reason: modelDocumentCheck?.surface_reason || 'document_content_mismatch',
+      editor_error: null,
     };
   }
   if (modelOracle === 'absent') {
-    return { content_verified: false, surface_reason: 'document_content_unverifiable' };
+    return { content_verified: false, surface_reason: 'document_content_unverifiable', editor_error: null };
   }
   const normActual = normalizeDocumentText(actual);
   if (!normActual) {
-    return { content_verified: false, surface_reason: 'document_content_absent' };
+    return { content_verified: false, surface_reason: 'document_content_absent', editor_error: null };
   }
   // Paragraph separators and a space before punctuation are not a different
   // document (owner decision: tolerant text comparison).
   const flat = (value) => value.replace(/[\s\p{White_Space}]+/gu, '');
   const content_verified = flat(normActual).includes(flat(normExpected));
   if (!content_verified) {
-    return { content_verified: false, surface_reason: 'document_content_mismatch' };
+    return { content_verified: false, surface_reason: 'document_content_mismatch', editor_error: null };
   }
-  return { content_verified: true, surface_reason: null };
+  return { content_verified: true, surface_reason: null, editor_error: null };
 }

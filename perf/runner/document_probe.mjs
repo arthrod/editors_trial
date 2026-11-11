@@ -61,7 +61,8 @@ import {
   witnessFrame,
 } from './witness.mjs';
 import { normalizeDocumentText } from './document_text_normalize.mjs';
-import { openingContentVerdict } from './perf_model_text.mjs';
+import { evaluatePerfModelDocument, openingContentVerdict } from './perf_model_text.mjs';
+import { hasDocumentTextSurface, readEditorDocumentText } from './edit_surface.mjs';
 import { startChromeTrace, stopChromeTrace } from './chrome_trace.mjs';
 import { gatherReflowBefore, REFLOW_MODEL_EDITORS, prepareLaneCaret, reflowBlockSelector } from './lane_edit_burst.mjs';
 import { EDIT_SURFACES } from './edit_surface.mjs';
@@ -735,16 +736,8 @@ async function launch() {
 
 async function stateSnapshot(page) {
   const expectedOpening = typeof opt['expected-opening-text'] === 'string' ? opt['expected-opening-text'] : '';
-  return page.evaluate(
-    ({ docSel, pageSel, signal, normOpening, normClosing, fixtureChars, tolerance }) => {
-      const CONTENT_CASE_FOLD = {"µ":"μ","ß":"ss","ŉ":"ʼn","ſ":"s","ǰ":"ǰ","ͅ":"ι","ΐ":"ΐ","ΰ":"ΰ","ς":"σ","ϐ":"β","ϑ":"θ","ϕ":"φ","ϖ":"π","ϰ":"κ","ϱ":"ρ","ϵ":"ε","և":"եւ","ẖ":"ẖ","ẗ":"ẗ","ẘ":"ẘ","ẙ":"ẙ","ẚ":"aʾ","ẛ":"ṡ","ẞ":"ss","ὐ":"ὐ","ὒ":"ὒ","ὔ":"ὔ","ὖ":"ὖ","ι":"ι","ῤ":"ῤ","ﬀ":"ff","ﬁ":"fi","ﬂ":"fl","ﬃ":"ffi","ﬄ":"ffl","ﬅ":"st","ﬆ":"st"};
-      const normalize = (value) => {
-        const text = String(value || '').normalize('NFKC')
-          .replace(/[‘’‚‛“”„‟«»‹›″′'"\u00ad\u200b-\u200d\u2060\ufeff]/gu, '')
-          .replace(/\p{Dash}/gu, '-')
-          .replace(/[\s\p{White_Space}]+/gu, ' ').trim();
-        return Array.from(text, (c) => CONTENT_CASE_FOLD[c] ?? c.toLowerCase()).join('');
-      };
+  const snap = await page.evaluate(
+    ({ docSel, pageSel, signal }) => {
       const s = window.__docProbeState || {};
       const pageEl = pageSel ? document.querySelector(pageSel) : null;
       const which =
@@ -756,44 +749,12 @@ async function stateSnapshot(page) {
               ? 'screencast_ink'
               : 'dom_text';
       const surface = typeof window.__docProbeSurface === 'function' ? window.__docProbeSurface(which) : null;
-      let docText = surface ? surface.documentText || '' : '';
-      let model_oracle = 'dom';
-      let content_text_accessible = Boolean(docText.trim());
-      let model_document_check = null;
-      let document_text_chars = docText.length;
+      const docText = surface ? surface.documentText || '' : '';
+      const model_oracle = 'dom';
+      const content_text_accessible = Boolean(docText.trim());
+      const model_document_check = null;
+      const document_text_chars = docText.length;
       const canvasPresent = Boolean(surface?.canvasPresent);
-      const hookPresent = typeof window.__PERF_MODEL_TEXT__ === 'function';
-      const trimmedDom = docText.trim();
-      if (canvasPresent && hookPresent && !trimmedDom) {
-        let modelText = '';
-        try {
-          modelText = String(window.__PERF_MODEL_TEXT__() ?? '');
-        } catch {
-          modelText = '';
-        }
-        docText = modelText;
-        document_text_chars = modelText.length;
-        model_oracle = 'perf_model';
-        const normText = normalize(modelText);
-        const openingPresent = normOpening ? normText.includes(normOpening) : true;
-        const closingPresent = normClosing ? normText.includes(normClosing) : true;
-        const lengthOk = fixtureChars > 0
-          ? Math.abs(modelText.length - fixtureChars) / fixtureChars <= tolerance
-          : true;
-        const ok = Boolean(normText) && openingPresent && closingPresent && lengthOk;
-        model_document_check = {
-          ok,
-          model_chars: modelText.length,
-          surface_reason: ok ? null : (!normText ? 'document_content_absent' : 'document_content_mismatch'),
-        };
-        content_text_accessible = ok;
-      } else if (canvasPresent && trimmedDom) {
-        model_oracle = 'dom';
-        content_text_accessible = true;
-      } else if (canvasPresent && !hookPresent && !trimmedDom) {
-        model_oracle = 'absent';
-        content_text_accessible = false;
-      }
       return {
         first_element_ms: s.firstElementAt === null || s.firstElementAt === undefined ? null : s.firstElementAt,
         first_element_info: s.firstElementInfo || null,
@@ -818,12 +779,37 @@ async function stateSnapshot(page) {
       docSel: docSelector,
       pageSel: pageSelector,
       signal: usableSignal,
-      normOpening: normalizeDocumentText(expectedOpening),
-      normClosing: normalizeDocumentText(expectedClosingSentinel),
-      fixtureChars: fixtureTextChars,
-      tolerance: 0.02,
     },
   );
+
+  const applyDocumentRead = (documentRead) => {
+    snap.document_text = documentRead.text.slice(0, 4000);
+    snap.surface_text = snap.document_text;
+    snap.document_text_chars = documentRead.chars;
+    snap.content_text_accessible = Boolean(documentRead.text.trim());
+    snap.model_oracle = documentRead.oracle;
+    snap.model_document_check = documentRead.oracle === 'perf_model'
+      ? evaluatePerfModelDocument({
+          text: documentRead.text,
+          expectedOpening: expectedOpening,
+          expectedClosing: expectedClosingSentinel,
+          fixtureChars: fixtureTextChars,
+        })
+      : null;
+    snap.editor_error = documentRead.error;
+    snap.document_source = documentRead.source;
+  };
+
+  if (editorId && hasDocumentTextSurface(editorId)) {
+    applyDocumentRead(await readEditorDocumentText(page, editorId, {
+      root: documentSelector || docSelector || editSelector,
+    }));
+  } else if (!snap.document_text.trim() && snap.canvas_present) {
+    // Legacy fixture probes have no editor id. Their canvas model still uses
+    // the same shared reader rather than a second in-page gate.
+    applyDocumentRead(await readEditorDocumentText(page, 'canvas'));
+  }
+  return snap;
 }
 
 async function readSurface(page) {
@@ -950,6 +936,7 @@ async function loadResult(ctx, { navigationMs, readyMs, surface, witness, surfac
     actual: snap.document_text,
     modelOracle: snap.model_oracle || 'dom',
     modelDocumentCheck: snap.model_document_check,
+    editorError: snap.editor_error,
   });
   const contentVerified = verdict.content_verified;
   const contentReason = contentVerified ? null : verdict.surface_reason;
@@ -987,6 +974,7 @@ async function loadResult(ctx, { navigationMs, readyMs, surface, witness, surfac
     surface_reason: contentReason || surfaceReason || null,
     content_verified: contentVerified,
     content_text_accessible: snap.content_text_accessible,
+    editor_error: snap.editor_error || null,
     expected_opening_text: normalizeDocumentText(expectedRaw) || null,
     screencast_ink_match_tolerance: usableSignal === 'screencast_ink' ? SETTLED_MATCH_TOLERANCE : null,
     screencast_ink_inset_css_px: usableSignal === 'screencast_ink' ? 4 : null,

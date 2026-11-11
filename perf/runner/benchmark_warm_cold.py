@@ -441,7 +441,7 @@ def _run_browser_probe(
     target: dict,
     corpus_path: Path,
     pairs: int,
-    editor_id: str = "",
+    editor_id: str | None = None,
 ) -> dict:
     from perf.runner.browser_hosts import select_fixture
     select_fixture(target, corpus_path)
@@ -464,6 +464,8 @@ def _run_browser_probe(
         "--pairs",
         str(pairs),
     ]
+    if editor_id:
+        cmd.extend(["--editor", editor_id])
     if target.get("sample_route"):
         cmd.extend(["--sample-route", target["sample_route"]])
     if target.get("ready_text"):
@@ -522,6 +524,27 @@ def _run_browser_probe(
                         with active.begin_sample():
                             active.sample('input-' + uuid.uuid4().hex, row)
     return payload
+
+
+def _content_length_diagnostic(content_meta: dict) -> dict:
+    """The fixture-baseline decision copied into every warm/cold attempt."""
+    return {
+        "content_length_check": content_meta["length_check"],
+        "content_length_check_reason": content_meta["length_check_reason"],
+    }
+
+
+def _content_refusal(payload: dict) -> dict | None:
+    """The first named content refusal carried by a warm/cold payload."""
+    checks = []
+    for pair in payload.get("pairs", []):
+        for arm in ("cold", "warm"):
+            check = (pair.get(arm) or {}).get("content_check")
+            if check and check.get("content_verified") is not True:
+                checks.append({"arm": arm, **check})
+    if not checks:
+        return None
+    return {**checks[0], "checks": checks}
 
 
 def _finite_clock_number(value):
@@ -821,6 +844,95 @@ def _write_not_run(
     return _persist_attempt(attempt_dir, criterion_id, editor_id, trial)
 
 
+def _write_unverified(
+    *,
+    attempt_dir: Path,
+    criterion_id: str,
+    layer: str,
+    boundary: str,
+    editor_id: str,
+    lane: str,
+    env: dict,
+    failure_reason: str,
+    diagnostic: dict | None = None,
+) -> Path:
+    """Persist a named refusal without turning it into a harness crash."""
+    trial = _trial_dict(
+        criterion_id=criterion_id,
+        layer=layer,
+        boundary=boundary,
+        outcome="unverified",
+        env=env,
+        samples_ms=[],
+        failure_reason=failure_reason,
+        editor_id=editor_id,
+        lane=lane,
+        diagnostic=diagnostic or {},
+    )
+    trial["refusal_code"] = "unverified"
+    validate_environment(env)
+    return _persist_attempt(attempt_dir, criterion_id, editor_id, trial)
+
+
+def _write_content_refusals(
+    *,
+    attempt_dir: Path,
+    editor_id: str,
+    lane: str,
+    editor_version: str,
+    workload_row: dict,
+    fixture_sha256: str,
+    docx_size: int,
+    criteria_map: dict,
+    content_refusal: dict,
+    content_meta: dict,
+) -> list[dict]:
+    """Write one named refusal per criterion and load arm."""
+    reason = content_refusal.get("surface_reason") or "document_content_unverifiable"
+    editor_error = content_refusal.get("editor_error")
+    failure_reason = reason if not editor_error else "%s: %s" % (reason, editor_error)
+    rows = []
+    for raw_cid, (boundary, layer) in criteria_map.items():
+        cid = "C02" if raw_cid == "C02b" else raw_cid
+        arms = ("cold",) if cid == "C02" else ("cold", "warm")
+        for arm in arms:
+            cache_state = "process_cold_fs_warm" if arm == "cold" else "warm_steady"
+            env = _env_for(
+                editor_id=editor_id,
+                editor_version=editor_version,
+                fixture_sha256=fixture_sha256,
+                workload_row=workload_row,
+                docx_size=docx_size,
+                cache_state=cache_state,
+            )
+            path = _write_unverified(
+                attempt_dir=attempt_dir,
+                criterion_id=cid,
+                layer=layer,
+                boundary=boundary,
+                editor_id=editor_id,
+                lane=lane,
+                env=env,
+                failure_reason=failure_reason,
+                diagnostic={
+                    "suite": "warm_cold",
+                    "arm": arm,
+                    "content_refusal": content_refusal,
+                    **_content_length_diagnostic(content_meta),
+                },
+            )
+            rows.append(
+                {
+                    "criterion_id": cid,
+                    "editor_id": editor_id,
+                    "outcome": "unverified",
+                    "failure_reason": failure_reason,
+                    "attempt_file": _attempt_ref(path),
+                }
+            )
+    return rows
+
+
 def _env_for(
     *,
     editor_id: str,
@@ -904,6 +1016,8 @@ def _main() -> int:
     attempt_dir = out_root / "attempts"
     attempt_dir.mkdir(parents=True, exist_ok=True)
     fixture_path = run_fixture(args.workload, docx_body, out_root / "fixture.docx")
+    from perf.runner.benchmark_document import corpus_content_expectations
+    content_meta = corpus_content_expectations(fixture_path)
 
     editors = args.editors or list(BROWSER_TARGETS.keys())
     paired_rows: list[dict] = []
@@ -960,7 +1074,10 @@ def _main() -> int:
         try:
             proc = _start_server(editor_id, target)
             payload = _run_browser_probe(
-                target=target, corpus_path=fixture_path, pairs=args.pairs, editor_id=editor_id,
+                target=target,
+                corpus_path=fixture_path,
+                pairs=args.pairs,
+                editor_id=editor_id,
             )
         except Exception as exc:
             reason = "browser_probe: %s" % (exc,)
@@ -1000,6 +1117,24 @@ def _main() -> int:
             if proc:
                 _stop_server(proc)
 
+        content_refusal = _content_refusal(payload)
+        if content_refusal:
+            refusal_rows.extend(
+                _write_content_refusals(
+                    attempt_dir=attempt_dir,
+                    editor_id=editor_id,
+                    lane=lane,
+                    editor_version=editor_version,
+                    workload_row=workload_row,
+                    fixture_sha256=sha,
+                    docx_size=docx_size,
+                    criteria_map=dict(target.get("criteria", {})),
+                    content_refusal=content_refusal,
+                    content_meta=content_meta,
+                )
+            )
+            continue
+
         # run_cli invokes one pair per fresh server. Direct multi-pair probes
         # also retain pair 1 separately rather than pooling it with later loads.
         if len(payload['pairs']) > 1:
@@ -1012,7 +1147,8 @@ def _main() -> int:
                 lane=lane, env=first_env, samples_ms=[first_pair['cold']['first_usable_ms']],
                 cache_state='process_cold_fs_warm', diagnostic={'server_cold':True,
                     'settle_ms':first_pair['cold'].get('settle_ms'),
-                    'clock_skew':[first_pair['cold'].get('clock_skew')], 'pair':first_pair})
+                    'clock_skew':[first_pair['cold'].get('clock_skew')], 'pair':first_pair,
+                    **_content_length_diagnostic(content_meta)})
             payload['pairs'] = payload['pairs'][1:]
 
         probe_rows = [
@@ -1116,6 +1252,7 @@ def _main() -> int:
                     "settle_ms": [p["cold"].get("settle_ms") for p in payload["pairs"]],
                     "clock_skew": [p["cold"].get("clock_skew") for p in payload["pairs"]],
                     "server_cold": payload["pairs"][0].get("server_cold", True),
+                    **_content_length_diagnostic(content_meta),
                 },
             )
             if json.loads(cold_path.read_text()).get('outcome') != 'measured':
@@ -1164,7 +1301,8 @@ def _main() -> int:
                 editor_id=editor_id, lane=lane, env=warm_load_env,
                 samples_ms=reload_samples, cache_state='warm_steady',
                 diagnostic={'settle_ms':[p['warm'].get('settle_ms') for p in payload['pairs']],
-                    'clock_skew':[p['warm'].get('clock_skew') for p in payload['pairs']]})
+                    'clock_skew':[p['warm'].get('clock_skew') for p in payload['pairs']],
+                    **_content_length_diagnostic(content_meta)})
             if json.loads(warm_load_path.read_text()).get('outcome') != 'measured':
                 continue
             paired_rows.append(
@@ -1312,7 +1450,8 @@ def _main() -> int:
                             "warm_equals_cold": identical_edits,
                             "mechanism": "cdp_screencast_changed_frame",
                             "clock_skew": [p["cold"].get("clock_skew") for p in payload["pairs"]],
-                            "observations": [p["cold"] for p in payload["pairs"]]},
+                            "observations": [p["cold"] for p in payload["pairs"]],
+                            **_content_length_diagnostic(content_meta)},
             )
             warm_path = _write_measured_attempt(
                 attempt_dir=attempt_dir,
@@ -1328,7 +1467,8 @@ def _main() -> int:
                             "warm_equals_cold": identical_edits,
                             "mechanism": "cdp_screencast_changed_frame",
                             "clock_skew": [p["warm"].get("clock_skew") for p in payload["pairs"]],
-                            "observations": [p["warm"] for p in payload["pairs"]]},
+                            "observations": [p["warm"] for p in payload["pairs"]],
+                            **_content_length_diagnostic(content_meta)},
             )
 
             if any(json.loads(path.read_text()).get('outcome') != 'measured'
@@ -1399,6 +1539,7 @@ def _main() -> int:
                         "warm_equals_cold": identical_burst,
                         "mechanism": "cdp_screencast_changed_frame",
                         "observations": [p["cold"].get("burst", []) for p in payload["pairs"]],
+                        **_content_length_diagnostic(content_meta),
                     },
                 )
                 burst_path = _write_measured_attempt(
@@ -1418,6 +1559,7 @@ def _main() -> int:
                         "warm_equals_cold": identical_burst,
                         "mechanism": "cdp_screencast_changed_frame",
                         "observations": [p["warm"].get("burst", []) for p in payload["pairs"]],
+                        **_content_length_diagnostic(content_meta),
                     },
                 )
                 if any(json.loads(path.read_text()).get('outcome') != 'measured'
@@ -1540,6 +1682,8 @@ def _main() -> int:
         "host_class": host_class(),
         "workload_id": args.workload,
         "fixture_sha256": sha,
+        "content_length_check": content_meta["length_check"],
+        "content_length_check_reason": content_meta["length_check_reason"],
         "publishable": False,
         "pairs_per_cell": args.pairs,
         "paired": paired_rows,
