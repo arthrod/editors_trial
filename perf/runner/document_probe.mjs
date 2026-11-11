@@ -61,8 +61,8 @@ import {
   witnessFrame,
 } from './witness.mjs';
 import { normalizeDocumentText } from './document_text_normalize.mjs';
-import { evaluatePerfModelDocument, openingContentVerdict } from './perf_model_text.mjs';
-import { hasDocumentTextSurface, readEditorDocumentText } from './edit_surface.mjs';
+import { openingContentVerdict } from './perf_model_text.mjs';
+import { hasDocumentTextSurface, readAndGateDocumentText } from './edit_surface.mjs';
 import { startChromeTrace, stopChromeTrace } from './chrome_trace.mjs';
 import { gatherReflowBefore, REFLOW_MODEL_EDITORS, prepareLaneCaret, reflowBlockSelector } from './lane_edit_burst.mjs';
 import { EDIT_SURFACES } from './edit_surface.mjs';
@@ -119,6 +119,8 @@ const screencastInkMinPixels = Number(opt['screencast-ink-min-pixels'] || SCREEN
 const expectedClosingSentinel =
   typeof opt['expected-closing-sentinel'] === 'string' ? opt['expected-closing-sentinel'] : '';
 const fixtureTextChars = Number(opt['fixture-text-chars'] || 0);
+const lengthCheckMode = typeof opt['length-check-mode'] === 'string' ? opt['length-check-mode'] : null;
+const errorJs = typeof opt['error-js'] === 'string' ? opt['error-js'] : '';
 if (!SIGNAL_INPUTS.has(usableSignal)) {
   console.error('document_probe: --usable-signal must be dom_text|canvas_pixel|shadow_text|screencast_ink');
   process.exit(2);
@@ -345,6 +347,13 @@ async function waitForScreencastInk(page, recorder) {
     const ms = pageTime(frame);
     if (ms !== null && ms >= 0 && (await frameAckSettled(frame)) === 'acked') { baseline = frame; break; }
   }
+  await page.evaluate((atMs) => {
+    const state = window.__docProbeState;
+    if (state && state.docTextAt === null && typeof atMs === 'number') {
+      state.docTextAt = atMs;
+      state.docTextCharsAt = 1;
+    }
+  }, candidate.ms);
   return { at_ms: candidate.ms, signal: SIGNAL_NAME.screencast_ink,
     baseline, ink_frame: candidate.frame, reason: null };
 }
@@ -367,20 +376,33 @@ async function routeCorpus(context) {
 async function waitForReady(page) {
   const t0 = Date.now();
   const deadline = t0 + timeoutMs;
-  if (readyJs) {
+  if (readyJs || errorJs) {
     await page.waitForFunction(
-      (expr) => {
-        // Canvas boot stores the import failure here and never sets __DOCX_IMPORTED__.
+      ({ expr, errExpr }) => {
+        const run = (code) => {
+          try {
+            // eslint-disable-next-line no-eval
+            return eval(code);
+          } catch {
+            return undefined;
+          }
+        };
+        if (errExpr) {
+          const error = run(errExpr);
+          if (error) throw new Error(`editor_load_failed: ${String(error).slice(0, 400)}`);
+        }
         const editorError = window.__DOCX_ERROR__;
-        if (typeof editorError === 'string' && editorError) throw new Error(editorError);
+        if (typeof editorError === 'string' && editorError) {
+          throw new Error(`editor_load_failed: ${editorError}`);
+        }
+        if (!expr) return true;
         try {
-          // eslint-disable-next-line no-eval
           return Boolean(eval(expr));
         } catch {
           return false;
         }
       },
-      readyJs,
+      { expr: readyJs || '', errExpr: errorJs || '' },
       { timeout: timeoutMs },
     );
   } else if (readySelector) {
@@ -782,32 +804,37 @@ async function stateSnapshot(page) {
     },
   );
 
-  const applyDocumentRead = (documentRead) => {
-    snap.document_text = documentRead.text.slice(0, 4000);
+  const applyGatedRead = (gated) => {
+    snap.document_text = gated.text.slice(0, 4000);
     snap.surface_text = snap.document_text;
-    snap.document_text_chars = documentRead.chars;
-    snap.content_text_accessible = Boolean(documentRead.text.trim());
-    snap.model_oracle = documentRead.oracle;
-    snap.model_document_check = documentRead.oracle === 'perf_model'
-      ? evaluatePerfModelDocument({
-          text: documentRead.text,
-          expectedOpening: expectedOpening,
-          expectedClosing: expectedClosingSentinel,
-          fixtureChars: fixtureTextChars,
-        })
-      : null;
-    snap.editor_error = documentRead.error;
-    snap.document_source = documentRead.source;
+    snap.document_text_chars = gated.chars;
+    snap.content_text_accessible = Boolean(gated.text.trim());
+    snap.model_oracle = gated.oracle;
+    snap.model_document_check = gated.modelDocumentCheck;
+    snap.dom_document_check = gated.domDocumentCheck;
+    snap.content_check = gated.content_check;
+    snap.content_check_reason = gated.content_check_reason;
+    snap.content_length_check = gated.length_check;
+    snap.length_enforced = gated.length_enforced;
+    snap.editor_error = gated.error;
+    snap.document_source = gated.source;
   };
 
   if (editorId && hasDocumentTextSurface(editorId)) {
-    applyDocumentRead(await readEditorDocumentText(page, editorId, {
+    applyGatedRead(await readAndGateDocumentText(page, editorId, {
+      expectedOpening,
+      expectedClosing: expectedClosingSentinel,
+      fixtureChars: fixtureTextChars,
+      lengthCheckMode,
       root: documentSelector || docSelector || editSelector,
     }));
   } else if (!snap.document_text.trim() && snap.canvas_present) {
-    // Legacy fixture probes have no editor id. Their canvas model still uses
-    // the same shared reader rather than a second in-page gate.
-    applyDocumentRead(await readEditorDocumentText(page, 'canvas'));
+    applyGatedRead(await readAndGateDocumentText(page, 'canvas', {
+      expectedOpening,
+      expectedClosing: expectedClosingSentinel,
+      fixtureChars: fixtureTextChars,
+      lengthCheckMode,
+    }));
   }
   return snap;
 }
@@ -936,6 +963,7 @@ async function loadResult(ctx, { navigationMs, readyMs, surface, witness, surfac
     actual: snap.document_text,
     modelOracle: snap.model_oracle || 'dom',
     modelDocumentCheck: snap.model_document_check,
+    domDocumentCheck: snap.dom_document_check,
     editorError: snap.editor_error,
   });
   const contentVerified = verdict.content_verified;

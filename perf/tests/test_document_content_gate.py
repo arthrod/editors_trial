@@ -41,6 +41,7 @@ const roots = [
   { textContent: 'REAL DOCUMENT CONTENT\\nFirst paragraph of the document.' },
   { textContent: 'Second paragraph of the document.' },
 ];
+roots.forEach((r) => { r.childNodes = []; });
 globalThis.document = {
   querySelectorAll(selector) {
     assert.equal(selector, '.docx-page-content');
@@ -92,7 +93,7 @@ console.log(JSON.stringify(result));
 assert.equal(typeof mod.READ_EDITOR_DOCUMENT_TEXT, 'function');
 globalThis.document = {
   querySelectorAll() {
-    return [{ textContent: 'Document model text', innerText: 'Layout-dependent text' }];
+    return [{ textContent: 'Document model text', innerText: 'Layout-dependent text', childNodes: [] }];
   },
 };
 const result = mod.READ_EDITOR_DOCUMENT_TEXT({ kind: 'dom', root: '#document' });
@@ -159,12 +160,12 @@ assert.equal(typeof mod.hasDocumentTextSurface, 'function');
 assert.equal(mod.hasDocumentTextSurface('eigenpal'), true);
 assert.equal(mod.hasDocumentTextSurface('apryse'), false);
 const expected = {
-  plate: { kind: 'dom', root: '[contenteditable="true"]' },
-  docxodus: { kind: 'dom', root: '#pages' },
-  superdoc: { kind: 'dom', root: '.superdoc-page' },
-  genoffice: { kind: 'dom', root: '.doc-page.ProseMirror:not(.mp-page)' },
+  plate: { kind: 'dom', root: '[contenteditable="true"]', whole: true },
+  docxodus: { kind: 'dom', root: '#pages', whole: false },
+  superdoc: { kind: 'dom', root: '.superdoc-page', whole: false },
+  genoffice: { kind: 'dom', root: '.doc-page.ProseMirror:not(.mp-page)', whole: false },
   eigenpal: { kind: 'model', model: 'eigenpal' },
-  folio: { kind: 'dom', root: '[data-page-number]' },
+  folio: { kind: 'dom', root: '[data-page-number]', whole: false },
   canvas: { kind: 'model', model: 'canvas_editor' },
   docen: { kind: 'model', model: 'docen' },
   wordcraft: { kind: 'unavailable' },
@@ -196,18 +197,21 @@ class CorpusLengthBaseline(unittest.TestCase):
         flags = bd.corpus_content_expectation_flags(self.corpus("prose-500w"))
         self.assertIn("--fixture-text-chars", flags)
 
-    def test_complex_corpus_drops_an_undefined_mass_band_and_says_why(self):
+    def test_complex_corpus_uses_coarse_band_with_fixture_chars(self):
         path = self.corpus("complex-corpus")
         meta = bd.corpus_content_expectations(path)
         self.assertIn("length_check", meta)
-        self.assertEqual(meta["length_check"], "not_applicable")
-        self.assertIsNone(meta["text_chars"])
+        self.assertEqual(meta["length_check"], "coarse")
+        self.assertGreater(meta["text_chars"], 1000)
         self.assertIn("revision", meta["length_check_reason"])
         self.assertIn("field", meta["length_check_reason"])
         self.assertIn("alternate", meta["length_check_reason"].lower())
+        self.assertIn("coarse", meta["length_check_reason"].lower())
         self.assertEqual(meta["closing"], "Last paragraph.")
         flags = bd.corpus_content_expectation_flags(path)
-        self.assertNotIn("--fixture-text-chars", flags)
+        self.assertIn("--fixture-text-chars", flags)
+        self.assertIn("--length-check-mode", flags)
+        self.assertEqual(flags[flags.index("--length-check-mode") + 1], "coarse")
         self.assertIn("--expected-closing-sentinel", flags)
         self.assertEqual(flags[flags.index("--expected-closing-sentinel") + 1], "Last paragraph.")
 
@@ -438,6 +442,119 @@ class WarmColdDocumentReader(unittest.TestCase):
         self.assertFalse(check["content_verified"], check)
         self.assertEqual(check["surface_reason"], "document_content_unverifiable")
         self.assertEqual(bw._content_refusal(payload)["surface_reason"], "document_content_unverifiable")
+
+
+class ContentGatePlants(DocumentReaderContract):
+    def node_model(self, body: str) -> dict:
+        script = f"""
+import assert from 'node:assert/strict';
+const gate = await import({json.dumps(str(REPO / "perf/runner/perf_model_text.mjs"))});
+{body}
+"""
+        proc = subprocess.run(
+            ["node", "--input-type=module", "-e", script],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        return json.loads(proc.stdout)
+
+    def test_closing_witness_must_be_at_end_not_includes(self):
+        out = self.node_model("""
+const opening = 'REAL DOCUMENT CONTENT';
+const closing = 'Last paragraph.';
+const endsOnly = gate.evaluatePerfModelDocument({
+  text: closing,
+  expectedOpening: opening,
+  expectedClosing: closing,
+  fixtureChars: 0,
+});
+const withBoth = gate.evaluatePerfModelDocument({
+  text: `${opening} middle only text here. ${closing}`,
+  expectedOpening: opening,
+  expectedClosing: closing,
+  fixtureChars: 0,
+});
+assert.equal(endsOnly.ok, false);
+assert.equal(withBoth.ok, true);
+console.log(JSON.stringify({ endsOnly: endsOnly.ok, withBoth: withBoth.ok }));
+""")
+        self.assertFalse(out["endsOnly"])
+        self.assertTrue(out["withBoth"])
+
+    def test_coarse_band_refuses_half_length(self):
+        out = self.node_model("""
+const check = gate.evaluatePerfModelDocument({
+  text: 'x'.repeat(600),
+  expectedOpening: 'REAL',
+  expectedClosing: 'Last paragraph.',
+  fixtureChars: 1202,
+  lengthCheckMode: 'coarse',
+});
+assert.equal(check.lengthOk, false);
+assert.equal(check.ok, false);
+console.log(JSON.stringify({ lengthOk: check.lengthOk }));
+""")
+        self.assertFalse(out["lengthOk"])
+
+    def test_dom_virtualized_is_opening_only(self):
+        out = self.node_model("""
+const check = gate.evaluateDomDocument({
+  text: 'REAL DOCUMENT CONTENT visible only',
+  expectedOpening: 'REAL DOCUMENT CONTENT',
+  expectedClosing: 'Last paragraph.',
+  fixtureChars: 4213,
+  whole: false,
+});
+assert.equal(check.ok, true);
+assert.equal(check.content_check, 'opening_only');
+const half = gate.evaluateDomDocument({
+  text: 'REAL DOCUMENT CONTENT',
+  expectedOpening: 'REAL DOCUMENT CONTENT',
+  expectedClosing: 'Last paragraph.',
+  fixtureChars: 4213,
+  whole: false,
+});
+assert.equal(half.ok, true);
+console.log(JSON.stringify({ content_check: check.content_check, half: half.ok }));
+""")
+        self.assertEqual(out["content_check"], "opening_only")
+
+    def test_dom_whole_document_refuses_opening_only(self):
+        out = self.node_model("""
+const check = gate.evaluateDomDocument({
+  text: 'REAL DOCUMENT CONTENT',
+  expectedOpening: 'REAL DOCUMENT CONTENT',
+  expectedClosing: 'Last paragraph.',
+  fixtureChars: 4213,
+  whole: true,
+  lengthCheckMode: 'applied',
+});
+assert.equal(check.ok, false);
+console.log(JSON.stringify({ ok: check.ok }));
+""")
+        self.assertFalse(out["ok"])
+
+    def test_visible_dom_reader_skips_aria_hidden(self):
+        payload = self.node(
+            """
+const hidden = { nodeType: 1, getAttribute(k) { return k === 'aria-hidden' ? 'true' : null; },
+  childNodes: [{ nodeType: 3, nodeValue: 'REAL DOCUMENT CONTENT opening witness' }] };
+const visible = { nodeType: 1, getAttribute() { return null; },
+  childNodes: [{ nodeType: 3, nodeValue: 'Wrong visible document text' }] };
+const root = { nodeType: 1, getAttribute() { return null; }, childNodes: [hidden, visible] };
+globalThis.document = {
+  querySelectorAll() { return [root]; },
+};
+globalThis.getComputedStyle = () => ({ display: 'block', visibility: 'visible' });
+const result = mod.READ_EDITOR_DOCUMENT_TEXT({ kind: 'dom', root: '#root' });
+assert.equal(result.text.includes('REAL DOCUMENT CONTENT'), false);
+assert.equal(result.text.includes('Wrong visible'), true);
+console.log(JSON.stringify(result));
+"""
+        )
+        self.assertNotIn("REAL DOCUMENT CONTENT", payload["text"])
 
 
 if __name__ == "__main__":

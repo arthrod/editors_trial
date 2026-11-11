@@ -461,6 +461,26 @@ def non_failure_outcomes(value):
     return []
 
 
+def aggregate_cell_refusal_code(directory, failed: bool):
+    """Do not stamp ``crash`` when every failing attempt is a named refusal."""
+    if not failed:
+        return None
+    codes = set()
+    for path in directory.rglob('attempts/*.json'):
+        if 'profile-invoke' in path.parts:
+            continue
+        trial = json.loads(path.read_text())
+        if trial.get('outcome') in ('failed', 'unverified', 'refused', 'not_applicable', 'unsupported'):
+            code = trial.get('refusal_code') or trial.get('outcome')
+            if code:
+                codes.add(code)
+    if codes == {'unverified'}:
+        return 'unverified'
+    if len(codes) == 1 and codes & {'unverified', 'editor_load_failed', 'paint_witness_unavailable'}:
+        return next(iter(codes))
+    return 'crash'
+
+
 def has_failure(value):
     """Explicit failures, including warm_cold_identical, fail the cell.
 
@@ -724,7 +744,7 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
                             'rejected_evidence_directory': str(destination)}
                 return {**({'typing_session_kept': typing_kept, 'session_kind': args.session_kind} if runner == 'benchmark_typing' else {}),
                         'outcome': 'failed' if failed else 'ok',
-                        'refusal_code': 'crash' if failed else None,
+                        'refusal_code': aggregate_cell_refusal_code(directory, failed),
                         'non_failure_outcomes': skipped,
                         'failure_reason': '; '.join(dict.fromkeys(reasons)) or (f'exit {status}' if status else None),
                         'exit_code': status, 'cell_directory': str(directory)}

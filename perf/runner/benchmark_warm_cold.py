@@ -493,6 +493,8 @@ def _run_browser_probe(
         cmd.extend(["--pre-edit-click", target["pre_edit_click"]])
     if target.get("wait_after_ready"):
         cmd.extend(["--wait-after-ready", str(target["wait_after_ready"])])
+    if target.get("error_js"):
+        cmd.extend(["--error-js", target["error_js"]])
     from perf.runner.benchmark_document import corpus_content_expectation_flags, corpus_opening_text
     opening = corpus_opening_text(corpus_path)
     if opening:
@@ -509,7 +511,10 @@ def _run_browser_probe(
         )
         record_process(proc)
         if proc.returncode != 0:
-            raise RuntimeError(proc.stderr or proc.stdout or "probe failed")
+            err = proc.stderr or proc.stdout or "probe failed"
+            if "editor_load_failed" in err:
+                raise RuntimeError(err.strip())
+            raise RuntimeError(err)
         payload = json.loads(proc.stdout)
         probe_accounting = None
         if active is not None:
@@ -822,14 +827,17 @@ def _write_measured_attempt(
     return _persist_attempt(attempt_dir, criterion_id, editor_id, trial)
 
 
-def _write_input_refusal(*, observations, failure_reason, **kwargs):
+def _write_input_refusal(*, observations, failure_reason, content_meta=None, **kwargs):
     checked = [input_sample_record(o, kwargs['criterion_id']) for o in observations]
     reason = next((o['failure_reason'] for o in checked if o.get('failure_reason')), failure_reason)
+    diagnostic = {'observations': checked, 'aggregation': 'all samples required',
+                    **({'keys': 3, 'isolated': True} if kwargs['criterion_id'] == 'C06' else {})}
+    if content_meta:
+        diagnostic.update(_content_length_diagnostic(content_meta))
     trial = _trial_dict(
-        **{k: v for k, v in kwargs.items() if k != 'attempt_dir'},
+        **{k: v for k, v in kwargs.items() if k not in ('attempt_dir', 'content_meta')},
         outcome='failed', samples_ms=[], failure_reason=reason,
-        diagnostic={'observations': checked, 'aggregation': 'all samples required',
-                    **({'keys': 3, 'isolated': True} if kwargs['criterion_id'] == 'C06' else {})},
+        diagnostic=diagnostic,
     )
     trial['failure_reasons'] = sorted({o['failure_reason'] for o in checked if o.get('failure_reason')} or {failure_reason})
     return _persist_attempt(kwargs['attempt_dir'], kwargs['criterion_id'], kwargs['editor_id'], trial)
@@ -845,7 +853,9 @@ def _write_not_run(
     lane: str,
     env: dict,
     failure_reason: str,
+    content_meta: dict | None = None,
 ) -> Path:
+    diagnostic = _content_length_diagnostic(content_meta) if content_meta else None
     trial = _trial_dict(
         criterion_id=criterion_id,
         layer=layer,
@@ -856,6 +866,7 @@ def _write_not_run(
         failure_reason=failure_reason,
         editor_id=editor_id,
         lane=lane,
+        diagnostic=diagnostic,
     )
     validate_environment(env)
     return _persist_attempt(attempt_dir, criterion_id, editor_id, trial)
@@ -1075,6 +1086,7 @@ def _main() -> int:
                     lane=lane,
                     env=env,
                     failure_reason=reason,
+                    content_meta=content_meta,
                 )
                 refusal_rows.append(
                     {
@@ -1117,6 +1129,7 @@ def _main() -> int:
                     lane=lane,
                     env=env,
                     failure_reason=reason,
+                    content_meta=content_meta,
                 )
                 refusal_rows.append(
                     {
@@ -1218,6 +1231,7 @@ def _main() -> int:
                 lane=lane,
                 env=env_skip,
                 failure_reason=c02_skip_reason,
+                content_meta=content_meta,
             )
             row = {
                 "criterion_id": "C02",
@@ -1409,6 +1423,7 @@ def _main() -> int:
                         env=env,
                         observations=[p[a] for p in payload["pairs"] for a in ("cold", "warm")],
                         failure_reason=reason,
+                        content_meta=content_meta,
                     )
                     refusal_rows.append(
                         {
@@ -1619,6 +1634,7 @@ def _main() -> int:
                     env=env,
                     observations=[o for p in payload["pairs"] for a in ("cold", "warm") for o in p[a].get("burst", [])],
                     failure_reason=reason,
+                    content_meta=content_meta,
                 )
                 refusal_rows.append(
                     {
@@ -1653,6 +1669,7 @@ def _main() -> int:
                 lane=lane,
                 env=env,
                 failure_reason="adapter-not-implemented: criterion %s not driven on warm_cold host yet" % cid,
+                content_meta=content_meta,
             )
             refusal_rows.append(
                 {

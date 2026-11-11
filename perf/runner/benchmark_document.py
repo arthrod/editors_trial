@@ -1018,6 +1018,8 @@ def _probe_cmd(*, mode: str, target: dict, cfg: dict, corpus_path: Path, extra: 
         cmd.extend(["--wait-after-ready", str(target["wait_after_ready"])])
     if editor_id:
         cmd.extend(["--editor", editor_id])
+    if target.get("error_js"):
+        cmd.extend(["--error-js", target["error_js"]])
     cmd.extend(extra)
     return cmd
 
@@ -1040,9 +1042,16 @@ def _run_probe(cmd: list, *, editor_id: str) -> dict:
         except json.JSONDecodeError:
             payload = None
     if payload is None:
+        tail = (proc.stderr or proc.stdout or "")[-300:].strip()
+        if "editor_load_failed" in (proc.stderr or ""):
+            detail = proc.stderr.split("editor_load_failed:", 1)[-1].strip()[:400]
+            raise ProbeRefusal(
+                "editor_load_failed: %s" % detail,
+                refusal_code="editor_load_failed",
+                outcome="refused",
+            )
         raise ProbeRefusal(
-            "probe produced no JSON for %s (exit %s): %s"
-            % (editor_id, proc.returncode, (proc.stderr or proc.stdout or "")[-300:].strip()),
+            "probe produced no JSON for %s (exit %s): %s" % (editor_id, proc.returncode, tail),
             refusal_code="harness_error" if proc.returncode in (0, 2) else "editor_crash",
         )
     if proc.returncode != 0 or payload.get("status") == "probe_error":
@@ -1313,13 +1322,13 @@ def corpus_content_expectations(corpus_path: Path) -> dict:
             "opening": corpus_opening_text(corpus_path),
             "sentinel": sentinel,
             "closing": closing,
-            "text_chars": None,
-            "length_check": "not_applicable",
+            "text_chars": len(text),
+            "length_check": "coarse",
             "length_check_reason": (
                 "fixture contains tracked revisions, field instructions/stubs, or "
-                "AlternateContent fallback text; accepted model text is editor-dependent, "
-                "so a universal character baseline is undefined; opening and closing "
-                "witnesses remain in force"
+                "AlternateContent fallback text; accepted model text is editor-dependent; "
+                "a 2% mass band is undefined; opening and closing witnesses remain in force "
+                "with a coarse 50%–150% w:t character band"
             ),
         }
     return {
@@ -1337,8 +1346,10 @@ def corpus_content_expectation_flags(corpus_path: Path) -> list[str]:
     flags: list[str] = []
     if meta.get("closing"):
         flags.extend(["--expected-closing-sentinel", meta["closing"]])
-    if meta.get("text_chars"):
+    if meta.get("text_chars") and meta.get("length_check") in ("applied", "coarse"):
         flags.extend(["--fixture-text-chars", str(meta["text_chars"])])
+    if meta.get("length_check"):
+        flags.extend(["--length-check-mode", meta["length_check"]])
     return flags
 
 
@@ -1749,16 +1760,24 @@ def _main() -> int:
                             count=args.samples,
                         )
                     except ProbeRefusal as refusal:
+                        content_outcome = (
+                            "unverified"
+                            if refusal.reason.startswith(("document_content_", "document_content_unverified"))
+                            else getattr(refusal, "outcome", "failed") or "failed"
+                        )
+                        if content_outcome == "failed" and refusal.reason.startswith("document_content_"):
+                            content_outcome = "unverified"
                         _refuse_cell(
                             "C11",
                             fixture,
                             refusal.reason,
-                            outcome="failed",
+                            outcome=content_outcome,
                             extra={
                                 "content_length_check": content_meta["length_check"],
                                 "content_length_check_reason": content_meta["length_check_reason"],
                             },
-                            refusal_code=getattr(refusal, "refusal_code", None),
+                            refusal_code=getattr(refusal, "refusal_code", None)
+                            or ("unverified" if content_outcome == "unverified" else None),
                         )
                         failures += 1
                         continue

@@ -83,8 +83,7 @@ import {
   parseCriteriaList,
   runCriteriaSuite,
 } from './criteria_input.mjs';
-import { evaluatePerfModelDocument, openingContentVerdict } from './perf_model_text.mjs';
-import { EDIT_SURFACES, editSurface, readEditorDocumentText } from './edit_surface.mjs';
+import { EDIT_SURFACES, editSurface, readAndGateDocumentText } from './edit_surface.mjs';
 import { confirmLaneEdit, prepareLaneCaret } from './lane_edit_burst.mjs';
 
 
@@ -126,6 +125,8 @@ const expectedOpeningText = typeof opt['expected-opening-text'] === 'string' ? o
 const expectedClosingSentinel =
   typeof opt['expected-closing-sentinel'] === 'string' ? opt['expected-closing-sentinel'] : '';
 const fixtureTextChars = Number(opt['fixture-text-chars'] || 0);
+const lengthCheckMode = typeof opt['length-check-mode'] === 'string' ? opt['length-check-mode'] : null;
+const errorJs = typeof opt['error-js'] === 'string' ? opt['error-js'] : '';
 let criteriaList = [];
 if (opt.criteria !== undefined) {
   try {
@@ -148,20 +149,34 @@ if (!url || !corpusFile) {
 const corpusBytes = fs.readFileSync(corpusFile);
 
 async function waitForReady(page, selector, timeoutMs = 120_000, t0 = Date.now()) {
-  if (readyJs) {
+  if (readyJs || errorJs) {
     await page.waitForFunction(
-      (expr) => {
+      ({ expr, errExpr }) => {
+        const run = (code) => {
+          try {
+            // eslint-disable-next-line no-eval
+            return eval(code);
+          } catch {
+            return undefined;
+          }
+        };
+        if (errExpr) {
+          const error = run(errExpr);
+          if (error) throw new Error(`editor_load_failed: ${String(error).slice(0, 400)}`);
+        }
         // Canvas boot stores the import failure here and never sets __DOCX_IMPORTED__.
         const editorError = window.__DOCX_ERROR__;
-        if (typeof editorError === 'string' && editorError) throw new Error(editorError);
+        if (typeof editorError === 'string' && editorError) {
+          throw new Error(`editor_load_failed: ${editorError}`);
+        }
+        if (!expr) return true;
         try {
-          // eslint-disable-next-line no-eval
           return Boolean(eval(expr));
         } catch {
           return false;
         }
       },
-      readyJs,
+      { expr: readyJs || '', errExpr: errorJs || '' },
       { timeout: timeoutMs },
     );
   } else if (readyText) {
@@ -194,32 +209,31 @@ async function verifyCanvasOpening(page) {
   if (!expectedOpeningText) {
     return { content_verified: true, surface_reason: null, skipped: true };
   }
-  const snap = await readEditorDocumentText(page, editorId, { root: editSelector });
-  const modelDocumentCheck = snap.oracle === 'perf_model'
-    ? evaluatePerfModelDocument({
-        text: snap.text,
-        expectedOpening: expectedOpeningText,
-        expectedClosing: expectedClosingSentinel,
-        fixtureChars: fixtureTextChars,
-      })
-    : null;
-  const verdict = openingContentVerdict({
-    expected: expectedOpeningText,
-    actual: snap.text,
-    modelOracle: snap.oracle,
-    modelDocumentCheck,
-    editorError: snap.error,
+  if (!editorId) {
+    return { content_verified: false, surface_reason: 'document_content_unverifiable', skipped: false };
+  }
+  const gated = await readAndGateDocumentText(page, editorId, {
+    expectedOpening: expectedOpeningText,
+    expectedClosing: expectedClosingSentinel,
+    fixtureChars: fixtureTextChars,
+    lengthCheckMode,
+    root: editSelector,
   });
+  const { verdict } = gated;
   return {
     content_verified: verdict.content_verified,
     surface_reason: verdict.surface_reason,
-    editor_error: snap.error,
-    model_oracle: snap.oracle,
-    model_source: snap.source,
-    document_text_chars: snap.chars,
-    document_text: snap.text.slice(0, 4000),
-    length_check: fixtureTextChars > 0 ? 'applied' : 'not_applicable',
-    model_document_check: modelDocumentCheck,
+    editor_error: gated.error,
+    model_oracle: gated.oracle,
+    model_source: gated.source,
+    document_text_chars: gated.chars,
+    document_text: gated.text.slice(0, 4000),
+    length_check: gated.length_check,
+    length_enforced: gated.length_enforced,
+    content_check: gated.content_check,
+    content_check_reason: gated.content_check_reason,
+    model_document_check: gated.modelDocumentCheck,
+    dom_document_check: gated.domDocumentCheck,
   };
 }
 
@@ -278,6 +292,7 @@ async function measureEdit(page, selector, cdp) {
     // or delay dispatch. Dense delivery must also witness short delayed
     // reveals before witnessFrame returns.
     state.startPulse = () => {
+      if (!documentElement) return;
       const box = documentElement.getBoundingClientRect();
       const corner = [[innerWidth-4,innerHeight-4],[0,innerHeight-4],[innerWidth-4,0],[0,0]]
         .find(([x,y]) => x+3<=box.left || x>=box.right || y+3<=box.top || y>=box.bottom);

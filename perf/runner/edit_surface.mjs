@@ -1,3 +1,5 @@
+import { documentContentGateMeta } from './perf_model_text.mjs';
+
 /**
  * One edit adapter per editor, shared by every lane that edits (#155.1).
  *
@@ -76,12 +78,14 @@ export function editSurface(editorId) {
  * says it has, not inspect the first edit fragment.
  */
 export const DOCUMENT_TEXT_SURFACES = {
-  plate: { kind: 'dom', root: '[contenteditable="true"]' },
-  docxodus: { kind: 'dom', root: '#pages' },
-  superdoc: { kind: 'dom', root: '.superdoc-page' },
-  genoffice: { kind: 'dom', root: '.doc-page.ProseMirror:not(.mp-page)' },
+  // Prose body is in one contenteditable; the DOM holds the whole document.
+  plate: { kind: 'dom', root: '[contenteditable="true"]', whole: true },
+  // Paginated viewer: only mounted pages carry text at load time.
+  docxodus: { kind: 'dom', root: '#pages', whole: false },
+  superdoc: { kind: 'dom', root: '.superdoc-page', whole: false },
+  genoffice: { kind: 'dom', root: '.doc-page.ProseMirror:not(.mp-page)', whole: false },
   eigenpal: { kind: 'model', model: 'eigenpal' },
-  folio: { kind: 'dom', root: '[data-page-number]' },
+  folio: { kind: 'dom', root: '[data-page-number]', whole: false },
   canvas: { kind: 'model', model: 'canvas_editor' },
   docen: { kind: 'model', model: 'docen' },
   // WordCraft exposes no document text at this pin, only its modified flag.
@@ -165,6 +169,35 @@ export const READ_EDITOR_DOCUMENT_TEXT = ({ kind, root, model, deep = false }) =
     }
   }
 
+  const elementHidden = (el) => {
+    if (!el) return true;
+    if (el.nodeType !== undefined && el.nodeType !== 1) return true;
+    if (el.getAttribute && el.getAttribute('aria-hidden') === 'true') return true;
+    if (typeof getComputedStyle !== 'function') return false;
+    const style = getComputedStyle(el);
+    return style.display === 'none' || style.visibility === 'hidden' || style.visibility === 'collapse';
+  };
+  const visibleTextFromRoot = (rootEl) => {
+    if (elementHidden(rootEl)) return '';
+    const childNodes = rootEl.childNodes || [];
+    if (!childNodes || childNodes.length === 0) {
+      return String(rootEl.textContent || '');
+    }
+    const parts = [];
+    const walk = (node, hidden) => {
+      if (node.nodeType === 1) {
+        if (hidden || elementHidden(node)) return;
+        for (const child of node.childNodes) walk(child, false);
+        return;
+      }
+      if (node.nodeType === 3 && !hidden) {
+        const chunk = String(node.nodeValue || '');
+        if (chunk.trim()) parts.push(chunk);
+      }
+    };
+    walk(rootEl, false);
+    return parts.join('');
+  };
   const queryDeep = (selector) => {
     const found = [];
     const visit = (root) => {
@@ -180,7 +213,7 @@ export const READ_EDITOR_DOCUMENT_TEXT = ({ kind, root, model, deep = false }) =
     ? Array.from(deep ? queryDeep(root) : document.querySelectorAll(root))
     : [];
   const text = roots
-    .map((element) => String(element.textContent || ''))
+    .map((element) => visibleTextFromRoot(element))
     .filter((part) => part.length > 0)
     .join('\n');
   return result(text, 'dom', 'dom');
@@ -192,6 +225,32 @@ export async function readEditorDocumentText(page, editorId, { root = null } = {
     ? surface
     : { kind: 'dom', root, deep: true };
   return page.evaluate(READ_EDITOR_DOCUMENT_TEXT, request);
+}
+
+/** Whole-document read plus opening/closing/length gate for one editor. */
+export async function readAndGateDocumentText(
+  page,
+  editorId,
+  {
+    expectedOpening = '',
+    expectedClosing = '',
+    fixtureChars = 0,
+    lengthCheckMode = null,
+    root = null,
+  } = {},
+) {
+  const surface = documentTextSurface(editorId);
+  const read = await readEditorDocumentText(page, editorId, { root });
+  const whole = surface.whole !== false;
+  const gate = documentContentGateMeta({
+    documentRead: read,
+    whole,
+    expectedOpening,
+    expectedClosing,
+    fixtureChars,
+    lengthCheckMode,
+  });
+  return { ...read, ...gate, whole };
 }
 
 /** Page context. First body text line fully inside the viewport. */
@@ -459,8 +518,18 @@ export async function placeCaret(page, editorId, selector, { focusTimeoutMs = 50
   }
   // Two frames: an editor that focuses its input in a task after the click
   // (canvas-editor) loses keys typed in the same task.
+  const frames = editorId === 'canvas' ? 3 : 2;
   await page.evaluate(
-    () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(null)))),
+    (count) => new Promise((resolve) => {
+      let left = count;
+      const tick = () => {
+        left -= 1;
+        if (left <= 0) resolve(null);
+        else requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }),
+    frames,
   );
   return { point, focused };
 }

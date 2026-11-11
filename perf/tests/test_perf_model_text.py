@@ -64,5 +64,15 @@ console.log(JSON.stringify(verdict));
             expected="Alpha bravo",
             actual="Wrong",
             modelOracle="dom",
+            domDocumentCheck={"ok": False, "surface_reason": "document_content_mismatch"},
         )
         self.assertEqual(v["surface_reason"], "document_content_mismatch")
+
+    def test_dom_opening_only_passes_without_closing(self):
+        v = self.verdict(
+            expected="Alpha bravo",
+            actual="Alpha bravo opening slice",
+            modelOracle="dom",
+            domDocumentCheck={"ok": True},
+        )
+        self.assertTrue(v["content_verified"])
