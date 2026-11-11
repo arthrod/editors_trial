@@ -204,6 +204,20 @@ def test_unmasked_document_diff_is_still_refused():
     assert refused["reason"] == "witness_schema_invalid"
 
 
+def test_click_region_box_bounds_are_publishable_witnesses():
+    """r3lanes4 #2: the documented C07 click box is 48 CSS px wide, line tall."""
+    from perf.runner.witness import validate_witness
+
+    # The documented box: 48 wide, a line box (~22-40 px) tall, at most 96.
+    verdict = validate_witness(_caret_rect_record(48, 30, 400))
+    assert verdict["ok"] is True
+    tall = validate_witness(_caret_rect_record(48, 96, 400))
+    assert tall["ok"] is True
+    wider = validate_witness(_caret_rect_record(49, 30, 400))
+    assert wider["ok"] is False
+    assert wider["reason"] == "witness_schema_invalid"
+
+
 def test_unmasked_caret_with_no_pixels_is_no_frame():
     from perf.runner.witness import validate_witness
 

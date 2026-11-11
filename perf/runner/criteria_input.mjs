@@ -315,6 +315,57 @@ export const DOCUMENT_PROTECTED_READ_ONLY = 'document_protected_read_only';
 export const CARET_MOVE_NOT_PAINTED = 'caret_move_not_painted';
 export const CLICK_PAINT_NOT_OBSERVED = 'click_paint_not_observed';
 
+/**
+ * r3lanes4 ruling #2: C07's witness is the FIRST click, once, for every
+ * editor — no caret mask, no setup click, no re-click, no per-editor branch.
+ * The watched region is a fixed box around the click point:
+ *   - width: 48 CSS px, centred on the click x (CLICK_REGION_HALF_WIDTH_PX);
+ *   - height: the clicked line box plus CLICK_REGION_LINE_PAD_PX px above and
+ *     below, so the box contains a caret placed on the clicked line; a point
+ *     with no line box (page centre, surface fractions) gets a 48 px tall box
+ *     around the click y;
+ *   - the height is capped at CLICK_REGION_MAX_HEIGHT_PX (the unmasked-rect
+ *     ceiling witness.py accepts), sliding toward the click y when capped.
+ * The sample ends at the first screencast frame with a change inside that
+ * box after the pointerdown. A first click that paints nothing inside the
+ * box refuses the point with FIRST_CLICK_PAINTED_NOTHING.
+ */
+export const FIRST_CLICK_PAINTED_NOTHING = 'first_click_painted_nothing_in_click_region';
+export const CLICK_REGION_HALF_WIDTH_PX = 24;
+export const CLICK_REGION_LINE_PAD_PX = 4;
+export const CLICK_REGION_HALF_HEIGHT_PX = 24;
+export const CLICK_REGION_MAX_HEIGHT_PX = 96;
+
+export function clickPaintRegion(point) {
+  const x = Number(point && point.x);
+  const y = Number(point && point.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+  const line = point && point.line;
+  let top;
+  let height;
+  if (line && Number.isFinite(Number(line.top)) && Number.isFinite(Number(line.bottom))) {
+    top = Number(line.top) - CLICK_REGION_LINE_PAD_PX;
+    height = Number(line.bottom) - Number(line.top) + CLICK_REGION_LINE_PAD_PX * 2;
+  } else {
+    top = y - CLICK_REGION_HALF_HEIGHT_PX;
+    height = CLICK_REGION_HALF_HEIGHT_PX * 2;
+  }
+  if (height > CLICK_REGION_MAX_HEIGHT_PX) {
+    height = CLICK_REGION_MAX_HEIGHT_PX;
+    top = y - CLICK_REGION_MAX_HEIGHT_PX / 2;
+  }
+  const round1 = (value) => Math.round(value * 10) / 10;
+  return {
+    rect: {
+      x: Math.max(0, round1(x - CLICK_REGION_HALF_WIDTH_PX)),
+      y: round1(Math.max(0, top)),
+      width: CLICK_REGION_HALF_WIDTH_PX * 2,
+      height: round1(height),
+    },
+  };
+}
+
+
 function adapterGate(adapter) {
   if (!adapter) {
     return 'no_correctness_adapter: canvas surface without model API or pixel probe';
@@ -1859,92 +1910,6 @@ async function resolveClickPoint(page, meta) {
   };
 }
 
-function caretPaintRegion(caret, point) {
-  const line = point && point.line;
-  if (caret && Number.isFinite(Number(caret.top)) && Number.isFinite(Number(caret.left))) {
-    const height = Number(caret.height) > 0 ? Number(caret.height) : 16;
-    const width = Number.isFinite(Number(caret.right))
-      ? Math.max(8, Number(caret.right) - Number(caret.left))
-      : 8;
-    return {
-      rect: {
-        x: Math.max(0, Number(caret.left) - 4),
-        y: Math.max(0, Number(caret.top) - 2),
-        width: width + 8,
-        height: height + 4,
-      },
-    };
-  }
-  if (line && Number.isFinite(Number(line.top)) && Number.isFinite(Number(point.x))) {
-    return {
-      rect: {
-        x: Math.max(0, Number(point.x) - 12),
-        y: Math.max(0, Number(line.top) - 2),
-        width: 32,
-        height: Math.max(8, Number(line.bottom) - Number(line.top) + 4),
-      },
-    };
-  }
-  return null;
-}
-
-/**
- * A click somewhere else on the edit surface, used to move the caret before
- * the measured re-click. The setup click is never timed: it only exists so
- * the re-click on `point` is a real caret move and not a no-op on the spot
- * the first click already placed it. Prefer another text line (same column),
- * then any other resolved point, and as a last resort nudge along the line.
- */
-function setupClickPoint(point, meta) {
-  const points = (meta && meta.points) || [];
-  const differs = (p) =>
-    p &&
-    p !== point &&
-    Number.isFinite(p.x) &&
-    Number.isFinite(p.y) &&
-    (Math.abs(p.x - point.x) > 4 || Math.abs(p.y - point.y) > 4);
-  const linePoint = points.find((p) => differs(p) && p.line);
-  const anyPoint = points.find(differs);
-  const other = linePoint || anyPoint;
-  if (other) return { x: other.x, y: other.y };
-  const dx = point.x > 40 ? -40 : 40;
-  return { x: Math.max(2, point.x + dx), y: point.y };
-}
-
-/**
- * C07's stimulus is the click; a sample may only be the click's own painted
- * frame. When the caret mask hid the first click's caret, the retry re-clicks
- * the same (x, y) with the mask off and the witness on the caret's own rect:
- * the click's own stimulus, observed. A setup click first moves the caret so
- * the re-click is a real move. A key is never a stand-in for the click.
- */
-async function witnessUnmaskedReclick(page, witness, point, state, meta) {
-  const setup = setupClickPoint(point, meta);
-  if (setup && page.mouse && typeof page.mouse.click === 'function') {
-    try {
-      await page.mouse.click(setup.x, setup.y);
-      await settle(page, 60);
-    } catch {
-      // A double without a working mouse re-clicks the point anyway.
-    }
-  }
-  const region = caretPaintRegion(state && state.caret, point);
-  let input = null;
-  const record = await witness.paintAfter(null, {
-    caretMask: false,
-    region: region || undefined,
-    arm: async () => {
-      await clearInputs(page);
-      await page.mouse.click(point.x, point.y);
-      const tapped = await firstInput(page, { kind: 'pointerdown' });
-      if (tapped === null) return null;
-      input = tapped;
-      return tapped.t;
-    },
-  });
-  return { record, input, setup };
-}
-
 /** Docxodus records an edit on blur. Undo before that blur has nothing to revert. */
 function COMMIT_FOCUSED_BLOCK() {
   const active = document.activeElement;
@@ -1956,21 +1921,6 @@ function COMMIT_FOCUSED_BLOCK() {
 
 function EDITOR_MODE_BUTTON() {
   return Boolean(document.querySelector('#modeEditor'));
-}
-
-function caretMovePainted(retry, verdict) {
-  const record = retry && retry.record;
-  return Boolean(
-    retry &&
-      retry.input &&
-      record &&
-      record.outcome === 'witnessed' &&
-      record.frame_page_ms !== null &&
-      record.frame_page_ms !== undefined &&
-      verdict &&
-      !verdict.refused &&
-      verdict.ok,
-  );
 }
 
 async function measureClicks(page, witness, options, meta) {
@@ -2017,6 +1967,11 @@ async function measureClicks(page, witness, options, meta) {
     };
     await clearInputs(page);
     let input = null;
+    // r3lanes4 ruling #2: one witness per point — the FIRST click, unmasked,
+    // watched over the fixed box around the click point. No setup click, no
+    // re-click, no per-editor branch on the witness.
+    const clickRegion = clickPaintRegion(point);
+    observation.click_region = clickRegion;
     const armClick = async () => {
       await page.mouse.click(point.x, point.y);
       const tapped = await firstInput(page, { kind: 'pointerdown' });
@@ -2024,7 +1979,11 @@ async function measureClicks(page, witness, options, meta) {
       input = tapped;
       return tapped.t;
     };
-    let frameRecord = await witness.paintAfter(null, { arm: armClick });
+    let frameRecord = await witness.paintAfter(null, {
+      caretMask: false,
+      region: clickRegion || undefined,
+      arm: armClick,
+    });
     // The centre click can scroll a paged editor. The first-line coordinate
     // from before that click then lands on chrome and never reaches the document.
     if (input === null && point.line && meta.editable && meta.editable.selector) {
@@ -2050,8 +2009,13 @@ async function measureClicks(page, witness, options, meta) {
         observation.x = point.x;
         observation.y = point.y;
         observation.line = point.line;
+        observation.click_region = clickPaintRegion(point);
         await clearInputs(page);
-        frameRecord = await witness.paintAfter(null, { arm: armClick });
+        frameRecord = await witness.paintAfter(null, {
+          caretMask: false,
+          region: clickPaintRegion(point),
+          arm: armClick,
+        });
       }
     }
     attachPaintWitnessFailure(observation, { record: frameRecord });
@@ -2145,58 +2109,21 @@ async function measureClicks(page, witness, options, meta) {
     let witnessVerdict = frameRecord ? validateWitnessRecord(frameRecord) : { refused: true, ok: false };
     const witnessPublishable = framePainted && !witnessVerdict.refused && witnessVerdict.ok;
     if (!witnessPublishable) {
-      // Frames arrived and the mask hid the caret. A dead screencast (no frames
-      // at all) stays no_painted_frame: a second full window would not paint.
+      // r3lanes4 ruling #2: the first click is the only witness. Frames flowed
+      // but nothing changed inside the fixed click box: the point is refused
+      // with a named reason — never re-clicked, never masked. A dead
+      // screencast (no frames at all) stays no_painted_frame.
       const framesFlowed = (frameRecord?.frames_after || 0) > 0 || (frameRecord?.frames_total || 0) > 0;
-      const caretHidden =
-        frameRecord?.outcome === 'no_frame' &&
-        frameRecord?.caret_masked !== false &&
-        framesFlowed &&
-        (frameRecord?.changed_pixels === 0 || frameRecord?.changed_pixels == null);
-      if (!caretHidden) {
-        observation.failure =
-          frameRecord?.outcome === 'no_frame'
-            ? `no_painted_frame_within_${options.frameTimeoutMs}ms`
-            : `paint_witness_refused: ${witnessVerdict.reason || 'witness_refused'}`;
-        observation.witness_refusal = witnessVerdict.reason ?? null;
-        entry.assertion.failures.push(`${point.point}: ${observation.failure.split(': ')[0]}`);
-        entry.observations.push(observation);
-        continue;
-      }
-      // A masked screencast that never paints the caret is not a latency.
-      // C07's stimulus is the click, so the retry is the same click, never a
-      // key: re-click the same point, unmasked, watching the caret's own rect.
-      // The sample is the click's frame or nothing — a timeout clock is never
-      // stored.
-      const retry = await witnessUnmaskedReclick(page, witness, point, state, meta);
-      const retryRecord = retry.record;
-      const retryVerdict = retryRecord ? validateWitnessRecord(retryRecord) : { refused: true, ok: false };
-      const retryPainted = caretMovePainted(retry, retryVerdict);
-      observation.caret_paint_attempt = 'unmasked_reclick';
-      if (retry.setup) observation.setup_click = retry.setup;
-      observation.masked_witness = frameRecord;
-      observation.masked_input_ms = observation.input_ms;
-      observation.witness = retryRecord || frameRecord;
-      observation.witness_verdict = retryVerdict;
-      observation.witness_errors = retryVerdict.errors || [];
-      if (!retryPainted) {
-        observation.failure = CLICK_PAINT_NOT_OBSERVED;
-        observation.witness_refusal = retryVerdict.reason ?? null;
-        delete observation.sample_ms;
-        entry.assertion.failures.push(`${point.point}: ${CLICK_PAINT_NOT_OBSERVED}`);
-        entry.observations.push(observation);
-        continue;
-      }
-      observation.witness_refusal = null;
-      observation.input_ms = round(retry.input.t, 3);
-      observation.frame_ms = round(retryRecord.frame_page_ms, 3);
-      const sampleMs = round(retryRecord.frame_page_ms - retry.input.t, 3);
-      observation.sample_ms = sampleMs;
-      observation.sub_frame = sampleMs < witness.frameIntervalMs;
-      samples.push(sampleMs);
-      subFrameSamples.push(observation.sub_frame);
+      const failure =
+        frameRecord?.outcome === 'no_frame'
+          ? framesFlowed
+            ? FIRST_CLICK_PAINTED_NOTHING
+            : `no_painted_frame_within_${options.frameTimeoutMs}ms`
+          : `paint_witness_refused: ${witnessVerdict.reason || 'witness_refused'}`;
+      observation.failure = failure;
+      observation.witness_refusal = witnessVerdict.reason ?? null;
+      entry.assertion.failures.push(`${point.point}: ${failure.split(': ')[0]}`);
       entry.observations.push(observation);
-      await settle(page);
       continue;
     }
     observation.frame_ms = round(frameRecord.frame_page_ms, 3);
@@ -2244,6 +2171,9 @@ async function measureClicks(page, witness, options, meta) {
   }
   entry.notes.push(
     'Three deterministic points resolved from the visible text line boxes (page centre, first visible line, last visible line). No scrolling: a point outside the viewport is not used.',
+  );
+  entry.notes.push(
+    'One witness per point (r3lanes4 #2): the first click, with no caret mask, watched over a fixed 48 px wide box centred on the click x that spans the clicked line box ±4 px (48 px tall around the click y when the point has no line box); the sample ends at the first frame with a change inside that box after the pointerdown, and a first click that paints nothing inside the box refuses the point.',
   );
   return entry;
 }

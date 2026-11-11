@@ -92,90 +92,134 @@ const meta = {
   ],
 };
 
-const refusedPage = clickPage(null, [], [40, 90]);
+/**
+ * r3lanes4 ruling #2: C07 has one witness per point — the FIRST click,
+ * unmasked, watched over a fixed box around the click point. This builds the
+ * unmasked box record the production witness emits for that click.
+ */
+function unmaskedBoxRecord(frameMs, markerMs, changed = 240) {
+  const record = publishableRecord(frameMs, markerMs);
+  const css = { x: 0, y: 876, width: 48, height: 30 };
+  const device = { x: 0, y: 876, width: 48, height: 30 };
+  const area = device.width * device.height;
+  record.caret_masked = false;
+  record.caret_mask_css = null;
+  record.caret_mask_error = null;
+  record.document_scoped = true;
+  record.document_region = {
+    source: 'rect',
+    selector: null,
+    rect_css_px: css,
+    rect_device_px: device,
+    device_pixel_ratio: 1,
+  };
+  record.region_pixels = area;
+  record.total_pixels = area;
+  record.changed_pixels = changed;
+  record.diff_ratio = changed / area;
+  record.max_diff_ratio = changed / area;
+  return record;
+}
+
+const refusedPage = clickPage(null, [], [40]);
+let refusedCalls = 0;
+let refusedOptions = null;
 const refused = await measureClicks(
   refusedPage,
   {
     frameIntervalMs: 16.667,
     paintAfter: async (_t, callOptions = {}) => {
+      refusedCalls += 1;
+      refusedOptions = callOptions;
       if (callOptions.arm) await callOptions.arm();
-      return { outcome: 'no_frame', changed_pixels: 0, caret_masked: true, frames_after: 1, frames_total: 2 };
+      return { outcome: 'no_frame', changed_pixels: 0, caret_masked: false, frames_after: 1, frames_total: 2 };
     },
   },
   { frameTimeoutMs: 2000, expectedBodyText: null },
   meta,
 );
-assert(refused.outcome === 'failed', 'two dark frames refuse C07');
+assert(refused.outcome === 'failed', 'a click that paints nothing in the box refuses C07');
 assert(
-  String(refused.failure_reason || '').includes('click_paint_not_observed'),
-  'the refusal is click_paint_not_observed',
+  String(refused.failure_reason || '').includes('first_click_painted_nothing_in_click_region'),
+  'the refusal names the first click painting nothing in the click region',
 );
 assert(refused.samples_ms.length === 0, 'a timeout is not a sample');
+assert(refusedCalls === 1, 'one witness for one click; no second look');
+assert(refusedOptions.caretMask === false, 'the one click runs with no caret mask');
+assert(refusedOptions.region && refusedOptions.region.rect, 'the witness watches the fixed click box');
+assert(refusedPage.mouseClicks.length === 1, 'no setup click, no re-click: the first click is the only click');
 assert(
   !refused.observations.some((observation) => observation.sample_ms != null || observation.caret_dom_response === true),
   'no caret-dom sample is kept',
 );
 
 let paintCalls = 0;
-let seenRetry = null;
-const retryKeys = [];
-const retryPage = clickPage(null, retryKeys, [40, 90]);
-const paintedRetry = await measureClicks(
-  retryPage,
+let seenRegion = null;
+let seenMask = null;
+const singlePage = clickPage(null, [], [40]);
+const painted = await measureClicks(
+  singlePage,
   {
     frameIntervalMs: 16.667,
     paintAfter: async (_t, callOptions = {}) => {
-      if (callOptions.arm) await callOptions.arm();
       paintCalls += 1;
-      if (paintCalls === 1) {
-        return { outcome: 'no_frame', changed_pixels: 0, caret_masked: true, frames_after: 1, frames_total: 2 };
-      }
-      seenRetry = callOptions;
-      return publishableRecord(180, 90);
+      if (callOptions.arm) await callOptions.arm();
+      seenRegion = callOptions.region;
+      seenMask = callOptions.caretMask;
+      return unmaskedBoxRecord(180, 40);
     },
   },
   { frameTimeoutMs: 2000, expectedBodyText: null },
   meta,
 );
-assert(paintedRetry.outcome === 'measured', 'the unmasked click frame is the sample');
-assert(paintedRetry.samples_ms[0] === 90, 'sample is frame_page_ms minus the re-click pointerdown');
-assert(paintedRetry.observations[0].caret_dom_response !== true, 'caret_dom_response is not a bypass');
-assert(seenRetry && seenRetry.caretMask === false, 'the retry turns the caret mask off');
-assert(seenRetry && seenRetry.region && seenRetry.region.rect, 'the retry watches the caret rect');
+assert(painted.outcome === 'measured', 'the first click frame is the sample');
+assert(painted.samples_ms[0] === 140, 'sample is frame_page_ms minus the click pointerdown (180-40)');
+assert(painted.observations[0].caret_dom_response !== true, 'caret_dom_response is not a bypass');
+assert(paintCalls === 1, 'the first click is the only witness');
+assert(seenMask === false, 'the click runs unmasked');
+assert(seenRegion && seenRegion.rect, 'the witness watches a fixed box around the click point');
+assert(seenRegion.rect.width === 48, 'the documented box is 48 CSS px wide');
+assert(seenRegion.rect.x === 0, 'the box is centred on the click x (12 - 24 clamped to 0)');
 assert(
-  retryKeys.length === 0 || (!retryKeys.includes('ArrowRight') && !retryKeys.includes('ArrowLeft')),
-  'C07 never substitutes a key for the click',
+  seenRegion.rect.y <= plateLine.top && seenRegion.rect.y + seenRegion.rect.height >= plateLine.bottom,
+  'the box contains a caret of the clicked line',
 );
 assert(
-  retryPage.mouseClicks.length >= 2 && retryPage.mouseClicks.at(-1)[0] === 12 && retryPage.mouseClicks.at(-1)[1] === 890,
-  'the retry re-clicks the same point, it never presses a key',
+  painted.observations[0].click_region && painted.observations[0].click_region.rect.width === 48,
+  'the observation documents the click region',
 );
+assert(
+  !Object.prototype.hasOwnProperty.call(painted.observations[0], 'caret_paint_attempt'),
+  'no unmasked-reclick fields survive',
+);
+assert(singlePage.mouseClicks.length === 1, 'one click only');
 
-let stillCalls = 0;
-const stillKeys = [];
-const stillPage = clickPage(null, stillKeys, [40, 90]);
-const stillCaret = await measureClicks(
-  stillPage,
+let deadCalls = 0;
+const deadKeys = [];
+const deadPage = clickPage(null, deadKeys, [40]);
+const deadScreencast = await measureClicks(
+  deadPage,
   {
     frameIntervalMs: 16.667,
     paintAfter: async (_t, callOptions = {}) => {
+      deadCalls += 1;
       if (callOptions.arm) await callOptions.arm();
-      stillCalls += 1;
-      return { outcome: 'no_frame', changed_pixels: 0, caret_masked: stillCalls === 1, frames_after: 1, frames_total: 2 };
+      return { outcome: 'no_frame', changed_pixels: 0, caret_masked: false, frames_after: 0, frames_total: 0 };
     },
   },
   { frameTimeoutMs: 2000, expectedBodyText: null },
   meta,
 );
-assert(stillCaret.outcome === 'failed', 'an unmasked re-click that never paints is a refusal');
+assert(deadScreencast.outcome === 'failed', 'a dead screencast is not a sample');
 assert(
-  String(stillCaret.failure_reason || '').includes('click_paint_not_observed'),
-  'the refusal names click_paint_not_observed',
+  String(deadScreencast.failure_reason || '').includes('no_painted_frame_within_2000ms'),
+  'no frames at all is no_painted_frame, not the click refusal',
 );
-assert(stillCaret.samples_ms.length === 0, 'no sample without a painted frame');
+assert(deadScreencast.samples_ms.length === 0, 'no sample without a painted frame');
+assert(deadCalls === 1 && deadPage.mouseClicks.length === 1, 'still one click, one witness');
 assert(
-  stillKeys.length === 0 || (!stillKeys.includes('ArrowRight') && !stillKeys.includes('ArrowLeft')),
-  'no ArrowRight/ArrowLeft fallback exists',
+  deadKeys.length === 0 || (!deadKeys.includes('ArrowRight') && !deadKeys.includes('ArrowLeft')),
+  'C07 never substitutes a key for the click',
 );
 
 assert(

@@ -378,6 +378,7 @@ def trial_from_entry(cid, entry, env, witness=None):
             "document_protected_read_only" if "document_protected_read_only" in reason else
             "caret_move_not_painted" if "caret_move_not_painted" in reason else
             "click_paint_not_observed" if "click_paint_not_observed" in reason else
+            "first_click_painted_nothing_in_click_region" if "first_click_painted_nothing_in_click_region" in reason else
             "editor_mode_did_not_open" if "editor_mode_did_not_open" in reason else
             "editable_not_found" if reason.startswith(("editable_not_found", "editable_not_in_viewport")) else
             "surface_not_dom_editable" if reason.startswith(("surface_not_dom_editable", "no_correctness_adapter")) else
