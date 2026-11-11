@@ -1048,13 +1048,19 @@ def _run_probe(cmd: list, *, editor_id: str) -> dict:
             raise ProbeRefusal(
                 "editor_load_failed: %s" % detail,
                 refusal_code="editor_load_failed",
-                outcome="refused",
             )
         raise ProbeRefusal(
             "probe produced no JSON for %s (exit %s): %s" % (editor_id, proc.returncode, tail),
             refusal_code="harness_error" if proc.returncode in (0, 2) else "editor_crash",
         )
     if proc.returncode != 0 or payload.get("status") == "probe_error":
+        err_blob = (proc.stderr or "") + (payload.get("reason") or "")
+        if "editor_load_failed" in err_blob:
+            detail = err_blob.split("editor_load_failed:", 1)[-1].strip()[:400]
+            raise ProbeRefusal(
+                "editor_load_failed: %s" % detail,
+                refusal_code="editor_load_failed",
+            )
         raise ProbeRefusal(
             "probe error for %s: %s" % (editor_id, payload.get("reason") or proc.stderr[-300:]),
             refusal_code=_probe_error_refusal_code(payload),

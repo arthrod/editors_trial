@@ -968,7 +968,14 @@ async function loadResult(ctx, { navigationMs, readyMs, surface, witness, surfac
   });
   const contentVerified = verdict.content_verified;
   const contentReason = contentVerified ? null : verdict.surface_reason;
-  const at = !contentReason && surface && surface.at_ms !== null && surface.at_ms !== undefined ? surface.at_ms : null;
+  let at = !contentReason && surface && surface.at_ms !== null && surface.at_ms !== undefined ? surface.at_ms : null;
+  // Model hosts (docen screencast_ink): content is in the model while the ink
+  // stamp may lag; once the gate passes and a witness frame exists, bind the
+  // surface clock to the first layout box or ready time, not FCP.
+  if (at === null && contentVerified && snap.model_oracle === 'perf_model') {
+    const fallback = snap.first_element_ms ?? readyMs;
+    if (fallback !== null && fallback !== undefined) at = fallback;
+  }
   return {
     mode: 'load',
     driver: 'playwright',
