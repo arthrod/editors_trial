@@ -22,6 +22,7 @@ def typing_pair(runs, kind='throughput', count=12, **updates):
             row = dict(
                 schema='perf.typing/2',
                 session_kind=kind,
+                correctness_oracle='dom_document_text',
                 isolation='fresh_process',
                 values_per_session=1,
                 cadence_ms=0,
