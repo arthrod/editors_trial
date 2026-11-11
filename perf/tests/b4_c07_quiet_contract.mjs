@@ -1,14 +1,20 @@
 /**
- * r3c07b contract — one C07 sample definition for every editor:
+ * r3c07b/c contract — one C07 sample definition for every editor:
  *
- *   the editor has had NO pointer or keyboard interaction and no focus on its
- *   document before the measured click (fresh state per point: a reload, or a
- *   state proven untouched); the watched box shows NO changed pixel for at
- *   least 1000 ms before the click (recorded on the witness); the sample is
- *   pointerdown -> first frame with a change inside that box. With a quiet
- *   box and an untouched editor the change is the caret arriving — DOM or
- *   canvas alike. A box that is not quiet before the click is a named refusal
- *   of that point.
+ *   the editor has had NO HARNESS pointer, keyboard or focus action since the
+ *   fresh reload (fresh state per point: a reload, or a state proven
+ *   untouched); the watched box shows NO changed pixel for at least 1000 ms
+ *   before the click (recorded on the witness); the sample is pointerdown ->
+ *   first frame with a change inside that box. With a quiet box and an
+ *   untouched editor the change is the caret arriving — DOM or canvas alike.
+ *   A box that is not quiet before the click is a named refusal of that
+ *   point.
+ *
+ *   r3c07c: a selection or focus that exists with ZERO recorded harness
+ *   input is the editor's own load behaviour (GenOffice focuses itself,
+ *   eigenpal restores a selection): the point measures and the sample is
+ *   flagged editor_self_focused_on_load. Recorded harness input before the
+ *   click is the only editor_state_not_untouched refusal left.
  *
  * The reviewer plants — a blinking caret already in the box, a hover
  * highlight, a toolbar repaint inside the box, scroll jitter, and a
@@ -17,7 +23,7 @@
 import * as ci from '../runner/criteria_input.mjs';
 import { publishableRecord } from './witness_records.mjs';
 
-const { measureClicks, selectDistinctLinePoints } = ci;
+const { measureClicks, selectDistinctLinePoints, EDITOR_NOT_UNTOUCHED } = ci;
 
 let failed = 0;
 let checks = 0;
@@ -81,7 +87,7 @@ function quietRecord(frameMs, markerMs, quiet, outcome = 'witnessed') {
  * pointer targets. `clicked` flips the DOM state to focused/caret-placed;
  * a reload (the driver's fresh-state hook) resets it.
  */
-function clickPage({ surfaceKind = 'dom', touchedAfterClick = false, pointerTimes = [40, 140, 190] } = {}) {
+function clickPage({ surfaceKind = 'dom', touchedAfterClick = false, selfFocusOnLoad = false, priorHarnessInput = false, pointerTimes = [40, 140, 190] } = {}) {
   const times = pointerTimes.slice();
   let pointerReads = 0;
   const mouseClicks = [];
@@ -103,6 +109,24 @@ function clickPage({ surfaceKind = 'dom', touchedAfterClick = false, pointerTime
       const name = fn && fn.name;
       const clicked = mouseClicks.length > baselineClicks;
       if (name === 'DOCUMENT_UNTOUCHED') {
+        if (selfFocusOnLoad) {
+          // The editor plants its own selection/focus on every load, like
+          // eigenpal's restored selection or GenOffice's autofocus. A harness
+          // click that reached the editable since the baseline is still an
+          // event; without one the recorded inputs are empty.
+          return {
+            events: clicked ? [{ index: 0, kind: 'pointerdown' }] : [],
+            anchor_inside: true,
+            active_inside: true,
+            tapped: clicked ? 1 : 0,
+          };
+        }
+        if (priorHarnessInput) {
+          // Harness input reached the page (chrome, not the editable) and a
+          // selection/focus sits inside: the focus cannot be attributed to
+          // the editor's own load, so the state is touched.
+          return { events: [], anchor_inside: true, active_inside: true, tapped: 1 };
+        }
         const dirty = touchedAfterClick && clicked;
         return dirty
           ? { events: [{ index: 0, kind: 'pointerdown' }], anchor_inside: true, active_inside: true, tapped: 1 }
@@ -429,6 +453,73 @@ function opts(page, extra = {}) {
   assert(
     refused.some((o) => String(o.failure).includes('untouched')),
     'the touched point is refused by name',
+  );
+}
+
+// -- a self-focusing editor with zero harness input measures and is flagged --
+{
+  const page = clickPage({ selfFocusOnLoad: true });
+  const witness = quietWitness(quietRecord(180, 40, quietWindow()));
+  const entry = await measureClicks(
+    page,
+    domMeta([FIRST, LAST]),
+    opts(page, {
+      witness,
+      reloadPage: async () => {
+        page.freshBaseline();
+        return true;
+      },
+    }),
+  );
+  assert(
+    entry.outcome === 'measured',
+    `an editor that planted its own focus on load measures (got ${entry.outcome}: ${entry.failure_reason})`,
+  );
+  const sampled = entry.observations.filter((o) => o.sample_ms !== undefined);
+  assert(
+    sampled.length === 2 && sampled.every((o) => o.editor_self_focused_on_load === true),
+    'every self-focused sample carries editor_self_focused_on_load',
+  );
+  assert(
+    sampled.every(
+      (o) =>
+        o.fresh_state &&
+        o.fresh_state.untouched &&
+        o.fresh_state.untouched.anchor_inside === true &&
+        (o.fresh_state.untouched.events || []).length === 0,
+    ),
+    'the planted selection is recorded with empty recorded inputs',
+  );
+}
+
+// -- self-focus plus a harness click inside is still a touched document ------
+{
+  const page = clickPage({ selfFocusOnLoad: true });
+  const witness = quietWitness(quietRecord(180, 40, quietWindow()));
+  // No reload hook: the first click lands inside the editable, so the next
+  // point's probe sees a recorded harness input — never the editor's own.
+  const entry = await measureClicks(page, domMeta([FIRST, MIDDLE, LAST]), opts(page, { witness }));
+  assert(
+    entry.observations[0] && entry.observations[0].sample_ms !== undefined,
+    'the first self-focused point still measures',
+  );
+  const refused = entry.observations.filter((o) => String(o.failure || '').includes(EDITOR_NOT_UNTOUCHED));
+  assert(refused.length === 2, `the later points refuse after our own click (got ${refused.length})`);
+}
+
+// -- a selection with recorded harness input is not the editor's own load ----
+{
+  const page = clickPage({ priorHarnessInput: true });
+  const witness = quietWitness(quietRecord(180, 40, quietWindow()));
+  const entry = await measureClicks(page, domMeta([FIRST, LAST]), opts(page, { witness }));
+  assert(entry.outcome === 'failed', 'a selection found after recorded harness input cannot measure');
+  assert(
+    String(entry.failure_reason || '').includes('untouched'),
+    `the recorded-input state is named (got ${entry.failure_reason})`,
+  );
+  assert(
+    !entry.observations.some((o) => o.editor_self_focused_on_load === true),
+    'no point may claim the self-focus flag once harness input exists',
   );
 }
 

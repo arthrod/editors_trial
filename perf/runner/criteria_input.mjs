@@ -792,6 +792,19 @@ const READ_EDITABLE_STATE = (selector) => {
       textSource = 'dom';
     }
   }
+  // A fragment selector matches one caret root per paragraph (eigenpal's
+  // .layout-run spans): the editable is the shared fragment root that
+  // carries them, never the first match alone. A caret or focus anywhere in
+  // .docx-page-content — any fragment, a .docx-line gap, a marker — is
+  // inside the editable; the same boundary DOCUMENT_UNTOUCHED and
+  // pointerTargetInside apply.
+  const insideEditable = (target) => {
+    if (!target) return false;
+    if (paragraphNodes.length > 0) {
+      return target === textRoot || textRoot.contains(target);
+    }
+    return el === target || (typeof el.contains === 'function' && el.contains(target));
+  };
   const selection = window.getSelection();
   let caret = null;
   let anchorInside = false;
@@ -800,7 +813,7 @@ const READ_EDITABLE_STATE = (selector) => {
     const range = selection.getRangeAt(0);
     const startNode = range.startContainer;
     const startElement = startNode && startNode.nodeType === 3 ? startNode.parentNode : startNode;
-    anchorInside = Boolean(startElement && el.contains(startElement));
+    anchorInside = insideEditable(startElement);
     const rect = range.getBoundingClientRect();
     caret = {
       top: rect.top,
@@ -850,8 +863,7 @@ const READ_EDITABLE_STATE = (selector) => {
     (typeof el.closest === 'function' && (el.closest('#editor') || el.closest('#editorHost'))) || el;
   const focusInEditor = Boolean(
     active &&
-      (active === el ||
-        (el.contains && el.contains(active)) ||
+      (insideEditable(active) ||
         active === editorRoot ||
         (editorRoot.contains && editorRoot.contains(active))),
   );
@@ -1217,9 +1229,17 @@ async function pointerTargetInside(page, selector) {
     if (!parts.length) return { inside: null, reason: 'editable_not_found' };
     if (!target) return { inside: null, reason: 'no_pointer_target' };
     // A fragment selector (eigenpal's caret root) counts when the target
-    // lands in any matched piece of the editable.
+    // lands in any matched piece of the editable — or in the shared fragment
+    // root that carries them: eigenpal maps a click in a .docx-line's
+    // trailing gap to the line-end caret, and the gap is no run's child.
+    const fragmentRoot =
+      typeof parts[0].matches === 'function' && parts[0].matches('[data-paragraph-id][data-start]')
+        ? parts[0].closest('.docx-page-content')
+        : null;
     return {
-      inside: parts.some((el) => el === target || el.contains(target)),
+      inside:
+        parts.some((el) => el === target || el.contains(target)) ||
+        Boolean(fragmentRoot && (fragmentRoot === target || fragmentRoot.contains(target))),
       reason: null,
     };
   }, selector);
@@ -1233,6 +1253,37 @@ export function pointerTargetInsideEditable(editable, target) {
   }
   return editable === target;
 }
+
+/**
+ * The union of every element a selector matches, visible pieces only —
+ * the same rule RESOLVE_CLICK_CLIP applies to the ink clip. A selector that
+ * names one piece of the editable per element (eigenpal's fragment runs)
+ * has its document region in the union, never in the first match alone.
+ * Page context: no Node closures.
+ */
+const UNION_MATCHED_RECTS = (sel) => {
+  const matches = Array.from(document.querySelectorAll(sel)).slice(0, 400);
+  let union = null;
+  for (const cand of matches) {
+    const r = cand.getBoundingClientRect();
+    if (!r || r.width < 2 || r.height < 2) continue;
+    union = union
+      ? {
+          left: Math.min(union.left, r.left),
+          top: Math.min(union.top, r.top),
+          right: Math.max(union.right, r.right),
+          bottom: Math.max(union.bottom, r.bottom),
+        }
+      : { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+  }
+  if (!union) return null;
+  return {
+    x: union.left,
+    y: union.top,
+    width: union.right - union.left,
+    height: union.bottom - union.top,
+  };
+};
 
 // ------------------------------------------------- shadow/model/flag surfaces
 //
@@ -1349,11 +1400,13 @@ const RESOLVE_CLICK_CLIP = (payload) => {
 };
 
 /**
- * r3c07b ruling #1: before a measured click the document must be untouched —
- * no pointer or keyboard input whose target reached the editable, and no
- * caret/selection or focus sitting inside it. The tap keeps the element of
- * every input (`tap.targets`); this function asks it page-side. Chrome
- * outside the editable (a host's mode button) does not count.
+ * r3c07c ruling: before a measured click the document must be untouched by
+ * the HARNESS — no pointer or keyboard input whose target reached the
+ * editable. The tap keeps the element of every input (`tap.targets`); this
+ * function asks it page-side. Chrome outside the editable (a host's mode
+ * button) does not count, and neither does a selection or focus the editor
+ * planted on its own load — only the harness side decides. Both are still
+ * reported so the ruling above the call can tell them apart.
  * Page context: no Node closures.
  */
 const DOCUMENT_UNTOUCHED = (payload) => {
@@ -1379,10 +1432,21 @@ const DOCUMENT_UNTOUCHED = (payload) => {
     el = parts && parts.length ? parts[0] : null;
   }
   if (!el) return { error: 'editable_not_found' };
+  // For a fragment selector the editable is the shared fragment root
+  // (.docx-page-content): a hit on a line gap or a marker between runs is
+  // still a hit on the editable, exactly as pointerTargetInside rules it.
+  const fragmentRoot =
+    parts &&
+    parts.length &&
+    typeof parts[0].matches === 'function' &&
+    parts[0].matches('[data-paragraph-id][data-start]')
+      ? parts[0].closest('.docx-page-content')
+      : null;
   const inside = (target) => {
     if (!target) return false;
     if (parts) {
       if (parts.some((part) => part === target || part.contains(target))) return true;
+      if (fragmentRoot && (fragmentRoot === target || fragmentRoot.contains(target))) return true;
     } else if (el === target || (typeof el.contains === 'function' && el.contains(target))) {
       return true;
     }
@@ -1403,9 +1467,10 @@ const DOCUMENT_UNTOUCHED = (payload) => {
     const entry = targets[i];
     if (entry && kinds[entry.kind] && inside(entry.el)) events.push({ index: i, kind: entry.kind });
   }
-  // Selection/caret or focus inside the editable is document state a prior
-  // interaction left (or the editor autofocused into existence): not
-  // untouched either way.
+  // Selection/caret or focus inside the editable is reported, not judged:
+  // with an empty harness record it is the editor's own load behaviour and
+  // the point may measure; with recorded harness input it cannot be
+  // attributed to load. documentUntouched applies that ruling.
   const selection = window.getSelection();
   let anchorInside = false;
   if (selection && selection.rangeCount > 0) {
@@ -2122,10 +2187,13 @@ export const WORDCRAFT_CARET_NOTE =
   "caret position not readable; sample is the first paint in a box proven quiet before an untouched editor's first click";
 
 /**
- * r3c07b ruling #1: read the tap's element list plus selection/focus page-side
- * and decide whether the document is untouched. Touched (an input reached the
- * editable, or a caret/selection/focus already sits inside it) is a named
- * refusal, not a click on dirty state.
+ * r3c07c ruling: untouched means the HARNESS dispatched no pointer, keyboard
+ * or focus action that reached the editable since the fresh reload — the
+ * tap's element list proves it page-side. A selection or focus found with
+ * zero recorded harness input is the editor's own load behaviour (GenOffice
+ * autofocuses, eigenpal restores a selection): the point measures and the
+ * sample carries editor_self_focused_on_load. When harness input IS on the
+ * record the focus cannot be attributed to load, so the old refusal stands.
  */
 async function documentUntouched(page, meta) {
   const spec = (meta && meta.surface) || null;
@@ -2143,6 +2211,14 @@ async function documentUntouched(page, meta) {
     return { ok: false, state: 'touched', events: result.events, evidence: result };
   }
   if (result.anchor_inside === true || result.active_inside === true) {
+    if ((result.tapped || 0) === 0) {
+      return {
+        ok: true,
+        state: 'untouched_verified',
+        self_focused_on_load: true,
+        evidence: result,
+      };
+    }
     return {
       ok: false,
       state: 'document_has_focus_or_selection',
@@ -2153,16 +2229,18 @@ async function documentUntouched(page, meta) {
 }
 
 /**
- * r3c07b: C07, one definition for all nine editors.
+ * r3c07b/c: C07, one definition for all nine editors.
  *
  * A point is measured when its watched box was pixel-quiet for at least
  * quietMs before the pointerdown, the document was untouched before the
- * click (fresh state: reload between points, or a tap/selection proof that
- * nothing reached it), the pointerdown's first changed frame inside the box
- * was seen, and the caret evidence the surface exposes lands on the clicked
- * line. A box that is not quiet before the click is a named refusal of that
- * point — the arm never fires, no latency is kept. C07 is measured when at
- * least two points paint under the same rule.
+ * click (fresh state: reload between points, plus a tap proof that no
+ * harness input reached it — an editor-planted selection or focus is its
+ * own load behaviour, flagged editor_self_focused_on_load), the
+ * pointerdown's first changed frame inside the box was seen, and the caret
+ * evidence the surface exposes lands on the clicked line. A box that is not
+ * quiet before the click is a named refusal of that point — the arm never
+ * fires, no latency is kept. C07 is measured when at least two points paint
+ * under the same rule.
  */
 async function measureClicks(page, meta, options = {}) {
   const entry = emptyEntry('C07', 'failed', null);
@@ -2258,6 +2336,10 @@ async function measureClicks(page, meta, options = {}) {
       anchor_inside: untouched.evidence ? untouched.evidence.anchor_inside === true : null,
       active_inside: untouched.evidence ? untouched.evidence.active_inside === true : null,
     };
+    if (untouched.self_focused_on_load === true) {
+      freshState.untouched.self_focused_on_load = true;
+      observation.editor_self_focused_on_load = true;
+    }
     if (!untouched.ok) {
       observation.fresh_state = freshState;
       observation.failure = EDITOR_NOT_UNTOUCHED;
@@ -3672,10 +3754,23 @@ export async function runCriteriaSuite({
             // A shadow surface's editSelector crosses the boundary and never
             // resolves in the light DOM; the shadow host is the document box.
             const witnessSelector = surfaceSpec.shadow || activeSelector;
+            // The document region is the union of every element the selector
+            // matches (the clip resolver's rule): a selector naming one
+            // editable piece per element — eigenpal's paragraph-fragment
+            // runs — watches the union, so an edit that paints outside the
+            // first fragment's box still lands in the watched region. One
+            // match resolves to that element's own rect, as {selector} did.
+            let unionRegion = null;
+            if (!callOptions.region) {
+              const rect = await page
+                .evaluate(UNION_MATCHED_RECTS, witnessSelector)
+                .catch(() => null);
+              if (rect) unionRegion = { rect };
+            }
             return witnessFrame(page, cdp, {
               afterPageMs: pageMs,
               arm: callOptions.arm ?? null,
-              region: callOptions.region ?? { selector: witnessSelector },
+              region: callOptions.region ?? unionRegion ?? { selector: witnessSelector },
               recorder,
               manageScreencast: false,
               windowMs: frameTimeoutMs,
@@ -3962,6 +4057,8 @@ export {
   assertPreEditDocumentLoaded,
   bodyAfterInsertion,
   comparableDocumentText,
+  pointerTargetInside,
+  UNION_MATCHED_RECTS,
   differsBySingleInsertion,
   rangeTextOfElement,
   resolveDocumentTextRoot,

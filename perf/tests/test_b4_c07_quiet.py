@@ -99,6 +99,36 @@ def test_c07_measures_with_two_distinct_line_observations():
     assert_payload_shape(_payload({"C07": entry}))
 
 
+def test_c07_self_focused_on_load_samples_are_publishable():
+    """r3c07c: an editor-planted focus/selection with zero harness input is
+    untouched; the measured sample carries the flag plus the evidence."""
+    from perf.runner.criteria_input_io import assert_payload_shape
+    from perf.tests.test_input_criteria import _entry, _payload
+
+    first = _quiet_observation("click-0", "first_text_line", 200, 100.0, 140.0)
+    first["editor_self_focused_on_load"] = True
+    first["fresh_state"] = {
+        "state": "untouched_verified",
+        "untouched": {
+            "events": [],
+            "anchor_inside": True,
+            "active_inside": True,
+            "self_focused_on_load": True,
+        },
+    }
+    last = _quiet_observation("click-1", "last_text_line", 700, 300.0, 341.0)
+    last["editor_self_focused_on_load"] = True
+    last["fresh_state"] = first["fresh_state"]
+    entry = _entry(
+        "C07",
+        outcome="measured",
+        samples_ms=[40.0, 41.0],
+        observations=[first, last],
+        sample_observation_ids=["click-0", "click-1"],
+    )
+    assert_payload_shape(_payload({"C07": entry}))
+
+
 def test_c07_observation_without_quiet_evidence_is_not_a_sample():
     from perf.runner.criteria_input_io import assert_payload_shape
     from perf.tests.test_input_criteria import _entry, _payload

@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>c07 fragment editable host</title>
+<style>
+  body { margin: 0; background: #fff; min-height: 1400px; }
+  .docx-page-content {
+    width: 420px;
+    margin: 60px auto;
+    font: 16px/24px Georgia, serif;
+    color: #111;
+    outline: none;
+    white-space: pre-wrap;
+  }
+  .docx-paragraph-fragment { margin: 0 0 12px 0; display: block; }
+  .docx-line { display: block; }
+  .layout-run { display: inline; }
+</style>
+</head>
+<body>
+<!-- eigenpal's shape: .docx-line boxes carry the runs; a click in a line's
+     trailing gap hits .docx-line, not a run — still inside the editable.
+     The editable is the UNION of every [data-paragraph-id][data-start]
+     element inside .docx-page-content, never the first match alone. -->
+<div class="docx-page-content" contenteditable="true"><div class="docx-paragraph-fragment" data-paragraph-id="p0"><div class="docx-line"><span class="layout-run" data-paragraph-id="p0" data-start="0">fragment line one alpha</span></div></div><div class="docx-paragraph-fragment" data-paragraph-id="p1"><div class="docx-line"><span class="layout-run" data-paragraph-id="p1" data-start="26">fragment line two delta</span></div></div><div class="docx-paragraph-fragment" data-paragraph-id="p2"><div class="docx-line"><span class="layout-run" data-paragraph-id="p2" data-start="50">fragment line three golf</span></div></div><div class="docx-paragraph-fragment" data-paragraph-id="p3"><div class="docx-line"><span class="layout-run" data-paragraph-id="p3" data-start="75">fragment line four juliet</span></div></div><div class="docx-paragraph-fragment" data-paragraph-id="p4"><div class="docx-line"><span class="layout-run" data-paragraph-id="p4" data-start="101">fragment line five mike</span></div></div></div>
+</body>
+</html>

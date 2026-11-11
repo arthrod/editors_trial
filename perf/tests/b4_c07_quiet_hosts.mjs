@@ -85,7 +85,7 @@ async function resolvePoints(page, context, fallback) {
   return page.evaluate(fallback);
 }
 
-async function measureHost(path, { selector, surface, context, fallbackPoints }) {
+async function measureHost(path, { selector, surface, context, fallbackPoints, preClickInside = false, noReload = false }) {
   const browserContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   const page = await browserContext.newPage();
   const cdp = await browserContext.newCDPSession(page);
@@ -96,6 +96,21 @@ async function measureHost(path, { selector, surface, context, fallbackPoints })
   await page.evaluate(INSTALL_TAP);
 
   const points = await resolvePoints(page, context, fallbackPoints);
+
+  if (preClickInside) {
+    // Harness input before the measured click: this is the only touched
+    // state left under the r3c07c ruling.
+    const box = await page.evaluate(
+      (sel) => {
+        const el = document.querySelector(sel);
+        const r = el && el.getBoundingClientRect();
+        return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null;
+      },
+      selector,
+    );
+    if (box) await page.mouse.click(box.x, box.y);
+    await page.waitForTimeout(120);
+  }
 
   const witness = {
     frameIntervalMs: 16.667,
@@ -116,13 +131,15 @@ async function measureHost(path, { selector, surface, context, fallbackPoints })
     points,
     surface: surface || { kind: 'dom' },
   };
-  const reloadPage = async () => {
-    await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 });
-    await page.waitForSelector(selector, { timeout: 15000 });
-    await page.waitForTimeout(500);
-    await page.evaluate(INSTALL_TAP);
-    return true;
-  };
+  const reloadPage = noReload
+    ? null
+    : async () => {
+        await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 });
+        await page.waitForSelector(selector, { timeout: 15000 });
+        await page.waitForTimeout(500);
+        await page.evaluate(INSTALL_TAP);
+        return true;
+      };
   const entry = await ci.measureClicks(page, meta, {
     frameTimeoutMs: 15000,
     expectedBodyText: null,
@@ -220,6 +237,146 @@ for (const plant of ['quiet', 'blink']) {
       'the canvas blink keeps no painted sample',
     );
   }
+}
+
+// r3c07c: a host that focuses itself on load with ZERO harness input is the
+// editor's own load behaviour — it measures and the samples are flagged.
+{
+  const { entry } = await measureHost('selffocus.html', domSpec);
+  console.log(`selffocus host: outcome=${entry.outcome} reason=${entry.failure_reason} samples=${entry.samples_ms.length}`);
+  assert(
+    entry.outcome === 'measured',
+    `a self-focusing host measures (got ${entry.outcome}: ${entry.failure_reason})`,
+  );
+  const sampled = entry.observations.filter((o) => o.sample_ms !== undefined);
+  assert(
+    sampled.length >= 2 && sampled.every((o) => o.editor_self_focused_on_load === true),
+    'every self-focused sample carries the flag',
+  );
+  assert(
+    sampled.every(
+      (o) =>
+        o.fresh_state &&
+        o.fresh_state.untouched &&
+        o.fresh_state.untouched.anchor_inside === true &&
+        (o.fresh_state.untouched.events || []).length === 0,
+    ),
+    'the planted selection is recorded with empty recorded inputs',
+  );
+}
+
+// r3c07c: harness input inside the editable before the click is the only
+// touched state left — every point refuses by name.
+{
+  const { entry } = await measureHost('plant.html?plant=quiet', { ...domSpec, preClickInside: true, noReload: true });
+  console.log(`clicked-before host: outcome=${entry.outcome} reason=${entry.failure_reason} samples=${entry.samples_ms.length}`);
+  assert(entry.outcome === 'failed', `a harness-clicked host refuses (got ${entry.outcome})`);
+  assert(
+    String(entry.failure_reason || '').includes('untouched'),
+    `the touched state is named (got ${entry.failure_reason})`,
+  );
+  assert(
+    entry.observations.length > 0 && entry.observations.every((o) => String(o.failure || '').includes('untouched')),
+    'every point after harness input refuses as touched',
+  );
+  assert(
+    !entry.observations.some((o) => o.editor_self_focused_on_load === true),
+    'no point may claim self-focus once harness input exists',
+  );
+}
+
+// r3c07c: a fragment-selector editable (eigenpal: one caret root per
+// paragraph) counts a selection inside ANY fragment, not only the first.
+{
+  const browserContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await browserContext.newPage();
+  await page.goto(`${base}/fragments.html`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await page.waitForSelector('.docx-page-content [data-paragraph-id][data-start]', { timeout: 15000 });
+  const lastFrag = await page.evaluate(() => {
+    const els = Array.from(document.querySelectorAll('.docx-page-content [data-paragraph-id][data-start]'));
+    const last = els[els.length - 1];
+    const r = last.getBoundingClientRect();
+    return { x: r.left + r.width - 4, y: r.top + r.height / 2 };
+  });
+  await page.mouse.click(lastFrag.x, lastFrag.y);
+  await page.waitForTimeout(150);
+  const state = await page.evaluate(
+    ci.READ_EDITABLE_STATE,
+    '.docx-page-content [data-paragraph-id][data-start]',
+  );
+  console.log(`fragment host: anchor_inside=${state.anchor_inside} caret=${JSON.stringify(state.caret)}`);
+  assert(
+    state.anchor_inside === true,
+    'a caret in a later paragraph-fragment is inside the editable (eigenpal read)',
+  );
+  await browserContext.close();
+}
+
+// r3c07c: a pointerdown on a .docx-line's trailing gap — inside the fragment
+// root but outside every run — is inside the editable. Eigenpal maps it to
+// the line-end caret; refusing it as outside misread the hit.
+{
+  const browserContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await browserContext.newPage();
+  await page.goto(`${base}/fragments.html`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await page.waitForSelector('.docx-page-content [data-paragraph-id][data-start]', { timeout: 15000 });
+  await page.evaluate(INSTALL_TAP);
+  const gap = await page.evaluate(() => {
+    const line = document.querySelector('.docx-paragraph-fragment[data-paragraph-id="p3"] .docx-line');
+    const run = line && line.querySelector('.layout-run');
+    const lr = line.getBoundingClientRect();
+    const rr = run.getBoundingClientRect();
+    return { x: (rr.right + lr.right) / 2, y: lr.top + lr.height / 2 };
+  });
+  const hit = await page.evaluate(({ x, y }) => {
+    const t = document.elementFromPoint(x, y);
+    return t ? { tag: t.tagName, cls: String(t.className || '').slice(0, 40) } : null;
+  }, gap);
+  assert(hit && hit.cls.includes('docx-line'), `the gap click lands on .docx-line (got ${JSON.stringify(hit)})`);
+  await page.mouse.click(gap.x, gap.y);
+  await page.waitForTimeout(150);
+  const target = await ci.pointerTargetInside(page, '.docx-page-content [data-paragraph-id][data-start]');
+  console.log(`fragment gap click: target=${JSON.stringify(target)}`);
+  assert(target && target.inside === true, 'a .docx-line hit inside the fragment root is inside the editable');
+  const state = await page.evaluate(
+    ci.READ_EDITABLE_STATE,
+    '.docx-page-content [data-paragraph-id][data-start]',
+  );
+  assert(
+    state.anchor_inside === true,
+    'the gap click still places a caret inside the editable',
+  );
+  await browserContext.close();
+}
+
+// r3c07c: the witness document region for a multi-piece editable is the
+// union of every match, never the first fragment's box alone.
+{
+  const browserContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await browserContext.newPage();
+  await page.goto(`${base}/fragments.html`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await page.waitForSelector('.docx-page-content [data-paragraph-id][data-start]', { timeout: 15000 });
+  const union = await page.evaluate(
+    ci.UNION_MATCHED_RECTS,
+    '.docx-page-content [data-paragraph-id][data-start]',
+  );
+  const first = await page.evaluate(() => {
+    const el = document.querySelector('.docx-page-content [data-paragraph-id][data-start]');
+    const r = el.getBoundingClientRect();
+    return { x: r.left, y: r.top, w: r.width, h: r.height };
+  });
+  const all = await page.evaluate(() => {
+    const els = Array.from(document.querySelectorAll('.docx-page-content [data-paragraph-id][data-start]'));
+    const last = els[els.length - 1].getBoundingClientRect();
+    return { bottom: last.bottom };
+  });
+  console.log(`fragment union: ${JSON.stringify(union)} first=${JSON.stringify(first)}`);
+  assert(union && Number.isFinite(union.width), 'the union region resolves');
+  assert(
+    union.height > first.h * 3 && union.y <= first.y && union.y + union.height >= all.bottom,
+    'the union region covers every fragment, not only the first',
+  );
+  await browserContext.close();
 }
 
 await browser.close();
