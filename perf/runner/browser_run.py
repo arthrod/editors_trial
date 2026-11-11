@@ -15,6 +15,7 @@ for usage errors before any run directory exists.
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 from functools import partial
 from contextvars import ContextVar
 from contextlib import nullcontext, redirect_stderr
@@ -720,6 +721,8 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
         order = [item for item in schedule(editors, block[1] * args.repetitions, run.seed)
                  if first <= item[0] < first + args.repetitions]
         run.block = {'index': block[0], 'of': block[1], 'repetitions': args.repetitions}
+    typing_kept_by_editor = {editor: 0 for editor in editors}
+    typing_remaining_by_editor = Counter(editor for _, editor in order)
     from perf.runner.host import host_record
     host_probe, renderer_probe = facts or (host_record, rendering_facts)
     host = capture(host_probe)
@@ -729,6 +732,48 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
             name = f'{rep:04d}-{editor}'
             directory = run.directory / 'cells' / name
             cell_token = CELL.set({'repetition': rep, 'editor_id': editor})
+            skip_unreachable = (
+                runner == 'benchmark_typing'
+                and args.execution_profile == 'dedicated_publish'
+                and not shakedown
+                and planned >= TYPING_PUBLICATION_SESSIONS
+                and typing_kept_by_editor[editor] + typing_remaining_by_editor[editor]
+                < TYPING_PUBLICATION_MIN_KEPT
+            )
+            typing_remaining_by_editor[editor] -= 1
+            if skip_unreachable:
+                directory.mkdir(parents=True, exist_ok=True)
+                (directory / 'attempts').mkdir(parents=True, exist_ok=True)
+                write_json(directory / 'attempts' / 'typing.json', {
+                    'schema': 'perf.typing/2',
+                    'criterion_id': 'TYPING',
+                    'session_kind': args.session_kind,
+                    'editor_id': editor,
+                    'run_id': run.run_id,
+                    'seed': run.seed,
+                    'repetition': rep,
+                    'outcome': 'not_run',
+                    'failure_reason': 'typing_sessions_unreachable',
+                    'refusal_code': 'not_run',
+                    'publishable': False,
+                })
+                run.begin_sample()
+                row = {
+                    'outcome': 'not_run',
+                    'failure_reason': 'typing_sessions_unreachable',
+                    'refusal_code': 'not_run',
+                    'typing_session_kept': False,
+                    'session_kind': args.session_kind,
+                    'repetition': rep,
+                    'editor_id': editor,
+                    'cell_directory': str(directory),
+                    'exit_code': 0,
+                    'non_failure_outcomes': [],
+                }
+                row.update(repetition=rep, editor_id=editor, cell_directory=str(directory))
+                run.sample(name, row)
+                CELL.reset(cell_token)
+                continue
             sys.argv = [
                 original[0],
                 *rest,
@@ -793,6 +838,8 @@ def run_cli(main, runner, targets, *, count_flag=None, default_count=1, single=F
                 row = capture(invoke, stderr_tail=5)
                 row.update(repetition=rep, editor_id=editor, cell_directory=str(directory))
                 run.sample(name, row)
+                if runner == 'benchmark_typing' and row.get('typing_session_kept'):
+                    typing_kept_by_editor[editor] += 1
                 if args.chrome_profile:
                     _run_chrome_profile_pass(
                         main, runner, directory=directory, editor=editor, rep=rep,

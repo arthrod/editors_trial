@@ -348,8 +348,12 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
             except Exception as exc:
                 if re.search(r'crash|closed|detached', str(exc), re.I):
                     raise
-                result.update(failure_reason='no_correctness_adapter', refusal_code='unverified',
-                              error=str(exc))
+                transport = classify_bridge_error(exc)
+                if transport:
+                    result.update(failure_reason=transport[0], refusal_code=transport[1], error=str(exc))
+                else:
+                    result.update(failure_reason='no_correctness_adapter', refusal_code='unverified',
+                                  error=str(exc))
             if read is not None:
                 actual_text = read.get('text') if isinstance(read, dict) else read
                 if actual_text is None:
@@ -469,12 +473,44 @@ class SessionRefusal(RuntimeError):
         self.refusal_code = refusal_code
 
 
+_BRIDGE_LINE_CHUNK = 1 << 16
+
+
+async def read_bridge_line(stream):
+    """Read one JSON line; default StreamReader.readline() refuses >64 KiB."""
+    if not hasattr(stream, 'read'):
+        return await stream.readline()
+    chunks = []
+    while True:
+        chunk = await stream.read(_BRIDGE_LINE_CHUNK)
+        if not chunk:
+            return b'' if not chunks else b''.join(chunks)
+        chunks.append(chunk)
+        if chunk.endswith(b'\n'):
+            return b''.join(chunks)
+
+
+_BRIDGE_TRANSPORT_MARKERS = (
+    'chunk is longer than limit',
+    'browser witness bridge exited',
+    'witness bridge',
+)
+
+
+def classify_bridge_error(exc):
+    """Transport failures are harness errors, never a missing correctness adapter."""
+    message = str(exc)
+    if any(marker in message for marker in _BRIDGE_TRANSPORT_MARKERS):
+        return 'witness_bridge_transport', 'harness_error'
+    return None
+
+
 class Bridge:
     def __init__(self, process): self.process = process
     async def request(self, **command):
         self.process.stdin.write((json.dumps(command)+'\n').encode())
         await self.process.stdin.drain()
-        line = await self.process.stdout.readline()
+        line = await read_bridge_line(self.process.stdout)
         if not line: raise RuntimeError('browser witness bridge exited')
         response = json.loads(line)
         if 'error' in response: raise RuntimeError(response['error'])
@@ -569,7 +605,7 @@ async def session(target, text, args, directory):
     started = time.monotonic()
     try:
         async with asyncio.timeout(args.budget_s):
-            line = await process.stdout.readline()
+            line = await read_bridge_line(process.stdout)
             if not line: raise RuntimeError('browser launch failed; see browser.log')
             async with async_playwright() as pw:
                 browser = await pw.chromium.connect_over_cdp(f'http://127.0.0.1:{port}')
@@ -618,6 +654,14 @@ async def session(target, text, args, directory):
                     wait_selector=target.get('typing_wait_selector'),
                     usable_js=usable_js, editor_id=editor_id,
                     ready_selector=target.get('ready_selector'), ready_js=ready_js)
+                if load.get('usable_ms') is None:
+                    refusal = load.get('refusal') or 'paint_witness_unavailable'
+                    code = ('unverified' if refusal == 'no_correctness_adapter'
+                            else 'paint_witness_unavailable')
+                    raise SessionRefusal(refusal, refusal_code=code)
+                if (load.get('frame_interval_ms') is None
+                        or not isinstance(load.get('frame_interval_ms'), (int, float))):
+                    raise SessionRefusal('frame_interval_unavailable', refusal_code='witness_unavailable')
                 verdict = validate_witness(load['witness'])
                 result.update(load_witness=load, load_ms=load['witness']['frame_page_ms'] if verdict['ok'] else None,
                               load_refusal=verdict['reason'])
@@ -724,7 +768,11 @@ async def session(target, text, args, directory):
         result['failure_reason'] = 'budget_exceeded'
         result['refusal_code'] = 'editor_timeout'
     except Exception as exc:
-        result.update(failure_reason='out_of_memory' if 'out of memory' in str(exc).lower() else 'crash', error=str(exc))
+        transport = classify_bridge_error(exc)
+        if transport:
+            result.update(failure_reason=transport[0], refusal_code=transport[1], error=str(exc))
+        else:
+            result.update(failure_reason='out_of_memory' if 'out of memory' in str(exc).lower() else 'crash', error=str(exc))
     finally:
         if process.returncode is None:
             try: await asyncio.wait_for(bridge.request(op='close'), 3)

@@ -72,12 +72,20 @@ for await (const line of lines) {
       } else {
       clock = await clockSkew(page, cdp);
       interval = await frameInterval(page);
+      if (typeof interval?.median_ms !== 'number' || !Number.isFinite(interval.median_ms)) {
+        result = {usable_ms:usable, witness:null, frame_interval_ms:null, load_timeout_ms:loadTimeout,
+          refusal:'frame_interval_unavailable'};
+      } else {
       const witness = await witnessFrame(page, cdp, {baseline, afterPageMs:usable,
         region:{selector:command.present_selector || command.selector}, clockCheck:clock, settleMs:0});
       result = {usable_ms:usable, witness, frame_interval_ms:interval.median_ms, load_timeout_ms:loadTimeout};
       }
+      }
     } else if (command.op === 'key') {
       if (sessionKind !== 'latency') throw Error('key witnesses forbidden in throughput sessions');
+      if (typeof interval?.median_ms !== 'number' || !Number.isFinite(interval.median_ms)) {
+        result = {witness:null, frame_interval_ms:null, outcome:'refused', refusal:'frame_interval_unavailable'};
+      } else {
       // stopRecorder discarded the previous operation's frames. Calibrate on
       // this key's recorder before arming the measured action.
       clock = await clockSkew(page, cdp, {frameIntervalMs:interval.median_ms, settleMs:0, samples:9, sampleGapMs:5, changeWaitMs:150});
@@ -95,6 +103,7 @@ for await (const line of lines) {
       });
       result = {witness, frame_interval_ms:interval.median_ms};
       if (witness.after_page_ms === null) result = {...result, outcome:'no_frame', refusal:'no_keydown'};
+      }
     } else if (command.op === 'enter_edit_mode') {
       const prepared = await prepareEditSurface(page, command.editor_id || '',
         {textLineTimeoutMs: command.text_line_timeout_ms ?? null});
