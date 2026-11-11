@@ -94,7 +94,7 @@ def test_planner_costs_a_block_by_its_editors_and_repetitions():
     one = ('benchmark_resources', ['--seed', '1', '--workload', 'prose-500w', '--editors', 'plate'])
     block = ('benchmark_resources', ['--seed', '1', '--workload', 'prose-500w', '--editors', *EDITORS,
                                     '--block', '1/2', '--repetitions', '5'])
-    assert plan.estimate(*block) == pytest.approx(plan.estimate(*one) * 3 * 5 / 10 + plan._BUILD * 3)
+    assert plan.estimate(*block) == pytest.approx((plan.estimate(*one) - plan._BUILD) * 3 * 5 / 10 + plan._BUILD * 3)
 
 
 def _run(tmp_path, monkeypatch, *extra, single=False):
@@ -165,7 +165,7 @@ def test_the_planner_costs_a_rehearsed_block():
     block = ('benchmark_resources', ['--chrome-profile', '--seed', '1', '--workload', 'prose-500w', '--editors', *EDITORS,
                                     '--block', '1/2', '--repetitions', '5'])
     one = ('benchmark_resources', ['--seed', '1', '--workload', 'prose-500w', '--editors', 'plate'])
-    assert plan.estimate(*block, shakedown=1) == pytest.approx(plan.estimate(*one) * 3 * 2 / 10 + plan._BUILD * 3)
+    assert plan.estimate(*block, shakedown=1) == pytest.approx((plan.estimate(*one) - plan._BUILD) * 3 * 2 / 10 + plan._BUILD * 3)
 
 
 def test_two_blocks_of_five_are_slices_of_one_schedule(tmp_path, monkeypatch):

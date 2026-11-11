@@ -84,7 +84,9 @@ def _builds(module, options, shakedown):
         return module._BUILD * len(policy.job_editors(options))
     if shakedown:
         return module._BUILD
-    return 0
+    # ccedf968 costed a one-editor publication job with no separate build (the
+    # 30-repetition minutes carried it); the current planner adds the build.
+    return module._BUILD if module is plan else 0
 
 
 def test_calibration_names_the_campaign_thirty():

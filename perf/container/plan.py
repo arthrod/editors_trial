@@ -52,7 +52,9 @@ def estimate(name, options, shakedown=None):
     # A one-editor job runs the publication schedule, not the 30 that were timed.
     if shakedown:
         return full * (shakedown + 1) / _CALIBRATED_REPS + _BUILD
-    return full * PUBLICATION_REPETITIONS / _CALIBRATED_REPS
+    # A one-editor job builds its host like every other job; the 30-repetition
+    # calibration carried that build inside _BASE, so scaling it down must add it back.
+    return full * PUBLICATION_REPETITIONS / _CALIBRATED_REPS + _BUILD
 
 
 def assign(jobs, costs, spaces):
