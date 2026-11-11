@@ -26,8 +26,8 @@ import { startChromeTrace, stopChromeTrace } from './chrome_trace.mjs';
 import { LANE_LOAD_TIMEOUT_MS, LANE_POLL_BOUND_MS, runLaneEditBurst } from './lane_edit_burst.mjs';
 import { loadTimeoutMs } from './load_timeout.mjs';
 
-// The memory lane's own floor (600 s) stays when the workload policy is shorter.
-const loadTimeout = Math.max(LANE_LOAD_TIMEOUT_MS, loadTimeoutMs());
+// Ready/navigation wait follows the workload policy (300 s default, 600 s on prose-250kw).
+const loadTimeout = loadTimeoutMs();
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '../..');

@@ -737,6 +737,8 @@ def input_sample_record(observation, criterion_id):
         pass  # Preserve the actual sample refusal before secondary missing evidence.
     elif isinstance(value, bool) or not isinstance(value, (int, float)):
         reason = 'clock_skew_unavailable'
+    elif declared_bound is None:
+        reason = 'clock_skew_bound_not_recorded'
     elif declared_bound is not None and (
         isinstance(declared_bound, bool)
         or not isinstance(declared_bound, (int, float))

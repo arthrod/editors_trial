@@ -36,6 +36,8 @@ Each criterion is one browser-visible or model clock on the same corpus the head
 
 ## The host and its limits
 
+{{perf.e2.relaxed_bounds}}
+
 {{perf.e2.host_note}}
 
 {{perf.e2.provenance}}

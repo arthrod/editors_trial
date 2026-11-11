@@ -495,6 +495,7 @@ def unset_facts() -> dict:
         "perf.e2.not_reproduced": "not yet measured",
         "perf.e2.reproduce": "See perf/container/README.md.",
         "perf.e2.rel_tol_pct": REL_TOL_PCT,
+        "perf.e2.relaxed_bounds": __import__("perf.runner.lax_bounds", fromlist=["relaxed_bounds_paragraph"]).relaxed_bounds_paragraph(),
         "perf.e2.scheduled": SCHEDULED,
     }
     for cid in E2_CRITERIA:
@@ -592,6 +593,7 @@ def facts_from_roots(roots) -> dict:
             "reproduction": {e: _scheduled_sum(roots, 1, e) for e in editors},
         },
         "perf.e2.rel_tol_pct": REL_TOL_PCT,
+        "perf.e2.relaxed_bounds": __import__("perf.runner.lax_bounds", fromlist=["relaxed_bounds_paragraph"]).relaxed_bounds_paragraph(),
         "perf.e2.rule": (
             "Each launch contributes the median of its own samples; n counts kept launches. "
             "Scheduled counts come from each run's order. Publishability is decided per trial — job "
@@ -763,9 +765,9 @@ def typing_table(facts, roots, editor, kind):
             for name, value in pairs:
                 metrics.setdefault(name, []).append(value)
         values.append(metrics)
-    lines = [label + f"; first n = {len(groups[0]['kept'])} of 12; second n = {len(groups[1]['kept'])} of 12." + instrumented,
-             '| Measure | First seed | Second seed |', '|---|---|---|']
+    header = label + f"; first n = {len(groups[0]['kept'])} of 12; second n = {len(groups[1]['kept'])} of 12." + instrumented
     all_reproduced = True
+    table_lines: list[str] = []
     for name in sorted(set(values[0]) | set(values[1])):
         series = [v.get(name, []) for v in values]
         numeric = [[x for x in items if e2_cells._number(x)] for items in series]
@@ -781,16 +783,19 @@ def typing_table(facts, roots, editor, kind):
             markers = sorted({fmt_resource(x, unit) for x in items if not e2_cells._number(x)})
             if len(numeric[i]) >= 10 and markers:
                 text[i] += '; ' + '; '.join(markers)
-        lines.append('| ' + name + ' | ' + ' | '.join(text) + ' |')
-    if kind == 'latency':
+        table_lines.append('| ' + name + ' | ' + ' | '.join(text) + ' |')
+    if kind == 'latency' and all_reproduced:
         for name, group in zip(('first', 'second'), groups):
             accepted = sum(row['key_to_paint']['n_accepted'] for row in group['kept'])
             refused = sum(row['key_to_paint']['n_refused'] for row in group['kept'])
-            lines.append(f'{name}: accepted {accepted}; refused {refused} key witnesses.')
+            table_lines.append(f'{name}: accepted {accepted}; refused {refused} key witnesses.')
     facts[key + '.reproduced'] = all_reproduced
     published = all_reproduced
     facts[key + '.primary'] = _typing_facts_group(groups[0], fields, published=published)
     facts[key + '.reproduction'] = _typing_facts_group(groups[1], fields, published=published)
+    if not all_reproduced:
+        return header + ': one or more measures did not reproduce' + instrumented
+    lines = [header, '| Measure | First seed | Second seed |', '|---|---|---|', *table_lines]
     return '\n'.join(lines)
 
 

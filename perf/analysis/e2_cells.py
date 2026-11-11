@@ -96,6 +96,27 @@ def _run_shakedown_job(job: Path) -> str | None:
     return None
 
 
+def _job_measured_launch_names(job: Path, editor_id: str) -> list[str]:
+    """Launch cells that carry at least one trial JSON (not an empty attempts tree)."""
+    names: list[str] = []
+    cells_dir = job / 'cells'
+    if not cells_dir.is_dir():
+        return names
+    suffix = '-' + editor_id
+    for directory in sorted(cells_dir.glob('*/attempts')):
+        if not any(directory.glob('*.json')):
+            continue
+        name = directory.parent.name
+        if name.endswith(suffix):
+            names.append(name)
+    for directory in sorted(cells_dir.iterdir()):
+        if not directory.is_dir() or directory.name in names:
+            continue
+        if directory.name.endswith(suffix) and (directory / 'resource.json').is_file():
+            names.append(directory.name)
+    return names
+
+
 def _job_launch_names(job: Path, editor_id: str) -> list[str]:
     names = []
     cells_dir = job / 'cells'
@@ -121,19 +142,21 @@ def _job_run_fingerprint(job: Path, editor_id: str) -> tuple[frozenset[str], str
     digests: list[str] = []
     for launch in sorted(launches):
         cell = job / 'cells' / launch
+        parts: list[str] = []
         attempts = cell / 'attempts'
         if attempts.is_dir():
             for path in sorted(attempts.glob('*.json')):
                 try:
-                    digests.append(hashlib.sha256(path.read_bytes()).hexdigest())
+                    parts.append(hashlib.sha256(path.read_bytes()).hexdigest())
                 except OSError:
-                    digests.append('unreadable')
-        elif (cell / 'resource.json').is_file():
+                    parts.append('unreadable')
+        if (cell / 'resource.json').is_file():
             try:
-                digests.append(hashlib.sha256((cell / 'resource.json').read_bytes()).hexdigest())
+                parts.append('resource:' + hashlib.sha256((cell / 'resource.json').read_bytes()).hexdigest())
             except OSError:
-                digests.append('unreadable')
-    body = '%s:%s' % (','.join(sorted(launch_set)), ','.join(digests))
+                parts.append('resource:unreadable')
+        digests.append('%s=%s' % (launch, ','.join(parts) if parts else 'empty'))
+    body = '%s:%s' % (','.join(sorted(launch_set)), ';'.join(digests))
     return launch_set, hashlib.sha256(body.encode()).hexdigest()
 
 
@@ -160,18 +183,28 @@ def _seed_block_gate(
     summaries: list[dict | None], job_pairs: list[tuple[Path, Path]], editor_id: str
 ) -> tuple[bool, str | None]:
     specs, orders = [], []
-    for summary in summaries:
+    block_jobs: list[tuple[dict, Path]] = []
+    for (_root, job), summary in zip(job_pairs, summaries):
         if not summary:
             continue
+        if isinstance(summary.get('order'), list) and not summary.get('order'):
+            if any((other or {}).get('order') for other in summaries):
+                return True, 'session job with empty order'
         block = summary.get('block')
         if isinstance(block, dict) and block.get('index'):
             specs.append(block)
+            block_jobs.append((block, job))
         order = summary.get('order') or []
         if order:
             orders.append({(rep, ed) for rep, ed in order})
     if _same_root_duplicate_whole_schedule(job_pairs, editor_id):
         return True, 'overlapping launch schedules in one seed'
+    jobs = [job for _root, job in job_pairs]
     if specs:
+        jobs_with_block = {job for _block, job in block_jobs}
+        whole_reruns = [job for job in jobs if job not in jobs_with_block and _job_launch_names(job, editor_id)]
+        if whole_reruns:
+            return True, 'whole re-run beside block campaign'
         ofs = {item['of'] for item in specs if item.get('of')}
         reps = {item['repetitions'] for item in specs if item.get('repetitions')}
         indices = [item['index'] for item in specs]
@@ -182,9 +215,22 @@ def _seed_block_gate(
             return True, 'block layout does not cover 30 repetitions'
         if len(set(indices)) != len(indices):
             return True, 'duplicate block index in one seed'
+        out_of_range = sorted({index for index in indices if index < 1 or index > of_val})
+        if out_of_range:
+            return True, 'block index out of range %s' % ','.join(map(str, out_of_range))
         missing = sorted(set(range(1, of_val + 1)) - set(indices))
         if missing:
             return True, 'missing blocks %s' % ','.join(map(str, missing))
+        for block, job in block_jobs:
+            expected = block.get('repetitions') or 0
+            found = len(_job_measured_launch_names(job, editor_id))
+            if found < expected:
+                return True, 'block %d has no launch files' % block.get('index')
+    elif len(jobs) >= 2:
+        sets = [frozenset(_job_launch_names(job, editor_id)) for job in jobs]
+        full_schedules = [item for item in sets if len(item) >= 30]
+        if len(full_schedules) >= 2 and len({item for item in full_schedules}) > 1:
+            return True, 'inconsistent launch schedules in one seed'
     if len(orders) > 1:
         seen: set = set()
         overlap = False
@@ -749,11 +795,16 @@ def _criterion_job_pairs(roots, editor_id: str, criterion_id: str) -> dict:
 def _criterion_pins(job_pairs: list[tuple[Path, Path]], editor_id: str) -> set:
     pins: set = set()
     for run_directory, job in job_pairs:
+        summary = _load_summary(job)
+        pin = build_identity(summary, editor_id)
+        if pin:
+            pins.add(pin)
+            continue
         for _launch, _path, row in _attempt_rows_of(run_directory, [job]):
             if row.get('editor_id') == editor_id:
-                pin = editor_pin(row)
-                if pin:
-                    pins.add(pin)
+                trial_pin = editor_pin(row)
+                if trial_pin:
+                    pins.add(trial_pin)
     return pins
 
 

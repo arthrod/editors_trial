@@ -314,12 +314,15 @@ class TimeoutKillIsOursNotTheEditors(unittest.TestCase):
     """Review F6 one-liner: our own 600 s kill is a harness error."""
 
     def test_the_wall_clock_kill_is_labelled_harness_error(self):
-        cmd = ["/usr/bin/node", "/app/perf/runner/document_probe.mjs", "--mode", "scale"]
+        cmd = [
+            "/usr/bin/node", "/app/perf/runner/document_probe.mjs", "--mode", "scale",
+            "--timeout-ms", str(bd.PROBE_TIMEOUT_S * 1000),
+        ]
         expired = subprocess.TimeoutExpired(cmd, bd.PROBE_TIMEOUT_S)
         with mock.patch.object(bd.subprocess, "run", side_effect=expired):
             with self.assertRaises(bd.ProbeRefusal) as caught:
                 bd._run_probe(cmd, editor_id="folio")
-        self.assertIn(str(bd.PROBE_TIMEOUT_S), caught.exception.reason)
+        self.assertIn("630", caught.exception.reason)
         self.assertEqual(caught.exception.refusal_code, "harness_error")
 
 

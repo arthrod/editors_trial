@@ -90,6 +90,7 @@ PROBE = REPO / "perf" / "runner" / "document_probe.mjs"
 EXECUTION_PROFILE = "ci_broad"
 SAMPLE_DEFAULT = 3
 SETTLE_MS = 800
+# Longest probe wait (prose-250kw); per-workload argv uses load_timeout_ms.
 PROBE_TIMEOUT_S = 600
 
 # criterion_id -> layer/boundary/cache_state from perf/scenarios/catalog.py
@@ -535,6 +536,16 @@ def _clock_skew_exceeds(probe: dict) -> bool:
     return skew is not None and abs(skew) > _CLOCK_SKEW_BOUND_MS
 
 
+def _clock_skew_missing_or_exceeds(probe: dict) -> bool:
+    """C14 no-damage samples must record an in-bounds page clock."""
+    if probe.get("clock_skew_acceptable") is False:
+        return True
+    skew = _number_or_none(probe.get("clock_skew_ms"))
+    if skew is None:
+        return True
+    return abs(skew) > _CLOCK_SKEW_BOUND_MS
+
+
 def _needs_witness(probe: dict) -> bool:
     """Production payloads carry a witness, or a load/reflow/scale mode.
 
@@ -703,7 +714,7 @@ def c14_measured_sample(probe: dict) -> float:
     """
     facts = _c14_facts(probe)
     if probe.get("mechanism") == "forced_repaint":
-        if _clock_skew_exceeds(probe):
+        if _clock_skew_missing_or_exceeds(probe):
             raise ProbeRefusal(
                 "clock skew exceeds the %s ms bound (clock_skew_ms=%r)" % (_CLOCK_SKEW_BOUND_MS, probe.get("clock_skew_ms")),
                 facts=facts,
@@ -979,9 +990,19 @@ def _attempt_ref(path: Path) -> str:
         return str(path.resolve())
 
 
+def _probe_timeout_ms(target: dict) -> int:
+    from perf.runner.load_timeouts import DEFAULT_LOAD_TIMEOUT_MS, load_timeout_ms
+
+    workload_id = target.get("workload_id")
+    if isinstance(workload_id, str) and workload_id:
+        return load_timeout_ms(workload_id)
+    return DEFAULT_LOAD_TIMEOUT_MS
+
+
 def _probe_cmd(*, mode: str, target: dict, cfg: dict, corpus_path: Path, extra: list, editor_id: str = "") -> list:
     from perf.runner.browser_hosts import select_fixture
     select_fixture(target, corpus_path)
+    timeout_ms = _probe_timeout_ms(target)
     cmd = [
         shutil.which("node") or "node",
         str(PROBE),
@@ -1002,7 +1023,7 @@ def _probe_cmd(*, mode: str, target: dict, cfg: dict, corpus_path: Path, extra: 
         "--edit-selector",
         cfg["edit_selector"],
         "--timeout-ms",
-        str(PROBE_TIMEOUT_S * 1000),
+        str(timeout_ms),
     ]
     if cfg.get("page_selector"):
         cmd.extend(["--page-selector", cfg["page_selector"]])
@@ -1026,15 +1047,26 @@ def _probe_cmd(*, mode: str, target: dict, cfg: dict, corpus_path: Path, extra: 
     return cmd
 
 
+def _subprocess_timeout_s(cmd: list) -> float:
+    for index, token in enumerate(cmd):
+        if token == "--timeout-ms" and index + 1 < len(cmd):
+            try:
+                return max(1.0, int(cmd[index + 1]) / 1000.0) + 30.0
+            except ValueError:
+                break
+    return float(PROBE_TIMEOUT_S) + 30.0
+
+
 def _run_probe(cmd: list, *, editor_id: str, env: dict | None = None) -> dict:
     import os
     run_env = dict(os.environ) if env is None else {**os.environ, **env}
+    wall_s = _subprocess_timeout_s(cmd)
     try:
         proc = subprocess.run(cmd, cwd=str(REPO / "harness" / "ui"), capture_output=True, text=True,
-                              timeout=PROBE_TIMEOUT_S, env=run_env)
+                              timeout=wall_s, env=run_env)
     except subprocess.TimeoutExpired:
         raise ProbeRefusal(
-            "probe error for %s: editor did not finish within %ss" % (editor_id, PROBE_TIMEOUT_S),
+            "probe error for %s: editor did not finish within %ss" % (editor_id, int(wall_s)),
             # Our own wall-clock kill, not an evidenced editor crash: a stalled
             # build, a wrong ready_js or a probe bug lands here too (review F6).
             refusal_code="harness_error",
