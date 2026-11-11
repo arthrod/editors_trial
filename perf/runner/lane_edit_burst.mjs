@@ -777,7 +777,8 @@ export async function waitForC12CaretEdit(
       lastTexts = sampled.texts;
       const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
       const afterText = c >= 0 && c < sampled.texts.length ? norm(sampled.texts[c]) : '';
-      if (afterText && afterText !== norm(beforeText)) {
+      const expected = norm(`x${beforeText}`);
+      if (afterText === expected) {
         return { ok: true, texts: sampled.texts };
       }
     }
