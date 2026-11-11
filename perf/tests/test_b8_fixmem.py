@@ -21,6 +21,15 @@ class _StaticHostLike:
         pass
 
 
+class _LegacyHostLike:
+    """Mirrors wordcraft legacy_start: node static server with a child pid."""
+
+    pid = 4242
+
+    def stop(self):
+        pass
+
+
 def _synthetic_pair():
     ps = lambda: PS_TABLE
     ready = sample_process_tree(101, ps_reader=ps, platform_name="darwin")
@@ -76,15 +85,9 @@ def test_browser_rows_static_host_measures_without_server_pid(attempt_dir):
         retain_seconds=(1.0, 5.0),
         probe_timeout=30.0,
     )
-    captured = {}
-
-    def run_pair(**kwargs):
-        captured["server_pid"] = kwargs.get("server_pid")
-        return _synthetic_pair()
-
     with mock.patch.object(memory, "_start_server", return_value=_StaticHostLike()):
         with mock.patch.object(memory, "_stop_server", return_value=None):
-            with mock.patch.object(memory, "_run_browser_pair", side_effect=run_pair):
+            with mock.patch.object(memory, "_run_browser_pair", return_value=_synthetic_pair()):
                 with mock.patch.object(memory, "_port_is_free", return_value=True):
                     rows = memory._browser_rows(
                         editor_id="plate",
@@ -97,7 +100,6 @@ def test_browser_rows_static_host_measures_without_server_pid(attempt_dir):
                         docx_size=4096,
                         workload_row=_workload_row(),
                     )
-    assert captured["server_pid"] is None
     outcomes = [(r["criterion_id"], r["measurement_phase"], r["outcome"]) for r in rows]
     assert ("C17", "ready", "measured") in outcomes
     assert ("C19", None, "measured") in outcomes
@@ -106,3 +108,64 @@ def test_browser_rows_static_host_measures_without_server_pid(attempt_dir):
     assert host["counted_in_rss"] is False
     assert host["host_server_pid"] is None
     assert STATIC_SERVER_NOTE in host["static_host_note"]
+
+
+def test_memory_host_diagnostic_legacy_host_pid_not_counted():
+    host = memory._memory_host_diagnostic(_LegacyHostLike())
+    assert host["memory_roots"] == "probe_browser_tree_only"
+    assert host["host_server_pid"] == 4242
+    assert host["counted_in_rss"] is False
+    assert STATIC_SERVER_NOTE in host["static_host_note"]
+
+
+def test_run_browser_pair_roots_are_probe_process_only(tmp_path):
+    fake_proc = mock.MagicMock()
+    fake_proc.pid = 501
+    fake_proc.stdin = mock.MagicMock()
+    fake_proc.stdin.closed = False
+    fake_proc.returncode = 0
+    fixture = tmp_path / "fixture.docx"
+    fixture.write_bytes(b"docx")
+    with mock.patch.object(memory.subprocess, "Popen", return_value=fake_proc):
+        with mock.patch.object(memory, "_read_probe_line", return_value="RESULT {}"):
+            with mock.patch.object(memory, "_stop_process_group"):
+                record = memory._run_browser_pair(
+                    target={"url": "http://127.0.0.1:1/", "corpus_route": "/x"},
+                    corpus_path=fixture,
+                    burst=0,
+                    quiescence_ms=0,
+                    retain_seconds=[],
+                    probe_timeout_s=5.0,
+                )
+    assert record["roots"] == [501]
+
+
+def test_browser_rows_legacy_host_does_not_sample_server_pid(attempt_dir):
+    tmp_path, attempt_dir = attempt_dir
+    args = SimpleNamespace(
+        execution_profile="ci_contract",
+        pairs=1,
+        burst=12,
+        quiescence_ms=2000,
+        retain_seconds=(1.0, 5.0),
+        probe_timeout=30.0,
+    )
+    with mock.patch.object(memory, "_start_server", return_value=_LegacyHostLike()):
+        with mock.patch.object(memory, "_stop_server", return_value=None):
+            with mock.patch.object(memory, "_run_browser_pair", return_value=_synthetic_pair()):
+                with mock.patch.object(memory, "_port_is_free", return_value=True):
+                    memory._browser_rows(
+                        editor_id="wordcraft",
+                        lane="browser_wordcraft",
+                        target={"url": "http://127.0.0.1:5299/", "corpus_route": "/corpus.docx"},
+                        attempt_dir=attempt_dir,
+                        args=args,
+                        fixture_path=tmp_path / "fixture.docx",
+                        fixture_sha="a" * 64,
+                        docx_size=4096,
+                        workload_row=_workload_row(),
+                    )
+    trial = json.loads(next(attempt_dir.glob("c17-ready-*.json")).read_text())
+    host = trial["diagnostic"]["memory_host"]
+    assert host["host_server_pid"] == 4242
+    assert host["counted_in_rss"] is False

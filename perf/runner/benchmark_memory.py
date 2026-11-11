@@ -561,16 +561,9 @@ def _host_memory_root(server) -> int | None:
 
 
 def _memory_host_diagnostic(server) -> dict:
-    host_pid = _host_memory_root(server)
-    if host_pid is not None:
-        return {
-            "memory_roots": "host_process_and_probe",
-            "host_server_pid": host_pid,
-            "counted_in_rss": True,
-        }
     return {
         "memory_roots": "probe_browser_tree_only",
-        "host_server_pid": None,
+        "host_server_pid": _host_memory_root(server),
         "counted_in_rss": False,
         "static_host_note": STATIC_SERVER_NOTE,
     }
@@ -606,7 +599,6 @@ def _run_browser_pair(
     *,
     target: dict,
     corpus_path: Path,
-    server_pid: int | None,
     burst: int,
     quiescence_ms: int,
     retain_seconds,
@@ -623,7 +615,7 @@ def _run_browser_pair(
         bufsize=1,
         start_new_session=True,
     )
-    roots = [pid for pid in (server_pid, proc.pid) if pid]
+    roots = [proc.pid]
     deadline = time.monotonic() + probe_timeout_s
     record = {
         "phases": {},
@@ -727,7 +719,6 @@ def _browser_rows(
             pair = _run_browser_pair(
                 target=target,
                 corpus_path=fixture_path,
-                server_pid=_host_memory_root(server),
                 burst=args.burst,
                 quiescence_ms=args.quiescence_ms,
                 retain_seconds=args.retain_seconds,
