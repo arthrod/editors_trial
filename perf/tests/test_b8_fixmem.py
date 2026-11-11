@@ -11,7 +11,7 @@ import pytest
 from perf.runner import benchmark_memory as memory
 from perf.runner.memory_tree import sample_process_tree
 from perf.runner.resources import STATIC_SERVER_NOTE
-from perf.tests.test_memory_criteria import PS_TABLE, _workload_row
+from perf.tests.test_memory_criteria import PS_TABLE, _workload_row, gate_fixture_docx
 
 
 class _StaticHostLike:
@@ -66,7 +66,7 @@ def _synthetic_pair():
 def attempt_dir(tmp_path):
     attempt_dir = tmp_path / "attempts"
     attempt_dir.mkdir()
-    (tmp_path / "fixture.docx").write_bytes(b"docx")
+    (tmp_path / "fixture.docx").write_bytes(gate_fixture_docx())
     return tmp_path, attempt_dir
 
 
@@ -111,6 +111,9 @@ def test_browser_rows_static_host_measures_without_server_pid(attempt_dir):
     assert host["host_server_counted_in_rss"] is False
     assert host["host_server_pid_first_pair"] is None
     assert STATIC_SERVER_NOTE in host["static_host_note"]
+    # The row measured memory only after reading this fixture's gate.
+    assert trial["diagnostic"]["content_length_check"] == "coarse"
+    assert "tracked revisions" in trial["diagnostic"]["content_length_check_reason"]
 
 
 def test_memory_host_diagnostic_legacy_host_pid_not_counted():
@@ -205,3 +208,6 @@ def test_browser_rows_legacy_host_does_not_sample_server_pid(attempt_dir):
     host = trial["diagnostic"]["memory_host"]
     assert host["host_server_pid_first_pair"] == 4242
     assert host["host_server_counted_in_rss"] is False
+    # Wordcraft runs no length gate. The coarse reason still proves the fixture was opened.
+    assert trial["diagnostic"]["content_length_check"] == "not_run"
+    assert "tracked revisions" in trial["diagnostic"]["content_length_check_reason"]

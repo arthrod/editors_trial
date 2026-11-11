@@ -10,9 +10,11 @@ Pinned here:
 * C22 is never measured where the host has no P0-P3 switch.
 """
 
+import io
 import json
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 from perf.fixtures.profiles import size_ladder
@@ -53,6 +55,27 @@ PS_TABLE = """\
 
 def _workload_row():
     return next(row for row in size_ladder() if row["workload_id"] == "micro-paragraphs")
+
+
+def gate_fixture_docx() -> bytes:
+    """A real package whose body contains a tracked deletion.
+
+    Since 6c0bbe89 every memory row opens the fixture and records the content
+    gate. A deletion makes that read observable: the gate is coarse, which the
+    no-file default (applied) is not. ``w:delText`` is not document text.
+    """
+    document = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        "<w:body><w:p>"
+        '<w:del w:id="1" w:author="suitefix"><w:r><w:delText>old</w:delText></w:r></w:del>'
+        "<w:r><w:t>Hello corpus</w:t></w:r>"
+        "</w:p></w:body></w:document>"
+    )
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("word/document.xml", document)
+    return buffer.getvalue()
 
 
 def _env(cache_state="process_cold_fs_warm", execution_profile="ci_contract"):
@@ -422,7 +445,7 @@ class BrowserFlowWithFakePairs(unittest.TestCase):
 
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
-        Path(self._tmp.name, "fixture.docx").write_bytes(b"docx")
+        Path(self._tmp.name, "fixture.docx").write_bytes(gate_fixture_docx())
 
     def tearDown(self):
         self._tmp.cleanup()
@@ -449,6 +472,8 @@ class BrowserFlowWithFakePairs(unittest.TestCase):
             self.assertTrue(trial["publication_block_reason"])
             self.assertIsNone(trial["evidence"]["pss_bytes"])
         c19 = next(t for t in (json.loads(p.read_text()) for p in files) if t["criterion_id"] == "C19")
+        self.assertEqual(c19["diagnostic"]["content_length_check"], "coarse")
+        self.assertIn("tracked revisions", c19["diagnostic"]["content_length_check_reason"])
         self.assertEqual(c19["samples_ms"], [600 * 1024])
         retention = c19["diagnostic"]["retention"][0]
         self.assertEqual(retention["retained_bytes"], 600 * 1024)
