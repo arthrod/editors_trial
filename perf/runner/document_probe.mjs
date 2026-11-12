@@ -1499,32 +1499,6 @@ async function runReflow(browser) {
         /* best effort */
       }
     }
-    let bodyCaret = await placeC12BodyCaret(ctx.page, editorId, reflowSel, excludeSelEarly, {
-      caretText: c12CaretText,
-      anchorText: c12AnchorText,
-    });
-    if (!bodyCaret || bodyCaret.ok !== true) {
-      return {
-        mode: 'reflow',
-        driver: 'playwright',
-        url,
-        navigation_ms: navigationMs,
-        ready_ms: readyMs,
-        error: bodyCaret?.reason || 'c12_body_caret_unavailable',
-        caret_placement: bodyCaret || null,
-        forced_layout_ms: 0,
-        layout_reads_during_window: 0,
-        anchor_frames: 0,
-        page_errors: ctx.errors,
-      };
-    }
-
-    // The nearest scroll inside the click leaves the next paragraph below
-    // the fold. The shared center scroll is the same for every editor. The
-    // caret placement's own scroll then runs for about 100 ms and undoes the
-    // first call, so the probe waits out that settle and issues the same call
-    // again. The snapshot reads the second call. Neither call is inside the
-    // measured window.
     const scrollSettleMs = settleMs > 0 ? settleMs : 100;
     const scrollCaretParagraph = async () =>
       ctx.page.evaluate(
@@ -1555,20 +1529,78 @@ async function runReflow(browser) {
           caretText: c12CaretText || (bodyCaret && bodyCaret.caretText) || '',
         },
       );
-    let caretScroll = await scrollCaretParagraph();
-    if (caretScroll && caretScroll.ok === true) {
-      const first = caretScroll;
-      await ctx.page.waitForTimeout(scrollSettleMs);
-      const second = await scrollCaretParagraph();
-      caretScroll = {
-        ...(second && typeof second === 'object' ? second : first),
-        top_before: first.top_before,
-        top_after_first: first.top_after,
-        top_after: second && typeof second.top_after === 'number' ? second.top_after : first.top_after,
-        settle_ms: scrollSettleMs,
-        calls: 2,
-      };
+    // The nearest scroll inside the click leaves the next paragraph below
+    // the fold. The shared center scroll is the same for every editor. The
+    // caret placement's own scroll then runs for about 100 ms and undoes the
+    // first call, so the probe waits out that settle and issues the same call
+    // again. The snapshot reads the second call. Neither call is inside the
+    // measured window.
+    const centerScroll = async () => {
+      let scroll = await scrollCaretParagraph();
+      if (scroll && scroll.ok === true) {
+        const first = scroll;
+        await ctx.page.waitForTimeout(scrollSettleMs);
+        const second = await scrollCaretParagraph();
+        scroll = {
+          ...(second && typeof second === 'object' ? second : first),
+          top_before: first.top_before,
+          top_after_first: first.top_after,
+          top_after: second && typeof second.top_after === 'number' ? second.top_after : first.top_after,
+          settle_ms: scrollSettleMs,
+          calls: 2,
+        };
+      }
+      return scroll;
+    };
+    const placementRefusal = (placement, scroll) => ({
+      mode: 'reflow',
+      driver: 'playwright',
+      url,
+      navigation_ms: navigationMs,
+      ready_ms: readyMs,
+      error: (placement && placement.reason) || 'c12_body_caret_unavailable',
+      caret_placement: placement || null,
+      caret_scroll: scroll || null,
+      forced_layout_ms: 0,
+      layout_reads_during_window: 0,
+      anchor_frames: 0,
+      page_errors: ctx.errors,
+    });
+    let bodyCaret = await placeC12BodyCaret(ctx.page, editorId, reflowSel, excludeSelEarly, {
+      caretText: c12CaretText,
+      anchorText: c12AnchorText,
+    });
+    if (!bodyCaret || bodyCaret.ok !== true) {
+      // One retry, after the shared center scroll settles. The second click
+      // uses the same glyph point, recomputed on the settled layout.
+      if (bodyCaret && bodyCaret.reason === 'caret_not_at_paragraph_start') {
+        const retryScroll = await centerScroll();
+        const retry = await placeC12BodyCaret(ctx.page, editorId, reflowSel, excludeSelEarly, {
+          caretText: c12CaretText,
+          anchorText: c12AnchorText,
+        });
+        if (retry && retry.ok === true) {
+          bodyCaret = {
+            ...retry,
+            retried: true,
+            first_click_hit: bodyCaret.click_hit || null,
+            first_caret_verify: bodyCaret.caret_verify || null,
+          };
+        } else {
+          const placement =
+            retry && typeof retry === 'object'
+              ? { ...retry }
+              : { ok: false, reason: 'caret_not_at_paragraph_start' };
+          placement.retried = true;
+          placement.first_click_hit = bodyCaret.click_hit || null;
+          placement.first_caret_verify = bodyCaret.caret_verify || null;
+          return placementRefusal(placement, retryScroll);
+        }
+      } else {
+        return placementRefusal(bodyCaret, null);
+      }
     }
+    let caretScroll = await centerScroll();
 
     // The census runs after the caret is finally placed (the adapter's click,
     // then Control+Home/Home): the anchor is the nearest unique block below

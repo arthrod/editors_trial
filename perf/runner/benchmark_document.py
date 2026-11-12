@@ -803,6 +803,36 @@ def _c12_census_record(payload: dict) -> dict:
     window = payload.get("empty_inclusive_window")
     if isinstance(window, dict):
         record["empty_inclusive_window"] = window
+    click = placement.get("click")
+    if isinstance(click, dict):
+        record["click"] = {
+            "x": click.get("x"),
+            "y": click.get("y"),
+            "box": click.get("box"),
+            "line": click.get("line"),
+        }
+    hit = placement.get("click_hit")
+    if isinstance(hit, dict):
+        record["click_hit"] = hit
+    first_hit = placement.get("first_click_hit")
+    if isinstance(first_hit, dict):
+        record["first_click_hit"] = first_hit
+    if placement.get("retried") is True:
+        record["retried"] = True
+    verify = placement.get("caret_verify")
+    if isinstance(verify, dict):
+        paragraph = verify.get("paragraphText")
+        expected = verify.get("expected")
+        record["caret_verify"] = {
+            "ok": verify.get("ok"),
+            "detail": verify.get("detail"),
+            "offset": verify.get("offset"),
+            "paragraphText": paragraph[:80] if isinstance(paragraph, str) else paragraph,
+            "expected": expected[:80] if isinstance(expected, str) else expected,
+            "source": verify.get("source"),
+            "focused": verify.get("focused"),
+            "reason": verify.get("reason"),
+        }
     return record
 
 

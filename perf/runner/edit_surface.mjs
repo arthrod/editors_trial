@@ -309,6 +309,46 @@ export const READ_BLOCK_AT_POINT = ({ x, y, block }) => {
   return String(scope.textContent || '');
 };
 
+/** Page context. What a caret click hit, and the selection after it. Bounded. */
+export const READ_CLICK_HIT = ({ x, y }) => {
+  const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+  const describe = (el) => {
+    if (!el || !el.tagName) return null;
+    const data = {};
+    const attrs = el.attributes ? Array.from(el.attributes) : [];
+    for (const attr of attrs) {
+      const name = attr && attr.name;
+      if (typeof name === 'string' && name.indexOf('data-') === 0) {
+        data[name] = String(attr.value || '').slice(0, 80);
+      }
+    }
+    return {
+      tag: el.tagName,
+      id: el.id || '',
+      className: typeof el.className === 'string' ? el.className.slice(0, 120) : '',
+      text_prefix: norm(el.innerText || el.textContent),
+      data,
+    };
+  };
+  const hit = typeof document.elementFromPoint === 'function' ? document.elementFromPoint(x, y) : null;
+  const sel = typeof document.getSelection === 'function' ? document.getSelection() : null;
+  let selection = null;
+  if (sel && sel.rangeCount) {
+    const node = sel.anchorNode;
+    const el = node && node.nodeType === 3 ? node.parentElement : node;
+    selection = {
+      collapsed: sel.isCollapsed === true,
+      anchor_offset: Number.isFinite(Number(sel.anchorOffset)) ? Number(sel.anchorOffset) : null,
+      anchor: describe(el),
+    };
+  }
+  let active = document.activeElement;
+  while (active && active.shadowRoot && active.shadowRoot.activeElement) {
+    active = active.shadowRoot.activeElement;
+  }
+  return { x, y, hit: describe(hit), selection, active: describe(active) };
+};
+
 /** Page context. Text of the paragraph at the caret, from the editor's model. */
 export const READ_MODEL_AT_CARET = (model) => {
   if (model === 'docen') {
@@ -620,18 +660,38 @@ export async function placeCaret(
     };
     await page.mouse.click(point.x, point.y);
     if (atBlockStart) {
-      await page.keyboard.press('Home');
-      if (editorId === 'superdoc' || editorId === 'eigenpal' || editorId === 'folio') {
-        await page.keyboard.press('Home');
-      }
       const primary =
         blockSelector || String(surface.block || '').trim() || String(selector || '').split(',')[0].trim();
-      await page.evaluate(COLLAPSE_CARET_AT_CLICK_BLOCK, {
-        x: point.x,
-        y: point.y,
-        blockSelector: primary || null,
-        editorId: editorId || '',
-      });
+      const readHere = () =>
+        page.evaluate(READ_CARET_BLOCK_OFFSET, {
+          editorId: editorId || '',
+          blockSelector: primary || null,
+        });
+      const collapseHere = () =>
+        page.evaluate(COLLAPSE_CARET_AT_CLICK_BLOCK, {
+          x: point.x,
+          y: point.y,
+          blockSelector: primary || null,
+          editorId: editorId || '',
+        });
+      await collapseHere();
+      const before = await readHere();
+      // One Home for every editor. It is the line-start key only when the
+      // caret stays in the paragraph the click already occupied.
+      await page.keyboard.press('Home');
+      const after = await readHere();
+      const textOf = (row) => (row && typeof row.paragraphText === 'string' ? row.paragraphText : '');
+      const beforeText = textOf(before);
+      const afterText = textOf(after);
+      const sameParagraph = Boolean(
+        beforeText &&
+          afterText &&
+          (beforeText === afterText || beforeText.startsWith(afterText) || afterText.startsWith(beforeText)),
+      );
+      if (beforeText && afterText && !sameParagraph) {
+        await page.mouse.click(point.x, point.y);
+        await collapseHere();
+      }
     }
   } else if (surface.kind === 'dom' && !emptyDocument) {
     point = await page.evaluate(FIND_TEXT_LINE, {

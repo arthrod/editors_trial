@@ -10,6 +10,7 @@ import {
   editSurface,
   placeCaret,
   verifyCaretAtParagraphStart,
+  READ_CLICK_HIT,
   waitForTokenDelta,
   readModifiedFlag,
 } from './edit_surface.mjs';
@@ -363,15 +364,58 @@ export function c12BodyCaretClick({ editorId, docSel, excludeSel, caretText, anc
   const el = entries[pick.caretIndex].el;
   let click = null;
   try {
-    const startMark = el.querySelector && el.querySelector('[data-start="0"]');
-    const caretHost = startMark || el;
-    caretHost.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-    const rect = caretHost.getBoundingClientRect();
+    if (el && typeof el.scrollIntoView === 'function') {
+      el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+    // The block box's corner can belong to the next paragraph. The first
+    // glyph's own line box is this paragraph's text.
+    const firstGlyphRect = (host) => {
+      if (
+        !host ||
+        typeof document.createRange !== 'function' ||
+        typeof document.createTreeWalker !== 'function' ||
+        typeof NodeFilter === 'undefined'
+      ) {
+        return null;
+      }
+      let walker;
+      try {
+        walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT);
+      } catch {
+        return null;
+      }
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        const text = String(node.nodeValue || '');
+        const start = text.search(/\S/);
+        if (start < 0) continue;
+        try {
+          const range = document.createRange();
+          range.setStart(node, start);
+          range.setEnd(node, Math.min(text.length, start + 1));
+          const rects = typeof range.getClientRects === 'function' ? range.getClientRects() : null;
+          const glyph = rects && rects.length ? rects[0] : null;
+          if (glyph && glyph.width > 0 && glyph.height > 0) return glyph;
+        } catch {
+          /* the next text node */
+        }
+      }
+      return null;
+    };
+    const glyph = firstGlyphRect(el);
+    let rect = null;
+    let box = 'block';
+    if (glyph) {
+      rect = glyph;
+      box = 'glyph';
+    } else if (el && typeof el.getBoundingClientRect === 'function') {
+      rect = el.getBoundingClientRect();
+    }
     if (rect && rect.height > 0) {
       click = {
         x: rect.left + 1,
         y: rect.top + rect.height / 2,
         line: String(pick.caretText || '').slice(0, 60),
+        box,
       };
     }
     window.__c12ForcedCaretIndex = pick.caretIndex;
@@ -1315,7 +1359,16 @@ export async function placeC12BodyCaret(page, editorId, reflowSel, excludeSel, f
     return {
       ok: false,
       reason: String(error && error.message ? error.message : error).slice(0, 200),
+      click: pick.click,
     };
+  }
+  let clickHit = null;
+  if (placed && placed.point && Number.isFinite(placed.point.x) && Number.isFinite(placed.point.y)) {
+    try {
+      clickHit = await page.evaluate(READ_CLICK_HIT, { x: placed.point.x, y: placed.point.y });
+    } catch {
+      clickHit = null;
+    }
   }
   const verified = await verifyCaretAtParagraphStart(page, editorId, {
     blockSelector,
@@ -1332,6 +1385,8 @@ export async function placeC12BodyCaret(page, editorId, reflowSel, excludeSel, f
       anchorText: pick.anchorText,
       caret_verify: verified,
       point: placed.point,
+      click: pick.click,
+      click_hit: clickHit,
       focused: placed.focused,
     };
   }
@@ -1342,6 +1397,7 @@ export async function placeC12BodyCaret(page, editorId, reflowSel, excludeSel, f
     caretText: pick.caretText,
     click: pick.click,
     point: placed.point,
+    click_hit: clickHit,
     focused: placed.focused,
     caret_verify: verified,
   };

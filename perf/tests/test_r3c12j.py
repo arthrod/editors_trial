@@ -698,6 +698,20 @@ class RerenderHosts(unittest.TestCase):
         self.assertEqual(verify.get("detail"), "paragraph_text_mismatch", payload)
         self.assertEqual(verify.get("offset"), 0, payload)
 
+    def test_glyph_rect_places_the_caret_when_the_block_corner_is_the_next_paragraph(self):
+        # The caret block's top-left belongs to the next paragraph. The caret
+        # paragraph's own first character does not. Placement has to land on
+        # that character, and the paragraph-text check still applies.
+        payload = self._reflow("block-corner.html")
+        self.assertIsNone(payload.get("error"), payload)
+        before = payload.get("before") or {}
+        selection = before.get("caret_selection") or {}
+        self.assertEqual(selection.get("offset"), 0, payload)
+        self.assertEqual(selection.get("block_index"), before.get("caret_index"), payload)
+        self.assertTrue(str(selection.get("text_prefix") or "").startswith("Alpha body"), payload)
+        self.assertTrue(payload.get("moved"), payload)
+        self.assertEqual(bd.c12_measured_sample(payload), payload["presented_frame_ms"])
+
     def test_identity_refusal_keeps_the_empty_paragraph_in_the_window(self):
         payload = self._reflow("empty-gap.html", timeout_ms=2500)
         self.assertEqual(payload.get("error"), "anchor_identity_ambiguous", payload)
