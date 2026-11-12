@@ -234,8 +234,9 @@ test('the onset bound is recorded on the decision',()=>{
 // the measured keydown's entry in the same page clock as the frames' pageMs,
 // {startMs, processingEndMs, durationMs}; only startMs + durationMs decides —
 // processingEndMs is disclosure, never the bound. The bounds do not move:
-// without the entry, without its duration, or when the duration ended before
-// the hole did, the refusal is exactly what it was.
+// without the entry, without its duration, or when the glyph sits outside the
+// verified window around the entry's own end, the refusal is exactly what it
+// was — now under a named reason.
 const holeFrames=(glyphMs,leadMs)=>frames(
  [leadMs,glyphMs,...Array.from({length:24},(_,i)=>glyphMs+16.7+i*16.7)],
  t=>t<glyphMs?blank:glyph).map(row=>({...row,...classifyRegion(row.pixels,base,[rect],1,rect)}));
@@ -262,7 +263,9 @@ test('the folio boundary: duration ends at +1696 ms, processingEnd at +15.6 ms, 
  // the entry's own next paint at +1696 ms; ink-less frames delivered at
  // +269/+802/+1319 ms and the glyph at +1702.5 (page_ms 19391.4). The hole
  // 19008.1 → 19391.4 (383 ms) is over the 100 ms bound; the entry decides:
- // 17688.9 + 1696 + 8 ≥ 19391.4 − 100, so the hole is explained.
+ // the glyph is 6.5 ms after the reported end 17688.9+1696=19384.9, inside
+ // the late window — the unverified interval 19391.4−(19384.9−4)=10.5 ms is
+ // within the onset bound, so the hole is explained.
  const marker=17688.9,glyphMs=19391.4;
  const times=[marker+269,marker+802,19008.1,glyphMs,
   ...Array.from({length:24},(_,i)=>glyphMs+16.7+i*16.7)];
@@ -279,10 +282,12 @@ test('the folio boundary: duration ends at +1696 ms, processingEnd at +15.6 ms, 
 test('the same hole without the Event Timing entry stays witness_sparse (#171)',()=>{
  assert.equal(settleFrames(holeFrames(2188,5),{markerMs:0}).failure_reason,'witness_sparse');
 });
-test('a hole the input duration ended before stays witness_sparse (#171)',()=>{
+test('a hole the input duration ended long before refuses glyph_after_next_paint (#171)',()=>{
+ // pEnd=300, glyph at 2188: the unverified interval 2188-(300-4)=1892 ms is
+ // far beyond the onset bound — the entry cannot explain a paint that late.
  const r=settleFrames(holeFrames(2188,5),{markerMs:0,
   inputProcessing:{startMs:0,durationMs:300}});
- assert.equal(r.failure_reason,'witness_sparse');
+ assert.equal(r.failure_reason,'glyph_after_next_paint');
 });
 test('a hole without the entry duration stays witness_sparse (#171)',()=>{
  const r=settleFrames(holeFrames(2188,5),{markerMs:0,
@@ -299,6 +304,7 @@ test('the runner feeds the measured keydown entry to both settleFrames calls (#1
  const calls=[...src.matchAll(/settleFrames\(recorded,\s*\{[^}]*\}/gs)];
  assert.equal(calls.length,2,'warm_cold_browser must keep exactly two settleFrames call sites');
  for(const call of calls) assert.match(call[0],/inputProcessing/,'every call receives the input entry');
+ for(const call of calls) assert.match(call[0],/eventStartMs/,'every call receives the measured event startTime');
  assert.match(src,/processingEnd:e\.processingEnd/,'the Event Timing observer captures processingEnd');
 });
 
@@ -320,7 +326,8 @@ test('HF GenOffice C06 replay: entry-explained holes measure, siblings keep valu
  const expectMeasure=new Set([0,2,3]);
  trial.observations.forEach((obs,i)=>{
   const marker=obs.event.startTime;
-  const entry=(obs.entries||[]).find(e=>e.name==='keydown'&&Math.abs(e.startTime-marker)<0.1);
+  const matches=(obs.entries||[]).filter(e=>e.name==='keydown'&&e.startTime===marker);
+  const entry=matches.length===1?matches[0]:null;
   const inputProcessing=entry?{startMs:entry.startTime,processingEndMs:entry.processingEnd,durationMs:entry.duration}:null;
   const r=settleFrames(obs.frame_diagnostic.map(replay),{markerMs:marker,
    frameIntervalMs:obs.frame_interval_ms,inputProcessing});
@@ -334,4 +341,79 @@ test('HF GenOffice C06 replay: entry-explained holes measure, siblings keep valu
    assert.equal(r.page_ms,obs.settle_decision.page_ms,'obs '+i+' keeps its measured value');
   }
  });
+});
+
+// -- sparse3: the entry is verified, not a blank cheque (#171, Grok review) --
+// The entry's own startTime must equal the measured event's startTime exactly
+// (PerformanceEventTiming.startTime is the dispatched event's timeStamp — a
+// fuzzy match can adopt a different keydown); zero or several matches in the
+// runner is no verified entry. Around the reported end pEnd=startMs+duration:
+// duration is nearest-8 rounded, so the true end can sit up to 4 ms on either
+// side of pEnd; on the early side a further 2 ms covers clock/causality
+// residual, and a glyph earlier than pEnd-6 refuses glyph_before_next_paint.
+// On the late side the glyph may have been presented as early as pEnd-4, so
+// the unverified interval is glyph-(pEnd-4) and it must stay within
+// onsetBound — the same tolerance the normal path grants between the last
+// ink-less delivered frame and the glyph (owner decision 2026-11-11, #155
+// item 6); beyond it refuses glyph_after_next_paint. And an accepted onset
+// that is not itself the quiet reference must reach it through contiguous
+// deliveries — a gap beyond min(gapBound,quietMs) between consecutive frames
+// in [first,i] refuses onset_walkback_gap. A timing that was not verified is
+// never published.
+test('a glyph 108 ms after the entry end refuses glyph_after_next_paint (#171)',()=>{
+ // Grok's probe: pEnd=200, glyph 308 — unverified 308-(200-4)=112 > 100.
+ const r=settleFrames(holeFrames(308,5),{markerMs:0,
+  inputProcessing:{startMs:0,durationMs:200}});
+ assert.equal(r.failure_reason,'glyph_after_next_paint');
+});
+test('a glyph 109 ms after the entry end refuses the same way (#171)',()=>{
+ const r=settleFrames(holeFrames(309,5),{markerMs:0,
+  inputProcessing:{startMs:0,durationMs:200}});
+ assert.equal(r.failure_reason,'glyph_after_next_paint');
+});
+test('a glyph 1800 ms before the entry end refuses glyph_before_next_paint (#171)',()=>{
+ // pEnd=2000, glyph 200 < 2000-4-2: the paint is not the entry's next paint.
+ const r=settleFrames(holeFrames(200,5),{markerMs:0,
+  inputProcessing:{startMs:0,durationMs:2000}});
+ assert.equal(r.failure_reason,'glyph_before_next_paint');
+});
+test('an entry 10 ms off the measured event refuses — identity is exact (#171)',()=>{
+ // Grok's belong probe: the entry belongs to a different keydown.
+ const r=settleFrames(holeFrames(3188,1005),{markerMs:1000,eventStartMs:1000,
+  inputProcessing:{startMs:990,durationMs:2300}});
+ assert.equal(r.failure_reason,'witness_sparse');
+});
+test('a second keydown 0.05 ms from the measured event is not its entry (#171)',()=>{
+ // Grok's lookup probe: the foreign keydown's entry must not be adopted.
+ const r=settleFrames(holeFrames(2400,1005),{markerMs:1000,eventStartMs:1000,
+  inputProcessing:{startMs:1000.05,durationMs:2500}});
+ assert.equal(r.failure_reason,'witness_sparse');
+});
+test('an accepted onset 666 ms from its quiet reference refuses onset_walkback_gap (#171)',()=>{
+ // The folio shape: covers() walks back from the quiet reference at 1866 to
+ // the onset frame at 1200 (same ink) across a 666 ms delivery gap the quiet
+ // proof never checked; the walked-back frame did not prove quiet.
+ const times=[5,1200,1866,...Array.from({length:24},(_,i)=>1882.7+i*16.7)];
+ const f=frames(times,t=>t<1200?blank:glyph)
+  .map(row=>({...row,...classifyRegion(row.pixels,base,[rect],1,rect)}));
+ const r=settleFrames(f,{markerMs:0,eventStartMs:0,frameIntervalMs:16.7,
+  inputProcessing:{startMs:0,durationMs:1200}});
+ assert.equal(r.failure_reason,'onset_walkback_gap');
+});
+test('the runner compares the entry on the raw clock — no page_offset shift (#171)',()=>{
+ const src=readFileSync(new URL('../runner/warm_cold_browser.mjs',import.meta.url),'utf8');
+ assert.doesNotMatch(src,/inputClockOffsetMs/,'the page_offset_ms shift is gone');
+ assert.match(src,/startMs:\s*inputEntry\.entry\.startTime\s*,/,'the entry startMs is the raw startTime');
+});
+test('the runner matches the entry by exact event startTime and records ambiguous lookups (#171)',()=>{
+ const src=readFileSync(new URL('../runner/warm_cold_browser.mjs',import.meta.url),'utf8');
+ assert.match(src,/e\.name === 'keydown' && e\.startTime === state\.event\.startTime/,'exact identity');
+ assert.doesNotMatch(src,/Math\.abs\(e\.startTime\s*-\s*state\.event\.startTime\)\s*<\s*0\.1/,'no fuzzy match remains');
+ assert.match(src,/event_entry_ambiguous/,'ambiguous lookups are recorded in the diagnostic');
+});
+test('the runner snapshots frames before the Event Timing poll (#171)',()=>{
+ const src=readFileSync(new URL('../runner/warm_cold_browser.mjs',import.meta.url),'utf8');
+ const snap=src.indexOf('[...recorder.frames]');
+ const poll=src.indexOf('inputEntry = await page.evaluate');
+ assert.ok(snap>-1&&poll>-1&&snap<poll,'the frame snapshot precedes the poll');
 });
