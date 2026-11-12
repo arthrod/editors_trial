@@ -252,11 +252,11 @@ class E2Cells(unittest.TestCase):
         self.addCleanup(lambda: __import__("shutil").rmtree(root, ignore_errors=True))
         for rep in range(9):
             _write_trial(root, rep, "plate", "C07", outcome="measured", samples=[20.0])
-        _write_summary(root, "plate", 30)
-        cell = e2_cells.build_run_cell(root, "plate", "C07", scheduled=30)
+        _write_summary(root, "plate", 10)
+        cell = e2_cells.build_run_cell(root, "plate", "C07", scheduled=10)
         text = e2_cells.publication_text(cell)
         self.assertNotIn("not enough samples", text)
-        self.assertIn("n = 9 of 30", text)
+        self.assertIn("n = 9 of 10", text)
         self.assertNotIn("p90", text)
         self.assertIn("range", text)
 
@@ -315,8 +315,8 @@ class E2Cells(unittest.TestCase):
         self.addCleanup(lambda: __import__("shutil").rmtree(root, ignore_errors=True))
         for rep in range(10):
             _write_trial(root, rep, "plate", "C07", outcome="measured", samples=[20.0])
-        _write_summary(root, "plate", 30)
-        cell = e2_cells.build_run_cell(root, "plate", "C07", scheduled=30)
+        _write_summary(root, "plate", 10)
+        cell = e2_cells.build_run_cell(root, "plate", "C07", scheduled=10)
         text = e2_cells.publication_text(cell)
         self.assertIn("20.0 ms", text)
         self.assertIn("p90", text)
@@ -335,9 +335,9 @@ class E2Cells(unittest.TestCase):
             (root / "summary.json").write_text(json.dumps({
                 "run_id": str(seed), "seed": seed,
                 "execution_profile": "dedicated_publish", "publishable": True,
-                "order": [[i, "plate"] for i in range(30)],
+                "order": [[i, "plate"] for i in range(10)],
             }))
-        text = e2_cells.publish_dual_runs(primary, reproduction, "plate", "C07", scheduled=30)
+        text = e2_cells.publish_dual_runs(primary, reproduction, "plate", "C07", scheduled=10)
         self.assertIn("not enough samples", text)
 
     def test_reproduction_median_mismatch_not_published(self):
@@ -348,9 +348,9 @@ class E2Cells(unittest.TestCase):
         for rep in range(10):
             _write_trial(primary, rep, "plate", "C07", outcome="measured", samples=[20.0])
             _write_trial(reproduction, rep, "plate", "C07", outcome="measured", samples=[900.0])
-        _write_summary(primary, "plate", 30, execution_profile="dedicated_publish", run_id="primary", seed=1)
-        _write_summary(reproduction, "plate", 30, execution_profile="dedicated_publish", run_id="reproduction", seed=2)
-        text = e2_cells.publish_dual_runs(primary, reproduction, "plate", "C07", scheduled=30)
+        _write_summary(primary, "plate", 10, execution_profile="dedicated_publish", run_id="primary", seed=1)
+        _write_summary(reproduction, "plate", 10, execution_profile="dedicated_publish", run_id="reproduction", seed=2)
+        text = e2_cells.publish_dual_runs(primary, reproduction, "plate", "C07", scheduled=10)
         self.assertIn("not reproduced", text)
 
     def test_sub_frame_median_renders_bucket_not_number(self):
@@ -366,8 +366,8 @@ class E2Cells(unittest.TestCase):
                 samples=[9.9],
                 sub_frame_samples=[True],
             )
-        _write_summary(root, "plate", 30)
-        cell = e2_cells.build_run_cell(root, "plate", "C07", scheduled=30)
+        _write_summary(root, "plate", 10)
+        cell = e2_cells.build_run_cell(root, "plate", "C07", scheduled=10)
         text = e2_cells.publication_text(cell)
         self.assertIn("< 1 frame (16.7 ms)", text)
         self.assertNotIn("9.9", text)
@@ -377,8 +377,8 @@ class E2Cells(unittest.TestCase):
         self.addCleanup(lambda: __import__("shutil").rmtree(root, ignore_errors=True))
         for rep in range(10):
             _write_trial(root, rep, "plate", "C07", outcome="measured", samples=[20.0])
-        _write_summary(root, "plate", 30)
-        text = e2_cells.publication_text(e2_cells.build_run_cell(root, "plate", "C07", scheduled=30))
+        _write_summary(root, "plate", 10)
+        text = e2_cells.publication_text(e2_cells.build_run_cell(root, "plate", "C07", scheduled=10))
         self.assertIn("20.0 ms", text)
 
 
@@ -660,8 +660,8 @@ class B7FixRound(unittest.TestCase):
         self.addCleanup(lambda: __import__("shutil").rmtree(root, ignore_errors=True))
         for rep in range(4):
             _write_trial(root, rep, "plate", "C07", outcome="measured", samples=[10.0, 20.0, 30.0])
-        _write_summary(root, "plate", 30)
-        cell = e2_cells.build_run_cell(root, "plate", "C07", scheduled=30)
+        _write_summary(root, "plate", 10)
+        cell = e2_cells.build_run_cell(root, "plate", "C07", scheduled=10)
         self.assertEqual(cell["stats"]["n"], 4)
         self.assertIn("not enough samples", e2_cells.publication_text(cell))
 
@@ -683,8 +683,8 @@ class B7FixRound(unittest.TestCase):
             trial = json.loads(trial_path.read_text())
             trial["diagnostic"] = {}
             trial_path.write_text(json.dumps(trial), encoding="utf-8")
-        _write_summary(root, "plate", 30)
-        text = e2_cells.publication_text(e2_cells.build_run_cell(root, "plate", "C07", scheduled=30))
+        _write_summary(root, "plate", 10)
+        text = e2_cells.publication_text(e2_cells.build_run_cell(root, "plate", "C07", scheduled=10))
         self.assertIn("sub_frame_flag_mismatch", text)
         self.assertIn("n = 0", text)
 

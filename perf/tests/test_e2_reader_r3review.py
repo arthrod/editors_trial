@@ -89,13 +89,13 @@ def test_block_rerun_of_same_launches_is_not_published(tmp_path):
 
 def test_duplicate_pull_same_job_counts_once(tmp_path):
     roots = [
-        _write_job(tmp_path / 'space-a', 'benchmark_input', 'j1', 1, range(30)),
-        _write_job(tmp_path / 'space-b', 'benchmark_input', 'j1', 1, range(30)),
-        _write_job(tmp_path / 'space-c', 'benchmark_input', 'j2', 2, range(30)),
+        _write_job(tmp_path / 'space-a', 'benchmark_input', 'j1', 1, range(10)),
+        _write_job(tmp_path / 'space-b', 'benchmark_input', 'j1', 1, range(10)),
+        _write_job(tmp_path / 'space-c', 'benchmark_input', 'j2', 2, range(10)),
     ]
     pooled = cells.read_criterion_cell(roots, 'plate', 'C07')
     assert pooled['published'] is True
-    assert [g['stats']['n'] for g in pooled['groups']] == [30, 30]
+    assert [g['stats']['n'] for g in pooled['groups']] == [10, 10]
 
 
 # BLOCKER 3

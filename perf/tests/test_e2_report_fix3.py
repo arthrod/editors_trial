@@ -23,7 +23,7 @@ def runs(fs):
                     publishable=True,
                     host={},
                     rendering={},
-                    order=[[i, 'plate'] for i in range(30)],
+                    order=[[i, 'plate'] for i in range(10)],
                 )
             )
         )
@@ -108,7 +108,7 @@ def test_sample_without_trials_counted_for_every_criterion(runs, reason, family)
         assert cell(runs[0], criterion)['refusals'] == {family: 3}
     text = cells.publication_text(cell(runs[0]))
     assert '20.0 ms' in text
-    assert '3 of 30 launches failed' in text
+    assert '3 of 10 launches failed' in text
     assert family in text
 
 
@@ -172,7 +172,7 @@ def test_failure_counts_survive_reproduction_and_mismatch(runs):
         for rep in range(10):
             trial(runs[1], rep, samples_ms=[value])
         text = cells.publish_dual_runs(*runs, 'plate', 'C07')
-        assert 'second' in text and '3 of 30 launches failed' in text
+        assert 'second' in text and '3 of 10 launches failed' in text
         assert text in report.facts_from_runs(*runs)['perf.e2.table.C07']
 
 
@@ -190,14 +190,20 @@ def test_blocked_reproduction_is_not_short_sample_claim(runs):
 
 
 def test_mixed_tracking_withholds_share(runs):
+    # A model-layer launch is kept and carries no frame flags. Mixing it with
+    # witnessed launches must still publish the figure and must not print a
+    # sub-frame share of the witnessed subset. Clearing flags on a
+    # browser-visible launch is a malformed sample, not mixed tracking.
     for rep in range(5):
-        trial(runs[0], rep, sub_frame_samples=None)
-    assert '% sub-frame' not in cells.publication_text(cell(runs[0]))
+        trial(runs[0], rep, layer='model', sub_frame_samples=None)
+    text = cells.publication_text(cell(runs[0]))
+    assert '20.0 ms' in text
+    assert '% sub-frame' not in text
 
 
 def test_each_failure_family_retained(runs):
-    trial(runs[0], 10, outcome='failed', failure_reason='search_timeout: selector', refusal_code='search_timeout')
-    trial(runs[0], 11, outcome='failed', failure_reason='paint_witness_unavailable: CDP', refusal_code='paint_witness_unavailable')
+    trial(runs[0], 8, outcome='failed', failure_reason='search_timeout: selector', refusal_code='search_timeout')
+    trial(runs[0], 9, outcome='failed', failure_reason='paint_witness_unavailable: CDP', refusal_code='paint_witness_unavailable')
     text = cells.publication_text(cell(runs[0]))
     assert 'search_timeout' in text and 'paint_witness_unavailable' in text
 

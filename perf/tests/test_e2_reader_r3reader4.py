@@ -107,13 +107,14 @@ def test_near_copy_31_launch_names_refused(tmp_path):
 
 
 def test_criterion_refuses_different_summary_build_trees(tmp_path):
+    order = [[i, "plate"] for i in range(10)]
     a = _write_job(
-        tmp_path / "sa", "benchmark_input", "j1", 1, range(30),
-        summary=_summary("j1", 1, hosts={"plate": {"tree_sha256": "tree-a"}}),
+        tmp_path / "sa", "benchmark_input", "j1", 1, range(10),
+        summary=_summary("j1", 1, order=order, hosts={"plate": {"tree_sha256": "tree-a"}}),
     )
     b = _write_job(
-        tmp_path / "sb", "benchmark_input", "j2", 2, range(30),
-        summary=_summary("j2", 2, hosts={"plate": {"tree_sha256": "tree-b"}}),
+        tmp_path / "sb", "benchmark_input", "j2", 2, range(10),
+        summary=_summary("j2", 2, order=order, hosts={"plate": {"tree_sha256": "tree-b"}}),
         # r3s2fix: attempts' pins are unioned with the summary pin now, so
         # this job's attempts must record its own build or the seed refuses
         # on the within-seed conflict before the cross-seed comparison.

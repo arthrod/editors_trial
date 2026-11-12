@@ -48,7 +48,7 @@ def test_success_shows_kept_and_scheduled(runs, value):
     for i in range(10):
         trial(runs[0], i, samples_ms=[value], sub_frame_samples=[value < 16.7])
     text = cells.publication_text(cells.build_run_cell(runs[0], 'plate', 'C07'))
-    assert 'n = 10 of 30' in text
+    assert 'n = 10 of 10' in text
 
 
 def test_empty_criteria_do_not_invent_cells(runs):

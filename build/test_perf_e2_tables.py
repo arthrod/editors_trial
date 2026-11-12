@@ -69,7 +69,7 @@ def _write_trial(root: Path, rep: int, editor: str, criterion: str, **kwargs) ->
     path.write_text(json.dumps(_trial(editor, criterion, **kwargs)), encoding="utf-8")
 
 
-def _summary(root: Path, *, run_id: str, seed: int, editors: list[str], reps: int = 30) -> dict:
+def _summary(root: Path, *, run_id: str, seed: int, editors: list[str], reps: int = 10) -> dict:
     host = dict(
         cpu_model="fixture CPU",
         cpu_cores_logical=16,
@@ -136,7 +136,7 @@ class ReportE2Facts(unittest.TestCase):
         facts = E2.facts_from_runs(primary, self.base / "repro")
         table = facts["perf.e2.table.C07"]
         self.assertNotIn("not enough samples", table)
-        self.assertIn("n = 9 of 30", table)
+        self.assertIn("n = 9 of 10", table)
         self.assertNotIn("p90", table)
         self.assertIn("range", table)
 
@@ -283,7 +283,7 @@ def runs(fs):
         root.mkdir(parents=True)
         summary = dict(run_id=root.name, seed=seed, execution_profile='dedicated_publish',
                        publishable=True, host_class='dedicated', host={}, rendering={},
-                       order=[[i, e] for i in range(40) for e in ['plate', 'docen']])
+                       order=[[i, e] for i in range(10) for e in ['plate', 'docen']])
         (root / 'summary.json').write_text(json.dumps(summary))
         for i in range(10):
             _write_trial(root, i, 'plate', 'C07', outcome='measured', samples=[100], diagnostic={'frame_interval_ms':16.7})
@@ -319,12 +319,11 @@ def test_finding_02_symmetric_larger_interval(runs):
 def test_finding_03_kept_frame_median(runs):
     for root in runs:
         fill(root, [8], 16.7)
-        # r3s2fix 3 refuses a launch the order never named, so the not_run
-        # rows sit on scheduled reps (10–19, inside the 0..39 order, clear
-        # of fill's 0–9). One frame of 1 cannot move a median of ten equal
-        # 16.7 ms intervals; ten of them can. Included, the kept-frame
-        # median leaves 16.7; excluded, it stays 16.7.
-        for rep in range(10, 20):
+        # The campaign schedules exactly 10, and r3s2fix 3 refuses a launch
+        # the order never named, so the not_run rows replace fill's reps
+        # 5–9. Five measured frames of 16.7 keep the median at 16.7. Five
+        # frames of 1, if included, pull that median off 16.7.
+        for rep in range(5, 10):
             _write_trial(root, rep, 'plate', 'C07', outcome='not_run', diagnostic={'frame_interval_ms': 1})
     assert '< 1 frame (16.7 ms)' in table(runs)
     cell = E2.e2_cells.build_run_cell(runs[0], 'plate', 'C07')
@@ -338,17 +337,17 @@ def test_finding_04_rejected_and_sample_refused(runs):
         source.rename(dest)
         (root / 'samples').mkdir()
         (root / 'samples/0009-plate.json').write_text(json.dumps(dict(editor_id='plate', repetition=9, outcome='failed', failure_reason='cpu_throttled', refusal_code='cpu_throttled')))
-    assert 'n = 9 of 40' in table(runs)
+    assert 'n = 9 of 10' in table(runs)
     assert 'cpu_throttled' in table(runs)
     # A refusal must also veto an otherwise measured file still under cells.
     for root in runs:
         _write_trial(root, 9, 'plate', 'C07', outcome='measured', samples=[100])
-    assert 'n = 9 of 40' in table(runs)
+    assert 'n = 9 of 10' in table(runs)
 
 def test_finding_05_launch_not_click_count(runs):
     for root in runs:
         fill(root, [20, 21, 22], n=4)
-    assert 'n = 4 of 40' in table(runs)
+    assert 'n = 4 of 10' in table(runs)
     for root in runs:
         fill(root, [20, 21, 22])
     cell = E2.e2_cells.build_run_cell(runs[0], 'plate', 'C07')
@@ -361,7 +360,7 @@ def test_finding_06_host_both_runs(runs):
         change_summary(root, host={'cpu_quota': 2, 'os': 'Darwin'}, rendering={'renderer': 'NVIDIA'})
     change_summary(runs[1], cpu_steal_percent=37.5, cpu_throttle_refused_samples=20)
     note = E2.facts_from_runs(*runs)['perf.e2.host_note']
-    assert '37.50%' in note and '20 of 80' in note
+    assert '37.50%' in note and '20 of 20' in note
     assert 'Darwin' in note and 'NVIDIA' in note
     assert '8-CPU' not in note and 'software rasterization' not in note
 
@@ -410,7 +409,7 @@ def test_finding_13_missing_flags_are_unknown(runs):
 
 def test_finding_14_asymmetric_gate_and_sample_mutation(runs):
     fill(runs[1], [100], n=4)
-    assert 'n = 4 of 40' in table(runs)
+    assert 'n = 4 of 10' in table(runs)
     fill(runs[1], [100])
     before = table(runs)
     for root in runs:
@@ -498,7 +497,7 @@ def test_failed_sibling_keeps_measured_criterion(runs):
     assert facts['perf.e2.plate.C07.reproduced'] is True
     assert facts['perf.e2.plate.C07.primary']['stats']['n'] == 10
     assert '100.0 ms' in facts['perf.e2.table.C07']
-    assert 'n = 0 of 40' in facts['perf.e2.table.C04']
+    assert 'n = 0 of 10' in facts['perf.e2.table.C04']
     assert 'search_timeout: 10' in facts['perf.e2.table.C04']
 
 
@@ -506,13 +505,13 @@ def test_failed_sibling_keeps_measured_criterion(runs):
 def test_launch_wide_refusal_still_vetoes_measured_trials(runs, reason):
     for root in runs:
         sample_row(root, 9, reason, reason.split(':')[0])
-    assert 'n = 9 of 40' in table(runs)
+    assert 'n = 9 of 10' in table(runs)
 
 
 def test_quarantined_launch_vetoes_leftover_cells(runs):
     for root in runs:
         (root / 'rejected-evidence/0009-plate/cell').mkdir(parents=True)
-    assert 'n = 9 of 40' in table(runs)
+    assert 'n = 9 of 10' in table(runs)
 
 
 @pytest.mark.parametrize('bad_summary', [None, '{not json'])
@@ -535,7 +534,7 @@ def test_dual_api_reports_blocked_reproduction(runs, short_primary):
     assert 'second run unpublishable: repos_modified' in text
     assert '100.0 ms' not in text
     if short_primary:
-        assert 'n = 4 of 40' in text
+        assert 'n = 4 of 10' in text
 
 
 @pytest.mark.parametrize('left,right,frames,expected', [

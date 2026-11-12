@@ -95,10 +95,11 @@ def test_frame_interval_bound_rule_in_node():
 
 
 def _input_job(root, job_id, seed, *, summary_tree, attempt_tree, value=20.0):
+    order = [[rep, "plate"] for rep in range(10)]
     return _write_job(
-        root, "benchmark_input", job_id, seed, range(30),
-        summary=_summary(job_id, seed, hosts={"plate": {"tree_sha256": summary_tree}}),
-        tree=attempt_tree, values={rep: value for rep in range(30)},
+        root, "benchmark_input", job_id, seed, range(10),
+        summary=_summary(job_id, seed, order=order, hosts={"plate": {"tree_sha256": summary_tree}}),
+        tree=attempt_tree, values={rep: value for rep in range(10)},
     )
 
 

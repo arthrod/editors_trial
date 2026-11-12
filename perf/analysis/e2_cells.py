@@ -363,6 +363,43 @@ def _scheduled_for_editor(summary: dict | None, editor_id: str, default: int) ->
     return sum(1 for _rep, ed in order if ed == editor_id)
 
 
+def _decided_publication_schedule(summaries: list, scheduled: int) -> bool:
+    """The campaign's schedule is 10 launches per seed, from 2 blocks of 5.
+
+    A whole job is that schedule only when its order is exactly
+    ``PUBLICATION_REPETITIONS``. Any other total is withheld. When the jobs
+    carry block metadata, the layout must be the decided one: two blocks,
+    five repetitions each, indices 1 and 2. Another factorization of 10 is
+    not that layout.
+    """
+    if scheduled != PUBLICATION_REPETITIONS:
+        return False
+    blocks = []
+    present = 0
+    for summary in summaries:
+        if not summary:
+            continue
+        present += 1
+        block = summary.get('block')
+        if isinstance(block, dict) and block.get('index'):
+            blocks.append(block)
+    if not blocks:
+        return True
+    if len(blocks) != present:
+        return False
+    each = PUBLICATION_REPETITIONS // 2
+    if any(int(block.get('of') or 0) != 2 or int(block.get('repetitions') or 0) != each for block in blocks):
+        return False
+    return sorted(int(block.get('index') or 0) for block in blocks) == [1, 2]
+
+
+def _wrong_schedule_text(n_kept: int, scheduled: int) -> str:
+    return (
+        'wrong schedule (n = %d of %d; this campaign schedules %d per seed)'
+        % (n_kept, scheduled, PUBLICATION_REPETITIONS)
+    )
+
+
 def _run_blocks_publication(summary: dict | None) -> tuple[bool, str | None]:
     if summary is None:
         return False, None
@@ -660,6 +697,7 @@ def _build_cell_from_jobs(
         if unscheduled:
             run_blocked = True
             block_reason = 'launch files not named in the job order'
+    decided_schedule = _decided_publication_schedule(summaries, scheduled)
     if run_blocked:
         return {
             'editor_id': editor_id,
@@ -669,6 +707,7 @@ def _build_cell_from_jobs(
             'sample_unit': 'bytes' if criterion_id in ('C17', 'C19') else 'ms',
             'witnessed': False,
             'scheduled': scheduled,
+            'decided_schedule': decided_schedule,
             'kept_ms': [],
             'raw_samples_ms': [],
             'sub_frame': [],
@@ -807,6 +846,7 @@ def _build_cell_from_jobs(
         'frame_interval_ms': percentile(intervals, 50) if intervals else None,
         'stats': {'n': len(kept), 'median': percentile(kept, 50), 'p90': percentile(kept, 90)} if kept else None,
         'blocked': run_blocked, 'block_reason': block_reason,
+        'decided_schedule': decided_schedule,
     }
 
 
@@ -849,6 +889,11 @@ def _criterion_block(seeds, groups) -> str | None:
         if group['blocked']:
             reason = group.get('block_reason') or 'run blocked'
             return '%s seed: run blocked (%s)' % (name, reason)
+    for name, group in zip(('first', 'second'), groups):
+        if group.get('decided_schedule') is False:
+            stats = group.get('stats') or {}
+            return '%s seed: %s' % (
+                name, _wrong_schedule_text(stats.get('n', 0), group.get('scheduled', 0)))
     for name, group in zip(('first', 'second'), groups):
         stats = group.get('stats') or {}
         n_kept = stats.get('n', 0)
@@ -942,6 +987,10 @@ def publication_text(cell: dict) -> str:
     stats = cell.get('stats')
     scheduled = cell.get('scheduled', PUBLICATION_REPETITIONS)
     n_kept = stats['n'] if stats else 0
+    # A cell that is not the decided schedule never prints a figure. p90 below
+    # is reached only for that schedule, and only when exactly 10 are kept.
+    if cell.get('decided_schedule') is False:
+        return _wrong_schedule_text(n_kept, scheduled)
     if n_kept < PUBLICATION_MIN_KEPT:
         reasons = cell.get('refusals') or {}
         reason_text = '; '.join(f'{key}: {count}' for key, count in sorted(reasons.items())) or 'none counted'
@@ -954,10 +1003,11 @@ def publication_text(cell: dict) -> str:
         failure_suffix += ' — content not verified'
     kept = cell.get('kept_ms') or []
     unit = 'bytes' if cell.get('sample_unit') == 'bytes' else 'ms'
-    # A percentile of a short kept set is not stable. Print it only at a full schedule.
+    # A percentile of a short kept set is not stable. Print it only at exactly
+    # PUBLICATION_REPETITIONS kept launches.
     spread = (
         f'range {min(kept):.1f} to {max(kept):.1f} {unit}'
-        if n_kept < PUBLICATION_REPETITIONS and kept else None
+        if n_kept != PUBLICATION_REPETITIONS and kept else None
     )
     if cell.get('sample_unit') == 'bytes':
         clock = spread if spread else f"p90 {stats['p90']:.1f} bytes"
