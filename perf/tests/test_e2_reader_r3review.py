@@ -137,7 +137,7 @@ def test_under_n_cell_does_not_leak_frame_interval(tmp_path):
 # BLOCKER 4
 
 
-def _write_typing_job(root: Path, job_id, seed, sessions=12, *, editor='plate', cps=5000.0):
+def _write_typing_job(root: Path, job_id, seed, sessions=6, *, editor='plate', cps=5000.0):
     def session(load=100.0):
         return dict(
             schema='perf.typing/2', editor_id=editor, criterion_id='TYPING', session_kind='throughput',
@@ -176,8 +176,8 @@ def _classic_typing_roots(tmp_path, cps_a=1111.0, cps_b=9999.0):
     for name, run_id, seed, cps in (('primary', 'a', 1, cps_a), ('repro', 'b', 2, cps_b)):
         root = tmp_path / name
         root.mkdir(parents=True, exist_ok=True)
-        (root / 'summary.json').write_text(json.dumps(_summary(run_id, seed, order=[[i, 'plate'] for i in range(12)])))
-        for i in range(12):
+        (root / 'summary.json').write_text(json.dumps(_summary(run_id, seed, order=[[i, 'plate'] for i in range(6)])))
+        for i in range(6):
             cell = root / 'cells' / ('%04d-plate' % i) / 'attempts'
             cell.mkdir(parents=True)
             row = dict(

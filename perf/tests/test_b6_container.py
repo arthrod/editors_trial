@@ -45,7 +45,7 @@ def test_publication_two_distinct_seeds_and_all_runners():
         assert args[args.index('--execution-profile')+1] == 'dedicated_publish'
         assert args[args.index('--host-class')+1] == 'shared_guarded'
         if name == 'benchmark_typing':
-            assert args[args.index('--repetitions')+1] == '12'
+            assert args[args.index('--repetitions')+1] == '6'
         else:
             assert '--repetitions' not in args
         assert '--pairs' not in args and '--samples' not in args
@@ -136,7 +136,7 @@ def test_runner_dry_run(mode):
         assert '--editors plate' in result.stdout
         for line in result.stdout.splitlines():
             if 'perf.runner.benchmark_typing ' in line:
-                assert '--repetitions 12 --cadence-ms 0 --budget-s 3600' in line
+                assert '--repetitions 6 --cadence-ms 0 --budget-s 3600' in line
             else:
                 assert '--repetitions' not in line
 

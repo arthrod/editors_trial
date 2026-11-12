@@ -84,7 +84,7 @@ def test_each_seed_schedules_both_session_kinds():
 
 
 @pytest.mark.parametrize('kind', ['throughput', 'latency'])
-@pytest.mark.parametrize('kept', [9, 10])
+@pytest.mark.parametrize('kept', [4, 5])
 def test_integration_kept_gate_uses_only_selected_kind(tmp_path, kind, kept):
     import sys, json
     from pathlib import Path
@@ -144,7 +144,7 @@ def test_integration_kept_gate_uses_only_selected_kind(tmp_path, kind, kept):
         sys.argv = old
     result = json.loads((tmp_path / 'benchmark_typing/kinds/summary.json').read_text())
     assert result['typing_sessions_kept'] == {'plate': {kind: kept}}
-    assert (result.get('failure_reason') == 'insufficient_typing_sessions') == (kept < 10)
+    assert (result.get('failure_reason') == 'insufficient_typing_sessions') == (kept < 5)
 
 
 def test_smoke_plan_schedules_both_kinds_integration():

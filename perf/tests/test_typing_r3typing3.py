@@ -254,7 +254,7 @@ def test_typing_table_fixture_docx_mismatch_withholds_figure(fs):
         row["session_wall_s"] = 30
         return row
 
-    hashes = ["aaa"] * 12 + ["bbb"] * 12
+    hashes = ["aaa"] * 6 + ["bbb"] * 6
     rows = [asyncio.run(seed_row(h)) for h in hashes]
     root = Path("/pub")
     for seed in (0, 1):
@@ -277,11 +277,11 @@ def test_typing_table_fixture_docx_mismatch_withholds_figure(fs):
                         "renderer": "r",
                         "headless": True,
                     },
-                    "order": [[i, "plate"] for i in range(12)],
+                    "order": [[i, "plate"] for i in range(6)],
                 }
             )
         )
-        for index, row in enumerate(rows[seed * 12 : (seed + 1) * 12]):
+        for index, row in enumerate(rows[seed * 6 : (seed + 1) * 6]):
             path = job / "cells" / f"{index:04d}-plate" / "attempts" / "typing.json"
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps(row))

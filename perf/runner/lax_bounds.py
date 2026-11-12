@@ -52,6 +52,24 @@ def publication_sample_paragraph() -> str:
     )
 
 
+def typing_sample_paragraph() -> str:
+    """Typing sample plan for Report E2. Numbers come from the typing publication constants."""
+    from perf.runner.browser_run import (
+        PUBLICATION_REPETITIONS,
+        TYPING_PUBLICATION_MIN_KEPT,
+        TYPING_PUBLICATION_SESSIONS,
+    )
+
+    return (
+        "Typing schedules "
+        f"{TYPING_PUBLICATION_SESSIONS} sessions per kind per seed "
+        f"and publishes a cell when at least {TYPING_PUBLICATION_MIN_KEPT} are kept. "
+        f"With {TYPING_PUBLICATION_MIN_KEPT} to {PUBLICATION_REPETITIONS - 1} kept sessions, "
+        "the table prints the median and the range from the smallest kept session to the largest. "
+        "A key-to-paint 90th percentile inside one session is over keys, not over sessions."
+    )
+
+
 def throttle_tolerance_description() -> str:
     return "max(%d ms, %g%% of the span)" % (
         int(THROTTLE_TOLERANCE_MIN_USEC / 1000),
@@ -62,6 +80,7 @@ def throttle_tolerance_description() -> str:
 __all__ = [
     "CONTENT_LENGTH_REL_TOL",
     "publication_sample_paragraph",
+    "typing_sample_paragraph",
     "relaxed_bounds_paragraph",
     "load_timeout_ms",
     "DEFAULT_LOAD_TIMEOUT_MS",

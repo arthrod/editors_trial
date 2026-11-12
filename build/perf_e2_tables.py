@@ -17,7 +17,12 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from perf.analysis import e2_cells
-from perf.runner.browser_run import PUBLICATION_MIN_KEPT, PUBLICATION_REPETITIONS
+from perf.runner.browser_run import (
+    PUBLICATION_MIN_KEPT,
+    PUBLICATION_REPETITIONS,
+    TYPING_PUBLICATION_MIN_KEPT,
+    TYPING_PUBLICATION_SESSIONS,
+)
 from perf.scenarios.catalog import scenarios
 
 from build.perf_e_tables import DISPLAY, REL_TOL, _SAME_HOST, _pct, reproduced
@@ -497,6 +502,7 @@ def unset_facts() -> dict:
         "perf.e2.rel_tol_pct": REL_TOL_PCT,
         "perf.e2.relaxed_bounds": __import__("perf.runner.lax_bounds", fromlist=["relaxed_bounds_paragraph"]).relaxed_bounds_paragraph(),
         "perf.e2.sample_plan": __import__("perf.runner.lax_bounds", fromlist=["publication_sample_paragraph"]).publication_sample_paragraph(),
+        "perf.e2.typing_sample_plan": __import__("perf.runner.lax_bounds", fromlist=["typing_sample_paragraph"]).typing_sample_paragraph(),
         "perf.e2.scheduled": PUBLICATION_REPETITIONS,
     }
     for cid in E2_CRITERIA:
@@ -596,6 +602,7 @@ def facts_from_roots(roots) -> dict:
         "perf.e2.rel_tol_pct": REL_TOL_PCT,
         "perf.e2.relaxed_bounds": __import__("perf.runner.lax_bounds", fromlist=["relaxed_bounds_paragraph"]).relaxed_bounds_paragraph(),
         "perf.e2.sample_plan": __import__("perf.runner.lax_bounds", fromlist=["publication_sample_paragraph"]).publication_sample_paragraph(),
+        "perf.e2.typing_sample_plan": __import__("perf.runner.lax_bounds", fromlist=["typing_sample_paragraph"]).typing_sample_paragraph(),
         "perf.e2.rule": (
             "Each launch contributes the median of its own samples; n counts kept launches. "
             "Scheduled counts come from each run's order. Publishability is decided per trial — job "
@@ -732,13 +739,21 @@ def typing_table(facts, roots, editor, kind):
     instrumented = ' Latency-session throughput and resources are instrumented; figures withheld.' if kind == 'latency' else ''
     reasons = []
     for name, group in zip(('first', 'second'), groups):
-        if group['blocked'] or group['scheduled'] != 12 or len(group['kept']) < 10:
+        kept_n = len(group['kept'])
+        scheduled = group['scheduled']
+        if group['blocked'] or scheduled != TYPING_PUBLICATION_SESSIONS or kept_n < TYPING_PUBLICATION_MIN_KEPT:
             progress = _typing_progress_for_table(group['progress'])
             suffix = f"; progress {progress}" if progress else ""
-            reasons.append(
-                f"{name}: not enough sessions or run blocked (n = {len(group['kept'])} of {group['scheduled']}; "
-                f"{group['block_reason'] or group['refusals']}){suffix}"
-            )
+            if not group['blocked'] and scheduled != TYPING_PUBLICATION_SESSIONS:
+                reasons.append(
+                    f"{name}: wrong schedule (n = {kept_n} of {scheduled}; "
+                    f"this campaign schedules {TYPING_PUBLICATION_SESSIONS} sessions){suffix}"
+                )
+            else:
+                reasons.append(
+                    f"{name}: not enough sessions or run blocked (n = {kept_n} of {scheduled}; "
+                    f"{group['block_reason'] or group['refusals']}){suffix}"
+                )
     if reasons:
         return label + ': ' + '; '.join(reasons) + instrumented
     builds = [group.get('build_pin') for group in groups]
@@ -770,23 +785,37 @@ def typing_table(facts, roots, editor, kind):
             for name, value in pairs:
                 metrics.setdefault(name, []).append(value)
         values.append(metrics)
-    header = label + f"; first n = {len(groups[0]['kept'])} of 12; second n = {len(groups[1]['kept'])} of 12." + instrumented
+    header = (
+        label
+        + f"; first n = {len(groups[0]['kept'])} of {TYPING_PUBLICATION_SESSIONS}; "
+        + f"second n = {len(groups[1]['kept'])} of {TYPING_PUBLICATION_SESSIONS}."
+        + instrumented
+    )
     all_reproduced = True
     table_lines: list[str] = []
     for name in sorted(set(values[0]) | set(values[1])):
         series = [v.get(name, []) for v in values]
         numeric = [[x for x in items if e2_cells._number(x)] for items in series]
         unit = 'chars/s' if name == 'throughput_chars_s' else 'ms' if name.endswith('_ms') else 'bytes' if name.endswith('_bytes') else 'count' if name.endswith('_count') else ''
-        if all(len(items) >= 10 for items in numeric):
+        if all(len(items) >= TYPING_PUBLICATION_MIN_KEPT for items in numeric):
             medians = [e2_cells.percentile(items, 50) for items in numeric]
             agrees = reproduced(*medians, rel_tol=REL_TOL, abs_tol=0)
             all_reproduced &= agrees
-            text = [fmt_resource(m, unit) + f' (n = {len(items)})' for m, items in zip(medians, numeric)] if agrees else ['not reproduced', 'not reproduced']
+            if agrees:
+                text = []
+                for median, items in zip(medians, numeric):
+                    # Same rule as the other lanes: a percentile of a short kept set is not stable.
+                    figure = fmt_resource(median, unit)
+                    if len(items) < PUBLICATION_REPETITIONS:
+                        figure += f'; range {min(items):.1f} to {max(items):.1f} {unit}'
+                    text.append(figure + f' (n = {len(items)})')
+            else:
+                text = ['not reproduced', 'not reproduced']
         else:
             text = ['; '.join(sorted({fmt_resource(x, unit) for x in items if not e2_cells._number(x)})) or 'not enough samples' for items in series]
         for i, items in enumerate(series):
             markers = sorted({fmt_resource(x, unit) for x in items if not e2_cells._number(x)})
-            if len(numeric[i]) >= 10 and markers:
+            if len(numeric[i]) >= TYPING_PUBLICATION_MIN_KEPT and markers:
                 text[i] += '; ' + '; '.join(markers)
         table_lines.append('| ' + name + ' | ' + ' | '.join(text) + ' |')
     if kind == 'latency' and all_reproduced:

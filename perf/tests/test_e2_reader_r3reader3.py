@@ -93,7 +93,7 @@ def _write_resource_job(root: Path, job_id, seed, launches=10, *, editor='plate'
     return root / 'runs' / 'camp'
 
 
-def _write_typing_job(root: Path, job_id, seed, sessions=12, *, kind='throughput', summary=None,
+def _write_typing_job(root: Path, job_id, seed, sessions=6, *, kind='throughput', summary=None,
                       cps=DISTINCTIVE_CPS, load=DISTINCTIVE_LOAD, wall=DISTINCTIVE_WALL,
                       fixture='fix' * 10, launches=None, progress_rows=(), tree='tree-a'):
     job = root / 'runs' / 'camp' / 'benchmark_typing' / job_id

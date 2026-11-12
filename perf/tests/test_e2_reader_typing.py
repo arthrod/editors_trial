@@ -11,11 +11,11 @@ runs = fixtures.runs
 DEFERRED = 'inspect all witness and resource refusals; publication requires complete session set'
 
 
-def typing_pair(runs, kind='throughput', count=12, **updates):
+def typing_pair(runs, kind='throughput', count=6, **updates):
     for root in runs:
         s = json.loads((root / 'summary.json').read_text())
         s.update(
-            order=[[i, 'plate'] for i in range(12)], runner='benchmark_typing', session_kind=kind, publishable=False
+            order=[[i, 'plate'] for i in range(6)], runner='benchmark_typing', session_kind=kind, publishable=False
         )
         (root / 'summary.json').write_text(json.dumps(s))
         for i in range(count):
@@ -72,7 +72,7 @@ def render(runs, kind):
 def test_throughput_resources_and_markers(runs):
     typing_pair(runs)
     text = render(runs, 'throughput')
-    assert '123' in text and 'chars/s' in text and 'n = 12 of 12' in text
+    assert '123' in text and 'chars/s' in text and 'n = 6 of 6' in text
     assert '1.2 KiB' in text and '0 ms' in text and 'single_sample_phase' in text
     assert 'not applicable at this endpoint' in text
     assert '999999' not in text and 'load_ms' not in text
@@ -81,7 +81,7 @@ def test_throughput_resources_and_markers(runs):
 def test_latency_excludes_instrumented_figures(runs):
     typing_pair(runs, 'latency')
     text = render(runs, 'latency')
-    assert 'load_ms' in text and 'key_to_paint' in text and 'accepted 24' in text and 'refused 0' in text
+    assert 'load_ms' in text and 'key_to_paint' in text and 'accepted 12' in text and 'refused 0' in text
     assert 'instrumented' in text and '999999' not in text and '987654321' not in text and 'chars/s' not in text
 
 
@@ -107,9 +107,10 @@ def test_typing_gates_do_not_publish_bad_sessions(runs, updates, reason):
         assert '77' in text
 
 
-def test_nine_sessions_do_not_publish(runs):
-    typing_pair(runs, count=9)
-    assert 'not enough sessions' in render(runs, 'throughput')
+def test_four_sessions_do_not_publish(runs):
+    typing_pair(runs, count=4)
+    text = render(runs, 'throughput')
+    assert 'n = 4 of 6' in text and 'not enough sessions' in text
 
 
 def test_two_seeds_required(runs):
@@ -199,7 +200,7 @@ def test_typing_reproduction_requires_same_editor_build_tree(runs):
     # editor tree in host_provenance is the pin a reproduction must share.
     typing_pair(runs)
     for root, tree in zip(runs, ('tree-a', 'tree-b')):
-        for i in range(12):
+        for i in range(6):
             path = root / f'cells/{i:04d}-plate/attempts/TYPING.json'
             row = json.loads(path.read_text())
             row['host_provenance'] = {'host_build': 'production', 'publishable': True, 'tree_sha256': tree}
@@ -212,7 +213,7 @@ def test_typing_reproduction_requires_same_editor_build_tree(runs):
 def test_typing_reproduction_allows_matching_editor_build_tree(runs):
     typing_pair(runs)
     for root in runs:
-        for i in range(12):
+        for i in range(6):
             path = root / f'cells/{i:04d}-plate/attempts/TYPING.json'
             row = json.loads(path.read_text())
             row['host_provenance'] = {'host_build': 'production', 'publishable': True, 'tree_sha256': 'tree-a'}

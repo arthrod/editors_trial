@@ -154,14 +154,14 @@ def test_typing_empty_order_rerun_refused(tmp_path):
     camp_a = tmp_path / "space-a" / "runs" / "camp"
     _write_typing_job(tmp_path / "space-a", "t1", 1)
     _write_typing_job(
-        tmp_path / "space-a", "t1r", 1, launches=range(12),
+        tmp_path / "space-a", "t1r", 1, launches=range(6),
         summary=_summary("t1r", 1, order=[]),
     )
     camp_b = _write_typing_job(tmp_path / "space-b", "t2", 2)
     facts = {}
     text = report.typing_table(facts, [camp_a, camp_b], "plate", "throughput")
     assert facts.get("perf.e2.plate.TYPING.throughput.reproduced") is not True
-    assert "12" in text
+    assert "6" in text
 
 
 # MAJOR 8 — unpublished typing cell must not store agreeing medians in facts table

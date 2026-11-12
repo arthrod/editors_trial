@@ -100,19 +100,22 @@ def test_integration_fair_load_and_normalized_dom_backlog(tmp_path, repeat):
 def test_publication_flags_and_typing_only_minimum():
     from perf.container.policy import publication_jobs
     from perf.runner import browser_run as br
-    assert getattr(br, 'TYPING_PUBLICATION_SESSIONS', None) == 12
-    assert getattr(br, 'TYPING_PUBLICATION_MIN_KEPT', None) == 10
+    assert getattr(br, 'TYPING_PUBLICATION_SESSIONS', None) == 6
+    assert getattr(br, 'TYPING_PUBLICATION_MIN_KEPT', None) == 5
     for name, args in publication_jobs(['plate'], 1, 2, 'shared_guarded'):
         if name == 'benchmark_typing':
-            for flag, value in [('--repetitions','12'),('--cadence-ms','0'),('--budget-s','3600')]:
+            for flag, value in [('--repetitions','6'),('--cadence-ms','0'),('--budget-s','3600')]:
                 assert flag in args and args[args.index(flag)+1] == value
     import sys
     old = sys.argv
     class ReachedFactory(Exception): pass
     def factory(*a, **kw): raise ReachedFactory()
     try:
-        for runner, n, accepted in [('benchmark_typing',12,True),('benchmark_typing',11,False),
-                                     ('benchmark_input',12,False),('benchmark_input',30,True)]:
+        # Other lanes refuse only a count below PUBLICATION_REPETITIONS.
+        # Twelve is above that floor (f4171976); it is not this campaign's typing schedule.
+        for runner, n, accepted in [('benchmark_typing',6,True),('benchmark_typing',5,False),
+                                     ('benchmark_input', br.PUBLICATION_REPETITIONS - 1, False),
+                                     ('benchmark_input',30,True)]:
             sys.argv = ['test','--execution-profile','dedicated_publish','--host-class','dedicated',
                         '--repetitions',str(n)]
             with pytest.raises(ReachedFactory if accepted else SystemExit):
@@ -132,7 +135,7 @@ def test_integration_save_timeout_is_named(tmp_path):
     assert result['characters_typed'] == 3
 
 
-@pytest.mark.parametrize('kept,refused', [(9, True),(10, False)])
+@pytest.mark.parametrize('kept,refused', [(4, True),(5, False)])
 def test_integration_typing_kept_gate_per_editor(tmp_path, kept, refused):
     """Real BrowserRun artifacts; fake cell, host facts, and accounting."""
     import sys, json
@@ -156,8 +159,8 @@ def test_integration_typing_kept_gate_per_editor(tmp_path, kept, refused):
             facts=(lambda:{},lambda:{}))
     finally: sys.argv = old
     result = json.loads((tmp_path/'benchmark_typing/gate/summary.json').read_text())
-    assert len(result['samples']) == 24
-    assert result['typing_sessions_kept'] == {'plate':{'throughput':kept},'folio':{'throughput':12}}
+    assert len(result['samples']) == 12
+    assert result['typing_sessions_kept'] == {'plate':{'throughput':kept},'folio':{'throughput':6}}
     assert (result.get('failure_reason') == 'insufficient_typing_sessions') is refused
 
 
@@ -220,15 +223,15 @@ def test_integration_bridge_insert_text_refuses_no_keydown_and_bounds_masks(tmp_
     finally: host.stop()
 
 
-def test_publication_consumer_refuses_nine_kept_typing_sessions():
+def test_publication_consumer_refuses_four_kept_typing_sessions():
     from perf.container.policy import verify_run
     data = {'runner':'benchmark_typing','execution_profile':'dedicated_publish',
             'rendering':{'renderer':'test'},'samples':[{'editor_id':'plate','outcome':'ok','cell_directory':'fake-cell'}],
-            'session_kind':'throughput', 'typing_sessions_kept':{'plate':{'throughput':9}}}
+            'session_kind':'throughput', 'typing_sessions_kept':{'plate':{'throughput':4}}}
     def trials(row): return [{'editor_id':'plate','criterion_id':'TYPING','outcome':'measured'}]
     with pytest.raises(ValueError, match='insufficient_typing_sessions'):
         verify_run(data, trial_reader=trials)
-    data['typing_sessions_kept']['plate']['throughput'] = 10
+    data['typing_sessions_kept']['plate']['throughput'] = 5
     assert verify_run(data, trial_reader=trials) is data
     data['runner'] = 'benchmark_input'
     data['typing_sessions_kept']['plate']['throughput'] = 0

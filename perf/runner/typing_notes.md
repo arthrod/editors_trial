@@ -6,8 +6,9 @@ value plus resource time series. Python attaches to Node's Chromium; it does not
 launch another browser. No paste or model insertion is used. Unsupported editing
 surfaces refuse. The full fixture is 12,805 words, ending at a paragraph boundary.
 
-Publication schedules 12 throughput sessions and 12 latency sessions per editor
-per seed, each kind independently requiring at least 10 kept. There are two
+Publication schedules 6 throughput sessions and 6 latency sessions per editor
+per seed (`TYPING_PUBLICATION_SESSIONS`), each kind independently requiring at
+least 5 kept (`TYPING_PUBLICATION_MIN_KEPT`). There are two
 distinct seeds, cadence 0 (saturation), and a 3,600 second session budget.
 `--session-kind throughput|latency` selects one kind for each run. Each session
 uses a fresh browser and profile and types the entire brief. Other lanes retain

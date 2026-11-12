@@ -231,8 +231,8 @@ def test_typing_session_load_witness_on_fair_fixture(tmp_path):
         host.stop()
 
 
-def test_typing_stops_when_ten_kept_unreachable(tmp_path):
-    not_kept = 3
+def test_typing_stops_when_five_kept_unreachable(tmp_path):
+    not_kept = 2
     from functools import partial
     from perf.runner.browser_run import BrowserRun, CELL, run_cli, write_json
 
@@ -293,7 +293,7 @@ def test_typing_stops_when_ten_kept_unreachable(tmp_path):
     assert result["typing_sessions_kept"]["plate"]["throughput"] == 0
     not_run = list((tmp_path / "benchmark_typing/s2-early").glob("cells/*/attempts/typing.json"))
     skipped = [json.loads(p.read_text()) for p in not_run if json.loads(p.read_text()).get("outcome") == "not_run"]
-    assert len(skipped) == 12 - not_kept
+    assert len(skipped) == 6 - not_kept
     assert {row.get("failure_reason") for row in skipped} == {"typing_sessions_unreachable"}
     for row in skipped:
         assert row.get("throughput_chars_s") is None

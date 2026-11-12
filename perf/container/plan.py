@@ -20,7 +20,7 @@ from perf.runner.browser_run import PUBLICATION_REPETITIONS
 _RUNG = {'prose-500w': 1.0, 'prose-5kw': 1.3, 'prose-50kw': 2.2, 'prose-250kw': 6.0, 'complex-corpus': 1.3}
 _BASE = {'benchmark_warm_cold': 20, 'benchmark_document': 40, 'benchmark_input': 15,
          'adversarial_c10_scroll': 10, 'benchmark_memory': 20, 'benchmark_resources': 20}
-_TYPING = 360
+_TYPING = 180  # campaign 1 calibrated 360 minutes for twelve sessions; scaled to six
 _C14 = 150
 # Campaign 1 (2026-11-11) timed one job over 30 repetitions. _BASE and _C14 are
 # those minutes. PUBLICATION_REPETITIONS is how many a publication job runs now.

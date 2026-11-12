@@ -48,6 +48,8 @@ Playwright {{perf.e2.playwright}}, Chromium {{perf.e2.chromium}}. Renderer: {{pe
 
 {{perf.e2.sample_plan}}
 
+{{perf.e2.typing_sample_plan}}
+
 {{perf.e2.rule}}
 
 Primary run `{{perf.e2.run_id}}`, seed {{perf.e2.seed}} ({{perf.e2.date}}). Reproduction run `{{perf.e2.repro_run_id}}`, seed {{perf.e2.repro_seed}} ({{perf.e2.repro_date}}).
@@ -128,7 +130,7 @@ Each cell shows the first seed's median and the second seed's median. A figure i
 
 ### B9 — typing marathon
 
-Each kind schedules 12 sessions per editor per seed and requires at least 10 kept. Throughput sessions publish chars/s and resources. Latency sessions publish load and key-to-paint with witness counts; their instrumented throughput and resources are withheld.
+Throughput sessions publish chars/s and resources. Latency sessions publish load and key-to-paint with witness counts; their instrumented throughput and resources are withheld.
 
 {{perf.e2.table.TYPING}}
 
