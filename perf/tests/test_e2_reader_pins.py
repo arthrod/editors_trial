@@ -21,7 +21,8 @@ runs = fixtures.runs
 
 def restamp(root, tree=..., editor_version=..., shakedown=...):
     """Rewrite every plate trial's built-editor identity in one run."""
-    for path in sorted((root / 'cells').rglob('*.json')):
+    # 2x5 launches live under the block job, not the campaign root.
+    for path in sorted(root.glob('**/cells/*/attempts/*.json')):
         row = json.loads(path.read_text())
         if tree is ...:
             pass
@@ -86,8 +87,9 @@ def test_pinned_editor_version_is_the_fallback_identity(runs):
     ],
 )
 def test_shakedown_summary_never_publishes(runs, summary_updates):
-    path = runs[1] / 'summary.json'
-    path.write_text(json.dumps({**json.loads(path.read_text()), **summary_updates}))
+    # The mark is on the job the reader uses. Under 2x5 that is each block.
+    for path in [runs[1] / 'summary.json', *sorted(runs[1].glob('*/*/summary.json'))]:
+        path.write_text(json.dumps({**json.loads(path.read_text()), **summary_updates}))
     facts = report.facts_from_runs(*runs)
     assert facts['perf.e2.cells_reproduced'] == 0
     assert facts['perf.e2.plate.C07.reproduced'] is False
@@ -96,10 +98,25 @@ def test_shakedown_summary_never_publishes(runs, summary_updates):
 
 def test_shakedown_mark_on_one_trial_blocks_the_whole_run(runs):
     # One shakedown-marked trial, clean job summary: no cell of that run —
-    # not even another editor's — may publish.
+    # not even another editor's — may publish. A block job schedules every
+    # editor for its five launches; a single extra file is not that schedule.
     trial(runs[1], 0, 'C07', shakedown=True)
-    trial(runs[0], 0, 'C07', editor_id='docen', name='docen.json')
-    trial(runs[1], 0, 'C07', editor_id='docen', name='docen.json')
+    for root in runs:
+        for summary_path in sorted(root.glob('*/*/summary.json')):
+            summary = json.loads(summary_path.read_text())
+            order = summary.get('order') or []
+            reps = [rep for rep, editor in order if editor == 'plate' and isinstance(rep, int)]
+            summary['order'] = order + [[rep, 'docen'] for rep in reps if [rep, 'docen'] not in order]
+            summary_path.write_text(json.dumps(summary))
+            job = summary_path.parent
+            for rep in reps:
+                src = job / 'cells' / f'{rep:04d}-plate' / 'attempts' / 'C07.json'
+                row = json.loads(src.read_text())
+                row['editor_id'] = 'docen'
+                row.pop('shakedown', None)
+                dest = job / 'cells' / f'{rep:04d}-docen' / 'attempts' / 'C07.json'
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_text(json.dumps(row))
     for editor in ('plate', 'docen'):
         cell = cells.build_run_cell(runs[1], editor, 'C07')
         assert cell['blocked'] and cell['block_reason'].startswith('shakedown')

@@ -36,15 +36,22 @@ def test_byte_trials_keep_phases_without_timing_fields(runs, criterion, phase):
     assert 'bytes' in text and ' ms' not in text
 
 
+def _stamp_job_summaries(root, **updates):
+    """The 2x5 reader uses each block job's summary, not only the campaign root."""
+    for path in [root / 'summary.json', *sorted(root.glob('*/*/summary.json'))]:
+        summary = json.loads(path.read_text())
+        summary.update(updates)
+        path.write_text(json.dumps(summary))
+
+
 def test_memory_summary_delegates_only_its_neutral_flag(runs):
     for root in runs:
-        s = json.loads((root / 'summary.json').read_text())
-        s.update(publishable=False, publication_block_reason='summary is not a trial; trials carry publishability')
-        (root / 'summary.json').write_text(json.dumps(s))
+        _stamp_job_summaries(
+            root, publishable=False, publication_block_reason='summary is not a trial; trials carry publishability'
+        )
     assert 'unpublishable' not in report._cell_text({}, list(runs), 'plate', 'C07')
     assert not cells.build_run_cell(runs[0], 'plate', 'C07')['blocked']
-    s.update(outcome='failed', failure_reason='repos_modified')
-    (runs[0] / 'summary.json').write_text(json.dumps(s))
+    _stamp_job_summaries(runs[0], outcome='failed', failure_reason='repos_modified')
     assert cells.build_run_cell(runs[0], 'plate', 'C07')['blocked']
 
 

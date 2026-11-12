@@ -1,6 +1,8 @@
 """B9 publication separates instrumented sessions from throughput resources."""
 
 import json
+import shutil
+
 import pytest
 from perf.tests import test_e2_report_fix3 as fixtures
 from perf.tests.test_e2_report_fix3 import trial
@@ -13,6 +15,11 @@ DEFERRED = 'inspect all witness and resource refusals; publication requires comp
 
 def typing_pair(runs, kind='throughput', count=6, **updates):
     for root in runs:
+        # Typing is one job of 6 sessions per kind. The shared runs fixture
+        # lays the non-typing 2x5 blocks; those are not this lane's schedule.
+        block_root = root / 'benchmark_input'
+        if block_root.exists():
+            shutil.rmtree(block_root)
         s = json.loads((root / 'summary.json').read_text())
         s.update(
             order=[[i, 'plate'] for i in range(6)], runner='benchmark_typing', session_kind=kind, publishable=False

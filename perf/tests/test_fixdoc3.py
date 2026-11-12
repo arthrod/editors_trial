@@ -224,7 +224,7 @@ def _e2_summary(root: Path, run_id: str, seed: int):
         "publishable": True,
         "host": {"cpu_model": "fixture CPU"},
         "rendering": {},
-        "order": [[i, "plate"] for i in range(30)],
+        "order": [[i, "plate"] for i in range(10)],
     }
 
 
@@ -263,6 +263,22 @@ def _write_c14_trial(root: Path, rep: int, measure: str, samples: list, sample_m
     path.write_text(json.dumps(row), encoding="utf-8")
 
 
+def _write_c14_blocks(root: Path):
+    """C14 is one document job per block: 2 blocks of 5, both clocks in each launch."""
+    summary = json.loads((root / "summary.json").read_text(encoding="utf-8"))
+    for index, lo, hi in ((1, 0, 5), (2, 5, 10)):
+        job = root / "benchmark_document" / ("b%d" % index)
+        job.mkdir(parents=True)
+        block = dict(summary)
+        block["run_id"] = "%s-b%d" % (summary.get("run_id"), index)
+        block["order"] = [[rep, "plate"] for rep in range(lo, hi)]
+        block["block"] = {"index": index, "of": 2, "repetitions": 5}
+        (job / "summary.json").write_text(json.dumps(block), encoding="utf-8")
+        for rep in range(lo, hi):
+            _write_c14_trial(job, rep, "presented_frame", [900.0])
+            _write_c14_trial(job, rep, "usable_no_damage", [100.0])
+
+
 class E2ReaderGroupsC14ByMeasure(unittest.TestCase):
     """The report row names the measure; the two clocks are never pooled."""
 
@@ -273,9 +289,7 @@ class E2ReaderGroupsC14ByMeasure(unittest.TestCase):
         self.primary = _write_e2_run(base / "primary", "a", 1)
         self.repro = _write_e2_run(base / "repro", "b", 2)
         for root in (self.primary, self.repro):
-            for rep in range(10):
-                _write_c14_trial(root, rep, "presented_frame", [900.0])
-                _write_c14_trial(root, rep, "usable_no_damage", [100.0])
+            _write_c14_blocks(root)
         from build import perf_e2_tables as E2
 
         self.facts = E2.facts_from_runs(self.primary, self.repro)
@@ -303,8 +317,8 @@ class E2ReaderGroupsC14ByMeasure(unittest.TestCase):
         from perf.analysis import e2_cells
 
         _write_c14_trial(
-            self.primary,
-            10,
+            self.primary / "benchmark_document" / "b1",
+            0,
             "presented_frame",
             [100.0, 900.0],
             sample_measures=["usable_no_damage", "presented_frame"],

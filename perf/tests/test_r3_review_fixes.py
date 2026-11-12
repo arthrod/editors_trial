@@ -72,9 +72,14 @@ def test_a_record_without_a_document_belongs_to_no_document(tmp_path):
 
 
 def test_one_job_pulled_into_two_roots_counts_once(tmp_path):
-    for space in ('a', 'b'):
-        _job(tmp_path / space, 'j1', seed=1, launches=10)
-    _job(tmp_path / 'c', 'j2', seed=2, launches=10)
+    # Resources publishes from 2 blocks of 5. One of those block jobs is
+    # pulled into two roots and must still count once.
+    block = {'of': 2, 'repetitions': 5}
+    _job(tmp_path / 'a', 'j1', seed=1, launches=5, summary={'block': {**block, 'index': 1}})
+    _job(tmp_path / 'b', 'j1', seed=1, launches=5, summary={'block': {**block, 'index': 1}})
+    _job(tmp_path / 'a', 'j1b', seed=1, launches=5, first=5, summary={'block': {**block, 'index': 2}})
+    _job(tmp_path / 'c', 'j2', seed=2, launches=5, summary={'block': {**block, 'index': 1}})
+    _job(tmp_path / 'c', 'j2b', seed=2, launches=5, first=5, summary={'block': {**block, 'index': 2}})
     cell = res.read_cell([tmp_path / 'a', tmp_path / 'b', tmp_path / 'c'], 'plate', 'prose-250kw')
     assert cell['kept'] == [10, 10] and cell['published'] is True
 

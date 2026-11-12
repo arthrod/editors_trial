@@ -3,7 +3,7 @@
 import json
 import pytest
 from perf.tests import test_e2_report_fix3 as fixtures
-from perf.tests.test_e2_report_fix3 import trial, cell
+from perf.tests.test_e2_report_fix3 import block_dir, trial, cell
 
 runs = fixtures.runs
 from perf.analysis import e2_cells as cells
@@ -35,9 +35,10 @@ def pair(runs):
 @pytest.mark.parametrize('code', ['host_build', 'crash', None])
 def test_codes_ignore_message(pair, message, code):
     root = pair[0]
-    directory = root / 'samples'
-    directory.mkdir()
     for rep in range(10):
+        # Samples sit on the block job that owns the launch, five per block.
+        directory = block_dir(root, rep) / 'samples'
+        directory.mkdir(exist_ok=True)
         row = dict(editor_id='plate', failure_reason=message)
         if code is not None:
             row['refusal_code'] = code
@@ -64,7 +65,7 @@ def test_capture_type(exc, expected):
 
 
 def test_unreadable_veto(pair):
-    (pair[0] / 'cells/0000-plate/attempts/bad.json').write_text('{not json host-error')
+    (block_dir(pair[0], 0) / 'cells/0000-plate/attempts/bad.json').write_text('{not json host-error')
     assert cell(pair[0])['refusals'] == {'unreadable_trial': 1}
     assert cell(pair[0])['stats']['n'] == 9
 
@@ -147,7 +148,7 @@ def test_publishable(pair, extra):
 
 def test_missing_code(pair):
     trial(pair[0], 0, publishable=True, sub_frame_samples=[False])
-    path = pair[0] / 'cells/0000-plate/attempts/C07.json'
+    path = block_dir(pair[0], 0) / 'cells/0000-plate/attempts/C07.json'
     row = json.loads(path.read_text())
     del row['refusal_code']
     path.write_text(json.dumps(row))
@@ -156,11 +157,12 @@ def test_missing_code(pair):
 
 def test_blocked_empty(pair):
     root = pair[1]
-    for path in (root / 'cells').rglob('*.json'):
+    for path in root.rglob('cells/*/attempts/*.json'):
         path.unlink()
-    data = json.loads((root / 'summary.json').read_text())
-    data.update(publishable=False, failure_reason='repos_modified')
-    (root / 'summary.json').write_text(json.dumps(data))
+    for path in [root / 'summary.json', *root.glob('*/*/summary.json')]:
+        data = json.loads(path.read_text())
+        data.update(publishable=False, failure_reason='repos_modified')
+        path.write_text(json.dumps(data))
     try:
         text = cells.publish_dual_runs(*pair, 'plate', 'C07')
     except ValueError as exc:
@@ -208,13 +210,14 @@ def test_accounting_code(fs):
 
 
 def test_blocked_run_still_reports_its_block(pair):
-    path = pair[1] / 'summary.json'
-    data = json.loads(path.read_text())
     # A genuinely blocked run still renders its block reason; only the
     # comparability guards (host/seed/pin/profile) precede the early-return,
     # so a blocked repro also fails those checks instead of hiding them (#149).
-    data.update(publishable=False, publication_block_reason='repos_modified')
-    path.write_text(json.dumps(data))
+    # The reason is recorded on each block job, which is the summary the reader loads.
+    for path in [pair[1] / 'summary.json', *pair[1].glob('*/*/summary.json')]:
+        data = json.loads(path.read_text())
+        data.update(publishable=False, publication_block_reason='repos_modified')
+        path.write_text(json.dumps(data))
     text = cells.publish_dual_runs(*pair, 'plate', 'C07')
     assert 'blocked' in text
 
