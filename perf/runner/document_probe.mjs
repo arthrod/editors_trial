@@ -240,7 +240,7 @@ function decodeRecorderFrame(recorder, frame) {
 }
 
 async function resolveInkRegionDevice(page, frameDecoded) {
-  const rect = await page
+  let rect = await page
     .evaluate(() => {
       const fn = window.__docProbeSurface;
       if (typeof fn !== 'function') return null;
@@ -249,6 +249,26 @@ async function resolveInkRegionDevice(page, frameDecoded) {
     })
     .catch(() => null);
   if (!rect || !(rect.width > 0) || !(rect.height > 0)) return { scoped: false, rect_device: null, error: 'no region rect' };
+  // A screencast frame can only ever contain viewport pixels, so the
+  // comparable region is inherently viewport-bound (#174): intersect before
+  // the device rect so the settled screenshot clip and every screencast crop
+  // cover the same pixels. Usable then certifies the first viewport, and the
+  // payload discloses it.
+  const rectUnclamped = rect;
+  const viewport = await page
+    .evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }))
+    .catch(() => null);
+  let clamped = false;
+  if (viewport && viewport.width > 0 && viewport.height > 0) {
+    const x = Math.max(0, Math.min(rect.x, viewport.width));
+    const y = Math.max(0, Math.min(rect.y, viewport.height));
+    const right = Math.max(x, Math.min(rect.x + rect.width, viewport.width));
+    const bottom = Math.max(y, Math.min(rect.y + rect.height, viewport.height));
+    clamped =
+      x !== rect.x || y !== rect.y ||
+      right !== rect.x + rect.width || bottom !== rect.y + rect.height;
+    rect = { x, y, width: right - x, height: bottom - y };
+  }
   const dpr = await page.evaluate(() => window.devicePixelRatio || 1).catch(() => 1);
   let device = {
     x: Math.round(rect.x * dpr),
@@ -266,16 +286,23 @@ async function resolveInkRegionDevice(page, frameDecoded) {
   if (device.width < 1 || device.height < 1) {
     return { scoped: false, rect_device: device, error: 'empty region in frame' };
   }
-  return { scoped: true, rect_device: device, rect_css: rect, dpr, error: null };
+  return {
+    scoped: true, rect_device: device, rect_css: rect,
+    rect_css_unclamped: clamped ? rectUnclamped : null,
+    clamped_to_viewport: clamped, dpr, error: null,
+  };
 }
 
 /** Crop in device pixels; inset excludes four CSS pixels of border/chrome. */
 function cropInkRegion(decoded, region, inset = 0) {
   if (!decoded) return null;
-  const x = Math.max(0, Math.round(region.x + inset));
-  const y = Math.max(0, Math.round(region.y + inset));
-  const right = Math.min(decoded.width, Math.round(region.x + region.width - inset));
-  const bottom = Math.min(decoded.height, Math.round(region.y + region.height - inset));
+  // Clamp to the frame first, then inset: a region crossing the frame edge
+  // keeps the same inset as the settled reference, so both crops carry the
+  // same dimensions (#174).
+  const x = Math.max(0, Math.round(region.x)) + inset;
+  const y = Math.max(0, Math.round(region.y)) + inset;
+  const right = Math.min(decoded.width, Math.round(region.x + region.width)) - inset;
+  const bottom = Math.min(decoded.height, Math.round(region.y + region.height)) - inset;
   const width = right - x, height = bottom - y;
   if (width <= 0 || height <= 0) return null;
   const data = Buffer.alloc(width * height * 4);
@@ -400,7 +427,10 @@ async function waitForScreencastInk(page, recorder) {
     }
   }, candidate.ms);
   return { at_ms: candidate.ms, signal: SIGNAL_NAME.screencast_ink,
-    baseline, ink_frame: candidate.frame, reason: null };
+    baseline, ink_frame: candidate.frame, reason: null,
+    region_clamped_to_viewport: scope.clamped_to_viewport === true,
+    region_css: scope.rect_css,
+    region_unclamped_css: scope.rect_css_unclamped };
 }
 
 async function routeCorpus(context) {
@@ -1122,6 +1152,9 @@ async function loadResult(ctx, { navigationMs, readyMs, surface, witness, surfac
     screencast_ink_match_tolerance: usableSignal === 'screencast_ink' ? SETTLED_MATCH_TOLERANCE : null,
     screencast_ink_inset_css_px: usableSignal === 'screencast_ink' ? 4 : null,
     screencast_ink_min_pixels: usableSignal === 'screencast_ink' ? screencastInkMinPixels : null,
+    region_clamped_to_viewport: (surface && surface.region_clamped_to_viewport) ?? null,
+    region_css: (surface && surface.region_css) ?? null,
+    region_unclamped_css: (surface && surface.region_unclamped_css) ?? null,
     page_errors: ctx.errors,
   };
 }
@@ -1175,6 +1208,9 @@ async function runLoad(browser) {
         at_ms: ink.at_ms,
         chars: ink.at_ms === null ? null : 1,
         signal: ink.signal,
+        region_clamped_to_viewport: ink.region_clamped_to_viewport ?? null,
+        region_css: ink.region_css ?? null,
+        region_unclamped_css: ink.region_unclamped_css ?? null,
       };
       surfaceReason = ink.reason;
     } else {
@@ -1281,7 +1317,12 @@ async function runScale(browser) {
       surface = { at_ms: null, chars: null, signal: SIGNAL_NAME.canvas_pixel };
     } else if (usableSignal === 'screencast_ink') {
       const ink = await waitForScreencastInk(ctx.page, ctx.recorder);
-      surface = { at_ms: ink.at_ms, chars: ink.at_ms === null ? null : 1, signal: ink.signal };
+      surface = {
+        at_ms: ink.at_ms, chars: ink.at_ms === null ? null : 1, signal: ink.signal,
+        region_clamped_to_viewport: ink.region_clamped_to_viewport ?? null,
+        region_css: ink.region_css ?? null,
+        region_unclamped_css: ink.region_unclamped_css ?? null,
+      };
       surfaceReason = ink.reason;
     } else {
       surface = await waitForSurface(ctx.page);
@@ -1368,6 +1409,9 @@ async function runScale(browser) {
       witness: decision,
       forced_witness: forced,
       surface_reason: surface.at_ms === null ? surfaceReason || 'document surface did not appear before the probe timeout' : null,
+      region_clamped_to_viewport: surface.region_clamped_to_viewport ?? null,
+      region_css: surface.region_css ?? null,
+      region_unclamped_css: surface.region_unclamped_css ?? null,
       page_errors: ctx.errors,
     };
   } finally {

@@ -35,6 +35,7 @@ for (const scenario of ['ordinary', 'unknown-first', 'missing-frame', 'unknown-o
     const code=fn.toString();
     if(code.includes('time_origin_ms'))return {time_origin_ms:origin,now_ms:900};
     if(code.includes('__docProbeSurface'))return {x:0,y:0,width:100,height:100};
+    if(code.includes('innerWidth'))return {width:1280,height:900};
     if(code.includes('devicePixelRatio'))return 1;
     return 900;
   }};
