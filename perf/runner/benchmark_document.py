@@ -469,6 +469,16 @@ def docx_paragraph_bytes(body: bytes) -> bytes:
 _WML = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 
 
+def _editor_content_meta(fixtures: dict, specs: dict) -> dict:
+    """Content expectations from the C11 workload's fixture. A C14-only job
+    builds only the ladder rungs, so that fixture may be absent: the shared
+    meta is then not applicable (each C14 rung reads its own fixture)."""
+    prose_fixture = fixtures.get(specs["C11"]["workload"])
+    if prose_fixture is not None and prose_fixture["path"].is_file():
+        return corpus_content_expectations(prose_fixture["path"])
+    return {"length_check": "not_applicable", "length_check_reason": None}
+
+
 def _c12_norm(value: str) -> str:
     import unicodedata
 
@@ -2024,11 +2034,7 @@ def _main() -> int:
         cfg = DOCUMENT_TARGETS.get(editor_id)
         support_note = (cfg or {}).get("note")
         find_source_note = (cfg or {}).get("find_source_note")
-        prose_fixture = fixtures[specs["C11"]["workload"]]
-        editor_content_meta = corpus_content_expectations(prose_fixture["path"]) if prose_fixture["path"].is_file() else {
-            "length_check": "not_applicable",
-            "length_check_reason": None,
-        }
+        editor_content_meta = _editor_content_meta(fixtures, specs)
         gates_by_editor[editor_id] = gate_length_check_for(editor_id, editor_content_meta)
 
         refuse_reason = None
