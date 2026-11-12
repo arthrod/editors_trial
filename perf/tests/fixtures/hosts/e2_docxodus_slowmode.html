@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>E2 fake host: editor mode opens after the probe's old 20 s bound</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        background: #ffffff;
+        color: #111111;
+        font: 14px/1.5 serif;
+      }
+      #editorHost {
+        width: 640px;
+        margin: 30px auto;
+        outline: none;
+      }
+      #pages p,
+      #editorHost p {
+        margin: 0 0 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- The ready signal (window.__docxodus.rendered) fires on the paginated
+         view at once. Clicking #modeEditor then mounts the block editor —
+         contenteditable lines — after a delay longer than the probe's old
+         fixed 20 s bound, the way the real host opens a 250k-word document. -->
+    <button id="modeEditor">Block editor</button>
+    <div id="pages"><p>paginated view</p></div>
+    <div id="editorHost"></div>
+    <script>
+      window.__docxodus = { rendered: true, error: null, editor: false };
+      document.getElementById('modeEditor').addEventListener('click', function () {
+        const delay = Number(new URLSearchParams(location.search).get('delay') || 21000);
+        setTimeout(function () {
+          const host = document.getElementById('editorHost');
+          const block = document.createElement('div');
+          block.setAttribute('contenteditable', 'true');
+          const lines = [
+            'fixture line one alpha bravo charlie delta echo foxtrot golf',
+            'fixture line two hotel india juliet kilo lima mike november',
+            'fixture line three oscar papa quebec romeo sierra tango uniform',
+            'fixture line four victor whiskey xray yankee zulu alpha bravo',
+            'fixture line five charlie delta echo foxtrot golf hotel india',
+            'fixture line six juliet kilo lima mike november oscar papa',
+          ];
+          for (const text of lines) {
+            const p = document.createElement('p');
+            p.textContent = text;
+            block.appendChild(p);
+          }
+          host.appendChild(block);
+          window.__docxodus.editor = true;
+        }, delay);
+      });
+    </script>
+  </body>
+</html>

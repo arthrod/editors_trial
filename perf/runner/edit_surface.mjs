@@ -266,8 +266,12 @@ export async function readAndGateDocumentText(
   return { ...read, ...gate, whole };
 }
 
-/** Page context. First body text line fully inside the viewport. */
-export const FIND_TEXT_LINE = ({ root, exclude, minChars }) => {
+/** Page context. First body text line fully inside the viewport.
+ * `within`, when set, is the surface's declared paragraph block: a caret
+ * line lives inside it, so loading chrome painted elsewhere under the root
+ * (SuperDoc's v2-document-loading-overlay inside .superdoc__document, #168)
+ * cannot pose as a body line. */
+export const FIND_TEXT_LINE = ({ root, exclude, within = null, minChars }) => {
   const roots = root ? Array.from(document.querySelectorAll(root)) : [];
   for (const el of roots) {
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
@@ -276,6 +280,7 @@ export const FIND_TEXT_LINE = ({ root, exclude, minChars }) => {
       if (text.trim().length < minChars) continue;
       const parent = node.parentElement;
       if (!parent || (exclude && parent.closest(exclude))) continue;
+      if (within && !parent.closest(within)) continue;
       // A page header or footer is not the body line every editor is aimed at.
       let margin = false;
       for (let up = parent; up && up !== el; up = up.parentElement) {
@@ -715,7 +720,7 @@ export async function prepareEditSurface(page, editorId, { timeoutMs = 600000, t
   // A zero-text document never gains a text line: a 0 timeout skips the wait.
   let textLine = null;
   if (surface.kind === 'dom' && surface.root && textLineTimeoutMs !== 0) {
-    const request = { root: surface.root, exclude: surface.exclude || null, minChars: 12 };
+    const request = { root: surface.root, exclude: surface.exclude || null, within: surface.block || null, minChars: 12 };
     try {
       await page.waitForFunction(FIND_TEXT_LINE, request, {
         timeout: textLineTimeoutMs === null ? timeoutMs : textLineTimeoutMs, polling: 100,
@@ -842,6 +847,7 @@ export async function placeCaret(
     point = await page.evaluate(FIND_TEXT_LINE, {
       root: surface.root || selector,
       exclude: surface.exclude || null,
+      within: surface.block || null,
       minChars: 12,
     });
     if (!point) throw new Error('edit_surface_no_text_line');

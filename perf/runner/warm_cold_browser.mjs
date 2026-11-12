@@ -83,8 +83,9 @@ import {
   CRITERIA_SCHEMA,
   parseCriteriaList,
   runCriteriaSuite,
+  waitForUsableSurface,
 } from './criteria_input.mjs';
-import { EDIT_SURFACES, editSurface, readAndGateDocumentText } from './edit_surface.mjs';
+import { EDIT_SURFACES, editSurface, readAndGateDocumentText, usableExpression } from './edit_surface.mjs';
 import { confirmLaneEdit, prepareLaneCaret } from './lane_edit_burst.mjs';
 
 /** Light-DOM box for screencast witness when the edit target is model or shadow. */
@@ -238,6 +239,10 @@ async function verifyCanvasOpening(page) {
   if (!editorId) {
     return { content_verified: false, surface_reason: 'document_content_unverifiable', skipped: false };
   }
+  // A ready signal that fired on the loading shell leaves the document
+  // mounting while this one-shot read runs: text '' gates as
+  // document_content_absent on an editor that mounts seconds later (#168).
+  await waitForUsableSurface(page, usableExpression(editorId, editSelector));
   const gated = await readAndGateDocumentText(page, editorId, {
     expectedOpening: expectedOpeningText,
     expectedClosing: expectedClosingSentinel,

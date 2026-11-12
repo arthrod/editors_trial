@@ -96,7 +96,8 @@ import { fileURLToPath } from 'node:url';
 import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 import { normalizeDocumentText } from './document_text_normalize.mjs';
-import { editSurface } from './edit_surface.mjs';
+import { editSurface, usableExpression } from './edit_surface.mjs';
+import { loadTimeoutMs } from './load_timeout.mjs';
 
 const REPO_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 
@@ -3429,7 +3430,7 @@ async function openEditorMode(page) {
     await page.waitForFunction(
       () => Boolean(document.querySelector('#editorHost [contenteditable="true"]')),
       undefined,
-      { timeout: 20000 },
+      { timeout: loadTimeoutMs() },
     );
   }
 }
@@ -3441,6 +3442,57 @@ async function openEditorMode(page) {
  * click+type probe that used to live here runs after C07: a measured point
  * requires an untouched document.
  */
+/**
+ * How long the DOM may stay quiet after ready before 'still mounting' stops
+ * being believed, and the outer bound on the usable wait itself. A surface
+ * that never reports usable still reaches the suite's own refusals — the
+ * wait never turns a refusal into a hang.
+ */
+const USABLE_QUIET_MS = 4000;
+const USABLE_WAIT_BOUND_MS = 120_000;
+
+/**
+ * The ready signal can fire on a loading shell while the document is still
+ * mounting (SuperDoc's overlay hosts progress text the ink scan photographs
+ * as painted lines; on a slow host the mount takes tens of seconds, #168).
+ * Click points resolved then aim at loading chrome or at line boxes that
+ * pagination moves. Wait for the surface's declared usable signal — or for
+ * the DOM to go quiet — before resolving.
+ */
+export async function waitForUsableSurface(page, usableJs) {
+  if (!usableJs) return;
+  await page.evaluate(() => {
+    const state = { lastMutation: performance.now() };
+    window.__ciUsableWait = state;
+    new MutationObserver(() => {
+      state.lastMutation = performance.now();
+    }).observe(document.documentElement || document, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+      attributes: true,
+    });
+  });
+  const deadline = Date.now() + USABLE_WAIT_BOUND_MS;
+  while (Date.now() < deadline) {
+    const usable = await page.evaluate((code) => {
+      try {
+        return Boolean(eval(code)); // eslint-disable-line no-eval
+      } catch {
+        return false;
+      }
+    }, usableJs);
+    if (usable) return;
+    const quiet = await page.evaluate(
+      (quietMs) =>
+        performance.now() - ((window.__ciUsableWait || {}).lastMutation || 0) >= quietMs,
+      USABLE_QUIET_MS,
+    );
+    if (quiet) return;
+    await page.waitForTimeout(250);
+  }
+}
+
 async function prepareChromeForEditing(page, editSelector, surfaceSpec = null) {
   const spec = surfaceSpec && typeof surfaceSpec === 'object' ? surfaceSpec : null;
   if (spec && (spec.kind === 'model' || spec.hidden)) {
@@ -3512,7 +3564,7 @@ async function prepareInputSurface(page, editSelector, surfaceSpec = null, point
         await page.waitForFunction(
           () => Boolean(document.querySelector('#editorHost [contenteditable="true"]')),
           undefined,
-          { timeout: 20000 },
+          { timeout: loadTimeoutMs() },
         );
       } catch {
         return {
@@ -3723,6 +3775,11 @@ export async function runCriteriaSuite({
       Array.isArray(options.resolvedPoints) && options.resolvedPoints.length
         ? { points: options.resolvedPoints, source: 'injected_resolved_points' }
         : resolveInkClickPoints(page, pointContext);
+    // A ready signal that fired on the loading shell leaves the document
+    // mounting while the ink scan photographs the overlay as painted lines
+    // (#168): wait for the surface's own usable signal, or a quiet DOM,
+    // before the ONE point routine resolves.
+    await waitForUsableSurface(page, usableExpression(editorId, activeSelector));
     // @suite-phase after_c04
     const resolvedPoints = await resolveSuitePoints();
     points = { ...points, ...resolvedPoints };
@@ -3862,6 +3919,13 @@ export async function runCriteriaSuite({
                     typeof options.reloadPage === 'function'
                       ? async () => {
                           await options.reloadPage();
+                          // A reload re-enters the loading shell: the usable
+                          // wait holds the click until the document mounts
+                          // again, the same race the first resolve has (#168).
+                          await waitForUsableSurface(
+                            page,
+                            usableExpression(editorId, activeSelector),
+                          );
                           if (domAdapter(adapter)) {
                             // @suite-phase prepare_chrome
                             const chrome = await prepareChromeForEditing(

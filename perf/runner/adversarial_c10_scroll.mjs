@@ -85,6 +85,18 @@ const readyJs = opt['ready-js'] || '';
 const readyText = opt['ready-text'] || '';
 const pairs = Math.max(1, Number(opt.pairs || 3));
 const waitAfterReadyMs = Number(opt['wait-after-ready'] || 0);
+/**
+ * How long the DOM may stay quiet after the ready signal before the probe
+ * believes 'no scroll container' means 'the document cannot scroll'. A ready
+ * signal can fire on a host's loading shell while the document is still
+ * mounting (SuperDoc paints a loading overlay inside the element the
+ * selector names; on a slow host the mount takes tens of seconds, #168), and
+ * a discovery that scans then cannot tell 'no scroller yet' from 'no
+ * scroller ever'. The wait ends as soon as the discovery chooses a scroller,
+ * or once the DOM has been quiet this long, bounded by contentWaitMs.
+ */
+const contentQuietMs = Math.max(500, Number(opt['content-quiet-ms'] || 4000));
+const contentPollMs = 300;
 /** How far the probe scrolls, in CSS pixels: a scrollTop jump of one step. */
 const scrollStep = Math.max(1, Number(opt['scroll-step'] || 600));
 /** The witness window. The plan asks for at least 500 ms. */
@@ -613,6 +625,44 @@ async function waitForReady(page) {
     await page.waitForSelector(readySelector, { timeout: loadTimeout, state: 'visible' });
   }
   if (waitAfterReadyMs > 0) await page.waitForTimeout(waitAfterReadyMs);
+  await waitForMountedDocument(page);
+}
+
+/**
+ * Wait out the mount window: poll the scroll discovery until it chooses a
+ * scroller, or until the DOM has been quiet for contentQuietMs, or the load
+ * bound expires. A page that never gets a scroller still reaches
+ * `oneSample`'s discovery and refuses there for the same reason it always
+ * did; the wait only keeps 'scanned mid-mount' from being that verdict.
+ */
+async function waitForMountedDocument(page) {
+  await page.evaluate(() => {
+    const state = { lastMutation: performance.now() };
+    window.__c10docMount = state;
+    new MutationObserver(() => {
+      state.lastMutation = performance.now();
+    }).observe(document.documentElement || document, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+      attributes: true,
+    });
+  });
+  const deadline = Date.now() + loadTimeout;
+  while (Date.now() < deadline) {
+    const discovery = await page.evaluate(pageScrollCommand, {
+      op: 'discover',
+      container: containerOverride,
+    });
+    if (discovery && discovery.chosen_index >= 0) return;
+    const quiet = await page.evaluate(
+      (quietMs) =>
+        performance.now() - ((window.__c10docMount || {}).lastMutation || 0) >= quietMs,
+      contentQuietMs,
+    );
+    if (quiet) return;
+    await page.waitForTimeout(contentPollMs);
+  }
 }
 
 /**
