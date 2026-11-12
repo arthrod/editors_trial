@@ -450,13 +450,17 @@ export const READ_DOM_TEXT_WITH_MARKERS = (selector) => {
   };
   const absorbed = [];
   let base = 0;
+  const markerSel = '[data-list-marker], .track-list-marker-dec, .superdoc-web-flow-list-marker, .superdoc-list-marker';
   for (const el of els) {
-    for (const node of el.querySelectorAll('[data-list-marker]')) {
-      if (String(node.innerText || node.textContent || '').trim()) continue;
-      absorbed.push({
-        index: base + indexWithin(el, node),
-        marker: String(node.getAttribute('data-list-marker') || '').trim(),
-      });
+    for (const node of el.querySelectorAll(markerSel)) {
+      const label = String(node.getAttribute('data-list-marker')
+        || node.textContent || '').trim();
+      if (!label) continue;
+      const host = node.closest('.superdoc-line, p, li, [data-block-id]') || node;
+      const text = String(host.innerText || host.textContent || '').trim();
+      const markerOnly = !text || text === label || text === `${label}.`;
+      if (!markerOnly && host !== node && !node.hasAttribute('data-list-marker')) continue;
+      absorbed.push({index: base + indexWithin(el, host), marker: label});
     }
     base += String(el.innerText ?? '').split('\n').length;
   }

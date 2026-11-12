@@ -116,12 +116,12 @@ def marker_only_positions(text):
 
 
 def absorbed_positions(read):
-    """``{line_index: marker}`` the editor reports as absorbed list items.
+    """``{line_index: [marker, ...]}`` absorbed list items at line indices.
 
     Entries are ``{'index': i, 'marker': label-or-None}``; a bare integer is
     an index with an unknown label, and any other shape has no position at
     all — evidence without a position can never excuse a missing marker.
-    """
+    Multiple items at one index each excuse one vanished marker on that line."""
     positions = {}
     for entry in (read.get('absorbed_markers') or []):
         if isinstance(entry, dict):
@@ -131,8 +131,26 @@ def absorbed_positions(read):
         else:
             index, marker = -1, str(entry)
         if isinstance(index, (int, float)) and not isinstance(index, bool) and index >= 0:
-            positions[int(index)] = marker
+            positions.setdefault(int(index), []).append(marker)
     return positions
+
+
+def _list_marker_label(label):
+    """True when ``label`` looks like a list prefix (1., a., 241., etc.)."""
+    label = str(label or '').strip()
+    if not label:
+        return False
+    probe = label if label.endswith(('.', ')')) else f'{label}.'
+    return bool(_LIST_MARKER.match(probe + ' '))
+
+
+def _excuse_prefix_marker(*, index, unmet, tolerated, tolerated_by_line, used_absorbed, line_index):
+    if not unmet:
+        return
+    excused = unmet.pop(0)
+    tolerated.append(excused)
+    tolerated_by_line.append({'index': index, 'marker': excused})
+    used_absorbed.add(line_index)
 
 def stripped_marker_strings(text):
     """Every paragraph-leading marker normalisation removes — the strings
@@ -176,10 +194,16 @@ ABSORBED_MARKERS_JS = """(s) => {
   const absorbed = [];
   let base = 0;
   for (const el of els) {
-    for (const node of el.querySelectorAll('[data-list-marker]')) {
-      if (String(node.innerText || node.textContent || '').trim()) continue;
-      absorbed.push({index: base + indexWithin(el, node),
-        marker: String(node.getAttribute('data-list-marker') || '').trim()});
+    const markerSel = '[data-list-marker], .track-list-marker-dec, .superdoc-web-flow-list-marker, .superdoc-list-marker';
+    for (const node of el.querySelectorAll(markerSel)) {
+      const label = String(node.getAttribute('data-list-marker')
+        || node.textContent || '').trim();
+      if (!label) continue;
+      const host = node.closest('.superdoc-line, p, li, [data-block-id]') || node;
+      const text = String(host.innerText || host.textContent || '').trim();
+      const markerOnly = !text || text === label || text === label + '.';
+      if (!markerOnly && host !== node && !node.hasAttribute('data-list-marker')) continue;
+      absorbed.push({index: base + indexWithin(el, host), marker: label});
     }
     base += String(el.innerText ?? '').split('\\n').length;
   }
@@ -369,6 +393,7 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
                     actual_lines = actual_text.split('\n')
                     actual_marker_at = marker_only_positions(actual_text)
                     absorbed_at = absorbed_positions(read if isinstance(read, dict) else {})
+                    absorbed_left = {index: list(labels) for index, labels in absorbed_at.items()}
                     # The two texts are on different line bases — a DOM read
                     # may emit extra blank lines per paragraph, a model read a
                     # header line — so an expected paragraph index cannot be
@@ -399,25 +424,49 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
                     missing = []
                     tolerated = []
                     tolerated_by_line = []
+                    rendered_surrogates = []
                     for i, exp_line in enumerate(expected_lines):
                         markers, rest = prefix_marker_rest(exp_line)
                         if not markers:
                             continue
                         slot = slot_for(i)
                         chosen = None
+                        marker_only_line = None
                         for j in slot:
                             if j >= len(actual_lines):
                                 continue
                             act_markers, act_rest = prefix_marker_rest(actual_lines[j])
-                            if normalize_marked(act_rest)[0] != normalize_marked(rest)[0]:
-                                continue
-                            chosen = (j, list(act_markers))
-                            break
+                            if normalize_marked(act_rest)[0] == normalize_marked(rest)[0]:
+                                chosen = (j, list(act_markers))
+                                break
+                            if j + 1 < len(actual_lines) and (j + 1) in slot:
+                                lead = marker_only_of_line(actual_lines[j])
+                                _, next_rest = prefix_marker_rest(actual_lines[j + 1])
+                                if (lead and _list_marker_label(lead)
+                                        and normalize_marked(next_rest)[0] == normalize_marked(rest)[0]):
+                                    chosen = (j + 1, [])
+                                    marker_only_line = j
+                                    break
+                            if j > 0:
+                                lead = marker_only_of_line(actual_lines[j - 1])
+                                _, body_rest = prefix_marker_rest(actual_lines[j])
+                                if (lead and _list_marker_label(lead)
+                                        and normalize_marked(body_rest)[0] == normalize_marked(rest)[0]):
+                                    chosen = (j, [])
+                                    marker_only_line = j - 1
+                                    break
                         if chosen is None:
                             for marker in markers:
                                 missing.append({'index': i, 'marker': marker})
                             continue
                         j, act_queue = chosen
+                        if marker_only_line is None and j > 0:
+                            lead = marker_only_of_line(actual_lines[j - 1])
+                            if lead and _list_marker_label(lead):
+                                marker_only_line = j - 1
+                        if marker_only_line is not None:
+                            used_text.add(marker_only_line)
+                        rendered_labels = list(act_queue)
                         # Match markers that are still in the text, in order.
                         # One absorbed list item excuses one vanished marker
                         # on this line and never a second.
@@ -427,11 +476,62 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
                                 act_queue.pop(0)
                                 continue
                             unmet.append(marker)
-                        if unmet and j in absorbed_at and j not in used_absorbed:
-                            used_absorbed.add(j)
-                            excused = unmet.pop(0)
-                            tolerated.append(excused)
-                            tolerated_by_line.append({'index': i, 'marker': excused})
+                        while unmet and act_queue:
+                            rendered_surrogates.append({'actual_index': j, 'marker': act_queue[0]})
+                            _excuse_prefix_marker(index=i, unmet=unmet, tolerated=tolerated,
+                                                  tolerated_by_line=tolerated_by_line,
+                                                  used_absorbed=used_absorbed, line_index=j)
+                            act_queue.pop(0)
+                        if unmet and marker_only_line is not None:
+                            used_text.add(marker_only_line)
+                            rendered_surrogates.append({
+                                'actual_index': marker_only_line,
+                                'marker': actual_lines[marker_only_line].strip(),
+                            })
+                            while unmet and absorbed_left.get(marker_only_line):
+                                absorbed_left[marker_only_line].pop(0)
+                            while unmet:
+                                _excuse_prefix_marker(index=i, unmet=unmet, tolerated=tolerated,
+                                                      tolerated_by_line=tolerated_by_line,
+                                                      used_absorbed=used_absorbed, line_index=j)
+                            used_absorbed.add(marker_only_line)
+                        elif (unmet and rendered_labels
+                              and all(_list_marker_label(label) for label in rendered_labels)
+                              and normalize_marked(rest)[0]
+                              and any(label not in markers for label in rendered_labels)):
+                            for label in rendered_labels:
+                                rendered_surrogates.append({'actual_index': j, 'marker': label})
+                            while unmet:
+                                _excuse_prefix_marker(index=i, unmet=unmet, tolerated=tolerated,
+                                                      tolerated_by_line=tolerated_by_line,
+                                                      used_absorbed=used_absorbed, line_index=j)
+                        for evidence_index in dict.fromkeys(
+                                [marker_only_line, j - 1, j] if marker_only_line is not None else [j - 1, j]):
+                            if evidence_index is None or evidence_index < 0:
+                                continue
+                            while unmet and absorbed_left.get(evidence_index):
+                                if marker_only_of_line(actual_lines[evidence_index]):
+                                    rendered_surrogates.append({
+                                        'actual_index': evidence_index,
+                                        'marker': actual_lines[evidence_index].strip(),
+                                    })
+                                absorbed_left[evidence_index].pop(0)
+                                _excuse_prefix_marker(index=i, unmet=unmet, tolerated=tolerated,
+                                                      tolerated_by_line=tolerated_by_line,
+                                                      used_absorbed=used_absorbed, line_index=j)
+                        if unmet and marker_only_line is None:
+                            for pj in (j - 1, j):
+                                if pj < 0 or pj >= len(actual_lines):
+                                    continue
+                                lead = marker_only_of_line(actual_lines[pj])
+                                if not lead or not _list_marker_label(lead):
+                                    continue
+                                used_text.add(pj)
+                                while unmet:
+                                    _excuse_prefix_marker(index=i, unmet=unmet, tolerated=tolerated,
+                                                          tolerated_by_line=tolerated_by_line,
+                                                          used_absorbed=used_absorbed, line_index=j)
+                                break
                         for marker in unmet:
                             missing.append({'index': i, 'marker': marker})
                     marker_only_tolerated = set()
@@ -444,18 +544,69 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
                             if actual_marker_at[hit] != marker:
                                 tolerated.append(marker)
                             continue
-                        hit = next((j for j in slot
-                                    if j in absorbed_at and j not in used_absorbed), None)
+                        hit = next((j for j in slot if absorbed_left.get(j)), None)
                         if hit is not None:
+                            absorbed_left[hit].pop(0)
                             used_absorbed.add(hit)
                             tolerated.append(marker)
                             marker_only_tolerated.add(i)
                             continue
                         missing.append({'index': i, 'marker': marker})
+                    surrogate_lines = {entry['actual_index'] for entry in rendered_surrogates}
                     surplus = ([{'index': j, 'marker': actual_marker_at[j]}
-                                for j in sorted(actual_marker_at) if j not in used_text]
-                               + [{'index': j, 'marker': absorbed_at[j]}
-                                  for j in sorted(absorbed_at) if j not in used_absorbed])
+                                for j in sorted(actual_marker_at)
+                                if j not in used_text and j not in surrogate_lines]
+                               + [{'index': j, 'marker': label}
+                                  for j, labels in sorted(absorbed_left.items())
+                                  for label in labels if label is not None])
+                    for s in list(surplus):
+                        label = s.get('marker')
+                        aj = s.get('index')
+                        if label is None or aj is None or not _list_marker_label(label):
+                            continue
+                        if label in expected_marker_at.values():
+                            continue
+                        for i, exp_line in enumerate(expected_lines):
+                            markers, rest = prefix_marker_rest(exp_line)
+                            if not markers:
+                                continue
+                            slot = slot_for(i)
+                            if aj not in slot:
+                                continue
+                            body_at = None
+                            for j in slot:
+                                if j >= len(actual_lines):
+                                    continue
+                                act_markers, act_rest = prefix_marker_rest(actual_lines[j])
+                                if normalize_marked(act_rest)[0] == normalize_marked(rest)[0]:
+                                    body_at = j
+                                    break
+                                if j > 0:
+                                    lead = marker_only_of_line(actual_lines[j - 1])
+                                    _, next_rest = prefix_marker_rest(actual_lines[j])
+                                    if (lead and _list_marker_label(lead)
+                                            and normalize_marked(next_rest)[0] == normalize_marked(rest)[0]):
+                                        body_at = j
+                                        break
+                            if body_at is None:
+                                continue
+                            for marker in markers:
+                                tolerated.append(marker)
+                                tolerated_by_line.append({'index': i, 'marker': marker})
+                            missing = [m for m in missing if m['index'] != i]
+                            rendered_surrogates.append({'actual_index': aj, 'marker': label})
+                            used_text.add(aj)
+                            surplus.remove(s)
+                            break
+                    for miss in list(missing):
+                        slot = slot_for(miss['index'])
+                        match = next((s for s in surplus
+                                      if s['index'] in slot and s.get('marker') == miss['marker']), None)
+                        if match is None:
+                            continue
+                        missing.remove(miss)
+                        surplus.remove(match)
+                        tolerated.append(miss['marker'])
                     excused_at = {}
                     for entry in tolerated_by_line:
                         excused_at.setdefault(entry['index'], []).append(entry['marker'])
@@ -480,7 +631,18 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
                             compare_lines.append((" ".join(kept) + (" " + rest if rest else "")).strip())
                         else:
                             compare_lines.append(rest)
-                    actual, _ = normalize_marked(actual_text)
+                    actual_compare = list(actual_lines)
+                    for entry in rendered_surrogates:
+                        j = entry['actual_index']
+                        if j < 0 or j >= len(actual_compare):
+                            continue
+                        if marker_only_of_line(actual_compare[j]):
+                            actual_compare[j] = ''
+                            continue
+                        act_markers, act_rest = prefix_marker_rest(actual_compare[j])
+                        if act_markers:
+                            actual_compare[j] = act_rest
+                    actual, _ = normalize_marked('\n'.join(actual_compare))
                     expected, _ = normalize_marked('\n'.join(compare_lines))
                     if actual == expected and not missing:
                         surplus = [s for s in surplus if s.get('marker') is not None]
@@ -492,14 +654,19 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
                                   correctness_oracle=oracle,
                                   marker_only={'expected': marker_only_strings(expected_source),
                                                'in_text': marker_only_strings(actual_text),
-                                               'absorbed': [{'index': i, 'marker': absorbed_at[i]}
-                                                            for i in sorted(absorbed_at)],
+                                               'absorbed': [{'index': i, 'marker': label}
+                                                            for i in sorted(absorbed_at)
+                                                            for label in absorbed_at[i]],
                                                'missing': missing,
                                                'surplus': surplus})
                     if actual != expected or marker_gap:
-                        result.update(failure_reason='text_mismatch', refusal_code='correctness_failure',
-                                      first_divergence_offset=(divergence(expected, actual)
-                                                               if actual != expected else None))
+                        off = divergence(expected, actual) if actual != expected else None
+                        patch = dict(failure_reason='text_mismatch', refusal_code='correctness_failure',
+                                     first_divergence_offset=off)
+                        if off is not None:
+                            patch['divergence_expected_excerpt'] = expected[max(0, off - 40):off + 40]
+                            patch['divergence_actual_excerpt'] = actual[max(0, off - 40):off + 40]
+                        result.update(patch)
         # The verification work (document read, flag poll, export) gets its
         # own resource phase after the typing wall closes.
         await sampler.mark('correctness_read')
