@@ -655,6 +655,34 @@ def build_run_cell(
     return _build_cell_from_jobs(job_pairs, editor_id, criterion_id, scheduled=scheduled, measure=measure, workload_id=workload_id)
 
 
+def _jobs_for_workload(job_pairs, editor_id: str, criterion_id: str, workload_id: str | None):
+    """Jobs whose schedule is this workload, before the duplicate-launch gate.
+
+    One campaign root holds a 2x5 job per workload, plus one shared C14 job
+    for every rung. Pooling them sums the schedules or repeats a block index.
+    A job that also carries other workloads stays, so the shared job's
+    schedule is still its own launch order. A job with no workload stamp
+    stays: it is not a dedicated other size.
+    """
+    if not workload_id:
+        return job_pairs
+    selected = []
+    for run_directory, job in job_pairs:
+        workloads: set[str] = set()
+        measured = False
+        for _launch, _path, trial in _attempt_rows_of(run_directory, [job]):
+            if trial.get('editor_id') != editor_id or trial.get('criterion_id') != criterion_id:
+                continue
+            measured = True
+            workloads.add(trial_workload(trial))
+        workloads.discard('')
+        if not measured:
+            continue
+        if not workloads or workload_id in workloads:
+            selected.append((run_directory, job))
+    return selected
+
+
 def _build_cell_from_jobs(
     job_pairs: list[tuple[Path, Path]],
     editor_id: str,
@@ -664,6 +692,7 @@ def _build_cell_from_jobs(
     measure: str = '',
     workload_id: str | None = None,
 ) -> dict:
+    job_pairs = _jobs_for_workload(job_pairs, editor_id, criterion_id, workload_id)
     if not job_pairs:
         return {
             'editor_id': editor_id, 'criterion_id': criterion_id, 'measure': measure, 'workload_id': workload_id,

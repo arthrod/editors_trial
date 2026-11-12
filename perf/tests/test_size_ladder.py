@@ -49,21 +49,42 @@ def test_c14_uses_whole_ladder():
     assert set(document.C14_RUNG_LABEL) == set(LADDER)
 
 
+def _two_by_five(root, seed, workload, value, criterion):
+    """One workload's decided schedule: two blocks of five. Not the ladder summed."""
+    for index, lo, hi in ((1, 0, 5), (2, 5, 10)):
+        job = root / 'benchmark_document' / ('%s-b%d' % (workload, index))
+        job.mkdir(parents=True)
+        (job / 'summary.json').write_text(json.dumps({
+            'order': [[i, 'plate'] for i in range(lo, hi)],
+            'publishable': True,
+            'seed': seed,
+            'run_id': '%s-%s-b%d' % (root.name, workload, index),
+            'execution_profile': 'dedicated_publish',
+            'host_class': 'dedicated',
+            'block': {'index': index, 'of': 2, 'repetitions': 5},
+        }))
+        for launch in range(lo, hi):
+            path = job / ('cells/%04d-plate/attempts/%s.json' % (launch, workload))
+            path.parent.mkdir(parents=True, exist_ok=True)
+            row = dict(
+                editor_id='plate', criterion_id=criterion, workload_id=workload,
+                outcome='measured', publishable=True, refusal_code=None, samples_ms=[value],
+                sub_frame_samples=[False], diagnostic={'frame_interval_ms': 16.7, 'workload_id': workload},
+                host_provenance={'host_build': 'production', 'publishable': True, 'tree_sha256': 'tree-a'},
+            )
+            if criterion == 'C17':
+                row.update(sample_unit='bytes', measurement_phase='ready', sub_frame_samples=None, diagnostic={'workload_id': workload})
+            path.write_text(json.dumps(row))
+
+
 def test_workloads_have_separate_cells_and_table_groups(fs):
     # A cell stores figures only when it publishes: two seeds, ten kept launches each (#154.1).
+    # Each document size is its own 2x5, the schedule _block_jobs actually emits.
     roots = [Path('/primary'), Path('/repro')]
     for seed, root in enumerate(roots, 1):
         root.mkdir()
-        (root / 'summary.json').write_text(json.dumps(
-            {'order': [[i, 'plate'] for i in range(10)], 'publishable': True, 'seed': seed}))
         for workload, value in zip(LADDER[:2], (20, 40)):
-            for launch in range(10):
-                path = root / f'cells/{launch:04d}-plate/attempts' / (workload + '.json')
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(json.dumps(dict(editor_id='plate', criterion_id='C11', workload_id=workload,
-                    outcome='measured', publishable=True, refusal_code=None, samples_ms=[value],
-                    sub_frame_samples=[False], diagnostic={'frame_interval_ms': 16.7},
-                    host_provenance={'host_build': 'production', 'publishable': True, 'tree_sha256': 'tree-a'})))
+            _two_by_five(root, seed, workload, value, 'C11')
     facts = {}
     table = _criterion_table(facts, roots, 'C11', ['plate'])
     assert all(workload in table for workload in LADDER[:2])
@@ -71,6 +92,21 @@ def test_workloads_have_separate_cells_and_table_groups(fs):
     assert len(cells) == 2
     assert [c['kept_ms'] for c in cells] == [[20.0] * 10, [40.0] * 10]
     assert {c['workload_id'] for c in cells} == set(LADDER[:2])
+
+
+def test_memory_workloads_keep_their_own_two_by_five(fs):
+    """C17 publishes per document. The ladder is not one pooled schedule."""
+    roots = [Path('/mem-primary'), Path('/mem-repro')]
+    for seed, root in enumerate(roots, 1):
+        root.mkdir()
+        for workload, value in (('prose-500w', 1000), ('prose-5kw', 5000)):
+            _two_by_five(root, seed, workload, value, 'C17')
+    for workload, value in (('prose-500w', 1000), ('prose-5kw', 5000)):
+        cell = build_run_cell(roots[0], 'plate', 'C17', measure='ready', workload_id=workload)
+        assert cell['decided_schedule'] is True
+        assert cell['blocked'] is False
+        assert cell['kept_ms'] == [float(value)] * 10
+        assert cell['scheduled'] == 10
 
 
 def test_f1_real_smoke_launch_accounting():
