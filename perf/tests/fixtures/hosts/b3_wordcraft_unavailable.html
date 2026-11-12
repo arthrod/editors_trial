@@ -12,4 +12,6 @@
   context.fillStyle = 'black';
   context.fillRect(20, 20, 200, 40);
   window.__WORDCRAFT_READY__ = true;
+  // The real WordCraft host records window titles; the usable wait (#168) reads them.
+  window.__WORDCRAFT_HOST__ = { titles: ['document.docx - WordCraft'] };
 </script>

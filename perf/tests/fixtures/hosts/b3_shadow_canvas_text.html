@@ -9,6 +9,8 @@
         '<div id="pageContainer1" style="width:500px;padding:24px;background:#fff;font:24px serif">' +
         '<canvas width="120" height="60" style="display:block;background:#eee"></canvas>' +
         '<p>REAL DOCUMENT CONTENT in the text layer</p></div>';
+      // The real Apryse host flags a rendered document; the usable wait (#168) reads it.
+      window.__aprysePerf = { state: 'rendered' };
     </script>
   </body>
 </html>
