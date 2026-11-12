@@ -797,6 +797,12 @@ def _c12_census_record(payload: dict) -> dict:
     tie = payload.get("frame_tie")
     if isinstance(tie, dict):
         record["frame_tie"] = tie
+    selection = before.get("caret_selection")
+    if isinstance(selection, dict):
+        record["caret_selection"] = selection
+    window = payload.get("empty_inclusive_window")
+    if isinstance(window, dict):
+        record["empty_inclusive_window"] = window
     return record
 
 

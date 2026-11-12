@@ -794,6 +794,168 @@ export function c12FrameTieDiagnostic(recorded, confirmed) {
   return { recorded: describe(recorded), confirmed: describe(confirmed), relation };
 }
 
+/**
+ * Where the caret really is, before Enter. The selection's anchor node mapped
+ * onto the census already in hand, plus the offset inside that block. A node
+ * that is not in the census is described. No layout read.
+ */
+export function c12CaretSelection(entries) {
+  const list = Array.isArray(entries) ? entries : [];
+  const root = typeof document !== 'undefined' ? document : globalThis.document;
+  const fromWindow = typeof window !== 'undefined' && typeof window.getSelection === 'function'
+    ? window.getSelection()
+    : null;
+  const sel = root && typeof root.getSelection === 'function' ? root.getSelection() : fromWindow;
+  const none = { block_index: null, offset: null, text_prefix: null, anchor: null };
+  if (!sel || !sel.rangeCount || !sel.anchorNode) return none;
+  const anchorNode = sel.anchorNode;
+  const anchorOffset = Number.isFinite(Number(sel.anchorOffset)) ? Number(sel.anchorOffset) : 0;
+  let blockIndex = null;
+  let block = null;
+  let node = anchorNode;
+  const seen = new Set();
+  while (node && !seen.has(node)) {
+    seen.add(node);
+    for (let i = 0; i < list.length; i += 1) {
+      if (list[i] && list[i].el === node) {
+        blockIndex = i;
+        block = node;
+        node = null;
+        break;
+      }
+    }
+    if (node) node = node.parentNode || null;
+  }
+  const norm = (value) => {
+    const collapsed = String(value || '').replace(/\s+/g, ' ').trim();
+    return typeof collapsed.normalize === 'function' ? collapsed.normalize('NFC') : collapsed;
+  };
+  let offset = null;
+  if (block && typeof sel.getRangeAt === 'function') {
+    try {
+      const pre = sel.getRangeAt(0).cloneRange();
+      pre.selectNodeContents(block);
+      pre.setEnd(anchorNode, anchorOffset);
+      offset = norm(pre.toString()).length;
+    } catch {
+      offset = null;
+    }
+  }
+  if (blockIndex != null) {
+    return {
+      block_index: blockIndex,
+      offset,
+      text_prefix: norm(list[blockIndex].text).slice(0, 80),
+      anchor: null,
+    };
+  }
+  const el = anchorNode.nodeType === 3 ? anchorNode.parentNode : anchorNode;
+  const data = {};
+  if (el && el.attributes && typeof el.attributes.length === 'number') {
+    for (const attr of Array.from(el.attributes)) {
+      const name = attr && attr.name;
+      if (typeof name === 'string' && name.indexOf('data-') === 0) {
+        data[name] = attr.value == null ? '' : String(attr.value);
+      }
+    }
+  }
+  const raw = el
+    ? (el.innerText != null && String(el.innerText) !== '' ? el.innerText : el.textContent)
+    : '';
+  return {
+    block_index: null,
+    offset,
+    text_prefix: null,
+    anchor: el ? { tag: el.tagName || null, data, text_prefix: norm(raw).slice(0, 80) } : null,
+  };
+}
+
+/**
+ * The identity window with the empty paragraphs the census drops. A row the
+ * census keeps carries its census index. An empty row carries null. Headings
+ * still drop. No layout read. SuperDoc lines that share a paragraph id are
+ * one paragraph; grouping them does not read rects.
+ */
+export function c12EmptyInclusiveWindow(editorId, docSel, excludeSel, snapshot) {
+  const norm = (value) => {
+    const collapsed = String(value || '').replace(/\s+/g, ' ').trim();
+    return typeof collapsed.normalize === 'function' ? collapsed.normalize('NFC') : collapsed;
+  };
+  const heading = (text) => /^(Article \d+\.|Section \d+\.\d+\s)/.test(norm(text));
+  const root = typeof document !== 'undefined' ? document : globalThis.document;
+  const blank = { from: 0, to: 0, rows: [] };
+  if (!root || typeof root.querySelectorAll !== 'function') return blank;
+  const excluded = excludeSel ? Array.from(root.querySelectorAll(excludeSel)) : [];
+  const skip = (el) => excluded.some((node) => node === el || (node.contains && node.contains(el)));
+  const eid = String(editorId || '');
+  let query = docSel;
+  if (eid === 'eigenpal') query = '.docx-paragraph-fragment';
+  else if (eid === 'genoffice') query = '.doc-page.ProseMirror:not(.mp-page) p';
+  else if (eid === 'docxodus') query = '#editorHost p';
+  else if (eid === 'folio') query = '.layout-page-content [data-block-id]';
+  else if (eid === 'plate') query = '.doc-paragraph';
+  else if (eid === 'superdoc') query = '#editor .superdoc-line';
+  const nodes = Array.from(root.querySelectorAll(query || '')).filter((el) => el && !skip(el));
+  const textOf = (el) => {
+    const raw = el && el.innerText != null && String(el.innerText) !== '' ? el.innerText : el && el.textContent;
+    return norm(raw);
+  };
+  let blocks = nodes.map((el) => ({ text: textOf(el) }));
+  if (eid === 'superdoc') {
+    const groups = [];
+    const byId = new Map();
+    for (const line of nodes) {
+      let pid = '';
+      if (typeof line.getAttribute === 'function') pid = line.getAttribute('data-paragraph-id') || '';
+      if (!pid && typeof line.closest === 'function') {
+        const holder = line.closest('[data-paragraph-id]');
+        if (holder && typeof holder.getAttribute === 'function') {
+          pid = holder.getAttribute('data-paragraph-id') || '';
+        }
+      }
+      if (!pid) {
+        groups.push([line]);
+        continue;
+      }
+      if (!byId.has(pid)) {
+        const grp = [line];
+        byId.set(pid, grp);
+        groups.push(grp);
+      } else byId.get(pid).push(line);
+    }
+    blocks = groups.map((grp) => ({
+      text: norm(grp.map((el) => (el && el.textContent) || '').join(' ')),
+    }));
+  }
+  const annotated = [];
+  let census = 0;
+  for (const block of blocks) {
+    if (heading(block.text)) continue;
+    if (!block.text) {
+      annotated.push({ text_prefix: '', empty: true, census_index: null });
+      continue;
+    }
+    annotated.push({ text_prefix: block.text.slice(0, 80), empty: false, census_index: census });
+    census += 1;
+  }
+  const c = Number(snapshot && snapshot.caretIndex);
+  const i = Number(snapshot && snapshot.anchorIndex);
+  const indexed = Number.isFinite(c) && Number.isFinite(i) && c >= 0 && i >= 0;
+  const from = indexed ? Math.max(0, Math.min(c, i) - 3) : 0;
+  const to = indexed ? Math.max(c, i) + 6 : annotated.length;
+  const rows = [];
+  let started = false;
+  for (const row of annotated) {
+    if (row.census_index != null && row.census_index >= to) break;
+    if (!started) {
+      if (row.census_index != null && row.census_index >= from) started = true;
+      else continue;
+    }
+    rows.push(row);
+  }
+  return { from, to, rows };
+}
+
 const toPageExport = (fn) => fn.toString().replace(/^export\s+/, '');
 
 // The helpers have to travel inside each eval. An indirect eval of the entries
@@ -825,7 +987,9 @@ export const C12_SCROLL_CARET_PAGE_SRC = `${C12_ANCHOR_BY_TEXT_PAGE_SRC};\n${toP
 
 export const C12_BODY_CARET_PAGE_SRC = `${C12_BLOCK_ENTRIES_PAGE_SRC};\n${C12_LOCATE_PAGE_SRC};\n${toPageExport(c12FirstBodyCaretIndex)};\n${toPageExport(c12BodyCaretClick)}`;
 
-export const C12_IDENTITY_DIAGNOSTIC_PAGE_SRC = `${toPageExport(C12_IDENTITY_REFUSAL_DIAGNOSTIC)}`;
+export const C12_IDENTITY_DIAGNOSTIC_PAGE_SRC = `${toPageExport(C12_IDENTITY_REFUSAL_DIAGNOSTIC)};\n${toPageExport(c12EmptyInclusiveWindow)}`;
+
+export const C12_CARET_SELECTION_PAGE_SRC = toPageExport(c12CaretSelection);
 
 /** Page context. C12 block census after the caret is placed (light-DOM blocks). */
 export function gatherReflowBefore({
@@ -837,6 +1001,7 @@ export function gatherReflowBefore({
   locateSrc,
   caretText,
   anchorText,
+  selectionSrc,
 }) {
   // The shared picker (PICK_ANCHOR_BELOW) travels as source: page.evaluate
   // arguments must be serializable values.
@@ -1046,6 +1211,16 @@ export function gatherReflowBefore({
     blockTexts,
   };
   const caretParagraph = entries[picked.caretIndex] ? String(entries[picked.caretIndex].text || '') : '';
+  let caretSelection = null;
+  if (typeof selectionSrc === 'string' && selectionSrc) {
+    try {
+      // eslint-disable-next-line no-eval
+      const readSelection = (0, eval)(`(function(){ ${selectionSrc}; return c12CaretSelection; })()`);
+      if (typeof readSelection === 'function') caretSelection = readSelection(entries);
+    } catch {
+      caretSelection = null;
+    }
+  }
   return {
     ok: true,
     blocks: picked.blockCount,
@@ -1060,6 +1235,7 @@ export function gatherReflowBefore({
     caret_index: picked.caretIndex,
     caret_paragraph_text: caretParagraph,
     caret_top: caret ? caret.top : null,
+    caret_selection: caretSelection,
   };
 }
 

@@ -84,6 +84,7 @@ import {
   C12_BLOCK_TEXT_PAGE_SRC,
   C12_LOCATE_PAGE_SRC,
   C12_IDENTITY_DIAGNOSTIC_PAGE_SRC,
+  C12_CARET_SELECTION_PAGE_SRC,
   ensureReflowCaret,
   gatherReflowBefore,
   placeC12BodyCaret,
@@ -1583,6 +1584,7 @@ async function runReflow(browser) {
       locateSrc: C12_LOCATE_PAGE_SRC,
       caretText: c12CaretText,
       anchorText: c12AnchorText,
+      selectionSrc: C12_CARET_SELECTION_PAGE_SRC,
     });
     if (!before.ok) {
       return {
@@ -1794,6 +1796,7 @@ async function runReflow(browser) {
             beforeTexts.every((text, index) => text === afterTexts[index]);
           if (verdict && verdict.ok === false) {
             let diagnose = null;
+            let emptyWindow = null;
             try {
               // eslint-disable-next-line no-eval
               const diagFn = (0, eval)(`(function(){ ${diagSrc}; return C12_IDENTITY_REFUSAL_DIAGNOSTIC; })()`);
@@ -1804,9 +1807,21 @@ async function runReflow(browser) {
             } catch {
               diagnose = null;
             }
+            try {
+              // eslint-disable-next-line no-eval
+              const windowFn = (0, eval)(`(function(){ ${diagSrc}; return c12EmptyInclusiveWindow; })()`);
+              if (typeof windowFn === 'function') emptyWindow = windowFn(eid, docSel, excl || '', snap);
+            } catch {
+              emptyWindow = null;
+            }
             // An unchanged census did not receive the keys. A changed census
             // that still fails identity is the keys landing somewhere else.
-            return { ...verdict, identity_diagnostic: diagnose, keys_landed_elsewhere: !censusUnchanged };
+            return {
+              ...verdict,
+              identity_diagnostic: diagnose,
+              empty_inclusive_window: emptyWindow,
+              keys_landed_elsewhere: !censusUnchanged,
+            };
           }
           return verdict;
         },
@@ -1838,6 +1853,7 @@ async function runReflow(browser) {
           caret_scroll: caretScroll,
           error: (anchorOnEditMiss && anchorOnEditMiss.reason) || 'anchor_identity_ambiguous',
           identity_diagnostic: (anchorOnEditMiss && anchorOnEditMiss.identity_diagnostic) || null,
+          empty_inclusive_window: (anchorOnEditMiss && anchorOnEditMiss.empty_inclusive_window) || null,
           edit_confirmation: editSeen || null,
           moved: false,
           anchor_top_after: null,
@@ -1870,6 +1886,7 @@ async function runReflow(browser) {
             collect = null;
           }
           let diagnose = null;
+          let emptyWindow = null;
           if (snap && typeof collect === 'function') {
             const entries = collect(eid, docSel, excl || '', readBlock);
             const texts = entries.map((entry) => entry.text);
@@ -1881,7 +1898,16 @@ async function runReflow(browser) {
               diagnose = null;
             }
           }
-          return diagnose;
+          if (snap) {
+            try {
+              // eslint-disable-next-line no-eval
+              const windowFn = (0, eval)(`(function(){ ${diagSrc}; return c12EmptyInclusiveWindow; })()`);
+              if (typeof windowFn === 'function') emptyWindow = windowFn(eid, docSel, excl || '', snap);
+            } catch {
+              emptyWindow = null;
+            }
+          }
+          return { identity_diagnostic: diagnose, empty_inclusive_window: emptyWindow };
         },
         {
           diagSrc: `${C12_IDENTITY_DIAGNOSTIC_PAGE_SRC}`,
@@ -1902,7 +1928,8 @@ async function runReflow(browser) {
         before,
         caret_scroll: caretScroll,
         error: editSeen?.reason || 'edit_not_observed',
-        identity_diagnostic: identityDiagnostic,
+        identity_diagnostic: (identityDiagnostic && identityDiagnostic.identity_diagnostic) || null,
+        empty_inclusive_window: (identityDiagnostic && identityDiagnostic.empty_inclusive_window) || null,
         edit_confirmation: editSeen || null,
         moved: false,
         anchor_top_after: null,
@@ -1928,6 +1955,7 @@ async function runReflow(browser) {
         caret_scroll: caretScroll,
         error: anchorIdentity.reason || 'anchor_identity_ambiguous',
         identity_diagnostic: anchorIdentity.identity_diagnostic || null,
+        empty_inclusive_window: anchorIdentity.empty_inclusive_window || null,
         moved: false,
         anchor_top_after: null,
         anchor_after_top: null,
@@ -2097,6 +2125,7 @@ async function runReflow(browser) {
         const verdict = check(snapshot, blocks, readBlock);
         if (verdict && verdict.ok === false) {
           let diagnose = null;
+          let emptyWindow = null;
           try {
             // eslint-disable-next-line no-eval
             const diagFn = (0, eval)(`(function(){ ${diagSrc}; return C12_IDENTITY_REFUSAL_DIAGNOSTIC; })()`);
@@ -2107,7 +2136,14 @@ async function runReflow(browser) {
           } catch {
             diagnose = null;
           }
-          return { ...verdict, identity_diagnostic: diagnose };
+          try {
+            // eslint-disable-next-line no-eval
+            const windowFn = (0, eval)(`(function(){ ${diagSrc}; return c12EmptyInclusiveWindow; })()`);
+            if (typeof windowFn === 'function') emptyWindow = windowFn(eid, docSel, excl || '', snapshot);
+          } catch {
+            emptyWindow = null;
+          }
+          return { ...verdict, identity_diagnostic: diagnose, empty_inclusive_window: emptyWindow };
         }
         const refusal = window.__c12AnchorRefusal || null;
         if (refusal) return { ok: false, reason: refusal };
@@ -2135,6 +2171,7 @@ async function runReflow(browser) {
         caret_scroll: caretScroll,
         error: endIdentity.reason || 'anchor_identity_ambiguous',
         identity_diagnostic: endIdentity.identity_diagnostic || null,
+        empty_inclusive_window: endIdentity.empty_inclusive_window || null,
         moved: false,
         anchor_top_after: null,
         anchor_after_top: null,
@@ -2158,6 +2195,7 @@ async function runReflow(browser) {
         caret_scroll: caretScroll,
         error: 'anchor_identity_ambiguous',
         identity_diagnostic: (endIdentity && endIdentity.identity_diagnostic) || null,
+        empty_inclusive_window: (endIdentity && endIdentity.empty_inclusive_window) || null,
         moved: false,
         anchor_top_after: null,
         anchor_after_top: null,

@@ -274,6 +274,181 @@ console.log(JSON.stringify({ replaced: true }));
         self.assertEqual(record["caret_index"], 9)
         self.assertEqual(record["anchor_index"], 10)
 
+    def test_caret_selection_names_the_census_block_and_offset(self):
+        # window.getSelection before Enter: the anchor node's census index and
+        # the offset inside that block. A node outside the census is described,
+        # not dropped. No layout read.
+        payload = self.node(
+            r"""
+let rects = 0;
+function block(text) {
+  const el = {
+    nodeType: 1,
+    tagName: 'DIV',
+    textContent: text,
+    parentNode: null,
+    getBoundingClientRect: () => { rects += 1; return { top: 0, height: 20 }; },
+  };
+  const textNode = { nodeType: 3, textContent: text, parentNode: el, parentElement: el };
+  el.firstChild = textNode;
+  el.contains = (node) => {
+    let cur = node;
+    while (cur) {
+      if (cur === el) return true;
+      cur = cur.parentNode;
+    }
+    return false;
+  };
+  return { el, textNode };
+}
+function makeRange(anchorNode, anchorOffset) {
+  const state = { endNode: anchorNode, endOffset: anchorOffset, block: null };
+  return {
+    cloneRange() { return makeRange(state.endNode, state.endOffset); },
+    selectNodeContents(node) { state.block = node; },
+    setEnd(node, off) { state.endNode = node; state.endOffset = off; },
+    toString() {
+      if (!state.block || !state.endNode) return '';
+      if (state.endNode.nodeType === 3 && state.endNode.parentNode === state.block) {
+        return String(state.endNode.textContent || '').slice(0, state.endOffset);
+      }
+      return state.endOffset > 0 ? String(state.block.textContent || '') : '';
+    },
+  };
+}
+const alpha = block('Alpha body paragraph here');
+const beta = block('Beta anchor paragraph stays');
+const entries = [
+  { el: alpha.el, text: 'Alpha body paragraph here' },
+  { el: beta.el, text: 'Beta anchor paragraph stays' },
+];
+globalThis.document = {
+  getSelection() {
+    return {
+      rangeCount: 1,
+      anchorNode: alpha.textNode,
+      anchorOffset: 0,
+      getRangeAt() { return makeRange(alpha.textNode, 0); },
+    };
+  },
+};
+const atStart = mod.c12CaretSelection(entries);
+assert.equal(atStart.block_index, 0);
+assert.equal(atStart.offset, 0);
+assert.equal(atStart.text_prefix, 'Alpha body paragraph here');
+globalThis.document = {
+  getSelection() {
+    return {
+      rangeCount: 1,
+      anchorNode: beta.textNode,
+      anchorOffset: 4,
+      getRangeAt() { return makeRange(beta.textNode, 4); },
+    };
+  },
+};
+const mid = mod.c12CaretSelection(entries);
+assert.equal(mid.block_index, 1);
+assert.equal(mid.offset, 4);
+const hidden = block('hidden editor surface');
+const attrs = [{ name: 'data-paragraph-id', value: 'p-hidden' }];
+hidden.el.attributes = attrs;
+hidden.el.getAttribute = (name) => (name === 'data-paragraph-id' ? 'p-hidden' : '');
+globalThis.document = {
+  getSelection() {
+    return {
+      rangeCount: 1,
+      anchorNode: hidden.textNode,
+      anchorOffset: 0,
+      getRangeAt() { return makeRange(hidden.textNode, 0); },
+    };
+  },
+};
+const outside = mod.c12CaretSelection(entries);
+assert.equal(outside.block_index, null);
+assert.equal(outside.anchor.tag, 'DIV');
+assert.equal(outside.anchor.data['data-paragraph-id'], 'p-hidden');
+assert.equal(outside.anchor.text_prefix, 'hidden editor surface');
+assert.equal(rects, 0, 'rect reads ' + rects);
+console.log(JSON.stringify({ atStart, mid, outside, rects }));
+"""
+        )
+        self.assertEqual(payload["atStart"]["block_index"], 0)
+        self.assertEqual(payload["atStart"]["offset"], 0)
+        self.assertEqual(payload["mid"]["block_index"], 1)
+        self.assertEqual(payload["mid"]["offset"], 4)
+        self.assertIsNone(payload["outside"]["block_index"])
+        self.assertEqual(payload["outside"]["anchor"]["tag"], "DIV")
+        self.assertEqual(payload["rects"], 0)
+
+    def test_empty_inclusive_window_keeps_paragraphs_the_census_drops(self):
+        # The identity window keeps an empty paragraph the census skipped, and
+        # marks it with a null census index. Headings still drop. No layout read.
+        payload = self.node(
+            r"""
+let rects = 0;
+const para = (text) => ({
+  textContent: text,
+  innerText: text,
+  classList: { contains: () => false },
+  getBoundingClientRect: () => { rects += 1; return { top: 0, height: 20 }; },
+});
+const nodes = [para('Article 1. Title of the agreement')];
+for (let i = 0; i < 8; i += 1) nodes.push(para('Filler paragraph ' + i + ' stays here'));
+nodes.push(para(''));
+nodes.push(para('Alpha body paragraph here'));
+nodes.push(para(''));
+nodes.push(para('Beta anchor paragraph stays'));
+nodes.push(para('Gamma tail paragraph after'));
+const serve = (query) => (query === '.docx-paragraph-fragment' || query === '.doc-paragraph' ? nodes : []);
+globalThis.document = { querySelectorAll: serve };
+const snapshot = { caretIndex: 8, anchorIndex: 9 };
+const win = mod.c12EmptyInclusiveWindow('eigenpal', '.doc-paragraph', '', snapshot);
+assert.equal(win.from, 5);
+const rows = win.rows;
+const alphaAt = rows.findIndex((row) => row.text_prefix === 'Alpha body paragraph here');
+assert.ok(alphaAt > 0, JSON.stringify(rows));
+assert.equal(rows[alphaAt].census_index, 8);
+assert.equal(rows[alphaAt].empty, false);
+assert.equal(rows[alphaAt + 1].empty, true);
+assert.equal(rows[alphaAt + 1].census_index, null);
+assert.equal(rows[alphaAt + 2].text_prefix, 'Beta anchor paragraph stays');
+assert.equal(rows[alphaAt + 2].census_index, 9);
+assert.equal(rows.some((row) => String(row.text_prefix || '').startsWith('Article')), false);
+assert.equal(rects, 0, 'rect reads ' + rects);
+globalThis.document = { querySelectorAll: (query) => (query === '.doc-paragraph' ? nodes : []) };
+const plain = mod.c12EmptyInclusiveWindow('', '.doc-paragraph', '', snapshot);
+assert.equal(plain.rows[plain.rows.findIndex((row) => row.census_index === 8) + 1].census_index, null);
+console.log(JSON.stringify({ from: win.from, rows, rects }));
+"""
+        )
+        rows = payload["rows"]
+        alpha = next(row for row in rows if row["text_prefix"] == "Alpha body paragraph here")
+        self.assertEqual(alpha["census_index"], 8)
+        gap = rows[rows.index(alpha) + 1]
+        self.assertTrue(gap["empty"])
+        self.assertIsNone(gap["census_index"])
+        self.assertEqual(payload["rects"], 0)
+
+    def test_census_record_keeps_the_caret_selection_and_empty_window(self):
+        record = bd._c12_census_record(
+            {
+                "before": {
+                    "caret_index": 9,
+                    "anchor_index": 10,
+                    "caret_paragraph_text": "CARET",
+                    "anchor_text": "ANCHOR",
+                    "caret_selection": {"block_index": 10, "offset": 0, "text_prefix": "ANCHOR"},
+                },
+                "empty_inclusive_window": {
+                    "from": 6,
+                    "rows": [{"text_prefix": "", "empty": True, "census_index": None}],
+                },
+            }
+        )
+        self.assertEqual(record["caret_selection"]["block_index"], 10)
+        self.assertEqual(record["caret_selection"]["offset"], 0)
+        self.assertIsNone(record["empty_inclusive_window"]["rows"][0]["census_index"])
+
     def test_census_record_keeps_the_frame_tie(self):
         record = bd._c12_census_record(
             {
@@ -504,6 +679,27 @@ class RerenderHosts(unittest.TestCase):
         self.assertTrue(payload.get("moved"), payload)
         self.assertLess(payload["presented_frame_ms"], 100, payload)
         self.assertEqual(bd.c12_measured_sample(payload), payload["presented_frame_ms"])
+
+    def test_placed_caret_selection_is_the_census_caret_paragraph(self):
+        payload = self._reflow("rerender.html")
+        before = payload.get("before") or {}
+        selection = before.get("caret_selection") or {}
+        self.assertEqual(selection.get("block_index"), before.get("caret_index"), payload)
+        self.assertEqual(selection.get("offset"), 0, payload)
+        self.assertTrue(str(selection.get("text_prefix") or "").startswith("Alpha body"), payload)
+
+    def test_identity_refusal_keeps_the_empty_paragraph_in_the_window(self):
+        payload = self._reflow("empty-gap.html", timeout_ms=2500)
+        self.assertEqual(payload.get("error"), "anchor_identity_ambiguous", payload)
+        rows = (payload.get("empty_inclusive_window") or {}).get("rows") or []
+        indexes = [row.get("census_index") for row in rows]
+        self.assertIn(None, indexes, payload)
+        gap_at = indexes.index(None)
+        self.assertGreater(gap_at, 0, payload)
+        self.assertIsNotNone(indexes[gap_at - 1], payload)
+        self.assertLess(gap_at + 1, len(indexes), payload)
+        self.assertIsNotNone(indexes[gap_at + 1], payload)
+        self.assertIs(rows[gap_at].get("empty"), True, payload)
 
 
 if __name__ == "__main__":
