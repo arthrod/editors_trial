@@ -349,17 +349,22 @@ test('HF GenOffice C06 replay: entry-explained holes measure, siblings keep valu
 // fuzzy match can adopt a different keydown); zero or several matches in the
 // runner is no verified entry. Around the reported end pEnd=startMs+duration:
 // duration is nearest-8 rounded, so the true end can sit up to 4 ms on either
-// side of pEnd; on the early side a further 2 ms covers clock/causality
-// residual, and a glyph earlier than pEnd-6 refuses glyph_before_next_paint.
+// side of pEnd. sparse4: the early side is pEnd-4-one frame interval — the
+// screencast frame's timestamp is its capture time and capture can precede
+// presentation by up to one vsync (calibrated on the trusted corpus: every
+// trusted sample sat at or above -(4+interval)); a glyph earlier refuses
+// glyph_before_next_paint.
 // On the late side the glyph may have been presented as early as pEnd-4, so
 // the unverified interval is glyph-(pEnd-4) and it must stay within
 // onsetBound — the same tolerance the normal path grants between the last
 // ink-less delivered frame and the glyph (owner decision 2026-11-11, #155
-// item 6); beyond it refuses glyph_after_next_paint. And an accepted onset
-// that is not itself the quiet reference must reach it through contiguous
-// deliveries — a gap beyond min(gapBound,quietMs) between consecutive frames
-// in [first,i] refuses onset_walkback_gap. A timing that was not verified is
-// never published.
+// item 6); beyond it refuses glyph_after_next_paint. sparse4 dropped the
+// walk-back guard: the published claim is "the glyph was visible at
+// eligible[first]" and covers(first,ref) proves it with first's own pixels —
+// a delivery hole AFTER first cannot make the glyph appear earlier, and the
+// normal path does not check that span either. A hole inside the quiet
+// window still refuses via the proof's own forward gap check. A timing that
+// was not verified is never published.
 test('a glyph 108 ms after the entry end refuses glyph_after_next_paint (#171)',()=>{
  // Grok's probe: pEnd=200, glyph 308 — unverified 308-(200-4)=112 > 100.
  const r=settleFrames(holeFrames(308,5),{markerMs:0,
@@ -389,16 +394,64 @@ test('a second keydown 0.05 ms from the measured event is not its entry (#171)',
   inputProcessing:{startMs:1000.05,durationMs:2500}});
  assert.equal(r.failure_reason,'witness_sparse');
 });
-test('an accepted onset 666 ms from its quiet reference refuses onset_walkback_gap (#171)',()=>{
- // The folio shape: covers() walks back from the quiet reference at 1866 to
- // the onset frame at 1200 (same ink) across a 666 ms delivery gap the quiet
- // proof never checked; the walked-back frame did not prove quiet.
+test('an explained onset followed by a 666 ms delivery hole before the quiet reference measures (#171)',()=>{
+ // The folio shape (sparse4): covers() walks back from the quiet reference
+ // at 1866 to the onset frame at 1200 across a 666 ms delivery gap. The
+ // published claim is "the glyph was visible at eligible[first]" and
+ // covers(first,ref) proves it with first's own pixels — a hole AFTER first
+ // cannot make the glyph appear earlier, so the span [first,i] needs no
+ // contiguity check (the normal path never checks it either). The hole the
+ // entry explains is the one BEFORE first: last ink-less delivered frame
+ // at 5, onset 1195 ms later, inside the entry's own paint window.
  const times=[5,1200,1866,...Array.from({length:24},(_,i)=>1882.7+i*16.7)];
  const f=frames(times,t=>t<1200?blank:glyph)
   .map(row=>({...row,...classifyRegion(row.pixels,base,[rect],1,rect)}));
  const r=settleFrames(f,{markerMs:0,eventStartMs:0,frameIntervalMs:16.7,
   inputProcessing:{startMs:0,durationMs:1200}});
- assert.equal(r.failure_reason,'onset_walkback_gap');
+ assert.equal(r.page_ms,1200);
+ assert.equal(r.onset_hole_explained_by,'event_next_paint');
+ assert.equal(r.onset_gap_ms,1195);
+});
+test('a delivery hole inside the quiet window still refuses (#171)',()=>{
+ // Removing the walk-back guard does not touch the quiet proof itself: the
+ // gap check runs forward from the reference, and a hole inside the
+ // reference's own quiet window still refuses — here even with a verified
+ // entry explaining the onset (glyph frames run 1200..1233.4, a ~1667 ms
+ // hole to 2900, and what is delivered after cannot span a quiet window
+ // inside W: 2900+300 > marker+3000).
+ const times=[5,1200,1216.7,1233.4,2900,2916.7];
+ const f=frames(times,t=>t<1200?blank:glyph)
+  .map(row=>({...row,...classifyRegion(row.pixels,base,[rect],1,rect)}));
+ const r=settleFrames(f,{markerMs:0,eventStartMs:0,frameIntervalMs:16.7,
+  inputProcessing:{startMs:0,durationMs:1200}});
+ assert.equal(r.failure_reason,'witness_sparse');
+});
+test('a glyph one vsync before the entry end measures — capture precedes presentation (#171)',()=>{
+ // sparse4: the screencast frame's timestamp is its capture time; a frame
+ // can be captured up to one vsync before the presentation the Event
+ // Timing entry reports. Calibrated on the stored corpus: every trusted
+ // sample (normal-path measured with an exactly-matching entry) sat at or
+ // above -(4+interval) — glyph 200, pEnd 220, interval 16.7 → -20 inside.
+ const r=settleFrames(holeFrames(200,5),{markerMs:0,eventStartMs:0,
+  inputProcessing:{startMs:0,durationMs:220}});
+ assert.equal(r.page_ms,200);
+ assert.equal(r.onset_hole_explained_by,'event_next_paint');
+});
+test('a glyph more than one vsync before the entry end refuses glyph_before_next_paint (#171)',()=>{
+ // pEnd=221, glyph 200 → -21 < -(4+16.7): earlier than capture can explain.
+ const r=settleFrames(holeFrames(200,5),{markerMs:0,eventStartMs:0,
+  inputProcessing:{startMs:0,durationMs:221}});
+ assert.equal(r.failure_reason,'glyph_before_next_paint');
+});
+test('the early bound tracks the sample interval (#171)',()=>{
+ // frameIntervalMs=8 (a 120 Hz-class display): the vsync term is the
+ // sample's own calibrated interval, so -11 measures and -13 refuses.
+ const inside=settleFrames(holeFrames(200,5),{markerMs:0,eventStartMs:0,frameIntervalMs:8,
+  inputProcessing:{startMs:0,durationMs:211}});
+ assert.equal(inside.page_ms,200);
+ const outside=settleFrames(holeFrames(200,5),{markerMs:0,eventStartMs:0,frameIntervalMs:8,
+  inputProcessing:{startMs:0,durationMs:213}});
+ assert.equal(outside.failure_reason,'glyph_before_next_paint');
 });
 test('the runner compares the entry on the raw clock — no page_offset shift (#171)',()=>{
  const src=readFileSync(new URL('../runner/warm_cold_browser.mjs',import.meta.url),'utf8');
