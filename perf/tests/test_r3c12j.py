@@ -162,6 +162,31 @@ console.log(JSON.stringify({ rects, block: result.block, top_before: result.top_
         self.assertEqual(record["anchor_top"], 1244)
         self.assertEqual(record["viewport_height"], 900)
 
+    def test_census_record_keeps_the_identity_diagnostic(self):
+        record = bd._c12_census_record(
+            {
+                "identity_diagnostic": {
+                    "failed": "b",
+                    "window_from": 6,
+                    "before_blocks": ["CARET", "ANCHOR"],
+                    "after_blocks": ["CARET", "ANCHOR", "ANCHOR"],
+                    "anchor_indexes_before": [10],
+                    "anchor_indexes_after": [10, 20],
+                },
+                "before": {
+                    "ok": True,
+                    "caret_index": 9,
+                    "anchor_index": 10,
+                    "caret_paragraph_text": "CARET",
+                    "anchor_text": "ANCHOR",
+                },
+            }
+        )
+        self.assertEqual(record["identity_diagnostic"]["window_from"], 6)
+        self.assertEqual(record["identity_diagnostic"]["anchor_indexes_after"], [10, 20])
+        self.assertEqual(record["caret_index"], 9)
+        self.assertEqual(record["anchor_index"], 10)
+
     def test_untied_code_refuses_the_sample(self):
         from perf.runner.refusals import RefusalCode
 

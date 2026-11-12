@@ -791,6 +791,9 @@ def _c12_census_record(payload: dict) -> dict:
     scroll = payload.get("caret_scroll")
     if isinstance(scroll, dict):
         record["caret_scroll"] = scroll
+    diagnostic = payload.get("identity_diagnostic")
+    if isinstance(diagnostic, dict):
+        record["identity_diagnostic"] = diagnostic
     return record
 
 

@@ -203,25 +203,49 @@ export function c12FirstBodyCaretIndex(entries) {
 /** Refusal-only diagnostic for ruling 3 (a)–(e); paragraph lists truncated. */
 export function C12_IDENTITY_REFUSAL_DIAGNOSTIC(snapshot, texts, norm, limit = 8, trunc = 80) {
   const n = (t) => norm(t);
-  const clip = (list) => list.slice(0, limit).map((t) => String(t || '').slice(0, trunc));
+  const clipText = (t) => String(t || '').slice(0, trunc);
+  const Braw = snapshot && Array.isArray(snapshot.blockTexts) ? snapshot.blockTexts : [];
+  const Araw = Array.isArray(texts) ? texts : [];
+  const c = Number(snapshot && snapshot.caretIndex);
+  const i = Number(snapshot && snapshot.anchorIndex);
+  const indexed = Number.isFinite(c) && Number.isFinite(i) && c >= 0 && i >= 0;
+  // caret-3 .. anchor+5, inclusive. A prefix of `limit` hides a pair past
+  // that prefix (the complex-corpus pair is at 9/10; limit 8 is page chrome).
+  // Missing indexes keep the old prefix.
+  const windowOf = (list) => {
+    const normalized = list.map(n);
+    if (!indexed) return { from: 0, texts: normalized.slice(0, limit).map(clipText) };
+    const from = Math.max(0, Math.min(c, i) - 3);
+    const to = Math.min(normalized.length, Math.max(c, i) + 5 + 1);
+    return { from, texts: normalized.slice(from, to).map(clipText) };
+  };
+  const beforeWin = windowOf(Braw);
+  const afterWin = windowOf(Araw);
+  const B = Braw.map(n);
+  const A = Araw.map(n);
+  const anchorText = n((snapshot && snapshot.anchorText) || (indexed ? B[i] : '') || '');
+  const indexesOf = (list) => {
+    const found = [];
+    if (!anchorText) return found;
+    for (let k = 0; k < list.length; k += 1) if (list[k] === anchorText) found.push(k);
+    return found;
+  };
   const base = {
-    caretIndex: snapshot && Number.isFinite(Number(snapshot.caretIndex)) ? Number(snapshot.caretIndex) : null,
-    anchorIndex: snapshot && Number.isFinite(Number(snapshot.anchorIndex)) ? Number(snapshot.anchorIndex) : null,
-    before_blocks: clip(snapshot && Array.isArray(snapshot.blockTexts) ? snapshot.blockTexts : []),
-    after_blocks: clip(texts.map(n)),
+    caretIndex: indexed ? c : null,
+    anchorIndex: indexed ? i : null,
+    window_from: beforeWin.from,
+    before_blocks: beforeWin.texts,
+    after_blocks: afterWin.texts,
+    anchor_indexes_before: indexesOf(B),
+    anchor_indexes_after: indexesOf(A),
     failed: null,
   };
   if (!snapshot || !Array.isArray(snapshot.blockTexts)) {
     return { ...base, failed: 'a' };
   }
-  const B = snapshot.blockTexts.map(n);
-  const A = texts.map(n);
-  const c = Number(snapshot.caretIndex);
-  const i = Number(snapshot.anchorIndex);
-  if (!Number.isFinite(c) || !Number.isFinite(i) || c < 0 || i < 0) {
+  if (!indexed) {
     return { ...base, failed: 'a' };
   }
-  const anchorText = n(snapshot.anchorText || B[i] || '');
   const beforeCount = B.filter((t) => t === anchorText).length;
   const afterCount = A.filter((t) => t === anchorText).length;
   if (afterCount !== beforeCount) {

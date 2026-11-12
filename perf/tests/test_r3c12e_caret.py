@@ -87,6 +87,65 @@ console.log(JSON.stringify(diag));
         )
         self.assertEqual(out["failed"], "c")
 
+    def test_window_shows_the_pair_past_the_eight_row_clip(self):
+        # The pair sits at indexes 9 and 10. A prefix of 8 rows is page chrome
+        # and hides the count change. The window is caret-3 through anchor+5.
+        out = self.node(
+            """
+const before = Array.from({ length: 20 }, (_, i) => 'block ' + i);
+before[9] = 'CARET';
+before[10] = 'ANCHOR';
+const after = before.slice();
+after.push('ANCHOR');
+const snapshot = {
+  caretIndex: 9,
+  anchorIndex: 10,
+  blockTexts: before,
+  anchorText: 'ANCHOR',
+};
+const diag = mod.C12_IDENTITY_REFUSAL_DIAGNOSTIC(snapshot, after, (t) => String(t).trim(), 8, 80);
+assert.equal(diag.failed, 'b', JSON.stringify(diag));
+assert.equal(diag.window_from, 6);
+assert.equal(diag.before_blocks.length, 10);
+assert.equal(diag.after_blocks.length, 10);
+assert.equal(diag.before_blocks[0], 'block 6');
+assert.equal(diag.before_blocks[3], 'CARET');
+assert.equal(diag.before_blocks[4], 'ANCHOR');
+assert.deepEqual(diag.anchor_indexes_before, [10]);
+assert.deepEqual(diag.anchor_indexes_after, [10, 20]);
+console.log(JSON.stringify(diag));
+"""
+        )
+        self.assertEqual(out["failed"], "b")
+        self.assertEqual(out["window_from"], 6)
+        self.assertEqual(out["before_blocks"][3], "CARET")
+        self.assertEqual(out["before_blocks"][4], "ANCHOR")
+        self.assertEqual(out["anchor_indexes_before"], [10])
+        self.assertEqual(out["anchor_indexes_after"], [10, 20])
+
+    def test_missing_indexes_fall_back_to_the_prefix(self):
+        out = self.node(
+            """
+const blocks = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'];
+const diag = mod.C12_IDENTITY_REFUSAL_DIAGNOSTIC(
+  { blockTexts: blocks },
+  blocks,
+  (t) => String(t).trim(),
+  8,
+  80,
+);
+assert.equal(diag.failed, 'a', JSON.stringify(diag));
+assert.equal(diag.window_from, 0);
+assert.equal(diag.before_blocks.length, 8);
+assert.equal(diag.before_blocks[0], 'a');
+assert.equal(diag.before_blocks[7], 'h');
+console.log(JSON.stringify(diag));
+"""
+        )
+        self.assertEqual(out["failed"], "a")
+        self.assertEqual(out["window_from"], 0)
+        self.assertEqual(len(out["before_blocks"]), 8)
+
 
 class C12BodyCaretUsesAdapter(unittest.TestCase):
     def test_place_c12_body_caret_calls_shared_place_caret(self):
