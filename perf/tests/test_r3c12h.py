@@ -52,6 +52,34 @@ def _load_server():
     return mod
 
 
+class FixtureParagraphPair(unittest.TestCase):
+    def test_pair_is_the_first_non_heading_body_and_the_next(self):
+        from perf.fixtures.docx_workload import workload_for_lane
+        from perf.runner.benchmark_document import c12_fixture_body_pair
+
+        prose = workload_for_lane("prose-500w", "document")["docx"]
+        caret, anchor = c12_fixture_body_pair(prose)
+        self.assertTrue(caret.startswith("In property property each"), caret)
+        self.assertTrue(anchor.startswith("Director partial connection"), anchor)
+        corpus = workload_for_lane("complex-corpus", "document")["docx"]
+        caret, anchor = c12_fixture_body_pair(corpus)
+        self.assertEqual(caret, "Leading and trailing spaces are significant.")
+        # w:noBreakHyphen, w:softHyphen and the Wingdings check are part of the
+        # paragraph plate paints. A w:t-only join is a different string.
+        self.assertEqual(
+            anchor,
+            "Tab separatedAfter a page break\u2011nobreak\u00adsofthyphen\u2713symafter CR",
+        )
+
+    def test_one_body_paragraph_is_not_a_pair(self):
+        from perf.runner.benchmark_document import c12_fixture_body_pair, docx_paragraph_bytes
+
+        raw = docx_paragraph_bytes(b"Only one body paragraph\n")
+        with self.assertRaises(bd.ProbeRefusal) as caught:
+            c12_fixture_body_pair(raw)
+        self.assertEqual(caught.exception.refusal_code, "fixture_body_pair_absent")
+
+
 class NodeContract(unittest.TestCase):
     def test_later_refind_success_clears_a_refusal_from_an_earlier_frame(self):
         # The frame recorder calls REFIND_ANCHOR on the Enter that replaces the
@@ -102,6 +130,96 @@ console.log(JSON.stringify({ refusal: window.__c12AnchorRefusal, found: afterX =
         )
         self.assertIsNone(payload["refusal"])
         self.assertTrue(payload["found"])
+
+    def test_fixture_strings_locate_the_caret_and_anchor(self):
+        # complex-corpus on docxodus and eigenpal censuses "Default header" / "1"
+        # as indexes 0 and 1. The caret and anchor are the fixture's first
+        # non-heading body paragraph and the body paragraph after it.
+        payload = self.node(
+            r"""
+const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+const entries = [
+  { text: 'Default header', top: 0 },
+  { text: '1', top: 20 },
+  { text: 'Leading and trailing spaces are significant.', top: 80 },
+  { text: 'Tab separatedAfter a page break', top: 110 },
+];
+const pick = mod.c12LocateFixtureParagraphs(
+  entries,
+  'Leading and trailing spaces are significant.',
+  'Tab separatedAfter a page break',
+  norm,
+);
+console.log(JSON.stringify(pick));
+assert.equal(pick.ok, true, JSON.stringify(pick));
+assert.equal(pick.caretIndex, 2);
+assert.equal(pick.anchorIndex, 3);
+const missing = mod.c12LocateFixtureParagraphs(entries, 'not in the census', 'Tab separatedAfter a page break', norm);
+assert.equal(missing.ok, false);
+assert.equal(missing.reason, 'fixture_paragraph_not_in_census');
+"""
+        )
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["caretIndex"], 2)
+        self.assertEqual(payload["anchorIndex"], 3)
+
+    def test_superdoc_wrapped_paragraph_uses_one_text_function(self):
+        # Two lines 20px apart are one paragraph. The census stores the join.
+        # The identity re-read must return that same string from either line.
+        # A line 80px below the previous one is the next paragraph.
+        payload = self.node(
+            r"""
+const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+const line = (text, top) => ({
+  textContent: text,
+  innerText: text,
+  classList: { contains: (name) => name === 'superdoc-line' },
+  getAttribute: () => '',
+  closest: () => null,
+  getBoundingClientRect: () => ({ top, bottom: top + 18, left: 40, height: 18, width: 400 }),
+});
+const wrappedA = line('In property property each completion indirect tax', 80);
+const wrappedB = line('wrapped onto the next laid-out line of the same paragraph', 100);
+const next = line('Director partial connection timely also respect.', 180);
+const lines = [wrappedA, wrappedB, next];
+globalThis.document = { querySelectorAll: () => lines };
+globalThis.window = globalThis;
+const expected = norm(wrappedA.textContent + ' ' + wrappedB.textContent);
+const read = (block) => mod.C12_BLOCK_TEXT(block, norm);
+const entries = mod.c12BlockEntries('superdoc', '#editor .superdoc-line', '', read);
+const reread = mod.C12_BLOCK_TEXT(entries[0].el, norm);
+const sibling = mod.C12_BLOCK_TEXT(wrappedB, norm);
+console.log(JSON.stringify({
+  count: entries.length,
+  census: entries[0].text,
+  reread,
+  sibling,
+  next: mod.C12_BLOCK_TEXT(next, norm),
+}));
+assert.equal(entries.length, 2);
+assert.equal(entries[0].text, expected);
+assert.equal(reread, expected);
+assert.equal(sibling, expected);
+assert.equal(mod.C12_BLOCK_TEXT(next, norm), next.textContent);
+const pageFn = eval(mod.C12_BLOCK_TEXT_PAGE_SRC);
+assert.equal(typeof pageFn, 'function');
+assert.equal(pageFn(wrappedB, norm), expected);
+assert.equal(pageFn(next, norm), next.textContent);
+const collect = (0, eval)(`(function(){ ${mod.C12_BLOCK_ENTRIES_PAGE_SRC}; return c12BlockEntries; })()`);
+const viaPage = collect('superdoc', '#editor .superdoc-line', '', read);
+assert.equal(viaPage.length, 2);
+assert.equal(viaPage[0].text, expected);
+const pageReread = pageFn(viaPage[0].el, norm);
+assert.equal(pageReread, expected);
+"""
+        )
+        expected = (
+            "In property property each completion indirect tax "
+            "wrapped onto the next laid-out line of the same paragraph"
+        )
+        self.assertEqual(payload["census"], expected)
+        self.assertEqual(payload["reread"], expected)
+        self.assertEqual(payload["sibling"], expected)
 
     def node(self, body: str, module: Path | None = None) -> dict:
         script = """
@@ -221,7 +339,13 @@ class ProbeRefusalCodes(unittest.TestCase):
     def test_edit_miss_and_caret_miss_carry_refusal_codes(self):
         from perf.runner.refusals import RefusalCode
 
-        for code in ("edit_not_observed", "caret_not_at_paragraph_start"):
+        for code in (
+            "edit_not_observed",
+            "caret_not_at_paragraph_start",
+            "fixture_paragraph_not_in_census",
+            "fixture_body_pair_absent",
+            "fixture_symbol_unmapped",
+        ):
             self.assertIn(code, {item.value for item in RefusalCode})
             with self.assertRaises(bd.ProbeRefusal) as caught:
                 bd.c12_measured_sample({"error": code})

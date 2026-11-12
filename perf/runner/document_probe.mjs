@@ -78,7 +78,8 @@ import {
   REFIND_ANCHOR,
   REFIND_ANCHOR_PAGE_SRC,
   C12_BLOCK_ENTRIES_PAGE_SRC,
-  C12_BLOCK_TEXT,
+  C12_BLOCK_TEXT_PAGE_SRC,
+  C12_LOCATE_PAGE_SRC,
   C12_IDENTITY_DIAGNOSTIC_PAGE_SRC,
   ensureReflowCaret,
   gatherReflowBefore,
@@ -127,6 +128,8 @@ const pageSelector = opt['page-selector'] || '';
 const pageModel = opt['page-model'] || (pageSelector ? 'page' : 'continuous_flow');
 const editSelector = opt['edit-selector'] || docSelector;
 const editorId = typeof opt.editor === 'string' ? opt.editor : '';
+const c12CaretText = typeof opt['c12-caret-text'] === 'string' ? opt['c12-caret-text'] : '';
+const c12AnchorText = typeof opt['c12-anchor-text'] === 'string' ? opt['c12-anchor-text'] : '';
 const settleMs = Number(opt['settle-ms'] || 0);
 const timeoutMs = Number(opt['timeout-ms'] || loadTimeoutMs());
 const anchorIndex = Number(opt['anchor-index'] || 1);
@@ -1472,6 +1475,8 @@ async function runReflow(browser) {
       settleMs: 100,
       editorId,
       excludeSel: excludeSelEarly,
+      caretText: c12CaretText,
+      anchorText: c12AnchorText,
     });
     if (editorId === 'superdoc') {
       try {
@@ -1490,7 +1495,10 @@ async function runReflow(browser) {
         /* best effort */
       }
     }
-    let bodyCaret = await placeC12BodyCaret(ctx.page, editorId, reflowSel, excludeSelEarly);
+    let bodyCaret = await placeC12BodyCaret(ctx.page, editorId, reflowSel, excludeSelEarly, {
+      caretText: c12CaretText,
+      anchorText: c12AnchorText,
+    });
     if (!bodyCaret || bodyCaret.ok !== true) {
       return {
         mode: 'reflow',
@@ -1518,6 +1526,9 @@ async function runReflow(browser) {
       excludeSel,
       pickBelowSrc: PICK_ANCHOR_BELOW.toString(),
       entriesSrc: C12_BLOCK_ENTRIES_PAGE_SRC,
+      locateSrc: C12_LOCATE_PAGE_SRC,
+      caretText: c12CaretText,
+      anchorText: c12AnchorText,
     });
     if (!before.ok) {
       return {
@@ -1731,7 +1742,7 @@ async function runReflow(browser) {
         {
           checkSrc: `${ANCHOR_REFIND_CONTEXT_OK_PAGE_SRC}`,
           diagSrc: `${C12_IDENTITY_DIAGNOSTIC_PAGE_SRC}`,
-          blockTextSrc: `${C12_BLOCK_TEXT}`,
+          blockTextSrc: C12_BLOCK_TEXT_PAGE_SRC,
           entriesSrc: `${C12_BLOCK_ENTRIES_PAGE_SRC}`,
           eid: editorId || '',
           excl: excludeSel,
@@ -1802,7 +1813,7 @@ async function runReflow(browser) {
         },
         {
           diagSrc: `${C12_IDENTITY_DIAGNOSTIC_PAGE_SRC}`,
-          blockTextSrc: `${C12_BLOCK_TEXT}`,
+          blockTextSrc: C12_BLOCK_TEXT_PAGE_SRC,
           entriesSrc: `${C12_BLOCK_ENTRIES_PAGE_SRC}`,
           eid: editorId || '',
           excl: excludeSel,
@@ -1952,7 +1963,7 @@ async function runReflow(browser) {
         anchorTop: before.anchor_top,
         anchorOccurrence: before.anchor_occurrence,
         refindSrc: `${REFIND_ANCHOR_PAGE_SRC}`,
-        blockTextSrc: `${C12_BLOCK_TEXT}`,
+        blockTextSrc: C12_BLOCK_TEXT_PAGE_SRC,
       },
     );
     const endIdentity = await ctx.page.evaluate(
@@ -2007,7 +2018,7 @@ async function runReflow(browser) {
       {
         checkSrc: `${ANCHOR_REFIND_CONTEXT_OK_PAGE_SRC}`,
         diagSrc: `${C12_IDENTITY_DIAGNOSTIC_PAGE_SRC}`,
-        blockTextSrc: `${C12_BLOCK_TEXT}`,
+        blockTextSrc: C12_BLOCK_TEXT_PAGE_SRC,
         entriesSrc: `${C12_BLOCK_ENTRIES_PAGE_SRC}`,
         eid: editorId || '',
         excl: excludeSel,

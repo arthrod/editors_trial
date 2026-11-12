@@ -64,6 +64,7 @@ from perf.fixtures.generate import (  # noqa: E402
 )
 from perf.fixtures.profiles import assert_workload_allowed, size_ladder  # noqa: E402
 from perf.runner.browser_run import ACTIVE, execution_profile, host_class, run_cli, fixture_path as run_fixture, write_json, record_process
+from perf.runner.refusals import RefusalCode
 from perf.runner.witness import validate_witness  # noqa: E402
 from perf.runner.artifacts import write_attempt  # noqa: E402
 from perf.runner.benchmark_ci_contract import (  # noqa: E402
@@ -465,6 +466,96 @@ def docx_paragraph_bytes(body: bytes) -> bytes:
     return buffer.getvalue()
 
 
+_WML = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+
+
+def _c12_norm(value: str) -> str:
+    return re.sub(r"\s+", " ", value or "").strip()
+
+
+def c12_fixture_body_pair(docx: bytes) -> tuple[str, str]:
+    """Caret and anchor text from the docx, the same two strings for every editor.
+
+    The caret is the first body paragraph whose style is not a heading. The
+    anchor is the next body paragraph. A heading is a style whose value starts
+    with ``heading``. Empty paragraphs are skipped.
+
+    The string is the paragraph plate paints. ``w:t`` text is kept. ``w:tab``,
+    ``w:br`` and ``w:cr`` add no character. ``w:noBreakHyphen`` is U+2011,
+    ``w:softHyphen`` is U+00AD, and a Wingdings F0FC symbol is U+2713. Any
+    other ``w:sym`` refuses ``fixture_symbol_unmapped`` instead of being
+    dropped. A document with fewer than two body paragraphs refuses
+    ``fixture_body_pair_absent``.
+    """
+    import io
+    import zipfile
+    import xml.etree.ElementTree as ET
+
+    def refuse(code: str, reason: str | None = None) -> None:
+        raise ProbeRefusal(reason or code, refusal_code=code)
+
+    try:
+        with zipfile.ZipFile(io.BytesIO(docx)) as archive:
+            xml_bytes = archive.read("word/document.xml")
+        root = ET.fromstring(xml_bytes)
+    except Exception as exc:
+        raise ProbeRefusal(
+            RefusalCode.FIXTURE_BODY_PAIR_ABSENT.value,
+            refusal_code=RefusalCode.FIXTURE_BODY_PAIR_ABSENT.value,
+        ) from exc
+
+    body = root.find("%sbody" % _WML)
+    paragraphs = list(body.findall("%sp" % _WML)) if body is not None else []
+    found: list[str] = []
+    for paragraph in paragraphs:
+        if len(found) == 2:
+            break
+        style = ""
+        p_pr = paragraph.find("%spPr" % _WML)
+        if p_pr is not None:
+            p_style = p_pr.find("%spStyle" % _WML)
+            if p_style is not None:
+                style = p_style.get("%sval" % _WML) or ""
+        if style.lower().startswith("heading"):
+            continue
+        parts: list[str] = []
+        for el in paragraph.iter():
+            tag = el.tag
+            if tag == "%st" % _WML:
+                if el.text:
+                    parts.append(el.text)
+            elif tag == "%snoBreakHyphen" % _WML:
+                parts.append("\u2011")
+            elif tag == "%ssoftHyphen" % _WML:
+                parts.append("\u00ad")
+            elif tag == "%ssym" % _WML:
+                font = (el.get("%sfont" % _WML) or "").lower()
+                char = (el.get("%schar" % _WML) or "").upper()
+                if font == "wingdings" and char == "F0FC":
+                    parts.append("\u2713")
+                else:
+                    refuse(
+                        RefusalCode.FIXTURE_SYMBOL_UNMAPPED.value,
+                        "fixture_symbol_unmapped: font=%s char=%s" % (font, char),
+                    )
+        text = "".join(parts)
+        if not _c12_norm(text):
+            continue
+        found.append(text)
+    if len(found) < 2:
+        refuse(RefusalCode.FIXTURE_BODY_PAIR_ABSENT.value)
+    return found[0], found[1]
+
+
+def _c12_fixture_text_args(fixture_path) -> list[str]:
+    """Pass the fixture pair when the path is a real docx. A missing path stays on the host picker."""
+    path = Path(fixture_path) if fixture_path is not None else None
+    if path is None or not path.is_file():
+        return []
+    caret, anchor = c12_fixture_body_pair(path.read_bytes())
+    return ["--c12-caret-text", caret, "--c12-anchor-text", anchor]
+
+
 def build_fixture(workload_row: dict) -> dict:
     """Ladder body plus the correctness fixtures, split into real paragraphs.
 
@@ -590,6 +681,9 @@ _C12_PROBE_REFUSAL_CODES = frozenset({
     "anchor_identity_ambiguous",
     "edit_not_observed",
     "caret_not_at_paragraph_start",
+    RefusalCode.FIXTURE_PARAGRAPH_NOT_IN_CENSUS.value,
+    RefusalCode.FIXTURE_BODY_PAIR_ABSENT.value,
+    RefusalCode.FIXTURE_SYMBOL_UNMAPPED.value,
 })
 
 
@@ -1606,7 +1700,7 @@ def _run_reflow_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path
         target=target,
         cfg=cfg,
         corpus_path=fixture_path,
-        extra=["--settle-ms", str(SETTLE_MS)],
+        extra=["--settle-ms", str(SETTLE_MS), *_c12_fixture_text_args(fixture_path)],
         editor_id=editor_id,
     )
     cmd.extend(["--editor", editor_id])

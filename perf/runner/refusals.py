@@ -51,6 +51,9 @@ class RefusalCode(StrEnum):
     ANCHOR_IDENTITY_AMBIGUOUS = 'anchor_identity_ambiguous'
     EDIT_NOT_OBSERVED = 'edit_not_observed'
     CARET_NOT_AT_PARAGRAPH_START = 'caret_not_at_paragraph_start'
+    FIXTURE_PARAGRAPH_NOT_IN_CENSUS = 'fixture_paragraph_not_in_census'
+    FIXTURE_BODY_PAIR_ABSENT = 'fixture_body_pair_absent'
+    FIXTURE_SYMBOL_UNMAPPED = 'fixture_symbol_unmapped'
 
 
 RUN_REFUSALS = frozenset({

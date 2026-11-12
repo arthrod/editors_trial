@@ -255,8 +255,41 @@ export function C12_IDENTITY_REFUSAL_DIAGNOSTIC(snapshot, texts, norm, limit = 8
   return { ...base, failed: 'e' };
 }
 
+/**
+ * First census entry equal to the fixture caret string, then the first entry
+ * after it equal to the fixture anchor string. A miss is a refusal: the next
+ * block below a heading or a header is not a substitute.
+ */
+export function c12LocateFixtureParagraphs(entries, caretText, anchorText, norm) {
+  const normalize = typeof norm === 'function'
+    ? norm
+    : (value) => String(value || '').replace(/\s+/g, ' ').trim();
+  const wantCaret = normalize(caretText);
+  const wantAnchor = normalize(anchorText);
+  if (!Array.isArray(entries) || !wantCaret || !wantAnchor) {
+    return { ok: false, reason: 'fixture_paragraph_not_in_census' };
+  }
+  let caretIndex = -1;
+  for (let i = 0; i < entries.length; i += 1) {
+    if (normalize(entries[i] && entries[i].text) === wantCaret) {
+      caretIndex = i;
+      break;
+    }
+  }
+  if (caretIndex < 0) return { ok: false, reason: 'fixture_paragraph_not_in_census' };
+  let anchorIndex = -1;
+  for (let i = caretIndex + 1; i < entries.length; i += 1) {
+    if (normalize(entries[i] && entries[i].text) === wantAnchor) {
+      anchorIndex = i;
+      break;
+    }
+  }
+  if (anchorIndex < 0) return { ok: false, reason: 'fixture_paragraph_not_in_census' };
+  return { ok: true, caretIndex, anchorIndex };
+}
+
 /** Page context: click point at the start of the fixture's first body census block. */
-export function c12BodyCaretClick({ editorId, docSel, excludeSel }) {
+export function c12BodyCaretClick({ editorId, docSel, excludeSel, caretText, anchorText }) {
   const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
   const readBlock = (block) => {
     if (block && block.classList && block.classList.contains('superdoc-line')) {
@@ -266,8 +299,28 @@ export function c12BodyCaretClick({ editorId, docSel, excludeSel }) {
   };
   if (typeof c12BlockEntries !== 'function') return { ok: false, reason: 'census unavailable' };
   const entries = c12BlockEntries(String(editorId || ''), docSel, excludeSel || '', readBlock);
-  const pick = c12FirstBodyCaretIndex(entries);
-  if (!pick.ok || !entries[pick.caretIndex]) return { ok: false, reason: pick.reason || 'no body block' };
+  const fixtureCaret = String(caretText || '');
+  const fixtureAnchor = String(anchorText || '');
+  const useFixture = Boolean(fixtureCaret && fixtureAnchor);
+  let pick;
+  if (useFixture) {
+    if (typeof c12LocateFixtureParagraphs !== 'function') {
+      return { ok: false, reason: 'fixture_paragraph_not_in_census' };
+    }
+    const located = c12LocateFixtureParagraphs(entries, fixtureCaret, fixtureAnchor, norm);
+    if (!located.ok || !entries[located.caretIndex]) {
+      return { ok: false, reason: located.reason || 'fixture_paragraph_not_in_census' };
+    }
+    pick = {
+      ok: true,
+      caretIndex: located.caretIndex,
+      anchorIndex: located.anchorIndex,
+      caretText: String(entries[located.caretIndex].text || ''),
+    };
+  } else {
+    pick = c12FirstBodyCaretIndex(entries);
+    if (!pick.ok || !entries[pick.caretIndex]) return { ok: false, reason: pick.reason || 'no body block' };
+  }
   const el = entries[pick.caretIndex].el;
   let click = null;
   try {
@@ -283,6 +336,11 @@ export function c12BodyCaretClick({ editorId, docSel, excludeSel }) {
       };
     }
     window.__c12ForcedCaretIndex = pick.caretIndex;
+    if (useFixture) {
+      window.__c12ForcedAnchorIndex = pick.anchorIndex;
+      window.__c12FixtureCaretText = fixtureCaret;
+      window.__c12FixtureAnchorText = fixtureAnchor;
+    }
   } catch {
     return { ok: false, reason: 'could not resolve body block click point' };
   }
@@ -295,10 +353,71 @@ export function c12BodyCaretClick({ editorId, docSel, excludeSel }) {
   };
 }
 
-/** Visible text of one reflow block; innerText matches what users see when runs split. */
+/** One SuperDoc paragraph: lines that share a paragraph id, or orphan lines within 28px. */
+export function superdocParagraphGroups(lines, rect) {
+  const order = [];
+  const groups = new Map();
+  let orphanRun = null;
+  let orphanTop = null;
+  for (const line of lines) {
+    const lineTop = rect(line).top;
+    let pid = line.getAttribute('data-paragraph-id');
+    if (!pid) {
+      const holder = line.closest('[data-paragraph-id]');
+      pid = holder ? holder.getAttribute('data-paragraph-id') : '';
+    }
+    if (!pid) {
+      if (orphanRun && orphanTop !== null && lineTop - orphanTop > 28) {
+        orphanRun = null;
+        orphanTop = null;
+      }
+      if (!orphanRun) orphanRun = `__linegroup__:${order.length}`;
+      pid = orphanRun;
+      orphanTop = lineTop;
+    } else {
+      orphanRun = null;
+      orphanTop = null;
+    }
+    if (!groups.has(pid)) {
+      groups.set(pid, []);
+      order.push(pid);
+    }
+    groups.get(pid).push(line);
+  }
+  return order.map((pid) => groups.get(pid));
+}
+
+/** Joined painted text of one SuperDoc paragraph. Census and identity re-read both use this. */
+export function joinSuperdocLines(lines, norm) {
+  const normalize = typeof norm === 'function'
+    ? norm
+    : (value) => String(value || '').replace(/\s+/g, ' ').trim();
+  return normalize((lines || []).map((el) => (el && el.textContent) || '').join(' '));
+}
+
+/** Paragraph text of one SuperDoc line, from the same groups the census builds. */
+export function c12SuperdocParagraphText(line, norm) {
+  const normalize = typeof norm === 'function'
+    ? norm
+    : (value) => String(value || '').replace(/\s+/g, ' ').trim();
+  if (!line) return normalize('');
+  const root = typeof document !== 'undefined' ? document : globalThis.document;
+  if (!root || typeof root.querySelectorAll !== 'function') return normalize(line.textContent);
+  let lines = Array.from(root.querySelectorAll('#editor .superdoc-line'));
+  const excludeSel = typeof window !== 'undefined' ? String(window.__c12ExcludeSel || '') : '';
+  if (excludeSel) {
+    const excluded = Array.from(root.querySelectorAll(excludeSel));
+    lines = lines.filter((el) => !excluded.some((node) => node === el || (node.contains && node.contains(el))));
+  }
+  const groups = superdocParagraphGroups(lines, (el) => el.getBoundingClientRect());
+  const group = groups.find((grp) => grp.indexOf(line) !== -1);
+  return joinSuperdocLines(group && group.length ? group : [line], normalize);
+}
+
+/** Visible text of one reflow block. A SuperDoc line answers as its whole paragraph. */
 export const C12_BLOCK_TEXT = (block, norm) => {
   if (block && block.classList && block.classList.contains('superdoc-line')) {
-    return norm(block.textContent);
+    return c12SuperdocParagraphText(block, norm);
   }
   return norm(block.innerText || block.textContent);
 };
@@ -323,40 +442,13 @@ export function c12BlockEntries(editorId, docSel, excludeSel, readBlock) {
   };
 
   if (editorId === 'superdoc') {
+    // One pass over the lines. Do not call c12SuperdocParagraphText per line:
+    // that re-queries and would join the paragraph once per line.
     const lines = Array.from(document.querySelectorAll('#editor .superdoc-line')).filter((el) => !skip(el));
-    const order = [];
-    const groups = new Map();
-    let orphanRun = null;
-    let orphanTop = null;
-    for (const line of lines) {
-      const lineTop = rect(line).top;
-      let pid = line.getAttribute('data-paragraph-id');
-      if (!pid) {
-        const holder = line.closest('[data-paragraph-id]');
-        pid = holder ? holder.getAttribute('data-paragraph-id') : '';
-      }
-      if (!pid) {
-        if (orphanRun && orphanTop !== null && lineTop - orphanTop > 28) {
-          orphanRun = null;
-          orphanTop = null;
-        }
-        if (!orphanRun) orphanRun = `__linegroup__:${order.length}`;
-        pid = orphanRun;
-        orphanTop = lineTop;
-      } else {
-        orphanRun = null;
-        orphanTop = null;
-      }
-      if (!groups.has(pid)) {
-        groups.set(pid, []);
-        order.push(pid);
-      }
-      groups.get(pid).push(line);
-    }
+    const groups = superdocParagraphGroups(lines, rect);
     const out = [];
-    for (const pid of order) {
-      const grp = groups.get(pid);
-      const text = norm(grp.map((el) => readBlock(el)).join(' '));
+    for (const grp of groups) {
+      const text = joinSuperdocLines(grp, norm);
       if (!text) continue;
       const el = grp[0];
       const box = rect(el);
@@ -479,20 +571,39 @@ export function REFIND_ANCHOR(
 
 const toPageExport = (fn) => fn.toString().replace(/^export\s+/, '');
 
+// The helpers have to travel inside each eval. An indirect eval of the entries
+// IIFE cannot see module bindings, and the block-text arrow closes over the
+// helpers only when they are declared in the same eval.
+const SUPERDOC_TEXT_HELPERS_PAGE_SRC = `${toPageExport(superdocParagraphGroups)};\n${toPageExport(joinSuperdocLines)};\n${toPageExport(c12SuperdocParagraphText)}`;
+
+/** Eval returns the arrow. The helpers stay in its closure. */
+export const C12_BLOCK_TEXT_PAGE_SRC = `${SUPERDOC_TEXT_HELPERS_PAGE_SRC};\n${C12_BLOCK_TEXT}`;
+
+export const C12_BLOCK_ENTRIES_PAGE_SRC = `${toPageExport(superdocParagraphGroups)};\n${toPageExport(joinSuperdocLines)};\n${toPageExport(c12BlockEntries)}`;
+
+export const C12_LOCATE_PAGE_SRC = toPageExport(c12LocateFixtureParagraphs);
+
 /** Page-evaluable source for ANCHOR_REFIND_CONTEXT_OK alone. */
-export const ANCHOR_REFIND_CONTEXT_OK_PAGE_SRC = `${toPageExport(c12BlockEntries)};\n${toPageExport(C12_RESOLVE_ANCHOR_INDEX)};\n${toPageExport(ANCHOR_REFIND_CONTEXT_OK)}`;
+export const ANCHOR_REFIND_CONTEXT_OK_PAGE_SRC = `${C12_BLOCK_ENTRIES_PAGE_SRC};\n${toPageExport(C12_RESOLVE_ANCHOR_INDEX)};\n${toPageExport(ANCHOR_REFIND_CONTEXT_OK)}`;
 
 /** Both helpers eval'd together in the page (REFIND_ANCHOR calls ANCHOR_REFIND_CONTEXT_OK). */
 export const REFIND_ANCHOR_PAGE_SRC = `${ANCHOR_REFIND_CONTEXT_OK_PAGE_SRC};\n${toPageExport(REFIND_ANCHOR)}`;
 
-export const C12_BLOCK_ENTRIES_PAGE_SRC = toPageExport(c12BlockEntries);
-
-export const C12_BODY_CARET_PAGE_SRC = `${C12_BLOCK_ENTRIES_PAGE_SRC};\n${toPageExport(c12FirstBodyCaretIndex)};\n${toPageExport(c12BodyCaretClick)}`;
+export const C12_BODY_CARET_PAGE_SRC = `${C12_BLOCK_ENTRIES_PAGE_SRC};\n${C12_LOCATE_PAGE_SRC};\n${toPageExport(c12FirstBodyCaretIndex)};\n${toPageExport(c12BodyCaretClick)}`;
 
 export const C12_IDENTITY_DIAGNOSTIC_PAGE_SRC = `${toPageExport(C12_IDENTITY_REFUSAL_DIAGNOSTIC)}`;
 
 /** Page context. C12 block census after the caret is placed (light-DOM blocks). */
-export function gatherReflowBefore({ editorId, docSel, pickBelowSrc, excludeSel, entriesSrc }) {
+export function gatherReflowBefore({
+  editorId,
+  docSel,
+  pickBelowSrc,
+  excludeSel,
+  entriesSrc,
+  locateSrc,
+  caretText,
+  anchorText,
+}) {
   // The shared picker (PICK_ANCHOR_BELOW) travels as source: page.evaluate
   // arguments must be serializable values.
   let pickBelow = null;
@@ -548,8 +659,74 @@ export function gatherReflowBefore({ editorId, docSel, pickBelowSrc, excludeSel,
   window.__c12ExcludeSel = excludeSel || '';
   let caret = caretBox();
   const forcedCaret = Number(window.__c12ForcedCaretIndex);
+  const argCaret = String(caretText || '');
+  const argAnchor = String(anchorText || '');
+  const rememberedCaret = String(window.__c12FixtureCaretText || '');
+  const rememberedAnchor = String(window.__c12FixtureAnchorText || '');
+  const fixtureCaret = argCaret && argAnchor ? argCaret : rememberedCaret;
+  const fixtureAnchor = argCaret && argAnchor ? argAnchor : rememberedAnchor;
+  if (fixtureCaret && fixtureAnchor) {
+    window.__c12FixtureCaretText = fixtureCaret;
+    window.__c12FixtureAnchorText = fixtureAnchor;
+  }
   let picked = null;
-  if (Number.isFinite(forcedCaret) && forcedCaret >= 0 && forcedCaret < entries.length) {
+  if (fixtureCaret && fixtureAnchor) {
+    // Re-find by the fixture strings. forcedCaret+1 is the next census row,
+    // which is a header or a page number on some editors.
+    let locate = null;
+    if (typeof locateSrc === 'string' && locateSrc) {
+      try {
+        // eslint-disable-next-line no-eval
+        locate = (0, eval)(`(function(){ ${locateSrc}; return c12LocateFixtureParagraphs; })()`);
+      } catch {
+        locate = null;
+      }
+    }
+    if (typeof locate !== 'function') {
+      return { ok: false, reason: 'fixture_paragraph_not_in_census', blocks: entries.length };
+    }
+    const located = locate(entries, fixtureCaret, fixtureAnchor, norm);
+    if (!located || located.ok !== true) {
+      return {
+        ok: false,
+        reason: (located && located.reason) || 'fixture_paragraph_not_in_census',
+        blocks: entries.length,
+      };
+    }
+    const caretIndex = located.caretIndex;
+    const anchorIndex = located.anchorIndex;
+    const caretEntry = entries[caretIndex];
+    const anchor = entries[anchorIndex];
+    if (!caretEntry || !anchor) {
+      return { ok: false, reason: 'fixture_paragraph_not_in_census', blocks: entries.length };
+    }
+    const top = Number(anchor.top);
+    if (!anchor.text || !Number.isFinite(top)) {
+      return { ok: false, reason: 'anchor paragraph has no measurable box', blocks: entries.length };
+    }
+    if (top >= Number(window.innerHeight)) {
+      return {
+        ok: false,
+        reason: 'anchor paragraph is off the viewport; a y-shift could not be attributed',
+        blocks: entries.length,
+      };
+    }
+    let occurrence = 0;
+    for (let i = 0; i <= anchorIndex; i += 1) {
+      if (entries[i].text === anchor.text) occurrence += 1;
+    }
+    const cr = caretEntry.el.getBoundingClientRect();
+    caret = { top: cr.top, bottom: cr.bottom || cr.top + 1 };
+    picked = {
+      ok: true,
+      anchorText: anchor.text,
+      anchorIndex,
+      caretIndex,
+      anchorOccurrence: occurrence,
+      blockCount: entries.length,
+      firstText: String(entries[0].text || '').slice(0, 40),
+    };
+  } else if (Number.isFinite(forcedCaret) && forcedCaret >= 0 && forcedCaret < entries.length) {
     const caretEntry = entries[forcedCaret];
     const anchorIndex = forcedCaret + 1;
     if (anchorIndex >= entries.length) {
@@ -672,10 +849,12 @@ export async function runLaneEditBurst(page, cdp, { editorId, selector, text, re
   };
 }
 
-/** Place the caret at the start of the first body block in the shared C12 census. */
-export async function placeC12BodyCaret(page, editorId, reflowSel, excludeSel) {
+/** Place the caret at the start of the fixture caret paragraph, or the first body block. */
+export async function placeC12BodyCaret(page, editorId, reflowSel, excludeSel, fixture = {}) {
+  const caretText = fixture && typeof fixture.caretText === 'string' ? fixture.caretText : '';
+  const anchorText = fixture && typeof fixture.anchorText === 'string' ? fixture.anchorText : '';
   const pick = await page.evaluate(
-    ({ editorId, docSel, excludeSel, bundleSrc }) => {
+    ({ editorId, docSel, excludeSel, bundleSrc, caretText, anchorText }) => {
       let resolveClick = null;
       try {
         // eslint-disable-next-line no-eval
@@ -684,13 +863,15 @@ export async function placeC12BodyCaret(page, editorId, reflowSel, excludeSel) {
         resolveClick = null;
       }
       if (typeof resolveClick !== 'function') return { ok: false, reason: 'body caret bundle failed' };
-      return resolveClick({ editorId, docSel, excludeSel });
+      return resolveClick({ editorId, docSel, excludeSel, caretText, anchorText });
     },
     {
       editorId: editorId || '',
       docSel: reflowSel,
       excludeSel: excludeSel || '',
       bundleSrc: C12_BODY_CARET_PAGE_SRC,
+      caretText,
+      anchorText,
     },
   );
   if (!pick || pick.ok !== true || !pick.click) return pick;
@@ -786,7 +967,7 @@ export async function waitForC12CaretEdit(
         docSel: reflowSel,
         excludeSel: excludeSel || '',
         bundleSrc: C12_BLOCK_ENTRIES_PAGE_SRC,
-        blockTextSrc: `${C12_BLOCK_TEXT}`,
+        blockTextSrc: C12_BLOCK_TEXT_PAGE_SRC,
       },
     );
     if (sampled && sampled.ok && Array.isArray(sampled.texts)) {
@@ -807,7 +988,7 @@ export async function waitForC12CaretEdit(
 export async function ensureReflowCaret(
   page,
   reflowSel,
-  { settleMs = 100, editorId = '', excludeSel = '' } = {},
+  { settleMs = 100, editorId = '', excludeSel = '', caretText = '', anchorText = '' } = {},
 ) {
   const primary = String(reflowSel || '').split(',')[0].trim();
   const need = await page.evaluate((sel) => {
@@ -831,7 +1012,7 @@ export async function ensureReflowCaret(
     return badRect || !inReflow();
   }, primary);
   if (!need) return { restored: false };
-  const bodyCaret = await placeC12BodyCaret(page, editorId, reflowSel, excludeSel);
+  const bodyCaret = await placeC12BodyCaret(page, editorId, reflowSel, excludeSel, { caretText, anchorText });
   if (bodyCaret && bodyCaret.ok) {
     if (settleMs > 0) await page.waitForTimeout(settleMs);
     return { restored: true, ...bodyCaret };
