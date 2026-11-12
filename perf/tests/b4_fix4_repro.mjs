@@ -170,6 +170,9 @@ async function failedResetSuite() {
     evaluate: async (fn, arg) => {
       if (fn.name === 'READ_EDITABLE_STATE') return {text: body, text_length: body.length, selection_offset: 4, is_content_editable: true, active_inside: true, anchor_inside: true};
       if (arg?.count) return [16.667, 16.667];
+      // This double never runs the expression. The usable wait evals it, so
+      // the mounted signal has to be answered here or C09 never reaches reset.
+      if (fn.toString().includes('eval(code)')) return true;
       return null;
     }};
   const cdp = {on() {}, off() {}, async send() {}};

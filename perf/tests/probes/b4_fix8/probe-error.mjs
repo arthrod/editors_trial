@@ -180,6 +180,8 @@ function makeHost(deathAt) {
       }
       if (typeof arg === 'number') return 40.0;
       if (src.includes('performance.now')) return 176.6;
+      // This double never runs the expression. The usable wait evals it.
+      if (src.includes('eval(code)')) return true;
       return undefined;
     },
   };

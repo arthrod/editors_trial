@@ -3154,6 +3154,10 @@ export const RUN_CRITERIA_SUITE_PHASES = [
   'ready_ms',
   'c04_mid',
   'prepare_chrome',
+  // The usable wait is its own boundary: it sits before the ink scan, and
+  // again after a C07 reload, and neither await was a phase the manifest
+  // already named (#168).
+  'usable_surface',
   'after_c04',
   'initial_read_state',
   'screencast_start',
@@ -3162,6 +3166,7 @@ export const RUN_CRITERIA_SUITE_PHASES = [
   // The C07 per-point reload re-runs chrome prep and the tap install on the
   // fresh document; the manifest counts each tagged await site.
   'c07_mid',
+  'usable_after_reload',
   'prepare_chrome',
   'input_tap',
   'prepare_input_surface',
@@ -3804,11 +3809,19 @@ export async function runCriteriaSuite({
     // mounting while the ink scan photographs the overlay as painted lines
     // (#168). The exit is that editor's usableExpression, the existing
     // ready policy. Nothing here exits because the DOM went quiet.
-    const usableRefusal = await waitForUsableSurface(
-      page,
-      usableExpression(editorId, activeSelector),
-    );
-    if (usableRefusal) throw namedUsableRefusal(usableRefusal);
+    // A missing or unimplemented correctness adapter is already the named
+    // refusal (a canvas is not contenteditable, so this expression cannot
+    // become true). Waiting would replace that reason with
+    // usable_signal_not_observed. The adapter gate below records it.
+    const adapterAlreadyRefused = needsEdits && adapterGate(adapter);
+    if (!adapterAlreadyRefused) {
+      // @suite-phase usable_surface
+      const usableRefusal = await waitForUsableSurface(
+        page,
+        usableExpression(editorId, activeSelector),
+      );
+      if (usableRefusal) throw namedUsableRefusal(usableRefusal);
+    }
     // @suite-phase after_c04
     const resolvedPoints = await resolveSuitePoints();
     points = { ...points, ...resolvedPoints };
@@ -3951,6 +3964,7 @@ export async function runCriteriaSuite({
                           // A reload re-enters the loading shell: the usable
                           // wait holds the click until the document mounts
                           // again, the same race the first resolve has (#168).
+                          // @suite-phase usable_after_reload
                           const again = await waitForUsableSurface(
                             page,
                             usableExpression(editorId, activeSelector),

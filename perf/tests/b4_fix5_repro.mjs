@@ -131,6 +131,8 @@ async function c09OnlySkipsLongResetWait() {
       }
       if (arg && (arg.kind || arg.kinds)) return { t: 100 };
       if (arg?.count) return [16.667, 16.667];
+      // This double never runs the expression. The usable wait evals it.
+      if (fn.toString().includes('eval(code)')) return true;
       return null;
     },
   };
@@ -183,6 +185,8 @@ async function metaEditableRefreshedAfterReset() {
       if (arg && (arg.kind || arg.kinds)) return { t: 100 };
       if (arg?.count) return [16.667, 16.667];
       if (typeof arg === 'number') return 40.0;
+      // This double never runs the expression. The usable wait evals it.
+      if (fn.toString().includes('eval(code)')) return true;
       return undefined;
     },
   };

@@ -45,6 +45,8 @@ function makeCrashHost() {
       }
       if (fn.toString().includes('performance.now')) return 176.6;
       if (fn.toString() === '() => true') return true;
+      // This double never runs the expression. The usable wait evals it.
+      if (fn.toString().includes('eval(code)')) return true;
       return undefined;
     },
   };
