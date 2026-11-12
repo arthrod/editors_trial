@@ -104,13 +104,10 @@ class FixtureParagraphPair(unittest.TestCase):
         self.assertTrue(anchor.startswith("Director partial connection"), anchor)
         corpus = workload_for_lane("complex-corpus", "document")["docx"]
         caret, anchor = c12_fixture_body_pair(corpus)
-        self.assertEqual(caret, "Leading and trailing spaces are significant.")
-        # w:noBreakHyphen, w:softHyphen and the Wingdings check are part of the
-        # paragraph plate paints. A w:t-only join is a different string.
-        self.assertEqual(
-            anchor,
-            "Tab separatedAfter a page break\u2011nobreak\u00adsofthyphen\u2713symafter CR",
-        )
+        # The symbol paragraph is not plain text. The pair is the next two
+        # adjacent plain body paragraphs, the same strings for every editor.
+        self.assertEqual(caret, "run with unknown w14 attributes and w14 elements")
+        self.assertEqual(anchor, "custom namespace attribute: cs complex-script text")
 
     def test_one_body_paragraph_is_not_a_pair(self):
         from perf.runner.benchmark_document import c12_fixture_body_pair, docx_paragraph_bytes
@@ -197,7 +194,8 @@ assert.equal(pick.caretIndex, 2);
 assert.equal(pick.anchorIndex, 3);
 const missing = mod.c12LocateFixtureParagraphs(entries, 'not in the census', 'Tab separatedAfter a page break', norm);
 assert.equal(missing.ok, false);
-assert.equal(missing.reason, 'fixture_paragraph_not_in_census');
+assert.equal(missing.reason.startsWith('fixture_paragraph_not_in_census'), true);
+assert.equal(missing.reason.includes('Default header'), true);
 """
         )
         self.assertTrue(payload["ok"])

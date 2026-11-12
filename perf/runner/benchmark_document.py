@@ -470,26 +470,94 @@ _WML = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 
 
 def _c12_norm(value: str) -> str:
-    return re.sub(r"\s+", " ", value or "").strip()
+    import unicodedata
+
+    text = unicodedata.normalize("NFC", value or "")
+    return re.sub(r"\s+", " ", text).strip()
+
+
+_C12_BOOKMARKS = frozenset({"bookmarkStart", "bookmarkEnd"})
+
+
+def _c12_local(tag) -> str:
+    if isinstance(tag, str) and tag.startswith("{") and "}" in tag:
+        return tag.split("}", 1)[1]
+    return str(tag)
+
+
+def _c12_paragraph_disqualified(paragraph) -> bool:
+    """True unless the paragraph is plain text: runs, text, formatting, bookmarks.
+
+    ``w:pPr`` and ``w:rPr`` subtrees are formatting. Anything else other than
+    ``w:r``, ``w:t`` and bookmarks is content the editors do not paint the
+    same way (symbols, tabs, breaks, fields, revisions, drawings).
+    """
+
+    def walk(el, zone: str) -> bool:
+        for child in list(el):
+            local = _c12_local(child.tag)
+            if zone in ("pPr", "rPr"):
+                if walk(child, zone):
+                    return True
+                continue
+            if local in _C12_BOOKMARKS:
+                if walk(child, zone):
+                    return True
+                continue
+            if zone == "p" and local == "pPr":
+                if walk(child, "pPr"):
+                    return True
+                continue
+            if zone == "p" and local == "r":
+                if walk(child, "r"):
+                    return True
+                continue
+            if zone == "r" and local == "rPr":
+                if walk(child, "rPr"):
+                    return True
+                continue
+            if zone == "r" and local == "t":
+                if list(child) or walk(child, "t"):
+                    return True
+                continue
+            return True
+        return False
+
+    return walk(paragraph, "p")
+
+
+def _c12_paragraph_text(paragraph) -> str:
+    parts: list[str] = []
+    for el in paragraph.iter("%st" % _WML):
+        if el.text:
+            parts.append(el.text)
+    return "".join(parts)
+
+
+def _c12_paragraph_style(paragraph) -> str:
+    p_pr = paragraph.find("%spPr" % _WML)
+    if p_pr is None:
+        return ""
+    p_style = p_pr.find("%spStyle" % _WML)
+    if p_style is None:
+        return ""
+    return p_style.get("%sval" % _WML) or ""
 
 
 def c12_fixture_body_pair(docx: bytes) -> tuple[str, str]:
-    """Caret and anchor text from the docx, the same two strings for every editor.
+    """Caret and anchor: the first two adjacent plain body paragraphs.
 
-    The caret is the first body paragraph whose style is not a heading. The
-    anchor is the next body paragraph. A heading is a style whose value starts
-    with ``heading``. Empty paragraphs are skipped.
-
-    The string is the paragraph plate paints. ``w:t`` text is kept. ``w:tab``,
-    ``w:br`` and ``w:cr`` add no character. ``w:noBreakHyphen`` is U+2011,
-    ``w:softHyphen`` is U+00AD, and a Wingdings F0FC symbol is U+2713. Any
-    other ``w:sym`` refuses ``fixture_symbol_unmapped`` instead of being
-    dropped. A document with fewer than two body paragraphs refuses
-    ``fixture_body_pair_absent``.
+    Both are direct ``w:body/w:p`` children, not a heading style. Each is
+    plain text (``w:r`` / ``w:t`` and ``w:rPr`` formatting; bookmarks ignored),
+    non-empty after NFC, whitespace collapse and trim, and that normalized
+    text occurs once among the direct body paragraphs. The returned strings
+    are the raw ``w:t`` join. The same pair is used for every editor.
+    A document with no such pair refuses ``fixture_body_pair_absent``.
     """
     import io
     import zipfile
     import xml.etree.ElementTree as ET
+    from collections import Counter
 
     def refuse(code: str, reason: str | None = None) -> None:
         raise ProbeRefusal(reason or code, refusal_code=code)
@@ -506,45 +574,23 @@ def c12_fixture_body_pair(docx: bytes) -> tuple[str, str]:
 
     body = root.find("%sbody" % _WML)
     paragraphs = list(body.findall("%sp" % _WML)) if body is not None else []
-    found: list[str] = []
+    rows: list[tuple[bool, str, str]] = []
     for paragraph in paragraphs:
-        if len(found) == 2:
-            break
-        style = ""
-        p_pr = paragraph.find("%spPr" % _WML)
-        if p_pr is not None:
-            p_style = p_pr.find("%spStyle" % _WML)
-            if p_style is not None:
-                style = p_style.get("%sval" % _WML) or ""
-        if style.lower().startswith("heading"):
+        raw = _c12_paragraph_text(paragraph)
+        norm = _c12_norm(raw)
+        heading = _c12_paragraph_style(paragraph).lower().startswith("heading")
+        plain = not heading and bool(norm) and not _c12_paragraph_disqualified(paragraph)
+        rows.append((plain, norm, raw))
+    counts = Counter(norm for _plain, norm, _raw in rows if norm)
+    for index in range(len(rows) - 1):
+        left, right = rows[index], rows[index + 1]
+        if not left[0] or not right[0]:
             continue
-        parts: list[str] = []
-        for el in paragraph.iter():
-            tag = el.tag
-            if tag == "%st" % _WML:
-                if el.text:
-                    parts.append(el.text)
-            elif tag == "%snoBreakHyphen" % _WML:
-                parts.append("\u2011")
-            elif tag == "%ssoftHyphen" % _WML:
-                parts.append("\u00ad")
-            elif tag == "%ssym" % _WML:
-                font = (el.get("%sfont" % _WML) or "").lower()
-                char = (el.get("%schar" % _WML) or "").upper()
-                if font == "wingdings" and char == "F0FC":
-                    parts.append("\u2713")
-                else:
-                    refuse(
-                        RefusalCode.FIXTURE_SYMBOL_UNMAPPED.value,
-                        "fixture_symbol_unmapped: font=%s char=%s" % (font, char),
-                    )
-        text = "".join(parts)
-        if not _c12_norm(text):
+        if counts[left[1]] != 1 or counts[right[1]] != 1:
             continue
-        found.append(text)
-    if len(found) < 2:
-        refuse(RefusalCode.FIXTURE_BODY_PAIR_ABSENT.value)
-    return found[0], found[1]
+        return left[2], right[2]
+    refuse(RefusalCode.FIXTURE_BODY_PAIR_ABSENT.value)
+    raise AssertionError("refuse returns")
 
 
 def _c12_fixture_text_args(fixture_path) -> list[str]:
@@ -688,8 +734,34 @@ _C12_PROBE_REFUSAL_CODES = frozenset({
 
 
 def _c12_error_refusal_code(error) -> str | None:
-    text = str(error or "")
-    return text if text in _C12_PROBE_REFUSAL_CODES else None
+    text = str(error or "").strip()
+    if text in _C12_PROBE_REFUSAL_CODES:
+        return text
+    head, sep, _rest = text.partition(":")
+    head = head.strip()
+    if sep and head in _C12_PROBE_REFUSAL_CODES:
+        return head
+    return None
+
+
+def _c12_census_record(payload: dict) -> dict:
+    """Census text at the caret and anchor indexes, from a reflow payload."""
+    placement = payload.get("caret_placement") if isinstance(payload.get("caret_placement"), dict) else {}
+    before = payload.get("before") if isinstance(payload.get("before"), dict) else {}
+
+    def first(*values):
+        for value in values:
+            if value is None or value == "":
+                continue
+            return value
+        return None
+
+    return {
+        "caret_index": first(before.get("caret_index"), placement.get("caretIndex")),
+        "anchor_index": first(before.get("anchor_index"), placement.get("anchorIndex")),
+        "caret_text": first(before.get("caret_paragraph_text"), placement.get("caretText")),
+        "anchor_text": first(before.get("anchor_text"), placement.get("anchorText")),
+    }
 
 
 def c12_measured_sample(probe: dict) -> float:
@@ -1207,7 +1279,11 @@ def _run_probe(cmd: list, *, editor_id: str, env: dict | None = None) -> dict:
         )
     if payload.get("error"):
         err = str(payload["error"])
-        raise ProbeRefusal("probe refused %s: %s" % (editor_id, err), refusal_code=_c12_error_refusal_code(err))
+        raise ProbeRefusal(
+            "probe refused %s: %s" % (editor_id, err),
+            refusal_code=_c12_error_refusal_code(err),
+            facts=_c12_census_record(payload),
+        )
     return payload
 
 
@@ -1739,6 +1815,7 @@ def _run_reflow_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path
                 "layout_reads_during_window": payload.get("layout_reads_during_window"),
                 "anchor_frames": payload.get("anchor_frames"),
                 "window_excludes_forced_layout": payload.get("window_excludes_forced_layout"),
+                **_c12_census_record(payload),
                 **content_gate_record(content_meta, gate),
             }
         )
@@ -2154,6 +2231,7 @@ def _main() -> int:
                             fixture,
                             refusal.reason,
                             outcome=c12_outcome,
+                            extra=refusal.facts or None,
                             refusal_code=getattr(refusal, "refusal_code", None),
                         )
                         if c12_outcome == "failed":

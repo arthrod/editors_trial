@@ -261,14 +261,29 @@ export function C12_IDENTITY_REFUSAL_DIAGNOSTIC(snapshot, texts, norm, limit = 8
  * block below a heading or a header is not a substitute.
  */
 export function c12LocateFixtureParagraphs(entries, caretText, anchorText, norm) {
-  const normalize = typeof norm === 'function'
+  const collapse = typeof norm === 'function'
     ? norm
     : (value) => String(value || '').replace(/\s+/g, ' ').trim();
+  const normalize = (value) => {
+    const collapsed = collapse(value);
+    const text = String(collapsed == null ? '' : collapsed);
+    return typeof text.normalize === 'function' ? text.normalize('NFC') : text;
+  };
+  const refuse = () => {
+    const list = Array.isArray(entries) ? entries : [];
+    const limit = Math.min(60, list.length);
+    const parts = [];
+    for (let i = 0; i < limit; i += 1) {
+      parts.push(normalize(list[i] && list[i].text).slice(0, 80));
+    }
+    return {
+      ok: false,
+      reason: `fixture_paragraph_not_in_census: n=${list.length} | ${parts.join(' | ')}`,
+    };
+  };
   const wantCaret = normalize(caretText);
   const wantAnchor = normalize(anchorText);
-  if (!Array.isArray(entries) || !wantCaret || !wantAnchor) {
-    return { ok: false, reason: 'fixture_paragraph_not_in_census' };
-  }
+  if (!Array.isArray(entries) || !wantCaret || !wantAnchor) return refuse();
   let caretIndex = -1;
   for (let i = 0; i < entries.length; i += 1) {
     if (normalize(entries[i] && entries[i].text) === wantCaret) {
@@ -276,7 +291,7 @@ export function c12LocateFixtureParagraphs(entries, caretText, anchorText, norm)
       break;
     }
   }
-  if (caretIndex < 0) return { ok: false, reason: 'fixture_paragraph_not_in_census' };
+  if (caretIndex < 0) return refuse();
   let anchorIndex = -1;
   for (let i = caretIndex + 1; i < entries.length; i += 1) {
     if (normalize(entries[i] && entries[i].text) === wantAnchor) {
@@ -284,7 +299,7 @@ export function c12LocateFixtureParagraphs(entries, caretText, anchorText, norm)
       break;
     }
   }
-  if (anchorIndex < 0) return { ok: false, reason: 'fixture_paragraph_not_in_census' };
+  if (anchorIndex < 0) return refuse();
   return { ok: true, caretIndex, anchorIndex };
 }
 
@@ -348,7 +363,9 @@ export function c12BodyCaretClick({ editorId, docSel, excludeSel, caretText, anc
   return {
     ok: true,
     caretIndex: pick.caretIndex,
+    anchorIndex: pick.anchorIndex,
     caretText: String(pick.caretText || '').slice(0, 80),
+    anchorText: String((entries[pick.anchorIndex] && entries[pick.anchorIndex].text) || '').slice(0, 80),
     click,
   };
 }
@@ -905,7 +922,9 @@ export async function placeC12BodyCaret(page, editorId, reflowSel, excludeSel, f
       ok: false,
       reason: verified.reason || 'caret_not_at_paragraph_start',
       caretIndex: pick.caretIndex,
+      anchorIndex: pick.anchorIndex,
       caretText: pick.caretText,
+      anchorText: pick.anchorText,
       caret_verify: verified,
       point: placed.point,
       focused: placed.focused,
