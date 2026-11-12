@@ -178,6 +178,51 @@ console.log(JSON.stringify(tie));
         self.assertEqual(payload["recorded"]["text_prefix"], "custom namespace attribute: cs complex-script text")
         self.assertEqual(payload["relation"], "distinct")
 
+    def test_same_anchor_accepts_a_replaced_block_and_a_wrapper(self):
+        # Folio's recorded node is disconnected. The confirmed node is the
+        # same paragraph: same data-block-id, same text, ProseMirror range
+        # shifted. A node with no block id is not that paragraph. A child of
+        # the confirmed node is.
+        payload = self.node(
+            r"""
+const attrs = (pairs) => pairs.map(([name, value]) => ({ name, value }));
+const el = (pairs, text, connected) => ({
+  tagName: 'DIV',
+  isConnected: connected,
+  attributes: attrs(pairs),
+  textContent: text,
+  innerText: text,
+  contains: () => false,
+});
+const text = 'Beta anchor paragraph stays';
+const recorded = el(
+  [['data-block-id', 'block-8'], ['data-para-id', '7A07F1B3'], ['data-pm-start', '208']],
+  text,
+  false,
+);
+const confirmed = el(
+  [['data-block-id', 'block-8'], ['data-para-id', '7A07F1B3'], ['data-pm-start', '209']],
+  text,
+  true,
+);
+assert.equal(mod.c12SameAnchorElement(recorded, confirmed), true);
+const other = el([['data-block-id', 'block-9'], ['data-para-id', 'OTHER']], text, true);
+assert.equal(mod.c12SameAnchorElement(recorded, other), false);
+const bareRecorded = el([], text, false);
+const bareConfirmed = el([], text, true);
+assert.equal(mod.c12SameAnchorElement(bareRecorded, bareConfirmed), false);
+const bothLive = el([['data-block-id', 'block-8'], ['data-para-id', '7A07F1B3']], text, true);
+assert.equal(mod.c12SameAnchorElement(bothLive, confirmed), false);
+const child = el([['data-block-id', 'block-8'], ['data-para-id', '7A07F1B3']], text, true);
+confirmed.contains = (other) => other === child;
+assert.equal(mod.c12SameAnchorElement(child, confirmed), true);
+const differentText = el([['data-block-id', 'block-8'], ['data-para-id', '7A07F1B3']], 'other paragraph', true);
+assert.equal(mod.c12SameAnchorElement(recorded, differentText), false);
+console.log(JSON.stringify({ replaced: true }));
+"""
+        )
+        self.assertTrue(payload["replaced"])
+
     def test_census_record_keeps_the_caret_scroll(self):
         record = bd._c12_census_record(
             {
@@ -452,6 +497,13 @@ class RerenderHosts(unittest.TestCase):
         self.assertIs(tie["recorded"]["isConnected"], False, payload)
         self.assertIs(tie["confirmed"]["isConnected"], True, payload)
         self.assertIsNot(payload.get("moved"), True, payload)
+
+    def test_folio_replacement_of_the_same_block_is_measured(self):
+        payload = self._reflow("folio-replace.html")
+        self.assertIsNone(payload.get("error"), payload)
+        self.assertTrue(payload.get("moved"), payload)
+        self.assertLess(payload["presented_frame_ms"], 100, payload)
+        self.assertEqual(bd.c12_measured_sample(payload), payload["presented_frame_ms"])
 
 
 if __name__ == "__main__":

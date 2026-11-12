@@ -692,6 +692,53 @@ export function REFIND_ANCHOR(
 }
 
 /**
+ * The recorded frame and the confirmed census node are the same paragraph.
+ * Same node, a wrapper or child with the same text, or a disconnected
+ * replacement that still carries the same block id. A second live node is
+ * not accepted. No per-editor branch. No layout read.
+ */
+export function c12SameAnchorElement(recorded, confirmed) {
+  if (!recorded || !confirmed) return false;
+  if (recorded === confirmed) return true;
+  const normalize = (value) => {
+    const collapsed = String(value || '').replace(/\s+/g, ' ').trim();
+    return typeof collapsed.normalize === 'function' ? collapsed.normalize('NFC') : collapsed;
+  };
+  const textOf = (el) => {
+    const raw = el.innerText != null && String(el.innerText) !== '' ? el.innerText : el.textContent;
+    return normalize(raw);
+  };
+  const textA = textOf(recorded);
+  const textB = textOf(confirmed);
+  if (!textA || textA !== textB) return false;
+  if (typeof recorded.contains === 'function' && recorded.contains(confirmed)) return true;
+  if (typeof confirmed.contains === 'function' && confirmed.contains(recorded)) return true;
+  if (recorded.isConnected !== false || confirmed.isConnected !== true) return false;
+  const attr = (el, name) => {
+    if (typeof el.getAttribute === 'function') {
+      const value = el.getAttribute(name);
+      return value == null ? '' : String(value);
+    }
+    const attrs = el.attributes;
+    if (!attrs || typeof attrs.length !== 'number') return '';
+    for (const item of Array.from(attrs)) {
+      if (item && item.name === name) return item.value == null ? '' : String(item.value);
+    }
+    return '';
+  };
+  const names = ['data-block-id', 'data-para-id', 'data-paragraph-id', 'data-source-node-id'];
+  let saw = false;
+  for (const name of names) {
+    const left = attr(recorded, name);
+    const right = attr(confirmed, name);
+    if (!left && !right) continue;
+    if (left !== right) return false;
+    saw = true;
+  }
+  return saw;
+}
+
+/**
  * Both elements of a failed frame tie. The refusal has to say which nodes
  * differed: tag, data-* attributes, normalized text prefix, rect top, and
  * whether the node is still connected. Same comparison for every editor.
@@ -770,8 +817,8 @@ export const REFIND_ANCHOR_PAGE_SRC = `${ANCHOR_REFIND_CONTEXT_OK_PAGE_SRC};\n${
 /** Text match only. The frame recorder must not eval the census with this. */
 export const C12_ANCHOR_BY_TEXT_PAGE_SRC = toPageExport(c12AnchorElementByText);
 
-/** Element facts for a failed frame tie. No census. */
-export const C12_FRAME_TIE_PAGE_SRC = toPageExport(c12FrameTieDiagnostic);
+/** Element facts for a failed frame tie, plus the same-block comparison. No census. */
+export const C12_FRAME_TIE_PAGE_SRC = `${toPageExport(c12SameAnchorElement)};\n${toPageExport(c12FrameTieDiagnostic)}`;
 
 /** The scroll call eval'd with the text finder it uses. */
 export const C12_SCROLL_CARET_PAGE_SRC = `${C12_ANCHOR_BY_TEXT_PAGE_SRC};\n${toPageExport(c12ScrollCaretIntoView)}`;

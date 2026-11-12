@@ -2026,17 +2026,24 @@ async function runReflow(browser) {
         else if (found) matchedBy = 'text';
         const movedEl = window.__c12MovedAnchorEl || null;
         window.__c12ConfirmedAnchorEl = found || null;
-        const frameTied = Boolean(found && movedEl && found === movedEl);
+        let tieNs = null;
+        try {
+          // eslint-disable-next-line no-eval
+          tieNs = (0, eval)(
+            `(function(){ ${tieSrc}; return { c12FrameTieDiagnostic, c12SameAnchorElement }; })()`,
+          );
+        } catch {
+          tieNs = null;
+        }
+        const sameAnchor = tieNs && typeof tieNs.c12SameAnchorElement === 'function'
+          ? tieNs.c12SameAnchorElement
+          : null;
+        const frameTied = typeof sameAnchor === 'function'
+          ? sameAnchor(movedEl, found) === true
+          : Boolean(found && movedEl && found === movedEl);
         let frameTie = null;
-        if (!frameTied) {
-          let tie = null;
-          try {
-            // eslint-disable-next-line no-eval
-            tie = (0, eval)(`(function(){ ${tieSrc}; return c12FrameTieDiagnostic; })()`);
-          } catch {
-            tie = null;
-          }
-          if (typeof tie === 'function') frameTie = tie(movedEl, found);
+        if (!frameTied && tieNs && typeof tieNs.c12FrameTieDiagnostic === 'function') {
+          frameTie = tieNs.c12FrameTieDiagnostic(movedEl, found);
         }
         return {
           top: found ? found.getBoundingClientRect().top : null,
