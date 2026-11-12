@@ -79,5 +79,48 @@ class FolioUsableSignalTests(unittest.TestCase):
         )
 
 
+# The folio usable expression, pinned so a comment edit cannot change it.
+FOLIO_USABLE = (
+    "(() => {"
+    ' const pages = document.querySelectorAll("[data-page-number]");'
+    " for (const page of pages) {"
+    "   if (page.getBoundingClientRect().height <= 0) continue;"
+    '   for (const block of page.querySelectorAll("[data-block-id]")) {'
+    '     if ((block.innerText || "").trim().length > 0 && block.getBoundingClientRect().height > 0) return true;'
+    "   }"
+    " }"
+    " return false;"
+    "})()"
+)
+
+
+class FolioUsableCommentTests(unittest.TestCase):
+    def test_comment_certifies_the_first_viewport_and_the_expression_is_unchanged(self):
+        if _node() is None:
+            self.skipTest("node is not on PATH")
+        script = (
+            "const mod = await import(%s);\n"
+            "console.log(JSON.stringify(mod.usableExpression('folio', '[data-page-number]')));\n"
+        ) % json.dumps((REPO / "perf" / "runner" / "edit_surface.mjs").as_uri())
+        proc = subprocess.run(
+            [_node(), "--input-type=module", "-e", script],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            cwd=str(REPO),
+        )
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertEqual(json.loads(proc.stdout), FOLIO_USABLE)
+        source = (REPO / "perf" / "runner" / "edit_surface.mjs").read_text()
+        folio = source.index("  folio:")
+        hidden = source.index("hidden:", folio)
+        usable = source.index("\n    usable:", hidden)
+        comment = source[hidden:usable]
+        self.assertIn("first viewport", comment)
+        self.assertIn("virtualized", comment)
+        self.assertIn("mounts on scroll", comment)
+        self.assertNotIn("mounted document", comment)
+
+
 if __name__ == "__main__":
     unittest.main()

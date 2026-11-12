@@ -48,9 +48,10 @@ export const EDIT_SURFACES = {
     hidden: '.paged-editor__hidden-pm .ProseMirror',
     // The painted page is not contenteditable, and `.ProseMirror` inside
     // `.paged-editor__hidden-pm` does not exist until a click. The usable
-    // wait runs before any click, so it cannot ask for that editor. A
-    // mounted document is a painted page with height and a [data-block-id]
-    // block that already carries text. The loading shell has neither.
+    // wait runs before any click, so it cannot ask for that editor. This
+    // expression certifies the first viewport is painted (virtualized
+    // editor; the rest mounts on scroll), not a full mount. The loading
+    // shell has neither a painted block nor text.
     usable:
       '(() => {'
       + ' const pages = document.querySelectorAll("[data-page-number]");'
