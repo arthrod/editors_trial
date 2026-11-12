@@ -311,6 +311,16 @@ export function c12BlockEntries(editorId, docSel, excludeSel, readBlock) {
   const read = (el) => norm(readBlock(el));
   const dropFixtureHeading = (text) =>
     /^(Article \d+\.|Section \d+\.\d+\s)/.test(norm(text)) ? null : { text: norm(text) };
+  // Every probe-driven layout read is counted: a poll inside the C12 window
+  // forces layout, and the sample must report that work, never hide it. Each
+  // read is timestamped so the report can bound it to the measured window.
+  const rect = (el) => {
+    const t0 = performance.now();
+    const box = el.getBoundingClientRect();
+    const log = globalThis.__c12ProbeReadLog;
+    if (Array.isArray(log)) log.push({ t: t0, ms: performance.now() - t0 });
+    return box;
+  };
 
   if (editorId === 'superdoc') {
     const lines = Array.from(document.querySelectorAll('#editor .superdoc-line')).filter((el) => !skip(el));
@@ -319,7 +329,7 @@ export function c12BlockEntries(editorId, docSel, excludeSel, readBlock) {
     let orphanRun = null;
     let orphanTop = null;
     for (const line of lines) {
-      const lineTop = line.getBoundingClientRect().top;
+      const lineTop = rect(line).top;
       let pid = line.getAttribute('data-paragraph-id');
       if (!pid) {
         const holder = line.closest('[data-paragraph-id]');
@@ -349,10 +359,10 @@ export function c12BlockEntries(editorId, docSel, excludeSel, readBlock) {
       const text = norm(grp.map((el) => readBlock(el)).join(' '));
       if (!text) continue;
       const el = grp[0];
-      const rect = el.getBoundingClientRect();
+      const box = rect(el);
       const kept = dropFixtureHeading(text);
       if (!kept) continue;
-      out.push({ el, text: kept.text, top: rect.top, bottom: rect.bottom });
+      out.push({ el, text: kept.text, top: box.top, bottom: box.bottom });
     }
     out.sort((a, b) => a.top - b.top);
     return out;
@@ -372,8 +382,8 @@ export function c12BlockEntries(editorId, docSel, excludeSel, readBlock) {
       if (!text) return null;
       const kept = dropFixtureHeading(text);
       if (!kept) return null;
-      const rect = el.getBoundingClientRect();
-      return { el, text: kept.text, top: rect.top, bottom: rect.bottom };
+      const box = rect(el);
+      return { el, text: kept.text, top: box.top, bottom: box.bottom };
     })
     .filter(Boolean);
 }
@@ -454,9 +464,17 @@ export function REFIND_ANCHOR(
     return null;
   }
   const j = resolved.anchorIndex;
+  const found = entries[j] ? entries[j].el : null;
+  if (!found) {
+    if (typeof window !== 'undefined') window.__c12AnchorRefusal = 'anchor_identity_ambiguous';
+    return null;
+  }
+  // A miss on an earlier frame (the recorder refinds before the caret "x"
+  // exists) must not outlive a later resolution of this same anchor.
+  if (typeof window !== 'undefined') window.__c12AnchorRefusal = null;
   const kept = typeof window !== 'undefined' ? window.__c12AnchorEl : null;
-  if (kept && kept.isConnected && entries[j] && kept === entries[j].el) return kept;
-  return entries[j] ? entries[j].el : null;
+  if (kept && kept.isConnected && kept === found) return kept;
+  return found;
 }
 
 const toPageExport = (fn) => fn.toString().replace(/^export\s+/, '');

@@ -146,7 +146,10 @@ class C12SampleEnd(unittest.TestCase):
         probe = {
             "mode": "reflow",
             "moved": True,
-            "window_excludes_forced_layout": True,
+            "window_excludes_forced_layout": False,
+            "forced_layout_ms": 0.0,
+            "layout_reads_during_window": 2,
+            "anchor_frames": 2,
             "input_page_ms": 1000.0,
             "observed_shift_page_ms": 1090.0,
             "presented_frame_ms": 10.0,
@@ -165,7 +168,10 @@ class C12SampleEnd(unittest.TestCase):
         probe = {
             "mode": "reflow",
             "moved": True,
-            "window_excludes_forced_layout": True,
+            "window_excludes_forced_layout": False,
+            "forced_layout_ms": 0.0,
+            "layout_reads_during_window": 2,
+            "anchor_frames": 2,
             "input_page_ms": 1000.0,
             "observed_shift_page_ms": 1090.0,
             "presented_frame_ms": 90.0,

@@ -1,0 +1,196 @@
+"""r3c12h: C12 clock, anchor node and census fixes (issue #161).
+
+Each acceptance criterion executes the reviewer's counterexample hosts from
+``perf/tests/fixtures/hosts`` (copied unchanged from the r3c12v2 review) or a
+node-level contract against ``lane_edit_burst.mjs`` — never a source grep.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import shutil
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+import perf.runner.benchmark_document as bd
+
+REPO = Path(__file__).resolve().parents[2]
+PROBE = REPO / "perf" / "runner" / "document_probe.mjs"
+LANE = REPO / "perf" / "runner" / "lane_edit_burst.mjs"
+HOSTS = REPO / "perf" / "tests" / "fixtures" / "hosts"
+WITNESS_SERVER = REPO / "perf" / "tests" / "fixtures" / "witness" / "server.py"
+TIMEOUT_S = 90
+
+
+def _node():
+    return shutil.which("node")
+
+
+def _playwright_ready() -> bool:
+    if os.environ.get("WITNESS_PLAYWRIGHT"):
+        return True
+    for candidate in (
+        REPO / "harness" / "ui" / "plate" / "node_modules" / "playwright",
+        REPO / "harness" / "ui" / "node_modules" / "playwright",
+        REPO / "harness" / "ui" / "node_modules" / "playwright-core",
+    ):
+        if candidate.is_dir():
+            return True
+    return False
+
+
+def _load_server():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("r3c12h_fixture_server", WITNESS_SERVER)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+class NodeContract(unittest.TestCase):
+    def test_later_refind_success_clears_a_refusal_from_an_earlier_frame(self):
+        # The frame recorder calls REFIND_ANCHOR on the Enter that replaces the
+        # anchor, before the caret "x" exists. That call must not leave a
+        # refusal that the successful refind, once "x" has landed, cannot clear.
+        # Otherwise endIdentity refuses anchor_identity_ambiguous after the move
+        # was already recorded (b3_fixdoc3_dup_rerender.html).
+        payload = self.node(
+            r"""
+globalThis.window = globalThis;
+const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+const box = (top) => ({ top, bottom: top + 20, left: 0, height: 20, width: 400 });
+const block = (text, top) => ({
+  innerText: text,
+  textContent: text,
+  isConnected: true,
+  getBoundingClientRect: () => box(top),
+});
+const caret = block('Alpha opening line of the document.', 24);
+const replaced = block('Beta shared anchor line for C12.', 119);
+const duplicate = block('Beta shared anchor line for C12.', 180);
+globalThis.document = { querySelectorAll: () => [caret, replaced, duplicate] };
+window.__c12EditorId = '';
+window.__c12ExcludeSel = '';
+window.__c12BeforeSnapshot = {
+  blockTexts: [
+    'Alpha opening line of the document.',
+    'Beta shared anchor line for C12.',
+    'Beta shared anchor line for C12.',
+  ],
+  caretIndex: 0,
+  anchorIndex: 1,
+  anchorText: 'Beta shared anchor line for C12.',
+};
+window.__c12AnchorEl = { isConnected: false, innerText: 'Beta shared anchor line for C12.', textContent: 'Beta shared anchor line for C12.' };
+window.__c12AnchorRefusal = null;
+const args = ['.doc-paragraph', 'Beta shared anchor line for C12.', 59, norm, null, 1];
+const beforeX = mod.REFIND_ANCHOR(...args);
+assert.equal(beforeX, null);
+assert.equal(window.__c12AnchorRefusal, 'anchor_identity_ambiguous');
+caret.innerText = 'xAlpha opening line of the document.';
+caret.textContent = caret.innerText;
+const afterX = mod.REFIND_ANCHOR(...args);
+assert.equal(afterX, replaced);
+assert.equal(window.__c12AnchorRefusal, null);
+console.log(JSON.stringify({ refusal: window.__c12AnchorRefusal, found: afterX === replaced }));
+"""
+        )
+        self.assertIsNone(payload["refusal"])
+        self.assertTrue(payload["found"])
+
+    def node(self, body: str, module: Path | None = None) -> dict:
+        script = """
+import assert from 'node:assert/strict';
+const mod = await import(%s);
+%s
+""" % (
+            json.dumps(str(module or LANE)),
+            body,
+        )
+        proc = subprocess.run(
+            ["node", "--input-type=module", "-e", script],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        return json.loads(proc.stdout)
+
+
+@unittest.skipUnless(_node() and _playwright_ready(), "node+playwright required")
+class ReflowProbeHosts(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.server_mod = _load_server()
+        cls.server, _thread, cls.base_url = cls.server_mod.serve(HOSTS)
+        cls._corpus_dir = tempfile.TemporaryDirectory(dir=REPO / ".scratch" / "tmp")
+        cls.corpus = Path(cls._corpus_dir.name) / "corpus.docx"
+        cls.corpus.write_bytes(b"PK\x03\x04r3c12h")
+
+    @classmethod
+    def tearDownClass(cls):
+        if cls.server is not None:
+            cls.server.shutdown()
+            cls.server.server_close()
+        cls._corpus_dir.cleanup()
+
+    def _reflow(self, host_file: str, timeout_ms: int = 20000, extra: list[str] | None = None) -> dict:
+        cmd = [
+            _node(),
+            str(PROBE),
+            "--mode",
+            "reflow",
+            "--url",
+            "%s/%s" % (self.base_url, host_file),
+            "--corpus",
+            str(self.corpus),
+            "--doc-selector",
+            ".doc-paragraph",
+            "--page-model",
+            "continuous_flow",
+            "--edit-selector",
+            ".doc-paragraph",
+            "--timeout-ms",
+            str(timeout_ms),
+            *(extra or []),
+        ]
+        proc = subprocess.run(cmd, cwd=str(REPO), capture_output=True, text=True, timeout=TIMEOUT_S)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        return json.loads(proc.stdout)
+
+    # Item 1, BLOCKER 2: the sample is Enter keydown -> first presented frame
+    # in which the anchor moved. The anchor moves immediately; the caret text
+    # (and therefore the edit confirmation) lands 1.6 s later, so a sample that
+    # includes the confirm wait is ~1.6 s or worse. About one frame is < 500 ms.
+    def test_clock_sample_is_enter_to_first_moved_frame_not_the_confirm(self):
+        payload = self._reflow("clock.html")
+        self.assertIsNone(payload.get("error"), payload)
+        self.assertTrue(payload.get("moved"), payload)
+        shift_after_input = payload["observed_shift_page_ms"] - payload["input_page_ms"]
+        self.assertLess(shift_after_input, 500, payload)
+        self.assertLess(payload["presented_frame_ms"], 500, payload)
+        self.assertEqual(bd.c12_measured_sample(payload), payload["presented_frame_ms"])
+
+    # Item 1: layout reads inside the measured window are counted, not hidden.
+    def test_in_window_layout_reads_are_reported_not_claimed_absent(self):
+        payload = self._reflow("clock.html")
+        self.assertIsNone(payload.get("error"), payload)
+        reads = payload.get("layout_reads_during_window")
+        forced = payload.get("forced_layout_ms")
+        frames = payload.get("anchor_frames")
+        self.assertIsInstance(reads, int, payload)
+        self.assertIsInstance(forced, (int, float), payload)
+        self.assertIsInstance(frames, int, payload)
+        self.assertGreaterEqual(frames, 1, payload)
+        # Every recorded frame performed an anchor-top read; nothing uncounted.
+        self.assertGreaterEqual(reads, frames, payload)
+        self.assertFalse(payload.get("window_excludes_forced_layout"), payload)
+
+
+if __name__ == "__main__":
+    unittest.main()

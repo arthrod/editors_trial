@@ -587,11 +587,14 @@ def c11_measured_samples(probe: dict) -> list:
 
 
 def c12_measured_sample(probe: dict) -> float:
-    """C12 sample: input -> first compositor frame at/after the observed y-shift.
+    """C12 sample: Enter keydown -> first presented frame in which the anchor moved.
 
-    The sample window excludes the probe's own ``getBoundingClientRect``. Old
-    unit probes omit ``mode`` and ``window_excludes_forced_layout``; a reflow
-    payload that does not exclude that layout is refused.
+    The measured window legitimately contains the recorder's per-frame
+    anchor-top reads, so a reflow payload must account for them —
+    ``layout_reads_during_window``, ``forced_layout_ms`` and ``anchor_frames``
+    — rather than claim a clean window. The edit-confirmation poll is a
+    validity check afterwards; only reads timestamped inside the window are
+    counted. Old unit probes without ``mode`` keep the previous contract.
     """
     if probe.get("status") == "not_applicable":
         raise ProbeRefusal(probe.get("reason") or "C12 not_applicable", outcome="not_applicable")
@@ -605,8 +608,19 @@ def c12_measured_sample(probe: dict) -> float:
             "text-shift assertion failed: anchor block did not move down (anchor_top=%r after=%r)"
             % ((probe.get("before") or {}).get("anchor_top"), probe.get("anchor_top_after"))
         )
-    window_known = "window_excludes_forced_layout" in probe or probe.get("mode") == "reflow"
-    if window_known and probe.get("window_excludes_forced_layout") is not True:
+    if probe.get("mode") == "reflow":
+        reads = _number_or_none(probe.get("layout_reads_during_window"))
+        forced = _number_or_none(probe.get("forced_layout_ms"))
+        frames = _number_or_none(probe.get("anchor_frames"))
+        if reads is None or forced is None or frames is None:
+            raise ProbeRefusal("C12 probe did not account for its in-window layout reads")
+        if reads < frames:
+            raise ProbeRefusal(
+                "unaccounted layout reads inside the C12 window (reads=%r frames=%r)" % (reads, frames)
+            )
+        if probe.get("window_excludes_forced_layout") is not False:
+            raise ProbeRefusal("C12 window claims to exclude forced layout while reads ran inside it")
+    elif "window_excludes_forced_layout" in probe and probe.get("window_excludes_forced_layout") is not True:
         raise ProbeRefusal("C12 window includes the probe's own forced layout")
     if _clock_skew_exceeds(probe):
         raise ProbeRefusal(
@@ -1615,6 +1629,11 @@ def _run_reflow_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path
                 "page_errors": payload.get("page_errors"),
                 "observed_shift_page_ms": payload.get("observed_shift_page_ms"),
                 "input_page_ms": payload.get("input_page_ms"),
+                "presented_frame_ms": payload.get("presented_frame_ms"),
+                "forced_layout_ms": payload.get("forced_layout_ms"),
+                "layout_reads_during_window": payload.get("layout_reads_during_window"),
+                "anchor_frames": payload.get("anchor_frames"),
+                "window_excludes_forced_layout": payload.get("window_excludes_forced_layout"),
                 **content_gate_record(content_meta, gate),
             }
         )
@@ -2048,7 +2067,7 @@ def _main() -> int:
                                 "start": "Enter keypress at the document start",
                                 "end": "first compositor screencast frame at or after the anchor block was observed to move down",
                                 "raf_observation": "the y-shift is observed on an animation frame; a frame arriving before that is not the sample",
-                                "forced_layout": "layout reads are outside the timed window; forced_layout_ms on the probe is always 0",
+                                "forced_layout": "layout reads from Enter to the presented frame are counted (layout_reads_during_window, forced_layout_ms, anchor_frames) and are not subtracted from the sample",
                             },
                             "insertion": "Enter at document start then one character",
                             "shift_assertion": (

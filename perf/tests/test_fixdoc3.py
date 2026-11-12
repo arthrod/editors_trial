@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -36,6 +37,8 @@ def _node():
 
 
 def _playwright_ready() -> bool:
+    if os.environ.get("WITNESS_PLAYWRIGHT"):
+        return True
     for candidate in (
         REPO / "harness" / "ui" / "plate" / "node_modules" / "playwright",
         REPO / "harness" / "ui" / "node_modules" / "playwright",

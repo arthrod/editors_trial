@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -31,6 +32,8 @@ def _node():
 
 
 def _playwright_ready() -> bool:
+    if os.environ.get("WITNESS_PLAYWRIGHT"):
+        return True
     for candidate in (
         REPO / "harness" / "ui" / "plate" / "node_modules" / "playwright",
         REPO / "harness" / "ui" / "node_modules" / "playwright",
@@ -148,20 +151,33 @@ class C14Verdict(unittest.TestCase):
 
 
 class C12Window(unittest.TestCase):
-    def test_a_reflow_sample_must_exclude_the_probe_layout(self):
-        probe = {
+    def test_a_reflow_sample_must_account_for_probe_layout(self):
+        # A reflow payload that hides in-window layout work is refused: the
+        # accounting fields are mandatory and must be consistent.
+        base = {
             "mode": "reflow",
             "moved": True,
             "before": {"anchor_top": 100.0},
             "anchor_top_after": 140.0,
             "presented_frame_ms": 40.0,
             "presented_frame_raw_ms": 48.0,
-            "forced_layout_ms": 8.0,
+            "forced_layout_ms": 0.5,
             "window_excludes_forced_layout": False,
+            "layout_reads_during_window": 3,
+            "anchor_frames": 2,
         }
+        missing = {k: v for k, v in base.items() if k != "anchor_frames"}
         with self.assertRaises(bd.ProbeRefusal) as caught:
-            bd.c12_measured_sample(probe)
-        self.assertIn("forced layout", caught.exception.reason)
+            bd.c12_measured_sample(missing)
+        self.assertIn("did not account", caught.exception.reason)
+        under_counted = dict(base, layout_reads_during_window=1)
+        with self.assertRaises(bd.ProbeRefusal) as caught:
+            bd.c12_measured_sample(under_counted)
+        self.assertIn("unaccounted", caught.exception.reason)
+        claimed_clean = dict(base, window_excludes_forced_layout=True)
+        with self.assertRaises(bd.ProbeRefusal) as caught:
+            bd.c12_measured_sample(claimed_clean)
+        self.assertIn("claims to exclude", caught.exception.reason)
 
 
 class C15Minimum(unittest.TestCase):
@@ -372,11 +388,14 @@ class FakeHostMeasurers(unittest.TestCase):
         self.assertGreaterEqual(cell["n"], bd.C15_MIN_N)
         self.assertEqual(cell["completion"], "event")
 
-    def test_reflow_window_excludes_the_probe_layout(self):
+    def test_reflow_window_accounts_for_the_probe_layout(self):
         payload = self.probe("reflow", "b3_reflow.html", ["--edit-selector", ".doc-paragraph"])
-        self.assertTrue(payload.get("window_excludes_forced_layout"), payload)
+        self.assertFalse(payload.get("window_excludes_forced_layout"), payload)
         self.assertIsInstance(payload.get("forced_layout_ms"), (int, float), payload)
         self.assertGreaterEqual(payload["forced_layout_ms"], 0)
+        self.assertIsInstance(payload.get("layout_reads_during_window"), int, payload)
+        self.assertIsInstance(payload.get("anchor_frames"), int, payload)
+        self.assertGreaterEqual(payload["layout_reads_during_window"], payload["anchor_frames"], payload)
         raw = payload.get("presented_frame_raw_ms")
         if payload.get("moved") and raw is not None and payload.get("presented_frame_ms") is not None:
             self.assertLessEqual(payload["presented_frame_ms"], raw + 1e-6, payload)
@@ -458,11 +477,15 @@ class FakeHostMeasurers(unittest.TestCase):
         self.assertEqual(payload.get("completion"), "no_event", payload)
         self.assertLess(payload.get("completion_wait_ms"), 8000, payload)
 
-    def test_reflow_observation_does_not_read_layout(self):
+    def test_reflow_observation_reads_are_reported_inside_the_window(self):
         payload = self.probe("reflow", "b3_reflow.html", ["--edit-selector", ".doc-paragraph"])
-        self.assertTrue(payload.get("layout_window_armed"), payload)
-        self.assertEqual(payload.get("layout_reads_during_window"), 0, payload)
-        self.assertEqual(payload.get("forced_layout_ms"), 0, payload)
+        self.assertIsNone(payload.get("error"), payload)
+        self.assertTrue(payload.get("moved"), payload)
+        self.assertGreaterEqual(payload.get("anchor_frames"), 1, payload)
+        self.assertGreaterEqual(payload["layout_reads_during_window"], payload["anchor_frames"], payload)
+        self.assertLessEqual(
+            payload["layout_reads_during_window"], payload["layout_reads_after_input"], payload
+        )
         self.assertTrue(payload.get("moved"), payload)
         sample = bd.c12_measured_sample(payload)
         self.assertIsInstance(sample, float)

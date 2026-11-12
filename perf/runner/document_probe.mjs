@@ -18,11 +18,16 @@
  *           four CSS pixel inset, at most 0.5% differing pixels). FCP is recorded
  *           beside that frame and is not the sample. The witness window is
  *           500 ms. No forced repaint.
- *   reflow  input (Enter at the document start, page clock) to the acked
- *           frame at or after the anchor reflow, not the first input paint.
- *           Layout reads stay outside the observation window; forced_layout_ms
- *           is 0. Page.startScreencast frames are acked via the witness
- *           recorder (Page.screencastFrame). frame_source: 'cdp_screencast'.
+ *   reflow  Enter keydown (page clock) to the acked frame at or after the
+ *           first recorded frame in which the anchor moved — never the edit
+ *           confirmation's return time. Layout reads timestamped inside that
+ *           window (the recorder's per-frame anchor-top read, and any census
+ *           read that landed before the frame) are reported
+ *           (layout_reads_during_window, forced_layout_ms). Reads before
+ *           Enter and reads after the frame are not called in-window.
+ *           Nothing is claimed excluded. Page.startScreencast frames are
+ *           acked via the witness recorder (Page.screencastFrame).
+ *           frame_source: 'cdp_screencast'.
  *   scale   usable on an animation frame, then the next acked frame that
  *           differs after the document has settled. No post-load damage is
  *           measured as the document-surface time and recorded as no damage
@@ -1413,8 +1418,9 @@ async function runReflow(browser) {
         evidence: { ...census, page_container: container, model: modelKind },
         navigation_ms: navigationMs,
         ready_ms: readyMs,
-        window_excludes_forced_layout: true,
         forced_layout_ms: 0,
+        layout_reads_during_window: 0,
+        anchor_frames: 0,
         page_errors: ctx.errors,
       };
     }
@@ -1429,8 +1435,9 @@ async function runReflow(browser) {
           navigation_ms: navigationMs,
           ready_ms: readyMs,
           error: prepared.placeError,
-          window_excludes_forced_layout: true,
           forced_layout_ms: 0,
+          layout_reads_during_window: 0,
+          anchor_frames: 0,
         };
       }
     }
@@ -1445,8 +1452,9 @@ async function runReflow(browser) {
           navigation_ms: navigationMs,
           ready_ms: readyMs,
           error: 'edit target has no box',
-          window_excludes_forced_layout: true,
           forced_layout_ms: 0,
+          layout_reads_during_window: 0,
+          anchor_frames: 0,
         };
       }
       await ctx.page.mouse.click(box.x + 3, box.y + Math.min(8, Math.max(2, box.height / 2)));
@@ -1492,8 +1500,9 @@ async function runReflow(browser) {
         ready_ms: readyMs,
         error: bodyCaret?.reason || 'c12_body_caret_unavailable',
         caret_placement: bodyCaret || null,
-        window_excludes_forced_layout: true,
         forced_layout_ms: 0,
+        layout_reads_during_window: 0,
+        anchor_frames: 0,
         page_errors: ctx.errors,
       };
     }
@@ -1518,8 +1527,9 @@ async function runReflow(browser) {
         navigation_ms: navigationMs,
         ready_ms: readyMs,
         error: before.reason,
-        window_excludes_forced_layout: true,
         forced_layout_ms: 0,
+        layout_reads_during_window: 0,
+        anchor_frames: 0,
       };
     }
 
@@ -1527,8 +1537,65 @@ async function runReflow(browser) {
     while (ctx.recorder.frames.length === 0 && Date.now() < frameDeadline) await sleep(10);
     const baseline = ctx.recorder.frames.length ? ctx.recorder.frames[ctx.recorder.frames.length - 1] : null;
 
-    const inputMark = await ctx.page.evaluate(() => {
+    const inputMark = await ctx.page.evaluate((refindSrc) => {
       window.__c12InputMs = null;
+      // The measured window opens at the Enter keydown and ends at the first
+      // presented frame in which the anchor moved. The edit-confirmation poll
+      // is a validity check AFTER the fact; its duration is never part of the
+      // sample. Record the anchor's top once per rendered frame starting
+      // before Enter. A re-render that replaces the node (the duplicate-anchor
+      // host) leaves the remembered element disconnected; follow the same
+      // refind the shift poll used, or the log watches a dead box and misses
+      // the move. The recorder's own getBoundingClientRect, and a refind's
+      // census, are real work inside the window and are counted in
+      // __c12ProbeReadLog — the payload reports them instead of claiming the
+      // window was clean.
+      window.__c12FrameLog = [];
+      window.__c12FrameLogActive = true;
+      window.__c12ProbeReadLog = [];
+      let refind = null;
+      try {
+        // eslint-disable-next-line no-eval
+        refind = (0, eval)(`(function(){ ${refindSrc}; return REFIND_ANCHOR; })()`);
+      } catch {
+        refind = null;
+      }
+      const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+      const liveAnchor = () => {
+        const kept = window.__c12AnchorEl;
+        if (kept && kept.isConnected === true) return kept;
+        if (typeof refind !== 'function') return null;
+        const found = refind(
+          window.__c12DocSel,
+          window.__c12AnchorText,
+          window.__c12AnchorTop,
+          norm,
+          null,
+          window.__c12AnchorOccurrence,
+        );
+        if (found) window.__c12AnchorEl = found;
+        return found || null;
+      };
+      const record = (frameTime) => {
+        if (!window.__c12FrameLogActive) return;
+        const el = liveAnchor();
+        if (!el) {
+          requestAnimationFrame(record);
+          return;
+        }
+        const t0 = performance.now();
+        const top = el.getBoundingClientRect().top;
+        window.__c12ProbeReadLog.push({ t: t0, ms: performance.now() - t0 });
+        window.__c12FrameLog.push({ t: frameTime, top, connected: el.isConnected === true });
+        const before = window.__c12AnchorTop;
+        if (typeof before === 'number' && top > before + 0.5) {
+          // First moved frame recorded; stop forcing further layout reads.
+          window.__c12FrameLogActive = false;
+          return;
+        }
+        requestAnimationFrame(record);
+      };
+      requestAnimationFrame(record);
       document.addEventListener(
         'keydown',
         (event) => {
@@ -1537,7 +1604,49 @@ async function runReflow(browser) {
         true,
       );
       return performance.now();
-    });
+    }, `${REFIND_ANCHOR_PAGE_SRC}`);
+    // Stops the frame recorder and returns the layout accounting: every
+    // getBoundingClientRect the probe caused since Enter, timestamped so the
+    // report can bound them to the presented window when a frame exists.
+    const stopC12Recorder = () =>
+      ctx.page.evaluate(() => {
+        window.__c12FrameLogActive = false;
+        const log = Array.isArray(window.__c12ProbeReadLog) ? window.__c12ProbeReadLog : [];
+        let read_ms = 0;
+        for (const read of log) read_ms += read.ms;
+        return {
+          reads: log.length,
+          read_ms,
+          frames: Array.isArray(window.__c12FrameLog) ? window.__c12FrameLog.length : 0,
+        };
+      });
+    // Reads and recorded frames with start <= t <= bound belong to the
+    // measured window (Enter keydown -> presented frame). A null start or
+    // bound leaves that side open: without a resolved frame every read is
+    // reported, and a missing keydown stamp does not drop reads.
+    const c12WindowReads = (startMs, boundMs) =>
+      ctx.page.evaluate(({ start, bound }) => {
+        const log = Array.isArray(window.__c12ProbeReadLog) ? window.__c12ProbeReadLog : [];
+        const frames = Array.isArray(window.__c12FrameLog) ? window.__c12FrameLog : [];
+        const inside = (t) => {
+          if (typeof t !== 'number') return false;
+          if (start !== null && t < start) return false;
+          if (bound !== null && t > bound) return false;
+          return true;
+        };
+        let reads = 0;
+        let read_ms = 0;
+        for (const read of log) {
+          if (!inside(read.t)) continue;
+          reads += 1;
+          read_ms += read.ms;
+        }
+        let frameCount = 0;
+        for (const frame of frames) {
+          if (inside(frame.t)) frameCount += 1;
+        }
+        return { reads, read_ms, total: log.length, frames: frameCount };
+      }, { start: startMs, bound: boundMs });
     await ctx.page.keyboard.press('Enter');
     await ctx.page.keyboard.type('x', { delay: 0 });
     const snapshot = await ctx.page.evaluate(() => window.__c12BeforeSnapshot || null);
@@ -1615,6 +1724,7 @@ async function runReflow(browser) {
     if (!editSeen || editSeen.ok !== true) {
       const anchorOnEditMiss = await evaluateAnchorIdentity();
       if (anchorOnEditMiss && anchorOnEditMiss.ok === false) {
+        const rec = await stopC12Recorder();
         return {
           mode: 'reflow',
           driver: 'playwright',
@@ -1629,8 +1739,10 @@ async function runReflow(browser) {
           anchor_top_after: null,
           anchor_after_top: null,
           shift_px: null,
-          window_excludes_forced_layout: true,
-          forced_layout_ms: 0,
+          window_excludes_forced_layout: false,
+          forced_layout_ms: rec.read_ms,
+          layout_reads_during_window: rec.reads,
+          anchor_frames: rec.frames,
           page_errors: ctx.errors,
         };
       }
@@ -1676,6 +1788,7 @@ async function runReflow(browser) {
           docSel: reflowSel,
         },
       );
+      const rec = await stopC12Recorder();
       return {
         mode: 'reflow',
         driver: 'playwright',
@@ -1690,13 +1803,16 @@ async function runReflow(browser) {
         anchor_top_after: null,
         anchor_after_top: null,
         shift_px: null,
-        window_excludes_forced_layout: true,
-        forced_layout_ms: 0,
+        window_excludes_forced_layout: false,
+        forced_layout_ms: rec.read_ms,
+        layout_reads_during_window: rec.reads,
+        anchor_frames: rec.frames,
         page_errors: ctx.errors,
       };
     }
     const anchorIdentity = await evaluateAnchorIdentity();
     if (anchorIdentity && anchorIdentity.ok === false) {
+      const rec = await stopC12Recorder();
       return {
         mode: 'reflow',
         driver: 'playwright',
@@ -1710,88 +1826,52 @@ async function runReflow(browser) {
         anchor_top_after: null,
         anchor_after_top: null,
         shift_px: null,
-        window_excludes_forced_layout: true,
-        forced_layout_ms: 0,
+        window_excludes_forced_layout: false,
+        forced_layout_ms: rec.read_ms,
+        layout_reads_during_window: rec.reads,
+        anchor_frames: rec.frames,
         page_errors: ctx.errors,
       };
     }
-    // The observation window waits for frames. It does not read layout.
-    // getBoundingClientRect inside this window would flush layout and the
-    // duration cannot be subtracted back out of the presented frame.
-    await ctx.page.evaluate(() => {
-      window.__c12Observe = true;
-    });
-    await ctx.page.evaluate(
-      () =>
-        new Promise((resolve) => {
-          let n = 0;
-          const step = () => {
-            n += 1;
-            if (n >= 3) resolve(0);
-            else requestAnimationFrame(step);
-          };
-          requestAnimationFrame(step);
-        }),
-    );
-    await ctx.page.evaluate(() => {
-      window.__c12Observe = false;
-    });
     const meter = await ctx.page.evaluate(() => ({
-      reads: typeof window.__c12LayoutReads === 'number' ? window.__c12LayoutReads : 0,
-      armed: window.__c12WindowArmed === true,
-      input_page_ms: window.__c12InputMs === null || window.__c12InputMs === undefined ? null : window.__c12InputMs,
+      input_page_ms:
+        window.__c12InputMs === null || window.__c12InputMs === undefined ? null : window.__c12InputMs,
     }));
     const inputPageMs = meter.input_page_ms === null ? inputMark : meter.input_page_ms;
-    // The sample ends when the anchor block has moved, then on the screencast
-    // frame of that reflow. The first paint after Enter is not the reflow.
-    // The no-read window is already closed, so this poll is not inside it.
-    const shift = await ctx.page.evaluate(
-      (refindSrc) => {
-      let el = window.__c12AnchorEl;
-      const before = window.__c12AnchorTop;
-      const anchorText = window.__c12AnchorText;
-      const docSel = window.__c12DocSel;
-      const deadline = performance.now() + 4000;
-      const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
-      const readBlock = (block) => norm(block.innerText || block.textContent);
-      let refind = null;
-      let blockText = null;
-      try {
-        // eslint-disable-next-line no-eval
-        refind = (0, eval)(`(function(){ ${refindSrc}; return REFIND_ANCHOR; })()`);
-      } catch {
-        refind = null;
-      }
-      const anchorOccurrence = window.__c12AnchorOccurrence;
-      const resolveAnchor = () =>
-        typeof refind === 'function'
-          ? refind(docSel, anchorText, before, norm, readBlock, anchorOccurrence)
-          : null;
-      return new Promise((resolve) => {
-        const step = () => {
-          if (!el || !el.isConnected) el = resolveAnchor();
-          else if (readBlock(el) !== anchorText) el = resolveAnchor();
-          if (!el || typeof before !== 'number') {
-            resolve({ moved: false, top: null, at: null });
-            return;
+    // The sample end is the first recorded frame whose anchor top moved more
+    // than 0.5 px — the frame's own timestamp, not the moment this poll
+    // noticed it. The confirmation poll only proves the edit is the expected
+    // x+paragraph shape. A move that paints after that proof (the late-reflow
+    // host waits 800 ms) is still in the log because the recorder stays
+    // armed. The 4000 ms bound is the previous shift poll's bound; it is not
+    // added to the sample.
+    const readRecordedShift = () =>
+      ctx.page.evaluate(() => {
+        const beforeTop = window.__c12AnchorTop;
+        const log = Array.isArray(window.__c12FrameLog) ? window.__c12FrameLog : [];
+        if (typeof beforeTop === 'number') {
+          for (const frame of log) {
+            if (typeof frame.top === 'number' && frame.top > beforeTop + 0.5) {
+              return { moved: true, top: frame.top, at: frame.t, frames: log.length };
+            }
           }
-          const top = el.getBoundingClientRect().top;
-          const now = performance.now();
-          if (top > before + 0.5) {
-            resolve({ moved: true, top, at: now });
-            return;
-          }
-          if (now >= deadline) {
-            resolve({ moved: false, top, at: null });
-            return;
-          }
-          requestAnimationFrame(step);
+        }
+        return {
+          moved: false,
+          top: log.length ? log[log.length - 1].top : null,
+          at: null,
+          frames: log.length,
         };
-        requestAnimationFrame(step);
       });
-    },
-      `${REFIND_ANCHOR_PAGE_SRC}`,
-    );
+    let shift = await readRecordedShift();
+    const shiftDeadline = Date.now() + 4000;
+    while (!shift.moved && Date.now() < shiftDeadline) {
+      await sleep(16);
+      shift = await readRecordedShift();
+    }
+    await ctx.page.evaluate(() => {
+      window.__c12FrameLogActive = false;
+    });
     let witness = null;
     if (shift.moved && typeof shift.at === 'number') {
       const region = await reflowDocumentRegion(ctx.page, editorId);
@@ -1914,6 +1994,7 @@ async function runReflow(browser) {
       },
     );
     if (endIdentity && endIdentity.ok === false) {
+      const rec = await stopC12Recorder();
       return {
         mode: 'reflow',
         driver: 'playwright',
@@ -1927,8 +2008,10 @@ async function runReflow(browser) {
         anchor_top_after: null,
         anchor_after_top: null,
         shift_px: null,
-        window_excludes_forced_layout: true,
-        forced_layout_ms: 0,
+        window_excludes_forced_layout: false,
+        forced_layout_ms: rec.read_ms,
+        layout_reads_during_window: rec.reads,
+        anchor_frames: rec.frames,
         page_errors: ctx.errors,
       };
     }
@@ -1936,6 +2019,18 @@ async function runReflow(browser) {
     const framePageMs = witness && witness.outcome === 'witnessed' ? witness.frame_page_ms : null;
     const raw = framePageMs === null ? null : framePageMs - inputPageMs;
     const presented = raw;
+    // Reads inside the measured window are those up to the presented frame.
+    // The bound keeps at least the recorded move frame's own read (two frame
+    // intervals of slack cover the screencast-conversion error and the rAF
+    // callback running after the frame's nominal timestamp).
+    const readBound =
+      framePageMs === null
+        ? null
+        : Math.max(framePageMs, (typeof shift.at === 'number' ? shift.at : 0) + 34);
+    const windowReads = await c12WindowReads(
+      typeof inputPageMs === 'number' ? inputPageMs : null,
+      readBound,
+    );
     return {
       mode: 'reflow',
       driver: 'playwright',
@@ -1957,8 +2052,12 @@ async function runReflow(browser) {
       input_page_ms: inputPageMs,
       observed_page_ms: framePageMs,
       observed_shift_page_ms: typeof shift.at === 'number' ? shift.at : null,
-      forced_layout_ms: 0,
-      window_excludes_forced_layout: true,
+      // In-window layout work is reported, never subtracted or claimed away.
+      // The bound is Enter keydown through the presented frame, plus one
+      // frame of slack so the recorder's own read (taken inside the rAF
+      // callback, after the frame's nominal timestamp) is not dropped.
+      forced_layout_ms: windowReads.read_ms,
+      window_excludes_forced_layout: false,
       presented_frame_raw_ms: raw,
       presented_frame_ms: presented,
       frames_total: witness ? witness.frames_total : ctx.recorder.frames.length,
@@ -1967,8 +2066,9 @@ async function runReflow(browser) {
       clock_skew_ms: witness ? witness.clock_skew_ms : null,
       clock_skew_acceptable: witness ? witness.clock_skew_acceptable : null,
       witness,
-      layout_reads_during_window: meter.reads,
-      layout_window_armed: meter.armed,
+      layout_reads_during_window: windowReads.reads,
+      layout_reads_after_input: windowReads.total,
+      anchor_frames: windowReads.frames,
       page_errors: ctx.errors,
       anchor_index_requested: anchorIndex,
     };
