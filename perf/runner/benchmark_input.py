@@ -162,7 +162,8 @@ def _probe_env(editor_id: str, target: dict, fixture: Path, *, workload_id: str,
         env.pop("PERF_FIXTURE_VARIANT", None)
         env.pop("PERF_FIXTURE_SOURCE_SHA256", None)
     # Owner's load-timeout policy (#155 item 6): the probe's inner waits read
-    # PERF_LOAD_TIMEOUT_MS; the lane exports it like every other lane does.
+    # PERF_LOAD_TIMEOUT_MS; the lane exports it, as the warm/cold, memory and
+    # scroll lanes do.
     env.update(load_timeout_env(workload_id))
     return env
 
@@ -229,11 +230,12 @@ def run_editor(editor_id: str, attempt_dir: Path, workload_id: str = "micro-para
             reason="%s: %s" % (type(exc).__name__, exc), refusal_code="host_build")
     t0 = time.time()
     try:
-        # Lax layer (owner 2026-11-11): the probe's own ready and mode-open
-        # waits run to the workload's load timeout; the lane's wall clock
-        # stays above that so the probe's timeouts expire — and are named —
-        # before this kill, the same formula warm_cold uses.
-        probe_timeout_s = load_timeout_ms(workload_id) / 1000 + 300
+        # Lax layer (owner 2026-11-11): each of the probe's ready and mode-open
+        # waits runs to the workload's load timeout. The lane's kill is that
+        # timeout plus 300 s (warm_cold's formula), so a single stuck wait
+        # expires and is named before the kill. A session that chains several
+        # long waits can still reach the kill; it is then refused editor_timeout.
+        probe_timeout_s = load_timeout_ms(workload_id) // 1000 + 300
         try:
             proc = subprocess.run(
                 _probe_command(editor_id, target, fixture),
