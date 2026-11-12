@@ -688,6 +688,16 @@ class RerenderHosts(unittest.TestCase):
         self.assertEqual(selection.get("offset"), 0, payload)
         self.assertTrue(str(selection.get("text_prefix") or "").startswith("Alpha body"), payload)
 
+    def test_caret_in_another_paragraph_is_refused(self):
+        # The click point sits on the caret paragraph, and a later paragraph
+        # covers that point. Offset 0 in the covering paragraph is not the
+        # caret paragraph. Same check for every editor.
+        payload = self._reflow("wrong-paragraph.html")
+        self.assertEqual(payload.get("error"), "caret_not_at_paragraph_start", payload)
+        verify = (payload.get("caret_placement") or {}).get("caret_verify") or {}
+        self.assertEqual(verify.get("detail"), "paragraph_text_mismatch", payload)
+        self.assertEqual(verify.get("offset"), 0, payload)
+
     def test_identity_refusal_keeps_the_empty_paragraph_in_the_window(self):
         payload = self._reflow("empty-gap.html", timeout_ms=2500)
         self.assertEqual(payload.get("error"), "anchor_identity_ambiguous", payload)

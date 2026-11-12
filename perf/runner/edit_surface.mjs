@@ -893,7 +893,8 @@ export const READ_CARET_BLOCK_OFFSET = ({ editorId, blockSelector }) => {
     const pre = range.cloneRange();
     pre.selectNodeContents(block);
     pre.setEnd(range.startContainer, range.startOffset);
-    return { offset: norm(pre.toString()).length, focused, source: 'dom' };
+    const paragraphText = norm(block.innerText || block.textContent).slice(0, 80);
+    return { offset: norm(pre.toString()).length, paragraphText, focused, source: 'dom' };
   } catch {
     return { offset: null, focused, source: 'dom' };
   }
