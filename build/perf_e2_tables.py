@@ -7,7 +7,6 @@ runs must agree (``reproduced``, abs_tol = witnessed frame interval).
 
 from __future__ import annotations
 
-import json
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -39,7 +38,7 @@ class Run:
 
 def load_run(path: Path) -> Run:
     path = Path(path)
-    summary = json.loads((path / "summary.json").read_text(encoding="utf-8"))
+    summary = e2_cells._read_json(path / "summary.json")
     if summary.get("publishable") is True and not summary.get("publication_block_reason") and summary.get("execution_profile") != "dedicated_publish":
         raise ValueError(
             "%s is a %s run; Report E2 publishes dedicated_publish runs only"
@@ -125,7 +124,7 @@ def _require_same_pins(primary: Path, repro: Path) -> None:
 
 
 def _summary(root: Path) -> dict:
-    return json.loads((root / "summary.json").read_text())
+    return e2_cells._read_json(root / "summary.json")
 
 
 def _scheduled(root: Path, editor: str) -> int:

@@ -346,12 +346,49 @@ def _trial_block(trial):
     return None
 
 
+_JSON_CACHE: dict = {}
+_RESOLVE_CACHE: dict = {}
+
+
+def _read_json(path: Path):
+    """Parsed JSON of one file, memoised on (resolved path, st_mtime_ns, st_size) (#176).
+
+    Pulled runs are append-only; a rewrite changes the stat key and parses
+    again. The cached object is shared by every consumer and must not be
+    mutated. Error paths are unchanged: OSError propagates from stat/read as
+    it did from read_text, and a JSONDecodeError is cached and re-raised so
+    each caller's ``except`` still fires.
+
+    The path's resolved spelling is memoised too — ``Path.resolve`` walks and
+    lstats every component on each call, which on the hot reader cost more
+    than the parse it replaced.
+    """
+    spelling = str(path)
+    resolved = _RESOLVE_CACHE.get(spelling)
+    if resolved is None:
+        resolved = str(path.resolve())
+        _RESOLVE_CACHE[spelling] = resolved
+    stat = path.stat()
+    key = (resolved, stat.st_mtime_ns, stat.st_size)
+    try:
+        value = _JSON_CACHE[key]
+    except KeyError:
+        try:
+            value = json.loads(path.read_text(encoding='utf-8'))
+        except json.JSONDecodeError as exc:
+            value = exc
+        _JSON_CACHE[key] = value
+    if isinstance(value, json.JSONDecodeError):
+        raise value
+    return value
+
+
 def _load_summary(run_directory: Path) -> dict | None:
     path = run_directory / "summary.json"
     if not path.is_file():
         return None
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return _read_json(path)
     except (OSError, json.JSONDecodeError):
         return None
 
@@ -422,7 +459,7 @@ def _iter_sample_rows(run_directory: Path):
         return
     for path in sorted(samples_dir.glob("*.json")):
         try:
-            row = json.loads(path.read_text(encoding="utf-8"))
+            row = _read_json(path)
         except (OSError, json.JSONDecodeError):
             continue
         if isinstance(row, dict):
@@ -447,7 +484,7 @@ def _trial_path(run_directory: Path, sample_row: dict, criterion_id: str) -> Pat
         return direct
     for path in attempts.glob("*.json"):
         try:
-            row = json.loads(path.read_text(encoding="utf-8"))
+            row = _read_json(path)
         except (OSError, json.JSONDecodeError):
             continue
         if row.get("criterion_id") == criterion_id:
@@ -485,7 +522,7 @@ def trial_workload(trial):
 def _read_rows(directory):
     for path in sorted(directory.rglob('*.json')):
         try:
-            row = json.loads(path.read_text(encoding='utf-8'))
+            row = _read_json(path)
         except (OSError, json.JSONDecodeError):
             if path.name.startswith('chrome-profile-'):
                 continue  # a truncated trace record is diagnostic, never a trial

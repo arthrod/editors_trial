@@ -65,7 +65,7 @@ def launch_refusal(record: dict) -> str | None:
 def _records(job: Path):
     for path in sorted((job / 'cells').glob('*/resource.json')):
         try:
-            record = json.loads(path.read_text(encoding='utf-8'))
+            record = cells._read_json(path)
         except (OSError, ValueError):
             record = {'outcome': 'failed', 'failure_reason': 'unreadable_record'}
         if isinstance(record, dict):
