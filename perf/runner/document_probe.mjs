@@ -78,6 +78,7 @@ import {
   REFIND_ANCHOR,
   REFIND_ANCHOR_PAGE_SRC,
   C12_ANCHOR_BY_TEXT_PAGE_SRC,
+  C12_FRAME_TIE_PAGE_SRC,
   C12_SCROLL_CARET_PAGE_SRC,
   C12_BLOCK_ENTRIES_PAGE_SRC,
   C12_BLOCK_TEXT_PAGE_SRC,
@@ -1993,7 +1994,7 @@ async function runReflow(browser) {
       });
     }
     const after = await ctx.page.evaluate(
-      ({ docSel, anchorText, anchorTop, anchorOccurrence, refindSrc, blockTextSrc }) => {
+      ({ docSel, anchorText, anchorTop, anchorOccurrence, refindSrc, blockTextSrc, tieSrc }) => {
         const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
         let readBlock = (block) => norm(block.innerText || block.textContent);
         try {
@@ -2025,12 +2026,25 @@ async function runReflow(browser) {
         else if (found) matchedBy = 'text';
         const movedEl = window.__c12MovedAnchorEl || null;
         window.__c12ConfirmedAnchorEl = found || null;
+        const frameTied = Boolean(found && movedEl && found === movedEl);
+        let frameTie = null;
+        if (!frameTied) {
+          let tie = null;
+          try {
+            // eslint-disable-next-line no-eval
+            tie = (0, eval)(`(function(){ ${tieSrc}; return c12FrameTieDiagnostic; })()`);
+          } catch {
+            tie = null;
+          }
+          if (typeof tie === 'function') frameTie = tie(movedEl, found);
+        }
         return {
           top: found ? found.getBoundingClientRect().top : null,
           block_count: document.querySelectorAll(docSel).length,
           matched_by: matchedBy,
           identity_ok: Boolean(found),
-          frame_tied: Boolean(found && movedEl && found === movedEl),
+          frame_tied: frameTied,
+          frame_tie: frameTie,
         };
       },
       {
@@ -2040,6 +2054,7 @@ async function runReflow(browser) {
         anchorOccurrence: before.anchor_occurrence,
         refindSrc: `${REFIND_ANCHOR_PAGE_SRC}`,
         blockTextSrc: C12_BLOCK_TEXT_PAGE_SRC,
+        tieSrc: C12_FRAME_TIE_PAGE_SRC,
       },
     );
     const endIdentity = await ctx.page.evaluate(
@@ -2161,6 +2176,7 @@ async function runReflow(browser) {
         before,
         caret_scroll: caretScroll,
         error: 'recorded_frame_not_confirmed_anchor',
+        frame_tie: (after && after.frame_tie) || null,
         moved: false,
         anchor_top_after: null,
         anchor_after_top: null,

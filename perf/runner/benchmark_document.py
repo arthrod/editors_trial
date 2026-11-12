@@ -794,6 +794,9 @@ def _c12_census_record(payload: dict) -> dict:
     diagnostic = payload.get("identity_diagnostic")
     if isinstance(diagnostic, dict):
         record["identity_diagnostic"] = diagnostic
+    tie = payload.get("frame_tie")
+    if isinstance(tie, dict):
+        record["frame_tie"] = tie
     return record
 
 

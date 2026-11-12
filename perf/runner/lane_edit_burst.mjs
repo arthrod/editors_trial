@@ -691,6 +691,62 @@ export function REFIND_ANCHOR(
   return found;
 }
 
+/**
+ * Both elements of a failed frame tie. The refusal has to say which nodes
+ * differed: tag, data-* attributes, normalized text prefix, rect top, and
+ * whether the node is still connected. Same comparison for every editor.
+ */
+export function c12FrameTieDiagnostic(recorded, confirmed) {
+  const normalize = (value) => {
+    const collapsed = String(value || '').replace(/\s+/g, ' ').trim();
+    return typeof collapsed.normalize === 'function' ? collapsed.normalize('NFC') : collapsed;
+  };
+  const describe = (el) => {
+    if (!el) return null;
+    const data = {};
+    const attrs = el.attributes;
+    if (attrs && typeof attrs.length === 'number') {
+      for (const attr of Array.from(attrs)) {
+        const name = attr && attr.name;
+        if (typeof name === 'string' && name.indexOf('data-') === 0) {
+          data[name] = attr.value == null ? '' : String(attr.value);
+        }
+      }
+    }
+    const raw = el.innerText != null && String(el.innerText) !== '' ? el.innerText : el.textContent;
+    let top = null;
+    if (typeof el.getBoundingClientRect === 'function') {
+      const box = el.getBoundingClientRect();
+      if (box && typeof box.top === 'number') top = box.top;
+    }
+    return {
+      tag: el.tagName || null,
+      data,
+      text_prefix: normalize(raw).slice(0, 80),
+      top,
+      isConnected: el.isConnected === true,
+    };
+  };
+  let relation = 'distinct';
+  if (recorded && confirmed && recorded === confirmed) relation = 'same';
+  else if (
+    recorded &&
+    confirmed &&
+    typeof recorded.contains === 'function' &&
+    recorded.contains(confirmed)
+  ) {
+    relation = 'recorded_contains_confirmed';
+  } else if (
+    recorded &&
+    confirmed &&
+    typeof confirmed.contains === 'function' &&
+    confirmed.contains(recorded)
+  ) {
+    relation = 'confirmed_contains_recorded';
+  }
+  return { recorded: describe(recorded), confirmed: describe(confirmed), relation };
+}
+
 const toPageExport = (fn) => fn.toString().replace(/^export\s+/, '');
 
 // The helpers have to travel inside each eval. An indirect eval of the entries
@@ -713,6 +769,9 @@ export const REFIND_ANCHOR_PAGE_SRC = `${ANCHOR_REFIND_CONTEXT_OK_PAGE_SRC};\n${
 
 /** Text match only. The frame recorder must not eval the census with this. */
 export const C12_ANCHOR_BY_TEXT_PAGE_SRC = toPageExport(c12AnchorElementByText);
+
+/** Element facts for a failed frame tie. No census. */
+export const C12_FRAME_TIE_PAGE_SRC = toPageExport(c12FrameTieDiagnostic);
 
 /** The scroll call eval'd with the text finder it uses. */
 export const C12_SCROLL_CARET_PAGE_SRC = `${C12_ANCHOR_BY_TEXT_PAGE_SRC};\n${toPageExport(c12ScrollCaretIntoView)}`;

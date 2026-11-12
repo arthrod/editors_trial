@@ -136,6 +136,48 @@ console.log(JSON.stringify({ rects, block: result.block, top_before: result.top_
         self.assertEqual(payload["top_before"], 1240)
         self.assertEqual(payload["top_after"], 450)
 
+    def test_frame_tie_names_the_recorded_and_confirmed_elements(self):
+        # A refusal has to say which two elements differed: tag, data-* ids,
+        # normalized text prefix, rect top, and whether the node is connected.
+        payload = self.node(
+            r"""
+const attrs = (id) => [{ name: 'data-block-id', value: id }, { name: 'class', value: 'layout-paragraph' }];
+const el = (id, text, top, connected) => ({
+  tagName: 'DIV',
+  isConnected: connected,
+  attributes: attrs(id),
+  textContent: text,
+  innerText: text,
+  getBoundingClientRect: () => ({ top }),
+  contains: () => false,
+});
+const recorded = el('block-5', 'custom namespace attribute: cs complex-script text', 480, false);
+const confirmed = el('block-5', 'custom namespace attribute: cs complex-script text', 444.25, true);
+const tie = mod.c12FrameTieDiagnostic(recorded, confirmed);
+assert.equal(tie.recorded.tag, 'DIV');
+assert.equal(tie.recorded.data['data-block-id'], 'block-5');
+assert.equal(tie.recorded.text_prefix, 'custom namespace attribute: cs complex-script text');
+assert.equal(tie.recorded.top, 480);
+assert.equal(tie.recorded.isConnected, false);
+assert.equal(tie.confirmed.tag, 'DIV');
+assert.equal(tie.confirmed.data['data-block-id'], 'block-5');
+assert.equal(tie.confirmed.top, 444.25);
+assert.equal(tie.confirmed.isConnected, true);
+assert.equal(tie.relation, 'distinct');
+const child = el('block-5', 'custom namespace attribute: cs complex-script text', 444.25, true);
+child.contains = (other) => other === recorded;
+const wrapped = mod.c12FrameTieDiagnostic(child, recorded);
+assert.equal(wrapped.relation, 'recorded_contains_confirmed');
+console.log(JSON.stringify(tie));
+"""
+        )
+        self.assertEqual(payload["recorded"]["tag"], "DIV")
+        self.assertEqual(payload["recorded"]["data"]["data-block-id"], "block-5")
+        self.assertFalse(payload["recorded"]["isConnected"])
+        self.assertTrue(payload["confirmed"]["isConnected"])
+        self.assertEqual(payload["recorded"]["text_prefix"], "custom namespace attribute: cs complex-script text")
+        self.assertEqual(payload["relation"], "distinct")
+
     def test_census_record_keeps_the_caret_scroll(self):
         record = bd._c12_census_record(
             {
@@ -186,6 +228,41 @@ console.log(JSON.stringify({ rects, block: result.block, top_before: result.top_
         self.assertEqual(record["identity_diagnostic"]["anchor_indexes_after"], [10, 20])
         self.assertEqual(record["caret_index"], 9)
         self.assertEqual(record["anchor_index"], 10)
+
+    def test_census_record_keeps_the_frame_tie(self):
+        record = bd._c12_census_record(
+            {
+                "frame_tie": {
+                    "relation": "distinct",
+                    "recorded": {
+                        "tag": "DIV",
+                        "data": {"data-block-id": "block-5"},
+                        "text_prefix": "custom namespace",
+                        "top": 480,
+                        "isConnected": False,
+                    },
+                    "confirmed": {
+                        "tag": "DIV",
+                        "data": {"data-block-id": "block-5"},
+                        "text_prefix": "custom namespace",
+                        "top": 444.25,
+                        "isConnected": True,
+                    },
+                },
+                "before": {
+                    "ok": True,
+                    "caret_index": 4,
+                    "anchor_index": 5,
+                    "caret_paragraph_text": "CARET",
+                    "anchor_text": "ANCHOR",
+                },
+            }
+        )
+        self.assertEqual(record["frame_tie"]["recorded"]["tag"], "DIV")
+        self.assertEqual(record["frame_tie"]["recorded"]["data"]["data-block-id"], "block-5")
+        self.assertFalse(record["frame_tie"]["recorded"]["isConnected"])
+        self.assertTrue(record["frame_tie"]["confirmed"]["isConnected"])
+        self.assertEqual(record["frame_tie"]["confirmed"]["top"], 444.25)
 
     def test_untied_code_refuses_the_sample(self):
         from perf.runner.refusals import RefusalCode
@@ -360,6 +437,21 @@ class RerenderHosts(unittest.TestCase):
         with self.assertRaises(bd.ProbeRefusal) as caught:
             bd.c12_measured_sample(payload)
         self.assertEqual(caught.exception.refusal_code, "recorded_frame_not_confirmed_anchor")
+
+    def test_recorded_frame_refusal_names_both_elements(self):
+        payload = self._reflow("untied.html")
+        self.assertEqual(payload.get("error"), "recorded_frame_not_confirmed_anchor", payload)
+        tie = payload.get("frame_tie") or {}
+        for side in ("recorded", "confirmed"):
+            element = tie.get(side) or {}
+            self.assertIsInstance(element.get("tag"), str, payload)
+            self.assertIsInstance(element.get("data"), dict, payload)
+            self.assertTrue(str(element.get("text_prefix") or "").startswith("Beta anchor"), payload)
+            self.assertIsInstance(element.get("top"), (int, float), payload)
+            self.assertIsInstance(element.get("isConnected"), bool, payload)
+        self.assertIs(tie["recorded"]["isConnected"], False, payload)
+        self.assertIs(tie["confirmed"]["isConnected"], True, payload)
+        self.assertIsNot(payload.get("moved"), True, payload)
 
 
 if __name__ == "__main__":
