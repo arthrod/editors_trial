@@ -161,8 +161,12 @@ def run_mirror_subprocess(argv_tail: list[str], run_log: Path, *, label: str) ->
     try:
         proc.wait(timeout=mirror_timeout_seconds())
         if proc.returncode != 0:
-            err = (proc.stderr.read() or '').strip().replace('\n', ' ')[:240]
-            detail = f' {err}' if err else ''
+            err = (proc.stderr.read() or '').strip()
+            if err:
+                from .mirror import _bucket_token, _safe_reason
+                detail = ' ' + _safe_reason(RuntimeError(err), _bucket_token())
+            else:
+                detail = ''
             _append_mirror_log(run_log, f'MIRROR-ERROR {label}{detail}')
             return False, None
         return True, None

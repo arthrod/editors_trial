@@ -54,17 +54,14 @@ def publication_sample_paragraph() -> str:
 
 def typing_sample_paragraph() -> str:
     """Typing sample plan for Report E2. Numbers come from the typing publication constants."""
-    from perf.runner.browser_run import (
-        PUBLICATION_REPETITIONS,
-        TYPING_PUBLICATION_MIN_KEPT,
-        TYPING_PUBLICATION_SESSIONS,
-    )
+    from perf.runner.browser_run import TYPING_PUBLICATION_MIN_KEPT, TYPING_PUBLICATION_SESSIONS
 
     return (
         "Typing schedules "
         f"{TYPING_PUBLICATION_SESSIONS} sessions per kind per seed "
         f"and publishes a cell when at least {TYPING_PUBLICATION_MIN_KEPT} are kept. "
-        f"With {TYPING_PUBLICATION_MIN_KEPT} to {PUBLICATION_REPETITIONS - 1} kept sessions, "
+        f"With {TYPING_PUBLICATION_MIN_KEPT} kept sessions and fewer than "
+        f"{TYPING_PUBLICATION_SESSIONS}, "
         "the table prints the median and the range from the smallest kept session to the largest. "
         "A key-to-paint 90th percentile inside one session is over keys, not over sessions."
     )

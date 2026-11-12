@@ -209,7 +209,13 @@ class SampleBrackets(unittest.TestCase):
             if mode == "reflow":
                 return {"moved": True, "presented_frame_ms": 40, "window_excludes_forced_layout": True}
             if mode == "scale":
-                return {"usable_ms": 100, "presented_frame_ms": 120, "frames_total": 3, "frames_after_usable": 1}
+                return {
+                    "usable_ms": 100,
+                    "presented_frame_ms": 120,
+                    "frames_total": 3,
+                    "frames_after_usable": 1,
+                    "clock_skew_ms": 0.2,
+                }
             return {
                 "paints": [{"name": "first-contentful-paint", "start_ms": 10}],
                 "fcp_ms": 10,

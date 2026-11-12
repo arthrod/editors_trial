@@ -211,6 +211,10 @@ def test_typing_sample_plan_sits_next_to_the_lane_sample_plan(tmp_path):
     assert f'{TYPING_PUBLICATION_SESSIONS} sessions per kind per seed' in paragraph
     assert f'at least {TYPING_PUBLICATION_MIN_KEPT}' in paragraph
     assert 'median and the range' in paragraph
+    # The range band is the typing schedule (6 sessions, publish at 5), not the
+    # non-typing "5 to 9" band from PUBLICATION_REPETITIONS.
+    assert 'to 9' not in paragraph
+    assert f'fewer than {TYPING_PUBLICATION_SESSIONS}' in paragraph
     assert report.unset_facts()['perf.e2.typing_sample_plan'] == paragraph
     roots = _write_pair(tmp_path, 6, [10, 20, 30, 40, 50])
     assert report.facts_from_roots(roots)['perf.e2.typing_sample_plan'] == paragraph

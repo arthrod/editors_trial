@@ -652,6 +652,44 @@ class TestBounded:
         assert elapsed < 30
         assert 'MIRROR-ERROR sleepy timeout' in run_log.read_text()
 
+    def test_mirror_stderr_token_never_reaches_run_log(self, tmp_path, monkeypatch):
+        from perf.container import run
+
+        token = 'test-token-neverlogged-0001'
+        monkeypatch.setenv('HF_BUCKET_TOKEN', token)
+        stub = tmp_path / 'stub_mirror.py'
+        stub.write_text(
+            'import sys\n'
+            'sys.stderr.write("401 Unauthorized token ' + token + ' rejected\\n")\n'
+            'raise SystemExit(1)\n'
+        )
+        run_log_dir = tmp_path / 'runs' / 'camp-token'
+        run_log_dir.mkdir(parents=True)
+        run_log = run_log_dir / 'RUN.log'
+        monkeypatch.setenv('HF_MIRROR_PY', str(stub))
+        ok, alive = run.run_mirror_subprocess(['job', 'camp-token'], run_log, label='leaky')
+        text = run_log.read_text()
+        assert ok is False and alive is None
+        assert 'MIRROR-ERROR leaky' in text
+        assert token not in text
+        assert '<redacted>' in text
+
+
+def _setup_facts(tmp_path):
+    """A facts file setup.main accepts, with no dependency on out/facts.json."""
+    import json
+    from perf.container.policy import EDITORS, NPM
+
+    facts = {}
+    for name in EDITORS:
+        facts[f'ver.{name}.commit'] = 'a' * 40
+        facts[f'ver.{name}.slug'] = f'example/{name}'
+    for key, _directory, _package in NPM:
+        facts[f'ver.npm.{key}'] = '1.2.3'
+    path = tmp_path / 'facts.json'
+    path.write_text(json.dumps(facts))
+    return path
+
 
 class TestSetup:
     def test_dockerfile_installs_huggingface_hub_into_runtime(self):
@@ -673,18 +711,22 @@ class TestSetup:
         head = source.split('def ', 1)[0]
         assert 'import huggingface_hub' not in head
 
-    def test_setup_sh_dry_run_lists_pinned_huggingface_hub(self):
+    def test_setup_sh_dry_run_lists_pinned_huggingface_hub(self, tmp_path):
         import subprocess
         from perf.container.mirror import HUGGINGFACE_HUB_VERSION, RUNTIME_PIP
         spec = f'huggingface_hub=={HUGGINGFACE_HUB_VERSION}'
         image = Path('perf/container/Dockerfile').read_text()
         pip_line = next(text for text in image.splitlines() if 'python-runtime/bin/pip install' in text)
         assert spec in pip_line and RUNTIME_PIP in pip_line
-        result = subprocess.run(['bash', 'perf/container/setup.sh', '--dry-run'], capture_output=True, text=True)
+        facts = _setup_facts(tmp_path)
+        result = subprocess.run(
+            ['bash', 'perf/container/setup.sh', '--dry-run', '--facts', str(facts)],
+            capture_output=True, text=True,
+        )
         assert result.returncode == 0, result.stderr
         assert f'{RUNTIME_PIP} install --no-cache-dir {spec}' in result.stdout
 
-    def test_setup_dry_run_prints_runtime_pip_and_does_not_execute(self, monkeypatch, capsys):
+    def test_setup_dry_run_prints_runtime_pip_and_does_not_execute(self, monkeypatch, capsys, tmp_path):
         from perf.container import setup
         from perf.container.mirror import HUGGINGFACE_HUB_VERSION, RUNTIME_PIP
         calls = []
@@ -693,8 +735,9 @@ class TestSetup:
             calls.append(cmd)
             raise AssertionError('dry-run executed a command')
 
+        facts = _setup_facts(tmp_path)
         monkeypatch.setattr(setup.subprocess, 'run', forbid)
-        monkeypatch.setattr(sys, 'argv', ['setup', '--dry-run'])
+        monkeypatch.setattr(sys, 'argv', ['setup', '--dry-run', '--facts', str(facts)])
         setup.main()
         out = capsys.readouterr().out
         assert calls == []
@@ -706,7 +749,7 @@ class TestSetup:
         from perf.container.mirror import HUGGINGFACE_HUB_VERSION, RUNTIME_PIP
 
         # Hermetic: a private repos directory like a Space's /app, whatever this checkout has.
-        facts = Path('out/facts.json').resolve()
+        facts = _setup_facts(tmp_path)
         (tmp_path / 'repos').mkdir()
         monkeypatch.chdir(tmp_path)
 
