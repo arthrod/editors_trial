@@ -3467,7 +3467,9 @@ function usableWaitBoundMs() {
  * per-editor ready policy from usableExpression: every editor already has
  * one, and a quiet DOM is not a substitute for it. At the bound, returns
  * the named refusal `usable_signal_not_observed` and does not fall through.
- * The observer is disconnected on every return.
+ * This wait does not install an observer: nothing here read lastMutation.
+ * Any observer left on window.__ciUsableWait is still disconnected on
+ * every return.
  */
 export async function waitForUsableSurface(page, usableJs) {
   const disconnect = async () => {
@@ -3480,20 +3482,6 @@ export async function waitForUsableSurface(page, usableJs) {
     }).catch(() => {});
   };
   if (!usableJs) return 'usable_signal_not_observed';
-  await page.evaluate(() => {
-    const state = { lastMutation: performance.now(), observer: null };
-    window.__ciUsableWait = state;
-    const observer = new MutationObserver(() => {
-      state.lastMutation = performance.now();
-    });
-    state.observer = observer;
-    observer.observe(document.documentElement || document, {
-      subtree: true,
-      childList: true,
-      characterData: true,
-      attributes: true,
-    });
-  });
   const deadline = Date.now() + usableWaitBoundMs();
   while (Date.now() < deadline) {
     const usable = await page.evaluate((code) => {
