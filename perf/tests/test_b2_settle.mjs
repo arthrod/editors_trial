@@ -265,7 +265,7 @@ test('the folio boundary: duration ends at +1696 ms, processingEnd at +15.6 ms, 
  // 19008.1 → 19391.4 (383 ms) is over the 100 ms bound; the entry decides:
  // the glyph is 6.5 ms after the reported end 17688.9+1696=19384.9, inside
  // the late window — the unverified interval 19391.4−(19384.9−4)=10.5 ms is
- // within the onset bound, so the hole is explained.
+ // within one vsync, so the hole is explained.
  const marker=17688.9,glyphMs=19391.4;
  const times=[marker+269,marker+802,19008.1,glyphMs,
   ...Array.from({length:24},(_,i)=>glyphMs+16.7+i*16.7)];
@@ -355,10 +355,13 @@ test('HF GenOffice C06 replay: entry-explained holes measure, siblings keep valu
 // trusted sample sat at or above -(4+interval)); a glyph earlier refuses
 // glyph_before_next_paint.
 // On the late side the glyph may have been presented as early as pEnd-4, so
-// the unverified interval is glyph-(pEnd-4) and it must stay within
-// onsetBound — the same tolerance the normal path grants between the last
-// ink-less delivered frame and the glyph (owner decision 2026-11-11, #155
-// item 6); beyond it refuses glyph_after_next_paint. sparse4 dropped the
+// the unverified interval is glyph-(pEnd-4) and it must stay within one
+// vsync — the same calibrated onsetInterval as the early side (sparse5, Grok
+// re-review BLOCKER 1: the explained glyph lies within one vsync of the
+// entry's own first rendering update, either side; the 100 ms onsetBound
+// floor is the normal path's delivery-gap tolerance, not a licence to sit
+// ~96 ms after an independent presentation timestamp). Beyond one vsync it
+// refuses glyph_after_next_paint. sparse4 dropped the
 // walk-back guard: the published claim is "the glyph was visible at
 // eligible[first]" and covers(first,ref) proves it with first's own pixels —
 // a delivery hole AFTER first cannot make the glyph appear earlier, and the
@@ -366,7 +369,8 @@ test('HF GenOffice C06 replay: entry-explained holes measure, siblings keep valu
 // window still refuses via the proof's own forward gap check. A timing that
 // was not verified is never published.
 test('a glyph 108 ms after the entry end refuses glyph_after_next_paint (#171)',()=>{
- // Grok's probe: pEnd=200, glyph 308 — unverified 308-(200-4)=112 > 100.
+ // Grok's probe: pEnd=200, glyph 308 — unverified 308-(200-4)=112, far past
+ // one vsync.
  const r=settleFrames(holeFrames(308,5),{markerMs:0,
   inputProcessing:{startMs:0,durationMs:200}});
  assert.equal(r.failure_reason,'glyph_after_next_paint');
@@ -469,4 +473,81 @@ test('the runner snapshots frames before the Event Timing poll (#171)',()=>{
  const snap=src.indexOf('[...recorder.frames]');
  const poll=src.indexOf('inputEntry = await page.evaluate');
  assert.ok(snap>-1&&poll>-1&&snap<poll,'the frame snapshot precedes the poll');
+});
+
+// -- sparse5: the late side is one vsync, symmetric with the early side
+// (Grok re-review BLOCKER 1) ------------------------------------------------
+// The rule: the explained glyph lies within one vsync of the entry's own
+// first rendering update, either side. onsetBound (max(2*interval, 100)) is
+// the normal path's tolerance for the largest hole between two DELIVERED
+// frames that may still publish the later one as the first paint; it is not
+// a licence for a published time to sit ~96 ms after an independent
+// presentation timestamp — the entry's duration end is that timestamp. With
+// pEnd=200 and a 16.7 ms interval the unverified interval is glyph-196:
+// 212 (16 ms) measures, 213 (17 ms) refuses, and Grok's probe rows 292/296
+// (96/100 ms — accepted by the old bound) now refuse.
+test('a glyph 96 ms after the entry end refuses glyph_after_next_paint — late side is one vsync (#171)',()=>{
+ const r=settleFrames(holeFrames(292,5),{markerMs:0,eventStartMs:0,
+  inputProcessing:{startMs:0,durationMs:200}});
+ assert.equal(r.failure_reason,'glyph_after_next_paint');
+});
+test('a glyph 100 ms after the entry end refuses the same way — the old onsetBound edge is outside (#171)',()=>{
+ const r=settleFrames(holeFrames(296,5),{markerMs:0,eventStartMs:0,
+  inputProcessing:{startMs:0,durationMs:200}});
+ assert.equal(r.failure_reason,'glyph_after_next_paint');
+});
+test('a glyph inside one vsync after the entry end still measures (#171)',()=>{
+ // unverified 212-(200-4)=16 <= 16.7: inside the verified window.
+ const r=settleFrames(holeFrames(212,5),{markerMs:0,eventStartMs:0,
+  inputProcessing:{startMs:0,durationMs:200}});
+ assert.equal(r.page_ms,212);
+ assert.equal(r.onset_hole_explained_by,'event_next_paint');
+});
+test('a glyph just past one vsync after the entry end refuses (#171)',()=>{
+ // unverified 213-(200-4)=17 > 16.7.
+ const r=settleFrames(holeFrames(213,5),{markerMs:0,eventStartMs:0,
+  inputProcessing:{startMs:0,durationMs:200}});
+ assert.equal(r.failure_reason,'glyph_after_next_paint');
+});
+
+// -- sparse5: real-mask regression cases ------------------------------------
+// The stored-corpus replay rebuilds each frame's ink as a PREFIX of the
+// first ink_pixels indices, so a smaller count is a subset by construction.
+// These two cases run the real classifyRegion/masks path — actual per-pixel
+// ink arrays and values — so covers() evaluates true pixel subsets.
+const bar=(y0,y1)=>image((x,y)=>(y>=y0&&y<y1&&x>=4&&x<16)?[0,0,0]:[255,255,255]);
+test('disjoint ink under the quiet reference is not the onset — real masks refuse (#171)',()=>{
+ // Grok's disjoint-bars probe: a 72 px top bar at 200 and a 72 px bottom
+ // bar sharing no pixel, held through the quiet window from 900. The prefix
+ // rebuild calls covers() true and publishes 200; real masks show the top
+ // bar never covers the bottom bar, so the quiet image's onset is 900 and
+ // the entry at pEnd=200 cannot explain a paint 704 ms later.
+ const top=bar(4,10),bot=bar(16,22);
+ const times=[5,200,...Array.from({length:24},(_,i)=>900+i*16.7)];
+ const r=settleFrames(sequence(t=>t<200?blank:t<900?top:bot,base,times),
+  {markerMs:0,eventStartMs:0,frameIntervalMs:16.7,
+   inputProcessing:{startMs:0,durationMs:200}});
+ assert.equal(r.failure_reason,'glyph_after_next_paint');
+ assert.notEqual(r.page_ms,200);
+});
+test('a blinking caret inside the walked span still measures the glyph onset — real masks (#171)',()=>{
+ // The shape of the eight folio traces the rejected onset_walkback_ink
+ // count guard would have kept refused: glyph+caret at 200, a 150 ms hole
+ // (as in the traces), caret-off (glyph only) frames, then glyph+caret
+ // held through the quiet window — the stored page was the caret's later
+ // return. covers() walks back across the caret-off frames because their
+ // ink is a TRUE pixel subset of the reference (same glyph positions, the
+ // caret sits inside the larger mask), so the onset is the first caret-on
+ // frame, inside the entry's own paint window. The caret-off onsets
+ // themselves are paints 150+ ms after pEnd — outside one vsync, refused.
+ const on=image((x,y)=>((y>=4&&y<10&&x>=4&&x<16)||(x===17&&y>=4&&y<16))?[0,0,0]:[255,255,255]);
+ const off=bar(4,10);
+ const times=[5,200,
+  ...Array.from({length:20},(_,i)=>350+i*16.7),
+  ...Array.from({length:24},(_,i)=>700+i*16.7)];
+ const r=settleFrames(sequence(t=>t<200?blank:t===200?on:t<700?off:on,base,times),
+  {markerMs:0,eventStartMs:0,frameIntervalMs:16.7,
+   inputProcessing:{startMs:0,durationMs:200}});
+ assert.equal(r.page_ms,200);
+ assert.equal(r.onset_hole_explained_by,'event_next_paint');
 });
