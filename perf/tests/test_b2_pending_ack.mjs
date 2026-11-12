@@ -13,7 +13,7 @@ const walk = new AsyncFunction('recorder','classifier','frameAckSettled', `
   const DEFAULT_MIN_PIXELS=4,DEFAULT_CHANNEL_TOLERANCE=8,skew={frame_interval_ms:10};
   const convertFrameToPageMs = frame => frame.pageMs;
   const settleFrames = () => ({failure_reason:'settle_not_reached'});
-  const recorded=[]; let decision;
+  const recorded=[]; let decision; const inputProcessing=null;
   ${source.slice(start, end)}
   return recorded.map(row=>row.frame.seq);
 `);

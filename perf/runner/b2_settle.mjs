@@ -73,6 +73,18 @@ export function classifyRegion(pixels, baseline, rects, dpr, doc, tolerance = 8)
  * onset interval when screencast delivery is slower. Only the gap immediately
  * before the selected onset matters. A 0.001 ms numerical tolerance covers
  * timestamp conversion roundoff at the onset bound; it is not a frame allowance.
+ * A sparse onset between two delivered frames also does not refuse when the
+ * measured input's own Event Timing entry (inputProcessing, in the same
+ * page clock as the frames' pageMs) shows the input's processing ran through
+ * the hole: while the handler runs, the main thread cannot commit the
+ * glyph, so the ink-less frames delivered in it are compositor frames of the
+ * old content and the hole is the input latency under measurement (issue
+ * #171). The entry must belong to the measured input (its start at/after
+ * the marker, within one frame interval) and its processing end —
+ * processingEndMs when finite, else startMs + durationMs — must reach the
+ * onset frame minus the onset bound. Without the entry, or when processing
+ * ended earlier, the refusal stands exactly as before; the accepted
+ * decision discloses onset_hole_explained_by with both numbers.
  * Later covers cannot replace a proven reference.
  */
 /** The onset bound floor in ms (lax layer, owner decision 2026-11-11): the
@@ -81,7 +93,7 @@ export function classifyRegion(pixels, baseline, rects, dpr, doc, tolerance = 8)
  * glyph). Exported so tests and disclosures can name it. */
 export const ONSET_BOUND_FLOOR_MS = 100;
 
-export function settleFrames(frames, {quietMs=300,maxWaitMs=3000,markerMs=0,minPixels=4,tolerance=8,frameIntervalMs=null}={}) {
+export function settleFrames(frames, {quietMs=300,maxWaitMs=3000,markerMs=0,minPixels=4,tolerance=8,frameIntervalMs=null,inputProcessing=null}={}) {
   const eligible=frames.filter(f=>Number.isFinite(f.pageMs)&&f.pageMs>=markerMs&&f.pageMs<=markerMs+maxWaitMs).sort((a,b)=>a.pageMs-b.pageMs);
   const intervals=eligible.slice(1).map((f,i)=>f.pageMs-eligible[i].pageMs).filter(n=>n>0).sort((a,b)=>a-b);
   const middle=Math.floor(intervals.length/2);
@@ -138,7 +150,25 @@ export function settleFrames(frames, {quietMs=300,maxWaitMs=3000,markerMs=0,minP
     // refuse the very input-processing latency this criterion measures
     // (Plate on HF: 103 ms of blocking keydown handling, then dense frames).
     const onset=eligible[first].pageMs-(first?eligible[first-1].pageMs:markerMs);
-    if(first>0 && onset>onsetBound+0.001) {sparse=true;continue;}
+    if(first>0 && onset>onsetBound+0.001) {
+      // Issue #171: the hole is the measured input's own latency when its
+      // Event Timing entry shows the input's processing ran through it —
+      // while the handler runs, the main thread cannot commit the glyph, so
+      // the ink-less frames delivered in the hole are compositor frames of
+      // the old content. The entry must belong to the measured input (start
+      // at/after the marker within one frame interval) and its processing
+      // end must reach the onset frame minus the onset bound. Without the
+      // entry, or when processing ended earlier, the refusal stands.
+      const p=inputProcessing;
+      const pStart=p&&Number.isFinite(p.startMs)?p.startMs:NaN;
+      const pEnd=p?(Number.isFinite(p.processingEndMs)?p.processingEndMs
+        :(Number.isFinite(pStart)&&Number.isFinite(p.durationMs)?pStart+p.durationMs:NaN)):NaN;
+      const frameSlack=onsetInterval>0?onsetInterval:median;
+      if(!(Number.isFinite(pStart)&&Number.isFinite(pEnd)
+        &&pStart>=markerMs-frameSlack&&pEnd>=eligible[first].pageMs-onsetBound)) {sparse=true;continue;}
+      return {reference_index:frames.indexOf(ref),match_index:frames.indexOf(eligible[first]),page_ms:eligible[first].pageMs,frame_interval_ms:median,gap_bound_ms:gapBound,onset_bound_ms:onsetBound,
+        onset_hole_explained_by:'event_processing',onset_gap_ms:onset,event_processing_end_ms:pEnd};
+    }
     return {reference_index:frames.indexOf(ref),match_index:frames.indexOf(eligible[first]),page_ms:eligible[first].pageMs,frame_interval_ms:median,gap_bound_ms:gapBound,onset_bound_ms:onsetBound};
   }
   return {failure_reason:sparse?'witness_sparse':'settle_not_reached',frame_interval_ms:median,gap_bound_ms:gapBound,onset_bound_ms:onsetBound};

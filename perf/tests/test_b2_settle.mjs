@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { settleFrames, classifyRegion } from '../runner/b2_settle.mjs';
 const rect = {x:0,y:0,width:20,height:30};
 function pixels(bg, ink=false) {
@@ -216,4 +217,87 @@ test('the onset bound is recorded on the decision',()=>{
  const times=[0,...Array.from({length:60},(_,i)=>100+i*16.7)];
  const r=settleFrames(sequence(t=>t<100?blank:glyph,base,times),{frameIntervalMs:16.667});
  assert.equal(r.onset_bound_ms,100);
+});
+
+// -- issue #171: an onset hole the measured keydown's own Event Timing entry
+// explains is the input's own processing latency, not a delivery gap -------
+// While the keydown's handler runs, the main thread cannot commit the glyph,
+// so the ink-less frames delivered in the hole are compositor frames of the
+// old content (HF shakedown3 GenOffice C06 obs 0/2/3: one ink-less frame ~5
+// ms after the key, the glyph ~2.2 s later while the keydown still ran —
+// Event Timing duration ≈ glyph delay). The inputProcessing option carries
+// the measured keydown's Event Timing entry in the same page clock as the
+// frames' pageMs, {startMs, processingEndMs, durationMs}; the processing end
+// is processingEndMs when finite, else startMs + durationMs. The bounds do
+// not move: without the entry, or when processing ended before the hole did,
+// the refusal is exactly what it was.
+const holeFrames=(glyphMs,leadMs)=>frames(
+ [leadMs,glyphMs,...Array.from({length:24},(_,i)=>glyphMs+16.7+i*16.7)],
+ t=>t<glyphMs?blank:glyph).map(row=>({...row,...classifyRegion(row.pixels,base,[rect],1,rect)}));
+test('a hole the measured keydown processing spans measures at the glyph (#171)',()=>{
+ const r=settleFrames(holeFrames(2188,5),{markerMs:0,
+  inputProcessing:{startMs:0,processingEndMs:2190,durationMs:2192}});
+ assert.equal(r.page_ms,2188);
+ assert.equal(r.onset_hole_explained_by,'event_processing');
+ assert.equal(r.onset_gap_ms,2188-5);
+ assert.equal(r.event_processing_end_ms,2190);
+});
+test('a missing processingEnd falls back to startMs + durationMs (#171)',()=>{
+ const r=settleFrames(holeFrames(2188,5),{markerMs:0,
+  inputProcessing:{startMs:0,durationMs:2192}});
+ assert.equal(r.page_ms,2188);
+ assert.equal(r.onset_hole_explained_by,'event_processing');
+});
+test('the same hole without the Event Timing entry stays witness_sparse (#171)',()=>{
+ assert.equal(settleFrames(holeFrames(2188,5),{markerMs:0}).failure_reason,'witness_sparse');
+});
+test('a hole the input processing ended before stays witness_sparse (#171)',()=>{
+ const r=settleFrames(holeFrames(2188,5),{markerMs:0,
+  inputProcessing:{startMs:0,processingEndMs:300,durationMs:300}});
+ assert.equal(r.failure_reason,'witness_sparse');
+});
+test('an entry from an earlier event does not explain the hole (#171)',()=>{
+ const r=settleFrames(holeFrames(3188,1005),{markerMs:1000,
+  inputProcessing:{startMs:500,processingEndMs:3600,durationMs:3100}});
+ assert.equal(r.failure_reason,'witness_sparse');
+});
+test('the runner feeds the measured keydown entry to both settleFrames calls (#171)',()=>{
+ const src=readFileSync(new URL('../runner/warm_cold_browser.mjs',import.meta.url),'utf8');
+ const calls=[...src.matchAll(/settleFrames\(recorded,\s*\{[^}]*\}/gs)];
+ assert.equal(calls.length,2,'warm_cold_browser must keep exactly two settleFrames call sites');
+ for(const call of calls) assert.match(call[0],/inputProcessing/,'every call receives the input entry');
+ assert.match(src,/processingEnd:e\.processingEnd/,'the Event Timing observer captures processingEnd');
+});
+
+// Replay: the real HF GenOffice C06 cell (fixture = verbatim fields of the
+// attempt JSON, perf/tests/fixtures/sparse/genoffice_c06_hf171.json; the raw
+// pixel classification arrays are not stored in the trial, so values/ink are
+// reconstructed from each frame's recorded regions — within one observation
+// every frame shares a single region signature, so the reconstruction
+// preserves what settleFrames saw).
+test('HF GenOffice C06 replay: entry-explained holes measure, siblings keep values (#171)',()=>{
+ const trial=JSON.parse(readFileSync(new URL('fixtures/sparse/genoffice_c06_hf171.json',import.meta.url),'utf8'));
+ const replay=frame=>{
+  const values=[],ink=[];
+  for(const region of frame.regions) for(let k=0;k<region.pixels;k++) {
+   values.push(...region.background);ink.push(k<region.ink_pixels?1:0);
+  }
+  return {pageMs:frame.page_ms,ink_pixels:frame.ink_pixels,values,ink,regions:frame.regions};
+ };
+ const expectMeasure=new Set([0,2,3]);
+ trial.observations.forEach((obs,i)=>{
+  const marker=obs.event.startTime;
+  const entry=(obs.entries||[]).find(e=>e.name==='keydown'&&Math.abs(e.startTime-marker)<0.1);
+  const inputProcessing=entry?{startMs:entry.startTime,processingEndMs:entry.processingEnd,durationMs:entry.duration}:null;
+  const r=settleFrames(obs.frame_diagnostic.map(replay),{markerMs:marker,
+   frameIntervalMs:obs.frame_interval_ms,inputProcessing});
+  if(expectMeasure.has(i)) {
+   assert.equal(r.onset_hole_explained_by,'event_processing','obs '+i+' must disclose the explained hole');
+   const delay=r.page_ms-marker;
+   assert.ok(Math.abs(delay-entry.duration)<=obs.frame_interval_ms,
+    'obs '+i+': measured delay '+delay+' within one frame of keydown duration '+entry.duration);
+  } else {
+   assert.equal(r.page_ms,obs.settle_decision.page_ms,'obs '+i+' keeps its measured value');
+  }
+ });
 });

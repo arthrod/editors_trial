@@ -437,7 +437,8 @@ async function measureEdit(page, selector, cdp) {
     if (window.__b2.supported) {
       window.__b2.observer = new PerformanceObserver(list => {
         window.__b2.entries.push(...list.getEntries().map(e => ({
-          name:e.name, startTime:e.startTime, duration:e.duration, interactionId:e.interactionId
+          name:e.name, startTime:e.startTime, duration:e.duration, interactionId:e.interactionId,
+          processingEnd:e.processingEnd
         })));
         window.__b2.notify?.();
       });
@@ -530,6 +531,38 @@ async function measureEdit(page, selector, cdp) {
       let decision;
       const classifier = createRegionClassifier({baseline:baseline.frame.data,
         rects:confirmation.visible_rects,dpr,doc,tolerance:DEFAULT_CHANNEL_TOLERANCE});
+      // Issue #171: the measured keydown's own Event Timing entry. Entries
+      // are reported after the next paint, so when the glyph frame is the
+      // last delivery the entry can lag it — poll briefly through the
+      // observer's own notify hook. W already elapsed inside arm(); this
+      // read extends no timed window and the sample stays the glyph frame's
+      // pageMs minus the marker.
+      const inputEntry = await page.evaluate(async () => {
+        const state = window.__b2;
+        if (!state?.supported || !state.event) return null;
+        const match = () => state.entries.find(e =>
+          e.name === 'keydown' && Math.abs(e.startTime - state.event.startTime) < 0.1);
+        let entry = match();
+        if (!entry) {
+          await new Promise(resolve => {
+            const timer = setTimeout(resolve, 500);
+            state.notify = () => { if (match()) { clearTimeout(timer); resolve(); } };
+          });
+          entry = match();
+        }
+        return entry || null;
+      });
+      // The entry's times are performance.now()-based; the frames' pageMs is
+      // the screencast timestamp minus timeOrigin, which runs page_offset_ms
+      // ahead of performance.now(). Convert the entry onto the frame clock.
+      const inputClockOffsetMs = clock.timestamp_kind === 'epoch_seconds' &&
+        Number.isFinite(skew.page_offset_ms) ? skew.page_offset_ms : 0;
+      const inputProcessing = inputEntry ? {
+        startMs: inputEntry.startTime + inputClockOffsetMs,
+        processingEndMs: Number.isFinite(inputEntry.processingEnd)
+          ? inputEntry.processingEnd + inputClockOffsetMs : inputEntry.processingEnd,
+        durationMs: inputEntry.duration,
+      } : null;
       try {
         // Classification runs off-thread; CDP remains free to acknowledge
         // every frame while the recorded snapshot is processed.
@@ -547,7 +580,7 @@ async function measureEdit(page, selector, cdp) {
           recorded.push({frame:candidate,pageMs,...classification});
           decision = settleFrames(recorded, {quietMs:quiescenceMs,maxWaitMs:settleMaxWaitMs,
             markerMs,minPixels:Math.ceil(DEFAULT_MIN_PIXELS*dpr*dpr),tolerance:DEFAULT_CHANNEL_TOLERANCE,
-            frameIntervalMs:skew.frame_interval_ms});
+            frameIntervalMs:skew.frame_interval_ms,inputProcessing});
           // All snapshot frames at or before this decision are now classified.
           // Include equal timestamps too, before accepting the prefix.
           const next=snapshot[snapshot.indexOf(candidate)+1];
@@ -555,7 +588,7 @@ async function measureEdit(page, selector, cdp) {
         }
         decision = settleFrames(recorded, {quietMs:quiescenceMs,maxWaitMs:settleMaxWaitMs,
           markerMs,minPixels:Math.ceil(DEFAULT_MIN_PIXELS*dpr*dpr),tolerance:DEFAULT_CHANNEL_TOLERANCE,
-          frameIntervalMs:skew.frame_interval_ms});
+          frameIntervalMs:skew.frame_interval_ms,inputProcessing});
       } finally {await classifier.close();}
       confirmation.frame_diagnostic = recorded.map(({frame,pageMs,ink_pixels,regions}) =>
         ({seq:frame.seq,page_ms:pageMs,delay_ms:pageMs-markerMs,ink_pixels,regions}));
