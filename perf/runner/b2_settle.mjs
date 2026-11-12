@@ -84,15 +84,21 @@ export function classifyRegion(pixels, baseline, rects, dpr, doc, tolerance = 8)
  * equal to the measured event's startTime exactly — and the glyph must sit
  * in the verified window around pEnd = startMs + durationMs: on the early
  * side the reported end can sit up to 4 ms before the true end (nearest-8
- * rounding) plus a 2 ms clock/causality residual, and a glyph earlier than
- * pEnd - 6 refuses glyph_before_next_paint; on the late side the glyph may
- * have been presented as early as pEnd - 4, so the unverified interval is
- * glyph - (pEnd - 4) and it must stay within the onset bound — the same
- * tolerance the normal path grants between the last ink-less delivered
- * frame and the glyph — else it refuses glyph_after_next_paint. The
- * accepted onset must also reach the quiet reference through contiguous
- * deliveries: a gap beyond min(gapBound, quietMs) between consecutive
- * frames from the onset to the reference refuses onset_walkback_gap.
+ * rounding), and the screencast frame's timestamp is its capture time —
+ * capture can precede presentation by up to one vsync (one frame interval;
+ * calibrated on the trusted corpus where every normal-path sample sat at or
+ * above -(4+interval), issue #171 sparse4), so a glyph earlier than
+ * pEnd - 4 - interval refuses glyph_before_next_paint; on the late side the
+ * glyph may have been presented as early as pEnd - 4, so the unverified
+ * interval is glyph - (pEnd - 4) and it must stay within the onset bound —
+ * the same tolerance the normal path grants between the last ink-less
+ * delivered frame and the glyph — else it refuses glyph_after_next_paint.
+ * No contiguity is required from the onset to the quiet reference: the
+ * published claim is "the glyph was visible at eligible[first]",
+ * covers(first, ref) proves it with first's own pixels, and a delivery hole
+ * after first cannot make the glyph appear earlier — the hole the entry
+ * explains is the one before first (sparse4; the normal path does not check
+ * that span either).
  * processingEnd only says the handler returned — an editor that renders
  * asynchronously stays blocked after it — so it is disclosure, never the
  * bound. Without the entry, without its duration, or outside the verified
@@ -108,10 +114,6 @@ export const ONSET_BOUND_FLOOR_MS = 100;
 /** Event Timing duration is rounded to the nearest 8 ms, so the reported end
  * can sit up to 4 ms on either side of the true first rendering update. */
 export const EVENT_TIMING_ROUNDING_MS = 4;
-/** Clock/causality residual allowed on the early side of the reported end:
- * the entry clock and the frame clock are the same uncorrected page clock,
- * so only a small residual is named, not a frame allowance. */
-export const EVENT_TIMING_CLOCK_RESIDUAL_MS = 2;
 
 export function settleFrames(frames, {quietMs=300,maxWaitMs=3000,markerMs=0,minPixels=4,tolerance=8,frameIntervalMs=null,inputProcessing=null,eventStartMs=null}={}) {
   const eligible=frames.filter(f=>Number.isFinite(f.pageMs)&&f.pageMs>=markerMs&&f.pageMs<=markerMs+maxWaitMs).sort((a,b)=>a.pageMs-b.pageMs);
@@ -184,32 +186,32 @@ export function settleFrames(frames, {quietMs=300,maxWaitMs=3000,markerMs=0,minP
       // and zero or several matches is no verified entry. Around
       // pEnd = startMs + durationMs: duration rounds to the nearest 8 ms,
       // so the true end can sit up to EVENT_TIMING_ROUNDING_MS on either
-      // side of pEnd; on the early side a further
-      // EVENT_TIMING_CLOCK_RESIDUAL_MS covers the clock/causality residual,
-      // and a glyph earlier than that refuses glyph_before_next_paint. On
-      // the late side the glyph may have been presented as early as
-      // pEnd - rounding, so the unverified interval is
+      // side of pEnd; on the early side the frame timestamp is the capture
+      // time and capture can precede presentation by up to one vsync — one
+      // frame interval (the calibrated onsetInterval; every trusted corpus
+      // sample sat at or above -(rounding+interval), issue #171 sparse4) —
+      // so a glyph earlier than pEnd - rounding - interval refuses
+      // glyph_before_next_paint. On the late side the glyph may have been
+      // presented as early as pEnd - rounding, so the unverified interval is
       // glyph - (pEnd - rounding) and it must stay within onsetBound — the
       // same tolerance the normal path grants between the last ink-less
       // delivered frame and the glyph — else glyph_after_next_paint.
-      // covers() can also walk the onset back across a delivery hole the
-      // quiet proof never checked: the frames from eligible[first] to the
-      // quiet reference eligible[i] must be contiguous (no gap beyond
-      // min(gapBound, quietMs)), else onset_walkback_gap. processingEnd is
-      // disclosure only: an editor that renders asynchronously stays
-      // blocked after the handler returns. Without the entry, without its
-      // duration, or outside the verified window, the refusal stands.
+      // No contiguity check runs from first to the reference: the claim is
+      // "the glyph was visible at eligible[first]", covers(first, ref)
+      // proves it with first's own pixels, and a delivery hole after first
+      // cannot make the glyph appear earlier (sparse4; the normal path does
+      // not check that span either). processingEnd is disclosure only: an
+      // editor that renders asynchronously stays blocked after the handler
+      // returns. Without the entry, without its duration, or outside the
+      // verified window, the refusal stands.
       const p=inputProcessing;
       const eventStart=Number.isFinite(eventStartMs)?eventStartMs:markerMs;
       const pStart=p&&Number.isFinite(p.startMs)?p.startMs:NaN;
       const pEnd=Number.isFinite(pStart)&&Number.isFinite(p&&p.durationMs)?pStart+p.durationMs:NaN;
       const glyph=eligible[first].pageMs;
       if(!(pStart===eventStart&&Number.isFinite(pEnd))) {sparse=true;continue;}
-      if(glyph<pEnd-EVENT_TIMING_ROUNDING_MS-EVENT_TIMING_CLOCK_RESIDUAL_MS) {sparse=true;sparseReason='glyph_before_next_paint';continue;}
+      if(glyph<pEnd-EVENT_TIMING_ROUNDING_MS-onsetInterval) {sparse=true;sparseReason='glyph_before_next_paint';continue;}
       if(glyph-(pEnd-EVENT_TIMING_ROUNDING_MS)>onsetBound) {sparse=true;sparseReason='glyph_after_next_paint';continue;}
-      let walkedGap=false;
-      for(let k=first+1;k<=i;k++) if(eligible[k].pageMs-eligible[k-1].pageMs>Math.min(gapBound,quietMs)) {walkedGap=true;break;}
-      if(walkedGap) {sparse=true;sparseReason='onset_walkback_gap';continue;}
       const explained={reference_index:frames.indexOf(ref),match_index:frames.indexOf(eligible[first]),page_ms:eligible[first].pageMs,frame_interval_ms:median,gap_bound_ms:gapBound,onset_bound_ms:onsetBound,
         onset_hole_explained_by:'event_next_paint',onset_gap_ms:onset,event_next_paint_ms:pEnd};
       if(Number.isFinite(p.processingEndMs)) explained.event_processing_end_ms=p.processingEndMs;

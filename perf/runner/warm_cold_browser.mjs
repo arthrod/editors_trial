@@ -655,7 +655,7 @@ async function measureEdit(page, selector, cdp) {
   return { mechanism, clock_skew:skew, witness:frame, event_timing:timing, edit_confirmation:confirmation,
     timestamp_note: 'Uncorrected frame-to-page conversion; page_offset_ms is not a conversion correction. See clock_skew conversion bounds.',
     outcome: ok ? 'measured' : 'failed',
-    failure_reason: ok ? null : ((['witness_sparse','monotonic_origin_missing','glyph_before_next_paint','glyph_after_next_paint','onset_walkback_gap'].includes(settleFailure) ? settleFailure : null) || (!confirmation.confirmed && confirmation.changed_pixels < DEFAULT_MIN_PIXELS
+    failure_reason: ok ? null : ((['witness_sparse','monotonic_origin_missing','glyph_before_next_paint','glyph_after_next_paint'].includes(settleFailure) ? settleFailure : null) || (!confirmation.confirmed && confirmation.changed_pixels < DEFAULT_MIN_PIXELS
       ? 'expected_edit_not_confirmed'
       : settleFailure || (!frame.clock_skew_acceptable ? 'clock_check_not_acceptable' : !frame.document_scoped ? 'not_document_scoped' : frame.outcome !== 'witnessed' ? 'no_frame' : !confirmation.confirmed ? 'expected_edit_not_confirmed' : 'negative_input_latency'))),
     edit_ms:ok ? duration : null, paint_ms:ok ? duration : null };
