@@ -795,7 +795,15 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
                             continue
                         act_markers, act_rest = prefix_marker_rest(actual_compare[j])
                         if len(act_markers) >= count:
-                            actual_compare[j] = act_rest
+                            # Drop only the excused count. A later painted
+                            # marker ("y." after an excused "x.") stays in
+                            # the compare and surfaces as divergence.
+                            kept = act_markers[count:]
+                            if kept:
+                                actual_compare[j] = (
+                                    " ".join(kept) + (" " + act_rest if act_rest else "")).strip()
+                            else:
+                                actual_compare[j] = act_rest
                     actual, _ = normalize_marked('\n'.join(actual_compare))
                     expected, _ = normalize_marked('\n'.join(compare_lines))
                     actual = _rewrite_symbol_glyphs(expected, actual)
