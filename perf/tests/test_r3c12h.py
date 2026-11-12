@@ -191,6 +191,20 @@ class ReflowProbeHosts(unittest.TestCase):
         self.assertGreaterEqual(reads, frames, payload)
         self.assertFalse(payload.get("window_excludes_forced_layout"), payload)
 
+    # Item 2, BLOCKER 1. stale.html keeps the old anchor connected, with the
+    # same text, strips .doc-paragraph, and moves that orphan to top 700px.
+    # The census paragraph with the anchor text stays at 60px. A measured
+    # sample is the orphan, not the anchor.
+    def test_stale_orphan_is_not_a_measured_anchor(self):
+        payload = self._reflow("stale.html")
+        with self.assertRaises(bd.ProbeRefusal) as caught:
+            bd.c12_measured_sample(payload)
+        self.assertIsNot(payload.get("moved"), True, payload)
+        self.assertTrue(
+            "anchor_identity_ambiguous" in caught.exception.reason or "did not move down" in caught.exception.reason,
+            caught.exception.reason,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

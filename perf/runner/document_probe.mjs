@@ -1563,7 +1563,17 @@ async function runReflow(browser) {
       const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
       const liveAnchor = () => {
         const kept = window.__c12AnchorEl;
-        if (kept && kept.isConnected === true) return kept;
+        const sel = window.__c12DocSel;
+        // A connected node that no longer matches the census selector has left
+        // the paragraph list (stale.html strips .doc-paragraph and parks the
+        // old node). Do not keep reading it. A node that still matches is the
+        // pre-Enter anchor until the caret "x" exists, which is what lets
+        // clock.html record the move before the confirm poll can resolve.
+        const stillListed =
+          kept &&
+          kept.isConnected === true &&
+          (typeof kept.matches !== 'function' || !sel || kept.matches(sel));
+        if (stillListed) return kept;
         if (typeof refind !== 'function') return null;
         const found = refind(
           window.__c12DocSel,
@@ -1901,28 +1911,28 @@ async function runReflow(browser) {
           /* keep default */
         }
         const kept = window.__c12AnchorEl;
-        let el = null;
-        let matchedBy = null;
-        if (kept && kept.isConnected && readBlock(kept) === anchorText) {
-          el = kept;
-          matchedBy = 'element';
-        } else {
-          let refind = null;
-          try {
-            // eslint-disable-next-line no-eval
-            refind = (0, eval)(`(function(){ ${refindSrc}; return REFIND_ANCHOR; })()`);
-          } catch {
-            refind = null;
-          }
-          if (typeof refind === 'function') {
-            el = refind(docSel, anchorText, anchorTop, norm, readBlock, anchorOccurrence);
-            if (el) matchedBy = 'text';
-          }
+        let refind = null;
+        try {
+          // eslint-disable-next-line no-eval
+          refind = (0, eval)(`(function(){ ${refindSrc}; return REFIND_ANCHOR; })()`);
+        } catch {
+          refind = null;
         }
+        // The remembered node counts only while refind says it is the census
+        // entry at the resolved anchor index. Otherwise use that entry. A
+        // failed refind is anchor_identity_ambiguous, not a measurement of
+        // whatever node still happens to hold the anchor string.
+        const found = typeof refind === 'function'
+          ? refind(docSel, anchorText, anchorTop, norm, readBlock, anchorOccurrence)
+          : null;
+        let matchedBy = null;
+        if (found && kept && found === kept) matchedBy = 'element';
+        else if (found) matchedBy = 'text';
         return {
-          top: el ? el.getBoundingClientRect().top : null,
+          top: found ? found.getBoundingClientRect().top : null,
           block_count: document.querySelectorAll(docSel).length,
           matched_by: matchedBy,
+          identity_ok: Boolean(found),
         };
       },
       {
@@ -2004,6 +2014,28 @@ async function runReflow(browser) {
         before,
         error: endIdentity.reason || 'anchor_identity_ambiguous',
         identity_diagnostic: endIdentity.identity_diagnostic || null,
+        moved: false,
+        anchor_top_after: null,
+        anchor_after_top: null,
+        shift_px: null,
+        window_excludes_forced_layout: false,
+        forced_layout_ms: rec.read_ms,
+        layout_reads_during_window: rec.reads,
+        anchor_frames: rec.frames,
+        page_errors: ctx.errors,
+      };
+    }
+    if (!after || after.identity_ok !== true) {
+      const rec = await stopC12Recorder();
+      return {
+        mode: 'reflow',
+        driver: 'playwright',
+        url,
+        navigation_ms: navigationMs,
+        ready_ms: readyMs,
+        before,
+        error: 'anchor_identity_ambiguous',
+        identity_diagnostic: (endIdentity && endIdentity.identity_diagnostic) || null,
         moved: false,
         anchor_top_after: null,
         anchor_after_top: null,
