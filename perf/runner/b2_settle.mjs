@@ -90,9 +90,13 @@ export function classifyRegion(pixels, baseline, rects, dpr, doc, tolerance = 8)
  * above -(4+interval), issue #171 sparse4), so a glyph earlier than
  * pEnd - 4 - interval refuses glyph_before_next_paint; on the late side the
  * glyph may have been presented as early as pEnd - 4, so the unverified
- * interval is glyph - (pEnd - 4) and it must stay within the onset bound —
- * the same tolerance the normal path grants between the last ink-less
- * delivered frame and the glyph — else it refuses glyph_after_next_paint.
+ * interval is glyph - (pEnd - 4) and it must stay within one vsync — the
+ * same calibrated interval: the explained glyph lies within one vsync of
+ * the entry's own first rendering update, either side (the onset bound is
+ * the normal path's tolerance between two delivered frames, not a licence
+ * to sit ~96 ms after an independent presentation timestamp; Grok
+ * re-review, issue #171 sparse5) — else it refuses
+ * glyph_after_next_paint.
  * No contiguity is required from the onset to the quiet reference: the
  * published claim is "the glyph was visible at eligible[first]",
  * covers(first, ref) proves it with first's own pixels, and a delivery hole
@@ -193,9 +197,13 @@ export function settleFrames(frames, {quietMs=300,maxWaitMs=3000,markerMs=0,minP
       // so a glyph earlier than pEnd - rounding - interval refuses
       // glyph_before_next_paint. On the late side the glyph may have been
       // presented as early as pEnd - rounding, so the unverified interval is
-      // glyph - (pEnd - rounding) and it must stay within onsetBound — the
-      // same tolerance the normal path grants between the last ink-less
-      // delivered frame and the glyph — else glyph_after_next_paint.
+      // glyph - (pEnd - rounding) and it must stay within one vsync — the
+      // same calibrated interval: the explained glyph lies within one vsync
+      // of the entry's own first rendering update, either side (the onset
+      // bound is the normal path's tolerance between two delivered frames,
+      // not a licence to sit ~96 ms after an independent presentation
+      // timestamp; Grok re-review, issue #171 sparse5) — else
+      // glyph_after_next_paint.
       // No contiguity check runs from first to the reference: the claim is
       // "the glyph was visible at eligible[first]", covers(first, ref)
       // proves it with first's own pixels, and a delivery hole after first
@@ -211,7 +219,7 @@ export function settleFrames(frames, {quietMs=300,maxWaitMs=3000,markerMs=0,minP
       const glyph=eligible[first].pageMs;
       if(!(pStart===eventStart&&Number.isFinite(pEnd))) {sparse=true;continue;}
       if(glyph<pEnd-EVENT_TIMING_ROUNDING_MS-onsetInterval) {sparse=true;sparseReason='glyph_before_next_paint';continue;}
-      if(glyph-(pEnd-EVENT_TIMING_ROUNDING_MS)>onsetBound) {sparse=true;sparseReason='glyph_after_next_paint';continue;}
+      if(glyph-(pEnd-EVENT_TIMING_ROUNDING_MS)>onsetInterval) {sparse=true;sparseReason='glyph_after_next_paint';continue;}
       const explained={reference_index:frames.indexOf(ref),match_index:frames.indexOf(eligible[first]),page_ms:eligible[first].pageMs,frame_interval_ms:median,gap_bound_ms:gapBound,onset_bound_ms:onsetBound,
         onset_hole_explained_by:'event_next_paint',onset_gap_ms:onset,event_next_paint_ms:pEnd};
       if(Number.isFinite(p.processingEndMs)) explained.event_processing_end_ms=p.processingEndMs;
