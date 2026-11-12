@@ -2430,9 +2430,10 @@ async function runReflow(browser) {
       observed_page_ms: framePageMs,
       observed_shift_page_ms: typeof shift.at === 'number' ? shift.at : null,
       // In-window layout work is reported, never subtracted or claimed away.
-      // The bound is Enter keydown through the presented frame, plus one
-      // frame of slack so the recorder's own read (taken inside the rAF
-      // callback, after the frame's nominal timestamp) is not dropped.
+      // The bound is Enter keydown through the presented frame, plus slack
+      // for reads on their own clock (census rects). The recorder's paired
+      // read is counted on its frame's time (frameT), so it is kept even when
+      // its own stamp lands after the bound (#175).
       forced_layout_ms: windowReads.read_ms,
       window_excludes_forced_layout: false,
       presented_frame_raw_ms: raw,
