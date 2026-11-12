@@ -24,6 +24,11 @@ CHUNK = 1024 * 1024
 _SKIP_LOGGED: set[str] = set()
 
 BUCKET_ID_DEFAULT = 'arthrod/editors-trial-e2-runs'
+# The image pip line carries the same pin. Spaces are not rebuilt from that
+# image during the campaign; setup.sh installs this spec into the venv the
+# mirror imports under (sys.executable -I with that venv on PATH).
+HUGGINGFACE_HUB_VERSION = '2.4.0'
+RUNTIME_PIP = '/home/user/python-runtime/bin/pip'
 # The bucket gets generated data only. Editor builds, dependency trees, job
 # fixture copies and .docx inputs never leave the Space.
 BUCKET_EXCLUDES: tuple[str, ...] = (

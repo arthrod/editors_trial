@@ -156,9 +156,16 @@ Three copies of every measurement:
    stderr, or any run file, and exception text is redacted before logging.
    With no token (or no `huggingface_hub`) `BUCKET-SKIP no_token` /
    `BUCKET-SKIP no_huggingface_hub` is logged once per run and the
-   measurement continues. `huggingface_hub==2.4.0` is installed into the
-   image's `/home/user/python-runtime` venv, the same interpreter
-   `mirror.py` runs under.
+   measurement continues. `setup.sh` installs `huggingface_hub==2.4.0`
+   with `/home/user/python-runtime/bin/pip`, the same pin and path as
+   the image Dockerfile. The Spaces are not rebuilt from that Dockerfile
+   during the campaign, so this setup install is what the mirror's
+   interpreter gets. `check_host` refuses to start when a bucket copy is
+   expected and that library is not exactly this version, or the token
+   is absent. A copy is expected when `SPACE_ID` is set in the process
+   environment or in `/proc/1/environ`, or when `HF_BUCKET_REQUIRED=1`.
+   `HF_BUCKET_REQUIRED=0` does not turn the check off when `SPACE_ID`
+   is set. The check reports the token as present or absent only.
    The bucket gets generated measurement data only. `mirror.BUCKET_EXCLUDES`
    (one constant, relative to each job or campaign root) drops
    `builds/*`, `*/builds/*`, `dist/*`, `*/dist/*`, `node_modules/*`,

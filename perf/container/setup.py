@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import shlex
 import subprocess
+from .mirror import HUGGINGFACE_HUB_VERSION, RUNTIME_PIP
 from .policy import INSTALLS, harness_install, git_pins, npm_pins, verify_commit, verify_version
 
 
@@ -27,6 +28,9 @@ def main():
         result = subprocess.run(cmd, cwd=cwd, check=True, text=True, capture_output=capture)
         return result.stdout.strip() if capture else ''
 
+    # First, and idempotent: pip exits 0 when this exact version is already
+    # installed. A non-zero pip status fails setup (check=True) before any clone.
+    command([RUNTIME_PIP, 'install', '--no-cache-dir', f'huggingface_hub=={HUGGINGFACE_HUB_VERSION}'])
     for name, slug, pin in pins:
         path = Path('repos') / name
         print(f'clone {name} https://github.com/{slug}.git pin={pin} (resolve full SHA after fetch)')

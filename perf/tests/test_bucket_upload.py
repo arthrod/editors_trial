@@ -676,10 +676,11 @@ class TestBounded:
 
 class TestSetup:
     def test_dockerfile_installs_huggingface_hub_into_runtime(self):
+        from perf.container.mirror import HUGGINGFACE_HUB_VERSION, RUNTIME_PIP
         image = Path('perf/container/Dockerfile').read_text()
         pip_line = next(text for text in image.splitlines() if 'pip install' in text)
-        assert 'huggingface_hub==2.4.0' in pip_line
-        assert 'python-runtime/bin/pip' in pip_line
+        assert f'huggingface_hub=={HUGGINGFACE_HUB_VERSION}' in pip_line
+        assert RUNTIME_PIP in pip_line
         assert 'playwright==1.64.1' in pip_line and 'psutil==' in pip_line
 
     def test_mirror_subprocess_interpreter_gets_huggingface_hub(self):
@@ -692,6 +693,259 @@ class TestSetup:
         source = Path('perf/container/mirror.py').read_text()
         head = source.split('def ', 1)[0]
         assert 'import huggingface_hub' not in head
+
+    def test_setup_sh_dry_run_lists_pinned_huggingface_hub(self):
+        import subprocess
+        from perf.container.mirror import HUGGINGFACE_HUB_VERSION, RUNTIME_PIP
+        spec = f'huggingface_hub=={HUGGINGFACE_HUB_VERSION}'
+        image = Path('perf/container/Dockerfile').read_text()
+        pip_line = next(text for text in image.splitlines() if 'python-runtime/bin/pip install' in text)
+        assert spec in pip_line and RUNTIME_PIP in pip_line
+        result = subprocess.run(['bash', 'perf/container/setup.sh', '--dry-run'], capture_output=True, text=True)
+        assert result.returncode == 0, result.stderr
+        assert f'{RUNTIME_PIP} install --no-cache-dir {spec}' in result.stdout
+
+    def test_setup_dry_run_prints_runtime_pip_and_does_not_execute(self, monkeypatch, capsys):
+        from perf.container import setup
+        from perf.container.mirror import HUGGINGFACE_HUB_VERSION, RUNTIME_PIP
+        calls = []
+
+        def forbid(cmd, **kwargs):
+            calls.append(cmd)
+            raise AssertionError('dry-run executed a command')
+
+        monkeypatch.setattr(setup.subprocess, 'run', forbid)
+        monkeypatch.setattr(sys, 'argv', ['setup', '--dry-run'])
+        setup.main()
+        out = capsys.readouterr().out
+        assert calls == []
+        assert f'{RUNTIME_PIP} install --no-cache-dir huggingface_hub=={HUGGINGFACE_HUB_VERSION}' in out
+
+    def test_runtime_pip_install_failure_fails_setup(self, monkeypatch):
+        import subprocess
+        from perf.container import setup
+        from perf.container.mirror import HUGGINGFACE_HUB_VERSION, RUNTIME_PIP
+
+        def run(cmd, **kwargs):
+            if any(str(part).startswith('huggingface_hub==') for part in cmd):
+                raise subprocess.CalledProcessError(1, cmd)
+            raise AssertionError('setup ran a command before the runtime pip install')
+
+        monkeypatch.setattr(setup.subprocess, 'run', run)
+        monkeypatch.setattr(sys, 'argv', ['setup', '--facts', 'out/facts.json'])
+        with pytest.raises(subprocess.CalledProcessError) as caught:
+            setup.main()
+        assert list(caught.value.cmd) == [
+            RUNTIME_PIP, 'install', '--no-cache-dir', f'huggingface_hub=={HUGGINGFACE_HUB_VERSION}',
+        ]
+
+
+def _quiet_host(monkeypatch):
+    from perf.container import check_host
+    monkeypatch.setattr(check_host, 'host_record', lambda: {'os': 'linux', 'python': '3.12'})
+    monkeypatch.setattr(check_host, 'quiet_machine_check', lambda: {
+        'quiet': True, 'reasons': [], 'load_average': [0.0, 0.0, 0.0],
+    })
+
+
+def _isolate_space(monkeypatch, tmp_path):
+    """Point the PID-1 environ read at an empty file and drop campaign flags."""
+    from perf.container import mirror
+    monkeypatch.delenv('HF_BUCKET_TOKEN', raising=False)
+    monkeypatch.delenv('SPACE_ID', raising=False)
+    monkeypatch.delenv('HF_BUCKET_REQUIRED', raising=False)
+    path = tmp_path / 'environ'
+    path.write_bytes(b'')
+    monkeypatch.setattr(mirror, 'PROC1_ENVIRON', str(path))
+    return path
+
+
+def _secret():
+    import secrets
+    return 't' + secrets.token_hex(24)
+
+
+def _write_proc1(path, fields):
+    raw = b''.join(f'{key}={value}'.encode() + b'\0' for key, value in fields.items())
+    path.write_bytes(raw)
+
+
+def _hub(monkeypatch, version):
+    import types
+    if version is None:
+        monkeypatch.setitem(sys.modules, 'huggingface_hub', None)
+        return
+    module = types.ModuleType('huggingface_hub')
+    module.__version__ = version
+    monkeypatch.setitem(sys.modules, 'huggingface_hub', module)
+
+
+def _run_check():
+    from perf.container import check_host
+    try:
+        check_host.main()
+    except SystemExit as exc:
+        return str(exc)
+    return None
+
+
+def _refuse_leak(text, secret):
+    if secret and secret in text:
+        raise AssertionError('check_host output contains the bucket token')
+
+
+def _bucket_has_no_length(bucket, secret):
+    import json
+    blob = json.dumps(bucket)
+    if 'length' in bucket or str(len(secret)) in blob:
+        raise AssertionError('check_host bucket report contains the token length')
+
+
+class TestCheckHostBucket:
+    def test_refuses_when_library_missing(self, monkeypatch, tmp_path, capsys):
+        import json
+        _quiet_host(monkeypatch)
+        path = _isolate_space(monkeypatch, tmp_path)
+        secret = _secret()
+        _write_proc1(path, {'SPACE_ID': 'arthrod/e2-publish', 'HF_BUCKET_TOKEN': secret})
+        _hub(monkeypatch, None)
+        message = _run_check()
+        out = capsys.readouterr().out
+        _refuse_leak(out + (message or ''), secret)
+        assert message is not None and 'no_huggingface_hub' in message
+        payload = json.loads(out)
+        assert payload['bucket']['expected'] is True
+        assert payload['bucket']['ready'] is False
+        assert payload['bucket']['huggingface_hub'] == 'missing'
+        assert payload['bucket']['token'] == 'present'
+        assert 'no_huggingface_hub' in payload['quiet_machine_check']['reasons']
+        _bucket_has_no_length(payload['bucket'], secret)
+
+    def test_refuses_when_version_is_not_the_pin(self, monkeypatch, tmp_path, capsys):
+        import json
+        _quiet_host(monkeypatch)
+        path = _isolate_space(monkeypatch, tmp_path)
+        secret = _secret()
+        _write_proc1(path, {'HF_BUCKET_TOKEN': secret})
+        monkeypatch.setenv('SPACE_ID', 'arthrod/e2-publish')
+        _hub(monkeypatch, '9.9.9')
+        message = _run_check()
+        out = capsys.readouterr().out
+        _refuse_leak(out + (message or ''), secret)
+        assert message is not None and 'huggingface_hub_version' in message
+        payload = json.loads(out)
+        assert payload['bucket']['huggingface_hub'] == '9.9.9'
+        assert payload['bucket']['token'] == 'present'
+        from perf.container.mirror import HUGGINGFACE_HUB_VERSION
+        assert any(item.startswith('huggingface_hub_version') and HUGGINGFACE_HUB_VERSION in item
+                   for item in payload['quiet_machine_check']['reasons'])
+        _bucket_has_no_length(payload['bucket'], secret)
+
+    def test_refuses_when_token_absent(self, monkeypatch, tmp_path, capsys):
+        import json
+        _quiet_host(monkeypatch)
+        _isolate_space(monkeypatch, tmp_path)
+        monkeypatch.setenv('SPACE_ID', 'arthrod/e2-publish')
+        from perf.container.mirror import HUGGINGFACE_HUB_VERSION
+        _hub(monkeypatch, HUGGINGFACE_HUB_VERSION)
+        message = _run_check()
+        out = capsys.readouterr().out
+        assert message is not None and 'no_token' in message
+        payload = json.loads(out)
+        assert payload['bucket']['token'] == 'absent'
+        assert payload['bucket']['huggingface_hub'] == HUGGINGFACE_HUB_VERSION
+        assert payload['bucket']['ready'] is False
+        assert 'no_token' in payload['quiet_machine_check']['reasons']
+        assert 'length' not in payload['bucket']
+
+    def test_passes_when_proc1_token_and_pinned_library_present(self, monkeypatch, tmp_path, capsys):
+        import json
+        _quiet_host(monkeypatch)
+        path = _isolate_space(monkeypatch, tmp_path)
+        secret = _secret()
+        from perf.container.mirror import HUGGINGFACE_HUB_VERSION
+        _write_proc1(path, {'SPACE_ID': 'arthrod/e2-publish', 'HF_BUCKET_TOKEN': secret})
+        _hub(monkeypatch, HUGGINGFACE_HUB_VERSION)
+        message = _run_check()
+        captured = capsys.readouterr()
+        _refuse_leak(captured.out + captured.err + (message or ''), secret)
+        assert message is None
+        payload = json.loads(captured.out)
+        assert payload['bucket']['expected'] is True
+        assert payload['bucket']['ready'] is True
+        assert payload['bucket']['token'] == 'present'
+        assert payload['bucket']['huggingface_hub'] == HUGGINGFACE_HUB_VERSION
+        assert payload['bucket']['blocking'] == []
+        assert payload['quiet_machine_check']['quiet'] is True
+        _bucket_has_no_length(payload['bucket'], secret)
+
+    def test_environment_token_is_reported_present_without_its_value(self, monkeypatch, tmp_path, capsys):
+        import json
+        _quiet_host(monkeypatch)
+        _isolate_space(monkeypatch, tmp_path)
+        secret = _secret()
+        from perf.container.mirror import HUGGINGFACE_HUB_VERSION
+        monkeypatch.setenv('HF_BUCKET_TOKEN', secret)
+        monkeypatch.setenv('HF_BUCKET_REQUIRED', '1')
+        _hub(monkeypatch, HUGGINGFACE_HUB_VERSION)
+        message = _run_check()
+        captured = capsys.readouterr()
+        _refuse_leak(captured.out + captured.err + (message or ''), secret)
+        assert message is None
+        payload = json.loads(captured.out)
+        assert payload['bucket']['token'] == 'present'
+        assert payload['bucket']['expected'] is True
+        _bucket_has_no_length(payload['bucket'], secret)
+
+    def test_not_expected_without_space_id_or_flag(self, monkeypatch, tmp_path, capsys):
+        import json
+        _quiet_host(monkeypatch)
+        _isolate_space(monkeypatch, tmp_path)
+        _hub(monkeypatch, None)
+        message = _run_check()
+        payload = json.loads(capsys.readouterr().out)
+        assert message is None
+        assert payload['bucket']['expected'] is False
+        assert payload['bucket']['ready'] is False
+        assert payload['quiet_machine_check']['quiet'] is True
+        assert payload['quiet_machine_check']['reasons'] == []
+
+    def test_expected_when_space_id_is_only_in_proc1(self, monkeypatch, tmp_path, capsys):
+        import json
+        _quiet_host(monkeypatch)
+        path = _isolate_space(monkeypatch, tmp_path)
+        _write_proc1(path, {'SPACE_ID': 'arthrod/e2-publish'})
+        _hub(monkeypatch, None)
+        message = _run_check()
+        payload = json.loads(capsys.readouterr().out)
+        assert payload['bucket']['expected'] is True
+        assert message is not None and 'no_huggingface_hub' in message
+        assert 'no_token' in payload['quiet_machine_check']['reasons']
+
+    def test_flag_expects_a_bucket_copy_without_space_id(self, monkeypatch, tmp_path, capsys):
+        import json
+        _quiet_host(monkeypatch)
+        _isolate_space(monkeypatch, tmp_path)
+        from perf.container.mirror import HUGGINGFACE_HUB_VERSION
+        monkeypatch.setenv('HF_BUCKET_REQUIRED', '1')
+        _hub(monkeypatch, HUGGINGFACE_HUB_VERSION)
+        message = _run_check()
+        payload = json.loads(capsys.readouterr().out)
+        assert payload['bucket']['expected'] is True
+        assert message is not None and 'no_token' in message
+
+    def test_zero_flag_does_not_skip_the_check_on_a_space(self, monkeypatch, tmp_path, capsys):
+        import json
+        from perf.container.mirror import HUGGINGFACE_HUB_VERSION
+        _quiet_host(monkeypatch)
+        _isolate_space(monkeypatch, tmp_path)
+        monkeypatch.setenv('SPACE_ID', 'arthrod/e2-publish')
+        monkeypatch.setenv('HF_BUCKET_REQUIRED', '0')
+        _hub(monkeypatch, HUGGINGFACE_HUB_VERSION)
+        message = _run_check()
+        payload = json.loads(capsys.readouterr().out)
+        assert payload['bucket']['expected'] is True
+        assert message is not None and 'no_token' in message
 
 
 def fill_bucket(client: FakeBucketClient, remote: Path, run_id: str, *,
