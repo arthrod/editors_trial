@@ -94,7 +94,10 @@ def test_calibration_names_the_campaign_thirty():
     assert getattr(plan, '_CALIBRATED_REPS', None) == _CAMPAIGN_REPS
     assert plan._BASE == historical._BASE
     assert plan._C14 == historical._C14
-    assert plan._TYPING == historical._TYPING
+    # Typing: campaign 1 calibrated 360 minutes for 12 sessions; the per-session cost
+    # is unchanged when Arthur's 6-session schedule (11 November) scales the job.
+    from perf.runner.browser_run import TYPING_PUBLICATION_SESSIONS
+    assert plan._TYPING / TYPING_PUBLICATION_SESSIONS == pytest.approx(historical._TYPING / 12)
     assert plan._BUILD == historical._BUILD
     assert plan._RUNG == historical._RUNG
 
@@ -138,16 +141,22 @@ def test_shakedown_one_matches_ccedf968():
     assert not mismatches, '%d of %d\n%s' % (len(mismatches), checked, '\n'.join(mismatches[:6]))
 
 
-def test_typing_estimates_are_unchanged():
+def test_typing_cost_per_session_is_unchanged():
     historical = _historical()
     checked = 0
     for name, options, shakedown in _cases():
         if name != 'benchmark_typing':
             continue
-        assert plan.estimate(name, options, shakedown=shakedown) == historical.estimate(
-            name, options, shakedown=shakedown)
+        from perf.runner.browser_run import TYPING_PUBLICATION_SESSIONS
+        now = plan.estimate(name, options, shakedown=shakedown)
+        then = historical.estimate(name, options, shakedown=shakedown)
+        if shakedown:
+            assert now == then  # a shakedown session is one short session either way
+        else:
+            assert now / TYPING_PUBLICATION_SESSIONS == pytest.approx(then / 12)
         checked += 1
     assert checked > 0
     bare = ['--seed', '1', '--editors', 'plate']
-    assert plan.estimate('benchmark_typing', bare) == historical.estimate('benchmark_typing', bare) == 360
+    assert historical.estimate('benchmark_typing', bare) == 360
+    assert plan.estimate('benchmark_typing', bare) == 360 * TYPING_PUBLICATION_SESSIONS / 12
     assert plan.estimate('benchmark_typing', bare, shakedown=1) == 15
