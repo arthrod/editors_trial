@@ -721,10 +721,15 @@ class TestSetup:
         assert calls == []
         assert f'{RUNTIME_PIP} install --no-cache-dir huggingface_hub=={HUGGINGFACE_HUB_VERSION}' in out
 
-    def test_runtime_pip_install_failure_fails_setup(self, monkeypatch):
+    def test_runtime_pip_install_failure_fails_setup(self, monkeypatch, tmp_path):
         import subprocess
         from perf.container import setup
         from perf.container.mirror import HUGGINGFACE_HUB_VERSION, RUNTIME_PIP
+
+        # Hermetic: a private repos directory like a Space's /app, whatever this checkout has.
+        facts = Path('out/facts.json').resolve()
+        (tmp_path / 'repos').mkdir()
+        monkeypatch.chdir(tmp_path)
 
         def run(cmd, **kwargs):
             if any(str(part).startswith('huggingface_hub==') for part in cmd):
@@ -732,7 +737,7 @@ class TestSetup:
             raise AssertionError('setup ran a command before the runtime pip install')
 
         monkeypatch.setattr(setup.subprocess, 'run', run)
-        monkeypatch.setattr(sys, 'argv', ['setup', '--facts', 'out/facts.json'])
+        monkeypatch.setattr(sys, 'argv', ['setup', '--facts', str(facts)])
         with pytest.raises(subprocess.CalledProcessError) as caught:
             setup.main()
         assert list(caught.value.cmd) == [
