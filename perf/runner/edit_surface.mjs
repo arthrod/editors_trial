@@ -80,10 +80,39 @@ export const EDIT_SURFACES = {
   // No text is reachable: the app draws into one canvas and this pin has no API.
   // Its window title gains a bullet when the document is modified.
   wordcraft: { kind: 'flag', flag: 'wordcraft_title', pageRoot: '#wordcraft_canvas' },
+  // #pageContainer1 lives in <apryse-webviewer>'s shadow root and is never
+  // contenteditable (harness/apryse/perf-main.js). The default querySelector
+  // + isContentEditable expression cannot see it and never becomes true.
+  // Usable is the host's own rendered flag, the same string as
+  // benchmark_warm_cold.py ready_js and benchmark_document.py ready_js.
+  // kind and root stay the no-adapter fallback. Apryse has no correctness
+  // adapter, and caret placement stays on Playwright's shadow-piercing
+  // locator: this entry is a usable signal only.
+  apryse: {
+    kind: 'dom',
+    root: null,
+    usable: 'window.__aprysePerf && window.__aprysePerf.state === \'rendered\'',
+  },
 };
 
 export function editSurface(editorId) {
   return EDIT_SURFACES[editorId] || { kind: 'dom', root: null };
+}
+
+/**
+ * True when the editor has a caret adapter, not only a usable signal.
+ *
+ * Apryse's row is a usable signal only (kind dom, root null). The page
+ * container is inside a shadow root, so FIND_TEXT_LINE cannot see it.
+ * Warm/cold and the resource burst keep Playwright's piercing locator click.
+ */
+export function hasCaretAdapter(editorId) {
+  const surface = EDIT_SURFACES[editorId];
+  if (!surface) return false;
+  if (surface.kind === 'dom' && !surface.root && !surface.block && !surface.enter && !surface.hidden && !surface.shadow) {
+    return false;
+  }
+  return true;
 }
 
 /**

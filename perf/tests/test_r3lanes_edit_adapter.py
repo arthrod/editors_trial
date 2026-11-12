@@ -98,7 +98,7 @@ class WarmColdEditUsesAdapter(unittest.TestCase):
         text = (REPO / "perf" / "runner" / "warm_cold_browser.mjs").read_text(encoding="utf-8")
         self.assertIn("prepareLaneCaret", text)
         self.assertIn("confirmLaneEdit", text)
-        self.assertIn("EDIT_SURFACES", text)
+        self.assertIn("hasCaretAdapter", text)
 
     def test_warm_cold_probe_passes_editor_flag(self):
         text = (REPO / "perf" / "runner" / "benchmark_warm_cold.py").read_text(encoding="utf-8")

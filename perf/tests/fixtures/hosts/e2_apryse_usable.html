@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>E2 fake host: Apryse shadow page container</title>
+    <style>
+      html, body { margin: 0; background: #fff; }
+      apryse-webviewer { display: block; width: 800px; height: 600px; }
+      #pageContainer1 { height: 400px; font: 16px/24px serif; }
+    </style>
+  </head>
+  <body>
+    <!-- #pageContainer1 lives in <apryse-webviewer>'s shadow root and is not
+         contenteditable. A light-DOM querySelector cannot see it. The host
+         becomes usable only when window.__aprysePerf.state is 'rendered'. -->
+    <div id="viewer">
+      <apryse-webviewer></apryse-webviewer>
+    </div>
+    <div id="ready" data-state="booting">booting</div>
+    <script>
+      var host = document.querySelector('#viewer apryse-webviewer');
+      var root = host.attachShadow({ mode: 'open' });
+      var page = document.createElement('div');
+      page.id = 'pageContainer1';
+      page.setAttribute('role', 'region');
+      page.setAttribute('aria-label', 'Page 1');
+      page.textContent = 'Article 1. The parties agree as follows on this day.';
+      root.appendChild(page);
+      window.__aprysePerf = { state: 'booting' };
+      var params = new URLSearchParams(location.search);
+      if (!params.get('never')) {
+        setTimeout(function () {
+          window.__aprysePerf.state = 'rendered';
+          var ready = document.getElementById('ready');
+          ready.dataset.state = 'rendered';
+          ready.textContent = 'rendered';
+        }, Number(params.get('delay') || '0'));
+      }
+    </script>
+  </body>
+</html>

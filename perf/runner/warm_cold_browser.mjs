@@ -85,7 +85,7 @@ import {
   runCriteriaSuite,
   waitForUsableSurface,
 } from './criteria_input.mjs';
-import { EDIT_SURFACES, editSurface, readAndGateDocumentText, usableExpression } from './edit_surface.mjs';
+import { editSurface, hasCaretAdapter, readAndGateDocumentText, usableExpression } from './edit_surface.mjs';
 import { confirmLaneEdit, prepareLaneCaret } from './lane_edit_burst.mjs';
 
 /** Light-DOM box for screencast witness when the edit target is model or shadow. */
@@ -299,10 +299,10 @@ async function performEdit(page, selector, cdp) {
 async function measureEdit(page, selector, cdp) {
   // Focus/actionability and witness calibration are preconditioning, outside
   // the event-to-frame interval. No typing delay is introduced.
-  const adapterSurface = editorId && EDIT_SURFACES[editorId] ? editSurface(editorId) : null;
+  const adapterSurface = hasCaretAdapter(editorId) ? editSurface(editorId) : null;
   const modelOrFlagEdit = adapterSurface && adapterSurface.kind !== 'dom';
   let lanePrepared = null;
-  if (editorId && EDIT_SURFACES[editorId]) {
+  if (hasCaretAdapter(editorId)) {
     lanePrepared = await prepareLaneCaret(page, editorId, selector);
     if (lanePrepared.placeError) throw new Error(lanePrepared.placeError);
   } else {

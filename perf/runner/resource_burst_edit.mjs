@@ -9,6 +9,7 @@
 import {
   BURST_VERIFY_MODEL,
   EDIT_SURFACES,
+  hasCaretAdapter,
   insertedOnce,
   placeCaret,
   readBurstVerifyText,
@@ -190,7 +191,7 @@ function burstParams(params = {}) {
  */
 export async function prepareResourceBurst(page, params = {}) {
   const opts = burstParams(params);
-  if (EDIT_SURFACES[opts.editorId]) return prepareOnSurface(page, opts);
+  if (hasCaretAdapter(opts.editorId)) return prepareOnSurface(page, opts);
   if (opts.selector) {
     await page.locator(opts.selector).first().click({ timeout: 30000 });
   }
