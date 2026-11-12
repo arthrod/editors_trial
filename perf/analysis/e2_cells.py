@@ -541,6 +541,9 @@ def _lane_jobs(run_directory: Path, jobs, editor_id: str, criterion_id: str):
     return [job for job in jobs if not lanes or job.parent.name in lanes]
 
 
+_JOB_PART_DIRS = frozenset({'cells', 'samples', 'rejected-evidence', 'fixtures', 'attempts', 'profiles'})
+
+
 def _job_roots(run_directory: Path) -> list[Path]:
     """The job directories of a run directory.
 
@@ -560,7 +563,9 @@ def _job_roots(run_directory: Path) -> list[Path]:
     nested = [
         job
         for job in sorted(run_directory.glob('*/*'))
-        if job.is_dir() and marked(job)
+        # A job's own cells/<NNNN-editor> (each with a summary.json) and its
+        # other measurement folders are not jobs (shakedown 3 layout).
+        if job.is_dir() and job.parent.name not in _JOB_PART_DIRS and marked(job)
     ]
     if nested:
         return nested
