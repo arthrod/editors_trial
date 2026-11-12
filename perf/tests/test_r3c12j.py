@@ -11,14 +11,17 @@ import os
 import shutil
 import subprocess
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
 import perf.runner.benchmark_document as bd
+from perf.tests.witness_records import publishable_witness_record
 
 REPO = Path(__file__).resolve().parents[2]
 PROBE = REPO / "perf" / "runner" / "document_probe.mjs"
 LANE = REPO / "perf" / "runner" / "lane_edit_burst.mjs"
+SURFACE = REPO / "perf" / "runner" / "edit_surface.mjs"
 HOSTS = REPO / "perf" / "tests" / "fixtures" / "hosts"
 WITNESS_SERVER = REPO / "perf" / "tests" / "fixtures" / "witness" / "server.py"
 TIMEOUT_S = 90
@@ -504,6 +507,197 @@ console.log(JSON.stringify({ from: win.from, rows, rects }));
             )
         self.assertEqual(caught.exception.refusal_code, code)
 
+    def test_move_before_enter_or_no_anchor_frame_is_not_a_sample(self):
+        # A published row is the Enter reflow. A frame stamped before the
+        # keydown, or a window with no anchor frame, is not that row.
+        witness = publishable_witness_record(40.0, 20.0)
+        base = {
+            "mode": "reflow",
+            "moved": True,
+            "window_excludes_forced_layout": False,
+            "before": {"anchor_top": 100.0},
+            "anchor_top_after": 520.0,
+            "presented_frame_ms": 16.0,
+            "input_page_ms": 1000.0,
+            "observed_shift_page_ms": 1016.0,
+            "clock_skew_ms": 0.2,
+            "clock_skew_acceptable": True,
+            "layout_reads_during_window": 1,
+            "forced_layout_ms": 0.05,
+            "anchor_frames": 1,
+            "witness": witness,
+        }
+        early = dict(base, observed_shift_page_ms=990.0)
+        with self.assertRaises(bd.ProbeRefusal) as early_caught:
+            bd.c12_measured_sample(early)
+        self.assertIn("precedes Enter", early_caught.exception.reason)
+        empty = dict(base, anchor_frames=0, layout_reads_during_window=0)
+        with self.assertRaises(bd.ProbeRefusal) as empty_caught:
+            bd.c12_measured_sample(empty)
+        self.assertIn("no anchor frame", empty_caught.exception.reason)
+        self.assertEqual(bd.c12_measured_sample(base), 16.0)
+
+    def test_hidden_pm_reader_returns_the_full_paragraph(self):
+        # Folio's hidden editor must name the paragraph it measured. An
+        # 80-character prefix that the next paragraph shares is a different
+        # paragraph. The check is the same one the DOM reader uses.
+        prefix = "Shared prefix paragraph that runs well past eighty characters so nobody can tell them apart "
+        wrong = prefix + "WRONG paragraph the click actually owns"
+        right = prefix + "RIGHT paragraph the fixture caret is"
+        self.assertGreater(len(prefix), 80)
+        payload = self.node(
+            r"""
+const surface = await import(%s);
+const prefix = %s;
+const wrong = prefix + 'WRONG paragraph the click actually owns';
+const right = prefix + 'RIGHT paragraph the fixture caret is';
+const block = {
+  innerText: wrong,
+  textContent: wrong,
+  closest() { return block; },
+};
+const textNode = { nodeType: 3, parentNode: block };
+const range = {
+  startContainer: textNode,
+  startOffset: 0,
+  cloneRange() {
+    return { selectNodeContents() {}, setEnd() {}, toString() { return ''; } };
+  },
+};
+const pm = {
+  contains(node) { return node === block || node === textNode; },
+  focus() {},
+  querySelectorAll() { return [block]; },
+};
+const body = {};
+const root = {};
+globalThis.document = {
+  body,
+  documentElement: root,
+  activeElement: { tagName: 'DIV' },
+  querySelector(sel) { return String(sel).includes('ProseMirror') ? pm : null; },
+  getSelection() { return { rangeCount: 1, getRangeAt() { return range; } }; },
+};
+const read = surface.READ_CARET_BLOCK_OFFSET({ editorId: 'folio', blockSelector: '[data-block-id]' });
+assert.equal(read.source, 'hidden_pm');
+assert.equal(read.offset, 0);
+assert.equal(read.paragraphText, wrong);
+const page = {
+  async evaluate(fn, arg) { return typeof fn === 'function' ? fn(arg) : undefined; },
+  async waitForTimeout() {},
+  async waitForFunction() {},
+};
+const verdict = await surface.verifyCaretAtParagraphStart(page, 'folio', {
+  expectedParagraphText: right,
+  clickPoint: { x: 12, y: 24 },
+});
+assert.equal(verdict.ok, false);
+assert.equal(verdict.detail, 'paragraph_text_mismatch');
+assert.equal(verdict.paragraphText, wrong);
+console.log(JSON.stringify({ offset: read.offset, paragraphText: read.paragraphText, detail: verdict.detail }));
+"""
+            % (json.dumps(str(SURFACE)), json.dumps(prefix))
+        )
+        self.assertEqual(payload["detail"], "paragraph_text_mismatch")
+        self.assertEqual(payload["paragraphText"], wrong)
+        self.assertEqual(wrong[:80], right[:80])
+        self.assertNotEqual(wrong, right)
+
+    @unittest.skipUnless(_node() and _playwright_ready(), "node+playwright required")
+    def test_late_click_is_not_overwritten_by_the_old_paragraph(self):
+        # SuperDoc applies the pointer gesture after pointerup. Re-applying the
+        # snapshot from before that gesture puts the caret back on the heading.
+        playwright = REPO / "harness" / "ui" / "node_modules" / "playwright" / "index.js"
+        script = r"""
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const { chromium } = require(%s);
+const surface = await import(%s);
+const browser = await chromium.launch({ headless: true });
+const page = await browser.newPage({ viewport: { width: 800, height: 600 } });
+try {
+  await page.setContent(`<!doctype html><body>
+    <div id="editor">
+      <div class="superdoc-line" data-source-node-id="H" style="padding:20px">HEADING stays</div>
+      <div class="superdoc-line" data-source-node-id="B" style="padding:20px">BODY paragraph start</div>
+    </div>
+    <textarea data-v2-ime-host></textarea>
+    <script>
+      const state = { blockId: 'H', offset: 4, quoted: 'HEADING stays' };
+      let pending = null;
+      window.__cancelled = false;
+      window.__SUPERDOC_E2E__ = { ui: { selection: {
+        getSnapshot() {
+          return {
+            quotedText: state.quoted,
+            selectionTarget: {
+              start: { blockId: state.blockId, offset: state.offset, edge: 'start', kind: 'text' },
+              end: { blockId: state.blockId, offset: state.offset, edge: 'start', kind: 'text' },
+              story: { kind: 'story', storyType: 'body' },
+            },
+          };
+        },
+        apply(cmd) {
+          if (pending) { clearTimeout(pending); pending = null; window.__cancelled = true; }
+          state.blockId = cmd.start.blockId;
+          state.offset = cmd.start.offset;
+          state.quoted = state.blockId === 'B' ? 'BODY paragraph start' : 'HEADING stays';
+        },
+      } } };
+      document.addEventListener('pointerdown', () => {
+        const ime = document.querySelector('textarea');
+        if (ime) ime.focus();
+      }, true);
+      document.addEventListener('pointerup', (event) => {
+        const hit = document.elementFromPoint(event.clientX, event.clientY);
+        const line = hit && hit.closest ? hit.closest('.superdoc-line') : null;
+        if (!line || line.getAttribute('data-source-node-id') !== 'B') return;
+        pending = setTimeout(() => {
+          pending = null;
+          state.blockId = 'B';
+          state.offset = 0;
+          state.quoted = 'BODY paragraph start';
+        }, 700);
+      }, true);
+    </script>
+  </body>`);
+  const box = await page.locator('[data-source-node-id="B"]').boundingBox();
+  assert.ok(box);
+  await surface.placeCaret(page, 'superdoc', '.superdoc-line', {
+    clickPoint: { x: box.x + 8, y: box.y + 8 },
+    atBlockStart: true,
+    blockSelector: '.superdoc-line',
+    focusTimeoutMs: 150,
+  });
+  const read = await page.evaluate(surface.READ_CARET_BLOCK_OFFSET, {
+    editorId: 'superdoc',
+    blockSelector: '.superdoc-line',
+  });
+  const cancelled = await page.evaluate(() => window.__cancelled === true);
+  assert.equal(read.paragraphText, 'BODY paragraph start');
+  assert.equal(read.offset, 0);
+  assert.equal(cancelled, false);
+  console.log(JSON.stringify({ offset: read.offset, paragraphText: read.paragraphText, cancelled }));
+} finally {
+  await browser.close();
+}
+""" % (
+            json.dumps(str(playwright)),
+            json.dumps(str(SURFACE)),
+        )
+        proc = subprocess.run(
+            ["node", "--input-type=module", "-e", script],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            cwd=str(REPO),
+        )
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["paragraphText"], "BODY paragraph start")
+        self.assertFalse(payload["cancelled"])
+
     def node(self, body: str) -> dict:
         script = """
 import assert from 'node:assert/strict';
@@ -724,6 +918,44 @@ class RerenderHosts(unittest.TestCase):
         self.assertLess(gap_at + 1, len(indexes), payload)
         self.assertIsNotNone(indexes[gap_at + 1], payload)
         self.assertIs(rows[gap_at].get("empty"), True, payload)
+
+    def test_move_recorded_before_enter_is_refused(self):
+        # The anchor moves when the recorder arms. Enter moves nothing.
+        # That frame is not the Enter reflow.
+        payload = self._reflow("pre-enter-move.html")
+        self.assertEqual(payload.get("error"), "recorded_move_before_input", payload)
+        self.assertIsNot(payload.get("moved"), True, payload)
+        with self.assertRaises(bd.ProbeRefusal) as caught:
+            bd.c12_measured_sample(payload)
+        self.assertEqual(caught.exception.refusal_code, "recorded_move_before_input")
+
+    def test_shared_prefix_is_not_the_caret_paragraph(self):
+        # The covering paragraph shares the first 80 characters and nothing
+        # else. Offset 0 there is still the wrong paragraph, and the refusal
+        # is the caret check, not a later identity timeout.
+        started = time.monotonic()
+        payload = self._reflow("same-prefix.html")
+        elapsed = time.monotonic() - started
+        self.assertEqual(payload.get("error"), "caret_not_at_paragraph_start", payload)
+        verify = (payload.get("caret_placement") or {}).get("caret_verify") or {}
+        self.assertEqual(verify.get("detail"), "paragraph_text_mismatch", payload)
+        self.assertEqual(verify.get("offset"), 0, payload)
+        self.assertNotEqual(verify.get("paragraphText"), verify.get("expected"), payload)
+        self.assertLess(elapsed, 8, payload)
+
+    def test_late_move_census_stays_outside_the_window(self):
+        # The anchor moves 250 ms after Enter. The confirm census waits for
+        # that frame. In-window reads stay at the recorder's one rect per
+        # frame, for both hosts, including the one whose x commits early.
+        for host in ("late250-many.html", "late250-fastx-many.html"):
+            payload = self._reflow(host)
+            self.assertIsNone(payload.get("error"), payload)
+            self.assertTrue(payload.get("moved"), payload)
+            frames = payload.get("anchor_frames")
+            reads = payload.get("layout_reads_during_window")
+            self.assertGreaterEqual(frames, 1, payload)
+            self.assertLessEqual(reads, frames * READS_PER_FRAME, (host, payload))
+            self.assertEqual(bd.c12_measured_sample(payload), payload["presented_frame_ms"])
 
 
 if __name__ == "__main__":

@@ -607,27 +607,6 @@ export const COLLAPSE_CARET_AT_CLICK_BLOCK = ({ x, y, blockSelector, editorId })
       sel.removeAllRanges();
       sel.addRange(range);
     }
-    if (editorId === 'superdoc') {
-      try {
-        const sd = globalThis.__SUPERDOC_E2E__;
-        const handle = sd && sd.ui && sd.ui.selection;
-        if (handle && typeof handle.getSnapshot === 'function' && typeof handle.apply === 'function') {
-          const snap = handle.getSnapshot();
-          const targetSel = snap && snap.selectionTarget;
-          const start = targetSel && targetSel.start;
-          if (start && typeof start.offset === 'number') {
-            handle.apply({
-              kind: 'selection',
-              start: { ...start, offset: 0, edge: 'start' },
-              end: { ...start, offset: 0, edge: 'start' },
-              story: targetSel.story,
-            });
-          }
-        }
-      } catch {
-        /* model apply is best effort */
-      }
-    }
     if (editorId === 'folio') {
       const pm = document.querySelector('.paged-editor__hidden-pm .ProseMirror');
       if (pm && typeof pm.focus === 'function') pm.focus();
@@ -674,6 +653,26 @@ export async function placeCaret(
           blockSelector: primary || null,
           editorId: editorId || '',
         });
+      // Some editors commit the click on a later turn. Home and the block
+      // collapse must run on the paragraph the click selected.
+      const clickedText = await page.evaluate(
+        ({ x, y, blockSelector: sel }) => {
+          const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+          const hit = document.elementFromPoint(x, y);
+          const block = sel && hit && typeof hit.closest === 'function' ? hit.closest(sel) : hit;
+          return block ? norm(block.innerText || block.textContent) : '';
+        },
+        { x: point.x, y: point.y, blockSelector: primary || null },
+      );
+      const sameText = (left, right) =>
+        Boolean(left && right && (left === right || left.startsWith(right) || right.startsWith(left)));
+      const landDeadline = Date.now() + 1000;
+      while (Date.now() < landDeadline) {
+        const landed = await readHere();
+        const landedText = landed && typeof landed.paragraphText === 'string' ? landed.paragraphText : '';
+        if (sameText(clickedText, landedText)) break;
+        await page.waitForTimeout(16);
+      }
       await collapseHere();
       const before = await readHere();
       // One Home for every editor. It is the line-start key only when the
@@ -903,7 +902,7 @@ export const READ_CARET_BLOCK_OFFSET = ({ editorId, blockSelector }) => {
     const pm = document.querySelector('.paged-editor__hidden-pm .ProseMirror');
     const sel = typeof document.getSelection === 'function' ? document.getSelection() : null;
     if (!pm || !sel || sel.rangeCount === 0) {
-      return { offset: null, focused, source: 'hidden_pm' };
+      return { offset: null, paragraphText: null, focused, source: 'hidden_pm' };
     }
     const range = sel.getRangeAt(0);
     const startEl =
@@ -915,15 +914,20 @@ export const READ_CARET_BLOCK_OFFSET = ({ editorId, blockSelector }) => {
         ? startEl.closest('p,li,h1,h2,h3,h4,h5,h6,td,th,[data-block-id]')
         : null;
     if (!block || !pm.contains(block)) {
-      return { offset: null, focused, source: 'hidden_pm' };
+      return { offset: null, paragraphText: null, focused, source: 'hidden_pm' };
     }
     try {
       const pre = range.cloneRange();
       pre.selectNodeContents(block);
       pre.setEnd(range.startContainer, range.startOffset);
-      return { offset: norm(pre.toString()).length, focused, source: 'hidden_pm' };
+      return {
+        offset: norm(pre.toString()).length,
+        paragraphText: norm(block.innerText || block.textContent),
+        focused,
+        source: 'hidden_pm',
+      };
     } catch {
-      return { offset: null, focused, source: 'hidden_pm' };
+      return { offset: null, paragraphText: null, focused, source: 'hidden_pm' };
     }
   }
   const sel = typeof document.getSelection === 'function' ? document.getSelection() : null;
@@ -953,7 +957,7 @@ export const READ_CARET_BLOCK_OFFSET = ({ editorId, blockSelector }) => {
     const pre = range.cloneRange();
     pre.selectNodeContents(block);
     pre.setEnd(range.startContainer, range.startOffset);
-    const paragraphText = norm(block.innerText || block.textContent).slice(0, 80);
+    const paragraphText = norm(block.innerText || block.textContent);
     return { offset: norm(pre.toString()).length, paragraphText, focused, source: 'dom' };
   } catch {
     return { offset: null, focused, source: 'dom' };

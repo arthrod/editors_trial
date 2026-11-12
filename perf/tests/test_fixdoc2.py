@@ -55,12 +55,15 @@ def _downward_probe(**overrides):
     probe = {
         "mode": "reflow",
         "moved": False,
-        "window_excludes_forced_layout": True,
+        "window_excludes_forced_layout": False,
         "before": {"anchor_top": 1708.703125},
         "anchor_top_after": 1768.265625,
         "presented_frame_ms": 40.0,
         "clock_skew_ms": 0.2,
         "clock_skew_acceptable": True,
+        "layout_reads_during_window": 1,
+        "forced_layout_ms": 0.05,
+        "anchor_frames": 1,
         "witness": witness,
     }
     probe.update(overrides)

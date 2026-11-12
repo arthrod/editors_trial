@@ -1655,8 +1655,10 @@ async function runReflow(browser) {
       // The recorder's own getBoundingClientRect on the matched block is real
       // work inside the window and is counted in __c12ProbeReadLog.
       window.__c12FrameLog = [];
-      window.__c12FrameLogActive = true;
+      window.__c12FrameLogActive = false;
       window.__c12ProbeReadLog = [];
+      window.__c12ProbeReadLogClosed = false;
+      window.__c12PreInputMove = false;
       let findByText = null;
       try {
         // eslint-disable-next-line no-eval
@@ -1700,9 +1702,20 @@ async function runReflow(browser) {
         const top = el.getBoundingClientRect().top;
         window.__c12ProbeReadLog.push({ t: t0, ms: performance.now() - t0 });
         window.__c12FrameLog.push({ t: frameTime, top, connected: el.isConnected === true });
+        const input = window.__c12InputMs;
+        const afterInput = typeof input === 'number' && typeof frameTime === 'number' && frameTime >= input;
+        if (!afterInput) {
+          // A settle before Enter is the baseline, not the sample. The frame
+          // stays in the log and is ignored once the keydown stamp exists.
+          const armedTop = window.__c12ArmedTop;
+          if (typeof armedTop === 'number' && top > armedTop + 0.5) window.__c12PreInputMove = true;
+          window.__c12AnchorTop = top;
+          requestAnimationFrame(record);
+          return;
+        }
         const before = window.__c12AnchorTop;
         if (typeof before === 'number' && top > before + 0.5) {
-          // First moved frame recorded; stop forcing further layout reads.
+          // First moved frame at or after Enter. Stop forcing further reads.
           // Keep this node so the after-path can refuse a sample whose frame
           // is not the anchor the census confirms.
           window.__c12MovedAnchorEl = el;
@@ -1712,6 +1725,15 @@ async function runReflow(browser) {
         }
         requestAnimationFrame(record);
       };
+      // The census top can be a second stale. Re-read the anchor in this
+      // turn, then arm. A move that the arm itself provokes lands in a
+      // pre-Enter frame and becomes the baseline.
+      const armedNow = liveAnchor();
+      if (armedNow && typeof armedNow.getBoundingClientRect === 'function') {
+        window.__c12AnchorTop = armedNow.getBoundingClientRect().top;
+      }
+      window.__c12ArmedTop = window.__c12AnchorTop;
+      window.__c12FrameLogActive = true;
       requestAnimationFrame(record);
       document.addEventListener(
         'keydown',
@@ -1764,17 +1786,26 @@ async function runReflow(browser) {
         }
         return { reads, read_ms, total: log.length, frames: frameCount };
       }, { start: startMs, bound: boundMs });
-    await ctx.page.keyboard.press('Enter');
-    await ctx.page.keyboard.type('x', { delay: 0 });
-    // Let the recorder's rAF see a move that the Enter keydown painted, and
-    // close the read log, before the confirm poll's census. The poll only
-    // needs the caret text; its rects are not part of the moved frame.
+    // Let an arm-time settle paint before Enter, so its frame is stamped
+    // before the keydown and absorbed into the baseline. Same wait for
+    // every editor. The sample still opens at the keydown.
     await ctx.page.evaluate(
       () =>
         new Promise((resolve) => {
           requestAnimationFrame(() => requestAnimationFrame(resolve));
         }),
     );
+    await ctx.page.keyboard.press('Enter');
+    await ctx.page.keyboard.type('x', { delay: 0 });
+    // The confirm census reads one rect per block. Wait until the recorder
+    // has the moved frame, or this bound, so that census is outside the
+    // window. The bound is the old shift poll. It is not added to the sample.
+    const moveDeadline = Date.now() + 4000;
+    while (Date.now() < moveDeadline) {
+      const closed = await ctx.page.evaluate(() => window.__c12ProbeReadLogClosed === true);
+      if (closed) break;
+      await sleep(16);
+    }
     const snapshot = await ctx.page.evaluate(() => window.__c12BeforeSnapshot || null);
     const editConfirmMs = Math.min(timeoutMs, 10_000);
     const editSeen = await waitForC12CaretEdit(
@@ -2015,8 +2046,10 @@ async function runReflow(browser) {
       ctx.page.evaluate(() => {
         const beforeTop = window.__c12AnchorTop;
         const log = Array.isArray(window.__c12FrameLog) ? window.__c12FrameLog : [];
+        const input = window.__c12InputMs;
         if (typeof beforeTop === 'number') {
           for (const frame of log) {
+            if (typeof input === 'number' && !(typeof frame.t === 'number' && frame.t >= input)) continue;
             if (typeof frame.top === 'number' && frame.top > beforeTop + 0.5) {
               return { moved: true, top: frame.top, at: frame.t, frames: log.length };
             }
@@ -2030,14 +2063,40 @@ async function runReflow(browser) {
         };
       });
     let shift = await readRecordedShift();
-    const shiftDeadline = Date.now() + 4000;
-    while (!shift.moved && Date.now() < shiftDeadline) {
-      await sleep(16);
-      shift = await readRecordedShift();
+    if (!shift.moved) {
+      const closed = await ctx.page.evaluate(() => window.__c12ProbeReadLogClosed === true);
+      if (closed) shift = await readRecordedShift();
     }
     await ctx.page.evaluate(() => {
       window.__c12FrameLogActive = false;
     });
+    if (!shift.moved) {
+      const preInputMove = await ctx.page.evaluate(() => window.__c12PreInputMove === true);
+      if (preInputMove) {
+        const rec = await stopC12Recorder();
+        return {
+          mode: 'reflow',
+          driver: 'playwright',
+          url,
+          navigation_ms: navigationMs,
+          ready_ms: readyMs,
+          before,
+          caret_scroll: caretScroll,
+          error: 'recorded_move_before_input',
+          moved: false,
+          anchor_top_after: null,
+          anchor_after_top: null,
+          shift_px: null,
+          input_page_ms: inputPageMs,
+          observed_shift_page_ms: null,
+          window_excludes_forced_layout: false,
+          forced_layout_ms: rec.read_ms,
+          layout_reads_during_window: rec.reads,
+          anchor_frames: rec.frames,
+          page_errors: ctx.errors,
+        };
+      }
+    }
     let witness = null;
     if (shift.moved && typeof shift.at === 'number') {
       const region = await reflowDocumentRegion(ctx.page, editorId);

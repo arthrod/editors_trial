@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>review: 200 blocks; anchor moves 250ms after Enter; x commits with the move</title>
+    <style>
+      body { margin: 0; background: #fff; color: #111; font: 16px/28px sans-serif; }
+      .doc-paragraph { display: block; margin: 0 0 8px; min-height: 1.2em; }
+    </style>
+  </head>
+  <body>
+    <div class="doc-paragraph" id="caret" contenteditable="true">Alpha body paragraph here</div>
+    <div class="doc-paragraph" id="anchor">Beta anchor paragraph stays</div>
+    <div class="doc-paragraph" id="tail">Gamma tail paragraph after</div>
+    <script>
+      const host = document.createElement('div');
+      for (let i = 0; i < 200; i += 1) {
+        const p = document.createElement('div');
+        p.className = 'doc-paragraph';
+        p.textContent = 'Filler paragraph number ' + i + ' stays here for the census';
+        host.appendChild(p);
+      }
+      document.body.appendChild(host);
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'x' || event.key === 'X') event.preventDefault();
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        setTimeout(function () {
+          document.getElementById('anchor').style.marginTop = '420px';
+          document.getElementById('caret').textContent = 'xAlpha body paragraph here';
+          window.__commitAt = performance.now();
+        }, 250);
+      }, true);
+    </script>
+  </body>
+</html>

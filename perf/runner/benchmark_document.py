@@ -738,6 +738,7 @@ _C12_PROBE_REFUSAL_CODES = frozenset({
     "recorded_frame_not_confirmed_anchor",
     "edit_not_observed",
     "caret_not_at_paragraph_start",
+    "recorded_move_before_input",
     RefusalCode.FIXTURE_PARAGRAPH_NOT_IN_CENSUS.value,
     RefusalCode.FIXTURE_BODY_PAIR_ABSENT.value,
     RefusalCode.FIXTURE_SYMBOL_UNMAPPED.value,
@@ -868,6 +869,10 @@ def c12_measured_sample(probe: dict) -> float:
             raise ProbeRefusal(
                 "unaccounted layout reads inside the C12 window (reads=%r frames=%r)" % (reads, frames)
             )
+        if frames < 1:
+            raise ProbeRefusal(
+                "C12 recorded no anchor frame inside the measured window (anchor_frames=%r)" % frames
+            )
         if probe.get("window_excludes_forced_layout") is not False:
             raise ProbeRefusal("C12 window claims to exclude forced layout while reads ran inside it")
     elif "window_excludes_forced_layout" in probe and probe.get("window_excludes_forced_layout") is not True:
@@ -886,6 +891,10 @@ def c12_measured_sample(probe: dict) -> float:
         raise ProbeRefusal("presented_frame_ms must be greater than zero (got %r)" % presented)
     origin = _number_or_none(probe.get("input_page_ms"))
     shift = _number_or_none(probe.get("observed_shift_page_ms"))
+    if origin is not None and shift is not None and shift + 0.05 < origin:
+        raise ProbeRefusal(
+            "recorded anchor move precedes Enter (shift=%r input=%r)" % (shift, origin)
+        )
     if origin is not None and shift is not None and origin + value + 0.05 < shift:
         raise ProbeRefusal(
             "presented frame precedes the anchor reflow (frame=%r shift=%r input=%r)"

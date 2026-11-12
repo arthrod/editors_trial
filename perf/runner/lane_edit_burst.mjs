@@ -432,8 +432,8 @@ export function c12BodyCaretClick({ editorId, docSel, excludeSel, caretText, anc
     ok: true,
     caretIndex: pick.caretIndex,
     anchorIndex: pick.anchorIndex,
-    caretText: String(pick.caretText || '').slice(0, 80),
-    anchorText: String((entries[pick.anchorIndex] && entries[pick.anchorIndex].text) || '').slice(0, 80),
+    caretText: String(pick.caretText || ''),
+    anchorText: String((entries[pick.anchorIndex] && entries[pick.anchorIndex].text) || ''),
     click,
   };
 }

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>review: caret paragraph and the covering paragraph share an 80-char prefix</title>
+    <style>
+      body { margin: 0; background: #fff; color: #111; font: 16px/28px sans-serif; }
+      .doc-paragraph { position: absolute; left: 24px; width: 520px; height: 28px; }
+    </style>
+  </head>
+  <body>
+    <div class="doc-paragraph" id="caret" contenteditable="true" style="top:20px; z-index: 1">Shared prefix paragraph that runs well past eighty characters so nobody can tell them apart ZERO</div>
+    <div class="doc-paragraph" id="cover" contenteditable="true" style="top:20px; z-index: 2">Shared prefix paragraph that runs well past eighty characters so nobody can tell them apart ONE</div>
+    <div class="doc-paragraph" id="tail" style="top:100px">Gamma tail paragraph after</div>
+    <script>
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'x' || event.key === 'X') {
+          event.preventDefault();
+          return;
+        }
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        // The Enter lands wherever the caret really is: the covering
+        // paragraph (id=cover), which shares the first 80 characters with
+        // the fixture caret paragraph. It splits that paragraph.
+        var cover = document.getElementById('cover');
+        cover.style.top = '440px';
+        document.getElementById('tail').style.top = '520px';
+        var fresh = document.createElement('div');
+        fresh.className = 'doc-paragraph';
+        fresh.style.top = '20px';
+        fresh.textContent = '';
+        document.body.appendChild(fresh);
+        setTimeout(function () {
+          fresh.textContent = 'x';
+          window.__commitAt = performance.now();
+        }, 50);
+      }, true);
+    </script>
+  </body>
+</html>
