@@ -604,6 +604,26 @@ export function c12AnchorElementByText(editorId, docSel, excludeSel, anchorText,
   return matches[occ - 1] || null;
 }
 
+/** Bring the caret paragraph into view. Same call for every editor. */
+export function c12ScrollCaretIntoView(editorId, docSel, excludeSel, caretText, occurrence) {
+  const spec = { block: 'center', inline: 'nearest', behavior: 'instant' };
+  const el = c12AnchorElementByText(editorId, docSel, excludeSel, caretText, occurrence);
+  if (!el || typeof el.getBoundingClientRect !== 'function') {
+    return { ok: false, ...spec, reason: 'caret paragraph is not in the census' };
+  }
+  const topBefore = el.getBoundingClientRect().top;
+  if (typeof el.scrollIntoView === 'function') el.scrollIntoView(spec);
+  const topAfter = el.getBoundingClientRect().top;
+  return {
+    ok: true,
+    block: spec.block,
+    inline: spec.inline,
+    behavior: spec.behavior,
+    top_before: topBefore,
+    top_after: topAfter,
+  };
+}
+
 /** Pick the anchor block at the resolved paragraph index after a DOM re-render. */
 export function REFIND_ANCHOR(
   docSel,
@@ -669,6 +689,9 @@ export const REFIND_ANCHOR_PAGE_SRC = `${ANCHOR_REFIND_CONTEXT_OK_PAGE_SRC};\n${
 
 /** Text match only. The frame recorder must not eval the census with this. */
 export const C12_ANCHOR_BY_TEXT_PAGE_SRC = toPageExport(c12AnchorElementByText);
+
+/** The scroll call eval'd with the text finder it uses. */
+export const C12_SCROLL_CARET_PAGE_SRC = `${C12_ANCHOR_BY_TEXT_PAGE_SRC};\n${toPageExport(c12ScrollCaretIntoView)}`;
 
 export const C12_BODY_CARET_PAGE_SRC = `${C12_BLOCK_ENTRIES_PAGE_SRC};\n${C12_LOCATE_PAGE_SRC};\n${toPageExport(c12FirstBodyCaretIndex)};\n${toPageExport(c12BodyCaretClick)}`;
 

@@ -788,6 +788,9 @@ def _c12_census_record(payload: dict) -> dict:
             record["anchor_top"] = before.get("anchorTop")
         if before.get("viewportHeight") is not None:
             record["viewport_height"] = before.get("viewportHeight")
+    scroll = payload.get("caret_scroll")
+    if isinstance(scroll, dict):
+        record["caret_scroll"] = scroll
     return record
 
 
@@ -1842,6 +1845,7 @@ def _run_reflow_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path
                 "layout_reads_during_window": payload.get("layout_reads_during_window"),
                 "anchor_frames": payload.get("anchor_frames"),
                 "window_excludes_forced_layout": payload.get("window_excludes_forced_layout"),
+                "caret_scroll": payload.get("caret_scroll"),
                 **_c12_census_record(payload),
                 **content_gate_record(content_meta, gate),
             }

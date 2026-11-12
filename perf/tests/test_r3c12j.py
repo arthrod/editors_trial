@@ -93,6 +93,75 @@ console.log(JSON.stringify({ rects, found: true }));
         self.assertEqual(payload["rects"], 0)
         self.assertTrue(payload["found"])
 
+    def test_scrolls_the_caret_paragraph_with_one_shared_call(self):
+        # One shared call for every editor: the caret paragraph's own text,
+        # occurrence 1, block center. Other blocks are not measured.
+        payload = self.node(
+            r"""
+let rects = 0;
+const scrolled = [];
+const make = (text, y) => {
+  const box = { top: y };
+  return {
+    textContent: text,
+    isConnected: true,
+    getBoundingClientRect: () => {
+      rects += 1;
+      return { top: box.top, bottom: box.top + 20, height: 20, left: 8, width: 100 };
+    },
+    scrollIntoView: (opts) => {
+      scrolled.push(opts);
+      box.top = 450;
+    },
+  };
+};
+const fillers = Array.from({ length: 40 }, (_, i) => make('Filler block ' + i, 20 + i));
+const caret = make('Alpha body paragraph here', 1240);
+globalThis.document = { querySelectorAll: () => [...fillers, caret] };
+globalThis.window = globalThis;
+const result = mod.c12ScrollCaretIntoView('', '.doc-paragraph', '', 'Alpha body paragraph here', 1);
+assert.equal(result.block, 'center', JSON.stringify(result));
+assert.equal(result.inline, 'nearest');
+assert.equal(result.behavior, 'instant');
+assert.equal(result.top_before, 1240);
+assert.equal(result.top_after, 450);
+assert.equal(rects, 2, 'rect reads ' + rects);
+assert.equal(scrolled.length, 1);
+assert.deepEqual(scrolled[0], { block: 'center', inline: 'nearest', behavior: 'instant' });
+console.log(JSON.stringify({ rects, block: result.block, top_before: result.top_before, top_after: result.top_after }));
+"""
+        )
+        self.assertEqual(payload["rects"], 2)
+        self.assertEqual(payload["block"], "center")
+        self.assertEqual(payload["top_before"], 1240)
+        self.assertEqual(payload["top_after"], 450)
+
+    def test_census_record_keeps_the_caret_scroll(self):
+        record = bd._c12_census_record(
+            {
+                "caret_scroll": {
+                    "block": "center",
+                    "inline": "nearest",
+                    "behavior": "instant",
+                    "top_before": 1240,
+                    "top_after": 420,
+                    "settle_ms": 800,
+                },
+                "before": {
+                    "ok": False,
+                    "anchorTop": 1244,
+                    "viewportHeight": 900,
+                    "caret_index": 7,
+                    "anchor_index": 8,
+                },
+            }
+        )
+        self.assertEqual(record["caret_scroll"]["block"], "center")
+        self.assertEqual(record["caret_scroll"]["top_after"], 420)
+        self.assertEqual(record["caret_scroll"]["settle_ms"], 800)
+        self.assertEqual(record["anchor_top"], 1244)
+        self.assertEqual(record["viewport_height"], 900)
+
     def test_untied_code_refuses_the_sample(self):
         from perf.runner.refusals import RefusalCode
 
@@ -150,7 +219,7 @@ class RerenderHosts(unittest.TestCase):
             cls.server.server_close()
         cls._corpus_dir.cleanup()
 
-    def _reflow(self, host_file: str, timeout_ms: int = 20000) -> dict:
+    def _reflow(self, host_file: str, timeout_ms: int = 20000, extra: list | None = None) -> dict:
         cmd = [
             _node(),
             str(PROBE),
@@ -169,6 +238,8 @@ class RerenderHosts(unittest.TestCase):
             "--timeout-ms",
             str(timeout_ms),
         ]
+        if extra:
+            cmd.extend(extra)
         proc = subprocess.run(cmd, cwd=str(REPO), capture_output=True, text=True, timeout=TIMEOUT_S)
         self.assertEqual(proc.returncode, 0, proc.stderr or proc.stdout)
         return json.loads(proc.stdout)
@@ -232,6 +303,30 @@ class RerenderHosts(unittest.TestCase):
         self.assertTrue(dup.get("moved"), dup)
         self.assertEqual((dup.get("before") or {}).get("anchor_occurrence"), 1)
         self.assertIsInstance(bd.c12_measured_sample(dup), float)
+
+    def test_offscreen_anchor_is_scrolled_before_the_snapshot(self):
+        payload = self._reflow(
+            "offscreen.html",
+            extra=[
+                "--c12-caret-text",
+                "Alpha body paragraph here",
+                "--c12-anchor-text",
+                "Beta anchor paragraph stays",
+            ],
+        )
+        self.assertNotIn("off the viewport", str(payload.get("error")), payload)
+        scroll = payload.get("caret_scroll") or {}
+        self.assertEqual(scroll.get("block"), "center", payload)
+        self.assertEqual(scroll.get("inline"), "nearest", payload)
+        self.assertEqual(scroll.get("behavior"), "instant", payload)
+        self.assertIsInstance(scroll.get("top_before"), (int, float), payload)
+        self.assertIsInstance(scroll.get("top_after"), (int, float), payload)
+        before = payload.get("before") or {}
+        self.assertIsInstance(before.get("anchor_top"), (int, float), payload)
+        self.assertLess(before["anchor_top"], 900, payload)
+        self.assertIsNone(payload.get("error"), payload)
+        self.assertTrue(payload.get("moved"), payload)
+        self.assertEqual(bd.c12_measured_sample(payload), payload["presented_frame_ms"])
 
     def test_recorded_frame_must_be_the_confirmed_anchor(self):
         payload = self._reflow("untied.html")

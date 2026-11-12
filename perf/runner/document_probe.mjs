@@ -78,6 +78,7 @@ import {
   REFIND_ANCHOR,
   REFIND_ANCHOR_PAGE_SRC,
   C12_ANCHOR_BY_TEXT_PAGE_SRC,
+  C12_SCROLL_CARET_PAGE_SRC,
   C12_BLOCK_ENTRIES_PAGE_SRC,
   C12_BLOCK_TEXT_PAGE_SRC,
   C12_LOCATE_PAGE_SRC,
@@ -1516,6 +1517,57 @@ async function runReflow(browser) {
       };
     }
 
+    // The nearest scroll inside the click leaves the next paragraph below
+    // the fold. The shared center scroll is the same for every editor. The
+    // caret placement's own scroll then runs for about 100 ms and undoes the
+    // first call, so the probe waits out that settle and issues the same call
+    // again. The snapshot reads the second call. Neither call is inside the
+    // measured window.
+    const scrollSettleMs = settleMs > 0 ? settleMs : 100;
+    const scrollCaretParagraph = async () =>
+      ctx.page.evaluate(
+        ({ scrollSrc, editorId, docSel, excludeSel, caretText }) => {
+          let scrollCaret = null;
+          try {
+            // eslint-disable-next-line no-eval
+            scrollCaret = (0, eval)(`(function(){ ${scrollSrc}; return c12ScrollCaretIntoView; })()`);
+          } catch {
+            scrollCaret = null;
+          }
+          if (typeof scrollCaret !== 'function') {
+            return {
+              ok: false,
+              block: 'center',
+              inline: 'nearest',
+              behavior: 'instant',
+              reason: 'caret scroll unavailable',
+            };
+          }
+          return scrollCaret(editorId || '', docSel, excludeSel || '', caretText, 1);
+        },
+        {
+          scrollSrc: C12_SCROLL_CARET_PAGE_SRC,
+          editorId: editorId || '',
+          docSel: reflowSel,
+          excludeSel: excludeSelEarly,
+          caretText: c12CaretText || (bodyCaret && bodyCaret.caretText) || '',
+        },
+      );
+    let caretScroll = await scrollCaretParagraph();
+    if (caretScroll && caretScroll.ok === true) {
+      const first = caretScroll;
+      await ctx.page.waitForTimeout(scrollSettleMs);
+      const second = await scrollCaretParagraph();
+      caretScroll = {
+        ...(second && typeof second === 'object' ? second : first),
+        top_before: first.top_before,
+        top_after_first: first.top_after,
+        top_after: second && typeof second.top_after === 'number' ? second.top_after : first.top_after,
+        settle_ms: scrollSettleMs,
+        calls: 2,
+      };
+    }
+
     // The census runs after the caret is finally placed (the adapter's click,
     // then Control+Home/Home): the anchor is the nearest unique block below
     // THAT caret on the same screen (r3lanes4 ruling 3). This is still all
@@ -1541,6 +1593,7 @@ async function runReflow(browser) {
         error: before.reason,
         caret_placement: bodyCaret || null,
         before,
+        caret_scroll: caretScroll,
         forced_layout_ms: 0,
         layout_reads_during_window: 0,
         anchor_frames: 0,
@@ -1781,6 +1834,7 @@ async function runReflow(browser) {
           navigation_ms: navigationMs,
           ready_ms: readyMs,
           before,
+          caret_scroll: caretScroll,
           error: (anchorOnEditMiss && anchorOnEditMiss.reason) || 'anchor_identity_ambiguous',
           identity_diagnostic: (anchorOnEditMiss && anchorOnEditMiss.identity_diagnostic) || null,
           edit_confirmation: editSeen || null,
@@ -1845,6 +1899,7 @@ async function runReflow(browser) {
         navigation_ms: navigationMs,
         ready_ms: readyMs,
         before,
+        caret_scroll: caretScroll,
         error: editSeen?.reason || 'edit_not_observed',
         identity_diagnostic: identityDiagnostic,
         edit_confirmation: editSeen || null,
@@ -1869,6 +1924,7 @@ async function runReflow(browser) {
         navigation_ms: navigationMs,
         ready_ms: readyMs,
         before,
+        caret_scroll: caretScroll,
         error: anchorIdentity.reason || 'anchor_identity_ambiguous',
         identity_diagnostic: anchorIdentity.identity_diagnostic || null,
         moved: false,
@@ -2054,6 +2110,7 @@ async function runReflow(browser) {
         navigation_ms: navigationMs,
         ready_ms: readyMs,
         before,
+        caret_scroll: caretScroll,
         error: endIdentity.reason || 'anchor_identity_ambiguous',
         identity_diagnostic: endIdentity.identity_diagnostic || null,
         moved: false,
@@ -2076,6 +2133,7 @@ async function runReflow(browser) {
         navigation_ms: navigationMs,
         ready_ms: readyMs,
         before,
+        caret_scroll: caretScroll,
         error: 'anchor_identity_ambiguous',
         identity_diagnostic: (endIdentity && endIdentity.identity_diagnostic) || null,
         moved: false,
@@ -2101,6 +2159,7 @@ async function runReflow(browser) {
         navigation_ms: navigationMs,
         ready_ms: readyMs,
         before,
+        caret_scroll: caretScroll,
         error: 'recorded_frame_not_confirmed_anchor',
         moved: false,
         anchor_top_after: null,
@@ -2136,6 +2195,7 @@ async function runReflow(browser) {
       navigation_ms: navigationMs,
       ready_ms: readyMs,
       before,
+      caret_scroll: caretScroll,
       anchor_index: before.anchor_index,
       anchor_text: before.anchor_text,
       anchor_before_top: before.anchor_top,
