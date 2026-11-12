@@ -177,6 +177,14 @@ def safe_tar_member(name: str) -> None:
 
 
 EXCLUDE: tuple[str, ...] = ()
+# Browser user-data folders are state, not evidence: never pulled, never
+# verified (Chrome rewrites them while it shuts down, after the job seal).
+BROWSER_STATE_GLOBS: tuple[str, ...] = ('*/browser-profile/*', 'runs/*/*/*/profiles/*')
+
+
+def _job_rel_is_browser_state(rel: str) -> bool:
+    parts = rel.split('/')
+    return 'browser-profile' in parts or parts[0] == 'profiles'
 
 
 def parse_listing(raw: str) -> dict[str, dict]:
@@ -189,7 +197,7 @@ def parse_listing(raw: str) -> dict[str, dict]:
         if 'pull_warn' in row:
             print(f"PULL-WARN {row['path']} {row['pull_warn']}", flush=True)
             continue
-        if any(fnmatch.fnmatchcase(row['path'], pattern) for pattern in EXCLUDE):
+        if any(fnmatch.fnmatchcase(row['path'], pattern) for pattern in (*EXCLUDE, *BROWSER_STATE_GLOBS)):
             continue
         index[row['path']] = row
     return index
@@ -469,6 +477,8 @@ def verify_job_manifest_impl(dest_root: Path, job_prefix: str, remote_index: dic
     for line in manifest_lines:
         digest, rel = line.split('  ', 1)
         listed.add(rel)
+        if _job_rel_is_browser_state(rel):
+            continue
         path = job_dir / rel
         if not path.is_file():
             raise VerifyError(f'manifest lists missing file {job_prefix}/{rel}')
@@ -480,6 +490,8 @@ def verify_job_manifest_impl(dest_root: Path, job_prefix: str, remote_index: dic
         if '.prev-' in path.name:
             continue
         rel = path.relative_to(job_dir).as_posix()
+        if _job_rel_is_browser_state(rel):
+            continue
         if rel not in listed:
             raise VerifyError(f'manifest missing file {job_prefix}/{rel}')
     job_done_lines = job_done.read_text().splitlines()

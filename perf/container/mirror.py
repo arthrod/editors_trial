@@ -38,6 +38,9 @@ BUCKET_EXCLUDES: tuple[str, ...] = (
     'fixtures/*', '*/fixtures/*',
     'repos/*', '*/repos/*',
     '*.docx',
+    # Browser user-data folders: state, not evidence.
+    'browser-profile/*', '*/browser-profile/*',
+    'profiles/*', '*/profiles/*',
 )
 # Tests inject a fake client here: callable(token) -> client with
 # list_bucket_tree / batch_bucket_files. None means the real HfApi.
