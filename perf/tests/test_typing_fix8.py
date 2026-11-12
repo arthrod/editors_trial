@@ -145,7 +145,8 @@ def test_marker_only_absorbed_into_empty_list_items_passes():
     """Folio-shaped absorption: the ``v.`` text is gone from innerText but
     every paragraph survives as an empty list item AT ITS OWN POSITION
     carrying ``data-list-marker`` — the marker is evidence, not text."""
-    absorbed = [{"index": 2, "marker": "v."}, {"index": 5, "marker": "v."}]
+    absorbed = [{"index": 2, "marker": "v.", "empty": True},
+                {"index": 5, "marker": "v.", "empty": True}]
     page = DropMarkersPage(drop="v.", absorbed=absorbed, blank=True)
     result = _type(page, CAPTION)
     assert result["failure_reason"] is None, result
@@ -159,7 +160,8 @@ def test_marker_only_absorbed_with_renumbered_label_is_tolerated():
     """An absorbed marker-only item may carry the list's own label: the
     paragraph exists at the same index, and tolerance matches the
     marker+text class."""
-    absorbed = [{"index": 2, "marker": "i."}, {"index": 5, "marker": "i."}]
+    absorbed = [{"index": 2, "marker": "i.", "empty": True},
+                {"index": 5, "marker": "i.", "empty": True}]
     page = DropMarkersPage(drop="v.", absorbed=absorbed, blank=True)
     result = _type(page, CAPTION)
     assert result["failure_reason"] is None, result

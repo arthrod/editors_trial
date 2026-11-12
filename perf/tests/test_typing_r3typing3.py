@@ -175,7 +175,10 @@ def test_prefix_marker_tolerated_with_absorbed_item_at_line():
     result = _type(
         FakePage(),
         CAPTION,
-        read_document=_read_document(CAPTION_BLANKED, [{"index": 2, "marker": "i."}, {"index": 5, "marker": "ii."}]),
+        read_document=_read_document(
+            CAPTION_BLANKED,
+            [{"index": 2, "marker": "i.", "empty": True}, {"index": 5, "marker": "ii.", "empty": True}],
+        ),
     )
     assert result["failure_reason"] is None
 

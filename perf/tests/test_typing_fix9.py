@@ -154,7 +154,8 @@ def _read_document(text, absorbed):
 def test_absorbed_item_at_the_marker_position_excuses_a_renumbered_label():
     # Both v. lines became numbered items: the text carries empty slots and
     # the DOM census reports an item at exactly those two line indexes.
-    absorbed = [{'index': 2, 'marker': 'i.'}, {'index': 5, 'marker': 'ii.'}]
+    absorbed = [{'index': 2, 'marker': 'i.', 'empty': True},
+                {'index': 5, 'marker': 'ii.', 'empty': True}]
     result = _type(FakePage(), CAPTION,
                    read_document=_read_document(CAPTION_BLANKED, absorbed))
     assert result['failure_reason'] is None, result

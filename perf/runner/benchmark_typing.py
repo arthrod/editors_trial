@@ -284,15 +284,43 @@ def marker_only_positions(text):
             if (marker := marker_only_of_line(line)) is not None}
 
 
+def _rendered_label(label):
+    """A label the editor painted. Null and blank are not labels."""
+    return isinstance(label, str) and bool(label.strip())
+
+
+def _class_pair(index, typed, rendered):
+    """The excuse's classes, so a report can tell ``v.`` → ``i.`` from ``v.`` → ``9.``.
+
+    Styles keep their punctuation (``alpha.`` is not ``alpha)``). A one-letter
+    roman numeral is also alpha, so ``x.`` records both.
+    """
+    def names(marker):
+        return sorted(f'{kind}{punct}' for kind, punct in marker_styles(marker))
+
+    return {
+        'index': index,
+        'typed': typed,
+        'rendered': rendered,
+        'typed_styles': names(typed),
+        'rendered_styles': names(rendered),
+    }
+
+
 def list_items_by_line(read):
-    """``{line_index: [{marker, empty}, ...]}`` from reader list-item evidence."""
+    """``{line_index: [{marker, empty}, ...]}`` from reader list-item evidence.
+
+    A missing ``empty`` key means empty:false. A bare index is
+    ``{marker: None, empty: false}`` and excuses nothing: a prefix marker
+    needs a label, and a marker-only line needs empty:true.
+    """
     by_line = {}
     for entry in (read.get('absorbed_markers') or []):
         if isinstance(entry, dict):
             index, marker = entry.get('index'), entry.get('marker')
-            empty = entry.get('empty', True)
+            empty = entry.get('empty', False)
         elif isinstance(entry, (int, float)) and not isinstance(entry, bool):
-            index, marker, empty = entry, None, True
+            index, marker, empty = entry, None, False
         else:
             continue
         if isinstance(index, (int, float)) and not isinstance(index, bool) and index >= 0:
@@ -317,10 +345,10 @@ def absorbed_marker_records(read):
             records.append({
                 'index': int(entry['index']),
                 'marker': entry.get('marker'),
-                'empty': entry.get('empty', True),
+                'empty': entry.get('empty', False),
             })
         elif isinstance(entry, (int, float)) and not isinstance(entry, bool):
-            records.append({'index': int(entry), 'marker': None, 'empty': True})
+            records.append({'index': int(entry), 'marker': None, 'empty': False})
     return records
 
 
@@ -332,22 +360,35 @@ def _line_holds_marker_only(actual_lines, index):
 
 
 def _consume_list_item(items, marker, *, prefix):
-    """Pop one list item at ``items`` that can excuse ``marker``."""
+    """Pop one list item that can excuse ``marker``, or return None.
+
+    Prefix path: the item must be non-empty and carry a non-null label of
+    the same class. A null label is not evidence (a bullet ``<li>`` does
+    not excuse ``3.``).
+
+    Marker-only path: the item must be empty and carry any rendered label.
+    The rendered number cannot equal the typed marker — the typed marker
+    is gone — so class is not a gate. The caller records the class pair,
+    which is what tells ``v.`` → ``i.`` from ``v.`` → ``9.``. A null label
+    is not a rendered label.
+
+    A missing ``empty`` key is empty:false, so a bare record cannot excuse
+    a marker-only line.
+    """
     for pos, item in enumerate(items):
-        empty = item.get('empty', True)
+        empty = bool(item.get('empty', False))
         if prefix and empty:
             continue
         if not prefix and not empty:
             continue
         label = item.get('marker')
-        if prefix:
-            if label is None or same_marker_class(marker, label):
-                items.pop(pos)
-                return True
-        elif label is None or label == marker or list_marker_style(label):
-            items.pop(pos)
-            return True
-    return False
+        if not _rendered_label(label):
+            continue
+        if prefix and not same_marker_class(marker, label):
+            continue
+        items.pop(pos)
+        return item
+    return None
 
 
 def _bounded_excerpt(text, offset, radius=40):
@@ -680,6 +721,7 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
                     missing = []
                     tolerated = []
                     tolerated_by_line = []
+                    class_pairs = []
                     strip_surrogate = {}
                     for i, exp_line in enumerate(expected_lines):
                         markers, rest = prefix_marker_rest(exp_line)
@@ -723,10 +765,12 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
                                 tolerated.append(marker)
                                 tolerated_by_line.append({'index': i, 'marker': marker})
                                 continue
-                            if _consume_list_item(line_items, marker, prefix=True):
+                            consumed = _consume_list_item(line_items, marker, prefix=True)
+                            if consumed:
                                 used_item_lines.add(j)
                                 tolerated.append(marker)
                                 tolerated_by_line.append({'index': i, 'marker': marker})
+                                class_pairs.append(_class_pair(i, marker, consumed.get('marker')))
                                 continue
                             missing.append({'index': i, 'marker': marker})
                     marker_only_tolerated = set()
@@ -745,10 +789,12 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
                             if not _line_holds_marker_only(actual_lines, j):
                                 continue
                             line_items = items_left.setdefault(j, [])
-                            if _consume_list_item(line_items, marker, prefix=False):
+                            consumed = _consume_list_item(line_items, marker, prefix=False)
+                            if consumed:
                                 used_item_lines.add(j)
                                 tolerated.append(marker)
                                 marker_only_tolerated.add(i)
+                                class_pairs.append(_class_pair(i, marker, consumed.get('marker')))
                                 break
                         else:
                             missing.append({'index': i, 'marker': marker})
@@ -756,7 +802,7 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
                                for j in sorted(actual_marker_at) if j not in used_text]
                     for j, items in sorted(items_left.items()):
                         for item in items:
-                            if not item.get('empty', True):
+                            if not item.get('empty', False):
                                 continue
                             if item.get('marker') is not None:
                                 surplus.append({'index': j, 'marker': item['marker']})
@@ -811,6 +857,7 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
                         surplus = [s for s in surplus if s.get('marker') is not None]
                     marker_gap = bool(surplus) or bool(missing)
                     result.update(tolerated_list_markers=tolerated_by_line,
+                                  tolerated_class_pairs=class_pairs,
                                   tolerated_marker_strings=sorted(tolerated),
                                   tolerated_quote_autocorrect_chars=sum(
                                       1 for ch in actual_text if ord(ch) in _QUOTE_FOLD),
