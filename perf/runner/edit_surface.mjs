@@ -46,6 +46,22 @@ export const EDIT_SURFACES = {
     // document. Text and selection live in an offscreen ProseMirror that a
     // click on a painted page mounts; read it, never the mounted DOM sum.
     hidden: '.paged-editor__hidden-pm .ProseMirror',
+    // The painted page is not contenteditable, and `.ProseMirror` inside
+    // `.paged-editor__hidden-pm` does not exist until a click. The usable
+    // wait runs before any click, so it cannot ask for that editor. A
+    // mounted document is a painted page with height and a [data-block-id]
+    // block that already carries text. The loading shell has neither.
+    usable:
+      '(() => {'
+      + ' const pages = document.querySelectorAll("[data-page-number]");'
+      + ' for (const page of pages) {'
+      + '   if (page.getBoundingClientRect().height <= 0) continue;'
+      + '   for (const block of page.querySelectorAll("[data-block-id]")) {'
+      + '     if ((block.innerText || "").trim().length > 0 && block.getBoundingClientRect().height > 0) return true;'
+      + '   }'
+      + ' }'
+      + ' return false;'
+      + '})()',
   },
   canvas: {
     kind: 'model',
