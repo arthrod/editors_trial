@@ -84,6 +84,74 @@ def line_align_norm(line):
     markers, rest = prefix_marker_rest(line)
     return normalize_marked(rest if markers else line)[0]
 
+_ROMAN_CORE = re.compile(r'^[ivxlcdmIVXLCDM]+$')
+
+def normalize_list_label(label):
+    label = str(label or '').strip()
+    if label.startswith('%') and len(label) > 1:
+        inner = label[1:].strip()
+        probe = inner if inner.endswith(('.', ')')) else f'{inner}.'
+        if _LIST_MARKER.match(probe + ' '):
+            return inner
+    return label
+
+def list_marker_style(marker):
+    marker = normalize_list_label(marker)
+    if not marker:
+        return None
+    probe = marker if marker.endswith(('.', ')')) else f'{marker}.'
+    if not _LIST_MARKER.match(probe + ' '):
+        return None
+    punct = ')' if marker.endswith(')') else '.'
+    core = marker[:-1] if marker.endswith(('.', ')')) else marker
+    if core.isdigit():
+        return ('decimal', punct)
+    if len(core) == 1 and core.isalpha():
+        return ('alpha', punct)
+    if _ROMAN_CORE.match(core):
+        return ('roman', punct)
+    return None
+
+def same_marker_class(typed, rendered):
+    return list_marker_style(typed) == list_marker_style(rendered) and list_marker_style(typed) is not None
+
+def _align_line_token(line):
+    only = marker_only_of_line(line)
+    if only is not None:
+        return f'\x00mo:{only}'
+    markers, rest = prefix_marker_rest(line)
+    if markers:
+        return normalize_marked(rest)[0]
+    return normalize_marked(line)[0]
+
+def _compress_lines(lines):
+    tokens, orig = [], []
+    for index, line in enumerate(lines):
+        if not line.strip() and marker_only_of_line(line) is None:
+            continue
+        tokens.append(_align_line_token(line))
+        orig.append(index)
+    return tokens, orig
+
+def build_slot_for(expected_lines, actual_lines):
+    exp_tok, exp_orig = _compress_lines(expected_lines)
+    act_tok, act_orig = _compress_lines(actual_lines)
+    opcodes = difflib.SequenceMatcher(
+        None, exp_tok, act_tok, autojunk=False).get_opcodes()
+
+    def slot_for(exp_index):
+        if exp_index not in exp_orig:
+            return []
+        ei = exp_orig.index(exp_index)
+        for tag, a1, a2, b1, b2 in opcodes:
+            if a1 <= ei < a2:
+                if tag == 'equal':
+                    return [act_orig[b1 + (ei - a1)]]
+                return act_orig[b1:b2]
+        return []
+
+    return slot_for
+
 def marker_only_of_line(line):
     """The marker string when this line's entire text is markers, else None.
 
@@ -115,24 +183,76 @@ def marker_only_positions(text):
             if (marker := marker_only_of_line(line)) is not None}
 
 
-def absorbed_positions(read):
-    """``{line_index: marker}`` the editor reports as absorbed list items.
-
-    Entries are ``{'index': i, 'marker': label-or-None}``; a bare integer is
-    an index with an unknown label, and any other shape has no position at
-    all — evidence without a position can never excuse a missing marker.
-    """
-    positions = {}
+def list_items_by_line(read):
+    """``{line_index: [{marker, empty}, ...]}`` from reader list-item evidence."""
+    by_line = {}
     for entry in (read.get('absorbed_markers') or []):
         if isinstance(entry, dict):
             index, marker = entry.get('index'), entry.get('marker')
+            empty = entry.get('empty', True)
         elif isinstance(entry, (int, float)) and not isinstance(entry, bool):
-            index, marker = entry, None
+            index, marker, empty = entry, None, True
         else:
-            index, marker = -1, str(entry)
+            continue
         if isinstance(index, (int, float)) and not isinstance(index, bool) and index >= 0:
-            positions[int(index)] = marker
+            by_line.setdefault(int(index), []).append({'marker': marker, 'empty': empty})
+    return by_line
+
+
+def absorbed_positions(read):
+    """Legacy single-marker view: last label reported at each index."""
+    positions = {}
+    for index, items in list_items_by_line(read).items():
+        for item in items:
+            positions[index] = item.get('marker')
     return positions
+
+
+def absorbed_marker_records(read):
+    """Flat list of every list-item record the editor reported."""
+    records = []
+    for entry in (read.get('absorbed_markers') or []):
+        if isinstance(entry, dict) and isinstance(entry.get('index'), (int, float)):
+            records.append({
+                'index': int(entry['index']),
+                'marker': entry.get('marker'),
+                'empty': entry.get('empty', True),
+            })
+        elif isinstance(entry, (int, float)) and not isinstance(entry, bool):
+            records.append({'index': int(entry), 'marker': None, 'empty': True})
+    return records
+
+
+def _line_holds_marker_only(actual_lines, index):
+    if index < 0 or index >= len(actual_lines):
+        return False
+    line = actual_lines[index]
+    return marker_only_of_line(line) is not None or not line.strip()
+
+
+def _consume_list_item(items, marker, *, prefix):
+    """Pop one list item at ``items`` that can excuse ``marker``."""
+    for pos, item in enumerate(items):
+        empty = item.get('empty', True)
+        if prefix and empty:
+            continue
+        if not prefix and not empty:
+            continue
+        label = item.get('marker')
+        if prefix:
+            if label is None or same_marker_class(marker, label):
+                items.pop(pos)
+                return True
+        elif label is None or label == marker or list_marker_style(label):
+            items.pop(pos)
+            return True
+    return False
+
+
+def _bounded_excerpt(text, offset, radius=40):
+    start = max(0, offset - radius)
+    end = min(len(text), offset + radius + 1)
+    return text[start:end]
 
 def stripped_marker_strings(text):
     """Every paragraph-leading marker normalisation removes — the strings
@@ -151,14 +271,11 @@ def stripped_marker_strings(text):
 def normalize(text):
     return normalize_marked(text)[0]
 
-# Page context: list markers an editor absorbed out of the text and still
-# exposes as element attributes (folio's data-list-marker). Only items with
-# no text of their own count — those are the marker-only paragraphs. Each
-# entry carries the item's line index inside the read text: evidence is
-# positional, never a count.
+# Page context: every rendered list item the DOM still exposes as structure.
 ABSORBED_MARKERS_JS = """(s) => {
   const els = Array.from(document.querySelectorAll(s));
   if (!els.length) return [];
+  const itemSel = 'li,[role=listitem],[data-list-marker],.superdoc-list-marker,.superdoc-web-flow-list-marker,.track-list-marker-dec';
   const linesOf = (node) => {
     const t = String(node.innerText ?? '');
     if (t) return t.split('\\n').length;
@@ -173,13 +290,34 @@ ABSORBED_MARKERS_JS = """(s) => {
     }
     return count;
   };
+  const labelOf = (node) => {
+    if (node.hasAttribute && node.hasAttribute('data-list-marker'))
+      return String(node.getAttribute('data-list-marker') || '').trim() || null;
+    const cls = String(node.className || '');
+    if (/superdoc-list-marker|track-list-marker-dec/.test(cls))
+      return String(node.textContent || '').trim() || null;
+    return null;
+  };
+  const hostOf = (node) => node.closest('li,[role=listitem],.superdoc-line,p,[data-block-id]') || node;
   const absorbed = [];
   let base = 0;
   for (const el of els) {
-    for (const node of el.querySelectorAll('[data-list-marker]')) {
-      if (String(node.innerText || node.textContent || '').trim()) continue;
-      absorbed.push({index: base + indexWithin(el, node),
-        marker: String(node.getAttribute('data-list-marker') || '').trim()});
+    const seen = new Set();
+    for (const node of el.querySelectorAll(itemSel)) {
+      const host = hostOf(node);
+      if (seen.has(host)) continue;
+      seen.add(host);
+      const lineIndex = base + indexWithin(el, host);
+      let marker = labelOf(node);
+      if (!marker && node !== host) marker = labelOf(host);
+      const text = String(host.innerText || host.textContent || '').trim();
+      let body = text;
+      if (marker && text.startsWith(marker)) body = text.slice(marker.length).trim();
+      else if (marker && text.startsWith(marker.replace(/^%/, ''))) {
+        body = text.slice(marker.replace(/^%/, '').length).trim();
+      }
+      const empty = !body;
+      absorbed.push({index: lineIndex, marker, empty});
     }
     base += String(el.innerText ?? '').split('\\n').length;
   }
@@ -368,44 +506,20 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
                     expected_marker_at = marker_only_positions(expected_source)
                     actual_lines = actual_text.split('\n')
                     actual_marker_at = marker_only_positions(actual_text)
-                    absorbed_at = absorbed_positions(read if isinstance(read, dict) else {})
-                    # The two texts are on different line bases — a DOM read
-                    # may emit extra blank lines per paragraph, a model read a
-                    # header line — so an expected paragraph index cannot be
-                    # looked up in the actual text directly. Align the
-                    # normalized line sequences instead; the slot a marker
-                    # paragraph occupies is its aligned line widened to the
-                    # blank/marker run around it (or its replace block). A
-                    # marker is answered only by a trace inside its own slot:
-                    # its marker-only line, or the empty absorbed item AT
-                    # that position — never by an item elsewhere, and one
-                    # item never answers for two paragraphs.
+                    items_left = list_items_by_line(read if isinstance(read, dict) else {})
                     expected_lines = expected_source.split('\n')
-                    expected_norm = [line_align_norm(line) for line in expected_lines]
-                    actual_norm = [line_align_norm(line) for line in actual_lines]
-                    opcodes = difflib.SequenceMatcher(
-                        None, expected_norm, actual_norm, autojunk=False).get_opcodes()
-
-                    def slot_for(index):
-                        for tag, a1, a2, b1, b2 in opcodes:
-                            if a1 <= index < a2:
-                                if tag != 'equal':
-                                    return range(b1, b2)
-                                j = b1 + (index - a1)
-                                return range(j, j + 1)
-                        return range(len(actual_norm), len(actual_norm))
-
-                    used_text, used_absorbed = set(), set()
+                    slot_for = build_slot_for(expected_lines, actual_lines)
+                    used_text, used_item_lines = set(), set()
                     missing = []
                     tolerated = []
                     tolerated_by_line = []
+                    strip_surrogate = {}
                     for i, exp_line in enumerate(expected_lines):
                         markers, rest = prefix_marker_rest(exp_line)
                         if not markers:
                             continue
-                        slot = slot_for(i)
                         chosen = None
-                        for j in slot:
+                        for j in dict.fromkeys(slot_for(i) + [i]):
                             if j >= len(actual_lines):
                                 continue
                             act_markers, act_rest = prefix_marker_rest(actual_lines[j])
@@ -418,44 +532,54 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
                                 missing.append({'index': i, 'marker': marker})
                             continue
                         j, act_queue = chosen
-                        # Match markers that are still in the text, in order.
-                        # One absorbed list item excuses one vanished marker
-                        # on this line and never a second.
-                        unmet = []
+                        line_items = items_left.setdefault(j, [])
                         for marker in markers:
                             if act_queue and act_queue[0] == marker:
                                 act_queue.pop(0)
                                 continue
-                            unmet.append(marker)
-                        if unmet and j in absorbed_at and j not in used_absorbed:
-                            used_absorbed.add(j)
-                            excused = unmet.pop(0)
-                            tolerated.append(excused)
-                            tolerated_by_line.append({'index': i, 'marker': excused})
-                        for marker in unmet:
+                            if act_queue and same_marker_class(marker, act_queue[0]):
+                                act_queue.pop(0)
+                                strip_surrogate[j] = strip_surrogate.get(j, 0) + 1
+                                tolerated.append(marker)
+                                tolerated_by_line.append({'index': i, 'marker': marker})
+                                continue
+                            if _consume_list_item(line_items, marker, prefix=True):
+                                used_item_lines.add(j)
+                                tolerated.append(marker)
+                                tolerated_by_line.append({'index': i, 'marker': marker})
+                                continue
                             missing.append({'index': i, 'marker': marker})
                     marker_only_tolerated = set()
                     for i, marker in sorted(expected_marker_at.items()):
-                        slot = slot_for(i)
-                        hit = next((j for j in slot
-                                    if j in actual_marker_at and j not in used_text), None)
+                        hit = None
+                        for j in dict.fromkeys(slot_for(i) + [i]):
+                            if j in actual_marker_at and j not in used_text:
+                                hit = j
+                                break
                         if hit is not None:
                             used_text.add(hit)
                             if actual_marker_at[hit] != marker:
                                 tolerated.append(marker)
                             continue
-                        hit = next((j for j in slot
-                                    if j in absorbed_at and j not in used_absorbed), None)
-                        if hit is not None:
-                            used_absorbed.add(hit)
-                            tolerated.append(marker)
-                            marker_only_tolerated.add(i)
-                            continue
-                        missing.append({'index': i, 'marker': marker})
-                    surplus = ([{'index': j, 'marker': actual_marker_at[j]}
-                                for j in sorted(actual_marker_at) if j not in used_text]
-                               + [{'index': j, 'marker': absorbed_at[j]}
-                                  for j in sorted(absorbed_at) if j not in used_absorbed])
+                        for j in dict.fromkeys(slot_for(i) + [i]):
+                            if not _line_holds_marker_only(actual_lines, j):
+                                continue
+                            line_items = items_left.setdefault(j, [])
+                            if _consume_list_item(line_items, marker, prefix=False):
+                                used_item_lines.add(j)
+                                tolerated.append(marker)
+                                marker_only_tolerated.add(i)
+                                break
+                        else:
+                            missing.append({'index': i, 'marker': marker})
+                    surplus = [{'index': j, 'marker': actual_marker_at[j]}
+                               for j in sorted(actual_marker_at) if j not in used_text]
+                    for j, items in sorted(items_left.items()):
+                        for item in items:
+                            if not item.get('empty', True):
+                                continue
+                            if item.get('marker') is not None:
+                                surplus.append({'index': j, 'marker': item['marker']})
                     excused_at = {}
                     for entry in tolerated_by_line:
                         excused_at.setdefault(entry['index'], []).append(entry['marker'])
@@ -477,10 +601,22 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
                                 continue
                             kept.append(marker)
                         if kept:
-                            compare_lines.append((" ".join(kept) + (" " + rest if rest else "")).strip())
+                            compare_lines.append(
+                                (" ".join(kept) + (" " + rest if rest else "")).strip())
                         else:
                             compare_lines.append(rest)
-                    actual, _ = normalize_marked(actual_text)
+                    actual_compare = list(actual_lines)
+                    for i in marker_only_tolerated:
+                        for j in dict.fromkeys(slot_for(i) + [i]):
+                            if j < len(actual_compare) and marker_only_of_line(actual_compare[j]):
+                                actual_compare[j] = ''
+                    for j, count in strip_surrogate.items():
+                        if j >= len(actual_compare):
+                            continue
+                        act_markers, act_rest = prefix_marker_rest(actual_compare[j])
+                        if len(act_markers) >= count:
+                            actual_compare[j] = act_rest
+                    actual, _ = normalize_marked('\n'.join(actual_compare))
                     expected, _ = normalize_marked('\n'.join(compare_lines))
                     if actual == expected and not missing:
                         surplus = [s for s in surplus if s.get('marker') is not None]
@@ -492,14 +628,19 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
                                   correctness_oracle=oracle,
                                   marker_only={'expected': marker_only_strings(expected_source),
                                                'in_text': marker_only_strings(actual_text),
-                                               'absorbed': [{'index': i, 'marker': absorbed_at[i]}
-                                                            for i in sorted(absorbed_at)],
+                                               'absorbed': absorbed_marker_records(
+                                                   read if isinstance(read, dict) else {}),
                                                'missing': missing,
                                                'surplus': surplus})
                     if actual != expected or marker_gap:
-                        result.update(failure_reason='text_mismatch', refusal_code='correctness_failure',
-                                      first_divergence_offset=(divergence(expected, actual)
-                                                               if actual != expected else None))
+                        offset = (divergence(expected, actual) if actual != expected else None)
+                        update = dict(failure_reason='text_mismatch',
+                                      refusal_code='correctness_failure',
+                                      first_divergence_offset=offset)
+                        if offset is not None:
+                            update['divergence_expected_excerpt'] = _bounded_excerpt(expected, offset)
+                            update['divergence_actual_excerpt'] = _bounded_excerpt(actual, offset)
+                        result.update(update)
         # The verification work (document read, flag poll, export) gets its
         # own resource phase after the typing wall closes.
         await sampler.mark('correctness_read')

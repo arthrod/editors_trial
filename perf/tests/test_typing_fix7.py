@@ -187,7 +187,7 @@ def test_absorbed_marker_passes_and_is_counted():
     text = "STATEMENT\n1. a. Under the Act\nEnd"
     refused = _type(AutoNumberPage([]), text)
     assert refused["failure_reason"] == "text_mismatch"
-    result = _type(AutoNumberPage([{"index": 1, "marker": "1."}]), text)
+    result = _type(AutoNumberPage([{"index": 1, "marker": "1.", "empty": False}]), text)
     assert result["failure_reason"] is None, result
     assert result["tolerated_list_markers"] == [{"index": 1, "marker": "1."}]
     assert "1." in result["tolerated_marker_strings"]

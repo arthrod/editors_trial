@@ -160,7 +160,10 @@ def test_absorbed_item_at_the_marker_position_excuses_a_renumbered_label():
     assert result['failure_reason'] is None, result
     assert result['marker_only'] == {
         'expected': ['v.', 'v.'], 'in_text': [],
-        'absorbed': [{'index': 2, 'marker': 'i.'}, {'index': 5, 'marker': 'ii.'}],
+        'absorbed': [
+            {'index': 2, 'marker': 'i.', 'empty': True},
+            {'index': 5, 'marker': 'ii.', 'empty': True},
+        ],
         'missing': [], 'surplus': []}
 
 
@@ -205,7 +208,7 @@ def test_docx_absorbed_evidence_is_the_paragraph_positions():
     buf.seek(0)
     text, absorbed = docx_body_text_and_absorbed(buf)
     assert text == 'before\n\nafter'
-    assert absorbed == [{'index': 1, 'marker': None}]
+    assert absorbed == [{'index': 1, 'marker': None, 'empty': True}]
 
 
 # --- ruling 4: tolerated quote autocorrect is disclosed ---

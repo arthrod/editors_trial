@@ -433,9 +433,14 @@ export const READ_MODEL_DOCUMENT_TEXT = (model) => {
     const absorbed = [];
     doc.descendants((node, pos) => {
       const name = String((node.type && node.type.name) || '');
-      if (/item|list/i.test(name) && node.textContent === '') {
-        absorbed.push(doc.textBetween(0, pos, '\n').split('\n').length - 1);
-      }
+      if (!/item|list/i.test(name)) return true;
+      const empty = node.textContent === '';
+      const lineIndex = doc.textBetween(0, pos, '\n').split('\n').length - 1;
+      let marker = null;
+      const attrs = node.attrs || {};
+      if (attrs.listMarker) marker = String(attrs.listMarker).trim();
+      else if (attrs['data-list-marker']) marker = String(attrs['data-list-marker']).trim();
+      absorbed.push({index: lineIndex, marker: marker || null, empty});
       return true;
     });
     return { text: String(doc.textBetween(0, doc.content.size, '\n')), absorbed_items: absorbed };
@@ -455,30 +460,20 @@ export const READ_MODEL_DOCUMENT_TEXT = (model) => {
 };
 
 /**
- * DOM surface text plus the markers an editor absorbed out of the text but
- * still exposes as element attributes (folio's data-list-marker). Only
- * items with no text of their own count — those are marker-only paragraphs.
- * Each absorbed entry carries its line index inside `text`: evidence is
- * positional, so only the item sitting AT a missing marker's position can
- * excuse it. `editable` reports whether the read surface can take typed
- * input itself (a read-only or paint-only DOM cannot).
+ * DOM surface text plus every list item the editor exposes in the tree.
+ * Each absorbed entry is ``{index, marker, empty}`` at that item's line in
+ * ``text``. `editable` reports whether the read surface can take typed input.
  */
 export const READ_DOM_TEXT_WITH_MARKERS = (selector) => {
-  // The surface may be many elements: docxodus wires one contenteditable per
-  // block, genoffice and folio one region per page. querySelector's first
-  // match would truncate the document at its first paragraph.
   const els = Array.from(document.querySelectorAll(selector));
   if (!els.length) return { text: '', absorbed_markers: [], editable: false };
-  // innerText lines of an element; an empty rendered block is one line,
-  // a hidden one contributes none.
+  const itemSel = 'li,[role=listitem],[data-list-marker],.superdoc-list-marker,.superdoc-web-flow-list-marker,.track-list-marker-dec';
   const linesOf = (node) => {
     const t = String(node.innerText ?? '');
     if (t) return t.split('\n').length;
     const style = getComputedStyle(node);
     return style.display === 'none' || style.visibility === 'hidden' ? 0 : 1;
   };
-  // The element's line index inside its surface element: the lines every
-  // preceding sibling (at every ancestor level) contributes to innerText.
   const indexWithin = (root, node) => {
     let count = 0;
     for (let cur = node; cur && cur !== root; cur = cur.parentElement) {
@@ -488,15 +483,35 @@ export const READ_DOM_TEXT_WITH_MARKERS = (selector) => {
     }
     return count;
   };
+  const labelOf = (node) => {
+    if (node.hasAttribute && node.hasAttribute('data-list-marker')) {
+      return String(node.getAttribute('data-list-marker') || '').trim() || null;
+    }
+    const cls = String(node.className || '');
+    if (/superdoc-list-marker|track-list-marker-dec/.test(cls)) {
+      return String(node.textContent || '').trim() || null;
+    }
+    return null;
+  };
+  const hostOf = (node) => node.closest('li,[role=listitem],.superdoc-line,p,[data-block-id]') || node;
   const absorbed = [];
   let base = 0;
   for (const el of els) {
-    for (const node of el.querySelectorAll('[data-list-marker]')) {
-      if (String(node.innerText || node.textContent || '').trim()) continue;
-      absorbed.push({
-        index: base + indexWithin(el, node),
-        marker: String(node.getAttribute('data-list-marker') || '').trim(),
-      });
+    const seen = new Set();
+    for (const node of el.querySelectorAll(itemSel)) {
+      const host = hostOf(node);
+      if (seen.has(host)) continue;
+      seen.add(host);
+      const lineIndex = base + indexWithin(el, host);
+      let marker = labelOf(node);
+      if (!marker && node !== host) marker = labelOf(host);
+      const text = String(host.innerText || host.textContent || '').trim();
+      let body = text;
+      if (marker && text.startsWith(marker)) body = text.slice(marker.length).trim();
+      else if (marker && text.startsWith(marker.replace(/^%/, ''))) {
+        body = text.slice(marker.replace(/^%/, '').length).trim();
+      }
+      absorbed.push({index: lineIndex, marker, empty: !body});
     }
     base += String(el.innerText ?? '').split('\n').length;
   }

@@ -85,6 +85,6 @@ def docx_body_text_and_absorbed(path) -> tuple[str, list]:
     texts, absorbed = [], []
     for text, has_numpr in _paragraphs(data):
         if not text.strip() and has_numpr:
-            absorbed.append({'index': len(texts), 'marker': None})
+            absorbed.append({'index': len(texts), 'marker': None, 'empty': True})
         texts.append(text)
     return "\n".join(texts), absorbed

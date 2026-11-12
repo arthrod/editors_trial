@@ -141,7 +141,10 @@ for await (const line of lines) {
         const payload = await page.evaluate(READ_MODEL_DOCUMENT_TEXT, surface.model);
         result = payload
           ? {text: payload.text,
-             absorbed_markers: (payload.absorbed_items || []).map((index) => ({index, marker: null}))}
+             absorbed_markers: (payload.absorbed_items || []).map((entry) => (
+               typeof entry === 'object' && entry !== null && !Array.isArray(entry)
+                 ? entry
+                 : {index: entry, marker: null, empty: true}))}
           : {text: null, absorbed_markers: []};
       } else if (surface.kind === 'dom') {
         result = await page.evaluate(READ_DOM_TEXT_WITH_MARKERS, command.selector);

@@ -149,7 +149,10 @@ def test_marker_only_absorbed_into_empty_list_items_passes():
     page = DropMarkersPage(drop="v.", absorbed=absorbed, blank=True)
     result = _type(page, CAPTION)
     assert result["failure_reason"] is None, result
-    assert result["marker_only"]["absorbed"] == absorbed
+    assert result["marker_only"]["absorbed"] == [
+        {"index": 2, "marker": "v.", "empty": True},
+        {"index": 5, "marker": "v.", "empty": True},
+    ]
 
 
 def test_marker_only_absorbed_with_renumbered_label_is_tolerated():
@@ -211,7 +214,7 @@ def test_tolerated_marker_strings_record_absorbed_markers():
     class AutoNumber(FakePage):
         async def evaluate(self, script, arg=None):
             if "data-list-marker" in script:
-                return [{"index": 1, "marker": "1."}]
+                return [{"index": 1, "marker": "1.", "empty": False}]
             text = await super().evaluate(script, arg)
             if isinstance(text, str):
                 return _re.sub(r"\n1\. ", "\n", text)
@@ -541,7 +544,7 @@ def test_docx_paragraphs_split_on_real_elements_not_regex():
     buf.seek(0)
     text, absorbed = docx_body_text_and_absorbed(buf)
     assert text == "outer one outer two\ntextbox\n\nlast"
-    assert absorbed == [{"index": 2, "marker": None}]
+    assert absorbed == [{"index": 2, "marker": None, "empty": True}]
 
 
 def test_genoffice_stub_disables_autocorrect():
