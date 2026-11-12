@@ -920,6 +920,10 @@ def _c14_facts(probe: dict) -> dict:
         "usable_signal": probe.get("usable_signal"),
         "clock_skew_ms": probe.get("clock_skew_ms"),
         "clock_skew_acceptable": probe.get("clock_skew_acceptable"),
+        "surface_reason": probe.get("surface_reason"),
+        "region_clamped_to_viewport": probe.get("region_clamped_to_viewport"),
+        "region_css": probe.get("region_css"),
+        "region_unclamped_css": probe.get("region_unclamped_css"),
         "no_damage_followed": probe.get("mechanism") == "forced_repaint",
     }
 
@@ -982,12 +986,20 @@ def c14_measured_sample(probe: dict) -> float:
             )
         usable = probe.get("usable_ms")
         if usable is None or isinstance(usable, bool):
-            raise ProbeRefusal("no DOM usability mark (page/block element never appeared with text)", facts=facts)
+            raise ProbeRefusal(
+                probe.get("surface_reason") or "no DOM usability mark (page/block element never appeared with text)",
+                facts=facts,
+            )
         return C14Sample(float(usable), C14_NO_DAMAGE_MEASURE)
-    _require_witness(probe, facts)
     usable = probe.get("usable_ms")
     if usable is None or isinstance(usable, bool):
-        raise ProbeRefusal("no DOM usability mark (page/block element never appeared with text)", facts=facts)
+        # The probe's own refusal is the fact; a null usable_ms is never a
+        # witness-record problem (#174).
+        raise ProbeRefusal(
+            probe.get("surface_reason") or "no DOM usability mark (page/block element never appeared with text)",
+            facts=facts,
+        )
+    _require_witness(probe, facts)
     presented = probe.get("presented_frame_ms")
     if presented is None or isinstance(presented, bool):
         raise ProbeRefusal("no compositor frame captured at or after first usable", facts=facts)
@@ -1942,6 +1954,10 @@ def _run_scale_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path:
                 "witness": payload.get("witness"),
                 "usable_signal": payload.get("usable_signal"),
                 "clock_skew_ms": payload.get("clock_skew_ms"),
+                "surface_reason": payload.get("surface_reason"),
+                "region_clamped_to_viewport": payload.get("region_clamped_to_viewport"),
+                "region_css": payload.get("region_css"),
+                "region_unclamped_css": payload.get("region_unclamped_css"),
                 "navigation_ms": payload.get("navigation_ms"),
                 "ready_ms": payload.get("ready_ms"),
                 "page_errors": payload.get("page_errors"),
