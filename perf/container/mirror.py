@@ -234,7 +234,9 @@ def _sync_job_to_bucket(client, bucket: str, run_prefix: str, rel: str, job_dir:
 def _bucket_sync_inner(campaign_root: Path, campaign_id: str, run_log: Path | None,
                        *, audit_all: bool, token: str | None) -> None:
     if not token:
-        _log_skip_once(run_log, 'BUCKET-SKIP no_token')
+        # The normal state (issue #164): the bucket is a volume mounted at
+        # /data and the verified HF_MIRROR_ROOT copy is the bucket write. No
+        # token belongs in the container, so its absence is not logged.
         return
     try:
         client = _bucket_client(token)
@@ -310,6 +312,25 @@ def mirror_root() -> Path | None:
             _SKIP_LOGGED.add(str(root))
         return None
     return root
+
+
+def _is_mount(path: Path) -> bool:
+    return os.path.ismount(path)
+
+
+def mirror_mount_status() -> str:
+    """'mounted' when HF_MIRROR_ROOT is writable and lies on a mounted
+    filesystem other than '/' (the bucket volume); else 'not_mounted' or
+    'not_writable'."""
+    root = mirror_root()
+    if root is None:
+        return 'not_writable'
+    for path in (root, *root.parents):
+        if str(path) == '/':
+            break
+        if _is_mount(path):
+            return 'mounted'
+    return 'not_mounted'
 
 
 def _append_run_log(run_log: Path | None, line: str) -> None:
@@ -419,7 +440,10 @@ def mirror_job_directory(
     else:
         dest = root / campaign_id / runner / job_id
         try:
-            mapping = _manifest_digest_map(job_dir)
+            # Generated data only: builds, dependency trees, fixtures and
+            # .docx files stay on the Space (the mirror root is the bucket).
+            mapping = {rel: digest for rel, digest in _manifest_digest_map(job_dir).items()
+                       if not bucket_excluded(rel)}
             for rel, digest in sorted(mapping.items()):
                 copy_file_verified(job_dir / rel, dest / rel, digest)
             for name in ('MANIFEST.sha256', 'JOB-DONE'):

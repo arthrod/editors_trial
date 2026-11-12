@@ -1,13 +1,13 @@
 """Call the existing host gate, retaining its refusal rather than bypassing it.
 
-A bucket copy is expected on a Hugging Face Space. Dev Mode ssh often does
-not export SPACE_ID or the Space secret, so both are read from PID 1's
-environment, the same fallback the mirror uses for the token. Set
-HF_BUCKET_REQUIRED=1 to demand a copy when SPACE_ID is unset. A value of
-0 does not waive the check once SPACE_ID is set: skipping it would let a
-campaign measure with no bucket copy.
+A bucket copy is expected on a Hugging Face Space: the Storage Bucket is
+attached as a volume at /data and every sealed job is copied, verified, to
+HF_MIRROR_ROOT (default /data/e2). No HF token belongs in the container
+(issue #164). Dev Mode ssh often does not export SPACE_ID, so it is also
+read from PID 1's environment. Set HF_BUCKET_REQUIRED=1 to demand the mount
+when SPACE_ID is unset. A value of 0 does not waive the check once SPACE_ID
+is set: skipping it would let a campaign measure with no bucket copy.
 """
-import importlib
 import json
 import os
 from pathlib import Path
@@ -37,42 +37,19 @@ def bucket_expected() -> bool:
     return os.environ.get('HF_BUCKET_REQUIRED') == '1'
 
 
-def _hub_version() -> str | None:
-    try:
-        module = importlib.import_module('huggingface_hub')
-    except ImportError:
-        return None
-    version = getattr(module, '__version__', None)
-    if isinstance(version, str) and version.strip():
-        return version.strip()
-    try:
-        return importlib.metadata.version('huggingface_hub')
-    except importlib.metadata.PackageNotFoundError:
-        return None
-
-
 def bucket_status() -> dict:
+    """The bucket copy is the verified HF_MIRROR_ROOT copy onto the Storage
+    Bucket attached to the Space as a volume (issue #164). No token is read
+    or required: none belongs in the container."""
     expected = bucket_expected()
-    version = _hub_version()
-    # Status word only. The token value is not stored on the report.
-    token = 'present' if mirror._bucket_token() else 'absent'
-    hub = version if version is not None else 'missing'
-    ready = version == mirror.HUGGINGFACE_HUB_VERSION and token == 'present'
-    blocking = []
-    if expected and not ready:
-        if version is None:
-            blocking.append('no_huggingface_hub')
-        elif version != mirror.HUGGINGFACE_HUB_VERSION:
-            blocking.append(
-                f'huggingface_hub_version {version} != {mirror.HUGGINGFACE_HUB_VERSION}'
-            )
-        if token == 'absent':
-            blocking.append('no_token')
+    mount = mirror.mirror_mount_status()
+    ready = mount == 'mounted'
+    blocking = ['no_bucket_mount'] if expected and not ready else []
     return {
         'expected': expected,
         'ready': ready,
-        'huggingface_hub': hub,
-        'token': token,
+        'mirror_root': os.environ.get('HF_MIRROR_ROOT', '/data/e2'),
+        'mount': mount,
         'blocking': blocking,
     }
 
