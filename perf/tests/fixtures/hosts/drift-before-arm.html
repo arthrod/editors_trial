@@ -13,21 +13,26 @@
     <div class="doc-paragraph" id="anchor">Beta anchor paragraph stays</div>
     <div class="doc-paragraph" id="tail">Gamma tail paragraph after</div>
     <script>
-      // gatherReflowBefore stores the census top and sets __c12BeforeSnapshot.
-      // The arm re-read happens a task later (a separate page.evaluate). Move
-      // the anchor +30 px the moment the snapshot appears: the drift lands
-      // between the two reads, so the armed baseline already holds the moved
-      // top -- exactly the SuperDoc prose signature (before 285 -> after 316,
-      // no recorded frame).
-      var drifted = false;
-      var timer = setInterval(function () {
-        if (!drifted && window.__c12BeforeSnapshot) {
-          drifted = true;
-          clearInterval(timer);
-          document.getElementById('anchor').style.marginTop = '30px';
+      // gatherReflowBefore stores the census top, then assigns
+      // __c12BeforeSnapshot, then returns that stored top. The arm re-read
+      // is a later page.evaluate. A timer can lose that gap, so the drift
+      // is the snapshot assignment itself: the returned census number stays
+      // the pre-drift top, and the arm re-read sees the margin.
+      Object.defineProperty(window, '__c12BeforeSnapshot', {
+        configurable: true,
+        set: function (value) {
+          var anchor = document.getElementById('anchor');
+          anchor.style.marginTop = '30px';
+          anchor.getBoundingClientRect();
           window.__driftAt = performance.now();
-        }
-      }, 0);
+          Object.defineProperty(window, '__c12BeforeSnapshot', {
+            configurable: true,
+            writable: true,
+            value: value,
+          });
+        },
+        get: function () { return undefined; },
+      });
       document.addEventListener('keydown', function (event) {
         if (event.key === 'x' || event.key === 'X') {
           event.preventDefault();

@@ -875,7 +875,8 @@ class RerenderHosts(unittest.TestCase):
             bd.c12_measured_sample(stale)
         self.assertIsNot(stale.get("moved"), True, stale)
         self.assertTrue(
-            "anchor_identity_ambiguous" in caught.exception.reason or "did not move down" in caught.exception.reason,
+            "anchor_identity_ambiguous" in caught.exception.reason
+            or "no post-Enter frame moved the anchor below the arm baseline" in caught.exception.reason,
             caught.exception.reason,
         )
 
