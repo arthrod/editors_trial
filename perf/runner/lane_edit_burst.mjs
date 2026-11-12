@@ -726,6 +726,12 @@ export function gatherReflowBefore({
         ok: false,
         reason: 'anchor paragraph is off the viewport; a y-shift could not be attributed',
         blocks: entries.length,
+        caretIndex,
+        anchorIndex,
+        caretText: String(caretEntry.text || '').slice(0, 80),
+        anchorText: String(anchor.text || '').slice(0, 80),
+        anchorTop: top,
+        viewportHeight: Number(window.innerHeight),
       };
     }
     let occurrence = 0;
@@ -763,6 +769,12 @@ export function gatherReflowBefore({
         ok: false,
         reason: 'anchor paragraph is off the viewport; a y-shift could not be attributed',
         blocks: entries.length,
+        caretIndex: forcedCaret,
+        anchorIndex,
+        caretText: String(caretEntry.text || '').slice(0, 80),
+        anchorText: String(anchor.text || '').slice(0, 80),
+        anchorTop: top,
+        viewportHeight: Number(window.innerHeight),
       };
     }
     let occurrence = 0;

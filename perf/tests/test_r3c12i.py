@@ -237,3 +237,46 @@ console.log(JSON.stringify({ reason: missing.reason, ok: matched.ok, caretIndex:
     assert "row-58" not in reason
     assert payload["ok"] is True
     assert payload["caretIndex"] == 0
+
+
+def test_viewport_refusal_keeps_the_placed_census(monkeypatch):
+    """A before-pass that finds the pair and then refuses (anchor off screen)
+    still records the census text. The probe return has to carry the placement
+    the caret step already resolved."""
+    probe = (REPO / "perf" / "runner" / "document_probe.mjs").read_text(encoding="utf-8")
+    start = probe.index("if (!before.ok)")
+    block = probe[start:probe.index("const frameDeadline", start)]
+    assert "caret_placement: bodyCaret" in block
+    assert "before," in block
+    lane = LANE.read_text(encoding="utf-8")
+    assert "anchorTop: top" in lane
+    assert "viewportHeight: Number(window.innerHeight)" in lane
+    # The placed caret records only the caret. The viewport refusal's `before`
+    # object carries the anchor in the page function's camelCase.
+    payload = {
+        "error": "anchor paragraph is off the viewport; a y-shift could not be attributed",
+        "caret_placement": {
+            "ok": True,
+            "caretIndex": 7,
+            "caretText": CORPUS_CARET,
+        },
+        "before": {
+            "ok": False,
+            "caretIndex": 7,
+            "anchorIndex": 12,
+            "caretText": CORPUS_CARET,
+            "anchorText": CORPUS_ANCHOR,
+            "anchorTop": 1307.890625,
+            "viewportHeight": 900,
+        },
+    }
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: _proc(stdout=json.dumps(payload)))
+    with pytest.raises(bd.ProbeRefusal) as caught:
+        bd._run_probe(["node", "probe"], editor_id="docxodus")
+    assert caught.value.refusal_code is None
+    assert caught.value.facts["caret_index"] == 7
+    assert caught.value.facts["anchor_index"] == 12
+    assert caught.value.facts["caret_text"] == CORPUS_CARET
+    assert caught.value.facts["anchor_text"] == CORPUS_ANCHOR
+    assert caught.value.facts["anchor_top"] == 1307.890625
+    assert caught.value.facts["viewport_height"] == 900

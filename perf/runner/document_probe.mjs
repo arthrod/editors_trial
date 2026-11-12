@@ -1538,6 +1538,8 @@ async function runReflow(browser) {
         navigation_ms: navigationMs,
         ready_ms: readyMs,
         error: before.reason,
+        caret_placement: bodyCaret || null,
+        before,
         forced_layout_ms: 0,
         layout_reads_during_window: 0,
         anchor_frames: 0,

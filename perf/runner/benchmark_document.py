@@ -756,12 +756,28 @@ def _c12_census_record(payload: dict) -> dict:
             return value
         return None
 
-    return {
-        "caret_index": first(before.get("caret_index"), placement.get("caretIndex")),
-        "anchor_index": first(before.get("anchor_index"), placement.get("anchorIndex")),
-        "caret_text": first(before.get("caret_paragraph_text"), placement.get("caretText")),
-        "anchor_text": first(before.get("anchor_text"), placement.get("anchorText")),
+    record = {
+        "caret_index": first(
+            before.get("caret_index"), before.get("caretIndex"), placement.get("caretIndex")
+        ),
+        "anchor_index": first(
+            before.get("anchor_index"), before.get("anchorIndex"), placement.get("anchorIndex")
+        ),
+        "caret_text": first(
+            before.get("caret_paragraph_text"), before.get("caretText"), placement.get("caretText")
+        ),
+        "anchor_text": first(
+            before.get("anchor_text"), before.get("anchorText"), placement.get("anchorText")
+        ),
     }
+    # A before-pass refusal (the anchor box is off the viewport) still names
+    # where that box was. A successful before snapshot stays as it was.
+    if before.get("ok") is False:
+        if before.get("anchorTop") is not None:
+            record["anchor_top"] = before.get("anchorTop")
+        if before.get("viewportHeight") is not None:
+            record["viewport_height"] = before.get("viewportHeight")
+    return record
 
 
 def c12_measured_sample(probe: dict) -> float:
