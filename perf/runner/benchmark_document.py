@@ -735,6 +735,7 @@ def c11_measured_samples(probe: dict) -> list:
 
 _C12_PROBE_REFUSAL_CODES = frozenset({
     "anchor_identity_ambiguous",
+    "recorded_frame_not_confirmed_anchor",
     "edit_not_observed",
     "caret_not_at_paragraph_start",
     RefusalCode.FIXTURE_PARAGRAPH_NOT_IN_CENSUS.value,

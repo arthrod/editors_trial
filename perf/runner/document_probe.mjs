@@ -77,6 +77,7 @@ import {
   ANCHOR_REFIND_CONTEXT_OK_PAGE_SRC,
   REFIND_ANCHOR,
   REFIND_ANCHOR_PAGE_SRC,
+  C12_ANCHOR_BY_TEXT_PAGE_SRC,
   C12_BLOCK_ENTRIES_PAGE_SRC,
   C12_BLOCK_TEXT_PAGE_SRC,
   C12_LOCATE_PAGE_SRC,
@@ -1550,30 +1551,31 @@ async function runReflow(browser) {
     while (ctx.recorder.frames.length === 0 && Date.now() < frameDeadline) await sleep(10);
     const baseline = ctx.recorder.frames.length ? ctx.recorder.frames[ctx.recorder.frames.length - 1] : null;
 
-    const inputMark = await ctx.page.evaluate((refindSrc) => {
+    const inputMark = await ctx.page.evaluate((findSrc) => {
       window.__c12InputMs = null;
+      window.__c12MovedAnchorEl = null;
       // The measured window opens at the Enter keydown and ends at the first
       // presented frame in which the anchor moved. The edit-confirmation poll
       // is a validity check AFTER the fact; its duration is never part of the
       // sample. Record the anchor's top once per rendered frame starting
-      // before Enter. A re-render that replaces the node (the duplicate-anchor
-      // host) leaves the remembered element disconnected; follow the same
-      // refind the shift poll used, or the log watches a dead box and misses
-      // the move. The recorder's own getBoundingClientRect, and a refind's
-      // census, are real work inside the window and are counted in
-      // __c12ProbeReadLog — the payload reports them instead of claiming the
-      // window was clean.
+      // before Enter. A re-render that replaces the node leaves the remembered
+      // element disconnected. Follow the new node by the anchor paragraph's
+      // own text (the fixture anchor string, or the painted text on a host
+      // that has none). Do not call REFIND_ANCHOR here: that census cannot
+      // resolve until the caret "x" exists, so the recorded move would be the
+      // text-commit time, and it reads every block's rect inside the window.
+      // The recorder's own getBoundingClientRect on the matched block is real
+      // work inside the window and is counted in __c12ProbeReadLog.
       window.__c12FrameLog = [];
       window.__c12FrameLogActive = true;
       window.__c12ProbeReadLog = [];
-      let refind = null;
+      let findByText = null;
       try {
         // eslint-disable-next-line no-eval
-        refind = (0, eval)(`(function(){ ${refindSrc}; return REFIND_ANCHOR; })()`);
+        findByText = (0, eval)(`(function(){ ${findSrc}; return c12AnchorElementByText; })()`);
       } catch {
-        refind = null;
+        findByText = null;
       }
-      const norm = (value) => String(value || '').replace(/\s+/g, ' ').trim();
       const liveAnchor = () => {
         const kept = window.__c12AnchorEl;
         const sel = window.__c12DocSel;
@@ -1587,13 +1589,13 @@ async function runReflow(browser) {
           kept.isConnected === true &&
           (typeof kept.matches !== 'function' || !sel || kept.matches(sel));
         if (stillListed) return kept;
-        if (typeof refind !== 'function') return null;
-        const found = refind(
-          window.__c12DocSel,
-          window.__c12AnchorText,
-          window.__c12AnchorTop,
-          norm,
-          null,
+        if (typeof findByText !== 'function') return null;
+        const anchorText = window.__c12FixtureAnchorText || window.__c12AnchorText;
+        const found = findByText(
+          window.__c12EditorId || '',
+          sel,
+          window.__c12ExcludeSel || '',
+          anchorText,
           window.__c12AnchorOccurrence,
         );
         if (found) window.__c12AnchorEl = found;
@@ -1613,7 +1615,11 @@ async function runReflow(browser) {
         const before = window.__c12AnchorTop;
         if (typeof before === 'number' && top > before + 0.5) {
           // First moved frame recorded; stop forcing further layout reads.
+          // Keep this node so the after-path can refuse a sample whose frame
+          // is not the anchor the census confirms.
+          window.__c12MovedAnchorEl = el;
           window.__c12FrameLogActive = false;
+          window.__c12ProbeReadLogClosed = true;
           return;
         }
         requestAnimationFrame(record);
@@ -1627,7 +1633,7 @@ async function runReflow(browser) {
         true,
       );
       return performance.now();
-    }, `${REFIND_ANCHOR_PAGE_SRC}`);
+    }, C12_ANCHOR_BY_TEXT_PAGE_SRC);
     // Stops the frame recorder and returns the layout accounting: every
     // getBoundingClientRect the probe caused since Enter, timestamped so the
     // report can bound them to the presented window when a frame exists.
@@ -1672,6 +1678,15 @@ async function runReflow(browser) {
       }, { start: startMs, bound: boundMs });
     await ctx.page.keyboard.press('Enter');
     await ctx.page.keyboard.type('x', { delay: 0 });
+    // Let the recorder's rAF see a move that the Enter keydown painted, and
+    // close the read log, before the confirm poll's census. The poll only
+    // needs the caret text; its rects are not part of the moved frame.
+    await ctx.page.evaluate(
+      () =>
+        new Promise((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(resolve));
+        }),
+    );
     const snapshot = await ctx.page.evaluate(() => window.__c12BeforeSnapshot || null);
     const editConfirmMs = Math.min(timeoutMs, 10_000);
     const editSeen = await waitForC12CaretEdit(
@@ -1952,11 +1967,14 @@ async function runReflow(browser) {
         let matchedBy = null;
         if (found && kept && found === kept) matchedBy = 'element';
         else if (found) matchedBy = 'text';
+        const movedEl = window.__c12MovedAnchorEl || null;
+        window.__c12ConfirmedAnchorEl = found || null;
         return {
           top: found ? found.getBoundingClientRect().top : null,
           block_count: document.querySelectorAll(docSel).length,
           matched_by: matchedBy,
           identity_ok: Boolean(found),
+          frame_tied: Boolean(found && movedEl && found === movedEl),
         };
       },
       {
@@ -2060,6 +2078,30 @@ async function runReflow(browser) {
         before,
         error: 'anchor_identity_ambiguous',
         identity_diagnostic: (endIdentity && endIdentity.identity_diagnostic) || null,
+        moved: false,
+        anchor_top_after: null,
+        anchor_after_top: null,
+        shift_px: null,
+        window_excludes_forced_layout: false,
+        forced_layout_ms: rec.read_ms,
+        layout_reads_during_window: rec.reads,
+        anchor_frames: rec.frames,
+        page_errors: ctx.errors,
+      };
+    }
+    // The after-path confirmed an anchor by the census and the K/count gates.
+    // The recorded frame has to be that same node. A text match that moved a
+    // different block is not a sample.
+    if (shift.moved && after.frame_tied !== true) {
+      const rec = await stopC12Recorder();
+      return {
+        mode: 'reflow',
+        driver: 'playwright',
+        url,
+        navigation_ms: navigationMs,
+        ready_ms: readyMs,
+        before,
+        error: 'recorded_frame_not_confirmed_anchor',
         moved: false,
         anchor_top_after: null,
         anchor_after_top: null,

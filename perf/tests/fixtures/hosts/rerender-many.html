@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>re-render replaces the anchor; many other blocks stay</title>
+    <style>
+      body { margin: 0; background: #fff; color: #111; font: 16px/28px sans-serif; }
+      .doc-paragraph { position: absolute; left: 24px; width: 520px; height: 28px; }
+    </style>
+  </head>
+  <body>
+    <div class="doc-paragraph" id="caret" contenteditable="true" style="top:20px">Alpha body paragraph here</div>
+    <div class="doc-paragraph" id="anchor" style="top:60px">Beta anchor paragraph stays</div>
+    <div class="doc-paragraph" id="tail" style="top:100px">Gamma tail paragraph after</div>
+    <script>
+      // Same Enter behavior as rerender.html. The extra blocks exist so a
+      // per-frame census (one rect per block) cannot hide inside a small
+      // constant of layout reads.
+      for (var i = 0; i < 40; i++) {
+        var filler = document.createElement('div');
+        filler.className = 'doc-paragraph';
+        filler.style.top = (160 + i * 28) + 'px';
+        filler.textContent = 'Filler block ' + i + ' not the anchor';
+        document.body.appendChild(filler);
+      }
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'x' || event.key === 'X') event.preventDefault();
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        var caret = document.getElementById('caret');
+        var anchor = document.getElementById('anchor');
+        var tail = document.getElementById('tail');
+        var next = tail.nextSibling;
+        caret.remove();
+        anchor.remove();
+        tail.remove();
+        function mk(id, top, text) {
+          var el = document.createElement('div');
+          el.className = 'doc-paragraph';
+          el.id = id;
+          el.style.top = top + 'px';
+          el.textContent = text;
+          document.body.insertBefore(el, next);
+          return el;
+        }
+        mk('caret', 20, 'Alpha body paragraph here');
+        mk('anchor', 480, 'Beta anchor paragraph stays');
+        mk('tail', 520, 'Gamma tail paragraph after');
+        window.__movedAt = performance.now();
+        setTimeout(function () {
+          document.getElementById('caret').textContent = 'xAlpha body paragraph here';
+          window.__textAt = performance.now();
+        }, 1600);
+      }, true);
+    </script>
+  </body>
+</html>

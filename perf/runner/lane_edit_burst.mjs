@@ -454,7 +454,12 @@ export function c12BlockEntries(editorId, docSel, excludeSel, readBlock) {
     const t0 = performance.now();
     const box = el.getBoundingClientRect();
     const log = globalThis.__c12ProbeReadLog;
-    if (Array.isArray(log)) log.push({ t: t0, ms: performance.now() - t0 });
+    // The frame recorder closes the log when it has the moved frame. A later
+    // census is the after-path; it must not be counted as a read inside the
+    // window, and it must not add one rect per block to that count.
+    if (Array.isArray(log) && globalThis.__c12ProbeReadLogClosed !== true) {
+      log.push({ t: t0, ms: performance.now() - t0 });
+    }
     return box;
   };
 
@@ -543,6 +548,62 @@ export function ANCHOR_REFIND_CONTEXT_OK(snapshot, blocks, readBlock) {
   return C12_RESOLVE_ANCHOR_INDEX(snapshot, texts, norm);
 }
 
+/**
+ * The anchor block whose text is the fixture anchor string, in census order.
+ * No getBoundingClientRect: the caller reads the matched block only. SuperDoc
+ * lines that share a paragraph id are one paragraph; a line with no id is its
+ * own paragraph, because grouping orphan lines needs their rects.
+ */
+export function c12AnchorElementByText(editorId, docSel, excludeSel, anchorText, occurrence) {
+  const normalize = (value) => {
+    const collapsed = String(value || '').replace(/\s+/g, ' ').trim();
+    return typeof collapsed.normalize === 'function' ? collapsed.normalize('NFC') : collapsed;
+  };
+  const want = normalize(anchorText);
+  if (!want || !docSel) return null;
+  const root = typeof document !== 'undefined' ? document : globalThis.document;
+  if (!root || typeof root.querySelectorAll !== 'function') return null;
+  const excluded = excludeSel ? Array.from(root.querySelectorAll(excludeSel)) : [];
+  const skip = (el) => excluded.some((node) => node === el || (node.contains && node.contains(el)));
+  const nodes = Array.from(root.querySelectorAll(docSel)).filter((el) => el && !skip(el));
+  const matches = [];
+  if (String(editorId || '') === 'superdoc') {
+    const groups = new Map();
+    const order = [];
+    for (const line of nodes) {
+      let pid = '';
+      if (typeof line.getAttribute === 'function') pid = line.getAttribute('data-paragraph-id') || '';
+      if (!pid && typeof line.closest === 'function') {
+        const holder = line.closest('[data-paragraph-id]');
+        if (holder && typeof holder.getAttribute === 'function') pid = holder.getAttribute('data-paragraph-id') || '';
+      }
+      if (!pid) {
+        const solo = `__line__:${order.length}`;
+        groups.set(solo, [line]);
+        order.push(solo);
+        continue;
+      }
+      if (!groups.has(pid)) {
+        groups.set(pid, []);
+        order.push(pid);
+      }
+      groups.get(pid).push(line);
+    }
+    for (const key of order) {
+      const grp = groups.get(key);
+      const text = normalize(grp.map((el) => (el && el.textContent) || '').join(' '));
+      if (text === want) matches.push(grp[0]);
+    }
+  } else {
+    for (const el of nodes) {
+      if (normalize(el.textContent == null ? '' : el.textContent) === want) matches.push(el);
+    }
+  }
+  const occ = Number(occurrence);
+  if (!Number.isFinite(occ) || occ < 1) return matches.length === 1 ? matches[0] : null;
+  return matches[occ - 1] || null;
+}
+
 /** Pick the anchor block at the resolved paragraph index after a DOM re-render. */
 export function REFIND_ANCHOR(
   docSel,
@@ -605,6 +666,9 @@ export const ANCHOR_REFIND_CONTEXT_OK_PAGE_SRC = `${C12_BLOCK_ENTRIES_PAGE_SRC};
 
 /** Both helpers eval'd together in the page (REFIND_ANCHOR calls ANCHOR_REFIND_CONTEXT_OK). */
 export const REFIND_ANCHOR_PAGE_SRC = `${ANCHOR_REFIND_CONTEXT_OK_PAGE_SRC};\n${toPageExport(REFIND_ANCHOR)}`;
+
+/** Text match only. The frame recorder must not eval the census with this. */
+export const C12_ANCHOR_BY_TEXT_PAGE_SRC = toPageExport(c12AnchorElementByText);
 
 export const C12_BODY_CARET_PAGE_SRC = `${C12_BLOCK_ENTRIES_PAGE_SRC};\n${C12_LOCATE_PAGE_SRC};\n${toPageExport(c12FirstBodyCaretIndex)};\n${toPageExport(c12BodyCaretClick)}`;
 
