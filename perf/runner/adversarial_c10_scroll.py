@@ -434,6 +434,11 @@ def _run_probe(
         cmd.extend(["--wait-after-ready", str(target["wait_after_ready"])])
     if scroll_container:
         cmd.extend(["--container-selector", scroll_container])
+    if target.get("editor_id"):
+        cmd.extend(["--editor", str(target["editor_id"])])
+    edit_selector = target.get("edit_selector") or ""
+    if edit_selector:
+        cmd.extend(["--edit-selector", edit_selector])
     from perf.runner.load_timeouts import load_timeout_env
 
     proc = subprocess.run(
@@ -759,6 +764,7 @@ def _main() -> int:
                 }
         else:
             target = dict(BROWSER_TARGETS[editor_id])
+            target["editor_id"] = editor_id
             try:
                 proc = _start_server(editor_id, target)
             except Exception as exc:

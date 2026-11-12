@@ -3443,37 +3443,53 @@ async function openEditorMode(page) {
  * requires an untouched document.
  */
 /**
- * How long the DOM may stay quiet after ready before 'still mounting' stops
- * being believed, and the outer bound on the usable wait itself. A surface
- * that never reports usable still reaches the suite's own refusals — the
- * wait never turns a refusal into a hang.
+ * Outer bound on the usable wait. A surface that never reports usable is a
+ * named refusal, not a hang and not a fall-through. PERF_USABLE_WAIT_MS
+ * (at least 500) overrides the bound for a test; production stays at 120 s.
  */
-const USABLE_QUIET_MS = 4000;
 const USABLE_WAIT_BOUND_MS = 120_000;
+
+function usableWaitBoundMs() {
+  const raw = Number(process.env.PERF_USABLE_WAIT_MS);
+  return Number.isFinite(raw) && raw >= 500 ? raw : USABLE_WAIT_BOUND_MS;
+}
 
 /**
  * The ready signal can fire on a loading shell while the document is still
  * mounting (SuperDoc's overlay hosts progress text the ink scan photographs
  * as painted lines; on a slow host the mount takes tens of seconds, #168).
- * Click points resolved then aim at loading chrome or at line boxes that
- * pagination moves. Wait for the surface's declared usable signal — or for
- * the DOM to go quiet — before resolving.
+ * Returns null when `usableJs` is true. The expression is the existing
+ * per-editor ready policy from usableExpression: every editor already has
+ * one, and a quiet DOM is not a substitute for it. At the bound, returns
+ * the named refusal `usable_signal_not_observed` and does not fall through.
+ * The observer is disconnected on every return.
  */
 export async function waitForUsableSurface(page, usableJs) {
-  if (!usableJs) return;
+  const disconnect = async () => {
+    if (!page || typeof page.evaluate !== 'function') return;
+    await page.evaluate(() => {
+      const state = window.__ciUsableWait;
+      if (state && state.observer && typeof state.observer.disconnect === 'function') {
+        state.observer.disconnect();
+      }
+    }).catch(() => {});
+  };
+  if (!usableJs) return 'usable_signal_not_observed';
   await page.evaluate(() => {
-    const state = { lastMutation: performance.now() };
+    const state = { lastMutation: performance.now(), observer: null };
     window.__ciUsableWait = state;
-    new MutationObserver(() => {
+    const observer = new MutationObserver(() => {
       state.lastMutation = performance.now();
-    }).observe(document.documentElement || document, {
+    });
+    state.observer = observer;
+    observer.observe(document.documentElement || document, {
       subtree: true,
       childList: true,
       characterData: true,
       attributes: true,
     });
   });
-  const deadline = Date.now() + USABLE_WAIT_BOUND_MS;
+  const deadline = Date.now() + usableWaitBoundMs();
   while (Date.now() < deadline) {
     const usable = await page.evaluate((code) => {
       try {
@@ -3482,15 +3498,21 @@ export async function waitForUsableSurface(page, usableJs) {
         return false;
       }
     }, usableJs);
-    if (usable) return;
-    const quiet = await page.evaluate(
-      (quietMs) =>
-        performance.now() - ((window.__ciUsableWait || {}).lastMutation || 0) >= quietMs,
-      USABLE_QUIET_MS,
-    );
-    if (quiet) return;
-    await page.waitForTimeout(250);
+    if (usable) {
+      await disconnect();
+      return null;
+    }
+    if (typeof page.waitForTimeout === 'function') await page.waitForTimeout(250);
+    else await new Promise((resolve) => setTimeout(resolve, 250));
   }
+  await disconnect();
+  return 'usable_signal_not_observed';
+}
+
+function namedUsableRefusal(reason) {
+  const error = new Error(reason);
+  error.namedRefusal = reason;
+  return error;
 }
 
 async function prepareChromeForEditing(page, editSelector, surfaceSpec = null) {
@@ -3696,6 +3718,9 @@ export async function runCriteriaSuite({
     try {
       return await run();
     } catch (error) {
+      if (error && error.namedRefusal) {
+        return emptyEntry(criterionId, 'failed', error.namedRefusal);
+      }
       // @suite-phase classify_criterion
       const reason = await classifySuiteError(page, error, pageLoss);
       return emptyEntry(criterionId, 'failed', reason);
@@ -3777,9 +3802,13 @@ export async function runCriteriaSuite({
         : resolveInkClickPoints(page, pointContext);
     // A ready signal that fired on the loading shell leaves the document
     // mounting while the ink scan photographs the overlay as painted lines
-    // (#168): wait for the surface's own usable signal, or a quiet DOM,
-    // before the ONE point routine resolves.
-    await waitForUsableSurface(page, usableExpression(editorId, activeSelector));
+    // (#168). The exit is that editor's usableExpression, the existing
+    // ready policy. Nothing here exits because the DOM went quiet.
+    const usableRefusal = await waitForUsableSurface(
+      page,
+      usableExpression(editorId, activeSelector),
+    );
+    if (usableRefusal) throw namedUsableRefusal(usableRefusal);
     // @suite-phase after_c04
     const resolvedPoints = await resolveSuitePoints();
     points = { ...points, ...resolvedPoints };
@@ -3922,10 +3951,11 @@ export async function runCriteriaSuite({
                           // A reload re-enters the loading shell: the usable
                           // wait holds the click until the document mounts
                           // again, the same race the first resolve has (#168).
-                          await waitForUsableSurface(
+                          const again = await waitForUsableSurface(
                             page,
                             usableExpression(editorId, activeSelector),
                           );
+                          if (again) throw namedUsableRefusal(again);
                           if (domAdapter(adapter)) {
                             // @suite-phase prepare_chrome
                             const chrome = await prepareChromeForEditing(
@@ -4025,7 +4055,9 @@ export async function runCriteriaSuite({
     }
   } catch (error) {
     // @suite-phase classify_suite
-    const reason = await classifySuiteError(page, error, pageLoss);
+    const reason = error && error.namedRefusal
+      ? error.namedRefusal
+      : await classifySuiteError(page, error, pageLoss);
     for (const id of criteria) {
       if (!entries[id]) {
         entries[id] = emptyEntry(id, 'failed', reason);

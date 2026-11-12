@@ -8,15 +8,15 @@ read returns ``""``, so the pair refuses ``document_content_absent`` on
 every arm even though the document mounts seconds later (local 250kw run).
 
 The same mount race the caret and ink-scan fixes cover; the gate just sits
-one layer earlier: wait for the surface's usable signal (or a quiet DOM)
-before the one-shot read.
+one layer earlier: wait until the surface's usable expression is true
+before the one-shot read. A quiet DOM is not that expression.
 
 The fake host ``e2_superdoc_latemount.html`` paints overlay text under the
 ready selector at once and mounts ``.superdoc-page`` lines ~4 s later.
 
 A1  a document still mounting is **verified**, not refused absent.
-A2  a document that never mounts still refuses ``document_content_absent``
-    — the wait is bounded and falls through to the gate's own verdict.
+A2  a document that never becomes usable refuses ``usable_signal_not_observed``.
+    The wait does not fall through to a content-gate verdict.
 
 The browser tests drive headless Chromium through node and the Playwright the
 harness pins. They skip when node or that browser is missing.
@@ -25,6 +25,7 @@ harness pins. They skip when node or that browser is missing.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -101,7 +102,7 @@ class ContentGateMountTests(unittest.TestCase):
     def tearDownClass(cls):
         _FakeHost.stop()
 
-    def probe(self, page: str) -> dict:
+    def probe(self, page: str, *, env=None) -> dict:
         cmd = [
             _node(),
             str(PROBE),
@@ -127,7 +128,12 @@ class ContentGateMountTests(unittest.TestCase):
             "fixture line one alpha bravo charlie delta echo foxtrot golf",
         ]
         proc = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=TIMEOUT_S, cwd=str(UI)
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=TIMEOUT_S,
+            cwd=str(UI),
+            env={**os.environ, **(env or {})},
         )
         self.assertEqual(
             proc.returncode,
@@ -154,16 +160,19 @@ class ContentGateMountTests(unittest.TestCase):
     # -- A2 --------------------------------------------------------------
 
     def test_a_never_mounting_document_still_refuses_absent(self):
-        payload = self.probe("e2_superdoc_latemount.html?never=1")
+        payload = self.probe(
+            "e2_superdoc_latemount.html?never=1",
+            env={"PERF_USABLE_WAIT_MS": "1500"},
+        )
         for arm in ("cold", "warm"):
             check = ((payload.get("pairs") or [{}])[0].get(arm) or {}).get(
                 "content_check"
             ) or {}
             self.assertEqual(
                 check.get("surface_reason"),
-                "document_content_absent",
-                "%s arm: a document that never mounts still refuses "
-                "document_content_absent: %r" % (arm, check),
+                "usable_signal_not_observed",
+                "%s arm: a document that never becomes usable must refuse "
+                "usable_signal_not_observed: %r" % (arm, check),
             )
 
 

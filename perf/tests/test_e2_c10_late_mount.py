@@ -12,8 +12,9 @@ the slow box: the ready flag is true immediately, the document's paragraphs
 mount progressively for seconds afterwards, and only then does the page have
 a scroll container that holds document text.
 
-A1  a document still mounting is **measured**, not refused: the probe waits
-    out the mount instead of scanning the loading shell (``latemount.html``).
+A1  late content that arrives after the first scroller, and after more than
+    4 s of a static shell, is in the measured sample, or the sample is a
+    named refusal (``latemount.html``).
 A2  a document that truly cannot scroll still refuses: the wait does not turn
     ``fits.html`` into a measurement, it only delays the verdict.
 
@@ -24,6 +25,7 @@ harness pins. They skip when node or that browser is missing.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -115,8 +117,12 @@ class LateMountScrollTests(unittest.TestCase):
             "1",
             *[str(value) for value in extra],
         ]
+        env = os.environ.copy()
+        # The mount wait's deadline is the load bound. A host that never
+        # scrolls must still refuse inside this test, not after 300 s.
+        env["PERF_LOAD_TIMEOUT_MS"] = "20000"
         proc = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=TIMEOUT_S, cwd=str(REPO)
+            cmd, capture_output=True, text=True, timeout=TIMEOUT_S, cwd=str(REPO), env=env,
         )
         self.assertEqual(
             proc.returncode,
@@ -128,22 +134,30 @@ class LateMountScrollTests(unittest.TestCase):
 
     # -- A1 --------------------------------------------------------------
 
-    def test_a_document_still_mounting_is_measured_not_refused(self):
-        payload = self.probe("latemount.html")
-        self.assertEqual(
-            payload.get("outcome"),
-            "measured",
-            "a document still mounting must be measured once it mounts: %r" % (payload,),
+    def test_late_content_after_the_scroller_is_included_or_refused(self):
+        """A scroller is present immediately. The sentinel arrives only after
+        5 s of a static shell, together with the usable flag. Measuring the
+        partial document is not success."""
+        payload = self.probe(
+            "latemount.html?shell=5000",
+            extra=("--usable-js", "window.__docxUsable===true"),
         )
         samples = payload.get("samples") or []
-        self.assertTrue(samples, "the probe must report the sample it measured")
+        texts = []
         for sample in samples:
-            self.assertEqual(sample.get("outcome"), "measured", "%r" % (sample,))
-            self.assertGreater(
-                sample.get("scroll_top_delta") or 0,
-                0,
-                "the container must have moved: %r" % (sample,),
-            )
+            content = sample.get("content") or {}
+            texts.append(str(content.get("visible_text_before") or ""))
+            texts.append(str(content.get("visible_text_after") or ""))
+        included = "LATE_CHUNK_SENTINEL" in "\n".join(texts)
+        reason = str(payload.get("reason") or "")
+        refused = payload.get("outcome") != "measured" and (
+            "usable_signal_not_observed" in reason or "document_still_mounting" in reason
+        )
+        self.assertTrue(
+            included or refused,
+            "late content after the first scroller must be in the sample or "
+            "the sample must be a named refusal: %r" % (payload,),
+        )
 
     # -- A2 --------------------------------------------------------------
 

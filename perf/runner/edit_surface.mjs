@@ -267,10 +267,11 @@ export async function readAndGateDocumentText(
 }
 
 /** Page context. First body text line fully inside the viewport.
- * `within`, when set, is the surface's declared paragraph block: a caret
- * line lives inside it, so loading chrome painted elsewhere under the root
- * (SuperDoc's v2-document-loading-overlay inside .superdoc__document, #168)
- * cannot pose as a body line. */
+ * `within`, when set, is SuperDoc's paragraph block. Only SuperDoc passes
+ * it: loading chrome under the caret root and outside `.superdoc-line`
+ * (the v2-document-loading-overlay, #168) must not pose as a body line.
+ * Folio does not pass it. At 35cd669b this function had no `within`, and
+ * Folio's `[data-block-id]` would drop page furniture that line included. */
 export const FIND_TEXT_LINE = ({ root, exclude, within = null, minChars }) => {
   const roots = root ? Array.from(document.querySelectorAll(root)) : [];
   for (const el of roots) {
@@ -400,7 +401,15 @@ export async function readModifiedFlag(page, editorId) {
   return page.evaluate(READ_MODIFIED_FLAG, surface.flag);
 }
 
-/** The JS expression a load observer evaluates to stamp "first usable". */
+/**
+ * The JS expression a load observer evaluates to stamp "first usable".
+ *
+ * This per-editor expression is the existing ready policy. A model editor
+ * is its model state, a flag editor is its host flag, and an editor that
+ * declares `surface.usable` uses that. Everyone else is the edit root
+ * itself being contenteditable with a non-zero height. Callers wait for
+ * this expression. A quiet DOM is not a substitute for a missing one.
+ */
 export function usableExpression(editorId, selector) {
   const surface = editSurface(editorId);
   const sel = JSON.stringify(selector || surface.root || '');
@@ -698,6 +707,12 @@ export const READ_SUPERDOC_TYPING_TEXT = async () => {
   }
 };
 
+/** SuperDoc is the only editor that passes `within` to FIND_TEXT_LINE. */
+function textLineWithin(editorId, surface) {
+  if (editorId !== 'superdoc') return null;
+  return surface.block || null;
+}
+
 export async function prepareEditSurface(page, editorId, { timeoutMs = 600000, textLineTimeoutMs = null } = {}) {
   const surface = editSurface(editorId);
   const enter = surface.enter;
@@ -720,7 +735,7 @@ export async function prepareEditSurface(page, editorId, { timeoutMs = 600000, t
   // A zero-text document never gains a text line: a 0 timeout skips the wait.
   let textLine = null;
   if (surface.kind === 'dom' && surface.root && textLineTimeoutMs !== 0) {
-    const request = { root: surface.root, exclude: surface.exclude || null, within: surface.block || null, minChars: 12 };
+    const request = { root: surface.root, exclude: surface.exclude || null, within: textLineWithin(editorId, surface), minChars: 12 };
     try {
       await page.waitForFunction(FIND_TEXT_LINE, request, {
         timeout: textLineTimeoutMs === null ? timeoutMs : textLineTimeoutMs, polling: 100,
@@ -847,7 +862,7 @@ export async function placeCaret(
     point = await page.evaluate(FIND_TEXT_LINE, {
       root: surface.root || selector,
       exclude: surface.exclude || null,
-      within: surface.block || null,
+      within: textLineWithin(editorId, surface),
       minChars: 12,
     });
     if (!point) throw new Error('edit_surface_no_text_line');

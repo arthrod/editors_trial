@@ -27,6 +27,7 @@ harness pins. They skip when node or that browser is missing.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -103,7 +104,7 @@ class LateMountInputTests(unittest.TestCase):
     def tearDownClass(cls):
         _FakeHost.stop()
 
-    def probe(self, page: str, *, extra=()) -> dict:
+    def probe(self, page: str, *, extra=(), env=None) -> dict:
         cmd = [
             _node(),
             str(PROBE),
@@ -126,7 +127,12 @@ class LateMountInputTests(unittest.TestCase):
             *[str(value) for value in extra],
         ]
         proc = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=TIMEOUT_S, cwd=str(UI)
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=TIMEOUT_S,
+            cwd=str(UI),
+            env={**os.environ, **(env or {})},
         )
         self.assertEqual(
             proc.returncode,
@@ -150,16 +156,21 @@ class LateMountInputTests(unittest.TestCase):
     # -- A2 --------------------------------------------------------------
 
     def test_a_never_usable_host_still_finishes_with_its_own_refusal(self):
-        payload = self.probe("e2_superdoc_latemount.html?never=1")
+        payload = self.probe(
+            "e2_superdoc_latemount.html?never=1",
+            env={"PERF_USABLE_WAIT_MS": "1500"},
+        )
         c07 = (payload.get("criteria") or {}).get("C07") or {}
         self.assertNotEqual(
             c07.get("outcome"),
             "measured",
             "a host that never mounts the document must not be measured: %r" % (payload,),
         )
-        self.assertTrue(
-            c07.get("failure_reason") or c07.get("refusal") or c07.get("outcome"),
-            "the run must still produce its refusal, not hang: %r" % (c07,),
+        self.assertEqual(
+            c07.get("failure_reason"),
+            "usable_signal_not_observed",
+            "the bound must refuse usable_signal_not_observed, not fall "
+            "through: %r" % (c07,),
         )
 
 

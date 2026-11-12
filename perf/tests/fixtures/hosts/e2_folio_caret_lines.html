@@ -1,0 +1,17 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>E2 folio caret lines</title>
+<!-- Page furniture sits in the caret root and outside [data-block-id].
+     At 35cd669b FIND_TEXT_LINE had no `within` and returned this furniture
+     line. Passing Folio's block selector drops it. -->
+<style>
+  body { margin: 0; }
+  .layout-page-content { width: 800px; padding: 24px; }
+  .furniture, [data-block-id] { font: 16px/22px sans-serif; }
+</style>
+<div class="layout-page-content">
+  <div data-page-number="1">
+    <div class="furniture">PAGE FURNITURE LINE THAT IS LONG ENOUGH TO MATCH FIRST</div>
+    <div data-block-id="b1"><span>Real body paragraph that should be the caret line</span></div>
+  </div>
+</div>

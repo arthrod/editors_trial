@@ -59,6 +59,7 @@ import {
 } from './witness.mjs';
 import { startChromeTrace, stopChromeTrace } from './chrome_trace.mjs';
 import { loadTimeoutMs } from './load_timeout.mjs';
+import { usableExpression } from './edit_surface.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -86,17 +87,27 @@ const readyText = opt['ready-text'] || '';
 const pairs = Math.max(1, Number(opt.pairs || 3));
 const waitAfterReadyMs = Number(opt['wait-after-ready'] || 0);
 /**
- * How long the DOM may stay quiet after the ready signal before the probe
- * believes 'no scroll container' means 'the document cannot scroll'. A ready
- * signal can fire on a host's loading shell while the document is still
- * mounting (SuperDoc paints a loading overlay inside the element the
- * selector names; on a slow host the mount takes tens of seconds, #168), and
- * a discovery that scans then cannot tell 'no scroller yet' from 'no
- * scroller ever'. The wait ends as soon as the discovery chooses a scroller,
- * or once the DOM has been quiet this long, bounded by contentWaitMs.
+ * After the editor's usable expression is true and a scroller has been
+ * chosen, the DOM must then be quiet this long. The deadline is loadTimeout
+ * (loadTimeoutMs), not a separate contentWaitMs. A quiet DOM before the
+ * usable expression is true is not mounted. At the load bound the wait
+ * refuses with a named reason and does not fall through.
+ *
+ * The quiet clock watches child and text mutations. Attribute chatter (a
+ * blinking shell's style) is not the document still mounting; counting it
+ * would hold the load bound open for a host whose text is already stable.
  */
-const contentQuietMs = Math.max(500, Number(opt['content-quiet-ms'] || 4000));
+const MOUNT_QUIET_AFTER_SCROLLER_MS = 1000;
+/** Fake hosts have no usable expression. This is how long their DOM must stay
+ * quiet with no scroller before the document-fits refusal, the same pause the
+ * probe used before #168. It is not an exit for an editor. */
+const FAKE_HOST_FITS_QUIET_MS = 4000;
 const contentPollMs = 300;
+const editorId = typeof opt.editor === 'string' ? opt.editor : '';
+const editSelector = typeof opt['edit-selector'] === 'string' ? opt['edit-selector'] : '';
+const usableJs =
+  (typeof opt['usable-js'] === 'string' && opt['usable-js']) ||
+  (editorId ? usableExpression(editorId, editSelector) : '');
 /** How far the probe scrolls, in CSS pixels: a scrollTop jump of one step. */
 const scrollStep = Math.max(1, Number(opt['scroll-step'] || 600));
 /** The witness window. The plan asks for at least 500 ms. */
@@ -625,43 +636,106 @@ async function waitForReady(page) {
     await page.waitForSelector(readySelector, { timeout: loadTimeout, state: 'visible' });
   }
   if (waitAfterReadyMs > 0) await page.waitForTimeout(waitAfterReadyMs);
-  await waitForMountedDocument(page);
+  return waitForMountedDocument(page);
 }
 
 /**
- * Wait out the mount window: poll the scroll discovery until it chooses a
- * scroller, or until the DOM has been quiet for contentQuietMs, or the load
- * bound expires. A page that never gets a scroller still reaches
- * `oneSample`'s discovery and refuses there for the same reason it always
- * did; the wait only keeps 'scanned mid-mount' from being that verdict.
+ * Mounted means the usable expression is true (when this run has one), a
+ * scroller has been chosen, and the DOM has then been quiet for
+ * MOUNT_QUIET_AFTER_SCROLLER_MS. The expression is the existing per-editor
+ * ready policy (usableExpression); a fake host passes none and is not an
+ * editor. Returns null when mounted, a string named refusal, or
+ * `{outcome, reason}` when the load bound expires with no scroller (the
+ * discovery's own reason, so a document that fits still says so).
  */
 async function waitForMountedDocument(page) {
   await page.evaluate(() => {
-    const state = { lastMutation: performance.now() };
+    const state = { lastMutation: performance.now(), observer: null };
     window.__c10docMount = state;
-    new MutationObserver(() => {
-      state.lastMutation = performance.now();
-    }).observe(document.documentElement || document, {
+    const observer = new MutationObserver((records) => {
+      for (let i = 0; i < records.length; i++) {
+        const record = records[i];
+        if (record.type === 'childList' || record.type === 'characterData') {
+          state.lastMutation = performance.now();
+          return;
+        }
+      }
+    });
+    state.observer = observer;
+    observer.observe(document.documentElement || document, {
       subtree: true,
       childList: true,
       characterData: true,
-      attributes: true,
     });
   });
-  const deadline = Date.now() + loadTimeout;
-  while (Date.now() < deadline) {
+  const disconnect = () =>
+    page.evaluate(() => {
+      const state = window.__c10docMount;
+      if (state && state.observer && typeof state.observer.disconnect === 'function') {
+        state.observer.disconnect();
+      }
+    }).catch(() => {});
+  const usableNow = async () => {
+    if (!usableJs) return true;
+    return page.evaluate((code) => {
+      try {
+        return Boolean(eval(code)); // eslint-disable-line no-eval
+      } catch {
+        return false;
+      }
+    }, usableJs);
+  };
+  try {
+    const deadline = Date.now() + loadTimeout;
+    let chosenAt = null;
+    while (Date.now() < deadline) {
+      const usable = await usableNow();
+      const discovery = await page.evaluate(pageScrollCommand, {
+        op: 'discover',
+        container: containerOverride,
+      });
+      const chosen = Boolean(discovery && discovery.chosen_index >= 0);
+      if (!usable || !chosen) {
+        chosenAt = null;
+      } else if (chosenAt == null) {
+        chosenAt = await page.evaluate(() => performance.now());
+      }
+      // A fake host has no editor and no usable expression. Once its DOM has
+      // been quiet and discovery still has no scroller, the document fits:
+      // oneSample's own "no scroll container" refusal is the verdict. A real
+      // editor cannot take this exit; its usable expression is still false
+      // on the loading shell, so the wait holds until that expression or the
+      // load bound.
+      if (!usableJs && !chosen) {
+        const shellQuiet = await page.evaluate((quietMs) => {
+          const last = (window.__c10docMount || {}).lastMutation || 0;
+          return performance.now() - last >= quietMs;
+        }, FAKE_HOST_FITS_QUIET_MS);
+        if (shellQuiet) return null;
+      }
+      if (usable && chosen && chosenAt != null) {
+        const quiet = await page.evaluate(
+          ({ since, quietMs }) => {
+            const last = (window.__c10docMount || {}).lastMutation || 0;
+            return performance.now() - Math.max(since, last) >= quietMs;
+          },
+          { since: chosenAt, quietMs: MOUNT_QUIET_AFTER_SCROLLER_MS },
+        );
+        if (quiet) return null;
+      }
+      await page.waitForTimeout(contentPollMs);
+    }
+    if (usableJs && !(await usableNow())) return 'usable_signal_not_observed';
     const discovery = await page.evaluate(pageScrollCommand, {
       op: 'discover',
       container: containerOverride,
     });
-    if (discovery && discovery.chosen_index >= 0) return;
-    const quiet = await page.evaluate(
-      (quietMs) =>
-        performance.now() - ((window.__c10docMount || {}).lastMutation || 0) >= quietMs,
-      contentQuietMs,
-    );
-    if (quiet) return;
-    await page.waitForTimeout(contentPollMs);
+    if (!discovery || !(discovery.chosen_index >= 0)) {
+      return { outcome: 'not_applicable', reason: noContainerReason(discovery || {}) };
+    }
+    return 'document_still_mounting';
+  } finally {
+    await disconnect();
   }
 }
 
@@ -901,9 +975,25 @@ try {
       const page = await context.newPage();
       const trace = await startChromeTrace(browser, page, 'C10');
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: loadTimeout });
-      await waitForReady(page);
-      const sample = await oneSample(context, page);
-      samples.push({ sample_index: i, ...sample });
+      const mountRefusal = await waitForReady(page);
+      if (mountRefusal) {
+        const named = typeof mountRefusal === 'string';
+        samples.push({
+          sample_index: i,
+          outcome: named ? 'failed' : mountRefusal.outcome,
+          reason: named ? mountRefusal : mountRefusal.reason,
+          clock_skew: null,
+          witness: null,
+          container: null,
+          scroll_top_before: null,
+          scroll_top_after: null,
+          scroll_top_delta: null,
+          scroll_frame_ms: null,
+        });
+      } else {
+        const sample = await oneSample(context, page);
+        samples.push({ sample_index: i, ...sample });
+      }
       await stopChromeTrace(browser, trace);
       await context.close().catch(() => {});
     } finally {

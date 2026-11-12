@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>B5 fake host: ready signal before the document mounts</title>
+    <title>B5 fake host: scroller first, late content after a static shell</title>
     <style>
       html,
       body {
@@ -25,31 +25,31 @@
     </style>
   </head>
   <body>
-    <!-- The ready flag is true at once, like SuperDoc's loading shell: the
-         document then mounts progressively over the next seconds. A scroll
-         probe that scans on the ready signal alone sees an empty page. -->
-    <div id="doc"><p>Loading document</p></div>
-    <script src="/corpus.js"></script>
+    <!-- A scroller exists immediately (the partial document). The DOM then
+         stays static for `shell` ms (default 5 s, past the old 4 s quiet
+         exit). Only then does the late sentinel arrive and the usable flag
+         become true. A probe that returns on the first scroller, or on 4 s
+         of quiet, measures without LATE_CHUNK_SENTINEL. -->
+    <div id="doc"></div>
     <script>
       window.__docxReady = true;
-      window.__b5.paragraphs().then(function (all) {
-        const doc = document.getElementById('doc');
-        doc.textContent = '';
-        const chunks = 6;
-        const size = Math.ceil(all.length / chunks);
-        let at = 0;
-        const mount = function () {
-          const part = all.slice(at, at + size);
-          for (const text of part) {
-            const paragraph = document.createElement('p');
-            paragraph.textContent = text;
-            doc.appendChild(paragraph);
-          }
-          at += size;
-          if (at < all.length) setTimeout(mount, 700);
-        };
-        setTimeout(mount, 2500);
-      });
+      window.__docxUsable = false;
+      var doc = document.getElementById('doc');
+      for (var i = 0; i < 80; i++) {
+        var paragraph = document.createElement('p');
+        paragraph.textContent =
+          'partial mount paragraph ' + i + ' alpha beta gamma delta epsilon zeta';
+        doc.appendChild(paragraph);
+      }
+      var shellMs = Number(new URLSearchParams(location.search).get('shell') || '5000');
+      setTimeout(function () {
+        var sentinel = document.createElement('p');
+        sentinel.id = 'late-sentinel';
+        sentinel.textContent =
+          'LATE_CHUNK_SENTINEL finishes the mounted document with enough characters';
+        doc.insertBefore(sentinel, doc.firstChild);
+        window.__docxUsable = true;
+      }, shellMs);
     </script>
   </body>
 </html>

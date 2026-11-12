@@ -79,11 +79,18 @@ class FindTextLineGateTests(unittest.TestCase):
     def tearDownClass(cls):
         _FakeHost.stop()
 
-    def probe(self, query: str, *, editor: str = "superdoc", timeout_ms: int = 2500) -> dict:
+    def probe(
+        self,
+        query: str,
+        *,
+        editor: str = "superdoc",
+        timeout_ms: int = 2500,
+        page: str = "e2_superdoc_loading.html",
+    ) -> dict:
         cmd = [
             _node(),
             str(PROBE),
-            "%s/e2_superdoc_loading.html%s" % (self.base, query),
+            "%s/%s%s" % (self.base, page, query),
             editor,
             str(timeout_ms),
         ]
@@ -126,6 +133,20 @@ class FindTextLineGateTests(unittest.TestCase):
         self.assertTrue(
             str(point.get("line") or "").startswith("The quick brown fox"),
             "expected a painted body line, got %s" % payload["place"],
+        )
+
+    def test_folio_caret_line_matches_the_pre_within_line(self):
+        """Folio must not pass FIND_TEXT_LINE ``within``.
+
+        At 35cd669b the caret line was the first viewport line under the
+        root. Page furniture outside ``[data-block-id]`` was that line.
+        SuperDoc still passes ``within``; Folio does not.
+        """
+        payload = self.probe("", editor="folio", page="e2_folio_caret_lines.html")
+        point = payload["place"].get("point") or {}
+        self.assertTrue(
+            str(point.get("line") or "").startswith("PAGE FURNITURE"),
+            "Folio's caret line must be the pre-within line, got %s" % payload,
         )
 
     def test_overlay_beside_painted_lines_still_picks_the_line(self):

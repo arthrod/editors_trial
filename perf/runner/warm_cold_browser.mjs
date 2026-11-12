@@ -240,9 +240,18 @@ async function verifyCanvasOpening(page) {
     return { content_verified: false, surface_reason: 'document_content_unverifiable', skipped: false };
   }
   // A ready signal that fired on the loading shell leaves the document
-  // mounting while this one-shot read runs: text '' gates as
-  // document_content_absent on an editor that mounts seconds later (#168).
-  await waitForUsableSurface(page, usableExpression(editorId, editSelector));
+  // mounting while this one-shot read runs (#168). The same rule as the
+  // input suite: return only when this editor's usableExpression is true.
+  // At the bound the named refusal is the content refusal. Do not fall
+  // through to a gate verdict on a document that never became usable.
+  const usableRefusal = await waitForUsableSurface(page, usableExpression(editorId, editSelector));
+  if (usableRefusal) {
+    return {
+      content_verified: false,
+      surface_reason: usableRefusal,
+      skipped: false,
+    };
+  }
   const gated = await readAndGateDocumentText(page, editorId, {
     expectedOpening: expectedOpeningText,
     expectedClosing: expectedClosingSentinel,
