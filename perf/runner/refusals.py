@@ -49,6 +49,8 @@ class RefusalCode(StrEnum):
     SURFACE_NOT_DOM_EDITABLE = 'surface_not_dom_editable'
     CLICK_POINTS_UNAVAILABLE = 'click_points_unavailable'
     ANCHOR_IDENTITY_AMBIGUOUS = 'anchor_identity_ambiguous'
+    EDIT_NOT_OBSERVED = 'edit_not_observed'
+    CARET_NOT_AT_PARAGRAPH_START = 'caret_not_at_paragraph_start'
 
 
 RUN_REFUSALS = frozenset({

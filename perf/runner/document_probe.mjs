@@ -1684,7 +1684,7 @@ async function runReflow(browser) {
             /* keep default */
           }
           const snap = window.__c12BeforeSnapshot;
-          if (!snap || !docSel) return { ok: false, reason: 'anchor_identity_ambiguous' };
+          if (!snap || !docSel) return { ok: false, reason: 'anchor_identity_ambiguous', keys_landed_elsewhere: false };
           let check = null;
           let collect = null;
           try {
@@ -1705,6 +1705,11 @@ async function runReflow(browser) {
           const entries = collect(eid, docSel, excl || '', readBlock);
           const blocks = entries.map((entry) => entry.el);
           const verdict = check(snap, blocks, readBlock);
+          const beforeTexts = Array.isArray(snap.blockTexts) ? snap.blockTexts.map(norm) : [];
+          const afterTexts = entries.map((entry) => norm(entry.text));
+          const censusUnchanged =
+            beforeTexts.length === afterTexts.length &&
+            beforeTexts.every((text, index) => text === afterTexts[index]);
           if (verdict && verdict.ok === false) {
             let diagnose = null;
             try {
@@ -1717,7 +1722,9 @@ async function runReflow(browser) {
             } catch {
               diagnose = null;
             }
-            return { ...verdict, identity_diagnostic: diagnose };
+            // An unchanged census did not receive the keys. A changed census
+            // that still fails identity is the keys landing somewhere else.
+            return { ...verdict, identity_diagnostic: diagnose, keys_landed_elsewhere: !censusUnchanged };
           }
           return verdict;
         },
@@ -1733,7 +1740,11 @@ async function runReflow(browser) {
       );
     if (!editSeen || editSeen.ok !== true) {
       const anchorOnEditMiss = await evaluateAnchorIdentity();
-      if (anchorOnEditMiss && anchorOnEditMiss.ok === false) {
+      // A confirm timeout is edit_not_observed. anchor_identity_ambiguous is
+      // only for a census that changed, which is the keys landing somewhere
+      // other than the caret paragraph's x-prefix.
+      const landedElsewhere = Boolean(anchorOnEditMiss && anchorOnEditMiss.keys_landed_elsewhere);
+      if (landedElsewhere) {
         const rec = await stopC12Recorder();
         return {
           mode: 'reflow',
@@ -1742,8 +1753,8 @@ async function runReflow(browser) {
           navigation_ms: navigationMs,
           ready_ms: readyMs,
           before,
-          error: anchorOnEditMiss.reason || 'anchor_identity_ambiguous',
-          identity_diagnostic: anchorOnEditMiss.identity_diagnostic || null,
+          error: (anchorOnEditMiss && anchorOnEditMiss.reason) || 'anchor_identity_ambiguous',
+          identity_diagnostic: (anchorOnEditMiss && anchorOnEditMiss.identity_diagnostic) || null,
           edit_confirmation: editSeen || null,
           moved: false,
           anchor_top_after: null,

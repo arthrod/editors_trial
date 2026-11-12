@@ -586,6 +586,18 @@ def c11_measured_samples(probe: dict) -> list:
     return [presented]
 
 
+_C12_PROBE_REFUSAL_CODES = frozenset({
+    "anchor_identity_ambiguous",
+    "edit_not_observed",
+    "caret_not_at_paragraph_start",
+})
+
+
+def _c12_error_refusal_code(error) -> str | None:
+    text = str(error or "")
+    return text if text in _C12_PROBE_REFUSAL_CODES else None
+
+
 def c12_measured_sample(probe: dict) -> float:
     """C12 sample: Enter keydown -> first presented frame in which the anchor moved.
 
@@ -601,7 +613,7 @@ def c12_measured_sample(probe: dict) -> float:
     if probe.get("error"):
         raise ProbeRefusal(
             "probe refused C12: %s" % probe.get("error"),
-            refusal_code="anchor_identity_ambiguous" if probe.get("error") == "anchor_identity_ambiguous" else None,
+            refusal_code=_c12_error_refusal_code(probe.get("error")),
         )
     if probe.get("moved") is not True:
         raise ProbeRefusal(
@@ -1101,8 +1113,7 @@ def _run_probe(cmd: list, *, editor_id: str, env: dict | None = None) -> dict:
         )
     if payload.get("error"):
         err = str(payload["error"])
-        refusal_code = "anchor_identity_ambiguous" if err == "anchor_identity_ambiguous" else None
-        raise ProbeRefusal("probe refused %s: %s" % (editor_id, err), refusal_code=refusal_code)
+        raise ProbeRefusal("probe refused %s: %s" % (editor_id, err), refusal_code=_c12_error_refusal_code(err))
     return payload
 
 

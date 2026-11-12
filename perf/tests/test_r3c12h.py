@@ -205,6 +205,28 @@ class ReflowProbeHosts(unittest.TestCase):
             caught.exception.reason,
         )
 
+    # Item 3, BLOCKER 3. never.html swallows Enter and x. The confirm wait
+    # times out on an unchanged census. That is edit_not_observed, not an
+    # ambiguous anchor.
+    def test_never_edit_times_out_as_edit_not_observed(self):
+        payload = self._reflow("never.html", timeout_ms=2000)
+        self.assertEqual(payload.get("error"), "edit_not_observed", payload)
+        self.assertIsNone(payload.get("presented_frame_ms"), payload)
+        with self.assertRaises(bd.ProbeRefusal) as caught:
+            bd.c12_measured_sample(payload)
+        self.assertEqual(caught.exception.refusal_code, "edit_not_observed", caught.exception.reason)
+
+
+class ProbeRefusalCodes(unittest.TestCase):
+    def test_edit_miss_and_caret_miss_carry_refusal_codes(self):
+        from perf.runner.refusals import RefusalCode
+
+        for code in ("edit_not_observed", "caret_not_at_paragraph_start"):
+            self.assertIn(code, {item.value for item in RefusalCode})
+            with self.assertRaises(bd.ProbeRefusal) as caught:
+                bd.c12_measured_sample({"error": code})
+            self.assertEqual(caught.exception.refusal_code, code)
+
 
 if __name__ == "__main__":
     unittest.main()
