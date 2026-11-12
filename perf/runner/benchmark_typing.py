@@ -103,7 +103,7 @@ def list_marker_style(marker):
     if not _LIST_MARKER.match(probe + ' '):
         return None
     punct = ')' if marker.endswith(')') else '.'
-    core = marker[:-1] if marker.endswith(('.', ')')) else marker
+    core = _marker_core(marker)
     if core.isdigit():
         return ('decimal', punct)
     if len(core) == 1 and core.isalpha():
@@ -120,6 +120,10 @@ _ROMAN_ALSO_ALPHA = frozenset('ivxlIVXL')
 
 def _marker_core(marker):
     marker = normalize_list_label(marker)
+    # "(c)" / "(iv)" are parenthesised markers. Stripping only the closing
+    # punctuation would leave "(c", which is not a class.
+    if marker.startswith('(') and marker.endswith(')'):
+        return marker[1:-1]
     if marker.endswith(('.', ')')):
         return marker[:-1]
     return marker
@@ -185,6 +189,32 @@ def _marked_equal(expected, actual):
     exp, _ = normalize_marked(expected)
     act, _ = normalize_marked(actual)
     return exp == _rewrite_symbol_glyphs(exp, act)
+
+
+# Line-leading forms the list-marker regex claims before the glyph rewrite.
+# Only these four. (tm) is not a marker core, so it already reaches the rewrite.
+_SYMBOL_LINE_MARKERS = {
+    '(c)': '\u00a9',
+    '(C)': '\u00a9',
+    '(r)': '\u00ae',
+    '(R)': '\u00ae',
+}
+
+
+def _glyphs_stand_in_for_markers(markers, rest, actual_line):
+    """True when each marker was rendered as its ©/® glyph and the body matches.
+
+    This is symbol autocorrect, not a list-marker excuse. The caller leaves
+    the typed parenthetical in the expected line and the glyph in the actual
+    line so ``_rewrite_symbol_glyphs`` can reconcile them.
+    """
+    line = actual_line.strip()
+    for marker in markers:
+        glyph = _SYMBOL_LINE_MARKERS.get(marker)
+        if not glyph or not line.startswith(glyph):
+            return False
+        line = line[len(glyph):].lstrip()
+    return _marked_equal(rest, line)
 
 
 def _align_line_token(line):
@@ -665,6 +695,19 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
                             chosen = (j, list(act_markers))
                             break
                         if chosen is None:
+                            # Line-leading (c)/(C)/(r)/(R) rendered as ©/®.
+                            # Not a list marker: do not append missing and do
+                            # not record tolerated_list_markers. The glyph
+                            # rewrite below compares the untouched lines.
+                            symbol_line = False
+                            for j in dict.fromkeys(slot_for(i) + [i]):
+                                if j >= len(actual_lines):
+                                    continue
+                                if _glyphs_stand_in_for_markers(markers, rest, actual_lines[j]):
+                                    symbol_line = True
+                                    break
+                            if symbol_line:
+                                continue
                             for marker in markers:
                                 missing.append({'index': i, 'marker': marker})
                             continue
