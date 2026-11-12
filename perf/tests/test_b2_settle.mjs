@@ -220,40 +220,73 @@ test('the onset bound is recorded on the decision',()=>{
 });
 
 // -- issue #171: an onset hole the measured keydown's own Event Timing entry
-// explains is the input's own processing latency, not a delivery gap -------
-// While the keydown's handler runs, the main thread cannot commit the glyph,
-// so the ink-less frames delivered in the hole are compositor frames of the
-// old content (HF shakedown3 GenOffice C06 obs 0/2/3: one ink-less frame ~5
-// ms after the key, the glyph ~2.2 s later while the keydown still ran —
-// Event Timing duration ≈ glyph delay). The inputProcessing option carries
-// the measured keydown's Event Timing entry in the same page clock as the
-// frames' pageMs, {startMs, processingEndMs, durationMs}; the processing end
-// is processingEndMs when finite, else startMs + durationMs. The bounds do
-// not move: without the entry, or when processing ended before the hole did,
-// the refusal is exactly what it was.
+// explains is the input's own latency, not a delivery gap ------------------
+// An Event Timing entry's duration is startTime to the presentation of the
+// first rendering update after the event's processing (rounded to 8 ms): the
+// browser's own statement that no new main-thread content was presented
+// before startTime + duration. So while the entry runs, the ink-less frames
+// delivered in the hole are compositor frames of the old content and the
+// hole is the input latency under measurement (HF shakedown3 GenOffice C06
+// obs 0/2/3: keydown duration ≈ glyph delay; folio prose-250kw obs 0: the
+// handler returned at +15.6 ms but the entry's own next paint was +1696 ms —
+// processingEnd only says the handler returned, and an editor that renders
+// asynchronously stays blocked after it). The inputProcessing option carries
+// the measured keydown's entry in the same page clock as the frames' pageMs,
+// {startMs, processingEndMs, durationMs}; only startMs + durationMs decides —
+// processingEndMs is disclosure, never the bound. The bounds do not move:
+// without the entry, without its duration, or when the duration ended before
+// the hole did, the refusal is exactly what it was.
 const holeFrames=(glyphMs,leadMs)=>frames(
  [leadMs,glyphMs,...Array.from({length:24},(_,i)=>glyphMs+16.7+i*16.7)],
  t=>t<glyphMs?blank:glyph).map(row=>({...row,...classifyRegion(row.pixels,base,[rect],1,rect)}));
-test('a hole the measured keydown processing spans measures at the glyph (#171)',()=>{
+test('a hole the measured keydown duration spans measures at the glyph (#171)',()=>{
  const r=settleFrames(holeFrames(2188,5),{markerMs:0,
   inputProcessing:{startMs:0,processingEndMs:2190,durationMs:2192}});
  assert.equal(r.page_ms,2188);
- assert.equal(r.onset_hole_explained_by,'event_processing');
+ assert.equal(r.onset_hole_explained_by,'event_next_paint');
  assert.equal(r.onset_gap_ms,2188-5);
+ assert.equal(r.event_next_paint_ms,2192);
  assert.equal(r.event_processing_end_ms,2190);
 });
-test('a missing processingEnd falls back to startMs + durationMs (#171)',()=>{
+test('the hole measures on the duration alone (#171)',()=>{
  const r=settleFrames(holeFrames(2188,5),{markerMs:0,
   inputProcessing:{startMs:0,durationMs:2192}});
  assert.equal(r.page_ms,2188);
- assert.equal(r.onset_hole_explained_by,'event_processing');
+ assert.equal(r.onset_hole_explained_by,'event_next_paint');
+ assert.equal(r.event_next_paint_ms,2192);
+ assert.ok(!('event_processing_end_ms' in r));
+});
+test('the folio boundary: duration ends at +1696 ms, processingEnd at +15.6 ms, glyph at +1702.5 ms (#171)',()=>{
+ // Verbatim from the real folio prose-250kw obs 0 (sparse-report.md): the
+ // handler returned at +15.6 ms but Folio kept the main thread blocked until
+ // the entry's own next paint at +1696 ms; ink-less frames delivered at
+ // +269/+802/+1319 ms and the glyph at +1702.5 (page_ms 19391.4). The hole
+ // 19008.1 → 19391.4 (383 ms) is over the 100 ms bound; the entry decides:
+ // 17688.9 + 1696 + 8 ≥ 19391.4 − 100, so the hole is explained.
+ const marker=17688.9,glyphMs=19391.4;
+ const times=[marker+269,marker+802,19008.1,glyphMs,
+  ...Array.from({length:24},(_,i)=>glyphMs+16.7+i*16.7)];
+ const f=frames(times,t=>t<glyphMs?blank:glyph)
+  .map(row=>({...row,...classifyRegion(row.pixels,base,[rect],1,rect)}));
+ const r=settleFrames(f,{markerMs:marker,frameIntervalMs:16.7,
+  inputProcessing:{startMs:marker,processingEndMs:marker+15.6,durationMs:1696}});
+ assert.equal(r.page_ms,glyphMs);
+ assert.equal(r.onset_hole_explained_by,'event_next_paint');
+ assert.equal(r.onset_gap_ms,glyphMs-19008.1);
+ assert.equal(r.event_next_paint_ms,marker+1696);
+ assert.equal(r.event_processing_end_ms,marker+15.6);
 });
 test('the same hole without the Event Timing entry stays witness_sparse (#171)',()=>{
  assert.equal(settleFrames(holeFrames(2188,5),{markerMs:0}).failure_reason,'witness_sparse');
 });
-test('a hole the input processing ended before stays witness_sparse (#171)',()=>{
+test('a hole the input duration ended before stays witness_sparse (#171)',()=>{
  const r=settleFrames(holeFrames(2188,5),{markerMs:0,
-  inputProcessing:{startMs:0,processingEndMs:300,durationMs:300}});
+  inputProcessing:{startMs:0,durationMs:300}});
+ assert.equal(r.failure_reason,'witness_sparse');
+});
+test('a hole without the entry duration stays witness_sparse (#171)',()=>{
+ const r=settleFrames(holeFrames(2188,5),{markerMs:0,
+  inputProcessing:{startMs:0,processingEndMs:2190}});
  assert.equal(r.failure_reason,'witness_sparse');
 });
 test('an entry from an earlier event does not explain the hole (#171)',()=>{
@@ -292,7 +325,8 @@ test('HF GenOffice C06 replay: entry-explained holes measure, siblings keep valu
   const r=settleFrames(obs.frame_diagnostic.map(replay),{markerMs:marker,
    frameIntervalMs:obs.frame_interval_ms,inputProcessing});
   if(expectMeasure.has(i)) {
-   assert.equal(r.onset_hole_explained_by,'event_processing','obs '+i+' must disclose the explained hole');
+   assert.equal(r.onset_hole_explained_by,'event_next_paint','obs '+i+' must disclose the explained hole');
+   assert.equal(r.event_next_paint_ms,entry.startTime+entry.duration,'obs '+i+' discloses the next-paint end');
    const delay=r.page_ms-marker;
    assert.ok(Math.abs(delay-entry.duration)<=obs.frame_interval_ms,
     'obs '+i+': measured delay '+delay+' within one frame of keydown duration '+entry.duration);

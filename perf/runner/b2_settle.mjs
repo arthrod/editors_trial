@@ -75,14 +75,17 @@ export function classifyRegion(pixels, baseline, rects, dpr, doc, tolerance = 8)
  * timestamp conversion roundoff at the onset bound; it is not a frame allowance.
  * A sparse onset between two delivered frames also does not refuse when the
  * measured input's own Event Timing entry (inputProcessing, in the same
- * page clock as the frames' pageMs) shows the input's processing ran through
- * the hole: while the handler runs, the main thread cannot commit the
- * glyph, so the ink-less frames delivered in it are compositor frames of the
- * old content and the hole is the input latency under measurement (issue
- * #171). The entry must belong to the measured input (its start at/after
- * the marker, within one frame interval) and its processing end —
- * processingEndMs when finite, else startMs + durationMs — must reach the
- * onset frame minus the onset bound. Without the entry, or when processing
+ * page clock as the frames' pageMs) shows no new content was presented
+ * before its end: the entry's duration is startTime to the presentation of
+ * the first rendering update after the event's processing (rounded to 8
+ * ms), so the ink-less frames delivered in the hole are compositor frames
+ * of the old content and the hole is the input latency under measurement
+ * (issue #171). The entry must belong to the measured input (its start
+ * at/after the marker, within one frame interval) and startMs + durationMs,
+ * plus the 8 ms rounding, must reach the onset frame minus the onset bound.
+ * processingEnd only says the handler returned — an editor that renders
+ * asynchronously stays blocked after it — so it is disclosure, never the
+ * bound. Without the entry, without its duration, or when the duration
  * ended earlier, the refusal stands exactly as before; the accepted
  * decision discloses onset_hole_explained_by with both numbers.
  * Later covers cannot replace a proven reference.
@@ -152,22 +155,27 @@ export function settleFrames(frames, {quietMs=300,maxWaitMs=3000,markerMs=0,minP
     const onset=eligible[first].pageMs-(first?eligible[first-1].pageMs:markerMs);
     if(first>0 && onset>onsetBound+0.001) {
       // Issue #171: the hole is the measured input's own latency when its
-      // Event Timing entry shows the input's processing ran through it —
-      // while the handler runs, the main thread cannot commit the glyph, so
+      // Event Timing entry shows no new content was presented before its
+      // end — duration is startTime to the presentation of the first
+      // rendering update after the event's processing, rounded to 8 ms, so
       // the ink-less frames delivered in the hole are compositor frames of
       // the old content. The entry must belong to the measured input (start
-      // at/after the marker within one frame interval) and its processing
-      // end must reach the onset frame minus the onset bound. Without the
-      // entry, or when processing ended earlier, the refusal stands.
+      // at/after the marker within one frame interval) and start +
+      // duration, plus the 8 ms rounding, must reach the onset frame minus
+      // the onset bound. processingEnd is disclosure only: an editor that
+      // renders asynchronously stays blocked after the handler returns.
+      // Without the entry, without its duration, or when the duration ended
+      // earlier, the refusal stands.
       const p=inputProcessing;
       const pStart=p&&Number.isFinite(p.startMs)?p.startMs:NaN;
-      const pEnd=p?(Number.isFinite(p.processingEndMs)?p.processingEndMs
-        :(Number.isFinite(pStart)&&Number.isFinite(p.durationMs)?pStart+p.durationMs:NaN)):NaN;
+      const pEnd=Number.isFinite(pStart)&&Number.isFinite(p&&p.durationMs)?pStart+p.durationMs:NaN;
       const frameSlack=onsetInterval>0?onsetInterval:median;
       if(!(Number.isFinite(pStart)&&Number.isFinite(pEnd)
-        &&pStart>=markerMs-frameSlack&&pEnd>=eligible[first].pageMs-onsetBound)) {sparse=true;continue;}
-      return {reference_index:frames.indexOf(ref),match_index:frames.indexOf(eligible[first]),page_ms:eligible[first].pageMs,frame_interval_ms:median,gap_bound_ms:gapBound,onset_bound_ms:onsetBound,
-        onset_hole_explained_by:'event_processing',onset_gap_ms:onset,event_processing_end_ms:pEnd};
+        &&pStart>=markerMs-frameSlack&&pEnd+8>=eligible[first].pageMs-onsetBound)) {sparse=true;continue;}
+      const explained={reference_index:frames.indexOf(ref),match_index:frames.indexOf(eligible[first]),page_ms:eligible[first].pageMs,frame_interval_ms:median,gap_bound_ms:gapBound,onset_bound_ms:onsetBound,
+        onset_hole_explained_by:'event_next_paint',onset_gap_ms:onset,event_next_paint_ms:pEnd};
+      if(Number.isFinite(p.processingEndMs)) explained.event_processing_end_ms=p.processingEndMs;
+      return explained;
     }
     return {reference_index:frames.indexOf(ref),match_index:frames.indexOf(eligible[first]),page_ms:eligible[first].pageMs,frame_interval_ms:median,gap_bound_ms:gapBound,onset_bound_ms:onsetBound};
   }
