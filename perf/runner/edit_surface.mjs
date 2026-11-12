@@ -1221,6 +1221,14 @@ export async function verifyCaretAtParagraphStart(
     typeof read.paragraphText === 'string' &&
     read.paragraphText &&
     read.paragraphText !== normExpected;
+  // A supplied expected paragraph is not verified by offset 0 alone. A null
+  // or empty paragraphText never ran the comparison, so the caret could sit
+  // at the start of a paragraph the probe did not read.
+  const paragraphUnreadable = () =>
+    Boolean(normExpected) &&
+    (!read ||
+      typeof read.paragraphText !== 'string' ||
+      !String(read.paragraphText).replace(/\s+/g, ' ').trim());
   const needsPlacement = () =>
     read.offset !== 0 ||
     paragraphMismatch() ||
@@ -1273,6 +1281,15 @@ export async function verifyCaretAtParagraphStart(
   }
   if (read.offset !== 0) {
     return { ok: false, reason: 'caret_not_at_paragraph_start', detail: 'nonzero_offset', ...read };
+  }
+  if (paragraphUnreadable()) {
+    return {
+      ok: false,
+      reason: 'caret_not_at_paragraph_start',
+      detail: 'paragraph_text_unreadable',
+      expected: normExpected,
+      ...read,
+    };
   }
   if (paragraphMismatch()) {
     return {
