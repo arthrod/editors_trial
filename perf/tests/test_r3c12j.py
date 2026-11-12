@@ -1024,6 +1024,50 @@ class RerenderHosts(unittest.TestCase):
         self.assertNotEqual(verify.get("paragraphText"), verify.get("expected"), payload)
         self.assertLess(elapsed, 8, payload)
 
+    def test_orphan_line_replacement_that_moves_is_the_confirmed_anchor(self):
+        # SuperDoc paginates by throwing .superdoc-line nodes away. The lines
+        # have no paragraph id, and neither line equals the joined paragraph,
+        # so the text finder cannot follow the anchor. The replacement is 30px
+        # lower. The sample is that move, and the recorded node is the node
+        # the census confirms.
+        payload = self._reflow(
+            "orphan-lines.html?shift=30",
+            extra=["--editor", "superdoc", "--doc-selector", ".superdoc-line"],
+        )
+        self.assertIsNone(payload.get("error"), payload)
+        self.assertTrue(payload.get("moved"), payload)
+        self.assertEqual(payload.get("matched_by"), "element", payload)
+        before = (payload.get("before") or {}).get("anchor_top")
+        after = payload.get("anchor_top_after")
+        self.assertIsInstance(before, (int, float), payload)
+        self.assertIsInstance(after, (int, float), payload)
+        self.assertGreater(after, before + 0.5, payload)
+        self.assertGreaterEqual(payload.get("anchor_frames"), 1, payload)
+        reads = payload.get("layout_reads_during_window")
+        frames = payload.get("anchor_frames")
+        self.assertGreaterEqual(reads, frames, payload)
+        self.assertEqual(bd.c12_measured_sample(payload), payload["presented_frame_ms"])
+
+    def test_orphan_line_replacement_that_does_not_move_is_refused(self):
+        # Same node replacement, same visual top. A new element is not a move.
+        payload = self._reflow(
+            "orphan-lines.html?shift=0",
+            extra=["--editor", "superdoc", "--doc-selector", ".superdoc-line"],
+        )
+        self.assertIsNone(payload.get("error"), payload)
+        self.assertIsNot(payload.get("moved"), True, payload)
+        before = (payload.get("before") or {}).get("anchor_top")
+        after = payload.get("anchor_top_after")
+        self.assertIsInstance(before, (int, float), payload)
+        self.assertIsInstance(after, (int, float), payload)
+        self.assertLessEqual(abs(after - before), 0.5, payload)
+        with self.assertRaises(bd.ProbeRefusal) as caught:
+            bd.c12_measured_sample(payload)
+        self.assertIn(
+            "no post-Enter frame moved the anchor below the arm baseline",
+            caught.exception.reason,
+        )
+
     def test_late_move_census_stays_outside_the_window(self):
         # The anchor moves 250 ms after Enter. The confirm census waits for
         # that frame. In-window reads stay at the recorder's one rect per

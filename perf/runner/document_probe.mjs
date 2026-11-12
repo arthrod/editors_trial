@@ -1639,7 +1639,7 @@ async function runReflow(browser) {
     while (ctx.recorder.frames.length === 0 && Date.now() < frameDeadline) await sleep(10);
     const baseline = ctx.recorder.frames.length ? ctx.recorder.frames[ctx.recorder.frames.length - 1] : null;
 
-    const inputMark = await ctx.page.evaluate((findSrc) => {
+    const inputMark = await ctx.page.evaluate(({ findSrc, entriesSrc }) => {
       window.__c12InputMs = null;
       window.__c12MovedAnchorEl = null;
       // The measured window opens at the Enter keydown and ends at the first
@@ -1652,6 +1652,12 @@ async function runReflow(browser) {
       // that has none). Do not call REFIND_ANCHOR here: that census cannot
       // resolve until the caret "x" exists, so the recorded move would be the
       // text-commit time, and it reads every block's rect inside the window.
+      // The text finder does not group lines that have no paragraph id,
+      // because that grouping needs their rects. When the finder has no
+      // element, one pass of the same census the after path uses resolves the
+      // paragraph and the recorder holds that element. A later frame reads
+      // only the held node, until it disconnects again. Those census rects
+      // stay in the read log. A finder hit never takes this pass.
       // The recorder's own getBoundingClientRect on the matched block is real
       // work inside the window and is counted in __c12ProbeReadLog.
       window.__c12FrameLog = [];
@@ -1666,6 +1672,42 @@ async function runReflow(browser) {
       } catch {
         findByText = null;
       }
+      let blockEntries = null;
+      try {
+        // eslint-disable-next-line no-eval
+        blockEntries = (0, eval)(`(function(){ ${entriesSrc}; return c12BlockEntries; })()`);
+      } catch {
+        blockEntries = null;
+      }
+      const normAnchor = (value) => {
+        const collapsed = String(value || '').replace(/\s+/g, ' ').trim();
+        return typeof collapsed.normalize === 'function' ? collapsed.normalize('NFC') : collapsed;
+      };
+      const anchorFromCensus = () => {
+        if (typeof blockEntries !== 'function') return null;
+        const want = normAnchor(window.__c12FixtureAnchorText || window.__c12AnchorText);
+        if (!want) return null;
+        let entries = [];
+        try {
+          entries = blockEntries(
+            window.__c12EditorId || '',
+            window.__c12DocSel,
+            window.__c12ExcludeSel || '',
+            (el) => normAnchor(el && (el.innerText || el.textContent)),
+          );
+        } catch {
+          return null;
+        }
+        const hits = [];
+        for (const entry of entries) {
+          if (entry && normAnchor(entry.text) === want) hits.push(entry);
+        }
+        const occ = Number(window.__c12AnchorOccurrence);
+        const picked = !Number.isFinite(occ) || occ < 1
+          ? (hits.length === 1 ? hits[0] : null)
+          : (hits[occ - 1] || null);
+        return picked && picked.el ? picked.el : null;
+      };
       const liveAnchor = () => {
         const kept = window.__c12AnchorEl;
         const sel = window.__c12DocSel;
@@ -1679,15 +1721,18 @@ async function runReflow(browser) {
           kept.isConnected === true &&
           (typeof kept.matches !== 'function' || !sel || kept.matches(sel));
         if (stillListed) return kept;
-        if (typeof findByText !== 'function') return null;
         const anchorText = window.__c12FixtureAnchorText || window.__c12AnchorText;
-        const found = findByText(
-          window.__c12EditorId || '',
-          sel,
-          window.__c12ExcludeSel || '',
-          anchorText,
-          window.__c12AnchorOccurrence,
-        );
+        let found = null;
+        if (typeof findByText === 'function') {
+          found = findByText(
+            window.__c12EditorId || '',
+            sel,
+            window.__c12ExcludeSel || '',
+            anchorText,
+            window.__c12AnchorOccurrence,
+          );
+        }
+        if (!found) found = anchorFromCensus();
         if (found) window.__c12AnchorEl = found;
         return found || null;
       };
@@ -1743,7 +1788,10 @@ async function runReflow(browser) {
         true,
       );
       return performance.now();
-    }, C12_ANCHOR_BY_TEXT_PAGE_SRC);
+    }, {
+      findSrc: C12_ANCHOR_BY_TEXT_PAGE_SRC,
+      entriesSrc: C12_BLOCK_ENTRIES_PAGE_SRC,
+    });
     // Frames are judged against the arm re-read (window.__c12ArmedTop), not
     // the earlier census top. Report that same number as before.anchor_top
     // so shift_px and the refusal name the baseline the frames used. The
