@@ -95,12 +95,19 @@ def test_frame_interval_bound_rule_in_node():
 
 
 def _input_job(root, job_id, seed, *, summary_tree, attempt_tree, value=20.0):
-    order = [[rep, "plate"] for rep in range(10)]
-    return _write_job(
-        root, "benchmark_input", job_id, seed, range(10),
-        summary=_summary(job_id, seed, order=order, hosts={"plate": {"tree_sha256": summary_tree}}),
-        tree=attempt_tree, values={rep: value for rep in range(10)},
-    )
+    camp = None
+    for index, reps in ((1, range(0, 5)), (2, range(5, 10))):
+        camp = _write_job(
+            root, "benchmark_input", "%s-b%d" % (job_id, index), seed, reps,
+            summary=_summary(
+                "%s-b%d" % (job_id, index), seed,
+                order=[[rep, "plate"] for rep in reps],
+                block={"index": index, "of": 2, "repetitions": 5},
+                hosts={"plate": {"tree_sha256": summary_tree}},
+            ),
+            tree=attempt_tree, values={rep: value for rep in reps},
+        )
+    return camp
 
 
 def test_summary_pin_conflicting_attempt_pins_refuses_cell(tmp_path):

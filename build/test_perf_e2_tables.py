@@ -62,8 +62,59 @@ def _trial(editor: str, criterion: str, outcome: str, samples=None, **extra) -> 
     return row
 
 
+def _block_dir(root: Path, rep: int) -> Path:
+    """The decided block job that owns this repetition, or the root when it is one job."""
+    found = []
+    for summary_path in sorted(root.glob("*/*/summary.json")):
+        try:
+            summary = json.loads(summary_path.read_text())
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not (summary.get("block") or {}).get("index"):
+            continue
+        reps = [item[0] for item in (summary.get("order") or []) if item]
+        if rep in reps:
+            return summary_path.parent
+        found.append(summary_path.parent)
+    if found and rep >= 10:
+        return found[-1]
+    return root
+
+
+def _lay_blocks(root: Path) -> None:
+    """Turn a flat job of exactly 10 into the decided 2 blocks of 5.
+
+    The parent summary stays so comparability still reads it. Measurement
+    files belong on the block jobs.
+    """
+    summary_path = root / "summary.json"
+    if not summary_path.is_file() or any(root.glob("*/*/summary.json")):
+        return
+    summary = json.loads(summary_path.read_text())
+    order = summary.get("order") or []
+    reps = sorted({rep for rep, _ed in order if isinstance(rep, int)})
+    if reps != list(range(10)):
+        return
+    total = (summary.get("cpu_accounting") or {}).get("samples_total")
+    if total is None:
+        total = len(order)
+    accounting = {**(summary.get("cpu_accounting") or {}), "samples_total": total}
+    for index, lo, hi in ((1, 0, 5), (2, 5, 10)):
+        job = root / "benchmark_input" / ("b%d" % index)
+        job.mkdir(parents=True)
+        block = {
+            **summary,
+            "run_id": "%s-b%d" % (summary.get("run_id"), index),
+            "order": [[rep, ed] for rep, ed in order if isinstance(rep, int) and lo <= rep < hi],
+            "block": {"index": index, "of": 2, "repetitions": 5},
+            "cpu_accounting": accounting,
+        }
+        (job / "summary.json").write_text(json.dumps(block))
+
+
 def _write_trial(root: Path, rep: int, editor: str, criterion: str, **kwargs) -> None:
-    cell = root / "cells" / f"{rep:04d}-{editor}" / "attempts"
+    job = _block_dir(root, rep)
+    cell = job / "cells" / f"{rep:04d}-{editor}" / "attempts"
     cell.mkdir(parents=True, exist_ok=True)
     path = cell / f"{criterion.lower()}.json"
     path.write_text(json.dumps(_trial(editor, criterion, **kwargs)), encoding="utf-8")
@@ -110,6 +161,7 @@ def _write_run(root: Path, **summary_kw) -> Path:
     root.mkdir(parents=True, exist_ok=True)
     summary = _summary(root, **summary_kw)
     (root / "summary.json").write_text(json.dumps(summary), encoding="utf-8")
+    _lay_blocks(root)
     return root
 
 
@@ -131,7 +183,9 @@ class ReportE2Facts(unittest.TestCase):
         primary, _ = self._pair(
             {"run_id": "a", "seed": 1, "editors": ["plate"]},
             {"run_id": "b", "seed": 2, "editors": ["plate"]},
-            lambda root: [_write_trial(root, i, "plate", "C07", outcome="measured", samples=[20.0]) for i in range(9)],
+            lambda root: [
+                _write_trial(root, i, "plate", "C07", outcome="measured", samples=[20.0]) for i in range(9)
+            ] + [_write_trial(root, 9, "plate", "C07", outcome="refused", samples=[])],
         )
         facts = E2.facts_from_runs(primary, self.base / "repro")
         table = facts["perf.e2.table.C07"]
@@ -197,6 +251,8 @@ class ReportE2Facts(unittest.TestCase):
         def fill(root):
             for i in range(5):
                 _write_trial(root, i, "plate", "C07", outcome="failed", failure_reason="timeout")
+            for i in range(5, 10):
+                _write_trial(root, i, "plate", "C07", outcome="refused", refusal_code="cpu_throttled")
 
         primary, repro = self._pair(
             {"run_id": "a", "seed": 1, "editors": ["plate"]},
@@ -285,20 +341,38 @@ def runs(fs):
                        publishable=True, host_class='dedicated', host={}, rendering={},
                        order=[[i, e] for i in range(10) for e in ['plate', 'docen']])
         (root / 'summary.json').write_text(json.dumps(summary))
+        _lay_blocks(root)
         for i in range(10):
             _write_trial(root, i, 'plate', 'C07', outcome='measured', samples=[100], diagnostic={'frame_interval_ms':16.7})
     return roots
 
 def change_summary(root, **kw):
-    p = root / 'summary.json'
-    p.write_text(json.dumps({**json.loads(p.read_text()), **kw}))
+    def write(path, extra):
+        path.write_text(json.dumps({**json.loads(path.read_text()), **extra}))
+
+    write(root / 'summary.json', kw)
+    for path in sorted(root.glob('*/*/summary.json')):
+        current = json.loads(path.read_text())
+        extra = dict(kw)
+        index = (current.get('block') or {}).get('index')
+        if 'run_id' in extra and index:
+            extra['run_id'] = '%s-b%s' % (extra['run_id'], index)
+        if 'order' in extra and index:
+            lo, hi = (0, 5) if index == 1 else (5, 10)
+            extra['order'] = [pair for pair in (extra['order'] or [])
+                              if isinstance(pair[0], int) and lo <= pair[0] < hi]
+        write(path, extra)
 
 def fill(root, samples, frame=16.7, n=10):
-    for p in (root / 'cells').rglob('*.json'):
-        p.unlink()
-    for i in range(n):
-        _write_trial(root, i, 'plate', 'C07', outcome='measured', samples=samples,
-                     diagnostic={} if frame is None else {'frame_interval_ms': frame})
+    for path in root.rglob('*.json'):
+        if 'cells' in path.parts and path.is_file():
+            path.unlink()
+    diagnostic = {} if frame is None else {'frame_interval_ms': frame}
+    for i in range(10):
+        if i < n:
+            _write_trial(root, i, 'plate', 'C07', outcome='measured', samples=samples, diagnostic=diagnostic)
+        else:
+            _write_trial(root, i, 'plate', 'C07', outcome='refused', samples=[], diagnostic=diagnostic)
 
 def table(runs):
     return E2.facts_from_runs(*runs)['perf.e2.table.C07']
@@ -331,12 +405,12 @@ def test_finding_03_kept_frame_median(runs):
 
 def test_finding_04_rejected_and_sample_refused(runs):
     for root in runs:
-        source = root / 'cells/0009-plate'
-        dest = root / 'rejected-evidence/0009-plate/cell'
-        dest.parent.mkdir(parents=True)
-        source.rename(dest)
-        (root / 'samples').mkdir()
-        (root / 'samples/0009-plate.json').write_text(json.dumps(dict(editor_id='plate', repetition=9, outcome='failed', failure_reason='cpu_throttled', refusal_code='cpu_throttled')))
+        job = _block_dir(root, 9)
+        # The launch file stays: dropping it leaves the block short of five
+        # files and the layout gate hides the quarantine.
+        (job / 'rejected-evidence/0009-plate/cell').mkdir(parents=True)
+        (job / 'samples').mkdir(exist_ok=True)
+        (job / 'samples/0009-plate.json').write_text(json.dumps(dict(editor_id='plate', repetition=9, outcome='failed', failure_reason='cpu_throttled', refusal_code='cpu_throttled')))
     assert 'n = 9 of 10' in table(runs)
     assert 'cpu_throttled' in table(runs)
     # A refusal must also veto an otherwise measured file still under cells.
@@ -372,7 +446,7 @@ def test_finding_07_unpublishable_run(runs):
 @pytest.mark.parametrize('field', ['tree', 'playwright_version', 'vendor', 'browser_version', 'host_class'])
 def test_finding_08_real_version_locations(runs, field):
     if field == 'tree':
-        for p in (runs[1] / 'cells').rglob('*.json'):
+        for p in (runs[1]).rglob('cells/**/*.json'):
             row = json.loads(p.read_text()); row['host_provenance']['tree_sha256'] = 'tree-other'
             p.write_text(json.dumps(row))
     elif field == 'host_class':
@@ -464,8 +538,9 @@ def test_sample_flags_and_invalid_trial_values(runs):
     root = runs[0]
     _write_trial(root, 0, 'plate', 'C07', outcome='measured', samples=[None, True, 'bad'], diagnostic={})
     _write_trial(root, 1, 'plate', 'C07', outcome='measured', samples=[20], sub_frame_samples=[False, True])
-    (root / 'cells/extra.json').write_text('bad json')
-    (root / 'cells/list.json').write_text('[]')
+    job = _block_dir(root, 0)
+    (job / 'cells/extra.json').write_text('bad json')
+    (job / 'cells/list.json').write_text('[]')
     cell = E2.e2_cells.build_run_cell(root, 'plate', 'C07')
     assert cell['stats']['n'] == 8
     assert cell['refusals'] == {'malformed_samples': 2}
@@ -479,8 +554,9 @@ def test_recorded_dates_and_accounting_fallback(runs):
 
 
 def sample_row(root, rep, reason, code="crash"):
-    directory = root / 'cells' / f'{rep:04d}-plate'
-    samples = root / 'samples'
+    job = _block_dir(root, rep)
+    directory = job / 'cells' / f'{rep:04d}-plate'
+    samples = job / 'samples'
     samples.mkdir(exist_ok=True)
     (samples / f'{rep:04d}-plate.json').write_text(json.dumps(dict(
         outcome='failed', non_failure_outcomes=[], failure_reason=reason, refusal_code=code,
@@ -510,7 +586,7 @@ def test_launch_wide_refusal_still_vetoes_measured_trials(runs, reason):
 
 def test_quarantined_launch_vetoes_leftover_cells(runs):
     for root in runs:
-        (root / 'rejected-evidence/0009-plate/cell').mkdir(parents=True)
+        (_block_dir(root, 9) / 'rejected-evidence/0009-plate/cell').mkdir(parents=True)
     assert 'n = 9 of 10' in table(runs)
 
 
@@ -588,13 +664,14 @@ def test_job_summaries_delegate_publishability_to_trials(runs):
     # must not blank every timing cell behind "publishable not true".
     for root in runs:
         change_summary(root, publishable=False)
-    assert 'unpublishable' not in table(runs)
-    assert '100.0 ms' in table(runs)
+    plate = next(line for line in table(runs).splitlines() if 'Plate' in line)
+    assert 'unpublishable' not in plate
+    assert '100.0 ms' in plate
     assert E2.facts_from_runs(*runs)['perf.e2.plate.C07.reproduced'] is True
 
 
 def test_quarantine_refusals_are_scoped_to_editor(runs):
-    (runs[0] / 'rejected-evidence/0009-docen/cell').mkdir(parents=True)
+    (_block_dir(runs[0], 9) / 'rejected-evidence/0009-docen/cell').mkdir(parents=True)
     cell = E2.e2_cells.build_run_cell(runs[0], 'plate', 'C07')
     assert cell['stats']['n'] == 10
     assert cell['refusals'] == {}

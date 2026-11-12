@@ -107,19 +107,24 @@ def test_near_copy_31_launch_names_refused(tmp_path):
 
 
 def test_criterion_refuses_different_summary_build_trees(tmp_path):
-    order = [[i, "plate"] for i in range(10)]
-    a = _write_job(
-        tmp_path / "sa", "benchmark_input", "j1", 1, range(10),
-        summary=_summary("j1", 1, order=order, hosts={"plate": {"tree_sha256": "tree-a"}}),
-    )
-    b = _write_job(
-        tmp_path / "sb", "benchmark_input", "j2", 2, range(10),
-        summary=_summary("j2", 2, order=order, hosts={"plate": {"tree_sha256": "tree-b"}}),
-        # r3s2fix: attempts' pins are unioned with the summary pin now, so
-        # this job's attempts must record its own build or the seed refuses
-        # on the within-seed conflict before the cross-seed comparison.
-        tree="tree-b",
-    )
+    def blocks(base, seed, tree):
+        camp = None
+        for index, reps in ((1, range(0, 5)), (2, range(5, 10))):
+            camp = _write_job(
+                base, "benchmark_input", "b%d" % index, seed, reps, tree=tree,
+                summary=_summary(
+                    "run-%s-b%d" % (seed, index), seed,
+                    order=[[i, "plate"] for i in reps],
+                    block={"index": index, "of": 2, "repetitions": 5},
+                    hosts={"plate": {"tree_sha256": tree}},
+                ),
+            )
+        return camp
+
+    # Attempts record the same build as the summary, so the refusal is the
+    # cross-seed comparison and not a within-seed conflict.
+    a = blocks(tmp_path / "sa", 1, "tree-a")
+    b = blocks(tmp_path / "sb", 2, "tree-b")
     pooled = cells.read_criterion_cell([a, b], "plate", "C07")
     assert pooled["published"] is False
     assert "different editor builds" in (pooled["reason"] or "")

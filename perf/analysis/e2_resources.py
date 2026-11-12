@@ -4,10 +4,11 @@ One launch is one ``resource.json``. A cell is one editor on one document
 size. Launches are grouped by the seed of their job, across every run
 directory given, so a seed spread over several Spaces is still one group.
 
-A cell publishes when two seeds each kept at least PUBLICATION_MIN_KEPT
-launches of the same built editor. A figure is stored only for a measure
-whose two medians agree;
-a cell that does not publish stores no figure at all.
+A cell publishes when two seeds each ran the decided schedule (2 blocks
+of 5, the same layout as the other non-typing lanes) and kept at least
+PUBLICATION_MIN_KEPT launches of the same built editor. A figure is stored
+only for a measure whose two medians agree; a cell that does not publish
+stores no figure at all.
 """
 from __future__ import annotations
 
@@ -133,6 +134,7 @@ def _aggregate_seed(entries, editor: str, workload: str) -> dict:
             group['kept'].append(record)
             if 'capped' in (record.get('settle') or {}).values():
                 group['never_idle'] += 1
+    group['decided_schedule'] = cells._decided_publication_schedule(summaries, group['scheduled'])
     return group
 
 
@@ -174,6 +176,10 @@ def _block(seeds, groups) -> str | None:
     for name, group in zip(('first', 'second'), groups):
         if group['blocked']:
             return '%s seed: run blocked (%s)' % (name, group['blocked'])
+    for name, group in zip(('first', 'second'), groups):
+        if group.get('decided_schedule') is False:
+            return '%s seed: %s' % (
+                name, cells._wrong_schedule_text(len(group['kept']), group['scheduled']))
     for name, group in zip(('first', 'second'), groups):
         if len(group['kept']) < PUBLICATION_MIN_KEPT:
             reasons = ', '.join('%s %d' % item for item in sorted(group['refusals'].items()))

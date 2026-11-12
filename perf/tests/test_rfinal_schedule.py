@@ -101,3 +101,103 @@ def test_short_neighbor_beside_a_full_job_is_withheld(tmp_path):
     assert 'this campaign schedules 10 per seed' in text
     assert 'p90' not in text
     assert '80.0' not in text
+
+
+def test_parent_summary_does_not_hide_nested_block_jobs(tmp_path):
+    root = tmp_path / 'with_parent'
+    root.mkdir()
+    (root / 'summary.json').write_text(json.dumps({
+        'seed': 1,
+        'run_id': 'parent',
+        'order': [[i, EDITOR] for i in range(10)],
+        'publishable': False,
+    }))
+    cell = root / 'cells' / ('0000-%s' % EDITOR) / 'attempts'
+    cell.mkdir(parents=True)
+    (cell / 'warm_cold.json').write_text(json.dumps(_trial(999.0)))
+    _write_job(root, 'b1', 5, 1, block=(1, 2), sample_ms=20.0)
+    _write_job(root, 'b2', 5, 1, block=(2, 2), sample_ms=20.0)
+    _write_job(root, 'c1', 5, 2, block=(1, 2), sample_ms=20.0)
+    _write_job(root, 'c2', 5, 2, block=(2, 2), sample_ms=20.0)
+    text = _text(root)
+    assert '999.0' not in text
+    assert 'p90 20.0 ms' in text
+    assert 'n = 10 of 10' in text
+
+
+def test_whole_job_of_ten_without_blocks_is_withheld(tmp_path):
+    root = tmp_path / 'whole_10'
+    _write_job(root, 'jobA', 10, 1)
+    _write_job(root, 'jobB', 10, 2)
+    text = _text(root)
+    assert 'wrong schedule' in text
+    assert 'n = 10 of 10' in text
+    assert 'this campaign schedules 10 per seed' in text
+    assert 'p90' not in text
+
+
+def test_five_blocks_of_two_are_withheld(tmp_path):
+    root = tmp_path / 'five_by_two'
+    for seed, prefix in ((1, 'A'), (2, 'B')):
+        for index in range(1, 6):
+            _write_job(root, 'job%s%d' % (prefix, index), 2, seed, block=(index, 5))
+    text = _text(root)
+    assert 'wrong schedule' in text
+    assert 'n = 10 of 10' in text
+    assert 'p90' not in text
+
+
+def test_one_block_of_ten_is_withheld(tmp_path):
+    root = tmp_path / 'one_by_ten'
+    _write_job(root, 'jobA', 10, 1, block=(1, 1))
+    _write_job(root, 'jobB', 10, 2, block=(1, 1))
+    text = _text(root)
+    assert 'wrong schedule' in text
+    assert 'n = 10 of 10' in text
+    assert 'p90' not in text
+
+
+def test_three_blocks_are_withheld(tmp_path):
+    root = tmp_path / 'three_blocks'
+    for seed, prefix in ((1, 'A'), (2, 'B')):
+        for index in range(1, 4):
+            _write_job(root, 'job%s%d' % (prefix, index), 3, seed, block=(index, 3))
+    text = _text(root)
+    assert 'does not cover 10 repetitions' in text
+    assert 'p90' not in text
+
+
+def test_ten_launches_in_one_block_of_a_pair_are_withheld(tmp_path):
+    root = tmp_path / 'ten_in_one_block'
+    for seed, name in ((1, 'jobA'), (2, 'jobB')):
+        job = _write_job(root, name, 10, seed, block=(1, 2))
+        summary = json.loads((job / 'summary.json').read_text())
+        summary['block']['repetitions'] = 5
+        (job / 'summary.json').write_text(json.dumps(summary))
+    text = _text(root)
+    assert 'missing blocks 2' in text
+    assert 'p90' not in text
+
+
+def _refuse_after(job, keep):
+    paths = sorted((job / 'cells').glob('*/attempts/*.json'))
+    for path in paths[keep:]:
+        row = json.loads(path.read_text())
+        row['outcome'] = 'refused'
+        row['refusal_code'] = 'editor_crashed'
+        path.write_text(json.dumps(row))
+
+
+def test_unpublished_reason_keeps_every_seed_including_wrong_schedule(tmp_path):
+    root = tmp_path / 'mixed_reasons'
+    _write_job(root, 'jobA', 10, 1)
+    first = _write_job(root, 'jobB1', 5, 2, block=(1, 2))
+    second = _write_job(root, 'jobB2', 5, 2, block=(2, 2))
+    _refuse_after(first, 2)
+    _refuse_after(second, 2)
+    facts = {}
+    report._cell_text(facts, [root], EDITOR, CRIT)
+    reason = facts['perf.e2.plate.B1.reason']
+    assert 'wrong schedule' in reason
+    assert 'not enough samples' in reason
+    assert 'first:' in reason and 'second:' in reason

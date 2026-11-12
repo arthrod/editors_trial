@@ -87,13 +87,32 @@ def test_block_rerun_of_same_launches_is_not_published(tmp_path):
     assert (pooled['reason'] or '').count('seed') >= 1
 
 
+def _decided_blocks(base, seed, run_prefix):
+    camp = None
+    for index, reps in ((1, range(0, 5)), (2, range(5, 10))):
+        camp = _write_job(
+            base, 'benchmark_input', 'b%d' % index, seed, reps,
+            summary=_summary(
+                '%s-b%d' % (run_prefix, index), seed,
+                order=[[i, 'plate'] for i in reps],
+                block={'index': index, 'of': 2, 'repetitions': 5},
+            ),
+        )
+    return camp
+
+
 def test_duplicate_pull_same_job_counts_once(tmp_path):
-    roots = [
-        _write_job(tmp_path / 'space-a', 'benchmark_input', 'j1', 1, range(10)),
-        _write_job(tmp_path / 'space-b', 'benchmark_input', 'j1', 1, range(10)),
-        _write_job(tmp_path / 'space-c', 'benchmark_input', 'j2', 2, range(10)),
-    ]
-    pooled = cells.read_criterion_cell(roots, 'plate', 'C07')
+    first = _decided_blocks(tmp_path / 'space-a', 1, 'run-1')
+    # A second pull of the same block, same run id and the same bytes.
+    _write_job(
+        tmp_path / 'space-b', 'benchmark_input', 'b1', 1, range(0, 5),
+        summary=_summary(
+            'run-1-b1', 1, order=[[i, 'plate'] for i in range(0, 5)],
+            block={'index': 1, 'of': 2, 'repetitions': 5},
+        ),
+    )
+    second = _decided_blocks(tmp_path / 'space-c', 2, 'run-2')
+    pooled = cells.read_criterion_cell([first, tmp_path / 'space-b' / 'runs' / 'camp', second], 'plate', 'C07')
     assert pooled['published'] is True
     assert [g['stats']['n'] for g in pooled['groups']] == [10, 10]
 
@@ -127,11 +146,37 @@ def test_blocked_cell_does_not_leak_frame_interval(tmp_path):
 
 
 def test_under_n_cell_does_not_leak_frame_interval(tmp_path):
-    primary, repro = _classic_roots(tmp_path)
-    for i in range(26):
-        (primary / 'cells' / ('%04d-plate' % i) / 'attempts' / 'c07.json').unlink()
+    def write(root, run_id, seed, kept):
+        root.mkdir(parents=True)
+        (root / 'summary.json').write_text(json.dumps(_summary(run_id, seed, order=[[i, 'plate'] for i in range(10)])))
+        for index, lo in ((1, 0), (2, 5)):
+            reps = range(lo, lo + 5)
+            job = root / 'benchmark_input' / ('b%d' % index)
+            job.mkdir(parents=True)
+            (job / 'summary.json').write_text(json.dumps(_summary(
+                '%s-b%d' % (run_id, index), seed, order=[[i, 'plate'] for i in reps],
+                block={'index': index, 'of': 2, 'repetitions': 5},
+            )))
+            for i in reps:
+                row = _trial([DISTINCTIVE_MEDIAN], interval=DISTINCTIVE_FRAME)
+                if i >= kept:
+                    row['outcome'] = 'refused'
+                    row['refusal_code'] = 'editor_crashed'
+                    row['samples_ms'] = []
+                cell = job / 'cells' / ('%04d-plate' % i) / 'attempts'
+                cell.mkdir(parents=True)
+                (cell / 'c07.json').write_text(json.dumps(row))
+
+    primary, repro = tmp_path / 'primary', tmp_path / 'repro'
+    write(primary, 'a', 1, 4)
+    write(repro, 'b', 2, 10)
     facts = report.facts_from_runs(primary, repro)
-    assert str(DISTINCTIVE_FRAME) not in json.dumps(facts)
+    blob = json.dumps(facts)
+    assert str(DISTINCTIVE_FRAME) not in blob
+    text = facts['perf.e2.table.C07']
+    assert 'not enough samples' in text
+    assert '4 of 10' in text
+    assert 'wrong schedule' not in text
 
 
 # BLOCKER 4
@@ -280,10 +325,21 @@ def test_inconsistent_block_repetitions_block_seed(tmp_path):
 
 
 def test_two_trees_within_one_seed_names_build_drift(tmp_path):
+    def block(space, job_id, seed, reps, index, tree):
+        return _write_job(
+            tmp_path / space, 'benchmark_input', job_id, seed, reps, tree=tree,
+            summary=_summary(
+                job_id, seed, order=[[i, 'plate'] for i in reps],
+                block={'index': index, 'of': 2, 'repetitions': 5},
+                hosts={'plate': {'tree_sha256': tree}},
+            ),
+        )
+
     roots = [
-        _write_job(tmp_path / 'space-a', 'benchmark_input', 'j1', 1, range(5), tree='tree-a'),
-        _write_job(tmp_path / 'space-b', 'benchmark_input', 'j2', 1, range(5, 10), tree='tree-b'),
-        _write_job(tmp_path / 'space-c', 'benchmark_input', 'j3', 2, range(10), tree='tree-a'),
+        block('space-a', 'j1', 1, range(5), 1, 'tree-a'),
+        block('space-b', 'j2', 1, range(5, 10), 2, 'tree-b'),
+        block('space-c', 'j3', 2, range(0, 5), 1, 'tree-a'),
+        block('space-c', 'j4', 2, range(5, 10), 2, 'tree-a'),
     ]
     pooled = cells.read_criterion_cell(roots, 'plate', 'C07')
     assert pooled['published'] is False

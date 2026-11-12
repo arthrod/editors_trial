@@ -8,6 +8,44 @@ from build import perf_e2_tables as report
 from perf.analysis import e2_cells as cells
 
 
+def block_dir(root, rep):
+    """The decided block job that owns this repetition, or the root when it is one job."""
+    found = []
+    for summary_path in sorted(Path(root).glob('*/*/summary.json')):
+        try:
+            summary = json.loads(summary_path.read_text())
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not (summary.get('block') or {}).get('index'):
+            continue
+        reps = [item[0] for item in (summary.get('order') or []) if item]
+        if rep in reps:
+            return summary_path.parent
+        found.append(summary_path.parent)
+    if found:
+        return found[-1]
+    return Path(root)
+
+
+def _lay_blocks(root):
+    summary_path = root / 'summary.json'
+    if not summary_path.is_file() or any(root.glob('*/*/summary.json')):
+        return
+    summary = json.loads(summary_path.read_text())
+    order = summary.get('order') or []
+    reps = sorted({rep for rep, _ed in order if isinstance(rep, int)})
+    if reps != list(range(10)):
+        return
+    for index, lo, hi in ((1, 0, 5), (2, 5, 10)):
+        job = root / 'benchmark_input' / ('b%d' % index)
+        job.mkdir(parents=True)
+        block = dict(summary)
+        block['run_id'] = '%s-b%d' % (summary.get('run_id'), index)
+        block['order'] = [[rep, ed] for rep, ed in order if isinstance(rep, int) and lo <= rep < hi]
+        block['block'] = {'index': index, 'of': 2, 'repetitions': 5}
+        (job / 'summary.json').write_text(json.dumps(block))
+
+
 @pytest.fixture
 def runs(fs):
     roots = [Path('/runs/primary'), Path('/runs/repro')]
@@ -27,6 +65,7 @@ def runs(fs):
                 )
             )
         )
+        _lay_blocks(root)
         for rep in range(10):
             trial(root, rep)
     return roots
@@ -46,13 +85,15 @@ def trial(root, rep, criterion='C07', name=None, **extra):
         host_provenance={'host_build': 'production', 'publishable': True, 'tree_sha256': 'tree-a'},
     )
     row.update(extra)
-    path = root / 'cells' / f'{rep:04d}-plate' / 'attempts' / (name or criterion + '.json')
+    job = block_dir(root, rep)
+    path = job / 'cells' / f'{rep:04d}-plate' / 'attempts' / (name or criterion + '.json')
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(row))
 
 
 def sample(root, rep, reason, code="crash"):
-    path = root / 'samples' / f'{rep:04d}-plate.json'
+    job = block_dir(root, rep)
+    path = job / 'samples' / f'{rep:04d}-plate.json'
     path.parent.mkdir(exist_ok=True)
     path.write_text(json.dumps(dict(editor_id='plate', failure_reason=reason, outcome='failed', refusal_code=code)))
 
@@ -178,12 +219,10 @@ def test_failure_counts_survive_reproduction_and_mismatch(runs):
 
 def test_blocked_reproduction_is_not_short_sample_claim(runs):
     root = runs[1]
-    summary = json.loads((root / 'summary.json').read_text())
-    summary.update(publishable=False, publication_block_reason='repos_modified')
-    (root / 'summary.json').write_text(json.dumps(summary))
-    for path in (root / 'cells').rglob('*.json'):
-        if '0000-plate' not in str(path):
-            path.unlink()
+    for path in [root / 'summary.json', *root.glob('*/*/summary.json')]:
+        summary = json.loads(path.read_text())
+        summary.update(publishable=False, publication_block_reason='repos_modified')
+        path.write_text(json.dumps(summary))
     text = cells.publish_dual_runs(*runs, 'plate', 'C07')
     assert 'blocked' in text and 'repos_modified' in text
     assert 'not enough samples' not in text

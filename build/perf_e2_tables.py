@@ -234,7 +234,7 @@ def _cell_text(facts: dict, roots, editor: str, criterion: str, measure: str = '
                     reasons.append('%s: %s' % (label, failures))
             else:
                 text = e2_cells.publication_text(cell)
-                if 'not enough samples' in text or 'not publishable' in text:
+                if 'not enough samples' in text or 'not publishable' in text or 'wrong schedule' in text:
                     reasons.append('%s: %s' % (label, text))
             if not cell.get('scheduled'):
                 reasons.append('%s: scheduled count not recorded' % label)

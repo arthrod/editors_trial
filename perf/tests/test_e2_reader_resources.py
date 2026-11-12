@@ -42,9 +42,25 @@ def _record(editor='plate', workload='prose-250kw', *, load=1000, open_settle=20
     }
 
 
+def _blocks(root, seed, *, editor='plate', workload='prose-250kw', records=None, summary=None, tree=TREE):
+    """The decided resources schedule: 2 blocks of 5."""
+    seq = None if records is None else list(records[:10])
+    for index, first in ((1, 0), (2, 5)):
+        extra = dict(summary or {})
+        extra['block'] = {'index': index, 'of': 2, 'repetitions': 5}
+        _job(
+            root, '%s-s%d-b%d' % (editor, seed, index), editor=editor, workload=workload, seed=seed,
+            launches=5, records=None if seq is None else seq[first:first + 5], summary=extra, tree=tree, first=first,
+        )
+
+
 def _two_seeds(tmp_path, **second):
-    _job(tmp_path, 'j1', seed=1)
-    _job(tmp_path, 'j2', seed=2, **second)
+    second.pop('launches', None)
+    records = second.pop('records', None)
+    summary = second.pop('summary', None)
+    tree = second.pop('tree', TREE)
+    _blocks(tmp_path, 1)
+    _blocks(tmp_path, 2, records=records, summary=summary, tree=tree, **second)
     return res.read_cell([tmp_path], 'plate', 'prose-250kw')
 
 
@@ -52,7 +68,7 @@ def test_two_seeds_that_agree_publish_each_measure(tmp_path):
     cell = _two_seeds(tmp_path)
     assert cell['published'] is True and cell['reason'] is None
     assert cell['seeds'] == [1, 2]
-    assert cell['kept'] == [30, 30] and cell['scheduled'] == [30, 30]
+    assert cell['kept'] == [10, 10] and cell['scheduled'] == [10, 10]
     open_cpu = cell['measures']['open_cpu_ms']
     # opening is the load phase plus the work after the ready signal
     assert open_cpu == {'medians': [1200, 1200], 'reproduced': True, 'unit': 'ms'}
@@ -61,9 +77,11 @@ def test_two_seeds_that_agree_publish_each_measure(tmp_path):
 
 def test_pooled_spaces_are_grouped_by_seed_not_by_root(tmp_path):
     # Interleaved blocks: one seed's launches can sit on several Spaces.
-    _job(tmp_path / 'space-a', 'j1', seed=1, launches=5)
-    _job(tmp_path / 'space-b', 'j2', seed=1, launches=5, first=5)
-    _job(tmp_path / 'space-c', 'j3', seed=2, launches=10)
+    block = {'of': 2, 'repetitions': 5}
+    _job(tmp_path / 'space-a', 'j1', seed=1, launches=5, summary={'block': {**block, 'index': 1}})
+    _job(tmp_path / 'space-b', 'j2', seed=1, launches=5, first=5, summary={'block': {**block, 'index': 2}})
+    _job(tmp_path / 'space-c', 'j3', seed=2, launches=5, summary={'block': {**block, 'index': 1}})
+    _job(tmp_path / 'space-c', 'j4', seed=2, launches=5, first=5, summary={'block': {**block, 'index': 2}})
     cell = res.read_cell([tmp_path / 'space-a', tmp_path / 'space-b', tmp_path / 'space-c'], 'plate', 'prose-250kw')
     assert cell['published'] is True
     assert cell['kept'] == [10, 10]
@@ -109,7 +127,7 @@ def test_unverified_edits_and_withheld_edit_cpu_are_not_kept(tmp_path):
     bad = _record(edit_oracle={'mode': 'caret_block_text', 'status': 'edit_unverified'}, edit_cpu_publication='withheld')
     cell = _two_seeds(tmp_path, records=[bad] * 30)
     assert cell['published'] is False
-    assert 'edit_unverified 30' in cell['reason']
+    assert 'edit_unverified 10' in cell['reason']
 
 
 def test_different_built_editors_are_never_compared(tmp_path):
@@ -121,24 +139,49 @@ def test_an_editor_that_never_idled_is_counted(tmp_path):
     capped = _record(settle={'after_load': 'capped', 'after_edit': 'capped'})
     cell = _two_seeds(tmp_path, records=[capped] * 30)
     assert cell['published'] is True
-    assert cell['never_idle'] == [0, 30]
+    assert cell['never_idle'] == [0, 10]
 
 
 def test_table_names_refusals_and_never_prints_a_blocked_median(tmp_path):
-    _job(tmp_path, 'j1', seed=1)
-    _job(tmp_path, 'j2', seed=2)
+    _blocks(tmp_path, 1)
+    _blocks(tmp_path, 2)
     crash = _record('canvas', outcome='refused', refusal_code='editor_crashed', editor_error='renderer crashed during edit',
                     load=77777)
-    _job(tmp_path, 'j3', editor='canvas', seed=1, records=[crash] * 30)
-    _job(tmp_path, 'j4', editor='canvas', seed=2, records=[crash] * 30)
+    _blocks(tmp_path, 1, editor='canvas', records=[crash] * 10)
+    _blocks(tmp_path, 2, editor='canvas', records=[crash] * 10)
     facts = {}
     text = res.resources_tables(facts, [tmp_path], ['plate', 'canvas'], {'plate': 'Plate', 'canvas': 'canvas-editor'})
     assert '### 250,000 words' in text
     assert '| Plate | 1.20 s / 1.20 s | 300 ms / 300 ms | 50 ms / 50 ms | 1024.0 MiB / 1024.0 MiB |' in text
-    assert 'canvas-editor: first seed: 0 of 30 launches kept (editor_crashed 30); renderer crashed during edit' in text
+    assert 'canvas-editor: first seed: 0 of 10 launches kept (editor_crashed 10); renderer crashed during edit' in text
     assert '77777' not in json.dumps(facts) and '77.78 s' not in text
     assert facts['perf.e2.plate.B8.prose-250kw.open_cpu_ms.reproduced'] is True
     assert facts['perf.e2.canvas.B8.prose-250kw.published'] is False
+
+
+def test_blockless_ten_is_the_wrong_resources_schedule(tmp_path):
+    _job(tmp_path, 'j1', seed=1, launches=10)
+    _job(tmp_path, 'j2', seed=2, launches=10)
+    cell = res.read_cell([tmp_path], 'plate', 'prose-250kw')
+    assert cell['published'] is False
+    assert cell['reason'] is not None
+    assert 'wrong schedule' in cell['reason']
+    assert 'n = 10 of 10' in cell['reason']
+    assert 'this campaign schedules 10 per seed' in cell['reason']
+    assert cell['measures'] == {}
+
+
+def test_two_blocks_of_five_publish_the_resources_cell(tmp_path):
+    block = {'of': 2, 'repetitions': 5}
+    for seed in (1, 2):
+        _job(tmp_path, 's%d-b1' % seed, seed=seed, launches=5, first=0,
+             summary={'block': {**block, 'index': 1}})
+        _job(tmp_path, 's%d-b2' % seed, seed=seed, launches=5, first=5,
+             summary={'block': {**block, 'index': 2}})
+    cell = res.read_cell([tmp_path], 'plate', 'prose-250kw')
+    assert cell['published'] is True, cell['reason']
+    assert cell['kept'] == [10, 10]
+    assert cell['scheduled'] == [10, 10]
 
 
 def test_report_e2_has_a_resources_section_fed_by_the_facts(tmp_path):
@@ -151,8 +194,8 @@ def test_report_e2_has_a_resources_section_fed_by_the_facts(tmp_path):
     unset = report.unset_facts()
     assert unset['perf.e2.table.B8'] == 'not yet measured'
     assert 'verified' in unset['perf.e2.criterion.B8']
-    _job(tmp_path, 'j1', seed=1)
-    _job(tmp_path, 'j2', seed=2)
+    _blocks(tmp_path, 1)
+    _blocks(tmp_path, 2)
     facts = report.resource_facts([tmp_path], ['plate'])
     assert '| %s | 1.20 s / 1.20 s |' % report.DISPLAY['plate'] in facts['perf.e2.table.B8']
     assert facts['perf.e2.plate.B8.prose-250kw.edit_cpu_ms.reproduced'] is True

@@ -364,13 +364,13 @@ def _scheduled_for_editor(summary: dict | None, editor_id: str, default: int) ->
 
 
 def _decided_publication_schedule(summaries: list, scheduled: int) -> bool:
-    """The campaign's schedule is 10 launches per seed, from 2 blocks of 5.
+    """The campaign's schedule is 10 launches per seed, from exactly 2 blocks of 5.
 
-    A whole job is that schedule only when its order is exactly
-    ``PUBLICATION_REPETITIONS``. Any other total is withheld. When the jobs
-    carry block metadata, the layout must be the decided one: two blocks,
-    five repetitions each, indices 1 and 2. Another factorization of 10 is
-    not that layout.
+    A blockless job is not that schedule, including a whole job whose order
+    is exactly ``PUBLICATION_REPETITIONS``. Any other total is withheld.
+    When the jobs carry block metadata, every present summary must carry it,
+    and the layout must be the decided one: two blocks, five repetitions
+    each, indices 1 and 2. Another factorization of 10 is not that layout.
     """
     if scheduled != PUBLICATION_REPETITIONS:
         return False
@@ -384,7 +384,7 @@ def _decided_publication_schedule(summaries: list, scheduled: int) -> bool:
         if isinstance(block, dict) and block.get('index'):
             blocks.append(block)
     if not blocks:
-        return True
+        return False
     if len(blocks) != present:
         return False
     each = PUBLICATION_REPETITIONS // 2
@@ -551,14 +551,23 @@ def _job_roots(run_directory: Path) -> list[Path]:
     """
     run_directory = Path(run_directory)
     parts = ('cells', 'samples', 'rejected-evidence', 'summary.json')
-    if any((run_directory / part).exists() for part in parts):
-        return [run_directory]
-    jobs = [
+
+    def marked(path: Path) -> bool:
+        return any((path / part).exists() for part in parts)
+
+    # A campaign directory can carry its own summary for comparability and
+    # still hold the block jobs underneath. Those jobs are the schedule.
+    nested = [
         job
         for job in sorted(run_directory.glob('*/*'))
-        if job.is_dir() and any((job / part).exists() for part in parts)
+        if job.is_dir() and marked(job)
     ]
-    if not jobs and (run_directory / 'runs').is_dir():
+    if nested:
+        return nested
+    if marked(run_directory):
+        return [run_directory]
+    jobs = []
+    if (run_directory / 'runs').is_dir():
         for campaign in sorted((run_directory / 'runs').iterdir()):
             if campaign.is_dir():
                 jobs.extend(_job_roots(campaign))

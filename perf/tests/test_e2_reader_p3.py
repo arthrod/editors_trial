@@ -3,7 +3,7 @@
 import json
 import pytest
 from perf.tests import test_e2_report_fix3 as fixtures
-from perf.tests.test_e2_report_fix3 import trial, sample
+from perf.tests.test_e2_report_fix3 import block_dir, trial, sample
 from perf.analysis import e2_cells as cells
 from build import perf_e2_tables as report
 
@@ -12,10 +12,11 @@ runs = fixtures.runs
 
 def test_only_attempts_are_trials(runs):
     root = runs[0]
-    (root / 'cells/0000-plate/summary_c10.json').write_text(
+    job = block_dir(root, 0)
+    (job / 'cells/0000-plate/summary_c10.json').write_text(
         json.dumps(dict(editor_id='plate', criterion_id='C07', publishable=True))
     )
-    (root / 'cells/0000-plate/resources.json').write_text('[]')
+    (job / 'cells/0000-plate/resources.json').write_text('[]')
     assert cells.build_run_cell(root, 'plate', 'C07')['refusals'] == {}
     assert len(list(report._iter_trials(root))) == 10
     assert len(list(cells._iter_trials(root))) == 10
@@ -25,9 +26,10 @@ def test_only_attempts_are_trials(runs):
 @pytest.mark.parametrize('code', ['cpu_throttled', 'host_build', 'cpu_accounting_unavailable'])
 def test_quarantine_preserves_other_evidence(runs, code):
     root = runs[0]
-    (root / 'rejected-evidence/0000-plate').mkdir(parents=True)
+    job = block_dir(root, 0)
+    (job / 'rejected-evidence/0000-plate').mkdir(parents=True)
     sample(root, 0, code, code)
-    (root / 'cells/0000-plate/attempts/bad.json').write_text('{')
+    (job / 'cells/0000-plate/attempts/bad.json').write_text('{')
     cell = cells.build_run_cell(root, 'plate', 'C07')
     assert cell['refusals'] == {'quarantined': 1}
     assert cell['additional_refusals'] == {'unreadable_trial': 1, code: 1}
@@ -120,9 +122,10 @@ def test_unverified_content_also_labels_nonreproduced_medians(runs):
 
 def test_quarantine_does_not_lose_unreadable_before_run_refusal(runs):
     root = runs[0]
-    (root / 'cells/0000-plate/attempts/A.json').write_text('{')
+    job = block_dir(root, 0)
+    (job / 'cells/0000-plate/attempts/A.json').write_text('{')
     trial(root, 0, 'C04', name='Z.json', refusal_code='host_build', outcome='refused')
-    (root / 'rejected-evidence/0000-plate').mkdir(parents=True)
+    (job / 'rejected-evidence/0000-plate').mkdir(parents=True)
     result = cells.build_run_cell(root, 'plate', 'C07')
     assert result['refusals'] == {'quarantined': 1}
     assert result['additional_refusals'] == {'unreadable_trial': 1, 'host_build': 1}

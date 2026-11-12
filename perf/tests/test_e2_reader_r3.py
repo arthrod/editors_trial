@@ -76,22 +76,51 @@ def test_blocked_run_stores_no_median_in_facts(tmp_path):
   assert 'blocked' in facts['perf.e2.table.C07']
 
 
+def _decided_root(root: Path, run_id: str, seed: int, *, kept: int, value=DISTINCTIVE_MEDIAN, interval=16.7):
+    """Parent summary plus the decided 2 blocks of 5. Missing kept launches are refused files."""
+    root.mkdir(parents=True, exist_ok=True)
+    parent = _summary(run_id, seed, order=[[i, 'plate'] for i in range(10)])
+    (root / 'summary.json').write_text(json.dumps(parent))
+    for index, lo in ((1, 0), (2, 5)):
+        reps = range(lo, lo + 5)
+        job = root / 'benchmark_input' / ('b%d' % index)
+        job.mkdir(parents=True)
+        (job / 'summary.json').write_text(json.dumps(_summary(
+            '%s-b%d' % (run_id, index), seed, order=[[i, 'plate'] for i in reps],
+            block={'index': index, 'of': 2, 'repetitions': 5},
+        )))
+        for i in reps:
+            row = _trial([value])
+            row['diagnostic'] = dict(frame_interval_ms=interval)
+            if i >= kept:
+                row['outcome'] = 'refused'
+                row['refusal_code'] = 'editor_crashed'
+                row['samples_ms'] = []
+            cell = job / 'cells' / f'{i:04d}-plate' / 'attempts'
+            cell.mkdir(parents=True)
+            (cell / 'c07.json').write_text(json.dumps(row))
+
+
 def test_under_n_stores_no_median_in_facts(tmp_path):
   primary, repro = tmp_path / 'primary', tmp_path / 'repro'
-  _write_run(primary, run_id='a', seed=1)
-  _write_run(repro, run_id='b', seed=2)
-  for i in range(26):
-      (primary / 'cells' / f'{i:04d}-plate' / 'attempts' / 'c07.json').unlink()
+  _decided_root(primary, 'a', 1, kept=4)
+  _decided_root(repro, 'b', 2, kept=10)
   facts = report.facts_from_runs(primary, repro)
   assert str(DISTINCTIVE_MEDIAN) not in json.dumps(facts)
-  assert '4 of 30' in facts['perf.e2.table.C07']
+  text = facts['perf.e2.table.C07']
+  assert 'not enough samples' in text
+  assert '4 of 10' in text
+  assert 'wrong schedule' not in text
 
 
 def test_pooled_spaces_group_criterion_launches_by_seed(tmp_path):
-  def job(space, job_id, seed, reps):
+  def job(space, job_id, seed, reps, index):
       root = tmp_path / space / 'runs' / 'camp' / 'benchmark_input' / job_id
       root.mkdir(parents=True)
-      (root / 'summary.json').write_text(json.dumps(_summary(job_id, seed, order=[[i, 'plate'] for i in reps])))
+      (root / 'summary.json').write_text(json.dumps(_summary(
+          job_id, seed, order=[[i, 'plate'] for i in reps],
+          block={'index': index, 'of': 2, 'repetitions': 5},
+      )))
       for i in reps:
           cell = root / 'cells' / f'{i:04d}-plate' / 'attempts'
           cell.mkdir(parents=True)
@@ -99,9 +128,10 @@ def test_pooled_spaces_group_criterion_launches_by_seed(tmp_path):
       return tmp_path / space / 'runs' / 'camp'
 
   roots = [
-      job('space-a', 'j1', 1, range(0, 5)),
-      job('space-b', 'j2', 1, range(5, 10)),
-      job('space-c', 'j3', 2, range(10)),
+      job('space-a', 'j1', 1, range(0, 5), 1),
+      job('space-b', 'j2', 1, range(5, 10), 2),
+      job('space-c', 'j3', 2, range(0, 5), 1),
+      job('space-c', 'j4', 2, range(5, 10), 2),
   ]
   cell = cells.read_criterion_cell(roots, 'plate', 'C07')
   assert cell['published'] is True
@@ -110,16 +140,14 @@ def test_pooled_spaces_group_criterion_launches_by_seed(tmp_path):
 
 def test_five_of_ten_publishes_median_and_range_not_p90(tmp_path):
   def write(root, run_id, seed):
-      root.mkdir(parents=True)
-      summary = _summary(run_id, seed, order=[[i, 'plate'] for i in range(10)])
-      (root / 'summary.json').write_text(json.dumps(summary))
-      for i, value in enumerate([10.0, 20.0, 30.0, 40.0, 50.0]):
-          cell = root / 'cells' / f'{i:04d}-plate' / 'attempts'
-          cell.mkdir(parents=True)
+      _decided_root(root, run_id, seed, kept=5, value=0.0, interval=1.0)
+      values = [10.0, 20.0, 30.0, 40.0, 50.0]
+      for i, value in enumerate(values):
+          path = root / 'benchmark_input' / 'b1' / 'cells' / f'{i:04d}-plate' / 'attempts' / 'c07.json'
           row = _trial([value])
           row['diagnostic'] = dict(frame_interval_ms=1.0)
           row['sub_frame_samples'] = [False]
-          (cell / 'c07.json').write_text(json.dumps(row))
+          path.write_text(json.dumps(row))
   write(tmp_path / 'primary', 'a', 1)
   write(tmp_path / 'repro', 'b', 2)
   facts = report.facts_from_runs(tmp_path / 'primary', tmp_path / 'repro')

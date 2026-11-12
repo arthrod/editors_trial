@@ -91,14 +91,31 @@ def _trial(editor: str, criterion: str, outcome: str, samples=None, **extra):
     return row
 
 
+def _job_for(root: Path, rep: int) -> Path:
+    found = []
+    for summary_path in sorted(root.glob("*/*/summary.json")):
+        try:
+            summary = json.loads(summary_path.read_text())
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not (summary.get("block") or {}).get("index"):
+            continue
+        reps = [item[0] for item in (summary.get("order") or []) if item]
+        if rep in reps:
+            return summary_path.parent
+        found.append(summary_path.parent)
+    return found[-1] if found else root
+
+
 def _write_trial(root: Path, rep: int, editor: str, criterion: str, **kwargs):
-    cell_dir = root / "cells" / f"{rep:04d}-{editor}"
+    job = _job_for(root, rep)
+    cell_dir = job / "cells" / f"{rep:04d}-{editor}"
     cell = cell_dir / "attempts"
     cell.mkdir(parents=True, exist_ok=True)
     path = cell / f"{criterion.lower()}.json"
     trial = _trial(editor, criterion, **kwargs)
     path.write_text(json.dumps(trial), encoding="utf-8")
-    sample_dir = root / "samples"
+    sample_dir = job / "samples"
     sample_dir.mkdir(parents=True, exist_ok=True)
     sample = {
         "outcome": "ok",
@@ -113,12 +130,56 @@ def _write_trial(root: Path, rep: int, editor: str, criterion: str, **kwargs):
     return path
 
 
+def _settle_blocks(root: Path) -> None:
+    """Move a flat job of exactly 10 onto 2 blocks of 5 and keep every launch file."""
+    summary_path = root / "summary.json"
+    if not summary_path.is_file() or any(root.glob("*/*/summary.json")):
+        return
+    summary = json.loads(summary_path.read_text())
+    order = summary.get("order") or []
+    reps = sorted({rep for rep, editor in order if isinstance(rep, int)})
+    if reps != list(range(10)):
+        return
+    for index, lo, hi in ((1, 0, 5), (2, 5, 10)):
+        job = root / "benchmark_input" / ("b%d" % index)
+        job.mkdir(parents=True)
+        block = dict(summary)
+        block["run_id"] = "%s-b%d" % (summary.get("run_id", root.name), index)
+        block["order"] = [pair for pair in order if isinstance(pair[0], int) and lo <= pair[0] < hi]
+        block["block"] = {"index": index, "of": 2, "repetitions": 5}
+        (job / "summary.json").write_text(json.dumps(block))
+    for kind in ("cells", "samples", "rejected-evidence"):
+        source = root / kind
+        if not source.is_dir():
+            continue
+        for child in list(source.iterdir()):
+            try:
+                rep = int(child.name.split("-", 1)[0])
+            except ValueError:
+                continue
+            dest = _job_for(root, rep) / kind / child.name
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            child.rename(dest)
+    for summary_path in sorted(root.glob("*/*/summary.json")):
+        block = json.loads(summary_path.read_text())
+        job = summary_path.parent
+        for rep, editor in block.get("order") or []:
+            attempts = job / "cells" / ("%04d-%s" % (rep, editor)) / "attempts"
+            if any(attempts.glob("*.json")):
+                continue
+            attempts.mkdir(parents=True, exist_ok=True)
+            (attempts / "refused.json").write_text(json.dumps(_trial(
+                editor, "C07", "refused", samples=[], refusal_code="cpu_throttled")))
+
+
 def _write_summary(root: Path, editor: str, repetitions: int, **extra):
     order = [(rep, editor) for rep in range(repetitions)]
     (root / "summary.json").write_text(
         json.dumps({"order": order, "publishable": True, **extra}),
         encoding="utf-8",
     )
+    if repetitions == 10:
+        _settle_blocks(root)
 
 
 class PublicationRepetitions(unittest.TestCase):
@@ -337,6 +398,7 @@ class E2Cells(unittest.TestCase):
                 "execution_profile": "dedicated_publish", "publishable": True,
                 "order": [[i, "plate"] for i in range(10)],
             }))
+            _settle_blocks(root)
         text = e2_cells.publish_dual_runs(primary, reproduction, "plate", "C07", scheduled=10)
         self.assertIn("not enough samples", text)
 
@@ -679,7 +741,7 @@ class B7FixRound(unittest.TestCase):
                 sub_frame_samples=[True],
                 diagnostic={},
             )
-            trial_path = root / "cells" / f"{rep:04d}-plate" / "attempts" / "c07.json"
+            trial_path = _job_for(root, rep) / "cells" / f"{rep:04d}-plate" / "attempts" / "c07.json"
             trial = json.loads(trial_path.read_text())
             trial["diagnostic"] = {}
             trial_path.write_text(json.dumps(trial), encoding="utf-8")
