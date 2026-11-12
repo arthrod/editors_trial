@@ -80,14 +80,24 @@ export function classifyRegion(pixels, baseline, rects, dpr, doc, tolerance = 8)
  * the first rendering update after the event's processing (rounded to 8
  * ms), so the ink-less frames delivered in the hole are compositor frames
  * of the old content and the hole is the input latency under measurement
- * (issue #171). The entry must belong to the measured input (its start
- * at/after the marker, within one frame interval) and startMs + durationMs,
- * plus the 8 ms rounding, must reach the onset frame minus the onset bound.
+ * (issue #171). The entry must be the measured input's own — its startMs
+ * equal to the measured event's startTime exactly — and the glyph must sit
+ * in the verified window around pEnd = startMs + durationMs: on the early
+ * side the reported end can sit up to 4 ms before the true end (nearest-8
+ * rounding) plus a 2 ms clock/causality residual, and a glyph earlier than
+ * pEnd - 6 refuses glyph_before_next_paint; on the late side the glyph may
+ * have been presented as early as pEnd - 4, so the unverified interval is
+ * glyph - (pEnd - 4) and it must stay within the onset bound — the same
+ * tolerance the normal path grants between the last ink-less delivered
+ * frame and the glyph — else it refuses glyph_after_next_paint. The
+ * accepted onset must also reach the quiet reference through contiguous
+ * deliveries: a gap beyond min(gapBound, quietMs) between consecutive
+ * frames from the onset to the reference refuses onset_walkback_gap.
  * processingEnd only says the handler returned — an editor that renders
  * asynchronously stays blocked after it — so it is disclosure, never the
- * bound. Without the entry, without its duration, or when the duration
- * ended earlier, the refusal stands exactly as before; the accepted
- * decision discloses onset_hole_explained_by with both numbers.
+ * bound. Without the entry, without its duration, or outside the verified
+ * window, the refusal stands; the accepted decision discloses
+ * onset_hole_explained_by with both numbers.
  * Later covers cannot replace a proven reference.
  */
 /** The onset bound floor in ms (lax layer, owner decision 2026-11-11): the
@@ -95,8 +105,15 @@ export function classifyRegion(pixels, baseline, rects, dpr, doc, tolerance = 8)
  * cells: 50/66.7/100 ms between the last ink-less delivered frame and the
  * glyph). Exported so tests and disclosures can name it. */
 export const ONSET_BOUND_FLOOR_MS = 100;
+/** Event Timing duration is rounded to the nearest 8 ms, so the reported end
+ * can sit up to 4 ms on either side of the true first rendering update. */
+export const EVENT_TIMING_ROUNDING_MS = 4;
+/** Clock/causality residual allowed on the early side of the reported end:
+ * the entry clock and the frame clock are the same uncorrected page clock,
+ * so only a small residual is named, not a frame allowance. */
+export const EVENT_TIMING_CLOCK_RESIDUAL_MS = 2;
 
-export function settleFrames(frames, {quietMs=300,maxWaitMs=3000,markerMs=0,minPixels=4,tolerance=8,frameIntervalMs=null,inputProcessing=null}={}) {
+export function settleFrames(frames, {quietMs=300,maxWaitMs=3000,markerMs=0,minPixels=4,tolerance=8,frameIntervalMs=null,inputProcessing=null,eventStartMs=null}={}) {
   const eligible=frames.filter(f=>Number.isFinite(f.pageMs)&&f.pageMs>=markerMs&&f.pageMs<=markerMs+maxWaitMs).sort((a,b)=>a.pageMs-b.pageMs);
   const intervals=eligible.slice(1).map((f,i)=>f.pageMs-eligible[i].pageMs).filter(n=>n>0).sort((a,b)=>a-b);
   const middle=Math.floor(intervals.length/2);
@@ -122,6 +139,7 @@ export function settleFrames(frames, {quietMs=300,maxWaitMs=3000,markerMs=0,minP
       (ref.ink[k] && [0,1,2].every(c=>Math.abs(f.values[k*3+c]-ref.values[k*3+c])<=tolerance)));
   };
   let sparse=false;
+  let sparseReason=null;
   for(let i=0;i<eligible.length;i++) {
     const ref=eligible[i];
     if(ref.ink_pixels<minPixels) continue;
@@ -159,19 +177,39 @@ export function settleFrames(frames, {quietMs=300,maxWaitMs=3000,markerMs=0,minP
       // end — duration is startTime to the presentation of the first
       // rendering update after the event's processing, rounded to 8 ms, so
       // the ink-less frames delivered in the hole are compositor frames of
-      // the old content. The entry must belong to the measured input (start
-      // at/after the marker within one frame interval) and start +
-      // duration, plus the 8 ms rounding, must reach the onset frame minus
-      // the onset bound. processingEnd is disclosure only: an editor that
-      // renders asynchronously stays blocked after the handler returns.
-      // Without the entry, without its duration, or when the duration ended
-      // earlier, the refusal stands.
+      // the old content. The entry must be the measured input's own:
+      // PerformanceEventTiming.startTime is the dispatched event's
+      // timeStamp, so exact equality with the measured event's startTime is
+      // the identity check — a fuzzy match can adopt a different keydown,
+      // and zero or several matches is no verified entry. Around
+      // pEnd = startMs + durationMs: duration rounds to the nearest 8 ms,
+      // so the true end can sit up to EVENT_TIMING_ROUNDING_MS on either
+      // side of pEnd; on the early side a further
+      // EVENT_TIMING_CLOCK_RESIDUAL_MS covers the clock/causality residual,
+      // and a glyph earlier than that refuses glyph_before_next_paint. On
+      // the late side the glyph may have been presented as early as
+      // pEnd - rounding, so the unverified interval is
+      // glyph - (pEnd - rounding) and it must stay within onsetBound — the
+      // same tolerance the normal path grants between the last ink-less
+      // delivered frame and the glyph — else glyph_after_next_paint.
+      // covers() can also walk the onset back across a delivery hole the
+      // quiet proof never checked: the frames from eligible[first] to the
+      // quiet reference eligible[i] must be contiguous (no gap beyond
+      // min(gapBound, quietMs)), else onset_walkback_gap. processingEnd is
+      // disclosure only: an editor that renders asynchronously stays
+      // blocked after the handler returns. Without the entry, without its
+      // duration, or outside the verified window, the refusal stands.
       const p=inputProcessing;
+      const eventStart=Number.isFinite(eventStartMs)?eventStartMs:markerMs;
       const pStart=p&&Number.isFinite(p.startMs)?p.startMs:NaN;
       const pEnd=Number.isFinite(pStart)&&Number.isFinite(p&&p.durationMs)?pStart+p.durationMs:NaN;
-      const frameSlack=onsetInterval>0?onsetInterval:median;
-      if(!(Number.isFinite(pStart)&&Number.isFinite(pEnd)
-        &&pStart>=markerMs-frameSlack&&pEnd+8>=eligible[first].pageMs-onsetBound)) {sparse=true;continue;}
+      const glyph=eligible[first].pageMs;
+      if(!(pStart===eventStart&&Number.isFinite(pEnd))) {sparse=true;continue;}
+      if(glyph<pEnd-EVENT_TIMING_ROUNDING_MS-EVENT_TIMING_CLOCK_RESIDUAL_MS) {sparse=true;sparseReason='glyph_before_next_paint';continue;}
+      if(glyph-(pEnd-EVENT_TIMING_ROUNDING_MS)>onsetBound) {sparse=true;sparseReason='glyph_after_next_paint';continue;}
+      let walkedGap=false;
+      for(let k=first+1;k<=i;k++) if(eligible[k].pageMs-eligible[k-1].pageMs>Math.min(gapBound,quietMs)) {walkedGap=true;break;}
+      if(walkedGap) {sparse=true;sparseReason='onset_walkback_gap';continue;}
       const explained={reference_index:frames.indexOf(ref),match_index:frames.indexOf(eligible[first]),page_ms:eligible[first].pageMs,frame_interval_ms:median,gap_bound_ms:gapBound,onset_bound_ms:onsetBound,
         onset_hole_explained_by:'event_next_paint',onset_gap_ms:onset,event_next_paint_ms:pEnd};
       if(Number.isFinite(p.processingEndMs)) explained.event_processing_end_ms=p.processingEndMs;
@@ -179,5 +217,5 @@ export function settleFrames(frames, {quietMs=300,maxWaitMs=3000,markerMs=0,minP
     }
     return {reference_index:frames.indexOf(ref),match_index:frames.indexOf(eligible[first]),page_ms:eligible[first].pageMs,frame_interval_ms:median,gap_bound_ms:gapBound,onset_bound_ms:onsetBound};
   }
-  return {failure_reason:sparse?'witness_sparse':'settle_not_reached',frame_interval_ms:median,gap_bound_ms:gapBound,onset_bound_ms:onsetBound};
+  return {failure_reason:sparse?(sparseReason||'witness_sparse'):'settle_not_reached',frame_interval_ms:median,gap_bound_ms:gapBound,onset_bound_ms:onsetBound};
 }

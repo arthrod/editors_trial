@@ -531,45 +531,53 @@ async function measureEdit(page, selector, cdp) {
       let decision;
       const classifier = createRegionClassifier({baseline:baseline.frame.data,
         rects:confirmation.visible_rects,dpr,doc,tolerance:DEFAULT_CHANNEL_TOLERANCE});
+      // Classification runs off-thread; CDP remains free to acknowledge
+      // every frame while the recorded snapshot is processed.
+      // W has elapsed in arm(). Snapshot all evidence BEFORE the Event
+      // Timing poll — the poll only updates the entry, and a frame
+      // delivered during it is not classified — sort by timestamp, and
+      // classify through the decision time, including late delivery.
+      const snapshot=[...recorder.frames].sort((a,b)=>
+        convertFrameToPageMs(a,clock)-convertFrameToPageMs(b,clock));
       // Issue #171: the measured keydown's own Event Timing entry. Entries
       // are reported after the next paint, so when the glyph frame is the
       // last delivery the entry can lag it — poll briefly through the
       // observer's own notify hook. W already elapsed inside arm(); this
       // read extends no timed window and the sample stays the glyph frame's
-      // pageMs minus the marker.
+      // pageMs minus the marker. The entry must be the measured keydown's
+      // own: PerformanceEventTiming.startTime is the dispatched event's
+      // timeStamp, so exact equality with state.event.startTime is the
+      // identity check. Zero or more than one match is no verified entry
+      // and is recorded as event_entry_ambiguous in the diagnostic.
       const inputEntry = await page.evaluate(async () => {
         const state = window.__b2;
         if (!state?.supported || !state.event) return null;
-        const match = () => state.entries.find(e =>
-          e.name === 'keydown' && Math.abs(e.startTime - state.event.startTime) < 0.1);
-        let entry = match();
-        if (!entry) {
+        const matches = () => state.entries.filter(e =>
+          e.name === 'keydown' && e.startTime === state.event.startTime);
+        let found = matches();
+        if (!found.length) {
           await new Promise(resolve => {
             const timer = setTimeout(resolve, 500);
-            state.notify = () => { if (match()) { clearTimeout(timer); resolve(); } };
+            state.notify = () => { if (matches().length) { clearTimeout(timer); resolve(); } };
           });
-          entry = match();
+          found = matches();
         }
-        return entry || null;
+        return {entry: found.length === 1 ? found[0] : null, matches: found.length};
       });
-      // The entry's times are performance.now()-based; the frames' pageMs is
-      // the screencast timestamp minus timeOrigin, which runs page_offset_ms
-      // ahead of performance.now(). Convert the entry onto the frame clock.
-      const inputClockOffsetMs = clock.timestamp_kind === 'epoch_seconds' &&
-        Number.isFinite(skew.page_offset_ms) ? skew.page_offset_ms : 0;
-      const inputProcessing = inputEntry ? {
-        startMs: inputEntry.startTime + inputClockOffsetMs,
-        processingEndMs: Number.isFinite(inputEntry.processingEnd)
-          ? inputEntry.processingEnd + inputClockOffsetMs : inputEntry.processingEnd,
-        durationMs: inputEntry.duration,
+      if (inputEntry) {
+        confirmation.event_entry_matches = inputEntry.matches;
+        if (inputEntry.matches !== 1) confirmation.event_entry_ambiguous = true;
+      }
+      // The entry is compared on the raw clock the rest of the lane uses:
+      // edit_ms is confirmationFramePageMs - timing.event.startTime, and
+      // page_offset_ms is not a conversion correction, so the entry's own
+      // startTime/duration are used unshifted.
+      const inputProcessing = inputEntry?.entry ? {
+        startMs: inputEntry.entry.startTime,
+        processingEndMs: inputEntry.entry.processingEnd,
+        durationMs: inputEntry.entry.duration,
       } : null;
       try {
-        // Classification runs off-thread; CDP remains free to acknowledge
-        // every frame while the recorded snapshot is processed.
-        // W has elapsed in arm(). Snapshot all evidence, sort by timestamp,
-        // and classify through the decision time, including late delivery.
-        const snapshot=[...recorder.frames].sort((a,b)=>
-          convertFrameToPageMs(a,clock)-convertFrameToPageMs(b,clock));
         for (const candidate of snapshot) {
           const pageMs = convertFrameToPageMs(candidate,clock);
           if (pageMs === null || pageMs < markerMs || pageMs > markerMs + settleMaxWaitMs) continue;
@@ -580,7 +588,8 @@ async function measureEdit(page, selector, cdp) {
           recorded.push({frame:candidate,pageMs,...classification});
           decision = settleFrames(recorded, {quietMs:quiescenceMs,maxWaitMs:settleMaxWaitMs,
             markerMs,minPixels:Math.ceil(DEFAULT_MIN_PIXELS*dpr*dpr),tolerance:DEFAULT_CHANNEL_TOLERANCE,
-            frameIntervalMs:skew.frame_interval_ms,inputProcessing});
+            frameIntervalMs:skew.frame_interval_ms,inputProcessing,
+            eventStartMs:typeof event?.startTime === 'number' ? event.startTime : null});
           // All snapshot frames at or before this decision are now classified.
           // Include equal timestamps too, before accepting the prefix.
           const next=snapshot[snapshot.indexOf(candidate)+1];
@@ -588,7 +597,8 @@ async function measureEdit(page, selector, cdp) {
         }
         decision = settleFrames(recorded, {quietMs:quiescenceMs,maxWaitMs:settleMaxWaitMs,
           markerMs,minPixels:Math.ceil(DEFAULT_MIN_PIXELS*dpr*dpr),tolerance:DEFAULT_CHANNEL_TOLERANCE,
-          frameIntervalMs:skew.frame_interval_ms,inputProcessing});
+          frameIntervalMs:skew.frame_interval_ms,inputProcessing,
+          eventStartMs:typeof event?.startTime === 'number' ? event.startTime : null});
       } finally {await classifier.close();}
       confirmation.frame_diagnostic = recorded.map(({frame,pageMs,ink_pixels,regions}) =>
         ({seq:frame.seq,page_ms:pageMs,delay_ms:pageMs-markerMs,ink_pixels,regions}));
@@ -627,7 +637,7 @@ async function measureEdit(page, selector, cdp) {
   // from matching Event Timing entries, and absence is explicitly censored.
   const timing = await page.evaluate(async () => {
     const state = window.__b2;
-    const matching = () => state.entries.filter(e => e.name === 'keydown' && Math.abs(e.startTime-state.event.startTime)<0.1);
+    const matching = () => state.entries.filter(e => e.name === 'keydown' && e.startTime === state.event.startTime);
     if (state.supported && !matching().length) await new Promise(resolve => {
       const timer = setTimeout(resolve, 500);
       state.notify = () => { if (matching().length) { clearTimeout(timer); resolve(); } };
@@ -645,7 +655,7 @@ async function measureEdit(page, selector, cdp) {
   return { mechanism, clock_skew:skew, witness:frame, event_timing:timing, edit_confirmation:confirmation,
     timestamp_note: 'Uncorrected frame-to-page conversion; page_offset_ms is not a conversion correction. See clock_skew conversion bounds.',
     outcome: ok ? 'measured' : 'failed',
-    failure_reason: ok ? null : ((settleFailure === 'witness_sparse' || settleFailure === 'monotonic_origin_missing' ? settleFailure : null) || (!confirmation.confirmed && confirmation.changed_pixels < DEFAULT_MIN_PIXELS
+    failure_reason: ok ? null : ((['witness_sparse','monotonic_origin_missing','glyph_before_next_paint','glyph_after_next_paint','onset_walkback_gap'].includes(settleFailure) ? settleFailure : null) || (!confirmation.confirmed && confirmation.changed_pixels < DEFAULT_MIN_PIXELS
       ? 'expected_edit_not_confirmed'
       : settleFailure || (!frame.clock_skew_acceptable ? 'clock_check_not_acceptable' : !frame.document_scoped ? 'not_document_scoped' : frame.outcome !== 'witnessed' ? 'no_frame' : !confirmation.confirmed ? 'expected_edit_not_confirmed' : 'negative_input_latency'))),
     edit_ms:ok ? duration : null, paint_ms:ok ? duration : null };
