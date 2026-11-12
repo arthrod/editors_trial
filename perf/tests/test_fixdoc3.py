@@ -408,7 +408,8 @@ class DuplicateAnchorTextIsNotAMove(unittest.TestCase):
         with self.assertRaises(bd.ProbeRefusal) as caught:
             bd.c12_measured_sample(payload)
         self.assertTrue(
-            "did not move down" in caught.exception.reason or "anchor_identity_ambiguous" in caught.exception.reason,
+            "no post-Enter frame moved the anchor below the arm baseline" in caught.exception.reason
+            or "anchor_identity_ambiguous" in caught.exception.reason,
             caught.exception.reason,
         )
 
