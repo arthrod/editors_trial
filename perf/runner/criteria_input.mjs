@@ -2831,7 +2831,16 @@ async function measureUndo(page, witness, options, meta) {
       if (current.text !== before.text) {
         entry.fixture_reset = { attempted: true, restored: false, reason: 'undo_did_not_restore_original' };
         try {
-          await page.reload();
+          // The C07 reload path's own helper: reload, then wait for the
+          // host's ready signal and wait_after_ready. #modeEditor is static
+          // HTML, so clicking it before that signal races the mount — on
+          // docxodus the mount never finishes and the contenteditable wait
+          // burns the whole load timeout.
+          if (typeof options.reloadPage === 'function') {
+            await options.reloadPage();
+          } else {
+            await page.reload();
+          }
           // Docxodus reload returns to render mode. The editor surface is
           // empty until #modeEditor mounts it, so a text compare before that
           // click can never succeed.

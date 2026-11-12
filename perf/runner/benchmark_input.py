@@ -45,9 +45,9 @@ from perf.runner.benchmark_document import (  # noqa: E402
     content_meta_for_workload,
     gate_length_check_for,
 )
+from perf.runner.load_timeouts import load_timeout_env, load_timeout_ms  # noqa: E402
 
 CRITERIA = ("C04", "C07", "C09", "C08")
-PROBE_TIMEOUT_S = 300
 
 
 def _fixture(editor_id: str, workload_id: str = "micro-paragraphs") -> tuple[Path, str, int]:
@@ -161,6 +161,9 @@ def _probe_env(editor_id: str, target: dict, fixture: Path, *, workload_id: str,
     else:
         env.pop("PERF_FIXTURE_VARIANT", None)
         env.pop("PERF_FIXTURE_SOURCE_SHA256", None)
+    # Owner's load-timeout policy (#155 item 6): the probe's inner waits read
+    # PERF_LOAD_TIMEOUT_MS; the lane exports it like every other lane does.
+    env.update(load_timeout_env(workload_id))
     return env
 
 
@@ -226,20 +229,25 @@ def run_editor(editor_id: str, attempt_dir: Path, workload_id: str = "micro-para
             reason="%s: %s" % (type(exc).__name__, exc), refusal_code="host_build")
     t0 = time.time()
     try:
+        # Lax layer (owner 2026-11-11): the probe's own ready and mode-open
+        # waits run to the workload's load timeout; the lane's wall clock
+        # stays above that so the probe's timeouts expire — and are named —
+        # before this kill, the same formula warm_cold uses.
+        probe_timeout_s = load_timeout_ms(workload_id) / 1000 + 300
         try:
             proc = subprocess.run(
                 _probe_command(editor_id, target, fixture),
                 cwd=str(UI),
                 capture_output=True,
                 text=True,
-                timeout=PROBE_TIMEOUT_S,
+                timeout=probe_timeout_s,
                 env=_probe_env(editor_id, target, fixture, workload_id=workload_id,
                                workload_row=workload_row),
             )
         except subprocess.TimeoutExpired:
             return _refuse_run(
                 editor_id, attempt_dir, workload_row, fixture_sha, fixture_size,
-                reason="probe exceeded the %ss timeout" % PROBE_TIMEOUT_S,
+                reason="probe exceeded the %ss timeout" % probe_timeout_s,
                 refusal_code="editor_timeout", t0=t0)
         record_process(proc)
         wall = round(time.time() - t0, 1)
