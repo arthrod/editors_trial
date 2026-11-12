@@ -131,7 +131,11 @@ def test_f1_diagnostics_cannot_drop_measured_launch(fs):
         host_provenance={'host_build': 'production', 'publishable': True, 'tree_sha256': 'tree-a'})))
     samples = root / 'samples'
     samples.mkdir()
-    for name in ('0000-plate', 'doc-C11-x', 'probe-x', 'input-x', 'c10-0000-plate', 'saturation-0-plate'):
+    # The launch's own row is clean: browser_run marks a launch whose own row
+    # carries cpu_accounting_unavailable unpublishable (#170). Only the
+    # diagnostic rows below carry refusals, and none may drop the launch.
+    (samples / '0000-plate.json').write_text(json.dumps(dict(editor_id='plate', outcome='ok')))
+    for name in ('doc-C11-x', 'probe-x', 'input-x', 'c10-0000-plate', 'saturation-0-plate'):
         (samples / (name + '.json')).write_text(json.dumps(dict(editor_id='plate',
             outcome='ok', refusal_code='cpu_accounting_unavailable')))
     (samples / 'nested').mkdir()
