@@ -52,6 +52,47 @@ def _load_server():
     return mod
 
 
+def reflow_host_payload(host_file: str, timeout_ms: int = 20000) -> dict:
+    """Run the reflow probe against one fixture host and return its JSON."""
+    (REPO / ".scratch" / "tmp").mkdir(parents=True, exist_ok=True)
+    server = None
+    corpus_dir = None
+    server_mod = _load_server()
+    server, _thread, base_url = server_mod.serve(HOSTS)
+    corpus_dir = tempfile.TemporaryDirectory(dir=REPO / ".scratch" / "tmp")
+    try:
+        corpus = Path(corpus_dir.name) / "corpus.docx"
+        corpus.write_bytes(b"PK\x03\x04r3c12h")
+        cmd = [
+            _node(),
+            str(PROBE),
+            "--mode",
+            "reflow",
+            "--url",
+            "%s/%s" % (base_url, host_file),
+            "--corpus",
+            str(corpus),
+            "--doc-selector",
+            ".doc-paragraph",
+            "--page-model",
+            "continuous_flow",
+            "--edit-selector",
+            ".doc-paragraph",
+            "--timeout-ms",
+            str(timeout_ms),
+        ]
+        proc = subprocess.run(cmd, cwd=str(REPO), capture_output=True, text=True, timeout=TIMEOUT_S)
+    finally:
+        if server is not None:
+            server.shutdown()
+            server.server_close()
+        if corpus_dir is not None:
+            corpus_dir.cleanup()
+    if proc.returncode != 0:
+        raise AssertionError(proc.stderr or proc.stdout)
+    return json.loads(proc.stdout)
+
+
 class FixtureParagraphPair(unittest.TestCase):
     def test_pair_is_the_first_non_heading_body_and_the_next(self):
         from perf.fixtures.docx_workload import workload_for_lane

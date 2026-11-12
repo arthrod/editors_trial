@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import tempfile
 import unittest
@@ -15,9 +16,12 @@ DOCUMENT_PROBE = REPO / "perf/runner/document_probe.mjs"
 
 class NodeContract(unittest.TestCase):
     def node(self, body: str) -> dict:
+        # C12_LANE_SOURCE points one test at the reviewer's lane_no_count_gate.mjs.
+        # The default is the worktree module.
+        module = os.environ.get("C12_LANE_SOURCE", str(LANE_EDIT_BURST))
         script = f"""
 import assert from 'node:assert/strict';
-const mod = await import({json.dumps(str(LANE_EDIT_BURST))});
+const mod = await import({json.dumps(module)});
 {body}
 """
         proc = subprocess.run(
@@ -69,10 +73,32 @@ const blocks = [{ innerText: 'xAlpha' }, { innerText: 'Beta' }, { innerText: 'Ga
 const read = (b) => String(b.innerText || '');
 const check = mod.ANCHOR_REFIND_CONTEXT_OK(snapshot, blocks, read);
 assert.equal(check.ok, true, JSON.stringify(check));
-console.log(JSON.stringify(check));
+// Seven Betas after the edit: five in the before list, six after. The extra
+// copy sits past K. The count gate must refuse. A resolver that only checks
+// the K prefix accepts this list.
+const pastKSnapshot = {
+  caretIndex: 0,
+  anchorIndex: 1,
+  blockTexts: ['Alpha', 'Beta', 'Beta', 'Beta', 'Beta', 'Beta', 'Tail'],
+  anchorText: 'Beta',
+};
+const pastKBlocks = [
+  { innerText: 'xAlpha' },
+  { innerText: 'Beta' },
+  { innerText: 'Beta' },
+  { innerText: 'Beta' },
+  { innerText: 'Beta' },
+  { innerText: 'Beta' },
+  { innerText: 'Beta' },
+  { innerText: 'Tail' },
+];
+const pastK = mod.ANCHOR_REFIND_CONTEXT_OK(pastKSnapshot, pastKBlocks, read);
+assert.equal(pastK.ok, false, JSON.stringify(pastK));
+console.log(JSON.stringify({ ok: check.ok, pastK: pastK.ok }));
 """
         )
         self.assertTrue(out["ok"])
+        self.assertFalse(out["pastK"])
 
     def test_allow_when_prefix_matches_after_rerender(self):
         out = self.node(
@@ -185,6 +211,18 @@ class C12SampleEnd(unittest.TestCase):
         text = DOCUMENT_PROBE.read_text(encoding="utf-8")
         self.assertNotIn("shift.at - 40", text)
         self.assertIn("shift.at", text)
+        # C12_CLOCK_PAYLOAD is the reviewer's captured clock.json. The default
+        # runs clock.html. A sample of about 1.7 s fails the 500 ms bound.
+        payload_path = os.environ.get("C12_CLOCK_PAYLOAD")
+        if payload_path:
+            payload = json.loads(Path(payload_path).read_text(encoding="utf-8"))
+        else:
+            from perf.tests.test_r3c12h import reflow_host_payload
+
+            payload = reflow_host_payload("clock.html")
+        self.assertIsNone(payload.get("error"), payload)
+        self.assertLess(payload["presented_frame_ms"], 500, payload)
+        self.assertLess(payload["observed_shift_page_ms"] - payload["input_page_ms"], 500, payload)
 
 
 class WordcraftGlyphRow(unittest.TestCase):

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import unittest
 from pathlib import Path
@@ -106,6 +107,22 @@ class C12BodyCaretUsesAdapter(unittest.TestCase):
         self.assertIn("waitForC12CaretEdit", lane)
         self.assertIn("edit_not_observed", probe)
         self.assertIn("caret_not_at_paragraph_start", lane)
+        # C12_NEVER_PAYLOAD is the reviewer's captured never.json. The default
+        # runs never.html. A confirm timeout reported as anchor_identity_ambiguous
+        # fails this assertion.
+        payload_path = os.environ.get("C12_NEVER_PAYLOAD")
+        if payload_path:
+            payload = json.loads(Path(payload_path).read_text(encoding="utf-8"))
+        else:
+            from perf.tests.test_r3c12h import reflow_host_payload
+
+            payload = reflow_host_payload("never.html", timeout_ms=2000)
+        self.assertEqual(payload.get("error"), "edit_not_observed", payload)
+        from perf.runner import benchmark_document as bd
+
+        with self.assertRaises(bd.ProbeRefusal) as caught:
+            bd.c12_measured_sample(payload)
+        self.assertEqual(caught.exception.refusal_code, "edit_not_observed", caught.exception.reason)
 
     def test_superdoc_caret_verify_reads_model_paragraph(self):
         surface = (REPO / "perf/runner/edit_surface.mjs").read_text(encoding="utf-8")
