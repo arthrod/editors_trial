@@ -25,7 +25,7 @@ from perf.tests.test_schema import _env
     ('editable_not_in_viewport', 'editable_not_found'),
     ('surface_not_dom_editable: no document text or caret in the DOM',
      'surface_not_dom_editable'),
-    ('no_correctness_adapter: canvas surface without model API or pixel probe',
+    ('no_correctness_adapter: null',
      'surface_not_dom_editable'),
     ('click_points_unavailable', 'click_points_unavailable'),
     ('pointer_target_outside_editable', 'unverified'),

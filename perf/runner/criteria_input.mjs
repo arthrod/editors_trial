@@ -371,9 +371,9 @@ export function clickPaintRegion(point) {
 }
 
 
-function adapterGate(adapter) {
+export function adapterGate(adapter) {
   if (!adapter) {
-    return 'no_correctness_adapter: canvas surface without model API or pixel probe';
+    return `no_correctness_adapter: ${adapter || 'null'}`;
   }
   if (adapter === 'dom_innerText' || adapter.startsWith('dom_')) {
     // Usable means a click and a key change the document. The selector node
@@ -3797,10 +3797,10 @@ export async function runCriteriaSuite({
     // mounting while the ink scan photographs the overlay as painted lines
     // (#168). The exit is that editor's usableExpression, the existing
     // ready policy. Nothing here exits because the DOM went quiet.
-    // A missing or unimplemented correctness adapter is already the named
-    // refusal (a canvas is not contenteditable, so this expression cannot
-    // become true). Waiting would replace that reason with
-    // usable_signal_not_observed. The adapter gate below records it.
+    // The skip is correct only because every adapter-refused editor also
+    // cannot satisfy a usable wait, or the refusal is decided anyway.
+    // Waiting would replace a decided refusal with usable_signal_not_observed
+    // when the signal cannot fire, and would only delay it when the signal can.
     const adapterAlreadyRefused = needsEdits && adapterGate(adapter);
     if (!adapterAlreadyRefused) {
       // @suite-phase usable_surface
