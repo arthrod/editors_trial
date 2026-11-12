@@ -888,10 +888,65 @@ export const READ_CARET_BLOCK_OFFSET = ({ editorId, blockSelector }) => {
       }
       if (!paragraphText && start && typeof start.blockId === 'string') {
         const esc = start.blockId.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-        const line =
+        const node =
           document.querySelector(`[data-source-node-id="${esc}"]`) ||
           document.querySelector(`[blockId="${esc}"]`);
-        if (line) paragraphText = norm(line.textContent);
+        // The fragment's own text glues wrapped lines together. The census
+        // paragraph is the same line groups as superdocParagraphGroups,
+        // joined with a space. A shared 80-character prefix is not that text.
+        const seed =
+          node && node.classList && node.classList.contains('superdoc-line')
+            ? node
+            : node && typeof node.querySelector === 'function'
+              ? node.querySelector('.superdoc-line')
+              : node && typeof node.closest === 'function'
+                ? node.closest('.superdoc-line')
+                : null;
+        if (seed && typeof document.querySelectorAll === 'function') {
+          const excludeSel = '.superdoc-page-header, .superdoc-page-footer';
+          const excluded = Array.from(document.querySelectorAll(excludeSel));
+          const skip = (el) =>
+            excluded.some((root) => root === el || (root.contains && root.contains(el)));
+          const lines = Array.from(document.querySelectorAll('#editor .superdoc-line')).filter(
+            (el) => el && !skip(el),
+          );
+          const order = [];
+          const groups = new Map();
+          let orphanRun = null;
+          let orphanTop = null;
+          for (const line of lines) {
+            const lineTop = line.getBoundingClientRect().top;
+            let pid = line.getAttribute('data-paragraph-id');
+            if (!pid && typeof line.closest === 'function') {
+              const holder = line.closest('[data-paragraph-id]');
+              pid = holder ? holder.getAttribute('data-paragraph-id') : '';
+            }
+            if (!pid) {
+              if (orphanRun && orphanTop !== null && lineTop - orphanTop > 28) {
+                orphanRun = null;
+                orphanTop = null;
+              }
+              if (!orphanRun) orphanRun = `__linegroup__:${order.length}`;
+              pid = orphanRun;
+              orphanTop = lineTop;
+            } else {
+              orphanRun = null;
+              orphanTop = null;
+            }
+            if (!groups.has(pid)) {
+              groups.set(pid, []);
+              order.push(pid);
+            }
+            groups.get(pid).push(line);
+          }
+          const group = order.map((pid) => groups.get(pid)).find((grp) => grp.indexOf(seed) !== -1);
+          const joined = (group && group.length ? group : [seed])
+            .map((el) => (el && el.textContent) || '')
+            .join(' ');
+          paragraphText = norm(joined);
+        } else if (node) {
+          paragraphText = norm(node.textContent);
+        }
       }
       return { offset, paragraphText, focused, source: 'superdoc_model', blockId: start && start.blockId };
     } catch {

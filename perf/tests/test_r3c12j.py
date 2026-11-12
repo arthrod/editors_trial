@@ -698,6 +698,86 @@ try {
         self.assertEqual(payload["paragraphText"], "BODY paragraph start")
         self.assertFalse(payload["cancelled"])
 
+    @unittest.skipUnless(_node() and _playwright_ready(), "node+playwright required")
+    def test_superdoc_reader_returns_the_joined_paragraph(self):
+        # The model caret is offset 0 of the clicked paragraph. quotedText is
+        # empty, and the first node with the block id is the fragment, whose
+        # textContent glues wrapped lines together. The census paragraph is
+        # those lines joined with a space. The first 80 characters match, so
+        # a prefix check would publish the wrong string.
+        playwright = REPO / "harness" / "ui" / "node_modules" / "playwright" / "index.js"
+        line1 = (
+            "In property property each completion indirect tax completion "
+            "use exhibit year incident laws any"
+        )
+        line2 = "instrument new obligation has."
+        script = r"""
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const { chromium } = require(%s);
+const surface = await import(%s);
+const line1 = %s;
+const line2 = %s;
+const full = line1 + ' ' + line2;
+const browser = await chromium.launch({ headless: true });
+const page = await browser.newPage({ viewport: { width: 800, height: 600 } });
+try {
+  await page.setContent(`<!doctype html><body>
+    <div id="editor">
+      <div class="superdoc-fragment" data-source-node-id="B"><div class="superdoc-line" style="height:20px"></div><div class="superdoc-line" style="height:20px"></div></div>
+    </div>
+    <textarea data-v2-ime-host></textarea>
+    <script>
+      window.__SUPERDOC_E2E__ = { ui: { selection: {
+        getSnapshot() {
+          return {
+            quotedText: '',
+            selectionTarget: {
+              start: { blockId: 'B', offset: 0, edge: 'start', kind: 'text' },
+              end: { blockId: 'B', offset: 0, edge: 'start', kind: 'text' },
+              story: { kind: 'story', storyType: 'body' },
+            },
+          };
+        },
+        apply() {},
+      } } };
+      document.querySelector('textarea').focus();
+    </script>
+  </body>`);
+  await page.evaluate((value) => { document.querySelectorAll('.superdoc-line')[0].textContent = value; }, line1);
+  await page.evaluate((value) => { document.querySelectorAll('.superdoc-line')[1].textContent = value; }, line2);
+  const read = await page.evaluate(surface.READ_CARET_BLOCK_OFFSET, {
+    editorId: 'superdoc',
+    blockSelector: '.superdoc-line',
+  });
+  assert.equal(read.source, 'superdoc_model');
+  assert.equal(read.offset, 0);
+  assert.equal(read.paragraphText.slice(0, 80), full.slice(0, 80));
+  assert.notEqual(read.paragraphText, line1 + line2);
+  assert.equal(read.paragraphText, full);
+  console.log(JSON.stringify({ paragraphText: read.paragraphText, offset: read.offset }));
+} finally {
+  await browser.close();
+}
+""" % (
+            json.dumps(str(playwright)),
+            json.dumps(str(SURFACE)),
+            json.dumps(line1),
+            json.dumps(line2),
+        )
+        proc = subprocess.run(
+            ["node", "--input-type=module", "-e", script],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            cwd=str(REPO),
+        )
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["paragraphText"], line1 + " " + line2)
+        self.assertGreater(len(line1), 80)
+
     def node(self, body: str) -> dict:
         script = """
 import assert from 'node:assert/strict';
