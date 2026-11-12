@@ -1745,7 +1745,9 @@ async function runReflow(browser) {
         }
         const t0 = performance.now();
         const top = el.getBoundingClientRect().top;
-        window.__c12ProbeReadLog.push({ t: t0, ms: performance.now() - t0 });
+        // t0 is taken after liveAnchor(), so on a loaded host it can fall past
+        // the window that still contains this frame. frameT is that frame's clock.
+        window.__c12ProbeReadLog.push({ t: t0, ms: performance.now() - t0, frameT: frameTime });
         window.__c12FrameLog.push({ t: frameTime, top, connected: el.isConnected === true });
         const input = window.__c12InputMs;
         const afterInput = typeof input === 'number' && typeof frameTime === 'number' && frameTime >= input;
@@ -1835,7 +1837,9 @@ async function runReflow(browser) {
         let reads = 0;
         let read_ms = 0;
         for (const read of log) {
-          if (!inside(read.t)) continue;
+          // Census rects have no frameT and stay on their own timestamp. A
+          // frame with no paired read still leaves reads < frames.
+          if (!(inside(read.t) || inside(read.frameT))) continue;
           reads += 1;
           read_ms += read.ms;
         }
