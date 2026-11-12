@@ -13,6 +13,7 @@ import {
   usableExpression,
   READ_MODEL_DOCUMENT_TEXT,
   READ_DOM_TEXT_WITH_MARKERS,
+  READ_SUPERDOC_TYPING_TEXT,
   armTrustedKeyCounter,
   trustedKeyCount,
 } from './edit_surface.mjs';
@@ -136,9 +137,11 @@ for await (const line of lines) {
       const surface = editSurface(command.editor_id || '');
       result = {...placed, surface: surface.kind};
     } else if (command.op === 'read_document') {
-      const surface = editSurface(command.editor_id || '');
-      if (surface.kind === 'model') {
-        const payload = await page.evaluate(READ_MODEL_DOCUMENT_TEXT, surface.model);
+      // SuperDoc's painted lines are a paginated layout (hyphen wraps, words
+      // split across pages). The typing oracle reads the model, as canvas and
+      // docen do. The edit surface stays dom: caret placement is unchanged.
+      if ((command.editor_id || '') === 'superdoc') {
+        const payload = await page.evaluate(READ_SUPERDOC_TYPING_TEXT);
         result = payload
           ? {text: payload.text,
              absorbed_markers: (payload.absorbed_items || []).map((entry) => (
@@ -146,10 +149,22 @@ for await (const line of lines) {
                  ? entry
                  : {index: entry, marker: null, empty: true}))}
           : {text: null, absorbed_markers: []};
-      } else if (surface.kind === 'dom') {
-        result = await page.evaluate(READ_DOM_TEXT_WITH_MARKERS, command.selector);
       } else {
-        result = {text: null, absorbed_markers: []};
+        const surface = editSurface(command.editor_id || '');
+        if (surface.kind === 'model') {
+          const payload = await page.evaluate(READ_MODEL_DOCUMENT_TEXT, surface.model);
+          result = payload
+            ? {text: payload.text,
+               absorbed_markers: (payload.absorbed_items || []).map((entry) => (
+                 typeof entry === 'object' && entry !== null && !Array.isArray(entry)
+                   ? entry
+                   : {index: entry, marker: null, empty: true}))}
+            : {text: null, absorbed_markers: []};
+        } else if (surface.kind === 'dom') {
+          result = await page.evaluate(READ_DOM_TEXT_WITH_MARKERS, command.selector);
+        } else {
+          result = {text: null, absorbed_markers: []};
+        }
       }
     } else if (command.op === 'modified_flag') {
       result = await readModifiedFlag(page, command.editor_id || '');

@@ -467,53 +467,130 @@ export const READ_MODEL_DOCUMENT_TEXT = (model) => {
 export const READ_DOM_TEXT_WITH_MARKERS = (selector) => {
   const els = Array.from(document.querySelectorAll(selector));
   if (!els.length) return { text: '', absorbed_markers: [], editable: false };
-  const itemSel = 'li,[role=listitem],[data-list-marker],.superdoc-list-marker,.superdoc-web-flow-list-marker,.track-list-marker-dec';
-  const linesOf = (node) => {
-    const t = String(node.innerText ?? '');
-    if (t) return t.split('\n').length;
-    const style = getComputedStyle(node);
-    return style.display === 'none' || style.visibility === 'hidden' ? 0 : 1;
-  };
-  const indexWithin = (root, node) => {
-    let count = 0;
-    for (let cur = node; cur && cur !== root; cur = cur.parentElement) {
-      for (let sib = cur.previousElementSibling; sib; sib = sib.previousElementSibling) {
-        count += linesOf(sib);
-      }
-    }
-    return count;
+  // innerText inserts margin blanks between blocks that no child's own
+  // innerText contains. Sibling line sums land early; match each block's
+  // own lines forward instead. NBSP is a space (painted list labels).
+  const itemSel = 'li,[role=listitem],[data-list-marker],[data-marker],.doc-li,.superdoc-list-marker,.superdoc-web-flow-list-marker,.track-list-marker-dec';
+  const blockTag = /^(P|DIV|LI|H[1-6]|UL|OL|BLOCKQUOTE|SECTION|ARTICLE|TR|TD|TH)$/;
+  const norm = (value) => String(value ?? '').replace(/\u00a0/g, ' ');
+  const asLines = (value) => {
+    const text = norm(value);
+    return text === '' ? [''] : text.split('\n');
   };
   const labelOf = (node) => {
+    // Folio stores the Word lvlText template (%1.) on data-list-marker for
+    // every format. The format class is the marker class. A decimal template
+    // stays the template so it still normalises to decimal, not alpha.
+    let marker = null;
     if (node.hasAttribute && node.hasAttribute('data-list-marker')) {
-      return String(node.getAttribute('data-list-marker') || '').trim() || null;
+      marker = String(node.getAttribute('data-list-marker') || '').trim() || null;
+    } else if (node.hasAttribute && node.hasAttribute('data-marker')) {
+      marker = String(node.getAttribute('data-marker') || '').trim() || null;
+    } else {
+      const painted = String(node.className || '');
+      if (/superdoc-list-marker|track-list-marker-dec/.test(painted)) {
+        marker = norm(node.textContent).trim() || null;
+      }
     }
-    const cls = String(node.className || '');
-    if (/superdoc-list-marker|track-list-marker-dec/.test(cls)) {
-      return String(node.textContent || '').trim() || null;
+    if (marker && marker.indexOf('%') !== -1) {
+      const cls = String(node.className || '');
+      const punct = marker.indexOf(')') !== -1 ? ')' : '.';
+      if (/docx-list-lower-alpha/.test(cls)) return 'a' + punct;
+      if (/docx-list-upper-alpha/.test(cls)) return 'A' + punct;
+      if (/docx-list-lower-roman/.test(cls)) return 'i' + punct;
+      if (/docx-list-upper-roman/.test(cls)) return 'I' + punct;
     }
-    return null;
+    return marker;
   };
-  const hostOf = (node) => node.closest('li,[role=listitem],.superdoc-line,p,[data-block-id]') || node;
+  const listMarker = (block) => {
+    const nodes = [];
+    if (block.matches && block.matches(itemSel)) nodes.push(block);
+    for (const node of block.querySelectorAll(itemSel)) nodes.push(node);
+    if (!nodes.length) return null;
+    let marker = null;
+    for (const node of nodes) {
+      marker = labelOf(node);
+      if (marker) break;
+    }
+    return { marker };
+  };
+  const blankLines = (lines) => lines.every((line) => line.trim() === '');
+  const sameLines = (lines, at, own) => {
+    if (at < 0 || at + own.length > lines.length) return false;
+    for (let k = 0; k < own.length; k += 1) {
+      if (lines[at + k] !== own[k]) return false;
+    }
+    return true;
+  };
+  // Non-empty blocks anchor on their own text. Empty blocks take a slot in
+  // the gap after that anchor so a margin blank is not the list line.
+  const placeBlocks = (lines, blocks) => {
+    const own = blocks.map((block) => asLines(block.innerText));
+    const isBlank = own.map(blankLines);
+    const indexes = blocks.map(() => -1);
+    let cursor = 0;
+    const anchors = [];
+    for (let i = 0; i < blocks.length; i += 1) {
+      if (isBlank[i]) continue;
+      let found = -1;
+      for (let p = cursor; p + own[i].length <= lines.length; p += 1) {
+        if (sameLines(lines, p, own[i])) {
+          found = p;
+          break;
+        }
+      }
+      if (found < 0) continue;
+      indexes[i] = found;
+      anchors.push(i);
+      cursor = found + own[i].length;
+    }
+    const bounds = [-1, ...anchors, blocks.length];
+    for (let g = 0; g < bounds.length - 1; g += 1) {
+      const left = bounds[g];
+      const right = bounds[g + 1];
+      const empties = [];
+      for (let i = left + 1; i < right; i += 1) if (isBlank[i]) empties.push(i);
+      if (!empties.length) continue;
+      const lineFrom = left < 0 ? 0 : indexes[left] + own[left].length;
+      const lineTo = right >= blocks.length ? lines.length : indexes[right];
+      if (lineFrom < 0 || lineTo < lineFrom) continue;
+      const owned = empties.reduce((sum, i) => sum + own[i].length, 0);
+      const extras = lineTo - lineFrom - owned;
+      if (extras < 0) continue;
+      let lead = left >= 0 && extras >= 1 ? 1 : 0;
+      let afterPool = extras - lead;
+      let pos = lineFrom + lead;
+      for (const i of empties) {
+        indexes[i] = pos;
+        pos += own[i].length;
+        if (afterPool > 0) {
+          pos += 1;
+          afterPool -= 1;
+        }
+      }
+    }
+    return indexes;
+  };
   const absorbed = [];
   let base = 0;
   for (const el of els) {
-    const seen = new Set();
-    for (const node of el.querySelectorAll(itemSel)) {
-      const host = hostOf(node);
-      if (seen.has(host)) continue;
-      seen.add(host);
-      const lineIndex = base + indexWithin(el, host);
-      let marker = labelOf(node);
-      if (!marker && node !== host) marker = labelOf(host);
-      const text = String(host.innerText || host.textContent || '').trim();
+    const elLines = asLines(el.innerText);
+    const kids = Array.from(el.children).filter((kid) => blockTag.test(kid.tagName));
+    const blocks = kids.length ? kids : [el];
+    const indexes = placeBlocks(elLines, blocks);
+    blocks.forEach((block, i) => {
+      const info = listMarker(block);
+      if (!info || indexes[i] < 0) return;
+      const text = norm(block.innerText).trim();
+      const marker = info.marker;
       let body = text;
       if (marker && text.startsWith(marker)) body = text.slice(marker.length).trim();
       else if (marker && text.startsWith(marker.replace(/^%/, ''))) {
         body = text.slice(marker.replace(/^%/, '').length).trim();
       }
-      absorbed.push({index: lineIndex, marker, empty: !body});
-    }
-    base += String(el.innerText ?? '').split('\n').length;
+      absorbed.push({ index: base + indexes[i], marker, empty: !body });
+    });
+    base += elLines.length;
   }
   const text = els.map((el) => String(el.innerText ?? el.textContent ?? '')).join('\n');
   const editable = els.some(
@@ -561,6 +638,60 @@ export async function trustedKeyCount(page) {
     return Number(window.__b9trusted?.keys || 0);
   });
 }
+
+/**
+ * Page context. SuperDoc typing correctness is the model, not painted lines.
+ * getText glues paragraphs; newline-joined blocks.list text is the document.
+ * A flat mismatch returns null — the session refuses rather than publish.
+ */
+export const READ_SUPERDOC_TYPING_TEXT = async () => {
+  try {
+    const sd = globalThis.__SUPERDOC_E2E__;
+    const doc = sd && sd.activeEditor && sd.activeEditor.doc;
+    if (!doc || typeof doc.getText !== 'function' || !doc.blocks || typeof doc.blocks.list !== 'function') {
+      return null;
+    }
+    const flat = (value) => String(value).replace(/\n/g, '');
+    const blocks = [];
+    let offset = 0;
+    let total = null;
+    while (total === null || blocks.length < total) {
+      const page = await doc.blocks.list({ includeText: true, offset, limit: 200 });
+      if (!page || typeof page.total !== 'number' || !Array.isArray(page.blocks)) return null;
+      total = page.total;
+      if (!page.blocks.length) {
+        if (blocks.length >= total) break;
+        return null;
+      }
+      blocks.push(...page.blocks);
+      offset += page.blocks.length;
+      if (blocks.length > total) return null;
+    }
+    if (blocks.length !== total) return null;
+    const texts = blocks.map((block) => (block && block.text != null ? String(block.text) : ''));
+    const text = texts.join('\n');
+    const got = await doc.getText({});
+    if (typeof got !== 'string' || flat(text) !== flat(got)) return null;
+    const absorbed_items = [];
+    blocks.forEach((block, i) => {
+      if (!block) return;
+      const numbering = block.numbering || null;
+      const isList = block.nodeType === 'listItem' || block.paragraphNumbering || numbering;
+      if (!isList) return;
+      const marker = numbering && numbering.marker ? String(numbering.marker).trim() || null : null;
+      const body = texts[i];
+      const empty = block.isEmpty === true || !String(body).trim();
+      let index = 0;
+      for (let k = 0; k < i; k += 1) {
+        index += texts[k] === '' ? 1 : texts[k].split('\n').length;
+      }
+      absorbed_items.push({ index, marker, empty });
+    });
+    return { text, absorbed_items };
+  } catch {
+    return null;
+  }
+};
 
 export async function prepareEditSurface(page, editorId, { timeoutMs = 600000, textLineTimeoutMs = null } = {}) {
   const surface = editSurface(editorId);

@@ -112,17 +112,88 @@ def list_marker_style(marker):
         return ('roman', punct)
     return None
 
+# One-letter roman numerals are alpha above, because the length check runs
+# first. Folio's roman list reports that one-letter form (I. / i.) for every
+# item, including II. i, v, x and l are the single numerals at or under
+# Folio's roman-marker cap (50). c, d and m stay alpha only.
+_ROMAN_ALSO_ALPHA = frozenset('ivxlIVXL')
+
+def _marker_core(marker):
+    marker = normalize_list_label(marker)
+    if marker.endswith(('.', ')')):
+        return marker[:-1]
+    return marker
+
+def marker_styles(marker):
+    style = list_marker_style(marker)
+    if style is None:
+        return frozenset()
+    styles = {style}
+    core = _marker_core(marker)
+    if style[0] == 'alpha' and core in _ROMAN_ALSO_ALPHA:
+        styles.add(('roman', style[1]))
+    return frozenset(styles)
+
 def same_marker_class(typed, rendered):
-    return list_marker_style(typed) == list_marker_style(rendered) and list_marker_style(typed) is not None
+    return bool(marker_styles(typed) & marker_styles(rendered))
+
+# Symbol autocorrect, same family as the quote fold: Word turns (c) (r) (tm)
+# into © ® ™. GenOffice does this for either case — (C) is also ©. The glyph
+# restores the typed parenthetical. A plain case change is still a mismatch.
+_SYMBOL_GLYPHS = {
+    '\u00a9': ('(c)', '(C)'),
+    '\u00ae': ('(r)', '(R)'),
+    '\u2122': ('(tm)', '(TM)'),
+}
+_SYMBOL_CHAR_CODES = frozenset(ord(ch) for ch in _SYMBOL_GLYPHS)
+
+
+def _align_symbol_token(text):
+    """Alignment only. (c) and (C) share a token with ©; equality stays case-strict."""
+    text = text.replace('(tm)', '\u2122').replace('(TM)', '\u2122')
+    text = text.replace('(c)', '\u00a9').replace('(C)', '\u00a9')
+    return text.replace('(r)', '\u00ae').replace('(R)', '\u00ae')
+
+
+def _rewrite_symbol_glyphs(expected, actual):
+    """Expand each actual glyph to the expected parenthetical of either case.
+
+    Stops at the first real difference so divergence() still shows that edit.
+    """
+    out = []
+    i = j = 0
+    while i < len(expected) and j < len(actual):
+        options = _SYMBOL_GLYPHS.get(actual[j])
+        if options:
+            matched = next((opt for opt in options if expected.startswith(opt, i)), None)
+            if matched is not None:
+                out.append(matched)
+                i += len(matched)
+                j += 1
+                continue
+        if expected[i] != actual[j]:
+            out.append(actual[j:])
+            return ''.join(out)
+        out.append(actual[j])
+        i += 1
+        j += 1
+    out.append(actual[j:])
+    return ''.join(out)
+
+
+def _marked_equal(expected, actual):
+    exp, _ = normalize_marked(expected)
+    act, _ = normalize_marked(actual)
+    return exp == _rewrite_symbol_glyphs(exp, act)
+
 
 def _align_line_token(line):
     only = marker_only_of_line(line)
     if only is not None:
         return f'\x00mo:{only}'
     markers, rest = prefix_marker_rest(line)
-    if markers:
-        return normalize_marked(rest)[0]
-    return normalize_marked(line)[0]
+    body = normalize_marked(rest if markers else line)[0]
+    return _align_symbol_token(body)
 
 def _compress_lines(lines):
     tokens, orig = [], []
@@ -272,54 +343,120 @@ def normalize(text):
     return normalize_marked(text)[0]
 
 # Page context: every rendered list item the DOM still exposes as structure.
+# Same line match as READ_DOM_TEXT_WITH_MARKERS. Kept inline: the session
+# bridge evaluates the module, this string is the no-bridge fallback.
 ABSORBED_MARKERS_JS = """(s) => {
   const els = Array.from(document.querySelectorAll(s));
   if (!els.length) return [];
-  const itemSel = 'li,[role=listitem],[data-list-marker],.superdoc-list-marker,.superdoc-web-flow-list-marker,.track-list-marker-dec';
-  const linesOf = (node) => {
-    const t = String(node.innerText ?? '');
-    if (t) return t.split('\\n').length;
-    const style = getComputedStyle(node);
-    return (style.display === 'none' || style.visibility === 'hidden') ? 0 : 1;
-  };
-  const indexWithin = (root, node) => {
-    let count = 0;
-    for (let cur = node; cur && cur !== root; cur = cur.parentElement) {
-      for (let sib = cur.previousElementSibling; sib; sib = sib.previousElementSibling)
-        count += linesOf(sib);
-    }
-    return count;
+  const itemSel = 'li,[role=listitem],[data-list-marker],[data-marker],.doc-li,.superdoc-list-marker,.superdoc-web-flow-list-marker,.track-list-marker-dec';
+  const blockTag = /^(P|DIV|LI|H[1-6]|UL|OL|BLOCKQUOTE|SECTION|ARTICLE|TR|TD|TH)$/;
+  const norm = (value) => String(value ?? '').replace(/\\u00a0/g, ' ');
+  const asLines = (value) => {
+    const text = norm(value);
+    return text === '' ? [''] : text.split('\\n');
   };
   const labelOf = (node) => {
+    // Folio stores the Word lvlText template (%1.) on data-list-marker for
+    // every format. The format class is the marker class. A decimal template
+    // stays the template so it still normalises to decimal, not alpha.
+    let marker = null;
     if (node.hasAttribute && node.hasAttribute('data-list-marker'))
-      return String(node.getAttribute('data-list-marker') || '').trim() || null;
-    const cls = String(node.className || '');
-    if (/superdoc-list-marker|track-list-marker-dec/.test(cls))
-      return String(node.textContent || '').trim() || null;
-    return null;
+      marker = String(node.getAttribute('data-list-marker') || '').trim() || null;
+    else if (node.hasAttribute && node.hasAttribute('data-marker'))
+      marker = String(node.getAttribute('data-marker') || '').trim() || null;
+    else {
+      const painted = String(node.className || '');
+      if (/superdoc-list-marker|track-list-marker-dec/.test(painted))
+        marker = norm(node.textContent).trim() || null;
+    }
+    if (marker && marker.indexOf('%') !== -1) {
+      const cls = String(node.className || '');
+      const punct = marker.indexOf(')') !== -1 ? ')' : '.';
+      if (/docx-list-lower-alpha/.test(cls)) return 'a' + punct;
+      if (/docx-list-upper-alpha/.test(cls)) return 'A' + punct;
+      if (/docx-list-lower-roman/.test(cls)) return 'i' + punct;
+      if (/docx-list-upper-roman/.test(cls)) return 'I' + punct;
+    }
+    return marker;
   };
-  const hostOf = (node) => node.closest('li,[role=listitem],.superdoc-line,p,[data-block-id]') || node;
+  const listMarker = (block) => {
+    const nodes = [];
+    if (block.matches && block.matches(itemSel)) nodes.push(block);
+    for (const node of block.querySelectorAll(itemSel)) nodes.push(node);
+    if (!nodes.length) return null;
+    let marker = null;
+    for (const node of nodes) {
+      marker = labelOf(node);
+      if (marker) break;
+    }
+    return {marker};
+  };
+  const blankLines = (lines) => lines.every((line) => line.trim() === '');
+  const sameLines = (lines, at, own) => {
+    if (at < 0 || at + own.length > lines.length) return false;
+    for (let k = 0; k < own.length; k += 1) if (lines[at + k] !== own[k]) return false;
+    return true;
+  };
+  const placeBlocks = (lines, blocks) => {
+    const own = blocks.map((block) => asLines(block.innerText));
+    const isBlank = own.map(blankLines);
+    const indexes = blocks.map(() => -1);
+    let cursor = 0;
+    const anchors = [];
+    for (let i = 0; i < blocks.length; i += 1) {
+      if (isBlank[i]) continue;
+      let found = -1;
+      for (let p = cursor; p + own[i].length <= lines.length; p += 1) {
+        if (sameLines(lines, p, own[i])) { found = p; break; }
+      }
+      if (found < 0) continue;
+      indexes[i] = found;
+      anchors.push(i);
+      cursor = found + own[i].length;
+    }
+    const bounds = [-1, ...anchors, blocks.length];
+    for (let g = 0; g < bounds.length - 1; g += 1) {
+      const left = bounds[g];
+      const right = bounds[g + 1];
+      const empties = [];
+      for (let i = left + 1; i < right; i += 1) if (isBlank[i]) empties.push(i);
+      if (!empties.length) continue;
+      const lineFrom = left < 0 ? 0 : indexes[left] + own[left].length;
+      const lineTo = right >= blocks.length ? lines.length : indexes[right];
+      if (lineFrom < 0 || lineTo < lineFrom) continue;
+      const owned = empties.reduce((sum, i) => sum + own[i].length, 0);
+      const extras = lineTo - lineFrom - owned;
+      if (extras < 0) continue;
+      let lead = left >= 0 && extras >= 1 ? 1 : 0;
+      let afterPool = extras - lead;
+      let pos = lineFrom + lead;
+      for (const i of empties) {
+        indexes[i] = pos;
+        pos += own[i].length;
+        if (afterPool > 0) { pos += 1; afterPool -= 1; }
+      }
+    }
+    return indexes;
+  };
   const absorbed = [];
   let base = 0;
   for (const el of els) {
-    const seen = new Set();
-    for (const node of el.querySelectorAll(itemSel)) {
-      const host = hostOf(node);
-      if (seen.has(host)) continue;
-      seen.add(host);
-      const lineIndex = base + indexWithin(el, host);
-      let marker = labelOf(node);
-      if (!marker && node !== host) marker = labelOf(host);
-      const text = String(host.innerText || host.textContent || '').trim();
+    const elLines = asLines(el.innerText);
+    const kids = Array.from(el.children).filter((kid) => blockTag.test(kid.tagName));
+    const blocks = kids.length ? kids : [el];
+    const indexes = placeBlocks(elLines, blocks);
+    blocks.forEach((block, i) => {
+      const info = listMarker(block);
+      if (!info || indexes[i] < 0) return;
+      const text = norm(block.innerText).trim();
+      const marker = info.marker;
       let body = text;
       if (marker && text.startsWith(marker)) body = text.slice(marker.length).trim();
-      else if (marker && text.startsWith(marker.replace(/^%/, ''))) {
+      else if (marker && text.startsWith(marker.replace(/^%/, '')))
         body = text.slice(marker.replace(/^%/, '').length).trim();
-      }
-      const empty = !body;
-      absorbed.push({index: lineIndex, marker, empty});
-    }
-    base += String(el.innerText ?? '').split('\\n').length;
+      absorbed.push({index: base + indexes[i], marker, empty: !body});
+    });
+    base += elLines.length;
   }
   return absorbed;
 }"""
@@ -523,7 +660,7 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
                             if j >= len(actual_lines):
                                 continue
                             act_markers, act_rest = prefix_marker_rest(actual_lines[j])
-                            if normalize_marked(act_rest)[0] != normalize_marked(rest)[0]:
+                            if not _marked_equal(rest, act_rest):
                                 continue
                             chosen = (j, list(act_markers))
                             break
@@ -618,6 +755,7 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
                             actual_compare[j] = act_rest
                     actual, _ = normalize_marked('\n'.join(actual_compare))
                     expected, _ = normalize_marked('\n'.join(compare_lines))
+                    actual = _rewrite_symbol_glyphs(expected, actual)
                     if actual == expected and not missing:
                         surplus = [s for s in surplus if s.get('marker') is not None]
                     marker_gap = bool(surplus) or bool(missing)
@@ -625,6 +763,8 @@ async def type_document(page, sampler, witness, text, *, selector, cadence_ms=0,
                                   tolerated_marker_strings=sorted(tolerated),
                                   tolerated_quote_autocorrect_chars=sum(
                                       1 for ch in actual_text if ord(ch) in _QUOTE_FOLD),
+                                  tolerated_symbol_autocorrect_chars=sum(
+                                      1 for ch in actual_text if ord(ch) in _SYMBOL_CHAR_CODES),
                                   correctness_oracle=oracle,
                                   marker_only={'expected': marker_only_strings(expected_source),
                                                'in_text': marker_only_strings(actual_text),
