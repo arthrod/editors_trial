@@ -76,26 +76,38 @@ class C12DownwardMove(unittest.TestCase):
         # the recorded tops are lower. A probe that says the anchor moved is.
         with self.assertRaises(bd.ProbeRefusal) as caught:
             bd.c12_measured_sample(_downward_probe())
-        self.assertIn("did not move down", caught.exception.reason)
+        self.assertIn(
+            "no post-Enter frame moved the anchor below the arm baseline",
+            caught.exception.reason,
+        )
         self.assertEqual(bd.c12_measured_sample(_downward_probe(moved=True)), 40.0)
 
     def test_equal_top_still_refuses(self):
         probe = _downward_probe(anchor_top_after=1708.703125)
         with self.assertRaises(bd.ProbeRefusal) as caught:
             bd.c12_measured_sample(probe)
-        self.assertIn("did not move down", caught.exception.reason)
+        self.assertIn(
+            "no post-Enter frame moved the anchor below the arm baseline",
+            caught.exception.reason,
+        )
 
     def test_upward_move_still_refuses(self):
         probe = _downward_probe(anchor_top_after=1600.0)
         with self.assertRaises(bd.ProbeRefusal) as caught:
             bd.c12_measured_sample(probe)
-        self.assertIn("did not move down", caught.exception.reason)
+        self.assertIn(
+            "no post-Enter frame moved the anchor below the arm baseline",
+            caught.exception.reason,
+        )
 
     def test_missing_after_still_refuses(self):
         probe = _downward_probe(anchor_top_after=None)
         with self.assertRaises(bd.ProbeRefusal) as caught:
             bd.c12_measured_sample(probe)
-        self.assertIn("did not move down", caught.exception.reason)
+        self.assertIn(
+            "no post-Enter frame moved the anchor below the arm baseline",
+            caught.exception.reason,
+        )
 
 
 class C14NoDamage(unittest.TestCase):

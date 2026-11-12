@@ -1744,6 +1744,17 @@ async function runReflow(browser) {
       );
       return performance.now();
     }, C12_ANCHOR_BY_TEXT_PAGE_SRC);
+    // Frames are judged against the arm re-read (window.__c12ArmedTop), not
+    // the earlier census top. Report that same number as before.anchor_top
+    // so shift_px and the refusal name the baseline the frames used. The
+    // census value stays on the trace as census_anchor_top.
+    const armedTop = await ctx.page.evaluate(() =>
+      typeof window.__c12ArmedTop === 'number' ? window.__c12ArmedTop : null,
+    );
+    if (before && typeof before === 'object') {
+      before.census_anchor_top = before.anchor_top;
+      if (typeof armedTop === 'number') before.anchor_top = armedTop;
+    }
     // Stops the frame recorder and returns the layout accounting: every
     // getBoundingClientRect the probe caused since Enter, timestamped so the
     // report can bound them to the presented window when a frame exists.
@@ -2324,7 +2335,11 @@ async function runReflow(browser) {
         page_errors: ctx.errors,
       };
     }
-    const moved = Boolean(shift.moved) && after.top !== null && after.top > before.anchor_top + 0.5;
+    // shift.moved is a post-Enter frame over the arm baseline. The frame-tied
+    // identity gate above is the other half of this flag. The after-census
+    // top is not a second baseline: a scroll that puts the anchor back does
+    // not veto a move the frames already recorded.
+    const moved = Boolean(shift.moved) && after.frame_tied === true;
     const framePageMs = witness && witness.outcome === 'witnessed' ? witness.frame_page_ms : null;
     const raw = framePageMs === null ? null : framePageMs - inputPageMs;
     const presented = raw;

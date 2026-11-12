@@ -855,9 +855,14 @@ def c12_measured_sample(probe: dict) -> float:
             refusal_code=_c12_error_refusal_code(probe.get("error")),
         )
     if probe.get("moved") is not True:
+        # moved is shift.moved and the frame-tied identity gate. A false flag
+        # with no earlier error means no post-Enter frame cleared the arm
+        # baseline. Other checks set probe["error"] and refuse above.
+        before = probe.get("before") or {}
         raise ProbeRefusal(
-            "text-shift assertion failed: anchor block did not move down (anchor_top=%r after=%r)"
-            % ((probe.get("before") or {}).get("anchor_top"), probe.get("anchor_top_after"))
+            "no post-Enter frame moved the anchor below the arm baseline "
+            "(arm_baseline=%r after=%r)"
+            % (before.get("anchor_top"), probe.get("anchor_top_after"))
         )
     if probe.get("mode") == "reflow":
         reads = _number_or_none(probe.get("layout_reads_during_window"))
@@ -1527,7 +1532,7 @@ def _write_refusal(
         refusal_code if refusal_code else
         'cpu_throttled' if classification_reason.startswith('cpu_throttled') else
         'host_build' if classification_reason.startswith('host-error:') else
-        'unverified' if classification_reason.startswith(('document_content_', 'no document surface', 'no DOM usability mark', 'text-shift assertion failed', 'C12 window includes', 'mixed C14 measures', 'find widget ', 'find probe returned status', 'probe refused ')) else
+        'unverified' if classification_reason.startswith(('document_content_', 'no document surface', 'no DOM usability mark', 'text-shift assertion failed', 'no post-Enter frame moved the anchor below the arm baseline', 'C12 window includes', 'mixed C14 measures', 'find widget ', 'find probe returned status', 'probe refused ')) else
         'paint_witness_unavailable' if classification_reason.startswith(('witness ', 'clock_', 'frame_', 'clock skew ', 'no compositor frame', 'no presented frame', 'retained sample has no witness', 'presented frame precedes', 'negative presented', 'compositor frame timestamp', 'no first-contentful-paint', 'first-contentful-paint entry')) else
         'crash')
     validate_environment(env)
