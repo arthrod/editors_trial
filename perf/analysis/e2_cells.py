@@ -483,7 +483,8 @@ def _listing(directory, pattern: str):
     cell x editor x measure. A listing stays stable while every watched
     directory's mtime stands; adding or removing an entry bumps the mtime
     of the directory that names it — always a watched one — so the next
-    call globs again and sees it.
+    call globs again and sees it. The stamp is taken before the glob, so a
+    create inside the glob itself also lands after the stored stamp.
     """
     directory = Path(directory)
     if not _LIST_SCOPED[0]:
@@ -494,9 +495,10 @@ def _listing(directory, pattern: str):
         stamp, watch, paths = entry
         if _dirs_stamp(watch) == stamp:
             return paths
-    paths = tuple(directory.glob(pattern))
     watch = _watch_dirs(directory, pattern)
-    _LIST_CACHE[key] = (_dirs_stamp(watch), watch, paths)
+    stamp = _dirs_stamp(watch)
+    paths = tuple(directory.glob(pattern))
+    _LIST_CACHE[key] = (stamp, watch, paths)
     return paths
 
 

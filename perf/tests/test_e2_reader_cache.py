@@ -290,3 +290,97 @@ def test_listing_cache_sees_a_file_added_between_calls(tmp_path):
     assert sorted(path.name for path in second) == ['C07.json', 'C11.json']
     (attempts / 'C13.json').write_text('{}')
     assert len(_listing(attempts, '*.json')) == 3
+
+
+@pytest.mark.parametrize('pattern', ['*.json', '**/*.json', '*/attempts'])
+def test_listing_stamp_predates_the_glob(tmp_path, pattern):
+    """A create inside the glob lands after the stored stamp: the next
+    lookup in the same scope must re-glob and return it. A stamp taken
+    after the glob instead freezes this gap's pre-create view."""
+    cells_dir = tmp_path / 'cells'
+    attempts = cells_dir / '0000-plate' / 'attempts'
+    attempts.mkdir(parents=True)
+    (attempts / 'C07.json').write_text('{}')
+    target = cells_dir if pattern == '*/attempts' else attempts
+    state = {'armed': True}
+    real_glob = Path.glob
+
+    def creating_glob(self, *args, **kwargs):
+        result = tuple(real_glob(self, *args, **kwargs))
+        if state['armed'] and self == target and args[:1] == (pattern,):
+            state['armed'] = False
+            if pattern == '*/attempts':
+                (self / '0001-plate' / 'attempts').mkdir(parents=True)
+            else:
+                (self / 'EXTRA-C07.json').write_text('{}')
+        return iter(result)
+
+    with patch.object(Path, 'glob', creating_glob), _listing_scope():
+        _listing(target, pattern)  # the glob runs; the create fires inside it
+        second = _listing(target, pattern)  # must re-glob: the stamp moved
+        third = _listing(target, pattern)  # and is itself memoised again
+    if pattern == '*/attempts':
+        names = {path.parent.name for path in second}
+        assert names == {'0000-plate', '0001-plate'}
+    else:
+        assert 'EXTRA-C07.json' in {path.name for path in second}
+    assert third is second
+
+
+def test_create_inside_the_glob_reaches_facts(tmp_path):
+    """End to end through ``facts_from_roots``: a trial file created inside
+    the ``**/*.json`` glob changes ``conflicting_trials`` for the memoised
+    reader exactly as it does for a fresh-glob reader."""
+    primary = tmp_path / 'primary'
+    repro = tmp_path / 'repro'
+    _lay_campaign(primary, 0)
+    _lay_campaign(repro, 1)
+    state = {'armed': True}
+    real_glob, real_rglob = Path.glob, Path.rglob
+    asks = Counter()
+
+    def wrapping(method, name):
+        def wrapped(self, *args, **kwargs):
+            result = tuple(method(self, *args, **kwargs))
+            pattern = args[0] if args else ''
+            asks[(name, self.name, pattern)] += 1
+            if (
+                state['armed']
+                and self.name == 'attempts'
+                and result
+                and pattern == ('**/*.json' if name == 'glob' else '*.json')
+            ):
+                state['armed'] = False
+                (self / 'EXTRA-C07.json').write_text(result[0].read_text())
+            return iter(result)
+        return wrapped
+
+    def recursive_attempt_asks():
+        return asks[('glob', 'attempts', '**/*.json')] + asks[('rglob', 'attempts', '*.json')]
+
+    def fresh_listing(directory, pattern):
+        return tuple(Path(directory).glob(pattern))
+
+    def run(uncached):
+        state['armed'] = True
+        _fresh_cache()
+        asks.clear()
+        scope = nullcontext()
+        if uncached:
+            scope = patch.object(cells, '_listing', fresh_listing, create=True)
+        with scope:
+            return report.facts_from_roots([primary, repro]), recursive_attempt_asks()
+
+    with patch.object(Path, 'glob', wrapping(real_glob, 'glob')), \
+            patch.object(Path, 'rglob', wrapping(real_rglob, 'rglob')):
+        cached_facts, cached_asks = run(uncached=False)
+        created = [path for path in primary.rglob('EXTRA-C07.json')]
+        created += [path for path in repro.rglob('EXTRA-C07.json')]
+        assert len(created) == 1, 'the injection did not fire'
+        created[0].unlink()
+        fresh_facts, fresh_asks = run(uncached=True)
+    assert 'conflicting_trials' in json.dumps(fresh_facts), (
+        'the injected file never reached the table'
+    )
+    assert cached_facts == fresh_facts
+    assert cached_asks < fresh_asks, 'the memoised reader must still glob less'
