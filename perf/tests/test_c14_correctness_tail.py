@@ -8,6 +8,7 @@ check could never pass on a document longer than that.
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 
 import perf.runner.benchmark_document as bd
 from perf.analysis.interpretation import check_correctness
@@ -69,6 +70,51 @@ class ProbeRecordsTheTail(unittest.TestCase):
         ok, reason = _i01_i03(bd.c14_correctness_text(payload))
         self.assertTrue(ok, reason)
 
+
+class CorrectnessLimit(unittest.TestCase):
+    """A failed I01-I03 check names its true cause when the harness could not judge (#181 review).
+
+    Only a failed check is attributed, so a cell that passes can never change.
+    """
+
+    PROSE = {"augmented_paragraphs": 4, "closing": "ZZ-SENTINEL end of document"}
+
+    def test_a_document_without_correctness_lines_is_not_applicable(self):
+        limit = bd.c14_correctness_limit({"document_text": "Article 1."}, {"augmented_paragraphs": 0})
+        self.assertFalse(limit["applies"])
+        self.assertIn("do not apply", limit["reason"])
+
+    def test_no_readable_text_is_not_checkable(self):
+        limit = bd.c14_correctness_limit({"document_text": "", "document_text_chars": 0}, self.PROSE)
+        self.assertTrue(limit["applies"])
+        self.assertIn("no readable document text", limit["reason"])
+
+    def test_a_window_that_misses_the_closing_is_not_checkable(self):
+        payload = {"document_text": "Article 1. " * 400, "document_text_tail": "Article 9. " * 400,
+                   "document_text_chars": 25092}
+        limit = bd.c14_correctness_limit(payload, self.PROSE)
+        self.assertTrue(limit["applies"])
+        self.assertIn("ends before the document's closing", limit["reason"])
+
+    def test_a_read_that_reaches_the_closing_keeps_the_editors_failure(self):
+        payload = {"document_text": "Article 1.", "document_text_tail": "Hello\nZZ-SENTINEL  end of\ndocument",
+                   "document_text_chars": 9000}
+        self.assertIsNone(bd.c14_correctness_limit(payload, self.PROSE))
+
+    def test_the_closing_is_read_from_the_fixture_docx(self):
+        built = bd.build_fixture({"shape": "prose", "workload_id": "prose-500w"})
+        path = Path(self.tmp.name) / "prose-500w.docx"
+        path.write_bytes(built["bytes"])
+        closing = bd.c14_fixture_closing({**built, "path": str(path)})
+        self.assertTrue(closing)
+        self.assertIsNone(bd.c14_correctness_limit(
+            {"document_text": "x", "document_text_tail": "Hello " + closing, "document_text_chars": 9000},
+            {**built, "path": str(path)}))
+
+    def setUp(self):
+        import tempfile
+        self.tmp = tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[2] / ".scratch")
+        self.addCleanup(self.tmp.cleanup)
 
 
 if __name__ == "__main__":

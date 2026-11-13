@@ -52,7 +52,7 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
 from perf.adapters.capabilities import default_lane, pin_label  # noqa: E402
-from perf.analysis.interpretation import evaluate_measured_trial  # noqa: E402
+from perf.analysis.interpretation import check_correctness, evaluate_measured_trial  # noqa: E402
 from perf.analysis.publication_gate import trial_publishable_flags  # noqa: E402
 from perf.analysis.summarize import summarize  # noqa: E402
 from perf.fixtures.generate import (  # noqa: E402
@@ -625,6 +625,43 @@ def c14_correctness_text(payload: dict) -> str | None:
     if head is None or not tail or (isinstance(chars, int) and chars <= len(head)):
         return head
     return head + "\n" + tail
+
+
+C14_NO_CORRECTNESS_LINES = (
+    "I01-I03 do not apply: this document carries no correctness lines (the complex corpus is opened as written)")
+C14_NO_READABLE_TEXT = "I01-I03 not checkable: the editor exposes no readable document text"
+C14_TEXT_WINDOW = (
+    "I01-I03 not checkable: the editor's readable text ends before the document's closing paragraph, "
+    "where the correctness lines sit")
+
+
+def c14_fixture_closing(fixture: dict) -> str | None:
+    """The fixture document's last paragraph: the correctness lines sit just before it."""
+    if fixture.get("closing"):
+        return fixture["closing"]
+    path = fixture.get("path")
+    if not path or not Path(path).is_file():
+        return None
+    return corpus_content_expectations(Path(path)).get("closing")
+
+
+def c14_correctness_limit(payload: dict, fixture: dict) -> dict | None:
+    """Why a failed I01-I03 check could not judge the editor, or None when the failure stands (#181 review).
+
+    Called only after the check failed, so it can relabel a failure and never
+    turn a pass into anything else. ``applies`` False: the document has no
+    correctness lines and the conditions do not apply. ``applies`` True: they
+    apply but the harness read no text, or a window that stops before the end.
+    """
+    if not fixture.get("augmented_paragraphs"):
+        return {"applies": False, "reason": C14_NO_CORRECTNESS_LINES}
+    text = c14_correctness_text(payload) or ""
+    if not text.strip():
+        return {"applies": True, "reason": C14_NO_READABLE_TEXT}
+    closing = c14_fixture_closing(fixture)
+    if closing and " ".join(closing.split()) not in " ".join(text.split()):
+        return {"applies": True, "reason": C14_TEXT_WINDOW}
+    return None
 
 
 def build_fixture(workload_row: dict) -> dict:
@@ -1448,8 +1485,11 @@ def _write_measured(
     samples: list,
     diagnostic: dict,
     doc_output_text: str | None = None,
+    correctness_limit: dict | None = None,
 ) -> tuple:
     diagnostic = dict(diagnostic)
+    if correctness_limit:
+        diagnostic["correctness_limit"] = correctness_limit["reason"]
     intervals = [(row.get("witness") or {}).get("clock_check", {}).get("frame_interval_ms", row.get("frame_interval_ms"))
                  for row in diagnostic.get("samples", [diagnostic])]
     if intervals and all(isinstance(value, (int, float)) and not isinstance(value, bool)
@@ -1470,9 +1510,13 @@ def _write_measured(
     pub, reason = trial_publishable_flags(env, spec["layer"], None if env["repetition_unit"] == "fresh_process" else stats["n"])
     parts = [part for part in (reason,) if part]
     catalog_row = _catalog_row(criterion_id)
+    if correctness_limit:
+        catalog_row = {**catalog_row, "correctness": []}
     ok, interp_reason = evaluate_measured_trial(
         catalog_row, env, doc_output_text=doc_output_text, summary_stats=stats
     )
+    if ok and correctness_limit and correctness_limit["applies"]:
+        ok, interp_reason = False, correctness_limit["reason"]
     if not ok:
         pub = False
         parts.append("interpretation: %s" % (interp_reason,))
@@ -2515,6 +2559,10 @@ def _main() -> int:
                         for rung, data in rung_attempts.items():
                             label = C14_RUNG_LABEL[rung]
                             rung_measure = (data["diagnostics"][0] or {}).get("measure")
+                            check_text = c14_correctness_text(data["diagnostics"][-1])
+                            checked, _ = check_correctness(_catalog_row("C14").get("correctness"), check_text)
+                            limit = None if checked else c14_correctness_limit(
+                                data["diagnostics"][-1], fixtures[rung])
                             path, trial = _write_measured(
                                 attempt_dir=attempt_dir,
                                 criterion_id="C14",
@@ -2522,7 +2570,8 @@ def _main() -> int:
                                 lane=lane,
                                 env=data["env"],
                                 samples=data["samples"],
-                                doc_output_text=c14_correctness_text(data["diagnostics"][-1]),
+                                doc_output_text=check_text,
+                                correctness_limit=limit,
                                 diagnostic={
                                     "suite": "document",
                                     "size_rung": label,
