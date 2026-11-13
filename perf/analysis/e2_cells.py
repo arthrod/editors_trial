@@ -352,9 +352,11 @@ _JSON_CACHE: dict = {}
 _LIST_CACHE: dict = {}
 
 # Keys the memoised readers leave out: bulky in the pulled runs and read by
-# no consumer of the row that carries them (#176, round 2). A consumer that
-# ever needs one gets a fresh full parse through plain ``_read_json`` — the
-# spec is part of the cache key, so the two entries never alias.
+# no consumer of the row that carries them (#176, round 2). Production
+# attempt reads always pass a spec — ``row.get`` on a dropped key is None
+# and nothing re-parses for it. Only ``_iter_sample_rows`` and
+# ``_trial_path`` call ``_read_json`` with no spec for the whole document;
+# the spec is part of the cache key, so the two entries never alias.
 _SUMMARY_DROP = frozenset({'samples'})
 _ATTEMPT_DROP = frozenset({
     'witnesses', 'instrumented', 'load_witness', 'marker_only',
