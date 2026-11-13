@@ -921,3 +921,30 @@ def test_stable_symlinked_tree_still_caches(tmp_path):
     assert second is first
     assert fourth is third
     assert sum(asks.values()) == 2, asks
+
+
+@pytest.mark.parametrize('layout', ['dotdot', 'prefixed_doublestar'])
+def test_listing_never_caches_patterns_the_watch_set_cannot_cover(tmp_path, layout):
+    # Grok, round 5 review (#176): `..` and a `**` behind a prefix make glob read directories the
+    # watch walk never stamps, so a hit served a stale list. Such patterns are globbed every time.
+    if layout == 'dotdot':
+        parent = tmp_path / 'parent'
+        child = parent / 'child'
+        child.mkdir(parents=True)
+        (parent / 'C07.json').write_text('{}')
+        directory, pattern, added = child, '../*.json', parent / 'EXTRA-C07.json'
+    else:
+        target = tmp_path / 'target'
+        (target / 'nested').mkdir(parents=True)
+        (target / 'a.json').write_text('{}')
+        tree = tmp_path / 'tree'
+        tree.mkdir()
+        (tree / 'link').symlink_to(target, target_is_directory=True)
+        directory, pattern, added = tree, 'link/**/*.json', target / 'nested' / 'EXTRA-DEEP.json'
+    with _listing_scope():
+        first = _listing(directory, pattern)
+        added.write_text('{}')
+        second = _listing(directory, pattern)
+    fresh = tuple(directory.glob(pattern))
+    assert sorted(map(str, second)) == sorted(map(str, fresh))
+    assert len(second) == len(first) + 1

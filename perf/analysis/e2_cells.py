@@ -524,6 +524,19 @@ def _listing_scope():
         _LIST_SCOPED[0] = outer
 
 
+def _watchable(pattern: str) -> bool:
+    """True when the watch walk stamps every directory the glob reads.
+
+    A ``..`` component or a ``**`` behind a prefix makes glob read directories
+    the walk never visits (Grok, #176 round 5), so such patterns are globbed
+    on every call and never cached.
+    """
+    parts = pattern.split('/')
+    if '..' in parts:
+        return False
+    return '**' not in parts[1:]
+
+
 def _listing(directory, pattern: str):
     """``directory.glob(pattern)``, memoised inside ``_listing_scope`` (#176).
 
@@ -546,7 +559,7 @@ def _listing(directory, pattern: str):
     whole-second ctimes can still hide a same-second change.
     """
     directory = Path(directory)
-    if not _LIST_SCOPED[0]:
+    if not _LIST_SCOPED[0] or not _watchable(pattern):
         return tuple(directory.glob(pattern))
     key = (str(directory), pattern)
     entry = _LIST_CACHE.get(key)
