@@ -187,6 +187,18 @@ def test_the_committed_manifest_names_the_publish1_campaign():
     assert sorted(job for entry in second for job in entry["jobs"]) == sorted(retired)
     assert set(manifest["rerun2"]) <= set(first_pass)
 
+    # The third round (#183, #184): every second-round job is measured again, once.
+    assert manifest["harness"]["rerun3"] == "3ffb21a5"
+    retired2 = e2r.rerun_superseded_jobs(manifest, "rerun2_superseded")
+    assert retired2 == {20, 21, 100, 101}
+    third = [entry for space in manifest["rerun3"].values() for entry in space]
+    third_rids = [entry["run_id"] for entry in third]
+    assert all(RUN_ID.match(rid) for rid in third_rids) and len(set(third_rids)) == len(third_rids)
+    second_rids = {entry["run_id"] for entry in second}
+    assert set(third_rids).isdisjoint(set(rids) | set(first_pass.values()) | second_rids)
+    assert sorted(job for entry in third for job in entry["jobs"]) == sorted(retired2)
+    assert set(manifest["rerun3"]) <= set(first_pass)
+
 
 def test_campaign_counts_become_perf_e2_facts(tmp_path):
     payload = {
