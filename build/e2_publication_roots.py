@@ -6,7 +6,9 @@ first-pass run ids (harness 4488f9b6), the 20 re-run run ids (harness
 78249e7c) with the job indexes each re-ran, and the first-pass job indexes
 superseded by issues #173, #174 and #175; then the second round: the re-run
 job indexes issue #181 superseded (`rerun_superseded`) and the runs that
-measured them again (`rerun2`). This script walks a local mirror
+measured them again (`rerun2`); then the third round: the second-round job
+indexes issues #183 and #184 superseded (`rerun2_superseded`) and the runs
+that measured them again (`rerun3`). This script walks a local mirror
 of the campaign bucket — `<space>/runs/<run id>/<lane>/<job>` — and links
 every sealed job (`JOB-DONE`) that counts into `<roots dir>/<space>--<run id>/`,
 leaving the superseded first-pass jobs out, then writes
@@ -39,10 +41,14 @@ def superseded_jobs(manifest: dict) -> set[int]:
     return jobs
 
 
-def rerun_superseded_jobs(manifest: dict) -> set[int]:
-    """Every re-run job index a later issue retires (measured again in the second round)."""
+def rerun_superseded_jobs(manifest: dict, key: str = "rerun_superseded") -> set[int]:
+    """Every job index of a re-run round a later issue retires (measured again in the next round).
+
+    ``rerun_superseded`` retires re-run jobs (second round); ``rerun2_superseded``
+    retires second-round jobs (third round).
+    """
     jobs: set[int] = set()
-    for issue in manifest.get("rerun_superseded", {}).get("issues", {}).values():
+    for issue in manifest.get(key, {}).get("issues", {}).values():
         jobs.update(issue["jobs"])
     return jobs
 
@@ -118,6 +124,9 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
         "rerun_superseded": 0,
         "rerun2_kept": 0,
         "rerun2_unsealed": 0,
+        "rerun2_superseded": 0,
+        "rerun3_kept": 0,
+        "rerun3_unsealed": 0,
         "missing_runs": [],
     }
     roots: list[str] = []
@@ -140,14 +149,19 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
             if root.exists():
                 roots.append(str(root))
         retired = rerun_superseded_jobs(manifest)
+        retired2 = rerun_superseded_jobs(manifest, "rerun2_superseded")
         _link_round(data, roots_dir, space, manifest["rerun"].get(space, []), "rerun", retired,
                     campaign, roots, errors)
-        _link_round(data, roots_dir, space, manifest.get("rerun2", {}).get(space, []), "rerun2", set(),
+        _link_round(data, roots_dir, space, manifest.get("rerun2", {}).get(space, []), "rerun2", retired2,
                     campaign, roots, errors)
-        for entry in manifest.get("rerun2", {}).get(space, []):
-            stray = sorted(set(entry["jobs"]) - retired)
-            if stray:
-                errors.append(f"second-round jobs {stray} of {space}/{entry['run_id']} supersede no re-run job")
+        _link_round(data, roots_dir, space, manifest.get("rerun3", {}).get(space, []), "rerun3", set(),
+                    campaign, roots, errors)
+        for round_key, earlier, name, of in (("rerun2", retired, "second-round", "re-run"),
+                                             ("rerun3", retired2, "third-round", "second-round")):
+            for entry in manifest.get(round_key, {}).get(space, []):
+                stray = sorted(set(entry["jobs"]) - earlier)
+                if stray:
+                    errors.append(f"{name} jobs {stray} of {space}/{entry['run_id']} supersede no {of} job")
     return roots, campaign, errors
 
 

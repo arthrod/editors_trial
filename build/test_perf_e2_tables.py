@@ -941,3 +941,17 @@ def test_reruns_text_states_a_second_round():
     unsealed = E2.reruns_text({'first_pass_superseded': 32, 'rerun_kept': 28, 'rerun_superseded': 4,
                                'rerun2_kept': 3, 'rerun2_unsealed': 1, 'missing_runs': []})
     assert '1 re-run job was not sealed' in unsealed
+
+
+def test_reruns_text_states_a_third_round():
+    campaign = {'first_pass_superseded': 32, 'rerun_kept': 28, 'rerun_superseded': 4,
+                'rerun2_kept': 0, 'rerun2_superseded': 4, 'rerun2_unsealed': 0,
+                'rerun3_kept': 4, 'rerun3_unsealed': 0, 'missing_runs': []}
+    text = E2.reruns_text(campaign)
+    assert 'second round' in text and 'third round' in text
+    assert '#183' in text and '#184' in text and '1,000-second' in text
+    assert 'the tables read the 4 third-round jobs' in text
+    # The superseded second round is never what the tables read.
+    assert 'the tables read the 0 second-round jobs' not in text
+    unsealed = E2.reruns_text({**campaign, 'rerun3_kept': 3, 'rerun3_unsealed': 1})
+    assert '1 re-run job was not sealed' in unsealed

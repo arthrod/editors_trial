@@ -274,3 +274,58 @@ def test_a_missing_second_round_run_fails_unless_partial(tmp_path):
     campaign = json.loads((roots_dir / "report_e2_runs.json").read_text())["campaign"]
     assert campaign["missing_runs"] == [f"space-b/{RID_RERUN2}"]
     assert campaign["rerun2_unsealed"] == 1
+
+
+# A third round (#183, #184) -----------------------------------------------------------------------
+
+RID_RERUN3 = "20261113T190000000000Z-40000-000005"
+
+
+def third_round_manifest():
+    manifest = second_round_manifest()
+    manifest["rerun2_superseded"] = {
+        "issues": {"997": {"title": "synthetic round 3", "lane": "benchmark_document", "jobs": [12]}}
+    }
+    manifest["rerun3"] = {"space-a": [{"run_id": RID_RERUN3, "jobs": [12]}]}
+    return manifest
+
+
+def test_a_third_round_replaces_the_second_round_jobs_it_supersedes(tmp_path):
+    data, *_ = build_data(tmp_path)
+    job(data / "space-a" / "runs" / RID_RERUN, RID_RERUN, 12)
+    second = job(data / "space-b" / "runs" / RID_RERUN2, RID_RERUN2, 12)
+    third = job(data / "space-a" / "runs" / RID_RERUN3, RID_RERUN3, 12)
+    manifest = write_manifest(tmp_path, third_round_manifest())
+    roots_dir = tmp_path / "roots"
+    assert run_roots(data, roots_dir, manifest) == 0
+
+    payload = json.loads((roots_dir / "report_e2_runs.json").read_text())
+    assert (roots_dir / f"space-a--{RID_RERUN3}" / "benchmark_document" / third.name).resolve() == third
+    assert not (roots_dir / f"space-b--{RID_RERUN2}" / "benchmark_document" / second.name).exists()
+    assert str((roots_dir / f"space-b--{RID_RERUN2}").resolve()) not in payload["roots"]
+    campaign = payload["campaign"]
+    assert campaign["rerun_superseded"] == 1
+    assert campaign["rerun2_kept"] == 0 and campaign["rerun2_superseded"] == 1
+    assert campaign["rerun3_kept"] == 1 and campaign["rerun3_unsealed"] == 0
+
+
+def test_a_third_round_job_that_supersedes_nothing_is_an_error(tmp_path):
+    data, *_ = build_data(tmp_path)
+    manifest_data = third_round_manifest()
+    manifest_data["rerun3"]["space-a"][0]["jobs"] = [12, 14]
+    job(data / "space-b" / "runs" / RID_RERUN2, RID_RERUN2, 12)
+    job(data / "space-a" / "runs" / RID_RERUN3, RID_RERUN3, 12)
+    manifest = write_manifest(tmp_path, manifest_data)
+    assert run_roots(data, tmp_path / "roots", manifest) != 0
+
+
+def test_a_missing_third_round_run_fails_unless_partial(tmp_path):
+    data, *_ = build_data(tmp_path)
+    job(data / "space-b" / "runs" / RID_RERUN2, RID_RERUN2, 12)
+    manifest = write_manifest(tmp_path, third_round_manifest())
+    assert run_roots(data, tmp_path / "roots", manifest) != 0
+    roots_dir = tmp_path / "roots-partial"
+    assert run_roots(data, roots_dir, manifest, "--partial") == 0
+    campaign = json.loads((roots_dir / "report_e2_runs.json").read_text())["campaign"]
+    assert campaign["missing_runs"] == [f"space-a/{RID_RERUN3}"]
+    assert campaign["rerun3_unsealed"] == 1

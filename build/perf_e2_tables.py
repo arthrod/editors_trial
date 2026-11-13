@@ -722,12 +722,21 @@ def reruns_text(campaign: dict | None) -> str:
         "superseded ones. `perf/container/e2_publication.json` names every run and every replaced job."
         % (superseded, kept))
     second = campaign.get("rerun_superseded") or 0
-    if second:
+    third = campaign.get("rerun2_superseded") or 0
+    if second and third:
+        text += (
+            " In a second round, %d C14 jobs of the re-run were measured again after the C14 correctness check "
+            "was fixed (issue #181). In a third round, those %d C14 jobs were measured again after C14 was given "
+            "the editor's own whole-document read and a 1,000-second load timeout (issues #183 and #184); the "
+            "tables read the %d third-round jobs, never the superseded ones."
+            % (second, third, campaign.get("rerun3_kept") or 0))
+    elif second:
         text += (
             " In a second round, %d C14 jobs of the re-run were measured again after the C14 correctness check "
             "was fixed (issue #181); the tables read the %d second-round jobs in their place."
             % (second, campaign.get("rerun2_kept") or 0))
-    unsealed = sum(campaign.get(key) or 0 for key in ("first_pass_unsealed", "rerun_unsealed", "rerun2_unsealed"))
+    unsealed = sum(campaign.get(key) or 0 for key in
+                   ("first_pass_unsealed", "rerun_unsealed", "rerun2_unsealed", "rerun3_unsealed"))
     missing = len(campaign.get("missing_runs") or [])
     if unsealed:
         text += " %d %s not sealed and %s left out." % (
@@ -961,7 +970,7 @@ RESOURCES_BLURB = (
     "idle, including work an editor does after it reports ready), during the edit (the keystrokes plus "
     "half a second), and while settling afterwards. Peak memory is the resident memory of that tree. An "
     "edit counts only when it is verified in the document: the text of the block at the caret, read from "
-    "the page or from the editor's model, gained exactly the typed text; WordCraft, which exposes no text, "
+    "the page or from the editor's model, gained exactly the typed text; WordCraft, which puts no document text in the page, "
     "is verified by its own modified flag. An editor that never goes idle is measured over a 30-second cap "
     "and flagged. The complex document is loaded without its read-only protection, which the editors honour."
 )
