@@ -822,3 +822,40 @@ def test_campaign_names_the_editors_the_browser_run_did_not_measure(fs):
         assert line is not None, name
         assert reason in line, line
     assert "Plate" not in text
+
+
+def test_placeholder_rows_never_make_a_table_row(monkeypatch):
+    """warm/cold's adapter-not-implemented C10 rows add no 'warm_steady' row beside the scroll lane's (#179)."""
+    rows = [
+        {'editor_id': 'plate', 'criterion_id': 'C10', 'workload_id': 'prose-500w', 'outcome': 'measured'},
+        {'editor_id': 'plate', 'criterion_id': 'C10', 'workload_id': 'prose-500w', 'measure': 'warm_steady',
+         'outcome': 'not_run', 'failure_reason': 'adapter-not-implemented: criterion C10 not driven on warm_cold host yet'},
+    ]
+    monkeypatch.setattr(E2.e2_cells, '_iter_trials', lambda root: iter(rows))
+    seen = []
+    monkeypatch.setattr(E2, '_cell_text', lambda facts, roots, editor, criterion, measure, workload, word='run': seen.append(measure) or 'x')
+    E2._criterion_table({}, ['/r'], 'C10', ['plate'])
+    assert 'warm_steady' not in seen and seen == ['']
+
+
+def test_a_criterion_with_only_placeholder_rows_keeps_its_row(monkeypatch):
+    rows = [{'editor_id': 'plate', 'criterion_id': 'C22', 'workload_id': 'prose-500w', 'measure': 'warm_steady',
+             'outcome': 'not_run', 'failure_reason': 'adapter-not-implemented: criterion C22 not driven on warm_cold host yet'}]
+    monkeypatch.setattr(E2.e2_cells, '_iter_trials', lambda root: iter(rows))
+    seen = []
+    monkeypatch.setattr(E2, '_cell_text', lambda facts, roots, editor, criterion, measure, workload, word='run': seen.append(measure) or 'x')
+    E2._criterion_table({}, ['/r'], 'C22', ['plate'])
+    assert seen == ['warm_steady']
+
+
+def test_reruns_text_states_the_campaign_counts():
+    text = E2.reruns_text({'first_pass_superseded': 32, 'rerun_kept': 32, 'first_pass_unsealed': 0,
+                           'rerun_unsealed': 0, 'missing_runs': []})
+    assert '32 first-pass jobs' in text and '32 re-run jobs' in text
+    assert '#173' in text and 'e2_publication.json' in text
+    assert 'missing' not in text and 'unsealed' not in text
+    partial = E2.reruns_text({'first_pass_superseded': 32, 'rerun_kept': 31, 'rerun_unsealed': 1,
+                              'missing_runs': ['space/run']})
+    assert '1 re-run job was not sealed' in partial and '1 run of the manifest is missing' in partial
+    assert E2.reruns_text(None).startswith('- **Re-run jobs.** None')
+    assert E2.unset_facts()['perf.e2.reruns'] == E2.reruns_text(None)

@@ -196,3 +196,5 @@ def test_campaign_counts_become_perf_e2_facts(tmp_path):
     assert out["perf.e2.campaign.first_pass_superseded"] == 1
     assert out["perf.e2.campaign.rerun_kept"] == 1
     assert out["perf.e2.campaign.missing_runs"] == ["space-c/20261112T180000000000Z-10000-000003"]
+    import perf_e2_tables
+    assert out["perf.e2.reruns"] == perf_e2_tables.reruns_text(payload["campaign"])

@@ -375,6 +375,7 @@ def perf_e2_facts(path: Path, facts: dict) -> None:
     if "campaign" in runs:
         for key, value in runs["campaign"].items():
             facts[f"perf.e2.campaign.{key}"] = value
+        facts["perf.e2.reruns"] = perf_e2_tables.reruns_text(runs["campaign"])
 
 
 def count_facts(facts: dict) -> None:

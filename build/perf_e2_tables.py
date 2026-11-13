@@ -276,9 +276,11 @@ def _cell_text(facts: dict, roots, editor: str, criterion: str, measure: str = '
 
 
 def _criterion_table(facts: dict, roots, criterion: str, editors: list[str], *, word: str = 'run') -> str:
-    groups = sorted({(e2_cells.trial_workload(row), e2_cells.trial_measure(row))
-                     for root in roots for row in e2_cells._iter_trials(root)
-                     if row['criterion_id'] == criterion})
+    rows = [row for root in roots for row in e2_cells._iter_trials(root) if row['criterion_id'] == criterion]
+    # A lane's adapter-not-implemented stand-ins never add a row beside the
+    # lane that drives the criterion (#179); alone, they still show.
+    real = [row for row in rows if not e2_cells._is_placeholder_row(row)]
+    groups = sorted({(e2_cells.trial_workload(row), e2_cells.trial_measure(row)) for row in (real or rows)})
     if not groups:
         return 'not in these runs.'
     has_workload = any(workload for workload, _ in groups)
@@ -678,11 +680,33 @@ def _runs_fact(primary: Run, repro: Run, campaign: dict | None, roots) -> str:
         % (campaign["jobs"], len(roots), _seed_job_counts(campaign) or "no jobs recorded", dates))
 
 
+def reruns_text(campaign: dict | None) -> str:
+    """The template's re-run bullet, from report_e2_runs.json's campaign counts."""
+    if not campaign:
+        return "- **Re-run jobs.** None: the tables read every job of these runs."
+    superseded = campaign.get("first_pass_superseded") or 0
+    kept = campaign.get("rerun_kept") or 0
+    text = (
+        "- **Re-run jobs.** %d first-pass jobs were measured again after three harness defects were fixed "
+        "(issues #173, #174 and #175). The tables read the %d re-run jobs in their place and never the "
+        "superseded ones. `perf/container/e2_publication.json` names every run and every replaced job."
+        % (superseded, kept))
+    unsealed = (campaign.get("first_pass_unsealed") or 0) + (campaign.get("rerun_unsealed") or 0)
+    missing = len(campaign.get("missing_runs") or [])
+    if unsealed:
+        text += " %d %s not sealed and %s left out." % (
+            unsealed, "re-run job was" if unsealed == 1 else "jobs were", "is" if unsealed == 1 else "are")
+    if missing:
+        text += " %d %s of the manifest %s missing." % (missing, "run" if missing == 1 else "runs", "is" if missing == 1 else "are")
+    return text
+
+
 def unset_facts() -> dict:
     """Facts when ``report_e2_runs.json`` is absent: the template still renders."""
     blurbs = _criterion_blurbs()
     facts = {
         "perf.e2.provenance": "Per-Space provenance not supplied.",
+        "perf.e2.reruns": reruns_text(None),
         "perf.e2.table.TYPING": "not in these runs.",
         "perf.e2.word_verification": "Word verification not recorded for this generated twin.",
         "perf.e2.measured": "not yet measured",
@@ -865,6 +889,7 @@ def _facts_from_roots(roots) -> dict:
     facts["perf.e2.not_run"] = (
         _not_run_editors(roots[0], roots[-1], editors) if classic else _not_measured_campaign(editors))
     facts["perf.e2.not_reproduced"] = _not_reproduced_table(facts, classic)
+    facts["perf.e2.reruns"] = reruns_text(None)
     published = [k for k in facts if k.endswith(".reproduced")]
     facts["perf.e2.cells_checked"] = len(published)
     facts["perf.e2.cells_reproduced"] = sum(1 for k in published if facts[k])

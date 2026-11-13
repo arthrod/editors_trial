@@ -54,6 +54,18 @@ Playwright {{perf.e2.playwright}}, Chromium {{perf.e2.chromium}}. Renderer: {{pe
 
 {{perf.e2.runs}}
 
+## Read this before the tables
+
+{{perf.e2.reruns}}
+- **How an edit is confirmed.** After each timed interval, and outside it, the harness checks that the edit landed once. It counts the typed text near the caret in the page (Plate, Docxodus, SuperDoc, GenOffice, eigenpal, and Folio through its hidden editing layer) or in the editor's model (canvas-editor, Docen). WordCraft paints into one canvas and exposes no text, so its edit is confirmed only by the modified mark in its window title.
+- **WordCraft.** Because its text cannot be read, C03 and C11 cannot check the document's content for WordCraft, and those cells say so.
+- **Docxodus** opens a read-only, paginated view. Lanes that edit switch it to its block editor before the timed interval starts, so its load times are those of the paginated view.
+- **The complex document.** It carries Word's document protection. The lanes that edit it open a copy with that protection removed; the lanes that only load it open the original.
+- **Typing tolerance.** GenOffice turns autocorrect on by default (Word's defaults except sentence capitalisation). The typing check folds straight and curly quotes and accepts (c), (r) and (tm) becoming ©, ® and ™; it tolerates no other change.
+- **Criteria that do not apply.** canvas-editor and Docen paint text without glyph geometry the harness can read, so C05 and C06, which time the keystroke's own paint, do not apply to them. C15 (search and replace) applies to no editor in this run: no measured host exposes a find interface the probe can drive. The document lane ran C15 in each of its five jobs per block, so the C15 cells are also refused as a duplicate block index; since no C15 attempt was applicable, no figure is affected.
+- **Chrome traces.** In every first-block job, each timed launch was followed by a separate, untimed launch that recorded a Chrome trace for diagnosis; second-block jobs ran without them, and so did most typing sessions. Traces never feed a table.
+- **Throttling and steal.** The host note above gives, per seed, the CPU steal and the launches refused for cgroup CPU throttling; a refused launch is not a sample.
+
 ## Tables
 
 ### C03 — first visible content
