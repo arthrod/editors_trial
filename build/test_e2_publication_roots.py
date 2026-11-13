@@ -398,11 +398,22 @@ def editor_round_manifest():
     return manifest
 
 
-def editor_round_data(tmp_path):
+def summarize(path, seed, block, editors):
+    """A job's summary.json: its seed, its block and the editors its schedule names."""
+    (path / "summary.json").write_text(json.dumps({
+        "run_id": path.name, "seed": seed, "block": {"index": block, "of": 2, "repetitions": 5},
+        "order": [[rep, editor] for rep in range(5) for editor in editors]}))
+    return path
+
+
+def editor_round_data(tmp_path, *, canvas_seeds=(1, 1), canvas_editors=("canvas",)):
     data, kept, *_ = build_data(tmp_path)
+    summarize(kept, 1, 1, ["plate", "canvas"])
     job(data / "space-b" / "runs" / RID_RERUN2, RID_RERUN2, 12)
-    third = job(data / "space-a" / "runs" / RID_RERUN3, RID_RERUN3, 12)
-    canvas = [job(data / "space-b" / "runs" / RID_CANVAS, RID_CANVAS, index) for index in (4, 12)]
+    third = summarize(job(data / "space-a" / "runs" / RID_RERUN3, RID_RERUN3, 12), 1, 2, ["plate", "canvas"])
+    canvas = [summarize(job(data / "space-b" / "runs" / RID_CANVAS, RID_CANVAS, index), seed, block,
+                        list(canvas_editors))
+              for index, seed, block in ((4, canvas_seeds[0], 1), (12, canvas_seeds[1], 2))]
     return data, kept, third, canvas
 
 
@@ -474,3 +485,36 @@ def test_superseded_cells_reach_the_tables(tmp_path, monkeypatch):
     runs_file.write_text(json.dumps({"roots": [str(tmp_path)], "superseded_cells": entries}))
     facts_mod.perf_e2_facts(runs_file, {})
     assert seen["superseded_cells"] == entries
+
+
+def test_a_half_editor_round_is_refused(tmp_path):
+    # glm-5.3 review of 31805ef7, finding 4: an editor round that leaves one of
+    # the editor's jobs of the lane unsuperseded would publish a cell mixing the
+    # new and the retired measurement.
+    import shutil
+    data, _kept, _third, canvas = editor_round_data(tmp_path)
+    shutil.rmtree(canvas[1])  # the round measured job 4 only
+    manifest = editor_round_manifest()
+    manifest["editor_superseded"]["issues"]["185"]["jobs"] = [4]
+    manifest["editor_rerun"]["space-b"][0]["jobs"] = [4]
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+
+
+def test_an_editor_round_job_with_another_seed_is_refused(tmp_path):
+    # Finding 5: the re-run keeps the job index; its seed and block must match too.
+    data, *_ = editor_round_data(tmp_path, canvas_seeds=(3, 1))
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, editor_round_manifest())) != 0
+
+
+def test_an_editor_round_job_that_measured_other_editors_is_refused(tmp_path):
+    # Finding 6: a run launched without --only-editors re-measured every editor.
+    data, *_ = editor_round_data(tmp_path, canvas_editors=("canvas", "plate"))
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, editor_round_manifest())) != 0
+
+
+def test_an_editor_round_outside_the_document_lane_is_refused(tmp_path):
+    # Finding 7: the facts and the report read editor-scoped supersedes for document jobs only.
+    data, *_ = editor_round_data(tmp_path)
+    manifest = editor_round_manifest()
+    manifest["editor_superseded"]["issues"]["185"]["lane"] = "benchmark_typing"
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0

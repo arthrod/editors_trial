@@ -96,6 +96,85 @@ def _check_editor_round(manifest: dict, errors: list[str]) -> None:
                           f"editor-round jobs {sorted(measured.get(editor, []))}")
 
 
+EDITOR_ROUND_LANES = ("benchmark_document",)
+
+
+def _summary_of(job: Path) -> dict | None:
+    try:
+        value = json.loads((job / "summary.json").read_text())
+    except (OSError, json.JSONDecodeError):
+        return None
+    return value if isinstance(value, dict) else None
+
+
+def _scheduled_editors(summary: dict) -> set[str]:
+    return {pair[1] for pair in summary.get("order") or [] if isinstance(pair, (list, tuple)) and len(pair) == 2}
+
+
+def _check_editor_round_data(roots_dir: Path, manifest: dict, errors: list[str]) -> None:
+    """Read the linked jobs themselves (glm-5.3 review of 31805ef7, findings 4-7).
+
+    - an editor round is for the document lane only;
+    - every linked job of that lane whose schedule names the editor is superseded,
+      so no cell pools the new runs with the retired measurement;
+    - each editor-round job measures only the editors its entry names, with the
+      seed and block of the one job it replaces.
+    """
+    issues = manifest.get("editor_superseded", {}).get("issues", {})
+    if not issues:
+        return
+    for number, issue in sorted(issues.items()):
+        if issue.get("lane") not in EDITOR_ROUND_LANES:
+            errors.append(f"editor_superseded issue {number}: lane {issue.get('lane')!r} is not one of "
+                          f"{list(EDITOR_ROUND_LANES)}")
+    wanted = editor_superseded(manifest)
+    new_runs = {entry["run_id"]: set(entry.get("editors") or ())
+                for entries in manifest.get("editor_rerun", {}).values() for entry in entries}
+    old: dict[int, list[Path]] = {}
+    new: list[tuple[str, int, Path]] = []
+    for root in sorted(p for p in roots_dir.iterdir() if p.is_dir()):
+        for lane in EDITOR_ROUND_LANES:
+            for job in sorted((root / lane).glob("*")) if (root / lane).is_dir() else ():
+                run_id, _, tail = job.name.rpartition("-")
+                if not tail.isdigit():
+                    continue
+                if run_id in new_runs:
+                    new.append((run_id, int(tail), job))
+                else:
+                    old.setdefault(int(tail), []).append(job)
+    for editor, jobs in sorted(wanted.items()):
+        for index, paths in sorted(old.items()):
+            if index in jobs:
+                continue
+            for path in paths:
+                summary = _summary_of(path)
+                if summary is not None and editor in _scheduled_editors(summary):
+                    errors.append(f"job {path.name} measured {editor} and is not superseded: an editor round "
+                                  f"must supersede all of {editor}'s {', '.join(EDITOR_ROUND_LANES)} jobs")
+    for run_id, index, path in new:
+        summary = _summary_of(path)
+        if summary is None:
+            errors.append(f"editor-round job {path.name} has no readable summary.json")
+            continue
+        extra = sorted(_scheduled_editors(summary) - new_runs[run_id])
+        if extra:
+            errors.append(f"editor-round job {path.name} measured {extra} beyond its entry's editors "
+                          f"{sorted(new_runs[run_id])}")
+        replaced = old.get(index, [])
+        if len(replaced) != 1:
+            errors.append(f"editor-round job {path.name} replaces {len(replaced)} linked jobs with index {index}, "
+                          f"not exactly one")
+            continue
+        before = _summary_of(replaced[0])
+        if before is None:
+            errors.append(f"job {replaced[0].name} has no readable summary.json to compare seeds with")
+            continue
+        for key in ("seed", "block"):
+            if summary.get(key) != before.get(key):
+                errors.append(f"editor-round job {path.name} has {key} {summary.get(key)!r}; the job it replaces, "
+                              f"{replaced[0].name}, has {before.get(key)!r}")
+
+
 def _link_round(data: Path, roots_dir: Path, space: str, entries: list, prefix: str, retired: set[int],
                 campaign: dict, roots: list[str], errors: list[str]) -> None:
     """Link one re-run round's sealed jobs of a Space; jobs in ``retired`` are counted, never linked."""
@@ -248,6 +327,8 @@ def main(argv: list[str] | None = None) -> int:
               file=sys.stderr)
         return 2
     roots, campaign, errors = build_roots(args.data_dir, args.roots_dir, manifest)
+    if args.roots_dir.is_dir() and not campaign["missing_runs"]:
+        _check_editor_round_data(args.roots_dir, manifest, errors)
     for line in errors:
         print(f"error: {line}", file=sys.stderr)
     if errors:
