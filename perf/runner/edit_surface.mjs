@@ -136,7 +136,8 @@ export const DOCUMENT_TEXT_SURFACES = {
   folio: { kind: 'dom', root: '[data-page-number]', whole: false },
   canvas: { kind: 'model', model: 'canvas_editor' },
   docen: { kind: 'model', model: 'docen' },
-  // WordCraft exposes no document text at this pin, only its modified flag.
+  // WordCraft puts no document text in the page, only its modified flag; C14 reads its whole
+  // text through WordCraft's own select all + copy (c14_whole_text.mjs).
   wordcraft: { kind: 'unavailable' },
 };
 

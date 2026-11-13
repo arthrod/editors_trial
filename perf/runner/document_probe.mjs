@@ -1385,7 +1385,7 @@ async function runScale(browser) {
     const facts = witnessFacts(chosen);
     // Every timed step is over: ask the editor for its whole document (#183).
     const c14Text = await readC14WholeText(ctx.page, editorId, {
-      waitMs: Number(opt['c14-copy-wait-ms'] || C14_COPY_WAIT_MS),
+      waitMs: opt['c14-copy-wait-ms'] !== undefined ? Number(opt['c14-copy-wait-ms']) : C14_COPY_WAIT_MS,
     });
     // The exclusion decision is the post-settle window. A forced outline is
     // kept beside it and is never the measured sample.

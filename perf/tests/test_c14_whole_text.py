@@ -95,6 +95,21 @@ class CorrectnessTextPrefersTheWholeRead(unittest.TestCase):
         payload = {"document_text": "Article 1.", "document_text_chars": 9305, "c14_text": self.WHOLE}
         self.assertIsNone(bd.c14_correctness_limit(payload, self.PROSE))
 
+    def test_an_empty_whole_read_is_a_failed_read(self):
+        # Review of e0c237de, L1: an error-free empty copy must not override the page's text.
+        empty = {**self.WHOLE, "chars": 0, "head": "", "tail": ""}
+        payload = {"document_text": "Article 1.", "document_text_chars": 9305, "c14_text": empty}
+        self.assertEqual(bd.c14_correctness_text(payload), "Article 1.")
+        self.assertEqual(bd.c14_correctness_limit(payload, self.PROSE)["reason"], bd.C14_TEXT_WINDOW)
+
+    def test_the_evidence_names_the_text_that_was_checked(self):
+        # Review of e0c237de, M2: the record said "rendered DOM text" whatever was read.
+        whole = bd.c14_correctness_evidence({"document_text": "x", "c14_text": self.WHOLE})
+        self.assertIn("select_all_copy", whole)
+        self.assertNotIn("rendered DOM", whole)
+        page = bd.c14_correctness_evidence({"document_text": "x"})
+        self.assertIn("probe's document text", page)
+
     def test_a_short_whole_read_is_still_a_window(self):
         short = {**self.WHOLE, "chars": 9305, "tail": "Article 9."}
         payload = {"document_text": "Article 1.", "document_text_chars": 9305, "c14_text": short}

@@ -25,6 +25,11 @@ BIG_DOCUMENT_LOAD_TIMEOUT_MS = 600_000
 #: the per-workload rule above never reached it.
 C14_LOAD_TIMEOUT_MS = 1_000_000
 
+#: The probe's load stages that each get the full wait, one after another:
+#: navigation, the editor's ready signal, and the painted document surface.
+#: The watchdog outlasts all of them (review of e0c237de, H1).
+C14_LOAD_STAGES = 3
+
 #: Longest wait for the editor's whole-text copy after the timed C14 sample
 #: (#183); kept equal to C14_COPY_WAIT_MS in perf/runner/c14_whole_text.mjs.
 C14_COPY_WAIT_MS = 120_000

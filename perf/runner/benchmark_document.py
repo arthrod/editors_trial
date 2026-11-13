@@ -629,9 +629,21 @@ def _c14_whole_read(payload: dict) -> dict | None:
     """The editor's own whole-document read (#183), when the probe made one and it worked."""
     whole = payload.get("c14_text")
     if isinstance(whole, dict) and not whole.get("error") and isinstance(whole.get("chars"), int) \
-            and isinstance(whole.get("head"), str) and isinstance(whole.get("tail"), str):
+            and isinstance(whole.get("head"), str) and isinstance(whole.get("tail"), str) \
+            and whole["chars"] > 0 and (whole["head"].strip() or whole["tail"].strip()):
         return whole
+    # An error-free but empty read is a failed read too: the page read stands (review of e0c237de, L1).
     return None
+
+
+def c14_correctness_evidence(payload: dict) -> str:
+    """Which text C14's I01-I03 check read, for the trial record (review of e0c237de, M2)."""
+    whole = _c14_whole_read(payload)
+    if whole is not None:
+        return ("editor whole-document read (%s), head and tail, checked against I01-I03 "
+                "by evaluate_measured_trial" % whole.get("source"))
+    return ("probe's document text (page DOM, or the editor's model per edit_surface.mjs), head and tail, "
+            "checked against I01-I03 by evaluate_measured_trial")
 
 
 def _c14_text_fields(payload: dict) -> tuple:
@@ -1404,7 +1416,7 @@ def _probe_cmd(*, mode: str, target: dict, cfg: dict, corpus_path: Path, extra: 
 
 
 def _subprocess_timeout_s(cmd: list) -> float:
-    """Our watchdog: the probe's load timeout, plus C14's whole-text copy wait when it has one, plus 30 s."""
+    """Our watchdog: the probe's load timeout plus 30 s; for C14, every load stage plus the whole-text copy."""
     def _flag_ms(flag: str):
         for index, token in enumerate(cmd):
             if token == flag and index + 1 < len(cmd):
@@ -1417,7 +1429,13 @@ def _subprocess_timeout_s(cmd: list) -> float:
     load_ms = _flag_ms("--timeout-ms")
     if load_ms is None:
         return float(PROBE_TIMEOUT_S) + 30.0
-    return max(1.0, load_ms / 1000.0) + (_flag_ms("--c14-copy-wait-ms") or 0) / 1000.0 + 30.0
+    copy_ms = _flag_ms("--c14-copy-wait-ms")
+    if copy_ms is None:
+        return max(1.0, load_ms / 1000.0) + 30.0
+    # C14: navigation, ready and the document surface each get the full wait, one after another,
+    # then the whole-text copy (review of e0c237de, H1).
+    from perf.runner.load_timeouts import C14_LOAD_STAGES
+    return max(1.0, C14_LOAD_STAGES * load_ms / 1000.0) + copy_ms / 1000.0 + 30.0
 
 
 def _run_probe(cmd: list, *, editor_id: str, env: dict | None = None) -> dict:
@@ -1519,6 +1537,13 @@ def _c14_env_for(*, editor_id: str, editor_version: str, fixture: dict, cache_st
     env = _env_for(editor_id=editor_id, editor_version=editor_version, fixture=fixture, cache_state=cache_state)
     env["load_timeout_ms"] = C14_LOAD_TIMEOUT_MS
     return env
+
+
+def _criterion_env_for(criterion_id: str, *, editor_id: str, editor_version: str, fixture: dict,
+                       cache_state: str) -> dict:
+    """A trial's environment: C14 records its own load timeout, every other criterion the workload's."""
+    build = _c14_env_for if criterion_id == "C14" else _env_for
+    return build(editor_id=editor_id, editor_version=editor_version, fixture=fixture, cache_state=cache_state)
 
 
 def _write_measured(
@@ -2236,7 +2261,8 @@ def _main() -> int:
 
         # C11/C12/C14 workloads are fixed; refuse without starting the host.
         def _refuse_cell(criterion_id: str, workout_fixture: dict, reason: str, outcome: str = "not_run", extra: dict | None = None, refusal_code: str | None = None) -> None:
-            env = _env_for(
+            env = _criterion_env_for(
+                criterion_id,
                 editor_id=editor_id,
                 editor_version=editor_version,
                 fixture=workout_fixture,
@@ -2629,7 +2655,7 @@ def _main() -> int:
                                     "workload_id": rung,
                                     "measurement": rung_measure,
                                     "clock": dict(C14_CLOCK_BY_MEASURE[rung_measure]),
-                                    "correctness_evidence": "rendered DOM text, checked against I01-I03 by evaluate_measured_trial",
+                                    "correctness_evidence": c14_correctness_evidence(data["diagnostics"][-1]),
                                     "no_pooled_figure": True,
                                     "curve_medians_ms": curve,
                                     "samples": data["diagnostics"],

@@ -13,7 +13,9 @@ from unittest import mock
 
 import perf.runner.benchmark_document as bd
 from perf.runner import lax_bounds
-from perf.runner.load_timeouts import C14_COPY_WAIT_MS, C14_LOAD_TIMEOUT_MS
+import re
+
+from perf.runner.load_timeouts import C14_COPY_WAIT_MS, C14_LOAD_STAGES, C14_LOAD_TIMEOUT_MS
 
 
 class _Stop(Exception):
@@ -50,25 +52,41 @@ class C14LoadTimeout(unittest.TestCase):
     def test_the_watchdog_covers_the_load_and_the_whole_text_read(self):
         cmd = self._scale_cmd(self.TARGET)
         self.assertEqual(cmd[cmd.index("--c14-copy-wait-ms") + 1], str(C14_COPY_WAIT_MS))
-        self.assertEqual(bd._subprocess_timeout_s(cmd), (C14_LOAD_TIMEOUT_MS + C14_COPY_WAIT_MS) / 1000 + 30)
+        # Navigation, the ready signal and the document surface each get the full wait, one after another
+        # (review of e0c237de, H1): the watchdog must outlast all three plus the copy.
+        self.assertEqual(C14_LOAD_STAGES, 3)
+        self.assertEqual(bd._subprocess_timeout_s(cmd),
+                         (C14_LOAD_STAGES * C14_LOAD_TIMEOUT_MS + C14_COPY_WAIT_MS) / 1000 + 30)
 
     def test_other_probes_keep_their_watchdog(self):
         self.assertEqual(bd._subprocess_timeout_s(["--timeout-ms", "300000"]), 330.0)
 
+    FIXTURE = {"sha256": "0", "workload_row": {}, "byte_size": 1, "paragraph_count": 1}
+
     def test_every_c14_trial_records_the_timeout(self):
         with mock.patch.object(bd, "_host_base", lambda **k: {"load_timeout_ms": 300_000}):
-            env = bd._c14_env_for(editor_id="plate", editor_version="v",
-                                  fixture={"sha256": "0", "workload_row": {}, "byte_size": 1,
-                                           "paragraph_count": 1},
-                                  cache_state="cold")
+            env = bd._c14_env_for(editor_id="plate", editor_version="v", fixture=self.FIXTURE, cache_state="cold")
         self.assertEqual(env["load_timeout_ms"], C14_LOAD_TIMEOUT_MS)
+
+    def test_a_refused_c14_cell_records_the_c14_timeout_too(self):
+        # Review of e0c237de, M1: the refusal path built its environment with the per-workload rule.
+        with mock.patch.object(bd, "_host_base", lambda **k: {"load_timeout_ms": 300_000}):
+            c14 = bd._criterion_env_for("C14", editor_id="plate", editor_version="v", fixture=self.FIXTURE,
+                                        cache_state="cold")
+            c11 = bd._criterion_env_for("C11", editor_id="plate", editor_version="v", fixture=self.FIXTURE,
+                                        cache_state="cold")
+        self.assertEqual(c14["load_timeout_ms"], C14_LOAD_TIMEOUT_MS)
+        self.assertEqual(c11["load_timeout_ms"], 300_000)
 
     def test_the_copy_wait_matches_the_probe(self):
         source = (bd.REPO / "perf" / "runner" / "c14_whole_text.mjs").read_text()
-        self.assertIn("export const C14_COPY_WAIT_MS = %s;" % format(C14_COPY_WAIT_MS, "_"), source)
+        found = re.search(r"export const C14_COPY_WAIT_MS = ([\d_]+);", source)
+        self.assertIsNotNone(found)
+        self.assertEqual(int(found.group(1).replace("_", "")), C14_COPY_WAIT_MS)
 
     def test_the_report_discloses_it(self):
-        self.assertIn("C14 (large-document scaling) waits up to 1000 s", lax_bounds.relaxed_bounds_paragraph())
+        self.assertIn("C14 (large-document scaling) gives each stage of a load (navigation, the editor's ready "
+                      "signal, the painted document) up to 1000 s", lax_bounds.relaxed_bounds_paragraph())
 
 
 if __name__ == "__main__":
