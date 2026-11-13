@@ -702,3 +702,222 @@ def test_relative_spelling_after_chdir_is_reparsed(tmp_path, monkeypatch):
         assert _read_json(Path('row.json')) == {'n': 2}
         assert _read_json(Path('row.json')) == {'n': 2}
     assert len(parses) == 2
+
+
+def _attempts_symlink_pair(tmp_path):
+    """``attempts`` -> ``v1`` (C07.json and EXTRA-C07.json); ``v2`` is C07.json only."""
+    v1 = tmp_path / 'v1'
+    v2 = tmp_path / 'v2'
+    v1.mkdir()
+    v2.mkdir()
+    (v1 / 'C07.json').write_text('{}')
+    (v1 / 'EXTRA-C07.json').write_text('{}')
+    (v2 / 'C07.json').write_text('{}')
+    attempts = tmp_path / 'attempts'
+    attempts.symlink_to('v1', target_is_directory=True)
+    return attempts
+
+
+def _retarget(link: Path, name: str):
+    link.unlink()
+    link.symlink_to(name, target_is_directory=True)
+
+
+@pytest.mark.parametrize('pattern', ['*.json', '**/*.json'])
+def test_symlink_swap_restored_inside_glob_is_relisted(tmp_path, pattern):
+    """``attempts`` points at ``v2`` for the scandir and is put back on
+    ``v1`` before ``glob`` returns: ``v1``'s identity never moved, yet the
+    torn names must not be cached for the rest of the scope."""
+    attempts = _attempts_symlink_pair(tmp_path)
+    state = {'armed': True, 'torn': None}
+    real_glob = Path.glob
+
+    def swapping(self, *args, **kwargs):
+        if state['armed'] and self == attempts and args[:1] == (pattern,):
+            state['armed'] = False
+            _retarget(self, 'v2')
+            result = tuple(real_glob(self, *args, **kwargs))
+            _retarget(self, 'v1')
+            state['torn'] = sorted(path.name for path in result)
+            return iter(result)
+        return iter(real_glob(self, *args, **kwargs))
+
+    with patch.object(Path, 'glob', swapping), _listing_scope():
+        first = _listing(attempts, pattern)
+        second = _listing(attempts, pattern)
+        third = _listing(attempts, pattern)
+    assert state['torn'] == ['C07.json'], 'the swap did not fire inside the glob'
+    assert [path.name for path in first] == ['C07.json']
+    assert sorted(path.name for path in second) == ['C07.json', 'EXTRA-C07.json']
+    assert third is second
+
+
+def test_symlink_still_swapped_through_rewalk_is_relisted(tmp_path):
+    """``attempts`` stays on ``v2`` while the listing re-walks after the
+    glob, and is put back on ``v1`` only after the call returns: the
+    ``v2`` names must not be cached under ``v1``'s stamp."""
+    attempts = _attempts_symlink_pair(tmp_path)
+    state = {'armed': True, 'torn': None}
+    real_glob = Path.glob
+
+    def swapping(self, *args, **kwargs):
+        if state['armed'] and self == attempts and args[:1] == ('*.json',):
+            state['armed'] = False
+            _retarget(self, 'v2')
+            result = tuple(real_glob(self, *args, **kwargs))
+            state['torn'] = sorted(path.name for path in result)
+            return iter(result)  # still on v2 while the caller finishes
+        return iter(real_glob(self, *args, **kwargs))
+
+    with patch.object(Path, 'glob', swapping), _listing_scope():
+        first = _listing(attempts, '*.json')
+        assert os.readlink(attempts) == 'v2', 'the swap did not hold through the call'
+        _retarget(attempts, 'v1')
+        second = _listing(attempts, '*.json')
+        third = _listing(attempts, '*.json')
+    assert state['torn'] == ['C07.json']
+    assert [path.name for path in first] == ['C07.json']
+    assert sorted(path.name for path in second) == ['C07.json', 'EXTRA-C07.json']
+    assert third is second
+
+
+def test_ancestor_symlink_swap_inside_glob_is_relisted(tmp_path):
+    """The swapped link sits above the glob root: ``link`` -> ``real`` is
+    pointed at ``other`` for the scandir and restored before the re-walk.
+    The target's identity stands either way; the link's does not."""
+    for root_name, extra in (('real', True), ('other', False)):
+        target = tmp_path / root_name / 'plate' / 'attempts'
+        target.mkdir(parents=True)
+        (target / 'C07.json').write_text('{}')
+        if extra:
+            (target / 'EXTRA-C07.json').write_text('{}')
+    link = tmp_path / 'link'
+    link.symlink_to('real', target_is_directory=True)
+    listed = link / 'plate' / 'attempts'
+    state = {'armed': True, 'torn': None}
+    real_glob = Path.glob
+
+    def swapping(self, *args, **kwargs):
+        if state['armed'] and self == listed and args[:1] == ('*.json',):
+            state['armed'] = False
+            _retarget(link, 'other')
+            result = tuple(real_glob(self, *args, **kwargs))
+            _retarget(link, 'real')
+            state['torn'] = sorted(path.name for path in result)
+            return iter(result)
+        return iter(real_glob(self, *args, **kwargs))
+
+    with patch.object(Path, 'glob', swapping), _listing_scope():
+        first = _listing(listed, '*.json')
+        second = _listing(listed, '*.json')
+        third = _listing(listed, '*.json')
+    assert state['torn'] == ['C07.json'], 'the swap did not fire inside the glob'
+    assert [path.name for path in first] == ['C07.json']
+    assert sorted(path.name for path in second) == ['C07.json', 'EXTRA-C07.json']
+    assert third is second
+
+
+def test_symlinked_attempts_swap_inside_glob_reaches_facts(tmp_path):
+    """``0000-plate/attempts`` is a symlink pointed at its ``-v2`` twin for
+    the first ``**/*.json`` glob and restored before it returns: the
+    memoised reader must publish the same conflict a fresh reader does."""
+    primary = tmp_path / 'primary'
+    repro = tmp_path / 'repro'
+    _lay_campaign(primary, 0)
+    _lay_campaign(repro, 1)
+    attempts = (
+        primary / 'benchmark_input' / 'b1' / 'cells' / '0000-plate' / 'attempts'
+    )
+    body = (attempts / 'C07.json').read_text()
+    attempts_v1 = attempts.with_name('attempts-v1')
+    attempts.rename(attempts_v1)
+    (attempts_v1 / 'EXTRA-C07.json').write_text(body)
+    attempts_v2 = attempts.with_name('attempts-v2')
+    attempts_v2.mkdir()
+    (attempts_v2 / 'C07.json').write_text(body)
+    attempts.symlink_to('attempts-v1', target_is_directory=True)
+    state = {'armed': True, 'torn': None}
+    real_glob, real_rglob = Path.glob, Path.rglob
+    asks = Counter()
+
+    def wrapping(method, name):
+        def wrapped(self, *args, **kwargs):
+            pattern = args[0] if args else ''
+            asks[(name, self.name, pattern)] += 1
+            if (
+                state['armed']
+                and name == 'glob'
+                and self.name == 'attempts'
+                and self.is_symlink()
+                and pattern == '**/*.json'
+            ):
+                state['armed'] = False
+                _retarget(self, 'attempts-v2')
+                result = tuple(method(self, *args, **kwargs))
+                _retarget(self, 'attempts-v1')
+                state['torn'] = sorted(path.name for path in result)
+                return iter(result)
+            return iter(method(self, *args, **kwargs))
+        return wrapped
+
+    def recursive_attempt_asks():
+        return asks[('glob', 'attempts', '**/*.json')] + asks[('rglob', 'attempts', '*.json')]
+
+    def fresh_listing(directory, pattern):
+        return tuple(Path(directory).glob(pattern))
+
+    def run(uncached):
+        state['armed'] = True
+        _fresh_cache()
+        asks.clear()
+        scope = nullcontext()
+        if uncached:
+            scope = patch.object(cells, '_listing', fresh_listing, create=True)
+        with scope:
+            return report.facts_from_roots([primary, repro]), recursive_attempt_asks()
+
+    with patch.object(Path, 'glob', wrapping(real_glob, 'glob')), \
+            patch.object(Path, 'rglob', wrapping(real_rglob, 'rglob')):
+        cached_facts, cached_asks = run(uncached=False)
+        cached_torn = state['torn']
+        fresh_facts, fresh_asks = run(uncached=True)
+    assert cached_torn == ['C07.json'], 'the swap did not fire inside the glob'
+    assert 'conflicting_trials' in json.dumps(fresh_facts), (
+        'the hidden file never reached the table'
+    )
+    assert cached_facts['perf.e2.table.C07'] == fresh_facts['perf.e2.table.C07']
+    assert cached_facts == fresh_facts
+    assert cached_asks < fresh_asks, 'the memoised reader must still glob less'
+
+
+def test_stable_symlinked_tree_still_caches(tmp_path):
+    """Control: the facts farm links every job dir
+    (``farm/<space>--<rid>/<lane>/<job> -> data/...``). A listing through a
+    stable chain of links must memoise — the second lookup does not glob."""
+    data = tmp_path / 'data'
+    attempts = (
+        data / 'space--r1' / 'lane' / 'job' / 'cells' / '0000-plate' / 'attempts'
+    )
+    attempts.mkdir(parents=True)
+    (attempts / 'C07.json').write_text('{}')
+    lane = tmp_path / 'farm' / 'space--r1' / 'lane'
+    lane.mkdir(parents=True)
+    (lane / 'job').symlink_to(
+        data / 'space--r1' / 'lane' / 'job', target_is_directory=True
+    )
+    listed = lane / 'job' / 'cells' / '0000-plate' / 'attempts'
+    real_glob = Path.glob
+    asks = Counter()
+
+    def counting(self, *args, **kwargs):
+        asks[(str(self), args[0] if args else '')] += 1
+        return real_glob(self, *args, **kwargs)
+
+    with patch.object(Path, 'glob', counting), _listing_scope():
+        first = _listing(listed, '*.json')
+        second = _listing(listed, '*.json')
+        third = _listing(listed, '**/*.json')
+        fourth = _listing(listed, '**/*.json')
+    assert second is first
+    assert fourth is third
+    assert sum(asks.values()) == 2, asks

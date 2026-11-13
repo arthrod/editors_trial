@@ -445,6 +445,32 @@ def _dirs_stamp(directories) -> tuple:
     return tuple(stamp)
 
 
+def _dirs_chain(directories) -> tuple:
+    """``lstat`` identity of every component of each watched path.
+
+    ``_dirs_stamp`` sees where a path ends; this sees how it got there: a
+    symlink retargeted — even put back — inside or above the tree leaves a
+    new link inode and a bumped parent while the target's own fields
+    stand. The glob can then name a different tree than the stamp
+    describes, so the chain is taken before and after the glob and the
+    names are cached only when both stand still.
+    """
+    chain = {}
+    for directory in directories:
+        for path in (directory, *directory.parents):
+            if path in chain:
+                continue
+            try:
+                st = path.lstat()
+            except OSError:
+                chain[path] = None
+            else:
+                chain[path] = (
+                    st.st_dev, st.st_ino, st.st_mtime_ns, st.st_ctime_ns
+                )
+    return tuple(chain.items())
+
+
 def _watch_dirs(directory: Path, pattern: str) -> tuple:
     """Every directory whose contents can change ``directory.glob(pattern)``.
 
@@ -481,10 +507,13 @@ def _listing_scope():
     """Memoised directory listings for one top-level read (#176).
 
     Inside the scope a listing is reused while every watched directory's
-    identity fields (device, inode, mtime, ctime) stand. Outside it every
-    call globs fresh, so a caller that adds a file between two reads
-    always sees it — the pulled trees are append-only at report time, a
-    fixture being built is not.
+    resolved identity (device, inode, mtime, ctime) stands; a listing is
+    cached only while the ``lstat`` identity of every component of its
+    path also stands. Outside it every call globs fresh, so a caller that
+    adds a file between two reads always sees it — the pulled trees are
+    append-only at report time, a fixture being built is not. The stamp
+    is a clock: a filesystem reporting whole-second ctimes can still hide
+    a same-second change.
     """
     _LIST_CACHE.clear()
     outer = _LIST_SCOPED[0]
@@ -499,17 +528,22 @@ def _listing(directory, pattern: str):
     """``directory.glob(pattern)``, memoised inside ``_listing_scope`` (#176).
 
     The reader walks the same cells/, attempts/ and samples/ trees once per
-    cell x editor x measure. A listing stays stable while every watched
-    directory's identity — device, inode, mtime and ctime — stands; adding
-    or removing an entry bumps the directory that names it (always a
-    watched one), ``os.utime`` cannot put ctime back, and a rename swap
-    changes the inode, so the next call globs again and sees the change.
-    The stamp is taken before the glob, so a create inside the glob itself
-    also lands after the stored stamp. A directory born between the walk
-    that froze the watch set and the stamp would be inside its parent's
-    stored stamp yet unwatched, so the walk is repeated once the glob
-    returns: a different second walk means the listing is served fresh and
-    nothing is cached until a call sees a stable tree.
+    cell x editor x measure. A listing is reused while every watched
+    directory's resolved identity — device, inode, mtime and ctime —
+    stands: adding or removing an entry bumps the directory that names it
+    (always a watched one), ``os.utime`` cannot put ctime back, and a
+    rename swap changes the inode, so the next call globs again and sees
+    the change. The stamp is taken before the glob and again once the
+    glob returns, joined by the ``lstat`` identity of every component of
+    each watched path: a symlink retargeted for the glob and put back
+    leaves a new link inode and a bumped parent, and a link still swapped
+    names a different inode, so names globbed while a path resolved
+    elsewhere are served fresh and never cached. A directory born between
+    the walk that froze the watch set and the stamp would be inside its
+    parent's stored stamp yet unwatched, so the walk is repeated too: a
+    different second walk means nothing is cached until a call sees a
+    stable tree. The stamp is a clock — a filesystem reporting
+    whole-second ctimes can still hide a same-second change.
     """
     directory = Path(directory)
     if not _LIST_SCOPED[0]:
@@ -522,8 +556,13 @@ def _listing(directory, pattern: str):
             return paths
     watch = _watch_dirs(directory, pattern)
     stamp = _dirs_stamp(watch)
+    chain = _dirs_chain(watch)
     paths = tuple(directory.glob(pattern))
-    if _watch_dirs(directory, pattern) == watch:
+    if (
+        _dirs_stamp(watch) == stamp
+        and _dirs_chain(watch) == chain
+        and _watch_dirs(directory, pattern) == watch
+    ):
         _LIST_CACHE[key] = (stamp, watch, paths)
     return paths
 
