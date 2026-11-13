@@ -876,3 +876,10 @@ def test_campaign_pins_are_read_from_every_root(fs, monkeypatch):
     merged = E2._campaign_pins([Path('/a'), Path('/b')])
     assert seen == [Path('/a'), Path('/b')]
     assert merged == {'plate': ['tree-1', 'tree-2']}
+
+
+def test_throttle_sum_reports_unavailable_accounting_without_refusals():
+    """A seed with unavailable accounting and no refused-sample key is not 'not recorded' (GLM M2)."""
+    rows = [{'cpu_accounting': {'samples_total': 10, 'samples_unavailable': 3}}]
+    assert E2._throttle_sum(rows) == (
+        '3 of 10 samples had CPU accounting unavailable; 0 of 10 samples refused for cgroup CPU throttling')

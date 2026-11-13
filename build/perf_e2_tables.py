@@ -479,6 +479,8 @@ def _throttle_sum(rows) -> str:
         if r is not None:
             seen = True
             refused += r
+        if accounting.get("samples_unavailable"):
+            seen = True
         if t is not None:
             total += t
     if not seen:

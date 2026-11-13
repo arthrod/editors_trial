@@ -130,3 +130,13 @@ def test_a_lane_with_real_refusals_still_owns_the_criterion(fs):
     write_scroll_job(Path('/runs/space-2'), 'run-002', 1, 1)
     groups = cells._criterion_job_pairs([root, Path('/runs/space-2')], 'plate', 'C10')
     assert {job.parent.name for _root, job in groups[1]} == {'benchmark_warm_cold', 'adversarial_c10_scroll'}
+
+
+def test_only_the_criterion_stand_in_is_a_placeholder():
+    """'no warm edit surface without verified selector' is a genuine refusal, not a stand-in (GLM M1)."""
+    stand_in = {'outcome': 'not_run', 'failure_reason': PLACEHOLDER}
+    genuine = {'outcome': 'not_run',
+               'failure_reason': 'adapter-not-implemented: no warm edit surface without verified selector'}
+    assert cells._is_placeholder_row(stand_in)
+    assert not cells._is_placeholder_row(genuine)
+    assert not cells._is_placeholder_row({**stand_in, 'outcome': 'failed'})

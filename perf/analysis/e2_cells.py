@@ -1134,12 +1134,12 @@ def _build_cell_from_jobs(
     }
 
 
-_PLACEHOLDER_REASON = 'adapter-not-implemented:'
+_PLACEHOLDER_REASON = re.compile(r'adapter-not-implemented: criterion C\d+ not driven on \w+ host yet')
 
 
 def _is_placeholder_row(row: dict) -> bool:
     """A lane's stand-in for a criterion it does not drive (warm/cold C07-C10, C22, C23)."""
-    return row.get('outcome') == 'not_run' and str(row.get('failure_reason') or '').startswith(_PLACEHOLDER_REASON)
+    return row.get('outcome') == 'not_run' and bool(_PLACEHOLDER_REASON.fullmatch(str(row.get('failure_reason') or '')))
 
 
 def _job_owns(run_directory: Path, job: Path, editor_id: str, criterion_id: str) -> bool:
