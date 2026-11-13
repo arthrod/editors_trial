@@ -502,6 +502,116 @@ def test_restored_attempts_mtime_reaches_facts(tmp_path):
     assert cached_asks < fresh_asks, 'the memoised reader must still glob less'
 
 
+def test_directory_born_before_the_stamp_is_watched(tmp_path):
+    """A directory created after the watch walk but before the stamp is
+    inside its parent's stored stamp yet itself unwatched: a file written
+    into it bumps no watched mtime, so the next lookup in the same scope
+    must still re-glob and see it."""
+    attempts = tmp_path / 'attempts'
+    attempts.mkdir(parents=True)
+    (attempts / 'C07.json').write_text('{}')
+    real_watch = getattr(cells, '_watch_dirs', None)
+    state = {'made': False}
+
+    def watch_gap(directory, pattern):
+        watch = real_watch(directory, pattern)
+        if not state['made']:
+            state['made'] = True
+            (attempts / 'late').mkdir()
+        return watch
+
+    with _listing_scope():
+        with patch.object(cells, '_watch_dirs', watch_gap, create=True):
+            first = _listing(attempts, '**/*.json')
+        (attempts / 'late').mkdir(exist_ok=True)
+        (attempts / 'late' / 'EXTRA-C07.json').write_text('{}')
+        second = _listing(attempts, '**/*.json')
+        third = _listing(attempts, '**/*.json')
+    if real_watch is not None:
+        assert state['made'], 'the directory was not created in the gap'
+    assert [path.name for path in first] == ['C07.json']
+    assert sorted(str(path.relative_to(attempts)) for path in second) == [
+        'C07.json', os.path.join('late', 'EXTRA-C07.json'),
+    ]
+    assert third is second
+
+
+def test_directory_born_before_the_stamp_reaches_facts(tmp_path):
+    """End to end through ``facts_from_roots``: a directory created after
+    the watch walk but before the stamp, with a trial file dropped into it
+    inside the ``**/*.json`` glob, reaches the memoised reader exactly as
+    it does a fresh-glob reader."""
+    primary = tmp_path / 'primary'
+    repro = tmp_path / 'repro'
+    _lay_campaign(primary, 0)
+    _lay_campaign(repro, 1)
+    state = {'armed': True}
+    real_glob, real_rglob = Path.glob, Path.rglob
+    real_watch = getattr(cells, '_watch_dirs', None)
+    asks = Counter()
+
+    def watch_gap(directory, pattern):
+        watch = real_watch(directory, pattern)
+        if (
+            state['armed']
+            and Path(directory).name == 'attempts'
+            and '**' in pattern.split('/')
+            and not (Path(directory) / 'late').exists()
+        ):
+            # After the walk froze the watch set, before _dirs_stamp.
+            (Path(directory) / 'late').mkdir()
+        return watch
+
+    def wrapping(method, name):
+        def wrapped(self, *args, **kwargs):
+            result = tuple(method(self, *args, **kwargs))
+            pattern = args[0] if args else ''
+            asks[(name, self.name, pattern)] += 1
+            if (
+                state['armed']
+                and self.name == 'attempts'
+                and result
+                and pattern == ('**/*.json' if name == 'glob' else '*.json')
+            ):
+                state['armed'] = False
+                late = self / 'late'
+                late.mkdir(exist_ok=True)
+                (late / 'EXTRA-C07.json').write_text(result[0].read_text())
+            return iter(result)
+        return wrapped
+
+    def recursive_attempt_asks():
+        return asks[('glob', 'attempts', '**/*.json')] + asks[('rglob', 'attempts', '*.json')]
+
+    def fresh_listing(directory, pattern):
+        return tuple(Path(directory).glob(pattern))
+
+    def run(uncached):
+        state['armed'] = True
+        _fresh_cache()
+        asks.clear()
+        scope = nullcontext()
+        if uncached:
+            scope = patch.object(cells, '_listing', fresh_listing, create=True)
+        with scope:
+            return report.facts_from_roots([primary, repro]), recursive_attempt_asks()
+
+    with patch.object(cells, '_watch_dirs', watch_gap, create=True), \
+            patch.object(Path, 'glob', wrapping(real_glob, 'glob')), \
+            patch.object(Path, 'rglob', wrapping(real_rglob, 'rglob')):
+        cached_facts, cached_asks = run(uncached=False)
+        created = [path for path in primary.rglob('EXTRA-C07.json')]
+        created += [path for path in repro.rglob('EXTRA-C07.json')]
+        assert len(created) == 1, 'the injection did not fire'
+        created[0].unlink()
+        fresh_facts, fresh_asks = run(uncached=True)
+    assert 'conflicting_trials' in json.dumps(fresh_facts), (
+        'the injected file never reached the table'
+    )
+    assert cached_facts == fresh_facts
+    assert cached_asks < fresh_asks, 'the memoised reader must still glob less'
+
+
 @pytest.mark.parametrize('first_spec', ['full', 'slim'])
 def test_same_size_same_mtime_rewrite_is_reparsed(tmp_path, first_spec):
     """A rewrite that keeps size and restores ``st_mtime_ns`` still moves

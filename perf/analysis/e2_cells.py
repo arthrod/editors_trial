@@ -505,7 +505,11 @@ def _listing(directory, pattern: str):
     watched one), ``os.utime`` cannot put ctime back, and a rename swap
     changes the inode, so the next call globs again and sees the change.
     The stamp is taken before the glob, so a create inside the glob itself
-    also lands after the stored stamp.
+    also lands after the stored stamp. A directory born between the walk
+    that froze the watch set and the stamp would be inside its parent's
+    stored stamp yet unwatched, so the walk is repeated once the glob
+    returns: a different second walk means the listing is served fresh and
+    nothing is cached until a call sees a stable tree.
     """
     directory = Path(directory)
     if not _LIST_SCOPED[0]:
@@ -519,7 +523,8 @@ def _listing(directory, pattern: str):
     watch = _watch_dirs(directory, pattern)
     stamp = _dirs_stamp(watch)
     paths = tuple(directory.glob(pattern))
-    _LIST_CACHE[key] = (stamp, watch, paths)
+    if _watch_dirs(directory, pattern) == watch:
+        _LIST_CACHE[key] = (stamp, watch, paths)
     return paths
 
 
