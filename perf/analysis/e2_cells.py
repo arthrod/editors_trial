@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
+from contextlib import contextmanager
 from pathlib import Path
 import hashlib
 import json
+import os
 import sys
 import re
 
@@ -88,8 +90,8 @@ def _run_shakedown_job(job: Path) -> str | None:
     cells_dir = job / 'cells'
     if not cells_dir.is_dir():
         return None
-    for directory in sorted(cells_dir.glob('*/attempts')):
-        for _path, row in _read_rows(directory):
+    for directory in sorted(_listing(cells_dir, '*/attempts')):
+        for _path, row in _read_rows(directory, drop=_ATTEMPT_DROP):
             mark = _shakedown_reason(row)
             if mark:
                 return mark
@@ -103,13 +105,13 @@ def _job_measured_launch_names(job: Path, editor_id: str) -> list[str]:
     if not cells_dir.is_dir():
         return names
     suffix = '-' + editor_id
-    for directory in sorted(cells_dir.glob('*/attempts')):
-        if not any(directory.glob('*.json')):
+    for directory in sorted(_listing(cells_dir, '*/attempts')):
+        if not any(_listing(directory, '*.json')):
             continue
         name = directory.parent.name
         if name.endswith(suffix):
             names.append(name)
-    for directory in sorted(cells_dir.iterdir()):
+    for directory in sorted(_listing(cells_dir, '*')):
         if not directory.is_dir() or directory.name in names:
             continue
         if directory.name.endswith(suffix) and (directory / 'resource.json').is_file():
@@ -122,12 +124,12 @@ def _job_launch_names(job: Path, editor_id: str) -> list[str]:
     cells_dir = job / 'cells'
     if not cells_dir.is_dir():
         return names
-    for directory in sorted(cells_dir.glob('*/attempts')):
+    for directory in sorted(_listing(cells_dir, '*/attempts')):
         name = directory.parent.name
         if name.endswith('-' + editor_id):
             names.append(name)
     suffix = '-' + editor_id
-    for directory in sorted(cells_dir.iterdir()):
+    for directory in sorted(_listing(cells_dir, '*')):
         if not directory.is_dir() or directory.name in names:
             continue
         if directory.name.endswith(suffix) and (directory / 'resource.json').is_file():
@@ -145,7 +147,7 @@ def _job_run_fingerprint(job: Path, editor_id: str) -> tuple[frozenset[str], str
         parts: list[str] = []
         attempts = cell / 'attempts'
         if attempts.is_dir():
-            for path in sorted(attempts.glob('*.json')):
+            for path in sorted(_listing(attempts, '*.json')):
                 try:
                     parts.append(hashlib.sha256(path.read_bytes()).hexdigest())
                 except OSError:
@@ -348,10 +350,27 @@ def _trial_block(trial):
 
 _JSON_CACHE: dict = {}
 _RESOLVE_CACHE: dict = {}
+_LIST_CACHE: dict = {}
+
+# Keys the memoised readers leave out: bulky in the pulled runs and read by
+# no consumer of the row that carries them (#176, round 2). A consumer that
+# ever needs one gets a fresh full parse through plain ``_read_json`` — the
+# spec is part of the cache key, so the two entries never alias.
+_SUMMARY_DROP = frozenset({'samples'})
+_ATTEMPT_DROP = frozenset({
+    'witnesses', 'instrumented', 'load_witness', 'marker_only',
+    'tolerated_class_pairs', 'tolerated_list_markers', 'tolerated_marker_strings',
+    'clock_skew', 'summary_stats', 'cpu_accounting', 'host_build', 'mechanism',
+    'boundary', 'refusal_detail', 'exit_code', 'run_id', 'repetition', 'seed',
+    'nr_throttled', 'throttled_usec', 'typing_session_kept', 'non_failure_outcomes',
+})
+_SAMPLE_ROW_KEEP = frozenset(
+    {'editor_id', 'accounting_scope', 'outcome', 'refusal_code', 'publication_block_reason', 'failure_reason'}
+)
 
 
-def _read_json(path: Path):
-    """Parsed JSON of one file, memoised on (resolved path, st_mtime_ns, st_size) (#176).
+def _read_json(path: Path, *, keep=None, drop=None):
+    """Parsed JSON of one file, memoised on (resolved path, st_mtime_ns, st_size, spec) (#176).
 
     Pulled runs are append-only; a rewrite changes the stat key and parses
     again. The cached object is shared by every consumer and must not be
@@ -362,14 +381,24 @@ def _read_json(path: Path):
     The path's resolved spelling is memoised too — ``Path.resolve`` walks and
     lstats every component on each call, which on the hot reader cost more
     than the parse it replaced.
+
+    ``keep``/``drop`` slim the memoised dict to what the caller's consumers
+    read; the spec is part of the cache key, so the slim entry and the full
+    entry are distinct and a plain call always returns the whole document.
     """
+    if keep is not None:
+        spec = ('keep', frozenset(keep))
+    elif drop is not None:
+        spec = ('drop', frozenset(drop))
+    else:
+        spec = None
     spelling = str(path)
     resolved = _RESOLVE_CACHE.get(spelling)
     if resolved is None:
         resolved = str(path.resolve())
         _RESOLVE_CACHE[spelling] = resolved
     stat = path.stat()
-    key = (resolved, stat.st_mtime_ns, stat.st_size)
+    key = (resolved, stat.st_mtime_ns, stat.st_size, spec)
     try:
         value = _JSON_CACHE[key]
     except KeyError:
@@ -377,10 +406,98 @@ def _read_json(path: Path):
             value = json.loads(path.read_text(encoding='utf-8'))
         except json.JSONDecodeError as exc:
             value = exc
+        if spec is not None and isinstance(value, dict):
+            if spec[0] == 'keep':
+                value = {k: v for k, v in value.items() if k in spec[1]}
+            else:
+                value = {k: v for k, v in value.items() if k not in spec[1]}
         _JSON_CACHE[key] = value
     if isinstance(value, json.JSONDecodeError):
         raise value
     return value
+
+
+def _dirs_stamp(directories) -> tuple:
+    stamp = []
+    for directory in directories:
+        try:
+            stamp.append(directory.stat().st_mtime_ns)
+        except OSError:
+            stamp.append(None)
+    return tuple(stamp)
+
+
+def _watch_dirs(directory: Path, pattern: str) -> tuple:
+    """Every directory whose contents can change ``directory.glob(pattern)``.
+
+    A single-component pattern is decided by the directory alone; each
+    ``*/`` level also needs the directories one level up, and ``**`` needs
+    the whole subtree.
+    """
+    if '**' in pattern.split('/'):
+        watch = {directory}
+        for root, _subdirs, _files in os.walk(directory):
+            watch.add(Path(root))
+        return tuple(sorted(watch))
+    watch = {directory}
+    frontier = [directory]
+    for _level in range(pattern.count('/')):
+        deeper = []
+        for parent in frontier:
+            try:
+                deeper.extend(child for child in parent.iterdir() if child.is_dir())
+            except OSError:
+                continue
+        watch.update(deeper)
+        frontier = deeper
+        if not frontier:
+            break
+    return tuple(sorted(watch))
+
+
+_LIST_SCOPED = [False]
+
+
+@contextmanager
+def _listing_scope():
+    """Memoised directory listings for one top-level read (#176).
+
+    Inside the scope a listing is reused while every watched directory's
+    mtime stands. Outside it every call globs fresh, so a caller that adds
+    a file between two reads always sees it — the pulled trees are
+    append-only at report time, a fixture being built is not.
+    """
+    _LIST_CACHE.clear()
+    outer = _LIST_SCOPED[0]
+    _LIST_SCOPED[0] = True
+    try:
+        yield
+    finally:
+        _LIST_SCOPED[0] = outer
+
+
+def _listing(directory, pattern: str):
+    """``directory.glob(pattern)``, memoised inside ``_listing_scope`` (#176).
+
+    The reader walks the same cells/, attempts/ and samples/ trees once per
+    cell x editor x measure. A listing stays stable while every watched
+    directory's mtime stands; adding or removing an entry bumps the mtime
+    of the directory that names it — always a watched one — so the next
+    call globs again and sees it.
+    """
+    directory = Path(directory)
+    if not _LIST_SCOPED[0]:
+        return tuple(directory.glob(pattern))
+    key = (str(directory), pattern)
+    entry = _LIST_CACHE.get(key)
+    if entry is not None:
+        stamp, watch, paths = entry
+        if _dirs_stamp(watch) == stamp:
+            return paths
+    paths = tuple(directory.glob(pattern))
+    watch = _watch_dirs(directory, pattern)
+    _LIST_CACHE[key] = (_dirs_stamp(watch), watch, paths)
+    return paths
 
 
 def _load_summary(run_directory: Path) -> dict | None:
@@ -388,7 +505,7 @@ def _load_summary(run_directory: Path) -> dict | None:
     if not path.is_file():
         return None
     try:
-        return _read_json(path)
+        return _read_json(path, drop=_SUMMARY_DROP)
     except (OSError, json.JSONDecodeError):
         return None
 
@@ -519,10 +636,12 @@ def trial_workload(trial):
                or (trial.get('diagnostic') or {}).get('workload_id') or '')
 
 
-def _read_rows(directory):
-    for path in sorted(directory.rglob('*.json')):
+def _read_rows(directory, *, keep=None, drop=None, skip=None):
+    for path in sorted(_listing(directory, '**/*.json')):
+        if skip is not None and skip(path):
+            continue
         try:
-            row = _read_json(path)
+            row = _read_json(path, keep=keep, drop=drop)
         except (OSError, json.JSONDecodeError):
             if path.name.startswith('chrome-profile-'):
                 continue  # a truncated trace record is diagnostic, never a trial
@@ -549,8 +668,8 @@ def _iter_attempt_rows(run_directory: Path):
 
 def _attempt_rows_of(run_directory: Path, jobs, *, qualify: set[Path] | None = None):
     for job in jobs:
-        for directory in sorted((job / 'cells').glob('*/attempts')):
-            for path, row in _read_rows(directory):
+        for directory in sorted(_listing(job / 'cells', '*/attempts')):
+            for path, row in _read_rows(directory, drop=_ATTEMPT_DROP, skip=_diagnostic_trial_path):
                 # Measured attempts only, never a profiling subtree or a traced repetition.
                 if _diagnostic_trial_path(path) or _diagnostic_trial_row(row):
                     continue
@@ -593,13 +712,13 @@ def _job_roots(run_directory: Path) -> list[Path]:
     parts = ('cells', 'samples', 'rejected-evidence', 'summary.json')
 
     def marked(path: Path) -> bool:
-        return any((path / part).exists() for part in parts)
+        return any(_listing(path, part) for part in parts)
 
     # A campaign directory can carry its own summary for comparability and
     # still hold the block jobs underneath. Those jobs are the schedule.
     nested = [
         job
-        for job in sorted(run_directory.glob('*/*'))
+        for job in sorted(_listing(run_directory, '*/*'))
         # A job's own cells/<NNNN-editor> (each with a summary.json) and its
         # other measurement folders are not jobs (shakedown 3 layout).
         if job.is_dir() and job.parent.name not in _JOB_PART_DIRS and marked(job)
@@ -610,7 +729,7 @@ def _job_roots(run_directory: Path) -> list[Path]:
         return [run_directory]
     jobs = []
     if (run_directory / 'runs').is_dir():
-        for campaign in sorted((run_directory / 'runs').iterdir()):
+        for campaign in sorted(_listing(run_directory / 'runs', '*')):
             if campaign.is_dir():
                 jobs.extend(_job_roots(campaign))
     return jobs
@@ -830,13 +949,18 @@ def _build_cell_from_jobs(
             if trial['criterion_id'] == criterion_id and trial_measure(trial) == measure:
                 trials[launch].append(trial)
     for run_directory, job in job_pairs:
-        for path in (job / 'rejected-evidence').glob('*'):
+        for path in _listing(job / 'rejected-evidence', '*'):
             if path.is_dir() and path.name.endswith('-' + editor_id):
                 key = _launch_key(run_directory, job, path.name, qualify=qualify)
                 if key in refused_launches:
                     additional[key].add(refused_launches[key])
                 refused_launches[key] = 'quarantined'
-        for path, row in _read_rows(job / 'samples'):
+        samples_dir = job / 'samples'
+        for path, row in _read_rows(
+            samples_dir,
+            keep=_SAMPLE_ROW_KEEP,
+            skip=lambda candidate: candidate.parent != samples_dir,
+        ):
             if (path.parent != job / 'samples'
                     or row.get('editor_id') != editor_id or row.get('accounting_scope') == 'diagnostic'
                     or not re.fullmatch(r'\d+-' + re.escape(editor_id), path.stem)

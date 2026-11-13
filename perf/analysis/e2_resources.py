@@ -62,10 +62,19 @@ def launch_refusal(record: dict) -> str | None:
     return None
 
 
+_RESOURCE_KEEP = frozenset(
+    {'outcome', 'refusal_code', 'failure_reason', 'edit_oracle', 'edit_cpu_publication',
+     'execution_profile', 'host_class', 'workload_id', 'editor_id', 'editor_error',
+     'settle', 'host_provenance', 'environment',
+     'load_cpu_ms', 'open_settle_cpu_ms', 'edit_cpu_ms', 'quiescence_cpu_ms',
+     'peak_ram_bytes', 'peak_js_heap_used_bytes', 'load_network_encoded_bytes'}
+)
+
+
 def _records(job: Path):
-    for path in sorted((job / 'cells').glob('*/resource.json')):
+    for path in sorted(cells._listing(job / 'cells', '*/resource.json')):
         try:
-            record = cells._read_json(path)
+            record = cells._read_json(path, keep=_RESOURCE_KEEP)
         except (OSError, ValueError):
             record = {'outcome': 'failed', 'failure_reason': 'unreadable_record'}
         if isinstance(record, dict):

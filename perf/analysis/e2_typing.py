@@ -105,12 +105,17 @@ def _sessions_from_jobs(job_pairs: list[tuple[Path, Path]], editor: str, kind: s
                 vetoes[launch] = 'unreadable_trial'
             if row.get('editor_id') == editor and row.get('criterion_id') == 'TYPING' and row.get('session_kind') == kind:
                 grouped[launch].append(row)
-        for path, row in cells._read_rows(job / 'samples'):
+        samples_dir = job / 'samples'
+        for path, row in cells._read_rows(
+            samples_dir,
+            keep=cells._SAMPLE_ROW_KEEP,
+            skip=lambda candidate: candidate.parent != samples_dir,
+        ):
             if path.parent == job / 'samples' and row.get('editor_id') == editor:
                 code = cells.refusal_code(row)
                 if code in cells._RUN_REFUSALS:
                     vetoes[cells._launch_key(root, job, path.stem, qualify=qualify)] = code
-        for path in (job / 'rejected-evidence').glob('*'):
+        for path in cells._listing(job / 'rejected-evidence', '*'):
             if path.is_dir() and path.name.endswith('-' + editor):
                 vetoes[cells._launch_key(root, job, path.name, qualify=qualify)] = 'quarantined'
     kept, progress = [], []

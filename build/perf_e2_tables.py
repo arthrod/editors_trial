@@ -38,7 +38,7 @@ class Run:
 
 def load_run(path: Path) -> Run:
     path = Path(path)
-    summary = e2_cells._read_json(path / "summary.json")
+    summary = e2_cells._read_json(path / "summary.json", drop=e2_cells._SUMMARY_DROP)
     if summary.get("publishable") is True and not summary.get("publication_block_reason") and summary.get("execution_profile") != "dedicated_publish":
         raise ValueError(
             "%s is a %s run; Report E2 publishes dedicated_publish runs only"
@@ -124,7 +124,7 @@ def _require_same_pins(primary: Path, repro: Path) -> None:
 
 
 def _summary(root: Path) -> dict:
-    return e2_cells._read_json(root / "summary.json")
+    return e2_cells._read_json(root / "summary.json", drop=e2_cells._SUMMARY_DROP)
 
 
 def _scheduled(root: Path, editor: str) -> int:
@@ -544,6 +544,13 @@ def _require_campaign_roots(roots) -> list[Path]:
 
 
 def facts_from_roots(roots) -> dict:
+    # Directory listings are memoised for the duration of one call only, so a
+    # file added before the next call is always seen (#176).
+    with e2_cells._listing_scope():
+        return _facts_from_roots(roots)
+
+
+def _facts_from_roots(roots) -> dict:
     roots = _require_campaign_roots(roots)
     classic = len(roots) == 2 and all((root / "summary.json").is_file() for root in roots)
     if classic:
