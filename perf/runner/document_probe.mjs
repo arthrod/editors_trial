@@ -506,7 +506,7 @@ function fcpFrom(paints) {
  * becomes true. textContent does not pierce an open shadow root and does not
  * see canvas pixels; those signals are checked on purpose.
  */
-const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, documentSelector: documentSel, textWaitBudgetMs }) => {
+const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, documentSelector: documentSel, textWaitBudgetMs, canvasReadyExpr }) => {
   const recorded =
     signal === 'canvas_pixel'
       ? 'canvas_pixel_non_blank'
@@ -763,7 +763,20 @@ const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, document
     if (state.docTextAt === null && signal !== 'screencast_ink') {
       const surface = window.__docProbeSurface(signal);
       const chars = signal === 'canvas_pixel' ? (surface.chars > 0 ? 1 : 0) : surface.chars;
-      if ((signal === 'canvas_pixel' && chars > 0) || (signal !== 'canvas_pixel' && chars >= minChars)) {
+      // A canvas holds no text to match against the document, and an editor
+      // paints its empty page (margin marks) before the import finishes. For
+      // canvas_pixel the usable frame is the first one in which the editor's
+      // own ready condition holds and the canvas has ink (#185).
+      let canvasDocumentReady = true;
+      if (signal === 'canvas_pixel' && canvasReadyExpr) {
+        try {
+          // eslint-disable-next-line no-eval
+          canvasDocumentReady = Boolean((0, eval)(canvasReadyExpr));
+        } catch {
+          canvasDocumentReady = false;
+        }
+      }
+      if ((signal === 'canvas_pixel' && chars > 0 && canvasDocumentReady) || (signal !== 'canvas_pixel' && chars >= minChars)) {
         state.docTextAt = performance.now();
         state.docTextCharsAt = chars;
       }
@@ -791,6 +804,7 @@ async function newPage(browser) {
     signal: usableSignal,
     documentSelector,
     textWaitBudgetMs: timeoutMs,
+    canvasReadyExpr: usableSignal === 'canvas_pixel' ? readyJs : '',
   });
   return { context, page, errors, cdp: null, recorder: null, trace };
 }
