@@ -339,7 +339,11 @@ class TimeoutKillIsOursNotTheEditors(unittest.TestCase):
         with mock.patch.object(bd.subprocess, "run", side_effect=expired):
             with self.assertRaises(bd.ProbeRefusal) as caught:
                 bd._run_probe(cmd, editor_id="folio")
-        self.assertIn("630", caught.exception.reason)
+        # Scale mode (C14) waits for each load stage in turn, then 30 s of slack (e0c237de, #183/#184).
+        from perf.runner.load_timeouts import C14_LOAD_STAGES
+        expected = C14_LOAD_STAGES * bd.PROBE_TIMEOUT_S + 30
+        self.assertEqual(int(bd._subprocess_timeout_s(cmd)), expected)
+        self.assertIn("within %ds" % expected, caught.exception.reason)
         self.assertEqual(caught.exception.refusal_code, "harness_error")
 
 
