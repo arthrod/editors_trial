@@ -675,3 +675,110 @@ def test_quarantine_refusals_are_scoped_to_editor(runs):
     cell = E2.e2_cells.build_run_cell(runs[0], 'plate', 'C07')
     assert cell['stats']['n'] == 10
     assert cell['refusals'] == {}
+
+
+# Issue #178: a publication campaign is many run folders over two seeds, not
+# a primary and a reproduction run. The header facts must describe the
+# campaign; the classic two-root output stays byte-identical.
+
+
+def _campaign_farm(base: Path, *, chromium_diff: bool = False) -> list[Path]:
+    """Six farm roots — three per seed on two named Spaces, one lane job each."""
+    specs = [
+        ("e2-alpha", "r1a", 1, {"started_at": "2026-11-10T08:00:00Z", "finished_at": "2026-11-10T09:30:00Z"}),
+        ("e2-alpha", "r1b", 1, {"started_at": "2026-11-10T10:00:00Z", "finished_at": "2026-11-10T10:45:00Z"}),
+        ("e2-beta", "r1c", 1, {"started_at": "2026-11-10T11:00:00Z", "finished_at": "2026-11-10T11:20:00Z"}),
+        ("e2-alpha", "r2a", 2, {"started_at": "2026-11-11T08:00:00Z", "finished_at": "2026-11-11T08:30:00Z"}),
+        ("e2-beta", "r2b", 2, {"run_id": "20261113T235959Z-9-9"}),  # the run stamp is the only recorded day
+        ("e2-apryse", "r2c", 2, {"started_at": "2026-11-12T08:00:00Z", "finished_at": "2026-11-12T09:00:00Z"}),
+    ]
+    roots = []
+    for index, (space, rid, seed, extra) in enumerate(specs):
+        root = base / ("%s--%s" % (space, rid))
+        job = root / "benchmark_input" / ("%s-1" % rid)
+        job.mkdir(parents=True)
+        summary = _summary(job, run_id="%s-1" % rid, seed=seed, editors=["plate"], reps=5)
+        summary["block"] = {"index": 1, "of": 2, "repetitions": 5}
+        summary["hosts"] = {"plate": {"host_build": "production", "tree_sha256": "tree-fixture"}}
+        summary.update(extra)
+        if chromium_diff and index == 2:
+            summary["rendering"] = {**summary["rendering"], "browser_version": "154.0.0.0"}
+        (job / "summary.json").write_text(json.dumps(summary))
+        for rep in range(3):
+            _write_trial(root, rep, "plate", "C07", outcome="measured", samples=[20.0])
+        roots.append(root)
+    return roots
+
+
+@pytest.mark.usefixtures("fake_legacy_tree")
+def test_campaign_header_describes_the_campaign(fs):
+    roots = _campaign_farm(Path("/farm"))
+    facts = E2.facts_from_roots(roots)
+    intro = facts["perf.e2.intro"]
+    assert "two runs" not in intro
+    assert "Primary run" not in intro and "Reproduction run" not in intro
+    assert "seed 1" in intro and "seed 2" in intro
+    assert "6 run folders" in intro and "6 jobs" in intro
+    assert "not recorded" not in intro
+    assert "2026-11-10" in intro and "2026-11-13" in intro
+    line = facts["perf.e2.runs"]
+    assert "Primary run" not in line and "Reproduction run" not in line
+    assert "3" in line and "seed 1" in line and "seed 2" in line
+    assert "2026-11-10" in line and "2026-11-13" in line
+    note = facts["perf.e2.host_note"]
+    assert "--" not in note.split("Chromium")[0].split("renderer")[0]
+    assert "e2-alpha" in note and "e2-beta" in note and "e2-apryse" in note
+    assert "machine name" in note
+    header = facts["perf.e2.not_reproduced"].splitlines()[0]
+    assert "First seed" in header and "Second seed" in header
+    assert "First run" not in header and "Second run" not in header
+    assert "Both runs" not in facts["perf.e2.rule"]
+    assert "seed" in facts["perf.e2.rule"].lower()
+    provenance = facts["perf.e2.provenance"]
+    assert "e2-alpha" in provenance and "e2-beta" in provenance
+    tpl = (render_reports.TEMPLATES / "reports/Report E2 - Speed in the Browser (2026).md").read_text()
+    rendered = render_reports.reportgen.render(tpl, facts)
+    assert "Primary run" not in rendered and "Reproduction run" not in rendered
+    assert "2026-11-13" in rendered
+
+
+def test_campaign_host_note_discloses_distinct_job_values(fs):
+    roots = _campaign_farm(Path("/farm"), chromium_diff=True)
+    facts = E2.facts_from_roots(roots)
+    note = facts["perf.e2.host_note"]
+    assert "130.0.6723.31" in note and "154.0.0.0" in note
+    # One seed-1 job disagrees on Chromium: both versions, with job counts.
+    assert "(2 jobs)" in note and "(1 job)" in note
+
+
+def test_classic_header_facts_byte_identical(runs):
+    facts = E2.facts_from_runs(*runs)
+    assert facts["perf.e2.intro"] == (
+        "1 of 2 scheduled editor/criterion/measure cells reproduced between the two runs. "
+        "Dates: first not recorded; second not recorded."
+    )
+    assert facts["perf.e2.date"] == "not recorded"
+    assert facts["perf.e2.repro_date"] == "not recorded"
+    assert facts["perf.e2.run_id"] == "a" and facts["perf.e2.repro_run_id"] == "b"
+    assert facts["perf.e2.seed"] == 0 and facts["perf.e2.repro_seed"] == 1
+    assert facts["perf.e2.provenance"] == "Per-Space provenance not supplied."
+    assert "| First run / reason | Second run, median |" in facts["perf.e2.not_reproduced"]
+    assert "Both runs must keep at least 5 launches per cell" in facts["perf.e2.rule"]
+    assert facts["perf.e2.host_note"] == (
+        "First run: Host class: dedicated. not recorded; CPU quota not recorded; "
+        "logical CPUs not recorded; OS not recorded not recorded; power not recorded. "
+        "Playwright not recorded; Chromium not recorded; renderer not recorded; headless not recorded. "
+        "Stolen CPU time: not recorded. Throttle: not recorded. Editor pins: {'plate': ['tree-fixture']}.\n\n"
+        "Second run: Host class: dedicated. not recorded; CPU quota not recorded; "
+        "logical CPUs not recorded; OS not recorded not recorded; power not recorded. "
+        "Playwright not recorded; Chromium not recorded; renderer not recorded; headless not recorded. "
+        "Stolen CPU time: not recorded. Throttle: not recorded. Editor pins: {'plate': ['tree-fixture']}."
+    )
+
+
+def test_classic_run_line_unchanged(runs):
+    facts = E2.facts_from_runs(*runs)
+    assert facts["perf.e2.runs"] == (
+        "Primary run `a`, seed 0 (not recorded). "
+        "Reproduction run `b`, seed 1 (not recorded)."
+    )

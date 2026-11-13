@@ -7,7 +7,9 @@ runs must agree (``reproduced``, abs_tol = witnessed frame interval).
 
 from __future__ import annotations
 
+import re
 import sys
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -292,12 +294,13 @@ def _criterion_table(facts: dict, roots, criterion: str, editors: list[str]) -> 
     return "\n".join(lines)
 
 
-def _not_reproduced_table(facts: dict) -> str:
+def _not_reproduced_table(facts: dict, classic: bool = True) -> str:
     rows = facts.pop("_not_reproduced", [])
+    word = "run" if classic else "seed"  # the cell comparison is first seed vs second seed
     if not rows:
-        return "Every figure that was measured in both runs reproduced."
+        return "Every figure that was measured in both %ss reproduced." % word
     lines = [
-        "| Editor | Criterion | Workload | Measure | First run / reason | Second run, median |",
+        "| Editor | Criterion | Workload | Measure | First %s / reason | Second %s, median |" % (word, word),
         "|---|---|---|---|---|---|",
     ]
     lines += ["| %s | %s | %s | %s | %s | %s |" % r for r in rows]
@@ -333,12 +336,23 @@ def _machine(summary: dict | None = None) -> str:
 
 
 def _space_name(root: Path) -> str:
+    """The Space a campaign root ran on — a machine name, never a run id.
+
+    Farm roots are ``<space>--<run id>``; bucket roots are
+    ``runs/<space>/e2/<run id>`` and their ``<space>/runs/<run id>`` mirror.
+    """
     root = Path(root)
     if (root / "runs").is_dir():
         return root.name
-    if root.parent.name == "runs":
+    if root.name == "e2" and root.parent.parent.name == "runs":
+        return root.parent.name
+    if root.parent.name == "e2" and root.parent.parent.parent.name == "runs":
         return root.parent.parent.name
-    return root.name
+    if root.parent.name == "runs":
+        if (root / "e2").is_dir():
+            return root.name
+        return root.parent.parent.name
+    return root.name.split("--", 1)[0]
 
 
 def _all_job_summaries(roots) -> list[dict]:
@@ -351,8 +365,15 @@ def _all_job_summaries(roots) -> list[dict]:
     return rows
 
 
-def check_roots_comparable(roots) -> None:
-    """Versions and pins must match across every shard; host class must agree."""
+def check_roots_comparable(roots, *, strict_rendering: bool = True) -> None:
+    """Versions and pins must match across every shard; host class must agree.
+
+    ``strict_rendering`` keeps the browser/renderer veto for callers that
+    publish a session or cell comparison directly. The campaign entry
+    discloses machine fields per seed in the host note instead, because a
+    publication campaign runs on many virtual machines whose browsers and
+    CPUs may legitimately differ (#178).
+    """
     summaries = _all_job_summaries(roots)
     if len(summaries) < 2:
         return
@@ -360,10 +381,11 @@ def check_roots_comparable(roots) -> None:
     for summary in summaries[1:]:
         if summary.get("versions") != first.get("versions"):
             raise ValueError("the reproduction attested other versions")
-        ra, rb = first.get("rendering") or {}, summary.get("rendering") or {}
-        for key in ("browser_version", "playwright_version", "vendor", "renderer", "headless"):
-            if ra.get(key) != rb.get(key):
-                raise ValueError("the reproduction used other Playwright or Chromium versions")
+        if strict_rendering:
+            ra, rb = first.get("rendering") or {}, summary.get("rendering") or {}
+            for key in ("browser_version", "playwright_version", "vendor", "renderer", "headless"):
+                if ra.get(key) != rb.get(key):
+                    raise ValueError("the reproduction used other Playwright or Chromium versions")
         if summary.get("host_class") != first.get("host_class"):
             raise ValueError("the reproduction used another host class")
         if summary.get("execution_profile") != first.get("execution_profile"):
@@ -381,7 +403,8 @@ def _host_note(summary: dict) -> str:
                 _steal(summary), _throttle(summary), summary.get("trial_pins", "not recorded")))
 
 
-def _host_note_campaign(roots) -> str:
+def _host_note_spaces(roots) -> str:
+    """Two runs that were launched on separate virtual machines (classic case)."""
     summaries = _all_job_summaries(roots)
     if not summaries:
         return "not yet measured"
@@ -402,6 +425,101 @@ def _host_note_campaign(roots) -> str:
             "%s seed (Space %s): %s"
             % (label, row.get("space", "?"), _host_note({**row, "trial_pins": trial_pins}))
         )
+    return "\n\n".join(lines)
+
+
+def _host_field(row: dict, key: str) -> str:
+    value = (row.get("host") or {}).get(key)
+    return "not recorded" if value is None else str(value)
+
+
+def _distinct_field(rows, field) -> str:
+    """The value once when every job agrees, else each value with its job count."""
+    counts = Counter(field(row) for row in rows)
+    if len(counts) == 1:
+        return str(next(iter(counts)))
+    return ", ".join(
+        "%s (%d job%s)" % (value, n, "s" if n != 1 else "")
+        for value, n in sorted(counts.items(), key=lambda kv: (-kv[1], str(kv[0])))
+    )
+
+
+def _throttle_sum(rows) -> str:
+    """Throttle refusals summed over all of a seed's jobs."""
+    refused = total = 0
+    seen = False
+    for row in rows:
+        accounting = row.get("cpu_accounting") or {}
+        r = row.get("cpu_throttle_refused_samples")
+        if r is None:
+            r = accounting.get("samples_refused")
+        t = accounting.get("samples_total")
+        if t is None and "order" in row:
+            t = len(row["order"])
+        if r is not None:
+            seen = True
+            refused += r
+        if t is not None:
+            total += t
+    if not seen:
+        return "not recorded"
+    if total:
+        return "%d of %d samples refused for cgroup CPU throttling" % (refused, total)
+    return "%d samples refused for cgroup CPU throttling" % refused
+
+
+def _space_note(spaces, editors) -> str:
+    """A Space is a machine: a Space named for an editor did not measure it."""
+    note = "A Space name is a machine name: the editors measured are those in the tables."
+    known = set(DISPLAY) | {"apryse"}
+    confused = sorted(
+        space for space in spaces
+        if (base := re.sub(r"^e2-", "", re.sub(r"-\d+$", "", space))) in known and base not in editors
+    )
+    if confused:
+        note += " Spaces %s are machines named for editors this report does not measure." % ", ".join(confused)
+    return note
+
+
+def _seed_host_note(seed, rows) -> str:
+    spaces = sorted({row.get("space", "?") for row in rows})
+    fields = [
+        ("CPU model", lambda row: _host_field(row, "cpu_model")),
+        ("CPU quota", lambda row: _host_field(row, "cpu_quota")),
+        ("logical CPUs", lambda row: _host_field(row, "cpu_cores_logical")),
+        ("OS", lambda row: "%s %s" % (_host_field(row, "os"), _host_field(row, "os_version"))),
+        ("Chromium", lambda row: _rendering(row)[1]),
+        ("renderer", lambda row: _rendering(row)[2]),
+        ("stolen CPU time", _steal),
+    ]
+    detail = "; ".join("%s %s" % (label, _distinct_field(rows, get)) for label, get in fields)
+    if all(len({get(row) for row in rows}) == 1 for _, get in fields):
+        detail = "all %d job%s agree: %s" % (len(rows), "s" if len(rows) != 1 else "", detail)
+    return "Seed %s — %d job%s on Spaces %s: %s; throttle refusals: %s." % (
+        seed if seed is not None else "not recorded",
+        len(rows), "s" if len(rows) != 1 else "", ", ".join(spaces), detail, _throttle_sum(rows))
+
+
+def _host_note_campaign(roots, editors) -> str:
+    """Per seed, the distinct machines all of its campaign jobs ran on (#178)."""
+    summaries = _all_job_summaries(roots)
+    if not summaries:
+        return "not yet measured"
+    spaces = sorted({row.get("space", "not recorded") for row in summaries})
+    host_class = summaries[0].get("host_class", "not recorded")
+    lead = (
+        "Each seed ran on the same hardware class (%s) on separate virtual machines "
+        "(Spaces %s), not on one host. %s"
+        % (host_class, ", ".join(spaces), _space_note(spaces, editors))
+    )
+    by_seed: dict = {}
+    for row in summaries:
+        by_seed.setdefault(row.get("seed"), []).append(row)
+    pin_roots = [Path(root) for root in roots if e2_cells._job_roots(Path(root))]
+    trial_pins = _pins(pin_roots[0]) if pin_roots else {}
+    lines = [lead]
+    lines.extend(_seed_host_note(seed, by_seed[seed]) for seed in sorted(by_seed, key=lambda value: (value is None, value)))
+    lines.append("Editor pins: %s." % trial_pins)
     return "\n\n".join(lines)
 
 
@@ -467,6 +585,69 @@ def _date(summary: dict) -> str:
     return "not recorded"
 
 
+_RUN_STAMP_DAY = re.compile(r"^(\d{4})(\d{2})(\d{2})T\d{6}")
+
+
+def _job_days(summary: dict) -> tuple[str | None, str | None]:
+    """The (start, end) days a job summary records: explicit ``started_at`` /
+    ``finished_at`` instants, else the UTC stamp its ``run_id`` carries —
+    the only recorded instant a publication job leaves."""
+    stamp = _RUN_STAMP_DAY.match(str(summary.get("run_id") or ""))
+    stamped = "%s-%s-%s" % stamp.groups() if stamp else None
+    start = str(summary["started_at"])[:10] if summary.get("started_at") else stamped
+    end = str(summary["finished_at"])[:10] if summary.get("finished_at") else stamped
+    return start, end
+
+
+def _campaign_view(roots) -> dict:
+    """A campaign's inventory, read from its job summaries: jobs per seed and
+    the earliest job start / latest job end day."""
+    summaries = _all_job_summaries(roots)
+    by_seed: dict = {}
+    starts, ends = [], []
+    for row in summaries:
+        by_seed.setdefault(row.get("seed"), []).append(row)
+        start, end = _job_days(row)
+        if start:
+            starts.append(start)
+        if end:
+            ends.append(end)
+    return {
+        "summaries": summaries,
+        "by_seed": by_seed,
+        "seeds": sorted(by_seed, key=lambda value: (value is None, value)),
+        "jobs": len(summaries),
+        "start": min(starts) if starts else None,
+        "end": max(ends) if ends else None,
+    }
+
+
+def _seed_job_counts(campaign: dict) -> str:
+    return "; ".join(
+        "seed %s: %d job%s" % (
+            seed if seed is not None else "not recorded",
+            len(campaign["by_seed"][seed]),
+            "s" if len(campaign["by_seed"][seed]) != 1 else "")
+        for seed in campaign["seeds"])
+
+
+def _runs_fact(primary: Run, repro: Run, campaign: dict | None, roots) -> str:
+    """The template's run line: the two-run sentence classically; the campaign
+    inventory — jobs per seed, run folders, date range — in a campaign."""
+    if campaign is None:
+        s, r = primary.summary, repro.summary
+        return (
+            "Primary run `%s`, seed %s (%s). Reproduction run `%s`, seed %s (%s)."
+            % (s.get("run_id", "not recorded"), s.get("seed", "—"), _date(s),
+               r.get("run_id", "not recorded"), r.get("seed", "—"), _date(r)))
+    first = campaign["start"] or "not recorded"
+    last = campaign["end"] or "not recorded"
+    dates = first if first == last else "%s to %s" % (first, last)
+    return (
+        "%d jobs in %d run folders — %s. Dates: %s."
+        % (campaign["jobs"], len(roots), _seed_job_counts(campaign) or "no jobs recorded", dates))
+
+
 def unset_facts() -> dict:
     """Facts when ``report_e2_runs.json`` is absent: the template still renders."""
     blurbs = _criterion_blurbs()
@@ -482,6 +663,7 @@ def unset_facts() -> dict:
         "perf.e2.host_class": "not yet measured",
         "perf.e2.host_note": "not yet measured",
         "perf.e2.rule": "not yet measured",
+        "perf.e2.runs": "not yet measured",
         "perf.e2.run_id": "not yet measured",
         "perf.e2.repro_run_id": "not yet measured",
         "perf.e2.seed": "—",
@@ -560,7 +742,7 @@ def _facts_from_roots(roots) -> dict:
         except ValueError:
             raise
     else:
-        check_roots_comparable(roots)
+        check_roots_comparable(roots, strict_rendering=False)
     editors = sorted({
         eid
         for root in roots
@@ -574,6 +756,12 @@ def _facts_from_roots(roots) -> dict:
     primary = _run_for_root(roots[0]) if roots else Run(Path("."), {})
     repro = _run_for_root(roots[1]) if len(roots) > 1 else primary
     s = primary.summary if roots else {}
+    campaign = None if classic else _campaign_view(roots)
+    kept_clause = (
+        "Both runs must keep at least %d launches per cell"
+        if classic else
+        "Each of the two seeds must keep at least %d launches per cell, its launches pooled across the campaign's run folders"
+    ) % PUBLICATION_MIN_KEPT
     playwright, chromium, renderer = _rendering(s)
     facts: dict = {
         "perf.e2.provenance": "Per-Space provenance not supplied.",
@@ -590,8 +778,11 @@ def _facts_from_roots(roots) -> dict:
         "perf.e2.machine": _machine(s),
         "perf.e2.host": _host_block(s),
         "perf.e2.host_class": s.get("host_class", "?"),
+        "perf.e2.runs": _runs_fact(primary, repro, campaign, roots),
         "perf.e2.host_note": (
-            _host_note_campaign(roots)
+            _host_note_campaign(roots, editors)
+            if campaign is not None
+            else _host_note_spaces(roots)
             if len({_space_name(root) for root in roots}) > 1 or any((Path(root) / "runs").is_dir() for root in roots)
             else "First run: " + _host_note({**s, "trial_pins": _pins(primary.path)})
             + "\n\nSecond run: " + _host_note({**repro.summary, "trial_pins": _pins(repro.path)})
@@ -615,8 +806,8 @@ def _facts_from_roots(roots) -> dict:
             "summaries delegate it to their trials — and a cell publishes only from trials that are "
             "publishable and record the built editor's identity (host_provenance.tree_sha256, else a "
             "pinned editor_version); a trial recording neither is refused as pin not recorded, and a "
-            "reproduction across different built-editor trees is refused. Both runs must keep at least "
-            f"{PUBLICATION_MIN_KEPT} launches per cell, and a run-level block — a shakedown run, dirty repos, unavailable "
+            "reproduction across different built-editor trees is refused. " + kept_clause +
+            ", and a run-level block — a shakedown run, dirty repos, unavailable "
             "CPU accounting or a failed run — refuses the whole run. "
             "The medians must agree within 10 percent of the larger median or the larger witnessed frame interval. "
             "Samples of frame-witnessed criteria require complete boolean flags checked against a witnessed interval; "
@@ -642,12 +833,27 @@ def _facts_from_roots(roots) -> dict:
         facts['perf.e2.table.TYPING'] = '\n\n'.join(typing_table(facts, roots, editor, kind) for editor, kind in typing_groups)
     facts.update(resource_facts(roots, editors))
     facts["perf.e2.not_run"] = _not_run_editors(roots[0], roots[-1], editors)
-    facts["perf.e2.not_reproduced"] = _not_reproduced_table(facts)
+    facts["perf.e2.not_reproduced"] = _not_reproduced_table(facts, classic)
     published = [k for k in facts if k.endswith(".reproduced")]
     facts["perf.e2.cells_checked"] = len(published)
     facts["perf.e2.cells_reproduced"] = sum(1 for k in published if facts[k])
-    facts["perf.e2.intro"] = "%d of %d scheduled editor/criterion/measure cells reproduced between the two runs. Dates: first %s; second %s." % (
-        facts["perf.e2.cells_reproduced"], facts["perf.e2.cells_checked"], _date(s), _date(repro.summary))
+    if campaign is None:
+        facts["perf.e2.intro"] = "%d of %d scheduled editor/criterion/measure cells reproduced between the two runs. Dates: first %s; second %s." % (
+            facts["perf.e2.cells_reproduced"], facts["perf.e2.cells_checked"], _date(s), _date(repro.summary))
+    else:
+        facts["perf.e2.intro"] = (
+            "%d of %d scheduled editor/criterion/measure cells reproduced between %s. "
+            "%d run folders contributed %d jobs (%s); earliest job start %s, latest job end %s."
+            % (
+                facts["perf.e2.cells_reproduced"], facts["perf.e2.cells_checked"],
+                "the two seeds" if len(campaign["seeds"]) == 2 else "the seeds",
+                len(roots), campaign["jobs"], _seed_job_counts(campaign),
+                campaign["start"] or "not recorded", campaign["end"] or "not recorded"))
+        if any(row.get("hosts") for row in campaign["summaries"]):
+            counts = Counter(row.get("space", "not recorded") for row in campaign["summaries"])
+            facts["perf.e2.provenance"] = (
+                "Jobs per Space, from each job summary's host-build records: "
+                + "; ".join("%s: %d" % item for item in sorted(counts.items())) + ".")
     return facts
 
 

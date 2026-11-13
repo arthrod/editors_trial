@@ -52,7 +52,7 @@ Playwright {{perf.e2.playwright}}, Chromium {{perf.e2.chromium}}. Renderer: {{pe
 
 {{perf.e2.rule}}
 
-Primary run `{{perf.e2.run_id}}`, seed {{perf.e2.seed}} ({{perf.e2.date}}). Reproduction run `{{perf.e2.repro_run_id}}`, seed {{perf.e2.repro_seed}} ({{perf.e2.repro_date}}).
+{{perf.e2.runs}}
 
 ## Tables
 
