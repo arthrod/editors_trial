@@ -20,6 +20,15 @@ BIG_DOCUMENT_WORKLOADS = frozenset({"prose-250kw"})
 #: The ready/navigation timeout for big documents, in milliseconds.
 BIG_DOCUMENT_LOAD_TIMEOUT_MS = 600_000
 
+#: C14 (large-document scaling) waits this long for every rung's load (#184,
+#: owner decision 2026-11-13). C14's probe target carries no workload id, so
+#: the per-workload rule above never reached it.
+C14_LOAD_TIMEOUT_MS = 1_000_000
+
+#: Longest wait for the editor's whole-text copy after the timed C14 sample
+#: (#183); kept equal to C14_COPY_WAIT_MS in perf/runner/c14_whole_text.mjs.
+C14_COPY_WAIT_MS = 120_000
+
 
 def load_timeout_ms(workload) -> int:
     """The ready/navigation timeout for a workload, in milliseconds."""

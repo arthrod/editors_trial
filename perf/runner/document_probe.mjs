@@ -95,6 +95,7 @@ import {
 } from './lane_edit_burst.mjs';
 import { EDIT_SURFACES } from './edit_surface.mjs';
 import { loadTimeoutMs } from './load_timeout.mjs';
+import { C14_COPY_WAIT_MS, readC14WholeText } from './c14_whole_text.mjs';
 
 /** Screencast ink needs at least this many region pixels above the witness threshold. */
 const SCREENCAST_INK_MIN_PIXELS = 64;
@@ -1382,6 +1383,10 @@ async function runScale(browser) {
     }
     const chosen = mechanism === 'forced_repaint' ? forced : natural;
     const facts = witnessFacts(chosen);
+    // Every timed step is over: ask the editor for its whole document (#183).
+    const c14Text = await readC14WholeText(ctx.page, editorId, {
+      waitMs: Number(opt['c14-copy-wait-ms'] || C14_COPY_WAIT_MS),
+    });
     // The exclusion decision is the post-settle window. A forced outline is
     // kept beside it and is never the measured sample.
     const decision = natural || chosen;
@@ -1402,6 +1407,7 @@ async function runScale(browser) {
       document_text_chars: snap.document_text_chars,
       document_text: snap.document_text,
       document_text_tail: snap.document_text_tail,
+      c14_text: c14Text,
       document_selector: snap.document_selector,
       surface_text: snap.surface_text,
       presented_frame_ms: mechanism === 'document_damage' ? facts.presented_frame_ms : chosen && chosen.outcome === 'witnessed' ? chosen.frame_page_ms : null,

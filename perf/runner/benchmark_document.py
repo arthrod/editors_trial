@@ -619,12 +619,27 @@ def c14_correctness_text(payload: dict) -> str | None:
     its last 4,000 characters. The correctness paragraphs sit near the end,
     so a longer document is checked on head and tail together.
     """
-    head = payload.get("document_text")
-    tail = payload.get("document_text_tail")
-    chars = payload.get("document_text_chars")
+    head, tail, chars = _c14_text_fields(payload)
     if head is None or not tail or (isinstance(chars, int) and chars <= len(head)):
         return head
     return head + "\n" + tail
+
+
+def _c14_whole_read(payload: dict) -> dict | None:
+    """The editor's own whole-document read (#183), when the probe made one and it worked."""
+    whole = payload.get("c14_text")
+    if isinstance(whole, dict) and not whole.get("error") and isinstance(whole.get("chars"), int) \
+            and isinstance(whole.get("head"), str) and isinstance(whole.get("tail"), str):
+        return whole
+    return None
+
+
+def _c14_text_fields(payload: dict) -> tuple:
+    """(head, tail, chars) of the text C14 checks: the editor's whole read, else the page read."""
+    whole = _c14_whole_read(payload)
+    if whole is not None:
+        return whole["head"], whole["tail"], whole["chars"]
+    return payload.get("document_text"), payload.get("document_text_tail"), payload.get("document_text_chars")
 
 
 C14_NO_CORRECTNESS_LINES = (
@@ -670,7 +685,7 @@ def c14_correctness_limit(payload: dict, fixture: dict) -> dict | None:
     if not text.strip():
         return {"applies": True, "reason": C14_NO_READABLE_TEXT}
     closing, text_chars = c14_fixture_expectations(fixture)
-    chars = payload.get("document_text_chars")
+    chars = _c14_text_fields(payload)[2]
     short = (isinstance(chars, int) and not isinstance(chars, bool) and isinstance(text_chars, int)
              and text_chars > 0 and chars < C14_WHOLE_READ_SHARE * text_chars)
     if closing and short and " ".join(closing.split()) not in " ".join(text.split()):
@@ -1338,10 +1353,12 @@ def _probe_timeout_ms(target: dict) -> int:
     return DEFAULT_LOAD_TIMEOUT_MS
 
 
-def _probe_cmd(*, mode: str, target: dict, cfg: dict, corpus_path: Path, extra: list, editor_id: str = "") -> list:
+def _probe_cmd(*, mode: str, target: dict, cfg: dict, corpus_path: Path, extra: list, editor_id: str = "",
+               timeout_ms: int | None = None) -> list:
     from perf.runner.browser_hosts import select_fixture
     select_fixture(target, corpus_path)
-    timeout_ms = _probe_timeout_ms(target)
+    if timeout_ms is None:
+        timeout_ms = _probe_timeout_ms(target)
     cmd = [
         shutil.which("node") or "node",
         str(PROBE),
@@ -1387,13 +1404,20 @@ def _probe_cmd(*, mode: str, target: dict, cfg: dict, corpus_path: Path, extra: 
 
 
 def _subprocess_timeout_s(cmd: list) -> float:
-    for index, token in enumerate(cmd):
-        if token == "--timeout-ms" and index + 1 < len(cmd):
-            try:
-                return max(1.0, int(cmd[index + 1]) / 1000.0) + 30.0
-            except ValueError:
-                break
-    return float(PROBE_TIMEOUT_S) + 30.0
+    """Our watchdog: the probe's load timeout, plus C14's whole-text copy wait when it has one, plus 30 s."""
+    def _flag_ms(flag: str):
+        for index, token in enumerate(cmd):
+            if token == flag and index + 1 < len(cmd):
+                try:
+                    return int(cmd[index + 1])
+                except ValueError:
+                    return None
+        return None
+
+    load_ms = _flag_ms("--timeout-ms")
+    if load_ms is None:
+        return float(PROBE_TIMEOUT_S) + 30.0
+    return max(1.0, load_ms / 1000.0) + (_flag_ms("--c14-copy-wait-ms") or 0) / 1000.0 + 30.0
 
 
 def _run_probe(cmd: list, *, editor_id: str, env: dict | None = None) -> dict:
@@ -1486,6 +1510,14 @@ def _env_for(*, editor_id: str, editor_version: str, fixture: dict, cache_state:
     )
     env["fixture_paragraph_count"] = int(fixture["paragraph_count"])
     env["interpretation_conditions"] = list(INTERPRETATION_CONDITIONS)
+    return env
+
+
+def _c14_env_for(*, editor_id: str, editor_version: str, fixture: dict, cache_state: str) -> dict:
+    """A C14 trial's environment: it records C14's own load timeout (#184)."""
+    from perf.runner.load_timeouts import C14_LOAD_TIMEOUT_MS
+    env = _env_for(editor_id=editor_id, editor_version=editor_version, fixture=fixture, cache_state=cache_state)
+    env["load_timeout_ms"] = C14_LOAD_TIMEOUT_MS
     return env
 
 
@@ -1997,12 +2029,14 @@ def _run_reflow_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path
 
 
 def _run_scale_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path: Path, count: int) -> tuple:
+    from perf.runner.load_timeouts import C14_COPY_WAIT_MS, C14_LOAD_TIMEOUT_MS
     cmd = _probe_cmd(
         mode="scale",
         target=target,
         cfg=cfg,
         corpus_path=fixture_path,
-        extra=["--settle-ms", "0"],
+        extra=["--settle-ms", "0", "--c14-copy-wait-ms", str(C14_COPY_WAIT_MS)],
+        timeout_ms=C14_LOAD_TIMEOUT_MS,
     )
     cmd.extend(["--editor", editor_id])
     samples = []
@@ -2023,6 +2057,7 @@ def _run_scale_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path:
                 "document_text_chars": payload.get("document_text_chars"),
                 "document_text": payload.get("document_text"),
                 "document_text_tail": payload.get("document_text_tail"),
+                "c14_text": payload.get("c14_text"),
                 "frames_total": payload.get("frames_total"),
                 "frames_after_usable": payload.get("frames_after_usable"),
                 "mechanism": payload.get("mechanism"),
@@ -2459,7 +2494,7 @@ def _main() -> int:
                             assert_workload_allowed(execution_profile(EXECUTION_PROFILE), rung)
                         except ValueError as exc:
                             reason = "execution_profile: %s" % (exc,)
-                            env = _env_for(
+                            env = _c14_env_for(
                                 editor_id=editor_id,
                                 editor_version=editor_version,
                                 fixture=fixture,
@@ -2498,7 +2533,7 @@ def _main() -> int:
                                     }
                                 )
                             continue
-                        env = _env_for(
+                        env = _c14_env_for(
                             editor_id=editor_id,
                             editor_version=editor_version,
                             fixture=fixture,
