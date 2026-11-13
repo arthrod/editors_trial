@@ -180,3 +180,18 @@ def test_b8_a_launch_with_no_record_and_no_sample_still_blocks(tmp_path):
     (tmp_path / 'benchmark_resources' / 'plate-s2-b2' / 'cells' / '0006-plate' / 'resource.json').unlink()
     cell = res.read_cell([tmp_path], 'plate', 'prose-250kw')
     assert cell['published'] is False and 'block 2' in cell['reason']
+
+
+def test_b9_a_blocked_cell_without_a_reason_lists_refusals_as_prose(tmp_path, monkeypatch):
+    """Review of #180, nit 4: a refusal tally is prose, never a Python dict."""
+    roots = _campaign(tmp_path)
+    for seed in (1, 2):
+        job = tmp_path / f'space-{seed}' / 'benchmark_typing' / f'canvas-lat-{seed}' / 'summary.json'
+        summary = json.loads(job.read_text())
+        summary.pop('failure_reason')
+        job.write_text(json.dumps(summary))
+    monkeypatch.setattr(report, 'check_roots_comparable', lambda roots: None)
+    text = report.typing_table({}, roots, 'canvas', 'latency')
+    assert 'not enough sessions' in text, text
+    assert '{' not in text and "'" not in text, text
+    assert 'refusals: crash (6)' in text, text

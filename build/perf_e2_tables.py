@@ -1045,6 +1045,13 @@ def _typing_progress_for_table(progress) -> list:
     return cleaned
 
 
+def _refusal_tally_text(refusals) -> str:
+    """A refusal tally as prose: "refusals: crash (6), cpu_throttled (1)" (#180 review, nit 4)."""
+    if not refusals:
+        return "no refusal recorded"
+    return "refusals: " + ", ".join("%s (%d)" % (code, n) for code, n in sorted(dict(refusals).items()))
+
+
 def _typing_progress_text(progress) -> str:
     """Progress of refused sessions as prose (#180), never a Python repr."""
     typed = [item.get('characters_typed') for item in progress or () if isinstance(item, dict)]
@@ -1087,7 +1094,7 @@ def typing_table(facts, roots, editor, kind):
             else:
                 reasons.append(
                     f"{name}: not enough sessions or run blocked (n = {kept_n} of {scheduled}; "
-                    f"{group['block_reason'] or group['refusals']}){suffix}"
+                    f"{group['block_reason'] or _refusal_tally_text(group['refusals'])}){suffix}"
                 )
     if reasons:
         return label + ': ' + '; '.join(reasons) + instrumented
