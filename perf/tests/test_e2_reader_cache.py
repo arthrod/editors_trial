@@ -4,11 +4,18 @@
 cell x job x measure (issue #176). The memoised reader must re-parse a file
 whose stat key changed, must keep every error path, and no consumer may
 mutate a cached row — a mutation would corrupt every later read of the file.
+
+Every test here also runs at the pre-cache commit: none touches a private
+name directly — the helpers below fall back to the plain behaviour — so each
+fails there on behaviour (a parse count, a stale or fresh value, or tuple
+identity), never on ``AttributeError`` for a missing name.
 """
 
+import inspect
 import json
 import os
 from collections import Counter
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
 from unittest.mock import patch
 
@@ -17,6 +24,55 @@ import pytest
 from build import perf_e2_tables as report
 from perf.analysis import e2_cells as cells
 from perf.tests.test_e2_report_fix3 import _lay_blocks, trial
+
+
+def _read_json(path, **spec):
+    """The module's memoised reader, or a plain parse where it does not exist."""
+    reader = getattr(cells, '_read_json', None)
+    if reader is None:
+        return json.loads(Path(path).read_text(encoding='utf-8'))
+    return reader(path, **spec)
+
+
+def _read_rows(directory, **kwargs):
+    """``cells._read_rows`` called with only the keyword arguments it accepts."""
+    reader = cells._read_rows
+    supported = {
+        name: value
+        for name, value in kwargs.items()
+        if name in inspect.signature(reader).parameters
+    }
+    yield from reader(directory, **supported)
+
+
+def _listing(directory, pattern):
+    """``cells._listing``, or a fresh glob at a commit that has no listing cache."""
+    listing = getattr(cells, '_listing', None)
+    if listing is None:
+        return tuple(Path(directory).glob(pattern))
+    return listing(directory, pattern)
+
+
+def _listing_scope():
+    """``cells._listing_scope``, or a no-op context at a commit without one."""
+    scope = getattr(cells, '_listing_scope', None)
+    if scope is None:
+        return nullcontext()
+    return scope()
+
+
+@contextmanager
+def _parse_log():
+    """The raw texts ``json.loads`` was asked to parse inside the block."""
+    log = []
+    real_loads = json.loads
+
+    def counting(text, *args, **kwargs):
+        log.append(text)
+        return real_loads(text, *args, **kwargs)
+
+    with patch.object(json, 'loads', counting):
+        yield log
 
 
 @pytest.fixture
@@ -44,21 +100,26 @@ def runs(fs):
     return roots
 
 
-def test_read_json_reparses_a_rewritten_file(tmp_path):
-    """A changed file is parsed again: the key carries mtime_ns and size."""
-    path = tmp_path / 'trial.json'
-    path.write_text(json.dumps({'outcome': 'measured', 'n': 1}))
-    first = cells._read_json(path)
-    assert first == {'outcome': 'measured', 'n': 1}
-    assert cells._read_json(path) is first
-
-    rewritten = {'outcome': 'refused', 'n': 2, 'detail': 'rewritten with a longer body'}
-    path.write_text(json.dumps(rewritten))
-    stamp = os.stat(path)
-    os.utime(path, ns=(stamp.st_atime_ns, stamp.st_mtime_ns + 5_000_000_000))
-    second = cells._read_json(path)
-    assert second == rewritten
-    assert second is not first
+def _lay_campaign(root: Path, seed: int):
+    """The ``runs`` fixture on a real filesystem: directory mtimes must move."""
+    root.mkdir(parents=True)
+    (root / 'summary.json').write_text(
+        json.dumps(
+            dict(
+                run_id=root.name,
+                seed=seed,
+                execution_profile='dedicated_publish',
+                host_class='dedicated',
+                publishable=True,
+                host={},
+                rendering={},
+                order=[[i, 'plate'] for i in range(10)],
+            )
+        )
+    )
+    _lay_blocks(root)
+    for rep in range(10):
+        trial(root, rep)
 
 
 def _fresh_cache():
@@ -67,6 +128,33 @@ def _fresh_cache():
     if cache is not None:
         cache.clear()
     return cache
+
+
+def _apply_spec(reparsed, spec):
+    """The cached shape of a parsed dict under a keep/drop spec."""
+    if spec is None or not isinstance(reparsed, dict):
+        return reparsed
+    mode, keys = spec
+    if mode == 'keep':
+        return {key: value for key, value in reparsed.items() if key in keys}
+    return {key: value for key, value in reparsed.items() if key not in keys}
+
+
+def test_read_json_reparses_a_rewritten_file(tmp_path):
+    """A changed file is parsed again: the key carries mtime_ns and size."""
+    path = tmp_path / 'trial.json'
+    path.write_text(json.dumps({'outcome': 'measured', 'n': 1}))
+    first = _read_json(path)
+    assert first == {'outcome': 'measured', 'n': 1}
+    assert _read_json(path) is first
+
+    rewritten = {'outcome': 'refused', 'n': 2, 'detail': 'rewritten with a longer body'}
+    path.write_text(json.dumps(rewritten))
+    stamp = os.stat(path)
+    os.utime(path, ns=(stamp.st_atime_ns, stamp.st_mtime_ns + 5_000_000_000))
+    second = _read_json(path)
+    assert second == rewritten
+    assert second is not first
 
 
 def test_reader_parses_each_file_at_most_once(runs):
@@ -88,22 +176,26 @@ def test_reader_parses_each_file_at_most_once(runs):
     assert not repeated, 'files parsed more than once: %s' % (repeated[:5],)
 
 
-def _apply_spec(reparsed, spec):
-    """The cached shape of a parsed dict under a keep/drop spec."""
-    if spec is None or not isinstance(reparsed, dict):
-        return reparsed
-    mode, keys = spec
-    if mode == 'keep':
-        return {key: value for key, value in reparsed.items() if key in keys}
-    return {key: value for key, value in reparsed.items() if key not in keys}
-
-
 def test_consumers_do_not_mutate_cached_rows(runs):
-    """After a full run, every cached object still equals its file on disk."""
+    """The shared rows the consumers saw are untouched: every memoised object
+    still equals what its file parses to under its keep/drop spec."""
     cache = _fresh_cache()
-    report.facts_from_roots(list(runs))
+    reads = Counter()
+    cls = type(runs[0] / 'summary.json')
+    original = cls.read_text
+
+    def counting(self, *args, **kwargs):
+        if self.suffix == '.json' and str(self).startswith('/runs/'):
+            reads[str(self)] += 1
+        return original(self, *args, **kwargs)
+
+    with patch.object(cls, 'read_text', counting):
+        report.facts_from_roots(list(runs))
+    repeated = sorted((path, n) for path, n in reads.items() if n > 1)
+    assert not repeated, 'files read more than once: %s' % (repeated[:5],)
     assert cache, 'the reader cache must hold the campaign files'
-    for (path_str, _mtime_ns, _size, spec), cached in cache.items():
+    for key, cached in cache.items():
+        path_str, spec = key[0], key[-1]
         try:
             reparsed = json.loads(Path(path_str).read_text(encoding='utf-8'))
         except json.JSONDecodeError:
@@ -115,36 +207,32 @@ def test_consumers_do_not_mutate_cached_rows(runs):
 
 
 def test_dropped_summary_key_is_served_full_to_who_needs_it(tmp_path):
-    """The summary's bulky ``samples`` key stays out of the memoised dict;
-    a consumer naming it still gets a fresh full parse of the same file."""
+    """The summary's bulky ``samples`` key stays out of the row a consumer
+    gets from ``_load_summary`` — ``row.get`` on it is None — and the only
+    way to it is a plain full-spec ``_read_json`` of the same file."""
     path = tmp_path / 'summary.json'
     path.write_text(json.dumps({'run_id': 'r1', 'samples': [{'n': 1}]}))
-    slim = cells._load_summary(tmp_path)
-    assert slim == {'run_id': 'r1'}
-    full = cells._read_json(path)
-    assert full['samples'] == [{'n': 1}]
+    row = cells._load_summary(tmp_path)
+    assert row.get('samples') is None
+    assert row['run_id'] == 'r1'
+    assert _read_json(path)['samples'] == [{'n': 1}]
 
 
-def test_profile_subtree_rows_are_never_parsed(tmp_path):
-    """Attempts under ``profile``/``profile-invoke`` subtrees are discarded
-    by path alone, so they must never reach the parser."""
+def test_attempt_rows_of_never_parses_profile_subtrees(tmp_path):
+    """``_attempt_rows_of`` discards ``profile``/``profile-invoke`` subtrees by
+    path alone — the parser never sees them. This locks that one producer
+    only: ``_run_shakedown_job`` still parses such rows, exactly as it did
+    before the reader cache (shakedown semantics unchanged)."""
     job = tmp_path / 'job'
     attempts = job / 'cells' / '0000-plate' / 'attempts'
     (attempts / 'profile').mkdir(parents=True)
     (attempts / 'profile-invoke').mkdir(parents=True)
     (attempts / 'profile' / 'deep.json').write_text('{not json')
     (attempts / 'profile-invoke' / 'trace.json').write_text('{not json')
-    parsed = []
-    original = cells._read_json
-
-    def counting(path, *args, **kwargs):
-        parsed.append(path)
-        return original(path, *args, **kwargs)
-
-    with patch.object(cells, '_read_json', counting):
+    with _parse_log() as parsed:
         rows = list(cells._attempt_rows_of(tmp_path, [job]))
     assert rows == []
-    assert parsed == [], 'diagnostic subtrees were parsed: %s' % parsed
+    assert parsed == [], 'diagnostic subtrees were parsed: %r' % (parsed,)
 
 
 def test_sample_rows_keep_only_what_consumers_read(tmp_path):
@@ -163,17 +251,27 @@ def test_sample_rows_keep_only_what_consumers_read(tmp_path):
     }
     path = samples_dir / '0000-plate.json'
     path.write_text(json.dumps(row))
+    keep = getattr(
+        cells,
+        '_SAMPLE_ROW_KEEP',
+        frozenset(
+            {
+                'editor_id', 'accounting_scope', 'outcome', 'refusal_code',
+                'publication_block_reason', 'failure_reason',
+            }
+        ),
+    )
     kept = dict(
-        cells._read_rows(
+        _read_rows(
             samples_dir,
-            keep=cells._SAMPLE_ROW_KEEP,
+            keep=keep,
             skip=lambda candidate: candidate.parent != samples_dir,
         )
     )
     seen = kept[path]
     assert 'non_failure_outcomes' not in seen
     assert seen['outcome'] == 'failed'
-    assert cells._read_json(path)['non_failure_outcomes'] == row['non_failure_outcomes']
+    assert _read_json(path)['non_failure_outcomes'] == row['non_failure_outcomes']
 
 
 def test_listing_cache_sees_a_file_added_between_calls(tmp_path):
@@ -183,12 +281,12 @@ def test_listing_cache_sees_a_file_added_between_calls(tmp_path):
     attempts = tmp_path / 'cells' / '0000-plate' / 'attempts'
     attempts.mkdir(parents=True)
     (attempts / 'C07.json').write_text('{}')
-    with cells._listing_scope():
-        first = cells._listing(attempts, '*.json')
-        assert cells._listing(attempts, '*.json') is first
+    with _listing_scope():
+        first = _listing(attempts, '*.json')
+        assert _listing(attempts, '*.json') is first
         (attempts / 'C11.json').write_text('{}')
-        second = cells._listing(attempts, '*.json')
+        second = _listing(attempts, '*.json')
     assert [path.name for path in first] == ['C07.json']
     assert sorted(path.name for path in second) == ['C07.json', 'C11.json']
     (attempts / 'C13.json').write_text('{}')
-    assert len(cells._listing(attempts, '*.json')) == 3
+    assert len(_listing(attempts, '*.json')) == 3
