@@ -207,7 +207,7 @@ def _format_median(cell: dict, median: float) -> str:
     return "%.1f ms" % median + suffix
 
 
-def _cell_text(facts: dict, roots, editor: str, criterion: str, measure: str = '', workload_id: str | None = None) -> str:
+def _cell_text(facts: dict, roots, editor: str, criterion: str, measure: str = '', workload_id: str | None = None, *, word: str = 'run') -> str:
     key = 'perf.e2.%s.%s' % (editor, criterion) + ('.' + measure if measure else '') + ('.' + workload_id if workload_id else '')
     facts[key + '.reproduced'] = False
     pooled = e2_cells.read_criterion_cell(roots, editor, criterion, measure=measure, workload_id=workload_id)
@@ -229,7 +229,7 @@ def _cell_text(facts: dict, roots, editor: str, criterion: str, measure: str = '
         for label, cell in zip(('first', 'second'), groups):
             if cell.get('blocked'):
                 reasons.append(
-                    '%s run unpublishable: %s (blocked)' % (label, cell.get('block_reason') or 'run blocked'))
+                    '%s %s unpublishable: %s (blocked)' % (label, word, cell.get('block_reason') or 'run blocked'))
                 failures = e2_cells.failure_text(cell)
                 if failures:
                     reasons.append('%s: %s' % (label, failures))
@@ -275,7 +275,7 @@ def _cell_text(facts: dict, roots, editor: str, criterion: str, measure: str = '
     return p_text + suffix + ('; second: ' + failures if failures else '')
 
 
-def _criterion_table(facts: dict, roots, criterion: str, editors: list[str]) -> str:
+def _criterion_table(facts: dict, roots, criterion: str, editors: list[str], *, word: str = 'run') -> str:
     groups = sorted({(e2_cells.trial_workload(row), e2_cells.trial_measure(row))
                      for root in roots for row in e2_cells._iter_trials(root)
                      if row['criterion_id'] == criterion})
@@ -287,7 +287,7 @@ def _criterion_table(facts: dict, roots, criterion: str, editors: list[str]) -> 
     lines = ['| ' + ' | '.join(columns) + ' |', '|' + '---|' * len(columns)]
     for workload, measure in groups:
         for editor in editors:
-            text = _cell_text(facts, roots, editor, criterion, measure, workload)
+            text = _cell_text(facts, roots, editor, criterion, measure, workload, word=word)
             row = [DISPLAY.get(editor, editor)] + ([workload or 'unspecified'] if has_workload else [])
             row += ([measure or 'unspecified'] if distinct else []) + [text]
             lines.append('| ' + ' | '.join(row) + ' |')
@@ -446,10 +446,11 @@ def _distinct_field(rows, field) -> str:
 
 def _throttle_sum(rows) -> str:
     """Throttle refusals summed over all of a seed's jobs."""
-    refused = total = 0
+    refused = total = unavailable = 0
     seen = False
     for row in rows:
         accounting = row.get("cpu_accounting") or {}
+        unavailable += accounting.get("samples_unavailable") or 0
         r = row.get("cpu_throttle_refused_samples")
         if r is None:
             r = accounting.get("samples_refused")
@@ -464,8 +465,12 @@ def _throttle_sum(rows) -> str:
     if not seen:
         return "not recorded"
     if total:
-        return "%d of %d samples refused for cgroup CPU throttling" % (refused, total)
-    return "%d samples refused for cgroup CPU throttling" % refused
+        text = "%d of %d samples refused for cgroup CPU throttling" % (refused, total)
+    else:
+        text = "%d samples refused for cgroup CPU throttling" % refused
+    if unavailable:
+        text = "%d of %s samples had CPU accounting unavailable; %s" % (unavailable, total or "?", text)
+    return text
 
 
 def _space_note(spaces, editors) -> str:
@@ -823,7 +828,7 @@ def _facts_from_roots(roots) -> dict:
     for cid in E2_CRITERIA:
         facts["perf.e2.criterion.%s" % cid] = blurbs.get(cid, cid)
     for cid in criteria:
-        facts["perf.e2.table.%s" % cid] = _criterion_table(facts, roots, cid, editors)
+        facts["perf.e2.table.%s" % cid] = _criterion_table(facts, roots, cid, editors, word="run" if classic else "seed")
     for cid in E2_CRITERIA:
         facts.setdefault("perf.e2.table.%s" % cid, "not in these runs.")
     typing_groups = sorted({(row['editor_id'], row.get('session_kind'))

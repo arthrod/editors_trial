@@ -782,3 +782,29 @@ def test_classic_run_line_unchanged(runs):
         "Primary run `a`, seed 0 (not recorded). "
         "Reproduction run `b`, seed 1 (not recorded)."
     )
+
+
+def _blocked_pool(*_args, **_kwargs):
+    group = {'scheduled': 5, 'blocked': True, 'block_reason': 'repos_modified', 'refusals': {}}
+    return {'published': False, 'reason': 'blocked', 'groups': [dict(group), dict(group)]}
+
+
+@pytest.mark.parametrize('word', ['run', 'seed'])
+def test_unpublishable_rows_name_the_group_the_table_compares(monkeypatch, word):
+    """Campaign cells compare seeds, classic cells runs; the row says which (#178 review)."""
+    monkeypatch.setattr(E2.e2_cells, 'read_criterion_cell', _blocked_pool)
+    facts: dict = {}
+    text = E2._cell_text(facts, [], 'plate', 'C07', word=word)
+    assert 'first %s unpublishable: repos_modified (blocked)' % word in text
+    assert 'second %s unpublishable: repos_modified (blocked)' % word in text
+
+
+def test_campaign_throttle_sum_keeps_the_unavailable_accounting_disclosure():
+    """A seed's sum says when CPU accounting was unavailable, as the classic note does (#178 review)."""
+    rows = [
+        {'cpu_accounting': {'samples_total': 10, 'samples_refused': 1, 'samples_unavailable': 2}},
+        {'cpu_accounting': {'samples_total': 10, 'samples_refused': 0}},
+    ]
+    assert E2._throttle_sum(rows) == (
+        '2 of 20 samples had CPU accounting unavailable; 1 of 20 samples refused for cgroup CPU throttling')
+    assert E2._throttle_sum(rows[1:]) == '0 of 10 samples refused for cgroup CPU throttling'
