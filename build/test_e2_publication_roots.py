@@ -176,6 +176,16 @@ def test_the_committed_manifest_names_the_publish1_campaign():
     assert superseded == union
     assert set(manifest["superseded"]["issues"]) == {"173", "174", "175"}
 
+    # The second round (#181): every superseded re-run job is measured again, once.
+    assert manifest["harness"]["rerun2"] == "c0015f83"
+    retired = e2r.rerun_superseded_jobs(manifest)
+    assert retired == {20, 21, 100, 101} and retired <= union
+    second = [entry for space in manifest["rerun2"].values() for entry in space]
+    assert all(RUN_ID.match(entry["run_id"]) for entry in second)
+    assert {entry["run_id"] for entry in second}.isdisjoint(set(rids) | set(first_pass.values()))
+    assert sorted(job for entry in second for job in entry["jobs"]) == sorted(retired)
+    assert set(manifest["rerun2"]) <= set(first_pass)
+
 
 def test_campaign_counts_become_perf_e2_facts(tmp_path):
     payload = {

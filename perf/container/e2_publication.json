@@ -2,7 +2,8 @@
  "campaign": "publish1",
  "harness": {
   "first_pass": "4488f9b6",
-  "rerun": "78249e7c"
+  "rerun": "78249e7c",
+  "rerun2": "c0015f83"
  },
  "first_pass": {
   "e2-apryse": "20261112T183630601693Z-12164-085332",
@@ -70,5 +71,21 @@
     "jobs": [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99]
    }
   }
+ },
+ "rerun_superseded": {
+  "issues": {
+   "181": {
+    "title": "C14 I01-I03 checked a 4,000-character head of the document text; the correctness lines sit at its end",
+    "lane": "benchmark_document",
+    "criterion": "C14",
+    "jobs": [20, 21, 100, 101]
+   }
+  }
+ },
+ "rerun2": {
+  "e2-publish": [{"run_id": "20261113T165954449347Z-13305-270096", "jobs": [20]}],
+  "e2-publish-2": [{"run_id": "20261113T165850275631Z-13170-380747", "jobs": [101]}],
+  "e2-publish-5": [{"run_id": "20261113T165851839542Z-13191-690007", "jobs": [100]}],
+  "e2-publish-8": [{"run_id": "20261113T165921960493Z-13218-861794", "jobs": [21]}]
  }
 }
