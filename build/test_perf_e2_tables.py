@@ -863,10 +863,10 @@ def test_reruns_text_states_the_campaign_counts():
 
 
 def test_pins_text_is_prose_not_a_python_dict():
-    text = E2._pins_text({'plate': ['0b3c24cc2bf9348a9e904d22'], 'canvas': ['db742f005c45', 'not recorded']})
+    text = E2._pins_text({'plate': ['0b3c24cc2bf9348a9e904d22' + 'f' * 40], 'canvas': ['db742f005c45' + 'e' * 52, 'not recorded']})
     assert '{' not in text and '[' not in text
     assert text.startswith('Editor pins (built-editor tree SHA-256 of every attempt that ran, in every run folder):')
-    assert 'canvas-editor + plugin: db742f005c45, not recorded' in text
+    assert 'canvas-editor + plugin: db742f005c45%s, not recorded' % ('e' * 52) in text
     assert 'Plate.js: 0b3c24cc2bf9348a9e904d22' in text
 
 
@@ -882,7 +882,24 @@ def test_throttle_sum_reports_unavailable_accounting_without_refusals():
     """A seed with unavailable accounting and no refused-sample key is not 'not recorded' (GLM M2)."""
     rows = [{'cpu_accounting': {'samples_total': 10, 'samples_unavailable': 3}}]
     assert E2._throttle_sum(rows) == (
-        '3 of 10 samples had CPU accounting unavailable; 0 of 10 samples refused for cgroup CPU throttling')
+        '3 of 10 samples had CPU accounting unavailable; refused samples not recorded')
+
+
+def test_throttle_sum_counts_refusals_when_any_job_recorded_them():
+    rows = [{'cpu_accounting': {'samples_total': 10, 'samples_unavailable': 3, 'samples_refused': 1}}]
+    assert E2._throttle_sum(rows) == (
+        '3 of 10 samples had CPU accounting unavailable; 1 of 10 samples refused for cgroup CPU throttling')
+
+
+def test_pins_text_names_versions_when_a_pin_is_not_a_tree_hash():
+    """editor_pin can fall back to environment.editor_version; the label must not call it a SHA-256 (GLM m5)."""
+    sha = 'a' * 64
+    assert E2._pins_text({'plate': [sha, 'not recorded']}).startswith(
+        'Editor pins (built-editor tree SHA-256 of every attempt that ran, in every run folder):')
+    text = E2._pins_text({'plate': [sha], 'folio': ['1.4.2']})
+    assert text.startswith(
+        'Editor pins (built-editor tree SHA-256, or the editor version where no tree was recorded, '
+        'of every attempt that ran, in every run folder):')
 
 
 def test_campaign_pins_skip_attempts_that_never_ran(monkeypatch):

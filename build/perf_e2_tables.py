@@ -122,8 +122,11 @@ def _pins_text(pins: dict) -> str:
     if not pins:
         return "Editor pins: not recorded."
     items = sorted(pins.items(), key=lambda item: DISPLAY.get(item[0], item[0]).casefold())
-    return "Editor pins (built-editor tree SHA-256 of every attempt that ran, in every run folder): %s." % "; ".join(
-        "%s: %s" % (DISPLAY.get(editor, editor), ", ".join(values)) for editor, values in items)
+    hashes = all(re.fullmatch(r"[0-9a-f]{64}", v) or v == "not recorded" for _, values in items for v in values)
+    label = "built-editor tree SHA-256" if hashes else (
+        "built-editor tree SHA-256, or the editor version where no tree was recorded,")
+    return "Editor pins (%s of every attempt that ran, in every run folder): %s." % (label, "; ".join(
+        "%s: %s" % (DISPLAY.get(editor, editor), ", ".join(values)) for editor, values in items))
 
 
 def _require_same_pins(primary: Path, repro: Path) -> None:
@@ -468,7 +471,7 @@ def _distinct_field(rows, field) -> str:
 def _throttle_sum(rows) -> str:
     """Throttle refusals summed over all of a seed's jobs."""
     refused = total = unavailable = 0
-    seen = False
+    seen = refused_seen = False
     for row in rows:
         accounting = row.get("cpu_accounting") or {}
         unavailable += accounting.get("samples_unavailable") or 0
@@ -479,7 +482,7 @@ def _throttle_sum(rows) -> str:
         if t is None and "order" in row:
             t = len(row["order"])
         if r is not None:
-            seen = True
+            seen = refused_seen = True
             refused += r
         if accounting.get("samples_unavailable"):
             seen = True
@@ -487,7 +490,9 @@ def _throttle_sum(rows) -> str:
             total += t
     if not seen:
         return "not recorded"
-    if total:
+    if not refused_seen:
+        text = "refused samples not recorded"
+    elif total:
         text = "%d of %d samples refused for cgroup CPU throttling" % (refused, total)
     else:
         text = "%d samples refused for cgroup CPU throttling" % refused
