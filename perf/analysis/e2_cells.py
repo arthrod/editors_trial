@@ -1134,16 +1134,49 @@ def _build_cell_from_jobs(
     }
 
 
+_PLACEHOLDER_REASON = 'adapter-not-implemented:'
+
+
+def _is_placeholder_row(row: dict) -> bool:
+    """A lane's stand-in for a criterion it does not drive (warm/cold C07-C10, C22, C23)."""
+    return row.get('outcome') == 'not_run' and str(row.get('failure_reason') or '').startswith(_PLACEHOLDER_REASON)
+
+
+def _job_owns(run_directory: Path, job: Path, editor_id: str, criterion_id: str) -> bool:
+    return any(
+        row.get('editor_id') == editor_id and row.get('criterion_id') == criterion_id and not _is_placeholder_row(row)
+        for _, _, row in _attempt_rows_of(run_directory, [job])
+    )
+
+
+def _owning_lane_pairs(pairs: list[tuple[Path, Path]], editor_id: str, criterion_id: str) -> list[tuple[Path, Path]]:
+    """Across every run folder: a lane with only placeholder rows gives way to a lane with real rows (#179).
+
+    A block campaign spreads one seed's jobs over many run folders, so the
+    per-folder ``_lane_jobs`` filter cannot see that another folder holds the
+    lane that drives the criterion. Pooling the placeholder jobs repeats the
+    block indices and refuses the cell. When no lane has a real row, every
+    lane stays and the placeholder refusal is what the cell shows.
+    """
+    owners = {job.parent.name for root, job in pairs if _job_owns(root, job, editor_id, criterion_id)}
+    if not owners:
+        return pairs
+    return [(root, job) for root, job in pairs if job.parent.name in owners]
+
+
 def _criterion_job_pairs(roots, editor_id: str, criterion_id: str) -> dict:
-    groups: dict = {}
+    pairs: list[tuple[Path, Path]] = []
     for root in map(Path, roots):
         for job in _lane_jobs(root, _job_roots(root), editor_id, criterion_id):
             summary = _load_summary(job) or {}
             scheduled = _scheduled_for_editor(summary, editor_id, 0)
             if not scheduled and not _job_measures(root, job, editor_id, criterion_id):
                 continue
-            seed = summary.get('seed')
-            groups.setdefault(seed, []).append((root, job))
+            pairs.append((root, job))
+    groups: dict = {}
+    for root, job in _owning_lane_pairs(pairs, editor_id, criterion_id):
+        seed = (_load_summary(job) or {}).get('seed')
+        groups.setdefault(seed, []).append((root, job))
     return groups
 
 
