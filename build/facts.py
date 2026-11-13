@@ -365,7 +365,11 @@ def perf_e2_facts(path: Path, facts: dict) -> None:
         if not isinstance(roots, list):
             raise TypeError('report_e2_runs.json "roots" must be a list of campaign directories')
         resolved = [Path(root) if Path(root).is_absolute() else ROOT / root for root in roots]
-        facts.update(perf_e2_tables.facts_from_roots(resolved))
+        cells = runs.get("superseded_cells")
+        if cells:
+            facts.update(perf_e2_tables.facts_from_roots(resolved, superseded_cells=cells))
+        else:
+            facts.update(perf_e2_tables.facts_from_roots(resolved))
     elif "primary" in runs or "repro" in runs:
         facts.update(perf_e2_tables.facts_from_runs(ROOT / runs["primary"], ROOT / runs["repro"]))
     else:

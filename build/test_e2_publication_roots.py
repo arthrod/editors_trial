@@ -378,3 +378,99 @@ def test_a_used_roots_dir_is_refused(tmp_path):
     empty = tmp_path / "empty-roots"
     empty.mkdir()
     assert run_roots(data, empty, write_manifest(tmp_path, third_round_manifest())) == 0
+
+
+# An editor-scoped round (#185) ------------------------------------------------------------------
+# canvas-editor's C11 and C14 timed its empty page. Its cells of the document
+# jobs are measured again by canvas-only runs that keep the job indices; the
+# old jobs stay linked for every other editor.
+
+RID_CANVAS = "20261114T010000000000Z-50000-000009"
+
+
+def editor_round_manifest():
+    manifest = third_round_manifest()
+    manifest["editor_superseded"] = {
+        "issues": {"185": {"title": "synthetic editor round", "lane": "benchmark_document", "editor": "canvas",
+                           "jobs": [4, 12]}}
+    }
+    manifest["editor_rerun"] = {"space-b": [{"run_id": RID_CANVAS, "jobs": [4, 12], "editors": ["canvas"]}]}
+    return manifest
+
+
+def editor_round_data(tmp_path):
+    data, kept, *_ = build_data(tmp_path)
+    job(data / "space-b" / "runs" / RID_RERUN2, RID_RERUN2, 12)
+    third = job(data / "space-a" / "runs" / RID_RERUN3, RID_RERUN3, 12)
+    canvas = [job(data / "space-b" / "runs" / RID_CANVAS, RID_CANVAS, index) for index in (4, 12)]
+    return data, kept, third, canvas
+
+
+def test_an_editor_round_links_its_jobs_and_keeps_the_old_jobs_for_other_editors(tmp_path):
+    data, kept, third, canvas = editor_round_data(tmp_path)
+    roots_dir = tmp_path / "roots"
+    assert run_roots(data, roots_dir, write_manifest(tmp_path, editor_round_manifest())) == 0
+    payload = json.loads((roots_dir / "report_e2_runs.json").read_text())
+    # The old jobs stay: only canvas-editor's cells of them are superseded.
+    assert (roots_dir / f"space-a--{RID_A}" / "benchmark_document" / kept.name).resolve() == kept
+    assert (roots_dir / f"space-a--{RID_RERUN3}" / "benchmark_document" / third.name).resolve() == third
+    for path in canvas:
+        assert (roots_dir / f"space-b--{RID_CANVAS}" / "benchmark_document" / path.name).resolve() == path
+    assert str((roots_dir / f"space-b--{RID_CANVAS}").resolve()) in payload["roots"]
+    assert payload["superseded_cells"] == [
+        {"issue": "185", "editor": "canvas", "jobs": [4, 12], "kept_runs": [RID_CANVAS]}
+    ]
+    campaign = payload["campaign"]
+    assert campaign["editor_rerun_kept"] == 2 and campaign["editor_rerun_unsealed"] == 0
+    assert campaign["editor_superseded"] == {"canvas": 2}
+
+
+def test_an_editor_round_entry_must_name_its_editors(tmp_path):
+    data, *_ = editor_round_data(tmp_path)
+    manifest = editor_round_manifest()
+    del manifest["editor_rerun"]["space-b"][0]["editors"]
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+
+
+def test_an_editor_round_job_that_supersedes_nothing_is_an_error(tmp_path):
+    data, *_ = editor_round_data(tmp_path)
+    job(data / "space-b" / "runs" / RID_CANVAS, RID_CANVAS, 14)
+    manifest = editor_round_manifest()
+    manifest["editor_rerun"]["space-b"][0]["jobs"] = [4, 12, 14]
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+
+
+def test_a_superseded_editor_job_nobody_measured_again_is_an_error(tmp_path):
+    data, *_ = editor_round_data(tmp_path)
+    manifest = editor_round_manifest()
+    manifest["editor_superseded"]["issues"]["185"]["jobs"] = [4, 12, 13]
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+
+
+def test_a_missing_editor_round_run_fails_unless_partial(tmp_path):
+    data, *_ = build_data(tmp_path)
+    job(data / "space-b" / "runs" / RID_RERUN2, RID_RERUN2, 12)
+    job(data / "space-a" / "runs" / RID_RERUN3, RID_RERUN3, 12)
+    manifest = write_manifest(tmp_path, editor_round_manifest())
+    assert run_roots(data, tmp_path / "roots", manifest) != 0
+    roots_dir = tmp_path / "roots-partial"
+    assert run_roots(data, roots_dir, manifest, "--partial") == 0
+    payload = json.loads((roots_dir / "report_e2_runs.json").read_text())
+    assert payload["campaign"]["missing_runs"] == [f"space-b/{RID_CANVAS}"]
+    assert payload["campaign"]["editor_rerun_unsealed"] == 2
+
+
+def test_superseded_cells_reach_the_tables(tmp_path, monkeypatch):
+    import perf_e2_tables
+    seen = {}
+
+    def fake_facts_from_roots(roots, superseded_cells=None):
+        seen["superseded_cells"] = superseded_cells
+        return {}
+
+    monkeypatch.setattr(perf_e2_tables, "facts_from_roots", fake_facts_from_roots)
+    entries = [{"issue": "185", "editor": "canvas", "jobs": [4], "kept_runs": [RID_CANVAS]}]
+    runs_file = tmp_path / "report_e2_runs.json"
+    runs_file.write_text(json.dumps({"roots": [str(tmp_path)], "superseded_cells": entries}))
+    facts_mod.perf_e2_facts(runs_file, {})
+    assert seen["superseded_cells"] == entries

@@ -8,7 +8,12 @@ superseded by issues #173, #174 and #175; then the second round: the re-run
 job indexes issue #181 superseded (`rerun_superseded`) and the runs that
 measured them again (`rerun2`); then the third round: the second-round job
 indexes issues #183 and #184 superseded (`rerun2_superseded`) and the runs
-that measured them again (`rerun3`). This script walks a local mirror
+that measured them again (`rerun3`); then an editor-scoped round: the
+editor whose cells of some jobs an issue superseded (`editor_superseded`,
+#185) and the runs that measured that editor's cells again under the same
+job indices (`editor_rerun`). Those old jobs stay linked for every other
+editor; `report_e2_runs.json` lists the superseded cells
+(`superseded_cells`) and `build/facts.py` reads around them. This script walks a local mirror
 of the campaign bucket — `<space>/runs/<run id>/<lane>/<job>` — and links
 every sealed job (`JOB-DONE`) that counts into `<roots dir>/<space>--<run id>/`,
 leaving the superseded first-pass jobs out, then writes
@@ -51,6 +56,44 @@ def rerun_superseded_jobs(manifest: dict, key: str = "rerun_superseded") -> set[
     for issue in manifest.get(key, {}).get("issues", {}).values():
         jobs.update(issue["jobs"])
     return jobs
+
+
+def editor_superseded(manifest: dict) -> dict[str, set[int]]:
+    """Per editor, the job indexes whose cells of that editor an issue superseded (#185)."""
+    out: dict[str, set[int]] = {}
+    for issue in manifest.get("editor_superseded", {}).get("issues", {}).values():
+        out.setdefault(issue["editor"], set()).update(issue["jobs"])
+    return out
+
+
+def superseded_cells(manifest: dict) -> list[dict]:
+    """The editor-scoped supersedes `build/facts.py` reads around (#185)."""
+    kept = sorted(entry["run_id"] for entries in manifest.get("editor_rerun", {}).values() for entry in entries)
+    return [
+        {"issue": number, "editor": issue["editor"], "jobs": sorted(issue["jobs"]), "kept_runs": kept}
+        for number, issue in sorted(manifest.get("editor_superseded", {}).get("issues", {}).items())
+    ]
+
+
+def _check_editor_round(manifest: dict, errors: list[str]) -> None:
+    """Every superseded (editor, job) is measured again exactly once, by an entry naming that editor."""
+    wanted = editor_superseded(manifest)
+    measured: dict[str, list[int]] = {}
+    for space, entries in sorted(manifest.get("editor_rerun", {}).items()):
+        for entry in entries:
+            editors = entry.get("editors")
+            if not editors:
+                errors.append(f"editor-round run {space}/{entry['run_id']} names no editors")
+                continue
+            for editor in editors:
+                stray = sorted(set(entry["jobs"]) - wanted.get(editor, set()))
+                if stray:
+                    errors.append(f"editor-round jobs {stray} of {space}/{entry['run_id']} supersede no {editor} cells")
+                measured.setdefault(editor, []).extend(entry["jobs"])
+    for editor, jobs in sorted(wanted.items()):
+        if sorted(measured.get(editor, [])) != sorted(jobs):
+            errors.append(f"editor_superseded {editor} jobs {sorted(jobs)} are not measured again exactly once by "
+                          f"editor-round jobs {sorted(measured.get(editor, []))}")
 
 
 def _link_round(data: Path, roots_dir: Path, space: str, entries: list, prefix: str, retired: set[int],
@@ -127,6 +170,9 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
         "rerun2_superseded": 0,
         "rerun3_kept": 0,
         "rerun3_unsealed": 0,
+        "editor_rerun_kept": 0,
+        "editor_rerun_unsealed": 0,
+        "editor_superseded": {editor: len(jobs) for editor, jobs in sorted(editor_superseded(manifest).items())},
         "missing_runs": [],
     }
     roots: list[str] = []
@@ -156,6 +202,8 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
                     campaign, roots, errors)
         _link_round(data, roots_dir, space, manifest.get("rerun3", {}).get(space, []), "rerun3", set(),
                     campaign, roots, errors)
+        _link_round(data, roots_dir, space, manifest.get("editor_rerun", {}).get(space, []), "editor_rerun",
+                    set(), campaign, roots, errors)
         for round_key, earlier, name, of in (("rerun2", retired, "second-round", "re-run"),
                                              ("rerun3", retired2, "third-round", "second-round")):
             for entry in manifest.get(round_key, {}).get(space, []):
@@ -174,8 +222,9 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
         if sorted(measured) != sorted(wanted):
             errors.append(f"{retired_key} jobs {sorted(wanted)} are not measured again exactly once by "
                           f"{name} jobs {sorted(measured)}")
+    _check_editor_round(manifest, errors)
     run_ids = list(manifest["first_pass"].values()) + [
-        entry["run_id"] for key in ("rerun", "rerun2", "rerun3")
+        entry["run_id"] for key in ("rerun", "rerun2", "rerun3", "editor_rerun")
         for entries in manifest.get(key, {}).values() for entry in entries]
     duplicates = sorted({rid for rid in run_ids if run_ids.count(rid) > 1})
     if duplicates:
@@ -210,6 +259,8 @@ def main(argv: list[str] | None = None) -> int:
     campaign["partial"] = args.partial and bool(campaign["missing_runs"])
     args.roots_dir.mkdir(parents=True, exist_ok=True)
     payload = {"roots": roots, "campaign": campaign}
+    if manifest.get("editor_superseded"):
+        payload["superseded_cells"] = superseded_cells(manifest)
     (args.roots_dir / "report_e2_runs.json").write_text(json.dumps(payload, indent=1) + "\n")
     print(json.dumps(campaign))
     return 0

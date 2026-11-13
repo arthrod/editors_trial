@@ -174,6 +174,8 @@ def _scheduled_sum(roots, seed_index: int, editor: str) -> int:
     total = 0
     for root in roots:
         for job in e2_cells._job_roots(Path(root)):
+            if e2_cells.job_superseded(job, editor):
+                continue
             summary = e2_cells._load_summary(job) or {}
             if summary.get("seed") == target:
                 total += e2_cells._scheduled_for_editor(summary, editor, 0)
@@ -735,8 +737,17 @@ def reruns_text(campaign: dict | None) -> str:
             " In a second round, %d C14 jobs of the re-run were measured again after the C14 correctness check "
             "was fixed (issue #181); the tables read the %d second-round jobs in their place."
             % (second, campaign.get("rerun2_kept") or 0))
+    for editor, jobs in sorted((campaign.get("editor_superseded") or {}).items()):
+        name = {"canvas": "canvas-editor"}.get(editor, DISPLAY.get(editor, editor))
+        text += (
+            " Then %s's cells of %d document jobs (C11 and C14, with C12 and C15 of the same jobs) were measured "
+            "again after its load timing was found to stop at its empty page, before the document was imported "
+            "(issue #185). Those runs measured %s alone, under the same job indices and seeds; the tables read "
+            "them for %s, and the other editors of those jobs stay as measured."
+            % (name, jobs, name, name))
     unsealed = sum(campaign.get(key) or 0 for key in
-                   ("first_pass_unsealed", "rerun_unsealed", "rerun2_unsealed", "rerun3_unsealed"))
+                   ("first_pass_unsealed", "rerun_unsealed", "rerun2_unsealed", "rerun3_unsealed",
+                    "editor_rerun_unsealed"))
     missing = len(campaign.get("missing_runs") or [])
     if unsealed:
         text += " %d %s not sealed and %s left out." % (
@@ -829,10 +840,12 @@ def _require_campaign_roots(roots) -> list[Path]:
     return resolved
 
 
-def facts_from_roots(roots) -> dict:
+def facts_from_roots(roots, superseded_cells=None) -> dict:
     # Directory listings are memoised for the duration of one call only, so a
     # file added before the next call is always seen (#176).
-    with e2_cells._listing_scope():
+    # ``superseded_cells``: an editor's cells of some jobs, measured again by
+    # later runs under the same job indices (#185); the old rows are not read.
+    with e2_cells._listing_scope(), e2_cells.superseded_cells(superseded_cells):
         return _facts_from_roots(roots)
 
 

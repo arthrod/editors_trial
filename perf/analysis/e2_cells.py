@@ -742,6 +742,46 @@ def _diagnostic_trial_row(row: dict) -> bool:
     return row.get('outcome') == 'profiled' or row.get('accounting_scope') == 'diagnostic'
 
 
+#: Editor-scoped supersedes (#185): an editor's cells of some jobs, measured
+#: again by runs that keep the job indices. Each entry is
+#: ``{"editor": id, "jobs": [index, ...], "kept_runs": [run id, ...]}``;
+#: ``build/e2_publication_roots.py`` writes them into report_e2_runs.json.
+_SUPERSEDED_CELLS: tuple = ()
+
+
+@contextmanager
+def superseded_cells(entries):
+    """Read the campaign with these editor-scoped supersedes applied."""
+    global _SUPERSEDED_CELLS
+    previous = _SUPERSEDED_CELLS
+    _SUPERSEDED_CELLS = tuple(
+        {'editor': entry['editor'], 'jobs': frozenset(int(i) for i in entry['jobs']),
+         'kept_runs': frozenset(entry.get('kept_runs') or ())}
+        for entry in (entries or ())
+    )
+    try:
+        yield
+    finally:
+        _SUPERSEDED_CELLS = previous
+
+
+def job_superseded(job: Path, editor_id: str) -> bool:
+    """True when ``editor_id``'s cells of this job were measured again by a later run (#185).
+
+    A job directory is ``<run id>-<index>``; the run that measured the cells
+    again keeps the index, and its own jobs are never superseded.
+    """
+    if not _SUPERSEDED_CELLS:
+        return False
+    run_id, _, tail = Path(job).name.rpartition('-')
+    if not tail.isdigit():
+        return False
+    return any(
+        entry['editor'] == editor_id and int(tail) in entry['jobs'] and run_id not in entry['kept_runs']
+        for entry in _SUPERSEDED_CELLS
+    )
+
+
 def _iter_attempt_rows(run_directory: Path):
     yield from _attempt_rows_of(run_directory, _job_roots(run_directory))
 
@@ -752,6 +792,8 @@ def _attempt_rows_of(run_directory: Path, jobs, *, qualify: set[Path] | None = N
             for path, row in _read_rows(directory, drop=_ATTEMPT_DROP, skip=_diagnostic_trial_path):
                 # Measured attempts only, never a profiling subtree or a traced repetition.
                 if _diagnostic_trial_path(path) or _diagnostic_trial_row(row):
+                    continue
+                if job_superseded(job, row.get('editor_id')):
                     continue
                 yield _launch_key(run_directory, job, directory.parent.name, qualify=qualify), path, row
 
@@ -1168,6 +1210,8 @@ def _criterion_job_pairs(roots, editor_id: str, criterion_id: str) -> dict:
     pairs: list[tuple[Path, Path]] = []
     for root in map(Path, roots):
         for job in _lane_jobs(root, _job_roots(root), editor_id, criterion_id):
+            if job_superseded(job, editor_id):
+                continue
             summary = _load_summary(job) or {}
             scheduled = _scheduled_for_editor(summary, editor_id, 0)
             if not scheduled and not _job_measures(root, job, editor_id, criterion_id):

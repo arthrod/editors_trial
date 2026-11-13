@@ -10,7 +10,7 @@ import signal
 import subprocess
 import sys
 from . import artifacts
-from .policy import RUNNERS, job_editors, publication_jobs, shakedown_options, verify_run, cell_counts, verify_profiles
+from .policy import RUNNERS, job_editors, narrow_job_editors, publication_jobs, shakedown_options, verify_run, cell_counts, verify_profiles
 
 DEFAULT_OUT_ROOT = Path('perf/container/out/runs')
 
@@ -239,6 +239,8 @@ def main(argv: list[str] | None = None):
     parser.add_argument('--shakedown', type=int, default=None,
                         help='N: every selected job with N repetitions (typing: one 900 s session); never publishable')
     parser.add_argument('--jobs', default=None, help='comma list of global job indices (from perf.container.plan)')
+    parser.add_argument('--only-editors', nargs='+', action='extend', default=None,
+                        help='narrow each picked job to these editors; the job keeps its index (#185)')
     parser.add_argument('--blocks', type=int, default=None,
                         help='N: the publication layout, N interleaved blocks per seed, every editor in each')
     args = parser.parse_args(argv)
@@ -249,8 +251,12 @@ def main(argv: list[str] | None = None):
         unknown = sorted(set(args.editors) - set(editors))
         if unknown:
             parser.error(f'--editors: not publishable editors: {unknown}')
-    if not args.publish and (args.editors is not None or args.jobs is not None):
-        parser.error('--editors and --jobs need --publish')
+    if not args.publish and (args.editors is not None or args.jobs is not None or args.only_editors is not None):
+        parser.error('--editors, --jobs and --only-editors need --publish')
+    if args.only_editors is not None:
+        unknown = sorted(set(args.only_editors) - set(editors))
+        if unknown:
+            parser.error(f'--only-editors: not publishable editors: {unknown}')
     if args.publish and args.seed2 is None:
         parser.error('--publish requires --seed2')
     if args.shakedown is not None and (not args.publish or args.shakedown < 1):
@@ -264,6 +270,10 @@ def main(argv: list[str] | None = None):
     ]
     if args.shakedown is not None:
         jobs = [(name, shakedown_options(name, options, args.shakedown)) for name, options in jobs]
+    if args.only_editors is not None:
+        # An editor-scoped re-run (#185): a job keeps its index and options,
+        # and measures only the named editors. None marks a job without them.
+        jobs = [(name, narrow_job_editors(options, args.only_editors)) for name, options in jobs]
     if args.runners is not None:
         unknown = sorted(set(args.runners) - {name for name, _options in jobs})
         if unknown:
@@ -287,8 +297,15 @@ def main(argv: list[str] | None = None):
             parser.error('--shard must be I/N with 0 <= I < N')
         shard = (part, total)
 
+    if picked_ids is not None and args.only_editors is not None:
+        empty = sorted(i for i in picked_ids if jobs[i][1] is None)
+        if empty:
+            parser.error(f'--only-editors: jobs {empty} measure none of {args.only_editors}')
+
     def selected(index):
         name, options = jobs[index]
+        if options is None:
+            return False
         if shard is not None and index % shard[1] != shard[0]:
             return False
         if picked_ids is not None and index not in picked_ids:

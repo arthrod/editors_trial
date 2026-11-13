@@ -290,6 +290,25 @@ def verify_profiles(records, execution_profile, host_class):
     visit(records)
 
 
+def narrow_job_editors(options, keep):
+    """``options`` with its editor list narrowed to ``keep``, or None when it measures none of them (#185).
+
+    Every other option, and so the job's seed, block and criteria, stays.
+    """
+    for flag in ('--editor', '--editors'):
+        if flag not in options:
+            continue
+        start = options.index(flag) + 1
+        end = start
+        while end < len(options) and not options[end].startswith('--'):
+            end += 1
+        names = [name for name in options[start:end] if name in keep]
+        if not names:
+            return None
+        return [*options[:start], *names, *options[end:]]
+    raise ValueError('job names no editor')
+
+
 def job_editors(options):
     """The editors a publication job measures (``--editor X`` or ``--editors X ...``)."""
     for flag in ('--editor', '--editors'):

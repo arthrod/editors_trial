@@ -955,3 +955,21 @@ def test_reruns_text_states_a_third_round():
     assert 'the tables read the 0 second-round jobs' not in text
     unsealed = E2.reruns_text({**campaign, 'rerun3_kept': 3, 'rerun3_unsealed': 1})
     assert '1 re-run job was not sealed' in unsealed
+
+
+def test_reruns_text_states_the_canvas_editor_round():
+    # #185: canvas-editor's C11 and C14 timed its empty page; its cells were measured again alone.
+    campaign = {'first_pass_superseded': 32, 'rerun_kept': 28, 'rerun_superseded': 4,
+                'rerun2_kept': 0, 'rerun2_superseded': 4, 'rerun2_unsealed': 0,
+                'rerun3_kept': 4, 'rerun3_unsealed': 0, 'editor_rerun_kept': 24, 'editor_rerun_unsealed': 0,
+                'editor_superseded': {'canvas': 24}, 'missing_runs': []}
+    text = E2.reruns_text(campaign)
+    assert 'third round' in text
+    assert '#185' in text
+    assert "canvas-editor's cells of 24 document jobs" in text
+    assert 'the other editors of those jobs stay as measured' in text
+    assert 'canvas-editor alone' in text
+    unsealed = E2.reruns_text({**campaign, 'editor_rerun_kept': 23, 'editor_rerun_unsealed': 1})
+    assert '1 re-run job was not sealed' in unsealed
+    # No editor round: no sentence about it.
+    assert '#185' not in E2.reruns_text({k: v for k, v in campaign.items() if not k.startswith('editor_')})
