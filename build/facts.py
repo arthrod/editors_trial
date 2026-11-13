@@ -372,6 +372,9 @@ def perf_e2_facts(path: Path, facts: dict) -> None:
         facts.update(perf_e2_tables.unset_facts())
     if "campaigns" in runs:
         facts.update(perf_e2_tables.facts_from_campaigns([ROOT / root for root in runs["campaigns"]]))
+    if "campaign" in runs:
+        for key, value in runs["campaign"].items():
+            facts[f"perf.e2.campaign.{key}"] = value
 
 
 def count_facts(facts: dict) -> None:
