@@ -77,7 +77,7 @@ class CorrectnessLimit(unittest.TestCase):
     Only a failed check is attributed, so a cell that passes can never change.
     """
 
-    PROSE = {"augmented_paragraphs": 4, "closing": "ZZ-SENTINEL end of document"}
+    PROSE = {"augmented_paragraphs": 4, "closing": "ZZ-SENTINEL end of document", "text_chars": 2_024_047}
 
     def test_a_document_without_correctness_lines_is_not_applicable(self):
         limit = bd.c14_correctness_limit({"document_text": "Article 1."}, {"augmented_paragraphs": 0})
@@ -96,6 +96,16 @@ class CorrectnessLimit(unittest.TestCase):
         self.assertTrue(limit["applies"])
         self.assertIn("ends before the document's closing", limit["reason"])
 
+    def test_a_whole_read_that_lost_its_closing_keeps_the_editors_failure(self):
+        """glm-5.3 review of c0015f83, M1: a full-length read is not a harness window."""
+        payload = {"document_text": "Article 1. " * 400, "document_text_tail": "Article 9. " * 400,
+                   "document_text_chars": 2_018_000}
+        self.assertIsNone(bd.c14_correctness_limit(payload, self.PROSE))
+
+    def test_a_window_of_unknown_length_keeps_the_editors_failure(self):
+        payload = {"document_text": "Article 1. " * 400, "document_text_tail": "Article 9. " * 400}
+        self.assertIsNone(bd.c14_correctness_limit(payload, self.PROSE))
+
     def test_a_read_that_reaches_the_closing_keeps_the_editors_failure(self):
         payload = {"document_text": "Article 1.", "document_text_tail": "Hello\nZZ-SENTINEL  end of\ndocument",
                    "document_text_chars": 9000}
@@ -105,8 +115,9 @@ class CorrectnessLimit(unittest.TestCase):
         built = bd.build_fixture({"shape": "prose", "workload_id": "prose-500w"})
         path = Path(self.tmp.name) / "prose-500w.docx"
         path.write_bytes(built["bytes"])
-        closing = bd.c14_fixture_closing({**built, "path": str(path)})
+        closing, text_chars = bd.c14_fixture_expectations({**built, "path": str(path)})
         self.assertTrue(closing)
+        self.assertGreater(text_chars, 3000)
         self.assertIsNone(bd.c14_correctness_limit(
             {"document_text": "x", "document_text_tail": "Hello " + closing, "document_text_chars": 9000},
             {**built, "path": str(path)}))

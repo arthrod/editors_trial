@@ -635,14 +635,22 @@ C14_TEXT_WINDOW = (
     "where the correctness lines sit")
 
 
-def c14_fixture_closing(fixture: dict) -> str | None:
-    """The fixture document's last paragraph: the correctness lines sit just before it."""
-    if fixture.get("closing"):
-        return fixture["closing"]
+#: A read shorter than this share of the fixture's text is a window, not the whole document.
+C14_WHOLE_READ_SHARE = 0.9
+
+
+def c14_fixture_expectations(fixture: dict) -> tuple[str | None, int | None]:
+    """The fixture document's last paragraph and its text length.
+
+    The correctness lines sit just before the last paragraph.
+    """
+    if fixture.get("closing") and fixture.get("text_chars"):
+        return fixture["closing"], fixture["text_chars"]
     path = fixture.get("path")
     if not path or not Path(path).is_file():
-        return None
-    return corpus_content_expectations(Path(path)).get("closing")
+        return fixture.get("closing"), fixture.get("text_chars")
+    meta = corpus_content_expectations(Path(path))
+    return fixture.get("closing") or meta.get("closing"), fixture.get("text_chars") or meta.get("text_chars")
 
 
 def c14_correctness_limit(payload: dict, fixture: dict) -> dict | None:
@@ -651,15 +659,21 @@ def c14_correctness_limit(payload: dict, fixture: dict) -> dict | None:
     Called only after the check failed, so it can relabel a failure and never
     turn a pass into anything else. ``applies`` False: the document has no
     correctness lines and the conditions do not apply. ``applies`` True: they
-    apply but the harness read no text, or a window that stops before the end.
+    apply but the harness read no text, or a window: a read that stops before
+    the closing paragraph and is shorter than ``C14_WHOLE_READ_SHARE`` of the
+    fixture's text. A full-length read that lost its end is the editor's
+    failure (glm-5.3 review of c0015f83, M1).
     """
     if not fixture.get("augmented_paragraphs"):
         return {"applies": False, "reason": C14_NO_CORRECTNESS_LINES}
     text = c14_correctness_text(payload) or ""
     if not text.strip():
         return {"applies": True, "reason": C14_NO_READABLE_TEXT}
-    closing = c14_fixture_closing(fixture)
-    if closing and " ".join(closing.split()) not in " ".join(text.split()):
+    closing, text_chars = c14_fixture_expectations(fixture)
+    chars = payload.get("document_text_chars")
+    short = (isinstance(chars, int) and not isinstance(chars, bool) and isinstance(text_chars, int)
+             and text_chars > 0 and chars < C14_WHOLE_READ_SHARE * text_chars)
+    if closing and short and " ".join(closing.split()) not in " ".join(text.split()):
         return {"applies": True, "reason": C14_TEXT_WINDOW}
     return None
 
@@ -1490,6 +1504,8 @@ def _write_measured(
     diagnostic = dict(diagnostic)
     if correctness_limit:
         diagnostic["correctness_limit"] = correctness_limit["reason"]
+        diagnostic["correctness_evidence"] = (
+            "I01-I03 not checked: " + correctness_limit["reason"])
     intervals = [(row.get("witness") or {}).get("clock_check", {}).get("frame_interval_ms", row.get("frame_interval_ms"))
                  for row in diagnostic.get("samples", [diagnostic])]
     if intervals and all(isinstance(value, (int, float)) and not isinstance(value, bool)
