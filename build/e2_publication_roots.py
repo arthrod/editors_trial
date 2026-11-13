@@ -4,7 +4,9 @@
 `perf/container/e2_publication.json` names the publish1 campaign: the 20
 first-pass run ids (harness 4488f9b6), the 20 re-run run ids (harness
 78249e7c) with the job indexes each re-ran, and the first-pass job indexes
-superseded by issues #173, #174 and #175. This script walks a local mirror
+superseded by issues #173, #174 and #175; then the second round: the re-run
+job indexes issue #181 superseded (`rerun_superseded`) and the runs that
+measured them again (`rerun2`). This script walks a local mirror
 of the campaign bucket — `<space>/runs/<run id>/<lane>/<job>` — and links
 every sealed job (`JOB-DONE`) that counts into `<roots dir>/<space>--<run id>/`,
 leaving the superseded first-pass jobs out, then writes
@@ -35,6 +37,46 @@ def superseded_jobs(manifest: dict) -> set[int]:
     for issue in manifest["superseded"]["issues"].values():
         jobs.update(issue["jobs"])
     return jobs
+
+
+def rerun_superseded_jobs(manifest: dict) -> set[int]:
+    """Every re-run job index a later issue retires (measured again in the second round)."""
+    jobs: set[int] = set()
+    for issue in manifest.get("rerun_superseded", {}).get("issues", {}).values():
+        jobs.update(issue["jobs"])
+    return jobs
+
+
+def _link_round(data: Path, roots_dir: Path, space: str, entries: list, prefix: str, retired: set[int],
+                campaign: dict, roots: list[str], errors: list[str]) -> None:
+    """Link one re-run round's sealed jobs of a Space; jobs in ``retired`` are counted, never linked."""
+    for entry in entries:
+        run_id = entry["run_id"]
+        run_dir = data / space / "runs" / run_id
+        if not run_dir.is_dir():
+            campaign["missing_runs"].append(f"{space}/{run_id}")
+            campaign[f"{prefix}_unsealed"] += len(entry["jobs"])
+            continue
+        declared = set(entry["jobs"])
+        seen: set[int] = set()
+        root = roots_dir / f"{space}--{run_id}"
+        for lane, job, index in run_jobs(run_dir, run_id):
+            if index not in declared:
+                errors.append(
+                    f"re-run job {job.name} of {space}/{run_id} is not in the manifest's job list {sorted(declared)}"
+                )
+                continue
+            seen.add(index)
+            if index in retired:
+                campaign[f"{prefix}_superseded"] += 1
+            elif not (job / "JOB-DONE").exists():
+                campaign[f"{prefix}_unsealed"] += 1
+            else:
+                link_job(roots_dir, space, run_id, lane, job)
+                campaign[f"{prefix}_kept"] += 1
+        campaign[f"{prefix}_unsealed"] += len(declared - seen)
+        if root.exists():
+            roots.append(str(root))
 
 
 def run_jobs(run_dir: Path, run_id: str):
@@ -73,6 +115,9 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
         "first_pass_unsealed": 0,
         "rerun_kept": 0,
         "rerun_unsealed": 0,
+        "rerun_superseded": 0,
+        "rerun2_kept": 0,
+        "rerun2_unsealed": 0,
         "missing_runs": [],
     }
     roots: list[str] = []
@@ -94,31 +139,15 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
                     campaign["first_pass_kept"] += 1
             if root.exists():
                 roots.append(str(root))
-        for entry in manifest["rerun"].get(space, []):
-            run_id = entry["run_id"]
-            run_dir = data / space / "runs" / run_id
-            if not run_dir.is_dir():
-                campaign["missing_runs"].append(f"{space}/{run_id}")
-                campaign["rerun_unsealed"] += len(entry["jobs"])
-                continue
-            declared = set(entry["jobs"])
-            seen: set[int] = set()
-            root = roots_dir / f"{space}--{run_id}"
-            for lane, job, index in run_jobs(run_dir, run_id):
-                if index not in declared:
-                    errors.append(
-                        f"re-run job {job.name} of {space}/{run_id} is not in the manifest's job list {sorted(declared)}"
-                    )
-                    continue
-                seen.add(index)
-                if not (job / "JOB-DONE").exists():
-                    campaign["rerun_unsealed"] += 1
-                else:
-                    link_job(roots_dir, space, run_id, lane, job)
-                    campaign["rerun_kept"] += 1
-            campaign["rerun_unsealed"] += len(declared - seen)
-            if root.exists():
-                roots.append(str(root))
+        retired = rerun_superseded_jobs(manifest)
+        _link_round(data, roots_dir, space, manifest["rerun"].get(space, []), "rerun", retired,
+                    campaign, roots, errors)
+        _link_round(data, roots_dir, space, manifest.get("rerun2", {}).get(space, []), "rerun2", set(),
+                    campaign, roots, errors)
+        for entry in manifest.get("rerun2", {}).get(space, []):
+            stray = sorted(set(entry["jobs"]) - retired)
+            if stray:
+                errors.append(f"second-round jobs {stray} of {space}/{entry['run_id']} supersede no re-run job")
     return roots, campaign, errors
 
 

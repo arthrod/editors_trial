@@ -931,3 +931,13 @@ def test_throttle_sum_denominator_covers_only_jobs_that_recorded_refusals():
     assert E2._throttle_sum(rows) == (
         '3 of 20 samples had CPU accounting unavailable; 1 of 10 samples refused for cgroup CPU throttling'
         ' (refusals not recorded for the other 10 samples)')
+
+
+def test_reruns_text_states_a_second_round():
+    text = E2.reruns_text({'first_pass_superseded': 32, 'rerun_kept': 28, 'rerun_superseded': 4,
+                           'rerun2_kept': 4, 'rerun2_unsealed': 0, 'missing_runs': []})
+    assert '32 first-pass jobs' in text and '28 re-run jobs' in text
+    assert '#181' in text and '4 C14 jobs' in text and 'second round' in text
+    unsealed = E2.reruns_text({'first_pass_superseded': 32, 'rerun_kept': 28, 'rerun_superseded': 4,
+                               'rerun2_kept': 3, 'rerun2_unsealed': 1, 'missing_runs': []})
+    assert '1 re-run job was not sealed' in unsealed

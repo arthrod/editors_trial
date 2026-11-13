@@ -198,3 +198,69 @@ def test_campaign_counts_become_perf_e2_facts(tmp_path):
     assert out["perf.e2.campaign.missing_runs"] == ["space-c/20261112T180000000000Z-10000-000003"]
     import perf_e2_tables
     assert out["perf.e2.reruns"] == perf_e2_tables.reruns_text(payload["campaign"])
+
+
+# A second re-run round (#181) ---------------------------------------------------------------------
+
+RID_RERUN2 = "20261113T170000000000Z-30000-000004"
+
+
+def second_round_manifest():
+    manifest = synthetic_manifest()
+    manifest["rerun"]["space-a"][0]["jobs"] = [10, 12]
+    manifest["rerun_superseded"] = {
+        "issues": {"998": {"title": "synthetic round 2", "lane": "benchmark_document", "jobs": [12]}}
+    }
+    manifest["rerun2"] = {"space-b": [{"run_id": RID_RERUN2, "jobs": [12]}]}
+    return manifest
+
+
+def test_a_second_round_replaces_the_rerun_jobs_it_supersedes(tmp_path):
+    data, kept, rerun_job, _ = build_data(tmp_path)
+    old = job(data / "space-a" / "runs" / RID_RERUN, RID_RERUN, 12)
+    new = job(data / "space-b" / "runs" / RID_RERUN2, RID_RERUN2, 12)
+    manifest = write_manifest(tmp_path, second_round_manifest())
+    roots_dir = tmp_path / "roots"
+    assert run_roots(data, roots_dir, manifest) == 0
+
+    payload = json.loads((roots_dir / "report_e2_runs.json").read_text())
+    assert str((roots_dir / f"space-b--{RID_RERUN2}").resolve()) in payload["roots"]
+    assert (roots_dir / f"space-b--{RID_RERUN2}" / "benchmark_document" / f"{RID_RERUN2}-012").resolve() == new
+    assert not (roots_dir / f"space-a--{RID_RERUN}" / "benchmark_document" / old.name).exists()
+    assert (roots_dir / f"space-a--{RID_RERUN}" / "benchmark_input" / f"{RID_RERUN}-010").resolve() == rerun_job
+    campaign = payload["campaign"]
+    assert campaign["rerun_kept"] == 1
+    assert campaign["rerun_superseded"] == 1
+    assert campaign["rerun2_kept"] == 1
+    assert campaign["rerun2_unsealed"] == 0
+
+
+def test_a_second_round_job_not_yet_sealed_counts_unsealed(tmp_path):
+    data, *_ = build_data(tmp_path)
+    job(data / "space-a" / "runs" / RID_RERUN, RID_RERUN, 12)
+    job(data / "space-b" / "runs" / RID_RERUN2, RID_RERUN2, 12, sealed=False)
+    manifest = write_manifest(tmp_path, second_round_manifest())
+    roots_dir = tmp_path / "roots"
+    assert run_roots(data, roots_dir, manifest) == 0
+    campaign = json.loads((roots_dir / "report_e2_runs.json").read_text())["campaign"]
+    assert campaign["rerun2_kept"] == 0 and campaign["rerun2_unsealed"] == 1
+
+
+def test_a_second_round_job_that_supersedes_nothing_is_an_error(tmp_path):
+    data, *_ = build_data(tmp_path)
+    manifest_data = second_round_manifest()
+    manifest_data["rerun2"]["space-b"][0]["jobs"] = [12, 13]
+    job(data / "space-b" / "runs" / RID_RERUN2, RID_RERUN2, 12)
+    manifest = write_manifest(tmp_path, manifest_data)
+    assert run_roots(data, tmp_path / "roots", manifest) != 0
+
+
+def test_a_missing_second_round_run_fails_unless_partial(tmp_path):
+    data, *_ = build_data(tmp_path)
+    manifest = write_manifest(tmp_path, second_round_manifest())
+    assert run_roots(data, tmp_path / "roots", manifest) != 0
+    roots_dir = tmp_path / "roots-partial"
+    assert run_roots(data, roots_dir, manifest, "--partial") == 0
+    campaign = json.loads((roots_dir / "report_e2_runs.json").read_text())["campaign"]
+    assert campaign["missing_runs"] == [f"space-b/{RID_RERUN2}"]
+    assert campaign["rerun2_unsealed"] == 1

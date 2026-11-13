@@ -721,7 +721,13 @@ def reruns_text(campaign: dict | None) -> str:
         "(issues #173, #174 and #175). The tables read the %d re-run jobs in their place and never the "
         "superseded ones. `perf/container/e2_publication.json` names every run and every replaced job."
         % (superseded, kept))
-    unsealed = (campaign.get("first_pass_unsealed") or 0) + (campaign.get("rerun_unsealed") or 0)
+    second = campaign.get("rerun_superseded") or 0
+    if second:
+        text += (
+            " In a second round, %d C14 jobs of the re-run were measured again after the C14 correctness check "
+            "was fixed (issue #181); the tables read the %d second-round jobs in their place."
+            % (second, campaign.get("rerun2_kept") or 0))
+    unsealed = sum(campaign.get(key) or 0 for key in ("first_pass_unsealed", "rerun_unsealed", "rerun2_unsealed"))
     missing = len(campaign.get("missing_runs") or [])
     if unsealed:
         text += " %d %s not sealed and %s left out." % (
