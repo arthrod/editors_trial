@@ -592,6 +592,7 @@ E2_NOT_MEASURED = {
     "docsplus": "docs.plus runs only as an application with its own application servers, which the browser run does not start.",
     "fidus": "Fidus Writer runs only as an application with its own application server, which the browser run does not start.",
     "office-open": "office-open is a library with no editing surface to paint, so no browser criterion applies.",
+    "libreoffice": "LibreOffice is the conversion baseline of the headless report, not a browser editor.",
 }
 
 

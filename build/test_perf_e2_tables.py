@@ -817,7 +817,8 @@ def test_campaign_names_the_editors_the_browser_run_did_not_measure(fs):
     text = E2.facts_from_roots(roots)["perf.e2.not_run"]
     assert text != "- none"
     for name, reason in (("Apryse", "licence key"), ("docs.plus", "application servers"),
-                         ("Fidus", "application server"), ("office-open", "library")):
+                         ("Fidus", "application server"), ("office-open", "library"),
+                         ("LibreOffice", "conversion baseline")):
         line = next((item for item in text.splitlines() if name in item), None)
         assert line is not None, name
         assert reason in line, line
