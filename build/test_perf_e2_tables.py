@@ -865,14 +865,14 @@ def test_reruns_text_states_the_campaign_counts():
 def test_pins_text_is_prose_not_a_python_dict():
     text = E2._pins_text({'plate': ['0b3c24cc2bf9348a9e904d22'], 'canvas': ['db742f005c45', 'not recorded']})
     assert '{' not in text and '[' not in text
-    assert text.startswith('Editor pins (built-editor tree SHA-256, read from every run folder):')
+    assert text.startswith('Editor pins (built-editor tree SHA-256 of every attempt that ran, in every run folder):')
     assert 'canvas-editor + plugin: db742f005c45, not recorded' in text
     assert 'Plate.js: 0b3c24cc2bf9348a9e904d22' in text
 
 
 def test_campaign_pins_are_read_from_every_root(fs, monkeypatch):
     seen = []
-    monkeypatch.setattr(E2, '_pins', lambda root: seen.append(root) or {'plate': ['tree-%s' % len(seen)]})
+    monkeypatch.setattr(E2, '_pins', lambda root, **kw: seen.append(root) or {'plate': ['tree-%s' % len(seen)]})
     merged = E2._campaign_pins([Path('/a'), Path('/b')])
     assert seen == [Path('/a'), Path('/b')]
     assert merged == {'plate': ['tree-1', 'tree-2']}
@@ -883,3 +883,13 @@ def test_throttle_sum_reports_unavailable_accounting_without_refusals():
     rows = [{'cpu_accounting': {'samples_total': 10, 'samples_unavailable': 3}}]
     assert E2._throttle_sum(rows) == (
         '3 of 10 samples had CPU accounting unavailable; 0 of 10 samples refused for cgroup CPU throttling')
+
+
+def test_campaign_pins_skip_attempts_that_never_ran(monkeypatch):
+    """A not_run row (typing_sessions_unreachable) built nothing; it adds no 'not recorded' pin."""
+    rows = [
+        {'editor_id': 'plate', 'outcome': 'measured', 'host_provenance': {'tree_sha256': 'tree-a'}},
+        {'editor_id': 'plate', 'outcome': 'not_run', 'failure_reason': 'typing_sessions_unreachable'},
+    ]
+    monkeypatch.setattr(E2.e2_cells, '_iter_trials', lambda root: iter(rows))
+    assert E2._campaign_pins([Path('/a')]) == {'plate': ['tree-a']}

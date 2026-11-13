@@ -92,7 +92,7 @@ def check_comparable(primary: Run, repro: Run) -> None:
 _PIN_SENTINEL = object()
 
 
-def _pins(root: Path) -> dict:
+def _pins(root: Path, *, ran_only: bool = False) -> dict:
     """Built-editor identity per editor (#149).
 
     ``host_provenance.tree_sha256`` — the built editor — is the pin whenever
@@ -102,6 +102,8 @@ def _pins(root: Path) -> dict:
     """
     pins = {}
     for row in e2_cells._iter_trials(root):
+        if ran_only and row.get("outcome") == "not_run":
+            continue
         pin = e2_cells.editor_pin(row)
         pins.setdefault(row["editor_id"], set()).add(pin if pin else _PIN_SENTINEL)
     return {editor: sorted("not recorded" if value is _PIN_SENTINEL else value for value in values) for editor, values in pins.items()}
@@ -111,7 +113,7 @@ def _campaign_pins(roots) -> dict:
     """Pins from every run folder, not the first one only: a campaign spreads editors over many folders."""
     merged: dict = {}
     for root in roots:
-        for editor, values in _pins(root).items():
+        for editor, values in _pins(root, ran_only=True).items():
             merged.setdefault(editor, set()).update(values)
     return {editor: sorted(values) for editor, values in merged.items()}
 
@@ -120,7 +122,7 @@ def _pins_text(pins: dict) -> str:
     if not pins:
         return "Editor pins: not recorded."
     items = sorted(pins.items(), key=lambda item: DISPLAY.get(item[0], item[0]).casefold())
-    return "Editor pins (built-editor tree SHA-256, read from every run folder): %s." % "; ".join(
+    return "Editor pins (built-editor tree SHA-256 of every attempt that ran, in every run folder): %s." % "; ".join(
         "%s: %s" % (DISPLAY.get(editor, editor), ", ".join(values)) for editor, values in items)
 
 
