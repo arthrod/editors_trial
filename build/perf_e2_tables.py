@@ -107,6 +107,23 @@ def _pins(root: Path) -> dict:
     return {editor: sorted("not recorded" if value is _PIN_SENTINEL else value for value in values) for editor, values in pins.items()}
 
 
+def _campaign_pins(roots) -> dict:
+    """Pins from every run folder, not the first one only: a campaign spreads editors over many folders."""
+    merged: dict = {}
+    for root in roots:
+        for editor, values in _pins(root).items():
+            merged.setdefault(editor, set()).update(values)
+    return {editor: sorted(values) for editor, values in merged.items()}
+
+
+def _pins_text(pins: dict) -> str:
+    if not pins:
+        return "Editor pins: not recorded."
+    items = sorted(pins.items(), key=lambda item: DISPLAY.get(item[0], item[0]).casefold())
+    return "Editor pins (built-editor tree SHA-256, read from every run folder): %s." % "; ".join(
+        "%s: %s" % (DISPLAY.get(editor, editor), ", ".join(values)) for editor, values in items)
+
+
 def _require_same_pins(primary: Path, repro: Path) -> None:
     """Both runs must have measured the same built editor (#149).
 
@@ -523,10 +540,10 @@ def _host_note_campaign(roots, editors) -> str:
     for row in summaries:
         by_seed.setdefault(row.get("seed"), []).append(row)
     pin_roots = [Path(root) for root in roots if e2_cells._job_roots(Path(root))]
-    trial_pins = _pins(pin_roots[0]) if pin_roots else {}
+    trial_pins = _campaign_pins(pin_roots)
     lines = [lead]
     lines.extend(_seed_host_note(seed, by_seed[seed]) for seed in sorted(by_seed, key=lambda value: (value is None, value)))
-    lines.append("Editor pins: %s." % trial_pins)
+    lines.append(_pins_text(trial_pins))
     return "\n\n".join(lines)
 
 

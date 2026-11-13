@@ -860,3 +860,19 @@ def test_reruns_text_states_the_campaign_counts():
     assert '1 re-run job was not sealed' in partial and '1 run of the manifest is missing' in partial
     assert E2.reruns_text(None).startswith('- **Re-run jobs.** None')
     assert E2.unset_facts()['perf.e2.reruns'] == E2.reruns_text(None)
+
+
+def test_pins_text_is_prose_not_a_python_dict():
+    text = E2._pins_text({'plate': ['0b3c24cc2bf9348a9e904d22'], 'canvas': ['db742f005c45', 'not recorded']})
+    assert '{' not in text and '[' not in text
+    assert text.startswith('Editor pins (built-editor tree SHA-256, read from every run folder):')
+    assert 'canvas-editor + plugin: db742f005c45, not recorded' in text
+    assert 'Plate.js: 0b3c24cc2bf9348a9e904d22' in text
+
+
+def test_campaign_pins_are_read_from_every_root(fs, monkeypatch):
+    seen = []
+    monkeypatch.setattr(E2, '_pins', lambda root: seen.append(root) or {'plate': ['tree-%s' % len(seen)]})
+    merged = E2._campaign_pins([Path('/a'), Path('/b')])
+    assert seen == [Path('/a'), Path('/b')]
+    assert merged == {'plate': ['tree-1', 'tree-2']}
