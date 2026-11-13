@@ -31,7 +31,8 @@ def write_attempt(directory, attempt_id, trial):
     trial = dict(trial)
     if 'refusal_code' not in trial:
         outcome = trial.get('outcome')
-        trial['refusal_code'] = (None if outcome == 'measured' else
+        # A profiled attempt is a written diagnostic trace, not a refusal (#177).
+        trial['refusal_code'] = (None if outcome in ('measured', 'profiled') else
                                  outcome if outcome in ('unsupported', 'not_applicable', 'unverified', 'not_run') else 'crash')
     trial['refusal_code'] = refusal_code(trial)
     payload = dump_trial(trial).encode("utf-8")

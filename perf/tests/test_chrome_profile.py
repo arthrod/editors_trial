@@ -485,6 +485,32 @@ class ChromeProfileAttempts(unittest.TestCase):
             self.assertFalse(row["publishable"])
             self.assertIn("chrome_trace", row)
 
+    def test_profile_attempt_has_no_refusal_code(self):
+        # #177: a written trace is not a crash; write_attempt filled "crash" for outcome "profiled".
+        from perf.runner.chrome_profile import record_profile_traces
+        from perf.runner.artifacts import write_attempt
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cell = Path(tmp)
+            profile = cell / "profile"
+            profile.mkdir(parents=True)
+            (profile / "trace-c11.json.gz").write_bytes(b"not-real-gzip")
+            (cell / "attempts").mkdir()
+            paths = record_profile_traces(cell, "plate", "C11", write_fn=write_attempt)
+            row = json.loads(paths[0].read_text())
+            self.assertEqual(row["outcome"], "profiled")
+            self.assertIsNone(row["refusal_code"])
+
+    def test_write_attempt_profiled_outcome_is_not_a_crash(self):
+        from perf.runner.artifacts import write_attempt
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = write_attempt(Path(tmp), "chrome-profile-c11", {
+                "editor_id": "plate", "criterion_id": "C11", "outcome": "profiled",
+                "accounting_scope": "diagnostic", "publishable": False,
+            })
+            self.assertIsNone(json.loads(path.read_text())["refusal_code"])
+
 
 if __name__ == "__main__":
     unittest.main()
