@@ -127,6 +127,19 @@ def _block_jobs(editors, seeds, host_class, blocks):
                     jobs.append((runner, head + (['--chrome-profile'] if index == 1 else [])
                                  + ['--seed', str(value), *tail, '--block', f'{index}/{blocks}',
                                     SHAKEDOWN_COUNT_FLAG[runner], each]))
+    # Rungs added after the campaign (#188) are measured by the load lanes only
+    # (Arthur, 2026-11-13), in jobs appended here so no campaign job is renumbered.
+    from perf.fixtures.docx_workload import EXTENSION_ROWS
+    runner = 'benchmark_document'
+    for value in seeds:
+        head = ['--execution-profile', 'dedicated_publish', '--host-class', host_class]
+        for row in EXTENSION_ROWS:
+            for tail in (['--workload', row['workload_id'], '--editors', *editors, '--criteria', 'C11', 'C12', 'C15'],
+                         ['--editors', *editors, '--criteria', 'C14', '--c14-rungs', row['workload_id']]):
+                for index in range(1, blocks + 1):
+                    jobs.append((runner, head + (['--chrome-profile'] if index == 1 else [])
+                                 + ['--seed', str(value), *tail, '--block', f'{index}/{blocks}',
+                                    SHAKEDOWN_COUNT_FLAG[runner], each]))
     return jobs
 
 

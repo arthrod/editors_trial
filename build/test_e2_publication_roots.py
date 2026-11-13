@@ -518,3 +518,56 @@ def test_an_editor_round_outside_the_document_lane_is_refused(tmp_path):
     manifest = editor_round_manifest()
     manifest["editor_superseded"]["issues"]["185"]["lane"] = "benchmark_typing"
     assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+
+
+# An extension round (#188): new jobs appended after the campaign's own, for a
+# rung the campaign did not measure. They supersede nothing and are linked whole.
+RID_EXT = "20261114T030000000000Z-60000-000011"
+
+
+def extension_manifest():
+    manifest = editor_round_manifest()
+    manifest["harness"]["extension"] = "deadbeef"
+    manifest["extension"] = {"space-a": [{"run_id": RID_EXT, "jobs": [160, 161]}]}
+    return manifest
+
+
+def extension_data(tmp_path):
+    data, kept, third, canvas = editor_round_data(tmp_path)
+    new = [summarize(job(data / "space-a" / "runs" / RID_EXT, RID_EXT, index), 1, block,
+                     ["plate", "canvas"])
+           for index, block in ((160, 1), (161, 2))]
+    return data, new
+
+
+def test_an_extension_round_links_its_new_jobs(tmp_path):
+    data, new = extension_data(tmp_path)
+    roots_dir = tmp_path / "roots"
+    assert run_roots(data, roots_dir, write_manifest(tmp_path, extension_manifest())) == 0
+    payload = json.loads((roots_dir / "report_e2_runs.json").read_text())
+    for path in new:
+        assert (roots_dir / f"space-a--{RID_EXT}" / "benchmark_document" / path.name).resolve() == path
+    campaign = payload["campaign"]
+    assert campaign["extension_kept"] == 2 and campaign["extension_unsealed"] == 0
+
+
+def test_an_extension_job_that_reuses_a_campaign_index_is_refused(tmp_path):
+    data, _ = extension_data(tmp_path)
+    job(data / "space-a" / "runs" / RID_EXT, RID_EXT, 4)
+    manifest = extension_manifest()
+    manifest["extension"]["space-a"][0]["jobs"] = [4, 160, 161]
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+
+
+def test_an_extension_job_listed_twice_is_refused(tmp_path):
+    data, _ = extension_data(tmp_path)
+    manifest = extension_manifest()
+    manifest["extension"]["space-b"] = [{"run_id": "20261114T040000000000Z-60000-000012", "jobs": [161]}]
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest), "--partial") != 0
+
+
+def test_an_extension_round_needs_its_harness_commit(tmp_path):
+    data, _ = extension_data(tmp_path)
+    manifest = extension_manifest()
+    del manifest["harness"]["extension"]
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0

@@ -124,6 +124,24 @@ CRITERIA = {
 
 C14_RUNGS = ("prose-500w", "prose-5kw", "prose-50kw", "prose-250kw", "complex-corpus")
 C14_RUNG_LABEL = {rung: rung for rung in C14_RUNGS}
+
+
+def resolve_c14_rungs(values) -> tuple:
+    """The rungs a C14 job walks: the whole ladder by default, or the ones named (#188).
+
+    A rung added after the campaign (``prose-500kw``) is measured in its own C14
+    jobs, so the campaign's C14 jobs keep their five rungs.
+    """
+    if not values:
+        return C14_RUNGS
+    from perf.fixtures.profiles import size_ladder
+    known = {row["workload_id"] for row in size_ladder() if row.get("shape") in ("prose", "corpus")}
+    unknown = [value for value in values if value not in known]
+    if unknown:
+        raise SystemExit("--c14-rungs: unknown rung(s): %s" % (", ".join(unknown),))
+    if len(set(values)) != len(values):
+        raise SystemExit("--c14-rungs: a rung is named twice")
+    return tuple(values)
 C15_MEASUREMENTS = ("first_match", "search_complete", "replace_all", "index_quiescence")
 # I10: n < 2 is not publishable. One find event is not a C15 cell.
 C15_MIN_N = 2
@@ -2219,6 +2237,7 @@ def _main() -> int:
     parser.add_argument("--editors", nargs="*", default=None, help="default: every browser host")
     parser.add_argument("--workload", default="micro-paragraphs")
     parser.add_argument("--criteria", nargs="*", default=None, help="default: C11 C12 C14 C15")
+    parser.add_argument("--c14-rungs", nargs="+", default=None, help="C14 rungs to walk (default: the five-rung ladder; #188)")
     parser.add_argument("--samples", type=int, default=SAMPLE_DEFAULT, help="fresh processes per cell (ci_broad budget: 5)")
     parser.add_argument("--out-root", type=Path, default=None)
     args = parser.parse_args()
@@ -2248,11 +2267,12 @@ def _main() -> int:
     fixture_dir = out_root / "fixtures"
     fixture_dir.mkdir(parents=True, exist_ok=True)
 
+    c14_rungs = resolve_c14_rungs(args.c14_rungs)
     specs = {cid: {**spec, 'workload': args.workload if cid in ('C11', 'C12') else spec['workload']}
              for cid, spec in CRITERIA.items()}
     ladder = {row["workload_id"]: row for row in size_ladder()}
     fixtures: dict = {}
-    for workload_id in {rung for cid in criteria for rung in (C14_RUNGS if cid == "C14" else (specs[cid]["workload"],))}:
+    for workload_id in {rung for cid in criteria for rung in (c14_rungs if cid == "C14" else (specs[cid]["workload"],))}:
         rung = ladder[workload_id]
         fixture = build_fixture(rung)
         fixture["path"] = fixture_dir / ("%s-%s.docx" % (workload_id, fixture["sha256"][:16]))
@@ -2362,10 +2382,10 @@ def _main() -> int:
                             }
                         )
                 elif criterion_id == "C14":
-                    for rung in C14_RUNGS:
-                        reason = "%s; rung %s not driven" % (refuse_reason, C14_RUNG_LABEL[rung])
+                    for rung in c14_rungs:
+                        reason = "%s; rung %s not driven" % (refuse_reason, C14_RUNG_LABEL.get(rung, rung))
                         for measure in C14_MEASURES:
-                            _refuse_cell("C14", fixtures[rung], reason, extra={"size_rung": C14_RUNG_LABEL[rung], "workload_id": rung, "measurement": measure})
+                            _refuse_cell("C14", fixtures[rung], reason, extra={"size_rung": C14_RUNG_LABEL.get(rung, rung), "workload_id": rung, "measurement": measure})
                 else:
                     _refuse_cell(criterion_id, fixtures[specs[criterion_id]["workload"]], refuse_reason)
             continue
@@ -2546,9 +2566,9 @@ def _main() -> int:
                 if criterion_id == "C14":
                     rung_rows = []
                     rung_attempts = {}
-                    for rung in C14_RUNGS:
+                    for rung in c14_rungs:
                         fixture = fixtures[rung]
-                        label = C14_RUNG_LABEL[rung]
+                        label = C14_RUNG_LABEL.get(rung, rung)
                         try:
                             assert_workload_allowed(execution_profile(EXECUTION_PROFILE), rung)
                         except ValueError as exc:
@@ -2667,7 +2687,7 @@ def _main() -> int:
                             for rung, data in rung_attempts.items()
                         }
                         for rung, data in rung_attempts.items():
-                            label = C14_RUNG_LABEL[rung]
+                            label = C14_RUNG_LABEL.get(rung, rung)
                             rung_measure = (data["diagnostics"][0] or {}).get("measure")
                             check_text = c14_correctness_text(data["diagnostics"][-1])
                             checked, _ = check_correctness(_catalog_row("C14").get("correctness"), check_text)
@@ -2867,13 +2887,13 @@ def _main() -> int:
                             }
                         )
                 elif criterion_id == "C14":
-                    for rung in C14_RUNGS:
+                    for rung in c14_rungs:
                         for measure in C14_MEASURES:
                             _refuse_cell(
                                 "C14",
                                 fixtures[rung],
                                 reason,
-                                extra={"size_rung": C14_RUNG_LABEL[rung], "workload_id": rung, "measurement": measure},
+                                extra={"size_rung": C14_RUNG_LABEL.get(rung, rung), "workload_id": rung, "measurement": measure},
                             )
                 else:
                     _refuse_cell(criterion_id, fixtures[specs[criterion_id]["workload"]], reason)

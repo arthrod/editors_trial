@@ -39,8 +39,15 @@ C14_LOAD_STAGES_SCREENCAST_INK = 4
 C14_COPY_WAIT_MS = 120_000
 
 
+#: The 500,000-word rung (#188) waits as long as C14 does at every rung
+#: (Arthur, 2026-11-13: "keep 1,000 s").
+HUGE_DOCUMENT_WORKLOADS = frozenset({"prose-500kw"})
+
+
 def load_timeout_ms(workload) -> int:
     """The ready/navigation timeout for a workload, in milliseconds."""
+    if workload in HUGE_DOCUMENT_WORKLOADS:
+        return C14_LOAD_TIMEOUT_MS
     return BIG_DOCUMENT_LOAD_TIMEOUT_MS if workload in BIG_DOCUMENT_WORKLOADS else DEFAULT_LOAD_TIMEOUT_MS
 
 

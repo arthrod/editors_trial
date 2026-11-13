@@ -17,7 +17,8 @@ import json
 from perf.runner.browser_run import PUBLICATION_REPETITIONS
 
 # Minutes per one-editor job by rung; 'C14' walks the whole ladder.
-_RUNG = {'prose-500w': 1.0, 'prose-5kw': 1.3, 'prose-50kw': 2.2, 'prose-250kw': 6.0, 'complex-corpus': 1.3}
+_RUNG = {'prose-500w': 1.0, 'prose-5kw': 1.3, 'prose-50kw': 2.2, 'prose-250kw': 6.0, 'complex-corpus': 1.3,
+         'prose-500kw': 15.0}  # #188: extrapolated from 250kw (no campaign-1 timing)
 _BASE = {'benchmark_warm_cold': 20, 'benchmark_document': 40, 'benchmark_input': 15,
          'adversarial_c10_scroll': 10, 'benchmark_memory': 20, 'benchmark_resources': 20}
 _TYPING = 180  # campaign 1 calibrated 360 minutes for twelve sessions; scaled to six

@@ -69,6 +69,14 @@ PROSE_LADDER: list[dict] = [
     _prose_row("prose-250kw", 250_000),
 ]
 
+# Rungs added after the publish1 campaign (#188, Arthur 2026-11-13). Kept out of
+# PROSE_LADDER: every lane iterates that ladder to number its jobs, so a rung
+# appended there would renumber the campaign. Their jobs are appended instead
+# (perf.container.policy), and only the load lanes measure them.
+EXTENSION_ROWS: list[dict] = [
+    _prose_row("prose-500kw", 500_000),
+]
+
 CORPUS_ROW: dict = {
     "workload_id": "complex-corpus",
     "paragraphs": None,  # read from the file by workload_docx

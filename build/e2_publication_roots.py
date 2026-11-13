@@ -130,6 +130,8 @@ def _check_editor_round_data(roots_dir: Path, manifest: dict, errors: list[str])
     wanted = editor_superseded(manifest)
     new_runs = {entry["run_id"]: set(entry.get("editors") or ())
                 for entries in manifest.get("editor_rerun", {}).values() for entry in entries}
+    # Extension jobs (#188) are new jobs measured after the fix, not jobs an editor round replaces.
+    later = {entry["run_id"] for entries in manifest.get("extension", {}).values() for entry in entries}
     old: dict[int, list[Path]] = {}
     new: list[tuple[str, int, Path]] = []
     for root in sorted(p for p in roots_dir.iterdir() if p.is_dir()):
@@ -137,6 +139,8 @@ def _check_editor_round_data(roots_dir: Path, manifest: dict, errors: list[str])
             for job in sorted((root / lane).glob("*")) if (root / lane).is_dir() else ():
                 run_id, _, tail = job.name.rpartition("-")
                 if not tail.isdigit():
+                    continue
+                if run_id in later:
                     continue
                 if run_id in new_runs:
                     new.append((run_id, int(tail), job))
@@ -173,6 +177,35 @@ def _check_editor_round_data(roots_dir: Path, manifest: dict, errors: list[str])
             if summary.get(key) != before.get(key):
                 errors.append(f"editor-round job {path.name} has {key} {summary.get(key)!r}; the job it replaces, "
                               f"{replaced[0].name}, has {before.get(key)!r}")
+
+
+def _check_extension(data: Path, manifest: dict, errors: list[str]) -> None:
+    """An extension round (#188) adds jobs the campaign never had: each index is new and measured once.
+
+    Its jobs supersede nothing, so an index that a first-pass run also carries
+    would put two measurements in one job's place; a harness commit must name
+    the code that measured them.
+    """
+    entries = [entry for space_entries in manifest.get("extension", {}).values() for entry in space_entries]
+    if not entries:
+        return
+    if not manifest.get("harness", {}).get("extension"):
+        errors.append("the manifest's extension round names no harness commit (harness.extension)")
+    listed = [index for entry in entries for index in entry["jobs"]]
+    twice = sorted({index for index in listed if listed.count(index) > 1})
+    if twice:
+        errors.append(f"extension jobs listed more than once: {twice}")
+    campaign: set[int] = set()
+    for space, run_id in manifest["first_pass"].items():
+        run_dir = data / space / "runs" / run_id
+        if run_dir.is_dir():
+            campaign.update(index for _, _, index in run_jobs(run_dir, run_id))
+    for key in ("rerun", "rerun2", "rerun3", "editor_rerun"):
+        campaign.update(index for space_entries in manifest.get(key, {}).values()
+                        for entry in space_entries for index in entry["jobs"])
+    reused = sorted(set(listed) & campaign)
+    if reused:
+        errors.append(f"extension jobs {reused} reuse campaign job indexes; an extension adds new jobs only")
 
 
 def _link_round(data: Path, roots_dir: Path, space: str, entries: list, prefix: str, retired: set[int],
@@ -251,6 +284,8 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
         "rerun3_unsealed": 0,
         "editor_rerun_kept": 0,
         "editor_rerun_unsealed": 0,
+        "extension_kept": 0,
+        "extension_unsealed": 0,
         "editor_superseded": {editor: len(jobs) for editor, jobs in sorted(editor_superseded(manifest).items())},
         "missing_runs": [],
     }
@@ -283,6 +318,8 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
                     campaign, roots, errors)
         _link_round(data, roots_dir, space, manifest.get("editor_rerun", {}).get(space, []), "editor_rerun",
                     set(), campaign, roots, errors)
+        _link_round(data, roots_dir, space, manifest.get("extension", {}).get(space, []), "extension",
+                    set(), campaign, roots, errors)
         for round_key, earlier, name, of in (("rerun2", retired, "second-round", "re-run"),
                                              ("rerun3", retired2, "third-round", "second-round")):
             for entry in manifest.get(round_key, {}).get(space, []):
@@ -302,8 +339,9 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
             errors.append(f"{retired_key} jobs {sorted(wanted)} are not measured again exactly once by "
                           f"{name} jobs {sorted(measured)}")
     _check_editor_round(manifest, errors)
+    _check_extension(data, manifest, errors)
     run_ids = list(manifest["first_pass"].values()) + [
-        entry["run_id"] for key in ("rerun", "rerun2", "rerun3", "editor_rerun")
+        entry["run_id"] for key in ("rerun", "rerun2", "rerun3", "editor_rerun", "extension")
         for entries in manifest.get(key, {}).values() for entry in entries]
     duplicates = sorted({rid for rid in run_ids if run_ids.count(rid) > 1})
     if duplicates:

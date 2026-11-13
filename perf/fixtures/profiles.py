@@ -70,9 +70,9 @@ def _realistic_rows():
 
     Imported lazily: ``perf.fixtures.docx_workload`` builds on ``generate``.
     """
-    from perf.fixtures.docx_workload import CORPUS_ROW, PROSE_LADDER
+    from perf.fixtures.docx_workload import CORPUS_ROW, EXTENSION_ROWS, PROSE_LADDER
 
-    return [dict(row) for row in PROSE_LADDER] + [dict(CORPUS_ROW)]
+    return [dict(row) for row in PROSE_LADDER] + [dict(CORPUS_ROW)] + [dict(row) for row in EXTENSION_ROWS]
 
 
 def assert_not_hostile(path, root):
