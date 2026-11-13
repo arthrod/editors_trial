@@ -583,6 +583,31 @@ def _not_run_editors(primary: Path, repro: Path, editors: list[str]) -> str:
     return "\n".join(lines) if lines else "- none"
 
 
+# Why a roster editor has no browser data. Each reason is a standing decision
+# of the trial, not a measurement; an editor not listed here says so plainly.
+E2_NOT_MEASURED = {
+    "apryse": "Apryse WebViewer needs a licence key, and the key is never placed on the measuring machines.",
+    "docsplus": "docs.plus runs only as an application with its own application servers, which the browser run does not start.",
+    "fidus": "Fidus Writer runs only as an application with its own application server, which the browser run does not start.",
+    "office-open": "office-open is a library with no editing surface to paint, so no browser criterion applies.",
+}
+
+
+def _not_measured_campaign(editors: list[str]) -> str:
+    """Roster editors with no browser data across every run folder of the campaign."""
+    from perf.adapters.capabilities import LANES
+
+    measured = set(editors)
+    lines = []
+    for editor in sorted(set(LANES) - measured, key=lambda e: (E2_DISPLAY.get(e) or e).casefold()):
+        reason = E2_NOT_MEASURED.get(editor, "no browser data in these runs.")
+        lines.append("- **%s:** %s" % (E2_DISPLAY.get(editor) or editor, reason))
+    return "\n".join(lines) if lines else "- none"
+
+
+E2_DISPLAY = {**DISPLAY, "apryse": "Apryse"}
+
+
 def _date(summary: dict) -> str:
     for key in ("started_at", "finished_at"):
         if summary.get(key):
@@ -837,7 +862,8 @@ def _facts_from_roots(roots) -> dict:
     if typing_groups:
         facts['perf.e2.table.TYPING'] = '\n\n'.join(typing_table(facts, roots, editor, kind) for editor, kind in typing_groups)
     facts.update(resource_facts(roots, editors))
-    facts["perf.e2.not_run"] = _not_run_editors(roots[0], roots[-1], editors)
+    facts["perf.e2.not_run"] = (
+        _not_run_editors(roots[0], roots[-1], editors) if classic else _not_measured_campaign(editors))
     facts["perf.e2.not_reproduced"] = _not_reproduced_table(facts, classic)
     published = [k for k in facts if k.endswith(".reproduced")]
     facts["perf.e2.cells_checked"] = len(published)

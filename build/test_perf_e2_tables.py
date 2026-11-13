@@ -808,3 +808,17 @@ def test_campaign_throttle_sum_keeps_the_unavailable_accounting_disclosure():
     assert E2._throttle_sum(rows) == (
         '2 of 20 samples had CPU accounting unavailable; 1 of 20 samples refused for cgroup CPU throttling')
     assert E2._throttle_sum(rows[1:]) == '0 of 10 samples refused for cgroup CPU throttling'
+
+
+@pytest.mark.usefixtures("fake_legacy_tree")
+def test_campaign_names_the_editors_the_browser_run_did_not_measure(fs):
+    """Every roster editor without browser data is named with its reason, never '- none' (#178 follow-up)."""
+    roots = _campaign_farm(Path("/farm"))
+    text = E2.facts_from_roots(roots)["perf.e2.not_run"]
+    assert text != "- none"
+    for name, reason in (("Apryse", "licence key"), ("docs.plus", "application servers"),
+                         ("Fidus", "application server"), ("office-open", "library")):
+        line = next((item for item in text.splitlines() if name in item), None)
+        assert line is not None, name
+        assert reason in line, line
+    assert "Plate" not in text
