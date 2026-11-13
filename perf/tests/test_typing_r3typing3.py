@@ -312,7 +312,9 @@ def test_persist_attempt_strips_only_accounting_scope(tmp_path, monkeypatch):
         return path
 
     monkeypatch.setattr(BrowserRun, "sample", fake_sample)
-    token = ACTIVE.set(BrowserRun(tmp_path / "run", "benchmark_warm_cold", run_id="s2b", seed=1))
+    # A clean checkout snapshot: the test is about the attempt file, not this machine's repos/ (#182).
+    token = ACTIVE.set(BrowserRun(tmp_path / "run", "benchmark_warm_cold", run_id="s2b", seed=1,
+                                  snapshot=lambda: {}))
     cell_token = CELL.set({"repetition": 0, "editor_id": "plate"})
     attempt_dir = tmp_path / "attempts"
     attempt_dir.mkdir()
