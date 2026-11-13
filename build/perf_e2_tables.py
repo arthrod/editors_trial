@@ -470,7 +470,7 @@ def _distinct_field(rows, field) -> str:
 
 def _throttle_sum(rows) -> str:
     """Throttle refusals summed over all of a seed's jobs."""
-    refused = total = unavailable = 0
+    refused = total = unavailable = refused_total = 0
     seen = refused_seen = False
     for row in rows:
         accounting = row.get("cpu_accounting") or {}
@@ -484,6 +484,7 @@ def _throttle_sum(rows) -> str:
         if r is not None:
             seen = refused_seen = True
             refused += r
+            refused_total += t or 0
         if accounting.get("samples_unavailable"):
             seen = True
         if t is not None:
@@ -492,8 +493,10 @@ def _throttle_sum(rows) -> str:
         return "not recorded"
     if not refused_seen:
         text = "refused samples not recorded"
-    elif total:
-        text = "%d of %d samples refused for cgroup CPU throttling" % (refused, total)
+    elif refused_total:
+        text = "%d of %d samples refused for cgroup CPU throttling" % (refused, refused_total)
+        if total > refused_total:
+            text += " (refusals not recorded for the other %d samples)" % (total - refused_total)
     else:
         text = "%d samples refused for cgroup CPU throttling" % refused
     if unavailable:

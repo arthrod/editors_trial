@@ -920,3 +920,14 @@ def test_word_verification_names_the_release_gate(fs):
     assert "not recorded" not in text
     assert "build/verify_publication.sh --with-word" in text and "Microsoft Word" in text
     assert E2.unset_facts()["perf.e2.word_verification"] == text
+
+
+def test_throttle_sum_denominator_covers_only_jobs_that_recorded_refusals():
+    """A job without a refused count must not inflate the refused fraction's denominator (GLM n1)."""
+    rows = [
+        {'cpu_accounting': {'samples_total': 10, 'samples_refused': 1}},
+        {'cpu_accounting': {'samples_total': 10, 'samples_unavailable': 3}},
+    ]
+    assert E2._throttle_sum(rows) == (
+        '3 of 20 samples had CPU accounting unavailable; 1 of 10 samples refused for cgroup CPU throttling'
+        ' (refusals not recorded for the other 10 samples)')
