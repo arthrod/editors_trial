@@ -910,3 +910,13 @@ def test_campaign_pins_skip_attempts_that_never_ran(monkeypatch):
     ]
     monkeypatch.setattr(E2.e2_cells, '_iter_trials', lambda root: iter(rows))
     assert E2._campaign_pins([Path('/a')]) == {'plate': ['tree-a']}
+
+
+@pytest.mark.usefixtures("fake_legacy_tree")
+def test_word_verification_names_the_release_gate(fs):
+    """The twin is a gated deliverable; the report says how Word checks it, not 'not recorded'."""
+    facts = E2.facts_from_roots(_campaign_farm(Path("/farm")))
+    text = facts["perf.e2.word_verification"]
+    assert "not recorded" not in text
+    assert "build/verify_publication.sh --with-word" in text and "Microsoft Word" in text
+    assert E2.unset_facts()["perf.e2.word_verification"] == text

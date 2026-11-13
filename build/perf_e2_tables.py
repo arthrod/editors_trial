@@ -728,6 +728,11 @@ def reruns_text(campaign: dict | None) -> str:
     return text
 
 
+WORD_VERIFICATION = (
+    "The DOCX twin is a deliverable of the release gate: `build/verify_publication.sh --with-word` opens it "
+    "in Microsoft Word and fails on any warning or offer to repair the file.")
+
+
 def unset_facts() -> dict:
     """Facts when ``report_e2_runs.json`` is absent: the template still renders."""
     blurbs = _criterion_blurbs()
@@ -735,7 +740,7 @@ def unset_facts() -> dict:
         "perf.e2.provenance": "Per-Space provenance not supplied.",
         "perf.e2.reruns": reruns_text(None),
         "perf.e2.table.TYPING": "not in these runs.",
-        "perf.e2.word_verification": "Word verification not recorded for this generated twin.",
+        "perf.e2.word_verification": WORD_VERIFICATION,
         "perf.e2.measured": "not yet measured",
         "perf.e2.status": "This report is not yet measured.",
         "perf.e2.intro": "No browser runs are available; not yet measured.",
@@ -847,7 +852,7 @@ def _facts_from_roots(roots) -> dict:
     facts: dict = {
         "perf.e2.provenance": "Per-Space provenance not supplied.",
         "perf.e2.table.TYPING": "not in these runs.",
-        "perf.e2.word_verification": "Word verification not recorded for this generated twin.",
+        "perf.e2.word_verification": WORD_VERIFICATION,
         "perf.e2.measured": "measured",
         "perf.e2.status": "",
         "perf.e2.run_id": s.get("run_id", "not recorded"),
