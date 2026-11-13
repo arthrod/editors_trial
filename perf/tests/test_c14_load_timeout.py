@@ -58,6 +58,17 @@ class C14LoadTimeout(unittest.TestCase):
         self.assertEqual(bd._subprocess_timeout_s(cmd),
                          (C14_LOAD_STAGES * C14_LOAD_TIMEOUT_MS + C14_COPY_WAIT_MS) / 1000 + 30)
 
+    def test_a_canvas_host_gets_the_load_event_wait_too(self):
+        # Review of f97f74e0, H1: screencast_ink hosts (Docen, WordCraft) wait for the load event first.
+        cmd = ["--mode", "scale", "--timeout-ms", "1000000", "--usable-signal", "screencast_ink",
+               "--c14-copy-wait-ms", "120000"]
+        self.assertEqual(bd._subprocess_timeout_s(cmd), (4 * C14_LOAD_TIMEOUT_MS + C14_COPY_WAIT_MS) / 1000 + 30)
+
+    def test_the_c14_watchdog_follows_the_scale_mode_not_the_copy_flag(self):
+        # Review of f97f74e0, L4.
+        cmd = ["--mode", "scale", "--timeout-ms", "1000000"]
+        self.assertEqual(bd._subprocess_timeout_s(cmd), 3 * C14_LOAD_TIMEOUT_MS / 1000 + 30)
+
     def test_other_probes_keep_their_watchdog(self):
         self.assertEqual(bd._subprocess_timeout_s(["--timeout-ms", "300000"]), 330.0)
 
@@ -85,8 +96,9 @@ class C14LoadTimeout(unittest.TestCase):
         self.assertEqual(int(found.group(1).replace("_", "")), C14_COPY_WAIT_MS)
 
     def test_the_report_discloses_it(self):
-        self.assertIn("C14 (large-document scaling) gives each stage of a load (navigation, the editor's ready "
-                      "signal, the painted document) up to 1000 s", lax_bounds.relaxed_bounds_paragraph())
+        self.assertIn("C14 (large-document scaling) gives each wait of a load (navigation, the editor's ready "
+                      "signal, the page's load event for the canvas editors Docen and WordCraft, the painted "
+                      "document) up to 1000 s", lax_bounds.relaxed_bounds_paragraph())
 
 
 if __name__ == "__main__":

@@ -30,6 +30,10 @@ C14_LOAD_TIMEOUT_MS = 1_000_000
 #: The watchdog outlasts all of them (review of e0c237de, H1).
 C14_LOAD_STAGES = 3
 
+#: A screencast_ink host (Docen, WordCraft) also waits for the page's load
+#: event before watching for ink: four full waits (review of f97f74e0, H1).
+C14_LOAD_STAGES_SCREENCAST_INK = 4
+
 #: Longest wait for the editor's whole-text copy after the timed C14 sample
 #: (#183); kept equal to C14_COPY_WAIT_MS in perf/runner/c14_whole_text.mjs.
 C14_COPY_WAIT_MS = 120_000

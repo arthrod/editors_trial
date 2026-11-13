@@ -162,6 +162,24 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
                 stray = sorted(set(entry["jobs"]) - earlier)
                 if stray:
                     errors.append(f"{name} jobs {stray} of {space}/{entry['run_id']} supersede no {of} job")
+    # Every retired job is measured again exactly once, and no run is listed twice
+    # (review of d509c234, M1): otherwise a cell would vanish with only a counter as trace.
+    for retired_key, round_key, name in (("rerun_superseded", "rerun2", "second-round"),
+                                         ("rerun2_superseded", "rerun3", "third-round")):
+        if retired_key not in manifest:
+            continue
+        measured = [job for entries in manifest.get(round_key, {}).values() for entry in entries
+                    for job in entry["jobs"]]
+        wanted = rerun_superseded_jobs(manifest, retired_key)
+        if sorted(measured) != sorted(wanted):
+            errors.append(f"{retired_key} jobs {sorted(wanted)} are not measured again exactly once by "
+                          f"{name} jobs {sorted(measured)}")
+    run_ids = list(manifest["first_pass"].values()) + [
+        entry["run_id"] for key in ("rerun", "rerun2", "rerun3")
+        for entries in manifest.get(key, {}).values() for entry in entries]
+    duplicates = sorted({rid for rid in run_ids if run_ids.count(rid) > 1})
+    if duplicates:
+        errors.append(f"runs listed more than once in the manifest: {duplicates}")
     return roots, campaign, errors
 
 
@@ -175,6 +193,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     manifest = json.loads(args.manifest.read_text())
+    # Links left by an earlier manifest would feed the tables superseded jobs (review of d509c234, M2).
+    if args.roots_dir.exists() and any(args.roots_dir.iterdir()):
+        print(f"error: roots dir {args.roots_dir} is not empty; build the roots into a fresh directory",
+              file=sys.stderr)
+        return 2
     roots, campaign, errors = build_roots(args.data_dir, args.roots_dir, manifest)
     for line in errors:
         print(f"error: {line}", file=sys.stderr)

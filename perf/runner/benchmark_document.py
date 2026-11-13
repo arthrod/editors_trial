@@ -1429,13 +1429,19 @@ def _subprocess_timeout_s(cmd: list) -> float:
     load_ms = _flag_ms("--timeout-ms")
     if load_ms is None:
         return float(PROBE_TIMEOUT_S) + 30.0
-    copy_ms = _flag_ms("--c14-copy-wait-ms")
-    if copy_ms is None:
+    if not _flag_is(cmd, "--mode", "scale"):
         return max(1.0, load_ms / 1000.0) + 30.0
-    # C14: navigation, ready and the document surface each get the full wait, one after another,
-    # then the whole-text copy (review of e0c237de, H1).
-    from perf.runner.load_timeouts import C14_LOAD_STAGES
-    return max(1.0, C14_LOAD_STAGES * load_ms / 1000.0) + copy_ms / 1000.0 + 30.0
+    # C14 (scale mode): navigation, ready and the document surface each get the full wait, one after
+    # another; a screencast_ink host waits for the page's load event first; then the whole-text copy
+    # (reviews of e0c237de H1, f97f74e0 H1 and L4).
+    from perf.runner.load_timeouts import C14_LOAD_STAGES, C14_LOAD_STAGES_SCREENCAST_INK
+    stages = C14_LOAD_STAGES_SCREENCAST_INK if _flag_is(cmd, "--usable-signal", "screencast_ink") else C14_LOAD_STAGES
+    return max(1.0, stages * load_ms / 1000.0) + (_flag_ms("--c14-copy-wait-ms") or 0) / 1000.0 + 30.0
+
+
+def _flag_is(cmd: list, flag: str, value: str) -> bool:
+    return any(token == flag and index + 1 < len(cmd) and cmd[index + 1] == value
+               for index, token in enumerate(cmd))
 
 
 _C14_STAGE_LINE = re.compile(r"^\[c14-stage\] (\S+) (start|done)(?: (\d+) ms)?$")

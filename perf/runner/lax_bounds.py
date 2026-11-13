@@ -26,8 +26,9 @@ _RELAXED_BOUND_LINES = (
     f"Clock skew: {DEFAULT_SKEW_BOUND_MS:g} ms.",
     f"Ready/navigation load timeouts: {DEFAULT_LOAD_TIMEOUT_MS // 1000} s by default, "
     f"{BIG_DOCUMENT_LOAD_TIMEOUT_MS // 1000} s on the largest document workload; "
-    f"C14 (large-document scaling) gives each stage of a load (navigation, the editor's ready signal, "
-    f"the painted document) up to {C14_LOAD_TIMEOUT_MS // 1000} s.",
+    f"C14 (large-document scaling) gives each wait of a load (navigation, the editor's ready signal, "
+    f"the page's load event for the canvas editors Docen and WordCraft, the painted document) "
+    f"up to {C14_LOAD_TIMEOUT_MS // 1000} s.",
     f"Sparse-witness settle onset floor: {ONSET_BOUND_FLOOR_MS} ms.",
     "CPU throttle tolerance: max(1 ms, 1% of the sample span).",
     f"Witness anchor lag: max({LAG_BOUND_INTERVALS} frame intervals, {LAG_BOUND_MIN_MS:g} ms).",

@@ -131,6 +131,7 @@ def test_a_rerun_job_not_yet_sealed_or_mirrored_counts_unsealed(tmp_path):
     shutil.rmtree(unsealed)
     manifest_data["rerun"]["space-a"][0]["jobs"] = [10, 12]  # declared, absent entirely
     manifest.write_text(json.dumps(manifest_data))
+    roots_dir = tmp_path / "roots-2"  # a used roots dir is refused
     assert run_roots(data, roots_dir, manifest) == 0
     campaign = json.loads((roots_dir / "report_e2_runs.json").read_text())["campaign"]
     assert campaign["rerun_unsealed"] == 1
@@ -329,3 +330,39 @@ def test_a_missing_third_round_run_fails_unless_partial(tmp_path):
     campaign = json.loads((roots_dir / "report_e2_runs.json").read_text())["campaign"]
     assert campaign["missing_runs"] == [f"space-a/{RID_RERUN3}"]
     assert campaign["rerun3_unsealed"] == 1
+
+
+def test_a_superseded_second_round_job_nobody_measured_again_is_an_error(tmp_path):
+    # Review of d509c234, M1: a retired job with no third-round job would drop its cell silently.
+    data, *_ = build_data(tmp_path)
+    manifest_data = third_round_manifest()
+    manifest_data["rerun2_superseded"]["issues"]["997"]["jobs"] = [12, 13]
+    job(data / "space-b" / "runs" / RID_RERUN2, RID_RERUN2, 12)
+    job(data / "space-a" / "runs" / RID_RERUN3, RID_RERUN3, 12)
+    manifest = write_manifest(tmp_path, manifest_data)
+    assert run_roots(data, tmp_path / "roots", manifest) != 0
+
+
+def test_a_run_listed_twice_in_a_round_is_an_error(tmp_path):
+    data, *_ = build_data(tmp_path)
+    manifest_data = third_round_manifest()
+    manifest_data["rerun3"]["space-a"].append({"run_id": RID_RERUN3, "jobs": [12]})
+    job(data / "space-b" / "runs" / RID_RERUN2, RID_RERUN2, 12)
+    job(data / "space-a" / "runs" / RID_RERUN3, RID_RERUN3, 12)
+    manifest = write_manifest(tmp_path, manifest_data)
+    assert run_roots(data, tmp_path / "roots", manifest) != 0
+
+
+def test_a_used_roots_dir_is_refused(tmp_path):
+    # Review of d509c234, M2: links left by an earlier manifest would feed the tables superseded jobs.
+    data, *_ = build_data(tmp_path)
+    job(data / "space-b" / "runs" / RID_RERUN2, RID_RERUN2, 12)
+    job(data / "space-a" / "runs" / RID_RERUN, RID_RERUN, 12)
+    roots_dir = tmp_path / "roots"
+    assert run_roots(data, roots_dir, write_manifest(tmp_path, second_round_manifest())) == 0
+    job(data / "space-a" / "runs" / RID_RERUN3, RID_RERUN3, 12)
+    assert run_roots(data, roots_dir, write_manifest(tmp_path, third_round_manifest())) != 0
+    # An empty directory is fine.
+    empty = tmp_path / "empty-roots"
+    empty.mkdir()
+    assert run_roots(data, empty, write_manifest(tmp_path, third_round_manifest())) == 0
