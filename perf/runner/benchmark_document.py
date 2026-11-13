@@ -612,6 +612,21 @@ def _c12_fixture_text_args(fixture_path) -> list[str]:
     return ["--c12-caret-text", caret, "--c12-anchor-text", anchor]
 
 
+def c14_correctness_text(payload: dict) -> str | None:
+    """The text C14's I01-I03 conditions are checked against (#181).
+
+    The probe stores a 4,000-character head of the editor's document text and
+    its last 4,000 characters. The correctness paragraphs sit near the end,
+    so a longer document is checked on head and tail together.
+    """
+    head = payload.get("document_text")
+    tail = payload.get("document_text_tail")
+    chars = payload.get("document_text_chars")
+    if head is None or not tail or (isinstance(chars, int) and chars <= len(head)):
+        return head
+    return head + "\n" + tail
+
+
 def build_fixture(workload_row: dict) -> dict:
     """Ladder body plus the correctness fixtures, split into real paragraphs.
 
@@ -1133,7 +1148,7 @@ def write_c14_outcome(*, attempt_dir, editor_id, lane, env, probe, label, worklo
         lane=lane,
         env=env,
         samples=[sample],
-        doc_output_text=probe.get("document_text"),
+        doc_output_text=c14_correctness_text(probe),
         diagnostic={
             "suite": "document",
             "size_rung": label,
@@ -1947,6 +1962,7 @@ def _run_scale_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path:
                 "page_count": payload.get("page_count"),
                 "document_text_chars": payload.get("document_text_chars"),
                 "document_text": payload.get("document_text"),
+                "document_text_tail": payload.get("document_text_tail"),
                 "frames_total": payload.get("frames_total"),
                 "frames_after_usable": payload.get("frames_after_usable"),
                 "mechanism": payload.get("mechanism"),
@@ -2506,7 +2522,7 @@ def _main() -> int:
                                 lane=lane,
                                 env=data["env"],
                                 samples=data["samples"],
-                                doc_output_text=data["diagnostics"][-1].get("document_text"),
+                                doc_output_text=c14_correctness_text(data["diagnostics"][-1]),
                                 diagnostic={
                                     "suite": "document",
                                     "size_rung": label,

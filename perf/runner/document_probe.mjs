@@ -865,6 +865,8 @@ async function stateSnapshot(page) {
         page_text_chars: pageEl ? (pageEl.textContent || '').trim().length : null,
         document_text_chars,
         document_text: docText.slice(0, 4000),
+        // C14's I01-I03 fixture sits at the document's end, past any 4,000-character head (#181).
+        document_text_tail: docText.slice(-4000),
         content_text_accessible,
         canvas_present: canvasPresent,
         model_oracle,
@@ -884,6 +886,7 @@ async function stateSnapshot(page) {
 
   const applyGatedRead = (gated) => {
     snap.document_text = gated.text.slice(0, 4000);
+    snap.document_text_tail = gated.text.slice(-4000);
     snap.surface_text = snap.document_text;
     snap.document_text_chars = gated.chars;
     snap.content_text_accessible = Boolean(gated.text.trim());
@@ -1131,6 +1134,7 @@ async function loadResult(ctx, { navigationMs, readyMs, surface, witness, surfac
     page_count_at_first: snap.page_count_at_first,
     document_text_chars: snap.document_text_chars,
     document_text: snap.document_text,
+    document_text_tail: snap.document_text_tail,
     document_selector: snap.document_selector,
     surface_text: snap.surface_text,
     presented_frame_ms: facts.presented_frame_ms,
@@ -1397,6 +1401,7 @@ async function runScale(browser) {
       page_count: snap.page_count,
       document_text_chars: snap.document_text_chars,
       document_text: snap.document_text,
+      document_text_tail: snap.document_text_tail,
       document_selector: snap.document_selector,
       surface_text: snap.surface_text,
       presented_frame_ms: mechanism === 'document_damage' ? facts.presented_frame_ms : chosen && chosen.outcome === 'witnessed' ? chosen.frame_page_ms : null,
