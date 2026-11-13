@@ -383,10 +383,11 @@ def _read_json(path: Path, *, keep=None, drop=None):
     and a JSONDecodeError is cached and re-raised so each caller's ``except``
     still fires.
 
-    The key's spelling is ``os.path.abspath`` — a string operation with no
-    lstat walk, which on the hot reader cost more than the parse it
-    replaced. The device and inode fields carry the file's identity: a
-    symlink retarget or a rename replacement reads as a different file.
+    The key's spelling is ``str(path)`` when already absolute and
+    ``os.path.abspath`` otherwise — string operations with no lstat walk,
+    which on the hot reader cost more than the parse it replaced. The
+    device and inode fields carry the file's identity: a symlink retarget
+    or a rename replacement reads as a different file.
 
     ``keep``/``drop`` slim the memoised dict to what the caller's consumers
     read; the spec is part of the cache key, so the slim entry and the full
@@ -399,11 +400,11 @@ def _read_json(path: Path, *, keep=None, drop=None):
     else:
         spec = None
     before = path.stat()
-    stamp = (
+    key = (
+        str(path) if path.is_absolute() else os.path.abspath(str(path)),
         before.st_dev, before.st_ino, before.st_size,
-        before.st_mtime_ns, before.st_ctime_ns,
+        before.st_mtime_ns, before.st_ctime_ns, spec,
     )
-    key = (os.path.abspath(str(path)),) + stamp + (spec,)
     try:
         value = _JSON_CACHE[key]
     except KeyError:
@@ -420,10 +421,10 @@ def _read_json(path: Path, *, keep=None, drop=None):
             after = path.stat()
         except OSError:
             after = None
-        if after is not None and (
+        if after is not None and key[1:6] == (
             after.st_dev, after.st_ino, after.st_size,
             after.st_mtime_ns, after.st_ctime_ns,
-        ) == stamp:
+        ):
             _JSON_CACHE[key] = value
     if isinstance(value, json.JSONDecodeError):
         raise value
