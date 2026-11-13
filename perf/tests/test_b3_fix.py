@@ -199,8 +199,8 @@ class SampleBrackets(unittest.TestCase):
             def sample(self, *args, **kwargs):
                 self.ends += 1
 
-        def fake_cmd(*, mode, target, cfg, corpus_path, extra, editor_id=""):
-            del target, cfg, corpus_path, extra, editor_id
+        def fake_cmd(*, mode, target, cfg, corpus_path, extra, editor_id="", timeout_ms=None):
+            del target, cfg, corpus_path, extra, editor_id, timeout_ms
             return ["node", "document_probe.mjs", "--mode", mode]
 
         def fake_probe(cmd, *, editor_id, env=None):
@@ -255,8 +255,8 @@ class SampleBrackets(unittest.TestCase):
                 del name, row
                 self.samples.append({"outcome": "failed", "failure_reason": "cpu_throttled"})
 
-        def fake_cmd(*, mode, target, cfg, corpus_path, extra):
-            del mode, target, cfg, corpus_path, extra
+        def fake_cmd(*, mode, target, cfg, corpus_path, extra, timeout_ms=None):
+            del mode, target, cfg, corpus_path, extra, timeout_ms
             return ["node", "document_probe.mjs", "--mode", "load"]
 
         def fake_probe(cmd, *, editor_id, env=None):
