@@ -1288,6 +1288,36 @@ async function settleStableFrame(page, recorder) {
   return { frame, rafSettle };
 }
 
+/**
+ * C14 stage log (Arthur, 2026-11-13: "if it keeps timing out, explain where").
+ * Each stage of a scale sample is written to stderr as it starts and ends, and
+ * the finished stages ride in the payload as `load_stages`. A failure names
+ * the stage it hit; if our watchdog kills the probe, benchmark_document.py
+ * reads the same lines from stderr.
+ */
+const scaleStages = [];
+let scaleStage = null;
+
+function stageDone() {
+  if (!scaleStage) return;
+  const ms = Date.now() - scaleStage.t0;
+  scaleStages.push({ stage: scaleStage.stage, ms });
+  process.stderr.write(`[c14-stage] ${scaleStage.stage} done ${ms} ms\n`);
+  scaleStage = null;
+}
+
+function stageStart(name) {
+  stageDone();
+  scaleStage = { stage: name, t0: Date.now() };
+  process.stderr.write(`[c14-stage] ${name} start\n`);
+}
+
+function stageFailure() {
+  if (!scaleStage) return null;
+  const done = scaleStages.map((s) => `${s.stage} ${s.ms} ms`).join(', ') || 'none';
+  return `stage ${scaleStage.stage} failed after ${Date.now() - scaleStage.t0} ms; done: ${done}`;
+}
+
 async function runScale(browser) {
   const ctx = await newPage(browser);
   await beginWitness(ctx);
@@ -1305,11 +1335,14 @@ async function runScale(browser) {
         page_errors: ctx.errors,
       };
     }
+    stageStart('navigation');
     const navT0 = Date.now();
     await ctx.page.goto(url, { waitUntil: 'domcontentloaded', timeout: timeoutMs });
     const navigationMs = Date.now() - navT0;
+    stageStart('ready');
     const readyMs = await waitForReady(ctx.page);
     if (settleMs > 0) await ctx.page.waitForTimeout(settleMs);
+    stageStart('surface');
     let surfaceReason = null;
     if (usableSignal === 'canvas_pixel') {
       const readable = await canvasReadable(ctx.page);
@@ -1332,6 +1365,7 @@ async function runScale(browser) {
     } else {
       surface = await waitForSurface(ctx.page);
     }
+    stageStart('witness');
     const snap = await stateSnapshot(ctx.page);
     const paints = await paintEntries(ctx.page);
     let natural = null;
@@ -1384,9 +1418,11 @@ async function runScale(browser) {
     const chosen = mechanism === 'forced_repaint' ? forced : natural;
     const facts = witnessFacts(chosen);
     // Every timed step is over: ask the editor for its whole document (#183).
+    stageStart('c14_text_read');
     const c14Text = await readC14WholeText(ctx.page, editorId, {
       waitMs: opt['c14-copy-wait-ms'] !== undefined ? Number(opt['c14-copy-wait-ms']) : C14_COPY_WAIT_MS,
     });
+    stageDone();
     // The exclusion decision is the post-settle window. A forced outline is
     // kept beside it and is never the measured sample.
     const decision = natural || chosen;
@@ -1408,6 +1444,7 @@ async function runScale(browser) {
       document_text: snap.document_text,
       document_text_tail: snap.document_text_tail,
       c14_text: c14Text,
+      load_stages: scaleStages.slice(),
       document_selector: snap.document_selector,
       surface_text: snap.surface_text,
       presented_frame_ms: mechanism === 'document_damage' ? facts.presented_frame_ms : chosen && chosen.outcome === 'witnessed' ? chosen.frame_page_ms : null,
@@ -2718,11 +2755,14 @@ try {
   // Lax layer (owner 2026-11-11): every payload discloses the load timeout used.
   process.stdout.write(JSON.stringify({ ...result, load_timeout_ms: timeoutMs }));
 } catch (error) {
+  const message = String(error && error.message ? error.message : error);
+  const where = mode === 'scale' ? stageFailure() : null;
   process.stdout.write(
     JSON.stringify({
       mode,
       status: 'probe_error',
-      reason: String(error && error.message ? error.message : error).slice(0, 500),
+      reason: (where ? `${where}: ${message}` : message).slice(0, 500),
+      ...(mode === 'scale' ? { stages: scaleStages.slice() } : {}),
     }),
   );
   process.exitCode = 1;

@@ -1438,6 +1438,30 @@ def _subprocess_timeout_s(cmd: list) -> float:
     return max(1.0, C14_LOAD_STAGES * load_ms / 1000.0) + copy_ms / 1000.0 + 30.0
 
 
+_C14_STAGE_LINE = re.compile(r"^\[c14-stage\] (\S+) (start|done)(?: (\d+) ms)?$")
+
+
+def c14_stage_summary(stderr) -> str | None:
+    """Where a killed C14 probe was, from the stage log it wrote to stderr; None without one."""
+    if isinstance(stderr, bytes):
+        stderr = stderr.decode("utf-8", "replace")
+    done, current = [], None
+    for line in (stderr or "").splitlines():
+        found = _C14_STAGE_LINE.match(line.strip())
+        if not found:
+            continue
+        name, event, ms = found.groups()
+        if event == "start":
+            current = name
+        else:
+            done.append("%s %s ms" % (name, ms))
+            current = None if current == name else current
+    if not done and current is None:
+        return None
+    where = "stopped in stage %s" % current if current else "stopped after its last stage"
+    return "%s; done: %s" % (where, ", ".join(done) or "none")
+
+
 def _run_probe(cmd: list, *, editor_id: str, env: dict | None = None) -> dict:
     import os
     run_env = dict(os.environ) if env is None else {**os.environ, **env}
@@ -1445,9 +1469,11 @@ def _run_probe(cmd: list, *, editor_id: str, env: dict | None = None) -> dict:
     try:
         proc = subprocess.run(cmd, cwd=str(REPO / "harness" / "ui"), capture_output=True, text=True,
                               timeout=wall_s, env=run_env)
-    except subprocess.TimeoutExpired:
+    except subprocess.TimeoutExpired as exc:
+        reason = "probe error for %s: editor did not finish within %ss" % (editor_id, int(wall_s))
+        where = c14_stage_summary(exc.stderr)
         raise ProbeRefusal(
-            "probe error for %s: editor did not finish within %ss" % (editor_id, int(wall_s)),
+            reason + ("; " + where if where else ""),
             # Our own wall-clock kill, not an evidenced editor crash: a stalled
             # build, a wrong ready_js or a probe bug lands here too (review F6).
             refusal_code="harness_error",
@@ -2083,6 +2109,7 @@ def _run_scale_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path:
                 "document_text": payload.get("document_text"),
                 "document_text_tail": payload.get("document_text_tail"),
                 "c14_text": payload.get("c14_text"),
+                "load_stages": payload.get("load_stages"),
                 "frames_total": payload.get("frames_total"),
                 "frames_after_usable": payload.get("frames_after_usable"),
                 "mechanism": payload.get("mechanism"),
