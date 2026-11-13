@@ -139,7 +139,20 @@ def test_b9_a_cell_keeps_its_own_jobs_verdict(tmp_path):
 def test_b9_progress_is_prose_not_a_python_repr():
     text = report._typing_progress_text([{'characters_typed': 30939}, {'characters_typed': 30748}])
     assert '{' not in text and '[' not in text
-    assert text == 'characters typed per refused session: 30,939, 30,748'
+    assert text == 'characters typed in the refused sessions that recorded progress: 30,939, 30,748'
+
+
+def test_b9_a_cell_that_does_not_reproduce_says_instrumented_once(tmp_path, monkeypatch):
+    roots = _campaign(tmp_path)
+    second = tmp_path / 'space-2' / 'benchmark_typing' / 'plate-lat-2'
+    for path in second.glob('cells/*/attempts/TYPING.json'):
+        row = json.loads(path.read_text())
+        row['key_to_paint'] = {**row['key_to_paint'], 'median_ms': 80, 'p90_ms': 90}
+        path.write_text(json.dumps(row))
+    monkeypatch.setattr(report, 'check_roots_comparable', lambda roots: None)
+    text = report.typing_table({}, roots, 'plate', 'latency')
+    assert 'did not reproduce' in text, text
+    assert text.count('figures withheld') == 1, text
 
 
 def _throttle_one_launch(root, seed, block, rep):

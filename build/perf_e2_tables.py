@@ -1045,7 +1045,7 @@ def _typing_progress_text(progress) -> str:
     typed = [value for value in typed if isinstance(value, (int, float))]
     if not typed:
         return ''
-    return 'characters typed per refused session: ' + ', '.join(f'{value:,}' for value in typed)
+    return 'characters typed in the refused sessions that recorded progress: ' + ', '.join(f'{value:,}' for value in typed)
 
 
 def _typing_facts_group(group, fields, *, published: bool = False):
@@ -1157,7 +1157,7 @@ def typing_table(facts, roots, editor, kind):
     facts[key + '.primary'] = _typing_facts_group(groups[0], fields, published=published)
     facts[key + '.reproduction'] = _typing_facts_group(groups[1], fields, published=published)
     if not all_reproduced:
-        return header + ': one or more measures did not reproduce' + instrumented
+        return header + ' One or more measures did not reproduce, so no figure is printed.'
     lines = [header, '| Measure | First seed | Second seed |', '|---|---|---|', *table_lines]
     return '\n'.join(lines)
 
