@@ -14,6 +14,7 @@ identity), never on ``AttributeError`` for a missing name.
 import inspect
 import json
 import os
+import shutil
 from collections import Counter
 from contextlib import contextmanager, nullcontext
 from pathlib import Path
@@ -377,6 +378,121 @@ def test_create_inside_the_glob_reaches_facts(tmp_path):
         created = [path for path in primary.rglob('EXTRA-C07.json')]
         created += [path for path in repro.rglob('EXTRA-C07.json')]
         assert len(created) == 1, 'the injection did not fire'
+        created[0].unlink()
+        fresh_facts, fresh_asks = run(uncached=True)
+    assert 'conflicting_trials' in json.dumps(fresh_facts), (
+        'the injected file never reached the table'
+    )
+    assert cached_facts == fresh_facts
+    assert cached_asks < fresh_asks, 'the memoised reader must still glob less'
+
+
+def test_restored_directory_mtime_does_not_hide_an_added_file(tmp_path):
+    """``os.utime`` puts a directory's mtime back but cannot put its ctime
+    back: a file added under a restored mtime must still reach the next
+    lookup in the same scope."""
+    attempts = tmp_path / 'attempts'
+    attempts.mkdir(parents=True)
+    (attempts / 'C07.json').write_text('{}')
+    stamp = attempts.stat()
+    with _listing_scope():
+        first = _listing(attempts, '*.json')
+        (attempts / 'EXTRA-C07.json').write_text('{}')
+        os.utime(attempts, ns=(stamp.st_atime_ns, stamp.st_mtime_ns))
+        second = _listing(attempts, '*.json')
+        third = _listing(attempts, '*.json')
+    assert attempts.stat().st_mtime_ns == stamp.st_mtime_ns, (
+        'the mtime was not put back; the injection did not fire'
+    )
+    assert [path.name for path in first] == ['C07.json']
+    assert sorted(path.name for path in second) == ['C07.json', 'EXTRA-C07.json']
+    assert third is second
+
+
+def test_swapped_directory_with_copied_mtime_is_relisted(tmp_path):
+    """A watched directory replaced by rename — the replacement carrying
+    the old directory's mtime via ``shutil.copystat`` — is a different
+    inode: the next lookup must glob it, not serve the old listing."""
+    cell = tmp_path / 'cell'
+    attempts = cell / 'attempts'
+    attempts.mkdir(parents=True)
+    (attempts / 'C07.json').write_text('{}')
+    with _listing_scope():
+        first = _listing(attempts, '*.json')
+        replacement = cell / 'attempts-new'
+        replacement.mkdir()
+        (replacement / 'C07.json').write_text('{}')
+        (replacement / 'EXTRA-C07.json').write_text('{}')
+        shutil.copystat(attempts, replacement)
+        os.rename(attempts, cell / 'attempts-old')
+        os.rename(replacement, attempts)
+        second = _listing(attempts, '*.json')
+        third = _listing(attempts, '*.json')
+    retired = cell / 'attempts-old'
+    assert attempts.stat().st_mtime_ns == retired.stat().st_mtime_ns, (
+        'copystat did not carry the mtime; the injection did not fire'
+    )
+    assert attempts.stat().st_ino != retired.stat().st_ino
+    assert [path.name for path in first] == ['C07.json']
+    assert sorted(path.name for path in second) == ['C07.json', 'EXTRA-C07.json']
+    assert third is second
+
+
+def test_restored_attempts_mtime_reaches_facts(tmp_path):
+    """End to end through ``facts_from_roots``: a trial file created inside
+    the ``**/*.json`` glob under a directory mtime that is then put back
+    still changes ``conflicting_trials`` for the memoised reader exactly
+    as it does for a fresh-glob reader."""
+    primary = tmp_path / 'primary'
+    repro = tmp_path / 'repro'
+    _lay_campaign(primary, 0)
+    _lay_campaign(repro, 1)
+    state = {'armed': True}
+    real_glob, real_rglob = Path.glob, Path.rglob
+    asks = Counter()
+
+    def wrapping(method, name):
+        def wrapped(self, *args, **kwargs):
+            result = tuple(method(self, *args, **kwargs))
+            pattern = args[0] if args else ''
+            asks[(name, self.name, pattern)] += 1
+            if (
+                state['armed']
+                and self.name == 'attempts'
+                and result
+                and pattern == ('**/*.json' if name == 'glob' else '*.json')
+            ):
+                state['armed'] = False
+                held = self.stat()
+                (self / 'EXTRA-C07.json').write_text(result[0].read_text())
+                os.utime(self, ns=(held.st_atime_ns, held.st_mtime_ns))
+                state['restored'] = self.stat().st_mtime_ns == held.st_mtime_ns
+            return iter(result)
+        return wrapped
+
+    def recursive_attempt_asks():
+        return asks[('glob', 'attempts', '**/*.json')] + asks[('rglob', 'attempts', '*.json')]
+
+    def fresh_listing(directory, pattern):
+        return tuple(Path(directory).glob(pattern))
+
+    def run(uncached):
+        state['armed'] = True
+        _fresh_cache()
+        asks.clear()
+        scope = nullcontext()
+        if uncached:
+            scope = patch.object(cells, '_listing', fresh_listing, create=True)
+        with scope:
+            return report.facts_from_roots([primary, repro]), recursive_attempt_asks()
+
+    with patch.object(Path, 'glob', wrapping(real_glob, 'glob')), \
+            patch.object(Path, 'rglob', wrapping(real_rglob, 'rglob')):
+        cached_facts, cached_asks = run(uncached=False)
+        created = [path for path in primary.rglob('EXTRA-C07.json')]
+        created += [path for path in repro.rglob('EXTRA-C07.json')]
+        assert len(created) == 1, 'the injection did not fire'
+        assert state.get('restored'), 'the directory mtime was not put back'
         created[0].unlink()
         fresh_facts, fresh_asks = run(uncached=True)
     assert 'conflicting_trials' in json.dumps(fresh_facts), (

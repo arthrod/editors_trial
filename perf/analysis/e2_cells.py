@@ -435,9 +435,13 @@ def _dirs_stamp(directories) -> tuple:
     stamp = []
     for directory in directories:
         try:
-            stamp.append(directory.stat().st_mtime_ns)
+            st = directory.stat()
         except OSError:
             stamp.append(None)
+        else:
+            stamp.append(
+                (st.st_dev, st.st_ino, st.st_mtime_ns, st.st_ctime_ns)
+            )
     return tuple(stamp)
 
 
@@ -477,9 +481,10 @@ def _listing_scope():
     """Memoised directory listings for one top-level read (#176).
 
     Inside the scope a listing is reused while every watched directory's
-    mtime stands. Outside it every call globs fresh, so a caller that adds
-    a file between two reads always sees it — the pulled trees are
-    append-only at report time, a fixture being built is not.
+    identity fields (device, inode, mtime, ctime) stand. Outside it every
+    call globs fresh, so a caller that adds a file between two reads
+    always sees it — the pulled trees are append-only at report time, a
+    fixture being built is not.
     """
     _LIST_CACHE.clear()
     outer = _LIST_SCOPED[0]
@@ -495,10 +500,12 @@ def _listing(directory, pattern: str):
 
     The reader walks the same cells/, attempts/ and samples/ trees once per
     cell x editor x measure. A listing stays stable while every watched
-    directory's mtime stands; adding or removing an entry bumps the mtime
-    of the directory that names it — always a watched one — so the next
-    call globs again and sees it. The stamp is taken before the glob, so a
-    create inside the glob itself also lands after the stored stamp.
+    directory's identity — device, inode, mtime and ctime — stands; adding
+    or removing an entry bumps the directory that names it (always a
+    watched one), ``os.utime`` cannot put ctime back, and a rename swap
+    changes the inode, so the next call globs again and sees the change.
+    The stamp is taken before the glob, so a create inside the glob itself
+    also lands after the stored stamp.
     """
     directory = Path(directory)
     if not _LIST_SCOPED[0]:
