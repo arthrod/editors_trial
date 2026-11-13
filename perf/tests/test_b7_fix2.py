@@ -72,17 +72,25 @@ def test_headless_i10_still_applies(unit):
     assert trial_publishable_flags(env, 'model', 2) == (True, None)
 
 
+# The stored C07 value is the median of the launch's clicks; its flag is that
+# median against the frame interval (16.667 ms here), the rule the reader
+# enforces (e2_cells: sub_frame_flag_mismatch). An even click count averages
+# the two middle clicks, so a sub-frame click and a full-frame click can give
+# a sub-frame median (#187).
 @pytest.mark.parametrize('samples,flags,expected', [
     ([8.5, 20, 30], [True, False, False], False),
-    ([30, 8.5, 20], [False, False, True], True),
-    ([8, 10, 20, 30], [True, True, False, False], False),
-    ([30, 10, 20, 8], [False, True, True, False], True),
+    ([30, 8.5, 20], [False, True, False], False),
+    ([8, 10, 20, 30], [True, True, False, False], True),
+    ([30, 10, 20, 8], [False, True, False, True], True),
+    ([15.494, 16.7, 40, 9], [True, False, False, True], True),
+    ([16.7, 18, 9, 40], [False, False, True, False], False),
 ])
 def test_c07_flag_tracks_middle_clicks(samples, flags, expected):
     entry = _entry(samples_ms=samples, sub_frame_samples=flags,
                    trial_hints={'cache_state': 'warm_steady', 'repetition_unit': 'fresh_process'})
     trial = trial_from_entry('C07', entry, _env(), witness=_witness())
     assert trial['sub_frame_samples'] == [expected]
+    assert trial['sub_frame_samples'] == [trial['samples_ms'][0] < trial['diagnostic']['frame_interval_ms']]
     assert trial['diagnostic']['c07_click_samples_ms'] == samples
 
 

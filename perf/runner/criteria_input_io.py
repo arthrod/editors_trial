@@ -477,14 +477,15 @@ def trial_from_entry(cid, entry, env, witness=None, workload_row=None):
     sub_frame_samples = entry.get("sub_frame_samples")
     if cid == "C07" and len(samples) > 1:
         diagnostic["c07_click_samples_ms"] = list(samples)
-        if sub_frame_samples:
-            ordered = sorted(zip(samples, sub_frame_samples), key=lambda pair: pair[0])
-            middle = len(ordered) // 2
-            middle_flags = [ordered[middle][1]]
-            if len(ordered) % 2 == 0:
-                middle_flags.append(ordered[middle - 1][1])
-            sub_frame_samples = [all(middle_flags)]
         samples = [percentile(samples, 50)]
+        if sub_frame_samples:
+            # The stored value is the median, so its flag is the median against the frame
+            # interval: with an even click count it averages the two middle clicks, and a
+            # sub-frame click beside a full-frame one can give a sub-frame median (#187).
+            interval = _frame_interval_ms(witness)
+            if interval is None:
+                raise ValueError("%s is measured but paint_witness carries no frame_interval_ms" % (cid,))
+            sub_frame_samples = [samples[0] < interval]
     stats = summarize(samples, env["cache_state"], env["repetition_unit"], seed=0)
     # One value per browser launch; the two-run cell gate owns publication n.
     publication_n = None if env["repetition_unit"] == "fresh_process" else stats["n"]
