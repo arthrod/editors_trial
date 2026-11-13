@@ -522,7 +522,44 @@ const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, document
     docTextAt: null,
     docTextCharsAt: null,
     usableSignal: recorded,
+    // canvas_pixel with the editor's ready condition (#185 review): the first
+    // drawn canvas at the first ink frame (the empty page when the editor is
+    // not yet ready), and whether the usable frame shows something else.
+    canvasInkBaseline: null,
+    canvasInkBaselineReady: null,
+    canvasInkChanged: null,
   });
+  const canvasInkHash = () => {
+    const nodes = docSel ? Array.from(document.querySelectorAll(docSel)) : [];
+    for (const el of nodes) {
+      if (typeof HTMLCanvasElement === 'undefined' || !(el instanceof HTMLCanvasElement)) continue;
+      const w = el.width || 0;
+      const h = el.height || 0;
+      if (w < 1 || h < 1) continue;
+      let data = null;
+      try {
+        const g = el.getContext('2d');
+        data = g && typeof g.getImageData === 'function' ? g.getImageData(0, 0, w, h).data : null;
+      } catch {
+        data = null;
+      }
+      if (!data) continue;
+      // FNV-1a over the whole first page canvas; null when it holds no opaque
+      // ink (a cleared canvas is not the document).
+      let hash = 2166136261;
+      let ink = false;
+      for (let i = 0; i < data.length; i += 4) {
+        const a = data[i + 3];
+        if (!ink && a > 16 && (data[i] < 250 || data[i + 1] < 250 || data[i + 2] < 250)) ink = true;
+        for (let k = 0; k < 4; k++) {
+          hash ^= data[i + k];
+          hash = Math.imul(hash, 16777619) >>> 0;
+        }
+      }
+      return ink ? w + 'x' + h + ':' + hash : null;
+    }
+    return null;
+  };
   const box = (el) => {
     if (!el) return null;
     const r = el.getBoundingClientRect();
@@ -776,9 +813,26 @@ const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, document
           canvasDocumentReady = false;
         }
       }
-      if ((signal === 'canvas_pixel' && chars > 0 && canvasDocumentReady) || (signal !== 'canvas_pixel' && chars >= minChars)) {
+      // canvas-editor flips its import flag a frame or two before its lazy
+      // render draws the page, and its empty page already has ink (#185
+      // review). With a ready condition, the usable frame is the first one
+      // after the flag whose first page canvas holds opaque ink that differs
+      // from the empty page seen before the flag.
+      const canvasGated = signal === 'canvas_pixel' && Boolean(canvasReadyExpr);
+      let canvasShowsDocument = true;
+      if (canvasGated && chars > 0) {
+        const pageHash = state.canvasInkBaseline === null || canvasDocumentReady ? canvasInkHash() : null;
+        if (state.canvasInkBaseline === null && !canvasDocumentReady && pageHash !== null) {
+          state.canvasInkBaseline = pageHash;
+        }
+        canvasShowsDocument = pageHash !== null && pageHash !== state.canvasInkBaseline;
+      }
+      if ((signal === 'canvas_pixel' && chars > 0 && canvasDocumentReady && canvasShowsDocument) || (signal !== 'canvas_pixel' && chars >= minChars)) {
         state.docTextAt = performance.now();
         state.docTextCharsAt = chars;
+        // True: an empty page was seen before the flag and the usable frame differs
+        // from it. Null: the editor was ready at its first ink frame.
+        if (canvasGated) state.canvasInkChanged = state.canvasInkBaseline !== null ? true : null;
       }
     }
     // The lax layer (owner 2026-11-11) replaced a hardcoded 120 s with the
@@ -875,6 +929,7 @@ async function stateSnapshot(page) {
         first_element_info: s.firstElementInfo || null,
         document_text_at_ms: s.docTextAt === null || s.docTextAt === undefined ? null : s.docTextAt,
         document_text_chars_at: s.docTextCharsAt === null || s.docTextCharsAt === undefined ? null : s.docTextCharsAt,
+        canvas_ink_changed: typeof s.canvasInkChanged === 'boolean' ? s.canvasInkChanged : null,
         page_count_at_first: s.pageCountAtFirst === null || s.pageCountAtFirst === undefined ? null : s.pageCountAtFirst,
         page_count: pageSel ? document.querySelectorAll(pageSel).length : null,
         page_text_chars: pageEl ? (pageEl.textContent || '').trim().length : null,
@@ -1137,6 +1192,7 @@ async function loadResult(ctx, { navigationMs, readyMs, surface, witness, surfac
     paints,
     fcp_ms: fcp,
     first_element_ms: snap.first_element_ms,
+    canvas_ink_changed: snap.canvas_ink_changed,
     first_element_info: snap.first_element_info,
     first_element_selector: pageSelector || docSelector,
     document_text_at_ms: at,
@@ -1452,6 +1508,7 @@ async function runScale(browser) {
       usable_source: surface.signal || SIGNAL_NAME[usableSignal],
       usable_signal: surface.signal || SIGNAL_NAME[usableSignal],
       first_element_ms: snap.first_element_ms,
+      canvas_ink_changed: snap.canvas_ink_changed,
       page_model: pageModel,
       page_count: snap.page_count,
       document_text_chars: snap.document_text_chars,

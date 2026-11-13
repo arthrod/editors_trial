@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>c185 ready flag before the document ink</title>
+  </head>
+  <body>
+    <canvas class="doc-paragraph" width="800" height="600"></canvas>
+    <script>
+      // Adversarial ordering for the #185 gate: the editor's own ready flag
+      // becomes true at ~50 ms, the empty page paints margin marks at once,
+      // and the imported document's ink arrives only at 700 ms. The usable
+      // frame must be gated by ink (>= 650 ms); if the #185 patch had wired
+      // the gate as ready-only, usable would land at ~50 ms.
+      var canvas = document.querySelector('canvas');
+      var g = canvas.getContext('2d');
+      g.fillStyle = 'white';
+      g.fillRect(0, 0, canvas.width, canvas.height);
+      g.strokeStyle = '#c0c0c0';
+      g.beginPath();
+      g.moveTo(60, 40); g.lineTo(60, 60); g.lineTo(40, 60);
+      g.stroke();
+      setTimeout(function () { window.__DOCX_IMPORTED__ = true; }, 50);
+      setTimeout(function () {
+        g.fillStyle = 'black';
+        g.font = '24px serif';
+        g.fillText('Actual document text', 80, 100);
+      }, 700);
+    </script>
+  </body>
+</html>
