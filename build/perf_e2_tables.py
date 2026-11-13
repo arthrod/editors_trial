@@ -987,6 +987,21 @@ def fmt_resource(value, unit="bytes") -> str:
     return f'{value:g} {unit}'
 
 
+def _typing_job_of(job, summary, editor, kind) -> bool:
+    """A typing cell reads only the typing jobs of its editor and session kind (#180).
+
+    A campaign run folder holds jobs of every lane; pooling them gave a typing
+    cell other lanes' schedules and other editors' failure reasons.
+    """
+    lane = job.parent.name if job.parent.name.startswith(('benchmark_', 'adversarial_')) else None
+    if (summary.get('runner') or lane) not in (None, 'benchmark_typing'):
+        return False
+    if summary.get('session_kind') not in (None, kind):
+        return False
+    order = summary.get('order') or []
+    return not order or any(entry[1] == editor for entry in order)
+
+
 def _typing_group_for_seed(roots, editor, kind, seed):
     from perf.analysis import e2_cells
     from perf.analysis.e2_typing import _sessions_from_jobs
@@ -994,9 +1009,11 @@ def _typing_group_for_seed(roots, editor, kind, seed):
     job_pairs = []
     for root in roots:
         root = Path(root)
-        for job in e2_cells._lane_jobs(root, e2_cells._job_roots(root), editor, 'TYPING'):
+        for job in e2_cells._job_roots(root):
             summary = e2_cells._load_summary(job) or {}
             if summary.get('seed') not in (None, seed):
+                continue
+            if not _typing_job_of(job, summary, editor, kind):
                 continue
             if summary.get('order') or (job / 'cells').is_dir():
                 job_pairs.append((root, job))
@@ -1022,6 +1039,15 @@ def _typing_progress_for_table(progress) -> list:
     return cleaned
 
 
+def _typing_progress_text(progress) -> str:
+    """Progress of refused sessions as prose (#180), never a Python repr."""
+    typed = [item.get('characters_typed') for item in progress or () if isinstance(item, dict)]
+    typed = [value for value in typed if isinstance(value, (int, float))]
+    if not typed:
+        return ''
+    return 'characters typed per refused session: ' + ', '.join(f'{value:,}' for value in typed)
+
+
 def _typing_facts_group(group, fields, *, published: bool = False):
     if published:
         return {**group, "kept": [{name: row[name] for name in fields if name in row} for row in group["kept"]]}
@@ -1045,8 +1071,8 @@ def typing_table(facts, roots, editor, kind):
         kept_n = len(group['kept'])
         scheduled = group['scheduled']
         if group['blocked'] or scheduled != TYPING_PUBLICATION_SESSIONS or kept_n < TYPING_PUBLICATION_MIN_KEPT:
-            progress = _typing_progress_for_table(group['progress'])
-            suffix = f"; progress {progress}" if progress else ""
+            progress = _typing_progress_text(_typing_progress_for_table(group['progress']))
+            suffix = f"; {progress}" if progress else ""
             if not group['blocked'] and scheduled != TYPING_PUBLICATION_SESSIONS:
                 reasons.append(
                     f"{name}: wrong schedule (n = {kept_n} of {scheduled}; "

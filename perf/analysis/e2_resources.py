@@ -13,6 +13,7 @@ stores no figure at all.
 from __future__ import annotations
 
 import json
+import re
 from collections import Counter
 from pathlib import Path
 
@@ -101,6 +102,57 @@ def _job_matches_workload(job: Path, summary: dict, editor: str, workload: str) 
     return False
 
 
+# A resources job records the pair verdict of its own launches. In a block
+# campaign one job is one block of one seed, so these three are always true of
+# a single job; the reader re-checks each on the pooled seed (decided schedule,
+# PUBLICATION_MIN_KEPT kept, two seeds) and they must not block it (#180).
+_JOB_PAIR_REASONS = re.compile(r'scheduled_below_\d+|kept_below_\d+|second_seed_required')
+
+
+def _run_level_block(summary: dict) -> tuple[bool, str | None]:
+    reason = str(summary.get('publication_block_reason') or '')
+    parts = [part.strip() for part in reason.split(';') if part.strip()]
+    if (summary.get('outcome') != 'failed' and parts
+            and all(_JOB_PAIR_REASONS.fullmatch(part) for part in parts)):
+        summary = {**summary, 'publication_block_reason': None}
+    return cells._run_blocks_publication(summary)
+
+
+_BLOCK_SHORT = re.compile(r'block \d+ has no launch files')
+
+
+def _refused_launches(job: Path, editor: str, recorded) -> list:
+    """Launches the runner refused (a run refusal in samples/) that wrote no resource.json (#180).
+
+    A resources launch refused for CPU throttling leaves its sample row and no
+    record; it is an accounted refusal, not a missing file.
+    """
+    out = []
+    for path in sorted(cells._listing(job / 'samples', '*.json')):
+        name = path.stem
+        if not name.endswith('-' + editor) or name in recorded:
+            continue
+        try:
+            row = cells._read_json(path)
+        except (OSError, ValueError):
+            continue
+        code = cells.refusal_code(row) if isinstance(row, dict) else None
+        if code in cells._RUN_REFUSALS:
+            out.append((name, code))
+    return out
+
+
+def _blocks_accounted(job_pairs, summaries, editor: str) -> bool:
+    """Every block's scheduled launches are either recorded or refused by the runner."""
+    for (_root, job), summary in zip(job_pairs, summaries):
+        expected = (summary.get('block') or {}).get('repetitions') or 0
+        recorded = set(cells._job_measured_launch_names(job, editor))
+        refused = {name for name, _code in _refused_launches(job, editor, recorded)}
+        if len(recorded | refused) < expected:
+            return False
+    return True
+
+
 def _aggregate_seed(entries, editor: str, workload: str) -> dict:
     entries = [(root, job, summary) for root, job, summary in entries
                if _job_matches_workload(job, summary, editor, workload)]
@@ -117,6 +169,8 @@ def _aggregate_seed(entries, editor: str, workload: str) -> dict:
         return group
     summaries = [cells._load_summary(job) or {} for _root, job in job_pairs]
     layout_blocked, layout_reason = cells._seed_block_gate(summaries, job_pairs, editor)
+    if layout_blocked and _BLOCK_SHORT.fullmatch(str(layout_reason)) and _blocks_accounted(job_pairs, summaries, editor):
+        layout_blocked, layout_reason = False, None
     if layout_blocked:
         group['blocked'] = layout_reason
         return group
@@ -128,11 +182,13 @@ def _aggregate_seed(entries, editor: str, workload: str) -> dict:
                 and record.get('editor_id', editor) == editor]
         scheduled = cells._scheduled_for_editor(summary, editor, 0)
         group['scheduled'] += scheduled or len(mine)
-        blocked, why = cells._run_blocks_publication(summary)
+        blocked, why = _run_level_block(summary)
         if blocked and not group['blocked']:
             group['blocked'] = str(why)
         pin = cells.build_identity(summary, editor, [record for _launch, record in mine])
         group['pins'].add(pin)
+        for _name, code in _refused_launches(job, editor, {launch for launch, _record in mine}):
+            group['refusals'][code] += 1
         for _launch, record in mine:
             reason = launch_refusal(record)
             if reason:
