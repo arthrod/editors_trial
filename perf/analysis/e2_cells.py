@@ -349,7 +349,6 @@ def _trial_block(trial):
 
 
 _JSON_CACHE: dict = {}
-_RESOLVE_CACHE: dict = {}
 _LIST_CACHE: dict = {}
 
 # Keys the memoised readers leave out: bulky in the pulled runs and read by
@@ -370,17 +369,22 @@ _SAMPLE_ROW_KEEP = frozenset(
 
 
 def _read_json(path: Path, *, keep=None, drop=None):
-    """Parsed JSON of one file, memoised on (resolved path, st_mtime_ns, st_size, spec) (#176).
+    """Parsed JSON of one file, memoised on (abspath, stat fields, spec) (#176).
 
-    Pulled runs are append-only; a rewrite changes the stat key and parses
-    again. The cached object is shared by every consumer and must not be
-    mutated. Error paths are unchanged: OSError propagates from stat/read as
-    it did from read_text, and a JSONDecodeError is cached and re-raised so
-    each caller's ``except`` still fires.
+    Pulled runs are append-only; a rewrite moves ``st_ctime_ns`` (which
+    ``os.utime`` cannot set back) or the inode, so a file parses again even
+    when size and mtime are restored. The stat is taken before and after the
+    read; if the two disagree the value is returned fresh and never cached,
+    so a mid-read writer cannot plant a stale entry. The cached object is
+    shared by every consumer and must not be mutated. Error paths are
+    unchanged: OSError propagates from stat/read as it did from read_text,
+    and a JSONDecodeError is cached and re-raised so each caller's ``except``
+    still fires.
 
-    The path's resolved spelling is memoised too — ``Path.resolve`` walks and
-    lstats every component on each call, which on the hot reader cost more
-    than the parse it replaced.
+    The key's spelling is ``os.path.abspath`` — a string operation with no
+    lstat walk, which on the hot reader cost more than the parse it
+    replaced. The device and inode fields carry the file's identity: a
+    symlink retarget or a rename replacement reads as a different file.
 
     ``keep``/``drop`` slim the memoised dict to what the caller's consumers
     read; the spec is part of the cache key, so the slim entry and the full
@@ -392,13 +396,12 @@ def _read_json(path: Path, *, keep=None, drop=None):
         spec = ('drop', frozenset(drop))
     else:
         spec = None
-    spelling = str(path)
-    resolved = _RESOLVE_CACHE.get(spelling)
-    if resolved is None:
-        resolved = str(path.resolve())
-        _RESOLVE_CACHE[spelling] = resolved
-    stat = path.stat()
-    key = (resolved, stat.st_mtime_ns, stat.st_size, spec)
+    before = path.stat()
+    stamp = (
+        before.st_dev, before.st_ino, before.st_size,
+        before.st_mtime_ns, before.st_ctime_ns,
+    )
+    key = (os.path.abspath(str(path)),) + stamp + (spec,)
     try:
         value = _JSON_CACHE[key]
     except KeyError:
@@ -411,7 +414,15 @@ def _read_json(path: Path, *, keep=None, drop=None):
                 value = {k: v for k, v in value.items() if k in spec[1]}
             else:
                 value = {k: v for k, v in value.items() if k not in spec[1]}
-        _JSON_CACHE[key] = value
+        try:
+            after = path.stat()
+        except OSError:
+            after = None
+        if after is not None and (
+            after.st_dev, after.st_ino, after.st_size,
+            after.st_mtime_ns, after.st_ctime_ns,
+        ) == stamp:
+            _JSON_CACHE[key] = value
     if isinstance(value, json.JSONDecodeError):
         raise value
     return value

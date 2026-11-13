@@ -384,3 +384,95 @@ def test_create_inside_the_glob_reaches_facts(tmp_path):
     )
     assert cached_facts == fresh_facts
     assert cached_asks < fresh_asks, 'the memoised reader must still glob less'
+
+
+@pytest.mark.parametrize('first_spec', ['full', 'slim'])
+def test_same_size_same_mtime_rewrite_is_reparsed(tmp_path, first_spec):
+    """A rewrite that keeps size and restores ``st_mtime_ns`` still moves
+    ctime and the inode's clock: both specs of the same file must agree on
+    the new document, whichever was cached first."""
+    path = tmp_path / 'row.json'
+    text1 = json.dumps({'run_id': 'r1', 'samples': [1], 'n': 1})
+    text2 = json.dumps({'run_id': 'r9', 'samples': [2], 'n': 2})
+    assert len(text1) == len(text2)
+    path.write_text(text1)
+    before = path.stat()
+    if first_spec == 'slim':
+        assert _read_json(path, drop={'samples'}) == {'run_id': 'r1', 'n': 1}
+    else:
+        assert _read_json(path)['n'] == 1
+    path.write_text(text2)
+    os.utime(path, ns=(before.st_atime_ns, before.st_mtime_ns))
+    full = _read_json(path)
+    slim = _read_json(path, drop={'samples'})
+    assert full == {'run_id': 'r9', 'samples': [2], 'n': 2}
+    assert slim == {'run_id': 'r9', 'n': 2}
+
+
+def test_rewrite_between_stat_and_read_is_not_cached(tmp_path):
+    """A body swapped between the pre-read stat and the read is returned
+    fresh but never stored: the post-read stat disagrees."""
+    path = tmp_path / 'race.json'
+    text1 = json.dumps({'n': 1})
+    text2 = json.dumps({'n': 2})
+    path.write_text(text1)
+    original = path.stat()
+    real_stat = Path.stat
+    state = {}
+
+    def racing(self, *args, **kwargs):
+        st = real_stat(self, *args, **kwargs)
+        if self == path and 'swapped' not in state:
+            state['swapped'] = True
+            path.write_text(text2)
+            os.utime(path, ns=(st.st_atime_ns, st.st_mtime_ns))
+        return st
+
+    with patch.object(Path, 'stat', racing), _parse_log() as parses:
+        assert _read_json(path) == {'n': 2}
+        assert _read_json(path) == {'n': 2}
+        path.write_text(text1)
+        os.utime(path, ns=(original.st_atime_ns, original.st_mtime_ns))
+        assert _read_json(path) == {'n': 1}
+        assert _read_json(path) == {'n': 1}
+    assert len(parses) == 3, 'the raced value must not be served from cache'
+
+
+def test_symlink_retarget_is_reparsed(tmp_path):
+    """``link.json`` repointed at a different file with the same mtime and
+    size is a new entry: the inode in the stat key does not match."""
+    target_a = tmp_path / 'a.json'
+    target_b = tmp_path / 'b.json'
+    target_a.write_text(json.dumps({'n': 1}))
+    target_b.write_text(json.dumps({'n': 2}))
+    stamp = target_a.stat()
+    os.utime(target_b, ns=(stamp.st_atime_ns, stamp.st_mtime_ns))
+    link = tmp_path / 'link.json'
+    os.symlink(target_a, link)
+    with _parse_log() as parses:
+        assert _read_json(link) == {'n': 1}
+        link.unlink()
+        os.symlink(target_b, link)
+        assert _read_json(link) == {'n': 2}
+        assert _read_json(link) == {'n': 2}
+    assert len(parses) == 2
+
+
+def test_relative_spelling_after_chdir_is_reparsed(tmp_path, monkeypatch):
+    """The same relative name after ``chdir`` is a different file, keyed by
+    where it resolves now — not by the spelling first seen."""
+    one = tmp_path / 'one'
+    two = tmp_path / 'two'
+    one.mkdir()
+    two.mkdir()
+    (one / 'row.json').write_text(json.dumps({'n': 1}))
+    (two / 'row.json').write_text(json.dumps({'n': 2}))
+    stamp = (one / 'row.json').stat()
+    os.utime(two / 'row.json', ns=(stamp.st_atime_ns, stamp.st_mtime_ns))
+    monkeypatch.chdir(one)
+    with _parse_log() as parses:
+        assert _read_json(Path('row.json')) == {'n': 1}
+        monkeypatch.chdir(two)
+        assert _read_json(Path('row.json')) == {'n': 2}
+        assert _read_json(Path('row.json')) == {'n': 2}
+    assert len(parses) == 2
