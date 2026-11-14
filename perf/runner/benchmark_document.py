@@ -1383,6 +1383,17 @@ def _probe_timeout_ms(target: dict) -> int:
     return DEFAULT_LOAD_TIMEOUT_MS
 
 
+def _workload_timeout_ms(workload_id) -> int | None:
+    """The load timeout the probe must wait for this workload (None: the target's default).
+
+    ``BROWSER_TARGETS`` entries carry no workload id, so without this the C11,
+    C12 and C15 probes waited the 300 s default while their trials recorded the
+    workload's timeout (Report E2, 2026-11-14: Plate prose-250kw).
+    """
+    from perf.runner.load_timeouts import load_timeout_ms
+    return load_timeout_ms(workload_id) if workload_id else None
+
+
 def _probe_cmd(*, mode: str, target: dict, cfg: dict, corpus_path: Path, extra: list, editor_id: str = "",
                timeout_ms: int | None = None) -> list:
     from perf.runner.browser_hosts import select_fixture
@@ -1545,16 +1556,24 @@ def _run_probe(cmd: list, *, editor_id: str, env: dict | None = None) -> dict:
 
 _PAGE_LOST_REASONS = (
     "target closed", "page crashed", "browser has been closed", "browser closed",
-    "crash", "detached", "sigsegv", "sigill", "sigtrap", "timeout", "timed out",
+    "crash", "detached", "sigsegv", "sigill", "sigtrap",
 )
+
+# A wait that ran out is the editor not becoming ready in time, not a crash
+# (#128's editor_timeout family). Plate's prose-250kw C11/C12 waits were
+# labelled editor_crash (2026-11-14).
+_TIMEOUT_REASONS = ("timeout", "timed out")
 
 
 def _probe_error_refusal_code(payload: dict) -> str:
-    """``editor_crash`` when the page/browser was lost; ``harness_error`` for our own failure."""
+    """``editor_crash`` when the page/browser was lost; ``editor_timeout`` when a wait
+    ran out; ``harness_error`` for our own failure."""
     if payload.get("status") == "probe_error":
         reason = str(payload.get("reason") or "").lower()
         if any(token in reason for token in _PAGE_LOST_REASONS):
             return "editor_crash"
+        if any(token in reason for token in _TIMEOUT_REASONS):
+            return "editor_timeout"
     return "harness_error"
 
 
@@ -1959,7 +1978,8 @@ def expected_body_path_for(corpus_path: Path, content_meta: dict) -> Path | None
     return body_path
 
 
-def _run_load_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path: Path, count: int) -> tuple:
+def _run_load_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path: Path, count: int,
+                      workload_id: str | None = None) -> tuple:
     """C11: fresh browser, corpus content check, then document-frame timing."""
     expected = corpus_opening_text(fixture_path)
     if Path(fixture_path).is_file():
@@ -1982,6 +2002,7 @@ def _run_load_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path: 
         cfg=cfg,
         corpus_path=fixture_path,
         extra=extra,
+        timeout_ms=_workload_timeout_ms(workload_id),
     )
     cmd.extend(["--editor", editor_id])
     # r3lanes4 ruling 5b: hand the probe the fixture body the way the input
@@ -2050,7 +2071,8 @@ def _run_load_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path: 
     return samples, diagnostics
 
 
-def _run_reflow_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path: Path, count: int) -> tuple:
+def _run_reflow_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path: Path, count: int,
+                        workload_id: str | None = None) -> tuple:
     cmd = _probe_cmd(
         mode="reflow",
         target=target,
@@ -2058,6 +2080,7 @@ def _run_reflow_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path
         corpus_path=fixture_path,
         extra=["--settle-ms", str(SETTLE_MS), *_c12_fixture_text_args(fixture_path)],
         editor_id=editor_id,
+        timeout_ms=_workload_timeout_ms(workload_id),
     )
     cmd.extend(["--editor", editor_id])
     samples = []
@@ -2166,7 +2189,7 @@ def _run_scale_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path:
     return samples, diagnostics
 
 
-def _run_find(*, editor_id: str, target: dict, cfg: dict, fixture_path: Path) -> dict:
+def _run_find(*, editor_id: str, target: dict, cfg: dict, fixture_path: Path, workload_id: str | None = None) -> dict:
     if not cfg.get("find_input_selector"):
         return {
             "status": "not_applicable",
@@ -2189,6 +2212,7 @@ def _run_find(*, editor_id: str, target: dict, cfg: dict, fixture_path: Path) ->
             "--find-query",
             cfg.get("find_query", ""),
         ],
+        timeout_ms=_workload_timeout_ms(workload_id),
     )
     cmd.extend(["--editor", editor_id])
     if cfg.get("find_expected_matches") is not None:
@@ -2196,7 +2220,8 @@ def _run_find(*, editor_id: str, target: dict, cfg: dict, fixture_path: Path) ->
     return _run_probe(cmd, editor_id=editor_id)
 
 
-def _run_find_payloads(*, editor_id: str, target: dict, cfg: dict, fixture_path: Path, count: int) -> list:
+def _run_find_payloads(*, editor_id: str, target: dict, cfg: dict, fixture_path: Path, count: int,
+                       workload_id: str | None = None) -> list:
     """Enough event completions for C15_MIN_N, clamped to the fresh-process budget.
 
     A host with no find widget is asked once. Payloads are not duplicated to
@@ -2207,7 +2232,8 @@ def _run_find_payloads(*, editor_id: str, target: dict, cfg: dict, fixture_path:
             _in_sample_bracket(
                 editor_id,
                 "C15",
-                lambda: _run_find(editor_id=editor_id, target=target, cfg=cfg, fixture_path=fixture_path),
+                lambda: _run_find(editor_id=editor_id, target=target, cfg=cfg, fixture_path=fixture_path,
+                          workload_id=workload_id),
             )
         ]
     limit = sample_budget_for_profile(execution_profile(EXECUTION_PROFILE), "fresh_process")
@@ -2219,7 +2245,8 @@ def _run_find_payloads(*, editor_id: str, target: dict, cfg: dict, fixture_path:
         payload = _in_sample_bracket(
             editor_id,
             "C15",
-            lambda: _run_find(editor_id=editor_id, target=target, cfg=cfg, fixture_path=fixture_path),
+            lambda: _run_find(editor_id=editor_id, target=target, cfg=cfg, fixture_path=fixture_path,
+                          workload_id=workload_id),
         )
         payloads.append(payload)
         if payload.get("status") == "not_applicable":
@@ -2413,6 +2440,7 @@ def _main() -> int:
                             cfg=cfg,
                             fixture_path=fixture["path"],
                             count=args.samples,
+                            workload_id=specs["C11"]["workload"],
                         )
                     except ProbeRefusal as refusal:
                         refusal_code = getattr(refusal, "refusal_code", None)
@@ -2512,6 +2540,7 @@ def _main() -> int:
                             cfg=cfg,
                             fixture_path=fixture["path"],
                             count=args.samples,
+                            workload_id=specs["C12"]["workload"],
                         )
                     except ProbeRefusal as refusal:
                         c12_outcome = getattr(refusal, "outcome", "failed") or "failed"
@@ -2766,6 +2795,7 @@ def _main() -> int:
                             cfg=cfg,
                             fixture_path=fixture["path"],
                             count=args.samples,
+                            workload_id=specs["C15"]["workload"],
                         )
                         cell = c15_samples_from_payloads(payloads)
                     except ProbeRefusal as refusal:

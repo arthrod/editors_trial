@@ -571,3 +571,47 @@ def test_an_extension_round_needs_its_harness_commit(tmp_path):
     manifest = extension_manifest()
     del manifest["harness"]["extension"]
     assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+
+
+# A workload-scoped editor round (#190) -------------------------------------------------------------
+# The document lane waited 300 s, not 600 s, for prose-250kw loads: only the
+# editor's jobs of that workload are measured again.
+
+def _fixtures(path, *workloads):
+    summary = json.loads((path / "summary.json").read_text())
+    summary["fixtures"] = [f"/app/out/{path.name}/fixtures/{w}-0123456789abcdef.docx" for w in workloads]
+    (path / "summary.json").write_text(json.dumps(summary))
+
+
+def workload_round(tmp_path, *, old_12):
+    import shutil
+    data, kept, third, canvas = editor_round_data(tmp_path)
+    shutil.rmtree(canvas[1])  # the round measured job 4 only
+    _fixtures(kept, "prose-250kw", "micro-search", "micro-search")
+    _fixtures(third, *old_12)
+    manifest = editor_round_manifest()
+    manifest["editor_superseded"]["issues"]["185"].update(jobs=[4], workload="prose-250kw")
+    manifest["editor_rerun"]["space-b"][0]["jobs"] = [4]
+    return data, manifest
+
+
+def test_a_workload_round_supersedes_only_that_workloads_jobs(tmp_path):
+    data, manifest = workload_round(tmp_path, old_12=("prose-5kw", "micro-search"))
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) == 0
+
+
+def test_a_workload_round_that_leaves_a_job_of_its_workload_is_refused(tmp_path):
+    data, manifest = workload_round(tmp_path, old_12=("prose-250kw", "micro-search"))
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+
+
+def test_a_workload_round_counts_a_c14_job_as_another_workload(tmp_path):
+    # A C14 job loads every rung; its prose-250kw rung is not the document lane's C11/C12 workload.
+    rungs = ("prose-500w", "prose-5kw", "prose-50kw", "prose-250kw", "complex-corpus")
+    data, manifest = workload_round(tmp_path, old_12=rungs)
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) == 0
+
+
+def test_a_workload_round_with_an_unreadable_old_job_is_refused(tmp_path):
+    data, manifest = workload_round(tmp_path, old_12=())
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0

@@ -111,6 +111,31 @@ def _scheduled_editors(summary: dict) -> set[str]:
     return {pair[1] for pair in summary.get("order") or [] if isinstance(pair, (list, tuple)) and len(pair) == 2}
 
 
+def _editor_round_scope(issues: dict) -> dict:
+    """Per editor, the workloads its rounds were scoped to (#190); None when a round covers every job."""
+    scope: dict = {}
+    for issue in issues.values():
+        editor, workload = issue["editor"], issue.get("workload")
+        if workload is None or (editor in scope and scope[editor] is None):
+            scope[editor] = None
+        else:
+            scope.setdefault(editor, set()).add(workload)
+    return scope
+
+
+def _job_workload(summary: dict):
+    """The C11/C12 workload a document job loaded, from its fixture names.
+
+    C15's micro-search fixtures ride along in every document job; a C14 job
+    loads several rungs and so names no single workload.
+    """
+    fixtures = summary.get("fixtures") or []
+    if not fixtures:
+        return None
+    names = {Path(str(f)).name.rsplit("-", 1)[0] for f in fixtures} - {"micro-search"}
+    return next(iter(names)) if len(names) == 1 else "(several: %s)" % ", ".join(sorted(names))
+
+
 def _check_editor_round_data(roots_dir: Path, manifest: dict, errors: list[str]) -> None:
     """Read the linked jobs themselves (glm-5.3 review of 31805ef7, findings 4-7).
 
@@ -146,15 +171,27 @@ def _check_editor_round_data(roots_dir: Path, manifest: dict, errors: list[str])
                     new.append((run_id, int(tail), job))
                 else:
                     old.setdefault(int(tail), []).append(job)
+    scope = _editor_round_scope(issues)
     for editor, jobs in sorted(wanted.items()):
         for index, paths in sorted(old.items()):
             if index in jobs:
                 continue
             for path in paths:
                 summary = _summary_of(path)
-                if summary is not None and editor in _scheduled_editors(summary):
-                    errors.append(f"job {path.name} measured {editor} and is not superseded: an editor round "
-                                  f"must supersede all of {editor}'s {', '.join(EDITOR_ROUND_LANES)} jobs")
+                if summary is None or editor not in _scheduled_editors(summary):
+                    continue
+                workloads = scope.get(editor)
+                if workloads is not None:
+                    workload = _job_workload(summary)
+                    if workload is None:
+                        errors.append(f"job {path.name} measured {editor} and records no fixtures: the "
+                                      f"workload-scoped round cannot tell whether it measured {sorted(workloads)}")
+                    elif workload in workloads:
+                        errors.append(f"job {path.name} measured {editor} on {workload} and is not superseded: "
+                                      f"the round must supersede all of {editor}'s {workload} jobs")
+                    continue
+                errors.append(f"job {path.name} measured {editor} and is not superseded: an editor round "
+                              f"must supersede all of {editor}'s {', '.join(EDITOR_ROUND_LANES)} jobs")
     for run_id, index, path in new:
         summary = _summary_of(path)
         if summary is None:

@@ -64,7 +64,8 @@ def test_b3_probe_death_family(monkeypatch, rc, code):
 def test_b3_probe_error_family_split(monkeypatch):
     for reason, code in [
         ('Target closed', 'editor_crash'),
-        ('page.goto: Timeout 120000ms exceeded', 'editor_crash'),
+        # #190: a wait that ran out is #128's editor_timeout family, not a crash.
+        ('page.goto: Timeout 120000ms exceeded', 'editor_timeout'),
         ('AssertionError: no selector matches', 'harness_error'),
     ]:
         monkeypatch.setattr(subprocess, 'run', lambda *a, **k: _proc(
