@@ -67,6 +67,7 @@ import {
 } from './witness.mjs';
 import { normalizeDocumentText } from './document_text_normalize.mjs';
 import { openingContentVerdict } from './perf_model_text.mjs';
+import { bindModelSurfaceClock } from './surface_clock.mjs';
 import { hasDocumentTextSurface, readAndGateDocumentText } from './edit_surface.mjs';
 import { startChromeTrace, stopChromeTrace } from './chrome_trace.mjs';
 import {
@@ -449,6 +450,9 @@ async function routeCorpus(context) {
   });
 }
 
+// page -> performance.now() when its ready condition held (C11's model-host fallback).
+const readyPageClock = new WeakMap();
+
 async function waitForReady(page) {
   const t0 = Date.now();
   const deadline = t0 + timeoutMs;
@@ -484,6 +488,9 @@ async function waitForReady(page) {
   } else if (readySelector) {
     await page.waitForSelector(readySelector, { timeout: timeoutMs, state: 'visible' });
   }
+  // The ready instant on the page clock, before wait_after_ready: the
+  // duration returned below is on another clock (review D, docen C11).
+  readyPageClock.set(page, await page.evaluate(() => performance.now()).catch(() => null));
   if (waitAfterReadyMs > 0 && Date.now() < deadline) {
     await page.waitForTimeout(waitAfterReadyMs);
   }
@@ -1164,9 +1171,8 @@ async function loadResult(ctx, { navigationMs, readyMs, surface, witness, surfac
   if (contentVerified && snap.model_oracle === 'perf_model') {
     const inkAt =
       surface && surface.at_ms !== null && surface.at_ms !== undefined ? surface.at_ms : null;
-  const fallback = snap.first_element_ms ?? readyMs;
-    const candidates = [at, inkAt, fallback].filter((value) => typeof value === 'number');
-    if (candidates.length) at = Math.max(...candidates);
+    const readyPageMs = readyPageClock.get(ctx.page) ?? null;
+    at = bindModelSurfaceClock({ at, inkAt, firstElementMs: snap.first_element_ms ?? null, readyPageMs });
   }
   // Screencast ink may miss a stamp while the model gate already passed; witness then.
   if (at !== null && facts.presented_frame_ms === null && ctx.recorder && ctx.cdp) {
