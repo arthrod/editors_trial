@@ -107,6 +107,8 @@ class Ladder(unittest.TestCase):
                 "prose-50kw",
                 "prose-250kw",
                 "complex-corpus",
+                # #188: the 500,000-word rung, appended after the campaign ladder.
+                "prose-500kw",
             ],
         )
         self.assertEqual(len(set(ids)), len(ids))

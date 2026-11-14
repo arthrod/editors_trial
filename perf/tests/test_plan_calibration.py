@@ -47,6 +47,9 @@ def _cases():
     """Real publication jobs, plus repetition counts the layout never emits."""
     for blocks in (None, 1, 2, 10):
         for name, options in policy.publication_jobs(EDITORS, 1, 2, 'shared_guarded', blocks=blocks):
+            if 'prose-500kw' in options:
+                # #188's 500k jobs: ccedf968 has no such rung; test_188 prices them.
+                continue
             for shakedown in (None, 1, 2):
                 yield name, options, shakedown
     for name, flag in policy.SHAKEDOWN_COUNT_FLAG.items():
@@ -99,7 +102,9 @@ def test_calibration_names_the_campaign_thirty():
     from perf.runner.browser_run import TYPING_PUBLICATION_SESSIONS
     assert plan._TYPING / TYPING_PUBLICATION_SESSIONS == pytest.approx(historical._TYPING / 12)
     assert plan._BUILD == historical._BUILD
-    assert plan._RUNG == historical._RUNG
+    # #188 adds one rung; every campaign rung keeps its calibration.
+    assert {k: v for k, v in plan._RUNG.items() if k != 'prose-500kw'} == historical._RUNG
+    assert set(plan._RUNG) - set(historical._RUNG) == {'prose-500kw'}
 
 
 def test_non_typing_per_repetition_matches_ccedf968():
