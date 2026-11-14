@@ -34,3 +34,12 @@ def test_a_sequence_cursor_sees_frames_after_the_cap():
 
 def test_the_clock_anchor_is_found_after_1200_frames():
     assert _run()['anchor_found'] is True
+
+
+def test_a_frame_decoded_after_it_was_dropped_is_not_cached():
+    """GLM review of #202: the cap evicts a frame's cached bitmap when it drops the frame; a decode
+    that lands after the drop must not cache, or the bitmap stays for the whole session."""
+    out = _run()
+    assert out['dropped_decode_returned'] is True
+    assert out['dropped_decode_cached'] is False
+    assert out['live_decode_cached'] is True

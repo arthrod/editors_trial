@@ -66,6 +66,7 @@ import {
   stopRecorder,
   WEBGL_UNMASK_FLAG,
   witnessFrame,
+  rememberDecoded,
 } from './witness.mjs';
 import { normalizeDocumentText } from './document_text_normalize.mjs';
 import { openingContentVerdict } from './perf_model_text.mjs';
@@ -239,8 +240,7 @@ function decodeRecorderFrame(recorder, frame) {
   } catch {
     decoded = null;
   }
-  recorder.decoded.set(frame.seq, decoded);
-  return decoded;
+  return rememberDecoded(recorder, frame, decoded);
 }
 
 async function resolveInkRegionDevice(page, frameDecoded) {

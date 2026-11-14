@@ -90,4 +90,19 @@ const out = {};
   const anchor = witness.anchorFrame ? await witness.anchorFrame(page, recorder, clock, { waitMs: 600 }) : null;
   out.anchor_found = Boolean(anchor && anchor.frame);
 }
+// 4. A frame decoded after the cap dropped it is not cached: nothing would ever evict it (GLM review of #202).
+{
+  const cdp = fakeCdp();
+  const recorder = getRecorder(cdp, { manageScreencast: false });
+  const white = png(false);
+  cdp.emit(white);
+  const early = recorder.frames[0];
+  for (let i = 0; i < 1300; i++) cdp.emit(white);
+  const decoded = witness.decodeFrame ? witness.decodeFrame(recorder, early) : null;
+  out.dropped_decode_returned = Boolean(decoded && decoded.width === 16);
+  out.dropped_decode_cached = witness.decodeFrame ? recorder.decoded.has(early.seq) : true;
+  const live = recorder.frames[recorder.frames.length - 1];
+  if (witness.decodeFrame) witness.decodeFrame(recorder, live);
+  out.live_decode_cached = recorder.decoded.has(live.seq);
+}
 process.stdout.write(JSON.stringify(out));

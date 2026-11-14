@@ -517,7 +517,7 @@ export const FRAME_CAP = 1200;
 
 /** The sequence number the next recorded frame will carry: a cursor that survives the cap (#202). */
 export function nextFrameSeq(recorder) {
-  return recorder.nextSeq ?? recorder.frames.length;
+  return recorder.nextSeq;
 }
 
 /**
@@ -578,7 +578,17 @@ export async function ensureScreencast(recorder) {
   return recorder;
 }
 
-function decodeFrame(recorder, frame) {
+/**
+ * Cache a decoded frame only while the recorder still holds it. The cap evicts a frame's entry when
+ * it drops the frame; an entry written after the drop would never be evicted (GLM review of #202).
+ */
+export function rememberDecoded(recorder, frame, decoded) {
+  const oldest = recorder.frames[0];
+  if (oldest && frame.seq >= oldest.seq) recorder.decoded.set(frame.seq, decoded);
+  return decoded;
+}
+
+export function decodeFrame(recorder, frame) {
   const cached = recorder.decoded.get(frame.seq);
   if (cached) return cached;
   let decoded = null;
@@ -587,8 +597,7 @@ function decodeFrame(recorder, frame) {
   } catch {
     decoded = null;
   }
-  recorder.decoded.set(frame.seq, decoded);
-  return decoded;
+  return rememberDecoded(recorder, frame, decoded);
 }
 
 // ---------------------------------------------------------------- page clock
