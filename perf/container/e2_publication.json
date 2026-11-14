@@ -5,7 +5,8 @@
   "rerun": "78249e7c",
   "rerun2": "c0015f83",
   "rerun3": "3ffb21a5",
-  "editor_rerun": "49b7e934"
+  "editor_rerun": "49b7e934",
+  "late_rerun": "653b9471"
  },
  "first_pass": {
   "e2-apryse": "20261112T183630601693Z-12164-085332",
@@ -119,5 +120,20 @@
  "editor_rerun": {
   "e2-publish-2": [{"run_id": "20261113T215437386950Z-16135-159150", "jobs": [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21], "editors": ["canvas"]}],
   "e2-publish-8": [{"run_id": "20261113T215259503520Z-15917-432966", "jobs": [90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101], "editors": ["canvas"]}]
+ },
+ "late_superseded": {
+  "issues": {
+   "192": {
+    "title": "C10 scrolled the complex document with Word's document protection on; the late round opens the unprotected copy",
+    "lane": "adversarial_c10_scroll",
+    "jobs": [40, 41, 120, 121]
+   }
+  }
+ },
+ "late_rerun": {
+  "e2-plate": [{"run_id": "20261114T032618211210Z-11786-306715", "jobs": [120]}],
+  "e2-publish-2": [{"run_id": "20261114T032545417723Z-11724-595857", "jobs": [40]}],
+  "e2-publish-8": [{"run_id": "20261114T032407386175Z-11534-623894", "jobs": [41]}],
+  "e2-superdoc": [{"run_id": "20261114T032441314750Z-11576-436923", "jobs": [121]}]
  }
 }
