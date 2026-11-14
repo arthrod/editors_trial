@@ -719,6 +719,9 @@ EDITOR_ROUND_REASONS = {
     "190": ("the %(jobs)d %(workload)s document jobs (C11 and C12, with C15 of the same jobs)",
             "after the document lane was found to wait 300 seconds for each load, reflow and find probe of that "
             "workload instead of its 600-second load timeout"),
+    "193": ("the %(jobs)d document jobs below the 500k rung (C11, with C12 and C15 of the same jobs)",
+            "after its C11 was found to compare its settled screen with its ready flag on two different clocks, "
+            "which refused every attempt"),
 }
 
 

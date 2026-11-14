@@ -1003,3 +1003,15 @@ def test_reruns_text_states_the_late_round():
     unsealed = E2.reruns_text({**campaign, 'late_rerun_kept': 3, 'late_rerun_unsealed': 1})
     assert '1 re-run job was not sealed' in unsealed
     assert '#192' not in E2.reruns_text({k: v for k, v in campaign.items() if not k.startswith('late_')})
+
+
+def test_reruns_text_states_docens_clock_round():
+    campaign = {'first_pass_superseded': 32, 'rerun_kept': 32, 'editor_rerun_kept': 20, 'editor_rerun_unsealed': 0,
+                'editor_superseded': {'docen': 20},
+                'editor_rounds': [{'issue': '193', 'editor': 'docen', 'jobs': 20, 'workload': None,
+                                   'workloads': ['prose-500w', 'prose-5kw', 'prose-50kw', 'prose-250kw',
+                                                 'complex-corpus']}],
+                'missing_runs': []}
+    text = E2.reruns_text(campaign)
+    assert '#193' in text and 'two different clocks' in text
+    assert "Docen's cells of the 20 document jobs below the 500k rung" in text

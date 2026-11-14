@@ -149,14 +149,15 @@ def _scheduled_editors(summary: dict) -> set[str]:
 
 
 def _editor_round_scope(issues: dict) -> dict:
-    """Per editor, the workloads its rounds were scoped to (#190); None when a round covers every job."""
+    """Per editor, the workloads its rounds were scoped to (#190, several for #193); None when a round covers every job."""
     scope: dict = {}
     for issue in issues.values():
-        editor, workload = issue["editor"], issue.get("workload")
-        if workload is None or (editor in scope and scope[editor] is None):
+        editor = issue["editor"]
+        workloads = issue.get("workloads") or ([issue["workload"]] if issue.get("workload") else None)
+        if workloads is None or (editor in scope and scope[editor] is None):
             scope[editor] = None
         else:
-            scope.setdefault(editor, set()).add(workload)
+            scope.setdefault(editor, set()).update(workloads)
     return scope
 
 
@@ -366,7 +367,8 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
         "late_rerun_unsealed": 0,
         "editor_superseded": {editor: len(jobs) for editor, jobs in sorted(editor_superseded(manifest).items())},
         "editor_rounds": [
-            {"issue": number, "editor": issue["editor"], "jobs": len(issue["jobs"]), "workload": issue.get("workload")}
+            {"issue": number, "editor": issue["editor"], "jobs": len(issue["jobs"]),
+             "workload": issue.get("workload"), "workloads": issue.get("workloads")}
             for number, issue in sorted(manifest.get("editor_superseded", {}).get("issues", {}).items())],
         "missing_runs": [],
     }

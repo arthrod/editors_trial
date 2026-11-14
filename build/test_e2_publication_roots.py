@@ -691,3 +691,14 @@ def test_a_late_round_run_listed_elsewhere_is_an_error(tmp_path):
     manifest = late_manifest()
     manifest["rerun"]["space-b"] = [{"run_id": RID_LATE, "jobs": [50]}]
     assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+
+
+def test_a_round_may_name_several_workloads(tmp_path):
+    # #193: Docen's C11 is re-measured on every document workload, never on the C14 rung jobs.
+    data, manifest = workload_round(tmp_path, old_12=("prose-5kw", "micro-search"))
+    issue = manifest["editor_superseded"]["issues"]["185"]
+    del issue["workload"]
+    issue["workloads"] = ["prose-250kw", "prose-50kw"]
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) == 0
+    issue["workloads"] = ["prose-250kw", "prose-5kw"]  # old job 12 (prose-5kw) is left: refused
+    assert run_roots(data, tmp_path / "roots2", write_manifest(tmp_path, manifest)) != 0
