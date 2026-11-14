@@ -1116,3 +1116,29 @@ def test_reruns_text_states_the_frame_cap_rounds():
             "once it held 1,200") in text
     assert "Then Docen's cells of the 8 jobs of the 500k rung (C11 and C14, with C12 and C15 of the same jobs)" in text
     assert text.count('(issue #202)') == 2
+
+
+def test_reruns_text_keeps_two_rounds_of_one_issue_apart_by_their_manifest_key():
+    """WordCraft's 500k rung has two rounds under #196: its document jobs (the C11 fix) and its C14 jobs,
+    measured again only so that one harness measures all of WordCraft's 500k cells. Same issue, lane,
+    workload and job count: each keeps its own sentence, and neither says the other's reason."""
+    common = {'issue': '196', 'editor': 'wordcraft', 'jobs': 4, 'lane': 'benchmark_document',
+              'workload': 'prose-500kw', 'extension': True}
+    rounds = [{**common, 'key': '196-extension'}, {**common, 'key': '196-c14'}]
+    text = E2.reruns_text({'first_pass_superseded': 32, 'rerun_kept': 32, 'editor_rounds': rounds})
+    assert text.count('(issue #196)') == 2
+    assert 'WordCraft and WordCraft' not in text
+    assert "Then WordCraft's cells of the 4 prose-500kw document jobs of the 500k rung (C11" in text
+    assert ("Then WordCraft's cells of the 4 prose-500kw C14 jobs of the 500k rung were measured again so that "
+            "one harness measures all of WordCraft's 500k cells; the #196 fix does not change C14") in text
+
+
+def test_reruns_text_still_joins_one_round_of_two_editors_when_keys_differ():
+    """#194's keys are "194" and "194-canvas": one reason, so one sentence."""
+    rounds = [{'issue': '194', 'key': '194', 'editor': 'docen', 'jobs': 4, 'lane': 'benchmark_memory',
+               'workload': 'prose-250kw', 'extension': False},
+              {'issue': '194', 'key': '194-canvas', 'editor': 'canvas', 'jobs': 4, 'lane': 'benchmark_memory',
+               'workload': 'prose-250kw', 'extension': False}]
+    text = E2.reruns_text({'first_pass_superseded': 32, 'rerun_kept': 32, 'editor_rounds': rounds})
+    assert text.count('(issue #194)') == 1
+    assert "Then Docen's and canvas-editor's cells" in text

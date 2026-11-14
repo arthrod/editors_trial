@@ -456,7 +456,8 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
         "editor_superseded": {editor: len(jobs) for editor, jobs in sorted(editor_superseded(manifest).items())},
         "editor_rounds": [
             # One issue may supersede several editors' cells: keys like "194-canvas" carry "issue": "194".
-            {"issue": str(issue.get("issue", number)), "editor": issue["editor"], "jobs": len(issue["jobs"]),
+            {"issue": str(issue.get("issue", number)), "key": number, "editor": issue["editor"],
+             "jobs": len(issue["jobs"]),
              "lane": issue.get("lane"), "workload": issue.get("workload"), "workloads": issue.get("workloads"),
              "extension": bool(issue.get("extension"))}
             for number, issue in sorted(manifest.get("editor_superseded", {}).get("issues", {}).items())],

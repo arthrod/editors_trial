@@ -737,6 +737,9 @@ EDITOR_ROUND_REASONS = {
                       "same jobs)",
                       "after its C11 content check was found never to read WordCraft's text through WordCraft's "
                       "own select all and copy; the 500k rung had run before that fix"),
+    "196-c14": ("the %(jobs)d %(workload)s C14 jobs of the 500k rung",
+                "so that one harness measures all of WordCraft's 500k cells; the #196 fix does not change C14, "
+                "which already read WordCraft's text through its own select all and copy"),
     "197": ("the %(jobs)d input jobs (C08 and C09, with C07 of the same jobs)",
             "after C08 and C09 were found to be skipped as not applicable because WordCraft shows no text in the "
             "page, although its own select all and copy reads the document before and after each edit"),
@@ -786,24 +789,30 @@ def reruns_text(campaign: dict | None) -> str:
     if rounds is None:  # report_e2_runs.json written before #190 names only the editor and its job count
         rounds = [{"issue": "185", "editor": editor, "jobs": jobs, "workload": None}
                   for editor, jobs in sorted((campaign.get("editor_superseded") or {}).items())]
-    # One round that measured several editors in the same runs (#194: Docen and canvas-editor) is one sentence.
+    def reason_key(entry: dict):
+        # The wording may be the manifest key's own (#196's C14 round), else differ by lane (#196: warm/cold
+        # and document) and for the 500k rung, else the issue's.
+        issue = str(entry["issue"])
+        keys = ([str(entry["key"])] if entry.get("key") else []) + (
+            [issue + "-extension"] if entry.get("extension") else []) + ["%s/%s" % (issue, entry.get("lane")), issue]
+        return next((k for k in keys if k in EDITOR_ROUND_REASONS), None)
+
+    # One round that measured several editors in the same runs (#194: Docen and canvas-editor) is one sentence;
+    # two rounds of one issue with different wording (#196 at 500k) never are.
     grouped: list[tuple[dict, list[str]]] = []
     for entry in rounds:
         name = {"canvas": "canvas-editor"}.get(entry["editor"], DISPLAY.get(entry["editor"], entry["editor"]))
         same = ("issue", "jobs", "lane", "workload", "extension")
-        if grouped and all(str(grouped[-1][0].get(k)) == str(entry.get(k)) for k in same):
+        if (grouped and all(str(grouped[-1][0].get(k)) == str(entry.get(k)) for k in same)
+                and reason_key(grouped[-1][0]) == reason_key(entry) and name not in grouped[-1][1]):
             grouped[-1][1].append(name)
         else:
             grouped.append((entry, [name]))
     for entry, names in grouped:
         both = " and ".join(names)
         owners = " and ".join(name + "'s" for name in names)
-        # The wording of one issue may differ by lane (#196: warm/cold and document) and for the 500k rung.
-        issue = str(entry["issue"])
-        keys = ([issue + "-extension"] if entry.get("extension") else []) + [
-            "%s/%s" % (issue, entry.get("lane")), issue]
-        cells, reason = next((EDITOR_ROUND_REASONS[k] for k in keys if k in EDITOR_ROUND_REASONS),
-                             ("%(jobs)d jobs", "after a harness defect was fixed"))
+        key = reason_key(entry)
+        cells, reason = EDITOR_ROUND_REASONS[key] if key else ("%(jobs)d jobs", "after a harness defect was fixed")
         text += (
             " Then %s cells of %s were measured again %s (issue #%s). Those runs measured %s alone, under the "
             "same job indices and seeds; the tables read them for %s, and the other editors of those jobs stay "
