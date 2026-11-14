@@ -778,9 +778,18 @@ def reruns_text(campaign: dict | None) -> str:
     if rounds is None:  # report_e2_runs.json written before #190 names only the editor and its job count
         rounds = [{"issue": "185", "editor": editor, "jobs": jobs, "workload": None}
                   for editor, jobs in sorted((campaign.get("editor_superseded") or {}).items())]
+    # One round that measured several editors in the same runs (#194: Docen and canvas-editor) is one sentence.
+    grouped: list[tuple[dict, list[str]]] = []
     for entry in rounds:
-        editor = entry["editor"]
-        name = {"canvas": "canvas-editor"}.get(editor, DISPLAY.get(editor, editor))
+        name = {"canvas": "canvas-editor"}.get(entry["editor"], DISPLAY.get(entry["editor"], entry["editor"]))
+        same = ("issue", "jobs", "lane", "workload", "extension")
+        if grouped and all(str(grouped[-1][0].get(k)) == str(entry.get(k)) for k in same):
+            grouped[-1][1].append(name)
+        else:
+            grouped.append((entry, [name]))
+    for entry, names in grouped:
+        both = " and ".join(names)
+        owners = " and ".join(name + "'s" for name in names)
         # The wording of one issue may differ by lane (#196: warm/cold and document) and for the 500k rung.
         issue = str(entry["issue"])
         keys = ([issue + "-extension"] if entry.get("extension") else []) + [
@@ -788,15 +797,15 @@ def reruns_text(campaign: dict | None) -> str:
         cells, reason = next((EDITOR_ROUND_REASONS[k] for k in keys if k in EDITOR_ROUND_REASONS),
                              ("%(jobs)d jobs", "after a harness defect was fixed"))
         text += (
-            " Then %s's cells of %s were measured again %s (issue #%s). Those runs measured %s alone, under the "
+            " Then %s cells of %s were measured again %s (issue #%s). Those runs measured %s alone, under the "
             "same job indices and seeds; the tables read them for %s, and the other editors of those jobs stay "
             "as measured."
-            % (name, cells % {"jobs": entry["jobs"], "workload": entry.get("workload")}, reason, entry["issue"],
-               name, name))
+            % (owners, cells % {"jobs": entry["jobs"], "workload": entry.get("workload")}, reason, entry["issue"],
+               both, both))
     late = campaign.get("late_superseded") or 0
     if late:
         text += (
-            " Last, the %d C10 jobs on the complex document were measured again for every editor after C10 was "
+            " In a late round, the %d C10 jobs on the complex document were measured again for every editor after C10 was "
             "found to load that document with its document protection, which GenOffice and eigenpal honour by "
             "opening it read-only, so C10 never started for them; it now loads the unprotected copy the editing "
             "criteria load (issue #192). The tables read the %d late-round jobs in their place."

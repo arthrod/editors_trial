@@ -1024,9 +1024,9 @@ def test_reruns_text_states_the_memory_round_for_each_editor():
                                   {'issue': '194', 'editor': 'canvas', 'jobs': 4, 'workload': 'prose-250kw'}],
                 'missing_runs': []}
     text = E2.reruns_text(campaign)
-    assert "Docen's cells of the 4 prose-250kw memory jobs (C17 and C19)" in text
-    assert "canvas-editor's cells of the 4 prose-250kw memory jobs (C17 and C19)" in text
-    assert text.count('(issue #194)') == 2
+    # The same runs measured both editors: one sentence, never "measured Docen alone" (review of the 14 Nov rounds).
+    assert "Docen's and canvas-editor's cells of the 4 prose-250kw memory jobs (C17 and C19)" in text
+    assert text.count('(issue #194)') == 1
 
 
 def test_reruns_text_tells_the_500k_part_of_a_round_apart():
@@ -1080,3 +1080,24 @@ def test_reruns_text_names_the_jobs_stopped_when_their_work_moved():
             'measured whole there, and the tables never read the stopped parts.') in text
     one = E2.reruns_text({**base, 'editor_rerun_stopped': 1})
     assert '1 editor-round job was stopped part-way' in one
+
+
+def test_reruns_text_names_one_round_that_measured_two_editors_once():
+    """#194's runs measured Docen and canvas-editor together; neither was measured "alone"."""
+    rounds = [{'issue': '194', 'editor': 'docen', 'jobs': 4, 'lane': 'benchmark_memory', 'workload': 'prose-250kw',
+               'extension': False},
+              {'issue': '194', 'editor': 'canvas', 'jobs': 4, 'lane': 'benchmark_memory', 'workload': 'prose-250kw',
+               'extension': False}]
+    text = E2.reruns_text({'first_pass_superseded': 32, 'rerun_kept': 32, 'editor_rounds': rounds})
+    assert text.count('(issue #194)') == 1
+    assert "Then Docen's and canvas-editor's cells of the 4 prose-250kw memory jobs" in text
+    assert 'Those runs measured Docen and canvas-editor alone' in text
+    assert 'the tables read them for Docen and canvas-editor' in text
+    assert 'measured Docen alone' not in text
+
+
+def test_reruns_text_places_the_late_round_without_calling_it_last():
+    text = E2.reruns_text({'first_pass_superseded': 32, 'rerun_kept': 32, 'late_superseded': 4,
+                           'late_rerun_kept': 4})
+    assert 'Last,' not in text
+    assert 'In a late round, the 4 C10 jobs on the complex document were measured again for every editor' in text
