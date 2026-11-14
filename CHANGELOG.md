@@ -118,8 +118,10 @@ changes.
 - A 500,000-word rung (`prose-500kw`, #188) on the load lanes only: C11,
   C12 and C15 in the document lane and C14's rung list, with a 1,000 s
   load timeout. Eight new jobs (160–167) appended after the campaign's
-  own, measured at one harness commit (`harness.extension`); the other
-  lanes are not measured at that size.
+  own: the four C14 jobs (162, 163, 166, 167) at harness `d697b98e`, the
+  four document jobs (160, 161, 164, 165) at `6885707b`, after the fixes
+  of #193 and #195 (`harness.extension` names both); the other lanes are
+  not measured at that size.
 - `reports/Report E - Speed, Opening and Saving a Document (2026).md` and
   its DOCX twin, rendered from `templates/` and `out/facts.json`;
   registered in `render_reports.TWINS` and `verify_deliverables.DELIVERABLES`
@@ -302,6 +304,21 @@ changes.
   a crash. WordCraft's cells of its warm and cold, document, input and C10
   jobs, and of its 500,000-word document jobs, were measured again by
   WordCraft-only runs.
+- WordCraft's warm and cold jobs end with exit status 3, "nothing
+  measured", although their C03 cells are measured (#199, not fixed in this
+  release). The run-level tally reads one row per launch, and WordCraft's
+  launch row is marked failed by its C05 and C06 bursts: WordCraft's
+  modified mark rises once and stays, so every keystroke after the first
+  reads `expected_edit_not_confirmed`. C05 and C06 do not apply to
+  WordCraft and are published as such. The tables read each criterion's
+  attempts, and the publication gates a job on its completion, not its exit
+  status, so no figure is affected.
+- Runs abandoned and left out of the publication, each stopped by us and
+  measured again at the fixed commit: the first 250,000-word Plate.js round
+  (#190; every C11 and C12 attempt cut by the 630 s watchdog of #195), and
+  the first run of the four 500,000-word document jobs (stopped for #193
+  and #195 while its C14 jobs went on). Their pulls stay in the run bucket;
+  neither is named in `perf/container/e2_publication.json`.
 - Two tests that failed for reasons outside the code they test (#182): the
   sub-frame witness test asserted a timing instead of the rule, and a
   persistence test read the state of `repos/`.
