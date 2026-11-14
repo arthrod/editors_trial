@@ -324,7 +324,11 @@ changes.
   it. A scan of every published probe record found no measured figure
   taken after the cap, so no published number was affected. Docen's cells
   of the eight 500,000-word jobs and canvas-editor's cells of the four
-  250,000-word input jobs were measured again with the fix.
+  250,000-word input jobs were measured again with the fix (commit
+  52ff8990). A later commit stops the harness from caching the decoded
+  bitmap of a frame the cap had already dropped (no splice would ever free
+  it); that cache lives in the harness's own process, not the browser, so
+  it touches no measured figure, and those runs were not repeated for it.
 - WordCraft's C07, C08 and C09 on the complex document are withheld as a
   limit of the harness (#200, not fixed in this release). Its first page
   holds three lines, and the scan that finds the document body took
