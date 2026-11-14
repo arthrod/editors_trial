@@ -53,3 +53,11 @@ def test_wordcraft_complex_criteria_without_click_points_stand(criterion):
 
 def test_the_code_is_in_the_closed_vocabulary():
     assert RefusalCode('click_points_on_editor_chrome').value == 'click_points_on_editor_chrome'
+
+
+def test_a_row_that_never_clicked_keeps_its_own_reason():
+    """GLM review of #200: a pre-#197 C08 row was skipped as not applicable and made no click;
+    it is not relabelled as a click on WordCraft's chrome."""
+    skipped = trial(criterion='C08', outcome='not_applicable', refusal_code='not_applicable',
+                    failure_reason='document_text_not_readable: editor exposes only a modified flag')
+    assert _trial_block(skipped) != 'click_points_on_editor_chrome'

@@ -358,7 +358,8 @@ HARNESS_WITHHELD = {
 def _trial_block(trial):
     withheld = HARNESS_WITHHELD.get(
         (trial.get('editor_id'), trial_workload(trial), trial.get('criterion_id')))
-    if withheld:
+    # Only a trial that clicked: one skipped as not applicable keeps its own reason (GLM review of #200).
+    if withheld and trial.get('outcome') != 'not_applicable':
         return withheld
     code = refusal_code(trial)
     if code:
