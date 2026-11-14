@@ -706,10 +706,12 @@ def _attempts(path, editor, *criteria):
             json.dumps({"criterion_id": cid, "editor_id": editor, "outcome": "measured"}))
 
 
-def criteria_round(tmp_path, *, old_12_criteria, round_criteria=("C14",)):
+def criteria_round(tmp_path, *, old_12_criteria, round_criteria=("C14",), round_measured=("C14",)):
     data, manifest = workload_round(tmp_path, old_12=("prose-250kw", "micro-search"))
     third = next(data.glob(f"space-a/runs/{RID_RERUN3}/benchmark_document/*-012"))
     _attempts(third, "canvas", *old_12_criteria)
+    round_job = next(data.glob(f"space-b/runs/{RID_CANVAS}/benchmark_document/*-004"))
+    _attempts(round_job, "canvas", *round_measured)
     manifest["editor_superseded"]["issues"]["185"]["criteria"] = list(round_criteria)
     return data, manifest
 
@@ -736,6 +738,77 @@ def test_a_round_without_criteria_on_the_same_workload_still_needs_every_job(tmp
     issues["186"] = dict(issues["185"], title="synthetic unscoped round")
     del issues["186"]["criteria"]
     assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+
+
+# Review of the criteria-scoped round (GLM, octo) ------------------------------------------------------
+
+def _cell_summary(path, editor, *criteria, cell="0000"):
+    cell_dir = path / "cells" / f"{cell}-{editor}"
+    cell_dir.mkdir(parents=True, exist_ok=True)
+    (cell_dir / "summary.json").write_text(json.dumps({"criteria": list(criteria)}))
+
+
+def _old_12(data):
+    return next(data.glob(f"space-a/runs/{RID_RERUN3}/benchmark_document/*-012"))
+
+
+def test_a_scheduled_criterion_whose_attempt_is_missing_still_counts(tmp_path):
+    """F1: C14 scheduled in the cell summary, its attempt never written: the job ran C14."""
+    data, manifest = criteria_round(tmp_path, old_12_criteria=("C11",))
+    _cell_summary(_old_12(data), "canvas", "C11", "C14")
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+
+
+def test_the_cell_summary_alone_is_evidence(tmp_path):
+    data, manifest = criteria_round(tmp_path, old_12_criteria=())
+    _cell_summary(_old_12(data), "canvas", "C11", "C12", "C15")
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) == 0
+
+
+def test_criterion_names_are_compared_without_case(tmp_path):
+    """F2: an attempt recording c14 ran C14."""
+    data, manifest = criteria_round(tmp_path, old_12_criteria=("C11", "c14"))
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+
+
+def test_criteria_must_be_a_list_of_criterion_ids(tmp_path):
+    """F3: "C14" as a string would read as {C, 1, 4}."""
+    for bad in ("C14", ["C14", ""], [14], ["X99"]):
+        data, manifest = criteria_round(tmp_path / str(len(str(bad))) / str(abs(hash(str(bad)))), old_12_criteria=("C11",))
+        manifest["editor_superseded"]["issues"]["185"]["criteria"] = bad
+        assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0, bad
+
+
+def test_another_editor_whose_name_ends_the_same_is_not_read(tmp_path):
+    """F4: cells/0000-flat-canvas is not canvas's cell."""
+    data, manifest = criteria_round(tmp_path, old_12_criteria=())
+    _attempts(_old_12(data), "flat-canvas", "C11")
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+
+
+def test_the_rounds_own_jobs_must_have_measured_its_criteria(tmp_path):
+    """F5: a C14 round whose job for the editor ran no C14 is refused."""
+    data, manifest = criteria_round(tmp_path, old_12_criteria=("C11",), round_measured=("C11",))
+    round_job = next(data.glob(f"space-b/runs/{RID_CANVAS}/benchmark_document/*-004"))
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+    _attempts(round_job, "canvas", "C14")
+    assert run_roots(data, tmp_path / "roots2", write_manifest(tmp_path, manifest)) == 0
+
+
+def test_two_scoped_rounds_on_one_workload_need_the_union(tmp_path):
+    """F6: rounds scoped to C14 and to C11: a job that ran C11 must be superseded."""
+    data, manifest = criteria_round(tmp_path, old_12_criteria=("C11",))
+    issues = manifest["editor_superseded"]["issues"]
+    issues["186"] = dict(issues["185"], title="synthetic C11 round", criteria=["C11"])
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+
+
+def test_a_job_kept_by_a_criteria_scope_is_reported(tmp_path, capsys):
+    """F7: the carve-out is never silent."""
+    data, manifest = criteria_round(tmp_path, old_12_criteria=("C11", "C12", "C15"))
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) == 0
+    out = capsys.readouterr()
+    assert "kept by the criteria scope" in out.out + out.err
 
 
 # A late round (#192) ---------------------------------------------------------------------------------

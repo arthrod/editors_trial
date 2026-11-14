@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -179,7 +180,7 @@ def _editor_round_scope(issues: dict) -> dict:
         # reaches them, since they were measured after the fixes of the rounds before them.
         key = (issue["editor"], issue["lane"], bool(issue.get("extension")))
         workloads = issue.get("workloads") or ([issue["workload"]] if issue.get("workload") else None)
-        criteria = set(issue["criteria"]) if issue.get("criteria") else None
+        criteria = {c.strip().upper() for c in issue["criteria"]} if issue.get("criteria") else None
         if workloads is None or (key in scope and scope[key] is None):
             scope[key] = None
             continue
@@ -194,16 +195,38 @@ def _editor_round_scope(issues: dict) -> dict:
     return scope
 
 
+_CRITERION_ID = re.compile(r"^C\d{2}$")
+
+
 def _job_criteria(job: Path, editor: str) -> set[str]:
-    """The criteria a job measured for one editor, read from that editor's attempts."""
-    found = set()
-    for attempt in sorted(job.glob(f"cells/*-{editor}/attempts/*.json")):
-        try:
-            cid = json.loads(attempt.read_text()).get("criterion_id")
-        except (OSError, json.JSONDecodeError):
+    """The criteria a job scheduled or measured for one editor (#203, GLM review).
+
+    Read from the editor's own cells only (``NNNN-<editor>``, never a name that merely ends
+    the same): each cell summary's scheduled ``criteria``, which names a criterion even when
+    its attempt was refused before it was written, plus every attempt's ``criterion_id``.
+    Names are compared upper-cased. More evidence only ever adds criteria, so a missing file
+    can make a job look as if it ran more, never less, than a summary says.
+    """
+    found: set[str] = set()
+    cell_name = re.compile(r"^\d{4}-" + re.escape(editor) + r"$")
+    cells = job / "cells"
+    for cell in sorted(cells.iterdir()) if cells.is_dir() else ():
+        if not cell.is_dir() or not cell_name.match(cell.name):
             continue
-        if isinstance(cid, str):
-            found.add(cid)
+        try:
+            scheduled = json.loads((cell / "summary.json").read_text()).get("criteria")
+        except (OSError, json.JSONDecodeError, AttributeError):
+            scheduled = None
+        for cid in scheduled if isinstance(scheduled, list) else ():
+            if isinstance(cid, str):
+                found.add(cid.strip().upper())
+        for attempt in sorted((cell / "attempts").glob("*.json")):
+            try:
+                cid = json.loads(attempt.read_text()).get("criterion_id")
+            except (OSError, json.JSONDecodeError, AttributeError):
+                continue
+            if isinstance(cid, str):
+                found.add(cid.strip().upper())
     return found
 
 
@@ -254,6 +277,12 @@ def _check_editor_round_data(roots_dir: Path, manifest: dict, errors: list[str])
         if not str(issue.get("issue", number)).isdigit():
             errors.append(f"editor_superseded issue {number}: {issue.get('issue', number)!r} is not an issue number; "
                           f"a key naming several rounds of one issue carries \"issue\"")
+        if "criteria" in issue:
+            ids = issue["criteria"]
+            if not (isinstance(ids, list) and ids and all(isinstance(c, str) and _CRITERION_ID.match(c) for c in ids)):
+                errors.append(f"editor_superseded issue {number}: criteria {ids!r} is not a list of criterion "
+                              f"ids such as [\"C14\"]")
+                return
         if "workloads" in issue:
             names = issue["workloads"]
             if not (isinstance(names, list) and names and all(isinstance(n, str) and n for n in names)):
@@ -301,7 +330,10 @@ def _check_editor_round_data(roots_dir: Path, manifest: dict, errors: list[str])
                         criteria = workloads[workload]
                         measured = _job_criteria(path, editor) if criteria is not None else set()
                         if criteria is not None and measured and measured.isdisjoint(criteria):
-                            continue  # #203: the round re-measured criteria this job never ran
+                            # #203: the round re-measured criteria this job never ran. Never silent.
+                            print(f"note: job {path.name} kept by the criteria scope: it measured {editor} on "
+                                  f"{workload} for {sorted(measured)}, the round re-measured {sorted(criteria)}")
+                            continue
                         if criteria is not None and not measured:
                             errors.append(f"job {path.name} measured {editor} on {workload} and records no "
                                           f"criteria: the round scoped to {sorted(criteria)} cannot tell")
@@ -311,8 +343,20 @@ def _check_editor_round_data(roots_dir: Path, manifest: dict, errors: list[str])
                     continue
                 errors.append(f"job {path.name} measured {editor} and is not superseded: an editor round "
                               f"must supersede all of {editor}'s {round_lane} jobs")
+    issue_criteria: dict = {}
+    for issue in issues.values():
+        if issue.get("criteria"):
+            for index in issue["jobs"]:
+                issue_criteria.setdefault((issue["editor"], index), set()).update(
+                    c.strip().upper() for c in issue["criteria"])
     for run_id, index, path, lane in new:
         for editor in sorted(new_runs[run_id]):
+            claimed = issue_criteria.get((editor, index))
+            if claimed:
+                missing = sorted(claimed - _job_criteria(path, editor))
+                if missing:
+                    errors.append(f"editor-round job {path.name} re-measures {editor} for {sorted(claimed)} "
+                                  f"but its cells record no {missing}")
             wanted_lane = issue_lane.get((editor, index))
             if wanted_lane is not None and wanted_lane != lane:
                 errors.append(f"editor-round job {path.name} is in lane {lane}; its issue supersedes {editor}'s "
