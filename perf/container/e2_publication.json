@@ -114,12 +114,23 @@
     "lane": "benchmark_document",
     "editor": "canvas",
     "jobs": [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101]
+   },
+   "193": {
+    "title": "Docen's surface clock mixed a ready duration with page-clock frames; C11 refused at every size",
+    "lane": "benchmark_document",
+    "editor": "docen",
+    "workloads": ["prose-500w", "prose-5kw", "prose-50kw", "prose-250kw", "complex-corpus"],
+    "jobs": [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99]
    }
   }
  },
  "editor_rerun": {
   "e2-publish-2": [{"run_id": "20261113T215437386950Z-16135-159150", "jobs": [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21], "editors": ["canvas"]}],
-  "e2-publish-8": [{"run_id": "20261113T215259503520Z-15917-432966", "jobs": [90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101], "editors": ["canvas"]}]
+  "e2-publish-8": [{"run_id": "20261113T215259503520Z-15917-432966", "jobs": [90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101], "editors": ["canvas"]}],
+  "e2-genoffice": [{"run_id": "20261114T033042810724Z-11577-242164", "jobs": [10, 11, 12, 13, 14], "editors": ["docen"], "harness": "1e1393b9"}],
+  "e2-fidus": [{"run_id": "20261114T033043921706Z-11580-419348", "jobs": [15, 16, 17, 18, 19], "editors": ["docen"], "harness": "1e1393b9"}],
+  "e2-wordcraft": [{"run_id": "20261114T033147754238Z-11751-975129", "jobs": [90, 91, 92, 93, 94], "editors": ["docen"], "harness": "1e1393b9"}],
+  "e2-folio": [{"run_id": "20261114T033149627556Z-11714-215703", "jobs": [95, 96, 97, 98, 99], "editors": ["docen"], "harness": "1e1393b9"}]
  },
  "late_superseded": {
   "issues": {

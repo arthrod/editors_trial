@@ -200,6 +200,30 @@ def test_the_committed_manifest_names_the_publish1_campaign():
     assert set(manifest["rerun3"]) <= set(first_pass)
 
 
+def test_the_committed_manifest_names_its_editor_and_late_rounds():
+    manifest = json.loads(MANIFEST_PATH.read_text())
+    issues = manifest["editor_superseded"]["issues"]
+    entries = [entry for space in manifest["editor_rerun"].values() for entry in space]
+    assert all(RUN_ID.match(entry["run_id"]) for entry in entries)
+    assert len({entry["run_id"] for entry in entries}) == len(entries)
+    # Each editor round is measured again exactly once per (editor, job), by runs naming only that editor.
+    for number, issue in issues.items():
+        editor = issue["editor"]
+        measured = sorted(job for entry in entries if editor in entry["editors"] for job in entry["jobs"]
+                          if job in issue["jobs"])
+        assert measured == sorted(issue["jobs"]), number
+    # #193: Docen's document jobs below the 500k rung, at the fixed surface clock (1e1393b9), C14 jobs untouched.
+    docen = issues["193"]
+    assert docen["editor"] == "docen" and docen["lane"] == "benchmark_document"
+    assert docen["jobs"] == [*range(10, 20), *range(90, 100)]
+    assert "prose-500kw" not in docen["workloads"]
+    assert {entry["harness"] for entry in entries if entry["editors"] == ["docen"]} == {"1e1393b9"}
+    # #192: the late round re-measures C10 on the complex document for every editor.
+    late = [entry for space in manifest["late_rerun"].values() for entry in space]
+    assert sorted(job for entry in late for job in entry["jobs"]) == [40, 41, 120, 121]
+    assert manifest["harness"]["late_rerun"] == "653b9471"
+
+
 def test_campaign_counts_become_perf_e2_facts(tmp_path):
     payload = {
         "campaign": {
