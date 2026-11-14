@@ -606,6 +606,32 @@ def _retention_series(roots: list[int], seconds) -> list[dict]:
     return series
 
 
+def _pair_deadline_s(probe_timeout_s: float, workload: str, retain_seconds) -> float:
+    """The wall clock one pair may take (#194).
+
+    A pair opens the document and reopens it (each up to the workload's load
+    timeout), types the burst (one more load timeout: Docen types about
+    8.7 s per keystroke at prose-250kw), then waits for quiescence, closes
+    and samples retention. The probe's own waits govern; this deadline only
+    stops a pair that outlives all of them.
+    """
+    from perf.runner.load_timeouts import load_timeout_ms
+
+    load_timeout_s = load_timeout_ms(workload) / 1000.0
+    retention_s = max((float(value) for value in retain_seconds or ()), default=0.0)
+    return max(probe_timeout_s, 3 * load_timeout_s + retention_s + 120.0)
+
+
+def _failed_pair(index: int, exc: BaseException, *, server_started: bool) -> dict:
+    """A pair that did not finish: its error, and the phases it reached before it stopped (#194)."""
+    family = "host_build" if not server_started else _pair_error_family(exc)
+    pair = {"index": index, "error": str(exc)[:800], "error_family": family}
+    reached = getattr(exc, "phases_reached", None)
+    if reached is not None:
+        pair["phases_reached"] = list(reached)
+    return pair
+
+
 def _run_browser_pair(
     *,
     target: dict,
@@ -617,13 +643,12 @@ def _run_browser_pair(
     editor_id: str = "",
     workload: str = "micro-paragraphs",
 ) -> dict:
-    from perf.runner.load_timeouts import load_timeout_env, load_timeout_ms
+    from perf.runner.load_timeouts import load_timeout_env
 
     # Lax layer (owner 2026-11-11): the probe may wait minutes for a big
-    # document to load; our own wall clock stays above that wait so the
-    # probe's ready timeout governs, never this deadline.
-    load_timeout_s = load_timeout_ms(workload) / 1000.0
-    probe_timeout_s = max(probe_timeout_s, load_timeout_s + 120.0)
+    # document to load; our own wall clock covers both loads and the burst
+    # so the probe's own waits govern (#194).
+    probe_timeout_s = _pair_deadline_s(probe_timeout_s, workload, retain_seconds)
     command = _probe_command(
         target,
         corpus_path,
@@ -658,7 +683,12 @@ def _run_browser_pair(
     }
     try:
         while True:
-            line = _read_probe_line(proc, deadline)
+            try:
+                line = _read_probe_line(proc, deadline)
+            except Exception as exc:
+                exc.phases_reached = [name for name in ("ready", "edited", "quiescent", "closed", "reopened")
+                                      if record.get(name) is not None]
+                raise
             if line.startswith("PHASE "):
                 _, name, payload = line.split(" ", 2)
                 details = json.loads(payload)
@@ -769,8 +799,7 @@ def _browser_rows(
             pair["index"] = index
             pairs.append(pair)
         except Exception as exc:  # noqa: BLE001 - the reason is the payload
-            family = "host_build" if server is None else _pair_error_family(exc)
-            pairs.append({"index": index, "error": str(exc)[:800], "error_family": family})
+            pairs.append(_failed_pair(index, exc, server_started=server is not None))
         finally:
             if server is not None:
                 _stop_server(server)
@@ -1012,7 +1041,12 @@ def _browser_rows(
 
 def _pair_diagnostic(pair: dict) -> dict:
     if pair.get("error"):
-        return {"index": pair.get("index"), "error": pair["error"]}
+        diagnostic = {"index": pair.get("index"), "error": pair["error"]}
+        if pair.get("phases_reached") is not None:
+            # Which stage ran out of time (#194): the last phase the probe announced.
+            diagnostic["phases_reached"] = pair["phases_reached"]
+            diagnostic["stalled_after"] = pair["phases_reached"][-1] if pair["phases_reached"] else "start"
+        return diagnostic
     diagnostic = {"index": pair.get("index"), "roots": pair.get("roots"), "probe": pair.get("result")}
     for phase in ("ready", "edited", "quiescent", "reopened"):
         entry = pair.get(phase)
