@@ -3213,13 +3213,16 @@ class WitnessIssue137Round6Tests(unittest.TestCase):
         )
 
         # an anchor needs a baseline frame before the change plus a frame
-        # after it: the producer keeps the baseline at `before - 1`, gives
-        # up without one, and searches only frames from `before` -- so no
+        # after it: the producer keeps the baseline as the last frame recorded
+        # before the change, gives up without one, and searches only frames
+        # whose sequence number is at least `before` (#202: a sequence cursor,
+        # not an array index, survives the recorder's 1,200-frame cap) -- so no
         # recorder with fewer than two frames can yield an anchor.
         for pattern in (
-            r"const baselineFrame = recorder\.frames\[before - 1\] \|\| null;",
+            r"const before = nextFrameSeq\(recorder\);",
+            r"const baselineFrame = recorder\.frames\[recorder\.frames\.length - 1\] \|\| null;",
             r"if \(!baselineDecoded \|\| !baselineFrame\) break;",
-            r"for \(let i = before; i < recorder\.frames\.length; i\+\+\)",
+            r"for \(const frame of framesFrom\(recorder, before\)\)",
         ):
             self.assertIsNotNone(
                 re.search(pattern, source),
