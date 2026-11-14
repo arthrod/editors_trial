@@ -2439,10 +2439,11 @@ class WitnessIssue137Round4Tests(unittest.TestCase):
         validator = self.load_validator()
         record = _load_captured_record()
         self.assertEqual(
-            set(record) | {"quiet_window"},
+            set(record) | {"quiet_window"} | set(validator._WINDOW_FIELDS),
             set(validator._PRODUCTION_ALLOWED_KEYS),
             "the top-level allowed set must equal the capture's keys plus "
-            "the optional quiet_window block the r3c07b C07 path emits",
+            "the optional quiet_window block the r3c07b C07 path emits and "
+            "the #203 window evidence (absent from records made before it)",
         )
         self.assertEqual(
             set(record["clock_check"]),

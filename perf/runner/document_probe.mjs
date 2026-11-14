@@ -1469,6 +1469,10 @@ async function runScale(browser) {
         // No settled frame: nothing to compare, so do not invent document damage.
         minPixels: settled.frame ? 4 : 1e9,
         region,
+        // #203: this witness classifies (did damage follow load inside the
+        // window?); a frame recorded while a busy page delayed the scan, past
+        // the window and its clock error, is not damage inside it.
+        strictWindow: true,
       });
       if (natural.outcome === 'witnessed') {
         mechanism = 'document_damage';

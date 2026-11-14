@@ -765,7 +765,16 @@ _PRODUCTION_FIELDS = (
 _PRODUCTION_ALLOWED_KEYS = frozenset(_PRODUCTION_FIELDS) | {
     "marker_page_ms",
     "quiet_window",
-}
+} | frozenset(("strict_window", "window_end_page_ms", "window_slack_ms",
+               "frames_beyond_window", "scan_started_after_ms"))
+
+#: #203: the window evidence `witnessFrame()` emits from that fix on. Records
+#: made before it do not carry them, so they are allowed, never required.
+#: ``strict_window`` marks a classifying witness (C14's damage window) that
+#: counts only frames up to ``window_end_page_ms``; ``scan_started_after_ms``
+#: is how long after the arm the scan loop began (a busy page delays it).
+_WINDOW_FIELDS = ("strict_window", "window_end_page_ms", "window_slack_ms",
+                  "frames_beyond_window", "scan_started_after_ms")
 
 #: The fields `clockSkew()` always emits in a check of the production
 #: method (the page-offset-only legacy shape emits fewer, and is refused by
@@ -1207,6 +1216,28 @@ def _production_schema_violations(record):
                 _describe(record["frame_page_ms"]),
             )
         )
+    # #203: the window evidence, when the producer emitted it.
+    if "strict_window" in record and not isinstance(record["strict_window"], bool):
+        bad("strict_window must be a boolean (got %s)" % (_describe(record["strict_window"]),))
+    if "frames_beyond_window" in record:
+        beyond = record["frames_beyond_window"]
+        if isinstance(beyond, bool) or not isinstance(beyond, int) or beyond < 0:
+            bad("frames_beyond_window must be a count (got %s)" % (_describe(beyond),))
+    for field in ("window_end_page_ms", "window_slack_ms", "scan_started_after_ms"):
+        if field in record and record[field] is not None and not _finite_number(record[field]):
+            bad("%s must be a finite number or null (got %s)" % (field, _describe(record[field])))
+    if record.get("strict_window") is True:
+        end = record.get("window_end_page_ms")
+        if not _finite_number(end):
+            bad("a strict window carries its window_end_page_ms (got %s)" % (_describe(end),))
+        elif witnessed and _finite_number(record.get("frame_page_ms")) and float(
+            record["frame_page_ms"]
+        ) > float(end):
+            bad(
+                "frame_page_ms (%s) is past its strict window (window_end_page_ms %s): "
+                "a classifying witness counts only frames inside its window"
+                % (_describe(record["frame_page_ms"]), _describe(end))
+            )
     if "marker_page_ms" in record:
         marker = record["marker_page_ms"]
         if marker is not None and not _finite_number(marker):

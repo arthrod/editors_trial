@@ -7,6 +7,7 @@ from contextlib import contextmanager
 from pathlib import Path
 import hashlib
 import json
+import math
 import os
 import sys
 import re
@@ -736,6 +737,81 @@ def trial_measure(trial):
     return ':'.join(filter(None, (measure, str(phase or ''))))
 
 
+#: #203: C14's no-damage clock, as the fixed harness labels it.
+_C14_NO_DAMAGE_CLOCK_END = (
+    "the DOM document-surface time (usable_ms); no document damage followed load, so no "
+    "presented frame bounds this sample and it is not a frame time"
+)
+
+
+def _finite(value) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
+def c14_window_corrected(row):
+    """C14's damage window applied to a record made before #203.
+
+    The natural witness classifies: did document damage follow load inside its
+    window after the settled frame? Before #203 the window's deadline started
+    after setup calls into a busy page returned, and frames recorded meanwhile
+    were accepted. A witnessed frame past ``after_page_ms + window_ms`` plus the
+    clock conversion's upper error bound is not damage inside the window: the
+    sample is the document-surface time, measure ``usable_no_damage``, as the
+    fixed harness reports it. Rows from the fixed harness (``strict_window`` in
+    the witness) and frames that are not provably late are returned unchanged.
+    The cached row is never mutated; a corrected row is a new object carrying
+    ``window_reclassified`` for disclosure.
+    """
+    if row.get('criterion_id') != 'C14' or row.get('measure') != 'presented_frame':
+        return row
+    diagnostic = row.get('diagnostic') or {}
+    samples = diagnostic.get('samples') or []
+    if len(samples) != 1 or len(row.get('samples_ms') or []) != 1:
+        return row
+    sample = samples[0]
+    witness = sample.get('witness') or {}
+    if 'strict_window' in witness or witness.get('outcome') != 'witnessed':
+        return row
+    frame, after, window = witness.get('frame_page_ms'), witness.get('after_page_ms'), witness.get('window_ms')
+    usable = sample.get('usable_ms')
+    if not all(_finite(v) for v in (frame, after, window, usable)):
+        return row
+    check = witness.get('clock_check') or {}
+    slack = (check.get('conversion') or {}).get('error_upper_ms')
+    if not _finite(slack):
+        slack = check.get('lag_bound_ms') if _finite(check.get('lag_bound_ms')) else 250.0
+    window_end = window + slack
+    if frame - after <= window_end:
+        return row
+    usable = float(usable)
+    clock = dict(sample.get('clock') or {}, end=_C14_NO_DAMAGE_CLOCK_END)
+    new_sample = dict(sample, measure='usable_no_damage', no_damage_followed=True, clock=clock)
+    workload = diagnostic.get('workload_id')
+    curve = dict(diagnostic.get('curve_medians_ms') or {})
+    if workload in curve:
+        curve[workload] = {'measure': 'usable_no_damage', 'median_ms': usable, 'n': 1}
+    new_diagnostic = dict(
+        diagnostic, samples=[new_sample], measurement='usable_no_damage',
+        clock=dict(diagnostic.get('clock') or {}, end=_C14_NO_DAMAGE_CLOCK_END),
+        curve_medians_ms=curve,
+    )
+    stats = row.get('summary_stats')
+    if isinstance(stats, dict):
+        stats = dict(stats, **{key: usable for key in (
+            'median', 'minimum', 'maximum', 'p90', 'p95', 'p99', 'ci95_low', 'ci95_high') if key in stats})
+    return dict(
+        row, measure='usable_no_damage', samples_ms=[usable], diagnostic=new_diagnostic,
+        summary_stats=stats,
+        window_reclassified={
+            'issue': 203,
+            'was_measure': 'presented_frame',
+            'was_ms': row['samples_ms'][0],
+            'frame_after_window_open_ms': round(frame - after, 1),
+            'window_end_after_open_ms': round(window_end, 1),
+        },
+    )
+
+
 def trial_workload(trial):
     return str(trial.get('workload_id') or (trial.get('environment') or {}).get('workload_id')
                or (trial.get('diagnostic') or {}).get('workload_id') or '')
@@ -820,6 +896,7 @@ def _attempt_rows_of(run_directory: Path, jobs, *, qualify: set[Path] | None = N
                     continue
                 if job_superseded(job, row.get('editor_id')):
                     continue
+                row = c14_window_corrected(row)
                 yield _launch_key(run_directory, job, directory.parent.name, qualify=qualify), path, row
 
 

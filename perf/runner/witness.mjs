@@ -1240,6 +1240,8 @@ export async function witnessFrame(
     region = null,
     quietMs = 0,
     quietBudgetMs = 8000,
+    strictWindow = false,
+    windowSlackMs = null,
   } = {},
 ) {
   const recorder = givenRecorder || getRecorder(cdp, { manageScreencast });
@@ -1474,6 +1476,18 @@ export async function witnessFrame(
 
   const startedAt = Date.now();
   const deadline = startedAt + windowMs;
+  // #203: the deadline is wall-clock from here, after the setup calls into the
+  // page returned. A busy page delays them, and frames recorded meanwhile sit
+  // in the buffer. A classifying witness (C14: did damage follow load inside
+  // its window?) counts only frames whose page time is inside the window,
+  // widened by the clock conversion's upper error bound so a frame is never
+  // excluded on conversion noise. A wait-budget witness (the paint of the
+  // harness's own input) keeps its first changed frame however late.
+  const slackMs =
+    windowSlackMs ?? check?.conversion?.error_upper_ms ?? check?.lag_bound_ms ?? 250;
+  const windowEndPageMs =
+    strictWindow && afterPageMs !== null ? afterPageMs + windowMs + slackMs : null;
+  let framesBeyondWindow = 0;
   let checked = 0;
   let framesAfter = 0;
   let ackSkipped = 0;
@@ -1505,6 +1519,10 @@ export async function witnessFrame(
       if (pageMs === null) continue;
       if (effectiveKind !== 'unknown') usedKind = effectiveKind;
       if (afterPageMs !== null && pageMs < afterPageMs) continue;
+      if (windowEndPageMs !== null && pageMs > windowEndPageMs) {
+        framesBeyondWindow += 1;
+        continue;
+      }
       framesAfter += 1;
       if (!baseDecoded) continue;
       if (frame.data === base.frame.data) continue; // identical bytes: identical pixels
@@ -1540,6 +1558,12 @@ export async function witnessFrame(
     caret_mask_error: caret.caret_mask_error,
     window_ms: windowMs,
     window_requested_ms: windowRequestedMs,
+    strict_window: strictWindow === true,
+    window_end_page_ms: windowEndPageMs === null ? null : round(windowEndPageMs, 3),
+    window_slack_ms: windowEndPageMs === null ? null : slackMs,
+    frames_beyond_window: framesBeyondWindow,
+    scan_started_after_ms:
+      afterPageMs === null ? null : round(startedAt - (clock.time_origin_ms + afterPageMs), 1),
     after_page_ms: afterPageMs === null ? null : round(afterPageMs, 3),
     baseline_page_ms:
       base.frame && base.frame.seq >= 0
