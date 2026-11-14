@@ -358,6 +358,26 @@ changes.
   own change, and the input lanes check that frame for the typed
   character. There a late frame is the editor's real, slow response, and
   it stays; cutting it would make the slowest editors look faster.
+- C04 counted the load's long tasks as deferred work after ready (#205).
+  Its long-task observer is registered with `buffered`, so it also receives
+  the long tasks recorded during load, delivered about 2 ms after ready. Each
+  counted as activity at its delivery time. Every editor therefore showed
+  "deferred work" ending about 2 ms after ready (Docen 1.8 ms, Docxodus
+  1.9 ms, …), though none was observed. A long task lasts at least 50 ms,
+  so one delivered within 50 ms of ready began before ready. The harness
+  now passes the ready time into the page and counts earlier long tasks
+  apart (`long_tasks_before_ready`). The reader drops them from records made
+  before the fix. A load left with no activity is not applicable, the
+  harness's own rule, and an editor whose loads all had none reads "no
+  deferred work after ready". In the publication roots, all of canvas-editor's,
+  Docen's, Docxodus's, eigenpal's, Folio's, GenOffice's and Plate.js's C04
+  samples rested only on those tasks, and 96 of SuperDoc's 100. WordCraft's
+  rested on them in 62 of 199 loads; in the rest its own long task comes 250
+  to 520 ms after ready, and those samples are unchanged. That split, not a
+  change in WordCraft, is why its 50,000-word figure moved between campaigns
+  (137 ms, then 423 ms). No job was measured again: the records hold every
+  activity's time, so the reader's rule is exact. Real-browser fixtures
+  (`busy_load.html`, `deferred_task.html`) cover both cases.
 - WordCraft's C07, C08 and C09 on the complex document are withheld as a
   limit of the harness (#200, not fixed in this release). Its first page
   holds three lines, and the scan that finds the document body took

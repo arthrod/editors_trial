@@ -1051,7 +1051,7 @@ const DESCRIBE_INPUT_SURFACE = (request) => {
  * thread gap wider than 200 ms between animation frames; anything else (an
  * animation-frame callback with no work behind it) is not deferred work.
  */
-const OBSERVE_QUIESCENCE = async ({ quietMs, timeoutMs }) => {
+const OBSERVE_QUIESCENCE = async ({ quietMs, timeoutMs, readyPageMs = null }) => {
   // Page context: no Node helpers here.
   const round = (value, digits = 3) => {
     const factor = 10 ** digits;
@@ -1073,10 +1073,17 @@ const OBSERVE_QUIESCENCE = async ({ quietMs, timeoutMs }) => {
     characterData: true,
   });
   let longTasks = 0;
+  // #205: `buffered` replays the load's long tasks, delivered just after ready. One that
+  // started before ready is load work, not deferred work: counted apart, never activity.
+  let longTasksBeforeReady = 0;
   let longTaskObserver = null;
   try {
     longTaskObserver = new PerformanceObserver((list) => {
       for (const entry of list.getEntries()) {
+        if (typeof readyPageMs === 'number' && entry.startTime < readyPageMs) {
+          longTasksBeforeReady += 1;
+          continue;
+        }
         longTasks += 1;
         note('longtask', { duration: entry.duration });
       }
@@ -1125,6 +1132,7 @@ const OBSERVE_QUIESCENCE = async ({ quietMs, timeoutMs }) => {
     observed_for_ms: round(endedAt - startedAt, 3),
     activity_count: activities.length,
     long_tasks: longTasks,
+    long_tasks_before_ready: longTasksBeforeReady,
     raf_count: rafCount,
     max_raf_gap_ms: round(maxRafGap, 3),
     deferred_work_seen,
@@ -2091,6 +2099,7 @@ async function measureQuiescence(page, options, readyPageMs) {
   const result = await page.evaluate(OBSERVE_QUIESCENCE, {
     quietMs: options.quiescenceMs,
     timeoutMs: options.quiescenceTimeoutMs,
+    readyPageMs: Number.isFinite(readyPageMs) ? readyPageMs : null,
   });
   const entry = emptyEntry('C04', 'unverified', null);
   entry.observations.push({
@@ -2104,6 +2113,7 @@ async function measureQuiescence(page, options, readyPageMs) {
     observed_for_ms: result.observed_for_ms,
     activity_count: result.activity_count,
     long_tasks: result.long_tasks,
+    long_tasks_before_ready: result.long_tasks_before_ready,
     max_raf_gap_ms: result.max_raf_gap_ms,
     activities: result.activities,
   });

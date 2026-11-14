@@ -78,6 +78,8 @@ Playwright {{perf.e2.playwright}}, Chromium {{perf.e2.chromium}}. Renderer: {{pe
 
 ### C04 — deferred work
 
+C04 asks whether the editor keeps working after the document is ready. The clock runs from ready to the last DOM mutation, long task or main-thread gap over 200 ms, ending once 200 ms pass with none of them. A load with none of them has no deferred work: no sample is recorded and the load counts as not applicable. The observer of long tasks also receives the long tasks recorded during load, delivered about 2 ms after ready. Until issue #205 the harness counted them as deferred work, so every editor showed about 2 ms. A long task lasts at least 50 ms, so one delivered within 50 ms of ready began before ready. The reader drops those from the records, and the fixed harness no longer counts them. An editor whose loads all had only those tasks reads "no deferred work after ready". WordCraft runs its own long task 250 to 520 ms after ready in most loads, and its figure is the median of those loads.
+
 {{perf.e2.table.C04}}
 
 ### C05 — single-edit responsiveness

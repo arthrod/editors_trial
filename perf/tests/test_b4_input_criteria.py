@@ -168,7 +168,8 @@ class CriteriaProbeAcceptance(unittest.TestCase):
     def tearDown(self):
         self._tmpdir.cleanup()
 
-    def _run_host(self, page: str, *, adapter: str = "dom_innerText", criteria="C04,C07,C08,C09"):
+    def _run_host(self, page: str, *, adapter: str = "dom_innerText", criteria="C04,C07,C08,C09",
+                  quiescence_timeout: str = "3000"):
         server = _load_b4_server()
         httpd, thread, base = server.serve(B4_FIXTURES)
         try:
@@ -199,7 +200,7 @@ class CriteriaProbeAcceptance(unittest.TestCase):
                 "--quiescence-ms",
                 "200",
                 "--quiescence-timeout",
-                "3000",
+                quiescence_timeout,
                 "--frame-timeout",
                 "4000",
                 "--bulk-chars",
@@ -259,6 +260,26 @@ class CriteriaProbeAcceptance(unittest.TestCase):
         self.assertEqual(c04["outcome"], "not_applicable")
         self.assertEqual(c04["samples_ms"], [])
         self.assertTrue(c04.get("failure_reason"))
+
+    def test_long_tasks_during_load_are_not_deferred_work(self):
+        """#205: the buffered observer replays the load's long tasks; they are not deferred work."""
+        payload = self._run_host("busy_load.html", criteria="C04")
+        c04 = payload["criteria"]["C04"]
+        self.assertEqual(c04["outcome"], "not_applicable", c04)
+        self.assertEqual(c04["samples_ms"], [])
+        self.assertEqual(c04.get("failure_reason"), "no_deferred_work")
+        observation = c04["observations"][0]
+        self.assertGreaterEqual(observation["long_tasks_before_ready"], 1)
+        self.assertEqual(observation["long_tasks"], 0)
+
+    def test_long_tasks_after_ready_are_deferred_work(self):
+        payload = self._run_host("deferred_task.html", criteria="C04", quiescence_timeout="10000")
+        c04 = payload["criteria"]["C04"]
+        self.assertEqual(c04["outcome"], "measured", c04)
+        self.assertGreaterEqual(c04["samples_ms"][0], 50, c04["observations"])
+        observation = c04["observations"][0]
+        self.assertGreaterEqual(observation["long_tasks"], 1)
+        self.assertIn("long_tasks_before_ready", observation)
 
     def test_wrong_character_yields_c07_failed_correctness(self):
         payload = self._run_host("wrong_char.html", criteria="C07")

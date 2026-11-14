@@ -814,6 +814,68 @@ def c14_window_corrected(row):
     )
 
 
+#: #205: a long task lasts at least this long, so one delivered sooner after ready began before it.
+_LONG_TASK_MIN_MS = 50.0
+#: The page keeps this many activities; past it the kept list may miss the last one.
+_C04_ACTIVITY_CAP = 400
+
+
+def c04_replay_corrected(row):
+    """C04 without the load's long tasks, for a record made before #205.
+
+    C04's long-task observer used ``buffered: true``, which replays the long
+    tasks recorded during load, and stamped each with its delivery time, about
+    2 ms after ready. A long task delivered less than 50 ms after ready began
+    before ready: load work, not deferred work. When nothing else was observed
+    the attempt is ``not_applicable`` (``no_deferred_work``), the harness's own
+    rule; when a later activity exists the sample already ends at it and the
+    row is returned unchanged. Rows from the fixed harness
+    (``long_tasks_before_ready`` in the observation) are left alone. The cached
+    row is never mutated; a corrected row carries ``replay_reclassified``.
+    """
+    if row.get('criterion_id') != 'C04' or row.get('outcome') != 'measured':
+        return row
+    diagnostic = row.get('diagnostic') or {}
+    observations = diagnostic.get('observations') or []
+    if len(observations) != 1 or len(row.get('samples_ms') or []) != 1:
+        return row
+    observation = observations[0]
+    if 'long_tasks_before_ready' in observation:
+        return row
+    ready = observation.get('ready_page_ms')
+    activities = observation.get('activities')
+    count = observation.get('activity_count')
+    if not _finite(ready) or not isinstance(activities, list) or not activities:
+        return row
+    if not _finite(count) or count > _C04_ACTIVITY_CAP:
+        return row
+    if not all(isinstance(a, dict) and _finite(a.get('t')) for a in activities):
+        return row
+    replayed = [a for a in activities
+                if a.get('kind') == 'longtask' and a['t'] - ready < _LONG_TASK_MIN_MS]
+    if len(replayed) != len(activities):
+        return row
+    assertion = dict(diagnostic.get('assertion') or {}, passed=False, failures=['no_deferred_work'])
+    notes = list(diagnostic.get('notes') or []) + [
+        'Reclassified by the reader (#205): every activity was a long task replayed from before '
+        'ready by the buffered observer; no deferred work was observed after ready.']
+    new_diagnostic = dict(
+        diagnostic, assertion=assertion, notes=notes,
+        observations=[dict(observation, elapsed_from_ready_ms=None)],
+    )
+    fixed = {key: value for key, value in row.items() if key != 'summary_stats'}
+    fixed.update(
+        outcome='not_applicable', refusal_code='not_applicable', failure_reason='no_deferred_work',
+        samples_ms=[], latency_ms=None, diagnostic=new_diagnostic,
+        replay_reclassified={
+            'issue': 205,
+            'was_ms': row['samples_ms'][0],
+            'replayed_long_tasks': len(replayed),
+        },
+    )
+    return fixed
+
+
 def trial_workload(trial):
     return str(trial.get('workload_id') or (trial.get('environment') or {}).get('workload_id')
                or (trial.get('diagnostic') or {}).get('workload_id') or '')
@@ -899,6 +961,7 @@ def _attempt_rows_of(run_directory: Path, jobs, *, qualify: set[Path] | None = N
                 if job_superseded(job, row.get('editor_id')):
                     continue
                 row = c14_window_corrected(row)
+                row = c04_replay_corrected(row)
                 yield _launch_key(run_directory, job, directory.parent.name, qualify=qualify), path, row
 
 
@@ -1478,6 +1541,10 @@ def publication_text(cell: dict) -> str:
         return _wrong_schedule_text(n_kept, scheduled)
     if n_kept < PUBLICATION_MIN_KEPT:
         reasons = cell.get('refusals') or {}
+        # #205: C04's own rule, no deferred work observed after ready, in every load.
+        if (cell.get('criterion_id') == 'C04' and n_kept == 0 and set(reasons) == {'not_applicable'}
+                and not cell.get('additional_refusals')):
+            return f"no deferred work after ready ({reasons['not_applicable']} of {scheduled} loads)"
         reason_text = '; '.join(f'{key}: {count}' for key, count in sorted(reasons.items())) or 'none counted'
         additional = cell.get('additional_refusals') or {}
         extra = '; also ' + '; '.join(f'{k}: {v}' for k, v in sorted(additional.items())) if additional else ''
