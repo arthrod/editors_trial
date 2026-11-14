@@ -1101,3 +1101,18 @@ def test_reruns_text_places_the_late_round_without_calling_it_last():
                            'late_rerun_kept': 4})
     assert 'Last,' not in text
     assert 'In a late round, the 4 C10 jobs on the complex document were measured again for every editor' in text
+
+
+def test_reruns_text_states_the_frame_cap_rounds():
+    """#202: the recorder's 1,200-frame cap froze the frame cursors; Docen's 500k jobs and
+    canvas-editor's 250k input jobs were measured again."""
+    rounds = [{'issue': '202', 'editor': 'canvas', 'jobs': 4, 'lane': 'benchmark_input', 'workload': 'prose-250kw',
+               'extension': False},
+              {'issue': '202', 'editor': 'docen', 'jobs': 8, 'lane': 'benchmark_document', 'workload': None,
+               'extension': True}]
+    text = E2.reruns_text({'first_pass_superseded': 32, 'rerun_kept': 32, 'editor_rounds': rounds})
+    assert ("Then canvas-editor's cells of the 4 prose-250kw input jobs (C08 and C09, with C04 and C07 of the "
+            "same jobs) were measured again after the screencast recorder was found to stop seeing new frames "
+            "once it held 1,200") in text
+    assert "Then Docen's cells of the 8 jobs of the 500k rung (C11 and C14, with C12 and C15 of the same jobs)" in text
+    assert text.count('(issue #202)') == 2

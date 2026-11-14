@@ -313,6 +313,18 @@ changes.
   WordCraft and are published as such. The tables read each criterion's
   attempts, and the publication gates a job on its completion, not its exit
   status, so no figure is affected.
+- The screencast recorder keeps the last 1,200 frames, and once it held
+  that many every frame cursor stopped moving (#202): the array's length
+  stays 1,200, so a scan from "the frames recorded so far" saw no new
+  frame. The page clock's anchor was then never found, and every attempt
+  that needed it was refused. It happened to two editors only, those that
+  paint the most frames during a long load: Docen at 500,000 words (C11
+  and C14) and canvas-editor at 250,000 words (C08 and C09). Frames now
+  carry a sequence number that never repeats, and every scan cursors on
+  it. A scan of every published probe record found no measured figure
+  taken after the cap, so no published number was affected. Docen's cells
+  of the eight 500,000-word jobs and canvas-editor's cells of the four
+  250,000-word input jobs were measured again with the fix.
 - WordCraft's C07, C08 and C09 on the complex document are withheld as a
   limit of the harness (#200, not fixed in this release). Its first page
   holds three lines, and the scan that finds the document body took

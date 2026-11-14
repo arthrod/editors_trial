@@ -743,6 +743,14 @@ EDITOR_ROUND_REASONS = {
     "198": ("the %(jobs)d C10 scroll jobs",
             "after C10 was found never to scroll WordCraft's document: the host's scroll overlay, built for this "
             "probe, was never selected, so every attempt found no scroll container"),
+    "202/benchmark_input": (
+        "the %(jobs)d %(workload)s input jobs (C08 and C09, with C04 and C07 of the same jobs)",
+        "after the screencast recorder was found to stop seeing new frames once it held 1,200, so the page "
+        "clock could not be proven and every C08 and C09 attempt was refused"),
+    "202-extension": (
+        "the %(jobs)d jobs of the 500k rung (C11 and C14, with C12 and C15 of the same jobs)",
+        "after the screencast recorder was found to stop seeing new frames once it held 1,200, so the page "
+        "clock could not be proven and every C11 and C14 attempt was refused"),
     "194": ("the %(jobs)d %(workload)s memory jobs (C17 and C19)",
             "after the memory pair's deadline was found to cover one load where the pair runs two loads and a "
             "120-character burst"),
