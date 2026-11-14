@@ -189,6 +189,22 @@
     "lane": "adversarial_c10_scroll",
     "editor": "wordcraft",
     "jobs": [32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121]
+   },
+   "202": {
+    "title": "The page clock's anchor was never found once the screencast recorder held 1,200 frames (canvas-editor, 250,000 words, C08 and C09)",
+    "lane": "benchmark_input",
+    "editor": "canvas",
+    "workload": "prose-250kw",
+    "jobs": [28, 29, 108, 109]
+   },
+   "202-extension": {
+    "issue": "202",
+    "title": "The page clock's anchor was never found once the screencast recorder held 1,200 frames (Docen, 500,000 words, C11 and C14)",
+    "lane": "benchmark_document",
+    "editor": "docen",
+    "extension": true,
+    "workload": "prose-500kw",
+    "jobs": [160, 161, 162, 163, 164, 165, 166, 167]
    }
   }
  },
@@ -198,11 +214,13 @@
    {"run_id": "20261114T053305440387Z-41680-822078", "jobs": [10, 11, 12, 13, 14, 15, 16, 17, 18, 19], "editors": ["wordcraft"], "harness": "93498491"},
    {"run_id": "20261114T055631860856Z-56941-840170", "jobs": [32, 33, 34, 35, 36, 37, 38, 39, 40, 41], "editors": ["wordcraft"], "harness": "93498491"},
    {"run_id": "20261114T061705736249Z-71623-816811", "jobs": [160, 161, 164, 165], "editors": ["wordcraft"], "harness": "93498491"},
-   {"run_id": "20261114T063724101590Z-79859-097737", "jobs": [107, 108, 109, 110, 111], "editors": ["wordcraft"], "harness": "93498491"}
+   {"run_id": "20261114T063724101590Z-79859-097737", "jobs": [107, 108, 109, 110, 111], "editors": ["wordcraft"], "harness": "93498491"},
+   {"run_id": "20261114T075117893151Z-11606-549496", "jobs": [28, 29], "editors": ["canvas"], "harness": "52ff8990"}
   ],
   "e2-publish-8": [
    {"run_id": "20261113T215259503520Z-15917-432966", "jobs": [90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101], "editors": ["canvas"]},
-   {"run_id": "20261114T045600463366Z-11595-561885", "jobs": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 22, 23, 24, 25, 26], "editors": ["wordcraft"], "harness": "93498491", "stopped": [27]}
+   {"run_id": "20261114T045600463366Z-11595-561885", "jobs": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 22, 23, 24, 25, 26], "editors": ["wordcraft"], "harness": "93498491", "stopped": [27]},
+   {"run_id": "20261114T075118829813Z-11573-381749", "jobs": [164, 165, 166, 167], "editors": ["docen"], "harness": "52ff8990"}
   ],
   "e2-genoffice": [
    {"run_id": "20261114T033042810724Z-11577-242164", "jobs": [10, 11, 12, 13, 14], "editors": ["docen"], "harness": "1e1393b9"},
@@ -221,9 +239,15 @@
    {"run_id": "20261114T040741752943Z-26507-383304", "jobs": [147], "editors": ["docen", "canvas"], "harness": "6885707b"}
   ],
   "e2-publish": [{"run_id": "20261114T035435293883Z-12668-566221", "jobs": [16], "editors": ["plate"], "harness": "6885707b"}],
-  "e2-publish-3": [{"run_id": "20261114T034629452519Z-11634-147904", "jobs": [17], "editors": ["plate"], "harness": "6885707b"}],
+  "e2-publish-3": [
+   {"run_id": "20261114T034629452519Z-11634-147904", "jobs": [17], "editors": ["plate"], "harness": "6885707b"},
+   {"run_id": "20261114T075329081490Z-11890-340702", "jobs": [108, 109], "editors": ["canvas"], "harness": "52ff8990"}
+  ],
   "e2-publish-4": [{"run_id": "20261114T035436272663Z-12663-215473", "jobs": [96], "editors": ["plate"], "harness": "6885707b"}],
-  "e2-publish-5": [{"run_id": "20261114T034700089772Z-11649-232667", "jobs": [97], "editors": ["plate"], "harness": "6885707b"}],
+  "e2-publish-5": [
+   {"run_id": "20261114T034700089772Z-11649-232667", "jobs": [97], "editors": ["plate"], "harness": "6885707b"},
+   {"run_id": "20261114T075224131289Z-11714-126232", "jobs": [160, 161, 162, 163], "editors": ["docen"], "harness": "52ff8990"}
+  ],
   "e2-superdoc": [{"run_id": "20261114T045559253584Z-11597-668081", "jobs": [80, 81, 82, 83, 84, 85, 86, 87, 88, 89], "editors": ["wordcraft"], "harness": "93498491", "stopped": [102]}],
   "e2-plate": [
    {"run_id": "20261114T053338108929Z-41790-890174", "jobs": [90, 91, 92, 93, 94, 95, 96, 97, 98, 99], "editors": ["wordcraft"], "harness": "93498491"},

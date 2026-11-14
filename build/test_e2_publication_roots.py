@@ -217,7 +217,8 @@ def test_the_committed_manifest_names_its_editor_and_late_rounds():
     assert docen["editor"] == "docen" and docen["lane"] == "benchmark_document"
     assert docen["jobs"] == [*range(10, 20), *range(90, 100)]
     assert "prose-500kw" not in docen["workloads"]
-    assert {entry["harness"] for entry in entries if entry["editors"] == ["docen"]} == {"1e1393b9"}
+    assert {entry["harness"] for entry in entries if entry["editors"] == ["docen"]
+            and set(entry["jobs"]) <= set(docen["jobs"])} == {"1e1393b9"}
     # #192: the late round re-measures C10 on the complex document for every editor.
     late = [entry for space in manifest["late_rerun"].values() for entry in space]
     assert sorted(job for entry in late for job in entry["jobs"]) == [40, 41, 120, 121]
@@ -245,6 +246,17 @@ def test_the_committed_manifest_names_its_editor_and_late_rounds():
     for job in stopped:
         keepers = [entry["run_id"] for entry in rounds if job in entry["jobs"]]
         assert len(keepers) == 1 and keepers[0] in plate_runs, job
+    # #202: the recorder's 1,200-frame cap froze every frame cursor. Canvas-editor's 250,000-word input jobs
+    # and Docen's eight 500,000-word jobs are measured again at the fixed witness (52ff8990).
+    cap = issues["202"]
+    assert (cap["editor"], cap["lane"], cap["workload"], cap["jobs"]) == (
+        "canvas", "benchmark_input", "prose-250kw", [28, 29, 108, 109])
+    rung = issues["202-extension"]
+    assert (rung["issue"], rung["editor"], rung["lane"], rung["extension"], rung["jobs"]) == (
+        "202", "docen", "benchmark_document", True, list(range(160, 168)))
+    cap_runs = [entry for entry in entries if entry.get("harness") == "52ff8990"]
+    assert sorted(job for entry in cap_runs for job in entry["jobs"]) == [28, 29, 108, 109, *range(160, 168)]
+    assert all(len(entry["editors"]) == 1 for entry in cap_runs)
     # #188: the 500k rung's eight new jobs, each once; its harness names both commits.
     extension = sorted(job for space in manifest["extension"].values() for entry in space for job in entry["jobs"])
     assert extension == list(range(160, 168))
