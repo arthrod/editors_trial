@@ -1027,3 +1027,16 @@ def test_reruns_text_states_the_memory_round_for_each_editor():
     assert "Docen's cells of the 4 prose-250kw memory jobs (C17 and C19)" in text
     assert "canvas-editor's cells of the 4 prose-250kw memory jobs (C17 and C19)" in text
     assert text.count('(issue #194)') == 2
+
+
+def test_reruns_text_tells_the_500k_part_of_a_round_apart():
+    campaign = {'first_pass_superseded': 32, 'rerun_kept': 32, 'editor_rerun_kept': 24, 'editor_rerun_unsealed': 0,
+                'editor_superseded': {'docen': 24},
+                'editor_rounds': [{'issue': '193', 'editor': 'docen', 'jobs': 20, 'workload': None,
+                                   'workloads': ['prose-500w'], 'extension': False},
+                                  {'issue': '193', 'editor': 'docen', 'jobs': 4, 'workload': 'prose-500kw',
+                                   'extension': True}],
+                'missing_runs': []}
+    text = E2.reruns_text(campaign)
+    assert "Docen's cells of the 20 document jobs below the 500k rung" in text
+    assert "Docen's cells of the 4 prose-500kw document jobs of the 500k rung" in text

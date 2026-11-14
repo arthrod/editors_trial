@@ -722,6 +722,10 @@ EDITOR_ROUND_REASONS = {
     "193": ("the %(jobs)d document jobs below the 500k rung (C11, with C12 and C15 of the same jobs)",
             "after its C11 was found to compare its settled screen with its ready flag on two different clocks, "
             "which refused every attempt"),
+    "193-extension": ("the %(jobs)d %(workload)s document jobs of the 500k rung (C11, with C12 and C15 of the "
+                      "same jobs)",
+                      "after its C11 was found to compare its settled screen with its ready flag on two different "
+                      "clocks; the 500k rung had run before that fix"),
     "194": ("the %(jobs)d %(workload)s memory jobs (C17 and C19)",
             "after the memory pair's deadline was found to cover one load where the pair runs two loads and a "
             "120-character burst"),
@@ -760,7 +764,8 @@ def reruns_text(campaign: dict | None) -> str:
     for entry in rounds:
         editor = entry["editor"]
         name = {"canvas": "canvas-editor"}.get(editor, DISPLAY.get(editor, editor))
-        cells, reason = EDITOR_ROUND_REASONS[str(entry["issue"])]
+        key = str(entry["issue"]) + ("-extension" if entry.get("extension") else "")
+        cells, reason = EDITOR_ROUND_REASONS.get(key) or EDITOR_ROUND_REASONS[str(entry["issue"])]
         text += (
             " Then %s's cells of %s were measured again %s (issue #%s). Those runs measured %s alone, under the "
             "same job indices and seeds; the tables read them for %s, and the other editors of those jobs stay "

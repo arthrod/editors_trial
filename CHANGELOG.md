@@ -9,7 +9,40 @@ re-running the measurement behind it. The format follows
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-13
+
+Two new speed reports: Report E (headless opening and saving) and Report E2
+(speed in the browser). No figure of Reports A to D2 or of the main report
+changes.
+
+### Updated
+
+- No editor pin moved. Arthur decided on 2026-11-11 that this release keeps
+  the pins the browser campaign was built and measured on, so the speed
+  figures and the round-trip figures describe the same editor code. The
+  update rule of AGENTS.md section 1 resumes with the next release.
+
 ### Measured
+
+- **Report E2, speed in the browser** (#128, #140). Nine browser editors
+  (Plate, Docxodus, SuperDoc, GenOffice, eigenpal, Folio, canvas-editor,
+  Docen, WordCraft) in Playwright Chromium 156.0.8078.80, in Linux
+  containers on Hugging Face Spaces (CPU upgrade hardware: AMD EPYC 7R13,
+  8 CPUs of quota), 2026-11-12 to 2026-11-13. Two seeds of 80 jobs each,
+  run in interleaved blocks of 5 repetitions and spread over 40 run
+  folders; each cell schedules 10 samples per editor per seed and publishes
+  at 5 kept (Arthur, 2026-11-11, #163). 551 of 909 scheduled
+  editor/criterion/measure cells reproduced between the two seeds within
+  10 percent; the other 358 are listed with their reason in the report's
+  "Not reproduced" section. Steal time under 0.01 percent; 2 of 2,898
+  (seed 1) and 3 of 2,898 (seed 2) samples refused for cgroup CPU
+  throttling.
+- 32 first-pass jobs (job indexes 10–21, 28–31, 90–101 and 108–111) were
+  measured again after the harness defects #173, #174 and #175 were fixed;
+  the tables read the re-run jobs, and `perf/container/e2_publication.json`
+  names every run and every replaced job. Every job of both passes is
+  sealed and kept in the private dataset `arthrod/editors-trial-e2-publication`
+  (33,445 attempts).
 
 - **Report E, speed: opening and saving a document** (#111). The headless
   speed runner (`perf/runner/speed_headless.py`, runner commit `a7b243d`),
@@ -43,12 +76,50 @@ re-running the measurement behind it. The format follows
 - Reports A to D2 and the main report: no pin moved and nothing they read
   changed, so their facts are those `main` last tracked (identical to the
   published et-v0.9.5 facts); every one of them renders byte-identical.
-  Report E's browser criteria (C03, C05–C12, C14, C15), the memory lanes
-  (C17, C19) and the WebAssembly boundary (C24) are not measured; the
-  report lists them with their issues (#104–#110, #113–#115, #117).
+  Report E's browser criteria (C03, C05–C12, C14, C15) and the memory
+  lanes (C17, C19) are measured in Report E2, not in Report E; the
+  WebAssembly boundary (C24, #117) is measured in neither.
+- Report E2 does not measure Apryse (its licence key is never placed on
+  the measuring machines), docs.plus and Fidus (their application servers
+  were not started; Arthur, 2026-11-11), office-open (a library with no
+  editing surface) or LibreOffice (the conversion baseline of Report E).
+  The report lists each with its reason.
+- Release gate exceptions, all from outputs of Reports A to D that this
+  release did not re-produce (no pin moved): 8 of 427 unit tests in
+  `build/test_*.py` fail; the base branch fails the same 8, plus the
+  release-template check that now passes (`test_bombs`: macOS refuses `RLIMIT_AS`, so the hostile
+  suite does not run here; `test_every_lane`, `test_ns_tables`,
+  `test_report_claims`: they read `out/ns_map.json`, the per-editor
+  `complex.docx` outputs and the render inventory, which are build outputs
+  not in the repository). `build/verify_twin_parity.py` fails on Report C
+  for the same reason: its page images (`out/render/figures/`) are not
+  present, so a rebuild would drop them; the published Report C twin is
+  kept unchanged. Every Report E and E2 test passes.
 
 ### Added
 
+- `reports/Report E2 - Speed in the Browser (2026).md` and its DOCX twin
+  (#140), rendered from `templates/` and `out/facts.json`; registered in
+  `render_reports.TWINS` and `verify_deliverables.DELIVERABLES`
+  (`build/test_report_e2_registration.py`). A "Read this before the
+  tables" section states how each editor's edit is confirmed, the typing
+  tolerance, the criteria that do not apply, and the Chrome traces.
+- `perf/container/`: the Linux container recipe (Playwright Chromium) and
+  the Space runner for the browser lanes (#127), detached runs with
+  per-job manifests sealed and uploaded to a private Storage Bucket through
+  a Space volume mount, with no token in the Space (#144, #162, #164).
+- `perf/container/e2_publication.json` and `build/e2_publication_roots.py`:
+  the campaign manifest and the tool that turns it into the report's run
+  folders, replacing every superseded first-pass job with its re-run (#178).
+- Browser-lane criteria C03–C15, C17 and C19 (#104–#110, #113, #115), the
+  resource lanes B8 (#142) and the typing marathon B9 (#143), with frame
+  witnesses, throttle and steal accounting (#129), and a reader that pools
+  each seed's jobs across run folders (#136, #176).
+- A 500,000-word rung (`prose-500kw`, #188) on the load lanes only: C11,
+  C12 and C15 in the document lane and C14's rung list, with a 1,000 s
+  load timeout. Eight new jobs (160–167) appended after the campaign's
+  own, measured at one harness commit (`harness.extension`); the other
+  lanes are not measured at that size.
 - `reports/Report E - Speed, Opening and Saving a Document (2026).md` and
   its DOCX twin, rendered from `templates/` and `out/facts.json`;
   registered in `render_reports.TWINS` and `verify_deliverables.DELIVERABLES`
@@ -80,6 +151,135 @@ re-running the measurement behind it. The format follows
 
 ### Fixed
 
+- Browser harness, before Report E2 was published: a frame witness that
+  proves the edit and not only a repaint, refused samples that are never
+  kept, and blocked cells that never reach the facts (#130–#139, #146,
+  #148, #149, #151, #154, #155, #165–#171). Reviewed by models other than
+  the one that wrote the code (codex and glm-5.3 among them); every accepted
+  finding is fixed with a test.
+- Three defects found in the first pass, fixed and their jobs re-run
+  (#173–#175): Docxodus's input probe was killed at 300 s because the C09
+  reset clicked the editor mode before the page rendered; Docen's C14 was
+  refused everywhere because a full-element screenshot was compared with
+  viewport-clamped frames; C12 refused "unaccounted layout reads" because a
+  frame's own read was stamped outside its window.
+- Report E2's reader (#176–#179): it reads each JSON file once instead
+  of about 334 times, so the campaign's facts build in about ten minutes; Chrome-profile
+  diagnostic launches are no longer labelled `crash`; the header describes
+  the 40-folder campaign instead of naming one primary and one
+  reproduction run, and lists every editor's pins from every folder; and
+  warm/cold's stand-in `not_run` rows for C07–C10, C22 and C23 no longer
+  pool with the lanes that measure those criteria. That last fix lifts the
+  cells that reproduce from 408 to 551 with no published cell lost and
+  identical figures for every cell published before.
+- B8 and B9 in the campaign (#180). The resources tables were blocked for
+  every editor because each 5-launch job carried its own pair verdict
+  ("scheduled_below_10; second_seed_required"), which the reader now
+  re-checks on the pooled seed instead; a resources launch the runner
+  refused for CPU throttling (a sample row, no record) counts as a refusal,
+  not a missing file. The typing tables pooled every job of a run folder
+  into each cell ("n = 6 of 292"); a typing cell now reads only the typing
+  jobs of its editor and session kind.
+- C14's text check (#181). Every C14 cell of the campaign was withheld as
+  "I01: combining mark or non-BMP scalar not preserved in output": the
+  probe kept only the first 4,000 characters of the document text, and the
+  correctness lines sit at the end of each prose document. The probe now
+  also keeps the last 4,000 characters and the check reads both. A failed
+  check now names its cause: the complex document carries no correctness
+  lines, so the check does not apply to it; an editor that exposes no text,
+  or whose readable text stops before the closing paragraph, is withheld as
+  "not checkable". The four C14 jobs (20, 21, 100, 101) were measured again
+  in a second round.
+- C14 reads each editor's whole text, and waits 1,000 s per load (#183,
+  #184). The second round still withheld Folio and SuperDoc from 5,000
+  words up, and WordCraft at every prose size. Their pages hold only part
+  of a long document: Folio and SuperDoc mount only the pages near its
+  start, and WordCraft paints into a canvas. After the timed sample, and
+  outside it, the probe now asks each of them for the whole document:
+  SuperDoc through its document model, Folio through its editing
+  ProseMirror, and WordCraft through its own select-all and copy. On each
+  real editor, typing on a near-empty document and typing after a DOCX
+  import both show in the next read. C14's probe target carried no
+  workload id, so the 600 s rule for the 250,000-word document never
+  reached it: every rung waited 300 s, and the 330 s watchdog cut Plate's
+  load. C14 now gives each wait of a load up to 1,000 s, and its watchdog
+  outlasts every wait. A C14 sample also logs its stages (navigation,
+  ready, surface, witness, text read), so a timeout names the stage it
+  stopped in. The four C14 jobs were measured a third time; the tables
+  read the third round, and the superseded rounds stay in the dataset.
+- canvas-editor's C11 and C14 timed its empty page (#185). The
+  `canvas_pixel` signal took the first frame with any ink on the canvas,
+  and canvas-editor paints its empty page's margin marks before the
+  document is imported: about 130 ms at every size, while the import of
+  the 250,000-word document took 51 s. canvas-editor also reports the
+  import finished one or two frames before it paints, and at some sizes it
+  clears the page first. The usable frame is now the first one in which
+  canvas-editor reports the document imported and its first page shows ink
+  that differs from its empty page. Its cells of the 24 document jobs
+  (C11, C12, C14, C15) were measured again by canvas-editor-only runs
+  under the same job indices, seeds and blocks; the publication manifest's
+  editor-scoped round (`editor_superseded`, `editor_rerun`) keeps the
+  other editors of those jobs as measured, and the tables read
+  canvas-editor from the new runs only. canvas-editor still throws on the
+  complex corpus (`TypeError` reading `width` in its own
+  `computeRowColInfo`), in both seeds; those cells stay refused.
+- C07's sub-frame flag (#187). C07 publishes the median of a trial's
+  clicks, but its sub-frame flag was taken from every middle click, so a
+  trial whose median was under one frame could be flagged otherwise (and
+  then refused by the reader's flag check). The flag now follows the
+  published median. None of the campaign's 1,160 C07 trials was affected.
+- Refused C05 and C06 cells named the wrong reason (#189). The warm/cold
+  lane writes a criterion's `not_applicable` or `not_run` row at one cache
+  state only, and the other measure of the same launch took the
+  launch-level code: `crash` for canvas-editor and Docen when the editor's
+  data was cold (18 cells), and no reason at all for WordCraft (10 cells)
+  and canvas-editor's complex corpus when warm (2 cells). Nothing crashed.
+  The reader now gives such a measure the reason its sibling measure
+  records, and the writer names a lone `not_applicable` instead of
+  stamping `crash`. Found by an adversarial review of every refused cell.
+- The document lane's C11, C12 and C15 probes waited 300 s at every size
+  (#190). Their probe targets carried no workload id, so the 600 s rule
+  for the 250,000-word document (and the 1,000 s rule for the 500,000-word
+  one) never reached them, and Plate's prose-250kw loads were cut at
+  300 s. A probe's timeout was also labelled `editor_crash`; it is now
+  `editor_timeout`. Plate's cells of the four prose-250kw document jobs
+  were measured again by Plate-only runs; the editor round is scoped to
+  that workload, so Plate's other document jobs stay as measured.
+- C15 was not measured for any editor (#191). The probe drives find only
+  through a find box in the page, and none of the hosts as configured has
+  one it can type into. The report now says so and names, for each editor,
+  what find it ships; no C15 attempt ran, so no figure moves.
+- Folio's prose-5kw C11 and C12 did not publish (#192). One launch was
+  refused for CPU throttling and moved to `rejected-evidence/`, and the
+  seed-block gate counted only `cells/`, so the block looked short of a
+  launch. A quarantined launch now counts as a refusal, not as missing.
+- C10 scrolled the complex document with its document protection (#192).
+  GenOffice and eigenpal open a protected package read-only, as Word does,
+  and C10's readiness gate waited for an editable surface that never came.
+  The scroll lane now loads the unprotected copy the editing lanes load,
+  and records the variant. The four C10 complex-document jobs were
+  measured again for every editor in a late round (`late_superseded`,
+  `late_rerun`).
+- Docen's C11 was refused at every size (#193). The surface of a model
+  host was bound to the later of its settled ink frame and its ready time,
+  and the ready time was a duration measured from after navigation plus
+  the 300 ms post-ready wait, on another clock than the frames. The
+  settled ink frame (the first frame identical to the screen captured
+  after ready) is now the surface; the ready time stands in only when no
+  ink stamp exists, and then as the page-clock instant. eigenpal and
+  canvas-editor stamp their first layout box on the page clock and are
+  unchanged. Docen's cells of the 20 document jobs below the 500k rung
+  were measured again by Docen-only runs.
+- The memory lane's pair deadline covered one load (#194). A pair opens
+  the document, types a 120-character burst, waits, closes and reopens,
+  under one deadline of the load timeout plus 120 s (720 s at 250,000
+  words); Docen types at about 8.7 s per keystroke at that size. The
+  deadline now covers both loads and a burst budget, and a failed pair
+  names the phases it reached. Docen's and canvas-editor's prose-250kw
+  memory cells were measured again.
+- Two tests that failed for reasons outside the code they test (#182): the
+  sub-frame witness test asserted a timing instead of the rule, and a
+  persistence test read the state of `repos/`.
 - Perf harness, before Report E was measured (#100–#103, #118–#123): a
   deterministic size ladder; a host record read from the machine, never
   assumed (cgroup limits resolved through mountinfo, container and

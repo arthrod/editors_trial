@@ -764,3 +764,58 @@ def test_one_issue_may_name_several_editors_rounds(tmp_path):
     assert run_roots(data, roots_dir, write_manifest(tmp_path, manifest)) == 0
     rounds = json.loads((roots_dir / "report_e2_runs.json").read_text())["campaign"]["editor_rounds"]
     assert {(r["issue"], r["editor"]) for r in rounds} == {("185", "canvas"), ("194", "canvas")}
+
+
+def test_a_late_round_must_retire_a_first_pass_job(tmp_path):
+    # octo review of the late round: an index no first-pass run carries would link a job nobody replaced.
+    data, *_ = late_data(tmp_path)
+    job(data / "space-b" / "runs" / RID_LATE, RID_LATE, 77, lane="benchmark_typing")
+    manifest = late_manifest()
+    manifest["late_superseded"]["issues"]["192"]["jobs"] = [50, 77]
+    manifest["late_rerun"]["space-b"][0]["jobs"] = [50, 77]
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+
+
+# An editor round over extension jobs (#193 at 500k) ----------------------------------------------------
+# The 500k rung (#188) ran before Docen's C11 clock fix: Docen's cells of its
+# prose-500kw document jobs are measured again. Only a round flagged
+# "extension" reaches extension jobs; canvas's #185 round never does.
+
+RID_EXT_ROUND = "20261114T070000000000Z-90000-000016"
+
+
+def extension_round(tmp_path, *, supersede=(160, 161)):
+    data, new = extension_data(tmp_path)
+    for path in new:
+        _fixtures(path, "prose-500kw", "micro-search")
+    redo = [summarize(job(data / "space-b" / "runs" / RID_EXT_ROUND, RID_EXT_ROUND, index), 1, block, ["plate"])
+            for index, block in ((160, 1), (161, 2)) if index in supersede]
+    manifest = extension_manifest()
+    manifest["editor_superseded"]["issues"]["193-500k"] = {
+        "issue": "193", "title": "synthetic", "lane": "benchmark_document", "editor": "plate",
+        "jobs": list(supersede), "workload": "prose-500kw", "extension": True}
+    manifest["editor_rerun"]["space-b"].append({"run_id": RID_EXT_ROUND, "jobs": list(supersede),
+                                                "editors": ["plate"]})
+    return data, manifest, redo
+
+
+def test_an_editor_round_may_replace_extension_jobs(tmp_path):
+    data, manifest, redo = extension_round(tmp_path)
+    roots_dir = tmp_path / "roots"
+    assert run_roots(data, roots_dir, write_manifest(tmp_path, manifest)) == 0
+    for path in redo:
+        assert (roots_dir / f"space-b--{RID_EXT_ROUND}" / "benchmark_document" / path.name).resolve() == path
+    cells = json.loads((roots_dir / "report_e2_runs.json").read_text())["superseded_cells"]
+    assert any(c["editor"] == "plate" and c["jobs"] == [160, 161] and RID_EXT_ROUND in c["kept_runs"]
+               for c in cells)
+
+
+def test_an_extension_round_that_leaves_a_job_of_its_workload_is_refused(tmp_path):
+    data, manifest, _ = extension_round(tmp_path, supersede=(160,))
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+
+
+def test_an_extension_flagged_round_must_name_extension_jobs(tmp_path):
+    data, manifest, _ = extension_round(tmp_path)
+    manifest["editor_superseded"]["issues"]["193-500k"]["jobs"] = [4, 160, 161]
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest), "--partial") != 0
