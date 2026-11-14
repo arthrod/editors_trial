@@ -119,6 +119,13 @@ def _job_measured_launch_names(job: Path, editor_id: str) -> list[str]:
     return names
 
 
+def _job_quarantined_launch_names(job: Path, editor_id: str) -> list[str]:
+    """Launches moved to ``rejected-evidence/`` (quarantined after they ran)."""
+    suffix = '-' + editor_id
+    return [path.name for path in sorted(_listing(job / 'rejected-evidence', '*'))
+            if path.is_dir() and path.name.endswith(suffix)]
+
+
 def _job_launch_names(job: Path, editor_id: str) -> list[str]:
     names = []
     cells_dir = job / 'cells'
@@ -230,7 +237,9 @@ def _seed_block_gate(
             return True, 'missing blocks %s' % ','.join(map(str, missing))
         for block, job in block_jobs:
             expected = block.get('repetitions') or 0
-            found = len(_job_measured_launch_names(job, editor_id))
+            # A quarantined launch (rejected-evidence/) ran and is refused, not
+            # missing; counting only cells/ blanked a whole seed (review F, #192).
+            found = len(set(_job_measured_launch_names(job, editor_id)) | set(_job_quarantined_launch_names(job, editor_id)))
             if found < expected:
                 return True, 'block %d has no launch files' % block.get('index')
     elif len(jobs) >= 2:
