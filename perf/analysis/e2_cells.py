@@ -785,7 +785,9 @@ def c14_window_corrected(row):
         return row
     usable = float(usable)
     clock = dict(sample.get('clock') or {}, end=_C14_NO_DAMAGE_CLOCK_END)
-    new_sample = dict(sample, measure='usable_no_damage', no_damage_followed=True, clock=clock)
+    # Not 'forced_repaint' (no forced witness ran) and no longer 'document_damage'.
+    new_sample = dict(sample, measure='usable_no_damage', mechanism='damage_past_window',
+                      no_damage_followed=True, clock=clock)
     workload = diagnostic.get('workload_id')
     curve = dict(diagnostic.get('curve_medians_ms') or {})
     if workload in curve:

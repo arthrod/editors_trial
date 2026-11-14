@@ -52,7 +52,7 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // One witness call. The page answers its setup call (the caret-mask removal) only after
 // `busyMs`; while it is busy the screencast records a changed frame `frameAfterMs` after the arm.
-async function run({ frameAfterMs, strictWindow, busyMs = 1500 }) {
+async function run({ frameAfterMs, strictWindow, busyMs = 1500, noArm = false }) {
   const cdp = fakeCdp();
   const recorder = getRecorder(cdp, { manageScreencast: false });
   const timeOrigin = Date.now() - 10000;
@@ -78,7 +78,7 @@ async function run({ frameAfterMs, strictWindow, busyMs = 1500 }) {
     lag_bound_ms: 250, conversion: { error_upper_ms: 250 },
   };
   const record = await witnessFrame(page, cdp, {
-    afterPageMs, baseline, windowMs: 500, caretMask: false, settleMs: 0, recorder,
+    afterPageMs: noArm ? null : afterPageMs, baseline, windowMs: 500, caretMask: false, settleMs: 0, recorder,
     clockCheck, minPixels: 4, strictWindow,
   });
   return {
@@ -100,5 +100,7 @@ const out = {
   inside_strict: await run({ frameAfterMs: 300, strictWindow: true }),
   // Past 500 ms but inside the clock's +250 ms conversion error: still counts.
   slack_strict: await run({ frameAfterMs: 650, strictWindow: true }),
+  // GLM review: strict without an arm time has no window end, so it is not a strict record.
+  strict_no_arm: await run({ frameAfterMs: 300, strictWindow: true, busyMs: 50, noArm: true }),
 };
 process.stdout.write(JSON.stringify(out));

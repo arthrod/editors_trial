@@ -103,3 +103,10 @@ def test_c14s_natural_witness_is_strict_and_only_it():
     assert src.count('strictWindow: true') == 1
     for name in ('criteria_input.mjs', 'warm_cold_browser.mjs', 'typing_session.mjs', 'adversarial_c10_scroll.mjs'):
         assert 'strictWindow' not in (REPO / 'perf' / 'runner' / name).read_text(), name
+
+
+def test_strict_without_an_arm_time_is_not_recorded_as_strict():
+    """GLM review of #203: strict_window true with a null window end is a record the validator refuses."""
+    rec = _run()['strict_no_arm']
+    assert rec['strict_window'] is False
+    assert rec['window_end_page_ms'] is None

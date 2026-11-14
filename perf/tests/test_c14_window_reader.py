@@ -68,6 +68,8 @@ def test_damage_past_the_window_reads_as_the_document_surface_time():
     sample = fixed["diagnostic"]["samples"][0]
     assert sample["measure"] == "usable_no_damage"
     assert sample["no_damage_followed"] is True
+    # GLM review: the corrected sample must not still claim document damage.
+    assert sample["mechanism"] == "damage_past_window"
     assert fixed["diagnostic"]["measurement"] == "usable_no_damage"
     assert fixed["diagnostic"]["curve_medians_ms"]["prose-500kw"] == {
         "measure": "usable_no_damage", "median_ms": 3334.2, "n": 1}

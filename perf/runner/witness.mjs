@@ -1558,7 +1558,8 @@ export async function witnessFrame(
     caret_mask_error: caret.caret_mask_error,
     window_ms: windowMs,
     window_requested_ms: windowRequestedMs,
-    strict_window: strictWindow === true,
+    // Strict only when it had a window to bound (an arm time); otherwise it waited like any witness.
+    strict_window: windowEndPageMs !== null,
     window_end_page_ms: windowEndPageMs === null ? null : round(windowEndPageMs, 3),
     window_slack_ms: windowEndPageMs === null ? null : slackMs,
     frames_beyond_window: framesBeyondWindow,
