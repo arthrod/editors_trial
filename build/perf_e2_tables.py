@@ -712,6 +712,16 @@ def _runs_fact(primary: Run, repro: Run, campaign: dict | None, roots) -> str:
         % (campaign["jobs"], len(roots), _seed_job_counts(campaign) or "no jobs recorded", dates))
 
 
+# Per editor-round issue: which cells its runs measured again, and why (#185, #190).
+EDITOR_ROUND_REASONS = {
+    "185": ("%(jobs)d document jobs (C11 and C14, with C12 and C15 of the same jobs)",
+            "after its load timing was found to stop at its empty page, before the document was imported"),
+    "190": ("the %(jobs)d %(workload)s document jobs (C11 and C12, with C15 of the same jobs)",
+            "after the document lane was found to wait 300 seconds for each load, reflow and find probe of that "
+            "workload instead of its 600-second load timeout"),
+}
+
+
 def reruns_text(campaign: dict | None) -> str:
     """The template's re-run bullet, from report_e2_runs.json's campaign counts."""
     if not campaign:
@@ -737,17 +747,31 @@ def reruns_text(campaign: dict | None) -> str:
             " In a second round, %d C14 jobs of the re-run were measured again after the C14 correctness check "
             "was fixed (issue #181); the tables read the %d second-round jobs in their place."
             % (second, campaign.get("rerun2_kept") or 0))
-    for editor, jobs in sorted((campaign.get("editor_superseded") or {}).items()):
+    rounds = campaign.get("editor_rounds")
+    if rounds is None:  # report_e2_runs.json written before #190 names only the editor and its job count
+        rounds = [{"issue": "185", "editor": editor, "jobs": jobs, "workload": None}
+                  for editor, jobs in sorted((campaign.get("editor_superseded") or {}).items())]
+    for entry in rounds:
+        editor = entry["editor"]
         name = {"canvas": "canvas-editor"}.get(editor, DISPLAY.get(editor, editor))
+        cells, reason = EDITOR_ROUND_REASONS[str(entry["issue"])]
         text += (
-            " Then %s's cells of %d document jobs (C11 and C14, with C12 and C15 of the same jobs) were measured "
-            "again after its load timing was found to stop at its empty page, before the document was imported "
-            "(issue #185). Those runs measured %s alone, under the same job indices and seeds; the tables read "
-            "them for %s, and the other editors of those jobs stay as measured."
-            % (name, jobs, name, name))
+            " Then %s's cells of %s were measured again %s (issue #%s). Those runs measured %s alone, under the "
+            "same job indices and seeds; the tables read them for %s, and the other editors of those jobs stay "
+            "as measured."
+            % (name, cells % {"jobs": entry["jobs"], "workload": entry.get("workload")}, reason, entry["issue"],
+               name, name))
+    late = campaign.get("late_superseded") or 0
+    if late:
+        text += (
+            " Last, the %d C10 jobs on the complex document were measured again for every editor after C10 was "
+            "found to load that document with its document protection, which GenOffice and eigenpal honour by "
+            "opening it read-only, so C10 never started for them; it now loads the unprotected copy the editing "
+            "criteria load (issue #192). The tables read the %d late-round jobs in their place."
+            % (late, campaign.get("late_rerun_kept") or 0))
     unsealed = sum(campaign.get(key) or 0 for key in
                    ("first_pass_unsealed", "rerun_unsealed", "rerun2_unsealed", "rerun3_unsealed",
-                    "editor_rerun_unsealed"))
+                    "editor_rerun_unsealed", "late_rerun_unsealed"))
     missing = len(campaign.get("missing_runs") or [])
     if unsealed:
         text += " %d %s not sealed and %s left out." % (

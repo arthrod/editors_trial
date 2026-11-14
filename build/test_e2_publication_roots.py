@@ -615,3 +615,79 @@ def test_a_workload_round_counts_a_c14_job_as_another_workload(tmp_path):
 def test_a_workload_round_with_an_unreadable_old_job_is_refused(tmp_path):
     data, manifest = workload_round(tmp_path, old_12=())
     assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+
+
+# A late round (#192) ---------------------------------------------------------------------------------
+# C10 scrolled the protected complex package; GenOffice and eigenpal opened it
+# read-only and C10 never started. Whole first-pass jobs, never re-run before,
+# are measured again for every editor, at a later harness commit.
+
+RID_LATE = "20261114T050000000000Z-70000-000013"
+
+
+def late_manifest():
+    manifest = synthetic_manifest()
+    manifest["harness"]["late_rerun"] = "c0ffee00"
+    manifest["late_superseded"] = {
+        "issues": {"192": {"title": "synthetic late round", "lane": "benchmark_typing", "jobs": [50]}}
+    }
+    manifest["late_rerun"] = {"space-b": [{"run_id": RID_LATE, "jobs": [50]}]}
+    return manifest
+
+
+def late_data(tmp_path):
+    data, kept, rerun_job, space_b_job = build_data(tmp_path)
+    late_job = job(data / "space-b" / "runs" / RID_LATE, RID_LATE, 50, lane="benchmark_typing")
+    return data, kept, space_b_job, late_job
+
+
+def test_a_late_round_replaces_the_first_pass_jobs_it_supersedes(tmp_path):
+    data, kept, old, new = late_data(tmp_path)
+    roots_dir = tmp_path / "roots"
+    assert run_roots(data, roots_dir, write_manifest(tmp_path, late_manifest())) == 0
+    campaign = json.loads((roots_dir / "report_e2_runs.json").read_text())["campaign"]
+    assert (roots_dir / f"space-b--{RID_LATE}" / "benchmark_typing" / new.name).resolve() == new
+    assert not (roots_dir / f"space-b--{RID_B}" / "benchmark_typing" / old.name).exists()
+    assert campaign["late_superseded"] == 1 and campaign["late_rerun_kept"] == 1
+    assert campaign["late_rerun_unsealed"] == 0
+    # The first round's counters do not absorb the late round.
+    assert campaign["first_pass_superseded"] == 1
+
+
+def test_a_late_round_job_nobody_superseded_is_an_error(tmp_path):
+    data, *_ = late_data(tmp_path)
+    job(data / "space-b" / "runs" / RID_LATE, RID_LATE, 51, lane="benchmark_typing")
+    manifest = late_manifest()
+    manifest["late_rerun"]["space-b"][0]["jobs"] = [50, 51]
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+
+
+def test_a_late_superseded_job_nobody_measured_again_is_an_error(tmp_path):
+    data, *_ = late_data(tmp_path)
+    manifest = late_manifest()
+    manifest["late_superseded"]["issues"]["192"]["jobs"] = [4, 50]
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+
+
+def test_a_late_round_cannot_retire_a_job_the_first_round_already_replaced(tmp_path):
+    # Job 10 was re-run by the first round; retiring it again would drop the re-run's cell.
+    data, *_ = late_data(tmp_path)
+    job(data / "space-a" / "runs" / RID_LATE, RID_LATE, 10)
+    manifest = late_manifest()
+    manifest["late_superseded"]["issues"]["192"]["jobs"] = [10, 50]
+    manifest["late_rerun"]["space-a"] = [{"run_id": "20261114T050000000000Z-70000-000014", "jobs": [10]}]
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest), "--partial") != 0
+
+
+def test_a_late_round_needs_its_harness_commit(tmp_path):
+    data, *_ = late_data(tmp_path)
+    manifest = late_manifest()
+    del manifest["harness"]["late_rerun"]
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+
+
+def test_a_late_round_run_listed_elsewhere_is_an_error(tmp_path):
+    data, *_ = late_data(tmp_path)
+    manifest = late_manifest()
+    manifest["rerun"]["space-b"] = [{"run_id": RID_LATE, "jobs": [50]}]
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0

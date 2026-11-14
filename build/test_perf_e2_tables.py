@@ -973,3 +973,33 @@ def test_reruns_text_states_the_canvas_editor_round():
     assert '1 re-run job was not sealed' in unsealed
     # No editor round: no sentence about it.
     assert '#185' not in E2.reruns_text({k: v for k, v in campaign.items() if not k.startswith('editor_')})
+
+
+def test_reruns_text_names_each_editor_round_by_its_own_issue():
+    # #190: Plate's prose-250kw round is not canvas-editor's empty-page round (#185).
+    campaign = {'first_pass_superseded': 32, 'rerun_kept': 28, 'rerun_superseded': 4,
+                'rerun2_kept': 0, 'rerun2_superseded': 4, 'rerun2_unsealed': 0,
+                'rerun3_kept': 4, 'rerun3_unsealed': 0, 'editor_rerun_kept': 28, 'editor_rerun_unsealed': 0,
+                'editor_superseded': {'canvas': 24, 'plate': 4},
+                'editor_rounds': [{'issue': '185', 'editor': 'canvas', 'jobs': 24, 'workload': None},
+                                  {'issue': '190', 'editor': 'plate', 'jobs': 4, 'workload': 'prose-250kw'}],
+                'missing_runs': []}
+    text = E2.reruns_text(campaign)
+    assert "canvas-editor's cells of 24 document jobs" in text and '#185' in text
+    assert "Plate.js's cells of the 4 prose-250kw document jobs" in text and '#190' in text
+    plate = text[text.index("Plate.js's cells"):]
+    assert 'empty page' not in plate
+    assert '300' in plate and '600' in plate
+
+
+def test_reruns_text_states_the_late_round():
+    # #192: the C10 complex-document jobs were measured again for every editor.
+    campaign = {'first_pass_superseded': 32, 'rerun_kept': 32, 'late_superseded': 4, 'late_rerun_kept': 4,
+                'late_rerun_unsealed': 0, 'missing_runs': []}
+    text = E2.reruns_text(campaign)
+    assert '#192' in text
+    assert '4 C10 jobs on the complex document' in text
+    assert 'every editor' in text
+    unsealed = E2.reruns_text({**campaign, 'late_rerun_kept': 3, 'late_rerun_unsealed': 1})
+    assert '1 re-run job was not sealed' in unsealed
+    assert '#192' not in E2.reruns_text({k: v for k, v in campaign.items() if not k.startswith('late_')})

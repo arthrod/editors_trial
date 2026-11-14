@@ -11,7 +11,11 @@ indexes issues #183 and #184 superseded (`rerun2_superseded`) and the runs
 that measured them again (`rerun3`); then an editor-scoped round: the
 editor whose cells of some jobs an issue superseded (`editor_superseded`,
 #185) and the runs that measured that editor's cells again under the same
-job indices (`editor_rerun`). Those old jobs stay linked for every other
+job indices (`editor_rerun`); an extension round of new job indices
+(`extension`, #188); and a late round: first-pass jobs an issue retired
+after the first round, whole jobs for every editor (`late_superseded`,
+#192), and the runs that measured them again (`late_rerun`). The editor
+round's old jobs stay linked for every other
 editor; `report_e2_runs.json` lists the superseded cells
 (`superseded_cells`) and `build/facts.py` reads around them. This script walks a local mirror
 of the campaign bucket — `<space>/runs/<run id>/<lane>/<job>` — and links
@@ -56,6 +60,39 @@ def rerun_superseded_jobs(manifest: dict, key: str = "rerun_superseded") -> set[
     for issue in manifest.get(key, {}).get("issues", {}).values():
         jobs.update(issue["jobs"])
     return jobs
+
+
+def late_superseded_jobs(manifest: dict) -> set[int]:
+    """First-pass job indexes a late issue retired after the first round (#192), whole jobs for every editor."""
+    jobs: set[int] = set()
+    for issue in manifest.get("late_superseded", {}).get("issues", {}).values():
+        jobs.update(issue["jobs"])
+    return jobs
+
+
+def _check_late_round(manifest: dict, errors: list[str]) -> None:
+    """A late round re-measures first-pass jobs no earlier round touched, each exactly once.
+
+    A job the first round already replaced lives in a re-run run, not in the
+    first pass; retiring its index here would drop the re-run's cell too.
+    """
+    late = late_superseded_jobs(manifest)
+    entries = [entry for space_entries in manifest.get("late_rerun", {}).values() for entry in space_entries]
+    if not late and not entries:
+        return
+    if entries and not manifest.get("harness", {}).get("late_rerun"):
+        errors.append("the manifest's late round names no harness commit (harness.late_rerun)")
+    already = superseded_jobs(manifest)
+    for key in ("rerun", "rerun2", "rerun3", "editor_rerun", "extension"):
+        already.update(index for space_entries in manifest.get(key, {}).values()
+                       for entry in space_entries for index in entry["jobs"])
+    overlap = sorted(late & already)
+    if overlap:
+        errors.append(f"late_superseded jobs {overlap} were already measured again by an earlier round")
+    measured = [index for entry in entries for index in entry["jobs"]]
+    if sorted(measured) != sorted(late):
+        errors.append(f"late_superseded jobs {sorted(late)} are not measured again exactly once by "
+                      f"late-round jobs {sorted(measured)}")
 
 
 def editor_superseded(manifest: dict) -> dict[str, set[int]]:
@@ -237,7 +274,7 @@ def _check_extension(data: Path, manifest: dict, errors: list[str]) -> None:
         run_dir = data / space / "runs" / run_id
         if run_dir.is_dir():
             campaign.update(index for _, _, index in run_jobs(run_dir, run_id))
-    for key in ("rerun", "rerun2", "rerun3", "editor_rerun"):
+    for key in ("rerun", "rerun2", "rerun3", "editor_rerun", "late_rerun"):
         campaign.update(index for space_entries in manifest.get(key, {}).values()
                         for entry in space_entries for index in entry["jobs"])
     reused = sorted(set(listed) & campaign)
@@ -307,6 +344,7 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
     """
     data, roots_dir = Path(data).resolve(), Path(roots_dir).resolve()
     superseded = superseded_jobs(manifest)
+    late = late_superseded_jobs(manifest)
     campaign = {
         "first_pass_kept": 0,
         "first_pass_superseded": 0,
@@ -323,7 +361,13 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
         "editor_rerun_unsealed": 0,
         "extension_kept": 0,
         "extension_unsealed": 0,
+        "late_superseded": 0,
+        "late_rerun_kept": 0,
+        "late_rerun_unsealed": 0,
         "editor_superseded": {editor: len(jobs) for editor, jobs in sorted(editor_superseded(manifest).items())},
+        "editor_rounds": [
+            {"issue": number, "editor": issue["editor"], "jobs": len(issue["jobs"]), "workload": issue.get("workload")}
+            for number, issue in sorted(manifest.get("editor_superseded", {}).get("issues", {}).items())],
         "missing_runs": [],
     }
     roots: list[str] = []
@@ -340,6 +384,8 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
                     campaign["first_pass_unsealed"] += 1
                 elif index in superseded:
                     campaign["first_pass_superseded"] += 1
+                elif index in late:
+                    campaign["late_superseded"] += 1
                 else:
                     link_job(roots_dir, space, run_id, lane, job)
                     campaign["first_pass_kept"] += 1
@@ -356,6 +402,8 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
         _link_round(data, roots_dir, space, manifest.get("editor_rerun", {}).get(space, []), "editor_rerun",
                     set(), campaign, roots, errors)
         _link_round(data, roots_dir, space, manifest.get("extension", {}).get(space, []), "extension",
+                    set(), campaign, roots, errors)
+        _link_round(data, roots_dir, space, manifest.get("late_rerun", {}).get(space, []), "late_rerun",
                     set(), campaign, roots, errors)
         for round_key, earlier, name, of in (("rerun2", retired, "second-round", "re-run"),
                                              ("rerun3", retired2, "third-round", "second-round")):
@@ -377,8 +425,9 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
                           f"{name} jobs {sorted(measured)}")
     _check_editor_round(manifest, errors)
     _check_extension(data, manifest, errors)
+    _check_late_round(manifest, errors)
     run_ids = list(manifest["first_pass"].values()) + [
-        entry["run_id"] for key in ("rerun", "rerun2", "rerun3", "editor_rerun", "extension")
+        entry["run_id"] for key in ("rerun", "rerun2", "rerun3", "editor_rerun", "extension", "late_rerun")
         for entries in manifest.get(key, {}).values() for entry in entries]
     duplicates = sorted({rid for rid in run_ids if run_ids.count(rid) > 1})
     if duplicates:
