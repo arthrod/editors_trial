@@ -910,7 +910,7 @@ async function launch() {
   });
 }
 
-async function stateSnapshot(page) {
+async function stateSnapshot(page, { noCopy = false } = {}) {
   const expectedOpening = typeof opt['expected-opening-text'] === 'string' ? opt['expected-opening-text'] : '';
   const snap = await page.evaluate(
     ({ docSel, pageSel, signal }) => {
@@ -986,6 +986,10 @@ async function stateSnapshot(page) {
       lengthCheckMode,
       root: documentSelector || docSelector || editSelector,
       expectedBody: expectedBodyText,
+      // #196: a select_all_copy surface reads the clipboard from the driver;
+      // the same bound C14's whole-text read takes.
+      copyWaitMs: opt['c14-copy-wait-ms'] !== undefined ? Number(opt['c14-copy-wait-ms']) : null,
+      noCopy,
     }));
   } else if (!snap.document_text.trim() && snap.canvas_present) {
     applyGatedRead(await readAndGateDocumentText(page, 'canvas', {
@@ -1443,7 +1447,8 @@ async function runScale(browser) {
       surface = await waitForSurface(ctx.page);
     }
     stageStart('witness');
-    const snap = await stateSnapshot(ctx.page);
+    // C14's frame witness and its own whole-text read follow: no select-all + copy here (#196).
+    const snap = await stateSnapshot(ctx.page, { noCopy: true });
     const paints = await paintEntries(ctx.page);
     let natural = null;
     let forced = null;

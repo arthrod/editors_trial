@@ -147,6 +147,9 @@ const expectedBodyText = (() => {
 })();
 const fixtureTextChars = Number(opt['fixture-text-chars'] || 0);
 const lengthCheckMode = typeof opt['length-check-mode'] === 'string' ? opt['length-check-mode'] : null;
+// #196: the select_all_copy oracle's clipboard bound; document_probe uses the
+// same --c14-copy-wait-ms flag name.
+const copyWaitMs = opt['c14-copy-wait-ms'] !== undefined ? Number(opt['c14-copy-wait-ms']) : null;
 const errorJs = typeof opt['error-js'] === 'string' ? opt['error-js'] : '';
 let criteriaList = [];
 if (opt.criteria !== undefined) {
@@ -216,7 +219,7 @@ async function awaitReadySignal(page, selector, timeoutMs) {
   }
 }
 
-async function waitForReady(page, selector, timeoutMs = loadTimeout, t0 = Date.now()) {
+async function waitForReady(page, selector, timeoutMs = loadTimeout, t0 = Date.now(), { noCopy = false } = {}) {
   await awaitReadySignal(page, selector, timeoutMs);
   const first_usable_ms = Date.now() - t0;
   const settleStart = Date.now();
@@ -228,11 +231,11 @@ async function waitForReady(page, selector, timeoutMs = loadTimeout, t0 = Date.n
   const clock_skew = await clockSkew(page, calibration);
   await stopRecorder(calibration);
   await calibration.detach();
-  const content_check = await verifyCanvasOpening(page);
+  const content_check = await verifyCanvasOpening(page, { noCopy });
   return { first_usable_ms, settle_ms, clock_skew, content_check };
 }
 
-async function verifyCanvasOpening(page) {
+async function verifyCanvasOpening(page, { noCopy = false } = {}) {
   if (!expectedOpeningText) {
     return { content_verified: true, surface_reason: null, skipped: true };
   }
@@ -259,6 +262,8 @@ async function verifyCanvasOpening(page) {
     lengthCheckMode,
     root: editSelector,
     expectedBody: expectedBodyText,
+    copyWaitMs,
+    noCopy,
   });
   const { verdict } = gated;
   return {
@@ -810,7 +815,10 @@ async function runCriteriaSession() {
   const trace = await startChromeTrace(browser, page, criteriaList[0] || 'input');
   const cdp = await context.newCDPSession(page);
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: loadTimeout });
-  const ready = await waitForReady(page, readySelector);
+  // #196: C04's quiescence window and C07's clicks follow this ready; a select-all + copy read here
+  // would add work to the one and leave the document selected for the other. C08/C09 read the text
+  // themselves, outside their timed samples (#197).
+  const ready = await waitForReady(page, readySelector, loadTimeout, Date.now(), { noCopy: true });
   const payload = await runCriteriaSuite({
     page,
     cdp,
@@ -821,6 +829,7 @@ async function runCriteriaSession() {
     quiescenceTimeoutMs,
     bulkChars,
     editorId,
+    copyWaitMs,
     // r3c07b: each C07 point needs a fresh untouched state. Reloading the
     // same page restores it; the ready gate re-runs so a reload that breaks
     // the editor surfaces as a reload failure, not a click on a dead page.

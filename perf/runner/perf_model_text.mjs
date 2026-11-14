@@ -223,7 +223,7 @@ export function openingContentVerdict({
       editor_error: String(editorError),
     };
   }
-  if (modelOracle === 'perf_model') {
+  if (modelOracle === 'perf_model' || modelOracle === 'select_all_copy') {
     if (modelDocumentCheck?.ok) {
       return { content_verified: true, surface_reason: null, editor_error: null };
     }
@@ -289,7 +289,7 @@ export function documentContentGateMeta({
   let domDocumentCheck = null;
   let content_check = null;
   let content_check_reason = null;
-  if (documentRead.oracle === 'perf_model') {
+  if (documentRead.oracle === 'perf_model' || documentRead.oracle === 'select_all_copy') {
     modelDocumentCheck = evaluatePerfModelDocument({
       text: documentRead.text,
       expectedOpening,
@@ -325,7 +325,9 @@ export function documentContentGateMeta({
   if (documentRead.oracle === 'absent') {
     length_check = 'not_run';
     content_check = 'not_run';
-    content_check_reason = 'editor exposes no document text at this pin; no content check ran';
+    content_check_reason = documentRead.error
+      ? `document text read failed: ${documentRead.error}`
+      : 'editor exposes no document text at this pin; no content check ran';
   } else if (documentRead.oracle === 'dom' && domDocumentCheck?.content_check === 'opening_only') {
     length_check = 'opening_only';
   } else if (documentRead.oracle === 'dom' && domDocumentCheck?.content_check === 'mounted_text_in_fixture') {

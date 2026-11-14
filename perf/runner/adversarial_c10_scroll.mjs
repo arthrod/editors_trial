@@ -20,6 +20,11 @@
  *      covers at least half the viewport (`container_rule: surface`). An
  *      editor adapter may name one with `--container-selector`
  *      (`container_rule: adapter`). `--scroll-container` is the same flag.
+ *      The adapter may also name its document element with
+ *      `--document-selector`: the probe parks the pointer over it before
+ *      the scroll (a canvas app applies a forwarded wheel delta only while
+ *      the pointer is over its canvas) and the witness watches that
+ *      element's box — the document, not the overlay that scrolls (#198).
  *   2. it *scrolls* it and records the container's selector, the shadow host
  *      chain it lives under, the `scrollTop` before and after and the
  *      **content probe**: the position of the scrolled content before and
@@ -121,6 +126,15 @@ const containerOverride =
   (typeof opt['container-selector'] === 'string' && opt['container-selector']) ||
   (typeof opt['scroll-container'] === 'string' && opt['scroll-container']) ||
   '';
+/**
+ * The adapter's document element (`a >> b` walks into an open shadow root):
+ * the pointer parks over it before the scroll — a canvas app applies a
+ * forwarded wheel delta only while the pointer is over its canvas — and the
+ * witness watches its box, the document, not the invisible overlay that
+ * scrolls (#198).
+ */
+const documentOverride =
+  (typeof opt['document-selector'] === 'string' && opt['document-selector']) || '';
 const viewport = String(opt.viewport || '1280x900')
   .split('x')
   .map((value) => Number(value) || 1280);
@@ -540,6 +554,19 @@ function pageScrollCommand(command) {
     };
   }
 
+  if (op === 'document') {
+    // The adapter's document element: the box the pointer must hover and the
+    // witness must watch. Resolved with the same `a >> b` chain as the
+    // container override.
+    const el = resolveOverride(command && command.selector);
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return {
+      selector: String((command && command.selector) || ''),
+      rect: { x: r.left, y: r.top, width: r.width, height: r.height },
+    };
+  }
+
   if (op === 'scroll-event') {
     return { scroll_event: window.__b5ScrollEvent || null };
   }
@@ -786,6 +813,7 @@ async function oneSample(context, page) {
       clock_skew: skew,
       witness: null,
       container: null,
+      document: null,
       scroll_top_before: null,
       scroll_top_after: null,
       scroll_top_delta: null,
@@ -815,6 +843,7 @@ async function oneSample(context, page) {
       caret_mask_in_shadow_roots: caretMask,
       witness: null,
       container: null,
+      document: null,
       scroll_top_before: null,
       scroll_top_after: null,
       scroll_top_delta: null,
@@ -828,6 +857,43 @@ async function oneSample(context, page) {
   // Put the container at the top before the baseline is taken, so the frame
   // the witness compares against is the one the scroll starts from.
   await page.evaluate(pageScrollCommand, { op: 'reset', index: discovery.chosen_index });
+
+  // The adapter's document element (#198): a canvas app applies a forwarded
+  // wheel delta only while the pointer is over its canvas, so the pointer
+  // parks over the document element before the scroll — outside the timed
+  // window, before the witness takes its baseline — and the witness watches
+  // that element's box: the document, not the invisible overlay that
+  // scrolls.
+  let documentSurface = null;
+  if (documentOverride) {
+    documentSurface = await page.evaluate(pageScrollCommand, {
+      op: 'document',
+      selector: documentOverride,
+    });
+    const rect = documentSurface && documentSurface.rect;
+    if (!rect || !(rect.width > 0) || !(rect.height > 0)) {
+      return {
+        outcome: 'failed',
+        reason:
+          'the adapter named a document element that is not in the page (or has no visible box): ' +
+          documentOverride,
+        clock_skew: skew,
+        caret_mask_in_shadow_roots: caretMask,
+        witness: null,
+        container: null,
+        document: null,
+        scroll_top_before: null,
+        scroll_top_after: null,
+        scroll_top_delta: null,
+        scroll_frame_ms: null,
+        search: discovery,
+      };
+    }
+    await page.mouse.move(
+      Math.round(rect.x + rect.width / 2),
+      Math.round(rect.y + rect.height / 2),
+    );
+  }
 
   let scroll = null;
   const arm = async () => {
@@ -846,15 +912,21 @@ async function oneSample(context, page) {
     // not a check (#130).
     clockCheck: skew,
     windowMs,
-    // The document region: the scrolled container. Damage outside the
-    // document cannot pose as the document's paint (#130).
-    region: { rect: chosen.region_rect },
+    // The document region: the scrolled container, or — when the adapter
+    // named its document element — that element's box (the canvas the
+    // document paints into, not the overlay that scrolls). Damage outside
+    // the document cannot pose as the document's paint (#130).
+    region: { rect: (documentSurface && documentSurface.rect) || chosen.region_rect },
   });
 
   const scrollEvent = await page.evaluate(pageScrollCommand, { op: 'scroll-event' });
   const container = scroll && scroll.container ? scroll.container : null;
   if (container) {
     container.container_rule = discovery.container_rule || container.container_rule || null;
+    if (documentSurface) {
+      container.document_selector = documentSurface.selector;
+      container.document_rect = documentSurface.rect;
+    }
   }
   const delta = scroll ? scroll.scroll_top_delta : null;
   const content = (scroll && scroll.content) || null;
@@ -866,6 +938,7 @@ async function oneSample(context, page) {
       caret_mask_in_shadow_roots: caretMask,
       witness,
       container,
+      document: documentSurface,
       content,
       scroll_top_before: null,
       scroll_top_after: null,
@@ -884,6 +957,7 @@ async function oneSample(context, page) {
       caret_mask_in_shadow_roots: caretMask,
       witness,
       container,
+      document: documentSurface,
       content,
       scroll_top_before: scroll.scroll_top_before,
       scroll_top_after: scroll.scroll_top_after,
@@ -902,6 +976,7 @@ async function oneSample(context, page) {
       caret_mask_in_shadow_roots: caretMask,
       witness,
       container,
+      document: documentSurface,
       content,
       scroll_top_before: scroll.scroll_top_before,
       scroll_top_after: scroll.scroll_top_after,
@@ -921,6 +996,7 @@ async function oneSample(context, page) {
       caret_mask_in_shadow_roots: caretMask,
       witness,
       container,
+      document: documentSurface,
       content,
       scroll_top_before: scroll.scroll_top_before,
       scroll_top_after: scroll.scroll_top_after,
@@ -937,6 +1013,7 @@ async function oneSample(context, page) {
     caret_mask_in_shadow_roots: caretMask,
     witness,
     container,
+    document: documentSurface,
     content,
     scroll_event: scrollEvent && scrollEvent.scroll_event ? scrollEvent.scroll_event : null,
     scroll_top_before: scroll.scroll_top_before,
@@ -1024,5 +1101,6 @@ const payload = {
   witness_window_ms: windowMs,
   skew_bound_ms: skewBoundMs,
   scroll_container_override: containerOverride || null,
+  scroll_document_override: documentOverride || null,
 };
 process.stdout.write(JSON.stringify(payload));

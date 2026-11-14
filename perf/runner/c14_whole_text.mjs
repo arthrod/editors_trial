@@ -84,7 +84,7 @@ async function folioModel(page, editorId) {
   return page.evaluate(READ_FOLIO_PM_TEXT);
 }
 
-async function selectAllCopy(page, editorId, { waitMs }) {
+export async function selectAllCopy(page, editorId, { waitMs }) {
   const origin = new URL(page.url()).origin;
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin });
   await page.evaluate((s) => navigator.clipboard.writeText(s), SENTINEL);

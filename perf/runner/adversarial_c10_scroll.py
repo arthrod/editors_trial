@@ -121,7 +121,37 @@ FAKE_EDITOR_VERSION = "fake-host:b5-scroll"
 #: the document (a canvas editor, a host that scrolls a box the text is not
 #: in). Empty by default; every use is recorded in the trial's diagnostic and
 #: in the sample record, so an override is never invisible.
-HOST_SCROLL_CONTAINERS: dict[str, str] = {}
+#:
+#: wordcraft (#198): the host ships ``#wc-scroll``
+#: (``harness/ui/wordcraft-host/host.js``) exactly for this probe — an
+#: invisible overlay whose scroll forwards a ``WheelEvent`` of the same pixel
+#: delta to the canvas, the app's own scroll path. The probe cannot select it
+#: by itself: the host chip's text forces the text-selection path (no
+#: scroller holds the document text) and the overlay's ``opacity: 0`` makes
+#: it ineligible for the textless surface fallback.
+HOST_SCROLL_CONTAINERS: dict[str, str] = {"wordcraft": "#wc-scroll"}
+
+#: The document element of a host whose scroller is an adapter overlay: the
+#: box the witness watches (the document, not the invisible overlay) and the
+#: element the pointer parks over before the scroll — a canvas app applies a
+#: forwarded wheel delta only while the pointer is over its canvas. Recorded
+#: beside the container override, in the trial's diagnostic and in the sample
+#: record, so it is never invisible.
+HOST_SCROLL_DOCUMENTS: dict[str, str] = {"wordcraft": "#wordcraft_canvas"}
+
+
+def adapter_selectors(editor_id: str, *, container: str | None = None) -> dict:
+    """The adapter's selectors for an editor, or ``None`` when it has none.
+
+    ``container`` (an explicit ``--container-selector``) overrides the
+    table's scroller only; the document element is a property of the host,
+    not of the invocation. An editor with no entry in either table names
+    nothing: its page's own selection rules decide, unchanged.
+    """
+    return {
+        "container": container or HOST_SCROLL_CONTAINERS.get(editor_id),
+        "document": HOST_SCROLL_DOCUMENTS.get(editor_id),
+    }
 
 SCROLL_PROBE = REPO / "perf" / "runner" / "adversarial_c10_scroll.mjs"
 
@@ -337,16 +367,26 @@ def scroll_sample_verdict(sample: dict, *, bound_ms: float = DEFAULT_SKEW_BOUND_
 
     # The witness must have watched this container. A 40×40 blink whose
     # changed_pixels equal its own region_pixels is still not the document
-    # (#134). The two rectangles are the same box within 1 px.
+    # (#134). The two rectangles are the same box within 1 px. An adapter
+    # that names its document element (#198: the canvas a pointer-gated
+    # canvas app paints into, not the overlay that scrolls) names the box
+    # the witness is compared against; without one, the container's own
+    # region is the box, as before.
+    document_rect = _rect_of(container.get("document_rect"))
     container_rect = _rect_of(container.get("region_rect"))
     if container_rect is None:
         container_rect = _rect_of(container.get("rect_css_px"))
-    if container_rect is not None and not _rects_within(_rect_of(witness.get("document_region")), container_rect):
+    if document_rect is not None:
+        watched_name, watched_rect = "the adapter's document_rect", document_rect
+        watched_record = container.get("document_rect")
+    else:
+        watched_name, watched_rect = "the scroll container's region_rect", container_rect
+        watched_record = container.get("region_rect")
+    if watched_rect is not None and not _rects_within(_rect_of(witness.get("document_region")), watched_rect):
         return (
             "failed",
-            "the witness's document_region is not the scroll container's region_rect "
-            "(within %s px): %r vs %r"
-            % (REGION_TOLERANCE_PX, witness.get("document_region"), container.get("region_rect")),
+            "the witness's document_region is not %s (within %s px): %r vs %r"
+            % (watched_name, REGION_TOLERANCE_PX, witness.get("document_region"), watched_record),
             None,
         )
 
@@ -404,18 +444,17 @@ def classify_payload(payload: dict, *, bound_ms: float = DEFAULT_SKEW_BOUND_MS):
 # --------------------------------------------------------------------------- #
 
 
-def _run_probe(
+def _probe_command(
     *,
     target: dict,
     corpus_path: Path,
     pairs: int,
     scroll_container: str | None = None,
+    document_selector: str | None = None,
     skew_bound_ms: float = DEFAULT_SKEW_BOUND_MS,
-) -> dict:
-    """Run the scroll probe against a host and return its JSON payload."""
-    from perf.runner.browser_hosts import select_fixture
-
-    select_fixture(target, corpus_path)
+) -> list:
+    """The probe's command line: the target's URL and waits, plus the
+    adapter's selectors when this host has them."""
     node = shutil.which("node") or "node"
     cmd = [
         node,
@@ -443,11 +482,37 @@ def _run_probe(
         cmd.extend(["--wait-after-ready", str(target["wait_after_ready"])])
     if scroll_container:
         cmd.extend(["--container-selector", scroll_container])
+    if document_selector:
+        cmd.extend(["--document-selector", document_selector])
     if target.get("editor_id"):
         cmd.extend(["--editor", str(target["editor_id"])])
     edit_selector = target.get("edit_selector") or ""
     if edit_selector:
         cmd.extend(["--edit-selector", edit_selector])
+    return cmd
+
+
+def _run_probe(
+    *,
+    target: dict,
+    corpus_path: Path,
+    pairs: int,
+    scroll_container: str | None = None,
+    document_selector: str | None = None,
+    skew_bound_ms: float = DEFAULT_SKEW_BOUND_MS,
+) -> dict:
+    """Run the scroll probe against a host and return its JSON payload."""
+    from perf.runner.browser_hosts import select_fixture
+
+    select_fixture(target, corpus_path)
+    cmd = _probe_command(
+        target=target,
+        corpus_path=corpus_path,
+        pairs=pairs,
+        scroll_container=scroll_container,
+        document_selector=document_selector,
+        skew_bound_ms=skew_bound_ms,
+    )
     from perf.runner.load_timeouts import load_timeout_env
 
     proc = subprocess.run(
@@ -694,9 +759,11 @@ def _main() -> int:
     )
     lane = "fake" if args.fake_host else (BROWSER_TARGETS.get(editor_id, {}).get("lane") or default_lane(editor_id))
 
-    scroll_container = (
-        args.container_selector or args.scroll_container or HOST_SCROLL_CONTAINERS.get(editor_id)
+    adapter = adapter_selectors(
+        editor_id, container=args.container_selector or args.scroll_container
     )
+    scroll_container = adapter["container"]
+    document_selector = adapter["document"]
 
     from perf.runner.benchmark_document import (
         content_gate_record,
@@ -715,6 +782,7 @@ def _main() -> int:
         "host_class": host_class,
         "visible_evidence": VISIBLE_EVIDENCE,
         "scroll_container_override": scroll_container,
+        "scroll_document_override": document_selector,
         **content_gate_record(content_meta, gate_length_check_for(editor_id, content_meta)),
     }
     schema_error = environment_schema_error(env)
@@ -806,6 +874,7 @@ def _main() -> int:
                     corpus_path=fixture_path,
                     pairs=max(1, args.pairs),
                     scroll_container=scroll_container,
+                    document_selector=document_selector,
                 )
             except Exception as exc:  # record, never abort the run
                 payload = {

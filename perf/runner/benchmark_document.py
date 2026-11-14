@@ -1914,7 +1914,7 @@ GATE_SURFACES = {
     "eigenpal": {"oracle": "model"},
     "canvas": {"oracle": "model"},
     "docen": {"oracle": "model"},
-    "wordcraft": {"oracle": "absent"},
+    "wordcraft": {"oracle": "select_all_copy"},
 }
 
 

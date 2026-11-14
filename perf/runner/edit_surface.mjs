@@ -136,9 +136,10 @@ export const DOCUMENT_TEXT_SURFACES = {
   folio: { kind: 'dom', root: '[data-page-number]', whole: false },
   canvas: { kind: 'model', model: 'canvas_editor' },
   docen: { kind: 'model', model: 'docen' },
-  // WordCraft puts no document text in the page, only its modified flag; C14 reads its whole
-  // text through WordCraft's own select all + copy (c14_whole_text.mjs).
-  wordcraft: { kind: 'unavailable' },
+  // WordCraft puts no document text in the page, only its modified flag; its whole
+  // text is read through WordCraft's own select all + copy (c14_whole_text.mjs,
+  // #196) — the same sentinel-checked clipboard read C14 already uses.
+  wordcraft: { kind: 'select_all_copy' },
 };
 
 export function hasDocumentTextSurface(editorId) {
@@ -274,8 +275,36 @@ export const READ_EDITOR_DOCUMENT_TEXT = ({ kind, root, model, deep = false, dom
   return result(text, 'dom', 'dom');
 };
 
-export async function readEditorDocumentText(page, editorId, { root = null } = {}) {
+export async function readEditorDocumentText(page, editorId, { root = null, copyWaitMs = null, noCopy = false } = {}) {
   const surface = documentTextSurface(editorId);
+  if (surface.kind === 'select_all_copy' && noCopy) {
+    // A copy read clicks the editor and selects the whole document: where timed
+    // work still follows (C04 and C07 in the input lane, C14's witness), the
+    // surface reads as it did before #196, with no text.
+    return page.evaluate(READ_EDITOR_DOCUMENT_TEXT, { kind: 'unavailable', model: 'select_all_copy' });
+  }
+  if (surface.kind === 'select_all_copy') {
+    // The read must run in Node: the clipboard API and the select-all keys are
+    // driver calls, not page code. It is the same sentinel-checked copy C14
+    // uses (c14_whole_text.mjs, #196); a copy that never lands fails honestly
+    // with the sentinel unchanged.
+    const { C14_COPY_WAIT_MS, selectAllCopy } = await import('./c14_whole_text.mjs');
+    try {
+      const text = String(
+        (await selectAllCopy(page, editorId, { waitMs: copyWaitMs || C14_COPY_WAIT_MS })) ?? '',
+      );
+      return { text, chars: text.length, oracle: 'select_all_copy', source: 'select_all_copy', error: null };
+    } catch (error) {
+      const reason = String((error && error.message) || error).slice(0, 300);
+      return {
+        text: '',
+        chars: 0,
+        oracle: 'absent',
+        source: 'select_all_copy',
+        error: `select_all_copy: ${reason}`,
+      };
+    }
+  }
   const request = hasDocumentTextSurface(editorId)
     ? surface
     : { kind: 'dom', root, deep: true };
@@ -296,10 +325,12 @@ export async function readAndGateDocumentText(
     lengthCheckMode = null,
     root = null,
     expectedBody = null,
+    copyWaitMs = null,
+    noCopy = false,
   } = {},
 ) {
   const surface = documentTextSurface(editorId);
-  const read = await readEditorDocumentText(page, editorId, { root });
+  const read = await readEditorDocumentText(page, editorId, { root, copyWaitMs, noCopy });
   const whole = surface.whole !== false;
   const gate = documentContentGateMeta({
     documentRead: read,

@@ -168,7 +168,7 @@ const expected = {
   folio: { kind: 'dom', root: '[data-page-number]', whole: false },
   canvas: { kind: 'model', model: 'canvas_editor' },
   docen: { kind: 'model', model: 'docen' },
-  wordcraft: { kind: 'unavailable' },
+  wordcraft: { kind: 'select_all_copy' },
 };
 const actual = Object.fromEntries(Object.keys(expected).map((id) => [id, mod.documentTextSurface(id)]));
 assert.deepEqual(actual, expected);
@@ -294,7 +294,7 @@ class WarmColdDocumentReader(unittest.TestCase):
         cls.server.server_close()
         cls._corpus_dir.cleanup()
 
-    def probe(self, host: str, editor: str, ready: str, edit_selector: str) -> dict:
+    def probe(self, host: str, editor: str, ready: str, edit_selector: str, extra_flags=None) -> dict:
         cmd = [
             "node",
             str(WARM_COLD),
@@ -320,6 +320,7 @@ class WarmColdDocumentReader(unittest.TestCase):
             "false",
             "--expected-opening-text",
             "REAL DOCUMENT CONTENT",
+            *(extra_flags or []),
         ]
         try:
             proc = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
@@ -431,16 +432,21 @@ class WarmColdDocumentReader(unittest.TestCase):
         self.assertFalse(payload["content_verified"], payload)
         self.assertEqual(payload["surface_reason"], "document_content_mismatch", payload)
 
-    def test_wordcraft_unavailable_text_is_a_named_refusal_not_a_throw(self):
+    def test_wordcraft_failed_copy_read_is_a_named_refusal_not_a_throw(self):
+        # #196: b3_wordcraft_unavailable.html paints a canvas but never
+        # answers Ctrl/Cmd+C, so the clipboard keeps the sentinel — the
+        # select_all_copy read must refuse honestly, naming the copy read.
         payload = self.probe(
             "b3_wordcraft_unavailable.html",
             "wordcraft",
             '#host[data-ready="1"]',
             "#wordcraft_canvas",
+            extra_flags=["--c14-copy-wait-ms", "1500"],
         )
         check = payload["pairs"][0]["cold"]["content_check"]
         self.assertFalse(check["content_verified"], check)
         self.assertEqual(check["surface_reason"], "document_content_unverifiable")
+        self.assertIn("select_all_copy", check["editor_error"] or "", check)
         self.assertEqual(bw._content_refusal(payload)["surface_reason"], "document_content_unverifiable")
 
 
@@ -754,7 +760,8 @@ console.log(JSON.stringify({length_check: meta.length_check, enforced: meta.leng
         )
         self.assertEqual(
             bd.gate_length_check_for("wordcraft", prose),
-            {"length_check": "not_run", "length_enforced": False, "content_check": "not_run"},
+            # #196: the select-all + copy oracle gates like a whole-model read.
+            {"length_check": "applied", "length_enforced": True, "content_check": "model_text"},
         )
         self.assertEqual(
             bd.gate_length_check_for("plate", prose),

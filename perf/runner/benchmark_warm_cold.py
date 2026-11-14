@@ -662,6 +662,7 @@ def _glyph_geometry_refusal(payload: dict) -> dict | None:
     """
     adapters = set()
     confirmed = True
+    landed = False
     seen = False
     for pair in payload.get("pairs", []):
         for arm in ("cold", "warm"):
@@ -674,11 +675,17 @@ def _glyph_geometry_refusal(payload: dict) -> dict | None:
                 kind = adapter.get("adapter")
                 if kind in ("model", "flag"):
                     adapters.add(kind)
-                    if adapter.get("confirmed") is not True:
+                    if adapter.get("confirmed") is True:
+                        landed = True
+                    elif kind == "flag" and adapter.get("reason") == "modified_before_edit":
+                        # A modified flag rises once: the later keystrokes of a burst find it
+                        # already up and can neither confirm nor refute their edit (#196).
+                        pass
+                    else:
                         confirmed = False
                 elif kind == "dom":
                     return None
-    if not seen or not adapters or not confirmed:
+    if not seen or not adapters or not confirmed or not landed:
         return None
     return {
         "reason": NO_GLYPH_GEOMETRY_REASON,

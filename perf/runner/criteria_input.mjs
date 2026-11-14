@@ -96,7 +96,8 @@ import { fileURLToPath } from 'node:url';
 import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 import { normalizeDocumentText } from './document_text_normalize.mjs';
-import { editSurface, usableExpression } from './edit_surface.mjs';
+import { documentTextSurface, editSurface, usableExpression } from './edit_surface.mjs';
+import { C14_COPY_WAIT_MS, selectAllCopy } from './c14_whole_text.mjs';
 import { loadTimeoutMs } from './load_timeout.mjs';
 
 const REPO_ROOT = fileURLToPath(new URL('../..', import.meta.url));
@@ -2540,6 +2541,364 @@ async function measureClicks(page, meta, options = {}) {
   return entry;
 }
 
+/**
+ * Document text for a `select_all_copy` surface (#197): the editor's own
+ * select all + copy, the same sentinel-checked clipboard read the content
+ * gate and C14 use (#196). Reads run OUTSIDE the timed window — before and
+ * after the keystroke sample, never inside it. A copy that never lands
+ * returns an error naming the read; nothing here fakes text.
+ */
+async function readCopyOracleText(page, options) {
+  try {
+    const text = await selectAllCopy(page, options.editorId, {
+      waitMs: options.copyWaitMs || C14_COPY_WAIT_MS,
+    });
+    return {
+      text: String(text ?? ''),
+      text_length: String(text ?? '').length,
+      text_source: 'select_all_copy',
+      error: null,
+    };
+  } catch (error) {
+    return {
+      text: '',
+      text_length: 0,
+      text_source: 'select_all_copy',
+      error: `select_all_copy: ${String((error && error.message) || error).slice(0, 300)}`,
+    };
+  }
+}
+
+/**
+ * Collapse the selection a select-all + copy read leaves, so the next keystroke
+ * types or pastes at a caret instead of replacing the whole document. A click
+ * on the criterion's own point puts the caret where every other editor's C08
+ * and C09 edit; with no point, `ControlOrMeta+End` puts it at the document end.
+ * The repaint of the cleared selection settles before any timed sample arms.
+ */
+export const COPY_COLLAPSE_SETTLE_MS = 500;
+
+async function collapseCopySelection(page, point = null) {
+  if (point && point.x !== null && point.x !== undefined) {
+    await page.mouse.click(point.x, point.y);
+  } else {
+    await page.keyboard.press('ControlOrMeta+End');
+  }
+  await settle(page, COPY_COLLAPSE_SETTLE_MS);
+}
+
+/** C09 on a flag surface with a whole-text copy oracle (WordCraft, #197). */
+async function measureUndoCopyOracle(page, witness, options, meta) {
+  const entry = emptyEntry('C09', 'failed', null);
+  entry.assertion = {
+    name: 'typing_then_undo_restores_document_text',
+    passed: false,
+    scope: 'select_all_copy_text_exact_match',
+    checks: {},
+    failures: [],
+  };
+  const state = meta.editable;
+  if (!(state.input_reachable === true || state.is_content_editable === true)) {
+    entry.failure_reason =
+      state.refusal ||
+      'surface_not_editable: the editor took no input, so "the character was typed and the undo reverted it" cannot be asserted';
+    entry.assertion.scope = 'not_observable';
+    entry.assertion.failures.push('input_not_reachable');
+    return entry;
+  }
+  const point = (meta.points || [])[0] || null;
+  if (point && point.x !== null && point.x !== undefined) {
+    await page.mouse.click(point.x, point.y);
+    await settle(page, 120);
+  }
+  const before = await readCopyOracleText(page, options);
+  if (before.error) {
+    entry.failure_reason = `document_text_not_readable: ${before.error}`;
+    entry.assertion.failures.push('before_copy_read_failed');
+    return entry;
+  }
+  // The copy read left the document selected; collapse it to a caret on the
+  // clicked point so the typed character is an insertion, not a replacement.
+  await collapseCopySelection(page, point);
+  let undoAttempted = false;
+  try {
+    await clearInputs(page);
+    await page.keyboard.type('x');
+    const typedInput = await firstInput(page, { kind: 'keydown', key: 'x' });
+    if (typedInput === null) {
+      entry.failure_reason = 'no_keydown_observed_for_typed_character';
+      entry.assertion.failures.push('no_keydown_observed_for_typed_character');
+      return entry;
+    }
+    const typed = await readCopyOracleText(page, options);
+    if (typed.error) {
+      entry.failure_reason = `document_text_not_readable: ${typed.error}`;
+      entry.assertion.failures.push('typed_copy_read_failed');
+      return entry;
+    }
+    if (typed.text !== `${before.text}x` && !differsBySingleInsertion(before.text, typed.text, 'x')) {
+      entry.failure_reason = `${CORRECTNESS_PREFIX} typed_character_or_position`;
+      entry.notes.push(textDeltaNote(typed.text, `${before.text}x`));
+      entry.assertion.failures.push(entry.failure_reason);
+      return entry;
+    }
+    // The read left the document selected: back to a caret on the point, so the
+    // timed undo runs on a caret as it does for every other editor.
+    await collapseCopySelection(page, point);
+    let undoInput = null;
+    const observation = {
+      observation_id: 'undo',
+      input_ms: null,
+      text_length_before_typing: before.text_length,
+      text_length_after_typing: typed.text_length,
+      modifier: options.modifier,
+      text_oracle: 'select_all_copy',
+    };
+    const painted = await sampleAfterInput(witness, null, options, {
+      arm: async () => {
+        await clearInputs(page);
+        undoAttempted = true;
+        await page.keyboard.press(`${options.modifier}+Z`);
+        undoInput =
+          (await firstInput(page, { kinds: ['keydown'], key: 'z' })) ||
+          (await firstInput(page, { kinds: ['keydown'], key: 'Z' }));
+        return undoInput?.t ?? null;
+      },
+    });
+    attachPaintWitnessFailure(observation, painted);
+    const after = await readCopyOracleText(page, options);
+    observation.text_length_after_undo = after.text_length;
+    observation.text_restored = !after.error && after.text === before.text;
+    if (after.error) observation.copy_read_error = after.error;
+    entry.observations.push(observation);
+    if (undoInput === null) {
+      entry.failure_reason = 'no_keydown_observed_for_undo';
+      entry.assertion.failures.push('no_keydown_observed_for_undo');
+      return entry;
+    }
+    observation.input_ms = round(undoInput.t, 3);
+    if (after.error) {
+      entry.failure_reason = `document_text_not_readable: ${after.error}`;
+      entry.assertion.failures.push('after_copy_read_failed');
+      return entry;
+    }
+    if (after.text !== before.text) {
+      // The undo key ran and the document is not the text from before the
+      // character: the undo missed, not a witness problem.
+      entry.failure_reason = `${CORRECTNESS_PREFIX} undo_did_not_restore_document_text`;
+      entry.notes.push(textDeltaNote(after.text, before.text));
+      entry.assertion.failures.push(entry.failure_reason);
+      return entry;
+    }
+    if (!painted.ok) {
+      entry.failure_reason = painted.reason;
+      entry.assertion.failures.push('undo_not_painted');
+      return entry;
+    }
+    entry.outcome = 'measured';
+    entry.samples_ms = [painted.sampleMs];
+    entry.sample_observation_ids = [observation.observation_id];
+    entry.sub_frame_samples = [Boolean(painted.sub_frame)];
+    entry.assertion.passed = true;
+    entry.assertion.checks = {
+      typed_character_observed: true,
+      undo_restored_exact_text: true,
+      text_oracle: 'select_all_copy',
+    };
+    entry.failure_reason = null;
+    return entry;
+  } finally {
+    try {
+      let current = await readCopyOracleText(page, options);
+      if (!current.error && current.text !== before.text && !undoAttempted) {
+        undoAttempted = true;
+        await collapseCopySelection(page, point);
+        await page.keyboard.press(`${options.modifier}+Z`);
+        await settle(page, 60);
+        current = await readCopyOracleText(page, options);
+      }
+      if (current.error || current.text !== before.text) {
+        entry.fixture_reset = {
+          attempted: true,
+          restored: false,
+          reason: current.error || 'undo_did_not_restore_original',
+        };
+        try {
+          if (typeof options.reloadPage === 'function') {
+            await options.reloadPage();
+          } else {
+            await page.reload();
+          }
+          // The reload returns the fixture through the host's own import; one
+          // copy read verifies, bounded like every other oracle read.
+          current = await readCopyOracleText(page, options);
+          entry.fixture_reset.restored = !current.error && current.text === before.text;
+          if (current.error) entry.fixture_reset.reason = current.error;
+          await page.evaluate(INSTALL_INPUT_TAP).catch(() => {});
+        } catch (error) {
+          entry.fixture_reset.error = String(error);
+        }
+      }
+    } catch (error) {
+      if (entry.fixture_reset) {
+        if (!entry.fixture_reset.error) {
+          entry.fixture_reset.error = String(error);
+        }
+      } else {
+        entry.fixture_reset = { attempted: true, restored: false, error: String(error) };
+      }
+    }
+  }
+}
+
+/** C08 on a flag surface with a whole-text copy oracle (WordCraft, #197). */
+async function measureBulkInsertCopyOracle(page, witness, options, meta) {
+  const entry = emptyEntry('C08', 'failed', null);
+  entry.assertion = {
+    name: 'bulk_insert_grows_document_text',
+    passed: false,
+    scope: 'select_all_copy_text_length_growth',
+    checks: {},
+    failures: [],
+  };
+  const state = meta.editable;
+  if (!(state.input_reachable === true || state.is_content_editable === true)) {
+    entry.failure_reason =
+      state.refusal ||
+      'surface_not_editable: the editor took no input, so "the inserted text made the document longer" cannot be asserted';
+    entry.assertion.scope = 'not_observable';
+    entry.assertion.failures.push('input_not_reachable');
+    return entry;
+  }
+  const point = (meta.points || [])[0] || null;
+  if (point && point.x !== null && point.x !== undefined) {
+    await page.mouse.click(point.x, point.y);
+    await settle(page, 200);
+  }
+  const before = await readCopyOracleText(page, options);
+  if (before.error) {
+    entry.failure_reason = `document_text_not_readable: ${before.error}`;
+    entry.assertion.failures.push('before_copy_read_failed');
+    return entry;
+  }
+  // WordCraft keeps what its own copy put on its clipboard and pastes it with
+  // the system clipboard's text: after the oracle's copy, one paste inserted
+  // the block and the whole document again (growth 5,720 for a 1,500-character
+  // block on prose-500w). The paste runs on a fresh load, as for every other
+  // editor: the reload restores the fixture, and the before text is the copy
+  // read above. Then the caret goes back on the clicked point.
+  if (typeof options.reloadPage === 'function') {
+    await options.reloadPage();
+    await page.evaluate(INSTALL_INPUT_TAP).catch(() => {});
+  }
+  await collapseCopySelection(page, point);
+  const minimumGrowth = options.bulkChars;
+  const observation = {
+    observation_id: 'paste',
+    point: point ? point.point : null,
+    x: point ? point.x : null,
+    y: point ? point.y : null,
+    block_chars: options.bulkChars,
+    minimum_growth: minimumGrowth,
+    text_length_before: before.text_length,
+    text_oracle: 'select_all_copy',
+    fresh_load_before_paste: typeof options.reloadPage === 'function',
+  };
+  let pasteError = null;
+  try {
+    await page.evaluate(async (text) => {
+      await navigator.clipboard.writeText(text);
+    }, options.block);
+  } catch (err) {
+    pasteError = String(err && err.message ? err.message : err);
+  }
+  if (pasteError !== null) {
+    observation.clipboard_error = pasteError;
+    entry.observations.push(observation);
+    entry.failure_reason = pasteError;
+    entry.assertion.failures.push('clipboard_write_failed');
+    return entry;
+  }
+  let pasteInput = null;
+  const painted = await sampleAfterInput(witness, null, options, {
+    arm: async () => {
+      await clearInputs(page);
+      await page.keyboard.press(`${options.modifier}+V`);
+      pasteInput = await firstInput(page, {
+        kinds: ['paste', 'beforeinput'],
+        inputTypePrefix: undefined,
+      });
+      return pasteInput?.t ?? null;
+    },
+  });
+  observation.method = 'clipboard_paste_keyboard';
+  attachPaintWitnessFailure(observation, painted);
+  const after = await readCopyOracleText(page, options);
+  if (pasteInput === null) {
+    observation.failure = 'paste_keystroke_did_not_reach_the_page';
+    entry.observations.push(observation);
+    entry.failure_reason = observation.failure;
+    entry.assertion.failures.push(observation.failure);
+    return entry;
+  }
+  observation.input_ms = round(pasteInput.t, 3);
+  if (after.error) {
+    observation.copy_read_error = after.error;
+    entry.observations.push(observation);
+    entry.failure_reason = `document_text_not_readable: ${after.error}`;
+    entry.assertion.failures.push('after_copy_read_failed');
+    return entry;
+  }
+  const growth = after.text_length - before.text_length;
+  observation.text_length_after = after.text_length;
+  observation.growth = growth;
+  entry.observations.push(observation);
+  if (growth > 0 && growth < minimumGrowth) {
+    entry.failure_reason = `${CORRECTNESS_PREFIX} truncated_paste`;
+    observation.failure = entry.failure_reason;
+    entry.assertion.failures.push(entry.failure_reason);
+    return entry;
+  }
+  if (!painted.ok) {
+    observation.failure = painted.reason;
+    entry.failure_reason = painted.reason;
+    entry.assertion.failures.push('paste_not_painted');
+    return entry;
+  }
+  if (growth < minimumGrowth) {
+    entry.failure_reason = `${CORRECTNESS_PREFIX} truncated_paste`;
+    observation.failure = entry.failure_reason;
+    entry.assertion.failures.push(entry.failure_reason);
+    return entry;
+  }
+  const bodyCheck = assertBulkInsertBody(before, after, options);
+  if (!bodyCheck.ok) {
+    entry.failure_reason = bodyCheck.reason;
+    if (bodyCheck.detail) entry.notes.push(bodyCheck.detail);
+    entry.assertion.failures.push(entry.failure_reason);
+    return entry;
+  }
+  observation.frame_ms = round(painted.frame_page_ms, 3);
+  observation.sample_ms = painted.sampleMs;
+  observation.witness = painted.record;
+  entry.outcome = 'measured';
+  entry.samples_ms = [observation.sample_ms];
+  entry.sample_observation_ids = [observation.observation_id];
+  entry.sub_frame_samples = [Boolean(painted.sub_frame)];
+  entry.assertion.passed = true;
+  entry.assertion.checks = {
+    text_length_grew: true,
+    growth,
+    expected_block_chars: options.bulkChars,
+    text_oracle: 'select_all_copy',
+  };
+  entry.failure_reason = null;
+  entry.notes.push(
+    'Select all + copy leaves the whole document selected; a click on the same point collapses it to a caret there, so the block pastes where it does for every other editor and growth is observable.',
+  );
+  return entry;
+}
+
 async function measureUndo(page, witness, options, meta) {
   const entry = emptyEntry('C09', 'unsupported', null);
   const state = meta.editable;
@@ -3671,6 +4030,7 @@ export async function runCriteriaSuite({
   reloadPage = null,
   resolvedPoints = null,
   witness: witnessOption = null,
+  copyWaitMs = null,
 }) {
   const startedAt = Date.now();
   const startedIso = new Date(startedAt).toISOString();
@@ -3689,6 +4049,8 @@ export async function runCriteriaSuite({
     reloadPage,
     resolvedPoints,
     witness: witnessOption,
+    editorId,
+    copyWaitMs,
   };
   const adapter = correctnessAdapter(options);
   const pageLoss = attachPageLossTracker(page, cdp);
@@ -3697,6 +4059,13 @@ export async function runCriteriaSuite({
     surfaceSpec.kind === 'model' || surfaceSpec.kind === 'flag' || surfaceSpec.hidden
       ? surfaceSpec.kind
       : 'dom';
+  // #197: a flag surface that also has a whole-text oracle (WordCraft's
+  // select all + copy, #196) can run C08/C09 for real — the copy read
+  // verifies the document outside the timed window. Other flag-only editors
+  // (apryse) keep the not_applicable stamp below.
+  const copyOracle =
+    surfaceKind === 'flag' &&
+    documentTextSurface(editorId || '').kind === 'select_all_copy';
 
   const entries = {};
   let witness = null;
@@ -3753,9 +4122,10 @@ export async function runCriteriaSuite({
     let preparedChrome = null;
     if (needsEdits && domAdapter(adapter) && surfaceKind === 'flag') {
       // A flag surface paints but exposes no document text to verify against:
-      // C07 (click -> paint) still runs; C08/C09 are named not_applicable.
+      // C07 (click -> paint) still runs; C08/C09 are named not_applicable —
+      // unless the editor has a whole-text copy oracle (#197).
       preparedSurface = { selector: editSelector, usable: null, skipped: true, refusal: null, kind: 'flag' };
-      for (const id of ['C08', 'C09']) {
+      for (const id of copyOracle ? [] : ['C08', 'C09']) {
         if (criteria.includes(id) && !entries[id]) {
           const na = emptyEntry(
             id,
@@ -4027,7 +4397,10 @@ export async function runCriteriaSuite({
         : editableMissing
           ? emptyEntry('C09', 'failed', editableMissing)
           : // @suite-phase c09_mid
-            await safeCriterion('C09', () => measureUndo(page, witness, measureOptions, meta));
+            await safeCriterion('C09', () =>
+              copyOracle
+                ? measureUndoCopyOracle(page, witness, measureOptions, meta)
+                : measureUndo(page, witness, measureOptions, meta));
     }
     if (criteria.includes('C08') && entries.C09?.fixture_reset) {
       if (!entries.C09.fixture_reset.restored) {
@@ -4062,7 +4435,10 @@ export async function runCriteriaSuite({
         : editableMissing
           ? emptyEntry('C08', 'failed', editableMissing)
           : // @suite-phase c08_mid
-            await safeCriterion('C08', () => measureBulkInsert(page, witness, options, meta));
+            await safeCriterion('C08', () =>
+              copyOracle
+                ? measureBulkInsertCopyOracle(page, witness, options, meta)
+                : measureBulkInsert(page, witness, options, meta));
     }
   } catch (error) {
     // @suite-phase classify_suite
