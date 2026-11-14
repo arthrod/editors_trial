@@ -669,14 +669,18 @@ def test_a_late_superseded_job_nobody_measured_again_is_an_error(tmp_path):
     assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
 
 
-def test_a_late_round_cannot_retire_a_job_the_first_round_already_replaced(tmp_path):
+RID_LATE2 = "20261114T050000000000Z-70000-000014"
+
+
+def test_a_late_round_cannot_retire_a_job_the_first_round_already_replaced(tmp_path, capsys):
     # Job 10 was re-run by the first round; retiring it again would drop the re-run's cell.
     data, *_ = late_data(tmp_path)
-    job(data / "space-a" / "runs" / RID_LATE, RID_LATE, 10)
+    job(data / "space-a" / "runs" / RID_LATE2, RID_LATE2, 10)
     manifest = late_manifest()
     manifest["late_superseded"]["issues"]["192"]["jobs"] = [10, 50]
-    manifest["late_rerun"]["space-a"] = [{"run_id": "20261114T050000000000Z-70000-000014", "jobs": [10]}]
-    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest), "--partial") != 0
+    manifest["late_rerun"]["space-a"] = [{"run_id": RID_LATE2, "jobs": [10]}]
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+    assert "already measured again by an earlier round" in capsys.readouterr().err
 
 
 def test_a_late_round_needs_its_harness_commit(tmp_path):
@@ -819,3 +823,65 @@ def test_an_extension_flagged_round_must_name_extension_jobs(tmp_path):
     data, manifest, _ = extension_round(tmp_path)
     manifest["editor_superseded"]["issues"]["193-500k"]["jobs"] = [4, 160, 161]
     assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest), "--partial") != 0
+
+
+
+# octo review of the rounds (2026-11-14) ----------------------------------------------------------------
+
+def test_a_late_job_in_another_lane_than_its_first_pass_job_is_refused(tmp_path, capsys):
+    data, *_ = late_data(tmp_path)
+    import shutil
+    shutil.rmtree(data / "space-b" / "runs" / RID_LATE)
+    job(data / "space-b" / "runs" / RID_LATE, RID_LATE, 50, lane="adversarial_c10_scroll")
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, late_manifest())) != 0
+    assert "lane" in capsys.readouterr().err
+
+
+def test_an_editor_round_job_in_another_lane_than_its_issue_is_refused(tmp_path, capsys):
+    data, manifest, new66 = memory_round(tmp_path, other_workload="prose-50kw")
+    manifest["editor_superseded"]["issues"]["194"]["lane"] = "benchmark_document"
+    manifest["editor_superseded"]["issues"]["194"].pop("workload")
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+    assert "lane" in capsys.readouterr().err
+
+
+def test_a_memory_workload_is_read_from_the_editors_own_attempts(tmp_path):
+    # canvas's attempt in old job 64 says prose-250kw; Docen's says prose-50kw: job 64 is canvas's prose-250kw.
+    data, manifest, _ = memory_round(tmp_path, other_workload="prose-250kw")
+    old64 = next((data / "space-a" / "runs" / RID_A / "benchmark_memory").glob("*-064"))
+    _attempt(old64, "docen", "prose-50kw")
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+
+
+def test_a_memory_job_whose_editor_attempts_name_no_workload_is_refused(tmp_path, capsys):
+    data, manifest, _ = memory_round(tmp_path, other_workload="prose-50kw")
+    old64 = next((data / "space-a" / "runs" / RID_A / "benchmark_memory").glob("*-064"))
+    for path in old64.glob("cells/*canvas/attempts/*.json"):
+        path.write_text(json.dumps({"editor_id": "canvas", "environment": {}}))
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+    assert "workload" in capsys.readouterr().err
+
+
+def test_mixed_workloads_in_one_memory_job_are_refused(tmp_path):
+    data, manifest, _ = memory_round(tmp_path, other_workload="prose-50kw")
+    old64 = next((data / "space-a" / "runs" / RID_A / "benchmark_memory").glob("*-064"))
+    (old64 / "cells" / "0000-canvas" / "attempts" / "c19-canvas-1.json").write_text(json.dumps(
+        {"editor_id": "canvas", "environment": {"workload_id": "prose-250kw"}}))
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+
+
+@pytest.mark.parametrize("bad", ["prose-250kw", [], [""], [3]])
+def test_workloads_must_be_a_list_of_names(tmp_path, bad):
+    data, manifest, _ = memory_round(tmp_path, other_workload="prose-50kw")
+    issue = manifest["editor_superseded"]["issues"]["194"]
+    issue.pop("workload")
+    issue["workloads"] = bad
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+
+
+def test_an_editor_round_issue_must_be_an_issue_number(tmp_path, capsys):
+    data, manifest, _ = memory_round(tmp_path, other_workload="prose-50kw")
+    issues = manifest["editor_superseded"]["issues"]
+    issues["194-canvas"] = issues.pop("194")  # no "issue": "194"
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+    assert "issue number" in capsys.readouterr().err

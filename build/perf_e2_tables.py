@@ -765,7 +765,8 @@ def reruns_text(campaign: dict | None) -> str:
         editor = entry["editor"]
         name = {"canvas": "canvas-editor"}.get(editor, DISPLAY.get(editor, editor))
         key = str(entry["issue"]) + ("-extension" if entry.get("extension") else "")
-        cells, reason = EDITOR_ROUND_REASONS.get(key) or EDITOR_ROUND_REASONS[str(entry["issue"])]
+        cells, reason = (EDITOR_ROUND_REASONS.get(key) or EDITOR_ROUND_REASONS.get(str(entry["issue"]))
+                         or ("%(jobs)d jobs", "after a harness defect was fixed"))
         text += (
             " Then %s's cells of %s were measured again %s (issue #%s). Those runs measured %s alone, under the "
             "same job indices and seeds; the tables read them for %s, and the other editors of those jobs stay "

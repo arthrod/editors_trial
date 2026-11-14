@@ -57,3 +57,11 @@ def test_load_result_uses_the_page_clock_ready_and_never_the_ready_duration():
     assert "bindModelSurfaceClock(" in body
     assert "?? readyMs" not in body
     assert "readyPageMs" in body
+
+
+
+def test_a_new_navigation_forgets_the_previous_ready_instant():
+    # octo review: a reused page must not carry the previous page's ready instant.
+    source = PROBE.read_text()
+    start = source.index("const navT0 = Date.now();")
+    assert "readyPageClock.delete(ctx.page)" in source[start - 400:start]

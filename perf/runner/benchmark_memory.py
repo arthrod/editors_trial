@@ -606,7 +606,7 @@ def _retention_series(roots: list[int], seconds) -> list[dict]:
     return series
 
 
-def _pair_deadline_s(probe_timeout_s: float, workload: str, retain_seconds) -> float:
+def _pair_deadline_s(probe_timeout_s: float, workload: str, retain_seconds, quiescence_ms: float = 0) -> float:
     """The wall clock one pair may take (#194).
 
     A pair opens the document and reopens it (each up to the workload's load
@@ -619,7 +619,7 @@ def _pair_deadline_s(probe_timeout_s: float, workload: str, retain_seconds) -> f
 
     load_timeout_s = load_timeout_ms(workload) / 1000.0
     retention_s = max((float(value) for value in retain_seconds or ()), default=0.0)
-    return max(probe_timeout_s, 3 * load_timeout_s + retention_s + 120.0)
+    return max(probe_timeout_s, 3 * load_timeout_s + retention_s + float(quiescence_ms) / 1000.0 + 120.0)
 
 
 def _failed_pair(index: int, exc: BaseException, *, server_started: bool) -> dict:
@@ -648,7 +648,7 @@ def _run_browser_pair(
     # Lax layer (owner 2026-11-11): the probe may wait minutes for a big
     # document to load; our own wall clock covers both loads and the burst
     # so the probe's own waits govern (#194).
-    probe_timeout_s = _pair_deadline_s(probe_timeout_s, workload, retain_seconds)
+    probe_timeout_s = _pair_deadline_s(probe_timeout_s, workload, retain_seconds, quiescence_ms)
     command = _probe_command(
         target,
         corpus_path,

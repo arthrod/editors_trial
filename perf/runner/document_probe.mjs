@@ -1262,6 +1262,7 @@ async function runLoad(browser) {
     // and a 1x1 stand-in cannot be compared with a screencast frame.
     const watching =
       usableSignal === 'screencast_ink' ? null : waitForSurfaceKeepingBaseline(ctx.page, ctx.recorder);
+    readyPageClock.delete(ctx.page); // a reused page never carries the previous ready instant
     const navT0 = Date.now();
     await ctx.page.goto(url, { waitUntil: 'domcontentloaded', timeout: timeoutMs });
     const navigationMs = Date.now() - navT0;

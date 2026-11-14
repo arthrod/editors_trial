@@ -43,3 +43,10 @@ def test_a_timed_out_pair_names_the_phases_it_reached(monkeypatch):
     assert diagnostic["error"] == "probe produced no line before the timeout"
     assert diagnostic["phases_reached"] == ["ready"]
     assert diagnostic["stalled_after"] == "ready"
+
+
+
+def test_the_deadline_covers_the_quiescence_wait():
+    # octo review: a long --quiescence-ms must not be cut by our own deadline.
+    short = bm._pair_deadline_s(60.0, "prose-500w", (1.0,), quiescence_ms=0)
+    assert bm._pair_deadline_s(60.0, "prose-500w", (1.0,), quiescence_ms=600_000) == short + 600.0

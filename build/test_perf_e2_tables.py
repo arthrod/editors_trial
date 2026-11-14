@@ -1040,3 +1040,13 @@ def test_reruns_text_tells_the_500k_part_of_a_round_apart():
     text = E2.reruns_text(campaign)
     assert "Docen's cells of the 20 document jobs below the 500k rung" in text
     assert "Docen's cells of the 4 prose-500kw document jobs of the 500k rung" in text
+
+
+
+def test_reruns_text_survives_an_issue_it_has_no_wording_for():
+    campaign = {'first_pass_superseded': 32, 'rerun_kept': 32, 'editor_rerun_kept': 2, 'editor_rerun_unsealed': 0,
+                'editor_superseded': {'plate': 2},
+                'editor_rounds': [{'issue': '999', 'editor': 'plate', 'jobs': 2, 'workload': None}],
+                'missing_runs': []}
+    text = E2.reruns_text(campaign)
+    assert '(issue #999)' in text and "Plate.js's cells of 2 jobs" in text

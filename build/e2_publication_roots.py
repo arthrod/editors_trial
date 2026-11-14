@@ -172,19 +172,21 @@ def _editor_round_scope(issues: dict) -> dict:
     return scope
 
 
-def _job_workload(summary: dict, job: Path | None = None):
+def _job_workload(summary: dict, job: Path | None = None, editor: str | None = None):
     """The workload a job loaded: a document job's fixture names, else its attempts' workload_id.
 
     C15's micro-search fixtures ride along in every document job; a C14 job
     loads several rungs and so names no single workload. A memory job's
-    summary lists no fixtures; its attempts record the workload (#194).
+    summary lists no fixtures; its attempts record the workload (#194), read from
+    the editor's own attempts when an editor is named (octo review).
     """
     fixtures = summary.get("fixtures") or []
     if fixtures:
         names = {Path(str(f)).name.rsplit("-", 1)[0] for f in fixtures} - {"micro-search"}
     elif job is not None:
         names = set()
-        for attempt in sorted(job.glob("cells/*/attempts/*.json")):
+        pattern = f"cells/*-{editor}/attempts/*.json" if editor else "cells/*/attempts/*.json"
+        for attempt in sorted(job.glob(pattern)):
             try:
                 workload = json.loads(attempt.read_text()).get("environment", {}).get("workload_id")
             except (OSError, json.JSONDecodeError, AttributeError):
@@ -214,6 +216,13 @@ def _check_editor_round_data(roots_dir: Path, manifest: dict, errors: list[str])
         if issue.get("lane") not in EDITOR_ROUND_LANES:
             errors.append(f"editor_superseded issue {number}: lane {issue.get('lane')!r} is not one of "
                           f"{list(EDITOR_ROUND_LANES)}")
+        if not str(issue.get("issue", number)).isdigit():
+            errors.append(f"editor_superseded issue {number}: {issue.get('issue', number)!r} is not an issue number; "
+                          f"a key naming several rounds of one issue carries \"issue\"")
+        if "workloads" in issue:
+            names = issue["workloads"]
+            if not (isinstance(names, list) and names and all(isinstance(n, str) and n for n in names)):
+                errors.append(f"editor_superseded issue {number}: workloads {names!r} is not a list of workload names")
     wanted = editor_superseded(manifest)
     new_runs = {entry["run_id"]: set(entry.get("editors") or ())
                 for entries in manifest.get("editor_rerun", {}).values() for entry in entries}
@@ -221,7 +230,8 @@ def _check_editor_round_data(roots_dir: Path, manifest: dict, errors: list[str])
     # "extension" supersedes them (#193 at 500k).
     later = {entry["run_id"] for entries in manifest.get("extension", {}).values() for entry in entries}
     old: dict[int, list[tuple[str, Path, bool]]] = {}
-    new: list[tuple[str, int, Path]] = []
+    new: list[tuple[str, int, Path, str]] = []
+    issue_lane = {(issue["editor"], index): issue.get("lane") for issue in issues.values() for index in issue["jobs"]}
     for root in sorted(p for p in roots_dir.iterdir() if p.is_dir()):
         for lane in EDITOR_ROUND_LANES:
             for job in sorted((root / lane).glob("*")) if (root / lane).is_dir() else ():
@@ -229,7 +239,7 @@ def _check_editor_round_data(roots_dir: Path, manifest: dict, errors: list[str])
                 if not tail.isdigit():
                     continue
                 if run_id in new_runs:
-                    new.append((run_id, int(tail), job))
+                    new.append((run_id, int(tail), job, lane))
                 else:
                     old.setdefault(int(tail), []).append((lane, job, run_id in later))
     scope = _editor_round_scope(issues)
@@ -245,17 +255,25 @@ def _check_editor_round_data(roots_dir: Path, manifest: dict, errors: list[str])
                 if summary is None or editor not in _scheduled_editors(summary):
                     continue
                 if workloads is not None:
-                    workload = _job_workload(summary, path)
+                    workload = _job_workload(summary, path, editor)
                     if workload is None:
-                        errors.append(f"job {path.name} measured {editor} and records no fixtures: the "
+                        errors.append(f"job {path.name} measured {editor} and records no workload: the "
                                       f"workload-scoped round cannot tell whether it measured {sorted(workloads)}")
+                    elif workload.startswith("(several") and lane != "benchmark_document":
+                        errors.append(f"job {path.name} measured {editor} on {workload}: a {lane} job "
+                                      f"loads one workload")
                     elif workload in workloads:
                         errors.append(f"job {path.name} measured {editor} on {workload} and is not superseded: "
                                       f"the round must supersede all of {editor}'s {workload} jobs")
                     continue
                 errors.append(f"job {path.name} measured {editor} and is not superseded: an editor round "
                               f"must supersede all of {editor}'s {round_lane} jobs")
-    for run_id, index, path in new:
+    for run_id, index, path, lane in new:
+        for editor in sorted(new_runs[run_id]):
+            wanted_lane = issue_lane.get((editor, index))
+            if wanted_lane is not None and wanted_lane != lane:
+                errors.append(f"editor-round job {path.name} is in lane {lane}; its issue supersedes {editor}'s "
+                              f"job {index} in lane {wanted_lane}")
         summary = _summary_of(path)
         if summary is None:
             errors.append(f"editor-round job {path.name} has no readable summary.json")
@@ -408,6 +426,7 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
     roots: list[str] = []
     errors: list[str] = []
     first_pass_indices: set[int] = set()
+    first_pass_lane: dict[int, str] = {}
     for space in sorted(manifest["first_pass"]):
         run_id = manifest["first_pass"][space]
         run_dir = data / space / "runs" / run_id
@@ -417,6 +436,7 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
             root = roots_dir / f"{space}--{run_id}"
             for lane, job, index in run_jobs(run_dir, run_id):
                 first_pass_indices.add(index)
+                first_pass_lane[index] = lane
                 if not (job / "JOB-DONE").exists():
                     campaign["first_pass_unsealed"] += 1
                 elif index in superseded:
@@ -468,6 +488,16 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
     stray_late = sorted(late_superseded_jobs(manifest) - first_pass_indices)
     if stray_late and not campaign["missing_runs"]:
         errors.append(f"late_superseded jobs {stray_late} are not first-pass jobs")
+    # ... and measures each in the lane of the job it retires (octo review).
+    for space, entries in sorted(manifest.get("late_rerun", {}).items()):
+        for entry in entries:
+            run_dir = data / space / "runs" / entry["run_id"]
+            if not run_dir.is_dir():
+                continue
+            for lane, job, index in run_jobs(run_dir, entry["run_id"]):
+                if index in first_pass_lane and first_pass_lane[index] != lane:
+                    errors.append(f"late-round job {job.name} is in lane {lane}; the first-pass job it retires "
+                                  f"is in lane {first_pass_lane[index]}")
     run_ids = list(manifest["first_pass"].values()) + [
         entry["run_id"] for key in ("rerun", "rerun2", "rerun3", "editor_rerun", "extension", "late_rerun")
         for entries in manifest.get(key, {}).values() for entry in entries]
