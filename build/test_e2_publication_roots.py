@@ -702,3 +702,65 @@ def test_a_round_may_name_several_workloads(tmp_path):
     assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) == 0
     issue["workloads"] = ["prose-250kw", "prose-5kw"]  # old job 12 (prose-5kw) is left: refused
     assert run_roots(data, tmp_path / "roots2", write_manifest(tmp_path, manifest)) != 0
+
+
+# A memory-lane editor round (#194) -------------------------------------------------------------------
+# The memory pair's deadline was too short at prose-250kw: Docen's and
+# canvas-editor's cells of those memory jobs are measured again. Memory job
+# summaries list no fixtures; the attempts record the workload.
+
+RID_MEM = "20261114T060000000000Z-80000-000015"
+
+
+def _attempt(path, editor, workload):
+    attempts = path / "cells" / f"0000-{editor}" / "attempts"
+    attempts.mkdir(parents=True, exist_ok=True)
+    (attempts / f"c17-{editor}-0.json").write_text(json.dumps(
+        {"editor_id": editor, "criterion_id": "C17", "environment": {"workload_id": workload}}))
+
+
+def memory_round(tmp_path, *, other_workload):
+    data, kept, third, canvas = editor_round_data(tmp_path)
+    old66 = summarize(job(data / "space-a" / "runs" / RID_A, RID_A, 66, lane="benchmark_memory"), 1, 1,
+                      ["canvas", "docen"])
+    _attempt(old66, "canvas", "prose-250kw")
+    old64 = summarize(job(data / "space-a" / "runs" / RID_A, RID_A, 64, lane="benchmark_memory"), 1, 1,
+                      ["canvas", "docen"])
+    _attempt(old64, "canvas", other_workload)
+    new66 = summarize(job(data / "space-b" / "runs" / RID_MEM, RID_MEM, 66, lane="benchmark_memory"), 1, 1,
+                      ["canvas"])
+    manifest = editor_round_manifest()
+    manifest["editor_superseded"]["issues"]["194"] = {
+        "title": "synthetic memory round", "lane": "benchmark_memory", "editor": "canvas", "jobs": [66],
+        "workload": "prose-250kw"}
+    manifest["editor_rerun"]["space-b"].append({"run_id": RID_MEM, "jobs": [66], "editors": ["canvas"]})
+    return data, manifest, new66
+
+
+def test_a_memory_round_supersedes_that_workloads_memory_jobs(tmp_path):
+    data, manifest, new66 = memory_round(tmp_path, other_workload="prose-50kw")
+    roots_dir = tmp_path / "roots"
+    assert run_roots(data, roots_dir, write_manifest(tmp_path, manifest)) == 0
+    assert (roots_dir / f"space-b--{RID_MEM}" / "benchmark_memory" / new66.name).resolve() == new66
+
+
+def test_a_memory_round_that_leaves_a_job_of_its_workload_is_refused(tmp_path):
+    data, manifest, _ = memory_round(tmp_path, other_workload="prose-250kw")
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+
+
+def test_a_document_rounds_workloads_do_not_reach_the_memory_lane(tmp_path):
+    # canvas's document round (#185) covers every document job; its memory jobs are another lane.
+    data, manifest, _ = memory_round(tmp_path, other_workload="prose-50kw")
+    assert "workload" not in manifest["editor_superseded"]["issues"]["185"]
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) == 0
+
+
+def test_one_issue_may_name_several_editors_rounds(tmp_path):
+    data, manifest, _ = memory_round(tmp_path, other_workload="prose-50kw")
+    issues = manifest["editor_superseded"]["issues"]
+    issues["194-canvas"] = {**issues.pop("194"), "issue": "194"}
+    roots_dir = tmp_path / "roots"
+    assert run_roots(data, roots_dir, write_manifest(tmp_path, manifest)) == 0
+    rounds = json.loads((roots_dir / "report_e2_runs.json").read_text())["campaign"]["editor_rounds"]
+    assert {(r["issue"], r["editor"]) for r in rounds} == {("185", "canvas"), ("194", "canvas")}

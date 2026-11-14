@@ -1015,3 +1015,15 @@ def test_reruns_text_states_docens_clock_round():
     text = E2.reruns_text(campaign)
     assert '#193' in text and 'two different clocks' in text
     assert "Docen's cells of the 20 document jobs below the 500k rung" in text
+
+
+def test_reruns_text_states_the_memory_round_for_each_editor():
+    campaign = {'first_pass_superseded': 32, 'rerun_kept': 32, 'editor_rerun_kept': 8, 'editor_rerun_unsealed': 0,
+                'editor_superseded': {'docen': 4, 'canvas': 4},
+                'editor_rounds': [{'issue': '194', 'editor': 'docen', 'jobs': 4, 'workload': 'prose-250kw'},
+                                  {'issue': '194', 'editor': 'canvas', 'jobs': 4, 'workload': 'prose-250kw'}],
+                'missing_runs': []}
+    text = E2.reruns_text(campaign)
+    assert "Docen's cells of the 4 prose-250kw memory jobs (C17 and C19)" in text
+    assert "canvas-editor's cells of the 4 prose-250kw memory jobs (C17 and C19)" in text
+    assert text.count('(issue #194)') == 2

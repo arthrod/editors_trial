@@ -722,6 +722,9 @@ EDITOR_ROUND_REASONS = {
     "193": ("the %(jobs)d document jobs below the 500k rung (C11, with C12 and C15 of the same jobs)",
             "after its C11 was found to compare its settled screen with its ready flag on two different clocks, "
             "which refused every attempt"),
+    "194": ("the %(jobs)d %(workload)s memory jobs (C17 and C19)",
+            "after the memory pair's deadline was found to cover one load where the pair runs two loads and a "
+            "120-character burst"),
 }
 
 

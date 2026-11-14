@@ -133,7 +133,8 @@ def _check_editor_round(manifest: dict, errors: list[str]) -> None:
                           f"editor-round jobs {sorted(measured.get(editor, []))}")
 
 
-EDITOR_ROUND_LANES = ("benchmark_document",)
+# The document lane (#185, #190, #193) and the memory lane (#194).
+EDITOR_ROUND_LANES = ("benchmark_document", "benchmark_memory")
 
 
 def _summary_of(job: Path) -> dict | None:
@@ -149,28 +150,42 @@ def _scheduled_editors(summary: dict) -> set[str]:
 
 
 def _editor_round_scope(issues: dict) -> dict:
-    """Per editor, the workloads its rounds were scoped to (#190, several for #193); None when a round covers every job."""
+    """Per (editor, lane), the workloads its rounds were scoped to (#190, several for #193, the memory lane for
+    #194); None when a round covers every job of that lane."""
     scope: dict = {}
     for issue in issues.values():
-        editor = issue["editor"]
+        key = (issue["editor"], issue["lane"])
         workloads = issue.get("workloads") or ([issue["workload"]] if issue.get("workload") else None)
-        if workloads is None or (editor in scope and scope[editor] is None):
-            scope[editor] = None
+        if workloads is None or (key in scope and scope[key] is None):
+            scope[key] = None
         else:
-            scope.setdefault(editor, set()).update(workloads)
+            scope.setdefault(key, set()).update(workloads)
     return scope
 
 
-def _job_workload(summary: dict):
-    """The C11/C12 workload a document job loaded, from its fixture names.
+def _job_workload(summary: dict, job: Path | None = None):
+    """The workload a job loaded: a document job's fixture names, else its attempts' workload_id.
 
     C15's micro-search fixtures ride along in every document job; a C14 job
-    loads several rungs and so names no single workload.
+    loads several rungs and so names no single workload. A memory job's
+    summary lists no fixtures; its attempts record the workload (#194).
     """
     fixtures = summary.get("fixtures") or []
-    if not fixtures:
+    if fixtures:
+        names = {Path(str(f)).name.rsplit("-", 1)[0] for f in fixtures} - {"micro-search"}
+    elif job is not None:
+        names = set()
+        for attempt in sorted(job.glob("cells/*/attempts/*.json")):
+            try:
+                workload = json.loads(attempt.read_text()).get("environment", {}).get("workload_id")
+            except (OSError, json.JSONDecodeError, AttributeError):
+                continue
+            if workload:
+                names.add(workload)
+    else:
+        names = set()
+    if not names:
         return None
-    names = {Path(str(f)).name.rsplit("-", 1)[0] for f in fixtures} - {"micro-search"}
     return next(iter(names)) if len(names) == 1 else "(several: %s)" % ", ".join(sorted(names))
 
 
@@ -195,7 +210,7 @@ def _check_editor_round_data(roots_dir: Path, manifest: dict, errors: list[str])
                 for entries in manifest.get("editor_rerun", {}).values() for entry in entries}
     # Extension jobs (#188) are new jobs measured after the fix, not jobs an editor round replaces.
     later = {entry["run_id"] for entries in manifest.get("extension", {}).values() for entry in entries}
-    old: dict[int, list[Path]] = {}
+    old: dict[int, list[tuple[str, Path]]] = {}
     new: list[tuple[str, int, Path]] = []
     for root in sorted(p for p in roots_dir.iterdir() if p.is_dir()):
         for lane in EDITOR_ROUND_LANES:
@@ -208,19 +223,21 @@ def _check_editor_round_data(roots_dir: Path, manifest: dict, errors: list[str])
                 if run_id in new_runs:
                     new.append((run_id, int(tail), job))
                 else:
-                    old.setdefault(int(tail), []).append(job)
+                    old.setdefault(int(tail), []).append((lane, job))
     scope = _editor_round_scope(issues)
-    for editor, jobs in sorted(wanted.items()):
-        for index, paths in sorted(old.items()):
+    for (editor, round_lane), workloads in sorted(scope.items(), key=lambda item: item[0]):
+        jobs = wanted.get(editor, set())
+        for index, entries in sorted(old.items()):
             if index in jobs:
                 continue
-            for path in paths:
+            for lane, path in entries:
+                if lane != round_lane:
+                    continue
                 summary = _summary_of(path)
                 if summary is None or editor not in _scheduled_editors(summary):
                     continue
-                workloads = scope.get(editor)
                 if workloads is not None:
-                    workload = _job_workload(summary)
+                    workload = _job_workload(summary, path)
                     if workload is None:
                         errors.append(f"job {path.name} measured {editor} and records no fixtures: the "
                                       f"workload-scoped round cannot tell whether it measured {sorted(workloads)}")
@@ -229,7 +246,7 @@ def _check_editor_round_data(roots_dir: Path, manifest: dict, errors: list[str])
                                       f"the round must supersede all of {editor}'s {workload} jobs")
                     continue
                 errors.append(f"job {path.name} measured {editor} and is not superseded: an editor round "
-                              f"must supersede all of {editor}'s {', '.join(EDITOR_ROUND_LANES)} jobs")
+                              f"must supersede all of {editor}'s {round_lane} jobs")
     for run_id, index, path in new:
         summary = _summary_of(path)
         if summary is None:
@@ -244,14 +261,14 @@ def _check_editor_round_data(roots_dir: Path, manifest: dict, errors: list[str])
             errors.append(f"editor-round job {path.name} replaces {len(replaced)} linked jobs with index {index}, "
                           f"not exactly one")
             continue
-        before = _summary_of(replaced[0])
+        before = _summary_of(replaced[0][1])
         if before is None:
-            errors.append(f"job {replaced[0].name} has no readable summary.json to compare seeds with")
+            errors.append(f"job {replaced[0][1].name} has no readable summary.json to compare seeds with")
             continue
         for key in ("seed", "block"):
             if summary.get(key) != before.get(key):
                 errors.append(f"editor-round job {path.name} has {key} {summary.get(key)!r}; the job it replaces, "
-                              f"{replaced[0].name}, has {before.get(key)!r}")
+                              f"{replaced[0][1].name}, has {before.get(key)!r}")
 
 
 def _check_extension(data: Path, manifest: dict, errors: list[str]) -> None:
@@ -367,7 +384,8 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
         "late_rerun_unsealed": 0,
         "editor_superseded": {editor: len(jobs) for editor, jobs in sorted(editor_superseded(manifest).items())},
         "editor_rounds": [
-            {"issue": number, "editor": issue["editor"], "jobs": len(issue["jobs"]),
+            # One issue may supersede several editors' cells: keys like "194-canvas" carry "issue": "194".
+            {"issue": str(issue.get("issue", number)), "editor": issue["editor"], "jobs": len(issue["jobs"]),
              "workload": issue.get("workload"), "workloads": issue.get("workloads")}
             for number, issue in sorted(manifest.get("editor_superseded", {}).get("issues", {}).items())],
         "missing_runs": [],
