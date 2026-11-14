@@ -292,8 +292,15 @@ changes.
   document through WordCraft's own select all and copy since #183; C08 and
   C09 were skipped as not applicable on the same ground; and C10 never
   selected the scroll overlay our host builds for it. Each now uses the
-  copy read or the overlay, outside the timed window. WordCraft's cells of
-  its warm and cold, document, input and C10 jobs were measured again by
+  copy read or the overlay, outside the timed window. Where timed work
+  follows in the same page (the input lane's opening check, C14's witness)
+  the copy read is skipped. After that copy, WordCraft's paste inserted its
+  own clipboard with the system one (5,720 characters for a 1,500-character
+  block), so C08 reloads the document after its baseline read and pastes
+  on the fresh page (1,500). A modified flag that had already risen before
+  a burst no longer turns WordCraft's C05 and C06, which do not apply, into
+  a crash. WordCraft's cells of its warm and cold, document, input and C10
+  jobs, and of its 500,000-word document jobs, were measured again by
   WordCraft-only runs.
 - Two tests that failed for reasons outside the code they test (#182): the
   sub-frame witness test asserted a timing instead of the rule, and a
