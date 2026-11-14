@@ -69,8 +69,9 @@ class C14LoadTimeout(unittest.TestCase):
         cmd = ["--mode", "scale", "--timeout-ms", "1000000"]
         self.assertEqual(bd._subprocess_timeout_s(cmd), 3 * C14_LOAD_TIMEOUT_MS / 1000 + 30)
 
-    def test_other_probes_keep_their_watchdog(self):
-        self.assertEqual(bd._subprocess_timeout_s(["--timeout-ms", "300000"]), 330.0)
+    def test_other_probes_outlast_every_load_stage_and_their_own_work(self):
+        # #195: one load timeout for the whole probe cut Plate's prose-250kw C11 and C12.
+        self.assertEqual(bd._subprocess_timeout_s(["--timeout-ms", "300000"]), 4 * 300 + 30.0)
 
     FIXTURE = {"sha256": "0", "workload_row": {}, "byte_size": 1, "paragraph_count": 1}
 

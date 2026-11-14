@@ -48,7 +48,22 @@ def test_each_runner_passes_the_workload_timeout(captured, runner, workload):
     assert captured, runner
     cmd = captured[0]
     assert _flag(cmd, '--timeout-ms') == load_timeout_ms(workload)
-    assert bd._subprocess_timeout_s(cmd) == load_timeout_ms(workload) / 1000 + 30
+    # #195: the watchdog outlasts every load stage plus one more wait for the probe's own work.
+    from perf.runner.load_timeouts import C14_LOAD_STAGES
+    assert bd._subprocess_timeout_s(cmd) == (C14_LOAD_STAGES + 1) * load_timeout_ms(workload) / 1000 + 30
+
+
+def test_the_watchdog_outlasts_plates_250kw_load_and_witness():
+    # Plate's C14 stages at prose-250kw (third round): ready 335-397 s, witness scan 627-708 s.
+    cmd = ['node', 'document_probe.mjs', '--mode', 'load', '--timeout-ms', str(load_timeout_ms('prose-250kw'))]
+    assert bd._subprocess_timeout_s(cmd) > 397 + 708 + 1
+
+
+def test_a_screencast_ink_probe_waits_for_the_load_event_too():
+    from perf.runner.load_timeouts import C14_LOAD_STAGES_SCREENCAST_INK
+    cmd = ['node', 'document_probe.mjs', '--mode', 'reflow', '--timeout-ms', '300000',
+           '--usable-signal', 'screencast_ink']
+    assert bd._subprocess_timeout_s(cmd) == (C14_LOAD_STAGES_SCREENCAST_INK + 1) * 300 + 30
 
 
 def test_every_call_in_main_names_the_workload():

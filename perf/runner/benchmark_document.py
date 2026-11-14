@@ -776,6 +776,20 @@ def _clock_skew_exceeds(probe: dict) -> bool:
     return skew is not None and abs(skew) > _CLOCK_SKEW_BOUND_MS
 
 
+def _clock_refusal_text(probe: dict) -> str:
+    """Why the page clock was refused: the skew when it is out of bound, else the check that failed (#195)."""
+    skew = _number_or_none(probe.get("clock_skew_ms"))
+    if skew is not None and abs(skew) > _CLOCK_SKEW_BOUND_MS:
+        return "clock skew exceeds the %s ms bound (clock_skew_ms=%r)" % (_CLOCK_SKEW_BOUND_MS, skew)
+    witness = probe.get("witness") if isinstance(probe.get("witness"), dict) else {}
+    check = witness.get("clock_check") if isinstance(witness.get("clock_check"), dict) else {}
+    reason = check.get("reason")
+    if skew is None and not reason:
+        return "page clock check not recorded"
+    return "page clock check failed (%s; clock_skew_ms=%r, bound %s ms)" % (
+        reason or "reason not recorded", skew, _CLOCK_SKEW_BOUND_MS)
+
+
 def _clock_skew_missing_or_exceeds(probe: dict) -> bool:
     """C14 no-damage samples must record an in-bounds page clock."""
     if probe.get("clock_skew_acceptable") is False:
@@ -835,8 +849,7 @@ def c11_measured_samples(probe: dict) -> list:
         raise ProbeRefusal("presented frame precedes the document surface (frame=%r document=%r)" % (presented, document_ms))
     if _clock_skew_exceeds(probe):
         raise ProbeRefusal(
-            "clock skew exceeds the %s ms bound (clock_skew_ms=%r); FCP is not a C11 sample"
-            % (_CLOCK_SKEW_BOUND_MS, probe.get("clock_skew_ms"))
+            "%s; FCP is not a C11 sample" % _clock_refusal_text(probe)
         )
     _require_witness(probe)
     if presented < 0:
@@ -995,8 +1008,7 @@ def c12_measured_sample(probe: dict) -> float:
         raise ProbeRefusal("C12 window includes the probe's own forced layout")
     if _clock_skew_exceeds(probe):
         raise ProbeRefusal(
-            "clock skew exceeds the %s ms bound (clock_skew_ms=%r); the frame is not a C12 sample"
-            % (_CLOCK_SKEW_BOUND_MS, probe.get("clock_skew_ms"))
+            "%s; the frame is not a C12 sample" % _clock_refusal_text(probe)
         )
     _require_witness(probe)
     presented = probe.get("presented_frame_ms")
@@ -1092,7 +1104,7 @@ def c14_measured_sample(probe: dict) -> float:
     if probe.get("mechanism") == "forced_repaint":
         if _clock_skew_missing_or_exceeds(probe):
             raise ProbeRefusal(
-                "clock skew exceeds the %s ms bound (clock_skew_ms=%r)" % (_CLOCK_SKEW_BOUND_MS, probe.get("clock_skew_ms")),
+                _clock_refusal_text(probe),
                 facts=facts,
             )
         usable = probe.get("usable_ms")
@@ -1123,7 +1135,7 @@ def c14_measured_sample(probe: dict) -> float:
         )
     if _clock_skew_missing_or_exceeds(probe):
         raise ProbeRefusal(
-            "clock skew exceeds the %s ms bound (clock_skew_ms=%r)" % (_CLOCK_SKEW_BOUND_MS, probe.get("clock_skew_ms")),
+            _clock_refusal_text(probe),
             facts=facts,
         )
     return C14Sample(value, C14_FRAME_MEASURE)
@@ -1445,7 +1457,13 @@ def _probe_cmd(*, mode: str, target: dict, cfg: dict, corpus_path: Path, extra: 
 
 
 def _subprocess_timeout_s(cmd: list) -> float:
-    """Our watchdog: the probe's load timeout plus 30 s; for C14, every load stage plus the whole-text copy."""
+    """Our watchdog: it outlasts every wait the probe may make, plus 30 s.
+
+    C14: every load stage plus the whole-text copy. C11, C12 and C15 (#195): every load stage plus one more
+    full wait for the probe's own work after the load (the witness scan, the edit, the find). One load
+    timeout for the whole probe cut Plate's prose-250kw probes, whose ready took up to 397 s and whose
+    witness scan up to 708 s, with no wait timed out.
+    """
     def _flag_ms(flag: str):
         for index, token in enumerate(cmd):
             if token == flag and index + 1 < len(cmd):
@@ -1458,13 +1476,13 @@ def _subprocess_timeout_s(cmd: list) -> float:
     load_ms = _flag_ms("--timeout-ms")
     if load_ms is None:
         return float(PROBE_TIMEOUT_S) + 30.0
-    if not _flag_is(cmd, "--mode", "scale"):
-        return max(1.0, load_ms / 1000.0) + 30.0
-    # C14 (scale mode): navigation, ready and the document surface each get the full wait, one after
-    # another; a screencast_ink host waits for the page's load event first; then the whole-text copy
-    # (reviews of e0c237de H1, f97f74e0 H1 and L4).
+    # Navigation, ready and the document surface each get the full wait, one after another; a
+    # screencast_ink host waits for the page's load event first (reviews of e0c237de H1, f97f74e0 H1).
     from perf.runner.load_timeouts import C14_LOAD_STAGES, C14_LOAD_STAGES_SCREENCAST_INK
     stages = C14_LOAD_STAGES_SCREENCAST_INK if _flag_is(cmd, "--usable-signal", "screencast_ink") else C14_LOAD_STAGES
+    if not _flag_is(cmd, "--mode", "scale"):
+        return max(1.0, (stages + 1) * load_ms / 1000.0) + 30.0
+    # C14 (scale mode): then the whole-text copy (review of f97f74e0, L4).
     return max(1.0, stages * load_ms / 1000.0) + (_flag_ms("--c14-copy-wait-ms") or 0) / 1000.0 + 30.0
 
 
@@ -1746,7 +1764,7 @@ def _write_refusal(
         'cpu_throttled' if classification_reason.startswith('cpu_throttled') else
         'host_build' if classification_reason.startswith('host-error:') else
         'unverified' if classification_reason.startswith(('document_content_', 'no document surface', 'no DOM usability mark', 'text-shift assertion failed', 'no post-Enter frame moved the anchor below the arm baseline', 'C12 window includes', 'mixed C14 measures', 'find widget ', 'find probe returned status', 'probe refused ')) else
-        'paint_witness_unavailable' if classification_reason.startswith(('witness ', 'clock_', 'frame_', 'clock skew ', 'no compositor frame', 'no presented frame', 'retained sample has no witness', 'presented frame precedes', 'negative presented', 'compositor frame timestamp', 'no first-contentful-paint', 'first-contentful-paint entry')) else
+        'paint_witness_unavailable' if classification_reason.startswith(('witness ', 'clock_', 'frame_', 'clock skew ', 'page clock check ', 'no compositor frame', 'no presented frame', 'retained sample has no witness', 'presented frame precedes', 'negative presented', 'compositor frame timestamp', 'no first-contentful-paint', 'first-contentful-paint entry')) else
         'crash')
     validate_environment(env)
     validate_trial(trial)

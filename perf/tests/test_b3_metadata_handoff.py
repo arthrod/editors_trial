@@ -41,6 +41,8 @@ import pytest
     ('cpu_throttled: sample rejected', 'cpu_throttled'),
     ('host-error: startup unavailable', 'host_build'),
     ('clock skew exceeds the 2 ms bound (clock_skew_ms=3)', 'paint_witness_unavailable'),
+    ('page clock check failed (anchor_lag_above_bound; clock_skew_ms=-0.2, bound 5.0 ms); FCP is not a C11 sample', 'paint_witness_unavailable'),
+    ('page clock check not recorded', 'paint_witness_unavailable'),
     ('no compositor frame captured at or after the observed y-shift', 'paint_witness_unavailable'),
     ('no presented frame at or after the document surface; FCP is not a C11 sample', 'paint_witness_unavailable'),
     ('no document surface; FCP is not a C11 sample', 'unverified'),
