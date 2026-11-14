@@ -149,9 +149,14 @@ def profile_admits_workload(execution_profile: str, workload_id: str = WORKLOAD_
 
 
 def scroll_fixture(workload_id: str = WORKLOAD_ID) -> dict:
-    """The prose-50kw document: its bytes, its metadata and its ladder row."""
+    """The workload's document: its bytes, its metadata and its ladder row.
+
+    complex-corpus loads without its document protection (#192), like the
+    other lanes that need an editable surface.
+    """
+    from perf.fixtures.docx_workload import workload_for_lane
     row = next(r for r in size_ladder() if r["workload_id"] == workload_id)
-    built = workload_docx(workload_id)
+    built = workload_for_lane(workload_id, "scroll")
     return {**built, "workload_row": row}
 
 
@@ -204,6 +209,10 @@ def scroll_env(
     env["execution_profile"] = execution_profile
     env["host_class"] = host_class
     env["fixture_paragraph_count"] = int(fixture["paragraph_count"])
+    if fixture.get("fixture_variant"):
+        # #192: the complex package loads without its document protection.
+        env["fixture_variant"] = fixture["fixture_variant"]
+        env["fixture_source_sha256"] = fixture["fixture_source_sha256"]
     env["interpretation_conditions"] = list(INTERPRETATION_CONDITIONS)
     return env
 

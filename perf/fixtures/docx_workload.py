@@ -461,7 +461,10 @@ _DOCUMENT_PROTECTION = re.compile(
     br"<w:documentProtection\b[^>]*/>|<w:documentProtection\b[^>]*>.*?</w:documentProtection>",
     re.DOTALL,
 )
-EDIT_LANES = frozenset({"input", "resources", "memory", "document", "warm_cold"})
+# #192: scroll (C10) joins them. GenOffice and eigenpal open the protected
+# package read-only, as Word does, and C10 never started; scrolling needs no
+# editable surface, but its readiness gate waits for one.
+EDIT_LANES = frozenset({"input", "resources", "memory", "document", "warm_cold", "scroll"})
 EDIT_VARIANT = "complex-corpus-without-document-protection"
 
 
