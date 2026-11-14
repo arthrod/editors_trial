@@ -313,6 +313,14 @@ changes.
   WordCraft and are published as such. The tables read each criterion's
   attempts, and the publication gates a job on its completion, not its exit
   status, so no figure is affected.
+- WordCraft's C07, C08 and C09 on the complex document are withheld as a
+  limit of the harness (#200, not fixed in this release). Its first page
+  holds three lines, and the scan that finds the document body took
+  WordCraft's painted ribbon for text: the click points landed on its
+  toolbar (the Paste button among them), and typing over that selection
+  met the document's locked content control. The reader now refuses those
+  trials with `click_points_on_editor_chrome`. WordCraft's prose cells, and
+  every other editor's complex cells, stand.
 - Runs abandoned and left out of the publication, each stopped by us and
   measured again at the fixed commit: the first 250,000-word Plate.js round
   (#190; every C11 and C12 attempt cut by the 630 s watchdog of #195), and
