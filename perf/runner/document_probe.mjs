@@ -716,9 +716,11 @@ const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, document
     const chunks = [];
     const contentChunks = [];
     let canvasPresent = false;
-    const take = (el, text) => {
+    // ownText: the element's text when the caller already read it (#206: the
+    // walk ran twice per element, once for timing and once for content).
+    const take = (el, text, ownText = null) => {
       canvasPresent ||= el.tagName === 'CANVAS' || Boolean(el.querySelector('canvas'));
-      contentChunks.push(elementText(el));
+      contentChunks.push(ownText === null ? elementText(el) : ownText);
       if (!text) return;
       chunks.push(text);
       // The document element's own rect. Never the shadow host's box.
@@ -746,7 +748,10 @@ const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, document
       for (const host of hosts) {
         const root = host && host.shadowRoot;
         if (!root || !selector || typeof root.querySelectorAll !== 'function') continue;
-        for (const el of root.querySelectorAll(selector)) take(el, elementText(el));
+        for (const el of root.querySelectorAll(selector)) {
+          const text = elementText(el);
+          take(el, text, text);
+        }
       }
     } else {
       const nodes = selector ? Array.from(document.querySelectorAll(selector)) : [];
@@ -756,35 +761,55 @@ const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, document
           take(el, 'drawn');
         }
       } else {
-        for (const el of nodes) take(el, elementText(el));
+        for (const el of nodes) {
+          const text = elementText(el);
+          take(el, text, text);
+        }
       }
     }
     // Opening headings sit outside paragraph selectors (plate h1.editor-heading,
     // docxodus h1.docx-Heading1, genoffice h1). They belong to the content oracle
     // only. The timing surface stays the selector's own boxes.
-    const openingHeadings = () => {
-      if (!selector) return '';
+    // Linear in the page (#206). The scan it replaces asked every ancestor of
+    // every matched node for its headings and tested each heading against every
+    // matched node: on Plate's 250,000-word page it ran about 1,140 s inside a
+    // load whose own scripts ran 21 s. Each ancestor is asked once, and a
+    // heading is placed against the matched nodes by its own ancestors and its
+    // own subtree. Same headings, same order.
+    const openingHeadingElements = () => {
+      if (!selector) return [];
       const matched = Array.from(document.querySelectorAll(selector));
-      if (!matched.length) return '';
-      const seen = new Set();
-      const parts = [];
+      if (!matched.length) return [];
+      const matchedSet = new Set(matched);
+      const decided = new Set();
+      const asked = new Set();
+      const found = [];
+      const insideMatched = (heading) => {
+        for (let node = heading; node; node = node.parentElement) {
+          if (matchedSet.has(node)) return true;
+        }
+        return false;
+      };
       const takeHeading = (heading) => {
-        if (!heading || seen.has(heading)) return;
+        if (!heading || decided.has(heading)) return;
+        decided.add(heading);
         const tag = heading.tagName || '';
         if (tag.length !== 2 || tag[0] !== 'H' || tag[1] < '1' || tag[1] > '6') return;
-        if (matched.some((node) => node === heading || node.contains(heading) || heading.contains(node))) return;
-        seen.add(heading);
-        const text = elementText(heading);
-        if (text) parts.push(text);
+        if (insideMatched(heading) || heading.querySelector(selector)) return;
+        found.push(heading);
       };
       for (const node of matched) {
         let parent = node.parentElement;
         for (let depth = 0; parent && depth < 6; depth += 1, parent = parent.parentElement) {
+          if (asked.has(parent)) continue;
+          asked.add(parent);
           for (const heading of parent.querySelectorAll('h1,h2,h3,h4,h5,h6')) takeHeading(heading);
         }
       }
-      return parts.join(' ');
+      return found;
     };
+    window.__docProbeOpeningHeadings = openingHeadingElements;
+    const openingHeadings = () => openingHeadingElements().map((heading) => elementText(heading)).filter(Boolean).join(' ');
     const text = chunks.join(' ').replace(/\s+/g, ' ').trim();
     const rect = n
       ? excludeMarker({ x: minX, y: minY, width: maxX - minX, height: maxY - minY })
