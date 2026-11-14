@@ -693,6 +693,51 @@ def test_a_workload_round_with_an_unreadable_old_job_is_refused(tmp_path):
     assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
 
 
+# A criteria-scoped editor round (#203) ----------------------------------------------------------------
+# The fixed harness changed only C14's damage witness: GenOffice's C14 jobs at
+# 500,000 words were measured again; its C11/C12/C15 jobs of that workload,
+# which never run C14, keep their cells.
+
+def _attempts(path, editor, *criteria):
+    attempts = path / "cells" / f"0000-{editor}" / "attempts"
+    attempts.mkdir(parents=True, exist_ok=True)
+    for cid in criteria:
+        (attempts / f"{cid.lower()}-{editor}-0123456789.json").write_text(
+            json.dumps({"criterion_id": cid, "editor_id": editor, "outcome": "measured"}))
+
+
+def criteria_round(tmp_path, *, old_12_criteria, round_criteria=("C14",)):
+    data, manifest = workload_round(tmp_path, old_12=("prose-250kw", "micro-search"))
+    third = next(data.glob(f"space-a/runs/{RID_RERUN3}/benchmark_document/*-012"))
+    _attempts(third, "canvas", *old_12_criteria)
+    manifest["editor_superseded"]["issues"]["185"]["criteria"] = list(round_criteria)
+    return data, manifest
+
+
+def test_a_criteria_round_leaves_jobs_that_never_measured_its_criteria(tmp_path):
+    data, manifest = criteria_round(tmp_path, old_12_criteria=("C11", "C12", "C15"))
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) == 0
+
+
+def test_a_criteria_round_that_leaves_a_job_measuring_its_criteria_is_refused(tmp_path):
+    data, manifest = criteria_round(tmp_path, old_12_criteria=("C11", "C14"))
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+
+
+def test_a_criteria_round_with_an_old_job_recording_no_criteria_is_refused(tmp_path):
+    data, manifest = criteria_round(tmp_path, old_12_criteria=())
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+
+
+def test_a_round_without_criteria_on_the_same_workload_still_needs_every_job(tmp_path):
+    """Another issue on the same editor and workload, not criteria-scoped, keeps the full rule."""
+    data, manifest = criteria_round(tmp_path, old_12_criteria=("C11",))
+    issues = manifest["editor_superseded"]["issues"]
+    issues["186"] = dict(issues["185"], title="synthetic unscoped round")
+    del issues["186"]["criteria"]
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+
+
 # A late round (#192) ---------------------------------------------------------------------------------
 # C10 scrolled the protected complex package; GenOffice and eigenpal opened it
 # read-only and C10 never started. Whole first-pass jobs, never re-run before,

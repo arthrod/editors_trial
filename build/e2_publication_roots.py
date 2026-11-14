@@ -168,18 +168,43 @@ def _scheduled_editors(summary: dict) -> set[str]:
 
 def _editor_round_scope(issues: dict) -> dict:
     """Per (editor, lane, extension?), the workloads its rounds were scoped to (#190, several for #193, the
-    memory lane for #194, extension jobs for #193 at 500k); None when a round covers every job of that lane."""
+    memory lane for #194, extension jobs for #193 at 500k); None when a round covers every job of that lane.
+
+    Each workload maps to the criteria its rounds re-measured (#203: GenOffice's C14 only), or None when a
+    round on that workload re-measured every criterion; the widest round wins.
+    """
     scope: dict = {}
     for issue in issues.values():
         # An issue flagged "extension" re-measures extension jobs (#193 at 500k); any other round never
         # reaches them, since they were measured after the fixes of the rounds before them.
         key = (issue["editor"], issue["lane"], bool(issue.get("extension")))
         workloads = issue.get("workloads") or ([issue["workload"]] if issue.get("workload") else None)
+        criteria = set(issue["criteria"]) if issue.get("criteria") else None
         if workloads is None or (key in scope and scope[key] is None):
             scope[key] = None
-        else:
-            scope.setdefault(key, set()).update(workloads)
+            continue
+        entry = scope.setdefault(key, {})
+        for workload in workloads:
+            if workload in entry and (entry[workload] is None or criteria is None):
+                entry[workload] = None
+            elif workload in entry:
+                entry[workload] = entry[workload] | criteria
+            else:
+                entry[workload] = criteria
     return scope
+
+
+def _job_criteria(job: Path, editor: str) -> set[str]:
+    """The criteria a job measured for one editor, read from that editor's attempts."""
+    found = set()
+    for attempt in sorted(job.glob(f"cells/*-{editor}/attempts/*.json")):
+        try:
+            cid = json.loads(attempt.read_text()).get("criterion_id")
+        except (OSError, json.JSONDecodeError):
+            continue
+        if isinstance(cid, str):
+            found.add(cid)
+    return found
 
 
 def _job_workload(summary: dict, job: Path | None = None, editor: str | None = None):
@@ -273,6 +298,14 @@ def _check_editor_round_data(roots_dir: Path, manifest: dict, errors: list[str])
                         errors.append(f"job {path.name} measured {editor} on {workload}: a {lane} job "
                                       f"loads one workload")
                     elif workload in workloads:
+                        criteria = workloads[workload]
+                        measured = _job_criteria(path, editor) if criteria is not None else set()
+                        if criteria is not None and measured and measured.isdisjoint(criteria):
+                            continue  # #203: the round re-measured criteria this job never ran
+                        if criteria is not None and not measured:
+                            errors.append(f"job {path.name} measured {editor} on {workload} and records no "
+                                          f"criteria: the round scoped to {sorted(criteria)} cannot tell")
+                            continue
                         errors.append(f"job {path.name} measured {editor} on {workload} and is not superseded: "
                                       f"the round must supersede all of {editor}'s {workload} jobs")
                     continue

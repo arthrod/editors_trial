@@ -222,7 +222,8 @@
     "editor": "genoffice",
     "extension": true,
     "workload": "prose-500kw",
-    "jobs": [162, 163, 166, 167]
+    "jobs": [162, 163, 166, 167],
+    "criteria": ["C14"]
    }
   }
  },

@@ -350,7 +350,11 @@ changes.
   fix. Of the published C14 samples, only GenOffice's at 500,000 words
   change: their repaint was outside the window, so they read the time its
   text appeared. Those jobs were measured again with the fix (commit
-  936e526b). GenOffice's two-minute wait is its own, not the harness's: in
+  936e526b). The round is scoped to C14 (`criteria` in the publication
+  manifest): GenOffice's C11, C12 and C15 jobs at 500,000 words never run
+  C14, so they keep their cells. The publication-roots check now accepts a
+  round scoped to criteria, and refuses one that leaves a job that measured
+  them. GenOffice's two-minute wait is its own, not the harness's: in
   C11, which reads nothing from the page before its witness, its 500,000-word
   text appears at 3.6 seconds and its first painted frame comes about 115
   seconds later. C11, C12 and the input lanes use the same witness
