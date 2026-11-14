@@ -1046,6 +1046,7 @@ def _build_cell_from_jobs(
     sample_unit = 'bytes' if criterion_id in ('C17', 'C19') else 'ms'
     failed_launches = set()
     trials = defaultdict(list)
+    siblings = defaultdict(set)
     refused_launches = {}
     additional = defaultdict(set)
     witnessed_cell = False
@@ -1070,6 +1071,13 @@ def _build_cell_from_jobs(
                     refused_launches[launch] = code
             if trial['criterion_id'] == criterion_id and trial_measure(trial) == measure:
                 trials[launch].append(trial)
+            elif (trial['criterion_id'] == criterion_id and code
+                    and {measure, trial_measure(trial)} <= _CACHE_STATE_MEASURES):
+                # Review B (2026-11-13): the warm/cold lane writes a
+                # criterion's not_applicable/not_run row at one cache state
+                # only. The other measure of that launch has no row; it takes
+                # the reason its sibling records, not the launch-level code.
+                siblings[launch].add(code)
     for run_directory, job in job_pairs:
         for path in _listing(job / 'rejected-evidence', '*'):
             if path.is_dir() and path.name.endswith('-' + editor_id):
@@ -1100,7 +1108,10 @@ def _build_cell_from_jobs(
             elif code in _RUN_REFUSALS:
                 refused_launches[key] = code
             elif code and key not in trials:
-                refused_launches.setdefault(key, code)
+                refused_launches.setdefault(key, _sibling_code(siblings, key) or code)
+    for launch in siblings:
+        if launch not in trials and launch not in refused_launches and _sibling_code(siblings, launch):
+            refused_launches[launch] = _sibling_code(siblings, launch)
     for launch, code in refused_launches.items():
         refusals[code] += 1
         failed_launches.add(launch)
@@ -1263,6 +1274,15 @@ def _criterion_block(seeds, groups) -> str | None:
             return '%s seed: %d of %d launches kept%s' % (
                 name, n_kept, group.get('scheduled', 0), ' (%s)' % reasons if reasons else '')
     return None
+
+
+_CACHE_STATE_MEASURES = frozenset({'process_cold_fs_warm', 'warm_steady'})
+
+
+def _sibling_code(siblings, launch):
+    """The one refusal a launch's other cache-state measure records, if exactly one."""
+    codes = siblings.get(launch) or set()
+    return next(iter(codes)) if len(codes) == 1 else None
 
 
 def read_criterion_cell(

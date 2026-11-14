@@ -47,7 +47,9 @@ def test_each_cell_has_two_blocks_of_five():
     for name, options in _blocks():
         if name == 'benchmark_typing':
             continue
-        cell = (name, _opt(options, '--seed'), _opt(options, '--workload'), 'C14' in options)
+        # #188: a C14 job narrowed to the 500k rung is its own cell.
+        cell = (name, _opt(options, '--seed'), _opt(options, '--workload'), 'C14' in options,
+                _opt(options, '--c14-rungs'))
         count = int(_opt(options, policy.SHAKEDOWN_COUNT_FLAG[name]))
         groups[cell].append((_opt(options, '--block'), count))
     assert groups

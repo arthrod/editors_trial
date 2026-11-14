@@ -498,7 +498,7 @@ def aggregate_cell_refusal_code(directory, failed: bool):
                 codes.add(code)
     if codes == {'unverified'}:
         return 'unverified'
-    if len(codes) == 1 and codes & {'unverified', 'editor_load_failed', 'paint_witness_unavailable'}:
+    if len(codes) == 1 and codes & {'unverified', 'editor_load_failed', 'paint_witness_unavailable', 'not_applicable'}:
         return next(iter(codes))
     return 'crash'
 
