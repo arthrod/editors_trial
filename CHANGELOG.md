@@ -84,17 +84,14 @@ changes.
   were not started; Arthur, 2026-11-11), office-open (a library with no
   editing surface) or LibreOffice (the conversion baseline of Report E).
   The report lists each with its reason.
-- Release gate exceptions, all from outputs of Reports A to D that this
-  release did not re-produce (no pin moved): 8 of 427 unit tests in
-  `build/test_*.py` fail; the base branch fails the same 8, plus the
-  release-template check that now passes (`test_bombs`: macOS refuses `RLIMIT_AS`, so the hostile
-  suite does not run here; `test_every_lane`, `test_ns_tables`,
-  `test_report_claims`: they read `out/ns_map.json`, the per-editor
-  `complex.docx` outputs and the render inventory, which are build outputs
-  not in the repository). `build/verify_twin_parity.py` fails on Report C
-  for the same reason: its page images (`out/render/figures/`) are not
-  present, so a rebuild would drop them; the published Report C twin is
-  kept unchanged. Every Report E and E2 test passes.
+- Release gate exception: 1 unit test in `build/test_*.py` fails,
+  `test_bombs`, because macOS refuses `RLIMIT_AS`, so the hostile suite
+  does not run on this machine. The base branch fails it too. Seven more
+  (`test_every_lane`, `test_ns_tables`, `test_report_claims`) read outputs
+  of Reports A to D that #87 deleted from the repository (#204). This
+  release did not re-produce those outputs (no pin moved), so it restored
+  the missing files from `et-v0.9.5`, overwriting nothing, and the seven
+  pass against them. Every Report E and E2 test passes.
 
 ### Added
 
