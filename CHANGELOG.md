@@ -340,6 +340,27 @@ changes.
   bitmap of a frame the cap had already dropped (no splice would ever free
   it); that cache lives in the harness's own process, not the browser, so
   it touches no measured figure, and those runs were not repeated for it.
+- C14's damage window let through frames from minutes later (#203). C14
+  asks whether the document repainted within 500 ms of a settled frame. If
+  it did, the sample is that repaint; if not, it is the time the text
+  appeared. The window's deadline started only once the harness's own calls
+  into the page returned, and a busy page held them for minutes. Every
+  frame recorded meanwhile counted, so GenOffice at 500,000 words read
+  about 4.9 minutes from a 0.66% change 160 seconds after its window
+  opened. The witness now counts only frames inside the window, widened by
+  the clock's measured error (250 to 700 ms), so no frame is dropped on
+  timing noise. The reader applies the same rule to runs made before the
+  fix. Of the published C14 samples, only GenOffice's at 500,000 words
+  change: their repaint was outside the window, so they read the time its
+  text appeared. Those jobs were measured again with the fix (commit
+  936e526b). GenOffice's two-minute wait is its own, not the harness's: in
+  C11, which reads nothing from the page before its witness, its 500,000-word
+  text appears at 3.6 seconds and its first painted frame comes about 115
+  seconds later. C11, C12 and the input lanes use the same witness
+  differently: they wait for the first changed frame after the harness's
+  own change, and the input lanes check that frame for the typed
+  character. There a late frame is the editor's real, slow response, and
+  it stays; cutting it would make the slowest editors look faster.
 - WordCraft's C07, C08 and C09 on the complex document are withheld as a
   limit of the harness (#200, not fixed in this release). Its first page
   holds three lines, and the scan that finds the document body took
