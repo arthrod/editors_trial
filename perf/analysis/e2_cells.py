@@ -344,7 +344,22 @@ def _filter_job_pairs(
     return filtered, blocked, block_reason
 
 
+# Cells our harness cannot aim (#200). WordCraft paints its whole window -- ribbon, rulers, status bar --
+# into one canvas, and no element bounds its document, so the ink scan that aims C07's clicks (and C08's
+# and C09's caret) keeps the chain of ink bands with the most lines as the body. On the complex corpus,
+# whose first page holds three lines, that chain is the ribbon: the clicks land on WordCraft's interface.
+# These trials are withheld whatever they recorded; WordCraft's prose cells aim at the page and stand.
+HARNESS_WITHHELD = {
+    ('wordcraft', 'complex-corpus', criterion): 'click_points_on_editor_chrome'
+    for criterion in ('C07', 'C08', 'C09')
+}
+
+
 def _trial_block(trial):
+    withheld = HARNESS_WITHHELD.get(
+        (trial.get('editor_id'), trial_workload(trial), trial.get('criterion_id')))
+    if withheld:
+        return withheld
     code = refusal_code(trial)
     if code:
         return code

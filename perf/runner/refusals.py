@@ -48,6 +48,7 @@ class RefusalCode(StrEnum):
     EDITABLE_NOT_FOUND = 'editable_not_found'
     SURFACE_NOT_DOM_EDITABLE = 'surface_not_dom_editable'
     CLICK_POINTS_UNAVAILABLE = 'click_points_unavailable'
+    CLICK_POINTS_ON_EDITOR_CHROME = 'click_points_on_editor_chrome'
     ANCHOR_IDENTITY_AMBIGUOUS = 'anchor_identity_ambiguous'
     RECORDED_FRAME_NOT_CONFIRMED_ANCHOR = 'recorded_frame_not_confirmed_anchor'
     EDIT_NOT_OBSERVED = 'edit_not_observed'
