@@ -205,6 +205,15 @@
     "extension": true,
     "workload": "prose-500kw",
     "jobs": [160, 161, 162, 163, 164, 165, 166, 167]
+   },
+   "196-c14": {
+    "issue": "196",
+    "title": "WordCraft's C14 at 500,000 words, measured again so that one harness measures all of its 500k cells",
+    "lane": "benchmark_document",
+    "editor": "wordcraft",
+    "extension": true,
+    "workload": "prose-500kw",
+    "jobs": [162, 163, 166, 167]
    }
   }
  },
@@ -254,7 +263,9 @@
    {"run_id": "20261114T055853873356Z-57255-920483", "jobs": [112, 113, 114, 115, 116, 117, 118, 119, 120, 121], "editors": ["wordcraft"], "harness": "93498491"},
    {"run_id": "20261114T062111418109Z-72161-623618", "jobs": [27, 28, 29, 30, 31], "editors": ["wordcraft"], "harness": "93498491"},
    {"run_id": "20261114T070356233835Z-87216-666904", "jobs": [102, 103, 104, 105, 106], "editors": ["wordcraft"], "harness": "93498491"}
-  ]
+  ],
+  "e2-canvas": [{"run_id": "20261114T084134885002Z-12315-986413", "jobs": [162, 163], "editors": ["wordcraft"], "harness": "6a037a84"}],
+  "e2-eigenpal": [{"run_id": "20261114T084132518634Z-12288-239815", "jobs": [166, 167], "editors": ["wordcraft"], "harness": "6a037a84"}]
  },
  "late_superseded": {
   "issues": {

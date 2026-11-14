@@ -236,9 +236,14 @@ def test_the_committed_manifest_names_its_editor_and_late_rounds():
     # #196-#198: WordCraft's warm/cold, document (below and at 500k), input and C10 jobs, at 93498491.
     wordcraft = sorted(job for issue in issues.values() if issue["editor"] == "wordcraft" for job in issue["jobs"])
     assert wordcraft == sorted([*range(0, 20), *range(22, 42), *range(80, 100), *range(102, 122),
-                                160, 161, 164, 165])
+                                *range(160, 168)])
     rounds = [entry for entry in entries if entry["editors"] == ["wordcraft"]]
-    assert {entry["harness"] for entry in rounds} == {"93498491"}
+    assert {entry["harness"] for entry in rounds} == {"93498491", "6a037a84"}
+    # Its 500k C14 jobs, at a later commit, only so that one harness measures all its 500k cells.
+    c14 = issues["196-c14"]
+    assert (c14["issue"], c14["extension"], c14["workload"], c14["jobs"]) == ("196", True, "prose-500kw",
+                                                                             [162, 163, 166, 167])
+    assert sorted(job for entry in rounds if entry["harness"] == "6a037a84" for job in entry["jobs"]) == c14["jobs"]
     # The two jobs stopped part-way when their work moved to e2-plate are measured whole there.
     stopped = sorted(job for entry in rounds for job in entry.get("stopped", []))
     assert stopped == [27, 102]
