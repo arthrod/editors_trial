@@ -1142,3 +1142,13 @@ def test_reruns_text_still_joins_one_round_of_two_editors_when_keys_differ():
     text = E2.reruns_text({'first_pass_superseded': 32, 'rerun_kept': 32, 'editor_rounds': rounds})
     assert text.count('(issue #194)') == 1
     assert "Then Docen's and canvas-editor's cells" in text
+
+
+def test_reruns_text_names_the_c14_window_round():
+    """#203: GenOffice's four 500k C14 jobs, measured again at the strict damage window."""
+    rounds = [{'issue': '203', 'key': '203', 'editor': 'genoffice', 'jobs': 4, 'lane': 'benchmark_document',
+               'workload': 'prose-500kw', 'extension': True}]
+    text = E2.reruns_text({'first_pass_superseded': 32, 'rerun_kept': 32, 'editor_rounds': rounds})
+    assert text.count('(issue #203)') == 1
+    assert ("Then GenOffice's cells of the 4 prose-500kw C14 jobs of the 500k rung were measured again after "
+            "C14's damage window was found to accept frames recorded minutes after it closed") in text

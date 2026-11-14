@@ -262,6 +262,14 @@ def test_the_committed_manifest_names_its_editor_and_late_rounds():
     cap_runs = [entry for entry in entries if entry.get("harness") == "52ff8990"]
     assert sorted(job for entry in cap_runs for job in entry["jobs"]) == [28, 29, 108, 109, *range(160, 168)]
     assert all(len(entry["editors"]) == 1 for entry in cap_runs)
+    # #203: C14's damage window accepted frames minutes late; GenOffice's four 500,000-word C14 jobs are
+    # measured again at the strict window (936e526b), one run per job pair.
+    window = issues["203"]
+    assert (window["editor"], window["lane"], window["extension"], window["workload"], window["jobs"]) == (
+        "genoffice", "benchmark_document", True, "prose-500kw", [162, 163, 166, 167])
+    window_runs = [entry for entry in entries if entry.get("harness") == "936e526b"]
+    assert sorted(job for entry in window_runs for job in entry["jobs"]) == [162, 163, 166, 167]
+    assert all(entry["editors"] == ["genoffice"] for entry in window_runs)
     # #188: the 500k rung's eight new jobs, each once; its harness names both commits.
     extension = sorted(job for space in manifest["extension"].values() for entry in space for job in entry["jobs"])
     assert extension == list(range(160, 168))

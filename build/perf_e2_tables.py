@@ -754,6 +754,9 @@ EDITOR_ROUND_REASONS = {
         "the %(jobs)d jobs of the 500k rung (C11 and C14, with C12 and C15 of the same jobs)",
         "after the screencast recorder was found to stop seeing new frames once it held 1,200, so the page "
         "clock could not be proven and every C11 and C14 attempt was refused"),
+    "203": ("the %(jobs)d %(workload)s C14 jobs of the 500k rung",
+            "after C14's damage window was found to accept frames recorded minutes after it closed, while the "
+            "page kept the harness waiting; the window now counts only frames inside it"),
     "194": ("the %(jobs)d %(workload)s memory jobs (C17 and C19)",
             "after the memory pair's deadline was found to cover one load where the pair runs two loads and a "
             "120-character burst"),
