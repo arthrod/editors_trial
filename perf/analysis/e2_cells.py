@@ -814,10 +814,15 @@ def c14_window_corrected(row):
     )
 
 
-#: #205: a long task lasts at least this long, so one delivered sooner after ready began before it.
-_LONG_TASK_MIN_MS = 50.0
-#: The page keeps this many activities; past it the kept list may miss the last one.
+#: The page keeps this many activities and reports the kept count; a full list may miss the last one.
 _C04_ACTIVITY_CAP = 400
+
+
+def _began_before(activity, ready) -> bool:
+    """A long task ended by its delivery time ``t``, so it began at or before ``t - duration``."""
+    duration = (activity.get('detail') or {}).get('duration')
+    return (activity.get('kind') == 'longtask' and _finite(duration)
+            and activity['t'] - duration < ready)
 
 
 def c04_replay_corrected(row):
@@ -825,8 +830,9 @@ def c04_replay_corrected(row):
 
     C04's long-task observer used ``buffered: true``, which replays the long
     tasks recorded during load, and stamped each with its delivery time, about
-    2 ms after ready. A long task delivered less than 50 ms after ready began
-    before ready: load work, not deferred work. When nothing else was observed
+    2 ms after ready. A long task ended by its delivery, so one delivered at
+    ``t`` with duration ``d`` and ``t - d`` before ready began before ready: load
+    work, not deferred work, however late it was delivered. When nothing else was observed
     the attempt is ``not_applicable`` (``no_deferred_work``), the harness's own
     rule; when a later activity exists the sample already ends at it and the
     row is returned unchanged. Rows from the fixed harness
@@ -840,19 +846,18 @@ def c04_replay_corrected(row):
     if len(observations) != 1 or len(row.get('samples_ms') or []) != 1:
         return row
     observation = observations[0]
-    if 'long_tasks_before_ready' in observation:
+    if observation.get('long_tasks_before_ready') is not None:
         return row
     ready = observation.get('ready_page_ms')
     activities = observation.get('activities')
     count = observation.get('activity_count')
     if not _finite(ready) or not isinstance(activities, list) or not activities:
         return row
-    if not _finite(count) or count > _C04_ACTIVITY_CAP:
+    if not _finite(count) or count >= _C04_ACTIVITY_CAP:
         return row
     if not all(isinstance(a, dict) and _finite(a.get('t')) for a in activities):
         return row
-    replayed = [a for a in activities
-                if a.get('kind') == 'longtask' and a['t'] - ready < _LONG_TASK_MIN_MS]
+    replayed = [a for a in activities if _began_before(a, ready)]
     if len(replayed) != len(activities):
         return row
     assertion = dict(diagnostic.get('assertion') or {}, passed=False, failures=['no_deferred_work'])

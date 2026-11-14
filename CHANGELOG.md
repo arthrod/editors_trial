@@ -363,11 +363,12 @@ changes.
   the long tasks recorded during load, delivered about 2 ms after ready. Each
   counted as activity at its delivery time. Every editor therefore showed
   "deferred work" ending about 2 ms after ready (Docen 1.8 ms, Docxodus
-  1.9 ms, …), though none was observed. A long task lasts at least 50 ms,
-  so one delivered within 50 ms of ready began before ready. The harness
-  now passes the ready time into the page and counts earlier long tasks
-  apart (`long_tasks_before_ready`). The reader drops them from records made
-  before the fix. A load left with no activity is not applicable, the
+  1.9 ms, …), though none was observed. A long task has ended by its
+  delivery, so one whose delivery time minus its duration falls before
+  ready began before ready. The harness now passes the ready time into the
+  page and counts earlier long tasks apart (`long_tasks_before_ready`, null
+  when no ready time was given). The reader drops them from records made
+  before the fix, by that rule. A load left with no activity is not applicable, the
   harness's own rule, and an editor whose loads all had none reads "no
   deferred work after ready". In the publication roots, all of canvas-editor's,
   Docen's, Docxodus's, eigenpal's, Folio's, GenOffice's and Plate.js's C04
@@ -376,8 +377,13 @@ changes.
   to 520 ms after ready, and those samples are unchanged. That split, not a
   change in WordCraft, is why its 50,000-word figure moved between campaigns
   (137 ms, then 423 ms). No job was measured again: the records hold every
-  activity's time, so the reader's rule is exact. Real-browser fixtures
-  (`busy_load.html`, `deferred_task.html`) cover both cases.
+  activity's time and duration, so the reader's rule is exact; it gives the
+  same counts on the publication roots as the harness's start-time rule
+  would. Real-browser fixtures (`busy_load.html`, `deferred_task.html`) and
+  three records copied from the campaign cover the cases. Ready is when the
+  harness sees the ready signal; work that blocks the page before then
+  delays ready and counts in C11, not C04. Reviewed by GLM (octo); four of
+  its eight findings were fixed.
 - WordCraft's C07, C08 and C09 on the complex document are withheld as a
   limit of the harness (#200, not fixed in this release). Its first page
   holds three lines, and the scan that finds the document body took

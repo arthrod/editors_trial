@@ -1132,7 +1132,8 @@ const OBSERVE_QUIESCENCE = async ({ quietMs, timeoutMs, readyPageMs = null }) =>
     observed_for_ms: round(endedAt - startedAt, 3),
     activity_count: activities.length,
     long_tasks: longTasks,
-    long_tasks_before_ready: longTasksBeforeReady,
+    // Null when no ready time was given: nothing was filtered, so the record is not a fixed one.
+    long_tasks_before_ready: typeof readyPageMs === 'number' ? longTasksBeforeReady : null,
     raf_count: rafCount,
     max_raf_gap_ms: round(maxRafGap, 3),
     deferred_work_seen,
@@ -2099,7 +2100,7 @@ async function measureQuiescence(page, options, readyPageMs) {
   const result = await page.evaluate(OBSERVE_QUIESCENCE, {
     quietMs: options.quiescenceMs,
     timeoutMs: options.quiescenceTimeoutMs,
-    readyPageMs: Number.isFinite(readyPageMs) ? readyPageMs : null,
+    readyPageMs: Number.isFinite(readyPageMs) && readyPageMs > 0 ? readyPageMs : null,
   });
   const entry = emptyEntry('C04', 'unverified', null);
   entry.observations.push({
