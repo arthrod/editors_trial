@@ -342,6 +342,26 @@ def _check_extension(data: Path, manifest: dict, errors: list[str]) -> None:
         errors.append(f"extension jobs {reused} reuse campaign job indexes; an extension adds new jobs only")
 
 
+ROUND_KEYS = ("rerun", "rerun2", "rerun3", "editor_rerun", "extension", "late_rerun")
+
+
+def _check_stopped(manifest: dict, errors: list[str]) -> None:
+    """A stopped job is never also kept by its entry, and another entry of its round measured it whole."""
+    for key in ROUND_KEYS:
+        entries = [(space, entry) for space, space_entries in sorted(manifest.get(key, {}).items())
+                   for entry in space_entries]
+        for space, entry in entries:
+            for index in sorted(entry.get("stopped", [])):
+                if index in entry["jobs"]:
+                    errors.append(f"{key} job {index} of {space}/{entry['run_id']} is both kept and stopped")
+                    continue
+                whole = [other for _, other in entries if other is not entry and index in other["jobs"]
+                         and set(other.get("editors", [])) >= set(entry.get("editors", []))]
+                if not whole:
+                    errors.append(f"{key} job {index} stopped in {space}/{entry['run_id']} is not measured whole "
+                                  f"by another entry of the round")
+
+
 def _link_round(data: Path, roots_dir: Path, space: str, entries: list, prefix: str, retired: set[int],
                 campaign: dict, roots: list[str], errors: list[str]) -> None:
     """Link one re-run round's sealed jobs of a Space; jobs in ``retired`` are counted, never linked."""
@@ -353,9 +373,18 @@ def _link_round(data: Path, roots_dir: Path, space: str, entries: list, prefix: 
             campaign[f"{prefix}_unsealed"] += len(entry["jobs"])
             continue
         declared = set(entry["jobs"])
+        # A job stopped part-way when its work moved to another Space (14 Nov rebalancing): counted, never
+        # linked; _check_stopped proves another entry of the round measured it whole.
+        stopped = set(entry.get("stopped", []))
         seen: set[int] = set()
         root = roots_dir / f"{space}--{run_id}"
         for lane, job, index in run_jobs(run_dir, run_id):
+            if index in stopped and index not in declared:
+                if (job / "JOB-DONE").exists():
+                    errors.append(f"stopped job {job.name} of {space}/{run_id} is sealed: a sealed job is "
+                                  f"measured, list it under jobs")
+                campaign[f"{prefix}_stopped"] = campaign.get(f"{prefix}_stopped", 0) + 1
+                continue
             if index not in declared:
                 errors.append(
                     f"re-run job {job.name} of {space}/{run_id} is not in the manifest's job list {sorted(declared)}"
@@ -491,6 +520,7 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
             errors.append(f"{retired_key} jobs {sorted(wanted)} are not measured again exactly once by "
                           f"{name} jobs {sorted(measured)}")
     _check_editor_round(manifest, errors)
+    _check_stopped(manifest, errors)
     _check_extension(data, manifest, errors)
     _check_late_round(manifest, errors)
     # A late round retires first-pass jobs (octo review): an index no first-pass run carries would link a

@@ -222,6 +222,33 @@ def test_the_committed_manifest_names_its_editor_and_late_rounds():
     late = [entry for space in manifest["late_rerun"].values() for entry in space]
     assert sorted(job for entry in late for job in entry["jobs"]) == [40, 41, 120, 121]
     assert manifest["harness"]["late_rerun"] == "653b9471"
+    # #190: Plate.js's 250,000-word document jobs, at the 600 s load wait (6885707b).
+    plate = issues["190"]
+    assert (plate["editor"], plate["workload"], plate["jobs"]) == ("plate", "prose-250kw", [16, 17, 96, 97])
+    assert {entry["harness"] for entry in entries if entry["editors"] == ["plate"]} == {"6885707b"}
+    # #194: Docen's and canvas-editor's 250,000-word memory jobs, one run per job for both editors.
+    for key, editor in (("194", "docen"), ("194-canvas", "canvas")):
+        memory = issues[key]
+        assert (memory["editor"], memory["lane"], memory["jobs"]) == (editor, "benchmark_memory", [66, 67, 146, 147])
+        assert str(memory.get("issue", key)) == "194"
+    assert {entry["harness"] for entry in entries if entry["editors"] == ["docen", "canvas"]} == {"6885707b"}
+    # #196-#198: WordCraft's warm/cold, document (below and at 500k), input and C10 jobs, at 93498491.
+    wordcraft = sorted(job for issue in issues.values() if issue["editor"] == "wordcraft" for job in issue["jobs"])
+    assert wordcraft == sorted([*range(0, 20), *range(22, 42), *range(80, 100), *range(102, 122),
+                                160, 161, 164, 165])
+    rounds = [entry for entry in entries if entry["editors"] == ["wordcraft"]]
+    assert {entry["harness"] for entry in rounds} == {"93498491"}
+    # The two jobs stopped part-way when their work moved to e2-plate are measured whole there.
+    stopped = sorted(job for entry in rounds for job in entry.get("stopped", []))
+    assert stopped == [27, 102]
+    plate_runs = {entry["run_id"] for entry in manifest["editor_rerun"]["e2-plate"]}
+    for job in stopped:
+        keepers = [entry["run_id"] for entry in rounds if job in entry["jobs"]]
+        assert len(keepers) == 1 and keepers[0] in plate_runs, job
+    # #188: the 500k rung's eight new jobs, each once; its harness names both commits.
+    extension = sorted(job for space in manifest["extension"].values() for entry in space for job in entry["jobs"])
+    assert extension == list(range(160, 168))
+    assert "d697b98e" in manifest["harness"]["extension"] and "6885707b" in manifest["harness"]["extension"]
 
 
 def test_campaign_counts_become_perf_e2_facts(tmp_path):
@@ -991,3 +1018,48 @@ def test_an_editor_round_before_the_late_round_cannot_touch_its_jobs(tmp_path, c
     manifest["editor_rerun"]["space-b"].append({"run_id": early, "jobs": [40], "editors": ["wordcraft"]})
     assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
     assert "already measured again by an earlier round" in capsys.readouterr().err
+
+
+# A job stopped part-way when its work was moved to another Space (rebalancing, 14 Nov): the entry names it
+# under "stopped"; it is counted, never linked, and another entry of the same round measures it whole.
+RID_STOP = "20261114T005000000000Z-50000-000020"
+
+
+def stopped_round(tmp_path, *, sealed=False):
+    data, kept, third, canvas = editor_round_data(tmp_path)
+    partial = job(data / "space-a" / "runs" / RID_STOP, RID_STOP, 12, sealed=sealed)
+    manifest = editor_round_manifest()
+    manifest["editor_rerun"]["space-a"] = [{"run_id": RID_STOP, "jobs": [], "stopped": [12], "editors": ["canvas"]}]
+    return data, manifest, partial
+
+
+def test_a_stopped_job_is_counted_and_never_linked(tmp_path):
+    data, manifest, partial = stopped_round(tmp_path)
+    roots_dir = tmp_path / "roots"
+    assert run_roots(data, roots_dir, write_manifest(tmp_path, manifest)) == 0
+    assert not (roots_dir / f"space-a--{RID_STOP}" / "benchmark_document" / partial.name).exists()
+    campaign = json.loads((roots_dir / "report_e2_runs.json").read_text())["campaign"]
+    assert campaign["editor_rerun_stopped"] == 1
+    assert campaign["editor_rerun_kept"] == 2 and campaign["editor_rerun_unsealed"] == 0
+
+
+def test_a_stopped_job_that_was_sealed_is_an_error(tmp_path, capsys):
+    data, manifest, _ = stopped_round(tmp_path, sealed=True)
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+    err = capsys.readouterr().err
+    assert "stopped job" in err and "is sealed" in err
+
+
+def test_a_stopped_job_nobody_measured_whole_is_an_error(tmp_path, capsys):
+    data, manifest, _ = stopped_round(tmp_path)
+    manifest["editor_rerun"]["space-a"][0]["stopped"] = [13]
+    job(data / "space-a" / "runs" / RID_STOP, RID_STOP, 13, sealed=False)
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+    assert "not measured whole by another entry" in capsys.readouterr().err
+
+
+def test_a_job_both_kept_and_stopped_is_an_error(tmp_path, capsys):
+    data, manifest, _ = stopped_round(tmp_path)
+    manifest["editor_rerun"]["space-b"][0]["stopped"] = [12]
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+    assert "both kept and stopped" in capsys.readouterr().err

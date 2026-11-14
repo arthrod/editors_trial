@@ -805,6 +805,11 @@ def reruns_text(campaign: dict | None) -> str:
                    ("first_pass_unsealed", "rerun_unsealed", "rerun2_unsealed", "rerun3_unsealed",
                     "editor_rerun_unsealed", "late_rerun_unsealed"))
     missing = len(campaign.get("missing_runs") or [])
+    stopped = campaign.get("editor_rerun_stopped") or 0
+    if stopped:  # 14 Nov rebalancing: a job cut off when its work moved to another Space
+        text += (" %d editor-round %s stopped part-way when %s work moved to another Space; each was measured "
+                 "whole there, and the tables never read the stopped parts."
+                 % (stopped, "job was" if stopped == 1 else "jobs were", "its" if stopped == 1 else "their"))
     if unsealed:
         text += " %d %s not sealed and %s left out." % (
             unsealed, "re-run job was" if unsealed == 1 else "jobs were", "is" if unsealed == 1 else "are")

@@ -326,7 +326,11 @@ changes.
   (#190; every C11 and C12 attempt cut by the 630 s watchdog of #195), and
   the first run of the four 500,000-word document jobs (stopped for #193
   and #195 while its C14 jobs went on). Their pulls stay in the run bucket;
-  neither is named in `perf/container/e2_publication.json`.
+  neither is named in `perf/container/e2_publication.json`. Two WordCraft
+  jobs (27 and 102) were stopped part-way when the rest of their Spaces'
+  work moved to e2-plate; the manifest names them under `stopped`, the
+  publication check requires each to be unsealed and measured whole by
+  another run of the round, and the tables never read them.
 - Two tests that failed for reasons outside the code they test (#182): the
   sub-frame witness test asserted a timing instead of the rule, and a
   persistence test read the state of `repos/`.

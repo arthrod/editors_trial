@@ -1070,3 +1070,13 @@ def test_reruns_text_states_the_wordcraft_rounds_lane_by_lane():
     assert "WordCraft's cells of the 20 input jobs (C08 and C09" in text
     assert "WordCraft's cells of the 20 C10 scroll jobs" in text
     assert text.count('(issue #196)') == 3 and '(issue #197)' in text and '(issue #198)' in text
+
+
+def test_reruns_text_names_the_jobs_stopped_when_their_work_moved():
+    base = {'first_pass_superseded': 32, 'rerun_kept': 32}
+    assert 'stopped' not in E2.reruns_text(base)
+    text = E2.reruns_text({**base, 'editor_rerun_stopped': 2})
+    assert ('2 editor-round jobs were stopped part-way when their work moved to another Space; each was '
+            'measured whole there, and the tables never read the stopped parts.') in text
+    one = E2.reruns_text({**base, 'editor_rerun_stopped': 1})
+    assert '1 editor-round job was stopped part-way' in one
