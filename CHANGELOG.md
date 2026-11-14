@@ -307,6 +307,14 @@ changes.
   as well, at a later commit (6a037a84), only so that one harness measures
   all of WordCraft's 500,000-word cells: the fix does not change C14, which
   has read WordCraft's text through its own select all and copy since #183.
+  The first such round (08:41 UTC, both its Spaces) ran about 18% slower on
+  every job (medians 8.9-9.8 s), with the same build, browser and command
+  and no CPU steal or throttling. It did not reproduce: two runs started
+  20 minutes later on two Spaces gave 7.7-7.9 s at this commit and 8.2-8.3 s
+  at the older d697b98e, matching the first round's 7.5-8.2 s. A change that
+  does not reproduce is not a result (AGENTS.md section 4), so the tables
+  read the reproduced runs on e2-eigenpal (jobs 162, 163, 166, 167); the
+  slow round stays in the run bucket and is not named in the manifest.
 - WordCraft's warm and cold jobs end with exit status 3, "nothing
   measured", although their C03 cells are measured (#199, not fixed in this
   release). The run-level tally reads one row per launch, and WordCraft's
