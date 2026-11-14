@@ -208,6 +208,8 @@ def test_browser_rows_legacy_host_does_not_sample_server_pid(attempt_dir):
     host = trial["diagnostic"]["memory_host"]
     assert host["host_server_pid_first_pair"] == 4242
     assert host["host_server_counted_in_rss"] is False
-    # Wordcraft runs no length gate. The coarse reason still proves the fixture was opened.
-    assert trial["diagnostic"]["content_length_check"] == "not_run"
+    # Since #196 WordCraft's content is read through its own select-all and copy, so its gate
+    # discloses the corpus's coarse length band like the other whole-text editors; the coarse
+    # reason also proves the fixture was opened.
+    assert trial["diagnostic"]["content_length_check"] == "coarse"
     assert "tracked revisions" in trial["diagnostic"]["content_length_check_reason"]

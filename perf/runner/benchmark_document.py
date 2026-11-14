@@ -1956,7 +1956,7 @@ def gate_length_check_for(editor_id: str, content_meta: dict) -> dict:
 
     A virtualized DOM editor runs opening_only (plus the mounted-text check on
     prose, r3lanes4 ruling 5b); a model-oracle editor runs the corpus length
-    band on the model text; an absent oracle (wordcraft) ran nothing. Editors
+    band on the model text (WordCraft's is its own select-all and copy, #196); an absent oracle runs nothing. Editors
     outside the trial table use the generic whole-document DOM path, which
     runs the corpus policy.
     """
