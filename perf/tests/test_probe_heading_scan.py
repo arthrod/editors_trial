@@ -177,3 +177,107 @@ def test_one_surface_read_walks_each_element_once(browser):
         assert rects <= 200 + 10 + 5
     finally:
         page.close()
+
+
+WORK = """
+() => {
+  window.__work = { parents: 0, results: 0 };
+  const parent = Object.getOwnPropertyDescriptor(Node.prototype, 'parentElement');
+  Object.defineProperty(Node.prototype, 'parentElement', {
+    configurable: true,
+    get() { window.__work.parents += 1; return parent.get.call(this); },
+  });
+  const qsa = Element.prototype.querySelectorAll;
+  Element.prototype.querySelectorAll = function (sel) {
+    const out = qsa.call(this, sel);
+    window.__work.results += out.length;
+    return out;
+  };
+}
+"""
+
+CHAIN = """
+(depth) => {
+  let holder = document.body;
+  for (let i = 0; i < depth; i += 1) {
+    const div = document.createElement('div');
+    div.innerHTML = '<p class="m">text ' + i + '</p><h2 id="c' + i + '">head ' + i + '</h2>';
+    holder.appendChild(div);
+    holder = div;
+  }
+}
+"""
+
+
+def chain_work(browser, depth: int) -> dict:
+    page = browser.new_page()
+    try:
+        page.set_content("<body></body>")
+        page.evaluate(CHAIN, depth)
+        install(page, ".m")
+        return page.evaluate("""(work) => {
+          window.__docProbeSurface('dom_text');
+          (0, eval)('(' + work + ')')();
+          window.__docProbeOpeningHeadings();
+          return window.__work;
+        }""", WORK)
+    finally:
+        page.close()
+
+
+def test_a_deeply_nested_page_is_linear_too(browser):
+    """codex's review of #206: one heading and one paragraph per level of a chain
+    of nested blocks. Asking each ancestor once still listed N, N-1, ... headings."""
+    small = chain_work(browser, 150)
+    large = chain_work(browser, 600)
+    for name in ("parents", "results"):
+        assert large[name] <= 6 * max(small[name], 1), (name, small, large)
+
+
+def test_the_nested_chain_gives_the_headings_of_the_scan_it_replaces(browser):
+    page = browser.new_page()
+    try:
+        page.set_content("<body></body>")
+        page.evaluate(CHAIN, 40)
+        install(page, ".m")
+        expected = page.evaluate("(%s)('.m')" % REFERENCE)
+        got = page.evaluate("(window.__docProbeSurface('dom_text'), window.__docProbeOpeningHeadings().map((h) => h.id))")
+        assert got == expected
+        assert len(got) == 40
+    finally:
+        page.close()
+
+
+def test_a_scoped_selector_means_the_page_not_the_heading(browser):
+    """codex's review of #206: ``heading.querySelector(selector)`` read ``:scope``
+    as the heading, so a heading holding a matched node was taken as an opening heading."""
+    page = browser.new_page()
+    try:
+        page.set_content('<div><h1 id="h">Title <span class="m">inside</span></h1><p class="m">paragraph</p>'
+                         '<h2 id="k">Kept</h2></div>')
+        selector = ":scope > body .m"
+        install(page, selector)
+        expected = page.evaluate("(%s)(%s)" % (REFERENCE, json.dumps(selector)))
+        got = page.evaluate("(window.__docProbeSurface('dom_text'), window.__docProbeOpeningHeadings().map((h) => h.id))")
+        assert expected == ["k"]
+        assert got == expected
+    finally:
+        page.close()
+
+
+def test_the_load_tick_does_not_build_the_content_text(browser):
+    """The tick that stamps the usable instant needs the character count only."""
+    page = browser.new_page()
+    try:
+        page.set_content(flat_page(50, 5))
+        install(page, ".doc-paragraph")
+        timing = page.evaluate("window.__docProbeSurface('dom_text', { timingOnly: true })")
+        full = page.evaluate("window.__docProbeSurface('dom_text')")
+        assert timing["documentText"] is None
+        assert timing["chars"] == full["chars"] > 0
+        assert timing["text"] == full["text"]
+        assert full["documentText"].startswith("Heading 0 ")
+        page.wait_for_function("window.__docProbeState.docTextAt !== null")
+        assert isinstance(page.evaluate("window.__docProbeState.docTextScanMs"), (int, float))
+    finally:
+        page.close()

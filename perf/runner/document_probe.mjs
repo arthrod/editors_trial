@@ -530,6 +530,7 @@ const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, document
     pageCountAtFirst: null,
     docTextAt: null,
     docTextCharsAt: null,
+    docTextScanMs: null,
     usableSignal: recorded,
     // canvas_pixel with the editor's ready condition (#185 review): the first
     // drawn canvas at the first ink frame (the empty page when the editor is
@@ -698,7 +699,7 @@ const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, document
     if (which === 'shadow_text') return '';
     return docSel;
   };
-  window.__docProbeSurface = (which) => {
+  window.__docProbeSurface = (which, { timingOnly = false } = {}) => {
     const selector = selectorFor(which);
     let minX = Infinity;
     let minY = Infinity;
@@ -773,40 +774,62 @@ const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, document
     // Linear in the page (#206). The scan it replaces asked every ancestor of
     // every matched node for its headings and tested each heading against every
     // matched node: on Plate's 250,000-word page it ran about 1,140 s inside a
-    // load whose own scripts ran 21 s. Each ancestor is asked once, and a
-    // heading is placed against the matched nodes by its own ancestors and its
-    // own subtree. Same headings, same order.
+    // load whose own scripts ran 21 s. Here every element is looked at a bounded
+    // number of times whatever the nesting: the ancestors the old scan would
+    // have asked are numbered in the order it asked them, each heading takes the
+    // lowest number among its own ancestors (answers are remembered per
+    // element), and the headings are sorted by that number, then by document
+    // order. Same headings, same order. No selector is evaluated against a
+    // heading, so a selector with :scope means what it meant for the page.
     const openingHeadingElements = () => {
       if (!selector) return [];
       const matched = Array.from(document.querySelectorAll(selector));
       if (!matched.length) return [];
       const matchedSet = new Set(matched);
-      const decided = new Set();
-      const asked = new Set();
-      const found = [];
-      const insideMatched = (heading) => {
-        for (let node = heading; node; node = node.parentElement) {
-          if (matchedSet.has(node)) return true;
-        }
-        return false;
-      };
-      const takeHeading = (heading) => {
-        if (!heading || decided.has(heading)) return;
-        decided.add(heading);
-        const tag = heading.tagName || '';
-        if (tag.length !== 2 || tag[0] !== 'H' || tag[1] < '1' || tag[1] > '6') return;
-        if (insideMatched(heading) || heading.querySelector(selector)) return;
-        found.push(heading);
-      };
+      const firstAsk = new Map(); // ancestor -> when the old scan first asked it
+      const holdsMatched = new Set(); // every strict ancestor of a matched node
+      let order = 0;
+      let lastParent = null;
       for (const node of matched) {
-        let parent = node.parentElement;
+        const first = node.parentElement;
+        if (first === lastParent) continue; // the same chain as the node before
+        lastParent = first;
+        let parent = first;
         for (let depth = 0; parent && depth < 6; depth += 1, parent = parent.parentElement) {
-          if (asked.has(parent)) continue;
-          asked.add(parent);
-          for (const heading of parent.querySelectorAll('h1,h2,h3,h4,h5,h6')) takeHeading(heading);
+          if (!firstAsk.has(parent)) { firstAsk.set(parent, order); order += 1; }
         }
+        for (let up = first; up && !holdsMatched.has(up); up = up.parentElement) holdsMatched.add(up);
       }
-      return found;
+      // One answer per element, found by walking up to the nearest element
+      // already answered: each element is walked from once.
+      const remembered = (memo, own, join, start, el) => {
+        const chain = [];
+        let node = el;
+        while (node && !memo.has(node)) { chain.push(node); node = node.parentElement; }
+        let value = node ? memo.get(node) : start;
+        for (let k = chain.length - 1; k >= 0; k -= 1) {
+          value = join(value, own(chain[k]));
+          memo.set(chain[k], value);
+        }
+        return value;
+      };
+      const askedMemo = new Map();
+      const askedAt = (el) => remembered(askedMemo, (node) => (firstAsk.has(node) ? firstAsk.get(node) : Infinity), Math.min, Infinity, el);
+      const insideMemo = new Map();
+      const insideMatched = (el) => remembered(insideMemo, (node) => matchedSet.has(node), (a, c) => a || c, false, el);
+      const found = [];
+      let index = 0;
+      for (const heading of document.querySelectorAll('h1,h2,h3,h4,h5,h6')) {
+        index += 1;
+        const tag = heading.tagName || '';
+        if (tag.length !== 2 || tag[0] !== 'H' || tag[1] < '1' || tag[1] > '6') continue;
+        const at = heading.parentElement ? askedAt(heading.parentElement) : Infinity;
+        if (at === Infinity) continue; // under no ancestor the old scan asked
+        if (insideMatched(heading) || holdsMatched.has(heading)) continue;
+        found.push({ heading, at, index });
+      }
+      found.sort((x, y) => x.at - y.at || x.index - y.index);
+      return found.map((entry) => entry.heading);
     };
     window.__docProbeOpeningHeadings = openingHeadingElements;
     const openingHeadings = () => openingHeadingElements().map((heading) => elementText(heading)).filter(Boolean).join(' ');
@@ -818,7 +841,9 @@ const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, document
     state.surfaceText = text;
     return {
       text, chars: text.length, rect, selector: selector || null,
-      documentText: [openingHeadings(), contentChunks.join(' ')].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim(), canvasPresent,
+      // The load tick asks for the character count only (#206 review): the content
+      // oracle's text is not built inside the timed interval.
+      documentText: timingOnly ? null : [openingHeadings(), contentChunks.join(' ')].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim(), canvasPresent,
     };
   };
   const tick = () => {
@@ -832,7 +857,11 @@ const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, document
       }
     }
     if (state.docTextAt === null && signal !== 'screencast_ink') {
-      const surface = window.__docProbeSurface(signal);
+      const scanFrom = performance.now();
+      const surface = window.__docProbeSurface(signal, { timingOnly: true });
+      // What the probe's own read of the page cost in the tick that found the text:
+      // it ends inside the timed interval, so it is disclosed with the figure.
+      state.docTextScanMs = performance.now() - scanFrom;
       const chars = signal === 'canvas_pixel' ? (surface.chars > 0 ? 1 : 0) : surface.chars;
       // A canvas holds no text to match against the document, and an editor
       // paints its empty page (margin marks) before the import finishes. For
@@ -963,6 +992,8 @@ async function stateSnapshot(page, { noCopy = false } = {}) {
         first_element_info: s.firstElementInfo || null,
         document_text_at_ms: s.docTextAt === null || s.docTextAt === undefined ? null : s.docTextAt,
         document_text_chars_at: s.docTextCharsAt === null || s.docTextCharsAt === undefined ? null : s.docTextCharsAt,
+        // #206: the probe's own page read in the tick that found the text (inside the timed interval).
+        probe_scan_ms_at_text: typeof s.docTextScanMs === 'number' ? s.docTextScanMs : null,
         canvas_ink_changed: typeof s.canvasInkChanged === 'boolean' ? s.canvasInkChanged : null,
         page_count_at_first: s.pageCountAtFirst === null || s.pageCountAtFirst === undefined ? null : s.pageCountAtFirst,
         page_count: pageSel ? document.querySelectorAll(pageSel).length : null,
