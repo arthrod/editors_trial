@@ -277,6 +277,24 @@ changes.
   deadline now covers both loads and a burst budget, and a failed pair
   names the phases it reached. Docen's and canvas-editor's prose-250kw
   memory cells were measured again.
+- The document lane killed probes that were still within their own load
+  budget (#195). A C11 or C12 probe loads the document, reflows it and
+  checks its witness, but its subprocess watchdog was one load timeout
+  plus 30 s (630 s at 250,000 words); Plate.js takes 335–397 s to be ready
+  and 627–708 s to scan its witness at that size, so every attempt was
+  killed. The watchdog now covers every load stage and the probe's own
+  work. A refusal that said "clock skew" when the skew was inside the 5 ms
+  bound now names the page clock check that failed. Plate.js's prose-250kw
+  document cells were measured again.
+- WordCraft was refused by our harness on 30 cells (#196, #197, #198),
+  found by an adversarial review of every refused cell. Its content check
+  (C03, C11) never read its text, although the harness had read its whole
+  document through WordCraft's own select all and copy since #183; C08 and
+  C09 were skipped as not applicable on the same ground; and C10 never
+  selected the scroll overlay our host builds for it. Each now uses the
+  copy read or the overlay, outside the timed window. WordCraft's cells of
+  its warm and cold, document, input and C10 jobs were measured again by
+  WordCraft-only runs.
 - Two tests that failed for reasons outside the code they test (#182): the
   sub-frame witness test asserted a timing instead of the rule, and a
   persistence test read the state of `repos/`.
