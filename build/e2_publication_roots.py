@@ -83,9 +83,17 @@ def _check_late_round(manifest: dict, errors: list[str]) -> None:
     if entries and not manifest.get("harness", {}).get("late_rerun"):
         errors.append("the manifest's late round names no harness commit (harness.late_rerun)")
     already = superseded_jobs(manifest)
-    for key in ("rerun", "rerun2", "rerun3", "editor_rerun", "extension"):
+    for key in ("rerun", "rerun2", "rerun3", "extension"):
         already.update(index for space_entries in manifest.get(key, {}).values()
                        for entry in space_entries for index in entry["jobs"])
+    # An editor round may re-measure one editor's cells of a late-round job only after the late round
+    # (#198 after #192); run ids start with their UTC launch time, so the order is in the ids.
+    late_run = {index: entry["run_id"] for entry in entries for index in entry["jobs"]}
+    for space_entries in manifest.get("editor_rerun", {}).values():
+        for entry in space_entries:
+            for index in entry["jobs"]:
+                if index in late and not entry["run_id"] > late_run.get(index, ""):
+                    already.add(index)
     overlap = sorted(late & already)
     if overlap:
         errors.append(f"late_superseded jobs {overlap} were already measured again by an earlier round")
@@ -140,8 +148,10 @@ def _check_editor_round(manifest: dict, errors: list[str]) -> None:
                           f"editor-round jobs {sorted(measured.get(editor, []))}")
 
 
-# The document lane (#185, #190, #193) and the memory lane (#194).
-EDITOR_ROUND_LANES = ("benchmark_document", "benchmark_memory")
+# The document lane (#185, #190, #193, #196), the memory lane (#194), and WordCraft's warm/cold (#196),
+# input (#197) and C10 scroll (#198) lanes.
+EDITOR_ROUND_LANES = ("benchmark_document", "benchmark_memory", "benchmark_warm_cold", "benchmark_input",
+                      "adversarial_c10_scroll")
 
 
 def _summary_of(job: Path) -> dict | None:
@@ -203,7 +213,7 @@ def _job_workload(summary: dict, job: Path | None = None, editor: str | None = N
 def _check_editor_round_data(roots_dir: Path, manifest: dict, errors: list[str]) -> None:
     """Read the linked jobs themselves (glm-5.3 review of 31805ef7, findings 4-7).
 
-    - an editor round is for the document lane only;
+    - an editor round is for the lanes of EDITOR_ROUND_LANES only;
     - every linked job of that lane whose schedule names the editor is superseded,
       so no cell pools the new runs with the retired measurement;
     - each editor-round job measures only the editors its entry names, with the
@@ -418,7 +428,7 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
         "editor_rounds": [
             # One issue may supersede several editors' cells: keys like "194-canvas" carry "issue": "194".
             {"issue": str(issue.get("issue", number)), "editor": issue["editor"], "jobs": len(issue["jobs"]),
-             "workload": issue.get("workload"), "workloads": issue.get("workloads"),
+             "lane": issue.get("lane"), "workload": issue.get("workload"), "workloads": issue.get("workloads"),
              "extension": bool(issue.get("extension"))}
             for number, issue in sorted(manifest.get("editor_superseded", {}).get("issues", {}).items())],
         "missing_runs": [],

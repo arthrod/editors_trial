@@ -726,6 +726,23 @@ EDITOR_ROUND_REASONS = {
                       "same jobs)",
                       "after its C11 was found to compare its settled screen with its ready flag on two different "
                       "clocks; the 500k rung had run before that fix"),
+    "196/benchmark_warm_cold": (
+        "the %(jobs)d warm and cold load jobs (C03, with C05 and C06 of the same jobs)",
+        "after its opening check was found never to read WordCraft's text, although the harness reads the whole "
+        "document through WordCraft's own select all and copy; every C03 attempt had been refused as unverifiable"),
+    "196": ("the %(jobs)d document jobs below the 500k rung (C11, with C12 and C15 of the same jobs)",
+            "after its C11 content check was found never to read WordCraft's text through WordCraft's own select "
+            "all and copy, which refused every attempt as unverifiable"),
+    "196-extension": ("the %(jobs)d %(workload)s document jobs of the 500k rung (C11, with C12 and C15 of the "
+                      "same jobs)",
+                      "after its C11 content check was found never to read WordCraft's text through WordCraft's "
+                      "own select all and copy; the 500k rung had run before that fix"),
+    "197": ("the %(jobs)d input jobs (C08 and C09, with C07 of the same jobs)",
+            "after C08 and C09 were found to be skipped as not applicable because WordCraft shows no text in the "
+            "page, although its own select all and copy reads the document before and after each edit"),
+    "198": ("the %(jobs)d C10 scroll jobs",
+            "after C10 was found never to scroll WordCraft's document: the host's scroll overlay, built for this "
+            "probe, was never selected, so every attempt found no scroll container"),
     "194": ("the %(jobs)d %(workload)s memory jobs (C17 and C19)",
             "after the memory pair's deadline was found to cover one load where the pair runs two loads and a "
             "120-character burst"),
@@ -764,9 +781,12 @@ def reruns_text(campaign: dict | None) -> str:
     for entry in rounds:
         editor = entry["editor"]
         name = {"canvas": "canvas-editor"}.get(editor, DISPLAY.get(editor, editor))
-        key = str(entry["issue"]) + ("-extension" if entry.get("extension") else "")
-        cells, reason = (EDITOR_ROUND_REASONS.get(key) or EDITOR_ROUND_REASONS.get(str(entry["issue"]))
-                         or ("%(jobs)d jobs", "after a harness defect was fixed"))
+        # The wording of one issue may differ by lane (#196: warm/cold and document) and for the 500k rung.
+        issue = str(entry["issue"])
+        keys = ([issue + "-extension"] if entry.get("extension") else []) + [
+            "%s/%s" % (issue, entry.get("lane")), issue]
+        cells, reason = next((EDITOR_ROUND_REASONS[k] for k in keys if k in EDITOR_ROUND_REASONS),
+                             ("%(jobs)d jobs", "after a harness defect was fixed"))
         text += (
             " Then %s's cells of %s were measured again %s (issue #%s). Those runs measured %s alone, under the "
             "same job indices and seeds; the tables read them for %s, and the other editors of those jobs stay "

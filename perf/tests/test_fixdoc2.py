@@ -169,7 +169,9 @@ class C14NoDamage(unittest.TestCase):
         }
         with self.assertRaises(bd.ProbeRefusal) as caught:
             bd.c14_measured_sample(probe)
-        self.assertIn("clock skew", caught.exception.reason)
+        # #195: a skew inside the 5 ms bound is not "clock skew"; the refusal names the failed check.
+        self.assertIn("page clock check failed", caught.exception.reason)
+        self.assertIn("clock_skew_ms=-0.7", caught.exception.reason)
 
     def test_missing_surface_still_refuses(self):
         # A forced-repaint sample must carry an in-bounds clock before the

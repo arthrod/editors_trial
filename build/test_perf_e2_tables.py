@@ -1050,3 +1050,23 @@ def test_reruns_text_survives_an_issue_it_has_no_wording_for():
                 'missing_runs': []}
     text = E2.reruns_text(campaign)
     assert '(issue #999)' in text and "Plate.js's cells of 2 jobs" in text
+
+
+def test_reruns_text_states_the_wordcraft_rounds_lane_by_lane():
+    # #196-#198: one issue may re-measure an editor in several lanes; each lane names its own criteria.
+    rounds = [{'issue': '196', 'editor': 'wordcraft', 'jobs': 20, 'lane': 'benchmark_warm_cold', 'workload': None},
+              {'issue': '196', 'editor': 'wordcraft', 'jobs': 20, 'lane': 'benchmark_document', 'workload': None,
+               'workloads': ['prose-500w']},
+              {'issue': '196', 'editor': 'wordcraft', 'jobs': 4, 'lane': 'benchmark_document',
+               'workload': 'prose-500kw', 'extension': True},
+              {'issue': '197', 'editor': 'wordcraft', 'jobs': 20, 'lane': 'benchmark_input', 'workload': None},
+              {'issue': '198', 'editor': 'wordcraft', 'jobs': 20, 'lane': 'adversarial_c10_scroll', 'workload': None}]
+    campaign = {'first_pass_superseded': 32, 'rerun_kept': 32, 'editor_rerun_kept': 84, 'editor_rerun_unsealed': 0,
+                'editor_superseded': {'wordcraft': 84}, 'editor_rounds': rounds, 'missing_runs': []}
+    text = E2.reruns_text(campaign)
+    assert "WordCraft's cells of the 20 warm and cold load jobs (C03, with C05 and C06" in text
+    assert "WordCraft's cells of the 20 document jobs below the 500k rung (C11" in text
+    assert "WordCraft's cells of the 4 prose-500kw document jobs of the 500k rung (C11" in text
+    assert "WordCraft's cells of the 20 input jobs (C08 and C09" in text
+    assert "WordCraft's cells of the 20 C10 scroll jobs" in text
+    assert text.count('(issue #196)') == 3 and '(issue #197)' in text and '(issue #198)' in text

@@ -885,3 +885,85 @@ def test_an_editor_round_issue_must_be_an_issue_number(tmp_path, capsys):
     issues["194-canvas"] = issues.pop("194")  # no "issue": "194"
     assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
     assert "issue number" in capsys.readouterr().err
+
+
+# The WordCraft round (#196-#198) ---------------------------------------------------------------------
+# Its content gate, its C08/C09 and its C10 scroll were refused by our harness, not by WordCraft: an
+# editor round re-measures WordCraft alone in the warm/cold, input and C10 lanes too, including the C10
+# jobs the late round (#192) already measured again.
+
+RID_WC = "20261114T090000000000Z-90000-000017"
+
+
+def wordcraft_round(tmp_path, lane, *, also_unsuperseded=False):
+    data, *_ = editor_round_data(tmp_path)
+    old = summarize(job(data / "space-a" / "runs" / RID_A, RID_A, 30, lane=lane), 1, 1, ["plate", "wordcraft"])
+    if also_unsuperseded:
+        summarize(job(data / "space-a" / "runs" / RID_A, RID_A, 31, lane=lane), 1, 2, ["plate", "wordcraft"])
+    new = summarize(job(data / "space-b" / "runs" / RID_WC, RID_WC, 30, lane=lane), 1, 1, ["wordcraft"])
+    manifest = editor_round_manifest()
+    manifest["editor_superseded"]["issues"]["197"] = {
+        "title": "synthetic WordCraft round", "lane": lane, "editor": "wordcraft", "jobs": [30]}
+    manifest["editor_rerun"]["space-b"].append({"run_id": RID_WC, "jobs": [30], "editors": ["wordcraft"]})
+    return data, manifest, old, new
+
+
+@pytest.mark.parametrize("lane", ["benchmark_warm_cold", "benchmark_input", "adversarial_c10_scroll"])
+def test_an_editor_round_in_the_wordcraft_lanes_is_accepted(tmp_path, lane):
+    data, manifest, old, new = wordcraft_round(tmp_path, lane)
+    roots_dir = tmp_path / "roots"
+    assert run_roots(data, roots_dir, write_manifest(tmp_path, manifest)) == 0
+    assert (roots_dir / f"space-a--{RID_A}" / lane / old.name).resolve() == old
+    assert (roots_dir / f"space-b--{RID_WC}" / lane / new.name).resolve() == new
+    rounds = json.loads((roots_dir / "report_e2_runs.json").read_text())["campaign"]["editor_rounds"]
+    assert {"issue": "197", "editor": "wordcraft", "lane": lane} in [
+        {k: r[k] for k in ("issue", "editor", "lane")} for r in rounds]
+
+
+@pytest.mark.parametrize("lane", ["benchmark_warm_cold", "benchmark_input", "adversarial_c10_scroll"])
+def test_a_lane_round_that_leaves_a_job_of_its_lane_is_refused(tmp_path, lane, capsys):
+    data, manifest, _, _ = wordcraft_round(tmp_path, lane, also_unsuperseded=True)
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+    assert "is not superseded" in capsys.readouterr().err
+
+
+def test_an_editor_round_replaces_wordcrafts_cells_of_a_late_round_job(tmp_path):
+    lane = "adversarial_c10_scroll"
+    data, *_ = editor_round_data(tmp_path)
+    first = summarize(job(data / "space-a" / "runs" / RID_A, RID_A, 40, lane=lane), 1, 1, ["plate", "wordcraft"])
+    late = summarize(job(data / "space-b" / "runs" / RID_LATE, RID_LATE, 40, lane=lane), 1, 1,
+                     ["plate", "wordcraft"])
+    new = summarize(job(data / "space-b" / "runs" / RID_WC, RID_WC, 40, lane=lane), 1, 1, ["wordcraft"])
+    manifest = editor_round_manifest()
+    manifest["harness"]["late_rerun"] = "c0ffee00"
+    manifest["late_superseded"] = {"issues": {"192": {"title": "late", "lane": lane, "jobs": [40]}}}
+    manifest["late_rerun"] = {"space-b": [{"run_id": RID_LATE, "jobs": [40]}]}
+    manifest["editor_superseded"]["issues"]["198"] = {
+        "title": "synthetic WordCraft C10", "lane": lane, "editor": "wordcraft", "jobs": [40]}
+    manifest["editor_rerun"]["space-b"].append({"run_id": RID_WC, "jobs": [40], "editors": ["wordcraft"]})
+    roots_dir = tmp_path / "roots"
+    assert run_roots(data, roots_dir, write_manifest(tmp_path, manifest)) == 0
+    # The late job stays for every other editor; the first-pass job is retired by the late round.
+    assert (roots_dir / f"space-b--{RID_LATE}" / lane / late.name).resolve() == late
+    assert not (roots_dir / f"space-a--{RID_A}" / lane / first.name).exists()
+    assert (roots_dir / f"space-b--{RID_WC}" / lane / new.name).resolve() == new
+
+
+def test_an_editor_round_before_the_late_round_cannot_touch_its_jobs(tmp_path, capsys):
+    # The late round re-measured every editor of job 40 after this editor round: the editor round's cells
+    # would override a newer measurement.
+    lane = "adversarial_c10_scroll"
+    early = "20261114T040000000000Z-90000-000016"  # before RID_LATE
+    data, *_ = editor_round_data(tmp_path)
+    summarize(job(data / "space-a" / "runs" / RID_A, RID_A, 40, lane=lane), 1, 1, ["plate", "wordcraft"])
+    summarize(job(data / "space-b" / "runs" / RID_LATE, RID_LATE, 40, lane=lane), 1, 1, ["plate", "wordcraft"])
+    summarize(job(data / "space-b" / "runs" / early, early, 40, lane=lane), 1, 1, ["wordcraft"])
+    manifest = editor_round_manifest()
+    manifest["harness"]["late_rerun"] = "c0ffee00"
+    manifest["late_superseded"] = {"issues": {"192": {"title": "late", "lane": lane, "jobs": [40]}}}
+    manifest["late_rerun"] = {"space-b": [{"run_id": RID_LATE, "jobs": [40]}]}
+    manifest["editor_superseded"]["issues"]["198"] = {
+        "title": "synthetic WordCraft C10", "lane": lane, "editor": "wordcraft", "jobs": [40]}
+    manifest["editor_rerun"]["space-b"].append({"run_id": early, "jobs": [40], "editors": ["wordcraft"]})
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+    assert "already measured again by an earlier round" in capsys.readouterr().err
