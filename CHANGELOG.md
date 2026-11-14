@@ -303,7 +303,10 @@ changes.
   a burst no longer turns WordCraft's C05 and C06, which do not apply, into
   a crash. WordCraft's cells of its warm and cold, document, input and C10
   jobs, and of its 500,000-word document jobs, were measured again by
-  WordCraft-only runs.
+  WordCraft-only runs. Its four 500,000-word C14 jobs were measured again
+  as well, at a later commit (6a037a84), only so that one harness measures
+  all of WordCraft's 500,000-word cells: the fix does not change C14, which
+  has read WordCraft's text through its own select all and copy since #183.
 - WordCraft's warm and cold jobs end with exit status 3, "nothing
   measured", although their C03 cells are measured (#199, not fixed in this
   release). The run-level tally reads one row per launch, and WordCraft's
