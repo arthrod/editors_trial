@@ -468,6 +468,9 @@ export function getRecorder(cdp, options = {}) {
   recorder = {
     cdp,
     frames: [],
+    // A frame's sequence number never repeats (#202): the array keeps only the last
+    // FRAME_CAP frames, so an index into it is not a cursor once the cap is reached.
+    nextSeq: 0,
     started: false,
     startError: null,
     format: options.format || 'png',
@@ -484,14 +487,13 @@ export function getRecorder(cdp, options = {}) {
       mono:
         typeof metadata.monotonicTimestamp === 'number' ? metadata.monotonicTimestamp : null,
       receipt_ms: Date.now(),
-      seq: recorder.frames.length,
+      seq: recorder.nextSeq++,
       ack: 'pending',
     };
     recorder.frames.push(frame);
-    if (recorder.frames.length > 1200) {
-      const drop = recorder.frames.length - 1200;
-      recorder.frames.splice(0, drop);
-      recorder.decoded.clear();
+    if (recorder.frames.length > FRAME_CAP) {
+      const dropped = recorder.frames.splice(0, recorder.frames.length - FRAME_CAP);
+      for (const old of dropped) recorder.decoded.delete(old.seq);
     }
     Promise.resolve()
       .then(() => cdp.send('Page.screencastFrameAck', { sessionId: event.sessionId }))
@@ -508,6 +510,26 @@ export function getRecorder(cdp, options = {}) {
   cdp.on('Page.screencastFrame', recorder.listener);
   recorders.set(cdp, recorder);
   return recorder;
+}
+
+/** The recorder keeps the last FRAME_CAP frames; older ones are dropped (#202). */
+export const FRAME_CAP = 1200;
+
+/** The sequence number the next recorded frame will carry: a cursor that survives the cap (#202). */
+export function nextFrameSeq(recorder) {
+  return recorder.nextSeq ?? recorder.frames.length;
+}
+
+/**
+ * The retained frames whose sequence number is at least `seq`, oldest first (#202). Scans cursor on
+ * `frame.seq`, never on an array index: past the cap the array's length stays FRAME_CAP and its
+ * indexes shift on every new frame.
+ */
+export function framesFrom(recorder, seq) {
+  const frames = recorder.frames;
+  if (!frames.length) return [];
+  const start = Math.max(0, Math.min(frames.length, seq - frames[0].seq));
+  return frames.slice(start);
 }
 
 /**
@@ -965,13 +987,13 @@ export function clockSkewRefusalReason(skew) {
  * conversion would simply lose its own proof frame instead of failing the
  * gate (#130 defect 1). The frame's ack must have completed before it counts.
  */
-async function anchorFrame(page, recorder, clock, { waitMs }) {
+export async function anchorFrame(page, recorder, clock, { waitMs }) {
   // A baseline frame must exist before the change, so the anchor is always
   // proven by pixels.
   const baselineWait = Date.now() + 1000;
   while (recorder.frames.length === 0 && Date.now() < baselineWait) await sleep(5);
-  const before = recorder.frames.length;
-  const baselineFrame = recorder.frames[before - 1] || null;
+  const before = nextFrameSeq(recorder);
+  const baselineFrame = recorder.frames[recorder.frames.length - 1] || null;
   const baselineDecoded = baselineFrame ? decodeFrame(recorder, baselineFrame) : null;
 
   const change = await page.evaluate(() => {
@@ -1003,8 +1025,7 @@ async function anchorFrame(page, recorder, clock, { waitMs }) {
   let found = null;
   let pixelChecked = false;
   while (Date.now() < deadline && !found) {
-    for (let i = before; i < recorder.frames.length; i++) {
-      const frame = recorder.frames[i];
+    for (const frame of framesFrom(recorder, before)) {
       if (frame.ack === 'pending') {
         if ((await frameAckSettled(frame)) !== 'acked') continue;
       } else if (frame.ack !== 'acked') {
@@ -1297,9 +1318,8 @@ export async function witnessFrame(
     let checkedQuiet = 0;
     const quietDeadline = Date.now() + quietBudgetMs;
     while (Date.now() < quietDeadline) {
-      for (let i = checkedQuiet; i < recorder.frames.length; i++) {
-        const frame = recorder.frames[i];
-        checkedQuiet = i + 1;
+      for (const frame of framesFrom(recorder, checkedQuiet)) {
+        checkedQuiet = frame.seq + 1;
         if (frame.ack === 'pending') {
           if ((await frameAckSettled(frame)) !== 'acked') {
             quietAckSkipped += 1;
@@ -1455,9 +1475,8 @@ export async function witnessFrame(
   let usedKind = usedKindEarly;
 
   while (Date.now() < deadline) {
-    for (let i = checked; i < recorder.frames.length; i++) {
-      const frame = recorder.frames[i];
-      checked = i + 1;
+    for (const frame of framesFrom(recorder, checked)) {
+      checked = frame.seq + 1;
       // A frame counts as seen only once its screencast ack completed.
       if (frame.ack === 'pending') {
         if ((await frameAckSettled(frame)) !== 'acked') {

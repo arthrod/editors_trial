@@ -55,6 +55,8 @@ import {
   convertFrameToPageMs,
   frameAckSettled,
   frameInterval,
+  framesFrom,
+  nextFrameSeq,
   pageClock,
   detectTimestampKind,
   diffRatio,
@@ -370,9 +372,9 @@ async function waitForScreencastInk(page, recorder) {
   let lastObserved = null;
   let quietSince = Date.now();
   while (Date.now() < deadline) {
-    const available = recorder.frames.length;
-    for (; checked < available; checked++) {
-      const frame = recorder.frames[checked];
+    // A sequence cursor, never an array index: the recorder keeps only its last frames (#202).
+    for (const frame of framesFrom(recorder, checked)) {
+      checked = frame.seq + 1;
       const ms = pageTime(frame);
       if ((ms !== null && ms < 0) || (await frameAckSettled(frame)) !== 'acked') continue;
       const crop = cropInkRegion(decodeRecorderFrame(recorder, frame), scope.rect_device, inset);
@@ -387,7 +389,7 @@ async function waitForScreencastInk(page, recorder) {
     // Drain CDP events after synchronous PNG work. Time spent blocking the
     // event loop is not evidence that the compositor stopped sending frames.
     await sleep(8);
-    if (checked < recorder.frames.length) continue;
+    if (checked < nextFrameSeq(recorder)) continue;
     if (potentialInk && lastObserved && Date.now() - quietSince >= 500) break;
   }
   if (!lastObserved || Date.now() - quietSince < 500) return refused('settled_frame_not_observed');
