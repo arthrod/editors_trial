@@ -2,25 +2,30 @@
 
 
 
-## The short version
+## What this report is
 
-The editors in the tables below were opened in a real browser, each with the same documents, and timed doing what a person does: opening a document, typing, clicking, pasting, undoing and scrolling. This section gives those results in a few small tables. Everything after it is the reference: the full tables, how each measurement was taken, and what was left out and why.
+Nine editors that open Word documents in a web browser were each given the same documents, in a real browser, and timed doing what a person does: opening a document, typing, clicking, pasting, undoing and scrolling. This report gives the results in seven small tables, one per action, and says what the figures can and cannot tell you.
 
-How to read the tables:
+It is written to be read from here to the end of the results. The appendices after that hold everything needed to check it: how each time was taken, the machine, the rule a figure had to pass before it was printed, the full tables, what was not measured and why, and how to run it again.
 
-- **A figure is a typical time, measured twice.** Each test was run in two separate rounds, each of several fresh launches of the browser. A figure is printed only when the two rounds agree within 10 percent (or, for times that short, within one picture of the screen), and it is the middle of the two rounds' typical (median) values.
+## How to read the tables
+
+- **A figure is a typical time.** Each action was repeated across several fresh launches of the browser, and the figure is the typical (median) result. Appendix C gives the exact rule.
 - **Lower is quicker, or lighter.** Times are in milliseconds (ms, thousandths of a second) or seconds (s); memory is in MiB and GiB (1 GiB is 1,024 MiB).
-- **"under 1 frame"** means the result was on screen in less than the time between two pictures of the screen, in both rounds. The screen was redrawn 60 times a second, so a shorter time cannot be told apart.
-- **"varied"** means the two rounds did not agree, so no figure is given. **"crashed"** means the editor's page crashed in every launch. **"does not apply"** means the test cannot be run on that editor. **"no figure"** means too few launches gave a confirmed result, whether because of the editor or of our tooling. A dash means the cell was not part of these runs. The reference tables give the reason for each.
+- **Read down a column, not across the report.** Each column is one document size, and every editor in it opened the same document.
+- **"under 1 frame"** means the result was on screen in less than the time between two pictures of the screen. The screen was redrawn 60 times a second, so a shorter time cannot be told apart.
+- **"varied"** means the measurement did not come out steady enough to print one figure. **"crashed"** means the editor's page crashed in every launch. **"does not apply"** means the test cannot be run on that editor. **"no figure"** means too few launches gave a confirmed result, whether because of the editor or of our tooling. A dash means the cell was not part of these runs. The full tables in Appendix E give the reason for each.
 - **The editors are in alphabetical order.** This report does not rank them.
 
-What these figures cannot tell you:
+## What the figures cannot tell you
 
-- **They are not the times you will see on your own computer.** The tests ran on a cloud server with no graphics processor, so everything an editor draws was drawn by the processor. For WordCraft, which redraws its page continuously, that drawing is nearly all of the processor time it used in the half minute after opening a document (see B8 in the reference). Compare the editors with each other, in the same column.
+- **They are not the times you will see on your own computer.** The tests ran on a cloud server with no graphics processor, so everything an editor draws was drawn by the processor. For WordCraft, which redraws its page continuously, that drawing is nearly all of the processor time it used in the half minute after opening a document (table B8 in Appendix E). Compare the editors with each other, in the same column.
 - **The two largest documents are far longer than most real documents.** The first two columns are the common case.
-- **"varied" is often the machine, not the editor.** The server is shared. Most of the cells that varied in opening and typing at 50,000 words come from one round that ran while the server was busy with other work (issue #228). They should not be read as a property of those editors.
+- **"varied" is often the machine, not the editor.** The server is shared with other work. Most of the cells that varied in opening and typing at 50,000 words were measured while the server was busy (issue #228; Appendix B gives the load). They should not be read as a property of those editors.
 - **Search and replace was not measured** for any editor: that is a gap in our tooling, not in the editors.
 - **Only what is listed is measured.** Whether an editor keeps a document's content and formatting intact is the subject of the other reports of this trial.
+
+## The results
 
 ### Opening a document
 
@@ -148,7 +153,7 @@ The memory of the whole browser with the document open, read two seconds after a
 
 At 500 words the figures run from 567 MiB to 1.1 GiB; at 250,000 words, from 996 MiB to 7.4 GiB.
 
-## What is measured
+## Appendix A — What was measured, and how each time was taken
 
 This report concerns browser-visible first paint, typing, scrolling, and related interactions. 701 of 1061 scheduled editor/criterion/measure cells reproduced between the two seeds. 52 run folders contributed 212 jobs (seed 1: 106 jobs; seed 2: 106 jobs); earliest job start 2026-11-12, latest job end 2026-11-15.
 
@@ -180,7 +185,7 @@ Each criterion is one browser-visible or model clock on the same corpus the head
 
 **C15 (search/replace/indexing).** Search/replace/indexing at the model ready boundary (layer model).
 
-## The host and its limits
+## Appendix B — The machine and its limits
 
 Relaxed bounds: Clock skew: 5 ms. Ready/navigation load timeouts: 300 s by default, 600 s on the largest document workload; C14 (large-document scaling) gives each wait of a load (navigation, the editor's ready signal, the page's load event for the canvas editors Docen and WordCraft, the painted document) up to 1000 s. Sparse-witness settle onset floor: 100 ms. CPU throttle tolerance: max(1 ms, 1% of the sample span). Witness anchor lag: max(3 frame intervals, 250 ms). Typing/document content length tolerance: 2% for the prose documents; the complex document (complex-corpus) is accepted at 75% to 125% of the expected length.
 
@@ -196,7 +201,9 @@ Jobs per Space, from each job summary's host-build records: e2-apryse: 10; e2-ca
 
 Playwright not recorded, Chromium 156.0.8078.80. Renderer: ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver).
 
-## The rule
+## Appendix C — Every measurement was run twice: the rule a figure had to pass
+
+Everything in this report was run twice, in two separate rounds (called seeds below), and a figure is printed only when the two agree. The figures in the results above are the middle of the two rounds' medians; "under 1 frame" is printed only when both rounds were under a frame; "varied" is a cell whose two rounds did not agree within 10 percent (or, for times that short, within one frame).
 
 This is a first pass with fewer samples than planned. Each cell schedules 10 samples per editor per seed and is published when at least 5 samples are kept. The 90th percentile is printed only when at least 10 samples are kept; with 5 to 9 kept, the table prints the median and the range from the smallest kept sample to the largest, because a percentile of a short sample is not a stable figure.
 
@@ -206,7 +213,7 @@ Each launch contributes the median of its own samples; n counts kept launches. S
 
 212 jobs in 52 run folders — seed 1: 106 jobs; seed 2: 106 jobs. Dates: 2026-11-12 to 2026-11-15.
 
-## Read this before the tables
+## Appendix D — Notes on the full tables, and what was measured again
 
 - **Re-run jobs.** 32 first-pass jobs were measured again after three harness defects were fixed (issues #173, #174 and #175). The lane round below replaced those re-run jobs in turn. `perf/container/e2_publication.json` names every run and every replaced job. In a second round, 4 C14 jobs of the re-run were measured again after the C14 correctness check was fixed (issue #181). In a third round, those 4 C14 jobs were measured again after C14 was given the editor's own whole-document read and a 1,000-second load timeout (issues #183 and #184). Then single editors' cells of those lanes were measured again alone, each after a change in how the harness measured that editor: canvas-editor (issues #185, #202); Plate.js (issue #190); Docen (issues #193, #202); WordCraft (issues #196, #197); GenOffice (issue #203). The lane round replaced those cells. Then Docen's and canvas-editor's cells of the 4 prose-250kw memory jobs (C17 and C19) were measured again after the memory pair's deadline was found to cover one load where the pair runs two loads and a 120-character burst (issue #194). Those runs measured Docen and canvas-editor alone, under the same job indices and seeds; the tables read them for Docen and canvas-editor, and the other editors of those jobs stay as measured. Then WordCraft's cells of the 20 warm and cold load jobs (C03, with C05 and C06 of the same jobs) were measured again after its opening check was found never to read WordCraft's text, although the harness reads the whole document through WordCraft's own select all and copy; every C03 attempt had been refused as unverifiable (issue #196). Those runs measured WordCraft alone, under the same job indices and seeds; the tables read them for WordCraft, and the other editors of those jobs stay as measured. Then WordCraft's cells of the 20 C10 scroll jobs were measured again after C10 was found never to scroll WordCraft's document: the host's scroll overlay, built for this probe, was never selected, so every attempt found no scroll container (issue #198). Those runs measured WordCraft alone, under the same job indices and seeds; the tables read them for WordCraft, and the other editors of those jobs stay as measured. In a late round, the 4 C10 jobs on the complex document were measured again for every editor after C10 was found to load that document with its document protection, which GenOffice and eigenpal honour by opening it read-only, so C10 never started for them; it now loads the unprotected copy the editing criteria load (issue #192). The tables read the 4 late-round jobs in their place. In a lane round, every job of the document lane (32 jobs) and of the input lane (20 jobs) was measured again for every editor, interleaved as in the campaign, after two harness defects that touched every editor were fixed. The document probe's own scan for the opening headings grew with the square of the page and ran inside the timed load: in the Chrome traces of the replaced jobs it took about 19 minutes of a 250,000-word Plate.js load whose own scripts ran about 21 seconds (issue #206). C08 took the frame in which an editor redrew its own caret for the pasted text, and WordCraft's C09 did the same for an undo: a caret changes 16 to 58 pixels, a painted paste 677 or more, and the criteria now wait for a frame that changes at least 100 (issue #207). For those lanes the tables read the 52 lane-round jobs only; every earlier measurement of them is replaced. 2 editor-round jobs were stopped part-way when their work moved to another Space; each was measured whole there, and the tables never read the stopped parts.
 - **How an edit is confirmed.** After each timed interval, and outside it, the harness checks that the edit landed once. It counts the typed text near the caret in the page (Plate, Docxodus, SuperDoc, GenOffice, eigenpal, and Folio through its hidden editing layer) or in the editor's model (canvas-editor, Docen). WordCraft paints into one canvas and puts no document text in the page, so the typing criteria (C04 to C07) confirm its edit by the modified mark in its window title. C08 and C09 confirm it through WordCraft's own select-all and copy, which gives its whole text: a read before the timed interval and one after it, both outside it.
@@ -222,9 +229,9 @@ Each launch contributes the median of its own samples; n counts kept launches. S
 - **C14's text check.** Each prose document of the C14 ladder ends with lines of combining marks, characters outside the Basic Multilingual Plane, emoji sequences and right-to-left text; C14 checks (I01 to I03) that they survive in the editor's text, read from its first and last 4,000 characters. Folio and SuperDoc mount only the pages near the start of a long document, and WordCraft paints into a canvas, so for these three the page holds only part of the text. After the timed sample, and outside it, the harness asks each of them for the whole document: SuperDoc through its document model, Folio through its editing layer (mounted by a click on the page), and WordCraft through its own select-all and copy. For the other editors the text the harness already reads is the whole document: from the page for Plate, Docxodus and GenOffice, and from the editor's model for canvas-editor, Docen and eigenpal. C14 gives each wait of a document's load (navigation, the editor's ready signal, the page's load event for the canvas editors Docen and WordCraft, the painted document) up to 1,000 seconds. The complex document carries no such lines, so the check does not apply to it: its C14 cells are timings whose text is not checked. When the check fails, the harness names the cause: an editor whose text could not be read, or whose readable text is a window shorter than nine tenths of the document and stops before its closing paragraph, is withheld as "not checkable", a limit of the harness rather than a fault of the editor; an editor whose whole document was read and still fails keeps the failure.
 - **Criteria that do not apply.** canvas-editor and Docen paint text without glyph geometry the harness can read, so C05 and C06, which time the keystroke's own paint, do not apply to them. WordCraft also paints on one canvas without glyph geometry the harness can read, so its C05 and C06 do not apply either. C15 (search and replace) was not measured for any editor in this run, and that is a gap in our harness, not in the editors. The probe drives find only through a find box in the page, and no host was configured with one. Docen and GenOffice open a find box on Ctrl+F in the hosts we measured. SuperDoc, eigenpal, Docxodus and canvas-editor ship a find box that our hosts do not mount. Plate's find is an optional plugin that its default editor leaves out, Folio's playground has no control that opens its find dialog, and WordCraft paints its find dialog on a canvas, where the probe cannot type into it. The document lane also ran C15 in each of its five jobs per block, so the C15 cells are refused as a duplicate block index as well. No C15 attempt ran, so no figure is affected.
 - **Chrome traces.** In every first-block job, each timed launch was followed by a separate, untimed launch that recorded a Chrome trace for diagnosis; second-block jobs ran without them, and so did most typing sessions. Traces never feed a table.
-- **Throttling and steal.** The host note above gives, per seed, the CPU steal and the samples refused for cgroup CPU throttling; a refused sample is never kept. The Spaces are containers with a CPU quota on a host shared with other tenants. The host note also gives, per seed, the range of that host's 1-minute load average read at the start and end of each job. A sample is never refused for host load: a job that ran while the host was busier is slower, and that is one reason a cell's two seeds can differ.
+- **Throttling and steal.** The host note in Appendix B gives, per seed, the CPU steal and the samples refused for cgroup CPU throttling; a refused sample is never kept. The Spaces are containers with a CPU quota on a host shared with other tenants. The host note also gives, per seed, the range of that host's 1-minute load average read at the start and end of each job. A sample is never refused for host load: a job that ran while the host was busier is slower, and that is one reason a cell's two seeds can differ.
 
-## Tables
+## Appendix E — The full tables
 
 ### C03 — first visible content
 
@@ -1393,7 +1400,7 @@ WordCraft — latency: first: not enough sessions or run blocked (n = 0 of 6; in
 
 WordCraft — throughput: first: not enough sessions or run blocked (n = 0 of 6; insufficient_typing_sessions); characters typed in the refused sessions that recorded progress: 20,685, 20,814; second: not enough sessions or run blocked (n = 0 of 6; insufficient_typing_sessions); characters typed in the refused sessions that recorded progress: 17,765, 17,586
 
-## Not measured in the browser run
+## Appendix F — Not measured in the browser run
 
 - **Apryse:** Apryse WebViewer needs a licence key, and the key is never placed on the measuring machines.
 - **docs.plus:** docs.plus runs only as an application with its own application servers, which the browser run does not start.
@@ -1401,7 +1408,7 @@ WordCraft — throughput: first: not enough sessions or run blocked (n = 0 of 6;
 - **LibreOffice (baseline):** LibreOffice is the conversion baseline of the headless report, not a browser editor.
 - **office-open:** office-open is a library with no editing surface to paint, so no browser criterion applies.
 
-## Not reproduced
+## Appendix G — Cells whose two rounds did not agree
 
 | Editor | Criterion | Workload | Measure | First seed / reason | Second seed, median |
 |---|---|---|---|---|---|
@@ -1736,10 +1743,10 @@ WordCraft — throughput: first: not enough sessions or run blocked (n = 0 of 6;
 | SuperDoc | C17 | prose-5kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) | — |
 | WordCraft | C17 | prose-5kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) | — |
 
-## How to reproduce
+## Appendix H — How to run it again
 
 See perf/container/README.md.
 
-## DOCX verification
+## Appendix I — DOCX verification
 
 The DOCX twin is a deliverable of the release gate: `build/verify_publication.sh --with-word` opens it in Microsoft Word and fails on any warning or offer to repair the file.

@@ -38,6 +38,12 @@ taken for this release: every figure comes from the runs of 0.10.0.
 
 ### Added
 
+- **`build/verify_e2_summary.py`** (#227, from CodeRabbit's plan): an
+  independent check of Report E2's results tables. The generator writes its
+  figures into `out/facts.json`, which the number gate reads, so a wrong
+  figure would have matched itself. The check shares no code with the
+  generator, recomputes every cell and range sentence from the two rounds'
+  cell facts, and runs in the gate's "generated" step.
 - **Report E2 is a report first and a reference second.** It now opens with
   what the report is, how to read the tables, what the figures cannot tell
   you, and the results; everything else is in lettered appendices (A: what
@@ -64,6 +70,15 @@ taken for this release: every figure comes from the runs of 0.10.0.
 - **B8: a note on the settling window** (#226). It is not a fixed length,
   and the first seed's median is the higher one in 27 of the 39 cells with
   a settling figure and the lower in 4.
+
+### Fixed
+
+- **The gate's Word-open step could not fail** (#231, found through
+  CodeRabbit's plan on #204): `build/verify_deliverables.py` printed
+  "SOME DELIVERABLE FAILED" and exited 0, and skipped a deliverable Word
+  gave no verdict for. It now exits 1 for a missing file, a missing verdict
+  or any verdict other than OPENED. The kept gate logs of 0.10.0 and of this
+  release show every deliverable OPENED, so no release passed wrongly.
 
 ### Found, not fixed
 
