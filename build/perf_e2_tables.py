@@ -763,20 +763,67 @@ EDITOR_ROUND_REASONS = {
 }
 
 
+# Per lane-round issue (#208): the defect that touched every editor of the lane.
+LANE_ROUND_REASONS = {
+    "206": "The document probe's own scan for the opening headings grew with the square of the page and ran "
+           "inside the timed load: in the Chrome traces of the replaced jobs it took about 19 minutes of a "
+           "250,000-word Plate.js load whose own scripts ran about 21 seconds (issue #206)",
+    "207": "C08 took the frame in which an editor redrew its own caret for the pasted text, and WordCraft's C09 "
+           "did the same for an undo: a caret changes 16 to 58 pixels, a painted paste 677 or more, and the "
+           "criteria now wait for a frame that changes at least 100 (issue #207)",
+}
+LANE_NAMES = {"benchmark_document": "document", "benchmark_input": "input", "benchmark_memory": "memory",
+              "benchmark_warm_cold": "warm and cold load", "adversarial_c10_scroll": "C10 scroll",
+              "benchmark_typing": "typing", "benchmark_resources": "resources"}
+
+
+def _lane_round_text(campaign: dict) -> str:
+    rounds = campaign.get("lane_rounds") or []
+    if not rounds:
+        return ""
+    lanes = ["of the %s lane (%d jobs)" % (LANE_NAMES.get(r["lane"], r["lane"]), r["jobs"]) for r in rounds]
+    reasons = [LANE_ROUND_REASONS.get(str(r["issue"]), "A harness defect was fixed (issue #%s)" % r["issue"])
+               for r in rounds]
+    count = len(rounds)
+    return (
+        " In a lane round, every job %s was measured again for every editor, interleaved as in the campaign, "
+        "after %s that touched every editor %s fixed. %s. For %s the tables read the %d lane-round jobs only; "
+        "every earlier measurement of %s is replaced."
+        % (" and ".join(lanes), "a harness defect" if count == 1 else "%s harness defects" % {2: "two", 3: "three"}.get(count, count),
+           "was" if count == 1 else "were", ". ".join(reasons),
+           "that lane" if count == 1 else "those lanes", campaign.get("lane_rerun_kept") or 0,
+           "it" if count == 1 else "them"))
+
+
 def reruns_text(campaign: dict | None) -> str:
     """The template's re-run bullet, from report_e2_runs.json's campaign counts."""
     if not campaign:
         return "- **Re-run jobs.** None: the tables read every job of these runs."
     superseded = campaign.get("first_pass_superseded") or 0
     kept = campaign.get("rerun_kept") or 0
+    # A lane round (#208) replaced every earlier job of its lanes: for those the history is told, and
+    # only the lane round is what the tables read.
+    lane_lanes = {r["lane"] for r in campaign.get("lane_rounds") or []}
     text = (
         "- **Re-run jobs.** %d first-pass jobs were measured again after three harness defects were fixed "
-        "(issues #173, #174 and #175). The tables read the %d re-run jobs in their place and never the "
-        "superseded ones. `perf/container/e2_publication.json` names every run and every replaced job."
-        % (superseded, kept))
+        "(issues #173, #174 and #175)." % superseded)
+    if not lane_lanes:
+        text += " The tables read the %d re-run jobs in their place and never the superseded ones." % kept
+    elif kept:
+        text += (" The tables read %d of those re-run jobs, never the superseded ones; the lane round below "
+                 "replaced the others." % kept)
+    else:
+        text += " The lane round below replaced those re-run jobs in turn."
+    text += " `perf/container/e2_publication.json` names every run and every replaced job."
     second = campaign.get("rerun_superseded") or 0
     third = campaign.get("rerun2_superseded") or 0
-    if second and third:
+    if second and third and lane_lanes and not (campaign.get("rerun3_kept") or 0):
+        text += (
+            " In a second round, %d C14 jobs of the re-run were measured again after the C14 correctness check "
+            "was fixed (issue #181). In a third round, those %d C14 jobs were measured again after C14 was given "
+            "the editor's own whole-document read and a 1,000-second load timeout (issues #183 and #184)."
+            % (second, third))
+    elif second and third:
         text += (
             " In a second round, %d C14 jobs of the re-run were measured again after the C14 correctness check "
             "was fixed (issue #181). In a third round, those %d C14 jobs were measured again after C14 was given "
@@ -811,7 +858,23 @@ def reruns_text(campaign: dict | None) -> str:
             grouped[-1][1].append(name)
         else:
             grouped.append((entry, [name]))
+    # Rounds of a lane the lane round replaced: one sentence of history, by editor and issue.
+    replaced: dict[str, list[str]] = {}
     for entry, names in grouped:
+        if entry.get("lane") in lane_lanes:
+            for name in names:
+                issues = replaced.setdefault(name, [])
+                if "#%s" % entry["issue"] not in issues:
+                    issues.append("#%s" % entry["issue"])
+    if replaced:
+        text += (
+            " Then single editors' cells of those lanes were measured again alone, each after a defect in how "
+            "the harness measured that editor was fixed: %s. The lane round replaced all of those runs."
+            % "; ".join("%s (%s %s)" % (name, "issue" if len(issues) == 1 else "issues", ", ".join(issues))
+                        for name, issues in replaced.items()))
+    for entry, names in grouped:
+        if entry.get("lane") in lane_lanes:
+            continue
         both = " and ".join(names)
         owners = " and ".join(name + "'s" for name in names)
         key = reason_key(entry)
@@ -830,9 +893,10 @@ def reruns_text(campaign: dict | None) -> str:
             "opening it read-only, so C10 never started for them; it now loads the unprotected copy the editing "
             "criteria load (issue #192). The tables read the %d late-round jobs in their place."
             % (late, campaign.get("late_rerun_kept") or 0))
+    text += _lane_round_text(campaign)
     unsealed = sum(campaign.get(key) or 0 for key in
                    ("first_pass_unsealed", "rerun_unsealed", "rerun2_unsealed", "rerun3_unsealed",
-                    "editor_rerun_unsealed", "late_rerun_unsealed"))
+                    "editor_rerun_unsealed", "late_rerun_unsealed", "lane_rerun_unsealed"))
     missing = len(campaign.get("missing_runs") or [])
     stopped = campaign.get("editor_rerun_stopped") or 0
     if stopped:  # 14 Nov rebalancing: a job cut off when its work moved to another Space

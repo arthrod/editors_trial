@@ -715,14 +715,16 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
             for lane, job, index in run_jobs(run_dir, run_id):
                 first_pass_indices.add(index)
                 first_pass_lane[index] = lane
-                if index in lane_jobs:
-                    campaign["lane_superseded"] += 1
-                elif not (job / "JOB-DONE").exists():
+                # The older counters keep their history (#173-#175, #192) when a lane round also
+                # replaced the job; a job the lane round replaced is never an unsealed gap.
+                if not (job / "JOB-DONE").exists() and index not in lane_jobs:
                     campaign["first_pass_unsealed"] += 1
                 elif index in superseded:
                     campaign["first_pass_superseded"] += 1
                 elif index in late:
                     campaign["late_superseded"] += 1
+                elif index in lane_jobs:
+                    campaign["lane_superseded"] += 1
                 else:
                     link_job(roots_dir, space, run_id, lane, job)
                     campaign["first_pass_kept"] += 1

@@ -1152,3 +1152,72 @@ def test_reruns_text_names_the_c14_window_round():
     assert text.count('(issue #203)') == 1
     assert ("Then GenOffice's cells of the 4 prose-500kw C14 jobs of the 500k rung were measured again after "
             "C14's damage window was found to accept frames recorded minutes after it closed") in text
+
+
+# A lane round (#208): the document and input lanes measured again for every editor (#206, #207).
+LANE_CAMPAIGN = {
+    'first_pass_superseded': 32, 'rerun_kept': 0, 'rerun_superseded': 4, 'rerun2_kept': 0, 'rerun2_superseded': 4,
+    'rerun2_unsealed': 0, 'rerun3_kept': 0, 'rerun3_unsealed': 0, 'editor_rerun_kept': 44, 'editor_rerun_unsealed': 0,
+    'late_superseded': 4, 'late_rerun_kept': 4, 'late_rerun_unsealed': 0, 'lane_superseded': 164,
+    'lane_rerun_kept': 52, 'lane_rerun_unsealed': 0,
+    'lane_rounds': [{'issue': '206', 'lane': 'benchmark_document', 'jobs': 32},
+                    {'issue': '207', 'lane': 'benchmark_input', 'jobs': 20}],
+    'editor_rounds': [
+        {'issue': '185', 'key': '185', 'editor': 'canvas', 'jobs': 24, 'lane': 'benchmark_document', 'workload': None},
+        {'issue': '190', 'key': '190', 'editor': 'plate', 'jobs': 4, 'lane': 'benchmark_document',
+         'workload': 'prose-250kw'},
+        {'issue': '194', 'key': '194', 'editor': 'docen', 'jobs': 4, 'lane': 'benchmark_memory',
+         'workload': 'prose-250kw'},
+        {'issue': '197', 'key': '197', 'editor': 'wordcraft', 'jobs': 20, 'lane': 'benchmark_input', 'workload': None},
+        {'issue': '202', 'key': '202-extension', 'editor': 'docen', 'jobs': 8, 'lane': 'benchmark_document',
+         'workload': 'prose-500kw', 'extension': True}],
+    'missing_runs': []}
+
+
+def test_reruns_text_states_the_lane_round():
+    text = E2.reruns_text(LANE_CAMPAIGN)
+    assert '#206' in text and '#207' in text
+    assert 'every job of the document lane (32 jobs) and of the input lane (20 jobs)' in text
+    assert 'for every editor' in text
+    assert 'the tables read the 52 lane-round jobs only' in text
+
+
+def test_reruns_text_never_says_the_tables_read_a_round_the_lane_round_replaced():
+    text = E2.reruns_text(LANE_CAMPAIGN)
+    # The history is told; what the tables read is not claimed for replaced rounds.
+    assert '32 first-pass jobs were measured again' in text
+    assert 'The tables read the 0 re-run jobs' not in text
+    assert 'the tables read the 0 third-round jobs' not in text
+    assert 'third round' in text and '#183' in text
+    for issue in ('#185', '#190', '#197', '#202'):
+        assert issue in text
+    end = 'The lane round replaced all of those runs.'
+    replaced = text[text.index('single editors'):text.index(end) + len(end)]
+    assert 'the tables read them for' not in replaced
+    assert 'canvas-editor' in replaced and 'Plate.js' in replaced and 'WordCraft' in replaced and 'Docen' in replaced
+    assert 'after two harness defects' in text
+
+
+def test_reruns_text_keeps_the_editor_rounds_of_other_lanes():
+    text = E2.reruns_text(LANE_CAMPAIGN)
+    # #194 is a memory-lane round: no lane round touched it, and the tables still read it.
+    memory = text[text.index("Docen's cells of the 4 prose-250kw memory jobs"):]
+    assert '#194' in memory and 'the tables read them for Docen' in memory
+    # The late round (C10) is untouched too.
+    assert '#192' in text and 'The tables read the 4 late-round jobs' in text
+
+
+def test_reruns_text_counts_an_unsealed_lane_round_job():
+    text = E2.reruns_text({**LANE_CAMPAIGN, 'lane_rerun_kept': 51, 'lane_rerun_unsealed': 1})
+    assert '1 re-run job was not sealed' in text
+    assert 'the tables read the 51 lane-round jobs only' in text
+
+
+def test_reruns_text_without_a_lane_round_is_unchanged():
+    campaign = {k: v for k, v in LANE_CAMPAIGN.items() if not k.startswith('lane_')}
+    campaign.update(rerun_kept=28, rerun3_kept=4)
+    text = E2.reruns_text(campaign)
+    assert 'lane round' not in text
+    assert 'The tables read the 28 re-run jobs in their place' in text
+    assert 'the tables read the 4 third-round jobs' in text
+    assert "the tables read them for canvas-editor" in text

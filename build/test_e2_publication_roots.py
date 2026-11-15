@@ -1465,3 +1465,30 @@ def test_a_missing_earlier_run_does_not_count_its_replaced_jobs_unsealed(tmp_pat
     campaign = json.loads((roots_dir / "report_e2_runs.json").read_text())["campaign"]
     assert campaign["extension_unsealed"] == 0
     assert campaign["missing_runs"] == [f"space-a/{RID_EXT}"]
+
+
+def test_the_first_rounds_counter_keeps_its_history_under_a_lane_round(tmp_path):
+    """Job 10 was superseded by the first round (issue 999) and is now replaced by the lane round too."""
+    data, _ = extension_data(tmp_path)
+    import shutil
+    shutil.rmtree(data / "space-a" / "runs" / RID_A / "benchmark_document" / f"{RID_A}-011")
+    summarize(data / "space-b" / "runs" / RID_RERUN2 / "benchmark_document" / f"{RID_RERUN2}-012", 1, 2,
+              ["plate", "canvas"])
+    # Job 10 never measured canvas-editor, whose synthetic round covers jobs 4 and 12 only.
+    summarize(data / "space-a" / "runs" / RID_A / "benchmark_document" / f"{RID_A}-010", 1, 1, ["plate"])
+    # The synthetic first round re-ran job 10 in another lane; this campaign's re-run stays in the lane.
+    old = data / "space-a" / "runs" / RID_RERUN / "benchmark_input" / f"{RID_RERUN}-010"
+    (old.parent.parent / "benchmark_document").mkdir(exist_ok=True)
+    old = old.rename(old.parent.parent / "benchmark_document" / old.name)
+    summarize(old, 1, 1, ["plate"])
+    for rid, space, index, block in LANE_JOBS + ((RID_LANE, "space-a", 10, 1),):
+        summarize(job(data / space / "runs" / rid, rid, index), 1, block, ["plate"] if index == 10 else ["plate", "canvas"])
+    manifest = lane_manifest()
+    manifest["lane_superseded"]["issues"]["206"]["jobs"].append(10)
+    manifest["lane_rerun"]["space-a"][0]["jobs"].append(10)
+    roots_dir = tmp_path / "roots"
+    assert run_roots(data, roots_dir, write_manifest(tmp_path, manifest)) == 0
+    campaign = json.loads((roots_dir / "report_e2_runs.json").read_text())["campaign"]
+    assert linked(roots_dir)[10] == [RID_LANE]
+    assert campaign["first_pass_superseded"] == 1
+    assert campaign["rerun_kept"] == 0 and campaign["lane_rerun_kept"] == 5
