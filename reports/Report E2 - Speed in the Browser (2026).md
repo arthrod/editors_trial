@@ -2,9 +2,155 @@
 
 
 
-This report concerns browser-visible first paint, typing, scrolling, and related interactions. 701 of 1061 scheduled editor/criterion/measure cells reproduced between the two seeds. 52 run folders contributed 212 jobs (seed 1: 106 jobs; seed 2: 106 jobs); earliest job start 2026-11-12, latest job end 2026-11-15.
+## The short version
+
+The editors in the tables below were opened in a real browser, each with the same documents, and timed doing what a person does: opening a document, typing, clicking, pasting, undoing and scrolling. This section gives those results in a few small tables. Everything after it is the reference: every measurement, how it was taken, and what was left out and why.
+
+How to read the tables:
+
+- **A figure is a typical time, measured twice.** Each test was run in two separate rounds, each of several fresh launches of the browser. A figure is printed only when the two rounds agree within 10 percent, and it is the middle of the two rounds' typical (median) values.
+- **Lower is quicker, or lighter.** Times are in milliseconds (ms, thousandths of a second) or seconds (s); memory is in MiB and GiB (1 GiB is 1,024 MiB).
+- **"under 1 frame"** means the screen showed the result in its very next picture. The screen was redrawn 60 times a second, so a shorter time cannot be told apart.
+- **"varied"** means the two rounds did not agree, so no figure is given. **"crashed"** means the editor's page crashed in every launch. **"does not apply"** means the test cannot be run on that editor. **"no figure"** means the test ran but our tooling could not confirm the result. A dash means the cell was not part of these runs. The reference tables give the reason for each.
+- **The editors are in alphabetical order.** This report does not rank them.
+
+What these figures cannot tell you:
+
+- **They are not the times you will see on your own computer.** The tests ran on a cloud server with no graphics processor, so everything an editor draws was drawn by the processor. For WordCraft, which redraws its page continuously, that drawing is nearly all of the processor time it uses while nothing is happening (see B8 in the reference). Compare the editors with each other, in the same column.
+- **The two largest documents are far longer than most real documents.** The first two columns are the common case.
+- **"varied" is often the machine, not the editor.** The server is shared. Most of the cells that varied in opening and typing at 50,000 words come from one round that ran while the server was busy with other work (issue #228). They say nothing about those editors.
+- **Search and replace was not measured** for any editor: that is a gap in our tooling, not in the editors.
+- **Only what is listed is measured.** Whether an editor keeps a document's content and formatting intact is the subject of the other reports of this trial.
+
+### Opening a document
+
+From the moment the page is asked for the document until the first frame that shows it, with the text on screen checked against the document.
+
+| Editor | 500 words | 5,000 words | 50,000 words | 250,000 words | 500,000 words |
+|---|---|---|---|---|---|
+| canvas-editor + plugin | 344 ms | 1.0 s | 8.3 s | 64.8 s | 285 s |
+| Docen | 1.1 s | 1.3 s | 2.3 s | 8.2 s | varied |
+| Docxodus | 2.4 s | 3.3 s | 11.2 s | 46.3 s | 99.9 s |
+| eigenpal | 547 ms | 698 ms | 1.1 s | 2.4 s | 3.9 s |
+| Folio | 797 ms | 940 ms | 1.8 s | 4.7 s | 8.1 s |
+| GenOffice | 689 ms | 890 ms | 1.1 s | 2.1 s | 3.2 s |
+| Plate.js | 752 ms | 1.2 s | 4.6 s | 19.1 s | 37.4 s |
+| SuperDoc | 2.4 s | 2.8 s | 5.8 s | 15.9 s | 29.2 s |
+| WordCraft | 1.3 s | 1.3 s | 1.7 s | 2.9 s | 4.5 s |
+
+At 500 words the figures run from 344 ms to 2.4 s; at 500,000 words, from 3.2 s to 285 s.
+
+### Typing one character
+
+From a key press until the frame in which that character is on screen, in a document that is already open.
+
+| Editor | 500 words | 5,000 words | 50,000 words | 250,000 words |
+|---|---|---|---|---|
+| canvas-editor + plugin | does not apply | does not apply | does not apply | does not apply |
+| Docen | does not apply | does not apply | does not apply | does not apply |
+| Docxodus | under 1 frame | under 1 frame | 18 ms | 31 ms |
+| eigenpal | 46 ms | 48 ms | varied | 81 ms |
+| Folio | 46 ms | 46 ms | varied | varied |
+| GenOffice | 19 ms | 28 ms | varied | no figure |
+| Plate.js | 25 ms | 27 ms | 56 ms | varied |
+| SuperDoc | 135 ms | varied | varied | 556 ms |
+| WordCraft | does not apply | does not apply | does not apply | does not apply |
+
+At 500 words the figures run from under 1 frame to 135 ms; at 250,000 words, from 31 ms to 556 ms.
+
+### Clicking to place the caret
+
+From a click in the text until the next frame the editor paints.
+
+| Editor | 500 words | 5,000 words | 50,000 words | 250,000 words |
+|---|---|---|---|---|
+| canvas-editor + plugin | under 1 frame | 27 ms | 61 ms | 391 ms |
+| Docen | 27 ms | 28 ms | 93 ms | 1.8 s |
+| Docxodus | under 1 frame | under 1 frame | under 1 frame | 42 ms |
+| eigenpal | 29 ms | 28 ms | 26 ms | 20 ms |
+| Folio | 63 ms | 77 ms | 387 ms | 1.9 s |
+| GenOffice | under 1 frame | under 1 frame | 19 ms | 40 ms |
+| Plate.js | 30 ms | 30 ms | 86 ms | 379 ms |
+| SuperDoc | 60 ms | 77 ms | 235 ms | 337 ms |
+| WordCraft | 185 ms | 175 ms | 173 ms | varied |
+
+At 500 words the figures run from under 1 frame to 185 ms; at 250,000 words, from 20 ms to 1.9 s.
+
+### Pasting a block of text
+
+From the paste of a 1,500-character block until the first frame in which the page visibly changed.
+
+| Editor | 500 words | 5,000 words | 50,000 words | 250,000 words |
+|---|---|---|---|---|
+| canvas-editor + plugin | 94 ms | 361 ms | no figure | no figure |
+| Docen | 32 ms | 63 ms | 558 ms | 9.3 s |
+| Docxodus | under 1 frame | 19 ms | under 1 frame | under 1 frame |
+| eigenpal | 53 ms | 57 ms | 109 ms | 109 ms |
+| Folio | 49 ms | 107 ms | 131 ms | 413 ms |
+| GenOffice | 22 ms | 24 ms | 170 ms | 2.8 s |
+| Plate.js | 44 ms | 47 ms | varied | 433 ms |
+| SuperDoc | 118 ms | 332 ms | 966 ms | no figure |
+| WordCraft | 131 ms | 129 ms | 154 ms | 248 ms |
+
+At 500 words the figures run from under 1 frame to 131 ms; at 250,000 words, from under 1 frame to 9.3 s.
+
+### Undoing
+
+From the undo of one typed character until the first frame that differs.
+
+| Editor | 500 words | 5,000 words | 50,000 words | 250,000 words |
+|---|---|---|---|---|
+| canvas-editor + plugin | 56 ms | 25 ms | varied | 65 ms |
+| Docen | 25 ms | 50 ms | 463 ms | 8.8 s |
+| Docxodus | 69 ms | 325 ms | 3.1 s | 16.6 s |
+| eigenpal | 26 ms | 26 ms | 30 ms | 46 ms |
+| Folio | 48 ms | 47 ms | 146 ms | 162 ms |
+| GenOffice | 18 ms | 19 ms | 158 ms | 2.6 s |
+| Plate.js | 23 ms | 21 ms | 45 ms | 154 ms |
+| SuperDoc | 67 ms | 123 ms | 230 ms | 270 ms |
+| WordCraft | 133 ms | 129 ms | 150 ms | 245 ms |
+
+At 500 words the figures run from 18 ms to 133 ms; at 250,000 words, from 46 ms to 16.6 s.
+
+### Scrolling
+
+From a scroll of the document until the first frame in which its content has moved.
+
+| Editor | 500 words | 5,000 words | 50,000 words | 250,000 words |
+|---|---|---|---|---|
+| canvas-editor + plugin | under 1 frame | under 1 frame | under 1 frame | under 1 frame |
+| Docen | under 1 frame | 18 ms | under 1 frame | 22 ms |
+| Docxodus | under 1 frame | under 1 frame | under 1 frame | 62 ms |
+| eigenpal | under 1 frame | 26 ms | 25 ms | 29 ms |
+| Folio | under 1 frame | under 1 frame | under 1 frame | under 1 frame |
+| GenOffice | under 1 frame | 17 ms | 20 ms | 60 ms |
+| Plate.js | under 1 frame | under 1 frame | 21 ms | 64 ms |
+| SuperDoc | under 1 frame | 19 ms | 26 ms | 51 ms |
+| WordCraft | varied | 150 ms | varied | 148 ms |
+
+At 500 words the figures are all under 1 frame; at 250,000 words, from under 1 frame to 148 ms.
+
+### Memory with the document open
+
+The memory of the whole browser with the document open, read two seconds after a short burst of typing. It includes the browser itself, so it is not the editor alone.
+
+| Editor | 500 words | 5,000 words | 50,000 words | 250,000 words |
+|---|---|---|---|---|
+| canvas-editor + plugin | 855 MiB | 1.7 GiB | 7.1 GiB | crashed |
+| Docen | 698 MiB | 947 MiB | 1.9 GiB | 7.4 GiB |
+| Docxodus | 695 MiB | 733 MiB | 985 MiB | 1.9 GiB |
+| eigenpal | 657 MiB | 682 MiB | 758 MiB | 996 MiB |
+| Folio | 567 MiB | 602 MiB | 875 MiB | 1.9 GiB |
+| GenOffice | 585 MiB | 647 MiB | 971 MiB | 2.2 GiB |
+| Plate.js | 619 MiB | 676 MiB | 906 MiB | 2.0 GiB |
+| SuperDoc | 660 MiB | 773 MiB | 909 MiB | 1.3 GiB |
+| WordCraft | 1.1 GiB | 1.1 GiB | 1.1 GiB | 1.3 GiB |
+
+At 500 words the figures run from 567 MiB to 1.1 GiB; at 250,000 words, from 996 MiB to 7.4 GiB.
 
 ## What is measured
+
+This report concerns browser-visible first paint, typing, scrolling, and related interactions. 701 of 1061 scheduled editor/criterion/measure cells reproduced between the two seeds. 52 run folders contributed 212 jobs (seed 1: 106 jobs; seed 2: 106 jobs); earliest job start 2026-11-12, latest job end 2026-11-15.
 
 Each criterion is one browser-visible or model clock on the same corpus the headless report uses.
 
@@ -1051,9 +1197,9 @@ C19 was meant to show memory an editor leaves behind. The harness read the brows
 
 ### B8 — resources while opening and editing
 
-**B8 — resources while opening and editing.** One fresh browser per launch opens the document, waits until the editor is idle, types sixteen characters into a body line on the first screen, and waits again. CPU is the processor time of the whole browser process tree: to open (from navigation until idle, including work an editor does after it reports ready), during the edit (the keystrokes plus half a second), and while settling afterwards. The memory column is the highest reading of that tree's resident memory: it is read when the load and the edit start and end and every half second while the page settles, so a higher moment in the middle of a long load or edit is not seen; a page shared by two processes counts once for each. An edit counts only when it is verified in the document: the text of the block at the caret, read from the page or from the editor's model, gained exactly the typed text; WordCraft, which puts no document text in the page, is verified by its own modified flag. An editor still working when a 30-second cap ends never went idle, even in one launch: the CPU columns that wait would end are not printed, because they would time the cap, and a note gives what it used up to its ready signal. The complex document is loaded without its read-only protection, which the editors honour.
+**B8 — resources while opening and editing.** One fresh browser per launch opens the document, waits until the editor is idle, types sixteen characters into a body line on the first screen, and waits again. CPU is the processor time of the whole browser process tree: to open (from navigation until idle, including work an editor does after it reports ready), during the edit (the keystrokes plus half a second), and while settling afterwards. The memory column is the highest reading of that tree's resident memory: it is read when the load and the edit start and end and every half second while the page settles, so a higher moment in the middle of a long load or edit is not seen; a page shared by two processes counts once for each. An edit counts only when it is verified in the document: the text of the block at the caret, read from the page or from the editor's model, gained exactly the typed text; WordCraft, which puts no document text in the page, is verified by its own modified flag. An editor still working when a 30-second cap ends never went idle, even in one launch: the CPU columns that wait would end are not printed, because they would time the cap, and a note gives what it used up to its ready signal, how the capped wait divides between the browser's GPU process (the one that draws; on this host it draws in software) and the page's own process, and how far its memory readings ran. The complex document is loaded without its read-only protection, which the editors honour.
 
-Each cell shows the first seed's median and the second seed's median. A figure is printed only when the two agree within 10 percent (20 ms for CPU). The CPU counters advance in steps of 10 ms, so a cell of a few tens of milliseconds is at the counter's resolution. The host has no graphics processor: what an editor draws is drawn by the processor and counts as CPU.
+Each cell shows the first seed's median and the second seed's median. A figure is printed as a result only when the two agree within 10 percent (20 ms for CPU); a cell that does not agree says so and gives both medians and the lowest and highest launch, so that what was read is not hidden. The CPU counters advance in steps of 10 ms, so a cell of a few tens of milliseconds is at the counter's resolution. The host has no graphics processor: what an editor draws is drawn by the processor and counts as CPU.
 
 ### 500 words
 
@@ -1062,7 +1208,7 @@ Each cell shows the first seed's median and the second seed's median. A figure i
 | canvas-editor + plugin | 485 ms / 490 ms | 1.33 s / 1.30 s | 65 ms / 45 ms | 617.8 MiB / 616.5 MiB | n = 10, 10 |
 | Docen | 1.66 s / 1.63 s | 385 ms / 380 ms | 30 ms / 15 ms | 659.4 MiB / 659.1 MiB | n = 10, 10 |
 | Docxodus | 4.30 s / 4.29 s | 40 ms / 35 ms | 0 ms / 0 ms | 742.9 MiB / 743.6 MiB | n = 10, 10 |
-| eigenpal | 1.47 s / 1.43 s | not reproduced | 95 ms / 75 ms | 609.5 MiB / 610.2 MiB | n = 10, 10 |
+| eigenpal | 1.47 s / 1.43 s | not reproduced (first 145 ms; second 115 ms; launches 100 ms to 230 ms) | 95 ms / 75 ms | 609.5 MiB / 610.2 MiB | n = 10, 10 |
 | Folio | 2.17 s / 2.25 s | 245 ms / 240 ms | 45 ms / 30 ms | 543.3 MiB / 541.5 MiB | n = 10, 10 |
 | GenOffice | 1.27 s / 1.26 s | 165 ms / 185 ms | 10 ms / 10 ms | 551.4 MiB / 550.0 MiB | n = 10, 10 |
 | Plate.js | 1.02 s / 1.00 s | 480 ms / 485 ms | 15 ms / 15 ms | 530.5 MiB / 530.9 MiB | n = 10, 10 |
@@ -1071,7 +1217,7 @@ Each cell shows the first seed's median and the second seed's median. A figure i
 
 Not published or flagged:
 
-- WordCraft never went idle: it was still working when the 30-second cap ended, after opening in 10 and 10 of its kept launches and after the edit in 10 and 10. Its three CPU columns are not printed: they would time the cap, not the editor. Up to its ready signal it used 6.51 s / 6.62 s of processor time; in the capped wait that followed, 75.17 s / 76.25 s.
+- WordCraft never went idle: it was still working when the 30-second cap ended, after opening in 10 and 10 of its kept launches and after the edit in 10 and 10. Its three CPU columns are not printed: they would time the cap, not the editor. Up to its ready signal it used 6.51 s / 6.62 s of processor time; in the capped wait that followed, 75.17 s / 76.25 s. Of the capped wait, the browser's GPU process used 70.94 s / 73.50 s and the page's own process 4.17 s / 3.71 s (not reproduced); the page had 162 / 167 long tasks, 13.25 s / 13.48 s in all. Its memory readings ran from 887.4 MiB to 982.2 MiB across the kept launches.
 
 ### 5,000 words
 
@@ -1089,43 +1235,43 @@ Not published or flagged:
 
 Not published or flagged:
 
-- WordCraft never went idle: it was still working when the 30-second cap ended, after opening in 10 and 10 of its kept launches and after the edit in 10 and 10. Its three CPU columns are not printed: they would time the cap, not the editor. Up to its ready signal it used 6.41 s / 6.43 s of processor time; in the capped wait that followed, 76.61 s / 76.52 s.
+- WordCraft never went idle: it was still working when the 30-second cap ended, after opening in 10 and 10 of its kept launches and after the edit in 10 and 10. Its three CPU columns are not printed: they would time the cap, not the editor. Up to its ready signal it used 6.41 s / 6.43 s of processor time; in the capped wait that followed, 76.61 s / 76.52 s. Of the capped wait, the browser's GPU process used 72.45 s / 73.11 s and the page's own process 4.02 s / 3.85 s; the page had 167 / 166 long tasks, 13.32 s / 13.41 s in all. Its memory readings ran from 884.3 MiB to 968.5 MiB across the kept launches.
 
 ### 50,000 words
 
 | Editor | CPU to open | CPU of the edit | CPU settling after the edit | Highest memory reading | Kept launches |
 |---|---|---|---|---|---|
-| canvas-editor + plugin | 7.20 s / 6.92 s | 67.17 s / 65.00 s | 60 ms / 45 ms | not reproduced | n = 10, 10 |
-| Docen | 5.07 s / 4.87 s | 10.68 s / 10.24 s | not reproduced | 1595.3 MiB / 1595.5 MiB | n = 10, 10 |
+| canvas-editor + plugin | 7.20 s / 6.92 s | 67.17 s / 65.00 s | 60 ms / 45 ms | not reproduced (first 3772.6 MiB; second 4528.6 MiB; launches 3427.5 MiB to 5137.1 MiB) | n = 10, 10 |
+| Docen | 5.07 s / 4.87 s | 10.68 s / 10.24 s | not reproduced (first 200 ms; second 50 ms; launches 30 ms to 250 ms) | 1595.3 MiB / 1595.5 MiB | n = 10, 10 |
 | Docxodus | 19.64 s / 19.00 s | 40 ms / 40 ms | 5 ms / 5 ms | 1060.3 MiB / 1061.7 MiB | n = 10, 10 |
 | eigenpal | 3.98 s / 3.83 s | 180 ms / 160 ms | 40 ms / 40 ms | 691.9 MiB / 692.0 MiB | n = 10, 10 |
-| Folio | 3.88 s / 3.69 s | 1.98 s / 1.82 s | not reproduced | 720.9 MiB / 716.2 MiB | n = 10, 10 |
+| Folio | 3.88 s / 3.69 s | 1.98 s / 1.82 s | not reproduced (first 55 ms; second 30 ms; launches 20 ms to 70 ms) | 720.9 MiB / 716.2 MiB | n = 10, 10 |
 | GenOffice | 4.70 s / 4.50 s | 3.37 s / 3.21 s | 20 ms / 20 ms | 833.7 MiB / 827.9 MiB | n = 10, 10 |
 | Plate.js | 6.91 s / 6.66 s | 1.64 s / 1.56 s | 20 ms / 5 ms | 820.1 MiB / 821.3 MiB | n = 10, 10 |
-| SuperDoc | 8.71 s / 8.20 s | 1.21 s / 1.18 s | not reproduced | 889.4 MiB / 888.0 MiB | n = 10, 10 |
+| SuperDoc | 8.71 s / 8.20 s | 1.21 s / 1.18 s | not reproduced (first 85 ms; second 50 ms; launches 40 ms to 130 ms) | 889.4 MiB / 888.0 MiB | n = 10, 10 |
 | WordCraft | never idle | never idle | never idle | 931.3 MiB / 919.7 MiB | n = 10, 10 |
 
 Not published or flagged:
 
-- WordCraft never went idle: it was still working when the 30-second cap ended, after opening in 10 and 10 of its kept launches and after the edit in 10 and 10. Its three CPU columns are not printed: they would time the cap, not the editor. Up to its ready signal it used 6.24 s / 6.17 s of processor time; in the capped wait that followed, 75.34 s / 76.23 s.
+- WordCraft never went idle: it was still working when the 30-second cap ended, after opening in 10 and 10 of its kept launches and after the edit in 10 and 10. Its three CPU columns are not printed: they would time the cap, not the editor. Up to its ready signal it used 6.24 s / 6.17 s of processor time; in the capped wait that followed, 75.34 s / 76.23 s. Of the capped wait, the browser's GPU process used 71.89 s / 73.33 s and the page's own process 4.33 s / 3.88 s (not reproduced); the page had 160 / 164 long tasks, 13.24 s / 13.37 s in all. Its memory readings ran from 904.7 MiB to 945.8 MiB across the kept launches.
 
 ### 250,000 words
 
 | Editor | CPU to open | CPU of the edit | CPU settling after the edit | Highest memory reading | Kept launches |
 |---|---|---|---|---|---|
 | canvas-editor + plugin | 53.88 s / 54.72 s | 503.49 s / 507.64 s | 60 ms / 40 ms | 9253.8 MiB / 9221.4 MiB | n = 10, 10 |
-| Docen | 20.66 s / 21.16 s | 160.65 s / 167.09 s | not reproduced | not reproduced | n = 10, 10 |
+| Docen | 20.66 s / 21.16 s | 160.65 s / 167.09 s | not reproduced (first 1.38 s; second 70 ms; launches 30 ms to 2.31 s) | not reproduced (first 6956.0 MiB; second 5754.9 MiB; launches 5092.8 MiB to 8062.7 MiB) | n = 10, 10 |
 | Docxodus | 106.25 s / 108.61 s | 60 ms / 50 ms | 0 ms / 0 ms | 2039.6 MiB / 2035.1 MiB | n = 10, 10 |
-| eigenpal | 9.60 s / 9.76 s | 230 ms / 225 ms | not reproduced | 890.1 MiB / 889.1 MiB | n = 10, 10 |
+| eigenpal | 9.60 s / 9.76 s | 230 ms / 225 ms | not reproduced (first 35 ms; second 10 ms; launches 0 ms to 80 ms) | 890.1 MiB / 889.1 MiB | n = 10, 10 |
 | Folio | 7.63 s / 7.64 s | 9.02 s / 9.52 s | 55 ms / 60 ms | 1273.4 MiB / 1274.6 MiB | n = 10, 10 |
-| GenOffice | 24.93 s / 24.80 s | 51.87 s / 54.55 s | not reproduced | 1815.7 MiB / 1733.5 MiB | n = 10, 10 |
+| GenOffice | 24.93 s / 24.80 s | 51.87 s / 54.55 s | not reproduced (first 2.00 s; second 1.73 s; launches 1.59 s to 2.10 s) | 1815.7 MiB / 1733.5 MiB | n = 10, 10 |
 | Plate.js | 28.06 s / 28.32 s | 2.19 s / 2.31 s | 30 ms / 20 ms | 1838.7 MiB / 1811.7 MiB | n = 10, 7 |
-| SuperDoc | 20.61 s / 20.68 s | not reproduced | 80 ms / 60 ms | 1220.7 MiB / 1231.9 MiB | n = 10, 10 |
+| SuperDoc | 20.61 s / 20.68 s | not reproduced (first 1.34 s; second 1.67 s; launches 960 ms to 1.77 s) | 80 ms / 60 ms | 1220.7 MiB / 1231.9 MiB | n = 10, 10 |
 | WordCraft | never idle | never idle | never idle | 1073.5 MiB / 1008.8 MiB | n = 10, 10 |
 
 Not published or flagged:
 
-- WordCraft never went idle: it was still working when the 30-second cap ended, after opening in 10 and 10 of its kept launches and after the edit in 10 and 10. Its three CPU columns are not printed: they would time the cap, not the editor. Up to its ready signal its processor time did not reproduce between the seeds; in the capped wait that followed it used 66.44 s / 68.93 s.
+- WordCraft never went idle: it was still working when the 30-second cap ended, after opening in 10 and 10 of its kept launches and after the edit in 10 and 10. Its three CPU columns are not printed: they would time the cap, not the editor. Up to its ready signal its processor time did not reproduce between the seeds; in the capped wait that followed it used 66.44 s / 68.93 s. Of the capped wait, the browser's GPU process used 62.22 s / 64.61 s and the page's own process 4.67 s / 4.45 s; the page had 141 / 144 long tasks, 12.42 s / 12.38 s in all. Its memory readings ran from 984.7 MiB to 1114.7 MiB across the kept launches.
 
 ### Complex document
 
@@ -1133,10 +1279,10 @@ Not published or flagged:
 |---|---|---|---|---|---|
 | Docen | 1.83 s / 1.98 s | 690 ms / 745 ms | 40 ms / 35 ms | 703.1 MiB / 698.9 MiB | n = 10, 10 |
 | Docxodus | 5.55 s / 5.72 s | 30 ms / 30 ms | 10 ms / 10 ms | 763.9 MiB / 766.6 MiB | n = 10, 10 |
-| eigenpal | 1.88 s / 2.00 s | 105 ms / 120 ms | not reproduced | 629.8 MiB / 630.5 MiB | n = 10, 10 |
-| Folio | 2.45 s / 2.64 s | not reproduced | 40 ms / 45 ms | 556.6 MiB / 556.6 MiB | n = 10, 10 |
-| GenOffice | 1.79 s / 1.86 s | not reproduced | 20 ms / 10 ms | 596.2 MiB / 597.1 MiB | n = 10, 10 |
-| Plate.js | 1.21 s / 1.29 s | not reproduced | 10 ms / 15 ms | 525.9 MiB / 529.4 MiB | n = 10, 10 |
+| eigenpal | 1.88 s / 2.00 s | 105 ms / 120 ms | not reproduced (first 75 ms; second 30 ms; launches 0 ms to 90 ms) | 629.8 MiB / 630.5 MiB | n = 10, 10 |
+| Folio | 2.45 s / 2.64 s | not reproduced (first 460 ms; second 520 ms; launches 430 ms to 640 ms) | 40 ms / 45 ms | 556.6 MiB / 556.6 MiB | n = 10, 10 |
+| GenOffice | 1.79 s / 1.86 s | not reproduced (first 330 ms; second 380 ms; launches 300 ms to 450 ms) | 20 ms / 10 ms | 596.2 MiB / 597.1 MiB | n = 10, 10 |
+| Plate.js | 1.21 s / 1.29 s | not reproduced (first 420 ms; second 470 ms; launches 390 ms to 550 ms) | 10 ms / 15 ms | 525.9 MiB / 529.4 MiB | n = 10, 10 |
 | SuperDoc | 3.54 s / 3.42 s | 460 ms / 480 ms | 65 ms / 55 ms | 662.6 MiB / 658.2 MiB | n = 10, 10 |
 | WordCraft | never idle | never idle | never idle | 902.9 MiB / 964.3 MiB | n = 10, 10 |
 
@@ -1183,7 +1329,9 @@ Not published or flagged:
     at sr.computeRowList (http://127.0.0.1:59035; TypeError: Cannot read properties of undefined (reading 'width')
     at pa.computeRowColInfo (http://127.0.0.1:59713/assets/index-L94yjsVH.js:58:70981)
     at sr.computeRowList (http://127.0.0.1:59713.
-- WordCraft never went idle: it was still working when the 30-second cap ended, after opening in 10 and 10 of its kept launches and after the edit in 10 and 10. Its three CPU columns are not printed: they would time the cap, not the editor. Up to its ready signal it used 6.47 s / 6.57 s of processor time; in the capped wait that followed, 66.16 s / 69.94 s.
+- WordCraft never went idle: it was still working when the 30-second cap ended, after opening in 10 and 10 of its kept launches and after the edit in 10 and 10. Its three CPU columns are not printed: they would time the cap, not the editor. Up to its ready signal it used 6.47 s / 6.57 s of processor time; in the capped wait that followed, 66.16 s / 69.94 s. Of the capped wait, the browser's GPU process used 61.91 s / 66.64 s and the page's own process 4.04 s / 3.94 s; the page had 133 / 138 long tasks, 12.51 s / 12.61 s in all. Its memory readings ran from 885.7 MiB to 970.2 MiB across the kept launches.
+
+The settling window is not a fixed length: it ends at the first half-second poll at which two seconds have passed without a long task, and the polls themselves cost processor time. Across the 39 cells with a settling figure, the first seed's median is the higher in 27 and the lower in 4. A difference of a few tens of milliseconds in that column is the window and the 10 ms counter, not the editor.
 
 ### B9 — typing marathon
 

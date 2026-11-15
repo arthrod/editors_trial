@@ -2,8 +2,6 @@
 
 {{perf.e2.status}}
 
-This report concerns browser-visible first paint, typing, scrolling, and related interactions. {{perf.e2.intro}}
-
 ## The short version
 
 The editors in the tables below were opened in a real browser, each with the same documents, and timed doing what a person does: opening a document, typing, clicking, pasting, undoing and scrolling. This section gives those results in a few small tables. Everything after it is the reference: every measurement, how it was taken, and what was left out and why.
@@ -18,14 +16,17 @@ How to read the tables:
 
 What these figures cannot tell you:
 
-- **They are not the times you will see on your own computer.** The tests ran on a cloud server with no graphics processor, so everything an editor draws was drawn by the processor. Editors that paint the whole page themselves (canvas-editor, Docen, WordCraft) carry the most of that cost. Compare the editors with each other, in the same column.
-- **A document of 250,000 words is about 500 pages.** Most documents are far smaller; the first two columns are the common case.
+- **They are not the times you will see on your own computer.** The tests ran on a cloud server with no graphics processor, so everything an editor draws was drawn by the processor. For WordCraft, which redraws its page continuously, that drawing is nearly all of the processor time it uses while nothing is happening (see B8 in the reference). Compare the editors with each other, in the same column.
+- **The two largest documents are far longer than most real documents.** The first two columns are the common case.
+- **"varied" is often the machine, not the editor.** The server is shared. Most of the cells that varied in opening and typing at 50,000 words come from one round that ran while the server was busy with other work (issue #228). They say nothing about those editors.
 - **Search and replace was not measured** for any editor: that is a gap in our tooling, not in the editors.
 - **Only what is listed is measured.** Whether an editor keeps a document's content and formatting intact is the subject of the other reports of this trial.
 
 {{perf.e2.short_version}}
 
 ## What is measured
+
+This report concerns browser-visible first paint, typing, scrolling, and related interactions. {{perf.e2.intro}}
 
 Each criterion is one browser-visible or model clock on the same corpus the headless report uses.
 
