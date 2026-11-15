@@ -22,8 +22,9 @@ HALF_MILLION = ('prose-500kw', '500,000 words')
 SECTIONS = (
     ('open', 'Opening a document', 'C11', '', SIZES + (HALF_MILLION,),
      'From the moment the page is asked for the document until the first frame that shows it. '
-     'The length of the text on screen is checked against the document (within 2 percent); '
-     'its content and formatting are not checked here.'),
+     'The length of the text the editor holds is checked against the document (within 2 percent). '
+     'For the editors that draw on a canvas, that text is read from the editor and not from the picture '
+     '(Appendix D); content and formatting are not checked here.'),
     ('type', 'Typing one character', 'C05', 'warm_steady', SIZES,
      'From a key press until the frame in which that character is on screen, in a document that is already open.'),
     ('caret', 'Clicking to place the caret', 'C07', '', SIZES,

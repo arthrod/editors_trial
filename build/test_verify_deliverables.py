@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import verify_deliverables  # noqa: E402
+import verify_deliverables  # noqa: E402 - the build folder is put on sys.path just above
 
 
 def _deliverables(tmp_path, names=('one', 'two')):

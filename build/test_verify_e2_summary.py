@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import verify_e2_summary as verify  # noqa: E402
+import verify_e2_summary as verify  # noqa: E402 - the build folder is put on sys.path just above
 
 DISPLAY = {'folio': 'Folio', 'plate': 'Plate.js'}
 
@@ -32,10 +32,10 @@ REPORT = """# Report
 
 From the moment.
 
-| Editor | 500 words | 5,000 words |
-|---|---|---|
-| Folio | 810 ms | — |
-| Plate.js | 1.2 s | — |
+| Editor | 500 words | 5,000 words | 50,000 words | 250,000 words | 500,000 words |
+|---|---|---|---|---|---|
+| Folio | 810 ms | — | — | — | — |
+| Plate.js | 1.2 s | — | — | — | — |
 
 At 500 words, 2 of 2 editors have a figure, from 810 ms to 1.2 s.
 
@@ -77,3 +77,25 @@ def test_the_check_shares_no_code_with_the_generator():
 def test_the_sentence_counts_the_editors_that_have_a_figure():
     problems = verify.check(REPORT.replace('2 of 2 editors', '2 of 3 editors'), _facts(), DISPLAY)
     assert any('range sentence' in p for p in problems), problems
+
+
+def test_a_table_the_facts_can_fill_must_be_in_the_report():
+    """CodeRabbit on #229: deleting a whole populated table passed."""
+    facts = _facts()
+    for editor in ('folio', 'plate'):
+        base = 'perf.e2.%s.C10.prose-500w' % editor
+        facts[base + '.reproduced'] = True
+        facts[base + '.primary'], facts[base + '.reproduction'] = _cell(30), _cell(32)
+    problems = verify.check(REPORT, facts, DISPLAY)
+    assert any("'Scrolling'" in p and 'no table' in p for p in problems), problems
+
+
+def test_every_document_size_of_a_table_must_be_a_column():
+    """CodeRabbit on #229: removing a column and its clause passed, the header being the only source of columns."""
+    lines = []
+    for line in REPORT.split('\n'):
+        if line.startswith('|'):
+            line = '|'.join(line.split('|')[:3]) + '|'
+        lines.append(line)
+    problems = verify.check('\n'.join(lines), _facts(), DISPLAY)
+    assert any('columns' in p for p in problems), problems

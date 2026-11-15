@@ -33,6 +33,9 @@ TABLES = {
     'Scrolling': ('C10', ''),
     'Memory with the document open': ('C17', 'quiescent'),
 }
+FOUR = ('500 words', '5,000 words', '50,000 words', '250,000 words')
+# The document sizes each table must show, whatever the report's own header says.
+REQUIRED = {heading: FOUR + ('500,000 words',) if heading == 'Opening a document' else FOUR for heading in TABLES}
 COLUMNS = {'500 words': 'prose-500w', '5,000 words': 'prose-5kw', '50,000 words': 'prose-50kw',
            '250,000 words': 'prose-250kw', '500,000 words': 'prose-500kw'}
 ROUND = re.compile(r'(first|second): not enough samples \(n = (\d+) of (\d+); reasons ([^)]*)\)')
@@ -130,6 +133,9 @@ def check(report_text: str, facts: dict, display: dict) -> list:
         criterion, measure = TABLES[heading]
         rows = [line for line in block.split('\n') if line.startswith('|')]
         titles = [cell.strip() for cell in rows[0].strip('|').split('|')][1:]
+        if tuple(titles) != REQUIRED[heading]:
+            problems.append('%s: columns are %r, expected %r' % (heading, titles, list(REQUIRED[heading])))
+            titles = [title for title in titles if title in COLUMNS]
         columns = [(title, []) for title in titles]
         for row in rows[2:]:
             cells = [cell.strip() for cell in row.strip('|').split('|')]
@@ -155,6 +161,13 @@ def check(report_text: str, facts: dict, display: dict) -> list:
                       for w in COLUMNS.values())
             if has and editor not in listed:
                 problems.append('%s: %s has cells in the facts and no row' % (heading, display[editor]))
+    # A table the facts can fill must be there: the generator leaves one out only when no cell has a figure.
+    for heading, (criterion, measure) in TABLES.items():
+        if heading in found:
+            continue
+        if any(expected_cell(facts, editor, criterion, measure, COLUMNS[title])[2]
+               for editor in display for title in REQUIRED[heading]):
+            problems.append('%r: the facts hold figures and the report has no table' % heading)
     if not found:
         problems.append('no results table found')
     return problems
