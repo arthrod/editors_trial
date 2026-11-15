@@ -84,7 +84,8 @@ _RESOURCE_KEEP = frozenset(
      'execution_profile', 'host_class', 'workload_id', 'editor_id', 'editor_error',
      'settle', 'host_provenance', 'environment',
      'load_cpu_ms', 'open_settle_cpu_ms', 'edit_cpu_ms', 'quiescence_cpu_ms',
-     'peak_ram_bytes', 'peak_js_heap_used_bytes', 'load_network_encoded_bytes'}
+     'peak_ram_bytes', 'peak_js_heap_used_bytes', 'load_network_encoded_bytes',
+     'open_settle_renderer_cpu_ms'}
 )
 
 
@@ -173,7 +174,7 @@ def _aggregate_seed(entries, editor: str, workload: str) -> dict:
     entries = [(root, job, summary) for root, job, summary in entries
                if _job_matches_workload(job, summary, editor, workload)]
     group = {
-        'scheduled': 0, 'kept': [], 'refusals': Counter(), 'errors': Counter(), 'never_idle': 0,
+        'scheduled': 0, 'kept': [], 'kept_paths': [], 'refusals': Counter(), 'errors': Counter(), 'never_idle': 0,
         'capped': Counter(),
         'blocked': None, 'pins': set(),
     }
@@ -206,7 +207,7 @@ def _aggregate_seed(entries, editor: str, workload: str) -> dict:
         group['pins'].add(pin)
         for _name, code in _refused_launches(job, editor, {launch for launch, _record in mine}):
             group['refusals'][code] += 1
-        for _launch, record in mine:
+        for launch, record in mine:
             reason = launch_refusal(record)
             if reason:
                 group['refusals'][reason] += 1
@@ -214,6 +215,7 @@ def _aggregate_seed(entries, editor: str, workload: str) -> dict:
                     group['errors'][str(record['editor_error'])[:200]] += 1
                 continue
             group['kept'].append(record)
+            group['kept_paths'].append(job / 'cells' / launch / 'resource.json')
             settle = record.get('settle') or {}
             if 'capped' in settle.values():
                 group['never_idle'] += 1
@@ -240,7 +242,7 @@ def read_cell(roots, editor: str, workload: str) -> dict:
         'kept': [len(group['kept']) for group in ordered],
         'never_idle': [group['never_idle'] for group in ordered],
         'capped': {phase: [group['capped'][phase] for group in ordered] for phase in ('after_load', 'after_edit')},
-        'never_idle_phases': [], 'never_idle_figures': {},
+        'never_idle_phases': [], 'never_idle_figures': {}, 'never_idle_split': {},
         'editor_errors': dict(errors), 'measures': {},
     }
     cell['reason'] = _block(seeds, ordered)
@@ -252,23 +254,87 @@ def read_cell(roots, editor: str, workload: str) -> dict:
     cell['never_idle_phases'] = [
         phase for phase in SETTLE_PHASES if any(group['capped'][phase] for group in ordered)]
 
-    def seed_medians(fields, unit):
-        medians = [cells.percentile([sum(record[field] for field in fields) for record in group['kept']], 50)
-                   for group in ordered]
+    def seed_values(fields):
+        return [[sum(record[field] for field in fields) for record in group['kept']] for group in ordered]
+
+    def agree(medians, unit):
         tolerance = CPU_ABS_TOL_MS if unit == 'ms' else 0
-        agrees = abs(medians[0] - medians[1]) <= max(tolerance, REL_TOL * max(abs(medians[0]), abs(medians[1])))
-        return medians if agrees else None
+        return abs(medians[0] - medians[1]) <= max(tolerance, REL_TOL * max(abs(medians[0]), abs(medians[1])))
+
+    def seed_medians(fields, unit):
+        medians = [cells.percentile(values, 50) for values in seed_values(fields)]
+        return medians if agree(medians, unit) else None
+
+    def measure(fields, unit):
+        # #226: a cell that does not reproduce still says what each seed read
+        # and how far the launches ran; only `medians` is a published figure.
+        values = seed_values(fields)
+        both = [cells.percentile(group, 50) for group in values]
+        flat = [value for group in values for value in group]
+        ok = agree(both, unit)
+        return {'medians': both if ok else None, 'reproduced': ok, 'unit': unit,
+                'seed_medians': both, 'launch_range': [min(flat), max(flat)]}
 
     if 'after_load' in cell['never_idle_phases']:
         for key, fields in NEVER_IDLE_FIGURES:
             cell['never_idle_figures'][key] = seed_medians(fields, 'ms')
+        cell['never_idle_split'] = _capped_wait_split(ordered, agree)
     for key, _label, unit, fields in MEASURES:
         if NEVER_IDLE_HIDES.get(key) in cell['never_idle_phases']:
             cell['measures'][key] = {'medians': None, 'reproduced': False, 'unit': unit, 'never_idle': True}
             continue
-        medians = seed_medians(fields, unit)
-        cell['measures'][key] = {'medians': medians, 'reproduced': medians is not None, 'unit': unit}
+        cell['measures'][key] = measure(fields, unit)
     return cell
+
+
+# (fact key, unit): where the processor time of a capped wait went (#226).
+CAPPED_SPLIT = (
+    ('capped_gpu_cpu_ms', 'ms'), ('capped_renderer_cpu_ms', 'ms'),
+    ('capped_longtask_count', 'count'), ('capped_longtask_sum_ms', 'ms'),
+)
+
+
+def _capped_wait_launch(path: Path, record: dict):
+    """One launch's capped wait after opening: GPU process, page process, long tasks; None when not recorded.
+
+    The process list is read from the launch file itself, outside the shared
+    cache: it is large and only a never-idle cell needs it.
+    """
+    try:
+        phases = json.loads(path.read_text()).get('phases') or {}
+    except (OSError, ValueError):
+        return None
+
+    def gpu(phase):
+        rows = [row for row in (phases.get(phase) or {}).get('processes') or [] if row.get('role') == 'gpu']
+        return sum(row['cpu_ms'] for row in rows) if rows and all(_number(row.get('cpu_ms')) for row in rows) else None
+
+    wait = phases.get('after_load') or {}
+    out = {
+        'capped_gpu_cpu_ms': None if None in (gpu('load'), gpu('after_load')) else gpu('after_load') - gpu('load'),
+        'capped_renderer_cpu_ms': record.get('open_settle_renderer_cpu_ms'),
+        'capped_longtask_count': wait.get('longtask_count'),
+        'capped_longtask_sum_ms': wait.get('longtask_sum_ms'),
+    }
+    return out if all(_number(value) and value >= 0 for value in out.values()) else None
+
+
+def _capped_wait_split(ordered, agree) -> dict:
+    """Seed medians of the capped wait's split, per key, each with whether the seeds agree.
+
+    {} unless every kept launch of both seeds recorded it.
+    """
+    per_seed = []
+    for group in ordered:
+        rows = [_capped_wait_launch(path, record) for path, record in zip(group['kept_paths'], group['kept'])]
+        if not rows or None in rows:
+            return {}
+        per_seed.append(rows)
+    split = {}
+    for key, unit in CAPPED_SPLIT:
+        medians = [cells.percentile([row[key] for row in rows], 50) for rows in per_seed]
+        split[key] = {'seed_medians': medians, 'reproduced': agree(medians, unit)}
+    return split
 
 
 def _block(seeds, groups) -> str | None:
@@ -332,7 +398,31 @@ def _never_idle_note(name: str, cell: dict) -> str:
         text += ' in the capped wait that followed it used %s.' % pair(capped)
     else:
         text += ' in the capped wait that followed, it did not reproduce either.'
+    split = cell.get('never_idle_split') or {}
+    if split:
+        def said(key, unit='ms'):
+            item = split[key]
+            both = ' / '.join(fmt(median, unit) if unit == 'ms' else '%d' % round(median) for median in item['seed_medians'])
+            return both if item['reproduced'] else both + ' (not reproduced)'
+        text += (" Of the capped wait, the browser's GPU process used %s and the page's own process %s; "
+                 'the page had %s long tasks, %s in all.' % (
+                     said('capped_gpu_cpu_ms'), said('capped_renderer_cpu_ms'),
+                     said('capped_longtask_count', 'count'), said('capped_longtask_sum_ms')))
+    low, high = cell['measures']['peak_ram_bytes']['launch_range']
+    text += ' Its memory readings ran from %s to %s across the kept launches.' % (fmt(low, 'bytes'), fmt(high, 'bytes'))
     return text
+
+
+def settle_window_note(facts: dict) -> str:
+    """What the settling column can and cannot carry (#226)."""
+    cells_, higher, lower = (facts.get('perf.e2.B8.settle_' + key, 0) for key in ('cells', 'first_higher', 'first_lower'))
+    text = ('The settling window is not a fixed length: it ends at the first half-second poll at which two seconds '
+            'have passed without a long task, and the polls themselves cost processor time.')
+    if cells_:
+        text += (" Across the %d cells with a settling figure, the first seed's median is the higher in %d and the "
+                 'lower in %d.' % (cells_, higher, lower))
+    return text + (' A difference of a few tens of milliseconds in that column is the window and the 10 ms counter, '
+                   'not the editor.')
 
 
 def resources_tables(facts: dict, roots, editors, display) -> str:
@@ -359,17 +449,31 @@ def resources_tables(facts: dict, roots, editors, display) -> str:
             for key, medians in cell['never_idle_figures'].items():
                 if medians:
                     facts['%s.%s.medians' % (prefix, key)] = medians
+            for key, item in cell['never_idle_split'].items():
+                facts['%s.%s.seed_medians' % (prefix, key)] = item['seed_medians']
+                if item['reproduced']:
+                    facts['%s.%s.medians' % (prefix, key)] = item['seed_medians']
             for key in TABLE_MEASURES:
                 measure = cell['measures'][key]
                 if measure.get('never_idle'):
                     texts.append('never idle')
                     continue
                 facts['%s.%s.reproduced' % (prefix, key)] = measure['reproduced']
+                facts['%s.%s.seed_medians' % (prefix, key)] = measure['seed_medians']
+                facts['%s.%s.launch_range' % (prefix, key)] = measure['launch_range']
+                if key == 'edit_settle_cpu_ms':
+                    first, second = measure['seed_medians']
+                    facts['perf.e2.B8.settle_cells'] = facts.get('perf.e2.B8.settle_cells', 0) + 1
+                    facts['perf.e2.B8.settle_first_higher'] = facts.get('perf.e2.B8.settle_first_higher', 0) + (first > second)
+                    facts['perf.e2.B8.settle_first_lower'] = facts.get('perf.e2.B8.settle_first_lower', 0) + (first < second)
                 if measure['reproduced']:
                     facts['%s.%s.medians' % (prefix, key)] = measure['medians']
                     texts.append(' / '.join(fmt(median, measure['unit']) for median in measure['medians']))
                 else:
-                    texts.append('not reproduced')
+                    unit = measure['unit']
+                    texts.append('not reproduced (first %s; second %s; launches %s to %s)' % (
+                        *(fmt(median, unit) for median in measure['seed_medians']),
+                        *(fmt(value, unit) for value in measure['launch_range'])))
             rows.append('| %s | %s | n = %d, %d |' % (name, ' | '.join(texts), *cell['kept']))
             if cell['never_idle_phases']:
                 notes.append(_never_idle_note(name, cell))

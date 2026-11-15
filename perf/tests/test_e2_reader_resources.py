@@ -71,7 +71,7 @@ def test_two_seeds_that_agree_publish_each_measure(tmp_path):
     assert cell['kept'] == [10, 10] and cell['scheduled'] == [10, 10]
     open_cpu = cell['measures']['open_cpu_ms']
     # opening is the load phase plus the work after the ready signal
-    assert open_cpu == {'medians': [1200, 1200], 'reproduced': True, 'unit': 'ms'}
+    assert (open_cpu['medians'], open_cpu['reproduced'], open_cpu['unit']) == ([1200, 1200], True, 'ms')
     assert cell['measures']['peak_ram_bytes']['medians'] == [2 ** 30, 2 ** 30]
 
 
@@ -112,7 +112,9 @@ def test_five_kept_of_ten_publishes(tmp_path):
 def test_a_measure_that_disagrees_is_not_reproduced_and_keeps_no_figure(tmp_path):
     cell = _two_seeds(tmp_path, records=[_record(edit=900)] * 30)
     assert cell['published'] is True
-    assert cell['measures']['edit_cpu_ms'] == {'medians': None, 'reproduced': False, 'unit': 'ms'}
+    edit = cell['measures']['edit_cpu_ms']
+    assert edit['medians'] is None and edit['reproduced'] is False and edit['unit'] == 'ms'
+    assert edit['seed_medians'] == [300, 900]  # #226: said, not published
     assert cell['measures']['open_cpu_ms']['reproduced'] is True
 
 
@@ -278,3 +280,90 @@ def test_the_memory_column_is_a_reading_not_a_peak(tmp_path):
     _blocks(tmp_path, 2)
     text = res.resources_tables({}, [tmp_path], ['plate'], {'plate': 'Plate'})
     assert '| Highest memory reading |' in text and 'Peak memory' not in text
+
+
+# ---- #226: what a "not reproduced" cell hides, and what is still said of a never-idle editor ----
+
+
+def test_a_cell_that_did_not_reproduce_prints_both_seed_medians_and_the_launch_range(tmp_path):
+    """#226: canvas-editor's 3.4 to 5.1 GiB was hidden behind 'not reproduced'."""
+    first = [_record(ram=(3400 + 100 * i) * 2 ** 20, quiet=40 + 10 * (i % 3)) for i in range(10)]
+    second = [_record(ram=(4400 + 60 * i) * 2 ** 20, quiet=90 + 10 * (i % 3)) for i in range(10)]
+    _blocks(tmp_path, 1, records=first)
+    _blocks(tmp_path, 2, records=second)
+    facts = {}
+    text = res.resources_tables(facts, [tmp_path], ['plate'], {'plate': 'Plate'})
+    assert ('not reproduced (first 3850.0 MiB; second 4670.0 MiB; launches 3400.0 MiB to 4940.0 MiB)') in text
+    assert 'not reproduced (first 50 ms; second 100 ms; launches 40 ms to 110 ms)' in text
+    prefix = 'perf.e2.plate.B8.prose-250kw.peak_ram_bytes.'
+    assert facts[prefix + 'reproduced'] is False
+    assert prefix + 'medians' not in facts  # no published figure
+    assert facts[prefix + 'seed_medians'] == [3850.0 * 2 ** 20, 4670.0 * 2 ** 20]
+    assert facts[prefix + 'launch_range'] == [3400 * 2 ** 20, 4940 * 2 ** 20]
+
+
+def test_a_reproduced_cell_is_printed_as_before(tmp_path):
+    cell = _two_seeds(tmp_path)
+    assert cell['measures']['open_cpu_ms']['medians'] == [1200, 1200]
+    assert cell['measures']['open_cpu_ms']['seed_medians'] == [1200, 1200]
+    text = res.resources_tables({}, [tmp_path], ['plate'], {'plate': 'Plate'})
+    assert '| Plate | 1.20 s / 1.20 s | 300 ms / 300 ms | 50 ms / 50 ms | 1024.0 MiB / 1024.0 MiB | n = 10, 10 |' in text
+
+
+def _phases(gpu_before, gpu_after, longtasks, longtask_ms):
+    def processes(gpu):
+        return [{'role': 'browser', 'cpu_ms': 100}, {'role': 'gpu', 'cpu_ms': gpu}, {'role': 'renderer', 'cpu_ms': 900}]
+    return {'load': {'processes': processes(gpu_before)},
+            'after_load': {'processes': processes(gpu_after), 'longtask_count': longtasks, 'longtask_sum_ms': longtask_ms}}
+
+
+def test_a_never_idle_note_says_where_the_cpu_went_and_how_much_memory(tmp_path):
+    """#226: WordCraft's 75 s in a 30 s wait was the browser's GPU process drawing in software."""
+    def capped(ram):
+        return _record(load=6000, open_settle=76000, edit=17000, quiet=72000, ram=ram * 2 ** 20,
+                       open_settle_renderer_cpu_ms=4000, phases=_phases(2000, 75000, 160, 13000),
+                       settle={'after_load': 'capped', 'after_edit': 'capped'})
+    _blocks(tmp_path, 1, records=[capped(900 + 10 * i) for i in range(10)])
+    _blocks(tmp_path, 2, records=[capped(905 + 10 * i) for i in range(10)])
+    facts = {}
+    text = res.resources_tables(facts, [tmp_path], ['plate'], {'plate': 'Plate'})
+    assert ('Of the capped wait, the browser\'s GPU process used 73.00 s / 73.00 s and the page\'s own process '
+            '4.00 s / 4.00 s; the page had 160 / 160 long tasks, 13.00 s / 13.00 s in all.') in text
+    assert 'Its memory readings ran from 900.0 MiB to 995.0 MiB across the kept launches.' in text
+    prefix = 'perf.e2.plate.B8.prose-250kw.'
+    assert facts[prefix + 'capped_gpu_cpu_ms.medians'] == [73000, 73000]
+    assert facts[prefix + 'capped_renderer_cpu_ms.medians'] == [4000, 4000]
+
+
+def test_a_never_idle_note_without_process_records_says_nothing_about_the_split(tmp_path):
+    _never_idle_cell(tmp_path)
+    text = res.resources_tables({}, [tmp_path], ['plate'], {'plate': 'Plate'})
+    assert 'GPU process' not in text
+    assert 'Its memory readings ran from 1024.0 MiB to 1024.0 MiB across the kept launches.' in text
+
+
+def test_the_settle_column_states_how_often_the_first_seed_is_the_higher(tmp_path):
+    """#226: the settle window is not a fixed length, and the first seed's was the longer one."""
+    for editor, first, second in (('plate', 60, 45), ('folio', 55, 30), ('docen', 30, 30)):
+        _blocks(tmp_path, 1, editor=editor, records=[_record(editor, quiet=first)] * 10)
+        _blocks(tmp_path, 2, editor=editor, records=[_record(editor, quiet=second)] * 10)
+    facts = {}
+    res.resources_tables(facts, [tmp_path], ['docen', 'folio', 'plate'], {})
+    assert facts['perf.e2.B8.settle_first_higher'] == 2
+    assert facts['perf.e2.B8.settle_first_lower'] == 0
+    assert facts['perf.e2.B8.settle_cells'] == 3
+    assert ('Across the 3 cells with a settling figure, the first seed\'s median is the higher in 2 and the lower in 0.'
+            ) in res.settle_window_note(facts)
+
+
+def test_a_split_figure_that_disagrees_is_marked_and_not_stored_as_a_result(tmp_path):
+    def capped(renderer):
+        return _record(load=6000, open_settle=76000, open_settle_renderer_cpu_ms=renderer,
+                       phases=_phases(2000, 75000, 160, 13000), settle={'after_load': 'capped', 'after_edit': 'capped'})
+    _blocks(tmp_path, 1, records=[capped(4400)] * 10)
+    _blocks(tmp_path, 2, records=[capped(3800)] * 10)
+    facts = {}
+    text = res.resources_tables(facts, [tmp_path], ['plate'], {'plate': 'Plate'})
+    assert "the page's own process 4.40 s / 3.80 s (not reproduced);" in text
+    prefix = 'perf.e2.plate.B8.prose-250kw.capped_renderer_cpu_ms.'
+    assert prefix + 'medians' not in facts and facts[prefix + 'seed_medians'] == [4400, 3800]

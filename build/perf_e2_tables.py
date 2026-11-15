@@ -1245,7 +1245,9 @@ RESOURCES_BLURB = (
     "the page or from the editor's model, gained exactly the typed text; WordCraft, which puts no document text in the page, "
     "is verified by its own modified flag. An editor still working when a 30-second cap ends "
     "never went idle, even in one launch: the CPU columns that wait would end are not printed, because they would time the cap, and a note gives "
-    "what it used up to its ready signal. The complex document is loaded without its read-only protection, which the editors honour."
+    "what it used up to its ready signal, how the capped wait divides between the browser's GPU process (the one "
+    "that draws; on this host it draws in software) and the page's own process, and how far its memory readings ran. "
+    "The complex document is loaded without its read-only protection, which the editors honour."
 )
 
 
@@ -1253,7 +1255,9 @@ def resource_facts(roots, editors) -> dict:
     """The B8 section: every seed's launches from every run directory given."""
     from perf.analysis import e2_resources
     facts: dict = {"perf.e2.criterion.B8": RESOURCES_BLURB}
-    facts["perf.e2.table.B8"] = e2_resources.resources_tables(facts, roots, editors, DISPLAY)
+    table = e2_resources.resources_tables(facts, roots, editors, DISPLAY)
+    # #226: said once, under the tables, with the counts of these runs.
+    facts["perf.e2.table.B8"] = table + "\n\n" + e2_resources.settle_window_note(facts)
     return facts
 
 
