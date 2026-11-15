@@ -107,8 +107,9 @@ def test_memory_is_in_generated_tables(runs):
         for i in range(10):
             trial(root, i, 'C19', sample_unit='bytes', samples_ms=[0], diagnostic={}, sub_frame_samples=None)
     facts = report.facts_from_runs(*runs)
-    assert 'perf.e2.table.C19' in facts
-    assert '0.0 MiB' in facts['perf.e2.table.C19']
+    # #211: C19 is read and its range stated, with no table.
+    assert facts['perf.e2.table.C19'] == 'not published.'
+    assert '0.0 MiB' in facts['perf.e2.withheld.C19']
 
 
 def test_unverified_content_also_labels_nonreproduced_medians(runs):

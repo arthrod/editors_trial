@@ -1209,7 +1209,7 @@ RESOURCES_BLURB = (
     "edit counts only when it is verified in the document: the text of the block at the caret, read from "
     "the page or from the editor's model, gained exactly the typed text; WordCraft, which puts no document text in the page, "
     "is verified by its own modified flag. An editor still working when a 30-second cap ends "
-    "never went idle: its CPU columns are not printed, because they would time the cap, and a note gives "
+    "never went idle, even in one launch: the CPU columns that wait would end are not printed, because they would time the cap, and a note gives "
     "what it used up to its ready signal. The complex document is loaded without its read-only protection, which the editors honour."
 )
 

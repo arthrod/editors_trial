@@ -216,8 +216,8 @@ def test_a_never_idle_editor_prints_no_cpu_figure(tmp_path):
     assert '| Plate | never idle | never idle | never idle | 1024.0 MiB / 1024.0 MiB | n = 10, 10 |' in text
     assert '77.00 s' not in text and '72.00 s' not in text and '17.00 s' not in text
     assert ('- Plate never went idle: it was still working when the 30-second cap ended, after opening in 10 and 10 '
-            'of its kept launches and after the edit in 10 and 10. Its CPU columns are not printed: they would time '
-            'the cap, not the editor. Up to its ready signal it used 7.00 s / 7.00 s of processor time; in the '
+            'of its kept launches and after the edit in 10 and 10. Its three CPU columns are not printed: they would '
+            'time the cap, not the editor. Up to its ready signal it used 7.00 s / 7.00 s of processor time; in the '
             'capped wait that followed, 70.00 s / 70.00 s.') in text
     prefix = 'perf.e2.plate.B8.prose-250kw.'
     assert facts[prefix + 'never_idle'] is True
@@ -235,6 +235,42 @@ def test_a_cap_after_the_edit_only_hides_the_settle_column(tmp_path):
     text = res.resources_tables({}, [tmp_path], ['plate'], {'plate': 'Plate'})
     assert '| Plate | 1.20 s / 1.20 s | 300 ms / 300 ms | never idle | 1024.0 MiB / 1024.0 MiB |' in text
     assert 'after the edit in 10 and 10 of its kept launches' in text
+    assert 'Its settling column is not printed' in text
+
+
+def test_one_capped_launch_is_enough_to_hide_the_column(tmp_path):
+    """codex review of #211: five idle and five capped launches printed a median that holds the cap."""
+    idle = _record()
+    capped = _record(load=1000, open_settle=70000, settle={'after_load': 'capped', 'after_edit': 'reached'})
+    for seed in (1, 2):
+        _blocks(tmp_path, seed, records=[idle] * 9 + [capped])
+    facts = {}
+    text = res.resources_tables(facts, [tmp_path], ['plate'], {'plate': 'Plate'})
+    assert '| Plate | never idle | never idle | 50 ms / 50 ms | 1024.0 MiB / 1024.0 MiB |' in text
+    assert 'after opening in 1 and 1 of its kept launches. Its CPU to open and CPU of the edit columns are not printed' in text
+    assert 'perf.e2.plate.B8.prose-250kw.open_cpu_ms.medians' not in facts
+
+
+def test_note_figures_that_disagree_between_seeds_are_not_printed(tmp_path):
+    """codex review of #211: the note printed 1.00 s / 100.00 s."""
+    def capped(load):
+        return _record(load=load, open_settle=70000, settle={'after_load': 'capped', 'after_edit': 'capped'})
+    _blocks(tmp_path, 1, records=[capped(1000)] * 10)
+    _blocks(tmp_path, 2, records=[capped(100000)] * 10)
+    facts = {}
+    text = res.resources_tables(facts, [tmp_path], ['plate'], {'plate': 'Plate'})
+    assert '100.00 s' not in text
+    assert 'Up to its ready signal its processor time did not reproduce between the seeds; in the capped wait that followed it used 70.00 s / 70.00 s.' in text
+    assert 'perf.e2.plate.B8.prose-250kw.ready_cpu_ms.medians' not in facts
+
+
+def test_a_launch_that_does_not_record_its_settle_is_not_kept(tmp_path):
+    """codex review of #211: no settle record is not evidence of an idle page."""
+    record = _record()
+    del record['settle']
+    assert res.launch_refusal(record) == 'settle_not_recorded'
+    assert res.launch_refusal(_record(settle={'after_load': 'reached'})) == 'settle_not_recorded'
+    assert res.launch_refusal(_record()) is None
 
 
 def test_the_memory_column_is_a_reading_not_a_peak(tmp_path):
