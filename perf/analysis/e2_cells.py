@@ -881,6 +881,39 @@ def c04_replay_corrected(row):
     return fixed
 
 
+def c17_ready_unverified(row):
+    """C17's ``ready`` memory is kept only where the document was checked as loaded (#211).
+
+    The memory probe reads the browser tree once the editor's ready signal is
+    raised. Where the ready check was ``opening_only`` or ``not_run`` the
+    harness did not enforce that the whole document was mounted
+    (``content_length_enforced: false``), and the reading can be taken before
+    the document is in memory: SuperDoc at 250,000 words read 667 MB at ready
+    and 1,426 MB after the edit burst. Such a sample is refused as
+    ``unverified``. A record that does not say is left alone, as are the later
+    phases, which follow a verified edit. The cached row is never mutated.
+    """
+    if row.get('criterion_id') != 'C17' or row.get('measurement_phase') != 'ready':
+        return row
+    if row.get('outcome') != 'measured':
+        return row
+    diagnostic = row.get('diagnostic') or {}
+    if diagnostic.get('content_length_enforced') is not False:
+        return row
+    samples = row.get('samples_ms') or []
+    fixed = {key: value for key, value in row.items() if key != 'summary_stats'}
+    fixed.update(
+        outcome='refused', refusal_code='unverified', failure_reason='document_not_verified_loaded',
+        samples_ms=[], latency_ms=None,
+        ready_unverified={
+            'issue': 211,
+            'was_bytes': samples[0] if len(samples) == 1 else list(samples),
+            'content_length_check': diagnostic.get('content_length_check'),
+        },
+    )
+    return fixed
+
+
 def trial_workload(trial):
     return str(trial.get('workload_id') or (trial.get('environment') or {}).get('workload_id')
                or (trial.get('diagnostic') or {}).get('workload_id') or '')
@@ -967,6 +1000,7 @@ def _attempt_rows_of(run_directory: Path, jobs, *, qualify: set[Path] | None = N
                     continue
                 row = c14_window_corrected(row)
                 row = c04_replay_corrected(row)
+                row = c17_ready_unverified(row)
                 yield _launch_key(run_directory, job, directory.parent.name, qualify=qualify), path, row
 
 

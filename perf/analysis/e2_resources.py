@@ -36,11 +36,23 @@ MEASURES = (
     ('open_cpu_ms', 'CPU to open', 'ms', ('load_cpu_ms', 'open_settle_cpu_ms')),
     ('edit_cpu_ms', 'CPU of the edit', 'ms', ('edit_cpu_ms',)),
     ('edit_settle_cpu_ms', 'CPU settling after the edit', 'ms', ('quiescence_cpu_ms',)),
-    ('peak_ram_bytes', 'Peak memory', 'bytes', ('peak_ram_bytes',)),
+    ('peak_ram_bytes', 'Highest memory reading', 'bytes', ('peak_ram_bytes',)),
     ('peak_js_heap_used_bytes', 'Peak JS heap', 'bytes', ('peak_js_heap_used_bytes',)),
     ('load_network_encoded_bytes', 'Network to open', 'bytes', ('load_network_encoded_bytes',)),
 )
 TABLE_MEASURES = ('open_cpu_ms', 'edit_cpu_ms', 'edit_settle_cpu_ms', 'peak_ram_bytes')
+# #211: a page that is still working when the settle cap ends has no "to idle"
+# figure. Which settle hides which column: the edit runs on a page that was
+# already busy, so its CPU is not the edit's either.
+NEVER_IDLE_HIDES = {
+    'open_cpu_ms': 'after_load', 'edit_cpu_ms': 'after_load', 'edit_settle_cpu_ms': 'after_edit',
+}
+# (fact key, fields): what is still said of a never-idle cell.
+NEVER_IDLE_FIGURES = (
+    ('ready_cpu_ms', ('load_cpu_ms',)),
+    ('capped_open_settle_cpu_ms', ('open_settle_cpu_ms',)),
+)
+SETTLE_CAP_S = 30
 
 
 def _number(value) -> bool:
@@ -158,6 +170,7 @@ def _aggregate_seed(entries, editor: str, workload: str) -> dict:
                if _job_matches_workload(job, summary, editor, workload)]
     group = {
         'scheduled': 0, 'kept': [], 'refusals': Counter(), 'errors': Counter(), 'never_idle': 0,
+        'capped': Counter(),
         'blocked': None, 'pins': set(),
     }
     if not entries:
@@ -197,8 +210,12 @@ def _aggregate_seed(entries, editor: str, workload: str) -> dict:
                     group['errors'][str(record['editor_error'])[:200]] += 1
                 continue
             group['kept'].append(record)
-            if 'capped' in (record.get('settle') or {}).values():
+            settle = record.get('settle') or {}
+            if 'capped' in settle.values():
                 group['never_idle'] += 1
+            for phase in ('after_load', 'after_edit'):
+                if settle.get(phase) == 'capped':
+                    group['capped'][phase] += 1
     group['decided_schedule'] = cells._decided_publication_schedule(summaries, group['scheduled'])
     return group
 
@@ -218,13 +235,27 @@ def read_cell(roots, editor: str, workload: str) -> dict:
         'scheduled': [group['scheduled'] for group in ordered],
         'kept': [len(group['kept']) for group in ordered],
         'never_idle': [group['never_idle'] for group in ordered],
+        'capped': {phase: [group['capped'][phase] for group in ordered] for phase in ('after_load', 'after_edit')},
+        'never_idle_phases': [], 'never_idle_figures': {},
         'editor_errors': dict(errors), 'measures': {},
     }
     cell['reason'] = _block(seeds, ordered)
     if cell['reason']:
         return cell
     cell['published'] = True
+    # Never idle: the cap ended the settle in most kept launches of a seed.
+    cell['never_idle_phases'] = [
+        phase for phase in ('after_load', 'after_edit')
+        if any(2 * group['capped'][phase] > len(group['kept']) for group in ordered)]
+    if 'after_load' in cell['never_idle_phases']:
+        for key, fields in NEVER_IDLE_FIGURES:
+            cell['never_idle_figures'][key] = [
+                cells.percentile([sum(record[field] for field in fields) for record in group['kept']], 50)
+                for group in ordered]
     for key, _label, unit, fields in MEASURES:
+        if NEVER_IDLE_HIDES.get(key) in cell['never_idle_phases']:
+            cell['measures'][key] = {'medians': None, 'reproduced': False, 'unit': unit, 'never_idle': True}
+            continue
         medians = [cells.percentile([sum(record[field] for field in fields) for record in group['kept']], 50)
                    for group in ordered]
         tolerance = CPU_ABS_TOL_MS if unit == 'ms' else 0
@@ -264,6 +295,25 @@ def fmt(value, unit: str) -> str:
     return '%.1f MiB' % (value / 2 ** 20)
 
 
+def _never_idle_note(name: str, cell: dict) -> str:
+    where = []
+    if 'after_load' in cell['never_idle_phases']:
+        where.append('after opening in %d and %d of its kept launches' % tuple(cell['capped']['after_load']))
+    if 'after_edit' in cell['never_idle_phases']:
+        where.append('after the edit in %d and %d' % tuple(cell['capped']['after_edit'])
+                     + ('' if where else ' of its kept launches'))
+    text = ('- %s never went idle: it was still working when the %d-second cap ended, %s. '
+            % (name, SETTLE_CAP_S, ' and '.join(where)))
+    figures = cell['never_idle_figures']
+    if figures:
+        text += ('Its CPU columns are not printed: they would time the cap, not the editor. Up to its ready signal '
+                 'it used %s of processor time; in the capped wait that followed, %s.'
+                 % tuple(' / '.join(fmt(median, 'ms') for median in figures[key]) for key, _fields in NEVER_IDLE_FIGURES))
+    else:
+        text += 'Its settling column is not printed: it would time the cap, not the editor.'
+    return text
+
+
 def resources_tables(facts: dict, roots, editors, display) -> str:
     """One table per document size; every unpublished cell is named below its table."""
     labels = {key: label for key, label, _unit, _fields in MEASURES}
@@ -284,8 +334,14 @@ def resources_tables(facts: dict, roots, editors, display) -> str:
                 notes.append('- %s: %s%s.' % (name, cell['reason'], '; ' + errors if errors else ''))
                 continue
             texts = []
+            facts[prefix + '.never_idle'] = bool(cell['never_idle_phases'])
+            for key, medians in cell['never_idle_figures'].items():
+                facts['%s.%s.medians' % (prefix, key)] = medians
             for key in TABLE_MEASURES:
                 measure = cell['measures'][key]
+                if measure.get('never_idle'):
+                    texts.append('never idle')
+                    continue
                 facts['%s.%s.reproduced' % (prefix, key)] = measure['reproduced']
                 if measure['reproduced']:
                     facts['%s.%s.medians' % (prefix, key)] = measure['medians']
@@ -293,7 +349,9 @@ def resources_tables(facts: dict, roots, editors, display) -> str:
                 else:
                     texts.append('not reproduced')
             rows.append('| %s | %s | n = %d, %d |' % (name, ' | '.join(texts), *cell['kept']))
-            if any(cell['never_idle']):
+            if cell['never_idle_phases']:
+                notes.append(_never_idle_note(name, cell))
+            elif any(cell['never_idle']):
                 notes.append('- %s never went idle within the settle cap in %d and %d of its kept launches; its '
                              'settle figures cover the capped window.' % (name, *cell['never_idle']))
         if not rows and not notes:

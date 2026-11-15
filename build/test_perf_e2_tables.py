@@ -1262,8 +1262,13 @@ def test_the_template_says_what_c03_c17_and_c19_are():
     assert "ready signal" in c03 and "not one event" in c03 and "C11" in c03
     c17 = section("### C17 — memory by phase", "### C19")
     assert "process tree" in c17 and "MiB" in c17 and "ready signal" in c17 and "settle delay" in c17
-    c19 = section("### C19 — retained memory", "### B8")
-    assert "after the editor's page is closed" in c19 and "not the editor's footprint" in c19
+    assert "not known to be loaded" in c17 and "2 seconds after the burst" in c17 and "canvas-editor" in c17
+    # #211: C19 is the browser's baseline; no table of it is printed.
+    c19 = section("### C19 — browser memory after the page is closed (not published)", "### B8")
+    assert "{{perf.e2.table.C19}}" not in tpl and "{{perf.e2.withheld.C19}}" in c19
+    assert "no reading of an empty browser" in c19 and "dataset" in c19
+    b8 = tpl[tpl.index("### B8"):tpl.index("### B9")]
+    assert "10 ms" in b8
     load = tpl[tpl.index("- **Throttling and steal.**"):tpl.index("## Tables")]
     assert "load average" in load and "never refused for host load" in load
 

@@ -33,7 +33,7 @@ def test_byte_trials_keep_phases_without_timing_fields(runs, criterion, phase):
     assert cell['refusals'] == {}
     assert cell['stats']['n'] == 10
     text = report._cell_text({}, list(runs), 'plate', criterion, phase)
-    assert 'bytes' in text and ' ms' not in text
+    assert 'MiB' in text and ' ms' not in text  # #209: memory prints in MiB
 
 
 def _stamp_job_summaries(root, **updates):

@@ -199,3 +199,46 @@ def test_report_e2_has_a_resources_section_fed_by_the_facts(tmp_path):
     facts = report.resource_facts([tmp_path], ['plate'])
     assert '| %s | 1.20 s / 1.20 s |' % report.DISPLAY['plate'] in facts['perf.e2.table.B8']
     assert facts['perf.e2.plate.B8.prose-250kw.edit_cpu_ms.reproduced'] is True
+
+
+def _never_idle_cell(tmp_path):
+    capped = _record(load=7000, open_settle=70000, edit=17000, quiet=72000,
+                     settle={'after_load': 'capped', 'after_edit': 'capped'})
+    _blocks(tmp_path, 1, records=[capped] * 10)
+    _blocks(tmp_path, 2, records=[capped] * 10)
+
+
+def test_a_never_idle_editor_prints_no_cpu_figure(tmp_path):
+    """#211: the cap is not the editor. WordCraft printed 81 s 'to open' a 500-word document."""
+    _never_idle_cell(tmp_path)
+    facts = {}
+    text = res.resources_tables(facts, [tmp_path], ['plate'], {'plate': 'Plate'})
+    assert '| Plate | never idle | never idle | never idle | 1024.0 MiB / 1024.0 MiB | n = 10, 10 |' in text
+    assert '77.00 s' not in text and '72.00 s' not in text and '17.00 s' not in text
+    assert ('- Plate never went idle: it was still working when the 30-second cap ended, after opening in 10 and 10 '
+            'of its kept launches and after the edit in 10 and 10. Its CPU columns are not printed: they would time '
+            'the cap, not the editor. Up to its ready signal it used 7.00 s / 7.00 s of processor time; in the '
+            'capped wait that followed, 70.00 s / 70.00 s.') in text
+    prefix = 'perf.e2.plate.B8.prose-250kw.'
+    assert facts[prefix + 'never_idle'] is True
+    assert facts[prefix + 'ready_cpu_ms.medians'] == [7000, 7000]
+    assert facts[prefix + 'capped_open_settle_cpu_ms.medians'] == [70000, 70000]
+    assert prefix + 'open_cpu_ms.medians' not in facts
+    assert prefix + 'edit_cpu_ms.medians' not in facts
+    assert prefix + 'edit_settle_cpu_ms.medians' not in facts
+
+
+def test_a_cap_after_the_edit_only_hides_the_settle_column(tmp_path):
+    capped = _record(settle={'after_load': 'reached', 'after_edit': 'capped'})
+    _blocks(tmp_path, 1, records=[capped] * 10)
+    _blocks(tmp_path, 2, records=[capped] * 10)
+    text = res.resources_tables({}, [tmp_path], ['plate'], {'plate': 'Plate'})
+    assert '| Plate | 1.20 s / 1.20 s | 300 ms / 300 ms | never idle | 1024.0 MiB / 1024.0 MiB |' in text
+    assert 'after the edit in 10 and 10 of its kept launches' in text
+
+
+def test_the_memory_column_is_a_reading_not_a_peak(tmp_path):
+    _blocks(tmp_path, 1)
+    _blocks(tmp_path, 2)
+    text = res.resources_tables({}, [tmp_path], ['plate'], {'plate': 'Plate'})
+    assert '| Highest memory reading |' in text and 'Peak memory' not in text

@@ -29,6 +29,30 @@ from perf.scenarios.catalog import scenarios
 from build.perf_e_tables import DISPLAY, REL_TOL, _SAME_HOST, _pct, reproduced
 
 E2_CRITERIA = [f"C{i:02d}" for i in range(3, 16)] + ["C17", "C19"]
+# #211: measured, in the dataset, and not printed: the reading is not what the
+# criterion names. C19 reads the browser after the page closes and subtracts no
+# empty-browser baseline, so it cannot be read as memory an editor retained.
+E2_WITHHELD = ("C19",)
+
+
+def withheld_readings_text(aside: dict, criterion: str) -> str:
+    """The range of a withheld criterion's seed medians, over the cells that reproduced."""
+    medians = []
+    cells_seen = 0
+    for key, value in aside.items():
+        if not key.endswith(".reproduced") or (".%s." % criterion) not in key or value is not True:
+            continue
+        prefix = key[: -len(".reproduced")]
+        pair = [((aside.get("%s.%s" % (prefix, side)) or {}).get("stats") or {}).get("median")
+                for side in ("primary", "reproduction")]
+        if all(isinstance(v, (int, float)) for v in pair):
+            cells_seen += 1
+            medians += pair
+    if not medians:
+        return "In these runs no editor and document cell reproduced."
+    return ("In these runs the seed medians of the %d editor and document cell%s that reproduced lay between "
+            "%s and %s." % (cells_seen, "" if cells_seen == 1 else "s",
+                            e2_cells.format_mib(min(medians)), e2_cells.format_mib(max(medians))))
 REL_TOL_PCT = round(REL_TOL * 100)
 
 
@@ -990,6 +1014,8 @@ def unset_facts() -> dict:
     for cid in E2_CRITERIA:
         facts["perf.e2.criterion.%s" % cid] = blurbs.get(cid, cid)
         facts["perf.e2.table.%s" % cid] = "not yet measured"
+    for cid in E2_WITHHELD:
+        facts["perf.e2.withheld.%s" % cid] = "not yet measured"
     facts["perf.e2.criterion.B8"] = RESOURCES_BLURB
     facts["perf.e2.table.B8"] = "not yet measured"
     return facts
@@ -1125,7 +1151,16 @@ def _facts_from_roots(roots) -> dict:
     blurbs = _criterion_blurbs()
     for cid in E2_CRITERIA:
         facts["perf.e2.criterion.%s" % cid] = blurbs.get(cid, cid)
+    for cid in E2_WITHHELD:
+        facts["perf.e2.withheld.%s" % cid] = "In these runs no editor and document cell reproduced."
     for cid in criteria:
+        if cid in E2_WITHHELD:
+            # Read aside: no cell fact, no "not reproduced" row, no table.
+            aside: dict = {}
+            _criterion_table(aside, roots, cid, editors, word="run" if classic else "seed")
+            facts["perf.e2.withheld.%s" % cid] = withheld_readings_text(aside, cid)
+            facts["perf.e2.table.%s" % cid] = "not published."
+            continue
         facts["perf.e2.table.%s" % cid] = _criterion_table(facts, roots, cid, editors, word="run" if classic else "seed")
     for cid in E2_CRITERIA:
         facts.setdefault("perf.e2.table.%s" % cid, "not in these runs.")
@@ -1167,11 +1202,15 @@ RESOURCES_BLURB = (
     "until the editor is idle, types sixteen characters into a body line on the first screen, and waits "
     "again. CPU is the processor time of the whole browser process tree: to open (from navigation until "
     "idle, including work an editor does after it reports ready), during the edit (the keystrokes plus "
-    "half a second), and while settling afterwards. Peak memory is the resident memory of that tree. An "
+    "half a second), and while settling afterwards. The memory column is the highest reading of that tree's "
+    "resident memory: it is read when the load and the edit start and end and every half second while the "
+    "page settles, so a higher moment in the middle of a long load or edit is not seen; a page shared by two "
+    "processes counts once for each. An "
     "edit counts only when it is verified in the document: the text of the block at the caret, read from "
     "the page or from the editor's model, gained exactly the typed text; WordCraft, which puts no document text in the page, "
-    "is verified by its own modified flag. An editor that never goes idle is measured over a 30-second cap "
-    "and flagged. The complex document is loaded without its read-only protection, which the editors honour."
+    "is verified by its own modified flag. An editor still working when a 30-second cap ends "
+    "never went idle: its CPU columns are not printed, because they would time the cap, and a note gives "
+    "what it used up to its ready signal. The complex document is loaded without its read-only protection, which the editors honour."
 )
 
 
