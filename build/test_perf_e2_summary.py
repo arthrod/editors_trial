@@ -140,8 +140,14 @@ def test_a_label_needs_every_launch_of_both_rounds_to_say_it():
                       'second: not enough samples (n = 0 of 10; reasons not_applicable: 10)')
     one_round = 'second: not enough samples (n = 0 of 10; reasons editor_crash: 10)'
     assert summary._why(mixed_crash) == 'no figure'
+    # Additional reasons describe the same launches: ten crashes of ten are every launch.
     assert summary._why('first: not enough samples (n = 0 of 10; reasons crash: 10; also paint_witness_unavailable: 3); '
+                        'second: not enough samples (n = 0 of 10; reasons crash: 10)') == 'crashed'
+    # One counted crash of ten says nothing of the other nine.
+    assert summary._why('first: not enough samples (n = 0 of 10; reasons crash: 1); '
                         'second: not enough samples (n = 0 of 10; reasons crash: 10)') == 'no figure'
+    assert summary._why('first: not enough samples (n = 0 of 10; reasons not_applicable: 4); '
+                        'second: not enough samples (n = 0 of 10; reasons not_applicable: 10)') == 'no figure'
     assert summary._why('first: not enough samples (n = 0 of 10; reasons none counted); '
                         'second: not enough samples (n = 0 of 10; reasons none counted)') == 'no figure'
     assert summary._why(partly_applies) == 'no figure'

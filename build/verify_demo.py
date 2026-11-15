@@ -5,7 +5,8 @@
 # ///
 """Open one built demo in headless Chromium and check that it loads its document (#225).
 
-    build/verify_demo.py <slug> <folder>               # folder: the demo's dist/, or out/demos/<slug>
+    build/verify_demo.py <slug> <folder>               # folder: out/demos/<slug>, or the demo's dist/
+                                                       # with the fixture copied in as document.docx
     build/verify_demo.py <slug> <folder> <shot.png>    # a demo that draws on a canvas: look at the picture
 
 The folder is served the way benchmarks.law serves it, at /demo-apps/<slug>/. The check
@@ -14,7 +15,9 @@ chunk cannot be fetched, or when the fixture's first heading is not in the page.
 draws its document on a canvas (canvas-editor, Docen, WordCraft) puts no text in the page:
 give it a screenshot path as the third argument and judge the document by eye; without one
 it waits 90 seconds and fails. Reading the folder is not a check: et-v0.9.5 published five
-demos that held only their entry chunks.
+demos that held only their entry chunks. A fresh dist/ holds no document.docx (`pnpm sync:demos`
+writes it into the published folder): copy `out/demo/<editor>.docx` into it first, or the demo
+has nothing to load and the check fails for that reason alone.
 
 Needs the Chromium of playwright 1.64.1 once per machine:
     uv run --with playwright==1.64.1 playwright install chromium

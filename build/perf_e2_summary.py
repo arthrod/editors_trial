@@ -46,28 +46,49 @@ def _key(editor: str, criterion: str, measure: str, workload: str) -> str:
     return 'perf.e2.%s.%s' % (editor, criterion) + ('.' + measure if measure else '') + '.' + workload
 
 
-_ROUND = re.compile(r'(first|second): not enough samples \(n = (\d+) of \d+; reasons ([^)]*)\)')
+_ROUND = re.compile(r'(first|second): not enough samples \(n = (\d+) of (\d+); reasons ([^)]*)\)')
+_COUNT = re.compile(r'\s*([^:;]+): (\d+)\s*$')
+
+
+def _round_reasons(text: str) -> dict:
+    """{reason: count} of one round's primary reasons, in the reader's format.
+
+    The reader writes "key: count; key: count; also key: count"
+    (e2_cells.publication_text). What follows "also" describes launches
+    already counted, so it is left out. A part that is not "key: count"
+    ("none counted") makes the round unreadable: {}.
+    """
+    counts = {}
+    for part in text.split(';'):
+        if part.strip().startswith('also '):
+            break
+        match = _COUNT.match(part)
+        if not match:
+            return {}
+        counts[match.group(1).strip()] = int(match.group(2))
+    return counts
 
 
 def _why(reason: str) -> str:
     """One word for a cell that has no figure.
 
     "crashed" and "does not apply" are said only when both rounds kept no
-    launch and every launch of both gave that one reason; anything mixed is
-    "no figure".
+    launch and the counted reasons of each round account for every launch
+    it scheduled, all of them that one reason; anything else is "no figure".
     """
     if 'medians outside tolerance' in reason:
         return 'varied'
-    # The reader writes "key: count; key: count; also key: count" (e2_cells.publication_text).
-    rounds = {name: (int(kept), {part.strip().removeprefix('also ').split(':')[0].strip()
-                                 for part in reasons.split(';') if part.strip()})
-              for name, kept, reasons in _ROUND.findall(reason)}
-    if set(rounds) == {'first', 'second'} and all(kept == 0 for kept, _names in rounds.values()):
-        names = set().union(*(names for _kept, names in rounds.values()))
-        if names == {'not_applicable'}:
-            return 'does not apply'
-        if names and names <= {'crash', 'editor_crash'}:
-            return 'crashed'
+    rounds = {name: (int(kept), int(scheduled), _round_reasons(reasons))
+              for name, kept, scheduled, reasons in _ROUND.findall(reason)}
+    if set(rounds) != {'first', 'second'}:
+        return 'no figure'
+    if any(kept or sum(counts.values()) != scheduled for kept, scheduled, counts in rounds.values()):
+        return 'no figure'
+    names = set().union(*(counts for _kept, _scheduled, counts in rounds.values()))
+    if names == {'not_applicable'}:
+        return 'does not apply'
+    if names and names <= {'crash', 'editor_crash'}:
+        return 'crashed'
     return 'no figure'
 
 
