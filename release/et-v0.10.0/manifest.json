@@ -1,0 +1,147 @@
+{
+  "archived_root": null,
+  "created": "2026-11-15T10:54:35.409414Z",
+  "excludes": [],
+  "files": [
+    {
+      "bytes": 3507450,
+      "path": "release/et-v0.10.0/out/facts.json",
+      "served": false,
+      "sha256": "7850dbff11d753c1b375fe411cc1df485f4a361fa5715897f51241128d43b0e5"
+    },
+    {
+      "bytes": 47,
+      "path": "release/et-v0.10.0/out/release.json",
+      "served": false,
+      "sha256": "c9de214fc9a474c16fe065f657a1e82050761f0ede9fb999c6e8ba3703063592"
+    },
+    {
+      "bytes": 68163,
+      "path": "release/et-v0.10.0/reports/Report A - Serialization by Namespace (2026).docx",
+      "served": false,
+      "sha256": "b81a555c26df4d78849637fc1b51afc8eea505acc61406197bdf381ec6809ce9"
+    },
+    {
+      "bytes": 100172,
+      "path": "release/et-v0.10.0/reports/Report A - Serialization by Namespace (2026).md",
+      "served": false,
+      "sha256": "63ebaebe4ab18e0e1ead725a0536f8ccc7a77ec73f0917f8df41f3af7c368edc"
+    },
+    {
+      "bytes": 41290,
+      "path": "release/et-v0.10.0/reports/Report A2 - Pass-Through (2026).docx",
+      "served": false,
+      "sha256": "8005a1eadffe3e684905f893b5ff5d442ebb12954d5c065ead8bad56a1049e80"
+    },
+    {
+      "bytes": 51531,
+      "path": "release/et-v0.10.0/reports/Report A2 - Pass-Through (2026).md",
+      "served": false,
+      "sha256": "419d1488eaf7edb11b78293d7bc544d608f7d91aa3f0b28595d7cca32298856c"
+    },
+    {
+      "bytes": 40476,
+      "path": "release/et-v0.10.0/reports/Report B - Malformed Parts, Causes and Repair (2026).docx",
+      "served": false,
+      "sha256": "29417ced0426e6671e227796fce9887d9cd5d25d24b23000b5b92d103c1490f8"
+    },
+    {
+      "bytes": 51195,
+      "path": "release/et-v0.10.0/reports/Report B - Malformed Parts, Causes and Repair (2026).md",
+      "served": false,
+      "sha256": "824c4e66f2606ddc2136e16491c1c31ace4ebad03c86e6262a86247de92a2e7a"
+    },
+    {
+      "bytes": 2577058,
+      "path": "release/et-v0.10.0/reports/Report C - Rendering Versus Word (2026).docx",
+      "served": false,
+      "sha256": "afe5d52597f2277601489b76d0e687a76e5f0643f9b2ebfa5a774c5568be46d8"
+    },
+    {
+      "bytes": 102720,
+      "path": "release/et-v0.10.0/reports/Report C - Rendering Versus Word (2026).md",
+      "served": false,
+      "sha256": "d93b2dcb3ce0e3d1dde1325391977e25fbc77f687701f946fff0593f39b8467a"
+    },
+    {
+      "bytes": 26998,
+      "path": "release/et-v0.10.0/reports/Report D - Safety, Resource Bombs and Hostile Input (2026).docx",
+      "served": false,
+      "sha256": "ab38c9363e9707f78551816ff485b458c1e3788ba98e1f07488a9fc485b181ae"
+    },
+    {
+      "bytes": 56641,
+      "path": "release/et-v0.10.0/reports/Report D - Safety, Resource Bombs and Hostile Input (2026).md",
+      "served": false,
+      "sha256": "e4fcd0851abc90caadf8e2a5066ccd03b1b8707beeff92c0f8e451cf06608f52"
+    },
+    {
+      "bytes": 17857,
+      "path": "release/et-v0.10.0/reports/Report D1 - Jubarte on the Hostile Packages (2026).docx",
+      "served": false,
+      "sha256": "dacd415c615a94f812e5c34cbc042f61ff4dd49965e30ee6d9d0e24ddfde8b04"
+    },
+    {
+      "bytes": 15937,
+      "path": "release/et-v0.10.0/reports/Report D1 - Jubarte on the Hostile Packages (2026).md",
+      "served": false,
+      "sha256": "bcd14a7e3d4786a07529edc03d7b1c5e3ab67fb5bf99eeed3dafbb94f0b2aeb4"
+    },
+    {
+      "bytes": 15461,
+      "path": "release/et-v0.10.0/reports/Report D2 - What Word Protects Against (2026).docx",
+      "served": false,
+      "sha256": "6d6c03c8dc005c316a161b3a0552c1a94b727334d0696c8fc427fe757fcf79b0"
+    },
+    {
+      "bytes": 6705,
+      "path": "release/et-v0.10.0/reports/Report D2 - What Word Protects Against (2026).md",
+      "served": false,
+      "sha256": "d9c1b8db9ac335a5765469763fef3585389c4fb6b5f6df3e5cac13503b378945"
+    },
+    {
+      "bytes": 26548,
+      "path": "release/et-v0.10.0/reports/Report E - Speed, Opening and Saving a Document (2026).docx",
+      "served": false,
+      "sha256": "7fa5afb6be999e431f1748e4e8cfff34ce79e7f5c46d39f469a2b3e98bdb9f75"
+    },
+    {
+      "bytes": 28491,
+      "path": "release/et-v0.10.0/reports/Report E - Speed, Opening and Saving a Document (2026).md",
+      "served": false,
+      "sha256": "21025ad8b0bdffb6205e4883f3c7ec3d4d91e167b364d1a0415ace23a63d36b8"
+    },
+    {
+      "bytes": 52331,
+      "path": "release/et-v0.10.0/reports/Report E2 - Speed in the Browser (2026).docx",
+      "served": false,
+      "sha256": "04a3a0479be2b88a2b7a524730f8199a26eb72214a13a2628f100718995eeb48"
+    },
+    {
+      "bytes": 205908,
+      "path": "release/et-v0.10.0/reports/Report E2 - Speed in the Browser (2026).md",
+      "served": false,
+      "sha256": "cbaf8b8e8e8c2bed4f74cb5c7f8320d0b22e4b98d9b7d95a51f4b8bd81a29655"
+    },
+    {
+      "bytes": 1181,
+      "path": "release/et-v0.10.0/reports/rendering-openability.md",
+      "served": false,
+      "sha256": "7b913b429f246d2d03e667c7347a9f7131a9fa5132b01971c3c11ab3f6d299f7"
+    },
+    {
+      "bytes": 8781,
+      "path": "release/et-v0.10.0/reports/vendors.md",
+      "served": false,
+      "sha256": "7a4fce05887b6fe2ed90c28c103f12f5e001537e67f0e06ad3545e2c056d328d"
+    }
+  ],
+  "hf": {
+    "repo": "arthrod/editors_trial-artifacts",
+    "revision": "fee6b58cbe831faf36dc3d790b832108bf79391a"
+  },
+  "producer": "editors_trial",
+  "r2_prefix": "et-v0.10.0/",
+  "tag": "et-v0.10.0",
+  "viewer_version": null
+}
