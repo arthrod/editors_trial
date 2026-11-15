@@ -7,8 +7,8 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import check_report_consistency as gate  # noqa: E402
-import verify_findings as findings  # noqa: E402
+import check_report_consistency as gate  # noqa: E402 - import after the sys.path setup above
+import verify_findings as findings  # noqa: E402 - import after the sys.path setup above
 
 
 class ScorecardRow(unittest.TestCase):

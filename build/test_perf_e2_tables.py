@@ -306,7 +306,7 @@ class ReportE2Facts(unittest.TestCase):
             _write_trial(primary, i, "plate", "C07", outcome="measured", samples=[20.0])
             _write_trial(repro, i, "plate", "C07", outcome="measured", samples=[20.0])
         facts = E2.facts_from_runs(primary, repro)
-        tpl = (render_reports.TEMPLATES / "reports/Report E2 - Speed in the Browser (2026).md").read_text()
+        tpl = (render_reports.TEMPLATES / "reports/Report E2 - Speed in the Browser (2026).md").read_text(encoding="utf-8")
         rendered_a = render_reports.reportgen.render(tpl, facts)
         facts["perf.e2.table.C07"] = facts["perf.e2.table.C07"].replace("20.0 ms", "99.9 ms")
         rendered_b = render_reports.reportgen.render(tpl, facts)
@@ -737,7 +737,7 @@ def test_campaign_header_describes_the_campaign(fs):
     assert "seed" in facts["perf.e2.rule"].lower()
     provenance = facts["perf.e2.provenance"]
     assert "e2-alpha" in provenance and "e2-beta" in provenance
-    tpl = (render_reports.TEMPLATES / "reports/Report E2 - Speed in the Browser (2026).md").read_text()
+    tpl = (render_reports.TEMPLATES / "reports/Report E2 - Speed in the Browser (2026).md").read_text(encoding="utf-8")
     rendered = render_reports.reportgen.render(tpl, facts)
     assert "Primary run" not in rendered and "Reproduction run" not in rendered
     assert "2026-11-13" in rendered
@@ -1253,7 +1253,7 @@ def test_memory_cells_are_printed_in_mib():
 
 def test_the_template_says_what_c03_c17_and_c19_are():
     """#209: the audit found three tables a reader could take for something else."""
-    tpl = (render_reports.TEMPLATES / "reports/Report E2 - Speed in the Browser (2026).md").read_text()
+    tpl = (render_reports.TEMPLATES / "reports/Report E2 - Speed in the Browser (2026).md").read_text(encoding="utf-8")
 
     def section(title, following):
         return tpl[tpl.index(title):tpl.index(following)]

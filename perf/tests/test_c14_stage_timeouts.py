@@ -60,7 +60,9 @@ class WatchdogNamesTheStage(unittest.TestCase):
     )
 
     def test_the_refusal_names_the_stage_the_probe_was_in(self):
-        cmd = [b3._node() or "node", "-e", self.STALLED]
+        if not b3._node():
+            self.skipTest("node is not installed")
+        cmd = [b3._node(), "-e", self.STALLED]
         with mock.patch.object(bd, "_subprocess_timeout_s", lambda cmd: 3.0):
             with self.assertRaises(bd.ProbeRefusal) as caught:
                 bd._run_probe(cmd, editor_id="plate")

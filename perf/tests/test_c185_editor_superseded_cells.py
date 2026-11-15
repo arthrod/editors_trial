@@ -14,7 +14,7 @@ from pathlib import Path
 from perf.analysis import e2_cells as cells
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'build'))
-import perf_e2_tables as tables  # noqa: E402
+import perf_e2_tables as tables  # noqa: E402 - import after the sys.path setup above
 
 OLD = '20261112T180000000000Z-10000-000001'
 NEW = '20261114T010000000000Z-50000-000009'

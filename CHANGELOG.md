@@ -212,6 +212,17 @@ changes.
   README used the same wrong figure in an example (reworded); and the
   0.9.0 entry quotes a figure it corrects (0.0006%), now listed as a
   quotation.
+- CodeRabbit's review of the release (#218). One sentence of Report E2
+  was wrong after the lane round: it still gave GenOffice at 500,000 words
+  as an example of a painted frame minutes after the text, and of a C14
+  cell that is the time the text appeared; its C11 is now a few seconds
+  and that C14 cell is not published. The example is gone. Three limits of
+  the harness that bear on a printed figure are now stated in the report
+  and filed for the next campaign (#221): where C04's clock starts, a C14
+  no-damage sample when more than 1,200 frames arrived, and the canvas
+  hash that the probe-scan share leaves out. Four manifests the roots
+  builder should refuse are filed as #222; none is true of this
+  release's manifest. Tooling findings are #220.
 - In Report E2 the two typing latency tables (eigenpal, GenOffice) had no
   blank line before them, so the Word twin showed them as text (#214).
 - `build/test_bombs.py` compared this machine's operating-system version

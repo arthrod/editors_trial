@@ -321,7 +321,7 @@ def _never_idle_note(name: str, cell: dict) -> str:
     if 'after_load' not in phases:
         return text.replace('they would', 'it would')
     ready, capped = (cell['never_idle_figures'].get(key) for key, _fields in NEVER_IDLE_FIGURES)
-    pair = lambda medians: ' / '.join(fmt(median, 'ms') for median in medians)  # noqa: E731
+    pair = lambda medians: ' / '.join(fmt(median, 'ms') for median in medians)  # noqa: E731 - a one-line formatter local to this note
     if ready:
         text += ' Up to its ready signal it used %s of processor time;' % pair(ready)
     else:

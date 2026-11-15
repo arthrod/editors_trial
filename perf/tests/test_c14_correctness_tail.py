@@ -124,7 +124,9 @@ class CorrectnessLimit(unittest.TestCase):
 
     def setUp(self):
         import tempfile
-        self.tmp = tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[2] / ".scratch")
+        scratch = Path(__file__).resolve().parents[2] / ".scratch"
+        scratch.mkdir(exist_ok=True)  # not tracked: absent on a clean checkout
+        self.tmp = tempfile.TemporaryDirectory(dir=scratch)
         self.addCleanup(self.tmp.cleanup)
 
 

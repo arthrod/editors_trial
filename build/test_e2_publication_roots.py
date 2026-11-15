@@ -20,8 +20,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "build"))
 sys.path.insert(0, str(ROOT))
 
-import e2_publication_roots as e2r  # noqa: E402
-import facts as facts_mod  # noqa: E402
+import e2_publication_roots as e2r  # noqa: E402 - import after the sys.path setup above
+import facts as facts_mod  # noqa: E402 - import after the sys.path setup above
 
 MANIFEST_PATH = ROOT / "perf" / "container" / "e2_publication.json"
 RUN_ID = re.compile(r"^\d{8}T\d{12}Z-\d{5,6}-\d{6}$")
