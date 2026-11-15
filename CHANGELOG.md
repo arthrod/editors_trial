@@ -203,6 +203,15 @@ changes.
   occur whole, and a section number
   ("4.2 Bytes versus content") is no longer read as a size. No report
   figure failed the stricter check.
+  The same gate also read its own last output as evidence: it is called
+  with a relative path, its exclusion list is absolute, and nothing was
+  ever excluded, so a figure it refused once was accepted on the next run.
+  With that closed it refused three figures in older text, none in a
+  report: the 0.9.0 entry below gave WordCraft one point less than the
+  scorer and the report of 0.9.0 did, which is 85.9% (corrected); the
+  README used the same wrong figure in an example (reworded); and the
+  0.9.0 entry quotes a figure it corrects (0.0006%), now listed as a
+  quotation.
 - In Report E2 the two typing latency tables (eigenpal, GenOffice) had no
   blank line before them, so the Word twin showed them as text (#214).
 - `build/test_bombs.py` compared this machine's operating-system version
@@ -831,7 +840,7 @@ The first tagged release: the edition published on benchmarks.law on
   (`text.exact` and two field and part checks); eigenpal was rescored
   (#24).
 - Every report counts 99 checks, not 97, and quotes the rescored figures
-  (Folio 97.5%, Plate.js 20.6%, WordCraft 84.9%).
+  (Folio 97.5%, Plate.js 20.6%, WordCraft 85.9%).
 - Report C: 83 differing pixels are 0.005% of the corpus's ink, not 0.0006%.
 - The "only" claims and stale statuses that the reports' own tables
   contradicted were corrected; Report E became Reports D1 and D2.

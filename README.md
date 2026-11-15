@@ -164,7 +164,7 @@ The gates answer different questions, and none substitutes for another:
 
 The findings gate is the one that cannot be replaced by a token check. A
 token check asks whether "100%" occurs somewhere in the logs; it cannot tell
-SuperDoc's 100% from SuperDoc's 84.9%. The findings gate compares each
+one editor's 100% from another's lower score. The findings gate compares each
 figure with the measurement for the subject the table row names.
 
 The number gate scans every live report and its twin - thirty-five documents,

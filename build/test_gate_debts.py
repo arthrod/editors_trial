@@ -81,6 +81,28 @@ class WholeFigures(unittest.TestCase):
         self.assertEqual(gate.tokens_absent_from_corpus("85.9%", "-85.9%"), [])
 
 
+class OwnOutputs(unittest.TestCase):
+    """The gate is called with ``--scores-dir out``, a relative path. Its own
+    last report was then not excluded, so a figure it refused once was found
+    in that report the next time and accepted (#215)."""
+
+    def test_a_relative_path_to_its_own_output_is_excluded(self):
+        import os
+        here = os.getcwd()
+        os.chdir(gate.ROOT)
+        try:
+            for name in ("out/consistency.txt", "out/inventory.txt",
+                         "out/review/claim_evidence_matrix.csv", "out/findings_ledger.csv"):
+                self.assertTrue(gate.is_excluded(Path(name)), name)
+            self.assertFalse(gate.is_excluded(Path("out/plate/roundtrip.log")))
+        finally:
+            os.chdir(here)
+
+    def test_an_absolute_path_is_excluded_too(self):
+        self.assertTrue(gate.is_excluded(gate.ROOT / "out" / "consistency.txt"))
+        self.assertFalse(gate.is_excluded(gate.ROOT / "out" / "plate" / "score.json"))
+
+
 class VariantDeltas(unittest.TestCase):
     def _write(self, data):
         folder = Path(tempfile.mkdtemp())

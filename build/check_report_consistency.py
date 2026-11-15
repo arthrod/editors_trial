@@ -486,6 +486,10 @@ CORPUS_EXCLUDE = (
 # than measured here. Each one is a citation, so it is allowed with its
 # source named, and each use is noted so it stays visible.
 QUOTED_FIGURES = {
+    "0.0006%": (
+        "CHANGELOG 0.9.0 quotes the wrong figure it corrects (83 differing "
+        "pixels are 0.005% of the corpus's ink, not 0.0006%)"
+    ),
     "65%": "WordCraft's docs/file-format-parity.md:49 self-assessment",
     "60%": "WordCraft's docs/file-format-parity.md:10-13 self-assessment",
     "190 bytes": (
@@ -510,7 +514,10 @@ def is_excluded(path: Path) -> bool:
     Returns:
         True when the path is one of the gate's own outputs.
     """
-    return any(path == excluded or excluded in path.parents
+    # The gate is called with a relative --scores-dir, and the excluded paths
+    # are absolute: compare resolved paths, or nothing is ever excluded (#215).
+    path = path.resolve()
+    return any(path == excluded.resolve() or excluded.resolve() in path.parents
                for excluded in CORPUS_EXCLUDE)
 
 
