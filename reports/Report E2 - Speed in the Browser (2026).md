@@ -128,7 +128,7 @@ From a scroll of the document until the first frame in which its content has mov
 | SuperDoc | 16 ms | 19 ms | 26 ms | 51 ms |
 | WordCraft | varied | 150 ms | varied | 148 ms |
 
-At 500 words the figures are all under 1 frame; at 250,000 words, from under 1 frame to 148 ms.
+At 500 words the figures run from under 1 frame to 16 ms; at 250,000 words, from under 1 frame to 148 ms.
 
 ### Memory with the document open
 
