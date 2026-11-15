@@ -68,7 +68,13 @@ taken for this release: every figure comes from the runs of 0.10.0.
   not the editors. The harness records the load and does not refuse on it.
 - **Five live demos did not load their document** (#225): the bundle's demo
   folders held only the entry chunks. Rebuilt whole at the pinned commits
-  for the bundle of this release.
+  for the bundle of this release (docxodus, Fidus Writer, GenOffice, Plate,
+  SuperDoc). Two more showed their document but were missing files and were
+  rebuilt too: Folio (its 178 font files) and Docen (two lazy chunks).
+  `build/verify_demo.py` opens a built demo in a browser and fails on any
+  missing file; all twelve were checked with it. Not fixed: the docs.plus
+  demo asks for the fixture's one image at a path its host page never
+  stores (a 404; the text is shown).
 
 ## [0.10.0] - 2026-11-15
 

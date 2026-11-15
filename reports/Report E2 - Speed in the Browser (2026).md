@@ -4,21 +4,21 @@
 
 ## The short version
 
-The editors in the tables below were opened in a real browser, each with the same documents, and timed doing what a person does: opening a document, typing, clicking, pasting, undoing and scrolling. This section gives those results in a few small tables. Everything after it is the reference: every measurement, how it was taken, and what was left out and why.
+The editors in the tables below were opened in a real browser, each with the same documents, and timed doing what a person does: opening a document, typing, clicking, pasting, undoing and scrolling. This section gives those results in a few small tables. Everything after it is the reference: the full tables, how each measurement was taken, and what was left out and why.
 
 How to read the tables:
 
-- **A figure is a typical time, measured twice.** Each test was run in two separate rounds, each of several fresh launches of the browser. A figure is printed only when the two rounds agree within 10 percent, and it is the middle of the two rounds' typical (median) values.
+- **A figure is a typical time, measured twice.** Each test was run in two separate rounds, each of several fresh launches of the browser. A figure is printed only when the two rounds agree within 10 percent (or, for times that short, within one picture of the screen), and it is the middle of the two rounds' typical (median) values.
 - **Lower is quicker, or lighter.** Times are in milliseconds (ms, thousandths of a second) or seconds (s); memory is in MiB and GiB (1 GiB is 1,024 MiB).
-- **"under 1 frame"** means the screen showed the result in its very next picture. The screen was redrawn 60 times a second, so a shorter time cannot be told apart.
-- **"varied"** means the two rounds did not agree, so no figure is given. **"crashed"** means the editor's page crashed in every launch. **"does not apply"** means the test cannot be run on that editor. **"no figure"** means the test ran but our tooling could not confirm the result. A dash means the cell was not part of these runs. The reference tables give the reason for each.
+- **"under 1 frame"** means the result was on screen in less than the time between two pictures of the screen, in both rounds. The screen was redrawn 60 times a second, so a shorter time cannot be told apart.
+- **"varied"** means the two rounds did not agree, so no figure is given. **"crashed"** means the editor's page crashed in every launch. **"does not apply"** means the test cannot be run on that editor. **"no figure"** means too few launches gave a confirmed result, whether because of the editor or of our tooling. A dash means the cell was not part of these runs. The reference tables give the reason for each.
 - **The editors are in alphabetical order.** This report does not rank them.
 
 What these figures cannot tell you:
 
-- **They are not the times you will see on your own computer.** The tests ran on a cloud server with no graphics processor, so everything an editor draws was drawn by the processor. For WordCraft, which redraws its page continuously, that drawing is nearly all of the processor time it uses while nothing is happening (see B8 in the reference). Compare the editors with each other, in the same column.
+- **They are not the times you will see on your own computer.** The tests ran on a cloud server with no graphics processor, so everything an editor draws was drawn by the processor. For WordCraft, which redraws its page continuously, that drawing is nearly all of the processor time it used in the half minute after opening a document (see B8 in the reference). Compare the editors with each other, in the same column.
 - **The two largest documents are far longer than most real documents.** The first two columns are the common case.
-- **"varied" is often the machine, not the editor.** The server is shared. Most of the cells that varied in opening and typing at 50,000 words come from one round that ran while the server was busy with other work (issue #228). They say nothing about those editors.
+- **"varied" is often the machine, not the editor.** The server is shared. Most of the cells that varied in opening and typing at 50,000 words come from one round that ran while the server was busy with other work (issue #228). They should not be read as a property of those editors.
 - **Search and replace was not measured** for any editor: that is a gap in our tooling, not in the editors.
 - **Only what is listed is measured.** Whether an editor keeps a document's content and formatting intact is the subject of the other reports of this trial.
 
@@ -84,7 +84,7 @@ From the paste of a 1,500-character block until the first frame in which the pag
 |---|---|---|---|---|
 | canvas-editor + plugin | 94 ms | 361 ms | no figure | no figure |
 | Docen | 32 ms | 63 ms | 558 ms | 9.3 s |
-| Docxodus | under 1 frame | 19 ms | under 1 frame | under 1 frame |
+| Docxodus | 16 ms | 19 ms | under 1 frame | under 1 frame |
 | eigenpal | 53 ms | 57 ms | 109 ms | 109 ms |
 | Folio | 49 ms | 107 ms | 131 ms | 413 ms |
 | GenOffice | 22 ms | 24 ms | 170 ms | 2.8 s |
@@ -92,7 +92,7 @@ From the paste of a 1,500-character block until the first frame in which the pag
 | SuperDoc | 118 ms | 332 ms | 966 ms | no figure |
 | WordCraft | 131 ms | 129 ms | 154 ms | 248 ms |
 
-At 500 words the figures run from under 1 frame to 131 ms; at 250,000 words, from under 1 frame to 9.3 s.
+At 500 words the figures run from 16 ms to 131 ms; at 250,000 words, from under 1 frame to 9.3 s.
 
 ### Undoing
 
@@ -118,14 +118,14 @@ From a scroll of the document until the first frame in which its content has mov
 
 | Editor | 500 words | 5,000 words | 50,000 words | 250,000 words |
 |---|---|---|---|---|
-| canvas-editor + plugin | under 1 frame | under 1 frame | under 1 frame | under 1 frame |
+| canvas-editor + plugin | under 1 frame | 16 ms | under 1 frame | under 1 frame |
 | Docen | under 1 frame | 18 ms | under 1 frame | 22 ms |
 | Docxodus | under 1 frame | under 1 frame | under 1 frame | 62 ms |
 | eigenpal | under 1 frame | 26 ms | 25 ms | 29 ms |
-| Folio | under 1 frame | under 1 frame | under 1 frame | under 1 frame |
+| Folio | 15 ms | under 1 frame | under 1 frame | under 1 frame |
 | GenOffice | under 1 frame | 17 ms | 20 ms | 60 ms |
 | Plate.js | under 1 frame | under 1 frame | 21 ms | 64 ms |
-| SuperDoc | under 1 frame | 19 ms | 26 ms | 51 ms |
+| SuperDoc | 16 ms | 19 ms | 26 ms | 51 ms |
 | WordCraft | varied | 150 ms | varied | 148 ms |
 
 At 500 words the figures are all under 1 frame; at 250,000 words, from under 1 frame to 148 ms.
@@ -1197,7 +1197,7 @@ C19 was meant to show memory an editor leaves behind. The harness read the brows
 
 ### B8 — resources while opening and editing
 
-**B8 — resources while opening and editing.** One fresh browser per launch opens the document, waits until the editor is idle, types sixteen characters into a body line on the first screen, and waits again. CPU is the processor time of the whole browser process tree: to open (from navigation until idle, including work an editor does after it reports ready), during the edit (the keystrokes plus half a second), and while settling afterwards. The memory column is the highest reading of that tree's resident memory: it is read when the load and the edit start and end and every half second while the page settles, so a higher moment in the middle of a long load or edit is not seen; a page shared by two processes counts once for each. An edit counts only when it is verified in the document: the text of the block at the caret, read from the page or from the editor's model, gained exactly the typed text; WordCraft, which puts no document text in the page, is verified by its own modified flag. An editor still working when a 30-second cap ends never went idle, even in one launch: the CPU columns that wait would end are not printed, because they would time the cap, and a note gives what it used up to its ready signal, how the capped wait divides between the browser's GPU process (the one that draws; on this host it draws in software) and the page's own process, and how far its memory readings ran. The complex document is loaded without its read-only protection, which the editors honour.
+**B8 — resources while opening and editing.** One fresh browser per launch opens the document, waits until the editor is idle, types sixteen characters into a body line on the first screen, and waits again. CPU is the processor time of the whole browser process tree: to open (from navigation until idle, including work an editor does after it reports ready), during the edit (the keystrokes plus half a second), and while settling afterwards. The memory column is the highest reading of that tree's resident memory: it is read when the load and the edit start and end and every half second while the page settles, so a higher moment in the middle of a long load or edit is not seen; a page shared by two processes counts once for each. An edit counts only when it is verified in the document: the text of the block at the caret, read from the page or from the editor's model, gained exactly the typed text; WordCraft, which puts no document text in the page, is verified by its own modified flag. An editor still working when a 30-second cap ends never went idle, even in one launch: the CPU columns that wait would end are not printed, because they would time the cap, and a note gives what it used up to its ready signal, how far its memory readings ran and, where every kept launch recorded its processes, how the capped wait divides between the browser's GPU process (the one that draws; on this host it draws in software) and the page's own process. The complex document is loaded without its read-only protection, which the editors honour.
 
 Each cell shows the first seed's median and the second seed's median. A figure is printed as a result only when the two agree within 10 percent (20 ms for CPU); a cell that does not agree says so and gives both medians and the lowest and highest launch, so that what was read is not hidden. The CPU counters advance in steps of 10 ms, so a cell of a few tens of milliseconds is at the counter's resolution. The host has no graphics processor: what an editor draws is drawn by the processor and counts as CPU.
 
@@ -1331,7 +1331,7 @@ Not published or flagged:
     at sr.computeRowList (http://127.0.0.1:59713.
 - WordCraft never went idle: it was still working when the 30-second cap ended, after opening in 10 and 10 of its kept launches and after the edit in 10 and 10. Its three CPU columns are not printed: they would time the cap, not the editor. Up to its ready signal it used 6.47 s / 6.57 s of processor time; in the capped wait that followed, 66.16 s / 69.94 s. Of the capped wait, the browser's GPU process used 61.91 s / 66.64 s and the page's own process 4.04 s / 3.94 s; the page had 133 / 138 long tasks, 12.51 s / 12.61 s in all. Its memory readings ran from 885.7 MiB to 970.2 MiB across the kept launches.
 
-The settling window is not a fixed length: it ends at the first half-second poll at which two seconds have passed without a long task, and the polls themselves cost processor time. Across the 39 cells with a settling figure, the first seed's median is the higher in 27 and the lower in 4. A difference of a few tens of milliseconds in that column is the window and the 10 ms counter, not the editor.
+The settling window is not a fixed length: it ends at the first half-second poll at which two seconds have passed without a long task, and the polls themselves cost processor time. Across the 39 cells with a settling figure, the first seed's median is the higher in 27 and the lower in 4. A difference of a few tens of milliseconds in that column cannot be told apart from the window and the 10 ms counter.
 
 ### B9 — typing marathon
 
