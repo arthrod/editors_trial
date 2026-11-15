@@ -513,6 +513,14 @@ function attachPaintWitnessFailure(observation, painted) {
   }
 }
 
+// #207: the fewest changed pixels a frame must show to count as painted content.
+// An editor that draws its own caret shows or moves it as soon as a key arrives,
+// and the witness's default (4 pixels) took that frame for the pasted text. In the
+// publication runs the largest caret-only frame changed 58 pixels and the smallest
+// painted paste 677. Used where the response is text: C08, and WordCraft's C09.
+// A one-character undo elsewhere changes 17-251 pixels and keeps the default.
+const CONTENT_MIN_CHANGED_PIXELS = 100;
+
 async function sampleAfterInput(witness, inputMs, options, callOptions = {}) {
   if (!witness || typeof witness.paintAfter !== 'function') {
     return { ok: false, reason: 'paint_witness_unavailable' };
@@ -2666,6 +2674,7 @@ async function measureUndoCopyOracle(page, witness, options, meta) {
       text_oracle: 'select_all_copy',
     };
     const painted = await sampleAfterInput(witness, null, options, {
+      minPixels: CONTENT_MIN_CHANGED_PIXELS,
       arm: async () => {
         await clearInputs(page);
         undoAttempted = true;
@@ -2832,6 +2841,7 @@ async function measureBulkInsertCopyOracle(page, witness, options, meta) {
   }
   let pasteInput = null;
   const painted = await sampleAfterInput(witness, null, options, {
+    minPixels: CONTENT_MIN_CHANGED_PIXELS,
     arm: async () => {
       await clearInputs(page);
       await page.keyboard.press(`${options.modifier}+V`);
@@ -3344,6 +3354,7 @@ async function measureBulkInsert(page, witness, options, meta) {
   if (pasteError === null) {
     let pasteInput = null;
     const painted = await sampleAfterInput(witness, null, options, {
+      minPixels: CONTENT_MIN_CHANGED_PIXELS,
       arm: async () => {
         await clearInputs(page);
         await page.keyboard.press(`${options.modifier}+V`);
@@ -3443,6 +3454,7 @@ async function measureBulkInsert(page, witness, options, meta) {
   const pre = await readStateFor(page, meta);
   let stamp = null;
   const painted = await sampleAfterInput(witness, null, options, {
+    minPixels: CONTENT_MIN_CHANGED_PIXELS,
     arm: async () => {
       stamp = await page.evaluate((text) => {
         const start = performance.now();
@@ -4254,6 +4266,8 @@ export async function runCriteriaSuite({
               caretMask: callOptions.caretMask !== false,
               quietMs: callOptions.quietMs ?? 0,
               quietBudgetMs: callOptions.quietBudgetMs ?? 8000,
+              // undefined keeps the witness's own default (#207).
+              minPixels: callOptions.minPixels,
             });
           },
         };
@@ -4536,6 +4550,7 @@ export async function runCriteriaSuite({
 }
 
 export {
+  CONTENT_MIN_CHANGED_PIXELS,
   measureBulkInsert,
   measureClicks,
   measureQuiescence,
