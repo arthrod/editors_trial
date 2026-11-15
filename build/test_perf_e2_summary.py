@@ -83,10 +83,37 @@ def test_a_section_with_no_figure_at_all_is_left_out_and_an_empty_report_says_so
     assert '### Opening a document' in text and '### Scrolling' not in text
 
 
-def test_the_template_carries_the_short_version_before_the_reference():
+def _template():
     from pathlib import Path
-    template = (Path(__file__).resolve().parent.parent / 'templates/reports/Report E2 - Speed in the Browser (2026).md').read_text(encoding='utf-8')
-    assert template.index('## The short version') < template.index('{{perf.e2.short_version}}') < template.index('## What is measured')
+    return (Path(__file__).resolve().parent.parent
+            / 'templates/reports/Report E2 - Speed in the Browser (2026).md').read_text(encoding='utf-8')
+
+
+def test_the_report_comes_first_and_every_detail_is_in_a_lettered_appendix():
+    """Arthur, 2026-11-15: a human friendly report first, then the details in an appendix."""
+    import re
+    template = _template()
+    first_appendix = template.index('\n## Appendix A')
+    assert template.index('{{perf.e2.short_version}}') < first_appendix
+    headings = re.findall(r'^## (.+)$', template, flags=re.M)
+    after = headings[headings.index(next(h for h in headings if h.startswith('Appendix A'))):]
+    assert all(h.startswith('Appendix ') for h in after), after
+    letters = [h.split()[1] for h in after]
+    assert letters == [chr(ord('A') + i) for i in range(len(after))]
+    # Method placeholders (rule, host, reruns, full tables) are appendix material.
+    report = template[:first_appendix]
+    for placeholder in re.findall(r'\{\{([^}]+)\}\}', report):
+        assert placeholder in ('perf.e2.status', 'perf.e2.short_version'), placeholder
+
+
+def test_that_everything_was_run_twice_is_left_to_the_appendix():
+    """Arthur, 2026-11-15: 'Leave for the appendix the fact we ran again.'"""
+    template = _template()
+    report = template[:template.index('\n## Appendix A')].lower()
+    for words in ('twice', 'two rounds', 'both rounds', 'second round', 'seed', 'measured again', 'reproduc'):
+        assert words not in report, words
+    appendix = template[template.index('\n## Appendix A'):]
+    assert 'run twice' in appendix and '{{perf.e2.rule}}' in appendix and '{{perf.e2.reruns}}' in appendix
 
 
 def test_a_column_whose_figures_all_read_the_same_says_so():

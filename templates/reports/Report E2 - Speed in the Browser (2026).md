@@ -2,29 +2,34 @@
 
 {{perf.e2.status}}
 
-## The short version
+## What this report is
 
-The editors in the tables below were opened in a real browser, each with the same documents, and timed doing what a person does: opening a document, typing, clicking, pasting, undoing and scrolling. This section gives those results in a few small tables. Everything after it is the reference: the full tables, how each measurement was taken, and what was left out and why.
+Nine editors that open Word documents in a web browser were each given the same documents, in a real browser, and timed doing what a person does: opening a document, typing, clicking, pasting, undoing and scrolling. This report gives the results in seven small tables, one per action, and says what the figures can and cannot tell you.
 
-How to read the tables:
+It is written to be read from here to the end of the results. The appendices after that hold everything needed to check it: how each time was taken, the machine, the rule a figure had to pass before it was printed, the full tables, what was not measured and why, and how to run it again.
 
-- **A figure is a typical time, measured twice.** Each test was run in two separate rounds, each of several fresh launches of the browser. A figure is printed only when the two rounds agree within {{perf.e2.rel_tol_pct}} percent (or, for times that short, within one picture of the screen), and it is the middle of the two rounds' typical (median) values.
+## How to read the tables
+
+- **A figure is a typical time.** Each action was repeated across several fresh launches of the browser, and the figure is the typical (median) result. Appendix C gives the exact rule.
 - **Lower is quicker, or lighter.** Times are in milliseconds (ms, thousandths of a second) or seconds (s); memory is in MiB and GiB (1 GiB is 1,024 MiB).
-- **"under 1 frame"** means the result was on screen in less than the time between two pictures of the screen, in both rounds. The screen was redrawn 60 times a second, so a shorter time cannot be told apart.
-- **"varied"** means the two rounds did not agree, so no figure is given. **"crashed"** means the editor's page crashed in every launch. **"does not apply"** means the test cannot be run on that editor. **"no figure"** means too few launches gave a confirmed result, whether because of the editor or of our tooling. A dash means the cell was not part of these runs. The reference tables give the reason for each.
+- **Read down a column, not across the report.** Each column is one document size, and every editor in it opened the same document.
+- **"under 1 frame"** means the result was on screen in less than the time between two pictures of the screen. The screen was redrawn 60 times a second, so a shorter time cannot be told apart.
+- **"varied"** means the measurement did not come out steady enough to print one figure. **"crashed"** means the editor's page crashed in every launch. **"does not apply"** means the test cannot be run on that editor. **"no figure"** means too few launches gave a confirmed result, whether because of the editor or of our tooling. A dash means the cell was not part of these runs. The full tables in Appendix E give the reason for each.
 - **The editors are in alphabetical order.** This report does not rank them.
 
-What these figures cannot tell you:
+## What the figures cannot tell you
 
-- **They are not the times you will see on your own computer.** The tests ran on a cloud server with no graphics processor, so everything an editor draws was drawn by the processor. For WordCraft, which redraws its page continuously, that drawing is nearly all of the processor time it used in the half minute after opening a document (see B8 in the reference). Compare the editors with each other, in the same column.
+- **They are not the times you will see on your own computer.** The tests ran on a cloud server with no graphics processor, so everything an editor draws was drawn by the processor. For WordCraft, which redraws its page continuously, that drawing is nearly all of the processor time it used in the half minute after opening a document (table B8 in Appendix E). Compare the editors with each other, in the same column.
 - **The two largest documents are far longer than most real documents.** The first two columns are the common case.
-- **"varied" is often the machine, not the editor.** The server is shared. Most of the cells that varied in opening and typing at 50,000 words come from one round that ran while the server was busy with other work (issue #228). They should not be read as a property of those editors.
+- **"varied" is often the machine, not the editor.** The server is shared with other work. Most of the cells that varied in opening and typing at 50,000 words were measured while the server was busy (issue #228; Appendix B gives the load). They should not be read as a property of those editors.
 - **Search and replace was not measured** for any editor: that is a gap in our tooling, not in the editors.
 - **Only what is listed is measured.** Whether an editor keeps a document's content and formatting intact is the subject of the other reports of this trial.
 
+## The results
+
 {{perf.e2.short_version}}
 
-## What is measured
+## Appendix A — What was measured, and how each time was taken
 
 This report concerns browser-visible first paint, typing, scrolling, and related interactions. {{perf.e2.intro}}
 
@@ -56,7 +61,7 @@ Each criterion is one browser-visible or model clock on the same corpus the head
 
 {{perf.e2.criterion.C15}}
 
-## The host and its limits
+## Appendix B — The machine and its limits
 
 {{perf.e2.relaxed_bounds}}
 
@@ -66,7 +71,9 @@ Each criterion is one browser-visible or model clock on the same corpus the head
 
 Playwright {{perf.e2.playwright}}, Chromium {{perf.e2.chromium}}. Renderer: {{perf.e2.renderer}}.
 
-## The rule
+## Appendix C — Every measurement was run twice: the rule a figure had to pass
+
+Everything in this report was run twice, in two separate rounds (called seeds below), and a figure is printed only when the two agree. The figures in the results above are the middle of the two rounds' medians; "under 1 frame" is printed only when both rounds were under a frame; "varied" is a cell whose two rounds did not agree within {{perf.e2.rel_tol_pct}} percent (or, for times that short, within one frame).
 
 {{perf.e2.sample_plan}}
 
@@ -76,7 +83,7 @@ Playwright {{perf.e2.playwright}}, Chromium {{perf.e2.chromium}}. Renderer: {{pe
 
 {{perf.e2.runs}}
 
-## Read this before the tables
+## Appendix D — Notes on the full tables, and what was measured again
 
 {{perf.e2.reruns}}
 - **How an edit is confirmed.** After each timed interval, and outside it, the harness checks that the edit landed once. It counts the typed text near the caret in the page (Plate, Docxodus, SuperDoc, GenOffice, eigenpal, and Folio through its hidden editing layer) or in the editor's model (canvas-editor, Docen). WordCraft paints into one canvas and puts no document text in the page, so the typing criteria (C04 to C07) confirm its edit by the modified mark in its window title. C08 and C09 confirm it through WordCraft's own select-all and copy, which gives its whole text: a read before the timed interval and one after it, both outside it.
@@ -92,9 +99,9 @@ Playwright {{perf.e2.playwright}}, Chromium {{perf.e2.chromium}}. Renderer: {{pe
 - **C14's text check.** Each prose document of the C14 ladder ends with lines of combining marks, characters outside the Basic Multilingual Plane, emoji sequences and right-to-left text; C14 checks (I01 to I03) that they survive in the editor's text, read from its first and last 4,000 characters. Folio and SuperDoc mount only the pages near the start of a long document, and WordCraft paints into a canvas, so for these three the page holds only part of the text. After the timed sample, and outside it, the harness asks each of them for the whole document: SuperDoc through its document model, Folio through its editing layer (mounted by a click on the page), and WordCraft through its own select-all and copy. For the other editors the text the harness already reads is the whole document: from the page for Plate, Docxodus and GenOffice, and from the editor's model for canvas-editor, Docen and eigenpal. C14 gives each wait of a document's load (navigation, the editor's ready signal, the page's load event for the canvas editors Docen and WordCraft, the painted document) up to 1,000 seconds. The complex document carries no such lines, so the check does not apply to it: its C14 cells are timings whose text is not checked. When the check fails, the harness names the cause: an editor whose text could not be read, or whose readable text is a window shorter than nine tenths of the document and stops before its closing paragraph, is withheld as "not checkable", a limit of the harness rather than a fault of the editor; an editor whose whole document was read and still fails keeps the failure.
 - **Criteria that do not apply.** canvas-editor and Docen paint text without glyph geometry the harness can read, so C05 and C06, which time the keystroke's own paint, do not apply to them. WordCraft also paints on one canvas without glyph geometry the harness can read, so its C05 and C06 do not apply either. C15 (search and replace) was not measured for any editor in this run, and that is a gap in our harness, not in the editors. The probe drives find only through a find box in the page, and no host was configured with one. Docen and GenOffice open a find box on Ctrl+F in the hosts we measured. SuperDoc, eigenpal, Docxodus and canvas-editor ship a find box that our hosts do not mount. Plate's find is an optional plugin that its default editor leaves out, Folio's playground has no control that opens its find dialog, and WordCraft paints its find dialog on a canvas, where the probe cannot type into it. The document lane also ran C15 in each of its five jobs per block, so the C15 cells are refused as a duplicate block index as well. No C15 attempt ran, so no figure is affected.
 - **Chrome traces.** In every first-block job, each timed launch was followed by a separate, untimed launch that recorded a Chrome trace for diagnosis; second-block jobs ran without them, and so did most typing sessions. Traces never feed a table.
-- **Throttling and steal.** The host note above gives, per seed, the CPU steal and the samples refused for cgroup CPU throttling; a refused sample is never kept. The Spaces are containers with a CPU quota on a host shared with other tenants. The host note also gives, per seed, the range of that host's 1-minute load average read at the start and end of each job. A sample is never refused for host load: a job that ran while the host was busier is slower, and that is one reason a cell's two seeds can differ.
+- **Throttling and steal.** The host note in Appendix B gives, per seed, the CPU steal and the samples refused for cgroup CPU throttling; a refused sample is never kept. The Spaces are containers with a CPU quota on a host shared with other tenants. The host note also gives, per seed, the range of that host's 1-minute load average read at the start and end of each job. A sample is never refused for host load: a job that ran while the host was busier is slower, and that is one reason a cell's two seeds can differ.
 
-## Tables
+## Appendix E — The full tables
 
 ### C03 — first visible content
 
@@ -184,18 +191,18 @@ Throughput sessions publish chars/s and resources. Latency sessions publish load
 
 {{perf.e2.table.TYPING}}
 
-## Not measured in the browser run
+## Appendix F — Not measured in the browser run
 
 {{perf.e2.not_run}}
 
-## Not reproduced
+## Appendix G — Cells whose two rounds did not agree
 
 {{perf.e2.not_reproduced}}
 
-## How to reproduce
+## Appendix H — How to run it again
 
 {{perf.e2.reproduce}}
 
-## DOCX verification
+## Appendix I — DOCX verification
 
 {{perf.e2.word_verification}}

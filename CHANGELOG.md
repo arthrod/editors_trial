@@ -38,6 +38,13 @@ taken for this release: every figure comes from the runs of 0.10.0.
 
 ### Added
 
+- **Report E2 is a report first and a reference second.** It now opens with
+  what the report is, how to read the tables, what the figures cannot tell
+  you, and the results; everything else is in lettered appendices (A: what
+  was measured; B: the machine; C: the rule, and that every measurement was
+  run twice; D: notes and what was measured again; E: the full tables; F to
+  I: not measured, cells that did not agree, how to run it again, DOCX
+  verification). No figure changes.
 - **Report E2, "The short version"** (#227). One small table per question a
   reader asks (opening a document, typing a character, placing the caret,
   pasting, undoing, scrolling, memory with the document open), editors in

@@ -1269,7 +1269,7 @@ def test_the_template_says_what_c03_c17_and_c19_are():
     assert "no reading of an empty browser" in c19 and "dataset" in c19
     b8 = tpl[tpl.index("### B8"):tpl.index("### B9")]
     assert "10 ms" in b8
-    load = tpl[tpl.index("- **Throttling and steal.**"):tpl.index("## Tables")]
+    load = tpl[tpl.index("- **Throttling and steal.**"):tpl.index("## Appendix E")]
     assert "load average" in load and "never refused for host load" in load
 
 
