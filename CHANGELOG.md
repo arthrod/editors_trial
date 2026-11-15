@@ -108,9 +108,17 @@ changes.
 
 ### Not re-measured
 
+- The release gate (`build/verify_publication.sh --with-word`) passed
+  twice, all eight checks, at commit 0cff2dfc. The review that followed
+  changed only the two checker scripts, their tests and this file. The
+  raw run data had by then been removed from the measuring machine (it
+  is in the run bucket), so at the released commit the gate was run twice
+  without its facts rebuild step: the other checks, including Word, read
+  the facts the two full passes had rebuilt, byte for byte.
 - Reports A to D2 and the main report: no pin moved and nothing they read
   changed, so their facts are those `main` last tracked (identical to the
-  published et-v0.9.5 facts); every one of them renders byte-identical.
+  published et-v0.9.5 facts); the Markdown of every one of them renders
+  byte-identical. Their Word twins were rebuilt, as every release does.
   Report E's browser criteria (C03, C05–C12, C14, C15) and the memory
   lanes (C17, C19) are measured in Report E2, not in Report E; the
   WebAssembly boundary (C24, #117) is measured in neither.
@@ -119,9 +127,7 @@ changes.
   were not started; Arthur, 2026-11-11), office-open (a library with no
   editing surface) or LibreOffice (the conversion baseline of Report E).
   The report lists each with its reason.
-- Release gate exception: 1 unit test in `build/test_*.py` fails,
-  `test_bombs`, because macOS refuses `RLIMIT_AS`, so the hostile suite
-  does not run on this machine. The base branch fails it too. Seven more
+- Seven unit tests
   (`test_every_lane`, `test_ns_tables`, `test_report_claims`) read outputs
   of Reports A to D that #87 deleted from the repository (#204). This
   release did not re-produce those outputs (no pin moved), so it restored
@@ -192,6 +198,11 @@ changes.
   agree with the scorer. The number gate could not find Report C's A/B
   byte deltas, because the measurement holds the two sizes and not their
   difference; it now does the subtraction `build/ab_table.py` does.
+  codex's review of these fixes then showed the number gate accepted a
+  figure that was only the tail of a longer one ("201 bytes" inside
+  "1,201 bytes"); figures now have to occur whole, and a section number
+  ("4.2 Bytes versus content") is no longer read as a size. No report
+  figure failed the stricter check.
 - In Report E2 the two typing latency tables (eigenpal, GenOffice) had no
   blank line before them, so the Word twin showed them as text (#214).
 - `build/test_bombs.py` compared this machine's operating-system version
@@ -367,8 +378,8 @@ changes.
   as well, at a later commit (6a037a84), only so that one harness measures
   all of WordCraft's 500,000-word cells: the fix does not change C14, which
   has read WordCraft's text through its own select all and copy since #183.
-  The first such round (08:41 UTC, both its Spaces) ran about 18% slower on
-  every job (medians 8.9-9.8 s), with the same build, browser and command
+  The first such round (08:41 UTC, both its Spaces) ran slower on every job
+  (medians 8.9-9.8 s), with the same build, browser and command
   and no CPU steal or throttling. It did not reproduce: two runs started
   20 minutes later on two Spaces gave 7.7-7.9 s at this commit and 8.2-8.3 s
   at the older d697b98e, matching the first round's 7.5-8.2 s. A change that

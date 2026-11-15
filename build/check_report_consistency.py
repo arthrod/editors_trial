@@ -35,7 +35,9 @@ SECOND_DIAGRAM = re.compile(
 )
 NEGATED = re.compile(r"\b(no|not|never|without)\b", re.I)
 PCT = re.compile(r"\d[\d,]*(?:\.\d+)?\s*%")
-BYTE = re.compile(r"\d[\d,]*\s+bytes\b", re.I)
+# Not the tail of another number: the heading "4.2 Bytes versus content" is
+# not a size of 2 bytes (#215).
+BYTE = re.compile(r"(?<![\d.,])\d[\d,]*\s+bytes\b", re.I)
 
 def active_markdown() -> list[Path]:
     """Return Markdown paths in the root, reports, and reports/extras directories."""
@@ -355,12 +357,14 @@ def variant_deltas(path: Path = AB_COMPARE) -> list[str]:
     """
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-        corpus = int(data["corpus_bytes"])
+        corpus = data["corpus_bytes"]
     except (OSError, ValueError, KeyError, TypeError):
+        return []
+    if type(corpus) is not int:
         return []
     sizes: list[str] = []
     for row in (data.get("variants") or {}).values():
-        if not isinstance(row, dict) or not isinstance(row.get("bytes"), int):
+        if not isinstance(row, dict) or type(row.get("bytes")) is not int:
             continue
         delta = abs(row["bytes"] - corpus)
         sizes.append(f"{delta} bytes")
@@ -519,8 +523,22 @@ def number_tokens(text: str) -> list[str]:
 
 
 def tokens_absent_from_corpus(text: str, corpus: str) -> list[str]:
-    """Percentages and byte sizes in ``text`` that are not substrings of ``corpus``."""
-    return [token for token in number_tokens(text) if token not in corpus]
+    """Percentages and byte sizes in ``text`` that ``corpus`` does not hold.
+
+    A figure is held when it occurs whole: "201 bytes" is not in "1,201 bytes"
+    and "5.9%" is not in "85.9%" (#215).
+    """
+    return [token for token in number_tokens(text) if not corpus_holds(token, corpus)]
+
+
+def corpus_holds(token: str, corpus: str) -> bool:
+    """Whether ``token`` occurs in ``corpus`` as a whole figure."""
+    start = corpus.find(token)
+    while start != -1:
+        if start == 0 or corpus[start - 1] not in "0123456789.,":
+            return True
+        start = corpus.find(token, start + 1)
+    return False
 
 
 def main() -> int:
@@ -619,7 +637,7 @@ def main() -> int:
                     f"({QUOTED_FIGURES[token]})"
                 )
                 continue
-            if token not in corpus:
+            if not corpus_holds(token, corpus):
                 problems.append(
                     f"number not in lanes or scorer output: {token!r} in {rel}"
                 )
