@@ -10,26 +10,27 @@ It is written to be read from here to the end of the results. The appendices aft
 
 ## How to read the tables
 
-- **A figure is a typical time.** Each action was repeated across several fresh launches of the browser, and the figure is the typical (median) result. Appendix C gives the exact rule.
+- **A figure is a typical time.** Each action was repeated many times, across several fresh launches of the browser, and the figure is a typical (middle) result of those repeats. Appendix C gives the exact rule.
 - **Lower is quicker, or lighter.** Times are in milliseconds (ms, thousandths of a second) or seconds (s); memory is in MiB and GiB (1 GiB is 1,024 MiB).
-- **Read down a column, not across the report.** Each column is one document size, and every editor in it opened the same document.
-- **"under 1 frame"** means the result was on screen in less than the time between two pictures of the screen. The screen was redrawn 60 times a second, so a shorter time cannot be told apart.
-- **"varied"** means the measurement did not come out steady enough to print one figure. **"crashed"** means the editor's page crashed in every launch. **"does not apply"** means the test cannot be run on that editor. **"no figure"** means too few launches gave a confirmed result, whether because of the editor or of our tooling. A dash means the cell was not part of these runs. The full tables in Appendix E give the reason for each.
+- **Read down a column.** Each column is one document size, and every editor in it was given the same document. The editors were measured on separate cloud machines of the same type, each shared with other work, so a small difference between two editors can be the machine and not the editor.
+- **"under 1 frame"** means the change was on screen in less than the time between two pictures of the screen (about 17 thousandths of a second). The screen was redrawn 60 times a second, so a shorter time cannot be told apart.
+- **"varied"** means the repeated measurements disagreed too much to print one figure, so nothing is said about that editor at that size. **"crashed"** means the editor's page crashed in every launch of that test at that size; it says nothing about the other tests. **"does not apply"** means our tooling cannot take that measurement on that editor (Appendix D says why); it does not mean the editor cannot do the action. **"no figure"** means too few launches gave a confirmed result, whether because of the editor or of our tooling. A dash means the cell was not part of these runs. The full tables in Appendix E give the reason for each.
 - **The editors are in alphabetical order.** This report does not rank them.
 
 ## What the figures cannot tell you
 
-- **They are not the times you will see on your own computer.** The tests ran on a cloud server with no graphics processor, so everything an editor draws was drawn by the processor. For WordCraft, which redraws its page continuously, that drawing is nearly all of the processor time it used in the half minute after opening a document (table B8 in Appendix E). Compare the editors with each other, in the same column.
-- **The two largest documents are far longer than most real documents.** The first two columns are the common case.
-- **"varied" is often the machine, not the editor.** The server is shared with other work. Most of the cells that varied in opening and typing at 50,000 words were measured while the server was busy (issue #228; Appendix B gives the load). They should not be read as a property of those editors.
-- **Search and replace was not measured** for any editor: that is a gap in our tooling, not in the editors.
+- **They are not the times you will see on your own computer.** The tests ran on a cloud server with no graphics processor, so everything an editor draws was drawn by the processor. For WordCraft, which redraws its page continuously, that drawing is nearly all of the processor time it used in the half minute after opening a document (table B8 in Appendix E). The figures compare the editors with each other on machines of that kind.
+- **The two largest documents are deliberately extreme.** They are stress tests, not ordinary work; the first two columns are the ones to reason from.
+- **"varied" can be the machine, not the editor.** The machines are shared with other work, and some measurements were taken while a machine was much busier than at other times (issue #228; Appendix B gives the load of each run). The typing cells that varied at 50,000 words are of that kind. A "varied" cell should not be read as a property of the editor.
+- **Search and replace was not measured** for any editor, because of a gap in our tooling. This report says nothing about it.
+- **The line under each table is for orientation.** It says how many of the editors have a figure in the first and in the last column, and the lowest and highest of those figures. An editor without a figure is not in that spread.
 - **Only what is listed is measured.** Whether an editor keeps a document's content and formatting intact is the subject of the other reports of this trial.
 
 ## The results
 
 ### Opening a document
 
-From the moment the page is asked for the document until the first frame that shows it, with the text on screen checked against the document.
+From the moment the page is asked for the document until the first frame that shows it. The length of the text the editor holds is checked against the document (within 2 percent). For the editors that draw on a canvas, that text is read from the editor and not from the picture (Appendix D); content and formatting are not checked here.
 
 | Editor | 500 words | 5,000 words | 50,000 words | 250,000 words | 500,000 words |
 |---|---|---|---|---|---|
@@ -43,7 +44,7 @@ From the moment the page is asked for the document until the first frame that sh
 | SuperDoc | 2.4 s | 2.8 s | 5.8 s | 15.9 s | 29.2 s |
 | WordCraft | 1.3 s | 1.3 s | 1.7 s | 2.9 s | 4.5 s |
 
-At 500 words the figures run from 344 ms to 2.4 s; at 500,000 words, from 3.2 s to 285 s.
+At 500 words, 9 of 9 editors have a figure, from 344 ms to 2.4 s; at 500,000 words, 8 of 9, from 3.2 s to 285 s.
 
 ### Typing one character
 
@@ -61,7 +62,7 @@ From a key press until the frame in which that character is on screen, in a docu
 | SuperDoc | 135 ms | varied | varied | 556 ms |
 | WordCraft | does not apply | does not apply | does not apply | does not apply |
 
-At 500 words the figures run from under 1 frame to 135 ms; at 250,000 words, from 31 ms to 556 ms.
+At 500 words, 6 of 9 editors have a figure, from under 1 frame to 135 ms; at 250,000 words, 3 of 9, from 31 ms to 556 ms.
 
 ### Clicking to place the caret
 
@@ -79,7 +80,7 @@ From a click in the text until the next frame the editor paints.
 | SuperDoc | 60 ms | 77 ms | 235 ms | 337 ms |
 | WordCraft | 185 ms | 175 ms | 173 ms | varied |
 
-At 500 words the figures run from under 1 frame to 185 ms; at 250,000 words, from 20 ms to 1.9 s.
+At 500 words, 9 of 9 editors have a figure, from under 1 frame to 185 ms; at 250,000 words, 8 of 9, from 20 ms to 1.9 s.
 
 ### Pasting a block of text
 
@@ -97,7 +98,7 @@ From the paste of a 1,500-character block until the first frame in which the pag
 | SuperDoc | 118 ms | 332 ms | 966 ms | no figure |
 | WordCraft | 131 ms | 129 ms | 154 ms | 248 ms |
 
-At 500 words the figures run from 16 ms to 131 ms; at 250,000 words, from under 1 frame to 9.3 s.
+At 500 words, 9 of 9 editors have a figure, from 16 ms to 131 ms; at 250,000 words, 7 of 9, from under 1 frame to 9.3 s.
 
 ### Undoing
 
@@ -115,7 +116,7 @@ From the undo of one typed character until the first frame that differs.
 | SuperDoc | 67 ms | 123 ms | 230 ms | 270 ms |
 | WordCraft | 133 ms | 129 ms | 150 ms | 245 ms |
 
-At 500 words the figures run from 18 ms to 133 ms; at 250,000 words, from 46 ms to 16.6 s.
+At 500 words, 9 of 9 editors have a figure, from 18 ms to 133 ms; at 250,000 words, 9 of 9, from 46 ms to 16.6 s.
 
 ### Scrolling
 
@@ -133,7 +134,7 @@ From a scroll of the document until the first frame in which its content has mov
 | SuperDoc | 16 ms | 19 ms | 26 ms | 51 ms |
 | WordCraft | varied | 150 ms | varied | 148 ms |
 
-At 500 words the figures run from under 1 frame to 16 ms; at 250,000 words, from under 1 frame to 148 ms.
+At 500 words, 8 of 9 editors have a figure, from under 1 frame to 16 ms; at 250,000 words, 9 of 9, from under 1 frame to 148 ms.
 
 ### Memory with the document open
 
@@ -151,9 +152,13 @@ The memory of the whole browser with the document open, read two seconds after a
 | SuperDoc | 660 MiB | 773 MiB | 909 MiB | 1.3 GiB |
 | WordCraft | 1.1 GiB | 1.1 GiB | 1.1 GiB | 1.3 GiB |
 
-At 500 words the figures run from 567 MiB to 1.1 GiB; at 250,000 words, from 996 MiB to 7.4 GiB.
+At 500 words, 9 of 9 editors have a figure, from 567 MiB to 1.1 GiB; at 250,000 words, 8 of 9, from 996 MiB to 7.4 GiB.
 
 ## Appendix A — What was measured, and how each time was taken
+
+The seven tables of the results come from seven of the criteria described here: opening a document is C11; typing one character is C05, in an editor that has already been typed in; clicking to place the caret is C07; pasting is C08; undoing is C09; scrolling is C10; memory is C17, read two seconds after a burst of typing. The other criteria are in the full tables of Appendix E only.
+
+A "cell" below is one editor, one criterion, one measure and one document: far more cells than the boxes of the results tables. A "seed" is one of the two rounds in which everything was run (Appendix C).
 
 This report concerns browser-visible first paint, typing, scrolling, and related interactions. 701 of 1061 scheduled editor/criterion/measure cells reproduced between the two seeds. 52 run folders contributed 212 jobs (seed 1: 106 jobs; seed 2: 106 jobs); earliest job start 2026-11-12, latest job end 2026-11-15.
 
@@ -203,7 +208,7 @@ Playwright not recorded, Chromium 156.0.8078.80. Renderer: ANGLE (Google, Vulkan
 
 ## Appendix C — Every measurement was run twice: the rule a figure had to pass
 
-Everything in this report was run twice, in two separate rounds (called seeds below), and a figure is printed only when the two agree. The figures in the results above are the middle of the two rounds' medians; "under 1 frame" is printed only when both rounds were under a frame; "varied" is a cell whose two rounds did not agree within 10 percent (or, for times that short, within one frame).
+Everything in this report was run twice, in two separate rounds (called seeds below), and a figure is printed only when the two agree. Each round gives one number per cell: the median of its kept launches, where each launch counts as the median of its own samples. The figure in the results above is the midpoint (the average) of the two rounds' numbers. The results print that figure alone; the count of launches, the range and the 90th percentile described below are in the full tables of Appendix E. "under 1 frame" is printed only when both rounds were under a frame; "varied" is a cell whose two rounds did not agree within 10 percent (or, for times that short, within one frame).
 
 This is a first pass with fewer samples than planned. Each cell schedules 10 samples per editor per seed and is published when at least 5 samples are kept. The 90th percentile is printed only when at least 10 samples are kept; with 5 to 9 kept, the table prints the median and the range from the smallest kept sample to the largest, because a percentile of a short sample is not a stable figure.
 
