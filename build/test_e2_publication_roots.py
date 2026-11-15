@@ -1229,9 +1229,18 @@ def lane_manifest():
     return manifest
 
 
-def lane_data(tmp_path, *, seed=1, editors=("plate", "canvas"), lane="benchmark_document"):
+def lane_data(tmp_path, *, seed=1, editors=("plate", "canvas"), lane="benchmark_document", spaces=None):
     data, _ = extension_data(tmp_path)
-    new = [summarize(job(data / space / "runs" / rid, rid, index, lane=lane), seed, block, list(editors))
+    # The synthetic first pass also carries document jobs 10 and 11, which no lane job here replaces; a lane
+    # round takes its whole lane, so they are not part of this campaign. The second-round job 12 gets the
+    # summary every sealed job has.
+    import shutil
+    for index in (10, 11):
+        shutil.rmtree(data / "space-a" / "runs" / RID_A / "benchmark_document" / f"{RID_A}-{index:03d}")
+    summarize(data / "space-b" / "runs" / RID_RERUN2 / "benchmark_document" / f"{RID_RERUN2}-012", 1, 2,
+              ["plate", "canvas"])
+    new = [summarize(job(data / (spaces or {}).get(space, space) / "runs" / rid, rid, index, lane=lane), seed,
+                     block, list(editors))
            for rid, space, index, block in LANE_JOBS]
     return data, new
 
@@ -1371,3 +1380,88 @@ def test_a_missing_lane_round_run_fails_unless_partial(tmp_path):
     assert run_roots(data, tmp_path / "roots2", manifest, "--partial") == 0
     campaign = json.loads((tmp_path / "roots2" / "report_e2_runs.json").read_text())["campaign"]
     assert campaign["lane_rerun_unsealed"] == 4 and campaign["partial"] is True
+
+
+# codex's review of the lane round (#208) ------------------------------------------------------------
+
+def test_a_lane_round_must_take_every_job_of_its_lane(tmp_path, capsys):
+    """Job 12 left out of both lists: the lane would mix measurements from before and after the fix."""
+    def change(manifest, data, new):
+        manifest["lane_superseded"]["issues"]["206"]["jobs"] = [4, 160, 161]
+        manifest["lane_rerun"]["space-a"][0]["jobs"] = [4]
+        import shutil
+        shutil.rmtree(new[1])
+    lane_refused(tmp_path, capsys, change, "leaves jobs [12] of lane benchmark_document")
+
+
+def test_a_lane_round_job_must_measure_the_criteria_of_the_jobs_it_replaces(tmp_path, capsys):
+    """#203 re-measured C14 for one editor; a lane job without that editor's C14 would drop it unseen."""
+    def change(manifest, data, new):
+        old = data / "space-a" / "runs" / RID_EXT / "benchmark_document" / f"{RID_EXT}-160"
+        _cell_summary(old, "plate", "C11", "C14")
+        _cell_summary(new[2], "plate", "C11")
+    lane_refused(tmp_path, capsys, change, "records no ['C14'] for plate")
+
+
+def test_a_lane_round_job_with_the_same_criteria_is_kept(tmp_path):
+    data, new = lane_data(tmp_path)
+    old = data / "space-a" / "runs" / RID_EXT / "benchmark_document" / f"{RID_EXT}-160"
+    _cell_summary(old, "plate", "C11", "C14")
+    _cell_summary(new[2], "plate", "c11", "C14", "C12")
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, lane_manifest())) == 0
+
+
+def test_a_sealed_job_it_replaces_with_no_summary_is_refused(tmp_path, capsys):
+    """A one-editor round's summary alone would let the lane job drop every other editor."""
+    def change(manifest, data, new):
+        (data / "space-a" / "runs" / RID_A / "benchmark_document" / f"{RID_A}-004" / "summary.json").unlink()
+    lane_refused(tmp_path, capsys, change, "has no readable summary.json to compare with")
+
+
+def test_a_lane_round_runs_on_a_space_the_first_pass_never_used(tmp_path):
+    data, _ = lane_data(tmp_path, spaces={"space-b": "space-new"})
+    manifest = lane_manifest()
+    manifest["lane_rerun"]["space-new"] = manifest["lane_rerun"].pop("space-b")
+    roots_dir = tmp_path / "roots"
+    assert run_roots(data, roots_dir, write_manifest(tmp_path, manifest)) == 0
+    jobs = linked(roots_dir)
+    assert jobs[160] == [RID_LANE_EXT] and jobs[161] == [RID_LANE_EXT]
+    assert (roots_dir / f"space-new--{RID_LANE_EXT}").is_dir()
+
+
+def test_a_lane_round_replaces_a_late_round_job(tmp_path):
+    """Every earlier linking branch: here the late round's."""
+    data, kept, old, late_job = late_data(tmp_path)
+    for path in (old, late_job):
+        summarize(path, 1, 1, ["plate"])
+    manifest = late_manifest()
+    manifest["harness"]["lane_rerun"] = "3eaf8c9b"
+    manifest["lane_superseded"] = {"issues": {"207": {"title": "synthetic", "lane": "benchmark_typing", "jobs": [50]}}}
+    manifest["lane_rerun"] = {"space-a": [{"run_id": RID_LANE, "jobs": [50]}]}
+    new = summarize(job(data / "space-a" / "runs" / RID_LANE, RID_LANE, 50, lane="benchmark_typing"), 1, 1, ["plate"])
+    roots_dir = tmp_path / "roots"
+    assert run_roots(data, roots_dir, write_manifest(tmp_path, manifest)) == 0
+    assert linked(roots_dir)[50] == [RID_LANE]
+    campaign = json.loads((roots_dir / "report_e2_runs.json").read_text())["campaign"]
+    assert campaign["late_rerun_kept"] == 0 and campaign["lane_rerun_kept"] == 1
+
+
+def test_a_job_directory_that_repeats_an_index_is_refused(tmp_path, capsys):
+    def change(manifest, data, new):
+        twin = new[0].parent / f"{RID_LANE}-4"
+        twin.mkdir()
+        (twin / "JOB-DONE").write_text("")
+        (twin / "summary.json").write_text((new[0] / "summary.json").read_text())
+    lane_refused(tmp_path, capsys, change, "carries job index 4 twice")
+
+
+def test_a_missing_earlier_run_does_not_count_its_replaced_jobs_unsealed(tmp_path):
+    """The gap counters name measurements the tables lack, not history a lane round replaced."""
+    data, new = lane_data(tmp_path)
+    import shutil
+    shutil.rmtree(data / "space-a" / "runs" / RID_EXT)
+    roots_dir = tmp_path / "roots"
+    assert run_roots(data, roots_dir, write_manifest(tmp_path, lane_manifest()), "--partial") == 0
+    campaign = json.loads((roots_dir / "report_e2_runs.json").read_text())["campaign"]
+    assert campaign["extension_unsealed"] == 0
+    assert campaign["missing_runs"] == [f"space-a/{RID_EXT}"]

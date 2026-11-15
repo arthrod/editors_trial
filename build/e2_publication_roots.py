@@ -90,8 +90,9 @@ def _lane_entries(manifest: dict) -> list[tuple[str, dict]]:
 EARLIER_ROUND_KEYS = ("rerun", "rerun2", "rerun3", "editor_rerun", "extension", "late_rerun")
 
 
-def _earlier_jobs(data: Path, manifest: dict, wanted: set[int]) -> dict[int, list[tuple[str, Path]]]:
-    """Per wanted index, (lane, job) of every mirrored job an earlier round measured under that index."""
+def _earlier_jobs(data: Path, manifest: dict, wanted: set[int] | None = None) -> dict[int, list[tuple[str, Path]]]:
+    """Per index (every index when ``wanted`` is None), (lane, job) of every mirrored job an earlier round
+    measured under that index."""
     runs = [(space, run_id) for space, run_id in sorted(manifest["first_pass"].items())]
     runs += [(space, entry["run_id"]) for key in EARLIER_ROUND_KEYS
              for space, entries in sorted(manifest.get(key, {}).items()) for entry in entries]
@@ -101,7 +102,7 @@ def _earlier_jobs(data: Path, manifest: dict, wanted: set[int]) -> dict[int, lis
         if not run_dir.is_dir():
             continue
         for lane, job, index in run_jobs(run_dir, run_id):
-            if index in wanted:
+            if wanted is None or index in wanted:
                 found.setdefault(index, []).append((lane, job))
     return found
 
@@ -139,7 +140,17 @@ def _check_lane_round(data: Path, manifest: dict, complete: bool, errors: list[s
                           f"they sit in an entry flagged extension")
     issue_lane = {index: issue.get("lane") for issue in manifest.get("lane_superseded", {}).get("issues", {}).values()
                   for index in issue["jobs"]}
-    earlier = _earlier_jobs(data, manifest, wanted)
+    everything = _earlier_jobs(data, manifest)
+    earlier = {index: jobs for index, jobs in everything.items() if index in wanted}
+    # A lane round takes the whole lane (codex review): a job left out would mix measurements from before
+    # and after the fix it exists for. Decidable only when every earlier run is mirrored.
+    if complete:
+        for number, issue in sorted(manifest.get("lane_superseded", {}).get("issues", {}).items()):
+            left = sorted(index for index, jobs in everything.items()
+                          if index not in issue["jobs"] and any(lane == issue.get("lane") for lane, _ in jobs))
+            if left:
+                errors.append(f"lane_superseded issue {number} leaves jobs {left} of lane {issue.get('lane')}: "
+                              f"a lane round measures every job of its lane again")
     for space, entry in entries:
         run_dir = data / space / "runs" / entry["run_id"]
         if not run_dir.is_dir():
@@ -163,7 +174,16 @@ def _check_lane_round(data: Path, manifest: dict, complete: bool, errors: list[s
             if summary is None:
                 errors.append(f"lane-round job {job.name} has no readable summary.json")
                 continue
-            readable = [(old, value) for _, old in before if (value := _summary_of(old)) is not None]
+            # Every sealed job it replaces is compared (codex review): a one-editor round's summary alone
+            # would let the lane job drop the other editors.
+            readable = []
+            for _, old in before:
+                value = _summary_of(old)
+                if value is not None:
+                    readable.append((old, value))
+                elif (old / "JOB-DONE").exists():
+                    errors.append(f"lane-round job {job.name}: {old.name}, which it replaces, has no readable "
+                                  f"summary.json to compare with")
             if not readable:
                 errors.append(f"lane-round job {job.name}: none of the jobs it replaces has a readable "
                               f"summary.json to compare seeds with")
@@ -179,6 +199,15 @@ def _check_lane_round(data: Path, manifest: dict, complete: bool, errors: list[s
             if missing:
                 errors.append(f"lane-round job {job.name} does not schedule {missing}, which the jobs it "
                               f"replaces measured")
+            # ... and for each editor at least the criteria they measured (codex review: #203's C14).
+            for editor in sorted(scheduled):
+                had: set[str] = set()
+                for old, _ in readable:
+                    had |= _job_criteria(old, editor)
+                lost = sorted(had - _job_criteria(job, editor))
+                if lost:
+                    errors.append(f"lane-round job {job.name} records no {lost} for {editor}, which the jobs "
+                                  f"it replaces measured")
 
 
 def _check_late_round(manifest: dict, errors: list[str]) -> None:
@@ -557,14 +586,15 @@ def _link_round(data: Path, roots_dir: Path, space: str, entries: list, prefix: 
                 campaign: dict, roots: list[str], errors: list[str], lane_retired: frozenset = frozenset()) -> None:
     """Link one re-run round's sealed jobs of a Space; jobs in ``retired`` are counted, never linked.
 
-    ``lane_retired``: indexes a lane round measured again (#208), counted in ``lane_superseded``.
+    ``lane_retired``: indexes a lane round measured again (#208). ``lane_superseded`` counts the earlier
+    jobs left out for that reason alone: a job an older counter already retired stays in that counter.
     """
     for entry in entries:
         run_id = entry["run_id"]
         run_dir = data / space / "runs" / run_id
         if not run_dir.is_dir():
             campaign["missing_runs"].append(f"{space}/{run_id}")
-            campaign[f"{prefix}_unsealed"] += len(entry["jobs"])
+            campaign[f"{prefix}_unsealed"] += len(set(entry["jobs"]) - lane_retired)
             continue
         declared = set(entry["jobs"])
         # A job stopped part-way when its work moved to another Space (14 Nov rebalancing): counted, never
@@ -583,6 +613,9 @@ def _link_round(data: Path, roots_dir: Path, space: str, entries: list, prefix: 
                 errors.append(
                     f"re-run job {job.name} of {space}/{run_id} is not in the manifest's job list {sorted(declared)}"
                 )
+                continue
+            if index in seen:
+                errors.append(f"run {space}/{run_id} carries job index {index} twice ({job.name})")
                 continue
             seen.add(index)
             if index in retired:
