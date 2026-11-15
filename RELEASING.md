@@ -96,7 +96,7 @@ Release: `vX.Y.Z` · release date: `YYYY-MM-DD` · cutoff (date − 5 days): `YY
 - [ ] Check what the demo actually bundles (a workspace link to the checkout, not an npm release that happens to match).
 - [ ] A closed-source vendor with a trial key gets no public demo unless Arthur decides otherwise: the key would ship in the bundle.
 - [ ] Open each rebuilt demo in a real browser before publishing (document loads, text visible, export works).
-- [ ] **Lesson (et-v0.9.5, #225):** five demos were published with only their entry chunks; the lazily imported chunks, fonts and WASM were left behind, and each demo stayed on its loading screen. Copy the whole `dist/`, then run `build/verify_demo.py <slug> out/demos/<slug>` for every demo: it serves the folder as the site does and fails on any missing file or a document that does not appear. Do it for demos that were not rebuilt too.
+- [ ] **Lesson (et-v0.9.5, #225):** five demos were published with only their entry chunks; the lazily imported chunks, fonts and WASM were left behind, and each demo stayed on its loading screen. Copy the whole `dist/`, then run `build/verify_demo.py <slug> out/demos/<slug>` for every demo: it serves the folder as the site does and fails on any missing file or a document that does not appear. A demo that draws on a canvas (canvas-editor, Docen, WordCraft) has no text to find: pass a screenshot path as a third argument and look at the picture. Do it for demos that were not rebuilt too. Once per machine: `uv run --with playwright==1.64.1 playwright install chromium`.
 
 ## 6. Gate (AGENTS.md §6)
 

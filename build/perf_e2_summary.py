@@ -7,6 +7,7 @@ nothing is ranked.
 """
 from __future__ import annotations
 
+import re
 from statistics import median
 
 SIZES = (
@@ -38,20 +39,33 @@ SECTIONS = (
 )
 
 DASH = '—'
+UNDER = 'under 1 frame'
 
 
 def _key(editor: str, criterion: str, measure: str, workload: str) -> str:
     return 'perf.e2.%s.%s' % (editor, criterion) + ('.' + measure if measure else '') + '.' + workload
 
 
+_ROUND = re.compile(r'(first|second): not enough samples \(n = (\d+) of \d+; reasons ([^)]*)\)')
+
+
 def _why(reason: str) -> str:
-    """One word for a cell that has no figure."""
+    """One word for a cell that has no figure.
+
+    "crashed" and "does not apply" are said only when both rounds kept no
+    launch and every launch of both gave that one reason; anything mixed is
+    "no figure".
+    """
     if 'medians outside tolerance' in reason:
         return 'varied'
-    if 'not_applicable' in reason:
-        return 'does not apply'
-    if 'crash' in reason and 'n = 0 of' in reason:
-        return 'crashed'
+    rounds = {name: (int(kept), {part.split(':')[0].strip() for part in reasons.split(',') if part.strip()})
+              for name, kept, reasons in _ROUND.findall(reason)}
+    if set(rounds) == {'first', 'second'} and all(kept == 0 for kept, _names in rounds.values()):
+        names = set().union(*(names for _kept, names in rounds.values()))
+        if names == {'not_applicable'}:
+            return 'does not apply'
+        if names and names <= {'crash', 'editor_crash'}:
+            return 'crashed'
     return 'no figure'
 
 
@@ -67,7 +81,7 @@ def fmt(value: float, unit: str, frame: float = 0.0) -> str:
         mib = value / 2 ** 20
         return '%.1f GiB' % (mib / 1024) if mib >= 1024 else '%d MiB' % round(mib)
     if frame and value < frame:
-        return 'under 1 frame'
+        return UNDER
     if value >= 100_000:
         return '%d s' % round(value / 1000)
     if value >= 1000:
@@ -86,24 +100,40 @@ def _cell(facts: dict, key: str, editor: str, criterion: str, measure: str, work
     first, second = facts[base + '.primary'], facts[base + '.reproduction']
     value = (_seed_median(first) + _seed_median(second)) / 2
     unit = first.get('sample_unit') or 'ms'
-    frame = max(first.get('frame_interval_ms') or 0, second.get('frame_interval_ms') or 0)
-    # "under 1 frame" only when each seed's median is under it; a middle that
-    # dips below while one seed is above is printed as the time it is.
-    if max(_seed_median(first), _seed_median(second)) >= frame:
-        frame = 0.0
+    # "under 1 frame" only when each seed's median is under that seed's own
+    # frame; a middle that dips below while one seed is above is printed as
+    # the time it is.
+    under = all((cell.get('frame_interval_ms') or 0) > _seed_median(cell) for cell in (first, second))
+    frame = max(first.get('frame_interval_ms') or 0, second.get('frame_interval_ms') or 0) if under else 0.0
     facts['perf.e2.short.%s.%s.%s' % (key, editor, workload)] = value
-    return fmt(value, unit, frame), (value, unit, frame)
+    text = UNDER if under and unit != 'bytes' else fmt(value, unit, frame)
+    # The reference table marks an opening whose text was not checked; so does this one, and it stays out of the range.
+    if criterion == 'C11' and not (first.get('content_verified') is True and second.get('content_verified') is True):
+        return text + ' (text not checked)', None
+    return text, (value, text)
+
+
+def _ends(values) -> tuple[str, str]:
+    """The printed text of the lowest and of the highest cell of one column.
+
+    A cell printed as "under 1 frame" is below every cell printed as a time,
+    whatever its middle: the two cannot be told apart finer than that.
+    """
+    timed = [figure for figure in values if figure[1] != UNDER]
+    if len(timed) < len(values):
+        return UNDER, (max(timed)[1] if timed else UNDER)
+    return min(timed)[1], max(timed)[1]
 
 
 def _range_sentence(columns) -> str:
-    """Lowest and highest figure of the first and of the last column that holds two or more; no editor is named."""
+    """Lowest and highest printed figure of the first and of the last column that holds two or more; no editor is named."""
     usable = [(title, values) for title, values in columns if len(values) >= 2]
     if not usable:
         return ''
     parts = []
     for title, values in ([usable[0], usable[-1]] if len(usable) > 1 else [usable[0]]):
-        low, high = (fmt(*pick(values, key=lambda v: v[0])) for pick in (min, max))
-        said = 'are all %s' % low if low == high else 'run from %s to %s' % (low, high)
+        low, high = _ends(values)
+        said = 'are all %s' % low if len({text for _value, text in values}) == 1 else 'run from %s to %s' % (low, high)
         parts.append('%s%s the figures %s' % ('at ' if parts else 'At ', title, said))
     text = parts[0] if len(parts) == 1 else parts[0] + '; ' + parts[1].replace(
         ' the figures run', ',').replace(' the figures are', ', they are')

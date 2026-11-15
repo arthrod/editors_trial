@@ -5,13 +5,19 @@
 # ///
 """Open one built demo in headless Chromium and check that it loads its document (#225).
 
-    build/verify_demo.py <slug> <folder>     # folder: the demo's dist/, or out/demos/<slug>
+    build/verify_demo.py <slug> <folder>               # folder: the demo's dist/, or out/demos/<slug>
+    build/verify_demo.py <slug> <folder> <shot.png>    # a demo that draws on a canvas: look at the picture
 
 The folder is served the way benchmarks.law serves it, at /demo-apps/<slug>/. The check
-fails when any request answers 400 or more, when a lazily imported chunk cannot be fetched,
-or when the fixture's first heading is not in the page (a canvas demo is passed a screenshot
-path as the third argument and judged by eye). Reading the folder is not a check: et-v0.9.5
-published five demos that held only their entry chunks.
+fails when any request answers 400 or more or gets no answer at all, when a lazily imported
+chunk cannot be fetched, or when the fixture's first heading is not in the page. A demo that
+draws its document on a canvas (canvas-editor, Docen, WordCraft) puts no text in the page:
+give it a screenshot path as the third argument and judge the document by eye; without one
+it waits 90 seconds and fails. Reading the folder is not a check: et-v0.9.5 published five
+demos that held only their entry chunks.
+
+Needs the Chromium of playwright 1.64.1 once per machine:
+    uv run --with playwright==1.64.1 playwright install chromium
 """
 import functools
 import http.server
@@ -31,13 +37,19 @@ class Quiet(http.server.SimpleHTTPRequestHandler):
         pass
 
 
+class Roomy(http.server.ThreadingHTTPServer):
+    # The default queue of 5 resets connections when a demo asks for dozens of chunks at once,
+    # and a reset would be reported as the demo's missing file.
+    request_queue_size = 128
+
+
 def main() -> int:
     slug, folder = sys.argv[1], Path(sys.argv[2]).resolve()
     shot = sys.argv[3] if len(sys.argv) > 3 else None
     with tempfile.TemporaryDirectory() as root:
         shutil.copytree(folder, Path(root) / "demo-apps" / slug)
         handler = functools.partial(Quiet, directory=root)
-        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+        server = Roomy(("127.0.0.1", 0), handler)
         threading.Thread(target=server.serve_forever, daemon=True).start()
         url = "http://127.0.0.1:%d/demo-apps/%s/" % (server.server_address[1], slug)
         failed, errors, seen = [], [], False
@@ -45,6 +57,7 @@ def main() -> int:
             browser = p.chromium.launch()
             page = browser.new_page(viewport={"width": 1400, "height": 950})
             page.on("response", lambda r: failed.append((r.status, r.url)) if r.status >= 400 else None)
+            page.on("requestfailed", lambda r: failed.append((0, "%s (%s)" % (r.url, r.failure))))
             page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
             page.on("pageerror", lambda e: errors.append("pageerror: %s" % e))
             page.goto(url, wait_until="load", timeout=90_000)

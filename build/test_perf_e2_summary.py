@@ -7,7 +7,8 @@ DISPLAY = {'plate': 'Plate.js', 'folio': 'Folio', 'docen': 'Docen'}
 
 
 def _cell(median, *, unit='ms', frame=16.7):
-    return {'sample_unit': unit, 'kept_ms': [median] * 10, 'frame_interval_ms': frame, 'stats': {'n': 10, 'median': median}}
+    return {'sample_unit': unit, 'kept_ms': [median] * 10, 'frame_interval_ms': frame, 'stats': {'n': 10, 'median': median},
+            'content_verified': True}
 
 
 def _put(facts, editor, criterion, workload, first, second=None, *, measure='', unit='ms', reason=None):
@@ -104,3 +105,49 @@ def test_under_one_frame_needs_both_seeds_under_it():
     _put(facts, 'plate', 'C10', 'prose-5kw', 14.0, 15.0)
     text = summary.short_version(facts, ['plate'], DISPLAY)
     assert '| Plate.js | 16 ms | under 1 frame |' in text
+
+
+# --- CodeRabbit on #229 ---
+
+def test_the_range_sentence_says_all_only_when_every_printed_cell_reads_the_same():
+    """A 15 ms cell printed as a time (one seed over a frame) beside cells under a frame is not 'all under 1 frame'."""
+    facts = {}
+    _put(facts, 'docen', 'C10', 'prose-500w', 8.0, 9.0)
+    _put(facts, 'folio', 'C10', 'prose-500w', 12.0, 18.0)   # middle 15 ms, second seed over a frame
+    _put(facts, 'plate', 'C10', 'prose-500w', 16.0, 16.4)   # the highest value, and under a frame in both
+    text = summary.short_version(facts, ['docen', 'folio', 'plate'], DISPLAY)
+    assert '| Folio | 15 ms |' in text
+    assert '| Plate.js | under 1 frame |' in text
+    assert 'are all under 1 frame' not in text
+    assert 'At 500 words the figures run from under 1 frame to 15 ms.' in text
+
+
+def test_under_one_frame_compares_each_seed_with_its_own_frame():
+    facts = {}
+    key = 'perf.e2.plate.C10.prose-500w'
+    facts[key + '.reproduced'] = True
+    facts[key + '.primary'] = _cell(12.0, frame=10.0)
+    facts[key + '.reproduction'] = _cell(14.0, frame=20.0)
+    text = summary.short_version(facts, ['plate'], DISPLAY)
+    assert '| Plate.js | 13 ms |' in text
+
+
+def test_a_label_needs_every_launch_of_both_rounds_to_say_it():
+    mixed_crash = ('first: not enough samples (n = 0 of 10; reasons crash: 1, timeout: 9); '
+                   'second: not enough samples (n = 0 of 10; reasons crash: 10)')
+    partly_applies = ('first: not enough samples (n = 2 of 10; reasons not_applicable: 8); '
+                      'second: not enough samples (n = 0 of 10; reasons not_applicable: 10)')
+    one_round = 'second: not enough samples (n = 0 of 10; reasons editor_crash: 10)'
+    assert summary._why(mixed_crash) == 'no figure'
+    assert summary._why(partly_applies) == 'no figure'
+    assert summary._why(one_round) == 'no figure'
+    assert summary._why('first: not enough samples (n = 0 of 10; reasons editor_crash: 10); '
+                        'second: not enough samples (n = 0 of 9; reasons crash: 9)') == 'crashed'
+
+
+def test_an_opening_whose_text_was_not_checked_says_so_and_stays_out_of_the_range():
+    facts = _facts()
+    facts['perf.e2.plate.C11.prose-500w.reproduction']['content_verified'] = False
+    text = summary.short_version(facts, ['docen', 'folio', 'plate'], DISPLAY)
+    assert '| Plate.js | 750 ms (text not checked) |' in text
+    assert 'At 500 words the figures run from 800 ms to 1.1 s' in text
