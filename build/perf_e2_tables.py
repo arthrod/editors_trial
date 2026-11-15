@@ -35,6 +35,39 @@ E2_CRITERIA = [f"C{i:02d}" for i in range(3, 16)] + ["C17", "C19"]
 E2_WITHHELD = ("C19",)
 
 
+def probe_scan_text(roots, editors) -> str:
+    """#206: per editor, the largest share of a C11 load that is the harness's own text read."""
+    import statistics
+    pairs: dict = {}
+    for root in roots:
+        for row in e2_cells._iter_trials(root):
+            if row.get("criterion_id") != "C11" or row.get("outcome") != "measured" or row.get("editor_id") not in editors:
+                continue
+            scans = [s.get("probe_scan_ms_at_text") for s in ((row.get("diagnostic") or {}).get("samples") or [])
+                     if isinstance(s, dict)]
+            scans = [v for v in scans if isinstance(v, (int, float)) and not isinstance(v, bool)]
+            loads = [v for v in (row.get("samples_ms") or []) if isinstance(v, (int, float)) and v > 0]
+            if scans and loads:
+                key = (row["editor_id"], e2_cells.trial_workload(row))
+                pairs.setdefault(key, ([], []))
+                pairs[key][0].append(statistics.median(scans))
+                pairs[key][1].append(statistics.median(loads))
+    if not pairs:
+        return "The harness's own text read is not recorded in these runs."
+    worst: dict = {}
+    for (editor, workload), (scans, loads) in pairs.items():
+        share = 100.0 * statistics.median(scans) / statistics.median(loads)
+        if editor not in worst or share > worst[editor][0]:
+            worst[editor] = (share, workload)
+    names = sorted(worst, key=lambda e: DISPLAY.get(e, e).casefold())
+    small = [DISPLAY.get(e, e) for e in names if worst[e][0] < 1]
+    parts = ["%s %.1f percent (%s)" % (DISPLAY.get(e, e), worst[e][0], worst[e][1]) for e in names if worst[e][0] >= 1]
+    if small:
+        parts.append("under 1 percent for " + ", ".join(small))
+    return ("Share of the C11 load that is the harness's own text read, at the document size where it is largest: "
+            + "; ".join(parts) + ".")
+
+
 def withheld_readings_text(aside: dict, criterion: str) -> str:
     """The range of a withheld criterion's seed medians, over the cells that reproduced."""
     medians = []
@@ -1016,6 +1049,7 @@ def unset_facts() -> dict:
         facts["perf.e2.table.%s" % cid] = "not yet measured"
     for cid in E2_WITHHELD:
         facts["perf.e2.withheld.%s" % cid] = "not yet measured"
+    facts["perf.e2.probe_scan"] = "not yet measured"
     facts["perf.e2.criterion.B8"] = RESOURCES_BLURB
     facts["perf.e2.table.B8"] = "not yet measured"
     return facts
@@ -1170,6 +1204,7 @@ def _facts_from_roots(roots) -> dict:
     if typing_groups:
         facts['perf.e2.table.TYPING'] = '\n\n'.join(typing_table(facts, roots, editor, kind) for editor, kind in typing_groups)
     facts.update(resource_facts(roots, editors))
+    facts["perf.e2.probe_scan"] = probe_scan_text(roots, editors)
     facts["perf.e2.not_run"] = (
         _not_run_editors(roots[0], roots[-1], editors) if classic else _not_measured_campaign(editors))
     facts["perf.e2.not_reproduced"] = _not_reproduced_table(facts, classic)
