@@ -4,6 +4,27 @@
 
 This report concerns browser-visible first paint, typing, scrolling, and related interactions. {{perf.e2.intro}}
 
+## The short version
+
+The editors in the tables below were opened in a real browser, each with the same documents, and timed doing what a person does: opening a document, typing, clicking, pasting, undoing and scrolling. This section gives those results in a few small tables. Everything after it is the reference: every measurement, how it was taken, and what was left out and why.
+
+How to read the tables:
+
+- **A figure is a typical time, measured twice.** Each test was run in two separate rounds, each of several fresh launches of the browser. A figure is printed only when the two rounds agree within {{perf.e2.rel_tol_pct}} percent, and it is the middle of the two rounds' typical (median) values.
+- **Lower is quicker, or lighter.** Times are in milliseconds (ms, thousandths of a second) or seconds (s); memory is in MiB and GiB (1 GiB is 1,024 MiB).
+- **"under 1 frame"** means the screen showed the result in its very next picture. The screen was redrawn 60 times a second, so a shorter time cannot be told apart.
+- **"varied"** means the two rounds did not agree, so no figure is given. **"crashed"** means the editor's page crashed in every launch. **"does not apply"** means the test cannot be run on that editor. **"no figure"** means the test ran but our tooling could not confirm the result. A dash means the cell was not part of these runs. The reference tables give the reason for each.
+- **The editors are in alphabetical order.** This report does not rank them.
+
+What these figures cannot tell you:
+
+- **They are not the times you will see on your own computer.** The tests ran on a cloud server with no graphics processor, so everything an editor draws was drawn by the processor. Editors that paint the whole page themselves (canvas-editor, Docen, WordCraft) carry the most of that cost. Compare the editors with each other, in the same column.
+- **A document of 250,000 words is about 500 pages.** Most documents are far smaller; the first two columns are the common case.
+- **Search and replace was not measured** for any editor: that is a gap in our tooling, not in the editors.
+- **Only what is listed is measured.** Whether an editor keeps a document's content and formatting intact is the subject of the other reports of this trial.
+
+{{perf.e2.short_version}}
+
 ## What is measured
 
 Each criterion is one browser-visible or model clock on the same corpus the headless report uses.
