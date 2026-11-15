@@ -134,13 +134,13 @@ Each C15 step is a separate measure; steps are never pooled.
 
 ### C17 — memory by phase
 
-Memory is the resident set size summed over the browser's process tree, in MiB; it counts a page shared by two processes once for each. The phases are the editor's ready signal (see C03), after a fixed burst of edits, and at quiescence. For an editor that is ready before a long document is laid out, the ready phase is lower than the later ones for that reason.
+Memory is the resident set size summed over the browser's process tree, in MiB; it counts a page shared by two processes once for each. The phases are: ready, read once the editor's ready signal (see C03) has been raised and the settle delay the harness gives that editor has passed; after a fixed burst of edits; and at quiescence. An editor can raise its ready signal before a long document is laid out, so its ready phase need not hold the whole document.
 
 {{perf.e2.table.C17}}
 
 ### C19 — retained memory
 
-C19 is read after the editor's page is closed: it is what the browser's process tree still holds without the page, not the editor's footprint, which is C17. Read each row against the others: a figure well above the rest would be memory that closing the page did not release.
+C19 is read after the editor's page is closed: it is what the browser's process tree still holds without the page, not the editor's footprint, which is C17. The browser's own baseline is not subtracted. Read each row against the others: a figure well above the rest may be memory that closing the page did not release.
 
 {{perf.e2.table.C19}}
 

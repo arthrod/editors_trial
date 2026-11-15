@@ -92,7 +92,9 @@ EARLIER_ROUND_KEYS = ("rerun", "rerun2", "rerun3", "editor_rerun", "extension", 
 
 def _earlier_jobs(data: Path, manifest: dict, wanted: set[int] | None = None) -> dict[int, list[tuple[str, Path]]]:
     """Per index (every index when ``wanted`` is None), (lane, job) of every mirrored job an earlier round
-    measured under that index."""
+    measured under that index. Sealed jobs only (codex review): a directory an earlier run left
+    unsealed, abandoned or stopped part-way never fed a table, so it is neither part of a lane's
+    inventory nor evidence of a job's seed, block, editors or criteria."""
     runs = [(space, run_id) for space, run_id in sorted(manifest["first_pass"].items())]
     runs += [(space, entry["run_id"]) for key in EARLIER_ROUND_KEYS
              for space, entries in sorted(manifest.get(key, {}).items()) for entry in entries]
@@ -102,7 +104,7 @@ def _earlier_jobs(data: Path, manifest: dict, wanted: set[int] | None = None) ->
         if not run_dir.is_dir():
             continue
         for lane, job, index in run_jobs(run_dir, run_id):
-            if wanted is None or index in wanted:
+            if (wanted is None or index in wanted) and (job / "JOB-DONE").exists():
                 found.setdefault(index, []).append((lane, job))
     return found
 
@@ -181,7 +183,7 @@ def _check_lane_round(data: Path, manifest: dict, complete: bool, errors: list[s
                 value = _summary_of(old)
                 if value is not None:
                     readable.append((old, value))
-                elif (old / "JOB-DONE").exists():
+                else:
                     errors.append(f"lane-round job {job.name}: {old.name}, which it replaces, has no readable "
                                   f"summary.json to compare with")
             if not readable:
@@ -712,7 +714,12 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
             campaign["missing_runs"].append(f"{space}/{run_id}")
         else:
             root = roots_dir / f"{space}--{run_id}"
+            seen_first: set[int] = set()
             for lane, job, index in run_jobs(run_dir, run_id):
+                if index in seen_first:
+                    errors.append(f"run {space}/{run_id} carries job index {index} twice ({job.name})")
+                    continue
+                seen_first.add(index)
                 first_pass_indices.add(index)
                 first_pass_lane[index] = lane
                 # The older counters keep their history (#173-#175, #192) when a lane round also

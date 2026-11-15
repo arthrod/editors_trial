@@ -1192,7 +1192,7 @@ def test_reruns_text_never_says_the_tables_read_a_round_the_lane_round_replaced(
     assert 'third round' in text and '#183' in text
     for issue in ('#185', '#190', '#197', '#202'):
         assert issue in text
-    end = 'The lane round replaced all of those runs.'
+    end = 'The lane round replaced those cells.'
     replaced = text[text.index('single editors'):text.index(end) + len(end)]
     assert 'the tables read them for' not in replaced
     assert 'canvas-editor' in replaced and 'Plate.js' in replaced and 'WordCraft' in replaced and 'Docen' in replaced
@@ -1261,8 +1261,20 @@ def test_the_template_says_what_c03_c17_and_c19_are():
     c03 = section("### C03 — first visible content", "### C04")
     assert "ready signal" in c03 and "not one event" in c03 and "C11" in c03
     c17 = section("### C17 — memory by phase", "### C19")
-    assert "process tree" in c17 and "MiB" in c17 and "ready signal" in c17
+    assert "process tree" in c17 and "MiB" in c17 and "ready signal" in c17 and "settle delay" in c17
     c19 = section("### C19 — retained memory", "### B8")
     assert "after the editor's page is closed" in c19 and "not the editor's footprint" in c19
     load = tpl[tpl.index("- **Throttling and steal.**"):tpl.index("## Tables")]
     assert "load average" in load and "never refused for host load" in load
+
+
+def test_reruns_text_second_round_only_under_a_lane_round():
+    """codex review: a second round the lane round replaced is history too."""
+    campaign = {**LANE_CAMPAIGN, 'rerun2_superseded': 0}
+    text = E2.reruns_text(campaign)
+    assert '#181' in text and 'the tables read the 0 second-round jobs' not in text
+
+
+def test_host_load_note_counts_missing_readings(fs):
+    rows = [{"cpu_accounting": {"before": {"loadavg": [3.0, 1, 1]}}}, {}]
+    assert E2._load_text(rows).endswith("3.0 to 3.0, median 3.0 (3 of 4 readings not recorded)")

@@ -1492,3 +1492,19 @@ def test_the_first_rounds_counter_keeps_its_history_under_a_lane_round(tmp_path)
     assert linked(roots_dir)[10] == [RID_LANE]
     assert campaign["first_pass_superseded"] == 1
     assert campaign["rerun_kept"] == 0 and campaign["lane_rerun_kept"] == 5
+
+
+def test_an_unsealed_directory_of_an_earlier_run_is_not_part_of_the_lane(tmp_path):
+    """codex review: an abandoned job directory never fed a table; it cannot make a lane round incomplete."""
+    data, _ = lane_data(tmp_path)
+    job(data / "space-a" / "runs" / RID_A, RID_A, 168, sealed=False)
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, lane_manifest())) == 0
+
+
+def test_a_first_pass_run_that_repeats_an_index_is_refused(tmp_path, capsys):
+    data, *_ = build_data(tmp_path)
+    twin = data / "space-a" / "runs" / RID_A / "benchmark_document" / f"{RID_A}-4"
+    twin.mkdir()
+    (twin / "JOB-DONE").write_text("")
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, synthetic_manifest())) != 0
+    assert "carries job index 4 twice" in capsys.readouterr().err

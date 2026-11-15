@@ -526,19 +526,25 @@ def _load_text(rows) -> str:
     sample is refused for host load, so the range is disclosed next to steal and throttling.
     """
     readings = []
+    missing = 0
     for row in rows:
         accounting = row.get("cpu_accounting") or {}
         for moment in ("before", "after"):
             load = (accounting.get(moment) or {}).get("loadavg")
             if isinstance(load, (list, tuple)) and load and e2_cells._number(load[0]):
                 readings.append(float(load[0]))
+            else:
+                missing += 1
     if not readings:
         return "host load average not recorded"
     readings.sort()
     middle = len(readings) // 2
     median = readings[middle] if len(readings) % 2 else (readings[middle - 1] + readings[middle]) / 2
-    return ("host load average (1 min) at the start and end of each job: %.1f to %.1f, median %.1f"
+    text = ("host load average (1 min) at the start and end of each job: %.1f to %.1f, median %.1f"
             % (readings[0], readings[-1], median))
+    if missing:  # codex review: never let a partial record read as the whole seed
+        text += " (%d of %d readings not recorded)" % (missing, missing + len(readings))
+    return text
 
 
 def _seed_host_note(seed, rows) -> str:
@@ -852,6 +858,10 @@ def reruns_text(campaign: dict | None) -> str:
             "the editor's own whole-document read and a 1,000-second load timeout (issues #183 and #184); the "
             "tables read the %d third-round jobs, never the superseded ones."
             % (second, third, campaign.get("rerun3_kept") or 0))
+    elif second and lane_lanes and not (campaign.get("rerun2_kept") or 0):
+        text += (
+            " In a second round, %d C14 jobs of the re-run were measured again after the C14 correctness check "
+            "was fixed (issue #181)." % second)
     elif second:
         text += (
             " In a second round, %d C14 jobs of the re-run were measured again after the C14 correctness check "
@@ -890,8 +900,8 @@ def reruns_text(campaign: dict | None) -> str:
                     issues.append("#%s" % entry["issue"])
     if replaced:
         text += (
-            " Then single editors' cells of those lanes were measured again alone, each after a defect in how "
-            "the harness measured that editor was fixed: %s. The lane round replaced all of those runs."
+            " Then single editors' cells of those lanes were measured again alone, each after a change in how "
+            "the harness measured that editor: %s. The lane round replaced those cells."
             % "; ".join("%s (%s %s)" % (name, "issue" if len(issues) == 1 else "issues", ", ".join(issues))
                         for name, issues in replaced.items()))
     for entry, names in grouped:
