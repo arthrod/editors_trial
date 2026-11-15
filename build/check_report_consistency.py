@@ -259,6 +259,7 @@ def number_corpus(lanes: Path, scores_dir: Path) -> str:
     if FIXTURE.is_file():
         chunks.extend(package_sizes(FIXTURE))
     chunks.extend(alternate_content_lengths())
+    chunks.extend(variant_deltas())
     return "\n".join(chunks)
 
 
@@ -335,6 +336,36 @@ def alternate_content_lengths() -> list[str]:
             lengths.append(f"{length} bytes")
             lengths.append(f"{length:,} bytes")
     return lengths
+
+
+AB_COMPARE = ROOT / "out" / "ab" / "ab_compare.json"
+
+
+def variant_deltas(path: Path = AB_COMPARE) -> list[str]:
+    """Return the byte delta of each A/B variant against the corpus.
+
+    Report C quotes the difference; ``ab_compare.json`` holds the two sizes.
+    The subtraction is the one ``build/ab_table.py`` renders (#215).
+
+    Args:
+        path: The comparison written by ``build/ab_table.py``.
+
+    Returns:
+        Size strings, plain and with thousands separators; empty without the file.
+    """
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        corpus = int(data["corpus_bytes"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return []
+    sizes: list[str] = []
+    for row in (data.get("variants") or {}).values():
+        if not isinstance(row, dict) or not isinstance(row.get("bytes"), int):
+            continue
+        delta = abs(row["bytes"] - corpus)
+        sizes.append(f"{delta} bytes")
+        sizes.append(f"{delta:,} bytes")
+    return sizes
 
 
 def package_sizes(path: Path) -> list[str]:

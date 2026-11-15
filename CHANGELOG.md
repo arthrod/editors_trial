@@ -185,6 +185,18 @@ changes.
 
 ### Fixed
 
+- The release gate was not run for 0.9.4 or 0.9.5 (their changelogs say
+  so), and two of its checks failed on things 0.9.3 brought in (#215). The findings check looked the
+  Apryse scorecard row up by a name without its version, missed it, and so
+  never checked Apryse's figures; it finds the row now and its five figures
+  agree with the scorer. The number gate could not find Report C's A/B
+  byte deltas, because the measurement holds the two sizes and not their
+  difference; it now does the subtraction `build/ab_table.py` does.
+- In Report E2 the two typing latency tables (eigenpal, GenOffice) had no
+  blank line before them, so the Word twin showed them as text (#214).
+- `build/test_bombs.py` compared this machine's operating-system version
+  with the one quoted in Report D and failed after a system update; only
+  the version is set aside now (#213).
 - The probe's heading scan is linear in the page and the tick that stamps
   the usable moment no longer builds the document text (#206); C08 and
   WordCraft's C09 need a frame with at least 100 changed pixels (#207).
@@ -394,8 +406,8 @@ changes.
   appeared. The window's deadline started only once the harness's own calls
   into the page returned, and a busy page held them for minutes. Every
   frame recorded meanwhile counted, so GenOffice at 500,000 words read
-  about 4.9 minutes from a 0.66% change 160 seconds after its window
-  opened. The witness now counts only frames inside the window, widened by
+  about 4.9 minutes from a change of under a hundredth of the frame, 160
+  seconds after its window opened. The witness now counts only frames inside the window, widened by
   the clock's measured error (250 to 700 ms), so no frame is dropped on
   timing noise. The reader applies the same rule to runs made before the
   fix. Of the published C14 samples, only GenOffice's at 500,000 words
