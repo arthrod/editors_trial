@@ -9,7 +9,7 @@ re-running the measurement behind it. The format follows
 
 ## [Unreleased]
 
-## [0.10.0] - 2026-11-13
+## [0.10.0] - 2026-11-15
 
 Two new speed reports: Report E (headless opening and saving) and Report E2
 (speed in the browser). No figure of Reports A to D2 or of the main report
@@ -28,21 +28,56 @@ changes.
   (Plate, Docxodus, SuperDoc, GenOffice, eigenpal, Folio, canvas-editor,
   Docen, WordCraft) in Playwright Chromium 156.0.8078.80, in Linux
   containers on Hugging Face Spaces (CPU upgrade hardware: AMD EPYC 7R13,
-  8 CPUs of quota), 2026-11-12 to 2026-11-13. Two seeds of 80 jobs each,
-  run in interleaved blocks of 5 repetitions and spread over 40 run
-  folders; each cell schedules 10 samples per editor per seed and publishes
-  at 5 kept (Arthur, 2026-11-11, #163). 551 of 909 scheduled
+  8 CPUs of quota), 2026-11-12 to 2026-11-15. The tables read 212 jobs
+  (106 per seed) from 52 run folders, run in interleaved blocks of 5
+  repetitions; each cell schedules 10 samples per editor per seed and
+  publishes at 5 kept (Arthur, 2026-11-11, #163). 701 of 1,061 scheduled
   editor/criterion/measure cells reproduced between the two seeds within
-  10 percent; the other 358 are listed with their reason in the report's
-  "Not reproduced" section. Steal time under 0.01 percent; 2 of 2,898
-  (seed 1) and 3 of 2,898 (seed 2) samples refused for cgroup CPU
-  throttling.
+  10 percent; the others are listed with their reason in the report's
+  "Not reproduced" section. Steal time under 0.01 percent; the report's
+  host note gives the samples refused for cgroup CPU throttling and the
+  host's load average per seed (#209).
+- **The document lane and the input lane were measured again for every
+  editor** (the lane round, #208; harness `03b683b1`; 52 jobs on 20 Spaces,
+  15 November), after an audit of the first tables found two harness bugs
+  that both seeds reproduced:
+  - #206: the probe's search for a document's opening headings grew with
+    the square of the page and ran inside the timed load of C11 and C14.
+    First seed / second seed, before and after: Plate.js C11 at 250,000
+    words 796 s / 770 s, now 19.7 s / 18.5 s, and at 50,000 words 17.3 s /
+    17.2 s, now 4.7 s / 4.6 s; Docxodus C11 at 250,000 words 203 s / 198 s,
+    now 47.2 s / 45.4 s; Docxodus C14 at 500,000 words 413 s / 419 s, now
+    99.4 s / 98.9 s; Plate.js C14 at 250,000 words 359 s / 335 s, now
+    18.4 s / 18.2 s. The other editors' load figures moved by a few
+    percent. What the probe's text read still costs inside a load is
+    recorded per sample and stated in the report.
+  - #207: C08, and WordCraft's C09, ended at a frame in which only the
+    editor's own caret had changed. With a floor of 100 changed pixels:
+    WordCraft C08 at 500 words 7 ms / 9 ms, now 136 ms / 126 ms;
+    canvas-editor 15 ms / 16 ms, now 93 ms / 95 ms; SuperDoc 48 ms /
+    47 ms, now 121 ms / 116 ms; Folio at 250,000 words 26 ms / 27 ms, now
+    425 ms / 401 ms. SuperDoc's and canvas-editor's paste at 250,000 words
+    no longer has a figure: within the 2-second window only the caret
+    changed (SuperDoc had printed 421 ms / 400 ms).
+  The earlier rounds of those lanes (#173–#175, #181, #183–#185, #190,
+  #193, #196, #202, #203) are history: the lane round replaced them, and
+  the report's "Re-run jobs" paragraph names each.
 - 32 first-pass jobs (job indexes 10–21, 28–31, 90–101 and 108–111) were
   measured again after the harness defects #173, #174 and #175 were fixed;
   the tables read the re-run jobs, and `perf/container/e2_publication.json`
   names every run and every replaced job. Every job of both passes is
   sealed and kept in the private dataset `arthrod/editors-trial-e2-publication`
-  (33,445 attempts).
+  (52,090 attempts from 420 sealed jobs of every round; 27,412 of them are
+  read by the report, and each row says so).
+- Resource figures withheld because they were not what their column said
+  (#211; reader and template only, nothing re-measured): WordCraft's three
+  B8 CPU columns read "never idle" (its "CPU to open" of 81 s for a
+  500-word document was the 30-second settle cap; up to its ready signal it
+  uses 6 to 8 s); "Peak memory" is "Highest memory reading"; the C17 ready
+  cells of Docxodus, Folio, GenOffice, SuperDoc and WordCraft read
+  "unverified" (the document was not checked as loaded at that reading);
+  the C19 table is removed (the reading was the browser's own baseline, 318
+  to 363 MiB for every editor and size).
 
 - **Report E, speed: opening and saving a document** (#111). The headless
   speed runner (`perf/runner/speed_headless.py`, runner commit `a7b243d`),
@@ -149,6 +184,22 @@ changes.
   release up with `bench bump editors_trial`. No figure changes.
 
 ### Fixed
+
+- The probe's heading scan is linear in the page and the tick that stamps
+  the usable moment no longer builds the document text (#206); C08 and
+  WordCraft's C09 need a frame with at least 100 changed pixels (#207).
+  Both reviewed by codex (gpt-6-astra), whose findings (a nested page that
+  was still quadratic, a `:scope` selector, the scan time of a tick that
+  found no text) are tests.
+- The publication manifest and its roots builder know a lane round: a
+  whole lane measured again for every editor, each job checked against the
+  seed, block, editors and criteria of the jobs it replaces (#208). A job
+  still measuring counts as unsealed.
+- Report E2 prints memory in MiB, states the host load, and says what C03,
+  C17 and B8 are (#209, #211).
+- Known and open: `pull.py` leaves a file the Space removed after it was
+  pulled, which blocks the final check of that run (#212); no measurement
+  is affected.
 
 - Browser harness, before Report E2 was published: a frame witness that
   proves the edit and not only a repaint, refused samples that are never
