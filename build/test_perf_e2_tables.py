@@ -682,7 +682,7 @@ def test_quarantine_refusals_are_scoped_to_editor(runs):
 # campaign; the classic two-root output stays byte-identical.
 
 
-def _campaign_farm(base: Path, *, chromium_diff: bool = False) -> list[Path]:
+def _campaign_farm(base: Path, *, chromium_diff: bool = False, **every_job) -> list[Path]:
     """Six farm roots — three per seed on two named Spaces, one lane job each."""
     specs = [
         ("e2-alpha", "r1a", 1, {"started_at": "2026-11-10T08:00:00Z", "finished_at": "2026-11-10T09:30:00Z"}),
@@ -701,6 +701,7 @@ def _campaign_farm(base: Path, *, chromium_diff: bool = False) -> list[Path]:
         summary["block"] = {"index": 1, "of": 2, "repetitions": 5}
         summary["hosts"] = {"plate": {"host_build": "production", "tree_sha256": "tree-fixture"}}
         summary.update(extra)
+        summary.update(every_job)
         if chromium_diff and index == 2:
             summary["rendering"] = {**summary["rendering"], "browser_version": "154.0.0.0"}
         (job / "summary.json").write_text(json.dumps(summary))
@@ -1221,3 +1222,47 @@ def test_reruns_text_without_a_lane_round_is_unchanged():
     assert 'The tables read the 28 re-run jobs in their place' in text
     assert 'the tables read the 4 third-round jobs' in text
     assert "the tables read them for canvas-editor" in text
+
+
+# #209: what the audit found missing in how the report presents its figures.
+
+def test_campaign_host_note_states_the_host_load(fs):
+    roots = _campaign_farm(Path("/farm"), cpu_accounting={
+        "before": {"loadavg": [3.0, 9.0, 9.0]}, "after": {"loadavg": [41.0, 9.0, 9.0]}})
+    note = E2.facts_from_roots(roots)["perf.e2.host_note"]
+    # Per seed: three jobs, a reading before and one after each.
+    assert note.count("host load average (1 min) at the start and end of each job: 3.0 to 41.0, median 22.0") == 2
+
+
+def test_campaign_host_note_says_when_the_host_load_was_not_recorded(fs):
+    note = E2.facts_from_roots(_campaign_farm(Path("/farm")))["perf.e2.host_note"]
+    assert note.count("host load average not recorded") == 2
+
+
+def test_memory_cells_are_printed_in_mib():
+    cell = {"sample_unit": "bytes", "criterion_id": "C17", "stats": {"n": 10, "median": 819259392.0, "p90": 845148979.2},
+            "scheduled": 10, "kept_ms": [819259392.0] * 10}
+    text = E2.e2_cells.publication_text(cell)
+    assert text.startswith("781.3 MiB; p90 806.0 MiB; n = 10 of 10"), text
+    assert "bytes" not in text
+    short = E2.e2_cells.publication_text({**cell, "stats": {"n": 6, "median": 819259392.0, "p90": 0.0},
+                                           "kept_ms": [104857600.0, 209715200.0] * 3})
+    assert "range 100.0 to 200.0 MiB" in short, short
+    assert E2._format_median(cell, 337711104.0) == "322.1 MiB"
+
+
+def test_the_template_says_what_c03_c17_and_c19_are():
+    """#209: the audit found three tables a reader could take for something else."""
+    tpl = (render_reports.TEMPLATES / "reports/Report E2 - Speed in the Browser (2026).md").read_text()
+
+    def section(title, following):
+        return tpl[tpl.index(title):tpl.index(following)]
+
+    c03 = section("### C03 — first visible content", "### C04")
+    assert "ready signal" in c03 and "not one event" in c03 and "C11" in c03
+    c17 = section("### C17 — memory by phase", "### C19")
+    assert "process tree" in c17 and "MiB" in c17 and "ready signal" in c17
+    c19 = section("### C19 — retained memory", "### B8")
+    assert "after the editor's page is closed" in c19 and "not the editor's footprint" in c19
+    load = tpl[tpl.index("- **Throttling and steal.**"):tpl.index("## Tables")]
+    assert "load average" in load and "never refused for host load" in load

@@ -1498,6 +1498,11 @@ def _sub_frame_share(cell: dict) -> float | None:
     return sum(1 for flag in flags if flag) / len(flags)
 
 
+def format_mib(value: float) -> str:
+    """A byte count as binary megabytes (#209: the tables printed raw bytes)."""
+    return f'{value / 1048576:.1f} MiB'
+
+
 def _format_p90(cell: dict, p90: float, frame_interval: float) -> str:
     if p90 < frame_interval:
         return f'p90 < 1 frame ({frame_interval:g} ms)'
@@ -1567,8 +1572,10 @@ def publication_text(cell: dict) -> str:
         if n_kept != PUBLICATION_REPETITIONS and kept else None
     )
     if cell.get('sample_unit') == 'bytes':
-        clock = spread if spread else f"p90 {stats['p90']:.1f} bytes"
-        return f"{stats['median']:.1f} bytes; {clock}{failure_suffix}"
+        if spread:
+            spread = f'range {min(kept) / 1048576:.1f} to {max(kept) / 1048576:.1f} MiB'
+        clock = spread if spread else f"p90 {format_mib(stats['p90'])}"
+        return f"{format_mib(stats['median'])}; {clock}{failure_suffix}"
     frame_interval = cell.get('frame_interval_ms')
     if frame_interval is None:
         if cell.get('witnessed', True):

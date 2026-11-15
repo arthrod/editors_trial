@@ -223,7 +223,7 @@ def _iter_trials(run_directory: Path):
 
 def _format_median(cell: dict, median: float) -> str:
     if cell.get("sample_unit") == "bytes":
-        return "%.1f bytes" % median
+        return e2_cells.format_mib(median)
     suffix = " — content not verified" if cell.get("criterion_id") == "C11" and cell.get("content_verified") is not True else ""
     frame = cell.get("frame_interval_ms") or 0
     if median < frame:
@@ -519,6 +519,28 @@ def _space_note(spaces, editors) -> str:
     return note
 
 
+def _load_text(rows) -> str:
+    """The host's 1-minute load average read before and after each job (#209).
+
+    The Spaces are containers with a CPU quota on a host shared with other tenants; no
+    sample is refused for host load, so the range is disclosed next to steal and throttling.
+    """
+    readings = []
+    for row in rows:
+        accounting = row.get("cpu_accounting") or {}
+        for moment in ("before", "after"):
+            load = (accounting.get(moment) or {}).get("loadavg")
+            if isinstance(load, (list, tuple)) and load and e2_cells._number(load[0]):
+                readings.append(float(load[0]))
+    if not readings:
+        return "host load average not recorded"
+    readings.sort()
+    middle = len(readings) // 2
+    median = readings[middle] if len(readings) % 2 else (readings[middle - 1] + readings[middle]) / 2
+    return ("host load average (1 min) at the start and end of each job: %.1f to %.1f, median %.1f"
+            % (readings[0], readings[-1], median))
+
+
 def _seed_host_note(seed, rows) -> str:
     spaces = sorted({row.get("space", "?") for row in rows})
     fields = [
@@ -533,9 +555,9 @@ def _seed_host_note(seed, rows) -> str:
     detail = "; ".join("%s %s" % (label, _distinct_field(rows, get)) for label, get in fields)
     if all(len({get(row) for row in rows}) == 1 for _, get in fields):
         detail = "all %d job%s agree: %s" % (len(rows), "s" if len(rows) != 1 else "", detail)
-    return "Seed %s — %d job%s on Spaces %s: %s; throttle refusals: %s." % (
+    return "Seed %s — %d job%s on Spaces %s: %s; throttle refusals: %s; %s." % (
         seed if seed is not None else "not recorded",
-        len(rows), "s" if len(rows) != 1 else "", ", ".join(spaces), detail, _throttle_sum(rows))
+        len(rows), "s" if len(rows) != 1 else "", ", ".join(spaces), detail, _throttle_sum(rows), _load_text(rows))
 
 
 def _host_note_campaign(roots, editors) -> str:
