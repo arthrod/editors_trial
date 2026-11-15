@@ -160,6 +160,8 @@ def _check_lane_round(data: Path, manifest: dict, complete: bool, errors: list[s
         for lane, job, index in run_jobs(run_dir, entry["run_id"]):
             if index not in entry["jobs"] or index not in issue_lane:
                 continue
+            if not (job / "JOB-DONE").exists():
+                continue  # still measuring: counted as unsealed, nothing to compare yet
             if lane != issue_lane[index]:
                 errors.append(f"lane-round job {job.name} is in lane {lane}; its issue retires lane "
                               f"{issue_lane[index]}")

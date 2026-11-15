@@ -7,7 +7,8 @@
   "rerun3": "3ffb21a5",
   "editor_rerun": "49b7e934",
   "late_rerun": "653b9471",
-  "extension": "d697b98e (C14 jobs 162, 163, 166, 167); 6885707b (document jobs 160, 161, 164, 165)"
+  "extension": "d697b98e (C14 jobs 162, 163, 166, 167); 6885707b (document jobs 160, 161, 164, 165)",
+  "lane_rerun": "03b683b1"
  },
  "first_pass": {
   "e2-apryse": "20261112T183630601693Z-12164-085332",
@@ -296,5 +297,43 @@
   "e2-publish-2": [{"run_id": "20261114T032545417723Z-11724-595857", "jobs": [40]}],
   "e2-publish-8": [{"run_id": "20261114T032407386175Z-11534-623894", "jobs": [41]}],
   "e2-superdoc": [{"run_id": "20261114T032441314750Z-11576-436923", "jobs": [121]}]
+ },
+ "lane_superseded": {
+  "issues": {
+   "206": {
+    "issue": "206",
+    "title": "The document probe's heading scan was quadratic and ran inside the timed load: the whole document lane is measured again, every editor",
+    "lane": "benchmark_document",
+    "jobs": [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 160, 161, 162, 163, 164, 165, 166, 167]
+   },
+   "207": {
+    "issue": "207",
+    "title": "C08 and WordCraft's C09 accepted a caret-only frame as the response: the whole input lane is measured again, every editor",
+    "lane": "benchmark_input",
+    "jobs": [22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111]
+   }
+  }
+ },
+ "lane_rerun": {
+  "e2-publish": [{"run_id": "20261115T002925091928Z-11706-187222", "jobs": [160], "extension": true}],
+  "e2-publish-2": [{"run_id": "20261115T002853031594Z-11657-438529", "jobs": [161], "extension": true}],
+  "e2-publish-3": [{"run_id": "20261115T002751446370Z-11501-712491", "jobs": [164], "extension": true}],
+  "e2-publish-4": [{"run_id": "20261115T002828728709Z-11572-529304", "jobs": [165], "extension": true}],
+  "e2-publish-5": [{"run_id": "20261115T002901340852Z-11664-444465", "jobs": [162], "extension": true}],
+  "e2-publish-6": [{"run_id": "20261115T002906228387Z-11640-858795", "jobs": [163], "extension": true}],
+  "e2-publish-7": [{"run_id": "20261115T002908974839Z-11642-809296", "jobs": [166], "extension": true}],
+  "e2-publish-8": [{"run_id": "20261115T002838208650Z-11563-706593", "jobs": [167], "extension": true}],
+  "e2-apryse": [{"run_id": "20261115T002840936128Z-11568-133417", "jobs": [16, 22, 26, 90]}],
+  "e2-canvas": [{"run_id": "20261115T002914825911Z-11635-386956", "jobs": [17, 23, 27, 91]}],
+  "e2-docen": [{"run_id": "20261115T002848299354Z-11574-584194", "jobs": [10, 24, 96, 106]}],
+  "e2-docsplus": [{"run_id": "20261115T002814248926Z-11506-022993", "jobs": [11, 25, 97, 107]}],
+  "e2-docxodus": [{"run_id": "20261115T002849649072Z-11564-463624", "jobs": [12, 20, 102]}],
+  "e2-eigenpal": [{"run_id": "20261115T002958825869Z-11738-227780", "jobs": [13, 21, 103]}],
+  "e2-fidus": [{"run_id": "20261115T002822244393Z-11491-166670", "jobs": [92, 100, 104]}],
+  "e2-folio": [{"run_id": "20261115T002824509700Z-11494-712884", "jobs": [93, 101, 105]}],
+  "e2-genoffice": [{"run_id": "20261115T003004656104Z-11705-515022", "jobs": [14, 18, 28, 30]}],
+  "e2-plate": [{"run_id": "20261115T004748523250Z-11691-934690", "jobs": [15, 19, 29, 31]}],
+  "e2-superdoc": [{"run_id": "20261115T002903581207Z-11571-392145", "jobs": [94, 98, 108, 110]}],
+  "e2-wordcraft": [{"run_id": "20261115T004703771437Z-11561-812522", "jobs": [95, 99, 109, 111]}]
  }
 }

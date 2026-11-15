@@ -1373,6 +1373,23 @@ def test_a_lane_round_job_not_yet_sealed_counts_unsealed(tmp_path):
     assert 4 not in linked(roots_dir)
 
 
+def test_a_running_lane_round_job_has_no_summary_and_counts_unsealed(tmp_path):
+    """A job still measuring has written neither JOB-DONE nor summary.json: nothing to compare yet."""
+    data, new = lane_data(tmp_path)
+    (new[0] / "JOB-DONE").unlink()
+    (new[0] / "summary.json").unlink()
+    roots_dir = tmp_path / "roots"
+    assert run_roots(data, roots_dir, write_manifest(tmp_path, lane_manifest())) == 0
+    campaign = json.loads((roots_dir / "report_e2_runs.json").read_text())["campaign"]
+    assert campaign["lane_rerun_kept"] == 3 and campaign["lane_rerun_unsealed"] == 1
+
+
+def test_a_sealed_lane_round_job_without_a_summary_is_still_an_error(tmp_path, capsys):
+    def change(manifest, data, new):
+        (new[0] / "summary.json").unlink()
+    lane_refused(tmp_path, capsys, change, "has no readable summary.json")
+
+
 def test_a_missing_lane_round_run_fails_unless_partial(tmp_path):
     data, _ = extension_data(tmp_path)
     manifest = write_manifest(tmp_path, lane_manifest())
