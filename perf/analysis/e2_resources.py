@@ -418,11 +418,11 @@ def settle_window_note(facts: dict) -> str:
     cells_, higher, lower = (facts.get('perf.e2.B8.settle_' + key, 0) for key in ('cells', 'first_higher', 'first_lower'))
     text = ('The settling window is not a fixed length: it ends at the first half-second poll at which two seconds '
             'have passed without a long task, and the polls themselves cost processor time.')
-    if cells_:
-        text += (" Across the %d cells with a settling figure, the first seed's median is the higher in %d and the "
-                 'lower in %d.' % (cells_, higher, lower))
-    return text + (' A difference of a few tens of milliseconds in that column is the window and the 10 ms counter, '
-                   'not the editor.')
+    if not cells_:
+        return text
+    return text + (" Across the %d cells with a settling figure, the first seed's median is the higher in %d and the "
+                   'lower in %d. A difference of a few tens of milliseconds in that column cannot be told apart from '
+                   'the window and the 10 ms counter.' % (cells_, higher, lower))
 
 
 def resources_tables(facts: dict, roots, editors, display) -> str:

@@ -87,6 +87,10 @@ def _cell(facts: dict, key: str, editor: str, criterion: str, measure: str, work
     value = (_seed_median(first) + _seed_median(second)) / 2
     unit = first.get('sample_unit') or 'ms'
     frame = max(first.get('frame_interval_ms') or 0, second.get('frame_interval_ms') or 0)
+    # "under 1 frame" only when each seed's median is under it; a middle that
+    # dips below while one seed is above is printed as the time it is.
+    if max(_seed_median(first), _seed_median(second)) >= frame:
+        frame = 0.0
     facts['perf.e2.short.%s.%s.%s' % (key, editor, workload)] = value
     return fmt(value, unit, frame), (value, unit, frame)
 

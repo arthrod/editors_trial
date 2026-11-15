@@ -1249,8 +1249,9 @@ RESOURCES_BLURB = (
     "the page or from the editor's model, gained exactly the typed text; WordCraft, which puts no document text in the page, "
     "is verified by its own modified flag. An editor still working when a 30-second cap ends "
     "never went idle, even in one launch: the CPU columns that wait would end are not printed, because they would time the cap, and a note gives "
-    "what it used up to its ready signal, how the capped wait divides between the browser's GPU process (the one "
-    "that draws; on this host it draws in software) and the page's own process, and how far its memory readings ran. "
+    "what it used up to its ready signal, how far its memory readings ran and, where every kept launch recorded its "
+    "processes, how the capped wait divides between the browser's GPU process (the one that draws; on this host it "
+    "draws in software) and the page's own process. "
     "The complex document is loaded without its read-only protection, which the editors honour."
 )
 

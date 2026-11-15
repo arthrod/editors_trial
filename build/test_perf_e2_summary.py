@@ -95,3 +95,12 @@ def test_a_column_whose_figures_all_read_the_same_says_so():
         _put(facts, editor, 'C10', 'prose-250kw', 12.0 if editor == 'plate' else 60.0)
     text = summary.short_version(facts, ['folio', 'plate'], DISPLAY)
     assert 'At 500 words the figures are all under 1 frame; at 250,000 words, from under 1 frame to 60 ms.' in text
+
+
+def test_under_one_frame_needs_both_seeds_under_it():
+    """Review of #227: 14 ms and 18 ms have a middle of 16 ms, and one seed is over a frame."""
+    facts = {}
+    _put(facts, 'plate', 'C10', 'prose-500w', 14.0, 18.0)
+    _put(facts, 'plate', 'C10', 'prose-5kw', 14.0, 15.0)
+    text = summary.short_version(facts, ['plate'], DISPLAY)
+    assert '| Plate.js | 16 ms | under 1 frame |' in text

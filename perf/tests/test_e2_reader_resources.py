@@ -367,3 +367,12 @@ def test_a_split_figure_that_disagrees_is_marked_and_not_stored_as_a_result(tmp_
     assert "the page's own process 4.40 s / 3.80 s (not reproduced);" in text
     prefix = 'perf.e2.plate.B8.prose-250kw.capped_renderer_cpu_ms.'
     assert prefix + 'medians' not in facts and facts[prefix + 'seed_medians'] == [4400, 3800]
+
+
+def test_the_settle_note_claims_nothing_about_cells_it_did_not_count():
+    """Review of #226: with no settling figure the note still blamed the window."""
+    note = res.settle_window_note({})
+    assert 'cells' not in note and 'cannot be told apart' not in note
+    counted = res.settle_window_note({'perf.e2.B8.settle_cells': 3, 'perf.e2.B8.settle_first_higher': 2,
+                                      'perf.e2.B8.settle_first_lower': 0})
+    assert 'cannot be told apart from the window and the 10 ms counter.' in counted
