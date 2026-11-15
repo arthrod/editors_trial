@@ -296,6 +296,10 @@ class FakeHostMeasurers(unittest.TestCase):
             self.assertLess(fcp, payload["document_text_at_ms"], payload)
             self.assertGreater(samples[0], fcp, payload)
         self.assertEqual(payload.get("usable_signal"), "dom_text")
+        # #206: the probe's own read of the page, in the tick that found the text, is disclosed.
+        scan = payload.get("probe_scan_ms_at_text")
+        self.assertIsInstance(scan, (int, float), payload)
+        self.assertTrue(0 <= scan < payload["document_text_at_ms"], payload)
 
     def test_static_host_c14_measures_when_no_damage_follows(self):
         payload = self.probe("scale", "b3_static.html", [])

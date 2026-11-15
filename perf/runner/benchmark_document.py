@@ -2070,6 +2070,7 @@ def _run_load_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path: 
                 "first_element_info": payload.get("first_element_info"),
                 "first_element_selector": payload.get("first_element_selector"),
                 "document_text_at_ms": payload.get("document_text_at_ms"),
+                "probe_scan_ms_at_text": payload.get("probe_scan_ms_at_text"),
                 "presented_frame_ms": payload.get("presented_frame_ms"),
                 "usable_signal": payload.get("usable_signal"),
                 "usable_ms": payload.get("usable_ms"),

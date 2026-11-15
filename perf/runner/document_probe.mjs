@@ -1265,6 +1265,8 @@ async function loadResult(ctx, { navigationMs, readyMs, surface, witness, surfac
     first_element_info: snap.first_element_info,
     first_element_selector: pageSelector || docSelector,
     document_text_at_ms: at,
+    // #206: what the probe's own read of the page cost in the tick that found the text.
+    probe_scan_ms_at_text: snap.probe_scan_ms_at_text ?? null,
     usable_ms: at,
     usable_signal: (surface && surface.signal) || SIGNAL_NAME[usableSignal],
     first_element_delta_from_fcp_ms: fcp !== null && snap.first_element_ms !== null ? snap.first_element_ms - fcp : null,
