@@ -195,3 +195,19 @@ def test_b9_a_blocked_cell_without_a_reason_lists_refusals_as_prose(tmp_path, mo
     assert 'not enough sessions' in text, text
     assert '{' not in text and "'" not in text, text
     assert 'refusals: crash (6)' in text, text
+
+
+def test_b9_a_latency_table_is_a_block_of_its_own(tmp_path, monkeypatch):
+    """#214: Markdown needs a blank line before a table; without it the twin shows pipes as text."""
+    roots = _campaign(tmp_path)
+    monkeypatch.setattr(report, 'check_roots_comparable', lambda roots: None)
+    lines = report.typing_table({}, roots, 'plate', 'latency').split('\n')
+    head = lines.index('| Measure | First seed | Second seed |')
+    assert lines[head - 1] == '', lines[:head + 1]
+    assert lines[head + 1] == '|---|---|---|'
+    rows = [i for i, line in enumerate(lines) if line.startswith('|')]
+    assert rows == list(range(head, rows[-1] + 1)), 'the table rows are contiguous'
+    witnesses = [i for i, line in enumerate(lines) if line.endswith('key witnesses.')]
+    assert len(witnesses) == 2
+    for i in witnesses:
+        assert lines[i - 1] == '', lines[rows[-1]:]

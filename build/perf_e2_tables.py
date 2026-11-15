@@ -1446,14 +1446,16 @@ def typing_table(facts, roots, editor, kind):
         for name, group in zip(('first', 'second'), groups):
             accepted = sum(row['key_to_paint']['n_accepted'] for row in group['kept'])
             refused = sum(row['key_to_paint']['n_refused'] for row in group['kept'])
-            table_lines.append(f'{name}: accepted {accepted}; refused {refused} key witnesses.')
+            # A blank line first: each is a paragraph, and the first one ends the table (#214).
+            table_lines.extend(['', f'{name}: accepted {accepted}; refused {refused} key witnesses.'])
     facts[key + '.reproduced'] = all_reproduced
     published = all_reproduced
     facts[key + '.primary'] = _typing_facts_group(groups[0], fields, published=published)
     facts[key + '.reproduction'] = _typing_facts_group(groups[1], fields, published=published)
     if not all_reproduced:
         return header + ' One or more measures did not reproduce, so no figure is printed.'
-    lines = [header, '| Measure | First seed | Second seed |', '|---|---|---|', *table_lines]
+    # Markdown reads a table only after a blank line (#214).
+    lines = [header, '', '| Measure | First seed | Second seed |', '|---|---|---|', *table_lines]
     return '\n'.join(lines)
 
 

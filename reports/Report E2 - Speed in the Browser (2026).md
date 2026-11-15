@@ -1202,12 +1202,15 @@ Docxodus — latency: first: not enough sessions or run blocked (n = 0 of 6; ins
 Docxodus — throughput; first n = 6 of 6; second n = 6 of 6. One or more measures did not reproduce, so no figure is printed.
 
 eigenpal — latency; first n = 6 of 6; second n = 6 of 6. Latency-session throughput and resources are instrumented; figures withheld.
+
 | Measure | First seed | Second seed |
 |---|---|---|
 | key_to_paint.median_ms | 26.592 ms; range 25.6 to 28.6 ms (n = 6) | 25.5015 ms; range 24.2 to 26.6 ms (n = 6) |
 | key_to_paint.p90_ms | 34.723 ms; range 33.0 to 37.5 ms (n = 6) | 33.166 ms; range 32.2 to 35.0 ms (n = 6) |
 | load_ms | 607.344 ms; range 528.3 to 653.4 ms (n = 6) | 568.264 ms; range 551.8 to 585.8 ms (n = 6) |
+
 first: accepted 4866; refused 0 key witnesses.
+
 second: accepted 4866; refused 0 key witnesses.
 
 eigenpal — throughput; first n = 6 of 6; second n = 6 of 6. One or more measures did not reproduce, so no figure is printed.
@@ -1217,12 +1220,15 @@ Folio — latency: first: not enough sessions or run blocked (n = 0 of 6; insuff
 Folio — throughput: first: not enough sessions or run blocked (n = 0 of 6; insufficient_typing_sessions); characters typed in the refused sessions that recorded progress: 0, 0; second: not enough sessions or run blocked (n = 0 of 6; insufficient_typing_sessions); characters typed in the refused sessions that recorded progress: 0, 0
 
 GenOffice — latency; first n = 6 of 6; second n = 6 of 6. Latency-session throughput and resources are instrumented; figures withheld.
+
 | Measure | First seed | Second seed |
 |---|---|---|
 | key_to_paint.median_ms | 32.996 ms; range 32.1 to 33.7 ms (n = 6) | 36.345 ms; range 34.4 to 40.6 ms (n = 6) |
 | key_to_paint.p90_ms | 53.274 ms; range 52.4 to 54.6 ms (n = 6) | 57.491 ms; range 56.8 to 66.7 ms (n = 6) |
 | load_ms | 726.86 ms; range 718.2 to 753.9 ms (n = 6) | 790.561 ms; range 753.7 to 977.0 ms (n = 6) |
+
 first: accepted 4857; refused 9 key witnesses.
+
 second: accepted 4844; refused 22 key witnesses.
 
 GenOffice — throughput; first n = 6 of 6; second n = 6 of 6. One or more measures did not reproduce, so no figure is printed.
