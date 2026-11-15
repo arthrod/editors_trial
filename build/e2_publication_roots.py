@@ -14,7 +14,10 @@ editor whose cells of some jobs an issue superseded (`editor_superseded`,
 job indices (`editor_rerun`); an extension round of new job indices
 (`extension`, #188); and a late round: first-pass jobs an issue retired
 after the first round, whole jobs for every editor (`late_superseded`,
-#192), and the runs that measured them again (`late_rerun`). The editor
+#192), and the runs that measured them again (`late_rerun`); and a lane
+round: every job of a lane measured again for every editor after a harness
+bug that touched them all (`lane_superseded`, `lane_rerun`, #208), which
+replaces whatever round measured those jobs last. The editor
 round's old jobs stay linked for every other
 editor; `report_e2_runs.json` lists the superseded cells
 (`superseded_cells`) and `build/facts.py` reads around them. This script walks a local mirror
@@ -71,6 +74,113 @@ def late_superseded_jobs(manifest: dict) -> set[int]:
     return jobs
 
 
+def lane_superseded_jobs(manifest: dict) -> set[int]:
+    """Job indexes a lane round retired (#208): whole jobs for every editor, whatever round measured them last."""
+    jobs: set[int] = set()
+    for issue in manifest.get("lane_superseded", {}).get("issues", {}).values():
+        jobs.update(issue["jobs"])
+    return jobs
+
+
+def _lane_entries(manifest: dict) -> list[tuple[str, dict]]:
+    return [(space, entry) for space, entries in sorted(manifest.get("lane_rerun", {}).items()) for entry in entries]
+
+
+#: Every round a lane round may replace, in the order they were measured.
+EARLIER_ROUND_KEYS = ("rerun", "rerun2", "rerun3", "editor_rerun", "extension", "late_rerun")
+
+
+def _earlier_jobs(data: Path, manifest: dict, wanted: set[int]) -> dict[int, list[tuple[str, Path]]]:
+    """Per wanted index, (lane, job) of every mirrored job an earlier round measured under that index."""
+    runs = [(space, run_id) for space, run_id in sorted(manifest["first_pass"].items())]
+    runs += [(space, entry["run_id"]) for key in EARLIER_ROUND_KEYS
+             for space, entries in sorted(manifest.get(key, {}).items()) for entry in entries]
+    found: dict[int, list[tuple[str, Path]]] = {}
+    for space, run_id in runs:
+        run_dir = data / space / "runs" / run_id
+        if not run_dir.is_dir():
+            continue
+        for lane, job, index in run_jobs(run_dir, run_id):
+            if index in wanted:
+                found.setdefault(index, []).append((lane, job))
+    return found
+
+
+def _check_lane_round(data: Path, manifest: dict, complete: bool, errors: list[str]) -> None:
+    """A lane round (#208) measures every job it retires exactly once, in the place of the jobs it replaces.
+
+    Each of its jobs sits in the lane its issue names, has the seed and block of the
+    earlier jobs of that index, and schedules at least the editors they measured: a
+    lane round replaces every editor's cells, so an editor it left out would lose
+    them. ``complete``: every manifest run is mirrored, so an index no earlier run
+    carries is decidable.
+    """
+    wanted = lane_superseded_jobs(manifest)
+    entries = _lane_entries(manifest)
+    if not wanted and not entries:
+        return
+    if entries and not manifest.get("harness", {}).get("lane_rerun"):
+        errors.append("the manifest's lane round names no harness commit (harness.lane_rerun)")
+    measured = [index for _, entry in entries for index in entry["jobs"]]
+    if sorted(measured) != sorted(wanted):
+        errors.append(f"lane_superseded jobs {sorted(wanted)} are not measured again exactly once by "
+                      f"lane-round jobs {sorted(measured)}")
+    # The editor-round scope tells extension jobs from campaign jobs by run (#193 at 500k).
+    extension_jobs = {index for space_entries in manifest.get("extension", {}).values()
+                      for entry in space_entries for index in entry["jobs"]}
+    for space, entry in entries:
+        inside = sorted(set(entry["jobs"]) & extension_jobs)
+        outside = sorted(set(entry["jobs"]) - extension_jobs)
+        if entry.get("extension") and outside:
+            errors.append(f"lane-round entry {space}/{entry['run_id']} is flagged extension but holds "
+                          f"campaign jobs {outside}")
+        if not entry.get("extension") and inside:
+            errors.append(f"lane-round entry {space}/{entry['run_id']} holds extension jobs {inside}; "
+                          f"they sit in an entry flagged extension")
+    issue_lane = {index: issue.get("lane") for issue in manifest.get("lane_superseded", {}).get("issues", {}).values()
+                  for index in issue["jobs"]}
+    earlier = _earlier_jobs(data, manifest, wanted)
+    for space, entry in entries:
+        run_dir = data / space / "runs" / entry["run_id"]
+        if not run_dir.is_dir():
+            continue
+        for lane, job, index in run_jobs(run_dir, entry["run_id"]):
+            if index not in entry["jobs"] or index not in issue_lane:
+                continue
+            if lane != issue_lane[index]:
+                errors.append(f"lane-round job {job.name} is in lane {lane}; its issue retires lane "
+                              f"{issue_lane[index]}")
+            before = earlier.get(index, [])
+            if not before:
+                if complete:
+                    errors.append(f"lane-round job {job.name} replaces no earlier job with index {index}")
+                continue
+            for old_lane, old in before:
+                if old_lane != issue_lane[index]:
+                    errors.append(f"lane-round job {job.name} retires {old.name} of lane {old_lane}; its issue "
+                                  f"retires lane {issue_lane[index]}")
+            summary = _summary_of(job)
+            if summary is None:
+                errors.append(f"lane-round job {job.name} has no readable summary.json")
+                continue
+            readable = [(old, value) for _, old in before if (value := _summary_of(old)) is not None]
+            if not readable:
+                errors.append(f"lane-round job {job.name}: none of the jobs it replaces has a readable "
+                              f"summary.json to compare seeds with")
+                continue
+            scheduled: set[str] = set()
+            for old, value in readable:
+                scheduled |= _scheduled_editors(value)
+                for key in ("seed", "block"):
+                    if summary.get(key) != value.get(key):
+                        errors.append(f"lane-round job {job.name} has {key} {summary.get(key)!r}; a job it "
+                                      f"replaces, {old.name}, has {value.get(key)!r}")
+            missing = sorted(scheduled - _scheduled_editors(summary))
+            if missing:
+                errors.append(f"lane-round job {job.name} does not schedule {missing}, which the jobs it "
+                              f"replaces measured")
+
+
 def _check_late_round(manifest: dict, errors: list[str]) -> None:
     """A late round re-measures first-pass jobs no earlier round touched, each exactly once.
 
@@ -114,7 +224,9 @@ def editor_superseded(manifest: dict) -> dict[str, set[int]]:
 
 def superseded_cells(manifest: dict) -> list[dict]:
     """The editor-scoped supersedes `build/facts.py` reads around (#185)."""
-    kept = sorted(entry["run_id"] for entries in manifest.get("editor_rerun", {}).values() for entry in entries)
+    # A lane round (#208) measured every editor again: its runs are kept for every editor.
+    kept = sorted(entry["run_id"] for key in ("editor_rerun", "lane_rerun")
+                  for entries in manifest.get(key, {}).values() for entry in entries)
     return [
         {"issue": number, "editor": issue["editor"], "jobs": sorted(issue["jobs"]), "kept_runs": kept}
         for number, issue in sorted(manifest.get("editor_superseded", {}).get("issues", {}).items())
@@ -293,6 +405,8 @@ def _check_editor_round_data(roots_dir: Path, manifest: dict, errors: list[str])
     # Extension jobs (#188) were measured after the earlier rounds' fixes: only a round flagged
     # "extension" supersedes them (#193 at 500k).
     later = {entry["run_id"] for entries in manifest.get("extension", {}).values() for entry in entries}
+    # ... and so are the lane-round runs that measured the extension jobs again (#208).
+    later |= {entry["run_id"] for _, entry in _lane_entries(manifest) if entry.get("extension")}
     old: dict[int, list[tuple[str, Path, bool]]] = {}
     new: list[tuple[str, int, Path, str]] = []
     issue_lane = {(issue["editor"], index): issue.get("lane") for issue in issues.values() for index in issue["jobs"]}
@@ -419,7 +533,7 @@ def _check_extension(data: Path, manifest: dict, errors: list[str]) -> None:
         errors.append(f"extension jobs {reused} reuse campaign job indexes; an extension adds new jobs only")
 
 
-ROUND_KEYS = ("rerun", "rerun2", "rerun3", "editor_rerun", "extension", "late_rerun")
+ROUND_KEYS = ("rerun", "rerun2", "rerun3", "editor_rerun", "extension", "late_rerun", "lane_rerun")
 
 
 def _check_stopped(manifest: dict, errors: list[str]) -> None:
@@ -440,8 +554,11 @@ def _check_stopped(manifest: dict, errors: list[str]) -> None:
 
 
 def _link_round(data: Path, roots_dir: Path, space: str, entries: list, prefix: str, retired: set[int],
-                campaign: dict, roots: list[str], errors: list[str]) -> None:
-    """Link one re-run round's sealed jobs of a Space; jobs in ``retired`` are counted, never linked."""
+                campaign: dict, roots: list[str], errors: list[str], lane_retired: frozenset = frozenset()) -> None:
+    """Link one re-run round's sealed jobs of a Space; jobs in ``retired`` are counted, never linked.
+
+    ``lane_retired``: indexes a lane round measured again (#208), counted in ``lane_superseded``.
+    """
     for entry in entries:
         run_id = entry["run_id"]
         run_dir = data / space / "runs" / run_id
@@ -470,12 +587,15 @@ def _link_round(data: Path, roots_dir: Path, space: str, entries: list, prefix: 
             seen.add(index)
             if index in retired:
                 campaign[f"{prefix}_superseded"] += 1
+            elif index in lane_retired:
+                # Replaced, sealed or not: a job the lane round measured again is never a gap.
+                campaign["lane_superseded"] += 1
             elif not (job / "JOB-DONE").exists():
                 campaign[f"{prefix}_unsealed"] += 1
             else:
                 link_job(roots_dir, space, run_id, lane, job)
                 campaign[f"{prefix}_kept"] += 1
-        campaign[f"{prefix}_unsealed"] += len(declared - seen)
+        campaign[f"{prefix}_unsealed"] += len(declared - seen - lane_retired)
         if root.exists():
             roots.append(str(root))
 
@@ -511,6 +631,7 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
     data, roots_dir = Path(data).resolve(), Path(roots_dir).resolve()
     superseded = superseded_jobs(manifest)
     late = late_superseded_jobs(manifest)
+    lane_jobs = frozenset(lane_superseded_jobs(manifest))
     campaign = {
         "first_pass_kept": 0,
         "first_pass_superseded": 0,
@@ -540,6 +661,13 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
             for number, issue in sorted(manifest.get("editor_superseded", {}).get("issues", {}).items())],
         "missing_runs": [],
     }
+    if manifest.get("lane_superseded") or manifest.get("lane_rerun"):
+        campaign.update({
+            "lane_superseded": 0, "lane_rerun_kept": 0, "lane_rerun_unsealed": 0,
+            "lane_rounds": [{"issue": str(issue.get("issue", number)), "lane": issue.get("lane"),
+                             "jobs": len(issue["jobs"])}
+                            for number, issue in sorted(manifest.get("lane_superseded", {}).get("issues", {}).items())],
+        })
     roots: list[str] = []
     errors: list[str] = []
     first_pass_indices: set[int] = set()
@@ -554,7 +682,9 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
             for lane, job, index in run_jobs(run_dir, run_id):
                 first_pass_indices.add(index)
                 first_pass_lane[index] = lane
-                if not (job / "JOB-DONE").exists():
+                if index in lane_jobs:
+                    campaign["lane_superseded"] += 1
+                elif not (job / "JOB-DONE").exists():
                     campaign["first_pass_unsealed"] += 1
                 elif index in superseded:
                     campaign["first_pass_superseded"] += 1
@@ -568,23 +698,27 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
         retired = rerun_superseded_jobs(manifest)
         retired2 = rerun_superseded_jobs(manifest, "rerun2_superseded")
         _link_round(data, roots_dir, space, manifest["rerun"].get(space, []), "rerun", retired,
-                    campaign, roots, errors)
+                    campaign, roots, errors, lane_jobs)
         _link_round(data, roots_dir, space, manifest.get("rerun2", {}).get(space, []), "rerun2", retired2,
-                    campaign, roots, errors)
+                    campaign, roots, errors, lane_jobs)
         _link_round(data, roots_dir, space, manifest.get("rerun3", {}).get(space, []), "rerun3", set(),
-                    campaign, roots, errors)
+                    campaign, roots, errors, lane_jobs)
         _link_round(data, roots_dir, space, manifest.get("editor_rerun", {}).get(space, []), "editor_rerun",
-                    set(), campaign, roots, errors)
+                    set(), campaign, roots, errors, lane_jobs)
         _link_round(data, roots_dir, space, manifest.get("extension", {}).get(space, []), "extension",
-                    set(), campaign, roots, errors)
+                    set(), campaign, roots, errors, lane_jobs)
         _link_round(data, roots_dir, space, manifest.get("late_rerun", {}).get(space, []), "late_rerun",
-                    set(), campaign, roots, errors)
+                    set(), campaign, roots, errors, lane_jobs)
         for round_key, earlier, name, of in (("rerun2", retired, "second-round", "re-run"),
                                              ("rerun3", retired2, "third-round", "second-round")):
             for entry in manifest.get(round_key, {}).get(space, []):
                 stray = sorted(set(entry["jobs"]) - earlier)
                 if stray:
                     errors.append(f"{name} jobs {stray} of {space}/{entry['run_id']} supersede no {of} job")
+    # The lane round (#208): linked for every Space that ran it, a first-pass Space or not.
+    for space in sorted(manifest.get("lane_rerun", {})):
+        _link_round(data, roots_dir, space, manifest["lane_rerun"][space], "lane_rerun", set(),
+                    campaign, roots, errors)
     # Every retired job is measured again exactly once, and no run is listed twice
     # (review of d509c234, M1): otherwise a cell would vanish with only a counter as trace.
     for retired_key, round_key, name in (("rerun_superseded", "rerun2", "second-round"),
@@ -601,6 +735,7 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
     _check_stopped(manifest, errors)
     _check_extension(data, manifest, errors)
     _check_late_round(manifest, errors)
+    _check_lane_round(data, manifest, not campaign["missing_runs"], errors)
     # A late round retires first-pass jobs (octo review): an index no first-pass run carries would link a
     # job that replaces nothing. Only decidable when every first-pass run is mirrored.
     stray_late = sorted(late_superseded_jobs(manifest) - first_pass_indices)
@@ -617,7 +752,7 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
                     errors.append(f"late-round job {job.name} is in lane {lane}; the first-pass job it retires "
                                   f"is in lane {first_pass_lane[index]}")
     run_ids = list(manifest["first_pass"].values()) + [
-        entry["run_id"] for key in ("rerun", "rerun2", "rerun3", "editor_rerun", "extension", "late_rerun")
+        entry["run_id"] for key in ROUND_KEYS
         for entries in manifest.get(key, {}).values() for entry in entries]
     duplicates = sorted({rid for rid in run_ids if run_ids.count(rid) > 1})
     if duplicates:

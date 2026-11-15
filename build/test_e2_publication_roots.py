@@ -1206,3 +1206,168 @@ def test_a_job_both_kept_and_stopped_is_an_error(tmp_path, capsys):
     manifest["editor_rerun"]["space-b"][0]["stopped"] = [12]
     assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
     assert "both kept and stopped" in capsys.readouterr().err
+
+
+# A lane round (#208) ---------------------------------------------------------------------------------
+# #206 and #207 are harness bugs that touch every editor of a lane: every job of the lane is measured
+# again, all editors interleaved. Earlier rounds had already replaced those jobs, whole or for one
+# editor; for a lane-superseded index only the lane round's job is linked.
+RID_LANE = "20261115T010000000000Z-70000-000021"
+RID_LANE_EXT = "20261115T010000000000Z-70000-000022"
+LANE_JOBS = ((RID_LANE, "space-a", 4, 1), (RID_LANE, "space-a", 12, 2),
+             (RID_LANE_EXT, "space-b", 160, 1), (RID_LANE_EXT, "space-b", 161, 2))
+
+
+def lane_manifest():
+    manifest = extension_manifest()
+    manifest["harness"]["lane_rerun"] = "3eaf8c9b"
+    manifest["lane_superseded"] = {
+        "issues": {"206": {"title": "synthetic lane round", "lane": "benchmark_document", "jobs": [4, 12, 160, 161]}}
+    }
+    manifest["lane_rerun"] = {"space-a": [{"run_id": RID_LANE, "jobs": [4, 12]}],
+                              "space-b": [{"run_id": RID_LANE_EXT, "jobs": [160, 161], "extension": True}]}
+    return manifest
+
+
+def lane_data(tmp_path, *, seed=1, editors=("plate", "canvas"), lane="benchmark_document"):
+    data, _ = extension_data(tmp_path)
+    new = [summarize(job(data / space / "runs" / rid, rid, index, lane=lane), seed, block, list(editors))
+           for rid, space, index, block in LANE_JOBS]
+    return data, new
+
+
+def linked(roots_dir):
+    """{job index: [run id, ...]} of every linked job."""
+    out = {}
+    for path in sorted(roots_dir.glob("*/*/*")):
+        run_id, _, tail = path.name.rpartition("-")
+        if tail.isdigit():
+            out.setdefault(int(tail), []).append(run_id)
+    return out
+
+
+def test_a_lane_round_replaces_every_earlier_job_of_its_indexes(tmp_path):
+    data, new = lane_data(tmp_path)
+    roots_dir = tmp_path / "roots"
+    assert run_roots(data, roots_dir, write_manifest(tmp_path, lane_manifest())) == 0
+    payload = json.loads((roots_dir / "report_e2_runs.json").read_text())
+    jobs = linked(roots_dir)
+    # First pass (4), third round (12), canvas-editor's round (4, 12) and the extension (160, 161) are gone.
+    assert jobs[4] == [RID_LANE] and jobs[12] == [RID_LANE]
+    assert jobs[160] == [RID_LANE_EXT] and jobs[161] == [RID_LANE_EXT]
+    for path in new:
+        rid = path.name.rpartition("-")[0]
+        space = "space-a" if rid == RID_LANE else "space-b"
+        assert (roots_dir / f"{space}--{rid}" / "benchmark_document" / path.name).resolve() == path
+    # A job outside the lane round is untouched.
+    assert jobs[50] == [RID_B]
+    campaign = payload["campaign"]
+    assert campaign["lane_rerun_kept"] == 4 and campaign["lane_rerun_unsealed"] == 0
+    assert campaign["lane_superseded"] == 6
+    # The earlier rounds' own counters do not absorb the lane round.
+    assert campaign["editor_rerun_kept"] == 0 and campaign["extension_kept"] == 0
+    assert campaign["lane_rounds"] == [{"issue": "206", "lane": "benchmark_document", "jobs": 4}]
+    # The reader must not drop canvas-editor's cells of the lane round's jobs.
+    assert payload["superseded_cells"] == [
+        {"issue": "185", "editor": "canvas", "jobs": [4, 12], "kept_runs": sorted([RID_CANVAS, RID_LANE, RID_LANE_EXT])}
+    ]
+    for rid in (RID_LANE, RID_LANE_EXT):
+        assert any(root.endswith(rid) for root in payload["roots"])
+    assert not any(root.endswith(RID_CANVAS) or root.endswith(RID_EXT) for root in payload["roots"])
+
+
+def test_without_a_lane_round_the_campaign_has_no_lane_counters(tmp_path):
+    data, _ = extension_data(tmp_path)
+    roots_dir = tmp_path / "roots"
+    assert run_roots(data, roots_dir, write_manifest(tmp_path, extension_manifest())) == 0
+    campaign = json.loads((roots_dir / "report_e2_runs.json").read_text())["campaign"]
+    assert not [key for key in campaign if key.startswith("lane_")]
+
+
+def lane_refused(tmp_path, capsys, change, expected, **data_kwargs):
+    data, new = lane_data(tmp_path, **data_kwargs)
+    manifest = lane_manifest()
+    change(manifest, data, new)
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+    assert expected in capsys.readouterr().err
+
+
+def test_a_lane_superseded_job_nobody_measured_again_is_an_error(tmp_path, capsys):
+    def change(manifest, data, new):
+        manifest["lane_rerun"]["space-a"][0]["jobs"] = [4]
+    lane_refused(tmp_path, capsys, change, "are not measured again exactly once")
+
+
+def test_a_lane_round_job_nobody_superseded_is_an_error(tmp_path, capsys):
+    def change(manifest, data, new):
+        manifest["lane_superseded"]["issues"]["206"]["jobs"] = [4, 160, 161]
+    lane_refused(tmp_path, capsys, change, "are not measured again exactly once")
+
+
+def test_a_lane_round_needs_its_harness_commit(tmp_path, capsys):
+    def change(manifest, data, new):
+        del manifest["harness"]["lane_rerun"]
+    lane_refused(tmp_path, capsys, change, "harness.lane_rerun")
+
+
+def test_a_lane_round_job_in_another_lane_is_refused(tmp_path, capsys):
+    lane_refused(tmp_path, capsys, lambda *_: None, "is in lane benchmark_input", lane="benchmark_input")
+
+
+def test_a_lane_round_job_with_another_seed_is_refused(tmp_path, capsys):
+    lane_refused(tmp_path, capsys, lambda *_: None, "has seed 2", seed=2)
+
+
+def test_a_lane_round_job_that_drops_an_editor_is_refused(tmp_path, capsys):
+    lane_refused(tmp_path, capsys, lambda *_: None, "does not schedule ['canvas']", editors=("plate",))
+
+
+def test_a_lane_round_of_an_index_no_earlier_run_carries_is_refused(tmp_path, capsys):
+    def change(manifest, data, new):
+        manifest["lane_superseded"]["issues"]["206"]["jobs"].append(77)
+        manifest["lane_rerun"]["space-a"][0]["jobs"].append(77)
+        summarize(job(data / "space-a" / "runs" / RID_LANE, RID_LANE, 77), 1, 1, ["plate", "canvas"])
+    lane_refused(tmp_path, capsys, change, "replaces no earlier job")
+
+
+def test_extension_jobs_of_a_lane_round_sit_in_an_entry_flagged_extension(tmp_path, capsys):
+    def change(manifest, data, new):
+        del manifest["lane_rerun"]["space-b"][0]["extension"]
+    lane_refused(tmp_path, capsys, change, "extension jobs [160, 161]")
+
+
+def test_an_entry_flagged_extension_holds_extension_jobs_only(tmp_path, capsys):
+    def change(manifest, data, new):
+        manifest["lane_rerun"]["space-a"][0]["extension"] = True
+    lane_refused(tmp_path, capsys, change, "campaign jobs [4, 12]")
+
+
+def test_a_lane_round_job_the_manifest_does_not_name_is_an_error(tmp_path, capsys):
+    def change(manifest, data, new):
+        summarize(job(data / "space-a" / "runs" / RID_LANE, RID_LANE, 11), 1, 1, ["plate", "canvas"])
+    lane_refused(tmp_path, capsys, change, "is not in the manifest's job list")
+
+
+def test_a_lane_round_run_listed_elsewhere_is_an_error(tmp_path, capsys):
+    def change(manifest, data, new):
+        manifest["extension"]["space-a"][0]["run_id"] = RID_LANE
+    lane_refused(tmp_path, capsys, change, "listed more than once")
+
+
+def test_a_lane_round_job_not_yet_sealed_counts_unsealed(tmp_path):
+    data, new = lane_data(tmp_path)
+    (new[0] / "JOB-DONE").unlink()
+    roots_dir = tmp_path / "roots"
+    assert run_roots(data, roots_dir, write_manifest(tmp_path, lane_manifest())) == 0
+    campaign = json.loads((roots_dir / "report_e2_runs.json").read_text())["campaign"]
+    assert campaign["lane_rerun_kept"] == 3 and campaign["lane_rerun_unsealed"] == 1
+    assert 4 not in linked(roots_dir)
+
+
+def test_a_missing_lane_round_run_fails_unless_partial(tmp_path):
+    data, _ = extension_data(tmp_path)
+    manifest = write_manifest(tmp_path, lane_manifest())
+    assert run_roots(data, tmp_path / "roots", manifest) != 0
+    assert run_roots(data, tmp_path / "roots2", manifest, "--partial") == 0
+    campaign = json.loads((tmp_path / "roots2" / "report_e2_runs.json").read_text())["campaign"]
+    assert campaign["lane_rerun_unsealed"] == 4 and campaign["partial"] is True
