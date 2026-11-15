@@ -21,8 +21,9 @@ HALF_MILLION = ('prose-500kw', '500,000 words')
 # (key, heading, criterion, measure, sizes, what the table times)
 SECTIONS = (
     ('open', 'Opening a document', 'C11', '', SIZES + (HALF_MILLION,),
-     'From the moment the page is asked for the document until the first frame that shows it, '
-     'with the text on screen checked against the document.'),
+     'From the moment the page is asked for the document until the first frame that shows it. '
+     'The length of the text on screen is checked against the document (within 2 percent); '
+     'its content and formatting are not checked here.'),
     ('type', 'Typing one character', 'C05', 'warm_steady', SIZES,
      'From a key press until the frame in which that character is on screen, in a document that is already open.'),
     ('caret', 'Clicking to place the caret', 'C07', '', SIZES,
@@ -148,19 +149,19 @@ def _ends(values) -> tuple[str, str]:
     return min(timed)[1], max(timed)[1]
 
 
-def _range_sentence(columns) -> str:
-    """Lowest and highest printed figure of the first and of the last column that holds two or more; no editor is named."""
+def _range_sentence(columns, editors: int) -> str:
+    """How many of the table's editors have a figure, and the lowest and highest printed, for the first
+    and the last column that holds two or more; no editor is named."""
     usable = [(title, values) for title, values in columns if len(values) >= 2]
     if not usable:
         return ''
     parts = []
     for title, values in ([usable[0], usable[-1]] if len(usable) > 1 else [usable[0]]):
         low, high = _ends(values)
-        said = 'are all %s' % low if len({text for _value, text in values}) == 1 else 'run from %s to %s' % (low, high)
-        parts.append('%s%s the figures %s' % ('at ' if parts else 'At ', title, said))
-    text = parts[0] if len(parts) == 1 else parts[0] + '; ' + parts[1].replace(
-        ' the figures run', ',').replace(' the figures are', ', they are')
-    return text + '.'
+        said = 'all %s' % low if len({text for _value, text in values}) == 1 else 'from %s to %s' % (low, high)
+        count = '%d of %d' % (len(values), editors)
+        parts.append('%s %s, %s%s, %s' % ('at' if parts else 'At', title, count, '' if parts else ' editors have a figure', said))
+    return '; '.join(parts) + '.'
 
 
 def short_version(facts: dict, editors, display) -> str:
@@ -181,7 +182,7 @@ def short_version(facts: dict, editors, display) -> str:
         lines = ['### %s' % heading, '', what, '',
                  '| Editor | ' + ' | '.join(title for _workload, title in sizes) + ' |',
                  '|---' * (len(sizes) + 1) + '|', *rows]
-        sentence = _range_sentence(columns)
+        sentence = _range_sentence(columns, len(rows))
         if sentence:
             lines += ['', sentence]
         blocks.append('\n'.join(lines))

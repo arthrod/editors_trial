@@ -96,27 +96,22 @@ def expected_cell(facts: dict, editor: str, criterion: str, measure: str, worklo
     return text, value, True
 
 
-def expected_sentence(columns) -> str:
-    """columns: [(title, [(value, text), ...])] of one table, in order."""
+def expected_sentence(columns, editors: int) -> str:
+    """columns: [(title, [(value, text), ...])] of one table, in order; editors: the table's rows."""
     usable = [(title, cells) for title, cells in columns if len(cells) >= 2]
     if not usable:
         return ''
     picked = [usable[0]] if len(usable) == 1 else [usable[0], usable[-1]]
-    said = []
-    for title, cells in picked:
+    out = []
+    for index, (title, cells) in enumerate(picked):
         texts = [text for _value, text in cells]
         if len(set(texts)) == 1:
-            said.append((title, 'all', texts[0], texts[0]))
-            continue
-        timed = sorted((value, text) for value, text in cells if text != 'under 1 frame')
-        low = 'under 1 frame' if len(timed) < len(cells) else timed[0][1]
-        said.append((title, 'range', low, timed[-1][1]))
-    out = []
-    for index, (title, kind, low, high) in enumerate(said):
-        if index == 0:
-            out.append('At %s the figures %s' % (title, 'are all %s' % low if kind == 'all' else 'run from %s to %s' % (low, high)))
+            spread = 'all ' + texts[0]
         else:
-            out.append('at %s, %s' % (title, 'they are all %s' % low if kind == 'all' else 'from %s to %s' % (low, high)))
+            timed = sorted((value, text) for value, text in cells if text != 'under 1 frame')
+            spread = 'from %s to %s' % ('under 1 frame' if len(timed) < len(cells) else timed[0][1], timed[-1][1])
+        head = 'At %s, %d of %d editors have a figure' if index == 0 else 'at %s, %d of %d'
+        out.append(head % (title, len(cells), editors) + ', ' + spread)
     return '; '.join(out) + '.'
 
 
@@ -150,7 +145,7 @@ def check(report_text: str, facts: dict, display: dict) -> list:
                 if counts:
                     columns[index][1].append((value, text))
         printed = [line for line in block.split('\n') if line.startswith('At ')]
-        sentence = expected_sentence(columns)
+        sentence = expected_sentence(columns, len(rows) - 2)
         if (printed[0] if printed else '') != sentence:
             problems.append('%s: range sentence is %r, the facts give %r' % (heading, printed[0] if printed else '', sentence))
         # An editor with a cell in the facts must have a row.

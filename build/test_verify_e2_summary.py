@@ -37,7 +37,7 @@ From the moment.
 | Folio | 810 ms | — |
 | Plate.js | 1.2 s | — |
 
-At 500 words the figures run from 810 ms to 1.2 s.
+At 500 words, 2 of 2 editors have a figure, from 810 ms to 1.2 s.
 
 ## Appendix A — What was measured
 """
@@ -53,7 +53,7 @@ def test_a_figure_that_differs_from_the_facts_is_named():
 
 
 def test_a_range_sentence_that_differs_from_the_facts_is_named():
-    problems = verify.check(REPORT.replace('run from 810 ms', 'run from 800 ms'), _facts(), DISPLAY)
+    problems = verify.check(REPORT.replace('from 810 ms', 'from 800 ms'), _facts(), DISPLAY)
     assert any('range sentence' in p for p in problems), problems
 
 
@@ -72,3 +72,8 @@ def test_the_gate_runs_the_check_after_the_reports_are_generated():
 def test_the_check_shares_no_code_with_the_generator():
     source = Path(verify.__file__).read_text(encoding='utf-8')
     assert 'import perf_e2_summary' not in source and 'perf_e2_summary import' not in source
+
+
+def test_the_sentence_counts_the_editors_that_have_a_figure():
+    problems = verify.check(REPORT.replace('2 of 2 editors', '2 of 3 editors'), _facts(), DISPLAY)
+    assert any('range sentence' in p for p in problems), problems

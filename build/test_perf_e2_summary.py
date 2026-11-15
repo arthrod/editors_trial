@@ -62,7 +62,7 @@ def test_a_cell_without_a_figure_says_why_in_one_word():
 
 def test_the_range_sentence_names_no_editor():
     text = summary.short_version(_facts(), ['docen', 'folio', 'plate'], DISPLAY)
-    assert 'At 500 words the figures run from 750 ms to 1.1 s; at 250,000 words, from 4.7 s to 19.1 s.' in text
+    assert 'At 500 words, 3 of 3 editors have a figure, from 750 ms to 1.1 s; at 250,000 words, 2 of 3, from 4.7 s to 19.1 s.' in text
 
 
 def test_times_under_one_frame_and_memory_are_formatted_for_a_reader():
@@ -122,7 +122,7 @@ def test_a_column_whose_figures_all_read_the_same_says_so():
         _put(facts, editor, 'C10', 'prose-500w', 12.0)
         _put(facts, editor, 'C10', 'prose-250kw', 12.0 if editor == 'plate' else 60.0)
     text = summary.short_version(facts, ['folio', 'plate'], DISPLAY)
-    assert 'At 500 words the figures are all under 1 frame; at 250,000 words, from under 1 frame to 60 ms.' in text
+    assert 'At 500 words, 2 of 2 editors have a figure, all under 1 frame; at 250,000 words, 2 of 2, from under 1 frame to 60 ms.' in text
 
 
 def test_under_one_frame_needs_both_seeds_under_it():
@@ -145,8 +145,8 @@ def test_the_range_sentence_says_all_only_when_every_printed_cell_reads_the_same
     text = summary.short_version(facts, ['docen', 'folio', 'plate'], DISPLAY)
     assert '| Folio | 15 ms |' in text
     assert '| Plate.js | under 1 frame |' in text
-    assert 'are all under 1 frame' not in text
-    assert 'At 500 words the figures run from under 1 frame to 15 ms.' in text
+    assert 'all under 1 frame' not in text
+    assert 'At 500 words, 3 of 3 editors have a figure, from under 1 frame to 15 ms.' in text
 
 
 def test_under_one_frame_compares_each_seed_with_its_own_frame():
@@ -188,4 +188,4 @@ def test_an_opening_whose_text_was_not_checked_says_so_and_stays_out_of_the_rang
     facts['perf.e2.plate.C11.prose-500w.reproduction']['content_verified'] = False
     text = summary.short_version(facts, ['docen', 'folio', 'plate'], DISPLAY)
     assert '| Plate.js | 750 ms (text not checked) |' in text
-    assert 'At 500 words the figures run from 800 ms to 1.1 s' in text
+    assert 'At 500 words, 2 of 3 editors have a figure, from 800 ms to 1.1 s' in text

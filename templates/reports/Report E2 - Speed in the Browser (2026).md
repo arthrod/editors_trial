@@ -10,19 +10,20 @@ It is written to be read from here to the end of the results. The appendices aft
 
 ## How to read the tables
 
-- **A figure is a typical time.** Each action was repeated across several fresh launches of the browser, and the figure is the typical (median) result. Appendix C gives the exact rule.
+- **A figure is a typical time.** Each action was repeated many times, across several fresh launches of the browser, and the figure is a typical (middle) result of those repeats. Appendix C gives the exact rule.
 - **Lower is quicker, or lighter.** Times are in milliseconds (ms, thousandths of a second) or seconds (s); memory is in MiB and GiB (1 GiB is 1,024 MiB).
-- **Read down a column, not across the report.** Each column is one document size, and every editor in it opened the same document.
-- **"under 1 frame"** means the result was on screen in less than the time between two pictures of the screen. The screen was redrawn 60 times a second, so a shorter time cannot be told apart.
-- **"varied"** means the measurement did not come out steady enough to print one figure. **"crashed"** means the editor's page crashed in every launch. **"does not apply"** means the test cannot be run on that editor. **"no figure"** means too few launches gave a confirmed result, whether because of the editor or of our tooling. A dash means the cell was not part of these runs. The full tables in Appendix E give the reason for each.
+- **Read down a column.** Each column is one document size, and every editor in it was given the same document. The editors were measured on separate cloud machines of the same type, each shared with other work, so a small difference between two editors can be the machine and not the editor.
+- **"under 1 frame"** means the change was on screen in less than the time between two pictures of the screen (about 17 thousandths of a second). The screen was redrawn 60 times a second, so a shorter time cannot be told apart.
+- **"varied"** means the repeated measurements disagreed too much to print one figure, so nothing is said about that editor at that size. **"crashed"** means the editor's page crashed in every launch of that test at that size; it says nothing about the other tests. **"does not apply"** means our tooling cannot take that measurement on that editor (Appendix D says why); it does not mean the editor cannot do the action. **"no figure"** means too few launches gave a confirmed result, whether because of the editor or of our tooling. A dash means the cell was not part of these runs. The full tables in Appendix E give the reason for each.
 - **The editors are in alphabetical order.** This report does not rank them.
 
 ## What the figures cannot tell you
 
-- **They are not the times you will see on your own computer.** The tests ran on a cloud server with no graphics processor, so everything an editor draws was drawn by the processor. For WordCraft, which redraws its page continuously, that drawing is nearly all of the processor time it used in the half minute after opening a document (table B8 in Appendix E). Compare the editors with each other, in the same column.
-- **The two largest documents are far longer than most real documents.** The first two columns are the common case.
-- **"varied" is often the machine, not the editor.** The server is shared with other work. Most of the cells that varied in opening and typing at 50,000 words were measured while the server was busy (issue #228; Appendix B gives the load). They should not be read as a property of those editors.
-- **Search and replace was not measured** for any editor: that is a gap in our tooling, not in the editors.
+- **They are not the times you will see on your own computer.** The tests ran on a cloud server with no graphics processor, so everything an editor draws was drawn by the processor. For WordCraft, which redraws its page continuously, that drawing is nearly all of the processor time it used in the half minute after opening a document (table B8 in Appendix E). The figures compare the editors with each other on machines of that kind.
+- **The two largest documents are deliberately extreme.** They are stress tests, not ordinary work; the first two columns are the ones to reason from.
+- **"varied" can be the machine, not the editor.** The machines are shared with other work, and some measurements were taken while a machine was much busier than at other times (issue #228; Appendix B gives the load of each run). The typing cells that varied at 50,000 words are of that kind. A "varied" cell should not be read as a property of the editor.
+- **Search and replace was not measured** for any editor, because of a gap in our tooling. This report says nothing about it.
+- **The line under each table is for orientation.** It says how many of the editors have a figure in the first and in the last column, and the lowest and highest of those figures. An editor without a figure is not in that spread.
 - **Only what is listed is measured.** Whether an editor keeps a document's content and formatting intact is the subject of the other reports of this trial.
 
 ## The results
@@ -30,6 +31,10 @@ It is written to be read from here to the end of the results. The appendices aft
 {{perf.e2.short_version}}
 
 ## Appendix A — What was measured, and how each time was taken
+
+The seven tables of the results come from seven of the criteria described here: opening a document is C11; typing one character is C05, in an editor that has already been typed in; clicking to place the caret is C07; pasting is C08; undoing is C09; scrolling is C10; memory is C17, read two seconds after a burst of typing. The other criteria are in the full tables of Appendix E only.
+
+A "cell" below is one editor, one criterion, one measure and one document: far more cells than the boxes of the results tables. A "seed" is one of the two rounds in which everything was run (Appendix C).
 
 This report concerns browser-visible first paint, typing, scrolling, and related interactions. {{perf.e2.intro}}
 
@@ -73,7 +78,7 @@ Playwright {{perf.e2.playwright}}, Chromium {{perf.e2.chromium}}. Renderer: {{pe
 
 ## Appendix C — Every measurement was run twice: the rule a figure had to pass
 
-Everything in this report was run twice, in two separate rounds (called seeds below), and a figure is printed only when the two agree. The figures in the results above are the middle of the two rounds' medians; "under 1 frame" is printed only when both rounds were under a frame; "varied" is a cell whose two rounds did not agree within {{perf.e2.rel_tol_pct}} percent (or, for times that short, within one frame).
+Everything in this report was run twice, in two separate rounds (called seeds below), and a figure is printed only when the two agree. Each round gives one number per cell: the median of its kept launches, where each launch counts as the median of its own samples. The figure in the results above is the midpoint (the average) of the two rounds' numbers. The results print that figure alone; the count of launches, the range and the 90th percentile described below are in the full tables of Appendix E. "under 1 frame" is printed only when both rounds were under a frame; "varied" is a cell whose two rounds did not agree within {{perf.e2.rel_tol_pct}} percent (or, for times that short, within one frame).
 
 {{perf.e2.sample_plan}}
 
