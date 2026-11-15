@@ -15,6 +15,13 @@ REPORT = os.path.join(
 )
 SKIP_DIRS = {".git", "node_modules", "repos", "__pycache__"}
 FIELD = re.compile(r"(fidelity|safety): (\S+)")
+# The log names the machine's operating-system version; the report keeps the one
+# it was measured on. Everything else in the log must be in the report (#213).
+OS_VERSION = re.compile(r"\b(macOS|Linux|Windows)-[0-9][0-9A-Za-z._+~]*")
+
+
+def _without_os_version(text):
+    return OS_VERSION.sub(r"\1-<version>", text)
 
 
 def _launch():
@@ -98,9 +105,16 @@ class BombEntryTest(unittest.TestCase):
         self.assertEqual(launched.returncode, 0, launched.stderr)
         with open(REPORT, encoding="utf-8") as fh:
             body = fh.read()
-        self.assertIn(launched.stdout.strip(), body)
+        self.assertIn(_without_os_version(launched.stdout.strip()), _without_os_version(body))
         self.assertNotIn("has no fidelity result", body)
         self.assertNotIn("safety result only", body)
+
+    def test_only_the_os_version_is_set_aside(self):
+        log = "platform: macOS-27.2-arm64-arm-64bit-Mach-O\nnot-run: the hostile suite was not executed."
+        report = "x\nplatform: macOS-27.0.1-arm64-arm-64bit-Mach-O\nnot-run: the hostile suite was not executed.\ny"
+        self.assertIn(_without_os_version(log), _without_os_version(report))
+        self.assertNotIn(_without_os_version(log.replace("arm64", "x86_64")), _without_os_version(report))
+        self.assertNotIn(_without_os_version(log.replace("not executed", "executed")), _without_os_version(report))
 
 
 if __name__ == "__main__":

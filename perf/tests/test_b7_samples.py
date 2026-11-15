@@ -361,12 +361,13 @@ class E2Cells(unittest.TestCase):
     def test_five_byte_samples_print_range_not_p90(self):
         root = Path(tempfile.mkdtemp())
         self.addCleanup(lambda: __import__("shutil").rmtree(root, ignore_errors=True))
+        # Byte samples print in MiB (#211), so the samples are whole MiB.
         for rep, sample in enumerate([100, 200, 300, 400, 500]):
-            _write_trial(root, rep, "plate", "C19", outcome="measured", samples=[sample], sample_unit="bytes")
+            _write_trial(root, rep, "plate", "C19", outcome="measured", samples=[sample * 1024 * 1024], sample_unit="bytes")
         _write_summary(root, "plate", 10)
         cell = e2_cells.build_run_cell(root, "plate", "C19")
         text = e2_cells.publication_text(cell)
-        self.assertIn("range 100.0 to 500.0 bytes", text)
+        self.assertIn("range 100.0 to 500.0 MiB", text)
         self.assertNotIn("p90", text)
         self.assertIn("n = 5 of 10", text)
         self.assertNotIn("not enough", text)
