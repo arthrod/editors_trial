@@ -58,7 +58,9 @@ def _why(reason: str) -> str:
     """
     if 'medians outside tolerance' in reason:
         return 'varied'
-    rounds = {name: (int(kept), {part.split(':')[0].strip() for part in reasons.split(',') if part.strip()})
+    # The reader writes "key: count; key: count; also key: count" (e2_cells.publication_text).
+    rounds = {name: (int(kept), {part.strip().removeprefix('also ').split(':')[0].strip()
+                                 for part in reasons.split(';') if part.strip()})
               for name, kept, reasons in _ROUND.findall(reason)}
     if set(rounds) == {'first', 'second'} and all(kept == 0 for kept, _names in rounds.values()):
         names = set().union(*(names for _kept, names in rounds.values()))

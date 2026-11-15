@@ -133,12 +133,17 @@ def test_under_one_frame_compares_each_seed_with_its_own_frame():
 
 
 def test_a_label_needs_every_launch_of_both_rounds_to_say_it():
-    mixed_crash = ('first: not enough samples (n = 0 of 10; reasons crash: 1, timeout: 9); '
+    # The reader joins reasons with '; ' and appends additional ones after '; also ' (e2_cells.publication_text).
+    mixed_crash = ('first: not enough samples (n = 0 of 10; reasons crash: 1; timeout: 9); '
                    'second: not enough samples (n = 0 of 10; reasons crash: 10)')
     partly_applies = ('first: not enough samples (n = 2 of 10; reasons not_applicable: 8); '
                       'second: not enough samples (n = 0 of 10; reasons not_applicable: 10)')
     one_round = 'second: not enough samples (n = 0 of 10; reasons editor_crash: 10)'
     assert summary._why(mixed_crash) == 'no figure'
+    assert summary._why('first: not enough samples (n = 0 of 10; reasons crash: 10; also paint_witness_unavailable: 3); '
+                        'second: not enough samples (n = 0 of 10; reasons crash: 10)') == 'no figure'
+    assert summary._why('first: not enough samples (n = 0 of 10; reasons none counted); '
+                        'second: not enough samples (n = 0 of 10; reasons none counted)') == 'no figure'
     assert summary._why(partly_applies) == 'no figure'
     assert summary._why(one_round) == 'no figure'
     assert summary._why('first: not enough samples (n = 0 of 10; reasons editor_crash: 10); '
