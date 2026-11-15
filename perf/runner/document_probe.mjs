@@ -859,9 +859,9 @@ const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, document
     if (state.docTextAt === null && signal !== 'screencast_ink') {
       const scanFrom = performance.now();
       const surface = window.__docProbeSurface(signal, { timingOnly: true });
-      // What the probe's own read of the page cost in the tick that found the text:
-      // it ends inside the timed interval, so it is disclosed with the figure.
-      state.docTextScanMs = performance.now() - scanFrom;
+      // What the probe's own read of the page cost: kept only for the tick that finds
+      // the text (codex review), where it ends inside the timed interval.
+      const scanMs = performance.now() - scanFrom;
       const chars = signal === 'canvas_pixel' ? (surface.chars > 0 ? 1 : 0) : surface.chars;
       // A canvas holds no text to match against the document, and an editor
       // paints its empty page (margin marks) before the import finishes. For
@@ -893,6 +893,7 @@ const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, document
       if ((signal === 'canvas_pixel' && chars > 0 && canvasDocumentReady && canvasShowsDocument) || (signal !== 'canvas_pixel' && chars >= minChars)) {
         state.docTextAt = performance.now();
         state.docTextCharsAt = chars;
+        state.docTextScanMs = scanMs;
         // True: an empty page was seen before the flag and the usable frame differs
         // from it. Null: the editor was ready at its first ink frame.
         if (canvasGated) state.canvasInkChanged = state.canvasInkBaseline !== null ? true : null;

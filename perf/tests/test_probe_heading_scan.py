@@ -281,3 +281,16 @@ def test_the_load_tick_does_not_build_the_content_text(browser):
         assert isinstance(page.evaluate("window.__docProbeState.docTextScanMs"), (int, float))
     finally:
         page.close()
+
+
+def test_a_page_that_never_shows_text_records_no_scan_time(browser):
+    """codex review: the scan time of a tick that found nothing is not the figure's."""
+    page = browser.new_page()
+    try:
+        page.set_content('<div class="editor"></div>')
+        install(page, ".doc-paragraph")
+        page.wait_for_timeout(200)
+        assert page.evaluate("window.__docProbeState.docTextAt") is None
+        assert page.evaluate("window.__docProbeState.docTextScanMs") is None
+    finally:
+        page.close()

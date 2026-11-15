@@ -45,6 +45,14 @@ def test_with_the_floor_the_witness_takes_the_text_frame():
     assert record["min_pixels"] == 100
 
 
+def test_frames_that_arrive_while_the_witness_waits_are_treated_the_same():
+    """codex review: the buffered case alone left the live path unproven."""
+    out = _run()
+    assert out["default_floor_live"]["changed_pixels"] == 46
+    live = out["content_floor_live"]
+    assert live["outcome"] == "witnessed" and live["changed_pixels"] == 1600 and live["frame_after_ms"] == 150
+
+
 def test_paste_asks_the_witness_for_the_floor():
     calls = _run()["paste_calls"]
     assert calls and all(value == 100 for value in calls), calls

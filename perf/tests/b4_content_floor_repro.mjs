@@ -50,7 +50,7 @@ function fakeCdp() {
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // A caret frame (2 x 23 = 46 pixels) 5 ms after the input, the text (40 x 40 = 1,600) at 150 ms.
-async function caretThenText(minPixels) {
+async function caretThenText(minPixels, { live = false } = {}) {
   const cdp = fakeCdp();
   const recorder = getRecorder(cdp, { manageScreencast: false });
   const timeOrigin = Date.now() - 10000;
@@ -58,9 +58,13 @@ async function caretThenText(minPixels) {
   cdp.emit(png(0, 0), (timeOrigin + afterPageMs - 100) / 1000);
   await sleep(5);
   const baseline = recorder.frames[0];
-  cdp.emit(png(2, 23), (timeOrigin + afterPageMs + 5) / 1000);
-  cdp.emit(png(40, 40), (timeOrigin + afterPageMs + 150) / 1000);
-  await sleep(5);
+  const emitBoth = () => {
+    cdp.emit(png(2, 23), (timeOrigin + afterPageMs + 5) / 1000);
+    cdp.emit(png(40, 40), (timeOrigin + afterPageMs + 150) / 1000);
+  };
+  // live: the frames arrive while the witness is already waiting, not from its buffer.
+  if (live) setTimeout(emitBoth, 120);
+  else { emitBoth(); await sleep(5); }
   const page = {
     evaluate: async (fn) => {
       const src = String(fn);
@@ -141,6 +145,8 @@ process.stdout.write(JSON.stringify({
   floor: ci.CONTENT_MIN_CHANGED_PIXELS ?? null,
   default_floor: await caretThenText(undefined),
   content_floor: await caretThenText(100),
+  content_floor_live: await caretThenText(100, { live: true }),
+  default_floor_live: await caretThenText(undefined, { live: true }),
   paste_calls: pasteCalls,
   undo_calls: undoCalls,
   source: {

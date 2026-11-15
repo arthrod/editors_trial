@@ -517,8 +517,12 @@ function attachPaintWitnessFailure(observation, painted) {
 // An editor that draws its own caret shows or moves it as soon as a key arrives,
 // and the witness's default (4 pixels) took that frame for the pasted text. In the
 // publication runs the largest caret-only frame changed 58 pixels and the smallest
-// painted paste 677. Used where the response is text: C08, and WordCraft's C09.
-// A one-character undo elsewhere changes 17-251 pixels and keeps the default.
+// painted paste 677. Used where the response is text: C08, and WordCraft's C09,
+// whose own undo frames are either 42-46 pixels at 4-7 ms (the caret) or
+// 2,576-2,607 pixels at 131-269 ms (the line). A one-character undo in the other
+// editors changes 17-251 pixels and keeps the default: no count separates a glyph
+// from a caret there. The witness reports the first frame at or over the floor;
+// it does not read what the pixels show.
 const CONTENT_MIN_CHANGED_PIXELS = 100;
 
 async function sampleAfterInput(witness, inputMs, options, callOptions = {}) {
