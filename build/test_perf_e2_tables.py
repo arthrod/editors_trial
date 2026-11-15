@@ -466,7 +466,7 @@ def test_finding_10_missing_date(runs):
     assert E2.facts_from_runs(*runs)['perf.e2.date'] == 'not recorded'
 
 def test_finding_11_unmeasured_prose():
-    tpl = (render_reports.TEMPLATES / 'reports/Report E2 - Speed in the Browser (2026).md').read_text()
+    tpl = (render_reports.TEMPLATES / 'reports/Report E2 - Speed in the Browser (2026).md').read_text(encoding="utf-8")
     text = render_reports.reportgen.render(tpl, E2.unset_facts())
     assert 'not yet measured' in text
     assert 'It was measured' not in text
