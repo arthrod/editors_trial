@@ -1,5 +1,0 @@
-Error: zip rejected: 25004 parts exceeds the 10000 limit
-    at assertZipInflatesWithinLimits (<editors_trial>/repos/genoffice/packages/zip-gate/src/index.ts:112:11)
-    at loadDocxZip (<editors_trial>/repos/genoffice/packages/docx-engine/src/zip-load.ts:116:9)
-    at parseDocx (<editors_trial>/repos/genoffice/packages/docx-engine/src/parse.ts:364:21)
-    at main (<editors_trial>/harness/genoffice.cts:49:24)

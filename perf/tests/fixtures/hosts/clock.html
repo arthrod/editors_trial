@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>anchor moves before the x prefix is visible</title>
+    <style>
+      body { margin: 24px; background: #fff; color: #111; font: 18px/1.5 sans-serif; }
+      .doc-paragraph { display: block; margin: 0 0 8px; min-height: 1.2em; }
+    </style>
+  </head>
+  <body>
+    <div class="doc-paragraph" id="caret" contenteditable="true">Alpha body paragraph here</div>
+    <div class="doc-paragraph" id="anchor">Beta anchor paragraph stays</div>
+    <div class="doc-paragraph" id="tail">Gamma tail paragraph after</div>
+    <script>
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'x' || event.key === 'X') event.preventDefault();
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        var anchor = document.getElementById('anchor');
+        anchor.style.marginTop = '420px';
+        window.__movedAt = performance.now();
+        setTimeout(function () {
+          var caret = document.getElementById('caret');
+          caret.textContent = 'xAlpha body paragraph here';
+          caret.removeAttribute('contenteditable');
+          window.__textAt = performance.now();
+        }, 1600);
+      }, true);
+    </script>
+  </body>
+</html>

@@ -9,8 +9,161 @@ re-running the measurement behind it. The format follows
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-15
+
+Two new speed reports: Report E (headless opening and saving) and Report E2
+(speed in the browser). No figure of Reports A to D2 or of the main report
+changes.
+
+### Updated
+
+- No editor pin moved. Arthur decided on 2026-11-11 that this release keeps
+  the pins the browser campaign was built and measured on, so the speed
+  figures and the round-trip figures describe the same editor code. The
+  update rule of AGENTS.md section 1 resumes with the next release.
+
+### Measured
+
+- **Report E2, speed in the browser** (#128, #140). Nine browser editors
+  (Plate, Docxodus, SuperDoc, GenOffice, eigenpal, Folio, canvas-editor,
+  Docen, WordCraft) in Playwright Chromium 156.0.8078.80, in Linux
+  containers on Hugging Face Spaces (CPU upgrade hardware: AMD EPYC 7R13,
+  8 CPUs of quota), 2026-11-12 to 2026-11-15. The tables read 212 jobs
+  (106 per seed) from 52 run folders, run in interleaved blocks of 5
+  repetitions; each cell schedules 10 samples per editor per seed and
+  publishes at 5 kept (Arthur, 2026-11-11, #163). 701 of 1,061 scheduled
+  editor/criterion/measure cells reproduced between the two seeds within
+  10 percent; the others are listed with their reason in the report's
+  "Not reproduced" section. Steal time under 0.01 percent; the report's
+  host note gives the samples refused for cgroup CPU throttling and the
+  host's load average per seed (#209).
+- **The document lane and the input lane were measured again for every
+  editor** (the lane round, #208; harness `03b683b1`; 52 jobs on 20 Spaces,
+  15 November), after an audit of the first tables found two harness bugs
+  that both seeds reproduced:
+  - #206: the probe's search for a document's opening headings grew with
+    the square of the page and ran inside the timed load of C11 and C14.
+    First seed / second seed, before and after: Plate.js C11 at 250,000
+    words 796 s / 770 s, now 19.7 s / 18.5 s, and at 50,000 words 17.3 s /
+    17.2 s, now 4.7 s / 4.6 s; Docxodus C11 at 250,000 words 203 s / 198 s,
+    now 47.2 s / 45.4 s; Docxodus C14 at 500,000 words 413 s / 419 s, now
+    99.4 s / 98.9 s; Plate.js C14 at 250,000 words 359 s / 335 s, now
+    18.4 s / 18.2 s. The other editors' load figures moved by a few
+    percent. What the probe's text read still costs inside a load is
+    recorded per sample and stated in the report.
+  - #207: C08, and WordCraft's C09, ended at a frame in which only the
+    editor's own caret had changed. With a floor of 100 changed pixels:
+    WordCraft C08 at 500 words 7 ms / 9 ms, now 136 ms / 126 ms;
+    canvas-editor 15 ms / 16 ms, now 93 ms / 95 ms; SuperDoc 48 ms /
+    47 ms, now 121 ms / 116 ms; Folio at 250,000 words 26 ms / 27 ms, now
+    425 ms / 401 ms. SuperDoc's and canvas-editor's paste at 250,000 words
+    no longer has a figure: within the 2-second window only the caret
+    changed (SuperDoc had printed 421 ms / 400 ms).
+  The earlier rounds of those lanes (#173–#175, #181, #183–#185, #190,
+  #193, #196, #202, #203) are history: the lane round replaced them, and
+  the report's "Re-run jobs" paragraph names each.
+- 32 first-pass jobs (job indexes 10–21, 28–31, 90–101 and 108–111) were
+  measured again after the harness defects #173, #174 and #175 were fixed;
+  the tables read the re-run jobs, and `perf/container/e2_publication.json`
+  names every run and every replaced job. Every job of both passes is
+  sealed and kept in the private dataset `arthrod/editors-trial-e2-publication`
+  (52,090 attempts from 420 sealed jobs of every round; 27,412 of them are
+  read by the report, and each row says so).
+- Resource figures withheld because they were not what their column said
+  (#211; reader and template only, nothing re-measured): WordCraft's three
+  B8 CPU columns read "never idle" (its "CPU to open" of 81 s for a
+  500-word document was the 30-second settle cap; up to its ready signal it
+  uses 6 to 8 s); "Peak memory" is "Highest memory reading"; the C17 ready
+  cells of Docxodus, Folio, GenOffice, SuperDoc and WordCraft read
+  "unverified" (the document was not checked as loaded at that reading);
+  the C19 table is removed (the reading was the browser's own baseline, 318
+  to 363 MiB for every editor and size).
+
+- **Report E, speed: opening and saving a document** (#111). The headless
+  speed runner (`perf/runner/speed_headless.py`, runner commit `a7b243d`),
+  `dedicated_publish`, in a Linux container on a Hugging Face sandbox
+  (Amazon EC2 r6a.8xlarge, AMD EPYC 7R13, 32 CPUs), on 2026-11-09:
+  primary run `2471956e80e7` (30 repetitions, seed 20261109, 19:25–20:41
+  UTC) and reproduction run `62769027c2c2` (10 repetitions, seed 20261110,
+  20:41–21:12 UTC). Twelve editors plus LibreOffice's whole conversion, on
+  the 500, 5,000, 50,000 and 250,000-word prose documents and
+  `complex.docx`. 211 of 211 published figures reproduced within 10 percent
+  (or 2 ms). Steal time under 0.01 percent in both runs; no sample started
+  above the load limit.
+- canvas-editor fails both runs at 250,000 words and on `complex.docx`,
+  three runs in a row each time (the discarded warm-up and the first two
+  samples), after which the runner stopped the cell. At 250,000 words the save exhausts
+  Node's default JavaScript heap. Two diagnostic reruns outside the runs:
+  in Vitest's forks pool with the default heap, V8 stopped the save with
+  "JavaScript heap out of memory" (heap full at 4,092 MB); in a worker
+  thread, as in the runs, with a 16 GB heap, the same sample loaded, saved,
+  and its file passed the runner's own content check. `complex.docx` is the
+  `w:vMerge` import crash the main report already describes. No lane raises
+  the heap.
+- SuperDoc's save stays at 8–13 ms from 500 to 250,000 words. A probe
+  outside the runs found the file complete (final size, ZIP end record,
+  same hash two seconds later) when `doc.save` resolves, so the save clock
+  is not cut short. Where SuperDoc does the export work was not traced; the
+  report states the flat save as an observation, not a cause.
+
+### Not re-measured
+
+- The release gate (`build/verify_publication.sh --with-word`) passed
+  twice, all eight checks, at commit 0cff2dfc. The review that followed
+  changed only the two checker scripts, their tests and this file. The
+  raw run data had by then been removed from the measuring machine (it
+  is in the run bucket), so at the released commit the gate was run twice
+  without its facts rebuild step: the other checks, including Word, read
+  the facts the two full passes had rebuilt, byte for byte.
+- Reports A to D2 and the main report: no pin moved and nothing they read
+  changed, so their facts are those `main` last tracked (identical to the
+  published et-v0.9.5 facts); the Markdown of every one of them renders
+  byte-identical. Their Word twins were rebuilt, as every release does.
+  Report E's browser criteria (C03, C05–C12, C14, C15) and the memory
+  lanes (C17, C19) are measured in Report E2, not in Report E; the
+  WebAssembly boundary (C24, #117) is measured in neither.
+- Report E2 does not measure Apryse (its licence key is never placed on
+  the measuring machines), docs.plus and Fidus (their application servers
+  were not started; Arthur, 2026-11-11), office-open (a library with no
+  editing surface) or LibreOffice (the conversion baseline of Report E).
+  The report lists each with its reason.
+- Seven unit tests
+  (`test_every_lane`, `test_ns_tables`, `test_report_claims`) read outputs
+  of Reports A to D that #87 deleted from the repository (#204). This
+  release did not re-produce those outputs (no pin moved), so it restored
+  the missing files from `et-v0.9.5`, overwriting nothing, and the seven
+  pass against them. Every Report E and E2 test passes.
+
 ### Added
 
+- `reports/Report E2 - Speed in the Browser (2026).md` and its DOCX twin
+  (#140), rendered from `templates/` and `out/facts.json`; registered in
+  `render_reports.TWINS` and `verify_deliverables.DELIVERABLES`
+  (`build/test_report_e2_registration.py`). A "Read this before the
+  tables" section states how each editor's edit is confirmed, the typing
+  tolerance, the criteria that do not apply, and the Chrome traces.
+- `perf/container/`: the Linux container recipe (Playwright Chromium) and
+  the Space runner for the browser lanes (#127), detached runs with
+  per-job manifests sealed and uploaded to a private Storage Bucket through
+  a Space volume mount, with no token in the Space (#144, #162, #164).
+- `perf/container/e2_publication.json` and `build/e2_publication_roots.py`:
+  the campaign manifest and the tool that turns it into the report's run
+  folders, replacing every superseded first-pass job with its re-run (#178).
+- Browser-lane criteria C03–C15, C17 and C19 (#104–#110, #113, #115), the
+  resource lanes B8 (#142) and the typing marathon B9 (#143), with frame
+  witnesses, throttle and steal accounting (#129), and a reader that pools
+  each seed's jobs across run folders (#136, #176).
+- A 500,000-word rung (`prose-500kw`, #188) on the load lanes only: C11,
+  C12 and C15 in the document lane and C14's rung list, with a 1,000 s
+  load timeout. Eight new jobs (160–167) appended after the campaign's
+  own: the four C14 jobs (162, 163, 166, 167) at harness `d697b98e`, the
+  four document jobs (160, 161, 164, 165) at `6885707b`, after the fixes
+  of #193 and #195 (`harness.extension` names both); the other lanes are
+  not measured at that size.
+- `reports/Report E - Speed, Opening and Saving a Document (2026).md` and
+  its DOCX twin, rendered from `templates/` and `out/facts.json`;
+  registered in `render_reports.TWINS` and `verify_deliverables.DELIVERABLES`
+  (`build/test_report_e_registration.py`).
 - `perf/`: the performance harness (#91). One schema and outcome set for
   every trial (`measured`, `unsupported`, `not_applicable`, `unverified`,
   `failed`, `not_run`), a 24-scenario catalog (C01–C24) across the `native`,
@@ -35,6 +188,353 @@ re-running the measurement behind it. The format follows
 - `RELEASING.md` §7: publishing the bundle is one command, `bench publish editors_trial et-vX.Y.Z`
   (bench-ops plan 6, editors_trial#74; first used for et-v0.9.4, #75), and the site picks the
   release up with `bench bump editors_trial`. No figure changes.
+
+### Fixed
+
+- The release gate was not run for 0.9.4 or 0.9.5 (their changelogs say
+  so), and two of its checks failed on things 0.9.3 brought in (#215). The findings check looked the
+  Apryse scorecard row up by a name without its version, missed it, and so
+  never checked Apryse's figures; it finds the row now and its five figures
+  agree with the scorer. The number gate could not find Report C's A/B
+  byte deltas, because the measurement holds the two sizes and not their
+  difference; it now does the subtraction `build/ab_table.py` does.
+  codex's review of these fixes then showed the number gate accepted a
+  figure that was only the tail of a longer one; figures now have to
+  occur whole, and a section number
+  ("4.2 Bytes versus content") is no longer read as a size. No report
+  figure failed the stricter check.
+  The same gate also read its own last output as evidence: it is called
+  with a relative path, its exclusion list is absolute, and nothing was
+  ever excluded, so a figure it refused once was accepted on the next run.
+  With that closed it refused three figures in older text, none in a
+  report: the 0.9.0 entry below gave WordCraft one point less than the
+  scorer and the report of 0.9.0 did, which is 85.9% (corrected); the
+  README used the same wrong figure in an example (reworded); and the
+  0.9.0 entry quotes a figure it corrects (0.0006%), now listed as a
+  quotation.
+- CodeRabbit's review of the release (#218). One sentence of Report E2
+  was wrong after the lane round: it still gave GenOffice at 500,000 words
+  as an example of a painted frame minutes after the text, and of a C14
+  cell that is the time the text appeared; its C11 is now a few seconds
+  and that C14 cell is not published. The example is gone. Three limits of
+  the harness that bear on a printed figure are now stated in the report
+  and filed for the next campaign (#221): where C04's clock starts, a C14
+  no-damage sample when more than 1,200 frames arrived, and the canvas
+  hash that the probe-scan share leaves out. Four manifests the roots
+  builder should refuse are filed as #222; none is true of this
+  release's manifest. Tooling findings are #220.
+- In Report E2 the two typing latency tables (eigenpal, GenOffice) had no
+  blank line before them, so the Word twin showed them as text (#214).
+- `build/test_bombs.py` compared this machine's operating-system version
+  with the one quoted in Report D and failed after a system update; only
+  the version is set aside now (#213).
+- The probe's heading scan is linear in the page and the tick that stamps
+  the usable moment no longer builds the document text (#206); C08 and
+  WordCraft's C09 need a frame with at least 100 changed pixels (#207).
+  Both reviewed by codex (gpt-6-astra), whose findings (a nested page that
+  was still quadratic, a `:scope` selector, the scan time of a tick that
+  found no text) are tests.
+- The publication manifest and its roots builder know a lane round: a
+  whole lane measured again for every editor, each job checked against the
+  seed, block, editors and criteria of the jobs it replaces (#208). A job
+  still measuring counts as unsealed.
+- Report E2 prints memory in MiB, states the host load, and says what C03,
+  C17 and B8 are (#209, #211).
+- Known and open: `pull.py` leaves a file the Space removed after it was
+  pulled, which blocks the final check of that run (#212); no measurement
+  is affected.
+
+- Browser harness, before Report E2 was published: a frame witness that
+  proves the edit and not only a repaint, refused samples that are never
+  kept, and blocked cells that never reach the facts (#130–#139, #146,
+  #148, #149, #151, #154, #155, #165–#171). Reviewed by models other than
+  the one that wrote the code (codex and glm-5.3 among them); every accepted
+  finding is fixed with a test.
+- Three defects found in the first pass, fixed and their jobs re-run
+  (#173–#175): Docxodus's input probe was killed at 300 s because the C09
+  reset clicked the editor mode before the page rendered; Docen's C14 was
+  refused everywhere because a full-element screenshot was compared with
+  viewport-clamped frames; C12 refused "unaccounted layout reads" because a
+  frame's own read was stamped outside its window.
+- Report E2's reader (#176–#179): it reads each JSON file once instead
+  of about 334 times, so the campaign's facts build in about ten minutes; Chrome-profile
+  diagnostic launches are no longer labelled `crash`; the header describes
+  the 40-folder campaign instead of naming one primary and one
+  reproduction run, and lists every editor's pins from every folder; and
+  warm/cold's stand-in `not_run` rows for C07–C10, C22 and C23 no longer
+  pool with the lanes that measure those criteria. That last fix lifts the
+  cells that reproduce from 408 to 551 with no published cell lost and
+  identical figures for every cell published before.
+- B8 and B9 in the campaign (#180). The resources tables were blocked for
+  every editor because each 5-launch job carried its own pair verdict
+  ("scheduled_below_10; second_seed_required"), which the reader now
+  re-checks on the pooled seed instead; a resources launch the runner
+  refused for CPU throttling (a sample row, no record) counts as a refusal,
+  not a missing file. The typing tables pooled every job of a run folder
+  into each cell ("n = 6 of 292"); a typing cell now reads only the typing
+  jobs of its editor and session kind.
+- C14's text check (#181). Every C14 cell of the campaign was withheld as
+  "I01: combining mark or non-BMP scalar not preserved in output": the
+  probe kept only the first 4,000 characters of the document text, and the
+  correctness lines sit at the end of each prose document. The probe now
+  also keeps the last 4,000 characters and the check reads both. A failed
+  check now names its cause: the complex document carries no correctness
+  lines, so the check does not apply to it; an editor that exposes no text,
+  or whose readable text stops before the closing paragraph, is withheld as
+  "not checkable". The four C14 jobs (20, 21, 100, 101) were measured again
+  in a second round.
+- C14 reads each editor's whole text, and waits 1,000 s per load (#183,
+  #184). The second round still withheld Folio and SuperDoc from 5,000
+  words up, and WordCraft at every prose size. Their pages hold only part
+  of a long document: Folio and SuperDoc mount only the pages near its
+  start, and WordCraft paints into a canvas. After the timed sample, and
+  outside it, the probe now asks each of them for the whole document:
+  SuperDoc through its document model, Folio through its editing
+  ProseMirror, and WordCraft through its own select-all and copy. On each
+  real editor, typing on a near-empty document and typing after a DOCX
+  import both show in the next read. C14's probe target carried no
+  workload id, so the 600 s rule for the 250,000-word document never
+  reached it: every rung waited 300 s, and the 330 s watchdog cut Plate's
+  load. C14 now gives each wait of a load up to 1,000 s, and its watchdog
+  outlasts every wait. A C14 sample also logs its stages (navigation,
+  ready, surface, witness, text read), so a timeout names the stage it
+  stopped in. The four C14 jobs were measured a third time; the tables
+  read the third round, and the superseded rounds stay in the dataset.
+- canvas-editor's C11 and C14 timed its empty page (#185). The
+  `canvas_pixel` signal took the first frame with any ink on the canvas,
+  and canvas-editor paints its empty page's margin marks before the
+  document is imported: about 130 ms at every size, while the import of
+  the 250,000-word document took 51 s. canvas-editor also reports the
+  import finished one or two frames before it paints, and at some sizes it
+  clears the page first. The usable frame is now the first one in which
+  canvas-editor reports the document imported and its first page shows ink
+  that differs from its empty page. Its cells of the 24 document jobs
+  (C11, C12, C14, C15) were measured again by canvas-editor-only runs
+  under the same job indices, seeds and blocks; the publication manifest's
+  editor-scoped round (`editor_superseded`, `editor_rerun`) keeps the
+  other editors of those jobs as measured, and the tables read
+  canvas-editor from the new runs only. canvas-editor still throws on the
+  complex corpus (`TypeError` reading `width` in its own
+  `computeRowColInfo`), in both seeds; those cells stay refused.
+- C07's sub-frame flag (#187). C07 publishes the median of a trial's
+  clicks, but its sub-frame flag was taken from every middle click, so a
+  trial whose median was under one frame could be flagged otherwise (and
+  then refused by the reader's flag check). The flag now follows the
+  published median. None of the campaign's 1,160 C07 trials was affected.
+- Refused C05 and C06 cells named the wrong reason (#189). The warm/cold
+  lane writes a criterion's `not_applicable` or `not_run` row at one cache
+  state only, and the other measure of the same launch took the
+  launch-level code: `crash` for canvas-editor and Docen when the editor's
+  data was cold (18 cells), and no reason at all for WordCraft (10 cells)
+  and canvas-editor's complex corpus when warm (2 cells). Nothing crashed.
+  The reader now gives such a measure the reason its sibling measure
+  records, and the writer names a lone `not_applicable` instead of
+  stamping `crash`. Found by an adversarial review of every refused cell.
+- The document lane's C11, C12 and C15 probes waited 300 s at every size
+  (#190). Their probe targets carried no workload id, so the 600 s rule
+  for the 250,000-word document (and the 1,000 s rule for the 500,000-word
+  one) never reached them, and Plate's prose-250kw loads were cut at
+  300 s. A probe's timeout was also labelled `editor_crash`; it is now
+  `editor_timeout`. Plate's cells of the four prose-250kw document jobs
+  were measured again by Plate-only runs; the editor round is scoped to
+  that workload, so Plate's other document jobs stay as measured.
+- C15 was not measured for any editor (#191). The probe drives find only
+  through a find box in the page, and none of the hosts as configured has
+  one it can type into. The report now says so and names, for each editor,
+  what find it ships; no C15 attempt ran, so no figure moves.
+- Folio's prose-5kw C11 and C12 did not publish (#192). One launch was
+  refused for CPU throttling and moved to `rejected-evidence/`, and the
+  seed-block gate counted only `cells/`, so the block looked short of a
+  launch. A quarantined launch now counts as a refusal, not as missing.
+- C10 scrolled the complex document with its document protection (#192).
+  GenOffice and eigenpal open a protected package read-only, as Word does,
+  and C10's readiness gate waited for an editable surface that never came.
+  The scroll lane now loads the unprotected copy the editing lanes load,
+  and records the variant. The four C10 complex-document jobs were
+  measured again for every editor in a late round (`late_superseded`,
+  `late_rerun`).
+- Docen's C11 was refused at every size (#193). The surface of a model
+  host was bound to the later of its settled ink frame and its ready time,
+  and the ready time was a duration measured from after navigation plus
+  the 300 ms post-ready wait, on another clock than the frames. The
+  settled ink frame (the first frame identical to the screen captured
+  after ready) is now the surface; the ready time stands in only when no
+  ink stamp exists, and then as the page-clock instant. eigenpal and
+  canvas-editor stamp their first layout box on the page clock and are
+  unchanged. Docen's cells of the 20 document jobs below the 500k rung
+  were measured again by Docen-only runs.
+- The memory lane's pair deadline covered one load (#194). A pair opens
+  the document, types a 120-character burst, waits, closes and reopens,
+  under one deadline of the load timeout plus 120 s (720 s at 250,000
+  words); Docen types at about 8.7 s per keystroke at that size. The
+  deadline now covers both loads and a burst budget, and a failed pair
+  names the phases it reached. Docen's and canvas-editor's prose-250kw
+  memory cells were measured again.
+- The document lane killed probes that were still within their own load
+  budget (#195). A C11 or C12 probe loads the document, reflows it and
+  checks its witness, but its subprocess watchdog was one load timeout
+  plus 30 s (630 s at 250,000 words); Plate.js takes 335–397 s to be ready
+  and 627–708 s to scan its witness at that size, so every attempt was
+  killed. The watchdog now covers every load stage and the probe's own
+  work. A refusal that said "clock skew" when the skew was inside the 5 ms
+  bound now names the page clock check that failed. Plate.js's prose-250kw
+  document cells were measured again.
+- WordCraft was refused by our harness on 30 cells (#196, #197, #198),
+  found by an adversarial review of every refused cell. Its content check
+  (C03, C11) never read its text, although the harness had read its whole
+  document through WordCraft's own select all and copy since #183; C08 and
+  C09 were skipped as not applicable on the same ground; and C10 never
+  selected the scroll overlay our host builds for it. Each now uses the
+  copy read or the overlay, outside the timed window. Where timed work
+  follows in the same page (the input lane's opening check, C14's witness)
+  the copy read is skipped. After that copy, WordCraft's paste inserted its
+  own clipboard with the system one (5,720 characters for a 1,500-character
+  block), so C08 reloads the document after its baseline read and pastes
+  on the fresh page (1,500). A modified flag that had already risen before
+  a burst no longer turns WordCraft's C05 and C06, which do not apply, into
+  a crash. WordCraft's cells of its warm and cold, document, input and C10
+  jobs, and of its 500,000-word document jobs, were measured again by
+  WordCraft-only runs. Its four 500,000-word C14 jobs were measured again
+  as well, at a later commit (6a037a84), only so that one harness measures
+  all of WordCraft's 500,000-word cells: the fix does not change C14, which
+  has read WordCraft's text through its own select all and copy since #183.
+  The first such round (08:41 UTC, both its Spaces) ran slower on every job
+  (medians 8.9-9.8 s), with the same build, browser and command
+  and no CPU steal or throttling. It did not reproduce: two runs started
+  20 minutes later on two Spaces gave 7.7-7.9 s at this commit and 8.2-8.3 s
+  at the older d697b98e, matching the first round's 7.5-8.2 s. A change that
+  does not reproduce is not a result (AGENTS.md section 4), so the tables
+  read the reproduced runs on e2-eigenpal (jobs 162, 163, 166, 167); the
+  slow round stays in the run bucket and is not named in the manifest.
+- WordCraft's warm and cold jobs end with exit status 3, "nothing
+  measured", although their C03 cells are measured (#199, not fixed in this
+  release). The run-level tally reads one row per launch, and WordCraft's
+  launch row is marked failed by its C05 and C06 bursts: WordCraft's
+  modified mark rises once and stays, so every keystroke after the first
+  reads `expected_edit_not_confirmed`. C05 and C06 do not apply to
+  WordCraft and are published as such. The tables read each criterion's
+  attempts, and the publication gates a job on its completion, not its exit
+  status, so no figure is affected.
+- The screencast recorder keeps the last 1,200 frames, and once it held
+  that many every frame cursor stopped moving (#202): the array's length
+  stays 1,200, so a scan from "the frames recorded so far" saw no new
+  frame. The page clock's anchor was then never found, and every attempt
+  that needed it was refused. It happened to two editors only, those that
+  paint the most frames during a long load: Docen at 500,000 words (C11
+  and C14) and canvas-editor at 250,000 words (C08 and C09). Frames now
+  carry a sequence number that never repeats, and every scan cursors on
+  it. A scan of every published probe record found no measured figure
+  taken after the cap, so no published number was affected. Docen's cells
+  of the eight 500,000-word jobs and canvas-editor's cells of the four
+  250,000-word input jobs were measured again with the fix (commit
+  52ff8990). A later commit stops the harness from caching the decoded
+  bitmap of a frame the cap had already dropped (no splice would ever free
+  it); that cache lives in the harness's own process, not the browser, so
+  it touches no measured figure, and those runs were not repeated for it.
+- C14's damage window let through frames from minutes later (#203). C14
+  asks whether the document repainted within 500 ms of a settled frame. If
+  it did, the sample is that repaint; if not, it is the time the text
+  appeared. The window's deadline started only once the harness's own calls
+  into the page returned, and a busy page held them for minutes. Every
+  frame recorded meanwhile counted, so GenOffice at 500,000 words read
+  about 4.9 minutes from a change of under a hundredth of the frame, 160
+  seconds after its window opened. The witness now counts only frames inside the window, widened by
+  the clock's measured error (250 to 700 ms), so no frame is dropped on
+  timing noise. The reader applies the same rule to runs made before the
+  fix. Of the published C14 samples, only GenOffice's at 500,000 words
+  change: their repaint was outside the window, so they read the time its
+  text appeared. Those jobs were measured again with the fix (commit
+  936e526b). The round is scoped to C14 (`criteria` in the publication
+  manifest): GenOffice's C11, C12 and C15 jobs at 500,000 words never run
+  C14, so they keep their cells. The publication-roots check now accepts a
+  round scoped to criteria, and refuses one that leaves a job that measured
+  them. GenOffice's two-minute wait is its own, not the harness's: in
+  C11, which reads nothing from the page before its witness, its 500,000-word
+  text appears at 3.6 seconds and its first painted frame comes about 115
+  seconds later. C11, C12 and the input lanes use the same witness
+  differently: they wait for the first changed frame after the harness's
+  own change, and the input lanes check that frame for the typed
+  character. There a late frame is the editor's real, slow response, and
+  it stays; cutting it would make the slowest editors look faster.
+- C04 counted the load's long tasks as deferred work after ready (#205).
+  Its long-task observer is registered with `buffered`, so it also receives
+  the long tasks recorded during load, delivered about 2 ms after ready. Each
+  counted as activity at its delivery time. Every editor therefore showed
+  "deferred work" ending about 2 ms after ready (Docen 1.8 ms, Docxodus
+  1.9 ms, …), though none was observed. A long task has ended by its
+  delivery, so one whose delivery time minus its duration falls before
+  ready began before ready. The harness now passes the ready time into the
+  page and counts earlier long tasks apart (`long_tasks_before_ready`, null
+  when no ready time was given). The reader drops them from records made
+  before the fix, by that rule. A load left with no activity is not applicable, the
+  harness's own rule, and an editor whose loads all had none reads "no
+  deferred work after ready". In the publication roots, all of canvas-editor's,
+  Docen's, Docxodus's, eigenpal's, Folio's, GenOffice's and Plate.js's C04
+  samples rested only on those tasks, and 96 of SuperDoc's 100. WordCraft's
+  rested on them in 62 of 199 loads; in the rest its own long task comes 250
+  to 520 ms after ready, and those samples are unchanged. That split, not a
+  change in WordCraft, is why its 50,000-word figure moved between campaigns
+  (137 ms, then 423 ms). No job was measured again: the records hold every
+  activity's time and duration, so the reader's rule is exact; it gives the
+  same counts on the publication roots as the harness's start-time rule
+  would. Real-browser fixtures (`busy_load.html`, `deferred_task.html`) and
+  three records copied from the campaign cover the cases. Ready is when the
+  harness sees the ready signal; work that blocks the page before then
+  delays ready and counts in C11, not C04. Reviewed by GLM (octo); four of
+  its eight findings were fixed.
+- WordCraft's C07, C08 and C09 on the complex document are withheld as a
+  limit of the harness (#200, not fixed in this release). Its first page
+  holds three lines, and the scan that finds the document body took
+  WordCraft's painted window chrome for text: every click point landed
+  above the page (C08 and C09 on the title bar, C07 also on a toolbar
+  button), and the keystrokes that followed never reached the document
+  (its text and the screen were unchanged). The reader now refuses those
+  trials with `click_points_on_editor_chrome`; a trial skipped as not
+  applicable keeps its own reason. WordCraft's prose cells, and every
+  other editor's complex cells, stand.
+- Runs abandoned and left out of the publication, each stopped by us and
+  measured again at the fixed commit: the first 250,000-word Plate.js round
+  (#190; every C11 and C12 attempt cut by the 630 s watchdog of #195), and
+  the first run of the four 500,000-word document jobs (stopped for #193
+  and #195 while its C14 jobs went on). Their pulls stay in the run bucket;
+  neither is named in `perf/container/e2_publication.json`. Two WordCraft
+  jobs (27 and 102) were stopped part-way when the rest of their Spaces'
+  work moved to e2-plate; the manifest names them under `stopped`, the
+  publication check requires each to be unsealed and measured whole by
+  another run of the round, and the tables never read them.
+- Two tests that failed for reasons outside the code they test (#182): the
+  sub-frame witness test asserted a timing instead of the rule, and a
+  persistence test read the state of `repos/`.
+- Perf harness, before Report E was measured (#100–#103, #118–#123): a
+  deterministic size ladder; a host record read from the machine, never
+  assumed (cgroup limits resolved through mountinfo, container and
+  hypervisor evidence, power with its evidence, steal time per run); PERF
+  marks that time the same work for every editor; a headless runner that
+  keeps and checks every sample, attests every pin, and refuses a noisy or
+  battery-powered machine; a tables builder that recomputes every figure
+  from the sample files. Reviewed by codex, glm-5.3, MiniMax-M3 and grok;
+  every accepted finding is fixed with a test. The later host-rule commits
+  (`8e98f66`, `0aaa40f`, `62c73fc`) do not change what the runs recorded:
+  re-run in the same sandbox, `host_record()` still gives AC power from the
+  cloud vendor, and the four test suites pass there.
+- Report E's tables (#111): the lanes table has a load and a save column
+  (GitHub Markdown dropped the save cell), package versions read as
+  versions, LibreOffice is not a row of n/a in the timed tables, a failed
+  cell quotes the error of its latest failed sample, and the save notes
+  agree in number. After codex's review (#124): GenOffice's "the file is the
+  input" note names the four prose documents (it rewrote `complex.docx`; the
+  old note said "every sample"), SuperDoc's flat save is no longer explained
+  as work done during load, and the canvas-editor paragraph names both
+  diagnostic configurations.
+- Dependabot alerts (#93): `harness/ui` puppeteer 22 → 25 (drops
+  `extract-zip`, `basic-ftp@5`, and zod 3 from the lockfile), `pdfjs-dist`
+  overridden to 6.2.108 in the SuperDoc UI host, and `katex` overridden to
+  0.19.1 for `micromark-extension-math` in the plate harness and demo.
+  `perf/runner/warm_cold_browser.mjs` follows puppeteer's new ESM entry
+  path. Two alerts have no upstream fix and stay open: `zip` 3.0.0 in
+  `harness/wordcraft` (needs a `repos/wordcraft` bump, which the trial
+  rules forbid touching) and `elliptic` 6.6.1 in `demos/plate` (no patched
+  release exists). No figure changes.
 
 ## [0.9.4] - 2026-11-01
 
@@ -351,7 +851,7 @@ The first tagged release: the edition published on benchmarks.law on
   (`text.exact` and two field and part checks); eigenpal was rescored
   (#24).
 - Every report counts 99 checks, not 97, and quotes the rescored figures
-  (Folio 97.5%, Plate.js 20.6%, WordCraft 84.9%).
+  (Folio 97.5%, Plate.js 20.6%, WordCraft 85.9%).
 - Report C: 83 differing pixels are 0.005% of the corpus's ink, not 0.0006%.
 - The "only" claims and stale statuses that the reports' own tables
   contradicted were corrected; Report E became Reports D1 and D2.

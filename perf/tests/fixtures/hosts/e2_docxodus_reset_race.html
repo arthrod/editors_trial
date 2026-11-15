@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>E2 fake host: #modeEditor clicked before rendered never mounts</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        background: #ffffff;
+        color: #111111;
+        font: 14px/1.5 serif;
+      }
+      #editorHost {
+        width: 640px;
+        margin: 30px auto;
+        outline: none;
+      }
+      #pages,
+      #editorHost {
+        width: 640px;
+        margin: 30px auto;
+      }
+      #pages p,
+      #editorHost p {
+        margin: 0 0 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- The ready signal (window.__docxodus.rendered) flips about a second
+         after load, the way the real host's boot() finishes. #modeEditor is
+         in the static HTML, so a click can land before that. On the real
+         host DocxEditor.openAsync then never resolves: here the handler
+         mounts the block editor only when the click arrives after
+         rendered. -->
+    <button id="modeEditor">Block editor</button>
+    <div id="status">loading</div>
+    <div id="pages">
+      <p>fixture line one alpha bravo charlie delta echo foxtrot golf</p>
+      <p>fixture line two hotel india juliet kilo lima mike november</p>
+      <p>fixture line three oscar papa quebec romeo sierra tango uniform</p>
+      <p>fixture line four victor whiskey xray yankee zulu alpha bravo</p>
+      <p>fixture line five charlie delta echo foxtrot golf hotel india</p>
+      <p>fixture line six juliet kilo lima mike november oscar papa</p>
+    </div>
+    <div id="editorHost"></div>
+    <script>
+      window.__docxodus = { rendered: false, error: null, editor: false };
+      const readyDelay = Number(new URLSearchParams(location.search).get('ready') || 900);
+      const mountDelay = Number(new URLSearchParams(location.search).get('mount') || 120);
+      setTimeout(function () {
+        window.__docxodus.rendered = true;
+        // A real host still has layout work after the ready flag: a few
+        // seconds of deferred DOM updates on the first load, the work C04
+        // measures settling. Skipped on reload so the C07 reload click
+        // boxes stay quiet.
+        const nav = performance.getEntriesByType('navigation')[0];
+        if (!nav || nav.type !== 'reload') {
+          let passes = 0;
+          const layout = setInterval(function () {
+            passes += 1;
+            document.getElementById('status').textContent = 'ready (layout ' + passes + ')';
+            if (passes >= 16) clearInterval(layout);
+          }, 250);
+        }
+      }, readyDelay);
+      document.getElementById('modeEditor').addEventListener('click', function () {
+        // A click that lands before boot() finished: openAsync never
+        // resolves, so the contenteditable never appears.
+        if (!window.__docxodus.rendered) return;
+        setTimeout(function () {
+          const host = document.getElementById('editorHost');
+          if (host.querySelector('[contenteditable="true"]')) return;
+          const block = document.createElement('div');
+          block.setAttribute('contenteditable', 'true');
+          // The undo keystroke must land and still not restore the text:
+          // the real C09 fixture-reset path starts from exactly that.
+          block.addEventListener('beforeinput', function (event) {
+            if (event.inputType === 'historyUndo') event.preventDefault();
+          });
+          block.addEventListener('keydown', function (event) {
+            if (
+              (event.metaKey || event.ctrlKey) &&
+              (event.key === 'z' || event.key === 'Z')
+            ) {
+              event.preventDefault();
+            }
+          });
+          const lines = [
+            'fixture line one alpha bravo charlie delta echo foxtrot golf',
+            'fixture line two hotel india juliet kilo lima mike november',
+            'fixture line three oscar papa quebec romeo sierra tango uniform',
+            'fixture line four victor whiskey xray yankee zulu alpha bravo',
+            'fixture line five charlie delta echo foxtrot golf hotel india',
+            'fixture line six juliet kilo lima mike november oscar papa',
+          ];
+          for (const text of lines) {
+            const p = document.createElement('p');
+            p.textContent = text;
+            block.appendChild(p);
+          }
+          host.appendChild(block);
+          window.__docxodus.editor = true;
+        }, mountDelay);
+      });
+    </script>
+  </body>
+</html>

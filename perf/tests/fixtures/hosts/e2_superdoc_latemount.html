@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>E2 fake host: usable signal before document input is possible</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        background: #ffffff;
+        color: #111111;
+        font: 14px/1.5 serif;
+      }
+      #editor {
+        width: 640px;
+        margin: 30px auto;
+      }
+      .superdoc__document {
+        outline: none;
+        min-height: 480px;
+        background: #fff;
+        position: relative;
+      }
+      .v2-document-loading-overlay {
+        position: absolute;
+        inset: 0;
+        background: #fff;
+        padding: 40px;
+        text-align: center;
+      }
+      .superdoc-line {
+        margin: 0 0 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- The ready selector (.superdoc__document) exists immediately, like the
+         real editor's loading shell: the overlay paints several lines of
+         progress text while the document mounts seconds later (#168). -->
+    <div id="editor">
+      <div class="superdoc__document">
+        <div class="v2-document-loading-overlay">
+          <p>Loading document</p>
+          <p>Opening document...</p>
+          <p>Progress</p>
+          <p>Preparing first pages...</p>
+          <p>Almost ready...</p>
+          <p>Reading the package</p>
+          <p>Measuring the layout</p>
+          <p>Please wait</p>
+        </div>
+      </div>
+    </div>
+    <script>
+      if (!new URLSearchParams(location.search).get('never'))
+      setTimeout(function () {
+        const doc = document.querySelector('.superdoc__document');
+        doc.textContent = '';
+        const page = document.createElement('div');
+        page.className = 'superdoc-page';
+        page.setAttribute('contenteditable', 'true');
+        const lines = [
+          'fixture line one alpha bravo charlie delta echo foxtrot golf',
+          'fixture line two hotel india juliet kilo lima mike november',
+          'fixture line three oscar papa quebec romeo sierra tango uniform',
+          'fixture line four victor whiskey xray yankee zulu alpha bravo',
+          'fixture line five charlie delta echo foxtrot golf hotel india',
+          'fixture line six juliet kilo lima mike november oscar papa',
+          'fixture line seven quebec romeo sierra tango uniform victor',
+          'fixture line eight whiskey xray yankee zulu alpha bravo charlie',
+        ];
+        for (const text of lines) {
+          const line = document.createElement('p');
+          line.className = 'superdoc-line';
+          const run = document.createElement('span');
+          run.className = 'superdoc-text-run';
+          run.textContent = text;
+          line.appendChild(run);
+          page.appendChild(line);
+        }
+        doc.appendChild(page);
+        const input = document.createElement('div');
+        input.setAttribute('role', 'textbox');
+        doc.appendChild(input);
+      }, 4000);
+    </script>
+  </body>
+</html>

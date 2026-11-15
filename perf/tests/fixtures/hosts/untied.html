@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>recorded anchor node is replaced again before confirm</title>
+    <style>
+      body { margin: 0; background: #fff; color: #111; font: 16px/28px sans-serif; }
+      .doc-paragraph { position: absolute; left: 24px; width: 520px; height: 28px; }
+    </style>
+  </head>
+  <body>
+    <div class="doc-paragraph" id="caret" contenteditable="true" style="top:20px">Alpha body paragraph here</div>
+    <div class="doc-paragraph" id="anchor" style="top:60px">Beta anchor paragraph stays</div>
+    <div class="doc-paragraph" id="tail" style="top:100px">Gamma tail paragraph after</div>
+    <script>
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'x' || event.key === 'X') event.preventDefault();
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        document.getElementById('caret').remove();
+        document.getElementById('anchor').remove();
+        document.getElementById('tail').remove();
+        function mk(id, top, text) {
+          var el = document.createElement('div');
+          el.className = 'doc-paragraph';
+          el.id = id;
+          el.style.top = top + 'px';
+          el.textContent = text;
+          document.body.appendChild(el);
+          return el;
+        }
+        mk('caret', 20, 'Alpha body paragraph here');
+        mk('anchor', 480, 'Beta anchor paragraph stays');
+        mk('tail', 520, 'Gamma tail paragraph after');
+        window.__movedAt = performance.now();
+        // The first frame can record the node painted at 480. A later
+        // replacement leaves that node disconnected. The census anchor after
+        // the x lands is the second node, so a sample of the first node is
+        // not that anchor.
+        setTimeout(function () {
+          var old = document.getElementById('anchor');
+          if (!old) return;
+          var neu = document.createElement('div');
+          neu.className = 'doc-paragraph';
+          neu.id = 'anchor';
+          neu.style.top = '480px';
+          neu.textContent = 'Beta anchor paragraph stays';
+          old.replaceWith(neu);
+          window.__replacedAgainAt = performance.now();
+        }, 500);
+        setTimeout(function () {
+          document.getElementById('caret').textContent = 'xAlpha body paragraph here';
+          window.__textAt = performance.now();
+        }, 1200);
+      }, true);
+    </script>
+  </body>
+</html>

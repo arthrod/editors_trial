@@ -1,0 +1,339 @@
+{
+ "campaign": "publish1",
+ "harness": {
+  "first_pass": "4488f9b6",
+  "rerun": "78249e7c",
+  "rerun2": "c0015f83",
+  "rerun3": "3ffb21a5",
+  "editor_rerun": "49b7e934",
+  "late_rerun": "653b9471",
+  "extension": "d697b98e (C14 jobs 162, 163, 166, 167); 6885707b (document jobs 160, 161, 164, 165)",
+  "lane_rerun": "03b683b1"
+ },
+ "first_pass": {
+  "e2-apryse": "20261112T183630601693Z-12164-085332",
+  "e2-canvas": "20261112T183248840814Z-11696-914066",
+  "e2-docen": "20261112T183320614554Z-11765-789133",
+  "e2-docsplus": "20261112T183145347429Z-11563-915187",
+  "e2-docxodus": "20261112T183144254554Z-11568-382667",
+  "e2-eigenpal": "20261112T183244147421Z-11672-751822",
+  "e2-fidus": "20261112T183243181015Z-11663-035344",
+  "e2-folio": "20261112T183316463311Z-11728-404158",
+  "e2-genoffice": "20261112T183242297846Z-11656-401461",
+  "e2-plate": "20261112T183212234848Z-11562-598443",
+  "e2-publish": "20261112T183244548094Z-11648-855770",
+  "e2-publish-2": "20261112T183139641695Z-11554-333237",
+  "e2-publish-3": "20261112T183708070795Z-12264-358833",
+  "e2-publish-4": "20261112T183249294867Z-11729-835026",
+  "e2-publish-5": "20261112T183144266037Z-11556-698968",
+  "e2-publish-6": "20261112T183143727579Z-11555-366632",
+  "e2-publish-7": "20261112T183242870948Z-11673-006388",
+  "e2-publish-8": "20261112T183215050498Z-11623-646434",
+  "e2-superdoc": "20261112T183349366741Z-11804-968452",
+  "e2-wordcraft": "20261112T183213063686Z-11583-801119"
+ },
+ "rerun": {
+  "e2-apryse": [{"run_id": "20261113T073906204514Z-212203-786536", "jobs": [12, 93]}],
+  "e2-canvas": [{"run_id": "20261113T015703411387Z-135894-826433", "jobs": [96]}],
+  "e2-docen": [{"run_id": "20261113T090158345563Z-229754-948168", "jobs": [11, 92]}],
+  "e2-docsplus": [{"run_id": "20261113T040645035617Z-166515-531975", "jobs": [97]}],
+  "e2-docxodus": [{"run_id": "20261113T043755696636Z-171260-619672", "jobs": [13, 29, 31]}],
+  "e2-eigenpal": [{"run_id": "20261113T043828035617Z-170263-046891", "jobs": [19, 109, 111]}],
+  "e2-fidus": [{"run_id": "20261113T044928615527Z-190269-150891", "jobs": [10, 15]}],
+  "e2-folio": [{"run_id": "20261113T033445892903Z-175493-228869", "jobs": [17]}],
+  "e2-genoffice": [{"run_id": "20261113T054638073145Z-208440-072008", "jobs": [108]}],
+  "e2-plate": [{"run_id": "20261113T052517328189Z-204687-248035", "jobs": [28]}],
+  "e2-publish": [{"run_id": "20261113T021857527777Z-146525-570654", "jobs": [20]}],
+  "e2-publish-2": [{"run_id": "20261113T042709369713Z-158741-846235", "jobs": [101, 110]}],
+  "e2-publish-3": [{"run_id": "20261113T063817951638Z-222933-233082", "jobs": [94]}],
+  "e2-publish-4": [{"run_id": "20261113T052538472529Z-212607-230242", "jobs": [90, 95]}],
+  "e2-publish-5": [{"run_id": "20261113T032308889990Z-204155-917143", "jobs": [100]}],
+  "e2-publish-6": [
+   {"run_id": "20261112T233555162670Z-138616-897417", "jobs": [16]},
+   {"run_id": "20261113T052148511166Z-11721-710395", "jobs": [91, 98]}
+  ],
+  "e2-publish-7": [{"run_id": "20261113T082921016001Z-215545-769356", "jobs": [18, 99]}],
+  "e2-publish-8": [{"run_id": "20261113T041715524162Z-165033-784914", "jobs": [21, 30]}],
+  "e2-wordcraft": [{"run_id": "20261113T062710986959Z-190481-832115", "jobs": [14]}]
+ },
+ "superseded": {
+  "issues": {
+   "173": {
+    "title": "Docxodus input probe killed at 300 s: C09 reset clicks editor mode before render (#168 regression)",
+    "lane": "benchmark_input",
+    "jobs": [28, 29, 30, 31, 108, 109, 110, 111]
+   },
+   "174": {
+    "title": "Docen C14 refused everywhere: screencast_ink compares a full-element screenshot with viewport-clamped frames",
+    "lane": "benchmark_document",
+    "criterion": "C14",
+    "jobs": [20, 21, 100, 101]
+   },
+   "175": {
+    "title": "C12 'unaccounted layout reads': a frame's own read is stamped after liveAnchor() and falls outside the window",
+    "lane": "benchmark_document",
+    "criteria": ["C11", "C12", "C15"],
+    "jobs": [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99]
+   }
+  }
+ },
+ "rerun_superseded": {
+  "issues": {
+   "181": {
+    "title": "C14 I01-I03 checked a 4,000-character head of the document text; the correctness lines sit at its end",
+    "lane": "benchmark_document",
+    "criterion": "C14",
+    "jobs": [20, 21, 100, 101]
+   }
+  }
+ },
+ "rerun2": {
+  "e2-publish": [{"run_id": "20261113T165954449347Z-13305-270096", "jobs": [20]}],
+  "e2-publish-2": [{"run_id": "20261113T165850275631Z-13170-380747", "jobs": [101]}],
+  "e2-publish-5": [{"run_id": "20261113T165851839542Z-13191-690007", "jobs": [100]}],
+  "e2-publish-8": [{"run_id": "20261113T165921960493Z-13218-861794", "jobs": [21]}]
+ },
+ "rerun2_superseded": {
+  "issues": {
+   "183": {
+    "title": "C14 read only the page's text: Folio and SuperDoc mount a window of a long document and WordCraft paints a canvas",
+    "lane": "benchmark_document",
+    "criterion": "C14",
+    "jobs": [20, 21, 100, 101]
+   }
+  }
+ },
+ "rerun3": {
+  "e2-folio": [{"run_id": "20261113T190021921620Z-23053-674796", "jobs": [20]}],
+  "e2-publish-3": [{"run_id": "20261113T185950993192Z-17225-989511", "jobs": [21]}],
+  "e2-publish-4": [{"run_id": "20261113T185949467926Z-17217-984848", "jobs": [100]}],
+  "e2-publish-6": [{"run_id": "20261113T185948177837Z-17215-823733", "jobs": [101]}]
+ },
+ "extension": {
+  "e2-apryse": [{"run_id": "20261114T024148834884Z-11532-838262", "jobs": [162]}],
+  "e2-canvas": [{"run_id": "20261114T024222317207Z-11572-144053", "jobs": [163]}],
+  "e2-docxodus": [{"run_id": "20261114T024255170990Z-11642-587365", "jobs": [166]}],
+  "e2-eigenpal": [{"run_id": "20261114T024222131657Z-11594-893258", "jobs": [167]}],
+  "e2-publish-6": [{"run_id": "20261114T035436030147Z-12662-423055", "jobs": [160]}],
+  "e2-publish-7": [{"run_id": "20261114T035434723692Z-12722-157561", "jobs": [161]}],
+  "e2-docen": [{"run_id": "20261114T034628380769Z-11625-435002", "jobs": [164]}],
+  "e2-docsplus": [{"run_id": "20261114T034912269164Z-11936-660182", "jobs": [165]}]
+ },
+ "editor_superseded": {
+  "issues": {
+   "185": {
+    "title": "canvas-editor's usable frame was taken before it painted the document (C11, C12, C14, C15)",
+    "lane": "benchmark_document",
+    "editor": "canvas",
+    "jobs": [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101]
+   },
+   "193": {
+    "title": "Docen's surface clock mixed a ready duration with page-clock frames; C11 refused at every size",
+    "lane": "benchmark_document",
+    "editor": "docen",
+    "workloads": ["prose-500w", "prose-5kw", "prose-50kw", "prose-250kw", "complex-corpus"],
+    "jobs": [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99]
+   },
+   "190": {
+    "title": "Plate.js's 250,000-word document loads waited 300 s instead of the 600 s load timeout (C11, C12)",
+    "lane": "benchmark_document",
+    "editor": "plate",
+    "workload": "prose-250kw",
+    "jobs": [16, 17, 96, 97]
+   },
+   "194": {
+    "title": "The memory pair's deadline covered one load where it runs two loads and a burst (Docen, 250,000 words)",
+    "lane": "benchmark_memory",
+    "editor": "docen",
+    "workload": "prose-250kw",
+    "jobs": [66, 67, 146, 147]
+   },
+   "194-canvas": {
+    "issue": "194",
+    "title": "The memory pair's deadline covered one load where it runs two loads and a burst (canvas-editor, 250,000 words)",
+    "lane": "benchmark_memory",
+    "editor": "canvas",
+    "workload": "prose-250kw",
+    "jobs": [66, 67, 146, 147]
+   },
+   "196": {
+    "title": "WordCraft's C11 content check never read its text through its own select-all and copy",
+    "lane": "benchmark_document",
+    "editor": "wordcraft",
+    "workloads": ["prose-500w", "prose-5kw", "prose-50kw", "prose-250kw", "complex-corpus"],
+    "jobs": [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99]
+   },
+   "196-warm": {
+    "issue": "196",
+    "title": "WordCraft's C03 opening check never read its text through its own select-all and copy",
+    "lane": "benchmark_warm_cold",
+    "editor": "wordcraft",
+    "jobs": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89]
+   },
+   "196-extension": {
+    "issue": "196",
+    "title": "WordCraft's C11 content check at 500,000 words ran before the select-all and copy read",
+    "lane": "benchmark_document",
+    "editor": "wordcraft",
+    "extension": true,
+    "workload": "prose-500kw",
+    "jobs": [160, 161, 164, 165]
+   },
+   "197": {
+    "title": "WordCraft's C08 and C09 were skipped as not applicable although its own copy reads the document",
+    "lane": "benchmark_input",
+    "editor": "wordcraft",
+    "jobs": [22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111]
+   },
+   "198": {
+    "title": "C10 never scrolled WordCraft's document: the host's scroll overlay was never selected",
+    "lane": "adversarial_c10_scroll",
+    "editor": "wordcraft",
+    "jobs": [32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121]
+   },
+   "202": {
+    "title": "The page clock's anchor was never found once the screencast recorder held 1,200 frames (canvas-editor, 250,000 words, C08 and C09)",
+    "lane": "benchmark_input",
+    "editor": "canvas",
+    "workload": "prose-250kw",
+    "jobs": [28, 29, 108, 109]
+   },
+   "202-extension": {
+    "issue": "202",
+    "title": "The page clock's anchor was never found once the screencast recorder held 1,200 frames (Docen, 500,000 words, C11 and C14)",
+    "lane": "benchmark_document",
+    "editor": "docen",
+    "extension": true,
+    "workload": "prose-500kw",
+    "jobs": [160, 161, 162, 163, 164, 165, 166, 167]
+   },
+   "196-c14": {
+    "issue": "196",
+    "title": "WordCraft's C14 at 500,000 words, measured again so that one harness measures all of its 500k cells",
+    "lane": "benchmark_document",
+    "editor": "wordcraft",
+    "extension": true,
+    "workload": "prose-500kw",
+    "jobs": [162, 163, 166, 167]
+   },
+   "203": {
+    "issue": "203",
+    "title": "GenOffice's C14 at 500,000 words, measured again after the damage window was found to accept late frames",
+    "lane": "benchmark_document",
+    "editor": "genoffice",
+    "extension": true,
+    "workload": "prose-500kw",
+    "jobs": [162, 163, 166, 167],
+    "criteria": ["C14"]
+   }
+  }
+ },
+ "editor_rerun": {
+  "e2-publish-2": [
+   {"run_id": "20261113T215437386950Z-16135-159150", "jobs": [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21], "editors": ["canvas"]},
+   {"run_id": "20261114T053305440387Z-41680-822078", "jobs": [10, 11, 12, 13, 14, 15, 16, 17, 18, 19], "editors": ["wordcraft"], "harness": "93498491"},
+   {"run_id": "20261114T055631860856Z-56941-840170", "jobs": [32, 33, 34, 35, 36, 37, 38, 39, 40, 41], "editors": ["wordcraft"], "harness": "93498491"},
+   {"run_id": "20261114T061705736249Z-71623-816811", "jobs": [160, 161, 164, 165], "editors": ["wordcraft"], "harness": "93498491"},
+   {"run_id": "20261114T063724101590Z-79859-097737", "jobs": [107, 108, 109, 110, 111], "editors": ["wordcraft"], "harness": "93498491"},
+   {"run_id": "20261114T075117893151Z-11606-549496", "jobs": [28, 29], "editors": ["canvas"], "harness": "52ff8990"}
+  ],
+  "e2-publish-8": [
+   {"run_id": "20261113T215259503520Z-15917-432966", "jobs": [90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101], "editors": ["canvas"]},
+   {"run_id": "20261114T045600463366Z-11595-561885", "jobs": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 22, 23, 24, 25, 26], "editors": ["wordcraft"], "harness": "93498491", "stopped": [27]},
+   {"run_id": "20261114T075118829813Z-11573-381749", "jobs": [164, 165, 166, 167], "editors": ["docen"], "harness": "52ff8990"}
+  ],
+  "e2-genoffice": [
+   {"run_id": "20261114T033042810724Z-11577-242164", "jobs": [10, 11, 12, 13, 14], "editors": ["docen"], "harness": "1e1393b9"},
+   {"run_id": "20261114T035540678730Z-11593-713378", "jobs": [66], "editors": ["docen", "canvas"], "harness": "6885707b"},
+   {"run_id": "20261114T103854484529Z-11633-051930", "jobs": [163, 167], "editors": ["genoffice"], "harness": "936e526b"}
+  ],
+  "e2-fidus": [
+   {"run_id": "20261114T033043921706Z-11580-419348", "jobs": [15, 16, 17, 18, 19], "editors": ["docen"], "harness": "1e1393b9"},
+   {"run_id": "20261114T040709056068Z-26416-774064", "jobs": [146], "editors": ["docen", "canvas"], "harness": "6885707b"}
+  ],
+  "e2-wordcraft": [
+   {"run_id": "20261114T033147754238Z-11751-975129", "jobs": [90, 91, 92, 93, 94], "editors": ["docen"], "harness": "1e1393b9"},
+   {"run_id": "20261114T035139290957Z-25568-668049", "jobs": [67], "editors": ["docen", "canvas"], "harness": "6885707b"}
+  ],
+  "e2-folio": [
+   {"run_id": "20261114T033149627556Z-11714-215703", "jobs": [95, 96, 97, 98, 99], "editors": ["docen"], "harness": "1e1393b9"},
+   {"run_id": "20261114T040741752943Z-26507-383304", "jobs": [147], "editors": ["docen", "canvas"], "harness": "6885707b"}
+  ],
+  "e2-publish": [{"run_id": "20261114T035435293883Z-12668-566221", "jobs": [16], "editors": ["plate"], "harness": "6885707b"}],
+  "e2-publish-3": [
+   {"run_id": "20261114T034629452519Z-11634-147904", "jobs": [17], "editors": ["plate"], "harness": "6885707b"},
+   {"run_id": "20261114T075329081490Z-11890-340702", "jobs": [108, 109], "editors": ["canvas"], "harness": "52ff8990"}
+  ],
+  "e2-publish-4": [{"run_id": "20261114T035436272663Z-12663-215473", "jobs": [96], "editors": ["plate"], "harness": "6885707b"}],
+  "e2-publish-5": [
+   {"run_id": "20261114T034700089772Z-11649-232667", "jobs": [97], "editors": ["plate"], "harness": "6885707b"},
+   {"run_id": "20261114T075224131289Z-11714-126232", "jobs": [160, 161, 162, 163], "editors": ["docen"], "harness": "52ff8990"}
+  ],
+  "e2-superdoc": [{"run_id": "20261114T045559253584Z-11597-668081", "jobs": [80, 81, 82, 83, 84, 85, 86, 87, 88, 89], "editors": ["wordcraft"], "harness": "93498491", "stopped": [102]}],
+  "e2-plate": [
+   {"run_id": "20261114T053338108929Z-41790-890174", "jobs": [90, 91, 92, 93, 94, 95, 96, 97, 98, 99], "editors": ["wordcraft"], "harness": "93498491"},
+   {"run_id": "20261114T055853873356Z-57255-920483", "jobs": [112, 113, 114, 115, 116, 117, 118, 119, 120, 121], "editors": ["wordcraft"], "harness": "93498491"},
+   {"run_id": "20261114T062111418109Z-72161-623618", "jobs": [27, 28, 29, 30, 31], "editors": ["wordcraft"], "harness": "93498491"},
+   {"run_id": "20261114T070356233835Z-87216-666904", "jobs": [102, 103, 104, 105, 106], "editors": ["wordcraft"], "harness": "93498491"}
+  ],
+  "e2-canvas": [],
+  "e2-eigenpal": [
+   {"run_id": "20261114T090357066913Z-11598-601608", "jobs": [163, 167], "editors": ["wordcraft"], "harness": "6a037a84"},
+   {"run_id": "20261114T092421711967Z-11801-028630", "jobs": [162, 166], "editors": ["wordcraft"], "harness": "6a037a84"},
+   {"run_id": "20261114T104134963320Z-11994-485303", "jobs": [162, 166], "editors": ["genoffice"], "harness": "936e526b"}
+  ]
+ },
+ "late_superseded": {
+  "issues": {
+   "192": {
+    "title": "C10 scrolled the complex document with Word's document protection on; the late round opens the unprotected copy",
+    "lane": "adversarial_c10_scroll",
+    "jobs": [40, 41, 120, 121]
+   }
+  }
+ },
+ "late_rerun": {
+  "e2-plate": [{"run_id": "20261114T032618211210Z-11786-306715", "jobs": [120]}],
+  "e2-publish-2": [{"run_id": "20261114T032545417723Z-11724-595857", "jobs": [40]}],
+  "e2-publish-8": [{"run_id": "20261114T032407386175Z-11534-623894", "jobs": [41]}],
+  "e2-superdoc": [{"run_id": "20261114T032441314750Z-11576-436923", "jobs": [121]}]
+ },
+ "lane_superseded": {
+  "issues": {
+   "206": {
+    "issue": "206",
+    "title": "The document probe's heading scan was quadratic and ran inside the timed load: the whole document lane is measured again, every editor",
+    "lane": "benchmark_document",
+    "jobs": [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 160, 161, 162, 163, 164, 165, 166, 167]
+   },
+   "207": {
+    "issue": "207",
+    "title": "C08 and WordCraft's C09 accepted a caret-only frame as the response: the whole input lane is measured again, every editor",
+    "lane": "benchmark_input",
+    "jobs": [22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111]
+   }
+  }
+ },
+ "lane_rerun": {
+  "e2-publish": [{"run_id": "20261115T002925091928Z-11706-187222", "jobs": [160], "extension": true}],
+  "e2-publish-2": [{"run_id": "20261115T002853031594Z-11657-438529", "jobs": [161], "extension": true}],
+  "e2-publish-3": [{"run_id": "20261115T002751446370Z-11501-712491", "jobs": [164], "extension": true}],
+  "e2-publish-4": [{"run_id": "20261115T002828728709Z-11572-529304", "jobs": [165], "extension": true}],
+  "e2-publish-5": [{"run_id": "20261115T002901340852Z-11664-444465", "jobs": [162], "extension": true}],
+  "e2-publish-6": [{"run_id": "20261115T002906228387Z-11640-858795", "jobs": [163], "extension": true}],
+  "e2-publish-7": [{"run_id": "20261115T002908974839Z-11642-809296", "jobs": [166], "extension": true}],
+  "e2-publish-8": [{"run_id": "20261115T002838208650Z-11563-706593", "jobs": [167], "extension": true}],
+  "e2-apryse": [{"run_id": "20261115T002840936128Z-11568-133417", "jobs": [16, 22, 26, 90]}],
+  "e2-canvas": [{"run_id": "20261115T002914825911Z-11635-386956", "jobs": [17, 23, 27, 91]}],
+  "e2-docen": [{"run_id": "20261115T002848299354Z-11574-584194", "jobs": [10, 24, 96, 106]}],
+  "e2-docsplus": [{"run_id": "20261115T002814248926Z-11506-022993", "jobs": [11, 25, 97, 107]}],
+  "e2-docxodus": [{"run_id": "20261115T002849649072Z-11564-463624", "jobs": [12, 20, 102]}],
+  "e2-eigenpal": [{"run_id": "20261115T002958825869Z-11738-227780", "jobs": [13, 21, 103]}],
+  "e2-fidus": [{"run_id": "20261115T002822244393Z-11491-166670", "jobs": [92, 100, 104]}],
+  "e2-folio": [{"run_id": "20261115T002824509700Z-11494-712884", "jobs": [93, 101, 105]}],
+  "e2-genoffice": [{"run_id": "20261115T003004656104Z-11705-515022", "jobs": [14, 18, 28, 30]}],
+  "e2-plate": [{"run_id": "20261115T004748523250Z-11691-934690", "jobs": [15, 19, 29, 31]}],
+  "e2-superdoc": [{"run_id": "20261115T002903581207Z-11571-392145", "jobs": [94, 98, 108, 110]}],
+  "e2-wordcraft": [{"run_id": "20261115T004703771437Z-11561-812522", "jobs": [95, 99, 109, 111]}]
+ }
+}

@@ -1,0 +1,12 @@
+<!doctype html><meta charset="utf-8"><title>background flip now, glyph black at 150ms</title>
+<div class="status-ok">ready</div>
+<div contenteditable="true" style="font:32px monospace;min-height:100px">fixture<span id="slot" style="display:inline-block;background:#ff0;padding:0 4px;color:transparent"></span></div>
+<script>
+document.addEventListener('keydown', e => {
+  if (e.key !== 'x') return; e.preventDefault();
+  const slot = document.getElementById('slot');
+  slot.append('x');
+  slot.style.background = '#ffffff';
+  setTimeout(() => { slot.style.color = 'black'; }, 150);
+});
+</script>

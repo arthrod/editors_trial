@@ -31,6 +31,8 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+const PERF_ONLY = process.env.PERF_ONLY === '1';
+
 const HARNESS_DIR = dirname(fileURLToPath(import.meta.url));
 const PLATE = join(HARNESS_DIR, '../../repos/plate/packages/platejs/src');
 const WWW = join(HARNESS_DIR, '../../repos/plate/apps/www/src/registry/components/editor');
@@ -233,7 +235,7 @@ const show = (label: string, ds: readonly any[], limit = 40) => {
 // and the default loss policy, which is reject. A refused import or export
 // writes no file. The permissive second pass below is only for the fidelity
 // corpus, where the question was what survives, not what the default does.
-if (process.env.EDITOR_CONFIG === 'suggested') {
+if (!PERF_ONLY && process.env.EDITOR_CONFIG === 'suggested') {
   const { BaseEditorKit } = await load(`${WWW}/plugins-static.ts`);
   const suggestedPlugins = [...BaseEditorKit];
   console.log(`suggested BaseEditorKit plugins: ${suggestedPlugins.length}`);
@@ -270,19 +272,21 @@ if (process.env.EDITOR_CONFIG === 'suggested') {
 }
 
 // 1) Plate's own default loss policy: reject
-const strict = await importDocx(ab(), {
-  lossPolicy: 'reject',
-  plugins,
-  retainSource: true,
-});
-console.log(`\n=== IMPORT (lossPolicy: 'reject' - Plate's default) ===`);
-console.log(`ok: ${strict.ok}`);
-if (!strict.ok) {
-  show('strict import diagnostics', strict.diagnostics, 40);
-} else {
-  show('strict import diagnostics', strict.diagnostics, 40);
-  console.log(`comments: ${strict.comments.length}`);
-  console.log(`source retained: ${strict.source !== null}`);
+if (!PERF_ONLY) {
+  const strict = await importDocx(ab(), {
+    lossPolicy: 'reject',
+    plugins,
+    retainSource: true,
+  });
+  console.log(`\n=== IMPORT (lossPolicy: 'reject' - Plate's default) ===`);
+  console.log(`ok: ${strict.ok}`);
+  if (!strict.ok) {
+    show('strict import diagnostics', strict.diagnostics, 40);
+  } else {
+    show('strict import diagnostics', strict.diagnostics, 40);
+    console.log(`comments: ${strict.comments.length}`);
+    console.log(`source retained: ${strict.source !== null}`);
+  }
 }
 
 // 2) permissive import, then export
@@ -293,15 +297,20 @@ const permissive = await importDocx(ab(), {
   retainSource: true,
 });
 if (!permissive.ok) {
+  const tFailedLoad = performance.now();
+  if (PERF_ONLY) console.log(`PERF model_ready_ms=${(tFailedLoad - tLoad0).toFixed(6)}`);
   console.log('\n=== IMPORT (lossPolicy: allow) ALSO FAILED ===');
   for (const d of permissive.diagnostics.slice(0, 25)) {
     console.log(`  [${d.severity}] ${d.code}: ${d.message}`);
   }
   process.exit(2);
 }
-show('IMPORT (lossPolicy: allow)', permissive.diagnostics, 45);
-console.log(`comments: ${permissive.comments.length}`);
-console.log(`source retained: ${permissive.source !== null}`);
+const showPermissive = () => {
+  show('IMPORT (lossPolicy: allow)', permissive.diagnostics, 45);
+  console.log(`comments: ${permissive.comments.length}`);
+  console.log(`source retained: ${permissive.source !== null}`);
+};
+if (!PERF_ONLY) showPermissive();
 
 const editor = createEditor({
   plugins,
@@ -320,6 +329,7 @@ const exported = await exportDocx(editor as any, {
 });
 const tSave1 = performance.now();
 console.log(`PERF save_ms=${(tSave1 - tSave0).toFixed(6)}`);
+if (PERF_ONLY) showPermissive();
 
 console.log(`\n=== EXPORT ===`);
 console.log(`ok: ${exported.ok}`);

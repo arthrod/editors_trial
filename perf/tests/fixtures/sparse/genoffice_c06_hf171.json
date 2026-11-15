@@ -1,0 +1,2916 @@
+{
+ "source": "/Users/arthrod/temp/T/e2-logs/hf-data-shakedown3/e2-publish-5/runs/20261112T034341649711Z-11589-246653/benchmark_warm_cold/20261112T034341649711Z-11589-246653-006/cells/0000-genoffice/attempts/c06-genoffice-e31d10a19b.json",
+ "cell": "genoffice C06 prose-250kw HF shakedown3 e2-publish-5 run -006",
+ "observations": [
+  {
+   "outcome": "failed",
+   "edit_ms": null,
+   "event": {
+    "startTime": 34732.200000047684,
+    "trusted": true
+   },
+   "entries": [
+    {
+     "duration": 2192,
+     "interactionId": 7593,
+     "name": "keydown",
+     "startTime": 34732.200000047684
+    }
+   ],
+   "frame_interval_ms": 16.7,
+   "settle_decision": {
+    "failure_reason": "witness_sparse",
+    "frame_interval_ms": 16.666015625,
+    "gap_bound_ms": 100,
+    "onset_bound_ms": 100
+   },
+   "frame_diagnostic": [
+    {
+     "delay_ms": 4.809033155441284,
+     "ink_pixels": 0,
+     "page_ms": 34737.009033203125,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 0,
+       "pixels": 207
+      }
+     ],
+     "seq": 6
+    },
+    {
+     "delay_ms": 2188.0548827648163,
+     "ink_pixels": 62,
+     "page_ms": 36920.2548828125,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 7
+    },
+    {
+     "delay_ms": 2238.0539062023163,
+     "ink_pixels": 62,
+     "page_ms": 36970.25390625,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 8
+    },
+    {
+     "delay_ms": 2304.7179687023163,
+     "ink_pixels": 62,
+     "page_ms": 37036.91796875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 9
+    },
+    {
+     "delay_ms": 2321.3837401866913,
+     "ink_pixels": 62,
+     "page_ms": 37053.583740234375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 10
+    },
+    {
+     "delay_ms": 2338.0499999523163,
+     "ink_pixels": 62,
+     "page_ms": 37070.25,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 11
+    },
+    {
+     "delay_ms": 2354.7160155773163,
+     "ink_pixels": 62,
+     "page_ms": 37086.916015625,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 12
+    },
+    {
+     "delay_ms": 2371.3817870616913,
+     "ink_pixels": 62,
+     "page_ms": 37103.581787109375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 13
+    },
+    {
+     "delay_ms": 2388.0480468273163,
+     "ink_pixels": 62,
+     "page_ms": 37120.248046875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 14
+    },
+    {
+     "delay_ms": 2404.7140624523163,
+     "ink_pixels": 62,
+     "page_ms": 37136.9140625,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 15
+    },
+    {
+     "delay_ms": 2421.3788573741913,
+     "ink_pixels": 62,
+     "page_ms": 37153.578857421875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 16
+    },
+    {
+     "delay_ms": 2438.0458495616913,
+     "ink_pixels": 62,
+     "page_ms": 37170.245849609375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 17
+    },
+    {
+     "delay_ms": 2471.3778808116913,
+     "ink_pixels": 62,
+     "page_ms": 37203.577880859375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 18
+    },
+    {
+     "delay_ms": 2488.0438964366913,
+     "ink_pixels": 62,
+     "page_ms": 37220.243896484375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 19
+    },
+    {
+     "delay_ms": 2504.7089354991913,
+     "ink_pixels": 62,
+     "page_ms": 37236.908935546875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 20
+    },
+    {
+     "delay_ms": 2521.3759276866913,
+     "ink_pixels": 62,
+     "page_ms": 37253.575927734375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 21
+    },
+    {
+     "delay_ms": 2538.0409667491913,
+     "ink_pixels": 62,
+     "page_ms": 37270.240966796875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 22
+    },
+    {
+     "delay_ms": 2554.7079589366913,
+     "ink_pixels": 62,
+     "page_ms": 37286.907958984375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 23
+    },
+    {
+     "delay_ms": 2604.7060058116913,
+     "ink_pixels": 62,
+     "page_ms": 37336.906005859375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 24
+    },
+    {
+     "delay_ms": 2621.3717772960663,
+     "ink_pixels": 62,
+     "page_ms": 37353.57177734375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 25
+    },
+    {
+     "delay_ms": 2638.0380370616913,
+     "ink_pixels": 62,
+     "page_ms": 37370.238037109375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 26
+    },
+    {
+     "delay_ms": 2654.7030761241913,
+     "ink_pixels": 62,
+     "page_ms": 37386.903076171875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 27
+    },
+    {
+     "delay_ms": 2671.3698241710663,
+     "ink_pixels": 62,
+     "page_ms": 37403.56982421875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 28
+    },
+    {
+     "delay_ms": 2688.0358397960663,
+     "ink_pixels": 62,
+     "page_ms": 37420.23583984375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 29
+    },
+    {
+     "delay_ms": 2704.7020995616913,
+     "ink_pixels": 62,
+     "page_ms": 37436.902099609375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 30
+    },
+    {
+     "delay_ms": 2721.3678710460663,
+     "ink_pixels": 62,
+     "page_ms": 37453.56787109375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 31
+    },
+    {
+     "delay_ms": 2738.0338866710663,
+     "ink_pixels": 62,
+     "page_ms": 37470.23388671875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 32
+    },
+    {
+     "delay_ms": 2754.6999022960663,
+     "ink_pixels": 62,
+     "page_ms": 37486.89990234375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 33
+    },
+    {
+     "delay_ms": 2771.3649413585663,
+     "ink_pixels": 62,
+     "page_ms": 37503.56494140625,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 34
+    },
+    {
+     "delay_ms": 2788.0319335460663,
+     "ink_pixels": 62,
+     "page_ms": 37520.23193359375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 35
+    },
+    {
+     "delay_ms": 2804.6969726085663,
+     "ink_pixels": 62,
+     "page_ms": 37536.89697265625,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 36
+    },
+    {
+     "delay_ms": 2821.3639647960663,
+     "ink_pixels": 62,
+     "page_ms": 37553.56396484375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 37
+    },
+    {
+     "delay_ms": 2838.0299804210663,
+     "ink_pixels": 62,
+     "page_ms": 37570.22998046875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 38
+    },
+    {
+     "delay_ms": 2854.6959960460663,
+     "ink_pixels": 62,
+     "page_ms": 37586.89599609375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 39
+    },
+    {
+     "delay_ms": 2871.3617675304413,
+     "ink_pixels": 62,
+     "page_ms": 37603.561767578125,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 40
+    },
+    {
+     "delay_ms": 2888.0280272960663,
+     "ink_pixels": 62,
+     "page_ms": 37620.22802734375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 41
+    },
+    {
+     "delay_ms": 2904.6940429210663,
+     "ink_pixels": 62,
+     "page_ms": 37636.89404296875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 42
+    },
+    {
+     "delay_ms": 2921.3598144054413,
+     "ink_pixels": 62,
+     "page_ms": 37653.559814453125,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 43
+    },
+    {
+     "delay_ms": 2938.0258300304413,
+     "ink_pixels": 62,
+     "page_ms": 37670.225830078125,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 44
+    },
+    {
+     "delay_ms": 2954.6920897960663,
+     "ink_pixels": 62,
+     "page_ms": 37686.89208984375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 45
+    },
+    {
+     "delay_ms": 2971.3578612804413,
+     "ink_pixels": 62,
+     "page_ms": 37703.557861328125,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 46
+    },
+    {
+     "delay_ms": 2988.0238769054413,
+     "ink_pixels": 62,
+     "page_ms": 37720.223876953125,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 47
+    }
+   ]
+  },
+  {
+   "outcome": "measured",
+   "edit_ms": 2305.411865234375,
+   "event": {
+    "startTime": 43214.5,
+    "trusted": true
+   },
+   "entries": [
+    {
+     "duration": 2312,
+     "interactionId": 7607,
+     "name": "keydown",
+     "startTime": 43214.5
+    }
+   ],
+   "frame_interval_ms": 16.7,
+   "settle_decision": {
+    "frame_interval_ms": 16.666259765625,
+    "gap_bound_ms": 100,
+    "match_index": 0,
+    "onset_bound_ms": 100,
+    "page_ms": 45519.911865234375,
+    "reference_index": 0
+   },
+   "frame_diagnostic": [
+    {
+     "delay_ms": 2305.411865234375,
+     "ink_pixels": 64,
+     "page_ms": 45519.911865234375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 64,
+       "pixels": 230
+      }
+     ],
+     "seq": 6
+    },
+    {
+     "delay_ms": 2355.409912109375,
+     "ink_pixels": 64,
+     "page_ms": 45569.909912109375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 64,
+       "pixels": 230
+      }
+     ],
+     "seq": 7
+    },
+    {
+     "delay_ms": 2405.40771484375,
+     "ink_pixels": 64,
+     "page_ms": 45619.90771484375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 64,
+       "pixels": 230
+      }
+     ],
+     "seq": 8
+    },
+    {
+     "delay_ms": 2422.073974609375,
+     "ink_pixels": 64,
+     "page_ms": 45636.573974609375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 64,
+       "pixels": 230
+      }
+     ],
+     "seq": 9
+    },
+    {
+     "delay_ms": 2438.739990234375,
+     "ink_pixels": 64,
+     "page_ms": 45653.239990234375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 64,
+       "pixels": 230
+      }
+     ],
+     "seq": 10
+    },
+    {
+     "delay_ms": 2455.40576171875,
+     "ink_pixels": 64,
+     "page_ms": 45669.90576171875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 64,
+       "pixels": 230
+      }
+     ],
+     "seq": 11
+    },
+    {
+     "delay_ms": 2472.072021484375,
+     "ink_pixels": 64,
+     "page_ms": 45686.572021484375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 64,
+       "pixels": 230
+      }
+     ],
+     "seq": 12
+    },
+    {
+     "delay_ms": 2505.40380859375,
+     "ink_pixels": 64,
+     "page_ms": 45719.90380859375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 64,
+       "pixels": 230
+      }
+     ],
+     "seq": 13
+    },
+    {
+     "delay_ms": 2522.06982421875,
+     "ink_pixels": 64,
+     "page_ms": 45736.56982421875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 64,
+       "pixels": 230
+      }
+     ],
+     "seq": 14
+    },
+    {
+     "delay_ms": 2538.73486328125,
+     "ink_pixels": 64,
+     "page_ms": 45753.23486328125,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 64,
+       "pixels": 230
+      }
+     ],
+     "seq": 15
+    },
+    {
+     "delay_ms": 2555.40185546875,
+     "ink_pixels": 64,
+     "page_ms": 45769.90185546875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 64,
+       "pixels": 230
+      }
+     ],
+     "seq": 16
+    },
+    {
+     "delay_ms": 2588.73388671875,
+     "ink_pixels": 64,
+     "page_ms": 45803.23388671875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 64,
+       "pixels": 230
+      }
+     ],
+     "seq": 17
+    },
+    {
+     "delay_ms": 2605.39892578125,
+     "ink_pixels": 64,
+     "page_ms": 45819.89892578125,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 64,
+       "pixels": 230
+      }
+     ],
+     "seq": 18
+    },
+    {
+     "delay_ms": 2622.06591796875,
+     "ink_pixels": 64,
+     "page_ms": 45836.56591796875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 64,
+       "pixels": 230
+      }
+     ],
+     "seq": 19
+    }
+   ]
+  },
+  {
+   "outcome": "failed",
+   "edit_ms": null,
+   "event": {
+    "startTime": 51148.800000071526,
+    "trusted": true
+   },
+   "entries": [
+    {
+     "duration": 2320,
+     "interactionId": 7621,
+     "name": "keydown",
+     "startTime": 51148.800000071526
+    }
+   ],
+   "frame_interval_ms": 16.7,
+   "settle_decision": {
+    "failure_reason": "witness_sparse",
+    "frame_interval_ms": 16.666015625,
+    "gap_bound_ms": 100,
+    "onset_bound_ms": 100
+   },
+   "frame_diagnostic": [
+    {
+     "delay_ms": 4.219775319099426,
+     "ink_pixels": 0,
+     "page_ms": 51153.019775390625,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 0,
+       "pixels": 230
+      }
+     ],
+     "seq": 6
+    },
+    {
+     "delay_ms": 2320.7939940690994,
+     "ink_pixels": 62,
+     "page_ms": 53469.593994140625,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 7
+    },
+    {
+     "delay_ms": 2370.7920409440994,
+     "ink_pixels": 62,
+     "page_ms": 53519.592041015625,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 8
+    },
+    {
+     "delay_ms": 2420.7888671159744,
+     "ink_pixels": 62,
+     "page_ms": 53569.5888671875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 9
+    },
+    {
+     "delay_ms": 2454.1218749284744,
+     "ink_pixels": 62,
+     "page_ms": 53602.921875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 10
+    },
+    {
+     "delay_ms": 2470.7878905534744,
+     "ink_pixels": 62,
+     "page_ms": 53619.587890625,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 11
+    },
+    {
+     "delay_ms": 2487.4539061784744,
+     "ink_pixels": 62,
+     "page_ms": 53636.25390625,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 12
+    },
+    {
+     "delay_ms": 2504.1199218034744,
+     "ink_pixels": 62,
+     "page_ms": 53652.919921875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 13
+    },
+    {
+     "delay_ms": 2520.7859374284744,
+     "ink_pixels": 62,
+     "page_ms": 53669.5859375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 14
+    },
+    {
+     "delay_ms": 2537.4517089128494,
+     "ink_pixels": 62,
+     "page_ms": 53686.251708984375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 15
+    },
+    {
+     "delay_ms": 2554.1179686784744,
+     "ink_pixels": 62,
+     "page_ms": 53702.91796875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 16
+    },
+    {
+     "delay_ms": 2587.4490233659744,
+     "ink_pixels": 62,
+     "page_ms": 53736.2490234375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 17
+    },
+    {
+     "delay_ms": 2604.1157714128494,
+     "ink_pixels": 62,
+     "page_ms": 53752.915771484375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 18
+    },
+    {
+     "delay_ms": 2620.7820311784744,
+     "ink_pixels": 62,
+     "page_ms": 53769.58203125,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 19
+    },
+    {
+     "delay_ms": 2637.4478026628494,
+     "ink_pixels": 62,
+     "page_ms": 53786.247802734375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 20
+    },
+    {
+     "delay_ms": 2654.1138182878494,
+     "ink_pixels": 62,
+     "page_ms": 53802.913818359375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 21
+    },
+    {
+     "delay_ms": 2670.7788573503494,
+     "ink_pixels": 62,
+     "page_ms": 53819.578857421875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 22
+    },
+    {
+     "delay_ms": 2720.7778807878494,
+     "ink_pixels": 62,
+     "page_ms": 53869.577880859375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 23
+    },
+    {
+     "delay_ms": 2787.4416991472244,
+     "ink_pixels": 62,
+     "page_ms": 53936.24169921875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 24
+    },
+    {
+     "delay_ms": 2804.1069823503494,
+     "ink_pixels": 62,
+     "page_ms": 53952.906982421875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 25
+    },
+    {
+     "delay_ms": 2820.7729979753494,
+     "ink_pixels": 62,
+     "page_ms": 53969.572998046875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 26
+    },
+    {
+     "delay_ms": 2837.4397460222244,
+     "ink_pixels": 62,
+     "page_ms": 53986.23974609375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 27
+    },
+    {
+     "delay_ms": 2854.1060057878494,
+     "ink_pixels": 62,
+     "page_ms": 54002.906005859375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 28
+    },
+    {
+     "delay_ms": 2870.7720214128494,
+     "ink_pixels": 62,
+     "page_ms": 54019.572021484375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 29
+    },
+    {
+     "delay_ms": 2887.4377928972244,
+     "ink_pixels": 62,
+     "page_ms": 54036.23779296875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 30
+    },
+    {
+     "delay_ms": 2904.1038085222244,
+     "ink_pixels": 62,
+     "page_ms": 54052.90380859375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 31
+    },
+    {
+     "delay_ms": 2920.7700682878494,
+     "ink_pixels": 62,
+     "page_ms": 54069.570068359375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 32
+    },
+    {
+     "delay_ms": 2937.4358397722244,
+     "ink_pixels": 62,
+     "page_ms": 54086.23583984375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 33
+    },
+    {
+     "delay_ms": 2954.1018553972244,
+     "ink_pixels": 62,
+     "page_ms": 54102.90185546875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 34
+    },
+    {
+     "delay_ms": 2970.7678710222244,
+     "ink_pixels": 62,
+     "page_ms": 54119.56787109375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 35
+    },
+    {
+     "delay_ms": 2987.4338866472244,
+     "ink_pixels": 62,
+     "page_ms": 54136.23388671875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 36
+    }
+   ]
+  },
+  {
+   "outcome": "failed",
+   "edit_ms": null,
+   "event": {
+    "startTime": 33378.799999952316,
+    "trusted": true
+   },
+   "entries": [
+    {
+     "duration": 2152,
+     "interactionId": 3153,
+     "name": "keydown",
+     "startTime": 33378.799999952316
+    }
+   ],
+   "frame_interval_ms": 16.7,
+   "settle_decision": {
+    "failure_reason": "witness_sparse",
+    "frame_interval_ms": 16.666015625,
+    "gap_bound_ms": 100,
+    "onset_bound_ms": 100
+   },
+   "frame_diagnostic": [
+    {
+     "delay_ms": 6.200976610183716,
+     "ink_pixels": 0,
+     "page_ms": 33385.0009765625,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 0,
+       "pixels": 207
+      }
+     ],
+     "seq": 6
+    },
+    {
+     "delay_ms": 2156.1160156726837,
+     "ink_pixels": 62,
+     "page_ms": 35534.916015625,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 7
+    },
+    {
+     "delay_ms": 2206.1140625476837,
+     "ink_pixels": 62,
+     "page_ms": 35584.9140625,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 8
+    },
+    {
+     "delay_ms": 2256.1121094226837,
+     "ink_pixels": 62,
+     "page_ms": 35634.912109375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 9
+    },
+    {
+     "delay_ms": 2272.7781250476837,
+     "ink_pixels": 62,
+     "page_ms": 35651.578125,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 10
+    },
+    {
+     "delay_ms": 2289.4438965320587,
+     "ink_pixels": 62,
+     "page_ms": 35668.243896484375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 11
+    },
+    {
+     "delay_ms": 2306.1099121570587,
+     "ink_pixels": 62,
+     "page_ms": 35684.909912109375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 12
+    },
+    {
+     "delay_ms": 2322.7751953601837,
+     "ink_pixels": 62,
+     "page_ms": 35701.5751953125,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 13
+    },
+    {
+     "delay_ms": 2339.4419434070587,
+     "ink_pixels": 62,
+     "page_ms": 35718.241943359375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 14
+    },
+    {
+     "delay_ms": 2356.1079590320587,
+     "ink_pixels": 62,
+     "page_ms": 35734.907958984375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 15
+    },
+    {
+     "delay_ms": 2372.7742187976837,
+     "ink_pixels": 62,
+     "page_ms": 35751.57421875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 16
+    },
+    {
+     "delay_ms": 2406.1060059070587,
+     "ink_pixels": 62,
+     "page_ms": 35784.906005859375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 17
+    },
+    {
+     "delay_ms": 2439.4380371570587,
+     "ink_pixels": 62,
+     "page_ms": 35818.238037109375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 18
+    },
+    {
+     "delay_ms": 2472.7700684070587,
+     "ink_pixels": 62,
+     "page_ms": 35851.570068359375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 19
+    },
+    {
+     "delay_ms": 2489.4358398914337,
+     "ink_pixels": 62,
+     "page_ms": 35868.23583984375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 20
+    },
+    {
+     "delay_ms": 2506.1020996570587,
+     "ink_pixels": 62,
+     "page_ms": 35884.902099609375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 21
+    },
+    {
+     "delay_ms": 2539.4338867664337,
+     "ink_pixels": 62,
+     "page_ms": 35918.23388671875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 22
+    },
+    {
+     "delay_ms": 2606.0979492664337,
+     "ink_pixels": 62,
+     "page_ms": 35984.89794921875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 23
+    },
+    {
+     "delay_ms": 2622.7642090320587,
+     "ink_pixels": 62,
+     "page_ms": 36001.564208984375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 24
+    },
+    {
+     "delay_ms": 2639.4299805164337,
+     "ink_pixels": 62,
+     "page_ms": 36018.22998046875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 25
+    },
+    {
+     "delay_ms": 2656.0959961414337,
+     "ink_pixels": 62,
+     "page_ms": 36034.89599609375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 26
+    },
+    {
+     "delay_ms": 2672.7620117664337,
+     "ink_pixels": 62,
+     "page_ms": 36051.56201171875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 27
+    },
+    {
+     "delay_ms": 2689.4280273914337,
+     "ink_pixels": 62,
+     "page_ms": 36068.22802734375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 28
+    },
+    {
+     "delay_ms": 2706.0940430164337,
+     "ink_pixels": 62,
+     "page_ms": 36084.89404296875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 29
+    },
+    {
+     "delay_ms": 2722.7600586414337,
+     "ink_pixels": 62,
+     "page_ms": 36101.56005859375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 30
+    },
+    {
+     "delay_ms": 2739.4248535633087,
+     "ink_pixels": 62,
+     "page_ms": 36118.224853515625,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 31
+    },
+    {
+     "delay_ms": 2756.0920898914337,
+     "ink_pixels": 62,
+     "page_ms": 36134.89208984375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 32
+    },
+    {
+     "delay_ms": 2772.7581055164337,
+     "ink_pixels": 62,
+     "page_ms": 36151.55810546875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 33
+    },
+    {
+     "delay_ms": 2806.0901367664337,
+     "ink_pixels": 62,
+     "page_ms": 36184.89013671875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 34
+    },
+    {
+     "delay_ms": 2822.7551758289337,
+     "ink_pixels": 62,
+     "page_ms": 36201.55517578125,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 35
+    },
+    {
+     "delay_ms": 2839.4219238758087,
+     "ink_pixels": 62,
+     "page_ms": 36218.221923828125,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 36
+    },
+    {
+     "delay_ms": 2856.0879395008087,
+     "ink_pixels": 62,
+     "page_ms": 36234.887939453125,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 37
+    },
+    {
+     "delay_ms": 2872.7529785633087,
+     "ink_pixels": 62,
+     "page_ms": 36251.552978515625,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 38
+    },
+    {
+     "delay_ms": 2889.4189941883087,
+     "ink_pixels": 62,
+     "page_ms": 36268.218994140625,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 39
+    },
+    {
+     "delay_ms": 2906.0859863758087,
+     "ink_pixels": 62,
+     "page_ms": 36284.885986328125,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 40
+    },
+    {
+     "delay_ms": 2922.7520020008087,
+     "ink_pixels": 62,
+     "page_ms": 36301.552001953125,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 41
+    },
+    {
+     "delay_ms": 2939.4170410633087,
+     "ink_pixels": 62,
+     "page_ms": 36318.217041015625,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 42
+    },
+    {
+     "delay_ms": 2956.0840332508087,
+     "ink_pixels": 62,
+     "page_ms": 36334.884033203125,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 43
+    },
+    {
+     "delay_ms": 2972.7500488758087,
+     "ink_pixels": 62,
+     "page_ms": 36351.550048828125,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 44
+    },
+    {
+     "delay_ms": 2989.4160645008087,
+     "ink_pixels": 62,
+     "page_ms": 36368.216064453125,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 207
+      }
+     ],
+     "seq": 45
+    }
+   ]
+  },
+  {
+   "outcome": "measured",
+   "edit_ms": 2205.8800780773163,
+   "event": {
+    "startTime": 41728.700000047684,
+    "trusted": true
+   },
+   "entries": [
+    {
+     "duration": 2200,
+     "interactionId": 3167,
+     "name": "keydown",
+     "startTime": 41728.700000047684
+    }
+   ],
+   "frame_interval_ms": 16.7,
+   "settle_decision": {
+    "frame_interval_ms": 16.6666259765625,
+    "gap_bound_ms": 100,
+    "match_index": 0,
+    "onset_bound_ms": 100,
+    "page_ms": 43934.580078125,
+    "reference_index": 0
+   },
+   "frame_diagnostic": [
+    {
+     "delay_ms": 2205.8800780773163,
+     "ink_pixels": 64,
+     "page_ms": 43934.580078125,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 64,
+       "pixels": 230
+      }
+     ],
+     "seq": 6
+    },
+    {
+     "delay_ms": 2255.8781249523163,
+     "ink_pixels": 64,
+     "page_ms": 43984.578125,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 64,
+       "pixels": 230
+      }
+     ],
+     "seq": 7
+    },
+    {
+     "delay_ms": 2305.8761718273163,
+     "ink_pixels": 64,
+     "page_ms": 44034.576171875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 64,
+       "pixels": 230
+      }
+     ],
+     "seq": 8
+    },
+    {
+     "delay_ms": 2322.5419433116913,
+     "ink_pixels": 64,
+     "page_ms": 44051.241943359375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 64,
+       "pixels": 230
+      }
+     ],
+     "seq": 9
+    },
+    {
+     "delay_ms": 2339.2082030773163,
+     "ink_pixels": 64,
+     "page_ms": 44067.908203125,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 64,
+       "pixels": 230
+      }
+     ],
+     "seq": 10
+    },
+    {
+     "delay_ms": 2355.8742187023163,
+     "ink_pixels": 64,
+     "page_ms": 44084.57421875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 64,
+       "pixels": 230
+      }
+     ],
+     "seq": 11
+    },
+    {
+     "delay_ms": 2372.5390136241913,
+     "ink_pixels": 64,
+     "page_ms": 44101.239013671875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 64,
+       "pixels": 230
+      }
+     ],
+     "seq": 12
+    },
+    {
+     "delay_ms": 2405.8720214366913,
+     "ink_pixels": 64,
+     "page_ms": 44134.572021484375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 64,
+       "pixels": 230
+      }
+     ],
+     "seq": 13
+    },
+    {
+     "delay_ms": 2422.5370604991913,
+     "ink_pixels": 64,
+     "page_ms": 44151.237060546875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 64,
+       "pixels": 230
+      }
+     ],
+     "seq": 14
+    },
+    {
+     "delay_ms": 2439.2040526866913,
+     "ink_pixels": 64,
+     "page_ms": 44167.904052734375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 64,
+       "pixels": 230
+      }
+     ],
+     "seq": 15
+    },
+    {
+     "delay_ms": 2455.8700683116913,
+     "ink_pixels": 64,
+     "page_ms": 44184.570068359375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 64,
+       "pixels": 230
+      }
+     ],
+     "seq": 16
+    },
+    {
+     "delay_ms": 2489.2020995616913,
+     "ink_pixels": 64,
+     "page_ms": 44217.902099609375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 64,
+       "pixels": 230
+      }
+     ],
+     "seq": 17
+    },
+    {
+     "delay_ms": 2522.5338866710663,
+     "ink_pixels": 64,
+     "page_ms": 44251.23388671875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 64,
+       "pixels": 230
+      }
+     ],
+     "seq": 18
+    }
+   ]
+  },
+  {
+   "outcome": "measured",
+   "edit_ms": 2572.8878905773163,
+   "event": {
+    "startTime": 49494.700000047684,
+    "trusted": true
+   },
+   "entries": [
+    {
+     "duration": 2576,
+     "interactionId": 3181,
+     "name": "keydown",
+     "startTime": 49494.700000047684
+    }
+   ],
+   "frame_interval_ms": 16.7,
+   "settle_decision": {
+    "frame_interval_ms": 16.666015625,
+    "gap_bound_ms": 100,
+    "match_index": 0,
+    "onset_bound_ms": 100,
+    "page_ms": 52067.587890625,
+    "reference_index": 0
+   },
+   "frame_diagnostic": [
+    {
+     "delay_ms": 2572.8878905773163,
+     "ink_pixels": 62,
+     "page_ms": 52067.587890625,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 7
+    },
+    {
+     "delay_ms": 2639.5519530773163,
+     "ink_pixels": 62,
+     "page_ms": 52134.251953125,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 8
+    },
+    {
+     "delay_ms": 2689.5499999523163,
+     "ink_pixels": 62,
+     "page_ms": 52184.25,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 9
+    },
+    {
+     "delay_ms": 2706.2162597179413,
+     "ink_pixels": 62,
+     "page_ms": 52200.916259765625,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 10
+    },
+    {
+     "delay_ms": 2722.8820312023163,
+     "ink_pixels": 62,
+     "page_ms": 52217.58203125,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 11
+    },
+    {
+     "delay_ms": 2739.5480468273163,
+     "ink_pixels": 62,
+     "page_ms": 52234.248046875,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 12
+    },
+    {
+     "delay_ms": 2756.2140624523163,
+     "ink_pixels": 62,
+     "page_ms": 52250.9140625,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 13
+    },
+    {
+     "delay_ms": 2772.8800780773163,
+     "ink_pixels": 62,
+     "page_ms": 52267.580078125,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 14
+    },
+    {
+     "delay_ms": 2806.2121093273163,
+     "ink_pixels": 62,
+     "page_ms": 52300.912109375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 15
+    },
+    {
+     "delay_ms": 2822.8778808116913,
+     "ink_pixels": 62,
+     "page_ms": 52317.577880859375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 16
+    },
+    {
+     "delay_ms": 2856.2101562023163,
+     "ink_pixels": 62,
+     "page_ms": 52350.91015625,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 17
+    },
+    {
+     "delay_ms": 2872.8759276866913,
+     "ink_pixels": 62,
+     "page_ms": 52367.575927734375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 18
+    },
+    {
+     "delay_ms": 2889.5419433116913,
+     "ink_pixels": 62,
+     "page_ms": 52384.241943359375,
+     "regions": [
+      {
+       "background": [
+        255,
+        255,
+        255
+       ],
+       "expected_ink": 0,
+       "ink_pixels": 62,
+       "pixels": 230
+      }
+     ],
+     "seq": 19
+    }
+   ]
+  }
+ ]
+}

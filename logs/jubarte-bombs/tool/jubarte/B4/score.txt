@@ -1,2 +1,0 @@
-tool jubarte B4 fidelity: refused safety: bounded-reject catch: yes
-protection jubarte B4 level: bounded-refusal detail: the reader refused the package for XML nesting too deep. No view was written.

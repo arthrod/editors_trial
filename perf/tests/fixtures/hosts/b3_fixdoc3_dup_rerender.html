@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>b3 duplicate anchor text with re-render</title>
+    <style>
+      body { margin: 24px; background: #ffffff; color: #111111; font: 18px/1.5 sans-serif; }
+      .doc-paragraph { display: block; margin: 0 0 8px; min-height: 1.2em; }
+    </style>
+  </head>
+  <body>
+    <div class="doc-paragraph" contenteditable="true">Alpha opening line of the document.</div>
+    <div class="doc-paragraph" id="anchor">Beta shared anchor line for C12.</div>
+    <div class="doc-paragraph">Beta shared anchor line for C12.</div>
+    <script>
+      // Case (a): two equal-text blocks before and after; only the anchor node is
+      // re-rendered and shifted — occurrence re-find must still measure the move.
+      document.addEventListener('keydown', function (event) {
+        if (event.key !== 'Enter') return;
+        var old = document.getElementById('anchor');
+        if (!old) return;
+        var neu = old.cloneNode(true);
+        neu.removeAttribute('id');
+        neu.style.marginTop = '60px';
+        old.replaceWith(neu);
+      }, true);
+    </script>
+  </body>
+</html>

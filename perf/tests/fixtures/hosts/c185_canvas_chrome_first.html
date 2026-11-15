@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>c185 canvas chrome first</title>
+  </head>
+  <body>
+    <canvas class="doc-paragraph" width="800" height="600"></canvas>
+    <script>
+      // Like canvas-editor: the empty page paints its margin marks at once,
+      // and the document arrives only when the import finishes (#185).
+      var canvas = document.querySelector('canvas');
+      var g = canvas.getContext('2d');
+      g.fillStyle = 'white';
+      g.fillRect(0, 0, canvas.width, canvas.height);
+      g.strokeStyle = '#c0c0c0';
+      g.beginPath();
+      g.moveTo(60, 40); g.lineTo(60, 60); g.lineTo(40, 60);
+      g.stroke();
+      setTimeout(function () {
+        g.fillStyle = 'black';
+        g.font = '24px serif';
+        g.fillText('Actual document text', 80, 100);
+        window.__DOCX_IMPORTED__ = true;
+      }, 700);
+    </script>
+  </body>
+</html>

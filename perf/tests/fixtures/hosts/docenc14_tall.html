@@ -1,0 +1,42 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; }
+</style>
+<docen-document id="host" data-ready="1"></docen-document>
+<script>
+  // docen's geometry: a 294 px chrome band, then the first page as a
+  // Leafer-sized 816x1056 canvas inside docen-document's open shadow root.
+  // The page's own rect is (232, 294) 816x1056 — it crosses the 1280x900
+  // viewport's bottom edge, which is the #174 defect: the settled screenshot
+  // clip is not the pixels a screencast frame can ever contain.
+  const host = document.querySelector('#host');
+  const shadow = host.attachShadow({ mode: 'open' });
+  shadow.innerHTML = `
+    <style>
+      .chrome { height: 294px; background: #2b3a55; }
+      .canvas-pages { width: 816px; margin: 0 auto; }
+      .canvas-pages > div { width: 816px; height: 1056px; background: #fff; }
+      canvas { display: block; }
+    </style>
+    <div class="chrome"></div>
+    <div class="canvas-pages"><div><canvas width="816" height="1056"></canvas></div></div>`;
+  const context = shadow.querySelector('canvas').getContext('2d');
+  context.fillStyle = '#ffffff';
+  context.fillRect(0, 0, 816, 1056);
+  context.fillStyle = '#111111';
+  context.fillRect(60, 60, 500, 120);
+  context.font = '28px sans-serif';
+  context.fillText('document ink line, settled', 60, 240);
+  window.__DOCEN__ = {
+    editor: {
+      state: {
+        doc: {
+          content: { size: 41 },
+          textBetween() { return 'REAL DOCUMENT CONTENT complete model text'; },
+        },
+      },
+    },
+  };
+  window.__DOCEN_READY__ = true;
+</script>

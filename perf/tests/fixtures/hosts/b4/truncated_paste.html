@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>b4 truncated bulk insert</title>
+  </head>
+  <body>
+    <div id="ready" class="status-ok">ready</div>
+    <div id="doc" contenteditable="true" style="white-space: pre-wrap">fixture line one
+fixture line two
+</div>
+    <script>
+      const doc = document.getElementById('doc');
+      doc.addEventListener('paste', (event) => {
+        event.preventDefault();
+        const raw = event.clipboardData.getData('text/plain');
+        const text = raw.slice(0, Math.floor(raw.length * 0.9));
+        document.execCommand('insertText', false, text);
+      });
+    </script>
+  </body>
+</html>

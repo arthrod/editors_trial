@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>b3 duplicate anchor text</title>
+    <style>
+      body { margin: 24px; background: #ffffff; color: #111111; font: 18px/1.5 sans-serif; }
+      .doc-paragraph { display: block; margin: 0 0 8px; min-height: 1.2em; }
+    </style>
+  </head>
+  <body>
+    <div class="doc-paragraph" contenteditable="true">Alpha opening line of the document.</div>
+    <div class="doc-paragraph" id="anchor">Beta unique anchor line never moves.</div>
+    <script>
+      // Review F2: on Enter the anchor is replaced in place (its text stays at
+      // the same top; it never moves), and the edit also inserts a block with
+      // the anchor's exact text earlier in DOM order, painted lower on the page
+      // by its own margin. A first-match re-find would report that ghost as a
+      // downward move of the anchor.
+      document.addEventListener('keydown', function (event) {
+        if (event.key !== 'Enter') return;
+        var old = document.getElementById('anchor');
+        if (!old) return;
+        var neu = old.cloneNode(true);
+        neu.removeAttribute('id');
+        old.replaceWith(neu);
+        var ghost = document.createElement('div');
+        ghost.className = 'doc-paragraph';
+        ghost.textContent = neu.textContent;
+        ghost.style.marginTop = '480px';
+        neu.before(ghost);
+      }, true);
+    </script>
+  </body>
+</html>

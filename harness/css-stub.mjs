@@ -3,9 +3,8 @@
 // outside a bundler. This hook resolves any .css specifier to an empty JS module
 // without touching the repository.
 import { registerHooks } from 'node:module';
-import { pathToFileURL } from 'node:url';
 
-const EMPTY = pathToFileURL('/Users/arthrod/temp/T/editors_trial/harness/empty-module.mjs').href;
+const EMPTY = new URL('./empty-module.mjs', import.meta.url).href;
 
 registerHooks({
   resolve(specifier, context, nextResolve) {

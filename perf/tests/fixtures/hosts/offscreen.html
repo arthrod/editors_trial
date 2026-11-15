@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>caret paragraph starts below the fold</title>
+    <style>
+      body { margin: 0; background: #fff; color: #111; font: 18px/1.5 sans-serif; }
+      .doc-paragraph { display: block; margin: 0; min-height: 1.2em; }
+      #spacer { height: 1400px; }
+      #gap { height: 80px; }
+    </style>
+  </head>
+  <body>
+    <div id="spacer"></div>
+    <div class="doc-paragraph" id="caret" contenteditable="true">Alpha body paragraph here</div>
+    <div id="gap"></div>
+    <div class="doc-paragraph" id="anchor">Beta anchor paragraph stays</div>
+    <div class="doc-paragraph" id="tail">Gamma tail paragraph after</div>
+    <script>
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'x' || event.key === 'X') event.preventDefault();
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        document.getElementById('anchor').style.marginTop = '200px';
+        setTimeout(function () {
+          var caret = document.getElementById('caret');
+          caret.textContent = 'xAlpha body paragraph here';
+          caret.removeAttribute('contenteditable');
+        }, 1600);
+      }, true);
+    </script>
+  </body>
+</html>

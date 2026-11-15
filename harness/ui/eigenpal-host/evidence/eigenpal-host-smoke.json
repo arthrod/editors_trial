@@ -1,0 +1,58 @@
+{
+  "url": "http://127.0.0.1:5218/?perfE2e=1&fixture=corpus.docx&reviewRail=0",
+  "corpus_route": "/corpus.docx",
+  "docx": "repos/eigenpal-docx-editor/examples/vite/public/sample.docx",
+  "ready_js": "window.__DOCX_EDITOR_E2E__?.ready() === true && window.__DOCX_EDITOR_E2E__?.fontMeasurer() === 'shaped' && (() => { const p = document.querySelector('.docx-page[data-materialized=\"true\"]'); if (!p) return false; const r = p.getBoundingClientRect(); return getComputedStyle(p).visibility === 'visible' && r.width > 0 && r.height > 0 && !document.querySelector('[data-docx-opening-preview], [data-docx-layout-pending]'); })()",
+  "edit_selector": ".docx-page-content [data-paragraph-id][data-start]",
+  "navigation_ms": 4116,
+  "ready_ms": 5843,
+  "before": {
+    "pageCount": 30,
+    "materializedCount": 2,
+    "candidates": {
+      "pageContent": 2,
+      "paragraphFragment": 54,
+      "dataParagraphId": 345,
+      "dataStart": 237,
+      "fragmentWithStart": 0,
+      "pageContentFragmentWithStart": 0,
+      "runWithStart": 224,
+      "contentEditable": 1
+    },
+    "scrollers": [
+      {
+        "cls": "docx-editor docx-editor-one-surface docx-editor-one-surface__viewport docx-edito",
+        "scrollHeight": 32416,
+        "clientHeight": 812,
+        "overflowY": "auto"
+      }
+    ],
+    "contentOuterHtmlHead": "<div class=\"docx-page-content\" style=\"position: absolute; left: 96px; top: 192px; width: 624px; height: 768px;\"><div class=\"docx-paragraph-fragment layout-paragraph\" data-paragraph-id=\"/word/document.xml#0.0.0\" data-fragment-index=\"0\" style=\"position: absolute; left: 0px; top: 0px; width: 624px; height: 53.1973px;\"><div class=\"docx-line layout-line\" data-line-id=\"line:/word/document.xml#0.0.0:0:0\" data-paragraph-id=\"/word/document.xml#0.0.0\" style=\"position: absolute; top: 0px; left: 150.211px; height: 39.864px; font-size: 0px; white-space: pre; text-decoration-skip-ink: none; text-decoration-skip-spaces: none; overflow: visible; box-sizing: border-box; padding-bottom: 0px; line-height: 39.864px;\"><span class=\"layout-run layout-run-text\" data-paragraph-id=\"/word/document.xml#0.0.0\" data-start=\"0\" data-end=\"5\" style=\"display: inline-block; vertical-align: baseline; box-sizing: border-box; height: 39.864px; padding-top: 0px; line-height: 39.864px; font-size: 34.6667px; font-weight: bold; font-family: docx-embedded-oz7yyw, Arial, Calibri, Carlito, Helvetica, Arial, sans-serif; color: rgb(26, 53, 80); font-kerning: none;\">DOCX-</span><span class=\"layout-run layout-run-text\" data-paragraph-id=\"/word/document.xml#0.0.0\" data-start=\"5\" data-end=\"15\" style=\"display: inline-block; vertical-align: baseline; box-sizing: border-box; height: 39.864px; padding-top: 0px; line-height: 39.864px; font-size: 34.6667px; font-weight: bold; font-family: docx-embedded-oz7yyw, Arial, Calibri, Carlit",
+    "pagesTextLength": 5757,
+    "pagesTextHead": "DOCX-EDITOR.DEVELEMENT TEST DOCUMENTElement coverage suite, all node typesDocument Version: 2.0.0Status: PUBLIC SAMPLEDate: March 26, 2026Prepared by: docx-editor.devTotal Element Categories: 50+docx-",
+    "readyApi": true,
+    "fontMeasurer": "shaped"
+  },
+  "caret": {
+    "inPages": true,
+    "anchorTag": "#text"
+  },
+  "edit_ms": 182,
+  "presented_frame_ms": 24.80000001192093,
+  "after": {
+    "pagesTextLength": 5758,
+    "pagesTextHead": "DOxCX-EDITOR.DEVELEMENT TEST DOCUMENTElement coverage suite, all node typesDocument Version: 2.0.0Status: PUBLIC SAMPLED",
+    "pageCount": 30,
+    "materializedCount": 2,
+    "canUndo": true,
+    "layoutPending": false
+  },
+  "text_delta": 1,
+  "console": [
+    "debug: [vite] connecting...",
+    "info: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+    "debug: [vite] connected."
+  ],
+  "page_errors": [],
+  "screenshot": "/tmp/perf-run-logs/eigenpal-host-smoke.png"
+}

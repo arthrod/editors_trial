@@ -1,2 +1,0 @@
-cwd: /Users/arthrod/temp/T/editors_trial/repos/folio
-/Users/arthrod/.bun/bin/bun /Users/arthrod/temp/T/editors_trial/harness/folio.ts /tmp/editors-trial-bombs/bombs/B3.docx /tmp/editors-trial-bombs/runs/folio-editor/B3/out/out.docx editor

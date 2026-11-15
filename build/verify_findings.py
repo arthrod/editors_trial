@@ -170,7 +170,10 @@ def cell_number(cell: str) -> str | None:
     match = PCT.match(stripped)
     if match:
         return match.group(1)
-    match = re.match(r"^(\d+(?:\.\d+)?)$", stripped)
+    # A count may carry the one note the scorecard uses: "9 (1 cannot be
+    # separated from the trial stamp)" states 9. Any other note is not read
+    # past: "9 (actually 10)" states nothing (#215).
+    match = re.match(r"^(\d+(?:\.\d+)?)(?:\s+\(\d+ cannot be separated from the trial stamp\))?$", stripped)
     if match:
         return match.group(1)
     return None
@@ -250,6 +253,21 @@ def ledger_add(rows: list[dict], finding_id: str, report: str, location: str,
     })
 
 
+def scorecard_row(by_name: dict, name: str):
+    """Return the scorecard row of a tool, or None.
+
+    The exact name wins. Otherwise the row may carry a dotted version, a
+    note in parentheses, or both, after the name ("Apryse WebViewer 12.2.1 (closed source, trial
+    key)"); a longer word ("Docentric" for "Docen") is another tool, and two
+    candidate rows are not guessed between (#215).
+    """
+    if name in by_name:
+        return by_name[name]
+    found = [row for key, row in by_name.items()
+             if re.fullmatch(re.escape(name) + r"(?:\s+\d+(?:\.\d+)*)?(?:\s+\([^()]*\))?", key)]
+    return found[0] if len(found) == 1 else None
+
+
 def check_scorecard(rows: list[dict]) -> list[str]:
     """Check the main report's round-trip scorecard against the scorer output.
 
@@ -269,7 +287,7 @@ def check_scorecard(rows: list[dict]) -> list[str]:
     fixture_entries = entries(FIXTURE)
 
     for name, slug in TOOLS:
-        row = by_name.get(name)
+        row = scorecard_row(by_name, name)
         if row is None:
             problems.append(f"scorecard has no row for {name}")
             continue

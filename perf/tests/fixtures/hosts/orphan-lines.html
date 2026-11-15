@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>orphan superdoc lines replaced on Enter</title>
+    <style>
+      body { margin: 0; background: #fff; color: #111; font: 16px/20px sans-serif; }
+      #editor { position: relative; height: 420px; }
+      .superdoc-page { position: relative; height: 420px; }
+      .superdoc-line { position: absolute; left: 24px; width: 640px; height: 20px; }
+    </style>
+  </head>
+  <body>
+    <div id="editor">
+      <div class="superdoc-page" role="textbox"></div>
+    </div>
+    <script>
+      // Two orphan lines per paragraph, no data-paragraph-id. Neither line's
+      // own text is the joined paragraph, so a finder that treats a line with
+      // no id as its own paragraph cannot see the anchor. Enter throws the
+      // nodes away. shift=30 paints the new anchor lower; shift=0 paints it
+      // at the same top.
+      var CARET_A = "Alpha body paragraph here";
+      var CARET_B = "continues on the next painted line";
+      var ANCHOR_A = "Beta anchor paragraph stays";
+      var ANCHOR_B = "and wraps onto a second line";
+      var TAIL = "Gamma tail paragraph after the anchor";
+      var shift = Number(new URLSearchParams(location.search).get("shift"));
+      if (!Number.isFinite(shift)) shift = 30;
+      var page = document.querySelector(".superdoc-page");
+      var selection = { blockId: "caret-block", offset: 0, edge: "start" };
+      var joinedCaret = CARET_A + " " + CARET_B;
+
+      function line(text, top) {
+        var el = document.createElement("div");
+        el.className = "superdoc-line";
+        el.contentEditable = "true";
+        el.style.top = top + "px";
+        el.textContent = text;
+        return el;
+      }
+
+      function paint(extra) {
+        page.replaceChildren(
+          line(CARET_A, 20),
+          line(CARET_B, 40),
+          line(ANCHOR_A, 80 + extra),
+          line(ANCHOR_B, 100 + extra),
+          line(TAIL, 140 + extra)
+        );
+      }
+
+      paint(0);
+      window.__SUPERDOC_E2E__ = {
+        ui: {
+          selection: {
+            getSnapshot: function () {
+              return {
+                quotedText: joinedCaret,
+                selectionTarget: {
+                  story: "main",
+                  start: selection,
+                  end: selection,
+                },
+              };
+            },
+            apply: function (next) {
+              if (next && next.start) selection = next.start;
+              return true;
+            },
+          },
+        },
+        activeEditor: {
+          doc: {
+            getText: function () {
+              return Promise.resolve(joinedCaret);
+            },
+          },
+        },
+      };
+
+      document.addEventListener("keydown", function (event) {
+        if (event.key === "x" || event.key === "X") {
+          event.preventDefault();
+          return;
+        }
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        paint(shift);
+        window.setTimeout(function () {
+          var first = page.querySelector(".superdoc-line");
+          if (first) first.textContent = "x" + CARET_A;
+        }, 400);
+      }, true);
+    </script>
+  </body>
+</html>

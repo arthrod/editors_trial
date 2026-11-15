@@ -785,6 +785,36 @@ function buildBalloons(doc, ctx) {
 // --------------------------------------------------------------------------
 const status = document.getElementById("status");
 const out = document.getElementById("out");
+const inputProbe = document.getElementById("input-probe");
+
+/** Cleared before every load so a ready flag never survives a reload. */
+function resetReady() {
+  window.__OFFICEOPEN_READY__ = false;
+  delete document.documentElement.dataset.officeopenReady;
+  status.classList.remove("status-ok", "status-err");
+  if (inputProbe) inputProbe.textContent = "";
+}
+
+/** Ready only after the rendered model has been through two animation frames. */
+async function markReady(source, timings) {
+  await new Promise((resolve) =>
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve(null)))
+  );
+  timings.ready_ms = Math.round(performance.now());
+  window.__OFFICEOPEN_READY__ = true;
+  document.documentElement.dataset.officeopenReady = "1";
+  window.__OFFICEOPEN_TIMINGS__ = timings;
+  status.textContent = `ready — rendered ${source}`;
+  status.classList.add("status-ok");
+}
+
+function markError(err) {
+  window.__OFFICEOPEN_READY__ = false;
+  window.__OFFICEOPEN_ERROR__ = String(err && err.stack ? err.stack : err);
+  status.textContent = "render failed";
+  status.classList.add("status-err");
+  out.appendChild(el("pre", "err", window.__OFFICEOPEN_ERROR__));
+}
 
 function report(doc, source) {
   console.log("[office-open] parsed with @office-open/docx parseDocument() from", source);
@@ -815,22 +845,41 @@ function report(doc, source) {
 }
 
 async function load(bytes, source) {
+  resetReady();
   out.innerHTML = "";
   status.textContent = "parsing…";
+  const timings = { started_ms: Math.round(performance.now()) };
   try {
     const doc = await parseDocument(bytes);
+    timings.parse_ms = Math.round(performance.now()) - timings.started_ms;
     for (const k of Object.keys(census)) delete census[k];
     const view = renderDocument(doc);
     out.appendChild(view);
     anchorBalloons(view);
-    status.textContent = `parsed ${source}`;
-    report(doc, source);
+    timings.render_ms = Math.round(performance.now()) - timings.started_ms;
     window.__officeOpen = { doc, census };
+    report(doc, source);
+    await markReady(source, timings);
   } catch (e) {
-    status.textContent = "parse failed";
     console.error("[office-open] parse failed", e);
-    out.appendChild(el("pre", "err", String(e && e.stack ? e.stack : e)));
+    markError(e);
   }
+}
+
+/** The driver may intercept either route; the static host serves /corpus.docx. */
+const CORPUS_ROUTES = ["/corpus.docx", "/sample.docx"];
+
+async function fetchCorpus() {
+  for (const route of CORPUS_ROUTES) {
+    try {
+      const res = await fetch(route);
+      if (res.ok) return { route, bytes: await res.arrayBuffer() };
+      console.log(`[office-open] ${route} not available:`, res.status);
+    } catch (e) {
+      console.log(`[office-open] ${route} fetch failed:`, e.message);
+    }
+  }
+  return null;
 }
 
 async function boot() {
@@ -839,16 +888,19 @@ async function boot() {
     const f = input.files && input.files[0];
     if (f) await load(await f.arrayBuffer(), f.name);
   });
-  // Preferred path: the driver intercepts /sample.docx and serves the corpus.
-  try {
-    const res = await fetch("/sample.docx");
-    if (res.ok) {
-      await load(await res.arrayBuffer(), "/sample.docx");
-      return;
-    }
-    console.log("[office-open] /sample.docx not available:", res.status);
-  } catch (e) {
-    console.log("[office-open] /sample.docx fetch failed:", e.message);
+  if (inputProbe) {
+    inputProbe.addEventListener("input", () => {
+      console.log(
+        "[office-open] input probe (host contenteditable, not an office-open edit pipeline):",
+        JSON.stringify(inputProbe.textContent)
+      );
+    });
+  }
+  // Preferred path: the host serves /corpus.docx, and the driver intercepts it.
+  const corpus = await fetchCorpus();
+  if (corpus) {
+    await load(corpus.bytes, corpus.route);
+    return;
   }
   status.textContent = "no sample served — pick a .docx";
 }

@@ -183,3 +183,24 @@ class EventTiming(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class EventTimingB1(unittest.TestCase):
+    def test_raw_twelve_is_censored_before_rounding(self):
+        got = event_timing_status(12, 16)
+        self.assertEqual(got['status'], 'censored')
+        self.assertIsNone(got['duration_ms'])
+        self.assertIsNone(got['rounded_ms'])
+        self.assertTrue(got['below_16_ms'])
+
+    def test_raw_zero_is_censored_not_zero(self):
+        got = event_timing_status(0, 16)
+        self.assertIsNone(got['rounded_ms'])
+        self.assertTrue(got['below_16_ms'])
+
+    def test_censored_entries_never_enter_samples(self):
+        from perf.layers import event_timing
+        self.assertTrue(hasattr(event_timing, 'samples_ms'), 'missing censored sample filter')
+        entries = [event_timing_status(raw, 16) for raw in [0, 12, 16, 20]]
+        self.assertEqual(event_timing.samples_ms(entries), [16, 24])
+        self.assertEqual(aggregate_inp([dict(row, interaction_id=1) for row in entries]), 24)

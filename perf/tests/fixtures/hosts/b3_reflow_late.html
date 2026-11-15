@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>b3 late anchor reflow</title>
+  </head>
+  <body style="margin: 24px">
+    <div class="doc-paragraph" contenteditable="true">Alpha opening line of the document.</div>
+    <div class="doc-paragraph">Beta unique anchor line stays below insertion.</div>
+    <script>
+      // Enter paints immediately (the first line turns red). The anchor block
+      // moves 800 ms later. The first paint is not the reflow.
+      document.addEventListener('keydown', function (event) {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        document.querySelector('.doc-paragraph').style.color = 'red';
+        setTimeout(function () {
+          document.querySelectorAll('.doc-paragraph')[1].style.marginTop = '100px';
+          window.shiftAt = performance.now();
+        }, 800);
+      });
+    </script>
+  </body>
+</html>

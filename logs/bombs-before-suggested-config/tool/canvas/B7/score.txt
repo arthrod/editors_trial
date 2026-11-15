@@ -1,1 +1,0 @@
-tool canvas B7 fidelity: refused safety: bounded-reject catch: yes

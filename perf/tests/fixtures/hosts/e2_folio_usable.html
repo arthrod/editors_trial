@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>E2 fake host: Folio painted page, then document blocks</title>
+    <style>
+      html, body { margin: 0; background: #fff; }
+      .layout-page { width: 816px; height: 1056px; }
+      .paged-editor__hidden-pm { position: absolute; left: -9999px; }
+      [data-block-id] { height: 26px; font: 16px/26px serif; }
+    </style>
+  </head>
+  <body>
+    <!-- Folio's loading shell paints a page that is not contenteditable.
+         The hidden ProseMirror host is empty until a later click. Document
+         blocks arrive only once the fixture has been laid out (#168). -->
+    <div class="layout-page" data-page-number="1">
+      <p class="shell">Loading fixture...</p>
+    </div>
+    <div class="paged-editor__hidden-pm"></div>
+    <script>
+      var params = new URLSearchParams(location.search);
+      if (!params.get('never')) {
+        setTimeout(function () {
+          var page = document.querySelector('[data-page-number]');
+          var block = document.createElement('div');
+          block.className = 'layout-paragraph';
+          block.setAttribute('data-block-id', 'b1');
+          block.textContent = 'Article 1. Incidental Taxes Title Force Effect Without';
+          page.appendChild(block);
+        }, Number(params.get('delay') || '0'));
+      }
+    </script>
+  </body>
+</html>

@@ -1,2 +1,0 @@
-cwd: <editors_trial>/repos/docen
-<editors_trial>/repos/docen/node_modules/.bin/tsx <editors_trial>/harness/docen/roundtrip.mts /tmp/editors-trial-bombs/bombs/B10.docx /tmp/editors-trial-bombs/runs/docen/B10/out/out.docx

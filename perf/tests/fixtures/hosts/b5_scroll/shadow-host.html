@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>the shadow host is the scroller</title>
+    <style>
+      html, body { margin: 0; padding: 0; height: 100%; background: #fff; color: #111; font: 14px/1.5 monospace; }
+      #host { box-sizing: border-box; height: 100vh; overflow-y: auto; }
+    </style>
+  </head>
+  <body>
+    <div id="host"></div>
+    <script>
+      var host = document.getElementById('host');
+      var root = host.attachShadow({ mode: 'open' });
+      var style = document.createElement('style');
+      style.textContent = 'p { margin: 0 0 8px; }';
+      root.appendChild(style);
+      for (var i = 0; i < 80; i++) {
+        var p = document.createElement('p');
+        p.textContent = 'Shadow paragraph ' + i + ' lives only inside the host shadow root.';
+        root.appendChild(p);
+      }
+      window.__docxReady = true;
+    </script>
+  </body>
+</html>

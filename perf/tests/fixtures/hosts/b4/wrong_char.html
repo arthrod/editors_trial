@@ -1,0 +1,27 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>b4 wrong character on click</title>
+  </head>
+  <body>
+    <div id="ready" class="status-ok">ready</div>
+    <div id="doc" contenteditable="true" style="white-space: pre-wrap">fixture line one
+fixture line two
+</div>
+    <script>
+      const doc = document.getElementById('doc');
+      doc.addEventListener('pointerdown', () => {
+        const sel = window.getSelection();
+        if (!sel.rangeCount) {
+          const range = document.createRange();
+          range.selectNodeContents(doc);
+          range.collapse(false);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+        document.execCommand('insertText', false, 'z');
+      });
+    </script>
+  </body>
+</html>

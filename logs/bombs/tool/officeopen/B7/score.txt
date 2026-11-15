@@ -1,1 +1,0 @@
-tool officeopen B7 fidelity: preserved safety: ok catch: no

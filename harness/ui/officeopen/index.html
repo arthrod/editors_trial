@@ -2,9 +2,12 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>office-open — parseDocument() rendering of complex.docx</title>
+    <title>office-open — browser perf host (@office-open/docx parseDocument())</title>
     <style>
       * { box-sizing: border-box; }
+      /* The root stays the page scroller (so full-page screenshots still work)
+         while advertising the scroll container the C10 probe looks for. */
+      html { overflow-y: auto; }
       html, body { margin: 0; padding: 0; }
       body {
         background: #7d8083;
@@ -25,7 +28,23 @@
       .appbar .note { color: #b9c0c8; }
       .appbar .spacer { flex: 1; }
       .appbar input[type=file] { font-size: 12px; }
-      .status { font-variant-numeric: tabular-nums; color: #9fe08a; }
+      .status { font-variant-numeric: tabular-nums; color: #b9c0c8; }
+      .status-ok { color: #9fe08a; }
+      .status-err { color: #ff9a8a; }
+      .probe-bar {
+        display: flex; align-items: center; gap: 10px;
+        padding: 6px 18px; background: #2f3338; color: #d7dde4;
+        border-top: 1px solid #3c4248; font-size: 12px;
+      }
+      .probe-label { font-weight: 700; color: #ffcf6b; letter-spacing: .2px; }
+      #input-probe {
+        min-width: 180px; min-height: 22px; padding: 2px 8px;
+        background: #fff; color: #111; border: 1px solid #8f979f; border-radius: 3px;
+        font-family: ui-monospace, Menlo, monospace; font-size: 12px; line-height: 1.4;
+      }
+      #input-probe:focus { outline: 2px solid #8fb8ff; }
+      .probe-note { color: #aab3bc; }
+      .probe-note code { color: #d7dde4; }
       .out { padding: 26px 0 60px; }
       .sheets { display: flex; flex-direction: column; align-items: center; gap: 26px; }
       .sheet { display: flex; align-items: stretch; position: relative; margin-bottom: 34px; }
@@ -118,6 +137,20 @@
       <span class="spacer"></span>
       <input id="corpus-file" type="file" accept=".docx" />
       <span class="status" id="status">loading…</span>
+    </div>
+    <div class="probe-bar">
+      <span class="probe-label">input probe</span>
+      <div
+        id="input-probe"
+        contenteditable="true"
+        spellcheck="false"
+        role="textbox"
+        aria-label="host input probe"
+      ></div>
+      <span class="probe-note">
+        host <code>contenteditable</code> — office-open has no editing surface; typing
+        here does not touch the parsed model, so it is not a C05/C06 input pipeline
+      </span>
     </div>
     <div class="out" id="out"></div>
     <script type="module" src="./bundle.js"></script>

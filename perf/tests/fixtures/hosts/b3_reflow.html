@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>b3 reflow</title>
+    <style>
+      body { margin: 24px; background: #ffffff; color: #111111; font: 18px/1.5 sans-serif; }
+      .doc-paragraph { display: block; margin: 0 0 8px; min-height: 1.2em; }
+    </style>
+  </head>
+  <body>
+    <script>
+      // Counts layout reads while the probe marks the C12 observation window.
+      // The fixture owns the counter. The probe only toggles __c12Observe.
+      (function () {
+        var observe = false;
+        var armed = false;
+        var reads = 0;
+        var orig = Element.prototype.getBoundingClientRect;
+        Element.prototype.getBoundingClientRect = function () {
+          if (observe) reads += 1;
+          return orig.apply(this, arguments);
+        };
+        Object.defineProperty(window, '__c12Observe', {
+          configurable: true,
+          get: function () { return observe; },
+          set: function (value) {
+            observe = Boolean(value);
+            if (observe) armed = true;
+          },
+        });
+        Object.defineProperty(window, '__c12LayoutReads', {
+          configurable: true,
+          get: function () { return reads; },
+        });
+        Object.defineProperty(window, '__c12WindowArmed', {
+          configurable: true,
+          get: function () { return armed; },
+        });
+      })();
+    </script>
+    <div class="doc-paragraph" contenteditable="true">Alpha opening line of the document.</div>
+    <div class="doc-paragraph" contenteditable="true">Beta unique anchor line stays below the insertion.</div>
+  </body>
+</html>

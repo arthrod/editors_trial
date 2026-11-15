@@ -1,0 +1,14 @@
+{
+  "name": "docen-browser-host",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Warm/cold browser host for the docen editor: loads /corpus.docx into <docen-document> from the pinned repos/docen checkout",
+  "scripts": {
+    "dev": "vite --port 5214 --strictPort --host 127.0.0.1",
+    "smoke": "node smoke.mjs"
+  },
+  "devDependencies": {
+    "vite": "^8.3.5"
+  }
+}

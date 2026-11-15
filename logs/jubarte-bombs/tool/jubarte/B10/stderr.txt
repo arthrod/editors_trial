@@ -1,2 +1,0 @@
-warning: layout failed, page markers come from the document's breaks: opening DOCX: I/O error: INVALID_XML: input document: word/comments.xml: syntax error: tag not closed: `>` not found before end of input
-wrote /tmp/editors-trial-jubarte-bombs/runs/B10/out/view.md (md, 584 bytes)

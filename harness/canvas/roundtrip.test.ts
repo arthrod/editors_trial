@@ -8,9 +8,10 @@ const TRIAL_ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '../.
 // The real WorkerManager spins up `?worker&inline` web workers, which need a
 // working Blob/Worker/URL.createObjectURL stack that jsdom does not provide.
 // Mirror the repo's own tests/factories/editor.ts mock (path must be a literal
-// because vi.mock is hoisted above const declarations).
+// because vi.mock is hoisted above const declarations; it is relative to this
+// test file so it resolves on any host, not only the CI agent's checkout).
 vi.mock(
-  '/agent/repos/editors_trial/repos/canvas-editor/src/editor/core/worker/WorkerManager.ts',
+  '../../repos/canvas-editor/src/editor/core/worker/WorkerManager.ts',
   () => {
     class MockWorkerManager {
       private draw: any
@@ -51,10 +52,10 @@ const FIXTURE = process.env.VITEST_DOCX_INPUT
   || path.join(TRIAL_ROOT, 'fixture/complex.docx')
 const OUT_DIR = process.env.OUT_DIR
   || path.join(TRIAL_ROOT, 'out/canvas')
-const OUT_NAME = process.env.VITEST_DOCX_OUTPUT
-  ? path.basename(process.env.VITEST_DOCX_OUTPUT)
-  : 'complex.docx'
-const OUT_DOCX = path.join(OUT_DIR, OUT_NAME)
+const OUT_DOCX = process.env.VITEST_DOCX_OUTPUT
+  ? path.resolve(process.env.VITEST_DOCX_OUTPUT)
+  : path.join(OUT_DIR, 'complex.docx')
+const PERF_ONLY = process.env.PERF_ONLY === '1'
 
 // ---------------------------------------------------------------------------
 // Harness instrumentation (NOT a repo change): wrap the editor's table layout
@@ -160,7 +161,8 @@ function modelSummary(elements: any[]): Record<string, number> {
 
 describe('canvas-editor docx plugin round trip', () => {
   it('imports complex.docx and exports it back to .docx', async () => {
-    fs.mkdirSync(OUT_DIR, { recursive: true })
+    fs.mkdirSync(path.dirname(OUT_DOCX), { recursive: true })
+    if (!PERF_ONLY) fs.mkdirSync(OUT_DIR, { recursive: true })
 
     const fixtureBytes = fs.readFileSync(FIXTURE)
     const arrayBuffer = toArrayBuffer(fixtureBytes)
@@ -194,7 +196,8 @@ describe('canvas-editor docx plugin round trip', () => {
       await cmd.executeImportDocx({ arrayBuffer })
       const t1 = performance.now()
       const line = `PERF model_ready_ms=${(t1 - t0).toFixed(6)}\n`
-      console.log(line.trimEnd())
+      if (PERF_ONLY) process.stdout.write(line)
+      else console.log(line.trimEnd())
       if (process.env.PERF_MARK_PATH) {
         fs.appendFileSync(process.env.PERF_MARK_PATH, line, 'utf8')
       }
@@ -203,7 +206,7 @@ describe('canvas-editor docx plugin round trip', () => {
     }
     if (importError) {
       // capture the exact failure and still dump whatever the editor holds
-      fs.writeFileSync(
+      if (!PERF_ONLY) fs.writeFileSync(
         path.join(OUT_DIR, 'import_error.txt'),
         ((importError as Error).stack || String(importError)) +
           '\n\n--- table findings ---\n' +
@@ -211,8 +214,9 @@ describe('canvas-editor docx plugin round trip', () => {
       )
       // The plugin README's path is import, then export. A thrown import is
       // the editor refusing the file. Writing the blank starter document
-      // afterwards would be this harness, not canvas-editor.
-      if (process.env.EDITOR_CONFIG === 'suggested') {
+      // afterwards would be this harness, not canvas-editor. A speed sample
+      // (PERF_ONLY) fails here too: no save time for a half-loaded editor.
+      if (process.env.EDITOR_CONFIG === 'suggested' || PERF_ONLY) {
         throw importError
       }
     }
@@ -220,10 +224,10 @@ describe('canvas-editor docx plugin round trip', () => {
     // give the editor a chance to flush its async render pipeline
     await new Promise(r => setTimeout(r, 500))
 
-    const imported = cmd.getValue()
+    const imported = PERF_ONLY ? undefined : cmd.getValue()
     const main = imported?.data?.main || []
-    const summary = modelSummary(main)
-    const text = modelText(main)
+    const summary = PERF_ONLY ? undefined : modelSummary(main)
+    const text = PERF_ONLY ? '' : modelText(main)
 
     // --- EXPORT (download:false -> return the Blob, never touch document.body) ---
     const tSave0 = performance.now()
@@ -233,37 +237,40 @@ describe('canvas-editor docx plugin round trip', () => {
     })
     const tSave1 = performance.now()
     const saveLine = `PERF save_ms=${(tSave1 - tSave0).toFixed(6)}\n`
-    console.log(saveLine.trimEnd())
+    if (PERF_ONLY) process.stdout.write(saveLine)
+    else console.log(saveLine.trimEnd())
     if (process.env.PERF_MARK_PATH) {
       fs.appendFileSync(process.env.PERF_MARK_PATH, saveLine, 'utf8')
     }
     const outBuf = Buffer.from(await blob.arrayBuffer())
     fs.writeFileSync(OUT_DOCX, outBuf)
 
-    // --- evidence dumps ---
-    fs.writeFileSync(
-      path.join(OUT_DIR, 'model_summary.json'),
-      JSON.stringify(
-        {
-          fixtureBytes: fixtureBytes.length,
-          outputBytes: outBuf.length,
-          model: summary,
-          modelTextLength: text.length,
-          modelTextHead: text.slice(0, 2000),
-          importError: importError
-            ? (importError as Error).stack || String(importError)
-            : null,
-          tableFindings,
-          editorOptions: imported?.options
-        },
-        null,
-        2
+    if (!PERF_ONLY) {
+      // --- evidence dumps ---
+      fs.writeFileSync(
+        path.join(OUT_DIR, 'model_summary.json'),
+        JSON.stringify(
+          {
+            fixtureBytes: fixtureBytes.length,
+            outputBytes: outBuf.length,
+            model: summary,
+            modelTextLength: text.length,
+            modelTextHead: text.slice(0, 2000),
+            importError: importError
+              ? (importError as Error).stack || String(importError)
+              : null,
+            tableFindings,
+            editorOptions: imported?.options
+          },
+          null,
+          2
+        )
       )
-    )
-    fs.writeFileSync(
-      path.join(OUT_DIR, 'model.json'),
-      JSON.stringify(imported?.data ?? null, null, 2)
-    )
+      fs.writeFileSync(
+        path.join(OUT_DIR, 'model.json'),
+        JSON.stringify(imported?.data ?? null, null, 2)
+      )
+    }
 
     expect(outBuf.length).toBeGreaterThan(0)
   }, 170000)

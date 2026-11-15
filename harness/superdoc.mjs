@@ -18,6 +18,11 @@ const outPath = resolve(process.argv[3]);
 const { SuperDocClient } = await import(SDK);
 
 const client = new SuperDocClient();
+if (process.env.PERF_ONLY === '1') {
+  const th0 = performance.now();
+  await client.connect();
+  console.log(`PERF host_start_ms=${(performance.now() - th0).toFixed(6)}`);
+}
 const t0 = performance.now();
 const doc = await client.open({ doc: inPath });
 const t1 = performance.now();
@@ -29,6 +34,10 @@ console.log(`PERF save_ms=${(ts1 - ts0).toFixed(6)}`);
 await doc.close();
 
 console.log(`[superdoc] wrote ${outPath}`);
+
+// Under PERF_ONLY the host is disposed (outside both timers) so Node reaps it
+// and its CPU time is charged to this run, not orphaned with the process.
+if (process.env.PERF_ONLY === '1') await client.dispose();
 
 // The SDK keeps its native host alive, so the process would otherwise hang
 // after the round trip is done and stall the batch runner.

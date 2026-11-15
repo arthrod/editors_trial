@@ -17,6 +17,7 @@ OUTCOMES = (
     "unverified",
     "failed",
     "not_run",
+    "profiled",
 )
 
 _PROFILE_BUDGET = {
@@ -33,6 +34,18 @@ def validate_trial(trial):
     outcome = trial["outcome"]
     if outcome not in OUTCOMES:
         raise ValueError("unknown outcome %r" % (outcome,))
+    if outcome == "profiled":
+        if trial.get("publishable") is not False:
+            raise ValueError("profiled trials are never publishable")
+        if trial.get("accounting_scope") != "diagnostic":
+            raise ValueError("profiled trials must use diagnostic accounting")
+        return
+    if trial.get("criterion_id") in ("C05", "C06") and outcome == "measured":
+        from perf.layers.classify import assert_visible_evidence
+
+        mechanism = trial.get("mechanism") or (trial.get("diagnostic") or {}).get("mechanism")
+        # C06 uses the same input-to-paint evidence rule as C05.
+        assert_visible_evidence("C05", mechanism)
     claims = set(trial.get("claims") or [])
     boundary = trial["boundary"]
     for blocked_boundary, blocked_claim, message in _FORBIDDEN:
@@ -111,7 +124,7 @@ def _validate_summary_stats(stats):
 
 
 def validate_environment(env):
-    if env["host_class"] not in ("dedicated", "ci_coarse"):
+    if env["host_class"] not in ("dedicated", "ci_coarse", "shared_guarded"):
         raise ValueError("host_class")
     profile = env.get("execution_profile")
     if profile not in ("ci_contract", "ci_broad", "dedicated_publish"):
@@ -120,8 +133,8 @@ def validate_environment(env):
         raise ValueError("cache_state")
     if env["host_class"] == "ci_coarse" and env["cache_state"] == "os_cache_cold":
         raise ValueError("os_cache_cold is dedicated-host only")
-    if profile == "dedicated_publish" and env["host_class"] != "dedicated":
-        raise ValueError("dedicated_publish requires dedicated host")
+    if profile == "dedicated_publish" and env["host_class"] not in ("dedicated", "shared_guarded"):
+        raise ValueError("dedicated_publish requires dedicated or shared_guarded host")
     if profile == "ci_contract" and env.get("headless") is not True:
         raise ValueError("ci_contract requires headless")
     if env["cache_state"] == "os_cache_cold" and env.get("page_cache_dropped") is not True:

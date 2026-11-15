@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>enter slot accepts a different beta</title>
+    <style>
+      body { margin: 24px; background: #fff; color: #111; font: 18px/1.5 sans-serif; }
+      .doc-paragraph { display: block; margin: 0 0 8px; min-height: 1.2em; }
+    </style>
+  </head>
+  <body>
+    <div class="doc-paragraph" id="caret" contenteditable="true">Alpha</div>
+    <div class="doc-paragraph" id="real">Beta</div>
+    <div class="doc-paragraph" id="far">Beta</div>
+    <script>
+      document.addEventListener('keydown', function (event) {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        var real = document.getElementById('real');
+        if (!real || real.dataset.done) return;
+        real.dataset.done = '1';
+        real.textContent = 'WAS THE ANCHOR';
+        var caret = document.getElementById('caret');
+        caret.textContent = 'xAlpha';
+        var inserted = document.createElement('div');
+        inserted.className = 'doc-paragraph';
+        inserted.id = 'inserted';
+        inserted.textContent = 'NOT THE ANCHOR';
+        caret.after(inserted);
+        var wrong = document.createElement('div');
+        wrong.className = 'doc-paragraph';
+        wrong.id = 'wrong';
+        wrong.textContent = 'Beta';
+        wrong.style.marginTop = '480px';
+        inserted.after(wrong);
+        document.querySelectorAll('[contenteditable]').forEach(function (el) {
+          el.removeAttribute('contenteditable');
+        });
+        var sel = window.getSelection && window.getSelection();
+        if (sel && sel.removeAllRanges) sel.removeAllRanges();
+      }, true);
+    </script>
+  </body>
+</html>

@@ -1,0 +1,49 @@
+<!doctype html><meta charset="utf-8"><title>B2 input fixture</title>
+<div class="status-ok">ready</div><div contenteditable="true" style="font:32px monospace;min-height:100px">fixture</div>
+<script>
+const delay = Number(new URLSearchParams(location.search).get('delay') || 0);
+const b2params = new URLSearchParams(location.search);
+document.addEventListener('keydown', e => {
+ if(e.key !== 'x') return;
+ e.preventDefault();
+ // Eigenpal's pattern (?replace=1): the edited block is re-created, so a
+ // MutationObserver rooted at the arm-time element is detached and sees
+ // nothing, while the typed x lands in the new first-matching element.
+ const replace = b2params.has('replace');
+ // Superdoc's pattern (?decoy=1): a small decoy change paints right after
+ // the key, so the frame witness latches onto a frame that predates the
+ // glyph's DOM mutation (whose MutationObserver delivery stamp is later).
+ if (b2params.has('decoy')) {
+  const d = document.createElement('span');
+  d.setAttribute('aria-hidden', 'true');
+  d.style.cssText = 'position:absolute;left:2px;top:2px;width:4px;height:28px;background:#888';
+  const host = document.querySelector('[contenteditable]');
+  host.style.position = 'relative';
+  host.prepend(d);
+ }
+ const paint = () => {
+  const host = document.querySelector('[contenteditable]');
+  if (replace) {
+   const fresh = host.cloneNode(false);
+   fresh.append(host.textContent + 'x');
+   host.parentNode.replaceChild(fresh, host);
+  } else {
+   host.append('x');
+  }
+ };
+ if(delay) setTimeout(paint, delay); else paint();
+});
+</script>
+<script>
+const params = new URLSearchParams(location.search);
+if (params.has('caret')) {
+ const c = document.createElement('span');
+ c.style.cssText = 'display:inline-block;width:2px;height:28px;background:black';
+ document.querySelector('[contenteditable]').append(c);
+ setInterval(() => { c.style.opacity = c.style.opacity === '0' ? '1' : '0'; }, 60);
+}
+if (params.has('poison')) {
+ Object.defineProperty(window, '__b2', {value: Object.freeze({}), writable: false});
+ window.addEventListener('keydown', e => e.stopImmediatePropagation(), true);
+}
+</script>

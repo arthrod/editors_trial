@@ -1,0 +1,32 @@
+<!doctype html><meta charset="utf-8"><body style="margin:0"><div id="doc" style="position:relative;width:700px;height:300px;background:white;font:28px monospace"></div>
+<script>
+const kind = new URLSearchParams(location.search).get('case');
+const doc = document.querySelector('#doc');
+const variants = {
+  baseline: 'Alpha bravo charlie delta echo foxtrot golf hotel',
+  smart_quotes: 'Alpha bravo charlie delta echo foxtrot golf “hotel”',
+  soft_hyphen: 'Alpha bravo char\u00adlie delta echo foxtrot golf hotel',
+  guillemets: '«Alpha» bravo charlie delta echo foxtrot golf hotel',
+  nbsp: 'Alpha\u00a0bravo charlie delta echo foxtrot golf hotel',
+  ligature: 'Alpha ﬁnal charlie delta echo foxtrot golf hotel',
+  en_dash: 'Alpha–bravo charlie delta echo foxtrot golf hotel',
+  em_dash: 'Alpha—bravo charlie delta echo foxtrot golf hotel',
+  zero_width: 'Al\u200bph\u200ca\u200d bravo\u2060 charlie\ufeff delta echo foxtrot golf hotel',
+  casefold: 'ALPHA STRASSE CHARLIE DELTA ECHO FOXTROT GOLF HOTEL',
+};
+if (kind in variants) doc.textContent = variants[kind];
+else {
+  doc.innerHTML = '<p>Wrong visible document paragraph with enough ink.</p>';
+  const holder = document.createElement('div');
+  const text = document.createElement(kind === 'textarea' ? 'textarea' : kind === 'input' ? 'input' : 'span');
+  text.textContent = variants.baseline;
+  if (kind === 'input') text.value = variants.baseline;
+  holder.append(text); doc.append(holder);
+  if (kind === 'offscreen') holder.style.cssText = 'position:absolute;left:-5000px;top:0';
+  if (kind === 'below_region') holder.style.cssText = 'position:absolute;top:2000px;left:0';
+  if (kind === 'opacity_ancestor') holder.style.opacity = '0';
+  if (kind === 'aria_hidden') holder.setAttribute('aria-hidden', 'true');
+  if (kind === 'display_none') holder.style.display = 'none';
+  if (kind === 'visibility_hidden') holder.style.visibility = 'hidden';
+}
+</script>

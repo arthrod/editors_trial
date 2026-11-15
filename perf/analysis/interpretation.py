@@ -88,7 +88,12 @@ def evaluate_measured_trial(
         if not ok:
             return False, msg
 
-    conds = list(scenario.get("correctness") or [])
+    return check_correctness(scenario.get("correctness") or [], doc_output_text)
+
+
+def check_correctness(conds, doc_output_text: str | None) -> tuple[bool, str]:
+    """The text conditions I01-I04 of a scenario, against the document text."""
+    conds = list(conds or [])
     if "I01" in conds:
         if doc_output_text is None:
             return False, "I01: missing doc output text for Unicode check"

@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  micromark-extension-math>katex: 0.19.1
+
 importers:
 
   .:
@@ -355,10 +358,6 @@ packages:
     resolution: {integrity: sha512-z67u4ZhzCL/Tydu1lJARtEZYWbWaN7oYLHbsuzocr6y4N6WZAagG3RQ4FW61V1/0+jImpj293XfrcYnd1qxtPg==}
     engines: {node: '>=22.12.0'}
 
-  commander@8.3.0:
-    resolution: {integrity: sha512-OkTL9umf+He2DZkUq8f8J9of7yL6RJKI24dVITBmNfZBmri9zYZQrKkuXiKhyfPSu8tUhnVBB1iKXevvnlR4Ww==}
-    engines: {node: '>= 12'}
-
   compute-scroll-into-view@3.1.1:
     resolution: {integrity: sha512-VRhuHOLoKYOy4UbilLbUzbYg93XLjv2PncJC50EuTWPA3gaja1UjBsUP/D/9/juV3vQFr6XBEzn9KCAHdUvOHw==}
 
@@ -677,10 +676,6 @@ packages:
   juice@12.2.1:
     resolution: {integrity: sha512-tbyBK+Ifmx95xRB2XET205DAz67Oq8A5SG+gV8GzBzzf0oRVhpo+Wh1KTkC12emlyZallR/ZsG8FJ1LcM4P17Q==}
     engines: {node: '>=22.12.0'}
-    hasBin: true
-
-  katex@0.16.47:
-    resolution: {integrity: sha512-Eeo8Ys1doU1z+x8AZsPpQu+p/QcZBI5PeOo7QGQdy2x2m0MU/hYagBbGOmXwr5KVbEfVuWv9LpnQWeehogurjg==}
     hasBin: true
 
   katex@0.19.1:
@@ -1374,8 +1369,6 @@ snapshots:
 
   commander@15.0.0: {}
 
-  commander@8.3.0: {}
-
   compute-scroll-into-view@3.1.1: {}
 
   core-util-is@1.0.3: {}
@@ -1701,10 +1694,6 @@ snapshots:
       postcss-selector-parser: 7.1.7
       web-resource-inliner: 8.0.0
 
-  katex@0.16.47:
-    dependencies:
-      commander: 8.3.0
-
   katex@0.19.1:
     dependencies:
       commander: 15.0.0
@@ -2007,7 +1996,7 @@ snapshots:
     dependencies:
       '@types/katex': 0.16.8
       devlop: 1.1.0
-      katex: 0.16.47
+      katex: 0.19.1
       micromark-factory-space: 2.1.0
       micromark-util-character: 2.1.1
       micromark-util-symbol: 2.0.1

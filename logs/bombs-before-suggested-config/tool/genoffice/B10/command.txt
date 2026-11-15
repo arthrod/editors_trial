@@ -1,2 +1,0 @@
-cwd: <editors_trial>/repos/genoffice
-~/.nvm/versions/node/v26.11.1/bin/node --import <editors_trial>/harness/css-stub.mjs --import <editors_trial>/repos/genoffice/node_modules/tsx/dist/loader.mjs <editors_trial>/harness/genoffice.cts /tmp/editors-trial-bombs/bombs/B10.docx /tmp/editors-trial-bombs/runs/genoffice/B10/out/out.docx

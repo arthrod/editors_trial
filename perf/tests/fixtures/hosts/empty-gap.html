@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>empty paragraph between the caret and the anchor</title>
+    <style>
+      body { margin: 0; background: #fff; color: #111; font: 16px/28px sans-serif; }
+      .doc-paragraph { position: absolute; left: 24px; width: 520px; min-height: 28px; }
+    </style>
+  </head>
+  <body>
+    <div class="doc-paragraph" id="caret" contenteditable="true" style="top:20px">Alpha body paragraph here</div>
+    <div class="doc-paragraph" id="gap" style="top:48px"></div>
+    <div class="doc-paragraph" id="anchor" style="top:76px">Beta anchor paragraph stays</div>
+    <div class="doc-paragraph" id="tail" style="top:104px">Gamma tail paragraph after</div>
+    <script>
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'x' || event.key === 'X') {
+          event.preventDefault();
+          var anchor = document.getElementById('anchor');
+          if (anchor && anchor.textContent.indexOf('x') !== 0) {
+            anchor.textContent = 'x' + anchor.textContent;
+          }
+          return;
+        }
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        document.getElementById('anchor').style.top = '480px';
+        document.getElementById('tail').style.top = '520px';
+      }, true);
+    </script>
+  </body>
+</html>

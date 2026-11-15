@@ -1,2 +1,0 @@
-Warning: KaTeX doesn't work in quirks mode. Make sure your website has a suitable doctype.
-Warning: KaTeX doesn't work in quirks mode. Make sure your website has a suitable doctype.

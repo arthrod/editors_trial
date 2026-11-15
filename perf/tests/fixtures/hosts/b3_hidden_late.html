@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>b3 hidden document text</title>
+    <style>
+      body { margin: 0; background: #ffffff; color: #111111; font: 18px/1.4 sans-serif; }
+      h1 { margin: 0; padding: 16px 20px; background: #d9e4f5; font-size: 18px; }
+    </style>
+  </head>
+  <body>
+    <h1>Shell only</h1>
+    <div id="doc"></div>
+    <script>
+      // Text enters the DOM at 400 ms but stays visibility:hidden until 5000 ms.
+      // Hidden text is not document paint.
+      setTimeout(function () {
+        document.querySelector('#doc').innerHTML =
+          '<p class="doc-paragraph" style="visibility:hidden">Document text exists but is not painted.</p>';
+      }, 400);
+      setTimeout(function () {
+        var p = document.querySelector('p');
+        if (p) p.style.visibility = 'visible';
+      }, 5000);
+    </script>
+  </body>
+</html>

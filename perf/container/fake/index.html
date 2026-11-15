@@ -1,0 +1,36 @@
+<!doctype html><meta charset="utf-8"><title>B6 fake host (not an editor)</title>
+<style>body{margin:0}#doc{height:90vh;overflow:auto}p{min-height:24px}</style>
+<div class="status-ok">Fake host ready</div>
+<div id="doc" contenteditable="true" data-slate-editor="true"></div>
+<script src="../../tests/fixtures/hosts/b5_scroll/corpus.js"></script>
+<script>
+(async () => {
+const doc = document.querySelector('#doc');
+const lane = new URLSearchParams(location.search).get('lane');
+if (lane === 'input' || lane === 'document') {
+  const response = await fetch('/corpus.docx');
+  if (!response.ok) throw new Error('corpus unavailable: ' + response.status);
+  const files = await window.__b5.unzip(await response.arrayBuffer());
+  const xml = new DOMParser().parseFromString(
+    new TextDecoder().decode(files['word/document.xml']), 'application/xml');
+  if (lane === 'input') {
+    // B4's fixture contract is the concatenated text runs, with no inferred separators.
+    doc.style.whiteSpace = 'pre-wrap';
+    doc.textContent = Array.from(xml.getElementsByTagName('w:t'), node => node.textContent).join('');
+  } else {
+    for (const node of xml.getElementsByTagName('w:p')) {
+      const p = document.createElement('p');
+      p.className = 'doc-paragraph';
+      p.dataset.slateNode = 'element';
+      p.textContent = Array.from(node.getElementsByTagName('w:t'), text => text.textContent).join('');
+      doc.append(p);
+    }
+  }
+} else for(let i=0;i<1000;i++) {
+  const p=document.createElement('p');p.dataset.slateNode='element';
+  p.textContent='Fake document paragraph '+i+' '+('measurable prose '.repeat(50));doc.append(p);
+}
+window.b6Ready=true;
+window.__docxReady=true;
+})().catch(error => { window.b6Error = String(error); console.error(error); });
+</script>

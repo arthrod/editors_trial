@@ -1,0 +1,61 @@
+<!doctype html><meta charset="utf-8"><title>E2 superdoc loading surface</title>
+<!-- Minimal stand-in for the SuperDoc v2 shell while a document loads:
+     .superdoc__document exists (the lane's ready selector) and holds the
+     v2-document-loading-overlay texts, but no .superdoc-line has painted.
+     ?lines=1 swaps the overlay for painted page/line content; ?overlay=1
+     keeps the overlay next to the painted lines. -->
+<style>
+  #editor { width: 900px; min-height: 500px; }
+  .superdoc__document { position: relative; }
+  .v2-document-loading-overlay { position: absolute; inset: 0; background: #fff; }
+  .v2-document-loading-overlay__panel { margin: 40px auto; width: 320px; text-align: center; }
+  .v2-document-loading-overlay__title { font-size: 18px; margin: 8px; }
+  .v2-document-loading-overlay__message { font-size: 14px; margin: 8px; }
+  .v2-document-loading-overlay__progress-label { font-size: 12px; }
+  .superdoc-page { padding: 8px; }
+  .superdoc-line { display: block; font-size: 15px; line-height: 20px; }
+</style>
+<div id="editor">
+  <div class="superdoc__document document">
+    <div class="superdoc__sub-document sub-document">
+      <div class="v2-super-editor">
+        <div class="v2-document-loading-overlay v2-document-loading-overlay--opening" id="overlay">
+          <div class="v2-document-loading-overlay__panel">
+            <h2 class="v2-document-loading-overlay__title">Loading document</h2>
+            <p class="v2-document-loading-overlay__message">Opening document...</p>
+            <div class="v2-document-loading-overlay__meta">
+              <span class="v2-document-loading-overlay__progress-label">Progress</span>
+            </div>
+          </div>
+        </div>
+        <div class="v2-super-editor__stage" id="stage"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+const params = new URLSearchParams(location.search);
+const sub = document.querySelector('.superdoc__sub-document');
+if (params.get('lines') === '1') {
+  const page = document.createElement('div');
+  page.className = 'superdoc-page';
+  const paras = [
+    'The quick brown fox jumps over the lazy dog repeatedly.',
+    'A second paragraph of body text sits under the first one.',
+    'And a third paragraph completes the painted first page.',
+  ];
+  for (const text of paras) {
+    const line = document.createElement('div');
+    line.className = 'superdoc-line';
+    line.textContent = text;
+    page.appendChild(line);
+  }
+  sub.appendChild(page);
+  const textbox = document.createElement('div');
+  textbox.setAttribute('role', 'textbox');
+  sub.appendChild(textbox);
+}
+if (params.get('overlay') !== '1' && params.get('lines') === '1') {
+  document.getElementById('overlay').remove();
+}
+</script>

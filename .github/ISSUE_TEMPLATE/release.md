@@ -116,6 +116,8 @@ Release: `vX.Y.Z` · release date: `YYYY-MM-DD` · cutoff (date − 5 days): `YY
 - [ ] `CHANGELOG.md` section: Updated (pins), Measured (what changed, reproduced), Not re-measured, Added, Fixed.
 - [ ] PR to `main`; gate any review comments individually; merge.
 - [ ] Tag `vX.Y.Z` on the merge commit; GitHub release with the changelog section as notes.
+- [ ] Publish the bundle (one command, from any directory with `bench` installed): `bench publish editors_trial et-vX.Y.Z`. It uploads `out/facts.json`, `out/release.json`, `reports/*.md`, `reports/*.docx` and any `reports/figures/` to the private HF dataset `arthrod/editors_trial-artifacts`, verifies every file on the Hub, appends `release/index.jsonl` + `release/et-vX.Y.Z/manifest.json`, and tags `et-vX.Y.Z` locally. Rerunning after a failure resumes. Then run the push it prints (a release branch gets a PR, as for et-v0.9.4, #75).
+- [ ] Site: in `benchmarks-law`, `bench bump editors_trial` moves `bench.lock`'s `editors_trial=` line; the build reads `.bench/editors_trial/` (bench-ops plan 5).
 - [ ] Site (`benchmarks-law`, on an up-to-date `main`): `pnpm sync:content`, `pnpm sync:vendors`, `pnpm sync:assets`, `pnpm sync:demos` (if any demo was rebuilt), then `pnpm run deploy`.
 - [ ] Verify the live pages in a real browser (Chrome extension; Brave if it fails): home, `/editors-trial/`, vendors, every report, every demo.
 - [ ] Commit the site, PR, merge, tag it with the same version.

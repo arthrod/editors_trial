@@ -1,0 +1,89 @@
+"""Relaxed measurement bounds (lax layer, owner decision 2026-11-11).
+
+Single source of truth for Report E2 disclosure and harness checks.
+"""
+
+from __future__ import annotations
+
+from perf.runner.browser_throttle import THROTTLE_TOLERANCE_MIN_USEC, THROTTLE_TOLERANCE_SPAN_FRACTION
+from perf.runner.load_timeouts import (
+    BIG_DOCUMENT_LOAD_TIMEOUT_MS,
+    C14_LOAD_TIMEOUT_MS,
+    DEFAULT_LOAD_TIMEOUT_MS,
+    load_timeout_ms,
+)
+from perf.runner.witness import DEFAULT_SKEW_BOUND_MS, LAG_BOUND_INTERVALS, LAG_BOUND_MIN_MS
+
+# Kept in sync with ONSET_BOUND_FLOOR_MS in perf/runner/b2_settle.mjs.
+ONSET_BOUND_FLOOR_MS = 100
+
+# Document / typing content length check tolerance (issue #155).
+# The complex document (complex-corpus) uses the coarser 75%-125% band of
+# MODEL_COARSE_MIN_RATIO / MODEL_COARSE_MAX_RATIO in perf_model_text.mjs.
+CONTENT_LENGTH_REL_TOL = 0.02
+
+_RELAXED_BOUND_LINES = (
+    f"Clock skew: {DEFAULT_SKEW_BOUND_MS:g} ms.",
+    f"Ready/navigation load timeouts: {DEFAULT_LOAD_TIMEOUT_MS // 1000} s by default, "
+    f"{BIG_DOCUMENT_LOAD_TIMEOUT_MS // 1000} s on the largest document workload; "
+    f"C14 (large-document scaling) gives each wait of a load (navigation, the editor's ready signal, "
+    f"the page's load event for the canvas editors Docen and WordCraft, the painted document) "
+    f"up to {C14_LOAD_TIMEOUT_MS // 1000} s.",
+    f"Sparse-witness settle onset floor: {ONSET_BOUND_FLOOR_MS} ms.",
+    "CPU throttle tolerance: max(1 ms, 1% of the sample span).",
+    f"Witness anchor lag: max({LAG_BOUND_INTERVALS} frame intervals, {LAG_BOUND_MIN_MS:g} ms).",
+    f"Typing/document content length tolerance: {CONTENT_LENGTH_REL_TOL * 100:g}% for the prose "
+    "documents; the complex document (complex-corpus) is accepted at 75% to 125% of the expected length.",
+)
+
+
+def relaxed_bounds_paragraph() -> str:
+    """Prose block for Report E2 template substitution."""
+    return "Relaxed bounds: " + " ".join(_RELAXED_BOUND_LINES)
+
+
+def publication_sample_paragraph() -> str:
+    """First-pass sample plan for Report E2. Numbers come from the publication constants."""
+    from perf.runner.browser_run import PUBLICATION_MIN_KEPT, PUBLICATION_REPETITIONS
+
+    return (
+        "This is a first pass with fewer samples than planned. "
+        f"Each cell schedules {PUBLICATION_REPETITIONS} samples per editor per seed "
+        f"and is published when at least {PUBLICATION_MIN_KEPT} samples are kept. "
+        f"The 90th percentile is printed only when at least {PUBLICATION_REPETITIONS} samples are kept; "
+        f"with {PUBLICATION_MIN_KEPT} to {PUBLICATION_REPETITIONS - 1} kept, the table prints the median "
+        "and the range from the smallest kept sample to the largest, because a percentile of a short sample is not a stable figure."
+    )
+
+
+def typing_sample_paragraph() -> str:
+    """Typing sample plan for Report E2. Numbers come from the typing publication constants."""
+    from perf.runner.browser_run import TYPING_PUBLICATION_MIN_KEPT, TYPING_PUBLICATION_SESSIONS
+
+    return (
+        "Typing schedules "
+        f"{TYPING_PUBLICATION_SESSIONS} sessions per kind per seed "
+        f"and publishes a cell when at least {TYPING_PUBLICATION_MIN_KEPT} are kept. "
+        f"With {TYPING_PUBLICATION_MIN_KEPT} kept sessions and fewer than "
+        f"{TYPING_PUBLICATION_SESSIONS}, "
+        "the table prints the median and the range from the smallest kept session to the largest. "
+        "A key-to-paint 90th percentile inside one session is over keys, not over sessions."
+    )
+
+
+def throttle_tolerance_description() -> str:
+    return "max(%d ms, %g%% of the span)" % (
+        int(THROTTLE_TOLERANCE_MIN_USEC / 1000),
+        THROTTLE_TOLERANCE_SPAN_FRACTION * 100,
+    )
+
+
+__all__ = [
+    "CONTENT_LENGTH_REL_TOL",
+    "publication_sample_paragraph",
+    "typing_sample_paragraph",
+    "relaxed_bounds_paragraph",
+    "load_timeout_ms",
+    "DEFAULT_LOAD_TIMEOUT_MS",
+    "BIG_DOCUMENT_LOAD_TIMEOUT_MS",
+]
