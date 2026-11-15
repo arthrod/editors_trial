@@ -199,8 +199,8 @@ changes.
   byte deltas, because the measurement holds the two sizes and not their
   difference; it now does the subtraction `build/ab_table.py` does.
   codex's review of these fixes then showed the number gate accepted a
-  figure that was only the tail of a longer one ("201 bytes" inside
-  "1,201 bytes"); figures now have to occur whole, and a section number
+  figure that was only the tail of a longer one; figures now have to
+  occur whole, and a section number
   ("4.2 Bytes versus content") is no longer read as a size. No report
   figure failed the stricter check.
 - In Report E2 the two typing latency tables (eigenpal, GenOffice) had no
