@@ -9,6 +9,51 @@ re-running the measurement behind it. The format follows
 
 ## [Unreleased]
 
+## [0.10.2] - 2026-11-15
+
+Report E2's settling column becomes a rate. No measurement was taken for
+this release: every figure comes from the runs of 0.10.0.
+
+### Updated
+
+- No editor pin moved, for the reason given under 0.10.1: this release
+  changes how the 0.10.0 measurements are read.
+
+### Measured
+
+- Nothing new. The facts are rebuilt from the same runs. Report E2 now
+  counts 693 of its 1,061 cells as reproduced between the two seeds, where
+  it counted 701: the cells are the same, but 32 settling totals had
+  agreed and 24 settling rates do.
+
+### Changed
+
+- **B8, "CPU settling after the edit" is now "CPU per second while
+  settling"** (#226). The wait it covers ends at the first half-second poll
+  at which two seconds have passed without a long task; in these runs it
+  the readings taken during it spanned 0.1 s to 5.6 s, and the column was a
+  total over them. Each launch's processor time is now divided by the span
+  from its first to its last such reading, read from the samples already
+  in each launch's record. A launch counts when that span is a second or
+  more, and a seed needs five such launches.
+  Of the 44 cells: 24 give a rate, 4 did not reproduce (Docen at 50,000 and
+  250,000 words, GenOffice and SuperDoc at 250,000), 11 had a wait too
+  short to measure, 5 are WordCraft's, which never went idle. As totals,
+  32 of the 39 that are not WordCraft's had printed a figure and 7 had not
+  reproduced. The rate is an average over the span, working and quiet time
+  together (the two quiet seconds that end the wait can begin before the
+  first reading, so a span holds some of them, not always all), and it
+  still depends on how long the span ran. The totals stay in
+  `out/facts.json`; a settling cell is counted once in the report's
+  count of cells, as the rate.
+- One function builds a cell's fact key for the tables and the short
+  version (CodeRabbit's #230, applied here).
+
+### Not re-measured
+
+- Everything. The busy-host jobs of #228 are still disclosed, not measured
+  again.
+
 ## [0.10.1] - 2026-11-15
 
 Report E2 gets a short version a person can read, and its resources tables

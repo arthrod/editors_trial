@@ -160,7 +160,7 @@ The seven tables of the results come from seven of the criteria described here: 
 
 A "cell" below is one editor, one criterion, one measure and one document: far more cells than the boxes of the results tables. A "seed" is one of the two rounds in which everything was run (Appendix C).
 
-This report concerns browser-visible first paint, typing, scrolling, and related interactions. 701 of 1061 scheduled editor/criterion/measure cells reproduced between the two seeds. 52 run folders contributed 212 jobs (seed 1: 106 jobs; seed 2: 106 jobs); earliest job start 2026-11-12, latest job end 2026-11-15.
+This report concerns browser-visible first paint, typing, scrolling, and related interactions. 693 of 1061 scheduled editor/criterion/measure cells reproduced between the two seeds. 52 run folders contributed 212 jobs (seed 1: 106 jobs; seed 2: 106 jobs); earliest job start 2026-11-12, latest job end 2026-11-15.
 
 Each criterion is one browser-visible or model clock on the same corpus the headless report uses.
 
@@ -1209,22 +1209,22 @@ C19 was meant to show memory an editor leaves behind. The harness read the brows
 
 ### B8 — resources while opening and editing
 
-**B8 — resources while opening and editing.** One fresh browser per launch opens the document, waits until the editor is idle, types sixteen characters into a body line on the first screen, and waits again. CPU is the processor time of the whole browser process tree: to open (from navigation until idle, including work an editor does after it reports ready), during the edit (the keystrokes plus half a second), and while settling afterwards. The memory column is the highest reading of that tree's resident memory: it is read when the load and the edit start and end and every half second while the page settles, so a higher moment in the middle of a long load or edit is not seen; a page shared by two processes counts once for each. An edit counts only when it is verified in the document: the text of the block at the caret, read from the page or from the editor's model, gained exactly the typed text; WordCraft, which puts no document text in the page, is verified by its own modified flag. An editor still working when a 30-second cap ends never went idle, even in one launch: the CPU columns that wait would end are not printed, because they would time the cap, and a note gives what it used up to its ready signal, how far its memory readings ran and, where every kept launch recorded its processes, how the capped wait divides between the browser's GPU process (the one that draws; on this host it draws in software) and the page's own process. The complex document is loaded without its read-only protection, which the editors honour.
+**B8 — resources while opening and editing.** One fresh browser per launch opens the document, waits until the editor is idle, types sixteen characters into a body line on the first screen, and waits again. CPU is the processor time of the whole browser process tree: to open (from navigation until idle, including work an editor does after it reports ready), during the edit (the keystrokes plus half a second), and while settling afterwards, where it is given per second of the readings taken during that wait, because the wait is not a fixed length (the note under the tables says how long they spanned). The memory column is the highest reading of that tree's resident memory: it is read when the load and the edit start and end and every half second while the page settles, so a higher moment in the middle of a long load or edit is not seen; a page shared by two processes counts once for each. An edit counts only when it is verified in the document: the text of the block at the caret, read from the page or from the editor's model, gained exactly the typed text; WordCraft, which puts no document text in the page, is verified by its own modified flag. An editor still working when a 30-second cap ends never went idle, even in one launch: the CPU columns that wait would end are not printed, because they would time the cap, and a note gives what it used up to its ready signal, how far its memory readings ran and, where every kept launch recorded its processes, how the capped wait divides between the browser's GPU process (the one that draws; on this host it draws in software) and the page's own process. The complex document is loaded without its read-only protection, which the editors honour.
 
-Each cell shows the first seed's median and the second seed's median. A figure is printed as a result only when the two agree within 10 percent (20 ms for CPU); a cell that does not agree says so and gives both medians and the lowest and highest launch, so that what was read is not hidden. The CPU counters advance in steps of 10 ms, so a cell of a few tens of milliseconds is at the counter's resolution. The host has no graphics processor: what an editor draws is drawn by the processor and counts as CPU.
+Each cell shows the first seed's median and the second seed's median. A figure is printed as a result only when the two agree within 10 percent (20 ms for CPU; for the settling column, which is a rate, those 20 ms over the typical settling wait of the launches counted); a cell that does not agree says so and gives both medians and the lowest and highest launch, so that what was read is not hidden. The CPU counters advance in steps of 10 ms, so a cell of a few tens of milliseconds is at the counter's resolution. The host has no graphics processor: what an editor draws is drawn by the processor and counts as CPU.
 
 ### 500 words
 
-| Editor | CPU to open | CPU of the edit | CPU settling after the edit | Highest memory reading | Kept launches |
+| Editor | CPU to open | CPU of the edit | CPU per second while settling | Highest memory reading | Kept launches |
 |---|---|---|---|---|---|
-| canvas-editor + plugin | 485 ms / 490 ms | 1.33 s / 1.30 s | 65 ms / 45 ms | 617.8 MiB / 616.5 MiB | n = 10, 10 |
-| Docen | 1.66 s / 1.63 s | 385 ms / 380 ms | 30 ms / 15 ms | 659.4 MiB / 659.1 MiB | n = 10, 10 |
-| Docxodus | 4.30 s / 4.29 s | 40 ms / 35 ms | 0 ms / 0 ms | 742.9 MiB / 743.6 MiB | n = 10, 10 |
-| eigenpal | 1.47 s / 1.43 s | not reproduced (first 145 ms; second 115 ms; launches 100 ms to 230 ms) | 95 ms / 75 ms | 609.5 MiB / 610.2 MiB | n = 10, 10 |
-| Folio | 2.17 s / 2.25 s | 245 ms / 240 ms | 45 ms / 30 ms | 543.3 MiB / 541.5 MiB | n = 10, 10 |
-| GenOffice | 1.27 s / 1.26 s | 165 ms / 185 ms | 10 ms / 10 ms | 551.4 MiB / 550.0 MiB | n = 10, 10 |
-| Plate.js | 1.02 s / 1.00 s | 480 ms / 485 ms | 15 ms / 15 ms | 530.5 MiB / 530.9 MiB | n = 10, 10 |
-| SuperDoc | 2.90 s / 2.89 s | 335 ms / 315 ms | 65 ms / 60 ms | 625.2 MiB / 625.4 MiB | n = 10, 10 |
+| canvas-editor + plugin | 485 ms / 490 ms | 1.33 s / 1.30 s | 31 ms/s / 26 ms/s | 617.8 MiB / 616.5 MiB | n = 10, 10 |
+| Docen | 1.66 s / 1.63 s | 385 ms / 380 ms | wait too short to measure (10 and 1 of 10 and 10 launches waited a second or more) | 659.4 MiB / 659.1 MiB | n = 10, 10 |
+| Docxodus | 4.30 s / 4.29 s | 40 ms / 35 ms | wait too short to measure (0 and 0 of 10 and 10 launches waited a second or more) | 742.9 MiB / 743.6 MiB | n = 10, 10 |
+| eigenpal | 1.47 s / 1.43 s | not reproduced (first 145 ms; second 115 ms; launches 100 ms to 230 ms) | 49 ms/s / 43 ms/s | 609.5 MiB / 610.2 MiB | n = 10, 10 |
+| Folio | 2.17 s / 2.25 s | 245 ms / 240 ms | 21 ms/s / 18 ms/s | 543.3 MiB / 541.5 MiB | n = 10, 10 |
+| GenOffice | 1.27 s / 1.26 s | 165 ms / 185 ms | 5 ms/s / 6 ms/s | 551.4 MiB / 550.0 MiB | n = 10, 10 |
+| Plate.js | 1.02 s / 1.00 s | 480 ms / 485 ms | 7 ms/s / 9 ms/s | 530.5 MiB / 530.9 MiB | n = 10, 10 |
+| SuperDoc | 2.90 s / 2.89 s | 335 ms / 315 ms | 32 ms/s / 33 ms/s | 625.2 MiB / 625.4 MiB | n = 10, 10 |
 | WordCraft | never idle | never idle | never idle | 928.7 MiB / 961.7 MiB | n = 10, 10 |
 
 Not published or flagged:
@@ -1233,16 +1233,16 @@ Not published or flagged:
 
 ### 5,000 words
 
-| Editor | CPU to open | CPU of the edit | CPU settling after the edit | Highest memory reading | Kept launches |
+| Editor | CPU to open | CPU of the edit | CPU per second while settling | Highest memory reading | Kept launches |
 |---|---|---|---|---|---|
-| canvas-editor + plugin | 1.25 s / 1.25 s | 7.29 s / 7.33 s | 50 ms / 40 ms | 926.3 MiB / 931.8 MiB | n = 10, 10 |
-| Docen | 2.12 s / 2.08 s | 945 ms / 890 ms | 45 ms / 30 ms | 765.5 MiB / 757.2 MiB | n = 10, 10 |
-| Docxodus | 6.16 s / 6.11 s | 30 ms / 30 ms | 10 ms / 0 ms | 781.7 MiB / 785.0 MiB | n = 10, 10 |
-| eigenpal | 2.05 s / 2.00 s | 120 ms / 120 ms | 90 ms / 70 ms | 637.4 MiB / 636.5 MiB | n = 10, 10 |
-| Folio | 2.46 s / 2.53 s | 360 ms / 355 ms | 40 ms / 30 ms | 571.9 MiB / 570.4 MiB | n = 10, 10 |
-| GenOffice | 1.70 s / 1.67 s | 350 ms / 350 ms | 20 ms / 10 ms | 572.8 MiB / 572.3 MiB | n = 10, 10 |
-| Plate.js | 1.89 s / 1.90 s | 595 ms / 610 ms | 10 ms / 15 ms | 559.2 MiB / 559.1 MiB | n = 10, 10 |
-| SuperDoc | 3.85 s / 3.76 s | 780 ms / 800 ms | 40 ms / 30 ms | 725.5 MiB / 725.3 MiB | n = 10, 10 |
+| canvas-editor + plugin | 1.25 s / 1.25 s | 7.29 s / 7.33 s | 25 ms/s / 23 ms/s | 926.3 MiB / 931.8 MiB | n = 10, 10 |
+| Docen | 2.12 s / 2.08 s | 945 ms / 890 ms | 21 ms/s / 18 ms/s | 765.5 MiB / 757.2 MiB | n = 10, 10 |
+| Docxodus | 6.16 s / 6.11 s | 30 ms / 30 ms | wait too short to measure (4 and 0 of 10 and 10 launches waited a second or more) | 781.7 MiB / 785.0 MiB | n = 10, 10 |
+| eigenpal | 2.05 s / 2.00 s | 120 ms / 120 ms | 44 ms/s / 41 ms/s | 637.4 MiB / 636.5 MiB | n = 10, 10 |
+| Folio | 2.46 s / 2.53 s | 360 ms / 355 ms | 20 ms/s / 18 ms/s | 571.9 MiB / 570.4 MiB | n = 10, 10 |
+| GenOffice | 1.70 s / 1.67 s | 350 ms / 350 ms | 9 ms/s / 6 ms/s | 572.8 MiB / 572.3 MiB | n = 10, 10 |
+| Plate.js | 1.89 s / 1.90 s | 595 ms / 610 ms | 5 ms/s / 9 ms/s | 559.2 MiB / 559.1 MiB | n = 10, 10 |
+| SuperDoc | 3.85 s / 3.76 s | 780 ms / 800 ms | wait too short to measure (3 and 2 of 10 and 10 launches waited a second or more) | 725.5 MiB / 725.3 MiB | n = 10, 10 |
 | WordCraft | never idle | never idle | never idle | 927.4 MiB / 963.2 MiB | n = 10, 10 |
 
 Not published or flagged:
@@ -1251,16 +1251,16 @@ Not published or flagged:
 
 ### 50,000 words
 
-| Editor | CPU to open | CPU of the edit | CPU settling after the edit | Highest memory reading | Kept launches |
+| Editor | CPU to open | CPU of the edit | CPU per second while settling | Highest memory reading | Kept launches |
 |---|---|---|---|---|---|
-| canvas-editor + plugin | 7.20 s / 6.92 s | 67.17 s / 65.00 s | 60 ms / 45 ms | not reproduced (first 3772.6 MiB; second 4528.6 MiB; launches 3427.5 MiB to 5137.1 MiB) | n = 10, 10 |
-| Docen | 5.07 s / 4.87 s | 10.68 s / 10.24 s | not reproduced (first 200 ms; second 50 ms; launches 30 ms to 250 ms) | 1595.3 MiB / 1595.5 MiB | n = 10, 10 |
-| Docxodus | 19.64 s / 19.00 s | 40 ms / 40 ms | 5 ms / 5 ms | 1060.3 MiB / 1061.7 MiB | n = 10, 10 |
-| eigenpal | 3.98 s / 3.83 s | 180 ms / 160 ms | 40 ms / 40 ms | 691.9 MiB / 692.0 MiB | n = 10, 10 |
-| Folio | 3.88 s / 3.69 s | 1.98 s / 1.82 s | not reproduced (first 55 ms; second 30 ms; launches 20 ms to 70 ms) | 720.9 MiB / 716.2 MiB | n = 10, 10 |
-| GenOffice | 4.70 s / 4.50 s | 3.37 s / 3.21 s | 20 ms / 20 ms | 833.7 MiB / 827.9 MiB | n = 10, 10 |
-| Plate.js | 6.91 s / 6.66 s | 1.64 s / 1.56 s | 20 ms / 5 ms | 820.1 MiB / 821.3 MiB | n = 10, 10 |
-| SuperDoc | 8.71 s / 8.20 s | 1.21 s / 1.18 s | not reproduced (first 85 ms; second 50 ms; launches 40 ms to 130 ms) | 889.4 MiB / 888.0 MiB | n = 10, 10 |
+| canvas-editor + plugin | 7.20 s / 6.92 s | 67.17 s / 65.00 s | 34 ms/s / 25 ms/s | not reproduced (first 3772.6 MiB; second 4528.6 MiB; launches 3427.5 MiB to 5137.1 MiB) | n = 10, 10 |
+| Docen | 5.07 s / 4.87 s | 10.68 s / 10.24 s | not reproduced (first 79 ms/s; second 20 ms/s; launches 16 ms/s to 103 ms/s) | 1595.3 MiB / 1595.5 MiB | n = 10, 10 |
+| Docxodus | 19.64 s / 19.00 s | 40 ms / 40 ms | wait too short to measure (0 and 0 of 10 and 10 launches waited a second or more) | 1060.3 MiB / 1061.7 MiB | n = 10, 10 |
+| eigenpal | 3.98 s / 3.83 s | 180 ms / 160 ms | wait too short to measure (2 and 2 of 10 and 10 launches waited a second or more) | 691.9 MiB / 692.0 MiB | n = 10, 10 |
+| Folio | 3.88 s / 3.69 s | 1.98 s / 1.82 s | 25 ms/s / 18 ms/s | 720.9 MiB / 716.2 MiB | n = 10, 10 |
+| GenOffice | 4.70 s / 4.50 s | 3.37 s / 3.21 s | 9 ms/s / 11 ms/s | 833.7 MiB / 827.9 MiB | n = 10, 10 |
+| Plate.js | 6.91 s / 6.66 s | 1.64 s / 1.56 s | wait too short to measure (8 and 2 of 10 and 10 launches waited a second or more) | 820.1 MiB / 821.3 MiB | n = 10, 10 |
+| SuperDoc | 8.71 s / 8.20 s | 1.21 s / 1.18 s | 39 ms/s / 29 ms/s | 889.4 MiB / 888.0 MiB | n = 10, 10 |
 | WordCraft | never idle | never idle | never idle | 931.3 MiB / 919.7 MiB | n = 10, 10 |
 
 Not published or flagged:
@@ -1269,16 +1269,16 @@ Not published or flagged:
 
 ### 250,000 words
 
-| Editor | CPU to open | CPU of the edit | CPU settling after the edit | Highest memory reading | Kept launches |
+| Editor | CPU to open | CPU of the edit | CPU per second while settling | Highest memory reading | Kept launches |
 |---|---|---|---|---|---|
-| canvas-editor + plugin | 53.88 s / 54.72 s | 503.49 s / 507.64 s | 60 ms / 40 ms | 9253.8 MiB / 9221.4 MiB | n = 10, 10 |
-| Docen | 20.66 s / 21.16 s | 160.65 s / 167.09 s | not reproduced (first 1.38 s; second 70 ms; launches 30 ms to 2.31 s) | not reproduced (first 6956.0 MiB; second 5754.9 MiB; launches 5092.8 MiB to 8062.7 MiB) | n = 10, 10 |
-| Docxodus | 106.25 s / 108.61 s | 60 ms / 50 ms | 0 ms / 0 ms | 2039.6 MiB / 2035.1 MiB | n = 10, 10 |
-| eigenpal | 9.60 s / 9.76 s | 230 ms / 225 ms | not reproduced (first 35 ms; second 10 ms; launches 0 ms to 80 ms) | 890.1 MiB / 889.1 MiB | n = 10, 10 |
-| Folio | 7.63 s / 7.64 s | 9.02 s / 9.52 s | 55 ms / 60 ms | 1273.4 MiB / 1274.6 MiB | n = 10, 10 |
-| GenOffice | 24.93 s / 24.80 s | 51.87 s / 54.55 s | not reproduced (first 2.00 s; second 1.73 s; launches 1.59 s to 2.10 s) | 1815.7 MiB / 1733.5 MiB | n = 10, 10 |
-| Plate.js | 28.06 s / 28.32 s | 2.19 s / 2.31 s | 30 ms / 20 ms | 1838.7 MiB / 1811.7 MiB | n = 10, 7 |
-| SuperDoc | 20.61 s / 20.68 s | not reproduced (first 1.34 s; second 1.67 s; launches 960 ms to 1.77 s) | 80 ms / 60 ms | 1220.7 MiB / 1231.9 MiB | n = 10, 10 |
+| canvas-editor + plugin | 53.88 s / 54.72 s | 503.49 s / 507.64 s | 32 ms/s / 29 ms/s | 9253.8 MiB / 9221.4 MiB | n = 10, 10 |
+| Docen | 20.66 s / 21.16 s | 160.65 s / 167.09 s | not reproduced (first 638 ms/s; second 31 ms/s; launches 14 ms/s to 938 ms/s) | not reproduced (first 6956.0 MiB; second 5754.9 MiB; launches 5092.8 MiB to 8062.7 MiB) | n = 10, 10 |
+| Docxodus | 106.25 s / 108.61 s | 60 ms / 50 ms | wait too short to measure (0 and 0 of 10 and 10 launches waited a second or more) | 2039.6 MiB / 2035.1 MiB | n = 10, 10 |
+| eigenpal | 9.60 s / 9.76 s | 230 ms / 225 ms | wait too short to measure (4 and 0 of 10 and 10 launches waited a second or more) | 890.1 MiB / 889.1 MiB | n = 10, 10 |
+| Folio | 7.63 s / 7.64 s | 9.02 s / 9.52 s | 29 ms/s / 30 ms/s | 1273.4 MiB / 1274.6 MiB | n = 10, 10 |
+| GenOffice | 24.93 s / 24.80 s | 51.87 s / 54.55 s | not reproduced (first 395 ms/s; second 327 ms/s; launches 308 ms/s to 568 ms/s) | 1815.7 MiB / 1733.5 MiB | n = 10, 10 |
+| Plate.js | 28.06 s / 28.32 s | 2.19 s / 2.31 s | 15 ms/s / 11 ms/s | 1838.7 MiB / 1811.7 MiB | n = 10, 7 |
+| SuperDoc | 20.61 s / 20.68 s | not reproduced (first 1.34 s; second 1.67 s; launches 960 ms to 1.77 s) | not reproduced (first 38 ms/s; second 28 ms/s; launches 24 ms/s to 46 ms/s) | 1220.7 MiB / 1231.9 MiB | n = 10, 10 |
 | WordCraft | never idle | never idle | never idle | 1073.5 MiB / 1008.8 MiB | n = 10, 10 |
 
 Not published or flagged:
@@ -1287,15 +1287,15 @@ Not published or flagged:
 
 ### Complex document
 
-| Editor | CPU to open | CPU of the edit | CPU settling after the edit | Highest memory reading | Kept launches |
+| Editor | CPU to open | CPU of the edit | CPU per second while settling | Highest memory reading | Kept launches |
 |---|---|---|---|---|---|
-| Docen | 1.83 s / 1.98 s | 690 ms / 745 ms | 40 ms / 35 ms | 703.1 MiB / 698.9 MiB | n = 10, 10 |
-| Docxodus | 5.55 s / 5.72 s | 30 ms / 30 ms | 10 ms / 10 ms | 763.9 MiB / 766.6 MiB | n = 10, 10 |
-| eigenpal | 1.88 s / 2.00 s | 105 ms / 120 ms | not reproduced (first 75 ms; second 30 ms; launches 0 ms to 90 ms) | 629.8 MiB / 630.5 MiB | n = 10, 10 |
-| Folio | 2.45 s / 2.64 s | not reproduced (first 460 ms; second 520 ms; launches 430 ms to 640 ms) | 40 ms / 45 ms | 556.6 MiB / 556.6 MiB | n = 10, 10 |
-| GenOffice | 1.79 s / 1.86 s | not reproduced (first 330 ms; second 380 ms; launches 300 ms to 450 ms) | 20 ms / 10 ms | 596.2 MiB / 597.1 MiB | n = 10, 10 |
-| Plate.js | 1.21 s / 1.29 s | not reproduced (first 420 ms; second 470 ms; launches 390 ms to 550 ms) | 10 ms / 15 ms | 525.9 MiB / 529.4 MiB | n = 10, 10 |
-| SuperDoc | 3.54 s / 3.42 s | 460 ms / 480 ms | 65 ms / 55 ms | 662.6 MiB / 658.2 MiB | n = 10, 10 |
+| Docen | 1.83 s / 1.98 s | 690 ms / 745 ms | 20 ms/s / 23 ms/s | 703.1 MiB / 698.9 MiB | n = 10, 10 |
+| Docxodus | 5.55 s / 5.72 s | 30 ms / 30 ms | wait too short to measure (8 and 0 of 10 and 10 launches waited a second or more) | 763.9 MiB / 766.6 MiB | n = 10, 10 |
+| eigenpal | 1.88 s / 2.00 s | 105 ms / 120 ms | wait too short to measure (8 and 2 of 10 and 10 launches waited a second or more) | 629.8 MiB / 630.5 MiB | n = 10, 10 |
+| Folio | 2.45 s / 2.64 s | not reproduced (first 460 ms; second 520 ms; launches 430 ms to 640 ms) | 20 ms/s / 26 ms/s | 556.6 MiB / 556.6 MiB | n = 10, 10 |
+| GenOffice | 1.79 s / 1.86 s | not reproduced (first 330 ms; second 380 ms; launches 300 ms to 450 ms) | 10 ms/s / 6 ms/s | 596.2 MiB / 597.1 MiB | n = 10, 10 |
+| Plate.js | 1.21 s / 1.29 s | not reproduced (first 420 ms; second 470 ms; launches 390 ms to 550 ms) | 5 ms/s / 8 ms/s | 525.9 MiB / 529.4 MiB | n = 10, 10 |
+| SuperDoc | 3.54 s / 3.42 s | 460 ms / 480 ms | 32 ms/s / 33 ms/s | 662.6 MiB / 658.2 MiB | n = 10, 10 |
 | WordCraft | never idle | never idle | never idle | 902.9 MiB / 964.3 MiB | n = 10, 10 |
 
 Not published or flagged:
@@ -1343,7 +1343,7 @@ Not published or flagged:
     at sr.computeRowList (http://127.0.0.1:59713.
 - WordCraft never went idle: it was still working when the 30-second cap ended, after opening in 10 and 10 of its kept launches and after the edit in 10 and 10. Its three CPU columns are not printed: they would time the cap, not the editor. Up to its ready signal it used 6.47 s / 6.57 s of processor time; in the capped wait that followed, 66.16 s / 69.94 s. Of the capped wait, the browser's GPU process used 61.91 s / 66.64 s and the page's own process 4.04 s / 3.94 s; the page had 133 / 138 long tasks, 12.51 s / 12.61 s in all. Its memory readings ran from 885.7 MiB to 970.2 MiB across the kept launches.
 
-The settling window is not a fixed length: it ends at the first half-second poll at which two seconds have passed without a long task, and the polls themselves cost processor time. Across the 39 cells with a settling figure, the first seed's median is the higher in 27 and the lower in 4. A difference of a few tens of milliseconds in that column cannot be told apart from the window and the 10 ms counter.
+The settling window is not a fixed length: it ends at the first half-second poll at which two seconds have passed without a long task, so it is short when the page was already quiet and long when it was still working. What is timed is the span from the first to the last reading taken during that wait; in these runs it ran from 0.1 s to 5.6 s. The column therefore gives processor time per second of that span (ms/s; 10 ms/s is one percent of one processor), from the launches whose span was a second or more: a shorter one cannot be read with a counter that advances in steps of 10 ms. With fewer than 5 such launches in a seed, the cell says the wait was too short to measure, and gives no figure even when the other seed had enough. The two quiet seconds can begin before the first of these readings, so a span holds some of that quiet time, not always all of it. The figure is an average over the span, working and quiet time together: it is not the rate at which the editor works, and it still depends on how long the span ran. The polls themselves cost processor time, and that is in every figure. Earlier releases printed the total over the window. Across the 39 cells that had one, the first seed's median was the higher in 27 and the lower in 4. The totals are kept in the facts and are not printed.
 
 ### B9 — typing marathon
 

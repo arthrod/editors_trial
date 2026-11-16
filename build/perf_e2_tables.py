@@ -26,6 +26,7 @@ from perf.runner.browser_run import (
 )
 from perf.scenarios.catalog import scenarios
 
+from build.perf_e2_keys import cell_key
 from build.perf_e_tables import DISPLAY, REL_TOL, _SAME_HOST, _pct, reproduced
 
 E2_CRITERIA = [f"C{i:02d}" for i in range(3, 16)] + ["C17", "C19"]
@@ -289,7 +290,7 @@ def _format_median(cell: dict, median: float) -> str:
 
 
 def _cell_text(facts: dict, roots, editor: str, criterion: str, measure: str = '', workload_id: str | None = None, *, word: str = 'run') -> str:
-    key = 'perf.e2.%s.%s' % (editor, criterion) + ('.' + measure if measure else '') + ('.' + workload_id if workload_id else '')
+    key = cell_key(editor, criterion, measure, workload_id)
     facts[key + '.reproduced'] = False
     pooled = e2_cells.read_criterion_cell(roots, editor, criterion, measure=measure, workload_id=workload_id)
     groups = pooled.get('groups') or []
@@ -1241,7 +1242,8 @@ RESOURCES_BLURB = (
     "until the editor is idle, types sixteen characters into a body line on the first screen, and waits "
     "again. CPU is the processor time of the whole browser process tree: to open (from navigation until "
     "idle, including work an editor does after it reports ready), during the edit (the keystrokes plus "
-    "half a second), and while settling afterwards. The memory column is the highest reading of that tree's "
+    "half a second), and while settling afterwards, where it is given per second of the readings taken during that wait, "
+    "because the wait is not a fixed length (the note under the tables says how long they spanned). The memory column is the highest reading of that tree's "
     "resident memory: it is read when the load and the edit start and end and every half second while the "
     "page settles, so a higher moment in the middle of a long load or edit is not seen; a page shared by two "
     "processes counts once for each. An "

@@ -10,6 +10,8 @@ from __future__ import annotations
 import re
 from statistics import median
 
+from build.perf_e2_keys import cell_key
+
 SIZES = (
     ('prose-500w', '500 words'),
     ('prose-5kw', '5,000 words'),
@@ -42,10 +44,6 @@ SECTIONS = (
 
 DASH = '—'
 UNDER = 'under 1 frame'
-
-
-def _key(editor: str, criterion: str, measure: str, workload: str) -> str:
-    return 'perf.e2.%s.%s' % (editor, criterion) + ('.' + measure if measure else '') + '.' + workload
 
 
 _ROUND = re.compile(r'(first|second): not enough samples \(n = (\d+) of (\d+); reasons ([^)]*)\)')
@@ -116,7 +114,7 @@ def fmt(value: float, unit: str, frame: float = 0.0) -> str:
 
 def _cell(facts: dict, key: str, editor: str, criterion: str, measure: str, workload: str):
     """(text, value or None) of one cell; DASH when the cell is not in these runs."""
-    base = _key(editor, criterion, measure, workload)
+    base = cell_key(editor, criterion, measure, workload)
     reproduced = facts.get(base + '.reproduced')
     if reproduced is None:
         return DASH, None
