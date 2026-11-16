@@ -453,6 +453,18 @@ class ReviewPolicy(unittest.TestCase):
         self.assertEqual(row['failure_reason'], 'pixel_edit_region_too_small')
         self.assertIsNone(row['latency_ms'])
 
+    def test_the_smaller_floor_applies_only_with_the_carets_columns_left_out(self):
+        """Docen: a caret move is 38 pixels and its "x" about 30 once the caret's columns are excluded."""
+        columns = [{'x': 596, 'y': 510, 'width': 3, 'height': 49}, {'x': 604, 'y': 510, 'width': 3, 'height': 49}]
+        kept = runner.input_sample_record(
+            self._pixel_observation(settle={'edit_pixels': 30, 'caret_columns_device_px': columns}), 'C05')
+        self.assertEqual(kept['outcome'], 'measured')
+        for settle in ({'edit_pixels': 30}, {'edit_pixels': 38, 'caret_columns_device_px': None},
+                       {'edit_pixels': 38, 'caret_columns_device_px': columns[:1]},
+                       {'edit_pixels': 12, 'caret_columns_device_px': columns}):
+            row = runner.input_sample_record(self._pixel_observation(settle=settle), 'C05')
+            self.assertEqual(row['failure_reason'], 'pixel_edit_region_too_small', settle)
+
     def test_a_pixel_settle_failure_is_the_refusal(self):
         row = runner.input_sample_record(self._pixel_observation(settle={'failure_reason': 'not_settled'}), 'C05')
         self.assertEqual(row['outcome'], 'failed')
@@ -472,6 +484,11 @@ class ReviewPolicy(unittest.TestCase):
         payload = {'pairs': [{'cold': {**observation, 'single_edit_ms': 24, 'burst': [dict(observation)]},
                               'warm': {**observation, 'single_edit_ms': 25, 'burst': [dict(observation)]}}]}
         self.assertIsNone(runner._glyph_geometry_refusal(payload))
+
+    def test_the_floor_is_the_probes(self):
+        text = (Path(runner.__file__).parent / 'pixel_settle.mjs').read_text()
+        self.assertIn('export const PIXEL_EDIT_MIN_PIXELS = %d;' % runner.PIXEL_EDIT_MIN_PIXELS, text)
+        self.assertIn('export const PIXEL_GLYPH_MIN_PIXELS = %d;' % runner.PIXEL_GLYPH_MIN_PIXELS, text)
 
     def test_pixel_refusals_are_filed_as_a_missing_paint_witness(self):
         for reason in ('pixel_edit_region_too_small', 'not_settled', 'no_trusted_keydown_time'):

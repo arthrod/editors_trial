@@ -12,11 +12,12 @@
  *    every tail frame may differ from the last one only at at most
  *    max(|blinkBefore|, 64) pixels outside blinkBefore — a blink is that
  *    small, real content is not — and the tail must span quietMs;
- *  - pixels that toggle INSIDE that quiet tail are "blinkAfter" (the caret
- *    keeps blinking after the edit) and never count as edits either;
+ *  - pixels that toggle INSIDE that tail, changing at least twice, are
+ *    "blinkAfter" (the caret keeps blinking after the edit) and never count
+ *    as edits either; a pixel that changed once is an edit that came late;
  *  - the edit region is where the settled (last) frame differs from the
- *    baseline, minus both blink masks; it must reach minPixels, else the only
- *    change was the caret and the sample refuses;
+ *    baseline, minus both blink masks; it must reach minPixels, else there
+ *    is nothing to witness and the sample refuses;
  *  - the match is the first eligible frame whose every edit-region pixel
  *    already equals the settled frame: the caret's phase cannot delay it.
  *    Where a caret blinks after the edit, no more pixels than that caret has
@@ -32,7 +33,13 @@
  * `region` (device pixels) limits everything to the document: a toolbar that
  * repaints outside it is neither the edit nor a reason not to settle.
  */
+/** The smallest settled edit that is taken for the typed character when the caller cannot say where the
+ * caret is: more than any caret the trial has seen (a move of Docen's is 38 pixels, WordCraft's blinks 44). */
 export const PIXEL_EDIT_MIN_PIXELS = 100;
+/** The floor when the caller has excluded the caret's own columns, so that what is left is the character:
+ * four times the least ink the glyph witness accepts in a glyph's rect (witness.mjs DEFAULT_MIN_PIXELS).
+ * Docen's "x" leaves about 30 pixels. */
+export const PIXEL_GLYPH_MIN_PIXELS = 16;
 
 /** Settle a canvas edit from raw frames.
  * @param {Array<{pageMs:number,pixels:{width:number,height:number,data:(Uint8Array|Buffer)}}>} frames
@@ -43,7 +50,8 @@ export const PIXEL_EDIT_MIN_PIXELS = 100;
  *   time), maxWaitMs 3000, quietMs 300, tolerance 8 (per R/G/B channel,
  *   alpha ignored), minPixels PIXEL_EDIT_MIN_PIXELS, tailMaxMs 1200,
  *   region {x,y,width,height} or null (the whole frame), exclude [] (rects
- *   the harness itself draws in).
+ *   the harness itself draws in), quietUntilMs (the page time up to which
+ *   the harness kept recording after the key press).
  * @returns the failure reason on refusal, else the match and its timings.
  *   match_index and reference_index index the ORIGINAL frames array.
  */
@@ -59,6 +67,7 @@ export function settlePixels(frames, options = {}) {
     tailMaxMs = 1200,
     region = null,
     exclude = [],
+    quietUntilMs = null,
   } = options || {};
   // Step 1: eligible frames, in time order.
   const eligible = frames
@@ -107,54 +116,62 @@ export function settlePixels(frames, options = {}) {
       if (prevIdle) markBefore(prevIdle.data, p.data);
       prevIdle = p;
     }
-    // Step 3: quiet tail. Walk back from the last eligible frame, no further
-    // than tailMaxMs; a frame joins the tail while it differs from the last
-    // frame at at most `allowance` pixels outside blinkBefore. The lowest and
-    // highest value of each channel over the tail tell which pixels toggle.
+    // Step 3: the tail. Walk back from the last eligible frame, no further
+    // than tailMaxMs; a frame is read while it differs from the last frame at
+    // at most `allowance` pixels outside blinkBefore. For each pixel the walk
+    // counts how often its value changed from one frame to the next, and
+    // notes the latest frame in which it still differed from the last one.
     const last = eligible[eligible.length - 1];
     const lastData = read(last);
     const allowance = Math.max(blinkBeforeCount, 64);
-    const lo = new Uint8Array(n * 3), hi = new Uint8Array(n * 3);
-    for (let j = 0; j < n; j++) {
-      lo[j * 3] = hi[j * 3] = lastData[j * 4];
-      lo[j * 3 + 1] = hi[j * 3 + 1] = lastData[j * 4 + 1];
-      lo[j * 3 + 2] = hi[j * 3 + 2] = lastData[j * 4 + 2];
-    }
-    let tailStart = eligible.length - 1;
+    const transitions = new Uint8Array(n);
+    const differedAt = new Int32Array(n).fill(-1);
+    let walked = eligible.length - 1;
+    let newer = lastData;
     for (let i = eligible.length - 2; i >= 0; i--) {
-      if (last.pageMs - eligible[i].pageMs > tailMaxMs && last.pageMs - eligible[tailStart].pageMs >= quietMs) break;
+      if (last.pageMs - eligible[i].pageMs > tailMaxMs && last.pageMs - eligible[walked].pageMs >= quietMs) break;
       const d = read(eligible[i]);
       let outside = 0;
       scan: for (let y = y0; y < y1; y++) for (let j = y * w + x0, end = y * w + x1; j < end; j++) {
         if (!blinkBefore[j] && !eq(d, lastData, j * 4) && ++outside > allowance) break scan;
       }
-      if (outside > allowance) break; // first frame outside the tail ends it
+      if (outside > allowance) break; // a frame this different is not part of the tail
       for (let y = y0; y < y1; y++) for (let j = y * w + x0, end = y * w + x1; j < end; j++) {
-        for (let c = 0; c < 3; c++) {
-          const v = d[j * 4 + c], k = j * 3 + c;
-          if (v < lo[k]) lo[k] = v; else if (v > hi[k]) hi[k] = v;
-        }
+        const o = j * 4;
+        if (!eq(d, newer, o) && transitions[j] < 255) transitions[j]++;
+        if (differedAt[j] < 0 && !eq(d, lastData, o)) differedAt[j] = i;
       }
-      tailStart = i;
+      newer = d;
+      walked = i;
     }
-    const tailFrames = eligible.length - tailStart;
-    if (last.pageMs - eligible[tailStart].pageMs < quietMs)
-      return { failure_reason: 'not_settled', frames_read: eligible.length, tail_frames: tailFrames };
-    // Steps 4 and 5: blinkAfter is what toggles inside the tail; the edit
-    // region is where the settled picture differs from the baseline, outside
-    // both blink masks.
+    // Steps 4 and 5: a blink toggles, so it changes at least twice in the
+    // tail; a pixel that changed once is an edit that arrived late, not a
+    // blink. The edit region is where the settled picture differs from the
+    // baseline, outside both blink masks. The quiet starts after the latest
+    // frame in which a pixel that does not blink still differed from the end.
     const edit = [];
     let blinkAfterCount = 0;
+    let quietFrom = walked;
     let bx0 = w, by0 = h, bx1 = -1, by1 = -1;
     for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
-      const j = y * w + x, k = j * 3;
-      const toggles = hi[k] - lo[k] > tolerance || hi[k + 1] - lo[k + 1] > tolerance || hi[k + 2] - lo[k + 2] > tolerance;
+      const j = y * w + x;
+      const toggles = transitions[j] >= 2;
       if (toggles && blinkBefore[j] !== 2) blinkAfterCount++;
-      if (toggles || blinkBefore[j] || eq(lastData, baseline.data, j * 4)) continue;
+      if (toggles || blinkBefore[j]) continue;
+      if (differedAt[j] >= quietFrom) quietFrom = differedAt[j] + 1;
+      if (eq(lastData, baseline.data, j * 4)) continue;
       edit.push(j);
       if (x < bx0) bx0 = x; if (x > bx1) bx1 = x;
       if (y < by0) by0 = y; if (y > by1) by1 = y;
     }
+    const tailFrames = eligible.length - quietFrom;
+    // The quiet runs from that frame to the last one, or to the moment the
+    // harness stopped waiting when that is later: the screencast sends a
+    // frame when the picture changes, so no frame is no change.
+    const quietEnd = Number.isFinite(quietUntilMs) ? Math.max(last.pageMs, quietUntilMs) : last.pageMs;
+    const quiet = quietEnd - eligible[quietFrom].pageMs;
+    if (quiet < quietMs)
+      return { failure_reason: 'not_settled', frames_read: eligible.length, tail_frames: tailFrames, quiet_ms: quiet };
     // Step 6: a caret-only change never reaches minPixels.
     if (edit.length < minPixels)
       return {
@@ -212,6 +229,7 @@ export function settlePixels(frames, options = {}) {
       blink_after_pixels: blinkAfterCount,
       frames_read: eligible.length,
       tail_frames: tailFrames,
+      quiet_ms: quiet,
       progress,
     };
   } catch (error) {

@@ -76,11 +76,16 @@ function rectDamageVsBaseline(baselinePixels, framePixels, rects, dpr, doc, tole
 }
 
 import { settleFrames } from './b2_settle.mjs';
-import { settlePixels, PIXEL_EDIT_MIN_PIXELS } from './pixel_settle.mjs';
+import { settlePixels, PIXEL_EDIT_MIN_PIXELS, PIXEL_GLYPH_MIN_PIXELS } from './pixel_settle.mjs';
 
 /** #245: half the height, in CSS pixels, of the band around the caret's click point in which the pixel
  * witness looks for the typed character: one line of body text with room for a larger font. */
 const PIXEL_CARET_BAND_CSS_PX = 24;
+/** The least the caret's input must move right on its line for a typed character to lie between its two places. */
+const PIXEL_CARET_MIN_ADVANCE_CSS_PX = 3;
+/** A focused input no larger than this is the editor's keyboard input kept at the caret (Docen 1x1, canvas-editor
+ * 100x30), not a text box laid over the page. */
+const PIXEL_CARET_INPUT_MAX_CSS_PX = {width: 120, height: 72};
 /** The corner of the page the harness's own marks occupy (witness.mjs: an 8x8 anchor, a 4x4 outlined mark). */
 const HARNESS_MARK_CSS_PX = 10;
 import { loadTimeoutMs } from './load_timeout.mjs';
@@ -351,6 +356,17 @@ async function performEdit(page, selector, cdp) {
   }
 }
 
+/** The focused element's box, through shadow roots: a canvas editor keeps its keyboard input at the caret. */
+function readFocusedInput(page) {
+  return page.evaluate(() => {
+    let el = document.activeElement;
+    while (el && el.shadowRoot && el.shadowRoot.activeElement) el = el.shadowRoot.activeElement;
+    if (!el || el === document.body || el === document.documentElement) return null;
+    const r = el.getBoundingClientRect();
+    return {tag: el.tagName, x: r.x, y: r.y, width: r.width, height: r.height};
+  }).catch(() => null);
+}
+
 async function measureEdit(page, selector, cdp) {
   // Focus/actionability and witness calibration are preconditioning, outside
   // the event-to-frame interval. No typing delay is introduced.
@@ -364,13 +380,27 @@ async function measureEdit(page, selector, cdp) {
     if (preEditClick) await page.click(preEditClick, { timeout: 30_000 });
     await page.locator(selector).first().click({ timeout: 30_000 });
   }
-  // #245: where the caret was put. A canvas editor has no text line in the DOM to aim at, so the lane clicks
-  // the middle of the declared surface, which is where Playwright's click lands; the caret is on that line.
-  let caretPoint = lanePrepared?.point && Number.isFinite(lanePrepared.point.y)
-    ? {x: lanePrepared.point.x, y: lanePrepared.point.y, source: 'text_line'} : null;
-  if (modelOrFlagEdit && !caretPoint) {
-    const box = await page.locator(selector).first().boundingBox().catch(() => null);
-    if (box) caretPoint = {x: box.x + box.width / 2, y: box.y + box.height / 2, source: 'centre_of_clicked_surface'};
+  // #245: where the caret is. A canvas editor keeps its own focused input (a textarea a pixel or two wide,
+  // for the keyboard and input methods) at the caret, and that is the caret's line even when the lane moved
+  // the caret after its click (Docen: to the start of the paragraph, 200 pixels above the click). Without
+  // such an input the caret is on the line the lane clicked: its text line, or the middle of the declared
+  // surface, which is where Playwright's click lands.
+  let caretPoint = null;
+  let focusedInput = null;
+  if (modelOrFlagEdit) {
+    const innerSize = page.viewportSize() || {width: Infinity, height: Infinity};
+    focusedInput = await readFocusedInput(page);
+    const caretSized = focusedInput && ['TEXTAREA', 'INPUT'].includes(focusedInput.tag)
+      && focusedInput.width <= PIXEL_CARET_INPUT_MAX_CSS_PX.width && focusedInput.height <= PIXEL_CARET_INPUT_MAX_CSS_PX.height
+      && focusedInput.x >= 0 && focusedInput.y >= 0 && focusedInput.x <= innerSize.width && focusedInput.y <= innerSize.height;
+    if (caretSized) {
+      caretPoint = {x: focusedInput.x, y: focusedInput.y + focusedInput.height / 2, source: 'focused_input'};
+    } else if (lanePrepared?.point && Number.isFinite(lanePrepared.point.y)) {
+      caretPoint = {x: lanePrepared.point.x, y: lanePrepared.point.y, source: 'clicked_text_line'};
+    } else {
+      const box = await page.locator(selector).first().boundingBox().catch(() => null);
+      if (box) caretPoint = {x: box.x + box.width / 2, y: box.y + box.height / 2, source: 'centre_of_clicked_surface'};
+    }
   }
   const skew = await clockSkew(page, cdp);
   const mechanism = 'cdp_screencast_changed_frame';
@@ -606,6 +636,26 @@ async function measureEdit(page, selector, cdp) {
         const bottom = Math.min(documentRect.y + documentRect.height, Math.ceil((point.y + PIXEL_CARET_BAND_CSS_PX) * dpr));
         witnessRect = {x: documentRect.x, y: top, width: documentRect.width, height: Math.max(0, bottom - top)};
       }
+      // The caret is not the character. A caret that blinks is masked by its blinking. One that does not
+      // (Docen) moves a frame before the character is drawn: 38 pixels, two columns. Where the editor's
+      // input moved right on its line with the key, its place before and after gives both columns, and they
+      // are left out, so that what is witnessed is what was drawn between and beyond them; the floor is then
+      // the glyph's. Where it did not, nothing says where the caret is, and the larger floor applies: more
+      // than any caret, so a caret move alone is refused.
+      let caretColumns = null;
+      let focusedAfter = null;
+      if (point?.source === 'focused_input' && witnessRect) {
+        focusedAfter = await readFocusedInput(page);
+        const followed = focusedAfter && focusedAfter.tag === focusedInput.tag
+          && Math.abs(focusedAfter.y - focusedInput.y) < 1
+          && focusedAfter.x - focusedInput.x >= PIXEL_CARET_MIN_ADVANCE_CSS_PX;
+        if (followed) {
+          caretColumns = [focusedInput.x, focusedAfter.x].map(x => ({
+            x: Math.floor(x * dpr) - 1, y: witnessRect.y, width: 3, height: witnessRect.height,
+          }));
+        }
+      }
+      const minPixels = caretColumns ? PIXEL_GLYPH_MIN_PIXELS : PIXEL_EDIT_MIN_PIXELS;
       // Every frame recorded from the key press on. A slow editor's edit lands after the settle window
       // (Docen at 250,000 words: seconds); the page was unresponsive meanwhile, the recorder was not, and
       // the settled picture is whatever the frames show once they are quiet.
@@ -623,20 +673,25 @@ async function measureEdit(page, selector, cdp) {
       const settled = settlePixels(candidates, {
         baseline: decodePng(Buffer.from(baseline.frame.data, 'base64')),
         markerMs, maxWaitMs: Infinity, quietMs: quiescenceMs,
-        tolerance: DEFAULT_CHANNEL_TOLERANCE, minPixels: PIXEL_EDIT_MIN_PIXELS,
+        // arm() waited settleMaxWaitMs after the key press before it returned; the recorder ran throughout.
+        quietUntilMs: markerMs + settleMaxWaitMs,
+        tolerance: DEFAULT_CHANNEL_TOLERANCE, minPixels,
         region: witnessRect,
         // The clock check's 8x8 anchor and the baseline's 4x4 mark sit at the page's top-left corner.
-        exclude: [{x: 0, y: 0, width: Math.ceil(HARNESS_MARK_CSS_PX * dpr), height: Math.ceil(HARNESS_MARK_CSS_PX * dpr)}],
+        exclude: [{x: 0, y: 0, width: Math.ceil(HARNESS_MARK_CSS_PX * dpr), height: Math.ceil(HARNESS_MARK_CSS_PX * dpr)},
+          ...(caretColumns || [])],
       });
       const {match_index, reference_index, ...evidence} = settled;
       confirmation.pixel_settle = {
-        ...evidence, marker_page_ms: markerMs, min_pixels: PIXEL_EDIT_MIN_PIXELS,
+        ...evidence, marker_page_ms: markerMs, min_pixels: minPixels,
+        caret_columns_device_px: caretColumns, focused_input_after_css_px: focusedAfter,
         baseline_seq: baseline.frame.seq,
         witness_seq: Number.isInteger(match_index) ? candidates[match_index].seq : null,
         settled_seq: Number.isInteger(reference_index) ? candidates[reference_index].seq : null,
         first_changed_frame_page_ms: frame.frame_page_ms,
         document_rect_device_px: documentRect, witness_rect_device_px: witnessRect,
         caret_point_css_px: point ? {x: point.x, y: point.y} : null, caret_point_source: point ? point.source : null,
+        focused_input_css_px: focusedInput,
         excluded_harness_mark_css_px: HARNESS_MARK_CSS_PX,
         caret_band_css_px: point ? PIXEL_CARET_BAND_CSS_PX : null,
         last_frame_page_ms: candidates.length ? Math.max(...candidates.map(c => c.pageMs)) : null,

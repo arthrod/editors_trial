@@ -620,6 +620,8 @@ NO_GLYPH_GEOMETRY_REASON = "no_glyph_geometry_to_witness_the_keystrokes_own_pain
 #: (pixel_settle.mjs holds the same number).
 PIXEL_WITNESS_KIND = "settled_pixels"
 PIXEL_EDIT_MIN_PIXELS = 100
+#: The floor when the probe left the caret's own two columns out, so that what is counted is the character.
+PIXEL_GLYPH_MIN_PIXELS = 16
 
 
 def _glyph_geometry_under_content_refusal(editor_id: str, payload: dict) -> dict | None:
@@ -808,14 +810,17 @@ def input_sample_record(observation, criterion_id):
         if adapter_kind in ('model', 'flag', 'text_count') and isinstance(settle, dict):
             # #245: the probe settled the edit from pixels. The sample is kept
             # only when that settled, on an edit region of at least
-            # PIXEL_EDIT_MIN_PIXELS, and the edit was confirmed: by the model
+            # the floor (smaller when the caret's columns were left out), and the edit was confirmed: by the model
             # adapter, or for a flag editor by the arm's text count. A raised
             # flag alone confirms no single key.
             pixels_seen = settle.get('edit_pixels')
+            columns = settle.get('caret_columns_device_px')
+            floor = (PIXEL_GLYPH_MIN_PIXELS if isinstance(columns, list) and len(columns) == 2
+                     else PIXEL_EDIT_MIN_PIXELS)
             if settle.get('failure_reason'):
                 reason = str(settle['failure_reason'])
             elif (isinstance(pixels_seen, bool) or not isinstance(pixels_seen, (int, float))
-                    or not math.isfinite(pixels_seen) or pixels_seen < PIXEL_EDIT_MIN_PIXELS):
+                    or not math.isfinite(pixels_seen) or pixels_seen < floor):
                 reason = 'pixel_edit_region_too_small'
             elif adapter_kind == 'flag' or proof.get('pending_arm_text_count') or not adapter_confirmed:
                 reason = 'expected_edit_not_confirmed'
