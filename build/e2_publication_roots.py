@@ -17,7 +17,9 @@ after the first round, whole jobs for every editor (`late_superseded`,
 #192), and the runs that measured them again (`late_rerun`); and a lane
 round: every job of a lane measured again for every editor after a harness
 bug that touched them all (`lane_superseded`, `lane_rerun`, #208), which
-replaces whatever round measured those jobs last. The editor
+replaces whatever round measured those jobs last; and a witness round: some
+editors' cells of a lane's jobs measured again after every other round, the
+host round included (`witness_superseded`, `witness_rerun`, #245). The editor
 round's old jobs stay linked for every other
 editor; `report_e2_runs.json` lists the superseded cells
 (`superseded_cells`) and `build/facts.py` reads around them. This script walks a local mirror
@@ -96,6 +98,15 @@ def host_superseded_jobs(manifest: dict) -> set[int]:
 
 def _host_entries(manifest: dict) -> list[tuple[str, dict]]:
     return [(space, entry) for space, entries in sorted(manifest.get("host_rerun", {}).items()) for entry in entries]
+
+
+def _witness_entries(manifest: dict) -> list[tuple[str, dict]]:
+    return [(space, entry) for space, entries in sorted(manifest.get("witness_rerun", {}).items())
+            for entry in entries]
+
+
+def _witness_issues(manifest: dict) -> dict:
+    return manifest.get("witness_superseded", {}).get("issues", {})
 
 
 #: Every round a lane round may replace, in the order they were measured.
@@ -328,12 +339,143 @@ def editor_superseded(manifest: dict) -> dict[str, set[int]]:
 def superseded_cells(manifest: dict) -> list[dict]:
     """The editor-scoped supersedes `build/facts.py` reads around (#185)."""
     # A lane round (#208) measured every editor again: its runs are kept for every editor.
-    kept = sorted(entry["run_id"] for key in ("editor_rerun", "lane_rerun", "host_rerun")
+    # ... and a witness round (#245) measured its editors after all of them: an older entry keeps its runs too.
+    kept = sorted(entry["run_id"] for key in ("editor_rerun", "lane_rerun", "host_rerun", "witness_rerun")
                   for entries in manifest.get(key, {}).values() for entry in entries)
-    return [
+    cells = [
         {"issue": number, "editor": issue["editor"], "jobs": sorted(issue["jobs"]), "kept_runs": kept}
         for number, issue in sorted(manifest.get("editor_superseded", {}).get("issues", {}).items())
     ]
+    # A witness round's own entries keep its own runs only: every earlier measurement of those editors'
+    # cells of those jobs, an editor round's and the host round's included, is left unread.
+    for number, issue in sorted(_witness_issues(manifest).items()):
+        own = sorted(entry["run_id"] for _, entry in _witness_entries(manifest) if str(entry.get("issue")) == number)
+        cells += [{"issue": number, "editor": editor, "jobs": sorted(issue["jobs"]), "kept_runs": own}
+                  for editor in sorted(issue.get("editors") or [])]
+    return cells
+
+
+def _check_witness_round(data: Path, manifest: dict, complete: bool, errors: list[str]) -> None:
+    """A witness round (#245) measures its issue's editors, and only them, once for each job of the issue,
+    after every other round that measured those jobs; each of its jobs has the lane, seed and block of
+    the jobs whose cells it replaces."""
+    issues = _witness_issues(manifest)
+    entries = _witness_entries(manifest)
+    if not issues and not entries:
+        return
+    if entries and not manifest.get("harness", {}).get("witness_rerun"):
+        errors.append("the manifest's witness round names no harness commit (harness.witness_rerun)")
+    for number, issue in sorted(issues.items()):
+        if not str(number).isdigit():
+            errors.append(f"witness_superseded issue {number!r} is not an issue number")
+        if issue.get("lane") not in EDITOR_ROUND_LANES:
+            errors.append(f"witness_superseded issue {number}: lane {issue.get('lane')!r} is not one of "
+                          f"{list(EDITOR_ROUND_LANES)}")
+        editors = issue.get("editors")
+        if not (isinstance(editors, list) and editors and all(isinstance(e, str) and e for e in editors)
+                and len(set(editors)) == len(editors)):
+            errors.append(f"witness_superseded issue {number}: editors {editors!r} is not a list of editor ids")
+        if len(set(issue["jobs"])) != len(issue["jobs"]):
+            errors.append(f"witness_superseded issue {number} lists a job twice")
+    claimed: dict[tuple[str, int], str] = {}
+    for number, issue in sorted(issues.items()):
+        for editor in issue.get("editors") or []:
+            for index in issue["jobs"]:
+                if (editor, index) in claimed:
+                    errors.append(f"witness_superseded issues {claimed[(editor, index)]} and {number} both claim "
+                                  f"{editor}'s cells of job {index}")
+                claimed[(editor, index)] = number
+    measured: dict[str, list[int]] = {}
+    witness_run: dict[int, list[str]] = {}
+    for space, entry in entries:
+        number = str(entry.get("issue"))
+        if number not in issues:
+            errors.append(f"witness-round entry {space}/{entry['run_id']} names no witness_superseded issue "
+                          f"({entry.get('issue')!r})")
+            continue
+        if entry.get("stopped"):
+            errors.append(f"witness-round entry {space}/{entry['run_id']} lists stopped jobs: a witness round "
+                          f"does not stop jobs")
+        if sorted(entry.get("editors") or []) != sorted(issues[number].get("editors") or []):
+            errors.append(f"witness-round entry {space}/{entry['run_id']} names editors "
+                          f"{sorted(entry.get('editors') or [])}; its issue names "
+                          f"{sorted(issues[number].get('editors') or [])}")
+        measured.setdefault(number, []).extend(entry["jobs"])
+        for index in entry["jobs"]:
+            witness_run.setdefault(index, []).append(entry["run_id"])
+    for number, issue in sorted(issues.items()):
+        if sorted(measured.get(number, [])) != sorted(issue["jobs"]):
+            errors.append(f"witness_superseded issue {number} jobs {sorted(issue['jobs'])} are not measured again "
+                          f"exactly once by witness-round jobs {sorted(measured.get(number, []))}")
+    # Linked after every other round and read in their place for its editors: each of those must be older.
+    # Run ids start with their UTC launch time.
+    def older(run_id: str, index: int, what: str) -> None:
+        for new in witness_run.get(index, []):
+            if not run_id < new:
+                errors.append(f"witness-round run {new} of job {index} was launched before {what}, whose cells "
+                              f"it replaces")
+    for key in EARLIER_ROUND_KEYS + ("lane_rerun", "host_rerun"):
+        for space, space_entries in sorted(manifest.get(key, {}).items()):
+            for entry in space_entries:
+                for index in entry["jobs"]:
+                    older(entry["run_id"], index, f"{key} run {space}/{entry['run_id']}")
+    wanted = set(witness_run)
+    earlier = _earlier_jobs(data, manifest, wanted)
+    for key in ("lane_rerun", "host_rerun"):
+        for space, space_entries in sorted(manifest.get(key, {}).items()):
+            for entry in space_entries:
+                run_dir = data / space / "runs" / entry["run_id"]
+                if not run_dir.is_dir():
+                    continue
+                for lane, job, index in run_jobs(run_dir, entry["run_id"]):
+                    if index in wanted and index in entry["jobs"] and (job / "JOB-DONE").exists():
+                        earlier.setdefault(index, []).append((lane, job))
+    for index, jobs in sorted(earlier.items()):
+        for _lane, old in jobs:
+            older(old.name.rsplit("-", 1)[0], index, f"job {old.name}")
+    for space, entry in entries:
+        number = str(entry.get("issue"))
+        if number not in issues:
+            continue
+        issue = issues[number]
+        run_dir = data / space / "runs" / entry["run_id"]
+        if not run_dir.is_dir():
+            continue
+        for lane, job, index in run_jobs(run_dir, entry["run_id"]):
+            if index not in entry["jobs"] or not (job / "JOB-DONE").exists():
+                continue
+            if lane != issue.get("lane"):
+                errors.append(f"witness-round job {job.name} is in lane {lane}; its issue names lane "
+                              f"{issue.get('lane')}")
+            summary = _summary_of(job)
+            if summary is None:
+                errors.append(f"witness-round job {job.name} has no readable summary.json")
+                continue
+            scheduled = sorted(_scheduled_editors(summary))
+            if scheduled != sorted(issue.get("editors") or []):
+                errors.append(f"witness-round job {job.name} schedules {scheduled}; its issue names "
+                              f"{sorted(issue.get('editors') or [])}")
+            before = [(old_lane, old) for old_lane, old in earlier.get(index, [])]
+            if not before:
+                if complete:
+                    errors.append(f"witness-round job {job.name} replaces no earlier job with index {index}")
+                continue
+            compared = 0
+            for old_lane, old in before:
+                if old_lane != issue.get("lane"):
+                    errors.append(f"witness-round job {job.name} replaces cells of {old.name} of lane {old_lane}; "
+                                  f"its issue names lane {issue.get('lane')}")
+                value = _summary_of(old)
+                if value is None:
+                    continue
+                compared += 1
+                for key in ("seed", "block"):
+                    if summary.get(key) != value.get(key):
+                        errors.append(f"witness-round job {job.name} has {key} {summary.get(key)!r}; a job whose "
+                                      f"cells it replaces, {old.name}, has {value.get(key)!r}")
+            if not compared:
+                errors.append(f"witness-round job {job.name}: none of the jobs whose cells it replaces has a "
+                              f"readable summary.json to compare seeds with")
 
 
 def _check_editor_round(manifest: dict, errors: list[str]) -> None:
@@ -636,7 +778,8 @@ def _check_extension(data: Path, manifest: dict, errors: list[str]) -> None:
         errors.append(f"extension jobs {reused} reuse campaign job indexes; an extension adds new jobs only")
 
 
-ROUND_KEYS = ("rerun", "rerun2", "rerun3", "editor_rerun", "extension", "late_rerun", "lane_rerun", "host_rerun")
+ROUND_KEYS = ("rerun", "rerun2", "rerun3", "editor_rerun", "extension", "late_rerun", "lane_rerun", "host_rerun",
+              "witness_rerun")
 
 
 def _check_stopped(manifest: dict, errors: list[str]) -> None:
@@ -787,6 +930,13 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
                              "jobs": len(issue["jobs"])}
                             for number, issue in sorted(manifest.get("host_superseded", {}).get("issues", {}).items())],
         })
+    if manifest.get("witness_superseded") or manifest.get("witness_rerun"):
+        campaign.update({
+            "witness_rerun_kept": 0, "witness_rerun_unsealed": 0,
+            "witness_rounds": [{"issue": str(number), "lane": issue.get("lane"),
+                                "editors": sorted(issue.get("editors") or []), "jobs": len(issue["jobs"])}
+                               for number, issue in sorted(_witness_issues(manifest).items())],
+        })
     roots: list[str] = []
     errors: list[str] = []
     first_pass_indices: set[int] = set()
@@ -851,6 +1001,21 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
     for space in sorted(manifest.get("host_rerun", {})):
         _link_round(data, roots_dir, space, manifest["host_rerun"][space], "host_rerun", set(),
                     campaign, roots, errors)
+    # The witness round (#245): after the host round too; it replaces only its editors' cells (the reader
+    # leaves the earlier ones unread), so nothing is dropped from the links for it.
+    for space in sorted(manifest.get("witness_rerun", {})):
+        _link_round(data, roots_dir, space, manifest["witness_rerun"][space], "witness_rerun", set(),
+                    campaign, roots, errors)
+    for entry in campaign.get("witness_rounds", []):
+        kept: set[int] = set()
+        for space, witness in _witness_entries(manifest):
+            if str(witness.get("issue")) != entry["issue"]:
+                continue
+            for path in (roots_dir / f"{space}--{witness['run_id']}").glob("*/*"):
+                tail = path.name.rsplit("-", 1)[-1]
+                if tail.isdigit():
+                    kept.add(int(tail))
+        entry["kept"] = len(kept)
     # What each host round's sentence states: the jobs of its issue the tables read (reviews: GLM, MiniMax).
     host_kept: set[int] = set()
     for space, entry in _host_entries(manifest):
@@ -881,6 +1046,7 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
     _check_late_round(manifest, errors)
     _check_lane_round(data, manifest, not campaign["missing_runs"], errors)
     _check_host_round(data, manifest, not campaign["missing_runs"], errors)
+    _check_witness_round(data, manifest, not campaign["missing_runs"], errors)
     # A late round retires first-pass jobs (octo review): an index no first-pass run carries would link a
     # job that replaces nothing. Only decidable when every first-pass run is mirrored.
     stray_late = sorted(late_superseded_jobs(manifest) - first_pass_indices)
@@ -934,7 +1100,7 @@ def main(argv: list[str] | None = None) -> int:
     campaign["partial"] = args.partial and bool(campaign["missing_runs"])
     args.roots_dir.mkdir(parents=True, exist_ok=True)
     payload = {"roots": roots, "campaign": campaign}
-    if manifest.get("editor_superseded"):
+    if manifest.get("editor_superseded") or manifest.get("witness_superseded"):
         payload["superseded_cells"] = superseded_cells(manifest)
     (args.roots_dir / "report_e2_runs.json").write_text(json.dumps(payload, indent=1) + "\n")
     print(json.dumps(campaign))

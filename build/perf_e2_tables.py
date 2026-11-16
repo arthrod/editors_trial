@@ -939,6 +939,33 @@ HOST_ROUND_REASONS = {
 }
 
 
+#: Why a witness round ran, by issue.
+WITNESS_ROUND_REASONS = {
+    "245": "the harness could not time a key press in an editor that draws its text on a canvas, where no "
+           "character outline can be read, and it now reads the settled picture of the edit",
+}
+
+
+def _witness_round_text(campaign: dict) -> str:
+    """A witness round (#245): some editors' cells of a lane's jobs measured again after every other round."""
+    text = ""
+    for entry in campaign.get("witness_rounds") or []:
+        names = [{"canvas": "canvas-editor"}.get(editor, E2_DISPLAY.get(editor, editor)) + "'s"
+                 for editor in entry["editors"]]
+        owners = names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
+        jobs, kept = entry["jobs"], entry.get("kept", entry["jobs"])
+        reason = WITNESS_ROUND_REASONS.get(str(entry["issue"]))
+        read = "them" if kept == jobs else "%d of them" % kept
+        text += (
+            " In a witness round, %s cells of the %d jobs of the %s lane were measured again (issue #%s)%s. Those "
+            "runs measured those editors alone, under the same job indices and seeds; the tables read %s for "
+            "those editors, every earlier measurement of those cells is replaced, a host round's included, and "
+            "the other editors of those jobs stay as measured."
+            % (owners, jobs, LANE_NAMES.get(entry["lane"], entry["lane"]), entry["issue"],
+               ": " + reason if reason else "", read))
+    return text
+
+
 def _host_round_text(campaign: dict) -> str:
     """A host round (#228): a few jobs measured again for every editor because of the host, not the harness."""
     text = ""
@@ -1063,9 +1090,11 @@ def reruns_text(campaign: dict | None) -> str:
             % (late, campaign.get("late_rerun_kept") or 0))
     text += _lane_round_text(campaign)
     text += _host_round_text(campaign)
+    text += _witness_round_text(campaign)
     unsealed = sum(campaign.get(key) or 0 for key in
                    ("first_pass_unsealed", "rerun_unsealed", "rerun2_unsealed", "rerun3_unsealed",
-                    "editor_rerun_unsealed", "late_rerun_unsealed", "lane_rerun_unsealed", "host_rerun_unsealed"))
+                    "editor_rerun_unsealed", "late_rerun_unsealed", "lane_rerun_unsealed", "host_rerun_unsealed",
+                    "witness_rerun_unsealed"))
     missing = len(campaign.get("missing_runs") or [])
     stopped = campaign.get("editor_rerun_stopped") or 0
     if stopped:  # 14 Nov rebalancing: a job cut off when its work moved to another Space
