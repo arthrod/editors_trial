@@ -9,6 +9,8 @@ import shlex
 import signal
 import subprocess
 import sys
+from perf.runner import host_load
+
 from . import artifacts
 from .policy import RUNNERS, job_editors, narrow_job_editors, publication_jobs, shakedown_options, verify_run, cell_counts, verify_profiles
 
@@ -380,7 +382,19 @@ def main(argv: list[str] | None = None):
             records.append(entry)
             job_exit = 0
             try:
-                if refuse_existing(directory):
+                # #228: the host check above ran once; the shared host can be busy hours later.
+                entry['host_load'] = host_load.guard()
+                print('host_load ' + json.dumps(entry['host_load'], sort_keys=True), flush=True)
+                entry['started'] = bool(entry['host_load']['quiet'])
+                if not entry['started']:
+                    # Not started, and said so three ways: the flag, the exit code and the
+                    # failure line in RUN-DONE. Nothing re-runs it here: whoever launched the
+                    # run reads RUN-DONE and schedules the job again.
+                    job_exit = 2
+                    entry['exit_code'] = job_exit
+                    entry['refusal'] = host_load.refusal(entry['host_load'])
+                    failures.append(f'{name}/{run_id}: {entry["refusal"]}')
+                elif refuse_existing(directory):
                     job_exit = 2
                     entry['refusal'] = f'job_refused: directory exists: {directory}'
                     failures.append(f'{name}: {entry["refusal"]}')
