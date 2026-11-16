@@ -9,6 +9,40 @@ re-running the measurement behind it. The format follows
 
 ## [Unreleased]
 
+## [0.10.2] - 2026-11-15
+
+Report E2's settling column becomes a rate. No measurement was taken for
+this release: every figure comes from the runs of 0.10.0.
+
+### Updated
+
+- No editor pin moved, for the reason given under 0.10.1: this release
+  changes how the 0.10.0 measurements are read.
+
+### Measured
+
+- Nothing new. The facts are rebuilt from the same runs.
+
+### Changed
+
+- **B8, "CPU settling after the edit" is now "CPU per second while
+  settling"** (#226). The wait it covers ends at the first half-second poll
+  at which two seconds have passed without a long task; in these runs it
+  ran from 0.1 s to 5.6 s, so a total over it followed the wait and not the
+  editor (the first seed's total was the higher in 27 of 39 cells). Each
+  launch's processor time is now divided by the wait that launch sampled,
+  read from the samples already in each launch's record. A launch counts
+  when it waited a second or more, and a seed needs five such launches.
+  Of the 44 cells: 24 give a rate, 4 did not reproduce (Docen at 50,000 and
+  250,000 words, GenOffice and SuperDoc at 250,000), 11 settled too quickly
+  to measure, 5 are WordCraft's, which never went idle. As totals, 37 had
+  printed a figure. The totals stay in `out/facts.json`.
+
+### Not re-measured
+
+- Everything. The busy-host jobs of #228 are still disclosed, not measured
+  again.
+
 ## [0.10.1] - 2026-11-15
 
 Report E2 gets a short version a person can read, and its resources tables

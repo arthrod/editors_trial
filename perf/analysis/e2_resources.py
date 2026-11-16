@@ -243,7 +243,7 @@ def read_cell(roots, editor: str, workload: str) -> dict:
         'never_idle': [group['never_idle'] for group in ordered],
         'capped': {phase: [group['capped'][phase] for group in ordered] for phase in ('after_load', 'after_edit')},
         'never_idle_phases': [], 'never_idle_figures': {}, 'never_idle_split': {},
-        'editor_errors': dict(errors), 'measures': {},
+        'editor_errors': dict(errors), 'measures': {}, 'settle_rate': {},
     }
     cell['reason'] = _block(seeds, ordered)
     if cell['reason']:
@@ -284,6 +284,7 @@ def read_cell(roots, editor: str, workload: str) -> dict:
             cell['measures'][key] = {'medians': None, 'reproduced': False, 'unit': unit, 'never_idle': True}
             continue
         cell['measures'][key] = measure(fields, unit)
+    cell['settle_rate'] = ({'never_idle': True} if 'after_edit' in cell['never_idle_phases'] else _settle_rate(ordered))
     return cell
 
 
@@ -337,6 +338,59 @@ def _capped_wait_split(ordered, agree) -> dict:
     return split
 
 
+# #226: the settling column as a rate. The settle window ends at the first
+# half-second poll at which two seconds have passed without a long task, so it
+# is a fifth of a second in one launch and five seconds in another; a total
+# over it follows the window. A launch counts when it waited at least this
+# long: below it, 10 ms counter steps over the window say nothing.
+SETTLE_RATE_KEY = 'edit_settle_cpu_rate'
+SETTLE_RATE_MIN_WINDOW_S = 1.0
+
+
+def _settle_window(path: Path):
+    """(processor ms, seconds) between a launch's first and last settle sample; None when not recorded.
+
+    Read from the launch file itself, outside the shared cache: the sample
+    series is large and only this column needs it.
+    """
+    try:
+        series = json.loads(path.read_text()).get('series') or []
+    except (OSError, ValueError):
+        return None
+    rows = [row for row in series if isinstance(row, dict) and row.get('phase') == 'quiescence']
+    if len(rows) < 2 or not all(_number(row.get('cpu_ms')) and _number(row.get('monotonic_s')) for row in rows):
+        return None
+    cpu, window = rows[-1]['cpu_ms'] - rows[0]['cpu_ms'], rows[-1]['monotonic_s'] - rows[0]['monotonic_s']
+    return (cpu, window) if cpu >= 0 and window > 0 else None
+
+
+def _settle_rate(ordered) -> dict:
+    """Seed medians of processor ms per second of settle window, over the launches that waited long enough.
+
+    `reason` is set and no figure given when a kept launch has no sample
+    series ('window not recorded') or a seed has fewer than
+    PUBLICATION_MIN_KEPT launches with a window of SETTLE_RATE_MIN_WINDOW_S
+    ('window too short'). The absolute tolerance is the CPU counter's 20 ms
+    over the median counted window: the same resolution, as a rate.
+    """
+    launches = [[_settle_window(path) for path in group['kept_paths']] for group in ordered]
+    if any(launch is None for group in launches for launch in group) or not all(launches):
+        return {'reason': 'window not recorded'}
+    windows = [window for group in launches for _cpu, window in group]
+    counted = [[(cpu, window) for cpu, window in group if window >= SETTLE_RATE_MIN_WINDOW_S] for group in launches]
+    out = {'reason': None, 'counted': [len(group) for group in counted],
+           'window_s': [round(min(windows), 2), round(max(windows), 2)]}
+    if min(out['counted']) < PUBLICATION_MIN_KEPT:
+        return {**out, 'reason': 'window too short'}
+    # A tenth of a ms/s is finer than the counter can resolve; it only keeps the stored figures stable.
+    rates = [[round(cpu / window, 1) for cpu, window in group] for group in counted]
+    medians = [cells.percentile(group, 50) for group in rates]
+    typical = cells.percentile([window for group in counted for _cpu, window in group], 50)
+    reproduced = abs(medians[0] - medians[1]) <= max(CPU_ABS_TOL_MS / typical, REL_TOL * max(medians))
+    flat = [rate for group in rates for rate in group]
+    return {**out, 'seed_medians': medians, 'reproduced': reproduced, 'launch_range': [min(flat), max(flat)]}
+
+
 def _block(seeds, groups) -> str | None:
     if not groups:
         return 'not in these runs'
@@ -363,6 +417,8 @@ def _block(seeds, groups) -> str | None:
 
 
 def fmt(value, unit: str) -> str:
+    if unit == 'ms/s':
+        return '%d ms/s' % round(value)
     if unit == 'ms':
         return '%.2f s' % (value / 1000) if value >= 1000 else '%d ms' % round(value)
     return '%.1f MiB' % (value / 2 ** 20)
@@ -414,15 +470,52 @@ def _never_idle_note(name: str, cell: dict) -> str:
 
 
 def settle_window_note(facts: dict) -> str:
-    """What the settling column can and cannot carry (#226)."""
-    cells_, higher, lower = (facts.get('perf.e2.B8.settle_' + key, 0) for key in ('cells', 'first_higher', 'first_lower'))
+    """What the settling column carries, and why it is a rate (#226)."""
+    get = lambda key, default=0: facts.get('perf.e2.B8.settle_' + key, default)  # noqa: E731 - a local shorthand
     text = ('The settling window is not a fixed length: it ends at the first half-second poll at which two seconds '
-            'have passed without a long task, and the polls themselves cost processor time.')
-    if not cells_:
+            'have passed without a long task, so it is short when the page was already quiet and long when it was '
+            'still working.')
+    if get('window_min_s', None) is None:
         return text
-    return text + (" Across the %d cells with a settling figure, the first seed's median is the higher in %d and the "
-                   'lower in %d. A difference of a few tens of milliseconds in that column cannot be told apart from '
-                   'the window and the 10 ms counter.' % (cells_, higher, lower))
+    text += (' In these runs it ran from %.1f s to %.1f s. The column therefore gives processor time per second of '
+             'that window (ms/s; 10 ms/s is one percent of one processor), from the launches that waited a second '
+             'or more: a shorter window cannot be read with a counter that advances in steps of 10 ms. With fewer '
+             'than %d such launches in a seed, the cell says the editor settled too quickly to measure. The polls '
+             'themselves cost processor time, and that is in every figure.'
+             % (get('window_min_s'), get('window_max_s'), PUBLICATION_MIN_KEPT))
+    if get('cells'):
+        text += (' The total over the window, which earlier releases printed, follows the window: across the %d '
+                 "cells that had one, the first seed's median was the higher in %d and the lower in %d. The totals "
+                 'are kept in the facts and are not printed.' % (get('cells'), get('first_higher'), get('first_lower')))
+    return text
+
+
+SETTLE_RATE_LABEL = 'CPU per second while settling'
+
+
+def _settle_rate_text(facts: dict, prefix: str, cell: dict) -> str:
+    """The settling cell, and its facts: a rate, or the reason there is none (#226)."""
+    rate, base = cell['settle_rate'], '%s.%s.' % (prefix, SETTLE_RATE_KEY)
+    for key in ('reason', 'counted', 'window_s', 'seed_medians', 'reproduced', 'launch_range'):
+        if rate.get(key) is not None:
+            facts[base + key] = rate[key]
+    if rate.get('window_s'):
+        low, high = rate['window_s']
+        facts['perf.e2.B8.settle_window_min_s'] = min(low, facts.get('perf.e2.B8.settle_window_min_s', low))
+        facts['perf.e2.B8.settle_window_max_s'] = max(high, facts.get('perf.e2.B8.settle_window_max_s', high))
+    if rate.get('reason') == 'window not recorded':
+        return 'window not recorded'
+    if rate.get('reason') == 'window too short':
+        facts['perf.e2.B8.settle_rate_too_short'] = facts.get('perf.e2.B8.settle_rate_too_short', 0) + 1
+        return 'settled too quickly to measure (%d and %d of %d and %d launches waited a second or more)' % (
+            *rate['counted'], *cell['kept'])
+    facts['perf.e2.B8.settle_rate_cells'] = facts.get('perf.e2.B8.settle_rate_cells', 0) + 1
+    if rate['reproduced']:
+        facts[base + 'medians'] = rate['seed_medians']
+        return ' / '.join(fmt(median, 'ms/s') for median in rate['seed_medians'])
+    return 'not reproduced (first %s; second %s; launches %s to %s)' % (
+        *(fmt(median, 'ms/s') for median in rate['seed_medians']),
+        *(fmt(value, 'ms/s') for value in rate['launch_range']))
 
 
 def resources_tables(facts: dict, roots, editors, display) -> str:
@@ -468,6 +561,9 @@ def resources_tables(facts: dict, roots, editors, display) -> str:
                     facts['perf.e2.B8.settle_first_lower'] = facts.get('perf.e2.B8.settle_first_lower', 0) + (first < second)
                 if measure['reproduced']:
                     facts['%s.%s.medians' % (prefix, key)] = measure['medians']
+                if key == 'edit_settle_cpu_ms':
+                    texts.append(_settle_rate_text(facts, prefix, cell))
+                elif measure['reproduced']:
                     texts.append(' / '.join(fmt(median, measure['unit']) for median in measure['medians']))
                 else:
                     unit = measure['unit']
@@ -481,7 +577,8 @@ def resources_tables(facts: dict, roots, editors, display) -> str:
             continue
         head = ['### %s' % title, '']
         if rows:
-            head += ['| Editor | ' + ' | '.join(labels[key] for key in TABLE_MEASURES) + ' | Kept launches |',
+            head += ['| Editor | ' + ' | '.join(SETTLE_RATE_LABEL if key == 'edit_settle_cpu_ms' else labels[key]
+                                                for key in TABLE_MEASURES) + ' | Kept launches |',
                      '|---' * (len(TABLE_MEASURES) + 2) + '|', *rows, '']
         if notes:
             head += ['Not published or flagged:', '', *notes, '']

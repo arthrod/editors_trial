@@ -154,7 +154,7 @@ def test_table_names_refusals_and_never_prints_a_blocked_median(tmp_path):
     facts = {}
     text = res.resources_tables(facts, [tmp_path], ['plate', 'canvas'], {'plate': 'Plate', 'canvas': 'canvas-editor'})
     assert '### 250,000 words' in text
-    assert '| Plate | 1.20 s / 1.20 s | 300 ms / 300 ms | 50 ms / 50 ms | 1024.0 MiB / 1024.0 MiB |' in text
+    assert '| Plate | 1.20 s / 1.20 s | 300 ms / 300 ms | window not recorded | 1024.0 MiB / 1024.0 MiB |' in text
     assert 'canvas-editor: first seed: 0 of 10 launches kept (editor_crashed 10); renderer crashed during edit' in text
     assert '77777' not in json.dumps(facts) and '77.78 s' not in text
     assert facts['perf.e2.plate.B8.prose-250kw.open_cpu_ms.reproduced'] is True
@@ -248,7 +248,7 @@ def test_one_capped_launch_is_enough_to_hide_the_column(tmp_path):
         _blocks(tmp_path, seed, records=[idle] * 9 + [capped])
     facts = {}
     text = res.resources_tables(facts, [tmp_path], ['plate'], {'plate': 'Plate'})
-    assert '| Plate | never idle | never idle | 50 ms / 50 ms | 1024.0 MiB / 1024.0 MiB |' in text
+    assert '| Plate | never idle | never idle | window not recorded | 1024.0 MiB / 1024.0 MiB |' in text
     assert 'after opening in 1 and 1 of its kept launches. Its CPU to open and CPU of the edit columns are not printed' in text
     assert 'perf.e2.plate.B8.prose-250kw.open_cpu_ms.medians' not in facts
 
@@ -294,7 +294,10 @@ def test_a_cell_that_did_not_reproduce_prints_both_seed_medians_and_the_launch_r
     facts = {}
     text = res.resources_tables(facts, [tmp_path], ['plate'], {'plate': 'Plate'})
     assert ('not reproduced (first 3850.0 MiB; second 4670.0 MiB; launches 3400.0 MiB to 4940.0 MiB)') in text
-    assert 'not reproduced (first 50 ms; second 100 ms; launches 40 ms to 110 ms)' in text
+    # The settling total is no longer printed (#226 follow-up); what each seed read stays in the facts.
+    settle = 'perf.e2.plate.B8.prose-250kw.edit_settle_cpu_ms.'
+    assert facts[settle + 'seed_medians'] == [50, 100] and facts[settle + 'launch_range'] == [40, 110]
+    assert facts[settle + 'reproduced'] is False
     prefix = 'perf.e2.plate.B8.prose-250kw.peak_ram_bytes.'
     assert facts[prefix + 'reproduced'] is False
     assert prefix + 'medians' not in facts  # no published figure
@@ -307,7 +310,7 @@ def test_a_reproduced_cell_is_printed_as_before(tmp_path):
     assert cell['measures']['open_cpu_ms']['medians'] == [1200, 1200]
     assert cell['measures']['open_cpu_ms']['seed_medians'] == [1200, 1200]
     text = res.resources_tables({}, [tmp_path], ['plate'], {'plate': 'Plate'})
-    assert '| Plate | 1.20 s / 1.20 s | 300 ms / 300 ms | 50 ms / 50 ms | 1024.0 MiB / 1024.0 MiB | n = 10, 10 |' in text
+    assert '| Plate | 1.20 s / 1.20 s | 300 ms / 300 ms | window not recorded | 1024.0 MiB / 1024.0 MiB | n = 10, 10 |' in text
 
 
 def _phases(gpu_before, gpu_after, longtasks, longtask_ms):
@@ -352,8 +355,8 @@ def test_the_settle_column_states_how_often_the_first_seed_is_the_higher(tmp_pat
     assert facts['perf.e2.B8.settle_first_higher'] == 2
     assert facts['perf.e2.B8.settle_first_lower'] == 0
     assert facts['perf.e2.B8.settle_cells'] == 3
-    assert ('Across the 3 cells with a settling figure, the first seed\'s median is the higher in 2 and the lower in 0.'
-            ) in res.settle_window_note(facts)
+    # The totals are still counted (their facts stay); the note speaks of them only beside the windows.
+    assert 'first seed' not in res.settle_window_note(facts)
 
 
 def test_a_split_figure_that_disagrees_is_marked_and_not_stored_as_a_result(tmp_path):
@@ -372,7 +375,92 @@ def test_a_split_figure_that_disagrees_is_marked_and_not_stored_as_a_result(tmp_
 def test_the_settle_note_claims_nothing_about_cells_it_did_not_count():
     """Review of #226: with no settling figure the note still blamed the window."""
     note = res.settle_window_note({})
-    assert 'cells' not in note and 'cannot be told apart' not in note
+    assert 'cells' not in note and 'first seed' not in note and 'ms/s' not in note
     counted = res.settle_window_note({'perf.e2.B8.settle_cells': 3, 'perf.e2.B8.settle_first_higher': 2,
-                                      'perf.e2.B8.settle_first_lower': 0})
-    assert 'cannot be told apart from the window and the 10 ms counter.' in counted
+                                      'perf.e2.B8.settle_first_lower': 0, 'perf.e2.B8.settle_window_min_s': 0.2,
+                                      'perf.e2.B8.settle_window_max_s': 2.4})
+    assert "across the 3 cells that had one, the first seed's median was the higher in 2 and the lower in 0" in counted
+    assert 'are kept in the facts and are not printed' in counted
+
+
+# --- #226: the settling column as CPU per second of the window each launch sampled ---
+
+def _series(cpu_ms, window_s, *, start_cpu=20000, start_s=18.4, samples=4):
+    """The sampler's rows of one launch: the edit burst, then `samples` settle rows over `window_s`."""
+    rows = [{'phase': 'edit_burst', 'monotonic_s': start_s - 0.3, 'cpu_ms': start_cpu}]
+    for index in range(samples):
+        share = index / (samples - 1)
+        rows.append({'phase': 'quiescence', 'monotonic_s': start_s + window_s * share,
+                     'cpu_ms': start_cpu + round(cpu_ms * share)})
+    rows.append({'phase': 'after_edits', 'monotonic_s': start_s + window_s + 0.25, 'cpu_ms': start_cpu + cpu_ms + 10})
+    return rows
+
+
+def _settling(cpu_ms, window_s, **over):
+    return _record(quiet=cpu_ms, series=_series(cpu_ms, window_s), **over)
+
+
+def _rate_cell(tmp_path, first, second):
+    _blocks(tmp_path, 1, records=first)
+    _blocks(tmp_path, 2, records=second)
+    facts = {}
+    text = res.resources_tables(facts, [tmp_path], ['plate'], {'plate': 'Plate'})
+    return text, facts
+
+
+def test_the_settling_column_is_cpu_per_second_of_the_window_each_launch_sampled(tmp_path):
+    """A longer window costs more in total and the same per second: the total disagrees, the rate does not."""
+    text, facts = _rate_cell(tmp_path, [_settling(90, 2.25)] * 10, [_settling(64, 1.6)] * 10)
+    assert '| Editor | CPU to open | CPU of the edit | CPU per second while settling |' in text
+    assert '| 40 ms/s / 40 ms/s |' in text
+    prefix = 'perf.e2.plate.B8.prose-250kw.'
+    assert facts[prefix + 'edit_settle_cpu_rate.medians'] == [40.0, 40.0]
+    assert facts[prefix + 'edit_settle_cpu_rate.window_s'] == [1.6, 2.25]
+    # The totals stay in the facts: what was read is not thrown away.
+    assert facts[prefix + 'edit_settle_cpu_ms.seed_medians'] == [90, 64]
+    assert facts[prefix + 'edit_settle_cpu_ms.reproduced'] is False
+
+
+def test_a_window_under_a_second_is_not_a_rate(tmp_path):
+    """10 ms steps over a fifth of a second say nothing: such a launch is not counted, and five are needed."""
+    short = _settling(0, 0.2, )
+    text, facts = _rate_cell(tmp_path, [_settling(80, 2.0)] * 10, [short] * 7 + [_settling(80, 2.0)] * 3)
+    assert 'settled too quickly to measure (10 and 3 of 10 and 10 launches waited a second or more)' in text
+    prefix = 'perf.e2.plate.B8.prose-250kw.edit_settle_cpu_rate.'
+    assert prefix + 'medians' not in facts and facts[prefix + 'counted'] == [10, 3]
+    assert facts[prefix + 'reason'] == 'window too short'
+
+
+def test_five_launches_with_a_full_window_are_enough(tmp_path):
+    text, _facts = _rate_cell(tmp_path, [_settling(80, 2.0)] * 10, [_settling(0, 0.2)] * 5 + [_settling(84, 2.0)] * 5)
+    assert '| 40 ms/s / 42 ms/s |' in text
+
+
+def test_a_rate_that_disagrees_says_both_and_the_range(tmp_path):
+    text, facts = _rate_cell(tmp_path, [_settling(1200, 2.0)] * 9 + [_settling(1400, 2.0)], [_settling(60, 2.0)] * 10)
+    assert 'not reproduced (first 600 ms/s; second 30 ms/s; launches 30 ms/s to 700 ms/s)' in text
+    prefix = 'perf.e2.plate.B8.prose-250kw.edit_settle_cpu_rate.'
+    assert prefix + 'medians' not in facts and facts[prefix + 'seed_medians'] == [600.0, 30.0]
+
+
+def test_the_rate_tolerance_is_the_counter_step_over_the_window(tmp_path):
+    """20 ms of counter resolution over a 2-second window is 10 ms/s: 10 and 18 ms/s agree, 10 and 22 do not."""
+    text, _facts = _rate_cell(tmp_path, [_settling(20, 2.0)] * 10, [_settling(36, 2.0)] * 10)
+    assert '| 10 ms/s / 18 ms/s |' in text
+    again = tmp_path / 'again'
+    again.mkdir()
+    text, _facts = _rate_cell(again, [_settling(20, 2.0)] * 10, [_settling(44, 2.0)] * 10)
+    assert 'not reproduced (first 10 ms/s; second 22 ms/s;' in text
+
+
+def test_a_launch_without_its_samples_has_no_rate(tmp_path):
+    text, facts = _rate_cell(tmp_path, [_record(quiet=80)] * 10, [_record(quiet=80)] * 10)
+    assert '| window not recorded |' in text
+    assert facts['perf.e2.plate.B8.prose-250kw.edit_settle_cpu_rate.reason'] == 'window not recorded'
+
+
+def test_the_settle_note_says_what_the_windows_were(tmp_path):
+    _text, facts = _rate_cell(tmp_path, [_settling(90, 2.25)] * 10, [_settling(0, 0.2)] * 5 + [_settling(64, 1.6)] * 5)
+    note = res.settle_window_note(facts)
+    assert 'ran from 0.2 s to 2.2 s' in note or 'ran from 0.2 s to 2.3 s' in note
+    assert 'per second' in note
