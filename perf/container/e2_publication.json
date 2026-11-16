@@ -8,7 +8,8 @@
   "editor_rerun": "49b7e934",
   "late_rerun": "653b9471",
   "extension": "d697b98e (C14 jobs 162, 163, 166, 167); 6885707b (document jobs 160, 161, 164, 165)",
-  "lane_rerun": "03b683b1"
+  "lane_rerun": "03b683b1",
+  "host_rerun": "71162e7d"
  },
  "first_pass": {
   "e2-apryse": "20261112T183630601693Z-12164-085332",
@@ -335,5 +336,21 @@
   "e2-plate": [{"run_id": "20261115T004748523250Z-11691-934690", "jobs": [15, 19, 29, 31]}],
   "e2-superdoc": [{"run_id": "20261115T002903581207Z-11571-392145", "jobs": [94, 98, 108, 110]}],
   "e2-wordcraft": [{"run_id": "20261115T004703771437Z-11561-812522", "jobs": [95, 99, 109, 111]}]
+ },
+ "host_superseded": {
+  "issues": {
+   "228": {
+    "issue": "228",
+    "title": "Four warm/cold jobs ran while the host's load was above the quiet-machine bound: they are measured again, every editor, behind the host-load guard",
+    "lane": "benchmark_warm_cold",
+    "jobs": [4, 5, 83, 86]
+   }
+  }
+ },
+ "host_rerun": {
+  "e2-publish": [{"run_id": "20261116T030331453540Z-11585-997747", "jobs": [4]}],
+  "e2-publish-2": [{"run_id": "20261116T030333401555Z-11583-336182", "jobs": [5]}],
+  "e2-publish-4": [{"run_id": "20261116T030338527858Z-11573-345867", "jobs": [83]}],
+  "e2-publish-5": [{"run_id": "20261116T030342503080Z-11606-605591", "jobs": [86]}]
  }
 }
