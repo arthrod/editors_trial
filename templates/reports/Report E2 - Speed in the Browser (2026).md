@@ -2,9 +2,41 @@
 
 {{perf.e2.status}}
 
-This report concerns browser-visible first paint, typing, scrolling, and related interactions. {{perf.e2.intro}}
+## What this report is
 
-## What is measured
+Nine editors that open Word documents in a web browser were each given the same documents, in a real browser, and timed doing what a person does: opening a document, typing, clicking, pasting, undoing and scrolling. This report gives the results in seven small tables, one per action, and says what the figures can and cannot tell you.
+
+It is written to be read from here to the end of the results. The appendices after that hold everything needed to check it: how each time was taken, the machine, the rule a figure had to pass before it was printed, the full tables, what was not measured and why, and how to run it again.
+
+## How to read the tables
+
+- **A figure is a typical time.** Each action was repeated many times, across several fresh launches of the browser, and the figure is a typical (middle) result of those repeats. Appendix C gives the exact rule.
+- **Lower is quicker, or lighter.** Times are in milliseconds (ms, thousandths of a second) or seconds (s); memory is in MiB and GiB (1 GiB is 1,024 MiB).
+- **Read down a column.** Each column is one document size, and every editor in it was given the same document. The editors were measured on separate cloud machines of the same type, each shared with other work, so a small difference between two editors can be the machine and not the editor.
+- **"under 1 frame"** means the change was on screen in less than the time between two pictures of the screen (about 17 thousandths of a second). The screen was redrawn 60 times a second, so a shorter time cannot be told apart.
+- **"varied"** means the repeated measurements disagreed too much to print one figure, so nothing is said about that editor at that size. **"crashed"** means the editor's page crashed in every launch of that test at that size; it says nothing about the other tests. **"does not apply"** means our tooling cannot take that measurement on that editor (Appendix D says why); it does not mean the editor cannot do the action. **"no figure"** means too few launches gave a confirmed result, whether because of the editor or of our tooling. A dash means the cell was not part of these runs. The full tables in Appendix E give the reason for each.
+- **The editors are in alphabetical order.** This report does not rank them.
+
+## What the figures cannot tell you
+
+- **They are not the times you will see on your own computer.** The tests ran on a cloud server with no graphics processor, so everything an editor draws was drawn by the processor. For WordCraft, which redraws its page continuously, that drawing is nearly all of the processor time it used in the half minute after opening a document (table B8 in Appendix E). The figures compare the editors with each other on machines of that kind.
+- **The two largest documents are deliberately extreme.** They are stress tests, not ordinary work; the first two columns are the ones to reason from.
+- **"varied" can be the machine, not the editor.** The machines are shared with other work, and some measurements were taken while a machine was much busier than at other times (issue #228; Appendix B gives the load of each run). The typing cells that varied at 50,000 words are of that kind. A "varied" cell should not be read as a property of the editor.
+- **Search and replace was not measured** for any editor, because of a gap in our tooling. This report says nothing about it.
+- **The line under each table is for orientation.** It says how many of the editors have a figure in the first and in the last column, and the lowest and highest of those figures. An editor without a figure is not in that spread.
+- **Only what is listed is measured.** Whether an editor keeps a document's content and formatting intact is the subject of the other reports of this trial.
+
+## The results
+
+{{perf.e2.short_version}}
+
+## Appendix A — What was measured, and how each time was taken
+
+The seven tables of the results come from seven of the criteria described here: opening a document is C11; typing one character is C05, in an editor that has already been typed in; clicking to place the caret is C07; pasting is C08; undoing is C09; scrolling is C10; memory is C17, read two seconds after a burst of typing. The other criteria are in the full tables of Appendix E only.
+
+A "cell" below is one editor, one criterion, one measure and one document: far more cells than the boxes of the results tables. A "seed" is one of the two rounds in which everything was run (Appendix C).
+
+This report concerns browser-visible first paint, typing, scrolling, and related interactions. {{perf.e2.intro}}
 
 Each criterion is one browser-visible or model clock on the same corpus the headless report uses.
 
@@ -34,7 +66,7 @@ Each criterion is one browser-visible or model clock on the same corpus the head
 
 {{perf.e2.criterion.C15}}
 
-## The host and its limits
+## Appendix B — The machine and its limits
 
 {{perf.e2.relaxed_bounds}}
 
@@ -44,7 +76,9 @@ Each criterion is one browser-visible or model clock on the same corpus the head
 
 Playwright {{perf.e2.playwright}}, Chromium {{perf.e2.chromium}}. Renderer: {{perf.e2.renderer}}.
 
-## The rule
+## Appendix C — Every measurement was run twice: the rule a figure had to pass
+
+Everything in this report was run twice, in two separate rounds (called seeds below), and a figure is printed only when the two agree. Each round gives one number per cell: the median of its kept launches, where each launch counts as the median of its own samples. The figure in the results above is the midpoint (the average) of the two rounds' numbers. The results print that figure alone; the count of launches, the range and the 90th percentile described below are in the full tables of Appendix E. "under 1 frame" is printed only when both rounds were under a frame; "varied" is a cell whose two rounds did not agree within {{perf.e2.rel_tol_pct}} percent (or, for times that short, within one frame).
 
 {{perf.e2.sample_plan}}
 
@@ -54,7 +88,7 @@ Playwright {{perf.e2.playwright}}, Chromium {{perf.e2.chromium}}. Renderer: {{pe
 
 {{perf.e2.runs}}
 
-## Read this before the tables
+## Appendix D — Notes on the full tables, and what was measured again
 
 {{perf.e2.reruns}}
 - **How an edit is confirmed.** After each timed interval, and outside it, the harness checks that the edit landed once. It counts the typed text near the caret in the page (Plate, Docxodus, SuperDoc, GenOffice, eigenpal, and Folio through its hidden editing layer) or in the editor's model (canvas-editor, Docen). WordCraft paints into one canvas and puts no document text in the page, so the typing criteria (C04 to C07) confirm its edit by the modified mark in its window title. C08 and C09 confirm it through WordCraft's own select-all and copy, which gives its whole text: a read before the timed interval and one after it, both outside it.
@@ -70,9 +104,9 @@ Playwright {{perf.e2.playwright}}, Chromium {{perf.e2.chromium}}. Renderer: {{pe
 - **C14's text check.** Each prose document of the C14 ladder ends with lines of combining marks, characters outside the Basic Multilingual Plane, emoji sequences and right-to-left text; C14 checks (I01 to I03) that they survive in the editor's text, read from its first and last 4,000 characters. Folio and SuperDoc mount only the pages near the start of a long document, and WordCraft paints into a canvas, so for these three the page holds only part of the text. After the timed sample, and outside it, the harness asks each of them for the whole document: SuperDoc through its document model, Folio through its editing layer (mounted by a click on the page), and WordCraft through its own select-all and copy. For the other editors the text the harness already reads is the whole document: from the page for Plate, Docxodus and GenOffice, and from the editor's model for canvas-editor, Docen and eigenpal. C14 gives each wait of a document's load (navigation, the editor's ready signal, the page's load event for the canvas editors Docen and WordCraft, the painted document) up to 1,000 seconds. The complex document carries no such lines, so the check does not apply to it: its C14 cells are timings whose text is not checked. When the check fails, the harness names the cause: an editor whose text could not be read, or whose readable text is a window shorter than nine tenths of the document and stops before its closing paragraph, is withheld as "not checkable", a limit of the harness rather than a fault of the editor; an editor whose whole document was read and still fails keeps the failure.
 - **Criteria that do not apply.** canvas-editor and Docen paint text without glyph geometry the harness can read, so C05 and C06, which time the keystroke's own paint, do not apply to them. WordCraft also paints on one canvas without glyph geometry the harness can read, so its C05 and C06 do not apply either. C15 (search and replace) was not measured for any editor in this run, and that is a gap in our harness, not in the editors. The probe drives find only through a find box in the page, and no host was configured with one. Docen and GenOffice open a find box on Ctrl+F in the hosts we measured. SuperDoc, eigenpal, Docxodus and canvas-editor ship a find box that our hosts do not mount. Plate's find is an optional plugin that its default editor leaves out, Folio's playground has no control that opens its find dialog, and WordCraft paints its find dialog on a canvas, where the probe cannot type into it. The document lane also ran C15 in each of its five jobs per block, so the C15 cells are refused as a duplicate block index as well. No C15 attempt ran, so no figure is affected.
 - **Chrome traces.** In every first-block job, each timed launch was followed by a separate, untimed launch that recorded a Chrome trace for diagnosis; second-block jobs ran without them, and so did most typing sessions. Traces never feed a table.
-- **Throttling and steal.** The host note above gives, per seed, the CPU steal and the samples refused for cgroup CPU throttling; a refused sample is never kept. The Spaces are containers with a CPU quota on a host shared with other tenants. The host note also gives, per seed, the range of that host's 1-minute load average read at the start and end of each job. A sample is never refused for host load: a job that ran while the host was busier is slower, and that is one reason a cell's two seeds can differ.
+- **Throttling and steal.** The host note in Appendix B gives, per seed, the CPU steal and the samples refused for cgroup CPU throttling; a refused sample is never kept. The Spaces are containers with a CPU quota on a host shared with other tenants. The host note also gives, per seed, the range of that host's 1-minute load average read at the start and end of each job. A sample is never refused for host load: a job that ran while the host was busier is slower, and that is one reason a cell's two seeds can differ.
 
-## Tables
+## Appendix E — The full tables
 
 ### C03 — first visible content
 
@@ -152,7 +186,7 @@ C19 was meant to show memory an editor leaves behind. The harness read the brows
 
 {{perf.e2.criterion.B8}}
 
-Each cell shows the first seed's median and the second seed's median. A figure is printed only when the two agree within 10 percent (20 ms for CPU). The CPU counters advance in steps of 10 ms, so a cell of a few tens of milliseconds is at the counter's resolution. The host has no graphics processor: what an editor draws is drawn by the processor and counts as CPU.
+Each cell shows the first seed's median and the second seed's median. A figure is printed as a result only when the two agree within 10 percent (20 ms for CPU); a cell that does not agree says so and gives both medians and the lowest and highest launch, so that what was read is not hidden. The CPU counters advance in steps of 10 ms, so a cell of a few tens of milliseconds is at the counter's resolution. The host has no graphics processor: what an editor draws is drawn by the processor and counts as CPU.
 
 {{perf.e2.table.B8}}
 
@@ -162,18 +196,18 @@ Throughput sessions publish chars/s and resources. Latency sessions publish load
 
 {{perf.e2.table.TYPING}}
 
-## Not measured in the browser run
+## Appendix F — Not measured in the browser run
 
 {{perf.e2.not_run}}
 
-## Not reproduced
+## Appendix G — Cells whose two rounds did not agree
 
 {{perf.e2.not_reproduced}}
 
-## How to reproduce
+## Appendix H — How to run it again
 
 {{perf.e2.reproduce}}
 
-## DOCX verification
+## Appendix I — DOCX verification
 
 {{perf.e2.word_verification}}

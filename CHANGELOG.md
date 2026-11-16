@@ -9,6 +9,95 @@ re-running the measurement behind it. The format follows
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-11-15
+
+Report E2 gets a short version a person can read, and its resources tables
+stop hiding what a cell that did not reproduce read. No measurement was
+taken for this release: every figure comes from the runs of 0.10.0.
+
+### Updated
+
+- No editor pin moved. This release changes how the 0.10.0 measurements are
+  presented, at Arthur's request of 2026-11-15; moving a pin would require
+  every measurement again (AGENTS.md section 2). The update rule of
+  section 1 resumes with the next measured release.
+
+### Measured
+
+- Nothing new. The raw runs were pulled back from the bucket
+  (`arthrod/editors-trial-e2-runs`) and the facts rebuilt from them: every
+  fact of 0.10.0 is unchanged except the two B8 texts below, and 595 facts
+  are added (the short version's figures, and each B8 cell's seed medians
+  and launch range).
+
+### Not re-measured
+
+- Everything. In particular the four warm/cold jobs that ran while their
+  host was busy (#228) and the B8 settling column (#226) are disclosed, not
+  measured again: that needs a Space.
+
+### Added
+
+- **`build/verify_e2_summary.py`** (#227, from CodeRabbit's plan): an
+  independent check of Report E2's results tables. The generator writes its
+  figures into `out/facts.json`, which the number gate reads, so a wrong
+  figure would have matched itself. The check shares no code with the
+  generator, recomputes every cell and range sentence from the two rounds'
+  cell facts, and runs in the gate's "generated" step.
+- **Report E2 is a report first and a reference second.** It now opens with
+  what the report is, how to read the tables, what the figures cannot tell
+  you, and the results; everything else is in lettered appendices (A: what
+  was measured; B: the machine; C: the rule, and that every measurement was
+  run twice; D: notes and what was measured again; E: the full tables; F to
+  I: not measured, cells that did not agree, how to run it again, DOCX
+  verification). No figure changes.
+- **Report E2, "The short version"** (#227). One small table per question a
+  reader asks (opening a document, typing a character, placing the caret,
+  pasting, undoing, scrolling, memory with the document open), editors in
+  alphabetical order, one column per document size. A figure is the middle
+  of the two seeds' medians of a cell that reproduced; a cell without one
+  says why in a word (varied, crashed, does not apply, no figure). Nothing
+  is ranked. The reference tables follow it unchanged.
+- **B8: a cell that did not reproduce says what it read** (#226): both seed
+  medians and the lowest and highest launch. canvas-editor's memory at
+  50,000 words, printed as "not reproduced", is 3,427.5 to 5,137.1 MiB
+  across its launches. Only a reproduced pair is stored as a result.
+- **B8: where a never-idle editor's processor time went** (#226). In the
+  30-second wait after opening, WordCraft's CPU is the browser's GPU
+  process drawing in software on a host with no graphics processor, at every
+  document size; the note gives the split, the long tasks and the range of
+  its memory readings.
+- **B8: a note on the settling window** (#226). It is not a fixed length,
+  and the first seed's median is the higher one in 27 of the 39 cells with
+  a settling figure and the lower in 4.
+
+### Fixed
+
+- **The gate's Word-open step could not fail** (#231, found through
+  CodeRabbit's plan on #204): `build/verify_deliverables.py` printed
+  "SOME DELIVERABLE FAILED" and exited 0, and skipped a deliverable Word
+  gave no verdict for. It now exits 1 for a missing file, a missing verdict
+  or any verdict other than OPENED. The kept gate logs of 0.10.0 and of this
+  release show every deliverable OPENED, so no release passed wrongly.
+
+### Found, not fixed
+
+- **An audit of every published speed cell** (#228). Report E (headless) is
+  clean: every cell reproduced and neither run is systematically the slower.
+  In Report E2, 65 cells failed only because the two seed medians differ;
+  the samples of 55 of them could be read back, and 44 of those are the warm/cold lane (C03, C05, C06) at three document
+  sizes, and follow the host's recorded load (up to 66.0 on the busy jobs),
+  not the editors. The harness records the load and does not refuse on it.
+- **Five live demos did not load their document** (#225): the bundle's demo
+  folders held only the entry chunks. Rebuilt whole at the pinned commits
+  for the bundle of this release (docxodus, Fidus Writer, GenOffice, Plate,
+  SuperDoc). Two more showed their document but were missing files and were
+  rebuilt too: Folio (its 178 font files) and Docen (two lazy chunks).
+  `build/verify_demo.py` opens a built demo in a browser and fails on any
+  missing file; all twelve were checked with it. Not fixed: the docs.plus
+  demo asks for the fixture's one image at a path its host page never
+  stores (a 404; the text is shown).
+
 ## [0.10.0] - 2026-11-15
 
 Two new speed reports: Report E (headless opening and saving) and Report E2

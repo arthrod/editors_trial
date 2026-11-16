@@ -46,25 +46,37 @@ DELIVERABLES = [
 ]
 
 
-if __name__ == "__main__":
+def main(deliverables=None, run=None, work=None) -> int:
+    """0 only when every deliverable exists and Word's verdict for it is OPENED (#231).
+
+    The gate reads this as the exit code: a missing file, a file Word gave no
+    verdict for, and any verdict other than OPENED each fail the step.
+    """
     from pathlib import Path
+    deliverables = DELIVERABLES if deliverables is None else deliverables
+    run = word_batch.run if run is None else run
     targets, ok = {}, True
-    for path, label in DELIVERABLES:
+    for path, label in deliverables:
         if not os.path.exists(path):
             print("MISSING %s" % path, flush=True)
             ok = False
         else:
             targets[label.replace(" ", "-")] = Path(path)
-    work = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(BASE) / "out" / "word_deliverables"
-    verdicts = word_batch.run(targets, work)
-    for path, label in DELIVERABLES:
+    work = Path(work) if work is not None else Path(BASE) / "out" / "word_deliverables"
+    verdicts = run(targets, work) if targets else {}
+    for path, label in deliverables:
         key = label.replace(" ", "-")
-        if key not in verdicts:
+        if key not in targets:
             continue
-        v = verdicts[key]
+        v = verdicts.get(key, "NO-VERDICT")
         pdf = work / ("%s.pdf" % key)
         size = " (%d-byte PDF)" % pdf.stat().st_size if pdf.exists() else ""
         print("%-9s %-52s => %s%s" % (label, os.path.splitext(os.path.basename(path))[0][:52], v, size), flush=True)
         ok = ok and v == "OPENED"
     print("ALL DELIVERABLES OPEN IN MICROSOFT WORD" if ok
           else "SOME DELIVERABLE FAILED")
+    return 0 if ok else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main(work=sys.argv[1] if len(sys.argv) > 1 else None))

@@ -55,7 +55,7 @@ run() {
 run "repo tests" python3 build/test_report_claims.py
 
 # 2. Every report is its template rendered against the current measurement.
-run "generated" bash -c 'cd build && python3 -m unittest -q test_reportgen && cd .. && python3 build/facts.py >/dev/null && python3 build/render_reports.py --check'
+run "generated" bash -c 'cd build && python3 -m unittest -q test_reportgen && cd .. && python3 build/facts.py >/dev/null && python3 build/render_reports.py --check && python3 build/verify_e2_summary.py'
 
 # 3. Every published DOCX is the faithful twin of its Markdown source.
 run "twin parity" python3 build/verify_twin_parity.py
