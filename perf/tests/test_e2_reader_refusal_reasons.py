@@ -80,7 +80,7 @@ def _refused_typing(run, job_id, editor, observations):
     job = run / 'benchmark_warm_cold' / job_id
     path = job / 'cells' / f'0000-{editor}' / 'attempts' / 'c05.json'
     path.parent.mkdir(parents=True)
-    rows = [{'mechanism': 'cdp_screencast_changed_frame', 'paint_ms': paint,
+    rows = [{'mechanism': 'cdp_screencast_changed_frame', 'paint_ms': paint, 'clock_skew': {'frame_interval_ms': 16.7},
              'edit_confirmation': {'adapter': {'adapter': 'model', 'confirmed': confirmed}},
              'witness': {'changed_pixels': pixels}} for paint, confirmed, pixels in observations]
     path.write_text(json.dumps(dict(
@@ -98,7 +98,7 @@ def test_a_typing_cell_refused_for_the_witness_keeps_what_the_harness_did_see(fs
                                              (30.0, False, 102)])
     cell = cells.build_run_cell(run, 'docen', 'C05', measure='warm_steady')
     assert cell['unwitnessed'] == {'keystrokes': 5, 'timed': 3, 'min_ms': 17.0, 'median_ms': 26.0, 'max_ms': 48.5,
-                                   'min_changed_pixels': 102}
+                                   'min_changed_pixels': 102, 'frame_interval_ms': 16.7}
     assert cells.public_cell_dict(cell)['unwitnessed'] == cell['unwitnessed']
 
 

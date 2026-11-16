@@ -61,8 +61,8 @@ def reason_words(reason: str) -> str | None:
     """What a recorded refusal reason means, for a reader; None when nobody has written words for it."""
     if reason == GLYPH_REASON:
         return ("the harness times typing to the typed character's own outline on the page, and this editor draws its "
-                'text where the harness cannot read an outline. The character was typed and the edit was confirmed; '
-                'the harness could not check which change of the screen was the character (issue #238)')
+                'text where the harness cannot read an outline, so it could not check which change of the screen was '
+                'the character (issue #238)')
     if reason == 'document_content_unverifiable':
         return "the harness could not read this editor's text from the page to check the document"
     if reason == 'expected_edit_not_confirmed':
@@ -226,9 +226,16 @@ def _ends(values) -> tuple[str, str]:
     """
     timed = [figure for figure in values if not figure[1].startswith(UNDER)]
     if len(timed) < len(values):
-        under = next(figure[1] for figure in values if figure[1].startswith(UNDER))
-        return under, (max(timed)[1] if timed else under)
+        # Screens with different redraw intervals give different bounds: the lower end is the
+        # tightest bound printed, and with no timed cell the upper end is the loosest.
+        unders = sorted((figure[1] for figure in values if figure[1].startswith(UNDER)), key=_bound)
+        return unders[0], (max(timed)[1] if timed else unders[-1])
     return min(timed)[1], max(timed)[1]
+
+
+def _bound(text: str) -> float:
+    """The number of an "under N ms" cell."""
+    return float(text[len(UNDER):].split()[0])
 
 
 def _range_sentence(columns, editors: int) -> str:
@@ -291,24 +298,27 @@ def _refused_words(cell: dict) -> str:
     return '; '.join('%d, %s' % part for part in parts)
 
 
-#: One redraw of a 60 Hz screen, in ms: a change of the screen sooner than this after a key press is not that key.
-REDRAW_MS = 16.7
-
-
 def _short(value: float) -> str:
     return '%.1f ms' % value if value < 10 else fmt(value, 'ms')
 
 
 def _seen_sentence(cell) -> str:
-    """What the harness recorded on keystrokes it refused to publish: evidence, never the cell's figure."""
+    """What the harness recorded on keystrokes it refused to publish: evidence, never the cell's figure.
+
+    A key press counts here only when the harness confirmed its edit in the
+    editor and saw the screen change. The redraw interval is the one those
+    launches recorded; without it nothing is said about what is too quick.
+    """
     seen = cell.get('unwitnessed') if isinstance(cell, dict) else None
     if not isinstance(seen, dict) or not seen.get('timed'):
         return ''
-    text = ' It did see the screen change after %d of %d key presses, %s to %s later (typically %s)' % (
-        seen['timed'], seen['keystrokes'], _short(seen['min_ms']), _short(seen['max_ms']), _short(seen['median_ms']))
-    if seen['min_ms'] < REDRAW_MS:
-        return text + ('; the shortest are quicker than the screen is redrawn (%.1f ms), so some of those changes were '
-                       'not the character.' % REDRAW_MS)
+    text = (' On %d of %d key presses it confirmed the edit in the editor and saw the screen change, %s to %s later '
+            '(median %s)' % (seen['timed'], seen['keystrokes'], _short(seen['min_ms']), _short(seen['max_ms']),
+                             _short(seen['median_ms'])))
+    frame = seen.get('frame_interval_ms')
+    if frame and seen['min_ms'] < frame:
+        return text + ('; the shortest are quicker than the screen was redrawn (every %.1f ms), so some of those changes '
+                       'were not the character.' % frame)
     return text + '.'
 
 

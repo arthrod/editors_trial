@@ -377,7 +377,8 @@ def _recorded_reasons(facts: dict, key: str) -> str:
         cell = facts.get(key + '.' + slot)
         for reasons in ((cell or {}).get('refusal_reasons') or {}).values() if isinstance(cell, dict) else ():
             for reason in reasons:
-                text = reason.replace('|', '/')[:160]
+                text = reason.replace('|', '/')
+                text = text if len(text) <= 160 else text[:159].rstrip() + '…'
                 if text not in seen:
                     seen.append(text)
     if not seen:

@@ -166,8 +166,11 @@ def expected_sentence(columns, editors: int) -> str:
             spread = 'all ' + texts[0]
         else:
             timed = sorted((value, text) for value, text in cells if not text.startswith('under '))
-            under = next((text for _value, text in cells if text.startswith('under ')), '')
-            spread = 'from %s to %s' % (under if len(timed) < len(cells) else timed[0][1], timed[-1][1])
+            # "under N ms" cells, by N: the tightest bound is the low end; with no timed cell the loosest is the high end.
+            bounds = sorted({text for _value, text in cells if text.startswith('under ')}, key=lambda text: float(text.split()[1]))
+            low = bounds[0] if bounds else timed[0][1]
+            high = timed[-1][1] if timed else bounds[-1]
+            spread = 'from %s to %s' % (low, high)
         head = 'At %s, %d of %d editors have a figure' if index == 0 else 'at %s, %d of %d'
         out.append(head % (title, len(cells), editors) + ', ' + spread)
     return '; '.join(out) + '.'

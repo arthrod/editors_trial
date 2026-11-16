@@ -207,3 +207,32 @@ def test_a_report_with_such_cells_and_no_appendix_is_named():
     cut = LABELLED[:LABELLED.index('## Appendix J')]
     problems = verify.check(cut, _labelled_facts(), DISPLAY)
     assert any('Appendix J' in p and 'missing' in p for p in problems), problems
+
+
+def test_a_column_of_cells_under_redraws_of_different_lengths_is_checked_and_does_not_crash():
+    """Review (octo): with only such cells the sentence indexed an empty list and the gate died."""
+    facts = {}
+    for editor, frame in (('folio', 6.9), ('plate', 16.7)):
+        base = 'perf.e2.%s.C10.prose-500w' % editor
+        facts[base + '.reproduced'] = True
+        facts[base + '.primary'], facts[base + '.reproduction'] = _cell(3.0, frame), _cell(3.0, frame)
+    report = """# Report
+
+## The results
+
+### Scrolling
+
+From a scroll.
+
+| Editor | 500 words | 5,000 words | 50,000 words | 250,000 words |
+|---|---|---|---|---|
+| Folio | under 7 ms | — | — | — |
+| Plate.js | under 17 ms | — | — | — |
+
+At 500 words, 2 of 2 editors have a figure, from under 7 ms to under 17 ms.
+
+## Appendix A — What was measured
+"""
+    assert verify.check(report, facts, DISPLAY) == []
+    wrong = report.replace('from under 7 ms to under 17 ms', 'all under 7 ms')
+    assert any('range sentence' in p for p in verify.check(wrong, facts, DISPLAY))

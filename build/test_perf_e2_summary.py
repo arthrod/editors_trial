@@ -305,7 +305,8 @@ def test_the_appendix_says_why_from_the_facts():
                       'tolerance: the larger of 10 percent and one redraw of the screen (16.7 ms).')
     refused = why[('| Typing one character', 'Docen', '500 words')]
     assert 'First round: 0 of 10 launches kept; 10 refused' in refused and 'Second round: 0 of 10 launches kept; 10 refused' in refused
-    assert "the typed character's own outline" in refused and 'The character was typed and the edit was confirmed' in refused
+    assert "the typed character's own outline" in refused and 'could not check which change of the screen was the character' in refused
+    assert 'was confirmed' not in refused  # review: a refusal reason says nothing about whether the keystroke landed
     partial = why[('| Typing one character', 'Plate.js', '5,000 words')]
     assert partial.startswith('The first round kept enough launches. Second round: 1 of 10 launches kept; 9 refused')
     assert 'the typed character was not found in the editor afterwards' in partial
@@ -346,16 +347,47 @@ def test_the_appendix_gives_what_the_harness_saw_on_keystrokes_it_refused():
     _refused(facts, 'folio', 'C05', 'prose-500w', {'first': refused, 'second': refused}, measure='warm_steady')
     base = 'perf.e2.docen.C05.warm_steady.prose-500w'
     facts[base + '.primary']['unwitnessed'] = {'keystrokes': 80, 'timed': 80, 'min_ms': 16.8, 'median_ms': 26.1, 'max_ms': 48.6,
-                                               'min_changed_pixels': 102}
+                                               'min_changed_pixels': 102, 'frame_interval_ms': 16.7}
     facts[base + '.reproduction']['unwitnessed'] = {'keystrokes': 80, 'timed': 78, 'min_ms': 0.6, 'median_ms': 36.3,
-                                                    'max_ms': 66.7, 'min_changed_pixels': 24}
+                                                    'max_ms': 66.7, 'min_changed_pixels': 24, 'frame_interval_ms': 16.7}
     editors = ['docen', 'folio', 'plate']
-    summary.short_version(facts, editors, DISPLAY)
+    results = summary.short_version(facts, editors, DISPLAY)
+    # Evidence, never a figure: the recorded times stay out of the results table.
+    assert '| Docen | not measured | — | — | — |' in results and '26 ms' not in results
     text, _counts = summary.no_figure_appendix(facts, editors, DISPLAY)
     row = next(line for line in text.splitlines() if line.startswith('| Typing one character | Docen | 500 words'))
     assert ('First round: 0 of 10 launches kept; 10 refused' in row
-            and 'It did see the screen change after 80 of 80 key presses, 17 ms to 49 ms later (typically 26 ms).' in row)
-    assert ('It did see the screen change after 78 of 80 key presses, 0.6 ms to 67 ms later (typically 36 ms); the shortest are '
-            'quicker than the screen is redrawn (16.7 ms), so some of those changes were not the character.') in row
+            and 'On 80 of 80 key presses it confirmed the edit in the editor and saw the screen change, 17 ms to 49 ms later '
+                '(median 26 ms).' in row)
+    assert ('On 78 of 80 key presses it confirmed the edit in the editor and saw the screen change, 0.6 ms to 67 ms later '
+            '(median 36 ms); the shortest are quicker than the screen was redrawn (every 16.7 ms), so some of those changes '
+            'were not the character.') in row
     other = next(line for line in text.splitlines() if line.startswith('| Typing one character | Folio | 500 words'))
-    assert 'It did see' not in other
+    assert 'key presses' not in other
+
+
+def test_nothing_is_said_about_too_quick_a_change_when_no_redraw_interval_was_recorded():
+    facts = _facts()
+    _put(facts, 'plate', 'C05', 'prose-500w', 30, measure='warm_steady')
+    refused = (0, 10, {'not_applicable': 10}, {'not_applicable': [GLYPH]})
+    _refused(facts, 'docen', 'C05', 'prose-500w', {'first': refused, 'second': refused}, measure='warm_steady')
+    for slot in ('primary', 'reproduction'):
+        facts['perf.e2.docen.C05.warm_steady.prose-500w.' + slot]['unwitnessed'] = {
+            'keystrokes': 8, 'timed': 8, 'min_ms': 0.6, 'median_ms': 20.0, 'max_ms': 40.0, 'min_changed_pixels': 24,
+            'frame_interval_ms': None}
+    editors = ['docen', 'folio', 'plate']
+    summary.short_version(facts, editors, DISPLAY)
+    text, _counts = summary.no_figure_appendix(facts, editors, DISPLAY)
+    assert 'quicker than the screen' not in text and '(median 20 ms).' in text
+
+
+def test_a_column_of_cells_under_redraws_of_different_lengths_gives_both_bounds():
+    """Review (octo): two screens with different redraw intervals print different bounds; neither may be dropped."""
+    facts = {}
+    for editor, frame in (('plate', 16.7), ('folio', 6.9)):
+        key = 'perf.e2.%s.C10.prose-500w' % editor
+        facts[key + '.reproduced'] = True
+        facts[key + '.primary'] = facts[key + '.reproduction'] = _cell(3.0, frame=frame)
+    text = summary.short_version(facts, ['folio', 'plate'], DISPLAY)
+    assert '| Folio | under 7 ms |' in text and '| Plate.js | under 17 ms |' in text
+    assert 'At 500 words, 2 of 2 editors have a figure, from under 7 ms to under 17 ms.' in text

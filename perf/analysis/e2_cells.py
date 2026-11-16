@@ -1122,7 +1122,8 @@ NO_GLYPH_GEOMETRY_REASON = 'no_glyph_geometry_to_witness_the_keystrokes_own_pain
 
 
 def _unwitnessed_rows(trial: dict) -> list:
-    """(time to the first changed frame or None, changed pixels or None) of each keystroke of a refused typing launch."""
+    """(time to the first changed frame or None, changed pixels or None, redraw interval or None) of each keystroke
+    of a refused typing launch. A time is kept only when the harness confirmed that keystroke's edit."""
     rows = []
     for observation in ((trial.get('diagnostic') or {}).get('observations') or []):
         if not isinstance(observation, dict):
@@ -1131,7 +1132,9 @@ def _unwitnessed_rows(trial: dict) -> list:
         paint = observation.get('paint_ms')
         pixels = (observation.get('witness') or {}).get('changed_pixels')
         timed = _number(paint) and adapter.get('confirmed') is True
-        rows.append((float(paint) if timed else None, pixels if _number(pixels) else None))
+        interval = (observation.get('clock_skew') or {}).get('frame_interval_ms')
+        rows.append((float(paint) if timed else None, pixels if _number(pixels) else None,
+                     float(interval) if _number(interval) and interval > 0 else None))
     return rows
 
 
@@ -1139,12 +1142,15 @@ def _unwitnessed_summary(rows: list) -> dict | None:
     """What the harness saw on keystrokes it refused to publish: never a figure, the evidence beside a refusal (#239)."""
     if not rows:
         return None
-    times = sorted(time for time, _pixels in rows if time is not None)
-    pixels = [value for time, value in rows if time is not None and value is not None]
+    times = sorted(row[0] for row in rows if row[0] is not None)
+    pixels = [row[1] for row in rows if row[0] is not None and row[1] is not None]
+    intervals = [row[2] for row in rows if row[2] is not None]
     return {
         'keystrokes': len(rows), 'timed': len(times),
         'min_ms': times[0] if times else None, 'median_ms': percentile(times, 50) if times else None,
         'max_ms': times[-1] if times else None, 'min_changed_pixels': min(pixels) if pixels else None,
+        # The screen's own redraw interval as these launches recorded it; None when none did.
+        'frame_interval_ms': percentile(intervals, 50) if intervals else None,
     }
 
 
