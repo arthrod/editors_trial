@@ -21,7 +21,10 @@ this release: every figure comes from the runs of 0.10.0.
 
 ### Measured
 
-- Nothing new. The facts are rebuilt from the same runs.
+- Nothing new. The facts are rebuilt from the same runs. Report E2 now
+  counts 693 of its 1,061 cells as reproduced between the two seeds, where
+  it counted 701: the cells are the same, but 32 settling totals had
+  agreed and 24 settling rates do.
 
 ### Changed
 
