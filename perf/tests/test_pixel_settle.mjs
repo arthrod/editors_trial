@@ -233,16 +233,15 @@ test('k: changes outside the document region neither count as the edit nor preve
   assert.equal(away.failure_reason, 'pixel_edit_region_too_small');
 });
 
-test('l: frames may be decoded on demand, and no more than a few are held at once', () => {
+test('l: frames may be decoded on demand, each at most about twice', () => {
   const base = blank();
-  let live = 0, peak = 0, decodes = 0;
+  let decodes = 0;
   const lazy = series(MARKER, 1400, 16, (t, k) => withBlocks(base, t >= MARKER + 32 ? [TEXT] : []))
     .map(f => ({ pageMs: f.pageMs, pixels: () => { decodes++; return f.pixels; } }));
   const r = settlePixels(lazy, { baseline: base, markerMs: MARKER });
   assert.equal(r.failure_reason, null);
   assert.equal(r.match_page_ms, MARKER + 32);
   assert.ok(decodes <= 2 * lazy.length + 2, `decoded ${decodes} times for ${lazy.length} frames`);
-  void live; void peak;
 });
 
 test('m: the walk back is bounded, so a long quiet period is not read whole', () => {

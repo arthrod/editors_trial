@@ -24,6 +24,7 @@ def write(criterion, arm, mutate=None):
         observations, samples = [data['single']], [data['single_edit_ms']]
     else:
         observations, samples = [data['burst']], [data['sustained_typing_median_ms']]
+    state = 'process_cold_fs_warm' if arm == 'cold' else 'warm_steady'
     LOG_ROOT.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=LOG_ROOT) as tmp:
         readings = iter([snapshot(), snapshot(), snapshot(2)])
@@ -34,8 +35,8 @@ def write(criterion, arm, mutate=None):
             path = runner._write_measured_attempt(
                 attempt_dir=Path(tmp) / 'attempts', criterion_id=criterion, layer='browser_visible',
                 boundary='presented_frame' if criterion == 'C05' else 'input_to_next_paint',
-                editor_id='docen', lane='editor', env=_env(), samples_ms=samples,
-                cache_state='process_cold_fs_warm' if arm == 'cold' else 'warm_steady',
+                editor_id='docen', lane='editor', env=dict(_env(), cache_state=state), samples_ms=samples,
+                cache_state=state,
                 diagnostic={'mechanism': 'cdp_screencast_changed_frame', 'observations': observations})
             return json.loads(path.read_text())
         finally:
@@ -53,6 +54,7 @@ class SettledPixelTrial(unittest.TestCase):
                 trial = write(criterion, arm)
                 self.assertEqual(trial['outcome'], 'measured', (criterion, arm, trial.get('failure_reason')))
                 self.assertEqual(trial['witness'], 'settled_pixels')
+                self.assertEqual(trial['measure'], 'process_cold_fs_warm' if arm == 'cold' else 'warm_steady')
                 self.assertEqual(len(trial['samples_ms']), 1)
                 read = cells.settled_pixel_typing(trial)
                 self.assertEqual(read['outcome'], 'measured', (criterion, arm))
@@ -70,9 +72,6 @@ class SettledPixelTrial(unittest.TestCase):
         self.assertEqual(trial['refusal_code'], 'paint_witness_unavailable')
         self.assertEqual(trial['samples_ms'], [])
 
-
-if __name__ == '__main__':
-    unittest.main()
 
 
 def test_the_written_trial_becomes_a_report_cell_marked_by_pixels(tmp_path):

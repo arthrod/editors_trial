@@ -81,6 +81,8 @@ import { settlePixels, PIXEL_EDIT_MIN_PIXELS, PIXEL_GLYPH_MIN_PIXELS } from './p
 /** #245: half the height, in CSS pixels, of the band around the caret's click point in which the pixel
  * witness looks for the typed character: one line of body text with room for a larger font. */
 const PIXEL_CARET_BAND_CSS_PX = 24;
+/** The longest a painted frame is taken to need to reach the recorder: the quiet is read up to now less this. */
+const PIXEL_FRAME_DELIVERY_MS = 250;
 /** How far right of the caret's input a typed character may begin and still be the edit at the caret. */
 const PIXEL_CARET_REACH_CSS_PX = 48;
 /** The least the caret's input must move right on its line for a typed character to lie between its two places. */
@@ -316,7 +318,8 @@ async function confirmArmByText(page, ready, edits) {
   // The ready step's content check holds the whole text it read with the same select all and copy.
   const read = ready?.content_check || {};
   const before = Number.isInteger(read.document_token_count) && read.document_text_whole ? read.document_token_count : null;
-  let after = null, error = null;
+  // Without a whole-text read at ready (no content expectation was passed) there is no count to grow from.
+  let after = null, error = before === null ? 'no_whole_text_count_at_ready' : null;
   try {
     const { C14_COPY_WAIT_MS, selectAllCopy } = await import('./c14_whole_text.mjs');
     const text = await selectAllCopy(page, editorId, { waitMs: copyWaitMs || C14_COPY_WAIT_MS });
@@ -666,6 +669,18 @@ async function measureEdit(page, selector, cdp) {
         }
       }
       const minPixels = caretColumns ? PIXEL_GLYPH_MIN_PIXELS : PIXEL_EDIT_MIN_PIXELS;
+      // An edit that landed late (Docen at 250,000 words: seconds after the key) has had no time to go quiet
+      // when the frame witness returns on its first changed frame. Wait until the full settle window has
+      // passed since that frame; then the quiet is read up to the page's own clock, less the time a frame
+      // may take to reach the recorder.
+      let pageNowMs = await page.evaluate(() => performance.now());
+      const firstChangedMs = typeof frame.frame_page_ms === 'number' ? frame.frame_page_ms : null;
+      let lateWaitMs = 0;
+      if (firstChangedMs !== null && pageNowMs - firstChangedMs < settleMaxWaitMs) {
+        lateWaitMs = Math.ceil(settleMaxWaitMs - (pageNowMs - firstChangedMs));
+        await page.waitForTimeout(lateWaitMs);
+        pageNowMs = await page.evaluate(() => performance.now());
+      }
       // Every frame recorded from the key press on. A slow editor's edit lands after the settle window
       // (Docen at 250,000 words: seconds); the page was unresponsive meanwhile, the recorder was not, and
       // the settled picture is whatever the frames show once they are quiet.
@@ -686,9 +701,8 @@ async function measureEdit(page, selector, cdp) {
       const settled = settlePixels(candidates, {
         baseline: decodePng(Buffer.from(baseline.frame.data, 'base64')),
         markerMs, maxWaitMs: Infinity, quietMs: quiescenceMs,
-        // The arm waited this long after the key press before it returned (measured, not assumed); the
-        // recorder ran throughout, and the key was pressed before the wait began.
-        quietUntilMs: markerMs + armWaitedMs,
+        // No frame up to now is no change; the arm must really have waited (measured, not assumed).
+        quietUntilMs: armWaitedMs > 0 ? pageNowMs - PIXEL_FRAME_DELIVERY_MS : markerMs,
         tolerance: DEFAULT_CHANNEL_TOLERANCE, minPixels,
         region: witnessRect,
         // The clock check's 8x8 anchor and the baseline's 4x4 mark sit at the page's top-left corner.
@@ -722,6 +736,8 @@ async function measureEdit(page, selector, cdp) {
       confirmation.pixel_settle.edit_touches_caret = touchesCaret;
       confirmation.pixel_settle.unread_frames = unreadFrames;
       confirmation.pixel_settle.arm_waited_ms = armWaitedMs;
+      confirmation.pixel_settle.late_wait_ms = lateWaitMs;
+      confirmation.pixel_settle.read_until_page_ms = pageNowMs;
       const harnessFailure = unreadFrames ? 'frame_unacknowledged_in_window'
         : touchesCaret === false ? 'pixel_edit_not_at_caret' : null;
       if (settled.failure_reason || harnessFailure) {
