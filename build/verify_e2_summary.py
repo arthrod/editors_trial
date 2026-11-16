@@ -123,9 +123,10 @@ def _round_figures(rounds: dict):
 
 #: #245: the note a table with a time read on the pixel witness carries, word for word (the checker's own copy).
 PIXEL_NOTE = ('A time marked "(by pixels)" ends at the first frame that shows the whole settled change the key press made '
-              "on the caret's line, with the caret itself left out. The editor draws its text on a canvas, where the "
-              "harness cannot read a character's outline. The smallest such change on any key press behind these times "
-              'was %d pixels (issue #245).')
+              "on the caret's line. The editor draws its text on a canvas, where the harness cannot read a character's "
+              "outline. Where the editor reports its caret's place, the caret's own columns are left out; where it does "
+              'not, the change must reach 100 pixels, more than any caret. The smallest such change on any key press '
+              'behind these times was %d pixels (issue #245).')
 
 
 def expected_cell(facts: dict, editor: str, criterion: str, measure: str, workload: str):
@@ -138,7 +139,8 @@ def expected_cell(facts: dict, editor: str, criterion: str, measure: str, worklo
         figures = _round_figures(facts.get(base + '.rounds') or {})
         if figures:
             low, high = sorted(figures)
-            return '%s to %s' % (low[1], high[1]), None, False
+            marked = ' (by pixels)' if (facts.get(base + '.rounds') or {}).get('witness') == 'settled_pixels' else ''
+            return '%s to %s%s' % (low[1], high[1], marked), None, False
         return _refused(str(facts.get(base + '.reason') or ''), (facts.get(base + '.primary'), facts.get(base + '.reproduction'))), None, False
     one, two = facts[base + '.primary'], facts[base + '.reproduction']
     ends = {one.get('witness'), two.get('witness')}
@@ -266,11 +268,12 @@ def check(report_text: str, facts: dict, display: dict) -> list:
                 text, value, counts = expected_cell(facts, editor, criterion, measure, COLUMNS[title])
                 if text.endswith('(by pixels)'):
                     base = 'perf.e2.%s.%s%s.%s' % (editor, criterion, '.' + measure if measure else '', COLUMNS[title])
-                    least = [(facts.get(base + half) or {}).get('least_changed_pixels') for half in ('.primary', '.reproduction')]
+                    least = ([(facts.get(base + half) or {}).get('least_changed_pixels') for half in ('.primary', '.reproduction')]
+                             if facts.get(base + '.reproduced') else [(facts.get(base + '.rounds') or {}).get('least_changed_pixels')])
                     smallest.extend(value_ for value_ in least if isinstance(value_, (int, float)))
                     if not all(isinstance(value_, (int, float)) and value_ >= 16 for value_ in least):
                         problems.append('%s / %s / %s: read by pixels, and the facts do not record a least change of at least '
-                                        '16 pixels in both rounds (%r)' % (heading, cells[0], title, least))
+                                        '16 pixels in each round (%r)' % (heading, cells[0], title, least))
                 if cells[1 + index] != text:
                     problems.append('%s / %s / %s: report says %r, the facts give %r'
                                     % (heading, cells[0], title, cells[1 + index], text))
@@ -347,7 +350,10 @@ def check_typing_sentence(report_text: str, facts: dict, display: dict) -> list:
             problems.append('typing sentence: %s is not named' % name)
     # Each name in the clause that gives its status (CodeRabbit, #246): the sentence that says "no typing time"
     # names the untimed editors and no editor read by pixels; a sentence with the mark names those read by pixels.
-    named = lambda name, text: re.search(r'(?<![\w-])%s(?![\w-])' % re.escape(short[name]), text) is not None  # noqa: E731
+    def named(name, text):
+        """Whether the editor's short name stands in the text as a whole word."""
+        return re.search(r'(?<![\w-])%s(?![\w-])' % re.escape(short[name]), text) is not None
+
     # A sentence ends at a full stop, then the end of the bold headline if there is one, then a space.
     sentences = re.split(r'[.!?](?:\*\*)?\s+', line)
     none = [text for text in sentences if 'no typing time' in text]

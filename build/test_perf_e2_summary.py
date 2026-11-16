@@ -480,7 +480,7 @@ def test_a_time_read_on_the_pixel_witness_is_marked_and_explained_under_its_tabl
     assert '| Plate.js | 25 ms | — | — | — |' in text
     assert 'At 500 words, 2 of 2 editors have a figure, from 25 ms to 55 ms (by pixels).' in text
     note = [line for line in text.split('\n') if line.startswith('A time marked "(by pixels)"')]
-    assert len(note) == 1 and 'with the caret itself left out' in note[0] and 'issue #245' in note[0]
+    assert len(note) == 1 and "the caret's own columns are left out" in note[0] and 'must reach 100 pixels' in note[0] and 'issue #245' in note[0]
     assert 'The smallest such change on any key press behind these times was 102 pixels' in note[0]
 
 
@@ -497,3 +497,15 @@ def test_a_cell_whose_two_rounds_rest_on_different_witnesses_has_no_figure():
     del facts['perf.e2.docen.C05.warm_steady.prose-500w.reproduction']['witness']
     text = summary.short_version(facts, ['docen', 'plate'], DISPLAY)
     assert '| Docen | no figure |' in text
+
+
+def test_a_range_of_two_pixel_read_rounds_keeps_the_mark_and_the_note():
+    # CodeRabbit, #248: two settled-pixel rounds outside tolerance print a range; it is still read by pixels.
+    facts = {}
+    _put(facts, 'plate', 'C05', 'prose-500w', 24, 26, measure='warm_steady')
+    _varied(facts, 'docen', 'C05', 'prose-500w', 40.0, 81.0, measure='warm_steady')
+    facts['perf.e2.docen.C05.warm_steady.prose-500w.rounds'].update(witness='settled_pixels', least_changed_pixels=34)
+    text = summary.short_version(facts, ['docen', 'plate'], DISPLAY)
+    assert '| Docen | 40 ms to 81 ms (by pixels) |' in text
+    note = [line for line in text.split('\n') if line.startswith('A time marked "(by pixels)"')]
+    assert len(note) == 1 and 'was 34 pixels' in note[0]

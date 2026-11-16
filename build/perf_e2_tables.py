@@ -355,6 +355,10 @@ def _cell_text(facts: dict, roots, editor: str, criterion: str, measure: str = '
             'second': {'median': r_med, 'n': r_cell['stats']['n'], 'frame_interval_ms': r_cell.get('frame_interval_ms') or None},
             'frame_interval_ms': frame or None, 'rel_tol': REL_TOL, 'sample_unit': p_cell.get('sample_unit') or 'ms',
         }
+        if p_cell.get('witness') == 'settled_pixels' and r_cell.get('witness') == 'settled_pixels':
+            # The two rounds' figures were read by pixels; the range printed from them says so (CodeRabbit, #248).
+            facts[key + '.rounds'].update(witness='settled_pixels', least_changed_pixels=min(
+                cell['least_changed_pixels'] for cell in (p_cell, r_cell)))
         first = _format_median(p_cell, p_med)
         second = _format_median(r_cell, r_med)
         facts.setdefault('_not_reproduced', []).append((DISPLAY.get(editor, editor), criterion, workload_id or '—', measure or '—', first, second))

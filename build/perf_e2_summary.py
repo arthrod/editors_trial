@@ -50,9 +50,10 @@ UNDER = 'under '
 PIXEL_WITNESS = 'settled_pixels'
 PIXEL_MARK = ' (by pixels)'
 PIXEL_NOTE = ('A time marked "(by pixels)" ends at the first frame that shows the whole settled change the key press made '
-              "on the caret's line, with the caret itself left out. The editor draws its text on a canvas, where the "
-              "harness cannot read a character's outline. The smallest such change on any key press behind these times "
-              'was %d pixels (issue #245).')
+              "on the caret's line. The editor draws its text on a canvas, where the harness cannot read a character's "
+              "outline. Where the editor reports its caret's place, the caret's own columns are left out; where it does "
+              'not, the change must reach 100 pixels, more than any caret. The smallest such change on any key press '
+              'behind these times was %d pixels (issue #245).')
 
 #: The typing lanes refuse a launch with this reason when the editor exposes no glyph outline (#238).
 GLYPH_REASON = 'no_glyph_geometry_to_witness_the_keystrokes_own_paint'
@@ -212,7 +213,8 @@ def _cell(facts: dict, key: str, editor: str, criterion: str, measure: str, work
     if not reproduced:
         rounds = facts.get(base + '.rounds')
         if _has_rounds(rounds):
-            return _range(rounds), None
+            # A range of two pixel-read rounds says so too (CodeRabbit, #248); it is not a figure of the range sentence.
+            return _range(rounds) + (PIXEL_MARK if rounds.get('witness') == PIXEL_WITNESS else ''), None
         return _why(str(facts.get(base + '.reason') or ''), (facts.get(base + '.primary'), facts.get(base + '.reproduction'))), None
     first, second = facts[base + '.primary'], facts[base + '.reproduction']
     witnesses = {cell.get('witness') for cell in (first, second)}
@@ -301,9 +303,17 @@ def short_version(facts: dict, editors, display) -> str:
         sentence = _range_sentence(columns, len(rows))
         if sentence:
             lines += ['', sentence]
-        least = [facts[cell_key(editor, criterion, measure, workload) + half]['least_changed_pixels']
-                 for editor, texts in table for text, (workload, _title) in zip(texts, sizes) if text.endswith(PIXEL_MARK)
-                 for half in ('.primary', '.reproduction')]
+        least = []
+        for editor, texts in table:
+            for text, (workload, _title) in zip(texts, sizes):
+                if not text.endswith(PIXEL_MARK):
+                    continue
+                base = cell_key(editor, criterion, measure, workload)
+                rounds = facts.get(base + '.rounds') or {}
+                if facts.get(base + '.reproduced'):
+                    least += [facts[base + half]['least_changed_pixels'] for half in ('.primary', '.reproduction')]
+                else:
+                    least.append(rounds['least_changed_pixels'])
         if least:
             lines += ['', PIXEL_NOTE % min(least)]
         blocks.append('\n'.join(lines))

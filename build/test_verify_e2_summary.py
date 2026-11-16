@@ -339,7 +339,7 @@ def test_a_marker_quoted_inside_a_rounds_words_does_not_end_its_clause():
 
 # #238: a typing time read on the pixel witness carries its mark, and its table the note.
 
-PIXEL_NOTE = 'A time marked "(by pixels)" ends at the first frame that shows the whole settled change the key press made on the caret\'s line, with the caret itself left out. The editor draws its text on a canvas, where the harness cannot read a character\'s outline. The smallest such change on any key press behind these times was 102 pixels (issue #245).'
+PIXEL_NOTE = 'A time marked "(by pixels)" ends at the first frame that shows the whole settled change the key press made on the caret\'s line. The editor draws its text on a canvas, where the harness cannot read a character\'s outline. Where the editor reports its caret\'s place, the caret\'s own columns are left out; where it does not, the change must reach 100 pixels, more than any caret. The smallest such change on any key press behind these times was 102 pixels (issue #245).'
 PIXEL_REPORT = """# Report
 
 ## The results

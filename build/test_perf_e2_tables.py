@@ -12,7 +12,6 @@ import json
 import sys
 import tempfile
 import unittest
-from unittest import mock
 import pytest
 from pathlib import Path
 
@@ -228,11 +227,14 @@ class ReportE2Facts(unittest.TestCase):
         def one_round_by_pixels(*args, **kwargs):
             pooled = read(*args, **kwargs)
             if len(pooled.get('groups') or []) == 2:
-                pooled['groups'][0]['witness'] = 'changed_pixels'
+                pooled['groups'][0]['witness'] = 'settled_pixels'
             return pooled
 
-        with mock.patch.object(E2.e2_cells, 'read_criterion_cell', one_round_by_pixels):
+        E2.e2_cells.read_criterion_cell = one_round_by_pixels
+        try:
             facts = E2.facts_from_runs(primary, repro)
+        finally:
+            E2.e2_cells.read_criterion_cell = read
         self.assertIs(facts["perf.e2.plate.C07.reproduced"], False)
         self.assertIn("different witnesses", facts["perf.e2.plate.C07.reason"])
         self.assertIn("different witnesses", facts["perf.e2.table.C07"])

@@ -126,3 +126,18 @@ def test_a_launch_refused_for_the_missing_outline_stays_refused_whatever_its_fir
         cell = cells.build_run_cell(run, 'docen', 'C05', measure=measure)
         assert cell['kept_ms'] == [] and cell.get('witness') is None, measure
     assert cells.build_run_cell(run, 'docen', 'C05', measure='warm_steady')['refusals'] == {'not_applicable': 1}
+
+
+def test_the_reader_the_writer_the_probe_and_the_checker_hold_one_contract():
+    # CodeRabbit and GLM, #248: four copies of the witness's name and floors; a drift fails here.
+    import re
+    from perf.runner import benchmark_warm_cold as writer
+    root = Path(__file__).resolve().parents[2]
+    probe = (root / 'perf/runner/pixel_settle.mjs').read_text()
+    checker = (root / 'build/verify_e2_summary.py').read_text()
+    assert cells.PIXEL_WITNESS == writer.PIXEL_WITNESS_KIND
+    assert cells.PIXEL_WITNESS_MIN_PIXELS == writer.PIXEL_EDIT_MIN_PIXELS
+    assert cells.PIXEL_GLYPH_MIN_PIXELS == writer.PIXEL_GLYPH_MIN_PIXELS
+    assert int(re.search(r'PIXEL_EDIT_MIN_PIXELS = (\d+)', probe).group(1)) == cells.PIXEL_WITNESS_MIN_PIXELS
+    assert int(re.search(r'PIXEL_GLYPH_MIN_PIXELS = (\d+)', probe).group(1)) == cells.PIXEL_GLYPH_MIN_PIXELS
+    assert 'value_ >= %d for value_ in least' % cells.PIXEL_GLYPH_MIN_PIXELS in checker

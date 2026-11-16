@@ -916,14 +916,17 @@ async function measureEdit(page, selector, cdp) {
   if (modelOrFlagEdit && confirmation.pixel_settle) {
     // The pixel path's own verdict: the settled picture, and the edit confirmed in the editor. For a flag
     // editor the confirmation of each key is the arm's text count, settled after the arm (confirmArmByText).
-    const pixelOk = !settleFailure && frame.clock_skew_acceptable && duration !== null && duration >= 0;
+    // As for every editor: no changed frame of the document inside the witness's window is no sample
+    // (CodeRabbit, #248; the Python policy refuses it too).
+    const framed = frame.outcome === 'witnessed';
+    const pixelOk = !settleFailure && framed && frame.clock_skew_acceptable && duration !== null && duration >= 0;
     const confirmed = confirmation.confirmed || adapterSurface.kind === 'flag';
     return { mechanism, witness_kind: 'settled_pixels', clock_skew:skew, witness:frame, event_timing:timing,
       edit_confirmation:{...confirmation, pending_arm_text_count: adapterSurface.kind === 'flag'},
       timestamp_note: 'Uncorrected frame-to-page conversion; page_offset_ms is not a conversion correction. See clock_skew conversion bounds.',
       outcome: pixelOk && confirmed ? 'measured' : 'failed',
       failure_reason: pixelOk && confirmed ? null
-        : settleFailure || (!frame.clock_skew_acceptable ? 'clock_check_not_acceptable'
+        : settleFailure || (!framed ? 'frame_not_witnessed_in_window' : !frame.clock_skew_acceptable ? 'clock_check_not_acceptable'
           : duration === null || duration < 0 ? 'negative_input_latency' : 'expected_edit_not_confirmed'),
       edit_ms: pixelOk && confirmed ? duration : null, paint_ms: pixelOk ? duration : null };
   }
