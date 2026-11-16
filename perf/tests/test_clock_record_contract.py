@@ -25,8 +25,10 @@ def clock_record_keys(text: str) -> set[str]:
 
 
 def test_every_key_the_clock_check_writes_is_one_the_schema_knows():
-    extra = clock_record_keys(SOURCE.read_text()) - set(witness._CLOCK_CHECK_FIELDS)
-    assert not extra, f"clockSkew() writes {sorted(extra)}, which witness.py refuses as unknown"
+    written, known = clock_record_keys(SOURCE.read_text()), set(witness._CLOCK_CHECK_FIELDS)
+    assert not written - known, f"clockSkew() writes {sorted(written - known)}, which witness.py refuses as unknown"
+    # ... and the other way (CodeAnt, #251): the schema requires each of its fields.
+    assert not known - written, f"clockSkew() no longer writes {sorted(known - written)}, which witness.py requires"
 
 
 def test_a_key_added_on_one_side_is_caught():
