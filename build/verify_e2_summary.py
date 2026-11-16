@@ -14,6 +14,7 @@ and fails on any cell or range sentence that differs.
 from __future__ import annotations
 
 import json
+import math
 import re
 import sys
 from pathlib import Path
@@ -47,15 +48,29 @@ def _middle(cell: dict) -> float:
     return float(value if isinstance(value, (int, float)) else median(cell['kept_ms']))
 
 
-def _refused(reason: str) -> str:
-    if 'medians outside tolerance' in reason:
-        return 'varied'
+NOTHING_TO_MEASURE = {'no_deferred_work'}
+
+
+def _recorded(cells) -> set:
+    return {reason for cell in cells if isinstance(cell, dict)
+            for listed in (cell.get('refusal_reasons') or {}).values() for reason in listed}
+
+
+def _counted(reason: str) -> dict:
+    """{round: (kept, scheduled, {code: count} or None)} of the rounds a reason names."""
     seen = {}
     for name, kept, scheduled, body in ROUND.findall(reason):
         primary = body.split('; also ')[0]
         pairs = re.findall(r'([A-Za-z_]+): (\d+)', primary)
         whole = '; '.join('%s: %s' % pair for pair in pairs) == primary.strip()
         seen[name] = (int(kept), int(scheduled), dict((k, int(v)) for k, v in pairs) if whole else None)
+    return seen
+
+
+def _refused(reason: str, cells=()) -> str:
+    if 'medians outside tolerance' in reason:
+        return 'varied'
+    seen = _counted(reason)
     if sorted(seen) != ['first', 'second']:
         return 'no figure'
     kinds = set()
@@ -64,7 +79,9 @@ def _refused(reason: str) -> str:
             return 'no figure'
         kinds |= set(counts)
     if kinds == {'not_applicable'}:
-        return 'does not apply'
+        recorded = _recorded(cells)
+        # "does not apply" is true only when every refused launch recorded that there was nothing to measure.
+        return 'does not apply' if recorded and not recorded - NOTHING_TO_MEASURE else 'not measured'
     if kinds and not kinds - {'crash', 'editor_crash'}:
         return 'crashed'
     return 'no figure'
@@ -81,6 +98,26 @@ def _shown(value: float, unit: str) -> str:
     return '%d ms' % round(value)
 
 
+def _below(frame: float) -> str:
+    return 'under %d ms' % math.ceil(frame)
+
+
+def _round_figures(rounds: dict):
+    """The printed figure of each round of a cell whose rounds disagreed, or None when a median is missing."""
+    values = [(rounds.get(name) or {}).get('median') for name in ('first', 'second')]
+    if not all(isinstance(value, (int, float)) for value in values):
+        return None
+    unit = rounds.get('sample_unit') or 'ms'
+    frame = rounds.get('frame_interval_ms') or 0
+    texts = [_below(frame) if unit != 'bytes' and frame and value < frame else _shown(value, unit) for value in values]
+    if texts[0] == texts[1]:
+        if unit == 'bytes':
+            texts = ['%.1f MiB' % (value / 1048576) for value in values]
+        else:
+            texts = [('%.2f s' % (value / 1000)) if value >= 1000 else ('%.1f ms' % value) for value in values]
+    return list(zip(values, texts))
+
+
 def expected_cell(facts: dict, editor: str, criterion: str, measure: str, workload: str):
     """(text, value or None, counts in the range sentence)."""
     base = 'perf.e2.%s.%s%s.%s' % (editor, criterion, '.' + measure if measure else '', workload)
@@ -88,15 +125,32 @@ def expected_cell(facts: dict, editor: str, criterion: str, measure: str, worklo
     if state is None:
         return '—', None, False
     if not state:
-        return _refused(str(facts.get(base + '.reason') or '')), None, False
+        figures = _round_figures(facts.get(base + '.rounds') or {})
+        if figures:
+            low, high = sorted(figures)
+            return '%s to %s' % (low[1], high[1]), None, False
+        return _refused(str(facts.get(base + '.reason') or ''), (facts.get(base + '.primary'), facts.get(base + '.reproduction'))), None, False
     one, two = facts[base + '.primary'], facts[base + '.reproduction']
     value = (_middle(one) + _middle(two)) / 2
     unit = one.get('sample_unit') or 'ms'
     below = unit != 'bytes' and all(_middle(c) < (c.get('frame_interval_ms') or 0) for c in (one, two))
-    text = 'under 1 frame' if below else _shown(value, unit)
+    text = _below(max(one.get('frame_interval_ms') or 0, two.get('frame_interval_ms') or 0)) if below else _shown(value, unit)
     if criterion == 'C11' and not (one.get('content_verified') is True and two.get('content_verified') is True):
         return text + ' (text not checked)', value, False
     return text, value, True
+
+
+def expected_why_parts(facts: dict, editor: str, criterion: str, measure: str, workload: str) -> list:
+    """Text the appendix row of a cell must contain: each round's figure and launches, or its kept launches."""
+    base = 'perf.e2.%s.%s%s.%s' % (editor, criterion, '.' + measure if measure else '', workload)
+    rounds = facts.get(base + '.rounds') or {}
+    figures = _round_figures(rounds)
+    if figures:
+        return ['%s (%d launches)' % (text, (rounds[name].get('n') or 0)) for (_value, text), name in zip(figures, ('first', 'second'))]
+    parts = []
+    for name, (kept, scheduled, _counts) in _counted(str(facts.get(base + '.reason') or '')).items():
+        parts.append('%s round: %d of %d launches kept' % (name.capitalize(), kept, scheduled))
+    return parts
 
 
 def expected_sentence(columns, editors: int) -> str:
@@ -111,8 +165,9 @@ def expected_sentence(columns, editors: int) -> str:
         if len(set(texts)) == 1:
             spread = 'all ' + texts[0]
         else:
-            timed = sorted((value, text) for value, text in cells if text != 'under 1 frame')
-            spread = 'from %s to %s' % ('under 1 frame' if len(timed) < len(cells) else timed[0][1], timed[-1][1])
+            timed = sorted((value, text) for value, text in cells if not text.startswith('under '))
+            under = next((text for _value, text in cells if text.startswith('under ')), '')
+            spread = 'from %s to %s' % (under if len(timed) < len(cells) else timed[0][1], timed[-1][1])
         head = 'At %s, %d of %d editors have a figure' if index == 0 else 'at %s, %d of %d'
         out.append(head % (title, len(cells), editors) + ', ' + spread)
     return '; '.join(out) + '.'
@@ -124,6 +179,9 @@ def check(report_text: str, facts: dict, display: dict) -> list:
     start = report_text.index('\n## The results')
     section = report_text[start:report_text.index('\n## ', start + 5)]
     problems, found = [], set()
+    if 'under 1 frame' in section:
+        problems.append("the results print 'under 1 frame': a reader has no frame, print the time (\"under 17 ms\")")
+    unsettled = {}  # (heading, editor name, column title) -> (printed text, editor, criterion, measure, workload)
     for block in re.split(r'\n### ', section)[1:]:
         heading = block.split('\n', 1)[0].strip()
         if heading not in TABLES:
@@ -150,6 +208,8 @@ def check(report_text: str, facts: dict, display: dict) -> list:
                                     % (heading, cells[0], title, cells[1 + index], text))
                 if counts:
                     columns[index][1].append((value, text))
+                elif text != '—' and not text.endswith('(text not checked)'):
+                    unsettled[(heading, cells[0], title)] = (text, editor, criterion, measure, COLUMNS[title])
         printed = [line for line in block.split('\n') if line.startswith('At ')]
         sentence = expected_sentence(columns, len(rows) - 2)
         if (printed[0] if printed else '') != sentence:
@@ -170,6 +230,40 @@ def check(report_text: str, facts: dict, display: dict) -> list:
             problems.append('%r: the facts hold figures and the report has no table' % heading)
     if not found:
         problems.append('no results table found')
+    problems += _check_appendix(report_text, facts, unsettled)
+    return problems
+
+
+def _check_appendix(report_text: str, facts: dict, unsettled: dict) -> list:
+    """Appendix J against the cells the facts leave without a single figure: one row each, and the why's numbers."""
+    marker = '\n## Appendix J'
+    if marker not in report_text:
+        return ['Appendix J is missing and %d results cell(s) have no single figure' % len(unsettled)] if unsettled else []
+    start = report_text.index(marker)
+    following = report_text.find('\n## ', start + 5)
+    body = report_text[start:following if following != -1 else len(report_text)]
+    problems, listed = [], {}
+    for line in body.split('\n'):
+        if not line.startswith('|') or line.startswith('| Table') or line.startswith('|---'):
+            continue
+        cells = [cell.strip() for cell in line.strip().strip('|').split('|')]
+        if len(cells) < 5:
+            problems.append('Appendix J: a row has %d columns, expected 5: %r' % (len(cells), line[:80]))
+            continue
+        listed[(cells[0], cells[1], cells[2])] = (cells[3], ' | '.join(cells[4:]))
+    for where, (text, editor, criterion, measure, workload) in unsettled.items():
+        if where not in listed:
+            problems.append('Appendix J: %s / %s / %s prints %r in the results and has no row' % (*where, text))
+            continue
+        printed, why = listed[where]
+        if printed != text:
+            problems.append('Appendix J: %s / %s / %s says %r, the facts give %r' % (*where, printed, text))
+        for part in expected_why_parts(facts, editor, criterion, measure, workload):
+            if part not in why:
+                problems.append('Appendix J: the why of %s / %s / %s does not say %r' % (*where, part))
+    for where in listed:
+        if where not in unsettled:
+            problems.append('Appendix J: %s / %s / %s has a row, and that cell has a single figure or is not in the results' % where)
     return problems
 
 

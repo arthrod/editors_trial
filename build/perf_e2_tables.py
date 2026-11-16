@@ -339,6 +339,12 @@ def _cell_text(facts: dict, roots, editor: str, criterion: str, measure: str = '
     ok = reproduced(p_med, r_med, rel_tol=REL_TOL, abs_tol=frame)
     if not ok:
         facts[key + '.reason'] = 'medians outside tolerance'
+        # #239: the two rounds' own figures, so a reader is shown both and not the word "varied".
+        facts[key + '.rounds'] = {
+            'first': {'median': p_med, 'n': p_cell['stats']['n']},
+            'second': {'median': r_med, 'n': r_cell['stats']['n']},
+            'frame_interval_ms': frame or None, 'rel_tol': REL_TOL, 'sample_unit': p_cell.get('sample_unit') or 'ms',
+        }
         first = _format_median(p_cell, p_med)
         second = _format_median(r_cell, r_med)
         facts.setdefault('_not_reproduced', []).append((DISPLAY.get(editor, editor), criterion, workload_id or '—', measure or '—', first, second))
@@ -1017,6 +1023,9 @@ def unset_facts() -> dict:
         "perf.e2.measured": "not yet measured",
         "perf.e2.status": "This report is not yet measured.",
         "perf.e2.short_version": "not yet measured",
+        "perf.e2.no_figure": "not yet measured",
+        **{"perf.e2.no_figure.%s" % kind: "not yet measured"
+           for kind in ("rows", "ranges", "varied", "not_measured", "does_not_apply", "no_figure", "crashed")},
         "perf.e2.intro": "No browser runs are available; not yet measured.",
         "perf.e2.machine": _machine(),
         "perf.e2.host": "not yet measured",
@@ -1210,6 +1219,10 @@ def _facts_from_roots(roots) -> dict:
     # #227: the short version reads the cells the tables above just decided.
     from build import perf_e2_summary
     facts["perf.e2.short_version"] = perf_e2_summary.short_version(facts, editors, DISPLAY)
+    # #239: why each results cell that is not a single figure is not one.
+    no_figure_text, no_figure_counts = perf_e2_summary.no_figure_appendix(facts, editors, DISPLAY)
+    facts["perf.e2.no_figure"] = no_figure_text
+    facts.update(no_figure_counts)
     facts["perf.e2.not_run"] = (
         _not_run_editors(roots[0], roots[-1], editors) if classic else _not_measured_campaign(editors))
     facts["perf.e2.not_reproduced"] = _not_reproduced_table(facts, classic)

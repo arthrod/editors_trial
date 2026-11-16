@@ -1117,6 +1117,13 @@ def _one_repetition_value(trial: dict) -> tuple[float | None, bool | None]:
     return value, sub
 
 
+def _note_reason(reasons: dict, code: str, row: dict) -> None:
+    """Keep the first line of the reason a refused row recorded, under its refusal code."""
+    text = row.get('failure_reason') or row.get('publication_block_reason')
+    if isinstance(text, str) and text.strip():
+        reasons[code].add(text.strip().splitlines()[0].strip()[:200])
+
+
 def _refusal_key(sample_or_trial: dict) -> str:
     reason = sample_or_trial.get("failure_reason") or sample_or_trial.get("publication_block_reason") or sample_or_trial.get("outcome")
     return str(reason).split(":", 1)[0].strip()
@@ -1249,6 +1256,7 @@ def _build_cell_from_jobs(
         }
     kept, raw, sub_frame, intervals = [], [], [], []
     refusals = Counter()
+    reasons = defaultdict(set)
     sample_unit = 'bytes' if criterion_id in ('C17', 'C19') else 'ms'
     failed_launches = set()
     trials = defaultdict(list)
@@ -1268,6 +1276,8 @@ def _build_cell_from_jobs(
             if workload_id is not None and trial_workload(trial) != workload_id:
                 continue
             code = refusal_code(trial)
+            if code and trial['criterion_id'] == criterion_id:
+                _note_reason(reasons, code, trial)
             if code in _RUN_REFUSALS:
                 if refused_launches.get(launch) == 'unreadable_trial':
                     additional[launch].add(code)
@@ -1309,6 +1319,8 @@ def _build_cell_from_jobs(
                 continue
             key = _launch_key(run_directory, job, path.stem, qualify=qualify)
             code = refusal_code(row)
+            if code:
+                _note_reason(reasons, code, row)
             if code and refused_launches.get(key) in ('quarantined', 'unreadable_trial'):
                 additional[key].add(code)
             elif code in _RUN_REFUSALS:
@@ -1383,6 +1395,9 @@ def _build_cell_from_jobs(
         'raw_samples_ms': raw,
         'sub_frame': sub_frame,
         'refusals': dict(refusals),
+        # #239: what the refused launches recorded, per code; the code alone does not say whether the
+        # measurement has no meaning here or the harness could not take it.
+        'refusal_reasons': {code: sorted(reasons[code]) for code in sorted(refusals) if reasons.get(code)},
         'additional_refusals': dict(Counter(code for launch, codes in additional.items() for code in codes if code != refused_launches.get(launch))),
         'content_verified': bool(verified_content) and all(verified_content),
         'failed_launches': len(failed_launches),

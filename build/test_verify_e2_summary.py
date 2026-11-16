@@ -99,3 +99,111 @@ def test_every_document_size_of_a_table_must_be_a_column():
         lines.append(line)
     problems = verify.check('\n'.join(lines), _facts(), DISPLAY)
     assert any('columns' in p for p in problems), problems
+
+
+# #239: every results cell that is not a single figure says what happened, and Appendix J says why.
+
+GLYPH = 'no_glyph_geometry_to_witness_the_keystrokes_own_paint'
+REFUSED = ('first: not enough samples (n = 0 of 10; reasons not_applicable: 10); '
+           'second: not enough samples (n = 0 of 10; reasons not_applicable: 10)')
+
+
+def _labelled_facts():
+    facts = {}
+    base = 'perf.e2.plate.C05.warm_steady.prose-500w'
+    facts[base + '.reproduced'] = True
+    facts[base + '.primary'], facts[base + '.reproduction'] = _cell(9.0), _cell(11.0)
+    base = 'perf.e2.folio.C05.warm_steady.prose-500w'
+    facts[base + '.reproduced'] = False
+    facts[base + '.reason'] = 'medians outside tolerance'
+    facts[base + '.rounds'] = {'first': {'median': 46.0, 'n': 10}, 'second': {'median': 81.0, 'n': 9},
+                               'frame_interval_ms': 16.7, 'rel_tol': 0.1, 'sample_unit': 'ms'}
+    base = 'perf.e2.folio.C05.warm_steady.prose-5kw'
+    facts[base + '.reproduced'] = False
+    facts[base + '.reason'] = REFUSED
+    for slot in ('primary', 'reproduction'):
+        facts[base + '.' + slot] = {'scheduled': 10, 'refusals': {'not_applicable': 10},
+                                    'refusal_reasons': {'not_applicable': [GLYPH]}}
+    return facts
+
+
+LABELLED = """# Report
+
+## The results
+
+### Typing one character
+
+From a key press.
+
+| Editor | 500 words | 5,000 words | 50,000 words | 250,000 words |
+|---|---|---|---|---|
+| Folio | 46 ms to 81 ms | not measured | — | — |
+| Plate.js | under 17 ms | — | — | — |
+
+## Appendix A — What was measured
+
+## Appendix J — Every results cell that is not a single figure, and why
+
+Words.
+
+| Table | Editor | Document | Printed | Why |
+|---|---|---|---|---|
+| Typing one character | Folio | 500 words | 46 ms to 81 ms | The first round gave 46 ms (10 launches) and the second 81 ms (9 launches). They differ. |
+| Typing one character | Folio | 5,000 words | not measured | First round: 0 of 10 launches kept; 10 refused: words. Second round: 0 of 10 launches kept; 10 refused: words. |
+"""
+
+
+def test_a_report_with_a_range_a_refusal_and_its_appendix_passes():
+    assert verify.check(LABELLED, _labelled_facts(), DISPLAY) == []
+
+
+def test_varied_is_a_mismatch_when_both_rounds_have_a_median():
+    problems = verify.check(LABELLED.replace('| Folio | 46 ms to 81 ms |', '| Folio | varied |'), _labelled_facts(), DISPLAY)
+    assert any("'varied'" in p and "'46 ms to 81 ms'" in p for p in problems), problems
+
+
+def test_does_not_apply_is_a_mismatch_when_the_harness_refused_for_its_own_witness():
+    problems = verify.check(LABELLED.replace('| not measured | — | — |', '| does not apply | — | — |'), _labelled_facts(), DISPLAY)
+    assert any("'does not apply'" in p and "'not measured'" in p for p in problems), problems
+
+
+def test_under_one_frame_may_not_be_printed_in_the_results():
+    problems = verify.check(LABELLED.replace('| Plate.js | under 17 ms |', '| Plate.js | under 1 frame |'), _labelled_facts(), DISPLAY)
+    assert any('under 1 frame' in p for p in problems), problems
+
+
+def test_a_cell_without_a_single_figure_must_have_its_appendix_row():
+    lines = [line for line in LABELLED.split('\n') if not line.startswith('| Typing one character | Folio | 5,000 words')]
+    problems = verify.check('\n'.join(lines), _labelled_facts(), DISPLAY)
+    assert any('Appendix J' in p and 'Folio' in p and '5,000 words' in p and 'no row' in p for p in problems), problems
+
+
+def test_an_appendix_row_for_a_cell_that_has_a_figure_is_named():
+    extra = LABELLED + '| Typing one character | Plate.js | 500 words | varied | The rounds differ. |\n'
+    problems = verify.check(extra, _labelled_facts(), DISPLAY)
+    assert any('Appendix J' in p and 'Plate.js' in p and 'has a single figure' in p for p in problems), problems
+
+
+def test_an_appendix_row_must_print_what_the_table_prints():
+    wrong = LABELLED.replace('| Typing one character | Folio | 500 words | 46 ms to 81 ms |',
+                             '| Typing one character | Folio | 500 words | 40 ms to 81 ms |')
+    problems = verify.check(wrong, _labelled_facts(), DISPLAY)
+    assert any('Appendix J' in p and "'40 ms to 81 ms'" in p for p in problems), problems
+
+
+def test_the_why_of_a_range_must_give_both_rounds_and_their_launches():
+    wrong = LABELLED.replace('the second 81 ms (9 launches)', 'the second 81 ms (10 launches)')
+    problems = verify.check(wrong, _labelled_facts(), DISPLAY)
+    assert any('Appendix J' in p and 'why' in p and '81 ms (9 launches)' in p for p in problems), problems
+
+
+def test_the_why_of_a_refusal_must_give_each_rounds_kept_launches():
+    wrong = LABELLED.replace('Second round: 0 of 10 launches kept', 'Second round: 2 of 10 launches kept')
+    problems = verify.check(wrong, _labelled_facts(), DISPLAY)
+    assert any('Appendix J' in p and 'why' in p and 'Second round: 0 of 10 launches kept' in p for p in problems), problems
+
+
+def test_a_report_with_such_cells_and_no_appendix_is_named():
+    cut = LABELLED[:LABELLED.index('## Appendix J')]
+    problems = verify.check(cut, _labelled_facts(), DISPLAY)
+    assert any('Appendix J' in p and 'missing' in p for p in problems), problems
