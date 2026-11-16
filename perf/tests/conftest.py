@@ -17,6 +17,7 @@ import pytest
 from pyfakefs.fake_filesystem_unittest import Patcher
 
 from perf.analysis import e2_resources
+from perf.container import host_load
 
 _RELOAD = [e2_resources]
 
@@ -35,3 +36,9 @@ def fs(request):
     patcher.setUp()
     yield patcher.fs
     patcher.tearDown()
+
+
+@pytest.fixture(autouse=True)
+def _quiet_host(monkeypatch):
+    """The machine the tests run on is not the machine under test: its load must not hold a job back (#228)."""
+    monkeypatch.setattr(host_load, "read_load1", lambda: 0.0)

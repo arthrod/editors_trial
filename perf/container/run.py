@@ -9,7 +9,7 @@ import shlex
 import signal
 import subprocess
 import sys
-from . import artifacts
+from . import artifacts, host_load
 from .policy import RUNNERS, job_editors, narrow_job_editors, publication_jobs, shakedown_options, verify_run, cell_counts, verify_profiles
 
 DEFAULT_OUT_ROOT = Path('perf/container/out/runs')
@@ -380,7 +380,14 @@ def main(argv: list[str] | None = None):
             records.append(entry)
             job_exit = 0
             try:
-                if refuse_existing(directory):
+                # #228: the host check above ran once; the shared host can be busy hours later.
+                entry['host_load'] = host_load.guard()
+                print('host_load ' + json.dumps(entry['host_load'], sort_keys=True), flush=True)
+                if not entry['host_load']['quiet']:
+                    job_exit = 2
+                    entry['refusal'] = host_load.refusal(entry['host_load'])
+                    failures.append(f'{name}/{run_id}: {entry["refusal"]}')
+                elif refuse_existing(directory):
                     job_exit = 2
                     entry['refusal'] = f'job_refused: directory exists: {directory}'
                     failures.append(f'{name}: {entry["refusal"]}')
