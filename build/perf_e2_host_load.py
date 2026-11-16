@@ -36,7 +36,7 @@ def _number(value) -> bool:
 
 
 def row_load(row: dict):
-    """(highest 1-minute load of the row's two ends, above the bound?) or None when a reading is missing."""
+    """(highest 1-minute load of the row's two ends, above the bound?, the bound) or None when a reading is missing."""
     accounting = row.get('cpu_accounting') if isinstance(row, dict) else None
     if not isinstance(accounting, dict) or not accounting.get('available'):
         return None
@@ -50,13 +50,8 @@ def row_load(row: dict):
         cpus = reading.get('cpu_count_visible') if _number(reading.get('cpu_count_visible')) else cpus
     if not cpus:
         return None
-    return max(loads), max(loads) > round(cpus * BOUND_FRACTION, 2)
-
-
-def _bound(row: dict) -> float | None:
-    reading = (row.get('cpu_accounting') or {}).get('before') or {}
-    cpus = reading.get('cpu_count_visible')
-    return round(cpus * BOUND_FRACTION, 2) if _number(cpus) and cpus else None
+    bound = round(cpus * BOUND_FRACTION, 2)
+    return max(loads), max(loads) > bound, bound
 
 
 def _workload(summary: dict, job: Path) -> str | None:
@@ -107,7 +102,7 @@ def job_rows(roots) -> list[dict]:
                 count += 1
                 above += load[1]
                 highest = load[0] if highest is None else max(highest, load[0])
-                bound = _bound(row) if bound is None else bound
+                bound = load[2] if bound is None else max(bound, load[2])
             if not count and not unread:
                 continue
             block = summary.get('block') if isinstance(summary.get('block'), dict) else {}

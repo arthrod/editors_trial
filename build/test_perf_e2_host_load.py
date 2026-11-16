@@ -31,8 +31,8 @@ def test_a_row_is_above_the_bound_when_either_end_was():
     assert hl.BOUND_FRACTION == 1 / 3
     quiet = {'cpu_accounting': {'available': True, 'before': _reading(21.33), 'after': _reading(3.0)}}
     busy_end = {'cpu_accounting': {'available': True, 'before': _reading(3.0), 'after': _reading(21.34)}}
-    assert hl.row_load(quiet) == (21.33, False)
-    assert hl.row_load(busy_end) == (21.34, True)
+    assert hl.row_load(quiet) == (21.33, False, 21.33)
+    assert hl.row_load(busy_end) == (21.34, True, 21.33)
 
 
 def test_a_row_without_a_reading_is_counted_apart_never_as_quiet():
@@ -119,3 +119,22 @@ def test_a_job_whose_summary_lists_no_document_takes_it_from_its_attempts(tmp_pa
     (attempts / 'c17.json').write_text(json.dumps({'environment': {'workload_id': 'prose-250kw'}}))
     text, _facts = hl.section([root], ['folio', 'plate'], {})
     assert '| memory | 250,000 words | first | 1 | e2-docen | every editor | 4 of 4 | 30.0 |' in text
+
+
+def test_the_bound_printed_is_the_bound_each_launch_was_judged_by(tmp_path):
+    """Review: the count read the CPU count from either end and the printed bound from the first end only."""
+    after_only = {'cpu_accounting': {'available': True, 'before': {'available': True, 'loadavg': [30.0, 1, 1]},
+                                     'after': _reading(30.0)}}
+    assert hl.row_load(after_only) == (30.0, True, 21.33)
+    root = tmp_path / 'e2-docen--rid'
+    _job(root, 'benchmark_document', 'r-010', [], extra=[after_only] * 4)
+    (row,) = hl.job_rows([root])
+    assert row['bound'] == 21.33 and row['above'] == 4
+    text, _facts = hl.section([root], ['folio', 'plate'], {})
+    assert 'began or ended with the load above 21.3.' in text
+
+
+def test_the_template_does_not_say_the_machine_caused_a_disagreement():
+    template = (Path(hl.__file__).resolve().parents[1] / 'templates/reports/Report E2 - Speed in the Browser (2026).md').read_text()
+    assert 'likelier cause' not in template
+    assert 'the load is one possible reason, and the report cannot tell it from the editor' in template
