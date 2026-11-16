@@ -158,14 +158,31 @@ def expected_why_parts(facts: dict, editor: str, criterion: str, measure: str, w
         parts.append('%s round: %d of %d launches kept' % (name.capitalize(), kept, scheduled))
         # ... and the recorded reason in words (CodeRabbit, #240): a term the explanation of that reason cannot
         # do without. A reason this check has no term for asks for nothing more.
+        # The term belongs to the clause of its own round (#241): (round, term), checked by _round_clause.
         cell = facts.get(base + ('.primary' if name == 'first' else '.reproduction')) or {}
         for reasons in (cell.get('refusal_reasons') or {}).values():
             for reason in reasons:
                 for piece in reason.split('; '):
                     term = _reason_term(piece)
-                    if term and term not in parts:
-                        parts.append(term)
+                    if term and (name, term) not in parts:
+                        parts.append((name, term))
     return parts
+
+
+_CLAUSE_ENDS = ('First round:', 'Second round:', 'The first round kept', 'The second round kept', 'The reason, both times:',
+                'In the first round,', 'In the second round,')
+
+
+def _round_clause(why: str, name: str) -> str:
+    """Where a row may give one round's reason: that round's own clause, and the sentence said for both rounds."""
+    def section(start: str) -> str:
+        at = why.find(start)
+        if at == -1:
+            return ''
+        ends = [why.find(end, at + len(start)) for end in _CLAUSE_ENDS]
+        ends = [end for end in ends if end != -1]
+        return why[at:min(ends) if ends else len(why)]
+    return section('%s round:' % name.capitalize()) + ' ' + section('The reason, both times:')
 
 
 def _reason_term(reason: str):
@@ -292,7 +309,12 @@ def _check_appendix(report_text: str, facts: dict, unsettled: dict) -> list:
         if printed != text:
             problems.append('Appendix J: %s / %s / %s says %r, the facts give %r' % (*where, printed, text))
         for part in expected_why_parts(facts, editor, criterion, measure, workload):
-            if part not in why:
+            if isinstance(part, tuple):
+                name, term = part
+                if term not in _round_clause(why, name):
+                    problems.append('Appendix J: the why of %s / %s / %s does not say %r for the %s round'
+                                    % (*where, term, name))
+            elif part not in why:
                 problems.append('Appendix J: the why of %s / %s / %s does not say %r' % (*where, part))
     for where in listed:
         if where not in unsettled:
