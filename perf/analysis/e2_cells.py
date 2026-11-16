@@ -919,6 +919,13 @@ PIXEL_WITNESS_MIN_PIXELS = 100
 PIXEL_WITNESS = 'changed_pixels'
 _NO_GLYPH = 'no_glyph_geometry_to_witness_the_keystrokes_own_paint'
 _TYPING_CACHE_STATES = ('process_cold_fs_warm', 'warm_steady')
+_TYPING_BURST_KEYS = 3
+
+
+def _key_facts(observation: dict) -> tuple:
+    """What the rule reads of one key press, to hold its two recorded copies to each other."""
+    return (observation['paint_ms'], observation['witness']['changed_pixels'],
+            observation['clock_skew']['frame_interval_ms'])
 
 
 def _pixel_witnessed_key(observation) -> bool:
@@ -931,7 +938,8 @@ def _pixel_witnessed_key(observation) -> bool:
     witness = observation.get('witness') or {}
     pixels = witness.get('changed_pixels')
     interval = clock.get('frame_interval_ms')
-    return (adapter.get('confirmed') is True and _finite(observation.get('paint_ms')) and observation['paint_ms'] >= 0
+    # The model adapter reads the typed text back; a flag adapter only sees that something was modified.
+    return (adapter.get('adapter') == 'model' and adapter.get('confirmed') is True and _finite(observation.get('paint_ms')) and observation['paint_ms'] >= 0
             and clock.get('acceptable') is True and _finite(interval) and interval > 0
             and witness.get('outcome') == 'witnessed'
             and _finite(pixels) and pixels >= PIXEL_WITNESS_MIN_PIXELS)
@@ -956,6 +964,10 @@ def pixel_witnessed_typing(row) -> list:
     if (criterion not in ('C05', 'C06') or row.get('outcome') != 'not_applicable'
             or row.get('failure_reason') != _NO_GLYPH or row.get('samples_ms')):
         return [row]
+    # The missing outline must be the launch's only refusal, and the harness must not have ruled it out itself.
+    if (row.get('refusal_code') != 'not_applicable' or row.get('publishable') is False
+            or any(reason != _NO_GLYPH for reason in row.get('failure_reasons') or [])):
+        return [row]
     diagnostic = row.get('diagnostic') or {}
     observations = diagnostic.get('observations') or []
     if not observations or not all(_pixel_witnessed_key(o) for o in observations):
@@ -964,12 +976,16 @@ def pixel_witnessed_typing(row) -> list:
     while at < len(observations):
         single = observations[at]
         burst = single.get('burst')
-        if not isinstance(burst, list) or not burst:
+        # C06 is a burst of three isolated key presses (``keys: 3`` in the harness's record).
+        if not isinstance(burst, list) or len(burst) != _TYPING_BURST_KEYS:
+            return [row]
+        # Each burst key is recorded twice, inside the single edit and at the top level: both must pass.
+        if not all(_pixel_witnessed_key(key) for key in burst):
             return [row]
         keys = observations[at + 1:at + 1 + len(burst)]
         if len(keys) != len(burst) or any('burst' in key for key in keys):
             return [row]
-        if [key['paint_ms'] for key in keys] != [key.get('paint_ms') if isinstance(key, dict) else None for key in burst]:
+        if [_key_facts(key) for key in keys] != [_key_facts(key) for key in burst]:
             return [row]
         arms.append((single, keys))
         at += 1 + len(burst)
@@ -980,7 +996,11 @@ def pixel_witnessed_typing(row) -> list:
     for cache_state, (single, keys) in zip(_TYPING_CACHE_STATES, arms):
         used = [single] if criterion == 'C05' else keys
         sample = float(single['paint_ms']) if criterion == 'C05' else float(percentile([key['paint_ms'] for key in keys], 50))
-        interval = min(float(key['clock_skew']['frame_interval_ms']) for key in used)
+        intervals = {float(key['clock_skew']['frame_interval_ms']) for key in used}
+        if len(intervals) != 1:
+            # One redraw interval per trial, as the harness requires (frame_interval_inconsistent).
+            return [row]
+        interval = intervals.pop()
         environment = dict(row.get('environment') or {}, cache_state=cache_state)
         publishable, block = trial_publishable_flags(environment, row.get('layer') or 'browser_visible', None)
         if not publishable:

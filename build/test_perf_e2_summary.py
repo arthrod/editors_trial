@@ -470,7 +470,7 @@ def _pixel_facts():
     _put(facts, 'plate', 'C05', 'prose-500w', 24, 26, measure='warm_steady')
     _put(facts, 'docen', 'C05', 'prose-500w', 50, 60, measure='warm_steady')
     for half in ('primary', 'reproduction'):
-        facts['perf.e2.docen.C05.warm_steady.prose-500w.' + half]['witness'] = 'changed_pixels'
+        facts['perf.e2.docen.C05.warm_steady.prose-500w.' + half].update(witness='changed_pixels', least_changed_pixels=102)
     return facts
 
 

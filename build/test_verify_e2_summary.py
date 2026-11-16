@@ -370,7 +370,7 @@ def _pixel_facts():
         facts[base + '.reproduced'] = True
         facts[base + '.primary'], facts[base + '.reproduction'] = _cell(first), _cell(second)
     for half in ('primary', 'reproduction'):
-        facts['perf.e2.folio.C05.warm_steady.prose-500w.' + half]['witness'] = 'changed_pixels'
+        facts['perf.e2.folio.C05.warm_steady.prose-500w.' + half].update(witness='changed_pixels', least_changed_pixels=102)
     return facts
 
 
@@ -397,6 +397,19 @@ def test_a_note_under_a_table_with_no_marked_time_is_named():
     facts = _pixel_facts()
     for half in ('primary', 'reproduction'):
         del facts['perf.e2.folio.C05.warm_steady.prose-500w.' + half]['witness']
-    report = PIXEL_REPORT.replace(' (by pixels)', '')
+    report = PIXEL_REPORT.replace('| Folio | 55 ms (by pixels) |', '| Folio | 55 ms |').replace('55 ms (by pixels).', '55 ms.')
     problems = verify.check(report, facts, DISPLAY)
     assert any('note' in p for p in problems), problems
+
+
+def test_a_note_that_says_something_else_with_the_same_words_is_named():
+    false_note = 'A time marked "(by pixels)" has no requirement of at least 100 pixels, although it was not checked for the character.'
+    problems = verify.check(PIXEL_REPORT.replace(PIXEL_NOTE, false_note), _pixel_facts(), DISPLAY)
+    assert any('note' in p for p in problems), problems
+
+
+def test_a_pixel_witnessed_cell_whose_least_change_is_under_the_bound_is_named():
+    facts = _pixel_facts()
+    facts['perf.e2.folio.C05.warm_steady.prose-500w.reproduction']['least_changed_pixels'] = 24
+    problems = verify.check(PIXEL_REPORT, facts, DISPLAY)
+    assert any('100 pixels' in p and 'Folio' in p for p in problems), problems

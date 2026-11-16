@@ -365,7 +365,7 @@ def _cell_text(facts: dict, roots, editor: str, criterion: str, measure: str = '
     if p_cell.get('witness') or r_cell.get('witness'):
         same = p_cell.get('witness') == r_cell.get('witness') == 'changed_pixels'
         least = [cell.get('least_changed_pixels') for cell in (p_cell, r_cell)]
-        suffix += ('; by pixels, least change %d pixels (#238)' % min(least) if same and all(least)
+        suffix += ('; by pixels, least change on any key press %d pixels (#238)' % min(least) if same and all(least)
                    else '; MIXED END EVENTS (#238)')
     return p_text + suffix + ('; second: ' + failures if failures else '')
 

@@ -121,6 +121,12 @@ def _round_figures(rounds: dict):
     return list(zip(values, texts))
 
 
+#: #238: the note a table with a time read on the pixel witness carries, word for word (the checker's own copy).
+PIXEL_NOTE = ('A time marked "(by pixels)" ends at the first frame in which at least 100 pixels of the page changed after '
+              "a key press the editor confirmed. The editor draws its text where the harness cannot read a character's "
+              'outline, so that frame is not checked for the character itself (issue #238).')
+
+
 def expected_cell(facts: dict, editor: str, criterion: str, measure: str, workload: str):
     """(text, value or None, counts in the range sentence)."""
     base = 'perf.e2.%s.%s%s.%s' % (editor, criterion, '.' + measure if measure else '', workload)
@@ -256,6 +262,12 @@ def check(report_text: str, facts: dict, display: dict) -> list:
                 continue
             for index, title in enumerate(titles):
                 text, value, counts = expected_cell(facts, editor, criterion, measure, COLUMNS[title])
+                if text.endswith('(by pixels)'):
+                    base = 'perf.e2.%s.%s%s.%s' % (editor, criterion, '.' + measure if measure else '', COLUMNS[title])
+                    least = [(facts.get(base + half) or {}).get('least_changed_pixels') for half in ('.primary', '.reproduction')]
+                    if not all(isinstance(value_, (int, float)) and value_ >= 100 for value_ in least):
+                        problems.append('%s / %s / %s: read by pixels, and the facts do not record a least change of at least '
+                                        '100 pixels in both rounds (%r)' % (heading, cells[0], title, least))
                 if cells[1 + index] != text:
                     problems.append('%s / %s / %s: report says %r, the facts give %r'
                                     % (heading, cells[0], title, cells[1 + index], text))
@@ -269,9 +281,9 @@ def check(report_text: str, facts: dict, display: dict) -> list:
             problems.append('%s: range sentence is %r, the facts give %r' % (heading, printed[0] if printed else '', sentence))
         # #238: a table with a time read on the pixel witness says, once, what that mark means.
         marked = any(cell.strip().endswith('(by pixels)') for row in rows[2:] for cell in row.strip('|').split('|'))
-        notes = [line for line in block.split('\n') if line.startswith('A time marked "(by pixels)"')]
-        if marked and (len(notes) != 1 or 'at least 100 pixels' not in notes[0] or 'not checked for the character' not in notes[0]):
-            problems.append('%s: a time is marked (by pixels) and the table has no note saying what that means' % heading)
+        notes = [line for line in block.split('\n') if 'by pixels' in line and not line.startswith(('|', 'At '))]
+        if marked and notes != [PIXEL_NOTE]:
+            problems.append('%s: a time is marked (by pixels) and the note under the table is not the one that says what that means' % heading)
         if notes and not marked:
             problems.append('%s: the (by pixels) note is printed and no time in the table is marked' % heading)
         # An editor with a cell in the facts must have a row.
