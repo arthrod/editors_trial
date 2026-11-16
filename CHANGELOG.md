@@ -9,6 +9,14 @@ re-running the measurement behind it. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- The release gate's check of Report E2's Appendix J looks for a refused
+  round's reason in that round's own clause, so two rounds that recorded
+  different reasons cannot be swapped unnoticed; and the test of a host
+  round older than a first-pass job now fails without that comparison
+  (#241). No figure and no sentence of a report changes.
+
 ## [0.10.3] - 2026-11-16
 
 Report E2's four busy-host jobs are measured again on a quiet host, and its
