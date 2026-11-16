@@ -169,3 +169,62 @@ test('j: indexes refer to the original, unsorted frames array', () => {
   assert.equal(r.delay_ms, 32);
   assert.notEqual(r.match_index, r.reference_index);
 });
+
+// Integration needs (#245): a document region, frames decoded on demand, and a bounded walk back.
+
+test('k: changes outside the document region neither count as the edit nor prevent settling', () => {
+  const base = blank();
+  const region = { x: 16, y: 8, width: 32, height: 32 }; // holds TEXT and the caret
+  const noise = k => ({ x: 0, y: 0, w: 14, h: 6, color: k % 2 ? FG : CARET }); // 84 px, changes every frame, outside
+  const frames = series(MARKER, 1400, 16, (t, k) => withBlocks(base, t >= MARKER + 32 ? [TEXT, noise(k)] : [noise(k)]));
+  const inside = settlePixels(frames, { baseline: base, markerMs: MARKER, region });
+  assert.equal(inside.failure_reason, null);
+  assert.equal(inside.match_page_ms, MARKER + 32);
+  assert.equal(inside.edit_pixels, 168);
+  // The same frames with the edit outside the region: nothing to witness there.
+  const away = settlePixels(frames, { baseline: base, markerMs: MARKER, region: { x: 40, y: 30, width: 20, height: 16 } });
+  assert.equal(away.failure_reason, 'pixel_edit_region_too_small');
+});
+
+test('l: frames may be decoded on demand, and no more than a few are held at once', () => {
+  const base = blank();
+  let live = 0, peak = 0, decodes = 0;
+  const lazy = series(MARKER, 1400, 16, (t, k) => withBlocks(base, t >= MARKER + 32 ? [TEXT] : []))
+    .map(f => ({ pageMs: f.pageMs, pixels: () => { decodes++; return f.pixels; } }));
+  const r = settlePixels(lazy, { baseline: base, markerMs: MARKER });
+  assert.equal(r.failure_reason, null);
+  assert.equal(r.match_page_ms, MARKER + 32);
+  assert.ok(decodes <= 2 * lazy.length + 2, `decoded ${decodes} times for ${lazy.length} frames`);
+  void live; void peak;
+});
+
+test('m: the walk back is bounded, so a long quiet period is not read whole', () => {
+  const base = blank();
+  let decodes = 0;
+  const lazy = series(MARKER, 3000, 16, (t, k) => withBlocks(base, t >= MARKER + 32 ? [TEXT] : []))
+    .map(f => ({ pageMs: f.pageMs, pixels: () => { decodes++; return f.pixels; } }));
+  const r = settlePixels(lazy, { baseline: base, markerMs: MARKER, tailMaxMs: 600 });
+  assert.equal(r.failure_reason, null);
+  assert.equal(r.match_page_ms, MARKER + 32);
+  // 600 ms of tail at 16 ms a frame is about 38 frames, plus the three read forward to the match.
+  assert.ok(decodes < 60, `decoded ${decodes} frames`);
+  assert.ok(r.tail_frames <= 39 && r.settled_page_ms - 600 <= MARKER + 2000);
+});
+
+test('n: a caret that blinks only once in the tail is still masked, whichever phase the settled picture has', () => {
+  const base = blank();
+  const newCaret = { x: 36, y: 10, w: 1, h: 24, color: CARET };
+  for (const lastOn of [true, false]) {
+    // Caret phases of 500 ms; the text arrives at +32 ms while the caret is in the other phase than at the end.
+    const frames = series(MARKER, 2000, 16, (t, k) => {
+      const on = (Math.floor((t - MARKER) / 500) % 2 === 0) !== lastOn ? false : true;
+      const blocks = t >= MARKER + 32 ? [TEXT] : [];
+      if (t >= MARKER + 32 && on) blocks.push(newCaret);
+      return withBlocks(base, blocks);
+    });
+    const r = settlePixels(frames, { baseline: base, markerMs: MARKER });
+    assert.equal(r.failure_reason, null, `lastOn=${lastOn}`);
+    assert.equal(r.match_page_ms, MARKER + 32, `lastOn=${lastOn}`);
+    assert.equal(r.edit_pixels, 168, `lastOn=${lastOn}`);
+  }
+});
