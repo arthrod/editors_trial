@@ -46,6 +46,13 @@ SECTIONS = (
 DASH = '—'
 UNDER = 'under '
 
+#: #238: the mark of a time read on the pixel witness, and the note its table carries.
+PIXEL_WITNESS = 'changed_pixels'
+PIXEL_MARK = ' (by pixels)'
+PIXEL_NOTE = ('A time marked "(by pixels)" ends at the first frame in which at least 100 pixels of the page changed after '
+              "a key press the editor confirmed. The editor draws its text where the harness cannot read a character's "
+              'outline, so that frame is not checked for the character itself (issue #238).')
+
 #: The typing lanes refuse a launch with this reason when the editor exposes no glyph outline (#238).
 GLYPH_REASON = 'no_glyph_geometry_to_witness_the_keystrokes_own_paint'
 #: Recorded reasons for which "does not apply" is true: there was nothing to measure.
@@ -207,6 +214,10 @@ def _cell(facts: dict, key: str, editor: str, criterion: str, measure: str, work
             return _range(rounds), None
         return _why(str(facts.get(base + '.reason') or ''), (facts.get(base + '.primary'), facts.get(base + '.reproduction'))), None
     first, second = facts[base + '.primary'], facts[base + '.reproduction']
+    witnesses = {cell.get('witness') for cell in (first, second)}
+    if len(witnesses) > 1 or 'mixed' in witnesses:
+        # The two rounds, or the launches of one, did not end on the same event: no single figure (#238).
+        return 'no figure', None
     value = (_seed_median(first) + _seed_median(second)) / 2
     unit = first.get('sample_unit') or 'ms'
     # "under 17 ms" (one redraw) only when each seed's median is under that seed's own
@@ -219,6 +230,8 @@ def _cell(facts: dict, key: str, editor: str, criterion: str, measure: str, work
     # The reference table marks an opening whose text was not checked; so does this one, and it stays out of the range.
     if criterion == 'C11' and not (first.get('content_verified') is True and second.get('content_verified') is True):
         return text + ' (text not checked)', None
+    if witnesses == {PIXEL_WITNESS}:
+        text += PIXEL_MARK
     return text, (value, text)
 
 
@@ -287,6 +300,8 @@ def short_version(facts: dict, editors, display) -> str:
         sentence = _range_sentence(columns, len(rows))
         if sentence:
             lines += ['', sentence]
+        if any(text.endswith(PIXEL_MARK) for _editor, texts in table for text in texts):
+            lines += ['', PIXEL_NOTE]
         blocks.append('\n'.join(lines))
     return '\n\n'.join(blocks) if blocks else 'not in these runs.'
 

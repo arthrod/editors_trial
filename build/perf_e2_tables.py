@@ -361,6 +361,12 @@ def _cell_text(facts: dict, roots, editor: str, criterion: str, measure: str = '
     facts[key + '.reproduction'] = e2_cells.public_cell_dict(r_cell, published=True)
     failures = e2_cells.failure_text(r_cell)
     suffix = '; second: content not verified' if criterion == 'C11' and r_cell.get('content_verified') is not True and p_cell.get('content_verified') is True else ''
+    # #238: a figure read on the pixel witness says so wherever it is printed.
+    if p_cell.get('witness') or r_cell.get('witness'):
+        same = p_cell.get('witness') == r_cell.get('witness') == 'changed_pixels'
+        least = [cell.get('least_changed_pixels') for cell in (p_cell, r_cell)]
+        suffix += ('; by pixels, least change %d pixels (#238)' % min(least) if same and all(least)
+                   else '; MIXED END EVENTS (#238)')
     return p_text + suffix + ('; second: ' + failures if failures else '')
 
 

@@ -461,3 +461,38 @@ def test_each_round_of_a_range_is_compared_with_its_own_redraw_interval():
     assert 'The first round gave 10 ms (10 launches) and the second 40 ms (9 launches).' in appendix
     rounds['first']['frame_interval_ms'] = 16.7
     assert '| Docen | under 17 ms to 40 ms | — | — | — |' in summary.short_version(facts, ['docen', 'plate'], DISPLAY)
+
+
+# #238: a typing time read on the pixel witness is a figure, and it says which witness it rests on.
+
+def _pixel_facts():
+    facts = {}
+    _put(facts, 'plate', 'C05', 'prose-500w', 24, 26, measure='warm_steady')
+    _put(facts, 'docen', 'C05', 'prose-500w', 50, 60, measure='warm_steady')
+    for half in ('primary', 'reproduction'):
+        facts['perf.e2.docen.C05.warm_steady.prose-500w.' + half]['witness'] = 'changed_pixels'
+    return facts
+
+
+def test_a_time_read_on_the_pixel_witness_is_marked_and_explained_under_its_table():
+    text = summary.short_version(_pixel_facts(), ['docen', 'plate'], DISPLAY)
+    assert '| Docen | 55 ms (by pixels) | — | — | — |' in text
+    assert '| Plate.js | 25 ms | — | — | — |' in text
+    assert 'At 500 words, 2 of 2 editors have a figure, from 25 ms to 55 ms (by pixels).' in text
+    note = [line for line in text.split('\n') if line.startswith('A time marked "(by pixels)"')]
+    assert len(note) == 1 and 'at least 100 pixels' in note[0] and 'issue #238' in note[0]
+
+
+def test_a_table_without_such_a_time_carries_no_note():
+    facts = _pixel_facts()
+    for half in ('primary', 'reproduction'):
+        del facts['perf.e2.docen.C05.warm_steady.prose-500w.' + half]['witness']
+    text = summary.short_version(facts, ['docen', 'plate'], DISPLAY)
+    assert 'by pixels' not in text
+
+
+def test_a_cell_whose_two_rounds_rest_on_different_witnesses_has_no_figure():
+    facts = _pixel_facts()
+    del facts['perf.e2.docen.C05.warm_steady.prose-500w.reproduction']['witness']
+    text = summary.short_version(facts, ['docen', 'plate'], DISPLAY)
+    assert '| Docen | no figure |' in text

@@ -914,6 +914,94 @@ def c17_ready_unverified(row):
     return fixed
 
 
+#: #238: the changed-pixel bound that tells typed text from a caret. It is the paste criterion's bound (#207).
+PIXEL_WITNESS_MIN_PIXELS = 100
+PIXEL_WITNESS = 'changed_pixels'
+_NO_GLYPH = 'no_glyph_geometry_to_witness_the_keystrokes_own_paint'
+_TYPING_CACHE_STATES = ('process_cold_fs_warm', 'warm_steady')
+
+
+def _pixel_witnessed_key(observation) -> bool:
+    """One key press that the pixel witness accepts: confirmed in the editor, timed on an accepted clock,
+    and its first changed frame changed at least ``PIXEL_WITNESS_MIN_PIXELS``."""
+    if not isinstance(observation, dict) or observation.get('mechanism') != 'cdp_screencast_changed_frame':
+        return False
+    adapter = ((observation.get('edit_confirmation') or {}).get('adapter') or {})
+    clock = observation.get('clock_skew') or {}
+    witness = observation.get('witness') or {}
+    pixels = witness.get('changed_pixels')
+    interval = clock.get('frame_interval_ms')
+    return (adapter.get('confirmed') is True and _finite(observation.get('paint_ms')) and observation['paint_ms'] >= 0
+            and clock.get('acceptable') is True and _finite(interval) and interval > 0
+            and witness.get('outcome') == 'witnessed'
+            and _finite(pixels) and pixels >= PIXEL_WITNESS_MIN_PIXELS)
+
+
+def pixel_witnessed_typing(row) -> list:
+    """A typing launch refused only for the missing glyph outline, read on the pixel witness (#238).
+
+    The harness times a key press to the first screencast frame that changed, then checks that frame
+    against the typed character's own outline. An editor that draws its text on a canvas has no outline,
+    so the launch is written as one ``not_applicable`` record that still carries every key press: for each
+    cache state, cold then warm (``benchmark_warm_cold.py``), the single edit followed by its burst.
+
+    Where the record holds exactly that, and EVERY key press of the launch was confirmed in the editor's
+    model, was timed on an accepted clock and changed at least ``PIXEL_WITNESS_MIN_PIXELS`` pixels in its
+    first changed frame, the launch yields the two rows the harness writes for an editor with outlines:
+    C05 is the single edit's time, C06 the median of the burst. The clock is the one a glyph-witnessed
+    sample uses; only the check of what the frame shows differs, and the row says so (``witness``).
+    Anything else is returned unchanged, still refused. The cached row is never mutated.
+    """
+    criterion = row.get('criterion_id')
+    if (criterion not in ('C05', 'C06') or row.get('outcome') != 'not_applicable'
+            or row.get('failure_reason') != _NO_GLYPH or row.get('samples_ms')):
+        return [row]
+    diagnostic = row.get('diagnostic') or {}
+    observations = diagnostic.get('observations') or []
+    if not observations or not all(_pixel_witnessed_key(o) for o in observations):
+        return [row]
+    arms, at = [], 0
+    while at < len(observations):
+        single = observations[at]
+        burst = single.get('burst')
+        if not isinstance(burst, list) or not burst:
+            return [row]
+        keys = observations[at + 1:at + 1 + len(burst)]
+        if len(keys) != len(burst) or any('burst' in key for key in keys):
+            return [row]
+        if [key['paint_ms'] for key in keys] != [key.get('paint_ms') if isinstance(key, dict) else None for key in burst]:
+            return [row]
+        arms.append((single, keys))
+        at += 1 + len(burst)
+    if len(arms) != len(_TYPING_CACHE_STATES):
+        return [row]
+    from perf.analysis.publication_gate import trial_publishable_flags
+    rows = []
+    for cache_state, (single, keys) in zip(_TYPING_CACHE_STATES, arms):
+        used = [single] if criterion == 'C05' else keys
+        sample = float(single['paint_ms']) if criterion == 'C05' else float(percentile([key['paint_ms'] for key in keys], 50))
+        interval = min(float(key['clock_skew']['frame_interval_ms']) for key in used)
+        environment = dict(row.get('environment') or {}, cache_state=cache_state)
+        publishable, block = trial_publishable_flags(environment, row.get('layer') or 'browser_visible', None)
+        if not publishable:
+            return [row]
+        fixed = {key: value for key, value in row.items()
+                 if key not in ('failure_reason', 'failure_reasons', 'refusal_detail')}
+        fixed.update(
+            outcome='measured', refusal_code=None, measure=cache_state, environment=environment, publishable=True,
+            samples_ms=[sample], sub_frame_samples=[sample < interval],
+            diagnostic=dict(diagnostic, observations=used, frame_interval_ms=interval),
+            witness=PIXEL_WITNESS,
+            pixel_witness={
+                'issue': 238, 'min_pixels': PIXEL_WITNESS_MIN_PIXELS, 'keystrokes': len(observations),
+                'least_changed_pixels': min(o['witness']['changed_pixels'] for o in observations),
+                'was': _NO_GLYPH,
+            },
+        )
+        rows.append(fixed)
+    return rows
+
+
 def trial_workload(trial):
     return str(trial.get('workload_id') or (trial.get('environment') or {}).get('workload_id')
                or (trial.get('diagnostic') or {}).get('workload_id') or '')
@@ -1001,7 +1089,8 @@ def _attempt_rows_of(run_directory: Path, jobs, *, qualify: set[Path] | None = N
                 row = c14_window_corrected(row)
                 row = c04_replay_corrected(row)
                 row = c17_ready_unverified(row)
-                yield _launch_key(run_directory, job, directory.parent.name, qualify=qualify), path, row
+                for read in pixel_witnessed_typing(row):
+                    yield _launch_key(run_directory, job, directory.parent.name, qualify=qualify), path, read
 
 
 def _job_measures(run_directory: Path, job: Path, editor_id: str, criterion_id: str) -> bool:
@@ -1305,6 +1394,8 @@ def _build_cell_from_jobs(
     additional = defaultdict(set)
     witnessed_cell = False
     verified_content = []
+    witnesses = set()
+    least_pixels = []
     for run_directory, job in job_pairs:
         for launch, path, trial in _attempt_rows_of(run_directory, [job], qualify=qualify):
             if trial.get('refusal_code') == 'unreadable_trial' and launch.endswith('-' + editor_id):
@@ -1431,6 +1522,9 @@ def _build_cell_from_jobs(
         raw.append(samples)
         kept.append(median)
         witnessed_cell = witnessed_cell or witnessed
+        witnesses.add(trial.get('witness') or 'glyph_or_frame')
+        if trial.get('pixel_witness'):
+            least_pixels.append(trial['pixel_witness']['least_changed_pixels'])
         if witnessed:
             intervals.append(interval)
             sub_frame.append(median < interval)
@@ -1450,6 +1544,9 @@ def _build_cell_from_jobs(
         # measurement has no meaning here or the harness could not take it.
         'refusal_reasons': {code: sorted(reasons[code]) for code in sorted(refusals) if reasons.get(code)},
         'unwitnessed': _unwitnessed_summary(unwitnessed),
+        # #238: 'changed_pixels' where every kept launch was read on the pixel witness; 'mixed' is never published.
+        'least_changed_pixels': min(least_pixels) if least_pixels else None,
+        'witness': (PIXEL_WITNESS if witnesses == {PIXEL_WITNESS} else 'mixed' if PIXEL_WITNESS in witnesses else None),
         'additional_refusals': dict(Counter(code for launch, codes in additional.items() for code in codes if code != refused_launches.get(launch))),
         'content_verified': bool(verified_content) and all(verified_content),
         'failed_launches': len(failed_launches),

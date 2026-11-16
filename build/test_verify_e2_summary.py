@@ -335,3 +335,68 @@ def test_a_marker_quoted_inside_a_rounds_words_does_not_end_its_clause():
     quoted = right.replace('10 refused: the harness cannot read an outline.',
                            "10 refused: the page showed 'Second round:' and the harness cannot read an outline.")
     assert not any('does not say' in p for p in verify.check(quoted, facts, DISPLAY))
+
+
+# #238: a typing time read on the pixel witness carries its mark, and its table the note.
+
+PIXEL_NOTE = ('A time marked "(by pixels)" ends at the first frame in which at least 100 pixels of the page changed after '
+              "a key press the editor confirmed. The editor draws its text where the harness cannot read a character's "
+              'outline, so that frame is not checked for the character itself (issue #238).')
+PIXEL_REPORT = """# Report
+
+## The results
+
+### Typing one character
+
+From a key press.
+
+| Editor | 500 words | 5,000 words | 50,000 words | 250,000 words |
+|---|---|---|---|---|
+| Folio | 55 ms (by pixels) | — | — | — |
+| Plate.js | 25 ms | — | — | — |
+
+At 500 words, 2 of 2 editors have a figure, from 25 ms to 55 ms (by pixels).
+
+%s
+
+## Appendix A — What was measured
+""" % PIXEL_NOTE
+
+
+def _pixel_facts():
+    facts = {}
+    for editor, first, second in (('folio', 50, 60), ('plate', 24, 26)):
+        base = 'perf.e2.%s.C05.warm_steady.prose-500w' % editor
+        facts[base + '.reproduced'] = True
+        facts[base + '.primary'], facts[base + '.reproduction'] = _cell(first), _cell(second)
+    for half in ('primary', 'reproduction'):
+        facts['perf.e2.folio.C05.warm_steady.prose-500w.' + half]['witness'] = 'changed_pixels'
+    return facts
+
+
+def test_a_marked_time_with_its_note_passes():
+    assert verify.check(PIXEL_REPORT, _pixel_facts(), DISPLAY) == []
+
+
+def test_a_pixel_witnessed_time_printed_without_its_mark_is_named():
+    problems = verify.check(PIXEL_REPORT.replace('| Folio | 55 ms (by pixels) |', '| Folio | 55 ms |'), _pixel_facts(), DISPLAY)
+    assert any('Folio' in p and 'by pixels' in p for p in problems), problems
+
+
+def test_a_mark_on_a_time_the_facts_do_not_give_to_the_pixel_witness_is_named():
+    problems = verify.check(PIXEL_REPORT.replace('| Plate.js | 25 ms |', '| Plate.js | 25 ms (by pixels) |'), _pixel_facts(), DISPLAY)
+    assert any('Plate.js' in p and "'25 ms'" in p for p in problems), problems
+
+
+def test_a_table_with_a_marked_time_and_no_note_is_named():
+    problems = verify.check(PIXEL_REPORT.replace(PIXEL_NOTE, ''), _pixel_facts(), DISPLAY)
+    assert any('by pixels' in p and 'note' in p for p in problems), problems
+
+
+def test_a_note_under_a_table_with_no_marked_time_is_named():
+    facts = _pixel_facts()
+    for half in ('primary', 'reproduction'):
+        del facts['perf.e2.folio.C05.warm_steady.prose-500w.' + half]['witness']
+    report = PIXEL_REPORT.replace(' (by pixels)', '')
+    problems = verify.check(report, facts, DISPLAY)
+    assert any('note' in p for p in problems), problems

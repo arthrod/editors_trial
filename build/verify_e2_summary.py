@@ -134,12 +134,17 @@ def expected_cell(facts: dict, editor: str, criterion: str, measure: str, worklo
             return '%s to %s' % (low[1], high[1]), None, False
         return _refused(str(facts.get(base + '.reason') or ''), (facts.get(base + '.primary'), facts.get(base + '.reproduction'))), None, False
     one, two = facts[base + '.primary'], facts[base + '.reproduction']
+    ends = {one.get('witness'), two.get('witness')}
+    if ends != {None} and ends != {'changed_pixels'}:
+        return 'no figure', None, False
     value = (_middle(one) + _middle(two)) / 2
     unit = one.get('sample_unit') or 'ms'
     below = unit != 'bytes' and all(_middle(c) < (c.get('frame_interval_ms') or 0) for c in (one, two))
     text = _below(max(one.get('frame_interval_ms') or 0, two.get('frame_interval_ms') or 0)) if below else _shown(value, unit)
     if criterion == 'C11' and not (one.get('content_verified') is True and two.get('content_verified') is True):
         return text + ' (text not checked)', value, False
+    if ends == {'changed_pixels'}:
+        text += ' (by pixels)'
     return text, value, True
 
 
@@ -262,6 +267,13 @@ def check(report_text: str, facts: dict, display: dict) -> list:
         sentence = expected_sentence(columns, len(rows) - 2)
         if (printed[0] if printed else '') != sentence:
             problems.append('%s: range sentence is %r, the facts give %r' % (heading, printed[0] if printed else '', sentence))
+        # #238: a table with a time read on the pixel witness says, once, what that mark means.
+        marked = any(cell.strip().endswith('(by pixels)') for row in rows[2:] for cell in row.strip('|').split('|'))
+        notes = [line for line in block.split('\n') if line.startswith('A time marked "(by pixels)"')]
+        if marked and (len(notes) != 1 or 'at least 100 pixels' not in notes[0] or 'not checked for the character' not in notes[0]):
+            problems.append('%s: a time is marked (by pixels) and the table has no note saying what that means' % heading)
+        if notes and not marked:
+            problems.append('%s: the (by pixels) note is printed and no time in the table is marked' % heading)
         # An editor with a cell in the facts must have a row.
         listed = {slug.get(row.strip('|').split('|')[0].strip()) for row in rows[2:]}
         for editor in display:
