@@ -379,7 +379,8 @@ def test_the_settle_note_claims_nothing_about_cells_it_did_not_count():
     counted = res.settle_window_note({'perf.e2.B8.settle_cells': 3, 'perf.e2.B8.settle_first_higher': 2,
                                       'perf.e2.B8.settle_first_lower': 0, 'perf.e2.B8.settle_window_min_s': 0.2,
                                       'perf.e2.B8.settle_window_max_s': 2.4})
-    assert "across the 3 cells that had one, the first seed's median was the higher in 2 and the lower in 0" in counted
+    assert "Across the 3 cells that had one, the first seed's median was the higher in 2 and the lower in 0" in counted
+    assert 'not the rate at which the editor works' in counted
     assert 'are kept in the facts and are not printed' in counted
 
 
@@ -425,7 +426,7 @@ def test_a_window_under_a_second_is_not_a_rate(tmp_path):
     """10 ms steps over a fifth of a second say nothing: such a launch is not counted, and five are needed."""
     short = _settling(0, 0.2, )
     text, facts = _rate_cell(tmp_path, [_settling(80, 2.0)] * 10, [short] * 7 + [_settling(80, 2.0)] * 3)
-    assert 'settled too quickly to measure (10 and 3 of 10 and 10 launches waited a second or more)' in text
+    assert 'wait too short to measure (10 and 3 of 10 and 10 launches waited a second or more)' in text
     prefix = 'perf.e2.plate.B8.prose-250kw.edit_settle_cpu_rate.'
     assert prefix + 'medians' not in facts and facts[prefix + 'counted'] == [10, 3]
     assert facts[prefix + 'reason'] == 'window too short'
@@ -464,3 +465,20 @@ def test_the_settle_note_says_what_the_windows_were(tmp_path):
     note = res.settle_window_note(facts)
     assert 'ran from 0.2 s to 2.2 s' in note or 'ran from 0.2 s to 2.3 s' in note
     assert 'per second' in note
+
+
+def test_a_wait_of_exactly_one_second_counts_and_one_just_under_does_not(tmp_path):
+    text, _facts = _rate_cell(tmp_path, [_settling(40, 1.0)] * 10, [_settling(40, 1.0)] * 10)
+    assert '| 40 ms/s / 40 ms/s |' in text
+    under = tmp_path / 'under'
+    under.mkdir()
+    text, _facts = _rate_cell(under, [_settling(40, 1.0)] * 10, [_settling(40, 0.99)] * 10)
+    assert 'wait too short to measure (10 and 0 of 10 and 10 launches waited a second or more)' in text
+
+
+def test_a_capped_settle_prints_no_rate_even_with_its_samples(tmp_path):
+    """Review of #226: a wait that the cap ended is not a settle; its samples must not become a rate."""
+    capped = _settling(70000, 30.0, settle={'after_load': 'reached', 'after_edit': 'capped'})
+    text, facts = _rate_cell(tmp_path, [_settling(80, 2.0)] * 9 + [capped], [_settling(80, 2.0)] * 10)
+    assert '| never idle | 1024.0 MiB' in text and 'ms/s' not in text.split('Not published')[0]
+    assert not any('edit_settle_cpu_rate' in key for key in facts)

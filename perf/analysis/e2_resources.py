@@ -474,16 +474,20 @@ def settle_window_note(facts: dict) -> str:
             'still working.')
     if get('window_min_s', None) is None:
         return text
-    text += (' In these runs it ran from %.1f s to %.1f s. The column therefore gives processor time per second of '
-             'that window (ms/s; 10 ms/s is one percent of one processor), from the launches that waited a second '
-             'or more: a shorter window cannot be read with a counter that advances in steps of 10 ms. With fewer '
-             'than %d such launches in a seed, the cell says the editor settled too quickly to measure. The polls '
-             'themselves cost processor time, and that is in every figure.'
+    text += (' What is timed is the span from the first to the last reading taken during that wait; in these runs '
+             'it ran from %.1f s to %.1f s. The column therefore gives processor time per second of that span '
+             '(ms/s; 10 ms/s is one percent of one processor), from the launches whose span was a second '
+             'or more: a shorter one cannot be read with a counter that advances in steps of 10 ms. With fewer '
+             'than %d such launches in a seed, the cell says the wait was too short to measure, and gives no figure '
+             'even when the other seed had enough. Every wait includes the two quiet seconds that end it, so the '
+             'figure is an average over working and quiet time, not the rate at which the editor works, and it '
+             'still leans on how long the wait ran. The polls themselves cost processor time, and that is in every '
+             'figure.'
              % (get('window_min_s'), get('window_max_s'), PUBLICATION_MIN_KEPT))
     if get('cells'):
-        text += (' The total over the window, which earlier releases printed, follows the window: across the %d '
-                 "cells that had one, the first seed's median was the higher in %d and the lower in %d. The totals "
-                 'are kept in the facts and are not printed.' % (get('cells'), get('first_higher'), get('first_lower')))
+        text += (' Earlier releases printed the total over the window. Across the %d cells that had one, the '
+                 "first seed's median was the higher in %d and the lower in %d. The totals are kept in the facts "
+                 'and are not printed.' % (get('cells'), get('first_higher'), get('first_lower')))
     return text
 
 
@@ -504,7 +508,7 @@ def _settle_rate_text(facts: dict, prefix: str, cell: dict) -> str:
         return 'window not recorded'
     if rate.get('reason') == 'window too short':
         facts['perf.e2.B8.settle_rate_too_short'] = facts.get('perf.e2.B8.settle_rate_too_short', 0) + 1
-        return 'settled too quickly to measure (%d and %d of %d and %d launches waited a second or more)' % (
+        return 'wait too short to measure (%d and %d of %d and %d launches waited a second or more)' % (
             *rate['counted'], *cell['kept'])
     facts['perf.e2.B8.settle_rate_cells'] = facts.get('perf.e2.B8.settle_rate_cells', 0) + 1
     if rate['reproduced']:

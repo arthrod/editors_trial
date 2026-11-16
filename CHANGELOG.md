@@ -28,15 +28,20 @@ this release: every figure comes from the runs of 0.10.0.
 - **B8, "CPU settling after the edit" is now "CPU per second while
   settling"** (#226). The wait it covers ends at the first half-second poll
   at which two seconds have passed without a long task; in these runs it
-  ran from 0.1 s to 5.6 s, so a total over it followed the wait and not the
-  editor (the first seed's total was the higher in 27 of 39 cells). Each
-  launch's processor time is now divided by the wait that launch sampled,
-  read from the samples already in each launch's record. A launch counts
-  when it waited a second or more, and a seed needs five such launches.
+  the readings taken during it spanned 0.1 s to 5.6 s, and the column was a
+  total over them. Each launch's processor time is now divided by the span
+  from its first to its last such reading, read from the samples already
+  in each launch's record. A launch counts when that span is a second or
+  more, and a seed needs five such launches.
   Of the 44 cells: 24 give a rate, 4 did not reproduce (Docen at 50,000 and
-  250,000 words, GenOffice and SuperDoc at 250,000), 11 settled too quickly
-  to measure, 5 are WordCraft's, which never went idle. As totals, 37 had
-  printed a figure. The totals stay in `out/facts.json`.
+  250,000 words, GenOffice and SuperDoc at 250,000), 11 had a wait too
+  short to measure, 5 are WordCraft's, which never went idle. As totals,
+  32 of the 39 that are not WordCraft's had printed a figure and 7 had not
+  reproduced. The rate is an average over working and quiet time (every
+  wait includes the two quiet seconds that end it), so it still leans on
+  how long the wait ran. The totals stay in `out/facts.json`.
+- One function builds a cell's fact key for the tables and the short
+  version (CodeRabbit's #230, applied here).
 
 ### Not re-measured
 
