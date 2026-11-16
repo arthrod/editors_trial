@@ -380,7 +380,8 @@ def test_the_settle_note_claims_nothing_about_cells_it_did_not_count():
                                       'perf.e2.B8.settle_first_lower': 0, 'perf.e2.B8.settle_window_min_s': 0.2,
                                       'perf.e2.B8.settle_window_max_s': 2.4})
     assert "Across the 3 cells that had one, the first seed's median was the higher in 2 and the lower in 0" in counted
-    assert 'not the rate at which the editor works' in counted
+    assert 'it is not the rate at which the editor works' in counted
+    assert 'can begin before the first of these readings' in counted
     assert 'are kept in the facts and are not printed' in counted
 
 

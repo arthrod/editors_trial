@@ -37,9 +37,12 @@ this release: every figure comes from the runs of 0.10.0.
   250,000 words, GenOffice and SuperDoc at 250,000), 11 had a wait too
   short to measure, 5 are WordCraft's, which never went idle. As totals,
   32 of the 39 that are not WordCraft's had printed a figure and 7 had not
-  reproduced. The rate is an average over working and quiet time (every
-  wait includes the two quiet seconds that end it), so it still leans on
-  how long the wait ran. The totals stay in `out/facts.json`.
+  reproduced. The rate is an average over the span, working and quiet time
+  together (the two quiet seconds that end the wait can begin before the
+  first reading, so a span holds some of them, not always all), and it
+  still depends on how long the span ran. The totals stay in
+  `out/facts.json`; a settling cell is counted once in the report's
+  count of cells, as the rate.
 - One function builds a cell's fact key for the tables and the short
   version (CodeRabbit's #230, applied here).
 

@@ -479,10 +479,11 @@ def settle_window_note(facts: dict) -> str:
              '(ms/s; 10 ms/s is one percent of one processor), from the launches whose span was a second '
              'or more: a shorter one cannot be read with a counter that advances in steps of 10 ms. With fewer '
              'than %d such launches in a seed, the cell says the wait was too short to measure, and gives no figure '
-             'even when the other seed had enough. Every wait includes the two quiet seconds that end it, so the '
-             'figure is an average over working and quiet time, not the rate at which the editor works, and it '
-             'still leans on how long the wait ran. The polls themselves cost processor time, and that is in every '
-             'figure.'
+             'even when the other seed had enough. The two quiet seconds can begin before the first of these '
+             'readings, so a span holds some of that quiet time, not always all of it. The figure is an average '
+             'over the span, working and quiet time together: it is not the rate at which the editor works, and '
+             'it still depends on how long the span ran. The polls themselves cost processor time, and that is '
+             'in every figure.'
              % (get('window_min_s'), get('window_max_s'), PUBLICATION_MIN_KEPT))
     if get('cells'):
         text += (' Earlier releases printed the total over the window. Across the %d cells that had one, the '
