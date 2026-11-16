@@ -332,6 +332,15 @@ def _cell_text(facts: dict, roots, editor: str, criterion: str, measure: str = '
                 (DISPLAY.get(editor, editor), criterion, workload_id or '—', measure or '—', reason, '—')
             )
         return reason
+    # #238 (CodeRabbit, #246): launches or rounds that did not end on the same witness are not one figure.
+    witnesses = {p_cell.get('witness'), r_cell.get('witness')}
+    if len(witnesses) > 1 or 'mixed' in witnesses:
+        reason = 'launches read on different witnesses (first %s; second %s) (#238)' % (
+            p_cell.get('witness') or 'the usual one', r_cell.get('witness') or 'the usual one')
+        facts[key + '.reason'] = reason
+        facts.setdefault('_not_reproduced', []).append(
+            (DISPLAY.get(editor, editor), criterion, workload_id or '—', measure or '—', reason, '—'))
+        return reason
     p_text = e2_cells.publication_text(p_cell)
     frame = max(p_cell.get('frame_interval_ms') or 0, r_cell.get('frame_interval_ms') or 0)
     p_med = p_cell['stats']['median']
@@ -362,11 +371,9 @@ def _cell_text(facts: dict, roots, editor: str, criterion: str, measure: str = '
     failures = e2_cells.failure_text(r_cell)
     suffix = '; second: content not verified' if criterion == 'C11' and r_cell.get('content_verified') is not True and p_cell.get('content_verified') is True else ''
     # #238: a figure read on the pixel witness says so wherever it is printed.
-    if p_cell.get('witness') or r_cell.get('witness'):
-        same = p_cell.get('witness') == r_cell.get('witness') == 'changed_pixels'
-        least = [cell.get('least_changed_pixels') for cell in (p_cell, r_cell)]
-        suffix += ('; by pixels, least change on any key press %d pixels (#238)' % min(least) if same and all(least)
-                   else '; MIXED END EVENTS (#238)')
+    if p_cell.get('witness') == 'changed_pixels':
+        suffix += '; by pixels, least change on any key press %d pixels (#238)' % min(
+            cell['least_changed_pixels'] for cell in (p_cell, r_cell))
     return p_text + suffix + ('; second: ' + failures if failures else '')
 
 

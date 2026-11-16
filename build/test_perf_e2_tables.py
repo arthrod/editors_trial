@@ -12,6 +12,7 @@ import json
 import sys
 import tempfile
 import unittest
+from unittest import mock
 import pytest
 from pathlib import Path
 
@@ -210,6 +211,32 @@ class ReportE2Facts(unittest.TestCase):
         self.assertIn("p90", table)
         self.assertNotIn("range", table)
         self.assertNotIn("not reproduced", table)
+
+    def test_rounds_read_on_different_witnesses_have_no_figure(self):
+        """CodeRabbit, #246: a pixel-witnessed round and a glyph-witnessed round are not one figure."""
+        def fill(root):
+            for i in range(10):
+                _write_trial(root, i, "plate", "C07", outcome="measured", samples=[20.0])
+
+        primary, repro = self._pair(
+            {"run_id": "a", "seed": 1, "editors": ["plate"]},
+            {"run_id": "b", "seed": 2, "editors": ["plate"]},
+            fill,
+        )
+        read = E2.e2_cells.read_criterion_cell
+
+        def one_round_by_pixels(*args, **kwargs):
+            pooled = read(*args, **kwargs)
+            if len(pooled.get('groups') or []) == 2:
+                pooled['groups'][0]['witness'] = 'changed_pixels'
+            return pooled
+
+        with mock.patch.object(E2.e2_cells, 'read_criterion_cell', one_round_by_pixels):
+            facts = E2.facts_from_runs(primary, repro)
+        self.assertIs(facts["perf.e2.plate.C07.reproduced"], False)
+        self.assertIn("different witnesses", facts["perf.e2.plate.C07.reason"])
+        self.assertIn("different witnesses", facts["perf.e2.table.C07"])
+        self.assertNotIn("stats", facts["perf.e2.plate.C07.primary"])
 
     def test_a_refused_cell_prints_the_reason_its_launches_recorded(self):
         """#239: "reasons not_applicable: 10" does not say whether there was nothing to measure or the harness could not."""

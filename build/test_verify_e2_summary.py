@@ -461,3 +461,12 @@ def test_a_count_word_that_is_not_the_number_of_untimed_editors_is_named():
 def test_an_editor_read_by_pixels_and_not_named_in_the_sentence_is_named():
     problems = verify.check_typing_sentence(TOP.replace("Folio's", "Its").replace('Folio is', 'It is'), _typing_facts(), DISPLAY)
     assert any('Folio' in p for p in problems), problems
+
+
+def test_names_swapped_between_the_two_statuses_are_named():
+    """CodeRabbit, #246: each name is checked in the clause that gives its status."""
+    swapped = ('# Report\n\n- **Typing was not timed for one editor, and one is not checked for the character.** '
+               'Folio has no typing time. Plate.js is marked "(by pixels)".\n')
+    problems = verify.check_typing_sentence(swapped, _typing_facts(), DISPLAY)
+    assert any('Plate.js' in p and 'no typing time' in p for p in problems), problems
+    assert any('Folio' in p and 'by pixels' in p for p in problems), problems

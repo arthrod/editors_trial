@@ -30,8 +30,13 @@ Report E2 under a stated rule. Nothing was run.
   every one of its key presses, at both cache states, was confirmed in the
   editor's model, was timed on an accepted clock, and changed at least 100
   pixels in its first changed frame, the paste criterion's bound against a
-  caret (#207). Arthur approved the rule on 16 November. Docen meets it in
-  every launch: 20 cells (two criteria, two cache states, five documents)
+  caret (#207). The record must also be the launch's two page loads, the
+  cold one loaded first, each holding one single edit and a burst of three
+  key presses timed at one redraw interval, and the missing outline must be
+  the launch's only refusal. Arthur approved the rule on 16 November. Docen
+  meets it in almost every launch (one launch on the complex document had a
+  first changed frame under the bound and is refused whole, counted in its
+  cells): 20 cells (two criteria, two cache states, five documents)
   now have a figure, each reproduced by the two rounds measured earlier, and
   Report E2's reproduced cells go from 739 to 759 of 1,061. The times are
   marked "(by pixels)" in the results and in the reference tables, which

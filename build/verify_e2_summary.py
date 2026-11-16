@@ -345,6 +345,23 @@ def check_typing_sentence(report_text: str, facts: dict, display: dict) -> list:
     for name in untimed + pixels:
         if short[name] not in line:
             problems.append('typing sentence: %s is not named' % name)
+    # Each name in the clause that gives its status (CodeRabbit, #246): the sentence that says "no typing time"
+    # names the untimed editors and no editor read by pixels; a sentence with the mark names those read by pixels.
+    named = lambda name, text: re.search(r'(?<![\w-])%s(?![\w-])' % re.escape(short[name]), text) is not None  # noqa: E731
+    # A sentence ends at a full stop, then the end of the bold headline if there is one, then a space.
+    sentences = re.split(r'[.!?](?:\*\*)?\s+', line)
+    none = [text for text in sentences if 'no typing time' in text]
+    marked = [text for text in sentences if '(by pixels)' in text]
+    for name in untimed:
+        if not any(named(name, text) for text in none):
+            problems.append('typing sentence: %s has no typing time and is not named where the sentence says "no typing time"' % name)
+        if any(named(name, text) for text in marked):
+            problems.append('typing sentence: %s has no typing time and is named where the sentence says "(by pixels)"' % name)
+    for name in pixels:
+        if any(named(name, text) for text in none):
+            problems.append('typing sentence: %s is read by pixels and is named where the sentence says "no typing time"' % name)
+        if not any(named(name, text) for text in marked):
+            problems.append('typing sentence: %s is read by pixels and is not named where the sentence says "(by pixels)"' % name)
     for name in display.values():
         if name not in untimed and name not in pixels and re.search(r'(?<![\w-])%s(?![\w-])' % re.escape(short[name]), line):
             problems.append('typing sentence: %s is named, and the facts give it a typing time checked for the character' % name)

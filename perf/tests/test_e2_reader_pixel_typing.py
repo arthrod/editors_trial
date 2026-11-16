@@ -213,3 +213,12 @@ def test_the_facts_record_of_a_cell_keeps_its_witness_published_or_not():
     for published in (True, False):
         public = cells.public_cell_dict(cell, published=published)
         assert public['witness'] == 'changed_pixels' and public['least_changed_pixels'] == 102
+
+
+# CodeAnt, #246: one redraw interval per page load, whichever criterion the row is for.
+
+def test_a_burst_key_at_another_redraw_interval_refuses_the_single_edit_too(fs):
+    warm = _arm(30.0, [20.0, 26.0, 22.0], origin=9000.0)
+    warm[2]['clock_skew']['frame_interval_ms'] = 8.3
+    warm[0]['burst'][1]['clock_skew']['frame_interval_ms'] = 8.3
+    assert _refused(fs, COLD + warm, criterion='C05')

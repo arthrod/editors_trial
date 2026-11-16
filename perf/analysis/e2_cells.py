@@ -1004,9 +1004,10 @@ def pixel_witnessed_typing(row) -> list:
     for cache_state, (single, keys) in zip(_TYPING_CACHE_STATES, arms):
         used = [single] if criterion == 'C05' else keys
         sample = float(single['paint_ms']) if criterion == 'C05' else float(percentile([key['paint_ms'] for key in keys], 50))
-        intervals = {float(key['clock_skew']['frame_interval_ms']) for key in used}
+        # One redraw interval per page load, as the harness requires of a trial (frame_interval_inconsistent),
+        # and for both criteria alike: the rule is about the launch, not about the keys one row uses (CodeAnt, #246).
+        intervals = {float(key['clock_skew']['frame_interval_ms']) for key in [single, *keys]}
         if len(intervals) != 1:
-            # One redraw interval per trial, as the harness requires (frame_interval_inconsistent).
             return [row]
         interval = intervals.pop()
         environment = dict(row.get('environment') or {}, cache_state=cache_state)
