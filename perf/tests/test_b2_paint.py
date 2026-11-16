@@ -421,6 +421,62 @@ class ReviewPolicy(unittest.TestCase):
         self.assertEqual(row['failure_reason'], 'expected_edit_not_confirmed')
         self.assertIsNone(row['latency_ms'])
 
+    # #245: an editor without glyph rects is timed from the settled picture of its edit.
+
+    def _pixel_observation(self, *, adapter='model', confirmed=True, settle=None, pending=False, edit_ms=24):
+        return {
+            'edit_ms': edit_ms, 'outcome': 'measured', 'witness_kind': 'settled_pixels', 'witness': frame_record(),
+            'clock_skew': {'skew_ms': 0, 'bound_ms': 5, 'acceptable': True},
+            'edit_confirmation': {
+                'confirmed': confirmed, 'changed_pixels': 500, 'visible_rects': [],
+                'pending_arm_text_count': pending,
+                'adapter': {'adapter': adapter, 'confirmed': confirmed, 'before_count': 0, 'after_count': 1},
+                'pixel_settle': {'failure_reason': None, 'edit_pixels': 500, 'min_pixels': 100, **(settle or {})},
+            },
+        }
+
+    def test_model_adapter_with_a_settled_pixel_witness_is_measured(self):
+        row = runner.input_sample_record(self._pixel_observation(), 'C05')
+        self.assertEqual(row['outcome'], 'measured')
+        self.assertIsNone(row['failure_reason'])
+        self.assertEqual(row['latency_ms'], 24)
+        self.assertEqual(row['witness_kind'], 'settled_pixels')
+
+    def test_a_text_count_confirmation_with_a_settled_pixel_witness_is_measured(self):
+        row = runner.input_sample_record(self._pixel_observation(adapter='text_count'), 'C06')
+        self.assertEqual(row['outcome'], 'measured')
+        self.assertEqual(row['latency_ms'], 24)
+
+    def test_an_edit_region_under_the_bound_is_refused_whatever_the_probe_said(self):
+        row = runner.input_sample_record(self._pixel_observation(settle={'edit_pixels': 80}), 'C05')
+        self.assertEqual(row['outcome'], 'failed')
+        self.assertEqual(row['failure_reason'], 'pixel_edit_region_too_small')
+        self.assertIsNone(row['latency_ms'])
+
+    def test_a_pixel_settle_failure_is_the_refusal(self):
+        row = runner.input_sample_record(self._pixel_observation(settle={'failure_reason': 'not_settled'}), 'C05')
+        self.assertEqual(row['outcome'], 'failed')
+        self.assertEqual(row['failure_reason'], 'not_settled')
+
+    def test_a_flag_alone_never_confirms_a_pixel_witnessed_key(self):
+        """WordCraft's modified flag rises once; each key is confirmed by the arm's text count or not at all."""
+        for observation in (self._pixel_observation(adapter='flag'),
+                            self._pixel_observation(adapter='text_count', pending=True),
+                            self._pixel_observation(adapter='text_count', confirmed=False)):
+            row = runner.input_sample_record(observation, 'C05')
+            self.assertEqual(row['outcome'], 'failed', observation['edit_confirmation']['adapter'])
+            self.assertEqual(row['failure_reason'], 'expected_edit_not_confirmed')
+
+    def test_a_payload_with_the_pixel_witness_is_not_the_glyph_refusal(self):
+        observation = dict(self._pixel_observation(), mechanism='cdp_screencast_changed_frame')
+        payload = {'pairs': [{'cold': {**observation, 'single_edit_ms': 24, 'burst': [dict(observation)]},
+                              'warm': {**observation, 'single_edit_ms': 25, 'burst': [dict(observation)]}}]}
+        self.assertIsNone(runner._glyph_geometry_refusal(payload))
+
+    def test_pixel_refusals_are_filed_as_a_missing_paint_witness(self):
+        for reason in ('pixel_edit_region_too_small', 'not_settled', 'no_trusted_keydown_time'):
+            self.assertEqual(runner.refusal_code_for('failed', reason), 'paint_witness_unavailable', reason)
+
     def test_f4_refusal_reason_survives_missing_clock(self):
         row = runner.input_sample_record({'outcome': 'failed', 'failure_reason': 'trusted_keydown_not_observed'}, 'C05')
         self.assertEqual(row['failure_reason'], 'trusted_keydown_not_observed')

@@ -616,6 +616,10 @@ def _payload_content_gate(payload: dict) -> dict | None:
 #: paint, so the row is not_applicable — with the evidence that the edit did
 #: land in the model — never a latency.
 NO_GLYPH_GEOMETRY_REASON = "no_glyph_geometry_to_witness_the_keystrokes_own_paint"
+#: #245: the end event of a typing sample of an editor without glyph rects, and its edit-region bound
+#: (pixel_settle.mjs holds the same number).
+PIXEL_WITNESS_KIND = "settled_pixels"
+PIXEL_EDIT_MIN_PIXELS = 100
 
 
 def _glyph_geometry_under_content_refusal(editor_id: str, payload: dict) -> dict | None:
@@ -671,6 +675,9 @@ def _glyph_geometry_refusal(payload: dict) -> dict | None:
                 if "mechanism" not in observation:
                     continue
                 seen = True
+                if isinstance((observation.get("edit_confirmation") or {}).get("pixel_settle"), dict):
+                    # #245: the probe settled this edit from pixels; the row is a sample or a named refusal.
+                    return None
                 adapter = ((observation.get("edit_confirmation") or {}).get("adapter") or {})
                 kind = adapter.get("adapter")
                 if kind in ("model", "flag"):
@@ -797,7 +804,24 @@ def input_sample_record(observation, criterion_id):
                 and not isinstance(r.get(k), bool) and math.isfinite(r[k])
                 for k in ('x', 'y', 'width', 'height'))
             and r['width'] > 0 and r['height'] > 0 for r in rects)
-        if adapter_kind in ('model', 'flag'):
+        settle = proof.get('pixel_settle')
+        if adapter_kind in ('model', 'flag', 'text_count') and isinstance(settle, dict):
+            # #245: the probe settled the edit from pixels. The sample is kept
+            # only when that settled, on an edit region of at least
+            # PIXEL_EDIT_MIN_PIXELS, and the edit was confirmed: by the model
+            # adapter, or for a flag editor by the arm's text count. A raised
+            # flag alone confirms no single key.
+            pixels_seen = settle.get('edit_pixels')
+            if settle.get('failure_reason'):
+                reason = str(settle['failure_reason'])
+            elif (isinstance(pixels_seen, bool) or not isinstance(pixels_seen, (int, float))
+                    or not math.isfinite(pixels_seen) or pixels_seen < PIXEL_EDIT_MIN_PIXELS):
+                reason = 'pixel_edit_region_too_small'
+            elif adapter_kind == 'flag' or proof.get('pending_arm_text_count') or not adapter_confirmed:
+                reason = 'expected_edit_not_confirmed'
+            else:
+                row['witness_kind'] = PIXEL_WITNESS_KIND
+        elif adapter_kind in ('model', 'flag'):
             # r3lanes4 ruling 1: no glyph geometry can witness the keystroke's
             # own paint. The edit landing in the model is recorded as evidence;
             # the latency itself is not_applicable, and an edit that never
@@ -839,20 +863,26 @@ def validate_ready_attempts(rows):
                 assert_c02_c03_distinct_boundaries(c02, c03)
 
 
+def refusal_code_for(outcome, reason):
+    """The refusal code a written trial is filed under, from its outcome and recorded reason."""
+    reason = str(reason or '')
+    return (None if outcome == 'measured' else
+            'cpu_throttled' if reason.startswith('cpu_throttled') else
+            'unverified' if reason.startswith('expected_edit_not_confirmed') else
+            outcome if outcome in ('not_run', 'not_applicable', 'unsupported', 'unverified') else
+            'malformed_samples' if reason.startswith(('record_', 'not_a_witness_record', 'unknown_outcome', 'invalid_record', 'no_outcome')) else
+            'paint_witness_unavailable' if reason.startswith(('pixel_edit_region_too_small', 'not_settled', 'no_trusted_keydown', 'clock_', 'frame_', 'witness_', 'no_frame', 'missing_input', 'caret_', 'not_document_scoped', 'no_pixel_evidence', 'pixel_evidence_')) else
+            'witness_unavailable' if reason.startswith(('nonfinite_time', 'monotonic_origin_missing', 'negative_input_latency')) else
+            'harness_error' if reason.startswith('input_probe_error') else
+            'crash')
+
+
 def _persist_attempt(attempt_dir, criterion_id, editor_id, trial):
     """Every written trial is an accounted BrowserRun sample, not just a cell."""
     trial = {**trial, 'measure': (trial.get('environment') or {}).get('cache_state', '')}
     reason = str(trial.get('failure_reason') or '')
     outcome = trial.get('outcome')
-    code = (None if outcome == 'measured' else
-            'cpu_throttled' if reason.startswith('cpu_throttled') else
-            'unverified' if reason.startswith('expected_edit_not_confirmed') else
-            outcome if outcome in ('not_run', 'not_applicable', 'unsupported', 'unverified') else
-            'malformed_samples' if reason.startswith(('record_', 'not_a_witness_record', 'unknown_outcome', 'invalid_record', 'no_outcome')) else
-            'paint_witness_unavailable' if reason.startswith(('clock_', 'frame_', 'witness_', 'no_frame', 'missing_input', 'caret_', 'not_document_scoped', 'no_pixel_evidence', 'pixel_evidence_')) else
-            'witness_unavailable' if reason.startswith(('nonfinite_time', 'monotonic_origin_missing', 'negative_input_latency')) else
-            'harness_error' if reason.startswith('input_probe_error') else
-            'crash')
+    code = refusal_code_for(outcome, reason)
     trial.setdefault('refusal_code', code)
     if code and 'refusal_detail' not in trial:
         trial['refusal_detail'] = reason
@@ -985,8 +1015,21 @@ def _write_measured_attempt(
     if criterion_id in ('C05', 'C06'):
         trial['mechanism'] = diagnostic.get('mechanism')
         trial['clock_skew'] = diagnostic.get('clock_skew')
+        kinds = {o.get('witness_kind') for o in _flat_observations(diagnostic.get('observations'))}
+        if PIXEL_WITNESS_KIND in kinds:
+            # #245: every sample of the trial ends on the same event, or the trial does not say which.
+            trial['witness'] = PIXEL_WITNESS_KIND if kinds == {PIXEL_WITNESS_KIND} else 'mixed'
     validate_trial(trial)
     return _persist_attempt(attempt_dir, criterion_id, editor_id, trial)
+
+
+def _flat_observations(observations):
+    """The observation dicts of a typing trial: C05 holds them in a list, C06 in a list of bursts."""
+    for item in observations or []:
+        if isinstance(item, dict):
+            yield item
+        elif isinstance(item, list):
+            yield from _flat_observations(item)
 
 
 def _write_input_refusal(*, observations, failure_reason, content_meta=None, outcome='failed',

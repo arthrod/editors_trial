@@ -280,6 +280,9 @@ async function verifyCanvasOpening(page, { noCopy = false } = {}) {
     model_oracle: gated.oracle,
     model_source: gated.source,
     document_text_chars: gated.chars,
+    // #245: how many of the typed character the document held at ready, for the arm's text count.
+    document_token_count: typeof gated.text === 'string' ? (gated.text.match(/x/g) || []).length : null,
+    document_text_whole: gated.oracle === 'select_all_copy',
     document_text: gated.text.slice(0, 4000),
     length_check: gated.length_check,
     length_enforced: gated.length_enforced,
@@ -288,6 +291,46 @@ async function verifyCanvasOpening(page, { noCopy = false } = {}) {
     model_document_check: gated.modelDocumentCheck,
     dom_document_check: gated.domDocumentCheck,
   };
+}
+
+/**
+ * #245: confirm an arm's key presses by the text, for an editor whose only adapter is a modified flag.
+ *
+ * The flag rises once, so it confirms no single key (WordCraft: 40 of 160 in the published runs). After the
+ * arm's last key press, and outside every timed interval, the whole text is read with the editor's own
+ * select all and copy, as at ready; the count of the typed character must have grown by exactly the number
+ * of keys pressed. Then every sample of the arm is confirmed; otherwise none is.
+ */
+async function confirmArmByText(page, ready, edits) {
+  if (!editorId || editSurface(editorId).kind !== 'flag') return;
+  const pending = edits.filter(edit => edit?.edit_confirmation?.pending_arm_text_count);
+  if (!pending.length) return;
+  const pressed = edits.filter(edit => edit?.event_timing?.event?.trusted).length;
+  // The ready step's content check holds the whole text it read with the same select all and copy.
+  const read = ready?.content_check || {};
+  const before = Number.isInteger(read.document_token_count) && read.document_text_whole ? read.document_token_count : null;
+  let after = null, error = null;
+  try {
+    const { C14_COPY_WAIT_MS, selectAllCopy } = await import('./c14_whole_text.mjs');
+    const text = await selectAllCopy(page, editorId, { waitMs: copyWaitMs || C14_COPY_WAIT_MS });
+    after = typeof text === 'string' ? (text.match(/x/g) || []).length : null;
+  } catch (err) {
+    error = String(err && err.message ? err.message : err).slice(0, 200);
+  }
+  const delta = before !== null && after !== null ? after - before : null;
+  const confirmed = delta !== null && pressed === edits.length && delta === pressed;
+  for (const edit of pending) {
+    edit.edit_confirmation.flag_adapter = edit.edit_confirmation.adapter;
+    edit.edit_confirmation.adapter = { adapter: 'text_count', confirmed, before_count: before, after_count: after,
+      text_delta: delta, expected_delta: pressed, keys_in_arm: edits.length, error };
+    edit.edit_confirmation.pending_arm_text_count = false;
+    edit.edit_confirmation.confirmed = confirmed;
+    if (!confirmed && edit.outcome === 'measured') {
+      edit.outcome = 'failed';
+      edit.failure_reason = 'expected_edit_not_confirmed';
+      edit.edit_ms = null;
+    }
+  }
 }
 
 async function performEdit(page, selector, cdp) {
@@ -817,6 +860,7 @@ async function runPlaywrightPair() {
     for (let i = 0; i < 3; i++) {
       coldBurst.push(await performEdit(coldPage, editSelector, cdp));
     }
+    await confirmArmByText(coldPage, coldReady, [coldEdit, ...coldBurst]);
   }
 
   await stopRecorder(cdp);
@@ -830,6 +874,7 @@ async function runPlaywrightPair() {
     for (let i = 0; i < 3; i++) {
       warmBurst.push(await performEdit(coldPage, editSelector, cdp));
     }
+    await confirmArmByText(coldPage, warmReady, [warmEdit, ...warmBurst]);
   }
 
   await stopRecorder(cdp);
