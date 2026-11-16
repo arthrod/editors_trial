@@ -26,6 +26,7 @@ from perf.runner.browser_run import (
 )
 from perf.scenarios.catalog import scenarios
 
+from build.perf_e2_keys import cell_key
 from build.perf_e_tables import DISPLAY, REL_TOL, _SAME_HOST, _pct, reproduced
 
 E2_CRITERIA = [f"C{i:02d}" for i in range(3, 16)] + ["C17", "C19"]
@@ -289,7 +290,7 @@ def _format_median(cell: dict, median: float) -> str:
 
 
 def _cell_text(facts: dict, roots, editor: str, criterion: str, measure: str = '', workload_id: str | None = None, *, word: str = 'run') -> str:
-    key = 'perf.e2.%s.%s' % (editor, criterion) + ('.' + measure if measure else '') + ('.' + workload_id if workload_id else '')
+    key = cell_key(editor, criterion, measure, workload_id)
     facts[key + '.reproduced'] = False
     pooled = e2_cells.read_criterion_cell(roots, editor, criterion, measure=measure, workload_id=workload_id)
     groups = pooled.get('groups') or []

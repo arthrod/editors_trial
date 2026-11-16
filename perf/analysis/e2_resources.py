@@ -261,10 +261,6 @@ def read_cell(roots, editor: str, workload: str) -> dict:
         tolerance = CPU_ABS_TOL_MS if unit == 'ms' else 0
         return abs(medians[0] - medians[1]) <= max(tolerance, REL_TOL * max(abs(medians[0]), abs(medians[1])))
 
-    def seed_medians(fields, unit):
-        medians = [cells.percentile(values, 50) for values in seed_values(fields)]
-        return medians if agree(medians, unit) else None
-
     def measure(fields, unit):
         # #226: a cell that does not reproduce still says what each seed read
         # and how far the launches ran; only `medians` is a published figure.
@@ -277,7 +273,7 @@ def read_cell(roots, editor: str, workload: str) -> dict:
 
     if 'after_load' in cell['never_idle_phases']:
         for key, fields in NEVER_IDLE_FIGURES:
-            cell['never_idle_figures'][key] = seed_medians(fields, 'ms')
+            cell['never_idle_figures'][key] = measure(fields, 'ms')['medians']
         cell['never_idle_split'] = _capped_wait_split(ordered, agree)
     for key, _label, unit, fields in MEASURES:
         if NEVER_IDLE_HIDES.get(key) in cell['never_idle_phases']:
@@ -310,9 +306,10 @@ def _capped_wait_launch(path: Path, record: dict):
         rows = [row for row in (phases.get(phase) or {}).get('processes') or [] if row.get('role') == 'gpu']
         return sum(row['cpu_ms'] for row in rows) if rows and all(_number(row.get('cpu_ms')) for row in rows) else None
 
+    load_gpu, after_load_gpu = gpu('load'), gpu('after_load')
     wait = phases.get('after_load') or {}
     out = {
-        'capped_gpu_cpu_ms': None if None in (gpu('load'), gpu('after_load')) else gpu('after_load') - gpu('load'),
+        'capped_gpu_cpu_ms': None if None in (load_gpu, after_load_gpu) else after_load_gpu - load_gpu,
         'capped_renderer_cpu_ms': record.get('open_settle_renderer_cpu_ms'),
         'capped_longtask_count': wait.get('longtask_count'),
         'capped_longtask_sum_ms': wait.get('longtask_sum_ms'),
