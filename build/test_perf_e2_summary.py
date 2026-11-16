@@ -356,12 +356,14 @@ def test_the_appendix_gives_what_the_harness_saw_on_keystrokes_it_refused():
     assert '| Docen | not measured | — | — | — |' in results and '26 ms' not in results
     text, _counts = summary.no_figure_appendix(facts, editors, DISPLAY)
     row = next(line for line in text.splitlines() if line.startswith('| Typing one character | Docen | 500 words'))
-    assert ('First round: 0 of 10 launches kept; 10 refused' in row
-            and 'On 80 of 80 key presses it confirmed the edit in the editor and saw the screen change, 17 ms to 49 ms later '
-                '(median 26 ms).' in row)
-    assert ('On 78 of 80 key presses it confirmed the edit in the editor and saw the screen change, 0.6 ms to 67 ms later '
-            '(median 36 ms); the shortest are quicker than the screen was redrawn (every 16.7 ms), so some of those changes '
-            'were not the character.') in row
+    assert ('First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. '
+            'The reason, both times: the harness times typing') in row
+    assert row.count("the typed character's own outline") == 1  # said once, not once per round
+    assert ('In the first round, on 80 of 80 key presses the harness confirmed the edit in the editor and saw the screen '
+            'change, 17 ms to 49 ms later (median 26 ms).') in row
+    assert ('In the second round, on 78 of 80 key presses the harness confirmed the edit in the editor and saw the screen '
+            'change, 0.6 ms to 67 ms later (median 36 ms); the shortest are quicker than the screen was redrawn (every 16.7 ms), '
+            'so some of those changes were not the character.') in row
     other = next(line for line in text.splitlines() if line.startswith('| Typing one character | Folio | 500 words'))
     assert 'key presses' not in other
 
@@ -391,3 +393,28 @@ def test_a_column_of_cells_under_redraws_of_different_lengths_gives_both_bounds(
     text = summary.short_version(facts, ['folio', 'plate'], DISPLAY)
     assert '| Folio | under 7 ms |' in text and '| Plate.js | under 17 ms |' in text
     assert 'At 500 words, 2 of 2 editors have a figure, from under 7 ms to under 17 ms.' in text
+
+
+def test_a_launch_that_recorded_two_reasons_in_one_string_has_words_for_each():
+    """The published WordCraft launches record "no_glyph...; expected_edit_not_confirmed" as one reason."""
+    facts = _facts()
+    _put(facts, 'plate', 'C05', 'prose-500w', 30, measure='warm_steady')
+    both = (0, 10, {'not_applicable': 10}, {'not_applicable': [GLYPH, GLYPH + '; expected_edit_not_confirmed']})
+    _refused(facts, 'docen', 'C05', 'prose-500w', {'first': both, 'second': both}, measure='warm_steady')
+    editors = ['docen', 'folio', 'plate']
+    summary.short_version(facts, editors, DISPLAY)
+    text, _counts = summary.no_figure_appendix(facts, editors, DISPLAY)
+    assert 'recorded as' not in text
+    assert text.count("the typed character's own outline") == 1
+    assert 'also the typed character was not found in the editor afterwards' in text
+
+
+def test_two_recorded_reasons_with_the_same_words_are_said_once():
+    facts = _facts()
+    crash = (0, 10, {'crash': 10}, {'crash': ['page_lost: Error: page.evaluate: Target crashed',
+                                              'page_lost: Error: keyboard.press: Target crashed']})
+    _refused(facts, 'docen', 'C11', 'prose-5kw', {'first': crash, 'second': crash})
+    editors = ['docen', 'folio', 'plate']
+    summary.short_version(facts, editors, DISPLAY)
+    text, _counts = summary.no_figure_appendix(facts, editors, DISPLAY)
+    assert text.count("the editor's page crashed") == 1

@@ -290,7 +290,17 @@ def _refused_words(cell: dict) -> str:
     recorded = cell.get('refusal_reasons') or {}
     parts = []
     for code, count in sorted(refusals.items()):
-        words = [reason_words(reason) or 'recorded as `%s`' % reason.replace('|', '/') for reason in recorded.get(code, [])]
+        # A launch can record several reasons in one string ("a; b"); each part is said once.
+        named = []
+        for reason in recorded.get(code, []):
+            for part in reason.split('; '):
+                if part and part not in named:
+                    named.append(part)
+        words = []
+        for part in named:  # two recorded reasons can mean the same thing to a reader: say it once
+            said = reason_words(part) or 'recorded as `%s`' % part.replace('|', '/')
+            if said not in words:
+                words.append(said)
         said = '; also '.join(words) if words else _CODE_WORDS.get(code, 'recorded as `%s`' % code)
         parts.append((count, said))
     if len(parts) == 1:
@@ -302,7 +312,7 @@ def _short(value: float) -> str:
     return '%.1f ms' % value if value < 10 else fmt(value, 'ms')
 
 
-def _seen_sentence(cell) -> str:
+def _seen_sentence(cell, name: str) -> str:
     """What the harness recorded on keystrokes it refused to publish: evidence, never the cell's figure.
 
     A key press counts here only when the harness confirmed its edit in the
@@ -312,9 +322,9 @@ def _seen_sentence(cell) -> str:
     seen = cell.get('unwitnessed') if isinstance(cell, dict) else None
     if not isinstance(seen, dict) or not seen.get('timed'):
         return ''
-    text = (' On %d of %d key presses it confirmed the edit in the editor and saw the screen change, %s to %s later '
-            '(median %s)' % (seen['timed'], seen['keystrokes'], _short(seen['min_ms']), _short(seen['max_ms']),
-                             _short(seen['median_ms'])))
+    text = ('In the %s round, on %d of %d key presses the harness confirmed the edit in the editor and saw the screen '
+            'change, %s to %s later (median %s)' % (name, seen['timed'], seen['keystrokes'], _short(seen['min_ms']),
+                                                    _short(seen['max_ms']), _short(seen['median_ms'])))
     frame = seen.get('frame_interval_ms')
     if frame and seen['min_ms'] < frame:
         return text + ('; the shortest are quicker than the screen was redrawn (every %.1f ms), so some of those changes '
@@ -322,14 +332,23 @@ def _seen_sentence(cell) -> str:
     return text + '.'
 
 
-def _round_sentence(name: str, cell, counted) -> str:
-    if counted is None:
-        return 'The %s round kept enough launches.' % name
-    kept, scheduled, _counts = counted
-    refused = scheduled - kept
-    why = _refused_words(cell) if isinstance(cell, dict) else ''
-    return '%s round: %d of %d launches kept; %d refused%s.%s' % (
-        name.capitalize(), kept, scheduled, refused, ': ' + why if why else '', _seen_sentence(cell))
+def _rounds_text(cells: dict, counted: dict) -> str:
+    """Each round's kept and refused launches, the reason (once, when both rounds give the same), then what was seen."""
+    words = {name: _refused_words(cells[name]) if isinstance(cells[name], dict) else '' for name in counted}
+    same = len(counted) == 2 and len(set(words.values())) == 1 and next(iter(words.values()))
+    parts = []
+    for name in ('first', 'second'):
+        if name not in counted:
+            parts.append('The %s round kept enough launches.' % name)
+            continue
+        kept, scheduled, _counts = counted[name]
+        why = '' if same or not words[name] else ': ' + words[name]
+        parts.append('%s round: %d of %d launches kept; %d refused%s.' % (name.capitalize(), kept, scheduled, scheduled - kept, why))
+    if same:
+        parts.append('The reason, both times: %s.' % same)
+    parts += [sentence for sentence in (_seen_sentence(cells[name], name) for name in ('first', 'second') if name in counted)
+              if sentence]
+    return ' '.join(parts)
 
 
 def _why_text(facts: dict, base: str) -> str:
@@ -353,7 +372,7 @@ def _why_text(facts: dict, base: str) -> str:
     if not counted:
         return 'Recorded as: %s.' % (reason.replace('|', '/') or 'no reason recorded')
     cells = {'first': facts.get(base + '.primary'), 'second': facts.get(base + '.reproduction')}
-    return ' '.join(_round_sentence(name, cells[name], counted.get(name)) for name in ('first', 'second'))
+    return _rounds_text(cells, counted)
 
 
 def no_figure_appendix(facts: dict, editors, display) -> tuple[str, dict]:
