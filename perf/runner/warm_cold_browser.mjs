@@ -76,6 +76,22 @@ function rectDamageVsBaseline(baselinePixels, framePixels, rects, dpr, doc, tole
 }
 
 import { settleFrames } from './b2_settle.mjs';
+import { settlePixels, PIXEL_EDIT_MIN_PIXELS, PIXEL_GLYPH_MIN_PIXELS } from './pixel_settle.mjs';
+
+/** #245: half the height, in CSS pixels, of the band around the caret's click point in which the pixel
+ * witness looks for the typed character: one line of body text with room for a larger font. */
+const PIXEL_CARET_BAND_CSS_PX = 24;
+/** The longest a painted frame is taken to need to reach the recorder: the quiet is read up to now less this. */
+const PIXEL_FRAME_DELIVERY_MS = 250;
+/** How far right of the caret's input a typed character may begin and still be the edit at the caret. */
+const PIXEL_CARET_REACH_CSS_PX = 48;
+/** The least the caret's input must move right on its line for a typed character to lie between its two places. */
+const PIXEL_CARET_MIN_ADVANCE_CSS_PX = 3;
+/** A focused input no larger than this is the editor's keyboard input kept at the caret (Docen 1x1, canvas-editor
+ * 100x30), not a text box laid over the page. */
+const PIXEL_CARET_INPUT_MAX_CSS_PX = {width: 120, height: 72};
+/** The corner of the page the harness's own marks occupy (witness.mjs: an 8x8 anchor, a 4x4 outlined mark). */
+const HARNESS_MARK_CSS_PX = 10;
 import { loadTimeoutMs } from './load_timeout.mjs';
 import { createRegionClassifier } from './b2_pixels.mjs';
 
@@ -273,6 +289,9 @@ async function verifyCanvasOpening(page, { noCopy = false } = {}) {
     model_oracle: gated.oracle,
     model_source: gated.source,
     document_text_chars: gated.chars,
+    // #245: how many of the typed character the document held at ready, for the arm's text count.
+    document_token_count: typeof gated.text === 'string' ? (gated.text.match(/x/g) || []).length : null,
+    document_text_whole: gated.oracle === 'select_all_copy',
     document_text: gated.text.slice(0, 4000),
     length_check: gated.length_check,
     length_enforced: gated.length_enforced,
@@ -281,6 +300,47 @@ async function verifyCanvasOpening(page, { noCopy = false } = {}) {
     model_document_check: gated.modelDocumentCheck,
     dom_document_check: gated.domDocumentCheck,
   };
+}
+
+/**
+ * #245: confirm an arm's key presses by the text, for an editor whose only adapter is a modified flag.
+ *
+ * The flag rises once, so it confirms no single key (WordCraft: 40 of 160 in the published runs). After the
+ * arm's last key press, and outside every timed interval, the whole text is read with the editor's own
+ * select all and copy, as at ready; the count of the typed character must have grown by exactly the number
+ * of keys pressed. Then every sample of the arm is confirmed; otherwise none is.
+ */
+async function confirmArmByText(page, ready, edits) {
+  if (!editorId || editSurface(editorId).kind !== 'flag') return;
+  const pending = edits.filter(edit => edit?.edit_confirmation?.pending_arm_text_count);
+  if (!pending.length) return;
+  const pressed = edits.filter(edit => edit?.event_timing?.event?.trusted).length;
+  // The ready step's content check holds the whole text it read with the same select all and copy.
+  const read = ready?.content_check || {};
+  const before = Number.isInteger(read.document_token_count) && read.document_text_whole ? read.document_token_count : null;
+  // Without a whole-text read at ready (no content expectation was passed) there is no count to grow from.
+  let after = null, error = before === null ? 'no_whole_text_count_at_ready' : null;
+  try {
+    const { C14_COPY_WAIT_MS, selectAllCopy } = await import('./c14_whole_text.mjs');
+    const text = await selectAllCopy(page, editorId, { waitMs: copyWaitMs || C14_COPY_WAIT_MS });
+    after = typeof text === 'string' ? (text.match(/x/g) || []).length : null;
+  } catch (err) {
+    error = String(err && err.message ? err.message : err).slice(0, 200);
+  }
+  const delta = before !== null && after !== null ? after - before : null;
+  const confirmed = delta !== null && pressed === edits.length && delta === pressed;
+  for (const edit of pending) {
+    edit.edit_confirmation.flag_adapter = edit.edit_confirmation.adapter;
+    edit.edit_confirmation.adapter = { adapter: 'text_count', confirmed, before_count: before, after_count: after,
+      text_delta: delta, expected_delta: pressed, keys_in_arm: edits.length, error };
+    edit.edit_confirmation.pending_arm_text_count = false;
+    edit.edit_confirmation.confirmed = confirmed;
+    if (!confirmed && edit.outcome === 'measured') {
+      edit.outcome = 'failed';
+      edit.failure_reason = 'expected_edit_not_confirmed';
+      edit.edit_ms = null;
+    }
+  }
 }
 
 async function performEdit(page, selector, cdp) {
@@ -301,11 +361,28 @@ async function performEdit(page, selector, cdp) {
   }
 }
 
+/** The focused element's box, through shadow roots: a canvas editor keeps its keyboard input at the caret. */
+function readFocusedInput(page) {
+  return page.evaluate(() => {
+    let el = document.activeElement;
+    while (el && el.shadowRoot && el.shadowRoot.activeElement) el = el.shadowRoot.activeElement;
+    if (!el || el === document.body || el === document.documentElement) return null;
+    const r = el.getBoundingClientRect();
+    return {tag: el.tagName, x: r.x, y: r.y, width: r.width, height: r.height};
+  }).catch(() => null);
+}
+
 async function measureEdit(page, selector, cdp) {
   // Focus/actionability and witness calibration are preconditioning, outside
   // the event-to-frame interval. No typing delay is introduced.
   const adapterSurface = hasCaretAdapter(editorId) ? editSurface(editorId) : null;
+  // Not 'dom': the editors that draw their text on a canvas (canvas-editor, Docen: model; WordCraft: flag).
+  // edit_surface.mjs EDIT_SURFACES gives every editor with glyph outlines kind 'dom'.
   const modelOrFlagEdit = adapterSurface && adapterSurface.kind !== 'dom';
+  // #245, criterion 4: in a shakedown the settled-pixel witness is also read, as a shadow, for the editors that
+  // have glyph outlines, so that the two witnesses can be compared on the same key press. A shadow never
+  // changes a sample, and it is never read in a publication run.
+  const pixelShadow = !modelOrFlagEdit && process.env.PERF_SHAKEDOWN === '1';
   let lanePrepared = null;
   if (hasCaretAdapter(editorId)) {
     lanePrepared = await prepareLaneCaret(page, editorId, selector);
@@ -313,6 +390,28 @@ async function measureEdit(page, selector, cdp) {
   } else {
     if (preEditClick) await page.click(preEditClick, { timeout: 30_000 });
     await page.locator(selector).first().click({ timeout: 30_000 });
+  }
+  // #245: where the caret is. A canvas editor keeps its own focused input (a textarea a pixel or two wide,
+  // for the keyboard and input methods) at the caret, and that is the caret's line even when the lane moved
+  // the caret after its click (Docen: to the start of the paragraph, 200 pixels above the click). Without
+  // such an input the caret is on the line the lane clicked: its text line, or the middle of the declared
+  // surface, which is where Playwright's click lands.
+  let caretPoint = null;
+  let focusedInput = null;
+  if (modelOrFlagEdit || pixelShadow) {
+    const innerSize = page.viewportSize() || {width: Infinity, height: Infinity};
+    focusedInput = await readFocusedInput(page);
+    const caretSized = focusedInput && ['TEXTAREA', 'INPUT'].includes(focusedInput.tag)
+      && focusedInput.width <= PIXEL_CARET_INPUT_MAX_CSS_PX.width && focusedInput.height <= PIXEL_CARET_INPUT_MAX_CSS_PX.height
+      && focusedInput.x >= 0 && focusedInput.y >= 0 && focusedInput.x <= innerSize.width && focusedInput.y <= innerSize.height;
+    if (caretSized) {
+      caretPoint = {x: focusedInput.x, y: focusedInput.y + focusedInput.height / 2, source: 'focused_input'};
+    } else if (lanePrepared?.point && Number.isFinite(lanePrepared.point.y)) {
+      caretPoint = {x: lanePrepared.point.x, y: lanePrepared.point.y, source: 'clicked_text_line'};
+    } else {
+      const box = await page.locator(selector).first().boundingBox().catch(() => null);
+      if (box) caretPoint = {x: box.x + box.width / 2, y: box.y + box.height / 2, source: 'centre_of_clicked_surface'};
+    }
   }
   const skew = await clockSkew(page, cdp);
   const mechanism = 'cdp_screencast_changed_frame';
@@ -451,6 +550,7 @@ async function measureEdit(page, selector, cdp) {
     }
   }, selector);
   const baseline = await captureBaseline(page, cdp);
+  let armWaitedMs = 0; // how long the arm really waited after the key press, with the recorder running
   const frame = await witnessFrame(page, cdp, {
     baseline: baseline.frame,
     windowMs: Math.max(500, frameTimeoutMs), clockCheck: skew,
@@ -474,7 +574,12 @@ async function measureEdit(page, selector, cdp) {
       // a delayed glyph is still pending. The timestamp window remains W.
       // Empty insertion proofs cannot later pass confirmInsertion's fixed
       // geometry check, so there is no settlement window to establish.
-      if (!event.unconfirmable) await page.waitForTimeout(settleMaxWaitMs);
+      // A canvas editor is always waited for: its edit is read from the frames of this window (#245).
+      if (modelOrFlagEdit || !event.unconfirmable) {
+        const waitStarted = Date.now();
+        await page.waitForTimeout(settleMaxWaitMs);
+        armWaitedMs = Date.now() - waitStarted;
+      }
       await page.evaluate(() => clearInterval(window.__b2?.pulseTimer));
       return event.startTime;
     },
@@ -516,6 +621,157 @@ async function measureEdit(page, selector, cdp) {
   confirmation.settle_max_wait_ms = settleMaxWaitMs;
   confirmation.frame_collection = 'before_document_witness_decode';
   let settleFailure = null;
+  const beforeShadow = pixelShadow ? {settleFailure, confirmationFramePageMs, changed: confirmation.changed_pixels,
+    witness: confirmation.witness_page_ms, settled: confirmation.settled_page_ms} : null;
+  let shadowError = null;
+  if ((modelOrFlagEdit || pixelShadow) && baseline.frame) {
+   try {
+    // #245: an editor that draws its text on a canvas has no glyph rects, and
+    // its own caret blink is often the first changed frame. The end event is
+    // the first frame in which the settled picture of the edit is in place
+    // (pixel_settle.mjs). Everything here runs after the window has elapsed
+    // inside arm(); it extends no timed interval.
+    const event = await page.evaluate(() => window.__b2?.event);
+    const recorder = baseline.recorder;
+    const clock = {
+      time_origin_ms: frame.time_origin_ms,
+      timestamp_kind: frame.timestamp_kind,
+      monotonic_origin_ms: skew.monotonic_origin_ms,
+    };
+    const markerMs = typeof event?.startTime === 'number' ? event.startTime : null;
+    if (markerMs === null) {
+      settleFailure = 'no_trusted_keydown_time';
+    } else if (clock.timestamp_kind === 'monotonic_seconds' && typeof clock.monotonic_origin_ms !== 'number') {
+      settleFailure = 'monotonic_origin_missing';
+    } else {
+      // Where the typed character appears: the line the harness put the caret on. Editors that draw their
+      // own toolbar on the same canvas change it on the first edit (WordCraft: a strip at the top, 30 ms
+      // after the text), and that is not the character. The band is PIXEL_CARET_BAND_CSS_PX above and below
+      // the click point, across the document's whole width; without a click point it is the whole document.
+      const documentRect = frame.document_region?.rect_device_px || null;
+      const dpr = frame.document_region?.device_pixel_ratio || 1;
+      const point = caretPoint;
+      let witnessRect = documentRect;
+      if (point && documentRect) {
+        const top = Math.max(documentRect.y, Math.floor((point.y - PIXEL_CARET_BAND_CSS_PX) * dpr));
+        const bottom = Math.min(documentRect.y + documentRect.height, Math.ceil((point.y + PIXEL_CARET_BAND_CSS_PX) * dpr));
+        witnessRect = {x: documentRect.x, y: top, width: documentRect.width, height: Math.max(0, bottom - top)};
+      }
+      // The caret is not the character. A caret that blinks is masked by its blinking. One that does not
+      // (Docen) moves a frame before the character is drawn: 38 pixels, two columns. Where the editor's
+      // input moved right on its line with the key, its place before and after gives both columns, and they
+      // are left out, so that what is witnessed is what was drawn between and beyond them; the floor is then
+      // the glyph's. Where it did not, nothing says where the caret is, and the larger floor applies: more
+      // than any caret, so a caret move alone is refused.
+      let caretColumns = null;
+      let focusedAfter = null;
+      if (point?.source === 'focused_input' && witnessRect) {
+        focusedAfter = await readFocusedInput(page);
+        const followed = focusedAfter && focusedAfter.tag === focusedInput.tag
+          && Math.abs(focusedAfter.y - focusedInput.y) < 1
+          && focusedAfter.x - focusedInput.x >= PIXEL_CARET_MIN_ADVANCE_CSS_PX;
+        if (followed) {
+          caretColumns = [focusedInput.x, focusedAfter.x].map(x => ({
+            x: Math.floor(x * dpr) - 1, y: witnessRect.y, width: 3, height: witnessRect.height,
+          }));
+        }
+      }
+      const minPixels = caretColumns ? PIXEL_GLYPH_MIN_PIXELS : PIXEL_EDIT_MIN_PIXELS;
+      // An edit that landed late (Docen at 250,000 words: seconds after the key) has had no time to go quiet
+      // when the frame witness returns on its first changed frame. Wait until the full settle window has
+      // passed since that frame; then the quiet is read up to the page's own clock, less the time a frame
+      // may take to reach the recorder.
+      let pageNowMs = await page.evaluate(() => performance.now());
+      const firstChangedMs = typeof frame.frame_page_ms === 'number' ? frame.frame_page_ms : null;
+      let lateWaitMs = 0;
+      if (firstChangedMs !== null && pageNowMs - firstChangedMs < settleMaxWaitMs) {
+        lateWaitMs = Math.ceil(settleMaxWaitMs - (pageNowMs - firstChangedMs));
+        await page.waitForTimeout(lateWaitMs);
+        pageNowMs = await page.evaluate(() => performance.now());
+      }
+      // Every frame recorded from the key press on. A slow editor's edit lands after the settle window
+      // (Docen at 250,000 words: seconds); the page was unresponsive meanwhile, the recorder was not, and
+      // the settled picture is whatever the frames show once they are quiet.
+      const candidates = [];
+      let unreadFrames = 0;
+      for (const candidate of [...recorder.frames]) {
+        const pageMs = convertFrameToPageMs(candidate, clock);
+        if (pageMs === null || pageMs < markerMs) continue;
+        if ((await frameAckSettled(candidate)) !== 'acked' || !candidate.data) {
+          // A frame that cannot be read may be the one that shows the edit: no sample, by name, not a crash.
+          unreadFrames += 1;
+          continue;
+        }
+        // Decoded on demand: an editor that repaints all the time delivers
+        // a couple of hundred frames, too many to hold decoded at once.
+        candidates.push({pageMs, seq: candidate.seq, pixels: () => decodePng(Buffer.from(candidate.data, 'base64'))});
+      }
+      const settled = settlePixels(candidates, {
+        baseline: decodePng(Buffer.from(baseline.frame.data, 'base64')),
+        markerMs, maxWaitMs: Infinity, quietMs: quiescenceMs,
+        // No frame up to now is no change; the arm must really have waited (measured, not assumed).
+        quietUntilMs: armWaitedMs > 0 ? pageNowMs - PIXEL_FRAME_DELIVERY_MS : markerMs,
+        tolerance: DEFAULT_CHANNEL_TOLERANCE, minPixels,
+        region: witnessRect,
+        // The clock check's 8x8 anchor and the baseline's 4x4 mark sit at the page's top-left corner.
+        exclude: [{x: 0, y: 0, width: Math.ceil(HARNESS_MARK_CSS_PX * dpr), height: Math.ceil(HARNESS_MARK_CSS_PX * dpr)},
+          ...(caretColumns || [])],
+      });
+      const {match_index, reference_index, ...evidence} = settled;
+      confirmation.pixel_settle = {
+        ...evidence, marker_page_ms: markerMs, min_pixels: minPixels,
+        caret_columns_device_px: caretColumns, focused_input_after_css_px: focusedAfter,
+        baseline_seq: baseline.frame.seq,
+        witness_seq: Number.isInteger(match_index) ? candidates[match_index].seq : null,
+        settled_seq: Number.isInteger(reference_index) ? candidates[reference_index].seq : null,
+        first_changed_frame_page_ms: frame.frame_page_ms,
+        document_rect_device_px: documentRect, witness_rect_device_px: witnessRect,
+        caret_point_css_px: point ? {x: point.x, y: point.y} : null, caret_point_source: point ? point.source : null,
+        focused_input_css_px: focusedInput,
+        excluded_harness_mark_css_px: HARNESS_MARK_CSS_PX,
+        caret_band_css_px: point ? PIXEL_CARET_BAND_CSS_PX : null,
+        last_frame_page_ms: candidates.length ? Math.max(...candidates.map(c => c.pageMs)) : null,
+      };
+      // Where the caret is known, the edit must touch it: a change elsewhere on the line's band (a toolbar the
+      // editor draws on the same canvas, an input parked away from the caret) is not the typed character.
+      let touchesCaret = null;
+      if (!settled.failure_reason && point?.source === 'focused_input' && settled.edit_bbox) {
+        const left = focusedInput.x * dpr;
+        const right = (caretColumns ? focusedAfter.x : focusedInput.x + PIXEL_CARET_REACH_CSS_PX) * dpr;
+        const box = settled.edit_bbox;
+        touchesCaret = box.x <= right + PIXEL_CARET_REACH_CSS_PX * dpr && box.x + box.width >= left - 4 * dpr;
+      }
+      confirmation.pixel_settle.edit_touches_caret = touchesCaret;
+      confirmation.pixel_settle.unread_frames = unreadFrames;
+      confirmation.pixel_settle.arm_waited_ms = armWaitedMs;
+      confirmation.pixel_settle.late_wait_ms = lateWaitMs;
+      confirmation.pixel_settle.read_until_page_ms = pageNowMs;
+      const harnessFailure = unreadFrames ? 'frame_unacknowledged_in_window'
+        : touchesCaret === false ? 'pixel_edit_not_at_caret' : null;
+      if (settled.failure_reason || harnessFailure) {
+        settleFailure = settled.failure_reason || harnessFailure;
+        confirmation.pixel_settle.failure_reason = settleFailure;
+      } else {
+        confirmationFramePageMs = settled.match_page_ms;
+        confirmation.changed_pixels = settled.edit_pixels;
+        confirmation.witness_page_ms = settled.match_page_ms;
+        confirmation.settled_page_ms = settled.settled_page_ms;
+      }
+    }
+   } catch (error) {
+     if (!pixelShadow) throw error;
+     shadowError = String(error && error.message ? error.message : error).slice(0, 200);
+   }
+  }
+  if (pixelShadow) {
+    confirmation.pixel_settle_shadow = confirmation.pixel_settle || {failure_reason: shadowError || settleFailure || 'no_baseline_frame'};
+    delete confirmation.pixel_settle;
+    settleFailure = beforeShadow.settleFailure;
+    confirmationFramePageMs = beforeShadow.confirmationFramePageMs;
+    for (const [key, value] of [['changed_pixels', beforeShadow.changed], ['witness_page_ms', beforeShadow.witness], ['settled_page_ms', beforeShadow.settled]]) {
+      if (value === undefined) delete confirmation[key]; else confirmation[key] = value;
+    }
+  }
   if (baseline.frame && confirmation.visible_rects.length && frame.document_region?.device_pixel_ratio > 0) {
     const event = await page.evaluate(() => window.__b2?.event);
     const recorder = baseline.recorder;
@@ -657,6 +913,23 @@ async function measureEdit(page, selector, cdp) {
     : confirmationFramePageMs - timing.event.startTime;
   const scopedOk = modelOrFlagEdit ? frame.outcome === 'witnessed' : frame.outcome === 'witnessed' && frame.document_scoped;
   const ok = scopedOk && frame.clock_skew_acceptable && confirmation.confirmed && duration !== null && duration >= 0;
+  if (modelOrFlagEdit && confirmation.pixel_settle) {
+    // The pixel path's own verdict: the settled picture, and the edit confirmed in the editor. For a flag
+    // editor the confirmation of each key is the arm's text count, settled after the arm (confirmArmByText).
+    // As for every editor: no changed frame of the document inside the witness's window is no sample
+    // (CodeRabbit, #248; the Python policy refuses it too).
+    const framed = frame.outcome === 'witnessed';
+    const pixelOk = !settleFailure && framed && frame.clock_skew_acceptable && duration !== null && duration >= 0;
+    const confirmed = confirmation.confirmed || adapterSurface.kind === 'flag';
+    return { mechanism, witness_kind: 'settled_pixels', clock_skew:skew, witness:frame, event_timing:timing,
+      edit_confirmation:{...confirmation, pending_arm_text_count: adapterSurface.kind === 'flag'},
+      timestamp_note: 'Uncorrected frame-to-page conversion; page_offset_ms is not a conversion correction. See clock_skew conversion bounds.',
+      outcome: pixelOk && confirmed ? 'measured' : 'failed',
+      failure_reason: pixelOk && confirmed ? null
+        : settleFailure || (!framed ? 'frame_not_witnessed_in_window' : !frame.clock_skew_acceptable ? 'clock_check_not_acceptable'
+          : duration === null || duration < 0 ? 'negative_input_latency' : 'expected_edit_not_confirmed'),
+      edit_ms: pixelOk && confirmed ? duration : null, paint_ms: pixelOk ? duration : null };
+  }
   return { mechanism, clock_skew:skew, witness:frame, event_timing:timing, edit_confirmation:confirmation,
     timestamp_note: 'Uncorrected frame-to-page conversion; page_offset_ms is not a conversion correction. See clock_skew conversion bounds.',
     outcome: ok ? 'measured' : 'failed',
@@ -711,6 +984,7 @@ async function runPlaywrightPair() {
     for (let i = 0; i < 3; i++) {
       coldBurst.push(await performEdit(coldPage, editSelector, cdp));
     }
+    await confirmArmByText(coldPage, coldReady, [coldEdit, ...coldBurst]);
   }
 
   await stopRecorder(cdp);
@@ -724,6 +998,7 @@ async function runPlaywrightPair() {
     for (let i = 0; i < 3; i++) {
       warmBurst.push(await performEdit(coldPage, editSelector, cdp));
     }
+    await confirmArmByText(coldPage, warmReady, [warmEdit, ...warmBurst]);
   }
 
   await stopRecorder(cdp);

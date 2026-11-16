@@ -332,6 +332,15 @@ def _cell_text(facts: dict, roots, editor: str, criterion: str, measure: str = '
                 (DISPLAY.get(editor, editor), criterion, workload_id or '—', measure or '—', reason, '—')
             )
         return reason
+    # #245 (CodeRabbit, #246): launches or rounds that did not end on the same witness are not one figure.
+    witnesses = {p_cell.get('witness'), r_cell.get('witness')}
+    if len(witnesses) > 1 or 'mixed' in witnesses:
+        reason = 'launches read on different witnesses (first %s; second %s) (#245)' % (
+            p_cell.get('witness') or 'the usual one', r_cell.get('witness') or 'the usual one')
+        facts[key + '.reason'] = reason
+        facts.setdefault('_not_reproduced', []).append(
+            (DISPLAY.get(editor, editor), criterion, workload_id or '—', measure or '—', reason, '—'))
+        return reason
     p_text = e2_cells.publication_text(p_cell)
     frame = max(p_cell.get('frame_interval_ms') or 0, r_cell.get('frame_interval_ms') or 0)
     p_med = p_cell['stats']['median']
@@ -346,6 +355,10 @@ def _cell_text(facts: dict, roots, editor: str, criterion: str, measure: str = '
             'second': {'median': r_med, 'n': r_cell['stats']['n'], 'frame_interval_ms': r_cell.get('frame_interval_ms') or None},
             'frame_interval_ms': frame or None, 'rel_tol': REL_TOL, 'sample_unit': p_cell.get('sample_unit') or 'ms',
         }
+        if p_cell.get('witness') == 'settled_pixels' and r_cell.get('witness') == 'settled_pixels':
+            # The two rounds' figures were read by pixels; the range printed from them says so (CodeRabbit, #248).
+            facts[key + '.rounds'].update(witness='settled_pixels', least_changed_pixels=min(
+                cell['least_changed_pixels'] for cell in (p_cell, r_cell)))
         first = _format_median(p_cell, p_med)
         second = _format_median(r_cell, r_med)
         facts.setdefault('_not_reproduced', []).append((DISPLAY.get(editor, editor), criterion, workload_id or '—', measure or '—', first, second))
@@ -361,6 +374,10 @@ def _cell_text(facts: dict, roots, editor: str, criterion: str, measure: str = '
     facts[key + '.reproduction'] = e2_cells.public_cell_dict(r_cell, published=True)
     failures = e2_cells.failure_text(r_cell)
     suffix = '; second: content not verified' if criterion == 'C11' and r_cell.get('content_verified') is not True and p_cell.get('content_verified') is True else ''
+    # #245: a figure read on the pixel witness says so wherever it is printed.
+    if p_cell.get('witness') == 'settled_pixels':
+        suffix += '; by pixels, least change on any key press %d pixels (#245)' % min(
+            cell['least_changed_pixels'] for cell in (p_cell, r_cell))
     return p_text + suffix + ('; second: ' + failures if failures else '')
 
 

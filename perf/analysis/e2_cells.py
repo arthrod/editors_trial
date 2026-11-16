@@ -914,6 +914,67 @@ def c17_ready_unverified(row):
     return fixed
 
 
+#: #245: a typing time of an editor that draws its text on a canvas ends at the first frame that shows the
+#: settled picture of the edit (perf/runner/pixel_settle.mjs). The floors are the harness's own: the smaller
+#: one applies where the probe left the caret's two columns out, the larger one where it could not.
+PIXEL_WITNESS = 'settled_pixels'
+PIXEL_WITNESS_MIN_PIXELS = 100
+PIXEL_GLYPH_MIN_PIXELS = 16
+
+
+def _flat_observations(observations):
+    for item in observations or []:
+        if isinstance(item, dict):
+            yield item
+        elif isinstance(item, list):
+            yield from _flat_observations(item)
+
+
+def _settled_key(observation: dict) -> bool:
+    """One key press the settled-pixel witness accepts: the edit confirmed by the text (the model adapter,
+    or the arm's text count; never a modified flag alone), settled, and at least the floor in size."""
+    if observation.get('witness_kind') != PIXEL_WITNESS:
+        return False
+    proof = observation.get('edit_confirmation') or {}
+    adapter = proof.get('adapter') or {}
+    settle = proof.get('pixel_settle')
+    if not isinstance(settle, dict) or settle.get('failure_reason'):
+        return False
+    columns = settle.get('caret_columns_device_px')
+    floor = PIXEL_GLYPH_MIN_PIXELS if isinstance(columns, list) and len(columns) == 2 else PIXEL_WITNESS_MIN_PIXELS
+    pixels = settle.get('edit_pixels')
+    time = observation.get('latency_ms', observation.get('edit_ms'))
+    return (adapter.get('adapter') in ('model', 'text_count') and adapter.get('confirmed') is True
+            and not proof.get('pending_arm_text_count') and _finite(pixels) and pixels >= floor
+            # The reader holds the clock and the place itself, whatever the harness concluded.
+            and (observation.get('clock_skew') or {}).get('acceptable') is True
+            and _finite(time) and time >= 0 and settle.get('edit_touches_caret') is not False)
+
+
+def settled_pixel_typing(row):
+    """A measured typing launch that says it ended on the settled-pixel witness, checked and labelled (#245).
+
+    The harness writes ``witness: settled_pixels`` on such a trial. The reader does not take its word: every
+    key press behind the trial must carry the witness's own record, settled, confirmed by the text and at
+    least the floor in size. Then the trial gains ``pixel_witness`` with the smallest edit seen; otherwise it
+    is read as refused. A typing launch refused for the missing glyph outline stays refused: its first
+    changed frame is not the character (Docen's is its caret moving, #238). The cached row is never mutated.
+    """
+    if row.get('criterion_id') not in ('C05', 'C06') or row.get('outcome') != 'measured' or not row.get('witness'):
+        return row
+    observations = list(_flat_observations((row.get('diagnostic') or {}).get('observations')))
+    fixed = dict(row)
+    if row.get('witness') == PIXEL_WITNESS and observations and all(_settled_key(o) for o in observations):
+        fixed['pixel_witness'] = {
+            'issue': 245, 'keystrokes': len(observations),
+            'least_changed_pixels': min(o['edit_confirmation']['pixel_settle']['edit_pixels'] for o in observations),
+        }
+        return fixed
+    fixed.update(outcome='refused', refusal_code='paint_witness_unavailable', failure_reason='pixel_witness_incomplete',
+                 samples_ms=[], latency_ms=None)
+    return fixed
+
+
 def trial_workload(trial):
     return str(trial.get('workload_id') or (trial.get('environment') or {}).get('workload_id')
                or (trial.get('diagnostic') or {}).get('workload_id') or '')
@@ -1001,6 +1062,7 @@ def _attempt_rows_of(run_directory: Path, jobs, *, qualify: set[Path] | None = N
                 row = c14_window_corrected(row)
                 row = c04_replay_corrected(row)
                 row = c17_ready_unverified(row)
+                row = settled_pixel_typing(row)
                 yield _launch_key(run_directory, job, directory.parent.name, qualify=qualify), path, row
 
 
@@ -1305,6 +1367,8 @@ def _build_cell_from_jobs(
     additional = defaultdict(set)
     witnessed_cell = False
     verified_content = []
+    witnesses = set()
+    least_pixels = []
     for run_directory, job in job_pairs:
         for launch, path, trial in _attempt_rows_of(run_directory, [job], qualify=qualify):
             if trial.get('refusal_code') == 'unreadable_trial' and launch.endswith('-' + editor_id):
@@ -1431,6 +1495,9 @@ def _build_cell_from_jobs(
         raw.append(samples)
         kept.append(median)
         witnessed_cell = witnessed_cell or witnessed
+        witnesses.add(trial.get('witness') or 'glyph_or_frame')
+        if trial.get('pixel_witness'):
+            least_pixels.append(trial['pixel_witness']['least_changed_pixels'])
         if witnessed:
             intervals.append(interval)
             sub_frame.append(median < interval)
@@ -1450,6 +1517,9 @@ def _build_cell_from_jobs(
         # measurement has no meaning here or the harness could not take it.
         'refusal_reasons': {code: sorted(reasons[code]) for code in sorted(refusals) if reasons.get(code)},
         'unwitnessed': _unwitnessed_summary(unwitnessed),
+        # #245: 'settled_pixels' where every kept launch ended on the pixel witness; 'mixed' is never published.
+        'least_changed_pixels': min(least_pixels) if least_pixels else None,
+        'witness': (PIXEL_WITNESS if witnesses == {PIXEL_WITNESS} else 'mixed' if PIXEL_WITNESS in witnesses else None),
         'additional_refusals': dict(Counter(code for launch, codes in additional.items() for code in codes if code != refused_launches.get(launch))),
         'content_verified': bool(verified_content) and all(verified_content),
         'failed_launches': len(failed_launches),

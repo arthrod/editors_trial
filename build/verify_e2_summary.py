@@ -121,6 +121,14 @@ def _round_figures(rounds: dict):
     return list(zip(values, texts))
 
 
+#: #245: the note a table with a time read on the pixel witness carries, word for word (the checker's own copy).
+PIXEL_NOTE = ('A time marked "(by pixels)" ends at the first frame that shows the whole settled change the key press made '
+              "on the caret's line. The editor draws its text on a canvas, where the harness cannot read a character's "
+              "outline. Where the editor reports its caret's place, the caret's own columns are left out; where it does "
+              'not, the change must reach 100 pixels, more than any caret. The smallest such change on any key press '
+              'behind these times was %d pixels (issue #245).')
+
+
 def expected_cell(facts: dict, editor: str, criterion: str, measure: str, workload: str):
     """(text, value or None, counts in the range sentence)."""
     base = 'perf.e2.%s.%s%s.%s' % (editor, criterion, '.' + measure if measure else '', workload)
@@ -131,15 +139,21 @@ def expected_cell(facts: dict, editor: str, criterion: str, measure: str, worklo
         figures = _round_figures(facts.get(base + '.rounds') or {})
         if figures:
             low, high = sorted(figures)
-            return '%s to %s' % (low[1], high[1]), None, False
+            marked = ' (by pixels)' if (facts.get(base + '.rounds') or {}).get('witness') == 'settled_pixels' else ''
+            return '%s to %s%s' % (low[1], high[1], marked), None, False
         return _refused(str(facts.get(base + '.reason') or ''), (facts.get(base + '.primary'), facts.get(base + '.reproduction'))), None, False
     one, two = facts[base + '.primary'], facts[base + '.reproduction']
+    ends = {one.get('witness'), two.get('witness')}
+    if ends != {None} and ends != {'settled_pixels'}:
+        return 'no figure', None, False
     value = (_middle(one) + _middle(two)) / 2
     unit = one.get('sample_unit') or 'ms'
     below = unit != 'bytes' and all(_middle(c) < (c.get('frame_interval_ms') or 0) for c in (one, two))
     text = _below(max(one.get('frame_interval_ms') or 0, two.get('frame_interval_ms') or 0)) if below else _shown(value, unit)
     if criterion == 'C11' and not (one.get('content_verified') is True and two.get('content_verified') is True):
         return text + ' (text not checked)', value, False
+    if ends == {'settled_pixels'}:
+        text += ' (by pixels)'
     return text, value, True
 
 
@@ -243,6 +257,7 @@ def check(report_text: str, facts: dict, display: dict) -> list:
             problems.append('%s: columns are %r, expected %r' % (heading, titles, list(REQUIRED[heading])))
             titles = [title for title in titles if title in COLUMNS]
         columns = [(title, []) for title in titles]
+        smallest = []  # the least change recorded behind each time read by pixels
         for row in rows[2:]:
             cells = [cell.strip() for cell in row.strip('|').split('|')]
             editor = slug.get(cells[0])
@@ -251,6 +266,14 @@ def check(report_text: str, facts: dict, display: dict) -> list:
                 continue
             for index, title in enumerate(titles):
                 text, value, counts = expected_cell(facts, editor, criterion, measure, COLUMNS[title])
+                if text.endswith('(by pixels)'):
+                    base = 'perf.e2.%s.%s%s.%s' % (editor, criterion, '.' + measure if measure else '', COLUMNS[title])
+                    least = ([(facts.get(base + half) or {}).get('least_changed_pixels') for half in ('.primary', '.reproduction')]
+                             if facts.get(base + '.reproduced') else [(facts.get(base + '.rounds') or {}).get('least_changed_pixels')])
+                    smallest.extend(value_ for value_ in least if isinstance(value_, (int, float)))
+                    if not all(isinstance(value_, (int, float)) and value_ >= 16 for value_ in least):
+                        problems.append('%s / %s / %s: read by pixels, and the facts do not record a least change of at least '
+                                        '16 pixels in each round (%r)' % (heading, cells[0], title, least))
                 if cells[1 + index] != text:
                     problems.append('%s / %s / %s: report says %r, the facts give %r'
                                     % (heading, cells[0], title, cells[1 + index], text))
@@ -262,6 +285,13 @@ def check(report_text: str, facts: dict, display: dict) -> list:
         sentence = expected_sentence(columns, len(rows) - 2)
         if (printed[0] if printed else '') != sentence:
             problems.append('%s: range sentence is %r, the facts give %r' % (heading, printed[0] if printed else '', sentence))
+        # #245: a table with a time read on the pixel witness says, once, what that mark means.
+        marked = any(cell.strip().endswith('(by pixels)') for row in rows[2:] for cell in row.strip('|').split('|'))
+        notes = [line for line in block.split('\n') if 'by pixels' in line and not line.startswith(('|', 'At '))]
+        if marked and notes != [PIXEL_NOTE % (min(smallest) if smallest else 0)]:
+            problems.append('%s: a time is marked (by pixels) and the note under the table is not the one that says what that means' % heading)
+        if notes and not marked:
+            problems.append('%s: the (by pixels) note is printed and no time in the table is marked' % heading)
         # An editor with a cell in the facts must have a row.
         listed = {slug.get(row.strip('|').split('|')[0].strip()) for row in rows[2:]}
         for editor in display:
@@ -279,6 +309,70 @@ def check(report_text: str, facts: dict, display: dict) -> list:
     if not found:
         problems.append('no results table found')
     problems += _check_appendix(report_text, facts, unsettled)
+    problems += check_typing_sentence(report_text, facts, display)
+    return problems
+
+
+_COUNT_WORDS = ('no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine')
+_TYPING_SENTENCE = '- **Typing was not timed for '
+
+
+def check_typing_sentence(report_text: str, facts: dict, display: dict) -> list:
+    """The sentence at the top that names the editors without a typing time, and those read by pixels (#238).
+
+    It is prose in the template, so it is held to the facts here: the editors whose typing row is "not measured"
+    in every column, their number, and the editors with a time marked "(by pixels)".
+    """
+    criterion, measure = TABLES['Typing one character']
+    untimed, pixels = [], []
+    for editor, name in display.items():
+        texts = [expected_cell(facts, editor, criterion, measure, COLUMNS[title])[0] for title in REQUIRED['Typing one character']]
+        texts = [text for text in texts if text != '—']
+        if texts and all(text == 'not measured' for text in texts):
+            untimed.append(name)
+        if any(text.endswith('(by pixels)') for text in texts):
+            pixels.append(name)
+    lines = [line for line in report_text.split('\n') if line.startswith(_TYPING_SENTENCE)]
+    if not untimed:
+        # With every editor timed there is no such sentence; the marks and the note under the table speak for the rest.
+        return ['the report says typing was not timed for some editors, and the facts have a typing time for every editor'] if lines else []
+    if len(lines) != 1:
+        return ['the report has %d sentences starting %r; the facts need exactly one (untimed: %s; by pixels: %s)'
+                % (len(lines), _TYPING_SENTENCE, ', '.join(untimed) or 'none', ', '.join(pixels) or 'none')]
+    line, problems = lines[0], []
+    word = _COUNT_WORDS[len(untimed)] if len(untimed) < len(_COUNT_WORDS) else str(len(untimed))
+    stated = line[len(_TYPING_SENTENCE):].split(' editor', 1)[0]
+    if stated != word:
+        problems.append('typing sentence: says %r editors were not timed, the facts give %s (%s)' % (stated, word, ', '.join(untimed) or 'none'))
+    short = {name: name.split(' + ')[0] for name in display.values()}
+    for name in untimed + pixels:
+        if short[name] not in line:
+            problems.append('typing sentence: %s is not named' % name)
+    # Each name in the clause that gives its status (CodeRabbit, #246): the sentence that says "no typing time"
+    # names the untimed editors and no editor read by pixels; a sentence with the mark names those read by pixels.
+    def named(name, text):
+        """Whether the editor's short name stands in the text as a whole word."""
+        return re.search(r'(?<![\w-])%s(?![\w-])' % re.escape(short[name]), text) is not None
+
+    # A sentence ends at a full stop, then the end of the bold headline if there is one, then a space.
+    sentences = re.split(r'[.!?](?:\*\*)?\s+', line)
+    none = [text for text in sentences if 'no typing time' in text]
+    marked = [text for text in sentences if '(by pixels)' in text]
+    for name in untimed:
+        if not any(named(name, text) for text in none):
+            problems.append('typing sentence: %s has no typing time and is not named where the sentence says "no typing time"' % name)
+        if any(named(name, text) for text in marked):
+            problems.append('typing sentence: %s has no typing time and is named where the sentence says "(by pixels)"' % name)
+    for name in pixels:
+        if any(named(name, text) for text in none):
+            problems.append('typing sentence: %s is read by pixels and is named where the sentence says "no typing time"' % name)
+        if not any(named(name, text) for text in marked):
+            problems.append('typing sentence: %s is read by pixels and is not named where the sentence says "(by pixels)"' % name)
+    for name in display.values():
+        if name not in untimed and name not in pixels and re.search(r'(?<![\w-])%s(?![\w-])' % re.escape(short[name]), line):
+            problems.append('typing sentence: %s is named, and the facts give it a typing time checked for the character' % name)
+    if pixels and '(by pixels)' not in line:
+        problems.append('typing sentence: %s is read by pixels and the sentence does not say "(by pixels)"' % ', '.join(pixels))
     return problems
 
 

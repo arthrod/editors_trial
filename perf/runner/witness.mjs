@@ -926,6 +926,8 @@ export async function clockSkew(
         ? null
         : round(anchor.frame_diff_ratio, 6),
     anchor_probe_region_px: anchor.probe_region_px,
+    // #247: whether a frame showed the check's own mark gone before it returned.
+    probe_cleared: anchor.probe_cleared || null,
     frame_interval_ms: intervalMs,
     frame_interval_source: interval.source || 'raf_delta',
     frame_interval_samples: interval.count ?? null,
@@ -986,6 +988,34 @@ export function clockSkewRefusalReason(skew) {
   };
   const detail = details[reason];
   return token + ': ' + (detail ? detail() : 'the clock check failed');
+}
+
+/** How long the clock check waits for a frame in which its own mark is gone (#247). */
+export const PROBE_CLEAR_WAIT_MS = 1000;
+
+/**
+ * Wait for a frame, from sequence `fromSeq` on, whose probe region equals the pre-mark frame's (#247).
+ * Returns `{cleared, frame_seq, waited_ms}`; never throws, and says so when no such frame came.
+ */
+export async function awaitProbeCleared(recorder, cleanFrame, fromSeq, probeRegion, { waitMs = PROBE_CLEAR_WAIT_MS } = {}) {
+  const started = Date.now();
+  const clean = decodeFrame(recorder, cleanFrame);
+  let checked = fromSeq;
+  while (clean && Date.now() - started < waitMs) {
+    for (const frame of framesFrom(recorder, checked)) {
+      if (frame.ack === 'pending' && (await frameAckSettled(frame)) !== 'acked') continue;
+      if (frame.ack !== 'acked') { checked = frame.seq + 1; continue; }
+      checked = frame.seq + 1;
+      const decoded = frame.data === cleanFrame.data ? clean : decodeFrame(recorder, frame);
+      if (!decoded) continue;
+      const diff = diffRatio(clean, decoded, { region: probeRegion });
+      if (diff.comparable && diff.changed === 0) {
+        return { cleared: true, frame_seq: frame.seq, waited_ms: Date.now() - started };
+      }
+    }
+    await sleep(5);
+  }
+  return { cleared: false, frame_seq: null, waited_ms: Date.now() - started };
 }
 
 /**
@@ -1064,6 +1094,11 @@ export async function anchorFrame(page, recorder, clock, { waitMs }) {
       if (probe && probe.parentNode) probe.parentNode.removeChild(probe);
     })
     .catch(() => {});
+  // #247: the mark must be off the picture before anyone takes a baseline frame. On a quiet page the
+  // recorder's last frame is otherwise the one that shows it, and every later frame differs from it there.
+  const probe_cleared = found && baselineFrame
+    ? await awaitProbeCleared(recorder, baselineFrame, found.frame.seq + 1, probeRegion, { waitMs: PROBE_CLEAR_WAIT_MS })
+    : { cleared: false, frame_seq: null, waited_ms: 0 };
   if (!found) {
     return {
       change_page_ms: change,
@@ -1072,9 +1107,11 @@ export async function anchorFrame(page, recorder, clock, { waitMs }) {
       frame: null,
       pixel_checked: pixelChecked,
       probe_region_px: probeRegion,
+      probe_cleared,
     };
   }
   return {
+    probe_cleared,
     change_page_ms: change,
     frame_page_ms: found.pageMs,
     frame_lag_ms: found.pageMs === null ? null : found.pageMs - change,
