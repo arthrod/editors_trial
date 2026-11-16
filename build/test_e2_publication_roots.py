@@ -1563,7 +1563,7 @@ def test_a_host_round_replaces_its_jobs_and_leaves_the_rest_of_the_lane(tmp_path
     campaign = payload["campaign"]
     assert campaign["host_rerun_kept"] == 1 and campaign["host_rerun_unsealed"] == 0
     assert campaign["host_superseded"] == 2
-    assert campaign["host_rounds"] == [{"issue": "228", "lane": "benchmark_document", "jobs": 1}]
+    assert campaign["host_rounds"] == [{"issue": "228", "lane": "benchmark_document", "jobs": 1, "kept": 1}]
     assert "lane_rounds" not in campaign and "lane_superseded" not in campaign
     # The reader must not drop canvas-editor's cells of the host round's job.
     (cells,) = payload["superseded_cells"]
@@ -1599,3 +1599,55 @@ def test_a_host_round_job_that_drops_an_editor_is_refused(tmp_path, capsys):
 
 def test_a_host_round_job_in_another_lane_is_refused(tmp_path, capsys):
     host_refused(tmp_path, capsys, lambda manifest: None, "is in lane benchmark_input", lane="benchmark_input")
+
+
+# Reviews of the host round (GLM and MiniMax through pi, 16 Nov).
+
+RID_AFTER_HOST = "20261117T010000000000Z-80000-000032"
+
+
+def test_an_editor_round_launched_after_the_host_round_is_refused(tmp_path, capsys):
+    # The host round is linked last and drops every other measurement of its jobs: a newer one would be lost.
+    data, _ = host_data(tmp_path)
+    summarize(job(data / "space-a" / "runs" / RID_AFTER_HOST, RID_AFTER_HOST, 4), 1, 1, ["canvas"])
+    manifest = host_manifest()
+    manifest["editor_rerun"].setdefault("space-a", []).append(
+        {"run_id": RID_AFTER_HOST, "jobs": [4], "editors": ["canvas"]})
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+    assert "was launched after the host round" in capsys.readouterr().err
+
+
+def test_a_job_two_host_issues_claim_is_refused(tmp_path, capsys):
+    def change(manifest):
+        manifest["host_superseded"]["issues"]["229"] = {"title": "again", "lane": "benchmark_document", "jobs": [4]}
+    host_refused(tmp_path, capsys, change, "is listed twice in host_superseded")
+
+
+def test_a_job_listed_twice_in_one_host_issue_is_refused(tmp_path, capsys):
+    def change(manifest):
+        manifest["host_superseded"]["issues"]["228"]["jobs"] = [4, 4]
+    host_refused(tmp_path, capsys, change, "is listed twice in host_superseded")
+
+
+def test_a_job_a_lane_round_and_a_host_round_both_retire_is_refused(tmp_path, capsys):
+    def change(manifest):
+        manifest["lane_superseded"] = {"issues": {"206": {"title": "lane", "lane": "benchmark_document", "jobs": [4]}}}
+    host_refused(tmp_path, capsys, change, "retired by a lane round and by a host round")
+
+
+def test_a_host_round_entry_cannot_stop_a_job(tmp_path, capsys):
+    def change(manifest):
+        manifest["host_rerun"]["space-a"][0]["stopped"] = [10]
+    host_refused(tmp_path, capsys, change, "a host round does not stop jobs")
+
+
+def test_a_host_round_job_with_another_block_is_refused(tmp_path, capsys):
+    host_refused(tmp_path, capsys, lambda manifest: None, "has block {'index': 2", block=2)
+
+
+def test_each_host_round_counts_its_own_kept_jobs(tmp_path):
+    data, _ = host_data(tmp_path)
+    roots_dir = tmp_path / "roots"
+    assert run_roots(data, roots_dir, write_manifest(tmp_path, host_manifest())) == 0
+    campaign = json.loads((roots_dir / "report_e2_runs.json").read_text())["campaign"]
+    assert campaign["host_rounds"] == [{"issue": "228", "lane": "benchmark_document", "jobs": 1, "kept": 1}]

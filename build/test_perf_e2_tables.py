@@ -1335,18 +1335,38 @@ def test_report_e2_prints_the_host_load_section_in_the_machine_appendix():
 def test_the_rerun_text_tells_a_host_round():
     text = E2.reruns_text({'first_pass_superseded': 32, 'rerun_kept': 32, 'missing_runs': [],
                            'host_superseded': 6, 'host_rerun_kept': 4, 'host_rerun_unsealed': 0,
-                           'host_rounds': [{'issue': '228', 'lane': 'benchmark_warm_cold', 'jobs': 4}]})
-    assert ('In a host round, 4 jobs of the warm and cold load lane were measured again for every editor on a quiet host '
+                           'host_rounds': [{'issue': '228', 'lane': 'benchmark_warm_cold', 'jobs': 4, 'kept': 4}]})
+    assert ('In a host round, 4 jobs of the warm and cold load lane were measured again for every editor '
             '(issue #228)') in text
     assert 'above the bound the harness holds a quiet machine to' in text
     assert 'The tables read those 4 jobs; every earlier measurement of them is replaced' in text
     assert 'the other jobs of the lane stay as measured' in text
 
 
+def test_a_host_round_of_an_issue_without_a_written_reason_claims_nothing_about_the_host():
+    text = E2.reruns_text({'first_pass_superseded': 32, 'rerun_kept': 32, 'missing_runs': [],
+                           'host_superseded': 2, 'host_rerun_kept': 1, 'host_rerun_unsealed': 0,
+                           'host_rounds': [{'issue': '999', 'lane': 'benchmark_document', 'jobs': 1, 'kept': 1}]})
+    assert 'In a host round, 1 job of the document lane was measured again for every editor (issue #999)' in text
+    assert 'above the bound' not in text and 'quiet' not in text
+    assert 'The tables read that job;' in text
+
+
+def test_two_host_rounds_each_state_their_own_kept_jobs():
+    text = E2.reruns_text({'first_pass_superseded': 32, 'rerun_kept': 32, 'missing_runs': [],
+                           'host_superseded': 8, 'host_rerun_kept': 5, 'host_rerun_unsealed': 1,
+                           'host_rounds': [{'issue': '228', 'lane': 'benchmark_warm_cold', 'jobs': 4, 'kept': 4},
+                                           {'issue': '999', 'lane': 'benchmark_document', 'jobs': 2, 'kept': 1}]})
+    assert 'The tables read those 4 jobs;' in text
+    assert 'The tables read 1 of those 2 jobs;' in text
+    assert '1 re-run job was not sealed and is left out.' in text
+
+
 def test_an_unsealed_host_round_job_is_counted_as_left_out():
     text = E2.reruns_text({'first_pass_superseded': 32, 'rerun_kept': 32, 'missing_runs': [],
                            'host_superseded': 5, 'host_rerun_kept': 3, 'host_rerun_unsealed': 1,
-                           'host_rounds': [{'issue': '228', 'lane': 'benchmark_warm_cold', 'jobs': 4}]})
+                           'host_rounds': [{'issue': '228', 'lane': 'benchmark_warm_cold', 'jobs': 4, 'kept': 3}]})
+    assert 'The tables read 3 of those 4 jobs;' in text
     assert '1 re-run job was not sealed and is left out.' in text
 
 

@@ -912,20 +912,32 @@ def _lane_round_text(campaign: dict) -> str:
            "it" if count == 1 else "them"))
 
 
+#: Why a host round ran, by issue: what the issue's own audit of the raw runs found. An issue without an entry
+#: gets a sentence that claims nothing about the host (reviews: GLM, MiniMax).
+HOST_ROUND_REASONS = {
+    "228": "when they first ran, the host's load was above the bound the harness holds a quiet machine to for most "
+           "of their launches (the issue gives the readings); the harness measures the same way, and it now waits "
+           "for a quiet host before a job and before a launch",
+}
+
+
 def _host_round_text(campaign: dict) -> str:
-    """A host round (#228): a few jobs measured again for every editor because the host was busy the first time."""
+    """A host round (#228): a few jobs measured again for every editor because of the host, not the harness."""
     text = ""
     for entry in campaign.get("host_rounds") or []:
-        jobs = entry["jobs"]
+        jobs, kept = entry["jobs"], entry.get("kept", entry["jobs"])
+        reason = HOST_ROUND_REASONS.get(str(entry["issue"]))
+        if jobs == 1:
+            read = "that job" if kept else "no job of it"
+        else:
+            read = "those %d jobs" % jobs if kept == jobs else "%d of those %d jobs" % (kept, jobs)
         text += (
-            " In a host round, %d %s of the %s lane %s measured again for every editor on a quiet host (issue #%s): "
-            "when they first ran, the host's load was above the bound the harness holds a quiet machine to for most "
-            "of their launches (the issue gives the readings). The harness measures the same way; it now waits for a quiet host before a "
-            "job and before a launch. The tables read those %d %s; every earlier measurement of them is replaced, a "
-            "single editor's own round of them included, and the other jobs of the lane stay as measured."
+            " In a host round, %d %s of the %s lane %s measured again for every editor (issue #%s)%s. The tables "
+            "read %s; every earlier measurement of %s is replaced, a single editor's own round included, and the "
+            "other jobs of the lane stay as measured."
             % (jobs, "job" if jobs == 1 else "jobs", LANE_NAMES.get(entry["lane"], entry["lane"]),
-               "was" if jobs == 1 else "were", entry["issue"], campaign.get("host_rerun_kept") or 0,
-               "job" if (campaign.get("host_rerun_kept") or 0) == 1 else "jobs"))
+               "was" if jobs == 1 else "were", entry["issue"], ": " + reason if reason else "", read,
+               "it" if jobs == 1 else "them"))
     return text
 
 

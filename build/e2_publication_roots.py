@@ -252,6 +252,25 @@ def _check_host_round(data: Path, manifest: dict, complete: bool, errors: list[s
     both = sorted(wanted & lane_superseded_jobs(manifest))
     if both:
         errors.append(f"jobs {both} are retired by a lane round and by a host round")
+    # One issue owns a job (reviews: GLM, MiniMax): a second claim would describe two rounds for one measurement.
+    listed = [index for issue in manifest.get("host_superseded", {}).get("issues", {}).values()
+              for index in issue["jobs"]]
+    for index in sorted({index for index in listed if listed.count(index) > 1}):
+        errors.append(f"job {index} is listed twice in host_superseded")
+    host_run = {index: entry["run_id"] for _, entry in entries for index in entry["jobs"]}
+    for space, entry in entries:
+        if entry.get("stopped"):
+            errors.append(f"host-round entry {space}/{entry['run_id']} lists stopped jobs {entry['stopped']}: "
+                          f"a host round does not stop jobs")
+    # The host round is linked last and drops every other measurement of its jobs, so each of those must be
+    # older (reviews: GLM, MiniMax). Run ids start with their UTC launch time.
+    for key in EARLIER_ROUND_KEYS + ("lane_rerun",):
+        for space, space_entries in sorted(manifest.get(key, {}).items()):
+            for entry in space_entries:
+                for index in sorted(set(entry["jobs"]) & wanted):
+                    if index in host_run and not entry["run_id"] < host_run[index]:
+                        errors.append(f"{key} run {space}/{entry['run_id']} of job {index} was launched after the "
+                                      f"host round {host_run[index]} that replaces it")
     issue_lane = {index: issue.get("lane") for issue in manifest.get("host_superseded", {}).get("issues", {}).values()
                   for index in issue["jobs"]}
     earlier = _earlier_jobs(data, manifest, wanted)
@@ -825,6 +844,18 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
     for space in sorted(manifest.get("host_rerun", {})):
         _link_round(data, roots_dir, space, manifest["host_rerun"][space], "host_rerun", set(),
                     campaign, roots, errors)
+    # What each host round's sentence states: the jobs of its issue the tables read (reviews: GLM, MiniMax).
+    host_kept: set[int] = set()
+    for space, entry in _host_entries(manifest):
+        for path in (roots_dir / f"{space}--{entry['run_id']}").glob("*/*"):
+            tail = path.name.rsplit("-", 1)[-1]
+            if tail.isdigit():
+                host_kept.add(int(tail))
+    issues = manifest.get("host_superseded", {}).get("issues", {})
+    for entry in campaign.get("host_rounds", []):
+        owner = next((issue for number, issue in issues.items()
+                      if str(issue.get("issue", number)) == entry["issue"] and issue.get("lane") == entry["lane"]), {})
+        entry["kept"] = len(set(owner.get("jobs", [])) & host_kept)
     # Every retired job is measured again exactly once, and no run is listed twice
     # (review of d509c234, M1): otherwise a cell would vanish with only a counter as trace.
     for retired_key, round_key, name in (("rerun_superseded", "rerun2", "second-round"),
