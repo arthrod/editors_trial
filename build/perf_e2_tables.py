@@ -363,6 +363,29 @@ def _cell_text(facts: dict, roots, editor: str, criterion: str, measure: str = '
     return p_text + suffix + ('; second: ' + failures if failures else '')
 
 
+def _recorded_reasons(facts: dict, key: str) -> str:
+    """The reasons a cell's refused launches recorded, after the counts by code (#239).
+
+    A code such as not_applicable covers "nothing to measure" and "the harness
+    could not take it"; only the recorded reason tells a reader which. At most
+    three are printed, each cut at 160 characters.
+    """
+    if facts.get(key + '.reproduced') is not False:
+        return ''
+    seen = []
+    for slot in ('primary', 'reproduction'):
+        cell = facts.get(key + '.' + slot)
+        for reasons in ((cell or {}).get('refusal_reasons') or {}).values() if isinstance(cell, dict) else ():
+            for reason in reasons:
+                text = reason.replace('|', '/')[:160]
+                if text not in seen:
+                    seen.append(text)
+    if not seen:
+        return ''
+    more = ' (and %d more)' % (len(seen) - 3) if len(seen) > 3 else ''
+    return ' Recorded reason%s: %s%s.' % ('s' if len(seen) > 1 else '', '; '.join(seen[:3]), more)
+
+
 def _criterion_table(facts: dict, roots, criterion: str, editors: list[str], *, word: str = 'run') -> str:
     rows = [row for root in roots for row in e2_cells._iter_trials(root) if row['criterion_id'] == criterion]
     # A lane's adapter-not-implemented stand-ins never add a row beside the
@@ -378,6 +401,7 @@ def _criterion_table(facts: dict, roots, criterion: str, editors: list[str], *, 
     for workload, measure in groups:
         for editor in editors:
             text = _cell_text(facts, roots, editor, criterion, measure, workload, word=word)
+            text += _recorded_reasons(facts, cell_key(editor, criterion, measure, workload))
             row = [DISPLAY.get(editor, editor)] + ([workload or 'unspecified'] if has_workload else [])
             row += ([measure or 'unspecified'] if distinct else []) + [text]
             lines.append('| ' + ' | '.join(row) + ' |')

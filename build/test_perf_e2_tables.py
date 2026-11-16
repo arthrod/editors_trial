@@ -211,6 +211,28 @@ class ReportE2Facts(unittest.TestCase):
         self.assertNotIn("range", table)
         self.assertNotIn("not reproduced", table)
 
+    def test_a_refused_cell_prints_the_reason_its_launches_recorded(self):
+        """#239: "reasons not_applicable: 10" does not say whether there was nothing to measure or the harness could not."""
+        reason = "no paragraph geometry to attribute a C12 y-shift: this host paints whole pages"
+        primary, repro = self._pair(
+            {"run_id": "a", "seed": 1, "editors": ["plate"]},
+            {"run_id": "b", "seed": 2, "editors": ["plate"]},
+            lambda root: [_write_trial(root, i, "plate", "C07", outcome="not_applicable", refusal_code="not_applicable",
+                                       failure_reason=reason, samples=[]) for i in range(10)],
+        )
+        table = E2.facts_from_runs(primary, repro)["perf.e2.table.C07"]
+        self.assertIn("reasons not_applicable: 10", table)
+        self.assertIn("Recorded reason: " + reason, table)
+        self.assertEqual(table.count("Recorded reason"), 1)
+
+    def test_a_cell_with_a_figure_prints_no_recorded_reason(self):
+        primary, repro = self._pair(
+            {"run_id": "a", "seed": 1, "editors": ["plate"]},
+            {"run_id": "b", "seed": 2, "editors": ["plate"]},
+            lambda root: [_write_trial(root, i, "plate", "C07", outcome="measured", samples=[20.0]) for i in range(10)],
+        )
+        self.assertNotIn("Recorded reason", E2.facts_from_runs(primary, repro)["perf.e2.table.C07"])
+
     def test_non_reproducing_pair_shows_both_medians(self):
         primary = _write_run(self.base / "primary", run_id="a", seed=1, editors=["plate"])
         repro = _write_run(self.base / "repro", run_id="b", seed=2, editors=["plate"])
