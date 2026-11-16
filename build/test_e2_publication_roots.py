@@ -1665,7 +1665,6 @@ def test_a_host_round_launched_before_the_first_pass_is_refused(tmp_path, capsys
     assert f"job {late.name} was launched after the host round {RID_HOST}" in capsys.readouterr().err
 
 
-RID_BEFORE_ALL = "20261101T030000000000Z-80000-000033"
 
 
 RID_LATER_FIRST = "20261118T030000000000Z-80000-000034"

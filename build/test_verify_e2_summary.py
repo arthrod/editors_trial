@@ -315,3 +315,23 @@ def test_the_reasons_of_two_rounds_may_not_be_swapped():
 
 def test_a_reason_both_rounds_share_may_be_said_once_for_both():
     assert not any('does not say' in p for p in verify.check(LABELLED, _labelled_facts(), DISPLAY))
+
+
+def test_a_sentence_for_both_rounds_does_not_cover_rounds_that_recorded_different_reasons():
+    """GLM review of #241: "both times" is only true when both rounds recorded the same."""
+    facts, right = _two_reasons()
+    merged = right.replace(
+        '10 refused: the harness cannot read an outline. Second round: 0 of 10 launches kept; 10 refused: the typed character was not found.',
+        '10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: the harness cannot read an outline; '
+        'also the typed character was not found.')
+    assert merged != right
+    problems = verify.check(merged, facts, DISPLAY)
+    assert any('first round' in p and 'outline' in p for p in problems), problems
+    assert any('second round' in p and 'not found' in p for p in problems), problems
+
+
+def test_a_marker_quoted_inside_a_rounds_words_does_not_end_its_clause():
+    facts, right = _two_reasons()
+    quoted = right.replace('10 refused: the harness cannot read an outline.',
+                           "10 refused: the page showed 'Second round:' and the harness cannot read an outline.")
+    assert not any('does not say' in p for p in verify.check(quoted, facts, DISPLAY))

@@ -173,16 +173,18 @@ _CLAUSE_ENDS = ('First round:', 'Second round:', 'The first round kept', 'The se
                 'In the first round,', 'In the second round,')
 
 
-def _round_clause(why: str, name: str) -> str:
-    """Where a row may give one round's reason: that round's own clause, and the sentence said for both rounds."""
+def _round_clause(why: str, name: str, shared: bool) -> str:
+    """Where a row may give one round's reason: that round's own clause and, when both rounds recorded the same
+    reasons (``shared``), the sentence said for both. A clause ends at the next clause that starts a sentence."""
     def section(start: str) -> str:
-        at = why.find(start)
+        at = 0 if why.startswith(start) else why.find('. ' + start)
         if at == -1:
             return ''
-        ends = [why.find(end, at + len(start)) for end in _CLAUSE_ENDS]
+        at += 0 if why.startswith(start) else 2
+        ends = [why.find('. ' + end, at + len(start)) for end in _CLAUSE_ENDS]
         ends = [end for end in ends if end != -1]
-        return why[at:min(ends) if ends else len(why)]
-    return section('%s round:' % name.capitalize()) + ' ' + section('The reason, both times:')
+        return why[at:min(ends) + 1 if ends else len(why)]
+    return section('%s round:' % name.capitalize()) + (' ' + section('The reason, both times:') if shared else '')
 
 
 def _reason_term(reason: str):
@@ -308,10 +310,12 @@ def _check_appendix(report_text: str, facts: dict, unsettled: dict) -> list:
         printed, why = listed[where]
         if printed != text:
             problems.append('Appendix J: %s / %s / %s says %r, the facts give %r' % (*where, printed, text))
-        for part in expected_why_parts(facts, editor, criterion, measure, workload):
+        parts = expected_why_parts(facts, editor, criterion, measure, workload)
+        terms = {name: {part[1] for part in parts if isinstance(part, tuple) and part[0] == name} for name in ('first', 'second')}
+        for part in parts:
             if isinstance(part, tuple):
                 name, term = part
-                if term not in _round_clause(why, name):
+                if term not in _round_clause(why, name, terms['first'] == terms['second']):
                     problems.append('Appendix J: the why of %s / %s / %s does not say %r for the %s round'
                                     % (*where, term, name))
             elif part not in why:
