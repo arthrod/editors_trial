@@ -502,3 +502,14 @@ def test_a_settling_cell_without_a_rate_is_a_scheduled_cell_that_did_not_reprodu
     other.mkdir()
     _text, facts = _rate_cell(other, [_record(quiet=80)] * 10, [_record(quiet=80)] * 10)
     assert facts['perf.e2.plate.B8.prose-250kw.edit_settle_cpu_rate.reproduced'] is False
+
+
+def test_four_or_five_settle_readings_no_longer_decide_the_cell(tmp_path):
+    """#226: one seed's jobs took 5 readings and the other's 4, half a second apart; the total split them."""
+    five = _record(quiet=90, series=_series(90, 2.0, samples=5))
+    four = _record(quiet=68, series=_series(68, 1.5, samples=4))
+    text, facts = _rate_cell(tmp_path, [five] * 10, [four] * 10)
+    prefix = 'perf.e2.plate.B8.prose-250kw.'
+    assert facts[prefix + 'edit_settle_cpu_ms.totals_agree'] is False  # 90 ms against 68 ms
+    assert facts[prefix + 'edit_settle_cpu_rate.reproduced'] is True
+    assert '| 45 ms/s / 45 ms/s |' in text
