@@ -1117,6 +1117,50 @@ def _one_repetition_value(trial: dict) -> tuple[float | None, bool | None]:
     return value, sub
 
 
+#: The typing lanes' refusal for an editor that exposes no glyph outline (perf/runner/benchmark_warm_cold.py).
+NO_GLYPH_GEOMETRY_REASON = 'no_glyph_geometry_to_witness_the_keystrokes_own_paint'
+
+
+def _unwitnessed_rows(trial: dict) -> list:
+    """(time to the first changed frame or None, changed pixels or None, redraw interval or None) of each keystroke
+    of a refused typing launch. A time is kept only when the harness confirmed that keystroke's edit."""
+    rows = []
+    for observation in ((trial.get('diagnostic') or {}).get('observations') or []):
+        if not isinstance(observation, dict):
+            continue
+        adapter = ((observation.get('edit_confirmation') or {}).get('adapter') or {})
+        paint = observation.get('paint_ms')
+        pixels = (observation.get('witness') or {}).get('changed_pixels')
+        timed = _number(paint) and adapter.get('confirmed') is True
+        interval = (observation.get('clock_skew') or {}).get('frame_interval_ms')
+        rows.append((float(paint) if timed else None, pixels if _number(pixels) else None,
+                     float(interval) if _number(interval) and interval > 0 else None))
+    return rows
+
+
+def _unwitnessed_summary(rows: list) -> dict | None:
+    """What the harness saw on keystrokes it refused to publish: never a figure, the evidence beside a refusal (#239)."""
+    if not rows:
+        return None
+    times = sorted(row[0] for row in rows if row[0] is not None)
+    pixels = [row[1] for row in rows if row[0] is not None and row[1] is not None]
+    intervals = [row[2] for row in rows if row[2] is not None]
+    return {
+        'keystrokes': len(rows), 'timed': len(times),
+        'min_ms': times[0] if times else None, 'median_ms': percentile(times, 50) if times else None,
+        'max_ms': times[-1] if times else None, 'min_changed_pixels': min(pixels) if pixels else None,
+        # The screen's own redraw interval as these launches recorded it; None when none did.
+        'frame_interval_ms': percentile(intervals, 50) if intervals else None,
+    }
+
+
+def _note_reason(reasons: dict, code: str, row: dict) -> None:
+    """Keep the first line of the reason a refused row recorded, under its refusal code."""
+    text = row.get('failure_reason') or row.get('publication_block_reason')
+    if isinstance(text, str) and text.strip():
+        reasons[code].add(text.strip().splitlines()[0].strip()[:200])
+
+
 def _refusal_key(sample_or_trial: dict) -> str:
     reason = sample_or_trial.get("failure_reason") or sample_or_trial.get("publication_block_reason") or sample_or_trial.get("outcome")
     return str(reason).split(":", 1)[0].strip()
@@ -1249,6 +1293,10 @@ def _build_cell_from_jobs(
         }
     kept, raw, sub_frame, intervals = [], [], [], []
     refusals = Counter()
+    reasons = defaultdict(set)
+    own_reasons = defaultdict(list)
+    sibling_reasons = defaultdict(list)
+    unwitnessed = []
     sample_unit = 'bytes' if criterion_id in ('C17', 'C19') else 'ms'
     failed_launches = set()
     trials = defaultdict(list)
@@ -1268,6 +1316,16 @@ def _build_cell_from_jobs(
             if workload_id is not None and trial_workload(trial) != workload_id:
                 continue
             code = refusal_code(trial)
+            if code and trial['criterion_id'] == criterion_id:
+                # A reason and its evidence belong to the measure they were recorded at (CodeRabbit, #240).
+                # A measure with no row of its own in a launch takes its sibling's reason (below), never
+                # its times: those were taken at the other cache state.
+                if trial_measure(trial) == measure:
+                    own_reasons[launch].append((code, trial))
+                    if trial.get('failure_reason') == NO_GLYPH_GEOMETRY_REASON:
+                        unwitnessed.extend(_unwitnessed_rows(trial))
+                elif {measure, trial_measure(trial)} <= _CACHE_STATE_MEASURES:
+                    sibling_reasons[launch].append((code, trial))
             if code in _RUN_REFUSALS:
                 if refused_launches.get(launch) == 'unreadable_trial':
                     additional[launch].add(code)
@@ -1284,6 +1342,9 @@ def _build_cell_from_jobs(
                 # only. The other measure of that launch has no row; it takes
                 # the reason its sibling records, not the launch-level code.
                 siblings[launch].add(code)
+    for launch in sorted(set(own_reasons) | set(sibling_reasons)):
+        for code, trial in (own_reasons[launch] if launch in trials else sibling_reasons[launch]):
+            _note_reason(reasons, code, trial)
     for run_directory, job in job_pairs:
         for path in _listing(job / 'rejected-evidence', '*'):
             if path.is_dir() and path.name.endswith('-' + editor_id):
@@ -1309,6 +1370,8 @@ def _build_cell_from_jobs(
                 continue
             key = _launch_key(run_directory, job, path.stem, qualify=qualify)
             code = refusal_code(row)
+            if code:
+                _note_reason(reasons, code, row)
             if code and refused_launches.get(key) in ('quarantined', 'unreadable_trial'):
                 additional[key].add(code)
             elif code in _RUN_REFUSALS:
@@ -1383,6 +1446,10 @@ def _build_cell_from_jobs(
         'raw_samples_ms': raw,
         'sub_frame': sub_frame,
         'refusals': dict(refusals),
+        # #239: what the refused launches recorded, per code; the code alone does not say whether the
+        # measurement has no meaning here or the harness could not take it.
+        'refusal_reasons': {code: sorted(reasons[code]) for code in sorted(refusals) if reasons.get(code)},
+        'unwitnessed': _unwitnessed_summary(unwitnessed),
         'additional_refusals': dict(Counter(code for launch, codes in additional.items() for code in codes if code != refused_launches.get(launch))),
         'content_verified': bool(verified_content) and all(verified_content),
         'failed_launches': len(failed_launches),

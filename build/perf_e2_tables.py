@@ -339,6 +339,13 @@ def _cell_text(facts: dict, roots, editor: str, criterion: str, measure: str = '
     ok = reproduced(p_med, r_med, rel_tol=REL_TOL, abs_tol=frame)
     if not ok:
         facts[key + '.reason'] = 'medians outside tolerance'
+        # #239: the two rounds' own figures, so a reader is shown both and not the word "varied".
+        facts[key + '.rounds'] = {
+            # Each round beside its own redraw interval (CodeRabbit, #240); the larger is the tolerance's.
+            'first': {'median': p_med, 'n': p_cell['stats']['n'], 'frame_interval_ms': p_cell.get('frame_interval_ms') or None},
+            'second': {'median': r_med, 'n': r_cell['stats']['n'], 'frame_interval_ms': r_cell.get('frame_interval_ms') or None},
+            'frame_interval_ms': frame or None, 'rel_tol': REL_TOL, 'sample_unit': p_cell.get('sample_unit') or 'ms',
+        }
         first = _format_median(p_cell, p_med)
         second = _format_median(r_cell, r_med)
         facts.setdefault('_not_reproduced', []).append((DISPLAY.get(editor, editor), criterion, workload_id or '—', measure or '—', first, second))
@@ -357,6 +364,30 @@ def _cell_text(facts: dict, roots, editor: str, criterion: str, measure: str = '
     return p_text + suffix + ('; second: ' + failures if failures else '')
 
 
+def _recorded_reasons(facts: dict, key: str) -> str:
+    """The reasons a cell's refused launches recorded, after the counts by code (#239).
+
+    A code such as not_applicable covers "nothing to measure" and "the harness
+    could not take it"; only the recorded reason tells a reader which. At most
+    three are printed, each cut at 160 characters.
+    """
+    if facts.get(key + '.reproduced') is not False:
+        return ''
+    seen = []
+    for slot in ('primary', 'reproduction'):
+        cell = facts.get(key + '.' + slot)
+        for reasons in ((cell or {}).get('refusal_reasons') or {}).values() if isinstance(cell, dict) else ():
+            for reason in reasons:
+                text = reason.replace('|', '/')
+                text = text if len(text) <= 160 else text[:159].rstrip() + '…'
+                if text not in seen:
+                    seen.append(text)
+    if not seen:
+        return ''
+    more = ' (and %d more)' % (len(seen) - 3) if len(seen) > 3 else ''
+    return ' Recorded reason%s: %s%s.' % ('s' if len(seen) > 1 else '', '; '.join(seen[:3]), more)
+
+
 def _criterion_table(facts: dict, roots, criterion: str, editors: list[str], *, word: str = 'run') -> str:
     rows = [row for root in roots for row in e2_cells._iter_trials(root) if row['criterion_id'] == criterion]
     # A lane's adapter-not-implemented stand-ins never add a row beside the
@@ -372,6 +403,7 @@ def _criterion_table(facts: dict, roots, criterion: str, editors: list[str], *, 
     for workload, measure in groups:
         for editor in editors:
             text = _cell_text(facts, roots, editor, criterion, measure, workload, word=word)
+            text += _recorded_reasons(facts, cell_key(editor, criterion, measure, workload))
             row = [DISPLAY.get(editor, editor)] + ([workload or 'unspecified'] if has_workload else [])
             row += ([measure or 'unspecified'] if distinct else []) + [text]
             lines.append('| ' + ' | '.join(row) + ' |')
@@ -881,6 +913,35 @@ def _lane_round_text(campaign: dict) -> str:
            "it" if count == 1 else "them"))
 
 
+#: Why a host round ran, by issue: what the issue's own audit of the raw runs found. An issue without an entry
+#: gets a sentence that claims nothing about the host (reviews: GLM, MiniMax).
+HOST_ROUND_REASONS = {
+    "228": "when they first ran, the host's load was above the bound the harness holds a quiet machine to for most "
+           "of their launches (the issue gives the readings); the harness measures the same way, and it now waits "
+           "for a quiet host before a job and before a launch",
+}
+
+
+def _host_round_text(campaign: dict) -> str:
+    """A host round (#228): a few jobs measured again for every editor because of the host, not the harness."""
+    text = ""
+    for entry in campaign.get("host_rounds") or []:
+        jobs, kept = entry["jobs"], entry.get("kept", entry["jobs"])
+        reason = HOST_ROUND_REASONS.get(str(entry["issue"]))
+        if jobs == 1:
+            read = "that job" if kept else "no job of it"
+        else:
+            read = "those %d jobs" % jobs if kept == jobs else "%d of those %d jobs" % (kept, jobs)
+        text += (
+            " In a host round, %d %s of the %s lane %s measured again for every editor (issue #%s)%s. The tables "
+            "read %s; every earlier measurement of %s is replaced, a single editor's own round included, and the "
+            "other jobs of the lane stay as measured."
+            % (jobs, "job" if jobs == 1 else "jobs", LANE_NAMES.get(entry["lane"], entry["lane"]),
+               "was" if jobs == 1 else "were", entry["issue"], ": " + reason if reason else "", read,
+               "it" if jobs == 1 else "them"))
+    return text
+
+
 def reruns_text(campaign: dict | None) -> str:
     """The template's re-run bullet, from report_e2_runs.json's campaign counts."""
     if not campaign:
@@ -984,9 +1045,10 @@ def reruns_text(campaign: dict | None) -> str:
             "criteria load (issue #192). The tables read the %d late-round jobs in their place."
             % (late, campaign.get("late_rerun_kept") or 0))
     text += _lane_round_text(campaign)
+    text += _host_round_text(campaign)
     unsealed = sum(campaign.get(key) or 0 for key in
                    ("first_pass_unsealed", "rerun_unsealed", "rerun2_unsealed", "rerun3_unsealed",
-                    "editor_rerun_unsealed", "late_rerun_unsealed", "lane_rerun_unsealed"))
+                    "editor_rerun_unsealed", "late_rerun_unsealed", "lane_rerun_unsealed", "host_rerun_unsealed"))
     missing = len(campaign.get("missing_runs") or [])
     stopped = campaign.get("editor_rerun_stopped") or 0
     if stopped:  # 14 Nov rebalancing: a job cut off when its work moved to another Space
@@ -1017,11 +1079,15 @@ def unset_facts() -> dict:
         "perf.e2.measured": "not yet measured",
         "perf.e2.status": "This report is not yet measured.",
         "perf.e2.short_version": "not yet measured",
+        "perf.e2.no_figure": "not yet measured",
+        **{"perf.e2.no_figure.%s" % kind: "not yet measured"
+           for kind in ("rows", "ranges", "varied", "not_measured", "does_not_apply", "no_figure", "crashed")},
         "perf.e2.intro": "No browser runs are available; not yet measured.",
         "perf.e2.machine": _machine(),
         "perf.e2.host": "not yet measured",
         "perf.e2.host_class": "not yet measured",
         "perf.e2.host_note": "not yet measured",
+        "perf.e2.host_load": "not yet measured",
         "perf.e2.rule": "not yet measured",
         "perf.e2.runs": "not yet measured",
         "perf.e2.run_id": "not yet measured",
@@ -1206,10 +1272,19 @@ def _facts_from_roots(roots) -> dict:
     if typing_groups:
         facts['perf.e2.table.TYPING'] = '\n\n'.join(typing_table(facts, roots, editor, kind) for editor, kind in typing_groups)
     facts.update(resource_facts(roots, editors))
+    # #228: which jobs' samples were taken with the host above the quiet-machine bound.
+    from build import perf_e2_host_load
+    host_load_text, host_load_counts = perf_e2_host_load.section(roots, editors, DISPLAY)
+    facts["perf.e2.host_load"] = host_load_text
+    facts.update(host_load_counts)
     facts["perf.e2.probe_scan"] = probe_scan_text(roots, editors)
     # #227: the short version reads the cells the tables above just decided.
     from build import perf_e2_summary
     facts["perf.e2.short_version"] = perf_e2_summary.short_version(facts, editors, DISPLAY)
+    # #239: why each results cell that is not a single figure is not one.
+    no_figure_text, no_figure_counts = perf_e2_summary.no_figure_appendix(facts, editors, DISPLAY)
+    facts["perf.e2.no_figure"] = no_figure_text
+    facts.update(no_figure_counts)
     facts["perf.e2.not_run"] = (
         _not_run_editors(roots[0], roots[-1], editors) if classic else _not_measured_campaign(editors))
     facts["perf.e2.not_reproduced"] = _not_reproduced_table(facts, classic)

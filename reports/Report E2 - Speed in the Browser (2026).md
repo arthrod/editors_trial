@@ -13,15 +13,18 @@ It is written to be read from here to the end of the results. The appendices aft
 - **A figure is a typical time.** Each action was repeated many times, across several fresh launches of the browser, and the figure is a typical (middle) result of those repeats. Appendix C gives the exact rule.
 - **Lower is quicker, or lighter.** Times are in milliseconds (ms, thousandths of a second) or seconds (s); memory is in MiB and GiB (1 GiB is 1,024 MiB).
 - **Read down a column.** Each column is one document size, and every editor in it was given the same document. The editors were measured on separate cloud machines of the same type, each shared with other work, so a small difference between two editors can be the machine and not the editor.
-- **"under 1 frame"** means the change was on screen in less than the time between two pictures of the screen (about 17 thousandths of a second). The screen was redrawn 60 times a second, so a shorter time cannot be told apart.
-- **"varied"** means the repeated measurements disagreed too much to print one figure, so nothing is said about that editor at that size. **"crashed"** means the editor's page crashed in every launch of that test at that size; it says nothing about the other tests. **"does not apply"** means our tooling cannot take that measurement on that editor (Appendix D says why); it does not mean the editor cannot do the action. **"no figure"** means too few launches gave a confirmed result, whether because of the editor or of our tooling. A dash means the cell was not part of these runs. The full tables in Appendix E give the reason for each.
+- **"under 17 ms"** means the first picture of the screen that showed the change came less than one redraw after the action. The screen was redrawn 60 times a second, once every 16.7 ms, so times shorter than that cannot be told apart from each other.
+- **A range, such as "48 ms to 81 ms",** is printed where the repeated measurements disagreed too much to print one figure; its ends are what they gave. Neither end is the editor's time; read it as "somewhere about here, and not settled".
+- **"not measured"** means our tooling did not time the action there. It says nothing about whether the editor does it, or how quickly. **"crashed"** means the editor's page crashed in every launch of that test at that size; it says nothing about the other tests. **"no figure"** means too few launches gave a confirmed result, whether because of the editor or of our tooling. **"does not apply"** is printed only where there was nothing to measure. A dash means the cell was not part of these runs.
+- **Every cell that is not a single figure has a line in Appendix J** saying what was measured there and why no single figure is printed.
 - **The editors are in alphabetical order.** This report does not rank them.
 
 ## What the figures cannot tell you
 
 - **They are not the times you will see on your own computer.** The tests ran on a cloud server with no graphics processor, so everything an editor draws was drawn by the processor. For WordCraft, which redraws its page continuously, that drawing is nearly all of the processor time it used in the half minute after opening a document (table B8 in Appendix E). The figures compare the editors with each other on machines of that kind.
 - **The two largest documents are deliberately extreme.** They are stress tests, not ordinary work; the first two columns are the ones to reason from.
-- **"varied" can be the machine, not the editor.** The machines are shared with other work, and some measurements were taken while a machine was much busier than at other times (issue #228; Appendix B gives the load of each run). The typing cells that varied at 50,000 words are of that kind. A "varied" cell should not be read as a property of the editor.
+- **A range can be the machine, not the editor.** The machines are shared with other work, and some measurements were taken while a machine was much busier than at other times (issue #228; Appendix B gives the load of each run). Appendix B names the jobs in which a quarter or more of the launches began or ended on a busy machine; where one round of a range comes from such a job, the report cannot tell the machine from the editor. A range should not be read as a property of the editor.
+- **Typing was not timed for three editors.** canvas-editor, Docen and WordCraft draw their text where the harness cannot read the outline of a typed character, and the harness refuses to time a keystroke it cannot see land. They can be typed in. The harness did record when the screen changed after a key press whose edit it confirmed in the editor, and Appendix J gives those times and how many key presses they cover; it does not print them as the typing time because it cannot check that the change was the character and not, say, the caret (issue #238).
 - **Search and replace was not measured** for any editor, because of a gap in our tooling. This report says nothing about it.
 - **The line under each table is for orientation.** It says how many of the editors have a figure in the first and in the last column, and the lowest and highest of those figures. An editor without a figure is not in that spread.
 - **Only what is listed is measured.** Whether an editor keeps a document's content and formatting intact is the subject of the other reports of this trial.
@@ -35,7 +38,7 @@ From the moment the page is asked for the document until the first frame that sh
 | Editor | 500 words | 5,000 words | 50,000 words | 250,000 words | 500,000 words |
 |---|---|---|---|---|---|
 | canvas-editor + plugin | 344 ms | 1.0 s | 8.3 s | 64.8 s | 285 s |
-| Docen | 1.1 s | 1.3 s | 2.3 s | 8.2 s | varied |
+| Docen | 1.1 s | 1.3 s | 2.3 s | 8.2 s | 22.1 s to 26.4 s |
 | Docxodus | 2.4 s | 3.3 s | 11.2 s | 46.3 s | 99.9 s |
 | eigenpal | 547 ms | 698 ms | 1.1 s | 2.4 s | 3.9 s |
 | Folio | 797 ms | 940 ms | 1.8 s | 4.7 s | 8.1 s |
@@ -52,17 +55,17 @@ From a key press until the frame in which that character is on screen, in a docu
 
 | Editor | 500 words | 5,000 words | 50,000 words | 250,000 words |
 |---|---|---|---|---|
-| canvas-editor + plugin | does not apply | does not apply | does not apply | does not apply |
-| Docen | does not apply | does not apply | does not apply | does not apply |
-| Docxodus | under 1 frame | under 1 frame | 18 ms | 31 ms |
-| eigenpal | 46 ms | 48 ms | varied | 81 ms |
-| Folio | 46 ms | 46 ms | varied | varied |
-| GenOffice | 19 ms | 28 ms | varied | no figure |
-| Plate.js | 25 ms | 27 ms | 56 ms | varied |
-| SuperDoc | 135 ms | varied | varied | 556 ms |
-| WordCraft | does not apply | does not apply | does not apply | does not apply |
+| canvas-editor + plugin | not measured | not measured | not measured | not measured |
+| Docen | not measured | not measured | not measured | not measured |
+| Docxodus | under 17 ms | under 17 ms | 16 ms | 28 ms |
+| eigenpal | 46 ms | 42 ms | 56 ms | 76 ms |
+| Folio | 46 ms | 46 ms | 122 ms | 430 ms |
+| GenOffice | 19 ms | 26 ms | 146 ms | no figure |
+| Plate.js | 25 ms | 26 ms | 48 ms | 133 ms |
+| SuperDoc | 135 ms | 273 ms | 437 ms | 553 ms |
+| WordCraft | not measured | not measured | not measured | not measured |
 
-At 500 words, 6 of 9 editors have a figure, from under 1 frame to 135 ms; at 250,000 words, 3 of 9, from 31 ms to 556 ms.
+At 500 words, 6 of 9 editors have a figure, from under 17 ms to 135 ms; at 250,000 words, 5 of 9, from 28 ms to 553 ms.
 
 ### Clicking to place the caret
 
@@ -70,17 +73,17 @@ From a click in the text until the next frame the editor paints.
 
 | Editor | 500 words | 5,000 words | 50,000 words | 250,000 words |
 |---|---|---|---|---|
-| canvas-editor + plugin | under 1 frame | 27 ms | 61 ms | 391 ms |
+| canvas-editor + plugin | under 17 ms | 27 ms | 61 ms | 391 ms |
 | Docen | 27 ms | 28 ms | 93 ms | 1.8 s |
-| Docxodus | under 1 frame | under 1 frame | under 1 frame | 42 ms |
+| Docxodus | under 17 ms | under 17 ms | under 17 ms | 42 ms |
 | eigenpal | 29 ms | 28 ms | 26 ms | 20 ms |
 | Folio | 63 ms | 77 ms | 387 ms | 1.9 s |
-| GenOffice | under 1 frame | under 1 frame | 19 ms | 40 ms |
+| GenOffice | under 17 ms | under 17 ms | 19 ms | 40 ms |
 | Plate.js | 30 ms | 30 ms | 86 ms | 379 ms |
 | SuperDoc | 60 ms | 77 ms | 235 ms | 337 ms |
-| WordCraft | 185 ms | 175 ms | 173 ms | varied |
+| WordCraft | 185 ms | 175 ms | 173 ms | 170 ms to 194 ms |
 
-At 500 words, 9 of 9 editors have a figure, from under 1 frame to 185 ms; at 250,000 words, 8 of 9, from 20 ms to 1.9 s.
+At 500 words, 9 of 9 editors have a figure, from under 17 ms to 185 ms; at 250,000 words, 8 of 9, from 20 ms to 1.9 s.
 
 ### Pasting a block of text
 
@@ -90,15 +93,15 @@ From the paste of a 1,500-character block until the first frame in which the pag
 |---|---|---|---|---|
 | canvas-editor + plugin | 94 ms | 361 ms | no figure | no figure |
 | Docen | 32 ms | 63 ms | 558 ms | 9.3 s |
-| Docxodus | 16 ms | 19 ms | under 1 frame | under 1 frame |
+| Docxodus | 16 ms | 19 ms | under 17 ms | under 17 ms |
 | eigenpal | 53 ms | 57 ms | 109 ms | 109 ms |
 | Folio | 49 ms | 107 ms | 131 ms | 413 ms |
 | GenOffice | 22 ms | 24 ms | 170 ms | 2.8 s |
-| Plate.js | 44 ms | 47 ms | varied | 433 ms |
+| Plate.js | 44 ms | 47 ms | 129 ms to 152 ms | 433 ms |
 | SuperDoc | 118 ms | 332 ms | 966 ms | no figure |
 | WordCraft | 131 ms | 129 ms | 154 ms | 248 ms |
 
-At 500 words, 9 of 9 editors have a figure, from 16 ms to 131 ms; at 250,000 words, 7 of 9, from under 1 frame to 9.3 s.
+At 500 words, 9 of 9 editors have a figure, from 16 ms to 131 ms; at 250,000 words, 7 of 9, from under 17 ms to 9.3 s.
 
 ### Undoing
 
@@ -106,7 +109,7 @@ From the undo of one typed character until the first frame that differs.
 
 | Editor | 500 words | 5,000 words | 50,000 words | 250,000 words |
 |---|---|---|---|---|
-| canvas-editor + plugin | 56 ms | 25 ms | varied | 65 ms |
+| canvas-editor + plugin | 56 ms | 25 ms | 156 ms to 183 ms | 65 ms |
 | Docen | 25 ms | 50 ms | 463 ms | 8.8 s |
 | Docxodus | 69 ms | 325 ms | 3.1 s | 16.6 s |
 | eigenpal | 26 ms | 26 ms | 30 ms | 46 ms |
@@ -124,17 +127,17 @@ From a scroll of the document until the first frame in which its content has mov
 
 | Editor | 500 words | 5,000 words | 50,000 words | 250,000 words |
 |---|---|---|---|---|
-| canvas-editor + plugin | under 1 frame | 16 ms | under 1 frame | under 1 frame |
-| Docen | under 1 frame | 18 ms | under 1 frame | 22 ms |
-| Docxodus | under 1 frame | under 1 frame | under 1 frame | 62 ms |
-| eigenpal | under 1 frame | 26 ms | 25 ms | 29 ms |
-| Folio | 15 ms | under 1 frame | under 1 frame | under 1 frame |
-| GenOffice | under 1 frame | 17 ms | 20 ms | 60 ms |
-| Plate.js | under 1 frame | under 1 frame | 21 ms | 64 ms |
+| canvas-editor + plugin | under 17 ms | 16 ms | under 17 ms | under 17 ms |
+| Docen | under 17 ms | 18 ms | under 17 ms | 22 ms |
+| Docxodus | under 17 ms | under 17 ms | under 17 ms | 62 ms |
+| eigenpal | under 17 ms | 26 ms | 25 ms | 29 ms |
+| Folio | 15 ms | under 17 ms | under 17 ms | under 17 ms |
+| GenOffice | under 17 ms | 17 ms | 20 ms | 60 ms |
+| Plate.js | under 17 ms | under 17 ms | 21 ms | 64 ms |
 | SuperDoc | 16 ms | 19 ms | 26 ms | 51 ms |
-| WordCraft | varied | 150 ms | varied | 148 ms |
+| WordCraft | 130 ms to 195 ms | 150 ms | under 17 ms to 131 ms | 148 ms |
 
-At 500 words, 8 of 9 editors have a figure, from under 1 frame to 16 ms; at 250,000 words, 9 of 9, from under 1 frame to 148 ms.
+At 500 words, 8 of 9 editors have a figure, from under 17 ms to 16 ms; at 250,000 words, 9 of 9, from under 17 ms to 148 ms.
 
 ### Memory with the document open
 
@@ -160,7 +163,7 @@ The seven tables of the results come from seven of the criteria described here: 
 
 A "cell" below is one editor, one criterion, one measure and one document: far more cells than the boxes of the results tables. A "seed" is one of the two rounds in which everything was run (Appendix C).
 
-This report concerns browser-visible first paint, typing, scrolling, and related interactions. 693 of 1061 scheduled editor/criterion/measure cells reproduced between the two seeds. 52 run folders contributed 212 jobs (seed 1: 106 jobs; seed 2: 106 jobs); earliest job start 2026-11-12, latest job end 2026-11-15.
+This report concerns browser-visible first paint, typing, scrolling, and related interactions. 739 of 1061 scheduled editor/criterion/measure cells reproduced between the two seeds. 56 run folders contributed 208 jobs (seed 1: 104 jobs; seed 2: 104 jobs); earliest job start 2026-11-12, latest job end 2026-11-16.
 
 Each criterion is one browser-visible or model clock on the same corpus the headless report uses.
 
@@ -196,19 +199,62 @@ Relaxed bounds: Clock skew: 5 ms. Ready/navigation load timeouts: 300 s by defau
 
 Each seed ran on the same hardware class (shared_guarded) on separate virtual machines (Spaces e2-apryse, e2-canvas, e2-docen, e2-docsplus, e2-docxodus, e2-eigenpal, e2-fidus, e2-folio, e2-genoffice, e2-plate, e2-publish, e2-publish-2, e2-publish-3, e2-publish-4, e2-publish-5, e2-publish-6, e2-publish-7, e2-publish-8, e2-superdoc, e2-wordcraft), not on one host. A Space name is a machine name: the editors measured are those in the tables. Spaces e2-apryse, e2-docsplus, e2-fidus are machines named for editors this report does not measure.
 
-Seed 1 — 106 jobs on Spaces e2-apryse, e2-canvas, e2-docen, e2-docsplus, e2-docxodus, e2-eigenpal, e2-fidus, e2-folio, e2-genoffice, e2-plate, e2-publish, e2-publish-2, e2-publish-3, e2-publish-4, e2-publish-5, e2-publish-6, e2-publish-7, e2-publish-8, e2-superdoc, e2-wordcraft: CPU model AMD EPYC 7R13 Processor; CPU quota 8.0; logical CPUs 64; OS linux 6.12.113-138.209.amzn2023.x86_64 (102 jobs), linux 6.12.111-136.204.amzn2023.x86_64 (4 jobs); Chromium 156.0.8078.80; renderer ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver); stolen CPU time less than 0.01%; throttle refusals: 0 of 3198 samples refused for cgroup CPU throttling; host load average (1 min) at the start and end of each job: 2.1 to 40.6, median 10.0.
+Seed 1 — 104 jobs on Spaces e2-apryse, e2-canvas, e2-docen, e2-docsplus, e2-docxodus, e2-eigenpal, e2-fidus, e2-folio, e2-genoffice, e2-plate, e2-publish, e2-publish-2, e2-publish-3, e2-publish-4, e2-publish-5, e2-publish-6, e2-publish-7, e2-publish-8, e2-superdoc, e2-wordcraft: CPU model AMD EPYC 7R13 Processor; CPU quota 8.0; logical CPUs 64; OS linux 6.12.113-138.209.amzn2023.x86_64 (100 jobs), linux 6.12.111-136.204.amzn2023.x86_64 (4 jobs); Chromium 156.0.8078.80; renderer ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver); stolen CPU time less than 0.01%; throttle refusals: 0 of 3188 samples refused for cgroup CPU throttling; host load average (1 min) at the start and end of each job: 2.1 to 38.4, median 9.5.
 
-Seed 2 — 106 jobs on Spaces e2-apryse, e2-canvas, e2-docen, e2-docsplus, e2-docxodus, e2-eigenpal, e2-fidus, e2-folio, e2-genoffice, e2-plate, e2-publish, e2-publish-2, e2-publish-3, e2-publish-4, e2-publish-5, e2-publish-6, e2-publish-7, e2-publish-8, e2-superdoc, e2-wordcraft: CPU model AMD EPYC 7R13 Processor; CPU quota 8.0; logical CPUs 64; OS linux 6.12.113-138.209.amzn2023.x86_64 (96 jobs), linux 6.12.111-136.204.amzn2023.x86_64 (10 jobs); Chromium 156.0.8078.80; renderer ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver); stolen CPU time less than 0.01%; throttle refusals: 4 of 3198 samples refused for cgroup CPU throttling; host load average (1 min) at the start and end of each job: 1.9 to 43.2, median 8.3.
+Seed 2 — 104 jobs on Spaces e2-apryse, e2-canvas, e2-docen, e2-docsplus, e2-docxodus, e2-eigenpal, e2-fidus, e2-folio, e2-genoffice, e2-plate, e2-publish, e2-publish-2, e2-publish-3, e2-publish-4, e2-publish-5, e2-publish-6, e2-publish-7, e2-publish-8, e2-superdoc, e2-wordcraft: CPU model AMD EPYC 7R13 Processor; CPU quota 8.0; logical CPUs 64; OS linux 6.12.113-138.209.amzn2023.x86_64 (94 jobs), linux 6.12.111-136.204.amzn2023.x86_64 (10 jobs); Chromium 156.0.8078.80; renderer ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver); stolen CPU time less than 0.01%; throttle refusals: 4 of 3188 samples refused for cgroup CPU throttling; host load average (1 min) at the start and end of each job: 1.9 to 31.5, median 7.9.
 
 Editor pins (built-editor tree SHA-256 of every attempt that ran, in every run folder): canvas-editor + plugin: db742f005c4542a8afa75f4801dd40785e1ce298331903d5ac84bce79c3b24a0; Docen: cf72bd0ee7f16b61d2751113a6533b63697cc437fdf1916e6cb8c6307a343204; Docxodus: dc663a3ee106917d5b93f06fa3ceaa2527bc917b7accfe582cf6ef411dc121ce; eigenpal: 94bdb0c2ee05a56bff1734c3b11f6d39805e4965fab5d778300ee288ce0af40e; Folio: 34e784f890d8ae99129f7ef98c0af4ca3225278b3f9f1a6ed93bee23a9b14ab4; GenOffice: 746b793e0ad8f2a0a12ec5ecf1aeddfa79895102244ac1c717bce6fbbe523789; Plate.js: 0b3c24cc2bf9348a9e904d22757449915be9abee764f5d345557f928cad6f32d; SuperDoc: 4ab1fc57f5e418532f50bc84c5380723c5ae52750d5ae2fdab55c3a4cefcfed6; WordCraft: 003a46b20c05597e3e385e745c9ddec19a4f0ecb43d57e596209e02c5623849a.
 
-Jobs per Space, from each job summary's host-build records: e2-apryse: 10; e2-canvas: 8; e2-docen: 12; e2-docsplus: 10; e2-docxodus: 9; e2-eigenpal: 9; e2-fidus: 11; e2-folio: 10; e2-genoffice: 11; e2-plate: 21; e2-publish: 4; e2-publish-2: 14; e2-publish-3: 5; e2-publish-4: 5; e2-publish-5: 8; e2-publish-6: 6; e2-publish-7: 7; e2-publish-8: 17; e2-superdoc: 23; e2-wordcraft: 12.
+### Host load, launch by launch
+
+Every launch (one editor, one repetition of a job) records the host's 1-minute load average when it began and when it ended. The harness's own bound for a quiet machine is a third of the host's logical processors. No sample was refused for it: the table below says how many of the launches that carry both readings began or ended above it, and names the jobs in which a quarter or more did. Where the two seeds of a cell disagree and one of them comes from such a job, the load is one possible reason, and the report cannot tell it from the editor. A job that was run again for one editor has five launches, and the table names that editor.
+
+Of the 6,376 launches of these runs, 291 (4.6 percent) began or ended with the load above 21.3.
+
+| Lane | Launches | Above the bound | Share |
+|---|---|---|---|
+| C10 scroll | 1,000 | 81 | 8.1 percent |
+| document | 1,440 | 39 | 2.7 percent |
+| input | 900 | 17 | 1.9 percent |
+| memory | 940 | 63 | 6.7 percent |
+| resources | 900 | 11 | 1.2 percent |
+| typing | 216 | 16 | 7.4 percent |
+| warm and cold load | 980 | 64 | 6.5 percent |
+
+Jobs in which a quarter or more of the launches were above it:
+
+| Lane | Document | Seed | Block | Space | Editors | Launches above | Highest load |
+|---|---|---|---|---|---|---|---|
+| C10 scroll | 500 words | second | 1 | e2-plate | WordCraft | 2 of 5 | 23.7 |
+| C10 scroll | 500 words | second | 2 | e2-plate | WordCraft | 5 of 5 | 27.6 |
+| C10 scroll | 5,000 words | first | 1 | e2-docen | every editor | 26 of 45 | 30.6 |
+| C10 scroll | 5,000 words | second | 1 | e2-plate | WordCraft | 5 of 5 | 25.7 |
+| C10 scroll | 50,000 words | second | 1 | e2-plate | WordCraft | 2 of 5 | 23.7 |
+| C10 scroll | 50,000 words | second | 2 | e2-plate | WordCraft | 3 of 5 | 21.5 |
+| C10 scroll | 250,000 words | second | 2 | e2-plate | WordCraft | 3 of 5 | 23.2 |
+| C10 scroll | complex document | second | 1 | e2-plate | every editor | 13 of 45 | 27.9 |
+| C10 scroll | complex document | second | 1 | e2-plate | WordCraft | 4 of 5 | 23.2 |
+| C10 scroll | complex document | second | 2 | e2-plate | WordCraft | 5 of 5 | 24.1 |
+| document | complex document | second | 1 | e2-superdoc | every editor | 24 of 45 | 49.7 |
+| memory | 250,000 words | second | 1 | e2-docen | every editor | 15 of 45 | 38.8 |
+| memory | 250,000 words | second | 2 | e2-fidus | every editor | 18 of 45 | 28.4 |
+| typing | not recorded | first | not recorded | e2-apryse | Docxodus | 6 of 6 | 46.3 |
+| typing | not recorded | first | not recorded | e2-folio | eigenpal | 3 of 6 | 39.9 |
+| typing | not recorded | second | not recorded | e2-eigenpal | WordCraft | 4 of 6 | 25.4 |
+| typing | not recorded | second | not recorded | e2-superdoc | GenOffice | 2 of 6 | 31.8 |
+| warm and cold load | 500 words | first | 1 | e2-docen | every editor | 13 of 45 | 30.4 |
+| warm and cold load | 500 words | second | 1 | e2-superdoc | WordCraft | 3 of 5 | 24.7 |
+| warm and cold load | 500 words | second | 2 | e2-superdoc | WordCraft | 2 of 5 | 22.0 |
+| warm and cold load | 50,000 words | second | 2 | e2-superdoc | WordCraft | 2 of 5 | 23.8 |
+| warm and cold load | 250,000 words | first | 2 | e2-superdoc | every editor | 18 of 45 | 29.9 |
+
+Jobs per Space, from each job summary's host-build records: e2-apryse: 7; e2-canvas: 8; e2-docen: 12; e2-docsplus: 10; e2-docxodus: 9; e2-eigenpal: 9; e2-fidus: 11; e2-folio: 10; e2-genoffice: 11; e2-plate: 21; e2-publish: 5; e2-publish-2: 15; e2-publish-3: 4; e2-publish-4: 6; e2-publish-5: 9; e2-publish-6: 6; e2-publish-7: 7; e2-publish-8: 15; e2-superdoc: 21; e2-wordcraft: 12.
 
 Playwright not recorded, Chromium 156.0.8078.80. Renderer: ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver).
 
 ## Appendix C — Every measurement was run twice: the rule a figure had to pass
 
-Everything in this report was run twice, in two separate rounds (called seeds below), and a figure is printed only when the two agree. Each round gives one number per cell: the median of its kept launches, where each launch counts as the median of its own samples. The figure in the results above is the midpoint (the average) of the two rounds' numbers. The results print that figure alone; the count of launches, the range and the 90th percentile described below are in the full tables of Appendix E. "under 1 frame" is printed only when both rounds were under a frame; "varied" is a cell whose two rounds did not agree within 10 percent (or, for times that short, within one frame).
+Everything in this report was run twice, in two separate rounds (called seeds below), and a figure is printed only when the two agree. Each round gives one number per cell: the median of its kept launches, where each launch counts as the median of its own samples. The figure in the results above is the midpoint (the average) of the two rounds' numbers. The results print that figure alone; the count of launches, the range and the 90th percentile described below are in the full tables of Appendix E. "under 17 ms" is printed only when both rounds were under one redraw of the screen (16.7 ms, called a frame below); a range is printed for a cell whose two rounds did not agree within 10 percent (or, for times that short, within one frame), and gives the two rounds' numbers.
 
 This is a first pass with fewer samples than planned. Each cell schedules 10 samples per editor per seed and is published when at least 5 samples are kept. The 90th percentile is printed only when at least 10 samples are kept; with 5 to 9 kept, the table prints the median and the range from the smallest kept sample to the largest, because a percentile of a short sample is not a stable figure.
 
@@ -216,11 +262,11 @@ Typing schedules 6 sessions per kind per seed and publishes a cell when at least
 
 Each launch contributes the median of its own samples; n counts kept launches. Scheduled counts come from each run's order. Publishability is decided per trial — job summaries delegate it to their trials — and a cell publishes only from trials that are publishable and record the built editor's identity (host_provenance.tree_sha256, else a pinned editor_version); a trial recording neither is refused as pin not recorded, and a reproduction across different built-editor trees is refused. Each of the two seeds must keep at least 5 launches per cell, its launches pooled across the campaign's run folders, and a run-level block — a shakedown run, dirty repos, unavailable CPU accounting or a failed run — refuses the whole run. The medians must agree within 10 percent of the larger median or the larger witnessed frame interval. Samples of frame-witnessed criteria require complete boolean flags checked against a witnessed interval; model-layer clocks such as C04 and byte counts publish without them, and sub-frame medians are buckets; p90 is printed only when at least 10 launches are kept; with 5 to 9 kept, the table prints the median and the range. p90 is over launch medians. C14 rungs and C14 measures (presented_frame, usable_no_damage) and C15 steps are separate measures; a no-damage C14 sample is the DOM document-surface time, never a compositor frame.
 
-212 jobs in 52 run folders — seed 1: 106 jobs; seed 2: 106 jobs. Dates: 2026-11-12 to 2026-11-15.
+208 jobs in 56 run folders — seed 1: 104 jobs; seed 2: 104 jobs. Dates: 2026-11-12 to 2026-11-16.
 
 ## Appendix D — Notes on the full tables, and what was measured again
 
-- **Re-run jobs.** 32 first-pass jobs were measured again after three harness defects were fixed (issues #173, #174 and #175). The lane round below replaced those re-run jobs in turn. `perf/container/e2_publication.json` names every run and every replaced job. In a second round, 4 C14 jobs of the re-run were measured again after the C14 correctness check was fixed (issue #181). In a third round, those 4 C14 jobs were measured again after C14 was given the editor's own whole-document read and a 1,000-second load timeout (issues #183 and #184). Then single editors' cells of those lanes were measured again alone, each after a change in how the harness measured that editor: canvas-editor (issues #185, #202); Plate.js (issue #190); Docen (issues #193, #202); WordCraft (issues #196, #197); GenOffice (issue #203). The lane round replaced those cells. Then Docen's and canvas-editor's cells of the 4 prose-250kw memory jobs (C17 and C19) were measured again after the memory pair's deadline was found to cover one load where the pair runs two loads and a 120-character burst (issue #194). Those runs measured Docen and canvas-editor alone, under the same job indices and seeds; the tables read them for Docen and canvas-editor, and the other editors of those jobs stay as measured. Then WordCraft's cells of the 20 warm and cold load jobs (C03, with C05 and C06 of the same jobs) were measured again after its opening check was found never to read WordCraft's text, although the harness reads the whole document through WordCraft's own select all and copy; every C03 attempt had been refused as unverifiable (issue #196). Those runs measured WordCraft alone, under the same job indices and seeds; the tables read them for WordCraft, and the other editors of those jobs stay as measured. Then WordCraft's cells of the 20 C10 scroll jobs were measured again after C10 was found never to scroll WordCraft's document: the host's scroll overlay, built for this probe, was never selected, so every attempt found no scroll container (issue #198). Those runs measured WordCraft alone, under the same job indices and seeds; the tables read them for WordCraft, and the other editors of those jobs stay as measured. In a late round, the 4 C10 jobs on the complex document were measured again for every editor after C10 was found to load that document with its document protection, which GenOffice and eigenpal honour by opening it read-only, so C10 never started for them; it now loads the unprotected copy the editing criteria load (issue #192). The tables read the 4 late-round jobs in their place. In a lane round, every job of the document lane (32 jobs) and of the input lane (20 jobs) was measured again for every editor, interleaved as in the campaign, after two harness defects that touched every editor were fixed. The document probe's own scan for the opening headings grew with the square of the page and ran inside the timed load: in the Chrome traces of the replaced jobs it took about 19 minutes of a 250,000-word Plate.js load whose own scripts ran about 21 seconds (issue #206). C08 took the frame in which an editor redrew its own caret for the pasted text, and WordCraft's C09 did the same for an undo: a caret changes 16 to 58 pixels, a painted paste 677 or more, and the criteria now wait for a frame that changes at least 100 (issue #207). For those lanes the tables read the 52 lane-round jobs only; every earlier measurement of them is replaced. 2 editor-round jobs were stopped part-way when their work moved to another Space; each was measured whole there, and the tables never read the stopped parts.
+- **Re-run jobs.** 32 first-pass jobs were measured again after three harness defects were fixed (issues #173, #174 and #175). The lane round below replaced those re-run jobs in turn. `perf/container/e2_publication.json` names every run and every replaced job. In a second round, 4 C14 jobs of the re-run were measured again after the C14 correctness check was fixed (issue #181). In a third round, those 4 C14 jobs were measured again after C14 was given the editor's own whole-document read and a 1,000-second load timeout (issues #183 and #184). Then single editors' cells of those lanes were measured again alone, each after a change in how the harness measured that editor: canvas-editor (issues #185, #202); Plate.js (issue #190); Docen (issues #193, #202); WordCraft (issues #196, #197); GenOffice (issue #203). The lane round replaced those cells. Then Docen's and canvas-editor's cells of the 4 prose-250kw memory jobs (C17 and C19) were measured again after the memory pair's deadline was found to cover one load where the pair runs two loads and a 120-character burst (issue #194). Those runs measured Docen and canvas-editor alone, under the same job indices and seeds; the tables read them for Docen and canvas-editor, and the other editors of those jobs stay as measured. Then WordCraft's cells of the 20 warm and cold load jobs (C03, with C05 and C06 of the same jobs) were measured again after its opening check was found never to read WordCraft's text, although the harness reads the whole document through WordCraft's own select all and copy; every C03 attempt had been refused as unverifiable (issue #196). Those runs measured WordCraft alone, under the same job indices and seeds; the tables read them for WordCraft, and the other editors of those jobs stay as measured. Then WordCraft's cells of the 20 C10 scroll jobs were measured again after C10 was found never to scroll WordCraft's document: the host's scroll overlay, built for this probe, was never selected, so every attempt found no scroll container (issue #198). Those runs measured WordCraft alone, under the same job indices and seeds; the tables read them for WordCraft, and the other editors of those jobs stay as measured. In a late round, the 4 C10 jobs on the complex document were measured again for every editor after C10 was found to load that document with its document protection, which GenOffice and eigenpal honour by opening it read-only, so C10 never started for them; it now loads the unprotected copy the editing criteria load (issue #192). The tables read the 4 late-round jobs in their place. In a lane round, every job of the document lane (32 jobs) and of the input lane (20 jobs) was measured again for every editor, interleaved as in the campaign, after two harness defects that touched every editor were fixed. The document probe's own scan for the opening headings grew with the square of the page and ran inside the timed load: in the Chrome traces of the replaced jobs it took about 19 minutes of a 250,000-word Plate.js load whose own scripts ran about 21 seconds (issue #206). C08 took the frame in which an editor redrew its own caret for the pasted text, and WordCraft's C09 did the same for an undo: a caret changes 16 to 58 pixels, a painted paste 677 or more, and the criteria now wait for a frame that changes at least 100 (issue #207). For those lanes the tables read the 52 lane-round jobs only; every earlier measurement of them is replaced. In a host round, 4 jobs of the warm and cold load lane were measured again for every editor (issue #228): when they first ran, the host's load was above the bound the harness holds a quiet machine to for most of their launches (the issue gives the readings); the harness measures the same way, and it now waits for a quiet host before a job and before a launch. The tables read those 4 jobs; every earlier measurement of them is replaced, a single editor's own round included, and the other jobs of the lane stay as measured. 2 editor-round jobs were stopped part-way when their work moved to another Space; each was measured whole there, and the tables never read the stopped parts.
 - **How an edit is confirmed.** After each timed interval, and outside it, the harness checks that the edit landed once. It counts the typed text near the caret in the page (Plate, Docxodus, SuperDoc, GenOffice, eigenpal, and Folio through its hidden editing layer) or in the editor's model (canvas-editor, Docen). WordCraft paints into one canvas and puts no document text in the page, so the typing criteria (C04 to C07) confirm its edit by the modified mark in its window title. C08 and C09 confirm it through WordCraft's own select-all and copy, which gives its whole text: a read before the timed interval and one after it, both outside it.
 - **WordCraft.** WordCraft puts no document text in the page, so the harness reads its text through WordCraft's own select-all and copy (issue #196), after the timed interval and outside it. C03 and C11 check its content that way. Where timed work follows in the same page (the input lane's opening check before C04 and C07, and C14's frame witness, which reads the whole text itself afterwards), that read is skipped, so a copy never runs before a timed keystroke. After that copy, WordCraft's paste inserted its own clipboard as well as the system one: a 1,500-character block grew the document by 5,720 characters. C08 therefore reloads the document after its baseline read and pastes into the fresh page, where the same block grew it by 1,500 (issue #197). WordCraft scrolls a host overlay (`#wc-scroll`) above its canvas, not the page, so C10 scrolls that overlay with the pointer over the canvas and watches the canvas for the moved frame (issue #198). On the complex document, whose first page holds three lines, the harness's scan for the document body takes WordCraft's painted window chrome for text, so C07, C08 and C09 clicked above the page (the title bar, and for C07 also a toolbar button), and their keystrokes never reached the document. Those three cells are withheld as a limit of the harness, `click_points_on_editor_chrome`, and say nothing about WordCraft (issue #200); its prose cells stand. Its C03 and C10 cells come from jobs that ran WordCraft alone, with the same seeds and blocks; its cells of the document and input lanes come from the last round, which measured every editor again.
 - **canvas-editor's load.** canvas-editor paints every page into a canvas and puts no text in the page, so C11 and C14 time it to the first frame in which its canvas shows ink. It paints its empty page's margin marks at once, before the document is imported, so that frame alone came before the document. Its first measurement stopped there: about 130 ms at every size, while the import of the 250,000-word document took 51 seconds (issue #185). canvas-editor reports the import finished one or two frames before it paints the document, and at some sizes it clears the page first. The usable frame is now the first one in which canvas-editor reports the document imported and its first page shows ink that differs from its empty page. Its C11, C12, C14 and C15 cells are measured that way.
@@ -232,7 +278,7 @@ Each launch contributes the median of its own samples; n counts kept launches. S
 - **Typing tolerance.** GenOffice turns autocorrect on by default (Word's defaults except sentence capitalisation). The typing check compares the whole typed text after three folds: typographic quotes, backticks and guillemets count as straight quotes; (c), (r) and (tm), in either case, may become ©, ® and ™; and any run of whitespace (spaces, tabs, non-breaking spaces, line breaks) counts as one space. A typed list marker (`1.`, `a.`, `(i)`) is excused when the editor turned that line into a real list item, or when the editor painted another marker in its place (a renumbered `1.` shown as `2.`, or a line holding only a marker); in this run every excused marker was of the first kind. A missing or extra character still fails.
 - **Waiting for a paint.** Where a criterion times the editor's response to the harness's own change (a keystroke, a paste, a reflow, the document's first frame in C11), the sample ends at the first screencast frame that differs from the picture taken before the change; the input lanes also check that frame for the typed character's own ink. The harness then waits at least the criterion's window for that frame, and longer while the page does not answer it: frames are recorded the whole time and read in order, so a busy editor's late frame is its real response and is kept. An editor whose page stayed idle and painted only after the window is refused instead (`paint_witness_unavailable`). No such refusal occurs in C05, C06 or C12. It occurs in C08 at 250,000 words for SuperDoc, in every launch, and for canvas-editor, in most: within the 2-second window only the caret changed, so the paste has no figure there. It also occurs in one of GenOffice's C11 launches at 500,000 words. C14's damage window is different: it classifies, and a frame outside it does not count (issue #203).
 - **C14's text check.** Each prose document of the C14 ladder ends with lines of combining marks, characters outside the Basic Multilingual Plane, emoji sequences and right-to-left text; C14 checks (I01 to I03) that they survive in the editor's text, read from its first and last 4,000 characters. Folio and SuperDoc mount only the pages near the start of a long document, and WordCraft paints into a canvas, so for these three the page holds only part of the text. After the timed sample, and outside it, the harness asks each of them for the whole document: SuperDoc through its document model, Folio through its editing layer (mounted by a click on the page), and WordCraft through its own select-all and copy. For the other editors the text the harness already reads is the whole document: from the page for Plate, Docxodus and GenOffice, and from the editor's model for canvas-editor, Docen and eigenpal. C14 gives each wait of a document's load (navigation, the editor's ready signal, the page's load event for the canvas editors Docen and WordCraft, the painted document) up to 1,000 seconds. The complex document carries no such lines, so the check does not apply to it: its C14 cells are timings whose text is not checked. When the check fails, the harness names the cause: an editor whose text could not be read, or whose readable text is a window shorter than nine tenths of the document and stops before its closing paragraph, is withheld as "not checkable", a limit of the harness rather than a fault of the editor; an editor whose whole document was read and still fails keeps the failure.
-- **Criteria that do not apply.** canvas-editor and Docen paint text without glyph geometry the harness can read, so C05 and C06, which time the keystroke's own paint, do not apply to them. WordCraft also paints on one canvas without glyph geometry the harness can read, so its C05 and C06 do not apply either. C15 (search and replace) was not measured for any editor in this run, and that is a gap in our harness, not in the editors. The probe drives find only through a find box in the page, and no host was configured with one. Docen and GenOffice open a find box on Ctrl+F in the hosts we measured. SuperDoc, eigenpal, Docxodus and canvas-editor ship a find box that our hosts do not mount. Plate's find is an optional plugin that its default editor leaves out, Folio's playground has no control that opens its find dialog, and WordCraft paints its find dialog on a canvas, where the probe cannot type into it. The document lane also ran C15 in each of its five jobs per block, so the C15 cells are refused as a duplicate block index as well. No C15 attempt ran, so no figure is affected.
+- **Criteria our harness could not time.** canvas-editor and Docen paint text without glyph geometry the harness can read, so C05 and C06, which time the keystroke's own paint, were not measured for them. WordCraft also paints on one canvas without glyph geometry the harness can read, so its C05 and C06 were not measured either. All three can be typed in; Appendix J says on how many key presses the harness confirmed the edit in the editor. It records these launches as `not_applicable`, which is the harness's word for "refused by rule" and not a statement about the editor (issue #238 is the work to time them from the screen's pixels). C15 (search and replace) was not measured for any editor in this run, and that is a gap in our harness, not in the editors. The probe drives find only through a find box in the page, and no host was configured with one. Docen and GenOffice open a find box on Ctrl+F in the hosts we measured. SuperDoc, eigenpal, Docxodus and canvas-editor ship a find box that our hosts do not mount. Plate's find is an optional plugin that its default editor leaves out, Folio's playground has no control that opens its find dialog, and WordCraft paints its find dialog on a canvas, where the probe cannot type into it. The document lane also ran C15 in each of its five jobs per block, so the C15 cells are refused as a duplicate block index as well. No C15 attempt ran, so no figure is affected.
 - **Chrome traces.** In every first-block job, each timed launch was followed by a separate, untimed launch that recorded a Chrome trace for diagnosis; second-block jobs ran without them, and so did most typing sessions. Traces never feed a table.
 - **Throttling and steal.** The host note in Appendix B gives, per seed, the CPU steal and the samples refused for cgroup CPU throttling; a refused sample is never kept. The Spaces are containers with a CPU quota on a host shared with other tenants. The host note also gives, per seed, the range of that host's 1-minute load average read at the start and end of each job. A sample is never refused for host load: a job that ran while the host was busier is slower, and that is one reason a cell's two seeds can differ.
 
@@ -244,7 +290,7 @@ C03 ends when the editor's page raises its ready signal: the mark each editor's 
 
 | Editor | Workload | Measure | C03 |
 |---|---|---|---|
-| canvas-editor + plugin | complex-corpus | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_run: 10); second: not enough samples (n = 0 of 10; reasons not_run: 10) |
+| canvas-editor + plugin | complex-corpus | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_run: 10); second: not enough samples (n = 0 of 10; reasons not_run: 10) Recorded reason: browser_probe: node:internal/modules/run_main:111. |
 | Docen | complex-corpus | process_cold_fs_warm | 1196.0 ms; 0% sub-frame launches; p90 1236.5 ms; n = 10 of 10 |
 | Docxodus | complex-corpus | process_cold_fs_warm | 2980.0 ms; 0% sub-frame launches; p90 2999.3 ms; n = 10 of 10 |
 | eigenpal | complex-corpus | process_cold_fs_warm | 903.5 ms; 0% sub-frame launches; p90 937.8 ms; n = 10 of 10 |
@@ -253,7 +299,7 @@ C03 ends when the editor's page raises its ready signal: the mark each editor's 
 | Plate.js | complex-corpus | process_cold_fs_warm | 892.5 ms; 0% sub-frame launches; p90 915.2 ms; n = 10 of 10 |
 | SuperDoc | complex-corpus | process_cold_fs_warm | 997.0 ms; 0% sub-frame launches; p90 1028.3 ms; n = 10 of 10 |
 | WordCraft | complex-corpus | process_cold_fs_warm | 1586.0 ms; 0% sub-frame launches; p90 1702.6 ms; n = 10 of 10 |
-| canvas-editor + plugin | complex-corpus | warm_steady | first: not enough samples (n = 0 of 10; reasons not_run: 10); second: not enough samples (n = 0 of 10; reasons not_run: 10) |
+| canvas-editor + plugin | complex-corpus | warm_steady | first: not enough samples (n = 0 of 10; reasons not_run: 10); second: not enough samples (n = 0 of 10; reasons not_run: 10) Recorded reason: browser_probe: node:internal/modules/run_main:111. |
 | Docen | complex-corpus | warm_steady | 930.5 ms; 0% sub-frame launches; p90 958.4 ms; n = 10 of 10 |
 | Docxodus | complex-corpus | warm_steady | 2496.0 ms; 0% sub-frame launches; p90 2549.6 ms; n = 10 of 10 |
 | eigenpal | complex-corpus | warm_steady | 597.5 ms; 0% sub-frame launches; p90 608.9 ms; n = 10 of 10 |
@@ -263,14 +309,14 @@ C03 ends when the editor's page raises its ready signal: the mark each editor's 
 | SuperDoc | complex-corpus | warm_steady | 383.0 ms; 0% sub-frame launches; p90 389.2 ms; n = 10 of 10 |
 | WordCraft | complex-corpus | warm_steady | 911.5 ms; 0% sub-frame launches; p90 1189.4 ms; n = 10 of 10 |
 | canvas-editor + plugin | prose-250kw | process_cold_fs_warm | 45500.0 ms; 0% sub-frame launches; p90 50419.8 ms; n = 10 of 10 |
-| Docen | prose-250kw | process_cold_fs_warm | not reproduced (first 9218.0 ms; second 10338.0 ms) |
+| Docen | prose-250kw | process_cold_fs_warm | 9218.0 ms; 0% sub-frame launches; p90 10031.8 ms; n = 10 of 10 |
 | Docxodus | prose-250kw | process_cold_fs_warm | 44168.5 ms; 0% sub-frame launches; p90 47092.3 ms; n = 10 of 10 |
 | eigenpal | prose-250kw | process_cold_fs_warm | 5861.0 ms; 0% sub-frame launches; p90 6465.6 ms; n = 10 of 10 |
 | Folio | prose-250kw | process_cold_fs_warm | 4677.0 ms; 0% sub-frame launches; p90 5024.6 ms; n = 10 of 10 |
 | GenOffice | prose-250kw | process_cold_fs_warm | 2699.0 ms; 0% sub-frame launches; p90 2924.6 ms; n = 10 of 10 |
 | Plate.js | prose-250kw | process_cold_fs_warm | 18758.0 ms; 0% sub-frame launches; p90 19900.9 ms; n = 10 of 10 |
 | SuperDoc | prose-250kw | process_cold_fs_warm | 1000.0 ms; 0% sub-frame launches; p90 1026.8 ms; n = 10 of 10 |
-| WordCraft | prose-250kw | process_cold_fs_warm | not reproduced (first 3188.5 ms; second 3626.5 ms) |
+| WordCraft | prose-250kw | process_cold_fs_warm | 3188.5 ms; 0% sub-frame launches; p90 3433.1 ms; n = 10 of 10 |
 | canvas-editor + plugin | prose-250kw | warm_steady | 57138.0 ms; 0% sub-frame launches; p90 61205.7 ms; n = 10 of 10 |
 | Docen | prose-250kw | warm_steady | 8858.5 ms; 0% sub-frame launches; p90 10014.8 ms; n = 10 of 10 |
 | Docxodus | prose-250kw | warm_steady | 43563.0 ms; 0% sub-frame launches; p90 47171.4 ms; n = 10 of 10 |
@@ -298,42 +344,42 @@ C03 ends when the editor's page raises its ready signal: the mark each editor's 
 | Plate.js | prose-500w | warm_steady | 512.5 ms; 0% sub-frame launches; p90 549.9 ms; n = 10 of 10 |
 | SuperDoc | prose-500w | warm_steady | 389.5 ms; 0% sub-frame launches; p90 395.4 ms; n = 10 of 10 |
 | WordCraft | prose-500w | warm_steady | not reproduced (first 1003.5 ms; second 1143.5 ms) |
-| canvas-editor + plugin | prose-50kw | process_cold_fs_warm | not reproduced (first 6478.5 ms; second 5217.5 ms) |
-| Docen | prose-50kw | process_cold_fs_warm | not reproduced (first 3378.0 ms; second 2551.0 ms) |
-| Docxodus | prose-50kw | process_cold_fs_warm | not reproduced (first 13686.5 ms; second 10022.5 ms) |
-| eigenpal | prose-50kw | process_cold_fs_warm | not reproduced (first 2716.0 ms; second 1818.0 ms) |
-| Folio | prose-50kw | process_cold_fs_warm | not reproduced (first 2335.5 ms; second 1669.0 ms) |
-| GenOffice | prose-50kw | process_cold_fs_warm | not reproduced (first 1774.5 ms; second 1441.0 ms) |
-| Plate.js | prose-50kw | process_cold_fs_warm | not reproduced (first 6324.0 ms; second 4222.0 ms) |
-| SuperDoc | prose-50kw | process_cold_fs_warm | not reproduced (first 1116.5 ms; second 988.5 ms) |
-| WordCraft | prose-50kw | process_cold_fs_warm | not reproduced (first 2159.0 ms; second 2471.5 ms) |
-| canvas-editor + plugin | prose-50kw | warm_steady | not reproduced (first 6818.0 ms; second 4463.0 ms) |
-| Docen | prose-50kw | warm_steady | not reproduced (first 3088.5 ms; second 2218.0 ms) |
-| Docxodus | prose-50kw | warm_steady | not reproduced (first 12095.0 ms; second 9142.5 ms) |
-| eigenpal | prose-50kw | warm_steady | not reproduced (first 2220.5 ms; second 1535.0 ms) |
-| Folio | prose-50kw | warm_steady | not reproduced (first 2072.5 ms; second 1309.0 ms) |
-| GenOffice | prose-50kw | warm_steady | not reproduced (first 1386.5 ms; second 1237.0 ms) |
-| Plate.js | prose-50kw | warm_steady | not reproduced (first 5563.5 ms; second 3694.5 ms) |
-| SuperDoc | prose-50kw | warm_steady | not reproduced (first 941.5 ms; second 388.5 ms) |
-| WordCraft | prose-50kw | warm_steady | not reproduced (first 1356.0 ms; second 1539.5 ms) |
+| canvas-editor + plugin | prose-50kw | process_cold_fs_warm | 5160.5 ms; 0% sub-frame launches; p90 5399.2 ms; n = 10 of 10 |
+| Docen | prose-50kw | process_cold_fs_warm | 2489.0 ms; 0% sub-frame launches; p90 2633.1 ms; n = 10 of 10 |
+| Docxodus | prose-50kw | process_cold_fs_warm | 10154.0 ms; 0% sub-frame launches; p90 10388.7 ms; n = 10 of 10 |
+| eigenpal | prose-50kw | process_cold_fs_warm | 1870.0 ms; 0% sub-frame launches; p90 1973.5 ms; n = 10 of 10 |
+| Folio | prose-50kw | process_cold_fs_warm | 1687.5 ms; 0% sub-frame launches; p90 1737.1 ms; n = 10 of 10 |
+| GenOffice | prose-50kw | process_cold_fs_warm | 1424.0 ms; 0% sub-frame launches; p90 1476.5 ms; n = 10 of 10 |
+| Plate.js | prose-50kw | process_cold_fs_warm | 4269.5 ms; 0% sub-frame launches; p90 4441.6 ms; n = 10 of 10 |
+| SuperDoc | prose-50kw | process_cold_fs_warm | 988.0 ms; 0% sub-frame launches; p90 1033.7 ms; n = 10 of 10 |
+| WordCraft | prose-50kw | process_cold_fs_warm | not reproduced (first 1831.5 ms; second 2471.5 ms) |
+| canvas-editor + plugin | prose-50kw | warm_steady | 4710.0 ms; 0% sub-frame launches; p90 5734.7 ms; n = 10 of 10 |
+| Docen | prose-50kw | warm_steady | 2259.5 ms; 0% sub-frame launches; p90 2316.0 ms; n = 10 of 10 |
+| Docxodus | prose-50kw | warm_steady | 9300.0 ms; 0% sub-frame launches; p90 9849.0 ms; n = 10 of 10 |
+| eigenpal | prose-50kw | warm_steady | 1538.0 ms; 0% sub-frame launches; p90 1825.6 ms; n = 10 of 10 |
+| Folio | prose-50kw | warm_steady | 1316.0 ms; 0% sub-frame launches; p90 1360.7 ms; n = 10 of 10 |
+| GenOffice | prose-50kw | warm_steady | 1199.0 ms; 0% sub-frame launches; p90 1232.6 ms; n = 10 of 10 |
+| Plate.js | prose-50kw | warm_steady | 3778.0 ms; 0% sub-frame launches; p90 4450.6 ms; n = 10 of 10 |
+| SuperDoc | prose-50kw | warm_steady | 387.0 ms; 0% sub-frame launches; p90 431.2 ms; n = 10 of 10 |
+| WordCraft | prose-50kw | warm_steady | not reproduced (first 1313.5 ms; second 1539.5 ms) |
 | canvas-editor + plugin | prose-5kw | process_cold_fs_warm | 653.0 ms; 0% sub-frame launches; p90 739.0 ms; n = 10 of 10 |
-| Docen | prose-5kw | process_cold_fs_warm | not reproduced (first 1432.5 ms; second 1597.0 ms) |
+| Docen | prose-5kw | process_cold_fs_warm | 1432.5 ms; 0% sub-frame launches; p90 1465.9 ms; n = 10 of 10 |
 | Docxodus | prose-5kw | process_cold_fs_warm | 3399.5 ms; 0% sub-frame launches; p90 3784.8 ms; n = 10 of 10 |
-| eigenpal | prose-5kw | process_cold_fs_warm | 1020.0 ms; 0% sub-frame launches; p90 1089.1 ms; n = 10 of 10 |
-| Folio | prose-5kw | process_cold_fs_warm | not reproduced (first 938.0 ms; second 1058.0 ms) |
+| eigenpal | prose-5kw | process_cold_fs_warm | not reproduced (first 1020.0 ms; second 917.5 ms) |
+| Folio | prose-5kw | process_cold_fs_warm | 938.0 ms; 0% sub-frame launches; p90 1144.0 ms; n = 10 of 10 |
 | GenOffice | prose-5kw | process_cold_fs_warm | 940.0 ms; 0% sub-frame launches; p90 1391.3 ms; n = 10 of 10 |
 | Plate.js | prose-5kw | process_cold_fs_warm | 1199.0 ms; 0% sub-frame launches; p90 1279.5 ms; n = 10 of 10 |
 | SuperDoc | prose-5kw | process_cold_fs_warm | 1035.0 ms; 0% sub-frame launches; p90 1083.8 ms; n = 10 of 10 |
-| WordCraft | prose-5kw | process_cold_fs_warm | not reproduced (first 1588.5 ms; second 1991.5 ms) |
+| WordCraft | prose-5kw | process_cold_fs_warm | 1588.5 ms; 0% sub-frame launches; p90 1665.8 ms; n = 10 of 10 |
 | canvas-editor + plugin | prose-5kw | warm_steady | 526.5 ms; 0% sub-frame launches; p90 548.7 ms; n = 10 of 10 |
 | Docen | prose-5kw | warm_steady | 1099.0 ms; 0% sub-frame launches; p90 1213.6 ms; n = 10 of 10 |
 | Docxodus | prose-5kw | warm_steady | 2772.0 ms; 0% sub-frame launches; p90 2904.2 ms; n = 10 of 10 |
-| eigenpal | prose-5kw | warm_steady | not reproduced (first 796.5 ms; second 904.5 ms) |
+| eigenpal | prose-5kw | warm_steady | 796.5 ms; 0% sub-frame launches; p90 857.7 ms; n = 10 of 10 |
 | Folio | prose-5kw | warm_steady | 602.0 ms; 0% sub-frame launches; p90 633.2 ms; n = 10 of 10 |
 | GenOffice | prose-5kw | warm_steady | 655.0 ms; 0% sub-frame launches; p90 722.0 ms; n = 10 of 10 |
 | Plate.js | prose-5kw | warm_steady | 823.5 ms; 0% sub-frame launches; p90 837.9 ms; n = 10 of 10 |
 | SuperDoc | prose-5kw | warm_steady | 394.5 ms; 0% sub-frame launches; p90 413.7 ms; n = 10 of 10 |
-| WordCraft | prose-5kw | warm_steady | not reproduced (first 932.0 ms; second 1142.5 ms) |
+| WordCraft | prose-5kw | warm_steady | 932.0 ms; 0% sub-frame launches; p90 977.7 ms; n = 10 of 10 |
 
 ### C04 — deferred work
 
@@ -341,247 +387,247 @@ C04 asks whether the editor keeps working after the document is ready. Ready is 
 
 | Editor | Workload | C04 |
 |---|---|---|
-| canvas-editor + plugin | complex-corpus | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) |
-| Docen | complex-corpus | first seed: 0 of 10 launches kept (not_applicable 10) |
-| Docxodus | complex-corpus | first seed: 0 of 10 launches kept (not_applicable 10) |
-| eigenpal | complex-corpus | first seed: 0 of 10 launches kept (not_applicable 10) |
-| Folio | complex-corpus | first seed: 0 of 10 launches kept (not_applicable 10) |
-| GenOffice | complex-corpus | first seed: 0 of 10 launches kept (not_applicable 10) |
-| Plate.js | complex-corpus | first seed: 0 of 10 launches kept (not_applicable 10) |
-| SuperDoc | complex-corpus | first seed: 0 of 10 launches kept (not_applicable 10) |
+| canvas-editor + plugin | complex-corpus | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) Recorded reason: editor_load_failed: TypeError: Cannot read properties of undefined (reading 'width'). |
+| Docen | complex-corpus | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| Docxodus | complex-corpus | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| eigenpal | complex-corpus | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| Folio | complex-corpus | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| GenOffice | complex-corpus | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| Plate.js | complex-corpus | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| SuperDoc | complex-corpus | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
 | WordCraft | complex-corpus | 951.0 ms; range 255.9 to 2577.9 ms; n = 8 of 10; 2 of 10 launches failed: not_applicable: 2; second: 3 of 10 launches failed: not_applicable: 3 |
-| canvas-editor + plugin | prose-250kw | first seed: 0 of 10 launches kept (not_applicable 10) |
-| Docen | prose-250kw | first seed: 0 of 10 launches kept (not_applicable 10) |
-| Docxodus | prose-250kw | first seed: 0 of 10 launches kept (not_applicable 10) |
-| eigenpal | prose-250kw | first seed: 0 of 10 launches kept (not_applicable 10) |
-| Folio | prose-250kw | first seed: 0 of 10 launches kept (not_applicable 10) |
-| GenOffice | prose-250kw | first seed: 0 of 10 launches kept (not_applicable 10) |
-| Plate.js | prose-250kw | first seed: 0 of 10 launches kept (not_applicable 10) |
-| SuperDoc | prose-250kw | first: not enough samples (n = 4 of 10; reasons not_applicable: 6) |
+| canvas-editor + plugin | prose-250kw | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| Docen | prose-250kw | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| Docxodus | prose-250kw | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| eigenpal | prose-250kw | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| Folio | prose-250kw | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| GenOffice | prose-250kw | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| Plate.js | prose-250kw | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| SuperDoc | prose-250kw | first: not enough samples (n = 4 of 10; reasons not_applicable: 6) Recorded reason: no_deferred_work. |
 | WordCraft | prose-250kw | 479.5 ms; range 442.9 to 2549.6 ms; n = 6 of 10; 4 of 10 launches failed: not_applicable: 4; second: 5 of 10 launches failed: not_applicable: 5 |
-| canvas-editor + plugin | prose-500w | first seed: 0 of 10 launches kept (not_applicable 10) |
-| Docen | prose-500w | first seed: 0 of 10 launches kept (not_applicable 10) |
-| Docxodus | prose-500w | first seed: 0 of 10 launches kept (not_applicable 10) |
-| eigenpal | prose-500w | first seed: 0 of 10 launches kept (not_applicable 10) |
-| Folio | prose-500w | first seed: 0 of 10 launches kept (not_applicable 10) |
-| GenOffice | prose-500w | first seed: 0 of 10 launches kept (not_applicable 10) |
-| Plate.js | prose-500w | first seed: 0 of 10 launches kept (not_applicable 10) |
-| SuperDoc | prose-500w | first seed: 0 of 10 launches kept (not_applicable 10) |
-| WordCraft | prose-500w | not reproduced (first 664.9 ms; second 886.9 ms); first: 2 of 10 launches failed: not_applicable: 2; second: 3 of 10 launches failed: not_applicable: 3 |
-| canvas-editor + plugin | prose-50kw | first seed: 0 of 10 launches kept (not_applicable 10) |
-| Docen | prose-50kw | first seed: 0 of 10 launches kept (not_applicable 10) |
-| Docxodus | prose-50kw | first seed: 0 of 10 launches kept (not_applicable 10) |
-| eigenpal | prose-50kw | first seed: 0 of 10 launches kept (not_applicable 10) |
-| Folio | prose-50kw | first seed: 0 of 10 launches kept (not_applicable 10) |
-| GenOffice | prose-50kw | first seed: 0 of 10 launches kept (not_applicable 10) |
-| Plate.js | prose-50kw | first seed: 0 of 10 launches kept (not_applicable 10) |
-| SuperDoc | prose-50kw | first seed: 0 of 10 launches kept (not_applicable 10) |
-| WordCraft | prose-50kw | second: not enough samples (n = 4 of 10; reasons not_applicable: 6) |
-| canvas-editor + plugin | prose-5kw | first seed: 0 of 10 launches kept (not_applicable 10) |
-| Docen | prose-5kw | first seed: 0 of 10 launches kept (not_applicable 10) |
-| Docxodus | prose-5kw | first seed: 0 of 10 launches kept (not_applicable 10) |
-| eigenpal | prose-5kw | first seed: 0 of 10 launches kept (not_applicable 10) |
-| Folio | prose-5kw | first seed: 0 of 10 launches kept (not_applicable 10) |
-| GenOffice | prose-5kw | first seed: 0 of 10 launches kept (not_applicable 10) |
-| Plate.js | prose-5kw | first seed: 0 of 10 launches kept (not_applicable 10) |
-| SuperDoc | prose-5kw | first seed: 0 of 10 launches kept (not_applicable 10) |
-| WordCraft | prose-5kw | first: not enough samples (n = 4 of 10; reasons not_applicable: 6); second: not enough samples (n = 2 of 10; reasons not_applicable: 8) |
+| canvas-editor + plugin | prose-500w | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| Docen | prose-500w | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| Docxodus | prose-500w | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| eigenpal | prose-500w | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| Folio | prose-500w | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| GenOffice | prose-500w | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| Plate.js | prose-500w | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| SuperDoc | prose-500w | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| WordCraft | prose-500w | not reproduced (first 664.9 ms; second 886.9 ms); first: 2 of 10 launches failed: not_applicable: 2; second: 3 of 10 launches failed: not_applicable: 3 Recorded reason: no_deferred_work. |
+| canvas-editor + plugin | prose-50kw | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| Docen | prose-50kw | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| Docxodus | prose-50kw | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| eigenpal | prose-50kw | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| Folio | prose-50kw | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| GenOffice | prose-50kw | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| Plate.js | prose-50kw | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| SuperDoc | prose-50kw | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| WordCraft | prose-50kw | second: not enough samples (n = 4 of 10; reasons not_applicable: 6) Recorded reason: no_deferred_work. |
+| canvas-editor + plugin | prose-5kw | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| Docen | prose-5kw | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| Docxodus | prose-5kw | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| eigenpal | prose-5kw | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| Folio | prose-5kw | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| GenOffice | prose-5kw | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| Plate.js | prose-5kw | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| SuperDoc | prose-5kw | first seed: 0 of 10 launches kept (not_applicable 10) Recorded reason: no_deferred_work. |
+| WordCraft | prose-5kw | first: not enough samples (n = 4 of 10; reasons not_applicable: 6); second: not enough samples (n = 2 of 10; reasons not_applicable: 8) Recorded reason: no_deferred_work. |
 
 ### C05 — single-edit responsiveness
 
 | Editor | Workload | Measure | C05 |
 |---|---|---|---|
-| canvas-editor + plugin | complex-corpus | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_run: 10); second: not enough samples (n = 0 of 10; reasons not_run: 10) |
-| Docen | complex-corpus | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
+| canvas-editor + plugin | complex-corpus | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_run: 10); second: not enough samples (n = 0 of 10; reasons not_run: 10) Recorded reason: browser_probe: node:internal/modules/run_main:111. |
+| Docen | complex-corpus | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
 | Docxodus | complex-corpus | process_cold_fs_warm | < 1 frame (16.7 ms); 90% sub-frame launches; p90 < 1 frame (16.7 ms); n = 10 of 10 |
 | eigenpal | complex-corpus | process_cold_fs_warm | 37.1 ms; 0% sub-frame launches; p90 46.8 ms; n = 10 of 10 |
 | Folio | complex-corpus | process_cold_fs_warm | 59.3 ms; 0% sub-frame launches; p90 63.1 ms; n = 10 of 10 |
 | GenOffice | complex-corpus | process_cold_fs_warm | 28.4 ms; 0% sub-frame launches; p90 38.3 ms; n = 10 of 10 |
 | Plate.js | complex-corpus | process_cold_fs_warm | 40.7 ms; 0% sub-frame launches; p90 51.4 ms; n = 10 of 10 |
 | SuperDoc | complex-corpus | process_cold_fs_warm | 228.9 ms; 0% sub-frame launches; p90 240.9 ms; n = 10 of 10 |
-| WordCraft | complex-corpus | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| canvas-editor + plugin | complex-corpus | warm_steady | first: not enough samples (n = 0 of 10; reasons not_run: 10); second: not enough samples (n = 0 of 10; reasons not_run: 10) |
-| Docen | complex-corpus | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
+| WordCraft | complex-corpus | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reasons: no_glyph_geometry_to_witness_the_keystrokes_own_paint; no_glyph_geometry_to_witness_the_keystrokes_own_paint; expected_edit_not_confirmed. |
+| canvas-editor + plugin | complex-corpus | warm_steady | first: not enough samples (n = 0 of 10; reasons not_run: 10); second: not enough samples (n = 0 of 10; reasons not_run: 10) Recorded reason: browser_probe: node:internal/modules/run_main:111. |
+| Docen | complex-corpus | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
 | Docxodus | complex-corpus | warm_steady | < 1 frame (16.7 ms); 80% sub-frame launches; p90 17.8 ms; n = 10 of 10 |
 | eigenpal | complex-corpus | warm_steady | 42.4 ms; 0% sub-frame launches; p90 48.1 ms; n = 10 of 10 |
 | Folio | complex-corpus | warm_steady | 51.3 ms; 0% sub-frame launches; p90 56.2 ms; n = 10 of 10 |
 | GenOffice | complex-corpus | warm_steady | 25.8 ms; 20% sub-frame launches; p90 28.3 ms; n = 10 of 10 |
 | Plate.js | complex-corpus | warm_steady | 24.1 ms; 0% sub-frame launches; p90 32.3 ms; n = 10 of 10 |
 | SuperDoc | complex-corpus | warm_steady | 219.3 ms; 0% sub-frame launches; p90 222.7 ms; n = 10 of 10 |
-| WordCraft | complex-corpus | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| canvas-editor + plugin | prose-250kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| Docen | prose-250kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
+| WordCraft | complex-corpus | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reasons: no_glyph_geometry_to_witness_the_keystrokes_own_paint; no_glyph_geometry_to_witness_the_keystrokes_own_paint; expected_edit_not_confirmed. |
+| canvas-editor + plugin | prose-250kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
+| Docen | prose-250kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
 | Docxodus | prose-250kw | process_cold_fs_warm | 32.9 ms; 0% sub-frame launches; p90 36.4 ms; n = 10 of 10 |
 | eigenpal | prose-250kw | process_cold_fs_warm | 85.1 ms; 0% sub-frame launches; p90 95.6 ms; n = 10 of 10 |
 | Folio | prose-250kw | process_cold_fs_warm | 442.7 ms; 0% sub-frame launches; p90 469.5 ms; n = 10 of 10 |
-| GenOffice | prose-250kw | process_cold_fs_warm | second: not enough samples (n = 1 of 10; reasons unverified: 9) |
-| Plate.js | prose-250kw | process_cold_fs_warm | not reproduced (first 175.2 ms; second 205.5 ms) |
+| GenOffice | prose-250kw | process_cold_fs_warm | second: not enough samples (n = 4 of 10; reasons unverified: 6) Recorded reason: expected_edit_not_confirmed. |
+| Plate.js | prose-250kw | process_cold_fs_warm | 175.2 ms; 0% sub-frame launches; p90 188.4 ms; n = 10 of 10 |
 | SuperDoc | prose-250kw | process_cold_fs_warm | 549.2 ms; 0% sub-frame launches; p90 616.8 ms; n = 10 of 10 |
-| WordCraft | prose-250kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| canvas-editor + plugin | prose-250kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| Docen | prose-250kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
+| WordCraft | prose-250kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reasons: no_glyph_geometry_to_witness_the_keystrokes_own_paint; no_glyph_geometry_to_witness_the_keystrokes_own_paint; expected_edit_not_confirmed. |
+| canvas-editor + plugin | prose-250kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
+| Docen | prose-250kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
 | Docxodus | prose-250kw | warm_steady | 27.6 ms; 0% sub-frame launches; p90 32.8 ms; n = 10 of 10 |
 | eigenpal | prose-250kw | warm_steady | 76.7 ms; 0% sub-frame launches; p90 85.4 ms; n = 10 of 10 |
-| Folio | prose-250kw | warm_steady | not reproduced (first 427.2 ms; second 483.5 ms) |
-| GenOffice | prose-250kw | warm_steady | second: not enough samples (n = 1 of 10; reasons unverified: 9) |
-| Plate.js | prose-250kw | warm_steady | not reproduced (first 129.7 ms; second 161.8 ms) |
+| Folio | prose-250kw | warm_steady | 427.2 ms; 0% sub-frame launches; p90 476.9 ms; n = 10 of 10 |
+| GenOffice | prose-250kw | warm_steady | second: not enough samples (n = 4 of 10; reasons unverified: 6) Recorded reason: expected_edit_not_confirmed. |
+| Plate.js | prose-250kw | warm_steady | 129.7 ms; 0% sub-frame launches; p90 149.3 ms; n = 10 of 10 |
 | SuperDoc | prose-250kw | warm_steady | 557.2 ms; 0% sub-frame launches; p90 602.8 ms; n = 10 of 10 |
-| WordCraft | prose-250kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| canvas-editor + plugin | prose-500w | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| Docen | prose-500w | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
+| WordCraft | prose-250kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reasons: no_glyph_geometry_to_witness_the_keystrokes_own_paint; no_glyph_geometry_to_witness_the_keystrokes_own_paint; expected_edit_not_confirmed. |
+| canvas-editor + plugin | prose-500w | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
+| Docen | prose-500w | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
 | Docxodus | prose-500w | process_cold_fs_warm | < 1 frame (16.7 ms); 70% sub-frame launches; p90 17.8 ms; n = 10 of 10 |
 | eigenpal | prose-500w | process_cold_fs_warm | 60.1 ms; 0% sub-frame launches; p90 61.2 ms; n = 10 of 10 |
 | Folio | prose-500w | process_cold_fs_warm | 51.3 ms; 0% sub-frame launches; p90 58.8 ms; n = 10 of 10 |
 | GenOffice | prose-500w | process_cold_fs_warm | 25.6 ms; 20% sub-frame launches; p90 30.6 ms; n = 10 of 10 |
 | Plate.js | prose-500w | process_cold_fs_warm | 47.3 ms; 0% sub-frame launches; p90 51.2 ms; n = 10 of 10 |
 | SuperDoc | prose-500w | process_cold_fs_warm | 148.9 ms; 0% sub-frame launches; p90 153.2 ms; n = 10 of 10 |
-| WordCraft | prose-500w | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| canvas-editor + plugin | prose-500w | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| Docen | prose-500w | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
+| WordCraft | prose-500w | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reasons: no_glyph_geometry_to_witness_the_keystrokes_own_paint; no_glyph_geometry_to_witness_the_keystrokes_own_paint; expected_edit_not_confirmed. |
+| canvas-editor + plugin | prose-500w | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
+| Docen | prose-500w | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
 | Docxodus | prose-500w | warm_steady | < 1 frame (16.7 ms); 60% sub-frame launches; p90 19.5 ms; n = 10 of 10 |
 | eigenpal | prose-500w | warm_steady | 46.2 ms; 0% sub-frame launches; p90 50.2 ms; n = 10 of 10 |
 | Folio | prose-500w | warm_steady | 45.2 ms; 0% sub-frame launches; p90 46.8 ms; n = 10 of 10 |
 | GenOffice | prose-500w | warm_steady | 17.5 ms; 30% sub-frame launches; p90 26.1 ms; n = 10 of 10 |
 | Plate.js | prose-500w | warm_steady | 22.9 ms; 0% sub-frame launches; p90 27.1 ms; n = 10 of 10 |
 | SuperDoc | prose-500w | warm_steady | 137.4 ms; 0% sub-frame launches; p90 139.7 ms; n = 10 of 10 |
-| WordCraft | prose-500w | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| canvas-editor + plugin | prose-50kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| Docen | prose-50kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| Docxodus | prose-50kw | process_cold_fs_warm | 18.6 ms; 30% sub-frame launches; p90 26.5 ms; n = 10 of 10 |
-| eigenpal | prose-50kw | process_cold_fs_warm | not reproduced (first 97.6 ms; second 65.5 ms) |
-| Folio | prose-50kw | process_cold_fs_warm | not reproduced (first 215.3 ms; second 134.0 ms) |
-| GenOffice | prose-50kw | process_cold_fs_warm | not reproduced (first 193.6 ms; second 143.4 ms) |
-| Plate.js | prose-50kw | process_cold_fs_warm | not reproduced (first 98.0 ms; second 67.9 ms) |
-| SuperDoc | prose-50kw | process_cold_fs_warm | not reproduced (first 644.0 ms; second 450.2 ms); first: 1 of 10 launches failed: unverified: 1 |
-| WordCraft | prose-50kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| canvas-editor + plugin | prose-50kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| Docen | prose-50kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| Docxodus | prose-50kw | warm_steady | 22.2 ms; 20% sub-frame launches; p90 26.2 ms; n = 10 of 10 |
-| eigenpal | prose-50kw | warm_steady | not reproduced (first 77.3 ms; second 56.2 ms) |
-| Folio | prose-50kw | warm_steady | not reproduced (first 182.8 ms; second 121.5 ms) |
-| GenOffice | prose-50kw | warm_steady | not reproduced (first 207.3 ms; second 139.5 ms) |
-| Plate.js | prose-50kw | warm_steady | 64.1 ms; 0% sub-frame launches; p90 77.6 ms; n = 10 of 10 |
-| SuperDoc | prose-50kw | warm_steady | not reproduced (first 614.5 ms; second 431.5 ms); first: 1 of 10 launches failed: unverified: 1 |
-| WordCraft | prose-50kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| canvas-editor + plugin | prose-5kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| Docen | prose-5kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
+| WordCraft | prose-500w | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reasons: no_glyph_geometry_to_witness_the_keystrokes_own_paint; no_glyph_geometry_to_witness_the_keystrokes_own_paint; expected_edit_not_confirmed. |
+| canvas-editor + plugin | prose-50kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
+| Docen | prose-50kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
+| Docxodus | prose-50kw | process_cold_fs_warm | < 1 frame (16.7 ms); 60% sub-frame launches; p90 20.2 ms; n = 10 of 10 |
+| eigenpal | prose-50kw | process_cold_fs_warm | 65.1 ms; 0% sub-frame launches; p90 71.5 ms; n = 10 of 10 |
+| Folio | prose-50kw | process_cold_fs_warm | 119.2 ms; 0% sub-frame launches; p90 132.1 ms; n = 10 of 10 |
+| GenOffice | prose-50kw | process_cold_fs_warm | 148.4 ms; 0% sub-frame launches; p90 162.3 ms; n = 10 of 10 |
+| Plate.js | prose-50kw | process_cold_fs_warm | 70.3 ms; 0% sub-frame launches; p90 79.5 ms; n = 10 of 10 |
+| SuperDoc | prose-50kw | process_cold_fs_warm | 458.9 ms; 0% sub-frame launches; p90 502.6 ms; n = 10 of 10 |
+| WordCraft | prose-50kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reasons: no_glyph_geometry_to_witness_the_keystrokes_own_paint; no_glyph_geometry_to_witness_the_keystrokes_own_paint; expected_edit_not_confirmed. |
+| canvas-editor + plugin | prose-50kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
+| Docen | prose-50kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
+| Docxodus | prose-50kw | warm_steady | 17.5 ms; 30% sub-frame launches; p90 20.0 ms; n = 10 of 10 |
+| eigenpal | prose-50kw | warm_steady | 56.5 ms; 0% sub-frame launches; p90 62.6 ms; n = 10 of 10 |
+| Folio | prose-50kw | warm_steady | 122.4 ms; 0% sub-frame launches; p90 124.1 ms; n = 10 of 10 |
+| GenOffice | prose-50kw | warm_steady | 152.8 ms; 0% sub-frame launches; p90 188.4 ms; n = 10 of 10 |
+| Plate.js | prose-50kw | warm_steady | 48.7 ms; 0% sub-frame launches; p90 54.6 ms; n = 10 of 10 |
+| SuperDoc | prose-50kw | warm_steady | 441.8 ms; 0% sub-frame launches; p90 461.0 ms; n = 10 of 10 |
+| WordCraft | prose-50kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reasons: no_glyph_geometry_to_witness_the_keystrokes_own_paint; no_glyph_geometry_to_witness_the_keystrokes_own_paint; expected_edit_not_confirmed. |
+| canvas-editor + plugin | prose-5kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
+| Docen | prose-5kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
 | Docxodus | prose-5kw | process_cold_fs_warm | < 1 frame (16.7 ms); 70% sub-frame launches; p90 18.9 ms; n = 10 of 10 |
 | eigenpal | prose-5kw | process_cold_fs_warm | 72.0 ms; 0% sub-frame launches; p90 79.5 ms; n = 10 of 10 |
 | Folio | prose-5kw | process_cold_fs_warm | 56.4 ms; 0% sub-frame launches; p90 73.5 ms; n = 10 of 10 |
 | GenOffice | prose-5kw | process_cold_fs_warm | 32.3 ms; 0% sub-frame launches; p90 35.7 ms; n = 10 of 10 |
 | Plate.js | prose-5kw | process_cold_fs_warm | 49.0 ms; 0% sub-frame launches; p90 57.9 ms; n = 10 of 10 |
 | SuperDoc | prose-5kw | process_cold_fs_warm | 301.1 ms; 0% sub-frame launches; p90 335.8 ms; n = 10 of 10 |
-| WordCraft | prose-5kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| canvas-editor + plugin | prose-5kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| Docen | prose-5kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
+| WordCraft | prose-5kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reasons: no_glyph_geometry_to_witness_the_keystrokes_own_paint; no_glyph_geometry_to_witness_the_keystrokes_own_paint; expected_edit_not_confirmed. |
+| canvas-editor + plugin | prose-5kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
+| Docen | prose-5kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
 | Docxodus | prose-5kw | warm_steady | < 1 frame (16.7 ms); 80% sub-frame launches; p90 17.1 ms; n = 10 of 10 |
 | eigenpal | prose-5kw | warm_steady | 45.8 ms; 0% sub-frame launches; p90 52.7 ms; n = 10 of 10 |
 | Folio | prose-5kw | warm_steady | 44.7 ms; 0% sub-frame launches; p90 48.0 ms; n = 10 of 10 |
 | GenOffice | prose-5kw | warm_steady | 26.7 ms; 10% sub-frame launches; p90 31.2 ms; n = 10 of 10 |
 | Plate.js | prose-5kw | warm_steady | 27.1 ms; 0% sub-frame launches; p90 32.1 ms; n = 10 of 10 |
-| SuperDoc | prose-5kw | warm_steady | not reproduced (first 286.2 ms; second 318.5 ms) |
-| WordCraft | prose-5kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
+| SuperDoc | prose-5kw | warm_steady | 286.2 ms; 0% sub-frame launches; p90 317.3 ms; n = 10 of 10 |
+| WordCraft | prose-5kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reasons: no_glyph_geometry_to_witness_the_keystrokes_own_paint; no_glyph_geometry_to_witness_the_keystrokes_own_paint; expected_edit_not_confirmed. |
 
 ### C06 — sustained typing
 
 | Editor | Workload | Measure | C06 |
 |---|---|---|---|
-| canvas-editor + plugin | complex-corpus | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_run: 10); second: not enough samples (n = 0 of 10; reasons not_run: 10) |
-| Docen | complex-corpus | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
+| canvas-editor + plugin | complex-corpus | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_run: 10); second: not enough samples (n = 0 of 10; reasons not_run: 10) Recorded reason: browser_probe: node:internal/modules/run_main:111. |
+| Docen | complex-corpus | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
 | Docxodus | complex-corpus | process_cold_fs_warm | < 1 frame (16.7 ms); 90% sub-frame launches; p90 16.8 ms; n = 10 of 10 |
 | eigenpal | complex-corpus | process_cold_fs_warm | 39.8 ms; 0% sub-frame launches; p90 42.6 ms; n = 10 of 10 |
 | Folio | complex-corpus | process_cold_fs_warm | 54.1 ms; 0% sub-frame launches; p90 66.4 ms; n = 10 of 10 |
 | GenOffice | complex-corpus | process_cold_fs_warm | 21.4 ms; 10% sub-frame launches; p90 23.1 ms; n = 10 of 10 |
 | Plate.js | complex-corpus | process_cold_fs_warm | 25.1 ms; 0% sub-frame launches; p90 29.4 ms; n = 10 of 10 |
 | SuperDoc | complex-corpus | process_cold_fs_warm | 126.0 ms; 0% sub-frame launches; p90 134.9 ms; n = 10 of 10 |
-| WordCraft | complex-corpus | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| canvas-editor + plugin | complex-corpus | warm_steady | first: not enough samples (n = 0 of 10; reasons not_run: 10); second: not enough samples (n = 0 of 10; reasons not_run: 10) |
-| Docen | complex-corpus | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
+| WordCraft | complex-corpus | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reasons: no_glyph_geometry_to_witness_the_keystrokes_own_paint; no_glyph_geometry_to_witness_the_keystrokes_own_paint; expected_edit_not_confirmed. |
+| canvas-editor + plugin | complex-corpus | warm_steady | first: not enough samples (n = 0 of 10; reasons not_run: 10); second: not enough samples (n = 0 of 10; reasons not_run: 10) Recorded reason: browser_probe: node:internal/modules/run_main:111. |
+| Docen | complex-corpus | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
 | Docxodus | complex-corpus | warm_steady | < 1 frame (16.7 ms); 100% sub-frame launches; p90 < 1 frame (16.7 ms); n = 10 of 10 |
 | eigenpal | complex-corpus | warm_steady | 43.1 ms; 0% sub-frame launches; p90 44.9 ms; n = 10 of 10 |
 | Folio | complex-corpus | warm_steady | 53.4 ms; 0% sub-frame launches; p90 66.3 ms; n = 10 of 10 |
 | GenOffice | complex-corpus | warm_steady | 21.8 ms; 20% sub-frame launches; p90 25.7 ms; n = 10 of 10 |
 | Plate.js | complex-corpus | warm_steady | 21.7 ms; 0% sub-frame launches; p90 26.4 ms; n = 10 of 10 |
 | SuperDoc | complex-corpus | warm_steady | 121.6 ms; 0% sub-frame launches; p90 132.8 ms; n = 10 of 10 |
-| WordCraft | complex-corpus | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| canvas-editor + plugin | prose-250kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| Docen | prose-250kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
+| WordCraft | complex-corpus | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reasons: no_glyph_geometry_to_witness_the_keystrokes_own_paint; no_glyph_geometry_to_witness_the_keystrokes_own_paint; expected_edit_not_confirmed. |
+| canvas-editor + plugin | prose-250kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
+| Docen | prose-250kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
 | Docxodus | prose-250kw | process_cold_fs_warm | 29.0 ms; 0% sub-frame launches; p90 32.2 ms; n = 10 of 10 |
 | eigenpal | prose-250kw | process_cold_fs_warm | 59.8 ms; 0% sub-frame launches; p90 68.4 ms; n = 10 of 10 |
-| Folio | prose-250kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) |
-| GenOffice | prose-250kw | process_cold_fs_warm | second: not enough samples (n = 0 of 10; reasons unverified: 10) |
+| Folio | prose-250kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: expected_edit_not_confirmed. |
+| GenOffice | prose-250kw | process_cold_fs_warm | second: not enough samples (n = 3 of 10; reasons unverified: 7) Recorded reason: expected_edit_not_confirmed. |
 | Plate.js | prose-250kw | process_cold_fs_warm | 129.6 ms; 0% sub-frame launches; p90 140.5 ms; n = 10 of 10 |
 | SuperDoc | prose-250kw | process_cold_fs_warm | 313.2 ms; 0% sub-frame launches; range 286.1 to 410.3 ms; n = 9 of 10; 1 of 10 launches failed: unverified: 1 |
-| WordCraft | prose-250kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| canvas-editor + plugin | prose-250kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| Docen | prose-250kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
+| WordCraft | prose-250kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reasons: no_glyph_geometry_to_witness_the_keystrokes_own_paint; no_glyph_geometry_to_witness_the_keystrokes_own_paint; expected_edit_not_confirmed. |
+| canvas-editor + plugin | prose-250kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
+| Docen | prose-250kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
 | Docxodus | prose-250kw | warm_steady | 27.6 ms; 0% sub-frame launches; p90 32.8 ms; n = 10 of 10 |
 | eigenpal | prose-250kw | warm_steady | 60.7 ms; 0% sub-frame launches; p90 75.1 ms; n = 10 of 10 |
-| Folio | prose-250kw | warm_steady | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) |
-| GenOffice | prose-250kw | warm_steady | second: not enough samples (n = 0 of 10; reasons unverified: 10) |
+| Folio | prose-250kw | warm_steady | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: expected_edit_not_confirmed. |
+| GenOffice | prose-250kw | warm_steady | second: not enough samples (n = 3 of 10; reasons unverified: 7) Recorded reason: expected_edit_not_confirmed. |
 | Plate.js | prose-250kw | warm_steady | 131.8 ms; 0% sub-frame launches; p90 147.0 ms; n = 10 of 10 |
-| SuperDoc | prose-250kw | warm_steady | not reproduced (first 303.3 ms; second 337.5 ms); first: 1 of 10 launches failed: unverified: 1 |
-| WordCraft | prose-250kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| canvas-editor + plugin | prose-500w | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| Docen | prose-500w | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
+| SuperDoc | prose-250kw | warm_steady | 303.3 ms; 0% sub-frame launches; range 290.7 to 339.7 ms; n = 9 of 10; 1 of 10 launches failed: unverified: 1 |
+| WordCraft | prose-250kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reasons: no_glyph_geometry_to_witness_the_keystrokes_own_paint; no_glyph_geometry_to_witness_the_keystrokes_own_paint; expected_edit_not_confirmed. |
+| canvas-editor + plugin | prose-500w | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
+| Docen | prose-500w | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
 | Docxodus | prose-500w | process_cold_fs_warm | < 1 frame (16.7 ms); 90% sub-frame launches; p90 16.8 ms; n = 10 of 10 |
 | eigenpal | prose-500w | process_cold_fs_warm | 41.8 ms; 0% sub-frame launches; p90 46.8 ms; n = 10 of 10 |
 | Folio | prose-500w | process_cold_fs_warm | 44.4 ms; 0% sub-frame launches; p90 52.3 ms; n = 10 of 10 |
 | GenOffice | prose-500w | process_cold_fs_warm | < 1 frame (16.7 ms); 60% sub-frame launches; p90 21.1 ms; n = 10 of 10 |
 | Plate.js | prose-500w | process_cold_fs_warm | 22.1 ms; 0% sub-frame launches; p90 26.6 ms; n = 10 of 10 |
 | SuperDoc | prose-500w | process_cold_fs_warm | 73.4 ms; 0% sub-frame launches; p90 85.4 ms; n = 10 of 10 |
-| WordCraft | prose-500w | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| canvas-editor + plugin | prose-500w | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| Docen | prose-500w | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
+| WordCraft | prose-500w | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reasons: no_glyph_geometry_to_witness_the_keystrokes_own_paint; no_glyph_geometry_to_witness_the_keystrokes_own_paint; expected_edit_not_confirmed. |
+| canvas-editor + plugin | prose-500w | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
+| Docen | prose-500w | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
 | Docxodus | prose-500w | warm_steady | < 1 frame (16.7 ms); 80% sub-frame launches; p90 17.1 ms; n = 10 of 10 |
 | eigenpal | prose-500w | warm_steady | 38.6 ms; 0% sub-frame launches; p90 40.0 ms; n = 10 of 10 |
 | Folio | prose-500w | warm_steady | 48.7 ms; 0% sub-frame launches; p90 57.0 ms; n = 10 of 10 |
 | GenOffice | prose-500w | warm_steady | 17.3 ms; 50% sub-frame launches; p90 21.1 ms; n = 10 of 10 |
 | Plate.js | prose-500w | warm_steady | 22.3 ms; 0% sub-frame launches; p90 25.5 ms; n = 10 of 10 |
 | SuperDoc | prose-500w | warm_steady | 76.6 ms; 0% sub-frame launches; p90 82.7 ms; n = 10 of 10 |
-| WordCraft | prose-500w | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| canvas-editor + plugin | prose-50kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| Docen | prose-50kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| Docxodus | prose-50kw | process_cold_fs_warm | 17.4 ms; 30% sub-frame launches; p90 22.5 ms; n = 10 of 10 |
-| eigenpal | prose-50kw | process_cold_fs_warm | not reproduced (first 66.5 ms; second 44.0 ms) |
-| Folio | prose-50kw | process_cold_fs_warm | not reproduced (first 171.4 ms; second 117.5 ms) |
-| GenOffice | prose-50kw | process_cold_fs_warm | not reproduced (first 176.3 ms; second 134.7 ms) |
-| Plate.js | prose-50kw | process_cold_fs_warm | not reproduced (first 59.2 ms; second 39.2 ms) |
-| SuperDoc | prose-50kw | process_cold_fs_warm | not reproduced (first 369.9 ms; second 278.9 ms); first: 3 of 10 launches failed: unverified: 3 |
-| WordCraft | prose-50kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| canvas-editor + plugin | prose-50kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| Docen | prose-50kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| Docxodus | prose-50kw | warm_steady | 16.9 ms; 50% sub-frame launches; p90 24.8 ms; n = 10 of 10 |
-| eigenpal | prose-50kw | warm_steady | 64.5 ms; 0% sub-frame launches; p90 76.3 ms; n = 10 of 10 |
-| Folio | prose-50kw | warm_steady | not reproduced (first 163.5 ms; second 107.9 ms) |
-| GenOffice | prose-50kw | warm_steady | not reproduced (first 203.2 ms; second 143.2 ms) |
-| Plate.js | prose-50kw | warm_steady | not reproduced (first 61.2 ms; second 43.9 ms) |
-| SuperDoc | prose-50kw | warm_steady | not reproduced (first 370.5 ms; second 275.1 ms); first: 3 of 10 launches failed: unverified: 3 |
-| WordCraft | prose-50kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| canvas-editor + plugin | prose-5kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| Docen | prose-5kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
+| WordCraft | prose-500w | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reasons: no_glyph_geometry_to_witness_the_keystrokes_own_paint; no_glyph_geometry_to_witness_the_keystrokes_own_paint; expected_edit_not_confirmed. |
+| canvas-editor + plugin | prose-50kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
+| Docen | prose-50kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
+| Docxodus | prose-50kw | process_cold_fs_warm | < 1 frame (16.7 ms); 90% sub-frame launches; p90 < 1 frame (16.7 ms); n = 10 of 10 |
+| eigenpal | prose-50kw | process_cold_fs_warm | 54.9 ms; 0% sub-frame launches; p90 56.7 ms; n = 10 of 10 |
+| Folio | prose-50kw | process_cold_fs_warm | 117.9 ms; 0% sub-frame launches; p90 121.0 ms; n = 10 of 10 |
+| GenOffice | prose-50kw | process_cold_fs_warm | 130.7 ms; 0% sub-frame launches; p90 142.6 ms; n = 10 of 10 |
+| Plate.js | prose-50kw | process_cold_fs_warm | 40.6 ms; 0% sub-frame launches; p90 43.6 ms; n = 10 of 10 |
+| SuperDoc | prose-50kw | process_cold_fs_warm | 296.5 ms; 0% sub-frame launches; p90 303.3 ms; n = 10 of 10 |
+| WordCraft | prose-50kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reasons: no_glyph_geometry_to_witness_the_keystrokes_own_paint; no_glyph_geometry_to_witness_the_keystrokes_own_paint; expected_edit_not_confirmed. |
+| canvas-editor + plugin | prose-50kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
+| Docen | prose-50kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
+| Docxodus | prose-50kw | warm_steady | < 1 frame (16.7 ms); 100% sub-frame launches; p90 < 1 frame (16.7 ms); n = 10 of 10 |
+| eigenpal | prose-50kw | warm_steady | 50.3 ms; 0% sub-frame launches; p90 57.6 ms; n = 10 of 10 |
+| Folio | prose-50kw | warm_steady | 106.0 ms; 0% sub-frame launches; p90 120.4 ms; n = 10 of 10 |
+| GenOffice | prose-50kw | warm_steady | 151.7 ms; 0% sub-frame launches; p90 165.5 ms; n = 10 of 10 |
+| Plate.js | prose-50kw | warm_steady | 44.5 ms; 0% sub-frame launches; p90 49.4 ms; n = 10 of 10 |
+| SuperDoc | prose-50kw | warm_steady | 276.1 ms; 0% sub-frame launches; p90 288.7 ms; n = 10 of 10 |
+| WordCraft | prose-50kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reasons: no_glyph_geometry_to_witness_the_keystrokes_own_paint; no_glyph_geometry_to_witness_the_keystrokes_own_paint; expected_edit_not_confirmed. |
+| canvas-editor + plugin | prose-5kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
+| Docen | prose-5kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
 | Docxodus | prose-5kw | process_cold_fs_warm | < 1 frame (16.7 ms); 90% sub-frame launches; p90 < 1 frame (16.7 ms); n = 10 of 10 |
 | eigenpal | prose-5kw | process_cold_fs_warm | 44.0 ms; 0% sub-frame launches; p90 55.1 ms; n = 10 of 10 |
 | Folio | prose-5kw | process_cold_fs_warm | 49.9 ms; 0% sub-frame launches; p90 59.3 ms; n = 10 of 10 |
 | GenOffice | prose-5kw | process_cold_fs_warm | 22.4 ms; 0% sub-frame launches; range 17.7 to 30.4 ms; n = 9 of 10; 1 of 10 launches failed: crash: 1 |
 | Plate.js | prose-5kw | process_cold_fs_warm | 24.6 ms; 0% sub-frame launches; p90 27.9 ms; n = 10 of 10 |
-| SuperDoc | prose-5kw | process_cold_fs_warm | not reproduced (first 176.1 ms; second 199.9 ms) |
-| WordCraft | prose-5kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| canvas-editor + plugin | prose-5kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| Docen | prose-5kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
+| SuperDoc | prose-5kw | process_cold_fs_warm | 176.1 ms; 0% sub-frame launches; p90 189.0 ms; n = 10 of 10 |
+| WordCraft | prose-5kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reasons: no_glyph_geometry_to_witness_the_keystrokes_own_paint; no_glyph_geometry_to_witness_the_keystrokes_own_paint; expected_edit_not_confirmed. |
+| canvas-editor + plugin | prose-5kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
+| Docen | prose-5kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no_glyph_geometry_to_witness_the_keystrokes_own_paint. |
 | Docxodus | prose-5kw | warm_steady | < 1 frame (16.7 ms); 100% sub-frame launches; p90 < 1 frame (16.7 ms); n = 10 of 10 |
 | eigenpal | prose-5kw | warm_steady | 46.2 ms; 0% sub-frame launches; p90 59.5 ms; n = 10 of 10 |
 | Folio | prose-5kw | warm_steady | 48.0 ms; 0% sub-frame launches; p90 62.2 ms; n = 10 of 10 |
 | GenOffice | prose-5kw | warm_steady | 21.9 ms; 0% sub-frame launches; range 19.2 to 28.7 ms; n = 9 of 10; 1 of 10 launches failed: crash: 1 |
 | Plate.js | prose-5kw | warm_steady | 23.8 ms; 10% sub-frame launches; p90 30.6 ms; n = 10 of 10 |
 | SuperDoc | prose-5kw | warm_steady | 175.2 ms; 0% sub-frame launches; p90 203.4 ms; n = 10 of 10 |
-| WordCraft | prose-5kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
+| WordCraft | prose-5kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reasons: no_glyph_geometry_to_witness_the_keystrokes_own_paint; no_glyph_geometry_to_witness_the_keystrokes_own_paint; expected_edit_not_confirmed. |
 
 ### C07 — cursor and selection
 
 | Editor | Workload | C07 |
 |---|---|---|
-| canvas-editor + plugin | complex-corpus | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) |
+| canvas-editor + plugin | complex-corpus | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) Recorded reason: editor_load_failed: TypeError: Cannot read properties of undefined (reading 'width'). |
 | Docen | complex-corpus | 27.1 ms; 0% sub-frame launches; p90 28.5 ms; n = 10 of 10 |
 | Docxodus | complex-corpus | < 1 frame (16.7 ms); 100% sub-frame launches; p90 < 1 frame (16.7 ms); n = 10 of 10 |
 | eigenpal | complex-corpus | 22.2 ms; 0% sub-frame launches; p90 23.9 ms; n = 10 of 10 |
@@ -631,8 +677,8 @@ C04 asks whether the editor keeps working after the document is ready. Ready is 
 
 | Editor | Workload | C08 |
 |---|---|---|
-| canvas-editor + plugin | complex-corpus | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) |
-| Docen | complex-corpus | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) |
+| canvas-editor + plugin | complex-corpus | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) Recorded reason: editor_load_failed: TypeError: Cannot read properties of undefined (reading 'width'). |
+| Docen | complex-corpus | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: correctness: probe_not_restored. |
 | Docxodus | complex-corpus | < 1 frame (16.7 ms); 60% sub-frame launches; p90 20.0 ms; n = 10 of 10 |
 | eigenpal | complex-corpus | 71.0 ms; 0% sub-frame launches; p90 79.5 ms; n = 10 of 10 |
 | Folio | complex-corpus | 62.9 ms; 0% sub-frame launches; p90 66.2 ms; n = 10 of 10 |
@@ -640,14 +686,14 @@ C04 asks whether the editor keeps working after the document is ready. Ready is 
 | Plate.js | complex-corpus | 32.5 ms; 0% sub-frame launches; p90 36.8 ms; n = 10 of 10 |
 | SuperDoc | complex-corpus | 230.7 ms; 0% sub-frame launches; p90 246.3 ms; n = 10 of 10 |
 | WordCraft | complex-corpus | first: not enough samples (n = 0 of 10; reasons click_points_on_editor_chrome: 10); second: not enough samples (n = 0 of 10; reasons click_points_on_editor_chrome: 10) |
-| canvas-editor + plugin | prose-250kw | first: not enough samples (n = 2 of 10; reasons crash: 1; paint_witness_unavailable: 7); second: not enough samples (n = 2 of 10; reasons paint_witness_unavailable: 8) |
+| canvas-editor + plugin | prose-250kw | first: not enough samples (n = 2 of 10; reasons crash: 1; paint_witness_unavailable: 7); second: not enough samples (n = 2 of 10; reasons paint_witness_unavailable: 8) Recorded reasons: no_painted_frame; page_lost: Error: page.evaluate: Target crashed; page_lost: Error: page.evaluate: Target crashed ; page_lost: Error: keyboard.press: Target crashed. |
 | Docen | prose-250kw | 9378.3 ms; 0% sub-frame launches; p90 10115.5 ms; n = 10 of 10 |
 | Docxodus | prose-250kw | < 1 frame (16.7 ms); 50% sub-frame launches; p90 21.6 ms; n = 10 of 10 |
 | eigenpal | prose-250kw | 107.4 ms; 0% sub-frame launches; p90 111.5 ms; n = 10 of 10 |
 | Folio | prose-250kw | 425.1 ms; 0% sub-frame launches; p90 459.3 ms; n = 10 of 10 |
 | GenOffice | prose-250kw | 2849.8 ms; 0% sub-frame launches; p90 4277.0 ms; n = 10 of 10 |
 | Plate.js | prose-250kw | 429.2 ms; 0% sub-frame launches; p90 477.6 ms; n = 10 of 10 |
-| SuperDoc | prose-250kw | first: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10); second: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10) |
+| SuperDoc | prose-250kw | first: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10); second: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10) Recorded reason: no_painted_frame. |
 | WordCraft | prose-250kw | 245.3 ms; 0% sub-frame launches; p90 259.2 ms; n = 10 of 10 |
 | canvas-editor + plugin | prose-500w | 93.2 ms; 0% sub-frame launches; p90 103.4 ms; n = 10 of 10 |
 | Docen | prose-500w | 30.9 ms; 0% sub-frame launches; p90 41.8 ms; n = 10 of 10 |
@@ -658,7 +704,7 @@ C04 asks whether the editor keeps working after the document is ready. Ready is 
 | Plate.js | prose-500w | 43.4 ms; 0% sub-frame launches; p90 49.5 ms; n = 10 of 10 |
 | SuperDoc | prose-500w | 120.9 ms; 0% sub-frame launches; p90 131.9 ms; n = 10 of 10 |
 | WordCraft | prose-500w | 135.7 ms; 0% sub-frame launches; p90 138.9 ms; n = 10 of 10 |
-| canvas-editor + plugin | prose-50kw | first: not enough samples (n = 2 of 10; reasons unverified: 8); second: not enough samples (n = 4 of 10; reasons unverified: 6) |
+| canvas-editor + plugin | prose-50kw | first: not enough samples (n = 2 of 10; reasons unverified: 8); second: not enough samples (n = 4 of 10; reasons unverified: 6) Recorded reason: correctness: fixture_body_mismatch. |
 | Docen | prose-50kw | 582.8 ms; 0% sub-frame launches; p90 632.2 ms; n = 10 of 10 |
 | Docxodus | prose-50kw | < 1 frame (16.7 ms); 50% sub-frame launches; p90 26.4 ms; n = 10 of 10 |
 | eigenpal | prose-50kw | 109.4 ms; 0% sub-frame launches; p90 128.2 ms; n = 10 of 10 |
@@ -681,9 +727,9 @@ C04 asks whether the editor keeps working after the document is ready. Ready is 
 
 | Editor | Workload | C09 |
 |---|---|---|
-| canvas-editor + plugin | complex-corpus | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) |
-| Docen | complex-corpus | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) |
-| Docxodus | complex-corpus | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) |
+| canvas-editor + plugin | complex-corpus | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) Recorded reason: editor_load_failed: TypeError: Cannot read properties of undefined (reading 'width'). |
+| Docen | complex-corpus | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: correctness: probe_not_restored. |
+| Docxodus | complex-corpus | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: correctness: undo_did_not_restore_document_text. |
 | eigenpal | complex-corpus | 32.9 ms; 0% sub-frame launches; p90 35.6 ms; n = 10 of 10 |
 | Folio | complex-corpus | 79.9 ms; 0% sub-frame launches; p90 85.2 ms; n = 10 of 10 |
 | GenOffice | complex-corpus | 21.5 ms; 20% sub-frame launches; p90 32.1 ms; n = 10 of 10 |
@@ -731,7 +777,7 @@ C04 asks whether the editor keeps working after the document is ready. Ready is 
 
 | Editor | Workload | C10 |
 |---|---|---|
-| canvas-editor + plugin | complex-corpus | first: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10); second: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10) |
+| canvas-editor + plugin | complex-corpus | first: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10); second: not enough samples (n = 0 of 10; reasons paint_witness_unavailable: 10) Recorded reason: the probe produced no sample. |
 | Docen | complex-corpus | 18.5 ms; 50% sub-frame launches; p90 23.4 ms; n = 10 of 10 |
 | Docxodus | complex-corpus | < 1 frame (16.7 ms); 80% sub-frame launches; p90 17.8 ms; n = 10 of 10 |
 | eigenpal | complex-corpus | 32.7 ms; 0% sub-frame launches; p90 40.9 ms; n = 10 of 10 |
@@ -757,7 +803,7 @@ C04 asks whether the editor keeps working after the document is ready. Ready is 
 | GenOffice | prose-500w | < 1 frame (16.7 ms); 100% sub-frame launches; p90 < 1 frame (16.7 ms); n = 10 of 10 |
 | Plate.js | prose-500w | < 1 frame (16.7 ms); 90% sub-frame launches; p90 < 1 frame (16.7 ms); n = 10 of 10 |
 | SuperDoc | prose-500w | < 1 frame (16.7 ms); 60% sub-frame launches; p90 26.5 ms; n = 10 of 10 |
-| WordCraft | prose-500w | not reproduced (first 130.2 ms; second 194.5 ms); second: 1 of 10 launches failed: paint_witness_unavailable: 1 |
+| WordCraft | prose-500w | not reproduced (first 130.2 ms; second 194.5 ms); second: 1 of 10 launches failed: paint_witness_unavailable: 1 Recorded reason: anchor_lag_above_bound: the anchor frame lag 319.517 ms is above the bound of 250 ms. |
 | canvas-editor + plugin | prose-50kw | < 1 frame (16.7 ms); 70% sub-frame launches; p90 22.3 ms; n = 10 of 10 |
 | Docen | prose-50kw | < 1 frame (16.7 ms); 80% sub-frame launches; p90 17.3 ms; n = 10 of 10 |
 | Docxodus | prose-50kw | < 1 frame (16.7 ms); 70% sub-frame launches; p90 20.7 ms; n = 10 of 10 |
@@ -781,7 +827,7 @@ C04 asks whether the editor keeps working after the document is ready. Ready is 
 
 | Editor | Workload | C11 |
 |---|---|---|
-| canvas-editor + plugin | complex-corpus | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) |
+| canvas-editor + plugin | complex-corpus | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: editor_load_failed: TypeError: Cannot read properties of undefined (reading 'width'). |
 | Docen | complex-corpus | 1194.1 ms; 0% sub-frame launches; p90 1312.3 ms; n = 10 of 10 |
 | Docxodus | complex-corpus | 3159.3 ms; 0% sub-frame launches; p90 3358.7 ms; n = 10 of 10 |
 | eigenpal | complex-corpus | 782.3 ms; 0% sub-frame launches; p90 853.9 ms; n = 10 of 10 |
@@ -840,60 +886,60 @@ C04 asks whether the editor keeps working after the document is ready. Ready is 
 
 | Editor | Workload | C12 |
 |---|---|---|
-| canvas-editor + plugin | complex-corpus | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) |
-| Docen | complex-corpus | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
+| canvas-editor + plugin | complex-corpus | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) Recorded reason: editor_load_failed: TypeError: Cannot read properties of undefined (reading 'width'). |
+| Docen | complex-corpus | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no paragraph geometry to attribute a C12 y-shift: this host paints whole pages (docen-document shadow .canvas-pages > div (page pitch)); the only DOM box is th…. |
 | Docxodus | complex-corpus | 48.4 ms; 0% sub-frame launches; p90 48.8 ms; n = 10 of 10 |
 | eigenpal | complex-corpus | 73.3 ms; 0% sub-frame launches; p90 82.1 ms; n = 10 of 10 |
 | Folio | complex-corpus | 65.0 ms; 0% sub-frame launches; p90 66.9 ms; n = 10 of 10 |
 | GenOffice | complex-corpus | 32.1 ms; 0% sub-frame launches; p90 48.3 ms; n = 10 of 10 |
 | Plate.js | complex-corpus | 65.5 ms; 0% sub-frame launches; p90 65.6 ms; n = 10 of 10 |
 | SuperDoc | complex-corpus | 373.4 ms; 0% sub-frame launches; p90 400.6 ms; n = 10 of 10 |
-| WordCraft | complex-corpus | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| canvas-editor + plugin | prose-250kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| Docen | prose-250kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
+| WordCraft | complex-corpus | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: wordcraft exposes no document text or block geometry at this pin (one WebGL canvas; correctness is only the modified window-title bullet). |
+| canvas-editor + plugin | prose-250kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no paragraph geometry to attribute a C12 y-shift: this host paints whole pages (#editor .ce-page-container (host paints into <canvas>)); the only DOM box is th…. |
+| Docen | prose-250kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no paragraph geometry to attribute a C12 y-shift: this host paints whole pages (docen-document shadow .canvas-pages > div (page pitch)); the only DOM box is th…. |
 | Docxodus | prose-250kw | 156.8 ms; 0% sub-frame launches; p90 168.7 ms; n = 10 of 10 |
 | eigenpal | prose-250kw | 98.7 ms; 0% sub-frame launches; p90 117.0 ms; n = 10 of 10 |
 | Folio | prose-250kw | 2464.2 ms; 0% sub-frame launches; p90 2561.6 ms; n = 10 of 10 |
-| GenOffice | prose-250kw | not reproduced (first 2973.4 ms; second 2565.1 ms); first: 2 of 10 launches failed: recorded_move_before_input: 2; second: 1 of 10 launches failed: recorded_move_before_input: 1 |
+| GenOffice | prose-250kw | not reproduced (first 2973.4 ms; second 2565.1 ms); first: 2 of 10 launches failed: recorded_move_before_input: 2; second: 1 of 10 launches failed: recorded_move_before_input: 1 Recorded reason: probe refused genoffice: recorded_move_before_input. |
 | Plate.js | prose-250kw | 2248.1 ms; 0% sub-frame launches; p90 2348.1 ms; n = 10 of 10; second: 1 of 10 launches failed: cpu_throttled: 1 |
 | SuperDoc | prose-250kw | 1456.8 ms; 0% sub-frame launches; p90 1483.6 ms; n = 10 of 10 |
-| WordCraft | prose-250kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| canvas-editor + plugin | prose-500kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| Docen | prose-500kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
+| WordCraft | prose-250kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: wordcraft exposes no document text or block geometry at this pin (one WebGL canvas; correctness is only the modified window-title bullet). |
+| canvas-editor + plugin | prose-500kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no paragraph geometry to attribute a C12 y-shift: this host paints whole pages (#editor .ce-page-container (host paints into <canvas>)); the only DOM box is th…. |
+| Docen | prose-500kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no paragraph geometry to attribute a C12 y-shift: this host paints whole pages (docen-document shadow .canvas-pages > div (page pitch)); the only DOM box is th…. |
 | Docxodus | prose-500kw | 256.7 ms; 0% sub-frame launches; range 231.6 to 298.8 ms; n = 8 of 10; 2 of 10 launches failed: recorded_move_before_input: 2; second: 2 of 10 launches failed: recorded_move_before_input: 2 |
 | eigenpal | prose-500kw | not reproduced (first 81.7 ms; second 98.5 ms) |
 | Folio | prose-500kw | 4870.6 ms; 0% sub-frame launches; p90 4965.4 ms; n = 10 of 10 |
-| GenOffice | prose-500kw | not reproduced (first 16029.7 ms; second 12039.7 ms); first: 4 of 10 launches failed: editor_timeout: 4; second: 2 of 10 launches failed: editor_timeout: 2 |
+| GenOffice | prose-500kw | not reproduced (first 16029.7 ms; second 12039.7 ms); first: 4 of 10 launches failed: editor_timeout: 4; second: 2 of 10 launches failed: editor_timeout: 2 Recorded reason: probe error for genoffice: locator.boundingBox: Timeout 30000ms exceeded.. |
 | Plate.js | prose-500kw | 4506.0 ms; 0% sub-frame launches; p90 4830.0 ms; n = 10 of 10 |
 | SuperDoc | prose-500kw | not reproduced (first 2098.6 ms; second 1782.0 ms) |
-| WordCraft | prose-500kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| canvas-editor + plugin | prose-500w | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| Docen | prose-500w | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
+| WordCraft | prose-500kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: wordcraft exposes no document text or block geometry at this pin (one WebGL canvas; correctness is only the modified window-title bullet). |
+| canvas-editor + plugin | prose-500w | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no paragraph geometry to attribute a C12 y-shift: this host paints whole pages (#editor .ce-page-container (host paints into <canvas>)); the only DOM box is th…. |
+| Docen | prose-500w | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no paragraph geometry to attribute a C12 y-shift: this host paints whole pages (docen-document shadow .canvas-pages > div (page pitch)); the only DOM box is th…. |
 | Docxodus | prose-500w | 48.8 ms; 0% sub-frame launches; p90 48.9 ms; n = 10 of 10 |
 | eigenpal | prose-500w | 48.9 ms; 0% sub-frame launches; p90 48.9 ms; n = 10 of 10 |
 | Folio | prose-500w | 48.8 ms; 0% sub-frame launches; p90 65.4 ms; n = 10 of 10 |
 | GenOffice | prose-500w | 31.5 ms; 0% sub-frame launches; p90 32.0 ms; n = 10 of 10 |
 | Plate.js | prose-500w | 48.7 ms; 0% sub-frame launches; p90 50.6 ms; n = 10 of 10 |
 | SuperDoc | prose-500w | 181.6 ms; 0% sub-frame launches; p90 182.1 ms; n = 10 of 10 |
-| WordCraft | prose-500w | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| canvas-editor + plugin | prose-50kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| Docen | prose-50kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
+| WordCraft | prose-500w | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: wordcraft exposes no document text or block geometry at this pin (one WebGL canvas; correctness is only the modified window-title bullet). |
+| canvas-editor + plugin | prose-50kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no paragraph geometry to attribute a C12 y-shift: this host paints whole pages (#editor .ce-page-container (host paints into <canvas>)); the only DOM box is th…. |
+| Docen | prose-50kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no paragraph geometry to attribute a C12 y-shift: this host paints whole pages (docen-document shadow .canvas-pages > div (page pitch)); the only DOM box is th…. |
 | Docxodus | prose-50kw | 64.5 ms; 0% sub-frame launches; p90 67.0 ms; n = 10 of 10 |
 | eigenpal | prose-50kw | 90.0 ms; 0% sub-frame launches; p90 98.3 ms; n = 10 of 10 |
 | Folio | prose-50kw | 572.9 ms; 0% sub-frame launches; p90 599.7 ms; n = 10 of 10 |
 | GenOffice | prose-50kw | 173.6 ms; 0% sub-frame launches; p90 198.3 ms; n = 10 of 10 |
 | Plate.js | prose-50kw | 465.3 ms; 0% sub-frame launches; p90 483.4 ms; n = 10 of 10 |
 | SuperDoc | prose-50kw | 906.0 ms; 0% sub-frame launches; p90 951.3 ms; n = 10 of 10 |
-| WordCraft | prose-50kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| canvas-editor + plugin | prose-5kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
-| Docen | prose-5kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
+| WordCraft | prose-50kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: wordcraft exposes no document text or block geometry at this pin (one WebGL canvas; correctness is only the modified window-title bullet). |
+| canvas-editor + plugin | prose-5kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no paragraph geometry to attribute a C12 y-shift: this host paints whole pages (#editor .ce-page-container (host paints into <canvas>)); the only DOM box is th…. |
+| Docen | prose-5kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: no paragraph geometry to attribute a C12 y-shift: this host paints whole pages (docen-document shadow .canvas-pages > div (page pitch)); the only DOM box is th…. |
 | Docxodus | prose-5kw | 48.1 ms; 0% sub-frame launches; p90 48.7 ms; n = 10 of 10 |
 | eigenpal | prose-5kw | 65.4 ms; 0% sub-frame launches; p90 83.7 ms; n = 10 of 10 |
 | Folio | prose-5kw | 123.4 ms; 0% sub-frame launches; p90 149.7 ms; n = 10 of 10 |
 | GenOffice | prose-5kw | 31.4 ms; 0% sub-frame launches; p90 31.8 ms; n = 10 of 10 |
 | Plate.js | prose-5kw | 115.4 ms; 0% sub-frame launches; p90 131.3 ms; n = 10 of 10 |
 | SuperDoc | prose-5kw | 440.0 ms; 0% sub-frame launches; p90 548.5 ms; n = 10 of 10 |
-| WordCraft | prose-5kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) |
+| WordCraft | prose-5kw | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) Recorded reason: wordcraft exposes no document text or block geometry at this pin (one WebGL canvas; correctness is only the modified window-title bullet). |
 
 ### C13 — global invalidation
 
@@ -905,16 +951,16 @@ Each C14 size rung is a separate measure, and within a rung each clock is its ow
 
 | Editor | Workload | Measure | C14 |
 |---|---|---|---|
-| canvas-editor + plugin | complex-corpus | presented_frame | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) |
+| canvas-editor + plugin | complex-corpus | presented_frame | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) Recorded reason: rung complex-corpus: editor_load_failed: TypeError: Cannot read properties of undefined (reading 'width'). |
 | Docen | complex-corpus | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
 | Docxodus | complex-corpus | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
 | eigenpal | complex-corpus | presented_frame | 1729.7 ms; 0% sub-frame launches; p90 1812.7 ms; n = 10 of 10 |
 | Folio | complex-corpus | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
 | GenOffice | complex-corpus | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
-| Plate.js | complex-corpus | presented_frame | first: not enough samples (n = 0 of 10; reasons crash: 1); second: not enough samples (n = 0 of 10; reasons none counted) |
+| Plate.js | complex-corpus | presented_frame | first: not enough samples (n = 0 of 10; reasons crash: 1); second: not enough samples (n = 0 of 10; reasons none counted) Recorded reason: rung prose-250kw: cpu_throttled. |
 | SuperDoc | complex-corpus | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
 | WordCraft | complex-corpus | presented_frame | 4739.3 ms; 0% sub-frame launches; p90 4852.1 ms; n = 10 of 10 |
-| canvas-editor + plugin | complex-corpus | usable_no_damage | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) |
+| canvas-editor + plugin | complex-corpus | usable_no_damage | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) Recorded reason: rung complex-corpus: editor_load_failed: TypeError: Cannot read properties of undefined (reading 'width'). |
 | Docen | complex-corpus | usable_no_damage | 1168.8 ms; 0% sub-frame launches; p90 1280.0 ms; n = 10 of 10 |
 | Docxodus | complex-corpus | usable_no_damage | 3072.1 ms; 0% sub-frame launches; p90 3288.2 ms; n = 10 of 10 |
 | eigenpal | complex-corpus | usable_no_damage | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
@@ -923,13 +969,13 @@ Each C14 size rung is a separate measure, and within a rung each clock is its ow
 | Plate.js | complex-corpus | usable_no_damage | 879.5 ms; 0% sub-frame launches; p90 935.0 ms; n = 10 of 10 |
 | SuperDoc | complex-corpus | usable_no_damage | 2714.2 ms; 0% sub-frame launches; p90 3118.3 ms; n = 10 of 10 |
 | WordCraft | complex-corpus | usable_no_damage | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
-| canvas-editor + plugin | prose-250kw | presented_frame | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) |
+| canvas-editor + plugin | prose-250kw | presented_frame | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) Recorded reason: rung complex-corpus: editor_load_failed: TypeError: Cannot read properties of undefined (reading 'width'). |
 | Docen | prose-250kw | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
 | Docxodus | prose-250kw | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
 | eigenpal | prose-250kw | presented_frame | 7066.0 ms; 0% sub-frame launches; p90 7858.8 ms; n = 10 of 10 |
 | Folio | prose-250kw | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
 | GenOffice | prose-250kw | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
-| Plate.js | prose-250kw | presented_frame | first: not enough samples (n = 0 of 10; reasons cpu_throttled: 1); second: not enough samples (n = 0 of 10; reasons none counted) |
+| Plate.js | prose-250kw | presented_frame | first: not enough samples (n = 0 of 10; reasons cpu_throttled: 1); second: not enough samples (n = 0 of 10; reasons none counted) Recorded reason: rung prose-250kw: cpu_throttled. |
 | SuperDoc | prose-250kw | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
 | WordCraft | prose-250kw | presented_frame | 5642.9 ms; 0% sub-frame launches; p90 6318.6 ms; n = 10 of 10 |
 | canvas-editor + plugin | prose-250kw | usable_no_damage | 64270.6 ms; 0% sub-frame launches; p90 66537.1 ms; n = 10 of 10 |
@@ -955,17 +1001,17 @@ Each C14 size rung is a separate measure, and within a rung each clock is its ow
 | Docxodus | prose-500kw | usable_no_damage | 99356.5 ms; 0% sub-frame launches; p90 101763.7 ms; n = 10 of 10 |
 | eigenpal | prose-500kw | usable_no_damage | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
 | Folio | prose-500kw | usable_no_damage | 8194.5 ms; 0% sub-frame launches; p90 8350.4 ms; n = 10 of 10 |
-| GenOffice | prose-500kw | usable_no_damage | first: not enough samples (n = 0 of 10; reasons publishable_not_true: 10); second: not enough samples (n = 0 of 10; reasons publishable_not_true: 10) |
+| GenOffice | prose-500kw | usable_no_damage | first: not enough samples (n = 0 of 10; reasons publishable_not_true: 10); second: not enough samples (n = 0 of 10; reasons publishable_not_true: 10) Recorded reason: interpretation: I01-I03 not checkable: the editor's readable text ends before the document's closing paragraph, where the correctness lines sit. |
 | Plate.js | prose-500kw | usable_no_damage | 38348.7 ms; 0% sub-frame launches; p90 39007.2 ms; n = 10 of 10 |
 | SuperDoc | prose-500kw | usable_no_damage | 29601.3 ms; 0% sub-frame launches; p90 30098.6 ms; n = 10 of 10 |
 | WordCraft | prose-500kw | usable_no_damage | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
-| canvas-editor + plugin | prose-500w | presented_frame | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) |
+| canvas-editor + plugin | prose-500w | presented_frame | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) Recorded reason: rung complex-corpus: editor_load_failed: TypeError: Cannot read properties of undefined (reading 'width'). |
 | Docen | prose-500w | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
 | Docxodus | prose-500w | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
 | eigenpal | prose-500w | presented_frame | 1730.2 ms; 0% sub-frame launches; p90 1831.3 ms; n = 10 of 10 |
 | Folio | prose-500w | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
 | GenOffice | prose-500w | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
-| Plate.js | prose-500w | presented_frame | first: not enough samples (n = 0 of 10; reasons crash: 1); second: not enough samples (n = 0 of 10; reasons none counted) |
+| Plate.js | prose-500w | presented_frame | first: not enough samples (n = 0 of 10; reasons crash: 1); second: not enough samples (n = 0 of 10; reasons none counted) Recorded reason: rung prose-250kw: cpu_throttled. |
 | SuperDoc | prose-500w | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
 | WordCraft | prose-500w | presented_frame | 4699.3 ms; 0% sub-frame launches; p90 4807.0 ms; n = 10 of 10 |
 | canvas-editor + plugin | prose-500w | usable_no_damage | 335.8 ms; 0% sub-frame launches; p90 374.3 ms; n = 10 of 10 |
@@ -977,13 +1023,13 @@ Each C14 size rung is a separate measure, and within a rung each clock is its ow
 | Plate.js | prose-500w | usable_no_damage | 742.9 ms; 0% sub-frame launches; p90 819.1 ms; n = 10 of 10 |
 | SuperDoc | prose-500w | usable_no_damage | 2355.4 ms; 0% sub-frame launches; p90 2514.4 ms; n = 10 of 10 |
 | WordCraft | prose-500w | usable_no_damage | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
-| canvas-editor + plugin | prose-50kw | presented_frame | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) |
+| canvas-editor + plugin | prose-50kw | presented_frame | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) Recorded reason: rung complex-corpus: editor_load_failed: TypeError: Cannot read properties of undefined (reading 'width'). |
 | Docen | prose-50kw | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
 | Docxodus | prose-50kw | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
 | eigenpal | prose-50kw | presented_frame | 2394.4 ms; 0% sub-frame launches; p90 3187.6 ms; n = 10 of 10 |
 | Folio | prose-50kw | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
 | GenOffice | prose-50kw | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
-| Plate.js | prose-50kw | presented_frame | first: not enough samples (n = 0 of 10; reasons crash: 1); second: not enough samples (n = 0 of 10; reasons none counted) |
+| Plate.js | prose-50kw | presented_frame | first: not enough samples (n = 0 of 10; reasons crash: 1); second: not enough samples (n = 0 of 10; reasons none counted) Recorded reason: rung prose-250kw: cpu_throttled. |
 | SuperDoc | prose-50kw | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
 | WordCraft | prose-50kw | presented_frame | 4420.9 ms; 0% sub-frame launches; p90 4921.5 ms; n = 10 of 10 |
 | canvas-editor + plugin | prose-50kw | usable_no_damage | 7971.1 ms; 0% sub-frame launches; p90 8406.2 ms; n = 10 of 10 |
@@ -995,13 +1041,13 @@ Each C14 size rung is a separate measure, and within a rung each clock is its ow
 | Plate.js | prose-50kw | usable_no_damage | 4452.7 ms; 0% sub-frame launches; p90 4808.8 ms; n = 10 of 10 |
 | SuperDoc | prose-50kw | usable_no_damage | 5623.8 ms; 0% sub-frame launches; p90 5938.3 ms; n = 10 of 10 |
 | WordCraft | prose-50kw | usable_no_damage | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
-| canvas-editor + plugin | prose-5kw | presented_frame | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) |
+| canvas-editor + plugin | prose-5kw | presented_frame | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) Recorded reason: rung complex-corpus: editor_load_failed: TypeError: Cannot read properties of undefined (reading 'width'). |
 | Docen | prose-5kw | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
 | Docxodus | prose-5kw | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
 | eigenpal | prose-5kw | presented_frame | 1935.8 ms; 0% sub-frame launches; p90 2036.6 ms; n = 10 of 10 |
 | Folio | prose-5kw | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
 | GenOffice | prose-5kw | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
-| Plate.js | prose-5kw | presented_frame | first: not enough samples (n = 0 of 10; reasons crash: 1); second: not enough samples (n = 0 of 10; reasons none counted) |
+| Plate.js | prose-5kw | presented_frame | first: not enough samples (n = 0 of 10; reasons crash: 1); second: not enough samples (n = 0 of 10; reasons none counted) Recorded reason: rung prose-250kw: cpu_throttled. |
 | SuperDoc | prose-5kw | presented_frame | first: not enough samples (n = 0 of 10; reasons none counted); second: not enough samples (n = 0 of 10; reasons none counted) |
 | WordCraft | prose-5kw | presented_frame | 4333.3 ms; 0% sub-frame launches; p90 4891.1 ms; n = 10 of 10 |
 | canvas-editor + plugin | prose-5kw | usable_no_damage | 1001.4 ms; 0% sub-frame launches; p90 1112.2 ms; n = 10 of 10 |
@@ -1067,7 +1113,7 @@ canvas-editor has no figure for the complex document, which it fails to open in 
 
 | Editor | Workload | Measure | C17 |
 |---|---|---|---|
-| canvas-editor + plugin | complex-corpus | after_edit_burst | first: not enough samples (n = 0 of 10; reasons editor_crash: 10); second: not enough samples (n = 0 of 10; reasons editor_crash: 10) |
+| canvas-editor + plugin | complex-corpus | after_edit_burst | first: not enough samples (n = 0 of 10; reasons editor_crash: 10); second: not enough samples (n = 0 of 10; reasons editor_crash: 10) Recorded reason: browser memory probe failed: page.waitForFunction: Error: TypeError: Cannot read properties of undefined (reading 'width'). |
 | Docen | complex-corpus | after_edit_burst | 781.3 MiB; p90 806.0 MiB; n = 10 of 10 |
 | Docxodus | complex-corpus | after_edit_burst | 715.3 MiB; p90 717.6 MiB; n = 10 of 10 |
 | eigenpal | complex-corpus | after_edit_burst | 642.5 MiB; p90 650.3 MiB; n = 10 of 10 |
@@ -1076,7 +1122,7 @@ canvas-editor has no figure for the complex document, which it fails to open in 
 | Plate.js | complex-corpus | after_edit_burst | 629.2 MiB; p90 631.1 MiB; n = 10 of 10 |
 | SuperDoc | complex-corpus | after_edit_burst | 689.3 MiB; p90 693.3 MiB; n = 10 of 10 |
 | WordCraft | complex-corpus | after_edit_burst | 1137.6 MiB; p90 1157.2 MiB; n = 10 of 10 |
-| canvas-editor + plugin | complex-corpus | quiescent | first: not enough samples (n = 0 of 10; reasons editor_crash: 10); second: not enough samples (n = 0 of 10; reasons editor_crash: 10) |
+| canvas-editor + plugin | complex-corpus | quiescent | first: not enough samples (n = 0 of 10; reasons editor_crash: 10); second: not enough samples (n = 0 of 10; reasons editor_crash: 10) Recorded reason: browser memory probe failed: page.waitForFunction: Error: TypeError: Cannot read properties of undefined (reading 'width'). |
 | Docen | complex-corpus | quiescent | 782.6 MiB; p90 806.8 MiB; n = 10 of 10 |
 | Docxodus | complex-corpus | quiescent | 715.5 MiB; p90 717.8 MiB; n = 10 of 10 |
 | eigenpal | complex-corpus | quiescent | 645.8 MiB; p90 650.9 MiB; n = 10 of 10 |
@@ -1085,16 +1131,16 @@ canvas-editor has no figure for the complex document, which it fails to open in 
 | Plate.js | complex-corpus | quiescent | 629.3 MiB; p90 631.1 MiB; n = 10 of 10 |
 | SuperDoc | complex-corpus | quiescent | 696.0 MiB; p90 700.5 MiB; n = 10 of 10 |
 | WordCraft | complex-corpus | quiescent | 1137.8 MiB; p90 1155.8 MiB; n = 10 of 10 |
-| canvas-editor + plugin | complex-corpus | ready | first: not enough samples (n = 0 of 10; reasons editor_crash: 10); second: not enough samples (n = 0 of 10; reasons editor_crash: 10) |
+| canvas-editor + plugin | complex-corpus | ready | first: not enough samples (n = 0 of 10; reasons editor_crash: 10); second: not enough samples (n = 0 of 10; reasons editor_crash: 10) Recorded reason: browser memory probe failed: page.waitForFunction: Error: TypeError: Cannot read properties of undefined (reading 'width'). |
 | Docen | complex-corpus | ready | 701.9 MiB; p90 703.1 MiB; n = 10 of 10 |
-| Docxodus | complex-corpus | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) |
+| Docxodus | complex-corpus | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_not_verified_loaded. |
 | eigenpal | complex-corpus | ready | 626.2 MiB; p90 628.6 MiB; n = 10 of 10 |
-| Folio | complex-corpus | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) |
-| GenOffice | complex-corpus | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) |
+| Folio | complex-corpus | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_not_verified_loaded. |
+| GenOffice | complex-corpus | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_not_verified_loaded. |
 | Plate.js | complex-corpus | ready | 527.3 MiB; p90 529.7 MiB; n = 10 of 10 |
-| SuperDoc | complex-corpus | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) |
-| WordCraft | complex-corpus | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) |
-| canvas-editor + plugin | prose-250kw | after_edit_burst | first: not enough samples (n = 0 of 10; reasons editor_crash: 10); second: not enough samples (n = 0 of 10; reasons editor_crash: 10) |
+| SuperDoc | complex-corpus | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_not_verified_loaded. |
+| WordCraft | complex-corpus | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_not_verified_loaded. |
+| canvas-editor + plugin | prose-250kw | after_edit_burst | first: not enough samples (n = 0 of 10; reasons editor_crash: 10); second: not enough samples (n = 0 of 10; reasons editor_crash: 10) Recorded reason: browser memory probe failed: page.waitForTimeout: Page crashed. |
 | Docen | prose-250kw | after_edit_burst | 7544.8 MiB; p90 8603.7 MiB; n = 10 of 10 |
 | Docxodus | prose-250kw | after_edit_burst | 1917.1 MiB; p90 1934.3 MiB; n = 10 of 10 |
 | eigenpal | prose-250kw | after_edit_burst | 996.1 MiB; p90 1009.7 MiB; n = 10 of 10 |
@@ -1103,7 +1149,7 @@ canvas-editor has no figure for the complex document, which it fails to open in 
 | Plate.js | prose-250kw | after_edit_burst | 2053.7 MiB; p90 2072.3 MiB; n = 10 of 10 |
 | SuperDoc | prose-250kw | after_edit_burst | 1359.7 MiB; p90 1421.2 MiB; n = 10 of 10 |
 | WordCraft | prose-250kw | after_edit_burst | 1336.3 MiB; p90 1341.7 MiB; n = 10 of 10 |
-| canvas-editor + plugin | prose-250kw | quiescent | first: not enough samples (n = 0 of 10; reasons editor_crash: 10); second: not enough samples (n = 0 of 10; reasons editor_crash: 10) |
+| canvas-editor + plugin | prose-250kw | quiescent | first: not enough samples (n = 0 of 10; reasons editor_crash: 10); second: not enough samples (n = 0 of 10; reasons editor_crash: 10) Recorded reason: browser memory probe failed: page.waitForTimeout: Page crashed. |
 | Docen | prose-250kw | quiescent | 7746.8 MiB; p90 8808.2 MiB; n = 10 of 10 |
 | Docxodus | prose-250kw | quiescent | 1914.5 MiB; p90 1920.4 MiB; n = 10 of 10 |
 | eigenpal | prose-250kw | quiescent | 996.2 MiB; p90 1009.9 MiB; n = 10 of 10 |
@@ -1112,15 +1158,15 @@ canvas-editor has no figure for the complex document, which it fails to open in 
 | Plate.js | prose-250kw | quiescent | 2053.7 MiB; p90 2072.4 MiB; n = 10 of 10 |
 | SuperDoc | prose-250kw | quiescent | 1360.4 MiB; p90 1421.8 MiB; n = 10 of 10 |
 | WordCraft | prose-250kw | quiescent | 1336.5 MiB; p90 1341.9 MiB; n = 10 of 10 |
-| canvas-editor + plugin | prose-250kw | ready | first: not enough samples (n = 0 of 10; reasons editor_crash: 10); second: not enough samples (n = 0 of 10; reasons editor_crash: 10) |
+| canvas-editor + plugin | prose-250kw | ready | first: not enough samples (n = 0 of 10; reasons editor_crash: 10); second: not enough samples (n = 0 of 10; reasons editor_crash: 10) Recorded reason: browser memory probe failed: page.waitForTimeout: Page crashed. |
 | Docen | prose-250kw | ready | 4145.4 MiB; p90 4173.3 MiB; n = 10 of 10 |
-| Docxodus | prose-250kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) |
+| Docxodus | prose-250kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_not_verified_loaded. |
 | eigenpal | prose-250kw | ready | 890.8 MiB; p90 892.4 MiB; n = 10 of 10 |
-| Folio | prose-250kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) |
-| GenOffice | prose-250kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) |
+| Folio | prose-250kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_not_verified_loaded. |
+| GenOffice | prose-250kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_not_verified_loaded. |
 | Plate.js | prose-250kw | ready | 1907.0 MiB; p90 1959.3 MiB; n = 10 of 10 |
-| SuperDoc | prose-250kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) |
-| WordCraft | prose-250kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) |
+| SuperDoc | prose-250kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_not_verified_loaded. |
+| WordCraft | prose-250kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_not_verified_loaded. |
 | canvas-editor + plugin | prose-500w | after_edit_burst | 858.5 MiB; p90 908.1 MiB; n = 10 of 10 |
 | Docen | prose-500w | after_edit_burst | 698.5 MiB; p90 707.3 MiB; n = 10 of 10 |
 | Docxodus | prose-500w | after_edit_burst | 695.2 MiB; p90 698.8 MiB; n = 10 of 10 |
@@ -1141,13 +1187,13 @@ canvas-editor has no figure for the complex document, which it fails to open in 
 | WordCraft | prose-500w | quiescent | 1142.7 MiB; p90 1157.7 MiB; n = 10 of 10 |
 | canvas-editor + plugin | prose-500w | ready | 530.2 MiB; p90 534.8 MiB; n = 10 of 10 |
 | Docen | prose-500w | ready | 655.8 MiB; p90 663.1 MiB; n = 10 of 10 |
-| Docxodus | prose-500w | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) |
+| Docxodus | prose-500w | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_not_verified_loaded. |
 | eigenpal | prose-500w | ready | 608.4 MiB; p90 610.8 MiB; n = 10 of 10 |
-| Folio | prose-500w | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) |
-| GenOffice | prose-500w | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) |
+| Folio | prose-500w | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_not_verified_loaded. |
+| GenOffice | prose-500w | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_not_verified_loaded. |
 | Plate.js | prose-500w | ready | 508.7 MiB; p90 510.0 MiB; n = 10 of 10 |
-| SuperDoc | prose-500w | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) |
-| WordCraft | prose-500w | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) |
+| SuperDoc | prose-500w | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_not_verified_loaded. |
+| WordCraft | prose-500w | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_not_verified_loaded. |
 | canvas-editor + plugin | prose-50kw | after_edit_burst | 6948.9 MiB; range 6833.8 to 10689.3 MiB; n = 8 of 10; 2 of 10 launches failed: editor_timeout: 2; second: 1 of 10 launches failed: editor_timeout: 1 |
 | Docen | prose-50kw | after_edit_burst | 1936.7 MiB; p90 1951.5 MiB; n = 10 of 10 |
 | Docxodus | prose-50kw | after_edit_burst | 989.1 MiB; p90 1022.7 MiB; n = 10 of 10 |
@@ -1168,13 +1214,13 @@ canvas-editor has no figure for the complex document, which it fails to open in 
 | WordCraft | prose-50kw | quiescent | 1173.6 MiB; p90 1193.1 MiB; n = 10 of 10 |
 | canvas-editor + plugin | prose-50kw | ready | 1941.1 MiB; range 1683.8 to 2051.9 MiB; n = 8 of 10; 2 of 10 launches failed: editor_timeout: 2; second: 1 of 10 launches failed: editor_timeout: 1 |
 | Docen | prose-50kw | ready | 1400.1 MiB; p90 1403.1 MiB; n = 10 of 10 |
-| Docxodus | prose-50kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) |
+| Docxodus | prose-50kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_not_verified_loaded. |
 | eigenpal | prose-50kw | ready | 691.8 MiB; p90 694.2 MiB; n = 10 of 10 |
-| Folio | prose-50kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) |
-| GenOffice | prose-50kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) |
+| Folio | prose-50kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_not_verified_loaded. |
+| GenOffice | prose-50kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_not_verified_loaded. |
 | Plate.js | prose-50kw | ready | 827.9 MiB; p90 830.7 MiB; n = 10 of 10 |
-| SuperDoc | prose-50kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) |
-| WordCraft | prose-50kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) |
+| SuperDoc | prose-50kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_not_verified_loaded. |
+| WordCraft | prose-50kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_not_verified_loaded. |
 | canvas-editor + plugin | prose-5kw | after_edit_burst | 1770.9 MiB; p90 2311.8 MiB; n = 10 of 10 |
 | Docen | prose-5kw | after_edit_burst | 949.9 MiB; p90 964.7 MiB; n = 10 of 10 |
 | Docxodus | prose-5kw | after_edit_burst | 732.5 MiB; p90 734.4 MiB; n = 10 of 10 |
@@ -1195,13 +1241,13 @@ canvas-editor has no figure for the complex document, which it fails to open in 
 | WordCraft | prose-5kw | quiescent | 1145.9 MiB; p90 1162.1 MiB; n = 10 of 10 |
 | canvas-editor + plugin | prose-5kw | ready | 710.0 MiB; p90 713.5 MiB; n = 10 of 10 |
 | Docen | prose-5kw | ready | 749.0 MiB; p90 750.9 MiB; n = 10 of 10 |
-| Docxodus | prose-5kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) |
+| Docxodus | prose-5kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_not_verified_loaded. |
 | eigenpal | prose-5kw | ready | 636.7 MiB; p90 638.4 MiB; n = 10 of 10 |
-| Folio | prose-5kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) |
-| GenOffice | prose-5kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) |
+| Folio | prose-5kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_not_verified_loaded. |
+| GenOffice | prose-5kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_not_verified_loaded. |
 | Plate.js | prose-5kw | ready | 561.3 MiB; p90 564.5 MiB; n = 10 of 10 |
-| SuperDoc | prose-5kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) |
-| WordCraft | prose-5kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) |
+| SuperDoc | prose-5kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_not_verified_loaded. |
+| WordCraft | prose-5kw | ready | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) Recorded reason: document_not_verified_loaded. |
 
 ### C19 — browser memory after the page is closed (not published)
 
@@ -1420,33 +1466,11 @@ WordCraft — throughput: first: not enough sessions or run blocked (n = 0 of 6;
 | canvas-editor + plugin | C03 | complex-corpus | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_run: 10); second: not enough samples (n = 0 of 10; reasons not_run: 10) | — |
 | canvas-editor + plugin | C03 | complex-corpus | warm_steady | first: not enough samples (n = 0 of 10; reasons not_run: 10); second: not enough samples (n = 0 of 10; reasons not_run: 10) | — |
 | GenOffice | C03 | complex-corpus | warm_steady | 1082.5 ms | 883.5 ms |
-| Docen | C03 | prose-250kw | process_cold_fs_warm | 9218.0 ms | 10338.0 ms |
-| WordCraft | C03 | prose-250kw | process_cold_fs_warm | 3188.5 ms | 3626.5 ms |
 | WordCraft | C03 | prose-500w | process_cold_fs_warm | 1568.5 ms | 2006.0 ms |
 | WordCraft | C03 | prose-500w | warm_steady | 1003.5 ms | 1143.5 ms |
-| canvas-editor + plugin | C03 | prose-50kw | process_cold_fs_warm | 6478.5 ms | 5217.5 ms |
-| Docen | C03 | prose-50kw | process_cold_fs_warm | 3378.0 ms | 2551.0 ms |
-| Docxodus | C03 | prose-50kw | process_cold_fs_warm | 13686.5 ms | 10022.5 ms |
-| eigenpal | C03 | prose-50kw | process_cold_fs_warm | 2716.0 ms | 1818.0 ms |
-| Folio | C03 | prose-50kw | process_cold_fs_warm | 2335.5 ms | 1669.0 ms |
-| GenOffice | C03 | prose-50kw | process_cold_fs_warm | 1774.5 ms | 1441.0 ms |
-| Plate.js | C03 | prose-50kw | process_cold_fs_warm | 6324.0 ms | 4222.0 ms |
-| SuperDoc | C03 | prose-50kw | process_cold_fs_warm | 1116.5 ms | 988.5 ms |
-| WordCraft | C03 | prose-50kw | process_cold_fs_warm | 2159.0 ms | 2471.5 ms |
-| canvas-editor + plugin | C03 | prose-50kw | warm_steady | 6818.0 ms | 4463.0 ms |
-| Docen | C03 | prose-50kw | warm_steady | 3088.5 ms | 2218.0 ms |
-| Docxodus | C03 | prose-50kw | warm_steady | 12095.0 ms | 9142.5 ms |
-| eigenpal | C03 | prose-50kw | warm_steady | 2220.5 ms | 1535.0 ms |
-| Folio | C03 | prose-50kw | warm_steady | 2072.5 ms | 1309.0 ms |
-| GenOffice | C03 | prose-50kw | warm_steady | 1386.5 ms | 1237.0 ms |
-| Plate.js | C03 | prose-50kw | warm_steady | 5563.5 ms | 3694.5 ms |
-| SuperDoc | C03 | prose-50kw | warm_steady | 941.5 ms | 388.5 ms |
-| WordCraft | C03 | prose-50kw | warm_steady | 1356.0 ms | 1539.5 ms |
-| Docen | C03 | prose-5kw | process_cold_fs_warm | 1432.5 ms | 1597.0 ms |
-| Folio | C03 | prose-5kw | process_cold_fs_warm | 938.0 ms | 1058.0 ms |
-| WordCraft | C03 | prose-5kw | process_cold_fs_warm | 1588.5 ms | 1991.5 ms |
-| eigenpal | C03 | prose-5kw | warm_steady | 796.5 ms | 904.5 ms |
-| WordCraft | C03 | prose-5kw | warm_steady | 932.0 ms | 1142.5 ms |
+| WordCraft | C03 | prose-50kw | process_cold_fs_warm | 1831.5 ms | 2471.5 ms |
+| WordCraft | C03 | prose-50kw | warm_steady | 1313.5 ms | 1539.5 ms |
+| eigenpal | C03 | prose-5kw | process_cold_fs_warm | 1020.0 ms | 917.5 ms |
 | canvas-editor + plugin | C04 | complex-corpus | — | first: not enough samples (n = 0 of 10; reasons crash: 10); second: not enough samples (n = 0 of 10; reasons crash: 10) | — |
 | Docen | C04 | complex-corpus | — | first seed: 0 of 10 launches kept (not_applicable 10) | — |
 | Docxodus | C04 | complex-corpus | — | first seed: 0 of 10 launches kept (not_applicable 10) | — |
@@ -1498,14 +1522,11 @@ WordCraft — throughput: first: not enough sessions or run blocked (n = 0 of 6;
 | WordCraft | C05 | complex-corpus | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
 | canvas-editor + plugin | C05 | prose-250kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
 | Docen | C05 | prose-250kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
-| GenOffice | C05 | prose-250kw | process_cold_fs_warm | second: not enough samples (n = 1 of 10; reasons unverified: 9) | — |
-| Plate.js | C05 | prose-250kw | process_cold_fs_warm | 175.2 ms | 205.5 ms |
+| GenOffice | C05 | prose-250kw | process_cold_fs_warm | second: not enough samples (n = 4 of 10; reasons unverified: 6) | — |
 | WordCraft | C05 | prose-250kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
 | canvas-editor + plugin | C05 | prose-250kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
 | Docen | C05 | prose-250kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
-| Folio | C05 | prose-250kw | warm_steady | 427.2 ms | 483.5 ms |
-| GenOffice | C05 | prose-250kw | warm_steady | second: not enough samples (n = 1 of 10; reasons unverified: 9) | — |
-| Plate.js | C05 | prose-250kw | warm_steady | 129.7 ms | 161.8 ms |
+| GenOffice | C05 | prose-250kw | warm_steady | second: not enough samples (n = 4 of 10; reasons unverified: 6) | — |
 | WordCraft | C05 | prose-250kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
 | canvas-editor + plugin | C05 | prose-500w | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
 | Docen | C05 | prose-500w | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
@@ -1515,25 +1536,15 @@ WordCraft — throughput: first: not enough sessions or run blocked (n = 0 of 6;
 | WordCraft | C05 | prose-500w | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
 | canvas-editor + plugin | C05 | prose-50kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
 | Docen | C05 | prose-50kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
-| eigenpal | C05 | prose-50kw | process_cold_fs_warm | 97.6 ms | 65.5 ms |
-| Folio | C05 | prose-50kw | process_cold_fs_warm | 215.3 ms | 134.0 ms |
-| GenOffice | C05 | prose-50kw | process_cold_fs_warm | 193.6 ms | 143.4 ms |
-| Plate.js | C05 | prose-50kw | process_cold_fs_warm | 98.0 ms | 67.9 ms |
-| SuperDoc | C05 | prose-50kw | process_cold_fs_warm | 644.0 ms | 450.2 ms |
 | WordCraft | C05 | prose-50kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
 | canvas-editor + plugin | C05 | prose-50kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
 | Docen | C05 | prose-50kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
-| eigenpal | C05 | prose-50kw | warm_steady | 77.3 ms | 56.2 ms |
-| Folio | C05 | prose-50kw | warm_steady | 182.8 ms | 121.5 ms |
-| GenOffice | C05 | prose-50kw | warm_steady | 207.3 ms | 139.5 ms |
-| SuperDoc | C05 | prose-50kw | warm_steady | 614.5 ms | 431.5 ms |
 | WordCraft | C05 | prose-50kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
 | canvas-editor + plugin | C05 | prose-5kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
 | Docen | C05 | prose-5kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
 | WordCraft | C05 | prose-5kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
 | canvas-editor + plugin | C05 | prose-5kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
 | Docen | C05 | prose-5kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
-| SuperDoc | C05 | prose-5kw | warm_steady | 286.2 ms | 318.5 ms |
 | WordCraft | C05 | prose-5kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
 | canvas-editor + plugin | C06 | complex-corpus | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_run: 10); second: not enough samples (n = 0 of 10; reasons not_run: 10) | — |
 | Docen | C06 | complex-corpus | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
@@ -1544,13 +1555,12 @@ WordCraft — throughput: first: not enough sessions or run blocked (n = 0 of 6;
 | canvas-editor + plugin | C06 | prose-250kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
 | Docen | C06 | prose-250kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
 | Folio | C06 | prose-250kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) | — |
-| GenOffice | C06 | prose-250kw | process_cold_fs_warm | second: not enough samples (n = 0 of 10; reasons unverified: 10) | — |
+| GenOffice | C06 | prose-250kw | process_cold_fs_warm | second: not enough samples (n = 3 of 10; reasons unverified: 7) | — |
 | WordCraft | C06 | prose-250kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
 | canvas-editor + plugin | C06 | prose-250kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
 | Docen | C06 | prose-250kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
 | Folio | C06 | prose-250kw | warm_steady | first: not enough samples (n = 0 of 10; reasons unverified: 10); second: not enough samples (n = 0 of 10; reasons unverified: 10) | — |
-| GenOffice | C06 | prose-250kw | warm_steady | second: not enough samples (n = 0 of 10; reasons unverified: 10) | — |
-| SuperDoc | C06 | prose-250kw | warm_steady | 303.3 ms | 337.5 ms |
+| GenOffice | C06 | prose-250kw | warm_steady | second: not enough samples (n = 3 of 10; reasons unverified: 7) | — |
 | WordCraft | C06 | prose-250kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
 | canvas-editor + plugin | C06 | prose-500w | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
 | Docen | C06 | prose-500w | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
@@ -1560,22 +1570,12 @@ WordCraft — throughput: first: not enough sessions or run blocked (n = 0 of 6;
 | WordCraft | C06 | prose-500w | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
 | canvas-editor + plugin | C06 | prose-50kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
 | Docen | C06 | prose-50kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
-| eigenpal | C06 | prose-50kw | process_cold_fs_warm | 66.5 ms | 44.0 ms |
-| Folio | C06 | prose-50kw | process_cold_fs_warm | 171.4 ms | 117.5 ms |
-| GenOffice | C06 | prose-50kw | process_cold_fs_warm | 176.3 ms | 134.7 ms |
-| Plate.js | C06 | prose-50kw | process_cold_fs_warm | 59.2 ms | 39.2 ms |
-| SuperDoc | C06 | prose-50kw | process_cold_fs_warm | 369.9 ms | 278.9 ms |
 | WordCraft | C06 | prose-50kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
 | canvas-editor + plugin | C06 | prose-50kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
 | Docen | C06 | prose-50kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
-| Folio | C06 | prose-50kw | warm_steady | 163.5 ms | 107.9 ms |
-| GenOffice | C06 | prose-50kw | warm_steady | 203.2 ms | 143.2 ms |
-| Plate.js | C06 | prose-50kw | warm_steady | 61.2 ms | 43.9 ms |
-| SuperDoc | C06 | prose-50kw | warm_steady | 370.5 ms | 275.1 ms |
 | WordCraft | C06 | prose-50kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
 | canvas-editor + plugin | C06 | prose-5kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
 | Docen | C06 | prose-5kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
-| SuperDoc | C06 | prose-5kw | process_cold_fs_warm | 176.1 ms | 199.9 ms |
 | WordCraft | C06 | prose-5kw | process_cold_fs_warm | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
 | canvas-editor + plugin | C06 | prose-5kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
 | Docen | C06 | prose-5kw | warm_steady | first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10) | — |
@@ -1755,3 +1755,33 @@ See perf/container/README.md.
 ## Appendix I — DOCX verification
 
 The DOCX twin is a deliverable of the release gate: `build/verify_publication.sh --with-word` opens it in Microsoft Word and fails on any warning or offer to repair the file.
+
+## Appendix J — Every results cell that is not a single figure, and why
+
+The results at the top print a single figure only where two rounds of measurement agreed. This appendix has one line for every other cell of those tables that was part of these runs: 23 cells, of which 6 print a range, 12 "not measured", 4 "no figure", 1 "crashed", 0 "varied" (the measurements disagreed and their figures were not kept) and 0 "does not apply". A launch is one fresh start of the browser; a round has ten. A launch is kept when the harness confirmed the action and saw its result on screen, and refused otherwise; a round needs five kept launches. The reasons are the ones each launch recorded.
+
+| Table | Editor | Document | Printed | Why |
+|---|---|---|---|---|
+| Opening a document | Docen | 500,000 words | 22.1 s to 26.4 s | The first round gave 22.1 s (10 launches) and the second 26.4 s (10 launches). They differ by more than the tolerance: the larger of 10 percent and one redraw of the screen (16.7 ms). |
+| Typing one character | canvas-editor + plugin | 500 words | not measured | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: the harness times typing to the typed character's own outline on the page, and this editor draws its text where the harness cannot read an outline, so it could not check which change of the screen was the character (issue #238). In the first round, on 80 of 80 key presses the harness confirmed the edit in the editor and saw the screen change, 0.6 ms to 65 ms later (median 31 ms); the shortest are quicker than the screen was redrawn (every 16.7 ms), so some of those changes were not the character. In the second round, on 80 of 80 key presses the harness confirmed the edit in the editor and saw the screen change, 1.7 ms to 67 ms later (median 41 ms); the shortest are quicker than the screen was redrawn (every 16.7 ms), so some of those changes were not the character. |
+| Typing one character | canvas-editor + plugin | 5,000 words | not measured | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: the harness times typing to the typed character's own outline on the page, and this editor draws its text where the harness cannot read an outline, so it could not check which change of the screen was the character (issue #238). In the first round, on 80 of 80 key presses the harness confirmed the edit in the editor and saw the screen change, 1.0 ms to 96 ms later (median 45 ms); the shortest are quicker than the screen was redrawn (every 16.7 ms), so some of those changes were not the character. In the second round, on 80 of 80 key presses the harness confirmed the edit in the editor and saw the screen change, 0.5 ms to 95 ms later (median 52 ms); the shortest are quicker than the screen was redrawn (every 16.7 ms), so some of those changes were not the character. |
+| Typing one character | canvas-editor + plugin | 50,000 words | not measured | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: the harness times typing to the typed character's own outline on the page, and this editor draws its text where the harness cannot read an outline, so it could not check which change of the screen was the character (issue #238). In the first round, on 80 of 80 key presses the harness confirmed the edit in the editor and saw the screen change, 0.6 ms to 97 ms later (median 60 ms); the shortest are quicker than the screen was redrawn (every 16.7 ms), so some of those changes were not the character. In the second round, on 80 of 80 key presses the harness confirmed the edit in the editor and saw the screen change, 9.0 ms to 87 ms later (median 59 ms); the shortest are quicker than the screen was redrawn (every 16.7 ms), so some of those changes were not the character. |
+| Typing one character | canvas-editor + plugin | 250,000 words | not measured | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: the harness times typing to the typed character's own outline on the page, and this editor draws its text where the harness cannot read an outline, so it could not check which change of the screen was the character (issue #238). In the first round, on 80 of 80 key presses the harness confirmed the edit in the editor and saw the screen change, 0.9 ms to 187 ms later (median 53 ms); the shortest are quicker than the screen was redrawn (every 16.7 ms), so some of those changes were not the character. In the second round, on 80 of 80 key presses the harness confirmed the edit in the editor and saw the screen change, 0.6 ms to 204 ms later (median 54 ms); the shortest are quicker than the screen was redrawn (every 16.7 ms), so some of those changes were not the character. |
+| Typing one character | Docen | 500 words | not measured | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: the harness times typing to the typed character's own outline on the page, and this editor draws its text where the harness cannot read an outline, so it could not check which change of the screen was the character (issue #238). In the first round, on 80 of 80 key presses the harness confirmed the edit in the editor and saw the screen change, 17 ms to 49 ms later (median 28 ms). In the second round, on 80 of 80 key presses the harness confirmed the edit in the editor and saw the screen change, 17 ms to 48 ms later (median 25 ms). |
+| Typing one character | Docen | 5,000 words | not measured | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: the harness times typing to the typed character's own outline on the page, and this editor draws its text where the harness cannot read an outline, so it could not check which change of the screen was the character (issue #238). In the first round, on 80 of 80 key presses the harness confirmed the edit in the editor and saw the screen change, 35 ms to 106 ms later (median 64 ms). In the second round, on 80 of 80 key presses the harness confirmed the edit in the editor and saw the screen change, 35 ms to 83 ms later (median 53 ms). |
+| Typing one character | Docen | 50,000 words | not measured | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: the harness times typing to the typed character's own outline on the page, and this editor draws its text where the harness cannot read an outline, so it could not check which change of the screen was the character (issue #238). In the first round, on 80 of 80 key presses the harness confirmed the edit in the editor and saw the screen change, 405 ms to 540 ms later (median 448 ms). In the second round, on 80 of 80 key presses the harness confirmed the edit in the editor and saw the screen change, 407 ms to 524 ms later (median 440 ms). |
+| Typing one character | Docen | 250,000 words | not measured | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: the harness times typing to the typed character's own outline on the page, and this editor draws its text where the harness cannot read an outline, so it could not check which change of the screen was the character (issue #238). In the first round, on 80 of 80 key presses the harness confirmed the edit in the editor and saw the screen change, 6.5 s to 10.3 s later (median 8.0 s). In the second round, on 80 of 80 key presses the harness confirmed the edit in the editor and saw the screen change, 6.9 s to 9.6 s later (median 8.1 s). |
+| Typing one character | GenOffice | 250,000 words | no figure | The first round kept enough launches. Second round: 4 of 10 launches kept; 6 refused: a check of the result failed; also the typed character was not found in the editor afterwards. |
+| Typing one character | WordCraft | 500 words | not measured | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: the harness times typing to the typed character's own outline on the page, and this editor draws its text where the harness cannot read an outline, so it could not check which change of the screen was the character (issue #238); also the typed character was not found in the editor afterwards. In the first round, on 20 of 80 key presses the harness confirmed the edit in the editor and saw the screen change, 0.4 ms to 181 ms later (median 125 ms); the shortest are quicker than the screen was redrawn (every 16.7 ms), so some of those changes were not the character. In the second round, on 20 of 80 key presses the harness confirmed the edit in the editor and saw the screen change, 0.2 ms to 183 ms later (median 8.7 ms); the shortest are quicker than the screen was redrawn (every 16.7 ms), so some of those changes were not the character. |
+| Typing one character | WordCraft | 5,000 words | not measured | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: the harness times typing to the typed character's own outline on the page, and this editor draws its text where the harness cannot read an outline, so it could not check which change of the screen was the character (issue #238); also the typed character was not found in the editor afterwards. In the first round, on 20 of 80 key presses the harness confirmed the edit in the editor and saw the screen change, 0.3 ms to 169 ms later (median 14 ms); the shortest are quicker than the screen was redrawn (every 16.7 ms), so some of those changes were not the character. In the second round, on 20 of 80 key presses the harness confirmed the edit in the editor and saw the screen change, 0.5 ms to 248 ms later (median 7.2 ms); the shortest are quicker than the screen was redrawn (every 16.7 ms), so some of those changes were not the character. |
+| Typing one character | WordCraft | 50,000 words | not measured | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: the harness times typing to the typed character's own outline on the page, and this editor draws its text where the harness cannot read an outline, so it could not check which change of the screen was the character (issue #238); also the typed character was not found in the editor afterwards. In the first round, on 20 of 80 key presses the harness confirmed the edit in the editor and saw the screen change, 1.1 ms to 181 ms later (median 11 ms); the shortest are quicker than the screen was redrawn (every 16.7 ms), so some of those changes were not the character. In the second round, on 20 of 80 key presses the harness confirmed the edit in the editor and saw the screen change, 1.4 ms to 275 ms later (median 13 ms); the shortest are quicker than the screen was redrawn (every 16.7 ms), so some of those changes were not the character. |
+| Typing one character | WordCraft | 250,000 words | not measured | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: the harness times typing to the typed character's own outline on the page, and this editor draws its text where the harness cannot read an outline, so it could not check which change of the screen was the character (issue #238); also the typed character was not found in the editor afterwards. In the first round, on 20 of 80 key presses the harness confirmed the edit in the editor and saw the screen change, 1.2 ms to 299 ms later (median 7.8 ms); the shortest are quicker than the screen was redrawn (every 16.7 ms), so some of those changes were not the character. In the second round, on 20 of 80 key presses the harness confirmed the edit in the editor and saw the screen change, 1.0 ms to 452 ms later (median 7.0 ms); the shortest are quicker than the screen was redrawn (every 16.7 ms), so some of those changes were not the character. |
+| Clicking to place the caret | WordCraft | 250,000 words | 170 ms to 194 ms | The first round gave 170 ms (10 launches) and the second 194 ms (10 launches). They differ by more than the tolerance: the larger of 10 percent and one redraw of the screen (16.7 ms). |
+| Pasting a block of text | canvas-editor + plugin | 50,000 words | no figure | First round: 2 of 10 launches kept; 8 refused. Second round: 4 of 10 launches kept; 6 refused. The reason, both times: a check of the result failed; also the text the editor held did not match the document. |
+| Pasting a block of text | canvas-editor + plugin | 250,000 words | no figure | First round: 2 of 10 launches kept; 8 refused: 1, the editor's page crashed; also no redraw of the screen was seen after the action in the time allowed; 7, no redraw of the screen was seen after the action in the time allowed. Second round: 2 of 10 launches kept; 8 refused: no redraw of the screen was seen after the action in the time allowed. |
+| Pasting a block of text | Plate.js | 50,000 words | 129 ms to 152 ms | The first round gave 152 ms (10 launches) and the second 129 ms (10 launches). They differ by more than the tolerance: the larger of 10 percent and one redraw of the screen (16.7 ms). |
+| Pasting a block of text | SuperDoc | 250,000 words | no figure | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: no redraw of the screen was seen after the action in the time allowed. |
+| Undoing | canvas-editor + plugin | 50,000 words | 156 ms to 183 ms | The first round gave 183 ms (10 launches) and the second 156 ms (10 launches). They differ by more than the tolerance: the larger of 10 percent and one redraw of the screen (16.7 ms). |
+| Scrolling | WordCraft | 500 words | 130 ms to 195 ms | The first round gave 130 ms (10 launches) and the second 195 ms (9 launches). They differ by more than the tolerance: the larger of 10 percent and one redraw of the screen (16.7 ms). |
+| Scrolling | WordCraft | 50,000 words | under 17 ms to 131 ms | The first round gave 131 ms (10 launches) and the second under 17 ms (10 launches). They differ by more than the tolerance: the larger of 10 percent and one redraw of the screen (16.7 ms). |
+| Memory with the document open | canvas-editor + plugin | 250,000 words | crashed | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: the editor's page crashed. |

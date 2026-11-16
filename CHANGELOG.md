@@ -9,6 +9,87 @@ re-running the measurement behind it. The format follows
 
 ## [Unreleased]
 
+## [0.10.3] - 2026-11-16
+
+Report E2's four busy-host jobs are measured again on a quiet host, and its
+results tables stop printing three labels that hid what was measured:
+"varied", "does not apply" for a refusal of our own tooling, and "under 1
+frame".
+
+### Updated
+
+- No editor pin moved, for the reason given under 0.10.1: the four jobs are
+  measured again at the pins of 0.10.0, so that the only thing that changed
+  between a job and the job it replaces is the load on the host.
+
+### Measured
+
+- **Four warm and cold load jobs, every editor, on a quiet host** (#228).
+  Jobs 4 and 5 (50,000 words, first seed) and jobs 83 (5,000 words) and 86
+  (250,000 words, second seed) first ran while the host's one-minute load
+  was above the bound the harness holds a quiet machine to for most of
+  their launches. They ran again behind the host-load guard of 0.10.2's
+  harness (`71162e7d`): 180 launches, none waited, none started above the
+  bound. `perf/container/e2_publication.json` records them as a host round
+  (`host_superseded`, `host_rerun`); the tables read the four new jobs and
+  no earlier measurement of them.
+- **What changed.** Report E2 counts 739 of its 1,061 cells as reproduced
+  between the two seeds, where it counted 693. 47 cells that had not
+  reproduced now do, most of them at 50,000 words, where the whole first
+  seed was measured again; one went the other way (eigenpal's cold load at
+  5,000 words). A cell reproduces when a seed measured on the quiet host
+  agrees with the other seed, measured days earlier on another Space; that
+  agreement is the reproduction of each changed cell.
+- The re-measured rounds read lower than the ones they replace, by up to a
+  third on the smallest typing figures. No cell that had no figure gained
+  one: GenOffice completed 3 of 5 launches at 250,000 words where it had
+  completed none, which is still too few for its typing cells there, and
+  SuperDoc's three failed launches at 50,000 words did not recur.
+- The results tables now hold 6 cells printed as a range, where the same
+  tables read from 0.10.2's runs would hold 13.
+- After the round, 64 of the lane's 980 launches began or ended above the
+  bound, where 221 of 1,000 had.
+
+### Changed
+
+- **"varied" is now the range the two rounds gave** (#239), for example
+  "56 ms to 77 ms". Both rounds had a figure in every such cell.
+- **"under 1 frame" is now "under 17 ms"**: the screen was redrawn every
+  16.7 ms, and the harness cannot time an answer shorter than one redraw.
+- **"does not apply" is kept for what truly does not apply**: an editor
+  with nothing deferred to measure, or without the feature. Where our
+  tooling refused its own sample the cell says "not measured". Typing in
+  canvas-editor, Docen and WordCraft is the case that prompted this: the
+  harness checks a typed character against the outline of its glyph, those
+  editors draw text where it cannot read one, and the 12 cells had printed
+  "does not apply".
+- The full tables print the reason recorded with each refused cell beside
+  the refusal code.
+
+### Added
+
+- **Appendix J**: one row for every results cell that is not a single
+  figure, with what each round gave and why. For the typing cells that were
+  not measured it prints the times the harness recorded for the first
+  change on screen after each key press, as evidence and not as a figure.
+- **Host load, launch by launch**, in the machine appendix: for each job
+  the load at each launch and how many launches were above the bound.
+- The release gate's independent check of the results tables fails on a
+  bare "varied", on "does not apply" for a refusal of the tooling, on
+  "under 1 frame", and on an Appendix J row that does not match the data.
+- The roots builder knows a host round: a few jobs measured again for
+  every editor because of the host, not the harness, so the rest of the
+  lane stays as measured.
+
+### Not re-measured
+
+- Everything but those four jobs. The other jobs in which a quarter or
+  more of the launches were above the bound are named in the report's
+  host-load table and stay as measured.
+- Typing in canvas-editor, Docen and WordCraft is still not measured
+  (#238): it needs a witness read from the screen's pixels and a new run.
+
+
 ## [0.10.2] - 2026-11-15
 
 Report E2's settling column becomes a rate. No measurement was taken for

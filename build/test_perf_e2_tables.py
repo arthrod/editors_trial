@@ -211,6 +211,28 @@ class ReportE2Facts(unittest.TestCase):
         self.assertNotIn("range", table)
         self.assertNotIn("not reproduced", table)
 
+    def test_a_refused_cell_prints_the_reason_its_launches_recorded(self):
+        """#239: "reasons not_applicable: 10" does not say whether there was nothing to measure or the harness could not."""
+        reason = "no paragraph geometry to attribute a C12 y-shift: this host paints whole pages"
+        primary, repro = self._pair(
+            {"run_id": "a", "seed": 1, "editors": ["plate"]},
+            {"run_id": "b", "seed": 2, "editors": ["plate"]},
+            lambda root: [_write_trial(root, i, "plate", "C07", outcome="not_applicable", refusal_code="not_applicable",
+                                       failure_reason=reason, samples=[]) for i in range(10)],
+        )
+        table = E2.facts_from_runs(primary, repro)["perf.e2.table.C07"]
+        self.assertIn("reasons not_applicable: 10", table)
+        self.assertIn("Recorded reason: " + reason, table)
+        self.assertEqual(table.count("Recorded reason"), 1)
+
+    def test_a_cell_with_a_figure_prints_no_recorded_reason(self):
+        primary, repro = self._pair(
+            {"run_id": "a", "seed": 1, "editors": ["plate"]},
+            {"run_id": "b", "seed": 2, "editors": ["plate"]},
+            lambda root: [_write_trial(root, i, "plate", "C07", outcome="measured", samples=[20.0]) for i in range(10)],
+        )
+        self.assertNotIn("Recorded reason", E2.facts_from_runs(primary, repro)["perf.e2.table.C07"])
+
     def test_non_reproducing_pair_shows_both_medians(self):
         primary = _write_run(self.base / "primary", run_id="a", seed=1, editors=["plate"])
         repro = _write_run(self.base / "repro", run_id="b", seed=2, editors=["plate"])
@@ -224,6 +246,11 @@ class ReportE2Facts(unittest.TestCase):
         self.assertIn("50.0 ms", table)
         self.assertIn("Plate.js", facts["perf.e2.not_reproduced"])
         self.assertIn("50.0 ms", facts["perf.e2.not_reproduced"])
+        # #239: both rounds' medians are kept, so the results table can print them as a range.
+        (key,) = [k for k in facts if k.startswith("perf.e2.plate.C07") and k.endswith(".rounds")]
+        self.assertEqual(facts[key], {"first": {"median": 20.0, "n": 10, "frame_interval_ms": 16.7},
+                                      "second": {"median": 50.0, "n": 10, "frame_interval_ms": 16.7},
+                                      "frame_interval_ms": 16.7, "rel_tol": E2.REL_TOL, "sample_unit": "ms"})
 
     def test_sub_frame_median_bucket(self):
         def fill(root):
@@ -1283,3 +1310,67 @@ def test_reruns_text_second_round_only_under_a_lane_round():
 def test_host_load_note_counts_missing_readings(fs):
     rows = [{"cpu_accounting": {"before": {"loadavg": [3.0, 1, 1]}}}, {}]
     assert E2._load_text(rows).endswith("3.0 to 3.0, median 3.0 (3 of 4 readings not recorded)")
+
+
+# #228: the report names the jobs whose samples were taken on a busy host.
+
+def test_the_campaign_facts_carry_the_host_load_section(fs):
+    facts = E2.facts_from_roots(_campaign_farm(Path("/farm")))
+    assert isinstance(facts["perf.e2.host_load"], str) and facts["perf.e2.host_load"]
+    assert facts["perf.e2.host_load.jobs_named"] == 0
+
+
+def test_the_unmeasured_and_legacy_facts_have_the_host_load_placeholder():
+    assert E2.unset_facts()["perf.e2.host_load"] == "not yet measured"
+
+
+def test_report_e2_prints_the_host_load_section_in_the_machine_appendix():
+    template = (ROOT / "templates/reports/Report E2 - Speed in the Browser (2026).md").read_text()
+    machine = template[template.index("## Appendix B"):template.index("## Appendix C")]
+    assert "{{perf.e2.host_load}}" in machine
+    assert "No sample was refused for it" in machine
+
+
+# #228: a host round measured a few jobs again on a quiet host; the re-run bullet says so.
+
+def test_the_rerun_text_tells_a_host_round():
+    text = E2.reruns_text({'first_pass_superseded': 32, 'rerun_kept': 32, 'missing_runs': [],
+                           'host_superseded': 6, 'host_rerun_kept': 4, 'host_rerun_unsealed': 0,
+                           'host_rounds': [{'issue': '228', 'lane': 'benchmark_warm_cold', 'jobs': 4, 'kept': 4}]})
+    assert ('In a host round, 4 jobs of the warm and cold load lane were measured again for every editor '
+            '(issue #228)') in text
+    assert 'above the bound the harness holds a quiet machine to' in text
+    assert 'The tables read those 4 jobs; every earlier measurement of them is replaced' in text
+    assert 'the other jobs of the lane stay as measured' in text
+
+
+def test_a_host_round_of_an_issue_without_a_written_reason_claims_nothing_about_the_host():
+    text = E2.reruns_text({'first_pass_superseded': 32, 'rerun_kept': 32, 'missing_runs': [],
+                           'host_superseded': 2, 'host_rerun_kept': 1, 'host_rerun_unsealed': 0,
+                           'host_rounds': [{'issue': '999', 'lane': 'benchmark_document', 'jobs': 1, 'kept': 1}]})
+    assert 'In a host round, 1 job of the document lane was measured again for every editor (issue #999)' in text
+    assert 'above the bound' not in text and 'quiet' not in text
+    assert 'The tables read that job;' in text
+
+
+def test_two_host_rounds_each_state_their_own_kept_jobs():
+    text = E2.reruns_text({'first_pass_superseded': 32, 'rerun_kept': 32, 'missing_runs': [],
+                           'host_superseded': 8, 'host_rerun_kept': 5, 'host_rerun_unsealed': 1,
+                           'host_rounds': [{'issue': '228', 'lane': 'benchmark_warm_cold', 'jobs': 4, 'kept': 4},
+                                           {'issue': '999', 'lane': 'benchmark_document', 'jobs': 2, 'kept': 1}]})
+    assert 'The tables read those 4 jobs;' in text
+    assert 'The tables read 1 of those 2 jobs;' in text
+    assert '1 re-run job was not sealed and is left out.' in text
+
+
+def test_an_unsealed_host_round_job_is_counted_as_left_out():
+    text = E2.reruns_text({'first_pass_superseded': 32, 'rerun_kept': 32, 'missing_runs': [],
+                           'host_superseded': 5, 'host_rerun_kept': 3, 'host_rerun_unsealed': 1,
+                           'host_rounds': [{'issue': '228', 'lane': 'benchmark_warm_cold', 'jobs': 4, 'kept': 3}]})
+    assert 'The tables read 3 of those 4 jobs;' in text
+    assert '1 re-run job was not sealed and is left out.' in text
+
+
+def test_without_a_host_round_the_rerun_text_does_not_mention_one():
+    text = E2.reruns_text({'first_pass_superseded': 32, 'rerun_kept': 32, 'missing_runs': []})
+    assert 'host round' not in text

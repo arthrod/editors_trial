@@ -56,7 +56,7 @@ def test_a_cell_without_a_figure_says_why_in_one_word():
     _put(facts, 'folio', 'C11', 'prose-50kw', 0, reason=not_applicable)
     _put(facts, 'folio', 'C11', 'prose-500kw', 0, reason='first: not enough samples (n = 2 of 10; reasons unverified: 8)')
     text = summary.short_version(facts, ['docen', 'folio', 'plate'], DISPLAY)
-    assert '| Folio | 800 ms | crashed | does not apply | 4.7 s | no figure |' in text
+    assert '| Folio | 800 ms | crashed | not measured | 4.7 s | no figure |' in text
     assert '| Docen | 1.1 s | — | — | varied | — |' in text
 
 
@@ -72,7 +72,7 @@ def test_times_under_one_frame_and_memory_are_formatted_for_a_reader():
     _put(facts, 'plate', 'C17', 'prose-250kw', 2060 * 2 ** 20, measure='quiescent', unit='bytes')
     _put(facts, 'plate', 'C11', 'prose-500kw', 285466)
     text = summary.short_version(facts, ['plate'], DISPLAY)
-    assert '| Plate.js | under 1 frame |' in text
+    assert '| Plate.js | under 17 ms |' in text
     assert '| Plate.js | 600 MiB | — | — | 2.0 GiB |' in text
     assert '| 285 s |' in text
 
@@ -122,7 +122,7 @@ def test_a_column_whose_figures_all_read_the_same_says_so():
         _put(facts, editor, 'C10', 'prose-500w', 12.0)
         _put(facts, editor, 'C10', 'prose-250kw', 12.0 if editor == 'plate' else 60.0)
     text = summary.short_version(facts, ['folio', 'plate'], DISPLAY)
-    assert 'At 500 words, 2 of 2 editors have a figure, all under 1 frame; at 250,000 words, 2 of 2, from under 1 frame to 60 ms.' in text
+    assert 'At 500 words, 2 of 2 editors have a figure, all under 17 ms; at 250,000 words, 2 of 2, from under 17 ms to 60 ms.' in text
 
 
 def test_under_one_frame_needs_both_seeds_under_it():
@@ -131,22 +131,22 @@ def test_under_one_frame_needs_both_seeds_under_it():
     _put(facts, 'plate', 'C10', 'prose-500w', 14.0, 18.0)
     _put(facts, 'plate', 'C10', 'prose-5kw', 14.0, 15.0)
     text = summary.short_version(facts, ['plate'], DISPLAY)
-    assert '| Plate.js | 16 ms | under 1 frame |' in text
+    assert '| Plate.js | 16 ms | under 17 ms |' in text
 
 
 # --- CodeRabbit on #229 ---
 
 def test_the_range_sentence_says_all_only_when_every_printed_cell_reads_the_same():
-    """A 15 ms cell printed as a time (one seed over a frame) beside cells under a frame is not 'all under 1 frame'."""
+    """A 15 ms cell printed as a time (one seed over a frame) beside cells under a frame is not 'all under 17 ms'."""
     facts = {}
     _put(facts, 'docen', 'C10', 'prose-500w', 8.0, 9.0)
     _put(facts, 'folio', 'C10', 'prose-500w', 12.0, 18.0)   # middle 15 ms, second seed over a frame
     _put(facts, 'plate', 'C10', 'prose-500w', 16.0, 16.4)   # the highest value, and under a frame in both
     text = summary.short_version(facts, ['docen', 'folio', 'plate'], DISPLAY)
     assert '| Folio | 15 ms |' in text
-    assert '| Plate.js | under 1 frame |' in text
-    assert 'all under 1 frame' not in text
-    assert 'At 500 words, 3 of 3 editors have a figure, from under 1 frame to 15 ms.' in text
+    assert '| Plate.js | under 17 ms |' in text
+    assert 'all under 17 ms' not in text
+    assert 'At 500 words, 3 of 3 editors have a figure, from under 17 ms to 15 ms.' in text
 
 
 def test_under_one_frame_compares_each_seed_with_its_own_frame():
@@ -189,3 +189,275 @@ def test_an_opening_whose_text_was_not_checked_says_so_and_stays_out_of_the_rang
     text = summary.short_version(facts, ['docen', 'folio', 'plate'], DISPLAY)
     assert '| Plate.js | 750 ms (text not checked) |' in text
     assert 'At 500 words, 2 of 3 editors have a figure, from 800 ms to 1.1 s' in text
+
+
+# #239: a cell without a single figure says what happened, and an appendix says why, cell by cell.
+
+GLYPH = 'no_glyph_geometry_to_witness_the_keystrokes_own_paint'
+
+
+def _refused(facts, editor, criterion, workload, rounds, *, measure=''):
+    """rounds: {'first': (kept, scheduled, {code: count}, {code: [reasons]}), ...}; a round left out kept enough."""
+    key = 'perf.e2.%s.%s' % (editor, criterion) + ('.' + measure if measure else '') + '.' + workload
+    parts = []
+    for name, slot in (('first', 'primary'), ('second', 'reproduction')):
+        kept, scheduled, codes, reasons = rounds.get(name, (10, 10, {}, {}))
+        facts[key + '.' + slot] = {'sample_unit': 'ms', 'scheduled': scheduled, 'refusals': codes, 'refusal_reasons': reasons,
+                                   'failed_launches': scheduled - kept}
+        if name in rounds:
+            parts.append('%s: not enough samples (n = %d of %d; reasons %s)' % (
+                name, kept, scheduled, '; '.join('%s: %d' % item for item in sorted(codes.items()))))
+    facts[key + '.reproduced'] = False
+    facts[key + '.reason'] = '; '.join(parts)
+
+
+def _varied(facts, editor, criterion, workload, first, second, *, measure='', unit='ms', frame=16.7):
+    key = 'perf.e2.%s.%s' % (editor, criterion) + ('.' + measure if measure else '') + '.' + workload
+    facts[key + '.reproduced'] = False
+    facts[key + '.reason'] = 'medians outside tolerance'
+    facts[key + '.rounds'] = {'first': {'median': first, 'n': 10}, 'second': {'median': second, 'n': 9},
+                              'frame_interval_ms': frame, 'rel_tol': 0.1, 'sample_unit': unit}
+
+
+def test_a_cell_whose_rounds_disagree_prints_both_rounds_as_a_range():
+    facts = _facts()
+    _varied(facts, 'docen', 'C11', 'prose-5kw', 81.2, 47.9)
+    text = summary.short_version(facts, ['docen', 'folio', 'plate'], DISPLAY)
+    assert '| Docen | 1.1 s | 48 ms to 81 ms | — | varied | — |' in text  # 250,000 words has no medians in the facts
+
+
+def test_a_range_is_not_counted_as_a_figure_in_the_line_under_the_table():
+    facts = _facts()
+    _varied(facts, 'docen', 'C11', 'prose-250kw', 9000, 30000)
+    text = summary.short_version(facts, ['docen', 'folio', 'plate'], DISPLAY)
+    assert '| Docen | 1.1 s | — | — | 9.0 s to 30.0 s | — |' in text
+    assert 'at 250,000 words, 2 of 3, from 4.7 s to 19.1 s.' in text
+
+
+def test_a_range_with_a_round_under_one_redraw_says_so():
+    facts = _facts()
+    _varied(facts, 'docen', 'C05', 'prose-500w', 9.0, 40.0, measure='warm_steady')
+    _put(facts, 'plate', 'C05', 'prose-500w', 30, measure='warm_steady')
+    text = summary.short_version(facts, ['docen', 'folio', 'plate'], DISPLAY)
+    assert '| Docen | under 17 ms to 40 ms | — | — | — |' in text
+
+
+def test_typing_refused_for_the_missing_witness_is_not_measured_and_never_does_not_apply():
+    facts = _facts()
+    _put(facts, 'plate', 'C05', 'prose-500w', 30, measure='warm_steady')
+    refused = (0, 10, {'not_applicable': 10}, {'not_applicable': [GLYPH]})
+    _refused(facts, 'docen', 'C05', 'prose-500w', {'first': refused, 'second': refused}, measure='warm_steady')
+    text = summary.short_version(facts, ['docen', 'folio', 'plate'], DISPLAY)
+    assert '| Docen | not measured | — | — | — |' in text
+    assert 'does not apply' not in text
+
+
+def test_does_not_apply_is_kept_for_a_refusal_that_really_is_one():
+    facts = _facts()
+    refused = (0, 10, {'not_applicable': 10}, {'not_applicable': ['no_deferred_work']})
+    _refused(facts, 'docen', 'C11', 'prose-5kw', {'first': refused, 'second': refused})
+    text = summary.short_version(facts, ['docen', 'folio', 'plate'], DISPLAY)
+    assert '| Docen | 1.1 s | does not apply | — | varied | — |' in text
+
+
+def _appendix_facts():
+    facts = _facts()
+    _put(facts, 'plate', 'C05', 'prose-500w', 30, measure='warm_steady')
+    refused = (0, 10, {'not_applicable': 10}, {'not_applicable': [GLYPH]})
+    _refused(facts, 'docen', 'C05', 'prose-500w', {'first': refused, 'second': refused}, measure='warm_steady')
+    _varied(facts, 'folio', 'C05', 'prose-500w', 46.0, 81.0, measure='warm_steady')
+    _refused(facts, 'plate', 'C05', 'prose-5kw', {'second': (1, 10, {'unverified': 9}, {'unverified': ['expected_edit_not_confirmed']})},
+             measure='warm_steady')
+    crash = (0, 10, {'editor_crash': 10}, {'editor_crash': ['page_lost: Error: page.evaluate: Target crashed']})
+    _refused(facts, 'folio', 'C17', 'prose-250kw', {'first': crash, 'second': crash}, measure='quiescent')
+    _put(facts, 'plate', 'C17', 'prose-250kw', 2 ** 30, measure='quiescent', unit='bytes')
+    return facts
+
+
+def test_the_appendix_has_one_row_for_every_results_cell_without_a_single_figure():
+    facts = _appendix_facts()
+    editors = ['docen', 'folio', 'plate']
+    summary.short_version(facts, editors, DISPLAY)
+    text, counts = summary.no_figure_appendix(facts, editors, DISPLAY)
+    rows = [line for line in text.splitlines() if line.startswith('| ') and not line.startswith('| Table')]
+    # Opening: Docen at 250,000 words (varied, no medians). Typing: Docen, Folio, Plate.js. Memory: Folio.
+    assert [row.split(' | ')[:4] for row in rows] == [
+        ['| Opening a document', 'Docen', '250,000 words', 'varied'],
+        ['| Typing one character', 'Docen', '500 words', 'not measured'],
+        ['| Typing one character', 'Folio', '500 words', '46 ms to 81 ms'],
+        ['| Typing one character', 'Plate.js', '5,000 words', 'no figure'],
+        ['| Memory with the document open', 'Folio', '250,000 words', 'crashed'],
+    ]
+    assert counts == {'perf.e2.no_figure.rows': 5, 'perf.e2.no_figure.ranges': 1, 'perf.e2.no_figure.varied': 1,
+                      'perf.e2.no_figure.not_measured': 1, 'perf.e2.no_figure.does_not_apply': 0,
+                      'perf.e2.no_figure.no_figure': 1, 'perf.e2.no_figure.crashed': 1}
+
+
+def test_the_appendix_says_why_from_the_facts():
+    facts = _appendix_facts()
+    editors = ['docen', 'folio', 'plate']
+    summary.short_version(facts, editors, DISPLAY)
+    text, _counts = summary.no_figure_appendix(facts, editors, DISPLAY)
+    why = {tuple(row.split(' | ')[:3]): row.split(' | ')[4].rstrip(' |') for row in text.splitlines()
+           if row.startswith('| ') and not row.startswith('| Table')}
+    ranged = why[('| Typing one character', 'Folio', '500 words')]
+    assert ranged == ('The first round gave 46 ms (10 launches) and the second 81 ms (9 launches). They differ by more than the '
+                      'tolerance: the larger of 10 percent and one redraw of the screen (16.7 ms).')
+    refused = why[('| Typing one character', 'Docen', '500 words')]
+    assert 'First round: 0 of 10 launches kept; 10 refused' in refused and 'Second round: 0 of 10 launches kept; 10 refused' in refused
+    assert "the typed character's own outline" in refused and 'could not check which change of the screen was the character' in refused
+    assert 'was confirmed' not in refused  # review: a refusal reason says nothing about whether the keystroke landed
+    partial = why[('| Typing one character', 'Plate.js', '5,000 words')]
+    assert partial.startswith('The first round kept enough launches. Second round: 1 of 10 launches kept; 9 refused')
+    assert 'the typed character was not found in the editor afterwards' in partial
+    assert "the editor's page crashed" in why[('| Memory with the document open', 'Folio', '250,000 words')]
+    assert 'no medians were recorded' in why[('| Opening a document', 'Docen', '250,000 words')]
+
+
+def test_a_recorded_reason_the_appendix_has_no_words_for_is_printed_as_recorded():
+    facts = _facts()
+    odd = (0, 10, {'strange': 10}, {'strange': ['a_reason_nobody_wrote_words_for']})
+    _refused(facts, 'docen', 'C11', 'prose-5kw', {'first': odd, 'second': odd})
+    editors = ['docen', 'folio', 'plate']
+    summary.short_version(facts, editors, DISPLAY)
+    text, _counts = summary.no_figure_appendix(facts, editors, DISPLAY)
+    assert 'recorded as `a_reason_nobody_wrote_words_for`' in text
+
+
+def test_every_reason_recorded_in_the_published_runs_has_words():
+    for reason in (GLYPH, 'document_content_unverifiable', 'expected_edit_not_confirmed', 'no_painted_frame',
+                   'correctness: fixture_body_mismatch', 'page_lost: Error: page.evaluate: Target crashed'):
+        assert summary.reason_words(reason) is not None, reason
+
+
+def test_no_appendix_row_when_every_cell_has_a_figure():
+    facts = {}
+    _put(facts, 'plate', 'C11', 'prose-500w', 740)
+    summary.short_version(facts, ['plate'], DISPLAY)
+    text, counts = summary.no_figure_appendix(facts, ['plate'], DISPLAY)
+    assert text == 'Every cell of the results tables has a single figure.' and counts['perf.e2.no_figure.rows'] == 0
+
+
+def test_the_appendix_gives_what_the_harness_saw_on_keystrokes_it_refused():
+    """The data is there: a refused typing cell says what was recorded, and why it is not printed as the time."""
+    facts = _facts()
+    _put(facts, 'plate', 'C05', 'prose-500w', 30, measure='warm_steady')
+    refused = (0, 10, {'not_applicable': 10}, {'not_applicable': [GLYPH]})
+    _refused(facts, 'docen', 'C05', 'prose-500w', {'first': refused, 'second': refused}, measure='warm_steady')
+    _refused(facts, 'folio', 'C05', 'prose-500w', {'first': refused, 'second': refused}, measure='warm_steady')
+    base = 'perf.e2.docen.C05.warm_steady.prose-500w'
+    facts[base + '.primary']['unwitnessed'] = {'keystrokes': 80, 'timed': 80, 'min_ms': 16.8, 'median_ms': 26.1, 'max_ms': 48.6,
+                                               'min_changed_pixels': 102, 'frame_interval_ms': 16.7}
+    facts[base + '.reproduction']['unwitnessed'] = {'keystrokes': 80, 'timed': 78, 'min_ms': 0.6, 'median_ms': 36.3,
+                                                    'max_ms': 66.7, 'min_changed_pixels': 24, 'frame_interval_ms': 16.7}
+    editors = ['docen', 'folio', 'plate']
+    results = summary.short_version(facts, editors, DISPLAY)
+    # Evidence, never a figure: the recorded times stay out of the results table.
+    assert '| Docen | not measured | — | — | — |' in results and '26 ms' not in results
+    text, _counts = summary.no_figure_appendix(facts, editors, DISPLAY)
+    row = next(line for line in text.splitlines() if line.startswith('| Typing one character | Docen | 500 words'))
+    assert ('First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. '
+            'The reason, both times: the harness times typing') in row
+    assert row.count("the typed character's own outline") == 1  # said once, not once per round
+    assert ('In the first round, on 80 of 80 key presses the harness confirmed the edit in the editor and saw the screen '
+            'change, 17 ms to 49 ms later (median 26 ms).') in row
+    assert ('In the second round, on 78 of 80 key presses the harness confirmed the edit in the editor and saw the screen '
+            'change, 0.6 ms to 67 ms later (median 36 ms); the shortest are quicker than the screen was redrawn (every 16.7 ms), '
+            'so some of those changes were not the character.') in row
+    other = next(line for line in text.splitlines() if line.startswith('| Typing one character | Folio | 500 words'))
+    assert 'key presses' not in other
+
+
+def test_nothing_is_said_about_too_quick_a_change_when_no_redraw_interval_was_recorded():
+    facts = _facts()
+    _put(facts, 'plate', 'C05', 'prose-500w', 30, measure='warm_steady')
+    refused = (0, 10, {'not_applicable': 10}, {'not_applicable': [GLYPH]})
+    _refused(facts, 'docen', 'C05', 'prose-500w', {'first': refused, 'second': refused}, measure='warm_steady')
+    for slot in ('primary', 'reproduction'):
+        facts['perf.e2.docen.C05.warm_steady.prose-500w.' + slot]['unwitnessed'] = {
+            'keystrokes': 8, 'timed': 8, 'min_ms': 0.6, 'median_ms': 20.0, 'max_ms': 40.0, 'min_changed_pixels': 24,
+            'frame_interval_ms': None}
+    editors = ['docen', 'folio', 'plate']
+    summary.short_version(facts, editors, DISPLAY)
+    text, _counts = summary.no_figure_appendix(facts, editors, DISPLAY)
+    assert 'quicker than the screen' not in text and '(median 20 ms).' in text
+
+
+def test_a_column_of_cells_under_redraws_of_different_lengths_gives_both_bounds():
+    """Review (octo): two screens with different redraw intervals print different bounds; neither may be dropped."""
+    facts = {}
+    for editor, frame in (('plate', 16.7), ('folio', 6.9)):
+        key = 'perf.e2.%s.C10.prose-500w' % editor
+        facts[key + '.reproduced'] = True
+        facts[key + '.primary'] = facts[key + '.reproduction'] = _cell(3.0, frame=frame)
+    text = summary.short_version(facts, ['folio', 'plate'], DISPLAY)
+    assert '| Folio | under 7 ms |' in text and '| Plate.js | under 17 ms |' in text
+    assert 'At 500 words, 2 of 2 editors have a figure, from under 7 ms to under 17 ms.' in text
+
+
+def test_a_launch_that_recorded_two_reasons_in_one_string_has_words_for_each():
+    """The published WordCraft launches record "no_glyph...; expected_edit_not_confirmed" as one reason."""
+    facts = _facts()
+    _put(facts, 'plate', 'C05', 'prose-500w', 30, measure='warm_steady')
+    both = (0, 10, {'not_applicable': 10}, {'not_applicable': [GLYPH, GLYPH + '; expected_edit_not_confirmed']})
+    _refused(facts, 'docen', 'C05', 'prose-500w', {'first': both, 'second': both}, measure='warm_steady')
+    editors = ['docen', 'folio', 'plate']
+    summary.short_version(facts, editors, DISPLAY)
+    text, _counts = summary.no_figure_appendix(facts, editors, DISPLAY)
+    assert 'recorded as' not in text
+    assert text.count("the typed character's own outline") == 1
+    assert 'also the typed character was not found in the editor afterwards' in text
+
+
+def test_two_recorded_reasons_with_the_same_words_are_said_once():
+    facts = _facts()
+    crash = (0, 10, {'crash': 10}, {'crash': ['page_lost: Error: page.evaluate: Target crashed',
+                                              'page_lost: Error: keyboard.press: Target crashed']})
+    _refused(facts, 'docen', 'C11', 'prose-5kw', {'first': crash, 'second': crash})
+    editors = ['docen', 'folio', 'plate']
+    summary.short_version(facts, editors, DISPLAY)
+    text, _counts = summary.no_figure_appendix(facts, editors, DISPLAY)
+    assert text.count("the editor's page crashed") == 1
+
+
+# CodeRabbit on #240.
+
+def test_the_code_a_launch_was_refused_under_is_said_before_anything_else_it_recorded():
+    """One crashed launch also recorded that it saw no frame; seven saw no frame. The crash is said for the one."""
+    facts = _facts()
+    _put(facts, 'plate', 'C05', 'prose-500w', 30, measure='warm_steady')
+    first = (2, 10, {'crash': 1, 'paint_witness_unavailable': 7},
+             {'crash': ['no_painted_frame; page_lost: Error: page.evaluate: Target crashed'],
+              'paint_witness_unavailable': ['no_painted_frame']})
+    _refused(facts, 'docen', 'C05', 'prose-500w', {'first': first}, measure='warm_steady')
+    summary.short_version(facts, ['docen', 'plate'], DISPLAY)
+    text, _counts = summary.no_figure_appendix(facts, ['docen', 'plate'], DISPLAY)
+    assert ("8 refused: 1, the editor's page crashed; also no redraw of the screen was seen after the action in the "
+            'time allowed; 7, no redraw of the screen was seen after the action in the time allowed.') in text
+
+
+def test_the_appendix_has_no_row_for_a_table_the_results_leave_out():
+    """A table with no figure at all is not printed; its cells are then not results cells."""
+    facts = _facts()  # opening has figures
+    refused = (0, 10, {'not_applicable': 10}, {'not_applicable': [GLYPH]})
+    _refused(facts, 'docen', 'C05', 'prose-500w', {'first': refused, 'second': refused}, measure='warm_steady')
+    editors = ['docen', 'folio', 'plate']
+    assert '### Typing one character' not in summary.short_version(facts, editors, DISPLAY)
+    text, counts = summary.no_figure_appendix(facts, editors, DISPLAY)
+    assert 'Typing one character' not in text
+    assert counts['perf.e2.no_figure.not_measured'] == 0
+
+
+def test_each_round_of_a_range_is_compared_with_its_own_redraw_interval():
+    """10 ms against a 6.9 ms redraw is a time; only a round under its own redraw says "under"."""
+    facts = _facts()
+    _put(facts, 'plate', 'C05', 'prose-500w', 30, measure='warm_steady')
+    _varied(facts, 'docen', 'C05', 'prose-500w', 10.0, 40.0, measure='warm_steady')
+    rounds = facts['perf.e2.docen.C05.warm_steady.prose-500w.rounds']
+    rounds['first']['frame_interval_ms'], rounds['second']['frame_interval_ms'] = 6.9, 16.7
+    text = summary.short_version(facts, ['docen', 'plate'], DISPLAY)
+    assert '| Docen | 10 ms to 40 ms | — | — | — |' in text
+    appendix, _counts = summary.no_figure_appendix(facts, ['docen', 'plate'], DISPLAY)
+    assert 'The first round gave 10 ms (10 launches) and the second 40 ms (9 launches).' in appendix
+    rounds['first']['frame_interval_ms'] = 16.7
+    assert '| Docen | under 17 ms to 40 ms | — | — | — |' in summary.short_version(facts, ['docen', 'plate'], DISPLAY)
