@@ -1651,3 +1651,20 @@ def test_each_host_round_counts_its_own_kept_jobs(tmp_path):
     assert run_roots(data, roots_dir, write_manifest(tmp_path, host_manifest())) == 0
     campaign = json.loads((roots_dir / "report_e2_runs.json").read_text())["campaign"]
     assert campaign["host_rounds"] == [{"issue": "228", "lane": "benchmark_document", "jobs": 1, "kept": 1}]
+
+
+def test_a_host_round_launched_before_the_first_pass_is_refused(tmp_path, capsys):
+    # CodeRabbit on #240: the first pass is a measurement the host round replaces, so it must be older too.
+    def change(manifest):
+        manifest["host_rerun"]["space-a"][0]["run_id"] = RID_BEFORE_ALL
+    data, _ = host_data(tmp_path)
+    (data / "space-a" / "runs" / RID_HOST).rename(data / "space-a" / "runs" / RID_BEFORE_ALL)
+    job_dir = data / "space-a" / "runs" / RID_BEFORE_ALL / "benchmark_document"
+    (job_dir / f"{RID_HOST}-004").rename(job_dir / f"{RID_BEFORE_ALL}-004")
+    manifest = host_manifest()
+    change(manifest)
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+    assert "first_pass run" in capsys.readouterr().err
+
+
+RID_BEFORE_ALL = "20261101T030000000000Z-80000-000033"

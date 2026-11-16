@@ -248,7 +248,8 @@ class ReportE2Facts(unittest.TestCase):
         self.assertIn("50.0 ms", facts["perf.e2.not_reproduced"])
         # #239: both rounds' medians are kept, so the results table can print them as a range.
         (key,) = [k for k in facts if k.startswith("perf.e2.plate.C07") and k.endswith(".rounds")]
-        self.assertEqual(facts[key], {"first": {"median": 20.0, "n": 10}, "second": {"median": 50.0, "n": 10},
+        self.assertEqual(facts[key], {"first": {"median": 20.0, "n": 10, "frame_interval_ms": 16.7},
+                                      "second": {"median": 50.0, "n": 10, "frame_interval_ms": 16.7},
                                       "frame_interval_ms": 16.7, "rel_tol": E2.REL_TOL, "sample_unit": "ms"})
 
     def test_sub_frame_median_bucket(self):

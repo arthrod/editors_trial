@@ -138,3 +138,21 @@ def test_the_template_does_not_say_the_machine_caused_a_disagreement():
     template = (Path(hl.__file__).resolve().parents[1] / 'templates/reports/Report E2 - Speed in the Browser (2026).md').read_text()
     assert 'likelier cause' not in template
     assert 'the load is one possible reason, and the report cannot tell it from the editor' in template
+
+
+# CodeRabbit on #240: the same job discovery as the tables, so no layout the tables read is left out.
+
+def test_a_root_that_is_itself_a_job_is_read(tmp_path):
+    job = _job(tmp_path / 'e2-apryse--rid', 'benchmark_warm_cold', 'r-004', [(50.0, 60.0), (10.0, 12.0)])
+    (row,) = hl.job_rows([job])
+    assert (row['space'], row['lane'], row['job'], row['samples'], row['above']) == (
+        'e2-apryse', 'benchmark_warm_cold', 'r-004', 2, 1)
+
+
+def test_a_space_folder_with_its_runs_underneath_is_read(tmp_path):
+    space = tmp_path / 'e2-docen'
+    _job(space / 'runs' / 'rid1', 'benchmark_input', 'rid1-022', [(30.0, 30.0)])
+    _job(space / 'runs' / 'rid2', 'benchmark_memory', 'rid2-050', [(1.0, 1.0)])
+    rows = hl.job_rows([space])
+    assert [(row['space'], row['lane'], row['job'], row['above']) for row in rows] == [
+        ('e2-docen', 'benchmark_input', 'rid1-022', 1), ('e2-docen', 'benchmark_memory', 'rid2-050', 0)]

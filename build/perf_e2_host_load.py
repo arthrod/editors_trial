@@ -77,10 +77,13 @@ def _editors(summary: dict) -> list[str]:
 
 def job_rows(roots) -> list[dict]:
     """One row per job directory of the run folders that has sample rows."""
+    from perf.analysis import e2_cells  # the tables' own job discovery (CodeRabbit, #240)
     out = []
     for root in sorted(Path(root) for root in roots):
-        for samples in sorted(root.glob('*/*/samples')):
-            job = samples.parent
+        for job in sorted(e2_cells._job_roots(root)):
+            samples = job / 'samples'
+            # A root is a run folder "<space>--<run id>", a Space folder with runs/ underneath, or one job.
+            holder = job.parent.parent if job == root else root
             try:
                 summary = json.loads((job / 'summary.json').read_text())
             except (OSError, ValueError):
@@ -106,7 +109,7 @@ def job_rows(roots) -> list[dict]:
             if not count and not unread:
                 continue
             block = summary.get('block') if isinstance(summary.get('block'), dict) else {}
-            out.append({'space': root.name.split('--')[0], 'lane': job.parent.name, 'job': job.name,
+            out.append({'space': holder.name.split('--')[0], 'lane': job.parent.name, 'job': job.name,
                         'seed': summary.get('seed'), 'block': block.get('index'), 'workload': _workload(summary, job),
                         'editors': _editors(summary), 'samples': count, 'above': above, 'unread': unread, 'highest': highest, 'bound': bound})
     return out

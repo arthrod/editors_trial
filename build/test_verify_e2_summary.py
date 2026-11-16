@@ -236,3 +236,33 @@ At 500 words, 2 of 2 editors have a figure, from under 7 ms to under 17 ms.
     assert verify.check(report, facts, DISPLAY) == []
     wrong = report.replace('from under 7 ms to under 17 ms', 'all under 7 ms')
     assert any('range sentence' in p for p in verify.check(wrong, facts, DISPLAY))
+
+
+# CodeRabbit on #240.
+
+def test_the_why_of_a_range_must_give_each_figure_to_its_own_round():
+    swapped = LABELLED.replace('The first round gave 46 ms (10 launches) and the second 81 ms (9 launches).',
+                               'The first round gave 81 ms (9 launches) and the second 46 ms (10 launches).')
+    problems = verify.check(swapped, _labelled_facts(), DISPLAY)
+    assert any('Appendix J' in p and 'first round gave 46 ms (10 launches)' in p for p in problems), problems
+
+
+def test_two_appendix_rows_for_one_cell_are_named():
+    row = '| Typing one character | Folio | 500 words | 46 ms to 81 ms |'
+    line = next(line for line in LABELLED.split('\n') if line.startswith(row))
+    doubled = LABELLED.replace(line, line.replace('46 ms (10 launches)', '99 ms (10 launches)') + '\n' + line)
+    problems = verify.check(doubled, _labelled_facts(), DISPLAY)
+    assert any('Appendix J' in p and 'two rows' in p for p in problems), problems
+
+
+def test_each_round_of_a_range_is_checked_against_its_own_redraw_interval():
+    facts = _labelled_facts()
+    rounds = facts['perf.e2.folio.C05.warm_steady.prose-500w.rounds']
+    rounds['first'].update(median=10.0, frame_interval_ms=6.9)
+    rounds['second'].update(median=40.0, frame_interval_ms=16.7)
+    right = LABELLED.replace('46 ms to 81 ms', '10 ms to 40 ms').replace(
+        'The first round gave 46 ms (10 launches) and the second 81 ms (9 launches).',
+        'The first round gave 10 ms (10 launches) and the second 40 ms (9 launches).')
+    assert verify.check(right, facts, DISPLAY) == []
+    wrong = right.replace('10 ms to 40 ms', 'under 17 ms to 40 ms')
+    assert any("'10 ms to 40 ms'" in p for p in verify.check(wrong, facts, DISPLAY))

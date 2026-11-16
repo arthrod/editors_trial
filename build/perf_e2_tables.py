@@ -341,8 +341,9 @@ def _cell_text(facts: dict, roots, editor: str, criterion: str, measure: str = '
         facts[key + '.reason'] = 'medians outside tolerance'
         # #239: the two rounds' own figures, so a reader is shown both and not the word "varied".
         facts[key + '.rounds'] = {
-            'first': {'median': p_med, 'n': p_cell['stats']['n']},
-            'second': {'median': r_med, 'n': r_cell['stats']['n']},
+            # Each round beside its own redraw interval (CodeRabbit, #240); the larger is the tolerance's.
+            'first': {'median': p_med, 'n': p_cell['stats']['n'], 'frame_interval_ms': p_cell.get('frame_interval_ms') or None},
+            'second': {'median': r_med, 'n': r_cell['stats']['n'], 'frame_interval_ms': r_cell.get('frame_interval_ms') or None},
             'frame_interval_ms': frame or None, 'rel_tol': REL_TOL, 'sample_unit': p_cell.get('sample_unit') or 'ms',
         }
         first = _format_median(p_cell, p_med)

@@ -418,3 +418,46 @@ def test_two_recorded_reasons_with_the_same_words_are_said_once():
     summary.short_version(facts, editors, DISPLAY)
     text, _counts = summary.no_figure_appendix(facts, editors, DISPLAY)
     assert text.count("the editor's page crashed") == 1
+
+
+# CodeRabbit on #240.
+
+def test_the_code_a_launch_was_refused_under_is_said_before_anything_else_it_recorded():
+    """One crashed launch also recorded that it saw no frame; seven saw no frame. The crash is said for the one."""
+    facts = _facts()
+    _put(facts, 'plate', 'C05', 'prose-500w', 30, measure='warm_steady')
+    first = (2, 10, {'crash': 1, 'paint_witness_unavailable': 7},
+             {'crash': ['no_painted_frame; page_lost: Error: page.evaluate: Target crashed'],
+              'paint_witness_unavailable': ['no_painted_frame']})
+    _refused(facts, 'docen', 'C05', 'prose-500w', {'first': first}, measure='warm_steady')
+    summary.short_version(facts, ['docen', 'plate'], DISPLAY)
+    text, _counts = summary.no_figure_appendix(facts, ['docen', 'plate'], DISPLAY)
+    assert ("8 refused: 1, the editor's page crashed; also no redraw of the screen was seen after the action in the "
+            'time allowed; 7, no redraw of the screen was seen after the action in the time allowed.') in text
+
+
+def test_the_appendix_has_no_row_for_a_table_the_results_leave_out():
+    """A table with no figure at all is not printed; its cells are then not results cells."""
+    facts = _facts()  # opening has figures
+    refused = (0, 10, {'not_applicable': 10}, {'not_applicable': [GLYPH]})
+    _refused(facts, 'docen', 'C05', 'prose-500w', {'first': refused, 'second': refused}, measure='warm_steady')
+    editors = ['docen', 'folio', 'plate']
+    assert '### Typing one character' not in summary.short_version(facts, editors, DISPLAY)
+    text, counts = summary.no_figure_appendix(facts, editors, DISPLAY)
+    assert 'Typing one character' not in text
+    assert counts['perf.e2.no_figure.not_measured'] == 0
+
+
+def test_each_round_of_a_range_is_compared_with_its_own_redraw_interval():
+    """10 ms against a 6.9 ms redraw is a time; only a round under its own redraw says "under"."""
+    facts = _facts()
+    _put(facts, 'plate', 'C05', 'prose-500w', 30, measure='warm_steady')
+    _varied(facts, 'docen', 'C05', 'prose-500w', 10.0, 40.0, measure='warm_steady')
+    rounds = facts['perf.e2.docen.C05.warm_steady.prose-500w.rounds']
+    rounds['first']['frame_interval_ms'], rounds['second']['frame_interval_ms'] = 6.9, 16.7
+    text = summary.short_version(facts, ['docen', 'plate'], DISPLAY)
+    assert '| Docen | 10 ms to 40 ms | — | — | — |' in text
+    appendix, _counts = summary.no_figure_appendix(facts, ['docen', 'plate'], DISPLAY)
+    assert 'The first round gave 10 ms (10 launches) and the second 40 ms (9 launches).' in appendix
+    rounds['first']['frame_interval_ms'] = 16.7
+    assert '| Docen | under 17 ms to 40 ms | — | — | — |' in summary.short_version(facts, ['docen', 'plate'], DISPLAY)

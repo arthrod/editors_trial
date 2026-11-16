@@ -1294,6 +1294,8 @@ def _build_cell_from_jobs(
     kept, raw, sub_frame, intervals = [], [], [], []
     refusals = Counter()
     reasons = defaultdict(set)
+    own_reasons = defaultdict(list)
+    sibling_reasons = defaultdict(list)
     unwitnessed = []
     sample_unit = 'bytes' if criterion_id in ('C17', 'C19') else 'ms'
     failed_launches = set()
@@ -1315,9 +1317,15 @@ def _build_cell_from_jobs(
                 continue
             code = refusal_code(trial)
             if code and trial['criterion_id'] == criterion_id:
-                _note_reason(reasons, code, trial)
-                if trial.get('failure_reason') == NO_GLYPH_GEOMETRY_REASON:
-                    unwitnessed.extend(_unwitnessed_rows(trial))
+                # A reason and its evidence belong to the measure they were recorded at (CodeRabbit, #240).
+                # A measure with no row of its own in a launch takes its sibling's reason (below), never
+                # its times: those were taken at the other cache state.
+                if trial_measure(trial) == measure:
+                    own_reasons[launch].append((code, trial))
+                    if trial.get('failure_reason') == NO_GLYPH_GEOMETRY_REASON:
+                        unwitnessed.extend(_unwitnessed_rows(trial))
+                elif {measure, trial_measure(trial)} <= _CACHE_STATE_MEASURES:
+                    sibling_reasons[launch].append((code, trial))
             if code in _RUN_REFUSALS:
                 if refused_launches.get(launch) == 'unreadable_trial':
                     additional[launch].add(code)
@@ -1334,6 +1342,9 @@ def _build_cell_from_jobs(
                 # only. The other measure of that launch has no row; it takes
                 # the reason its sibling records, not the launch-level code.
                 siblings[launch].add(code)
+    for launch in sorted(set(own_reasons) | set(sibling_reasons)):
+        for code, trial in (own_reasons[launch] if launch in trials else sibling_reasons[launch]):
+            _note_reason(reasons, code, trial)
     for run_directory, job in job_pairs:
         for path in _listing(job / 'rejected-evidence', '*'):
             if path.is_dir() and path.name.endswith('-' + editor_id):

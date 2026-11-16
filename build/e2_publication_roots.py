@@ -264,6 +264,11 @@ def _check_host_round(data: Path, manifest: dict, complete: bool, errors: list[s
                           f"a host round does not stop jobs")
     # The host round is linked last and drops every other measurement of its jobs, so each of those must be
     # older (reviews: GLM, MiniMax). Run ids start with their UTC launch time.
+    # The first pass is the first measurement a host round replaces (CodeRabbit, #240).
+    for space, run_id in sorted(manifest.get("first_pass", {}).items()):
+        for late in sorted({host for host in host_run.values() if not run_id < host}):
+            errors.append(f"first_pass run {space}/{run_id} was launched after the host round {late}: a host "
+                          f"round replaces older measurements only")
     for key in EARLIER_ROUND_KEYS + ("lane_rerun",):
         for space, space_entries in sorted(manifest.get(key, {}).items()):
             for entry in space_entries:

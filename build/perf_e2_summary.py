@@ -177,12 +177,17 @@ def _fine(value: float, unit: str) -> str:
 def _range(rounds: dict) -> str:
     """The two rounds' medians of a cell that did not reproduce, lower first: "48 ms to 81 ms"."""
     unit = rounds.get('sample_unit') or 'ms'
-    frame = rounds.get('frame_interval_ms') or 0.0
-    low, high = sorted(rounds[name]['median'] for name in ('first', 'second'))
-    texts = [fmt(value, unit, frame if unit != 'bytes' else 0.0) for value in (low, high)]
+    (low, low_frame), (high, high_frame) = sorted((rounds[name]['median'], _round_frame(rounds, name))
+                                                  for name in ('first', 'second'))
+    texts = [fmt(value, unit, frame if unit != 'bytes' else 0.0) for value, frame in ((low, low_frame), (high, high_frame))]
     if texts[0] == texts[1]:
         texts = [_fine(low, unit), _fine(high, unit)]
     return '%s to %s' % tuple(texts)
+
+
+def _round_frame(rounds: dict, name: str) -> float:
+    """The redraw interval of one round: its own, else the cell's (facts written before each round kept its own)."""
+    return (rounds.get(name) or {}).get('frame_interval_ms') or rounds.get('frame_interval_ms') or 0.0
 
 
 def _has_rounds(rounds) -> bool:
@@ -253,9 +258,11 @@ def _range_sentence(columns, editors: int) -> str:
     return '; '.join(parts) + '.'
 
 
-def short_version(facts: dict, editors, display) -> str:
-    blocks = []
-    for key, heading, criterion, measure, sizes, what in SECTIONS:
+def _printed_tables(facts: dict, editors):
+    """The results tables as printed: (section, [(editor, [cell text, ...])], columns). One inventory for the
+    tables and for Appendix J (CodeRabbit, #240): a table with no figure at all is left out of both."""
+    for section in SECTIONS:
+        key, _heading, criterion, measure, sizes, _what = section
         rows, columns = [], [(title, []) for _workload, title in sizes]
         for editor in editors:
             texts = []
@@ -265,9 +272,15 @@ def short_version(facts: dict, editors, display) -> str:
                 if figure:
                     columns[index][1].append(figure)
             if any(text != DASH for text in texts):
-                rows.append('| %s | %s |' % (display.get(editor, editor), ' | '.join(texts)))
-        if not any(values for _title, values in columns):
-            continue
+                rows.append((editor, texts))
+        if any(values for _title, values in columns):
+            yield section, rows, columns
+
+
+def short_version(facts: dict, editors, display) -> str:
+    blocks = []
+    for (key, heading, criterion, measure, sizes, what), table, columns in _printed_tables(facts, editors):
+        rows = ['| %s | %s |' % (display.get(editor, editor), ' | '.join(texts)) for editor, texts in table]
         lines = ['### %s' % heading, '', what, '',
                  '| Editor | ' + ' | '.join(title for _workload, title in sizes) + ' |',
                  '|---' * (len(sizes) + 1) + '|', *rows]
@@ -301,7 +314,12 @@ def _refused_words(cell: dict) -> str:
             said = reason_words(part) or 'recorded as `%s`' % part.replace('|', '/')
             if said not in words:
                 words.append(said)
-        said = '; also '.join(words) if words else _CODE_WORDS.get(code, 'recorded as `%s`' % code)
+        # The code a launch was refused under is said first (CodeRabbit, #240): a crashed launch that also
+        # recorded "no frame" is a crash, and is not counted with the launches that only saw no frame.
+        own = _CODE_WORDS.get(code)
+        if own:
+            words = [own] + [word for word in words if word != own]
+        said = '; also '.join(words) if words else 'recorded as `%s`' % code
         parts.append((count, said))
     if len(parts) == 1:
         return parts[0][1]
@@ -356,7 +374,8 @@ def _why_text(facts: dict, base: str) -> str:
     if _has_rounds(rounds):
         unit = rounds.get('sample_unit') or 'ms'
         frame = rounds.get('frame_interval_ms') or 0.0
-        figures = [fmt(rounds[name]['median'], unit, frame if unit != 'bytes' else 0.0) for name in ('first', 'second')]
+        figures = [fmt(rounds[name]['median'], unit, _round_frame(rounds, name) if unit != 'bytes' else 0.0)
+                   for name in ('first', 'second')]
         if figures[0] == figures[1]:
             figures = [_fine(rounds[name]['median'], unit) for name in ('first', 'second')]
         percent = round((rounds.get('rel_tol') or 0) * 100)
@@ -382,8 +401,8 @@ def no_figure_appendix(facts: dict, editors, display) -> tuple[str, dict]:
     then document size. Nothing is ranked.
     """
     rows, counts = [], {'perf.e2.no_figure.%s' % kind: 0 for kind, _label in _KINDS}
-    for key, heading, criterion, measure, sizes, _what in SECTIONS:
-        for editor in editors:
+    for (key, heading, criterion, measure, sizes, _what), table, _columns in _printed_tables(facts, editors):
+        for editor, _texts in table:
             for workload, title in sizes:
                 text, figure = _cell(facts, key, editor, criterion, measure, workload)
                 if figure or text == DASH or text.endswith('(text not checked)'):

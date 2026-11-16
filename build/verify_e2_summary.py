@@ -108,8 +108,11 @@ def _round_figures(rounds: dict):
     if not all(isinstance(value, (int, float)) for value in values):
         return None
     unit = rounds.get('sample_unit') or 'ms'
-    frame = rounds.get('frame_interval_ms') or 0
-    texts = [_below(frame) if unit != 'bytes' and frame and value < frame else _shown(value, unit) for value in values]
+    # Each round against the redraw interval it recorded itself; the cell's is the fallback for older facts.
+    frames = [(rounds.get(name) or {}).get('frame_interval_ms') or rounds.get('frame_interval_ms') or 0
+              for name in ('first', 'second')]
+    texts = [_below(frame) if unit != 'bytes' and frame and value < frame else _shown(value, unit)
+             for value, frame in zip(values, frames)]
     if texts[0] == texts[1]:
         if unit == 'bytes':
             texts = ['%.1f MiB' % (value / 1048576) for value in values]
@@ -146,7 +149,10 @@ def expected_why_parts(facts: dict, editor: str, criterion: str, measure: str, w
     rounds = facts.get(base + '.rounds') or {}
     figures = _round_figures(rounds)
     if figures:
-        return ['%s (%d launches)' % (text, (rounds[name].get('n') or 0)) for (_value, text), name in zip(figures, ('first', 'second'))]
+        # Each figure in the clause of its own round: swapping the two rounds must not pass.
+        clauses = ('The first round gave %s (%d launches)', 'and the second %s (%d launches)')
+        return [clause % (text, (rounds[name].get('n') or 0))
+                for clause, (_value, text), name in zip(clauses, figures, ('first', 'second'))]
     parts = []
     for name, (kept, scheduled, _counts) in _counted(str(facts.get(base + '.reason') or '')).items():
         parts.append('%s round: %d of %d launches kept' % (name.capitalize(), kept, scheduled))
@@ -253,7 +259,11 @@ def _check_appendix(report_text: str, facts: dict, unsettled: dict) -> list:
         if len(cells) < 5:
             problems.append('Appendix J: a row has %d columns, expected 5: %r' % (len(cells), line[:80]))
             continue
-        listed[(cells[0], cells[1], cells[2])] = (cells[3], ' | '.join(cells[4:]))
+        where = (cells[0], cells[1], cells[2])
+        if where in listed:
+            problems.append('Appendix J: %s / %s / %s has two rows' % where)
+            continue
+        listed[where] = (cells[3], ' | '.join(cells[4:]))
     for where, (text, editor, criterion, measure, workload) in unsettled.items():
         if where not in listed:
             problems.append('Appendix J: %s / %s / %s prints %r in the results and has no row' % (*where, text))
