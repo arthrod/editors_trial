@@ -9,15 +9,18 @@ from perf.analysis import e2_cells as cells
 from perf.runner import benchmark_warm_cold as runner
 from perf.tests.test_b2_paint import LOG_ROOT
 
-PAYLOAD = json.loads((Path(__file__).parent / 'fixtures' / 'docen_settled_probe.json').read_text())
+FIXTURES = Path(__file__).parent / 'fixtures'
+PAYLOAD = json.loads((FIXTURES / 'docen_settled_probe.json').read_text())
+# The complex document: Docen's input only moves to the caret's line with the key, and the band is aimed again.
+COMPLEX = json.loads((FIXTURES / 'docen_settled_probe_complex.json').read_text())
 
 
-def write(criterion, arm, mutate=None):
+def write(criterion, arm, mutate=None, payload=None):
     from perf.runner.browser_run import ACTIVE, BrowserRun
     from perf.tests.test_browser_throttle import snapshot
     from perf.tests.test_schema import _env
 
-    data = json.loads(json.dumps(PAYLOAD[arm]))
+    data = json.loads(json.dumps((payload or PAYLOAD)[arm]))
     if mutate:
         mutate(data)
     if criterion == 'C05':
@@ -72,6 +75,34 @@ class SettledPixelTrial(unittest.TestCase):
         self.assertEqual(trial['refusal_code'], 'paint_witness_unavailable')
         self.assertEqual(trial['samples_ms'], [])
 
+
+
+    def test_the_complex_document_is_timed_on_the_line_the_caret_is_on(self):
+        for criterion in ('C05', 'C06'):
+            for arm in ('cold', 'warm'):
+                settle = COMPLEX[arm]['single']['edit_confirmation']['pixel_settle']
+                self.assertIs(settle['band_reaimed'], True)
+                self.assertEqual(len(settle['caret_columns_device_px']), 1)
+                self.assertEqual(settle['min_pixels'], runner.PIXEL_EDIT_MIN_PIXELS)
+                trial = write(criterion, arm, payload=COMPLEX)
+                self.assertEqual(trial['outcome'], 'measured', (criterion, arm, trial.get('failure_reason')))
+                self.assertEqual(cells.settled_pixel_typing(trial)['outcome'], 'measured', (criterion, arm))
+
+
+    def test_every_key_press_of_both_records_passes_the_sample_policy(self):
+        # The step that reads the witness's schema; the writer above does not (16 Nov: a whole round refused).
+        for name, payload in (('prose', PAYLOAD), ('complex', COMPLEX)):
+            for arm in ('cold', 'warm'):
+                for criterion, observation in [('C05', payload[arm]['single'])] + [('C06', o) for o in payload[arm]['burst']]:
+                    row = runner.input_sample_record(observation, criterion)
+                    self.assertEqual((row['outcome'], row['failure_reason']), ('measured', None), (name, arm, criterion))
+
+    def test_a_clock_record_with_a_key_the_schema_does_not_know_is_refused(self):
+        # `probe_cleared`, added to the record on the JavaScript side alone, is what refused that round.
+        observation = json.loads(json.dumps(PAYLOAD['cold']['single']))
+        observation['witness']['clock_check']['probe_cleared'] = {'cleared': True}
+        row = runner.input_sample_record(observation, 'C05')
+        self.assertEqual((row['outcome'], row['failure_reason']), ('failed', 'witness_schema_invalid'))
 
 
 def test_the_written_trial_becomes_a_report_cell_marked_by_pixels(tmp_path):

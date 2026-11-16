@@ -926,8 +926,6 @@ export async function clockSkew(
         ? null
         : round(anchor.frame_diff_ratio, 6),
     anchor_probe_region_px: anchor.probe_region_px,
-    // #247: whether a frame showed the check's own mark gone before it returned.
-    probe_cleared: anchor.probe_cleared || null,
     frame_interval_ms: intervalMs,
     frame_interval_source: interval.source || 'raf_delta',
     frame_interval_samples: interval.count ?? null,
