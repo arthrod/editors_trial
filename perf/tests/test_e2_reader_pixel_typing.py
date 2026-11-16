@@ -23,11 +23,12 @@ ENV = {"arch": "x86_64", "cache_state": "warm_steady", "cpu_cores_logical": 64, 
        "unicode_class": "ascii", "workload_id": "prose-500w"}
 
 
-def _obs(paint, pixels=102, confirmed=True, burst=None, acceptable=True, outcome='witnessed', adapter='model', interval=16.7):
+def _obs(paint, pixels=102, confirmed=True, burst=None, acceptable=True, outcome='witnessed', adapter='model', interval=16.7,
+         origin=1000.0):
     row = {'mechanism': 'cdp_screencast_changed_frame', 'paint_ms': paint,
            'clock_skew': {'frame_interval_ms': interval, 'acceptable': acceptable},
            'edit_confirmation': {'adapter': {'adapter': adapter, 'confirmed': confirmed}},
-           'witness': {'changed_pixels': pixels, 'outcome': outcome}}
+           'witness': {'changed_pixels': pixels, 'outcome': outcome, 'time_origin_ms': origin}}
     if burst is not None:
         row['burst'] = burst
     return row
@@ -55,8 +56,8 @@ def _launch(run, editor, criterion, observations, *, rep=0, job_id='run-001', pu
         run_id=job_id, seed=1, execution_profile='dedicated_publish', order=[[i, editor] for i in range(rep + 1)])))
 
 
-COLD = _arm(90.0, [80.0, 70.0, 75.0])
-WARM = _arm(30.0, [20.0, 26.0, 22.0])
+COLD = _arm(90.0, [80.0, 70.0, 75.0], origin=1000.0)
+WARM = _arm(30.0, [20.0, 26.0, 22.0], origin=9000.0)  # the warm page is loaded after the cold one
 
 
 def test_the_single_edit_of_each_cache_state_is_the_c05_sample(fs):
@@ -82,7 +83,7 @@ def test_the_median_of_the_burst_is_the_c06_sample(fs):
 def test_a_launch_with_a_caret_sized_change_stays_refused(fs):
     """canvas-editor: every first changed frame is 24 pixels, a caret."""
     run = Path('/runs/campaign')
-    _launch(run, 'canvas', 'C05', _arm(12.0, [4.0, 60.0, 70.0], pixels=24) + _arm(11.0, [5.0, 61.0, 71.0], pixels=24))
+    _launch(run, 'canvas', 'C05', _arm(12.0, [4.0, 60.0, 70.0], pixels=24) + _arm(11.0, [5.0, 61.0, 71.0], pixels=24, origin=9000.0))
     cell = cells.build_run_cell(run, 'canvas', 'C05', measure='warm_steady')
     assert cell['kept_ms'] == [] and cell['refusals'] == {'not_applicable': 1}
     assert cell['unwitnessed']['keystrokes'] == 8 and cell.get('witness') != 'changed_pixels'
@@ -90,7 +91,7 @@ def test_a_launch_with_a_caret_sized_change_stays_refused(fs):
 
 def test_one_key_press_under_the_bound_keeps_the_whole_launch_refused(fs):
     run = Path('/runs/campaign')
-    warm = _arm(30.0, [20.0, 26.0, 22.0])
+    warm = _arm(30.0, [20.0, 26.0, 22.0], origin=9000.0)
     warm[2]['witness']['changed_pixels'] = 99
     _launch(run, 'docen', 'C05', COLD + warm)
     for measure in ('warm_steady', 'process_cold_fs_warm'):
@@ -100,7 +101,7 @@ def test_one_key_press_under_the_bound_keeps_the_whole_launch_refused(fs):
 def test_a_key_press_the_editor_did_not_confirm_keeps_the_launch_refused(fs):
     """WordCraft: the edit was confirmed on a quarter of the key presses."""
     run = Path('/runs/campaign')
-    warm = _arm(30.0, [20.0, 26.0, 22.0])
+    warm = _arm(30.0, [20.0, 26.0, 22.0], origin=9000.0)
     warm[1]['edit_confirmation']['adapter']['confirmed'] = False
     _launch(run, 'wordcraft', 'C05', COLD + warm)
     assert cells.build_run_cell(run, 'wordcraft', 'C05', measure='warm_steady')['refusals'] == {'not_applicable': 1}
@@ -114,7 +115,7 @@ def test_a_launch_that_does_not_have_both_cache_states_whole_stays_refused(fs):
 
 def test_a_frame_the_clock_check_did_not_accept_keeps_the_launch_refused(fs):
     run = Path('/runs/campaign')
-    _launch(run, 'docen', 'C05', COLD + _arm(30.0, [20.0, 26.0, 22.0], acceptable=False))
+    _launch(run, 'docen', 'C05', COLD + _arm(30.0, [20.0, 26.0, 22.0], acceptable=False, origin=9000.0))
     assert cells.build_run_cell(run, 'docen', 'C05', measure='warm_steady')['refusals'] == {'not_applicable': 1}
 
 
@@ -133,7 +134,7 @@ def test_a_diagnostic_run_stays_refused(fs, monkeypatch):
 
 def test_a_time_under_one_redraw_is_flagged_as_the_glyph_path_flags_it(fs):
     run = Path('/runs/campaign')
-    _launch(run, 'docen', 'C05', COLD + _arm(9.0, [20.0, 26.0, 22.0]))
+    _launch(run, 'docen', 'C05', COLD + _arm(9.0, [20.0, 26.0, 22.0], origin=9000.0))
     cell = cells.build_run_cell(run, 'docen', 'C05', measure='warm_steady')
     assert cell['kept_ms'] == [9.0] and cell['sub_frame'] == [True]
 
@@ -161,7 +162,7 @@ def _refused(fs, observations, editor='docen', criterion='C05', measure='warm_st
 
 
 def test_a_burst_that_is_not_three_keys_stays_refused(fs):
-    assert _refused(fs, _arm(90.0, [80.0, 70.0]) + _arm(30.0, [20.0, 26.0]), criterion='C06')
+    assert _refused(fs, _arm(90.0, [80.0, 70.0]) + _arm(30.0, [20.0, 26.0], origin=9000.0), criterion='C06')
 
 
 def test_a_launch_that_recorded_another_reason_as_well_stays_refused(fs):
@@ -177,19 +178,38 @@ def test_a_launch_the_harness_marked_unpublishable_stays_refused(fs):
 
 
 def test_a_burst_key_whose_embedded_record_fails_the_rule_keeps_the_launch_refused(fs):
-    warm = _arm(30.0, [20.0, 26.0, 22.0])
+    warm = _arm(30.0, [20.0, 26.0, 22.0], origin=9000.0)
     warm[0]['burst'][1]['witness']['changed_pixels'] = 24
     assert _refused(fs, COLD + warm)
 
 
 def test_a_confirmation_that_is_not_the_models_keeps_the_launch_refused(fs):
     """WordCraft's adapter confirms a "modified" flag, not the edit."""
-    assert _refused(fs, _arm(90.0, [80.0, 70.0, 75.0], adapter='flag') + _arm(30.0, [20.0, 26.0, 22.0], adapter='flag'), editor='wordcraft')
+    assert _refused(fs, _arm(90.0, [80.0, 70.0, 75.0], adapter='flag') + _arm(30.0, [20.0, 26.0, 22.0], adapter='flag', origin=9000.0), editor='wordcraft')
 
 
 def test_key_presses_timed_at_different_redraw_intervals_keep_the_launch_refused(fs):
     """The harness refuses a trial whose samples were calibrated differently (frame_interval_inconsistent)."""
-    warm = _arm(30.0, [20.0, 26.0, 22.0])
+    warm = _arm(30.0, [20.0, 26.0, 22.0], origin=9000.0)
     warm[2]['clock_skew']['frame_interval_ms'] = 8.3
     warm[0]['burst'][1]['clock_skew']['frame_interval_ms'] = 8.3
     assert _refused(fs, COLD + warm, criterion='C06')
+
+
+# The GLM review of #238: which arm is cold is checked against the record, not taken from its position alone.
+
+def test_arms_that_are_not_two_page_loads_in_order_keep_the_launch_refused(fs):
+    """The cold arm is the first page load of the launch and the warm arm the next; each arm is one page."""
+    assert _refused(fs, _arm(30.0, [20.0, 26.0, 22.0], origin=9000.0) + _arm(90.0, [80.0, 70.0, 75.0], origin=1000.0))
+    assert _refused(fs, COLD + _arm(30.0, [20.0, 26.0, 22.0], origin=1000.0))
+    mixed = _arm(30.0, [20.0, 26.0, 22.0], origin=9000.0)
+    mixed[2]['witness']['time_origin_ms'] = 9500.0
+    mixed[0]['burst'][1]['witness']['time_origin_ms'] = 9500.0
+    assert _refused(fs, COLD + mixed)
+
+
+def test_the_facts_record_of_a_cell_keeps_its_witness_published_or_not():
+    cell = {'witness': 'changed_pixels', 'least_changed_pixels': 102, 'kept_ms': [1.0], 'stats': {}}
+    for published in (True, False):
+        public = cells.public_cell_dict(cell, published=published)
+        assert public['witness'] == 'changed_pixels' and public['least_changed_pixels'] == 102

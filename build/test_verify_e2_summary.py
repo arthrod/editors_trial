@@ -339,9 +339,7 @@ def test_a_marker_quoted_inside_a_rounds_words_does_not_end_its_clause():
 
 # #238: a typing time read on the pixel witness carries its mark, and its table the note.
 
-PIXEL_NOTE = ('A time marked "(by pixels)" ends at the first frame in which at least 100 pixels of the page changed after '
-              "a key press the editor confirmed. The editor draws its text where the harness cannot read a character's "
-              'outline, so that frame is not checked for the character itself (issue #238).')
+PIXEL_NOTE = 'A time marked "(by pixels)" ends at the first frame in which at least 100 pixels of the page changed after a key press the editor confirmed. The editor draws its text where the harness cannot read a character\'s outline, so that frame is not checked for the character itself. The smallest change on any key press behind these times was 102 pixels, close to that bound (issue #238).'
 PIXEL_REPORT = """# Report
 
 ## The results
@@ -413,3 +411,53 @@ def test_a_pixel_witnessed_cell_whose_least_change_is_under_the_bound_is_named()
     facts['perf.e2.folio.C05.warm_steady.prose-500w.reproduction']['least_changed_pixels'] = 24
     problems = verify.check(PIXEL_REPORT, facts, DISPLAY)
     assert any('100 pixels' in p and 'Folio' in p for p in problems), problems
+
+
+def test_a_note_whose_smallest_change_is_not_the_facts_is_named():
+    problems = verify.check(PIXEL_REPORT.replace('was 102 pixels', 'was 180 pixels'), _pixel_facts(), DISPLAY)
+    assert any('note' in p for p in problems), problems
+
+
+# The GLM review of #238: the sentence at the top that names the editors is held to the facts.
+
+GLYPH_REASON = 'no_glyph_geometry_to_witness_the_keystrokes_own_paint'
+TOP = ('# Report\n\n- **Typing was not timed for one editor, and Folio\'s typing time is not checked for the character.** '
+       'Plate.js has no typing time. Folio is marked "(by pixels)".\n')
+
+
+def _typing_facts():
+    facts = _pixel_facts()
+    base = 'perf.e2.plate.C05.warm_steady.prose-500w'
+    facts[base + '.reproduced'] = False
+    facts[base + '.reason'] = 'first: not enough samples (n = 0 of 10; reasons not_applicable: 10); second: not enough samples (n = 0 of 10; reasons not_applicable: 10)'
+    for half in ('.primary', '.reproduction'):
+        facts[base + half] = {'refusal_reasons': {'not_applicable': [GLYPH_REASON]}}
+    return facts
+
+
+def test_the_sentence_naming_the_editors_without_a_typing_time_matches_the_facts():
+    assert verify.check_typing_sentence(TOP, _typing_facts(), DISPLAY) == []
+
+
+def test_an_editor_named_as_untimed_that_has_a_figure_is_named():
+    facts = _pixel_facts()  # every editor has a typing figure here
+    problems = verify.check_typing_sentence(TOP, facts, DISPLAY)
+    assert any('every editor' in p for p in problems), problems
+    # One editor untimed, and the sentence also names an editor whose time is checked for the character.
+    display = dict(DISPLAY, docen='Docen')
+    facts = _typing_facts()
+    base = 'perf.e2.docen.C05.warm_steady.prose-500w'
+    facts[base + '.reproduced'] = True
+    facts[base + '.primary'], facts[base + '.reproduction'] = _cell(30), _cell(32)
+    problems = verify.check_typing_sentence(TOP.replace('Plate.js has', 'Plate.js and Docen have'), facts, display)
+    assert any('Docen' in p for p in problems), problems
+
+
+def test_a_count_word_that_is_not_the_number_of_untimed_editors_is_named():
+    problems = verify.check_typing_sentence(TOP.replace('for one editor', 'for two editors'), _typing_facts(), DISPLAY)
+    assert any('one' in p or '1' in p for p in problems), problems
+
+
+def test_an_editor_read_by_pixels_and_not_named_in_the_sentence_is_named():
+    problems = verify.check_typing_sentence(TOP.replace("Folio's", "Its").replace('Folio is', 'It is'), _typing_facts(), DISPLAY)
+    assert any('Folio' in p for p in problems), problems

@@ -124,7 +124,8 @@ def _round_figures(rounds: dict):
 #: #238: the note a table with a time read on the pixel witness carries, word for word (the checker's own copy).
 PIXEL_NOTE = ('A time marked "(by pixels)" ends at the first frame in which at least 100 pixels of the page changed after '
               "a key press the editor confirmed. The editor draws its text where the harness cannot read a character's "
-              'outline, so that frame is not checked for the character itself (issue #238).')
+              'outline, so that frame is not checked for the character itself. The smallest change on any key press behind '
+              'these times was %d pixels, close to that bound (issue #238).')
 
 
 def expected_cell(facts: dict, editor: str, criterion: str, measure: str, workload: str):
@@ -254,6 +255,7 @@ def check(report_text: str, facts: dict, display: dict) -> list:
             problems.append('%s: columns are %r, expected %r' % (heading, titles, list(REQUIRED[heading])))
             titles = [title for title in titles if title in COLUMNS]
         columns = [(title, []) for title in titles]
+        smallest = []  # the least change recorded behind each time read by pixels
         for row in rows[2:]:
             cells = [cell.strip() for cell in row.strip('|').split('|')]
             editor = slug.get(cells[0])
@@ -265,6 +267,7 @@ def check(report_text: str, facts: dict, display: dict) -> list:
                 if text.endswith('(by pixels)'):
                     base = 'perf.e2.%s.%s%s.%s' % (editor, criterion, '.' + measure if measure else '', COLUMNS[title])
                     least = [(facts.get(base + half) or {}).get('least_changed_pixels') for half in ('.primary', '.reproduction')]
+                    smallest.extend(value_ for value_ in least if isinstance(value_, (int, float)))
                     if not all(isinstance(value_, (int, float)) and value_ >= 100 for value_ in least):
                         problems.append('%s / %s / %s: read by pixels, and the facts do not record a least change of at least '
                                         '100 pixels in both rounds (%r)' % (heading, cells[0], title, least))
@@ -282,7 +285,7 @@ def check(report_text: str, facts: dict, display: dict) -> list:
         # #238: a table with a time read on the pixel witness says, once, what that mark means.
         marked = any(cell.strip().endswith('(by pixels)') for row in rows[2:] for cell in row.strip('|').split('|'))
         notes = [line for line in block.split('\n') if 'by pixels' in line and not line.startswith(('|', 'At '))]
-        if marked and notes != [PIXEL_NOTE]:
+        if marked and notes != [PIXEL_NOTE % (min(smallest) if smallest else 0)]:
             problems.append('%s: a time is marked (by pixels) and the note under the table is not the one that says what that means' % heading)
         if notes and not marked:
             problems.append('%s: the (by pixels) note is printed and no time in the table is marked' % heading)
@@ -303,6 +306,50 @@ def check(report_text: str, facts: dict, display: dict) -> list:
     if not found:
         problems.append('no results table found')
     problems += _check_appendix(report_text, facts, unsettled)
+    problems += check_typing_sentence(report_text, facts, display)
+    return problems
+
+
+_COUNT_WORDS = ('no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine')
+_TYPING_SENTENCE = '- **Typing was not timed for '
+
+
+def check_typing_sentence(report_text: str, facts: dict, display: dict) -> list:
+    """The sentence at the top that names the editors without a typing time, and those read by pixels (#238).
+
+    It is prose in the template, so it is held to the facts here: the editors whose typing row is "not measured"
+    in every column, their number, and the editors with a time marked "(by pixels)".
+    """
+    criterion, measure = TABLES['Typing one character']
+    untimed, pixels = [], []
+    for editor, name in display.items():
+        texts = [expected_cell(facts, editor, criterion, measure, COLUMNS[title])[0] for title in REQUIRED['Typing one character']]
+        texts = [text for text in texts if text != '—']
+        if texts and all(text == 'not measured' for text in texts):
+            untimed.append(name)
+        if any(text.endswith('(by pixels)') for text in texts):
+            pixels.append(name)
+    lines = [line for line in report_text.split('\n') if line.startswith(_TYPING_SENTENCE)]
+    if not untimed:
+        # With every editor timed there is no such sentence; the marks and the note under the table speak for the rest.
+        return ['the report says typing was not timed for some editors, and the facts have a typing time for every editor'] if lines else []
+    if len(lines) != 1:
+        return ['the report has %d sentences starting %r; the facts need exactly one (untimed: %s; by pixels: %s)'
+                % (len(lines), _TYPING_SENTENCE, ', '.join(untimed) or 'none', ', '.join(pixels) or 'none')]
+    line, problems = lines[0], []
+    word = _COUNT_WORDS[len(untimed)] if len(untimed) < len(_COUNT_WORDS) else str(len(untimed))
+    stated = line[len(_TYPING_SENTENCE):].split(' editor', 1)[0]
+    if stated != word:
+        problems.append('typing sentence: says %r editors were not timed, the facts give %s (%s)' % (stated, word, ', '.join(untimed) or 'none'))
+    short = {name: name.split(' + ')[0] for name in display.values()}
+    for name in untimed + pixels:
+        if short[name] not in line:
+            problems.append('typing sentence: %s is not named' % name)
+    for name in display.values():
+        if name not in untimed and name not in pixels and re.search(r'(?<![\w-])%s(?![\w-])' % re.escape(short[name]), line):
+            problems.append('typing sentence: %s is named, and the facts give it a typing time checked for the character' % name)
+    if pixels and '(by pixels)' not in line:
+        problems.append('typing sentence: %s is read by pixels and the sentence does not say "(by pixels)"' % ', '.join(pixels))
     return problems
 
 

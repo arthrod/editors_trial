@@ -51,7 +51,8 @@ PIXEL_WITNESS = 'changed_pixels'
 PIXEL_MARK = ' (by pixels)'
 PIXEL_NOTE = ('A time marked "(by pixels)" ends at the first frame in which at least 100 pixels of the page changed after '
               "a key press the editor confirmed. The editor draws its text where the harness cannot read a character's "
-              'outline, so that frame is not checked for the character itself (issue #238).')
+              'outline, so that frame is not checked for the character itself. The smallest change on any key press behind '
+              'these times was %d pixels, close to that bound (issue #238).')
 
 #: The typing lanes refuse a launch with this reason when the editor exposes no glyph outline (#238).
 GLYPH_REASON = 'no_glyph_geometry_to_witness_the_keystrokes_own_paint'
@@ -300,8 +301,11 @@ def short_version(facts: dict, editors, display) -> str:
         sentence = _range_sentence(columns, len(rows))
         if sentence:
             lines += ['', sentence]
-        if any(text.endswith(PIXEL_MARK) for _editor, texts in table for text in texts):
-            lines += ['', PIXEL_NOTE]
+        least = [facts[cell_key(editor, criterion, measure, workload) + half]['least_changed_pixels']
+                 for editor, texts in table for text, (workload, _title) in zip(texts, sizes) if text.endswith(PIXEL_MARK)
+                 for half in ('.primary', '.reproduction')]
+        if least:
+            lines += ['', PIXEL_NOTE % min(least)]
         blocks.append('\n'.join(lines))
     return '\n\n'.join(blocks) if blocks else 'not in these runs.'
 

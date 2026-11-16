@@ -991,6 +991,14 @@ def pixel_witnessed_typing(row) -> list:
         at += 1 + len(burst)
     if len(arms) != len(_TYPING_CACHE_STATES):
         return [row]
+    # Which arm is cold is not taken from its position alone (GLM review): each arm is one page load, and the
+    # cold arm, the launch's first, was loaded before the warm one. The witness records each page's time origin.
+    origins = [{(key.get('witness') or {}).get('time_origin_ms') for key in [single, *keys, *single['burst']]}
+               for single, keys in arms]
+    if any(len(arm) != 1 or not _finite(next(iter(arm))) for arm in origins):
+        return [row]
+    if not next(iter(origins[0])) < next(iter(origins[1])):
+        return [row]
     from perf.analysis.publication_gate import trial_publishable_flags
     rows = []
     for cache_state, (single, keys) in zip(_TYPING_CACHE_STATES, arms):

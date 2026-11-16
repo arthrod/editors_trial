@@ -481,6 +481,7 @@ def test_a_time_read_on_the_pixel_witness_is_marked_and_explained_under_its_tabl
     assert 'At 500 words, 2 of 2 editors have a figure, from 25 ms to 55 ms (by pixels).' in text
     note = [line for line in text.split('\n') if line.startswith('A time marked "(by pixels)"')]
     assert len(note) == 1 and 'at least 100 pixels' in note[0] and 'issue #238' in note[0]
+    assert 'The smallest change on any key press behind these times was 102 pixels' in note[0]
 
 
 def test_a_table_without_such_a_time_carries_no_note():
