@@ -504,6 +504,8 @@ def _settle_rate_text(facts: dict, prefix: str, cell: dict) -> str:
         low, high = rate['window_s']
         facts['perf.e2.B8.settle_window_min_s'] = min(low, facts.get('perf.e2.B8.settle_window_min_s', low))
         facts['perf.e2.B8.settle_window_max_s'] = max(high, facts.get('perf.e2.B8.settle_window_max_s', high))
+    if rate.get('reason'):
+        facts[base + 'reproduced'] = False  # a scheduled cell with no figure
     if rate.get('reason') == 'window not recorded':
         return 'window not recorded'
     if rate.get('reason') == 'window too short':
@@ -552,7 +554,10 @@ def resources_tables(facts: dict, roots, editors, display) -> str:
                 if measure.get('never_idle'):
                     texts.append('never idle')
                     continue
-                facts['%s.%s.reproduced' % (prefix, key)] = measure['reproduced']
+                # A fact ending in .reproduced is a scheduled cell of the report; the settling
+                # total is no longer printed, so its agreement is kept under another name.
+                facts['%s.%s.%s' % (prefix, key, 'totals_agree' if key == 'edit_settle_cpu_ms' else 'reproduced')] = (
+                    measure['reproduced'])
                 facts['%s.%s.seed_medians' % (prefix, key)] = measure['seed_medians']
                 facts['%s.%s.launch_range' % (prefix, key)] = measure['launch_range']
                 if key == 'edit_settle_cpu_ms':

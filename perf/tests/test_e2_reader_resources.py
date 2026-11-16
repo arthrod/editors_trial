@@ -297,7 +297,7 @@ def test_a_cell_that_did_not_reproduce_prints_both_seed_medians_and_the_launch_r
     # The settling total is no longer printed (#226 follow-up); what each seed read stays in the facts.
     settle = 'perf.e2.plate.B8.prose-250kw.edit_settle_cpu_ms.'
     assert facts[settle + 'seed_medians'] == [50, 100] and facts[settle + 'launch_range'] == [40, 110]
-    assert facts[settle + 'reproduced'] is False
+    assert facts[settle + 'totals_agree'] is False
     prefix = 'perf.e2.plate.B8.prose-250kw.peak_ram_bytes.'
     assert facts[prefix + 'reproduced'] is False
     assert prefix + 'medians' not in facts  # no published figure
@@ -419,7 +419,7 @@ def test_the_settling_column_is_cpu_per_second_of_the_window_each_launch_sampled
     assert facts[prefix + 'edit_settle_cpu_rate.window_s'] == [1.6, 2.25]
     # The totals stay in the facts: what was read is not thrown away.
     assert facts[prefix + 'edit_settle_cpu_ms.seed_medians'] == [90, 64]
-    assert facts[prefix + 'edit_settle_cpu_ms.reproduced'] is False
+    assert facts[prefix + 'edit_settle_cpu_ms.totals_agree'] is False
 
 
 def test_a_window_under_a_second_is_not_a_rate(tmp_path):
@@ -482,3 +482,22 @@ def test_a_capped_settle_prints_no_rate_even_with_its_samples(tmp_path):
     text, facts = _rate_cell(tmp_path, [_settling(80, 2.0)] * 9 + [capped], [_settling(80, 2.0)] * 10)
     assert '| never idle | 1024.0 MiB' in text and 'ms/s' not in text.split('Not published')[0]
     assert not any('edit_settle_cpu_rate' in key for key in facts)
+
+
+def test_the_settling_cell_is_counted_once_as_the_rate_not_also_as_the_total(tmp_path):
+    """The report counts every fact ending in .reproduced as a scheduled cell: the unprinted total must not be one."""
+    _text, facts = _rate_cell(tmp_path, [_settling(90, 2.25)] * 10, [_settling(64, 1.6)] * 10)
+    prefix = 'perf.e2.plate.B8.prose-250kw.'
+    assert prefix + 'edit_settle_cpu_ms.reproduced' not in facts
+    assert facts[prefix + 'edit_settle_cpu_ms.totals_agree'] is False
+    assert facts[prefix + 'edit_settle_cpu_rate.reproduced'] is True
+    assert sum(1 for key in facts if key.startswith(prefix) and key.endswith('.reproduced')) == 4
+
+
+def test_a_settling_cell_without_a_rate_is_a_scheduled_cell_that_did_not_reproduce(tmp_path):
+    _text, facts = _rate_cell(tmp_path, [_settling(80, 2.0)] * 10, [_settling(0, 0.2)] * 10)
+    assert facts['perf.e2.plate.B8.prose-250kw.edit_settle_cpu_rate.reproduced'] is False
+    other = tmp_path / 'other'
+    other.mkdir()
+    _text, facts = _rate_cell(other, [_record(quiet=80)] * 10, [_record(quiet=80)] * 10)
+    assert facts['perf.e2.plate.B8.prose-250kw.edit_settle_cpu_rate.reproduced'] is False
