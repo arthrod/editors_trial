@@ -665,18 +665,32 @@ async function measureEdit(page, selector, cdp) {
       // than any caret, so a caret move alone is refused.
       let caretColumns = null;
       let focusedAfter = null;
+      // Docen on the complex document leaves its input at the click until the key is typed, and only then
+      // moves it to the caret, on another line: the band above was aimed at the click. The band is then aimed
+      // again, at the line the input is on after the key. Only the caret's new column is known there, so the
+      // old caret's erasure is counted and the larger floor stays: more than any caret.
+      let reaimed = false;
       if (point?.source === 'focused_input' && witnessRect) {
         focusedAfter = await readFocusedInput(page);
-        const followed = focusedAfter && focusedAfter.tag === focusedInput.tag
+        const sameInput = focusedAfter && focusedAfter.tag === focusedInput.tag;
+        const followed = sameInput
           && Math.abs(focusedAfter.y - focusedInput.y) < 1
           && focusedAfter.x - focusedInput.x >= PIXEL_CARET_MIN_ADVANCE_CSS_PX;
         if (followed) {
           caretColumns = [focusedInput.x, focusedAfter.x].map(x => ({
             x: Math.floor(x * dpr) - 1, y: witnessRect.y, width: 3, height: witnessRect.height,
           }));
+        } else if (sameInput && focusedAfter.width <= PIXEL_CARET_INPUT_MAX_CSS_PX.width && focusedAfter.height <= PIXEL_CARET_INPUT_MAX_CSS_PX.height
+          && focusedAfter.x >= 0 && focusedAfter.y >= 0 && Math.abs(focusedAfter.y - focusedInput.y) >= 1 && documentRect) {
+          reaimed = true;
+          const y = focusedAfter.y + focusedAfter.height / 2;
+          const top = Math.max(documentRect.y, Math.floor((y - PIXEL_CARET_BAND_CSS_PX) * dpr));
+          const bottom = Math.min(documentRect.y + documentRect.height, Math.ceil((y + PIXEL_CARET_BAND_CSS_PX) * dpr));
+          witnessRect = {x: documentRect.x, y: top, width: documentRect.width, height: Math.max(0, bottom - top)};
+          caretColumns = [{x: Math.floor(focusedAfter.x * dpr) - 1, y: witnessRect.y, width: 3, height: witnessRect.height}];
         }
       }
-      const minPixels = caretColumns ? PIXEL_GLYPH_MIN_PIXELS : PIXEL_EDIT_MIN_PIXELS;
+      const minPixels = caretColumns && !reaimed ? PIXEL_GLYPH_MIN_PIXELS : PIXEL_EDIT_MIN_PIXELS;
       // An edit that landed late (Docen at 250,000 words: seconds after the key) has had no time to go quiet
       // when the frame witness returns on its first changed frame. Wait until the full settle window has
       // passed since that frame; then the quiet is read up to the page's own clock, less the time a frame
@@ -736,7 +750,7 @@ async function measureEdit(page, selector, cdp) {
       // editor draws on the same canvas, an input parked away from the caret) is not the typed character.
       let touchesCaret = null;
       if (!settled.failure_reason && point?.source === 'focused_input' && settled.edit_bbox) {
-        const left = focusedInput.x * dpr;
+        const left = (reaimed ? focusedAfter.x - PIXEL_CARET_REACH_CSS_PX : focusedInput.x) * dpr;
         const right = (caretColumns ? focusedAfter.x : focusedInput.x + PIXEL_CARET_REACH_CSS_PX) * dpr;
         const box = settled.edit_bbox;
         touchesCaret = box.x <= right + PIXEL_CARET_REACH_CSS_PX * dpr && box.x + box.width >= left - 4 * dpr;
@@ -746,6 +760,7 @@ async function measureEdit(page, selector, cdp) {
       confirmation.pixel_settle.arm_waited_ms = armWaitedMs;
       confirmation.pixel_settle.late_wait_ms = lateWaitMs;
       confirmation.pixel_settle.read_until_page_ms = pageNowMs;
+      confirmation.pixel_settle.band_reaimed = reaimed;
       const harnessFailure = unreadFrames ? 'frame_unacknowledged_in_window'
         : touchesCaret === false ? 'pixel_edit_not_at_caret' : null;
       if (settled.failure_reason || harnessFailure) {
