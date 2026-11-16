@@ -332,10 +332,10 @@ def _cell_text(facts: dict, roots, editor: str, criterion: str, measure: str = '
                 (DISPLAY.get(editor, editor), criterion, workload_id or '—', measure or '—', reason, '—')
             )
         return reason
-    # #238 (CodeRabbit, #246): launches or rounds that did not end on the same witness are not one figure.
+    # #245 (CodeRabbit, #246): launches or rounds that did not end on the same witness are not one figure.
     witnesses = {p_cell.get('witness'), r_cell.get('witness')}
     if len(witnesses) > 1 or 'mixed' in witnesses:
-        reason = 'launches read on different witnesses (first %s; second %s) (#238)' % (
+        reason = 'launches read on different witnesses (first %s; second %s) (#245)' % (
             p_cell.get('witness') or 'the usual one', r_cell.get('witness') or 'the usual one')
         facts[key + '.reason'] = reason
         facts.setdefault('_not_reproduced', []).append(
@@ -370,9 +370,9 @@ def _cell_text(facts: dict, roots, editor: str, criterion: str, measure: str = '
     facts[key + '.reproduction'] = e2_cells.public_cell_dict(r_cell, published=True)
     failures = e2_cells.failure_text(r_cell)
     suffix = '; second: content not verified' if criterion == 'C11' and r_cell.get('content_verified') is not True and p_cell.get('content_verified') is True else ''
-    # #238: a figure read on the pixel witness says so wherever it is printed.
-    if p_cell.get('witness') == 'changed_pixels':
-        suffix += '; by pixels, least change on any key press %d pixels (#238)' % min(
+    # #245: a figure read on the pixel witness says so wherever it is printed.
+    if p_cell.get('witness') == 'settled_pixels':
+        suffix += '; by pixels, least change on any key press %d pixels (#245)' % min(
             cell['least_changed_pixels'] for cell in (p_cell, r_cell))
     return p_text + suffix + ('; second: ' + failures if failures else '')
 

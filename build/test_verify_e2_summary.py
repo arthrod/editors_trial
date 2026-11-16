@@ -339,7 +339,7 @@ def test_a_marker_quoted_inside_a_rounds_words_does_not_end_its_clause():
 
 # #238: a typing time read on the pixel witness carries its mark, and its table the note.
 
-PIXEL_NOTE = 'A time marked "(by pixels)" ends at the first frame in which at least 100 pixels of the page changed after a key press the editor confirmed. The editor draws its text where the harness cannot read a character\'s outline, so that frame is not checked for the character itself. The smallest change on any key press behind these times was 102 pixels, close to that bound (issue #238).'
+PIXEL_NOTE = 'A time marked "(by pixels)" ends at the first frame that shows the whole settled change the key press made on the caret\'s line, with the caret itself left out. The editor draws its text on a canvas, where the harness cannot read a character\'s outline. The smallest such change on any key press behind these times was 102 pixels (issue #245).'
 PIXEL_REPORT = """# Report
 
 ## The results
@@ -368,7 +368,7 @@ def _pixel_facts():
         facts[base + '.reproduced'] = True
         facts[base + '.primary'], facts[base + '.reproduction'] = _cell(first), _cell(second)
     for half in ('primary', 'reproduction'):
-        facts['perf.e2.folio.C05.warm_steady.prose-500w.' + half].update(witness='changed_pixels', least_changed_pixels=102)
+        facts['perf.e2.folio.C05.warm_steady.prose-500w.' + half].update(witness='settled_pixels', least_changed_pixels=102)
     return facts
 
 
@@ -401,16 +401,16 @@ def test_a_note_under_a_table_with_no_marked_time_is_named():
 
 
 def test_a_note_that_says_something_else_with_the_same_words_is_named():
-    false_note = 'A time marked "(by pixels)" has no requirement of at least 100 pixels, although it was not checked for the character.'
+    false_note = 'A time marked "(by pixels)" does not end at the settled change and does not leave the caret out.'
     problems = verify.check(PIXEL_REPORT.replace(PIXEL_NOTE, false_note), _pixel_facts(), DISPLAY)
     assert any('note' in p for p in problems), problems
 
 
 def test_a_pixel_witnessed_cell_whose_least_change_is_under_the_bound_is_named():
     facts = _pixel_facts()
-    facts['perf.e2.folio.C05.warm_steady.prose-500w.reproduction']['least_changed_pixels'] = 24
+    facts['perf.e2.folio.C05.warm_steady.prose-500w.reproduction']['least_changed_pixels'] = 12
     problems = verify.check(PIXEL_REPORT, facts, DISPLAY)
-    assert any('100 pixels' in p and 'Folio' in p for p in problems), problems
+    assert any('16 pixels' in p and 'Folio' in p for p in problems), problems
 
 
 def test_a_note_whose_smallest_change_is_not_the_facts_is_named():

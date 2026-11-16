@@ -470,7 +470,7 @@ def _pixel_facts():
     _put(facts, 'plate', 'C05', 'prose-500w', 24, 26, measure='warm_steady')
     _put(facts, 'docen', 'C05', 'prose-500w', 50, 60, measure='warm_steady')
     for half in ('primary', 'reproduction'):
-        facts['perf.e2.docen.C05.warm_steady.prose-500w.' + half].update(witness='changed_pixels', least_changed_pixels=102)
+        facts['perf.e2.docen.C05.warm_steady.prose-500w.' + half].update(witness='settled_pixels', least_changed_pixels=102)
     return facts
 
 
@@ -480,8 +480,8 @@ def test_a_time_read_on_the_pixel_witness_is_marked_and_explained_under_its_tabl
     assert '| Plate.js | 25 ms | — | — | — |' in text
     assert 'At 500 words, 2 of 2 editors have a figure, from 25 ms to 55 ms (by pixels).' in text
     note = [line for line in text.split('\n') if line.startswith('A time marked "(by pixels)"')]
-    assert len(note) == 1 and 'at least 100 pixels' in note[0] and 'issue #238' in note[0]
-    assert 'The smallest change on any key press behind these times was 102 pixels' in note[0]
+    assert len(note) == 1 and 'with the caret itself left out' in note[0] and 'issue #245' in note[0]
+    assert 'The smallest such change on any key press behind these times was 102 pixels' in note[0]
 
 
 def test_a_table_without_such_a_time_carries_no_note():

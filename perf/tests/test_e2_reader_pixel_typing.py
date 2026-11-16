@@ -1,10 +1,9 @@
-"""#238: a typing launch refused only for the missing glyph outline is read on the pixel witness.
+"""#245: a typing launch of an editor that draws its text on a canvas ends on the settled-pixel witness.
 
-The harness times a key press to the first screencast frame that changed and then checks that frame
-against the typed character's own outline. Editors that draw their text on a canvas have no outline,
-so the launch is refused. Where every key press of the launch was confirmed in the editor's model and
-its first changed frame changed at least 100 pixels (the bound the paste criterion uses to tell text
-from a caret, #207), the same clock is published, and the cell says which witness it rests on.
+The harness writes such a trial as measured, with ``witness: settled_pixels``. The reader checks every key
+press behind it before a cell is built, and labels the cell with the smallest edit seen. A launch refused
+for the missing glyph outline stays refused whatever its first changed frame held: Docen's is its caret
+moving plus the harness's own mark, 102 pixels (#238, #247).
 """
 import copy
 import json
@@ -23,202 +22,89 @@ ENV = {"arch": "x86_64", "cache_state": "warm_steady", "cpu_cores_logical": 64, 
        "unicode_class": "ascii", "workload_id": "prose-500w"}
 
 
-def _obs(paint, pixels=102, confirmed=True, burst=None, acceptable=True, outcome='witnessed', adapter='model', interval=16.7,
-         origin=1000.0):
-    row = {'mechanism': 'cdp_screencast_changed_frame', 'paint_ms': paint,
-           'clock_skew': {'frame_interval_ms': interval, 'acceptable': acceptable},
-           'edit_confirmation': {'adapter': {'adapter': adapter, 'confirmed': confirmed}},
-           'witness': {'changed_pixels': pixels, 'outcome': outcome, 'time_origin_ms': origin}}
-    if burst is not None:
-        row['burst'] = burst
+COLUMNS = [{'x': 596, 'y': 510, 'width': 3, 'height': 49}, {'x': 604, 'y': 510, 'width': 3, 'height': 49}]
+
+
+def _key(ms, pixels=34, columns=COLUMNS, adapter='model', confirmed=True, failure=None, kind='settled_pixels', interval=16.7):
+    return {'mechanism': 'cdp_screencast_changed_frame', 'edit_ms': ms, 'paint_ms': ms, 'outcome': 'measured',
+            'witness_kind': kind, 'clock_skew': {'frame_interval_ms': interval, 'acceptable': True, 'skew_ms': 0},
+            'witness': {'changed_pixels': 102, 'outcome': 'witnessed'},
+            'edit_confirmation': {'confirmed': confirmed, 'adapter': {'adapter': adapter, 'confirmed': confirmed},
+                                  'pixel_settle': {'failure_reason': failure, 'edit_pixels': pixels,
+                                                   'caret_columns_device_px': columns}}}
+
+
+def _trial(criterion, keys, samples, **over):
+    row = dict(editor_id='docen', criterion_id=criterion, measure='warm_steady', layer='browser_visible',
+               outcome='measured', refusal_code=None, samples_ms=samples, witness='settled_pixels',
+               environment=dict(ENV, editor_id='docen'),
+               diagnostic={'observations': keys if criterion == 'C05' else [keys], 'frame_interval_ms': 16.7})
+    row.update(over)
     return row
 
 
-def _arm(single, burst, **kw):
-    """One cache state as the harness writes it: the single edit (carrying its burst), then the burst's keys."""
-    keys = [_obs(value, **kw) for value in burst]
-    # The harness writes each burst key twice: inside the single edit and, after its checks, at the top level.
-    return [_obs(single, pixels=kw.get('pixels', 1494) if kw.get('pixels', 102) >= 100 else kw['pixels'],
-                 burst=copy.deepcopy(keys), **{k: v for k, v in kw.items() if k != 'pixels'})] + keys
+def test_a_trial_whose_every_key_press_settled_is_labelled_with_its_smallest_edit():
+    row = _trial('C06', [_key(50.0, 34), _key(52.0, 31), _key(49.0, 36)], [50.0])
+    before = copy.deepcopy(row)
+    read = cells.settled_pixel_typing(row)
+    assert read['outcome'] == 'measured' and read['samples_ms'] == [50.0]
+    assert read['pixel_witness'] == {'issue': 245, 'keystrokes': 3, 'least_changed_pixels': 31}
+    assert row == before  # the cached row is not mutated
 
 
-def _launch(run, editor, criterion, observations, *, rep=0, job_id='run-001', publishable=True):
+def test_the_smaller_floor_needs_the_carets_two_columns():
+    assert cells.settled_pixel_typing(_trial('C05', [_key(50.0, 34)], [50.0]))['outcome'] == 'measured'
+    for key in (_key(50.0, 34, columns=None), _key(50.0, 99, columns=COLUMNS[:1]), _key(50.0, 15)):
+        read = cells.settled_pixel_typing(_trial('C05', [key], [50.0]))
+        assert read['outcome'] == 'refused' and read['samples_ms'] == [], key
+        assert read['refusal_code'] == 'paint_witness_unavailable' and read['failure_reason'] == 'pixel_witness_incomplete'
+    assert cells.settled_pixel_typing(_trial('C05', [_key(50.0, 500, columns=None)], [50.0]))['outcome'] == 'measured'
+
+
+def test_one_key_press_that_did_not_settle_or_was_not_confirmed_by_text_refuses_the_trial():
+    good = _key(50.0)
+    for bad in (_key(50.0, failure='not_settled'), _key(50.0, confirmed=False), _key(50.0, adapter='flag'),
+                _key(50.0, kind=None), {**_key(50.0), 'edit_confirmation': {'adapter': {'adapter': 'model', 'confirmed': True}}}):
+        read = cells.settled_pixel_typing(_trial('C06', [good, bad, good], [50.0]))
+        assert read['outcome'] == 'refused', bad
+
+
+def test_a_trial_that_mixes_witnesses_or_has_no_key_presses_is_refused():
+    assert cells.settled_pixel_typing(_trial('C05', [_key(50.0)], [50.0], witness='mixed'))['outcome'] == 'refused'
+    assert cells.settled_pixel_typing(_trial('C05', [], [50.0]))['outcome'] == 'refused'
+
+
+def test_trials_of_other_criteria_and_of_glyph_witnessed_editors_pass_unchanged():
+    glyph = _trial('C05', [_key(50.0, kind=None)], [50.0], witness=None)
+    assert cells.settled_pixel_typing(glyph) is glyph
+    other = _trial('C07', [_key(50.0)], [50.0])
+    assert cells.settled_pixel_typing(other) is other
+
+
+def _launch(run, editor, criterion, row, *, rep=0, job_id='run-001'):
     job = run / 'benchmark_warm_cold' / job_id
     path = job / 'cells' / f'{rep:04d}-{editor}' / 'attempts' / f'{criterion.lower()}.json'
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(dict(
-        editor_id=editor, criterion_id=criterion, measure='warm_steady', layer='browser_visible',
-        outcome='not_applicable', refusal_code='not_applicable', failure_reason=GLYPH, failure_reasons=[GLYPH], samples_ms=[],
-        environment=dict(ENV, editor_id=editor),
-        diagnostic={'observations': observations, 'aggregation': 'all samples required'},
-        host_provenance={'host_build': 'production', 'publishable': publishable, 'tree_sha256': 'tree-a'})))
+    path.write_text(json.dumps(dict(row, editor_id=editor, environment=dict(ENV, editor_id=editor),
+                                    host_provenance={'host_build': 'production', 'publishable': True, 'tree_sha256': 'tree-a'})))
     (job / 'summary.json').write_text(json.dumps(dict(
         run_id=job_id, seed=1, execution_profile='dedicated_publish', order=[[i, editor] for i in range(rep + 1)])))
 
 
-COLD = _arm(90.0, [80.0, 70.0, 75.0], origin=1000.0)
-WARM = _arm(30.0, [20.0, 26.0, 22.0], origin=9000.0)  # the warm page is loaded after the cold one
-
-
-def test_the_single_edit_of_each_cache_state_is_the_c05_sample(fs):
+def test_a_launch_refused_for_the_missing_outline_stays_refused_whatever_its_first_frame_held(fs):
+    """#238: 102 changed pixels in Docen's first frame are its caret and the harness's own mark."""
     run = Path('/runs/campaign')
-    _launch(run, 'docen', 'C05', COLD + WARM)
-    warm = cells.build_run_cell(run, 'docen', 'C05', measure='warm_steady')
-    cold = cells.build_run_cell(run, 'docen', 'C05', measure='process_cold_fs_warm')
-    assert warm['kept_ms'] == [30.0] and cold['kept_ms'] == [90.0]
-    assert warm['refusals'] == {} and cold['refusals'] == {}
-    assert warm['witness'] == 'changed_pixels' and cold['witness'] == 'changed_pixels'
-    assert warm['unwitnessed'] is None
-    # The smallest change any key press of the kept launches made: how close the editor is to the bound.
-    assert warm['least_changed_pixels'] == 102
-
-
-def test_the_median_of_the_burst_is_the_c06_sample(fs):
-    run = Path('/runs/campaign')
-    _launch(run, 'docen', 'C06', COLD + WARM)
-    assert cells.build_run_cell(run, 'docen', 'C06', measure='warm_steady')['kept_ms'] == [22.0]
-    assert cells.build_run_cell(run, 'docen', 'C06', measure='process_cold_fs_warm')['kept_ms'] == [75.0]
-
-
-def test_a_launch_with_a_caret_sized_change_stays_refused(fs):
-    """canvas-editor: every first changed frame is 24 pixels, a caret."""
-    run = Path('/runs/campaign')
-    _launch(run, 'canvas', 'C05', _arm(12.0, [4.0, 60.0, 70.0], pixels=24) + _arm(11.0, [5.0, 61.0, 71.0], pixels=24, origin=9000.0))
-    cell = cells.build_run_cell(run, 'canvas', 'C05', measure='warm_steady')
-    assert cell['kept_ms'] == [] and cell['refusals'] == {'not_applicable': 1}
-    assert cell['unwitnessed']['keystrokes'] == 8 and cell.get('witness') != 'changed_pixels'
-
-
-def test_one_key_press_under_the_bound_keeps_the_whole_launch_refused(fs):
-    run = Path('/runs/campaign')
-    warm = _arm(30.0, [20.0, 26.0, 22.0], origin=9000.0)
-    warm[2]['witness']['changed_pixels'] = 99
-    _launch(run, 'docen', 'C05', COLD + warm)
+    observation = {'mechanism': 'cdp_screencast_changed_frame', 'paint_ms': 28.0,
+                   'clock_skew': {'frame_interval_ms': 16.7, 'acceptable': True},
+                   'edit_confirmation': {'adapter': {'adapter': 'model', 'confirmed': True}},
+                   'witness': {'changed_pixels': 102, 'outcome': 'witnessed', 'time_origin_ms': 1000.0}}
+    burst = [copy.deepcopy(observation) for _ in range(3)]
+    arm = [dict(observation, burst=burst)] + burst
+    _launch(run, 'docen', 'C05', dict(
+        criterion_id='C05', measure='warm_steady', layer='browser_visible', outcome='not_applicable',
+        refusal_code='not_applicable', failure_reason=GLYPH, failure_reasons=[GLYPH], samples_ms=[],
+        diagnostic={'observations': arm + copy.deepcopy(arm)}))
     for measure in ('warm_steady', 'process_cold_fs_warm'):
-        assert cells.build_run_cell(run, 'docen', 'C05', measure=measure)['refusals'] == {'not_applicable': 1}
-
-
-def test_a_key_press_the_editor_did_not_confirm_keeps_the_launch_refused(fs):
-    """WordCraft: the edit was confirmed on a quarter of the key presses."""
-    run = Path('/runs/campaign')
-    warm = _arm(30.0, [20.0, 26.0, 22.0], origin=9000.0)
-    warm[1]['edit_confirmation']['adapter']['confirmed'] = False
-    _launch(run, 'wordcraft', 'C05', COLD + warm)
-    assert cells.build_run_cell(run, 'wordcraft', 'C05', measure='warm_steady')['refusals'] == {'not_applicable': 1}
-
-
-def test_a_launch_that_does_not_have_both_cache_states_whole_stays_refused(fs):
-    run = Path('/runs/campaign')
-    _launch(run, 'docen', 'C05', WARM)
+        cell = cells.build_run_cell(run, 'docen', 'C05', measure=measure)
+        assert cell['kept_ms'] == [] and cell.get('witness') is None, measure
     assert cells.build_run_cell(run, 'docen', 'C05', measure='warm_steady')['refusals'] == {'not_applicable': 1}
-
-
-def test_a_frame_the_clock_check_did_not_accept_keeps_the_launch_refused(fs):
-    run = Path('/runs/campaign')
-    _launch(run, 'docen', 'C05', COLD + _arm(30.0, [20.0, 26.0, 22.0], acceptable=False, origin=9000.0))
-    assert cells.build_run_cell(run, 'docen', 'C05', measure='warm_steady')['refusals'] == {'not_applicable': 1}
-
-
-def test_a_host_that_is_not_publishable_stays_unpublished(fs):
-    run = Path('/runs/campaign')
-    _launch(run, 'docen', 'C05', COLD + WARM, publishable=False)
-    assert cells.build_run_cell(run, 'docen', 'C05', measure='warm_steady')['kept_ms'] == []
-
-
-def test_a_diagnostic_run_stays_refused(fs, monkeypatch):
-    run = Path('/runs/campaign')
-    monkeypatch.setitem(ENV, 'run_kind', 'diagnostic')
-    _launch(run, 'docen', 'C05', COLD + WARM)
-    assert cells.build_run_cell(run, 'docen', 'C05', measure='warm_steady')['refusals'] == {'not_applicable': 1}
-
-
-def test_a_time_under_one_redraw_is_flagged_as_the_glyph_path_flags_it(fs):
-    run = Path('/runs/campaign')
-    _launch(run, 'docen', 'C05', COLD + _arm(9.0, [20.0, 26.0, 22.0], origin=9000.0))
-    cell = cells.build_run_cell(run, 'docen', 'C05', measure='warm_steady')
-    assert cell['kept_ms'] == [9.0] and cell['sub_frame'] == [True]
-
-
-def test_another_refusal_is_never_read_on_the_pixel_witness(fs):
-    run = Path('/runs/campaign')
-    job = run / 'benchmark_warm_cold' / 'run-001'
-    _launch(run, 'docen', 'C05', COLD + WARM)
-    path = job / 'cells' / '0000-docen' / 'attempts' / 'c05.json'
-    row = json.loads(path.read_text()); row['failure_reason'] = 'document_content_unverifiable'
-    path.write_text(json.dumps(row))
-    assert cells.build_run_cell(run, 'docen', 'C05', measure='warm_steady')['refusals'] == {'not_applicable': 1}
-
-
-# The MiniMax review of #238.
-
-def _refused(fs, observations, editor='docen', criterion='C05', measure='warm_steady', edit=None):
-    run = Path('/runs/campaign')
-    _launch(run, editor, criterion, observations)
-    if edit:
-        path = run / 'benchmark_warm_cold' / 'run-001' / 'cells' / ('0000-' + editor) / 'attempts' / (criterion.lower() + '.json')
-        row = json.loads(path.read_text()); edit(row); path.write_text(json.dumps(row))
-    cell = cells.build_run_cell(run, editor, criterion, measure=measure)
-    return cell['kept_ms'] == [] and bool(cell['refusals'])
-
-
-def test_a_burst_that_is_not_three_keys_stays_refused(fs):
-    assert _refused(fs, _arm(90.0, [80.0, 70.0]) + _arm(30.0, [20.0, 26.0], origin=9000.0), criterion='C06')
-
-
-def test_a_launch_that_recorded_another_reason_as_well_stays_refused(fs):
-    assert _refused(fs, COLD + WARM, edit=lambda row: row.update(failure_reasons=[GLYPH, 'paint_witness_unavailable']))
-
-
-def test_a_launch_refused_under_another_code_stays_refused(fs):
-    assert _refused(fs, COLD + WARM, edit=lambda row: row.update(refusal_code='paint_witness_unavailable'))
-
-
-def test_a_launch_the_harness_marked_unpublishable_stays_refused(fs):
-    assert _refused(fs, COLD + WARM, edit=lambda row: row.update(publishable=False))
-
-
-def test_a_burst_key_whose_embedded_record_fails_the_rule_keeps_the_launch_refused(fs):
-    warm = _arm(30.0, [20.0, 26.0, 22.0], origin=9000.0)
-    warm[0]['burst'][1]['witness']['changed_pixels'] = 24
-    assert _refused(fs, COLD + warm)
-
-
-def test_a_confirmation_that_is_not_the_models_keeps_the_launch_refused(fs):
-    """WordCraft's adapter confirms a "modified" flag, not the edit."""
-    assert _refused(fs, _arm(90.0, [80.0, 70.0, 75.0], adapter='flag') + _arm(30.0, [20.0, 26.0, 22.0], adapter='flag', origin=9000.0), editor='wordcraft')
-
-
-def test_key_presses_timed_at_different_redraw_intervals_keep_the_launch_refused(fs):
-    """The harness refuses a trial whose samples were calibrated differently (frame_interval_inconsistent)."""
-    warm = _arm(30.0, [20.0, 26.0, 22.0], origin=9000.0)
-    warm[2]['clock_skew']['frame_interval_ms'] = 8.3
-    warm[0]['burst'][1]['clock_skew']['frame_interval_ms'] = 8.3
-    assert _refused(fs, COLD + warm, criterion='C06')
-
-
-# The GLM review of #238: which arm is cold is checked against the record, not taken from its position alone.
-
-def test_arms_that_are_not_two_page_loads_in_order_keep_the_launch_refused(fs):
-    """The cold arm is the first page load of the launch and the warm arm the next; each arm is one page."""
-    assert _refused(fs, _arm(30.0, [20.0, 26.0, 22.0], origin=9000.0) + _arm(90.0, [80.0, 70.0, 75.0], origin=1000.0))
-    assert _refused(fs, COLD + _arm(30.0, [20.0, 26.0, 22.0], origin=1000.0))
-    mixed = _arm(30.0, [20.0, 26.0, 22.0], origin=9000.0)
-    mixed[2]['witness']['time_origin_ms'] = 9500.0
-    mixed[0]['burst'][1]['witness']['time_origin_ms'] = 9500.0
-    assert _refused(fs, COLD + mixed)
-
-
-def test_the_facts_record_of_a_cell_keeps_its_witness_published_or_not():
-    cell = {'witness': 'changed_pixels', 'least_changed_pixels': 102, 'kept_ms': [1.0], 'stats': {}}
-    for published in (True, False):
-        public = cells.public_cell_dict(cell, published=published)
-        assert public['witness'] == 'changed_pixels' and public['least_changed_pixels'] == 102
-
-
-# CodeAnt, #246: one redraw interval per page load, whichever criterion the row is for.
-
-def test_a_burst_key_at_another_redraw_interval_refuses_the_single_edit_too(fs):
-    warm = _arm(30.0, [20.0, 26.0, 22.0], origin=9000.0)
-    warm[2]['clock_skew']['frame_interval_ms'] = 8.3
-    warm[0]['burst'][1]['clock_skew']['frame_interval_ms'] = 8.3
-    assert _refused(fs, COLD + warm, criterion='C05')

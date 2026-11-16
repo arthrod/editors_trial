@@ -46,13 +46,13 @@ SECTIONS = (
 DASH = '—'
 UNDER = 'under '
 
-#: #238: the mark of a time read on the pixel witness, and the note its table carries.
-PIXEL_WITNESS = 'changed_pixels'
+#: #245: the mark of a time read on the pixel witness, and the note its table carries.
+PIXEL_WITNESS = 'settled_pixels'
 PIXEL_MARK = ' (by pixels)'
-PIXEL_NOTE = ('A time marked "(by pixels)" ends at the first frame in which at least 100 pixels of the page changed after '
-              "a key press the editor confirmed. The editor draws its text where the harness cannot read a character's "
-              'outline, so that frame is not checked for the character itself. The smallest change on any key press behind '
-              'these times was %d pixels, close to that bound (issue #238).')
+PIXEL_NOTE = ('A time marked "(by pixels)" ends at the first frame that shows the whole settled change the key press made '
+              "on the caret's line, with the caret itself left out. The editor draws its text on a canvas, where the "
+              "harness cannot read a character's outline. The smallest such change on any key press behind these times "
+              'was %d pixels (issue #245).')
 
 #: The typing lanes refuse a launch with this reason when the editor exposes no glyph outline (#238).
 GLYPH_REASON = 'no_glyph_geometry_to_witness_the_keystrokes_own_paint'

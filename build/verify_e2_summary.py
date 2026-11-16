@@ -121,11 +121,11 @@ def _round_figures(rounds: dict):
     return list(zip(values, texts))
 
 
-#: #238: the note a table with a time read on the pixel witness carries, word for word (the checker's own copy).
-PIXEL_NOTE = ('A time marked "(by pixels)" ends at the first frame in which at least 100 pixels of the page changed after '
-              "a key press the editor confirmed. The editor draws its text where the harness cannot read a character's "
-              'outline, so that frame is not checked for the character itself. The smallest change on any key press behind '
-              'these times was %d pixels, close to that bound (issue #238).')
+#: #245: the note a table with a time read on the pixel witness carries, word for word (the checker's own copy).
+PIXEL_NOTE = ('A time marked "(by pixels)" ends at the first frame that shows the whole settled change the key press made '
+              "on the caret's line, with the caret itself left out. The editor draws its text on a canvas, where the "
+              "harness cannot read a character's outline. The smallest such change on any key press behind these times "
+              'was %d pixels (issue #245).')
 
 
 def expected_cell(facts: dict, editor: str, criterion: str, measure: str, workload: str):
@@ -142,7 +142,7 @@ def expected_cell(facts: dict, editor: str, criterion: str, measure: str, worklo
         return _refused(str(facts.get(base + '.reason') or ''), (facts.get(base + '.primary'), facts.get(base + '.reproduction'))), None, False
     one, two = facts[base + '.primary'], facts[base + '.reproduction']
     ends = {one.get('witness'), two.get('witness')}
-    if ends != {None} and ends != {'changed_pixels'}:
+    if ends != {None} and ends != {'settled_pixels'}:
         return 'no figure', None, False
     value = (_middle(one) + _middle(two)) / 2
     unit = one.get('sample_unit') or 'ms'
@@ -150,7 +150,7 @@ def expected_cell(facts: dict, editor: str, criterion: str, measure: str, worklo
     text = _below(max(one.get('frame_interval_ms') or 0, two.get('frame_interval_ms') or 0)) if below else _shown(value, unit)
     if criterion == 'C11' and not (one.get('content_verified') is True and two.get('content_verified') is True):
         return text + ' (text not checked)', value, False
-    if ends == {'changed_pixels'}:
+    if ends == {'settled_pixels'}:
         text += ' (by pixels)'
     return text, value, True
 
@@ -268,9 +268,9 @@ def check(report_text: str, facts: dict, display: dict) -> list:
                     base = 'perf.e2.%s.%s%s.%s' % (editor, criterion, '.' + measure if measure else '', COLUMNS[title])
                     least = [(facts.get(base + half) or {}).get('least_changed_pixels') for half in ('.primary', '.reproduction')]
                     smallest.extend(value_ for value_ in least if isinstance(value_, (int, float)))
-                    if not all(isinstance(value_, (int, float)) and value_ >= 100 for value_ in least):
+                    if not all(isinstance(value_, (int, float)) and value_ >= 16 for value_ in least):
                         problems.append('%s / %s / %s: read by pixels, and the facts do not record a least change of at least '
-                                        '100 pixels in both rounds (%r)' % (heading, cells[0], title, least))
+                                        '16 pixels in both rounds (%r)' % (heading, cells[0], title, least))
                 if cells[1 + index] != text:
                     problems.append('%s / %s / %s: report says %r, the facts give %r'
                                     % (heading, cells[0], title, cells[1 + index], text))
@@ -282,7 +282,7 @@ def check(report_text: str, facts: dict, display: dict) -> list:
         sentence = expected_sentence(columns, len(rows) - 2)
         if (printed[0] if printed else '') != sentence:
             problems.append('%s: range sentence is %r, the facts give %r' % (heading, printed[0] if printed else '', sentence))
-        # #238: a table with a time read on the pixel witness says, once, what that mark means.
+        # #245: a table with a time read on the pixel witness says, once, what that mark means.
         marked = any(cell.strip().endswith('(by pixels)') for row in rows[2:] for cell in row.strip('|').split('|'))
         notes = [line for line in block.split('\n') if 'by pixels' in line and not line.startswith(('|', 'At '))]
         if marked and notes != [PIXEL_NOTE % (min(smallest) if smallest else 0)]:
