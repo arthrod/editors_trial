@@ -385,8 +385,13 @@ def main(argv: list[str] | None = None):
                 # #228: the host check above ran once; the shared host can be busy hours later.
                 entry['host_load'] = host_load.guard()
                 print('host_load ' + json.dumps(entry['host_load'], sort_keys=True), flush=True)
-                if not entry['host_load']['quiet']:
+                entry['started'] = bool(entry['host_load']['quiet'])
+                if not entry['started']:
+                    # Not started, and said so three ways: the flag, the exit code and the
+                    # failure line in RUN-DONE. Nothing re-runs it here: whoever launched the
+                    # run reads RUN-DONE and schedules the job again.
                     job_exit = 2
+                    entry['exit_code'] = job_exit
                     entry['refusal'] = host_load.refusal(entry['host_load'])
                     failures.append(f'{name}/{run_id}: {entry["refusal"]}')
                 elif refuse_existing(directory):

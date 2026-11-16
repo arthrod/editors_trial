@@ -129,7 +129,11 @@ def test_a_job_is_not_started_on_a_host_that_stayed_busy(tmp_path, monkeypatch):
     (row,) = report['runs']
     assert row['refusal'] == 'host_load: 1-minute load 50.00 above 21.33 after waiting 1800 s'
     assert row['host_load'] == busy
+    assert row['started'] is False and row['exit_code'] == 2 and row['measured'] == 0
     assert 'host_load' in error
+    done = (tmp_path / 'RUN-DONE').read_text().splitlines()
+    assert 'exit_status=1' in done
+    assert any(line.startswith('failure=') and 'host_load' in line for line in done)
     assert not (tmp_path / row['runner']).exists()  # nothing measured, nothing to mistake for a job
 
 
@@ -137,7 +141,7 @@ def test_a_job_on_a_quiet_host_runs_and_records_what_it_waited(tmp_path, monkeyp
     quiet = {'quiet': True, 'load1': 9.5, 'load1_first': 30.0, 'load1_max': 21.33, 'waited_s': 60, 'readings': 3}
     started, report, _error = _publish(tmp_path, monkeypatch, quiet)
     assert len(started) == 1
-    assert report['runs'][0]['host_load'] == quiet
+    assert report['runs'][0]['host_load'] == quiet and report['runs'][0]['started'] is True
     assert not str(report['runs'][0].get('refusal', '')).startswith('host_load')
 
 
@@ -226,3 +230,15 @@ def test_the_launch_cap_is_shorter_than_the_job_cap(monkeypatch):
     monkeypatch.setenv('E2_SAMPLE_LOAD_WAIT_S', '-1')
     with pytest.raises(ValueError, match='E2_SAMPLE_LOAD_WAIT_S'):
         host_load.sample_cap_seconds()
+
+
+def test_cpu_pressure_is_recorded_beside_the_load_when_the_host_exposes_it(tmp_path, monkeypatch):
+    """Review of #228: the load average is host-wide; pressure is what this container felt. Recorded, not gated."""
+    pressure = tmp_path / 'cpu'
+    pressure.write_text('some avg10=3.25 avg60=1.50 avg300=0.40 total=123\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n')
+    monkeypatch.setattr(host_load, 'PRESSURE_CPU', str(pressure))
+    result, _clock = _wait([4.2])
+    assert result['pressure_cpu_some'] == {'avg10': 3.25, 'avg60': 1.5, 'avg300': 0.4}
+    monkeypatch.setattr(host_load, 'PRESSURE_CPU', str(tmp_path / 'absent'))
+    result, _clock = _wait([4.2])
+    assert 'pressure_cpu_some' not in result

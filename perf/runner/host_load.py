@@ -7,8 +7,9 @@ later. The bound is the quiet machine check's own (perf.runner.host): a
 
 A job that finds the host busy waits, reading the load every POLL_S
 seconds, for at most E2_HOST_LOAD_WAIT_S seconds (default 1800). If the
-host is still busy the job is not started; run.py records the refusal and
-the job is run again later.
+host is still busy the job is not started; run.py records the refusal
+(`started` false, exit code 2, a failure line in RUN-DONE) and whoever
+launched the run schedules the job again.
 
 The load can also rise while a job runs, so each launch waits the same
 way before it starts (BrowserRun.begin_sample on a shared_guarded host),
@@ -23,6 +24,12 @@ import os
 import time
 
 from perf.runner.host import LOAD_FRACTION
+
+# Linux pressure stall information: the share of time some task of this
+# container waited for a CPU. The load average is host-wide; this is what the
+# container felt. Recorded beside each verdict, never gated on: no bound for it
+# has been validated against these measurements.
+PRESSURE_CPU = '/proc/pressure/cpu'
 
 POLL_S = 30
 DEFAULT_CAP_S = 1800
@@ -64,6 +71,17 @@ def read_load1() -> float:
     return value
 
 
+def read_pressure() -> dict | None:
+    """{'avg10': …, 'avg60': …, 'avg300': …} of the "some" line, or None when the host does not expose it."""
+    try:
+        with open(PRESSURE_CPU, encoding='ascii') as stream:
+            fields = next(line for line in stream if line.startswith('some ')).split()[1:]
+        values = {key: float(value) for key, value in (field.split('=', 1) for field in fields) if key.startswith('avg')}
+    except (OSError, ValueError, StopIteration):
+        return None
+    return values if set(values) == {'avg10', 'avg60', 'avg300'} else None
+
+
 def wait_for_quiet(*, limit: float, read=None, sleep=time.sleep, monotonic=time.monotonic,
                    poll_s: int = POLL_S, cap_s: int = DEFAULT_CAP_S) -> dict:
     """Read the 1-minute load until it is at or under `limit`, or `cap_s` seconds have been waited.
@@ -84,6 +102,9 @@ def wait_for_quiet(*, limit: float, read=None, sleep=time.sleep, monotonic=time.
         result = {'quiet': load <= limit, 'load1': load, 'load1_first': first, 'load1_max': limit,
                   'waited_s': waited, 'readings': readings}
         if result['quiet'] or waited >= cap_s:
+            pressure = read_pressure()
+            if pressure is not None:
+                result['pressure_cpu_some'] = pressure
             return result
         sleep(min(poll_s, cap_s - waited))
 
