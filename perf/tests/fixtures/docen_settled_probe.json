@@ -1,1 +1,2771 @@
-{"cold":{"burst":[{"clock_skew":{"acceptable":true,"anchor_diff_ratio":1,"anchor_pixel_checked":true,"anchor_probe_region_px":{"height":8,"width":8,"x":0,"y":0},"bound_ms":5,"caret_mask_error":null,"caret_masked":true,"change_page_ms":9492.7,"checks":{"anchor_causality":true,"anchor_converted":true,"anchor_found":true,"anchor_lag_within_bound":true,"anchor_pixel_checked":true,"page_offset_spread_within_bound":true,"page_offset_within_bound":true,"timestamp_kind_known":true},"conversion":{"error_lower_ms":-2,"error_lower_why":"causality: a frame cannot show a change before it was made (2 ms slop for the change timestamp)","error_upper_ms":250,"error_upper_why":"the anchor lag bound: a positive conversion error is caught once it pushes the anchor past it","formula":"page_ms = timestamp * 1000 - performance.timeOrigin","published":"[-2 ms, +250 ms] (never \"\u00b12 ms\")"},"frame_interval_ms":16.7,"frame_interval_samples":60,"frame_interval_source":"raf_delta","frame_lag_ms":25.501,"frame_monotonic_ms":852669.269,"frame_page_ms":9518.201,"frames_total":3,"kind":"clock_skew","lag_bound_ms":250,"lag_bound_rule":"max(3 frame intervals, 250 ms)","method":"page_clock_offset+pixel_anchor","notes":["page_offset_ms is the page-local wall/monotonic discrepancy; it is NOT the screencast conversion error and never gates alone","the conversion is proven by the pixel anchor: the first delivered frame whose probe region changed, chosen in arrival order with no timestamp filter","the published conversion bound is [-2 ms, +250 ms]; the anchor is refused outside it","frame_lag_ms is the compositor presentation latency of the anchor, not a clock error","metadata.timestamp is an epoch reading; page_ms = timestamp*1000 - performance.timeOrigin"],"page_offset_ms":-0.6,"page_offset_samples":[-0.7,-0.9,-0.6,-0.5,-0.4,-0.1,-0.5,-0.6,-0.8],"page_offset_spread_ms":0.8,"reason":null,"skew_ms":-0.6,"time_origin_ms":1794858502097,"timestamp_field":"timestamp","timestamp_kind":"epoch_seconds"},"edit_confirmation":{"adapter":{"adapter":"model","after_count":1,"before_count":0,"confirmed":true,"reason":null,"text_delta":1},"after_count":1,"before_count":0,"changed_pixels":34,"confirmed":true,"expected":"x","frame_collection":"before_document_witness_decode","mutations":[],"pending_arm_text_count":false,"pixel_settle":{"baseline_seq":2,"blink_after_pixels":0,"blink_before_pixels":0,"caret_band_css_px":24,"caret_columns_device_px":[{"height":49,"width":3,"x":580,"y":510},{"height":49,"width":3,"x":588,"y":510}],"caret_point_css_px":{"x":581.328125,"y":534.75},"caret_point_source":"focused_input","delay_ms":54.82001953118015,"document_rect_device_px":{"height":900,"width":1280,"x":0,"y":0},"edit_bbox":{"height":8,"width":5,"x":583,"y":541},"edit_pixels":34,"excluded_harness_mark_css_px":10,"failure_reason":null,"first_changed_frame_page_ms":9884.854,"focused_input_after_css_px":{"height":1,"tag":"TEXTAREA","width":1,"x":589.328125,"y":534.25},"focused_input_css_px":{"height":1,"tag":"TEXTAREA","width":1,"x":581.328125,"y":534.25},"frames_read":2,"last_frame_page_ms":9901.52001953125,"marker_page_ms":9846.70000000007,"match_missing_pixels":0,"match_page_ms":9901.52001953125,"min_pixels":16,"quiet_ms":2945.17998046882,"settled_page_ms":9901.52001953125,"settled_seq":4,"tail_frames":1,"witness_rect_device_px":{"height":49,"width":1280,"x":0,"y":510},"witness_seq":4},"settle_failure":null,"settle_max_wait_ms":3000,"settled_channel_tolerance":8,"settled_page_ms":9901.52001953125,"settled_quiescence_ms":300,"visible_rects":[],"witness_page_ms":9901.52001953125},"edit_ms":54.82001953118015,"event_timing":{"duration_step_ms":8,"duration_threshold_ms":16,"entries":[{"duration":32,"interactionId":881,"name":"keydown","processingEnd":9846.900000000023,"startTime":9846.70000000007}],"event":{"startTime":9846.70000000007,"trusted":true},"outcome":"observed","supported":true},"failure_reason":null,"mechanism":"cdp_screencast_changed_frame","outcome":"measured","paint_ms":54.82001953118015,"timestamp_note":"Uncorrected frame-to-page conversion; page_offset_ms is not a conversion correction. See clock_skew conversion bounds.","witness":{"after_page_ms":9846.7,"baseline_page_ms":9568.198,"baseline_source":"caller","caret_mask_css":"* { caret-color: transparent !important }","caret_mask_error":null,"caret_masked":true,"changed_pixels":38,"clock_check":{"acceptable":true,"anchor_diff_ratio":1,"anchor_pixel_checked":true,"anchor_probe_region_px":{"height":8,"width":8,"x":0,"y":0},"bound_ms":5,"caret_mask_error":null,"caret_masked":true,"change_page_ms":9492.7,"checks":{"anchor_causality":true,"anchor_converted":true,"anchor_found":true,"anchor_lag_within_bound":true,"anchor_pixel_checked":true,"page_offset_spread_within_bound":true,"page_offset_within_bound":true,"timestamp_kind_known":true},"conversion":{"error_lower_ms":-2,"error_lower_why":"causality: a frame cannot show a change before it was made (2 ms slop for the change timestamp)","error_upper_ms":250,"error_upper_why":"the anchor lag bound: a positive conversion error is caught once it pushes the anchor past it","formula":"page_ms = timestamp * 1000 - performance.timeOrigin","published":"[-2 ms, +250 ms] (never \"\u00b12 ms\")"},"frame_interval_ms":16.7,"frame_interval_samples":60,"frame_interval_source":"raf_delta","frame_lag_ms":25.501,"frame_monotonic_ms":852669.269,"frame_page_ms":9518.201,"frames_total":3,"kind":"clock_skew","lag_bound_ms":250,"lag_bound_rule":"max(3 frame intervals, 250 ms)","method":"page_clock_offset+pixel_anchor","notes":["page_offset_ms is the page-local wall/monotonic discrepancy; it is NOT the screencast conversion error and never gates alone","the conversion is proven by the pixel anchor: the first delivered frame whose probe region changed, chosen in arrival order with no timestamp filter","the published conversion bound is [-2 ms, +250 ms]; the anchor is refused outside it","frame_lag_ms is the compositor presentation latency of the anchor, not a clock error","metadata.timestamp is an epoch reading; page_ms = timestamp*1000 - performance.timeOrigin"],"page_offset_ms":-0.6,"page_offset_samples":[-0.7,-0.9,-0.6,-0.5,-0.4,-0.1,-0.5,-0.6,-0.8],"page_offset_spread_ms":0.8,"reason":null,"skew_ms":-0.6,"time_origin_ms":1794858502097,"timestamp_field":"timestamp","timestamp_kind":"epoch_seconds"},"clock_check_source":"caller","clock_skew_acceptable":true,"clock_skew_bound_ms":5,"clock_skew_method":"page_clock_offset+pixel_anchor","clock_skew_ms":-0.6,"diff_ratio":3.3e-05,"document_region":{"device_pixel_ratio":1,"rect_css_px":{"height":900,"width":1280,"x":0,"y":0},"rect_device_px":{"height":900,"width":1280,"x":0,"y":0},"selector":"docen-document","source":"selector"},"document_region_error":null,"document_scoped":true,"elapsed_ms":28,"frame_page_ms":9884.854,"frames_ack_skipped":0,"frames_after":1,"frames_beyond_window":0,"frames_total":5,"kind":"frame_witness","max_diff_ratio":3.3e-05,"min_pixels":4,"outcome":"witnessed","region_pixels":1152000,"scan_started_after_ms":3007.3,"strict_window":false,"threshold":1e-05,"time_origin_ms":1794858502097,"timestamp_kind":"epoch_seconds","total_pixels":1152000,"window_end_page_ms":null,"window_ms":2000,"window_requested_ms":2000,"window_slack_ms":null},"witness_kind":"settled_pixels"},{"clock_skew":{"acceptable":true,"anchor_diff_ratio":1,"anchor_pixel_checked":true,"anchor_probe_region_px":{"height":8,"width":8,"x":0,"y":0},"bound_ms":5,"caret_mask_error":null,"caret_masked":true,"change_page_ms":14577.5,"checks":{"anchor_causality":true,"anchor_converted":true,"anchor_found":true,"anchor_lag_within_bound":true,"anchor_pixel_checked":true,"page_offset_spread_within_bound":true,"page_offset_within_bound":true,"timestamp_kind_known":true},"conversion":{"error_lower_ms":-2,"error_lower_why":"causality: a frame cannot show a change before it was made (2 ms slop for the change timestamp)","error_upper_ms":250,"error_upper_why":"the anchor lag bound: a positive conversion error is caught once it pushes the anchor past it","formula":"page_ms = timestamp * 1000 - performance.timeOrigin","published":"[-2 ms, +250 ms] (never \"\u00b12 ms\")"},"frame_interval_ms":16.7,"frame_interval_samples":60,"frame_interval_source":"raf_delta","frame_lag_ms":23.84,"frame_monotonic_ms":857752.399,"frame_page_ms":14601.34,"frames_total":3,"kind":"clock_skew","lag_bound_ms":250,"lag_bound_rule":"max(3 frame intervals, 250 ms)","method":"page_clock_offset+pixel_anchor","notes":["page_offset_ms is the page-local wall/monotonic discrepancy; it is NOT the screencast conversion error and never gates alone","the conversion is proven by the pixel anchor: the first delivered frame whose probe region changed, chosen in arrival order with no timestamp filter","the published conversion bound is [-2 ms, +250 ms]; the anchor is refused outside it","frame_lag_ms is the compositor presentation latency of the anchor, not a clock error","metadata.timestamp is an epoch reading; page_ms = timestamp*1000 - performance.timeOrigin"],"page_offset_ms":-0.5,"page_offset_samples":[-0.6,-0.2,-0.4,-0.7,-0.7,-0.5,-0.6,-0.5,-0.4],"page_offset_spread_ms":0.5,"reason":null,"skew_ms":-0.5,"time_origin_ms":1794858502097,"timestamp_field":"timestamp","timestamp_kind":"epoch_seconds"},"edit_confirmation":{"adapter":{"adapter":"model","after_count":1,"before_count":0,"confirmed":true,"reason":null,"text_delta":1},"after_count":1,"before_count":0,"changed_pixels":34,"confirmed":true,"expected":"x","frame_collection":"before_document_witness_decode","mutations":[],"pending_arm_text_count":false,"pixel_settle":{"baseline_seq":2,"blink_after_pixels":0,"blink_before_pixels":0,"caret_band_css_px":24,"caret_columns_device_px":[{"height":49,"width":3,"x":588,"y":510},{"height":49,"width":3,"x":596,"y":510}],"caret_point_css_px":{"x":589.328125,"y":534.75},"caret_point_source":"focused_input","delay_ms":53.79194335930515,"document_rect_device_px":{"height":900,"width":1280,"x":0,"y":0},"edit_bbox":{"height":8,"width":5,"x":591,"y":541},"edit_pixels":34,"excluded_harness_mark_css_px":10,"failure_reason":null,"first_changed_frame_page_ms":14951.326,"focused_input_after_css_px":{"height":1,"tag":"TEXTAREA","width":1,"x":597.328125,"y":534.25},"focused_input_css_px":{"height":1,"tag":"TEXTAREA","width":1,"x":589.328125,"y":534.25},"frames_read":2,"last_frame_page_ms":14967.991943359375,"marker_page_ms":14914.20000000007,"match_missing_pixels":0,"match_page_ms":14967.991943359375,"min_pixels":16,"quiet_ms":2946.208056640695,"settled_page_ms":14967.991943359375,"settled_seq":4,"tail_frames":1,"witness_rect_device_px":{"height":49,"width":1280,"x":0,"y":510},"witness_seq":4},"settle_failure":null,"settle_max_wait_ms":3000,"settled_channel_tolerance":8,"settled_page_ms":14967.991943359375,"settled_quiescence_ms":300,"visible_rects":[],"witness_page_ms":14967.991943359375},"edit_ms":53.79194335930515,"event_timing":{"duration_step_ms":8,"duration_threshold_ms":16,"entries":[{"duration":32,"interactionId":895,"name":"keydown","processingEnd":14914.400000000023,"startTime":14914.20000000007}],"event":{"startTime":14914.20000000007,"trusted":true},"outcome":"observed","supported":true},"failure_reason":null,"mechanism":"cdp_screencast_changed_frame","outcome":"measured","paint_ms":53.79194335930515,"timestamp_note":"Uncorrected frame-to-page conversion; page_offset_ms is not a conversion correction. See clock_skew conversion bounds.","witness":{"after_page_ms":14914.2,"baseline_page_ms":14634.672,"baseline_source":"caller","caret_mask_css":"* { caret-color: transparent !important }","caret_mask_error":null,"caret_masked":true,"changed_pixels":38,"clock_check":{"acceptable":true,"anchor_diff_ratio":1,"anchor_pixel_checked":true,"anchor_probe_region_px":{"height":8,"width":8,"x":0,"y":0},"bound_ms":5,"caret_mask_error":null,"caret_masked":true,"change_page_ms":14577.5,"checks":{"anchor_causality":true,"anchor_converted":true,"anchor_found":true,"anchor_lag_within_bound":true,"anchor_pixel_checked":true,"page_offset_spread_within_bound":true,"page_offset_within_bound":true,"timestamp_kind_known":true},"conversion":{"error_lower_ms":-2,"error_lower_why":"causality: a frame cannot show a change before it was made (2 ms slop for the change timestamp)","error_upper_ms":250,"error_upper_why":"the anchor lag bound: a positive conversion error is caught once it pushes the anchor past it","formula":"page_ms = timestamp * 1000 - performance.timeOrigin","published":"[-2 ms, +250 ms] (never \"\u00b12 ms\")"},"frame_interval_ms":16.7,"frame_interval_samples":60,"frame_interval_source":"raf_delta","frame_lag_ms":23.84,"frame_monotonic_ms":857752.399,"frame_page_ms":14601.34,"frames_total":3,"kind":"clock_skew","lag_bound_ms":250,"lag_bound_rule":"max(3 frame intervals, 250 ms)","method":"page_clock_offset+pixel_anchor","notes":["page_offset_ms is the page-local wall/monotonic discrepancy; it is NOT the screencast conversion error and never gates alone","the conversion is proven by the pixel anchor: the first delivered frame whose probe region changed, chosen in arrival order with no timestamp filter","the published conversion bound is [-2 ms, +250 ms]; the anchor is refused outside it","frame_lag_ms is the compositor presentation latency of the anchor, not a clock error","metadata.timestamp is an epoch reading; page_ms = timestamp*1000 - performance.timeOrigin"],"page_offset_ms":-0.5,"page_offset_samples":[-0.6,-0.2,-0.4,-0.7,-0.7,-0.5,-0.6,-0.5,-0.4],"page_offset_spread_ms":0.5,"reason":null,"skew_ms":-0.5,"time_origin_ms":1794858502097,"timestamp_field":"timestamp","timestamp_kind":"epoch_seconds"},"clock_check_source":"caller","clock_skew_acceptable":true,"clock_skew_bound_ms":5,"clock_skew_method":"page_clock_offset+pixel_anchor","clock_skew_ms":-0.5,"diff_ratio":3.3e-05,"document_region":{"device_pixel_ratio":1,"rect_css_px":{"height":900,"width":1280,"x":0,"y":0},"rect_device_px":{"height":900,"width":1280,"x":0,"y":0},"selector":"docen-document","source":"selector"},"document_region_error":null,"document_scoped":true,"elapsed_ms":25,"frame_page_ms":14951.326,"frames_ack_skipped":0,"frames_after":1,"frames_beyond_window":0,"frames_total":5,"kind":"frame_witness","max_diff_ratio":3.3e-05,"min_pixels":4,"outcome":"witnessed","region_pixels":1152000,"scan_started_after_ms":3004.8,"strict_window":false,"threshold":1e-05,"time_origin_ms":1794858502097,"timestamp_kind":"epoch_seconds","total_pixels":1152000,"window_end_page_ms":null,"window_ms":2000,"window_requested_ms":2000,"window_slack_ms":null},"witness_kind":"settled_pixels"},{"clock_skew":{"acceptable":true,"anchor_diff_ratio":1,"anchor_pixel_checked":true,"anchor_probe_region_px":{"height":8,"width":8,"x":0,"y":0},"bound_ms":5,"caret_mask_error":null,"caret_masked":true,"change_page_ms":19642.7,"checks":{"anchor_causality":true,"anchor_converted":true,"anchor_found":true,"anchor_lag_within_bound":true,"anchor_pixel_checked":true,"page_offset_spread_within_bound":true,"page_offset_within_bound":true,"timestamp_kind_known":true},"conversion":{"error_lower_ms":-2,"error_lower_why":"causality: a frame cannot show a change before it was made (2 ms slop for the change timestamp)","error_upper_ms":250,"error_upper_why":"the anchor lag bound: a positive conversion error is caught once it pushes the anchor past it","formula":"page_ms = timestamp * 1000 - performance.timeOrigin","published":"[-2 ms, +250 ms] (never \"\u00b12 ms\")"},"frame_interval_ms":16.7,"frame_interval_samples":60,"frame_interval_source":"raf_delta","frame_lag_ms":25.112,"frame_monotonic_ms":862818.863,"frame_page_ms":19667.812,"frames_total":3,"kind":"clock_skew","lag_bound_ms":250,"lag_bound_rule":"max(3 frame intervals, 250 ms)","method":"page_clock_offset+pixel_anchor","notes":["page_offset_ms is the page-local wall/monotonic discrepancy; it is NOT the screencast conversion error and never gates alone","the conversion is proven by the pixel anchor: the first delivered frame whose probe region changed, chosen in arrival order with no timestamp filter","the published conversion bound is [-2 ms, +250 ms]; the anchor is refused outside it","frame_lag_ms is the compositor presentation latency of the anchor, not a clock error","metadata.timestamp is an epoch reading; page_ms = timestamp*1000 - performance.timeOrigin"],"page_offset_ms":-0.6,"page_offset_samples":[-0.6,-0.7,-0.9,-0.4,-0.6,-0.4,-0.6,-0.2,-0.9],"page_offset_spread_ms":0.7,"reason":null,"skew_ms":-0.6,"time_origin_ms":1794858502097,"timestamp_field":"timestamp","timestamp_kind":"epoch_seconds"},"edit_confirmation":{"adapter":{"adapter":"model","after_count":1,"before_count":0,"confirmed":true,"reason":null,"text_delta":1},"after_count":1,"before_count":0,"changed_pixels":34,"confirmed":true,"expected":"x","frame_collection":"before_document_witness_decode","mutations":[],"pending_arm_text_count":false,"pixel_settle":{"baseline_seq":2,"blink_after_pixels":0,"blink_before_pixels":0,"caret_band_css_px":24,"caret_columns_device_px":[{"height":49,"width":3,"x":596,"y":510},{"height":49,"width":3,"x":604,"y":510}],"caret_point_css_px":{"x":597.328125,"y":534.75},"caret_point_source":"focused_input","delay_ms":54.164111328078434,"document_rect_device_px":{"height":900,"width":1280,"x":0,"y":0},"edit_bbox":{"height":8,"width":5,"x":599,"y":541},"edit_pixels":34,"excluded_harness_mark_css_px":10,"failure_reason":null,"first_changed_frame_page_ms":20017.799,"focused_input_after_css_px":{"height":1,"tag":"TEXTAREA","width":1,"x":605.328125,"y":534.25},"focused_input_css_px":{"height":1,"tag":"TEXTAREA","width":1,"x":597.328125,"y":534.25},"frames_read":2,"last_frame_page_ms":20034.464111328125,"marker_page_ms":19980.300000000047,"match_missing_pixels":0,"match_page_ms":20034.464111328125,"min_pixels":16,"quiet_ms":2945.8358886719216,"settled_page_ms":20034.464111328125,"settled_seq":4,"tail_frames":1,"witness_rect_device_px":{"height":49,"width":1280,"x":0,"y":510},"witness_seq":4},"settle_failure":null,"settle_max_wait_ms":3000,"settled_channel_tolerance":8,"settled_page_ms":20034.464111328125,"settled_quiescence_ms":300,"visible_rects":[],"witness_page_ms":20034.464111328125},"edit_ms":54.164111328078434,"event_timing":{"duration_step_ms":8,"duration_threshold_ms":16,"entries":[{"duration":24,"interactionId":909,"name":"keydown","processingEnd":19980.5,"startTime":19980.300000000047}],"event":{"startTime":19980.300000000047,"trusted":true},"outcome":"observed","supported":true},"failure_reason":null,"mechanism":"cdp_screencast_changed_frame","outcome":"measured","paint_ms":54.164111328078434,"timestamp_note":"Uncorrected frame-to-page conversion; page_offset_ms is not a conversion correction. See clock_skew conversion bounds.","witness":{"after_page_ms":19980.3,"baseline_page_ms":19701.145,"baseline_source":"caller","caret_mask_css":"* { caret-color: transparent !important }","caret_mask_error":null,"caret_masked":true,"changed_pixels":38,"clock_check":{"acceptable":true,"anchor_diff_ratio":1,"anchor_pixel_checked":true,"anchor_probe_region_px":{"height":8,"width":8,"x":0,"y":0},"bound_ms":5,"caret_mask_error":null,"caret_masked":true,"change_page_ms":19642.7,"checks":{"anchor_causality":true,"anchor_converted":true,"anchor_found":true,"anchor_lag_within_bound":true,"anchor_pixel_checked":true,"page_offset_spread_within_bound":true,"page_offset_within_bound":true,"timestamp_kind_known":true},"conversion":{"error_lower_ms":-2,"error_lower_why":"causality: a frame cannot show a change before it was made (2 ms slop for the change timestamp)","error_upper_ms":250,"error_upper_why":"the anchor lag bound: a positive conversion error is caught once it pushes the anchor past it","formula":"page_ms = timestamp * 1000 - performance.timeOrigin","published":"[-2 ms, +250 ms] (never \"\u00b12 ms\")"},"frame_interval_ms":16.7,"frame_interval_samples":60,"frame_interval_source":"raf_delta","frame_lag_ms":25.112,"frame_monotonic_ms":862818.863,"frame_page_ms":19667.812,"frames_total":3,"kind":"clock_skew","lag_bound_ms":250,"lag_bound_rule":"max(3 frame intervals, 250 ms)","method":"page_clock_offset+pixel_anchor","notes":["page_offset_ms is the page-local wall/monotonic discrepancy; it is NOT the screencast conversion error and never gates alone","the conversion is proven by the pixel anchor: the first delivered frame whose probe region changed, chosen in arrival order with no timestamp filter","the published conversion bound is [-2 ms, +250 ms]; the anchor is refused outside it","frame_lag_ms is the compositor presentation latency of the anchor, not a clock error","metadata.timestamp is an epoch reading; page_ms = timestamp*1000 - performance.timeOrigin"],"page_offset_ms":-0.6,"page_offset_samples":[-0.6,-0.7,-0.9,-0.4,-0.6,-0.4,-0.6,-0.2,-0.9],"page_offset_spread_ms":0.7,"reason":null,"skew_ms":-0.6,"time_origin_ms":1794858502097,"timestamp_field":"timestamp","timestamp_kind":"epoch_seconds"},"clock_check_source":"caller","clock_skew_acceptable":true,"clock_skew_bound_ms":5,"clock_skew_method":"page_clock_offset+pixel_anchor","clock_skew_ms":-0.6,"diff_ratio":3.3e-05,"document_region":{"device_pixel_ratio":1,"rect_css_px":{"height":900,"width":1280,"x":0,"y":0},"rect_device_px":{"height":900,"width":1280,"x":0,"y":0},"selector":"docen-document","source":"selector"},"document_region_error":null,"document_scoped":true,"elapsed_ms":24,"frame_page_ms":20017.799,"frames_ack_skipped":0,"frames_after":1,"frames_beyond_window":0,"frames_total":5,"kind":"frame_witness","max_diff_ratio":3.3e-05,"min_pixels":4,"outcome":"witnessed","region_pixels":1152000,"scan_started_after_ms":3004.7,"strict_window":false,"threshold":1e-05,"time_origin_ms":1794858502097,"timestamp_kind":"epoch_seconds","total_pixels":1152000,"window_end_page_ms":null,"window_ms":2000,"window_requested_ms":2000,"window_slack_ms":null},"witness_kind":"settled_pixels"}],"single":{"clock_skew":{"acceptable":true,"anchor_diff_ratio":1,"anchor_pixel_checked":true,"anchor_probe_region_px":{"height":8,"width":8,"x":0,"y":0},"bound_ms":5,"caret_mask_error":null,"caret_masked":true,"change_page_ms":4391.2,"checks":{"anchor_causality":true,"anchor_converted":true,"anchor_found":true,"anchor_lag_within_bound":true,"anchor_pixel_checked":true,"page_offset_spread_within_bound":true,"page_offset_within_bound":true,"timestamp_kind_known":true},"conversion":{"error_lower_ms":-2,"error_lower_why":"causality: a frame cannot show a change before it was made (2 ms slop for the change timestamp)","error_upper_ms":250,"error_upper_why":"the anchor lag bound: a positive conversion error is caught once it pushes the anchor past it","formula":"page_ms = timestamp * 1000 - performance.timeOrigin","published":"[-2 ms, +250 ms] (never \"\u00b12 ms\")"},"frame_interval_ms":16.7,"frame_interval_samples":60,"frame_interval_source":"raf_delta","frame_lag_ms":27.196,"frame_monotonic_ms":847569.473,"frame_page_ms":4418.396,"frames_total":3,"kind":"clock_skew","lag_bound_ms":250,"lag_bound_rule":"max(3 frame intervals, 250 ms)","method":"page_clock_offset+pixel_anchor","notes":["page_offset_ms is the page-local wall/monotonic discrepancy; it is NOT the screencast conversion error and never gates alone","the conversion is proven by the pixel anchor: the first delivered frame whose probe region changed, chosen in arrival order with no timestamp filter","the published conversion bound is [-2 ms, +250 ms]; the anchor is refused outside it","frame_lag_ms is the compositor presentation latency of the anchor, not a clock error","metadata.timestamp is an epoch reading; page_ms = timestamp*1000 - performance.timeOrigin"],"page_offset_ms":-0.4,"page_offset_samples":[0,-0.4,-0.9,0,-0.8,-0.2,-0.4,-0.3,-0.9],"page_offset_spread_ms":0.9,"reason":null,"skew_ms":-0.4,"time_origin_ms":1794858502097,"timestamp_field":"timestamp","timestamp_kind":"epoch_seconds"},"edit_confirmation":{"adapter":{"adapter":"model","after_count":1,"before_count":0,"confirmed":true,"reason":null,"text_delta":1},"after_count":1,"before_count":0,"changed_pixels":34,"confirmed":true,"expected":"x","frame_collection":"before_document_witness_decode","mutations":[],"pending_arm_text_count":false,"pixel_settle":{"baseline_seq":2,"blink_after_pixels":0,"blink_before_pixels":0,"caret_band_css_px":24,"caret_columns_device_px":[{"height":49,"width":3,"x":572,"y":510},{"height":49,"width":3,"x":580,"y":510}],"caret_point_css_px":{"x":573.328125,"y":534.75},"caret_point_source":"focused_input","delay_ms":52.914111328078434,"document_rect_device_px":{"height":900,"width":1280,"x":0,"y":0},"edit_bbox":{"height":8,"width":5,"x":575,"y":541},"edit_pixels":34,"excluded_harness_mark_css_px":10,"failure_reason":null,"first_changed_frame_page_ms":4785.049,"focused_input_after_css_px":{"height":1,"tag":"TEXTAREA","width":1,"x":581.328125,"y":534.25},"focused_input_css_px":{"height":1,"tag":"TEXTAREA","width":1,"x":573.328125,"y":534.25},"frames_read":2,"last_frame_page_ms":4801.714111328125,"marker_page_ms":4748.800000000047,"match_missing_pixels":0,"match_page_ms":4801.714111328125,"min_pixels":16,"quiet_ms":2947.0858886719216,"settled_page_ms":4801.714111328125,"settled_seq":4,"tail_frames":1,"witness_rect_device_px":{"height":49,"width":1280,"x":0,"y":510},"witness_seq":4},"settle_failure":null,"settle_max_wait_ms":3000,"settled_channel_tolerance":8,"settled_page_ms":4801.714111328125,"settled_quiescence_ms":300,"visible_rects":[],"witness_page_ms":4801.714111328125},"edit_ms":52.914111328078434,"event_timing":{"duration_step_ms":8,"duration_threshold_ms":16,"entries":[{"duration":32,"interactionId":867,"name":"keydown","processingEnd":4751.099999999977,"startTime":4748.800000000047}],"event":{"startTime":4748.800000000047,"trusted":true},"outcome":"observed","supported":true},"failure_reason":null,"first_usable_ms":874,"mechanism":"cdp_screencast_changed_frame","model_ready_browser_ms":874,"outcome":"measured","paint_ms":52.914111328078434,"presented_frame_ms":52.914111328078434,"settle_ms":302,"single_edit_ms":52.914111328078434,"sustained_typing_median_ms":54.164111328078434,"timestamp_note":"Uncorrected frame-to-page conversion; page_offset_ms is not a conversion correction. See clock_skew conversion bounds.","witness":{"after_page_ms":4748.8,"baseline_page_ms":4468.394,"baseline_source":"caller","caret_mask_css":"* { caret-color: transparent !important }","caret_mask_error":null,"caret_masked":true,"changed_pixels":1466,"clock_check":{"acceptable":true,"anchor_diff_ratio":1,"anchor_pixel_checked":true,"anchor_probe_region_px":{"height":8,"width":8,"x":0,"y":0},"bound_ms":5,"caret_mask_error":null,"caret_masked":true,"change_page_ms":4391.2,"checks":{"anchor_causality":true,"anchor_converted":true,"anchor_found":true,"anchor_lag_within_bound":true,"anchor_pixel_checked":true,"page_offset_spread_within_bound":true,"page_offset_within_bound":true,"timestamp_kind_known":true},"conversion":{"error_lower_ms":-2,"error_lower_why":"causality: a frame cannot show a change before it was made (2 ms slop for the change timestamp)","error_upper_ms":250,"error_upper_why":"the anchor lag bound: a positive conversion error is caught once it pushes the anchor past it","formula":"page_ms = timestamp * 1000 - performance.timeOrigin","published":"[-2 ms, +250 ms] (never \"\u00b12 ms\")"},"frame_interval_ms":16.7,"frame_interval_samples":60,"frame_interval_source":"raf_delta","frame_lag_ms":27.196,"frame_monotonic_ms":847569.473,"frame_page_ms":4418.396,"frames_total":3,"kind":"clock_skew","lag_bound_ms":250,"lag_bound_rule":"max(3 frame intervals, 250 ms)","method":"page_clock_offset+pixel_anchor","notes":["page_offset_ms is the page-local wall/monotonic discrepancy; it is NOT the screencast conversion error and never gates alone","the conversion is proven by the pixel anchor: the first delivered frame whose probe region changed, chosen in arrival order with no timestamp filter","the published conversion bound is [-2 ms, +250 ms]; the anchor is refused outside it","frame_lag_ms is the compositor presentation latency of the anchor, not a clock error","metadata.timestamp is an epoch reading; page_ms = timestamp*1000 - performance.timeOrigin"],"page_offset_ms":-0.4,"page_offset_samples":[0,-0.4,-0.9,0,-0.8,-0.2,-0.4,-0.3,-0.9],"page_offset_spread_ms":0.9,"reason":null,"skew_ms":-0.4,"time_origin_ms":1794858502097,"timestamp_field":"timestamp","timestamp_kind":"epoch_seconds"},"clock_check_source":"caller","clock_skew_acceptable":true,"clock_skew_bound_ms":5,"clock_skew_method":"page_clock_offset+pixel_anchor","clock_skew_ms":-0.4,"diff_ratio":0.001273,"document_region":{"device_pixel_ratio":1,"rect_css_px":{"height":900,"width":1280,"x":0,"y":0},"rect_device_px":{"height":900,"width":1280,"x":0,"y":0},"selector":"docen-document","source":"selector"},"document_region_error":null,"document_scoped":true,"elapsed_ms":27,"frame_page_ms":4785.049,"frames_ack_skipped":0,"frames_after":1,"frames_beyond_window":0,"frames_total":5,"kind":"frame_witness","max_diff_ratio":0.001273,"min_pixels":4,"outcome":"witnessed","region_pixels":1152000,"scan_started_after_ms":3029.2,"strict_window":false,"threshold":1e-05,"time_origin_ms":1794858502097,"timestamp_kind":"epoch_seconds","total_pixels":1152000,"window_end_page_ms":null,"window_ms":2000,"window_requested_ms":2000,"window_slack_ms":null},"witness_kind":"settled_pixels"},"single_edit_ms":52.914111328078434,"sustained_typing_median_ms":54.164111328078434},"warm":{"burst":[{"clock_skew":{"acceptable":true,"anchor_diff_ratio":1,"anchor_pixel_checked":true,"anchor_probe_region_px":{"height":8,"width":8,"x":0,"y":0},"bound_ms":5,"caret_mask_error":null,"caret_masked":true,"change_page_ms":9115.5,"checks":{"anchor_causality":true,"anchor_converted":true,"anchor_found":true,"anchor_lag_within_bound":true,"anchor_pixel_checked":true,"page_offset_spread_within_bound":true,"page_offset_within_bound":true,"timestamp_kind_known":true},"conversion":{"error_lower_ms":-2,"error_lower_why":"causality: a frame cannot show a change before it was made (2 ms slop for the change timestamp)","error_upper_ms":250,"error_upper_why":"the anchor lag bound: a positive conversion error is caught once it pushes the anchor past it","formula":"page_ms = timestamp * 1000 - performance.timeOrigin","published":"[-2 ms, +250 ms] (never \"\u00b12 ms\")"},"frame_interval_ms":16.7,"frame_interval_samples":60,"frame_interval_source":"raf_delta","frame_lag_ms":32.524,"frame_monotonic_ms":875384.052,"frame_page_ms":9148.024,"frames_total":3,"kind":"clock_skew","lag_bound_ms":250,"lag_bound_rule":"max(3 frame intervals, 250 ms)","method":"page_clock_offset+pixel_anchor","notes":["page_offset_ms is the page-local wall/monotonic discrepancy; it is NOT the screencast conversion error and never gates alone","the conversion is proven by the pixel anchor: the first delivered frame whose probe region changed, chosen in arrival order with no timestamp filter","the published conversion bound is [-2 ms, +250 ms]; the anchor is refused outside it","frame_lag_ms is the compositor presentation latency of the anchor, not a clock error","metadata.timestamp is an epoch reading; page_ms = timestamp*1000 - performance.timeOrigin"],"page_offset_ms":-0.3,"page_offset_samples":[-0.6,-0.4,0,-0.9,-0.1,-0.1,-0.3,-0.5,-0.2],"page_offset_spread_ms":0.9,"reason":null,"skew_ms":-0.3,"time_origin_ms":1794858525182,"timestamp_field":"timestamp","timestamp_kind":"epoch_seconds"},"edit_confirmation":{"adapter":{"adapter":"model","after_count":1,"before_count":0,"confirmed":true,"reason":null,"text_delta":1},"after_count":1,"before_count":0,"changed_pixels":34,"confirmed":true,"expected":"x","frame_collection":"before_document_witness_decode","mutations":[],"pending_arm_text_count":false,"pixel_settle":{"baseline_seq":2,"blink_after_pixels":0,"blink_before_pixels":0,"caret_band_css_px":24,"caret_columns_device_px":[{"height":49,"width":3,"x":580,"y":510},{"height":49,"width":3,"x":588,"y":510}],"caret_point_css_px":{"x":581.328125,"y":534.75},"caret_point_source":"focused_input","delay_ms":56.176025390625,"document_rect_device_px":{"height":900,"width":1280,"x":0,"y":0},"edit_bbox":{"height":8,"width":5,"x":583,"y":541},"edit_pixels":34,"excluded_harness_mark_css_px":10,"failure_reason":null,"first_changed_frame_page_ms":9498.01,"focused_input_after_css_px":{"height":1,"tag":"TEXTAREA","width":1,"x":589.328125,"y":534.25},"focused_input_css_px":{"height":1,"tag":"TEXTAREA","width":1,"x":581.328125,"y":534.25},"frames_read":2,"last_frame_page_ms":9514.676025390625,"marker_page_ms":9458.5,"match_missing_pixels":0,"match_page_ms":9514.676025390625,"min_pixels":16,"quiet_ms":2943.823974609375,"settled_page_ms":9514.676025390625,"settled_seq":4,"tail_frames":1,"witness_rect_device_px":{"height":49,"width":1280,"x":0,"y":510},"witness_seq":4},"settle_failure":null,"settle_max_wait_ms":3000,"settled_channel_tolerance":8,"settled_page_ms":9514.676025390625,"settled_quiescence_ms":300,"visible_rects":[],"witness_page_ms":9514.676025390625},"edit_ms":56.176025390625,"event_timing":{"duration_step_ms":8,"duration_threshold_ms":16,"entries":[{"duration":32,"interactionId":848,"name":"keydown","processingEnd":9458.70000000007,"startTime":9458.5}],"event":{"startTime":9458.5,"trusted":true},"outcome":"observed","supported":true},"failure_reason":null,"mechanism":"cdp_screencast_changed_frame","outcome":"measured","paint_ms":56.176025390625,"timestamp_note":"Uncorrected frame-to-page conversion; page_offset_ms is not a conversion correction. See clock_skew conversion bounds.","witness":{"after_page_ms":9458.5,"baseline_page_ms":9181.356,"baseline_source":"caller","caret_mask_css":"* { caret-color: transparent !important }","caret_mask_error":null,"caret_masked":true,"changed_pixels":38,"clock_check":{"acceptable":true,"anchor_diff_ratio":1,"anchor_pixel_checked":true,"anchor_probe_region_px":{"height":8,"width":8,"x":0,"y":0},"bound_ms":5,"caret_mask_error":null,"caret_masked":true,"change_page_ms":9115.5,"checks":{"anchor_causality":true,"anchor_converted":true,"anchor_found":true,"anchor_lag_within_bound":true,"anchor_pixel_checked":true,"page_offset_spread_within_bound":true,"page_offset_within_bound":true,"timestamp_kind_known":true},"conversion":{"error_lower_ms":-2,"error_lower_why":"causality: a frame cannot show a change before it was made (2 ms slop for the change timestamp)","error_upper_ms":250,"error_upper_why":"the anchor lag bound: a positive conversion error is caught once it pushes the anchor past it","formula":"page_ms = timestamp * 1000 - performance.timeOrigin","published":"[-2 ms, +250 ms] (never \"\u00b12 ms\")"},"frame_interval_ms":16.7,"frame_interval_samples":60,"frame_interval_source":"raf_delta","frame_lag_ms":32.524,"frame_monotonic_ms":875384.052,"frame_page_ms":9148.024,"frames_total":3,"kind":"clock_skew","lag_bound_ms":250,"lag_bound_rule":"max(3 frame intervals, 250 ms)","method":"page_clock_offset+pixel_anchor","notes":["page_offset_ms is the page-local wall/monotonic discrepancy; it is NOT the screencast conversion error and never gates alone","the conversion is proven by the pixel anchor: the first delivered frame whose probe region changed, chosen in arrival order with no timestamp filter","the published conversion bound is [-2 ms, +250 ms]; the anchor is refused outside it","frame_lag_ms is the compositor presentation latency of the anchor, not a clock error","metadata.timestamp is an epoch reading; page_ms = timestamp*1000 - performance.timeOrigin"],"page_offset_ms":-0.3,"page_offset_samples":[-0.6,-0.4,0,-0.9,-0.1,-0.1,-0.3,-0.5,-0.2],"page_offset_spread_ms":0.9,"reason":null,"skew_ms":-0.3,"time_origin_ms":1794858525182,"timestamp_field":"timestamp","timestamp_kind":"epoch_seconds"},"clock_check_source":"caller","clock_skew_acceptable":true,"clock_skew_bound_ms":5,"clock_skew_method":"page_clock_offset+pixel_anchor","clock_skew_ms":-0.3,"diff_ratio":3.3e-05,"document_region":{"device_pixel_ratio":1,"rect_css_px":{"height":900,"width":1280,"x":0,"y":0},"rect_device_px":{"height":900,"width":1280,"x":0,"y":0},"selector":"docen-document","source":"selector"},"document_region_error":null,"document_scoped":true,"elapsed_ms":24,"frame_page_ms":9498.01,"frames_ack_skipped":0,"frames_after":1,"frames_beyond_window":0,"frames_total":5,"kind":"frame_witness","max_diff_ratio":3.3e-05,"min_pixels":4,"outcome":"witnessed","region_pixels":1152000,"scan_started_after_ms":3005.5,"strict_window":false,"threshold":1e-05,"time_origin_ms":1794858525182,"timestamp_kind":"epoch_seconds","total_pixels":1152000,"window_end_page_ms":null,"window_ms":2000,"window_requested_ms":2000,"window_slack_ms":null},"witness_kind":"settled_pixels"},{"clock_skew":{"acceptable":true,"anchor_diff_ratio":1,"anchor_pixel_checked":true,"anchor_probe_region_px":{"height":8,"width":8,"x":0,"y":0},"bound_ms":5,"caret_mask_error":null,"caret_masked":true,"change_page_ms":14150.8,"checks":{"anchor_causality":true,"anchor_converted":true,"anchor_found":true,"anchor_lag_within_bound":true,"anchor_pixel_checked":true,"page_offset_spread_within_bound":true,"page_offset_within_bound":true,"timestamp_kind_known":true},"conversion":{"error_lower_ms":-2,"error_lower_why":"causality: a frame cannot show a change before it was made (2 ms slop for the change timestamp)","error_upper_ms":250,"error_upper_why":"the anchor lag bound: a positive conversion error is caught once it pushes the anchor past it","formula":"page_ms = timestamp * 1000 - performance.timeOrigin","published":"[-2 ms, +250 ms] (never \"\u00b12 ms\")"},"frame_interval_ms":16.7,"frame_interval_samples":60,"frame_interval_source":"raf_delta","frame_lag_ms":30.365,"frame_monotonic_ms":880417.184,"frame_page_ms":14181.165,"frames_total":3,"kind":"clock_skew","lag_bound_ms":250,"lag_bound_rule":"max(3 frame intervals, 250 ms)","method":"page_clock_offset+pixel_anchor","notes":["page_offset_ms is the page-local wall/monotonic discrepancy; it is NOT the screencast conversion error and never gates alone","the conversion is proven by the pixel anchor: the first delivered frame whose probe region changed, chosen in arrival order with no timestamp filter","the published conversion bound is [-2 ms, +250 ms]; the anchor is refused outside it","frame_lag_ms is the compositor presentation latency of the anchor, not a clock error","metadata.timestamp is an epoch reading; page_ms = timestamp*1000 - performance.timeOrigin"],"page_offset_ms":-0.3,"page_offset_samples":[-0.8,-0.9,-0.2,-0.2,-0.4,-0.3,-0.5,-0.3,-0.1],"page_offset_spread_ms":0.8,"reason":null,"skew_ms":-0.3,"time_origin_ms":1794858525182,"timestamp_field":"timestamp","timestamp_kind":"epoch_seconds"},"edit_confirmation":{"adapter":{"adapter":"model","after_count":1,"before_count":0,"confirmed":true,"reason":null,"text_delta":1},"after_count":1,"before_count":0,"changed_pixels":34,"confirmed":true,"expected":"x","frame_collection":"before_document_witness_decode","mutations":[],"pending_arm_text_count":false,"pixel_settle":{"baseline_seq":2,"blink_after_pixels":0,"blink_before_pixels":0,"caret_band_css_px":24,"caret_columns_device_px":[{"height":49,"width":3,"x":588,"y":510},{"height":49,"width":3,"x":596,"y":510}],"caret_point_css_px":{"x":589.328125,"y":534.75},"caret_point_source":"focused_input","delay_ms":53.71689453127328,"document_rect_device_px":{"height":900,"width":1280,"x":0,"y":0},"edit_bbox":{"height":8,"width":5,"x":591,"y":541},"edit_pixels":34,"excluded_harness_mark_css_px":10,"failure_reason":null,"first_changed_frame_page_ms":14531.151,"focused_input_after_css_px":{"height":1,"tag":"TEXTAREA","width":1,"x":597.328125,"y":534.25},"focused_input_css_px":{"height":1,"tag":"TEXTAREA","width":1,"x":589.328125,"y":534.25},"frames_read":2,"last_frame_page_ms":14547.81689453125,"marker_page_ms":14494.099999999977,"match_missing_pixels":0,"match_page_ms":14547.81689453125,"min_pixels":16,"quiet_ms":2946.2831054687267,"settled_page_ms":14547.81689453125,"settled_seq":4,"tail_frames":1,"witness_rect_device_px":{"height":49,"width":1280,"x":0,"y":510},"witness_seq":4},"settle_failure":null,"settle_max_wait_ms":3000,"settled_channel_tolerance":8,"settled_page_ms":14547.81689453125,"settled_quiescence_ms":300,"visible_rects":[],"witness_page_ms":14547.81689453125},"edit_ms":53.71689453127328,"event_timing":{"duration_step_ms":8,"duration_threshold_ms":16,"entries":[{"duration":24,"interactionId":862,"name":"keydown","processingEnd":14494.400000000023,"startTime":14494.099999999977}],"event":{"startTime":14494.099999999977,"trusted":true},"outcome":"observed","supported":true},"failure_reason":null,"mechanism":"cdp_screencast_changed_frame","outcome":"measured","paint_ms":53.71689453127328,"timestamp_note":"Uncorrected frame-to-page conversion; page_offset_ms is not a conversion correction. See clock_skew conversion bounds.","witness":{"after_page_ms":14494.1,"baseline_page_ms":14214.496,"baseline_source":"caller","caret_mask_css":"* { caret-color: transparent !important }","caret_mask_error":null,"caret_masked":true,"changed_pixels":38,"clock_check":{"acceptable":true,"anchor_diff_ratio":1,"anchor_pixel_checked":true,"anchor_probe_region_px":{"height":8,"width":8,"x":0,"y":0},"bound_ms":5,"caret_mask_error":null,"caret_masked":true,"change_page_ms":14150.8,"checks":{"anchor_causality":true,"anchor_converted":true,"anchor_found":true,"anchor_lag_within_bound":true,"anchor_pixel_checked":true,"page_offset_spread_within_bound":true,"page_offset_within_bound":true,"timestamp_kind_known":true},"conversion":{"error_lower_ms":-2,"error_lower_why":"causality: a frame cannot show a change before it was made (2 ms slop for the change timestamp)","error_upper_ms":250,"error_upper_why":"the anchor lag bound: a positive conversion error is caught once it pushes the anchor past it","formula":"page_ms = timestamp * 1000 - performance.timeOrigin","published":"[-2 ms, +250 ms] (never \"\u00b12 ms\")"},"frame_interval_ms":16.7,"frame_interval_samples":60,"frame_interval_source":"raf_delta","frame_lag_ms":30.365,"frame_monotonic_ms":880417.184,"frame_page_ms":14181.165,"frames_total":3,"kind":"clock_skew","lag_bound_ms":250,"lag_bound_rule":"max(3 frame intervals, 250 ms)","method":"page_clock_offset+pixel_anchor","notes":["page_offset_ms is the page-local wall/monotonic discrepancy; it is NOT the screencast conversion error and never gates alone","the conversion is proven by the pixel anchor: the first delivered frame whose probe region changed, chosen in arrival order with no timestamp filter","the published conversion bound is [-2 ms, +250 ms]; the anchor is refused outside it","frame_lag_ms is the compositor presentation latency of the anchor, not a clock error","metadata.timestamp is an epoch reading; page_ms = timestamp*1000 - performance.timeOrigin"],"page_offset_ms":-0.3,"page_offset_samples":[-0.8,-0.9,-0.2,-0.2,-0.4,-0.3,-0.5,-0.3,-0.1],"page_offset_spread_ms":0.8,"reason":null,"skew_ms":-0.3,"time_origin_ms":1794858525182,"timestamp_field":"timestamp","timestamp_kind":"epoch_seconds"},"clock_check_source":"caller","clock_skew_acceptable":true,"clock_skew_bound_ms":5,"clock_skew_method":"page_clock_offset+pixel_anchor","clock_skew_ms":-0.3,"diff_ratio":3.3e-05,"document_region":{"device_pixel_ratio":1,"rect_css_px":{"height":900,"width":1280,"x":0,"y":0},"rect_device_px":{"height":900,"width":1280,"x":0,"y":0},"selector":"docen-document","source":"selector"},"document_region_error":null,"document_scoped":true,"elapsed_ms":25,"frame_page_ms":14531.151,"frames_ack_skipped":0,"frames_after":1,"frames_beyond_window":0,"frames_total":5,"kind":"frame_witness","max_diff_ratio":3.3e-05,"min_pixels":4,"outcome":"witnessed","region_pixels":1152000,"scan_started_after_ms":3004.9,"strict_window":false,"threshold":1e-05,"time_origin_ms":1794858525182,"timestamp_kind":"epoch_seconds","total_pixels":1152000,"window_end_page_ms":null,"window_ms":2000,"window_requested_ms":2000,"window_slack_ms":null},"witness_kind":"settled_pixels"},{"clock_skew":{"acceptable":true,"anchor_diff_ratio":1,"anchor_pixel_checked":true,"anchor_probe_region_px":{"height":8,"width":8,"x":0,"y":0},"bound_ms":5,"caret_mask_error":null,"caret_masked":true,"change_page_ms":19221.4,"checks":{"anchor_causality":true,"anchor_converted":true,"anchor_found":true,"anchor_lag_within_bound":true,"anchor_pixel_checked":true,"page_offset_spread_within_bound":true,"page_offset_within_bound":true,"timestamp_kind_known":true},"conversion":{"error_lower_ms":-2,"error_lower_why":"causality: a frame cannot show a change before it was made (2 ms slop for the change timestamp)","error_upper_ms":250,"error_upper_why":"the anchor lag bound: a positive conversion error is caught once it pushes the anchor past it","formula":"page_ms = timestamp * 1000 - performance.timeOrigin","published":"[-2 ms, +250 ms] (never \"\u00b12 ms\")"},"frame_interval_ms":16.7,"frame_interval_samples":60,"frame_interval_source":"raf_delta","frame_lag_ms":26.237,"frame_monotonic_ms":885483.648,"frame_page_ms":19247.637,"frames_total":3,"kind":"clock_skew","lag_bound_ms":250,"lag_bound_rule":"max(3 frame intervals, 250 ms)","method":"page_clock_offset+pixel_anchor","notes":["page_offset_ms is the page-local wall/monotonic discrepancy; it is NOT the screencast conversion error and never gates alone","the conversion is proven by the pixel anchor: the first delivered frame whose probe region changed, chosen in arrival order with no timestamp filter","the published conversion bound is [-2 ms, +250 ms]; the anchor is refused outside it","frame_lag_ms is the compositor presentation latency of the anchor, not a clock error","metadata.timestamp is an epoch reading; page_ms = timestamp*1000 - performance.timeOrigin"],"page_offset_ms":-0.6,"page_offset_samples":[-0.4,-0.6,-0.4,-0.8,-0.7,-0.3,-0.7,-0.6,-0.5],"page_offset_spread_ms":0.5,"reason":null,"skew_ms":-0.6,"time_origin_ms":1794858525182,"timestamp_field":"timestamp","timestamp_kind":"epoch_seconds"},"edit_confirmation":{"adapter":{"adapter":"model","after_count":1,"before_count":0,"confirmed":true,"reason":null,"text_delta":1},"after_count":1,"before_count":0,"changed_pixels":34,"confirmed":true,"expected":"x","frame_collection":"before_document_witness_decode","mutations":[],"pending_arm_text_count":false,"pixel_settle":{"baseline_seq":2,"blink_after_pixels":0,"blink_before_pixels":0,"caret_band_css_px":24,"caret_columns_device_px":[{"height":49,"width":3,"x":596,"y":510},{"height":49,"width":3,"x":604,"y":510}],"caret_point_css_px":{"x":597.328125,"y":534.75},"caret_point_source":"focused_input","delay_ms":54.18906250002328,"document_rect_device_px":{"height":900,"width":1280,"x":0,"y":0},"edit_bbox":{"height":8,"width":5,"x":599,"y":541},"edit_pixels":34,"excluded_harness_mark_css_px":10,"failure_reason":null,"first_changed_frame_page_ms":19597.623,"focused_input_after_css_px":{"height":1,"tag":"TEXTAREA","width":1,"x":605.328125,"y":534.25},"focused_input_css_px":{"height":1,"tag":"TEXTAREA","width":1,"x":597.328125,"y":534.25},"frames_read":2,"last_frame_page_ms":19614.2890625,"marker_page_ms":19560.099999999977,"match_missing_pixels":0,"match_page_ms":19614.2890625,"min_pixels":16,"quiet_ms":2945.8109374999767,"settled_page_ms":19614.2890625,"settled_seq":4,"tail_frames":1,"witness_rect_device_px":{"height":49,"width":1280,"x":0,"y":510},"witness_seq":4},"settle_failure":null,"settle_max_wait_ms":3000,"settled_channel_tolerance":8,"settled_page_ms":19614.2890625,"settled_quiescence_ms":300,"visible_rects":[],"witness_page_ms":19614.2890625},"edit_ms":54.18906250002328,"event_timing":{"duration_step_ms":8,"duration_threshold_ms":16,"entries":[{"duration":24,"interactionId":876,"name":"keydown","processingEnd":19560.300000000047,"startTime":19560.099999999977}],"event":{"startTime":19560.099999999977,"trusted":true},"outcome":"observed","supported":true},"failure_reason":null,"mechanism":"cdp_screencast_changed_frame","outcome":"measured","paint_ms":54.18906250002328,"timestamp_note":"Uncorrected frame-to-page conversion; page_offset_ms is not a conversion correction. See clock_skew conversion bounds.","witness":{"after_page_ms":19560.1,"baseline_page_ms":19280.969,"baseline_source":"caller","caret_mask_css":"* { caret-color: transparent !important }","caret_mask_error":null,"caret_masked":true,"changed_pixels":38,"clock_check":{"acceptable":true,"anchor_diff_ratio":1,"anchor_pixel_checked":true,"anchor_probe_region_px":{"height":8,"width":8,"x":0,"y":0},"bound_ms":5,"caret_mask_error":null,"caret_masked":true,"change_page_ms":19221.4,"checks":{"anchor_causality":true,"anchor_converted":true,"anchor_found":true,"anchor_lag_within_bound":true,"anchor_pixel_checked":true,"page_offset_spread_within_bound":true,"page_offset_within_bound":true,"timestamp_kind_known":true},"conversion":{"error_lower_ms":-2,"error_lower_why":"causality: a frame cannot show a change before it was made (2 ms slop for the change timestamp)","error_upper_ms":250,"error_upper_why":"the anchor lag bound: a positive conversion error is caught once it pushes the anchor past it","formula":"page_ms = timestamp * 1000 - performance.timeOrigin","published":"[-2 ms, +250 ms] (never \"\u00b12 ms\")"},"frame_interval_ms":16.7,"frame_interval_samples":60,"frame_interval_source":"raf_delta","frame_lag_ms":26.237,"frame_monotonic_ms":885483.648,"frame_page_ms":19247.637,"frames_total":3,"kind":"clock_skew","lag_bound_ms":250,"lag_bound_rule":"max(3 frame intervals, 250 ms)","method":"page_clock_offset+pixel_anchor","notes":["page_offset_ms is the page-local wall/monotonic discrepancy; it is NOT the screencast conversion error and never gates alone","the conversion is proven by the pixel anchor: the first delivered frame whose probe region changed, chosen in arrival order with no timestamp filter","the published conversion bound is [-2 ms, +250 ms]; the anchor is refused outside it","frame_lag_ms is the compositor presentation latency of the anchor, not a clock error","metadata.timestamp is an epoch reading; page_ms = timestamp*1000 - performance.timeOrigin"],"page_offset_ms":-0.6,"page_offset_samples":[-0.4,-0.6,-0.4,-0.8,-0.7,-0.3,-0.7,-0.6,-0.5],"page_offset_spread_ms":0.5,"reason":null,"skew_ms":-0.6,"time_origin_ms":1794858525182,"timestamp_field":"timestamp","timestamp_kind":"epoch_seconds"},"clock_check_source":"caller","clock_skew_acceptable":true,"clock_skew_bound_ms":5,"clock_skew_method":"page_clock_offset+pixel_anchor","clock_skew_ms":-0.6,"diff_ratio":3.3e-05,"document_region":{"device_pixel_ratio":1,"rect_css_px":{"height":900,"width":1280,"x":0,"y":0},"rect_device_px":{"height":900,"width":1280,"x":0,"y":0},"selector":"docen-document","source":"selector"},"document_region_error":null,"document_scoped":true,"elapsed_ms":22,"frame_page_ms":19597.623,"frames_ack_skipped":0,"frames_after":1,"frames_beyond_window":0,"frames_total":5,"kind":"frame_witness","max_diff_ratio":3.3e-05,"min_pixels":4,"outcome":"witnessed","region_pixels":1152000,"scan_started_after_ms":3005.9,"strict_window":false,"threshold":1e-05,"time_origin_ms":1794858525182,"timestamp_kind":"epoch_seconds","total_pixels":1152000,"window_end_page_ms":null,"window_ms":2000,"window_requested_ms":2000,"window_slack_ms":null},"witness_kind":"settled_pixels"}],"single":{"clock_skew":{"acceptable":true,"anchor_diff_ratio":1,"anchor_pixel_checked":true,"anchor_probe_region_px":{"height":8,"width":8,"x":0,"y":0},"bound_ms":5,"caret_mask_error":null,"caret_masked":true,"change_page_ms":4057.5,"checks":{"anchor_causality":true,"anchor_converted":true,"anchor_found":true,"anchor_lag_within_bound":true,"anchor_pixel_checked":true,"page_offset_spread_within_bound":true,"page_offset_within_bound":true,"timestamp_kind_known":true},"conversion":{"error_lower_ms":-2,"error_lower_why":"causality: a frame cannot show a change before it was made (2 ms slop for the change timestamp)","error_upper_ms":250,"error_upper_why":"the anchor lag bound: a positive conversion error is caught once it pushes the anchor past it","formula":"page_ms = timestamp * 1000 - performance.timeOrigin","published":"[-2 ms, +250 ms] (never \"\u00b12 ms\")"},"frame_interval_ms":16.7,"frame_interval_samples":60,"frame_interval_source":"raf_delta","frame_lag_ms":24.051,"frame_monotonic_ms":870317.588,"frame_page_ms":4081.551,"frames_total":3,"kind":"clock_skew","lag_bound_ms":250,"lag_bound_rule":"max(3 frame intervals, 250 ms)","method":"page_clock_offset+pixel_anchor","notes":["page_offset_ms is the page-local wall/monotonic discrepancy; it is NOT the screencast conversion error and never gates alone","the conversion is proven by the pixel anchor: the first delivered frame whose probe region changed, chosen in arrival order with no timestamp filter","the published conversion bound is [-2 ms, +250 ms]; the anchor is refused outside it","frame_lag_ms is the compositor presentation latency of the anchor, not a clock error","metadata.timestamp is an epoch reading; page_ms = timestamp*1000 - performance.timeOrigin"],"page_offset_ms":-0.5,"page_offset_samples":[-0.3,0.1,0,-0.8,-0.7,-0.5,-0.5,-0.6,0.1],"page_offset_spread_ms":0.9,"reason":null,"skew_ms":-0.5,"time_origin_ms":1794858525182,"timestamp_field":"timestamp","timestamp_kind":"epoch_seconds"},"edit_confirmation":{"adapter":{"adapter":"model","after_count":1,"before_count":0,"confirmed":true,"reason":null,"text_delta":1},"after_count":1,"before_count":0,"changed_pixels":34,"confirmed":true,"expected":"x","frame_collection":"before_document_witness_decode","mutations":[],"pending_arm_text_count":false,"pixel_settle":{"baseline_seq":2,"blink_after_pixels":0,"blink_before_pixels":0,"caret_band_css_px":24,"caret_columns_device_px":[{"height":49,"width":3,"x":572,"y":510},{"height":49,"width":3,"x":580,"y":510}],"caret_point_css_px":{"x":573.328125,"y":534.75},"caret_point_source":"focused_input","delay_ms":56.60312500002328,"document_rect_device_px":{"height":900,"width":1280,"x":0,"y":0},"edit_bbox":{"height":8,"width":5,"x":575,"y":541},"edit_pixels":34,"excluded_harness_mark_css_px":10,"failure_reason":null,"first_changed_frame_page_ms":4431.537,"focused_input_after_css_px":{"height":1,"tag":"TEXTAREA","width":1,"x":581.328125,"y":534.25},"focused_input_css_px":{"height":1,"tag":"TEXTAREA","width":1,"x":573.328125,"y":534.25},"frames_read":2,"last_frame_page_ms":4448.203125,"marker_page_ms":4391.599999999977,"match_missing_pixels":0,"match_page_ms":4448.203125,"min_pixels":16,"quiet_ms":2943.3968749999767,"settled_page_ms":4448.203125,"settled_seq":4,"tail_frames":1,"witness_rect_device_px":{"height":49,"width":1280,"x":0,"y":510},"witness_seq":4},"settle_failure":null,"settle_max_wait_ms":3000,"settled_channel_tolerance":8,"settled_page_ms":4448.203125,"settled_quiescence_ms":300,"visible_rects":[],"witness_page_ms":4448.203125},"edit_ms":56.60312500002328,"event_timing":{"duration_step_ms":8,"duration_threshold_ms":16,"entries":[{"duration":32,"interactionId":834,"name":"keydown","processingEnd":4392,"startTime":4391.599999999977}],"event":{"startTime":4391.599999999977,"trusted":true},"outcome":"observed","supported":true},"failure_reason":null,"first_usable_ms":605,"mechanism":"cdp_screencast_changed_frame","outcome":"measured","paint_ms":56.60312500002328,"presented_frame_ms":56.60312500002328,"settle_ms":301,"single_edit_ms":56.60312500002328,"sustained_typing_median_ms":54.18906250002328,"timestamp_note":"Uncorrected frame-to-page conversion; page_offset_ms is not a conversion correction. See clock_skew conversion bounds.","witness":{"after_page_ms":4391.6,"baseline_page_ms":4114.883,"baseline_source":"caller","caret_mask_css":"* { caret-color: transparent !important }","caret_mask_error":null,"caret_masked":true,"changed_pixels":1466,"clock_check":{"acceptable":true,"anchor_diff_ratio":1,"anchor_pixel_checked":true,"anchor_probe_region_px":{"height":8,"width":8,"x":0,"y":0},"bound_ms":5,"caret_mask_error":null,"caret_masked":true,"change_page_ms":4057.5,"checks":{"anchor_causality":true,"anchor_converted":true,"anchor_found":true,"anchor_lag_within_bound":true,"anchor_pixel_checked":true,"page_offset_spread_within_bound":true,"page_offset_within_bound":true,"timestamp_kind_known":true},"conversion":{"error_lower_ms":-2,"error_lower_why":"causality: a frame cannot show a change before it was made (2 ms slop for the change timestamp)","error_upper_ms":250,"error_upper_why":"the anchor lag bound: a positive conversion error is caught once it pushes the anchor past it","formula":"page_ms = timestamp * 1000 - performance.timeOrigin","published":"[-2 ms, +250 ms] (never \"\u00b12 ms\")"},"frame_interval_ms":16.7,"frame_interval_samples":60,"frame_interval_source":"raf_delta","frame_lag_ms":24.051,"frame_monotonic_ms":870317.588,"frame_page_ms":4081.551,"frames_total":3,"kind":"clock_skew","lag_bound_ms":250,"lag_bound_rule":"max(3 frame intervals, 250 ms)","method":"page_clock_offset+pixel_anchor","notes":["page_offset_ms is the page-local wall/monotonic discrepancy; it is NOT the screencast conversion error and never gates alone","the conversion is proven by the pixel anchor: the first delivered frame whose probe region changed, chosen in arrival order with no timestamp filter","the published conversion bound is [-2 ms, +250 ms]; the anchor is refused outside it","frame_lag_ms is the compositor presentation latency of the anchor, not a clock error","metadata.timestamp is an epoch reading; page_ms = timestamp*1000 - performance.timeOrigin"],"page_offset_ms":-0.5,"page_offset_samples":[-0.3,0.1,0,-0.8,-0.7,-0.5,-0.5,-0.6,0.1],"page_offset_spread_ms":0.9,"reason":null,"skew_ms":-0.5,"time_origin_ms":1794858525182,"timestamp_field":"timestamp","timestamp_kind":"epoch_seconds"},"clock_check_source":"caller","clock_skew_acceptable":true,"clock_skew_bound_ms":5,"clock_skew_method":"page_clock_offset+pixel_anchor","clock_skew_ms":-0.5,"diff_ratio":0.001273,"document_region":{"device_pixel_ratio":1,"rect_css_px":{"height":900,"width":1280,"x":0,"y":0},"rect_device_px":{"height":900,"width":1280,"x":0,"y":0},"selector":"docen-document","source":"selector"},"document_region_error":null,"document_scoped":true,"elapsed_ms":25,"frame_page_ms":4431.537,"frames_ack_skipped":0,"frames_after":1,"frames_beyond_window":0,"frames_total":5,"kind":"frame_witness","max_diff_ratio":0.001273,"min_pixels":4,"outcome":"witnessed","region_pixels":1152000,"scan_started_after_ms":3006.4,"strict_window":false,"threshold":1e-05,"time_origin_ms":1794858525182,"timestamp_kind":"epoch_seconds","total_pixels":1152000,"window_end_page_ms":null,"window_ms":2000,"window_requested_ms":2000,"window_slack_ms":null},"witness_kind":"settled_pixels"},"single_edit_ms":56.60312500002328,"sustained_typing_median_ms":54.18906250002328}}
+{
+ "cold": {
+  "single": {
+   "first_usable_ms": 1190,
+   "settle_ms": 312,
+   "clock_skew": {
+    "kind": "clock_skew",
+    "acceptable": true,
+    "reason": null,
+    "checks": {
+     "timestamp_kind_known": true,
+     "page_offset_within_bound": true,
+     "page_offset_spread_within_bound": true,
+     "anchor_found": true,
+     "anchor_pixel_checked": true,
+     "anchor_converted": true,
+     "anchor_causality": true,
+     "anchor_lag_within_bound": true
+    },
+    "method": "page_clock_offset+pixel_anchor",
+    "timestamp_kind": "epoch_seconds",
+    "timestamp_field": "timestamp",
+    "bound_ms": 5,
+    "page_offset_ms": -0.4,
+    "page_offset_samples": [
+     -0.3,
+     -0.4,
+     -0.9,
+     -1,
+     -0.3,
+     -0.9,
+     -0.2,
+     -0.1,
+     -0.5
+    ],
+    "page_offset_spread_ms": 0.9,
+    "skew_ms": -0.4,
+    "time_origin_ms": 1794871086450.7,
+    "change_page_ms": 5101.1,
+    "frame_page_ms": 5115.68,
+    "frame_lag_ms": 14.58,
+    "frame_monotonic_ms": 13432608.599,
+    "frames_total": 3,
+    "anchor_pixel_checked": true,
+    "anchor_diff_ratio": 1,
+    "anchor_probe_region_px": {
+     "x": 0,
+     "y": 0,
+     "width": 8,
+     "height": 8
+    },
+    "frame_interval_ms": 16.7,
+    "frame_interval_source": "raf_delta",
+    "frame_interval_samples": 60,
+    "lag_bound_ms": 250,
+    "lag_bound_rule": "max(3 frame intervals, 250 ms)",
+    "conversion": {
+     "formula": "page_ms = timestamp * 1000 - performance.timeOrigin",
+     "error_lower_ms": -2,
+     "error_lower_why": "causality: a frame cannot show a change before it was made (2 ms slop for the change timestamp)",
+     "error_upper_ms": 250,
+     "error_upper_why": "the anchor lag bound: a positive conversion error is caught once it pushes the anchor past it",
+     "published": "[-2 ms, +250 ms] (never \"\u00b12 ms\")"
+    },
+    "caret_masked": true,
+    "caret_mask_error": null,
+    "notes": [
+     "page_offset_ms is the page-local wall/monotonic discrepancy; it is NOT the screencast conversion error and never gates alone",
+     "the conversion is proven by the pixel anchor: the first delivered frame whose probe region changed, chosen in arrival order with no timestamp filter",
+     "the published conversion bound is [-2 ms, +250 ms]; the anchor is refused outside it",
+     "frame_lag_ms is the compositor presentation latency of the anchor, not a clock error",
+     "metadata.timestamp is an epoch reading; page_ms = timestamp*1000 - performance.timeOrigin"
+    ]
+   },
+   "content_check": {
+    "content_verified": true,
+    "surface_reason": null,
+    "editor_error": null,
+    "model_oracle": "perf_model",
+    "model_source": "docen_model",
+    "document_text_chars": 40694,
+    "document_token_count": 206,
+    "document_text_whole": false,
+    "document_text": "Article 1. Incidental Taxes Title Force Effect Without In property property each completion indirect tax completion use exhibit year incident laws any instrument new obligation has. Majeure partial license of damages as documents delivered person completion, requirement. Last accordance thereof condition, processing calendar, controller cure after may month. Renewal different therein that its relation fee clause except remedies. Director partial connection timely also respect. Year its, is audit breach, controller requirements project any been project limitation rights minimum further records. Calendar timely provision loss herein current regulation. Have, records within requirement party waiver information payment, signature laws price daily whole. Appendix specification assignment signatory damages incident prompt instrument. Severability disclosure instrument, security, appendix section last provisions including incident is, date not unless. Tax only applicable invoice contractor dispute annual including their appropriate standard data. Not any, under annex other claim plan or witness under. Provided use officer appropriate first aggregate consequential laws director condition both, counterparts officer pursuant. Not appendix has, law their, tax hereof taxes full therein whole original oral insurance payment each, not successor. Adverse dispute accordance, partial original property. Parties article, terms business partial corporation security, rights. Corporation schedule within, business, new privacy terms exhibit special by, acceptance approval, signatory. Either thereof only, indemnity before. Contractor successor schedule regulation exhibit covenant including intellectual, claim. Warranties therein signature without been record other jurisdiction effect report. Documents before without tax project annual signature annual tax. Annual controller incident delivery counterparts or however to contractor adverse accordance at officer after which. Date this price all personal including whereas. Data corporation general such force majeure instrument termination. Relevant last signatory control original, weekly successor. Also acceptance partnership, title connection at. Material signature connection change, party quality however party any shall renewal, record controller period. Fee, breach both precedent remedies been. Annex annual document, jurisdiction consent any obligation incident new. Standard scope period payment neither, provided current material existing provided hereto, future law jurisdiction employee price response transfer. License remedies entity parties agreement officer entity, covenant price, such representative record however loss change understanding. Incidental, partnership record, goods signatory clause. Incident clause grant subsidiary property written schedule instrument annex direct. Representative indirect respect reasonable have contemporaneous scope current incidental an witness, direct any received subsidiary. Execution contemporaneous completion representative jurisdiction exemplary agreement, purpose annual purpose date weekly whole counterparts, original article corporation further. Partnership successor, contractor, approval month specification are default. Which each dispute hereto termination schedule breach record compliance. Whole, either relevant unless processing, event breach, tax requirements amendment has, minimum further test. Other specific been upon requirements have limitation applicable article, milestone majeure condition terms indemnity condition signature. Annual existing connection warranty exemplary general approval contemporaneous current past will, personal, article documents after. Monthly indemnity accordance thereof each. Authority maximum authority upon project material are confidential pursuant witness relation requirements fees regulation closing punitive or. Disclosure authority necessary such new default without severability taxes provision second future. An breach d",
+    "length_check": "applied",
+    "length_enforced": true,
+    "content_check": null,
+    "content_check_reason": null,
+    "model_document_check": {
+     "ok": true,
+     "openingPresent": true,
+     "closingPresent": true,
+     "lengthOk": true,
+     "model_chars": 40687,
+     "surface_reason": null,
+     "length_check_mode": "applied"
+    },
+    "dom_document_check": null
+   },
+   "mechanism": "cdp_screencast_changed_frame",
+   "witness_kind": "settled_pixels",
+   "witness": {
+    "kind": "frame_witness",
+    "outcome": "witnessed",
+    "frame_page_ms": 5498.998,
+    "frames_total": 5,
+    "frames_after": 1,
+    "frames_ack_skipped": 0,
+    "diff_ratio": 0.001273,
+    "threshold": 1e-05,
+    "min_pixels": 4,
+    "caret_masked": true,
+    "caret_mask_css": "* { caret-color: transparent !important }",
+    "caret_mask_error": null,
+    "window_ms": 2000,
+    "window_requested_ms": 2000,
+    "strict_window": false,
+    "window_end_page_ms": null,
+    "window_slack_ms": null,
+    "frames_beyond_window": 0,
+    "scan_started_after_ms": 3034.2,
+    "after_page_ms": 5460.1,
+    "baseline_page_ms": 5149.012,
+    "baseline_source": "caller",
+    "document_scoped": true,
+    "document_region": {
+     "source": "selector",
+     "selector": "docen-document",
+     "rect_css_px": {
+      "x": 0,
+      "y": 0,
+      "width": 1280,
+      "height": 900
+     },
+     "rect_device_px": {
+      "x": 0,
+      "y": 0,
+      "width": 1280,
+      "height": 900
+     },
+     "device_pixel_ratio": 1
+    },
+    "document_region_error": null,
+    "region_pixels": 1152000,
+    "changed_pixels": 1466,
+    "total_pixels": 1152000,
+    "max_diff_ratio": 0.001273,
+    "timestamp_kind": "epoch_seconds",
+    "time_origin_ms": 1794871086450.7,
+    "clock_check": {
+     "kind": "clock_skew",
+     "acceptable": true,
+     "reason": null,
+     "checks": {
+      "timestamp_kind_known": true,
+      "page_offset_within_bound": true,
+      "page_offset_spread_within_bound": true,
+      "anchor_found": true,
+      "anchor_pixel_checked": true,
+      "anchor_converted": true,
+      "anchor_causality": true,
+      "anchor_lag_within_bound": true
+     },
+     "method": "page_clock_offset+pixel_anchor",
+     "timestamp_kind": "epoch_seconds",
+     "timestamp_field": "timestamp",
+     "bound_ms": 5,
+     "page_offset_ms": -0.4,
+     "page_offset_samples": [
+      -0.3,
+      -0.4,
+      -0.9,
+      -1,
+      -0.3,
+      -0.9,
+      -0.2,
+      -0.1,
+      -0.5
+     ],
+     "page_offset_spread_ms": 0.9,
+     "skew_ms": -0.4,
+     "time_origin_ms": 1794871086450.7,
+     "change_page_ms": 5101.1,
+     "frame_page_ms": 5115.68,
+     "frame_lag_ms": 14.58,
+     "frame_monotonic_ms": 13432608.599,
+     "frames_total": 3,
+     "anchor_pixel_checked": true,
+     "anchor_diff_ratio": 1,
+     "anchor_probe_region_px": {
+      "x": 0,
+      "y": 0,
+      "width": 8,
+      "height": 8
+     },
+     "frame_interval_ms": 16.7,
+     "frame_interval_source": "raf_delta",
+     "frame_interval_samples": 60,
+     "lag_bound_ms": 250,
+     "lag_bound_rule": "max(3 frame intervals, 250 ms)",
+     "conversion": {
+      "formula": "page_ms = timestamp * 1000 - performance.timeOrigin",
+      "error_lower_ms": -2,
+      "error_lower_why": "causality: a frame cannot show a change before it was made (2 ms slop for the change timestamp)",
+      "error_upper_ms": 250,
+      "error_upper_why": "the anchor lag bound: a positive conversion error is caught once it pushes the anchor past it",
+      "published": "[-2 ms, +250 ms] (never \"\u00b12 ms\")"
+     },
+     "caret_masked": true,
+     "caret_mask_error": null,
+     "notes": [
+      "page_offset_ms is the page-local wall/monotonic discrepancy; it is NOT the screencast conversion error and never gates alone",
+      "the conversion is proven by the pixel anchor: the first delivered frame whose probe region changed, chosen in arrival order with no timestamp filter",
+      "the published conversion bound is [-2 ms, +250 ms]; the anchor is refused outside it",
+      "frame_lag_ms is the compositor presentation latency of the anchor, not a clock error",
+      "metadata.timestamp is an epoch reading; page_ms = timestamp*1000 - performance.timeOrigin"
+     ]
+    },
+    "clock_check_source": "caller",
+    "clock_skew_ms": -0.4,
+    "clock_skew_method": "page_clock_offset+pixel_anchor",
+    "clock_skew_bound_ms": 5,
+    "clock_skew_acceptable": true,
+    "elapsed_ms": 26
+   },
+   "event_timing": {
+    "event": {
+     "startTime": 5460.0999999996275,
+     "trusted": true
+    },
+    "entries": [
+     {
+      "name": "keydown",
+      "startTime": 5460.0999999996275,
+      "duration": 32,
+      "interactionId": 3825,
+      "processingEnd": 5460.9000000003725
+     }
+    ],
+    "supported": true,
+    "outcome": "observed",
+    "duration_threshold_ms": 16,
+    "duration_step_ms": 8
+   },
+   "edit_confirmation": {
+    "confirmed": true,
+    "before_count": 0,
+    "expected": "x",
+    "mutations": [],
+    "after_count": 1,
+    "visible_rects": [],
+    "changed_pixels": 34,
+    "adapter": {
+     "confirmed": true,
+     "adapter": "model",
+     "before_count": 0,
+     "after_count": 1,
+     "text_delta": 1,
+     "reason": null
+    },
+    "settled_channel_tolerance": 8,
+    "settled_quiescence_ms": 300,
+    "settle_max_wait_ms": 3000,
+    "frame_collection": "before_document_witness_decode",
+    "pixel_settle": {
+     "failure_reason": null,
+     "match_page_ms": 5515.6650390625,
+     "settled_page_ms": 5515.6650390625,
+     "delay_ms": 55.56503906287253,
+     "match_missing_pixels": 0,
+     "edit_pixels": 34,
+     "edit_bbox": {
+      "x": 575,
+      "y": 541,
+      "width": 5,
+      "height": 8
+     },
+     "blink_before_pixels": 0,
+     "blink_after_pixels": 0,
+     "frames_read": 2,
+     "tail_frames": 1,
+     "quiet_ms": 2760.1349609363824,
+     "progress": [
+      {
+       "page_ms": 5498.998046875,
+       "missing_pixels": 34,
+       "missing_bbox": {
+        "x": 575,
+        "y": 541,
+        "width": 5,
+        "height": 8
+       }
+      }
+     ],
+     "marker_page_ms": 5460.0999999996275,
+     "min_pixels": 16,
+     "caret_columns_device_px": [
+      {
+       "x": 572,
+       "y": 510,
+       "width": 3,
+       "height": 49
+      },
+      {
+       "x": 580,
+       "y": 510,
+       "width": 3,
+       "height": 49
+      }
+     ],
+     "focused_input_after_css_px": {
+      "tag": "TEXTAREA",
+      "x": 581.328125,
+      "y": 534.25,
+      "width": 1,
+      "height": 1
+     },
+     "baseline_seq": 2,
+     "witness_seq": 4,
+     "settled_seq": 4,
+     "first_changed_frame_page_ms": 5498.998,
+     "document_rect_device_px": {
+      "x": 0,
+      "y": 0,
+      "width": 1280,
+      "height": 900
+     },
+     "witness_rect_device_px": {
+      "x": 0,
+      "y": 510,
+      "width": 1280,
+      "height": 49
+     },
+     "caret_point_css_px": {
+      "x": 573.328125,
+      "y": 534.75
+     },
+     "caret_point_source": "focused_input",
+     "focused_input_css_px": {
+      "tag": "TEXTAREA",
+      "x": 573.328125,
+      "y": 534.25,
+      "width": 1,
+      "height": 1
+     },
+     "excluded_harness_mark_css_px": 10,
+     "caret_band_css_px": 24,
+     "last_frame_page_ms": 5515.6650390625,
+     "edit_touches_caret": true,
+     "unread_frames": 0,
+     "arm_waited_ms": 3003,
+     "late_wait_ms": 0,
+     "read_until_page_ms": 8525.799999998882,
+     "band_reaimed": false
+    },
+    "witness_page_ms": 5515.6650390625,
+    "settled_page_ms": 5515.6650390625,
+    "settle_failure": null,
+    "pending_arm_text_count": false
+   },
+   "timestamp_note": "Uncorrected frame-to-page conversion; page_offset_ms is not a conversion correction. See clock_skew conversion bounds.",
+   "outcome": "measured",
+   "failure_reason": null,
+   "edit_ms": 55.56503906287253,
+   "paint_ms": 55.56503906287253,
+   "model_ready_browser_ms": 1190,
+   "single_edit_ms": 55.56503906287253,
+   "presented_frame_ms": 55.56503906287253,
+   "sustained_typing_median_ms": 54.118896484375
+  },
+  "single_edit_ms": 55.56503906287253,
+  "burst": [
+   {
+    "mechanism": "cdp_screencast_changed_frame",
+    "witness_kind": "settled_pixels",
+    "clock_skew": {
+     "kind": "clock_skew",
+     "acceptable": true,
+     "reason": null,
+     "checks": {
+      "timestamp_kind_known": true,
+      "page_offset_within_bound": true,
+      "page_offset_spread_within_bound": true,
+      "anchor_found": true,
+      "anchor_pixel_checked": true,
+      "anchor_converted": true,
+      "anchor_causality": true,
+      "anchor_lag_within_bound": true
+     },
+     "method": "page_clock_offset+pixel_anchor",
+     "timestamp_kind": "epoch_seconds",
+     "timestamp_field": "timestamp",
+     "bound_ms": 5,
+     "page_offset_ms": -0.5,
+     "page_offset_samples": [
+      -0.8,
+      -0.2,
+      -0.3,
+      -0.3,
+      -0.4,
+      -0.9,
+      -1,
+      -0.5,
+      -0.6
+     ],
+     "page_offset_spread_ms": 0.8,
+     "skew_ms": -0.5,
+     "time_origin_ms": 1794871086450.7,
+     "change_page_ms": 10454.9,
+     "frame_page_ms": 10482.136,
+     "frame_lag_ms": 27.236,
+     "frame_monotonic_ms": 13437975.051,
+     "frames_total": 3,
+     "anchor_pixel_checked": true,
+     "anchor_diff_ratio": 1,
+     "anchor_probe_region_px": {
+      "x": 0,
+      "y": 0,
+      "width": 8,
+      "height": 8
+     },
+     "frame_interval_ms": 16.7,
+     "frame_interval_source": "raf_delta",
+     "frame_interval_samples": 60,
+     "lag_bound_ms": 250,
+     "lag_bound_rule": "max(3 frame intervals, 250 ms)",
+     "conversion": {
+      "formula": "page_ms = timestamp * 1000 - performance.timeOrigin",
+      "error_lower_ms": -2,
+      "error_lower_why": "causality: a frame cannot show a change before it was made (2 ms slop for the change timestamp)",
+      "error_upper_ms": 250,
+      "error_upper_why": "the anchor lag bound: a positive conversion error is caught once it pushes the anchor past it",
+      "published": "[-2 ms, +250 ms] (never \"\u00b12 ms\")"
+     },
+     "caret_masked": true,
+     "caret_mask_error": null,
+     "notes": [
+      "page_offset_ms is the page-local wall/monotonic discrepancy; it is NOT the screencast conversion error and never gates alone",
+      "the conversion is proven by the pixel anchor: the first delivered frame whose probe region changed, chosen in arrival order with no timestamp filter",
+      "the published conversion bound is [-2 ms, +250 ms]; the anchor is refused outside it",
+      "frame_lag_ms is the compositor presentation latency of the anchor, not a clock error",
+      "metadata.timestamp is an epoch reading; page_ms = timestamp*1000 - performance.timeOrigin"
+     ]
+    },
+    "witness": {
+     "kind": "frame_witness",
+     "outcome": "witnessed",
+     "frame_page_ms": 10965.452,
+     "frames_total": 5,
+     "frames_after": 1,
+     "frames_ack_skipped": 0,
+     "diff_ratio": 3.3e-05,
+     "threshold": 1e-05,
+     "min_pixels": 4,
+     "caret_masked": true,
+     "caret_mask_css": "* { caret-color: transparent !important }",
+     "caret_mask_error": null,
+     "window_ms": 2000,
+     "window_requested_ms": 2000,
+     "strict_window": false,
+     "window_end_page_ms": null,
+     "window_slack_ms": null,
+     "frames_beyond_window": 0,
+     "scan_started_after_ms": 3010.3,
+     "after_page_ms": 10928,
+     "baseline_page_ms": 10548.802,
+     "baseline_source": "caller",
+     "document_scoped": true,
+     "document_region": {
+      "source": "selector",
+      "selector": "docen-document",
+      "rect_css_px": {
+       "x": 0,
+       "y": 0,
+       "width": 1280,
+       "height": 900
+      },
+      "rect_device_px": {
+       "x": 0,
+       "y": 0,
+       "width": 1280,
+       "height": 900
+      },
+      "device_pixel_ratio": 1
+     },
+     "document_region_error": null,
+     "region_pixels": 1152000,
+     "changed_pixels": 38,
+     "total_pixels": 1152000,
+     "max_diff_ratio": 3.3e-05,
+     "timestamp_kind": "epoch_seconds",
+     "time_origin_ms": 1794871086450.7,
+     "clock_check": {
+      "kind": "clock_skew",
+      "acceptable": true,
+      "reason": null,
+      "checks": {
+       "timestamp_kind_known": true,
+       "page_offset_within_bound": true,
+       "page_offset_spread_within_bound": true,
+       "anchor_found": true,
+       "anchor_pixel_checked": true,
+       "anchor_converted": true,
+       "anchor_causality": true,
+       "anchor_lag_within_bound": true
+      },
+      "method": "page_clock_offset+pixel_anchor",
+      "timestamp_kind": "epoch_seconds",
+      "timestamp_field": "timestamp",
+      "bound_ms": 5,
+      "page_offset_ms": -0.5,
+      "page_offset_samples": [
+       -0.8,
+       -0.2,
+       -0.3,
+       -0.3,
+       -0.4,
+       -0.9,
+       -1,
+       -0.5,
+       -0.6
+      ],
+      "page_offset_spread_ms": 0.8,
+      "skew_ms": -0.5,
+      "time_origin_ms": 1794871086450.7,
+      "change_page_ms": 10454.9,
+      "frame_page_ms": 10482.136,
+      "frame_lag_ms": 27.236,
+      "frame_monotonic_ms": 13437975.051,
+      "frames_total": 3,
+      "anchor_pixel_checked": true,
+      "anchor_diff_ratio": 1,
+      "anchor_probe_region_px": {
+       "x": 0,
+       "y": 0,
+       "width": 8,
+       "height": 8
+      },
+      "frame_interval_ms": 16.7,
+      "frame_interval_source": "raf_delta",
+      "frame_interval_samples": 60,
+      "lag_bound_ms": 250,
+      "lag_bound_rule": "max(3 frame intervals, 250 ms)",
+      "conversion": {
+       "formula": "page_ms = timestamp * 1000 - performance.timeOrigin",
+       "error_lower_ms": -2,
+       "error_lower_why": "causality: a frame cannot show a change before it was made (2 ms slop for the change timestamp)",
+       "error_upper_ms": 250,
+       "error_upper_why": "the anchor lag bound: a positive conversion error is caught once it pushes the anchor past it",
+       "published": "[-2 ms, +250 ms] (never \"\u00b12 ms\")"
+      },
+      "caret_masked": true,
+      "caret_mask_error": null,
+      "notes": [
+       "page_offset_ms is the page-local wall/monotonic discrepancy; it is NOT the screencast conversion error and never gates alone",
+       "the conversion is proven by the pixel anchor: the first delivered frame whose probe region changed, chosen in arrival order with no timestamp filter",
+       "the published conversion bound is [-2 ms, +250 ms]; the anchor is refused outside it",
+       "frame_lag_ms is the compositor presentation latency of the anchor, not a clock error",
+       "metadata.timestamp is an epoch reading; page_ms = timestamp*1000 - performance.timeOrigin"
+      ]
+     },
+     "clock_check_source": "caller",
+     "clock_skew_ms": -0.5,
+     "clock_skew_method": "page_clock_offset+pixel_anchor",
+     "clock_skew_bound_ms": 5,
+     "clock_skew_acceptable": true,
+     "elapsed_ms": 49
+    },
+    "event_timing": {
+     "event": {
+      "startTime": 10928,
+      "trusted": true
+     },
+     "entries": [
+      {
+       "name": "keydown",
+       "startTime": 10928,
+       "duration": 32,
+       "interactionId": 3839,
+       "processingEnd": 10928.299999998882
+      }
+     ],
+     "supported": true,
+     "outcome": "observed",
+     "duration_threshold_ms": 16,
+     "duration_step_ms": 8
+    },
+    "edit_confirmation": {
+     "confirmed": true,
+     "before_count": 0,
+     "expected": "x",
+     "mutations": [],
+     "after_count": 1,
+     "visible_rects": [],
+     "changed_pixels": 34,
+     "adapter": {
+      "confirmed": true,
+      "adapter": "model",
+      "before_count": 0,
+      "after_count": 1,
+      "text_delta": 1,
+      "reason": null
+     },
+     "settled_channel_tolerance": 8,
+     "settled_quiescence_ms": 300,
+     "settle_max_wait_ms": 3000,
+     "frame_collection": "before_document_witness_decode",
+     "pixel_settle": {
+      "failure_reason": null,
+      "match_page_ms": 10982.118896484375,
+      "settled_page_ms": 10982.118896484375,
+      "delay_ms": 54.118896484375,
+      "match_missing_pixels": 0,
+      "edit_pixels": 34,
+      "edit_bbox": {
+       "x": 583,
+       "y": 541,
+       "width": 5,
+       "height": 8
+      },
+      "blink_before_pixels": 0,
+      "blink_after_pixels": 0,
+      "frames_read": 2,
+      "tail_frames": 1,
+      "quiet_ms": 2773.58110351488,
+      "progress": [
+       {
+        "page_ms": 10965.4521484375,
+        "missing_pixels": 34,
+        "missing_bbox": {
+         "x": 583,
+         "y": 541,
+         "width": 5,
+         "height": 8
+        }
+       }
+      ],
+      "marker_page_ms": 10928,
+      "min_pixels": 16,
+      "caret_columns_device_px": [
+       {
+        "x": 580,
+        "y": 510,
+        "width": 3,
+        "height": 49
+       },
+       {
+        "x": 588,
+        "y": 510,
+        "width": 3,
+        "height": 49
+       }
+      ],
+      "focused_input_after_css_px": {
+       "tag": "TEXTAREA",
+       "x": 589.328125,
+       "y": 534.25,
+       "width": 1,
+       "height": 1
+      },
+      "baseline_seq": 2,
+      "witness_seq": 4,
+      "settled_seq": 4,
+      "first_changed_frame_page_ms": 10965.452,
+      "document_rect_device_px": {
+       "x": 0,
+       "y": 0,
+       "width": 1280,
+       "height": 900
+      },
+      "witness_rect_device_px": {
+       "x": 0,
+       "y": 510,
+       "width": 1280,
+       "height": 49
+      },
+      "caret_point_css_px": {
+       "x": 581.328125,
+       "y": 534.75
+      },
+      "caret_point_source": "focused_input",
+      "focused_input_css_px": {
+       "tag": "TEXTAREA",
+       "x": 581.328125,
+       "y": 534.25,
+       "width": 1,
+       "height": 1
+      },
+      "excluded_harness_mark_css_px": 10,
+      "caret_band_css_px": 24,
+      "last_frame_page_ms": 10982.118896484375,
+      "edit_touches_caret": true,
+      "unread_frames": 0,
+      "arm_waited_ms": 3002,
+      "late_wait_ms": 0,
+      "read_until_page_ms": 14005.699999999255,
+      "band_reaimed": false
+     },
+     "witness_page_ms": 10982.118896484375,
+     "settled_page_ms": 10982.118896484375,
+     "settle_failure": null,
+     "pending_arm_text_count": false
+    },
+    "timestamp_note": "Uncorrected frame-to-page conversion; page_offset_ms is not a conversion correction. See clock_skew conversion bounds.",
+    "outcome": "measured",
+    "failure_reason": null,
+    "edit_ms": 54.118896484375,
+    "paint_ms": 54.118896484375
+   },
+   {
+    "mechanism": "cdp_screencast_changed_frame",
+    "witness_kind": "settled_pixels",
+    "clock_skew": {
+     "kind": "clock_skew",
+     "acceptable": true,
+     "reason": null,
+     "checks": {
+      "timestamp_kind_known": true,
+      "page_offset_within_bound": true,
+      "page_offset_spread_within_bound": true,
+      "anchor_found": true,
+      "anchor_pixel_checked": true,
+      "anchor_converted": true,
+      "anchor_causality": true,
+      "anchor_lag_within_bound": true
+     },
+     "method": "page_clock_offset+pixel_anchor",
+     "timestamp_kind": "epoch_seconds",
+     "timestamp_field": "timestamp",
+     "bound_ms": 5,
+     "page_offset_ms": -0.4,
+     "page_offset_samples": [
+      -0.1,
+      -0.1,
+      -0.4,
+      -0.8,
+      -0.9,
+      -0.2,
+      -0.3,
+      -0.4,
+      -0.4
+     ],
+     "page_offset_spread_ms": 0.8,
+     "skew_ms": -0.4,
+     "time_origin_ms": 1794871086450.7,
+     "change_page_ms": 15955,
+     "frame_page_ms": 15981.924,
+     "frame_lag_ms": 26.924,
+     "frame_monotonic_ms": 13443474.831,
+     "frames_total": 3,
+     "anchor_pixel_checked": true,
+     "anchor_diff_ratio": 1,
+     "anchor_probe_region_px": {
+      "x": 0,
+      "y": 0,
+      "width": 8,
+      "height": 8
+     },
+     "frame_interval_ms": 16.7,
+     "frame_interval_source": "raf_delta",
+     "frame_interval_samples": 60,
+     "lag_bound_ms": 250,
+     "lag_bound_rule": "max(3 frame intervals, 250 ms)",
+     "conversion": {
+      "formula": "page_ms = timestamp * 1000 - performance.timeOrigin",
+      "error_lower_ms": -2,
+      "error_lower_why": "causality: a frame cannot show a change before it was made (2 ms slop for the change timestamp)",
+      "error_upper_ms": 250,
+      "error_upper_why": "the anchor lag bound: a positive conversion error is caught once it pushes the anchor past it",
+      "published": "[-2 ms, +250 ms] (never \"\u00b12 ms\")"
+     },
+     "caret_masked": true,
+     "caret_mask_error": null,
+     "notes": [
+      "page_offset_ms is the page-local wall/monotonic discrepancy; it is NOT the screencast conversion error and never gates alone",
+      "the conversion is proven by the pixel anchor: the first delivered frame whose probe region changed, chosen in arrival order with no timestamp filter",
+      "the published conversion bound is [-2 ms, +250 ms]; the anchor is refused outside it",
+      "frame_lag_ms is the compositor presentation latency of the anchor, not a clock error",
+      "metadata.timestamp is an epoch reading; page_ms = timestamp*1000 - performance.timeOrigin"
+     ]
+    },
+    "witness": {
+     "kind": "frame_witness",
+     "outcome": "witnessed",
+     "frame_page_ms": 16415.24,
+     "frames_total": 5,
+     "frames_after": 1,
+     "frames_ack_skipped": 0,
+     "diff_ratio": 3.3e-05,
+     "threshold": 1e-05,
+     "min_pixels": 4,
+     "caret_masked": true,
+     "caret_mask_css": "* { caret-color: transparent !important }",
+     "caret_mask_error": null,
+     "window_ms": 2000,
+     "window_requested_ms": 2000,
+     "strict_window": false,
+     "window_end_page_ms": null,
+     "window_slack_ms": null,
+     "frames_beyond_window": 0,
+     "scan_started_after_ms": 3006.3,
+     "after_page_ms": 16379,
+     "baseline_page_ms": 16048.587,
+     "baseline_source": "caller",
+     "document_scoped": true,
+     "document_region": {
+      "source": "selector",
+      "selector": "docen-document",
+      "rect_css_px": {
+       "x": 0,
+       "y": 0,
+       "width": 1280,
+       "height": 900
+      },
+      "rect_device_px": {
+       "x": 0,
+       "y": 0,
+       "width": 1280,
+       "height": 900
+      },
+      "device_pixel_ratio": 1
+     },
+     "document_region_error": null,
+     "region_pixels": 1152000,
+     "changed_pixels": 38,
+     "total_pixels": 1152000,
+     "max_diff_ratio": 3.3e-05,
+     "timestamp_kind": "epoch_seconds",
+     "time_origin_ms": 1794871086450.7,
+     "clock_check": {
+      "kind": "clock_skew",
+      "acceptable": true,
+      "reason": null,
+      "checks": {
+       "timestamp_kind_known": true,
+       "page_offset_within_bound": true,
+       "page_offset_spread_within_bound": true,
+       "anchor_found": true,
+       "anchor_pixel_checked": true,
+       "anchor_converted": true,
+       "anchor_causality": true,
+       "anchor_lag_within_bound": true
+      },
+      "method": "page_clock_offset+pixel_anchor",
+      "timestamp_kind": "epoch_seconds",
+      "timestamp_field": "timestamp",
+      "bound_ms": 5,
+      "page_offset_ms": -0.4,
+      "page_offset_samples": [
+       -0.1,
+       -0.1,
+       -0.4,
+       -0.8,
+       -0.9,
+       -0.2,
+       -0.3,
+       -0.4,
+       -0.4
+      ],
+      "page_offset_spread_ms": 0.8,
+      "skew_ms": -0.4,
+      "time_origin_ms": 1794871086450.7,
+      "change_page_ms": 15955,
+      "frame_page_ms": 15981.924,
+      "frame_lag_ms": 26.924,
+      "frame_monotonic_ms": 13443474.831,
+      "frames_total": 3,
+      "anchor_pixel_checked": true,
+      "anchor_diff_ratio": 1,
+      "anchor_probe_region_px": {
+       "x": 0,
+       "y": 0,
+       "width": 8,
+       "height": 8
+      },
+      "frame_interval_ms": 16.7,
+      "frame_interval_source": "raf_delta",
+      "frame_interval_samples": 60,
+      "lag_bound_ms": 250,
+      "lag_bound_rule": "max(3 frame intervals, 250 ms)",
+      "conversion": {
+       "formula": "page_ms = timestamp * 1000 - performance.timeOrigin",
+       "error_lower_ms": -2,
+       "error_lower_why": "causality: a frame cannot show a change before it was made (2 ms slop for the change timestamp)",
+       "error_upper_ms": 250,
+       "error_upper_why": "the anchor lag bound: a positive conversion error is caught once it pushes the anchor past it",
+       "published": "[-2 ms, +250 ms] (never \"\u00b12 ms\")"
+      },
+      "caret_masked": true,
+      "caret_mask_error": null,
+      "notes": [
+       "page_offset_ms is the page-local wall/monotonic discrepancy; it is NOT the screencast conversion error and never gates alone",
+       "the conversion is proven by the pixel anchor: the first delivered frame whose probe region changed, chosen in arrival order with no timestamp filter",
+       "the published conversion bound is [-2 ms, +250 ms]; the anchor is refused outside it",
+       "frame_lag_ms is the compositor presentation latency of the anchor, not a clock error",
+       "metadata.timestamp is an epoch reading; page_ms = timestamp*1000 - performance.timeOrigin"
+      ]
+     },
+     "clock_check_source": "caller",
+     "clock_skew_ms": -0.4,
+     "clock_skew_method": "page_clock_offset+pixel_anchor",
+     "clock_skew_bound_ms": 5,
+     "clock_skew_acceptable": true,
+     "elapsed_ms": 39
+    },
+    "event_timing": {
+     "event": {
+      "startTime": 16379,
+      "trusted": true
+     },
+     "entries": [
+      {
+       "name": "keydown",
+       "startTime": 16379,
+       "duration": 32,
+       "interactionId": 3853,
+       "processingEnd": 16379.299999998882
+      }
+     ],
+     "supported": true,
+     "outcome": "observed",
+     "duration_threshold_ms": 16,
+     "duration_step_ms": 8
+    },
+    "edit_confirmation": {
+     "confirmed": true,
+     "before_count": 0,
+     "expected": "x",
+     "mutations": [],
+     "after_count": 1,
+     "visible_rects": [],
+     "changed_pixels": 34,
+     "adapter": {
+      "confirmed": true,
+      "adapter": "model",
+      "before_count": 0,
+      "after_count": 1,
+      "text_delta": 1,
+      "reason": null
+     },
+     "settled_channel_tolerance": 8,
+     "settled_quiescence_ms": 300,
+     "settle_max_wait_ms": 3000,
+     "frame_collection": "before_document_witness_decode",
+     "pixel_settle": {
+      "failure_reason": null,
+      "match_page_ms": 16431.906005859375,
+      "settled_page_ms": 16431.906005859375,
+      "delay_ms": 52.906005859375,
+      "match_missing_pixels": 0,
+      "edit_pixels": 34,
+      "edit_bbox": {
+       "x": 591,
+       "y": 541,
+       "width": 5,
+       "height": 8
+      },
+      "blink_before_pixels": 0,
+      "blink_after_pixels": 0,
+      "frames_read": 2,
+      "tail_frames": 1,
+      "quiet_ms": 2755.093994140625,
+      "progress": [
+       {
+        "page_ms": 16415.240234375,
+        "missing_pixels": 34,
+        "missing_bbox": {
+         "x": 591,
+         "y": 541,
+         "width": 5,
+         "height": 8
+        }
+       }
+      ],
+      "marker_page_ms": 16379,
+      "min_pixels": 16,
+      "caret_columns_device_px": [
+       {
+        "x": 588,
+        "y": 510,
+        "width": 3,
+        "height": 49
+       },
+       {
+        "x": 596,
+        "y": 510,
+        "width": 3,
+        "height": 49
+       }
+      ],
+      "focused_input_after_css_px": {
+       "tag": "TEXTAREA",
+       "x": 597.328125,
+       "y": 534.25,
+       "width": 1,
+       "height": 1
+      },
+      "baseline_seq": 2,
+      "witness_seq": 4,
+      "settled_seq": 4,
+      "first_changed_frame_page_ms": 16415.24,
+      "document_rect_device_px": {
+       "x": 0,
+       "y": 0,
+       "width": 1280,
+       "height": 900
+      },
+      "witness_rect_device_px": {
+       "x": 0,
+       "y": 510,
+       "width": 1280,
+       "height": 49
+      },
+      "caret_point_css_px": {
+       "x": 589.328125,
+       "y": 534.75
+      },
+      "caret_point_source": "focused_input",
+      "focused_input_css_px": {
+       "tag": "TEXTAREA",
+       "x": 589.328125,
+       "y": 534.25,
+       "width": 1,
+       "height": 1
+      },
+      "excluded_harness_mark_css_px": 10,
+      "caret_band_css_px": 24,
+      "last_frame_page_ms": 16431.906005859375,
+      "edit_touches_caret": true,
+      "unread_frames": 0,
+      "arm_waited_ms": 3001,
+      "late_wait_ms": 0,
+      "read_until_page_ms": 19437,
+      "band_reaimed": false
+     },
+     "witness_page_ms": 16431.906005859375,
+     "settled_page_ms": 16431.906005859375,
+     "settle_failure": null,
+     "pending_arm_text_count": false
+    },
+    "timestamp_note": "Uncorrected frame-to-page conversion; page_offset_ms is not a conversion correction. See clock_skew conversion bounds.",
+    "outcome": "measured",
+    "failure_reason": null,
+    "edit_ms": 52.906005859375,
+    "paint_ms": 52.906005859375
+   },
+   {
+    "mechanism": "cdp_screencast_changed_frame",
+    "witness_kind": "settled_pixels",
+    "clock_skew": {
+     "kind": "clock_skew",
+     "acceptable": true,
+     "reason": null,
+     "checks": {
+      "timestamp_kind_known": true,
+      "page_offset_within_bound": true,
+      "page_offset_spread_within_bound": true,
+      "anchor_found": true,
+      "anchor_pixel_checked": true,
+      "anchor_converted": true,
+      "anchor_causality": true,
+      "anchor_lag_within_bound": true
+     },
+     "method": "page_clock_offset+pixel_anchor",
+     "timestamp_kind": "epoch_seconds",
+     "timestamp_field": "timestamp",
+     "bound_ms": 5,
+     "page_offset_ms": -0.7,
+     "page_offset_samples": [
+      -0.8,
+      -0.9,
+      -0.3,
+      -0.8,
+      -0.1,
+      -0.9,
+      -0.6,
+      -0.7,
+      -0.7
+     ],
+     "page_offset_spread_ms": 0.8,
+     "skew_ms": -0.7,
+     "time_origin_ms": 1794871086450.7,
+     "change_page_ms": 21512.2,
+     "frame_page_ms": 21531.707,
+     "frame_lag_ms": 19.507,
+     "frame_monotonic_ms": 13449024.609,
+     "frames_total": 3,
+     "anchor_pixel_checked": true,
+     "anchor_diff_ratio": 1,
+     "anchor_probe_region_px": {
+      "x": 0,
+      "y": 0,
+      "width": 8,
+      "height": 8
+     },
+     "frame_interval_ms": 16.7,
+     "frame_interval_source": "raf_delta",
+     "frame_interval_samples": 60,
+     "lag_bound_ms": 250,
+     "lag_bound_rule": "max(3 frame intervals, 250 ms)",
+     "conversion": {
+      "formula": "page_ms = timestamp * 1000 - performance.timeOrigin",
+      "error_lower_ms": -2,
+      "error_lower_why": "causality: a frame cannot show a change before it was made (2 ms slop for the change timestamp)",
+      "error_upper_ms": 250,
+      "error_upper_why": "the anchor lag bound: a positive conversion error is caught once it pushes the anchor past it",
+      "published": "[-2 ms, +250 ms] (never \"\u00b12 ms\")"
+     },
+     "caret_masked": true,
+     "caret_mask_error": null,
+     "notes": [
+      "page_offset_ms is the page-local wall/monotonic discrepancy; it is NOT the screencast conversion error and never gates alone",
+      "the conversion is proven by the pixel anchor: the first delivered frame whose probe region changed, chosen in arrival order with no timestamp filter",
+      "the published conversion bound is [-2 ms, +250 ms]; the anchor is refused outside it",
+      "frame_lag_ms is the compositor presentation latency of the anchor, not a clock error",
+      "metadata.timestamp is an epoch reading; page_ms = timestamp*1000 - performance.timeOrigin"
+     ]
+    },
+    "witness": {
+     "kind": "frame_witness",
+     "outcome": "witnessed",
+     "frame_page_ms": 21981.69,
+     "frames_total": 5,
+     "frames_after": 1,
+     "frames_ack_skipped": 0,
+     "diff_ratio": 3.3e-05,
+     "threshold": 1e-05,
+     "min_pixels": 4,
+     "caret_masked": true,
+     "caret_mask_css": "* { caret-color: transparent !important }",
+     "caret_mask_error": null,
+     "window_ms": 2000,
+     "window_requested_ms": 2000,
+     "strict_window": false,
+     "window_end_page_ms": null,
+     "window_slack_ms": null,
+     "frames_beyond_window": 0,
+     "scan_started_after_ms": 3034.3,
+     "after_page_ms": 21940,
+     "baseline_page_ms": 21598.372,
+     "baseline_source": "caller",
+     "document_scoped": true,
+     "document_region": {
+      "source": "selector",
+      "selector": "docen-document",
+      "rect_css_px": {
+       "x": 0,
+       "y": 0,
+       "width": 1280,
+       "height": 900
+      },
+      "rect_device_px": {
+       "x": 0,
+       "y": 0,
+       "width": 1280,
+       "height": 900
+      },
+      "device_pixel_ratio": 1
+     },
+     "document_region_error": null,
+     "region_pixels": 1152000,
+     "changed_pixels": 38,
+     "total_pixels": 1152000,
+     "max_diff_ratio": 3.3e-05,
+     "timestamp_kind": "epoch_seconds",
+     "time_origin_ms": 1794871086450.7,
+     "clock_check": {
+      "kind": "clock_skew",
+      "acceptable": true,
+      "reason": null,
+      "checks": {
+       "timestamp_kind_known": true,
+       "page_offset_within_bound": true,
+       "page_offset_spread_within_bound": true,
+       "anchor_found": true,
+       "anchor_pixel_checked": true,
+       "anchor_converted": true,
+       "anchor_causality": true,
+       "anchor_lag_within_bound": true
+      },
+      "method": "page_clock_offset+pixel_anchor",
+      "timestamp_kind": "epoch_seconds",
+      "timestamp_field": "timestamp",
+      "bound_ms": 5,
+      "page_offset_ms": -0.7,
+      "page_offset_samples": [
+       -0.8,
+       -0.9,
+       -0.3,
+       -0.8,
+       -0.1,
+       -0.9,
+       -0.6,
+       -0.7,
+       -0.7
+      ],
+      "page_offset_spread_ms": 0.8,
+      "skew_ms": -0.7,
+      "time_origin_ms": 1794871086450.7,
+      "change_page_ms": 21512.2,
+      "frame_page_ms": 21531.707,
+      "frame_lag_ms": 19.507,
+      "frame_monotonic_ms": 13449024.609,
+      "frames_total": 3,
+      "anchor_pixel_checked": true,
+      "anchor_diff_ratio": 1,
+      "anchor_probe_region_px": {
+       "x": 0,
+       "y": 0,
+       "width": 8,
+       "height": 8
+      },
+      "frame_interval_ms": 16.7,
+      "frame_interval_source": "raf_delta",
+      "frame_interval_samples": 60,
+      "lag_bound_ms": 250,
+      "lag_bound_rule": "max(3 frame intervals, 250 ms)",
+      "conversion": {
+       "formula": "page_ms = timestamp * 1000 - performance.timeOrigin",
+       "error_lower_ms": -2,
+       "error_lower_why": "causality: a frame cannot show a change before it was made (2 ms slop for the change timestamp)",
+       "error_upper_ms": 250,
+       "error_upper_why": "the anchor lag bound: a positive conversion error is caught once it pushes the anchor past it",
+       "published": "[-2 ms, +250 ms] (never \"\u00b12 ms\")"
+      },
+      "caret_masked": true,
+      "caret_mask_error": null,
+      "notes": [
+       "page_offset_ms is the page-local wall/monotonic discrepancy; it is NOT the screencast conversion error and never gates alone",
+       "the conversion is proven by the pixel anchor: the first delivered frame whose probe region changed, chosen in arrival order with no timestamp filter",
+       "the published conversion bound is [-2 ms, +250 ms]; the anchor is refused outside it",
+       "frame_lag_ms is the compositor presentation latency of the anchor, not a clock error",
+       "metadata.timestamp is an epoch reading; page_ms = timestamp*1000 - performance.timeOrigin"
+      ]
+     },
+     "clock_check_source": "caller",
+     "clock_skew_ms": -0.7,
+     "clock_skew_method": "page_clock_offset+pixel_anchor",
+     "clock_skew_bound_ms": 5,
+     "clock_skew_acceptable": true,
+     "elapsed_ms": 24
+    },
+    "event_timing": {
+     "event": {
+      "startTime": 21940,
+      "trusted": true
+     },
+     "entries": [
+      {
+       "name": "keydown",
+       "startTime": 21940,
+       "duration": 32,
+       "interactionId": 3867,
+       "processingEnd": 21940.199999999255
+      }
+     ],
+     "supported": true,
+     "outcome": "observed",
+     "duration_threshold_ms": 16,
+     "duration_step_ms": 8
+    },
+    "edit_confirmation": {
+     "confirmed": true,
+     "before_count": 0,
+     "expected": "x",
+     "mutations": [],
+     "after_count": 1,
+     "visible_rects": [],
+     "changed_pixels": 34,
+     "adapter": {
+      "confirmed": true,
+      "adapter": "model",
+      "before_count": 0,
+      "after_count": 1,
+      "text_delta": 1,
+      "reason": null
+     },
+     "settled_channel_tolerance": 8,
+     "settled_quiescence_ms": 300,
+     "settle_max_wait_ms": 3000,
+     "frame_collection": "before_document_witness_decode",
+     "pixel_settle": {
+      "failure_reason": null,
+      "match_page_ms": 21998.35595703125,
+      "settled_page_ms": 21998.35595703125,
+      "delay_ms": 58.35595703125,
+      "match_missing_pixels": 0,
+      "edit_pixels": 34,
+      "edit_bbox": {
+       "x": 599,
+       "y": 541,
+       "width": 5,
+       "height": 8
+      },
+      "blink_before_pixels": 0,
+      "blink_after_pixels": 0,
+      "frames_read": 2,
+      "tail_frames": 1,
+      "quiet_ms": 2755.7440429683775,
+      "progress": [
+       {
+        "page_ms": 21981.68994140625,
+        "missing_pixels": 34,
+        "missing_bbox": {
+         "x": 599,
+         "y": 541,
+         "width": 5,
+         "height": 8
+        }
+       }
+      ],
+      "marker_page_ms": 21940,
+      "min_pixels": 16,
+      "caret_columns_device_px": [
+       {
+        "x": 596,
+        "y": 510,
+        "width": 3,
+        "height": 49
+       },
+       {
+        "x": 604,
+        "y": 510,
+        "width": 3,
+        "height": 49
+       }
+      ],
+      "focused_input_after_css_px": {
+       "tag": "TEXTAREA",
+       "x": 605.328125,
+       "y": 534.25,
+       "width": 1,
+       "height": 1
+      },
+      "baseline_seq": 2,
+      "witness_seq": 4,
+      "settled_seq": 4,
+      "first_changed_frame_page_ms": 21981.69,
+      "document_rect_device_px": {
+       "x": 0,
+       "y": 0,
+       "width": 1280,
+       "height": 900
+      },
+      "witness_rect_device_px": {
+       "x": 0,
+       "y": 510,
+       "width": 1280,
+       "height": 49
+      },
+      "caret_point_css_px": {
+       "x": 597.328125,
+       "y": 534.75
+      },
+      "caret_point_source": "focused_input",
+      "focused_input_css_px": {
+       "tag": "TEXTAREA",
+       "x": 597.328125,
+       "y": 534.25,
+       "width": 1,
+       "height": 1
+      },
+      "excluded_harness_mark_css_px": 10,
+      "caret_band_css_px": 24,
+      "last_frame_page_ms": 21998.35595703125,
+      "edit_touches_caret": true,
+      "unread_frames": 0,
+      "arm_waited_ms": 3003,
+      "late_wait_ms": 0,
+      "read_until_page_ms": 25004.099999999627,
+      "band_reaimed": false
+     },
+     "witness_page_ms": 21998.35595703125,
+     "settled_page_ms": 21998.35595703125,
+     "settle_failure": null,
+     "pending_arm_text_count": false
+    },
+    "timestamp_note": "Uncorrected frame-to-page conversion; page_offset_ms is not a conversion correction. See clock_skew conversion bounds.",
+    "outcome": "measured",
+    "failure_reason": null,
+    "edit_ms": 58.35595703125,
+    "paint_ms": 58.35595703125
+   }
+  ],
+  "sustained_typing_median_ms": 54.118896484375
+ },
+ "warm": {
+  "single": {
+   "first_usable_ms": 1382,
+   "settle_ms": 311,
+   "clock_skew": {
+    "kind": "clock_skew",
+    "acceptable": true,
+    "reason": null,
+    "checks": {
+     "timestamp_kind_known": true,
+     "page_offset_within_bound": true,
+     "page_offset_spread_within_bound": true,
+     "anchor_found": true,
+     "anchor_pixel_checked": true,
+     "anchor_converted": true,
+     "anchor_causality": true,
+     "anchor_lag_within_bound": true
+    },
+    "method": "page_clock_offset+pixel_anchor",
+    "timestamp_kind": "epoch_seconds",
+    "timestamp_field": "timestamp",
+    "bound_ms": 5,
+    "page_offset_ms": -0.4,
+    "page_offset_samples": [
+     -0.1,
+     -0.2,
+     -0.4,
+     -0.9,
+     0,
+     -0.2,
+     -0.6,
+     -0.4,
+     -0.5
+    ],
+    "page_offset_spread_ms": 0.9,
+    "skew_ms": -0.4,
+    "time_origin_ms": 1794871111561,
+    "change_page_ms": 5193.9,
+    "frame_page_ms": 5222.38,
+    "frame_lag_ms": 28.48,
+    "frame_monotonic_ms": 13457825.574,
+    "frames_total": 3,
+    "anchor_pixel_checked": true,
+    "anchor_diff_ratio": 1,
+    "anchor_probe_region_px": {
+     "x": 0,
+     "y": 0,
+     "width": 8,
+     "height": 8
+    },
+    "frame_interval_ms": 16.7,
+    "frame_interval_source": "raf_delta",
+    "frame_interval_samples": 60,
+    "lag_bound_ms": 250,
+    "lag_bound_rule": "max(3 frame intervals, 250 ms)",
+    "conversion": {
+     "formula": "page_ms = timestamp * 1000 - performance.timeOrigin",
+     "error_lower_ms": -2,
+     "error_lower_why": "causality: a frame cannot show a change before it was made (2 ms slop for the change timestamp)",
+     "error_upper_ms": 250,
+     "error_upper_why": "the anchor lag bound: a positive conversion error is caught once it pushes the anchor past it",
+     "published": "[-2 ms, +250 ms] (never \"\u00b12 ms\")"
+    },
+    "caret_masked": true,
+    "caret_mask_error": null,
+    "notes": [
+     "page_offset_ms is the page-local wall/monotonic discrepancy; it is NOT the screencast conversion error and never gates alone",
+     "the conversion is proven by the pixel anchor: the first delivered frame whose probe region changed, chosen in arrival order with no timestamp filter",
+     "the published conversion bound is [-2 ms, +250 ms]; the anchor is refused outside it",
+     "frame_lag_ms is the compositor presentation latency of the anchor, not a clock error",
+     "metadata.timestamp is an epoch reading; page_ms = timestamp*1000 - performance.timeOrigin"
+    ]
+   },
+   "content_check": {
+    "content_verified": true,
+    "surface_reason": null,
+    "editor_error": null,
+    "model_oracle": "perf_model",
+    "model_source": "docen_model",
+    "document_text_chars": 40694,
+    "document_token_count": 206,
+    "document_text_whole": false,
+    "document_text": "Article 1. Incidental Taxes Title Force Effect Without In property property each completion indirect tax completion use exhibit year incident laws any instrument new obligation has. Majeure partial license of damages as documents delivered person completion, requirement. Last accordance thereof condition, processing calendar, controller cure after may month. Renewal different therein that its relation fee clause except remedies. Director partial connection timely also respect. Year its, is audit breach, controller requirements project any been project limitation rights minimum further records. Calendar timely provision loss herein current regulation. Have, records within requirement party waiver information payment, signature laws price daily whole. Appendix specification assignment signatory damages incident prompt instrument. Severability disclosure instrument, security, appendix section last provisions including incident is, date not unless. Tax only applicable invoice contractor dispute annual including their appropriate standard data. Not any, under annex other claim plan or witness under. Provided use officer appropriate first aggregate consequential laws director condition both, counterparts officer pursuant. Not appendix has, law their, tax hereof taxes full therein whole original oral insurance payment each, not successor. Adverse dispute accordance, partial original property. Parties article, terms business partial corporation security, rights. Corporation schedule within, business, new privacy terms exhibit special by, acceptance approval, signatory. Either thereof only, indemnity before. Contractor successor schedule regulation exhibit covenant including intellectual, claim. Warranties therein signature without been record other jurisdiction effect report. Documents before without tax project annual signature annual tax. Annual controller incident delivery counterparts or however to contractor adverse accordance at officer after which. Date this price all personal including whereas. Data corporation general such force majeure instrument termination. Relevant last signatory control original, weekly successor. Also acceptance partnership, title connection at. Material signature connection change, party quality however party any shall renewal, record controller period. Fee, breach both precedent remedies been. Annex annual document, jurisdiction consent any obligation incident new. Standard scope period payment neither, provided current material existing provided hereto, future law jurisdiction employee price response transfer. License remedies entity parties agreement officer entity, covenant price, such representative record however loss change understanding. Incidental, partnership record, goods signatory clause. Incident clause grant subsidiary property written schedule instrument annex direct. Representative indirect respect reasonable have contemporaneous scope current incidental an witness, direct any received subsidiary. Execution contemporaneous completion representative jurisdiction exemplary agreement, purpose annual purpose date weekly whole counterparts, original article corporation further. Partnership successor, contractor, approval month specification are default. Which each dispute hereto termination schedule breach record compliance. Whole, either relevant unless processing, event breach, tax requirements amendment has, minimum further test. Other specific been upon requirements have limitation applicable article, milestone majeure condition terms indemnity condition signature. Annual existing connection warranty exemplary general approval contemporaneous current past will, personal, article documents after. Monthly indemnity accordance thereof each. Authority maximum authority upon project material are confidential pursuant witness relation requirements fees regulation closing punitive or. Disclosure authority necessary such new default without severability taxes provision second future. An breach d",
+    "length_check": "applied",
+    "length_enforced": true,
+    "content_check": null,
+    "content_check_reason": null,
+    "model_document_check": {
+     "ok": true,
+     "openingPresent": true,
+     "closingPresent": true,
+     "lengthOk": true,
+     "model_chars": 40687,
+     "surface_reason": null,
+     "length_check_mode": "applied"
+    },
+    "dom_document_check": null
+   },
+   "mechanism": "cdp_screencast_changed_frame",
+   "witness_kind": "settled_pixels",
+   "witness": {
+    "kind": "frame_witness",
+    "outcome": "witnessed",
+    "frame_page_ms": 5622.365,
+    "frames_total": 5,
+    "frames_after": 1,
+    "frames_ack_skipped": 0,
+    "diff_ratio": 0.001273,
+    "threshold": 1e-05,
+    "min_pixels": 4,
+    "caret_masked": true,
+    "caret_mask_css": "* { caret-color: transparent !important }",
+    "caret_mask_error": null,
+    "window_ms": 2000,
+    "window_requested_ms": 2000,
+    "strict_window": false,
+    "window_end_page_ms": null,
+    "window_slack_ms": null,
+    "frames_beyond_window": 0,
+    "scan_started_after_ms": 3035.6,
+    "after_page_ms": 5585.4,
+    "baseline_page_ms": 5272.38,
+    "baseline_source": "caller",
+    "document_scoped": true,
+    "document_region": {
+     "source": "selector",
+     "selector": "docen-document",
+     "rect_css_px": {
+      "x": 0,
+      "y": 0,
+      "width": 1280,
+      "height": 900
+     },
+     "rect_device_px": {
+      "x": 0,
+      "y": 0,
+      "width": 1280,
+      "height": 900
+     },
+     "device_pixel_ratio": 1
+    },
+    "document_region_error": null,
+    "region_pixels": 1152000,
+    "changed_pixels": 1466,
+    "total_pixels": 1152000,
+    "max_diff_ratio": 0.001273,
+    "timestamp_kind": "epoch_seconds",
+    "time_origin_ms": 1794871111561,
+    "clock_check": {
+     "kind": "clock_skew",
+     "acceptable": true,
+     "reason": null,
+     "checks": {
+      "timestamp_kind_known": true,
+      "page_offset_within_bound": true,
+      "page_offset_spread_within_bound": true,
+      "anchor_found": true,
+      "anchor_pixel_checked": true,
+      "anchor_converted": true,
+      "anchor_causality": true,
+      "anchor_lag_within_bound": true
+     },
+     "method": "page_clock_offset+pixel_anchor",
+     "timestamp_kind": "epoch_seconds",
+     "timestamp_field": "timestamp",
+     "bound_ms": 5,
+     "page_offset_ms": -0.4,
+     "page_offset_samples": [
+      -0.1,
+      -0.2,
+      -0.4,
+      -0.9,
+      0,
+      -0.2,
+      -0.6,
+      -0.4,
+      -0.5
+     ],
+     "page_offset_spread_ms": 0.9,
+     "skew_ms": -0.4,
+     "time_origin_ms": 1794871111561,
+     "change_page_ms": 5193.9,
+     "frame_page_ms": 5222.38,
+     "frame_lag_ms": 28.48,
+     "frame_monotonic_ms": 13457825.574,
+     "frames_total": 3,
+     "anchor_pixel_checked": true,
+     "anchor_diff_ratio": 1,
+     "anchor_probe_region_px": {
+      "x": 0,
+      "y": 0,
+      "width": 8,
+      "height": 8
+     },
+     "frame_interval_ms": 16.7,
+     "frame_interval_source": "raf_delta",
+     "frame_interval_samples": 60,
+     "lag_bound_ms": 250,
+     "lag_bound_rule": "max(3 frame intervals, 250 ms)",
+     "conversion": {
+      "formula": "page_ms = timestamp * 1000 - performance.timeOrigin",
+      "error_lower_ms": -2,
+      "error_lower_why": "causality: a frame cannot show a change before it was made (2 ms slop for the change timestamp)",
+      "error_upper_ms": 250,
+      "error_upper_why": "the anchor lag bound: a positive conversion error is caught once it pushes the anchor past it",
+      "published": "[-2 ms, +250 ms] (never \"\u00b12 ms\")"
+     },
+     "caret_masked": true,
+     "caret_mask_error": null,
+     "notes": [
+      "page_offset_ms is the page-local wall/monotonic discrepancy; it is NOT the screencast conversion error and never gates alone",
+      "the conversion is proven by the pixel anchor: the first delivered frame whose probe region changed, chosen in arrival order with no timestamp filter",
+      "the published conversion bound is [-2 ms, +250 ms]; the anchor is refused outside it",
+      "frame_lag_ms is the compositor presentation latency of the anchor, not a clock error",
+      "metadata.timestamp is an epoch reading; page_ms = timestamp*1000 - performance.timeOrigin"
+     ]
+    },
+    "clock_check_source": "caller",
+    "clock_skew_ms": -0.4,
+    "clock_skew_method": "page_clock_offset+pixel_anchor",
+    "clock_skew_bound_ms": 5,
+    "clock_skew_acceptable": true,
+    "elapsed_ms": 56
+   },
+   "event_timing": {
+    "event": {
+     "startTime": 5585.4000000003725,
+     "trusted": true
+    },
+    "entries": [
+     {
+      "name": "keydown",
+      "startTime": 5585.4000000003725,
+      "duration": 32,
+      "interactionId": 6918,
+      "processingEnd": 5585.700000001118
+     }
+    ],
+    "supported": true,
+    "outcome": "observed",
+    "duration_threshold_ms": 16,
+    "duration_step_ms": 8
+   },
+   "edit_confirmation": {
+    "confirmed": true,
+    "before_count": 0,
+    "expected": "x",
+    "mutations": [],
+    "after_count": 1,
+    "visible_rects": [],
+    "changed_pixels": 34,
+    "adapter": {
+     "confirmed": true,
+     "adapter": "model",
+     "before_count": 0,
+     "after_count": 1,
+     "text_delta": 1,
+     "reason": null
+    },
+    "settled_channel_tolerance": 8,
+    "settled_quiescence_ms": 300,
+    "settle_max_wait_ms": 3000,
+    "frame_collection": "before_document_witness_decode",
+    "pixel_settle": {
+     "failure_reason": null,
+     "match_page_ms": 5639.031982421875,
+     "settled_page_ms": 5639.031982421875,
+     "delay_ms": 53.63198242150247,
+     "match_missing_pixels": 0,
+     "edit_pixels": 34,
+     "edit_bbox": {
+      "x": 575,
+      "y": 541,
+      "width": 5,
+      "height": 8
+     },
+     "blink_before_pixels": 0,
+     "blink_after_pixels": 0,
+     "frames_read": 2,
+     "tail_frames": 1,
+     "quiet_ms": 2796.468017578125,
+     "progress": [
+      {
+       "page_ms": 5622.364990234375,
+       "missing_pixels": 34,
+       "missing_bbox": {
+        "x": 575,
+        "y": 541,
+        "width": 5,
+        "height": 8
+       }
+      }
+     ],
+     "marker_page_ms": 5585.4000000003725,
+     "min_pixels": 16,
+     "caret_columns_device_px": [
+      {
+       "x": 572,
+       "y": 510,
+       "width": 3,
+       "height": 49
+      },
+      {
+       "x": 580,
+       "y": 510,
+       "width": 3,
+       "height": 49
+      }
+     ],
+     "focused_input_after_css_px": {
+      "tag": "TEXTAREA",
+      "x": 581.328125,
+      "y": 534.25,
+      "width": 1,
+      "height": 1
+     },
+     "baseline_seq": 2,
+     "witness_seq": 4,
+     "settled_seq": 4,
+     "first_changed_frame_page_ms": 5622.365,
+     "document_rect_device_px": {
+      "x": 0,
+      "y": 0,
+      "width": 1280,
+      "height": 900
+     },
+     "witness_rect_device_px": {
+      "x": 0,
+      "y": 510,
+      "width": 1280,
+      "height": 49
+     },
+     "caret_point_css_px": {
+      "x": 573.328125,
+      "y": 534.75
+     },
+     "caret_point_source": "focused_input",
+     "focused_input_css_px": {
+      "tag": "TEXTAREA",
+      "x": 573.328125,
+      "y": 534.25,
+      "width": 1,
+      "height": 1
+     },
+     "excluded_harness_mark_css_px": 10,
+     "caret_band_css_px": 24,
+     "last_frame_page_ms": 5639.031982421875,
+     "edit_touches_caret": true,
+     "unread_frames": 0,
+     "arm_waited_ms": 3006,
+     "late_wait_ms": 0,
+     "read_until_page_ms": 8685.5,
+     "band_reaimed": false
+    },
+    "witness_page_ms": 5639.031982421875,
+    "settled_page_ms": 5639.031982421875,
+    "settle_failure": null,
+    "pending_arm_text_count": false
+   },
+   "timestamp_note": "Uncorrected frame-to-page conversion; page_offset_ms is not a conversion correction. See clock_skew conversion bounds.",
+   "outcome": "measured",
+   "failure_reason": null,
+   "edit_ms": 53.63198242150247,
+   "paint_ms": 53.63198242150247,
+   "single_edit_ms": 53.63198242150247,
+   "presented_frame_ms": 53.63198242150247,
+   "sustained_typing_median_ms": 53.467871092259884
+  },
+  "single_edit_ms": 53.63198242150247,
+  "burst": [
+   {
+    "mechanism": "cdp_screencast_changed_frame",
+    "witness_kind": "settled_pixels",
+    "clock_skew": {
+     "kind": "clock_skew",
+     "acceptable": true,
+     "reason": null,
+     "checks": {
+      "timestamp_kind_known": true,
+      "page_offset_within_bound": true,
+      "page_offset_spread_within_bound": true,
+      "anchor_found": true,
+      "anchor_pixel_checked": true,
+      "anchor_converted": true,
+      "anchor_causality": true,
+      "anchor_lag_within_bound": true
+     },
+     "method": "page_clock_offset+pixel_anchor",
+     "timestamp_kind": "epoch_seconds",
+     "timestamp_field": "timestamp",
+     "bound_ms": 5,
+     "page_offset_ms": -0.3,
+     "page_offset_samples": [
+      -0.1,
+      -0.2,
+      -0.2,
+      -0.1,
+      -0.9,
+      -0.8,
+      -0.3,
+      -0.4,
+      -0.3
+     ],
+     "page_offset_spread_ms": 0.8,
+     "skew_ms": -0.3,
+     "time_origin_ms": 1794871111561,
+     "change_page_ms": 10539.1,
+     "frame_page_ms": 10555.507,
+     "frame_lag_ms": 16.407,
+     "frame_monotonic_ms": 13463158.694,
+     "frames_total": 3,
+     "anchor_pixel_checked": true,
+     "anchor_diff_ratio": 1,
+     "anchor_probe_region_px": {
+      "x": 0,
+      "y": 0,
+      "width": 8,
+      "height": 8
+     },
+     "frame_interval_ms": 16.7,
+     "frame_interval_source": "raf_delta",
+     "frame_interval_samples": 60,
+     "lag_bound_ms": 250,
+     "lag_bound_rule": "max(3 frame intervals, 250 ms)",
+     "conversion": {
+      "formula": "page_ms = timestamp * 1000 - performance.timeOrigin",
+      "error_lower_ms": -2,
+      "error_lower_why": "causality: a frame cannot show a change before it was made (2 ms slop for the change timestamp)",
+      "error_upper_ms": 250,
+      "error_upper_why": "the anchor lag bound: a positive conversion error is caught once it pushes the anchor past it",
+      "published": "[-2 ms, +250 ms] (never \"\u00b12 ms\")"
+     },
+     "caret_masked": true,
+     "caret_mask_error": null,
+     "notes": [
+      "page_offset_ms is the page-local wall/monotonic discrepancy; it is NOT the screencast conversion error and never gates alone",
+      "the conversion is proven by the pixel anchor: the first delivered frame whose probe region changed, chosen in arrival order with no timestamp filter",
+      "the published conversion bound is [-2 ms, +250 ms]; the anchor is refused outside it",
+      "frame_lag_ms is the compositor presentation latency of the anchor, not a clock error",
+      "metadata.timestamp is an epoch reading; page_ms = timestamp*1000 - performance.timeOrigin"
+     ]
+    },
+    "witness": {
+     "kind": "frame_witness",
+     "outcome": "witnessed",
+     "frame_page_ms": 10988.822,
+     "frames_total": 5,
+     "frames_after": 1,
+     "frames_ack_skipped": 0,
+     "diff_ratio": 3.3e-05,
+     "threshold": 1e-05,
+     "min_pixels": 4,
+     "caret_masked": true,
+     "caret_mask_css": "* { caret-color: transparent !important }",
+     "caret_mask_error": null,
+     "window_ms": 2000,
+     "window_requested_ms": 2000,
+     "strict_window": false,
+     "window_end_page_ms": null,
+     "window_slack_ms": null,
+     "frames_beyond_window": 0,
+     "scan_started_after_ms": 3016.3,
+     "after_page_ms": 10950.7,
+     "baseline_page_ms": 10655.502,
+     "baseline_source": "caller",
+     "document_scoped": true,
+     "document_region": {
+      "source": "selector",
+      "selector": "docen-document",
+      "rect_css_px": {
+       "x": 0,
+       "y": 0,
+       "width": 1280,
+       "height": 900
+      },
+      "rect_device_px": {
+       "x": 0,
+       "y": 0,
+       "width": 1280,
+       "height": 900
+      },
+      "device_pixel_ratio": 1
+     },
+     "document_region_error": null,
+     "region_pixels": 1152000,
+     "changed_pixels": 38,
+     "total_pixels": 1152000,
+     "max_diff_ratio": 3.3e-05,
+     "timestamp_kind": "epoch_seconds",
+     "time_origin_ms": 1794871111561,
+     "clock_check": {
+      "kind": "clock_skew",
+      "acceptable": true,
+      "reason": null,
+      "checks": {
+       "timestamp_kind_known": true,
+       "page_offset_within_bound": true,
+       "page_offset_spread_within_bound": true,
+       "anchor_found": true,
+       "anchor_pixel_checked": true,
+       "anchor_converted": true,
+       "anchor_causality": true,
+       "anchor_lag_within_bound": true
+      },
+      "method": "page_clock_offset+pixel_anchor",
+      "timestamp_kind": "epoch_seconds",
+      "timestamp_field": "timestamp",
+      "bound_ms": 5,
+      "page_offset_ms": -0.3,
+      "page_offset_samples": [
+       -0.1,
+       -0.2,
+       -0.2,
+       -0.1,
+       -0.9,
+       -0.8,
+       -0.3,
+       -0.4,
+       -0.3
+      ],
+      "page_offset_spread_ms": 0.8,
+      "skew_ms": -0.3,
+      "time_origin_ms": 1794871111561,
+      "change_page_ms": 10539.1,
+      "frame_page_ms": 10555.507,
+      "frame_lag_ms": 16.407,
+      "frame_monotonic_ms": 13463158.694,
+      "frames_total": 3,
+      "anchor_pixel_checked": true,
+      "anchor_diff_ratio": 1,
+      "anchor_probe_region_px": {
+       "x": 0,
+       "y": 0,
+       "width": 8,
+       "height": 8
+      },
+      "frame_interval_ms": 16.7,
+      "frame_interval_source": "raf_delta",
+      "frame_interval_samples": 60,
+      "lag_bound_ms": 250,
+      "lag_bound_rule": "max(3 frame intervals, 250 ms)",
+      "conversion": {
+       "formula": "page_ms = timestamp * 1000 - performance.timeOrigin",
+       "error_lower_ms": -2,
+       "error_lower_why": "causality: a frame cannot show a change before it was made (2 ms slop for the change timestamp)",
+       "error_upper_ms": 250,
+       "error_upper_why": "the anchor lag bound: a positive conversion error is caught once it pushes the anchor past it",
+       "published": "[-2 ms, +250 ms] (never \"\u00b12 ms\")"
+      },
+      "caret_masked": true,
+      "caret_mask_error": null,
+      "notes": [
+       "page_offset_ms is the page-local wall/monotonic discrepancy; it is NOT the screencast conversion error and never gates alone",
+       "the conversion is proven by the pixel anchor: the first delivered frame whose probe region changed, chosen in arrival order with no timestamp filter",
+       "the published conversion bound is [-2 ms, +250 ms]; the anchor is refused outside it",
+       "frame_lag_ms is the compositor presentation latency of the anchor, not a clock error",
+       "metadata.timestamp is an epoch reading; page_ms = timestamp*1000 - performance.timeOrigin"
+      ]
+     },
+     "clock_check_source": "caller",
+     "clock_skew_ms": -0.3,
+     "clock_skew_method": "page_clock_offset+pixel_anchor",
+     "clock_skew_bound_ms": 5,
+     "clock_skew_acceptable": true,
+     "elapsed_ms": 67
+    },
+    "event_timing": {
+     "event": {
+      "startTime": 10950.700000001118,
+      "trusted": true
+     },
+     "entries": [
+      {
+       "name": "keydown",
+       "startTime": 10950.700000001118,
+       "duration": 32,
+       "interactionId": 6932,
+       "processingEnd": 10951
+      }
+     ],
+     "supported": true,
+     "outcome": "observed",
+     "duration_threshold_ms": 16,
+     "duration_step_ms": 8
+    },
+    "edit_confirmation": {
+     "confirmed": true,
+     "before_count": 0,
+     "expected": "x",
+     "mutations": [],
+     "after_count": 1,
+     "visible_rects": [],
+     "changed_pixels": 34,
+     "adapter": {
+      "confirmed": true,
+      "adapter": "model",
+      "before_count": 0,
+      "after_count": 1,
+      "text_delta": 1,
+      "reason": null
+     },
+     "settled_channel_tolerance": 8,
+     "settled_quiescence_ms": 300,
+     "settle_max_wait_ms": 3000,
+     "frame_collection": "before_document_witness_decode",
+     "pixel_settle": {
+      "failure_reason": null,
+      "match_page_ms": 11005.489013671875,
+      "settled_page_ms": 11005.489013671875,
+      "delay_ms": 54.78901367075741,
+      "match_missing_pixels": 0,
+      "edit_pixels": 34,
+      "edit_bbox": {
+       "x": 583,
+       "y": 541,
+       "width": 5,
+       "height": 8
+      },
+      "blink_before_pixels": 0,
+      "blink_after_pixels": 0,
+      "frames_read": 2,
+      "tail_frames": 1,
+      "quiet_ms": 2812.510986328125,
+      "progress": [
+       {
+        "page_ms": 10988.822021484375,
+        "missing_pixels": 34,
+        "missing_bbox": {
+         "x": 583,
+         "y": 541,
+         "width": 5,
+         "height": 8
+        }
+       }
+      ],
+      "marker_page_ms": 10950.700000001118,
+      "min_pixels": 16,
+      "caret_columns_device_px": [
+       {
+        "x": 580,
+        "y": 510,
+        "width": 3,
+        "height": 49
+       },
+       {
+        "x": 588,
+        "y": 510,
+        "width": 3,
+        "height": 49
+       }
+      ],
+      "focused_input_after_css_px": {
+       "tag": "TEXTAREA",
+       "x": 589.328125,
+       "y": 534.25,
+       "width": 1,
+       "height": 1
+      },
+      "baseline_seq": 2,
+      "witness_seq": 4,
+      "settled_seq": 4,
+      "first_changed_frame_page_ms": 10988.822,
+      "document_rect_device_px": {
+       "x": 0,
+       "y": 0,
+       "width": 1280,
+       "height": 900
+      },
+      "witness_rect_device_px": {
+       "x": 0,
+       "y": 510,
+       "width": 1280,
+       "height": 49
+      },
+      "caret_point_css_px": {
+       "x": 581.328125,
+       "y": 534.75
+      },
+      "caret_point_source": "focused_input",
+      "focused_input_css_px": {
+       "tag": "TEXTAREA",
+       "x": 581.328125,
+       "y": 534.25,
+       "width": 1,
+       "height": 1
+      },
+      "excluded_harness_mark_css_px": 10,
+      "caret_band_css_px": 24,
+      "last_frame_page_ms": 11005.489013671875,
+      "edit_touches_caret": true,
+      "unread_frames": 0,
+      "arm_waited_ms": 3006,
+      "late_wait_ms": 0,
+      "read_until_page_ms": 14068,
+      "band_reaimed": false
+     },
+     "witness_page_ms": 11005.489013671875,
+     "settled_page_ms": 11005.489013671875,
+     "settle_failure": null,
+     "pending_arm_text_count": false
+    },
+    "timestamp_note": "Uncorrected frame-to-page conversion; page_offset_ms is not a conversion correction. See clock_skew conversion bounds.",
+    "outcome": "measured",
+    "failure_reason": null,
+    "edit_ms": 54.78901367075741,
+    "paint_ms": 54.78901367075741
+   },
+   {
+    "mechanism": "cdp_screencast_changed_frame",
+    "witness_kind": "settled_pixels",
+    "clock_skew": {
+     "kind": "clock_skew",
+     "acceptable": true,
+     "reason": null,
+     "checks": {
+      "timestamp_kind_known": true,
+      "page_offset_within_bound": true,
+      "page_offset_spread_within_bound": true,
+      "anchor_found": true,
+      "anchor_pixel_checked": true,
+      "anchor_converted": true,
+      "anchor_causality": true,
+      "anchor_lag_within_bound": true
+     },
+     "method": "page_clock_offset+pixel_anchor",
+     "timestamp_kind": "epoch_seconds",
+     "timestamp_field": "timestamp",
+     "bound_ms": 5,
+     "page_offset_ms": -0.6,
+     "page_offset_samples": [
+      -0.6,
+      -0.8,
+      -0.2,
+      -0.6,
+      -0.3,
+      -0.9,
+      -0.6,
+      -0.9,
+      0
+     ],
+     "page_offset_spread_ms": 0.9,
+     "skew_ms": -0.6,
+     "time_origin_ms": 1794871111561,
+     "change_page_ms": 16005.9,
+     "frame_page_ms": 16021.96,
+     "frame_lag_ms": 16.06,
+     "frame_monotonic_ms": 13468625.142,
+     "frames_total": 3,
+     "anchor_pixel_checked": true,
+     "anchor_diff_ratio": 1,
+     "anchor_probe_region_px": {
+      "x": 0,
+      "y": 0,
+      "width": 8,
+      "height": 8
+     },
+     "frame_interval_ms": 16.7,
+     "frame_interval_source": "raf_delta",
+     "frame_interval_samples": 60,
+     "lag_bound_ms": 250,
+     "lag_bound_rule": "max(3 frame intervals, 250 ms)",
+     "conversion": {
+      "formula": "page_ms = timestamp * 1000 - performance.timeOrigin",
+      "error_lower_ms": -2,
+      "error_lower_why": "causality: a frame cannot show a change before it was made (2 ms slop for the change timestamp)",
+      "error_upper_ms": 250,
+      "error_upper_why": "the anchor lag bound: a positive conversion error is caught once it pushes the anchor past it",
+      "published": "[-2 ms, +250 ms] (never \"\u00b12 ms\")"
+     },
+     "caret_masked": true,
+     "caret_mask_error": null,
+     "notes": [
+      "page_offset_ms is the page-local wall/monotonic discrepancy; it is NOT the screencast conversion error and never gates alone",
+      "the conversion is proven by the pixel anchor: the first delivered frame whose probe region changed, chosen in arrival order with no timestamp filter",
+      "the published conversion bound is [-2 ms, +250 ms]; the anchor is refused outside it",
+      "frame_lag_ms is the compositor presentation latency of the anchor, not a clock error",
+      "metadata.timestamp is an epoch reading; page_ms = timestamp*1000 - performance.timeOrigin"
+     ]
+    },
+    "witness": {
+     "kind": "frame_witness",
+     "outcome": "witnessed",
+     "frame_page_ms": 16405.278,
+     "frames_total": 5,
+     "frames_after": 1,
+     "frames_ack_skipped": 0,
+     "diff_ratio": 3.3e-05,
+     "threshold": 1e-05,
+     "min_pixels": 4,
+     "caret_masked": true,
+     "caret_mask_css": "* { caret-color: transparent !important }",
+     "caret_mask_error": null,
+     "window_ms": 2000,
+     "window_requested_ms": 2000,
+     "strict_window": false,
+     "window_end_page_ms": null,
+     "window_slack_ms": null,
+     "frames_beyond_window": 0,
+     "scan_started_after_ms": 3064.4,
+     "after_page_ms": 16369.6,
+     "baseline_page_ms": 16071.959,
+     "baseline_source": "caller",
+     "document_scoped": true,
+     "document_region": {
+      "source": "selector",
+      "selector": "docen-document",
+      "rect_css_px": {
+       "x": 0,
+       "y": 0,
+       "width": 1280,
+       "height": 900
+      },
+      "rect_device_px": {
+       "x": 0,
+       "y": 0,
+       "width": 1280,
+       "height": 900
+      },
+      "device_pixel_ratio": 1
+     },
+     "document_region_error": null,
+     "region_pixels": 1152000,
+     "changed_pixels": 38,
+     "total_pixels": 1152000,
+     "max_diff_ratio": 3.3e-05,
+     "timestamp_kind": "epoch_seconds",
+     "time_origin_ms": 1794871111561,
+     "clock_check": {
+      "kind": "clock_skew",
+      "acceptable": true,
+      "reason": null,
+      "checks": {
+       "timestamp_kind_known": true,
+       "page_offset_within_bound": true,
+       "page_offset_spread_within_bound": true,
+       "anchor_found": true,
+       "anchor_pixel_checked": true,
+       "anchor_converted": true,
+       "anchor_causality": true,
+       "anchor_lag_within_bound": true
+      },
+      "method": "page_clock_offset+pixel_anchor",
+      "timestamp_kind": "epoch_seconds",
+      "timestamp_field": "timestamp",
+      "bound_ms": 5,
+      "page_offset_ms": -0.6,
+      "page_offset_samples": [
+       -0.6,
+       -0.8,
+       -0.2,
+       -0.6,
+       -0.3,
+       -0.9,
+       -0.6,
+       -0.9,
+       0
+      ],
+      "page_offset_spread_ms": 0.9,
+      "skew_ms": -0.6,
+      "time_origin_ms": 1794871111561,
+      "change_page_ms": 16005.9,
+      "frame_page_ms": 16021.96,
+      "frame_lag_ms": 16.06,
+      "frame_monotonic_ms": 13468625.142,
+      "frames_total": 3,
+      "anchor_pixel_checked": true,
+      "anchor_diff_ratio": 1,
+      "anchor_probe_region_px": {
+       "x": 0,
+       "y": 0,
+       "width": 8,
+       "height": 8
+      },
+      "frame_interval_ms": 16.7,
+      "frame_interval_source": "raf_delta",
+      "frame_interval_samples": 60,
+      "lag_bound_ms": 250,
+      "lag_bound_rule": "max(3 frame intervals, 250 ms)",
+      "conversion": {
+       "formula": "page_ms = timestamp * 1000 - performance.timeOrigin",
+       "error_lower_ms": -2,
+       "error_lower_why": "causality: a frame cannot show a change before it was made (2 ms slop for the change timestamp)",
+       "error_upper_ms": 250,
+       "error_upper_why": "the anchor lag bound: a positive conversion error is caught once it pushes the anchor past it",
+       "published": "[-2 ms, +250 ms] (never \"\u00b12 ms\")"
+      },
+      "caret_masked": true,
+      "caret_mask_error": null,
+      "notes": [
+       "page_offset_ms is the page-local wall/monotonic discrepancy; it is NOT the screencast conversion error and never gates alone",
+       "the conversion is proven by the pixel anchor: the first delivered frame whose probe region changed, chosen in arrival order with no timestamp filter",
+       "the published conversion bound is [-2 ms, +250 ms]; the anchor is refused outside it",
+       "frame_lag_ms is the compositor presentation latency of the anchor, not a clock error",
+       "metadata.timestamp is an epoch reading; page_ms = timestamp*1000 - performance.timeOrigin"
+      ]
+     },
+     "clock_check_source": "caller",
+     "clock_skew_ms": -0.6,
+     "clock_skew_method": "page_clock_offset+pixel_anchor",
+     "clock_skew_bound_ms": 5,
+     "clock_skew_acceptable": true,
+     "elapsed_ms": 31
+    },
+    "event_timing": {
+     "event": {
+      "startTime": 16369.60000000149,
+      "trusted": true
+     },
+     "entries": [
+      {
+       "name": "keydown",
+       "startTime": 16369.60000000149,
+       "duration": 32,
+       "interactionId": 6946,
+       "processingEnd": 16370.400000000373
+      }
+     ],
+     "supported": true,
+     "outcome": "observed",
+     "duration_threshold_ms": 16,
+     "duration_step_ms": 8
+    },
+    "edit_confirmation": {
+     "confirmed": true,
+     "before_count": 0,
+     "expected": "x",
+     "mutations": [],
+     "after_count": 1,
+     "visible_rects": [],
+     "changed_pixels": 34,
+     "adapter": {
+      "confirmed": true,
+      "adapter": "model",
+      "before_count": 0,
+      "after_count": 1,
+      "text_delta": 1,
+      "reason": null
+     },
+     "settled_channel_tolerance": 8,
+     "settled_quiescence_ms": 300,
+     "settle_max_wait_ms": 3000,
+     "frame_collection": "before_document_witness_decode",
+     "pixel_settle": {
+      "failure_reason": null,
+      "match_page_ms": 16421.944091796875,
+      "settled_page_ms": 16421.944091796875,
+      "delay_ms": 52.344091795384884,
+      "match_missing_pixels": 0,
+      "edit_pixels": 34,
+      "edit_bbox": {
+       "x": 591,
+       "y": 541,
+       "width": 5,
+       "height": 8
+      },
+      "blink_before_pixels": 0,
+      "blink_after_pixels": 0,
+      "frames_read": 2,
+      "tail_frames": 1,
+      "quiet_ms": 2802.7559082042426,
+      "progress": [
+       {
+        "page_ms": 16405.278076171875,
+        "missing_pixels": 34,
+        "missing_bbox": {
+         "x": 591,
+         "y": 541,
+         "width": 5,
+         "height": 8
+        }
+       }
+      ],
+      "marker_page_ms": 16369.60000000149,
+      "min_pixels": 16,
+      "caret_columns_device_px": [
+       {
+        "x": 588,
+        "y": 510,
+        "width": 3,
+        "height": 49
+       },
+       {
+        "x": 596,
+        "y": 510,
+        "width": 3,
+        "height": 49
+       }
+      ],
+      "focused_input_after_css_px": {
+       "tag": "TEXTAREA",
+       "x": 597.328125,
+       "y": 534.25,
+       "width": 1,
+       "height": 1
+      },
+      "baseline_seq": 2,
+      "witness_seq": 4,
+      "settled_seq": 4,
+      "first_changed_frame_page_ms": 16405.278,
+      "document_rect_device_px": {
+       "x": 0,
+       "y": 0,
+       "width": 1280,
+       "height": 900
+      },
+      "witness_rect_device_px": {
+       "x": 0,
+       "y": 510,
+       "width": 1280,
+       "height": 49
+      },
+      "caret_point_css_px": {
+       "x": 589.328125,
+       "y": 534.75
+      },
+      "caret_point_source": "focused_input",
+      "focused_input_css_px": {
+       "tag": "TEXTAREA",
+       "x": 589.328125,
+       "y": 534.25,
+       "width": 1,
+       "height": 1
+      },
+      "excluded_harness_mark_css_px": 10,
+      "caret_band_css_px": 24,
+      "last_frame_page_ms": 16421.944091796875,
+      "edit_touches_caret": true,
+      "unread_frames": 0,
+      "arm_waited_ms": 3032,
+      "late_wait_ms": 0,
+      "read_until_page_ms": 19474.700000001118,
+      "band_reaimed": false
+     },
+     "witness_page_ms": 16421.944091796875,
+     "settled_page_ms": 16421.944091796875,
+     "settle_failure": null,
+     "pending_arm_text_count": false
+    },
+    "timestamp_note": "Uncorrected frame-to-page conversion; page_offset_ms is not a conversion correction. See clock_skew conversion bounds.",
+    "outcome": "measured",
+    "failure_reason": null,
+    "edit_ms": 52.344091795384884,
+    "paint_ms": 52.344091795384884
+   },
+   {
+    "mechanism": "cdp_screencast_changed_frame",
+    "witness_kind": "settled_pixels",
+    "clock_skew": {
+     "kind": "clock_skew",
+     "acceptable": true,
+     "reason": null,
+     "checks": {
+      "timestamp_kind_known": true,
+      "page_offset_within_bound": true,
+      "page_offset_spread_within_bound": true,
+      "anchor_found": true,
+      "anchor_pixel_checked": true,
+      "anchor_converted": true,
+      "anchor_causality": true,
+      "anchor_lag_within_bound": true
+     },
+     "method": "page_clock_offset+pixel_anchor",
+     "timestamp_kind": "epoch_seconds",
+     "timestamp_field": "timestamp",
+     "bound_ms": 5,
+     "page_offset_ms": -0.2,
+     "page_offset_samples": [
+      -0.5,
+      -0.2,
+      -0.1,
+      -0.2,
+      -0.2,
+      -0.3,
+      -0.8,
+      -0.1,
+      -0.2
+     ],
+     "page_offset_spread_ms": 0.7,
+     "skew_ms": -0.2,
+     "time_origin_ms": 1794871111561,
+     "change_page_ms": 21355.3,
+     "frame_page_ms": 21371.752,
+     "frame_lag_ms": 16.452,
+     "frame_monotonic_ms": 13473974.928,
+     "frames_total": 3,
+     "anchor_pixel_checked": true,
+     "anchor_diff_ratio": 1,
+     "anchor_probe_region_px": {
+      "x": 0,
+      "y": 0,
+      "width": 8,
+      "height": 8
+     },
+     "frame_interval_ms": 16.7,
+     "frame_interval_source": "raf_delta",
+     "frame_interval_samples": 60,
+     "lag_bound_ms": 250,
+     "lag_bound_rule": "max(3 frame intervals, 250 ms)",
+     "conversion": {
+      "formula": "page_ms = timestamp * 1000 - performance.timeOrigin",
+      "error_lower_ms": -2,
+      "error_lower_why": "causality: a frame cannot show a change before it was made (2 ms slop for the change timestamp)",
+      "error_upper_ms": 250,
+      "error_upper_why": "the anchor lag bound: a positive conversion error is caught once it pushes the anchor past it",
+      "published": "[-2 ms, +250 ms] (never \"\u00b12 ms\")"
+     },
+     "caret_masked": true,
+     "caret_mask_error": null,
+     "notes": [
+      "page_offset_ms is the page-local wall/monotonic discrepancy; it is NOT the screencast conversion error and never gates alone",
+      "the conversion is proven by the pixel anchor: the first delivered frame whose probe region changed, chosen in arrival order with no timestamp filter",
+      "the published conversion bound is [-2 ms, +250 ms]; the anchor is refused outside it",
+      "frame_lag_ms is the compositor presentation latency of the anchor, not a clock error",
+      "metadata.timestamp is an epoch reading; page_ms = timestamp*1000 - performance.timeOrigin"
+     ]
+    },
+    "witness": {
+     "kind": "frame_witness",
+     "outcome": "witnessed",
+     "frame_page_ms": 21788.403,
+     "frames_total": 5,
+     "frames_after": 1,
+     "frames_ack_skipped": 0,
+     "diff_ratio": 3.3e-05,
+     "threshold": 1e-05,
+     "min_pixels": 4,
+     "caret_masked": true,
+     "caret_mask_css": "* { caret-color: transparent !important }",
+     "caret_mask_error": null,
+     "window_ms": 2000,
+     "window_requested_ms": 2000,
+     "strict_window": false,
+     "window_end_page_ms": null,
+     "window_slack_ms": null,
+     "frames_beyond_window": 0,
+     "scan_started_after_ms": 3008.4,
+     "after_page_ms": 21751.6,
+     "baseline_page_ms": 21438.415,
+     "baseline_source": "caller",
+     "document_scoped": true,
+     "document_region": {
+      "source": "selector",
+      "selector": "docen-document",
+      "rect_css_px": {
+       "x": 0,
+       "y": 0,
+       "width": 1280,
+       "height": 900
+      },
+      "rect_device_px": {
+       "x": 0,
+       "y": 0,
+       "width": 1280,
+       "height": 900
+      },
+      "device_pixel_ratio": 1
+     },
+     "document_region_error": null,
+     "region_pixels": 1152000,
+     "changed_pixels": 38,
+     "total_pixels": 1152000,
+     "max_diff_ratio": 3.3e-05,
+     "timestamp_kind": "epoch_seconds",
+     "time_origin_ms": 1794871111561,
+     "clock_check": {
+      "kind": "clock_skew",
+      "acceptable": true,
+      "reason": null,
+      "checks": {
+       "timestamp_kind_known": true,
+       "page_offset_within_bound": true,
+       "page_offset_spread_within_bound": true,
+       "anchor_found": true,
+       "anchor_pixel_checked": true,
+       "anchor_converted": true,
+       "anchor_causality": true,
+       "anchor_lag_within_bound": true
+      },
+      "method": "page_clock_offset+pixel_anchor",
+      "timestamp_kind": "epoch_seconds",
+      "timestamp_field": "timestamp",
+      "bound_ms": 5,
+      "page_offset_ms": -0.2,
+      "page_offset_samples": [
+       -0.5,
+       -0.2,
+       -0.1,
+       -0.2,
+       -0.2,
+       -0.3,
+       -0.8,
+       -0.1,
+       -0.2
+      ],
+      "page_offset_spread_ms": 0.7,
+      "skew_ms": -0.2,
+      "time_origin_ms": 1794871111561,
+      "change_page_ms": 21355.3,
+      "frame_page_ms": 21371.752,
+      "frame_lag_ms": 16.452,
+      "frame_monotonic_ms": 13473974.928,
+      "frames_total": 3,
+      "anchor_pixel_checked": true,
+      "anchor_diff_ratio": 1,
+      "anchor_probe_region_px": {
+       "x": 0,
+       "y": 0,
+       "width": 8,
+       "height": 8
+      },
+      "frame_interval_ms": 16.7,
+      "frame_interval_source": "raf_delta",
+      "frame_interval_samples": 60,
+      "lag_bound_ms": 250,
+      "lag_bound_rule": "max(3 frame intervals, 250 ms)",
+      "conversion": {
+       "formula": "page_ms = timestamp * 1000 - performance.timeOrigin",
+       "error_lower_ms": -2,
+       "error_lower_why": "causality: a frame cannot show a change before it was made (2 ms slop for the change timestamp)",
+       "error_upper_ms": 250,
+       "error_upper_why": "the anchor lag bound: a positive conversion error is caught once it pushes the anchor past it",
+       "published": "[-2 ms, +250 ms] (never \"\u00b12 ms\")"
+      },
+      "caret_masked": true,
+      "caret_mask_error": null,
+      "notes": [
+       "page_offset_ms is the page-local wall/monotonic discrepancy; it is NOT the screencast conversion error and never gates alone",
+       "the conversion is proven by the pixel anchor: the first delivered frame whose probe region changed, chosen in arrival order with no timestamp filter",
+       "the published conversion bound is [-2 ms, +250 ms]; the anchor is refused outside it",
+       "frame_lag_ms is the compositor presentation latency of the anchor, not a clock error",
+       "metadata.timestamp is an epoch reading; page_ms = timestamp*1000 - performance.timeOrigin"
+      ]
+     },
+     "clock_check_source": "caller",
+     "clock_skew_ms": -0.2,
+     "clock_skew_method": "page_clock_offset+pixel_anchor",
+     "clock_skew_bound_ms": 5,
+     "clock_skew_acceptable": true,
+     "elapsed_ms": 84
+    },
+    "event_timing": {
+     "event": {
+      "startTime": 21751.60000000149,
+      "trusted": true
+     },
+     "entries": [
+      {
+       "name": "keydown",
+       "startTime": 21751.60000000149,
+       "duration": 32,
+       "interactionId": 6960,
+       "processingEnd": 21751.900000000373
+      }
+     ],
+     "supported": true,
+     "outcome": "observed",
+     "duration_threshold_ms": 16,
+     "duration_step_ms": 8
+    },
+    "edit_confirmation": {
+     "confirmed": true,
+     "before_count": 0,
+     "expected": "x",
+     "mutations": [],
+     "after_count": 1,
+     "visible_rects": [],
+     "changed_pixels": 34,
+     "adapter": {
+      "confirmed": true,
+      "adapter": "model",
+      "before_count": 0,
+      "after_count": 1,
+      "text_delta": 1,
+      "reason": null
+     },
+     "settled_channel_tolerance": 8,
+     "settled_quiescence_ms": 300,
+     "settle_max_wait_ms": 3000,
+     "frame_collection": "before_document_witness_decode",
+     "pixel_settle": {
+      "failure_reason": null,
+      "match_page_ms": 21805.06787109375,
+      "settled_page_ms": 21805.06787109375,
+      "delay_ms": 53.467871092259884,
+      "match_missing_pixels": 0,
+      "edit_pixels": 34,
+      "edit_bbox": {
+       "x": 599,
+       "y": 541,
+       "width": 5,
+       "height": 8
+      },
+      "blink_before_pixels": 0,
+      "blink_after_pixels": 0,
+      "frames_read": 2,
+      "tail_frames": 1,
+      "quiet_ms": 2808.3321289066225,
+      "progress": [
+       {
+        "page_ms": 21788.40283203125,
+        "missing_pixels": 34,
+        "missing_bbox": {
+         "x": 599,
+         "y": 541,
+         "width": 5,
+         "height": 8
+        }
+       }
+      ],
+      "marker_page_ms": 21751.60000000149,
+      "min_pixels": 16,
+      "caret_columns_device_px": [
+       {
+        "x": 596,
+        "y": 510,
+        "width": 3,
+        "height": 49
+       },
+       {
+        "x": 604,
+        "y": 510,
+        "width": 3,
+        "height": 49
+       }
+      ],
+      "focused_input_after_css_px": {
+       "tag": "TEXTAREA",
+       "x": 605.328125,
+       "y": 534.25,
+       "width": 1,
+       "height": 1
+      },
+      "baseline_seq": 2,
+      "witness_seq": 4,
+      "settled_seq": 4,
+      "first_changed_frame_page_ms": 21788.403,
+      "document_rect_device_px": {
+       "x": 0,
+       "y": 0,
+       "width": 1280,
+       "height": 900
+      },
+      "witness_rect_device_px": {
+       "x": 0,
+       "y": 510,
+       "width": 1280,
+       "height": 49
+      },
+      "caret_point_css_px": {
+       "x": 597.328125,
+       "y": 534.75
+      },
+      "caret_point_source": "focused_input",
+      "focused_input_css_px": {
+       "tag": "TEXTAREA",
+       "x": 597.328125,
+       "y": 534.25,
+       "width": 1,
+       "height": 1
+      },
+      "excluded_harness_mark_css_px": 10,
+      "caret_band_css_px": 24,
+      "last_frame_page_ms": 21805.06787109375,
+      "edit_touches_caret": true,
+      "unread_frames": 0,
+      "arm_waited_ms": 3001,
+      "late_wait_ms": 0,
+      "read_until_page_ms": 24863.400000000373,
+      "band_reaimed": false
+     },
+     "witness_page_ms": 21805.06787109375,
+     "settled_page_ms": 21805.06787109375,
+     "settle_failure": null,
+     "pending_arm_text_count": false
+    },
+    "timestamp_note": "Uncorrected frame-to-page conversion; page_offset_ms is not a conversion correction. See clock_skew conversion bounds.",
+    "outcome": "measured",
+    "failure_reason": null,
+    "edit_ms": 53.467871092259884,
+    "paint_ms": 53.467871092259884
+   }
+  ],
+  "sustained_typing_median_ms": 53.467871092259884
+ }
+}
