@@ -379,6 +379,10 @@ async function measureEdit(page, selector, cdp) {
   // Not 'dom': the editors that draw their text on a canvas (canvas-editor, Docen: model; WordCraft: flag).
   // edit_surface.mjs EDIT_SURFACES gives every editor with glyph outlines kind 'dom'.
   const modelOrFlagEdit = adapterSurface && adapterSurface.kind !== 'dom';
+  // #245, criterion 4: in a shakedown the settled-pixel witness is also read, as a shadow, for the editors that
+  // have glyph outlines, so that the two witnesses can be compared on the same key press. A shadow never
+  // changes a sample, and it is never read in a publication run.
+  const pixelShadow = !modelOrFlagEdit && process.env.PERF_SHAKEDOWN === '1';
   let lanePrepared = null;
   if (hasCaretAdapter(editorId)) {
     lanePrepared = await prepareLaneCaret(page, editorId, selector);
@@ -394,7 +398,7 @@ async function measureEdit(page, selector, cdp) {
   // surface, which is where Playwright's click lands.
   let caretPoint = null;
   let focusedInput = null;
-  if (modelOrFlagEdit) {
+  if (modelOrFlagEdit || pixelShadow) {
     const innerSize = page.viewportSize() || {width: Infinity, height: Infinity};
     focusedInput = await readFocusedInput(page);
     const caretSized = focusedInput && ['TEXTAREA', 'INPUT'].includes(focusedInput.tag)
@@ -617,7 +621,11 @@ async function measureEdit(page, selector, cdp) {
   confirmation.settle_max_wait_ms = settleMaxWaitMs;
   confirmation.frame_collection = 'before_document_witness_decode';
   let settleFailure = null;
-  if (modelOrFlagEdit && baseline.frame) {
+  const beforeShadow = pixelShadow ? {settleFailure, confirmationFramePageMs, changed: confirmation.changed_pixels,
+    witness: confirmation.witness_page_ms, settled: confirmation.settled_page_ms} : null;
+  let shadowError = null;
+  if ((modelOrFlagEdit || pixelShadow) && baseline.frame) {
+   try {
     // #245: an editor that draws its text on a canvas has no glyph rects, and
     // its own caret blink is often the first changed frame. The end event is
     // the first frame in which the settled picture of the edit is in place
@@ -749,6 +757,19 @@ async function measureEdit(page, selector, cdp) {
         confirmation.witness_page_ms = settled.match_page_ms;
         confirmation.settled_page_ms = settled.settled_page_ms;
       }
+    }
+   } catch (error) {
+     if (!pixelShadow) throw error;
+     shadowError = String(error && error.message ? error.message : error).slice(0, 200);
+   }
+  }
+  if (pixelShadow) {
+    confirmation.pixel_settle_shadow = confirmation.pixel_settle || {failure_reason: shadowError || settleFailure || 'no_baseline_frame'};
+    delete confirmation.pixel_settle;
+    settleFailure = beforeShadow.settleFailure;
+    confirmationFramePageMs = beforeShadow.confirmationFramePageMs;
+    for (const [key, value] of [['changed_pixels', beforeShadow.changed], ['witness_page_ms', beforeShadow.witness], ['settled_page_ms', beforeShadow.settled]]) {
+      if (value === undefined) delete confirmation[key]; else confirmation[key] = value;
     }
   }
   if (baseline.frame && confirmation.visible_rects.length && frame.document_region?.device_pixel_ratio > 0) {
