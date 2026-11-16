@@ -1117,6 +1117,37 @@ def _one_repetition_value(trial: dict) -> tuple[float | None, bool | None]:
     return value, sub
 
 
+#: The typing lanes' refusal for an editor that exposes no glyph outline (perf/runner/benchmark_warm_cold.py).
+NO_GLYPH_GEOMETRY_REASON = 'no_glyph_geometry_to_witness_the_keystrokes_own_paint'
+
+
+def _unwitnessed_rows(trial: dict) -> list:
+    """(time to the first changed frame or None, changed pixels or None) of each keystroke of a refused typing launch."""
+    rows = []
+    for observation in ((trial.get('diagnostic') or {}).get('observations') or []):
+        if not isinstance(observation, dict):
+            continue
+        adapter = ((observation.get('edit_confirmation') or {}).get('adapter') or {})
+        paint = observation.get('paint_ms')
+        pixels = (observation.get('witness') or {}).get('changed_pixels')
+        timed = _number(paint) and adapter.get('confirmed') is True
+        rows.append((float(paint) if timed else None, pixels if _number(pixels) else None))
+    return rows
+
+
+def _unwitnessed_summary(rows: list) -> dict | None:
+    """What the harness saw on keystrokes it refused to publish: never a figure, the evidence beside a refusal (#239)."""
+    if not rows:
+        return None
+    times = sorted(time for time, _pixels in rows if time is not None)
+    pixels = [value for time, value in rows if time is not None and value is not None]
+    return {
+        'keystrokes': len(rows), 'timed': len(times),
+        'min_ms': times[0] if times else None, 'median_ms': percentile(times, 50) if times else None,
+        'max_ms': times[-1] if times else None, 'min_changed_pixels': min(pixels) if pixels else None,
+    }
+
+
 def _note_reason(reasons: dict, code: str, row: dict) -> None:
     """Keep the first line of the reason a refused row recorded, under its refusal code."""
     text = row.get('failure_reason') or row.get('publication_block_reason')
@@ -1257,6 +1288,7 @@ def _build_cell_from_jobs(
     kept, raw, sub_frame, intervals = [], [], [], []
     refusals = Counter()
     reasons = defaultdict(set)
+    unwitnessed = []
     sample_unit = 'bytes' if criterion_id in ('C17', 'C19') else 'ms'
     failed_launches = set()
     trials = defaultdict(list)
@@ -1278,6 +1310,8 @@ def _build_cell_from_jobs(
             code = refusal_code(trial)
             if code and trial['criterion_id'] == criterion_id:
                 _note_reason(reasons, code, trial)
+                if trial.get('failure_reason') == NO_GLYPH_GEOMETRY_REASON:
+                    unwitnessed.extend(_unwitnessed_rows(trial))
             if code in _RUN_REFUSALS:
                 if refused_launches.get(launch) == 'unreadable_trial':
                     additional[launch].add(code)
@@ -1398,6 +1432,7 @@ def _build_cell_from_jobs(
         # #239: what the refused launches recorded, per code; the code alone does not say whether the
         # measurement has no meaning here or the harness could not take it.
         'refusal_reasons': {code: sorted(reasons[code]) for code in sorted(refusals) if reasons.get(code)},
+        'unwitnessed': _unwitnessed_summary(unwitnessed),
         'additional_refusals': dict(Counter(code for launch, codes in additional.items() for code in codes if code != refused_launches.get(launch))),
         'content_verified': bool(verified_content) and all(verified_content),
         'failed_launches': len(failed_launches),

@@ -73,3 +73,36 @@ def test_a_cell_with_no_refusal_has_no_reasons_and_the_reasons_reach_the_facts(f
     cell = cells.build_run_cell(run, 'plate', 'C05', measure='warm_steady')
     assert cell['refusal_reasons'] == {}
     assert 'refusal_reasons' in cells.public_cell_dict(cell)
+
+
+def _refused_typing(run, job_id, editor, observations):
+    """One refused typing launch whose diagnostic holds the redraws the harness did see."""
+    job = run / 'benchmark_warm_cold' / job_id
+    path = job / 'cells' / f'0000-{editor}' / 'attempts' / 'c05.json'
+    path.parent.mkdir(parents=True)
+    rows = [{'mechanism': 'cdp_screencast_changed_frame', 'paint_ms': paint,
+             'edit_confirmation': {'adapter': {'adapter': 'model', 'confirmed': confirmed}},
+             'witness': {'changed_pixels': pixels}} for paint, confirmed, pixels in observations]
+    path.write_text(json.dumps(dict(
+        editor_id=editor, criterion_id='C05', measure='warm_steady', layer='browser_visible', outcome='not_applicable',
+        refusal_code='not_applicable', failure_reason=GLYPH, samples_ms=[], diagnostic={'observations': rows},
+        host_provenance={'host_build': 'production', 'publishable': True, 'tree_sha256': 'tree-a'})))
+    (job / 'summary.json').write_text(json.dumps(dict(
+        run_id=job_id, seed=1, execution_profile='dedicated_publish', order=[[0, editor]])))
+
+
+def test_a_typing_cell_refused_for_the_witness_keeps_what_the_harness_did_see(fs):
+    """The keystroke was timed to the first frame that changed; only the check on the glyph is missing."""
+    run = Path('/runs/campaign')
+    _refused_typing(run, 'run-001', 'docen', [(26.0, True, 102), (17.0, True, 102), (48.5, True, 1494), (None, True, 102),
+                                             (30.0, False, 102)])
+    cell = cells.build_run_cell(run, 'docen', 'C05', measure='warm_steady')
+    assert cell['unwitnessed'] == {'keystrokes': 5, 'timed': 3, 'min_ms': 17.0, 'median_ms': 26.0, 'max_ms': 48.5,
+                                   'min_changed_pixels': 102}
+    assert cells.public_cell_dict(cell)['unwitnessed'] == cell['unwitnessed']
+
+
+def test_a_cell_that_was_not_refused_for_the_witness_has_no_such_record(fs):
+    run = Path('/runs/campaign')
+    _job(run, 'run-001', 'plate', [None, None])
+    assert cells.build_run_cell(run, 'plate', 'C05', measure='warm_steady')['unwitnessed'] is None

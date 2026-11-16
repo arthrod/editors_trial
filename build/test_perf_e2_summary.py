@@ -335,3 +335,27 @@ def test_no_appendix_row_when_every_cell_has_a_figure():
     summary.short_version(facts, ['plate'], DISPLAY)
     text, counts = summary.no_figure_appendix(facts, ['plate'], DISPLAY)
     assert text == 'Every cell of the results tables has a single figure.' and counts['perf.e2.no_figure.rows'] == 0
+
+
+def test_the_appendix_gives_what_the_harness_saw_on_keystrokes_it_refused():
+    """The data is there: a refused typing cell says what was recorded, and why it is not printed as the time."""
+    facts = _facts()
+    _put(facts, 'plate', 'C05', 'prose-500w', 30, measure='warm_steady')
+    refused = (0, 10, {'not_applicable': 10}, {'not_applicable': [GLYPH]})
+    _refused(facts, 'docen', 'C05', 'prose-500w', {'first': refused, 'second': refused}, measure='warm_steady')
+    _refused(facts, 'folio', 'C05', 'prose-500w', {'first': refused, 'second': refused}, measure='warm_steady')
+    base = 'perf.e2.docen.C05.warm_steady.prose-500w'
+    facts[base + '.primary']['unwitnessed'] = {'keystrokes': 80, 'timed': 80, 'min_ms': 16.8, 'median_ms': 26.1, 'max_ms': 48.6,
+                                               'min_changed_pixels': 102}
+    facts[base + '.reproduction']['unwitnessed'] = {'keystrokes': 80, 'timed': 78, 'min_ms': 0.6, 'median_ms': 36.3,
+                                                    'max_ms': 66.7, 'min_changed_pixels': 24}
+    editors = ['docen', 'folio', 'plate']
+    summary.short_version(facts, editors, DISPLAY)
+    text, _counts = summary.no_figure_appendix(facts, editors, DISPLAY)
+    row = next(line for line in text.splitlines() if line.startswith('| Typing one character | Docen | 500 words'))
+    assert ('First round: 0 of 10 launches kept; 10 refused' in row
+            and 'It did see the screen change after 80 of 80 key presses, 17 ms to 49 ms later (typically 26 ms).' in row)
+    assert ('It did see the screen change after 78 of 80 key presses, 0.6 ms to 67 ms later (typically 36 ms); the shortest are '
+            'quicker than the screen is redrawn (16.7 ms), so some of those changes were not the character.') in row
+    other = next(line for line in text.splitlines() if line.startswith('| Typing one character | Folio | 500 words'))
+    assert 'It did see' not in other

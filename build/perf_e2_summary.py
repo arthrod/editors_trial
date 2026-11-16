@@ -62,7 +62,7 @@ def reason_words(reason: str) -> str | None:
     if reason == GLYPH_REASON:
         return ("the harness times typing to the typed character's own outline on the page, and this editor draws its "
                 'text where the harness cannot read an outline. The character was typed and the edit was confirmed; '
-                'the time was not taken (issue #238)')
+                'the harness could not check which change of the screen was the character (issue #238)')
     if reason == 'document_content_unverifiable':
         return "the harness could not read this editor's text from the page to check the document"
     if reason == 'expected_edit_not_confirmed':
@@ -291,14 +291,35 @@ def _refused_words(cell: dict) -> str:
     return '; '.join('%d, %s' % part for part in parts)
 
 
+#: One redraw of a 60 Hz screen, in ms: a change of the screen sooner than this after a key press is not that key.
+REDRAW_MS = 16.7
+
+
+def _short(value: float) -> str:
+    return '%.1f ms' % value if value < 10 else fmt(value, 'ms')
+
+
+def _seen_sentence(cell) -> str:
+    """What the harness recorded on keystrokes it refused to publish: evidence, never the cell's figure."""
+    seen = cell.get('unwitnessed') if isinstance(cell, dict) else None
+    if not isinstance(seen, dict) or not seen.get('timed'):
+        return ''
+    text = ' It did see the screen change after %d of %d key presses, %s to %s later (typically %s)' % (
+        seen['timed'], seen['keystrokes'], _short(seen['min_ms']), _short(seen['max_ms']), _short(seen['median_ms']))
+    if seen['min_ms'] < REDRAW_MS:
+        return text + ('; the shortest are quicker than the screen is redrawn (%.1f ms), so some of those changes were '
+                       'not the character.' % REDRAW_MS)
+    return text + '.'
+
+
 def _round_sentence(name: str, cell, counted) -> str:
     if counted is None:
         return 'The %s round kept enough launches.' % name
     kept, scheduled, _counts = counted
     refused = scheduled - kept
     why = _refused_words(cell) if isinstance(cell, dict) else ''
-    return '%s round: %d of %d launches kept; %d refused%s.' % (
-        name.capitalize(), kept, scheduled, refused, ': ' + why if why else '')
+    return '%s round: %d of %d launches kept; %d refused%s.%s' % (
+        name.capitalize(), kept, scheduled, refused, ': ' + why if why else '', _seen_sentence(cell))
 
 
 def _why_text(facts: dict, base: str) -> str:
