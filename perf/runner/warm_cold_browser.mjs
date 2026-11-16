@@ -76,6 +76,13 @@ function rectDamageVsBaseline(baselinePixels, framePixels, rects, dpr, doc, tole
 }
 
 import { settleFrames } from './b2_settle.mjs';
+import { settlePixels, PIXEL_EDIT_MIN_PIXELS } from './pixel_settle.mjs';
+
+/** #245: half the height, in CSS pixels, of the band around the caret's click point in which the pixel
+ * witness looks for the typed character: one line of body text with room for a larger font. */
+const PIXEL_CARET_BAND_CSS_PX = 24;
+/** The corner of the page the harness's own marks occupy (witness.mjs: an 8x8 anchor, a 4x4 outlined mark). */
+const HARNESS_MARK_CSS_PX = 10;
 import { loadTimeoutMs } from './load_timeout.mjs';
 import { createRegionClassifier } from './b2_pixels.mjs';
 
@@ -314,6 +321,14 @@ async function measureEdit(page, selector, cdp) {
     if (preEditClick) await page.click(preEditClick, { timeout: 30_000 });
     await page.locator(selector).first().click({ timeout: 30_000 });
   }
+  // #245: where the caret was put. A canvas editor has no text line in the DOM to aim at, so the lane clicks
+  // the middle of the declared surface, which is where Playwright's click lands; the caret is on that line.
+  let caretPoint = lanePrepared?.point && Number.isFinite(lanePrepared.point.y)
+    ? {x: lanePrepared.point.x, y: lanePrepared.point.y, source: 'text_line'} : null;
+  if (modelOrFlagEdit && !caretPoint) {
+    const box = await page.locator(selector).first().boundingBox().catch(() => null);
+    if (box) caretPoint = {x: box.x + box.width / 2, y: box.y + box.height / 2, source: 'centre_of_clicked_surface'};
+  }
   const skew = await clockSkew(page, cdp);
   const mechanism = 'cdp_screencast_changed_frame';
   if (!skew.acceptable) return {
@@ -516,6 +531,83 @@ async function measureEdit(page, selector, cdp) {
   confirmation.settle_max_wait_ms = settleMaxWaitMs;
   confirmation.frame_collection = 'before_document_witness_decode';
   let settleFailure = null;
+  if (modelOrFlagEdit && baseline.frame) {
+    // #245: an editor that draws its text on a canvas has no glyph rects, and
+    // its own caret blink is often the first changed frame. The end event is
+    // the first frame in which the settled picture of the edit is in place
+    // (pixel_settle.mjs). Everything here runs after the window has elapsed
+    // inside arm(); it extends no timed interval.
+    const event = await page.evaluate(() => window.__b2?.event);
+    const recorder = baseline.recorder;
+    const clock = {
+      time_origin_ms: frame.time_origin_ms,
+      timestamp_kind: frame.timestamp_kind,
+      monotonic_origin_ms: skew.monotonic_origin_ms,
+    };
+    const markerMs = typeof event?.startTime === 'number' ? event.startTime : null;
+    if (markerMs === null) {
+      settleFailure = 'no_trusted_keydown_time';
+    } else if (clock.timestamp_kind === 'monotonic_seconds' && typeof clock.monotonic_origin_ms !== 'number') {
+      settleFailure = 'monotonic_origin_missing';
+    } else {
+      // Where the typed character appears: the line the harness put the caret on. Editors that draw their
+      // own toolbar on the same canvas change it on the first edit (WordCraft: a strip at the top, 30 ms
+      // after the text), and that is not the character. The band is PIXEL_CARET_BAND_CSS_PX above and below
+      // the click point, across the document's whole width; without a click point it is the whole document.
+      const documentRect = frame.document_region?.rect_device_px || null;
+      const dpr = frame.document_region?.device_pixel_ratio || 1;
+      const point = caretPoint;
+      let witnessRect = documentRect;
+      if (point && documentRect) {
+        const top = Math.max(documentRect.y, Math.floor((point.y - PIXEL_CARET_BAND_CSS_PX) * dpr));
+        const bottom = Math.min(documentRect.y + documentRect.height, Math.ceil((point.y + PIXEL_CARET_BAND_CSS_PX) * dpr));
+        witnessRect = {x: documentRect.x, y: top, width: documentRect.width, height: Math.max(0, bottom - top)};
+      }
+      // Every frame recorded from the key press on. A slow editor's edit lands after the settle window
+      // (Docen at 250,000 words: seconds); the page was unresponsive meanwhile, the recorder was not, and
+      // the settled picture is whatever the frames show once they are quiet.
+      const candidates = [];
+      for (const candidate of [...recorder.frames]) {
+        const pageMs = convertFrameToPageMs(candidate, clock);
+        if (pageMs === null || pageMs < markerMs) continue;
+        if ((await frameAckSettled(candidate)) !== 'acked' || !candidate.data) {
+          throw new Error('snapshot_frame_unacknowledged');
+        }
+        // Decoded on demand: an editor that repaints all the time delivers
+        // a couple of hundred frames, too many to hold decoded at once.
+        candidates.push({pageMs, seq: candidate.seq, pixels: () => decodePng(Buffer.from(candidate.data, 'base64'))});
+      }
+      const settled = settlePixels(candidates, {
+        baseline: decodePng(Buffer.from(baseline.frame.data, 'base64')),
+        markerMs, maxWaitMs: Infinity, quietMs: quiescenceMs,
+        tolerance: DEFAULT_CHANNEL_TOLERANCE, minPixels: PIXEL_EDIT_MIN_PIXELS,
+        region: witnessRect,
+        // The clock check's 8x8 anchor and the baseline's 4x4 mark sit at the page's top-left corner.
+        exclude: [{x: 0, y: 0, width: Math.ceil(HARNESS_MARK_CSS_PX * dpr), height: Math.ceil(HARNESS_MARK_CSS_PX * dpr)}],
+      });
+      const {match_index, reference_index, ...evidence} = settled;
+      confirmation.pixel_settle = {
+        ...evidence, marker_page_ms: markerMs, min_pixels: PIXEL_EDIT_MIN_PIXELS,
+        baseline_seq: baseline.frame.seq,
+        witness_seq: Number.isInteger(match_index) ? candidates[match_index].seq : null,
+        settled_seq: Number.isInteger(reference_index) ? candidates[reference_index].seq : null,
+        first_changed_frame_page_ms: frame.frame_page_ms,
+        document_rect_device_px: documentRect, witness_rect_device_px: witnessRect,
+        caret_point_css_px: point ? {x: point.x, y: point.y} : null, caret_point_source: point ? point.source : null,
+        excluded_harness_mark_css_px: HARNESS_MARK_CSS_PX,
+        caret_band_css_px: point ? PIXEL_CARET_BAND_CSS_PX : null,
+        last_frame_page_ms: candidates.length ? Math.max(...candidates.map(c => c.pageMs)) : null,
+      };
+      if (settled.failure_reason) {
+        settleFailure = settled.failure_reason;
+      } else {
+        confirmationFramePageMs = settled.match_page_ms;
+        confirmation.changed_pixels = settled.edit_pixels;
+        confirmation.witness_page_ms = settled.match_page_ms;
+        confirmation.settled_page_ms = settled.settled_page_ms;
+      }
+    }
+  }
   if (baseline.frame && confirmation.visible_rects.length && frame.document_region?.device_pixel_ratio > 0) {
     const event = await page.evaluate(() => window.__b2?.event);
     const recorder = baseline.recorder;
@@ -657,6 +749,20 @@ async function measureEdit(page, selector, cdp) {
     : confirmationFramePageMs - timing.event.startTime;
   const scopedOk = modelOrFlagEdit ? frame.outcome === 'witnessed' : frame.outcome === 'witnessed' && frame.document_scoped;
   const ok = scopedOk && frame.clock_skew_acceptable && confirmation.confirmed && duration !== null && duration >= 0;
+  if (modelOrFlagEdit && confirmation.pixel_settle) {
+    // The pixel path's own verdict: the settled picture, and the edit confirmed in the editor. For a flag
+    // editor the confirmation of each key is the arm's text count, settled after the arm (confirmArmByText).
+    const pixelOk = !settleFailure && frame.clock_skew_acceptable && duration !== null && duration >= 0;
+    const confirmed = confirmation.confirmed || adapterSurface.kind === 'flag';
+    return { mechanism, witness_kind: 'settled_pixels', clock_skew:skew, witness:frame, event_timing:timing,
+      edit_confirmation:{...confirmation, pending_arm_text_count: adapterSurface.kind === 'flag'},
+      timestamp_note: 'Uncorrected frame-to-page conversion; page_offset_ms is not a conversion correction. See clock_skew conversion bounds.',
+      outcome: pixelOk && confirmed ? 'measured' : 'failed',
+      failure_reason: pixelOk && confirmed ? null
+        : settleFailure || (!frame.clock_skew_acceptable ? 'clock_check_not_acceptable'
+          : duration === null || duration < 0 ? 'negative_input_latency' : 'expected_edit_not_confirmed'),
+      edit_ms: pixelOk && confirmed ? duration : null, paint_ms: pixelOk ? duration : null };
+  }
   return { mechanism, clock_skew:skew, witness:frame, event_timing:timing, edit_confirmation:confirmation,
     timestamp_note: 'Uncorrected frame-to-page conversion; page_offset_ms is not a conversion correction. See clock_skew conversion bounds.',
     outcome: ok ? 'measured' : 'failed',

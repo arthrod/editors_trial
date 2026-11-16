@@ -228,3 +228,81 @@ test('n: a caret that blinks only once in the tail is still masked, whichever ph
     assert.equal(r.edit_pixels, 168, `lastOn=${lastOn}`);
   }
 });
+
+test('o: the frames before the match are kept as evidence of how the edit arrived', () => {
+  const base = blank();
+  const half = { x: TEXT.x, y: TEXT.y, w: TEXT.w / 2, h: TEXT.h, color: FG };
+  const frames = series(MARKER, 1400, 16, (t) =>
+    withBlocks(base, t >= MARKER + 64 ? [TEXT] : t >= MARKER + 32 ? [half] : []));
+  const r = settlePixels(frames, { baseline: base, markerMs: MARKER });
+  assert.equal(r.match_page_ms, MARKER + 64);
+  assert.deepEqual(r.progress.map(p => [p.page_ms, p.missing_pixels]), [[MARKER, 168], [MARKER + 32, 84]]);
+  assert.deepEqual(r.progress[1].missing_bbox, { x: TEXT.x + 6, y: TEXT.y, width: 6, height: TEXT.h });
+});
+
+// What WordCraft showed (16 Nov): the text was in place 100 ms before the last few pixels beside its fading
+// caret settled. A caret's worth of stragglers must not move the end event.
+
+test('p: stragglers no more numerous than the blinking caret do not delay the match', () => {
+  const base = blank();
+  const caret = { x: 40, y: 10, w: 1, h: 24, color: CARET }; // blinks after the edit: 24 px
+  const straggler = { x: 41, y: 20, w: 1, h: 10, color: FG }; // 10 px beside it that settle late
+  const frames = series(MARKER, MARKER + 2400, 16, (t, k) => {
+    const blocks = [];
+    if (t >= MARKER + 32) blocks.push(TEXT);
+    if (t >= MARKER + 160) blocks.push(straggler);
+    if (t >= MARKER + 32 && Math.floor((t - MARKER) / 500) % 2 === 0) blocks.push(caret);
+    return withBlocks(base, blocks);
+  });
+  const r = settlePixels(frames, { baseline: base, markerMs: MARKER });
+  assert.equal(r.failure_reason, null);
+  assert.equal(r.blink_after_pixels, 24);
+  assert.equal(r.edit_pixels, 178);
+  assert.equal(r.match_page_ms, MARKER + 32);
+  assert.equal(r.match_missing_pixels, 10);
+});
+
+test('q: without a blinking caret every edit pixel must be in place', () => {
+  const base = blank();
+  const straggler = { x: 41, y: 20, w: 1, h: 10, color: FG };
+  const frames = series(MARKER, MARKER + 2400, 16, (t) =>
+    withBlocks(base, t >= MARKER + 160 ? [TEXT, straggler] : t >= MARKER + 32 ? [TEXT] : []));
+  const r = settlePixels(frames, { baseline: base, markerMs: MARKER });
+  assert.equal(r.blink_after_pixels, 0);
+  assert.equal(r.match_page_ms, MARKER + 160);
+  assert.equal(r.match_missing_pixels, 0);
+});
+
+test('r: stragglers are allowed only while at least minPixels of the edit are in place', () => {
+  const base = blank();
+  const caret = { x: 40, y: 10, w: 1, h: 24, color: CARET };
+  const small = { x: 22, y: 12, w: 10, h: 10, color: FG }; // 100 px
+  const late = { x: 22, y: 30, w: 10, h: 2, color: FG }; // 20 px more, later
+  const frames = series(MARKER, MARKER + 2400, 16, (t) => {
+    const blocks = [];
+    if (t >= MARKER + 32) blocks.push({ ...small, h: 9 }); // 90 px in place first
+    if (t >= MARKER + 96) blocks.push(small, late);
+    if (t >= MARKER + 32 && Math.floor((t - MARKER) / 500) % 2 === 0) blocks.push(caret);
+    return withBlocks(base, blocks);
+  });
+  const r = settlePixels(frames, { baseline: base, markerMs: MARKER });
+  assert.equal(r.edit_pixels, 120);
+  // At +32 ms 90 pixels are in place and 30 are missing: more than the caret's 24, and fewer than 100 in place.
+  assert.equal(r.match_page_ms, MARKER + 96);
+});
+
+test('s: rectangles the harness draws in (its clock and baseline marks) are never part of the edit', () => {
+  const base = blank();
+  const mark = { x: 0, y: 0, w: 10, h: 10, color: [255, 0, 255] }; // 100 px, appears with the key and stays
+  const frames = series(MARKER, MARKER + 1400, 16, (t) => withBlocks(base, t >= MARKER + 32 ? [mark, TEXT] : [mark]));
+  const all = settlePixels(frames, { baseline: base, markerMs: MARKER });
+  assert.equal(all.edit_pixels, 268);
+  assert.equal(all.match_page_ms, MARKER + 32);
+  const r = settlePixels(frames, { baseline: base, markerMs: MARKER, exclude: [{ x: 0, y: 0, width: 10, height: 10 }] });
+  assert.equal(r.edit_pixels, 168);
+  assert.deepEqual(r.edit_bbox, { x: TEXT.x, y: TEXT.y, width: TEXT.w, height: TEXT.h });
+  // Only the mark changes: nothing to witness.
+  const only = series(MARKER, MARKER + 1400, 16, () => withBlocks(base, [mark]));
+  assert.equal(settlePixels(only, { baseline: base, markerMs: MARKER, exclude: [{ x: 0, y: 0, width: 10, height: 10 }] }).failure_reason,
+    'pixel_edit_region_too_small');
+});

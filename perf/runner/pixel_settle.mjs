@@ -19,6 +19,8 @@
  *    change was the caret and the sample refuses;
  *  - the match is the first eligible frame whose every edit-region pixel
  *    already equals the settled frame: the caret's phase cannot delay it.
+ *    Where a caret blinks after the edit, no more pixels than that caret has
+ *    may still be missing, as long as minPixels of the edit are in place.
  *
  * Frames are ~1280x900 RGBA, so every mask is a Uint8Array and every scan is
  * a flat integer loop; no per-pixel objects, no Set of a million numbers.
@@ -40,7 +42,8 @@ export const PIXEL_EDIT_MIN_PIXELS = 100;
  *   before the key press while nothing was typed), markerMs 0 (key press
  *   time), maxWaitMs 3000, quietMs 300, tolerance 8 (per R/G/B channel,
  *   alpha ignored), minPixels PIXEL_EDIT_MIN_PIXELS, tailMaxMs 1200,
- *   region {x,y,width,height} or null (the whole frame).
+ *   region {x,y,width,height} or null (the whole frame), exclude [] (rects
+ *   the harness itself draws in).
  * @returns the failure reason on refusal, else the match and its timings.
  *   match_index and reference_index index the ORIGINAL frames array.
  */
@@ -55,6 +58,7 @@ export function settlePixels(frames, options = {}) {
     minPixels = PIXEL_EDIT_MIN_PIXELS,
     tailMaxMs = 1200,
     region = null,
+    exclude = [],
   } = options || {};
   // Step 1: eligible frames, in time order.
   const eligible = frames
@@ -81,9 +85,16 @@ export function settlePixels(frames, options = {}) {
     return true;
   };
   try {
-    // Step 2: blinkBefore — pixels that move with nothing typed.
+    // Step 2: blinkBefore — pixels that move with nothing typed. The harness's
+    // own marks on the page (`exclude`) are put in the same mask without being
+    // counted: they are never the edit and never a reason not to settle.
     const blinkBefore = new Uint8Array(n);
     let blinkBeforeCount = 0;
+    for (const rect of exclude || []) {
+      const ex1 = Math.min(w, Math.ceil(rect.x + rect.width)), ey1 = Math.min(h, Math.ceil(rect.y + rect.height));
+      for (let y = Math.max(0, Math.floor(rect.y)); y < ey1; y++)
+        for (let x = Math.max(0, Math.floor(rect.x)); x < ex1; x++) blinkBefore[y * w + x] = 2;
+    }
     const markBefore = (da, db) => {
       for (let y = y0; y < y1; y++) for (let j = y * w + x0, end = y * w + x1; j < end; j++) {
         if (!blinkBefore[j] && !eq(da, db, j * 4)) { blinkBefore[j] = 1; blinkBeforeCount++; }
@@ -138,7 +149,7 @@ export function settlePixels(frames, options = {}) {
     for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
       const j = y * w + x, k = j * 3;
       const toggles = hi[k] - lo[k] > tolerance || hi[k + 1] - lo[k + 1] > tolerance || hi[k + 2] - lo[k + 2] > tolerance;
-      if (toggles) blinkAfterCount++;
+      if (toggles && blinkBefore[j] !== 2) blinkAfterCount++;
       if (toggles || blinkBefore[j] || eq(lastData, baseline.data, j * 4)) continue;
       edit.push(j);
       if (x < bx0) bx0 = x; if (x > bx1) bx1 = x;
@@ -156,12 +167,35 @@ export function settlePixels(frames, options = {}) {
       };
     // Step 7: the first eligible frame whose every edit pixel is already in
     // place — blink phases are excluded, so they cannot delay the match.
-    let match = last;
+    // The frames before it are kept as evidence of how the edit arrived: how
+    // many edit pixels were still missing in each, and where (at most twelve).
+    let match = last, matchMissing = 0;
+    const progress = [];
     for (let i = 0; i < eligible.length - 1; i++) {
       const d = read(eligible[i]);
-      let ok = true;
-      for (let k = 0; k < edit.length; k++) if (!eq(d, lastData, edit[k] * 4)) { ok = false; break; }
-      if (ok) { match = eligible[i]; break; }
+      let missing = 0, mx0 = w, my0 = h, mx1 = -1, my1 = -1;
+      for (let k = 0; k < edit.length; k++) {
+        const j = edit[k];
+        if (eq(d, lastData, j * 4)) continue;
+        missing++;
+        const x = j % w, y = (j - x) / w;
+        if (x < mx0) mx0 = x; if (x > mx1) mx1 = x;
+        if (y < my0) my0 = y; if (y > my1) my1 = y;
+      }
+      // In place: nothing missing, or no more missing than the caret that blinks after the edit has pixels
+      // (its own fade can leave a few beside it unsettled) while at least minPixels of the edit are there.
+      if (!missing || (missing <= blinkAfterCount && edit.length - missing >= minPixels)) {
+        match = eligible[i];
+        matchMissing = missing;
+        break;
+      }
+      const entry = { page_ms: eligible[i].pageMs, missing_pixels: missing,
+        missing_bbox: { x: mx0, y: my0, width: mx1 - mx0 + 1, height: my1 - my0 + 1 } };
+      const before = progress[progress.length - 1];
+      // Only a frame that changed what is missing is worth a line.
+      if (!before || before.missing_pixels !== missing || JSON.stringify(before.missing_bbox) !== JSON.stringify(entry.missing_bbox)) {
+        if (progress.length < 12) progress.push(entry);
+      }
     }
     // Step 8: timings; indexes point into the frames array as passed.
     return {
@@ -171,12 +205,14 @@ export function settlePixels(frames, options = {}) {
       match_page_ms: match.pageMs,
       settled_page_ms: last.pageMs,
       delay_ms: match.pageMs - markerMs,
+      match_missing_pixels: matchMissing,
       edit_pixels: edit.length,
       edit_bbox: { x: bx0, y: by0, width: bx1 - bx0 + 1, height: by1 - by0 + 1 },
       blink_before_pixels: blinkBeforeCount,
       blink_after_pixels: blinkAfterCount,
       frames_read: eligible.length,
       tail_frames: tailFrames,
+      progress,
     };
   } catch (error) {
     if (error === SIZE) return { failure_reason: 'frame_size_changed' };
