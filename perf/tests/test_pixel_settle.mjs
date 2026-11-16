@@ -292,7 +292,9 @@ test('o: the frames before the match are kept as evidence of how the edit arrive
 // What WordCraft showed (16 Nov): the text was in place 100 ms before the last few pixels beside its fading
 // caret settled. A caret's worth of stragglers must not move the end event.
 
-test('p: stragglers no more numerous than the blinking caret do not delay the match', () => {
+test('p: the sample ends when every edit pixel is in place, blinking caret or not (GLM review of #248)', () => {
+  // A character no bigger than the caret's blink, arriving a frame after the rest of the line, must not be
+  // forgiven as "a caret's worth of stragglers": that would end the sample before the character is visible.
   const base = blank();
   const caret = { x: 40, y: 10, w: 1, h: 24, color: CARET }; // blinks after the edit: 24 px
   const straggler = { x: 41, y: 20, w: 1, h: 10, color: FG }; // 10 px beside it that settle late
@@ -307,8 +309,8 @@ test('p: stragglers no more numerous than the blinking caret do not delay the ma
   assert.equal(r.failure_reason, null);
   assert.equal(r.blink_after_pixels, 24);
   assert.equal(r.edit_pixels, 178);
-  assert.equal(r.match_page_ms, MARKER + 32);
-  assert.equal(r.match_missing_pixels, 10);
+  assert.equal(r.match_page_ms, MARKER + 160);
+  assert.equal(r.match_missing_pixels, 0);
 });
 
 test('q: without a blinking caret every edit pixel must be in place', () => {
@@ -320,24 +322,6 @@ test('q: without a blinking caret every edit pixel must be in place', () => {
   assert.equal(r.blink_after_pixels, 0);
   assert.equal(r.match_page_ms, MARKER + 160);
   assert.equal(r.match_missing_pixels, 0);
-});
-
-test('r: stragglers are allowed only while at least minPixels of the edit are in place', () => {
-  const base = blank();
-  const caret = { x: 40, y: 10, w: 1, h: 24, color: CARET };
-  const small = { x: 22, y: 12, w: 10, h: 10, color: FG }; // 100 px
-  const late = { x: 22, y: 30, w: 10, h: 2, color: FG }; // 20 px more, later
-  const frames = series(MARKER, MARKER + 2400, 16, (t) => {
-    const blocks = [];
-    if (t >= MARKER + 32) blocks.push({ ...small, h: 9 }); // 90 px in place first
-    if (t >= MARKER + 96) blocks.push(small, late);
-    if (t >= MARKER + 32 && Math.floor((t - MARKER) / 500) % 2 === 0) blocks.push(caret);
-    return withBlocks(base, blocks);
-  });
-  const r = settlePixels(frames, { baseline: base, markerMs: MARKER, minPixels: 100 });
-  assert.equal(r.edit_pixels, 120);
-  // At +32 ms 90 pixels are in place and 30 are missing: more than the caret's 24, and fewer than 100 in place.
-  assert.equal(r.match_page_ms, MARKER + 96);
 });
 
 test('s: rectangles the harness draws in (its clock and baseline marks) are never part of the edit', () => {

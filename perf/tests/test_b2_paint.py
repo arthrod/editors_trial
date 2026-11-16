@@ -491,7 +491,8 @@ class ReviewPolicy(unittest.TestCase):
         self.assertIn('export const PIXEL_GLYPH_MIN_PIXELS = %d;' % runner.PIXEL_GLYPH_MIN_PIXELS, text)
 
     def test_pixel_refusals_are_filed_as_a_missing_paint_witness(self):
-        for reason in ('pixel_edit_region_too_small', 'not_settled', 'no_trusted_keydown_time'):
+        for reason in ('pixel_edit_region_too_small', 'pixel_edit_not_at_caret', 'frame_unacknowledged_in_window', 'not_settled',
+                       'no_trusted_keydown_time'):
             self.assertEqual(runner.refusal_code_for('failed', reason), 'paint_witness_unavailable', reason)
 
     def test_f4_refusal_reason_survives_missing_clock(self):

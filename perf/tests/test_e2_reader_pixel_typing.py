@@ -69,6 +69,24 @@ def test_one_key_press_that_did_not_settle_or_was_not_confirmed_by_text_refuses_
         assert read['outcome'] == 'refused', bad
 
 
+def test_a_key_press_on_a_refused_clock_or_away_from_the_caret_refuses_the_trial():
+    """GLM review of #248: the reader holds the clock and the place of the edit itself."""
+    bad_clock = _key(50.0); bad_clock['clock_skew']['acceptable'] = False
+    no_time = _key(50.0); no_time['edit_ms'] = None; no_time.pop('paint_ms')
+    away = _key(50.0); away['edit_confirmation']['pixel_settle']['edit_touches_caret'] = False
+    for bad in (bad_clock, no_time, away):
+        assert cells.settled_pixel_typing(_trial('C05', [bad], [50.0]))['outcome'] == 'refused', bad
+    near = _key(50.0); near['edit_confirmation']['pixel_settle']['edit_touches_caret'] = True
+    assert cells.settled_pixel_typing(_trial('C05', [near], [50.0]))['outcome'] == 'measured'
+
+
+def test_the_floors_are_the_harnesses():
+    from perf.runner import benchmark_warm_cold as runner
+    assert cells.PIXEL_WITNESS == runner.PIXEL_WITNESS_KIND
+    assert cells.PIXEL_WITNESS_MIN_PIXELS == runner.PIXEL_EDIT_MIN_PIXELS
+    assert cells.PIXEL_GLYPH_MIN_PIXELS == runner.PIXEL_GLYPH_MIN_PIXELS
+
+
 def test_a_trial_that_mixes_witnesses_or_has_no_key_presses_is_refused():
     assert cells.settled_pixel_typing(_trial('C05', [_key(50.0)], [50.0], witness='mixed'))['outcome'] == 'refused'
     assert cells.settled_pixel_typing(_trial('C05', [], [50.0]))['outcome'] == 'refused'

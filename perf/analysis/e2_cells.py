@@ -943,8 +943,12 @@ def _settled_key(observation: dict) -> bool:
     columns = settle.get('caret_columns_device_px')
     floor = PIXEL_GLYPH_MIN_PIXELS if isinstance(columns, list) and len(columns) == 2 else PIXEL_WITNESS_MIN_PIXELS
     pixels = settle.get('edit_pixels')
+    time = observation.get('latency_ms', observation.get('edit_ms'))
     return (adapter.get('adapter') in ('model', 'text_count') and adapter.get('confirmed') is True
-            and not proof.get('pending_arm_text_count') and _finite(pixels) and pixels >= floor)
+            and not proof.get('pending_arm_text_count') and _finite(pixels) and pixels >= floor
+            # The reader holds the clock and the place itself, whatever the harness concluded.
+            and (observation.get('clock_skew') or {}).get('acceptable') is True
+            and _finite(time) and time >= 0 and settle.get('edit_touches_caret') is not False)
 
 
 def settled_pixel_typing(row):

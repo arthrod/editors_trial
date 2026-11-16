@@ -81,6 +81,8 @@ import { settlePixels, PIXEL_EDIT_MIN_PIXELS, PIXEL_GLYPH_MIN_PIXELS } from './p
 /** #245: half the height, in CSS pixels, of the band around the caret's click point in which the pixel
  * witness looks for the typed character: one line of body text with room for a larger font. */
 const PIXEL_CARET_BAND_CSS_PX = 24;
+/** How far right of the caret's input a typed character may begin and still be the edit at the caret. */
+const PIXEL_CARET_REACH_CSS_PX = 48;
 /** The least the caret's input must move right on its line for a typed character to lie between its two places. */
 const PIXEL_CARET_MIN_ADVANCE_CSS_PX = 3;
 /** A focused input no larger than this is the editor's keyboard input kept at the caret (Docen 1x1, canvas-editor
@@ -371,6 +373,8 @@ async function measureEdit(page, selector, cdp) {
   // Focus/actionability and witness calibration are preconditioning, outside
   // the event-to-frame interval. No typing delay is introduced.
   const adapterSurface = hasCaretAdapter(editorId) ? editSurface(editorId) : null;
+  // Not 'dom': the editors that draw their text on a canvas (canvas-editor, Docen: model; WordCraft: flag).
+  // edit_surface.mjs EDIT_SURFACES gives every editor with glyph outlines kind 'dom'.
   const modelOrFlagEdit = adapterSurface && adapterSurface.kind !== 'dom';
   let lanePrepared = null;
   if (hasCaretAdapter(editorId)) {
@@ -539,6 +543,7 @@ async function measureEdit(page, selector, cdp) {
     }
   }, selector);
   const baseline = await captureBaseline(page, cdp);
+  let armWaitedMs = 0; // how long the arm really waited after the key press, with the recorder running
   const frame = await witnessFrame(page, cdp, {
     baseline: baseline.frame,
     windowMs: Math.max(500, frameTimeoutMs), clockCheck: skew,
@@ -562,7 +567,12 @@ async function measureEdit(page, selector, cdp) {
       // a delayed glyph is still pending. The timestamp window remains W.
       // Empty insertion proofs cannot later pass confirmInsertion's fixed
       // geometry check, so there is no settlement window to establish.
-      if (!event.unconfirmable) await page.waitForTimeout(settleMaxWaitMs);
+      // A canvas editor is always waited for: its edit is read from the frames of this window (#245).
+      if (modelOrFlagEdit || !event.unconfirmable) {
+        const waitStarted = Date.now();
+        await page.waitForTimeout(settleMaxWaitMs);
+        armWaitedMs = Date.now() - waitStarted;
+      }
       await page.evaluate(() => clearInterval(window.__b2?.pulseTimer));
       return event.startTime;
     },
@@ -660,11 +670,14 @@ async function measureEdit(page, selector, cdp) {
       // (Docen at 250,000 words: seconds); the page was unresponsive meanwhile, the recorder was not, and
       // the settled picture is whatever the frames show once they are quiet.
       const candidates = [];
+      let unreadFrames = 0;
       for (const candidate of [...recorder.frames]) {
         const pageMs = convertFrameToPageMs(candidate, clock);
         if (pageMs === null || pageMs < markerMs) continue;
         if ((await frameAckSettled(candidate)) !== 'acked' || !candidate.data) {
-          throw new Error('snapshot_frame_unacknowledged');
+          // A frame that cannot be read may be the one that shows the edit: no sample, by name, not a crash.
+          unreadFrames += 1;
+          continue;
         }
         // Decoded on demand: an editor that repaints all the time delivers
         // a couple of hundred frames, too many to hold decoded at once.
@@ -673,8 +686,9 @@ async function measureEdit(page, selector, cdp) {
       const settled = settlePixels(candidates, {
         baseline: decodePng(Buffer.from(baseline.frame.data, 'base64')),
         markerMs, maxWaitMs: Infinity, quietMs: quiescenceMs,
-        // arm() waited settleMaxWaitMs after the key press before it returned; the recorder ran throughout.
-        quietUntilMs: markerMs + settleMaxWaitMs,
+        // The arm waited this long after the key press before it returned (measured, not assumed); the
+        // recorder ran throughout, and the key was pressed before the wait began.
+        quietUntilMs: markerMs + armWaitedMs,
         tolerance: DEFAULT_CHANNEL_TOLERANCE, minPixels,
         region: witnessRect,
         // The clock check's 8x8 anchor and the baseline's 4x4 mark sit at the page's top-left corner.
@@ -696,8 +710,23 @@ async function measureEdit(page, selector, cdp) {
         caret_band_css_px: point ? PIXEL_CARET_BAND_CSS_PX : null,
         last_frame_page_ms: candidates.length ? Math.max(...candidates.map(c => c.pageMs)) : null,
       };
-      if (settled.failure_reason) {
-        settleFailure = settled.failure_reason;
+      // Where the caret is known, the edit must touch it: a change elsewhere on the line's band (a toolbar the
+      // editor draws on the same canvas, an input parked away from the caret) is not the typed character.
+      let touchesCaret = null;
+      if (!settled.failure_reason && point?.source === 'focused_input' && settled.edit_bbox) {
+        const left = focusedInput.x * dpr;
+        const right = (caretColumns ? focusedAfter.x : focusedInput.x + PIXEL_CARET_REACH_CSS_PX) * dpr;
+        const box = settled.edit_bbox;
+        touchesCaret = box.x <= right + PIXEL_CARET_REACH_CSS_PX * dpr && box.x + box.width >= left - 4 * dpr;
+      }
+      confirmation.pixel_settle.edit_touches_caret = touchesCaret;
+      confirmation.pixel_settle.unread_frames = unreadFrames;
+      confirmation.pixel_settle.arm_waited_ms = armWaitedMs;
+      const harnessFailure = unreadFrames ? 'frame_unacknowledged_in_window'
+        : touchesCaret === false ? 'pixel_edit_not_at_caret' : null;
+      if (settled.failure_reason || harnessFailure) {
+        settleFailure = settled.failure_reason || harnessFailure;
+        confirmation.pixel_settle.failure_reason = settleFailure;
       } else {
         confirmationFramePageMs = settled.match_page_ms;
         confirmation.changed_pixels = settled.edit_pixels;

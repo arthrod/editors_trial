@@ -199,9 +199,9 @@ export function settlePixels(frames, options = {}) {
         if (x < mx0) mx0 = x; if (x > mx1) mx1 = x;
         if (y < my0) my0 = y; if (y > my1) my1 = y;
       }
-      // In place: nothing missing, or no more missing than the caret that blinks after the edit has pixels
-      // (its own fade can leave a few beside it unsettled) while at least minPixels of the edit are there.
-      if (!missing || (missing <= blinkAfterCount && edit.length - missing >= minPixels)) {
+      // In place: nothing missing. No allowance for late pixels: a character no bigger than the caret's
+      // blink would otherwise be forgiven and the sample would end before it is visible.
+      if (!missing) {
         match = eligible[i];
         matchMissing = missing;
         break;

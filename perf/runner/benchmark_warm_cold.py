@@ -876,7 +876,7 @@ def refusal_code_for(outcome, reason):
             'unverified' if reason.startswith('expected_edit_not_confirmed') else
             outcome if outcome in ('not_run', 'not_applicable', 'unsupported', 'unverified') else
             'malformed_samples' if reason.startswith(('record_', 'not_a_witness_record', 'unknown_outcome', 'invalid_record', 'no_outcome')) else
-            'paint_witness_unavailable' if reason.startswith(('pixel_edit_region_too_small', 'not_settled', 'no_trusted_keydown', 'clock_', 'frame_', 'witness_', 'no_frame', 'missing_input', 'caret_', 'not_document_scoped', 'no_pixel_evidence', 'pixel_evidence_')) else
+            'paint_witness_unavailable' if reason.startswith(('pixel_edit_region_too_small', 'pixel_edit_not_at_caret', 'not_settled', 'no_trusted_keydown', 'clock_', 'frame_', 'witness_', 'no_frame', 'missing_input', 'caret_', 'not_document_scoped', 'no_pixel_evidence', 'pixel_evidence_')) else
             'witness_unavailable' if reason.startswith(('nonfinite_time', 'monotonic_origin_missing', 'negative_input_latency')) else
             'harness_error' if reason.startswith('input_probe_error') else
             'crash')
