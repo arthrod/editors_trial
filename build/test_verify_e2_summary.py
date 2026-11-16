@@ -149,7 +149,7 @@ Words.
 | Table | Editor | Document | Printed | Why |
 |---|---|---|---|---|
 | Typing one character | Folio | 500 words | 46 ms to 81 ms | The first round gave 46 ms (10 launches) and the second 81 ms (9 launches). They differ. |
-| Typing one character | Folio | 5,000 words | not measured | First round: 0 of 10 launches kept; 10 refused: words. Second round: 0 of 10 launches kept; 10 refused: words. |
+| Typing one character | Folio | 5,000 words | not measured | First round: 0 of 10 launches kept; 10 refused. Second round: 0 of 10 launches kept; 10 refused. The reason, both times: the editor draws its text where the harness cannot read an outline. |
 """
 
 
@@ -266,3 +266,19 @@ def test_each_round_of_a_range_is_checked_against_its_own_redraw_interval():
     assert verify.check(right, facts, DISPLAY) == []
     wrong = right.replace('10 ms to 40 ms', 'under 17 ms to 40 ms')
     assert any("'10 ms to 40 ms'" in p for p in verify.check(wrong, facts, DISPLAY))
+
+
+def test_the_why_of_a_refusal_must_say_the_recorded_reason_in_words():
+    """CodeRabbit on #240: the counts alone would pass an explanation of something else."""
+    assert verify.check(LABELLED, _labelled_facts(), DISPLAY) == []
+    other = LABELLED.replace('cannot read an outline', 'crashed')
+    problems = verify.check(other, _labelled_facts(), DISPLAY)
+    assert any('Appendix J' in p and 'outline' in p for p in problems), problems
+
+
+def test_a_recorded_reason_the_check_has_no_term_for_asks_for_nothing_more():
+    facts = _labelled_facts()
+    for slot in ('primary', 'reproduction'):
+        facts['perf.e2.folio.C05.warm_steady.prose-5kw.' + slot]['refusal_reasons'] = {'not_applicable': ['something new']}
+    report = LABELLED.replace('| not measured |', '| no figure |').replace('not measured | —', 'no figure | —')
+    assert not any('does not say' in p and 'outline' in p for p in verify.check(report, facts, DISPLAY))

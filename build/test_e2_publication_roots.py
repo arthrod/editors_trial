@@ -1664,7 +1664,20 @@ def test_a_host_round_launched_before_the_first_pass_is_refused(tmp_path, capsys
     manifest = host_manifest()
     change(manifest)
     assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
-    assert "first_pass run" in capsys.readouterr().err
+    assert "was launched after the host round" in capsys.readouterr().err
 
 
 RID_BEFORE_ALL = "20261101T030000000000Z-80000-000033"
+
+
+RID_LATER_FIRST = "20261118T030000000000Z-80000-000034"
+
+
+def test_a_later_first_pass_run_that_holds_none_of_the_host_jobs_does_not_matter(tmp_path):
+    # CodeRabbit on #240: only a measurement of the replaced job has to be older than the host round.
+    data, _ = host_data(tmp_path)
+    summarize(job(data / "space-c" / "runs" / RID_LATER_FIRST, RID_LATER_FIRST, 61, lane="benchmark_resources"),
+              1, 1, ["plate"])
+    manifest = host_manifest()
+    manifest["first_pass"]["space-c"] = RID_LATER_FIRST
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) == 0

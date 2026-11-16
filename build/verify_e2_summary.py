@@ -156,7 +156,27 @@ def expected_why_parts(facts: dict, editor: str, criterion: str, measure: str, w
     parts = []
     for name, (kept, scheduled, _counts) in _counted(str(facts.get(base + '.reason') or '')).items():
         parts.append('%s round: %d of %d launches kept' % (name.capitalize(), kept, scheduled))
+        # ... and the recorded reason in words (CodeRabbit, #240): a term the explanation of that reason cannot
+        # do without. A reason this check has no term for asks for nothing more.
+        cell = facts.get(base + ('.primary' if name == 'first' else '.reproduction')) or {}
+        for reasons in (cell.get('refusal_reasons') or {}).values():
+            for reason in reasons:
+                for piece in reason.split('; '):
+                    term = _reason_term(piece)
+                    if term and term not in parts:
+                        parts.append(term)
     return parts
+
+
+def _reason_term(reason: str):
+    """A word the explanation of a recorded refusal reason must use; None when this check knows none."""
+    if reason == 'no_glyph_geometry_to_witness_the_keystrokes_own_paint':
+        return 'outline'
+    if 'crashed' in reason or reason.startswith('page_lost'):
+        return 'crashed'
+    return {'no_painted_frame': 'no redraw', 'correctness: fixture_body_mismatch': 'did not match',
+            'cpu_throttled': 'throttled', 'expected_edit_not_confirmed': 'not found',
+            'document_content_unverifiable': 'could not read'}.get(reason)
 
 
 def expected_sentence(columns, editors: int) -> str:
