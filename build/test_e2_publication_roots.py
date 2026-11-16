@@ -1525,3 +1525,77 @@ def test_a_first_pass_run_that_repeats_an_index_is_refused(tmp_path, capsys):
     (twin / "JOB-DONE").write_text("")
     assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, synthetic_manifest())) != 0
     assert "carries job index 4 twice" in capsys.readouterr().err
+
+
+# #228: a host round measures a few jobs of a lane again, for every editor, because the host was busy
+# when they first ran. Unlike a lane round it does not take the whole lane: the harness measures the same way.
+
+RID_HOST = "20261116T030000000000Z-80000-000031"
+
+
+def host_manifest():
+    manifest = extension_manifest()
+    manifest["harness"]["host_rerun"] = "71162e7d"
+    manifest["host_superseded"] = {
+        "issues": {"228": {"title": "synthetic host round", "lane": "benchmark_document", "jobs": [4]}}}
+    manifest["host_rerun"] = {"space-a": [{"run_id": RID_HOST, "jobs": [4]}]}
+    return manifest
+
+
+def host_data(tmp_path, *, seed=1, block=1, editors=("plate", "canvas"), lane="benchmark_document"):
+    data, _ = extension_data(tmp_path)
+    new = summarize(job(data / "space-a" / "runs" / RID_HOST, RID_HOST, 4, lane=lane), seed, block, list(editors))
+    return data, new
+
+
+def test_a_host_round_replaces_its_jobs_and_leaves_the_rest_of_the_lane(tmp_path):
+    data, new = host_data(tmp_path)
+    roots_dir = tmp_path / "roots"
+    assert run_roots(data, roots_dir, write_manifest(tmp_path, host_manifest())) == 0
+    payload = json.loads((roots_dir / "report_e2_runs.json").read_text())
+    jobs = linked(roots_dir)
+    # Job 4: the first pass and canvas-editor's own round of it are gone; the host round's job is read.
+    assert jobs[4] == [RID_HOST]
+    assert (roots_dir / f"space-a--{RID_HOST}" / "benchmark_document" / new.name).resolve() == new
+    # The other document jobs of the first pass stay: a host round does not take the lane.
+    for index in (10, 50):
+        assert jobs[index] and RID_HOST not in jobs[index]
+    campaign = payload["campaign"]
+    assert campaign["host_rerun_kept"] == 1 and campaign["host_rerun_unsealed"] == 0
+    assert campaign["host_superseded"] == 2
+    assert campaign["host_rounds"] == [{"issue": "228", "lane": "benchmark_document", "jobs": 1}]
+    assert "lane_rounds" not in campaign and "lane_superseded" not in campaign
+    # The reader must not drop canvas-editor's cells of the host round's job.
+    (cells,) = payload["superseded_cells"]
+    assert RID_HOST in cells["kept_runs"]
+    assert any(root.endswith(RID_HOST) for root in payload["roots"])
+
+
+def host_refused(tmp_path, capsys, change, message, **data_kw):
+    data, new = host_data(tmp_path, **data_kw)
+    manifest = host_manifest()
+    change(manifest)
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+    assert message in capsys.readouterr().err
+
+
+def test_a_host_round_needs_its_harness_commit(tmp_path, capsys):
+    host_refused(tmp_path, capsys, lambda manifest: manifest["harness"].pop("host_rerun"), "harness.host_rerun")
+
+
+def test_a_host_superseded_job_nobody_measured_again_is_an_error(tmp_path, capsys):
+    def change(manifest):
+        manifest["host_superseded"]["issues"]["228"]["jobs"] = [4, 10]
+    host_refused(tmp_path, capsys, change, "are not measured again exactly once")
+
+
+def test_a_host_round_job_with_another_seed_is_refused(tmp_path, capsys):
+    host_refused(tmp_path, capsys, lambda manifest: None, "has seed 2", seed=2)
+
+
+def test_a_host_round_job_that_drops_an_editor_is_refused(tmp_path, capsys):
+    host_refused(tmp_path, capsys, lambda manifest: None, "does not schedule", editors=("plate",))
+
+
+def test_a_host_round_job_in_another_lane_is_refused(tmp_path, capsys):
+    host_refused(tmp_path, capsys, lambda manifest: None, "is in lane benchmark_input", lane="benchmark_input")

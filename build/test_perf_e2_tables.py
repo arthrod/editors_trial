@@ -1328,3 +1328,28 @@ def test_report_e2_prints_the_host_load_section_in_the_machine_appendix():
     machine = template[template.index("## Appendix B"):template.index("## Appendix C")]
     assert "{{perf.e2.host_load}}" in machine
     assert "No sample was refused for it" in machine
+
+
+# #228: a host round measured a few jobs again on a quiet host; the re-run bullet says so.
+
+def test_the_rerun_text_tells_a_host_round():
+    text = E2.reruns_text({'first_pass_superseded': 32, 'rerun_kept': 32, 'missing_runs': [],
+                           'host_superseded': 6, 'host_rerun_kept': 4, 'host_rerun_unsealed': 0,
+                           'host_rounds': [{'issue': '228', 'lane': 'benchmark_warm_cold', 'jobs': 4}]})
+    assert ('In a host round, 4 jobs of the warm and cold load lane were measured again for every editor on a quiet host '
+            '(issue #228)') in text
+    assert 'above the bound the harness holds a quiet machine to' in text
+    assert 'The tables read those 4 jobs; every earlier measurement of them is replaced' in text
+    assert 'the other jobs of the lane stay as measured' in text
+
+
+def test_an_unsealed_host_round_job_is_counted_as_left_out():
+    text = E2.reruns_text({'first_pass_superseded': 32, 'rerun_kept': 32, 'missing_runs': [],
+                           'host_superseded': 5, 'host_rerun_kept': 3, 'host_rerun_unsealed': 1,
+                           'host_rounds': [{'issue': '228', 'lane': 'benchmark_warm_cold', 'jobs': 4}]})
+    assert '1 re-run job was not sealed and is left out.' in text
+
+
+def test_without_a_host_round_the_rerun_text_does_not_mention_one():
+    text = E2.reruns_text({'first_pass_superseded': 32, 'rerun_kept': 32, 'missing_runs': []})
+    assert 'host round' not in text

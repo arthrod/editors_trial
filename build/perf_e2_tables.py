@@ -912,6 +912,23 @@ def _lane_round_text(campaign: dict) -> str:
            "it" if count == 1 else "them"))
 
 
+def _host_round_text(campaign: dict) -> str:
+    """A host round (#228): a few jobs measured again for every editor because the host was busy the first time."""
+    text = ""
+    for entry in campaign.get("host_rounds") or []:
+        jobs = entry["jobs"]
+        text += (
+            " In a host round, %d %s of the %s lane %s measured again for every editor on a quiet host (issue #%s): "
+            "when they first ran, the host's load was above the bound the harness holds a quiet machine to for most "
+            "of their launches (the issue gives the readings). The harness measures the same way; it now waits for a quiet host before a "
+            "job and before a launch. The tables read those %d %s; every earlier measurement of them is replaced, a "
+            "single editor's own round of them included, and the other jobs of the lane stay as measured."
+            % (jobs, "job" if jobs == 1 else "jobs", LANE_NAMES.get(entry["lane"], entry["lane"]),
+               "was" if jobs == 1 else "were", entry["issue"], campaign.get("host_rerun_kept") or 0,
+               "job" if (campaign.get("host_rerun_kept") or 0) == 1 else "jobs"))
+    return text
+
+
 def reruns_text(campaign: dict | None) -> str:
     """The template's re-run bullet, from report_e2_runs.json's campaign counts."""
     if not campaign:
@@ -1015,9 +1032,10 @@ def reruns_text(campaign: dict | None) -> str:
             "criteria load (issue #192). The tables read the %d late-round jobs in their place."
             % (late, campaign.get("late_rerun_kept") or 0))
     text += _lane_round_text(campaign)
+    text += _host_round_text(campaign)
     unsealed = sum(campaign.get(key) or 0 for key in
                    ("first_pass_unsealed", "rerun_unsealed", "rerun2_unsealed", "rerun3_unsealed",
-                    "editor_rerun_unsealed", "late_rerun_unsealed", "lane_rerun_unsealed"))
+                    "editor_rerun_unsealed", "late_rerun_unsealed", "lane_rerun_unsealed", "host_rerun_unsealed"))
     missing = len(campaign.get("missing_runs") or [])
     stopped = campaign.get("editor_rerun_stopped") or 0
     if stopped:  # 14 Nov rebalancing: a job cut off when its work moved to another Space
