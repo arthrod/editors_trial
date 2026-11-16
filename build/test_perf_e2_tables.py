@@ -1309,3 +1309,22 @@ def test_reruns_text_second_round_only_under_a_lane_round():
 def test_host_load_note_counts_missing_readings(fs):
     rows = [{"cpu_accounting": {"before": {"loadavg": [3.0, 1, 1]}}}, {}]
     assert E2._load_text(rows).endswith("3.0 to 3.0, median 3.0 (3 of 4 readings not recorded)")
+
+
+# #228: the report names the jobs whose samples were taken on a busy host.
+
+def test_the_campaign_facts_carry_the_host_load_section(fs):
+    facts = E2.facts_from_roots(_campaign_farm(Path("/farm")))
+    assert isinstance(facts["perf.e2.host_load"], str) and facts["perf.e2.host_load"]
+    assert facts["perf.e2.host_load.jobs_named"] == 0
+
+
+def test_the_unmeasured_and_legacy_facts_have_the_host_load_placeholder():
+    assert E2.unset_facts()["perf.e2.host_load"] == "not yet measured"
+
+
+def test_report_e2_prints_the_host_load_section_in_the_machine_appendix():
+    template = (ROOT / "templates/reports/Report E2 - Speed in the Browser (2026).md").read_text()
+    machine = template[template.index("## Appendix B"):template.index("## Appendix C")]
+    assert "{{perf.e2.host_load}}" in machine
+    assert "No sample was refused for it" in machine

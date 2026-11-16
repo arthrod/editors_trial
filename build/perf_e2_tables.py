@@ -1056,6 +1056,7 @@ def unset_facts() -> dict:
         "perf.e2.host": "not yet measured",
         "perf.e2.host_class": "not yet measured",
         "perf.e2.host_note": "not yet measured",
+        "perf.e2.host_load": "not yet measured",
         "perf.e2.rule": "not yet measured",
         "perf.e2.runs": "not yet measured",
         "perf.e2.run_id": "not yet measured",
@@ -1240,6 +1241,11 @@ def _facts_from_roots(roots) -> dict:
     if typing_groups:
         facts['perf.e2.table.TYPING'] = '\n\n'.join(typing_table(facts, roots, editor, kind) for editor, kind in typing_groups)
     facts.update(resource_facts(roots, editors))
+    # #228: which jobs' samples were taken with the host above the quiet-machine bound.
+    from build import perf_e2_host_load
+    host_load_text, host_load_counts = perf_e2_host_load.section(roots, editors, DISPLAY)
+    facts["perf.e2.host_load"] = host_load_text
+    facts.update(host_load_counts)
     facts["perf.e2.probe_scan"] = probe_scan_text(roots, editors)
     # #227: the short version reads the cells the tables above just decided.
     from build import perf_e2_summary

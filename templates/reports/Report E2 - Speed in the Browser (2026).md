@@ -75,6 +75,12 @@ Each criterion is one browser-visible or model clock on the same corpus the head
 
 {{perf.e2.host_note}}
 
+### Host load, launch by launch
+
+Every launch (one editor, one repetition of a job) records the host's 1-minute load average when it began and when it ended. The harness's own bound for a quiet machine is a third of the host's logical processors. No sample was refused for it: the table below says how many of the launches that carry both readings began or ended above it, and names the jobs in which a quarter or more did. Where the two seeds of a cell disagree and one of them comes from such a job, the load is one possible reason, and the report cannot tell it from the editor. A job that was run again for one editor has five launches, and the table names that editor.
+
+{{perf.e2.host_load}}
+
 {{perf.e2.provenance}}
 
 Playwright {{perf.e2.playwright}}, Chromium {{perf.e2.chromium}}. Renderer: {{perf.e2.renderer}}.
