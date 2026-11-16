@@ -82,6 +82,8 @@ def job_rows(roots) -> list[dict]:
     for root in sorted(Path(root) for root in roots):
         for job in sorted(e2_cells._job_roots(root)):
             samples = job / 'samples'
+            if not samples.is_dir():
+                continue  # no sample rows: nothing to count, and its summary is not read a second time
             # A root is a run folder "<space>--<run id>", a Space folder with runs/ underneath, or one job.
             holder = job.parent.parent if job == root else root
             try:
