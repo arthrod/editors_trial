@@ -9,7 +9,9 @@ import shlex
 import signal
 import subprocess
 import sys
-from . import artifacts, host_load
+from perf.runner import host_load
+
+from . import artifacts
 from .policy import RUNNERS, job_editors, narrow_job_editors, publication_jobs, shakedown_options, verify_run, cell_counts, verify_profiles
 
 DEFAULT_OUT_ROOT = Path('perf/container/out/runs')

@@ -161,6 +161,7 @@ class BrowserRun:
         self.accounting_start = _read_accounting(accounting_reader)
         self.sample_start = None
         self._sample_parents = []
+        self._load_wait = None
         self.brackets_force_closed = 0
         self._cell_force_closed = {}
 
@@ -202,6 +203,12 @@ class BrowserRun:
         """
         from contextlib import contextmanager
 
+        # #228: a launch on a shared host waits for it to be quiet. Only the
+        # outermost bracket waits: a wait between a launch's own steps would
+        # change what is measured. The wait ends before the CPU window opens.
+        if not self._sample_parents and self.host_class == 'shared_guarded':
+            from perf.runner import host_load
+            self._load_wait = host_load.sample_guard()
         self._sample_parents.append(self.sample_start)
         self.sample_start = _read_accounting(self.accounting_reader)
         depth = len(self._sample_parents)
@@ -358,6 +365,10 @@ class BrowserRun:
             _events = _delta.get('nr_throttled')
             value['throttled_usec'] = int(_throttled_usec)
             value['nr_throttled'] = int(_events) if isinstance(_events, (int, float)) and not isinstance(_events, bool) else 0
+        # The row that closes the outermost bracket is the launch: it carries the wait.
+        if self._load_wait is not None and not shared_diagnostic and len(self._sample_parents) <= 1:
+            value['host_load_wait'] = self._load_wait
+            self._load_wait = None
         path = self.directory / 'samples' / (name + '.json')
         write_json(path, value)
         self.samples.append(value)
