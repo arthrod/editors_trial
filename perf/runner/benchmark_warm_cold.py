@@ -484,6 +484,15 @@ def probe_failure_reason(exc: BaseException) -> str:
     return "browser_probe: %s" % text
 
 
+def probe_failure_outcome(reason: str) -> str:
+    """'failed' when the editor's own page failed to load the document, else 'not_run'.
+
+    A load failure is the editor's result, filed as a crash like in the input lane; any other
+    probe failure says nothing about the editor (#261).
+    """
+    return "failed" if str(reason).startswith("editor_load_failed:") else "not_run"
+
+
 def _run_browser_probe(
     *,
     target: dict,
@@ -1080,13 +1089,14 @@ def _write_not_run(
     failure_reason: str,
     content_meta: dict | None = None,
     gate: dict | None = None,
+    outcome: str = "not_run",
 ) -> Path:
     diagnostic = _content_length_diagnostic(content_meta, gate) if content_meta else None
     trial = _trial_dict(
         criterion_id=criterion_id,
         layer=layer,
         boundary=boundary,
-        outcome="not_run",
+        outcome=outcome,
         env=env,
         samples_ms=[],
         failure_reason=failure_reason,
@@ -1450,6 +1460,7 @@ def _main() -> int:
                     lane=lane,
                     env=env,
                     failure_reason=reason,
+                    outcome=probe_failure_outcome(reason),
                     content_meta=content_meta,
                     gate=gate,
                 )
