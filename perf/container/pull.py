@@ -438,6 +438,60 @@ def prune_index_to_listing(
     return pruned
 
 
+def set_aside_gone_files(dest: Path, listing: dict[str, dict]) -> list[str]:
+    """Move aside local files the Space removed before it sealed their job (#212).
+
+    A runner may write a file, let a pull cycle fetch it, then remove it (a raw trace it compressed) and
+    seal the job. The sealed manifest does not list the file, so the local copy would fail the manifest
+    check on every cycle. Such a file — in the gone index, absent from the listing, absent from the sealed
+    manifest of its job — is moved to ``.pull-gone/<path>``; it is never deleted. A file the manifest
+    lists stays where it is: the pull never removes a measured file the remote lost.
+    """
+    moved: list[str] = []
+    root = dest.resolve()
+    for rel in sorted(load_gone_index(dest)):
+        local = dest / rel
+        # Only a file inside the destination is ever touched (GLM's review of #259).
+        if rel in listing or not local.is_file() or root not in local.resolve().parents:
+            continue
+        for job_prefix in iter_job_prefixes(listing):  # sealed jobs only: each has JOB-DONE in the listing
+            if not rel.startswith(job_prefix + '/'):
+                continue
+            manifest = dest / job_prefix / 'MANIFEST.sha256'
+            sealed = listing.get(f'{job_prefix}/MANIFEST.sha256')
+            # The local manifest must be the sealed one, byte for byte, and every line readable;
+            # anything else and the file stays (the manifest check then says why).
+            if not manifest.is_file() or not sealed or sha256_file(manifest) != sealed['sha256']:
+                break
+            lines = [line for line in manifest.read_text().splitlines() if line.strip()]
+            if any('  ' not in line for line in lines):
+                break
+            listed = {line.split('  ', 1)[1] for line in lines}
+            if rel[len(job_prefix) + 1:] in listed:
+                break
+            target = dest / '.pull-gone' / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if target.exists():
+                write_prev_copy(target)
+            os.replace(local, target)
+            moved.append(rel)
+            break
+    return moved
+
+
+def manifest_failures(dest: Path, index: dict[str, dict]) -> list[str]:
+    """Why each sealed job's manifest check fails locally, one reason per job; empty when all verify."""
+    reasons: list[str] = []
+    for job_prefix in iter_job_prefixes(index):
+        if f'{job_prefix}/JOB-DONE' not in index:
+            continue
+        try:
+            verify_job_manifest_impl(dest, job_prefix, index)
+        except VerifyError as exc:
+            reasons.append(str(exc))
+    return reasons
+
+
 def load_json_state(path: Path, dest: Path) -> dict | list:
     empty: dict | list = [] if path.name == '.pull-announced.json' else {}
     if not path.exists():
@@ -633,6 +687,8 @@ def pull_cycle(
     new_index = prune_index_to_listing(new_index, index, dest)
     dest.mkdir(parents=True, exist_ok=True)
     atomic_write_json(local_index_path, new_index)
+    for rel in set_aside_gone_files(dest, index):
+        print(f'PULL-GONE {rel} moved to .pull-gone/', flush=True)
     jobs: dict[str, str] = {}
     for path in index:
         m = re.match(r'^runs/([^/]+)/([^/]+)/([^/]+)/JOB-DONE$', path)
@@ -711,6 +767,7 @@ def pull_until(
     exit_status = 0
     run_done_seen = False
     final_verified = False
+    reported: set[str] = set()
     while True:
         cycles += 1
         if max_cycles is not None and cycles > max_cycles:
@@ -746,6 +803,13 @@ def pull_until(
                         )
                         final_verified = True
                         return 0
+            if run_done_seen and local_bytes_match_listing(dest, index):
+                # #212: a manifest failure after RUN-DONE kept the run from FINAL-VERIFIED with nothing
+                # printed, so the watcher saw no trouble. Say why, once per distinct reason.
+                for reason in manifest_failures(dest, index):
+                    if reason not in reported:
+                        reported.add(reason)
+                        print(f'PULL-ERROR {reason}', flush=True)
             backoff = interval
         except (TransportError, VerifyError, tarfile.TarError, OSError, ValueError) as exc:
             print(f'PULL-ERROR {exc}', flush=True)
