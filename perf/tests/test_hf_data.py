@@ -1848,3 +1848,62 @@ def test_a_manifest_failure_after_run_done_prints_its_reason_once(remote_root, t
     assert code == 1 and not any(line.startswith('FINAL-VERIFIED') for line in out)
     reasons = [line for line in out if line.startswith('PULL-ERROR ')]
     assert reasons == [f'PULL-ERROR manifest missing file {job_rel}/stray.bin']
+
+
+def _pulled_then_removed(remote_root, tmp_path, run_id):
+    from perf.container import pull as pull_mod
+
+    job_rel, job, artifacts = _gone_file_run(remote_root, run_id)
+    dest = tmp_path / 'dest'
+    transport = local_transport(remote_root)
+    pull_mod.pull_cycle(transport, remote_root, dest)
+    (job / 'trace-reflow.json').unlink()
+    return pull_mod, artifacts, transport, dest, job, job_rel
+
+
+def test_a_gone_file_of_a_job_that_is_not_sealed_stays(remote_root, tmp_path):
+    """GLM's review of #259: without JOB-DONE the manifest is not the job's last word."""
+    pull_mod, artifacts, transport, dest, job, job_rel = _pulled_then_removed(remote_root, tmp_path, '20260101T000000000215Z')
+    (job / 'MANIFEST.sha256').write_text('')                       # a manifest, and no seal
+    pull_mod.pull_cycle(transport, remote_root, dest)
+    assert (dest / job_rel / 'trace-reflow.json').exists() and not (dest / '.pull-gone').exists()
+
+
+def test_a_gone_file_stays_when_the_local_manifest_is_not_the_sealed_one(remote_root, tmp_path):
+    pull_mod, artifacts, transport, dest, job, job_rel = _pulled_then_removed(remote_root, tmp_path, '20260101T000000000216Z')
+    artifacts.finalize_job(job, 0)
+    pull_mod.pull_cycle(transport, remote_root, dest)               # this cycle moves it aside
+    moved = dest / '.pull-gone' / job_rel / 'trace-reflow.json'
+    assert moved.exists()
+    moved.rename(dest / job_rel / 'trace-reflow.json')              # put it back, then make the local manifest stale
+    (dest / job_rel / 'MANIFEST.sha256').write_text('0' * 64 + '  other.txt\n')
+    assert pull_mod.set_aside_gone_files(dest, pull_mod.list_remote(transport)) == []
+    assert (dest / job_rel / 'trace-reflow.json').exists()
+
+
+def test_a_malformed_manifest_line_moves_nothing_and_does_not_raise(remote_root, tmp_path):
+    pull_mod, artifacts, transport, dest, job, job_rel = _pulled_then_removed(remote_root, tmp_path, '20260101T000000000217Z')
+    artifacts.finalize_job(job, 0)
+    listing = pull_mod.list_remote(transport)
+    pull_mod.pull_cycle(transport, remote_root, dest)
+    moved = dest / '.pull-gone' / job_rel / 'trace-reflow.json'
+    moved.rename(dest / job_rel / 'trace-reflow.json')
+    manifest = dest / job_rel / 'MANIFEST.sha256'
+    body = manifest.read_text() + 'no-double-space-here\n'
+    manifest.write_text(body)
+    listing[f'{job_rel}/MANIFEST.sha256'] = {**listing[f'{job_rel}/MANIFEST.sha256'], 'sha256': sha256_bytes(body.encode())}
+    assert pull_mod.set_aside_gone_files(dest, listing) == []
+    assert (dest / job_rel / 'trace-reflow.json').exists()
+
+
+def test_a_gone_path_that_leaves_the_destination_is_never_moved(remote_root, tmp_path):
+    pull_mod, artifacts, transport, dest, job, job_rel = _pulled_then_removed(remote_root, tmp_path, '20260101T000000000218Z')
+    artifacts.finalize_job(job, 0)
+    outside = tmp_path / 'outside.txt'
+    outside.write_text('not ours')
+    gone = dest / '.pull-index-gone.json'
+    index = json.loads(gone.read_text()) if gone.exists() else {}
+    index[f'{job_rel}/../../../../../outside.txt'] = 'x'
+    gone.write_text(json.dumps(index))
+    pull_mod.pull_cycle(transport, remote_root, dest)
+    assert outside.read_text() == 'not ours'

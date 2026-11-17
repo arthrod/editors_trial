@@ -448,17 +448,25 @@ def set_aside_gone_files(dest: Path, listing: dict[str, dict]) -> list[str]:
     lists stays where it is: the pull never removes a measured file the remote lost.
     """
     moved: list[str] = []
+    root = dest.resolve()
     for rel in sorted(load_gone_index(dest)):
         local = dest / rel
-        if rel in listing or not local.is_file():
+        # Only a file inside the destination is ever touched (GLM's review of #259).
+        if rel in listing or not local.is_file() or root not in local.resolve().parents:
             continue
-        for job_prefix in iter_job_prefixes(listing):
+        for job_prefix in iter_job_prefixes(listing):  # sealed jobs only: each has JOB-DONE in the listing
             if not rel.startswith(job_prefix + '/'):
                 continue
             manifest = dest / job_prefix / 'MANIFEST.sha256'
-            if not manifest.is_file() or f'{job_prefix}/MANIFEST.sha256' not in listing:
+            sealed = listing.get(f'{job_prefix}/MANIFEST.sha256')
+            # The local manifest must be the sealed one, byte for byte, and every line readable;
+            # anything else and the file stays (the manifest check then says why).
+            if not manifest.is_file() or not sealed or sha256_file(manifest) != sealed['sha256']:
                 break
-            listed = {line.split('  ', 1)[1] for line in manifest.read_text().splitlines() if line.strip()}
+            lines = [line for line in manifest.read_text().splitlines() if line.strip()]
+            if any('  ' not in line for line in lines):
+                break
+            listed = {line.split('  ', 1)[1] for line in lines}
             if rel[len(job_prefix) + 1:] in listed:
                 break
             target = dest / '.pull-gone' / rel
