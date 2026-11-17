@@ -1814,3 +1814,26 @@ def test_a_witness_round_over_a_job_an_editor_round_still_holds_is_accepted(tmp_
     with e2_cells.superseded_cells(payload["superseded_cells"]):
         assert e2_cells.job_superseded(canvas_round, "canvas") is True
         assert e2_cells.job_superseded(new, "canvas") is False
+
+
+def test_a_witness_round_job_must_measure_the_criteria_of_the_cells_it_replaces(tmp_path, capsys):
+    """CodeRabbit, #252: the reader leaves the editor's earlier cells unread; a criterion not measured again is lost."""
+    data, host, new = witness_data(tmp_path)
+    _cell_summary(host, "canvas", "C05", "C11")
+    _cell_summary(new, "canvas", "C05")
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, witness_manifest())) != 0
+    assert "records no ['C11'] for canvas" in capsys.readouterr().err
+
+
+def test_a_witness_round_job_with_the_same_criteria_is_kept(tmp_path):
+    data, host, new = witness_data(tmp_path)
+    _cell_summary(host, "canvas", "C05", "C11")
+    _cell_summary(host, "plate", "C05", "C14")  # another editor's criteria are not the round's
+    _cell_summary(new, "canvas", "c05", "C11")
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, witness_manifest())) == 0
+
+
+def test_a_witness_issue_with_a_malformed_editor_list_is_reported_not_raised(tmp_path, capsys):
+    def change(manifest):
+        manifest["witness_superseded"]["issues"]["245"]["editors"] = [["canvas"]]
+    witness_refused(tmp_path, capsys, change, "is not a list of editor ids")

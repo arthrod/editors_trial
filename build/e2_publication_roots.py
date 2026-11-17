@@ -365,6 +365,7 @@ def _check_witness_round(data: Path, manifest: dict, complete: bool, errors: lis
         return
     if entries and not manifest.get("harness", {}).get("witness_rerun"):
         errors.append("the manifest's witness round names no harness commit (harness.witness_rerun)")
+    valid: dict = {}
     for number, issue in sorted(issues.items()):
         if not str(number).isdigit():
             errors.append(f"witness_superseded issue {number!r} is not an issue number")
@@ -375,8 +376,12 @@ def _check_witness_round(data: Path, manifest: dict, complete: bool, errors: lis
         if not (isinstance(editors, list) and editors and all(isinstance(e, str) and e for e in editors)
                 and len(set(editors)) == len(editors)):
             errors.append(f"witness_superseded issue {number}: editors {editors!r} is not a list of editor ids")
+        else:
+            valid[number] = issue
         if len(set(issue["jobs"])) != len(issue["jobs"]):
             errors.append(f"witness_superseded issue {number} lists a job twice")
+    # An issue whose editors cannot be read is reported above and left out of what follows (CodeRabbit, #252).
+    issues = valid
     claimed: dict[tuple[str, int], str] = {}
     for number, issue in sorted(issues.items()):
         for editor in issue.get("editors") or []:
@@ -476,6 +481,16 @@ def _check_witness_round(data: Path, manifest: dict, complete: bool, errors: lis
             if not compared:
                 errors.append(f"witness-round job {job.name}: none of the jobs whose cells it replaces has a "
                               f"readable summary.json to compare seeds with")
+            # The reader leaves these editors' earlier cells of the job unread: every criterion they recorded
+            # must be measured again (CodeRabbit, #252; the lane round's rule).
+            for editor in sorted(issue.get("editors") or []):
+                had: set[str] = set()
+                for _old_lane, old in before:
+                    had |= _job_criteria(old, editor)
+                lost = sorted(had - _job_criteria(job, editor))
+                if lost:
+                    errors.append(f"witness-round job {job.name} records no {lost} for {editor}, which the jobs "
+                                  f"whose cells it replaces measured")
 
 
 def _check_editor_round(manifest: dict, errors: list[str]) -> None:
