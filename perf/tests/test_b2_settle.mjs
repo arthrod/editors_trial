@@ -551,3 +551,39 @@ test('a blinking caret inside the walked span still measures the glyph onset —
  assert.equal(r.page_ms,200);
  assert.equal(r.onset_hole_explained_by,'event_next_paint');
 });
+
+// #253: Folio draws its own caret again, through the typed character's rect, some frames after the
+// character. The settled reference then holds a full-height band where the earlier frame holds glyph ink.
+function glyphWithCaret(caretX) {
+  const p = pixels([255,255,255], true);
+  if (caretX !== null) for (let y = 0; y < rect.height; y++) {
+    const o = (y * rect.width + caretX) * 4; p.data[o] = 0; p.data[o+1] = 0; p.data[o+2] = 0;
+  }
+  return p;
+}
+function inkColumns() {
+  const p = pixels([255,255,255], true), cols = new Set();
+  for (let y = 0; y < rect.height; y++) for (let x = 0; x < rect.width; x++) {
+    const o = (y * rect.width + x) * 4;
+    if (p.data[o] !== 255 || p.data[o+1] !== 255 || p.data[o+2] !== 255) cols.add(x);
+  }
+  return [...cols].sort((a, b) => a - b);
+}
+test('a caret drawn later through the glyph does not move the glyph\'s onset (#253)', () => {
+  const column = inkColumns()[0];
+  const r = settle(frames(dense, t => t < 80 ? blank : glyphWithCaret(t < 160 ? null : column)));
+  assert.equal(r?.page_ms, 80);
+});
+test('a caret alone, with no glyph before it, is still no onset (#253)', () => {
+  const column = inkColumns()[0];
+  const caretOnly = t => { const p = pixels([255,255,255]); if (t >= 80) for (let y = 0; y < rect.height; y++) {
+    const o = (y * rect.width + column) * 4; p.data[o] = 0; p.data[o+1] = 0; p.data[o+2] = 0; } return p; };
+  assert.equal(settle(frames(dense, caretOnly))?.page_ms, undefined);
+});
+test('ink that the reference does not hold, outside its caret band, still refuses the earlier frame (#253)', () => {
+  const columns = inkColumns(), column = columns[0];
+  const stray = () => { const p = glyphWithCaret(null); const x = rect.width - 1, y = 1; const o = (y * rect.width + x) * 4;
+    p.data[o] = 0; p.data[o+1] = 0; p.data[o+2] = 0; return p; };
+  const r = settle(frames(dense, t => t < 80 ? blank : t < 160 ? stray() : glyphWithCaret(column)));
+  assert.equal(r?.page_ms, 160);
+});

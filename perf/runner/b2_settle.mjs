@@ -3,7 +3,7 @@
  * are not ink. Rectangles are inset to whole pixels to exclude outside edges.
  */
 export function classifyRegion(pixels, baseline, rects, dpr, doc, tolerance = 8) {
-  const values = [], regions = [], ink = [];
+  const values = [], regions = [], ink = [], band = [];
   let inkPixels = 0;
   const differs = (a,b) => a.some((v,c) => Math.abs(v-b[c]) > tolerance);
   for (const rect of rects) {
@@ -32,11 +32,12 @@ export function classifyRegion(pixels, baseline, rects, dpr, doc, tolerance = 8)
       const row=rows[y];
       const {rgb,before}=row[x];
       // A full-height band can be an old slot edge or an occluding caret.
-      const band=rows.every(r=>differs(r[x].rgb,background));
+      const inBand=rows.every(r=>differs(r[x].rgb,background));
       // Full-width changed rows are background bands too (vertical gradients).
       const rowBand=row.every(p=>differs(p.rgb,background)&&differs(p.rgb,p.before));
-      const isInk=!band && !rowBand && differs(rgb,background) && differs(rgb,before);
+      const isInk=!inBand && !rowBand && differs(rgb,background) && differs(rgb,before);
       ink[regionOffset+y*row.length+x]=isInk?1:0;
+      band[regionOffset+y*row.length+x]=inBand?1:0;
       if(isInk) regionInk++;
       if(!differs(rgb,before)) unchanged++;
       if(!differs(rgb,background)&&differs(rgb,before)) changedMode++;
@@ -48,7 +49,7 @@ export function classifyRegion(pixels, baseline, rects, dpr, doc, tolerance = 8)
     regions.push({background,ink_pixels:regionInk,pixels:count,
       expected_ink:changedMode>count/2 && unchanged>=count/10?changedMode:0});
   }
-  return {values,ink,ink_pixels:inkPixels,regions};
+  return {values,ink,band,ink_pixels:inkPixels,regions};
 }
 
 /** Pure settlement over recorded, timestamped region classifications.
@@ -61,6 +62,8 @@ export function classifyRegion(pixels, baseline, rects, dpr, doc, tolerance = 8)
  * Latency is the first F whose ink covers >=50% of reference ink, with every
  * F ink pixel present in the reference and its colour within tolerance. Every
  * later frame through the reference must retain that property (no regression).
+ * Ink of F in a column that is a full-height band in the reference (an occluding
+ * caret drawn after the glyph, issue #253) is not required of the reference.
  * A disappearing qualifying glyph before quiet proof refuses; unrelated or
  * sub-half transient decoys cannot veto the eventual glyph reference.
  * A modal-colour glyph followed only by a mark <25% of its expected ink refuses.
@@ -141,7 +144,9 @@ export function settleFrames(frames, {quietMs=300,maxWaitMs=3000,markerMs=0,minP
     if(f.ink_pixels<minPixels || f.ink_pixels<ref.ink_pixels/2) return false;
     // Legacy scalar classifications are accepted only by full-image equality.
     if(!f.ink || !ref.ink) return matches(f,ref);
-    return f.ink.length===ref.ink.length && f.ink.every((v,k)=>!v ||
+    // A full-height band of the reference (a caret the editor drew again through the glyph, #253)
+    // hides what was under it: the earlier frame's ink in those columns is not held against it.
+    return f.ink.length===ref.ink.length && f.ink.every((v,k)=>!v || (ref.band && ref.band[k]) ||
       (ref.ink[k] && [0,1,2].every(c=>Math.abs(f.values[k*3+c]-ref.values[k*3+c])<=tolerance)));
   };
   let sparse=false;
