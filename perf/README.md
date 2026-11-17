@@ -259,6 +259,49 @@ cold/warm delta with `cause_attribution.py`. Editors without a configured
 host, and criteria without a probe (C07–C10, C22, C23 here), are recorded
 `not_run`. The suite summary is diagnostic: `publishable: false`.
 
+### Typing witnesses (C05 and C06)
+
+DOM editors keep the glyph witness. For canvas-editor and Docen (model
+adapters) and WordCraft (a modified-flag adapter),
+`runner/pixel_settle.mjs` instead finds the settled picture of the edit in
+recorded frames. The sample ends at the first frame with every settled
+edit pixel in place, not at the first changed frame: that frame may show
+only a moving caret. Pixels that toggle at least twice in the quiet tail
+are masked as blinking pixels.
+
+The browser probe uses a band around the caret's line when its position is
+available and excludes the harness's corner mark. When the focused input
+moves right on the same line, the probe excludes columns at its old and
+new positions and requires at least 16 edit pixels; otherwise it requires
+100. A known focused-input caret must also be touched by the edit's bounds.
+Unsettled, too-small, misplaced, or unread-frame evidence is refused.
+The clock and frame-witness checks still apply.
+
+The model confirms each edit for canvas-editor and Docen. WordCraft's
+modified flag alone cannot confirm keys: after each arm's final key press,
+outside the timed intervals, select-all-and-copy must show that the count
+of the typed character grew by exactly the number of trusted key presses
+in the arm. This requires a whole-document count at ready; missing or
+mismatched counts refuse the pending samples.
+
+Trials record `witness: settled_pixels` and per-key `pixel_settle` evidence.
+`analysis/e2_cells.py` rechecks every key's confirmation, pixel floor,
+clock, latency, and recorded caret-touch verdict. Report summaries mark
+these times and two-round ranges "(by pixels)" and explain the smallest
+recorded edit. Mixed witnesses within a cell or between rounds yield no
+figure. Old missing-glyph refusals stay refused; this does not recover
+typing times from their first changed frames.
+
+With `PERF_SHAKEDOWN=1`, DOM edits additionally record
+`pixel_settle_shadow` for comparison against their glyph witness; this
+shadow does not change the sample. Local shakedowns are not report figures,
+and published results require a new measuring run.
+
+The clock check waits up to 1,000 ms for an acknowledged frame with its
+8×8 probe mark gone and records `probe_cleared`. A clearance timeout is
+recorded but does not itself reject the clock check; the pixel path
+excludes the corner regardless (#247).
+
 ### Adversarial C10 scroll probe
 
 ```sh
