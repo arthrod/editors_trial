@@ -1,8 +1,8 @@
 # perf/ — performance benchmark harness
 
-`perf/` measures the editors_trial participants over time. It is a harness,
-not a report: no performance figures appear in the published reports, and a
-`ci_coarse` host never publishes a headline distribution.
+`perf/` measures the editors_trial participants over time. Its browser measurements feed
+[Report E2 — Speed in the Browser](../reports/Report%20E2%20-%20Speed%20in%20the%20Browser%20(2026).md).
+A `ci_coarse` host never publishes a headline distribution.
 
 - Design: [`docs/superpowers/specs/2026-11-05-editor-performance-benchmark-design.md`](../docs/superpowers/specs/2026-11-05-editor-performance-benchmark-design.md)
 - Normative matrix: [`docs/superpowers/specs/2026-11-05-editor-performance-coverage.json`](../docs/superpowers/specs/2026-11-05-editor-performance-coverage.json)
@@ -10,6 +10,38 @@ not a report: no performance figures appear in the published reports, and a
 
 The harness is Python 3.10+ and standard-library only. The editors need their
 own toolchains; see [What you need](#what-you-need).
+
+## Report E2 publication
+
+`perf/container/e2_publication.json` selects the campaign jobs. Build the
+publication roots with `python3 build/e2_publication_roots.py <data dir> <roots dir>`;
+`build/facts.py` reads the selected measurements and `build/render_reports.py`
+renders the report from its template and facts.
+
+A host round declares retired job indexes in `host_superseded`, replacement
+runs in `host_rerun`, and the harness commit in `harness.host_rerun`. It replaces
+only those jobs for every editor, including earlier editor-specific measurements;
+the other jobs of the lane stay as measured. A lane round replaces the whole
+lane. Host replacements must follow the earlier measurements they replace and
+preserve lane, seed, block, editor coverage, and criterion coverage.
+
+The results print the two rounds' median range when they disagree, rather than
+“varied”. “Under 17 ms” describes results below the recorded 16.7 ms redraw
+interval; each round is checked against its own interval. Tooling refusals say
+“not measured”; “does not apply” requires recorded reasons indicating nothing
+to measure. Typing in canvas-editor, Docen, and WordCraft remains unmeasured
+because the harness cannot witness the typed glyph (#238).
+
+Appendix J explains every results cell without a single figure, including
+per-round launch counts and recorded refusal reasons. Appendix B reports host
+load at launch boundaries and names jobs where at least a quarter of readable
+launches began or ended above the quiet-host bound. These readings do not
+establish that host load caused a disagreement.
+
+`build/verify_e2_summary.py`, called by the publication gate, independently
+checks the results labels and Appendix J against the facts. Per-round refusal
+reason assignment and chronology-test isolation remain follow-ups in #241;
+the verifier currently checks required reason terms across the row.
 
 ## Concepts
 
