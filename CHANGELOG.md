@@ -9,6 +9,16 @@ re-running the measurement behind it. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Report E2 supports witness rounds after every other round, including the
+  host round (#245, #252). The publication manifest names the affected editors
+  and jobs through `witness_superseded` and `witness_rerun`; the reader replaces
+  their earlier cells while retaining the other editors' measurements. The
+  builder checks ordering, lane, seed, block, scheduled editors and criterion
+  coverage, and the report describes the round. Manifest entries and measured
+  figures follow in the release PR.
+
 ### Fixed
 
 - The release gate's check of Report E2's Appendix J looks for a refused
