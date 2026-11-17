@@ -9,6 +9,20 @@ re-running the measurement behind it. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- The glyph witness no longer delays onset when a later caret forms a
+  full-height band through the typed character (#253, #257). Earlier ink
+  under the reference's band is ignored; matching ink outside it must
+  reach the minimum pixel count and half the reference's ink. Caret-only
+  frames and unmatched ink outside the band still cannot establish onset.
+
+### Not re-measured
+
+- No figures changed with the glyph-witness fix. Folio's published C06
+  burst figure retains the old rule and its caveat in Report E2, Appendix D,
+  pending a new measurement.
+
 ## [0.10.4] - 2026-11-17
 
 Report E2 times typing in canvas-editor, Docen and WordCraft, the three

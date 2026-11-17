@@ -30,6 +30,25 @@ layer can see; a comparison across layers is a diagnostic, not a ranking.
 implements the Event Timing rules (16 ms floor, 8 ms rounding, INP
 aggregation). `perf/layers/wasm.py` is the C24 operation contract.
 
+### Glyph onset witness
+
+`perf/runner/b2_settle.mjs` measures glyph onset from recorded frames against
+a quiet reference. `classifyRegion()` returns `values`, `ink`, `band`,
+`ink_pixels`, and `regions`; `band` is a per-pixel mask of full-height
+columns that contrast with the local background. These columns and
+full-width changed rows are excluded from ink, but only the columns are
+recorded in `band`.
+
+When a caret is drawn through a glyph after the glyph appears, earlier ink
+under the reference's band is ignored, including its colour. Matching ink
+outside that band must itself reach `minPixels` and half the reference's
+ink. A caret alone cannot establish onset, and unmatched ink outside the
+band still rejects an earlier frame (#253, #257).
+
+This fix does not revise published measurements. Folio's published C06
+burst figure still uses the old rule pending a new measurement; Report E2,
+Appendix D records that limitation.
+
 ### Outcomes
 
 `measured`, `unsupported`, `not_applicable`, `unverified`, `failed`, and
