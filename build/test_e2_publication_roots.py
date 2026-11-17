@@ -1793,3 +1793,24 @@ def test_the_report_says_what_a_witness_round_replaced():
     assert "canvas-editor's, Docen's and WordCraft's cells of the 20 jobs of the warm and cold load lane" in text
     assert "(issue #245)" in text and "the other editors of those jobs stay as measured" in text
     assert perf_e2_tables._witness_round_text({}) == ""
+
+
+def test_a_witness_round_over_a_job_an_editor_round_still_holds_is_accepted(tmp_path):
+    # Found on the real campaign: WordCraft's own round of the warm/cold jobs (#196) is still linked when
+    # the witness round measures those jobs again; the witness job is not one of the jobs it replaced.
+    data, _kept, _third, _canvas = editor_round_data(tmp_path)
+    new = summarize(job(data / "space-a" / "runs" / RID_WITNESS, RID_WITNESS, 12), 1, 2, ["canvas"])
+    manifest = editor_round_manifest()
+    manifest["harness"]["witness_rerun"] = "377b6320"
+    manifest["witness_superseded"] = {"issues": {"245": {
+        "title": "synthetic", "lane": "benchmark_document", "editors": ["canvas"], "jobs": [12]}}}
+    manifest["witness_rerun"] = {"space-a": [{"run_id": RID_WITNESS, "jobs": [12], "editors": ["canvas"],
+                                              "issue": "245"}]}
+    roots_dir = tmp_path / "roots"
+    assert run_roots(data, roots_dir, write_manifest(tmp_path, manifest)) == 0
+    payload = json.loads((roots_dir / "report_e2_runs.json").read_text())
+    from perf.analysis import e2_cells
+    canvas_round = roots_dir / f"space-b--{RID_CANVAS}" / "benchmark_document" / f"{RID_CANVAS}-012"
+    with e2_cells.superseded_cells(payload["superseded_cells"]):
+        assert e2_cells.job_superseded(canvas_round, "canvas") is True
+        assert e2_cells.job_superseded(new, "canvas") is False
