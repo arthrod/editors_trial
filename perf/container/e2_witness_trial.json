@@ -26,5 +26,7 @@
  "runs": [
   "e2-publish-2/20261116T205541853807Z-14424-004283"
  ],
+ "jobs": 7,
+ "sealed": true,
  "harness": "71e32b1a"
 }

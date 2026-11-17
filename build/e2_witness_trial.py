@@ -5,7 +5,8 @@ usage: python3 -I build/e2_witness_trial.py <trial pull dir> [--harness <commit>
 
 A trial (shakedown) run reads the settled-pixel witness as a shadow beside the glyph witness for the
 editors that have glyph outlines. Each such key press that both witnesses timed is compared: do the two
-end on the same frame? The record (default ``perf/container/e2_witness_trial.json``) is what Report E2
+end on the same frame? The pull must hold the whole trial: every run sealed (RUN-DONE), every job folder
+sealed (JOB-DONE) with its samples. A partial pull is refused; one gave a wrong count once. The record (default ``perf/container/e2_witness_trial.json``) is what Report E2
 prints; no figure of this comparison is typed by hand (#255).
 """
 from __future__ import annotations
@@ -19,7 +20,32 @@ RECORD = ROOT / "perf" / "container" / "e2_witness_trial.json"
 SAME_FRAME_MS = 0.01  # both times are frame timestamps: the same frame is the same number
 
 
+class PartialTrial(ValueError):
+    """The pull does not hold the whole trial: a count from it would be wrong (#255)."""
+
+
+def _sealed_jobs(pull: Path) -> int:
+    """Every run is sealed, every job folder is sealed and holds its samples; else PartialTrial."""
+    jobs = 0
+    runs = sorted(path for path in pull.glob("*/runs/*") if path.is_dir())
+    if not runs:
+        raise PartialTrial(f"no run under {pull}")
+    for run in runs:
+        label = f"{run.parents[1].name}/{run.name}"
+        if not (run / "RUN-DONE").exists():
+            raise PartialTrial(f"{label} has no RUN-DONE: the run is not sealed, or the pull is partial")
+        for job in sorted(path for path in (run / "benchmark_warm_cold").glob("*") if path.is_dir()):
+            samples = any((job / "samples").glob("input-*.json"))
+            if samples and not (job / "JOB-DONE").exists():
+                raise PartialTrial(f"{job.name} has samples and no JOB-DONE")
+            if not samples and (job / "JOB-DONE").exists():
+                raise PartialTrial(f"{job.name} is sealed and holds no sample: the pull is partial")
+            jobs += 1 if samples else 0
+    return jobs
+
+
 def compare(pull: Path) -> dict:
+    jobs = _sealed_jobs(pull)
     compared = same = 0
     editors: set[str] = set()
     runs: set[str] = set()
@@ -53,6 +79,8 @@ def compare(pull: Path) -> dict:
                      for (editor, criterion, key), values in sorted(differed.items())],
         "not_compared": not_compared,
         "runs": sorted(runs),
+        "jobs": jobs,
+        "sealed": True,
     }
 
 
@@ -62,7 +90,10 @@ def main() -> int:
     parser.add_argument("--harness", default=None, help="the harness commit of the trial run")
     parser.add_argument("--out", type=Path, default=RECORD)
     args = parser.parse_args()
-    record = compare(args.pull)
+    try:
+        record = compare(args.pull)
+    except PartialTrial as error:
+        parser.error(str(error))
     if not record["compared"]:
         parser.error(f"no key press with both witnesses under {args.pull}")
     if args.harness:

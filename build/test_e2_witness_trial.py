@@ -16,6 +16,8 @@ def sample(root, n, editor, criterion, iteration, glyph, shadow, outcome="measur
            "edit_confirmation": {"witness_page_ms": glyph,
                                  "pixel_settle_shadow": {"match_page_ms": shadow, "failure_reason": refused}}}
     (job / f"input-{n:04d}.json").write_text(json.dumps(row))
+    (job.parent / "JOB-DONE").write_text("")
+    (job.parents[2] / "RUN-DONE").write_text("")
 
 
 def build(tmp_path):
@@ -44,6 +46,31 @@ def test_the_record_counts_only_key_presses_both_witnesses_timed(tmp_path):
                                    "glyph_later_ms": [33.3, 66.7]}]
     assert record["not_compared"] == {"shadow_refused": 1}
     assert record["runs"] == ["space-a/RID"]
+    assert record["jobs"] == 1 and record["sealed"] is True
+
+
+def test_a_pull_with_an_unsealed_job_or_run_is_refused(tmp_path):
+    """CodeRabbit, #255: a partial pull gave the wrong count once; it must not be able to write the record."""
+    import pytest
+    root = build(tmp_path)
+    job = root / "space-a" / "runs" / "RID" / "benchmark_warm_cold" / "RID-000"
+    (job / "JOB-DONE").unlink()
+    with pytest.raises(trial.PartialTrial, match="RID-000 has samples and no JOB-DONE"):
+        trial.compare(root)
+    (job / "JOB-DONE").write_text("")
+    (root / "space-a" / "runs" / "RID" / "RUN-DONE").unlink()
+    with pytest.raises(trial.PartialTrial, match="space-a/RID has no RUN-DONE"):
+        trial.compare(root)
+
+
+def test_a_sealed_run_with_a_job_folder_that_has_no_samples_is_refused(tmp_path):
+    import pytest
+    root = build(tmp_path)
+    empty = root / "space-a" / "runs" / "RID" / "benchmark_warm_cold" / "RID-001"
+    empty.mkdir()
+    (empty / "JOB-DONE").write_text("")
+    with pytest.raises(trial.PartialTrial, match="RID-001 is sealed and holds no sample"):
+        trial.compare(root)
 
 
 def test_the_sentence_is_written_from_the_record():
