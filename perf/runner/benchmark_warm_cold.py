@@ -471,6 +471,19 @@ def _stop_server(proc) -> None:
         os.killpg(proc.pid, signal.SIGKILL)
 
 
+def probe_failure_reason(exc: BaseException) -> str:
+    """The reason recorded when the browser probe fails.
+
+    When the editor's own page reported a load error, that message is the reason, as in the
+    input and document lanes; wrapping the probe's whole stderr made the report print the
+    first line of Node's stack instead (#261).
+    """
+    text = str(exc)
+    if "editor_load_failed:" in text:
+        return "editor_load_failed: %s" % text.split("editor_load_failed:", 1)[-1].strip()[:400]
+    return "browser_probe: %s" % text
+
+
 def _run_browser_probe(
     *,
     target: dict,
@@ -1413,7 +1426,7 @@ def _main() -> int:
                 env=probe_env,
             )
         except Exception as exc:
-            reason = "browser_probe: %s" % (exc,)
+            reason = probe_failure_reason(exc)
             from perf.runner.benchmark_document import gate_length_check_for
 
             gate = gate_length_check_for(editor_id, content_meta)
