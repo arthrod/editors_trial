@@ -9,13 +9,121 @@ re-running the measurement behind it. The format follows
 
 ## [Unreleased]
 
+## [0.10.4] - 2026-11-17
+
+Report E2 times typing in canvas-editor, Docen and WordCraft, the three
+editors that draw their text on a canvas. Their 60 typing cells had no
+figure; 55 now have one.
+
+### Updated
+
+- No editor pin moved, for the reason given under 0.10.1: the jobs are
+  measured again at the pins of 0.10.0, so that the only thing that changed
+  between a cell and the cell it replaces is how the harness ends a typing
+  time.
+
+### Measured
+
+- **Typing in canvas-editor, Docen and WordCraft** (#245, #238). The
+  harness ended a typing time at the frame in which the typed character's
+  own outline showed ink, and these editors draw text where it cannot read
+  an outline. For them it now uses a settled-pixel witness: it records
+  every frame after the key press, takes the picture the caret's line has
+  once it is quiet, leaves out what blinks and the caret's own columns, and
+  ends the time at the first frame that shows that whole change. A time is
+  printed only when the editor also confirms the edit. The report marks
+  these times "(by pixels)".
+- **The round.** The 20 warm and cold load jobs (500 to 250,000 words and
+  the complex document, both seeds) were measured again for those three
+  editors on ten Spaces, at harness `377b6320`: 3,360 key presses, 3,359
+  measured, one refused (canvas-editor, a late anchor frame).
+  `perf/container/e2_publication.json` records it as a witness round
+  (`witness_superseded`, `witness_rerun`); the tables read the new jobs for
+  those editors and no earlier measurement of them in those jobs, so their
+  load figures in that lane are from this round too.
+- **What changed.** Report E2 counts 798 of its cells as reproduced
+  between the two seeds, where it counted 739. The 59 are 55 typing cells
+  (canvas-editor 16, Docen 20, WordCraft 19) and 4 of WordCraft's load
+  cells at 500 and 50,000 words. No cell went the other way. Every new
+  figure is the agreement of two seeds measured on different Spaces; that
+  agreement is the reproduction of each changed cell.
+- **The figures**, typing one character, at 500, 5,000, 50,000 and 250,000
+  words: canvas-editor 68 ms, 351 ms, 3.0 s, 16.5 s; Docen 45 ms, 76 ms,
+  452 ms, 7.3 s; WordCraft 128 ms, 135 ms, 157 ms, 238 ms.
+- **Still without a figure.** canvas-editor's page does not finish opening
+  the complex document in this lane, so its 4 typing cells there stay
+  empty. WordCraft's single-key time on a cold launch at 50,000 words did
+  not reproduce (178 ms and 158 ms) and is printed as such.
+- **Smallest change read.** On the prose documents the smallest change
+  behind a time is 29 pixels (the typed character between the caret's
+  columns) for canvas-editor and Docen and 498 for WordCraft. On the
+  complex document WordCraft's is 17 pixels, one above the floor of 16;
+  the full tables print it beside each cell.
+- **Host load.** One of the 20 jobs (complex document, second seed, second
+  block) had 4 of its 15 launches begin or end above the bound; the
+  report's host-load table names it. Of all 6,676 launches of the report's
+  runs, 310 were above the bound, where 291 of 6,376 had been.
+- **Before the round**, a traced trial run (no part of the figures) read
+  the new witness beside the glyph witness on the six editors that allow
+  both: 368 of 384 key presses ended on the same frame. The 16 that
+  differed were Folio's first key of a burst; frames show the glyph
+  witness ends that key late, on the frame where the caret is drawn again
+  inside the character's outline (#253, not yet corrected; Report E2,
+  Appendix D).
+
+### Added
+
+- `perf/runner/pixel_settle.mjs`, the settled-pixel witness, and its
+  schema, harness and reader checks: the change must reach a floor (16
+  pixels where the editor reports its caret's place, 100 where it does
+  not), touch the caret, and go quiet; a late edit is waited out; the
+  reader re-checks every sample (#245, #248).
+- In a trial run only, a shadow reading of the pixel witness for editors
+  that have glyph outlines, so the two witnesses can be compared.
+- The probe waits for its own mark to leave the screen before it takes a
+  baseline picture and records whether it did (#247).
+- The roots builder knows a witness round: some editors' cells of a lane's
+  jobs measured again after every other round. A witness-round job must
+  record every criterion the cells it replaces recorded (#252).
+- `build/e2_witness_trial.py` reads that trial comparison from the trial's
+  samples into `perf/container/e2_witness_trial.json`, and the report
+  prints its sentence from the record. The draft of this release had the
+  counts typed into the template, and wrong (292 of 304, from a partial
+  read); CodeRabbit's review of #255 asked for them to be generated.
+- A contract test that the clock record the probe writes and the schema
+  the harness validates hold the same keys, compared both ways, and tests
+  that put recorded probe output through the harness's own validation
+  (#250, #251).
+
 ### Fixed
 
+- **The round's first launch measured nothing, and that was our error.**
+  A field was added to the probe's clock record after the trial run, the
+  schema refused it, and every sample of the first launch (harness
+  `5afe3ea6`) was refused as `witness_schema_invalid`. The launch was
+  stopped, the field removed and the contract test
+  above added (#250). The manifest does not name that launch's runs, and no
+  figure comes from them.
+- Docen keeps its focused input where the page was clicked until a key is
+  pressed; on the complex document the witness band was aimed at the
+  click and missed the caret's line. The band now follows the caret to
+  the line it moved to (#251).
+- The ">= 100 pixels" rule first proposed for these editors counted the
+  harness's own mark in the corner of the screen; it was withdrawn before
+  any figure used it (#247).
 - The release gate's check of Report E2's Appendix J looks for a refused
   round's reason in that round's own clause, so two rounds that recorded
   different reasons cannot be swapped unnoticed; and the test of a host
   round older than a first-pass job now fails without that comparison
   (#241). No figure and no sentence of a report changes.
+
+### Not re-measured
+
+- Every other editor, lane and report. The six editors with glyph
+  outlines keep their typing figures of 0.10.3, taken with the glyph
+  witness; their facts gained two descriptive fields and no value changed.
+- Folio's burst-typing figure is not corrected for #253.
+- Search and replace is still not measured for any editor.
 
 ## [0.10.3] - 2026-11-16
 
