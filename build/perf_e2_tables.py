@@ -7,6 +7,7 @@ runs must agree (``reproduced``, abs_tol = witnessed frame interval).
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 from collections import Counter
@@ -956,6 +957,15 @@ def _ms_span(low: float, high: float) -> str:
     return "%s to %s" % (one(low), one(high))
 
 
+WITNESS_TRIAL_RECORD = Path(__file__).resolve().parent.parent / "perf" / "container" / "e2_witness_trial.json"
+
+
+def witness_trial_record(path: Path | None = None) -> dict | None:
+    """The recorded comparison written by ``build/e2_witness_trial.py``; None when there is none."""
+    path = path or WITNESS_TRIAL_RECORD
+    return json.loads(path.read_text()) if path.exists() else None
+
+
 def witness_trial_text(record: dict | None) -> str:
     """The trial comparison of the settled-pixel witness with the glyph witness (#245), from its record."""
     if not record or not record.get("compared"):
@@ -1154,7 +1164,7 @@ def unset_facts() -> dict:
         "perf.e2.provenance": "Per-Space provenance not supplied.",
         "perf.e2.reruns": reruns_text(None),
         "perf.e2.table.TYPING": "not in these runs.",
-        "perf.e2.witness_trial": witness_trial_text(None),
+        "perf.e2.witness_trial": witness_trial_text(witness_trial_record()),
         "perf.e2.word_verification": WORD_VERIFICATION,
         "perf.e2.measured": "not yet measured",
         "perf.e2.status": "This report is not yet measured.",
@@ -1277,6 +1287,7 @@ def _facts_from_roots(roots) -> dict:
     facts: dict = {
         "perf.e2.provenance": "Per-Space provenance not supplied.",
         "perf.e2.table.TYPING": "not in these runs.",
+        "perf.e2.witness_trial": witness_trial_text(witness_trial_record()),
         "perf.e2.word_verification": WORD_VERIFICATION,
         "perf.e2.measured": "measured",
         "perf.e2.status": "",

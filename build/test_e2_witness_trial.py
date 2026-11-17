@@ -70,3 +70,10 @@ def test_differences_that_are_not_one_key_of_one_editor_are_listed_not_summarise
     text = E2.witness_trial_text(record)
     assert "The 3 that differed: Folio, C06, key 1 of its launch, 2 (glyph witness 33 to 50 ms later)" in text
     assert "Plate.js, C05, key 1 of its launch, 1 (glyph witness 17 ms earlier)" in text
+
+
+def test_every_facts_path_carries_the_sentence_from_the_repository_record(tmp_path):
+    assert E2.witness_trial_record(tmp_path / "absent.json") is None
+    record = E2.witness_trial_record()
+    assert E2.unset_facts()["perf.e2.witness_trial"] == E2.witness_trial_text(record)
+    assert "%s of %s key presses" % (record["same_frame"], record["compared"]) in E2.unset_facts()["perf.e2.witness_trial"]
