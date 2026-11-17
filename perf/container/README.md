@@ -231,3 +231,48 @@ treat the VM as fragile.
    in the container image or the checkout — and `BUCKET_EXCLUDES` keeps
    builds, fixtures, `repos/`, and `.docx` inputs out of the bucket. The
    periodic SSH from `pull.sh` still serves as a Dev Mode keepalive.
+
+
+## Report E2 witness rounds (#245, #252)
+
+`build/e2_publication_roots.py` builds publication roots from the local mirror
+and `perf/container/e2_publication.json`. A witness round measures selected
+editors of a lane again after all earlier rounds, including the host round.
+It keeps the earlier links for the other editors; `report_e2_runs.json` records
+`superseded_cells` so the reader skips every earlier measurement of the affected
+editors' cells in those jobs. Each witness entry keeps only its issue's witness
+runs. This replaces all recorded criteria of those editors in those jobs, not
+just typing.
+
+To declare a witness round in the publication manifest:
+
+- Set `harness.witness_rerun` to the harness commit used for the round.
+- Add `witness_superseded.issues["<issue number>"]` with `lane`, a nonempty
+  list of unique editor ids in `editors`, and unique job indices in `jobs`.
+  The lane must be one of `benchmark_document`, `benchmark_input`,
+  `benchmark_memory`, `benchmark_warm_cold`, or `adversarial_c10_scroll`.
+- Add entries under `witness_rerun["<space>"]`, each naming `run_id`, `issue`
+  (the issue number as a string), `jobs`, and the same `editors` as its issue.
+  Each issue's jobs must be measured exactly once, with no stopped jobs;
+  two issues cannot claim the same editor and job.
+- Launch witness runs after every earlier run of the replaced jobs. Each sealed
+  witness job must use the issue's lane, schedule exactly its editors, preserve
+  the earlier jobs' seed and block, and record every criterion previously
+  recorded for each replaced editor.
+
+Build into a fresh, empty directory (the mirror layout is
+`<space>/runs/<run id>/<lane>/<job>`):
+
+```bash
+python3 build/e2_publication_roots.py /path/to/mirror /path/to/new-roots
+```
+
+`--manifest /path/to/manifest.json` selects another manifest. `--partial`
+allows absent runs and counts them; it does not establish complete publication
+evidence. Campaign metadata includes `witness_rounds`, `witness_rerun_kept`,
+and `witness_rerun_unsealed`. The generated round history names the editors,
+lane, issue and job count, explains which earlier cells are replaced, and
+includes unsealed witness jobs in the total left out.
+
+The feature alone adds no measurements: the release PR supplies the real
+manifest entries and figures.
