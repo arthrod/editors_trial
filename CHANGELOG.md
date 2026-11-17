@@ -227,7 +227,7 @@ this release: every figure comes from the runs of 0.10.0.
 
 - **B8, "CPU settling after the edit" is now "CPU per second while
   settling"** (#226). The wait it covers ends at the first half-second poll
-  at which two seconds have passed without a long task; in these runs it
+  at which two seconds have passed without a long task; in these runs,
   the readings taken during it spanned 0.1 s to 5.6 s, and the column was a
   total over them. Each launch's processor time is now divided by the span
   from its first to its last such reading, read from the samples already
