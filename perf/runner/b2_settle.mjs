@@ -63,7 +63,9 @@ export function classifyRegion(pixels, baseline, rects, dpr, doc, tolerance = 8)
  * F ink pixel present in the reference and its colour within tolerance. Every
  * later frame through the reference must retain that property (no regression).
  * Ink of F in a column that is a full-height band in the reference (an occluding
- * caret drawn after the glyph, issue #253) is not required of the reference.
+ * caret drawn after the glyph, issue #253) is not required of the reference, and
+ * does not count: F's ink outside that band must itself reach minPixels and half
+ * the reference's ink.
  * A disappearing qualifying glyph before quiet proof refuses; unrelated or
  * sub-half transient decoys cannot veto the eventual glyph reference.
  * A modal-colour glyph followed only by a mark <25% of its expected ink refuses.
@@ -144,10 +146,19 @@ export function settleFrames(frames, {quietMs=300,maxWaitMs=3000,markerMs=0,minP
     if(f.ink_pixels<minPixels || f.ink_pixels<ref.ink_pixels/2) return false;
     // Legacy scalar classifications are accepted only by full-image equality.
     if(!f.ink || !ref.ink) return matches(f,ref);
+    if(f.ink.length!==ref.ink.length) return false;
     // A full-height band of the reference (a caret the editor drew again through the glyph, #253)
     // hides what was under it: the earlier frame's ink in those columns is not held against it.
-    return f.ink.length===ref.ink.length && f.ink.every((v,k)=>!v || (ref.band && ref.band[k]) ||
-      (ref.ink[k] && [0,1,2].every(c=>Math.abs(f.values[k*3+c]-ref.values[k*3+c])<=tolerance)));
+    // Nor does it count for it: the ink that proves the glyph is the ink outside the band, and
+    // that alone must reach the floor and half the reference's ink (GLM's review of #257: a
+    // frame holding only a partial caret in that column would otherwise pass as the glyph).
+    let proven=0;
+    for(let k=0;k<f.ink.length;k++) {
+      if(!f.ink[k] || (ref.band && ref.band[k])) continue;
+      if(!(ref.ink[k] && [0,1,2].every(c=>Math.abs(f.values[k*3+c]-ref.values[k*3+c])<=tolerance))) return false;
+      proven++;
+    }
+    return !ref.band || (proven>=minPixels && proven>=ref.ink_pixels/2);
   };
   let sparse=false;
   let sparseReason=null;

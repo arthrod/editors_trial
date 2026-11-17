@@ -587,3 +587,21 @@ test('ink that the reference does not hold, outside its caret band, still refuse
   const r = settle(frames(dense, t => t < 80 ? blank : t < 160 ? stray() : glyphWithCaret(column)));
   assert.equal(r?.page_ms, 160);
 });
+
+// GLM's review of #257: ink that sits only in the reference's caret band must not count as the glyph.
+function partialCaret(column, withGlyph) {
+  const p = pixels([255,255,255], withGlyph);
+  for (let y = 1; y < rect.height - 1; y++) { const o = (y * rect.width + column) * 4; p.data[o] = 0; p.data[o+1] = 0; p.data[o+2] = 0; }
+  return p;
+}
+test('a partial caret alone, before the glyph, is not the glyph\'s onset (#253, review)', () => {
+  const column = inkColumns()[0];
+  // 80: a caret that is not full height (ink, not a band); 160: glyph with the full caret through it.
+  const r = settle(frames(dense, t => t < 80 ? blank : t < 160 ? partialCaret(column, false) : glyphWithCaret(column)));
+  assert.equal(r?.page_ms, 160);
+});
+test('a partial caret, then blank, then the glyph still measures at the glyph (#253, review)', () => {
+  const column = inkColumns()[0];
+  const r = settle(frames(dense, t => t < 40 ? blank : t < 60 ? partialCaret(column, false) : t < 80 ? blank : glyphWithCaret(column)));
+  assert.equal(r?.page_ms, 80);
+});
