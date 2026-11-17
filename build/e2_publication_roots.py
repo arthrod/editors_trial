@@ -744,6 +744,10 @@ def _check_editor_round_data(roots_dir: Path, manifest: dict, errors: list[str])
         if summary is None:
             errors.append(f"editor-round job {path.name} has no readable summary.json")
             continue
+        # #222: a sealed job whose schedule names none of its entry's editors measured nothing for them.
+        unscheduled = sorted(new_runs[run_id] - _scheduled_editors(summary))
+        if unscheduled and (path / "JOB-DONE").exists():
+            errors.append(f"editor-round job {path.name} does not schedule {unscheduled}, which its entry names")
         extra = sorted(_scheduled_editors(summary) - new_runs[run_id])
         if extra:
             errors.append(f"editor-round job {path.name} measured {extra} beyond its entry's editors "
@@ -761,6 +765,15 @@ def _check_editor_round_data(roots_dir: Path, manifest: dict, errors: list[str])
             if summary.get(key) != before.get(key):
                 errors.append(f"editor-round job {path.name} has {key} {summary.get(key)!r}; the job it replaces, "
                               f"{replaced[0][1].name}, has {before.get(key)!r}")
+        # #222: for an issue without "criteria" the reader leaves every old cell of the editor unread, so
+        # each criterion the replaced job recorded for the editor must be recorded again.
+        for editor in sorted(new_runs[run_id]):
+            if issue_criteria.get((editor, index)):
+                continue
+            lost = sorted(_job_criteria(replaced[0][1], editor) - _job_criteria(path, editor))
+            if lost:
+                errors.append(f"editor-round job {path.name} records no {lost} for {editor}, which the job it "
+                              f"replaces, {replaced[0][1].name}, measured")
 
 
 def _check_extension(data: Path, manifest: dict, errors: list[str]) -> None:
@@ -1013,6 +1026,23 @@ def build_roots(data: Path, roots_dir: Path, manifest: dict) -> tuple[list[str],
                 stray = sorted(set(entry["jobs"]) - earlier)
                 if stray:
                     errors.append(f"{name} jobs {stray} of {space}/{entry['run_id']} supersede no {of} job")
+    # #222: these rounds are linked Space by Space of the first pass; an entry on any other Space would be
+    # neither linked nor counted as missing.
+    for round_key in ("rerun", "rerun2", "rerun3", "editor_rerun", "extension", "late_rerun"):
+        for space in sorted(set(manifest.get(round_key, {})) - set(manifest["first_pass"])):
+            errors.append(f"{round_key} names Space {space}, which is not a first-pass Space: its runs would "
+                          f"not be linked")
+    # #222: the first re-run round covers exactly the superseded jobs, as the later rounds do theirs.
+    rerun_jobs: set[int] = set()
+    for space, entries in sorted(manifest.get("rerun", {}).items()):
+        for entry in entries:
+            stray = sorted(set(entry["jobs"]) - superseded)
+            if stray:
+                errors.append(f"re-run jobs {stray} of {space}/{entry['run_id']} supersede no first-pass job")
+            rerun_jobs |= set(entry["jobs"])
+    uncovered = sorted(superseded - rerun_jobs)
+    if uncovered:
+        errors.append(f"superseded jobs {uncovered} were not measured again by the re-run round")
     # The lane round (#208): linked for every Space that ran it, a first-pass Space or not.
     for space in sorted(manifest.get("lane_rerun", {})):
         _link_round(data, roots_dir, space, manifest["lane_rerun"][space], "lane_rerun", set(),

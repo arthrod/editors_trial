@@ -119,6 +119,7 @@ def test_a_rerun_job_not_yet_sealed_or_mirrored_counts_unsealed(tmp_path):
     data, *_ = build_data(tmp_path)
     manifest_data = synthetic_manifest()
     manifest_data["rerun"]["space-a"][0]["jobs"] = [10, 11]
+    manifest_data["superseded"]["issues"]["999"]["jobs"] = [10, 11]  # #222
     unsealed = job(data / "space-a" / "runs" / RID_RERUN, RID_RERUN, 11, lane="benchmark_input", sealed=False)
     manifest = write_manifest(tmp_path, manifest_data)
     roots_dir = tmp_path / "roots"
@@ -130,6 +131,7 @@ def test_a_rerun_job_not_yet_sealed_or_mirrored_counts_unsealed(tmp_path):
     import shutil
     shutil.rmtree(unsealed)
     manifest_data["rerun"]["space-a"][0]["jobs"] = [10, 12]  # declared, absent entirely
+    manifest_data["superseded"]["issues"]["999"]["jobs"] = [10, 12]  # #222
     manifest.write_text(json.dumps(manifest_data))
     roots_dir = tmp_path / "roots-2"  # a used roots dir is refused
     assert run_roots(data, roots_dir, manifest) == 0
@@ -307,6 +309,7 @@ RID_RERUN2 = "20261113T170000000000Z-30000-000004"
 def second_round_manifest():
     manifest = synthetic_manifest()
     manifest["rerun"]["space-a"][0]["jobs"] = [10, 12]
+    manifest["superseded"]["issues"]["999"]["jobs"] = [10, 12]  # #222: the re-run covers exactly these
     manifest["rerun_superseded"] = {
         "issues": {"998": {"title": "synthetic round 2", "lane": "benchmark_document", "jobs": [12]}}
     }
@@ -927,6 +930,7 @@ def memory_round(tmp_path, *, other_workload):
     _attempt(old64, "canvas", other_workload)
     new66 = summarize(job(data / "space-b" / "runs" / RID_MEM, RID_MEM, 66, lane="benchmark_memory"), 1, 1,
                       ["canvas"])
+    _attempt(new66, "canvas", "prose-250kw")  # #222: the round records what the job it replaces recorded
     manifest = editor_round_manifest()
     manifest["editor_superseded"]["issues"]["194"] = {
         "title": "synthetic memory round", "lane": "benchmark_memory", "editor": "canvas", "jobs": [66],
@@ -1837,3 +1841,55 @@ def test_a_witness_issue_with_a_malformed_editor_list_is_reported_not_raised(tmp
     def change(manifest):
         manifest["witness_superseded"]["issues"]["245"]["editors"] = [["canvas"]]
     witness_refused(tmp_path, capsys, change, "is not a list of editor ids")
+
+
+# --- #222: four manifests the builder accepted and should refuse (CodeRabbit on #218) -------------------------
+
+
+def test_222_an_unscoped_editor_round_that_records_fewer_criteria_is_refused(tmp_path, capsys):
+    """The reader leaves the editor's old cells of the job unread: a criterion not measured again is lost."""
+    data, kept, third, canvas = editor_round_data(tmp_path)
+    _cell_summary(kept, "canvas", "C11", "C12", "C15")
+    _cell_summary(canvas[0], "canvas", "C11")
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, editor_round_manifest())) != 0
+    assert "records no ['C12', 'C15'] for canvas" in capsys.readouterr().err
+
+
+def test_222_an_unscoped_editor_round_with_the_same_criteria_is_kept(tmp_path):
+    data, kept, third, canvas = editor_round_data(tmp_path)
+    _cell_summary(kept, "canvas", "C11", "C12")
+    _cell_summary(kept, "plate", "C11", "C15")  # another editor's criteria are not the round's
+    _cell_summary(canvas[0], "canvas", "c11", "C12")
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, editor_round_manifest())) == 0
+
+
+def test_222_a_sealed_editor_round_job_that_schedules_none_of_its_editors_is_refused(tmp_path, capsys):
+    data, *_ = editor_round_data(tmp_path, canvas_editors=())
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, editor_round_manifest())) != 0
+    assert "does not schedule ['canvas']" in capsys.readouterr().err
+
+
+def test_222_a_round_entry_on_a_space_outside_the_first_pass_is_refused(tmp_path, capsys):
+    data, *_ = editor_round_data(tmp_path)
+    manifest = editor_round_manifest()
+    manifest["editor_rerun"]["space-q"] = [{"run_id": "20261114T020000000000Z-50000-000010", "jobs": [4],
+                                            "editors": ["canvas"]}]
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+    assert "editor_rerun names Space space-q, which is not a first-pass Space" in capsys.readouterr().err
+
+
+def test_222_a_first_rerun_round_that_does_not_cover_the_superseded_jobs_is_refused(tmp_path, capsys):
+    data, *_ = build_data(tmp_path)
+    manifest = synthetic_manifest()
+    manifest["superseded"]["issues"]["999"]["jobs"] = [10, 11]
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+    assert "superseded jobs [11] were not measured again by the re-run round" in capsys.readouterr().err
+
+
+def test_222_a_first_rerun_round_job_that_supersedes_nothing_is_refused(tmp_path, capsys):
+    data, *_ = build_data(tmp_path)
+    job(data / "space-a" / "runs" / RID_RERUN, RID_RERUN, 4, lane="benchmark_input")
+    manifest = synthetic_manifest()
+    manifest["rerun"]["space-a"][0]["jobs"] = [4, 10]
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+    assert "re-run jobs [4] of space-a/" in capsys.readouterr().err
