@@ -65,7 +65,7 @@ figure; 55 now have one.
   runs, 310 were above the bound, where 291 of 6,376 had been.
 - **Before the round**, a traced trial run (no part of the figures) read
   the new witness beside the glyph witness on the six editors that allow
-  both: 292 of 304 key presses ended on the same frame. The 12 that
+  both: 368 of 384 key presses ended on the same frame. The 16 that
   differed were Folio's first key of a burst; frames show the glyph
   witness ends that key late, on the frame where the caret is drawn again
   inside the character's outline (#253, not yet corrected; Report E2,
@@ -85,6 +85,11 @@ figure; 55 now have one.
 - The roots builder knows a witness round: some editors' cells of a lane's
   jobs measured again after every other round. A witness-round job must
   record every criterion the cells it replaces recorded (#252).
+- `build/e2_witness_trial.py` reads that trial comparison from the trial's
+  samples into `perf/container/e2_witness_trial.json`, and the report
+  prints its sentence from the record. The draft of this release had the
+  counts typed into the template, and wrong (292 of 304, from a partial
+  read); CodeRabbit's review of #255 asked for them to be generated.
 - A contract test that the clock record the probe writes and the schema
   the harness validates hold the same keys, compared both ways, and tests
   that put recorded probe output through the harness's own validation

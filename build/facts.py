@@ -380,6 +380,9 @@ def perf_e2_facts(path: Path, facts: dict) -> None:
         for key, value in runs["campaign"].items():
             facts[f"perf.e2.campaign.{key}"] = value
         facts["perf.e2.reruns"] = perf_e2_tables.reruns_text(runs["campaign"])
+    trial = ROOT / "perf" / "container" / "e2_witness_trial.json"
+    facts["perf.e2.witness_trial"] = perf_e2_tables.witness_trial_text(
+        json.loads(trial.read_text()) if trial.exists() else None)
 
 
 def count_facts(facts: dict) -> None:

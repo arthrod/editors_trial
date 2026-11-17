@@ -946,6 +946,39 @@ WITNESS_ROUND_REASONS = {
 }
 
 
+def _ms_span(low: float, high: float) -> str:
+    def one(value: float) -> str:
+        return "%d ms %s" % (round(abs(value)), "later" if value > 0 else "earlier")
+    if round(low) == round(high):
+        return one(low)
+    if low > 0 and high > 0:
+        return "%d to %d ms later" % (round(low), round(high))
+    return "%s to %s" % (one(low), one(high))
+
+
+def witness_trial_text(record: dict | None) -> str:
+    """The trial comparison of the settled-pixel witness with the glyph witness (#245), from its record."""
+    if not record or not record.get("compared"):
+        return "The trial comparison of the two witnesses is not recorded."
+    editors = record.get("editors") or []
+    text = ("Before the witness was used, a trial run (traced, and no part of the figures) read it beside the glyph "
+            "witness on the %d editor%s that ha%s glyph geometry: on %s of %s key presses the two ended on the same "
+            "frame." % (len(editors), "" if len(editors) == 1 else "s", "s" if len(editors) == 1 else "ve",
+                        f"{record['same_frame']:,}", f"{record['compared']:,}"))
+    differed = record.get("differed") or []
+    if not differed:
+        return text
+    total = sum(entry["count"] for entry in differed)
+    if len(differed) == 1 and differed[0]["criterion"] == "C06" and differed[0]["key"] == 0:
+        entry = differed[0]
+        return text + " The %d that differed were all %s's first key of a burst, where the glyph witness ended %s." % (
+            total, E2_DISPLAY.get(entry["editor"], entry["editor"]), _ms_span(*entry["glyph_later_ms"]))
+    rows = ["%s, %s, key %d of its launch, %d (glyph witness %s)" % (
+        E2_DISPLAY.get(entry["editor"], entry["editor"]), entry["criterion"], entry["key"] + 1, entry["count"],
+        _ms_span(*entry["glyph_later_ms"])) for entry in differed]
+    return text + " The %d that differed: %s." % (total, "; ".join(rows))
+
+
 def _witness_round_text(campaign: dict) -> str:
     """A witness round (#245): some editors' cells of a lane's jobs measured again after every other round."""
     text = ""
@@ -1121,6 +1154,7 @@ def unset_facts() -> dict:
         "perf.e2.provenance": "Per-Space provenance not supplied.",
         "perf.e2.reruns": reruns_text(None),
         "perf.e2.table.TYPING": "not in these runs.",
+        "perf.e2.witness_trial": witness_trial_text(None),
         "perf.e2.word_verification": WORD_VERIFICATION,
         "perf.e2.measured": "not yet measured",
         "perf.e2.status": "This report is not yet measured.",
