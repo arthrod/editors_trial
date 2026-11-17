@@ -1678,3 +1678,162 @@ def test_a_later_first_pass_run_that_holds_none_of_the_host_jobs_does_not_matter
     manifest = host_manifest()
     manifest["first_pass"]["space-c"] = RID_LATER_FIRST
     assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) == 0
+
+
+# #245: a witness round measures some editors' cells of a lane's jobs again after every other round, the
+# host round included: the harness learned to time what it refused before. The other editors of those jobs
+# stay as measured, and every earlier measurement of those editors' cells of those jobs is left unread.
+
+RID_WITNESS = "20261117T010000000000Z-80000-000041"
+
+
+def witness_manifest():
+    manifest = host_manifest()
+    manifest["harness"]["witness_rerun"] = "e85bfa85"
+    manifest["witness_superseded"] = {"issues": {"245": {
+        "title": "synthetic witness round", "lane": "benchmark_document", "editors": ["canvas"], "jobs": [4]}}}
+    manifest["witness_rerun"] = {"space-b": [{"run_id": RID_WITNESS, "jobs": [4], "editors": ["canvas"],
+                                              "issue": "245"}]}
+    return manifest
+
+
+def witness_data(tmp_path, *, seed=1, block=1, editors=("canvas",), lane="benchmark_document", rid=RID_WITNESS):
+    data, host = host_data(tmp_path)
+    new = summarize(job(data / "space-b" / "runs" / rid, rid, 4, lane=lane), seed, block, list(editors))
+    return data, host, new
+
+
+def test_a_witness_round_is_read_for_its_editors_and_the_host_round_for_the_others(tmp_path):
+    data, host, new = witness_data(tmp_path)
+    roots_dir = tmp_path / "roots"
+    assert run_roots(data, roots_dir, write_manifest(tmp_path, witness_manifest())) == 0
+    payload = json.loads((roots_dir / "report_e2_runs.json").read_text())
+    assert sorted(linked(roots_dir)[4]) == [RID_HOST, RID_WITNESS]
+    cells = {entry["issue"]: entry for entry in payload["superseded_cells"]}
+    assert cells["245"] == {"issue": "245", "editor": "canvas", "jobs": [4], "kept_runs": [RID_WITNESS]}
+    # An earlier editor round's entry must not drop the witness round's cells.
+    assert all(RID_WITNESS in entry["kept_runs"] for entry in payload["superseded_cells"])
+    campaign = payload["campaign"]
+    assert campaign["witness_rerun_kept"] == 1 and campaign["witness_rerun_unsealed"] == 0
+    assert campaign["witness_rounds"] == [
+        {"issue": "245", "lane": "benchmark_document", "editors": ["canvas"], "jobs": 1, "kept": 1}]
+    # The reader: canvas-editor's cells come from the witness round alone, the other editor's from the host round.
+    from perf.analysis import e2_cells
+    with e2_cells.superseded_cells(payload["superseded_cells"]):
+        assert e2_cells.job_superseded(host, "canvas") is True
+        assert e2_cells.job_superseded(new, "canvas") is False
+        assert e2_cells.job_superseded(host, "plate") is False
+
+
+def witness_refused(tmp_path, capsys, change, message, **data_kw):
+    data, _host, _new = witness_data(tmp_path, **data_kw)
+    manifest = witness_manifest()
+    change(manifest)
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, manifest)) != 0
+    assert message in capsys.readouterr().err
+
+
+def test_a_witness_round_needs_its_harness_commit(tmp_path, capsys):
+    witness_refused(tmp_path, capsys, lambda m: m["harness"].pop("witness_rerun"), "harness.witness_rerun")
+
+
+def test_a_witness_superseded_job_nobody_measured_again_is_an_error(tmp_path, capsys):
+    def change(manifest):
+        manifest["witness_superseded"]["issues"]["245"]["jobs"] = [4, 10]
+    witness_refused(tmp_path, capsys, change, "are not measured again exactly once")
+
+
+def test_a_witness_round_entry_names_the_editors_of_its_issue(tmp_path, capsys):
+    def change(manifest):
+        manifest["witness_rerun"]["space-b"][0]["editors"] = ["canvas", "plate"]
+    witness_refused(tmp_path, capsys, change, "names editors ['canvas', 'plate']; its issue names ['canvas']")
+
+
+def test_a_witness_round_entry_names_its_issue(tmp_path, capsys):
+    witness_refused(tmp_path, capsys, lambda m: m["witness_rerun"]["space-b"][0].pop("issue"),
+                    "names no witness_superseded issue")
+
+
+def test_a_witness_round_launched_before_a_round_it_replaces_is_refused(tmp_path, capsys):
+    older = "20261115T010000000000Z-80000-000041"
+
+    def change(manifest):
+        manifest["witness_rerun"]["space-b"][0]["run_id"] = older
+    witness_refused(tmp_path, capsys, change, "was launched before", rid=older)
+
+
+def test_a_witness_round_job_with_another_seed_is_refused(tmp_path, capsys):
+    witness_refused(tmp_path, capsys, lambda m: None, "has seed 2", seed=2)
+
+
+def test_a_witness_round_job_with_another_block_is_refused(tmp_path, capsys):
+    witness_refused(tmp_path, capsys, lambda m: None, "has block {'index': 2", block=2)
+
+
+def test_a_witness_round_job_that_measured_other_editors_is_refused(tmp_path, capsys):
+    witness_refused(tmp_path, capsys, lambda m: None, "schedules ['canvas', 'plate']; its issue names ['canvas']",
+                    editors=("canvas", "plate"))
+
+
+def test_a_witness_round_job_in_another_lane_is_refused(tmp_path, capsys):
+    witness_refused(tmp_path, capsys, lambda m: None, "is in lane benchmark_input", lane="benchmark_input")
+
+
+def test_a_run_listed_in_two_rounds_is_refused_for_a_witness_round_too(tmp_path, capsys):
+    def change(manifest):
+        manifest["witness_rerun"]["space-b"][0]["run_id"] = RID_HOST
+    witness_refused(tmp_path, capsys, change, "runs listed more than once")
+
+
+def test_the_report_says_what_a_witness_round_replaced():
+    import perf_e2_tables
+    text = perf_e2_tables._witness_round_text({"witness_rounds": [
+        {"issue": "245", "lane": "benchmark_warm_cold", "editors": ["canvas", "docen", "wordcraft"], "jobs": 20,
+         "kept": 20}]})
+    assert "canvas-editor's, Docen's and WordCraft's cells of the 20 jobs of the warm and cold load lane" in text
+    assert "(issue #245)" in text and "the other editors of those jobs stay as measured" in text
+    assert perf_e2_tables._witness_round_text({}) == ""
+
+
+def test_a_witness_round_over_a_job_an_editor_round_still_holds_is_accepted(tmp_path):
+    # Found on the real campaign: WordCraft's own round of the warm/cold jobs (#196) is still linked when
+    # the witness round measures those jobs again; the witness job is not one of the jobs it replaced.
+    data, _kept, _third, _canvas = editor_round_data(tmp_path)
+    new = summarize(job(data / "space-a" / "runs" / RID_WITNESS, RID_WITNESS, 12), 1, 2, ["canvas"])
+    manifest = editor_round_manifest()
+    manifest["harness"]["witness_rerun"] = "377b6320"
+    manifest["witness_superseded"] = {"issues": {"245": {
+        "title": "synthetic", "lane": "benchmark_document", "editors": ["canvas"], "jobs": [12]}}}
+    manifest["witness_rerun"] = {"space-a": [{"run_id": RID_WITNESS, "jobs": [12], "editors": ["canvas"],
+                                              "issue": "245"}]}
+    roots_dir = tmp_path / "roots"
+    assert run_roots(data, roots_dir, write_manifest(tmp_path, manifest)) == 0
+    payload = json.loads((roots_dir / "report_e2_runs.json").read_text())
+    from perf.analysis import e2_cells
+    canvas_round = roots_dir / f"space-b--{RID_CANVAS}" / "benchmark_document" / f"{RID_CANVAS}-012"
+    with e2_cells.superseded_cells(payload["superseded_cells"]):
+        assert e2_cells.job_superseded(canvas_round, "canvas") is True
+        assert e2_cells.job_superseded(new, "canvas") is False
+
+
+def test_a_witness_round_job_must_measure_the_criteria_of_the_cells_it_replaces(tmp_path, capsys):
+    """CodeRabbit, #252: the reader leaves the editor's earlier cells unread; a criterion not measured again is lost."""
+    data, host, new = witness_data(tmp_path)
+    _cell_summary(host, "canvas", "C05", "C11")
+    _cell_summary(new, "canvas", "C05")
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, witness_manifest())) != 0
+    assert "records no ['C11'] for canvas" in capsys.readouterr().err
+
+
+def test_a_witness_round_job_with_the_same_criteria_is_kept(tmp_path):
+    data, host, new = witness_data(tmp_path)
+    _cell_summary(host, "canvas", "C05", "C11")
+    _cell_summary(host, "plate", "C05", "C14")  # another editor's criteria are not the round's
+    _cell_summary(new, "canvas", "c05", "C11")
+    assert run_roots(data, tmp_path / "roots", write_manifest(tmp_path, witness_manifest())) == 0
+
+
+def test_a_witness_issue_with_a_malformed_editor_list_is_reported_not_raised(tmp_path, capsys):
+    def change(manifest):
+        manifest["witness_superseded"]["issues"]["245"]["editors"] = [["canvas"]]
+    witness_refused(tmp_path, capsys, change, "is not a list of editor ids")
