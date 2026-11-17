@@ -1772,3 +1772,79 @@ def test_run_done_nonzero_when_last_job_campaign_meta_raises(tmp_path, monkeypat
     done = (campaign / 'RUN-DONE').read_text()
     assert 'exit_status=1' in done
     assert any('runner_b' in line and 'ENOSPC' in line for line in done.splitlines() if line.startswith('failure='))
+
+
+# --- #212: a file the Space removed after it was pulled must not block FINAL-VERIFIED ---------------------
+
+
+def _gone_file_run(remote_root, run_id):
+    """A job whose raw trace was pulled while it existed, then removed by the runner before the seal."""
+    from perf.container import artifacts
+
+    job_rel = f'runs/{run_id}/benchmark_warm_cold/{run_id}-000'
+    job = remote_root / job_rel
+    job.mkdir(parents=True)
+    (job / 'summary.json').write_text('{}')
+    (job / 'trace-reflow.json').write_text('raw trace')
+    return job_rel, job, artifacts
+
+
+def test_a_file_removed_before_the_seal_is_moved_aside_and_the_run_verifies(remote_root, tmp_path, capsys):
+    from perf.container import pull as pull_mod
+
+    run_id = '20260101T000000000212Z'
+    job_rel, job, artifacts = _gone_file_run(remote_root, run_id)
+    dest = tmp_path / 'dest'
+    transport = local_transport(remote_root)
+    pull_mod.pull_cycle(transport, remote_root, dest)                 # fetched while the raw file existed
+    assert (dest / job_rel / 'trace-reflow.json').read_text() == 'raw trace'
+    (job / 'trace-reflow.json').unlink()                              # the runner compressed it and removed it
+    (job / 'trace-reflow.json.gz').write_text('gz')
+    artifacts.finalize_job(job, 0)
+    (remote_root / 'runs' / run_id / 'RUN-DONE').write_text('exit_status=0\n')
+    capsys.readouterr()
+    code = pull_mod.pull_until(transport, remote_root, dest, run_id, interval=0, max_cycles=4)
+    out = capsys.readouterr().out.splitlines()
+    assert code == 0 and out[-1].startswith(f'FINAL-VERIFIED {run_id} ')
+    assert not (dest / job_rel / 'trace-reflow.json').exists()
+    assert (dest / '.pull-gone' / job_rel / 'trace-reflow.json').read_text() == 'raw trace'   # never deleted
+
+
+def test_a_gone_file_the_sealed_manifest_lists_stays_where_it_is(remote_root, tmp_path):
+    """The older rule holds: the pull never removes a measured file the remote lost."""
+    from perf.container import artifacts, pull as pull_mod
+
+    run_id = '20260101T000000000213Z'
+    job_rel = f'runs/{run_id}/benchmark_warm_cold/{run_id}-000'
+    job = remote_root / job_rel
+    job.mkdir(parents=True)
+    (job / 'keep.txt').write_text('precious')
+    artifacts.finalize_job(job, 0)
+    dest = tmp_path / 'dest'
+    transport = local_transport(remote_root)
+    pull_mod.pull_cycle(transport, remote_root, dest)
+    (job / 'keep.txt').unlink()
+    pull_mod.pull_cycle(transport, remote_root, dest)
+    assert (dest / job_rel / 'keep.txt').read_text() == 'precious'
+    assert not (dest / '.pull-gone').exists()
+
+
+def test_a_manifest_failure_after_run_done_prints_its_reason_once(remote_root, tmp_path, capsys):
+    from perf.container import artifacts, pull as pull_mod
+
+    run_id = '20260101T000000000214Z'
+    job_rel = f'runs/{run_id}/benchmark_warm_cold/{run_id}-000'
+    job = remote_root / job_rel
+    job.mkdir(parents=True)
+    (job / 'summary.json').write_text('{}')
+    artifacts.finalize_job(job, 0)
+    (remote_root / 'runs' / run_id / 'RUN-DONE').write_text('exit_status=0\n')
+    dest = tmp_path / 'dest'
+    (dest / job_rel).mkdir(parents=True)
+    (dest / job_rel / 'stray.bin').write_text('never on the Space')     # not in the gone index, not in the manifest
+    transport = local_transport(remote_root)
+    code = pull_mod.pull_until(transport, remote_root, dest, run_id, interval=0, max_cycles=5)
+    out = capsys.readouterr().out.splitlines()
+    assert code == 1 and not any(line.startswith('FINAL-VERIFIED') for line in out)
+    reasons = [line for line in out if line.startswith('PULL-ERROR ')]
+    assert reasons == [f'PULL-ERROR manifest missing file {job_rel}/stray.bin']
