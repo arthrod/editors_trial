@@ -652,6 +652,7 @@ def _check_editor_round_data(roots_dir: Path, manifest: dict, errors: list[str])
     later = {entry["run_id"] for entries in manifest.get("extension", {}).values() for entry in entries}
     # ... and so are the lane-round runs that measured the extension jobs again (#208).
     later |= {entry["run_id"] for _, entry in _lane_entries(manifest) if entry.get("extension")}
+    witness_runs = {entry["run_id"] for _, entry in _witness_entries(manifest)}
     old: dict[int, list[tuple[str, Path, bool]]] = {}
     new: list[tuple[str, int, Path, str]] = []
     issue_lane = {(issue["editor"], index): issue.get("lane") for issue in issues.values() for index in issue["jobs"]}
@@ -660,6 +661,10 @@ def _check_editor_round_data(roots_dir: Path, manifest: dict, errors: list[str])
             for job in sorted((root / lane).glob("*")) if (root / lane).is_dir() else ():
                 run_id, _, tail = job.name.rpartition("-")
                 if not tail.isdigit():
+                    continue
+                if run_id in witness_runs:
+                    # A witness round (#245) came after: it is neither an editor round's job nor one that an
+                    # editor round replaced; _check_witness_round reads it.
                     continue
                 if run_id in new_runs:
                     new.append((run_id, int(tail), job, lane))
