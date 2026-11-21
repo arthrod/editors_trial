@@ -1,0 +1,42 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      '@betteroffice/docx':
+        specifier: 0.5.1
+        version: 0.5.1(@betteroffice/fonts@0.4.2)
+      '@betteroffice/fonts':
+        specifier: 0.4.2
+        version: 0.4.2
+
+packages:
+
+  '@betteroffice/docx@0.5.1':
+    resolution: {integrity: sha512-90OVOjArTdk7KmHNSGBPMLDPg1sU+k/LI0HooZDdALwidGpjNjFAazkKSTg29K6fpmv6qmygCdJiXCCoxL2GRw==}
+    peerDependencies:
+      '@betteroffice/fonts': ^0
+    peerDependenciesMeta:
+      '@betteroffice/fonts':
+        optional: true
+
+  '@betteroffice/fonts@0.4.2':
+    resolution: {integrity: sha512-OBumyWSLgyJjbElgHrE+lIcAoqNnXJ08ycOvH0vIs9JVzCDY5L0AirbpSUHn2A1NMTrHt0j8E0PmMFA3vhJkFw==}
+    peerDependencies:
+      '@betteroffice/fonts-cjk': ^0
+    peerDependenciesMeta:
+      '@betteroffice/fonts-cjk':
+        optional: true
+
+snapshots:
+
+  '@betteroffice/docx@0.5.1(@betteroffice/fonts@0.4.2)':
+    optionalDependencies:
+      '@betteroffice/fonts': 0.4.2
+
+  '@betteroffice/fonts@0.4.2': {}
