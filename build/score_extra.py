@@ -10,18 +10,24 @@ Score what build/score_all.py does not: the second pass and the editor lanes.
 
 Paths are written relative to the repository, as the published scores have them.
 
-usage: python3 build/score_extra.py
+usage: python3 build/score_extra.py [--pending]
 """
 import os
 import subprocess
 import sys
 
-BASE = "/Users/arthrod/temp/T/editors_trial"
+BASE = os.environ.get("TRIAL_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CHECKER = "build/check_roundtrip.py"
 SECOND = ["plate", "docxodus", "superdoc", "folio", "genoffice", "eigenpal", "officeopen",
-          "docen", "wordcraft", "fidus", "canvas", "docsplus", "apryse",
-          "reactdocx", "opendoc", "betteroffice", "onlyoffice", "lo_baseline"]
-LANES = ["eigenpal-editor", "folio-editor", "betteroffice-editor"]
+          "docen", "wordcraft", "fidus", "canvas", "docsplus", "apryse", "lo_baseline"]
+LANES = ["eigenpal-editor", "folio-editor"]
+# Lanes not in the published reports yet (build/lanes.py): only with --pending.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import lanes  # noqa: E402
+
+if lanes.requested():
+    SECOND = SECOND + lanes.PENDING_SLUGS
+    LANES = LANES + lanes.PENDING_LANES
 
 
 def score(ref: str, out: str, js: str) -> bool:

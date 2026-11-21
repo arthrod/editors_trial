@@ -66,14 +66,33 @@ class Runners(unittest.TestCase):
         for lane in LANES:
             self.assertIn(f"$IN $OUTROOT/{lane}/complex.docx", have[lane], lane)
 
-    def test_the_editor_session_lane_is_scored_as_a_lane_not_a_participant(self):
+    def test_the_editor_session_lane_is_a_lane_not_a_participant(self):
         import sys
         sys.path.insert(0, str(BUILD))
         import facts
+        import lanes
+        self.assertEqual(lanes.PENDING_SLUGS, list(LANES))
+        self.assertEqual(lanes.PENDING_LANES, ["betteroffice-editor"])
         self.assertIn("betteroffice-editor", facts.LANES)
         self.assertIn("betteroffice-editor", self.lines("run_all.sh", "run"))
-        for lane in LANES:
-            self.assertIn(lane, facts.TOOLS)
+
+    def test_a_pending_lane_is_out_of_the_release_s_facts_and_scores_unless_asked(self):
+        import sys
+        sys.path.insert(0, str(BUILD))
+        import facts
+        import lanes
+        for slug in lanes.PENDING_SLUGS + lanes.PENDING_LANES:
+            self.assertNotIn(slug, facts.TOOLS, slug)
+            self.assertIn(slug, facts.PENDING_TOOLS, slug)
+        self.assertFalse(lanes.requested([]))
+        self.assertTrue(lanes.requested(["--pending"]))
+        for name in ("score_all.py", "score_extra.py"):
+            text = (BUILD / name).read_text()
+            self.assertIn("lanes.requested()", text, name)
+            for slug in lanes.PENDING_SLUGS:
+                self.assertNotIn(f'"{slug}"', text, f"{name} names {slug} outside build/lanes.py")
+        # a development summary never overwrites the release's
+        self.assertIn('SUMMARY = "summary.pending.json"', (BUILD / "score_all.py").read_text())
 
     def test_univer_has_no_lane_only_a_probe(self):
         for script, verb in (("run_all.sh", "run"), ("run_second_pass.sh", "second"), ("run_broken.sh", "run")):

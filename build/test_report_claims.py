@@ -245,6 +245,11 @@ class ReportClaimsTest(unittest.TestCase):
                     )
         for name in PENDING_HEADINGS:
             self.assertIn(PENDING_SENTENCE % name, sections[name])
+        # A lane that runs but is not published (build/lanes.py) is one of the pending
+        # sections, and every pending section is such a lane or has no round-trip lane.
+        import lanes
+        self.assertEqual(sorted([n for n, _ in lanes.PENDING] + lanes.NO_LANE), sorted(PENDING_HEADINGS))
+        self.assertEqual(set(lanes.PENDING_SLUGS) & set(slugs), set())
         for slug in slugs:
             self.assertNotIn("are not in the reports yet", sections[VENDOR_HEADINGS[slug]])
         archived = os.path.join(
