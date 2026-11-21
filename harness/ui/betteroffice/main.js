@@ -26,7 +26,21 @@ const loaded = new Promise((resolve, reject) => { settle = { resolve, reject }; 
 loaded.catch(() => {});
 window.__host = { ref, loaded, errors };
 
-const bytes = await (await fetch(params.get('doc') || '/sample.docx')).arrayBuffer();
+// A document that cannot be fetched is said at once: without this the module stops here,
+// `loaded` never settles, and the probe reports a two-minute timeout instead of the cause.
+const bytes = await (async () => {
+  const url = params.get('doc') || '/sample.docx';
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.arrayBuffer();
+  } catch (e) {
+    const err = new Error(`could not fetch ${url}: ${e && e.message || e}`);
+    errors.push({ message: err.message, recoverable: false });
+    settle.reject(err);
+    throw err;
+  }
+})();
 createRoot(document.getElementById('root')).render(createElement(DocxEditor, {
   ref,
   documentBuffer: bytes,
