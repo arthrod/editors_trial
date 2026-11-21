@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       docxodus:
-        specifier: 15.0.0
-        version: 15.0.0
+        specifier: 15.1.0
+        version: 15.1.0
     devDependencies:
       typescript:
         specifier: ^7.0.2
@@ -247,8 +247,8 @@ packages:
     resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
     engines: {node: '>=8'}
 
-  docxodus@15.0.0:
-    resolution: {integrity: sha512-EK89QkDGvFch5wFKgHG/P/dmDChwqcTATEbuNHOn8f9vipeYuB5lgW+fXb01Z3A/gdmly0swqY85nV7Y/cZ8RQ==}
+  docxodus@15.1.0:
+    resolution: {integrity: sha512-BmbWJlnphaVhONAkZNCcHH37WfelBy9lRtR07x0UsG9ZDl5QijCu0RNpMChhPzaGqHeAMXutnR0Hj/NGU3PLAA==}
     peerDependencies:
       react: '>=16.8.0'
     peerDependenciesMeta:
@@ -533,7 +533,7 @@ snapshots:
 
   detect-libc@2.1.2: {}
 
-  docxodus@15.0.0: {}
+  docxodus@15.1.0: {}
 
   fdir@6.5.0(picomatch@4.0.7):
     optionalDependencies:

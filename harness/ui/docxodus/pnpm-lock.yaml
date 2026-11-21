@@ -10,10 +10,10 @@ importers:
     dependencies:
       '@docxodus/export':
         specifier: 15.0.0
-        version: 15.0.0(docxodus@15.0.0)
+        version: 15.0.0(docxodus@15.1.0)
       docxodus:
-        specifier: 15.0.0
-        version: 15.0.0
+        specifier: 15.1.0
+        version: 15.1.0
     devDependencies:
       vite:
         specifier: ^8.3.5
@@ -160,8 +160,8 @@ packages:
   dfa@1.2.0:
     resolution: {integrity: sha512-ED3jP8saaweFTjeGX8HQPjeC1YYyZs98jGNZx6IiBvxW7JG5v492kamAQB3m2wop07CvU/RQmzcKr6bgcC5D/Q==}
 
-  docxodus@15.0.0:
-    resolution: {integrity: sha512-EK89QkDGvFch5wFKgHG/P/dmDChwqcTATEbuNHOn8f9vipeYuB5lgW+fXb01Z3A/gdmly0swqY85nV7Y/cZ8RQ==}
+  docxodus@15.1.0:
+    resolution: {integrity: sha512-BmbWJlnphaVhONAkZNCcHH37WfelBy9lRtR07x0UsG9ZDl5QijCu0RNpMChhPzaGqHeAMXutnR0Hj/NGU3PLAA==}
     peerDependencies:
       react: '>=16.8.0'
     peerDependenciesMeta:
@@ -368,10 +368,10 @@ packages:
 
 snapshots:
 
-  '@docxodus/export@15.0.0(docxodus@15.0.0)':
+  '@docxodus/export@15.0.0(docxodus@15.1.0)':
     dependencies:
       '@playwright/browser-chromium': 1.57.0
-      docxodus: 15.0.0
+      docxodus: 15.1.0
       fontkit: 2.0.4
       pdf-lib: 1.17.1
       playwright-core: 1.57.0
@@ -453,7 +453,7 @@ snapshots:
 
   dfa@1.2.0: {}
 
-  docxodus@15.0.0: {}
+  docxodus@15.1.0: {}
 
   fast-deep-equal@3.1.3: {}
 
