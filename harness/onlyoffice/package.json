@@ -1,0 +1,6 @@
+{
+  "name": "onlyoffice-harness",
+  "private": true,
+  "type": "module",
+  "description": "OnlyOffice (CryptPad build): the x2t converter in WebAssembly, pinned in pin.json to a GitHub release archive and its SHA-512. No npm dependency."
+}

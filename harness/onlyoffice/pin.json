@@ -1,0 +1,19 @@
+{
+  "x2t": {
+    "repository": "cryptpad/onlyoffice-x2t-wasm",
+    "tag": "v9.3.2+4",
+    "published": "2026-11-03T15:00:26Z",
+    "asset": "x2t.zip",
+    "url": "https://github.com/cryptpad/onlyoffice-x2t-wasm/releases/download/v9.3.2%2B4/x2t.zip",
+    "sha512": "8fa965d86ef81c8615f2cc7c67eb0da270f88c573d137dcf82bb5b54d7ffacd66adb0e29f16b46a537279fc1c9ddf13ebc2b6e2f491c08cc4f266e6669763af6",
+    "files": ["x2t.js", "x2t.wasm"]
+  },
+  "editor": {
+    "repository": "cryptpad/onlyoffice-editor",
+    "tag": "v9.3.2+3",
+    "published": "2026-09-29T13:11:56Z",
+    "asset": "onlyoffice-editor.zip",
+    "url": "https://github.com/cryptpad/onlyoffice-editor/releases/download/v9.3.2%2B3/onlyoffice-editor.zip",
+    "note": "Not downloaded by this harness: the headless lane runs the converter only. See roundtrip.mjs."
+  }
+}
