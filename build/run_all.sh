@@ -41,5 +41,12 @@ run betteroffice bash -c "cd $BASE/harness/betteroffice && node roundtrip.mjs $I
 run betteroffice-editor bash -c "cd $BASE/harness/betteroffice && node roundtrip.mjs $IN $BASE/out/betteroffice-editor/complex.docx editor"
 run onlyoffice bash -c "cd $BASE/harness/onlyoffice && node fetch.mjs && node roundtrip.mjs $IN $BASE/out/onlyoffice/complex.docx"
 
+# Univer has no round trip to run. What runs is the probe that reads its pinned packages
+# for a .docx reader or writer (exit 0: none found), and its result is the evidence.
+mkdir -p "$BASE/out/univer"
+( cd "$BASE/harness/univer" && node probe.mjs "$BASE/out/univer/probe.json" ) >/tmp/rr_univer.log 2>&1 \
+  && echo "NONE univer  (no .docx reader or writer found; out/univer/probe.json)" \
+  || echo "FOUND univer :: the probe found a .docx path or failed; a lane may be owed :: $(tail -2 /tmp/rr_univer.log | tr '\n' ' ' | cut -c1-200)"
+
 pkill -f "superdoc host" 2>/dev/null
 echo "=== ALL ROUND TRIPS DONE ==="

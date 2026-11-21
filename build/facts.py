@@ -121,6 +121,19 @@ def outcome_facts(prefix: str, directory: Path, facts: dict) -> None:
             facts[f"{prefix}.outcome_{k}"] = data[k]
 
 
+def probe_facts(path: Path, facts: dict) -> None:
+    """probe.univer.*: what harness/univer/probe.mjs found in Univer's pinned open-source
+    packages. ``docx_path`` is "none" or "found"; Univer has no round-trip lane while it is "none"."""
+    if not path.exists():
+        return
+    data = json.loads(path.read_text())
+    if data["docx_path"] not in ("none", "found"):
+        raise ValueError(f"{path}: docx_path {data['docx_path']!r}")
+    facts["probe.univer.docx_path"] = data["docx_path"]
+    facts["probe.univer.packages"] = data["packages_read"]
+    facts["probe.univer.hits"] = data["hits"]
+
+
 def part_facts(tool: str, package: Path, fixture: dict, facts: dict) -> None:
     out = parts(package)
     status = classify(fixture, out)
@@ -464,6 +477,8 @@ def build(pending: bool = False) -> dict:
             first, second = d / "complex.docx", d / "second" / "complex.docx"
             if first.exists() and second.exists():
                 facts[f"p2.{t}.identical"] = parts(first) == parts(second)
+    if pending:
+        probe_facts(OUT / "univer" / "probe.json", facts)
     totals = {(facts[f"rt.{t}.total"], facts[f"rt.{t}.critical_total"]) for t in tools if f"rt.{t}.total" in facts}
     if len(totals) == 1:
         facts["checks.total"], facts["checks.critical"] = totals.pop()

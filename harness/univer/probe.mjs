@@ -3,7 +3,9 @@
 // packages and prints what it finds, so "no .docx path" is a result of running
 // something, not a sentence someone typed.
 //
-//   node probe.mjs
+//   node probe.mjs [result.json]
+//
+// With a path, the result is also written there for build/facts.py (probe.univer.*).
 //
 // It walks every package @univerjs/presets and @univerjs/preset-docs-core
 // install (node_modules/.pnpm), and for each one reports:
@@ -16,8 +18,8 @@
 // the line it is on, so a reader can see what it is used for (in
 // @univerjs/drawing it sorts an embedded attachment by type).
 // Exit code: 0 no reader or writer found, 1 one was found (then a lane is owed).
-import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -82,4 +84,12 @@ for (const [id, r] of [...seen].sort()) {
 console.log(found
   ? `RESULT: ${found} package(s) name the .docx format; read them, a lane may be owed`
   : 'RESULT: no .docx reader or writer in these packages (no zip library or zip signature, no WordprocessingML part name or namespace, no docx import/export API)');
+if (process.argv[2]) {
+  const out = resolve(process.argv[2]);
+  mkdirSync(dirname(out), { recursive: true });
+  const packages = Object.fromEntries([...seen].sort().map(([id, r]) => [id, {
+    licence: r.licence, files: r.files, zip: r.zip, format: r.format, api: r.api, mime_only: r.mime.length,
+  }]));
+  writeFileSync(out, `${JSON.stringify({ docx_path: found ? 'found' : 'none', packages_read: seen.size, hits: found, packages }, null, 1)}\n`);
+}
 process.exit(found ? 1 : 0);

@@ -99,6 +99,24 @@ class Runners(unittest.TestCase):
             self.assertNotIn("univer", self.lines(script, verb))
         self.assertTrue((ROOT / "harness/univer/probe.mjs").is_file())
 
+    def test_the_round_trip_runs_univer_s_probe_and_keeps_its_result(self):
+        text = (BUILD / "run_all.sh").read_text()
+        self.assertIn('node probe.mjs "$BASE/out/univer/probe.json"', text)
+        import json
+        import sys
+        import tempfile
+        sys.path.insert(0, str(BUILD))
+        import facts
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "probe.json"
+            p.write_text(json.dumps({"docx_path": "none", "packages_read": 16, "hits": 0, "packages": {}}))
+            f: dict = {}
+            facts.probe_facts(p, f)
+            self.assertEqual(f, {"probe.univer.docx_path": "none", "probe.univer.packages": 16, "probe.univer.hits": 0})
+            p.write_text(json.dumps({"docx_path": "maybe", "packages_read": 16, "hits": 0}))
+            with self.assertRaises(ValueError):
+                facts.probe_facts(p, {})
+
 
 class HostilePackages(unittest.TestCase):
     """Report D: the sandbox runs each new lane through the same entry the round trip uses."""
