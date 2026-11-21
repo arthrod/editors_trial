@@ -14,7 +14,7 @@ The first report found that the corpus it used — a hand-built {{fixture.parts}
 - **Docxodus is the only participant that ships a repair funnel, and it repairs a different set of defects.** Its `PackageOpenRepair` stage exists to unblock *"Package defects Word opens but the Open XML SDK rejects"* — a relationship to a part with **no content type** or **no ZIP entry**, a part reached by a known relationship but **typed only as generic XML**, and **two relationships sharing an Id**. **None of those is one of this report's twelve defect classes.** Having a repair stage and repairing a given malformation are different properties, and this is the cleanest available demonstration of the difference.
 - **Plate.js is the exception, and it is a real one.** It is the only editor in the study that **detects** malformation and **refuses** the document (OnlyOffice's build also writes nothing, but because its converter does not return, on the clean corpus too, which is a stall and not a detection): handed the broken corpus it fails with `decode-failed: DOCX content could not be decoded by the installed editor schema.`, and it produces **no output file at all** — there is nothing to corrupt. It also refuses the *clean* corpus under its own default `lossPolicy: 'reject'`, with 18 typed errors naming each construct it cannot represent. Plate does not repair malformation either. It **declines to process it**, which is the only honest of the three available behaviours (repair, degrade, refuse).
 - **And Plate detects exactly one of the twelve defect classes.** Each defect was isolated into its own single-defect corpus and offered to Plate's importer: it **accepts eleven and refuses one** — the block-level `m:oMathPara`. The eleven it accepts include every class that makes Word refuse the file: the five element-order classes, the malformed `ST_LongHexNumber`, the nested `mc:Fallback`, the broken OLE payload, `w:delText` inside `w:moveFrom`, and `w:dirty="true"`. Plate is a detector, not a validator, and it detects the construct its own schema cannot model.
-- **{{count.word_refused:W}} of the {{count.word_outputs:w}} editor outputs cannot be opened by Microsoft Word**, and only one of those four (Fidus Writer) fails for a reason a schema validator could have caught; a package-integrity check catches two more, and Folio passes both:
+- **{{count.word_refused:W}} of the {{count.word_outputs:w}} editor outputs cannot be opened by Microsoft Word**, and of the four measured before v0.11.0 only one (Fidus Writer) fails for a reason a schema validator could have caught; a package-integrity check catches two more, and Folio passes both. The two added in v0.11.0, OpenDoc and BetterOffice's document model, each have schema violations (§3.9):
 
 | Editor | Real XSD violations | Package integrity | Word {{word.version}} |
 |---|---:|---|---|
@@ -32,6 +32,9 @@ The first report found that the corpus it used — a hand-built {{fixture.parts}
 | office-open | {{xsd.officeopen.real}} | {{pkg.officeopen}} | {{word.officeopen.cell}} |
 | Docen | {{xsd.docen.real}} | {{pkg.docen}} | {{word.docen.cell}} |
 | Fidus Writer | {{xsd.fidus.real}} | {{pkg.fidus}} | {{word.fidus.cell}} |
+| react-docx (added in v0.11.0) | {{xsd.reactdocx.real}} | {{pkg.reactdocx}} | {{word.reactdocx.cell}} |
+| OpenDoc (added in v0.11.0) | {{xsd.opendoc.real}} | {{pkg.opendoc}} | {{word.opendoc.cell}} |
+| BetterOffice, document model (added in v0.11.0) | {{xsd.betteroffice.real}} | {{pkg.betteroffice}} | {{word.betteroffice.cell}} |
 
 - **Two refusal causes are now proven causally, not just correlated.** Both were isolated to a single attribute or a single identifier, and in both cases *writing that one thing back correctly makes Word open the file*:
 

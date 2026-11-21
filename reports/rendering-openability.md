@@ -10,7 +10,7 @@ In section 6.1 the rows for Folio, office-open, Docen, and Fidus Writer, and sin
 
 Report B names `build/folio_deltext_test.py` and `build/officeopen_rels_test.py` as repair experiments. A file that Word opened only after one of those repairs would be a counterfactual. Report C section 6 does not present that counterfactual.
 
-Section 6.2 states there is no Word rendering for those four outputs because the raw file does not open. LibreOffice is what that section uses when Word will not open the raw file.
+Section 6.2 states there is no Word rendering for those outputs because the raw file does not open. LibreOffice is what that section uses when Word will not open the raw file.
 
 ## Diagram in the fixture
 
