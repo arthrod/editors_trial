@@ -14,7 +14,11 @@ function start(base) {
     // x2t.js looks for its .wasm next to the script that runs it, which in a
     // Worker is this file; the module is handed over instead (emscripten's
     // documented `Module.wasmBinary`).
-    const wasmBinary = await (await fetch(`${base}x2t/x2t.wasm`)).arrayBuffer();
+    // A missing file is said as such: an error page handed over as the module would never start
+    // the runtime, and the page would report the converter as not returning.
+    const res = await fetch(`${base}x2t/x2t.wasm`);
+    if (!res.ok) throw new Error(`could not fetch x2t.wasm: HTTP ${res.status} (run harness/ui/onlyoffice/fetch.py)`);
+    const wasmBinary = await res.arrayBuffer();
     self.Module = { wasmBinary };
     importScripts(`${base}x2t/x2t.js`);
     await new Promise((resolve) => {

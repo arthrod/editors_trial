@@ -72,7 +72,14 @@ def unpack(name: str, pin: dict, path: Path) -> int:
     out = VENDOR / name
     stamp = out / ".unpacked"
     if stamp.exists() and stamp.read_text() == pin["sha512"]:
-        return -1
+        # The stamp says the unpack finished, not that its files are still there: each member of
+        # the archive must be in place at its size, or the whole archive is unpacked again.
+        with zipfile.ZipFile(path) as z:
+            members = [i for i in z.infolist() if not (i.is_dir() or i.filename.startswith(pin["skip"]))]
+        lost = [i.filename for i in members if not ((out / i.filename).is_file() and (out / i.filename).stat().st_size == i.file_size)]
+        if not lost:
+            return -1
+        print(f"{name}: {len(lost)} unpacked files missing or changed in size (first: {lost[0]}); unpacking again", flush=True)
     n = 0
     with zipfile.ZipFile(path) as z:
         for info in z.infolist():

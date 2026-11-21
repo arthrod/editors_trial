@@ -80,6 +80,9 @@ class StaticServer(unittest.TestCase):
         (root / "mount").mkdir()
         (root / "mount" / "x.wasm").write_bytes(b"\0asm")
         (root / "secret.txt").write_text("outside")
+        # A link inside a served folder that leads out of it, as a file and as a folder.
+        (root / "site" / "leak.txt").symlink_to(root / "secret.txt")
+        (root / "site" / "up").symlink_to(root, target_is_directory=True)
         cls.proc = subprocess.Popen(
             ["node", "static_server.mjs", "0", str(root / "site"), f"/vendor/x2t={root / 'mount'}"],
             cwd=UI, stdout=subprocess.PIPE, text=True)
@@ -106,6 +109,12 @@ class StaticServer(unittest.TestCase):
         self.assertEqual(self.get("/")[2], b"<p>root</p>")
         self.assertEqual(self.get("/vendor/x2t/x.wasm")[:2], (200, "application/wasm"))
         self.assertEqual(self.get("/fonts//fonts/a.ttf")[2], b"font")
+
+    def test_a_link_that_leaves_its_folder_is_not_followed(self):
+        self.assertEqual(self.get("/leak.txt")[0], 404)
+        self.assertEqual(self.get("/up/secret.txt")[0], 404)
+        # The server is still answering afterwards.
+        self.assertEqual(self.get("/")[0], 200)
 
     def test_a_path_outside_its_folders_is_not_served(self):
         self.assertEqual(self.get("/%2e%2e/secret.txt")[0], 404)
