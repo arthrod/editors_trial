@@ -62,7 +62,7 @@ class CheckoutRootTest(unittest.TestCase):
     """The runners measure the checkout they are in. They once named one path on one machine,
     so a run from a worktree read and wrote another checkout (2026-11-21); the release
     checklist's own advice, to run a frozen copy, needs TRIAL_ROOT for the same reason."""
-    RUNNERS = ("run_all.sh", "run_second_pass.sh", "run_broken.sh")
+    RUNNERS = ("run_all.sh", "run_second_pass.sh", "run_broken.sh", "run_trial.sh", "update_editors.sh")
     IDIOM = 'BASE="${TRIAL_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"'
 
     def test_every_runner_finds_its_checkout_the_same_way(self):

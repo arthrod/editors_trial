@@ -25,7 +25,7 @@
 #
 # usage: build/update_editors.sh
 set -euo pipefail
-BASE="/Users/arthrod/temp/T/editors_trial"
+BASE="${TRIAL_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 cd "$BASE"
 
 pull() {
