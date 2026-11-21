@@ -41,6 +41,13 @@ TOOLS = [
     ("Plate.js", "plate"),
     ("Apryse", "apryse"),
 ]
+# Lanes not in the published reports yet (build/lanes.py) join the matrix only with
+# --pending, a development run, and only those that wrote an output to score.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import lanes  # noqa: E402
+
+if lanes.requested():
+    TOOLS = TOOLS + [(name, d) for name, d in lanes.PENDING if (OUT / d / "score.json").exists()]
 
 # label -> list of check ids that cover it. A row with no check is left alone.
 ROWS = [
@@ -163,6 +170,7 @@ def main() -> int:
     """Print the derived table, or patch it into the report."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--patch", default=None, help="report markdown to patch in place")
+    parser.add_argument("--pending", action="store_true", help="a development run: add the lanes not in the published reports yet")
     args = parser.parse_args()
     table = build_table()
     if not args.patch:

@@ -23,10 +23,19 @@ _FACTS_KEYS = {
     "fidus": ("ver.fiduswriter.commit", "ver.fiduswriter-document-ts.commit"),
     "canvas": ("ver.canvas-editor.commit", "ver.canvas-editor-plugin.commit"),
     "docsplus": ("ver.docs-plus.commit",),
+    "opendoc": ("ver.opendoc.commit",),
+    "betteroffice": ("ver.npm.betteroffice",),
+    "onlyoffice": ("ver.release.onlyoffice_x2t.tag",),
     "libreoffice": (),
 }
 
 _LIBREOFFICE_FALLBACK = "system soffice"
+# Lanes wired for measurement but not in a published release yet (build/lanes.py).
+# Until a release's facts carry their pins, they are labelled as unpinned rather than
+# stopping every caller (a missing key stopped a run that named one of them, before it
+# wrote its summary); once the facts name them, they are read like any other.
+UNPINNED = "not pinned: this lane is in no published release yet"
+_PENDING = frozenset({"opendoc", "betteroffice", "onlyoffice"})
 
 
 def load_editor_pins(facts_path: Path | None = None) -> dict[str, str]:
@@ -45,6 +54,8 @@ def load_editor_pins(facts_path: Path | None = None) -> dict[str, str]:
             label = "; ".join(parts)
         elif editor_id == "libreoffice":
             label = _LIBREOFFICE_FALLBACK
+        elif editor_id in _PENDING:
+            label = UNPINNED
         else:
             raise ValueError("missing facts pin for editor %r (tried %s)" % (editor_id, keys))
         out[editor_id] = label

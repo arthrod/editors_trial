@@ -1,0 +1,10 @@
+{
+  "name": "betteroffice-harness",
+  "private": true,
+  "type": "module",
+  "description": "The published @betteroffice/docx the trial measures, pinned exactly.",
+  "dependencies": {
+    "@betteroffice/docx": "0.5.1",
+    "@betteroffice/fonts": "0.4.2"
+  }
+}

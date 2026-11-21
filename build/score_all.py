@@ -5,7 +5,7 @@ import os
 import subprocess
 import sys
 
-BASE = "/Users/arthrod/temp/T/editors_trial"
+BASE = os.environ.get("TRIAL_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 IN = os.path.join(BASE, "fixture", "complex.docx")
 CHECKER = os.path.join(BASE, "build", "check_roundtrip.py")
 
@@ -26,6 +26,17 @@ TARGETS = [
     ("Apryse WebViewer", "apryse", False),
     ("LibreOffice (baseline)", "lo_baseline", True),
 ]
+
+# Lanes not in the published reports yet (build/lanes.py) are scored only with
+# --pending, a development run; its summary goes to out/summary.pending.json so the
+# release's summary holds the published participants alone.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import lanes  # noqa: E402
+
+SUMMARY = "summary.json"
+if lanes.requested():
+    TARGETS = TARGETS + [(name, d, False) for name, d in lanes.PENDING]
+    SUMMARY = "summary.pending.json"
 
 rows = []
 for name, d, baseline in TARGETS:
@@ -67,7 +78,7 @@ for r in rows:
 for name, w, cp, cpa, cpt, txt, fp, ft, failed, d in out:
     print("| %s | %s%% | %s%% (%d/%d) | %s%% | %d/%d |" % (name, w, cp, cpa, cpt, txt, fp, ft))
 
-with open(os.path.join(BASE, "out", "summary.json"), "w") as f:
+with open(os.path.join(BASE, "out", SUMMARY), "w") as f:
     json.dump(out, f, indent=2)
 
 print("\n\n=== FAILED CHECKS PER EDITOR ===")

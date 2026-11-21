@@ -1,0 +1,16 @@
+[workspace]
+
+[package]
+name = "opendoc-harness"
+version = "0.1.0"
+edition = "2024"
+
+# OpenDoc's Native SDK facade, the one crate its own command line
+# (repos/opendoc/tools/opendoc-cli) is built on. Path dependency into the
+# pinned checkout; Cargo.lock starts as a copy of the checkout's own lock, so
+# the engine is built against the dependency versions upstream locked.
+[dependencies]
+opendoc = { path = "../../repos/opendoc/crates/opendoc" }
+
+[profile.release]
+debug = false

@@ -96,6 +96,11 @@ EDITORS = [
     ("wordcraft", "WordCraft"),
     ("libreoffice", "LibreOffice"),
 ]
+import os as _os, sys as _sys  # noqa: E401,E402
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+import lanes  # noqa: E402
+
+EDITORS = lanes.join(EDITORS, lambda name, slug, key: (slug, name))
 
 
 def smartart_figure():

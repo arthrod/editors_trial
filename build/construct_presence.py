@@ -40,10 +40,16 @@ CONSTRUCTS = [
 
 WORD_EDITORS = ["superdoc", "genoffice", "eigenpal", "wordcraft",
                  "canvas", "docs.plus", "plate", "docxodus", "apryse", "libreoffice"]
+import os as _os, sys as _sys  # noqa: E401,E402
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+import lanes  # noqa: E402
+
+WORD_EDITORS = lanes.join(WORD_EDITORS)
 
 LO_EDITORS = ["superdoc", "folio", "genoffice", "eigenpal", "office-open",
                "docen", "wordcraft", "fidus", "canvas", "docs.plus",
                "plate", "docxodus", "apryse", "libreoffice"]
+LO_EDITORS = lanes.join(LO_EDITORS)
 
 
 def diff(a_path, b_path, thresh=8):

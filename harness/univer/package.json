@@ -1,0 +1,10 @@
+{
+  "name": "univer-harness",
+  "private": true,
+  "type": "module",
+  "description": "Univer's open-source documents preset, pinned exactly. There is no round-trip lane: probe.mjs shows the packages hold no .docx reader or writer.",
+  "dependencies": {
+    "@univerjs/preset-docs-core": "1.5.2",
+    "@univerjs/presets": "1.5.2"
+  }
+}

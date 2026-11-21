@@ -21,6 +21,11 @@ BASE = "/Users/arthrod/temp/T/editors_trial"
 ORDER = ["corpus", "superdoc", "folio", "genoffice", "eigenpal",
          "office-open", "docen", "wordcraft", "fidus", "canvas",
          "docs.plus", "plate", "docxodus", "apryse", "libreoffice"]
+import os as _os, sys as _sys  # noqa: E401,E402
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+import lanes  # noqa: E402
+
+ORDER = lanes.join(ORDER)
 
 
 def main(outdir):

@@ -41,6 +41,11 @@ EDITORS = [
     ("docs.plus", "docsplus"),
     ("LibreOffice (baseline)", "lo_baseline"),
 ]
+import os as _os, sys as _sys  # noqa: E401,E402
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+import lanes  # noqa: E402
+
+EDITORS = lanes.join(EDITORS, lambda name, slug, key: (name, slug))
 
 XSI = "{http://www.w3.org/2001/XMLSchema-instance}"
 

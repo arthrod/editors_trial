@@ -1,7 +1,7 @@
 #!/bin/bash
 # Re-run every editor's import->export round trip against the current fixture.
 # Each harness uses that project's OWN code path (see harness/<name>/ and harness/<name>.ts).
-BASE=/Users/arthrod/temp/T/editors_trial
+BASE="${TRIAL_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 IN=$BASE/fixture/complex.docx
 
 run() {
@@ -33,6 +33,20 @@ run canvas  bash -c "cd $BASE/repos/canvas-editor && ./node_modules/.bin/vitest 
 run docsplus bash -c "cd $BASE/harness/docsplus/repo-copy && bun $BASE/harness/docsplus/roundtrip.ts $IN $BASE/out/docsplus/complex.docx"
 run docxodus bash -c "cd $BASE/harness/ui/docxodus && node roundtrip.mjs $IN $BASE/out/docxodus/complex.docx"
 run apryse  bash -c "cd $BASE/harness/apryse && node roundtrip.mjs $IN $BASE/out/apryse/complex.docx"
+# Added 2026-11-21. react-docx exports only in a browser (as Apryse does); OpenDoc, BetterOffice and
+# OnlyOffice's converter run headless. Univer has no lane: harness/univer/probe.mjs shows why.
+run reactdocx bash -c "cd $BASE/harness/reactdocx && node roundtrip.mjs $IN $BASE/out/reactdocx/complex.docx"
+run opendoc bash -c "cd $BASE/harness/opendoc && cargo run --release -- $IN $BASE/out/opendoc/complex.docx"
+run betteroffice bash -c "cd $BASE/harness/betteroffice && node roundtrip.mjs $IN $BASE/out/betteroffice/complex.docx model"
+run betteroffice-editor bash -c "cd $BASE/harness/betteroffice && node roundtrip.mjs $IN $BASE/out/betteroffice-editor/complex.docx editor"
+run onlyoffice bash -c "cd $BASE/harness/onlyoffice && node fetch.mjs && node roundtrip.mjs $IN $BASE/out/onlyoffice/complex.docx"
+
+# Univer has no round trip to run. What runs is the probe that reads its pinned packages
+# for a .docx reader or writer (exit 0: none found), and its result is the evidence.
+mkdir -p "$BASE/out/univer"
+( cd "$BASE/harness/univer" && node probe.mjs "$BASE/out/univer/probe.json" ) >/tmp/rr_univer.log 2>&1 \
+  && echo "NONE univer  (no .docx reader or writer found; out/univer/probe.json)" \
+  || echo "FOUND univer :: the probe found a .docx path or failed; a lane may be owed :: $(tail -2 /tmp/rr_univer.log | tr '\n' ' ' | cut -c1-200)"
 
 pkill -f "superdoc host" 2>/dev/null
 echo "=== ALL ROUND TRIPS DONE ==="

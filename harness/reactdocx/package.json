@@ -1,0 +1,14 @@
+{
+  "name": "reactdocx-harness",
+  "private": true,
+  "type": "module",
+  "description": "The published @extend-ai/react-docx the trial measures, pinned exactly.",
+  "dependencies": {
+    "@extend-ai/react-docx": "0.15.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "vite": "^8.3.5"
+  }
+}

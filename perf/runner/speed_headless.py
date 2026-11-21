@@ -119,6 +119,9 @@ ATTEST = {
     "canvas": {"checkouts": ["repos/canvas-editor", "repos/canvas-editor-plugin"]},
     "wordcraft": {"checkouts": ["repos/wordcraft"], "binaries": {"wc-harness": "harness/wordcraft/target/release/wc-harness"}},
     "docxodus": {"checkouts": ["repos/docxodus"], "packages": {"docxodus": "harness/ui/docxodus"}},
+    "opendoc": {"checkouts": ["repos/opendoc"], "binaries": {"opendoc-harness": "harness/opendoc/target/release/opendoc-harness"}},
+    "betteroffice": {"packages": {"@betteroffice/docx": "harness/betteroffice"}},
+    "onlyoffice": {"binaries": {"x2t.wasm": "harness/onlyoffice/vendor/x2t/x2t.wasm", "x2t.js": "harness/onlyoffice/vendor/x2t/x2t.js"}},
     "libreoffice": {"command": ["soffice", "--version"]},
 }
 TOOLS = {"node": ["node", "--version"], "bun": ["bun", "--version"]}
@@ -132,7 +135,10 @@ ALLOWED_DELETIONS = {
     ),
 }
 # Built before a publication run, so the binary it times is built from the pinned source.
-BUILD_STEPS = {"wordcraft": (["cargo", "build", "--release", "--quiet"], "harness/wordcraft")}
+BUILD_STEPS = {
+    "wordcraft": (["cargo", "build", "--release", "--quiet"], "harness/wordcraft"),
+    "opendoc": (["cargo", "build", "--release", "--quiet"], "harness/opendoc"),
+}
 
 
 def _capture(cmd: list[str], cwd: Path | None = None) -> str | None:
@@ -390,6 +396,24 @@ def default_lanes() -> dict:
             lambda i, o, w: ["node", str(h / "ui" / "docxodus" / "roundtrip.mjs"), str(i), str(o)],
             h / "ui" / "docxodus",
             boundary="openDocxSession | session.save (WASM initialised before the timer)",
+        ),
+        "opendoc": _node_lane(
+            lambda i, o, w: [str(h / "opendoc" / "target" / "release" / "opendoc-harness"), str(i), str(o)],
+            h / "opendoc",
+            boundary="opendoc::Document::open | Document::save(Docx, PreserveWhenSafe) (native release build)",
+        ),
+        "betteroffice": _node_lane(
+            lambda i, o, w: ["node", str(h / "betteroffice" / "roundtrip.mjs"), str(i), str(o), "model"],
+            h / "betteroffice",
+            boundary="parseDocx | repackDocxWithWarnings; the first timer includes the package loading its own "
+            "WebAssembly, which it does inside parseDocx and offers no call to do beforehand",
+        ),
+        "onlyoffice": _node_lane(
+            lambda i, o, w: ["node", str(h / "onlyoffice" / "roundtrip.mjs"), str(i), str(o)],
+            h / "onlyoffice",
+            boundary="x2t main1 docx -> Editor.bin | x2t main1 Editor.bin -> docx (the converter only; the "
+            "WebAssembly module is started before the timers and reported as host_start_ms)",
+            marks=("model_ready_ms", "save_ms", "host_start_ms"),
         ),
         "libreoffice": {
             "cmd": lambda i, o, w: [
@@ -968,6 +992,11 @@ def main(argv=None) -> int:
     parser.add_argument("--out-root", type=Path, default=None)
     args = parser.parse_args(argv)
     lanes = default_lanes()
+    if not args.editors and os.environ.get("TRIAL_PENDING") != "1":
+        # Lanes not in a published release yet are timed only when named or asked for.
+        from perf import pins as _pins
+
+        lanes = {e: lane for e, lane in lanes.items() if e not in _pins._PENDING}
     if args.editors:
         unknown = sorted(set(args.editors) - set(lanes))
         if unknown:

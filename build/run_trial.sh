@@ -22,7 +22,7 @@
 #
 # usage: build/run_trial.sh
 set -uo pipefail
-BASE="/Users/arthrod/temp/T/editors_trial"
+BASE="${TRIAL_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 cd "$BASE"
 bash build/run_all.sh
 bash build/run_second_pass.sh

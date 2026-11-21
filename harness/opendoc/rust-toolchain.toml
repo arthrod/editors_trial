@@ -1,0 +1,4 @@
+# The toolchain repos/opendoc/rust-toolchain.toml pins.
+[toolchain]
+channel = "1.96.0"
+profile = "minimal"

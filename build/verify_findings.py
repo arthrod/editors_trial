@@ -64,6 +64,11 @@ TOOLS = [
     ("Plate.js", "plate"),
     ("LibreOffice (baseline)", "lo_baseline"),
 ]
+import os as _os, sys as _sys  # noqa: E401,E402
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+import lanes  # noqa: E402
+
+TOOLS = lanes.join(TOOLS, lambda name, slug, key: (name, slug))
 
 ROW = re.compile(r"^\|(?P<cells>.+)\|\s*$")
 PCT = re.compile(r"(\d+(?:\.\d+)?)%")

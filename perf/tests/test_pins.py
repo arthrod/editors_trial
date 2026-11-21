@@ -42,6 +42,11 @@ class FactsPins(unittest.TestCase):
         self.assertIn("aaaabbbbccccddddeeeeffff00001111", pins["plate"])
         self.assertIn("9.9.9", pins["docxodus"])
         self.assertIn("system soffice", pins["libreoffice"])
+        # A lane wired but in no release has a label too: a run that names it must reach its summary.
+        from perf.pins import UNPINNED, _PENDING
+
+        for editor_id in _PENDING:
+            self.assertEqual(pins[editor_id], UNPINNED)
 
 
 if __name__ == "__main__":
