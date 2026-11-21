@@ -20,6 +20,7 @@ import sys
 from pathlib import Path
 
 import bomb_score
+import lanes
 import make_bombs
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -39,9 +40,9 @@ OD = os.environ.get(
 )
 
 
-def _tools(in_path: Path, out_dir: Path):
+def _tools(in_path: Path, out_dir: Path, pending: bool | None = None):
     out_docx = out_dir / "out.docx"
-    return [
+    tools = [
         ("plate", ROOT / "harness" / "plate", [BUN, "--preload", "./aliases.ts", "roundtrip.ts", str(in_path), str(out_docx)], {}),
         ("eigenpal", ROOT / "repos" / "eigenpal-docx-editor", [BUN, str(ROOT / "harness" / "eigenpal.ts"), str(in_path), str(out_docx), "store"], {}),
         ("eigenpal-editor", ROOT / "repos" / "eigenpal-docx-editor", [BUN, str(ROOT / "harness" / "eigenpal.ts"), str(in_path), str(out_docx), "editor"], {}),
@@ -125,6 +126,9 @@ def _tools(in_path: Path, out_dir: Path):
                 "PLAYWRIGHT_BROWSERS_PATH": str(Path.home() / "Library" / "Caches" / "ms-playwright"),
             },
         ),
+    ]
+    # Lanes not in the published reports yet (build/lanes.py): run only when asked.
+    pending_tools = [
         (
             # The second browser editor: Chromium plus the host page on localhost:5231,
             # contained as Apryse is.
@@ -151,6 +155,7 @@ def _tools(in_path: Path, out_dir: Path):
             {"X2T_TIMEOUT_S": str(WALL * 10)},
         ),
     ]
+    return tools + (pending_tools if (lanes.requested() if pending is None else pending) else [])
 
 
 def _vite_temp() -> Path:

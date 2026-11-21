@@ -148,12 +148,12 @@ def main() -> int:
         "docsplus",
         "docxodus",
         "apryse",
-        "reactdocx",
-        "opendoc",
-        "betteroffice",
-        "betteroffice-editor",
-        "onlyoffice",
     ]
+    # Lanes not in the published reports yet are labelled only when the run asked for them
+    # (TRIAL_PENDING=1), as build/run_bomb_sandbox.py ran them only then.
+    import lanes
+    if lanes.requested():
+        order += lanes.PENDING_SLUGS + lanes.PENDING_LANES
     bombs = [f"B{n}" for n in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)]
     by = {(name, bid): (level, detail) for name, bid, level, detail, _f, _s in rows}
     lines = [

@@ -992,6 +992,11 @@ def main(argv=None) -> int:
     parser.add_argument("--out-root", type=Path, default=None)
     args = parser.parse_args(argv)
     lanes = default_lanes()
+    if not args.editors and os.environ.get("TRIAL_PENDING") != "1":
+        # Lanes not in a published release yet are timed only when named or asked for.
+        from perf import pins as _pins
+
+        lanes = {e: lane for e, lane in lanes.items() if e not in _pins._PENDING}
     if args.editors:
         unknown = sorted(set(args.editors) - set(lanes))
         if unknown:

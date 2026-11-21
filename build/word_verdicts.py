@@ -22,8 +22,14 @@ sys.path.insert(0, str(ROOT / "build"))
 import word_batch  # noqa: E402
 
 TOOLS = ["plate", "docxodus", "superdoc", "folio", "folio-editor", "genoffice", "eigenpal",
-         "eigenpal-editor", "officeopen", "docen", "wordcraft", "fidus", "canvas", "docsplus", "apryse",
-         "reactdocx", "opendoc", "betteroffice", "betteroffice-editor", "onlyoffice", "lo_baseline"]
+         "eigenpal-editor", "officeopen", "docen", "wordcraft", "fidus", "canvas", "docsplus", "apryse", "lo_baseline"]
+import os as _os, sys as _sys  # noqa: E401,E402
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+import lanes  # noqa: E402
+
+TOOLS = lanes.join(TOOLS, lambda name, slug, key: slug)
+if lanes.requested():
+    TOOLS[-1:-1] = lanes.PENDING_LANES
 
 SETS = {
     "outputs": {"src": ROOT / "out", "json": ROOT / "out" / "word_verdicts.json",

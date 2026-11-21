@@ -35,12 +35,13 @@ TARGETS = [
     ("plate", "out/plate/complex.docx"),
     ("docxodus", "out/docxodus/complex.docx"),
     ("apryse", "out/apryse/complex.docx"),
-    ("react-docx", "out/reactdocx/complex.docx"),
-    ("opendoc", "out/opendoc/complex.docx"),
-    ("betteroffice", "out/betteroffice/complex.docx"),
-    ("onlyoffice", "out/onlyoffice/complex.docx"),
     ("libreoffice", "out/lo_baseline/complex.docx"),
 ]
+import os as _os, sys as _sys  # noqa: E401,E402
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+import lanes  # noqa: E402
+
+TARGETS = lanes.join(TARGETS, lambda name, slug, key: (key, "out/%s/complex.docx" % slug))
 
 # a friendly name for each namespace URI
 NAMES = {
