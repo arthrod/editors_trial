@@ -271,7 +271,7 @@ The README warns that the project is not yet stable and should not be used in pr
 
 - Microsoft Word refuses the file it saves from the test document, for the same five broken links as office-open (Report B §3.6).
 - It cannot read its own output back: the second save is not valid XML (main report, second pass {{p2.docen.weighted}}%).
-- It is not usable on a long document in the browser. The 500-page sample did not open in any of 3 runs, and typing one character at 250,000 words took 7.3 s (editors site; Report E2, typing).
+- A long document makes it wait. It opens the 500-page sample and counts Word's 500 pages, but the tab then stops responding for minutes, and typing one character at 250,000 words took 7.3 s (editors site, measured on a Mac on 2026-11-21; Report E2, typing).
 - It draws the test document's chart with three coloured series where Word draws one, and shows no comment, equation or embedded object (Report C §2.5 and §3).
 - It kept six of the ten hostile test files in what it saved and ran out of stack on two more, the lowest grade in Report D's table, shared with office-open (Report D, grade {{bomb.docen.grade:.2f}}).
 - Its own README advises against production use (project README).
