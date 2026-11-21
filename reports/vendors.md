@@ -6,7 +6,7 @@ The round-trip driver in `build/score_all.py` measures fourteen tools, and `buil
 
 **How to read the Pros and Cons.** Each bullet rests on a measurement or on a quoted finding, and names its source in parentheses. "Main report" is the round-trip report at the root of this repository. Reports A to E2 are in this folder. "Editors site" is editors.benchmarks.law and "viewers site" is viewers.benchmarks.law: two sister sites, by the same owner, that open the same three sample files in every engine in a real browser. Their figures are from the pass of 2026-11-20 unless a bullet gives another date. "Test document" means the trial's own `fixture/complex.docx`, one deliberately difficult file of 6 pages.
 
-Three limits apply to every bullet. The trial's fidelity figures come from one document, so they describe that document and not every file. The browser timings in Report E2 and on the sister sites were taken on shared cloud machines with no graphics processor; they compare engines on such a machine and are not the times on your computer. A tool that a benchmark did not measure has no bullet for it; a missing bullet is not a result.
+Three limits apply to every bullet. The trial's fidelity figures come from one document, so they describe that document and not every file. The browser timings in Report E2 and on the sister sites were taken on shared cloud machines with no graphics processor, except where a bullet names another machine; they compare engines on such a machine and are not the times on your computer. A tool that a benchmark did not measure has no bullet for it; a missing bullet is not a result.
 
 One finding is true of every tool that keeps a document faithfully, and is written as a bullet on only some of them: no editor in the trial repairs a damaged file. A tool that keeps the document also keeps its defects, and Word then refuses the result (Report B §4).
 
@@ -273,7 +273,7 @@ The README warns that the project is not yet stable and should not be used in pr
 
 - Microsoft Word refuses the file it saves from the test document, for the same five broken links as office-open (Report B §3.6).
 - It cannot read its own output back: the second save is not valid XML (main report, second pass 32.2%).
-- A long document makes it wait. It opens the 500-page sample and counts Word's 500 pages, but the tab then stops responding for minutes, and typing one character at 250,000 words took 7.3 s (editors site, measured on a Mac on 2026-11-21; Report E2, typing).
+- A long document makes it wait. It opens the 500-page sample and counts Word's 500 pages, but the tab then stops responding for minutes (editors site, measured on a Mac on 2026-11-21, not on the cloud machine). Typing one character at 250,000 words took 7.3 s (Report E2, typing).
 - It draws the test document's chart with three coloured series where Word draws one, and shows no comment, equation or embedded object (Report C §2.5 and §3).
 - It kept six of the ten hostile test files in what it saved and ran out of stack on two more, the lowest grade in Report D's table, shared with office-open (Report D, grade 0.14).
 - Its own README advises against production use (project README).

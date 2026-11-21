@@ -73,6 +73,11 @@ VENDOR_SUBHEADINGS = ("What the benchmark runs", "Trivia", "Pros", "Cons")
 def vendor_sections(text: str) -> dict[str, str]:
     """Return each ``## heading`` of the vendors page with its body."""
     parts = re.split(r"^##[ \t]+(.+?)[ \t]*$", text, flags=re.M)
+    names = [parts[i].strip() for i in range(1, len(parts), 2)]
+    twice = sorted({n for n in names if names.count(n) > 1})
+    if twice:
+        # A dictionary would keep only the last of them and hide the other from every check.
+        raise ValueError("the vendors page has more than one section headed: " + ", ".join(twice))
     return {parts[i].strip(): parts[i + 1] for i in range(1, len(parts), 2)}
 
 

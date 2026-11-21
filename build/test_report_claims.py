@@ -96,7 +96,23 @@ def _paragraphs_docx(path):
 def _vendor_sections(text):
     """Map each ``## heading`` of the vendors page to its body, in page order."""
     parts = re.split(r"^##[ \t]+(.+?)[ \t]*$", text, flags=re.M)
+    names = [parts[i].strip() for i in range(1, len(parts), 2)]
+    twice = sorted({n for n in names if names.count(n) > 1})
+    if twice:
+        raise ValueError("the vendors page has more than one section headed: " + ", ".join(twice))
     return {parts[i].strip(): parts[i + 1] for i in range(1, len(parts), 2)}
+
+
+def _lane_blocks(body):
+    """Map each lane tag of a ``This run`` body (``[folio:model]``) to the lines of its own block."""
+    blocks = {}
+    for block in re.findall(r"^```\n(.*?)^```", body, flags=re.M | re.S):
+        lines = block.strip().splitlines()
+        tag = re.match(r"\[([\w:-]+)\] wrote ", lines[0] if lines else "")
+        if tag:
+            assert tag.group(1) not in blocks, tag.group(1)
+            blocks[tag.group(1)] = lines
+    return blocks
 
 
 def _subsections(body):
@@ -273,24 +289,42 @@ class ReportClaimsTest(unittest.TestCase):
                 self.assertIn(anchor, anchors, name)
         self.assertGreater(linked, 0)
 
+    def test_a_section_headed_twice_is_refused_not_collapsed(self):
+        twice = "# Vendors\n\n## Folio\n\nfirst\n\n## Docen\n\nx\n\n## Folio\n\nsecond\n"
+        with self.assertRaises(ValueError):
+            _vendor_sections(twice)
+        with self.assertRaises(ValueError):
+            gate.vendor_sections(twice)
+        self.assertEqual(list(gate.vendor_sections("## Folio\n\na\n\n## Docen\n\nb\n")), ["Folio", "Docen"])
+
+    def test_a_lane_is_read_from_its_own_block(self):
+        body = "\n```\n[folio:model] wrote 1 bytes\nweighted: 97.5%\nfailed-check-ids: a b\n```\n\n```\n[folio:editor] wrote 2 bytes\nweighted: 95.5%\nfailed-check-ids: a b c\n```\n"
+        blocks = _lane_blocks(body)
+        self.assertEqual(sorted(blocks), ["folio:editor", "folio:model"])
+        self.assertNotIn("failed-check-ids: a b", blocks["folio:editor"])
+        self.assertNotIn("weighted: 95.5%", blocks["folio:model"])
+
     def test_lane_blocks_quote_the_shipped_scorer(self):
+        # Output file -> (vendor section, the tag the page prints over that lane's block).
         lanes = {
-            os.path.join(ROOT, "out", "folio", "complex.docx"): "Folio",
-            os.path.join(ROOT, "out", "folio-editor", "complex.docx"): "Folio",
-            os.path.join(ROOT, "out", "eigenpal", "complex.docx"): "eigenpal",
-            os.path.join(ROOT, "out", "eigenpal-editor", "complex.docx"): "eigenpal",
+            os.path.join(ROOT, "out", "folio", "complex.docx"): ("Folio", "folio:model"),
+            os.path.join(ROOT, "out", "folio-editor", "complex.docx"): ("Folio", "folio:editor"),
+            os.path.join(ROOT, "out", "eigenpal", "complex.docx"): ("eigenpal", "eigenpal:store"),
+            os.path.join(ROOT, "out", "eigenpal-editor", "complex.docx"): ("eigenpal", "eigenpal:editor"),
         }
         sections = _vendor_sections(_read(os.path.join(ROOT, "reports", "vendors.md")))
         inp = sc.Pkg(FIXTURE)
-        for out_path, heading in lanes.items():
+        for out_path, (heading, tag) in lanes.items():
             self.assertTrue(os.path.isfile(out_path), out_path)
             checks = sc.build_checks(inp, sc.Pkg(out_path))
             failed = [c[0] for c in checks if not c[4]]
             weighted = "%s%%" % sc.score(checks)["weighted"]
-            body = _subsections(sections[heading])["This run"]
-            self.assertIn("failed-check-ids: " + " ".join(failed), body)
-            self.assertIn(weighted, body)
-            self.assertIn(f"{os.path.getsize(out_path)} bytes", body)
+            # Each lane against its own block, whole lines: the other lane's figures, or a check
+            # that no longer fails left at the end of the line, must not pass.
+            block = _lane_blocks(_subsections(sections[heading])["This run"])[tag]
+            self.assertEqual(block[0], f"[{tag}] wrote {os.path.getsize(out_path)} bytes")
+            self.assertIn("weighted: " + weighted, block)
+            self.assertIn(("failed-check-ids: " + " ".join(failed)).rstrip(), block)
 
     def test_safety_report_records_each_vector_as_not_run(self):
         body = _read(
