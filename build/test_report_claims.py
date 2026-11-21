@@ -65,7 +65,7 @@ PENDING_HEADINGS = (
     "OnlyOffice (CryptPad build)",
     "Nutrient",
 )
-PENDING_SENTENCE = "The trial's own lanes for %s are being measured and are not in the reports yet."
+PENDING_SENTENCE = "%s is not in the trial's reports yet: no published run of the trial includes it."
 VENDOR_SUBHEADINGS = ("What the benchmark runs", "Trivia", "Pros", "Cons")
 
 

@@ -452,7 +452,7 @@ The binary is still named `soffice`, the StarOffice name that OpenOffice and the
 
 react-docx (`@extend-ai/react-docx`) is a DOCX viewer and editor for JavaScript and React. Its README lists pagination, editing, import and export, document review and thumbnails. A Rust parser compiled to WebAssembly reads the file, and the pages are laid out in the DOM. The license is MIT. The source is at github.com/extend-hq/react-docx.
 
-The trial's own lanes for react-docx are being measured and are not in the reports yet.
+react-docx is not in the trial's reports yet: no published run of the trial includes it.
 
 ### What the benchmark runs
 
@@ -478,7 +478,7 @@ The package ships with its review marks and review cards hidden; a page that wan
 
 Univer is an open-source office SDK for spreadsheets and documents that draws on a canvas. The open-source core is Apache-2.0. Its open-source packages cannot read or write `.docx`: the editors site's README places that import and export in Univer's separately licensed Server SDK. The source is at github.com/dream-num/univer and the site is univer.ai.
 
-The trial's own lanes for Univer are being measured and are not in the reports yet.
+Univer is not in the trial's reports yet: no published run of the trial includes it.
 
 ### What the benchmark runs
 
@@ -505,7 +505,7 @@ Its documents preset has no read-only switch, so on the viewers site it stays ed
 
 OpenDoc, from Casual Office, describes itself as an Apache-2.0, embeddable, local-first editor for Word documents with a Rust engine underneath. The engine is compiled to WebAssembly and draws on a canvas. The project is pre-release. The source is at github.com/CasualOffice/opendoc.
 
-The trial's own lanes for OpenDoc are being measured and are not in the reports yet.
+OpenDoc is not in the trial's reports yet: no published run of the trial includes it.
 
 ### What the benchmark runs
 
@@ -534,7 +534,7 @@ The application is published as a website; its npm package is only a frame mount
 
 BetterOffice, from the OpenOOXML Project, describes itself as Rust-native OOXML engines with collaboration and agent editing at the core, compiled to WebAssembly for browsers. Its DOCX editor runs the engines in a Worker, draws pages on a canvas and has a React interface. The license is Apache-2.0. The source is at github.com/openooxml/betteroffice and the site is betteroffice.dev.
 
-The trial's own lanes for BetterOffice are being measured and are not in the reports yet.
+BetterOffice is not in the trial's reports yet: no published run of the trial includes it.
 
 ### What the benchmark runs
 
@@ -564,7 +564,7 @@ This is the OnlyOffice document editor as CryptPad builds it: the editor's JavaS
 
 This benchmark is not affiliated with, sponsored by, or endorsed by OnlyOffice or CryptPad. The build is run unmodified from CryptPad's release archives, and what is measured is that build, not OnlyOffice's own Document Server.
 
-The trial's own lanes for OnlyOffice (CryptPad build) are being measured and are not in the reports yet.
+OnlyOffice (CryptPad build) is not in the trial's reports yet: no published run of the trial includes it.
 
 ### What the benchmark runs
 
@@ -597,7 +597,7 @@ Nutrient Web SDK is a commercial, closed-source document SDK. It is a viewer her
 
 **No affiliation.** This benchmark is independent. It is not affiliated with, sponsored by, or endorsed by Nutrient, or by any other vendor it measures. Nutrient Web SDK was run from Nutrient's own CDN in its trial mode; the watermark that mode draws is left in what is shown, not removed. Nutrient and PSPDFKit are trademarks of their owner.
 
-The trial's own lanes for Nutrient are being measured and are not in the reports yet.
+Nutrient is not in the trial's reports yet: no published run of the trial includes it.
 
 ### What the benchmark runs
 
