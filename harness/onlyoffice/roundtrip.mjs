@@ -18,7 +18,7 @@
 //
 // A conversion that does not return is stopped after X2T_TIMEOUT_S seconds
 // (default 120) and reported as a failure of that step.
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
@@ -43,12 +43,20 @@ console.log(`[onlyoffice] x2t ${pin.tag} (${pin.repository})`);
 const t0 = performance.now();
 const worker = new Worker(join(HERE, 'x2t-worker.cjs'), { workerData: { dir: DIR, input: bytesIn }, stdout: false, stderr: false });
 let step = 'starting x2t';
-const fail = (message) => {
+// A lane with no output says what happened (build/no_output.py): a converter that
+// did not return is not an editor that refused. The record sits where the output
+// would have been, and is removed when an output is written.
+const record = join(dirname(resolve(output)), 'no_output.json');
+const fail = (message, outcome = 'error') => {
+  mkdirSync(dirname(record), { recursive: true });
+  writeFileSync(record, `${JSON.stringify({
+    outcome, step, limit_s: limit, message, tool: `x2t ${pin.tag}`, input: bytesIn.length,
+  }, null, 1)}\n`);
   console.log(`[onlyoffice] FAILED: ${message}`);
   worker.terminate().finally(() => process.exit(1));
 };
 const watchdog = setTimeout(
-  () => fail(`x2t did not return from "${step}" within ${limit} s; its call into WebAssembly was still running and the harness stopped it`),
+  () => fail(`x2t did not return from "${step}" within ${limit} s; its call into WebAssembly was still running and the harness stopped it`, 'did-not-return'),
   limit * 1000,
 );
 worker.on('error', (e) => fail(`x2t threw: ${e.message}`));
@@ -67,6 +75,7 @@ worker.on('message', (msg) => {
     const out = Buffer.from(msg.bytes);
     mkdirSync(dirname(resolve(output)), { recursive: true });
     writeFileSync(output, out);
+    rmSync(record, { force: true });
     const same = Buffer.compare(Buffer.from(bytesIn), out) === 0;
     console.log(`[onlyoffice] bin -> docx: main1 returned ${msg.rc}; ${bytesIn.length} -> ${out.length} bytes${same ? '  IDENTICAL TO INPUT (pass-through)' : ''}`);
     worker.terminate().finally(() => process.exit(0));

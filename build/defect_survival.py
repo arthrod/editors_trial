@@ -119,14 +119,33 @@ def survival(outroot=OUTROOT, editors=EDITORS):
     return out
 
 
-def table(rows, verdicts, word_version, editors=EDITORS):
-    """Report B's markdown table: the defect cells, then Word's verdict on the same output."""
+def outcomes(outroot=OUTROOT, editors=EDITORS):
+    """-> {dir: outcome} for every lane that wrote no output and recorded why (build/no_output.py)."""
+    import no_output
+    out = {}
+    for _, d in editors:
+        folder = Path(outroot) / d
+        if not (folder / "complex.docx").exists() and no_output.read(folder):
+            out[d] = no_output.outcome(folder)
+    return out
+
+
+def _why(why, d):
+    """The words for a lane's recorded outcome, or None when it recorded none."""
+    import no_output
+    return no_output.words(why[d]) if why and d in why else None
+
+
+def table(rows, verdicts, word_version, editors=EDITORS, why=None):
+    """Report B's markdown table: the defect cells, then Word's verdict on the same output.
+    ``why`` is outcomes(): a lane that recorded why it wrote nothing has it said in its row."""
     head = ["Editor"] + list(DEFECTS.values()) + [f"Word {word_version}"]
     lines = ["| " + " | ".join(head) + " |", "|" + "---|" * len(head)]
     for label, d in editors:
         cells = rows.get(d)
         if cells is None:
-            lines.append("| " + " | ".join([label] + ["—"] * len(DEFECTS) + ["no output"]) + " |")
+            reason = _why(why, d)
+            lines.append("| " + " | ".join([label] + ["—"] * len(DEFECTS) + ["no output: " + reason if reason else "no output"]) + " |")
             continue
         v = verdicts.get(d, "")
         word = f"**{v}**" if v in ("OPENED", "REFUSED") else "not measured"
@@ -142,13 +161,13 @@ def _verdict(v):
     return v if v in ("OPENED", "REFUSED") else "not measured"
 
 
-def fatal_table(rows, verdicts, editors=EDITORS):
+def fatal_table(rows, verdicts, editors=EDITORS, why=None):
     """Report B 4.1: d10-d12 per editor beside Word's verdict on the same output."""
     lines = ["| Editor | d10 | d11 | d12 | Word verdict | Of d10, d11, d12 in the output |", "|---|---|---|---|---|---|"]
     for label, d in editors:
         cells = rows.get(d)
         if cells is None:
-            lines.append(f"| {label} | — | — | — | no output | the importer refused the corpus |")
+            lines.append(f"| {label} | — | — | — | no output | {_why(why, d) or 'the importer refused the corpus'} |")
             continue
         alive = [k for k in FATAL if cells[k] == "YES"]
         n = COUNT[len(alive)] + (f" (d{alive[0]})" if len(alive) == 1 else "")
@@ -156,7 +175,7 @@ def fatal_table(rows, verdicts, editors=EDITORS):
     return "\n".join(lines)
 
 
-def flip_table(rows, clean_opens, verdicts, editors=EDITORS):
+def flip_table(rows, clean_opens, verdicts, editors=EDITORS, why=None):
     """Report B 4.2: Word on the clean corpus's output beside Word on the broken corpus's output."""
     lines = ["| Editor | Clean corpus | Broken corpus | Verdict flipped by the corpus? |", "|---|---|---|---|"]
     for label, d in editors:
@@ -165,7 +184,7 @@ def flip_table(rows, clean_opens, verdicts, editors=EDITORS):
         if "not measured" in (clean, broken):
             flip = "not measured"
         elif broken == "no output":
-            flip = "**yes — the importer refused the corpus**" if clean == "OPENED" else "no"
+            flip = f"**yes — {_why(why, d) or 'the importer refused the corpus'}**" if clean == "OPENED" else "no"
         else:
             flip = "**yes**" if clean != broken else "no"
         lines.append(f"| {label} | {clean} | {broken} | {flip} |")
@@ -195,7 +214,7 @@ def main():
           % ", ".join("%d:%s" % (k, v) for k, v in sorted(base.items())))
     print()
     word = json.loads(WORD.read_text()) if WORD.exists() else {"word": "?", "verdicts": {}}
-    print(table(survival(), word["verdicts"], word["word"]))
+    print(table(survival(), word["verdicts"], word["word"], why=outcomes()))
     print()
     print("YES = the defect class is still present in that editor's output")
     print("no  = the defect class is gone (dropped with the feature, or rewritten)")

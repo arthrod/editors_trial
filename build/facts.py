@@ -40,9 +40,12 @@ from part_map import classify  # noqa: E402
 TOOLS = [
     "superdoc", "docxodus", "genoffice", "eigenpal", "eigenpal-editor", "folio",
     "folio-editor", "officeopen", "docen", "wordcraft", "canvas", "fidus",
-    "docsplus", "plate", "apryse", "reactdocx", "opendoc", "betteroffice",
-    "betteroffice-editor", "onlyoffice", "lo_baseline",
+    "docsplus", "plate", "apryse", "lo_baseline",
 ]
+# Lanes that run but are not in the published reports yet: their facts are built
+# only with --pending (a development run), so a release's counts do not move.
+import lanes  # noqa: E402
+PENDING_TOOLS = lanes.PENDING_SLUGS + lanes.PENDING_LANES
 # Checkout under repos/ -> its GitHub slug.
 REPOS = {
     "plate": "udecode/plate",
@@ -102,6 +105,20 @@ def score_facts(prefix: str, score_path: Path, package: Path, facts: dict) -> No
         f["bytes"] = package.stat().st_size
     for k, v in f.items():
         facts[f"{prefix}.{k}"] = v
+
+
+def outcome_facts(prefix: str, directory: Path, facts: dict) -> None:
+    """<prefix>.outcome for a lane that wrote no output and recorded why (build/no_output.py):
+    a refusal, a call that did not return and an error are three outcomes, not one."""
+    import no_output
+    data = no_output.read(directory)
+    if not data:
+        return
+    facts[f"{prefix}.outcome"] = data["outcome"]
+    facts[f"{prefix}.outcome_text"] = no_output.words(data["outcome"])
+    for k in ("step", "limit_s"):
+        if k in data:
+            facts[f"{prefix}.outcome_{k}"] = data[k]
 
 
 def part_facts(tool: str, package: Path, fixture: dict, facts: dict) -> None:
@@ -225,7 +242,7 @@ CODE_READ_RELEASE = "v0.9.0"
 SDKS = {"docxodus"}            # an Open XML SDK, not an editor
 CLOSED = {"apryse"}            # measured only; there is no source to read
 # Second lanes through an editor already counted; LibreOffice is a participant like any other.
-LANES = {"eigenpal-editor", "folio-editor", "betteroffice-editor"}
+LANES = {"eigenpal-editor", "folio-editor"} | set(lanes.PENDING_LANES)
 
 
 def release_facts(path: Path, facts: dict) -> None:
@@ -347,10 +364,13 @@ def broken_facts(facts: dict) -> None:
     word = OUT / "word_verdicts_broken.json"
     data = json.loads(word.read_text()) if word.exists() else {"word": facts.get("word.version", "?"), "verdicts": {}}
     rows = defect_survival.survival()
-    facts["broken.survival"] = defect_survival.table(rows, data["verdicts"], data["word"])
-    facts["broken.fatal"] = defect_survival.fatal_table(rows, data["verdicts"])
+    why = defect_survival.outcomes()
+    for d, kind in why.items():
+        facts[f"broken.{d}.outcome"] = kind
+    facts["broken.survival"] = defect_survival.table(rows, data["verdicts"], data["word"], why=why)
+    facts["broken.fatal"] = defect_survival.fatal_table(rows, data["verdicts"], why=why)
     clean = {d: facts[f"word.{d}.opens"] for _, d in defect_survival.EDITORS if f"word.{d}.opens" in facts}
-    facts["broken.flip"] = defect_survival.flip_table(rows, clean, data["verdicts"])
+    facts["broken.flip"] = defect_survival.flip_table(rows, clean, data["verdicts"], why=why)
     flipped, spared = defect_survival.groups(rows, clean, data["verdicts"])
     facts["broken.flipped"], facts["broken.flipped_list"] = len(flipped), defect_survival.names(flipped)
     facts["broken.spared"], facts["broken.spared_list"] = len(spared), defect_survival.names(spared)
@@ -426,22 +446,25 @@ def integrity_facts(xsd: Path, pkg: Path, facts: dict) -> None:
             facts[f"pkg.{t}"] = "**" + ", ".join(f"{k.lower()} ×{v}" for k, v in sorted(kinds.items())) + "**"
 
 
-def build() -> dict:
+def build(pending: bool = False) -> dict:
     facts: dict = {}
     fixture = parts(FIXTURE)
     facts["fixture.parts"] = len(fixture)
-    for t in TOOLS:
+    tools = TOOLS + (PENDING_TOOLS if pending else [])
+    for t in tools:
         d = OUT / t
         if (d / "score.json").exists():
             score_facts(f"rt.{t}", d / "score.json", d / "complex.docx", facts)
             if (d / "complex.docx").exists():
                 part_facts(t, d / "complex.docx", fixture, facts)
+        else:
+            outcome_facts(f"rt.{t}", d, facts)
         if (d / "second" / "score.json").exists():
             score_facts(f"p2.{t}", d / "second" / "score.json", d / "second" / "complex.docx", facts)
             first, second = d / "complex.docx", d / "second" / "complex.docx"
             if first.exists() and second.exists():
                 facts[f"p2.{t}.identical"] = parts(first) == parts(second)
-    totals = {(facts[f"rt.{t}.total"], facts[f"rt.{t}.critical_total"]) for t in TOOLS if f"rt.{t}.total" in facts}
+    totals = {(facts[f"rt.{t}.total"], facts[f"rt.{t}.critical_total"]) for t in tools if f"rt.{t}.total" in facts}
     if len(totals) == 1:
         facts["checks.total"], facts["checks.critical"] = totals.pop()
     if (OUT / "xsd_real.json").exists() and (OUT / "package_integrity.json").exists():
@@ -505,7 +528,7 @@ def build() -> dict:
             facts[f"stars.{slug}"] = n
     perf_e_facts(OUT / "report_e_runs.json", facts)
     perf_e2_facts(OUT / "report_e2_runs.json", facts)
-    editors = [t for t in TOOLS if t not in LANES and f"p2.{t}.identical" in facts]
+    editors = [t for t in tools if t not in LANES and f"p2.{t}.identical" in facts]
     facts["count.p2_identical"] = sum(1 for t in editors if facts[f"p2.{t}.identical"])
     facts["count.zero_failed"] = sum(1 for t in editors if facts[f"rt.{t}.failed"] == 0)
     return dict(sorted(facts.items()))
@@ -513,9 +536,13 @@ def build() -> dict:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--out", default=str(OUT / "facts.json"))
+    ap.add_argument("--out")
+    ap.add_argument("--pending", action="store_true",
+                    help="a development run: also build the facts of lanes not in the published reports yet "
+                         "(build/lanes.py), into out/facts.pending.json unless --out says otherwise")
     a = ap.parse_args()
-    facts = build()
+    a.out = a.out or str(OUT / ("facts.pending.json" if a.pending else "facts.json"))
+    facts = build(pending=a.pending)
     Path(a.out).write_text(json.dumps(facts, indent=1, ensure_ascii=False) + "\n")
     print(f"facts: {len(facts)} keys -> {a.out}")
     return 0
