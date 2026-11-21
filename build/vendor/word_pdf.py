@@ -1785,6 +1785,13 @@ def export_pdf(
     script = _EXPORT_PDF if _close_documents.get() else _EXPORT_PDF_KEEP_OPEN
     rc, _, err = osa(script, str(staged_docx), str(staged_pdf), timeout=timeout)
     produced = staged_pdf.exists() and staged_pdf.stat().st_size > 0
+    # Word can return from the export before the file is on disk (seen 2026-11-21: a 596 KB PDF
+    # that appeared after this check). A clean exit with no file yet is given a few seconds.
+    waited = 0.0
+    while rc == 0 and not produced and waited < 15:
+        time.sleep(0.5)
+        waited += 0.5
+        produced = staged_pdf.exists() and staged_pdf.stat().st_size > 0
     if rc == 0 and produced:
         return True, ""
     return False, classify_failure(rc, err, produced)

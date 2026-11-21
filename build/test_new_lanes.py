@@ -84,11 +84,14 @@ class Runners(unittest.TestCase):
         for slug in lanes.PENDING_SLUGS + lanes.PENDING_LANES:
             self.assertNotIn(slug, facts.TOOLS, slug)
             self.assertIn(slug, facts.PENDING_TOOLS, slug)
-        # Published lanes (lanes.PUBLISHED_IN) are in every run; before that, only on request.
-        self.assertEqual(lanes.requested([]), bool(lanes.PUBLISHED_IN))
-        self.assertTrue(lanes.requested(["--pending"]))
         import os
         from unittest import mock
+        # Published lanes (lanes.PUBLISHED_IN) are in every run; before that, only on request.
+        # Whatever TRIAL_PENDING this test run was started with is set aside for these two.
+        unset = {k: v for k, v in os.environ.items() if k != "TRIAL_PENDING"}
+        with mock.patch.dict(os.environ, unset, clear=True):
+            self.assertEqual(lanes.requested([]), bool(lanes.PUBLISHED_IN))
+            self.assertTrue(lanes.requested(["--pending"]))
         with mock.patch.dict(os.environ, {"TRIAL_PENDING": "0"}):
             self.assertFalse(lanes.requested(["--pending"]), "TRIAL_PENDING=0 reproduces an earlier release")
         for name in ("score_all.py", "score_extra.py"):
@@ -243,8 +246,10 @@ class Join(unittest.TestCase):
         from unittest import mock
         with mock.patch.dict(os.environ, {"TRIAL_PENDING": "0"}):
             self.assertEqual(self.lanes.names([]), {})
-        if self.lanes.PUBLISHED_IN:
-            self.assertEqual(set(self.lanes.names([])), set(self.lanes.KEYS.values()))
+        unset = {k: v for k, v in os.environ.items() if k != "TRIAL_PENDING"}
+        with mock.patch.dict(os.environ, unset, clear=True):
+            if self.lanes.PUBLISHED_IN:
+                self.assertEqual(set(self.lanes.names([])), set(self.lanes.KEYS.values()))
 
     def test_pending_lanes_go_before_the_baseline_in_the_list_s_own_shape(self):
         j = lambda items, make=None: self.lanes.join(items, make, on=True)

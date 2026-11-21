@@ -9,6 +9,21 @@ re-running the measurement behind it. The format follows
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-11-21
+
+Corrections to the text of v0.11.0, from a review of it against the measurements. No measurement changed.
+
+### Fixed
+- Main report §12 said react-docx loses all of the math. It keeps the equation; what it loses is the text box's text and the embedded document's.
+- Report A2 §6.10: the column "Re-serialised to the same tree" printed changed plus rewritten parts, so its rows did not add up to 35. It now prints rewritten parts.
+- Report A2: the sentences about the embedded document (`altChunk`) and about tools that add parts counted only the earlier participants without saying so; react-docx and BetterOffice's document model keep the embedded part with nothing pointing at it.
+- Report B: the block-math defect is absent from nine outputs, not four; a d9 row was missing from the table of §4.5; two sentences gave a cause for OpenDoc and BetterOffice whose code was not read.
+- Report A: `w14:paraId` and `textId` are lost by five outputs, Apryse WebViewer among them, not four; the counts in the prose are of the twelve editors and Docxodus.
+- Main report and Report D: OnlyOffice's converter returns on nine of the ten hostile packages, not all; its table rows exist and hold no figures; the broken corpus left two tools without output, not one.
+- Report C and the main report: sentences saying "three editors", "two editors" or "no other editor" now say which set they count.
+- `build/measure_alternate_content.py` fails when a lane's output file is missing instead of printing "no block". `build/ui_figures.py` leaves Nutrient out under `TRIAL_PENDING=0`. Two tests in `build/test_new_lanes.py` no longer depend on that variable.
+- The Word driver waits up to 15 seconds for a PDF after Word returns cleanly: Word returned before Report E2's file was on disk in two of three gate runs.
+
 ## [0.11.0] - 2026-11-21
 
 Four tools join the round trip and five join the rendering report. No earlier
