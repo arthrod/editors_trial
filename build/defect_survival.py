@@ -130,6 +130,50 @@ def outcomes(outroot=OUTROOT, editors=EDITORS):
     return out
 
 
+def recorded(outroot=OUTROOT):
+    """-> {dir: outcome} for every folder under outroot holding a no-output record,
+    whether or not the lane is in EDITORS yet."""
+    import no_output
+    return {p.parent.name: no_output.outcome(p.parent)
+            for p in sorted(Path(outroot).glob("*/" + no_output.RECORD)) if no_output.read(p.parent)}
+
+
+def install(pass1, pass2, dest, editors=EDITORS, say=print):
+    """Install pass 2 in dest (out_broken/) when the two passes agree, cell by cell and
+    outcome by outcome; otherwise leave dest as it was and return False. A lane that wrote
+    an output has it copied and any old no-output record removed; a lane that recorded why
+    it wrote none has the record copied and any old output removed."""
+    import shutil
+    import no_output
+    a, b = survival(pass1, editors), survival(pass2, editors)
+    ra, rb = recorded(pass1), recorded(pass2)
+    for d in a:
+        say(f"{d:12s} {'same cells' if a[d] == b[d] else 'cells DIFFER'}")
+    for d in sorted(set(ra) | set(rb)):
+        say(f"{d:12s} no output: {ra.get(d, 'an output')} / {rb.get(d, 'an output')}")
+    if a != b or ra != rb:
+        say("passes differ: out_broken/ left as it was")
+        return False
+    dest = Path(dest)
+    for d in sorted(set(b) | set(rb)):
+        src = Path(pass2) / d
+        if (src / "complex.docx").exists():
+            (dest / d).mkdir(parents=True, exist_ok=True)
+            shutil.copy(src / "complex.docx", dest / d / "complex.docx")
+            (dest / d / no_output.RECORD).unlink(missing_ok=True)
+        elif d in rb:
+            (dest / d).mkdir(parents=True, exist_ok=True)
+            shutil.copy(src / no_output.RECORD, dest / d / no_output.RECORD)
+            if (dest / d / "complex.docx").exists():
+                (dest / d / "complex.docx").unlink()
+                say(f"{d:12s} its earlier output is removed: the lane now writes none")
+    (dest / "logs").mkdir(parents=True, exist_ok=True)
+    for log in Path(pass2).glob("rb_*.log"):
+        shutil.copy(log, dest / "logs" / log.name)
+    say("installed pass 2 in out_broken/")
+    return True
+
+
 def _why(why, d):
     """The words for a lane's recorded outcome, or None when it recorded none."""
     import no_output

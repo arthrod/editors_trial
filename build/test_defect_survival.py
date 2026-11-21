@@ -76,8 +76,61 @@ class Table(unittest.TestCase):
         self.assertTrue(line.endswith("| not measured |"))
 
     def test_every_editor_measured_has_a_row(self):
+        # A row is owed to every lane with a committed output, and to every lane with a
+        # committed record of why it has none (no_output.json): read, not named.
+        measured = {p.parent.name for p in (ds.ROOT / "out_broken").glob("*/complex.docx")}
         self.assertEqual({d for _, d in ds.EDITORS} - {"plate"},
-                         {p.parent.name for p in (ds.ROOT / "out_broken").glob("*/complex.docx")} - {"plate"})
+                         (measured | set(ds.recorded(ds.ROOT / "out_broken"))) - {"plate"})
+
+    def test_a_recorded_no_output_lane_counts_as_measured(self):
+        import json
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            d = Path(tmp) / "anylane"
+            d.mkdir()
+            (d / "no_output.json").write_text(json.dumps({"outcome": "did-not-return"}))
+            self.assertEqual(ds.recorded(tmp), {"anylane": "did-not-return"})
+            (d / "complex.docx").write_bytes(b"PK")  # a record beside an output is stale
+            self.assertEqual(ds.recorded(tmp), {})
+
+
+class Install(unittest.TestCase):
+    """build/release_broken.sh installs pass 2 only when the passes agree."""
+    def setUp(self):
+        import tempfile
+        self.tmp = tempfile.TemporaryDirectory()
+        self.t = Path(self.tmp.name)
+        for name in ("p1", "p2", "dest"):
+            (self.t / name).mkdir()
+        self.ed = [("Some Lane", "somelane")]
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def record(self, pass_, outcome):
+        import json
+        d = self.t / pass_ / "somelane"
+        d.mkdir(exist_ok=True)
+        (d / "no_output.json").write_text(json.dumps({"outcome": outcome, "step": "doc.docx -> bin"}))
+
+    def test_a_no_output_record_is_installed_and_an_old_output_removed(self):
+        self.record("p1", "did-not-return")
+        self.record("p2", "did-not-return")
+        (self.t / "dest" / "somelane").mkdir()
+        (self.t / "dest" / "somelane" / "complex.docx").write_bytes(b"PK")
+        said = []
+        self.assertTrue(ds.install(self.t / "p1", self.t / "p2", self.t / "dest", self.ed, said.append))
+        self.assertEqual(ds.recorded(self.t / "dest"), {"somelane": "did-not-return"})
+        self.assertFalse((self.t / "dest" / "somelane" / "complex.docx").exists())
+
+    def test_passes_that_disagree_on_the_outcome_install_nothing(self):
+        self.record("p1", "did-not-return")
+        self.record("p2", "refused")
+        self.assertFalse(ds.install(self.t / "p1", self.t / "p2", self.t / "dest", self.ed, lambda s: None))
+        self.assertEqual(list((self.t / "dest").iterdir()), [])
+
+    def test_the_release_script_installs_through_it(self):
+        self.assertIn("ds.install(sys.argv[2], sys.argv[3], sys.argv[4])", (ds.ROOT / "build/release_broken.sh").read_text())
 
 
 class FatalAndFlipTables(unittest.TestCase):
