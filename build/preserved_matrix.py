@@ -170,6 +170,7 @@ def main() -> int:
     """Print the derived table, or patch it into the report."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--patch", default=None, help="report markdown to patch in place")
+    parser.add_argument("--pending", action="store_true", help="a development run: add the lanes not in the published reports yet")
     args = parser.parse_args()
     table = build_table()
     if not args.patch:
