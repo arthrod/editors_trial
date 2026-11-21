@@ -10,7 +10,7 @@ Each per-tool note has also been filed as an issue on that project's own reposit
 
 `fixture/complex.docx` is the corpus. `build/make_fixture.py` writes it as raw OOXML with hand-checked element order, choosing every construct because at least one surveyed editor is documented to lose it: tracked changes and moves, tables with `vMerge`/`gridSpan`, fields, content controls, charts, SmartArt, OLE, comments, headers/footers, multi-section layout, bidi/RTL, math, alternate content and `altChunk`, bookmarks, footnotes/endnotes, permissions, and the namespace prefixes Word itself declares (`wp14`, `w16du`, ...).
 
-The editors are Plate, eigenpal (store and editor), Folio (model and editor), GenOffice, SuperDoc, office-open, Docen, Fidus Writer, WordCraft, canvas-editor, docs.plus, Docxodus, and Apryse WebViewer (closed source, run in a real browser with a trial key from `.env`, which is never committed). Headless lanes are not the browser. LibreOffice is the baseline and counts as a participant.
+The editors are Plate, eigenpal (store and editor), Folio (model and editor), GenOffice, SuperDoc, office-open, Docen, Fidus Writer, WordCraft, canvas-editor, docs.plus, Docxodus, and Apryse WebViewer (closed source, run in a real browser with a trial key from `.env`, which is never committed). Since v0.11.0, react-docx, OpenDoc and BetterOffice (document model and unedited editor session) also have measured round-trip lanes. OnlyOffice’s CryptPad build was run but produced no output; Univer’s open-source packages were probed and have no DOCX lane. Nutrient is measured as a viewer in Report C only. The new tools were not timed in Reports E and E2, and their source was not reviewed. Headless lanes are not the browser. LibreOffice is the baseline and counts as a participant.
 
 ### Pipeline
 
@@ -38,7 +38,7 @@ python3 build/make_fixture.py     # only to (re)build fixture/complex.docx
 build/run_trial.sh                # round trips, second pass, scores, facts, reports
 ```
 
-The scripts hardcode `BASE=/Users/arthrod/temp/T/editors_trial` (`run_trial.sh`, `run_all.sh`, `run_second_pass.sh`, `score_all.py`, `score_extra.py`); adjust it for another checkout.
+The fidelity scripts resolve the repository root from their own location; set `TRIAL_ROOT` to use another measurement tree. The lanes published in v0.11.0 are included by default through `build/lanes.py`; `TRIAL_PENDING=0` excludes them when reproducing an earlier release. See [RELEASING.md §3a](RELEASING.md#3a-publishing-a-pending-lane-buildlanespy) for the new lanes’ build and browser prerequisites.
 
 ## Hostile packages
 
