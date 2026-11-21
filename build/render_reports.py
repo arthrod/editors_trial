@@ -52,7 +52,6 @@ TWINS = {MAIN} | {
 def reports() -> list[str]:
     rels = [MAIN]
     rels += sorted(str(p.relative_to(ROOT)) for p in (ROOT / "reports").glob("*.md"))
-    rels += sorted(str(p.relative_to(ROOT)) for p in (ROOT / "reports" / "extras").glob("*.md"))
     return rels
 
 

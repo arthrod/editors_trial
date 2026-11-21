@@ -9,6 +9,25 @@ re-running the measurement behind it. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The vendor notes are one page.** `reports/vendors.md` now holds everything
+  about each tool in one section: what it is, what the benchmark runs, the
+  lane results of Folio and eigenpal, trivia, and Pros and Cons that name the
+  report or measurement behind each bullet. The per-tool notes in
+  `reports/extras/` are folded into it. Each file there stays as a one-line
+  pointer to the tool's section, so links filed elsewhere still land; the
+  trial's own links point at `reports/vendors.md#<anchor>`. No figure was
+  re-measured for this change.
+
+### Added
+
+- Sections for six tools that are on editors.benchmarks.law and not yet in the
+  trial's reports: react-docx, Univer, OpenDoc, BetterOffice, OnlyOffice
+  (CryptPad build) and Nutrient. Their Pros and Cons rest on the sister sites'
+  browser measurements only, and each section says the trial's lanes for it
+  are pending.
+
 ## [0.10.4] - 2026-11-17
 
 Report E2 times typing in canvas-editor, Docen and WordCraft, the three

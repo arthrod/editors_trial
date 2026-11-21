@@ -28,7 +28,33 @@ BLANK = "https://github.com/arthrod/editors_trial/blob/main/"
 
 def url(path: str) -> str:
     """Return a GitHub blob URL for a path in the published repository."""
-    return BLANK + quote(path, safe="/")
+    return BLANK + quote(path, safe="/#")
+
+
+# Each tool's section of reports/vendors.md, as GitHub anchors its heading.
+# The per-tool notes used to be reports/extras/<slug>.md; they are sections
+# of the vendors page now.
+VENDOR_ANCHORS = {
+    "superdoc": "superdoc",
+    "docxodus": "docxodus",
+    "folio": "folio",
+    "genoffice": "genoffice",
+    "eigenpal": "eigenpal",
+    "officeopen": "office-open",
+    "docen": "docen",
+    "wordcraft": "wordcraft",
+    "canvas": "canvas-editor",
+    "fidus": "fidus-writer",
+    "docsplus": "docsplus",
+    "plate": "platejs",
+    "apryse": "apryse",
+    "lo_baseline": "libreoffice",
+}
+
+
+def note_path(slug: str) -> str:
+    """Return the repository path, with anchor, of a tool's per-tool note."""
+    return f"reports/vendors.md#{VENDOR_ANCHORS[slug]}"
 
 
 
@@ -101,7 +127,7 @@ Every editor was driven through **its own** documented import and export path �
 
 We would rather have a correction from you than a quiet disagreement. Three things are worth correcting, in this order of usefulness:
 
-1. **A number.** Every figure in the reports is produced by `python3 build/score_all.py` over the committed outputs in `out/`, and it is checked against the scorer's own output by `build/check_report_consistency.py`, so a figure that cannot be reproduced fails the gate rather than slipping through. If one of ours is wrong, open a PR against the file that carries it — {note_url} for the per-tool note, or the report that quotes it — and if the figure comes from the measurement rather than from prose, include the corrected `out/{slug}/score.json` too. `build/test_report_claims.py` enforces that the per-tool note still agrees with the shipped scorer, so it will tell you whether a correction is self-consistent.
+1. **A number.** The trial's fidelity figures are produced by `python3 build/score_all.py` from each harness's output in `out/` (made by `build/run_all.sh`; not kept in git), and `build/check_report_consistency.py` checks the reports against the scorer's own output, so a figure that cannot be reproduced fails the gate rather than slipping through. Figures quoted from the sister benchmark sites are copied by hand, and no gate checks them. If one of ours is wrong, open a PR against the template that carries it: `templates/reports/vendors.md` for the per-tool note ({note_url} is rendered from it by `python3 build/render_reports.py`, and an edit made only to the rendered page is overwritten by the next render), or the template of the report that quotes it. A figure a template writes as `{{…}}` comes from the measurement and changes only with it: say in the pull request which run gave yours, since `out/{slug}/score.json` is not in git. `build/test_report_claims.py` recomputes the Folio and eigenpal lane figures from the scorer; for the other tools the consistency gate above is the check.
 2. **A reading of your code.** The `[CODE]` citations name a file and a line. If we read your implementation wrong — or if it has moved on since the commit we pinned — a PR that fixes the citation is as welcome as one that fixes a number.
 3. **A judgement.** Some of the report's claims are readings, not measurements: what a design decision "means", which of two behaviours is the better one. If you disagree with a judgement, the place to say so is a pull request against the report, not a new issue.
 
@@ -413,7 +439,7 @@ def render(vendor: dict, extra: str = "") -> str:
     """Return the issue body for one vendor."""
     slug = vendor["slug"]
     f = figures(slug)
-    note = f"reports/extras/{slug}.md"
+    note = note_path(slug)
     body = fill(vendor["body"], {**f, "note_url": url(note)})
     if extra:
         body = body.rstrip() + "\n\n" + extra.strip()

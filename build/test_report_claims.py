@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import check_report_consistency as gate
 import check_roundtrip as sc
 import measure_alternate_content as mac
+import outreach_issues as outreach
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FIXTURE = os.path.join(ROOT, "fixture", "complex.docx")
@@ -38,6 +39,34 @@ SLUGS = (
     "apryse",
     "lo_baseline",
 )
+# Each measured tool's heading in reports/vendors.md, in driver order.
+VENDOR_HEADINGS = dict(zip(SLUGS, (
+    "Plate.js",
+    "Docxodus",
+    "SuperDoc",
+    "Folio",
+    "GenOffice",
+    "eigenpal",
+    "office-open",
+    "Docen",
+    "WordCraft",
+    "Fidus Writer",
+    "canvas-editor",
+    "docs.plus",
+    "Apryse",
+    "LibreOffice",
+)))
+# On editors.benchmarks.law, not yet in the trial's round-trip reports.
+PENDING_HEADINGS = (
+    "react-docx",
+    "Univer",
+    "OpenDoc",
+    "BetterOffice",
+    "OnlyOffice (CryptPad build)",
+    "Nutrient",
+)
+PENDING_SENTENCE = "%s is not in the trial's reports yet: no published run of the trial includes it."
+VENDOR_SUBHEADINGS = ("What the benchmark runs", "Trivia", "Pros", "Cons")
 
 
 def _read(path):
@@ -64,9 +93,47 @@ def _paragraphs_docx(path):
     return [ln.strip() for ln in plain.splitlines() if ln.strip()]
 
 
+def _vendor_sections(text):
+    """Map each ``## heading`` of the vendors page to its body, in page order."""
+    parts = re.split(r"^##[ \t]+(.+?)[ \t]*$", text, flags=re.M)
+    names = [parts[i].strip() for i in range(1, len(parts), 2)]
+    twice = sorted({n for n in names if names.count(n) > 1})
+    if twice:
+        raise ValueError("the vendors page has more than one section headed: " + ", ".join(twice))
+    return {parts[i].strip(): parts[i + 1] for i in range(1, len(parts), 2)}
+
+
+def _lane_blocks(body):
+    """Map each lane tag of a ``This run`` body (``[folio:model]``) to the lines of its own block."""
+    blocks = {}
+    for block in re.findall(r"^```\n(.*?)^```", body, flags=re.M | re.S):
+        lines = block.strip().splitlines()
+        tag = re.match(r"\[([\w:-]+)\] wrote ", lines[0] if lines else "")
+        if tag:
+            assert tag.group(1) not in blocks, tag.group(1)
+            blocks[tag.group(1)] = lines
+    return blocks
+
+
+def _subsections(body):
+    """Map each ``### heading`` of one vendor section to its body."""
+    parts = re.split(r"^###[ \t]+(.+?)[ \t]*$", body, flags=re.M)
+    return {parts[i].strip(): parts[i + 1] for i in range(1, len(parts), 2)}
+
+
+def _github_anchor(heading):
+    """The anchor GitHub gives a heading: lower case, punctuation dropped, spaces to hyphens."""
+    kept = re.sub(r"[^\w\- ]", "", heading.strip().lower())
+    return kept.replace(" ", "-")
+
+
+def _bullets(body):
+    return [ln[2:].strip() for ln in body.splitlines() if ln.startswith("- ")]
+
+
 def _active_reports():
     found = []
-    for folder in (ROOT, os.path.join(ROOT, "reports"), os.path.join(ROOT, "reports", "extras")):
+    for folder in (ROOT, os.path.join(ROOT, "reports")):
         if not os.path.isdir(folder):
             continue
         for name in os.listdir(folder):
@@ -123,37 +190,63 @@ class ReportClaimsTest(unittest.TestCase):
                 if claim.search(para) and not negated.search(para):
                     self.fail(f"unmeasured second diagram in {path}: {para[:180]}")
 
-    def test_extras_and_vendors_cover_every_measured_tool(self):
+    def test_vendors_page_has_a_full_section_for_every_tool(self):
         text = _read(os.path.join(ROOT, "build", "score_all.py"))
         slugs = re.findall(r'\("[^"]+", "([^"]+)", (?:True|False)\)', text)
         self.assertEqual(tuple(slugs), SLUGS)
-        extras = os.path.join(ROOT, "reports", "extras")
+        # The lane notes were folded into the vendors page. Issues filed on the
+        # vendors' repositories link to reports/extras/<slug>.md, so each stays
+        # as a stub: a title and one sentence that links to the tool's section.
+        for folder in ("reports", os.path.join("templates", "reports")):
+            extras = os.path.join(ROOT, folder, "extras")
+            self.assertEqual(sorted(os.listdir(extras)), sorted(slug + ".md" for slug in slugs), folder)
+            for slug in slugs:
+                name = VENDOR_HEADINGS[slug]
+                stub = _read(os.path.join(extras, slug + ".md"))
+                self.assertEqual(
+                    stub,
+                    f"# {name}\n\nThis note moved to the [{name} section of the vendor notes]"
+                    f"(../vendors.md#{_github_anchor(name)}).\n",
+                    f"{folder}/extras/{slug}.md",
+                )
+                self.assertEqual(gate.number_tokens(stub), [], slug)
+        for path in gate.active_markdown():
+            self.assertNotIn(os.sep + "extras" + os.sep, str(path))
+        for folder, _dirs, names in os.walk(os.path.join(ROOT, "templates")):
+            if os.path.basename(folder) == "extras":
+                continue
+            for name in names:
+                if name.endswith(".md"):
+                    self.assertNotIn("extras/", _read(os.path.join(folder, name)), name)
         vendors = _read(os.path.join(ROOT, "reports", "vendors.md"))
         self.assertIn("trivia that is not a score", vendors)
+        self.assertIn("This page does not rank the tools.", vendors)
+        self.assertNotIn("api_key", vendors.lower())
+        self.assertNotIn("{{", vendors)
+        sections = _vendor_sections(vendors)
+        expected = [VENDOR_HEADINGS[slug] for slug in slugs] + list(PENDING_HEADINGS)
+        self.assertEqual(list(sections), expected)
+        for name in expected:
+            subs = _subsections(sections[name])
+            for heading in VENDOR_SUBHEADINGS:
+                self.assertIn(heading, subs, f"{name}: no '### {heading}'")
+                self.assertTrue(subs[heading].strip(), f"{name}: empty '### {heading}'")
+            for heading in ("Pros", "Cons"):
+                bullets = _bullets(subs[heading])
+                self.assertGreaterEqual(len(bullets), 3, f"{name} {heading}")
+                self.assertLessEqual(len(bullets), 6, f"{name} {heading}")
+                for bullet in bullets:
+                    # Every bullet names where its figure or finding comes from.
+                    self.assertRegex(bullet, r"\([^()]*(?:\([^()]*\)[^()]*)*\)\.?$", f"{name} {heading}: {bullet[:90]}")
+                    self.assertRegex(
+                        bullet,
+                        r"\((?:[^()]|\([^()]*\))*(?:Report [A-E]\d?|main report|editors site|viewers site|project README|this page)",
+                        f"{name} {heading}: {bullet[:90]}",
+                    )
+        for name in PENDING_HEADINGS:
+            self.assertIn(PENDING_SENTENCE % name, sections[name])
         for slug in slugs:
-            path = os.path.join(extras, slug + ".md")
-            self.assertTrue(os.path.isfile(path), slug)
-            body = _read(path)
-            self.assertIn("## Trivia", body)
-            self.assertNotIn("api_key", body.lower())
-        names = (
-            "Plate.js",
-            "Docxodus",
-            "SuperDoc",
-            "Folio",
-            "GenOffice",
-            "eigenpal",
-            "office-open",
-            "Docen",
-            "WordCraft",
-            "Fidus Writer",
-            "canvas-editor",
-            "docs.plus",
-            "Apryse",
-            "LibreOffice",
-        )
-        for name in names:
-            self.assertIn(name, vendors)
+            self.assertNotIn("are not in the reports yet", sections[VENDOR_HEADINGS[slug]])
         archived = os.path.join(
             ROOT,
             "reports",
@@ -171,23 +264,67 @@ class ReportClaimsTest(unittest.TestCase):
             )
         )
 
-    def test_lane_reports_quote_the_shipped_scorer(self):
+    def test_per_tool_links_land_on_a_vendors_section(self):
+        sections = _vendor_sections(_read(os.path.join(ROOT, "reports", "vendors.md")))
+        anchors = {_github_anchor(name) for name in sections}
+        self.assertEqual(len(anchors), len(sections))
+        self.assertEqual(_github_anchor("Plate.js"), "platejs")
+        self.assertEqual(_github_anchor("OnlyOffice (CryptPad build)"), "onlyoffice-cryptpad-build")
+        for slug in SLUGS:
+            self.assertEqual(outreach.VENDOR_ANCHORS[slug], _github_anchor(VENDOR_HEADINGS[slug]), slug)
+            self.assertEqual(gate.VENDOR_HEADINGS[slug], VENDOR_HEADINGS[slug], slug)
+        self.assertEqual(
+            outreach.url(outreach.note_path("docsplus")),
+            "https://github.com/arthrod/editors_trial/blob/main/reports/vendors.md#docsplus",
+        )
+        drafts = os.path.join(ROOT, "outreach")
+        linked = 0
+        for name in sorted(os.listdir(drafts)):
+            if not name.endswith(".md"):
+                continue
+            body = _read(os.path.join(drafts, name))
+            self.assertNotIn("reports/extras/", body, name)
+            for anchor in re.findall(r"blob/main/reports/vendors\.md#([\w-]+)", body):
+                linked += 1
+                self.assertIn(anchor, anchors, name)
+        self.assertGreater(linked, 0)
+
+    def test_a_section_headed_twice_is_refused_not_collapsed(self):
+        twice = "# Vendors\n\n## Folio\n\nfirst\n\n## Docen\n\nx\n\n## Folio\n\nsecond\n"
+        with self.assertRaises(ValueError):
+            _vendor_sections(twice)
+        with self.assertRaises(ValueError):
+            gate.vendor_sections(twice)
+        self.assertEqual(list(gate.vendor_sections("## Folio\n\na\n\n## Docen\n\nb\n")), ["Folio", "Docen"])
+
+    def test_a_lane_is_read_from_its_own_block(self):
+        body = "\n```\n[folio:model] wrote 1 bytes\nweighted: 97.5%\nfailed-check-ids: a b\n```\n\n```\n[folio:editor] wrote 2 bytes\nweighted: 95.5%\nfailed-check-ids: a b c\n```\n"
+        blocks = _lane_blocks(body)
+        self.assertEqual(sorted(blocks), ["folio:editor", "folio:model"])
+        self.assertNotIn("failed-check-ids: a b", blocks["folio:editor"])
+        self.assertNotIn("weighted: 95.5%", blocks["folio:model"])
+
+    def test_lane_blocks_quote_the_shipped_scorer(self):
+        # Output file -> (vendor section, the tag the page prints over that lane's block).
         lanes = {
-            os.path.join(ROOT, "out", "folio", "complex.docx"): "folio.md",
-            os.path.join(ROOT, "out", "folio-editor", "complex.docx"): "folio.md",
-            os.path.join(ROOT, "out", "eigenpal", "complex.docx"): "eigenpal.md",
-            os.path.join(ROOT, "out", "eigenpal-editor", "complex.docx"): "eigenpal.md",
+            os.path.join(ROOT, "out", "folio", "complex.docx"): ("Folio", "folio:model"),
+            os.path.join(ROOT, "out", "folio-editor", "complex.docx"): ("Folio", "folio:editor"),
+            os.path.join(ROOT, "out", "eigenpal", "complex.docx"): ("eigenpal", "eigenpal:store"),
+            os.path.join(ROOT, "out", "eigenpal-editor", "complex.docx"): ("eigenpal", "eigenpal:editor"),
         }
+        sections = _vendor_sections(_read(os.path.join(ROOT, "reports", "vendors.md")))
         inp = sc.Pkg(FIXTURE)
-        for out_path, report_name in lanes.items():
+        for out_path, (heading, tag) in lanes.items():
             self.assertTrue(os.path.isfile(out_path), out_path)
             checks = sc.build_checks(inp, sc.Pkg(out_path))
             failed = [c[0] for c in checks if not c[4]]
             weighted = "%s%%" % sc.score(checks)["weighted"]
-            body = _read(os.path.join(ROOT, "reports", "extras", report_name))
-            self.assertIn("failed-check-ids: " + " ".join(failed), body)
-            self.assertIn(weighted, body)
-            self.assertIn(f"{os.path.getsize(out_path)} bytes", body)
+            # Each lane against its own block, whole lines: the other lane's figures, or a check
+            # that no longer fails left at the end of the line, must not pass.
+            block = _lane_blocks(_subsections(sections[heading])["This run"])[tag]
+            self.assertEqual(block[0], f"[{tag}] wrote {os.path.getsize(out_path)} bytes")
+            self.assertIn("weighted: " + weighted, block)
+            self.assertIn(("failed-check-ids: " + " ".join(failed)).rstrip(), block)
 
     def test_safety_report_records_each_vector_as_not_run(self):
         body = _read(
