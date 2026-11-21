@@ -1,0 +1,12 @@
+{
+  "name": "react-docx-host",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "dependencies": {
+    "@extend-ai/react-docx": "0.15.0"
+  },
+  "devDependencies": {
+    "vite": "^8.3.5"
+  }
+}
