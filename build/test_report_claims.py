@@ -178,10 +178,27 @@ class ReportClaimsTest(unittest.TestCase):
         text = _read(os.path.join(ROOT, "build", "score_all.py"))
         slugs = re.findall(r'\("[^"]+", "([^"]+)", (?:True|False)\)', text)
         self.assertEqual(tuple(slugs), SLUGS)
-        # The lane notes were folded into the vendors page; they must not come back.
+        # The lane notes were folded into the vendors page. Issues filed on the
+        # vendors' repositories link to reports/extras/<slug>.md, so each stays
+        # as a stub: a title and one sentence that links to the tool's section.
         for folder in ("reports", os.path.join("templates", "reports")):
-            self.assertFalse(os.path.exists(os.path.join(ROOT, folder, "extras")), folder)
+            extras = os.path.join(ROOT, folder, "extras")
+            self.assertEqual(sorted(os.listdir(extras)), sorted(slug + ".md" for slug in slugs), folder)
+            for slug in slugs:
+                name = VENDOR_HEADINGS[slug]
+                stub = _read(os.path.join(extras, slug + ".md"))
+                self.assertEqual(
+                    stub,
+                    f"# {name}\n\nThis note moved to the [{name} section of the vendor notes]"
+                    f"(../vendors.md#{_github_anchor(name)}).\n",
+                    f"{folder}/extras/{slug}.md",
+                )
+                self.assertEqual(gate.number_tokens(stub), [], slug)
+        for path in gate.active_markdown():
+            self.assertNotIn(os.sep + "extras" + os.sep, str(path))
         for folder, _dirs, names in os.walk(os.path.join(ROOT, "templates")):
+            if os.path.basename(folder) == "extras":
+                continue
             for name in names:
                 if name.endswith(".md"):
                     self.assertNotIn("extras/", _read(os.path.join(folder, name)), name)

@@ -15,8 +15,9 @@ re-running the measurement behind it. The format follows
   about each tool in one section: what it is, what the benchmark runs, the
   lane results of Folio and eigenpal, trivia, and Pros and Cons that name the
   report or measurement behind each bullet. The per-tool notes in
-  `reports/extras/` are folded into it and removed; links to them now point
-  at the tool's section (`reports/vendors.md#<anchor>`). No figure was
+  `reports/extras/` are folded into it. Each file there stays as a one-line
+  pointer to the tool's section, so links filed elsewhere still land; the
+  trial's own links point at `reports/vendors.md#<anchor>`. No figure was
   re-measured for this change.
 
 ### Added

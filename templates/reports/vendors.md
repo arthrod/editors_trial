@@ -8,6 +8,8 @@ The round-trip driver in `build/score_all.py` measures fourteen tools, and `buil
 
 Three limits apply to every bullet. The trial's fidelity figures come from one document, so they describe that document and not every file. The browser timings in Report E2 and on the sister sites were taken on shared cloud machines with no graphics processor; they compare engines on such a machine and are not the times on your computer. A tool that a benchmark did not measure has no bullet for it; a missing bullet is not a result.
 
+One finding is true of every tool that keeps a document faithfully, and is written as a bullet on only some of them: no editor in the trial repairs a damaged file. A tool that keeps the document also keeps its defects, and Word then refuses the result (Report B §4).
+
 ## Plate.js
 
 Plate is a framework for building rich-text editors on the web. DOCX is one plugin path inside that framework, and the benchmark drives that path, not the whole Plate UI kit. The package name on npm is `platejs`. The license is MIT, copyright Ziad Beyens, Dylan Schiemann, Joe Anderson, and Felix Feng, with a note that an individual package directory may carry its own license. Documentation lives at platejs.org.
@@ -518,9 +520,11 @@ The application is published as a website; its npm package is only a frame mount
 - It lays the 500-page sample out on 500 pages, as Word does. It loaded in 3.54 s and settled at 7.01 s (editors site, 3 of 3 runs).
 - In the redline sample it shows insertions and deletions in the text, and a card per change and per comment with author, date and Accept and Reject (editors site, redline sample, seen 2026-11-18).
 - It reads and writes `.docx` itself, and it passed all ten checks and every hard case of the editors site's formatting probe (editors site README, probes of 2026-11-20).
+- Its viewer package draws pages on a server: 204 ms for the rich sample and 1.57 s for the 500-page sample (viewers site, server render, 3 runs each, 2026-11-21).
 
 ### Cons
 
+- Its server render draws a redline as the accepted text, with no marks. That package is an older build than the application, which shows them (viewers site, server render, `@casualoffice/opendoc-viewer@0.1.0-alpha.1`).
 - It is hard to embed today. It opens files only from its own file input and exports only by download, and a newer snapshot can break a page that drives it (editors site README, "Known limitations").
 - It is a pre-release, measured from a dated snapshot and not from a released version (editors site README, "The editors").
 - It is a large download: 20 MB over the network to show the 3-page redline sample (viewers site, redline sample).
@@ -546,11 +550,12 @@ The React package imports its core by 30 subpaths, each of which a page without 
 - In the redline sample it shows deletions struck and insertions underlined, and a card per change and per comment with author, date and accept and reject (editors site, redline sample, seen 2026-11-18).
 - It reads and writes `.docx` itself, and it passed all ten checks and every hard case of the editors site's formatting probe (editors site README, probes of 2026-11-20).
 - The page stays responsive while the 500-page sample opens: Google's page test scored it 95 on desktop and 91 on mobile there (editors site README, Lighthouse, measured 2026-11-20).
+- It also draws pages on a server, with its own layout and painter: 275 ms for the rich sample and 3.97 s for the 500-page sample, and the redline keeps its marks (viewers site, server render, 3 runs each, 2026-11-21).
 
 ### Cons
 
 - Its editing call takes plain-text steps and refuses a full replacement, so an assistant edit there opens a new document and clears the undo history (editors site README, "Assessment").
-- It cannot draw pages on a server today: its only published painter draws on a browser canvas (viewers site README, "No server route, and why"; read from the package, not run).
+- On a server its engine's memory reached about 0.5 GB on the 500-page sample and was not given back afterwards (viewers site, server render; measured locally by the route's author on a loaded machine).
 - The trial has not measured it yet: it has no round-trip, Word, rendering or hostile-file result (this page; its lanes are pending).
 
 ## OnlyOffice (CryptPad build)
