@@ -6,7 +6,11 @@
     "asset": "x2t.zip",
     "url": "https://github.com/cryptpad/onlyoffice-x2t-wasm/releases/download/v9.3.2%2B4/x2t.zip",
     "sha512": "8fa965d86ef81c8615f2cc7c67eb0da270f88c573d137dcf82bb5b54d7ffacd66adb0e29f16b46a537279fc1c9ddf13ebc2b6e2f491c08cc4f266e6669763af6",
-    "files": ["x2t.js", "x2t.wasm"]
+    "files": ["x2t.js", "x2t.wasm"],
+    "sha256": {
+      "x2t.js": "e2f79cf6b71d10a7b5db695dcb4043afb1c5e0412520201bf71d6f12f97648d7",
+      "x2t.wasm": "5cc2aca0af534a53c110318ed49cb25bc70d89d02f7a34e957b4262e42103df7"
+    }
   },
   "editor": {
     "repository": "cryptpad/onlyoffice-editor",

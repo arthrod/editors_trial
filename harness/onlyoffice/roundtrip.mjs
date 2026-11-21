@@ -18,6 +18,7 @@
 //
 // A conversion that does not return is stopped after X2T_TIMEOUT_S seconds
 // (default 120) and reported as a failure of that step.
+import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -31,6 +32,13 @@ const [input, output] = process.argv.slice(2);
 if (!input || !output) {
   console.error('usage: node roundtrip.mjs <in.docx> <out.docx>');
   process.exit(2);
+}
+// The files run are the pinned ones, checked here too: fetch.mjs may have run long ago.
+for (const f of pin.files) {
+  if (existsSync(join(DIR, f)) && createHash('sha256').update(readFileSync(join(DIR, f))).digest('hex') !== pin.sha256[f]) {
+    console.error(`${f} in ${DIR} is not the pinned x2t ${pin.tag}: run "node fetch.mjs"`);
+    process.exit(2);
+  }
 }
 if (!existsSync(join(DIR, 'x2t.wasm'))) {
   console.error(`x2t is not unpacked in ${DIR}: run "node fetch.mjs" first`);
@@ -47,13 +55,17 @@ let step = 'starting x2t';
 // did not return is not an editor that refused. The record sits where the output
 // would have been, and is removed when an output is written.
 const record = join(dirname(resolve(output)), 'no_output.json');
+// Output is flushed before the process ends: on a pipe, process.exit can cut the last lines.
+const end = (code) => worker.terminate().finally(() => process.stdout.write('', () => process.exit(code)));
 const fail = (message, outcome = 'error') => {
   mkdirSync(dirname(record), { recursive: true });
+  // An output left by an earlier run is not this run's result.
+  rmSync(output, { force: true });
   writeFileSync(record, `${JSON.stringify({
     outcome, step, limit_s: limit, message, tool: `x2t ${pin.tag}`, input: bytesIn.length,
   }, null, 1)}\n`);
   console.log(`[onlyoffice] FAILED: ${message}`);
-  worker.terminate().finally(() => process.exit(1));
+  end(1);
 };
 const watchdog = setTimeout(
   () => fail(`x2t did not return from "${step}" within ${limit} s; its call into WebAssembly was still running and the harness stopped it`, 'did-not-return'),
@@ -64,6 +76,8 @@ worker.on('message', (msg) => {
   if (msg.type === 'ready') console.log(`PERF host_start_ms=${(performance.now() - t0).toFixed(6)}`);
   else if (msg.type === 'step') step = msg.step;
   else if (msg.type === 'imported') {
+    // For this lane "model ready" is x2t's docx -> binary conversion: the binary is the editor's
+    // model on disk, and no editor loads it here (see "What it is not" above).
     console.log(`PERF model_ready_ms=${msg.ms.toFixed(6)}`);
     console.log(`[onlyoffice] docx -> bin: ${msg.binBytes} bytes, main1 returned ${msg.rc}, media ${JSON.stringify(msg.media)}`);
   } else if (msg.type === 'error') {
@@ -78,6 +92,6 @@ worker.on('message', (msg) => {
     rmSync(record, { force: true });
     const same = Buffer.compare(Buffer.from(bytesIn), out) === 0;
     console.log(`[onlyoffice] bin -> docx: main1 returned ${msg.rc}; ${bytesIn.length} -> ${out.length} bytes${same ? '  IDENTICAL TO INPUT (pass-through)' : ''}`);
-    worker.terminate().finally(() => process.exit(0));
+    end(0);
   }
 });

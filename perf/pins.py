@@ -31,8 +31,10 @@ _FACTS_KEYS = {
 
 _LIBREOFFICE_FALLBACK = "system soffice"
 # Lanes wired for measurement but not in a published release yet (build/lanes.py).
-# Until a release's facts carry their pins, they have no label here rather than
-# stopping every caller; once the facts name them, they are read like any other.
+# Until a release's facts carry their pins, they are labelled as unpinned rather than
+# stopping every caller (a missing key stopped a run that named one of them, before it
+# wrote its summary); once the facts name them, they are read like any other.
+UNPINNED = "not pinned: this lane is in no published release yet"
 _PENDING = frozenset({"opendoc", "betteroffice", "onlyoffice"})
 
 
@@ -53,7 +55,7 @@ def load_editor_pins(facts_path: Path | None = None) -> dict[str, str]:
         elif editor_id == "libreoffice":
             label = _LIBREOFFICE_FALLBACK
         elif editor_id in _PENDING:
-            continue
+            label = UNPINNED
         else:
             raise ValueError("missing facts pin for editor %r (tried %s)" % (editor_id, keys))
         out[editor_id] = label

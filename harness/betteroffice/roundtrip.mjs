@@ -60,5 +60,6 @@ mkdirSync(dirname(resolve(output)), { recursive: true });
 writeFileSync(output, out);
 const same = Buffer.compare(Buffer.from(bytes), Buffer.from(out)) === 0;
 console.log(`[betteroffice] ${mode}: ${bytes.length} -> ${out.length} bytes${same ? '  IDENTICAL TO INPUT (pass-through)' : ''}`);
-// The engines keep handles open; the round trip is done.
-process.exit(0);
+// The engines keep handles open; the round trip is done. Output is flushed first:
+// on a pipe, process.exit can cut the last PERF line the runner reads.
+process.stdout.write('', () => process.exit(0));
