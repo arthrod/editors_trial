@@ -69,4 +69,4 @@ const t0 = performance.now();
       await new Promise((r) => setTimeout(r, 100));
     }
   }
-})();
+})().catch((e) => settle.reject(e)); // nothing in the wait may fail unseen
