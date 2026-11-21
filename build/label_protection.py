@@ -148,6 +148,11 @@ def main() -> int:
         "docsplus",
         "docxodus",
         "apryse",
+        "reactdocx",
+        "opendoc",
+        "betteroffice",
+        "betteroffice-editor",
+        "onlyoffice",
     ]
     bombs = [f"B{n}" for n in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)]
     by = {(name, bid): (level, detail) for name, bid, level, detail, _f, _s in rows}

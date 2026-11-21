@@ -33,6 +33,10 @@ WC = os.environ.get(
     "WORDCRAFT_BIN",
     str(ROOT / "harness" / "wordcraft" / "target" / "release" / "wc-harness"),
 )
+OD = os.environ.get(
+    "OPENDOC_BIN",
+    str(ROOT / "harness" / "opendoc" / "target" / "release" / "opendoc-harness"),
+)
 
 
 def _tools(in_path: Path, out_dir: Path):
@@ -121,6 +125,31 @@ def _tools(in_path: Path, out_dir: Path):
                 "PLAYWRIGHT_BROWSERS_PATH": str(Path.home() / "Library" / "Caches" / "ms-playwright"),
             },
         ),
+        (
+            # The second browser editor: Chromium plus the host page on localhost:5231,
+            # contained as Apryse is.
+            "reactdocx",
+            ROOT / "harness" / "reactdocx",
+            [NODE, "roundtrip.mjs", str(in_path), str(out_docx)],
+            {
+                "REACTDOCX_NO_CHROME_SANDBOX": "1",
+                "REACTDOCX_VITE_CACHE": str(out_dir / "vite-cache"),
+                "PLAYWRIGHT_BROWSERS_PATH": str(Path.home() / "Library" / "Caches" / "ms-playwright"),
+            },
+        ),
+        ("opendoc", ROOT / "harness" / "opendoc", [OD, str(in_path), str(out_docx)], {}),
+        ("betteroffice", ROOT / "harness" / "betteroffice", [NODE, "roundtrip.mjs", str(in_path), str(out_docx), "model"], {}),
+        ("betteroffice-editor", ROOT / "harness" / "betteroffice", [NODE, "roundtrip.mjs", str(in_path), str(out_docx), "editor"], {}),
+        (
+            # The converter is fetched before the run (harness/onlyoffice/fetch.mjs): there is
+            # no network in here. The lane's own watchdog exits 1, which would read as an error
+            # exit; it is set past this script's wall clock, so a converter that does not return
+            # is killed by the sandbox and labelled a hang, like any other tool's.
+            "onlyoffice",
+            ROOT / "harness" / "onlyoffice",
+            [NODE, "roundtrip.mjs", str(in_path), str(out_docx)],
+            {"X2T_TIMEOUT_S": str(WALL * 10)},
+        ),
     ]
 
 
@@ -179,7 +208,7 @@ def _profile(work: Path) -> str:
 # Extra seatbelt rules, per tool. Chromium registers a Mach port for its child
 # processes (MachPortRendezvousServer); without mach-register it dies before
 # the editor loads. Every other tool's profile is unchanged.
-PROFILE_EXTRA = {"apryse": "(allow mach-register)\n"}
+PROFILE_EXTRA = {"apryse": "(allow mach-register)\n", "reactdocx": "(allow mach-register)\n"}
 
 
 def _limit():
