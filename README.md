@@ -2,7 +2,7 @@
 
 This repo measures open-source DOCX editors on one adversarial fixture, then, separately, on a sandboxed set of hostile packages. Fidelity and safety are different results. A tool that keeps a hostile payload is not the same result as a tool that crashes. A third tree, `perf/`, measures performance under explicit layers and cache states; see [Performance](#performance).
 
-The measured write-up is [Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md](Open-Source%20DOCX%20Editors%20Re-verified%20Against%20Code%20and%20Measured%20Round-Trip%20(2026).md). The per-tool notes are in `reports/extras/`. The vendor notes are `reports/vendors.md`.
+The measured write-up is [Open-Source DOCX Editors Re-verified Against Code and Measured Round-Trip (2026).md](Open-Source%20DOCX%20Editors%20Re-verified%20Against%20Code%20and%20Measured%20Round-Trip%20(2026).md). The vendor notes are [`reports/vendors.md`](reports/vendors.md): one section per tool, with what the benchmark runs for it, its lane results, and its pros and cons. They replace the per-tool notes that used to be in `reports/extras/`.
 
 Each per-tool note has also been filed as an issue on that project's own repository, so that a maintainer can correct the measurement where they already work. The list of those issues is in [`outreach/`](outreach/).
 
