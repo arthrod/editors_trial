@@ -9,20 +9,22 @@ Legend: `[x]` done and checked live · `[~]` in progress · `[ ]` not done ·
 
 ## The field
 
-Measured today (13 and a baseline): SuperDoc, Folio, GenOffice, eigenpal,
+Measured before v0.11.0 (13 and a baseline): SuperDoc, Folio, GenOffice, eigenpal,
 office-open, Docen, WordCraft, Fidus Writer, Plate.js, docs.plus,
 canvas-editor, Docxodus, Apryse WebViewer; LibreOffice as the baseline.
 
-On editors.benchmarks.law since 2026-11-18 and **not yet in any report here**:
+Added to the reports in v0.11.0 (2026-11-21), with the following measurement scope; their source was not reviewed:
 
 | Editor | Package | Has a .docx import and export of its own? |
 | --- | --- | --- |
-| react-docx | `@extend-ai/react-docx` | to be established from its code |
+| react-docx | `@extend-ai/react-docx` | yes, measured in Chromium |
 | Univer | `@univerjs/presets` + `preset-docs-core` | no: its .docx path is not in the open-source packages |
-| OpenDoc | `@casualoffice/opendoc-viewer`, and its application | to be established from its code |
-| BetterOffice | `@betteroffice/docx`, `@betteroffice/docx-react` | to be established from its code |
-| OnlyOffice (CryptPad build) | `cryptpad/onlyoffice-editor`, `onlyoffice-x2t-wasm` | yes, through x2t |
+| OpenDoc | `opendoc` engine; `@casualoffice/opendoc-viewer` for UI | yes, measured through `Document::open` and `Document::save` |
+| BetterOffice | `@betteroffice/docx`, `@betteroffice/docx-react` | yes, document-model and unedited editor-session lanes |
+| OnlyOffice (CryptPad build) | `cryptpad/onlyoffice-editor`, `onlyoffice-x2t-wasm` | through x2t; no output from either corpus within 120 seconds |
 | Nutrient (commercial, view-only) | its Web SDK | view-only: rendering reports only |
+
+Reports E and E2 retain the earlier timing campaign; these tools were not timed. Report C’s hand-written construct tables were not extended. Publication here does not mark the live-site checks below complete.
 
 A report is complete only when each of these has a row, or the report says,
 from a measurement or a source citation, why it has none.
