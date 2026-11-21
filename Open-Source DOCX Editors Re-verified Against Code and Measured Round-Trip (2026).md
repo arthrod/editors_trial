@@ -184,12 +184,14 @@ Four findings about the harnesses themselves:
 | docs.plus | 21.1% | 24.1% (7/29) | 90.5% | 11 / 35 | 79 |
 | **Plate.js** | **20.6%** | **20.7% (6/29)** | **90.5%** | **11 / 35** | **79** |
 | Apryse WebViewer 12.2.1 (closed source, trial key) | 89.9% | 86.2% (25/29) | 100.0% | 30 / 35 | 9 (1 cannot be separated from the trial stamp) |
-| react-docx 0.15.0 (added in v0.11.0) | 91.5% | 89.7% (26/29) | 95.9% | 35 / 35 | 8 |
-| OpenDoc `5ac261cea` (added in v0.11.0) | 89.9% | 86.2% (25/29) | 99.4% | 35 / 35 | 10 |
-| BetterOffice 0.5.1, document model (added in v0.11.0) | 87.9% | 82.8% (24/29) | 97.0% | 35 / 35 | 12 |
-| BetterOffice 0.5.1, unedited editor session (added in v0.11.0) | 100.0% | 100.0% (29/29) | 100.0% | 35 / 35 | 0 |
-| OnlyOffice, CryptPad build (added in v0.11.0) | no output | — | — | — | the converter did not return |
+| react-docx | 91.5% | 89.7% (26/29) | 95.9% | 35 / 35 | 8 |
+| OpenDoc | 89.9% | 86.2% (25/29) | 99.4% | 35 / 35 | 10 |
+| BetterOffice | 87.9% | 82.8% (24/29) | 97.0% | 35 / 35 | 12 |
+| BetterOffice, unedited editor session | 100.0% | 100.0% (29/29) | 100.0% | 35 / 35 | 0 |
+| OnlyOffice (CryptPad build) | no output | — | — | — | the converter did not return |
 | *LibreOffice (baseline)* | *86.9%* | *79.3% (23/29)* | *100.0%* | *25 / 35* | *12* |
+
+The rows react-docx (0.15.0), OpenDoc (`5ac261cea`), BetterOffice (0.5.1; its row is the document model, and the row below it an unedited editor session) and OnlyOffice (CryptPad build) were added in v0.11.0.
 
 Weighted score = each of 99 checks scored by criticality (3/2/1). "Package parts kept" counts non-directory entries present in both the input and the output. LibreOffice was converted headlessly (`soffice --convert-to docx`) and is shown as the calibration floor, not as a candidate. Docxodus is the thirteenth participant: an Open XML SDK rather than an editor, measured through the same 99 checks. It is listed with the editors because it scores on the same instrument, not because it is a candidate for the same job.
 
@@ -244,9 +246,9 @@ Feeding each output back through its own editor is the strictest test: a selecti
 | Fidus Writer | 23.6% | 25.1% | no | Stable in content; not byte-identical |
 | canvas-editor + plugin | 24.6% | 27.6% | no | Stable in content; not byte-identical |
 | docs.plus | 21.1% | 24.1% | no | Stable in content; not byte-identical |
-| react-docx (added in v0.11.0) | 91.5% | 93.0% | yes | Fixed point |
-| OpenDoc (added in v0.11.0) | 89.9% | 90.5% | yes | Fixed point |
-| BetterOffice, document model (added in v0.11.0) | 87.9% | 89.4% | no | Stable in content; only the modification time in `docProps/core.xml` differs |
+| react-docx | 91.5% | 93.0% | yes | Fixed point |
+| OpenDoc | 89.9% | 90.5% | yes | Fixed point |
+| BetterOffice | 87.9% | 89.4% | no | Stable in content; only the modification time in `docProps/core.xml` differs |
 | *LibreOffice (baseline)* | *86.9%* | *87.9%* | *no* | *Stable in content; not byte-identical* |
 
 The second pass is reproducible on its own: `bash build/run_second_pass.sh` feeds every editor its own first-pass output through the same documented import and export path, and `build/check_roundtrip.py` then scores the result against that first pass.
