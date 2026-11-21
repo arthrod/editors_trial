@@ -410,16 +410,17 @@ REVIEW_FINDINGS = [
     },
     {
         "claim_id": "RVW-018",
-        "location": "reports/extras/folio.md and reports/extras/eigenpal.md, "
-                    "editor-lane blocks",
+        "location": "reports/vendors.md, sections Folio and eigenpal, "
+                    "'This run' editor-lane blocks (up to 0.10.4 in "
+                    "reports/extras/folio.md and reports/extras/eigenpal.md)",
         "claim_type": "methods",
-        "claim_summary": "The extras notes quote the editor lanes' weighted "
+        "claim_summary": "The lane notes quote the editor lanes' weighted "
                          "scores - 95.5% for the Folio editor lane and 98.5% "
                          "for the eigenpal editor lane - but neither lane had "
                          "a committed score.json, so the only lanes in the "
                          "study whose figures were unbacked were the two "
                          "secondary lanes.",
-        "evidence_ids": "EV:reports-extras-folio;EV:reports-extras-eigenpal",
+        "evidence_ids": "EV:reports-vendors-folio;EV:reports-vendors-eigenpal",
         "support_level": "partly_supported",
         "alignment_issue": "other",
         "note": "The figures were correct, but the primary lanes were the "
@@ -429,7 +430,7 @@ REVIEW_FINDINGS = [
         "requested_action": "Remediated in this edition: both lanes were "
                             "re-scored with build/check_roundtrip.py and "
                             "their score.json files committed. Extend the "
-                            "extras test to the editor lanes so they cannot "
+                            "vendors-page test to the editor lanes so they cannot "
                             "silently lose their score file again.",
     },
     {

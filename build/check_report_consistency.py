@@ -40,17 +40,49 @@ PCT = re.compile(r"\d[\d,]*(?:\.\d+)?\s*%")
 BYTE = re.compile(r"(?<![\d.,])\d[\d,]*\s+bytes\b", re.I)
 
 def active_markdown() -> list[Path]:
-    """Return Markdown paths in the root, reports, and reports/extras directories."""
+    """Return Markdown paths in the root and reports directories."""
     found = []
     for path in [ROOT, ROOT / "reports"]:
         if not path.exists():
             continue
         for md in path.glob("*.md"):
             found.append(md)
-    extras = ROOT / "reports" / "extras"
-    if extras.exists():
-        found.extend(sorted(extras.glob("*.md")))
     return found
+
+
+# Heading of each measured tool's section in reports/vendors.md, by driver slug.
+VENDOR_HEADINGS = {
+    "plate": "Plate.js",
+    "docxodus": "Docxodus",
+    "superdoc": "SuperDoc",
+    "folio": "Folio",
+    "genoffice": "GenOffice",
+    "eigenpal": "eigenpal",
+    "officeopen": "office-open",
+    "docen": "Docen",
+    "wordcraft": "WordCraft",
+    "fidus": "Fidus Writer",
+    "canvas": "canvas-editor",
+    "docsplus": "docs.plus",
+    "apryse": "Apryse",
+    "lo_baseline": "LibreOffice",
+}
+VENDOR_SUBHEADINGS = ("What the benchmark runs", "Trivia", "Pros", "Cons")
+
+
+def vendor_sections(text: str) -> dict[str, str]:
+    """Return each ``## heading`` of the vendors page with its body."""
+    parts = re.split(r"^##[ \t]+(.+?)[ \t]*$", text, flags=re.M)
+    return {parts[i].strip(): parts[i + 1] for i in range(1, len(parts), 2)}
+
+
+def vendor_section_state(sections: dict[str, str], heading: str | None) -> str:
+    """Say whether a tool's vendors section is complete, and what it lacks."""
+    if heading is None or heading not in sections:
+        return "MISSING"
+    found = set(re.findall(r"^###[ \t]+(.+?)[ \t]*$", sections[heading], flags=re.M))
+    lacking = [name for name in VENDOR_SUBHEADINGS if name not in found]
+    return "present" if not lacking else "INCOMPLETE (no " + ", ".join(lacking) + ")"
 
 
 def active_docx() -> list[Path]:
@@ -698,13 +730,16 @@ def write_inventory(path: Path, problems: list[str]) -> None:
     score_src = (ROOT / "build" / "score_all.py").read_text(encoding="utf-8")
     slugs = re.findall(r'\("[^"]+", "([^"]+)", (?:True|False)\)', score_src)
     lines = ["measured tools: " + ", ".join(slugs)]
-    for slug in slugs:
-        extra = ROOT / "reports" / "extras" / f"{slug}.md"
-        lines.append(
-            f"extras/{slug}.md: {'present' if extra.is_file() else 'MISSING'}"
-        )
     vendors = ROOT / "reports" / "vendors.md"
     lines.append(f"vendors: {'present' if vendors.is_file() else 'MISSING'} reports/vendors.md")
+    # The per-tool lane notes were folded into the vendors page: one section
+    # per tool, with what the benchmark runs, trivia, pros and cons.
+    sections = vendor_sections(vendors.read_text(encoding="utf-8")) if vendors.is_file() else {}
+    for slug in slugs:
+        heading = VENDOR_HEADINGS.get(slug)
+        lines.append(
+            f"vendors section {heading or slug}: {vendor_section_state(sections, heading)}"
+        )
     if vendors.is_file():
         body = vendors.read_text(encoding="utf-8")
         lines.append(
@@ -728,8 +763,8 @@ def write_inventory(path: Path, problems: list[str]) -> None:
             else "STILL ACTIVE OR MISSING"
         )
     )
-    lines.append("folio editor lane: documented inside extras/folio.md")
-    lines.append("eigenpal editor lane: documented inside extras/eigenpal.md")
+    lines.append("folio editor lane: documented inside reports/vendors.md, section Folio")
+    lines.append("eigenpal editor lane: documented inside reports/vendors.md, section eigenpal")
     lines.append("inventory problems from consistency: " + ("none" if not problems else str(len(problems))))
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
