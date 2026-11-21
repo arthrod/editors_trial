@@ -11,11 +11,8 @@ Every script that lists the participants passes its list through ``join`` (or re
 ``requested``), and build/test_every_lane.py fails on one that does not, so a pending
 lane is known everywhere or nowhere.
 
-To publish a lane: move its tuple from PENDING into build/score_all.py's
-TARGETS (and its slug out of PENDING_SLUGS' sources here), add it to SLUGS and
-VENDOR_HEADINGS in build/test_report_claims.py and to the heading and anchor
-maps the same test names, and replace the "not in the reports yet" sentence in
-its vendors section with what was measured.
+To publish a lane, follow RELEASING.md section 3a: the ordered steps, their
+preconditions, and the report sentences the new lanes make false.
 """
 import os
 import sys
