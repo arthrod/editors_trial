@@ -9,94 +9,95 @@ Legend: `[x]` done and checked live · `[~]` in progress · `[ ]` not done ·
 
 ## The field
 
-Measured today (13 and a baseline): SuperDoc, Folio, GenOffice, eigenpal,
+Measured since v0.11.0 (16 and a baseline): SuperDoc, Folio, GenOffice, eigenpal,
 office-open, Docen, WordCraft, Fidus Writer, Plate.js, docs.plus,
-canvas-editor, Docxodus, Apryse WebViewer; LibreOffice as the baseline.
+canvas-editor, Docxodus, Apryse WebViewer, react-docx, OpenDoc, BetterOffice;
+LibreOffice as the baseline.
 
-On editors.benchmarks.law since 2026-11-18 and **not yet in any report here**:
+The six tools that came from editors.benchmarks.law, as of et-v0.11.0 (2026-11-21):
 
-| Editor | Package | Has a .docx import and export of its own? |
+| Tool | In the reports as | What the trial found about its .docx path |
 | --- | --- | --- |
-| react-docx | `@extend-ai/react-docx` | to be established from its code |
-| Univer | `@univerjs/presets` + `preset-docs-core` | no: its .docx path is not in the open-source packages |
-| OpenDoc | `@casualoffice/opendoc-viewer`, and its application | to be established from its code |
-| BetterOffice | `@betteroffice/docx`, `@betteroffice/docx-react` | to be established from its code |
-| OnlyOffice (CryptPad build) | `cryptpad/onlyoffice-editor`, `onlyoffice-x2t-wasm` | yes, through x2t |
-| Nutrient (commercial, view-only) | its Web SDK | view-only: rendering reports only |
+| react-docx | a round-trip participant | reads and writes; Word opens its output |
+| OpenDoc | a round-trip participant | reads and writes; Word refuses its output |
+| BetterOffice | a round-trip participant, two lanes | reads and writes; Word refuses the model lane's output and opens the editor session's |
+| OnlyOffice (CryptPad build) | run, with no output | its converter did not return from the test document, twice |
+| Univer | probed, no lane | no .docx reader or writer in its 16 open-source packages |
+| Nutrient (commercial, view-only) | Report C only | a viewer: it saves no .docx |
 
 A report is complete only when each of these has a row, or the report says,
-from a measurement or a source citation, why it has none.
+from a measurement or a source citation, why it has none. Where a part below is
+`[~]` or `[!]`, the reason beside it is what is still owed. The code of the six
+tools was not read for any report.
 
 ## 1. Main report: round trip
 
-- [ ] 1.1 TL;DR
-- [ ] 1.2 Method and its limits
-- [ ] 1.3 The corpus
-- [ ] 1.4 Harnesses: the exact code path each project was driven through (one entry per editor, new editors included)
-- [ ] 1.5 Measured results (scores, critical features, text retention, parts kept)
-- [ ] 1.6 Word compatibility of the corpus (Word opens every output)
-- [ ] 1.7 Executive summary: rankings
-- [ ] 1.8 Master comparison table
-- [ ] 1.9 Preserved-vs-dropped matrix
-- [ ] 1.10 Per-repository findings (one section per editor)
-- [ ] 1.11 Changes from the previous report
-- [ ] 1.12 Recommendations, Caveats, Reproducing this
+- [x] 1.1 TL;DR (the fixed-point count names all seven; live 2026-11-21)
+- [x] 1.2 Method and its limits (a paragraph at the top says what v0.11.0 added and that the new tools' code was not read)
+- [x] 1.3 The corpus (unchanged)
+- [x] 1.4 Harnesses: one row per new lane, with the call each was driven through
+- [x] 1.5 Measured results: scorecard and second-pass rows for react-docx, OpenDoc, BetterOffice; OnlyOffice's row says no output
+- [x] 1.6 Word compatibility of the corpus (unchanged; the verdicts on the new outputs are in §12 and in Report B)
+- [~] 1.7 Executive summary: rankings. The new tools are not ranked: the list ranks editors whose code was read. It says where their scores fall
+- [~] 1.8 Master comparison table. No rows for the new tools: its columns (model, save strategy, compare, pagination) need a code read
+- [x] 1.9 Preserved-vs-dropped matrix (generated; three new columns)
+- [x] 1.10 Per-repository findings: §12 covers the four new tools and the Univer probe
+- [x] 1.11 Changes from the previous report (CHANGELOG 0.11.0)
+- [x] 1.12 Recommendations, Caveats, Reproducing this (unchanged)
 
 ## 2. Report A: serialization by namespace
 
-- [ ] 2.1 TL;DR · [ ] 2.2 Method · [ ] 2.3 Namespace inventory
-- [ ] 2.4 Where each editor's serialization boundary is (one per editor)
-- [ ] 2.5 Measured namespace survival
-- [ ] 2.6 Consequences, namespace by namespace
-- [ ] 2.7 The cross-editor matrix
-- [ ] 2.8 What this means, Reproducing, Gaps
+- [x] 2.1 TL;DR · [x] 2.2 Method · [x] 2.3 Namespace inventory
+- [~] 2.4 Where each editor's serialization boundary is. No entry for react-docx, OpenDoc or BetterOffice: that section is a code reading, and their code was not read. The report says so
+- [x] 2.5 Measured namespace survival (generated tables with three new columns; §4.6)
+- [x] 2.6 Consequences, namespace by namespace (§4.6 says where a new output breaks an earlier count)
+- [x] 2.7 The cross-editor matrix
+- [x] 2.8 What this means, Reproducing, Gaps
 
 ## 3. Report A2: pass-through
 
-- [ ] 3.1 TL;DR · [ ] 3.2 Method · [ ] 3.3 Package-level map
-- [ ] 3.4 Architectures that produce pass-through
-- [ ] 3.5 What pass-through gives, and the failure modes it hides
-- [ ] 3.6 Per-editor pass-through (one per editor)
-- [ ] 3.7 What this means, Reproducing, Gaps
+- [x] 3.1 TL;DR · [x] 3.2 Method · [x] 3.3 Package-level map (generated; new columns)
+- [~] 3.4 Architectures that produce pass-through. The new tools' architectures are not described: no code read
+- [x] 3.5 What pass-through gives, and the failure modes it hides (BetterOffice's dropped SmartArt pointer is in §5.6)
+- [x] 3.6 Per-editor pass-through: §6.10 for the four new lanes
+- [x] 3.7 What this means, Reproducing, Gaps
 
 ## 4. Report B: malformed parts
 
-- [ ] 4.1 TL;DR · [ ] 4.2 Method · [ ] 4.3 The corpus's own malformation
-- [ ] 4.4 The editors' own malformations (one per editor)
-- [ ] 4.5 Does any editor repair malformed input?
-- [ ] 4.6 Causes, detector catalogue, corrections, Reproducing
+- [x] 4.1 TL;DR · [x] 4.2 Method · [x] 4.3 The corpus's own malformation
+- [x] 4.4 The editors' own malformations: §3.9 for the new tools
+- [x] 4.5 Does any editor repair malformed input? §4.5, cell by cell for the new outputs
+- [x] 4.6 Causes, detector catalogue, corrections, Reproducing
 
 ## 5. Report C: rendering versus Word
 
-- [ ] 5.1 TL;DR · [ ] 5.2 Method
-- [ ] 5.3 The editors, one at a time (one section per editor, new editors and Nutrient included)
-- [ ] 5.4 Construct-by-construct table
-- [ ] 5.5 In the DOCX but not rendered
-- [ ] 5.6 The SmartArt
-- [ ] 5.7 The quantitative layer: pixels
-- [ ] 5.8 What this means, Reproducing, Gaps
+- [x] 5.1 TL;DR · [x] 5.2 Method
+- [x] 5.3 The editors, one at a time: §2.15 react-docx, §2.16 OpenDoc, §2.17 BetterOffice, §2.18 OnlyOffice, §2.19 Nutrient, each with figures (OnlyOffice has none: it showed no document)
+- [x] 5.4 Construct-by-construct table (generated; new columns)
+- [~] 5.5 In the DOCX but not rendered. Not redone for the new tools
+- [~] 5.6 The SmartArt. Its tables are not redone; what react-docx and BetterOffice draw there is in their sections
+- [x] 5.7 The quantitative layer: pixels (rows for the new outputs; the note on Word's unstable pixel column)
+- [x] 5.8 What this means, Reproducing, Gaps
 
 ## 6. Report D: hostile input
 
-- [ ] 6.1 TL;DR · [ ] 6.2 Grades (one per editor)
-- [ ] 6.3 Unsandboxed refusal · [ ] 6.4 Sandboxed matrix · [ ] 6.5 Protection degrees
-- [ ] 6.6 Measured scorecard · [ ] 6.7 Protection record
-- [ ] 6.8 Where the safety word is the wrong name, Kept payloads
-- [ ] 6.9 Google Docs and Word rows (never re-tested; stay as measured)
-- [ ] 6.10 Report D1, Jubarte (unchanged unless the packages change)
-- [ ] 6.11 Report D2, Word (unchanged)
+- [x] 6.1 TL;DR · [x] 6.2 Grades (one per lane; five new)
+- [x] 6.3 Unsandboxed refusal · [x] 6.4 Sandboxed matrix · [x] 6.5 Protection degrees
+- [x] 6.6 Measured scorecard · [x] 6.7 Protection record (generated; 210 cells)
+- [x] 6.8 Where the safety word is the wrong name, Kept payloads (unchanged; not re-read against the new rows)
+- [x] 6.9 Google Docs and Word rows (never re-tested; stay as measured)
+- [x] 6.10 Report D1, Jubarte (unchanged)
+- [x] 6.11 Report D2, Word (unchanged)
 
 ## 7. Report E: speed without a browser
 
-- [ ] 7.1 TL;DR · [ ] 7.2 What was timed · [ ] 7.3 Documents
-- [ ] 7.4 Round trip · [ ] 7.5 Load · [ ] 7.6 Save
-- [ ] 7.7 Process cost at 50,000 words
-- [ ] 7.8 LibreOffice, Exceptions, Not measured, How it was measured, Appendices
+- [!] 7.1 to 7.7 The new tools are not timed. OpenDoc, BetterOffice and OnlyOffice have lanes that could be; the figures are taken on rented cloud machines and v0.11.0 rented none (the owner's decision: no spending). react-docx has no entry that runs without a browser
+- [x] 7.8 LibreOffice, Exceptions, Not measured (names the four new tools and the reason), How it was measured, Appendices
 
 ## 8. Report E2: speed in the browser
 
-- [ ] 8.1 The seven action tables (open, type, click, paste, undo, scroll, resources), one row per editor
-- [ ] 8.2 What the figures can and cannot tell
+- [!] 8.1 The seven action tables have no row for the new tools: same reason as Report E. The report says so at the top
+- [x] 8.2 What the figures can and cannot tell
 
 ## 9. Notes
 
@@ -104,7 +105,7 @@ from a measurement or a source citation, why it has none.
   - [x] Each vendor's lane note is folded into its vendor section; each file in `reports/extras/` is a one-line pointer to it
   - [x] The new vendors are added: react-docx, Univer, OpenDoc, BetterOffice, OnlyOffice, Nutrient (their trial figures follow the new lanes, sections 1 to 6 above)
   - [x] Each vendor section ends with **Pros** and **Cons** in plain language, drawn from every report and from the three benchmark sites (20 of each, live)
-- [ ] 9.2 Rendering openability
+- [x] 9.2 Rendering openability (names the two new refused outputs; live 2026-11-21)
 
 ## 10. The field page (benchmarks.law/editors-trial/vendors, in `benchmarks-law`)
 
@@ -124,3 +125,5 @@ Live since 2026-11-21 (site PRs 97 and 99), each line checked on the deployed pa
 | 2026-11-21 | all | Checklist created |
 | 2026-11-21 | 9.1, 10 | Vendor notes rewritten and the field page rebuilt, both in branches awaiting a release |
 | 2026-11-21 | 9.1, 10 | Released (et-v0.10.6) and deployed; checked on the live pages |
+| 2026-11-21 | 1 to 9 | et-v0.11.0: four tools join the round trip, five join Report C; live on benchmarks.law and checked in Chrome |
+| 2026-11-21 | 7, 8 | Blocked: the new tools are not timed (no cloud machines rented) |
