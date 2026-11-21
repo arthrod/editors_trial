@@ -125,7 +125,8 @@ class HostilePackages(unittest.TestCase):
         sys.path.insert(0, str(BUILD))
         import run_bomb_sandbox
         self.sb = run_bomb_sandbox
-        self.tools = {t[0]: t for t in run_bomb_sandbox._tools(Path("/w/B1.docx"), Path("/w/out"))}
+        self.tools = {t[0]: t for t in run_bomb_sandbox._tools(Path("/w/B1.docx"), Path("/w/out"), pending=True)}
+        self.published = {t[0] for t in run_bomb_sandbox._tools(Path("/w/B1.docx"), Path("/w/out"), pending=False)}
 
     def test_every_new_lane_is_in_the_sandbox_with_its_round_trip_entry(self):
         for lane in LANES + ("betteroffice-editor",):
@@ -163,7 +164,10 @@ class HostilePackages(unittest.TestCase):
         text = (BUILD / "label_protection.py").read_text()
         order = re.search(r"order = \[(.*?)\]", text, re.S).group(1)
         labelled = set(re.findall(r'"([^"]+)"', order))
-        self.assertEqual(labelled - {"libreoffice"}, set(self.tools))
+        self.assertEqual(labelled - {"libreoffice"}, self.published)
+        self.assertIn("order += lanes.PENDING_SLUGS + lanes.PENDING_LANES", text)
+        import lanes
+        self.assertEqual(set(self.tools) - self.published, set(lanes.PENDING_SLUGS + lanes.PENDING_LANES))
 
 
 class Speed(unittest.TestCase):
@@ -198,9 +202,8 @@ class OtherRegistries(unittest.TestCase):
         import sys
         sys.path.insert(0, str(BUILD))
         text = (BUILD / "word_verdicts.py").read_text()
-        tools = re.findall(r'"([^"]+)"', re.search(r"TOOLS = \[(.*?)\]", text, re.S).group(1))
-        for lane in LANES + ("betteroffice-editor",):
-            self.assertIn(lane, tools, lane)
+        self.assertIn("TOOLS = lanes.join(TOOLS, lambda name, slug, key: slug)", text)
+        self.assertIn("TOOLS[-1:-1] = lanes.PENDING_LANES", text)
 
     def test_the_preserved_matrix_takes_pending_lanes_only_when_asked(self):
         text = (BUILD / "preserved_matrix.py").read_text()
@@ -211,9 +214,57 @@ class OtherRegistries(unittest.TestCase):
         self.assertEqual(preserved_matrix.TOOLS[-1], ("Apryse", "apryse"))
 
     def test_the_namespace_map_reads_every_new_output(self):
-        text = (BUILD / "ns_map.py").read_text()
-        for lane in LANES:
-            self.assertIn(f'"out/{lane}/complex.docx"', text, lane)
+        self.assertIn("TARGETS = lanes.join(TARGETS", (BUILD / "ns_map.py").read_text())
+
+    def test_the_speed_runner_times_a_pending_lane_only_when_named_or_asked(self):
+        text = (ROOT / "perf/runner/speed_headless.py").read_text()
+        self.assertIn('if not args.editors and os.environ.get("TRIAL_PENDING") != "1":', text)
+
+
+class Join(unittest.TestCase):
+    """lanes.join: how every list of participants takes the pending lanes."""
+    def setUp(self):
+        import sys
+        sys.path.insert(0, str(BUILD))
+        import lanes
+        self.lanes = lanes
+
+    def test_nothing_moves_unless_asked(self):
+        items = ["apryse", "libreoffice"]
+        self.assertIs(self.lanes.join(items, on=False), items)
+        self.assertEqual(self.lanes.names([]), {})
+
+    def test_pending_lanes_go_before_the_baseline_in_the_list_s_own_shape(self):
+        j = lambda items, make=None: self.lanes.join(items, make, on=True)
+        with_out = [s for s in self.lanes.PENDING_SLUGS if self.lanes.has_output(s)]
+        keys = [self.lanes.KEYS[s] for s in with_out]
+        self.assertEqual(j(["apryse", "libreoffice"]), ["apryse"] + keys + ["libreoffice"])
+        got = j([("Apryse", "out/apryse/complex.docx"), ("LibreOffice (baseline)", "out/lo_baseline/complex.docx")],
+                lambda name, slug, key: (name, "out/%s/complex.docx" % slug))
+        self.assertEqual(got[-1][0], "LibreOffice (baseline)")
+        self.assertEqual([p for _, p in got[1:-1]], ["out/%s/complex.docx" % s for s in with_out])
+        self.assertIsInstance(j((("a", 1),), lambda name, slug, key: (slug, 2)), tuple)
+        self.assertEqual(j([("Apryse", "apryse")], lambda name, slug, key: (name, slug))[1:],
+                         [(n, s) for n, s in self.lanes.PENDING if s in with_out])
+
+    def test_a_lane_that_recorded_no_output_is_not_audited(self):
+        import json
+        import tempfile
+        old = self.lanes.ROOT
+        with tempfile.TemporaryDirectory() as tmp:
+            self.lanes.ROOT = Path(tmp)
+            try:
+                d = Path(tmp) / "out" / "onlyoffice"
+                d.mkdir(parents=True)
+                (d / "no_output.json").write_text(json.dumps({"outcome": "did-not-return"}))
+                self.assertFalse(self.lanes.has_output("onlyoffice"))
+                self.assertTrue(self.lanes.has_output("opendoc"))
+                self.assertNotIn("onlyoffice", self.lanes.join(["apryse"], on=True))
+                (d / "complex.docx").write_bytes(b"PK")
+                self.assertTrue(self.lanes.has_output("onlyoffice"))
+            finally:
+                self.lanes.ROOT = old
+
 
 
 if __name__ == "__main__":

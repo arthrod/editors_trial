@@ -34,6 +34,11 @@ TARGETS = [
     ("Apryse WebViewer", "out/apryse/complex.docx"),
     ("LibreOffice (baseline)", "out/lo_baseline/complex.docx"),
 ]
+import os as _os, sys as _sys  # noqa: E401,E402
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+import lanes  # noqa: E402
+
+TARGETS = lanes.join(TARGETS, lambda name, slug, key: (name, "out/%s/complex.docx" % slug))
 
 
 def validate(path):

@@ -27,6 +27,11 @@ PACKAGES = (
     ("docxodus", ROOT / "out" / "docxodus" / "complex.docx"),
     ("apryse", ROOT / "out" / "apryse" / "complex.docx"),
 )
+import os as _os, sys as _sys  # noqa: E401,E402
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+import lanes  # noqa: E402
+
+PACKAGES = lanes.join(PACKAGES, lambda name, slug, key: (slug, ROOT / "out" / slug / "complex.docx"))
 
 
 def alternate_content_lengths(path: Path) -> list[int]:

@@ -49,6 +49,29 @@ class EveryLane(unittest.TestCase):
                     break
         self.assertEqual(missing, [])
 
+    def test_a_script_that_lists_the_participants_takes_the_pending_lanes(self):
+        """A lane that runs but is not published (build/lanes.py) is half-wired if one
+        script that lists the participants does not pass its list through lanes.join
+        (or read lanes.requested). The next participant starts as a pending lane, so
+        this is the check that it reaches every script from its first commit."""
+        # Each exemption says where the lane joins instead.
+        exempt = {
+            "lanes.py": "the registry itself",
+            "defect_survival.py": "its rows need committed publication outputs in out_broken/ "
+                                  "(test_defect_survival); a lane joins EDITORS at the release that publishes it",
+            "outreach_issues.py": "vendor anchors, held to vendors.md by test_report_claims",
+        }
+        retired = {"render_report.py", "visual_signatures.py", "ns_group_tables.py", "superdoc_detail.py"}
+        missing = []
+        for py in sorted(BUILD.glob("*.py")):
+            if py.name.startswith("test_") or "_patch" in py.name or py.name in retired or py.name in exempt:
+                continue
+            s = py.read_text()
+            lists_them = ('"apryse"' in s and ('"docxodus"' in s or '"superdoc"' in s)) or "/apryse/complex.docx" in s
+            if lists_them and "lanes." not in s:
+                missing.append(py.name)
+        self.assertEqual(missing, [])
+
     def test_report_c_package_table_is_generated_with_apryse(self):
         import sys
         sys.path.insert(0, str(BUILD))
