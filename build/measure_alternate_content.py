@@ -97,7 +97,14 @@ def main() -> int:
             continue
         print(f"{label} {path.relative_to(ROOT)} {format_token(lengths[0])}")
     for label, path in WITHOUT_BLOCK:
-        print(f"{label} {path.relative_to(ROOT)} no mc:AlternateContent block")
+        if path.exists():
+            print(f"{label} {path.relative_to(ROOT)} no mc:AlternateContent block")
+        elif (path.parent / "no_output.json").exists():
+            print(f"{label} wrote no output (out/{path.parent.name}/no_output.json)")
+        else:
+            # A missing file is not "no block": the lane was not run, or its output was removed.
+            print(f"{label} has no output file at {path}", file=sys.stderr)
+            failed = True
     return 1 if failed else 0
 
 

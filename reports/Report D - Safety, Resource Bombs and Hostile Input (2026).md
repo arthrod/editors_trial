@@ -21,7 +21,7 @@ Packages: B1 decompression, B2 entry flood, B3 attributes, B4 deep nesting, B5 e
 - **Docen.** Cleaned B3. Refused B5. Ran out of stack on B4 and B9. Kept B1, B2, B6, B7, B8, and B10.
 - **Docxodus.** Ceilings on B1 (compression ratio) and B4 (128 levels of depth). Cleaned B3. Refused B5 (document type declaration). Kept B2, B6, B7, B8, B9, and B10.
 - **Apryse WebViewer.** No ceiling. Cleaned B1, B2, B3, and B6. Hung on B4, B5, and B9: each ran past the sandbox's 40-second wall clock, in both passes. Kept B7, B8, and B10.
-- **OnlyOffice (CryptPad build).** Added in v0.11.0. No ceiling. Cleaned B1, B2, B4, B5, B6, B7, B8, and B10. Hung on B3: its converter ran past the sandbox's 40-second wall clock, in both passes. Kept B9. On these small packages its converter returns; on the trial's main corpus it does not (main report).
+- **OnlyOffice (CryptPad build).** Added in v0.11.0. No ceiling. Cleaned B1, B2, B4, B5, B6, B7, B8, and B10. Hung on B3: its converter ran past the sandbox's 40-second wall clock, in both passes. Kept B9. On the other nine small packages its converter returns; on the trial's main corpus it does not (main report).
 - **OpenDoc.** Added in v0.11.0. No ceiling. Refused B1, B2, B4, and B6 without naming one. Cleaned B3, B5, and B7. Kept B8, B9, and B10.
 - **BetterOffice model.** Added in v0.11.0. No ceiling. Refused B2, B3, B4, B5, B6, and B10 without naming one. Ran out of stack on B9. Kept B1, B7, and B8.
 - **BetterOffice editor.** Added in v0.11.0. Same row as the model, except B1: the Node process aborted on the decompression bomb, in both passes.

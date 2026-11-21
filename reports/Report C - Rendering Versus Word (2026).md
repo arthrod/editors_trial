@@ -929,7 +929,7 @@ through in red.
 
 - **It names what it does not draw.** Where the SmartArt is, it prints `[diagram]`; the equation is printed as `[E = mc^2]`.
 - **Page 3 holds what Word puts on page 4.** The diagram placeholder, the embedded object's picture and "Text box content" are on page 3; in Word they are on page 4.
-- **It tells the reader it changed something.** The "25 import findings" badge is the application's own count of what it could not carry. No other tool in this report shows such a count on the document's own screen.
+- **It tells the reader it changed something.** It shows a badge reading "25 import findings". What the badge counts was not read. No other tool in this report shows such a count on the document's own screen.
 
 ### 2.17 BetterOffice — Word's page count, and the SmartArt drawn as shapes
 
@@ -1025,7 +1025,7 @@ where nothing can be read out of the DOM).
 
 ### 3.1 Seven findings from the table
 
-**(a) Three editors put *something* in the SmartArt band, and the three put
+**(a) Three of the editors in the table put *something* in the SmartArt band (so do react-docx, OpenDoc and BetterOffice, added in v0.11.0: §2.15 to §2.17), and the three put
 different things there.** Word reserves the band and draws nothing.
 GenOffice draws a dashed band labelled "SmartArt" containing the node texts
 "Step one" and "Step two". eigenpal draws a grey box reading **"Unsupported
@@ -1403,7 +1403,7 @@ element the corpus's stub diagram parts cannot satisfy.
 
 **Three renderers, three stacks — a commercial Word layout engine, LibreOffice
 and a .NET OpenXML SDK on WebAssembly — reach the same conclusion about the
-same bytes.** None of them can draw this diagram; all three take up the room
+same bytes.** None of the three draws this diagram (BetterOffice, added in v0.11.0, draws two shapes there, §2.17); all three take up the room
 it asks for.
 
 ### 5.7 Why Word draws nothing — the diagram parts are stubs
@@ -1839,7 +1839,7 @@ chosen by the host. The same caveat applies, more weakly, to the docs.plus
 host, where only the REST boundary is stood in for and the conversion itself
 is the product's.
 
-**3. Two editors paint into a `<canvas>`, so nothing about their rendering
+**3. Two of the editors captured before v0.11.0 paint into a `<canvas>` (OpenDoc and BetterOffice, added then, do too), so nothing about their rendering
 can be read out of the DOM.** Canvas-Editor's and Docen's text is not in the
 light DOM, and the driver's DOM-text scroll cannot reach a later page in
 either. Their later pages were reached through each application's own

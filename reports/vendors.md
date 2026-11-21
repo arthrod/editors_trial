@@ -24,7 +24,7 @@ The project's keywords include `plugin` and `contentEditable`.
 
 ### Pros
 
-- It tells you what it could not keep. Importing the test document produced 38 typed messages, one per lost item, and with its default setting it refuses the file instead of saving a damaged copy. No other editor in the trial reported its losses (main report, "What each project actually lost").
+- It tells you what it could not keep. Importing the test document produced 38 typed messages, one per lost item, and with its default setting it refuses the file instead of saving a damaged copy. Of the other tools only OpenDoc shows anything similar, a count of import findings (main report, "What each project actually lost").
 - It refused the damaged test document before writing anything, so no broken file was left behind (Report B §4.2).
 - It set a named size limit on three of the ten hostile test files and removed the outside links from a fourth (Report D, grade 0.62).
 - Microsoft Word opens the file it saves (Report B, Word 16.115).
