@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import check_report_consistency as gate
 import check_roundtrip as sc
 import measure_alternate_content as mac
+import outreach_issues as outreach
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FIXTURE = os.path.join(ROOT, "fixture", "complex.docx")
@@ -102,6 +103,12 @@ def _subsections(body):
     """Map each ``### heading`` of one vendor section to its body."""
     parts = re.split(r"^###[ \t]+(.+?)[ \t]*$", body, flags=re.M)
     return {parts[i].strip(): parts[i + 1] for i in range(1, len(parts), 2)}
+
+
+def _github_anchor(heading):
+    """The anchor GitHub gives a heading: lower case, punctuation dropped, spaces to hyphens."""
+    kept = re.sub(r"[^\w\- ]", "", heading.strip().lower())
+    return kept.replace(" ", "-")
 
 
 def _bullets(body):
@@ -223,6 +230,31 @@ class ReportClaimsTest(unittest.TestCase):
                 )
             )
         )
+
+    def test_per_tool_links_land_on_a_vendors_section(self):
+        sections = _vendor_sections(_read(os.path.join(ROOT, "reports", "vendors.md")))
+        anchors = {_github_anchor(name) for name in sections}
+        self.assertEqual(len(anchors), len(sections))
+        self.assertEqual(_github_anchor("Plate.js"), "platejs")
+        self.assertEqual(_github_anchor("OnlyOffice (CryptPad build)"), "onlyoffice-cryptpad-build")
+        for slug in SLUGS:
+            self.assertEqual(outreach.VENDOR_ANCHORS[slug], _github_anchor(VENDOR_HEADINGS[slug]), slug)
+            self.assertEqual(gate.VENDOR_HEADINGS[slug], VENDOR_HEADINGS[slug], slug)
+        self.assertEqual(
+            outreach.url(outreach.note_path("docsplus")),
+            "https://github.com/arthrod/editors_trial/blob/main/reports/vendors.md#docsplus",
+        )
+        drafts = os.path.join(ROOT, "outreach")
+        linked = 0
+        for name in sorted(os.listdir(drafts)):
+            if not name.endswith(".md"):
+                continue
+            body = _read(os.path.join(drafts, name))
+            self.assertNotIn("reports/extras/", body, name)
+            for anchor in re.findall(r"blob/main/reports/vendors\.md#([\w-]+)", body):
+                linked += 1
+                self.assertIn(anchor, anchors, name)
+        self.assertGreater(linked, 0)
 
     def test_lane_blocks_quote_the_shipped_scorer(self):
         lanes = {

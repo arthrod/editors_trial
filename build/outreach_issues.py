@@ -28,7 +28,33 @@ BLANK = "https://github.com/arthrod/editors_trial/blob/main/"
 
 def url(path: str) -> str:
     """Return a GitHub blob URL for a path in the published repository."""
-    return BLANK + quote(path, safe="/")
+    return BLANK + quote(path, safe="/#")
+
+
+# Each tool's section of reports/vendors.md, as GitHub anchors its heading.
+# The per-tool notes used to be reports/extras/<slug>.md; they are sections
+# of the vendors page now.
+VENDOR_ANCHORS = {
+    "superdoc": "superdoc",
+    "docxodus": "docxodus",
+    "folio": "folio",
+    "genoffice": "genoffice",
+    "eigenpal": "eigenpal",
+    "officeopen": "office-open",
+    "docen": "docen",
+    "wordcraft": "wordcraft",
+    "canvas": "canvas-editor",
+    "fidus": "fidus-writer",
+    "docsplus": "docsplus",
+    "plate": "platejs",
+    "apryse": "apryse",
+    "lo_baseline": "libreoffice",
+}
+
+
+def note_path(slug: str) -> str:
+    """Return the repository path, with anchor, of a tool's per-tool note."""
+    return f"reports/vendors.md#{VENDOR_ANCHORS[slug]}"
 
 
 
@@ -413,7 +439,7 @@ def render(vendor: dict, extra: str = "") -> str:
     """Return the issue body for one vendor."""
     slug = vendor["slug"]
     f = figures(slug)
-    note = f"reports/extras/{slug}.md"
+    note = note_path(slug)
     body = fill(vendor["body"], {**f, "note_url": url(note)})
     if extra:
         body = body.rstrip() + "\n\n" + extra.strip()
