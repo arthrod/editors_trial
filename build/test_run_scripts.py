@@ -74,6 +74,11 @@ class CheckoutRootTest(unittest.TestCase):
         for name in self.RUNNERS + ("score_all.py", "score_extra.py"):
             self.assertNotIn("/Users/", (BUILD / name).read_text(), name)
 
+    def test_a_runner_copied_out_of_the_checkout_is_told_where_it_is(self):
+        # release_broken.sh runs a frozen copy of run_broken.sh from its work folder.
+        text = (BUILD / "release_broken.sh").read_text()
+        self.assertIn('TRIAL_ROOT="$B" OUTROOT="$L/broken$i" bash "$L/run_broken.copy.sh"', text)
+
     def test_the_scorers_take_the_same_override(self):
         for name in ("score_all.py", "score_extra.py"):
             self.assertIn('os.environ.get("TRIAL_ROOT")', (BUILD / name).read_text(), name)

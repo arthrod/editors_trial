@@ -202,6 +202,14 @@ class OtherRegistries(unittest.TestCase):
         for lane in LANES + ("betteroffice-editor",):
             self.assertIn(lane, tools, lane)
 
+    def test_the_preserved_matrix_takes_pending_lanes_only_when_asked(self):
+        text = (BUILD / "preserved_matrix.py").read_text()
+        self.assertIn("if lanes.requested():", text)
+        import sys
+        sys.path.insert(0, str(BUILD))
+        import preserved_matrix
+        self.assertEqual(preserved_matrix.TOOLS[-1], ("Apryse", "apryse"))
+
     def test_the_namespace_map_reads_every_new_output(self):
         text = (BUILD / "ns_map.py").read_text()
         for lane in LANES:

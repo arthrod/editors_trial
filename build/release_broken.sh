@@ -9,7 +9,8 @@ cp "$B/build/run_broken.sh" "$L/run_broken.copy.sh"
 for i in 1 2; do
   rm -rf "$L/broken$i"; mkdir -p "$L/broken$i"
   echo "== broken corpus, pass $i ($(date +%T))"
-  OUTROOT="$L/broken$i" bash "$L/run_broken.copy.sh"
+  # the copy is outside the checkout, so it is told where the checkout is
+  TRIAL_ROOT="$B" OUTROOT="$L/broken$i" bash "$L/run_broken.copy.sh"
   for f in /tmp/rb_*.log; do cp "$f" "$L/broken$i/"; done
 done
 python3 -I - "$B/build" "$L/broken1" "$L/broken2" "$B/out_broken" <<'PY'

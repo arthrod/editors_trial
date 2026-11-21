@@ -41,6 +41,13 @@ TOOLS = [
     ("Plate.js", "plate"),
     ("Apryse", "apryse"),
 ]
+# Lanes not in the published reports yet (build/lanes.py) join the matrix only with
+# --pending, a development run, and only those that wrote an output to score.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import lanes  # noqa: E402
+
+if lanes.requested():
+    TOOLS = TOOLS + [(name, d) for name, d in lanes.PENDING if (OUT / d / "score.json").exists()]
 
 # label -> list of check ids that cover it. A row with no check is left alone.
 ROWS = [
