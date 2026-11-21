@@ -22,7 +22,8 @@ sys.path.insert(0, str(ROOT / "build"))
 import word_batch  # noqa: E402
 
 TOOLS = ["plate", "docxodus", "superdoc", "folio", "folio-editor", "genoffice", "eigenpal",
-         "eigenpal-editor", "officeopen", "docen", "wordcraft", "fidus", "canvas", "docsplus", "apryse", "lo_baseline"]
+         "eigenpal-editor", "officeopen", "docen", "wordcraft", "fidus", "canvas", "docsplus", "apryse",
+         "reactdocx", "opendoc", "betteroffice", "betteroffice-editor", "onlyoffice", "lo_baseline"]
 
 SETS = {
     "outputs": {"src": ROOT / "out", "json": ROOT / "out" / "word_verdicts.json",

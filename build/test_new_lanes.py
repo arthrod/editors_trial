@@ -100,5 +100,95 @@ class Runners(unittest.TestCase):
         self.assertTrue((ROOT / "harness/univer/probe.mjs").is_file())
 
 
+class HostilePackages(unittest.TestCase):
+    """Report D: the sandbox runs each new lane through the same entry the round trip uses."""
+    def setUp(self):
+        import sys
+        sys.path.insert(0, str(BUILD))
+        import run_bomb_sandbox
+        self.sb = run_bomb_sandbox
+        self.tools = {t[0]: t for t in run_bomb_sandbox._tools(Path("/w/B1.docx"), Path("/w/out"))}
+
+    def test_every_new_lane_is_in_the_sandbox_with_its_round_trip_entry(self):
+        for lane in LANES + ("betteroffice-editor",):
+            self.assertIn(lane, self.tools, lane)
+        for lane in ("reactdocx", "betteroffice", "betteroffice-editor", "onlyoffice"):
+            _, cwd, cmd, _ = self.tools[lane]
+            self.assertEqual(cwd, ROOT / "harness" / lane.replace("-editor", ""), lane)
+            self.assertEqual(cmd[1:4], ["roundtrip.mjs", "/w/B1.docx", "/w/out/out.docx"], lane)
+        self.assertEqual(self.tools["betteroffice"][2][4], "model")
+        self.assertEqual(self.tools["betteroffice-editor"][2][4], "editor")
+        self.assertEqual(self.tools["opendoc"][2], [self.sb.OD, "/w/B1.docx", "/w/out/out.docx"])
+        self.assertTrue(self.sb.OD.endswith("harness/opendoc/target/release/opendoc-harness"))
+
+    def test_the_browser_lane_is_contained_as_apryse_is(self):
+        env = self.tools["reactdocx"][3]
+        self.assertEqual(env["REACTDOCX_NO_CHROME_SANDBOX"], "1")
+        self.assertEqual(env["REACTDOCX_VITE_CACHE"], "/w/out/vite-cache")
+        self.assertIn("PLAYWRIGHT_BROWSERS_PATH", env)
+        self.assertEqual(self.sb.PROFILE_EXTRA["reactdocx"], self.sb.PROFILE_EXTRA["apryse"])
+        # the harness reads exactly those two switches
+        text = (ROOT / "harness/reactdocx/roundtrip.mjs").read_text() + (ROOT / "harness/reactdocx/vite.config.mjs").read_text()
+        for name in ("REACTDOCX_NO_CHROME_SANDBOX", "REACTDOCX_VITE_CACHE"):
+            self.assertIn(name, text)
+
+    def test_the_sandbox_s_clock_not_the_harness_s_calls_a_stalled_converter_a_hang(self):
+        # The lane's own watchdog exits 1, which the sandbox would label an error exit.
+        # Inside the sandbox it is set past the wall clock, so a stall is killed and labelled a hang.
+        self.assertGreater(int(self.tools["onlyoffice"][3]["X2T_TIMEOUT_S"]), self.sb.WALL)
+
+    def test_the_converter_is_fetched_before_the_sandbox_not_inside_it(self):
+        # No network inside: the sandbox entry must not be the one that downloads.
+        self.assertNotIn("fetch.mjs", " ".join(self.tools["onlyoffice"][2]))
+
+    def test_the_labels_cover_every_sandboxed_tool(self):
+        text = (BUILD / "label_protection.py").read_text()
+        order = re.search(r"order = \[(.*?)\]", text, re.S).group(1)
+        labelled = set(re.findall(r'"([^"]+)"', order))
+        self.assertEqual(labelled - {"libreoffice"}, set(self.tools))
+
+
+class Speed(unittest.TestCase):
+    """Report E: the headless speed runner times the same entries, and can name their pins."""
+    def test_every_headless_lane_prints_the_two_marks_the_runner_reads(self):
+        for path in ("harness/opendoc/src/main.rs", "harness/betteroffice/roundtrip.mjs", "harness/onlyoffice/roundtrip.mjs"):
+            text = (ROOT / path).read_text()
+            for mark in ("PERF model_ready_ms=", "PERF save_ms="):
+                self.assertIn(mark, text, f"{path}: {mark}")
+
+    def test_the_runner_has_a_lane_provenance_and_pin_for_each(self):
+        import sys
+        sys.path.insert(0, str(ROOT))
+        from perf import pins
+        from perf.runner import speed_headless as sh
+        lanes = sh.default_lanes()
+        for lane in ("opendoc", "betteroffice", "onlyoffice"):
+            self.assertIn(lane, lanes, lane)
+            self.assertIn(lane, sh.ATTEST, lane)
+            self.assertIn(lane, pins._FACTS_KEYS, lane)
+        self.assertEqual(sh.BUILD_STEPS["opendoc"][1], "harness/opendoc")
+        self.assertIn("host_start_ms", lanes["onlyoffice"]["marks"])
+        # react-docx has no headless entry (harness/reactdocx/headless.mjs shows why): it is not timed here.
+        self.assertNotIn("reactdocx", lanes)
+        self.assertEqual(pins._FACTS_KEYS["opendoc"], ("ver.opendoc.commit",))
+        self.assertEqual(pins._FACTS_KEYS["betteroffice"], ("ver.npm.betteroffice",))
+        self.assertEqual(pins._FACTS_KEYS["onlyoffice"], ("ver.release.onlyoffice_x2t.tag",))
+
+
+class OtherRegistries(unittest.TestCase):
+    def test_word_is_offered_every_new_output_that_exists(self):
+        import sys
+        sys.path.insert(0, str(BUILD))
+        text = (BUILD / "word_verdicts.py").read_text()
+        tools = re.findall(r'"([^"]+)"', re.search(r"TOOLS = \[(.*?)\]", text, re.S).group(1))
+        for lane in LANES + ("betteroffice-editor",):
+            self.assertIn(lane, tools, lane)
+
+    def test_the_namespace_map_reads_every_new_output(self):
+        text = (BUILD / "ns_map.py").read_text()
+        for lane in LANES:
+            self.assertIn(f'"out/{lane}/complex.docx"', text, lane)
+
+
 if __name__ == "__main__":
     unittest.main()
