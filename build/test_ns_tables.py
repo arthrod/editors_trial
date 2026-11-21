@@ -18,10 +18,12 @@ def published() -> str:
 
 
 class V091Columns:
-    """The generator, restricted to v0.9.1's columns (Apryse joined in v0.9.2), reproduces v0.9.1's tables."""
+    """The generator, restricted to v0.9.1's columns (Apryse joined in v0.9.2, and the lanes of
+    build/lanes.py in v0.11.0), reproduces v0.9.1's tables."""
     def __enter__(self):
         self.saved = ns_tables.EDITORS
-        ns_tables.EDITORS = [e for e in self.saved if e != "apryse"]
+        later = {"apryse"} | set(ns_tables.lanes.KEYS.values())
+        ns_tables.EDITORS = [e for e in self.saved if e not in later]
 
     def __exit__(self, *exc):
         ns_tables.EDITORS = self.saved

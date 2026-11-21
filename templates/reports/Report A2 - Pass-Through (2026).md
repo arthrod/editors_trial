@@ -6,11 +6,13 @@ That sounds like a dull question. It is the opposite. Pass-through is the **stro
 
 ---
 
+**Added in v0.11.0.** react-docx, OpenDoc and BetterOffice (two lanes: its document model, and an editor session) are in the part map of §2 and in §6.10. Their source was not read: what is said of them is measured from the packages they wrote. OnlyOffice (CryptPad build) wrote no output, so it has no row.
+
 ## TL;DR
 
 - **Folio copies 34 of the corpus's 35 parts byte-for-byte and still scores 98.5%.** The reason is that the one part it rebuilds — `word/document.xml` — is where almost all of the interesting markup lives. **Pass-through is a measure of what the editor ignored, not of what it preserved.**
 - **Docxodus is the only tool in the study with nothing changed and nothing dropped: {{parts.docxodus.passthrough}} parts byte-identical, {{parts.docxodus.rewritten}} re-serialised, {{parts.docxodus.changed}} changed, {{parts.docxodus.dropped}} dropped, {{parts.docxodus.added}} added, all 35 parts out.** It gets there without a policy at all — it is built on the Microsoft Open XML SDK, opens the package with `WordprocessingDocument.Open(stream, isEditable: true)` and saves the same object graph back out, so parts it has no schema for are carried through untouched and parts it owns are re-printed. **Folio copies more bytes; Docxodus changes less.**
-- **Folio's pass-through is of the raw compressed bytes, not the decompressed XML.** `docx-core/src/zip/archive.ts:388-405` writes the original deflate stream, so the CRC and the compressed size are preserved exactly. No editor in this study returns an author's bytes more faithfully.
+- **Folio's pass-through is of the raw compressed bytes, not the decompressed XML.** `docx-core/src/zip/archive.ts:388-405` writes the original deflate stream, so the CRC and the compressed size are preserved exactly. No editor whose source was read returns an author's bytes more faithfully.
 - **Five architectures produce pass-through, and they are not equally faithful.** Clone-and-override (Folio) copies compressed bytes. Byte-splice (GenOffice, eigenpal) copies *byte ranges of the decompressed XML*. Opaque-blob (SuperDoc) copies whole ZIP entries it never modelled. Manifest-gated (WordCraft) copies payloads only when a manifest and a passthrough flag agree. **SDK round trip (Docxodus)** lets the Open XML SDK own the parts it models and pass the rest through.
 - **Four editors have zero pass-through.** Fidus Writer, canvas-editor, docs.plus and Plate.js all regenerate every part. Plate.js is the extreme: **zero byte-identical parts, {{parts.plate.dropped}} parts dropped, nothing added, {{parts.plate.out}} parts out** — the smallest package in the trial.
 - **Pass-through has a hidden failure mode that no part-level checker catches: the orphan.** When an editor keeps the payload but drops the element that pointed at it, the package still contains the bytes and nothing references them. **With the `altChunk` it happened once: Apryse WebViewer turns the chunk into ordinary paragraphs and keeps `word/afchunk.html` with nothing in the body pointing at it — the text is not lost, the part is ballast. Seven editors kept the construct whole and six dropped it whole. With the chart it happened in a worse form (§5.4).**
@@ -96,7 +98,7 @@ The same {{fixture.parts}}-part adversarial corpus (`fixture/complex.docx`) used
 
 **SuperDoc's {{parts.superdoc.passthrough}} pass-through parts are the entire binary payload.** The chart, the four SmartArt parts, the OLE embedding, the workbook, the image, `customXml`, `webSettings`, `fontTable`, `theme` and `afchunk.html` are all byte-identical — because SuperDoc's engine does not model them and returns the raw ZIP entries.
 
-**Docen and WordCraft are the only editors that *add* parts that were not in the input** (4 each). Docen adds the three Word 2016 comment-extension parts (`commentsExtended.xml`, `commentsExtensible.xml`, `commentsIds.xml`) and `docProps/custom.xml`. WordCraft adds `docProps/custom.xml` and the header/footer `.rels` parts.
+**Four tools *add* parts that were not in the input:** Docen and WordCraft (4 each), react-docx ({{parts.reactdocx.added}}: four header and footer `.rels` parts and a second picture) and BetterOffice's document model ({{parts.betteroffice.added}}: the three Word 2016 comment-extension parts). Docen adds the three Word 2016 comment-extension parts (`commentsExtended.xml`, `commentsExtensible.xml`, `commentsIds.xml`) and `docProps/custom.xml`. WordCraft adds `docProps/custom.xml` and the header/footer `.rels` parts.
 
 ### 2.2 The full part matrix
 
@@ -373,7 +375,7 @@ The SmartArt's four-part linkage is a good illustration of why the dangling-refe
 - invisible to a content-types check,
 - and **fatal to the rendering**.
 
-No editor in this study is in that partial state — office-open and Docen lose all four together, and the other editors lose none. But the state is reachable, and it is the kind of thing a package-level fidelity score cannot see.
+No editor in this study is in that partial state — office-open and Docen lose all four together, BetterOffice's document model drops the whole `dgm:relIds` element while keeping the four diagram parts in the package, and the other editors lose none. But the state is reachable, and it is the kind of thing a package-level fidelity score cannot see.
 
 ---
 
@@ -462,6 +464,19 @@ All four regenerate everything. There is nothing to orphan and nothing to dangle
 
 ---
 
+### 6.10 The tools added in v0.11.0: react-docx, OpenDoc, BetterOffice
+
+Measured from the packages; no source was read.
+
+| Lane | Byte-identical | Re-serialised to the same tree | Changed | Dropped | Added |
+|---|---:|---:|---:|---:|---:|
+| react-docx | {{parts.reactdocx.passthrough}} | {{parts.reactdocx.reserialized}} | {{parts.reactdocx.changed}} | {{parts.reactdocx.dropped}} | {{parts.reactdocx.added}} |
+| OpenDoc | {{parts.opendoc.passthrough}} | {{parts.opendoc.reserialized}} | {{parts.opendoc.changed}} | {{parts.opendoc.dropped}} | {{parts.opendoc.added}} |
+| BetterOffice, document model | {{parts.betteroffice.passthrough}} | {{parts.betteroffice.reserialized}} | {{parts.betteroffice.changed}} | {{parts.betteroffice.dropped}} | {{parts.betteroffice.added}} |
+| BetterOffice, editor session | {{parts.betteroffice-editor.passthrough}} | {{parts.betteroffice-editor.reserialized}} | {{parts.betteroffice-editor.changed}} | {{parts.betteroffice-editor.dropped}} | {{parts.betteroffice-editor.added}} |
+
+None of the four drops a part. BetterOffice's editor session is the closest any lane comes to Docxodus's all-zero row: {{parts.betteroffice-editor.passthrough}} of {{parts.betteroffice-editor.total}} parts byte-identical and one changed, `docProps/core.xml`, where it writes a new modification time. Docxodus is still the only row with nothing changed. In the three outputs those audits read (react-docx, OpenDoc and BetterOffice's document model) content types are coherent (`build/ct_coherence.py`) and no relationship points at a missing part (`build/rel_forward.py`).
+
 ## 7. What this means
 
 - **Pass-through is a measure of what the editor ignored.** Folio's {{parts.folio.passthrough}} byte-identical parts are 34 parts in which no user can ever make a change. The number is a fidelity number and an editing-power number at the same time, and it moves in opposite directions.
@@ -470,7 +485,7 @@ All four regenerate everything. There is nothing to orphan and nothing to dangle
 - **A dangling reference is worse than a dangling part, because it hides.** office-open and Docen produce packages with no missing parts, no dangling content-type declarations, no schema violations — and a chart and a SmartArt that are present, linked from the `.rels` file, and pointed at by body elements that resolve to nothing. **Every structural check passes. The page is still wrong.**
 - **Check the forward direction.** Every relationship-integrity checker worth writing resolves `.rels` → parts. The direction that broke here is body → `.rels`. Five lines of code (`build/rel_forward.py`) find a defect that a {{checks.total}}-check fidelity score, a schema validator, and a content-types audit all miss.
 - **The best row and the best score are not the same row.** Docxodus has the only all-zero row in the part map — {{parts.docxodus.changed}} changed, {{parts.docxodus.dropped}} dropped, {{parts.docxodus.added}} added — and the *entire* binary payload byte-identical. Folio copies more bytes still (34 against 25), but it rewrites the body. If your requirement is "save it back and change nothing", Docxodus is the only participant in this study that satisfies it outright.
-- **Choose on the axis you care about.** If you need the document to survive a round trip with its payloads intact, Folio and SuperDoc. If you need to *change* a chart, a diagram or an embedded workbook, none of the pass-through editors can help you and you want WordCraft, which redraws the payload from its own model instead. If you need a document Microsoft Word will open, note that **{{count.word_refused:w}} of the {{count.word_outputs:w}} outputs in this study are refused by Word {{word.version}}** — Folio, office-open, Docen and Fidus Writer — for reasons set out in the companion report *Malformed Parts*. Two of those four pass every static check in this report.
+- **Choose on the axis you care about.** If you need the document to survive a round trip with its payloads intact, Folio and SuperDoc. If you need to *change* a chart, a diagram or an embedded workbook, none of the pass-through editors can help you and you want WordCraft, which redraws the payload from its own model instead. If you need a document Microsoft Word will open, note that **{{count.word_refused:w}} of the {{count.word_outputs:w}} outputs in this study are refused by Word {{word.version}}** — Folio, office-open, Docen, Fidus Writer and, added in v0.11.0, OpenDoc and BetterOffice's document model — for reasons set out in the companion report *Malformed Parts*. Two of the four earlier ones pass every static check in this report.
 
 ---
 
@@ -501,7 +516,7 @@ The per-editor code citations refer to the pinned commits listed in the first re
 2. **`w:altChunk` presence is detected by a literal string search** in `word/document.xml` (`"w:altChunk" in xml`), not by an XML query. It is sufficient for the corpus and the twelve outputs, all of which use the `w:` prefix for that element, but it is not prefix-independent.
 3. **The `unreferenced`/`body-orphaned` distinction depends on how the fixture binds the chart's style and colour parts.** In the corpus they are bound by part-name convention and a content-types declaration rather than by a relationship, so they are "unreferenced" in the corpus as well as in every output that keeps them. That is a property of the format for those two parts, not a defect of any editor.
 4. **The dangling-reference check resolves ids within the part that uses them.** A relationship id used in `word/document.xml` is resolved against `word/_rels/document.xml.rels` — correct — but the check does not follow the chain one level deeper (e.g. from the chart part into the embedded workbook's own rels). That deeper chain was checked separately by `orphan_audit.py`, and no output has a dangling part at any level.
-5. **LibreOffice's row is a baseline, not a result.** It is not one of the twelve editors in the study and there is no source evidence to cite for its write path; its numbers here are measurements only.
+5. **LibreOffice's row is a baseline, not a result.** It is not one of the editors in the study and there is no source evidence to cite for its write path; its numbers here are measurements only. The same holds for the three tools added in v0.11.0 (§6.10).
 6. **This report measures packages, not pages.** Whether a surviving part is *drawn* is a separate question, answered in *Rendering Versus Word*. For Docxodus the two answers are unusually far apart: its package keeps every namespace, and its renderer substitutes a `[SMARTART]` placeholder and a `[MATH]` chip for two of them.
 7. **Docxodus's row is measured through the `DocxSession` API, not through its export CLI.** The round trip is `docxodus/core` → `openDocxSession` → `save()` (`harness/ui/docxodus/roundtrip.mjs`). The `@docxodus/export` CLI produces HTML and PDF and does not write DOCX, so it has no package to measure. The two paths share the same package writer, but the measurement exercises the session API — which is the product's own supported round-trip surface.
 8. **Docxodus's pass-through is exact because the SDK never opens those parts.** "Byte-identical" here means *never touched*, and that is a statement about the SDK's part ownership, not about a decision to preserve. The consequence for an evaluator is the same one §4.1 draws for Folio: the parts Docxodus copies are the parts no user can change.

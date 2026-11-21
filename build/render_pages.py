@@ -13,7 +13,7 @@ import os
 import subprocess
 import sys
 
-BASE = "/Users/arthrod/temp/T/editors_trial"
+BASE = os.environ.get("TRIAL_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 TARGETS = [
     ("corpus", os.path.join(BASE, "fixture", "complex.docx")),

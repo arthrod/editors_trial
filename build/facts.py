@@ -302,6 +302,10 @@ def word_pixel_facts(path: Path, facts: dict) -> None:
     if not path.exists():
         return
     data = json.loads(path.read_text())
+    # A file Word refused has no pages to compare (Report C section 6.2 covers it).
+    refused = sorted(label for label, v in data.items() if v.get("refused"))
+    facts["wpx.refused"] = ", ".join(refused)
+    data = {label: v for label, v in data.items() if not v.get("refused")}
     inks = {v["corpus_ink"] for v in data.values()}
     if len(inks) == 1:
         facts["wpx.corpus_ink"] = inks.pop()
@@ -411,6 +415,19 @@ def perf_e2_facts(path: Path, facts: dict) -> None:
         facts.update(perf_e2_tables.unset_facts())
         return
     runs = json.loads(path.read_text())
+    import os
+    carried = os.environ.get("TRIAL_E2_CARRY")
+    if carried:
+        # A release that re-measures nothing in the browser lane and no longer has the
+        # campaign's raw folders on this machine carries Report E2's facts over from a
+        # released facts file, byte for byte, and says so (perf.e2.carried_from).
+        old = json.loads(Path(carried).read_text())
+        kept = {k: v for k, v in old.items() if k.startswith("perf.e2.")}
+        if not kept:
+            raise ValueError("no perf.e2 facts in %s" % carried)
+        facts.update(kept)
+        facts["perf.e2.carried_from"] = Path(carried).name
+        return
     if "roots" in runs:
         roots = runs["roots"]
         if not isinstance(roots, list):
@@ -556,8 +573,10 @@ def main() -> int:
                     help="a development run: also build the facts of lanes not in the published reports yet "
                          "(build/lanes.py), into out/facts.pending.json unless --out says otherwise")
     a = ap.parse_args()
-    a.out = a.out or str(OUT / ("facts.pending.json" if a.pending else "facts.json"))
-    facts = build(pending=a.pending)
+    # Published lanes (lanes.PUBLISHED_IN) are part of every run's facts.json.
+    published = bool(lanes.PUBLISHED_IN) and lanes.requested()
+    a.out = a.out or str(OUT / ("facts.pending.json" if a.pending and not published else "facts.json"))
+    facts = build(pending=a.pending or published)
     Path(a.out).write_text(json.dumps(facts, indent=1, ensure_ascii=False) + "\n")
     print(f"facts: {len(facts)} keys -> {a.out}")
     return 0

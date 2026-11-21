@@ -2,6 +2,8 @@
 
 This edition does what the previous one could not: it **downloads every editor's code, runs each editor's own import→export path over a purpose-built adversarial document, and scores the result**. Every cell that previously read NOT VERIFIED IN CODE is now either a source citation or a measurement.
 
+**Added in v0.11.0 (2026-11-21).** Four more tools were run through the same corpus: **react-docx** (91.5%), **OpenDoc** (89.9%), **BetterOffice** (87.9% through its document model; 100.0% through an unedited editor session) and **OnlyOffice in CryptPad's browser build**, which wrote no output because its converter did not return. **Univer** was probed and has no `.docx` path in its open-source packages. They are in the tables below and in §12 of the per-repository findings. Their source code was not read, so every statement in this report about what an editor's code does, and every ranking in the executive summary, covers the earlier participants only. No earlier editor was run again and none of their figures moved.
+
 **Headline result:** three participants survive the corpus with zero failed checks — **SuperDoc (100%)**, **Docxodus (100%)** and **eigenpal (100%)**. **GenOffice** scores 98.5%, **Folio** 97.5%. **office-open** and **Docen** regenerate the package and silently drop revision metadata. **WordCraft** keeps the chart, SmartArt and OLE payload too — as the six editors above also do — but loses the revision model. **Fidus Writer**, **canvas-editor + plugin** and **docs.plus** are not round-trip tools in any meaningful sense.
 
 A correction to the previous report's headline: it ranked **eigenpal first on OOXML fidelity**. Measured, SuperDoc, Docxodus and eigenpal share first place with no failed check.
@@ -20,7 +22,7 @@ A correction to the previous report's headline: it ranked **eigenpal first on OO
 
 - **Best measured fidelity: SuperDoc V2.** 100% on the 99-check corpus, 29/29 critical features, 100% text retention, all 35 package parts preserved, and a genuine re-save (8 parts re-serialized, 27 untouched parts passed through byte-identically). It has **zero** failed checks, and its second pass is a perfect, byte-identical fixed point.
 - **Docxodus matches it.** The Open XML SDK also scores 100% — 29/29 critical, 100% text, all 35 parts, zero failed checks, and a byte-identical second pass — with **0 changed, 0 dropped and 0 added** parts. It is the only participant in the study that draws its boundary around a set of *parts* rather than a set of *names*.
-- **Five of the fourteen participants reach a byte-identical fixed point** — SuperDoc, Docxodus, GenOffice, eigenpal and Folio all reproduce their own output exactly when it is fed back through their code path. office-open and Docen do not: **their own output is malformed XML**, because the chart and SmartArt regeneration paths drop the local `a:` namespace binding their first pass emitted.
+- **Seven of the seventeen participants reach a byte-identical fixed point** — SuperDoc, Docxodus, GenOffice, eigenpal, Folio and, added in v0.11.0, react-docx and OpenDoc all reproduce their own output exactly when it is fed back through their code path. office-open and Docen do not: **their own output is malformed XML**, because the chart and SmartArt regeneration paths drop the local `a:` namespace binding their first pass emitted.
 - **eigenpal also scores 100%** — 29/29 critical, 100% text, all 35 parts, and a byte-identical second pass. It rewrites the text box's VML fallback from its DrawingML content, as Word does. **GenOffice scores 98.5% and Folio 97.5%.** Folio's two losses are the `w14` run identifiers and the move source, which it serializes with `w:delText` where Word writes `w:t`.
 - **GenOffice** preserves all 35 parts, but regenerates one block of the fixture (the table), which silently discards the text inside vertically-merged continuation cells.
 - **office-open (93.5%) and Docen (91.5%) are full-regeneration pipelines.** They rebuild the package from a parsed model, so unknown markup (`w16du:dateUtc`, `w14:paraId`/`textId`, the `w16du` namespace) is dropped by construction. **Both are also not idempotent: re-importing their own output produces `word/document.xml` with an unbound `a:` prefix — malformed XML.**
@@ -147,6 +149,11 @@ Every editor was driven through its **own** public entry point. This is the most
 | canvas-editor | `executeImportDocx` → `executeExportDocx` (jsdom + vitest-canvas-mock) | `packages/docx/src/docx/importDocx.ts:1807` / `packages/docx/src/docx/exportDocx.ts:796` |
 | Fidus Writer | `DocxConvert.init` → `DOCXExporter.init` (DOM-free) | `src/importer/docx/convert.ts:92` / `src/exporter/docx/index.ts:34` |
 | docs.plus | `importDocx` → `exportDocx` (HTML bridge) | `.../document-conversion/domain/docxImport.ts:43` / `docxExport.ts:30` |
+| react-docx (v0.11.0) | `createDocxViewer` (`/vanilla` entry) in Chromium → `getController().getDocxBytes()` | `@extend-ai/react-docx` 0.15.0, published package; source not read |
+| OpenDoc (v0.11.0) | `opendoc::Document::open` → `Document::save(Format::Docx, SaveMode::PreserveWhenSafe)` | `crates/opendoc/src/document.rs` at `5ac261cea`; source not read beyond the entry point |
+| BetterOffice, document model (v0.11.0) | `parseDocx` → `repackDocxWithWarnings` | `@betteroffice/docx` 0.5.1, published package; source not read |
+| BetterOffice, editor session (v0.11.0) | `createYrsSession` → `seedFromDocx` → `saveYrsDocx` | `@betteroffice/docx/yrs` 0.5.1 |
+| OnlyOffice, CryptPad build (v0.11.0) | `x2t` (WebAssembly): docx → editor binary → docx | `cryptpad/onlyoffice-x2t-wasm` v9.3.2+4; did not return from the corpus |
 | Plate.js | `importDocx` → `exportDocx` (headless, 45 base plugins + Plate's own static presentation kit) | `packages/platejs/src/docx/import/lib/importDocx.ts:2427` / `export/lib/exportDocx.tsx:646` |
 
 Four findings about the harnesses themselves:
@@ -177,7 +184,14 @@ Four findings about the harnesses themselves:
 | docs.plus | 21.1% | 24.1% (7/29) | 90.5% | 11 / 35 | 79 |
 | **Plate.js** | **20.6%** | **20.7% (6/29)** | **90.5%** | **11 / 35** | **79** |
 | Apryse WebViewer 12.2.1 (closed source, trial key) | 89.9% | 86.2% (25/29) | 100.0% | 30 / 35 | 9 (1 cannot be separated from the trial stamp) |
+| react-docx | 91.5% | 89.7% (26/29) | 95.9% | 35 / 35 | 8 |
+| OpenDoc | 89.9% | 86.2% (25/29) | 99.4% | 35 / 35 | 10 |
+| BetterOffice | 87.9% | 82.8% (24/29) | 97.0% | 35 / 35 | 12 |
+| BetterOffice, unedited editor session | 100.0% | 100.0% (29/29) | 100.0% | 35 / 35 | 0 |
+| OnlyOffice (CryptPad build) | no output | — | — | — | the converter did not return |
 | *LibreOffice (baseline)* | *86.9%* | *79.3% (23/29)* | *100.0%* | *25 / 35* | *12* |
+
+The rows react-docx (0.15.0), OpenDoc (`5ac261cea`), BetterOffice (0.5.1; its row is the document model, and the row below it an unedited editor session) and OnlyOffice (CryptPad build) were added in v0.11.0.
 
 Weighted score = each of 99 checks scored by criticality (3/2/1). "Package parts kept" counts non-directory entries present in both the input and the output. LibreOffice was converted headlessly (`soffice --convert-to docx`) and is shown as the calibration floor, not as a candidate. Docxodus is the thirteenth participant: an Open XML SDK rather than an editor, measured through the same 99 checks. It is listed with the editors because it scores on the same instrument, not because it is a candidate for the same job.
 
@@ -232,11 +246,14 @@ Feeding each output back through its own editor is the strictest test: a selecti
 | Fidus Writer | 23.6% | 25.1% | no | Stable in content; not byte-identical |
 | canvas-editor + plugin | 24.6% | 27.6% | no | Stable in content; not byte-identical |
 | docs.plus | 21.1% | 24.1% | no | Stable in content; not byte-identical |
+| react-docx | 91.5% | 93.0% | yes | Fixed point |
+| OpenDoc | 89.9% | 90.5% | yes | Fixed point |
+| BetterOffice | 87.9% | 89.4% | no | Stable in content; only the modification time in `docProps/core.xml` differs |
 | *LibreOffice (baseline)* | *86.9%* | *87.9%* | *no* | *Stable in content; not byte-identical* |
 
 The second pass is reproducible on its own: `bash build/run_second_pass.sh` feeds every editor its own first-pass output through the same documented import and export path, and `build/check_roundtrip.py` then scores the result against that first pass.
 
-Five of the fourteen participants reach a **byte-identical fixed point** — feeding their output back through their own code path reproduces the same file exactly. WordCraft reaches a stable fixed point in content but not in bytes. office-open and Docen do not merely degrade on the second pass: **the file they emit cannot be parsed as XML at all.** The cause is precise: the chart and SmartArt drawings are serialized as `<a:graphic>` without rebinding the `a` prefix, because the namespace is declared on an ancestor element that the regenerated tree does not reproduce.
+Seven of the seventeen participants reach a **byte-identical fixed point** — feeding their output back through their own code path reproduces the same file exactly. The seven are SuperDoc, Docxodus, GenOffice, eigenpal, Folio, react-docx and OpenDoc. WordCraft reaches a stable fixed point in content but not in bytes. office-open and Docen do not merely degrade on the second pass: **the file they emit cannot be parsed as XML at all.** The cause is precise: the chart and SmartArt drawings are serialized as `<a:graphic>` without rebinding the `a` prefix, because the namespace is declared on an ancestor element that the regenerated tree does not reproduce.
 
 That is the single most consequential defect found in this trial, because it is invisible in a first-pass diff — the file looks fine, opens in LibreOffice, and only breaks when the tool's own output is fed back in.
 
@@ -292,7 +309,7 @@ The `.docx` of this report is generated by pandoc, and pandoc writes `w:dirty="t
 
 After the fixes, `build/validate_ooxml.py` reports **no real schema violations** across `document.xml`, `settings.xml`, `styles.xml`, `numbering.xml`, `footnotes.xml`, `endnotes.xml`, `comments.xml`, both headers, both footers, `fontTable.xml`, `webSettings.xml` and `glossary/document.xml`, and the chart, SmartArt and theme parts validate against their own schemas (`dml-chart.xsd`, `dml-diagram.xsd`, `dml-main.xsd`). **The corpus now opens in Microsoft Word 16.115**, and so does every file this edition delivers.
 
-**The lesson generalises past this report.** LibreOffice opening a file is not evidence that the file is valid; it is evidence that LibreOffice is forgiving. Any DOCX benchmark whose corpus is only checked in one consumer will quietly measure the corpus's leniency instead of the editors' fidelity. All twelve defects above were invisible to twelve of the thirteen editors in this trial — they read the file and produced output — and invisible to LibreOffice. The other one, **Plate.js**, refused the malformed corpus outright (`decode-failed`) rather than reading it; it detects exactly one of the twelve classes, the block-level `m:oMathPara`. A schema validator caught five of them. The other seven were found only by asking Word, one subset at a time.
+**The lesson generalises past this report.** LibreOffice opening a file is not evidence that the file is valid; it is evidence that LibreOffice is forgiving. Any DOCX benchmark whose corpus is only checked in one consumer will quietly measure the corpus's leniency instead of the editors' fidelity. All twelve defects above were invisible to fifteen of the seventeen editors in this trial — they read the file and produced output — and invisible to LibreOffice. The other one, **Plate.js**, refused the malformed corpus outright (`decode-failed`) rather than reading it; it detects exactly one of the twelve classes, the block-level `m:oMathPara`. A schema validator caught five of them. The other seven were found only by asking Word, one subset at a time.
 
 ---
 
@@ -309,6 +326,8 @@ After the fixes, `build/validate_ooxml.py` reports **no real schema violations**
 7. **Docen.** 91.5%, inherits and extends office-open's losses.
 8. **WordCraft.** 85.9%. Keeps the chart, all four SmartArt parts, the OLE object, the embedded workbook and the image — but it is the only payload keeper that loses the revision model, and it drops two payload parts of its own (`word/charts/style1.xml`, `word/charts/colors1.xml`).
 8. **canvas-editor + plugin, Fidus Writer, docs.plus, Plate.js.** Not round-trip pipelines. Plate is the most interesting of the four: its DOCX engine is a well-built, diagnosable, headless import/export pair with a byte-exactness gate, but it is an HTML-shaped pipeline — **zero parts survive byte-identically, 24 of 35 are dropped, and the document renders in 2 pages instead of 6** — so it scores 20.6% while keeping 90.5% of the text. Its diagnostic vocabulary and its `lossPolicy: 'reject'` default are the best behaviour on malformed input in this trial; see the companion report.
+
+**The tools added in v0.11.0 are not ranked here.** This list ranks editors whose code was read as well as measured. By score alone react-docx (91.5%), OpenDoc (89.9%) and BetterOffice's document model (87.9%) fall below office-open (93.5%) and above WordCraft (85.9%), react-docx level with Docen (91.5%), and Word refuses two of the three outputs (§12).
 
 **On popularity [MEASURED].** Star counts are in §"How the twelve were chosen", re-measured on 2026-11-01. **They do not predict fidelity.** The two most-starred projects in the trial, WordCraft (16,895★) and Plate (16,685★), score 85.9% and 20.6%. The three tied for first have 1,117★, 536★ and 106★, and Folio, fifth at 97.5%, has **32★** — fewer stars than its own issue count. If you are choosing an editor on popularity, this trial gives no support for that heuristic.
 
@@ -354,45 +373,45 @@ Two rows in that table deserve a footnote rather than a ranking. **Plate.js** is
 
 Legend: **M** modelled and editable · **P** preserved · **D** dropped · **?** not applicable. Every cell below is a measurement against `fixture/complex.docx`, not a reading of release notes.
 
-| Item | SuperDoc | Docxodus | Folio | GenOffice | eigenpal | office-open | Docen | WordCraft | canvas | Fidus | docs.plus | Plate.js | Apryse |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Unknown attributes (`w14:paraId`, `textId`) | P | P | **D** (paraId) | P | P | **D** (paraId) | **D** (paraId) | **D** (paraId) | **D** (paraId) | **D** (paraId) | **D** (paraId) | **D** (paraId) | **D** (paraId) |
-| `w16du:dateUtc` | P | P | P | P | P | **D** (0 of 3) | **D** (0 of 3) | **D** (0 of 3) | **D** (0 of 3) | **D** (0 of 3) | **D** (0 of 3) | **D** (0 of 3) | **D** (0 of 3) |
-| `w16du` namespace declaration | P | P | P | P | P | **D** | **D** | **D** | **D** | **D** | **D** | **D** | **D** |
-| `xml:space="preserve"` | P | P | P | P | P | P | P | P | **D** | **D** | **D** | P | P |
-| `w:proofErr` | P | P | P | P | P | P | P | **D** (0 of 4) | **D** (0 of 4) | **D** (0 of 4) | **D** (0 of 4) | **D** (0 of 4) | **D** (0 of 4) |
-| `mc:AlternateContent` Choice **and** Fallback | P | P | P | P | P | P | P | **D** (Choice only) | **D** (Choice only) | **D** (Choice only) | **D** (Choice only) | **D** (Choice only) | P |
-| `w:ins` / `w:del` runs | P | P | P | P | P | P | P | **D** (2 of 3) | **D** (0 of 3) | **D** (1 of 3) | **D** (0 of 3) | **D** (0 of 3) | P |
-| `w:rPrChange` / `w:pPrChange` | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** | P |
-| `w:moveFrom` / `w:moveTo` | P | P | **D** (moveFrom) | P | P | P | P | P | **D** (moveFrom) | **D** (moveFrom) | **D** (moveFrom) | **D** (moveFrom) | P |
-| Row-level revisions (`w:trPr/w:ins`, `w:trPr/w:del`) | P | P | P | P | P | P | P | **D** (0 of 1) | **D** (0 of 1) | **D** (0 of 1) | **D** (0 of 1) | **D** (0 of 1) | P |
-| Complex fields (`fldChar`/`instrText`) | P | P | P | P | P | P | P | P | **D** (0 of 9) | P | **D** (0 of 9) | **D** (0 of 9) | P |
-| Simple fields (`w:fldSimple`) | P | P | P | P | P | P | P | P | **D** (0 of 2) | **D** (0 of 2) | **D** (0 of 2) | **D** (0 of 2) | P |
-| Bookmarks | P | P | P | P | P | P | P | P | **D** | P | **D** | P | P |
-| Content controls (`w:sdt`) | P | P | P | P | P | P | P | P | **D** (0 of 5) | **D** (0 of 5) | **D** (0 of 5) | **D** (0 of 5) | **D** (4 of 5) |
-| `w:dataBinding`, date picker, nested sdt | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** | **D** |
-| Tables: `tblGrid`, `gridSpan`, `vMerge` | P | P | P | P | P | P | P | P | P | **D** | P | P | P |
-| Nested table | P | P | P | P | P | P | P | P | P | **D** (0 of 2) | P | P | P |
-| Section count (3) and landscape | P | P | P | P | P | P | P | P | **D** (1 of 3) | **D** (1 of 3) | **D** (1 of 3) | **D** (1 of 3) | **D** |
-| Page borders / multi-column / `docGrid` | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** | P |
-| RTL (`w:bidi` / `w:rtl`) | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** | P |
-| `w:sym`, `w:tab`, `w:br`, hyphens | P | P | P | P | P | P | **D** (hyphens) | P | **D** | **D** | **D** | **D** | P |
-| `w:vanish`, `w:noProof`, `vertAlign` | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** | P |
-| 9-level `numbering.xml` | P | P | P | P | P | P | P | P | P | P | P | **D** (0 of 27) | P |
-| Chart part | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** | P |
-| SmartArt parts (4) | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** | P |
-| OLE object + embedded workbook | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** | P |
-| Image | P | P | P | P | P | P | P | P | P | P | P | **D** | P |
-| Headers/footers (2 + 2) | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** | **D** |
-| Tracked change inside a header | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** | **D** |
-| Footnotes / endnotes / comments | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** | P |
-| `documentProtection`, `evenAndOddHeaders` | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** | P |
-| `w:altChunk` (element + part + text) | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** | **D** | P |
-| Glossary / building blocks | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** | P |
-| customXml data store | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** | P |
-| `docProps/core.xml` metadata | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** | P |
-| Chart / SmartArt relationships resolve to a part | P | P | P | P | P | **D** | **D** | P | **D** | **D** | **D** | **D** | P |
-| Output re-opens as a well-formed package | P | P | P | P | P | P | P | P | P | P | P | P | P |
+| Item | SuperDoc | Docxodus | Folio | GenOffice | eigenpal | office-open | Docen | WordCraft | canvas | Fidus | docs.plus | Plate.js | Apryse | react-docx | OpenDoc | BetterOffice |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Unknown attributes (`w14:paraId`, `textId`) | P | P | **D** (paraId) | P | P | **D** (paraId) | **D** (paraId) | **D** (paraId) | **D** (paraId) | **D** (paraId) | **D** (paraId) | **D** (paraId) | **D** (paraId) | P | **D** (paraId) | **D** (paraId) |
+| `w16du:dateUtc` | P | P | P | P | P | **D** (0 of 3) | **D** (0 of 3) | **D** (0 of 3) | **D** (0 of 3) | **D** (0 of 3) | **D** (0 of 3) | **D** (0 of 3) | **D** (0 of 3) | P | **D** (0 of 3) | **D** (0 of 3) |
+| `w16du` namespace declaration | P | P | P | P | P | **D** | **D** | **D** | **D** | **D** | **D** | **D** | **D** | P | **D** | P |
+| `xml:space="preserve"` | P | P | P | P | P | P | P | P | **D** | **D** | **D** | P | P | P | P | P |
+| `w:proofErr` | P | P | P | P | P | P | P | **D** (0 of 4) | **D** (0 of 4) | **D** (0 of 4) | **D** (0 of 4) | **D** (0 of 4) | **D** (0 of 4) | P | **D** (0 of 4) | **D** (0 of 4) |
+| `mc:AlternateContent` Choice **and** Fallback | P | P | P | P | P | P | P | **D** (Choice only) | **D** (Choice only) | **D** (Choice only) | **D** (Choice only) | **D** (Choice only) | P | **D** (Choice only) | **D** (Choice only) | **D** (Choice only) |
+| `w:ins` / `w:del` runs | P | P | P | P | P | P | P | **D** (2 of 3) | **D** (0 of 3) | **D** (1 of 3) | **D** (0 of 3) | **D** (0 of 3) | P | P | P | P |
+| `w:rPrChange` / `w:pPrChange` | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** | P | P | P | P |
+| `w:moveFrom` / `w:moveTo` | P | P | **D** (moveFrom) | P | P | P | P | P | **D** (moveFrom) | **D** (moveFrom) | **D** (moveFrom) | **D** (moveFrom) | P | P | **D** (moveFrom) | **D** (moveFrom) |
+| Row-level revisions (`w:trPr/w:ins`, `w:trPr/w:del`) | P | P | P | P | P | P | P | **D** (0 of 1) | **D** (0 of 1) | **D** (0 of 1) | **D** (0 of 1) | **D** (0 of 1) | P | P | P | P |
+| Complex fields (`fldChar`/`instrText`) | P | P | P | P | P | P | P | P | **D** (0 of 9) | P | **D** (0 of 9) | **D** (0 of 9) | P | P | P | P |
+| Simple fields (`w:fldSimple`) | P | P | P | P | P | P | P | P | **D** (0 of 2) | **D** (0 of 2) | **D** (0 of 2) | **D** (0 of 2) | P | P | P | P |
+| Bookmarks | P | P | P | P | P | P | P | P | **D** | P | **D** | P | P | P | P | P |
+| Content controls (`w:sdt`) | P | P | P | P | P | P | P | P | **D** (0 of 5) | **D** (0 of 5) | **D** (0 of 5) | **D** (0 of 5) | **D** (4 of 5) | **D** (0 of 5) | P | P |
+| `w:dataBinding`, date picker, nested sdt | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** | **D** | **D** | P | P |
+| Tables: `tblGrid`, `gridSpan`, `vMerge` | P | P | P | P | P | P | P | P | P | **D** | P | P | P | P | P | P |
+| Nested table | P | P | P | P | P | P | P | P | P | **D** (0 of 2) | P | P | P | P | P | P |
+| Section count (3) and landscape | P | P | P | P | P | P | P | P | **D** (1 of 3) | **D** (1 of 3) | **D** (1 of 3) | **D** (1 of 3) | **D** | P | P | P |
+| Page borders / multi-column / `docGrid` | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** | P | P | P | P |
+| RTL (`w:bidi` / `w:rtl`) | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** | P | P | P | P |
+| `w:sym`, `w:tab`, `w:br`, hyphens | P | P | P | P | P | P | **D** (hyphens) | P | **D** | **D** | **D** | **D** | P | P | P | P |
+| `w:vanish`, `w:noProof`, `vertAlign` | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** | P | P | P | **D** |
+| 9-level `numbering.xml` | P | P | P | P | P | P | P | P | P | P | P | **D** (0 of 27) | P | P | P | P |
+| Chart part | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** | P | P | P | P |
+| SmartArt parts (4) | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** | P | P | P | P |
+| OLE object + embedded workbook | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** | P | P | P | P |
+| Image | P | P | P | P | P | P | P | P | P | P | P | **D** | P | P | P | P |
+| Headers/footers (2 + 2) | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** | **D** | P | P | P |
+| Tracked change inside a header | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** | **D** | P | P | P |
+| Footnotes / endnotes / comments | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** | P | P | P | P |
+| `documentProtection`, `evenAndOddHeaders` | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** | P | P | P | P |
+| `w:altChunk` (element + part + text) | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** | **D** | P | **D** | P | **D** |
+| Glossary / building blocks | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** | P | P | P | P |
+| customXml data store | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** | P | P | P | P |
+| `docProps/core.xml` metadata | P | P | P | P | P | P | P | P | **D** | **D** | **D** | **D** | P | P | P | P |
+| Chart / SmartArt relationships resolve to a part | P | P | P | P | P | **D** | **D** | P | **D** | **D** | **D** | **D** | P | P | P | **D** |
+| Output re-opens as a well-formed package | P | P | P | P | P | P | P | P | P | P | P | P | P | P | P | P |
 
 ---
 
@@ -522,6 +541,25 @@ The import path is **mammoth → HTML → the editor model**: `mammoth` is a top
 **Cons:** it is an HTML-shaped pipeline, so everything Word expresses that HTML cannot carry is lost — which is most of the package; and its DOCX engine is not designed for round-tripping, so the score is low by construction.
 
 **Second pass [MEASURED].** 20.1%, 0 errors, and the package shrinks from 42,964 to **8,010** bytes — Plate's own output re-imports cleanly, but the regenerated document no longer carries the parts the first pass had written.
+
+### 12. The tools added in v0.11.0: react-docx, OpenDoc, BetterOffice, OnlyOffice (CryptPad build), and a probe of Univer
+
+These were added on 2026-11-21 because they are on editors.benchmarks.law and were in none of these reports. **Their source was not read.** Each paragraph is measured from the tool's output, twice, and says nothing about why. The earlier editors were not run again for this release.
+
+**react-docx** (`@extend-ai/react-docx@0.15.0`) **[MEASURED].** 91.5% weighted, 26/29 critical, 8 of 99 checks failed. It keeps all 35 parts, changes 2 and adds 5 (four header and footer `.rels` parts and a second picture). It loses 7 of 169 text tokens (95.9% kept) and all of the math. Its output has 0 schema violations, Word 16.115 opens it (**opened**) and renders it pixel-identical (Report C §6.1). Its second pass is byte-identical. It runs only in a browser, so the harness drives it in Chromium.
+
+**OpenDoc** (commit `5ac261cea`) **[MEASURED].** 89.9% weighted, 25/29 critical, 10 of 99 checks failed. It keeps all 35 parts and changes 15 of them; it loses 1 text token. It drops the `w14`, `w15`, `w16cid`, `w16du` and `w10` namespaces whole (Report A §4.6). Its output has 4 schema violations, all element order (Report B §3.9), and **Word refuses it** (**REFUSED**). Its second pass is byte-identical. The harness calls the engine's `Document::open` and `Document::save` with the mode its own command line uses for a same-format save (`PreserveWhenSafe`).
+
+**BetterOffice** (`@betteroffice/docx@0.5.1`) **[MEASURED], two lanes with opposite results.**
+
+- *Document model* (`parseDocx` then `repackDocxWithWarnings`): 87.9% weighted, 24/29 critical, 12 of 99 checks failed. It keeps all parts, changes 11 and adds 3. It drops the body's pointer to the SmartArt while keeping the four diagram parts (Report A2 §5.6). Its output has 4 schema violations and **Word refuses it** (**REFUSED**). The save returned an empty list of warnings. Its second pass is not byte-identical: only the modification time in `docProps/core.xml` differs.
+- *Editor session* (`createYrsSession`, `seedFromDocx`, `saveYrsDocx`): 100.0%, 0 failed checks, 34 of 35 parts byte-identical, one changed (`docProps/core.xml`). Word opens it (**opened**).
+
+The second lane is not counted as a fourth zero-failure participant in the headline: nothing was edited in that session, and what the lane shows is that an unedited document comes back whole. What a session writes after an edit was not measured.
+
+**OnlyOffice (CryptPad build)** (`onlyoffice-x2t-wasm` v9.3.2+4) **[MEASURED]: no output.** The converter did not return from the corpus within 120 s, at the step "doc.docx -> bin", in both runs, and it did the same on the broken corpus. There is nothing to score, so it has no row in any table of this report. It is not counted among the seventeen participants. On the small hostile packages of Report D its converter does return. Report C §2.18 narrows the cause to the embedded document (`w:altChunk`) and, after that, the SmartArt. This is CryptPad's browser build, not OnlyOffice's Document Server, which was not run.
+
+**Univer** (`@univerjs/presets@1.5.2`) **[MEASURED]: no `.docx` path.** A probe of its 16 installed open-source packages looked for a zip library, a WordprocessingML part name or namespace and a `.docx` import or export call, and found none (`harness/univer/probe.mjs`, `out/univer/probe.json`). There is no round trip to run. Its documentation places `.docx` import and export in a separately licensed server product, which was not obtained.
 
 ---
 

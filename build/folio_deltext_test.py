@@ -17,7 +17,7 @@ import zipfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from word_open import open_file  # noqa: E402
 
-BASE = "/Users/arthrod/temp/T/editors_trial"
+BASE = os.environ.get("TRIAL_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(BASE, "out", "folio", "complex.docx")
 OUT = "/tmp/wt"
 os.makedirs(OUT, exist_ok=True)

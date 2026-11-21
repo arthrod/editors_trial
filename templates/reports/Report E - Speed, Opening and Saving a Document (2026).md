@@ -86,6 +86,8 @@ Text the check found missing from the saved files (the round trip still kept 98 
 - **Memory over time (C17, C19).** The memory runners sum the wrong processes and stop too early ([#115](https://github.com/arthrod/editors_trial/issues/115)). The peak memory above comes from the headless runner instead.
 - **WebAssembly boundary (C24).** Two editors only, and the per-call figures are below the clock ([#117](https://github.com/arthrod/editors_trial/issues/117)).
 - **Apryse WebViewer.** It has no headless entry point; it runs only in a browser.
+- **react-docx** (in the trial since v0.11.0). It has no headless entry point either: its export runs only in a browser (`harness/reactdocx/headless.mjs` records the attempt).
+- **OpenDoc, BetterOffice and OnlyOffice (CryptPad build)** (in the trial since v0.11.0). They have headless lanes and were not timed. The figures of this report are taken on dedicated cloud machines, never on a desk computer, and v0.11.0 was made without renting any. Every figure in this report is therefore from the earlier campaign and covers the earlier tools only. Nothing here says how fast these three are.
 - **Save after an edit.** Every save here follows an unedited load.
 - **A cold file system cache.** Every load reads files the warm-up already brought into memory.
 

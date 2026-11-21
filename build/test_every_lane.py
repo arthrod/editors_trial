@@ -58,7 +58,8 @@ class EveryLane(unittest.TestCase):
         exempt = {
             "lanes.py": "the registry itself",
             "defect_survival.py": "its rows need committed publication outputs in out_broken/ "
-                                  "(test_defect_survival); a lane joins EDITORS at the release that publishes it",
+                                  "(test_defect_survival); a lane joins EDITORS at the release that publishes it "
+                                  "(the four of v0.11.0 are in the list itself)",
             "outreach_issues.py": "vendor anchors, held to vendors.md by test_report_claims",
         }
         retired = {"render_report.py", "visual_signatures.py", "ns_group_tables.py", "superdoc_detail.py"}

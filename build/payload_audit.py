@@ -12,7 +12,7 @@ import os
 import re
 import zipfile
 
-BASE = "/Users/arthrod/temp/T/editors_trial"
+BASE = os.environ.get("TRIAL_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 IN = os.path.join(BASE, "fixture", "complex.docx")
 
 PAYLOAD_PARTS = [

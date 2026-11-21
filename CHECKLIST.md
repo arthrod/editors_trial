@@ -100,20 +100,22 @@ from a measurement or a source citation, why it has none.
 
 ## 9. Notes
 
-- [~] 9.1 (branch `goal/vendor-notes`, not released yet) `reports/vendors.md` is the one place a vendor is described (benchmarks.law/editors-trial/vendor-notes)
-  - [~] Each vendor's lane note is folded into its vendor section; `reports/extras/` is gone (in the branch)
-  - [~] The new vendors are added: react-docx, Univer, OpenDoc, BetterOffice, OnlyOffice, Nutrient (in the branch; their trial figures follow the new lanes)
-  - [~] (in the branch) Each vendor section ends with **Pros** and **Cons** in plain language, drawn from every report and from the three benchmark sites
+- [x] 9.1 `reports/vendors.md` is the one place a vendor is described (benchmarks.law/editors-trial/vendor-notes). Released in et-v0.10.6 and seen live 2026-11-21: 20 sections
+  - [x] Each vendor's lane note is folded into its vendor section; each file in `reports/extras/` is a one-line pointer to it
+  - [x] The new vendors are added: react-docx, Univer, OpenDoc, BetterOffice, OnlyOffice, Nutrient (their trial figures follow the new lanes, sections 1 to 6 above)
+  - [x] Each vendor section ends with **Pros** and **Cons** in plain language, drawn from every report and from the three benchmark sites (20 of each, live)
 - [ ] 9.2 Rendering openability
 
 ## 10. The field page (benchmarks.law/editors-trial/vendors, in `benchmarks-law`)
 
-- [~] 10.1 (site branch `goal/vendors-canonical`, seen locally in Chrome, not deployed) One card per tool, new editors included: 19 cards
-- [~] 10.2 (same branch) Each card's summary says what the tool is good for, in the reader's terms ("Use X if you need Y"), not a list of scores
-- [~] 10.3 (same branch; tools not on editors.benchmarks.law, and readings from another machine, are left unscored with the reason) Each card shows grades for speed, data transferred and memory, beside round trip and hostile input, with the rule that produces each grade printed on the page
-- [~] 10.4 (same branch; all 19 land on a heading) "About" on each card goes to that vendor's section of `/editors-trial/vendor-notes`
-- [~] 10.5 (same branch; 301 with the fragment kept) The old `/editors-trial/lane-<editor>` addresses redirect to the vendor's section
-- [~] 10.6 (same branch) The index page counts and names match the field
+Live since 2026-11-21 (site PRs 97 and 99), each line checked on the deployed page.
+
+- [x] 10.1 One card per tool, new editors included: 19 cards and the LibreOffice baseline
+- [x] 10.2 Each card's summary says what the tool is good for, in the reader's terms ("Use X for Y"), not a list of scores
+- [x] 10.3 Each card shows grades for speed, data transferred and memory, beside round trip and hostile input, with the rule that produces each grade printed on the page. Tools not on editors.benchmarks.law, and readings from another machine, are left unscored with the reason
+- [x] 10.4 "About" on each card goes to that vendor's section of `/editors-trial/vendor-notes` (all 19 land on a heading)
+- [x] 10.5 The old `/editors-trial/lane-<editor>` addresses redirect to the vendor's section (301, fragment kept)
+- [x] 10.6 The index page counts and names match the field
 
 ## Log
 
@@ -121,3 +123,4 @@ from a measurement or a source citation, why it has none.
 | --- | --- | --- |
 | 2026-11-21 | all | Checklist created |
 | 2026-11-21 | 9.1, 10 | Vendor notes rewritten and the field page rebuilt, both in branches awaiting a release |
+| 2026-11-21 | 9.1, 10 | Released (et-v0.10.6) and deployed; checked on the live pages |

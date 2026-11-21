@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from wxml import split_body  # noqa: E402
 from word_probe import probe  # noqa: E402
 
-BASE = "/Users/arthrod/temp/T/editors_trial"
+BASE = os.environ.get("TRIAL_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPORT = os.path.join(BASE, "Open-Source DOCX Editors Re-verified Against "
                                "Code and Measured Round-Trip (2026).docx")
 

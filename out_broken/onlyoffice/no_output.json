@@ -1,0 +1,8 @@
+{
+ "outcome": "did-not-return",
+ "step": "doc.docx -> bin",
+ "limit_s": 120,
+ "message": "x2t did not return from \"doc.docx -> bin\" within 120 s; its call into WebAssembly was still running and the harness stopped it",
+ "tool": "x2t v9.3.2+4",
+ "input": 24537
+}

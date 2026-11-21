@@ -84,8 +84,13 @@ class Runners(unittest.TestCase):
         for slug in lanes.PENDING_SLUGS + lanes.PENDING_LANES:
             self.assertNotIn(slug, facts.TOOLS, slug)
             self.assertIn(slug, facts.PENDING_TOOLS, slug)
-        self.assertFalse(lanes.requested([]))
+        # Published lanes (lanes.PUBLISHED_IN) are in every run; before that, only on request.
+        self.assertEqual(lanes.requested([]), bool(lanes.PUBLISHED_IN))
         self.assertTrue(lanes.requested(["--pending"]))
+        import os
+        from unittest import mock
+        with mock.patch.dict(os.environ, {"TRIAL_PENDING": "0"}):
+            self.assertFalse(lanes.requested(["--pending"]), "TRIAL_PENDING=0 reproduces an earlier release")
         for name in ("score_all.py", "score_extra.py"):
             text = (BUILD / name).read_text()
             self.assertIn("lanes.requested()", text, name)
@@ -211,7 +216,9 @@ class OtherRegistries(unittest.TestCase):
         import sys
         sys.path.insert(0, str(BUILD))
         import preserved_matrix
-        self.assertEqual(preserved_matrix.TOOLS[-1], ("Apryse", "apryse"))
+        import lanes
+        last = ("BetterOffice", "betteroffice") if lanes.requested() else ("Apryse", "apryse")
+        self.assertEqual(preserved_matrix.TOOLS[-1], last)
 
     def test_the_namespace_map_reads_every_new_output(self):
         self.assertIn("TARGETS = lanes.join(TARGETS", (BUILD / "ns_map.py").read_text())
@@ -232,7 +239,12 @@ class Join(unittest.TestCase):
     def test_nothing_moves_unless_asked(self):
         items = ["apryse", "libreoffice"]
         self.assertIs(self.lanes.join(items, on=False), items)
-        self.assertEqual(self.lanes.names([]), {})
+        import os
+        from unittest import mock
+        with mock.patch.dict(os.environ, {"TRIAL_PENDING": "0"}):
+            self.assertEqual(self.lanes.names([]), {})
+        if self.lanes.PUBLISHED_IN:
+            self.assertEqual(set(self.lanes.names([])), set(self.lanes.KEYS.values()))
 
     def test_pending_lanes_go_before_the_baseline_in_the_list_s_own_shape(self):
         j = lambda items, make=None: self.lanes.join(items, make, on=True)

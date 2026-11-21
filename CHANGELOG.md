@@ -9,24 +9,83 @@ re-running the measurement behind it. The format follows
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-21
+
+Four tools join the round trip and five join the rendering report. No earlier
+editor was run again, and none of their round-trip, package, Word-verdict or
+hostile-file figures moved.
+
+### Measured
+
+- **react-docx** (`@extend-ai/react-docx` 0.15.0): 91.5% weighted, 8 of 99
+  checks failed, all 35 parts kept, Word opens the output, second pass
+  byte-identical. Run twice; the runs agree.
+- **OpenDoc** (commit `5ac261cea`): 89.9%, all parts kept, Word refuses the
+  output (4 schema violations, element order), second pass byte-identical.
+- **BetterOffice** (`@betteroffice/docx` 0.5.1), two lanes: the document model
+  scores 87.9% and Word refuses its output; an unedited editor session returns
+  the document whole (100%, one part changed, Word opens it).
+- **OnlyOffice, CryptPad build** (`onlyoffice-x2t-wasm` v9.3.2+4): no output.
+  The converter did not return from the corpus within 120 s, twice, nor from
+  the broken corpus. It has no row in the scored tables.
+- **Univer** (`@univerjs/presets` 1.5.2): a probe of its 16 open-source
+  packages found no `.docx` reader or writer, so there is no lane.
+- **Broken corpus** (Report B): the three new outputs scanned defect by
+  defect, twice. OpenDoc and BetterOffice each write four of the five
+  element-order defects back in schema order with the content kept; Word
+  refuses all three outputs.
+- **Hostile packages** (Report D): the five new lanes under the sandbox,
+  twice, cell for cell the same. Grades: OnlyOffice 0.64, OpenDoc 0.48,
+  BetterOffice 0.36 (both lanes), react-docx 0.20.
+- **Rendering** (Report C): react-docx, OpenDoc, BetterOffice and Nutrient
+  captured in their own interface, twice; OnlyOffice's build does not open the
+  corpus, and two control files narrow that to the embedded document and the
+  SmartArt.
+- **Word's rendering of each output** (Report C §6.1): run three times. Word
+  draws one pixel column of page 4 in one of two ways, 151 pixels apart, so
+  Apryse's row reads 1,968 pixels here where v0.10.6 printed 2,119. Its output
+  did not change, and no verdict changed.
+
+### Not re-measured
+
+- **Every earlier editor**: round trip, second pass, broken corpus, package
+  audits and hostile packages are the figures of v0.10.6.
+- **Speed (Reports E and E2)**: carried from v0.10.5 unchanged
+  (`perf.e2.carried_from`). The new tools were not timed: those figures are
+  taken on rented cloud machines and this release rented none. Both reports
+  say so.
+- **The code of the new tools was not read.** Reports A, A2, B and the main
+  report say which of their statements cover the earlier editors only.
+- **Report C's hand-written construct tables** (§3, §5) do not include the new
+  tools; their sections describe what the captures show.
+
 ### Changed
 
-- **The vendor notes are one page.** `reports/vendors.md` now holds everything
+- **The vendor notes are one page.** `reports/vendors.md` holds everything
   about each tool in one section: what it is, what the benchmark runs, the
-  lane results of Folio and eigenpal, trivia, and Pros and Cons that name the
-  report or measurement behind each bullet. The per-tool notes in
-  `reports/extras/` are folded into it. Each file there stays as a one-line
-  pointer to the tool's section, so links filed elsewhere still land; the
-  trial's own links point at `reports/vendors.md#<anchor>`. No figure was
-  re-measured for this change.
+  lane results, trivia, and Pros and Cons that name the report or measurement
+  behind each bullet. The six tools added on 2026-11-21 now state what the
+  trial measured where they said "pending".
+- **Sentences the new outputs made false** are rewritten: who adds parts
+  (Report A2), which outputs lack the block-math defect and who writes the
+  row properties in schema order (Report B), who shows the SmartArt's node
+  texts and how many outputs Word refuses (Report C), which editors have no
+  entry that runs without a browser (Report E).
+- `build/lanes.py`: `PUBLISHED_IN = "v0.11.0"` puts the four lanes in every
+  run; `TRIAL_PENDING=0` reproduces an earlier release.
 
-### Added
+### Fixed
 
-- Sections for six tools that are on editors.benchmarks.law and not yet in the
-  trial's reports: react-docx, Univer, OpenDoc, BetterOffice, OnlyOffice
-  (CryptPad build) and Nutrient. Their Pros and Cons rest on the sister sites'
-  browser measurements only, and each section says the trial's lanes for it
-  are pending.
+- Every script under `build/` works from the checkout it is in (or
+  `TRIAL_ROOT`), not from one fixed path. Before this, a script run in a
+  second checkout read and wrote the first one.
+- `build/facts.py` no longer stops on an output Word refused in the pixel
+  comparison, and `build/defect_survival.py` says "no output" for a lane that
+  wrote nothing from the clean corpus either.
+- `build/measure_alternate_content.py` reports a lane whose output has no
+  `mc:AlternateContent` block and does not fail on it.
+- `RELEASING.md` §3a names the installs the guide left out (`harness/ui`, the
+  schemas, Pillow) and the pixel layer's two-state column.
 
 ## [0.10.4] - 2026-11-17
 

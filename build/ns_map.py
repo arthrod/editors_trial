@@ -18,7 +18,7 @@ import zipfile
 from collections import Counter
 from xml.etree import ElementTree as ET
 
-BASE = "/Users/arthrod/temp/T/editors_trial"
+BASE = os.environ.get("TRIAL_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 TARGETS = [
     ("corpus", "fixture/complex.docx"),

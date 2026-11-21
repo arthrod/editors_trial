@@ -28,7 +28,7 @@ import sys
 
 from PIL import Image, ImageChops
 
-BASE = "/Users/arthrod/temp/T/editors_trial"
+BASE = os.environ.get("TRIAL_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 CONSTRUCTS = [
     ("SmartArt", "no_dgm", "word/diagrams/data1.xml"),

@@ -41,7 +41,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import pixels  # noqa: E402  (build/pixels.py: the release resolution)
 import smartart_band  # noqa: E402
 
-BASE = "/Users/arthrod/temp/T/editors_trial"
+BASE = os.environ.get("TRIAL_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CORPUS_PNG = os.environ.get("SA_CORPUS_PNG", os.path.join(BASE, "out/render/png_word"))
 CTRL_PNG = os.environ.get("SA_CTRL_PNG", os.path.join(BASE, "out/smartart/png"))
 OUT = os.environ.get("SA_OUT", os.path.join(BASE, "out/smartart"))

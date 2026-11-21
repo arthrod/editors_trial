@@ -28,7 +28,7 @@ import tempfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import pixels  # noqa: E402  (build/pixels.py: the release resolution)
 
-BASE = "/Users/arthrod/temp/T/editors_trial"
+BASE = os.environ.get("TRIAL_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RENDER = os.path.join(BASE, "out", "render")
 RCW = runpy.run_path(os.path.join(BASE, "build", "render_compare_word.py"), run_name="lo")
 diff, ink, pages = RCW["diff"], RCW["ink"], RCW["pages"]

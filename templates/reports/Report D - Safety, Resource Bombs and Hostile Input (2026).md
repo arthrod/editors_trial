@@ -21,6 +21,11 @@ Packages: B1 decompression, B2 entry flood, B3 attributes, B4 deep nesting, B5 e
 - **Docen.** Cleaned B3. Refused B5. Ran out of stack on B4 and B9. Kept B1, B2, B6, B7, B8, and B10.
 - **Docxodus.** Ceilings on B1 (compression ratio) and B4 (128 levels of depth). Cleaned B3. Refused B5 (document type declaration). Kept B2, B6, B7, B8, B9, and B10.
 - **Apryse WebViewer.** No ceiling. Cleaned B1, B2, B3, and B6. Hung on B4, B5, and B9: each ran past the sandbox's 40-second wall clock, in both passes. Kept B7, B8, and B10.
+- **OnlyOffice (CryptPad build).** Added in v0.11.0. No ceiling. Cleaned B1, B2, B4, B5, B6, B7, B8, and B10. Hung on B3: its converter ran past the sandbox's 40-second wall clock, in both passes. Kept B9. On these small packages its converter returns; on the trial's main corpus it does not (main report).
+- **OpenDoc.** Added in v0.11.0. No ceiling. Refused B1, B2, B4, and B6 without naming one. Cleaned B3, B5, and B7. Kept B8, B9, and B10.
+- **BetterOffice model.** Added in v0.11.0. No ceiling. Refused B2, B3, B4, B5, B6, and B10 without naming one. Ran out of stack on B9. Kept B1, B7, and B8.
+- **BetterOffice editor.** Added in v0.11.0. Same row as the model, except B1: the Node process aborted on the decompression bomb, in both passes.
+- **react-docx.** Added in v0.11.0. No ceiling. Refused B1 and B10 without naming one. Cleaned B5. Hung on B3. Ran out of stack on B4. Kept B2, B6, B7, B8, and B9.
 - **Google Docs.** Not in the seatbelt matrix. Saved exports of B2, B6, B7, B8, and B10 contain only the body sentence. B1, B3, B4, B5, and B9 produced no file. Those five imports fully failed, and no ceiling was named. Grade 0.70.
 
 Jubarte is not in this list. Its grade on the same scale is 0.65, from jubarte 0.14.0 in `Report D1 - Jubarte on the Hostile Packages (2026).md`. Report D2 is the Word run, final since 2026-10-31; its results are copied at the end of this report.
@@ -46,6 +51,7 @@ Sanitation is safe output without a declared ceiling, so it is not 1. A bare ref
 | --- | --- | --- |
 | Fidus Writer | {{bomb.fidus.grade:.2f}} | Keeps the decompression bomb. |
 | Google Docs | 0.70 | Five imports produced no file and named no ceiling. No saved file keeps a weapon. |
+| OnlyOffice (CryptPad build) | {{bomb.onlyoffice.grade:.2f}} | No ceiling. Hangs on the attributes. Keeps the layout bomb. |
 | Plate | {{bomb.plate.grade:.2f}} | Does not finish the attributes. Keeps the layout bomb. |
 | docs.plus | {{bomb.docsplus.grade:.2f}} | Stack on the deep nest. Keeps the layout bomb. |
 | LibreOffice | {{bomb.lo_baseline.grade:.2f}} | Hangs on the attributes. Keeps the deep nest. |
@@ -55,10 +61,14 @@ Sanitation is safe output without a declared ceiling, so it is not 1. A bare ref
 | Folio model | {{bomb.folio.grade:.2f}} | Keeps external relationships, the script, and the layout bomb. |
 | Folio editor | {{bomb.folio-editor.grade:.2f}} | Same as the model. |
 | canvas-editor | {{bomb.canvas.grade:.2f}} | Hangs on the decompression bomb, the attributes, and the layout bomb. Keeps the deep nest. |
+| OpenDoc | {{bomb.opendoc.grade:.2f}} | No ceiling. Keeps the script, the layout bomb, and the corrupt parts. |
+| BetterOffice model | {{bomb.betteroffice.grade:.2f}} | No ceiling. Stack on the layout bomb. Keeps the decompression bomb, external relationships, and the script. |
+| BetterOffice editor | {{bomb.betteroffice-editor.grade:.2f}} | Same as the model, and the process aborts on the decompression bomb. |
 | Docxodus | {{bomb.docxodus.grade:.2f}} | Ceilings on the decompression bomb and the deep nest. Keeps six packages. |
 | Apryse WebViewer | {{bomb.apryse.grade:.2f}} | No ceiling. Hangs on the deep nest, the entities, and the layout bomb. Keeps external relationships, the script, and the corrupt parts. |
 | SuperDoc | {{bomb.superdoc.grade:.2f}} | No ceiling. Keeps the deep nest, zip-slip, external relationships, the script, and the layout bomb. |
 | GenOffice | {{bomb.genoffice.grade:.2f}} | Ceiling on the entry flood only. Keeps the other resource bombs. |
+| react-docx | {{bomb.reactdocx.grade:.2f}} | No ceiling. Hangs on the attributes. Stack on the deep nest. Keeps five packages. |
 | Docen | {{bomb.docen.grade:.2f}} | Cleans the attributes. Stack on the deep nest and the layout bomb. |
 | office-open | {{bomb.officeopen.grade:.2f}} | Cleans the attributes. Stack on the deep nest. Keeps seven packages. |
 | jubarte 0.14.0 | 0.65 | Jubarte report. Entities stay in the view. Zip-slip, external relationships, and corrupt parts are not refusals. |
@@ -122,7 +132,7 @@ These are the levels, from a real ceiling down to no protection.
 13. `not-in-view`. A text view was written and this weapon is not something that view carries. Editors in this matrix write packages, so none of them has this label. It is a jubarte reading, in Report D1.
 14. `not-run`. No measurement. Word, and every row of the unsandboxed fence.
 
-Of the {{bomb.cells}} measured cells, {{bomb.tools:w}} editors and LibreOffice across the ten packages, the primary labels are sanitation {{bomb.count.sanitation}}, preserved {{bomb.count.preserved}}, erroring {{bomb.count.erroring}}, bounded-refusal {{bomb.count.bounded-refusal}}, stack-exhaustion {{bomb.count.stack-exhaustion}}, hang {{bomb.count.hang}}, and failed-load-exit-zero {{bomb.count.failed-load-exit-zero}}.
+Of the {{bomb.cells}} measured cells, {{bomb.tools:w}} editors and LibreOffice across the ten packages, the primary labels are sanitation {{bomb.count.sanitation}}, preserved {{bomb.count.preserved}}, erroring {{bomb.count.erroring}}, bounded-refusal {{bomb.count.bounded-refusal}}, stack-exhaustion {{bomb.count.stack-exhaustion}}, hang {{bomb.count.hang}}, crash {{bomb.count.crash}}, and failed-load-exit-zero {{bomb.count.failed-load-exit-zero}}. The one crash is BetterOffice's editor lane on the decompression bomb: the Node process aborted, in both passes. The five lanes added in v0.11.0 (react-docx, OpenDoc, BetterOffice's two lanes and OnlyOffice's CryptPad build) were run twice on 2026-11-21 and the two runs agree cell for cell; the rows of the other tools are those of the earlier matrix and were not run again.
 
 ## Measured scorecard
 

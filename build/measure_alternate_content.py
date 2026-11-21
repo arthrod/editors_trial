@@ -31,7 +31,7 @@ import os as _os, sys as _sys  # noqa: E401,E402
 _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
 import lanes  # noqa: E402
 
-PACKAGES = lanes.join(PACKAGES, lambda name, slug, key: (slug, ROOT / "out" / slug / "complex.docx"))
+_JOINED = lanes.join(PACKAGES, lambda name, slug, key: (slug, ROOT / "out" / slug / "complex.docx"))
 
 
 def alternate_content_lengths(path: Path) -> list[int]:
@@ -66,6 +66,14 @@ def alternate_content_lengths(path: Path) -> list[int]:
     return lengths
 
 
+# This list is the packages that still carry the block. A lane added through
+# build/lanes.py is on it only if its output has one: react-docx, OpenDoc and the
+# BetterOffice model write none (Report A says so), and that is not a failure here.
+_BASE = PACKAGES
+PACKAGES = tuple(p for p in _JOINED if p in _BASE or (p[1].exists() and alternate_content_lengths(p[1])))
+WITHOUT_BLOCK = tuple(p for p in _JOINED if p not in PACKAGES)
+
+
 def format_token(n: int) -> str:
     """Thousands-separated byte size, the form Report A prints."""
     return f"{n:,} bytes"
@@ -88,6 +96,8 @@ def main() -> int:
             failed = True
             continue
         print(f"{label} {path.relative_to(ROOT)} {format_token(lengths[0])}")
+    for label, path in WITHOUT_BLOCK:
+        print(f"{label} {path.relative_to(ROOT)} no mc:AlternateContent block")
     return 1 if failed else 0
 
 

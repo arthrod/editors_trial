@@ -63,6 +63,7 @@ MD_TABLE_ROW = re.compile(r"^\s*\|.*\|\s*$")
 # and are not expected to have one.
 NOTES = {
     "README.md",
+    "CHECKLIST.md",
     "CHANGELOG.md",
     "AGENTS.md",
     "RELEASING.md",
