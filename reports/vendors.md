@@ -30,7 +30,7 @@ The project's keywords include `plugin` and `contentEditable`.
 
 ### Cons
 
-- It keeps the least of the test document of any tool measured: 24 of 35 parts of the file are gone after saving, among them every header, footer, footnote, comment, the picture and the chart (main report, round trip 20.6%).
+- It has the lowest round-trip score in the trial. 24 of 35 parts of the file are gone after saving, among them every header, footer, footnote, comment, the picture and the chart (main report, round trip 20.6%).
 - Tracked changes do not survive. Insertions become ordinary text and deleted words are dropped (Report C §3; editors site, redline sample).
 - It has no pages. The 6-page test document becomes one continuous scroll on screen, and its saved file is 2 pages in Word (Report C §3.2 and §6.1).
 - It is slow on long documents: 64.8 s to open the 500-page sample in the browser, and 26.5 s for a headless open and save of 250,000 words (editors site, 3 of 3 runs; Report E, round trip).
