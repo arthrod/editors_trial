@@ -56,7 +56,7 @@ VENDOR_HEADINGS = dict(zip(SLUGS, (
     "Apryse",
     "LibreOffice",
 )))
-# On editors.benchmarks.law, not yet in the trial's round-trip reports.
+# Added through build/lanes.py: pending until lanes.PUBLISHED_IN names their release (v0.11.0).
 PENDING_HEADINGS = (
     "react-docx",
     "Univer",
@@ -243,8 +243,15 @@ class ReportClaimsTest(unittest.TestCase):
                         r"\((?:[^()]|\([^()]*\))*(?:Report [A-E]\d?|main report|editors site|viewers site|project README|this page)",
                         f"{name} {heading}: {bullet[:90]}",
                     )
+        import lanes
         for name in PENDING_HEADINGS:
-            self.assertIn(PENDING_SENTENCE % name, sections[name])
+            if lanes.PUBLISHED_IN:
+                # Published: the section says since which release, and no longer says "not yet".
+                self.assertIn("since " + lanes.PUBLISHED_IN, sections[name], name)
+                self.assertNotIn("not in the trial's reports yet", sections[name], name)
+                self.assertNotIn("lanes are pending", sections[name], name)
+            else:
+                self.assertIn(PENDING_SENTENCE % name, sections[name])
         # A lane that runs but is not published (build/lanes.py) is one of the pending
         # sections, and every pending section is such a lane or has no round-trip lane.
         import lanes

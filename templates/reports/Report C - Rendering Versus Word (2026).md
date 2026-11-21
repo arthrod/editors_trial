@@ -10,14 +10,17 @@ page — and how does it compare with what Microsoft Word puts on the page?***
 ## TL;DR
 
 **Every editor was hosted locally, the corpus was loaded into the running
-application, and the application was screenshotted. Eleven of the {{count.participants:w}} render
-the document. One has no user interface at all. One crashes on it.**
+application, and the application was screenshotted. Fourteen of the {{count.participants:w}} round-trip
+participants render the document recognisably. One more, Docxodus, is headline 2. One has no user interface at all. One crashes on it.
+Two further tools were captured in v0.11.0 and are not round-trip participants: Nutrient, a viewer, renders it on seven pages, and
+OnlyOffice (CryptPad build) does not open it.**
 
 The headline results:
 
-1. **Eleven editors render the corpus recognisably as the same document:**
+1. **Fourteen editors render the corpus recognisably as the same document:**
    SuperDoc, Folio, GenOffice, eigenpal, Docen, WordCraft, Plate.js, docs.plus,
-   Fidus Writer, LibreOffice and Apryse WebViewer. **LibreOffice and Apryse
+   Fidus Writer, LibreOffice, Apryse WebViewer and, added in v0.11.0, react-docx,
+   OpenDoc and BetterOffice (§2.15 to §2.17; all three on Word's six pages). **LibreOffice and Apryse
    WebViewer also reproduce Word's pagination exactly (6 pages) and every page
    furniture** — the header, the page number, the footer, the footnote body at
    the foot of its page and the landscape section. Apryse, the one commercial
@@ -29,7 +32,7 @@ The headline results:
    Word's pagination (6 pages) *and* Word's page geometry to the pixel,
    keeps **all {{fixture.parts}} parts** of the corpus with **zero changed and zero dropped**,
    keeps **every `w:` element** and the `w15` / `w16cid` / `w16du` / `w10`
-   namespaces that nine of the other thirteen lose, has **zero dangling relationship
+   namespaces that nine of the thirteen other participants measured before v0.11.0 lose, has **zero dangling relationship
    references**, scores **100.0 %** on the {{checks.total}}-check round-trip test, and
    produces a file Word opens and renders **{{wpx.docxodus.verdict}}** ({{wpx.docxodus.diff_px:,}} differing
    pixels across {{wpx.docxodus.pages}} pages; SuperDoc: {{wpx.superdoc.diff_px:,}}).
@@ -224,7 +227,7 @@ mislabelled or mis-scaled; it is absent.
 content is not imported; and Folio **shows** the `w:vanish` ("hidden text")
 run, which Word hides.
 
-### 2.3 GenOffice — the only editor that draws the SmartArt's node texts
+### 2.3 GenOffice — it draws the SmartArt's node texts in a labelled band
 
 **Hosted:** `repos/genoffice/apps/docs` is an Electron application whose
 renderer is ordinary web code. The renderer was served directly by `vite`
@@ -826,7 +829,7 @@ Docxodus's own `DocxSession` and writing it back with no edits gives:
 `endnotes.xml`, `footnotes.xml`, `header1/2.xml`, `footer1/2.xml`); Docxodus's
 equivalent parts are all **re-serialised** — byte-different, tree-identical.
 And Docxodus keeps the `w15`, `w16cid`, `w16du` and `w10` namespaces, which
-nine of the other thirteen drop (Report A; SuperDoc, Folio, GenOffice and
+nine of the thirteen other participants measured before v0.11.0 drop (Report A; SuperDoc, Folio, GenOffice and
 eigenpal keep them too).
 
 ### 2.14 Apryse WebViewer — Word's pages, and a trial stamp on every one
@@ -835,7 +838,7 @@ eigenpal keep them too).
 commercial, closed-source JavaScript document SDK from Apryse Software Inc.
 (formerly PDFTron). Its DOCX Editor runs Apryse's own office engine as
 WebAssembly and lays the document out in pages on a canvas. It is the only
-commercial tool in this study, and it was run with a trial license key, which
+commercial tool in this study's round trip (Nutrient, §2.19, is commercial too and is a viewer), and it was run with a trial license key, which
 draws a faint "apryse" watermark across every page. The watermark is Apryse's,
 not the document's; it is left in the figures, not removed. This benchmark is not
 affiliated with, sponsored by or endorsed by Apryse.
@@ -885,6 +888,109 @@ through in red.
 - **The trial watermark** is on every page. It is there because the key is a
   trial key, and it would also be in any file Apryse saves (the main report
   labels what that stamp adds).
+
+### 2.15 react-docx — Word's page count, and the SmartArt's two lines of text
+
+**Added in v0.11.0.** **What it is.** `@extend-ai/react-docx@{{ver.npm.reactdocx}}` is an open-source DOCX editor for React with a framework-free entry.
+
+**Hosted:** a host page under `harness/ui/react-docx/` (`vite`, port 5211) that mounts the package's `/vanilla` entry and gives it the corpus bytes. The pages are ordinary DOM, so the capture waits for the text "Chapter 1" and scrolls to its targets. The package reported 6 pages, 9 tracked changes and 1 comment.
+
+![react-docx's own UI, against Word's page 1](../out/ui/figures/fig_ui_reactdocx_p1.png)
+
+![react-docx's own UI at the page-3 constructs, against Word's page 3](../out/ui/figures/fig_ui_reactdocx_p3.png)
+
+![react-docx's own UI at page 4, against Word's page 4](../out/ui/figures/fig_ui_reactdocx_p4.png)
+
+**It lays the corpus out on 6 pages, as Word does**, with the header, the page number and the footer on each, the footnote body at the foot of page 3 and page 5 drawn landscape. Page 3 has the blue picture and the chart with its bars, its axis, its "Cat A / Cat B / Cat C" labels and its "Series 1" legend. The table is drawn with its merged cells and its nested table.
+
+**Where it differs from Word.**
+
+- **Page 1 holds text that Word puts on page 2.** The line "After a page break…" follows "Tab separated" on page 1; in Word the page break comes first.
+- **The SmartArt band is not blank.** At the top of page 4 it draws the two node texts, "Step one" and "Step two", as plain lines. Word draws nothing there (§5).
+- **Hidden text is shown.** The run "hidden text" is on page 4 before "no proof"; Word does not draw it.
+- **The table's vertical-text cell overflows.** The rotated text is drawn outside the cell, to the right of the table.
+- **The deleted table row is not on the page.** The inserted row is ("This row was inserted (trIns)"); the row Word shows struck through is absent in this view.
+
+### 2.16 OpenDoc — Word's pages, with placeholders it names
+
+**Added in v0.11.0.** **What it is.** OpenDoc (Casual Office) is an open-source editor whose engine is written in Rust and compiled to WebAssembly; it draws pages on a canvas. It was run at commit `{{ver.opendoc.commit}}` ({{ver.opendoc.date}}).
+
+**Hosted:** the project's own editor application, served from `harness/ui/opendoc/` (port 5213) and given the corpus through its file input. The pages are on a canvas, so the capture reads the page count from the application and scrolls by page. The application reported "Page 1 of 6", and its header showed "25 import findings" and "9 open" comments and changes.
+
+![OpenDoc's own UI, against Word's page 1](../out/ui/figures/fig_ui_opendoc_p1.png)
+
+![OpenDoc's own UI at the page-3 constructs, against Word's page 3](../out/ui/figures/fig_ui_opendoc_p3.png)
+
+![OpenDoc's own UI at page 4, against Word's page 4](../out/ui/figures/fig_ui_opendoc_p4.png)
+
+**It draws 6 pages, as Word does, and page 1 matches Word's:** the heading, two lines and the page break. Headers, page numbers and footers are on each page, and the footnote body is at the foot of page 3 under a rule. Page 3 has the picture and the chart with its axis, labels and legend. The deleted table row is drawn struck through, and the side panel has a card for it with Accept and Reject.
+
+**Where it differs from Word.**
+
+- **It names what it does not draw.** Where the SmartArt is, it prints `[diagram]`; the equation is printed as `[E = mc^2]`.
+- **Page 3 holds what Word puts on page 4.** The diagram placeholder, the embedded object's picture and "Text box content" are on page 3; in Word they are on page 4.
+- **It tells the reader it changed something.** The "25 import findings" badge is the application's own count of what it could not carry. No other tool in this report shows such a count on the document's own screen.
+
+### 2.17 BetterOffice — Word's page count, and the SmartArt drawn as shapes
+
+**Added in v0.11.0.** **What it is.** BetterOffice (OpenOOXML Project) is an open-source set of OOXML engines written in Rust and compiled to WebAssembly, with a React editor that draws pages on a canvas. `@betteroffice/docx-react` was run with `@betteroffice/docx@{{ver.npm.betteroffice}}`.
+
+**Hosted:** a host page under `harness/ui/betteroffice/` (`vite`, port 5214). The pages are canvases, one per page; the capture reads their number and sizes from the page. It found 6 canvases, the fifth landscape, and 1 comment.
+
+![BetterOffice's own UI, against Word's page 1](../out/ui/figures/fig_ui_betteroffice_p1.png)
+
+![BetterOffice's own UI at the page-3 constructs, against Word's page 3](../out/ui/figures/fig_ui_betteroffice_p3.png)
+
+![BetterOffice's own UI at page 4, against Word's page 4](../out/ui/figures/fig_ui_betteroffice_p4.png)
+
+**It lays the corpus out on 6 pages, as Word does**, with the header, page number and footer on each, the footnote body at the foot of page 3 under a rule, and page 5 landscape. Page 3 has the picture and the chart with its bars, axis, labels and legend. A panel beside the page lists "10 changes" with "Accept all", a card per tracked change ("Inserted row", "Deleted row") and the comment with its author and text.
+
+**Where it differs from Word.**
+
+- **The SmartArt is drawn.** At the top of page 4 there are two blue rounded shapes labelled "Step one" and "Step two". Word leaves that band blank (§5). GenOffice (§2.3) and react-docx (§2.15) also show the two texts; BetterOffice is the one that draws shapes.
+- **Page 1 holds text that Word puts on page 2**, on the same line as "Tab separated", and the symbol character in that line is drawn as an empty box.
+- **The chart has no frame**, and the footnote and endnote marks in the sentence above it are both drawn as "2".
+
+### 2.18 OnlyOffice (CryptPad build) — it does not open the corpus
+
+**Added in v0.11.0.** **What it is.** The OnlyOffice document editor as the CryptPad project builds it: the editor's JavaScript with OnlyOffice's converter (`x2t`) compiled to WebAssembly, so it runs with no document server (`onlyoffice-x2t-wasm` {{ver.release.onlyoffice_x2t.tag}}). What is measured is that build, not OnlyOffice's own Document Server. This benchmark is not affiliated with, sponsored by or endorsed by OnlyOffice or CryptPad.
+
+**Hosted:** a host page under `harness/ui/onlyoffice/` (port 5215) serving the build from its release archives.
+
+**The corpus did not open.** The converter did not return within {{rt.onlyoffice.outcome_limit_s}} s, in both captures, as in the round trip. There is no screenshot of the corpus in this editor, because there was no document on screen.
+
+Two controls narrow it down. They are the corpus with one construct removed, the same files §6.3 uses.
+
+| File given to the editor | Result |
+|---|---|
+| The corpus | the converter did not return within {{rt.onlyoffice.outcome_limit_s}} s |
+| The corpus without the embedded document (`w:altChunk`) | the converter returned; the editor then stopped with a script error at the SmartArt (`getModelId`) and showed no document |
+| The corpus without `w:altChunk` and without the SmartArt | opened: 6 pages |
+
+**On the second control it draws Word's pages.** Six pages, with the header, page number and footer; page 3 with the deleted table row struck through and shaded, the picture, the chart with its axis, labels and legend, the embedded object's picture and the footnote body under a rule; and review balloons for the tracked changes. It also showed the notice "Document is protected. You may only view this document.", which is the corpus's own protection setting.
+
+**What this does and does not say.** It says this build cannot show this corpus, and that two constructs are each enough to stop it. It does not say how the build renders a document without them beyond the one control, and it says nothing about OnlyOffice's Document Server, which was not run.
+
+### 2.19 Nutrient — a viewer: seven pages for Word's six
+
+**Added in v0.11.0.** **What it is.** Nutrient Web SDK (`nutrient-viewer` 1.25.0) is a commercial, closed-source document SDK from Nutrient, formerly PSPDFKit. It is a viewer here, not an editor: in the browser it converts the `.docx` to a PDF and shows that PDF. It was run from Nutrient's CDN with no key, in its trial mode, which draws "For Evaluation Purposes Only" in red across the top of every page. The watermark is Nutrient's, not the document's; it is left in the figures, not removed. It has no round-trip lane, because it does not save a `.docx`: this section is all the trial measures of it. This benchmark is not affiliated with, sponsored by or endorsed by Nutrient.
+
+**Hosted:** a host page under `harness/ui/nutrient/` (port 5216). The capture asks the SDK for its page count and page sizes.
+
+![Nutrient's own UI, against Word's page 1](../out/ui/figures/fig_ui_nutrient_p1.png)
+
+![Nutrient's own UI at the page-3 constructs, against Word's page 3](../out/ui/figures/fig_ui_nutrient_p3.png)
+
+![Nutrient's own UI at page 4, against Word's page 4](../out/ui/figures/fig_ui_nutrient_p4.png)
+
+**It draws 7 pages where Word draws 6.** Page 1 matches Word's. The table and what follows run one page longer, so the sentence with the comment, the picture and the chart are on its page 4 of 7, where Word has them on page 3. The sixth page is landscape.
+
+**Where it differs from Word, apart from the page count.**
+
+- **The chart has no axis and no category labels.** The three bars and the "Series 1" legend are drawn; the 0–5 axis and "Cat A / Cat B / Cat C" are not.
+- **The Hebrew letters are missing.** The right-to-left line reads "- Hebrew text right to left" with nothing where the Hebrew words are.
+- **Tracked changes are shown as accepted text**, with no marks, and the comment is not shown on the page.
+- **The watermark covers the top of every page**, so the page number under the header cannot be read in the captures. Nothing is drawn for the SmartArt, as in Word.
 
 ---
 
@@ -1345,6 +1451,9 @@ page by page, against Word's own {{pixels.dpi}} dpi rendering of the corpus.
 | office-open | — | — | — | **Word refused the file** |
 | Docen | — | — | — | **Word refused the file** |
 | Fidus Writer | — | — | — | **Word refused the file** |
+| **react-docx** (added in v0.11.0) | {{wpx.react-docx.pages}} | {{wpx.react-docx.diff_px:,}} | {{wpx.react-docx.pct:.2f}}% | {{wpx.react-docx.verdict}} |
+| OpenDoc (added in v0.11.0) | — | — | — | **Word refused the file** |
+| BetterOffice, document model (added in v0.11.0) | — | — | — | **Word refused the file** |
 
 **SuperDoc, eigenpal and Docxodus differ from Word's rendering of the corpus by
 {{wpx.superdoc.diff_px:,}}, {{wpx.eigenpal.diff_px:,}} and {{wpx.docxodus.diff_px:,}} pixels** across six pages, and GenOffice by
@@ -1364,14 +1473,16 @@ OpenXML SDK, and when Word opens the result it draws the corpus's page to
 within {{wpx.docxodus.diff_px:,}} pixels, as SuperDoc does ({{wpx.superdoc.diff_px:,}}). **A perfect
 namespace census, zero changed parts and a pixel-identical Word rendering are
 three different claims, and Docxodus is the only tool in the study that makes
-all three at once.**
+all three at once.** react-docx, added in v0.11.0, makes the third: Word renders its output {{wpx.react-docx.verdict}} ({{wpx.react-docx.diff_px:,}} pixels, {{wpx.react-docx.pct:.2f}}% of the corpus's ink). It does not make the other two: it changes {{parts.reactdocx.changed}} parts and adds {{parts.reactdocx.added}}.
+
+**One pixel column of Word's own drawing is not stable.** In three passes of this layer on 2026-11-21, Word drew the right edge of the embedded object's picture on page 4 in one of two ways, 151 pixels apart, and which way it fell differed between passes for the corpus and for SuperDoc's output. The table above is the pass in which the corpus and every output fell the same way. In a pass where they did not, each row is 151 pixels higher and no verdict changes. v0.10.6 printed Apryse at 2,119 pixels for this reason; it is {{wpx.apryse.diff_px:,}} here, and Apryse's output did not change.
 
 ### 6.2 When Word cannot open the output
 
-Four outputs are **refused by Microsoft Word {{word.version}}** — Folio, office-open,
-Docen and Fidus Writer. There is no Word rendering to compare them against,
-and that is the answer for those four: **it is not a rendering, because the
-file does not open.** LibreOffice can open all four and provides the only
+{{count.word_refused:W}} outputs are **refused by Microsoft Word {{word.version}}** — Folio, office-open,
+Docen, Fidus Writer and, added in v0.11.0, OpenDoc and BetterOffice's document model. There is no Word rendering to compare them against,
+and that is the answer for those {{count.word_refused:w}}: **it is not a rendering, because the
+file does not open.** LibreOffice can open all of them and provides the only
 rendering available.
 
 | Output | LO pages | Differing pixels | As % of corpus ink | Verdict |
@@ -1390,6 +1501,9 @@ rendering available.
 | canvas-editor | {{lpx.canvas.pages}} | {{lpx.canvas.diff_px}} | {{lpx.canvas.pct}} | {{lpx.canvas.verdict}} |
 | docs.plus | {{lpx.docsplus.pages}} | {{lpx.docsplus.diff_px}} | {{lpx.docsplus.pct}} | {{lpx.docsplus.verdict}} |
 | Plate.js | {{lpx.plate.pages}} | {{lpx.plate.diff_px}} | {{lpx.plate.pct}} | {{lpx.plate.verdict}} |
+| react-docx (added in v0.11.0) | {{lpx.reactdocx.pages}} | {{lpx.reactdocx.diff_px}} | {{lpx.reactdocx.pct}} | {{lpx.reactdocx.verdict}} |
+| **OpenDoc** (added in v0.11.0) | {{lpx.opendoc.pages}} | **{{lpx.opendoc.diff_px}}** | **{{lpx.opendoc.pct}}** | **{{lpx.opendoc.verdict}}** |
+| **BetterOffice**, document model (added in v0.11.0) | {{lpx.betteroffice.pages}} | **{{lpx.betteroffice.diff_px}}** | **{{lpx.betteroffice.pct}}** | **{{lpx.betteroffice.verdict}}** |
 
 **Folio's rendering is pixel-identical to the corpus's — and Word will not
 open the file.** That is the sharpest single statement this study can make
@@ -1653,6 +1767,8 @@ system Python on this machine is PEP-668 managed: run those scripts with
 
 ## Gaps and honest limits
 
+**0. The five tools added in v0.11.0 have a section each (§2.15 to §2.19) and are not in the hand-written tables of §3 and §5.** Those tables were built by reading each editor's screen construct by construct, and that reading was not repeated for the new tools; their sections state what was seen in the captures of 2026-11-21, which were taken twice and agree. Their source was not read. react-docx's output is rendered {{wpx.react-docx.verdict}} by Word and "{{lpx.reactdocx.verdict}}" by LibreOffice ({{lpx.reactdocx.pct}}); the two renderers disagree about that file and this report does not say why.
+
 **1. Office-Open has no user interface.** What §2.6 shows is its *parse
 model*, rendered by a host page written for this study. The construct
 fidelity in that screenshot is Office-Open's; the page layout is the host's.
@@ -1725,9 +1841,9 @@ at all. **The block editor was not captured** — the study measured the
 materialiser, because the materialiser is the product's renderer and the
 editor is the same engine with an editing surface over it.
 
-**5. The measurements in §6 are of the *exported* files, and the four editors
+**5. The measurements in §6 are of the *exported* files, and the {{count.word_refused:w}} editors
 whose exports Word refuses have no Word-side rendering at all.** LibreOffice
-is used as the only available renderer for those four, and LibreOffice is
+is used as the only available renderer for them, and LibreOffice is
 not Word. §6.2's numbers for Folio, office-open, Docen and Fidus Writer are
 therefore LibreOffice-vs-LibreOffice comparisons, and are labelled as such.
 

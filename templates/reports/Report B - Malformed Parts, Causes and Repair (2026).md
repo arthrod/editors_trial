@@ -6,11 +6,13 @@ The first report found that the corpus it used — a hand-built {{fixture.parts}
 
 ---
 
+**Added in v0.11.0.** react-docx, OpenDoc and BetterOffice are in every table of this report, and §3.9 and §4.5 say what was found. OnlyOffice (CryptPad build) has a row with no cells: its converter did not return from either corpus, so it wrote nothing. The three tools' source was not read; what is said of them is measured from their outputs.
+
 ## TL;DR
 
-- **Not one editor repairs anything.** Handed a corpus carrying all twelve defect classes, **every** editor either reproduced the damage or dropped the part that carried it. None diagnosed it, none fixed it — and, until **Plate.js** was added, not one said anything about it. **Docxodus, the thirteenth participant, does not change the finding: it preserves all ten package-visible defect classes, and Microsoft Word refuses its output.**
+- **Not one editor repairs anything.** Handed a corpus carrying all twelve defect classes, **every** editor either reproduced the damage or dropped the part that carried it. None diagnosed it, none fixed it — and, until **Plate.js** was added, not one said anything about it. **Docxodus, the thirteenth participant, does not change the finding: it preserves all ten package-visible defect classes, and Microsoft Word refuses its output.** The tools added in v0.11.0 do not change it either, with one thing worth knowing: OpenDoc and BetterOffice each write four of the five element-order defects back in the schema's order with the content kept, as office-open and Docen do. Neither says so, both keep the move-source defect, and Word refuses both outputs (§4.5).
 - **Docxodus is the only participant that ships a repair funnel, and it repairs a different set of defects.** Its `PackageOpenRepair` stage exists to unblock *"Package defects Word opens but the Open XML SDK rejects"* — a relationship to a part with **no content type** or **no ZIP entry**, a part reached by a known relationship but **typed only as generic XML**, and **two relationships sharing an Id**. **None of those is one of this report's twelve defect classes.** Having a repair stage and repairing a given malformation are different properties, and this is the cleanest available demonstration of the difference.
-- **Plate.js is the exception, and it is a real one.** It is the only editor in the study that **detects** malformation and **refuses** the document: handed the broken corpus it fails with `decode-failed: DOCX content could not be decoded by the installed editor schema.`, and it produces **no output file at all** — there is nothing to corrupt. It also refuses the *clean* corpus under its own default `lossPolicy: 'reject'`, with 18 typed errors naming each construct it cannot represent. Plate does not repair malformation either. It **declines to process it**, which is the only honest of the three available behaviours (repair, degrade, refuse).
+- **Plate.js is the exception, and it is a real one.** It is the only editor in the study that **detects** malformation and **refuses** the document (OnlyOffice's build also writes nothing, but because its converter does not return, on the clean corpus too, which is a stall and not a detection): handed the broken corpus it fails with `decode-failed: DOCX content could not be decoded by the installed editor schema.`, and it produces **no output file at all** — there is nothing to corrupt. It also refuses the *clean* corpus under its own default `lossPolicy: 'reject'`, with 18 typed errors naming each construct it cannot represent. Plate does not repair malformation either. It **declines to process it**, which is the only honest of the three available behaviours (repair, degrade, refuse).
 - **And Plate detects exactly one of the twelve defect classes.** Each defect was isolated into its own single-defect corpus and offered to Plate's importer: it **accepts eleven and refuses one** — the block-level `m:oMathPara`. The eleven it accepts include every class that makes Word refuse the file: the five element-order classes, the malformed `ST_LongHexNumber`, the nested `mc:Fallback`, the broken OLE payload, `w:delText` inside `w:moveFrom`, and `w:dirty="true"`. Plate is a detector, not a validator, and it detects the construct its own schema cannot model.
 - **{{count.word_refused:W}} of the {{count.word_outputs:w}} editor outputs cannot be opened by Microsoft Word**, and only one of those four (Fidus Writer) fails for a reason a schema validator could have caught; a package-integrity check catches two more, and Folio passes both:
 
@@ -38,9 +40,9 @@ The first report found that the corpus it used — a hand-built {{fixture.parts}
 | Folio | the importer rewrites a move source's `w:t` as `w:delText` | `w:delText` → `w:t` inside `w:moveFrom` | **REFUSED → opened** |
 | office-open / Docen | the body is rewritten with numeric relationship ids while the `.rels` keeps the source's descriptive ones | rewrite 5 ids to the declared names | **REFUSED → opened** |
 
-- **The office-open / Docen defect is a single asymmetry with two symptoms.** One id-resolution function accepts only numeric relationship ids and the other does not. The dangling reference is symptom one; the "unbound prefix" malformed XML on re-import is symptom two, and it is why those two projects are the only non-idempotent ones in the study (second-pass scores 32.0% and 30.5%).
+- **The office-open / Docen defect is a single asymmetry with two symptoms.** One id-resolution function accepts only numeric relationship ids and the other does not. The dangling reference is symptom one; the "unbound prefix" malformed XML on re-import is symptom two, and it is why those two projects are the only ones in the study whose second pass collapses (second-pass scores 32.0% and 30.5%).
 - **The broken corpus kills the editors that were faithful to it, and spares the ones that discard the content — and d12 is no longer one of the defects that kill.** {{broken.flipped_list}} open the clean corpus and refuse the broken one. {{broken.spared_list}} open both. canvas, docs.plus and LibreOffice opened it because they dropped the content that carried the defects. WordCraft kept `w:dirty="true"` (d12), which this release finds is not fatal on its own (§2). **Fidelity and robustness are anti-correlated here**, and the first report's ranking does not survive a malformed input unchanged.
-- **Plate.js is the twelfth editor, and it breaks the pattern in the most useful way.** It cannot open the broken corpus either — but it fails **before writing anything**, so it is the only editor in the study that refuses a malformed file without leaving a damaged one behind. Its clean-corpus output, by contrast, is package-clean and **opens in Word**, with one schema violation: the section properties written before the first paragraph, as docs.plus writes them (§3.7). **Docxodus is the thirteenth, and it does not break the pattern: it is faithful, it preserves the damage, and Word refuses its broken-corpus output — exactly as the defect table predicts.**
+- **Plate.js is the twelfth editor, and it breaks the pattern in the most useful way.** It cannot open the broken corpus either — but it fails **before writing anything**, so it is the only editor in the study that refuses a malformed file without leaving a damaged one behind (OnlyOffice's build leaves nothing behind either; it stalls, it does not refuse). Its clean-corpus output, by contrast, is package-clean and **opens in Word**, with one schema violation: the section properties written before the first paragraph, as docs.plus writes them (§3.7). **Docxodus is the thirteenth, and it does not break the pattern: it is faithful, it preserves the damage, and Word refuses its broken-corpus output — exactly as the defect table predicts.**
 
 ---
 
@@ -168,7 +170,7 @@ The image's `<a:blip>` drawing keeps its binding because it takes a different pa
 
 **Proof.** The repair is one substitution. Rewriting `rId17`→`rIdChart`, `rId18`→`rIdDgmData`, `rId19`→`rIdDgmLayout`, `rId20`→`rIdDgmQuickStyle`, `rId21`→`rIdDgmColors` in the body — changing nothing else — turns Word's verdict from **REFUSED** into **OPENED**.
 
-**Consequence.** These two projects are the only non-idempotent ones in the study: their second-pass scores collapse to 32.0% and 30.5%, and their second-pass `word/document.xml` does not parse at all.
+**Consequence.** These two projects are the only ones in the study whose own output they cannot read back: their second-pass scores collapse to 32.0% and 30.5%, and their second-pass `word/document.xml` does not parse at all. (Byte-identity of a second pass is a different property, and several tools lack it for a harmless reason: BetterOffice's second pass, for one, differs from its first only in the `dcterms:modified` time.)
 
 ### 3.2 Folio: a model that normalises a move into a deletion
 
@@ -252,6 +254,14 @@ This is the closest any editor in this study comes to *proving* a round-trip gua
 
 {{xsd.apryse.real:W}} real violations, all in `word/document.xml` and all one shape. Inside `w:pPr`, Apryse writes the paragraph mark's run properties (`w:rPr`) before the paragraph properties, so `w:pStyle`, `w:bidi` and `w:keepNext` arrive after it. `CT_PPr` puts `w:rPr` near the end of the sequence. The package is {{pkg.apryse}}, and Microsoft Word {{word.version}} opens the file ({{word.apryse.cell}}): Word tolerates this order. The output also carries the trial license's watermark, which the main report labels; it is not counted here as a malformation.
 
+### 3.9 The tools added in v0.11.0: react-docx, OpenDoc, BetterOffice
+
+Measured on each tool's output from the clean corpus. No source was read, so no cause is given.
+
+- **react-docx.** {{xsd.reactdocx.real:W}} real schema violations; the package is {{pkg.reactdocx}}; Word {{word.version}} opens the file ({{word.reactdocx.cell}}).
+- **OpenDoc.** {{xsd.opendoc.real:W}} real violations, all in `word/document.xml` and all of the element-order kind: `w:spacing`, `w:tblW` and `w:bidi` arrive where the schema does not expect them (in `w:tblPr`, for one, it writes `w:jc` before `w:tblW`). The package is {{pkg.opendoc}}, and Word refuses the file ({{word.opendoc.cell}}).
+- **BetterOffice, document model.** {{xsd.betteroffice.real:W}} real violations in `word/document.xml`: the move-range markers `w:moveFromRangeStart` and `w:moveToRangeStart` are written with `w:id` and `w:name` only, without the `w:author` and `w:date` the corpus has, and the schema requires `w:author`. The package is {{pkg.betteroffice}}, and Word refuses the file ({{word.betteroffice.cell}}). Its editor-session lane changes only `docProps/core.xml`, and Word opens that file.
+
 ## 4. Does any editor repair malformed input?
 
 This is the question the first report could not answer, and it is the one that matters for a toolchain.
@@ -266,10 +276,10 @@ This is the question the first report could not answer, and it is the one that m
 
 - The **pass-through editors** — SuperDoc, GenOffice, eigenpal, and to a degree Folio — reproduce the damage byte-for-byte, because they never parsed it. That is the honest consequence of pass-through, and it is invisible in every score.
 - The **generators** — office-open and Docen — rebuild the document and therefore *lose* the ordering defects by accident, because their writers emit elements in schema order. But they **reproduce the semantic damage**: a `w:delText` inside a `w:moveFrom` and a block-level `m:oMathPara` come out of them exactly as they went in. They are faithful and unvalidating. A generator that is faithful will happily emit a file Word refuses.
-- **WordCraft** is the only editor that removed the move-source defect and the block-math defect — because it re-renders the move as its own model and never models `m:oMathPara` as a block. It removed them by *dropping the features*, not by repairing them.
+- **WordCraft** is the only editor that removed the move-source defect (d10). The block-math defect (d11) is gone from four outputs: WordCraft's, react-docx's and OpenDoc's, which have no math at all, and BetterOffice's, which keeps the equation and writes it inside a paragraph. WordCraft removed both — because it re-renders the move as its own model and never models `m:oMathPara` as a block. It removed them by *dropping the features*, not by repairing them.
 - **Fidus Writer, canvas-editor and docs.plus** show `no` across the board because they **dropped the parts that carried the defects**, not because they understood them. Their `DROP` in the OLE column is the tell: the OLE object is gone because the whole payload was discarded.
-- **Plate.js has no row at all, and that absence is the finding.** Its importer **refuses** the broken corpus — `decode-failed: DOCX content could not be decoded by the installed editor schema.` — so it writes **no output file at all**. There is nothing for a defect-survival scan to find. It is the only editor in the study that, on malformed input, produces **nothing** rather than producing something damaged.
-- **LibreOffice** is the only one that repaired the `w:trPr` ordering on its own (`w:cantSplit`/`w:tblHeader`) while dropping everything else — because its writer emits rows in schema order.
+- **Plate.js has no row at all, and that absence is the finding.** Its importer **refuses** the broken corpus — `decode-failed: DOCX content could not be decoded by the installed editor schema.` — so it writes **no output file at all**. There is nothing for a defect-survival scan to find. It is the only editor in the study that, on malformed input, **declines** and produces nothing rather than producing something damaged. OnlyOffice (CryptPad build) also has an empty row, for a different reason: its converter did not return within {{rt.onlyoffice.outcome_limit_s}} s, on this corpus and on the clean one.
+- **LibreOffice** wrote the `w:trPr` ordering in schema order (`w:cantSplit`/`w:tblHeader`) while dropping everything else — because its writer emits rows in schema order. OpenDoc and BetterOffice, added in v0.11.0, write that pair in schema order too (§4.5).
 - **Docxodus preserves all ten, and the mechanism is worth naming.** It is a pass-through writer for the twenty-five parts the Open XML SDK does not model and a re-serialiser for the ten it does — and `word/document.xml` and `word/settings.xml` are both in the second group. **Re-serialisation is faithful to the *tree*, not to the *schema*: the SDK prints the elements it read in the order it read them**, so an out-of-order `w:tcPr` comes back out of order. Its broken-corpus output therefore carries **ten real XSD violations** (7 × `w:tcW`, 1 × `w:spacing`, 1 × `w:pgNumType`, 1 × `w:documentProtection`) and is **package-clean** — the same shape of failure as the other four faithful editors, reached by a completely different route.
 
 **The honest summary: an editor that does not validate will not repair. It will either preserve the damage, or lose the feature that contained it.**
@@ -348,6 +358,30 @@ That is the point worth keeping, and it generalises: **a repair stage is scoped 
 
 ---
 
+### 4.5 The tools added in v0.11.0
+
+Each cell below was checked in the output itself: whether the two elements of an order defect are both still there and which comes first.
+
+| Defect | react-docx | OpenDoc | BetterOffice (document model) |
+|---|---|---|---|
+| d1 order in `settings.xml` | kept as broken | **in schema order, both elements kept** | kept as broken |
+| d2 order in `w:tcPr` | kept as broken | **in schema order, both kept** | **in schema order, both kept** |
+| d3 order in `w:trPr` | kept as broken | **in schema order, both kept** | **in schema order, both kept** |
+| d4 order in `w:pPrChange` | kept as broken | kept as broken | **in schema order, both kept** |
+| d5 order in `w:sectPr` | kept as broken | **in schema order, both kept** | **in schema order, both kept** |
+| d6 ten-digit `durableId` | kept | gone: the attribute is not written | kept |
+| d10 `w:delText` in `w:moveFrom` | kept | kept | kept |
+| d11 block-level `m:oMathPara` | gone: the output has no math | gone: the output has no math | gone: the equation is kept, inside a paragraph |
+| d12 `w:dirty="true"` | kept | kept | gone: the fields are kept without the attribute |
+
+Three things follow.
+
+- **OpenDoc and BetterOffice put four ordering defects each back in schema order and keep the content.** That is the same by-product of rebuilding the document that this section describes for office-open and Docen. Whether either tool has a step that does it on purpose was not read. Neither reports it: BetterOffice's save returns a list of warnings, and for this corpus the list was empty, in both runs (`[betteroffice] save warnings: []`).
+- **It does not save the file.** Both keep d10, and Word refuses both outputs, on this corpus and on the clean one.
+- **react-docx is a pass-through editor here.** It reproduces nine of the ten package-visible classes as they came, loses the math, and its output, which Word opens from the clean corpus, is refused from the broken one.
+
+OnlyOffice (CryptPad build) has no cells: its converter did not return from this corpus within {{rt.onlyoffice.outcome_limit_s}} s, in two runs, as on the clean corpus.
+
 ## 5. The causes, in seven shapes
 
 Every malformation observed in this study — in the corpus and in the {{count.participants:w}} participants' outputs — falls into one of seven shapes. Each shape has a characteristic fix.
@@ -392,7 +426,7 @@ Four claims in the first report were imprecise. The code evidence behind them is
 2. **Docen does not drop the tracked change inside `header2.xml` — it relocates it to `header3.xml`.** The first report's check was path-scoped; the content survives at a different path. (Docen also *adds* `header3/4/5` and `footer3`, which the part map records.)
 3. **Fidus Writer's exporter does not fill `{@body}`.** The placeholder vocabulary is `{title}`, `{@<part-id>}` for rich-text and table parts, plus `{@bibliography}`, `{@copyright}` and `{@licenses}` (`src/exporter/template/tags.ts:18-101`).
 4. **canvas-editor's exporter has no copy path at all.** It never opens the source package; `jszip` is imported only by the importer. So "0 of {{fixture.parts}} parts pass through" is not a policy decision but a structural fact.
-5. **"No editor diagnoses malformed input" was true of the first eleven and false of the twelfth.** Plate.js was added on 2026-10-30 and it **refuses** the broken corpus with a named diagnostic (`decode-failed`) rather than producing a damaged file. The precise statement is now: **no editor repairs malformed input; one of the {{count.participants:w}} detects it, and detects exactly one of the twelve defect classes.**
+5. **"No editor diagnoses malformed input" was true of the first eleven and false of the twelfth.** Plate.js was added on 2026-10-30 and it **refuses** the broken corpus with a named diagnostic (`decode-failed`) rather than producing a damaged file. The precise statement is now: **no editor diagnoses and repairs malformed input; one of the {{count.participants:w}} detects it, and detects exactly one of the twelve defect classes. Four write some element-order defects back in schema order as a by-product of rebuilding the document (office-open, Docen, OpenDoc, BetterOffice), and none of the four reports it.**
 6. **"No editor repairs anything" is true of these twelve defect classes and false as a general statement.** Docxodus ships a repair funnel (`PackageOpenRepair`) that fixes four classes of package defect on the way in. It repairs none of the twelve here, because it is aimed at defects that would make the **Open XML SDK's own parser** refuse the file, not at defects that make **Microsoft Word** refuse it. The distinction is worth keeping for anyone reading the TL;DR literally: a repair stage is scoped to the consumer it unblocks, and Docxodus's is scoped to the SDK, not to Word.
 
 ---

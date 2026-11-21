@@ -21,6 +21,11 @@ Packages: B1 decompression, B2 entry flood, B3 attributes, B4 deep nesting, B5 e
 - **Docen.** Cleaned B3. Refused B5. Ran out of stack on B4 and B9. Kept B1, B2, B6, B7, B8, and B10.
 - **Docxodus.** Ceilings on B1 (compression ratio) and B4 (128 levels of depth). Cleaned B3. Refused B5 (document type declaration). Kept B2, B6, B7, B8, B9, and B10.
 - **Apryse WebViewer.** No ceiling. Cleaned B1, B2, B3, and B6. Hung on B4, B5, and B9: each ran past the sandbox's 40-second wall clock, in both passes. Kept B7, B8, and B10.
+- **OnlyOffice (CryptPad build).** Added in v0.11.0. No ceiling. Cleaned B1, B2, B4, B5, B6, B7, B8, and B10. Hung on B3: its converter ran past the sandbox's 40-second wall clock, in both passes. Kept B9. On these small packages its converter returns; on the trial's main corpus it does not (main report).
+- **OpenDoc.** Added in v0.11.0. No ceiling. Refused B1, B2, B4, and B6 without naming one. Cleaned B3, B5, and B7. Kept B8, B9, and B10.
+- **BetterOffice model.** Added in v0.11.0. No ceiling. Refused B2, B3, B4, B5, B6, and B10 without naming one. Ran out of stack on B9. Kept B1, B7, and B8.
+- **BetterOffice editor.** Added in v0.11.0. Same row as the model, except B1: the Node process aborted on the decompression bomb, in both passes.
+- **react-docx.** Added in v0.11.0. No ceiling. Refused B1 and B10 without naming one. Cleaned B5. Hung on B3. Ran out of stack on B4. Kept B2, B6, B7, B8, and B9.
 - **Google Docs.** Not in the seatbelt matrix. Saved exports of B2, B6, B7, B8, and B10 contain only the body sentence. B1, B3, B4, B5, and B9 produced no file. Those five imports fully failed, and no ceiling was named. Grade 0.70.
 
 Jubarte is not in this list. Its grade on the same scale is 0.65, from jubarte 0.14.0 in `Report D1 - Jubarte on the Hostile Packages (2026).md`. Report D2 is the Word run, final since 2026-10-31; its results are copied at the end of this report.
@@ -46,6 +51,7 @@ Sanitation is safe output without a declared ceiling, so it is not 1. A bare ref
 | --- | --- | --- |
 | Fidus Writer | 0.72 | Keeps the decompression bomb. |
 | Google Docs | 0.70 | Five imports produced no file and named no ceiling. No saved file keeps a weapon. |
+| OnlyOffice (CryptPad build) | 0.64 | No ceiling. Hangs on the attributes. Keeps the layout bomb. |
 | Plate | 0.62 | Does not finish the attributes. Keeps the layout bomb. |
 | docs.plus | 0.60 | Stack on the deep nest. Keeps the layout bomb. |
 | LibreOffice | 0.60 | Hangs on the attributes. Keeps the deep nest. |
@@ -55,10 +61,14 @@ Sanitation is safe output without a declared ceiling, so it is not 1. A bare ref
 | Folio model | 0.56 | Keeps external relationships, the script, and the layout bomb. |
 | Folio editor | 0.56 | Same as the model. |
 | canvas-editor | 0.48 | Hangs on the decompression bomb, the attributes, and the layout bomb. Keeps the deep nest. |
+| OpenDoc | 0.48 | No ceiling. Keeps the script, the layout bomb, and the corrupt parts. |
+| BetterOffice model | 0.36 | No ceiling. Stack on the layout bomb. Keeps the decompression bomb, external relationships, and the script. |
+| BetterOffice editor | 0.36 | Same as the model, and the process aborts on the decompression bomb. |
 | Docxodus | 0.34 | Ceilings on the decompression bomb and the deep nest. Keeps six packages. |
 | Apryse WebViewer | 0.32 | No ceiling. Hangs on the deep nest, the entities, and the layout bomb. Keeps external relationships, the script, and the corrupt parts. |
 | SuperDoc | 0.30 | No ceiling. Keeps the deep nest, zip-slip, external relationships, the script, and the layout bomb. |
 | GenOffice | 0.24 | Ceiling on the entry flood only. Keeps the other resource bombs. |
+| react-docx | 0.20 | No ceiling. Hangs on the attributes. Stack on the deep nest. Keeps five packages. |
 | Docen | 0.14 | Cleans the attributes. Stack on the deep nest and the layout bomb. |
 | office-open | 0.14 | Cleans the attributes. Stack on the deep nest. Keeps seven packages. |
 | jubarte 0.14.0 | 0.65 | Jubarte report. Entities stay in the view. Zip-slip, external relationships, and corrupt parts are not refusals. |
@@ -122,12 +132,12 @@ These are the levels, from a real ceiling down to no protection.
 13. `not-in-view`. A text view was written and this weapon is not something that view carries. Editors in this matrix write packages, so none of them has this label. It is a jubarte reading, in Report D1.
 14. `not-run`. No measurement. Word, and every row of the unsandboxed fence.
 
-Of the 160 measured cells, fifteen editors and LibreOffice across the ten packages, the primary labels are sanitation 42, preserved 54, erroring 29, bounded-refusal 22, stack-exhaustion 4, hang 8, and failed-load-exit-zero 1.
+Of the 210 measured cells, twenty editors and LibreOffice across the ten packages, the primary labels are sanitation 54, preserved 68, erroring 47, bounded-refusal 22, stack-exhaustion 7, hang 10, crash 1, and failed-load-exit-zero 1. The one crash is BetterOffice's editor lane on the decompression bomb: the Node process aborted, in both passes. The five lanes added in v0.11.0 (react-docx, OpenDoc, BetterOffice's two lanes and OnlyOffice's CryptPad build) were run twice on 2026-11-21 and the two runs agree cell for cell; the rows of the other tools are those of the earlier matrix and were not run again.
 
 ## Measured scorecard
 
 ```
-sandbox: libreoffice in docker, network none, memory 2g, read-only root. editors under seatbelt. External network is denied. Localhost and unix sockets inside the work directory are allowed, because the editors' own tooling binds them. Writes stay in the work directory, plus the canvas vitest config cache. Apryse's profile also allows Mach port registration, which Chromium needs to start; Chromium's own sandbox cannot start inside seatbelt and is off for that tool. The editors are macOS binaries and were not run inside the Linux container.
+sandbox: libreoffice in docker, network none, memory 2g, read-only root. editors under seatbelt. External network is denied. Localhost and unix sockets inside the work directory are allowed, because the editors' own tooling binds them. Writes stay in the work directory, plus the canvas vitest config cache. Apryse's and react-docx's profiles also allow Mach port registration, which Chromium needs to start; Chromium's own sandbox cannot start inside seatbelt and is off for those two tools. The editors are macOS binaries and were not run inside the Linux container.
 taxonomy: preserving a hostile payload is not the same single result as a crash.
 reference Word fidelity: not-run safety: not-run Word was not opened. LibreOffice is the comparison.
 B7 note: NTLM credential leak was not measured. No hash collector was started. External network and UNC were denied. Localhost was allowed so a tool loopback stub and the 127.0.0.1 probe are not blocked by the seatbelt.
@@ -159,6 +169,11 @@ tool canvas B1 fidelity: refused safety: hang catch: no
 tool docsplus B1 fidelity: dropped safety: ok catch: yes
 tool docxodus B1 fidelity: refused safety: bounded-reject catch: yes
 tool apryse B1 fidelity: dropped safety: ok catch: yes
+tool reactdocx B1 fidelity: refused safety: bounded-reject catch: yes
+tool opendoc B1 fidelity: refused safety: bounded-reject catch: yes
+tool betteroffice B1 fidelity: preserved safety: ok catch: no
+tool betteroffice-editor B1 fidelity: refused safety: crash catch: no
+tool onlyoffice B1 fidelity: dropped safety: ok catch: yes
 tool plate B2 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal B2 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal-editor B2 fidelity: refused safety: bounded-reject catch: yes
@@ -174,6 +189,11 @@ tool canvas B2 fidelity: dropped safety: ok catch: yes
 tool docsplus B2 fidelity: dropped safety: ok catch: yes
 tool docxodus B2 fidelity: preserved safety: ok catch: no
 tool apryse B2 fidelity: dropped safety: ok catch: yes
+tool reactdocx B2 fidelity: preserved safety: ok catch: no
+tool opendoc B2 fidelity: refused safety: bounded-reject catch: yes
+tool betteroffice B2 fidelity: refused safety: bounded-reject catch: yes
+tool betteroffice-editor B2 fidelity: refused safety: bounded-reject catch: yes
+tool onlyoffice B2 fidelity: dropped safety: ok catch: yes
 tool plate B3 fidelity: refused safety: hang catch: no
 tool eigenpal B3 fidelity: dropped safety: ok catch: yes
 tool eigenpal-editor B3 fidelity: dropped safety: ok catch: yes
@@ -189,6 +209,11 @@ tool canvas B3 fidelity: refused safety: hang catch: no
 tool docsplus B3 fidelity: dropped safety: ok catch: yes
 tool docxodus B3 fidelity: dropped safety: ok catch: yes
 tool apryse B3 fidelity: dropped safety: ok catch: yes
+tool reactdocx B3 fidelity: refused safety: hang catch: no
+tool opendoc B3 fidelity: dropped safety: ok catch: yes
+tool betteroffice B3 fidelity: refused safety: bounded-reject catch: yes
+tool betteroffice-editor B3 fidelity: refused safety: bounded-reject catch: yes
+tool onlyoffice B3 fidelity: refused safety: hang catch: no
 tool plate B4 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal B4 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal-editor B4 fidelity: refused safety: bounded-reject catch: yes
@@ -204,6 +229,11 @@ tool canvas B4 fidelity: preserved safety: ok catch: no
 tool docsplus B4 fidelity: refused safety: bounded-reject catch: yes
 tool docxodus B4 fidelity: refused safety: bounded-reject catch: yes
 tool apryse B4 fidelity: refused safety: hang catch: no
+tool reactdocx B4 fidelity: refused safety: bounded-reject catch: yes
+tool opendoc B4 fidelity: refused safety: bounded-reject catch: yes
+tool betteroffice B4 fidelity: refused safety: bounded-reject catch: yes
+tool betteroffice-editor B4 fidelity: refused safety: bounded-reject catch: yes
+tool onlyoffice B4 fidelity: dropped safety: ok catch: yes
 tool plate B5 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal B5 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal-editor B5 fidelity: refused safety: bounded-reject catch: yes
@@ -219,6 +249,11 @@ tool canvas B5 fidelity: dropped safety: ok catch: yes
 tool docsplus B5 fidelity: refused safety: bounded-reject catch: yes
 tool docxodus B5 fidelity: refused safety: bounded-reject catch: yes
 tool apryse B5 fidelity: refused safety: hang catch: no
+tool reactdocx B5 fidelity: dropped safety: ok catch: yes
+tool opendoc B5 fidelity: dropped safety: ok catch: yes
+tool betteroffice B5 fidelity: refused safety: bounded-reject catch: yes
+tool betteroffice-editor B5 fidelity: refused safety: bounded-reject catch: yes
+tool onlyoffice B5 fidelity: dropped safety: ok catch: yes
 tool plate B6 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal B6 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal-editor B6 fidelity: refused safety: bounded-reject catch: yes
@@ -234,6 +269,11 @@ tool canvas B6 fidelity: dropped safety: ok catch: yes
 tool docsplus B6 fidelity: dropped safety: ok catch: yes
 tool docxodus B6 fidelity: preserved safety: ok catch: no
 tool apryse B6 fidelity: dropped safety: ok catch: yes
+tool reactdocx B6 fidelity: preserved safety: ok catch: no
+tool opendoc B6 fidelity: refused safety: bounded-reject catch: yes
+tool betteroffice B6 fidelity: refused safety: bounded-reject catch: yes
+tool betteroffice-editor B6 fidelity: refused safety: bounded-reject catch: yes
+tool onlyoffice B6 fidelity: dropped safety: ok catch: yes
 tool plate B7 fidelity: dropped safety: ok catch: yes
 tool eigenpal B7 fidelity: preserved safety: ok catch: no
 tool eigenpal-editor B7 fidelity: preserved safety: ok catch: no
@@ -249,6 +289,11 @@ tool canvas B7 fidelity: dropped safety: ok catch: yes
 tool docsplus B7 fidelity: dropped safety: ok catch: yes
 tool docxodus B7 fidelity: preserved safety: ok catch: no
 tool apryse B7 fidelity: preserved safety: ok catch: no
+tool reactdocx B7 fidelity: preserved safety: ok catch: no
+tool opendoc B7 fidelity: dropped safety: ok catch: yes
+tool betteroffice B7 fidelity: preserved safety: ok catch: no
+tool betteroffice-editor B7 fidelity: preserved safety: ok catch: no
+tool onlyoffice B7 fidelity: dropped safety: ok catch: yes
 tool plate B8 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal B8 fidelity: preserved safety: ok catch: no
 tool eigenpal-editor B8 fidelity: preserved safety: ok catch: no
@@ -264,6 +309,11 @@ tool canvas B8 fidelity: dropped safety: ok catch: yes
 tool docsplus B8 fidelity: dropped safety: ok catch: yes
 tool docxodus B8 fidelity: preserved safety: ok catch: no
 tool apryse B8 fidelity: preserved safety: ok catch: no
+tool reactdocx B8 fidelity: preserved safety: ok catch: no
+tool opendoc B8 fidelity: preserved safety: ok catch: no
+tool betteroffice B8 fidelity: preserved safety: ok catch: no
+tool betteroffice-editor B8 fidelity: preserved safety: ok catch: no
+tool onlyoffice B8 fidelity: dropped safety: ok catch: yes
 tool plate B9 fidelity: preserved safety: ok catch: no
 tool eigenpal B9 fidelity: preserved safety: ok catch: no
 tool eigenpal-editor B9 fidelity: preserved safety: ok catch: no
@@ -279,6 +329,11 @@ tool canvas B9 fidelity: refused safety: hang catch: no
 tool docsplus B9 fidelity: preserved safety: ok catch: no
 tool docxodus B9 fidelity: preserved safety: ok catch: no
 tool apryse B9 fidelity: refused safety: hang catch: no
+tool reactdocx B9 fidelity: preserved safety: ok catch: no
+tool opendoc B9 fidelity: preserved safety: ok catch: no
+tool betteroffice B9 fidelity: refused safety: bounded-reject catch: yes
+tool betteroffice-editor B9 fidelity: refused safety: bounded-reject catch: yes
+tool onlyoffice B9 fidelity: preserved safety: ok catch: no
 tool plate B10 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal B10 fidelity: refused safety: bounded-reject catch: yes
 tool eigenpal-editor B10 fidelity: refused safety: bounded-reject catch: yes
@@ -294,6 +349,11 @@ tool canvas B10 fidelity: dropped safety: ok catch: yes
 tool docsplus B10 fidelity: refused safety: bounded-reject catch: yes
 tool docxodus B10 fidelity: preserved safety: ok catch: no
 tool apryse B10 fidelity: preserved safety: ok catch: no
+tool reactdocx B10 fidelity: refused safety: bounded-reject catch: yes
+tool opendoc B10 fidelity: preserved safety: ok catch: no
+tool betteroffice B10 fidelity: refused safety: bounded-reject catch: yes
+tool betteroffice-editor B10 fidelity: refused safety: bounded-reject catch: yes
+tool onlyoffice B10 fidelity: dropped safety: ok catch: yes
 ```
 
 ## Protection record
@@ -467,6 +527,56 @@ protection apryse B7 level: preserved detail: the weapon is still in the written
 protection apryse B8 level: preserved detail: the weapon is still in the written package
 protection apryse B9 level: hang detail: the run did not finish
 protection apryse B10 level: preserved detail: the weapon is still in the written package
+protection reactdocx B1 level: erroring detail: the cell log does not name a ceiling
+protection reactdocx B2 level: preserved detail: the weapon is still in the written package
+protection reactdocx B3 level: hang detail: the run did not finish
+protection reactdocx B4 level: stack-exhaustion detail: the call stack ran out
+protection reactdocx B5 level: sanitation detail: the written package does not carry the weapon
+protection reactdocx B6 level: preserved detail: the weapon is still in the written package
+protection reactdocx B7 level: preserved detail: the weapon is still in the written package
+protection reactdocx B8 level: preserved detail: the weapon is still in the written package
+protection reactdocx B9 level: preserved detail: the weapon is still in the written package
+protection reactdocx B10 level: erroring detail: the cell log does not name a ceiling
+protection opendoc B1 level: erroring detail: the cell log does not name a ceiling
+protection opendoc B2 level: erroring detail: the cell log does not name a ceiling
+protection opendoc B3 level: sanitation detail: the written package does not carry the weapon
+protection opendoc B4 level: erroring detail: the cell log does not name a ceiling
+protection opendoc B5 level: sanitation detail: the written package does not carry the weapon
+protection opendoc B6 level: erroring detail: the cell log does not name a ceiling
+protection opendoc B7 level: sanitation detail: the written package does not carry the weapon
+protection opendoc B8 level: preserved detail: the weapon is still in the written package
+protection opendoc B9 level: preserved detail: the weapon is still in the written package
+protection opendoc B10 level: preserved detail: the weapon is still in the written package
+protection betteroffice B1 level: preserved detail: the weapon is still in the written package
+protection betteroffice B2 level: erroring detail: the cell log does not name a ceiling
+protection betteroffice B3 level: erroring detail: the cell log does not name a ceiling
+protection betteroffice B4 level: erroring detail: the cell log does not name a ceiling
+protection betteroffice B5 level: erroring detail: the cell log does not name a ceiling
+protection betteroffice B6 level: erroring detail: the cell log does not name a ceiling
+protection betteroffice B7 level: preserved detail: the weapon is still in the written package
+protection betteroffice B8 level: preserved detail: the weapon is still in the written package
+protection betteroffice B9 level: stack-exhaustion detail: the call stack ran out
+protection betteroffice B10 level: erroring detail: the cell log does not name a ceiling
+protection onlyoffice B1 level: sanitation detail: the written package does not carry the weapon
+protection onlyoffice B2 level: sanitation detail: the written package does not carry the weapon
+protection onlyoffice B3 level: hang detail: the run did not finish
+protection onlyoffice B4 level: sanitation detail: the written package does not carry the weapon
+protection onlyoffice B5 level: sanitation detail: the written package does not carry the weapon
+protection onlyoffice B6 level: sanitation detail: the written package does not carry the weapon
+protection onlyoffice B7 level: sanitation detail: the written package does not carry the weapon
+protection onlyoffice B8 level: sanitation detail: the written package does not carry the weapon
+protection onlyoffice B9 level: preserved detail: the weapon is still in the written package
+protection onlyoffice B10 level: sanitation detail: the written package does not carry the weapon
+protection betteroffice-editor B1 level: crash detail: the process died
+protection betteroffice-editor B2 level: erroring detail: the cell log does not name a ceiling
+protection betteroffice-editor B3 level: erroring detail: the cell log does not name a ceiling
+protection betteroffice-editor B4 level: erroring detail: the cell log does not name a ceiling
+protection betteroffice-editor B5 level: erroring detail: the cell log does not name a ceiling
+protection betteroffice-editor B6 level: erroring detail: the cell log does not name a ceiling
+protection betteroffice-editor B7 level: preserved detail: the weapon is still in the written package
+protection betteroffice-editor B8 level: preserved detail: the weapon is still in the written package
+protection betteroffice-editor B9 level: stack-exhaustion detail: the call stack ran out
+protection betteroffice-editor B10 level: erroring detail: the cell log does not name a ceiling
 ```
 
 ## Where the safety word is the wrong name
@@ -517,7 +627,7 @@ Docxodus keeps the entry flood, zip-slip, the external relationships, the active
 
 ## Google Docs
 
-Google Docs is not one of the 160 cells. `Google Docs.app` on this Mac is a Drive launcher. It does not parse a package locally. The imports ran on Google's servers. A file was saved to `~/Downloads` only when the import produced a document. B1, B3, B4, B5, and B9 have no file there. Those five imports fully failed.
+Google Docs is not one of the 210 cells. `Google Docs.app` on this Mac is a Drive launcher. It does not parse a package locally. The imports ran on Google's servers. A file was saved to `~/Downloads` only when the import produced a document. B1, B3, B4, B5, and B9 have no file there. Those five imports fully failed.
 
 The saved files are `~/Downloads/B2.docx`, `B6.docx`, `B7.docx`, `B8.docx`, and `B10.docx`. A second save of the entry flood and of the active-content package has the same part bytes as the first save. The five first saves have the same part bytes as each other. The zip containers differ. Each one is a rewrite: generated styles, settings, numbering, a font table, and a theme. The body is one paragraph, `BOMB_BODY_OK`.
 

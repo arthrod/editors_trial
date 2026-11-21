@@ -101,6 +101,8 @@ _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
 import lanes  # noqa: E402
 
 EDITORS = lanes.join(EDITORS, lambda name, slug, key: (slug, name))
+# Nutrient has no round-trip lane (lanes.NO_LANE): it is a viewer, captured in the UI lane only.
+EDITORS.insert(-1, ("nutrient", "Nutrient"))
 
 
 def smartart_figure():

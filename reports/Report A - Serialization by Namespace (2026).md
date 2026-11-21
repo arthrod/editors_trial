@@ -6,17 +6,19 @@ This report goes through the corpus namespace by namespace. For each one it stat
 
 ---
 
+**Added in v0.11.0: three more tools, measured and not read.** react-docx, OpenDoc and BetterOffice were round-tripped and compared like the others, and they are in the tables of §4 and in §4.6. Their source code was **not** read for this report. Every statement here about what an editor's code does, including the five kinds of boundary, the count of editors with a reporting mechanism and each "the only editor whose code…", covers the twelve editors and Docxodus, whose source was read. OnlyOffice (CryptPad build) is not in this report: its converter did not return from the corpus, so there is no output to compare.
+
 ## TL;DR
 
 - **Twenty-seven namespace URIs, 309 distinct `w:` element and attribute names, and 35 package parts.** The main WordprocessingML vocabulary is the `w:` names an editor's story has to carry; the other 26 URIs are what make a document a *document* rather than a wall of paragraphs.
 - **The boundaries are not where the documentation says.** Read the source of all twelve editors and you find **five distinct kinds of serialization boundary**: a *typed vocabulary plus a generic catch-all* (eigenpal), a *total dispatch table over declared children with a verbatim sink for everything else* (Folio), a *byte-range splice* that never re-serializes at all (GenOffice), a *prefix-literal if/else chain* (Fidus, canvas-editor), and a *fixed namespace allow-list* (Plate.js). Only one of those five is capable of carrying a namespace it has never heard of. The thirteenth participant adds a **sixth** kind — and it is the only one that is not a vocabulary boundary at all: **Docxodus draws its line around a set of *parts*, not a set of *names*** (§3.12).
 - **Five editors can carry a namespace they have never heard of: GenOffice, Folio, eigenpal, Docxodus, and — for whole parts — WordCraft.** Everything else drops unfamiliar markup at a boundary, and the corpus contains a namespace (`ns0` = `http://example.com/fixture`) that appears in **no** editor's allow-list, precisely to find that boundary.
 - **The single sharpest probe in the corpus is `w16du:dateUtc`** — a single attribute, on a revision wrapper, in a namespace Microsoft introduced in 2023. **Eight of the twelve editors drop it**, including Microsoft Word's own round-trip baseline, LibreOffice. Four keep it — and the thirteenth participant, Docxodus, is the **only participant in the study that keeps it by decision rather than by accident**: it declares a typed `XName` for the attribute and validates its value (`RevisionOps.cs:37`, `:565`). **Not one of the twelve reports that it dropped it.**
-- **Apryse WebViewer was measured, not read.** Its code is closed, so no claim in this report about *how* an editor serializes a namespace covers it, it has no column in the mechanism matrix (§6), and the counts in the prose are of the participants whose code was read. Its output was measured like every other: it keeps every name in 21 of the 28 namespaces, part of `w`, `a` and `w14`, and nothing of `cs`, `w16du`, `w15` and `w16cid`. It is one more editor that drops `w16du:dateUtc`. Its column is in the survival matrix (§4.2) and its rows in the partial losses (§4.3).
+- **Apryse WebViewer was measured, not read.** Its code is closed, so no claim in this report about *how* an editor serializes a namespace covers it, it has no column in the mechanism matrix (§6), and the counts in the prose are of the participants whose code was read. Its output was measured like every other: it keeps every name in 21 of the 28 namespaces, part of `w`, `a` and `w14`, and nothing of `cs`, `w16du`, `w16cid` and `w15`. It is one more editor that drops `w16du:dateUtc`. Its column is in the survival matrix (§4.2) and its rows in the partial losses (§4.3).
 - **The measured results mostly agree with the static reading, and the disagreements are all in the same direction: the code understates the loss.** WordCraft's code has no `w16du` handling — and it also loses `w15` and `w16cid`, which the code neither mentions. Plate.js's `PASSIVE_NAMESPACES` list says `w14` is passive — and the measurement shows `w14:paraId` and `w14:textId` are lost anyway, because the loss happens in the HTML step *before* the passive list is consulted.
 - **The `mc` namespace is where editors visibly disagree, and the disagreement is about which branch to take.** Word's semantics say: pick the `mc:Choice` whose `Requires` you support. Mammoth-based editors (Plate.js, docs.plus) take the **`Fallback`** — the opposite branch — and the reader sees *different words*. Folio takes the **first Choice without evaluating `Requires`** when the node is edited, and keeps the construct verbatim when it is not. eigenpal evaluates `Requires` properly. **Seven editors keep both branches; three keep only the `mc:Ignorable` attribute; two lose the namespace entirely.** The corpus's two branches both carry visible text, so a wrong branch choice is visible on the page, not just in the file.
 - **Plate.js is the only editor that loses the image.** Its `pic:` namespace goes from 6 distinct names to **0**, and its `resource-omitted` diagnostic says why: *"An embedded image was omitted during DOCX import."* Every other editor that keeps a drawing keeps the picture.
-- **Losing a namespace is almost never loud.** Of the twelve editors, exactly **two** have a namespace-level reporting mechanism: Plate.js (38 typed diagnostics, `lossPolicy` defaults to `'reject'`) and SuperDoc (a named diagnostic code per fail-closed drawing family). The other ten drop whole vocabularies without a word. **Docxodus is the thirteenth participant, and at the serialization layer it drops nothing** — which is exactly why the obligation moves one layer up, to its renderer, which names what it cannot draw (`[SMARTART]`, `[MATH]`).
+- **Losing a namespace is almost never loud.** Of the twelve editors, exactly **two** have a namespace-level reporting mechanism: Plate.js (38 typed diagnostics, `lossPolicy` defaults to `'reject'`) and SuperDoc (a named diagnostic code per fail-closed drawing family). The other ten drop whole vocabularies without a word. (BetterOffice, added in v0.11.0 and not read, has a save call that returns a list of warnings; for the corpus that list was empty, although its output lost names in eight namespaces, §4.6.) **Docxodus is the thirteenth participant, and at the serialization layer it drops nothing** — which is exactly why the obligation moves one layer up, to its renderer, which names what it cannot draw (`[SMARTART]`, `[MATH]`).
 
 ---
 
@@ -206,7 +208,7 @@ What Docen does **not** add is any handling for `mc`, `w16du`, `dgm` or `c` — 
 
 ### 3.7 WordCraft — a typed Rust story model that regenerates what it models
 
-WordCraft is the only Rust editor here, and the only one with a real namespace-constant table (`crates/docx/src/smart_art.rs:25-28`: `NS_DGM`, `NS_DSP`, `NS_A`, `NS_R`; `crates/docx/src/chart_spec.rs:15-17`: `NS_C`, `NS_A`, `NS_R`).
+WordCraft is the only Rust editor among the twelve whose source was read (OpenDoc, added in v0.11.0, is also written in Rust, and its source was not read), and the only one of the twelve with a real namespace-constant table (`crates/docx/src/smart_art.rs:25-28`: `NS_DGM`, `NS_DSP`, `NS_A`, `NS_R`; `crates/docx/src/chart_spec.rs:15-17`: `NS_C`, `NS_A`, `NS_R`).
 
 Its `mc` handling picks the **first Choice the reader recognises**, from a literal list of `Requires` prefixes (`crates/docx/src/read/story.rs:161-175`; the known list at `:164`; used from `read/story/blocks.rs:62`). Its `dgm` handling is a dedicated SmartArt reader **and** a SmartArt writer (`crates/docx/src/read/diagram.rs`) — the diagram is **regenerated from a model, not copied**, which is a different act from preservation and is the reason WordCraft's SmartArt renders differently from the original.
 
@@ -302,45 +304,45 @@ The comparison is `kept = |corpus_names ∩ output_names|` over `|corpus_names|`
 
 **WordprocessingML and revision namespaces**
 
-| Namespace | Corpus names | SuperDoc | Folio | GenOffice | eigenpal | office-open | Docen | WordCraft | Fidus | canvas | docs.plus | Plate.js | Docxodus | Apryse | LibreOffice |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `w` | 309 | all | all | all | all | 308/309 | 305/309 | 294/309 | **98/309** | **119/309** | **114/309** | **108/309** | all | 300/309 | 260/309 |
-| `r` | 6 | all | all | all | all | all | all | all | **1/6** | **2/6** | **2/6** | **none** | all | all | all |
-| `xml` | 1 | all | all | all | all | all | all | all | all | all | all | all | all | all | all |
-| `mc` | 4 | all | all | all | all | all | all | **1/4** | **1/4** | **1/4** | **none** | **none** | all | all | all |
-| `w14` | 12 | all | 10/12 | all | all | 10/12 | 10/12 | all | **none** | **none** | **none** | **none** | all | 10/12 | 10/12 |
-| `w15` | 1 | all | all | all | all | all | all | **none** | all | all | **none** | **none** | all | **none** | **none** |
-| `w16cid` | 1 | all | all | all | all | **none** | **none** | all | **none** | **none** | **none** | **none** | all | **none** | **none** |
-| `w16du` | 1 | all | all | all | all | **none** | **none** | **none** | **none** | **none** | **none** | **none** | all | **none** | **none** |
+| Namespace | Corpus names | SuperDoc | Folio | GenOffice | eigenpal | office-open | Docen | WordCraft | Fidus | canvas | docs.plus | Plate.js | Docxodus | Apryse | react-docx | OpenDoc | BetterOffice | LibreOffice |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `w` | 309 | all | all | all | all | 308/309 | 305/309 | 294/309 | **98/309** | **119/309** | **114/309** | **108/309** | all | 300/309 | 285/309 | 272/309 | 298/309 | 260/309 |
+| `r` | 6 | all | all | all | all | all | all | all | **1/6** | **2/6** | **2/6** | **none** | all | all | all | all | **2/6** | all |
+| `xml` | 1 | all | all | all | all | all | all | all | all | all | all | all | all | all | all | all | all | all |
+| `mc` | 4 | all | all | all | all | all | all | **1/4** | **1/4** | **1/4** | **none** | **none** | all | all | **1/4** | **1/4** | **1/4** | all |
+| `w14` | 12 | all | 10/12 | all | all | 10/12 | 10/12 | all | **none** | **none** | **none** | **none** | all | 10/12 | all | **none** | **1/12** | 10/12 |
+| `w15` | 1 | all | all | all | all | all | all | **none** | all | all | **none** | **none** | all | **none** | all | **none** | all | **none** |
+| `w16cid` | 1 | all | all | all | all | **none** | **none** | all | **none** | **none** | **none** | **none** | all | **none** | all | **none** | all | **none** |
+| `w16du` | 1 | all | all | all | all | **none** | **none** | **none** | **none** | **none** | **none** | **none** | all | **none** | all | **none** | **none** | **none** |
 
 **Drawing, chart, diagram and legacy namespaces**
 
-| Namespace | Corpus names | SuperDoc | Folio | GenOffice | eigenpal | office-open | Docen | WordCraft | Fidus | canvas | docs.plus | Plate.js | Docxodus | Apryse | LibreOffice |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `a` | 60 | all | all | all | all | all | all | 56/60 | **11/60** | **11/60** | 42/60 | 33/60 | all | 58/60 | 59/60 |
-| `wp` | 5 | all | all | all | all | all | all | all | 3/5 | all | 4/5 | **none** | all | all | all |
-| `pic` | 6 | all | all | all | all | all | all | all | all | all | all | **none** | all | all | all |
-| `dgm` | 35 | all | all | all | all | all | all | all | **none** | **none** | **none** | **none** | all | all | all |
-| `c` | 40 | all | all | all | all | all | all | all | **none** | **none** | **none** | **none** | all | all | 39/40 |
-| `cs` | 8 | all | all | all | all | all | all | **none** | **none** | **none** | **none** | **none** | all | **none** | **none** |
-| `wps` | 5 | all | all | all | all | all | all | all | **none** | **none** | **none** | **none** | all | all | all |
-| `v` | 3 | all | all | all | all | all | all | 2/3 | **none** | **none** | **none** | **none** | all | all | all |
-| `o` | 2 | all | all | all | all | all | all | all | **none** | **none** | **none** | **none** | all | all | all |
-| `w10` | 1 | all | all | all | all | all | all | **none** | **none** | **none** | **none** | **none** | all | all | **none** |
+| Namespace | Corpus names | SuperDoc | Folio | GenOffice | eigenpal | office-open | Docen | WordCraft | Fidus | canvas | docs.plus | Plate.js | Docxodus | Apryse | react-docx | OpenDoc | BetterOffice | LibreOffice |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `a` | 60 | all | all | all | all | all | all | 56/60 | **11/60** | **11/60** | 42/60 | 33/60 | all | 58/60 | all | all | all | 59/60 |
+| `wp` | 5 | all | all | all | all | all | all | all | 3/5 | all | 4/5 | **none** | all | all | all | 4/5 | all | all |
+| `pic` | 6 | all | all | all | all | all | all | all | all | all | all | **none** | all | all | all | all | all | all |
+| `dgm` | 35 | all | all | all | all | all | all | all | **none** | **none** | **none** | **none** | all | all | all | all | 34/35 | all |
+| `c` | 40 | all | all | all | all | all | all | all | **none** | **none** | **none** | **none** | all | all | all | all | all | 39/40 |
+| `cs` | 8 | all | all | all | all | all | all | **none** | **none** | **none** | **none** | **none** | all | **none** | all | all | all | **none** |
+| `wps` | 5 | all | all | all | all | all | all | all | **none** | **none** | **none** | **none** | all | all | **none** | all | all | all |
+| `v` | 3 | all | all | all | all | all | all | 2/3 | **none** | **none** | **none** | **none** | all | all | 2/3 | 2/3 | 2/3 | all |
+| `o` | 2 | all | all | all | all | all | all | all | **none** | **none** | **none** | **none** | all | all | all | all | all | all |
+| `w10` | 1 | all | all | all | all | all | all | **none** | **none** | **none** | **none** | **none** | all | all | **none** | **none** | **none** | **none** |
 
 **Package, metadata and foreign namespaces**
 
-| Namespace | Corpus names | SuperDoc | Folio | GenOffice | eigenpal | office-open | Docen | WordCraft | Fidus | canvas | docs.plus | Plate.js | Docxodus | Apryse | LibreOffice |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `ct` | 3 | all | all | all | all | all | all | all | all | all | all | all | all | all | all |
-| `rels` | 2 | all | all | all | all | all | all | all | all | all | all | all | all | all | all |
-| `app` | 9 | all | all | all | all | all | all | 8/9 | **3/9** | **1/9** | **none** | **none** | all | all | **4/9** |
-| `cp` | 5 | all | all | all | all | all | all | all | **1/5** | 3/5 | 4/5 | 4/5 | all | all | all |
-| `dc` | 4 | all | all | all | all | all | all | all | 2/4 | **1/4** | all | all | all | all | all |
-| `dcterms` | 2 | all | all | all | all | all | all | all | all | all | all | all | all | all | all |
-| `ds` | 5 | all | all | all | all | all | all | all | **none** | **none** | **none** | **none** | all | all | all |
-| `ns0` | 2 | all | all | all | all | all | all | all | **none** | **none** | **none** | **none** | all | all | all |
-| `xsi` | 1 | all | all | all | all | all | all | all | all | all | all | all | all | all | all |
+| Namespace | Corpus names | SuperDoc | Folio | GenOffice | eigenpal | office-open | Docen | WordCraft | Fidus | canvas | docs.plus | Plate.js | Docxodus | Apryse | react-docx | OpenDoc | BetterOffice | LibreOffice |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `ct` | 3 | all | all | all | all | all | all | all | all | all | all | all | all | all | all | all | all | all |
+| `rels` | 2 | all | all | all | all | all | all | all | all | all | all | all | all | all | all | all | all | all |
+| `app` | 9 | all | all | all | all | all | all | 8/9 | **3/9** | **1/9** | **none** | **none** | all | all | all | all | all | **4/9** |
+| `cp` | 5 | all | all | all | all | all | all | all | **1/5** | 3/5 | 4/5 | 4/5 | all | all | all | all | all | all |
+| `dc` | 4 | all | all | all | all | all | all | all | 2/4 | **1/4** | all | all | all | all | all | all | all | all |
+| `dcterms` | 2 | all | all | all | all | all | all | all | all | all | all | all | all | all | all | all | all | all |
+| `ds` | 5 | all | all | all | all | all | all | all | **none** | **none** | **none** | **none** | all | all | all | all | all | all |
+| `ns0` | 2 | all | all | all | all | all | all | all | **none** | **none** | **none** | **none** | all | all | all | all | all | all |
+| `xsi` | 1 | all | all | all | all | all | all | all | all | all | all | all | all | all | all | all | all | all |
 
 Reading the `w` row: **five participants keep every one of the 309 distinct `w:` names** — SuperDoc, Folio, GenOffice, eigenpal and Docxodus. office-open comes next, losing exactly one (`@dirty`), then Docen four and WordCraft fifteen; below them there is a cliff, where Fidus, canvas-editor, docs.plus and Plate.js each keep **roughly a third** of the main vocabulary.
 
@@ -358,17 +360,25 @@ The interesting losses are the partial ones, because they show exactly which con
 | `w` | docs.plus | 114/309 | `@accent1`, `@accent2`, `@accent3`, `@accent4`, `@accent5`, `@accent6`, `@asciiTheme`, `@author` … (+187 more) |
 | `w` | Plate.js | 108/309 | `@abstractNumId`, `@accent1`, `@accent2`, `@accent3`, `@accent4`, `@accent5`, `@accent6`, `@asciiTheme` … (+193 more) |
 | `w` | Apryse | 300/309 | `@first`, `@orient`, `@other`, `altChunk`, `group`, `moveFromRangeEnd`, `moveToRangeEnd`, `paperSrc` … (+1 more) |
+| `w` | react-docx | 285/309 | `@fullDate`, `@prefixMappings`, `@storeItemID`, `@xpath`, `alias`, `altChunk`, `calendar`, `dataBinding` … (+16 more) |
+| `w` | OpenDoc | 272/309 | `@accent1`, `@accent2`, `@accent3`, `@accent4`, `@accent5`, `@accent6`, `@bg1`, `@bg2` … (+29 more) |
+| `w` | BetterOffice | 298/309 | `@dirty`, `@edGrp`, `@vert`, `altChunk`, `cr`, `eastAsianLayout`, `noProof`, `permEnd` … (+3 more) |
 | `w` | LibreOffice | 260/309 | `@accent1`, `@accent2`, `@accent3`, `@accent4`, `@accent5`, `@accent6`, `@bg1`, `@bg2` … (+41 more) |
 | `r` | Fidus | 1/6 | `@cs`, `@dm`, `@id`, `@lo`, `@qs` |
 | `r` | canvas | 2/6 | `@cs`, `@dm`, `@lo`, `@qs` |
 | `r` | docs.plus | 2/6 | `@cs`, `@dm`, `@lo`, `@qs` |
+| `r` | BetterOffice | 2/6 | `@cs`, `@dm`, `@lo`, `@qs` |
 | `mc` | WordCraft | 1/4 | `AlternateContent`, `Choice`, `Fallback` |
 | `mc` | Fidus | 1/4 | `AlternateContent`, `Choice`, `Fallback` |
 | `mc` | canvas | 1/4 | `AlternateContent`, `Choice`, `Fallback` |
+| `mc` | react-docx | 1/4 | `AlternateContent`, `Choice`, `Fallback` |
+| `mc` | OpenDoc | 1/4 | `AlternateContent`, `Choice`, `Fallback` |
+| `mc` | BetterOffice | 1/4 | `AlternateContent`, `Choice`, `Fallback` |
 | `w14` | Folio | 10/12 | `@paraId`, `@textId` |
 | `w14` | office-open | 10/12 | `@paraId`, `@textId` |
 | `w14` | Docen | 10/12 | `@paraId`, `@textId` |
 | `w14` | Apryse | 10/12 | `@paraId`, `@textId` |
+| `w14` | BetterOffice | 1/12 | `@algn`, `@cap`, `@cmpd`, `@textId`, `@val`, `@w`, `prstDash`, `round` … (+3 more) |
 | `w14` | LibreOffice | 10/12 | `@paraId`, `@textId` |
 | `a` | WordCraft | 56/60 | `defRPr`, `graphicFrameLocks`, `pPr`, `sysClr` |
 | `a` | Fidus | 11/60 | `accent1`, `accent2`, `accent3`, `accent4`, `accent5`, `accent6`, `bgFillStyleLst`, `bodyPr` … (+41 more) |
@@ -379,8 +389,13 @@ The interesting losses are the partial ones, because they show exactly which con
 | `a` | LibreOffice | 59/60 | `sysClr` |
 | `wp` | Fidus | 3/5 | `cNvGraphicFramePr`, `effectExtent` |
 | `wp` | docs.plus | 4/5 | `cNvGraphicFramePr` |
+| `wp` | OpenDoc | 4/5 | `effectExtent` |
+| `dgm` | BetterOffice | 34/35 | `relIds` |
 | `c` | LibreOffice | 39/40 | `layout` |
 | `v` | WordCraft | 2/3 | `textbox` |
+| `v` | react-docx | 2/3 | `textbox` |
+| `v` | OpenDoc | 2/3 | `textbox` |
+| `v` | BetterOffice | 2/3 | `textbox` |
 | `app` | WordCraft | 8/9 | `AppVersion` |
 | `app` | Fidus | 3/9 | `Company`, `DocSecurity`, `HyperlinksChanged`, `LinksUpToDate`, `ScaleCrop`, `SharedDoc` |
 | `app` | canvas | 1/9 | `AppVersion`, `Application`, `Company`, `DocSecurity`, `HyperlinksChanged`, `LinksUpToDate`, `ScaleCrop`, `SharedDoc` |
@@ -448,6 +463,25 @@ That is why §6's letters are now derived from the measurement and the parenthet
 
 ---
 
+### 4.6 The three tools added in v0.11.0
+
+These rows are measurements only. Nobody read the three tools' save paths for this report, so nothing below says why a name was kept or lost.
+
+| Tool | Namespaces kept whole | Kept in part | Lost whole |
+|---|---|---|---|
+| react-docx | 23 | 3: `w`, `mc` and `v` | 2: `wps` and `w10` |
+| OpenDoc | 19 | 4: `w`, `wp`, `mc` and `v` | 5: `w14`, `w16du`, `w10`, `w16cid` and `w15` |
+| BetterOffice (document model) | 20 | 6: `w`, `dgm`, `mc`, `r`, `w14` and `v` | 2: `w16du` and `w10` |
+
+Four things in these rows bear on the sections that follow.
+
+- **`w16du` (§5.2).** react-docx keeps it. OpenDoc and BetterOffice lose it, like most of the twelve.
+- **`w14`, `w15`, `w16cid` (§5.3, §5.4).** OpenDoc loses all three whole. react-docx keeps all three. BetterOffice keeps `w15` and `w16cid` and keeps `w14` in part.
+- **`mc` (§5.1).** None of the three outputs has an `mc:AlternateContent` block in `word/document.xml` (`build/measure_alternate_content.py`); the corpus has one. Which branch each wrote was not classified for this report.
+- **`dgm` (§5.5).** BetterOffice's document-model output has no `dgm:relIds` element in the body, while all four diagram parts are still in the package: the parts are kept and the pointer to them is gone. react-docx and OpenDoc keep the element with its four ids.
+
+BetterOffice's second lane, an editor session opened on the file and saved, changes one part (`docProps/core.xml`) and is not in the namespace tables; its `word/document.xml` is the corpus's.
+
 ## 5. The consequences, namespace by namespace
 
 This section states what each namespace *does* in a document and what it costs when it is lost. Each subsection ends with the editors that lose it and the ones that keep it, so the claim is falsifiable in both directions.
@@ -504,7 +538,7 @@ The block's fate is not merely present-or-absent — it is *how* it survives. Co
 
 **Why it is the sharpest probe.** It is **one attribute**, in a namespace that is three years old, in a namespace that appears in **no** editor's dispatch table, on a wrapper element (`w:ins`, `w:moveTo`) that some editors model and some do not. It is easy to lose accidentally and it is easy to lose silently, and losing it is invisible on the page — the revision still shows, with a timestamp, just not an unambiguous one.
 
-**Who keeps it.** SuperDoc, Folio, GenOffice, eigenpal — four editors — **and Docxodus**. **Folio and GenOffice keep it as a *consequence* of their architecture rather than as a decision**: Folio's `w:ins` wrapper is carried by the verbatim sink, and GenOffice splices the original bytes, so the attribute rides along inside them. eigenpal keeps it because `w:ins` is a typed element and unknown attributes on typed elements are retained. **Docxodus is the only participant in the study that keeps it by decision**: its revision layer declares a typed `XName` for the attribute (`Docxodus/Internal/RevisionOps.cs:37`) and rejects a malformed value with an `invalid_revision_date_utc` diagnostic (`RevisionOps.cs:565`).
+**Who keeps it.** SuperDoc, Folio, GenOffice, eigenpal — four editors — **and Docxodus**. **Folio and GenOffice keep it as a *consequence* of their architecture rather than as a decision**: Folio's `w:ins` wrapper is carried by the verbatim sink, and GenOffice splices the original bytes, so the attribute rides along inside them. eigenpal keeps it because `w:ins` is a typed element and unknown attributes on typed elements are retained. **Docxodus is the only participant whose source was read that keeps it by decision** (react-docx's output keeps it too, §4.6; whether by decision was not read): its revision layer declares a typed `XName` for the attribute (`Docxodus/Internal/RevisionOps.cs:37`) and rejects a malformed value with an `invalid_revision_date_utc` diagnostic (`RevisionOps.cs:565`).
 
 **Who loses it.** office-open, Docen, WordCraft, Fidus, canvas-editor, docs.plus, Plate.js **and LibreOffice** — eight.
 
@@ -699,10 +733,10 @@ The block's fate is not merely present-or-absent — it is *how* it survives. Co
 
 - **There is no single serialization boundary, and the shape of the boundary predicts the loss better than the editor's reputation does.** Five distinct mechanisms appear across the twelve editors, and a **sixth** appears across the thirteen participants. They sort cleanly: **splice-and-carry** (GenOffice, and Folio's verbatim sink) loses least; **typed-plus-generic** (eigenpal) is the only design that *documents* its fallback; **closed allow-lists** (Plate.js's `PASSIVE_NAMESPACES`, Mammoth's 9-entry namespace map) lose exactly what is not on the list; **prefix-literal dispatch** (office-open, Fidus, canvas-editor) loses whatever the switch did not enumerate; **model-regeneration** (Docen, WordCraft, docs.plus) loses whatever the model did not type; and **part-boundary** (Docxodus) does not dispatch on names at all — it rewrites ten parts and copies the other twenty-five byte-for-byte, so it has no vocabulary boundary to lose across.
 - **The thirteenth participant wins by not having the kind of boundary the others have.** Docxodus is the only participant to keep every distinct name of all 28 namespaces, and it does it by drawing its boundary around a set of *parts* rather than a set of *names* (§3.12). The price is equally clear: a namespace it has never heard of is carried but cannot be changed, and its *renderer* is the layer that must decide what to do with what it cannot draw.
-- **"Keeps every name" and "keeps every *value*" are different claims, and the difference is where the surprises live.** `dcterms:modified` survives in all thirteen outputs — but in at least four of them it is a *freshly written* timestamp. `w14:paraId` survives in eight — and in the ones that re-mint it, it is a *different* id. The measurement in §4 proves presence, not correctness, and §5.11 names the case where that distinction bites.
+- **"Keeps every name" and "keeps every *value*" are different claims, and the difference is where the surprises live.** `dcterms:modified` survives in all thirteen outputs measured before v0.11.0, and in the three added then — but in at least four of them it is a *freshly written* timestamp. `w14:paraId` survives in eight — and in the ones that re-mint it, it is a *different* id. The measurement in §4 proves presence, not correctness, and §5.11 names the case where that distinction bites.
 - **A namespace allow-list can only preserve what still exists.** Plate.js's `PASSIVE_NAMESPACES` contains `w14`; Plate still loses every `w14` name, because the loss happened in the HTML step upstream of the lane. Any evaluation of a "source preservation" feature must ask *where in the pipeline the check sits*, not only what is on the list.
 - **Silence is the default, and it is the most expensive default.** Eight editors drop `w16du:dateUtc`. Two editors report namespace losses in a typed vocabulary (Plate.js, and docs.plus's `ConversionWarning` layer over the same Mammoth importer). One editor reports drawing failures by family (SuperDoc). **The remaining nine say nothing at all** — and the corpus's `w16du`, `w15` and `w16cid` losses are exactly the ones no user would ever notice, which is precisely why the silence is dangerous. Docxodus is silent at the serialization layer for the best possible reason — it loses nothing there — but its renderer names what it cannot draw, and that is the layer where the user is actually looking.
-- **The `mc` namespace is where a document stops being a document.** It is the only construct in the corpus whose two encodings carry *different visible text*, and the only one where the thirteen participants produce **seven different outcomes** on the same input: two take the wrong branch, two take the right one without checking `Requires`, three drop it, one flattens it, one preserves it with a diagnostic, one preserves it in the file while splicing the original bytes back, and one re-serialises it through a schema-typed SDK. If you are choosing an editor by namespace behaviour, this is the row to look at.
+- **The `mc` namespace is where a document stops being a document.** It is the only construct in the corpus whose two encodings carry *different visible text*, and the only one where the thirteen participants measured before v0.11.0 produce **seven different outcomes** on the same input: two take the wrong branch, two take the right one without checking `Requires`, three drop it, one flattens it, one preserves it with a diagnostic, one preserves it in the file while splicing the original bytes back, and one re-serialises it through a schema-typed SDK. If you are choosing an editor by namespace behaviour, this is the row to look at.
 - **The editors that keep the most are not the ones that tell you the most, and the editors that tell you the most are not the ones that keep the most.** Plate.js and docs.plus share an importer and differ only in reporting; Plate keeps less and reports more. WordCraft keeps almost everything and reports nothing. Docxodus keeps everything and reports nothing about serialization — but names, in the renderer, exactly the two namespaces it cannot draw.
 
 ---
@@ -730,6 +764,7 @@ The per-editor code citations in §3 refer to the pinned commits listed in the f
 
 ## Gaps and honest limits
 
+0. **The source of react-docx, OpenDoc and BetterOffice was not read.** They were added in v0.11.0 and are measured only (§4.6). Section 3 has no entry for them, and the code-reading claims of this report do not cover them.
 1. **SuperDoc's core DOCX round-trip is not verifiable from source.** The engine is the closed `@superdoc/docx-engine` distribution. Every SuperDoc cell marked `?` in §6 is an absence of public evidence, not evidence of absence. The measurements in §4.2 stand on their own.
 2. **The measurement proves presence, not correctness.** §5.11's `dcterms` case is the clearest example. A separate check — comparing *values*, not names — would be needed to catch re-minted identifiers and re-stamped timestamps.
 3. **`w16cex` is a weak probe.** It carries zero elements and zero attributes in the corpus; it is declared and `mc:Ignorable`-listed only. It is excluded from the scoring rather than counted as a pass.

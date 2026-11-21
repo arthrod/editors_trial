@@ -302,6 +302,10 @@ def word_pixel_facts(path: Path, facts: dict) -> None:
     if not path.exists():
         return
     data = json.loads(path.read_text())
+    # A file Word refused has no pages to compare (Report C section 6.2 covers it).
+    refused = sorted(label for label, v in data.items() if v.get("refused"))
+    facts["wpx.refused"] = ", ".join(refused)
+    data = {label: v for label, v in data.items() if not v.get("refused")}
     inks = {v["corpus_ink"] for v in data.values()}
     if len(inks) == 1:
         facts["wpx.corpus_ink"] = inks.pop()

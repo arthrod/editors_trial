@@ -2,7 +2,7 @@
 
 One section per tool: what it is, what the benchmark runs, trivia that is not a score, and what the measurements mean for someone choosing an editor. This page does not rank the tools. The benchmark is independent: it is not affiliated with, sponsored by, or endorsed by any of the projects or companies it measures, and their names are their owners' trademarks.
 
-The round-trip driver in `build/score_all.py` measures fourteen tools, and `build/run_all.sh` runs the same set. Folio and eigenpal each have a second headless lane; those lanes are the same tools, not extra vendors. Six more tools are on editors.benchmarks.law and are not in the trial's reports yet: react-docx, Univer, OpenDoc, BetterOffice, OnlyOffice (CryptPad build) and Nutrient. They have sections at the end of this page, twenty sections in all. `repos/` is a local checkout of upstream trees. This page does not decide which of those trees are part of a published source drop, and it does not relicense any of them.
+The round-trip driver in `build/score_all.py` measures seventeen tools, and `build/run_all.sh` runs the same set and one more: OnlyOffice (CryptPad build), whose converter did not return from the test document and so wrote nothing to measure. Folio, eigenpal and BetterOffice each have a second headless lane; those lanes are the same tools, not extra vendors. react-docx, OpenDoc, BetterOffice and OnlyOffice joined in v0.11.0. Two more tools have a section and no round-trip lane: Univer, whose open-source packages cannot read a `.docx`, and Nutrient, a viewer that Report C captures. That makes twenty sections in all. `repos/` is a local checkout of upstream trees. This page does not decide which of those trees are part of a published source drop, and it does not relicense any of them.
 
 **How to read the Pros and Cons.** Each bullet rests on a measurement or on a quoted finding, and names its source in parentheses. "Main report" is the round-trip report at the root of this repository. Reports A to E2 are in this folder. "Editors site" is editors.benchmarks.law and "viewers site" is viewers.benchmarks.law: two sister sites, by the same owner, that open the same three sample files in every engine in a real browser. Their figures are from the pass of 2026-11-20 unless a bullet gives another date. "Test document" means the trial's own `fixture/complex.docx`, one deliberately difficult file of 6 pages.
 
@@ -452,11 +452,11 @@ The binary is still named `soffice`, the StarOffice name that OpenOffice and the
 
 react-docx (`@extend-ai/react-docx`) is a DOCX viewer and editor for JavaScript and React. Its README lists pagination, editing, import and export, document review and thumbnails. A Rust parser compiled to WebAssembly reads the file, and the pages are laid out in the DOM. The license is MIT. The source is at github.com/extend-hq/react-docx.
 
-react-docx is not in the trial's reports yet: no published run of the trial includes it.
+The trial measures `@extend-ai/react-docx@0.15.0` since v0.11.0.
 
 ### What the benchmark runs
 
-Nothing in the trial's reports yet. The sister sites run `@extend-ai/react-docx@0.15.0` through its `/vanilla` entry, served from their own origin because the package starts a Worker from its own files.
+`build/score_all.py` measures react-docx from `out/reactdocx`. `build/run_all.sh` runs `harness/reactdocx`: the published npm package `@extend-ai/react-docx@0.15.0`, opened in Chromium through its `/vanilla` entry and saved with the package's own export, which exists only in a browser. Report C captures the same package on screen. The sister sites run the same version, served from their own origin because the package starts a Worker from its own files.
 
 ### Trivia
 
@@ -467,22 +467,28 @@ The package ships with its review marks and review cards hidden; a page that wan
 - It lays the 500-page sample out on 500 pages, as Word does, in 8.70 s (editors site, 3 of 3 runs).
 - Once its review marks are turned on, it shows insertions underlined and a margin card per deletion and per comment with author, date and Accept and Reject (editors site, redline sample, seen 2026-11-18).
 - It reads and writes `.docx` itself, and it passed all ten checks and every hard case of the editors site's formatting probe (editors site README, probes of 2026-11-20).
+- Word opens the file it saves, and it kept all 35 parts of the test document (main report, round trip 91.5%).
+- Saving its own output a second time gives the same bytes (main report, second pass).
+- On screen it lays the test document out on 6 pages, as Word does, with the table, the picture and the chart drawn (Report C §2.15).
 
 ### Cons
 
 - It has no command that replaces a whole document inside its own undo history, so an assistant edit there opens a new document and cannot be undone (editors site README, "How fairness to each vendor is decided").
 - It runs only in a browser: it breaks pages by measuring text on screen, so it cannot render on a server (viewers site README, "No server route, and why"; read from the package, not run).
-- The trial has not measured it yet: it has no round-trip, Word, rendering or hostile-file result (this page; its lanes are pending).
+- It lost 7 of the test document's 169 pieces of text and failed 8 of 99 checks (main report, text kept 95.9%).
+- On hostile files it named no size limit, kept the weapon in five of the ten and ran past the time limit on one (Report D, grade 0.20).
+- It does not repair a damaged file: Word refuses what it saves from the broken test document (Report B §4).
+- Its speed is not measured by the trial: it has no entry that runs without a browser (Report E, "Not measured").
 
 ## Univer
 
 Univer is an open-source office SDK for spreadsheets and documents that draws on a canvas. The open-source core is Apache-2.0. Its open-source packages cannot read or write `.docx`: the editors site's README places that import and export in Univer's separately licensed Server SDK. The source is at github.com/dream-num/univer and the site is univer.ai.
 
-Univer is not in the trial's reports yet: no published run of the trial includes it.
+Univer has no round-trip lane in the trial: a probe of its 16 installed open-source packages found no `.docx` reader or writer (`harness/univer/probe.mjs`, since v0.11.0).
 
 ### What the benchmark runs
 
-Nothing in the trial's reports yet. The sister sites run `@univerjs/presets@1.5.2` with `preset-docs-core`. Because the package has no `.docx` reader, the site's own reader hands it the text and headings of each sample. What Univer shows there is not its reading of the file.
+`build/run_all.sh` runs `harness/univer/probe.mjs` over `@univerjs/presets@1.5.2` with `preset-docs-core`. The probe looks in every installed package for a zip library, a WordprocessingML part name or namespace, and a `.docx` import or export call. It found none, so there is no document to round-trip. The sister sites run the same version. Because the package has no `.docx` reader, the site's own reader hands it the text and headings of each sample. What Univer shows there is not its reading of the file.
 
 ### Trivia
 
@@ -499,17 +505,17 @@ Its documents preset has no read-only switch, so on the viewers site it stays ed
 - It is not a `.docx` editor as published in open source: it cannot open or export a Word file without its Server SDK (editors site README, "The editors").
 - Tracked changes are not drawn, and tables, pictures, fonts and page set-up do not carry over (editors site, redline sample; "Assessment").
 - The text of the 500-page sample alone took 29.3 s and 880 MB of JavaScript memory after a clean-up. The README notes this is what Univer does with that text, not a `.docx` figure (editors site, 3 of 3 runs).
-- The trial has not measured it yet: it has no round-trip, Word, rendering or hostile-file result (this page; its lanes are pending).
+- The trial has no round-trip, Word, rendering or hostile-file result for it, because there is no `.docx` path to run: the probe of its 16 packages found none (main report, the Univer probe).
 
 ## OpenDoc
 
 OpenDoc, from Casual Office, describes itself as an Apache-2.0, embeddable, local-first editor for Word documents with a Rust engine underneath. The engine is compiled to WebAssembly and draws on a canvas. The project is pre-release. The source is at github.com/CasualOffice/opendoc.
 
-OpenDoc is not in the trial's reports yet: no published run of the trial includes it.
+The trial measures OpenDoc's engine at commit `5ac261cea` (2026-11-06) since v0.11.0.
 
 ### What the benchmark runs
 
-Nothing in the trial's reports yet. The sister sites run the project's whole editor application, a snapshot of 2026-11-05 (commit `5ac261c`), in a frame on their own origin. They open a file through the application's own file input and catch its export on the way to the download.
+`build/score_all.py` measures OpenDoc from `out/opendoc`. `build/run_all.sh` runs `harness/opendoc`: a small Rust program built against the engine crate of the pinned checkout (`repos/opendoc/crates/opendoc`), which reads the file and writes it back. Report C captures the project's editor application at the same commit. The sister sites run the project's whole editor application, a snapshot of 2026-11-05 (commit `5ac261c`), in a frame on their own origin. They open a file through the application's own file input and catch its export on the way to the download.
 
 ### Trivia
 
@@ -521,24 +527,27 @@ The application is published as a website; its npm package is only a frame mount
 - In the redline sample it shows insertions and deletions in the text, and a card per change and per comment with author, date and Accept and Reject (editors site, redline sample, seen 2026-11-18).
 - It reads and writes `.docx` itself, and it passed all ten checks and every hard case of the editors site's formatting probe (editors site README, probes of 2026-11-20).
 - Its viewer package draws pages on a server: 204 ms for the rich sample and 1.57 s for the 500-page sample (viewers site, server render, 3 runs each, 2026-11-21).
+- It kept every part of the test document and all but 1 of its 169 pieces of text, and saving its own output a second time gives the same bytes (main report, round trip 89.9%, second pass).
+- On screen it draws the test document on 6 pages, as Word does, with the chart, the footnote and the deleted table row marked (Report C §2.16).
 
 ### Cons
 
 - Its server render draws a redline as the accepted text, with no marks. That package is an older build than the application, which shows them (viewers site, server render, `@casualoffice/opendoc-viewer@0.1.0-alpha.1`).
 - It is hard to embed today. It opens files only from its own file input and exports only by download, and a newer snapshot can break a page that drives it (editors site README, "Known limitations").
 - It is a pre-release, measured from a dated snapshot and not from a released version (editors site README, "The editors").
-- It is a large download: 20 MB over the network to show the 3-page redline sample (viewers site, redline sample).
-- The trial has not measured it yet: it has no round-trip, Word, rendering or hostile-file result (this page; its lanes are pending).
+- Word refuses the file it saves from the test document, and the schema check finds 4 violations in it (main report, Word verdicts; Report B §3).
+- On hostile files it named no size limit and kept the weapon in three of the ten (Report D, grade 0.48).
+- Its speed is not measured by the trial: timing it needs the cloud machines, which this release did not use (Report E, "Not measured").
 
 ## BetterOffice
 
 BetterOffice, from the OpenOOXML Project, describes itself as Rust-native OOXML engines with collaboration and agent editing at the core, compiled to WebAssembly for browsers. Its DOCX editor runs the engines in a Worker, draws pages on a canvas and has a React interface. The license is Apache-2.0. The source is at github.com/openooxml/betteroffice and the site is betteroffice.dev.
 
-BetterOffice is not in the trial's reports yet: no published run of the trial includes it.
+The trial measures `@betteroffice/docx@0.5.1` since v0.11.0, through two lanes: its document model and an editor session.
 
 ### What the benchmark runs
 
-Nothing in the trial's reports yet. The sister sites run `@betteroffice/docx-react@0.5.1` with `@betteroffice/docx@0.5.1` and `@betteroffice/fonts@0.4.2`, served from their own origin because the package starts a Worker from its own files.
+`build/score_all.py` measures BetterOffice from `out/betteroffice` (the document model: parse, then save) and from `out/betteroffice-editor` (an editor session opened on the file, then saved). Both run in Node from `harness/betteroffice`, with no browser. Report C captures `@betteroffice/docx-react` on screen. The sister sites run `@betteroffice/docx-react@0.5.1` with `@betteroffice/docx@0.5.1` and `@betteroffice/fonts@0.4.2`, served from their own origin because the package starts a Worker from its own files.
 
 ### Trivia
 
@@ -549,14 +558,17 @@ The React package imports its core by 30 subpaths, each of which a page without 
 - It lays the 500-page sample out on 500 pages, as Word does, in 8.05 s (editors site, 3 of 3 runs).
 - In the redline sample it shows deletions struck and insertions underlined, and a card per change and per comment with author, date and accept and reject (editors site, redline sample, seen 2026-11-18).
 - It reads and writes `.docx` itself, and it passed all ten checks and every hard case of the editors site's formatting probe (editors site README, probes of 2026-11-20).
-- The page stays responsive while the 500-page sample opens: Google's page test scored it 95 on desktop and 91 on mobile there (editors site README, Lighthouse, measured 2026-11-20).
+- Through an editor session it gave the test document back whole: every check passed, every part was kept, and Word opens the file (main report, editor lane 100.0%).
 - It also draws pages on a server, with its own layout and painter: 275 ms for the rich sample and 3.97 s for the 500-page sample, and the redline keeps its marks (viewers site, server render, 3 runs each, 2026-11-21).
 
 ### Cons
 
 - Its editing call takes plain-text steps and refuses a full replacement, so an assistant edit there opens a new document and clears the undo history (editors site README, "Assessment").
 - On a server its engine's memory reached about 0.5 GB on the 500-page sample and was not given back afterwards (viewers site, server render; measured locally by the route's author on a loaded machine).
-- The trial has not measured it yet: it has no round-trip, Word, rendering or hostile-file result (this page; its lanes are pending).
+- Through its document model the result is weaker: 12 of 99 checks failed, and Word refuses that file (main report, model lane 87.9%).
+- Its save returns a list of warnings, and for the test document the list was empty although checks failed (main report, harness log of the model lane).
+- On hostile files it named no size limit and kept the weapon in three of the ten; in the editor lane the process aborted on one (Report D, grade 0.36).
+- Its speed is not measured by the trial: timing it needs the cloud machines, which this release did not use (Report E, "Not measured").
 
 ## OnlyOffice (CryptPad build)
 
@@ -564,11 +576,11 @@ This is the OnlyOffice document editor as CryptPad builds it: the editor's JavaS
 
 This benchmark is not affiliated with, sponsored by, or endorsed by OnlyOffice or CryptPad. The build is run unmodified from CryptPad's release archives, and what is measured is that build, not OnlyOffice's own Document Server.
 
-OnlyOffice (CryptPad build) is not in the trial's reports yet: no published run of the trial includes it.
+The trial runs this build since v0.11.0, and it has no round-trip result: its converter did not return from the test document.
 
 ### What the benchmark runs
 
-Nothing in the trial's reports yet. The sister sites run `cryptpad/onlyoffice-editor` v9.3.2+3 with `cryptpad/onlyoffice-x2t-wasm` v9.3.2+3, read out of their release archives and shown as the vendor's whole application in a frame.
+`build/run_all.sh` runs `harness/onlyoffice`: CryptPad's `onlyoffice-x2t-wasm` v9.3.2+4, the converter alone, in Node. It did not return from the test document within 120 s, in both runs, so there is no output to score and no row in the scored tables. Report C runs the editor with that converter in Chromium. The sister sites run `cryptpad/onlyoffice-editor` v9.3.2+3 with `cryptpad/onlyoffice-x2t-wasm` v9.3.2+3, read out of their release archives and shown as the vendor's whole application in a frame.
 
 ### Trivia
 
@@ -580,6 +592,7 @@ The editor is distributed as one archive of 608 MB. One header icon is missing f
 - In the redline sample it shows deletions struck and insertions underlined in each author's colour, with its own review and comment panels (editors site, redline sample, seen 2026-11-18).
 - It reads and writes `.docx` itself, and it passed all ten checks and every hard case of the editors site's formatting probe (editors site README, probes of 2026-11-20).
 - It runs wholly in the browser, with no document server to operate (editors site README, "The editors").
+- On eight of the ten hostile files it wrote a file without the weapon in it (Report D, grade 0.64).
 
 ### Cons
 
@@ -587,7 +600,7 @@ The editor is distributed as one archive of 608 MB. One header icon is missing f
 - It is heavy on a short file: 3.06 s and 50 MB of JavaScript memory to open the 3-page rich sample, and an 18 MB download (editors site, 3 of 3 runs; viewers site, redline sample).
 - It says a long document is ready before it has finished counting pages: on the 500-page sample the count went on rising to 500 after "ready" (editors site README, "Figures to distrust", watched by hand on 2026-11-20).
 - It cannot draw pages on a server in this build: the converter is compiled without its renderer (viewers site README, "No server route, and why").
-- The trial has not measured it yet: it has no round-trip, Word, rendering or hostile-file result (this page; its lanes are pending).
+- It did not open the trial's test document. Its converter did not return while the embedded document (`w:altChunk`) was in the file; with that removed the editor reported an error at the SmartArt; with both removed it showed 6 pages (Report C §2.18; main report).
 
 ## Nutrient
 
@@ -597,11 +610,11 @@ Nutrient Web SDK is a commercial, closed-source document SDK. It is a viewer her
 
 **No affiliation.** This benchmark is independent. It is not affiliated with, sponsored by, or endorsed by Nutrient, or by any other vendor it measures. Nutrient Web SDK was run from Nutrient's own CDN in its trial mode; the watermark that mode draws is left in what is shown, not removed. Nutrient and PSPDFKit are trademarks of their owner.
 
-Nutrient is not in the trial's reports yet: no published run of the trial includes it.
+Nutrient is in the trial's rendering report (Report C) since v0.11.0, and in no other: it is a viewer, so there is no saved file to round-trip.
 
 ### What the benchmark runs
 
-Nothing in the trial's reports yet. The sister sites run `nutrient-viewer` 1.25.0 from Nutrient's CDN, view-only.
+Report C captures `nutrient-viewer` 1.25.0 from Nutrient's CDN in Chromium, with no key (`harness/ui/nutrient`). The sister sites run the same version, view-only.
 
 ### Trivia
 
@@ -619,5 +632,4 @@ The SDK's error messages and its CDN host still carry the former name, PSPDFKit.
 - It shows a redline as the accepted text, with no marks for insertions, deletions or comments (editors site, redline sample).
 - It substitutes fonts: in the rich sample inline code is not monospace and the title wraps (editors site README, "Proprietary viewers").
 - It is a very large download and slow to start: 105 MB loaded, of which one file is 68 MB, and 15 to 28 s on desktop Chrome (editors site README, measured 2026-11-09); 20.8 s for the 500-page sample (editors site, 2 of 3 runs).
-- Its trial mode is an evaluation license, and the editors site's README warns that hosting it publicly may fall outside those terms (editors site README, "Licensing").
-- The trial has not measured it yet: it has no round-trip, Word, rendering or hostile-file result (this page; its lanes are pending).
+- It lays the test document out on 7 pages where Word has 6, and draws the chart without its axis and category labels and the Hebrew line without its Hebrew letters (Report C §2.19).

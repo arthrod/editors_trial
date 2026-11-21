@@ -4,7 +4,7 @@ Report C, section 6, compares Word's rendering of each editor's output with Word
 
 ## Raw refusals
 
-In section 6.1 the rows for Folio, office-open, Docen, and Fidus Writer say Word refused the file. Those rows are the raw round-trip outputs. They were not produced by opening a file after `build/folio_deltext_test.py` or `build/officeopen_rels_test.py`.
+In section 6.1 the rows for Folio, office-open, Docen, and Fidus Writer, and since v0.11.0 those for OpenDoc and BetterOffice's document model, say Word refused the file. Those rows are the raw round-trip outputs. They were not produced by opening a file after `build/folio_deltext_test.py` or `build/officeopen_rels_test.py`.
 
 ## Repair experiments are counterfactuals
 

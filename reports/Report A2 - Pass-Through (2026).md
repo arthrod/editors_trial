@@ -6,11 +6,13 @@ That sounds like a dull question. It is the opposite. Pass-through is the **stro
 
 ---
 
+**Added in v0.11.0.** react-docx, OpenDoc and BetterOffice (two lanes: its document model, and an editor session) are in the part map of §2 and in §6.10. Their source was not read: what is said of them is measured from the packages they wrote. OnlyOffice (CryptPad build) wrote no output, so it has no row.
+
 ## TL;DR
 
 - **Folio copies 34 of the corpus's 35 parts byte-for-byte and still scores 98.5%.** The reason is that the one part it rebuilds — `word/document.xml` — is where almost all of the interesting markup lives. **Pass-through is a measure of what the editor ignored, not of what it preserved.**
 - **Docxodus is the only tool in the study with nothing changed and nothing dropped: 25 parts byte-identical, 10 re-serialised, 0 changed, 0 dropped, 0 added, all 35 parts out.** It gets there without a policy at all — it is built on the Microsoft Open XML SDK, opens the package with `WordprocessingDocument.Open(stream, isEditable: true)` and saves the same object graph back out, so parts it has no schema for are carried through untouched and parts it owns are re-printed. **Folio copies more bytes; Docxodus changes less.**
-- **Folio's pass-through is of the raw compressed bytes, not the decompressed XML.** `docx-core/src/zip/archive.ts:388-405` writes the original deflate stream, so the CRC and the compressed size are preserved exactly. No editor in this study returns an author's bytes more faithfully.
+- **Folio's pass-through is of the raw compressed bytes, not the decompressed XML.** `docx-core/src/zip/archive.ts:388-405` writes the original deflate stream, so the CRC and the compressed size are preserved exactly. No editor whose source was read returns an author's bytes more faithfully.
 - **Five architectures produce pass-through, and they are not equally faithful.** Clone-and-override (Folio) copies compressed bytes. Byte-splice (GenOffice, eigenpal) copies *byte ranges of the decompressed XML*. Opaque-blob (SuperDoc) copies whole ZIP entries it never modelled. Manifest-gated (WordCraft) copies payloads only when a manifest and a passthrough flag agree. **SDK round trip (Docxodus)** lets the Open XML SDK own the parts it models and pass the rest through.
 - **Four editors have zero pass-through.** Fidus Writer, canvas-editor, docs.plus and Plate.js all regenerate every part. Plate.js is the extreme: **zero byte-identical parts, 24 parts dropped, nothing added, 11 parts out** — the smallest package in the trial.
 - **Pass-through has a hidden failure mode that no part-level checker catches: the orphan.** When an editor keeps the payload but drops the element that pointed at it, the package still contains the bytes and nothing references them. **With the `altChunk` it happened once: Apryse WebViewer turns the chunk into ordinary paragraphs and keeps `word/afchunk.html` with nothing in the body pointing at it — the text is not lost, the part is ballast. Seven editors kept the construct whole and six dropped it whole. With the chart it happened in a worse form (§5.4).**
@@ -96,101 +98,101 @@ The same 35-part adversarial corpus (`fixture/complex.docx`) used throughout the
 
 **SuperDoc's 27 pass-through parts are the entire binary payload.** The chart, the four SmartArt parts, the OLE embedding, the workbook, the image, `customXml`, `webSettings`, `fontTable`, `theme` and `afchunk.html` are all byte-identical — because SuperDoc's engine does not model them and returns the raw ZIP entries.
 
-**Docen and WordCraft are the only editors that *add* parts that were not in the input** (4 each). Docen adds the three Word 2016 comment-extension parts (`commentsExtended.xml`, `commentsExtensible.xml`, `commentsIds.xml`) and `docProps/custom.xml`. WordCraft adds `docProps/custom.xml` and the header/footer `.rels` parts.
+**Four tools *add* parts that were not in the input:** Docen and WordCraft (4 each), react-docx (5: four header and footer `.rels` parts and a second picture) and BetterOffice's document model (3: the three Word 2016 comment-extension parts). Docen adds the three Word 2016 comment-extension parts (`commentsExtended.xml`, `commentsExtensible.xml`, `commentsIds.xml`) and `docProps/custom.xml`. WordCraft adds `docProps/custom.xml` and the header/footer `.rels` parts.
 
 ### 2.2 The full part matrix
 
-The matrix is printed as four tables — two editor halves × two part groups — because fourteen editor columns do not survive a landscape page. **Part names are printed without the `word/` prefix**, with sub-directories compacted (`embeddings/` to `embed/`, `diagrams/` to `dgm/`, `charts/` to `chart/`) and `Microsoft_Excel_Worksheet.xlsx` shortened to `Excel_Worksheet.xlsx`; parts outside `word/` keep their full path, so `_rels/.rels` and `customXml/item1.xml` are unambiguous. **Editor names are shortened in the header only** — `Fidus Writer` to `Fidus`, `canvas-editor + plugin` to `canvas + plugin`, `LibreOffice (baseline)` to `LibreOffice`.
+The matrix is printed as four tables — two editor halves × two part groups — because seventeen editor columns do not survive a landscape page. **Part names are printed without the `word/` prefix**, with sub-directories compacted (`embeddings/` to `embed/`, `diagrams/` to `dgm/`, `charts/` to `chart/`) and `Microsoft_Excel_Worksheet.xlsx` shortened to `Excel_Worksheet.xlsx`; parts outside `word/` keep their full path, so `_rels/.rels` and `customXml/item1.xml` are unambiguous. **Editor names are shortened in the header only** — `Fidus Writer` to `Fidus`, `canvas-editor + plugin` to `canvas + plugin`, `LibreOffice (baseline)` to `LibreOffice`.
 
 **WordprocessingML and package parts**
 
-| Package part | Plate.js | Docxodus | Apryse WebViewer | SuperDoc | Folio | GenOffice | eigenpal |
-|---|---|---|---|---|---|---|---|
-| `[Content_Types].xml` | C | P | C | P | P | P | P |
-| `_rels/.rels` | C | P | w | P | P | P | w |
-| `customXml/item1.rels` | D | P | w | P | P | P | w |
-| `customXml/item1.xml` | D | P | C | P | P | P | w |
-| `customXml/itemProps1.xml` | D | P | w | P | P | P | w |
-| `docProps/app.xml` | D | P | C | P | P | P | w |
-| `docProps/core.xml` | C | P | w | P | P | C | w |
-| `_rels/document.xml.rels` | C | P | C | P | P | P | w |
-| `chart/_rels/chart1.xml.rels` | D | P | w | P | P | P | w |
-| `comments.xml` | D | w | C | w | P | w | C |
-| `document.xml` | C | w | C | C | C | C | C |
-| `endnotes.xml` | D | w | C | C | P | w | C |
-| `fontTable.xml` | C | P | C | P | P | w | C |
-| `footer1.xml` | D | w | C | C | P | w | C |
-| `footer2.xml` | D | w | D | C | P | w | C |
-| `footnotes.xml` | D | w | C | C | P | w | C |
-| `glossary/document.xml` | D | P | P | P | P | w | C |
-| `header1.xml` | D | w | D | C | P | w | C |
-| `header2.xml` | D | w | D | C | P | w | C |
-| `numbering.xml` | C | P | C | P | P | w | C |
-| `settings.xml` | C | w | C | P | P | w | C |
-| `styles.xml` | C | w | C | P | P | w | C |
-| `theme/theme1.xml` | C | P | w | P | P | P | w |
-| `webSettings.xml` | C | P | P | P | P | w | C |
+| Package part | Plate.js | Docxodus | Apryse WebViewer | SuperDoc | Folio | GenOffice | eigenpal | office-open | Docen |
+|---|---|---|---|---|---|---|---|---|---|
+| `[Content_Types].xml` | C | P | C | P | P | P | P | w | C |
+| `_rels/.rels` | C | P | w | P | P | P | w | w | w |
+| `customXml/item1.rels` | D | P | w | P | P | P | w | P | P |
+| `customXml/item1.xml` | D | P | C | P | P | P | w | P | P |
+| `customXml/itemProps1.xml` | D | P | w | P | P | P | w | P | P |
+| `docProps/app.xml` | D | P | C | P | P | P | w | C | C |
+| `docProps/core.xml` | C | P | w | P | P | C | w | w | w |
+| `_rels/document.xml.rels` | C | P | C | P | P | P | w | C | C |
+| `chart/_rels/chart1.xml.rels` | D | P | w | P | P | P | w | w | w |
+| `comments.xml` | D | w | C | w | P | w | C | C | C |
+| `document.xml` | C | w | C | C | C | C | C | C | C |
+| `endnotes.xml` | D | w | C | C | P | w | C | C | C |
+| `fontTable.xml` | C | P | C | P | P | w | C | C | C |
+| `footer1.xml` | D | w | C | C | P | w | C | C | C |
+| `footer2.xml` | D | w | D | C | P | w | C | C | C |
+| `footnotes.xml` | D | w | C | C | P | w | C | C | C |
+| `glossary/document.xml` | D | P | P | P | P | w | C | C | C |
+| `header1.xml` | D | w | D | C | P | w | C | C | C |
+| `header2.xml` | D | w | D | C | P | w | C | C | C |
+| `numbering.xml` | C | P | C | P | P | w | C | C | C |
+| `settings.xml` | C | w | C | P | P | w | C | C | C |
+| `styles.xml` | C | w | C | P | P | w | C | C | C |
+| `theme/theme1.xml` | C | P | w | P | P | P | w | w | w |
+| `webSettings.xml` | C | P | P | P | P | w | C | C | C |
 
 **WordprocessingML and package parts (continued)**
 
-| Package part | office-open | Docen | WordCraft | Fidus | canvas + plugin | docs.plus | LibreOffice |
-|---|---|---|---|---|---|---|---|
-| `[Content_Types].xml` | w | C | C | C | C | C | C |
-| `_rels/.rels` | w | w | P | C | C | C | C |
-| `customXml/item1.rels` | P | P | P | D | D | D | C |
-| `customXml/item1.xml` | P | P | P | D | D | D | w |
-| `customXml/itemProps1.xml` | P | P | P | D | D | D | w |
-| `docProps/app.xml` | C | C | C | C | C | D | C |
-| `docProps/core.xml` | w | w | C | C | C | C | C |
-| `_rels/document.xml.rels` | C | C | C | C | C | C | C |
-| `chart/_rels/chart1.xml.rels` | w | w | P | D | D | D | D |
-| `comments.xml` | C | C | C | D | C | D | C |
-| `document.xml` | C | C | C | C | C | C | C |
-| `endnotes.xml` | C | C | C | D | D | D | C |
-| `fontTable.xml` | C | C | P | C | C | C | C |
-| `footer1.xml` | C | C | C | D | C | D | C |
-| `footer2.xml` | C | C | C | D | D | D | C |
-| `footnotes.xml` | C | C | C | C | C | D | C |
-| `glossary/document.xml` | C | C | P | D | D | D | w |
-| `header1.xml` | C | C | C | D | C | D | C |
-| `header2.xml` | C | C | C | D | D | D | C |
-| `numbering.xml` | C | C | C | C | C | C | C |
-| `settings.xml` | C | C | C | C | C | C | C |
-| `styles.xml` | C | C | C | C | C | C | C |
-| `theme/theme1.xml` | w | w | C | D | D | C | C |
-| `webSettings.xml` | C | C | P | D | D | C | D |
+| Package part | WordCraft | Fidus | canvas + plugin | docs.plus | react-docx | OpenDoc | BetterOffice | LibreOffice |
+|---|---|---|---|---|---|---|---|---|
+| `[Content_Types].xml` | C | C | C | C | P | C | C | C |
+| `_rels/.rels` | P | C | C | C | P | w | P | C |
+| `customXml/item1.rels` | P | D | D | D | P | P | P | C |
+| `customXml/item1.xml` | P | D | D | D | P | P | P | w |
+| `customXml/itemProps1.xml` | P | D | D | D | P | P | P | w |
+| `docProps/app.xml` | C | C | C | D | P | C | P | C |
+| `docProps/core.xml` | C | C | C | C | P | w | C | C |
+| `_rels/document.xml.rels` | C | C | C | C | C | C | C | C |
+| `chart/_rels/chart1.xml.rels` | P | D | D | D | P | P | P | D |
+| `comments.xml` | C | D | C | D | P | C | C | C |
+| `document.xml` | C | C | C | C | C | C | C | C |
+| `endnotes.xml` | C | D | D | D | P | C | C | C |
+| `fontTable.xml` | P | C | C | C | P | C | P | C |
+| `footer1.xml` | C | D | C | D | w | C | C | C |
+| `footer2.xml` | C | D | D | D | w | C | C | C |
+| `footnotes.xml` | C | C | C | D | P | C | C | C |
+| `glossary/document.xml` | P | D | D | D | P | P | P | w |
+| `header1.xml` | C | D | C | D | w | C | C | C |
+| `header2.xml` | C | D | D | D | w | C | C | C |
+| `numbering.xml` | C | C | C | C | P | C | P | C |
+| `settings.xml` | C | C | C | C | P | C | P | C |
+| `styles.xml` | C | C | C | C | P | C | P | C |
+| `theme/theme1.xml` | C | D | D | C | P | P | P | C |
+| `webSettings.xml` | P | D | D | C | P | P | P | D |
 
 **Binary payload and opaque parts**
 
-| Package part | Plate.js | Docxodus | Apryse WebViewer | SuperDoc | Folio | GenOffice | eigenpal |
-|---|---|---|---|---|---|---|---|
-| `chart/chart1.xml` | D | P | w | P | P | P | w |
-| `chart/style1.xml` | D | P | D | P | P | P | w |
-| `chart/colors1.xml` | D | P | D | P | P | P | w |
-| `dgm/data1.xml` | D | P | w | P | P | P | w |
-| `dgm/layout1.xml` | D | P | P | P | P | P | w |
-| `dgm/quickStyle1.xml` | D | P | P | P | P | P | w |
-| `dgm/colors1.xml` | D | P | P | P | P | P | w |
-| `embed/embedded1.docx` | D | P | P | P | P | P | P |
-| `embed/Excel_Worksheet.xlsx` | D | P | P | P | P | P | P |
-| `media/image1.png` | D | P | P | P | P | P | P |
-| `afchunk.html` | D | P | P | P | P | P | P |
+| Package part | Plate.js | Docxodus | Apryse WebViewer | SuperDoc | Folio | GenOffice | eigenpal | office-open | Docen |
+|---|---|---|---|---|---|---|---|---|---|
+| `chart/chart1.xml` | D | P | w | P | P | P | w | w | w |
+| `chart/style1.xml` | D | P | D | P | P | P | w | P | P |
+| `chart/colors1.xml` | D | P | D | P | P | P | w | P | P |
+| `dgm/data1.xml` | D | P | w | P | P | P | w | w | w |
+| `dgm/layout1.xml` | D | P | P | P | P | P | w | w | w |
+| `dgm/quickStyle1.xml` | D | P | P | P | P | P | w | w | w |
+| `dgm/colors1.xml` | D | P | P | P | P | P | w | w | w |
+| `embed/embedded1.docx` | D | P | P | P | P | P | P | P | P |
+| `embed/Excel_Worksheet.xlsx` | D | P | P | P | P | P | P | P | P |
+| `media/image1.png` | D | P | P | P | P | P | P | P | P |
+| `afchunk.html` | D | P | P | P | P | P | P | P | P |
 
 **Binary payload and opaque parts (continued)**
 
-| Package part | office-open | Docen | WordCraft | Fidus | canvas + plugin | docs.plus | LibreOffice |
-|---|---|---|---|---|---|---|---|
-| `chart/chart1.xml` | w | w | P | D | D | D | C |
-| `chart/style1.xml` | P | P | D | D | D | D | D |
-| `chart/colors1.xml` | P | P | D | D | D | D | D |
-| `dgm/data1.xml` | w | w | P | D | D | D | D |
-| `dgm/layout1.xml` | w | w | P | D | D | D | D |
-| `dgm/quickStyle1.xml` | w | w | P | D | D | D | D |
-| `dgm/colors1.xml` | w | w | P | D | D | D | D |
-| `embed/embedded1.docx` | P | P | P | D | D | D | D |
-| `embed/Excel_Worksheet.xlsx` | P | P | P | D | D | D | P |
-| `media/image1.png` | P | P | P | D | D | D | P |
-| `afchunk.html` | P | P | D | D | D | D | D |
+| Package part | WordCraft | Fidus | canvas + plugin | docs.plus | react-docx | OpenDoc | BetterOffice | LibreOffice |
+|---|---|---|---|---|---|---|---|---|
+| `chart/chart1.xml` | P | D | D | D | P | P | P | C |
+| `chart/style1.xml` | D | D | D | D | P | P | P | D |
+| `chart/colors1.xml` | D | D | D | D | P | P | P | D |
+| `dgm/data1.xml` | P | D | D | D | P | P | P | D |
+| `dgm/layout1.xml` | P | D | D | D | P | P | P | D |
+| `dgm/quickStyle1.xml` | P | D | D | D | P | P | P | D |
+| `dgm/colors1.xml` | P | D | D | D | P | P | P | D |
+| `embed/embedded1.docx` | P | D | D | D | P | P | P | D |
+| `embed/Excel_Worksheet.xlsx` | P | D | D | D | P | P | P | P |
+| `media/image1.png` | P | D | D | D | P | P | P | P |
+| `afchunk.html` | D | D | D | D | P | P | P | D |
 
 ### 2.3 Two rows worth dwelling on
 
@@ -451,7 +453,7 @@ This is precisely why office-open scores 100% on text retention at the XML level
 | Plate.js | 11 | 10 | — | — |
 | LibreOffice | 43 | 37 | — | — |
 
-**Not one editor leaves a dangling content-type declaration.** Every editor that drops a part also removes its declaration. This is worth stating explicitly because it is the most obvious way a lossy pipeline could produce an invalid package, and none of these fourteen does it.
+**Not one editor leaves a dangling content-type declaration.** Every editor that drops a part also removes its declaration. This is worth stating explicitly because it is the most obvious way a lossy pipeline could produce an invalid package, and none of these seventeen does it.
 
 ### 5.6 A note on `dgm:relIds`
 
@@ -461,7 +463,7 @@ The SmartArt's four-part linkage is a good illustration of why the dangling-refe
 - invisible to a content-types check,
 - and **fatal to the rendering**.
 
-No editor in this study is in that partial state — office-open and Docen lose all four together, and the other editors lose none. But the state is reachable, and it is the kind of thing a package-level fidelity score cannot see.
+No editor in this study is in that partial state — office-open and Docen lose all four together, BetterOffice's document model drops the whole `dgm:relIds` element while keeping the four diagram parts in the package, and the other editors lose none. But the state is reachable, and it is the kind of thing a package-level fidelity score cannot see.
 
 ---
 
@@ -550,6 +552,19 @@ All four regenerate everything. There is nothing to orphan and nothing to dangle
 
 ---
 
+### 6.10 The tools added in v0.11.0: react-docx, OpenDoc, BetterOffice
+
+Measured from the packages; no source was read.
+
+| Lane | Byte-identical | Re-serialised to the same tree | Changed | Dropped | Added |
+|---|---:|---:|---:|---:|---:|
+| react-docx | 29 | 6 | 2 | 0 | 5 |
+| OpenDoc | 18 | 17 | 15 | 0 | 0 |
+| BetterOffice, document model | 24 | 11 | 11 | 0 | 3 |
+| BetterOffice, editor session | 34 | 1 | 1 | 0 | 0 |
+
+None of the four drops a part. BetterOffice's editor session is the closest any lane comes to Docxodus's all-zero row: 34 of 35 parts byte-identical and one changed, `docProps/core.xml`, where it writes a new modification time. Docxodus is still the only row with nothing changed. In the three outputs those audits read (react-docx, OpenDoc and BetterOffice's document model) content types are coherent (`build/ct_coherence.py`) and no relationship points at a missing part (`build/rel_forward.py`).
+
 ## 7. What this means
 
 - **Pass-through is a measure of what the editor ignored.** Folio's 34 byte-identical parts are 34 parts in which no user can ever make a change. The number is a fidelity number and an editing-power number at the same time, and it moves in opposite directions.
@@ -558,7 +573,7 @@ All four regenerate everything. There is nothing to orphan and nothing to dangle
 - **A dangling reference is worse than a dangling part, because it hides.** office-open and Docen produce packages with no missing parts, no dangling content-type declarations, no schema violations — and a chart and a SmartArt that are present, linked from the `.rels` file, and pointed at by body elements that resolve to nothing. **Every structural check passes. The page is still wrong.**
 - **Check the forward direction.** Every relationship-integrity checker worth writing resolves `.rels` → parts. The direction that broke here is body → `.rels`. Five lines of code (`build/rel_forward.py`) find a defect that a 99-check fidelity score, a schema validator, and a content-types audit all miss.
 - **The best row and the best score are not the same row.** Docxodus has the only all-zero row in the part map — 0 changed, 0 dropped, 0 added — and the *entire* binary payload byte-identical. Folio copies more bytes still (34 against 25), but it rewrites the body. If your requirement is "save it back and change nothing", Docxodus is the only participant in this study that satisfies it outright.
-- **Choose on the axis you care about.** If you need the document to survive a round trip with its payloads intact, Folio and SuperDoc. If you need to *change* a chart, a diagram or an embedded workbook, none of the pass-through editors can help you and you want WordCraft, which redraws the payload from its own model instead. If you need a document Microsoft Word will open, note that **four of the fourteen outputs in this study are refused by Word 16.115** — Folio, office-open, Docen and Fidus Writer — for reasons set out in the companion report *Malformed Parts*. Two of those four pass every static check in this report.
+- **Choose on the axis you care about.** If you need the document to survive a round trip with its payloads intact, Folio and SuperDoc. If you need to *change* a chart, a diagram or an embedded workbook, none of the pass-through editors can help you and you want WordCraft, which redraws the payload from its own model instead. If you need a document Microsoft Word will open, note that **six of the seventeen outputs in this study are refused by Word 16.115** — Folio, office-open, Docen and Fidus Writer — for reasons set out in the companion report *Malformed Parts*. Two of those four pass every static check in this report.
 
 ---
 
@@ -589,7 +604,7 @@ The per-editor code citations refer to the pinned commits listed in the first re
 2. **`w:altChunk` presence is detected by a literal string search** in `word/document.xml` (`"w:altChunk" in xml`), not by an XML query. It is sufficient for the corpus and the twelve outputs, all of which use the `w:` prefix for that element, but it is not prefix-independent.
 3. **The `unreferenced`/`body-orphaned` distinction depends on how the fixture binds the chart's style and colour parts.** In the corpus they are bound by part-name convention and a content-types declaration rather than by a relationship, so they are "unreferenced" in the corpus as well as in every output that keeps them. That is a property of the format for those two parts, not a defect of any editor.
 4. **The dangling-reference check resolves ids within the part that uses them.** A relationship id used in `word/document.xml` is resolved against `word/_rels/document.xml.rels` — correct — but the check does not follow the chain one level deeper (e.g. from the chart part into the embedded workbook's own rels). That deeper chain was checked separately by `orphan_audit.py`, and no output has a dangling part at any level.
-5. **LibreOffice's row is a baseline, not a result.** It is not one of the twelve editors in the study and there is no source evidence to cite for its write path; its numbers here are measurements only.
+5. **LibreOffice's row is a baseline, not a result.** It is not one of the editors in the study and there is no source evidence to cite for its write path; its numbers here are measurements only. The same holds for the three tools added in v0.11.0 (§6.10).
 6. **This report measures packages, not pages.** Whether a surviving part is *drawn* is a separate question, answered in *Rendering Versus Word*. For Docxodus the two answers are unusually far apart: its package keeps every namespace, and its renderer substitutes a `[SMARTART]` placeholder and a `[MATH]` chip for two of them.
 7. **Docxodus's row is measured through the `DocxSession` API, not through its export CLI.** The round trip is `docxodus/core` → `openDocxSession` → `save()` (`harness/ui/docxodus/roundtrip.mjs`). The `@docxodus/export` CLI produces HTML and PDF and does not write DOCX, so it has no package to measure. The two paths share the same package writer, but the measurement exercises the session API — which is the product's own supported round-trip surface.
 8. **Docxodus's pass-through is exact because the SDK never opens those parts.** "Byte-identical" here means *never touched*, and that is a statement about the SDK's part ownership, not about a decision to preserve. The consequence for an evaluator is the same one §4.1 draws for Folio: the parts Docxodus copies are the parts no user can change.

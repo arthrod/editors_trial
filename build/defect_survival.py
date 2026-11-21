@@ -29,6 +29,9 @@ EDITORS = [
     ("Docen", "docen"), ("WordCraft", "wordcraft"), ("Fidus Writer", "fidus"),
     ("Plate.js", "plate"), ("canvas-editor + plugin", "canvas"), ("docs.plus", "docsplus"),
     ("Apryse WebViewer", "apryse"),
+    # joined at v0.11.0 (build/lanes.py PUBLISHED_IN); OnlyOffice has a no-output record
+    ("react-docx", "reactdocx"), ("OpenDoc", "opendoc"), ("BetterOffice", "betteroffice"),
+    ("OnlyOffice (CryptPad build)", "onlyoffice"),
     ("LibreOffice (baseline)", "lo_baseline"),
 ]
 
@@ -224,8 +227,12 @@ def flip_table(rows, clean_opens, verdicts, editors=EDITORS, why=None):
     lines = ["| Editor | Clean corpus | Broken corpus | Verdict flipped by the corpus? |", "|---|---|---|---|"]
     for label, d in editors:
         clean = {True: "OPENED", False: "REFUSED"}.get(clean_opens.get(d), "not measured")
+        if clean == "not measured" and (ROOT / "out" / d / "no_output.json").exists():
+            clean = "no output"  # the lane recorded why it wrote nothing from the clean corpus either
         broken = "no output" if rows.get(d) is None else _verdict(verdicts.get(d))
-        if "not measured" in (clean, broken):
+        if clean == "no output":
+            flip = "no" if broken == "no output" else "not measured"
+        elif "not measured" in (clean, broken):
             flip = "not measured"
         elif broken == "no output":
             flip = f"**yes — {_why(why, d) or 'the importer refused the corpus'}**" if clean == "OPENED" else "no"
