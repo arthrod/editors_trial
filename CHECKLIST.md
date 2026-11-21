@@ -113,7 +113,7 @@ Live since 2026-11-21 (site PRs 97 and 99), each line checked on the deployed pa
 
 - [x] 10.1 One card per tool, new editors included: 19 cards and the LibreOffice baseline
 - [x] 10.2 Each card's summary says what the tool is good for, in the reader's terms ("Use X for Y"), not a list of scores
-- [x] 10.3 Each card shows grades for speed, data transferred and memory, beside round trip and hostile input, with the rule that produces each grade printed on the page. Tools not on editors.benchmarks.law, and readings from another machine, are left unscored with the reason
+- [x] 10.3 Each card shows grades for speed, data transferred and memory, beside round trip and hostile input, with the rule that produces each grade printed on the page. Tools not on editors.benchmarks.law, and readings from another machine, are left unscored with the reason. GenOffice, office-open, Fidus Writer and docs.plus were put on editors.benchmarks.law on 2026-11-21 through this repository's demo builds and measured on a Mac: their data transferred is scored, their times and memory are printed unscored (the rented machine was not paid for)
 - [x] 10.4 "About" on each card goes to that vendor's section of `/editors-trial/vendor-notes` (all 19 land on a heading)
 - [x] 10.5 The old `/editors-trial/lane-<editor>` addresses redirect to the vendor's section (301, fragment kept)
 - [x] 10.6 The index page counts and names match the field
@@ -127,3 +127,4 @@ Live since 2026-11-21 (site PRs 97 and 99), each line checked on the deployed pa
 | 2026-11-21 | 9.1, 10 | Released (et-v0.10.6) and deployed; checked on the live pages |
 | 2026-11-21 | 1 to 9 | et-v0.11.0: four tools join the round trip, five join Report C; live on benchmarks.law and checked in Chrome |
 | 2026-11-21 | 7, 8 | Blocked: the new tools are not timed (no cloud machines rented) |
+| 2026-11-21 | 10.3 | The four tools that had no page on editors.benchmarks.law have one; their cards show the figures |
