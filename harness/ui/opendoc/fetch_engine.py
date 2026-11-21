@@ -45,7 +45,10 @@ def main() -> int:
             print(f"{name}: present")
             continue
         req = urllib.request.Request(SITE + name, headers={"User-Agent": "docx-benchmark-harness"})
-        data = urllib.request.urlopen(req).read()
+        try:
+            data = urllib.request.urlopen(req, timeout=120).read()
+        except OSError as e:  # URLError, HTTPError and a stalled connection's timeout are all OSError
+            raise SystemExit(f"{name}: could not download {SITE + name}: {e}")
         got = hashlib.sha256(data).hexdigest()
         if got != want:
             raise SystemExit(f"{name}: the site now serves {got}, not the pinned build {want}; "

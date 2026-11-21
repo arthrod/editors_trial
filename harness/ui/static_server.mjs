@@ -44,14 +44,29 @@ function handle(req, res) {
   let file = path.join(dir, pathname.slice(prefix.length));
   if (file !== dir && !file.startsWith(dir + path.sep)) { res.writeHead(404).end('not found'); return; }
   if (fs.existsSync(file) && fs.statSync(file).isDirectory()) file = path.join(file, 'index.html');
-  if (!fs.existsSync(file)) { res.writeHead(404).end('not found'); return; }
+  // The file is opened once and everything is read from that handle: one that vanishes between a
+  // check and the read is a 404, not an unhandled stream error that ends the server.
+  let fd, size;
+  try {
+    // A link inside a served folder must not lead out of it: the real path is checked, not the text.
+    const real = fs.realpathSync(file), realDir = fs.realpathSync(dir);
+    if (real !== realDir && !real.startsWith(realDir + path.sep)) throw new Error('outside the served folder');
+    fd = fs.openSync(real, 'r');
+    const st = fs.fstatSync(fd);
+    if (!st.isFile()) throw new Error('not a file');
+    size = st.size;
+  } catch {
+    if (fd !== undefined) fs.closeSync(fd);
+    res.writeHead(404).end('not found');
+    return;
+  }
   res.writeHead(200, {
     'content-type': TYPES[path.extname(file).slice(1).toLowerCase()] || 'application/octet-stream',
-    'content-length': fs.statSync(file).size,
+    'content-length': size,
     'cache-control': 'no-store',
   });
-  if (req.method === 'HEAD') { res.end(); return; }
-  fs.createReadStream(file).pipe(res);
+  if (req.method === 'HEAD') { fs.closeSync(fd); res.end(); return; }
+  fs.createReadStream(null, { fd }).on('error', () => res.destroy()).pipe(res);
 }
 
 const server = http.createServer(handle);
