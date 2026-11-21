@@ -5,7 +5,7 @@ import sys
 import xml.etree.ElementTree as ET
 import zipfile
 
-BASE = "/Users/arthrod/temp/T/editors_trial"
+BASE = os.environ.get("TRIAL_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def show(label, path, want_ct=False, want_rels=None, want_doc_rels=None):

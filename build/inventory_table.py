@@ -21,7 +21,7 @@ usage: python3 build/inventory_table.py > out/render/inventory_table.md
 import json
 import os
 
-BASE = "/Users/arthrod/temp/T/editors_trial"
+BASE = os.environ.get("TRIAL_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 EDITORS = ["superdoc", "folio", "genoffice", "eigenpal", "office-open",
            "docen", "wordcraft", "fidus", "canvas", "docs.plus", "plate",

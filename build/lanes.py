@@ -42,10 +42,22 @@ KEYS = {"reactdocx": "react-docx", "opendoc": "opendoc", "betteroffice": "better
 ROOT = Path(os.environ.get("TRIAL_ROOT") or Path(__file__).resolve().parent.parent)
 
 
+# The release that published the lanes above (RELEASING.md section 3a done for each):
+# from it on they are in every run. Empty while a lane is only being developed; the
+# next participant starts with this set back to "" in its branch, or with its own
+# entry in a second list, until its release.
+PUBLISHED_IN = "v0.11.0"
+
+
 def requested(argv=None) -> bool:
-    """Whether this run asked for the pending lanes too: TRIAL_PENDING=1 in the
-    environment (any script), or --pending (the scripts that parse it: score_all.py,
-    score_extra.py, facts.py, preserved_matrix.py)."""
+    """Whether this run includes the lanes above. Published lanes (PUBLISHED_IN) are in
+    every run; TRIAL_PENDING=0 leaves them out, to reproduce an earlier release.
+    Before publication a run asks for them: TRIAL_PENDING=1 in the environment (any
+    script), or --pending (score_all.py, score_extra.py, facts.py, preserved_matrix.py)."""
+    if os.environ.get("TRIAL_PENDING") == "0":
+        return False
+    if PUBLISHED_IN:
+        return True
     if argv is not None:
         return "--pending" in argv
     return "--pending" in sys.argv[1:] or os.environ.get("TRIAL_PENDING") == "1"

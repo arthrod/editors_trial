@@ -11,7 +11,7 @@ import re
 import shutil
 import zipfile
 
-BASE = "/Users/arthrod/temp/T/editors_trial"
+BASE = os.environ.get("TRIAL_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(BASE, "fixture", "complex.docx")
 OUT = os.path.join(BASE, "out", "variants")
 os.makedirs(OUT, exist_ok=True)

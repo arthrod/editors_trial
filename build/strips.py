@@ -25,7 +25,7 @@ from PIL import Image, ImageDraw
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import pixels  # noqa: E402  (build/pixels.py: the release resolution)
 
-BASE = "/Users/arthrod/temp/T/editors_trial"
+BASE = os.environ.get("TRIAL_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LABEL_H = 24
 GAP = 10
 BG = (255, 255, 255)
