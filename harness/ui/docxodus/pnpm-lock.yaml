@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@docxodus/export':
-        specifier: 15.0.0
-        version: 15.0.0(docxodus@15.0.0)
+        specifier: 15.1.0
+        version: 15.1.0(docxodus@15.0.0)
       docxodus:
         specifier: 15.0.0
         version: 15.0.0
@@ -21,12 +21,12 @@ importers:
 
 packages:
 
-  '@docxodus/export@15.0.0':
-    resolution: {integrity: sha512-ARBuPlfcz6RVjrVjBJ2KC6J755UjsrNw3KEF4daqtn51ze3KtGswTynUEYye8+aDy+ogZZItGLrbh8Rl8C5oAA==}
+  '@docxodus/export@15.1.0':
+    resolution: {integrity: sha512-ZLbBOtWHi7PxNIHB9R8tpcLG8yJ++FUT3vYsYiT5NjV5qdupnH8AAM/I5bL87m9dQz5+ir/ma4NfsegPxUW9Og==}
     engines: {node: '>=22.13.0'}
     hasBin: true
     peerDependencies:
-      docxodus: 15.0.0
+      docxodus: 15.1.0
 
   '@oxc-project/types@0.155.0':
     resolution: {integrity: sha512-SeE8JPwW1xs1tHeNycjUtUBdhorRa8o4jlvjwk49R7/Z291i+4DQa7JJIgOm/TaYQZx+QrPQbVJ/9c8dMIZN8Q==}
@@ -368,7 +368,7 @@ packages:
 
 snapshots:
 
-  '@docxodus/export@15.0.0(docxodus@15.0.0)':
+  '@docxodus/export@15.1.0(docxodus@15.0.0)':
     dependencies:
       '@playwright/browser-chromium': 1.57.0
       docxodus: 15.0.0
