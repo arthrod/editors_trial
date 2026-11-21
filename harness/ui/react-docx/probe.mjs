@@ -20,8 +20,8 @@ export async function probe(page) {
       totalPages: c.totalPages,
       trackedChanges: (c.trackedChanges || []).length,
       comments: (c.comments || []).length,
-      showTrackedChanges: !!c.showTrackedChanges,
-      showComments: !!c.showComments,
+      // whether main.js passed the package's showTrackedChanges / showComments options (?review=1)
+      review: window.__host.review,
       dom: { img: root.querySelectorAll('img').length, svg: root.querySelectorAll('svg').length, canvas: root.querySelectorAll('canvas').length, table: root.querySelectorAll('table').length },
     };
   });

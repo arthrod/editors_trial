@@ -286,6 +286,8 @@ cap_nutrient() {
   NUTRIENT_SCROLL="$P3" shot --name nutrient_p3 "${common[@]}" --viewport 1440x1500
   NUTRIENT_SCROLL="$P4" shot --name nutrient_p4 "${common[@]}" --viewport 1440x1500
   NUTRIENT_SCROLL="$P5" shot --name nutrient_p5 "${common[@]}" --viewport 1440x1500
+  # its page 3 of 7: the second half of the table, which it breaks across two pages
+  NUTRIENT_SCROLL="nested 1" shot --name nutrient_table "${common[@]}" --viewport 1440x1500
   stop
 }
 
