@@ -38,6 +38,34 @@ SLUGS = (
     "apryse",
     "lo_baseline",
 )
+# Each measured tool's heading in reports/vendors.md, in driver order.
+VENDOR_HEADINGS = dict(zip(SLUGS, (
+    "Plate.js",
+    "Docxodus",
+    "SuperDoc",
+    "Folio",
+    "GenOffice",
+    "eigenpal",
+    "office-open",
+    "Docen",
+    "WordCraft",
+    "Fidus Writer",
+    "canvas-editor",
+    "docs.plus",
+    "Apryse",
+    "LibreOffice",
+)))
+# On editors.benchmarks.law, not yet in the trial's round-trip reports.
+PENDING_HEADINGS = (
+    "react-docx",
+    "Univer",
+    "OpenDoc",
+    "BetterOffice",
+    "OnlyOffice (CryptPad build)",
+    "Nutrient",
+)
+PENDING_SENTENCE = "The trial's own lanes for %s are being measured and are not in the reports yet."
+VENDOR_SUBHEADINGS = ("What the benchmark runs", "Trivia", "Pros", "Cons")
 
 
 def _read(path):
@@ -64,9 +92,25 @@ def _paragraphs_docx(path):
     return [ln.strip() for ln in plain.splitlines() if ln.strip()]
 
 
+def _vendor_sections(text):
+    """Map each ``## heading`` of the vendors page to its body, in page order."""
+    parts = re.split(r"^##[ \t]+(.+?)[ \t]*$", text, flags=re.M)
+    return {parts[i].strip(): parts[i + 1] for i in range(1, len(parts), 2)}
+
+
+def _subsections(body):
+    """Map each ``### heading`` of one vendor section to its body."""
+    parts = re.split(r"^###[ \t]+(.+?)[ \t]*$", body, flags=re.M)
+    return {parts[i].strip(): parts[i + 1] for i in range(1, len(parts), 2)}
+
+
+def _bullets(body):
+    return [ln[2:].strip() for ln in body.splitlines() if ln.startswith("- ")]
+
+
 def _active_reports():
     found = []
-    for folder in (ROOT, os.path.join(ROOT, "reports"), os.path.join(ROOT, "reports", "extras")):
+    for folder in (ROOT, os.path.join(ROOT, "reports")):
         if not os.path.isdir(folder):
             continue
         for name in os.listdir(folder):
@@ -123,37 +167,46 @@ class ReportClaimsTest(unittest.TestCase):
                 if claim.search(para) and not negated.search(para):
                     self.fail(f"unmeasured second diagram in {path}: {para[:180]}")
 
-    def test_extras_and_vendors_cover_every_measured_tool(self):
+    def test_vendors_page_has_a_full_section_for_every_tool(self):
         text = _read(os.path.join(ROOT, "build", "score_all.py"))
         slugs = re.findall(r'\("[^"]+", "([^"]+)", (?:True|False)\)', text)
         self.assertEqual(tuple(slugs), SLUGS)
-        extras = os.path.join(ROOT, "reports", "extras")
+        # The lane notes were folded into the vendors page; they must not come back.
+        for folder in ("reports", os.path.join("templates", "reports")):
+            self.assertFalse(os.path.exists(os.path.join(ROOT, folder, "extras")), folder)
+        for folder, _dirs, names in os.walk(os.path.join(ROOT, "templates")):
+            for name in names:
+                if name.endswith(".md"):
+                    self.assertNotIn("extras/", _read(os.path.join(folder, name)), name)
         vendors = _read(os.path.join(ROOT, "reports", "vendors.md"))
         self.assertIn("trivia that is not a score", vendors)
+        self.assertIn("This page does not rank the tools.", vendors)
+        self.assertNotIn("api_key", vendors.lower())
+        self.assertNotIn("{{", vendors)
+        sections = _vendor_sections(vendors)
+        expected = [VENDOR_HEADINGS[slug] for slug in slugs] + list(PENDING_HEADINGS)
+        self.assertEqual(list(sections), expected)
+        for name in expected:
+            subs = _subsections(sections[name])
+            for heading in VENDOR_SUBHEADINGS:
+                self.assertIn(heading, subs, f"{name}: no '### {heading}'")
+                self.assertTrue(subs[heading].strip(), f"{name}: empty '### {heading}'")
+            for heading in ("Pros", "Cons"):
+                bullets = _bullets(subs[heading])
+                self.assertGreaterEqual(len(bullets), 3, f"{name} {heading}")
+                self.assertLessEqual(len(bullets), 6, f"{name} {heading}")
+                for bullet in bullets:
+                    # Every bullet names where its figure or finding comes from.
+                    self.assertRegex(bullet, r"\([^()]*(?:\([^()]*\)[^()]*)*\)\.?$", f"{name} {heading}: {bullet[:90]}")
+                    self.assertRegex(
+                        bullet,
+                        r"\((?:[^()]|\([^()]*\))*(?:Report [A-E]\d?|main report|editors site|viewers site|project README|this page)",
+                        f"{name} {heading}: {bullet[:90]}",
+                    )
+        for name in PENDING_HEADINGS:
+            self.assertIn(PENDING_SENTENCE % name, sections[name])
         for slug in slugs:
-            path = os.path.join(extras, slug + ".md")
-            self.assertTrue(os.path.isfile(path), slug)
-            body = _read(path)
-            self.assertIn("## Trivia", body)
-            self.assertNotIn("api_key", body.lower())
-        names = (
-            "Plate.js",
-            "Docxodus",
-            "SuperDoc",
-            "Folio",
-            "GenOffice",
-            "eigenpal",
-            "office-open",
-            "Docen",
-            "WordCraft",
-            "Fidus Writer",
-            "canvas-editor",
-            "docs.plus",
-            "Apryse",
-            "LibreOffice",
-        )
-        for name in names:
-            self.assertIn(name, vendors)
+            self.assertNotIn("are not in the reports yet", sections[VENDOR_HEADINGS[slug]])
         archived = os.path.join(
             ROOT,
             "reports",
@@ -171,20 +224,21 @@ class ReportClaimsTest(unittest.TestCase):
             )
         )
 
-    def test_lane_reports_quote_the_shipped_scorer(self):
+    def test_lane_blocks_quote_the_shipped_scorer(self):
         lanes = {
-            os.path.join(ROOT, "out", "folio", "complex.docx"): "folio.md",
-            os.path.join(ROOT, "out", "folio-editor", "complex.docx"): "folio.md",
-            os.path.join(ROOT, "out", "eigenpal", "complex.docx"): "eigenpal.md",
-            os.path.join(ROOT, "out", "eigenpal-editor", "complex.docx"): "eigenpal.md",
+            os.path.join(ROOT, "out", "folio", "complex.docx"): "Folio",
+            os.path.join(ROOT, "out", "folio-editor", "complex.docx"): "Folio",
+            os.path.join(ROOT, "out", "eigenpal", "complex.docx"): "eigenpal",
+            os.path.join(ROOT, "out", "eigenpal-editor", "complex.docx"): "eigenpal",
         }
+        sections = _vendor_sections(_read(os.path.join(ROOT, "reports", "vendors.md")))
         inp = sc.Pkg(FIXTURE)
-        for out_path, report_name in lanes.items():
+        for out_path, heading in lanes.items():
             self.assertTrue(os.path.isfile(out_path), out_path)
             checks = sc.build_checks(inp, sc.Pkg(out_path))
             failed = [c[0] for c in checks if not c[4]]
             weighted = "%s%%" % sc.score(checks)["weighted"]
-            body = _read(os.path.join(ROOT, "reports", "extras", report_name))
+            body = _subsections(sections[heading])["This run"]
             self.assertIn("failed-check-ids: " + " ".join(failed), body)
             self.assertIn(weighted, body)
             self.assertIn(f"{os.path.getsize(out_path)} bytes", body)
