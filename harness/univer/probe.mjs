@@ -72,9 +72,11 @@ for (const entry of readdirSync(STORE)) {
   }
 }
 
+// Package ids in code-unit order, the same on every machine (no locale).
+const byId = ([a], [b]) => (a < b ? -1 : a > b ? 1 : 0);
 let found = 0;
 console.log(`Univer packages installed by the pinned presets: ${seen.size}`);
-for (const [id, r] of [...seen].sort()) {
+for (const [id, r] of [...seen].sort(byId)) {
   const hit = r.zip.length || Object.keys(r.format).length || r.api.length;
   if (hit) found++;
   console.log(`${hit ? 'HIT ' : 'none'}  ${id}  licence ${r.licence}  ${r.files} code files` +
@@ -87,7 +89,7 @@ console.log(found
 if (process.argv[2]) {
   const out = resolve(process.argv[2]);
   mkdirSync(dirname(out), { recursive: true });
-  const packages = Object.fromEntries([...seen].sort().map(([id, r]) => [id, {
+  const packages = Object.fromEntries([...seen].sort(byId).map(([id, r]) => [id, {
     licence: r.licence, files: r.files, zip: r.zip, format: r.format, api: r.api, mime_only: r.mime.length,
   }]));
   writeFileSync(out, `${JSON.stringify({ docx_path: found ? 'found' : 'none', packages_read: seen.size, hits: found, packages }, null, 1)}\n`);
