@@ -33,6 +33,13 @@ run canvas  bash -c "cd $BASE/repos/canvas-editor && ./node_modules/.bin/vitest 
 run docsplus bash -c "cd $BASE/harness/docsplus/repo-copy && bun $BASE/harness/docsplus/roundtrip.ts $IN $BASE/out/docsplus/complex.docx"
 run docxodus bash -c "cd $BASE/harness/ui/docxodus && node roundtrip.mjs $IN $BASE/out/docxodus/complex.docx"
 run apryse  bash -c "cd $BASE/harness/apryse && node roundtrip.mjs $IN $BASE/out/apryse/complex.docx"
+# Added 2026-11-21. react-docx exports only in a browser (as Apryse does); OpenDoc, BetterOffice and
+# OnlyOffice's converter run headless. Univer has no lane: harness/univer/probe.mjs shows why.
+run reactdocx bash -c "cd $BASE/harness/reactdocx && node roundtrip.mjs $IN $BASE/out/reactdocx/complex.docx"
+run opendoc bash -c "cd $BASE/harness/opendoc && cargo run --release -- $IN $BASE/out/opendoc/complex.docx"
+run betteroffice bash -c "cd $BASE/harness/betteroffice && node roundtrip.mjs $IN $BASE/out/betteroffice/complex.docx model"
+run betteroffice-editor bash -c "cd $BASE/harness/betteroffice && node roundtrip.mjs $IN $BASE/out/betteroffice-editor/complex.docx editor"
+run onlyoffice bash -c "cd $BASE/harness/onlyoffice && node fetch.mjs && node roundtrip.mjs $IN $BASE/out/onlyoffice/complex.docx"
 
 pkill -f "superdoc host" 2>/dev/null
 echo "=== ALL ROUND TRIPS DONE ==="

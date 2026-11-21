@@ -40,7 +40,8 @@ from part_map import classify  # noqa: E402
 TOOLS = [
     "superdoc", "docxodus", "genoffice", "eigenpal", "eigenpal-editor", "folio",
     "folio-editor", "officeopen", "docen", "wordcraft", "canvas", "fidus",
-    "docsplus", "plate", "apryse", "lo_baseline",
+    "docsplus", "plate", "apryse", "reactdocx", "opendoc", "betteroffice",
+    "betteroffice-editor", "onlyoffice", "lo_baseline",
 ]
 # Checkout under repos/ -> its GitHub slug.
 REPOS = {
@@ -61,13 +62,19 @@ REPOS = {
     "fiduswriter-cli-ts": "fiduswriter/fiduswriter-cli-ts",
     "fiduswriter-pandoc-plugin-ts": "fiduswriter/fiduswriter-pandoc-plugin-ts",
     "docxodus": "JSv4/Docxodus",
+    "opendoc": "CasualOffice/opendoc",
 }
 # npm packages the harnesses load, and where the installed copy lives.
 NPM = {
     "superdoc_sdk": ("@superdoc/sdk", "repos/superdoc/node_modules/.pnpm", "@superdoc+sdk@"),
     "docxodus": ("docxodus", "harness/ui/docxodus/node_modules/docxodus/package.json", None),
     "apryse": ("@pdftron/webviewer", "harness/apryse/node_modules/@pdftron/webviewer/package.json", None),
+    "reactdocx": ("@extend-ai/react-docx", "harness/reactdocx/node_modules/@extend-ai/react-docx/package.json", None),
+    "betteroffice": ("@betteroffice/docx", "harness/betteroffice/node_modules/@betteroffice/docx/package.json", None),
+    "univer": ("@univerjs/presets", "harness/univer/node_modules/@univerjs/presets/package.json", None),
 }
+# A GitHub release archive, pinned by tag and SHA-512 (harness/onlyoffice/pin.json).
+RELEASE_PINS = {"onlyoffice_x2t": ("harness/onlyoffice/pin.json", "x2t")}
 
 
 def parts(path: Path) -> dict[str, bytes]:
@@ -170,6 +177,17 @@ def version_facts(facts: dict) -> None:
     pkg = ROOT / NPM["apryse"][1]
     if pkg.exists():
         facts["ver.npm.apryse"] = json.loads(pkg.read_text())["version"]
+    for key in ("reactdocx", "betteroffice", "univer"):
+        pkg = ROOT / NPM[key][1]
+        if pkg.exists():
+            facts[f"ver.npm.{key}"] = json.loads(pkg.read_text())["version"]
+    for key, (path, entry) in RELEASE_PINS.items():
+        pin = ROOT / path
+        if pin.exists():
+            data = json.loads(pin.read_text())[entry]
+            facts[f"ver.release.{key}.tag"] = data["tag"]
+            facts[f"ver.release.{key}.date"] = data["published"][:10]
+            facts[f"ver.release.{key}.slug"] = data["repository"]
     # The closed DOCX engine SuperDoc's repository depends on (Report A cites it).
     sd = ROOT / "repos/superdoc/packages/superdoc/package.json"
     if sd.exists():
@@ -207,7 +225,7 @@ CODE_READ_RELEASE = "v0.9.0"
 SDKS = {"docxodus"}            # an Open XML SDK, not an editor
 CLOSED = {"apryse"}            # measured only; there is no source to read
 # Second lanes through an editor already counted; LibreOffice is a participant like any other.
-LANES = {"eigenpal-editor", "folio-editor"}
+LANES = {"eigenpal-editor", "folio-editor", "betteroffice-editor"}
 
 
 def release_facts(path: Path, facts: dict) -> None:

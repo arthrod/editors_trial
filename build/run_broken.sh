@@ -38,6 +38,10 @@ run canvas    bash -c "cd $BASE/repos/canvas-editor && IN_DOCX=$IN OUT_DIR=$OUTR
 run docsplus  bash -c "cd $BASE/harness/docsplus/repo-copy && EVIDENCE_DIR=$OUTROOT/docsplus/evidence bun $BASE/harness/docsplus/roundtrip.ts $IN $OUTROOT/docsplus/complex.docx"
 run docxodus  bash -c "cd $BASE/harness/ui/docxodus && node roundtrip.mjs $IN $OUTROOT/docxodus/complex.docx"
 run apryse    bash -c "cd $BASE/harness/apryse && node roundtrip.mjs $IN $OUTROOT/apryse/complex.docx"
+run reactdocx bash -c "cd $BASE/harness/reactdocx && node roundtrip.mjs $IN $OUTROOT/reactdocx/complex.docx"
+run opendoc   bash -c "cd $BASE/harness/opendoc && cargo run --release -- $IN $OUTROOT/opendoc/complex.docx"
+run betteroffice bash -c "cd $BASE/harness/betteroffice && node roundtrip.mjs $IN $OUTROOT/betteroffice/complex.docx model"
+run onlyoffice bash -c "cd $BASE/harness/onlyoffice && node fetch.mjs && node roundtrip.mjs $IN $OUTROOT/onlyoffice/complex.docx"
 
 pkill -f "superdoc host" 2>/dev/null
 echo "=== BROKEN-CORPUS ROUND TRIPS DONE ==="

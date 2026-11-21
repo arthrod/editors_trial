@@ -4,7 +4,8 @@ Score what build/score_all.py does not: the second pass and the editor lanes.
 
   second pass   out/<tool>/second/complex.docx against the tool's OWN first
                 pass (out/<tool>/complex.docx) -> out/<tool>/second/score.json
-  lanes         out/eigenpal-editor and out/folio-editor against the fixture
+  lanes         out/eigenpal-editor, out/folio-editor and out/betteroffice-editor
+                against the fixture
                 -> out/<lane>/score.json
 
 Paths are written relative to the repository, as the published scores have them.
@@ -18,8 +19,9 @@ import sys
 BASE = "/Users/arthrod/temp/T/editors_trial"
 CHECKER = "build/check_roundtrip.py"
 SECOND = ["plate", "docxodus", "superdoc", "folio", "genoffice", "eigenpal", "officeopen",
-          "docen", "wordcraft", "fidus", "canvas", "docsplus", "apryse", "lo_baseline"]
-LANES = ["eigenpal-editor", "folio-editor"]
+          "docen", "wordcraft", "fidus", "canvas", "docsplus", "apryse",
+          "reactdocx", "opendoc", "betteroffice", "onlyoffice", "lo_baseline"]
+LANES = ["eigenpal-editor", "folio-editor", "betteroffice-editor"]
 
 
 def score(ref: str, out: str, js: str) -> bool:

@@ -81,6 +81,14 @@ second docxodus \
   "cd $BASE/harness/ui/docxodus && node roundtrip.mjs '__IN__' '__OUT__'"
 second apryse \
   "cd $BASE/harness/apryse && node roundtrip.mjs '__IN__' '__OUT__'"
+second reactdocx \
+  "cd $BASE/harness/reactdocx && node roundtrip.mjs '__IN__' '__OUT__'"
+second opendoc \
+  "cd $BASE/harness/opendoc && cargo run --release -- '__IN__' '__OUT__'"
+second betteroffice \
+  "cd $BASE/harness/betteroffice && node roundtrip.mjs '__IN__' '__OUT__' model"
+second onlyoffice \
+  "cd $BASE/harness/onlyoffice && node fetch.mjs && node roundtrip.mjs '__IN__' '__OUT__'"
 
 pkill -f "superdoc host" 2>/dev/null
 echo "=== SECOND PASS DONE ==="
