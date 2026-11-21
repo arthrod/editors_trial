@@ -1,0 +1,16 @@
+{
+  "name": "betteroffice-host",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "dependencies": {
+    "@betteroffice/docx": "0.5.1",
+    "@betteroffice/docx-react": "0.5.1",
+    "@betteroffice/fonts": "0.4.2",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "vite": "^8.3.5"
+  }
+}
