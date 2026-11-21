@@ -31,7 +31,8 @@ class BrokenCorpusInputTest(unittest.TestCase):
     def test_every_variable_the_script_uses_is_set_in_it(self):
         used = set(re.findall(r"\$\{?([A-Z_][A-Z0-9_]*)", self.text))
         set_here = set(re.findall(r"^\s*([A-Z_][A-Z0-9_]*)=", self.text, re.M))
-        self.assertEqual(used - set_here, set())
+        # TRIAL_ROOT is the one variable a runner reads from outside: where the checkout is.
+        self.assertEqual(used - set_here, {"TRIAL_ROOT"})
 
     def test_every_editor_reads_the_broken_corpus(self):
         for l in self.text.splitlines():
@@ -55,6 +56,27 @@ class BrokenCorpusInputTest(unittest.TestCase):
 
     def test_the_output_root_can_be_a_scratch_directory(self):
         self.assertIn("OUTROOT=${OUTROOT:-", self.text)
+
+
+class CheckoutRootTest(unittest.TestCase):
+    """The runners measure the checkout they are in. They once named one path on one machine,
+    so a run from a worktree read and wrote another checkout (2026-11-21); the release
+    checklist's own advice, to run a frozen copy, needs TRIAL_ROOT for the same reason."""
+    RUNNERS = ("run_all.sh", "run_second_pass.sh", "run_broken.sh")
+    IDIOM = 'BASE="${TRIAL_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"'
+
+    def test_every_runner_finds_its_checkout_the_same_way(self):
+        for name in self.RUNNERS:
+            lines = [l for l in (BUILD / name).read_text().splitlines() if re.match(r"\s*BASE=", l)]
+            self.assertEqual(lines, [self.IDIOM], name)
+
+    def test_no_runner_or_scorer_names_a_checkout_path(self):
+        for name in self.RUNNERS + ("score_all.py", "score_extra.py"):
+            self.assertNotIn("/Users/", (BUILD / name).read_text(), name)
+
+    def test_the_scorers_take_the_same_override(self):
+        for name in ("score_all.py", "score_extra.py"):
+            self.assertIn('os.environ.get("TRIAL_ROOT")', (BUILD / name).read_text(), name)
 
 
 if __name__ == "__main__":

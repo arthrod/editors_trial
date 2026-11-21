@@ -1,7 +1,7 @@
 #!/bin/bash
 # Re-run every editor's import->export round trip against the current fixture.
 # Each harness uses that project's OWN code path (see harness/<name>/ and harness/<name>.ts).
-BASE=/Users/arthrod/temp/T/editors_trial
+BASE="${TRIAL_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 IN=$BASE/fixture/complex.docx
 
 run() {

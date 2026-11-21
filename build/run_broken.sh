@@ -4,7 +4,7 @@
 # which editors, if any, repair malformed input.
 #
 # Each editor's own code path, same harnesses as build/run_all.sh.
-BASE=/Users/arthrod/temp/T/editors_trial
+BASE="${TRIAL_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 IN=$BASE/fixture/complex_broken.docx
 OUTROOT=${OUTROOT:-$BASE/out_broken}   # a scratch directory for a reproduction run
 mkdir -p "$OUTROOT"

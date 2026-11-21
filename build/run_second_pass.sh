@@ -12,7 +12,7 @@
 #
 # usage: build/run_second_pass.sh
 set -u
-BASE="/Users/arthrod/temp/T/editors_trial"
+BASE="${TRIAL_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 OUTROOT="$BASE/out"
 
 run() {
