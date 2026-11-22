@@ -52,6 +52,7 @@ class Capabilities(unittest.TestCase):
                 # Report E2's later campaign (perf/container/policy.LATER_CAMPAIGN_EDITORS).
                 "reactdocx",
                 "nutrient",
+                "onlyoffice",
             },
         )
 
