@@ -6,7 +6,12 @@ from pathlib import Path
 EDITORS = ('plate eigenpal-docx-editor folio genoffice superdoc canvas-editor '
            'canvas-editor-plugin wordcraft docxodus docen office-open office-open-upstream '
            'docs-plus fiduswriter fiduswriter-document-ts fiduswriter-cli-ts '
-           'fiduswriter-pandoc-plugin-ts').split()
+           'fiduswriter-pandoc-plugin-ts opendoc').split()
+# Pinned release trees a later-campaign page serves, fetched (and hash-checked)
+# by the page's own script from the repository root after the clones above
+# (OnlyOffice: the CryptPad editor and x2t, SHA-512; OpenDoc: its engine build
+# for repos/opendoc's pinned commit, SHA-256).
+FETCHES = ('harness/ui/onlyoffice/fetch.py', 'harness/ui/opendoc/fetch_engine.py')
 INSTALLS = {
     'plate': ['pnpm', 'install', '--no-frozen-lockfile', '--ignore-scripts'],
     'eigenpal-docx-editor': ['bun', 'install'], 'folio': ['bun', 'install'],

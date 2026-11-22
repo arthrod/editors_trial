@@ -7,7 +7,7 @@ from pathlib import Path
 import shlex
 import subprocess
 from .mirror import HUGGINGFACE_HUB_VERSION, RUNTIME_PIP
-from .policy import INSTALLS, declares_dependencies, harness_install, git_pins, npm_pins, verify_commit, verify_version
+from .policy import FETCHES, INSTALLS, declares_dependencies, harness_install, git_pins, npm_pins, verify_commit, verify_version
 
 # OnlyOffice's fetched release trees (git-ignored; harness/onlyoffice/fetch.mjs and
 # harness/ui/onlyoffice/fetch.py unpack them unmodified, SHA-512 pinned). They are
@@ -58,6 +58,8 @@ def main():
             record['commits'][name] = verify_commit(pin, command(['git', 'rev-parse', 'HEAD'], path, True))
         if name in INSTALLS:
             command(INSTALLS[name], path)
+    for script in FETCHES:
+        command(['python3', '-I', script])
     # Traverse tracked package manifests, never node_modules or editor symlinks.
     manifests = []
     for directory, children, files in os.walk('harness', followlinks=False):
