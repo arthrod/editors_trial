@@ -92,12 +92,12 @@ and Nutrient was not read for any report.
 
 ## 7. Report E: speed without a browser
 
-- [x] 7.1 to 7.7 Decided, not measured: the new tools are not timed. OpenDoc, BetterOffice and OnlyOffice have lanes that could be, but the figures are taken on rented cloud machines and the owner chose not to rent any (2026-11-21, confirmed 2026-11-22). Report E says so in its section "Not measured in this report"
+- [ ] 7.1 to 7.7 Being measured: on 2026-11-22 the owner approved the rented machine (the same Hugging Face machine type as Report E's runs, Amazon EC2 r6a.8xlarge). OpenDoc, BetterOffice and OnlyOffice get a primary run (30 repetitions) and a reproduction (10) through the existing lanes; until their rows are in, Report E keeps saying they are not timed (section "Not measured in this report")
 - [x] 7.8 LibreOffice, Exceptions, Not measured (names the four new tools and the reason), How it was measured, Appendices
 
 ## 8. Report E2: speed in the browser
 
-- [x] 8.1 Decided, not measured: the seven action tables have no row for the new tools, for the same reason as Report E. The report says so at the top
+- [ ] 8.1 Approved for measuring (2026-11-22), not yet measured: the seven action tables have no row for the new tools, and the report says so at the top. The new tools need browser lanes first
 - [x] 8.2 What the figures can and cannot tell
 
 ## 9. Notes
@@ -114,7 +114,7 @@ Live since 2026-11-21 (site PRs 97 and 99), each line checked on the deployed pa
 
 - [x] 10.1 One card per tool, new editors included: 19 cards and the LibreOffice baseline
 - [x] 10.2 Each card's summary says what the tool is good for, in the reader's terms ("Use X for Y"), not a list of scores
-- [x] 10.3 Each card shows grades for speed, data transferred and memory, beside round trip and hostile input, with the rule that produces each grade printed on the page. Tools not on editors.benchmarks.law, and readings from another machine, are left unscored with the reason. GenOffice, office-open, Fidus Writer and docs.plus were put on editors.benchmarks.law on 2026-11-21 through this repository's demo builds and measured on a Mac: their data transferred is scored, their times and memory are printed unscored (the rented machine was not paid for)
+- [x] 10.3 Each card shows grades for speed, data transferred and memory, beside round trip and hostile input, with the rule that produces each grade printed on the page. Tools not on editors.benchmarks.law, and readings from another machine, are left unscored with the reason. GenOffice, office-open, Fidus Writer and docs.plus were put on editors.benchmarks.law on 2026-11-21 through this repository's demo builds and measured on a Mac; on 2026-11-22 the owner approved the rented machine, they were timed there (same machine type and Chrome build as the pass), and all three of their axes are scored. docen's 500 pages were timed there the same day, so docen is scored on all three too (arthrod/open-docs#95, #97; arthrod/open-docs-viewer#42; arthrod/benchmarks-law#109)
 - [x] 10.4 "About" on each card goes to that vendor's section of `/editors-trial/vendor-notes` (all 19 land on a heading)
 - [x] 10.5 The old `/editors-trial/lane-<editor>` addresses redirect to the vendor's section (301, fragment kept)
 - [x] 10.6 The index page counts and names match the field
@@ -131,3 +131,5 @@ Live since 2026-11-21 (site PRs 97 and 99), each line checked on the deployed pa
 | 2026-11-21 | 10.3 | The four tools that had no page on editors.benchmarks.law have one; their cards show the figures |
 | 2026-11-22 | 1.7, 1.8, 2.4, 3.4, 5.5, 5.6 | et-v0.11.2: the source of react-docx, OpenDoc and BetterOffice read; rankings, master table, boundaries, architectures and Report C sections written |
 | 2026-11-22 | 7, 8 | Closed by the owner's decision: no cloud machines, so the new tools stay untimed |
+| 2026-11-22 | 10.3 | The four demo-build tools and docen's 500 pages timed on the rented machine; every card with browser figures from that machine is now scored |
+| 2026-11-22 | 7, 8 | Reopened: the owner approved rented machines for Reports E and E2 too, which supersedes the no-cloud decision above. Report E's runs for OpenDoc, BetterOffice and OnlyOffice started on the same machine type |
