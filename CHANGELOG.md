@@ -28,6 +28,7 @@ The source of react-docx, OpenDoc and BetterOffice was read, at the versions mea
 
 ### Reviewed
 - The new text was checked by an outside model (Codex) against the cited code and the measured outputs before release: 86 checks, 14 statements found too strong or wrong, all corrected. Among them: Word's refusal of two outputs is not attributed to the schema violations found (that was not isolated); BetterOffice's save writes one outer shape where the SmartArt was, not the shapes it drew; its code does warn when it drops a chart with no drawing; OpenDoc keeps an unchanged theme's bytes.
+- The pull request's reviewers (Gitar, CodeAnt, CodeRabbit) found more, also corrected: the comparison paragraph attached Folio's and GenOffice's file paths to the wrong tools; `w15` and `w16cid` survive react-docx's save because they are in `word/numbering.xml`, not in kept paragraph text; BetterOffice's test is on the prefix as written, not on the namespace; three sentences still said the tools were not read.
 
 ### Not done
 - The counting sentences of Report A (§4.3 to §7) and its mechanism matrix (§6) still count the twelve editors and Docxodus.

@@ -27,8 +27,9 @@ The six tools that came from editors.benchmarks.law, as of et-v0.11.0 (2026-11-2
 
 A report is complete only when each of these has a row, or the report says,
 from a measurement or a source citation, why it has none. Where a part below is
-`[~]` or `[!]`, the reason beside it is what is still owed. The code of the six
-tools was not read for any report.
+`[~]` or `[!]`, the reason beside it is what is still owed. The code of react-docx,
+OpenDoc and BetterOffice was read for v0.11.2; that of OnlyOffice's build, Univer
+and Nutrient was not read for any report.
 
 ## 1. Main report: round trip
 
