@@ -8,7 +8,7 @@ Nine editors that open Word documents in a web browser were each given the same 
 
 It is written to be read from here to the end of the results. The appendices after that hold everything needed to check it: how each time was taken, the machine, the rule a figure had to pass before it was printed, the full tables, what was not measured and why, and how to run it again.
 
-**Tools added to the trial in v0.11.0 are not in this report.** react-docx, OpenDoc, BetterOffice, OnlyOffice (CryptPad build) and Nutrient were not timed in the browser: the harness has no browser lane for them yet, and a lane is what times the seven actions of this report. OpenDoc, BetterOffice and OnlyOffice are timed without a browser in Report E. The tables below are the earlier campaign's, unchanged, for the nine editors it covered. For how the new tools load on a page, see the measurements on editors.benchmarks.law, which use a different method and are not comparable with these tables.
+**The editors added to the trial in v0.11.0 are measured by a separate campaign.** {{perf.e2.later.lead}} The results and the appendices are the earlier campaign's, unchanged, for the nine editors it covered. OpenDoc, BetterOffice and OnlyOffice are also timed without a browser in Report E. The measurements on editors.benchmarks.law of how the new tools load on a page use a different method and are not comparable with any table of this report.
 
 ## How to read the tables
 
@@ -34,6 +34,103 @@ It is written to be read from here to the end of the results. The appendices aft
 ## The results
 
 {{perf.e2.short_version}}
+
+## The editors measured later
+
+{{perf.e2.later.editors}} were added to the trial in v0.11.0, after the campaign above was measured. They are measured by a separate campaign of their own, on the same machine type, with the same lanes, the same layout of jobs and the same two seeds.{{perf.e2.later.unmeasured}}
+
+Read these tables beside the results above with that in mind. They come from other days and other virtual machines of the same type, so a small difference between one of these figures and one above can be the machine and not the editor. {{perf.e2.later.comparison}} The rule a figure had to pass is the one in Appendix C, and each time is taken as Appendices A and D describe, with these differences:
+
+- **Sentence capitalisation off for OnlyOffice and OpenDoc.** Their measured pages switch sentence auto-capitalisation off. With their default, the typed "v." becomes "V.", and the typing check, which compares the whole typed text, fails.
+- **Nutrient is a viewer.** Typing, the input lane and the edit burst do not apply to it. Its SDK is loaded from Nutrient's CDN on each cold load, so its load figures include that fetch and are not like-for-like with the editors served from the measuring machine.
+- **C07 and the click's own scroll.** C07 now judges the caret against where the clicked line ends up after the scroll the click itself causes. The campaign above had no refusal of that kind, so none of its C07 figures is affected.
+- **OnlyOffice's scrolling.** {{perf.e2.later.c10_onlyoffice}}
+
+{{perf.e2.later.intro}}
+
+{{perf.e2.later.short_version}}
+
+### The machine and the runs
+
+{{perf.e2.later.host_note}}
+
+{{perf.e2.later.runs}}
+
+### The full tables
+
+#### First visible content (C03)
+
+{{perf.e2.later.table.C03}}
+
+#### Deferred work (C04)
+
+{{perf.e2.later.table.C04}}
+
+#### Single-edit responsiveness (C05)
+
+{{perf.e2.later.table.C05}}
+
+#### Sustained typing (C06)
+
+{{perf.e2.later.table.C06}}
+
+#### Cursor and selection (C07)
+
+{{perf.e2.later.table.C07}}
+
+#### Clipboard and bulk editing (C08)
+
+{{perf.e2.later.table.C08}}
+
+#### Undo and redo (C09)
+
+{{perf.e2.later.table.C09}}
+
+#### Scrolling (C10)
+
+{{perf.e2.later.table.C10}}
+
+#### Initial layout (C11)
+
+{{perf.e2.later.table.C11}}
+
+#### Incremental reflow (C12)
+
+{{perf.e2.later.table.C12}}
+
+#### Global invalidation (C13)
+
+{{perf.e2.later.table.C13}}
+
+#### Large-document scaling (C14)
+
+{{perf.e2.later.table.C14}}
+
+#### Search and replace (C15)
+
+{{perf.e2.later.table.C15}}
+
+#### Memory by phase (C17)
+
+{{perf.e2.later.table.C17}}
+
+#### Resources while opening and editing (B8)
+
+{{perf.e2.later.table.B8}}
+
+#### Typing marathon (B9)
+
+{{perf.e2.later.table.TYPING}}
+
+### Cells whose two rounds did not agree
+
+{{perf.e2.later.not_reproduced}}
+
+### Every results cell that is not a single figure, and why
+
+One line for every cell of this section's results tables that is not a single figure, with the reasons each launch recorded, as in Appendix J.
+
+{{perf.e2.later.no_figure}}
 
 ## Appendix A — What was measured, and how each time was taken
 
@@ -210,6 +307,8 @@ Throughput sessions publish chars/s and resources. Latency sessions publish load
 ## Appendix F — Not measured in the browser run
 
 {{perf.e2.not_run}}
+
+{{perf.e2.later.scope}} are not listed here: they are not part of the campaign this appendix describes. A campaign of their own measures them, and the section "The editors measured later" gives its tables and names any of them it has no data for.
 
 ## Appendix G — Cells whose two rounds did not agree
 
