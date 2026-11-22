@@ -213,7 +213,9 @@ assert.equal(mod.C12_NO_PARAGRAPH_GEOMETRY.has('plate'), false);
 console.log(JSON.stringify([...mod.C12_NO_PARAGRAPH_GEOMETRY]));
 """
         )
-        self.assertEqual(sorted(out), ["canvas", "docen"])
+        # Report E2 adds OnlyOffice, which also draws whole pages on one canvas
+        # (2026-11-22); canvas and docen keep their ruling, nobody else joins.
+        self.assertEqual(sorted(out), ["canvas", "docen", "onlyoffice"])
 
 
 if __name__ == "__main__":
