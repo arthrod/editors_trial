@@ -257,6 +257,39 @@ DOCUMENT_TARGETS = {
             "light DOM. Nothing is editable, so C12 (reflow after an edit) cannot apply."
         ),
     },
+    "onlyoffice": {
+        # Report E2's later editors. OnlyOffice (CryptPad build) runs in a
+        # same-origin frame of its host page; the probe's page calls go there
+        # (editor_frame.mjs). Read in Chrome on prose-500w (2026-11-22): the
+        # page is drawn on the #id_viewer canvas under the #id_viewer_overlay
+        # canvas that takes the clicks; 16 paragraphs, 2 pages.
+        "doc_selector": "#id_viewer",
+        "page_selector": None,
+        # As for Apryse: the document is paginated (2 pages on prose-500w) but
+        # all pages are drawn on one canvas, so no page box can be counted from
+        # the DOM; continuous_flow records that, not a claim of no pages.
+        "page_model": "continuous_flow",
+        "edit_selector": "#id_viewer_overlay",
+        "document_selector": "#id_viewer",
+        "usable_signal": "screencast_ink",
+        # Holds in the host page (before the frame exists) and in the frame.
+        "ready_js": (
+            "(() => { const h = window.__host || (window.parent !== window ? window.parent.__host : null); "
+            "return !!(h && h.ready === true); })()"
+        ),
+        # OnlyOffice's own find bar (Ctrl+F / Cmd+F): its input and its "k/N" count.
+        "find_input_selector": "#search-bar-text",
+        "find_count_selector": "#search-bar-results",
+        "find_query": "NEEDLE",
+        "find_expected_matches": 5,
+        "find_source_note": "OnlyOffice's own search bar: #search-bar-text, result count #search-bar-results ('k/N')",
+        "note": (
+            "OnlyOffice paints each page on the #id_viewer canvas inside its editor frame; the text "
+            "is only in its model, read by the host page (window.__host.text()). C11 uses "
+            "screencast_ink on the canvas's rect. C12 does not apply: the host paints whole pages "
+            "(no paragraph boxes), the canvas/docen ruling."
+        ),
+    },
     "folio": {
         "doc_selector": ".layout-page-content [data-block-id]",
         "page_selector": "[data-page-number]",
@@ -1972,6 +2005,7 @@ GATE_SURFACES = {
     "reactdocx": {"oracle": "dom", "whole": False},
     # Read through the SDK's text API, page by page (edit_surface DOCUMENT_TEXT_SURFACES).
     "nutrient": {"oracle": "model"},
+    "onlyoffice": {"oracle": "model"},
     "eigenpal": {"oracle": "model"},
     "canvas": {"oracle": "model"},
     "docen": {"oracle": "model"},

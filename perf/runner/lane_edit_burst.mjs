@@ -32,7 +32,9 @@ export const LANE_EDIT_CONFIRM_MS = 10_000;
  * never be attributed to one paragraph, so C12 is not_applicable for them —
  * never measured from a page box.
  */
-export const C12_NO_PARAGRAPH_GEOMETRY = new Set(['canvas', 'docen']);
+// OnlyOffice draws whole pages on its #id_viewer canvas too (its frame holds no
+// paragraph box); its model's paragraph list is the evidence.
+export const C12_NO_PARAGRAPH_GEOMETRY = new Set(['canvas', 'docen', 'onlyoffice']);
 
 /**
  * The C12 anchor: the nearest block BELOW the caret on the same screen
@@ -155,6 +157,11 @@ export const LIST_MODEL_PARAGRAPHS = (model) => {
     if (!data || typeof data !== 'object') return null;
     for (const zone of ['header', 'main', 'footer']) walk(data[zone]);
     return out;
+  }
+  if (model === 'onlyoffice') {
+    const host = window.__host || (window.parent !== window ? window.parent.__host : null);
+    const text = host && typeof host.text === 'function' ? host.text() : null;
+    return text === null ? null : text.split('\n').map((line) => line.trim()).filter(Boolean);
   }
   return null;
 };

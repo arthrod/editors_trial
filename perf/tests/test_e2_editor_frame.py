@@ -41,6 +41,21 @@ class EditorFrame(unittest.TestCase):
         self.assertEqual(self.out['viewport'], 1280)
         self.assertTrue(self.out['raw'])
 
+    def test_frame_clock_offset_is_zero_without_a_call_for_other_editors(self):
+        self.assertTrue(self.out['offsets_others'])
+        self.assertEqual(set(self.out['offsets_others']), {0})
+        self.assertEqual(self.out['offset_onlyoffice'], 107.7)
+
+    def test_document_lane_rules_name_only_onlyoffice(self):
+        # C12 not applicable: the canvas/docen ruling, plus OnlyOffice.
+        self.assertEqual(self.out['c12_no_geometry'], ['canvas', 'docen', 'onlyoffice'])
+        probe = (REPO / 'perf/runner/document_probe.mjs').read_text()
+        # C15's interval rule is armed for OnlyOffice only.
+        self.assertIn("intervalReplies: editorId === 'onlyoffice',", probe)
+        self.assertIn('if (intervalReplies) {', probe)
+        # C11's clock move is the offset, 0 for every other editor.
+        self.assertIn('const originOffset = await frameClockOffsetMs(ctx.page, editorId);', probe)
+
     def test_host_page_lays_the_frame_out_at_the_origin(self):
         # Coordinates are not translated between the frame and the page: the
         # host page must keep the frame at (0, 0), full size, borderless.

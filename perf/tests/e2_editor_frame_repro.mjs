@@ -1,5 +1,6 @@
 // editor_frame.mjs on fake pages: which object each call reaches (test_e2_editor_frame.py).
-import { EDITOR_FRAMES, editorPage, rawPage } from '../runner/editor_frame.mjs';
+import { EDITOR_FRAMES, editorPage, frameClockOffsetMs, rawPage } from '../runner/editor_frame.mjs';
+import { C12_NO_PARAGRAPH_GEOMETRY } from '../runner/lane_edit_burst.mjs';
 // argv: every browser target's editor id (benchmark_warm_cold.BROWSER_TARGETS).
 const BROWSER_EDITOR_IDS = process.argv.slice(2);
 
@@ -41,4 +42,9 @@ out.mouse = view.mouse.click();
 out.reload = view.reload();
 out.viewport = view.viewportSize().width;
 out.raw = rawPage(view) === withFrame && rawPage(withFrame) === withFrame;
+// The frame clock offset: no page call at all for an unlisted editor.
+const refusing = { evaluate: () => { throw new Error('evaluated'); } };
+out.offsets_others = await Promise.all(BROWSER_EDITOR_IDS.filter((id) => id !== 'onlyoffice').map((id) => frameClockOffsetMs(refusing, id)));
+out.offset_onlyoffice = await frameClockOffsetMs({ evaluate: async () => 107.7 }, 'onlyoffice');
+out.c12_no_geometry = [...C12_NO_PARAGRAPH_GEOMETRY].sort();
 process.stdout.write(JSON.stringify(out));

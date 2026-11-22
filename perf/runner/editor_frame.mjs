@@ -62,3 +62,19 @@ export function editorPage(page, editorId) {
 export function rawPage(page) {
   return (page && page.__editorFrameOf) || page;
 }
+
+/**
+ * How much later the editor frame's clock starts than its host page's, in ms;
+ * 0 for every editor not listed here (no call is made). A time read on the
+ * frame's clock (performance.now() in the frame) plus this offset is the same
+ * instant on the host page's clock, which starts at the navigation. OnlyOffice's
+ * frame is created only after the host page has fetched and converted the
+ * document (about 108 ms later on prose-500w, probed 2026-11-22), so a load
+ * time read in the frame and not moved would leave that work out.
+ */
+export async function frameClockOffsetMs(page, editorId) {
+  if (!Object.prototype.hasOwnProperty.call(EDITOR_FRAMES, editorId || '')) return 0;
+  return page.evaluate(() => (window.parent !== window
+    ? performance.timeOrigin - window.parent.performance.timeOrigin
+    : 0));
+}

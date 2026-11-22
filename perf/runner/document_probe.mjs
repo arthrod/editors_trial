@@ -73,6 +73,7 @@ import { openingContentVerdict } from './perf_model_text.mjs';
 import { bindModelSurfaceClock } from './surface_clock.mjs';
 import { hasDocumentTextSurface, readAndGateDocumentText } from './edit_surface.mjs';
 import { startChromeTrace, stopChromeTrace } from './chrome_trace.mjs';
+import { editorPage, frameClockOffsetMs } from './editor_frame.mjs';
 import {
   C12_NO_PARAGRAPH_GEOMETRY,
   LIST_MODEL_PARAGRAPHS,
@@ -911,7 +912,8 @@ const INIT_SCRIPT = ({ docSel, pageSel, minTextChars: minChars, signal, document
 async function newPage(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 1 });
   await routeCorpus(context);
-  const page = await context.newPage();
+  // OnlyOffice's document calls go to its editor frame; every other editor's page is itself.
+  const page = editorPage(await context.newPage(), editorId);
   const trace = await startChromeTrace(browser, page, opt.mode || 'document');
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e).slice(0, 300)));
@@ -1252,15 +1254,26 @@ async function loadResult(ctx, { navigationMs, readyMs, surface, witness, surfac
     });
     facts = witnessFacts(finalWitness);
   }
+  // An editor that runs in a frame of its host page (OnlyOffice) is read on the
+  // frame's clock; C11 counts from the host page's navigation, so each page-clock
+  // time below moves to the host page's clock. 0 for every other editor.
+  const originOffset = await frameClockOffsetMs(ctx.page, editorId);
+  const onHostClock = (value) => (typeof value === 'number' && originOffset ? value + originOffset : value);
+  const frameAt = at; // the deltas below are differences on one clock
+  if (originOffset) {
+    at = onHostClock(at);
+    facts = { ...facts, presented_frame_ms: onHostClock(facts.presented_frame_ms) };
+  }
   return {
     mode: 'load',
     driver: 'playwright',
     url,
     navigation_ms: navigationMs,
     ready_ms: readyMs,
-    paints,
-    fcp_ms: fcp,
-    first_element_ms: snap.first_element_ms,
+    frame_clock_offset_ms: originOffset || null,
+    paints: originOffset ? paints.map((row) => ({ ...row, start_ms: onHostClock(row.start_ms) })) : paints,
+    fcp_ms: onHostClock(fcp),
+    first_element_ms: onHostClock(snap.first_element_ms),
     canvas_ink_changed: snap.canvas_ink_changed,
     first_element_info: snap.first_element_info,
     first_element_selector: pageSelector || docSelector,
@@ -1270,7 +1283,7 @@ async function loadResult(ctx, { navigationMs, readyMs, surface, witness, surfac
     usable_ms: at,
     usable_signal: (surface && surface.signal) || SIGNAL_NAME[usableSignal],
     first_element_delta_from_fcp_ms: fcp !== null && snap.first_element_ms !== null ? snap.first_element_ms - fcp : null,
-    document_text_ms_delta_from_fcp_ms: fcp !== null && at !== null ? at - fcp : null,
+    document_text_ms_delta_from_fcp_ms: fcp !== null && frameAt !== null ? frameAt - fcp : null,
     page_model: pageModel,
     page_count: snap.page_count,
     page_count_at_first: snap.page_count_at_first,
@@ -1654,7 +1667,9 @@ async function runReflow(browser) {
       const container =
         editorId === 'canvas'
           ? '#editor .ce-page-container (host paints into <canvas>)'
-          : 'docen-document shadow .canvas-pages > div (page pitch)';
+          : editorId === 'onlyoffice'
+            ? '#id_viewer in its editor frame (OnlyOffice paints each page into one <canvas>)'
+            : 'docen-document shadow .canvas-pages > div (page pitch)';
       return {
         mode: 'reflow',
         status: 'not_applicable',
@@ -2749,7 +2764,7 @@ async function runFind(browser) {
     const observedInterval = await frameInterval(ctx.page, { frames: 6 });
     await ctx.page.locator(findInputSelector).first().click({ timeout: 5000 });
     await ctx.page.evaluate(
-      ({ countSel, matchSel, expected, query, inputSel }) => {
+      ({ countSel, matchSel, expected, query, inputSel, intervalReplies }) => {
         const probe = (window.__findProbe = {
           first_at: null,
           complete_at: null,
@@ -2826,8 +2841,37 @@ async function runFind(browser) {
             return result;
           }, delay);
         };
+        // OnlyOffice only (intervalReplies): its find bar starts one setInterval
+        // on the first input and searches whatever the input holds 400 ms after
+        // the last input (web-apps onInputSearchChange, 9.3.2); it never uses
+        // setTimeout for it. A tick of an interval started from an input is a
+        // reply to the text the input holds when that tick runs: the search it
+        // runs reads that text. Other editors keep the setTimeout rule alone.
+        const nativeSetInterval = window.setInterval;
+        if (intervalReplies) {
+          const origInterval = nativeSetInterval.bind(window);
+          window.setInterval = function (fn, delay) {
+            const extra = Array.prototype.slice.call(arguments, 2);
+            const fromInput = probe.scheduling === true;
+            if (typeof fn !== 'function' || !fromInput) return origInterval.apply(window, arguments);
+            return origInterval(function () {
+              const valueAtTick = input && typeof input.value === 'string' ? input.value : '';
+              const before = read().text;
+              const result = fn.apply(this, extra);
+              const after = read().text;
+              // Only a tick that changed the count answers anything; a full-query
+              // reply equal to a prefix reply stays unmeasured, as with setTimeout.
+              if (after && after !== before) {
+                if (valueAtTick === probe.query && !probe.prefixTexts.has(after)) noteFull(after);
+                else if (valueAtTick !== probe.query) notePrefix(after);
+              }
+              return result;
+            }, delay);
+          };
+        }
         probe.stop = () => {
           window.setTimeout = nativeSetTimeout;
+          window.setInterval = nativeSetInterval;
         };
       },
       {
@@ -2836,6 +2880,7 @@ async function runFind(browser) {
         expected: findExpected,
         query: findQuery,
         inputSel: findInputSelector,
+        intervalReplies: editorId === 'onlyoffice',
       },
     );
     const inputPageMs = await ctx.page.evaluate(() => performance.now());
