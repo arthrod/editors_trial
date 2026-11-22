@@ -491,7 +491,9 @@ BROWSER_TARGETS: dict[str, dict] = {
     # the typing lane's included, reads the engine through the editor's host
     # contract, opendoc.ai.read (edit_surface.mjs, model 'opendoc').
     "opendoc": {
-        "lane": "wasm_ui",
+        # "browser", like the other later editors: capabilities.LANES lists it
+        # (test_browser_lane_label); its page is OpenDoc's web app.
+        "lane": "browser",
         "cwd": UI / "opendoc",
         "command": ["node", "host.mjs", "--port", "5224"],
         "url": "http://127.0.0.1:5224/",

@@ -121,6 +121,9 @@ class NonEditableUsableSignalTests(unittest.TestCase):
                 "canvas": "canvas",
                 "docen": "shadow",
                 "nutrient": "shadow",
+                # OpenDoc paints each page's raster on canvas.page; its usable
+                # expression is the host shim's ready flag (edit_surface.mjs).
+                "opendoc": "canvas",
                 "wordcraft": "flag",
             },
             classified,
