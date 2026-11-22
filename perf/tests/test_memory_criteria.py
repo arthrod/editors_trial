@@ -538,7 +538,11 @@ class LaneCoverage(unittest.TestCase):
 
     def test_support_table_covers_every_editor(self):
         rows = {row["editor_id"]: row for row in support_table()}
-        self.assertEqual(set(rows), set(EDITORS))
+        # CI-contract editors plus browser-only targets (Report E2's later editors).
+        self.assertLessEqual(set(EDITORS), set(rows))
+        for editor_id in set(rows) - set(EDITORS):
+            self.assertIn(editor_id, BROWSER_TARGETS)
+            self.assertTrue(rows[editor_id]["browser_host"], editor_id)
         for editor_id, row in rows.items():
             self.assertTrue(row["browser_host"] or row["headless_process_lane"], editor_id)
 
