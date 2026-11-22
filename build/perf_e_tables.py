@@ -54,10 +54,12 @@ DISPLAY = {
     "folio": "Folio",
     "genoffice": "GenOffice",
     "libreoffice": "LibreOffice (baseline)",
+    "nutrient": "Nutrient",
     "office-open": "office-open",
     "onlyoffice": "OnlyOffice (CryptPad build)",
     "opendoc": "OpenDoc",
     "plate": "Plate.js",
+    "reactdocx": "react-docx",
     "superdoc": "SuperDoc",
     "wordcraft": "WordCraft",
 }
