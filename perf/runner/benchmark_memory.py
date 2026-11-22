@@ -899,6 +899,46 @@ def _browser_rows(
                 }
                 for pair in pairs
             ]
+            # The burst is checked by reading the text block at the caret's point.
+            # When that block is a different one after the burst, the view moved
+            # under the caret (react-docx scrolls on typing; HF e2-publish
+            # shakedown 2026-11-22): the edit cannot be verified there, which is
+            # a failure of the editor's own behaviour, not a host that takes no text.
+            moved = [
+                {"scope_before": oracle.get("scope_before"), "scope_after": oracle.get("scope_after")}
+                for oracle in (
+                    ((pair.get("edited") or {}).get("probe", {}).get("edit_oracle") or {}) for pair in pairs
+                )
+                if oracle.get("scope_before") and oracle.get("scope_after")
+                and oracle.get("scope_before") != oracle.get("scope_after")
+            ]
+            if moved:
+                reason = (
+                    "caret_block_moved: after %d keyboard.type of %r the text block at the caret's point was a "
+                    "different block (%s), so the editor moved the view under the caret and the edit could not "
+                    "be verified; no post-edit memory sample exists"
+                    % (args.burst, BURST_TEXT, json.dumps(moved, sort_keys=True))
+                )
+                path = _write_outcome(
+                    attempt_dir=attempt_dir,
+                    criterion_id="C17",
+                    phase=phase,
+                    editor_id=editor_id,
+                    lane=lane,
+                    env=env,
+                    outcome="failed",
+                    failure_reason=reason,
+                    evidence=_evidence(
+                        phase=phase,
+                        method_sample=samples[0],
+                        phases=PHASES,
+                        extra={"edit_effective": False, "burst": diagnostics["burst"], "caret_block_moved": moved},
+                    ),
+                    diagnostic=diagnostics,
+                    refusal_code="caret_block_moved",
+                )
+                rows.append(_row("C17", phase, editor_id, "failed", reason, path))
+                continue
             reason = (
                 "host accepted no text: document text length did not grow after %d keyboard.type of %r "
                 "(%s); no post-edit memory sample exists for this host"

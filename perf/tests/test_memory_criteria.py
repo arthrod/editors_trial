@@ -502,6 +502,27 @@ class BrowserFlowWithFakePairs(unittest.TestCase):
         self.assertIn("accepted no text", by_phase["after_edit_burst"]["failure_reason"])
         self.assertEqual(by_phase["ready"]["outcome"], "measured")
 
+    def test_a_burst_whose_caret_block_moved_fails_with_both_blocks(self):
+        pair = self._pair(edit_effective=False)
+        pair["edited"]["probe"]["edit_oracle"] = {
+            "status": "edit_not_applied", "reason": "poll_timeout",
+            "scope_before": "Article 1. Incidental Taxes", "scope_after": "Whole, either relevant unless",
+        }
+        rows, attempt_dir = self._run(pair)
+        row = {r["measurement_phase"]: r for r in rows if r["criterion_id"] == "C17"}["after_edit_burst"]
+        self.assertEqual(row["outcome"], "failed")
+        self.assertTrue(row["failure_reason"].startswith("caret_block_moved:"))
+        trial = json.loads((attempt_dir / Path(row["attempt_file"]).name).read_text(encoding="utf-8"))
+        self.assertEqual(trial["evidence"]["caret_block_moved"][0]["scope_before"], "Article 1. Incidental Taxes")
+
+    def test_a_burst_on_the_same_block_that_took_no_text_stays_not_applicable(self):
+        pair = self._pair(edit_effective=False)
+        pair["edited"]["probe"]["edit_oracle"] = {"scope_before": "Same block", "scope_after": "Same block"}
+        rows, _attempt_dir = self._run(pair)
+        row = {r["measurement_phase"]: r for r in rows if r["criterion_id"] == "C17"}["after_edit_burst"]
+        self.assertEqual(row["outcome"], "not_applicable")
+        self.assertIn("accepted no text", row["failure_reason"])
+
     def test_failed_reopen_keeps_the_retention_evidence_and_fails_c19(self):
         rows, attempt_dir = self._run(self._pair(reopen=False))
         c19 = [row for row in rows if row["criterion_id"] == "C19"][0]
