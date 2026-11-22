@@ -127,6 +127,19 @@ def verify(src: Path, dest: Path) -> str:
     return '\n'.join(lines) + '\n'
 
 
+PROC = Path('/proc')
+
+
+def _zombie(pid: int) -> bool:
+    """An exited process nobody reaped. On a Space, PID 1 does not reap orphans, so
+    run.py stays a zombie after it exits and os.kill(pid, 0) still succeeds."""
+    try:
+        stat = (PROC / str(pid) / 'stat').read_text()
+    except OSError:
+        return False
+    return stat[stat.rindex(')') + 1:].split()[:1] == ['Z']
+
+
 def _alive(pid: int | None) -> bool:
     if pid is None:
         return True
@@ -136,7 +149,7 @@ def _alive(pid: int | None) -> bool:
         return False
     except PermissionError:
         return True
-    return True
+    return not _zombie(pid)
 
 
 def _wait(seconds: float, campaign_root: Path, parent_pid: int | None) -> None:

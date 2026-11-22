@@ -167,3 +167,17 @@ def test_run_done_is_noticed_within_seconds_not_at_the_next_pass(tmp_path, monke
 def test_the_module_exits_non_zero_when_the_duplicate_cannot_be_verified():
     src = Path('perf/container/checkpoint.py').read_text()
     assert 'sys.exit(0 if ok else 1)' in src
+
+
+def test_a_zombie_campaign_process_counts_as_exited(tmp_path, monkeypatch):
+    # 2026-11-22 test run on e2-publish: run.py exited, PID 1 never reaped it, and the
+    # final duplicate waited its whole limit for a process that was already gone.
+    proc = tmp_path / 'proc'
+    (proc / '4242').mkdir(parents=True)
+    (proc / '4242' / 'stat').write_text('4242 (python3 (x)) Z 1 4242 4242 0 -1\n')
+    (proc / '4343').mkdir(parents=True)
+    (proc / '4343' / 'stat').write_text('4343 (python3) S 1 4343 4343 0 -1\n')
+    monkeypatch.setattr(checkpoint, 'PROC', proc, raising=False)
+    monkeypatch.setattr(checkpoint.os, 'kill', lambda pid, sig: None)
+    assert checkpoint._alive(4242) is False
+    assert checkpoint._alive(4343) is True
