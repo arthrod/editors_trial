@@ -418,26 +418,44 @@ def perf_e_facts(path: Path, facts: dict) -> None:
 
 
 def perf_e2_facts(path: Path, facts: dict) -> None:
-    """Report E2: browser-lane tables from out/report_e2_runs.json."""
+    """Report E2: browser-lane tables from out/report_e2_runs.json, then the
+    later campaign's (its optional "later" entry), under perf.e2.later.*."""
     import perf_e2_tables
 
     if not path.exists():
         facts.update(perf_e2_tables.unset_facts())
+        facts.update(perf_e2_tables.later_unset_facts())
         return
     runs = json.loads(path.read_text())
+    published_roots = _perf_e2_published_facts(runs, facts)
+    later = runs.get("later")  # {"roots": [...], "superseded_cells": ...}: the editors added after the campaign
+    if not later:
+        facts.update(perf_e2_tables.later_unset_facts())
+        return
+    roots = [Path(root) if Path(root).is_absolute() else ROOT / root for root in later["roots"]]
+    published = {k: v for k, v in facts.items() if k.startswith("perf.e2.") and not k.startswith("perf.e2.later.")}
+    facts.update(perf_e2_tables.later_facts(
+        roots, published, published_roots=published_roots, superseded_cells=later.get("superseded_cells")))
+
+
+def _perf_e2_published_facts(runs: dict, facts: dict):
+    """The published campaign's perf.e2.* facts; returns its run folders when they were read."""
+    import perf_e2_tables
     import os
     carried = os.environ.get("TRIAL_E2_CARRY")
     if carried:
         # A release that re-measures nothing in the browser lane and no longer has the
         # campaign's raw folders on this machine carries Report E2's facts over from a
         # released facts file, byte for byte, and says so (perf.e2.carried_from).
+        # The later campaign's facts are its own and are never carried.
         old = json.loads(Path(carried).read_text())
-        kept = {k: v for k, v in old.items() if k.startswith("perf.e2.")}
+        kept = {k: v for k, v in old.items() if k.startswith("perf.e2.") and not k.startswith("perf.e2.later.")}
         if not kept:
             raise ValueError("no perf.e2 facts in %s" % carried)
         facts.update(kept)
         facts["perf.e2.carried_from"] = Path(carried).name
-        return
+        return None
+    read = None
     if "roots" in runs:
         roots = runs["roots"]
         if not isinstance(roots, list):
@@ -448,8 +466,10 @@ def perf_e2_facts(path: Path, facts: dict) -> None:
             facts.update(perf_e2_tables.facts_from_roots(resolved, superseded_cells=cells))
         else:
             facts.update(perf_e2_tables.facts_from_roots(resolved))
+        read = resolved
     elif "primary" in runs or "repro" in runs:
         facts.update(perf_e2_tables.facts_from_runs(ROOT / runs["primary"], ROOT / runs["repro"]))
+        read = [ROOT / runs["primary"], ROOT / runs["repro"]]
     else:
         facts.update(perf_e2_tables.unset_facts())
     if "campaigns" in runs:
@@ -458,6 +478,7 @@ def perf_e2_facts(path: Path, facts: dict) -> None:
         for key, value in runs["campaign"].items():
             facts[f"perf.e2.campaign.{key}"] = value
         facts["perf.e2.reruns"] = perf_e2_tables.reruns_text(runs["campaign"])
+    return read
 
 
 def count_facts(facts: dict) -> None:

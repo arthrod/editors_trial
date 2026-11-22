@@ -8,7 +8,7 @@ Nine editors that open Word documents in a web browser were each given the same 
 
 It is written to be read from here to the end of the results. The appendices after that hold everything needed to check it: how each time was taken, the machine, the rule a figure had to pass before it was printed, the full tables, what was not measured and why, and how to run it again.
 
-**Tools added to the trial in v0.11.0 are not in this report.** react-docx, OpenDoc, BetterOffice, OnlyOffice (CryptPad build) and Nutrient were not timed in the browser: the harness has no browser lane for them yet, and a lane is what times the seven actions of this report. OpenDoc, BetterOffice and OnlyOffice are timed without a browser in Report E. The tables below are the earlier campaign's, unchanged, for the nine editors it covered. For how the new tools load on a page, see the measurements on editors.benchmarks.law, which use a different method and are not comparable with these tables.
+**The editors added to the trial in v0.11.0 are measured by a separate campaign.** BetterOffice, Nutrient, OnlyOffice (CryptPad build), OpenDoc and react-docx are timed in the browser by a campaign of their own, on the same machine type and with the same lanes and documents. That campaign is not yet measured; the section "The editors measured later", after the results, says so and is where its tables go. The results and the appendices are the earlier campaign's, unchanged, for the nine editors it covered. OpenDoc, BetterOffice and OnlyOffice are also timed without a browser in Report E. The measurements on editors.benchmarks.law of how the new tools load on a page use a different method and are not comparable with any table of this report.
 
 ## How to read the tables
 
@@ -160,6 +160,105 @@ The memory of the whole browser with the document open, read two seconds after a
 | WordCraft | 1.1 GiB | 1.1 GiB | 1.1 GiB | 1.3 GiB |
 
 At 500 words, 9 of 9 editors have a figure, from 567 MiB to 1.1 GiB; at 250,000 words, 8 of 9, from 996 MiB to 7.4 GiB.
+
+## The editors measured later
+
+BetterOffice, Nutrient, OnlyOffice (CryptPad build), OpenDoc and react-docx were added to the trial in v0.11.0, after the campaign above was measured. They are measured by a separate campaign of their own, on the same machine type, with the same lanes, the same layout of jobs and the same two seeds.
+
+Read these tables beside the results above with that in mind. They come from other days and other virtual machines of the same type, so a small difference between one of these figures and one above can be the machine and not the editor. The later campaign is not yet measured, so it has not been compared with the campaign above. The rule a figure had to pass is the one in Appendix C, and each time is taken as Appendices A and D describe, with these differences:
+
+- **Sentence capitalisation off for OnlyOffice and OpenDoc.** Their measured pages switch sentence auto-capitalisation off. With their default, the typed "v." becomes "V.", and the typing check, which compares the whole typed text, fails.
+- **Nutrient is a viewer.** Typing, the input lane and the edit burst do not apply to it. Its SDK is loaded from Nutrient's CDN on each cold load, so its load figures include that fetch and are not like-for-like with the editors served from the measuring machine.
+- **C07 and the click's own scroll.** C07 now judges the caret against where the clicked line ends up after the scroll the click itself causes. The campaign above had no refusal of that kind, so none of its C07 figures is affected.
+- **OnlyOffice's scrolling.** OnlyOffice draws its own scrollbar and has no scroller in the page for the harness to watch, so its C10 (scrolling) is to be measured from canvas pixels. Not yet measured.
+
+This campaign is not yet measured: no table of this section has a figure yet.
+
+not yet measured
+
+### The machine and the runs
+
+Relaxed bounds: Clock skew: 5 ms. Ready/navigation load timeouts: 300 s by default, 600 s on the largest document workload; C14 (large-document scaling) gives each wait of a load (navigation, the editor's ready signal, the page's load event for the canvas editors Docen and WordCraft, the painted document) up to 1000 s. Sparse-witness settle onset floor: 100 ms. CPU throttle tolerance: max(1 ms, 1% of the sample span). Witness anchor lag: max(3 frame intervals, 250 ms). Typing/document content length tolerance: 2% for the prose documents; the complex document (complex-corpus) is accepted at 75% to 125% of the expected length.
+
+not yet measured
+
+not yet measured
+
+### The full tables
+
+#### First visible content (C03)
+
+not yet measured
+
+#### Deferred work (C04)
+
+not yet measured
+
+#### Single-edit responsiveness (C05)
+
+not yet measured
+
+#### Sustained typing (C06)
+
+not yet measured
+
+#### Cursor and selection (C07)
+
+not yet measured
+
+#### Clipboard and bulk editing (C08)
+
+not yet measured
+
+#### Undo and redo (C09)
+
+not yet measured
+
+#### Scrolling (C10)
+
+not yet measured
+
+#### Initial layout (C11)
+
+not yet measured
+
+#### Incremental reflow (C12)
+
+not yet measured
+
+#### Global invalidation (C13)
+
+not yet measured
+
+#### Large-document scaling (C14)
+
+not yet measured
+
+#### Search and replace (C15)
+
+not yet measured
+
+#### Memory by phase (C17)
+
+not yet measured
+
+#### Resources while opening and editing (B8)
+
+not yet measured
+
+#### Typing marathon (B9)
+
+not yet measured
+
+### Cells whose two rounds did not agree
+
+not yet measured
+
+### Every results cell that is not a single figure, and why
+
+One line for every cell of this section's results tables that is not a single figure, with the reasons each launch recorded, as in Appendix J.
+
+not yet measured
 
 ## Appendix A — What was measured, and how each time was taken
 
@@ -1463,6 +1562,8 @@ WordCraft — throughput: first: not enough sessions or run blocked (n = 0 of 6;
 - **Fidus Writer:** Fidus Writer runs only as an application with its own application server, which the browser run does not start.
 - **LibreOffice (baseline):** LibreOffice is the conversion baseline of the headless report, not a browser editor.
 - **office-open:** office-open is a library with no editing surface to paint, so no browser criterion applies.
+
+BetterOffice, Nutrient, OnlyOffice (CryptPad build), OpenDoc and react-docx are not listed here: they are not part of the campaign this appendix describes. A campaign of their own measures them, and the section "The editors measured later" gives its tables and names any of them it has no data for.
 
 ## Appendix G — Cells whose two rounds did not agree
 

@@ -1217,11 +1217,16 @@ def legacy_snapshot_facts(facts: dict) -> dict:
     """A pre-E2 snapshot has no browser measurements, never implicit numbers.
 
     Partial E2 snapshots remain strict: missing fields indicate corrupt or
-    stale measurement evidence and must still fail rendering.
+    stale measurement evidence and must still fail rendering. The same holds
+    for the later campaign's ``perf.e2.later.*`` facts.
     """
-    if any(key.startswith('perf.e2.') for key in facts):
+    if any(key.startswith('perf.e2.later.') for key in facts):
         return facts
-    return {**unset_facts(), **facts}
+    if any(key.startswith('perf.e2.') for key in facts):
+        # A snapshot from before the later campaign never had its section:
+        # it reads "not yet measured", as a pre-E2 snapshot's report does.
+        return {**later_unset_facts(), **facts}
+    return {**unset_facts(), **later_unset_facts(), **facts}
 
 
 def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
@@ -1400,6 +1405,204 @@ def _facts_from_roots(roots) -> dict:
             facts["perf.e2.provenance"] = (
                 "Jobs per Space, from each job summary's host-build records: "
                 + "; ".join("%s: %d" % item for item in sorted(counts.items())) + ".")
+    return facts
+
+
+# Report E2's later campaign: the editors added after the published campaign,
+# measured by a campaign of their own (perf/container/policy.LATER_CAMPAIGN_EDITORS)
+# on the same machine type, lanes, layout and seeds. Its facts are built exactly as
+# the published campaign's and renamed under ``perf.e2.later.*``, so no figure of
+# one campaign is read as the other's (Report E's ``perf.e.v011.*`` does the same).
+LATER = "perf.e2.later."
+LATER_SECTION = '"The editors measured later"'
+# The published campaign's documents, read from the run-level summary.json of
+# its 66 roots in the bucket: the record the later campaign is checked against
+# when those roots are not on this machine (the carry). A name listed under
+# "generated_per_sample" is a new document per sample and has no fixed hash.
+PUBLISHED_DOCUMENTS = ROOT / "build" / "e2_published_documents.json"
+_HOST_BLOCK = re.compile(r"^(?P<cpu_model>.*); CPU quota (?P<cpu_quota>[^;]*); logical CPUs (?P<cpu_cores_logical>[^;]*); OS ")
+
+
+def _later_key(key: str) -> str:
+    return LATER + key[len("perf.e2."):]
+
+
+def _later_scope() -> list[str]:
+    from perf.container.policy import LATER_CAMPAIGN_EDITORS
+    return sorted(LATER_CAMPAIGN_EDITORS, key=lambda e: E2_DISPLAY.get(e, e).casefold())
+
+
+def _names(editors) -> str:
+    names = [E2_DISPLAY.get(e, e) for e in editors]
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
+
+
+def _recorded(value) -> str:
+    return "not recorded" if value is None else str(value)
+
+
+def _machine_kind(summary: dict) -> tuple:
+    """The machine type a job ran on: host class, CPU model, CPU quota, logical CPUs.
+    The OS build is left out: the same Space type can run a later kernel build."""
+    host = summary.get("host") or {}
+    return (summary.get("host_class") or "not recorded",
+            *(_recorded(host.get(key)) for key in ("cpu_model", "cpu_quota", "cpu_cores_logical")))
+
+
+def _machine_kind_from_facts(facts: dict):
+    """The same tuple, read back from a campaign's facts (``_host_block`` of its first job)."""
+    match = _HOST_BLOCK.match(str(facts.get("perf.e2.host", "")))
+    if not match:
+        return None
+    return (str(facts.get("perf.e2.host_class")), match["cpu_model"], match["cpu_quota"], match["cpu_cores_logical"])
+
+
+def _kind_text(kind: tuple) -> str:
+    return "%s hosts with %s, a CPU quota of %s and %s logical CPUs" % kind
+
+
+def _documents(roots) -> dict:
+    """Each document name a campaign's trials opened, with the SHA-256 of every file opened under it."""
+    docs: dict = {}
+    for root in roots:
+        for row in _iter_trials(Path(root)):
+            sha = (row.get("environment") or {}).get("fixture_sha256") or row.get("fixture_sha256")
+            workload = e2_cells.trial_workload(row)
+            if workload and sha:
+                docs.setdefault(workload, set()).add(sha)
+    return docs
+
+
+def _published_documents() -> tuple[dict, set]:
+    record = json.loads(Path(PUBLISHED_DOCUMENTS).read_text())
+    return ({name: set(shas) for name, shas in record["documents"].items()},
+            set(record.get("generated_per_sample") or ()))
+
+
+def _c10_onlyoffice_text(roots) -> str:
+    """Disclosure (d): OnlyOffice's C10 is said to be read from canvas pixels only when its records say so."""
+    detections = set()
+    for root in roots:
+        for row in _iter_trials(Path(root)):
+            if row.get("editor_id") == "onlyoffice" and row.get("criterion_id") == "C10":
+                detections.add(row.get("detection") or (row.get("diagnostic") or {}).get("detection"))
+    if "canvas_pixels" in detections:
+        return ("OnlyOffice draws its own scrollbar and has no scroller in the page for the harness to watch, so its "
+                "C10 (scrolling) is measured from canvas pixels: a scroll ends at the first frame that matches the "
+                "picture before it, moved up by the scroll.")
+    if detections:
+        return ("OnlyOffice draws its own scrollbar. None of its C10 (scrolling) records in this campaign was read from "
+                "canvas pixels; its C10 cells say what was measured.")
+    return "OnlyOffice has no C10 (scrolling) record in this campaign."
+
+
+def later_unset_facts() -> dict:
+    """The later section's facts before its campaign has data: the template still renders, and says so."""
+    facts = {_later_key(k): v for k, v in unset_facts().items()}
+    names = _names(_later_scope())
+    facts.update({
+        LATER + "measured": "not yet measured",
+        LATER + "editors": names,
+        LATER + "scope": names,
+        LATER + "unmeasured": "",
+        LATER + "dates": "not yet measured",
+        LATER + "intro": "This campaign is not yet measured: no table of this section has a figure yet.",
+        LATER + "table.TYPING": "not yet measured",
+        LATER + "lead": (
+            "%s are timed in the browser by a campaign of their own, on the same machine type and with the same "
+            "lanes and documents. That campaign is not yet measured; the section %s, after the results, says so "
+            "and is where its tables go." % (names, LATER_SECTION)),
+        LATER + "comparison": "The later campaign is not yet measured, so it has not been compared with the campaign above.",
+        LATER + "c10_onlyoffice": (
+            "OnlyOffice draws its own scrollbar and has no scroller in the page for the harness to watch, so its "
+            "C10 (scrolling) is to be measured from canvas pixels. Not yet measured."),
+    })
+    return facts
+
+
+def later_facts(roots, published: dict, *, published_roots=None, superseded_cells=None) -> dict:
+    """The later campaign's facts, under ``perf.e2.later.*``.
+
+    ``published`` holds the published campaign's ``perf.e2.*`` facts (built or
+    carried); ``published_roots`` its run folders when they are on this machine.
+    An editor the published campaign measured is refused: one editor, one campaign.
+    Another machine type is refused. Other documents (a document name opened with
+    a file of another SHA-256, or a name the published campaign did not open) are
+    refused, against the published run folders when they are here and against
+    ``PUBLISHED_DOCUMENTS`` when they are not. A name generated per sample has no
+    fixed hash and is compared by its generator, not by hash.
+    """
+    roots = _require_campaign_roots([Path(root) for root in roots])
+    with e2_cells._listing_scope():
+        editors = sorted({e for root in roots for e in _editors(root, root)},
+                         key=lambda e: E2_DISPLAY.get(e, e).casefold())
+        scheduled = published.get("perf.e2.scheduled")
+        old = set()
+        if isinstance(scheduled, dict):
+            for side in scheduled.values():
+                old |= set(side or {})
+        if published_roots:
+            old |= {e for root in published_roots for e in _editors(Path(root), Path(root))}
+        both = sorted(old & set(editors), key=lambda e: E2_DISPLAY.get(e, e).casefold())
+        if both:
+            raise ValueError("%s already in the published campaign; an editor is measured by one campaign only"
+                             % ", ".join(E2_DISPLAY.get(e, e) for e in both))
+        kinds = {_machine_kind(row) for row in _all_job_summaries(roots)}
+        if published_roots:
+            reference = {_machine_kind(row) for row in _all_job_summaries(published_roots)}
+        else:
+            reference = {_machine_kind_from_facts(published)} - {None}
+        if not reference:
+            raise ValueError("the published campaign records no machine type to compare the later campaign with")
+        if not kinds <= reference:
+            raise ValueError("the later campaign ran on another machine type: %s vs %s"
+                             % (sorted(kinds - reference), sorted(reference)))
+        recorded, per_sample = _published_documents()
+        old_docs = _documents(published_roots) if published_roots else recorded
+        new_docs = _documents(roots)
+        other = sorted(w for w, shas in new_docs.items()
+                       if w not in per_sample and not shas <= old_docs.get(w, set()))
+        if other:
+            raise ValueError("the later campaign measured other documents than the published campaign: %s"
+                             % ", ".join(other))
+        c10 = _c10_onlyoffice_text(roots)
+        view = _campaign_view(roots)
+    facts = {_later_key(k): v for k, v in facts_from_roots(roots, superseded_cells=superseded_cells).items()}
+    names = _names(editors)
+    first, last = view["start"] or "not recorded", view["end"] or "not recorded"
+    dates = first if first == last else "%s to %s" % (first, last)
+    when = "on %s" % first if first == last else "from %s to %s" % (first, last)
+    missing = [e for e in _later_scope() if e not in editors]
+    machine = _kind_text(sorted(kinds)[0]) if len(kinds) == 1 else "; ".join(_kind_text(k) for k in sorted(kinds))
+    hashed = "every document this campaign opened has the SHA-256 of a document the campaign above opened under the same name"
+    if published_roots:
+        comparison = "Both campaigns ran on %s, and %s." % (machine, hashed)
+    else:
+        comparison = ("Both campaigns ran on %s. The campaign above is carried over from %s, and %s, as `build/%s` "
+                      "records them from its run summaries." % (
+                          machine, published.get("perf.e2.carried_from", "an earlier release"), hashed,
+                          Path(PUBLISHED_DOCUMENTS).name))
+    if per_sample:
+        generated = sorted(per_sample)
+        one = len(generated) == 1
+        comparison += " The document%s %s %s generated per sample, so %s compared by %s generator, not by hash." % (
+            "" if one else "s", _names(generated), "is" if one else "are", "it is" if one else "they are",
+            "its" if one else "their")
+    facts.update({
+        LATER + "measured": "measured",
+        LATER + "editors": names,
+        LATER + "scope": _names(_later_scope()),
+        LATER + "unmeasured": (
+            " %s %s no browser data in this campaign." % (_names(missing), "has" if len(missing) == 1 else "have")
+            if missing else ""),
+        LATER + "dates": dates,
+        LATER + "lead": (
+            "%s were timed in the browser by a campaign of their own, %s, on the same machine type and with the "
+            "same lanes and documents. Their tables are in the section %s, after the results; their figures are not "
+            "in the results or the appendices." % (names, when, LATER_SECTION)),
+        LATER + "comparison": comparison,
+        LATER + "c10_onlyoffice": c10,
+    })
     return facts
 
 
