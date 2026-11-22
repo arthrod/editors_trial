@@ -27,19 +27,20 @@ The six tools that came from editors.benchmarks.law, as of et-v0.11.0 (2026-11-2
 
 A report is complete only when each of these has a row, or the report says,
 from a measurement or a source citation, why it has none. Where a part below is
-`[~]` or `[!]`, the reason beside it is what is still owed. The code of the six
-tools was not read for any report.
+`[~]` or `[!]`, the reason beside it is what is still owed. The code of react-docx,
+OpenDoc and BetterOffice was read for v0.11.2; that of OnlyOffice's build, Univer
+and Nutrient was not read for any report.
 
 ## 1. Main report: round trip
 
 - [x] 1.1 TL;DR (the fixed-point count names all seven; live 2026-11-21)
-- [x] 1.2 Method and its limits (a paragraph at the top says what v0.11.0 added and that the new tools' code was not read)
+- [x] 1.2 Method and its limits (a paragraph at the top says what v0.11.0 added, and that the new tools' code was read in v0.11.2 and at which commits)
 - [x] 1.3 The corpus (unchanged)
 - [x] 1.4 Harnesses: one row per new lane, with the call each was driven through
 - [x] 1.5 Measured results: scorecard and second-pass rows for react-docx, OpenDoc, BetterOffice; OnlyOffice's row says no output
 - [x] 1.6 Word compatibility of the corpus (unchanged; the verdicts on the new outputs are in §12 and in Report B)
-- [~] 1.7 Executive summary: rankings. The new tools are not ranked: the list ranks editors whose code was read. It says where their scores fall
-- [~] 1.8 Master comparison table. No rows for the new tools: its columns (model, save strategy, compare, pagination) need a code read
+- [x] 1.7 Executive summary: rankings. react-docx, OpenDoc and BetterOffice are ranked (places 7, 9, 10) since v0.11.2, when their code was read
+- [x] 1.8 Master comparison table: a row each for react-docx, OpenDoc and BetterOffice (v0.11.2)
 - [x] 1.9 Preserved-vs-dropped matrix (generated; three new columns)
 - [x] 1.10 Per-repository findings: §12 covers the four new tools and the Univer probe
 - [x] 1.11 Changes from the previous report (CHANGELOG 0.11.0)
@@ -48,7 +49,7 @@ tools was not read for any report.
 ## 2. Report A: serialization by namespace
 
 - [x] 2.1 TL;DR · [x] 2.2 Method · [x] 2.3 Namespace inventory
-- [~] 2.4 Where each editor's serialization boundary is. No entry for react-docx, OpenDoc or BetterOffice: that section is a code reading, and their code was not read. The report says so
+- [x] 2.4 Where each editor's serialization boundary is: §3.13 react-docx, §3.14 OpenDoc, §3.15 BetterOffice (v0.11.2). The matrix of §6 has no column for them, and the report says so
 - [x] 2.5 Measured namespace survival (generated tables with three new columns; §4.6)
 - [x] 2.6 Consequences, namespace by namespace (§4.6 says where a new output breaks an earlier count)
 - [x] 2.7 The cross-editor matrix
@@ -57,7 +58,7 @@ tools was not read for any report.
 ## 3. Report A2: pass-through
 
 - [x] 3.1 TL;DR · [x] 3.2 Method · [x] 3.3 Package-level map (generated; new columns)
-- [~] 3.4 Architectures that produce pass-through. The new tools' architectures are not described: no code read
+- [x] 3.4 Architectures that produce pass-through: §3.7 for the three tools (v0.11.2)
 - [x] 3.5 What pass-through gives, and the failure modes it hides (BetterOffice's dropped SmartArt pointer is in §5.6)
 - [x] 3.6 Per-editor pass-through: §6.10 for the four new lanes
 - [x] 3.7 What this means, Reproducing, Gaps
@@ -74,8 +75,8 @@ tools was not read for any report.
 - [x] 5.1 TL;DR · [x] 5.2 Method
 - [x] 5.3 The editors, one at a time: §2.15 react-docx, §2.16 OpenDoc, §2.17 BetterOffice, §2.18 OnlyOffice, §2.19 Nutrient, each with figures (OnlyOffice has none: it showed no document)
 - [x] 5.4 Construct-by-construct table (generated; new columns)
-- [~] 5.5 In the DOCX but not rendered. Not redone for the new tools
-- [~] 5.6 The SmartArt. Its tables are not redone; what react-docx and BetterOffice draw there is in their sections
+- [x] 5.5 In the DOCX but not rendered: §4.2 (e) for the three tools, counted in their outputs and explained from the code (v0.11.2)
+- [x] 5.6 The SmartArt: §5.9 says what each of the three draws in the band and, for BetterOffice, why. The band was not measured in pixels for them, and the section says so
 - [x] 5.7 The quantitative layer: pixels (rows for the new outputs; the note on Word's unstable pixel column)
 - [x] 5.8 What this means, Reproducing, Gaps
 
@@ -128,3 +129,4 @@ Live since 2026-11-21 (site PRs 97 and 99), each line checked on the deployed pa
 | 2026-11-21 | 1 to 9 | et-v0.11.0: four tools join the round trip, five join Report C; live on benchmarks.law and checked in Chrome |
 | 2026-11-21 | 7, 8 | Blocked: the new tools are not timed (no cloud machines rented) |
 | 2026-11-21 | 10.3 | The four tools that had no page on editors.benchmarks.law have one; their cards show the figures |
+| 2026-11-22 | 1.7, 1.8, 2.4, 3.4, 5.5, 5.6 | et-v0.11.2: the source of react-docx, OpenDoc and BetterOffice read; rankings, master table, boundaries, architectures and Report C sections written |

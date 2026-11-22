@@ -929,7 +929,7 @@ through in red.
 
 - **It names what it does not draw.** Where the SmartArt is, it prints `[diagram]`; the equation is printed as `[E = mc^2]`.
 - **Page 3 holds what Word puts on page 4.** The diagram placeholder, the embedded object's picture and "Text box content" are on page 3; in Word they are on page 4.
-- **It tells the reader it changed something.** It shows a badge reading "25 import findings". What the badge counts was not read. No other tool in this report shows such a count on the document's own screen.
+- **It tells the reader it changed something.** It shows a badge reading "25 import findings". The engine records findings for elements it leaves out and attributes it reduces, grouping repeats and skipping what it judges to carry no meaning (`crates/casual-doc-import/src/report.rs:889-941`); that the badge is the length of that list was not traced. No other tool in this report shows such a count on the document's own screen.
 
 ### 2.17 BetterOffice — Word's page count, and the SmartArt drawn as shapes
 
@@ -1214,6 +1214,8 @@ standalone export input"* — and the words "Imported altChunk paragraph one."
 are absent from its output while present in Word's. **The construct is in the
 file and not on the page, and the product says so itself.**
 
+**(e) The three tools read in v0.11.2 keep every part of the package, and the body-level losses described here are inside `word/document.xml`.** Keeping a part does not mean its content survives: OpenDoc's `word/footnotes.xml`, for one, comes back without its two separator entries. The table above checks the package, so it shows `yes` for the altChunk in all three; the body tells more. Counted in each output, BetterOffice's being its document-model lane (its editor session returns the body unchanged): react-docx and BetterOffice have **no `w:altChunk` element** (the embedded HTML part and its relationship stay, and nothing in the body refers to that relationship any more); OpenDoc keeps it. None of the three has an `mc:AlternateContent` wrapper left. OpenDoc and BetterOffice write the chosen branch, the text box, in its place, so "Text box content" is still text. react-docx has neither branch: it replaces the box with a picture of it. BetterOffice has no `dgm:relIds` in the body, with the four diagram parts still in the package. The code gives each cause. react-docx writes back only the body's paragraphs and tables (`rust-docx` 0.3.1, `src/parse/document.rs:23-49`) and draws a text box to a PNG on export (`packages/react-viewer/src/image-paint-export.ts:201-221`). BetterOffice keeps an element it has no type for only when its prefix is foreign to Word's own namespaces (`crates/docx-parse/src/inline.rs:911-916`), and reads the SmartArt into shapes without keeping its drawing (`paragraph.rs:1285-1304`). OpenDoc resolves the alternate content to one branch on the way in (`crates/casual-doc-import/src/body.rs:2760-2785`).
+
 ### 4.3 The chart that is in the file and not on the page
 
 This is the sharpest defect in the whole study, and it is **invisible to
@@ -1442,6 +1444,18 @@ Docxodus, in fact show *more* than Word does, by replacing the empty band
 with a labelled placeholder. Docxodus goes furthest of the three: it names
 the element that defeated it (`relIds`), in a machine-readable
 `unsupportedContent` entry, in its own export report.
+
+### 5.9 The tools added in v0.11.0
+
+The band was not measured in pixels for them; this is what their own screens show (§2.15 to §2.17), and, where it was read in v0.11.2, why.
+
+| Tool | In the band Word leaves blank | Why |
+|---|---|---|
+| react-docx | the two node texts, "Step one" and "Step two", as plain lines | not traced in the source; the parser lists a diagram as `preserved_only` (`rust-docx` 0.3.1, `src/source_graph.rs:59-82`) |
+| OpenDoc | the placeholder `[diagram]` | not traced in the source |
+| BetterOffice | two blue rounded shapes with the two texts | it reads the diagram's data into a group of shapes (`crates/docx-parse/src/smart_art.rs:39-41`, `:343-357`) and draws them as it draws any shape |
+
+So six tools show more than Word does in that band: GenOffice, eigenpal, Docxodus, and these three. BetterOffice is the only one that draws a diagram, and it is also the only one whose saved file loses the pointer to it (§4.2 (e)). What its document-model save writes there is one outer shape, without the two nodes or their text (`crates/docx-parse/src/serializer/run.rs:499-606`).
 
 ---
 
@@ -1795,7 +1809,7 @@ system Python on this machine is PEP-668 managed: run those scripts with
 
 ## Gaps and honest limits
 
-**0. The five tools added in v0.11.0 have a section each (§2.15 to §2.19) and are not in the hand-written tables of §3 and §5.** Those tables were built by reading each editor's screen construct by construct, and that reading was not repeated for the new tools; their sections state what was seen in the captures of 2026-11-21, which were taken twice and agree. Their source was not read. react-docx's output is rendered pixel-identical by Word and "different" by LibreOffice (35.63%); the two renderers disagree about that file and this report does not say why.
+**0. The five tools added in v0.11.0 have a section each (§2.15 to §2.19) and are not in the hand-written tables of §3 and §5.1 to §5.8; §5.9, added in v0.11.2, has a table for three of them.** Those tables were built by reading each editor's screen construct by construct, and that reading was not repeated for the new tools; their sections state what was seen in the captures of 2026-11-21, which were taken twice and agree. The source of react-docx, OpenDoc and BetterOffice was read for v0.11.2: §4.2 (e) and §5.9 say what follows from it. react-docx's output is rendered pixel-identical by Word and "different" by LibreOffice (35.63%); the two renderers disagree about that file and this report does not say why.
 
 **1. Office-Open has no user interface.** What §2.6 shows is its *parse
 model*, rendered by a host page written for this study. The construct

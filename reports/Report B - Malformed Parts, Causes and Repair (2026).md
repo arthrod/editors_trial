@@ -6,7 +6,7 @@ The first report found that the corpus it used — a hand-built 35-part adversar
 
 ---
 
-**Added in v0.11.0.** react-docx, OpenDoc and BetterOffice are in every table of this report, and §3.9 and §4.5 say what was found. OnlyOffice (CryptPad build) has a row with no cells: its converter did not return from either corpus, so it wrote nothing. The three tools' source was not read; what is said of them is measured from their outputs.
+**Added in v0.11.0.** react-docx, OpenDoc and BetterOffice are in every table of this report, and §3.9 and §4.5 say what was found. OnlyOffice (CryptPad build) has a row with no cells: its converter did not return from either corpus, so it wrote nothing. The three tools' source was read for v0.11.2, and §3.9 and §4.5 now give the cause where the code shows one.
 
 ## TL;DR
 
@@ -259,11 +259,11 @@ Four real violations, all in `word/document.xml` and all one shape. Inside `w:pP
 
 ### 3.9 The tools added in v0.11.0: react-docx, OpenDoc, BetterOffice
 
-Measured on each tool's output from the clean corpus. No source was read, so no cause is given.
+Measured on each tool's output from the clean corpus. The causes were read in the source for v0.11.2 and are given with each.
 
-- **react-docx.** Zero real schema violations; the package is clean; Word 16.115 opens the file (**opened**).
-- **OpenDoc.** Four real violations, all in `word/document.xml` and all of the element-order kind: `w:spacing`, `w:tblW` and `w:bidi` arrive where the schema does not expect them (in `w:tblPr`, for one, it writes `w:jc` before `w:tblW`). The package is clean, and Word refuses the file (**REFUSED**).
-- **BetterOffice, document model.** Four real violations in `word/document.xml`: the move-range markers `w:moveFromRangeStart` and `w:moveToRangeStart` are written with `w:id` and `w:name` only, without the `w:author` and `w:date` the corpus has, and the schema requires `w:author`. The package is clean, and Word refuses the file (**REFUSED**). Its editor-session lane changes only `docProps/core.xml`, and Word opens that file.
+- **react-docx.** Zero real schema violations; the package is clean; Word 16.115 opens the file (**opened**). Most of its body is the source text of each untouched paragraph and table, which keeps the order it was read in (`rust-docx` 0.3.1, `src/serialize.rs:4444-4454`); the text-box paragraph is rebuilt (main report §12).
+- **OpenDoc.** Four real violations, all in `word/document.xml` and all of the element-order kind: `w:spacing`, `w:tblW` and `w:bidi` arrive where the schema does not expect them (in `w:tblPr`, for one, it writes `w:jc` before `w:tblW`). The package is clean, and Word refuses the file (**REFUSED**). The violations come from the writer: it emits property elements in the order its functions list them, `w:jc` before `w:tblW` (`crates/casual-doc-export/src/semantic.rs:5642-5647`), `w:bidi` and `w:spacing` after `w:jc` in `w:pPr` (`:6306`, `:6374`), and its own comment says that order "is already not the `CT_PPr` schema sequence" (`:6360-6365`).
+- **BetterOffice, document model.** Four real violations in `word/document.xml`: the move-range markers `w:moveFromRangeStart` and `w:moveToRangeStart` are written with `w:id` and `w:name` only, without the `w:author` and `w:date` the corpus has, and the schema requires `w:author`. The package is clean, and Word refuses the file (**REFUSED**). The missing attributes come from the model: the parser keeps only the marker's `w:id` and `w:name` (`crates/docx-parse/src/paragraph.rs:722-731`) and the writer writes only those (`serializer/paragraph.rs:662-675`). Its editor-session lane changes only `docProps/core.xml`, and Word opens that file.
 
 ## 4. Does any editor repair malformed input?
 
@@ -437,9 +437,9 @@ Each cell below was checked in the output itself: whether the two elements of an
 
 Three things follow.
 
-- **OpenDoc and BetterOffice put four ordering defects each back in schema order and keep the content.** The effect is the one this section describes for office-open and Docen. Why these two tools write that order was not read. Neither reports it: BetterOffice's save returns a list of warnings, and for this corpus the list was empty, in both runs (`[betteroffice] save warnings: []`).
+- **OpenDoc and BetterOffice put four ordering defects each back in schema order and keep the content.** The effect is the one this section describes for office-open and Docen. Both write properties in a fixed order of their own, from a typed model, whatever order they read (OpenDoc: `crates/casual-doc-export/src/semantic.rs:5595-5718`, `:5941-6028`, `:4849-5136`; BetterOffice: `crates/docx-parse/src/serializer/run.rs:35`, `serializer/section.rs:1`), so the repair is a by-product here too, and OpenDoc's fixed order is itself wrong elsewhere (§3.9). Neither reports it: BetterOffice's save returns a list of warnings, and for this corpus the list was empty, in both runs (`[betteroffice] save warnings: []`).
 - **It does not save the file.** Both keep d10, and Word refuses both outputs, on this corpus and on the clean one.
-- **react-docx carries the defects through.** It reproduces nine of the ten package-visible classes as they came, loses the math, and its output, which Word opens from the clean corpus, is refused from the broken one.
+- **react-docx carries the defects through.** It reproduces nine of the ten package-visible classes as they came: the ones in the body because it writes each untouched paragraph and table back from its source text, and the ones in other parts (d1 in `word/settings.xml`, the OLE payload of d9) because those parts come from the opened package unchanged. It loses the math because the defect puts `m:oMathPara` directly in the body, and only the body's paragraphs and tables are written back (`rust-docx` 0.3.1, `src/parse/document.rs:23-49`). Its output, which Word opens from the clean corpus, is refused from the broken one.
 
 OnlyOffice (CryptPad build) has no cells: its converter did not return from this corpus within 120 s, in two runs, as on the clean corpus.
 
