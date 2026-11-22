@@ -1,0 +1,27 @@
+{
+ "source": "run-level summary.json files of the 66 published E2 campaign roots (out/report_e2_runs.json), read from the bucket arthrod/editors-trial-e2-runs on 2026-11-22",
+ "generated_per_sample": [
+  "micro-search"
+ ],
+ "documents": {
+  "complex-corpus": [
+   "a0f0be300f5e812eb33f419abe1fca2d87569cc12b6b25d625a64a7c0432fde3",
+   "a7a5606c7d642737c1f69eab0884a248b974ebfeb91d668c68da2bdad137649d"
+  ],
+  "prose-250kw": [
+   "c51c2b0f69cd4b7bef85baa04b7d4b87a095300c9648d6b2f9ac2e0864441242"
+  ],
+  "prose-500kw": [
+   "f9abde42758198d75b2baa78376bca0d0aa62af9cff797fd21a32fb1de2e94b2"
+  ],
+  "prose-500w": [
+   "bb53fdd751d9c6abd53aec20d00f4a48966aed6ded7551d1fb36d363d6ba8b5c"
+  ],
+  "prose-50kw": [
+   "21b731edeea1abff2dc4301f853b5fa87f7b3c53716c5f2b10a510b15360508c"
+  ],
+  "prose-5kw": [
+   "8e2827305763c71e88c688f8c55fb5026b171f515fee3182ca33acf7c2e8dafa"
+  ]
+ }
+}

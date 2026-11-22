@@ -34,7 +34,7 @@ TEMPLATE = render_reports.TEMPLATES / "reports/Report E2 - Speed in the Browser 
 
 
 def farm(base: Path, editors, *, tag: str, cpu_model: str | None = None, sha: str = "sha-500w",
-         detection: str | None = None) -> list[Path]:
+         detection: str | None = None, search_sha: str | None = None, workload: str = "prose-500w") -> list[Path]:
     """Two seeds, one Space each, one input-lane block job measuring C07 (and C10 when asked)."""
     roots = []
     for seed in (1, 2):
@@ -50,9 +50,12 @@ def farm(base: Path, editors, *, tag: str, cpu_model: str | None = None, sha: st
             summary["host"]["cpu_model"] = cpu_model
         (job / "summary.json").write_text(json.dumps(summary))
         for editor in editors:
-            env = {**T._env(editor), "workload_id": "prose-500w", "fixture_sha256": sha}
+            env = {**T._env(editor), "workload_id": workload, "fixture_sha256": sha}
             for rep in range(5):
                 T._write_trial(root, rep, editor, "C07", outcome="measured", samples=[20.0], environment=env)
+                if search_sha:  # micro-search: a new document per sample, so a new hash per seed here
+                    search = {**env, "workload_id": "micro-search", "fixture_sha256": "%s-%d-%d" % (search_sha, seed, rep)}
+                    T._write_trial(root, rep, editor, "C15", outcome="measured", samples=[40.0], environment=search)
                 if detection and editor == "onlyoffice":
                     T._write_trial(root, rep, editor, "C10", outcome="measured", samples=[30.0], environment=env,
                                    diagnostic={"frame_interval_ms": 16.7, "detection": detection})
@@ -74,6 +77,18 @@ class LaterFacts(unittest.TestCase):
         env.start()
         self.addCleanup(env.stop)
         os.environ.pop("TRIAL_E2_CARRY", None)
+        # the published campaign's document record, as build/e2_published_documents.json holds it
+        record = self.base / "e2_published_documents.json"
+        record.write_text(json.dumps({"source": "fixture", "generated_per_sample": ["micro-search"],
+                                      "documents": {"prose-500w": ["sha-500w"]}}))
+        patch = mock.patch.object(E2, "PUBLISHED_DOCUMENTS", record)
+        patch.start()
+        self.addCleanup(patch.stop)
+
+    def carry(self) -> None:
+        old_file = self.base / "facts-v0.0.0.json"
+        old_file.write_text(json.dumps(E2.facts_from_roots(self.published)))
+        os.environ["TRIAL_E2_CARRY"] = str(old_file)
 
     def runs_file(self, payload: dict, name: str = "report_e2_runs.json") -> Path:
         path = self.base / name
@@ -125,8 +140,9 @@ class LaterFacts(unittest.TestCase):
         self.assertEqual(out["perf.e2.carried_from"], "facts-v0.0.0.json")
         self.assertIn("OpenDoc", out["perf.e2.later.table.C07"])
         self.assertNotEqual(out["perf.e2.later.table.C07"], "a stale later table from the carried file")
-        # no run folders of the carried campaign: its documents cannot be compared, and the fact says so
-        self.assertIn("not compared by hash", out["perf.e2.later.comparison"])
+        # no run folders of the carried campaign: its documents are compared with the committed record
+        self.assertNotIn("not compared by hash", out["perf.e2.later.comparison"])
+        self.assertIn("e2_published_documents.json", out["perf.e2.later.comparison"])
         self.assertIn("facts-v0.0.0.json", out["perf.e2.later.comparison"])
 
     def test_carry_without_a_later_campaign_gives_the_placeholders_not_the_carried_later_facts(self):
@@ -210,6 +226,39 @@ class LaterFacts(unittest.TestCase):
         later = farm(self.base / "later", ["opendoc"], tag="later", sha="another-document")
         with self.assertRaisesRegex(ValueError, "other documents"):
             self.build({"roots": [str(r) for r in self.published], "later": {"roots": [str(r) for r in later]}})
+
+    def test_other_documents_are_refused_against_the_carried_campaigns_record(self):
+        self.carry()
+        later = farm(self.base / "later", ["opendoc"], tag="later", sha="another-document")
+        with self.assertRaisesRegex(ValueError, "other documents.*prose-500w"):
+            self.build({"roots": [str(self.base / "gone")], "later": {"roots": [str(r) for r in later]}})
+
+    def test_a_document_name_the_record_does_not_list_is_refused_under_the_carry(self):
+        self.carry()
+        later = farm(self.base / "later", ["opendoc"], tag="later", workload="prose-9kw")
+        with self.assertRaisesRegex(ValueError, "other documents.*prose-9kw"):
+            self.build({"roots": [str(self.base / "gone")], "later": {"roots": [str(r) for r in later]}})
+
+    def test_micro_search_is_generated_per_sample_and_not_compared_by_hash(self):
+        self.carry()
+        later = farm(self.base / "later", ["opendoc"], tag="later", search_sha="fresh")
+        out = self.build({"roots": [str(self.base / "gone")], "later": {"roots": [str(r) for r in later]}})
+        self.assertIn("micro-search is generated per sample", out["perf.e2.later.comparison"])
+        self.assertIn("by its generator, not by hash", out["perf.e2.later.comparison"])
+        # the same holds when the published run folders are read: their micro-search hashes are other samples'
+        os.environ.pop("TRIAL_E2_CARRY")
+        published = farm(self.base / "pub2", ["plate"], tag="pub2", search_sha="old")
+        out = self.build({"roots": [str(r) for r in published], "later": {"roots": [str(r) for r in later]}})
+        self.assertIn("micro-search is generated per sample", out["perf.e2.later.comparison"])
+
+    def test_the_committed_record_lists_the_published_documents(self):
+        record = json.loads((ROOT / "build" / "e2_published_documents.json").read_text())
+        self.assertIn("bucket", record["source"])
+        self.assertEqual(record["generated_per_sample"], ["micro-search"])
+        self.assertEqual(len(record["documents"]["complex-corpus"]), 2)
+        for name in ("prose-500w", "prose-5kw", "prose-50kw", "prose-250kw", "prose-500kw"):
+            self.assertEqual(len(record["documents"][name]), 1)
+            self.assertRegex(record["documents"][name][0], "^[0-9a-f]{64}$")
 
     def test_onlyoffice_c10_by_canvas_pixels_is_said_only_when_its_records_say_so(self):
         pixels = farm(self.base / "px", ["onlyoffice"], tag="px", detection="canvas_pixels")

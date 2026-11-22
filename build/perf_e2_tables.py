@@ -1415,6 +1415,11 @@ def _facts_from_roots(roots) -> dict:
 # one campaign is read as the other's (Report E's ``perf.e.v011.*`` does the same).
 LATER = "perf.e2.later."
 LATER_SECTION = '"The editors measured later"'
+# The published campaign's documents, read from the run-level summary.json of
+# its 66 roots in the bucket: the record the later campaign is checked against
+# when those roots are not on this machine (the carry). A name listed under
+# "generated_per_sample" is a new document per sample and has no fixed hash.
+PUBLISHED_DOCUMENTS = ROOT / "build" / "e2_published_documents.json"
 _HOST_BLOCK = re.compile(r"^(?P<cpu_model>.*); CPU quota (?P<cpu_quota>[^;]*); logical CPUs (?P<cpu_cores_logical>[^;]*); OS ")
 
 
@@ -1468,6 +1473,12 @@ def _documents(roots) -> dict:
     return docs
 
 
+def _published_documents() -> tuple[dict, set]:
+    record = json.loads(Path(PUBLISHED_DOCUMENTS).read_text())
+    return ({name: set(shas) for name, shas in record["documents"].items()},
+            set(record.get("generated_per_sample") or ()))
+
+
 def _c10_onlyoffice_text(roots) -> str:
     """Disclosure (d): OnlyOffice's C10 is said to be read from canvas pixels only when its records say so."""
     detections = set()
@@ -1516,8 +1527,10 @@ def later_facts(roots, published: dict, *, published_roots=None, superseded_cell
     carried); ``published_roots`` its run folders when they are on this machine.
     An editor the published campaign measured is refused: one editor, one campaign.
     Another machine type is refused. Other documents (a document name opened with
-    a file of another SHA-256) are refused when the published run folders are here
-    to compare with; when they are not, the comparison fact says so.
+    a file of another SHA-256, or a name the published campaign did not open) are
+    refused, against the published run folders when they are here and against
+    ``PUBLISHED_DOCUMENTS`` when they are not. A name generated per sample has no
+    fixed hash and is compared by its generator, not by hash.
     """
     roots = _require_campaign_roots([Path(root) for root in roots])
     with e2_cells._listing_scope():
@@ -1544,12 +1557,14 @@ def later_facts(roots, published: dict, *, published_roots=None, superseded_cell
         if not kinds <= reference:
             raise ValueError("the later campaign ran on another machine type: %s vs %s"
                              % (sorted(kinds - reference), sorted(reference)))
-        if published_roots:
-            new_docs, old_docs = _documents(roots), _documents(published_roots)
-            other = sorted(w for w, shas in new_docs.items() if not shas <= old_docs.get(w, set()))
-            if other:
-                raise ValueError("the later campaign measured other documents than the published campaign: %s"
-                                 % ", ".join(other))
+        recorded, per_sample = _published_documents()
+        old_docs = _documents(published_roots) if published_roots else recorded
+        new_docs = _documents(roots)
+        other = sorted(w for w, shas in new_docs.items()
+                       if w not in per_sample and not shas <= old_docs.get(w, set()))
+        if other:
+            raise ValueError("the later campaign measured other documents than the published campaign: %s"
+                             % ", ".join(other))
         c10 = _c10_onlyoffice_text(roots)
         view = _campaign_view(roots)
     facts = {_later_key(k): v for k, v in facts_from_roots(roots, superseded_cells=superseded_cells).items()}
@@ -1559,13 +1574,19 @@ def later_facts(roots, published: dict, *, published_roots=None, superseded_cell
     when = "on %s" % first if first == last else "from %s to %s" % (first, last)
     missing = [e for e in _later_scope() if e not in editors]
     machine = _kind_text(sorted(kinds)[0]) if len(kinds) == 1 else "; ".join(_kind_text(k) for k in sorted(kinds))
+    hashed = "every document this campaign opened has the SHA-256 of a document the campaign above opened under the same name"
     if published_roots:
-        comparison = ("Both campaigns ran on %s, and every document this campaign opened has the SHA-256 of a "
-                      "document the campaign above opened under the same name." % machine)
+        comparison = "Both campaigns ran on %s, and %s." % (machine, hashed)
     else:
-        comparison = ("Both campaigns ran on %s. The campaign above is carried over from %s, and its run folders "
-                      "are not on the machine that built this report, so the documents of the two campaigns were "
-                      "not compared by hash." % (machine, published.get("perf.e2.carried_from", "an earlier release")))
+        comparison = ("Both campaigns ran on %s. The campaign above is carried over from %s, and %s, as `build/%s` "
+                      "records them from its run summaries." % (
+                          machine, published.get("perf.e2.carried_from", "an earlier release"), hashed,
+                          Path(PUBLISHED_DOCUMENTS).name))
+    if per_sample:
+        generated = sorted(per_sample)
+        one = len(generated) == 1
+        comparison += " %s %s generated per sample, so %s compared by %s generator, not by hash." % (
+            _names(generated), "is" if one else "are", "it is" if one else "they are", "its" if one else "their")
     facts.update({
         LATER + "measured": "measured",
         LATER + "editors": names,
