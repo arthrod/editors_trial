@@ -92,7 +92,7 @@ and Nutrient was not read for any report.
 
 ## 7. Report E: speed without a browser
 
-- [ ] 7.1 to 7.7 Being measured: on 2026-11-22 the owner approved the rented machine (the same Hugging Face machine type as Report E's runs, Amazon EC2 r6a.8xlarge). OpenDoc, BetterOffice and OnlyOffice get a primary run (30 repetitions) and a reproduction (10) through the existing lanes; until their rows are in, Report E keeps saying they are not timed (section "Not measured in this report")
+- [x] 7.1 to 7.7 Measured (v0.12.0): OpenDoc, BetterOffice and OnlyOffice timed on 2026-11-22 on the same machine type as the published runs (Amazon EC2 r6a.8xlarge via Hugging Face), primary run `6842e10ab266` (30 repetitions) and reproduction `986d98556538` (10), same documents; 51 of 51 figures reproduced. Report E gives them their own section; OnlyOffice does not return from `complex.docx` (harness stop at 120 s, three in a row in each run). react-docx and Apryse have no headless entry and stay under "Not measured"
 - [x] 7.8 LibreOffice, Exceptions, Not measured (names the four new tools and the reason), How it was measured, Appendices
 
 ## 8. Report E2: speed in the browser
@@ -133,3 +133,4 @@ Live since 2026-11-21 (site PRs 97 and 99), each line checked on the deployed pa
 | 2026-11-22 | 7, 8 | Closed by the owner's decision: no cloud machines, so the new tools stay untimed |
 | 2026-11-22 | 10.3 | The four demo-build tools and docen's 500 pages timed on the rented machine; every card with browser figures from that machine is now scored |
 | 2026-11-22 | 7, 8 | Reopened: the owner approved rented machines for Reports E and E2 too, which supersedes the no-cloud decision above. Report E's runs for OpenDoc, BetterOffice and OnlyOffice started on the same machine type |
+| 2026-11-22 | 7 | Report E measured for OpenDoc, BetterOffice and OnlyOffice on the rented machine (the two runs took 16 minutes; the machine was rented for about 22); E2 still needs browser lanes for the new tools |

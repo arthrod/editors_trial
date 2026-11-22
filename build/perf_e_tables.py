@@ -44,6 +44,7 @@ from perf.analysis.summarize import summarize
 from perf.runner.speed_headless import _sample_failure
 
 DISPLAY = {
+    "betteroffice": "BetterOffice",
     "canvas": "canvas-editor + plugin",
     "docen": "Docen",
     "docsplus": "docs.plus",
@@ -54,6 +55,8 @@ DISPLAY = {
     "genoffice": "GenOffice",
     "libreoffice": "LibreOffice (baseline)",
     "office-open": "office-open",
+    "onlyoffice": "OnlyOffice (CryptPad build)",
+    "opendoc": "OpenDoc",
     "plate": "Plate.js",
     "superdoc": "SuperDoc",
     "wordcraft": "WordCraft",
@@ -275,7 +278,8 @@ def _short(reason: str | None) -> str:
         return "lost content"
     if "rc=" in reason:
         code = reason.split("rc=", 1)[1].split(";")[0].split(" ")[0]
-        return "crashed (exit %s)" % code
+        # a negative code is the signal that stopped the process, not an exit code
+        return ("stopped by signal %s" % code[1:]) if code.startswith("-") else ("exited with code %s" % code)
     if "no model_ready_ms mark" in reason or "no save_ms mark" in reason:
         return "no load/save split"
     if reason.startswith("marks: missing"):
@@ -712,6 +716,38 @@ def facts_from_runs(primary_dir: Path, repro_dir: Path) -> dict:
     return facts
 
 
+ADDED = "perf.e.v011."
+
+
+def added_facts(primary_dir: Path, repro_dir: Path, published: Path | None = None) -> dict:
+    """The tools added in v0.11.0 were timed later, by a second pair of runs on
+    the same machine type. Their facts are built exactly as the published pair's,
+    under ``perf.e.v011.*``, so no figure of one pair is read as the other's.
+    An editor the published pair already measured is refused: one editor, one pair."""
+    if published is not None:
+        pub, add = load_run(published), load_run(primary_dir)
+        old = {e for (_, e) in pub.records}
+        new = {e for (_, e) in add.records}
+        # the report reads the two pairs side by side on the same documents and machine type: hold it to that
+        docs = lambda run: {w: m.get("sha256") for w, m in run.summary["workloads"].items()}
+        if docs(pub) != docs(add):
+            raise ValueError("the added pair measured other documents than the published pair")
+        kind = lambda run: (run.summary["host"].get("machine_product"), run.summary["host"].get("cpu_model"), run.summary["host"].get("cpu_cores_logical"))
+        if kind(pub) != kind(add):
+            raise ValueError("the added pair ran on another machine type: %s vs %s" % (kind(add), kind(pub)))
+        both = sorted(old & new)
+        if both:
+            raise ValueError("%s already in the published pair; an editor is timed by one pair only" % ", ".join(both))
+    facts = {ADDED + k[len("perf.e."):]: v for k, v in facts_from_runs(primary_dir, repro_dir).items()}
+    if published is not None:
+        # what differs from the published pair's runner, named from both runs' own hashes
+        a = (load_run(published).summary.get("provenance") or {}).get("code") or {}
+        b = (load_run(primary_dir).summary.get("provenance") or {}).get("code") or {}
+        changed = sorted(k for k in set(a) | set(b) if a.get(k) != b.get(k))
+        facts[ADDED + "code_changed"] = ", ".join("`%s`" % k for k in changed) if changed else "none"
+        facts[ADDED + "code_changed_n"] = len(changed)
+    return facts
+
 def _seconds_or_ms(value: float) -> str:
     return ("%.1f s" % (value / 1000.0)) if value >= 1000 else ("%s ms" % fmt_ms(value))
 
@@ -1021,7 +1057,21 @@ def _last_error(run: Run, wl: str, editor: str) -> str | None:
     failed = [(r.get("started_at") or "", i, r) for i, r in enumerate(run.records.get((wl, editor), [])) if not _good(r)]
     if not failed:
         return None
-    return _error_line(max(failed, key=lambda t: (t[0], t[1]))[2].get("stderr_tail"))
+    last = max(failed, key=lambda t: (t[0], t[1]))[2]
+    return _error_line(last.get("stderr_tail")) or _harness_failure(last.get("stdout_tail"))
+
+
+_HARNESS_FAILED = re.compile(r"^\[[\w-]+\] FAILED: (.+)$")
+
+
+def _harness_failure(stdout: str | None) -> str | None:
+    """A harness that stops the tool itself (OnlyOffice's watchdog) says why on
+    stdout, as "[lane] FAILED: <why>"; that line, not a guess, names the failure."""
+    for line in (stdout or "").splitlines():
+        m = _HARNESS_FAILED.match(_ANSI.sub("", line).strip())
+        if m:
+            return m.group(1).strip()
+    return None
 
 
 def _check_text(summary: dict) -> str:

@@ -4,11 +4,13 @@
 
 This report times how long each editor takes to open a DOCX and to save it again, with no browser, as the document grows from 500 to 250,000 words. It was measured on one Linux container on a virtual machine (Amazon EC2 r6a.8xlarge): AMD EPYC 7R13 Processor, all 32 CPUs its kernel reports, 247 GiB RAM, Linux 6.12.113-138.209.amzn2023.x86_64, AC power, on 2026-11-09. Each figure is the median of 30 fresh processes. A second run of 10 processes, in another order, had to agree within 10 percent (or 2.0 ms) before a figure is printed. 211 of 211 figures agreed. A figure whose two runs disagree is printed as "not reproduced" and carries no number; its two medians are listed, as diagnostics only, at the end of the appendix.
 
+OpenDoc, BetterOffice and OnlyOffice (CryptPad build), in the trial since v0.11.0, were timed on 2026-11-22 by a pair of runs of their own, on the same machine type and the same documents. They have their own section, after the exceptions, and are not in the tables before it. react-docx and Apryse WebViewer have no headless entry point and are not timed here.
+
 It does not time what a person sees in a browser: the first paint, typing, scrolling. The runners for those have defects that would print wrong numbers. They are listed at the end, each with its issue.
 
 Rows are in alphabetical order. A table here is not a ranking. A figure is one editor's time on one document, on this machine, in this mode. The editors do different amounts of work in the same call; the notes under each table say how.
 
-- **canvas-editor + plugin.** Round trip 216 ms at 500 words, 1.3 s at 5,000 words, 13.4 s at 50,000 words. 250,000 words: stopped after repeated failures, last crashed (exit 1); complex.docx: stopped after repeated failures, last crashed (exit 1).
+- **canvas-editor + plugin.** Round trip 216 ms at 500 words, 1.3 s at 5,000 words, 13.4 s at 50,000 words. 250,000 words: stopped after repeated failures, last exited with code 1; complex.docx: stopped after repeated failures, last exited with code 1.
 - **Docen.** Round trip 37 ms at 500 words, 69 ms at 5,000 words, 234 ms at 50,000 words, 743 ms at 250,000 words, 109 ms at complex.docx. From 5,000 to 250,000 words (50 times the text) it grew 11 times.
 - **docs.plus.** Round trip 115 ms at 500 words, 247 ms at 5,000 words, 1.1 s at 50,000 words, 4.1 s at 250,000 words, 160 ms at complex.docx. From 5,000 to 250,000 words (50 times the text) it grew 16 times.
 - **Docxodus.** Round trip 243 ms at 500 words, 310 ms at 5,000 words, 660 ms at 50,000 words, 2.0 s at 250,000 words, 347 ms at complex.docx. From 5,000 to 250,000 words (50 times the text) it grew 6 times.
@@ -70,7 +72,7 @@ Median in ms, with the 90th percentile.
 
 | Editor | 500 words | 5,000 words | 50,000 words | 250,000 words | complex.docx |
 |---|---|---|---|---|---|
-| canvas-editor + plugin | 216 (p90 233) | 1,338 (p90 1,395) | 13,392 (p90 13,933) | failed: stopped after repeated failures, last crashed (exit 1) | failed: stopped after repeated failures, last crashed (exit 1) |
+| canvas-editor + plugin | 216 (p90 233) | 1,338 (p90 1,395) | 13,392 (p90 13,933) | failed: stopped after repeated failures, last exited with code 1 | failed: stopped after repeated failures, last exited with code 1 |
 | Docen | 37 (p90 38) | 69 (p90 73) | 234 (p90 250) | 743 (p90 789) | 109 (p90 111) |
 | docs.plus | 115 (p90 126) | 247 (p90 258) | 1,086 (p90 1,129) | 4,055 (p90 4,312) | 160 (p90 172) |
 | Docxodus | 243 (p90 249) | 310 (p90 322) | 660 (p90 699) | 2,002 (p90 2,041) | 347 (p90 375) |
@@ -89,7 +91,7 @@ Median in ms, with the 90th percentile. Clock: layer model, boundary model_ready
 
 | Editor | 500 words | 5,000 words | 50,000 words | 250,000 words | complex.docx |
 |---|---|---|---|---|---|
-| canvas-editor + plugin | 166 (p90 180) | 1,126 (p90 1,178) | 11,720 (p90 12,191) | failed: stopped after repeated failures, last crashed (exit 1) | failed: stopped after repeated failures, last crashed (exit 1) |
+| canvas-editor + plugin | 166 (p90 180) | 1,126 (p90 1,178) | 11,720 (p90 12,191) | failed: stopped after repeated failures, last exited with code 1 | failed: stopped after repeated failures, last exited with code 1 |
 | Docen | 18 (p90 19) | 38 (p90 41) | 155 (p90 166) | 476 (p90 494) | 63 (p90 64) |
 | docs.plus | 53 (p90 62) | 98 (p90 100) | 323 (p90 340) | 1,097 (p90 1,125) | 72 (p90 79) |
 | Docxodus | 210 (p90 216) | 265 (p90 274) | 537 (p90 571) | 1,541 (p90 1,581) | 299 (p90 325) |
@@ -108,7 +110,7 @@ Median in ms, with the 90th percentile. Clock: layer model, boundary serializati
 
 | Editor | 500 words | 5,000 words | 50,000 words | 250,000 words | complex.docx |
 |---|---|---|---|---|---|
-| canvas-editor + plugin | 49 (p90 59) | 210 (p90 220) | 1,682 (p90 1,759) | failed: stopped after repeated failures, last crashed (exit 1) | failed: stopped after repeated failures, last crashed (exit 1) |
+| canvas-editor + plugin | 49 (p90 59) | 210 (p90 220) | 1,682 (p90 1,759) | failed: stopped after repeated failures, last exited with code 1 | failed: stopped after repeated failures, last exited with code 1 |
 | Docen | 19 (p90 19) | 31 (p90 32) | 78 (p90 86) | 264 (p90 294) | 46 (p90 47) |
 | docs.plus | 61 (p90 67) | 151 (p90 156) | 763 (p90 795) | 2,958 (p90 3,214) | 87 (p90 94) |
 | Docxodus | 32 (p90 33) | 45 (p90 47) | 122 (p90 125) | 459 (p90 466) | 48 (p90 50) |
@@ -163,12 +165,12 @@ LibreOffice is a baseline, not an editor in this trial. `soffice --convert-to do
 
 Every figure that is not printed, and why.
 
-- canvas-editor + plugin, 250,000 words, load: failed, stopped after repeated failures, last crashed (exit 1); last error: `Error: Worker exited unexpectedly`.
-- canvas-editor + plugin, 250,000 words, save: failed, stopped after repeated failures, last crashed (exit 1); last error: `Error: Worker exited unexpectedly`.
-- canvas-editor + plugin, 250,000 words, round trip: failed, stopped after repeated failures, last crashed (exit 1); last error: `Error: Worker exited unexpectedly`.
-- canvas-editor + plugin, complex.docx, load: failed, stopped after repeated failures, last crashed (exit 1); last error: `TypeError: Cannot read properties of undefined (reading 'width') at canvas-editor/src/editor/core/draw/particle/table/TableParticle.ts:724`.
-- canvas-editor + plugin, complex.docx, save: failed, stopped after repeated failures, last crashed (exit 1); last error: `TypeError: Cannot read properties of undefined (reading 'width') at canvas-editor/src/editor/core/draw/particle/table/TableParticle.ts:724`.
-- canvas-editor + plugin, complex.docx, round trip: failed, stopped after repeated failures, last crashed (exit 1); last error: `TypeError: Cannot read properties of undefined (reading 'width') at canvas-editor/src/editor/core/draw/particle/table/TableParticle.ts:724`.
+- canvas-editor + plugin, 250,000 words, load: failed, stopped after repeated failures, last exited with code 1; last error: `Error: Worker exited unexpectedly`.
+- canvas-editor + plugin, 250,000 words, save: failed, stopped after repeated failures, last exited with code 1; last error: `Error: Worker exited unexpectedly`.
+- canvas-editor + plugin, 250,000 words, round trip: failed, stopped after repeated failures, last exited with code 1; last error: `Error: Worker exited unexpectedly`.
+- canvas-editor + plugin, complex.docx, load: failed, stopped after repeated failures, last exited with code 1; last error: `TypeError: Cannot read properties of undefined (reading 'width') at canvas-editor/src/editor/core/draw/particle/table/TableParticle.ts:724`.
+- canvas-editor + plugin, complex.docx, save: failed, stopped after repeated failures, last exited with code 1; last error: `TypeError: Cannot read properties of undefined (reading 'width') at canvas-editor/src/editor/core/draw/particle/table/TableParticle.ts:724`.
+- canvas-editor + plugin, complex.docx, round trip: failed, stopped after repeated failures, last exited with code 1; last error: `TypeError: Cannot read properties of undefined (reading 'width') at canvas-editor/src/editor/core/draw/particle/table/TableParticle.ts:724`.
 
 What the canvas-editor failures are, from their logs and from one diagnostic rerun outside the two runs (a diagnosis, not a measurement; it printed no figure in this report):
 
@@ -177,6 +179,90 @@ What the canvas-editor failures are, from their logs and from one diagnostic rer
 
 Text the check found missing from the saved files (the round trip still kept 98 percent of the words, so the samples count): Fidus Writer: emoji, unicode.
 
+## The tools added in v0.11.0: OpenDoc, BetterOffice and OnlyOffice (CryptPad build)
+
+These three were added to the trial on 2026-11-21 and timed after the editors above, by a pair of runs of their own on one Linux container on a virtual machine (Amazon EC2 r6a.8xlarge): AMD EPYC 7R13 Processor, all 32 CPUs its kernel reports, 247 GiB RAM, Linux 6.12.115-140.210.amzn2023.x86_64, AC power, on 2026-11-22. Primary run `6842e10ab266`: 30 repetitions, seed 20261122. Reproduction run `986d98556538`: 10 repetitions, seed 20261123. The documents, the checks and the rule for printing a figure are the ones above; 51 of 51 figures agreed. The container may use all 32 CPUs its kernel reports. The load average counts every process on that kernel, in this container or any other, and was judged against all 32 CPUs; the process check cannot see processes outside the container. The guest's steal counter (CPU time its hypervisor gave to other work while this machine was ready to run) was less than 0.01% during the run and less than 0.01% during the second run; it counts CPU time only, not the guest's own waits for memory or I/O. The container sees no power supply; AC power is inferred from the machine's vendor (Amazon EC2). 
+
+Read these rows beside the tables above with two differences in mind. They were measured on another day, on a machine of the same type running a later build of its kernel (the two host lines give both), so a small difference between one of these figures and one above can be the machine and not the editor. And the runner had changed since the runs above: 7 of its files differ by hash (`perf/analysis/publication_gate.py`, `perf/fixtures/docx_workload.py`, `perf/fixtures/generate.py`, `perf/fixtures/profiles.py`, `perf/runner/host.py`, `perf/runner/speed_headless.py`, `perf/schema.py`), among them the lanes for these three tools.
+
+- **BetterOffice.** Round trip 99 ms at 500 words, 135 ms at 5,000 words, 354 ms at 50,000 words, 1.3 s at 250,000 words, 159 ms at complex.docx. From 5,000 to 250,000 words (50 times the text) it grew 9 times.
+- **OnlyOffice (CryptPad build).** Round trip 47 ms at 500 words, 62 ms at 5,000 words, 163 ms at 50,000 words, 537 ms at 250,000 words. From 5,000 to 250,000 words (50 times the text) it grew 9 times. complex.docx: stopped after repeated failures, last exited with code 1.
+- **OpenDoc.** Round trip 1.1 ms at 500 words, 3.3 ms at 5,000 words, 26 ms at 50,000 words, 128 ms at 250,000 words, 2.9 ms at complex.docx. From 5,000 to 250,000 words (50 times the text) it grew 39 times.
+
+What each of these timers covers:
+
+| Editor | Load timer ends at | Save timer covers |
+|---|---|---|
+| BetterOffice | parseDocx | repackDocxWithWarnings; the first timer includes the package loading its own WebAssembly, which it does inside parseDocx and offers no call to do beforehand |
+| OnlyOffice (CryptPad build) | x2t main1 docx -> Editor.bin | x2t main1 Editor.bin -> docx (the converter only; the WebAssembly module is started before the timers and reported as host_start_ms) |
+| OpenDoc | opendoc::Document::open | Document::save(Docx, PreserveWhenSafe) (native release build) |
+
+### Round trip
+
+Median in ms, with the 90th percentile.
+
+| Editor | 500 words | 5,000 words | 50,000 words | 250,000 words | complex.docx |
+|---|---|---|---|---|---|
+| BetterOffice | 99 (p90 101) | 135 (p90 141) | 354 (p90 364) | 1,278 (p90 1,324) | 159 (p90 162) |
+| OnlyOffice (CryptPad build) | 47 (p90 48) | 62 (p90 63) | 163 (p90 165) | 537 (p90 544) | failed: stopped after repeated failures, last exited with code 1 |
+| OpenDoc | 1.1 (p90 1.2) | 3.3 (p90 3.4) | 26 (p90 27) | 128 (p90 130) | 2.9 (p90 3.0) |
+
+### Load
+
+Median in ms, with the 90th percentile. Clock: layer model, boundary model_ready, cache state process_cold_fs_warm (fresh process, file system cache warm).
+
+| Editor | 500 words | 5,000 words | 50,000 words | 250,000 words | complex.docx |
+|---|---|---|---|---|---|
+| BetterOffice | 64 (p90 66) | 81 (p90 84) | 186 (p90 192) | 577 (p90 598) | 89 (p90 91) |
+| OnlyOffice (CryptPad build) | 27 (p90 27) | 35 (p90 36) | 90 (p90 91) | 282 (p90 286) | failed: stopped after repeated failures, last exited with code 1 |
+| OpenDoc | 1.0 (p90 1.0) | 2.8 (p90 2.9) | 21 (p90 22) | 104 (p90 106) | 2.4 (p90 2.5) |
+
+### Save
+
+Median in ms, with the 90th percentile. Clock: layer model, boundary serialization_complete, cache state warm_steady (same process, right after load).
+
+| Editor | 500 words | 5,000 words | 50,000 words | 250,000 words | complex.docx |
+|---|---|---|---|---|---|
+| BetterOffice | 35 (p90 36) | 54 (p90 58) | 167 (p90 173) | 702 (p90 722) | 70 (p90 72) |
+| OnlyOffice (CryptPad build) | 20 (p90 21) | 27 (p90 27) | 73 (p90 74) | 256 (p90 259) | failed: stopped after repeated failures, last exited with code 1 |
+| OpenDoc | 0.2 (p90 0.2) | 0.5 (p90 0.6) | 5.0 (p90 5.1) | 24 (p90 25) | 0.4 (p90 0.5) |
+
+What the save figures include, found in the samples:
+
+- **A host process.** OnlyOffice (CryptPad build)'s native host starts before the load timer, in 191 ms (median at 500 words); that start is in the process figures, not in load.
+
+### Process cost at 50,000 words
+
+Medians, read as in the process table above.
+
+| Editor | Whole process, wall (ms) | CPU time (ms) | Peak resident memory (MiB) |
+|---|---|---|---|
+| BetterOffice | 419 | 841 | 189 |
+| OnlyOffice (CryptPad build) | 460 | 756 | 258 |
+| OpenDoc | 29 | 29 | 76 |
+
+### Exceptions
+
+- OnlyOffice (CryptPad build), complex.docx, load: failed, stopped after repeated failures, last exited with code 1; last error: `x2t did not return from "doc.docx -> bin" within 120 s; its call into WebAssembly was still running and the harness stopped it`.
+- OnlyOffice (CryptPad build), complex.docx, save: failed, stopped after repeated failures, last exited with code 1; last error: `x2t did not return from "doc.docx -> bin" within 120 s; its call into WebAssembly was still running and the harness stopped it`.
+- OnlyOffice (CryptPad build), complex.docx, round trip: failed, stopped after repeated failures, last exited with code 1; last error: `x2t did not return from "doc.docx -> bin" within 120 s; its call into WebAssembly was still running and the harness stopped it`.
+
+What the OnlyOffice failures on `complex.docx` are, from their logs: in every one of these samples its harness stopped the converter after 120 s, while the converter was still in its first step ("doc.docx -> bin", reading the document into the editor's own format). It is the step at which the round trip of the main report stops too (§12). In Report C §2.18 the converter returns once the embedded document (`w:altChunk`) is removed from the corpus; what stops after that, at the SmartArt, is the editor in the browser, which this report does not run. After three failures in a row the runner stopped sampling OnlyOffice on that document, in both runs. On the prose documents it loaded and saved in every sample.
+
+Text the check found missing from the saved files: none.
+
+### Versions
+
+Read from disk at the start of the primary run. Exceptions the run accepted: none. OpenDoc's binary is rebuilt from its pinned source before the run.
+
+| Editor | Pin | Checkouts on disk | Packages and binaries |
+|---|---|---|---|
+| BetterOffice | 0.5.1 | — | @betteroffice/docx 0.5.1 |
+| OnlyOffice (CryptPad build) | v9.3.2+4 | — | x2t.js sha256 e2f79cf6b71d; x2t.wasm sha256 5cc2aca0af53 |
+| OpenDoc | 5ac261cea | opendoc 5ac261cea | opendoc-harness sha256 95db08e5f704 |
+
+Runtimes: bun 1.4.4, node v26.13.0, python 3.12.16.
+
 ## Not measured in this report
 
 - **Browser criteria.** First usable (C03), single edit and typing (C05, C06), caret (C07), paste (C08), undo (C09), scroll (C10), first page (C11), relayout (C12), scaling in the page (C14), save from the page (C15). An audit of their runners found that they would print wrong numbers: a settle sleep inside the C03 timer ([#104](https://github.com/arthrod/editors_trial/issues/104)), driver wall-clock labelled as paint ([#105](https://github.com/arthrod/editors_trial/issues/105)), a scroll time with no scroll ([#106](https://github.com/arthrod/editors_trial/issues/106)), development servers instead of builds ([#107](https://github.com/arthrod/editors_trial/issues/107)), the shell's first paint as the document's ([#108](https://github.com/arthrod/editors_trial/issues/108)), a frame-witness bug ([#109](https://github.com/arthrod/editors_trial/issues/109)), pooled runs ([#110](https://github.com/arthrod/editors_trial/issues/110)), and input latencies kept without proving the edit ([#113](https://github.com/arthrod/editors_trial/issues/113), [#114](https://github.com/arthrod/editors_trial/issues/114)).
@@ -184,7 +270,6 @@ Text the check found missing from the saved files (the round trip still kept 98 
 - **WebAssembly boundary (C24).** Two editors only, and the per-call figures are below the clock ([#117](https://github.com/arthrod/editors_trial/issues/117)).
 - **Apryse WebViewer.** It has no headless entry point; it runs only in a browser.
 - **react-docx** (in the trial since v0.11.0). It has no headless entry point either: its export runs only in a browser (`harness/reactdocx/headless.mjs` records the attempt).
-- **OpenDoc, BetterOffice and OnlyOffice (CryptPad build)** (in the trial since v0.11.0). They have headless lanes and were not timed. The figures of this report are taken on dedicated cloud machines, never on a desk computer, and v0.11.0 was made without renting any. Every figure in this report is therefore from the earlier campaign and covers the earlier tools only. Nothing here says how fast these three are.
 - **Save after an edit.** Every save here follows an unedited load.
 - **A cold file system cache.** Every load reads files the warm-up already brought into memory.
 
@@ -275,7 +360,7 @@ Round trip in ms, primary run. At this sample count the 99th percentile is close
 
 | Editor | n | median | p90 | p95 | p99 | MAD | 95% CI | min | max |
 |---|---|---|---|---|---|---|---|---|---|
-| canvas-editor + plugin | stopped after repeated failures, last crashed (exit 1) | | | | | | | | |
+| canvas-editor + plugin | stopped after repeated failures, last exited with code 1 | | | | | | | | |
 | Docen | 30 | 743 | 789 | 803 | 828 | 34 | 712 to 764 | 679 | 836 |
 | docs.plus | 30 | 4,055 | 4,312 | 4,353 | 4,367 | 94 | 4,004 to 4,131 | 3,903 | 4,371 |
 | Docxodus | 30 | 2,002 | 2,041 | 2,063 | 2,080 | 17 | 1,991 to 2,015 | 1,967 | 2,083 |
@@ -292,7 +377,7 @@ Round trip in ms, primary run. At this sample count the 99th percentile is close
 
 | Editor | n | median | p90 | p95 | p99 | MAD | 95% CI | min | max |
 |---|---|---|---|---|---|---|---|---|---|
-| canvas-editor + plugin | stopped after repeated failures, last crashed (exit 1) | | | | | | | | |
+| canvas-editor + plugin | stopped after repeated failures, last exited with code 1 | | | | | | | | |
 | Docen | 30 | 109 | 111 | 112 | 113 | 1.0 | 109 to 110 | 106 | 114 |
 | docs.plus | 30 | 160 | 172 | 173 | 180 | 2.9 | 158 to 162 | 153 | 183 |
 | Docxodus | 30 | 347 | 375 | 378 | 382 | 3.4 | 345 to 351 | 340 | 383 |
@@ -305,8 +390,54 @@ Round trip in ms, primary run. At this sample count the 99th percentile is close
 | SuperDoc | 30 | 330 | 340 | 342 | 344 | 6.9 | 325 to 334 | 315 | 344 |
 | WordCraft | 30 | 4.6 | 4.6 | 4.6 | 4.7 | 0.0 | 4.5 to 4.6 | 4.5 | 4.7 |
 
+**The tools added in v0.11.0, round trip (ms), their own primary run.**
+
+**500 words, round trip (ms)**
+
+| Editor | n | median | p90 | p95 | p99 | MAD | 95% CI | min | max |
+|---|---|---|---|---|---|---|---|---|---|
+| BetterOffice | 30 | 99 | 101 | 103 | 115 | 1.0 | 99 to 101 | 98 | 120 |
+| OnlyOffice (CryptPad build) | 30 | 47 | 48 | 48 | 49 | 0.3 | 47 to 48 | 46 | 49 |
+| OpenDoc | 30 | 1.1 | 1.2 | 1.2 | 1.2 | 0.0 | 1.1 to 1.2 | 1.0 | 1.2 |
+
+**5,000 words, round trip (ms)**
+
+| Editor | n | median | p90 | p95 | p99 | MAD | 95% CI | min | max |
+|---|---|---|---|---|---|---|---|---|---|
+| BetterOffice | 30 | 135 | 141 | 145 | 148 | 2.0 | 135 to 138 | 130 | 148 |
+| OnlyOffice (CryptPad build) | 30 | 62 | 63 | 63 | 65 | 0.4 | 62 to 63 | 62 | 65 |
+| OpenDoc | 30 | 3.3 | 3.4 | 3.4 | 3.5 | 0.0 | 3.3 to 3.4 | 3.1 | 3.5 |
+
+**50,000 words, round trip (ms)**
+
+| Editor | n | median | p90 | p95 | p99 | MAD | 95% CI | min | max |
+|---|---|---|---|---|---|---|---|---|---|
+| BetterOffice | 30 | 354 | 364 | 366 | 379 | 3.5 | 352 to 357 | 345 | 383 |
+| OnlyOffice (CryptPad build) | 30 | 163 | 165 | 165 | 166 | 1.0 | 162 to 163 | 161 | 166 |
+| OpenDoc | 30 | 26 | 27 | 27 | 29 | 0.2 | 26 to 26 | 26 | 29 |
+
+**250,000 words, round trip (ms)**
+
+| Editor | n | median | p90 | p95 | p99 | MAD | 95% CI | min | max |
+|---|---|---|---|---|---|---|---|---|---|
+| BetterOffice | 30 | 1,278 | 1,324 | 1,367 | 1,434 | 9.5 | 1,275 to 1,284 | 1,264 | 1,449 |
+| OnlyOffice (CryptPad build) | 30 | 537 | 544 | 545 | 548 | 2.3 | 536 to 539 | 531 | 549 |
+| OpenDoc | 30 | 128 | 130 | 131 | 132 | 0.8 | 128 to 129 | 127 | 132 |
+
+**complex.docx, round trip (ms)**
+
+| Editor | n | median | p90 | p95 | p99 | MAD | 95% CI | min | max |
+|---|---|---|---|---|---|---|---|---|---|
+| BetterOffice | 30 | 159 | 162 | 165 | 175 | 1.3 | 158 to 159 | 155 | 178 |
+| OnlyOffice (CryptPad build) | stopped after repeated failures, last exited with code 1 | | | | | | | | |
+| OpenDoc | 30 | 2.9 | 3.0 | 3.1 | 3.3 | 0.0 | 2.9 to 2.9 | 2.7 | 3.3 |
+
 ## Appendix: figures that did not reproduce (diagnostics, not results)
 
 A median that disagreed between the two runs by more than the tolerance is listed here with both values. These are not results; they show how far apart the runs were.
+
+Every figure that was measured in both runs reproduced.
+
+The tools added in v0.11.0, from their own pair of runs:
 
 Every figure that was measured in both runs reproduced.

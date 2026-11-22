@@ -526,7 +526,7 @@ The application is published as a website; its npm package is only a frame mount
 - It lays the 500-page sample out on 500 pages, as Word does. It loaded in 3.54 s and settled at 7.01 s (editors site, 3 of 3 runs).
 - In the redline sample it shows insertions and deletions in the text, and a card per change and per comment with author, date and Accept and Reject (editors site, redline sample, seen 2026-11-18).
 - It reads and writes `.docx` itself, and it passed all ten checks and every hard case of the editors site's formatting probe (editors site README, probes of 2026-11-20).
-- Its viewer package draws pages on a server: 204 ms for the rich sample and 1.57 s for the 500-page sample (viewers site, server render, 3 runs each, 2026-11-21).
+- Its viewer package draws pages on a server: 204 ms for the rich sample and 1.57 s for the 500-page sample (viewers site, server render, 3 runs each, 2026-11-21). Without a browser its engine opens and saves the 5,000-word document in {{perf.e.v011.opendoc.prose-5kw.roundtrip.median:.1f}} ms and the 250,000-word one in {{perf.e.v011.opendoc.prose-250kw.roundtrip.median:.0f}} ms; at each of the five documents it is the lowest round trip in Report E (Report E, "The tools added in v0.11.0": a fresh process on the cloud machine, in a later pair of runs than the earlier editors').
 - It kept every part of the test document and all but {{rt.opendoc.text_lost}} of its {{rt.opendoc.text_tokens}} pieces of text, and saving its own output a second time gives the same bytes (main report, round trip {{rt.opendoc.weighted}}%, second pass). It keeps a list of what it left out: elements it does not model are recorded when the file is read, with repeats grouped and those it judges meaningless skipped, and a save hands the losses back to the program that asked for it (Report A §3.14, read in its source for v0.11.2).
 - On screen it draws the test document on 6 pages, as Word does, with the chart, the footnote and the deleted table row marked (Report C §2.16).
 
@@ -537,7 +537,6 @@ The application is published as a website; its npm package is only a frame mount
 - It is a pre-release, measured from a dated snapshot and not from a released version (editors site README, "The editors").
 - Word refuses the file it saves from the test document, and the schema check finds {{xsd.opendoc.real}} violations in it (main report, Word verdicts; Report B §3). Its writer puts formatting properties in an order of its own, which is where those violations come from; whether they are what Word objects to was not isolated (Report B §3.9). It also rewrites the parts it reads even when nothing was edited (the theme excepted), so details it does not model, such as the identifiers Word gives each paragraph, are gone after any save (Report A2 §3.7).
 - On hostile files it named no size limit and kept the weapon in three of the ten (Report D, grade {{bomb.opendoc.grade:.2f}}).
-- Its speed is not measured by the trial: timing it needs the cloud machines, which this release did not use (Report E, "Not measured").
 
 ## BetterOffice
 
@@ -568,7 +567,7 @@ The React package imports its core by 30 subpaths, each of which a page without 
 - Through its document model the result is weaker: {{rt.betteroffice.failed}} of {{rt.betteroffice.total}} checks failed, and Word refuses that file (main report, model lane {{rt.betteroffice.weighted}}%). What it has no type for is kept only when its prefix is foreign to Word's usual ones. An element written with one of Word's usual prefixes that it does not model is dropped. The markers of a moved passage come back without their author, which the schema requires, and Word refuses the model lane's file (Report A §3.15; Report B §3.9).
 - Its save returns a list of warnings, and for the test document the list was empty although checks failed (main report, harness log of the model lane). The places in its code that drop such content raise no warning (Report A §3.15).
 - On hostile files it named no size limit and kept the weapon in three of the ten; in the editor lane the process aborted on one (Report D, grade {{bomb.betteroffice.grade:.2f}}).
-- Its speed is not measured by the trial: timing it needs the cloud machines, which this release did not use (Report E, "Not measured").
+- Opening and saving without a browser is in the middle of the field: its document model takes {{perf.e.v011.betteroffice.prose-5kw.roundtrip.median:.0f}} ms for the 5,000-word document and {{perf.e.v011.betteroffice.prose-250kw.roundtrip.median:,.0f}} ms for 250,000 words, and its first call also starts its WebAssembly, which the package gives no way to do beforehand (Report E, "The tools added in v0.11.0": a fresh process on the cloud machine, in a later pair of runs than the earlier editors').
 
 ## OnlyOffice (CryptPad build)
 
@@ -593,6 +592,7 @@ The editor is distributed as one archive of 608 MB. One header icon is missing f
 - It reads and writes `.docx` itself, and it passed all ten checks and every hard case of the editors site's formatting probe (editors site README, probes of 2026-11-20).
 - It runs wholly in the browser, with no document server to operate (editors site README, "The editors").
 - On eight of the ten hostile files it wrote a file without the weapon in it (Report D, grade {{bomb.onlyoffice.grade:.2f}}).
+- Without a browser its converter opens and saves the prose documents quickly: {{perf.e.v011.onlyoffice.prose-5kw.roundtrip.median:.0f}} ms for 5,000 words and {{perf.e.v011.onlyoffice.prose-250kw.roundtrip.median:.0f}} ms for 250,000. It is the test document, `complex.docx`, that it does not return from (Report E, "The tools added in v0.11.0": a fresh process on the cloud machine, in a later pair of runs than the earlier editors').
 
 ### Cons
 

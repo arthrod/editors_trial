@@ -164,7 +164,7 @@ class ReportEFacts(unittest.TestCase):
     def test_every_failed_or_unreproduced_cell_is_listed_with_its_reason(self):
         listing = self.facts["perf.e.exceptions"]
         self.assertIn("canvas-editor + plugin", listing)
-        self.assertIn("crashed (exit 1)", listing)
+        self.assertIn("exited with code 1", listing)
         self.assertIn("Plate.js", listing)
         self.assertIn("not reproduced", listing)
 
@@ -178,7 +178,7 @@ class ReportEFacts(unittest.TestCase):
         wordcraft = summary[2]
         self.assertIn("3.0 ms at 500 words", wordcraft)
         self.assertIn("not published", summary[1])  # plate's round trip did not reproduce
-        self.assertIn("crashed (exit 1)", summary[0])
+        self.assertIn("exited with code 1", summary[0])
         for word in ("fastest", "slowest", "faster", "slower", "best", "worst", "winner"):
             self.assertNotIn(word, self.facts["perf.e.summary"].lower())
 
@@ -1160,6 +1160,70 @@ class PiReview126(unittest.TestCase):
         one = E._save_notes({"perf.e.prepared_export": "A's save took 1 ms", "perf.e.passthrough_scope": "X on every document"})
         self.assertIn("Where the editor does that work was not traced", one)
         self.assertIn("this editor wrote back", one)
+
+
+class AddedTools(unittest.TestCase):
+    """Editors added after the published pair get their own pair, under perf.e.v011.* (v0.11.x)."""
+
+    def test_same_figures_under_their_own_prefix(self):
+        main = E.facts_from_runs(_MODULE["primary"], _MODULE["repro"])
+        added = E.added_facts(_MODULE["primary"], _MODULE["repro"])
+        self.assertTrue(added and all(k.startswith("perf.e.v011.") for k in added))
+        self.assertEqual(added["perf.e.v011.wordcraft.prose-500w.roundtrip.median"], 3.0)
+        self.assertEqual(added["perf.e.v011.table.load"], main["perf.e.table.load"])
+        self.assertEqual(added["perf.e.v011.run_id"], main["perf.e.run_id"])
+
+    def test_an_editor_is_timed_by_one_pair_only(self):
+        with self.assertRaisesRegex(ValueError, "already in the published pair"):
+            E.added_facts(_MODULE["primary"], _MODULE["repro"], published=_MODULE["primary"])
+
+    def test_names_the_runner_files_that_differ_from_the_published_pair(self):
+        tmp = Path(_MODULE["tmp"].name)
+        script = tmp / "fake.py"
+        other = _run(tmp, "published-other", {"folio": _lane(script, 5.0, 5.0)}, reps=10, seed=3)
+        summary = json.loads((other / "summary.json").read_text())
+        key = sorted(summary["provenance"]["code"])[0]
+        summary["provenance"]["code"][key] = "0" * 64
+        (other / "summary.json").write_text(json.dumps(summary))
+        added = E.added_facts(_MODULE["primary"], _MODULE["repro"], published=other)
+        self.assertEqual(added["perf.e.v011.code_changed"], "`%s`" % key)
+        self.assertEqual(added["perf.e.v011.code_changed_n"], 1)
+
+    def test_a_harness_that_stops_the_tool_is_not_called_a_crash(self):
+        rec = {"returncode": 1, "timed_out": False, "mark_counts": {"host_start_ms": 1}, "marks": {"host_start_ms": 1.0},
+               "required_marks": ["model_ready_ms", "save_ms", "host_start_ms"], "check": {"complete": False, "error": "no output file"},
+               "stderr_tail": "", "stdout_tail": "[onlyoffice] x2t v9\nPERF host_start_ms=1\n"
+               "[onlyoffice] FAILED: x2t did not return from \"doc.docx -> bin\" within 120 s; the harness stopped it\n"}
+        run = E.Run(path=Path("."), summary={}, records={("complex-corpus", "onlyoffice"): [rec]})
+        self.assertEqual(E._last_error(run, "complex-corpus", "onlyoffice"),
+                         'x2t did not return from "doc.docx -> bin" within 120 s; the harness stopped it')
+        self.assertNotIn("crash", E._short("rc=1; stopped after 3 consecutive failures (last: rc=1)"))
+        self.assertFalse(E._good(rec))
+        self.assertEqual(E._short("rc=-9"), "stopped by signal 9")
+
+    def _published_like(self, name, edit):
+        tmp = Path(_MODULE["tmp"].name)
+        other = _run(tmp, name, {"folio": _lane(tmp / "fake.py", 5.0, 5.0)}, reps=10, seed=4)
+        summary = json.loads((other / "summary.json").read_text())
+        edit(summary)
+        (other / "summary.json").write_text(json.dumps(summary))
+        return other
+
+    def test_refuses_a_pair_on_other_documents(self):
+        def edit(s):
+            s["workloads"]["prose-500w"]["sha256"] = "0" * 64
+        with self.assertRaisesRegex(ValueError, "other documents"):
+            E.added_facts(_MODULE["primary"], _MODULE["repro"], published=self._published_like("pub-docs", edit))
+
+    def test_refuses_a_pair_on_another_machine_type(self):
+        def edit(s):
+            s["host"]["machine_product"] = "some-other-type"
+        with self.assertRaisesRegex(ValueError, "another machine type"):
+            E.added_facts(_MODULE["primary"], _MODULE["repro"], published=self._published_like("pub-host", edit))
+
+    def test_display_names_for_the_added_lanes(self):
+        self.assertEqual([E.DISPLAY[e] for e in ("betteroffice", "onlyoffice", "opendoc")],
+                         ["BetterOffice", "OnlyOffice (CryptPad build)", "OpenDoc"])
 
 
 if __name__ == "__main__":

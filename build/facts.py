@@ -405,6 +405,9 @@ def perf_e_facts(path: Path, facts: dict) -> None:
     import perf_e_tables
     runs = json.loads(path.read_text())
     facts.update(perf_e_tables.facts_from_runs(ROOT / runs["primary"], ROOT / runs["repro"]))
+    added = runs.get("v011")  # {"primary": dir, "repro": dir}: the tools added in v0.11.0, timed later
+    if added:
+        facts.update(perf_e_tables.added_facts(ROOT / added["primary"], ROOT / added["repro"], published=ROOT / runs["primary"]))
 
 
 def perf_e2_facts(path: Path, facts: dict) -> None:

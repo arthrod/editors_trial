@@ -9,6 +9,22 @@ re-running the measurement behind it. The format follows
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-22
+
+Report E times the three tools added in v0.11.0 that can run without a browser. The earlier editors were not run again and none of their figures moved.
+
+### Measured
+- **Report E, the tools added in v0.11.0** (OpenDoc, BetterOffice's document model, OnlyOffice in CryptPad's build). The headless speed runner, `dedicated_publish`, in a Linux container on a Hugging Face sandbox (Amazon EC2 r6a.8xlarge, AMD EPYC 7R13, 32 CPUs), the machine type of the earlier runs, on 2026-11-22: primary run `6842e10ab266` (30 repetitions, seed 20261122) and reproduction run `986d98556538` (10 repetitions, seed 20261123), on the same five documents (same SHA-256). 51 of 51 figures reproduced within 10 percent (or 2 ms). They have their own section and tables, built by the same code from their own pair (`build/perf_e_tables.py` `added_facts`, facts `perf.e.v011.*`); the builder refuses an editor that the published pair already timed.
+- OnlyOffice does not return from `complex.docx`: its harness stopped the converter after 120 s in its first step ("doc.docx -> bin"), three times in a row in each run, and the runner stopped the cell. On the four prose documents it loaded and saved in every sample.
+- The runner had changed since 2026-11-09; the section names the seven files whose hashes differ.
+
+### Changed
+- Report E: a failure with a non-zero exit is now worded "exited with code N", not "crashed (exit N)": OnlyOffice's harness stopping the converter is not a crash. canvas-editor's published lines read the same way now; their figures did not change. A failure whose stderr names no error takes the harness's own "FAILED:" line from stdout.
+- Vendor notes: OpenDoc, BetterOffice and OnlyOffice each gain a line with their Report E round trips, in place of "its speed is not measured".
+
+### Not measured
+- Report E2 (speed in the browser) still has no rows for the tools added in v0.11.0: they need browser lanes, which are not built yet.
+
 ## [0.11.2] - 2026-11-22
 
 The source of react-docx, OpenDoc and BetterOffice was read, at the versions measured in v0.11.0, and the reports now say why their results come out as they do. No measurement changed.
