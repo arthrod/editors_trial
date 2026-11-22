@@ -68,5 +68,22 @@ class OpenDocParagraphCensus(unittest.TestCase):
         self.assertIsNone(self.out["unknown"])
 
 
+class OpenDocScroller(unittest.TestCase):
+    """C10: OpenDoc's scroller is #viewport (its pages are canvases; its only DOM
+    text is the off-page screen-reader mirror), named in the adapter table."""
+
+    def test_opendoc_scrolls_its_viewport(self):
+        from perf.runner import adversarial_c10_scroll as c10
+
+        self.assertEqual(c10.adapter_selectors("opendoc"), {"container": "#viewport", "document": None})
+
+    def test_the_other_editors_are_unchanged(self):
+        from perf.runner import adversarial_c10_scroll as c10
+
+        self.assertEqual(c10.adapter_selectors("wordcraft"), {"container": "#wc-scroll", "document": "#wordcraft_canvas"})
+        for editor in ("plate", "docxodus", "superdoc", "genoffice", "canvas", "docen", "eigenpal", "folio", "reactdocx"):
+            self.assertEqual(c10.adapter_selectors(editor), {"container": None, "document": None}, editor)
+
+
 if __name__ == "__main__":
     unittest.main()

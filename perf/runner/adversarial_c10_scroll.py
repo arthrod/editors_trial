@@ -129,7 +129,14 @@ FAKE_EDITOR_VERSION = "fake-host:b5-scroll"
 #: by itself: the host chip's text forces the text-selection path (no
 #: scroller holds the document text) and the overlay's ``opacity: 0`` makes
 #: it ineligible for the textless surface fallback.
-HOST_SCROLL_CONTAINERS: dict[str, str] = {"wordcraft": "#wc-scroll"}
+#:
+#: opendoc (E2): ``#viewport`` (``repos/opendoc/webapp/editor.html``, overflow-y
+#: auto) is the editor's own page scroller; the pages inside it are canvases.
+#: The text-selection path refuses it: its only DOM text is the off-page
+#: screen-reader mirror (``#a11yDocument``, ~4,200 characters on prose-500w),
+#: fewer than the ribbon's and dialogs' labels outside every scroller. The
+#: scroller itself holds the pages, so no document override is needed.
+HOST_SCROLL_CONTAINERS: dict[str, str] = {"wordcraft": "#wc-scroll", "opendoc": "#viewport"}
 
 #: The document element of a host whose scroller is an adapter overlay: the
 #: box the witness watches (the document, not the invisible overlay) and the
