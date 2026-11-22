@@ -318,21 +318,23 @@ export function caretOverlapsLine(caret, line) {
 
 /**
  * C07: is the caret on the clicked line? `line` is the line's box read before
- * the click, in viewport pixels. Owner's decision (2026-11-22): when that
- * comparison fails and the click itself scrolled the content by `scrolled` px
- * (BetterOffice scrolls a line cut by the window's bottom edge into view),
- * the caret is judged against where the clicked line ended up. A click that
- * scrolled nothing gets exactly the old verdict, and the shift is consulted
- * only after the old comparison failed (perf/tests/test_e2_c07_click_scroll.py).
+ * the click, in viewport pixels; `scrolled` is how far the click's own handling
+ * scrolled that content (px, downwards; RECORD_CLICK_SCROLL). Owner's decision
+ * (2026-11-22), for every editor: a click that scrolled is judged against where
+ * the clicked line ended up, and only there, so a caret left at the line's old
+ * place is refused (Codex review 2026-11-22); a click that scrolled nothing, or
+ * whose scroll could not be read, gets exactly the old verdict
+ * (perf/tests/test_e2_c07_click_scroll.py).
  */
 export function caretOnClickedLine(caret, line, scrolled) {
-  if (caretOverlapsLine(caret, line)) return { on_line: true, after_click_scroll: false };
   const shift = Number(scrolled);
-  if (!line || !Number.isFinite(shift) || shift === 0) return { on_line: false, after_click_scroll: false };
-  const moved = { top: Number(line.top) - shift, bottom: Number(line.bottom) - shift };
-  return caretOverlapsLine(caret, moved)
-    ? { on_line: true, after_click_scroll: true }
-    : { on_line: false, after_click_scroll: false };
+  if (line && scrolled !== null && scrolled !== undefined && Number.isFinite(shift) && shift !== 0) {
+    const moved = { top: Number(line.top) - shift, bottom: Number(line.bottom) - shift };
+    return caretOverlapsLine(caret, moved)
+      ? { on_line: true, after_click_scroll: true }
+      : { on_line: false, after_click_scroll: false };
+  }
+  return { on_line: caretOverlapsLine(caret, line), after_click_scroll: false };
 }
 
 /**
@@ -340,12 +342,15 @@ export function caretOnClickedLine(caret, line, scrolled) {
  * element at (x, y), crossing shadow roots, and the window's. Read before the
  * click, outside the timed window; `window.__c07Scroll.delta()` later gives
  * how far the click's own handling scrolled that content (px, downwards).
+ * The document's own scroller is the window's scroll, counted once through
+ * window.scrollY, never also as an element of the chain.
  */
 const RECORD_CLICK_SCROLL = ({ x, y }) => {
   const chain = [];
   let el = document.elementFromPoint(x, y);
   while (el) {
-    if (el.scrollHeight > el.clientHeight) chain.push([el, el.scrollTop]);
+    const own = el === document.scrollingElement || el === document.documentElement || el === document.body;
+    if (!own && el.scrollHeight > el.clientHeight) chain.push([el, el.scrollTop]);
     el = el.parentElement || (el.getRootNode && el.getRootNode().host) || null;
   }
   const winY = window.scrollY;
@@ -2736,17 +2741,15 @@ async function measureClicks(page, meta, options = {}) {
       observation.model_selection_offset = state.selection_offset ?? null;
     } else {
       let caretOnLine = point.line === null ? true : caretOverlapsLine(state.caret, point.line);
-      if (!caretOnLine && point.line) {
-        // Only now: did the click scroll its content (caretOnClickedLine)?
+      if (point.line) {
+        // Did the click scroll its content? Then the moved line is the only place (caretOnClickedLine).
         const scrolled = await page
           .evaluate(() => (window.__c07Scroll ? window.__c07Scroll.delta() : null))
           .catch(() => null);
         const verdict = caretOnClickedLine(state.caret, point.line, scrolled);
         observation.click_scrolled_px = Number.isFinite(scrolled) ? round(scrolled, 1) : null;
-        if (verdict.after_click_scroll) {
-          caretOnLine = true;
-          observation.caret_on_line_after_click_scroll = true;
-        }
+        caretOnLine = verdict.on_line;
+        if (verdict.after_click_scroll) observation.caret_on_line_after_click_scroll = true;
       }
       observation.caret_on_clicked_line = caretOnLine;
       observation.caret_evidence = 'dom_caret';

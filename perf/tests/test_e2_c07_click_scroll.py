@@ -6,10 +6,10 @@ A1  A click that scrolls nothing gets the old verdict: the caret on the line
 A2  A click that scrolls its scroller by 18 px (BetterOffice's cut last line):
     the caret on the moved line is on the clicked line, and the shift is 18.
 A3  A caret on another line is refused in both cases.
-A4  No published editor's verdict can move: the published campaign
-    (ds-final, 3,144 C07 attempts) has no caret_not_on_clicked_line refusal,
-    and the shift is consulted only after the old comparison failed
-    (source order pinned here).
+A4  A click that scrolled is judged only on the moved line: a caret left at
+    the line's old place is refused (Codex review, 2026-11-22).
+A5  When the document itself scrolls, the window's scroll is counted once,
+    not also as the document's scroller (Codex review, 2026-11-22).
 """
 
 from __future__ import annotations
@@ -39,26 +39,30 @@ class ClickScrollTests(unittest.TestCase):
             raise AssertionError(proc.stderr[-2000:])
         for line in proc.stdout.splitlines():
             row = json.loads(line)
-            cls.cases[row["scrollBy"]] = row
+            cls.cases[(row["mode"], row["scrollBy"])] = row
 
     def test_a_click_that_scrolls_nothing_keeps_the_old_verdict(self):
-        row = self.cases[0]
+        row = self.cases[("scroller", 0)]
         self.assertEqual(row["scrolled"], 0, row)
         self.assertEqual(row["onLine"], {"on_line": True, "after_click_scroll": False}, row)
         self.assertFalse(row["offLine"]["on_line"], row)
 
     def test_a_click_that_scrolls_is_judged_on_the_moved_line(self):
-        row = self.cases[18]
+        row = self.cases[("scroller", 18)]
         self.assertEqual(row["scrolled"], 18, row)
         self.assertEqual(row["onLine"], {"on_line": True, "after_click_scroll": True}, row)
         self.assertFalse(row["offLine"]["on_line"], row)
 
-    def test_the_shift_is_consulted_only_after_the_old_comparison_failed(self):
-        src = (REPO / "perf/runner/criteria_input.mjs").read_text(encoding="utf-8")
-        body = src[src.index("export function caretOnClickedLine("):]
-        body = body[: body.index("\n}\n")]
-        self.assertLess(body.index("caretOverlapsLine(caret, line)"), body.index("Number(scrolled)"))
+    def test_a_caret_left_at_the_old_place_is_refused_after_a_scroll(self):
+        row = self.cases[("scroller", 18)]
+        self.assertEqual(row["staleCaret"], {"on_line": False, "after_click_scroll": False}, row)
+        # Without a scroll the same caret is on the line, as before.
+        self.assertTrue(self.cases[("scroller", 0)]["staleCaret"]["on_line"])
 
+    def test_the_window_scroll_is_counted_once(self):
+        row = self.cases[("window", 18)]
+        self.assertEqual(row["scrolled"], 18, row)
+        self.assertEqual(row["onLine"], {"on_line": True, "after_click_scroll": True}, row)
 
 if __name__ == "__main__":
     unittest.main()
