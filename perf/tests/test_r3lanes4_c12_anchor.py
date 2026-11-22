@@ -203,12 +203,15 @@ class YProxyRemoved(NodeContract):
         self.assertIn("model_paragraphs", text)
         self.assertIn("dom_blocks", text)
 
-    def test_the_no_geometry_set_is_canvas_and_docen(self):
+    def test_the_no_geometry_set_is_canvas_docen_and_opendoc(self):
+        # E2: OpenDoc paints its pages into canvases too (harness/ui/opendoc);
+        # it joins the set. Every DOM editor stays outside it.
         out = self.node(
             """
 assert.equal(typeof mod.C12_NO_PARAGRAPH_GEOMETRY, 'object');
 assert.equal(mod.C12_NO_PARAGRAPH_GEOMETRY.has('canvas'), true);
 assert.equal(mod.C12_NO_PARAGRAPH_GEOMETRY.has('docen'), true);
+assert.equal(mod.C12_NO_PARAGRAPH_GEOMETRY.has('opendoc'), true);
 assert.equal(mod.C12_NO_PARAGRAPH_GEOMETRY.has('plate'), false);
 console.log(JSON.stringify([...mod.C12_NO_PARAGRAPH_GEOMETRY]));
 """
@@ -216,8 +219,9 @@ console.log(JSON.stringify([...mod.C12_NO_PARAGRAPH_GEOMETRY]));
         # Report E2 adds OnlyOffice, which also draws whole pages on one canvas
         # (2026-11-22), and BetterOffice, which paints each page on a canvas and
         # whose only paragraph elements are its accessibility mirror's 0x0 boxes
-        # (2026-11-22); canvas and docen keep their ruling, nobody else joins.
-        self.assertEqual(sorted(out), ["betteroffice", "canvas", "docen", "onlyoffice"])
+        # (2026-11-22); canvas and docen keep their ruling, and OpenDoc, whose pages are canvases
+        # (harness/ui/opendoc); nobody else joins.
+        self.assertEqual(sorted(out), ["betteroffice", "canvas", "docen", "onlyoffice", "opendoc"])
 
 
 if __name__ == "__main__":

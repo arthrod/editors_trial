@@ -35,10 +35,12 @@ export const LANE_EDIT_CONFIRM_MS = 10_000;
  * the hidden accessibility mirror's .layout-paragraph boxes, which are 0x0
  * (each glyph is its own absolutely placed span; probed 2026-11-22 on
  * prose-500w, @betteroffice/docx-react 0.5.1).
+ * OpenDoc joins them for the same reason: its pages are canvases
+ * (#pages .page-wrap canvas.page) and the only DOM boxes are the page sheets.
  */
 // OnlyOffice draws whole pages on its #id_viewer canvas too (its frame holds no
 // paragraph box); its model's paragraph list is the evidence.
-export const C12_NO_PARAGRAPH_GEOMETRY = new Set(['canvas', 'docen', 'onlyoffice', 'betteroffice']);
+export const C12_NO_PARAGRAPH_GEOMETRY = new Set(['canvas', 'docen', 'onlyoffice', 'betteroffice', 'opendoc']);
 
 /**
  * The C12 anchor: the nearest block BELOW the caret on the same screen
@@ -177,6 +179,27 @@ export const LIST_MODEL_PARAGRAPHS = (model) => {
     const host = window.__host || (window.parent !== window ? window.parent.__host : null);
     const text = host && typeof host.text === 'function' ? host.text() : null;
     return text === null ? null : text.split('\n').map((line) => line.trim()).filter(Boolean);
+  }
+  if (model === 'opendoc') {
+    // The engine's blocks through the host contract; a promise (the census
+    // awaits it). Paragraph texts only, as for the models above.
+    const session = window.opendoc;
+    if (!session || !session.ai || typeof session.ai.read !== 'function') return null;
+    return (async () => {
+      const out = [];
+      let cursor = null;
+      for (let page = 0; page < 100000; page += 1) {
+        const answer = await session.ai.read(cursor ? { tool: 'read', cursor } : { tool: 'read' });
+        if (!answer || !answer.ok || !answer.value) return null;
+        for (const block of answer.value.blocks || []) {
+          const text = typeof block.text === 'string' ? block.text.trim() : '';
+          if (text) out.push(text);
+        }
+        if (!answer.value.truncated || !answer.value.nextCursor) break;
+        cursor = answer.value.nextCursor;
+      }
+      return out;
+    })();
   }
   return null;
 };

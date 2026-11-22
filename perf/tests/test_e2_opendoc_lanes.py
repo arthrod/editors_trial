@@ -46,5 +46,27 @@ class OpenDocPasteInput(unittest.TestCase):
             self.assertIsNone(row["paste_input"], name)
 
 
+@unittest.skipIf(shutil.which("node") is None, "node is not on PATH")
+class OpenDocParagraphCensus(unittest.TestCase):
+    """C12 evidence: the census lists OpenDoc's paragraphs from the engine (paged,
+    async); the docen and canvas-editor lists are unchanged arrays."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.out = _node("e2_opendoc_census_repro.mjs")
+
+    def test_opendoc_paragraphs_come_from_every_page_of_the_engine_read(self):
+        self.assertTrue(self.out["opendoc_is_promise"])
+        self.assertEqual(self.out["opendoc"], ["First", "Second", "Third"])
+        self.assertEqual(self.out["opendoc_calls"], [{"tool": "read"}, {"tool": "read", "cursor": "c1"}])
+
+    def test_the_other_models_still_list_synchronously(self):
+        self.assertTrue(self.out["docen_is_array"])
+        self.assertEqual(self.out["docen"], ["D1"])
+        self.assertTrue(self.out["canvas_is_array"])
+        self.assertEqual(self.out["canvas"], ["C1"])
+        self.assertIsNone(self.out["unknown"])
+
+
 if __name__ == "__main__":
     unittest.main()

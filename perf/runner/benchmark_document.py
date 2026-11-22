@@ -465,6 +465,39 @@ DOCUMENT_TARGETS = {
             "adapter enters it and C12 measures the y-shift of the first-screen paragraphs below the caret."
         ),
     },
+    "opendoc": {
+        "doc_selector": '#pages .page-wrap[data-page-number="1"] canvas.page',
+        "page_selector": "#pages .page-wrap",
+        "page_model": "page",
+        "edit_selector": '#pages .page-wrap[data-page-number="1"]',
+        "usable_signal": "canvas_pixel",
+        # The editor's own open condition, not the host's ready flag: canvas.page
+        # is mounted only after the document's raster is blitted, in the same
+        # frame body.doc-loaded is set (traced: 320 ms both, __host.ready two
+        # frames later). With __host.ready the canvas_pixel gate took the
+        # document itself as the "empty page" baseline (#185) and never fired.
+        "ready_js": (
+            "!!(document.body && document.body.classList.contains('doc-loaded') && "
+            "document.querySelector('#pages .page-wrap[data-page-number=\"1\"] canvas.page'))"
+        ),
+        "find_input_selector": "#findPanel:not([hidden]) #findInput",
+        "find_count_selector": "#findStatus",
+        "find_query": "NEEDLE",
+        "find_expected_matches": 5,
+        "find_source_note": (
+            "OpenDoc's own find panel (editor.html #findPanel, editor_find.mjs): Ctrl/Cmd+F opens it; "
+            "#findInput's input listener searches synchronously and writes #findStatus "
+            "(\"1 of 5\", \"5 matches\", \"No match\")"
+        ),
+        "note": (
+            "OpenDoc (harness/ui/opendoc) paints each page into a 2d canvas.page inside "
+            "#pages .page-wrap (the engine's RGBA through putImageData); body text is in the engine, "
+            "read through window.opendoc.ai.read (edit_surface.mjs model 'opendoc'). #a11yDocument is "
+            "an off-page screen-reader mirror, not layout. C11 and C14 use canvas_pixel on page 1's "
+            "canvas, gated on the editor's own open condition (body.doc-loaded). C12 is not applicable "
+            "(r3lanes4 ruling 4): no DOM box is a paragraph."
+        ),
+    },
     "canvas": {
         "doc_selector": "#editor .ce-page-container > canvas",
         "page_selector": "#editor .ce-page-container",
@@ -2043,6 +2076,7 @@ GATE_SURFACES = {
     "canvas": {"oracle": "model"},
     "docen": {"oracle": "model"},
     "betteroffice": {"oracle": "model"},
+    "opendoc": {"oracle": "model"},
     "wordcraft": {"oracle": "select_all_copy"},
 }
 

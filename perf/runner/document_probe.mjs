@@ -1652,8 +1652,8 @@ async function runReflow(browser) {
             if (typeof modelSrc === 'string' && modelSrc) {
               // eslint-disable-next-line no-eval
               const list = eval(modelSrc);
-              // BetterOffice's model read is async; awaiting the synchronous
-              // canvas/docen lists changes nothing for them.
+              // BetterOffice's and OpenDoc's model reads are async; awaiting
+              // the synchronous canvas/docen lists changes nothing for them.
               const paragraphs = await list(model);
               modelParagraphs = Array.isArray(paragraphs) ? paragraphs.length : null;
             }
@@ -1673,6 +1673,8 @@ async function runReflow(browser) {
             ? '#id_viewer in its editor frame (OnlyOffice paints each page into one <canvas>)'
           : editorId === 'betteroffice'
             ? '[data-docx-pages-host] .paged-editor__page (host paints into <canvas>; its accessibility mirror\'s .layout-paragraph boxes are 0x0)'
+          : editorId === 'opendoc'
+            ? '#pages .page-wrap (host paints each page into canvas.page)'
             : 'docen-document shadow .canvas-pages > div (page pitch)';
       return {
         mode: 'reflow',
