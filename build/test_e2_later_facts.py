@@ -34,15 +34,17 @@ TEMPLATE = render_reports.TEMPLATES / "reports/Report E2 - Speed in the Browser 
 
 
 def farm(base: Path, editors, *, tag: str, cpu_model: str | None = None, sha: str = "sha-500w",
-         detection: str | None = None, search_sha: str | None = None, workload: str = "prose-500w") -> list[Path]:
+         detection: str | None = None, search_sha: str | None = None, workload: str = "prose-500w",
+         seeds=(1, 2), runner: str = "benchmark_input") -> list[Path]:
     """Two seeds, one Space each, one input-lane block job measuring C07 (and C10 when asked)."""
     roots = []
-    for seed in (1, 2):
+    for seed in seeds:
         root = base / ("e2-%s--r%d" % (tag, seed))
         job = root / "benchmark_input" / ("%s%d-1" % (tag, seed))
         job.mkdir(parents=True)
         summary = T._summary(job, run_id="%s%d-1" % (tag, seed), seed=seed, editors=list(editors), reps=5)
         summary["block"] = {"index": 1, "of": 2, "repetitions": 5}
+        summary["runner"] = runner
         summary["hosts"] = {e: {"host_build": "production", "tree_sha256": "tree-fixture"} for e in editors}
         summary["started_at"] = "2026-11-2%dT08:00:00Z" % seed
         summary["finished_at"] = "2026-11-2%dT09:00:00Z" % seed
@@ -79,8 +81,14 @@ class LaterFacts(unittest.TestCase):
         os.environ.pop("TRIAL_E2_CARRY", None)
         # the published campaign's document record, as build/e2_published_documents.json holds it
         record = self.base / "e2_published_documents.json"
-        record.write_text(json.dumps({"source": "fixture", "generated_per_sample": ["micro-search"],
-                                      "documents": {"prose-500w": ["sha-500w"]}}))
+        real = json.loads((ROOT / "build" / "e2_published_documents.json").read_text())
+        self.record_path = record
+        self.record = {"source": "fixture", "generated_per_sample": ["micro-search"],
+                       "documents": {"prose-500w": ["sha-500w"]},
+                       "machines": [["shared_guarded", "fixture CPU", "8", "16"]],
+                       "seeds": ["1", "2"], "runners": ["benchmark_input"],
+                       "generators": real["generators"]}
+        record.write_text(json.dumps(self.record))
         patch = mock.patch.object(E2, "PUBLISHED_DOCUMENTS", record)
         patch.start()
         self.addCleanup(patch.stop)
@@ -245,6 +253,7 @@ class LaterFacts(unittest.TestCase):
         out = self.build({"roots": [str(self.base / "gone")], "later": {"roots": [str(r) for r in later]}})
         self.assertIn("micro-search is generated per sample", out["perf.e2.later.comparison"])
         self.assertIn("by its generator, not by hash", out["perf.e2.later.comparison"])
+        self.assertIn("checked by SHA-256", out["perf.e2.later.comparison"])
         # the same holds when the published run folders are read: their micro-search hashes are other samples'
         os.environ.pop("TRIAL_E2_CARRY")
         published = farm(self.base / "pub2", ["plate"], tag="pub2", search_sha="old")
@@ -260,10 +269,58 @@ class LaterFacts(unittest.TestCase):
             self.assertEqual(len(record["documents"][name]), 1)
             self.assertRegex(record["documents"][name][0], "^[0-9a-f]{64}$")
 
+    def rewrite_record(self, **changes) -> None:
+        self.record_path.write_text(json.dumps({**self.record, **changes}))
+
+    def test_other_seeds_are_refused(self):
+        later = farm(self.base / "later", ["opendoc"], tag="later", seeds=(1, 3))
+        with self.assertRaisesRegex(ValueError, "other seeds"):
+            self.build({"roots": [str(r) for r in self.published], "later": {"roots": [str(r) for r in later]}})
+        self.carry()
+        with self.assertRaisesRegex(ValueError, "other seeds"):
+            self.build({"roots": [str(self.base / "gone")], "later": {"roots": [str(r) for r in later]}})
+
+    def test_another_lane_is_refused(self):
+        later = farm(self.base / "later", ["opendoc"], tag="later", runner="benchmark_new_lane")
+        with self.assertRaisesRegex(ValueError, "other lanes"):
+            self.build({"roots": [str(r) for r in self.published], "later": {"roots": [str(r) for r in later]}})
+
+    def test_under_the_carry_every_published_machine_type_counts(self):
+        self.carry()
+        self.rewrite_record(machines=[["shared_guarded", "fixture CPU", "8", "16"],
+                                      ["shared_guarded", "second CPU", "8", "16"]])
+        later = farm(self.base / "later", ["opendoc"], tag="later", cpu_model="second CPU")
+        out = self.build({"roots": [str(self.base / "gone")], "later": {"roots": [str(r) for r in later]}})
+        self.assertEqual(out["perf.e2.later.measured"], "measured")
+
+    def test_a_measured_document_without_a_hash_is_refused(self):
+        later = farm(self.base / "later", ["opendoc"], tag="later", sha="")
+        with self.assertRaisesRegex(ValueError, "no SHA-256 to compare"):
+            self.build({"roots": [str(r) for r in self.published], "later": {"roots": [str(r) for r in later]}})
+
+    def test_a_changed_generator_is_refused(self):
+        self.carry()
+        gen = json.loads(json.dumps(self.record["generators"]))
+        gen["micro-search"]["sha256"] = "0" * 64
+        self.rewrite_record(generators=gen)
+        later = farm(self.base / "later", ["opendoc"], tag="later", search_sha="fresh")
+        with self.assertRaisesRegex(ValueError, "generator of micro-search differs"):
+            self.build({"roots": [str(self.base / "gone")], "later": {"roots": [str(r) for r in later]}})
+
+    def test_the_committed_record_names_the_published_machines_seeds_lanes_and_generator(self):
+        record = json.loads((ROOT / "build" / "e2_published_documents.json").read_text())
+        self.assertEqual(record["machines"], [["shared_guarded", "AMD EPYC 7R13 Processor", "8.0", "64"]])
+        self.assertEqual(record["seeds"], ["1", "2"])
+        self.assertEqual(len(record["runners"]), 7)
+        self.assertRegex(record["generators"]["micro-search"]["sha256"], "^[0-9a-f]{64}$")
+
     def test_onlyoffice_c10_by_canvas_pixels_is_said_only_when_its_records_say_so(self):
         pixels = farm(self.base / "px", ["onlyoffice"], tag="px", detection="canvas_pixels")
         out = self.build({"roots": [str(r) for r in self.published], "later": {"roots": [str(r) for r in pixels]}})
         self.assertIn("measured from canvas pixels", out["perf.e2.later.c10_onlyoffice"])
+        self.assertIn("45 px", out["perf.e2.later.c10_onlyoffice"])
+        self.assertIn("600 px", out["perf.e2.later.c10_onlyoffice"])
+        self.assertIn("or the sample is refused", out["perf.e2.later.c10_onlyoffice"])
         dom = farm(self.base / "dom", ["onlyoffice"], tag="dom", detection="dom_scroll")
         out = self.build({"roots": [str(r) for r in self.published], "later": {"roots": [str(r) for r in dom]}})
         self.assertNotIn("measured from canvas pixels", out["perf.e2.later.c10_onlyoffice"])

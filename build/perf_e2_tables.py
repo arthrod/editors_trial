@@ -1479,6 +1479,42 @@ def _published_documents() -> tuple[dict, set]:
             set(record.get("generated_per_sample") or ()))
 
 
+def _published_record() -> dict:
+    return json.loads(Path(PUBLISHED_DOCUMENTS).read_text())
+
+
+def _unhashed_documents(roots, per_sample: set) -> list:
+    """Measured trials of a fixed document that record no SHA-256: they could not be compared, so they refuse."""
+    missing = set()
+    for root in roots:
+        for row in _iter_trials(Path(root)):
+            if row.get("outcome") != "measured":
+                continue
+            workload = e2_cells.trial_workload(row)
+            sha = (row.get("environment") or {}).get("fixture_sha256") or row.get("fixture_sha256")
+            if workload and workload not in per_sample and not sha:
+                missing.add("%s (%s)" % (workload, row.get("editor_id")))
+    return sorted(missing)
+
+
+def _generator_check(per_sample: set, record: dict) -> None:
+    """A document generated per sample is compared by its generator: the generator's source and its settings
+    must be the ones the published campaign ran with (``generators`` in the published record)."""
+    from perf.fixtures.profiles import size_ladder
+    import hashlib
+    generators = record.get("generators") or {}
+    for name in sorted(per_sample):
+        entry = generators.get(name)
+        if not entry:
+            raise ValueError("the published record names no generator for %s, generated per sample" % name)
+        source = ROOT / entry["source"]
+        digest = hashlib.sha256(source.read_bytes()).hexdigest()
+        rows = [row for row in size_ladder() if row.get("workload_id") == name]
+        if digest != entry["sha256"] or not rows or rows[0] != entry["profile"]:
+            raise ValueError("the generator of %s differs from the one the published campaign ran with (%s)"
+                             % (name, entry["source"]))
+
+
 def _c10_onlyoffice_text(roots) -> str:
     """Disclosure (d): OnlyOffice's C10 is said to be read from canvas pixels only when its records say so."""
     detections = set()
@@ -1488,8 +1524,10 @@ def _c10_onlyoffice_text(roots) -> str:
                 detections.add(row.get("detection") or (row.get("diagnostic") or {}).get("detection"))
     if "canvas_pixels" in detections:
         return ("OnlyOffice draws its own scrollbar and has no scroller in the page for the harness to watch, so its "
-                "C10 (scrolling) is measured from canvas pixels: a scroll ends at the first frame that matches the "
-                "picture before it, moved up by the scroll.")
+                "C10 (scrolling) is measured from canvas pixels. The scroll is one wheel notch over the page, which "
+                "OnlyOffice turns into a 45 px step whatever the wheel's size; every other editor's C10 scrolls its "
+                "page by 600 px. The time ends at the first frame that changes, and that frame must show the picture "
+                "before the scroll moved up by it, or the sample is refused.")
     if detections:
         return ("OnlyOffice draws its own scrollbar. None of its C10 (scrolling) records in this campaign was read from "
                 "canvas pixels; its C10 cells say what was measured.")
@@ -1515,7 +1553,8 @@ def later_unset_facts() -> dict:
         LATER + "comparison": "The later campaign is not yet measured, so it has not been compared with the campaign above.",
         LATER + "c10_onlyoffice": (
             "OnlyOffice draws its own scrollbar and has no scroller in the page for the harness to watch, so its "
-            "C10 (scrolling) is to be measured from canvas pixels. Not yet measured."),
+            "C10 (scrolling) is to be measured from canvas pixels, by one wheel notch (a 45 px step in OnlyOffice; "
+            "every other editor's C10 scrolls 600 px). Not yet measured."),
     })
     return facts
 
@@ -1533,7 +1572,9 @@ def later_facts(roots, published: dict, *, published_roots=None, superseded_cell
     fixed hash and is compared by its generator, not by hash.
     """
     roots = _require_campaign_roots([Path(root) for root in roots])
-    with e2_cells._listing_scope():
+    record = _published_record()
+    # Every check reads the rows the tables read: replaced cells are left out (Codex review 2026-11-22).
+    with e2_cells._listing_scope(), e2_cells.superseded_cells(superseded_cells):
         editors = sorted({e for root in roots for e in _editors(root, root)},
                          key=lambda e: E2_DISPLAY.get(e, e).casefold())
         scheduled = published.get("perf.e2.scheduled")
@@ -1547,11 +1588,26 @@ def later_facts(roots, published: dict, *, published_roots=None, superseded_cell
         if both:
             raise ValueError("%s already in the published campaign; an editor is measured by one campaign only"
                              % ", ".join(E2_DISPLAY.get(e, e) for e in both))
-        kinds = {_machine_kind(row) for row in _all_job_summaries(roots)}
+        summaries = list(_all_job_summaries(roots))
+        kinds = {_machine_kind(row) for row in summaries}
         if published_roots:
-            reference = {_machine_kind(row) for row in _all_job_summaries(published_roots)}
+            old_summaries = list(_all_job_summaries(published_roots))
+            reference = {_machine_kind(row) for row in old_summaries}
+            old_seeds = {str(row.get("seed")) for row in old_summaries}
+            old_runners = {row.get("runner") for row in old_summaries}
         else:
-            reference = {_machine_kind_from_facts(published)} - {None}
+            # Carried: every machine type of the published campaign, as its record lists them.
+            reference = ({_machine_kind_from_facts(published)} | {tuple(m) for m in record.get("machines") or ()}) - {None}
+            old_seeds = set(record.get("seeds") or ())
+            old_runners = set(record.get("runners") or ())
+        if not old_seeds or not old_runners:
+            raise ValueError("the published campaign records no seeds or lanes to compare the later campaign with")
+        new_seeds = {str(row.get("seed")) for row in summaries}
+        if new_seeds != old_seeds:
+            raise ValueError("the later campaign ran other seeds: %s vs %s" % (sorted(new_seeds), sorted(old_seeds)))
+        new_runners = {row.get("runner") for row in summaries}
+        if not new_runners <= old_runners:
+            raise ValueError("the later campaign ran other lanes: %s" % sorted(new_runners - old_runners))
         if not reference:
             raise ValueError("the published campaign records no machine type to compare the later campaign with")
         if not kinds <= reference:
@@ -1565,6 +1621,10 @@ def later_facts(roots, published: dict, *, published_roots=None, superseded_cell
         if other:
             raise ValueError("the later campaign measured other documents than the published campaign: %s"
                              % ", ".join(other))
+        unhashed = _unhashed_documents(roots, per_sample)
+        if unhashed:
+            raise ValueError("the later campaign measured documents with no SHA-256 to compare: %s" % ", ".join(unhashed))
+        _generator_check({w for w in per_sample if w in new_docs}, record)
         c10 = _c10_onlyoffice_text(roots)
         view = _campaign_view(roots)
     facts = {_later_key(k): v for k, v in facts_from_roots(roots, superseded_cells=superseded_cells).items()}
@@ -1585,9 +1645,11 @@ def later_facts(roots, published: dict, *, published_roots=None, superseded_cell
     if per_sample:
         generated = sorted(per_sample)
         one = len(generated) == 1
-        comparison += " The document%s %s %s generated per sample, so %s compared by %s generator, not by hash." % (
+        comparison += (" The document%s %s %s generated per sample, so %s compared by %s generator, not by hash: "
+                       "the generator's code and settings are the ones the campaign above ran with (checked by "
+                       "SHA-256)." % (
             "" if one else "s", _names(generated), "is" if one else "are", "it is" if one else "they are",
-            "its" if one else "their")
+            "its" if one else "their"))
     facts.update({
         LATER + "measured": "measured",
         LATER + "editors": names,
@@ -1598,7 +1660,7 @@ def later_facts(roots, published: dict, *, published_roots=None, superseded_cell
         LATER + "dates": dates,
         LATER + "lead": (
             "%s were timed in the browser by a campaign of their own, %s, on the same machine type and with the "
-            "same lanes and documents. Their tables are in the section %s, after the results; their figures are not "
+            "same lanes, documents and seeds. Their tables are in the section %s, after the results; their figures are not "
             "in the results or the appendices." % (names, when, LATER_SECTION)),
         LATER + "comparison": comparison,
         LATER + "c10_onlyoffice": c10,

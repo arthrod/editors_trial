@@ -23,5 +23,43 @@
   "prose-5kw": [
    "8e2827305763c71e88c688f8c55fb5026b171f515fee3182ca33acf7c2e8dafa"
   ]
- }
+ },
+ "machines": [
+  [
+   "shared_guarded",
+   "AMD EPYC 7R13 Processor",
+   "8.0",
+   "64"
+  ]
+ ],
+ "seeds": [
+  "1",
+  "2"
+ ],
+ "runners": [
+  "adversarial_c10_scroll",
+  "benchmark_document",
+  "benchmark_input",
+  "benchmark_memory",
+  "benchmark_resources",
+  "benchmark_typing",
+  "benchmark_warm_cold"
+ ],
+ "generators": {
+  "micro-search": {
+   "source": "perf/fixtures/generate.py",
+   "sha256": "7cf478bb80766cb8a8a0a612d111ef338b9e6448272c3378df98ab30a2196041",
+   "profile": {
+    "workload_id": "micro-search",
+    "paragraphs": 10,
+    "paragraph_chars": 20,
+    "unicode_class": "ascii",
+    "match_count": 5,
+    "seed": 1,
+    "shape": "micro-search"
+   },
+   "note": "generate.py at the published campaign's first-pass (4488f9b6) and last (377b6320) harness commits, and the micro-search row of perf/fixtures/profiles.size_ladder()"
+  }
+ },
+ "machines_source": "host_class and host.cpu_model, cpu_quota, cpu_cores_logical of the same 289 run summaries"
 }
