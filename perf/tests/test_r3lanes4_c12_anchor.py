@@ -214,8 +214,10 @@ console.log(JSON.stringify([...mod.C12_NO_PARAGRAPH_GEOMETRY]));
 """
         )
         # Report E2 adds OnlyOffice, which also draws whole pages on one canvas
+        # (2026-11-22), and BetterOffice, which paints each page on a canvas and
+        # whose only paragraph elements are its accessibility mirror's 0x0 boxes
         # (2026-11-22); canvas and docen keep their ruling, nobody else joins.
-        self.assertEqual(sorted(out), ["canvas", "docen", "onlyoffice"])
+        self.assertEqual(sorted(out), ["betteroffice", "canvas", "docen", "onlyoffice"])
 
 
 if __name__ == "__main__":

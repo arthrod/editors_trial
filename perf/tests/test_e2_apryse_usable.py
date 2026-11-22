@@ -113,7 +113,16 @@ class NonEditableUsableSignalTests(unittest.TestCase):
             selectors[editor_id] = browser.get("edit_selector") or document.get("edit_selector") or ""
         self.assertEqual(
             classified,
-            {"apryse": "shadow", "canvas": "canvas", "docen": "shadow", "nutrient": "shadow", "wordcraft": "flag"},
+            {
+                "apryse": "shadow",
+                # BetterOffice paints pages on <canvas data-page-index>; its usable
+                # expression is its host page's ready flag (edit_surface.mjs).
+                "betteroffice": "canvas",
+                "canvas": "canvas",
+                "docen": "shadow",
+                "nutrient": "shadow",
+                "wordcraft": "flag",
+            },
             classified,
         )
         # The two runner lists name the same ready flag. The usable expression
