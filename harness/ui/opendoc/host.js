@@ -34,11 +34,20 @@
  * the block id `opendoc.ai.read` reports. The contract has the event and no
  * getter, so the last one is kept here.
  *
- * Nothing here changes the editor: it reads classes and attributes, listens to
- * one documented event, and stops observing once it has its answers.
+ * Apart from the capitalisation preference below, nothing here changes the
+ * editor: it reads classes and attributes, listens to one documented event, and
+ * stops observing once it has its answers.
  */
 (function () {
-  var host = (window.__host = { ready: false, error: null, settled: false, selection: null, readyAt: null, settledAt: null });
+  // The one setting changed (owner's decision, 2026-11-22, disclosed in Report
+  // E2): OpenDoc's own preference for capitalising the first letter of a
+  // sentence, set to "off" before the editor reads it, as its Settings switch
+  // would (webapp/src/autocorrect.mjs, pref opendoc.autoCapitalise). Its default
+  // turned the typed "PETITIONER v." into "V." and failed the typing lane's text
+  // check although every key arrived.
+  try { window.localStorage.setItem('opendoc.autoCapitalise', 'off'); } catch (e) { /* storage disabled */ }
+  var host = (window.__host = { ready: false, error: null, settled: false, selection: null, readyAt: null, settledAt: null,
+    autocorrect: { capitalise: 'off' } });
   var root = document.documentElement;
   var observer = null;
   var readyArmed = false;

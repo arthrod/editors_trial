@@ -131,6 +131,14 @@ async function open() {
       },
     });
   });
+  // Owner's decision (2026-11-22): sentence capitalisation off on the measured
+  // page, disclosed in Report E2. OnlyOffice's default autocorrect turns the typed
+  // "PETITIONER v." into "V.", so the typing lane's text check failed although
+  // every key arrived. A user can switch it off the same way (File > Advanced
+  // settings > AutoCorrect). Nothing else about the editor changes.
+  const editor = api();
+  editor.asc_SetAutoCorrectFirstLetterOfSentences(false);
+  window.__host.autocorrect = { firstLetterOfSentences: false };
   window.__host.ready = true;
   return { pages: await paginated(), media: Object.keys(media) };
 }
