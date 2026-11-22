@@ -228,6 +228,27 @@ function pageScrollCommand(command) {
     return root.children || [];
   };
 
+  /**
+   * The children of `root`, with every `display: contents` child replaced by
+   * its own children (recursively). Such a wrapper has no box: its rect is
+   * 0x0 at the origin whatever the scroll, so it can never show the content
+   * moving (react-docx wraps its whole document in one). Used only when the
+   * plain children give no answer, so an editor whose probe was found on the
+   * first pass keeps exactly the probe it had.
+   */
+  const boxedChildren = (root) => {
+    const out = [];
+    const visit = (kids, depth) => {
+      for (let i = 0; i < kids.length; i++) {
+        const kid = kids[i];
+        if (depth < 8 && getComputedStyle(kid).display === 'contents') visit(kid.children || [], depth + 1);
+        else out.push(kid);
+      }
+    };
+    visit(flowChildren(root), 0);
+    return out;
+  };
+
   /** Is `inner` inside `outer`? The path crosses shadow hosts, so it does. */
   const nestedIn = (outer, inner) =>
     inner.path.length > outer.path.length && inner.path.startsWith(outer.path + ' > ');
@@ -249,9 +270,9 @@ function pageScrollCommand(command) {
    * scrolls, so it proves nothing. The tallest in-flow child is the
    * scrolled content.
    */
-  const contentProbe = (root) => {
+  const contentProbe = (root, expand = false) => {
     if (!root) return null;
-    const kids = flowChildren(root);
+    const kids = expand ? boxedChildren(root) : flowChildren(root);
     let best = null;
     for (let i = 0; i < kids.length; i++) {
       const kid = kids[i];
@@ -266,13 +287,19 @@ function pageScrollCommand(command) {
         best = { selector: shortSelector(kid), rect_top: rect.top, height: rect.height };
       }
     }
+    // A probe without a box (a `display: contents` wrapper) proves nothing;
+    // look through such wrappers once.
+    if (!expand && (!best || !(best.height > 0))) {
+      const boxed = contentProbe(root, true);
+      if (boxed && boxed.height > 0) return { ...boxed, through_display_contents: true };
+    }
     return best;
   };
 
   /** The text visible at the top of the scroller: what the reader sees. */
-  const visibleContent = (root, box) => {
+  const visibleContent = (root, box, expand = false) => {
     if (!root) return null;
-    const kids = flowChildren(root);
+    const kids = expand ? boxedChildren(root) : flowChildren(root);
     for (let i = 0; i < kids.length; i++) {
       const kid = kids[i];
       const tag = (kid.tagName || '').toLowerCase();
@@ -286,6 +313,9 @@ function pageScrollCommand(command) {
       if (!text) continue;
       return { selector: shortSelector(kid), text: (kid.textContent || '').trim().slice(0, 120) };
     }
+    // Nothing with a box at the first level: look through `display: contents`
+    // wrappers once (see boxedChildren).
+    if (!expand) return visibleContent(root, box, true);
     return null;
   };
 

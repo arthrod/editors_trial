@@ -326,7 +326,11 @@ class AttemptHonesty(unittest.TestCase):
 
 class FeatureProfileHonesty(unittest.TestCase):
     def test_every_editor_has_an_inspection_record(self):
-        self.assertEqual(set(FEATURE_SWITCH_PROBE), set(EDITORS))
+        # Every CI-contract editor has a record; a record beyond that list is
+        # an editor with a browser target only (Report E2's later editors).
+        self.assertLessEqual(set(EDITORS), set(FEATURE_SWITCH_PROBE))
+        for editor_id in set(FEATURE_SWITCH_PROBE) - set(EDITORS):
+            self.assertIn(editor_id, BROWSER_TARGETS)
 
     def test_reason_names_the_host_and_the_missing_switch(self):
         for editor_id in FEATURE_SWITCH_PROBE:

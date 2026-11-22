@@ -340,8 +340,9 @@ BROWSER_TARGETS: dict[str, dict] = {
     "reactdocx": {
         "lane": "browser",
         "cwd": UI / "react-docx",
-        "command": ["pnpm", "exec", "vite", "--port", "5221", "--strictPort", "--host", "127.0.0.1"],
-        "url": "http://127.0.0.1:5221/",
+        # 5225: 5221 is Fidus's proxy, which may already be running on the host.
+        "command": ["pnpm", "exec", "vite", "--port", "5225", "--strictPort", "--host", "127.0.0.1"],
+        "url": "http://127.0.0.1:5225/",
         "corpus_route": "/sample.docx",
         "ready_selector": "[data-docx-page-wrapper] [data-docx-paragraph-host]",
         # The page's own flag, set when the controller reports a loaded

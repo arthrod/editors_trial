@@ -19,6 +19,8 @@ LANES = {
     "canvas": ("editor",),
     "docsplus": ("conversion", "app"),
     "libreoffice": ("headless", "gui"),
+    # Report E2's later editors (browser lanes only).
+    "reactdocx": ("browser",),
 }
 
 OVERRIDES = {

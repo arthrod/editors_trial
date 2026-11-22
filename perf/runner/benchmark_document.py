@@ -199,6 +199,30 @@ DOCUMENT_TARGETS = {
             "own find UI appears in a future pin the generic selector set will pick it up"
         ),
     },
+    "reactdocx": {
+        # Report E2's later editors. Verified in Chrome on prose-500w (2026-11-22):
+        # two [data-docx-page-wrapper] pages (1056 px), 17 paragraph hosts, all
+        # inside [data-docx-page-body]; the header/footer are outside it.
+        "doc_selector": "[data-docx-page-body] [data-docx-paragraph-host]",
+        "page_selector": "[data-docx-page-wrapper]",
+        "page_model": "page",
+        "edit_selector": "[data-docx-page-body] [data-docx-paragraph-host]",
+        "ready_js": (
+            "!!(window.__host && window.__host.ready === true && "
+            "document.querySelector('[data-docx-page-wrapper] [data-docx-paragraph-host]'))"
+        ),
+        "find_input_selector": None,
+        "find_count_selector": None,
+        "find_query": "NEEDLE",
+        "find_expected_matches": 5,
+        "find_source_note": "no find UI in the measured host (the package ships no toolbar)",
+        "note": (
+            "Paged host: [data-docx-page-wrapper] pages with paragraph hosts inside "
+            "[data-docx-page-body]. Only the clicked paragraph is contenteditable; keys go to a "
+            "caret-sized textarea. The ready gate is the host page's own flag, set when the "
+            "viewer's load promise settles (harness/ui/react-docx/main.js)."
+        ),
+    },
     "folio": {
         "doc_selector": ".layout-page-content [data-block-id]",
         "page_selector": "[data-page-number]",
@@ -1911,6 +1935,7 @@ GATE_SURFACES = {
     "superdoc": {"oracle": "dom", "whole": False},
     "genoffice": {"oracle": "dom", "whole": False},
     "folio": {"oracle": "dom", "whole": False},
+    "reactdocx": {"oracle": "dom", "whole": False},
     "eigenpal": {"oracle": "model"},
     "canvas": {"oracle": "model"},
     "docen": {"oracle": "model"},

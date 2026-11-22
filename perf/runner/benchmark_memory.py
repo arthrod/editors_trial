@@ -130,6 +130,9 @@ FEATURE_SWITCH_PROBE = {
         ("perfE2e", "fixture", "reviewRail"),
     ),
     "folio": ("repos/folio/packages/playground", "reads only ?file= (fixture path)", ("file",)),
+    # Report E2's later editors (browser lane only; not in the CI-contract list,
+    # whose seeded order would change for every published editor).
+    "reactdocx": ("harness/ui/react-docx", "reads only ?doc= (fixture URL) and ?review=1 (shows tracked changes and comments)", ("doc", "review")),
     "office-open": ("harness/officeopen", "headless round-trip CLI, no feature flags", ()),
     "libreoffice": ("system soffice", "headless --convert-to command line, no feature flags", ()),
 }
