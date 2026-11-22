@@ -436,6 +436,28 @@ def _write_measured(
     return write_attempt(attempt_dir, _attempt_id(criterion_id, phase, editor_id), trial)
 
 
+def _same_block_with_insertion(before: str, after: str, typed: str) -> bool:
+    """Can `after` be `before` with one run of the typed letters inserted at one place?
+
+    Both are the first 160 characters of the block at the caret, so either may
+    be cut short: the text after the insertion only has to agree as far as both go.
+    """
+    if before == after:
+        return True
+    letters = set(typed)
+    i = 0
+    while i < min(len(before), len(after)) and before[i] == after[i]:
+        i += 1
+    tail = before[i:]
+    for k in range(0, len(after) - i + 1):
+        if k and after[i + k - 1] not in letters:
+            break
+        rest = after[i + k:]
+        if rest.startswith(tail) or tail.startswith(rest):
+            return True
+    return False
+
+
 def _write_outcome(
     *,
     attempt_dir: Path,
@@ -904,13 +926,19 @@ def _browser_rows(
             # under the caret (react-docx scrolls on typing; HF e2-publish
             # shakedown 2026-11-22): the edit cannot be verified there, which is
             # a failure of the editor's own behaviour, not a host that takes no text.
+            # Only the pairs whose edit failed, and only when the block after
+            # cannot be the block before with typed letters inserted at one
+            # place (a partial burst into the same paragraph is not a move;
+            # Codex review 2026-11-22).
             moved = [
                 {"scope_before": oracle.get("scope_before"), "scope_after": oracle.get("scope_after")}
                 for oracle in (
-                    ((pair.get("edited") or {}).get("probe", {}).get("edit_oracle") or {}) for pair in pairs
+                    ((pair.get("edited") or {}).get("probe", {}).get("edit_oracle") or {})
+                    for pair in pairs
+                    if not (pair.get("edited") or {}).get("probe", {}).get("edit_effective")
                 )
                 if oracle.get("scope_before") and oracle.get("scope_after")
-                and oracle.get("scope_before") != oracle.get("scope_after")
+                and not _same_block_with_insertion(oracle["scope_before"], oracle["scope_after"], BURST_TEXT)
             ]
             if moved:
                 reason = (

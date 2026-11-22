@@ -418,7 +418,13 @@ class BrowserFlowWithFakePairs(unittest.TestCase):
         }
 
     def _run(self, pair):
+        return self._run_pairs([pair])
+
+    def _run_pairs(self, pairs):
         from unittest import mock
+
+        for index, pair in enumerate(pairs):
+            pair["index"] = index
 
         import perf.runner.benchmark_memory as module
 
@@ -426,8 +432,8 @@ class BrowserFlowWithFakePairs(unittest.TestCase):
             "Args",
             (),
             {
-                "execution_profile": "ci_contract",
-                "pairs": 1,
+                "execution_profile": "ci_contract" if len(pairs) == 1 else "ci_broad",
+                "pairs": len(pairs),
                 "burst": 12,
                 "quiescence_ms": 2000,
                 "retain_seconds": (1.0, 5.0),
@@ -440,7 +446,7 @@ class BrowserFlowWithFakePairs(unittest.TestCase):
         attempt_dir = Path(self._tmp.name) / "attempts"
         with mock.patch.object(module, "_start_server", return_value=type("P", (), {"pid": 101})()):
             with mock.patch.object(module, "_stop_server", return_value=None):
-                with mock.patch.object(module, "_run_browser_pair", return_value=pair):
+                with mock.patch.object(module, "_run_browser_pair", side_effect=list(pairs)):
                     with mock.patch.object(module, "_port_is_free", return_value=True):
                         rows = module._browser_rows(
                             editor_id="plate",
@@ -522,6 +528,24 @@ class BrowserFlowWithFakePairs(unittest.TestCase):
         row = {r["measurement_phase"]: r for r in rows if r["criterion_id"] == "C17"}["after_edit_burst"]
         self.assertEqual(row["outcome"], "not_applicable")
         self.assertIn("accepted no text", row["failure_reason"])
+
+    def test_a_partial_burst_into_the_same_block_is_not_a_move(self):
+        pair = self._pair(edit_effective=False)
+        pair["edited"]["probe"]["edit_oracle"] = {
+            "scope_before": "Article 1. Incidental Taxes", "scope_after": "Article 1. Incidabcdeental Taxes",
+        }
+        rows, _attempt_dir = self._run(pair)
+        row = {r["measurement_phase"]: r for r in rows if r["criterion_id"] == "C17"}["after_edit_burst"]
+        self.assertEqual(row["outcome"], "not_applicable")
+
+    def test_a_pair_whose_edit_succeeded_is_never_read_as_a_move(self):
+        good = self._pair(edit_effective=True)
+        good["edited"]["probe"]["edit_oracle"] = {"scope_before": "Same", "scope_after": "Entirely other text"}
+        bad = self._pair(edit_effective=False)
+        bad["edited"]["probe"]["edit_oracle"] = {"scope_before": "Same block", "scope_after": "Same block"}
+        rows, _attempt_dir = self._run_pairs([good, bad])
+        row = {r["measurement_phase"]: r for r in rows if r["criterion_id"] == "C17"}["after_edit_burst"]
+        self.assertEqual(row["outcome"], "not_applicable")
 
     def test_failed_reopen_keeps_the_retention_evidence_and_fails_c19(self):
         rows, attempt_dir = self._run(self._pair(reopen=False))
