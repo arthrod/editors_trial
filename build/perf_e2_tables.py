@@ -1585,8 +1585,9 @@ def later_facts(roots, published: dict, *, published_roots=None, superseded_cell
     if per_sample:
         generated = sorted(per_sample)
         one = len(generated) == 1
-        comparison += " %s %s generated per sample, so %s compared by %s generator, not by hash." % (
-            _names(generated), "is" if one else "are", "it is" if one else "they are", "its" if one else "their")
+        comparison += " The document%s %s %s generated per sample, so %s compared by %s generator, not by hash." % (
+            "" if one else "s", _names(generated), "is" if one else "are", "it is" if one else "they are",
+            "its" if one else "their")
     facts.update({
         LATER + "measured": "measured",
         LATER + "editors": names,
