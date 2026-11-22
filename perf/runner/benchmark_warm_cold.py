@@ -465,6 +465,13 @@ BROWSER_TARGETS: dict[str, dict] = {
         # middle of the first match (page 1 is 1056 px tall from y=148 in a
         # 900 px viewport, so the middle is on screen).
         "edit_selector": "[data-docx-pages-host] canvas[data-page-index]",
+        # The typing lane's keystroke witness watches every page, not page 1:
+        # typing 81,225 characters runs onto later pages and page 1 scrolls out
+        # of view, so a page-1 region read as empty and the Spaces refused 770
+        # of 811 keystrokes as not_document_scoped (2026-11-22). The load
+        # witness keeps page 1, as before.
+        "typing_present_selector": "[data-docx-pages-host]",
+        "typing_load_present_selector": "[data-docx-pages-host] canvas[data-page-index]",
         # The editor's own export: save() returns the document as DOCX bytes
         # (downloadOnSave is off on this page).
         "typing_model_js": (
@@ -505,6 +512,10 @@ BROWSER_TARGETS: dict[str, dict] = {
         # carries no contenteditable attribute, so the input lane does not read
         # it as read-only; the caret goes through EDIT_SURFACES.opendoc.
         "edit_selector": '#pages .page-wrap[data-page-number="1"]',
+        # As BetterOffice's: the typing lane's keystroke witness watches every
+        # page (typing runs past page 1); the load witness keeps page 1.
+        "typing_present_selector": "#pages",
+        "typing_load_present_selector": '#pages .page-wrap[data-page-number="1"]',
         "driver": "playwright",
         "criteria": {
             "C03": ("first_usable", "browser_visible"),
