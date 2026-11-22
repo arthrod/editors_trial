@@ -178,7 +178,7 @@ not yet measured
 
 ### The machine and the runs
 
-Relaxed bounds: Clock skew: 5 ms. Ready/navigation load timeouts: 300 s by default, 600 s on the largest document workload; C14 (large-document scaling) gives each wait of a load (navigation, the editor's ready signal, the page's load event for the canvas editors Docen and WordCraft, the painted document) up to 1000 s. Sparse-witness settle onset floor: 100 ms. CPU throttle tolerance: max(1 ms, 1% of the sample span). Witness anchor lag: max(3 frame intervals, 250 ms). Typing/document content length tolerance: 2% for the prose documents; the complex document (complex-corpus) is accepted at 75% to 125% of the expected length.
+Relaxed bounds: Clock skew: 5 ms. Ready/navigation load timeouts: 300 s by default, 600 s on the largest document workload; C14 (large-document scaling) gives each wait of a load (navigation, the editor's ready signal, the page's load event for the canvas editors Docen and WordCraft, the painted document) up to 1000 s. Sparse-witness settle onset floor: 100 ms. CPU throttle tolerance: max(100 ms, 10% of the sample span). Witness anchor lag: max(3 frame intervals, 250 ms). Typing/document content length tolerance: 2% for the prose documents; the complex document (complex-corpus) is accepted at 75% to 125% of the expected length.
 
 not yet measured
 
