@@ -987,6 +987,13 @@ def _target_copy(editor_id):
     # wordcraft-host/server.mjs listens on PORT (default 5219) and does not read the URL.
     if editor_id == "wordcraft":
         target["env"] = {**(target.get("env") or {}), "PORT": str(port)}
+    # harness/ui/opendoc/host.mjs listens on its --port argument (then PORT):
+    # it moves to the free port with the URL. Gated on OpenDoc; every other
+    # host keeps its command as it was.
+    if editor_id == "opendoc":
+        command = target["command"]
+        command[command.index("--port") + 1] = str(port)
+        target["env"] = {**(target.get("env") or {}), "PORT": str(port)}
     return target
 
 

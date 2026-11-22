@@ -123,5 +123,28 @@ class OpenDocScroller(unittest.TestCase):
             self.assertEqual(c10.adapter_selectors(editor), {"container": None, "document": None}, editor)
 
 
+class OpenDocResourcesPort(unittest.TestCase):
+    """Resources: each session takes a free port. OpenDoc's host listens on its
+    --port argument, so the command moves with the URL; others are unchanged."""
+
+    def test_opendoc_host_listens_where_the_lane_looks(self):
+        from urllib.parse import urlsplit
+
+        from perf.runner.benchmark_resources import _target_copy
+
+        target = _target_copy("opendoc")
+        port = str(urlsplit(target["url"]).port)
+        self.assertEqual(target["command"][target["command"].index("--port") + 1], port)
+        self.assertEqual(target["env"]["PORT"], port)
+
+    def test_the_other_commands_are_unchanged(self):
+        from perf.runner.benchmark_resources import BROWSER_TARGETS, _target_copy
+
+        for editor in BROWSER_TARGETS:
+            if editor == "opendoc":
+                continue
+            self.assertEqual(_target_copy(editor).get("command"), BROWSER_TARGETS[editor].get("command"), editor)
+
+
 if __name__ == "__main__":
     unittest.main()
