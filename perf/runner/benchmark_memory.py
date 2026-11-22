@@ -134,6 +134,11 @@ FEATURE_SWITCH_PROBE = {
     # whose seeded order would change for every published editor).
     "reactdocx": ("harness/ui/react-docx", "reads only ?doc= (fixture URL) and ?review=1 (shows tracked changes and comments)", ("doc", "review")),
     "nutrient": ("harness/ui/nutrient", "reads only ?doc= (fixture URL); the viewer itself comes from Nutrient's CDN at the pinned version", ("doc",)),
+    "onlyoffice": (
+        "harness/ui/onlyoffice",
+        "main.js reads only ?doc= (fixture URL) and ?convert-ms= (how long to wait for x2t's conversion)",
+        ("doc", "convert-ms"),
+    ),
     "office-open": ("harness/officeopen", "headless round-trip CLI, no feature flags", ()),
     "libreoffice": ("system soffice", "headless --convert-to command line, no feature flags", ()),
 }

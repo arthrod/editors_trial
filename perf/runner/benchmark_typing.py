@@ -1122,7 +1122,11 @@ async def session(target, text, args, directory):
                         or not isinstance(load.get('frame_interval_ms'), (int, float))):
                     raise SessionRefusal('frame_interval_unavailable', refusal_code='witness_unavailable')
                 verdict = validate_witness(load['witness'])
-                result.update(load_witness=load, load_ms=load['witness']['frame_page_ms'] if verdict['ok'] else None,
+                # An editor in a frame of its host page (OnlyOffice) is witnessed on
+                # the frame's clock; the bridge sends how much later that clock
+                # starts, absent (0) for every other editor.
+                offset = load.get('frame_clock_offset_ms') or 0
+                result.update(load_witness=load, load_ms=load['witness']['frame_page_ms'] + offset if verdict['ok'] else None,
                               load_refusal=verdict['reason'])
                 await sampler.mark('load')
                 result['resource_endpoints'] = {'after_load':await sampler.endpoint()}

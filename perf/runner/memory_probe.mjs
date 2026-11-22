@@ -25,6 +25,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { startChromeTrace, stopChromeTrace } from './chrome_trace.mjs';
 import { LANE_LOAD_TIMEOUT_MS, LANE_POLL_BOUND_MS, runLaneEditBurst } from './lane_edit_burst.mjs';
 import { loadTimeoutMs } from './load_timeout.mjs';
+import { editorPage } from './editor_frame.mjs';
 
 // Ready/navigation wait follows the workload policy (300 s default, 600 s on prose-250kw).
 const loadTimeout = loadTimeoutMs();
@@ -173,7 +174,8 @@ async function routeCorpus(context) {
 async function openEditor(browser, traceLabel = 'C17-first') {
   const context = await browser.newContext({ viewport });
   await routeCorpus(context);
-  const page = await context.newPage();
+  // OnlyOffice's document calls go to its editor frame; every other editor's page is itself.
+  const page = editorPage(await context.newPage(), editorId);
   const trace = await startChromeTrace(browser, page, traceLabel);
   const t0 = Date.now();
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: loadTimeout });

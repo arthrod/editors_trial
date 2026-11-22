@@ -65,6 +65,7 @@ import {
 import { startChromeTrace, stopChromeTrace } from './chrome_trace.mjs';
 import { loadTimeoutMs } from './load_timeout.mjs';
 import { usableExpression } from './edit_surface.mjs';
+import { editorPage } from './editor_frame.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -1079,7 +1080,8 @@ try {
         viewport: { width: viewport[0], height: viewport[1] },
       });
       await routeCorpus(context);
-      const page = await context.newPage();
+      // OnlyOffice's document calls go to its editor frame; every other editor's page is itself.
+      const page = editorPage(await context.newPage(), editorId);
       const trace = await startChromeTrace(browser, page, 'C10');
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: loadTimeout });
       const mountRefusal = await waitForReady(page);

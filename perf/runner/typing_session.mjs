@@ -18,6 +18,7 @@ import {
   trustedKeyCount,
 } from './edit_surface.mjs';
 import {loadTimeoutMs} from './load_timeout.mjs';
+import {editorPage, frameClockOffsetMs} from './editor_frame.mjs';
 // Lax layer (owner 2026-11-11): the editable can take minutes to mount on the
 // big documents; Playwright's 30 s defaults refused loads that completed.
 const loadTimeout = loadTimeoutMs();
@@ -29,11 +30,14 @@ const context = await chromium.launchPersistentContext(profile, {
 });
 const traceBrowser = typeof context.browser === 'function' ? context.browser() : null;
 process.on('SIGTERM', async () => { await context.close(); process.exit(0); });
-const page = context.pages()[0] || await context.newPage();
-const traceHandle = traceBrowser ? await startChromeTrace(traceBrowser, page, 'TYPING') : null;
+const browserPage = context.pages()[0] || await context.newPage();
+// The editor is known at 'load'; OnlyOffice's document calls then go to its
+// editor frame (editor_frame.mjs). Every other editor's page stays itself.
+let page = browserPage;
+const traceHandle = traceBrowser ? await startChromeTrace(traceBrowser, browserPage, 'TYPING') : null;
 page.on('console', message => console.error(`[browser ${message.type()}] ${message.text()}`));
 page.on('pageerror', error => console.error(`[browser uncaught] ${error}`));
-const cdp = await context.newCDPSession(page);
+const cdp = await context.newCDPSession(browserPage);
 let clock, interval;
 console.log(JSON.stringify({ready:true}));
 const lines = readline.createInterface({input:process.stdin});
@@ -42,6 +46,7 @@ for await (const line of lines) {
     const command = JSON.parse(line);
     let result;
     if (command.op === 'load') {
+      page = editorPage(browserPage, command.editor_id || '');
       const baseline = (await page.screenshot()).toString('base64');
       const recorder = getRecorder(cdp);
       await cdp.send('Page.startScreencast', {format:'png', everyNthFrame:1, maxWidth:1280, maxHeight:900});
@@ -99,7 +104,11 @@ for await (const line of lines) {
       clock = await clockSkew(page, cdp);
       const witness = await witnessFrame(page, cdp, {baseline, afterPageMs:usable,
         region:{selector:command.present_selector || command.selector}, clockCheck:clock, settleMs:0});
-      result = {usable_ms:usable, witness, frame_interval_ms:interval.median_ms, load_timeout_ms:loadTimeout};
+      // The witness is on the editor frame's clock; load_ms counts from the
+      // host page's navigation (0 and no call for an editor not in a frame).
+      const frameClockOffset = await frameClockOffsetMs(page, command.editor_id || '');
+      result = {usable_ms:usable, witness, frame_interval_ms:interval.median_ms, load_timeout_ms:loadTimeout,
+        ...(frameClockOffset ? {frame_clock_offset_ms: frameClockOffset} : {})};
       }
       }
     } else if (command.op === 'key') {

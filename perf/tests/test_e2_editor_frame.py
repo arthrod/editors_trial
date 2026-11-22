@@ -56,6 +56,22 @@ class EditorFrame(unittest.TestCase):
         # C11's clock move is the offset, 0 for every other editor.
         self.assertIn('const originOffset = await frameClockOffsetMs(ctx.page, editorId);', probe)
 
+    def test_every_lane_driver_wraps_its_page(self):
+        # Each driver's page is editorPage(page, editor): the page itself for
+        # every editor but OnlyOffice (test_other_editors_get_their_page_back).
+        wraps = {
+            'warm_cold_browser.mjs': 'editorPage(await ',
+            'document_probe.mjs': 'editorPage(await context.newPage(), editorId)',
+            'adversarial_c10_scroll.mjs': 'editorPage(await context.newPage(), editorId)',
+            'memory_probe.mjs': 'editorPage(await context.newPage(), editorId)',
+            'resources_session.mjs': "page = editorPage(browserPage, opts.editorId || '')",
+            'typing_session.mjs': "page = editorPage(browserPage, command.editor_id || '')",
+        }
+        for name, needle in wraps.items():
+            self.assertIn(needle, (REPO / 'perf/runner' / name).read_text(), name)
+        typing = (REPO / 'perf/runner/benchmark_typing.py').read_text()
+        self.assertIn("offset = load.get('frame_clock_offset_ms') or 0", typing)
+
     def test_host_page_lays_the_frame_out_at_the_origin(self):
         # Coordinates are not translated between the frame and the page: the
         # host page must keep the frame at (0, 0), full size, borderless.
