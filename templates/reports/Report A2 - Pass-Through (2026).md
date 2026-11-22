@@ -6,7 +6,7 @@ That sounds like a dull question. It is the opposite. Pass-through is the **stro
 
 ---
 
-**Added in v0.11.0.** react-docx, OpenDoc and BetterOffice (two lanes: its document model, and an editor session) are in the part map of §2 and in §6.10. Their source was not read: what is said of them is measured from the packages they wrote. OnlyOffice (CryptPad build) wrote no output, so it has no row.
+**Added in v0.11.0.** react-docx, OpenDoc and BetterOffice (two lanes: its document model, and an editor session) are in the part map of §2 and in §6.10. Their source was read for v0.11.2: §3.7 says which architecture each has, and §6.10 what was measured. OnlyOffice (CryptPad build) wrote no output, so it has no row.
 
 ## TL;DR
 
@@ -208,6 +208,14 @@ does *not* repair those.
 - **docs.plus** runs DOCX → HTML (`mammoth`) → Tiptap JSON → HTML → DOCX (`@turbodocx/html-to-docx`).
 - **Fidus Writer** does something categorically different: its exporter takes a **template URL** (`src/exporter/docx/index.ts:34`) and fills that template's placeholders (`src/exporter/docx/render.ts:746-834`, `:982-1021`; the placeholder vocabulary is defined in `src/exporter/template/tags.ts:18-101` — `{title}`, `{@<part-id>}` for rich-text and table parts, plus `{@bibliography}`, `{@copyright}`, `{@licenses}`). The output package is the **template's**, not the input's. The exported `word/styles.xml`, `word/numbering.xml` and `word/settings.xml` are the template's, which is why they show as `C` while every input-specific part is `D`.
 - **Plate.js** regenerates through an HTML middle: `importDocx` runs **mammoth** into HTML and decodes that through the plugin set's own `formats.html` mappings (`import/lib/importDocx.ts:2427`), and `exportDocx` walks the model back out to **static HTML** and then to the DOCX writer (`export/lib/exportDocx.tsx:646`; `export/lib/internal/html-to-docx.ts`).
+
+### 3.7 The three tools read in v0.11.2
+
+None of the three adds a sixth cause; each is a variant of one above.
+
+- **react-docx: the opened package, with selected parts rewritten.** The save clones the opened package and rewrites the document, its relationships, the headers and footers and, when they changed, the comments and the settings (`rust-docx` 0.3.1, `src/serialize.rs:7068-7090`); a new picture adds a part, and the content types can be updated (`src/serialize.rs:1397-1425`, `:1518-1537`). In this run six existing members changed (the document, its relationships, two headers and two footers) and five were added; the other {{parts.reactdocx.passthrough}} are byte-identical. `word/document.xml` is not byte-identical although nothing was edited: it is rebuilt by joining each node's kept source text, taken from a prefix-normalised copy (`src/parse/build.rs:63`), and in this corpus it also loses the constructs named in Report A §3.13. The archive is written sorted by name with no timestamps (`src/zip.rs:469-555`), which removes two sources of byte difference; the second pass was measured byte-identical.
+- **OpenDoc: the reverse of a dirty flag.** What is copied is decided at import, not at save: a part the importer read is always regenerated, and a part it did not read is copied with its relationships from a table of retained parts (`crates/casual-doc-io/src/docx.rs:353-413`; `crates/casual-doc-import/src/lib.rs:331-347`, `:1049-1158`). The code says so of an unedited document: the save "regenerated every consumed part from the model ... edited or not" (`docx.rs:392-397`). The theme is the exception: its source bytes are written while the model's theme still equals what they parsed to (`crates/casual-doc-import/src/opaque.rs:100-151`). The writer is deterministic for a given model, with a fixed part order and a fixed ZIP time (`crates/casual-doc-export/src/semantic.rs:13-14`); the second pass was measured byte-identical.
+- **BetterOffice: seeded from the source, then overwritten, with a dirty check in one lane only.** The output starts as every original member in archive order, compressed bytes included, and only overwritten or added members differ (`crates/docx-parse/src/serializer/s13.rs:148-150`, `:750-756`). The document-model lane overwrites the body, the headers and footers, the notes, the comments and the core properties every time (`s13.rs:439-455`, `:596`). The session lane first asks which parts have unchanged stories (`crates/docx-edit/src/identity.rs:2954-2975`) and writes those from source bytes with only paragraph identifiers patched (`serializer/paragraph_ids.rs:25-27`), which is the manifest-gated kind of §3.4 with a fingerprint per story in place of a manifest. The one changed part there, `docProps/core.xml`, is the modification time, updated under the default save options the harness used (`s13.rs:736-747`). In the document-model lane the relationships and the content types change too, because parts are added (`s13.rs:1555-1620`).
 
 ---
 
@@ -466,7 +474,7 @@ All four regenerate everything. There is nothing to orphan and nothing to dangle
 
 ### 6.10 The tools added in v0.11.0: react-docx, OpenDoc, BetterOffice
 
-Measured from the packages; no source was read.
+Measured from the packages. The architecture behind each result is in §3.7, read in v0.11.2.
 
 | Lane | Byte-identical | Re-serialised to the same tree | Changed | Dropped | Added |
 |---|---:|---:|---:|---:|---:|

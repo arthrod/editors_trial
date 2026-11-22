@@ -9,6 +9,31 @@ re-running the measurement behind it. The format follows
 
 ## [Unreleased]
 
+## [0.11.2] - 2026-11-22
+
+The source of react-docx, OpenDoc and BetterOffice was read, at the versions measured in v0.11.0, and the reports now say why their results come out as they do. No measurement changed.
+
+### Added
+- Main report: the three tools are ranked (places 7, 9 and 10), have rows in the master comparison table, and each paragraph of §12 ends with what the code says, with file and line. The comparison section names the diff code found in OpenDoc and BetterOffice; neither was run.
+- Report A §3.13 to §3.15: where each of the three draws its serialization boundary. react-docx keeps each paragraph's source text; OpenDoc matches on local names and reports what it leaves out; BetterOffice keeps unknown XML only under a prefix foreign to Word's own.
+- Report A2 §3.7: the architecture behind each tool's pass-through.
+- Report B §3.9 and §4.5: the cause of OpenDoc's element-order violations and of BetterOffice's move-range markers, in the writers' code.
+- Report C §4.2 (e) and §5.9: what the three leave out of `word/document.xml` while keeping every part, and what each draws where Word leaves the SmartArt band blank.
+- Vendor notes: react-docx, OpenDoc and BetterOffice each gain pros and cons that come from the source reading, in plain language.
+
+### What was read
+- react-docx: the TypeScript at tag `v0.15.0` (commit `b779c5d`), whose committed WebAssembly file matches the published package's by SHA-256; the Rust parser as published on crates.io (`rust-docx` and `rust-docx-wasm` 0.3.1), not rebuilt.
+- OpenDoc: commit `5ac261ce`, the one measured.
+- BetterOffice: commit `4e982c3`, the target of the tag `@betteroffice/docx@0.5.1`.
+
+### Reviewed
+- The new text was checked by an outside model (Codex) against the cited code and the measured outputs before release: 86 checks, 14 statements found too strong or wrong, all corrected. Among them: Word's refusal of two outputs is not attributed to the schema violations found (that was not isolated); BetterOffice's save writes one outer shape where the SmartArt was, not the shapes it drew; its code does warn when it drops a chart with no drawing; OpenDoc keeps an unchanged theme's bytes.
+
+### Not done
+- The counting sentences of Report A (§4.3 to §7) and its mechanism matrix (§6) still count the twelve editors and Docxodus.
+- Not traced in the source: the cause of OpenDoc's one lost text token, what react-docx and OpenDoc draw in the SmartArt band, and whether OpenDoc's "import findings" badge is the length of its findings list.
+- Nothing was run again. Reports E and E2 still have no timing for the tools added in v0.11.0.
+
 ## [0.11.1] - 2026-11-21
 
 Corrections to the text of v0.11.0, from a review of it against the measurements. No measurement changed.

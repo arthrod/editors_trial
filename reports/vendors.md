@@ -467,7 +467,7 @@ The package ships with its review marks and review cards hidden; a page that wan
 - It lays the 500-page sample out on 500 pages, as Word does, in 8.70 s (editors site, 3 of 3 runs).
 - Once its review marks are turned on, it shows insertions underlined and a margin card per deletion and per comment with author, date and Accept and Reject (editors site, redline sample, seen 2026-11-18).
 - It reads and writes `.docx` itself, and it passed all ten checks and every hard case of the editors site's formatting probe (editors site README, probes of 2026-11-20).
-- Word opens the file it saves, and it kept all 35 parts of the test document (main report, round trip 91.5%).
+- Word opens the file it saves, and it kept all 35 parts of the test document (main report, round trip 91.5%). A paragraph or table you did not edit is written back from the text it was read from, so Word features the editor does not understand survive in it (Report A §3.13, read in its source for v0.11.2).
 - Saving its own output a second time gives the same bytes (main report, second pass).
 - On screen it lays the test document out on 6 pages, as Word does, with the table, the picture and the chart drawn (Report C §2.15).
 
@@ -475,7 +475,7 @@ The package ships with its review marks and review cards hidden; a page that wan
 
 - It has no command that replaces a whole document inside its own undo history, so an assistant edit there opens a new document and cannot be undone (editors site README, "How fairness to each vendor is decided").
 - It runs only in a browser: it breaks pages by measuring text on screen, so it cannot render on a server (viewers site README, "No server route, and why"; read from the package, not run).
-- It lost 7 of the test document's 169 pieces of text and failed 8 of 99 checks (main report, text kept 95.9%).
+- It lost 7 of the test document's 169 pieces of text and failed 8 of 99 checks (main report, text kept 95.9%). When it saves, a text box becomes a picture of itself, so its words are no longer text, and anything in the body that is not a paragraph or a table, such as the link to an embedded document, is left out. It says nothing when it does (main report §12; Report A §3.13).
 - On hostile files it named no size limit, kept the weapon in five of the ten and ran past the time limit on one (Report D, grade 0.20).
 - It does not repair a damaged file: Word refuses what it saves from the broken test document (Report B §4).
 - Its speed is not measured by the trial: it has no entry that runs without a browser (Report E, "Not measured").
@@ -527,7 +527,7 @@ The application is published as a website; its npm package is only a frame mount
 - In the redline sample it shows insertions and deletions in the text, and a card per change and per comment with author, date and Accept and Reject (editors site, redline sample, seen 2026-11-18).
 - It reads and writes `.docx` itself, and it passed all ten checks and every hard case of the editors site's formatting probe (editors site README, probes of 2026-11-20).
 - Its viewer package draws pages on a server: 204 ms for the rich sample and 1.57 s for the 500-page sample (viewers site, server render, 3 runs each, 2026-11-21).
-- It kept every part of the test document and all but 1 of its 169 pieces of text, and saving its own output a second time gives the same bytes (main report, round trip 89.9%, second pass).
+- It kept every part of the test document and all but 1 of its 169 pieces of text, and saving its own output a second time gives the same bytes (main report, round trip 89.9%, second pass). It keeps a list of what it left out: elements it does not model are recorded when the file is read, with repeats grouped and those it judges meaningless skipped, and a save hands the losses back to the program that asked for it (Report A §3.14, read in its source for v0.11.2).
 - On screen it draws the test document on 6 pages, as Word does, with the chart, the footnote and the deleted table row marked (Report C §2.16).
 
 ### Cons
@@ -535,7 +535,7 @@ The application is published as a website; its npm package is only a frame mount
 - Its server render draws a redline as the accepted text, with no marks. That package is an older build than the application, which shows them (viewers site, server render, `@casualoffice/opendoc-viewer@0.1.0-alpha.1`).
 - It is hard to embed today. It opens files only from its own file input and exports only by download, and a newer snapshot can break a page that drives it (editors site README, "Known limitations").
 - It is a pre-release, measured from a dated snapshot and not from a released version (editors site README, "The editors").
-- Word refuses the file it saves from the test document, and the schema check finds 4 violations in it (main report, Word verdicts; Report B §3).
+- Word refuses the file it saves from the test document, and the schema check finds 4 violations in it (main report, Word verdicts; Report B §3). Its writer puts formatting properties in an order of its own, which is where those violations come from; whether they are what Word objects to was not isolated (Report B §3.9). It also rewrites the parts it reads even when nothing was edited (the theme excepted), so details it does not model, such as the identifiers Word gives each paragraph, are gone after any save (Report A2 §3.7).
 - On hostile files it named no size limit and kept the weapon in three of the ten (Report D, grade 0.48).
 - Its speed is not measured by the trial: timing it needs the cloud machines, which this release did not use (Report E, "Not measured").
 
@@ -558,15 +558,15 @@ The React package imports its core by 30 subpaths, each of which a page without 
 - It lays the 500-page sample out on 500 pages, as Word does, in 8.05 s (editors site, 3 of 3 runs).
 - In the redline sample it shows deletions struck and insertions underlined, and a card per change and per comment with author, date and accept and reject (editors site, redline sample, seen 2026-11-18).
 - It reads and writes `.docx` itself, and it passed all ten checks and every hard case of the editors site's formatting probe (editors site README, probes of 2026-11-20).
-- Through an editor session it gave the test document back whole: every check passed, every part was kept, and Word opens the file (main report, editor lane 100.0%).
+- Through an editor session it gave the test document back whole: every check passed, every part was kept, and Word opens the file (main report, editor lane 100.0%). The session checks which parts changed and writes the others back from the original bytes, changing at most their paragraph identifiers (Report A2 §3.7, read in its source for v0.11.2).
 - It also draws pages on a server, with its own layout and painter: 275 ms for the rich sample and 3.97 s for the 500-page sample, and the redline keeps its marks (viewers site, server render, 3 runs each, 2026-11-21).
 
 ### Cons
 
 - Its editing call takes plain-text steps and refuses a full replacement, so an assistant edit there opens a new document and clears the undo history (editors site README, "Assessment").
 - On a server its engine's memory reached about 0.5 GB on the 500-page sample and was not given back afterwards (viewers site, server render; measured locally by the route's author on a loaded machine).
-- Through its document model the result is weaker: 12 of 99 checks failed, and Word refuses that file (main report, model lane 87.9%).
-- Its save returns a list of warnings, and for the test document the list was empty although checks failed (main report, harness log of the model lane).
+- Through its document model the result is weaker: 12 of 99 checks failed, and Word refuses that file (main report, model lane 87.9%). What it has no type for is kept only when it is foreign to Word's own vocabulary. An element in Word's own namespaces that it does not model is dropped. The markers of a moved passage come back without their author, which the schema requires, and Word refuses the model lane's file (Report A §3.15; Report B §3.9).
+- Its save returns a list of warnings, and for the test document the list was empty although checks failed (main report, harness log of the model lane). The places in its code that drop such content raise no warning (Report A §3.15).
 - On hostile files it named no size limit and kept the weapon in three of the ten; in the editor lane the process aborted on one (Report D, grade 0.36).
 - Its speed is not measured by the trial: timing it needs the cloud machines, which this release did not use (Report E, "Not measured").
 
