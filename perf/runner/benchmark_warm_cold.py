@@ -351,7 +351,11 @@ BROWSER_TARGETS: dict[str, dict] = {
             "document.querySelector('[data-docx-page-wrapper] [data-docx-paragraph-host]'))"
         ),
         "error_js": "window.__host && window.__host.error",
-        "edit_selector": "[data-docx-page-body] [data-docx-paragraph-host]",
+        # The editor's root, not a paragraph: the input lane reads read-only
+        # off the first element this matches, and a paragraph is
+        # contenteditable="false" until clicked. Caret placement goes through
+        # the react-docx adapter in edit_surface.mjs.
+        "edit_selector": "[data-docx-editor-root]",
         "typing_edit_selector": "[data-docx-editor-root]",
         "typing_click_selector": "[data-docx-page-body] [data-docx-paragraph-host]",
         "typing_present_selector": "[data-docx-editor-root]",

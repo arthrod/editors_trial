@@ -682,6 +682,13 @@ const INSTALL_INPUT_TAP = () => {
       // The event target is the hit-test result: an element inside the editable
       // surface means the click reached the editor and not a surrounding chrome.
       tap.target = event.target;
+      // The target's ancestors at the event. An editor that re-renders the
+      // clicked line (react-docx activates a paragraph by replacing it) leaves
+      // tap.target detached by the time it is checked; the path is where the
+      // click landed.
+      tap.targetPath = typeof event.composedPath === 'function'
+        ? event.composedPath().filter((node) => node && node.nodeType === 1)
+        : null;
       const el = event.target;
       push('pointerdown', {
         x: event.clientX,
@@ -954,6 +961,27 @@ const READ_EDITABLE_STATE = (selector) => {
       }
     }
   }
+  // react-docx keeps its input in a 1 px textarea at the caret it paints, so
+  // the browser range is 0×0 (probed 2026-11-22). Its host page is the one
+  // whose window.__host carries the viewer's controller; on it, the focused
+  // caret-sized textarea inside the editor is the caret.
+  const reactDocxHost = Boolean(
+    window.__host && window.__host.viewer && typeof window.__host.viewer.getController === 'function',
+  );
+  if ((!caret || !(caret.height > 0)) && reactDocxHost && activeTag === 'textarea' && focusInEditor) {
+    const rect = active.getBoundingClientRect();
+    if (rect.height > 0 && rect.width <= 4) {
+      caret = {
+        top: rect.top,
+        bottom: rect.bottom,
+        left: rect.left,
+        right: rect.right,
+        height: rect.height,
+        collapsed: !selectionExpanded,
+      };
+      anchorInside = true;
+    }
+  }
   const descendantEditable = Boolean(
     typeof el.querySelector === 'function' && el.querySelector('[contenteditable="true"]'),
   );
@@ -1216,6 +1244,7 @@ async function clearInputs(page) {
       window.__perfCriteria.inputs.length = 0;
       if (window.__perfCriteria.targets) window.__perfCriteria.targets.length = 0;
       window.__perfCriteria.target = null;
+      window.__perfCriteria.targetPath = null;
     }
   });
 }
@@ -1259,6 +1288,16 @@ async function pointerTargetInside(page, selector) {
       typeof parts[0].matches === 'function' && parts[0].matches('[data-paragraph-id][data-start]')
         ? parts[0].closest('.docx-page-content')
         : null;
+    // A target the editor removed after the event is judged by its
+    // ancestors at the event; a connected target is judged as it stands.
+    const path = window.__perfCriteria && window.__perfCriteria.targetPath;
+    if (target.isConnected === false && Array.isArray(path)) {
+      return {
+        inside: path.some((el) => parts.includes(el) || el === fragmentRoot),
+        reason: null,
+        target_detached: true,
+      };
+    }
     return {
       inside:
         parts.some((el) => el === target || el.contains(target)) ||
