@@ -2767,7 +2767,13 @@ async function runFind(browser) {
         completion: null,
       };
     }
-    const observedInterval = await frameInterval(ctx.page, { frames: 6 });
+    // The same interval read as the witness clock check (witness.mjs, 60
+    // frames, its default), taken before the query is typed and outside the
+    // timed window. Six frames gave a median of two middle rAF deltas, which
+    // differs between fresh processes at one refresh rate (16.65, 16.673,
+    // 16.607 ms), so _write_measured refused every C15 cell as
+    // frame_interval_inconsistent; the 60-frame median reads 16.7 every time.
+    const observedInterval = await frameInterval(ctx.page);
     await ctx.page.locator(findInputSelector).first().click({ timeout: 5000 });
     await ctx.page.evaluate(
       ({ countSel, matchSel, expected, query, inputSel, intervalReplies, lateReply }) => {
