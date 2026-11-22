@@ -110,7 +110,7 @@ and Nutrient was not read for any report.
     - [x] warm/cold: C03 221–224 ms warm, 351–376 ms cold; C05 71–95 ms; C06 70–86 ms; the whole text (4,220 characters, from its model) matches. 5,000 words: C03 520–712 ms. 50,000 words ran only under a profile that is not this machine's, so not publishable (C03 1.3–1.5 s)
     - [x] input: C04 89 ms; C07 28 ms on 2 of 3 points; C08 105 ms; C09 59 ms (undo restored the exact text). The third C07 point (the last line, cut by the window's bottom edge) is refused `caret_not_on_clicked_line`: BetterOffice scrolls a partly hidden clicked line into view (18 px in Chrome on 0.5.1), so the caret is on the clicked text but no longer at the clicked height. The criterion compares heights before the scroll; owner's decision whether that is the editor's behaviour or a harness limit
     - [x] typing: 591 characters/s (throughput); latency session measured; the saved .docx matches
-    - [x] document: C11 425–456 ms; C12 does not apply (pages are canvases); C15 232 ms where measured, but most cells were refused `frame_interval_inconsistent`, the harness rule fixed on the OpenDoc branch (60-frame interval); to be re-run once that is merged
+    - [x] document: C11 425–456 ms; C12 does not apply (pages are canvases); C15 find 241–276 ms, 3/3, through the package's own find dialog (re-run after the 60-frame fix, 3351374; before it most cells were refused `frame_interval_inconsistent`)
     - [x] scroll: C10 3–33 ms
     - [x] memory: C17 755–803 MB (3/3); C19 207 MB; C22 does not apply
     - [x] resources: measured (peak memory 812 MB, 32 MB fetched at load, edit verified)
@@ -131,7 +131,15 @@ and Nutrient was not read for any report.
     - [x] memory: C17 measured 2/3 (608, 787 MB), the third "does not apply" (it types); C19 measured (204 MB); C22 does not apply (no feature profile)
     - [x] resources: measured (load and C17); its edit burst "does not apply" instead of refusing the cell
     - [x] input (C04, C07–C09) and typing (both sessions): "does not apply", with the reason, and the page is not started. A target's `viewer_not_applicable` drives this in the typing, input and resources lanes; only Nutrient sets it, and tests pin that every other editor is untouched
-  - [ ] 8.1.5 OpenDoc: the trial has no browser page for it yet (only `harness/ui/opendoc/fetch_engine.py`); build one from its published package, then the same check
+  - [x] 8.1.5 OpenDoc: the trial had no browser page for it (only `harness/ui/opendoc/fetch_engine.py`); one is built (`harness/ui/opendoc/host.mjs`, the pinned web app and engine, opens the document with no user action, ready flag once laid out and painted), then the same check. Local, 2026-11-22, prose-500w, commits e6966e6 to e12fa2e
+    - [x] warm/cold: C03 239–396 ms; C05 32–57 ms; C06 31–60 ms
+    - [x] input: C07 27 ms, C08 82 ms, C09 37–53 ms; C04 does not apply. (One earlier run's C08 missed its frame `no_painted_frame`; the later run measured)
+    - [x] document: C11 357–360 ms; C12 does not apply (whole pages painted, no paragraph box); C15 find 151–178 ms, 3/3, through OpenDoc's own find bar
+    - [x] scroll: C10 6–10 ms
+    - [x] memory: C17 631–635 MB (3/3); C19 199 MB; C22 not run (no feature profile)
+    - [x] resources: measured, edit burst verified
+    - [ ] typing: fails `text_mismatch` for the same reason as OnlyOffice: OpenDoc's autocorrect capitalises after a full stop ("PETITIONER v." becomes "V.", at character 97). Every key arrived; the editor changed one letter. Owner's decision pending, the same one as OnlyOffice's
+    - [x] C15 harness fix (commit 3351374): the find probe read the screen's frame interval over 6 frames, the rest of the harness over 60, so two good samples rarely carried the same interval and the cell was refused `frame_interval_inconsistent`. It now takes the same 60-frame reading. No published figure moves (no published editor has a C15 figure). Re-run after it: OpenDoc 3/3, BetterOffice 3/3 (241–276 ms), OnlyOffice 3/3 (420–431 ms)
   - [x] 8.1.6 Univer: no lane is possible. Its open-source packages cannot open a .docx (`harness/ui/univer/README.md`); Report E2 says so under "Not measured"
   - [ ] 8.1.7 Container: the new pages install in `perf/container/setup.sh` and pass `run.sh --smoke` on a Space
   - [ ] 8.1.8 Campaign: both seeds on Spaces of the same class as the published runs (`shared_guarded`, cpu-upgrade); `perf/container/e2_publication.json` names the runs. The new editors are planned as a campaign of their own (`--campaign later`, commit 1d36299): the published campaign's nine editors are frozen in `policy.E2_CAMPAIGN_EDITORS`, because wiring react-docx had silently grown its plan from 594 to 726 jobs and renumbered them
@@ -167,6 +175,7 @@ Live since 2026-11-21 (site PRs 97 and 99), each line checked on the deployed pa
 | 2026-11-21 | 1 to 9 | et-v0.11.0: four tools join the round trip, five join Report C; live on benchmarks.law and checked in Chrome |
 | 2026-11-21 | 7, 8 | Blocked: the new tools are not timed (no cloud machines rented) |
 | 2026-11-22 | 8.1 | react-docx and Nutrient wired into every E2 lane and measured locally; the published campaign's job plan frozen (later editors get `--campaign later`) |
+| 2026-11-22 | 8.1 | BetterOffice, OnlyOffice and OpenDoc (page built) wired and measured locally; C15 frame-interval fix; three owner decisions open (autocorrect in typing, OnlyOffice scroll, C07 click into a scrolled line) |
 | 2026-11-21 | 10.3 | The four tools that had no page on editors.benchmarks.law have one; their cards show the figures |
 | 2026-11-22 | 1.7, 1.8, 2.4, 3.4, 5.5, 5.6 | et-v0.11.2: the source of react-docx, OpenDoc and BetterOffice read; rankings, master table, boundaries, architectures and Report C sections written |
 | 2026-11-22 | 7, 8 | Closed by the owner's decision: no cloud machines, so the new tools stay untimed |
