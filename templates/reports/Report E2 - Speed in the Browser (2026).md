@@ -52,6 +52,8 @@ Read these tables beside the results above with that in mind. They come from oth
 
 ### The machine and the runs
 
+{{perf.e2.later.relaxed_bounds}}
+
 {{perf.e2.later.host_note}}
 
 {{perf.e2.later.runs}}

@@ -162,6 +162,24 @@ class LaterFacts(unittest.TestCase):
         with self.assertRaises(KeyError):
             render_reports.reportgen.render(tpl, partial)
 
+    def test_the_later_section_prints_the_bounds_its_build_generates_and_the_carried_ones_stay(self):
+        old = E2.facts_from_roots(self.published)
+        old["perf.e2.relaxed_bounds"] = "Relaxed bounds: the published campaign's own text."
+        old_file = self.base / "facts-v0.0.0.json"
+        old_file.write_text(json.dumps(old))
+        later = farm(self.base / "later", ["opendoc"], tag="later")
+        os.environ["TRIAL_E2_CARRY"] = str(old_file)
+        import perf.runner.lax_bounds as lax
+        with mock.patch.object(lax, "relaxed_bounds_paragraph", return_value="Relaxed bounds: built now."):
+            out = self.build({"roots": [str(self.base / "gone")], "later": {"roots": [str(r) for r in later]}})
+            unset = self.build({"roots": [str(self.base / "gone")]})
+        self.assertEqual(out["perf.e2.later.relaxed_bounds"], "Relaxed bounds: built now.")
+        self.assertEqual(unset["perf.e2.later.relaxed_bounds"], "Relaxed bounds: built now.")
+        self.assertEqual(out["perf.e2.relaxed_bounds"], "Relaxed bounds: the published campaign's own text.")
+        text = render_reports.reportgen.render(TEMPLATE.read_text(encoding="utf-8"), out)
+        section = text[text.index("## The editors measured later"):text.index("## Appendix A")]
+        self.assertIn("Relaxed bounds: built now.", section)
+
     def test_an_editor_in_both_campaigns_is_refused(self):
         later = farm(self.base / "later", ["plate", "opendoc"], tag="later")
         with self.assertRaisesRegex(ValueError, "Plate.js already in the published campaign"):
