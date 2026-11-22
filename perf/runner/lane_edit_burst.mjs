@@ -31,10 +31,14 @@ export const LANE_EDIT_CONFIRM_MS = 10_000;
  * the page container, which is not a paragraph. A y-shift of the container can
  * never be attributed to one paragraph, so C12 is not_applicable for them —
  * never measured from a page box.
+ * BetterOffice paints each page on a canvas; its only paragraph elements are
+ * the hidden accessibility mirror's .layout-paragraph boxes, which are 0x0
+ * (each glyph is its own absolutely placed span; probed 2026-11-22 on
+ * prose-500w, @betteroffice/docx-react 0.5.1).
  */
 // OnlyOffice draws whole pages on its #id_viewer canvas too (its frame holds no
 // paragraph box); its model's paragraph list is the evidence.
-export const C12_NO_PARAGRAPH_GEOMETRY = new Set(['canvas', 'docen', 'onlyoffice']);
+export const C12_NO_PARAGRAPH_GEOMETRY = new Set(['canvas', 'docen', 'onlyoffice', 'betteroffice']);
 
 /**
  * The C12 anchor: the nearest block BELOW the caret on the same screen
@@ -136,6 +140,17 @@ export const LIST_MODEL_PARAGRAPHS = (model) => {
       }
     });
     return out;
+  }
+  if (model === 'betteroffice') {
+    // Async (the census awaits it): the body paragraphs from the editor ref.
+    const ref = window.__host && window.__host.ref && window.__host.ref.current;
+    if (!ref || typeof ref.readParagraphs !== 'function') return null;
+    return ref.readParagraphs({ view: 'accepted' }).then(
+      (read) => (read && read.ok && Array.isArray(read.paragraphs)
+        ? read.paragraphs.map((p) => String(p.text || '').trim()).filter(Boolean)
+        : null),
+      () => null,
+    );
   }
   if (model === 'canvas_editor') {
     const inst = window.__CANVAS_EDITOR_INSTANCE__;

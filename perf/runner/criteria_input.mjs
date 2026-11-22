@@ -1920,6 +1920,73 @@ const READ_SURFACE_STATE = (spec) => {
     };
   }
 
+  if (spec.kind === 'model' && spec.model === 'betteroffice') {
+    // BetterOffice keeps its text in a worker; its editor ref reads it
+    // asynchronously (readParagraphs flushes pending input first). The page
+    // function returns a promise, which page.evaluate awaits. The caret is
+    // the focused caret-sized textarea.paged-editor__input the editor moves
+    // to the caret it paints; the offset is the caret paragraph's place in
+    // the joined text plus the text before the caret (readSelectionInfo).
+    const ref = window.__host && window.__host.ref && window.__host.ref.current;
+    if (!ref || typeof ref.readParagraphs !== 'function' || typeof ref.readSelectionInfo !== 'function') {
+      return { ...base, error: 'editor_model_unavailable' };
+    }
+    const pageEl = document.querySelector(spec.pageRoot);
+    const host = document.querySelector(spec.inputHost);
+    if (!pageEl || !host) return { ...base, error: 'editable_not_found' };
+    return Promise.all([ref.readParagraphs({ view: 'accepted' }), ref.readSelectionInfo()]).then(
+      ([read, info]) => {
+        if (!read || read.ok !== true || !Array.isArray(read.paragraphs)) {
+          return { ...base, error: 'editor_model_unavailable' };
+        }
+        const texts = read.paragraphs.map((p) => String((p && p.text) || ''));
+        const text = texts.join('\n');
+        let offset = null;
+        let blockText = null;
+        if (info && typeof info.paraId === 'string') {
+          let at = 0;
+          for (let i = 0; i < read.paragraphs.length; i += 1) {
+            if (read.paragraphs[i].paraId === info.paraId) {
+              offset = at + String(info.before || '').length;
+              blockText = texts[i];
+              break;
+            }
+            at += texts[i].length + 1;
+          }
+        }
+        const expanded = Boolean(info && info.selectedText);
+        const active = document.activeElement;
+        const input = host.querySelector('textarea.paged-editor__input');
+        const inputFocused = Boolean(input && active === input);
+        let caret = null;
+        if (inputFocused) {
+          const r = input.getBoundingClientRect();
+          if (r.height > 0 && r.width <= 4) {
+            caret = { top: r.top, bottom: r.bottom, left: r.left, right: r.right, height: r.height, collapsed: !expanded };
+          }
+        }
+        const readOnly = Boolean(input && (input.readOnly || input.disabled));
+        return {
+          ...base,
+          text,
+          text_length: text.length,
+          text_source: 'betteroffice_model',
+          input_reachable: !readOnly,
+          read_only: readOnly,
+          active_inside: Boolean(active && host.contains(active)),
+          active_tag: active ? String(active.tagName || '').toLowerCase() : null,
+          anchor_inside: offset !== null,
+          selection_offset: offset,
+          selection_expanded: expanded,
+          caret,
+          caret_block_text: blockText,
+          box: boxOf(pageEl),
+        };
+      },
+      () => ({ ...base, error: 'editor_model_unavailable' }),
+    );
+  }
+
   if (spec.kind === 'model' && spec.model === 'canvas_editor') {
     const inst = window.__CANVAS_EDITOR_INSTANCE__;
     const cmd = inst && inst.command;
@@ -4649,6 +4716,7 @@ export {
   prepareInputSurface,
   prepareChromeForEditing,
   READ_EDITABLE_STATE,
+  READ_SURFACE_STATE,
   READ_SUPERDOC_TEXT,
   OBSERVE_QUIESCENCE,
   assertBulkInsertBody,

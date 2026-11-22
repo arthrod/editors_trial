@@ -129,6 +129,20 @@ export const EDIT_SURFACES = {
   // pageRoot is the view holding the page canvas and the overlay canvas over
   // it that takes the clicks: a hit on the overlay is a hit on the document.
   onlyoffice: { kind: 'model', model: 'onlyoffice', pageRoot: '#id_main_view' },
+  // BetterOffice paints each page on a <canvas data-page-index> inside
+  // [data-docx-pages-host]; its keys go to a caret-sized
+  // textarea.paged-editor__input, a sibling of the pages under
+  // .docx-editor__scroll-container (the toolbar is outside it). The text is
+  // in the editor's worker: every read goes through window.__host.ref.current
+  // (readParagraphs, readSelectionInfo), which is async (probed 2026-11-22,
+  // @betteroffice/docx-react 0.5.1: the sync getDocument/getPageContent throw
+  // DocxSyncApiError without legacySyncApi).
+  betteroffice: {
+    kind: 'model',
+    model: 'betteroffice',
+    pageRoot: '[data-docx-pages-host] canvas[data-page-index]',
+    inputHost: '.docx-editor__scroll-container',
+  },
 };
 
 export function editSurface(editorId) {
@@ -184,6 +198,9 @@ export const DOCUMENT_TEXT_SURFACES = {
   nutrient: { kind: 'model', model: 'nutrient' },
   // OnlyOffice holds the whole document in its model (main document only).
   onlyoffice: { kind: 'model', model: 'onlyoffice' },
+  // BetterOffice: the body story from the editor's own readParagraphs (the
+  // whole document, whatever is painted).
+  betteroffice: { kind: 'model', model: 'betteroffice' },
 };
 
 export function hasDocumentTextSurface(editorId) {
@@ -282,6 +299,21 @@ export const READ_EDITOR_DOCUMENT_TEXT = ({ kind, root, model, deep = false, dom
     } catch (error) {
       return result('', 'absent', 'onlyoffice_model', error && error.message ? error.message : error);
     }
+  }
+
+  if (kind === 'model' && model === 'betteroffice') {
+    // Async: page.evaluate awaits the promise. readParagraphs flushes pending
+    // input first, then reads the body story at one version.
+    const ref = window.__host && window.__host.ref && window.__host.ref.current;
+    if (!ref || typeof ref.readParagraphs !== 'function') {
+      return result('', 'absent', 'betteroffice_model', 'betteroffice model unavailable');
+    }
+    return ref.readParagraphs({ view: 'accepted' }).then(
+      (read) => (read && read.ok && Array.isArray(read.paragraphs)
+        ? result(read.paragraphs.map((p) => String(p.text || '')).join('\n'), 'perf_model', 'betteroffice_model')
+        : result('', 'absent', 'betteroffice_model', 'readParagraphs refused: ' + JSON.stringify(read).slice(0, 200))),
+      (error) => result('', 'absent', 'betteroffice_model', error && error.message ? error.message : error),
+    );
   }
 
   if (kind === 'model' && model === 'canvas_editor') {
@@ -538,6 +570,15 @@ export const READ_MODEL_AT_CARET = (model) => {
     const host = window.__host || (window.parent !== window ? window.parent.__host : null);
     return host && typeof host.caretParagraphText === 'function' ? host.caretParagraphText() : null;
   }
+  if (model === 'betteroffice') {
+    // Async (page.evaluate awaits it): the editor's own caret read.
+    const ref = window.__host && window.__host.ref && window.__host.ref.current;
+    if (!ref || typeof ref.readSelectionInfo !== 'function') return null;
+    return ref.readSelectionInfo().then(
+      (info) => (info && typeof info.paragraphText === 'string' ? info.paragraphText : null),
+      () => null,
+    );
+  }
   return null;
 };
 
@@ -591,6 +632,12 @@ export function usableExpression(editorId, selector) {
         + ' try { if (!w && f && f.contentWindow && f.contentWindow.editor) w = f.contentWindow; } catch { w = null; }'
         + ' const h = window.__host || (window.parent !== window ? window.parent.__host : null);'
         + ' return !!(h && h.ready === true && w && w.editor.WordControl && w.editor.WordControl.m_oLogicDocument); })()';
+    }
+    if (surface.model === 'betteroffice') {
+      // The host page's flag: whenLayoutComplete() resolved (main.js), with a
+      // page canvas mounted.
+      return '!!(window.__host && window.__host.ready === true'
+        + ' && document.querySelector("[data-docx-pages-host] canvas[data-page-index]"))';
     }
     return '!!(window.__CANVAS_EDITOR_INSTANCE__ && window.__CANVAS_EDITOR_INSTANCE__.command'
       + ' && typeof window.__CANVAS_EDITOR_INSTANCE__.command.getValue === "function")';
@@ -649,6 +696,19 @@ export const READ_MODEL_DOCUMENT_TEXT = (model) => {
       .filter(Boolean)
       .join('\n');
     return { text, absorbed_items: [] };
+  }
+  if (model === 'betteroffice') {
+    // Async (page.evaluate awaits it). One line per body paragraph, so an
+    // empty paragraph keeps its own line. No list item is absorbed here: the
+    // model text carries no list labels (DocxParagraphText.list is separate).
+    const ref = window.__host && window.__host.ref && window.__host.ref.current;
+    if (!ref || typeof ref.readParagraphs !== 'function') return null;
+    return ref.readParagraphs({ view: 'accepted' }).then(
+      (read) => (read && read.ok && Array.isArray(read.paragraphs)
+        ? { text: read.paragraphs.map((p) => String(p.text || '')).join('\n'), absorbed_items: [] }
+        : null),
+      () => null,
+    );
   }
   return null;
 };

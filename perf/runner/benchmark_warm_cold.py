@@ -436,6 +436,47 @@ BROWSER_TARGETS: dict[str, dict] = {
             "C06": ("input_to_next_paint", "browser_visible"),
         },
     },
+    # BetterOffice (@betteroffice/docx-react, added to the trial in v0.11.0):
+    # the host page is the package's own usage in its default editing mode
+    # (harness/ui/betteroffice/main.js). It paints each page on a
+    # <canvas data-page-index> inside [data-docx-pages-host] and takes keys
+    # through a caret-sized textarea.paged-editor__input, focused on load and
+    # moved to the caret by a click (probed 2026-11-22). Its text is in a
+    # worker; the lanes read it through the editor ref's own async API
+    # (edit_surface.mjs, model 'betteroffice'). Its vite.config's 5214 is
+    # Docen's port: the command names 5222.
+    "betteroffice": {
+        "lane": "browser",
+        "cwd": UI / "betteroffice",
+        "command": ["pnpm", "exec", "vite", "--port", "5222", "--strictPort", "--host", "127.0.0.1"],
+        "url": "http://127.0.0.1:5222/",
+        "corpus_route": "/sample.docx",
+        "ready_selector": "[data-docx-pages-host] canvas[data-page-index]",
+        # The page's own flag, set when whenLayoutComplete() resolves
+        # (harness/ui/betteroffice/main.js).
+        "ready_js": (
+            "!!(window.__host && window.__host.ready === true && "
+            "document.querySelector('[data-docx-pages-host] canvas[data-page-index]'))"
+        ),
+        "error_js": "window.__host && window.__host.error",
+        # The first page's canvas: a model surface's caret click lands at the
+        # middle of the first match (page 1 is 1056 px tall from y=148 in a
+        # 900 px viewport, so the middle is on screen).
+        "edit_selector": "[data-docx-pages-host] canvas[data-page-index]",
+        # The editor's own export: save() returns the document as DOCX bytes
+        # (downloadOnSave is off on this page).
+        "typing_model_js": (
+            "(async () => { const r = window.__host && window.__host.ref && window.__host.ref.current; "
+            "if (!r || typeof r.save !== 'function') return null; const b = await r.save(); "
+            "return b ? { docx_bytes: Array.from(new Uint8Array(b)) } : null; })()"
+        ),
+        "driver": "playwright",
+        "criteria": {
+            "C03": ("first_usable", "browser_visible"),
+            "C05": ("presented_frame", "browser_visible"),
+            "C06": ("input_to_next_paint", "browser_visible"),
+        },
+    },
 }
 
 
