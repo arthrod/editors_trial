@@ -98,7 +98,7 @@ and Nutrient was not read for any report.
 ## 8. Report E2: speed in the browser
 
 - [ ] 8.1 Approved for measuring (2026-11-22), not yet measured: the seven action tables have no row for the new tools, and the report says so at the top. Branch `e2/new-editor-lanes`. What each tool can be timed on, from its page in `harness/ui/`:
-  - [ ] 8.1.1 react-docx (edits; DOM, one contenteditable per paragraph): all seven actions. Lane wired: browser target, pin, caret and whole-text surfaces. Check: the warm/cold, input, typing, document, scroll and memory lanes each measure a cell on the 500-word document locally (`python3 -m perf.runner.<lane> … --editors reactdocx`), no content refusal
+  - [x] 8.1.1 react-docx (edits; DOM, one contenteditable per paragraph): all seven actions. Every lane gives its result locally; the two refusals (C09/C08, typing) are react-docx's own behaviour, recorded with the evidence below, not dodged. Lane wired: browser target, pin, caret and whole-text surfaces. Check: the warm/cold, input, typing, document, scroll and memory lanes each measure a cell on the 500-word document locally (`python3 -m perf.runner.<lane> … --editors reactdocx`), no content refusal
     - [x] warm/cold: C03, C05, C06 measured on both pairs (local, 2026-11-22)
     - [x] input: C07 measured; C04 does not apply (no deferred work). C09 (undo) fails with `no_painted_frame`, and the failure is react-docx's own: one keystroke on a line in the lower half of the page scrolls the view by a page (0 → 1240 px headless, 0 → 1361 px in real Chrome), so the undone text is off-screen. Same on 0.15.0 (pinned) and 0.15.1 (latest). C08 (paste) fails as a knock-on: run alone it measures (22 ms), but in the lane it runs after C09, which leaves the view at the document's end, so its page-centre click lands below the last line. Left as failures, not dodged by choosing other click points; the attempts record the document region at y=111 at the click and y=−1240 at the undo
     - [x] document: C11 measured (≈240 ms, 3/3); C12 measured 2/3 (44, 46 ms), the third refused `anchor_identity_ambiguous` because the Enter+x never reached the document (paragraphs identical before and after); C15 does not apply (no find UI, as Plate). Needed `DOCUMENT_TARGETS`/`GATE_SURFACES` entries, selectors read in Chrome
@@ -108,11 +108,17 @@ and Nutrient was not read for any report.
     - [x] typing: refused `text_mismatch`, and that is react-docx's: at full speed (cadence 0, the campaign's setting for every editor) it drops the first key after each Enter ("BBB" → "BB"); at 60 ms or more between keys nothing is lost. Needs Python Playwright 1.64.1 (`uv run --with playwright==1.64.1`), same as the container
   - [ ] 8.1.2 BetterOffice (edits; its own layout engine): all seven. Same check
   - [ ] 8.1.3 OnlyOffice, CryptPad build (edits; draws on a canvas inside a frame): all seven, typing timed by pixels like Docen and WordCraft. Same check
-  - [ ] 8.1.4 Nutrient (a viewer: converts to PDF): opening, scrolling and memory; typing, clicking, pasting and undoing print "does not apply". Same check on its lanes
+  - [x] 8.1.4 Nutrient (a viewer: converts to PDF): opening, scrolling and memory; typing, clicking, pasting and undoing print "does not apply". Same check on its lanes. Local, 2026-11-22, prose-500w (commit b3129be). Its page loads the viewer from Nutrient's CDN at the pinned 1.25.0 (installing the npm package means accepting Nutrient's evaluation agreement, which needs the owner's yes), so a cold open includes that download; the report must say so
+    - [x] warm/cold: C03 measured on both pairs (1.4–2.0 s). C05/C06 are not in its target (no caret)
+    - [x] document: C11 measured 3/3 (2.1–2.2 s); C12 "does not apply" (nothing to edit); C15 not measured: Nutrient has a search box (seen in Chrome), but it is in the viewer's shadow root, where the find probe cannot read the match count (and the 500-word fixture has no NEEDLE: no E2 editor has a C15 figure)
+    - [x] scroll: C10 measured 3/3 (14–26 ms)
+    - [x] memory: C17 measured 2/3 (608, 787 MB), the third "does not apply" (it types); C19 measured (204 MB); C22 does not apply (no feature profile)
+    - [x] resources: measured (load and C17); its edit burst "does not apply" instead of refusing the cell
+    - [x] input (C04, C07–C09) and typing (both sessions): "does not apply", with the reason, and the page is not started. A target's `viewer_not_applicable` drives this in the typing, input and resources lanes; only Nutrient sets it, and tests pin that every other editor is untouched
   - [ ] 8.1.5 OpenDoc: the trial has no browser page for it yet (only `harness/ui/opendoc/fetch_engine.py`); build one from its published package, then the same check
   - [x] 8.1.6 Univer: no lane is possible. Its open-source packages cannot open a .docx (`harness/ui/univer/README.md`); Report E2 says so under "Not measured"
   - [ ] 8.1.7 Container: the new pages install in `perf/container/setup.sh` and pass `run.sh --smoke` on a Space
-  - [ ] 8.1.8 Campaign: both seeds on Spaces of the same class as the published runs (`shared_guarded`, cpu-upgrade); `perf/container/e2_publication.json` names the runs
+  - [ ] 8.1.8 Campaign: both seeds on Spaces of the same class as the published runs (`shared_guarded`, cpu-upgrade); `perf/container/e2_publication.json` names the runs. The new editors are planned as a campaign of their own (`--campaign later`, commit 1d36299): the published campaign's nine editors are frozen in `policy.E2_CAMPAIGN_EDITORS`, because wiring react-docx had silently grown its plan from 594 to 726 jobs and renumbered them
   - [ ] 8.1.9 Report: the new tools' figures in their own section of Report E2 (a later campaign, like Report E's), facts built by the same rule; gate passes twice; released and seen live
 - [x] 8.2 What the figures can and cannot tell
 
@@ -144,6 +150,7 @@ Live since 2026-11-21 (site PRs 97 and 99), each line checked on the deployed pa
 | 2026-11-21 | 9.1, 10 | Released (et-v0.10.6) and deployed; checked on the live pages |
 | 2026-11-21 | 1 to 9 | et-v0.11.0: four tools join the round trip, five join Report C; live on benchmarks.law and checked in Chrome |
 | 2026-11-21 | 7, 8 | Blocked: the new tools are not timed (no cloud machines rented) |
+| 2026-11-22 | 8.1 | react-docx and Nutrient wired into every E2 lane and measured locally; the published campaign's job plan frozen (later editors get `--campaign later`) |
 | 2026-11-21 | 10.3 | The four tools that had no page on editors.benchmarks.law have one; their cards show the figures |
 | 2026-11-22 | 1.7, 1.8, 2.4, 3.4, 5.5, 5.6 | et-v0.11.2: the source of react-docx, OpenDoc and BetterOffice read; rankings, master table, boundaries, architectures and Report C sections written |
 | 2026-11-22 | 7, 8 | Closed by the owner's decision: no cloud machines, so the new tools stay untimed |
