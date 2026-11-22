@@ -1646,13 +1646,15 @@ async function runReflow(browser) {
       // never measured from a page box.
       const modelKind = EDIT_SURFACES[editorId] && EDIT_SURFACES[editorId].model;
       const census = await ctx.page.evaluate(
-        ({ modelSrc, model, docSel }) => {
+        async ({ modelSrc, model, docSel }) => {
           let modelParagraphs = null;
           try {
             if (typeof modelSrc === 'string' && modelSrc) {
               // eslint-disable-next-line no-eval
               const list = eval(modelSrc);
-              const paragraphs = list(model);
+              // BetterOffice's model read is async; awaiting the synchronous
+              // canvas/docen lists changes nothing for them.
+              const paragraphs = await list(model);
               modelParagraphs = Array.isArray(paragraphs) ? paragraphs.length : null;
             }
           } catch {
@@ -1669,6 +1671,8 @@ async function runReflow(browser) {
           ? '#editor .ce-page-container (host paints into <canvas>)'
           : editorId === 'onlyoffice'
             ? '#id_viewer in its editor frame (OnlyOffice paints each page into one <canvas>)'
+          : editorId === 'betteroffice'
+            ? '[data-docx-pages-host] .paged-editor__page (host paints into <canvas>; its accessibility mirror\'s .layout-paragraph boxes are 0x0)'
             : 'docen-document shadow .canvas-pages > div (page pitch)';
       return {
         mode: 'reflow',
@@ -2764,7 +2768,7 @@ async function runFind(browser) {
     const observedInterval = await frameInterval(ctx.page, { frames: 6 });
     await ctx.page.locator(findInputSelector).first().click({ timeout: 5000 });
     await ctx.page.evaluate(
-      ({ countSel, matchSel, expected, query, inputSel, intervalReplies }) => {
+      ({ countSel, matchSel, expected, query, inputSel, intervalReplies, lateReply }) => {
         const probe = (window.__findProbe = {
           first_at: null,
           complete_at: null,
@@ -2836,6 +2840,14 @@ async function runFind(browser) {
             const result = fn.apply(this, extra);
             const after = read().text;
             if (!fromInput) return result;
+            if (lateReply && after === before) {
+              // BetterOffice only: its find dialog's input-scheduled timer
+              // runs the search and sets React state, and the status line
+              // renders in a later task. The next change of the count text
+              // after this timer is this timer's reply (full query or prefix).
+              probe.pendingReply = { value: valueAtSchedule, before };
+              return result;
+            }
             if (valueAtSchedule === probe.query) noteFull(after);
             else if (after && after !== before) notePrefix(after);
             return result;
@@ -2869,9 +2881,23 @@ async function runFind(browser) {
             }, delay);
           };
         }
+        let replyObserver = null;
+        if (lateReply && typeof MutationObserver === 'function') {
+          replyObserver = new MutationObserver(() => {
+            const pending = probe.pendingReply;
+            if (!pending) return;
+            const text = read().text;
+            if (!text || text === pending.before) return;
+            probe.pendingReply = null;
+            if (pending.value === probe.query) noteFull(text);
+            else notePrefix(text);
+          });
+          replyObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+        }
         probe.stop = () => {
           window.setTimeout = nativeSetTimeout;
           window.setInterval = nativeSetInterval;
+          if (replyObserver) replyObserver.disconnect();
         };
       },
       {
@@ -2881,6 +2907,9 @@ async function runFind(browser) {
         query: findQuery,
         inputSel: findInputSelector,
         intervalReplies: editorId === 'onlyoffice',
+        // Gated to BetterOffice (see the timer wrapper): every other host
+        // keeps the reply-inside-the-timer rule it was measured with.
+        lateReply: editorId === 'betteroffice',
       },
     );
     const inputPageMs = await ctx.page.evaluate(() => performance.now());

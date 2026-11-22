@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>E2 fake host: a find reply rendered after its timer (BetterOffice's find dialog)</title>
+  </head>
+  <body>
+    <p class="doc-paragraph">NEEDLE and NEEDLE</p>
+    <input class="find" autocomplete="off" />
+    <div class="find-count"></div>
+    <script>
+      document.addEventListener('keydown', function (event) {
+        if ((event.ctrlKey || event.metaKey) && (event.key === 'f' || event.key === 'F')) event.preventDefault();
+      });
+      // As @betteroffice/docx-react 0.5.1's find dialog: each input (re)starts
+      // a 220 ms debounce timer; the timer runs the search and sets state, and
+      // the status line is rendered in a later task (React's scheduler posts a
+      // message), not inside the timer.
+      var channel = new MessageChannel();
+      var pendingText = null;
+      channel.port1.onmessage = function () {
+        document.querySelector('.find-count').textContent = pendingText;
+      };
+      var timer;
+      document.querySelector('input.find').addEventListener('input', function (event) {
+        var value = event.target.value;
+        clearTimeout(timer);
+        timer = setTimeout(function () {
+          var count = (document.querySelector('.doc-paragraph').textContent.split(value).length - 1);
+          pendingText = '1 of ' + count + ' matches';
+          channel.port2.postMessage(null);
+        }, 220);
+      });
+    </script>
+  </body>
+</html>

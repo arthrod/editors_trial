@@ -290,6 +290,39 @@ DOCUMENT_TARGETS = {
             "(no paragraph boxes), the canvas/docen ruling."
         ),
     },
+    "betteroffice": {
+        # Report E2's later editors. Verified in Chrome on prose-500w and
+        # micro-search (2026-11-22, @betteroffice/docx-react 0.5.1): one
+        # .paged-editor__page per page with a 2d <canvas data-page-index>
+        # (816x1056) inside [data-docx-pages-host]; no document text in the
+        # light DOM except the hidden accessibility mirror (opacity 0,
+        # per-glyph spans, 0x0 paragraph boxes).
+        "doc_selector": "[data-docx-pages-host] canvas[data-page-index]",
+        "document_selector": "[data-docx-pages-host] canvas[data-page-index]",
+        "page_selector": "[data-docx-pages-host] .paged-editor__page",
+        "page_model": "page",
+        "edit_selector": "[data-docx-pages-host] canvas[data-page-index]",
+        "usable_signal": "screencast_ink",
+        "ready_js": (
+            "!!(window.__host && window.__host.ready === true && "
+            "document.querySelector('[data-docx-pages-host] canvas[data-page-index]'))"
+        ),
+        # The package's own find dialog, opened by Ctrl/Cmd+F (the toolbar has
+        # no find button); its status line reads "1 of 5 matches".
+        "find_input_selector": "input.docx-find-replace-dialog-input",
+        "find_count_selector": ".docx-find-replace-dialog-status",
+        "find_query": "NEEDLE",
+        "find_expected_matches": 5,
+        "find_source_note": "the package's own find dialog (Ctrl/Cmd+F), status line .docx-find-replace-dialog-status",
+        "note": (
+            "Canvas host: pages are painted on <canvas data-page-index> inside [data-docx-pages-host]; "
+            "the text is in the editor's worker and is read through the editor ref's readParagraphs. "
+            "C11 uses screencast_ink on the first page canvas. C12 is not applicable: the only DOM "
+            "paragraphs are the hidden accessibility mirror's, whose boxes are 0x0. The ready gate is "
+            "the host page's own flag, set when whenLayoutComplete() resolves "
+            "(harness/ui/betteroffice/main.js)."
+        ),
+    },
     "folio": {
         "doc_selector": ".layout-page-content [data-block-id]",
         "page_selector": "[data-page-number]",
@@ -2009,6 +2042,7 @@ GATE_SURFACES = {
     "eigenpal": {"oracle": "model"},
     "canvas": {"oracle": "model"},
     "docen": {"oracle": "model"},
+    "betteroffice": {"oracle": "model"},
     "wordcraft": {"oracle": "select_all_copy"},
 }
 
