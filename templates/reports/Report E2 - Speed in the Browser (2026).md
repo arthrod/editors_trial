@@ -8,7 +8,7 @@ Nine editors that open Word documents in a web browser were each given the same 
 
 It is written to be read from here to the end of the results. The appendices after that hold everything needed to check it: how each time was taken, the machine, the rule a figure had to pass before it was printed, the full tables, what was not measured and why, and how to run it again.
 
-**Tools added to the trial in v0.11.0 are not in this report.** react-docx, OpenDoc, BetterOffice, OnlyOffice (CryptPad build) and Nutrient were not timed in the browser: these figures come from a campaign on dedicated cloud machines, and v0.11.0 was made without renting any. The tables below are the earlier campaign's, unchanged, for the nine editors it covered. For how the new tools load on a page, see the measurements on editors.benchmarks.law, which use a different method and are not comparable with these tables.
+**Tools added to the trial in v0.11.0 are not in this report.** react-docx, OpenDoc, BetterOffice, OnlyOffice (CryptPad build) and Nutrient were not timed in the browser: the harness has no browser lane for them yet, and a lane is what times the seven actions of this report. OpenDoc, BetterOffice and OnlyOffice are timed without a browser in Report E. The tables below are the earlier campaign's, unchanged, for the nine editors it covered. For how the new tools load on a page, see the measurements on editors.benchmarks.law, which use a different method and are not comparable with these tables.
 
 ## How to read the tables
 

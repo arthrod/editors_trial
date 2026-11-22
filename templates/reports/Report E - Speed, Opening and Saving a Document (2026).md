@@ -4,6 +4,8 @@
 
 This report times how long each editor takes to open a DOCX and to save it again, with no browser, as the document grows from 500 to 250,000 words. It was measured on {{perf.e.machine}}: {{perf.e.host}}, on {{perf.e.date}}. Each figure is the median of {{perf.e.n}} fresh processes. A second run of {{perf.e.repro_n}} processes, in another order, had to agree within {{perf.e.rel_tol_pct}} percent (or {{perf.e.abs_tol_ms}} ms) before a figure is printed. {{perf.e.cells_reproduced}} of {{perf.e.cells_checked}} figures agreed. A figure whose two runs disagree is printed as "not reproduced" and carries no number; its two medians are listed, as diagnostics only, at the end of the appendix.
 
+OpenDoc, BetterOffice and OnlyOffice (CryptPad build), in the trial since v0.11.0, were timed on {{perf.e.v011.date}} by a pair of runs of their own, on the same machine type and the same documents. They have their own section, after the exceptions, and are not in the tables before it. react-docx and Apryse WebViewer have no headless entry point and are not timed here.
+
 It does not time what a person sees in a browser: the first paint, typing, scrolling. The runners for those have defects that would print wrong numbers. They are listed at the end, each with its issue.
 
 Rows are in alphabetical order. A table here is not a ranking. A figure is one editor's time on one document, on this machine, in this mode. The editors do different amounts of work in the same call; the notes under each table say how.
@@ -80,6 +82,60 @@ What the canvas-editor failures are, from their logs and from one diagnostic rer
 
 Text the check found missing from the saved files (the round trip still kept 98 percent of the words, so the samples count): {{perf.e.correctness_lost}}.
 
+## The tools added in v0.11.0: OpenDoc, BetterOffice and OnlyOffice (CryptPad build)
+
+These three were added to the trial on 2026-11-21 and timed after the editors above, by a pair of runs of their own on {{perf.e.v011.machine}}: {{perf.e.v011.host}}, on {{perf.e.v011.date}}. Primary run `{{perf.e.v011.run_id}}`: {{perf.e.v011.n}} repetitions, seed {{perf.e.v011.seed}}. Reproduction run `{{perf.e.v011.repro_run_id}}`: {{perf.e.v011.repro_n}} repetitions, seed {{perf.e.v011.repro_seed}}. The documents, the checks and the rule for printing a figure are the ones above; {{perf.e.v011.cells_reproduced}} of {{perf.e.v011.cells_checked}} figures agreed. {{perf.e.v011.host_note}} {{perf.e.v011.end_check}}
+
+Read these rows beside the tables above with two differences in mind. They were measured on another day, on a machine of the same type running a later build of its kernel (the two host lines give both), so a small difference between one of these figures and one above can be the machine and not the editor. And the runner had changed since the runs above: {{perf.e.v011.code_changed_n}} of its files differ by hash ({{perf.e.v011.code_changed}}), among them the lanes for these three tools.
+
+{{perf.e.v011.summary}}
+
+What each of these timers covers:
+
+{{perf.e.v011.lanes}}
+
+### Round trip
+
+Median in ms, with the 90th percentile.
+
+{{perf.e.v011.table.roundtrip}}
+
+### Load
+
+Median in ms, with the 90th percentile. Clock: {{perf.e.v011.context.load}}.
+
+{{perf.e.v011.table.load}}
+
+### Save
+
+Median in ms, with the 90th percentile. Clock: {{perf.e.v011.context.save}}.
+
+{{perf.e.v011.table.save}}
+
+What the save figures include, found in the samples:
+
+{{perf.e.v011.save_notes}}
+
+### Process cost at {{perf.e.v011.process_workload}}
+
+Medians, read as in the process table above.
+
+{{perf.e.v011.table.process}}
+
+### Exceptions
+
+{{perf.e.v011.exceptions}}
+
+What the OnlyOffice failures on `complex.docx` are, from their logs: in every one of these samples its harness stopped the converter after 120 s, while the converter was still in its first step ("doc.docx -> bin", reading the document into the editor's own format). It is the step at which the round trip of the main report stops too (§12). In Report C §2.18 the converter returns once the embedded document (`w:altChunk`) is removed from the corpus; what stops after that, at the SmartArt, is the editor in the browser, which this report does not run. After three failures in a row the runner stopped sampling OnlyOffice on that document, in both runs. On the prose documents it loaded and saved in every sample.
+
+Text the check found missing from the saved files: {{perf.e.v011.correctness_lost}}.
+
+### Versions
+
+Read from disk at the start of the primary run. Exceptions the run accepted: {{perf.e.v011.dirty_allowed}}. OpenDoc's binary is rebuilt from its pinned source before the run.
+
+{{perf.e.v011.versions}}
+
 ## Not measured in this report
 
 - **Browser criteria.** First usable (C03), single edit and typing (C05, C06), caret (C07), paste (C08), undo (C09), scroll (C10), first page (C11), relayout (C12), scaling in the page (C14), save from the page (C15). An audit of their runners found that they would print wrong numbers: a settle sleep inside the C03 timer ([#104](https://github.com/arthrod/editors_trial/issues/104)), driver wall-clock labelled as paint ([#105](https://github.com/arthrod/editors_trial/issues/105)), a scroll time with no scroll ([#106](https://github.com/arthrod/editors_trial/issues/106)), development servers instead of builds ([#107](https://github.com/arthrod/editors_trial/issues/107)), the shell's first paint as the document's ([#108](https://github.com/arthrod/editors_trial/issues/108)), a frame-witness bug ([#109](https://github.com/arthrod/editors_trial/issues/109)), pooled runs ([#110](https://github.com/arthrod/editors_trial/issues/110)), and input latencies kept without proving the edit ([#113](https://github.com/arthrod/editors_trial/issues/113), [#114](https://github.com/arthrod/editors_trial/issues/114)).
@@ -87,7 +143,6 @@ Text the check found missing from the saved files (the round trip still kept 98 
 - **WebAssembly boundary (C24).** Two editors only, and the per-call figures are below the clock ([#117](https://github.com/arthrod/editors_trial/issues/117)).
 - **Apryse WebViewer.** It has no headless entry point; it runs only in a browser.
 - **react-docx** (in the trial since v0.11.0). It has no headless entry point either: its export runs only in a browser (`harness/reactdocx/headless.mjs` records the attempt).
-- **OpenDoc, BetterOffice and OnlyOffice (CryptPad build)** (in the trial since v0.11.0). They have headless lanes and were not timed. The figures of this report are taken on dedicated cloud machines, never on a desk computer, and v0.11.0 was made without renting any. Every figure in this report is therefore from the earlier campaign and covers the earlier tools only. Nothing here says how fast these three are.
 - **Save after an edit.** Every save here follows an unedited load.
 - **A cold file system cache.** Every load reads files the warm-up already brought into memory.
 
@@ -109,8 +164,16 @@ Round trip in ms, primary run. At this sample count the 99th percentile is close
 
 {{perf.e.appendix}}
 
+**The tools added in v0.11.0, round trip (ms), their own primary run.**
+
+{{perf.e.v011.appendix}}
+
 ## Appendix: figures that did not reproduce (diagnostics, not results)
 
 A median that disagreed between the two runs by more than the tolerance is listed here with both values. These are not results; they show how far apart the runs were.
 
 {{perf.e.not_reproduced}}
+
+The tools added in v0.11.0, from their own pair of runs:
+
+{{perf.e.v011.not_reproduced}}
