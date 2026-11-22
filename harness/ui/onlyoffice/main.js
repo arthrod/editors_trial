@@ -136,9 +136,14 @@ async function open() {
   // "PETITIONER v." into "V.", so the typing lane's text check failed although
   // every key arrived. A user can switch it off the same way (File > Advanced
   // settings > AutoCorrect). Nothing else about the editor changes.
+  // Owner's decision (2026-11-22, later campaign): hyphens-with-dash off as well.
+  // Its default AutoFormat turns the typed "Toledo -Flores" into "Toledo –Flores",
+  // which Word leaves alone, so every typing session failed the text check. Same
+  // place for a user (AutoCorrect > AutoFormat As You Type), disclosed beside the first.
   const editor = api();
   editor.asc_SetAutoCorrectFirstLetterOfSentences(false);
-  window.__host.autocorrect = { firstLetterOfSentences: false };
+  editor.asc_SetAutoCorrectHyphensWithDash(false);
+  window.__host.autocorrect = { firstLetterOfSentences: false, hyphensWithDash: false };
   window.__host.ready = true;
   return { pages: await paginated(), media: Object.keys(media) };
 }
