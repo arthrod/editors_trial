@@ -107,7 +107,16 @@ and Nutrient was not read for any report.
     - [x] resources: measured
     - [x] typing: refused `text_mismatch`, and that is react-docx's: at full speed (cadence 0, the campaign's setting for every editor) it drops the first key after each Enter ("BBB" → "BB"); at 60 ms or more between keys nothing is lost. Needs Python Playwright 1.64.1 (`uv run --with playwright==1.64.1`), same as the container
   - [ ] 8.1.2 BetterOffice (edits; its own layout engine): all seven. Same check
-  - [ ] 8.1.3 OnlyOffice, CryptPad build (edits; draws on a canvas inside a frame): all seven, typing timed by pixels like Docen and WordCraft. Same check
+  - [x] 8.1.3 OnlyOffice, CryptPad build (edits; draws on a canvas inside a frame): all seven, typing timed by pixels like Docen and WordCraft. Same check. Local, 2026-11-22, prose-500w (commits f1a2266 to ab3484c; warm/cold re-run after the rebase: C03 707/839 ms, C05 28/50 ms, C06 40/56 ms)
+    - [x] warm/cold: C03 706–839 ms, C05 28–52 ms, C06 35–62 ms; the whole text (4,213 characters) matches. Also measured on 5,000 and 50,000 words (C03 755–995 ms)
+    - [x] input: C07 46.5 ms, C08 37.2 ms, C09 34.8 ms; C04 does not apply (no deferred work)
+    - [x] document: C11 806–824 ms; C15 find 409–428 ms through OnlyOffice's own find bar; C12 does not apply (whole pages drawn on one canvas: no paragraph box, as canvas-editor and Docen)
+    - [ ] scroll: C10 does not apply as wired. OnlyOffice's scrollbar is its own canvas widget, so no page element scrolls; measuring it needs a pixel-based scroll probe (owner's decision, not built)
+    - [ ] typing: fails `text_mismatch` because OnlyOffice's default autocorrect capitalises the first letter of a sentence ("v." becomes "V."); with that switched off the same keys read "v.". Left on, as shipped (owner's decision pending: switch it off on the measured page and say so, or keep the failure). Key-to-paint was still witnessed: 56 ms median
+    - [x] memory: C17 779 MB ready, 839 MB after the edit burst; C19 223 MB; C22 does not apply
+    - [x] resources: measured (load CPU 1,810 ms, peak memory 804 MB, edit verified)
+    - [x] complex.docx: OnlyOffice's converter never returns (an altChunk); without the altChunk it converts in 125 ms but OnlyOffice refuses the file (error -82). Both are OnlyOffice's own
+    - [x] container: setup skips OnlyOffice's fetched vendor trees and a dependency-free manifest; the three `missing_lockfile` tests pass
   - [x] 8.1.4 Nutrient (a viewer: converts to PDF): opening, scrolling and memory; typing, clicking, pasting and undoing print "does not apply". Same check on its lanes. Local, 2026-11-22, prose-500w (commit b3129be). Its page loads the viewer from Nutrient's CDN at the pinned 1.25.0 (installing the npm package means accepting Nutrient's evaluation agreement, which needs the owner's yes), so a cold open includes that download; the report must say so
     - [x] warm/cold: C03 measured on both pairs (1.4–2.0 s). C05/C06 are not in its target (no caret)
     - [x] document: C11 measured 3/3 (2.1–2.2 s); C12 "does not apply" (nothing to edit); C15 not measured: Nutrient has a search box (seen in Chrome), but it is in the viewer's shadow root, where the find probe cannot read the match count (and the 500-word fixture has no NEEDLE: no E2 editor has a C15 figure)
