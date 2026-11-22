@@ -245,10 +245,13 @@ def main(argv: list[str] | None = None):
                         help='narrow each picked job to these editors; the job keeps its index (#185)')
     parser.add_argument('--blocks', type=int, default=None,
                         help='N: the publication layout, N interleaved blocks per seed, every editor in each')
+    parser.add_argument('--campaign', default='e2', choices=('e2', 'later'),
+                        help="e2: the published campaign's editors; later: editors added after it")
     args = parser.parse_args(argv)
     from perf.runner.benchmark_warm_cold import BROWSER_TARGETS
     from perf.runner.browser_hosts import host_policy
-    editors = [name for name in BROWSER_TARGETS if name != 'apryse' and host_policy(name)['publishable']]
+    from .policy import campaign_editors
+    editors = campaign_editors(args.campaign)
     if args.editors is not None:
         unknown = sorted(set(args.editors) - set(editors))
         if unknown:

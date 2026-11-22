@@ -15,6 +15,30 @@ INSTALLS = {
     'canvas-editor-plugin': ['pnpm', 'install', '--no-frozen-lockfile'],
     'docen': ['pnpm', 'install', '--frozen-lockfile', '--ignore-scripts'],
 }
+# Report E2's campaigns. A job's global index names its cell (plan.py, --jobs,
+# #185), so the published campaign's editors are frozen here: wiring a new
+# editor into the lanes must never renumber its jobs. Editors added after it
+# are measured in a campaign of their own (Report E2's later section).
+E2_CAMPAIGN_EDITORS = ('plate', 'docxodus', 'superdoc', 'genoffice', 'canvas', 'docen',
+                       'wordcraft', 'eigenpal', 'folio')
+LATER_CAMPAIGN_EDITORS = ('reactdocx', 'betteroffice', 'onlyoffice', 'opendoc', 'nutrient')
+CAMPAIGNS = {'e2': E2_CAMPAIGN_EDITORS, 'later': LATER_CAMPAIGN_EDITORS}
+
+
+def campaign_editors(campaign='e2'):
+    """The publishable editors of one campaign, in BROWSER_TARGETS order.
+
+    Only editors already wired as browser targets are returned, so the later
+    campaign grows as its editors are wired without touching the published one.
+    """
+    if campaign not in CAMPAIGNS:
+        raise ValueError(f'unknown campaign {campaign!r}; known: {sorted(CAMPAIGNS)}')
+    from perf.runner.benchmark_warm_cold import BROWSER_TARGETS
+    from perf.runner.browser_hosts import host_policy
+    members = set(CAMPAIGNS[campaign])
+    return [name for name in BROWSER_TARGETS if name in members and host_policy(name)['publishable']]
+
+
 RUNNERS = ('benchmark_warm_cold', 'benchmark_document', 'benchmark_input', 'adversarial_c10_scroll', 'benchmark_typing')
 NPM = (
     ('superdoc_sdk', 'harness/superdoc-sdk', '@superdoc/sdk'),
