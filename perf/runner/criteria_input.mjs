@@ -1873,6 +1873,53 @@ const READ_SURFACE_STATE = (spec) => {
     };
   }
 
+  // OnlyOffice (model 'onlyoffice', only its target): read in its editor frame
+  // (editor_frame.mjs). The text is its logic document's (main document, by
+  // the host page's reader, window.__host.text()); the
+  // keyboard is its textarea #area_id; its caret is a DOM element it draws,
+  // #id_target_cursor (2 px wide, probed 2026-11-22), in page coordinates
+  // because the frame sits at the page's origin.
+  if (spec.kind === 'model' && spec.model === 'onlyoffice') {
+    const api = window.editor;
+    const logic = api && api.WordControl && api.WordControl.m_oLogicDocument;
+    if (!logic || typeof logic.GetAllParagraphs !== 'function') {
+      return { ...base, error: 'editor_model_unavailable' };
+    }
+    const host = window.__host || (window.parent !== window ? window.parent.__host : null);
+    const text = host && typeof host.text === 'function' ? host.text() : null;
+    if (text === null) return { ...base, error: 'editor_model_unavailable' };
+    const viewMode = typeof api.getViewMode === 'function' && api.getViewMode() === true;
+    const active = document.activeElement;
+    const current = typeof logic.GetCurrentParagraph === 'function' ? logic.GetCurrentParagraph() : null;
+    const inMain = typeof logic.GetDocPosType === 'function' ? logic.GetDocPosType() === 0 : false;
+    const target = document.getElementById('id_target_cursor');
+    let caret = null;
+    if (target && getComputedStyle(target).display !== 'none' && getComputedStyle(target).visibility !== 'hidden') {
+      const r = target.getBoundingClientRect();
+      if (r.height > 0) {
+        caret = { top: r.top, bottom: r.bottom, left: r.left, right: r.right, height: r.height,
+          collapsed: typeof logic.IsSelectionUse === 'function' ? !logic.IsSelectionUse() : true };
+      }
+    }
+    const el = document.querySelector(spec.pageRoot || spec.selector);
+    return {
+      ...base,
+      text,
+      text_length: text.length,
+      text_source: 'onlyoffice_model',
+      input_reachable: !viewMode,
+      read_only: viewMode,
+      active_inside: Boolean(active && active.id === 'area_id'),
+      active_tag: active ? String(active.tagName || '').toLowerCase() : null,
+      anchor_inside: Boolean(current && inMain),
+      selection_offset: null,
+      selection_expanded: typeof logic.IsSelectionUse === 'function' ? logic.IsSelectionUse() === true : false,
+      caret,
+      caret_block_text: current ? host.caretParagraphText() : null,
+      box: boxOf(el),
+    };
+  }
+
   if (spec.kind === 'model' && spec.model === 'canvas_editor') {
     const inst = window.__CANVAS_EDITOR_INSTANCE__;
     const cmd = inst && inst.command;

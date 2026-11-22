@@ -123,10 +123,12 @@ export const EDIT_SURFACES = {
   // frame of the host page (editor_frame.mjs routes the lanes' page calls
   // there). It draws the document on the #id_viewer canvas and keeps the
   // keyboard in a textarea (#area_id) it moves to the caret; the text is only
-  // in its model, read through its own logic document (probed 2026-11-22:
-  // editor.WordControl.m_oLogicDocument, GetAllParagraphs, GetCurrentParagraph,
-  // each paragraph's GetText).
-  onlyoffice: { kind: 'model', model: 'onlyoffice', pageRoot: '#id_viewer' },
+  // in its model, read by the host page's window.__host.text() and
+  // caretParagraphText() (its logic document's paragraphs, by OnlyOffice's
+  // own GetText; probed 2026-11-22).
+  // pageRoot is the view holding the page canvas and the overlay canvas over
+  // it that takes the clicks: a hit on the overlay is a hit on the document.
+  onlyoffice: { kind: 'model', model: 'onlyoffice', pageRoot: '#id_main_view' },
 };
 
 export function editSurface(editorId) {
@@ -267,19 +269,15 @@ export const READ_EDITOR_DOCUMENT_TEXT = ({ kind, root, model, deep = false, dom
   }
 
   if (kind === 'model' && model === 'onlyoffice') {
-    // The editor's frame (editor_frame.mjs), or the host page holding it.
-    const f = document.querySelector('#root iframe');
-    let w = window.editor && window.editor.WordControl ? window : null;
-    try { if (!w && f && f.contentWindow && f.contentWindow.editor) w = f.contentWindow; } catch { w = null; }
-    const logic = w && w.editor.WordControl && w.editor.WordControl.m_oLogicDocument;
-    if (!logic || typeof logic.GetAllParagraphs !== 'function') {
-      return result('', 'absent', 'onlyoffice_model', 'onlyoffice model unavailable');
+    // The host page's reader of OnlyOffice's model (harness/ui/onlyoffice/main.js),
+    // from the editor's frame (editor_frame.mjs) or the host page itself.
+    const host = window.__host || (window.parent !== window ? window.parent.__host : null);
+    if (!host || typeof host.text !== 'function') {
+      return result('', 'absent', 'onlyoffice_model', 'onlyoffice host reader unavailable');
     }
     try {
-      // Each paragraph's GetText ends with its paragraph mark ("\r\n").
-      const text = logic.GetAllParagraphs({ OnlyMainDocument: true, All: true })
-        .map((p) => String(p.GetText()).replace(/\r?\n$/, ''))
-        .join('\n');
+      const text = host.text();
+      if (text === null) return result('', 'absent', 'onlyoffice_model', 'onlyoffice model unavailable');
       return result(text, 'perf_model', 'onlyoffice_model');
     } catch (error) {
       return result('', 'absent', 'onlyoffice_model', error && error.message ? error.message : error);
@@ -537,12 +535,8 @@ export const READ_MODEL_AT_CARET = (model) => {
     return paragraph.map((el) => (el && typeof el.value === 'string' ? el.value : '')).join('');
   }
   if (model === 'onlyoffice') {
-    const f = document.querySelector('#root iframe');
-    let w = window.editor && window.editor.WordControl ? window : null;
-    try { if (!w && f && f.contentWindow && f.contentWindow.editor) w = f.contentWindow; } catch { w = null; }
-    const logic = w && w.editor.WordControl && w.editor.WordControl.m_oLogicDocument;
-    const paragraph = logic && typeof logic.GetCurrentParagraph === 'function' ? logic.GetCurrentParagraph() : null;
-    return paragraph ? String(paragraph.GetText()).replace(/\r?\n$/, '') : null;
+    const host = window.__host || (window.parent !== window ? window.parent.__host : null);
+    return host && typeof host.caretParagraphText === 'function' ? host.caretParagraphText() : null;
   }
   return null;
 };
@@ -641,15 +635,9 @@ export const READ_MODEL_DOCUMENT_TEXT = (model) => {
     return { text: String(doc.textBetween(0, doc.content.size, '\n')), absorbed_items: absorbed };
   }
   if (model === 'onlyoffice') {
-    const f = document.querySelector('#root iframe');
-    let w = window.editor && window.editor.WordControl ? window : null;
-    try { if (!w && f && f.contentWindow && f.contentWindow.editor) w = f.contentWindow; } catch { w = null; }
-    const logic = w && w.editor.WordControl && w.editor.WordControl.m_oLogicDocument;
-    if (!logic || typeof logic.GetAllParagraphs !== 'function') return null;
-    const text = logic.GetAllParagraphs({ OnlyMainDocument: true, All: true })
-      .map((p) => String(p.GetText()).replace(/\r?\n$/, ''))
-      .join('\n');
-    return { text, absorbed_items: [] };
+    const host = window.__host || (window.parent !== window ? window.parent.__host : null);
+    const text = host && typeof host.text === 'function' ? host.text() : null;
+    return text === null ? null : { text, absorbed_items: [] };
   }
   if (model === 'canvas_editor') {
     const inst = window.__CANVAS_EDITOR_INSTANCE__;
