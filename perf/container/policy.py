@@ -169,6 +169,13 @@ def _block_jobs(editors, seeds, host_class, blocks):
     return jobs
 
 
+def declares_dependencies(manifest_text):
+    """True when a package.json lists any dependency an install would fetch."""
+    manifest = json.loads(manifest_text)
+    keys = ('dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies')
+    return any(manifest.get(key) for key in keys)
+
+
 def harness_install(files):
     """Use the harness lock's owner; npm wins when legacy pnpm locks coexist."""
     if 'package-lock.json' in files:
