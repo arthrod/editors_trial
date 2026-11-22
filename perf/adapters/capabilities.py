@@ -25,6 +25,7 @@ LANES = {
     "nutrient": ("browser",),
     "onlyoffice": ("browser",),
     "betteroffice": ("browser",),
+    "opendoc": ("browser",),
 }
 
 OVERRIDES = {

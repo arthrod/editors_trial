@@ -22,6 +22,7 @@ from perf.runner.benchmark_ci_contract import EDITORS, _RUNNERS
 from perf.runner.benchmark_memory import (
     BROWSER_TARGETS,
     FEATURE_SWITCH_PROBE,
+    PROFILE_SWITCHES_FOUND,
     PROCESS_TARGETS,
     PROFILE_FEATURES,
     _c22_row,
@@ -334,6 +335,8 @@ class FeatureProfileHonesty(unittest.TestCase):
 
     def test_reason_names_the_host_and_the_missing_switch(self):
         for editor_id in FEATURE_SWITCH_PROBE:
+            if editor_id in PROFILE_SWITCHES_FOUND:
+                continue  # it has a switch; its C22 is not_run (test_e2_opendoc_lanes)
             reason = _feature_switch_reason(editor_id, "ci_broad")
             self.assertIn(editor_id, reason)
             self.assertIn("no P0-P3 feature profile", reason)
@@ -343,7 +346,12 @@ class FeatureProfileHonesty(unittest.TestCase):
     def test_no_host_actually_exposes_a_profile_switch(self):
         # If a host ever gains one, this test fails and C22 must be implemented
         # for it instead of being recorded not_applicable.
+        # A host recorded in PROFILE_SWITCHES_FOUND has one, by inspection; its
+        # C22 is recorded not_run (applicable, not driven), never not_applicable.
         for editor_id, (_host, _inspected, params) in FEATURE_SWITCH_PROBE.items():
+            if editor_id in PROFILE_SWITCHES_FOUND:
+                self.assertTrue(set(PROFILE_SWITCHES_FOUND[editor_id]) <= set(PROFILE_FEATURES), editor_id)
+                continue
             self.assertFalse(
                 set(PROFILE_FEATURES) & set(params),
                 "%s exposes a profile switch; C22 must be measured there" % (editor_id,),

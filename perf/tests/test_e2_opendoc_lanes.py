@@ -68,6 +68,44 @@ class OpenDocParagraphCensus(unittest.TestCase):
         self.assertIsNone(self.out["unknown"])
 
 
+class OpenDocC22(unittest.TestCase):
+    """C22: OpenDoc's editor has P0-P3 switches (?prefs= proofing, ?aiProvider=off,
+    ?room=), so its C22 is applicable and recorded not_run, not not_applicable.
+    Every other editor keeps its not_applicable record."""
+
+    def _c22(self, editor_id, lane):
+        import tempfile
+
+        from perf.runner.benchmark_memory import _c22_row
+        from perf.schema import validate_trial
+        from perf.tests.test_memory_criteria import _workload_row
+
+        with tempfile.TemporaryDirectory() as tmp:
+            attempt_dir = Path(tmp) / "attempts"
+            args = type("Args", (), {"execution_profile": "ci_broad"})()
+            row = _c22_row(editor_id=editor_id, lane=lane, attempt_dir=attempt_dir, args=args,
+                           fixture_sha="a" * 64, docx_size=4096, workload_row=_workload_row(),
+                           editor_version="test-pin")
+            (path,) = list(attempt_dir.glob("*.json"))
+            trial = json.loads(path.read_text(encoding="utf-8"))
+            validate_trial(trial)
+            return row, trial
+
+    def test_opendoc_c22_is_not_run_with_its_switches(self):
+        _row, trial = self._c22("opendoc", "browser")
+        self.assertEqual(trial["outcome"], "not_run")
+        self.assertEqual(trial["evidence"]["state"], "feature_profile_switch_not_driven")
+        self.assertEqual(sorted(trial["evidence"]["profile_switches"]), ["ai_panel", "collaboration", "proofing"])
+        self.assertIn("C22 applies", trial["failure_reason"])
+        self.assertNotIn("no P0-P3 feature profile", trial["failure_reason"])
+
+    def test_the_other_editors_keep_not_applicable(self):
+        for editor_id, lane in (("plate", "browser_slate"), ("reactdocx", "browser"), ("canvas", "editor")):
+            _row, trial = self._c22(editor_id, lane)
+            self.assertEqual(trial["outcome"], "not_applicable", editor_id)
+            self.assertEqual(trial["evidence"]["state"], "no_feature_profile_switch", editor_id)
+
+
 class OpenDocScroller(unittest.TestCase):
     """C10: OpenDoc's scroller is #viewport (its pages are canvases; its only DOM
     text is the off-page screen-reader mirror), named in the adapter table."""

@@ -140,6 +140,12 @@ FEATURE_SWITCH_PROBE = {
         ("doc", "convert-ms"),
     ),
     "betteroffice": ("harness/ui/betteroffice", "reads only ?doc= (fixture URL)", ("doc",)),
+    "opendoc": (
+        "repos/opendoc/webapp (harness/ui/opendoc/host.mjs adds ?doc=)",
+        "editor.html reads its host request from location.search (capabilities.mjs): "
+        "?prefs= (spellcheck, grammar, ...), ?aiProvider=, ?room=, ?chrome=, ?can=, ?mode=, ?autosave= and more",
+        ("doc", "prefs", "aiProvider", "room", "chrome", "can", "mode", "autosave"),
+    ),
     "office-open": ("harness/officeopen", "headless round-trip CLI, no feature flags", ()),
     "libreoffice": ("system soffice", "headless --convert-to command line, no feature flags", ()),
 }
@@ -1298,6 +1304,38 @@ def _process_rows(
 # ---------------------------------------------------------------------------
 
 
+# Hosts whose inspection FOUND a switch for a P0-P3 profile feature. C22 applies
+# to them, and this lane has no P0-P3 matrix driver, so their C22 is recorded
+# not_run with the switches as evidence, never not_applicable
+# (test_memory_criteria: "C22 must be implemented for it instead of being
+# recorded not_applicable"). Keyed by editor; every other editor keeps the
+# not_applicable record below unchanged. Values quote the vendor's own source.
+PROFILE_SWITCHES_FOUND = {
+    "opendoc": {
+        "proofing": (
+            "?prefs={\"spellcheck\":false,\"grammar\":false}: capabilities.mjs PREFERENCES rows "
+            "spellcheck -> spellCheck and grammar -> grammarCheck, both flags"
+        ),
+        "ai_panel": (
+            "?aiProvider=off: capabilities.mjs, \"`off` withdraws AI, bring-your-own key included\""
+        ),
+        "collaboration": (
+            "?room=<ws: or wss: URL>: capabilities.mjs, \"THE ROOM ITSELF\" (needs a relay; "
+            "collab_transport.mjs roomUrl refuses anything else)"
+        ),
+    },
+}
+
+
+def _c22_not_driven_reason(editor_id: str) -> str:
+    found = PROFILE_SWITCHES_FOUND[editor_id]
+    return (
+        "%s exposes P0-P3 feature switches (%s), so C22 applies to it; this lane has no P0-P3 "
+        "matrix driver, so C22 is not measured: %s"
+        % (editor_id, ", ".join(sorted(found)), "; ".join("%s %s" % (k, found[k]) for k in sorted(found)))
+    )
+
+
 def _feature_switch_reason(editor_id: str, execution_profile: str) -> str:
     host, inspected, params = FEATURE_SWITCH_PROBE[editor_id]
     detail = "" if params else " The host has no query parameter or flag at all."
@@ -1322,8 +1360,31 @@ def _c22_row(*, editor_id, lane, attempt_dir, args, fixture_sha, docx_size, work
         cache_state="process_cold_fs_warm",
         execution_profile=args.execution_profile,
     )
-    reason = _feature_switch_reason(editor_id, args.execution_profile)
     host, inspected, params = FEATURE_SWITCH_PROBE[editor_id]
+    if editor_id in PROFILE_SWITCHES_FOUND:
+        # Gated on the hosts that do have a switch (OpenDoc only): applicable,
+        # not driven. Every other editor falls through to not_applicable.
+        reason = _c22_not_driven_reason(editor_id)
+        path = _write_outcome(
+            attempt_dir=attempt_dir,
+            criterion_id="C22",
+            phase=None,
+            editor_id=editor_id,
+            lane=lane,
+            env=env,
+            outcome="not_run",
+            failure_reason=reason,
+            evidence={
+                "state": "feature_profile_switch_not_driven",
+                "inspected": inspected,
+                "host": host,
+                "switches_found": list(params),
+                "profile_switches": dict(PROFILE_SWITCHES_FOUND[editor_id]),
+                "features_required": list(PROFILE_FEATURES),
+            },
+        )
+        return _row("C22", None, editor_id, "not_run", reason, path)
+    reason = _feature_switch_reason(editor_id, args.execution_profile)
     path = _write_outcome(
         attempt_dir=attempt_dir,
         criterion_id="C22",

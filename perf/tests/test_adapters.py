@@ -54,6 +54,7 @@ class Capabilities(unittest.TestCase):
                 "nutrient",
                 "onlyoffice",
                 "betteroffice",
+                "opendoc",
             },
         )
 
