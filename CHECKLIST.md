@@ -92,12 +92,12 @@ and Nutrient was not read for any report.
 
 ## 7. Report E: speed without a browser
 
-- [!] 7.1 to 7.7 The new tools are not timed. OpenDoc, BetterOffice and OnlyOffice have lanes that could be; the figures are taken on rented cloud machines and v0.11.0 rented none (the owner's decision: no spending). react-docx has no entry that runs without a browser
+- [x] 7.1 to 7.7 Decided, not measured: the new tools are not timed. OpenDoc, BetterOffice and OnlyOffice have lanes that could be, but the figures are taken on rented cloud machines and the owner chose not to rent any (2026-11-21, confirmed 2026-11-22). The report says at the top that they are not timed
 - [x] 7.8 LibreOffice, Exceptions, Not measured (names the four new tools and the reason), How it was measured, Appendices
 
 ## 8. Report E2: speed in the browser
 
-- [!] 8.1 The seven action tables have no row for the new tools: same reason as Report E. The report says so at the top
+- [x] 8.1 Decided, not measured: the seven action tables have no row for the new tools, for the same reason as Report E. The report says so at the top
 - [x] 8.2 What the figures can and cannot tell
 
 ## 9. Notes
@@ -130,3 +130,4 @@ Live since 2026-11-21 (site PRs 97 and 99), each line checked on the deployed pa
 | 2026-11-21 | 7, 8 | Blocked: the new tools are not timed (no cloud machines rented) |
 | 2026-11-21 | 10.3 | The four tools that had no page on editors.benchmarks.law have one; their cards show the figures |
 | 2026-11-22 | 1.7, 1.8, 2.4, 3.4, 5.5, 5.6 | et-v0.11.2: the source of react-docx, OpenDoc and BetterOffice read; rankings, master table, boundaries, architectures and Report C sections written |
+| 2026-11-22 | 7, 8 | Closed by the owner's decision: no cloud machines, so the new tools stay untimed |
