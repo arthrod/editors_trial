@@ -110,6 +110,8 @@ const MOUNT_QUIET_AFTER_SCROLLER_MS = 1000;
 const FAKE_HOST_FITS_QUIET_MS = 4000;
 const contentPollMs = 300;
 const editorId = typeof opt.editor === 'string' ? opt.editor : '';
+// See pageScrollCommand: react-docx's display:contents wrapper (set by the lane from its target).
+const THROUGH_CONTENTS = opt['through-contents'] === true;
 const editSelector = typeof opt['edit-selector'] === 'string' ? opt['edit-selector'] : '';
 const usableJs =
   (typeof opt['usable-js'] === 'string' && opt['usable-js']) ||
@@ -160,6 +162,12 @@ const corpusBytes = fs.readFileSync(corpusFile);
  */
 function pageScrollCommand(command) {
   const op = (command && command.op) || 'discover';
+  // Looking through `display: contents` wrappers is react-docx's alone (its
+  // target sets c10_through_contents; the lane passes --through-contents). An
+  // outside review (2026-11-22) found the unflagged fallback could add work
+  // inside a published editor's timed window, so every other editor keeps the
+  // probe exactly as it was.
+  const throughContents = Boolean(command && command.throughContents);
 
   const cssPath = (el) => {
     const parts = [];
@@ -290,7 +298,7 @@ function pageScrollCommand(command) {
     }
     // A probe without a box (a `display: contents` wrapper) proves nothing;
     // look through such wrappers once.
-    if (!expand && (!best || !(best.height > 0))) {
+    if (throughContents && !expand && (!best || !(best.height > 0))) {
       const boxed = contentProbe(root, true);
       if (boxed && boxed.height > 0) return { ...boxed, through_display_contents: true };
     }
@@ -316,7 +324,7 @@ function pageScrollCommand(command) {
     }
     // Nothing with a box at the first level: look through `display: contents`
     // wrappers once (see boxedChildren).
-    if (!expand) return visibleContent(root, box, true);
+    if (throughContents && !expand) return visibleContent(root, box, true);
     return null;
   };
 
@@ -748,7 +756,7 @@ async function waitForMountedDocument(page) {
     let chosenAt = null;
     while (Date.now() < deadline) {
       const usable = await usableNow();
-      const discovery = await page.evaluate(pageScrollCommand, {
+      const discovery = await page.evaluate(pageScrollCommand, { throughContents: THROUGH_CONTENTS,
         op: 'discover',
         container: containerOverride,
       });
@@ -784,7 +792,7 @@ async function waitForMountedDocument(page) {
       await page.waitForTimeout(contentPollMs);
     }
     if (usableJs && !(await usableNow())) return 'usable_signal_not_observed';
-    const discovery = await page.evaluate(pageScrollCommand, {
+    const discovery = await page.evaluate(pageScrollCommand, { throughContents: THROUGH_CONTENTS,
       op: 'discover',
       container: containerOverride,
     });
@@ -855,9 +863,9 @@ async function oneSample(context, page) {
   // The caret mask must reach inside the shadow roots: `addStyleTag` only
   // styles the light DOM, and a blinking caret is damage that has nothing to
   // do with the scroll.
-  const caretMask = await page.evaluate(pageScrollCommand, { op: 'mask-caret' });
+  const caretMask = await page.evaluate(pageScrollCommand, { throughContents: THROUGH_CONTENTS, op: 'mask-caret' });
 
-  const discovery = await page.evaluate(pageScrollCommand, {
+  const discovery = await page.evaluate(pageScrollCommand, { throughContents: THROUGH_CONTENTS,
     op: 'discover',
     container: containerOverride,
   });
@@ -887,7 +895,7 @@ async function oneSample(context, page) {
 
   // Put the container at the top before the baseline is taken, so the frame
   // the witness compares against is the one the scroll starts from.
-  await page.evaluate(pageScrollCommand, { op: 'reset', index: discovery.chosen_index });
+  await page.evaluate(pageScrollCommand, { throughContents: THROUGH_CONTENTS, op: 'reset', index: discovery.chosen_index });
 
   // The adapter's document element (#198): a canvas app applies a forwarded
   // wheel delta only while the pointer is over its canvas, so the pointer
@@ -897,7 +905,7 @@ async function oneSample(context, page) {
   // scrolls.
   let documentSurface = null;
   if (documentOverride) {
-    documentSurface = await page.evaluate(pageScrollCommand, {
+    documentSurface = await page.evaluate(pageScrollCommand, { throughContents: THROUGH_CONTENTS,
       op: 'document',
       selector: documentOverride,
     });
@@ -928,7 +936,7 @@ async function oneSample(context, page) {
 
   let scroll = null;
   const arm = async () => {
-    scroll = await page.evaluate(pageScrollCommand, {
+    scroll = await page.evaluate(pageScrollCommand, { throughContents: THROUGH_CONTENTS,
       op: 'scroll',
       index: discovery.chosen_index,
       step: scrollStep,
@@ -950,7 +958,7 @@ async function oneSample(context, page) {
     region: { rect: (documentSurface && documentSurface.rect) || chosen.region_rect },
   });
 
-  const scrollEvent = await page.evaluate(pageScrollCommand, { op: 'scroll-event' });
+  const scrollEvent = await page.evaluate(pageScrollCommand, { throughContents: THROUGH_CONTENTS, op: 'scroll-event' });
   const container = scroll && scroll.container ? scroll.container : null;
   if (container) {
     container.container_rule = discovery.container_rule || container.container_rule || null;

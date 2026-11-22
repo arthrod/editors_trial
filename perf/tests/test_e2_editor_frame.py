@@ -47,9 +47,9 @@ class EditorFrame(unittest.TestCase):
         self.assertEqual(self.out['offset_onlyoffice'], 107.7)
 
     def test_document_lane_rules_name_only_onlyoffice(self):
-        # C12 not applicable: the canvas/docen ruling, plus OnlyOffice and
-        # BetterOffice (its own entry, not an editor-frame rule).
-        self.assertEqual(self.out['c12_no_geometry'], ['betteroffice', 'canvas', 'docen', 'onlyoffice'])
+        # C12 not applicable: the canvas/docen ruling, plus OnlyOffice,
+        # BetterOffice and OpenDoc (their own entries, not editor-frame rules).
+        self.assertEqual(self.out['c12_no_geometry'], ['betteroffice', 'canvas', 'docen', 'onlyoffice', 'opendoc'])
         probe = (REPO / 'perf/runner/document_probe.mjs').read_text()
         # C15's interval rule is armed for OnlyOffice only.
         self.assertIn("intervalReplies: editorId === 'onlyoffice',", probe)

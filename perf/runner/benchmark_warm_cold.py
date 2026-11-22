@@ -342,6 +342,8 @@ BROWSER_TARGETS: dict[str, dict] = {
         "cwd": UI / "react-docx",
         # 5225: 5221 is Fidus's proxy, which may already be running on the host.
         "command": ["pnpm", "exec", "vite", "--port", "5225", "--strictPort", "--host", "127.0.0.1"],
+        # C10: the document sits in a display:contents wrapper (adversarial_c10_scroll.mjs).
+        "c10_through_contents": True,
         "url": "http://127.0.0.1:5225/",
         "corpus_route": "/sample.docx",
         "ready_selector": "[data-docx-page-wrapper] [data-docx-paragraph-host]",

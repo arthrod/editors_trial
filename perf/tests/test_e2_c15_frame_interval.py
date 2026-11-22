@@ -24,6 +24,23 @@ def _body(source: str, name: str) -> str:
     return source[start:end if end >= 0 else None]
 
 
+class NoPublishedEditorReachesTheFindProbe(unittest.TestCase):
+    """The interval change is a no-op for the nine published editors: none has a
+    find box wired, so their C15 find cell is "not applicable" before runFind
+    reads any interval (outside review, 2026-11-22, asked for a gate; this is
+    the evidence that none is needed)."""
+
+    def test_published_editors_have_no_find_input(self):
+        from perf.container.policy import E2_CAMPAIGN_EDITORS
+        from perf.runner.benchmark_document import DOCUMENT_TARGETS
+        wired = sorted(e for e in E2_CAMPAIGN_EDITORS if (DOCUMENT_TARGETS.get(e) or {}).get("find_input_selector"))
+        self.assertEqual(wired, [])
+
+    def test_run_find_returns_before_the_interval_without_a_find_input(self):
+        probe = _body((REPO / "perf/runner/document_probe.mjs").read_text(encoding="utf-8"), "runFind")
+        self.assertLess(probe.index("if (!findInputSelector || !findQuery)"), probe.index("frameInterval("))
+
+
 class FindIntervalIsTheWitnessRead(unittest.TestCase):
     def test_run_find_uses_the_witness_frame_count(self):
         probe = _body((REPO / "perf/runner/document_probe.mjs").read_text(encoding="utf-8"), "runFind")

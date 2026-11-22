@@ -493,6 +493,9 @@ def _probe_command(
         cmd.extend(["--document-selector", document_selector])
     if target.get("editor_id"):
         cmd.extend(["--editor", str(target["editor_id"])])
+    if target.get("c10_through_contents"):
+        # react-docx only: its document sits in a display:contents wrapper.
+        cmd.append("--through-contents")
     edit_selector = target.get("edit_selector") or ""
     if edit_selector:
         cmd.extend(["--edit-selector", edit_selector])

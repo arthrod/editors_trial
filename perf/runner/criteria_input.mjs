@@ -682,11 +682,16 @@ const INSTALL_INPUT_TAP = () => {
       // The event target is the hit-test result: an element inside the editable
       // surface means the click reached the editor and not a surrounding chrome.
       tap.target = event.target;
-      // The target's ancestors at the event. An editor that re-renders the
-      // clicked line (react-docx activates a paragraph by replacing it) leaves
-      // tap.target detached by the time it is checked; the path is where the
-      // click landed.
-      tap.targetPath = typeof event.composedPath === 'function'
+      // The target's ancestors at the event, on react-docx's page only (its
+      // window.__host carries the viewer's controller). react-docx activates a
+      // paragraph by replacing it, leaving tap.target detached by the time it
+      // is checked; the path is where the click landed. Every other editor
+      // records nothing here and keeps its old verdict (outside review,
+      // 2026-11-22; perf/tests/test_e2_detached_click.py).
+      const reactDocxPage = Boolean(
+        window.__host && window.__host.viewer && typeof window.__host.viewer.getController === 'function',
+      );
+      tap.targetPath = reactDocxPage && typeof event.composedPath === 'function'
         ? event.composedPath().filter((node) => node && node.nodeType === 1)
         : null;
       const el = event.target;
@@ -1290,6 +1295,7 @@ async function pointerTargetInside(page, selector) {
         : null;
     // A target the editor removed after the event is judged by its
     // ancestors at the event; a connected target is judged as it stands.
+    // targetPath is recorded on react-docx's page only (INSTALL_INPUT_TAP).
     const path = window.__perfCriteria && window.__perfCriteria.targetPath;
     if (target.isConnected === false && Array.isArray(path)) {
       return {
@@ -4791,6 +4797,7 @@ export async function runCriteriaSuite({
 
 export {
   CONTENT_MIN_CHANGED_PIXELS,
+  INSTALL_INPUT_TAP,
   measureBulkInsert,
   measureClicks,
   measureQuiescence,
