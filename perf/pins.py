@@ -26,6 +26,7 @@ _FACTS_KEYS = {
     "opendoc": ("ver.opendoc.commit",),
     "betteroffice": ("ver.npm.betteroffice",),
     "onlyoffice": ("ver.release.onlyoffice_x2t.tag",),
+    "reactdocx": ("ver.npm.reactdocx",),
     "libreoffice": (),
 }
 

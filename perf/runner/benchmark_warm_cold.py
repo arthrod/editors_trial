@@ -328,6 +328,45 @@ BROWSER_TARGETS: dict[str, dict] = {
             "C06": ("input_to_next_paint", "browser_visible"),
         },
     },
+    # react-docx (@extend-ai/react-docx, added to the trial in v0.11.0): the
+    # host page is the package's own quick start in edit mode
+    # (harness/ui/react-docx/main.js). It styles inline, so the selectors are
+    # its data attributes: one [data-docx-page-wrapper] per page (mounted as a
+    # window of a long document), one [data-docx-paragraph-host] per paragraph;
+    # only the active paragraph is contenteditable="true", a click activates
+    # one. A key lands once the click is inside a paragraph's text (probed 2026-11-22: the paragraph takes focus and the
+    # controller's canUndo turns true). The text check reads the model through
+    # the controller's own export, getDocxBytes().
+    "reactdocx": {
+        "lane": "browser",
+        "cwd": UI / "react-docx",
+        "command": ["pnpm", "exec", "vite", "--port", "5221", "--strictPort", "--host", "127.0.0.1"],
+        "url": "http://127.0.0.1:5221/",
+        "corpus_route": "/sample.docx",
+        "ready_selector": "[data-docx-page-wrapper] [data-docx-paragraph-host]",
+        # The page's own flag, set when the controller reports a loaded
+        # document (harness/ui/react-docx/main.js).
+        "ready_js": (
+            "!!(window.__host && window.__host.ready === true && "
+            "document.querySelector('[data-docx-page-wrapper] [data-docx-paragraph-host]'))"
+        ),
+        "error_js": "window.__host && window.__host.error",
+        "edit_selector": "[data-docx-page-body] [data-docx-paragraph-host]",
+        "typing_edit_selector": "[data-docx-editor-root]",
+        "typing_click_selector": "[data-docx-page-body] [data-docx-paragraph-host]",
+        "typing_present_selector": "[data-docx-editor-root]",
+        "typing_model_js": (
+            "(async () => { const c = window.__host && window.__host.viewer.getController(); "
+            "if (!c || !c.getDocxBytes) return null; const b = await c.getDocxBytes(); "
+            "return b ? { docx_bytes: Array.from(new Uint8Array(b)) } : null; })()"
+        ),
+        "driver": "playwright",
+        "criteria": {
+            "C03": ("first_usable", "browser_visible"),
+            "C05": ("presented_frame", "browser_visible"),
+            "C06": ("input_to_next_paint", "browser_visible"),
+        },
+    },
 }
 
 

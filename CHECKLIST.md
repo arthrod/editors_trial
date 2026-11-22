@@ -97,7 +97,16 @@ and Nutrient was not read for any report.
 
 ## 8. Report E2: speed in the browser
 
-- [ ] 8.1 Approved for measuring (2026-11-22), not yet measured: the seven action tables have no row for the new tools, and the report says so at the top. The new tools need browser lanes first
+- [ ] 8.1 Approved for measuring (2026-11-22), not yet measured: the seven action tables have no row for the new tools, and the report says so at the top. Branch `e2/new-editor-lanes`. What each tool can be timed on, from its page in `harness/ui/`:
+  - [ ] 8.1.1 react-docx (edits; DOM, one contenteditable per paragraph): all seven actions. Lane wired: browser target, pin, caret and whole-text surfaces. Check: the warm/cold, input, typing, document, scroll and memory lanes each measure a cell on the 500-word document locally (`python3 -m perf.runner.<lane> … --editors reactdocx`), no content refusal
+  - [ ] 8.1.2 BetterOffice (edits; its own layout engine): all seven. Same check
+  - [ ] 8.1.3 OnlyOffice, CryptPad build (edits; draws on a canvas inside a frame): all seven, typing timed by pixels like Docen and WordCraft. Same check
+  - [ ] 8.1.4 Nutrient (a viewer: converts to PDF): opening, scrolling and memory; typing, clicking, pasting and undoing print "does not apply". Same check on its lanes
+  - [ ] 8.1.5 OpenDoc: the trial has no browser page for it yet (only `harness/ui/opendoc/fetch_engine.py`); build one from its published package, then the same check
+  - [x] 8.1.6 Univer: no lane is possible. Its open-source packages cannot open a .docx (`harness/ui/univer/README.md`); Report E2 says so under "Not measured"
+  - [ ] 8.1.7 Container: the new pages install in `perf/container/setup.sh` and pass `run.sh --smoke` on a Space
+  - [ ] 8.1.8 Campaign: both seeds on Spaces of the same class as the published runs (`shared_guarded`, cpu-upgrade); `perf/container/e2_publication.json` names the runs
+  - [ ] 8.1.9 Report: the new tools' figures in their own section of Report E2 (a later campaign, like Report E's), facts built by the same rule; gate passes twice; released and seen live
 - [x] 8.2 What the figures can and cannot tell
 
 ## 9. Notes

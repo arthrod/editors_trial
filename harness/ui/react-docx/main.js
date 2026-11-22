@@ -29,4 +29,6 @@ const loaded = new Promise((resolve, reject) => {
   });
 });
 loaded.catch(() => {});
-window.__host = { viewer, loaded, review };
+window.__host = { viewer, loaded, review, ready: false, error: null };
+// A flag the browser speed lanes (Report E2) can poll: set when `loaded` settles.
+loaded.then(() => { window.__host.ready = true; }, (e) => { window.__host.error = String(e && e.message || e); });

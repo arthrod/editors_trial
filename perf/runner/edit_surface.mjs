@@ -94,6 +94,24 @@ export const EDIT_SURFACES = {
     root: null,
     usable: 'window.__aprysePerf && window.__aprysePerf.state === \'rendered\'',
   },
+  // react-docx: each paragraph is its own host inside the page body, and only
+  // the active one is contenteditable="true" (the others "false" until a
+  // click activates them; probed 2026-11-22). Headers and footers are regions
+  // outside the body. A key lands once the click is inside a paragraph's text.
+  reactdocx: {
+    kind: 'dom',
+    root: '[data-docx-page-body] [data-docx-paragraph-host]',
+    block: '[data-docx-paragraph-host]',
+    // No paragraph is contenteditable before a click, so the default test
+    // (the first root isContentEditable) is false on a fresh load: usable is
+    // the page's own loaded flag and a painted body paragraph with text.
+    usable:
+      '(() => { if (!(window.__host && window.__host.ready === true)) return false;'
+      + ' for (const el of document.querySelectorAll("[data-docx-page-body] [data-docx-paragraph-host]")) {'
+      + '   if ((el.innerText || "").trim().length > 0 && el.getBoundingClientRect().height > 0) return true;'
+      + ' }'
+      + ' return false; })()',
+  },
 };
 
 export function editSurface(editorId) {
@@ -140,6 +158,9 @@ export const DOCUMENT_TEXT_SURFACES = {
   // text is read through WordCraft's own select all + copy (c14_whole_text.mjs,
   // #196) — the same sentinel-checked clipboard read C14 already uses.
   wordcraft: { kind: 'select_all_copy' },
+  // react-docx mounts a window of pages ([data-docx-page-wrapper]) on a long
+  // document; the page bodies leave out the header and footer regions.
+  reactdocx: { kind: 'dom', root: '[data-docx-page-body]', whole: false },
 };
 
 export function hasDocumentTextSurface(editorId) {
