@@ -92,7 +92,7 @@ and Nutrient was not read for any report.
 
 ## 7. Report E: speed without a browser
 
-- [x] 7.1 to 7.7 Decided, not measured: the new tools are not timed. OpenDoc, BetterOffice and OnlyOffice have lanes that could be, but the figures are taken on rented cloud machines and the owner chose not to rent any (2026-11-21, confirmed 2026-11-22). The report says at the top that they are not timed
+- [x] 7.1 to 7.7 Decided, not measured: the new tools are not timed. OpenDoc, BetterOffice and OnlyOffice have lanes that could be, but the figures are taken on rented cloud machines and the owner chose not to rent any (2026-11-21, confirmed 2026-11-22). Report E says so in its section "Not measured in this report"
 - [x] 7.8 LibreOffice, Exceptions, Not measured (names the four new tools and the reason), How it was measured, Appendices
 
 ## 8. Report E2: speed in the browser
