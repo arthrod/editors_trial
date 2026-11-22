@@ -24,6 +24,7 @@ LANES = {
     # Nutrient Web SDK: a viewer of the PDF it makes from the .docx (Report E2 later campaign).
     "nutrient": ("browser",),
     "onlyoffice": ("browser",),
+    "betteroffice": ("browser",),
 }
 
 OVERRIDES = {

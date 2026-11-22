@@ -53,6 +53,7 @@ class Capabilities(unittest.TestCase):
                 "reactdocx",
                 "nutrient",
                 "onlyoffice",
+                "betteroffice",
             },
         )
 

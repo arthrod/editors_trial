@@ -75,7 +75,7 @@ def test_npm_resolution_mismatch_refused():
 def test_all_npm_pins_required():
     p = api()
     f = {'ver.npm.' + k: '1.2.3' for k, _, _ in p.NPM}
-    assert len(p.npm_pins(f)) == len(p.NPM) == 5  # + react-docx (Report E2's later editors)
+    assert len(p.npm_pins(f)) == len(p.NPM) == 7  # + react-docx, BetterOffice x2 (Report E2's later editors)
     for key in list(f):
         with pytest.raises(ValueError):
             p.npm_pins({k: v for k, v in f.items() if k != key})

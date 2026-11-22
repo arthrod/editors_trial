@@ -139,6 +139,7 @@ FEATURE_SWITCH_PROBE = {
         "main.js reads only ?doc= (fixture URL) and ?convert-ms= (how long to wait for x2t's conversion)",
         ("doc", "convert-ms"),
     ),
+    "betteroffice": ("harness/ui/betteroffice", "reads only ?doc= (fixture URL)", ("doc",)),
     "office-open": ("harness/officeopen", "headless round-trip CLI, no feature flags", ()),
     "libreoffice": ("system soffice", "headless --convert-to command line, no feature flags", ()),
 }

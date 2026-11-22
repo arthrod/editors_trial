@@ -47,6 +47,8 @@ NPM = (
     ('apryse', 'harness/apryse', '@pdftron/webviewer'),
     # Report E2's later editors: the installed version must be the published pin.
     ('reactdocx', 'harness/ui/react-docx', '@extend-ai/react-docx'),
+    ('betteroffice', 'harness/ui/betteroffice', '@betteroffice/docx'),
+    ('betteroffice', 'harness/ui/betteroffice', '@betteroffice/docx-react'),
 )
 
 
