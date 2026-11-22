@@ -14,7 +14,7 @@ REPO = Path(__file__).resolve().parents[2]
 
 
 def reading(n):
-    return dict(available=True, nr_periods=10, nr_throttled=n, throttled_usec=n * 10000,  # lax layer (owner 2026-11-11): above the max(1 ms, 1 %) tolerance
+    return dict(available=True, nr_periods=10, nr_throttled=n, throttled_usec=n * 10_000_000,  # lax layer (owner 2026-11-11): above the max(1 ms, 1 %) tolerance
                 cpu_ticks=dict(total=100, steal=0), loadavg=[0, 0, 0],
                 cpu_max='100 100', cpu_count_visible=1, cgroup_path='/fake')
 
