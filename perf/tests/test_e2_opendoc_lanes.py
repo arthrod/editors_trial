@@ -1,0 +1,50 @@
+"""E2: the rules the browser lanes gained for OpenDoc, each gated to it.
+
+OpenDoc (harness/ui/opendoc) paints its pages on canvases and handles its
+clipboard and undo keys itself. Every rule added to shared driver code for it
+is checked here twice: on OpenDoc's surface it applies, and on the surfaces of
+the editors already published it changes nothing.
+"""
+from __future__ import annotations
+
+import json
+import shutil
+import subprocess
+import unittest
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[2]
+TESTS = REPO / "perf" / "tests"
+
+
+def _node(script: str) -> dict:
+    proc = subprocess.run(["node", str(TESTS / script)], cwd=str(REPO), capture_output=True, text=True, timeout=120)
+    if proc.returncode:
+        raise AssertionError(proc.stderr)
+    return json.loads(proc.stdout)
+
+
+@unittest.skipIf(shutil.which("node") is None, "node is not on PATH")
+class OpenDocPasteInput(unittest.TestCase):
+    """C08: OpenDoc pastes from its keydown handler (async Clipboard API), so the
+    page sees keydown V and no paste or beforeinput event."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.out = _node("e2_opendoc_paste_repro.mjs")
+
+    def test_on_opendoc_the_paste_input_is_the_keydown(self):
+        row = self.out["opendoc"]
+        self.assertEqual(row["outcome"], "measured", row)
+        self.assertEqual(row["paste_input"], "keydown")
+        self.assertEqual(row["input_ms"], 100)
+
+    def test_every_other_surface_still_needs_a_paste_event(self):
+        for name in ("dom", "docen"):
+            row = self.out[name]
+            self.assertEqual(row["paste_failure"], "paste_keystroke_did_not_reach_the_page", (name, row))
+            self.assertIsNone(row["paste_input"], name)
+
+
+if __name__ == "__main__":
+    unittest.main()

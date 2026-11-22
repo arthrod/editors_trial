@@ -1987,6 +1987,77 @@ const READ_SURFACE_STATE = (spec) => {
     );
   }
 
+  if (spec.kind === 'model' && spec.model === 'opendoc') {
+    // OpenDoc (harness/ui/opendoc): text from the engine through the editor's
+    // host contract (opendoc.ai.read, a promise); the caret is the editor's own
+    // overlay element, drawn from the engine's geometry above the page canvas;
+    // keyboard input is the caret-sized #editorTextInput; the selection is the
+    // last `selection` event the editor announced (kept by the host shim).
+    const session = window.opendoc;
+    const host = window.__host || {};
+    const el = document.querySelector(spec.pageRoot || spec.selector);
+    const scroller = document.querySelector(spec.inputHost || '#viewport');
+    if (!el) return { ...base, error: 'editable_not_found' };
+    if (!session || !session.ai || typeof session.ai.read !== 'function') {
+      return { ...base, error: 'editor_model_unavailable' };
+    }
+    return (async () => {
+      const lines = [];
+      let cursor = null;
+      for (let page = 0; page < 100000; page += 1) {
+        const answer = await session.ai.read(cursor ? { tool: 'read', cursor } : { tool: 'read' });
+        if (!answer || !answer.ok || !answer.value) return { ...base, error: 'editor_model_unavailable' };
+        for (const block of answer.value.blocks || []) {
+          if (typeof block.text === 'string') lines.push(block.text);
+        }
+        if (!answer.value.truncated || !answer.value.nextCursor) break;
+        cursor = answer.value.nextCursor;
+      }
+      const text = lines.join('\n');
+      const sel = host.selection || null;
+      const anchor = sel && sel.anchor;
+      let caretBlockText = null;
+      if (anchor && anchor.node) {
+        const at = await session.ai.read({ tool: 'read', start: String(anchor.node), maxTokens: 1 });
+        const block = at && at.ok && at.value && (at.value.blocks || [])[0];
+        caretBlockText = block && typeof block.text === 'string' ? block.text : null;
+      }
+      let caret = null;
+      for (const mark of document.querySelectorAll('#pages .overlay .caret')) {
+        const r = mark.getBoundingClientRect();
+        const cs = getComputedStyle(mark);
+        if (r.height > 4 && cs.display !== 'none' && cs.visibility !== 'hidden') {
+          caret = { top: r.top, bottom: r.bottom, left: r.left, right: r.right, height: r.height, collapsed: !(sel && sel.hasRange) };
+          break;
+        }
+      }
+      const input = document.getElementById('editorTextInput');
+      if (!caret && input && document.activeElement === input) {
+        const r = input.getBoundingClientRect();
+        caret = { top: r.top, bottom: r.bottom, left: r.left, right: r.right, height: r.height, collapsed: !(sel && sel.hasRange) };
+      }
+      const mode = document.querySelector('[data-review-mode][aria-checked="true"]');
+      const viewing = Boolean(mode && mode.getAttribute('data-review-mode') === 'viewing');
+      const active = document.activeElement;
+      return {
+        ...base,
+        text,
+        text_length: text.length,
+        text_source: 'opendoc_model',
+        input_reachable: Boolean(input && !input.disabled && !input.readOnly) && !viewing,
+        read_only: viewing,
+        active_inside: Boolean(active && scroller && (active === scroller || scroller.contains(active))),
+        active_tag: active ? String(active.tagName || '').toLowerCase() : null,
+        anchor_inside: Boolean(anchor && anchor.node),
+        selection_offset: anchor && Number.isFinite(anchor.offset) ? anchor.offset : null,
+        selection_expanded: Boolean(sel && sel.hasRange),
+        caret,
+        caret_block_text: caretBlockText,
+        box: boxOf(el),
+      };
+    })();
+  }
+
   if (spec.kind === 'model' && spec.model === 'canvas_editor') {
     const inst = window.__CANVAS_EDITOR_INSTANCE__;
     const cmd = inst && inst.command;
@@ -3519,6 +3590,18 @@ async function measureBulkInsert(page, witness, options, meta) {
           kinds: ['paste', 'beforeinput'],
           inputTypePrefix: undefined,
         });
+        // OpenDoc pastes from its own keydown handler through the async
+        // Clipboard API: no paste or beforeinput event reaches the page
+        // (probed 2026-11-22: Meta+V inserts the clipboard text, and the page
+        // sees only keydown Meta and keydown V). Its paste input is that
+        // keydown. Gated on OpenDoc's surface, so every other editor's paste
+        // input stays the paste/beforeinput event (test_e2_opendoc_lanes).
+        if (pasteInput === null && meta.surface && meta.surface.model === 'opendoc') {
+          pasteInput =
+            (await firstInput(page, { kind: 'keydown', key: 'V' })) ||
+            (await firstInput(page, { kind: 'keydown', key: 'v' }));
+          if (pasteInput !== null) observation.paste_input = 'keydown';
+        }
         return pasteInput?.t ?? null;
       },
     });
