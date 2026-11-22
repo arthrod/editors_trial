@@ -211,6 +211,13 @@ def version_facts(facts: dict) -> None:
         pkg = ROOT / NPM[key][1]
         if pkg.exists():
             facts[f"ver.npm.{key}"] = json.loads(pkg.read_text())["version"]
+    # Nutrient is loaded from its vendor's CDN at a versioned path; the version is
+    # the one constant its host page names (harness/ui/nutrient/main.js).
+    nutrient = ROOT / "harness/ui/nutrient/main.js"
+    if nutrient.exists():
+        found = re.search(r"const VERSION = '([0-9][^']*)'", nutrient.read_text())
+        if found:
+            facts["ver.cdn.nutrient"] = found.group(1)
     for key, (path, entry) in RELEASE_PINS.items():
         pin = ROOT / path
         if pin.exists():

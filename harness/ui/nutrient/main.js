@@ -38,3 +38,7 @@ async function open() {
 window.__host = { instance: null, loaded: null, version: VERSION };
 window.__host.loaded = open();
 window.__host.loaded.catch(() => {});
+// A flag the browser speed lanes (Report E2) can poll: set when `loaded` settles.
+window.__host.ready = false;
+window.__host.error = null;
+window.__host.loaded.then(() => { window.__host.ready = true; }, (e) => { window.__host.error = String((e && e.message) || e); });

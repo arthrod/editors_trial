@@ -133,6 +133,7 @@ FEATURE_SWITCH_PROBE = {
     # Report E2's later editors (browser lane only; not in the CI-contract list,
     # whose seeded order would change for every published editor).
     "reactdocx": ("harness/ui/react-docx", "reads only ?doc= (fixture URL) and ?review=1 (shows tracked changes and comments)", ("doc", "review")),
+    "nutrient": ("harness/ui/nutrient", "reads only ?doc= (fixture URL); the viewer itself comes from Nutrient's CDN at the pinned version", ("doc",)),
     "office-open": ("harness/officeopen", "headless round-trip CLI, no feature flags", ()),
     "libreoffice": ("system soffice", "headless --convert-to command line, no feature flags", ()),
 }

@@ -476,6 +476,12 @@ def assemble_trial(
     }
 
 
+def _viewer_reason(editor_id):
+    """Why a viewer's target has no edit burst (BROWSER_TARGETS viewer_not_applicable), or None."""
+    from perf.runner.benchmark_warm_cold import BROWSER_TARGETS
+    return (BROWSER_TARGETS.get(editor_id) or {}).get("viewer_not_applicable")
+
+
 def collect_phases(
     sampler, session, clock, *, quiescence, edit_burst, editor_id, workload_id,
     workload_meta, execution_profile, host_class, already_sampled=False,
@@ -528,88 +534,96 @@ def collect_phases(
             else:
                 sampler.sample()
                 _record_gc(sampler, "after_load")
-                prepare = getattr(session, "prepare_edit", None)
-                type_edit = getattr(session, "type_edit", None)
-                verify_edit = getattr(session, "verify_edit", None)
-                split_protocol = all(callable(value) for value in (prepare, type_edit, verify_edit))
-                stage = "edit"
-                if split_protocol:
-                    prepared = prepare(edit_burst)
-                    sampler.mark("edit_burst")
-                    cpu_before = sampler.process_snapshot()
-                    typed = type_edit(edit_burst)
-                    clock.sleep(EDIT_SETTLE_MS / 1000.0)
-                    cpu_after = sampler.process_snapshot()
-                    sampler.sample()
-                    edit_result = verify_edit(edit_burst, prepared)
-                    cpu_ms, cpu_status = sampler.process_counter_delta(cpu_before, cpu_after, "cpu_ms")
-                    renderer_cpu_ms, renderer_status = sampler.process_counter_delta(
-                        cpu_before, cpu_after, "cpu_ms", role="renderer",
-                    )
-                    edit_cpu_boundary = {
-                        "cpu_ms": cpu_ms,
-                        "renderer_cpu_ms": renderer_cpu_ms,
-                        "process_accounting": (
-                            "incomplete" if "incomplete" in (cpu_status, renderer_status) else cpu_status
-                        ),
-                    }
-                    publish_edit_cpu = True
-                    edit_measurement = {
-                        "window": "keystrokes_plus_fixed_settle",
-                        "protocol": "split",
-                        "pre_type_settle_ms": prepared.get("pre_type_settle_ms", EDIT_PRE_TYPE_SETTLE_MS),
-                        "settle_ms": EDIT_SETTLE_MS,
-                        "typing_duration_ms": typed.get("typing_duration_ms") if isinstance(typed, dict) else None,
-                        "measured_window_duration_ms": (
-                            (cpu_after.get("monotonic_s", 0) - cpu_before.get("monotonic_s", 0)) * 1000.0
-                        ),
-                        "cpu_boundary": "process_only_before_type_after_settle",
-                        "verification_outside_measured_phase": True,
-                    }
+                viewer = _viewer_reason(editor_id)
+                if viewer:
+                    # A viewer (Nutrient) has nothing to type into: the edit
+                    # burst does not apply. The load phases and C17 stand; there
+                    # is no after-edit phase, so no C19 here.
+                    edit_oracle = {"mode": "not_applicable", "status": "not_applicable", "reason": viewer}
+                    edit_cpu_withhold_reason = "not_applicable"
                 else:
-                    # Compatibility for old test doubles. Its witness window is
-                    # unknown, so its edit CPU is withheld rather than published.
-                    sampler.mark("edit_burst")
-                    edit_result = session.edit(edit_burst)
-                    sampler.sample()
-                    publish_edit_cpu = False
-                    edit_cpu_withhold_reason = "legacy_combined_edit_window"
-                    edit_measurement = {
-                        "window": "legacy_combined_unpublishable",
-                        "protocol": "legacy_combined",
-                        "pre_type_settle_ms": None,
-                        "settle_ms": None,
-                        "typing_duration_ms": None,
-                        "measured_window_duration_ms": None,
-                        "cpu_boundary": None,
-                        "verification_outside_measured_phase": False,
-                    }
-                edit_oracle = _edit_oracle(edit_result)
-                edit_unverified = edit_oracle.get("status") == "edit_unverified"
-                if edit_unverified:
-                    edit_cpu_withhold_reason = "edit_unverified"
-                elif not _edit_applied(session, edit_burst, edit_result):
-                    refusal_override = "edit_not_applied"
-                    edit_cpu_withhold_reason = "edit_not_applied"
-                if refusal_override != "edit_not_applied":
-                    after_edits = getattr(session, "after_edits", None)
-                    if after_edits is not None:
-                        after_edits()
-                    stage = "settle after edit"
-                    sampler.mark("quiescence")
-                    edit_reached = drive_quiescence(sampler, clock, quiescence)
-                    settle["after_edit"] = "reached" if edit_reached else "capped"
-                    reached = reached and edit_reached
-                    if getattr(sampler, "quiescence_block", None) == "longtask_unavailable":
-                        refusal_override = "longtask_unavailable"
+                    prepare = getattr(session, "prepare_edit", None)
+                    type_edit = getattr(session, "type_edit", None)
+                    verify_edit = getattr(session, "verify_edit", None)
+                    split_protocol = all(callable(value) for value in (prepare, type_edit, verify_edit))
+                    stage = "edit"
+                    if split_protocol:
+                        prepared = prepare(edit_burst)
+                        sampler.mark("edit_burst")
+                        cpu_before = sampler.process_snapshot()
+                        typed = type_edit(edit_burst)
+                        clock.sleep(EDIT_SETTLE_MS / 1000.0)
+                        cpu_after = sampler.process_snapshot()
+                        sampler.sample()
+                        edit_result = verify_edit(edit_burst, prepared)
+                        cpu_ms, cpu_status = sampler.process_counter_delta(cpu_before, cpu_after, "cpu_ms")
+                        renderer_cpu_ms, renderer_status = sampler.process_counter_delta(
+                            cpu_before, cpu_after, "cpu_ms", role="renderer",
+                        )
+                        edit_cpu_boundary = {
+                            "cpu_ms": cpu_ms,
+                            "renderer_cpu_ms": renderer_cpu_ms,
+                            "process_accounting": (
+                                "incomplete" if "incomplete" in (cpu_status, renderer_status) else cpu_status
+                            ),
+                        }
+                        publish_edit_cpu = True
+                        edit_measurement = {
+                            "window": "keystrokes_plus_fixed_settle",
+                            "protocol": "split",
+                            "pre_type_settle_ms": prepared.get("pre_type_settle_ms", EDIT_PRE_TYPE_SETTLE_MS),
+                            "settle_ms": EDIT_SETTLE_MS,
+                            "typing_duration_ms": typed.get("typing_duration_ms") if isinstance(typed, dict) else None,
+                            "measured_window_duration_ms": (
+                                (cpu_after.get("monotonic_s", 0) - cpu_before.get("monotonic_s", 0)) * 1000.0
+                            ),
+                            "cpu_boundary": "process_only_before_type_after_settle",
+                            "verification_outside_measured_phase": True,
+                        }
                     else:
-                        sampler.mark("after_edits")
-                        _record_gc(sampler, "after_edits")
-                        if getattr(session, "has_save", False):
-                            sampler.mark("save_export")
-                            session.save()
-                            sampler.sample()
-                            save_phase = None
+                        # Compatibility for old test doubles. Its witness window is
+                        # unknown, so its edit CPU is withheld rather than published.
+                        sampler.mark("edit_burst")
+                        edit_result = session.edit(edit_burst)
+                        sampler.sample()
+                        publish_edit_cpu = False
+                        edit_cpu_withhold_reason = "legacy_combined_edit_window"
+                        edit_measurement = {
+                            "window": "legacy_combined_unpublishable",
+                            "protocol": "legacy_combined",
+                            "pre_type_settle_ms": None,
+                            "settle_ms": None,
+                            "typing_duration_ms": None,
+                            "measured_window_duration_ms": None,
+                            "cpu_boundary": None,
+                            "verification_outside_measured_phase": False,
+                        }
+                    edit_oracle = _edit_oracle(edit_result)
+                    edit_unverified = edit_oracle.get("status") == "edit_unverified"
+                    if edit_unverified:
+                        edit_cpu_withhold_reason = "edit_unverified"
+                    elif not _edit_applied(session, edit_burst, edit_result):
+                        refusal_override = "edit_not_applied"
+                        edit_cpu_withhold_reason = "edit_not_applied"
+                    if refusal_override != "edit_not_applied":
+                        after_edits = getattr(session, "after_edits", None)
+                        if after_edits is not None:
+                            after_edits()
+                        stage = "settle after edit"
+                        sampler.mark("quiescence")
+                        edit_reached = drive_quiescence(sampler, clock, quiescence)
+                        settle["after_edit"] = "reached" if edit_reached else "capped"
+                        reached = reached and edit_reached
+                        if getattr(sampler, "quiescence_block", None) == "longtask_unavailable":
+                            refusal_override = "longtask_unavailable"
+                        else:
+                            sampler.mark("after_edits")
+                            _record_gc(sampler, "after_edits")
+                            if getattr(session, "has_save", False):
+                                sampler.mark("save_export")
+                                session.save()
+                                sampler.sample()
+                                save_phase = None
         except RuntimeError as exc:
             # A renderer that dies is the editor's result for this document
             # (canvas-editor at 250k words), not a harness failure.

@@ -372,6 +372,35 @@ BROWSER_TARGETS: dict[str, dict] = {
             "C06": ("input_to_next_paint", "browser_visible"),
         },
     },
+    # Nutrient Web SDK, a viewer: it converts the .docx to a PDF in the browser
+    # and shows that. Only opening applies (no caret, nothing to type into).
+    # The viewer is loaded from Nutrient's CDN (harness/ui/nutrient/main.js), so
+    # a cold open includes that download; the report says so. Selectors read
+    # in Chrome on prose-500w (2026-11-22): pages are
+    # section[data-is-page][data-page-index] inside .PSPDFKit-Scroll, loaded
+    # lazily (data-page-is-loaded).
+    "nutrient": {
+        "lane": "browser",
+        "cwd": UI / "nutrient",
+        "command": ["pnpm", "exec", "vite", "--port", "5226", "--strictPort", "--host", "127.0.0.1"],
+        "url": "http://127.0.0.1:5226/",
+        "corpus_route": "/sample.docx",
+        "ready_selector": "section[data-is-page][data-page-is-loaded=true]",
+        # The pages live in the viewer's shadow root, which document.querySelector
+        # does not enter; the host's flag is set when the converted document is
+        # shown (NutrientViewer.load resolved).
+        "ready_js": "!!(window.__host && window.__host.ready === true)",
+        "error_js": "window.__host && window.__host.error",
+        "edit_selector": "section[data-is-page]",
+        "driver": "playwright",
+        # Read by the typing lane (benchmark_typing.viewer_refusal).
+        "viewer_not_applicable": (
+            "Nutrient Web SDK is a viewer here: there is no caret and nothing to type into"
+        ),
+        "criteria": {
+            "C03": ("first_usable", "browser_visible"),
+        },
+    },
 }
 
 

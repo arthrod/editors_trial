@@ -21,6 +21,8 @@ LANES = {
     "libreoffice": ("headless", "gui"),
     # Report E2's later editors (browser lanes only).
     "reactdocx": ("browser",),
+    # Nutrient Web SDK: a viewer of the PDF it makes from the .docx (Report E2 later campaign).
+    "nutrient": ("browser",),
 }
 
 OVERRIDES = {

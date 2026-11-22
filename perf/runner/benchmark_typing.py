@@ -1298,8 +1298,12 @@ def main_cell(argv=None, *, start_host=_start_server, stop_host=_stop_server):
         directory = args.out_root; directory.mkdir(parents=True,exist_ok=True)
         select_fixture(target, empty); server = None
         try:
-            server = start_host(editor,target)
-            result, series = asyncio.run(session(target,text,args,directory))
+            refused = viewer_refusal(target)
+            if refused:
+                result, series = refused, []
+            else:
+                server = start_host(editor,target)
+                result, series = asyncio.run(session(target,text,args,directory))
         except ModuleNotFoundError as exc:
             result, series = {'failure_reason': 'dependency_missing',
                               'refusal_code': 'dependency_missing',
@@ -1343,6 +1347,18 @@ def main_cell(argv=None, *, start_host=_start_server, stop_host=_stop_server):
     return 0
 
 _main = main_cell  # B6's common smoke dispatcher entrypoint.
+
+def viewer_refusal(target):
+    """A viewer's target names why typing cannot apply (Nutrient); None for an editor.
+
+    The session is not started: there is nothing to type into, and an hour-long
+    session that can only fail would waste the job's machine.
+    """
+    reason = target.get('viewer_not_applicable')
+    if not reason:
+        return None
+    return {'outcome': 'not_applicable', 'failure_reason': reason, 'refusal_code': 'not_applicable'}
+
 
 def main():
     return run_cli(main_cell,'benchmark_typing',BROWSER_TARGETS)

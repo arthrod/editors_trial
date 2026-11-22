@@ -223,6 +223,40 @@ DOCUMENT_TARGETS = {
             "viewer's load promise settles (harness/ui/react-docx/main.js)."
         ),
     },
+    "nutrient": {
+        # Report E2's later campaign. Verified in Chrome on prose-500w (2026-11-22):
+        # the viewer's UI lives in an open shadow root on #viewer .PSPDFKit-Container;
+        # each page is a section[data-is-page] holding the page image and a text
+        # layer (innerText is the page's text). Two pages, loaded lazily.
+        "doc_selector": "#viewer .PSPDFKit-Container",
+        "document_selector": "section[data-is-page]",
+        "page_selector": None,
+        "page_model": "continuous_flow",
+        "edit_selector": "section[data-is-page]",
+        "usable_signal": "shadow_text",
+        "ready_js": "!!(window.__host && window.__host.ready === true)",
+        "c12_not_applicable": (
+            "Nutrient Web SDK is a viewer here: nothing in the document can be edited, so there "
+            "is no reflow after an edit to time"
+        ),
+        "find_input_selector": None,
+        "find_count_selector": None,
+        "find_query": "NEEDLE",
+        "find_expected_matches": 5,
+        "find_source_note": (
+            "C15 is not measured for this host: Nutrient has its own search box (seen in Chrome, "
+            "2026-11-22), but it sits in the viewer's shadow root, where the find probe cannot read "
+            "its match count"
+        ),
+        "note": (
+            "Nutrient Web SDK is a viewer: it converts the .docx to a PDF in the browser and shows "
+            "that, loaded from Nutrient's CDN (harness/ui/nutrient/main.js). The shadow host is "
+            "#viewer .PSPDFKit-Container; the document elements are the section[data-is-page] pages "
+            "inside it. C11 uses the shadow_text signal on them, as for Apryse. page_model="
+            "continuous_flow records probe visibility: the pages exist but cannot be counted from "
+            "light DOM. Nothing is editable, so C12 (reflow after an edit) cannot apply."
+        ),
+    },
     "folio": {
         "doc_selector": ".layout-page-content [data-block-id]",
         "page_selector": "[data-page-number]",
@@ -1936,6 +1970,8 @@ GATE_SURFACES = {
     "genoffice": {"oracle": "dom", "whole": False},
     "folio": {"oracle": "dom", "whole": False},
     "reactdocx": {"oracle": "dom", "whole": False},
+    # Read through the SDK's text API, page by page (edit_surface DOCUMENT_TEXT_SURFACES).
+    "nutrient": {"oracle": "model"},
     "eigenpal": {"oracle": "model"},
     "canvas": {"oracle": "model"},
     "docen": {"oracle": "model"},
@@ -2231,6 +2267,20 @@ def _run_scale_samples(*, editor_id: str, target: dict, cfg: dict, fixture_path:
             },
         )
     return samples, diagnostics
+
+
+def c12_refusal(editor_id: str, cfg: dict) -> str | None:
+    """Why C12 cannot apply to this host, or None when it runs.
+
+    Wordcraft's reason is the one the lane always gave (#196). A target may also
+    carry its own ``c12_not_applicable`` reason (Nutrient: a viewer, nothing to edit).
+    """
+    if editor_id == "wordcraft":
+        return (
+            "wordcraft exposes no document text or block geometry at this pin "
+            "(one WebGL canvas; correctness is only the modified window-title bullet)"
+        )
+    return cfg.get("c12_not_applicable") or None
 
 
 def _run_find(*, editor_id: str, target: dict, cfg: dict, fixture_path: Path, workload_id: str | None = None) -> dict:
@@ -2559,16 +2609,9 @@ def _main() -> int:
 
                 if criterion_id == "C12":
                     fixture = fixtures[specs["C12"]["workload"]]
-                    if editor_id == "wordcraft":
-                        _refuse_cell(
-                            "C12",
-                            fixture,
-                            (
-                                "wordcraft exposes no document text or block geometry at this pin "
-                                "(one WebGL canvas; correctness is only the modified window-title bullet)"
-                            ),
-                            outcome="not_applicable",
-                        )
+                    c12_reason = c12_refusal(editor_id, cfg)
+                    if c12_reason:
+                        _refuse_cell("C12", fixture, c12_reason, outcome="not_applicable")
                         continue
                     env = _env_for(
                         editor_id=editor_id,

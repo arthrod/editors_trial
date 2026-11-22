@@ -94,6 +94,13 @@ export const EDIT_SURFACES = {
     root: null,
     usable: 'window.__aprysePerf && window.__aprysePerf.state === \'rendered\'',
   },
+  // Nutrient is a viewer (no caret, nothing editable): usable is the host's own
+  // flag, set when the converted document is shown (harness/ui/nutrient/main.js).
+  nutrient: {
+    kind: 'dom',
+    root: null,
+    usable: '!!(window.__host && window.__host.ready === true)',
+  },
   // react-docx: each paragraph is its own host inside the page body, and only
   // the active one is contenteditable="true" (the others "false" until a
   // click activates them; probed 2026-11-22). Headers and footers are regions
@@ -161,6 +168,10 @@ export const DOCUMENT_TEXT_SURFACES = {
   // react-docx mounts a window of pages ([data-docx-page-wrapper]) on a long
   // document; the page bodies leave out the header and footer regions.
   reactdocx: { kind: 'dom', root: '[data-docx-page-body]', whole: false },
+  // Nutrient is a viewer: it shows the PDF it made from the .docx, pages load
+  // lazily and no text is in the DOM. The whole text is read through the SDK's
+  // own API, page by page (instance.textLinesForPageIndex), as probe.mjs does.
+  nutrient: { kind: 'model', model: 'nutrient' },
 };
 
 export function hasDocumentTextSurface(editorId) {
@@ -190,6 +201,31 @@ export const READ_EDITOR_DOCUMENT_TEXT = ({ kind, root, model, deep = false, dom
 
   if (kind === 'unavailable') {
     return result('', 'absent', model || 'unavailable');
+  }
+
+  // Nutrient's text API is asynchronous; page.evaluate awaits the promise
+  // (this function is only ever run through page.evaluate).
+  if (kind === 'model' && model === 'nutrient') {
+    const inst = window.__host && window.__host.instance;
+    if (!inst || typeof inst.textLinesForPageIndex !== 'function') {
+      return result('', 'absent', 'nutrient_model', 'nutrient instance unavailable');
+    }
+    return (async () => {
+      try {
+        const pages = [];
+        for (let i = 0; i < inst.totalPageCount; i += 1) {
+          const lines = await inst.textLinesForPageIndex(i);
+          // Trial mode (no license key) stamps every page with this line; it is
+          // the SDK's watermark, not the document's text.
+          pages.push(lines.map((line) => line.contents)
+            .filter((text) => String(text).trim() !== 'For Evaluation Purposes Only')
+            .join('\n'));
+        }
+        return result(pages.join('\n'), 'perf_model', 'nutrient_model');
+      } catch (error) {
+        return result('', 'absent', 'nutrient_model', error && error.message ? error.message : error);
+      }
+    })();
   }
 
   if (kind === 'model' && model === 'eigenpal') {
