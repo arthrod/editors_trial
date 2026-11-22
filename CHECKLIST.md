@@ -106,7 +106,14 @@ and Nutrient was not read for any report.
     - [x] memory: C17 measured 2/3 (397, 506 MB), C19 measured (183 MB), C22 does not apply (no feature profile). The third C17 refused "host accepted no text": the same scroll jump as C09 moves another paragraph under the caret point. Needed `FEATURE_SWITCH_PROBE` and lanes-registry entries; the CI-contract editor list is untouched (its seeded order would change for published editors)
     - [x] resources: measured
     - [x] typing: refused `text_mismatch`, and that is react-docx's: at full speed (cadence 0, the campaign's setting for every editor) it drops the first key after each Enter ("BBB" → "BB"); at 60 ms or more between keys nothing is lost. Needs Python Playwright 1.64.1 (`uv run --with playwright==1.64.1`), same as the container
-  - [ ] 8.1.2 BetterOffice (edits; its own layout engine): all seven. Same check
+  - [x] 8.1.2 BetterOffice (edits; its own layout engine): all seven. Same check. Local, 2026-11-22, prose-500w, @betteroffice/docx-react 0.5.1 (latest on npm); commits 978cde5 to 91e3fa5
+    - [x] warm/cold: C03 221–224 ms warm, 351–376 ms cold; C05 71–95 ms; C06 70–86 ms; the whole text (4,220 characters, from its model) matches. 5,000 words: C03 520–712 ms. 50,000 words ran only under a profile that is not this machine's, so not publishable (C03 1.3–1.5 s)
+    - [x] input: C04 89 ms; C07 28 ms on 2 of 3 points; C08 105 ms; C09 59 ms (undo restored the exact text). The third C07 point (the last line, cut by the window's bottom edge) is refused `caret_not_on_clicked_line`: BetterOffice scrolls a partly hidden clicked line into view (18 px in Chrome on 0.5.1), so the caret is on the clicked text but no longer at the clicked height. The criterion compares heights before the scroll; owner's decision whether that is the editor's behaviour or a harness limit
+    - [x] typing: 591 characters/s (throughput); latency session measured; the saved .docx matches
+    - [x] document: C11 425–456 ms; C12 does not apply (pages are canvases); C15 232 ms where measured, but most cells were refused `frame_interval_inconsistent`, the harness rule fixed on the OpenDoc branch (60-frame interval); to be re-run once that is merged
+    - [x] scroll: C10 3–33 ms
+    - [x] memory: C17 755–803 MB (3/3); C19 207 MB; C22 does not apply
+    - [x] resources: measured (peak memory 812 MB, 32 MB fetched at load, edit verified)
   - [x] 8.1.3 OnlyOffice, CryptPad build (edits; draws on a canvas inside a frame): all seven, typing timed by pixels like Docen and WordCraft. Same check. Local, 2026-11-22, prose-500w (commits f1a2266 to ab3484c; warm/cold re-run after the rebase: C03 707/839 ms, C05 28/50 ms, C06 40/56 ms)
     - [x] warm/cold: C03 706–839 ms, C05 28–52 ms, C06 35–62 ms; the whole text (4,213 characters) matches. Also measured on 5,000 and 50,000 words (C03 755–995 ms)
     - [x] input: C07 46.5 ms, C08 37.2 ms, C09 34.8 ms; C04 does not apply (no deferred work)
