@@ -1791,9 +1791,43 @@ def _typing_facts_group(group, fields, *, published: bool = False):
     return {key: value for key, value in group.items() if key not in _TYPING_FIGURE_FIELDS}
 
 
+#: Rows a typing job writes for an editor it cannot type into: the not-applicable launch,
+#: and the repetitions it then does not try ("typing_sessions_unreachable").
+_TYPING_NOT_TRIED = 'typing_sessions_unreachable'
+
+
+def typing_does_not_apply(roots, editor, kind):
+    """The recorded reason when typing does not apply to this editor (a viewer), else None.
+
+    True only when the editor has no other kind of typing row of this session kind:
+    at least one ``not_applicable`` and otherwise only the repetitions not tried after
+    it. Nutrient on the Spaces, 2026-11-22: 2 such rows and 4 not tried per job, and
+    the job's summary says ``insufficient_typing_sessions``, which is not the reason.
+    """
+    reasons, other = set(), False
+    for root in roots:
+        for row in _iter_trials(Path(root)):
+            if (row.get('editor_id') != editor or row.get('criterion_id') != 'TYPING'
+                    or row.get('session_kind') != kind):
+                continue
+            outcome = row.get('outcome')
+            why = row.get('failure_reason') or (row.get('diagnostic') or {}).get('reason')
+            if outcome == 'not_applicable':
+                reasons.add(why or 'not applicable')
+            elif not (outcome == 'not_run' and why == _TYPING_NOT_TRIED):
+                other = True
+    if other or not reasons:
+        return None
+    return '; '.join(sorted(reasons))
+
+
 def typing_table(facts, roots, editor, kind):
     from perf.analysis.e2_typing import read_sessions, resource_values
     label = f'{DISPLAY.get(editor, editor)} — {kind}'
+    reason = typing_does_not_apply(roots, editor, kind)
+    if reason:
+        facts[f'perf.e2.{editor}.TYPING.{kind}.reproduced'] = False
+        return label + ': does not apply (' + reason + ').'
     seeds = _distinct_seeds(roots)
     if len(seeds) < 2 or (len(seeds) == 2 and seeds[0] == seeds[1]):
         return label + ': two distinct seeds and runs required.' + (
