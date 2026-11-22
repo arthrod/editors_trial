@@ -143,6 +143,23 @@ export const EDIT_SURFACES = {
     pageRoot: '[data-docx-pages-host] canvas[data-page-index]',
     inputHost: '.docx-editor__scroll-container',
   },
+  // OpenDoc (harness/ui/opendoc, the vendor's editor as it ships): its engine
+  // paints each page into a canvas (`.page-wrap canvas.page`) and draws the
+  // caret in the sheet's overlay; keyboard input goes to a caret-sized
+  // textarea (#editorTextInput) inside the scroller #viewport. The only DOM
+  // text is a screen-reader mirror (#a11yDocument, sr-only, laid out apart
+  // from the pages), so text is read from the engine through the editor's
+  // host contract, window.opendoc.ai.read (probed 2026-11-22).
+  opendoc: {
+    kind: 'model',
+    model: 'opendoc',
+    pageRoot: '#pages .page-wrap[data-page-number="1"]',
+    inputHost: '#viewport',
+    // The host's ready flag (first paint) and its settled flag: the editor's
+    // own "painted with its real faces" signal after its background font
+    // upgrade, which repaints every page. Edits start after that repaint.
+    usable: '!!(window.__host && window.__host.ready === true && window.__host.settled === true)',
+  },
 };
 
 export function editSurface(editorId) {
@@ -201,6 +218,8 @@ export const DOCUMENT_TEXT_SURFACES = {
   // BetterOffice: the body story from the editor's own readParagraphs (the
   // whole document, whatever is painted).
   betteroffice: { kind: 'model', model: 'betteroffice' },
+  // OpenDoc: the engine's own read of the body, block by block (aiRead).
+  opendoc: { kind: 'model', model: 'opendoc' },
 };
 
 export function hasDocumentTextSurface(editorId) {
@@ -314,6 +333,48 @@ export const READ_EDITOR_DOCUMENT_TEXT = ({ kind, root, model, deep = false, dom
         : result('', 'absent', 'betteroffice_model', 'readParagraphs refused: ' + JSON.stringify(read).slice(0, 200))),
       (error) => result('', 'absent', 'betteroffice_model', error && error.message ? error.message : error),
     );
+  }
+
+  if (kind === 'model' && model === 'opendoc') {
+    // The engine's read (opendoc.ai.read, a promise), page by page of blocks;
+    // a table block is read through the same contract's `table` read.
+    return (async () => {
+      const session = window.opendoc;
+      if (!session || !session.ai || typeof session.ai.read !== 'function') {
+        return result('', 'absent', 'opendoc_model', 'opendoc model unavailable');
+      }
+      try {
+        const lines = [];
+        let cursor = null;
+        for (let page = 0; page < 100000; page += 1) {
+          const answer = await session.ai.read(cursor ? { tool: 'read', cursor } : { tool: 'read' });
+          if (!answer || !answer.ok || !answer.value) {
+            const why = answer && answer.refusal ? answer.refusal.code || answer.refusal.message : 'no answer';
+            return result('', 'absent', 'opendoc_model', `opendoc read refused: ${why}`);
+          }
+          for (const block of answer.value.blocks || []) {
+            if (typeof block.text === 'string') lines.push(block.text);
+            else if (block.kind === 'table' && block.id) {
+              let rows = null;
+              for (let t = 0; t < 100000; t += 1) {
+                const table = await session.ai.read(rows ? { tool: 'table', table: block.id, cursor: rows } : { tool: 'table', table: block.id });
+                if (!table || !table.ok || !table.value) break;
+                for (const row of table.value.rows || []) {
+                  for (const cell of row.cells || []) lines.push(String(cell.text || ''));
+                }
+                rows = table.value.nextCursor;
+                if (!rows) break;
+              }
+            }
+          }
+          if (!answer.value.truncated || !answer.value.nextCursor) break;
+          cursor = answer.value.nextCursor;
+        }
+        return result(lines.join('\n'), 'perf_model', 'opendoc_model');
+      } catch (error) {
+        return result('', 'absent', 'opendoc_model', error && error.message ? error.message : error);
+      }
+    })();
   }
 
   if (kind === 'model' && model === 'canvas_editor') {
@@ -552,6 +613,18 @@ export const READ_CLICK_HIT = ({ x, y }) => {
 
 /** Page context. Text of the paragraph at the caret, from the editor's model. */
 export const READ_MODEL_AT_CARET = (model) => {
+  if (model === 'opendoc') {
+    // The block the editor last announced the caret in (its `selection`
+    // event, kept by the host shim), read from the engine.
+    const session = window.opendoc;
+    const selection = window.__host && window.__host.selection;
+    const node = selection && selection.anchor && selection.anchor.node;
+    if (!session || !session.ai || typeof session.ai.read !== 'function' || !node) return null;
+    return session.ai.read({ tool: 'read', start: String(node), maxTokens: 1 }).then((answer) => {
+      const block = answer && answer.ok && answer.value && (answer.value.blocks || [])[0];
+      return block && typeof block.text === 'string' ? block.text : null;
+    }, () => null);
+  }
   if (model === 'docen') {
     const editor = window.__DOCEN__ && window.__DOCEN__.editor;
     if (!editor || !editor.state) return null;
@@ -622,6 +695,9 @@ export function usableExpression(editorId, selector) {
   const surface = editSurface(editorId);
   const sel = JSON.stringify(selector || surface.root || '');
   if (surface.kind === 'model') {
+    // OpenDoc declares its own (the host's flags); the older model surfaces
+    // declare none and keep their expressions below.
+    if (surface.model === 'opendoc') return surface.usable;
     if (surface.model === 'docen') {
       return '!!(window.__DOCEN__ && window.__DOCEN__.editor && window.__DOCEN__.editor.state)';
     }
@@ -659,6 +735,26 @@ export function usableExpression(editorId, selector) {
  * flattens blocks onto one line, hiding marker-only paragraphs.
  */
 export const READ_MODEL_DOCUMENT_TEXT = (model) => {
+  if (model === 'opendoc') {
+    // The engine's read of the body (opendoc.ai.read), one line per block; it
+    // reports no list markers, so there is no absorbed-item evidence.
+    const session = window.opendoc;
+    if (!session || !session.ai || typeof session.ai.read !== 'function') return null;
+    return (async () => {
+      const lines = [];
+      let cursor = null;
+      for (let page = 0; page < 100000; page += 1) {
+        const answer = await session.ai.read(cursor ? { tool: 'read', cursor } : { tool: 'read' });
+        if (!answer || !answer.ok || !answer.value) return null;
+        for (const block of answer.value.blocks || []) {
+          if (typeof block.text === 'string') lines.push(block.text);
+        }
+        if (!answer.value.truncated || !answer.value.nextCursor) break;
+        cursor = answer.value.nextCursor;
+      }
+      return { text: lines.join('\n'), absorbed_items: [] };
+    })().catch(() => null);
+  }
   if (model === 'docen') {
     const editor = window.__DOCEN__ && window.__DOCEN__.editor;
     if (!editor || !editor.state || !editor.state.doc) return null;

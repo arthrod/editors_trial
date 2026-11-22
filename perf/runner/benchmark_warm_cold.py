@@ -477,6 +477,37 @@ BROWSER_TARGETS: dict[str, dict] = {
             "C06": ("input_to_next_paint", "browser_visible"),
         },
     },
+    # OpenDoc (CasualOffice/opendoc at ver.opendoc.commit): the vendor's own
+    # editor application, served as it ships by harness/ui/opendoc/host.mjs.
+    # The editor opens `./sample.docx` on boot (its documented startup
+    # document), which is the corpus route. The engine (Rust to WebAssembly)
+    # paints each page onto a canvas and keeps keyboard input in a caret-sized
+    # textarea; the host shim (host.js) publishes the ready flag: open, page 1's
+    # raster canvas mounted, two frames. Its font upgrade (some faces from a
+    # CDN) runs after that, and `__host.settled` marks it; the edit surface
+    # waits for it (edit_surface.mjs EDIT_SURFACES.opendoc). Every text check,
+    # the typing lane's included, reads the engine through the editor's host
+    # contract, opendoc.ai.read (edit_surface.mjs, model 'opendoc').
+    "opendoc": {
+        "lane": "wasm_ui",
+        "cwd": UI / "opendoc",
+        "command": ["node", "host.mjs", "--port", "5224"],
+        "url": "http://127.0.0.1:5224/",
+        "corpus_route": "/sample.docx",
+        "ready_selector": '#pages .page-wrap[data-page-number="1"] canvas.page',
+        "ready_js": "!!(window.__host && window.__host.ready === true)",
+        "error_js": "window.__host && window.__host.error",
+        # Page 1's sheet (its canvas and the caret overlay above it). It
+        # carries no contenteditable attribute, so the input lane does not read
+        # it as read-only; the caret goes through EDIT_SURFACES.opendoc.
+        "edit_selector": '#pages .page-wrap[data-page-number="1"]',
+        "driver": "playwright",
+        "criteria": {
+            "C03": ("first_usable", "browser_visible"),
+            "C05": ("presented_frame", "browser_visible"),
+            "C06": ("input_to_next_paint", "browser_visible"),
+        },
+    },
 }
 
 

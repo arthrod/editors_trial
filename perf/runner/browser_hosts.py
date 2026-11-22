@@ -254,6 +254,19 @@ def start_host(editor, target, legacy_start):
             run.hosts[editor] = meta
         target = {**target, 'env': {**target.get('env', {}), 'WC_DIST': str(root.resolve())}}
         return legacy_start(editor, target)
+    if editor == 'opendoc':
+        # OpenDoc's editor is the vendor's static site, served as it ships by
+        # harness/ui/opendoc/host.mjs (its engine is the pinned build in
+        # webapp/pkg): there is no Vite host to build. Gated on this editor;
+        # every other static host still goes through build_host below.
+        repos = Path(target.get('repos_root') or (REPO / 'harness').resolve().parent / 'repos')
+        root = repos / 'opendoc/webapp'
+        meta = {**policy, 'tree_sha256': tree_hash(root),
+                'host_tree_sha256': tree_hash(Path(target['cwd']).resolve())}
+        if run is not None:
+            run.hosts[editor] = meta
+        target = {**target, 'env': {**target.get('env', {}), 'OPENDOC_WEBAPP': str(root.resolve())}}
+        return legacy_start(editor, target)
     if run is None:
         raise RuntimeError('production host requires a BrowserRun context')
     meta = run.hosts.get(editor, {})
