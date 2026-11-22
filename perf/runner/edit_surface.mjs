@@ -119,6 +119,14 @@ export const EDIT_SURFACES = {
       + ' }'
       + ' return false; })()',
   },
+  // OnlyOffice (CryptPad build): its whole application runs in a same-origin
+  // frame of the host page (editor_frame.mjs routes the lanes' page calls
+  // there). It draws the document on the #id_viewer canvas and keeps the
+  // keyboard in a textarea (#area_id) it moves to the caret; the text is only
+  // in its model, read through its own logic document (probed 2026-11-22:
+  // editor.WordControl.m_oLogicDocument, GetAllParagraphs, GetCurrentParagraph,
+  // each paragraph's GetText).
+  onlyoffice: { kind: 'model', model: 'onlyoffice', pageRoot: '#id_viewer' },
 };
 
 export function editSurface(editorId) {
@@ -172,6 +180,8 @@ export const DOCUMENT_TEXT_SURFACES = {
   // lazily and no text is in the DOM. The whole text is read through the SDK's
   // own API, page by page (instance.textLinesForPageIndex), as probe.mjs does.
   nutrient: { kind: 'model', model: 'nutrient' },
+  // OnlyOffice holds the whole document in its model (main document only).
+  onlyoffice: { kind: 'model', model: 'onlyoffice' },
 };
 
 export function hasDocumentTextSurface(editorId) {
@@ -253,6 +263,26 @@ export const READ_EDITOR_DOCUMENT_TEXT = ({ kind, root, model, deep = false, dom
       return result(text, 'perf_model', 'docen_model');
     } catch (error) {
       return result('', 'absent', 'docen_model', error && error.message ? error.message : error);
+    }
+  }
+
+  if (kind === 'model' && model === 'onlyoffice') {
+    // The editor's frame (editor_frame.mjs), or the host page holding it.
+    const f = document.querySelector('#root iframe');
+    let w = window.editor && window.editor.WordControl ? window : null;
+    try { if (!w && f && f.contentWindow && f.contentWindow.editor) w = f.contentWindow; } catch { w = null; }
+    const logic = w && w.editor.WordControl && w.editor.WordControl.m_oLogicDocument;
+    if (!logic || typeof logic.GetAllParagraphs !== 'function') {
+      return result('', 'absent', 'onlyoffice_model', 'onlyoffice model unavailable');
+    }
+    try {
+      // Each paragraph's GetText ends with its paragraph mark ("\r\n").
+      const text = logic.GetAllParagraphs({ OnlyMainDocument: true, All: true })
+        .map((p) => String(p.GetText()).replace(/\r?\n$/, ''))
+        .join('\n');
+      return result(text, 'perf_model', 'onlyoffice_model');
+    } catch (error) {
+      return result('', 'absent', 'onlyoffice_model', error && error.message ? error.message : error);
     }
   }
 
@@ -506,6 +536,14 @@ export const READ_MODEL_AT_CARET = (model) => {
     if (!Array.isArray(paragraph)) return null;
     return paragraph.map((el) => (el && typeof el.value === 'string' ? el.value : '')).join('');
   }
+  if (model === 'onlyoffice') {
+    const f = document.querySelector('#root iframe');
+    let w = window.editor && window.editor.WordControl ? window : null;
+    try { if (!w && f && f.contentWindow && f.contentWindow.editor) w = f.contentWindow; } catch { w = null; }
+    const logic = w && w.editor.WordControl && w.editor.WordControl.m_oLogicDocument;
+    const paragraph = logic && typeof logic.GetCurrentParagraph === 'function' ? logic.GetCurrentParagraph() : null;
+    return paragraph ? String(paragraph.GetText()).replace(/\r?\n$/, '') : null;
+  }
   return null;
 };
 
@@ -552,6 +590,14 @@ export function usableExpression(editorId, selector) {
     if (surface.model === 'docen') {
       return '!!(window.__DOCEN__ && window.__DOCEN__.editor && window.__DOCEN__.editor.state)';
     }
+    if (surface.model === 'onlyoffice') {
+      // The host page's ready flag (OnlyOffice's onDocumentReady) and the
+      // editor's logic document, from the editor's frame or the host page.
+      return '(() => { const f = document.querySelector("#root iframe"); let w = window.editor ? window : null;'
+        + ' try { if (!w && f && f.contentWindow && f.contentWindow.editor) w = f.contentWindow; } catch { w = null; }'
+        + ' const h = window.__host || (window.parent !== window ? window.parent.__host : null);'
+        + ' return !!(h && h.ready === true && w && w.editor.WordControl && w.editor.WordControl.m_oLogicDocument); })()';
+    }
     return '!!(window.__CANVAS_EDITOR_INSTANCE__ && window.__CANVAS_EDITOR_INSTANCE__.command'
       + ' && typeof window.__CANVAS_EDITOR_INSTANCE__.command.getValue === "function")';
   }
@@ -593,6 +639,17 @@ export const READ_MODEL_DOCUMENT_TEXT = (model) => {
       return true;
     });
     return { text: String(doc.textBetween(0, doc.content.size, '\n')), absorbed_items: absorbed };
+  }
+  if (model === 'onlyoffice') {
+    const f = document.querySelector('#root iframe');
+    let w = window.editor && window.editor.WordControl ? window : null;
+    try { if (!w && f && f.contentWindow && f.contentWindow.editor) w = f.contentWindow; } catch { w = null; }
+    const logic = w && w.editor.WordControl && w.editor.WordControl.m_oLogicDocument;
+    if (!logic || typeof logic.GetAllParagraphs !== 'function') return null;
+    const text = logic.GetAllParagraphs({ OnlyMainDocument: true, All: true })
+      .map((p) => String(p.GetText()).replace(/\r?\n$/, ''))
+      .join('\n');
+    return { text, absorbed_items: [] };
   }
   if (model === 'canvas_editor') {
     const inst = window.__CANVAS_EDITOR_INSTANCE__;

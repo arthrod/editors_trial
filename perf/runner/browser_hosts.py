@@ -54,8 +54,13 @@ def tree_hash(root):
 
 
 class StaticHost:
-    def __init__(self, root, *, port=0, corpus_route='/corpus.docx', fixture=None, headers=None):
+    def __init__(self, root, *, port=0, corpus_route='/corpus.docx', fixture=None, headers=None,
+                 extra_roots=()):
         root = Path(root).resolve()
+        # Directories outside root a resolved path may also land in. Empty for
+        # every built host (a build directory holds its whole tree); a static
+        # page names the fetched vendor trees it links to (STATIC_PAGES).
+        allowed = (root, *(Path(r).resolve() for r in extra_roots))
         self.fixture = fixture
         host = self
         class Handler(SimpleHTTPRequestHandler):
@@ -73,7 +78,7 @@ class StaticHost:
                 if marker in pathname:
                     path = '/docxodus-dist/' + pathname.split(marker, 1)[1]
                 resolved = Path(super().translate_path(path)).resolve()
-                if not resolved.is_relative_to(root):
+                if not any(resolved.is_relative_to(r) for r in allowed):
                     return str(root / '__forbidden__')
                 return str(resolved)
 
@@ -116,6 +121,39 @@ ADAPTERS = {
     'superdoc': 'wrapper', 'canvas': 'wrapper', 'docen': 'wrapper',
     'eigenpal': 'eigenpal_config', 'folio': 'wrapper',
 }
+
+
+# Hosts whose page is plain files with nothing to build: served as they stand
+# by StaticHost, hashed instead of built. OnlyOffice's page
+# (harness/ui/onlyoffice: index.html, main.js, x2t_worker.js) loads
+# OnlyOffice's own release archives, unpacked unmodified under vendor/ by
+# fetch.py (SHA-512 pinned). vendor/ may be a symlink to a shared copy (local
+# worktrees), so its trees are named as extra roots and hashed through their
+# resolved paths. Every other editor keeps its build path.
+STATIC_PAGES = {
+    'onlyoffice': {'files': ('index.html', 'main.js', 'x2t_worker.js'),
+                   'vendor': ('vendor/editor', 'vendor/x2t')},
+}
+
+
+def static_page_meta(editor, target, policy):
+    """Provenance of an unbuilt page: the hash of its own files and of each vendor tree."""
+    spec = STATIC_PAGES[editor]
+    cwd = Path(target['cwd']).resolve()
+    parts = {}
+    for name in spec['files']:
+        parts[name] = hashlib.sha256((cwd / name).read_bytes()).hexdigest()
+    for name in spec['vendor']:
+        tree = (cwd / name).resolve()
+        if not tree.is_dir():
+            raise FileNotFoundError(f'{editor}: {cwd / name} is missing (run its fetch script)')
+        parts[name] = tree_hash(tree)
+    digest = hashlib.sha256()
+    for name in sorted(parts):
+        digest.update(f'{name}\0{parts[name]}\n'.encode())
+    return {**policy, 'adapter': 'static_page', 'outcome': 'ok', 'failure_reason': None,
+            'tree_sha256': digest.hexdigest(), 'tree_parts': parts, 'build_directory': None,
+            'static_root': str(cwd), 'extra_roots': [str((cwd / n).resolve()) for n in spec['vendor']]}
 
 
 class HostBuildError(RuntimeError):
@@ -219,6 +257,18 @@ def start_host(editor, target, legacy_start):
     if run is None:
         raise RuntimeError('production host requires a BrowserRun context')
     meta = run.hosts.get(editor, {})
+    if editor in STATIC_PAGES:
+        if not meta.get('static_root'):
+            meta = static_page_meta(editor, target, policy)
+            run.hosts[editor] = meta
+        fixture = target.get('fixture')
+        if fixture is None and run.fixtures:
+            fixture = next(iter(run.fixtures.values()))
+        server = StaticHost(meta['static_root'], port=urlsplit(target['url']).port,
+                            corpus_route=target.get('corpus_route', '/corpus.docx'), fixture=fixture,
+                            extra_roots=meta['extra_roots'])
+        target['_static_server'] = server
+        return server
     if not meta.get('build_directory'):
         try:
             meta = build_host(editor, target, run.out_root)

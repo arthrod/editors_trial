@@ -13,7 +13,11 @@
 //   - the document is the trial's fixture, served by the driver at /sample.docx
 //     (or ?doc=<url>);
 //   - window.__host exposes a promise that settles when the editor has laid
-//     the document out to its last page, and api() for build/capture_ui.sh.
+//     the document out to its last page, and api() for build/capture_ui.sh;
+//   - window.__host.ready turns true when OnlyOffice reports the document ready
+//     for editing (its documented onDocumentReady event), and
+//     window.__host.error holds the reason the document did not open: flags
+//     the browser speed lanes (Report E2) can poll synchronously.
 const BASE = `${location.origin}/vendor/`;
 const params = new URLSearchParams(location.search);
 
@@ -127,9 +131,16 @@ async function open() {
       },
     });
   });
+  window.__host.ready = true;
   return { pages: await paginated(), media: Object.keys(media) };
 }
 
-window.__host = { api, errors: [], loaded: null, convertMs: null };
+window.__host = { api, errors: [], loaded: null, convertMs: null, ready: false, error: null };
 window.__host.loaded = open();
-window.__host.loaded.catch(() => {});
+// An error before the document is ready is the document not opening; a later
+// one (pagination still running after 180 s) is kept apart from it.
+window.__host.loaded.catch((e) => {
+  const reason = String((e && e.message) || e);
+  if (window.__host.ready) window.__host.paginateError = reason;
+  else window.__host.error = reason;
+});

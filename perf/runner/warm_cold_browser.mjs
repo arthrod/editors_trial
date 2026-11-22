@@ -103,6 +103,9 @@ import {
 } from './criteria_input.mjs';
 import { editSurface, hasCaretAdapter, readAndGateDocumentText, usableExpression } from './edit_surface.mjs';
 import { confirmLaneEdit, prepareLaneCaret } from './lane_edit_burst.mjs';
+// The same page for every editor but those whose application is a frame of
+// their host page (OnlyOffice): their document calls go to that frame.
+import { editorPage } from './editor_frame.mjs';
 
 /** Light-DOM box for screencast witness when the edit target is model or shadow. */
 function witnessRegion(editorId, fallbackSelector) {
@@ -980,7 +983,7 @@ async function runPlaywrightPair() {
 
   const coldContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   await routeCorpus(coldContext, corpusRoute, corpusBytes);
-  const coldPage = await coldContext.newPage();
+  const coldPage = editorPage(await coldContext.newPage(), editorId);
   const trace = await startChromeTrace(browser, coldPage, 'warm_cold');
   const cdp = await coldContext.newCDPSession(coldPage);
 
@@ -1101,7 +1104,7 @@ async function runCriteriaSession() {
   } catch (err) {
     clipboardPermission = `unavailable: ${String(err && err.message ? err.message : err)}`;
   }
-  const page = await context.newPage();
+  const page = editorPage(await context.newPage(), editorId);
   const trace = await startChromeTrace(browser, page, criteriaList[0] || 'input');
   const cdp = await context.newCDPSession(page);
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: loadTimeout });
@@ -1159,7 +1162,7 @@ async function coldOnlyFreshContext() {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext();
   await routeCorpus(context, corpusRoute, corpusBytes);
-  const page = await context.newPage();
+  const page = editorPage(await context.newPage(), editorId);
   const trace = await startChromeTrace(browser, page, 'warm_cold');
   const t0 = Date.now();
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: loadTimeout });

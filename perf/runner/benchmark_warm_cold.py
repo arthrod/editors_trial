@@ -401,6 +401,41 @@ BROWSER_TARGETS: dict[str, dict] = {
             "C03": ("first_usable", "browser_visible"),
         },
     },
+    # OnlyOffice's document editor, the CryptPad build (no document server):
+    # harness/ui/onlyoffice. The page is plain files with OnlyOffice's own
+    # release archives under vendor/, served unbuilt (browser_hosts.py
+    # STATIC_PAGES). OnlyOffice runs in a same-origin frame of the page; the
+    # lanes' page calls go there (editor_frame.mjs), so every expression and
+    # selector below must hold in the host page (before the frame exists) and
+    # in the editor's frame. It draws on the #id_viewer canvas; the text is
+    # read from its model (edit_surface.mjs, model 'onlyoffice').
+    "onlyoffice": {
+        "lane": "browser",
+        "cwd": UI / "onlyoffice",
+        "url": "http://127.0.0.1:5223/",
+        "corpus_route": "/sample.docx",
+        # The host page's frame, then the editor's canvas inside it.
+        "ready_selector": "#root iframe, #id_viewer",
+        # The host page's flag: OnlyOffice's onDocumentReady
+        # (harness/ui/onlyoffice/main.js), read from either document.
+        "ready_js": (
+            "(() => { const h = window.__host || (window.parent !== window ? window.parent.__host : null); "
+            "return !!(h && h.ready === true); })()"
+        ),
+        "error_js": (
+            "(() => { const h = window.__host || (window.parent !== window ? window.parent.__host : null); "
+            "return h && h.error; })()"
+        ),
+        # The canvas a click lands on: OnlyOffice's overlay over the page
+        # canvas (#id_viewer) takes every pointer event (probed: elementFromPoint).
+        "edit_selector": "#id_viewer_overlay",
+        "driver": "playwright",
+        "criteria": {
+            "C03": ("first_usable", "browser_visible"),
+            "C05": ("presented_frame", "browser_visible"),
+            "C06": ("input_to_next_paint", "browser_visible"),
+        },
+    },
 }
 
 

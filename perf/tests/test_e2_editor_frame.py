@@ -1,0 +1,54 @@
+"""editor_frame.mjs: OnlyOffice's document calls go to its editor frame; every other editor's page is untouched.
+
+OnlyOffice's application is a same-origin iframe of its host page. The lanes'
+page-context work (listeners, event timing, the model, the caret) must run in
+that frame. ``editorPage`` returns the very same page object for every other
+browser target, so no published editor's driver changes.
+"""
+import json
+import subprocess
+import unittest
+from pathlib import Path
+
+from perf.runner.benchmark_warm_cold import BROWSER_TARGETS
+
+REPO = Path(__file__).resolve().parents[2]
+REPRO = REPO / 'perf' / 'tests' / 'e2_editor_frame_repro.mjs'
+
+
+class EditorFrame(unittest.TestCase):
+    def setUp(self):
+        proc = subprocess.run(['node', str(REPRO), *sorted(BROWSER_TARGETS)], cwd=str(REPO),
+                              capture_output=True, text=True, timeout=30)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.out = json.loads(proc.stdout)
+
+    def test_every_other_editor_gets_the_same_page_object(self):
+        self.assertIn('onlyoffice', BROWSER_TARGETS)
+        self.assertTrue(self.out['others_same_object'])
+        self.assertTrue(self.out['null_editor_same_object'])
+        self.assertEqual(self.out['listed'], ['onlyoffice'])
+
+    def test_onlyoffice_document_calls_reach_its_frame(self):
+        self.assertEqual(self.out['before_frame'], 'main:evaluate')
+        self.assertEqual(self.out['evaluate'], 'editor:evaluate')
+        self.assertEqual(self.out['waitForFunction'], 'editor:waitForFunction')
+        self.assertEqual(self.out['locator'], 'editor:locator:#id_viewer')
+
+    def test_onlyoffice_devices_and_navigation_stay_on_the_page(self):
+        self.assertEqual(self.out['mouse'], 'page:mouse')
+        self.assertEqual(self.out['reload'], 'page:reload')
+        self.assertEqual(self.out['viewport'], 1280)
+        self.assertTrue(self.out['raw'])
+
+    def test_host_page_lays_the_frame_out_at_the_origin(self):
+        # Coordinates are not translated between the frame and the page: the
+        # host page must keep the frame at (0, 0), full size, borderless.
+        html = (REPO / 'harness/ui/onlyoffice/index.html').read_text()
+        self.assertIn('html, body { margin: 0; height: 100%; }', html)
+        self.assertIn('#root { height: 100vh; }', html)
+        self.assertIn('<div id="root"><div id="oo-holder"></div></div>', html)
+
+
+if __name__ == '__main__':
+    unittest.main()
