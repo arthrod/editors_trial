@@ -137,7 +137,7 @@ class RunIntegration(unittest.TestCase):
 
     def test_t1_rising_throttle_refuses_time_unchanged_keeps_it(self):
         self.run.begin_sample()
-        self.current = snapshot(3, 10_050, 200, 3, 8)
+        self.current = snapshot(3, 10_000_050, 200, 3, 8)
         path = self.run.sample('throttled', dict(outcome='measured', samples_ms=[12], duration_ms=12))
         row = json.loads(path.read_text())
         self.assertEqual((row['outcome'], row['failure_reason']), ('failed', 'cpu_throttled'))
@@ -145,7 +145,7 @@ class RunIntegration(unittest.TestCase):
         self.assertNotIn('samples_ms', row)
         self.assertEqual(row['cpu_accounting']['before']['nr_throttled'], 2)
         self.assertEqual(row['cpu_accounting']['after']['nr_throttled'], 3)
-        self.assertEqual(row['cpu_accounting']['delta']['throttled_usec'], 10_040)
+        self.assertEqual(row['cpu_accounting']['delta']['throttled_usec'], 10_000_040)
         self.run.begin_sample()
         self.run.sample('kept', dict(outcome='measured', samples_ms=[9]))
         self.assertEqual(self.run.samples[1]['samples_ms'], [9])
@@ -154,7 +154,7 @@ class RunIntegration(unittest.TestCase):
         result = self.run.finish({'publishable': True})['cpu_accounting']
         self.assertEqual(result['samples_refused'], 1)
         self.assertEqual(result['samples_total'], 2)
-        self.assertEqual(result['throttled_usec'], 10_040)
+        self.assertEqual(result['throttled_usec'], 10_000_040)
         self.assertEqual(result['steal_percent'], 2.0)
         self.assertEqual(result['loadavg_range'], [[2, 8], [3, 3], [4, 4]])
         self.assertEqual(result['cpu_max'], '800000 100000')
@@ -162,7 +162,7 @@ class RunIntegration(unittest.TestCase):
 
     def test_p2_straddling_throttle_is_refused(self):
         self.run.begin_sample()
-        self.current = snapshot(usec=94010)
+        self.current = snapshot(usec=94_000_010)
         row = json.loads(self.run.sample('straddling', dict(outcome='measured', samples_ms=[42])).read_text())
         self.assertEqual(row['outcome'], 'failed')
         self.assertEqual(row['failure_reason'], 'cpu_throttled')
@@ -170,7 +170,7 @@ class RunIntegration(unittest.TestCase):
 
     def test_p5_refusal_removes_nested_measurements(self):
         self.run.begin_sample()
-        self.current = snapshot(3, 10_050)
+        self.current = snapshot(3, 10_000_050)
         original = dict(
             outcome='measured',
             probe={'latency_ms': 10},
@@ -187,7 +187,7 @@ class RunIntegration(unittest.TestCase):
 
     def test_nested_brackets_restore_outer_and_count_diagnostics_separately(self):
         self.run.begin_sample()
-        self.current = snapshot(3, 10_050)
+        self.current = snapshot(3, 10_000_050)
         self.run.begin_sample()
         self.run.sample('inner', dict(outcome='measured', samples_ms=[10]))
         self.run.sample('outer', dict(outcome='measured', samples_ms=[20]))
@@ -206,7 +206,7 @@ class RunIntegration(unittest.TestCase):
         token = CELL.set({'repetition': 0, 'editor_id': 'fake'})
         try:
             self.run.begin_sample()
-            self.current = snapshot(3, 10_050)
+            self.current = snapshot(3, 10_000_050)
             self.run.sample('saturation-0-fake', dict(outcome='failed', failure_reason='warm_cold_identical'))
             self.run.sample('0000-fake', dict(outcome='ok'))
         finally:
@@ -222,7 +222,7 @@ class RunIntegration(unittest.TestCase):
         cell.mkdir(parents=True)
         (cell / 'sample.json').write_text('{"duration_ms": 42}')
         self.run.begin_sample()
-        self.current = snapshot(3, 10_050)
+        self.current = snapshot(3, 10_000_050)
         error = None
         try:
             self.run.sample('cell', dict(outcome='ok', cell_directory=str(cell)))
@@ -295,7 +295,7 @@ class BoundaryIntegration(unittest.TestCase):
             def counters(n):
                 # 20 ms of throttled time per event: above the max(1 ms, 1 %)
                 # tolerance (lax layer, owner 2026-11-11), so the sample refuses.
-                (cg / 'cpu.stat').write_text(f'nr_periods {10 + n}\nnr_throttled {n}\nthrottled_usec {n * 20000}\n')
+                (cg / 'cpu.stat').write_text(f'nr_periods {10 + n}\nnr_throttled {n}\nthrottled_usec {n * 20_000_000}\n')
 
             counters(0)
             calls = []
@@ -390,7 +390,7 @@ class MissingOutputIntegration(unittest.TestCase):
         current = [snapshot()]
 
         def main():
-            current[0] = snapshot(3, 50_000, 200, 3)
+            current[0] = snapshot(3, 50_000_000, 200, 3)
             return 1
 
         with tempfile.TemporaryDirectory() as tmp:

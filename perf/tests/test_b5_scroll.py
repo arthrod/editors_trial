@@ -1205,7 +1205,7 @@ class ScrollUnitTests(unittest.TestCase):
         renamed = {
             "outcome": "failed",
             "failure_reason": "the sample was refused",
-            "cpu_accounting": {"available": True, "delta": {"nr_throttled": 3, "throttled_usec": 2500}},
+            "cpu_accounting": {"available": True, "delta": {"nr_throttled": 3, "throttled_usec": 2_500_000}},
         }
         self.assertEqual(
             scroll.throttle_refusal_reason(renamed),

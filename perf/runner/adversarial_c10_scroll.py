@@ -146,6 +146,22 @@ HOST_SCROLL_CONTAINERS: dict[str, str] = {"wordcraft": "#wc-scroll", "opendoc": 
 #: record, so it is never invisible.
 HOST_SCROLL_DOCUMENTS: dict[str, str] = {"wordcraft": "#wordcraft_canvas"}
 
+#: The detection of a C10 sample taken by pixels (``c10_canvas_pixels.mjs``):
+#: OnlyOffice only, whose page has no DOM scroller (its scrollbar is a canvas
+#: widget and its document a canvas). The probe gates the path on the editor
+#: id; the trial's diagnostic carries the detection and a note so the report
+#: can say C10 was measured differently for it.
+CANVAS_PIXELS = "canvas_pixels"
+CANVAS_PIXELS_NOTE = (
+    "C10 measured by pixels: OnlyOffice has no DOM scroller (its scrollbar is its own canvas "
+    "widget and the page is redrawn on a canvas), so the scroll is one real wheel notch over "
+    "the document canvas, timed from the page's wheel listener (before OnlyOffice's handler) "
+    "to the first presented frame whose canvas pixels changed, the same witness as every C10 "
+    "sample; the editor's scroll position must move and that frame must show the canvas "
+    "shifted by the move. OnlyOffice scrolls a fixed step per notch (45 px at 100%), not the "
+    "600 px the DOM probe sets on scrollTop."
+)
+
 
 def adapter_selectors(editor_id: str, *, container: str | None = None) -> dict:
     """The adapter's selectors for an editor, or ``None`` when it has none.
@@ -414,6 +430,20 @@ def scroll_sample_verdict(sample: dict, *, bound_ms: float = DEFAULT_SKEW_BOUND_
             % (changed, region_pixels),
             None,
         )
+
+    # OnlyOffice's pixel path (c10_canvas_pixels.mjs): its "content moved" is
+    # read off the pixels, so the shift record itself must say the witnessed
+    # frame is the baseline moved by the scroll. A DOM sample carries no
+    # detection and is judged exactly as before.
+    if sample.get("detection") == CANVAS_PIXELS:
+        shift = content.get("shift") or {}
+        if shift.get("shifted") is not True:
+            return (
+                "failed",
+                "the witnessed frame does not show the canvas moved by the scroll: %s"
+                % (shift.get("reason") or "no shift record",),
+                None,
+            )
 
     value = sample.get("scroll_frame_ms")
     if not _number(value) or value <= 0:
@@ -934,6 +964,12 @@ def _main() -> int:
         "skew_bound_ms": payload.get("skew_bound_ms"),
         "scroll_container_override": payload.get("scroll_container_override"),
     }
+    if payload.get("detection") == CANVAS_PIXELS:
+        # Only the pixel path's payload names a detection (OnlyOffice); every
+        # DOM editor's diagnostic keeps exactly its keys.
+        diagnostic["detection"] = CANVAS_PIXELS
+        diagnostic["note"] = CANVAS_PIXELS_NOTE
+        diagnostic["probe"]["detection"] = CANVAS_PIXELS
     diagnostic["samples"] = [
         {
             "sample_index": entry["record"].get("sample_index"),
@@ -945,6 +981,16 @@ def _main() -> int:
             "scroll_frame_ms": entry["value"],
             "clock_skew": entry["record"].get("clock_skew"),
             "witness": entry["record"].get("witness"),
+            # The pixel path's own evidence (OnlyOffice); absent for DOM samples.
+            **(
+                {
+                    "detection": entry["record"]["detection"],
+                    "input": entry["record"].get("input"),
+                    "caret_mask_in_canvas_editor": entry["record"].get("caret_mask_in_canvas_editor"),
+                }
+                if entry["record"].get("detection")
+                else {}
+            ),
         }
         for entry in samples
     ]

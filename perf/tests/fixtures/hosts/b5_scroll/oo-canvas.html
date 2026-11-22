@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>C10 fake host: an OnlyOffice-shaped canvas editor with no DOM scroller</title>
+    <!--
+      What the C10 pixel path (perf/runner/c10_canvas_pixels.mjs) reads of
+      OnlyOffice, and nothing else: the document drawn on canvas #id_viewer,
+      a blinking caret div #id_target_cursor over it, the scroll position in
+      window.editor.WordControl.m_dScrollY (range m_dScrollY_max), and a wheel
+      handler of the page's own that moves by a fixed 45 px step per event.
+      No element scrolls. ?mode= says what a wheel does:
+        shift    scroll 45 px and redraw the text moved up by 45 px
+        repaint  scroll 45 px but redraw the text in place, recoloured
+        still    nothing
+    -->
+    <style>
+      html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #e8e8e8; }
+      #id_main_view { position: absolute; left: 40px; top: 60px; width: 800px; height: 600px; }
+      #id_viewer { position: absolute; left: 0; top: 0; }
+      #id_target_cursor { position: absolute; left: 100px; top: 100px; width: 2px; height: 20px; background: #000; }
+    </style>
+  </head>
+  <body>
+    <div id="id_main_view">
+      <canvas id="id_viewer" width="800" height="600"></canvas>
+      <div id="id_target_cursor"></div>
+    </div>
+    <script>
+      (function () {
+        var mode = new URLSearchParams(location.search).get('mode') || 'shift';
+        var canvas = document.getElementById('id_viewer');
+        var ctx = canvas.getContext('2d');
+        var LINE = 20;
+        var LINES = 200;
+        var control = { m_dScrollY: 0, m_dScrollY_max: LINES * LINE - canvas.height };
+        var ink = '#111111';
+        function draw() {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.fillStyle = ink;
+          ctx.font = '14px monospace';
+          var top = mode === 'repaint' ? 0 : control.m_dScrollY;
+          for (var i = 0; i < LINES; i++) {
+            var y = 16 + i * LINE - top;
+            if (y < -LINE || y > canvas.height + LINE) continue;
+            ctx.fillText('Line ' + i + ': the quick brown fox ' + 'jumps over the lazy dog '.repeat(1 + (i % 3)), 12, y);
+          }
+        }
+        control.m_oScrollVerApi = {
+          scrollToY: function (y) { control.m_dScrollY = y; requestAnimationFrame(draw); },
+        };
+        window.editor = { WordControl: control };
+        canvas.addEventListener('wheel', function (event) {
+          event.preventDefault();
+          if (mode === 'still') return;
+          control.m_dScrollY = Math.min(control.m_dScrollY_max, control.m_dScrollY + 45);
+          if (mode === 'repaint') ink = '#777777';
+          requestAnimationFrame(draw);
+        }, { passive: false });
+        var cursor = document.getElementById('id_target_cursor');
+        setInterval(function () {
+          cursor.style.visibility = cursor.style.visibility === 'hidden' ? 'visible' : 'hidden';
+        }, 500);
+        draw();
+        window.__docxReady = true;
+      })();
+    </script>
+  </body>
+</html>

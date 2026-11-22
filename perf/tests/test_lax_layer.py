@@ -190,22 +190,28 @@ class LoadTimeouts(unittest.TestCase):
 
 
 class ThrottleTolerance(unittest.TestCase):
-    """Item 4: max(1 ms, 1 % of the sample's span) of cgroup throttling is
+    """Item 4: max(100 ms, 10 % of the sample's span) of cgroup throttling is
     tolerated, recorded on every kept sample, and refused above."""
 
     def test_the_tolerance_rule(self):
         api = _load("perf.runner.browser_throttle")
-        self.assertEqual(float(api.THROTTLE_TOLERANCE_MIN_USEC), 1000.0)
-        self.assertEqual(float(api.THROTTLE_TOLERANCE_SPAN_FRACTION), 0.01)
-        self.assertEqual(api.throttle_tolerance_usec(None), 1000.0)
-        self.assertEqual(api.throttle_tolerance_usec(50.0), 1000.0)
-        self.assertEqual(api.throttle_tolerance_usec(10_000.0), 100_000.0)
+        # Owner decision 2026-11-22: max(100 ms, 10 %), was max(1 ms, 1 %).
+        self.assertEqual(float(api.THROTTLE_TOLERANCE_MIN_USEC), 100_000.0)
+        self.assertEqual(float(api.THROTTLE_TOLERANCE_SPAN_FRACTION), 0.10)
+        self.assertEqual(api.throttle_tolerance_usec(None), 100_000.0)
+        self.assertEqual(api.throttle_tolerance_usec(50.0), 100_000.0)
+        self.assertEqual(api.throttle_tolerance_usec(10_000.0), 1_000_000.0)
+
+    def test_the_relaxed_bounds_text_names_the_rule_in_force(self):
+        lax = _load("perf.runner.lax_bounds")
+        self.assertIn("CPU throttle tolerance: max(100 ms, 10% of the sample span).", lax.relaxed_bounds_paragraph())
 
     def test_within_tolerance_decision(self):
         api = _load("perf.runner.browser_throttle")
         self.assertTrue(api.throttled_within_tolerance({"throttled_usec": 900}, None))
-        self.assertTrue(api.throttled_within_tolerance({"throttled_usec": 90_000}, 10_000.0))
-        self.assertFalse(api.throttled_within_tolerance({"throttled_usec": 5_000}, None))
+        self.assertTrue(api.throttled_within_tolerance({"throttled_usec": 900_000}, 10_000.0))
+        self.assertFalse(api.throttled_within_tolerance({"throttled_usec": 1_100_000}, 10_000.0))
+        self.assertFalse(api.throttled_within_tolerance({"throttled_usec": 200_000}, None))
         self.assertFalse(api.throttled_within_tolerance({"throttled_usec": 200_000}, 1_000.0))
         self.assertTrue(api.throttled_within_tolerance({}, None))
 
@@ -252,7 +258,7 @@ class ThrottleTolerance(unittest.TestCase):
         self.assertEqual(summary["samples_refused"], 0)
         self.assertEqual(summary["samples_throttled_kept"], 1)
 
-    def test_throttling_above_one_percent_of_the_span_still_refuses(self):
+    def test_throttling_above_ten_percent_of_the_span_still_refuses(self):
         state = {"n": 2, "usec": 10, "t": 1_000.0}
 
         def reader():
@@ -271,7 +277,7 @@ class ThrottleTolerance(unittest.TestCase):
 
         run = self._run(reader)
         run.begin_sample()
-        state.update(n=3, usec=21_000, t=1_200.0)  # 20 ms over a 200 ms span = 10 %
+        state.update(n=3, usec=300_010, t=3_000.0)  # 300 ms over a 2 s span = 15 % (> max(100 ms, 10 %))
         path = run.sample("refused", dict(outcome="measured", samples_ms=[12]))
         row = json.loads(path.read_text())
         self.assertEqual((row["outcome"], row["failure_reason"]), ("failed", "cpu_throttled"))
@@ -284,10 +290,10 @@ class ThrottleTolerance(unittest.TestCase):
                                    "delta": {"nr_throttled": 2, "throttled_usec": 90_000}}}
         self.assertIsNone(c10.throttle_refusal_reason(kept))
         refused = {"cpu_accounting": {"available": True, "span_ms": 10_000.0,
-                                      "delta": {"nr_throttled": 2, "throttled_usec": 900_000}}}
+                                      "delta": {"nr_throttled": 2, "throttled_usec": 2_000_000}}}
         self.assertEqual(c10.throttle_refusal_reason(refused), "cpu_throttled")
         no_span = {"cpu_accounting": {"available": True,
-                                      "delta": {"nr_throttled": 1, "throttled_usec": 5_000}}}
+                                      "delta": {"nr_throttled": 1, "throttled_usec": 200_000}}}
         self.assertEqual(c10.throttle_refusal_reason(no_span), "cpu_throttled")
         labelled = {"failure_reason": "cpu_throttled"}
         self.assertEqual(c10.throttle_refusal_reason(labelled), "cpu_throttled")

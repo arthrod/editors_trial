@@ -305,7 +305,7 @@ class WriterIntegration(unittest.TestCase):
 
         LOG_ROOT.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(dir=LOG_ROOT) as tmp:
-            readings = iter([snapshot(), snapshot(), snapshot(3, 10_050) if throttled else snapshot(2)])
+            readings = iter([snapshot(), snapshot(), snapshot(3, 10_000_050) if throttled else snapshot(2)])
             run = BrowserRun(tmp, 'writer', snapshot=lambda: {}, accounting_reader=lambda: next(readings))
             token = ACTIVE.set(run)
             try:
@@ -682,7 +682,7 @@ class ProbeBracketIntegration(unittest.TestCase):
         from perf.runner.browser_run import BrowserRun, ACTIVE
         from perf.tests.test_browser_throttle import snapshot
         with tempfile.TemporaryDirectory() as tmp:
-            readings = iter([snapshot(n=0), snapshot(n=0), snapshot(1, 10_050), snapshot(1, 10_050)])  # lax layer: above the tolerance
+            readings = iter([snapshot(n=0), snapshot(n=0), snapshot(1, 10_000_050), snapshot(1, 10_000_050)])  # lax layer: above the tolerance
             run = BrowserRun(tmp, 'bracket', snapshot=lambda: {}, accounting_reader=lambda: next(readings))
             token = ACTIVE.set(run)
             try:
@@ -882,7 +882,7 @@ class SuccessfulProbeBracketIntegration(unittest.TestCase):
         from perf.runner.browser_run import BrowserRun, ACTIVE
         from perf.tests.test_browser_throttle import snapshot
         with tempfile.TemporaryDirectory() as tmp:
-            readings = iter([snapshot(n=0), snapshot(n=0), snapshot(1, 10_050), snapshot(1, 10_050), snapshot(1, 10_050)])  # lax layer: above the tolerance
+            readings = iter([snapshot(n=0), snapshot(n=0), snapshot(1, 10_000_050), snapshot(1, 10_000_050), snapshot(1, 10_000_050)])  # lax layer: above the tolerance
             run = BrowserRun(tmp, 'bracket-success', snapshot=lambda: {}, accounting_reader=lambda: next(readings))
             token = ACTIVE.set(run)
             try:
@@ -973,7 +973,7 @@ class RoundThreePolicy(unittest.TestCase):
         from perf.tests.test_browser_throttle import snapshot
         from perf.tests.test_schema import _env
         with tempfile.TemporaryDirectory() as tmp:
-            readings = iter([snapshot(), snapshot(), snapshot(3, 10_050)])  # lax layer: above the max(1 ms, 1 %) tolerance
+            readings = iter([snapshot(), snapshot(), snapshot(3, 10_000_050)])  # lax layer: above the max(100 ms, 10 %) tolerance
             run = BrowserRun(tmp, 'refused', snapshot=lambda: {}, accounting_reader=lambda: next(readings))
             token = ACTIVE.set(run)
             try:

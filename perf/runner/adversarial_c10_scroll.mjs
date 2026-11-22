@@ -58,6 +58,8 @@ import {
   DEFAULT_SKEW_BOUND_MS,
   clockSkew,
   clockSkewRefusalReason,
+  convertFrameToPageMs,
+  decodeFrame,
   getRecorder,
   loadPlaywright,
   witnessFrame,
@@ -66,6 +68,7 @@ import { startChromeTrace, stopChromeTrace } from './chrome_trace.mjs';
 import { loadTimeoutMs } from './load_timeout.mjs';
 import { usableExpression } from './edit_surface.mjs';
 import { editorPage } from './editor_frame.mjs';
+import { DETECTION, canvasPixelScroll, canvasShift } from './c10_canvas_pixels.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -141,6 +144,15 @@ const documentOverride =
 const viewport = String(opt.viewport || '1280x900')
   .split('x')
   .map((value) => Number(value) || 1280);
+/**
+ * OnlyOffice only (c10_canvas_pixels.mjs): it has no DOM scroller, so its C10
+ * is a real wheel notch timed to the first frame whose document canvas moved,
+ * checked by pixels. `null` for every other editor: they keep the DOM probe
+ * below, unchanged.
+ */
+const canvasSpec = canvasPixelScroll(editorId);
+/** Where the pixel path writes its baseline and witnessed frames (debug only). */
+const framesDir = typeof opt['frames-dir'] === 'string' ? opt['frames-dir'] : '';
 
 const corpusBytes = fs.readFileSync(corpusFile);
 
@@ -702,7 +714,93 @@ async function waitForReady(page) {
     await page.waitForSelector(readySelector, { timeout: loadTimeout, state: 'visible' });
   }
   if (waitAfterReadyMs > 0) await page.waitForTimeout(waitAfterReadyMs);
+  // OnlyOffice has no scroller for the DOM wait to choose: that wait would
+  // hold the whole load bound (300 s) and then say "does not apply".
+  if (canvasSpec) return waitForMountedCanvas(page, canvasSpec);
   return waitForMountedDocument(page);
+}
+
+/**
+ * The pixel path's mount wait (OnlyOffice only): the usable expression is
+ * true, the document canvas has a box, the editor reports its scroll range,
+ * and the editor frame's DOM has then been quiet for
+ * MOUNT_QUIET_AFTER_SCROLLER_MS. Bounded by the load bound like the DOM wait.
+ * A range of 0 is a document that fits: "does not apply", as the DOM path
+ * says of a page with no scroller.
+ */
+async function waitForMountedCanvas(page, spec) {
+  await page.evaluate(() => {
+    const state = { lastMutation: performance.now(), observer: null };
+    window.__c10docMount = state;
+    const observer = new MutationObserver((records) => {
+      for (let i = 0; i < records.length; i++) {
+        if (records[i].type === 'childList' || records[i].type === 'characterData') {
+          state.lastMutation = performance.now();
+          return;
+        }
+      }
+    });
+    state.observer = observer;
+    observer.observe(document.documentElement || document, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+    });
+  });
+  const read = () =>
+    page.evaluate(
+      ({ canvas, yJs, maxJs, usable }) => {
+        const run = (code) => {
+          try {
+            return eval(code); // eslint-disable-line no-eval
+          } catch {
+            return undefined;
+          }
+        };
+        const el = document.querySelector(canvas);
+        const r = el ? el.getBoundingClientRect() : null;
+        const last = (window.__c10docMount || {}).lastMutation || 0;
+        return {
+          usable: usable ? Boolean(run(usable)) : true,
+          canvas: !!(r && r.width > 0 && r.height > 0),
+          scroll_y: run(yJs),
+          scroll_max: run(maxJs),
+          now: performance.now(),
+          last_mutation: last,
+        };
+      },
+      { canvas: spec.canvas, yJs: spec.scroll_y_js, maxJs: spec.scroll_max_js, usable: usableJs },
+    );
+  try {
+    const deadline = Date.now() + loadTimeout;
+    let readyAt = null;
+    let state = null;
+    while (Date.now() < deadline) {
+      state = await read();
+      const ready = state.usable && state.canvas && typeof state.scroll_max === 'number';
+      if (!ready) readyAt = null;
+      else if (readyAt == null) readyAt = state.now;
+      if (ready && state.now - Math.max(readyAt, state.last_mutation) >= MOUNT_QUIET_AFTER_SCROLLER_MS) {
+        if (state.scroll_max > 0) return null;
+        return {
+          outcome: 'not_applicable',
+          reason:
+            'the document fits in the view: the editor reports a scroll range of ' +
+            state.scroll_max + ' px (' + spec.scroll_max_js + '; detection ' + DETECTION + ')',
+        };
+      }
+      await page.waitForTimeout(contentPollMs);
+    }
+    if (state && !state.usable) return 'usable_signal_not_observed';
+    return 'document_still_mounting';
+  } finally {
+    await page
+      .evaluate(() => {
+        const state = window.__c10docMount;
+        if (state && state.observer) state.observer.disconnect();
+      })
+      .catch(() => {});
+  }
 }
 
 /**
@@ -1063,6 +1161,211 @@ async function oneSample(context, page) {
   };
 }
 
+/**
+ * The quiet the pixel path requires of the canvas before the wheel (witness
+ * `quietMs`): the C07 quiet box, the smallest the witness validator
+ * (witness.py) accepts on a record that carries a quiet window.
+ */
+const CANVAS_QUIET_MS = 1000;
+
+/**
+ * One C10 sample by pixels (OnlyOffice only; see c10_canvas_pixels.mjs).
+ * Same clock check, same witness and same record shape as `oneSample`; the
+ * input is one real wheel notch over the canvas and the move is proven by the
+ * editor's own scroll position and by the witnessed frame's pixels being the
+ * baseline's shifted by that move.
+ */
+async function oneCanvasSample(context, page, spec) {
+  const base = {
+    detection: DETECTION,
+    clock_skew: null,
+    witness: null,
+    container: null,
+    document: null,
+    scroll_top_before: null,
+    scroll_top_after: null,
+    scroll_top_delta: null,
+    scroll_frame_ms: null,
+  };
+  const refuse = (outcome, reason, extra = {}) => ({
+    ...base,
+    ...extra,
+    outcome,
+    reason: reason + ' (detection ' + DETECTION + ')',
+  });
+  const cdp = await context.newCDPSession(page);
+  const recorder = getRecorder(cdp, { manageScreencast: true });
+
+  const skew = await clockSkew(page, cdp, { boundMs: skewBoundMs, recorder });
+  base.clock_skew = skew;
+  if (!skew.acceptable) return refuse('failed', clockSkewRefusalReason(skew));
+
+  // OnlyOffice's caret is a div that blinks over the canvas every 500 ms;
+  // `caret-color` (the witness's mask) does not reach it.
+  const caretMask = await page.evaluate((selector) => {
+    const style = document.createElement('style');
+    style.setAttribute('data-perf-c10-caret-mask', '');
+    style.textContent = selector + ' { visibility: hidden !important }';
+    (document.head || document.documentElement).appendChild(style);
+    return { selector, css: style.textContent, matched: document.querySelectorAll(selector).length };
+  }, spec.caret);
+  base.caret_mask_in_canvas_editor = caretMask;
+
+  const evalIn = (code) =>
+    page.evaluate((expr) => {
+      try {
+        return eval(expr); // eslint-disable-line no-eval
+      } catch (error) {
+        return { error: String(error) };
+      }
+    }, code);
+
+  // Put the document at the top, as the DOM path resets scrollTop.
+  if ((await evalIn(spec.scroll_y_js)) !== 0) {
+    await evalIn(spec.scroll_to_top_js);
+    await page.waitForTimeout(300);
+  }
+  const rect = await page.evaluate((selector) => {
+    const el = document.querySelector(selector);
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { x: r.left, y: r.top, width: r.width, height: r.height };
+  }, spec.canvas);
+  if (!rect || !(rect.width > 0) || !(rect.height > 0)) {
+    return refuse('failed', 'the document canvas ' + spec.canvas + ' is not in the page (or has no visible box)');
+  }
+  const container = {
+    selector: spec.canvas,
+    container_rule: DETECTION,
+    detection: DETECTION,
+    region_rect: rect,
+    document_selector: spec.canvas,
+    document_rect: rect,
+    scroll_position_js: spec.scroll_y_js,
+    scroll_range_px: await evalIn(spec.scroll_max_js),
+  };
+  base.container = container;
+  base.document = { selector: spec.canvas, rect };
+
+  // The wheel lands where the pointer is: park it over the canvas, outside the
+  // timed window and before the witness's quiet window and baseline.
+  await page.mouse.move(Math.round(rect.x + rect.width / 2), Math.round(rect.y + rect.height / 2));
+  await page.evaluate((yJs) => {
+    window.__c10wheel = null;
+    window.addEventListener(
+      'wheel',
+      (event) => {
+        if (window.__c10wheel) return;
+        let y = null;
+        try {
+          y = eval(yJs); // eslint-disable-line no-eval
+        } catch {
+          y = null;
+        }
+        // performance.now() here is the instant the page starts applying the
+        // scroll: this capture listener runs before OnlyOffice's handler.
+        window.__c10wheel = {
+          page_ms: performance.now(),
+          event_time_stamp_ms: event.timeStamp,
+          delta_y: event.deltaY,
+          delta_mode: event.deltaMode,
+          target: event.target && (event.target.id || event.target.tagName) || null,
+          scroll_y_before: y,
+        };
+      },
+      { capture: true, passive: true },
+    );
+  }, spec.scroll_y_js);
+
+  let wheel = null;
+  const arm = async () => {
+    await page.mouse.wheel(0, scrollStep);
+    wheel = await page.evaluate(() => window.__c10wheel);
+    return { after_page_ms: wheel ? wheel.page_ms : null };
+  };
+  const witness = await witnessFrame(page, cdp, {
+    arm,
+    recorder,
+    clockCheck: skew,
+    windowMs,
+    region: { rect },
+    quietMs: CANVAS_QUIET_MS,
+  });
+  base.witness = witness;
+  const scrollAfter = await evalIn(spec.scroll_y_js);
+  const input = { kind: 'wheel', delta_y_requested: scrollStep, event: wheel };
+  base.input = input;
+  if (!wheel || typeof wheel.page_ms !== 'number') {
+    return refuse('failed', 'the wheel never reached the editor frame: no wheel event was seen there');
+  }
+  const before = wheel.scroll_y_before;
+  const delta = typeof before === 'number' && typeof scrollAfter === 'number' ? scrollAfter - before : null;
+  base.scroll_top_before = before;
+  base.scroll_top_after = scrollAfter;
+  base.scroll_top_delta = delta;
+  if (!(delta > 0)) {
+    return refuse(
+      'failed',
+      'the scroll did not move: the editor\'s scroll position (' + spec.scroll_y_js + ') went from ' +
+        before + ' to ' + scrollAfter,
+    );
+  }
+  if (witness.outcome !== 'witnessed' || typeof witness.frame_page_ms !== 'number') {
+    return refuse(
+      'failed',
+      'no_frame: the witness saw no frame that showed the scroll (frames after the scroll: ' +
+        witness.frames_after + ', biggest pixel difference: ' + witness.max_diff_ratio +
+        (witness.quiet_window && !witness.quiet_window.proven ? '; the canvas was never quiet before the wheel' : '') +
+        ')',
+    );
+  }
+
+  // The witnessed frame must show the canvas moved by the scroll, not merely
+  // repainted: compare it with the baseline frame, shifted.
+  const clock = { time_origin_ms: witness.time_origin_ms, timestamp_kind: witness.timestamp_kind };
+  const at = (pageMs) =>
+    recorder.frames.find((frame) => {
+      const ms = convertFrameToPageMs(frame, clock);
+      return typeof ms === 'number' && Math.abs(ms - pageMs) < 0.01;
+    }) || null;
+  const baseFrame = typeof witness.baseline_page_ms === 'number' ? at(witness.baseline_page_ms) : null;
+  const shownFrame = at(witness.frame_page_ms);
+  const region = witness.document_region || {};
+  const dpr = region.device_pixel_ratio || 1;
+  const shift = baseFrame && shownFrame && region.rect_device_px
+    ? canvasShift(decodeFrame(recorder, baseFrame), decodeFrame(recorder, shownFrame), region.rect_device_px, {
+        expectedPx: delta * dpr,
+      })
+    : { shifted: false, reason: 'the baseline or the witnessed frame is no longer in the recorder' };
+  if (framesDir && baseFrame && shownFrame) {
+    fs.mkdirSync(framesDir, { recursive: true });
+    const stem = path.join(framesDir, 'c10-' + Date.now());
+    fs.writeFileSync(stem + '-baseline.png', Buffer.from(baseFrame.data, 'base64'));
+    fs.writeFileSync(stem + '-witnessed.png', Buffer.from(shownFrame.data, 'base64'));
+    shift.frames = [stem + '-baseline.png', stem + '-witnessed.png'];
+  }
+  const content = {
+    detection: DETECTION,
+    probe_selector: spec.canvas,
+    // The content's move in CSS px, read off the pixels (not the editor's word).
+    moved_px: shift.shifted ? Math.round((shift.best_dy_px / dpr) * 1000) / 1000 : null,
+    shift,
+  };
+  base.content = content;
+  if (!shift.shifted) {
+    return refuse(
+      'failed',
+      'the first changed frame of the document canvas does not show it moved by the scroll: ' + shift.reason,
+    );
+  }
+  return {
+    ...base,
+    outcome: 'measured',
+    reason: null,
+    scroll_frame_ms: Math.round((witness.frame_page_ms - wheel.page_ms) * 1000) / 1000,
+  };
+}
+
 async function routeCorpus(context) {
   await context.route('**/*', async (route) => {
     const u = new URL(route.request().url());
@@ -1106,9 +1409,12 @@ try {
           scroll_top_after: null,
           scroll_top_delta: null,
           scroll_frame_ms: null,
+          ...(canvasSpec ? { detection: DETECTION } : {}),
         });
       } else {
-        const sample = await oneSample(context, page);
+        const sample = canvasSpec
+          ? await oneCanvasSample(context, page, canvasSpec)
+          : await oneSample(context, page);
         samples.push({ sample_index: i, ...sample });
       }
       await stopChromeTrace(browser, trace);
@@ -1142,5 +1448,7 @@ const payload = {
   skew_bound_ms: skewBoundMs,
   scroll_container_override: containerOverride || null,
   scroll_document_override: documentOverride || null,
+  // Only the pixel path names its detection; the DOM path's payload is unchanged.
+  ...(canvasSpec ? { detection: DETECTION } : {}),
 };
 process.stdout.write(JSON.stringify(payload));
