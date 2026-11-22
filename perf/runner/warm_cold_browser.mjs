@@ -92,6 +92,12 @@ const PIXEL_CARET_MIN_ADVANCE_CSS_PX = 3;
 const PIXEL_CARET_INPUT_MAX_CSS_PX = {width: 120, height: 72};
 /** The corner of the page the harness's own marks occupy (witness.mjs: an 8x8 anchor, a 4x4 outlined mark). */
 const HARNESS_MARK_CSS_PX = 10;
+/** Editors whose edit selector is a root that fills the window, so no corner of the window lies outside it and the
+ * edit's frame pulse (state.startPulse) would never start; on Linux the screencast then delivers frames only when
+ * the page itself changes and the edit refuses witness_sparse (HF e2-publish shakedown 2026-11-22, react-docx C05/C06:
+ * median frame interval 383 ms). For these the pulse keeps clear of every page instead. Every other editor keeps the
+ * edit selector's first match, unchanged. */
+const PULSE_CLEAR_OF = Object.freeze({reactdocx: '[data-docx-page-wrapper]'});
 import { loadTimeoutMs } from './load_timeout.mjs';
 import { createRegionClassifier } from './b2_pixels.mjs';
 
@@ -422,7 +428,7 @@ async function measureEdit(page, selector, cdp) {
     mechanism, clock_skew: skew, outcome: 'failed', edit_ms: null,
     failure_reason: skew.reason || 'clock_check_not_acceptable',
   };
-  await page.evaluate(selector => {
+  await page.evaluate(([selector, pulseClearOf]) => {
     const documentElement = document.querySelector(selector);
     // The edit confirmation follows the live document, never the arm-time
     // elements: Eigenpal re-creates the edited paragraph, so the arm-time
@@ -442,10 +448,11 @@ async function measureEdit(page, selector, cdp) {
     // or delay dispatch. Dense delivery must also witness short delayed
     // reveals before witnessFrame returns.
     state.startPulse = () => {
-      if (!documentElement) return;
-      const box = documentElement.getBoundingClientRect();
+      const avoid = pulseClearOf ? [...document.querySelectorAll(pulseClearOf)] : (documentElement ? [documentElement] : []);
+      if (!avoid.length) return;
+      const boxes = avoid.map(el => el.getBoundingClientRect());
       const corner = [[innerWidth-4,innerHeight-4],[0,innerHeight-4],[innerWidth-4,0],[0,0]]
-        .find(([x,y]) => x+3<=box.left || x>=box.right || y+3<=box.top || y>=box.bottom);
+        .find(([x,y]) => boxes.every(box => x+3<=box.left || x>=box.right || y+3<=box.top || y>=box.bottom));
       if (corner) {
         const pulse = document.createElement('div');
         pulse.style.cssText = `position:fixed;left:${corner[0]}px;top:${corner[1]}px;width:3px;height:3px;pointer-events:none;z-index:2147483647`;
@@ -551,7 +558,7 @@ async function measureEdit(page, selector, cdp) {
       });
       window.__b2.observer.observe({type:'event', durationThreshold:16});
     }
-  }, selector);
+  }, [selector, PULSE_CLEAR_OF[editorId] || null]);
   const baseline = await captureBaseline(page, cdp);
   let armWaitedMs = 0; // how long the arm really waited after the key press, with the recorder running
   const frame = await witnessFrame(page, cdp, {
