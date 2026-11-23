@@ -7,9 +7,9 @@
  * Invoked from test_e2_c07_click_scroll.py; prints one JSON line per case.
  */
 import { createRequire } from 'node:module';
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 
-const repo = new URL('../..', import.meta.url).pathname.replace(/\/$/, '');
+const repo = fileURLToPath(new URL('../..', import.meta.url)).replace(/\/$/, '');
 const require = createRequire(`${repo}/harness/ui/package.json`);
 const { chromium } = require('playwright');
 const { RECORD_CLICK_SCROLL, caretOnClickedLine } = await import(
