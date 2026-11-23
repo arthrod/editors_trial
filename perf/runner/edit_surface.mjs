@@ -344,32 +344,43 @@ export const READ_EDITOR_DOCUMENT_TEXT = ({ kind, root, model, deep = false, dom
         return result('', 'absent', 'opendoc_model', 'opendoc model unavailable');
       }
       try {
+        // The whole document or an absent oracle: a refused page (of blocks
+        // or of table rows), a truncated page with no cursor, or the cap
+        // reached before the last page never yields a shorter text
+        // (CodeRabbit on #283).
+        const PAGE_CAP = 100000;
+        const refused = (answer, what) => {
+          const why = answer && answer.refusal ? answer.refusal.code || answer.refusal.message : 'no answer';
+          return `opendoc ${what} refused: ${why}`;
+        };
         const lines = [];
         let cursor = null;
-        for (let page = 0; page < 100000; page += 1) {
+        let done = false;
+        for (let page = 0; page < PAGE_CAP && !done; page += 1) {
           const answer = await session.ai.read(cursor ? { tool: 'read', cursor } : { tool: 'read' });
-          if (!answer || !answer.ok || !answer.value) {
-            const why = answer && answer.refusal ? answer.refusal.code || answer.refusal.message : 'no answer';
-            return result('', 'absent', 'opendoc_model', `opendoc read refused: ${why}`);
-          }
+          if (!answer || !answer.ok || !answer.value) return result('', 'absent', 'opendoc_model', refused(answer, 'read'));
           for (const block of answer.value.blocks || []) {
             if (typeof block.text === 'string') lines.push(block.text);
             else if (block.kind === 'table' && block.id) {
               let rows = null;
-              for (let t = 0; t < 100000; t += 1) {
+              let tableDone = false;
+              for (let t = 0; t < PAGE_CAP && !tableDone; t += 1) {
                 const table = await session.ai.read(rows ? { tool: 'table', table: block.id, cursor: rows } : { tool: 'table', table: block.id });
-                if (!table || !table.ok || !table.value) break;
+                if (!table || !table.ok || !table.value) return result('', 'absent', 'opendoc_model', refused(table, 'table read'));
                 for (const row of table.value.rows || []) {
                   for (const cell of row.cells || []) lines.push(String(cell.text || ''));
                 }
                 rows = table.value.nextCursor;
-                if (!rows) break;
+                if (!rows) tableDone = true;
               }
+              if (!tableDone) return result('', 'absent', 'opendoc_model', 'opendoc table read: page cap reached');
             }
           }
-          if (!answer.value.truncated || !answer.value.nextCursor) break;
-          cursor = answer.value.nextCursor;
+          if (!answer.value.truncated) done = true;
+          else if (!answer.value.nextCursor) return result('', 'absent', 'opendoc_model', 'opendoc read: truncated page with no cursor');
+          else cursor = answer.value.nextCursor;
         }
+        if (!done) return result('', 'absent', 'opendoc_model', 'opendoc read: page cap reached');
         return result(lines.join('\n'), 'perf_model', 'opendoc_model');
       } catch (error) {
         return result('', 'absent', 'opendoc_model', error && error.message ? error.message : error);

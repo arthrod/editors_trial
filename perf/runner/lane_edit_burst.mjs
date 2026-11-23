@@ -186,6 +186,8 @@ export const LIST_MODEL_PARAGRAPHS = (model) => {
     const session = window.opendoc;
     if (!session || !session.ai || typeof session.ai.read !== 'function') return null;
     return (async () => {
+      // The whole census or none: a truncated page with no cursor, or the
+      // cap reached before the last page, is no census (CodeRabbit on #283).
       const out = [];
       let cursor = null;
       for (let page = 0; page < 100000; page += 1) {
@@ -195,11 +197,12 @@ export const LIST_MODEL_PARAGRAPHS = (model) => {
           const text = typeof block.text === 'string' ? block.text.trim() : '';
           if (text) out.push(text);
         }
-        if (!answer.value.truncated || !answer.value.nextCursor) break;
+        if (!answer.value.truncated) return out;
+        if (!answer.value.nextCursor) return null;
         cursor = answer.value.nextCursor;
       }
-      return out;
-    })();
+      return null;
+    })().catch(() => null);
   }
   return null;
 };
