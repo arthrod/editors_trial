@@ -20,9 +20,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "build"))
 sys.path.insert(0, str(ROOT))
 
-import perf_e2_summary as summary  # noqa: E402
-import perf_e2_tables as E2  # noqa: E402
-from perf.runner import benchmark_document, benchmark_warm_cold  # noqa: E402
+import perf_e2_summary as summary  # noqa: E402 -- importable only after the sys.path lines above
+import perf_e2_tables as E2  # noqa: E402 -- importable only after the sys.path lines above
+from perf.runner import benchmark_document, benchmark_warm_cold  # noqa: E402 -- importable only after the sys.path lines above
 
 VIEWER = benchmark_warm_cold.BROWSER_TARGETS["nutrient"]["viewer_not_applicable"]
 NO_REFLOW = benchmark_document.DOCUMENT_TARGETS["nutrient"]["c12_not_applicable"]
