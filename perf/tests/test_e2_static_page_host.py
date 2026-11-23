@@ -128,3 +128,53 @@ class StaticPageHost(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+def test_a_restart_on_a_changed_tree_keeps_the_first_hash_and_blocks(tmp_path):
+    """CodeRabbit on #287: a second start of OpenDoc (or WordCraft) in one run
+    replaced the first tree hash, so samples served from the first tree were
+    published under the second's hash and the end-of-run check passed."""
+    webapp = tmp_path / 'repos' / 'opendoc' / 'webapp'
+    webapp.mkdir(parents=True)
+    (webapp / 'index.html').write_text('first')
+    host_dir = tmp_path / 'host'
+    host_dir.mkdir()
+    (host_dir / 'host.mjs').write_text('// host')
+    target = {'cwd': host_dir, 'url': 'http://127.0.0.1:0/', 'repos_root': str(tmp_path / 'repos')}
+    run = BrowserRun(tmp_path / 'out', 'static', snapshot=lambda: {},
+                     accounting_reader=lambda: {'available': False, 'reason': 'fake'})
+    token = ACTIVE.set(run)
+    try:
+        hosts.start_host('opendoc', dict(target), lambda *a: None)
+        first = run.hosts['opendoc']['tree_sha256']
+        (webapp / 'index.html').write_text('second')
+        hosts.start_host('opendoc', dict(target), lambda *a: None)
+    finally:
+        ACTIVE.reset(token)
+    meta = run.hosts['opendoc']
+    assert meta['tree_sha256'] == first
+    assert meta['tree_sha256_at_restart'] != first
+    result = run.finish({'outcome': 'ok', 'publishable': True})
+    assert result['publishable'] is False
+    assert 'host_tree_changed_during_run: opendoc' in result['publication_block_reason']
+
+
+def test_a_restart_on_the_same_tree_stays_publishable(tmp_path):
+    """The control: two starts on unchanged bytes publish as before."""
+    webapp = tmp_path / 'repos' / 'opendoc' / 'webapp'
+    webapp.mkdir(parents=True)
+    (webapp / 'index.html').write_text('same')
+    host_dir = tmp_path / 'host'
+    host_dir.mkdir()
+    target = {'cwd': host_dir, 'url': 'http://127.0.0.1:0/', 'repos_root': str(tmp_path / 'repos')}
+    run = BrowserRun(tmp_path / 'out', 'static', snapshot=lambda: {},
+                     accounting_reader=lambda: {'available': False, 'reason': 'fake'})
+    token = ACTIVE.set(run)
+    try:
+        hosts.start_host('opendoc', dict(target), lambda *a: None)
+        hosts.start_host('opendoc', dict(target), lambda *a: None)
+    finally:
+        ACTIVE.reset(token)
+    assert 'tree_sha256_at_restart' not in run.hosts['opendoc']
+    result = run.finish({'outcome': 'ok', 'publishable': True})
+    assert 'host_tree_changed' not in str(result.get('publication_block_reason'))

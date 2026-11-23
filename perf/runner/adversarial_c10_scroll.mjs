@@ -308,7 +308,9 @@ function pageScrollCommand(command) {
       const text = trimLen(kid.textContent);
       if (!(rect.height > 0 || text)) continue;
       if (!best || rect.height > best.height) {
-        best = { selector: shortSelector(kid), rect_top: rect.top, height: rect.height };
+        // `node` stays in the page: the 'scroll' op reads this one element's
+        // position at the scroll (an O(1) read, no walk); no op returns it.
+        best = { selector: shortSelector(kid), rect_top: rect.top, height: rect.height, node: kid };
       }
     }
     // A probe without a box (a `display: contents` wrapper) proves nothing;
@@ -702,9 +704,17 @@ function pageScrollCommand(command) {
   window.__b5ScrollAfter = { contentRoot, box, probeBefore, visibleBefore };
   el.scrollTop = target;
   const after = el.scrollTop;
-  // Nothing else runs between the scroll and the frame the witness times:
-  // the content check is the 'scroll-content' op, read after the witness.
+  // The content must move AT the scroll, not on a later frame (CodeRabbit on
+  // #287): read the position of the one element the probe chose before the
+  // scroll. A scroll does not dirty layout, so this is a single rect read,
+  // not the walk; the walk (what is visible) is the 'scroll-content' op, read
+  // after the witness.
+  const probeNode = probeBefore && probeBefore.node;
+  const movedAtScroll = probeNode && probeNode.isConnected
+    ? probeBefore.rect_top - probeNode.getBoundingClientRect().top
+    : null;
   return {
+    moved_at_scroll_px: movedAtScroll,
     page_ms: at,
     scroll_top_before: before,
     scroll_top_after: after,
@@ -1130,12 +1140,15 @@ async function oneSample(context, page) {
       search: discovery,
     };
   }
-  if (!(content && content.moved_px > 0)) {
+  if (content) content.moved_at_scroll_px = scroll.moved_at_scroll_px;
+  if (!(content && content.moved_px > 0) || !(scroll.moved_at_scroll_px > 0)) {
     return {
       outcome: 'failed',
-      reason:
-        'the scroll did not move the content: the content of the scroller stayed at ' +
-        (content && content.top_after) + ' (the scrollTop moved by ' + delta + ' px)',
+      reason: content && content.moved_px > 0
+        ? 'the scroll did not move the content at the scroll: it moved by ' + scroll.moved_at_scroll_px +
+          ' px then and by ' + content.moved_px + ' px only later, so the timed frame may precede it'
+        : 'the scroll did not move the content: the content of the scroller stayed at ' +
+          (content && content.top_after) + ' (the scrollTop moved by ' + delta + ' px)',
       clock_skew: skew,
       caret_mask_in_shadow_roots: caretMask,
       witness,

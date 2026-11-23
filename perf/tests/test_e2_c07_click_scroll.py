@@ -71,12 +71,17 @@ class ClickScrollTests(unittest.TestCase):
         # caret, and the point is refused when the two reads differ.
         script = """
         import { readStateWithClickScroll } from './perf/runner/criteria_input.mjs';
-        const fake = (deltas) => { let i = 0; return { evaluate: async () => deltas[i++] }; };
+        // Each read is {delta, events} (null: no recorder on the page).
+        const fake = (deltas, events = [0, 0]) => {
+          let i = 0;
+          return { evaluate: async () => { const k = i++; return deltas[k] === null ? null : { delta: deltas[k], events: events[k] }; } };
+        };
         const out = {};
         for (const [name, deltas] of Object.entries({
-          steady: [18, 18], absent: [null, null], moved: [0, 18], lost: [18, null],
+          steady: [18, 18], absent: [null, null], moved: [0, 18], lost: [18, null], bounced: [18, 18],
         })) {
-          const r = await readStateWithClickScroll(fake(deltas), async () => ({ caret: 'c' }));
+          const events = name === 'bounced' ? [0, 2] : [0, 0];
+          const r = await readStateWithClickScroll(fake(deltas, events), async () => ({ caret: 'c' }));
           out[name] = { stable: r.stable, scrolled: r.scrolled, state: r.state };
         }
         process.stdout.write(JSON.stringify(out));
@@ -89,6 +94,8 @@ class ClickScrollTests(unittest.TestCase):
         self.assertTrue(out["absent"]["stable"])
         self.assertFalse(out["moved"]["stable"])
         self.assertFalse(out["lost"]["stable"])
+        # CodeRabbit on #287: equal deltas, but scroll events in between.
+        self.assertFalse(out["bounced"]["stable"])
         src = (REPO / "perf/runner/criteria_input.mjs").read_text()
         self.assertIn("click_scroll_moved_during_caret_read", src)
 

@@ -327,22 +327,37 @@ export function caretOverlapsLine(caret, line) {
  * (perf/tests/test_e2_c07_click_scroll.py).
  */
 /**
- * Read the surface state between two reads of the click's own scroll delta
- * (RECORD_CLICK_SCROLL). `stable` is true only when both reads agree (both
- * absent, or within half a pixel): then the caret and the delta describe the
- * same viewport. `scrolled` is the later read.
+ * Read the surface state between two reads of the click's own scroll
+ * (RECORD_CLICK_SCROLL): its delta and the number of scroll events seen on the
+ * clicked line's scrollers and the window. The second read waits one frame,
+ * so a scroll made during the read has dispatched its event. `stable` is true
+ * only when both reads agree (both absent, or deltas within half a pixel and
+ * no scroll event in between): then the caret and the delta describe the same
+ * viewport. A scroll away and back during the read leaves the deltas equal but
+ * counts its events, so it is unstable (CodeRabbit on #287). `scrolled` is the
+ * later delta.
  */
 export async function readStateWithClickScroll(page, readState) {
-  const delta = () =>
-    page.evaluate(() => (window.__c07Scroll ? window.__c07Scroll.delta() : null)).catch(() => null);
-  const before = await delta();
+  const read = (settle) =>
+    page
+      .evaluate(async (wait) => {
+        const rec = window.__c07Scroll;
+        if (!rec) return null;
+        if (wait) await new Promise((r) => requestAnimationFrame(() => r()));
+        return { delta: rec.delta(), events: rec.events ? rec.events() : null };
+      }, settle)
+      .catch(() => null);
+  const before = await read(false);
   const state = await readState();
-  const after = await delta();
+  const after = await read(true);
   const finite = (v) => typeof v === 'number' && Number.isFinite(v);
+  const dBefore = before && finite(before.delta) ? before.delta : null;
+  const dAfter = after && finite(after.delta) ? after.delta : null;
+  const quiet = !before || !after || before.events === after.events;
   const stable =
     (before === null && after === null) ||
-    (finite(before) && finite(after) && Math.abs(after - before) <= 0.5);
-  return { state, scrolled: after, stable };
+    (dBefore !== null && dAfter !== null && Math.abs(dAfter - dBefore) <= 0.5 && quiet);
+  return { state, scrolled: dAfter, stable };
 }
 
 export function caretOnClickedLine(caret, line, scrolled) {
@@ -373,8 +388,15 @@ const RECORD_CLICK_SCROLL = ({ x, y }) => {
     el = el.parentElement || (el.getRootNode && el.getRootNode().host) || null;
   }
   const winY = window.scrollY;
+  // Scroll events on the chain and the window: a scroll away and back leaves
+  // the delta unchanged, its events do not (readStateWithClickScroll).
+  let events = 0;
+  const count = () => { events += 1; };
+  for (const [node] of chain) node.addEventListener('scroll', count, { passive: true });
+  window.addEventListener('scroll', count, { passive: true });
   window.__c07Scroll = {
     delta: () => chain.reduce((sum, [node, top]) => sum + (node.scrollTop - top), 0) + (window.scrollY - winY),
+    events: () => events,
   };
   return window.__c07Scroll;
 };

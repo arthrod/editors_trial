@@ -267,6 +267,23 @@ def host_tree_now(editor, meta):
     return None
 
 
+def _keep_first_tree(run, editor, meta):
+    """Record a static tree's hash once per run: a restart on other bytes keeps the first.
+
+    The memory lane starts WordCraft and OpenDoc once per pair. Replacing the
+    hash on each start published the earlier samples under the later tree's
+    hash, and the end-of-run check compared only the later one (CodeRabbit on
+    #287). The first hash stays; a restart that hashes differently is recorded
+    and, as the files now differ from it, the run's end blocks publication.
+    """
+    prior = run.hosts.get(editor)
+    first = prior.get('tree_sha256') if isinstance(prior, dict) else None
+    if first and meta.get('tree_sha256') != first:
+        run.hosts[editor] = {**prior, 'tree_sha256_at_restart': meta.get('tree_sha256')}
+        return
+    run.hosts[editor] = meta
+
+
 def start_host(editor, target, legacy_start):
     run = ACTIVE.get()
     policy = host_policy(editor)
@@ -285,7 +302,7 @@ def start_host(editor, target, legacy_start):
             **policy, 'tree_sha256': tree_hash(root), 'tree_root': str(root.resolve()),
             'host_tree_sha256': tree_hash(Path(target['cwd']).resolve())})
         if run is not None:
-            run.hosts[editor] = meta
+            _keep_first_tree(run, editor, meta)
         target = {**target, 'env': {**target.get('env', {}), 'WC_DIST': str(root.resolve())}}
         return legacy_start(editor, target)
     if editor == 'opendoc':
@@ -299,7 +316,7 @@ def start_host(editor, target, legacy_start):
             **policy, 'tree_sha256': tree_hash(root), 'tree_root': str(root.resolve()),
             'host_tree_sha256': tree_hash(Path(target['cwd']).resolve())})
         if run is not None:
-            run.hosts[editor] = meta
+            _keep_first_tree(run, editor, meta)
         target = {**target, 'env': {**target.get('env', {}), 'OPENDOC_WEBAPP': str(root.resolve())}}
         return legacy_start(editor, target)
     if run is None:

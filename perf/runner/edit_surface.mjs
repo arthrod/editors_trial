@@ -751,6 +751,9 @@ export const READ_MODEL_DOCUMENT_TEXT = (model) => {
     // reports no list markers, so there is no absorbed-item evidence.
     const session = window.opendoc;
     if (!session || !session.ai || typeof session.ai.read !== 'function') return null;
+    // The whole document or nothing: a truncated page with no cursor, or the
+    // cap reached before the last page, is no text, never a shorter one
+    // (CodeRabbit on #283, 4669191003; as the load reader above).
     return (async () => {
       const lines = [];
       let cursor = null;
@@ -760,10 +763,11 @@ export const READ_MODEL_DOCUMENT_TEXT = (model) => {
         for (const block of answer.value.blocks || []) {
           if (typeof block.text === 'string') lines.push(block.text);
         }
-        if (!answer.value.truncated || !answer.value.nextCursor) break;
+        if (!answer.value.truncated) return { text: lines.join('\n'), absorbed_items: [] };
+        if (!answer.value.nextCursor) return null;
         cursor = answer.value.nextCursor;
       }
-      return { text: lines.join('\n'), absorbed_items: [] };
+      return null;
     })().catch(() => null);
   }
   if (model === 'docen') {
