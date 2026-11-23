@@ -39,6 +39,10 @@ POLL_S = 5
 PARENT_EXIT_WAIT_S = 1800
 # The checkpoint's own log keeps changing while it works: never part of a copy.
 OWN_LOG = 'checkpoint.log'
+# The final duplicate retries a file that changed while it was copied this many
+# times, this far apart, before it counts as not settled (Gitar review on #285).
+FILE_RETRIES = 5
+RETRY_S = 1.0
 
 
 def destination(campaign_root: Path, kind: str = 'partial') -> Path | None:
@@ -110,9 +114,19 @@ def _sha256(path: Path) -> str:
 
 
 def duplicate(src: Path, dest: Path) -> None:
+    """Copy every file. One that changed while copied is retried; one that never
+    settles does not stop the files after it, and the duplicate then fails."""
+    unsettled = []
     for rel, path in _files(src):
-        if not _copy(path, dest / rel):
-            raise ValueError(f'source changed while duplicated: {rel}')
+        for attempt in range(FILE_RETRIES):
+            if _copy(path, dest / rel):
+                break
+            if attempt + 1 < FILE_RETRIES:
+                time.sleep(RETRY_S)
+        else:
+            unsettled.append(rel)
+    if unsettled:
+        raise ValueError(f'source changed while duplicated: {", ".join(unsettled)}')
 
 
 def verify(src: Path, dest: Path) -> str:

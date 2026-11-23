@@ -181,3 +181,34 @@ def test_a_zombie_campaign_process_counts_as_exited(tmp_path, monkeypatch):
     monkeypatch.setattr(checkpoint.os, 'kill', lambda pid, sig: None)
     assert checkpoint._alive(4242) is False
     assert checkpoint._alive(4343) is True
+
+
+def test_a_file_that_changes_once_during_the_final_duplicate_is_copied_on_a_retry(tmp_path, monkeypatch):
+    # Gitar review on #285: one busy file used to fail the whole attempt.
+    src, dest = tmp_path / 'campaign', tmp_path / 'final'
+    _tree(src, {'A.log': 'a', 'B.json': 'b', 'C.json': 'c'})
+    monkeypatch.setattr(checkpoint, 'RETRY_S', 0)
+    real, calls = checkpoint._copy, {'n': 0}
+    def once_busy(path, target):
+        if path.name == 'A.log' and calls['n'] == 0:
+            calls['n'] += 1
+            return False
+        return real(path, target)
+    monkeypatch.setattr(checkpoint, '_copy', once_busy)
+    checkpoint.duplicate(src, dest)
+    assert sorted(p.name for p in dest.iterdir()) == ['A.log', 'B.json', 'C.json']
+
+
+def test_a_file_that_keeps_changing_does_not_stop_the_files_after_it(tmp_path, monkeypatch):
+    src, dest = tmp_path / 'campaign', tmp_path / 'final'
+    _tree(src, {'A.log': 'a', 'B.json': 'b', 'C.json': 'c'})
+    monkeypatch.setattr(checkpoint, 'RETRY_S', 0)
+    real = checkpoint._copy
+    monkeypatch.setattr(checkpoint, '_copy', lambda p, t: False if p.name == 'A.log' else real(p, t))
+    try:
+        checkpoint.duplicate(src, dest)
+    except ValueError as exc:
+        assert 'A.log' in str(exc)
+    else:
+        raise AssertionError('a file that never settled must make the duplicate fail')
+    assert sorted(p.name for p in dest.iterdir()) == ['B.json', 'C.json']
