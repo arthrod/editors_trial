@@ -737,7 +737,7 @@ def _space_note(spaces, editors) -> str:
         if (base := re.sub(r"^e2-", "", re.sub(r"-\d+$", "", space))) in known and base not in editors
     )
     if confused:
-        note += " Spaces %s are machines named for editors this report does not measure." % ", ".join(confused)
+        note += " Spaces %s are machines named for editors this campaign does not measure." % ", ".join(confused)
     return note
 
 

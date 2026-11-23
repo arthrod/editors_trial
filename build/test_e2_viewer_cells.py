@@ -93,3 +93,10 @@ def test_the_runner_leaves_exactly_these_criteria_out_of_the_viewer():
 def test_a_missing_scheduled_count_still_says_so():
     text, _ = _cell_text_with([{"scheduled": None}, {"scheduled": 10}])
     assert text == "first: scheduled count not recorded"
+
+
+def test_a_space_named_for_an_editor_of_the_other_campaign_is_not_said_to_be_outside_the_report():
+    """The later campaign's Spaces e2-canvas, e2-docen... are named for editors the earlier campaign measures."""
+    note = E2._space_note(["e2-canvas", "e2-publish-2"], ["opendoc", "betteroffice"])
+    assert "this report does not measure" not in note
+    assert "Spaces e2-canvas are machines named for editors this campaign does not measure." in note

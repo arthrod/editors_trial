@@ -9,6 +9,20 @@ re-running the measurement behind it. The format follows
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-23
+
+Report E2 times the five tools added in v0.11.0 in the browser, in a campaign of their own. The earlier campaign's editors were not run again and none of their figures moved: its facts are carried from `out/facts-v0.10.5.json`.
+
+### Measured
+- **Report E2, "The editors measured later"** (BetterOffice, Nutrient, OnlyOffice in CryptPad's build, OpenDoc, react-docx). The same lanes, documents (same SHA-256) and machine type as the earlier campaign (Hugging Face Spaces, shared_guarded, AMD EPYC 7R13, CPU quota 8, Chromium 156.0.8078.80), two seeds on separate virtual machines, 2026-11-22 to 2026-11-23: 18 run folders, 152 jobs (76 per seed), 333 of 560 scheduled cells reproduced. Its own section with seven tables, and Appendix K for its machine, runs, differences and full tables; the report's build refuses a later campaign that differs in lanes, documents or machine type.
+- The typing jobs of OnlyOffice, BetterOffice and OpenDoc were measured again (12 jobs, four per editor): OnlyOffice's with hyphens-to-dashes switched off on its page, BetterOffice's and OpenDoc's after a fix to the harness's page witness. The reruns replace those jobs whole, and the replaced jobs are not counted anywhere in the report (inventory, machine notes, host load). OnlyOffice's rerun ran on a host build that differs by that one line, and its pin is disclosed beside the campaign's.
+- Disclosed differences (owner's decisions): OnlyOffice's and OpenDoc's measured pages switch off sentence auto-capitalisation; OnlyOffice's also hyphens-to-dashes; OpenDoc's also automatic lists and its replace-as-you-type table. Nutrient is a viewer loaded from Nutrient's CDN (`nutrient-viewer` 1.25.0, now in the facts as `ver.cdn.nutrient`). C07 judges the caret after the click's own scroll. OnlyOffice's scrolling is read from canvas pixels.
+
+### Changed
+- Report E2: a viewer's typing, clicking, pasting and undoing cells read "does not apply", with the runner's reason, in place of "not measured" or "scheduled count not recorded". Only for the criteria the runner leaves out of a viewer; any other zero count keeps its wording.
+- Report E2: a typing cell whose every session typed text that did not read back the same says so, with the sessions, the characters typed and where the text first differs (react-docx at 50,000 and 250,000 words), in place of "not enough sessions or run blocked".
+- Vendor notes: each of the five tools cites its Report E2 figures. react-docx's "its speed is not measured" and Nutrient's "in no other" report are gone, as is Report C §2.19's "all the trial measures of it".
+
 ## [0.12.0] - 2026-11-22
 
 Report E times the three tools added in v0.11.0 that can run without a browser. The earlier editors were not run again and none of their figures moved.
