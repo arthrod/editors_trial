@@ -178,3 +178,34 @@ def test_a_restart_on_the_same_tree_stays_publishable(tmp_path):
     assert 'tree_sha256_at_restart' not in run.hosts['opendoc']
     result = run.finish({'outcome': 'ok', 'publishable': True})
     assert 'host_tree_changed' not in str(result.get('publication_block_reason'))
+
+
+def test_a_tree_changed_and_put_back_during_the_run_still_blocks(tmp_path):
+    """CodeRabbit on #287 (follow-up): A, then a restart on B, then a restart
+    back on A. The bytes at the end match the first hash, but samples were
+    served from B in between, so the run must not publish; and the third start
+    must not erase the record of B."""
+    webapp = tmp_path / 'repos' / 'opendoc' / 'webapp'
+    webapp.mkdir(parents=True)
+    (webapp / 'index.html').write_text('A')
+    host_dir = tmp_path / 'host'
+    host_dir.mkdir()
+    target = {'cwd': host_dir, 'url': 'http://127.0.0.1:0/', 'repos_root': str(tmp_path / 'repos')}
+    run = BrowserRun(tmp_path / 'out', 'static', snapshot=lambda: {},
+                     accounting_reader=lambda: {'available': False, 'reason': 'fake'})
+    token = ACTIVE.set(run)
+    try:
+        hosts.start_host('opendoc', dict(target), lambda *a: None)
+        first = run.hosts['opendoc']['tree_sha256']
+        (webapp / 'index.html').write_text('B')
+        hosts.start_host('opendoc', dict(target), lambda *a: None)
+        (webapp / 'index.html').write_text('A')
+        hosts.start_host('opendoc', dict(target), lambda *a: None)
+    finally:
+        ACTIVE.reset(token)
+    meta = run.hosts['opendoc']
+    assert meta['tree_sha256'] == first
+    assert meta.get('tree_sha256_at_restart'), 'the restart on B was forgotten'
+    result = run.finish({'outcome': 'ok', 'publishable': True})
+    assert result['publishable'] is False
+    assert 'host_tree_changed_during_run: opendoc' in result['publication_block_reason']

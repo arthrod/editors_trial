@@ -273,15 +273,18 @@ def _keep_first_tree(run, editor, meta):
     The memory lane starts WordCraft and OpenDoc once per pair. Replacing the
     hash on each start published the earlier samples under the later tree's
     hash, and the end-of-run check compared only the later one (CodeRabbit on
-    #287). The first hash stays; a restart that hashes differently is recorded
-    and, as the files now differ from it, the run's end blocks publication.
+    #287). The first hash stays. Every restart that hashes differently is
+    added to `tree_sha256_at_restart`, which later starts never clear, so a
+    tree changed and put back (A, B, A) is still on record, and the run's end
+    blocks publication on it.
     """
     prior = run.hosts.get(editor)
     first = prior.get('tree_sha256') if isinstance(prior, dict) else None
+    seen = list(prior.get('tree_sha256_at_restart') or []) if isinstance(prior, dict) else []
     if first and meta.get('tree_sha256') != first:
-        run.hosts[editor] = {**prior, 'tree_sha256_at_restart': meta.get('tree_sha256')}
+        run.hosts[editor] = {**prior, 'tree_sha256_at_restart': seen + [meta.get('tree_sha256')]}
         return
-    run.hosts[editor] = meta
+    run.hosts[editor] = {**meta, 'tree_sha256_at_restart': seen} if seen else meta
 
 
 def start_host(editor, target, legacy_start):

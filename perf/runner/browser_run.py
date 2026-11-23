@@ -431,6 +431,10 @@ class BrowserRun:
             if now is not None and now != meta['tree_sha256']:
                 meta['tree_sha256_at_finish'] = now
                 changed.append(editor)
+            elif meta.get('tree_sha256_at_restart'):
+                # A restart in the run served other bytes, even if the files
+                # were put back before the end (CodeRabbit on #287).
+                changed.append(editor)
         if changed:
             result.update(publishable=False,
                           publication_block_reason='host_tree_changed_during_run: ' + ', '.join(changed))
